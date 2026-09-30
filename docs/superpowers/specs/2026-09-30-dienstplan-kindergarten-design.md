@@ -48,15 +48,16 @@ Ein Eintrag ist eines von:
 
 - **Dienst aus Vorlage** (Button). Vorbelegte Vorlagen, vom Admin änderbar:
 
-  | Kürzel | Zeit | Pause |
-  |---|---|---|
-  | F1 | 7:45–16:00 | 11:40–12:10 |
-  | F2 | 7:30–15:45 | 11:40–12:10 |
-  | S | 8:45–17:00 | 12:10–12:40 |
-  | FR | 7:00–13:15 | – |
-  | M | 11:00–16:00 | – |
+  | Kürzel | Name | Zeit | Pause |
+  |---|---|---|---|
+  | F1 | Frühdienst | 7:00–13:15 | – |
+  | F2 | Frühdienst 2 | 7:30–15:45 | 11:40–12:10 |
+  | M | Mitteldienst | 7:45–16:00 | 11:40–12:10 |
+  | S | Spätdienst | 8:45–17:00 | 12:10–12:40 |
+  | HK | Haushaltskraft | 11:00–16:00 | – |
 
-  (Kürzel sind Vorschläge; angezeigt wird standardmäßig die Uhrzeit.)
+  In Zellen und auf Buttons steht standardmäßig die Uhrzeit; das Kürzel wird als Tooltip
+  und in der Legende der Druckansicht angezeigt.
 - **Sonderdienst** (manuell): Von, Bis, optional Pause von/bis, optional Notiz.
 - **Code**: Urlaub, Krank, Fortbildung, Schule, sonstiges, VZ, Büro, Feiertag, Schließtag.
   Jeder Code hat Farbe, Anrechnungsmodus und die Angabe, ob Uhrzeiten nötig sind.
