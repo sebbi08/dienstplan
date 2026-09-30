@@ -167,8 +167,11 @@ sowie gesammelte Warnungsliste in der Seitenleiste.
   Bereich standardmäßig 7:00–17:00, automatisch erweitert, wenn Einträge außerhalb liegen.
 - Farben: Arbeitszeit neutral (z. B. violett/türkis), **Pause rot**, Urlaub/Krank/Fortbildung/Schule **grau**,
   VZ **grün**, Büro **gelb**, Feiertag/Schließtag **blau**.
-- Zeile **„Anwesend“**: Anzahl anwesender Personen pro 15-Minuten-Abschnitt
+- Zeile **„Anwesend“**: Anzahl anwesender Betreuungskräfte pro 15-Minuten-Abschnitt
   (Arbeitszeit inkl. VZ und Büro, ohne Pausen, ohne Abwesenheitscodes).
+- Dienstvorlagen haben das Merkmal **„zählt als Betreuungskraft“** (Standard: ja; HK: nein).
+  Dienste ohne dieses Merkmal erscheinen als eigener Balken in eigener Farbe, zählen aber
+  nicht zu „Anwesend“. Für Stundenkonto und Warnung „Kein Eintrag“ zählen sie normal.
 
 ## 4. Bildschirme
 
@@ -238,9 +241,9 @@ Die Fachlogik in `shared/domain/` ist unabhängig von Nuxt und Datenbank und wir
 | `employee_hours` | id, employee_id, weekly_minutes, valid_from |
 | `balance_adjustments` | id, employee_id, date, minutes (±), reason |
 | `leave_entitlements` | id, employee_id, year, days, carried_over_days |
-| `shift_templates` | id, label, start, end, break_start?, break_end?, sort_order, active |
+| `shift_templates` | id, short_label, label, start, end, break_start?, break_end?, counts_as_staff, sort_order, active |
 | `absence_codes` | id, key, label, color, credit_mode (`daily_target`/`timed`/`none`), requires_times, sort_order |
-| `entries` | id, employee_id, date, kind (`shift`/`special`/`code`), shift_template_id?, absence_code_id?, start?, end?, break_start?, break_end?, note?, closure_id?, updated_at, updated_by |
+| `entries` | id, employee_id, date, kind (`shift`/`special`/`code`), shift_template_id?, absence_code_id?, start?, end?, break_start?, break_end?, counts_as_staff, note?, closure_id?, updated_at, updated_by |
 | `day_notes` | date (PK), info1, info2 |
 | `closures` | id, start_date, end_date, label, mode (`vacation`/`closure_day`) |
 | `month_plans` | year, month (PK), released_at?, released_by? |
