@@ -53,6 +53,10 @@ function apply(mode: ApplyMode, entry: EntryInput | null) {
   run(() => $fetch<unknown>('/api/entries', { method: 'POST', body: { cells: selection.cells.value, mode, entry } }))
 }
 
+function onClear() {
+  if (hasSelection() && window.confirm(de.plan.clearConfirm)) apply('clear', null)
+}
+
 function onTemplate(template: TemplateDto) {
   apply(insertMode(), { kind: 'shift', templateId: template.id })
 }
@@ -108,7 +112,7 @@ function navigate(nextYear: number, nextMonth: number) {
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :gap-suggestion="gapSuggestion"
-        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="apply('clear', null)" @fill-gap="onFillGap"
+        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @fill-gap="onFillGap"
       />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">

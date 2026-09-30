@@ -31,7 +31,7 @@ async function submit() {
     <form class="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 ring-1 ring-gray-200" @submit.prevent="submit">
       <h1 class="text-xl font-semibold">{{ de.appName }} · {{ de.login.title }}</h1>
       <UFormField :label="de.login.username">
-        <UInput v-model="form.username" autocomplete="username" class="w-full" required />
+        <UInput v-model="form.username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full" required />
       </UFormField>
       <UFormField :label="de.login.password">
         <UInput v-model="form.password" type="password" autocomplete="current-password" class="w-full" required />

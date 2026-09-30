@@ -95,6 +95,7 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
         <UFormField :label="de.employees.validFrom"><UInput v-model="hoursForm.validFrom" type="date" required /></UFormField>
         <UButton type="submit" icon="i-lucide-plus" :label="de.employees.addHours" />
       </form>
+      <p class="text-xs text-gray-500">{{ de.employees.validFromHint }}</p>
     </section>
 
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">

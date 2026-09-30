@@ -64,6 +64,8 @@ function deleteTemplate(form: TemplateForm) {
 }
 
 function saveCode(code: CodeDto) {
+  const saved = settings.value?.codes.find(candidate => candidate.id === code.id)
+  if (saved && saved.creditMode !== code.creditMode && !window.confirm(de.settings.creditModeConfirm)) return
   run(() => $fetch<unknown>(`/api/absence-codes/${code.id}`, {
     method: 'PUT', body: { label: code.label, color: code.color, creditMode: code.creditMode },
   }), de.common.saved)

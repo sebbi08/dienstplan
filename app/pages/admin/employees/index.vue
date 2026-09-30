@@ -55,6 +55,7 @@ function move(id: number, direction: 'up' | 'down') {
       <UFormField :label="de.employees.shortName"><UInput v-model="form.shortName" maxlength="10" class="w-full" /></UFormField>
       <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="form.weeklyHours" type="number" step="0.25" min="0" class="w-full" /></UFormField>
       <UFormField :label="de.employees.validFrom"><UInput v-model="form.validFrom" type="date" class="w-full" required /></UFormField>
+      <p class="text-xs text-gray-500 sm:col-span-5">{{ de.employees.validFromHint }}</p>
       <div class="sm:col-span-5"><UButton type="submit" icon="i-lucide-plus" :label="de.common.add" /></div>
     </form>
   </div>

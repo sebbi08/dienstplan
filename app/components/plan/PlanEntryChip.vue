@@ -15,7 +15,7 @@ const title = computed(() => {
   <span class="group inline-flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xs" :class="chipClasses[entry.color]" :title="title">
     {{ entry.label }}
     <button
-      v-if="removable" type="button" class="hidden leading-none opacity-60 hover:opacity-100 group-hover:inline print:hidden"
+      v-if="removable" type="button" class="hidden leading-none opacity-60 hover:opacity-100 focus-visible:inline group-hover:inline [@media(hover:none)]:inline print:hidden"
       :aria-label="de.plan.removeEntry" @click.stop="emit('remove', entry.id)"
     >×</button>
   </span>

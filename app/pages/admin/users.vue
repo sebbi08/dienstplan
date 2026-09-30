@@ -84,7 +84,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
 
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="create">
       <h2 class="font-semibold sm:col-span-4">{{ de.users.create }}</h2>
-      <UFormField :label="de.users.username"><UInput v-model="form.username" autocomplete="off" class="w-full" required /></UFormField>
+      <UFormField :label="de.users.username"><UInput v-model="form.username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" class="w-full" required /></UFormField>
       <UFormField :label="de.users.password"><UInput v-model="form.password" type="password" autocomplete="new-password" class="w-full" required /></UFormField>
       <UFormField :label="de.users.role"><USelect v-model="form.role" :items="roleItems" class="w-full" /></UFormField>
       <UFormField :label="de.users.employee">
