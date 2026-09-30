@@ -1,0 +1,59 @@
+<script setup lang="ts">
+import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { de } from '~/locales/de'
+
+const { user, loggedIn, clear } = useUserSession()
+const today = parseIsoDate(todayIso())
+
+const links = computed(() => {
+  if (!user.value) return []
+  const plan = { label: de.nav.plan, to: `/plan/${today.year}/${today.month}` }
+  if (user.value.role === 'admin') {
+    return [
+      plan,
+      { label: de.nav.employees, to: '/admin/employees' },
+      { label: de.nav.balances, to: '/admin/balances' },
+      { label: de.nav.leave, to: '/admin/leave' },
+      { label: de.nav.closures, to: '/admin/closures' },
+      { label: de.nav.users, to: '/admin/users' },
+      { label: de.nav.settings, to: '/admin/settings' },
+    ]
+  }
+  return [
+    plan,
+    { label: de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` },
+    { label: de.nav.myLeave, to: '/my/leave' },
+  ]
+})
+
+async function logout() {
+  await clear()
+  await navigateTo('/login')
+}
+</script>
+
+<template>
+  <div class="min-h-screen bg-gray-50 text-gray-900">
+    <header v-if="loggedIn" class="border-b border-gray-200 bg-white print:hidden">
+      <div class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">
+        <NuxtLink to="/" class="font-semibold">{{ de.appName }}</NuxtLink>
+        <nav class="flex flex-wrap gap-1">
+          <NuxtLink
+            v-for="link in links" :key="link.to" :to="link.to"
+            class="rounded px-2 py-1 text-sm hover:bg-gray-100" active-class="bg-gray-100 font-medium"
+          >
+            {{ link.label }}
+          </NuxtLink>
+        </nav>
+        <div class="ml-auto flex items-center gap-2 text-sm">
+          <span class="text-gray-500">{{ user?.username }}</span>
+          <UButton size="xs" color="neutral" variant="ghost" to="/account/password" :label="de.nav.password" />
+          <UButton size="xs" color="neutral" variant="outline" :label="de.nav.logout" @click="logout" />
+        </div>
+      </div>
+    </header>
+    <main class="mx-auto max-w-[1800px] p-4">
+      <slot />
+    </main>
+  </div>
+</template>
