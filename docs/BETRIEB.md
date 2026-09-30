@@ -25,8 +25,18 @@ docker compose --profile https up -d --build
 Danach ist der Dienstplan unter `https://<DOMAIN>` erreichbar. Das HTTPS-Zertifikat holt Caddy automatisch.
 Voraussetzung: Die Domain zeigt auf den Server, und die Ports 80 und 443 sind offen.
 
-Ohne HTTPS nur im lokalen Netz: `NUXT_SESSION_COOKIE_SECURE=false` setzen, in `docker-compose.yml`
-bei `ports` die Zeile auf `"3000:3000"` ändern und nur `docker compose up -d --build` starten.
+Ohne HTTPS nur im lokalen Netz: Trage in der Datei `.env` diese zwei Zeilen ein
+(`docker-compose.yml` bleibt unverändert) und starte nur mit `docker compose up -d --build`:
+
+```
+BIND_ADDRESS=0.0.0.0
+NUXT_SESSION_COOKIE_SECURE=false
+```
+
+Danach ist der Dienstplan im lokalen Netz unter `http://<Server-Adresse>:3000` erreichbar.
+
+Lege außerdem gleich nach der Einrichtung unter *Benutzer* einen zweiten Admin-Zugang an
+(z. B. für eine Stellvertretung). So kommst du auch dann wieder hinein, wenn ein Passwort verloren geht.
 
 ## 4. Update auf eine neue Version
 
@@ -40,13 +50,16 @@ Die Daten bleiben erhalten; die Datenbank wird beim Start automatisch auf die ne
 
 ## 5. Datensicherung
 
-- **Automatisch:** Die App legt jede Nacht eine Kopie der Datenbank im Datenbereich unter `backups/` ab
-  und behält die letzten 14 Tage.
-- **Von Hand:** In der App unter *Einstellungen → Datensicherung → Datenbank herunterladen*.
-- **Sicherungen vom Server holen** (z. B. auf einen anderen Rechner kopieren):
+- **Automatisch:** Die App legt jede Nacht eine Kopie der Datenbank im Datenbereich im Ordner `backups`
+  ab (Dateiname `app-JJJJ-MM-TT.db`) und behält die letzten 14 Tage.
+- **Von Hand:** In der App unter *Einstellungen → Datensicherung → Datenbank herunterladen*
+  (Dateiname `dienstplan-JJJJ-MM-TT.db`).
+- **Sicherungen vom Server holen** (z. B. auf einen anderen Rechner kopieren). Erst den Zielordner
+  anlegen, dann den Inhalt des Server-Ordners hineinkopieren (der Punkt am Ende ist wichtig):
 
   ```bash
-  docker compose cp dienstplan:/data/backups ./backups
+  mkdir -p backups
+  docker compose cp dienstplan:/data/backups/. ./backups/
   ```
 
 Bewahre Sicherungen immer auch außerhalb des Servers auf.
@@ -54,7 +67,9 @@ Bewahre Sicherungen immer auch außerhalb des Servers auf.
 ## 6. Wiederherstellen einer Sicherung
 
 Gehe dafür in den Projektordner (`cd /opt/dienstplan`) und führe diese vier Schritte nacheinander aus.
-Ersetze `dienstplan-2026-10-05.db` durch den Namen deiner Sicherungsdatei (Form: `dienstplan-JJJJ-MM-TT.db`).
+Ersetze `dienstplan-2026-10-05.db` durch den Namen deiner Sicherungsdatei. Das kann eine von Hand
+heruntergeladene Datei sein (`dienstplan-JJJJ-MM-TT.db`) oder eine automatische Nachtsicherung aus dem
+Ordner `backups` (`app-JJJJ-MM-TT.db`, siehe Abschnitt 5).
 
 1. Dienstplan anhalten:
 
@@ -87,5 +102,22 @@ und die App kann nicht mehr in die Datenbank schreiben.
 
 ## 7. Passwort des einzigen Admins vergessen
 
-Ein anderer Admin kann unter *Benutzer* das Passwort zurücksetzen. Gibt es keinen weiteren Admin,
-spiele die letzte Sicherung ein oder wende dich an die Person, die die App betreut.
+Ein anderer Admin kann unter *Benutzer* das Passwort zurücksetzen. Gibt es keinen weiteren Admin
+(Tipp: Lege bei der Einrichtung immer einen zweiten Admin-Zugang an), gehe so vor:
+
+1. Öffne die Datei `.env` im Projektordner. Achte darauf, dass `ADMIN_USERNAME` der Name des betroffenen
+   Admins ist, und füge diese Zeile hinzu (mindestens 8 Zeichen):
+
+   ```
+   ADMIN_RESET_PASSWORD=<neues Passwort>
+   ```
+
+2. Starte den Dienstplan neu:
+
+   ```bash
+   docker compose up -d
+   ```
+
+3. Melde dich mit dem neuen Passwort an. Die App verlangt sofort ein eigenes neues Passwort.
+4. Lösche die Zeile `ADMIN_RESET_PASSWORD=…` wieder aus der Datei `.env` und starte noch einmal
+   mit `docker compose up -d`.
