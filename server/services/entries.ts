@@ -1,9 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import { cellKey } from '../../shared/domain/cells'
-import { describeCell } from '../../shared/domain/describe'
-import { validateSpan } from '../../shared/domain/time'
+import { isValidIsoDate } from '../../shared/domain/dates'
+import { formatTime, validateSpan } from '../../shared/domain/time'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ApplyMode, CellRef, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
+import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -13,7 +13,6 @@ import { loadEntries } from './queries'
 type ResolvedEntry = Omit<typeof entries.$inferInsert, 'employeeId' | 'date' | 'updatedAt' | 'updatedBy' | 'closureId'>
 
 const NO_TIMES = { start: null, end: null, breakStart: null, breakEnd: null }
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export function resolveEntry(db: Db, input: EntryInput): ResolvedEntry {
   const note = input.note?.trim() || null
@@ -53,8 +52,20 @@ export function resolveEntry(db: Db, input: EntryInput): ResolvedEntry {
   }
 }
 
+// Change-log description: unlike the grid label it also shows template, break and note,
+// so every visible difference between two cell states yields different strings.
+export function describeCellForLog(list: EntryDto[]): string {
+  if (list.length === 0) return '—'
+  return list.map(entry => (entry.shortLabel ? `${entry.shortLabel} ` : '')
+    + entry.label
+    + (entry.breakStart !== null && entry.breakEnd !== null
+      ? ` [${formatTime(entry.breakStart)}–${formatTime(entry.breakEnd)}]`
+      : '')
+    + (entry.note ? ` · ${entry.note}` : '')).join(' + ')
+}
+
 export function describeCellAt(db: Db, cell: CellRef): string {
-  return describeCell(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
+  return describeCellForLog(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
 }
 
 export function applyToCells(
@@ -70,7 +81,7 @@ export function applyToCells(
   db.transaction((tx) => {
     for (const cell of unique) {
       if (!employeeIds.has(cell.employeeId)) throw new ServiceError(400, 'employee_not_found')
-      if (!ISO_DATE.test(cell.date)) throw new ServiceError(400, 'invalid_date')
+      if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
       const before = describeCellAt(tx, cell)
       if (mode !== 'add') {
         tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()
@@ -105,6 +116,7 @@ export function deleteEntry(db: Db, actor: SessionUser, id: number, now: Date = 
 export function setDayNote(
   db: Db, actor: SessionUser, date: IsoDate, field: NoteField, value: string, now: Date = new Date(),
 ): void {
+  if (!isValidIsoDate(date)) throw new ServiceError(400, 'invalid_date')
   const text = value.trim()
   const values = field === 'info1' ? { info1: text } : { info2: text }
   db.transaction((tx) => {

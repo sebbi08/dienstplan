@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import { changeLog } from '../../server/db/schema'
 import { applyToCells, deleteEntry, setDayNote } from '../../server/services/entries'
 import { loadEntries } from '../../server/services/queries'
-import { releaseMonth } from '../../server/services/release'
+import { releaseMonth, unreleaseMonth } from '../../server/services/release'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -69,16 +69,45 @@ describe('entries service', () => {
     const log = db.select().from(changeLog).all()
     expect(log).toHaveLength(1)
     expect(log[0]).toMatchObject({
-      date, employeeId: anna, field: 'entry', before: '7:30–15:45', after: 'Krank',
+      date, employeeId: anna, field: 'entry', before: 'F2 7:30–15:45 [11:40–12:10]', after: 'Krank',
       changedAt: '2026-10-01T06:00:00.000Z', changedBy: admin.id,
     })
+  })
+  it('logs a template swap that keeps the visible times but drops the break', () => {
+    applyToCells(db, admin, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
+    releaseMonth(db, admin, 2026, 10)
+    applyToCells(db, admin, [annaCell()], 'replace', { kind: 'special', start: 450, end: 945 })
+    expect(db.select().from(changeLog).all()).toEqual([
+      expect.objectContaining({ field: 'entry', before: 'F2 7:30–15:45 [11:40–12:10]', after: '7:30–15:45' }),
+    ])
+  })
+  it('logs a note-only change', () => {
+    applyToCells(db, admin, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
+    releaseMonth(db, admin, 2026, 10)
+    applyToCells(db, admin, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2'), note: 'Vertretung' })
+    expect(db.select().from(changeLog).all()).toEqual([
+      expect.objectContaining({ field: 'entry', before: 'F2 7:30–15:45 [11:40–12:10]', after: 'F2 7:30–15:45 [11:40–12:10] · Vertretung' }),
+    ])
+  })
+  it('rejects dates that are not on the calendar', () => {
+    for (const bad of ['2026-02-31', '2026-13-45', '2026-2-3']) {
+      expect(errorCode(() => applyToCells(db, admin, [{ employeeId: anna, date: bad }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') }))).toBe('invalid_date')
+      expect(errorCode(() => setDayNote(db, admin, bad, 'info1', 'x'))).toBe('invalid_date')
+    }
+    expect(loadEntries(db)).toEqual([])
+  })
+  it('rejects invalid months when releasing', () => {
+    for (const [year, month] of [[2026, 0], [2026, 13], [2026, 1.5], [1999, 10], [2101, 10]] as const) {
+      expect(errorCode(() => releaseMonth(db, admin, year, month))).toBe('invalid_month')
+      expect(errorCode(() => unreleaseMonth(db, year, month))).toBe('invalid_month')
+    }
   })
   it('deletes single entries and logs it', () => {
     releaseMonth(db, admin, 2026, 10)
     applyToCells(db, admin, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     deleteEntry(db, admin, cellEntries()[0]!.id)
     expect(cellEntries()).toEqual([])
-    expect(db.select().from(changeLog).all().at(-1)).toMatchObject({ before: '7:45–16:00', after: '—' })
+    expect(db.select().from(changeLog).all().at(-1)).toMatchObject({ before: 'M 7:45–16:00 [11:40–12:10]', after: '—' })
     expect(errorCode(() => deleteEntry(db, admin, 999))).toBe('entry_not_found')
   })
   it('saves day notes and logs changes after release', () => {

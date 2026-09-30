@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addDays, dateRange, daysBetween, daysInMonth, isoWeekNumber, isWeekend,
+  addDays, dateRange, daysBetween, daysInMonth, isoWeekNumber, isValidIsoDate, isWeekend,
   monthDates, parseIsoDate, toIsoDate, todayIso, weekday, weekStart,
 } from '../../shared/domain/dates'
 
@@ -8,6 +8,13 @@ describe('dates', () => {
   it('builds and parses ISO dates', () => {
     expect(toIsoDate(2026, 10, 5)).toBe('2026-10-05')
     expect(parseIsoDate('2026-10-05')).toEqual({ year: 2026, month: 10, day: 5 })
+  })
+  it('validates calendar dates', () => {
+    expect(isValidIsoDate('2028-02-29')).toBe(true)
+    expect(isValidIsoDate('2026-10-05')).toBe(true)
+    for (const bad of ['2026-02-29', '2026-02-31', '2026-13-01', '2026-00-10', '2026-10-00', '2026-1-01', '']) {
+      expect(isValidIsoDate(bad)).toBe(false)
+    }
   })
   it('adds days across month and year boundaries', () => {
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
