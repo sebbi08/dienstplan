@@ -53,11 +53,37 @@ Bewahre Sicherungen immer auch außerhalb des Servers auf.
 
 ## 6. Wiederherstellen einer Sicherung
 
-```bash
-docker compose stop dienstplan
-docker compose cp ./dienstplan-2026-10-05.db dienstplan:/data/app.db
-docker compose start dienstplan
-```
+Gehe dafür in den Projektordner (`cd /opt/dienstplan`) und führe diese vier Schritte nacheinander aus.
+Ersetze `dienstplan-2026-10-05.db` durch den Namen deiner Sicherungsdatei (Form: `dienstplan-JJJJ-MM-TT.db`).
+
+1. Dienstplan anhalten:
+
+   ```bash
+   docker compose stop dienstplan
+   ```
+
+2. Sicherung an die Stelle der Datenbank kopieren:
+
+   ```bash
+   docker compose cp ./dienstplan-2026-10-05.db dienstplan:/data/app.db
+   ```
+
+3. Alte Zwischendateien entfernen und die Zugriffsrechte richtig setzen:
+
+   ```bash
+   docker compose run --rm --user root --entrypoint sh dienstplan -c "rm -f /data/app.db-wal /data/app.db-shm && chown node:node /data/app.db"
+   ```
+
+4. Dienstplan wieder starten:
+
+   ```bash
+   docker compose start dienstplan
+   ```
+
+Warum Schritt 3 wichtig ist: Die Datenbank legt neben `app.db` kurzzeitig Zwischendateien an.
+Bleiben die alten Zwischendateien liegen, vermischen sie sich mit der wiederhergestellten Sicherung und
+die Daten werden falsch oder unbrauchbar. Außerdem gehört die kopierte Datei sonst dem falschen Benutzer,
+und die App kann nicht mehr in die Datenbank schreiben.
 
 ## 7. Passwort des einzigen Admins vergessen
 
