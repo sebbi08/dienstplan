@@ -15,6 +15,7 @@ describe('runDailyBackup', () => {
     const first = await runDailyBackup(sqlite, backups, '2026-10-05')
     expect(first).toBe(join(backups, 'app-2026-10-05.db'))
     expect(await runDailyBackup(sqlite, backups, '2026-10-05')).toBeNull()
+    expect(readdirSync(backups).filter(name => name.endsWith('.tmp'))).toEqual([])
 
     for (let day = 1; day <= 20; day++) writeFileSync(join(backups, `app-2026-09-${String(day).padStart(2, '0')}.db`), '')
     await runDailyBackup(sqlite, backups, '2026-10-06')

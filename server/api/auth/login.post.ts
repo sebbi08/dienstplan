@@ -8,6 +8,6 @@ export default defineServiceHandler(async (event) => {
     const code = result.reason === 'locked' ? 'login_locked' : 'login_invalid'
     throw createError({ statusCode: 401, statusMessage: code, data: { code } })
   }
-  await setUserSession(event, { user: result.user })
+  await replaceUserSession(event, { user: result.user })
   return result.user
 })

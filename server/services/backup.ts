@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm } from 'node:fs/promises'
+import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
 import type { IsoDate } from '../../shared/domain/types'
@@ -17,7 +17,15 @@ export async function runDailyBackup(
   const name = `app-${today}.db`
   if ((await readdir(dir)).includes(name)) return null
   const file = join(dir, name)
-  await createBackup(sqlite, file)
+  const partial = `${file}.tmp`
+  try {
+    await createBackup(sqlite, partial)
+    await rename(partial, file)
+  }
+  catch (error) {
+    await rm(partial, { force: true })
+    throw error
+  }
   const backups = (await readdir(dir)).filter(entry => BACKUP_NAME.test(entry)).sort()
   for (const old of backups.slice(0, Math.max(0, backups.length - keep))) await rm(join(dir, old))
   return file

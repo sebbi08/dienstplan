@@ -4,6 +4,7 @@ import type { Db } from '../db/client'
 import { users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../lib/password'
+import { normalizeUsername } from '../lib/username'
 
 export const MAX_FAILED_LOGINS = 5
 export const LOCK_MINUTES = 15
@@ -18,7 +19,7 @@ export function toSessionUser(row: typeof users.$inferSelect): SessionUser {
 }
 
 export function login(db: Db, username: string, password: string, now: Date = new Date()): LoginResult {
-  const user = db.select().from(users).where(eq(users.username, username.trim())).get()
+  const user = db.select().from(users).where(eq(users.username, normalizeUsername(username))).get()
   if (!user || !user.active) return { ok: false, reason: 'invalid' }
   if (user.lockedUntil && user.lockedUntil > now.toISOString()) return { ok: false, reason: 'locked' }
 

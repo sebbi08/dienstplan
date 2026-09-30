@@ -17,6 +17,12 @@ describe('users service', () => {
     expect(user).toMatchObject({ username: 'anna', role: 'observer', employeeId: anna, employeeName: 'Anna', mustChangePassword: true, active: true })
     expect(listUsers(db)).toHaveLength(1)
   })
+  it('stores usernames in lower case so login ignores capitalisation', () => {
+    const user = createUser(db, { username: '  Anna ', password: 'start-1234', role: 'observer', employeeId: anna })
+    expect(user.username).toBe('anna')
+    expect(login(db, 'ANNA', 'start-1234')).toMatchObject({ ok: true, user: { username: 'anna' } })
+    expect(errorCode(() => createUser(db, { username: 'ANNA', password: 'start-1234', role: 'admin', employeeId: null }))).toBe('username_taken')
+  })
   it('validates new users', () => {
     createUser(db, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     expect(errorCode(() => createUser(db, { username: 'anna', password: 'start-1234', role: 'admin', employeeId: null }))).toBe('username_taken')

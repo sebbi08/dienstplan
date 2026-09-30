@@ -1,6 +1,7 @@
-import { count } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
-import { hashPassword } from '../lib/password'
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password'
+import { normalizeUsername } from '../lib/username'
 import type { Db } from './client'
 import { absenceCodes, coverageRules, shiftTemplates, users } from './schema'
 
@@ -42,10 +43,26 @@ export function seedDefaults(db: Db): void {
 
 /** Creates the first admin from environment variables when no user exists yet. */
 export function ensureInitialAdmin(db: Db, username: string | undefined, password: string | undefined): boolean {
-  const name = username?.trim()
+  const name = normalizeUsername(username ?? '')
   if (!name || !password || !isEmpty(db, users)) return false
   db.insert(users).values({
     username: name, passwordHash: hashPassword(password), role: 'admin', mustChangePassword: true,
   }).run()
+  return true
+}
+
+/**
+ * Emergency access: sets a new password for an existing user, makes them an active admin and
+ * forces a password change at the next login. Returns false when nothing was changed.
+ */
+export function resetAdminFromEnv(db: Db, username: string | undefined, password: string | undefined): boolean {
+  const name = normalizeUsername(username ?? '')
+  if (!name || !password || password.length < MIN_PASSWORD_LENGTH) return false
+  const user = db.select().from(users).where(eq(users.username, name)).get()
+  if (!user) return false
+  db.update(users).set({
+    passwordHash: hashPassword(password), mustChangePassword: true, failedLogins: 0,
+    lockedUntil: null, active: true, role: 'admin',
+  }).where(eq(users.id, user.id)).run()
   return true
 }

@@ -4,6 +4,7 @@ import type { Db } from '../db/client'
 import { employees, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword } from '../lib/password'
+import { normalizeUsername } from '../lib/username'
 import { assertPasswordStrength } from './auth'
 
 export interface UserInput {
@@ -54,7 +55,7 @@ function activeAdminCount(db: Db): number {
 }
 
 export function createUser(db: Db, input: UserInput): UserDto {
-  const username = input.username.trim()
+  const username = normalizeUsername(input.username)
   if (!username) throw new ServiceError(400, 'username_required')
   if (db.select().from(users).where(eq(users.username, username)).get()) {
     throw new ServiceError(409, 'username_taken')
