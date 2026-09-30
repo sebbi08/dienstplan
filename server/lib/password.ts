@@ -13,6 +13,7 @@ export function verifyPassword(password: string, stored: string): boolean {
   const [algorithm, salt, hash] = stored.split('$')
   if (algorithm !== 'scrypt' || !salt || !hash) return false
   const expected = Buffer.from(hash, 'base64')
+  if (expected.length !== KEY_LENGTH) return false
   const actual = scryptSync(password, Buffer.from(salt, 'base64'), expected.length)
   return timingSafeEqual(actual, expected)
 }

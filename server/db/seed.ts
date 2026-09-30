@@ -42,9 +42,10 @@ export function seedDefaults(db: Db): void {
 
 /** Creates the first admin from environment variables when no user exists yet. */
 export function ensureInitialAdmin(db: Db, username: string | undefined, password: string | undefined): boolean {
-  if (!username || !password || !isEmpty(db, users)) return false
+  const name = username?.trim()
+  if (!name || !password || !isEmpty(db, users)) return false
   db.insert(users).values({
-    username: username.trim(), passwordHash: hashPassword(password), role: 'admin', mustChangePassword: true,
+    username: name, passwordHash: hashPassword(password), role: 'admin', mustChangePassword: true,
   }).run()
   return true
 }

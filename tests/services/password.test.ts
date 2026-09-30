@@ -9,6 +9,9 @@ describe('password hashing', () => {
     expect(verifyPassword('wrong horse', hash)).toBe(false)
     expect(verifyPassword('correct horse', 'garbage')).toBe(false)
   })
+  it('rejects stored hashes that do not decode to the full key length', () => {
+    expect(verifyPassword('anything', 'scrypt$AA==$=')).toBe(false)
+  })
   it('salts every hash', () => {
     expect(hashPassword('same')).not.toBe(hashPassword('same'))
   })

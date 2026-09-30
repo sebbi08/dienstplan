@@ -15,6 +15,7 @@ describe('database setup', () => {
   it('creates the initial admin only when no user exists', () => {
     const db = createTestDb()
     expect(ensureInitialAdmin(db, undefined, undefined)).toBe(false)
+    expect(ensureInitialAdmin(db, '   ', 'start-password')).toBe(false)
     expect(ensureInitialAdmin(db, 'leitung', 'start-password')).toBe(true)
     expect(ensureInitialAdmin(db, 'other', 'start-password')).toBe(false)
     const [admin] = db.select().from(users).all()
