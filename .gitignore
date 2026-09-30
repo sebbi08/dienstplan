@@ -1,0 +1,10 @@
+node_modules
+.nuxt
+.output
+.data
+data
+.env
+*.db
+*.db-wal
+*.db-shm
+coverage
