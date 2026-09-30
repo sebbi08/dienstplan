@@ -1,0 +1,173 @@
+<script setup lang="ts">
+import { cellKey, noteKey } from '#shared/domain/cells'
+import { formatDuration, formatSignedDuration } from '#shared/domain/time'
+import type { DayRowDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
+import { de } from '~/locales/de'
+import { balanceClass } from '~/utils/colors'
+import { formatDateTime, formatDayShort } from '~/utils/format'
+import { indexWarnings, warningText } from '~/utils/warnings'
+
+const props = defineProps<{
+  plan: MonthPlanDto
+  selected?: Set<string>
+  editable?: boolean
+  selectedDate?: string | null
+}>()
+const emit = defineEmits<{
+  cellClick: [employeeId: number, date: string, event: MouseEvent]
+  dateClick: [date: string]
+  noteSave: [date: string, field: NoteField, value: string]
+  removeEntry: [id: number]
+}>()
+
+const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
+const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
+const warnings = computed(() => indexWarnings(props.plan.admin?.warnings ?? []))
+
+const entriesByCell = computed(() => {
+  const map = new Map<string, EntryDto[]>()
+  for (const entry of props.plan.entries) {
+    const key = cellKey(entry.employeeId, entry.date)
+    map.set(key, [...(map.get(key) ?? []), entry])
+  }
+  return map
+})
+
+const weekByLastDay = computed(() => {
+  const map = new Map<string, WeekSummaryDto>()
+  for (const week of props.plan.admin?.weeks ?? []) {
+    const last = props.plan.days.filter(day => day.date >= week.weekStart && day.date <= week.weekEnd).at(-1)
+    if (last) map.set(last.date, week)
+  }
+  return map
+})
+
+function changeText(key: string): string | undefined {
+  const changes = props.plan.changes[key]
+  if (!changes?.length) return undefined
+  return changes
+    .map(change => de.plan.changedTooltip(change.before || de.plan.empty, change.after || de.plan.empty, formatDateTime(change.changedAt), change.changedBy))
+    .join('\n')
+}
+
+function joinLines(lines: (string | undefined)[]): string | undefined {
+  return lines.filter(Boolean).join('\n') || undefined
+}
+
+function rowClass(day: DayRowDto): string {
+  if (day.holidayKey || day.closureLabel) return 'bg-blue-50'
+  return day.isWeekend ? 'bg-gray-100 text-gray-500' : 'bg-white'
+}
+
+const rows = computed(() => props.plan.days.map((day) => {
+  const cells = props.plan.employees.map((employee) => {
+    const key = cellKey(employee.id, day.date)
+    const cellWarnings = warnings.value.byCell.get(key) ?? []
+    const gap = cellWarnings.find(warning => warning.type === 'target_gap')
+    return {
+      key,
+      employeeId: employee.id,
+      entries: entriesByCell.value.get(key) ?? [],
+      changed: Boolean(props.plan.changes[key]),
+      missing: cellWarnings.some(warning => warning.type === 'missing_entry'),
+      gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
+      title: joinLines([changeText(key), ...cellWarnings.map(warning => warningText(warning, employeeNames.value))]),
+    }
+  })
+  const notes = NOTE_FIELDS.map((field) => {
+    const key = noteKey(field, day.date)
+    return { field, value: day[field], changed: Boolean(props.plan.changes[key]), title: changeText(key) }
+  })
+  const dayWarnings = warnings.value.byDate.get(day.date) ?? []
+  const week = weekByLastDay.value.get(day.date)
+  return {
+    day,
+    cells,
+    notes,
+    hasWarnings: dayWarnings.length > 0,
+    warningTitle: joinLines(dayWarnings.map(warning => warningText(warning, employeeNames.value))),
+    week: week
+      ? {
+          number: week.weekNumber,
+          totals: props.plan.employees.map(employee =>
+            week.totals.find(total => total.employeeId === employee.id) ?? { employeeId: employee.id, target: 0, credit: 0, delta: 0 }),
+        }
+      : null,
+  }
+}))
+</script>
+
+<template>
+  <div class="overflow-x-auto rounded-lg ring-1 ring-gray-200 print:overflow-visible print:ring-0">
+    <table class="w-full border-collapse text-sm">
+      <thead class="bg-gray-100 text-xs text-gray-600">
+        <tr>
+          <th class="sticky left-0 z-10 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
+          <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 px-2 py-1">{{ employee.name }}</th>
+          <th class="min-w-32 border border-gray-200 px-2 py-1">{{ de.plan.info1 }}</th>
+          <th class="min-w-32 border border-gray-200 px-2 py-1">{{ de.plan.info2 }}</th>
+          <th v-if="plan.admin" class="w-8 border border-gray-200 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template v-for="row in rows" :key="row.day.date">
+          <tr :class="rowClass(row.day)">
+            <td
+              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top"
+              :class="[rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
+            >
+              <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
+                {{ formatDayShort(row.day.date, row.day.weekday) }}
+              </button>
+              <div v-if="row.day.holidayKey" class="text-xs text-blue-700">{{ de.holidays[row.day.holidayKey] }}</div>
+              <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700">{{ row.day.closureLabel }}</div>
+            </td>
+            <td
+              v-for="cell in row.cells" :key="cell.key"
+              class="border border-gray-200 px-1 py-1 align-top"
+              :class="[
+                editable ? 'cursor-pointer hover:bg-sky-50' : '',
+                selected?.has(cell.key) ? 'bg-sky-100' : cell.missing ? 'bg-red-50' : '',
+                cell.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : '',
+              ]"
+              :title="cell.title"
+              @click="emit('cellClick', cell.employeeId, row.day.date, $event)"
+            >
+              <div class="flex flex-col items-start gap-0.5">
+                <PlanEntryChip v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable" @remove="emit('removeEntry', $event)" />
+                <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
+              </div>
+            </td>
+            <td
+              v-for="note in row.notes" :key="note.field"
+              class="border border-gray-200 px-1 py-1 align-top"
+              :class="note.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''"
+              :title="note.title"
+            >
+              <input
+                v-if="editable" :value="note.value" maxlength="200"
+                class="w-full rounded border border-transparent bg-transparent px-1 text-xs hover:border-gray-300 focus:border-sky-500 focus:outline-none"
+                @change="emit('noteSave', row.day.date, note.field, ($event.target as HTMLInputElement).value)"
+              >
+              <span v-else class="text-xs">{{ note.value }}</span>
+            </td>
+            <td v-if="plan.admin" class="border border-gray-200 px-1 py-1 text-center align-top print:hidden" :title="row.warningTitle">
+              <UIcon v-if="row.hasWarnings" name="i-lucide-triangle-alert" class="text-red-600" />
+            </td>
+          </tr>
+          <tr v-if="row.week" class="bg-gray-50 text-xs">
+            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">{{ de.plan.week(row.week.number) }}</td>
+            <td
+              v-for="total in row.week.totals" :key="total.employeeId"
+              class="border border-gray-200 px-2 py-1 text-center font-medium" :class="balanceClass(total.delta)"
+              :title="de.plan.weekTooltip(formatDuration(total.target), formatDuration(total.credit))"
+            >
+              {{ formatSignedDuration(total.delta) }}
+            </td>
+            <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">{{ de.plan.weekHint }}</td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</template>
