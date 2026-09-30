@@ -1,0 +1,50 @@
+import { count } from 'drizzle-orm'
+import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
+import { hashPassword } from '../lib/password'
+import type { Db } from './client'
+import { absenceCodes, coverageRules, shiftTemplates, users } from './schema'
+
+export const DEFAULT_TEMPLATES: (typeof shiftTemplates.$inferInsert)[] = [
+  { shortLabel: 'F1', label: 'Frühdienst', start: 420, end: 795, breakStart: null, breakEnd: null, countsAsStaff: true, sortOrder: 1 },
+  { shortLabel: 'F2', label: 'Frühdienst 2', start: 450, end: 945, breakStart: 700, breakEnd: 730, countsAsStaff: true, sortOrder: 2 },
+  { shortLabel: 'M', label: 'Mitteldienst', start: 465, end: 960, breakStart: 700, breakEnd: 730, countsAsStaff: true, sortOrder: 3 },
+  { shortLabel: 'S', label: 'Spätdienst', start: 525, end: 1020, breakStart: 730, breakEnd: 760, countsAsStaff: true, sortOrder: 4 },
+  { shortLabel: 'HK', label: 'Haushaltskraft', start: 660, end: 960, breakStart: null, breakEnd: null, countsAsStaff: false, sortOrder: 5 },
+]
+
+export const DEFAULT_CODES: (typeof absenceCodes.$inferInsert)[] = [
+  { key: 'vacation', label: 'Urlaub', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 1 },
+  { key: 'sick', label: 'Krank', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 2 },
+  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 3 },
+  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 4 },
+  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 5 },
+  { key: 'prep_time', label: 'VZ', color: 'green', creditMode: 'timed', requiresTimes: true, sortOrder: 6 },
+  { key: 'office', label: 'Büro', color: 'yellow', creditMode: 'timed', requiresTimes: true, sortOrder: 7 },
+  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 8 },
+  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 9 },
+]
+
+export const DEFAULT_COVERAGE_RULES: (typeof coverageRules.$inferInsert)[] = [
+  { label: 'Spätdienst 8:45–17:00', start: 525, end: 1020, minCount: 2, active: true },
+  { label: 'Frühdienst ab 7:00', start: 420, end: null, minCount: 1, active: true },
+  { label: 'Frühdienst 2 ab 7:30', start: 450, end: null, minCount: 1, active: true },
+]
+
+function isEmpty(db: Db, table: SQLiteTable): boolean {
+  return db.select({ value: count() }).from(table).get()!.value === 0
+}
+
+export function seedDefaults(db: Db): void {
+  if (isEmpty(db, shiftTemplates)) db.insert(shiftTemplates).values(DEFAULT_TEMPLATES).run()
+  if (isEmpty(db, absenceCodes)) db.insert(absenceCodes).values(DEFAULT_CODES).run()
+  if (isEmpty(db, coverageRules)) db.insert(coverageRules).values(DEFAULT_COVERAGE_RULES).run()
+}
+
+/** Creates the first admin from environment variables when no user exists yet. */
+export function ensureInitialAdmin(db: Db, username: string | undefined, password: string | undefined): boolean {
+  if (!username || !password || !isEmpty(db, users)) return false
+  db.insert(users).values({
+    username: username.trim(), passwordHash: hashPassword(password), role: 'admin', mustChangePassword: true,
+  }).run()
+  return true
+}
