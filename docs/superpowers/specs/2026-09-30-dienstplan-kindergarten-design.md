@@ -241,7 +241,7 @@ Die Fachlogik in `shared/domain/` ist unabhängig von Nuxt und Datenbank und wir
 | `employee_hours` | id, employee_id, weekly_minutes, valid_from |
 | `balance_adjustments` | id, employee_id, date, minutes (±), reason |
 | `leave_entitlements` | id, employee_id, year, days, carried_over_days |
-| `shift_templates` | id, short_label, label, start, end, break_start?, break_end?, counts_as_staff, sort_order, active |
+| `shift_templates` | id, short_label, label, start, end, break_start?, break_end?, counts_as_staff, sort_order |
 | `absence_codes` | id, key, label, color, credit_mode (`daily_target`/`timed`/`none`), requires_times, sort_order |
 | `entries` | id, employee_id, date, kind (`shift`/`special`/`code`), shift_template_id?, absence_code_id?, start?, end?, break_start?, break_end?, counts_as_staff, note?, closure_id?, updated_at, updated_by |
 | `day_notes` | date (PK), info1, info2 |
