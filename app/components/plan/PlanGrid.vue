@@ -134,7 +134,7 @@ const rows = computed(() => props.plan.days.map((day) => {
               @click="emit('cellClick', cell.employeeId, row.day.date, $event)"
             >
               <div class="flex flex-col items-start gap-0.5">
-                <PlanEntryChip v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable" @remove="emit('removeEntry', $event)" />
+                <PlanEntryChip v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable" :cell-title="cell.title" @remove="emit('removeEntry', $event)" />
                 <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
               </div>
             </td>

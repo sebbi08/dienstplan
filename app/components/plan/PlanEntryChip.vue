@@ -3,9 +3,12 @@ import type { EntryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { chipClasses } from '~/utils/colors'
 
-const props = defineProps<{ entry: EntryDto; removable?: boolean }>()
+const props = defineProps<{ entry: EntryDto; removable?: boolean; cellTitle?: string }>()
 const emit = defineEmits<{ remove: [id: number] }>()
-const title = computed(() => [props.entry.shortLabel, props.entry.note].filter(Boolean).join(' · ') || undefined)
+const title = computed(() => {
+  const own = [props.entry.shortLabel, props.entry.note].filter(Boolean).join(' · ')
+  return [own, props.cellTitle].filter(Boolean).join('\n') || undefined
+})
 </script>
 
 <template>

@@ -102,7 +102,7 @@ function navigate(nextYear: number, nextMonth: number) {
 
 <template>
   <div class="space-y-3">
-    <template v-if="plan">
+    <template v-if="plan && !error">
       <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" @unrelease="unrelease" />
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"
