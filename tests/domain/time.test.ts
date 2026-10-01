@@ -35,6 +35,11 @@ describe('isValidTimeInput', () => {
     expect(isValidTimeInput('8:43')).toBe(false)
     expect(isValidTimeInput('abc')).toBe(false)
   })
+
+  it('accepts any minute with step 1', () => {
+    expect(isValidTimeInput('7:42', 1)).toBe(true)
+    expect(isValidTimeInput('7:42')).toBe(false)
+  })
 })
 
 describe('parseDuration', () => {

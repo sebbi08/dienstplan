@@ -31,10 +31,10 @@ export function formatTime(minutes: Minutes): string {
   return `${Math.floor(minutes / 60)}:${pad(minutes % 60)}`
 }
 
-/** A typed clock time that may be saved: parseable and on the 5-minute grid. */
-export function isValidTimeInput(value: string): boolean {
+/** A typed clock time that may be saved: parseable and on the given minute grid (default 5). */
+export function isValidTimeInput(value: string, step = 5): boolean {
   const minutes = parseTime(value)
-  return minutes !== null && minutes % 5 === 0
+  return minutes !== null && minutes % step === 0
 }
 
 export function formatDuration(minutes: number): string {

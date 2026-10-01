@@ -4,6 +4,8 @@ import { de } from '~/locales/de'
 
 /** Clock time typed on the keyboard ("8:45", "8.45", "845", "14" …), shown as h:mm after leaving the field. */
 defineOptions({ inheritAttrs: false })
+// `anyMinute` drops the 5-minute grid (admin corrections and stamps are minute-precise).
+const props = defineProps<{ anyMinute?: boolean }>()
 const model = defineModel<string>({ required: true })
 // `class` sizes the wrapper; everything else (autofocus, @keydown …) goes to the input.
 const attrs = useAttrs()
@@ -12,7 +14,7 @@ const inputAttrs = computed(() => {
   return rest
 })
 const touched = ref(false)
-const invalid = computed(() => touched.value && model.value.trim() !== '' && !isValidTimeInput(model.value))
+const invalid = computed(() => touched.value && model.value.trim() !== '' && !isValidTimeInput(model.value, props.anyMinute ? 1 : 5))
 
 function normalize() {
   touched.value = true

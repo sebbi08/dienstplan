@@ -8,9 +8,14 @@ const today = parseIsoDate(todayIso())
 const links = computed(() => {
   if (!user.value) return []
   const plan = { label: de.nav.plan, to: `/plan/${today.year}/${today.month}` }
+  if (user.value.role === 'terminal') return [{ label: de.nav.stamp, to: '/terminal' }, plan]
+  const myPlan = { label: de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
   if (user.value.role === 'admin') {
     return [
       plan,
+      // An admin linked to an employee stamps on "Mein Dienstplan" too.
+      ...(user.value.employeeId !== null ? [myPlan] : []),
+      { label: de.nav.time, to: '/admin/time' },
       { label: de.nav.employees, to: '/admin/employees' },
       { label: de.nav.balances, to: '/admin/balances' },
       { label: de.nav.leave, to: '/admin/leave' },
@@ -19,11 +24,7 @@ const links = computed(() => {
       { label: de.nav.settings, to: '/admin/settings' },
     ]
   }
-  return [
-    plan,
-    { label: de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` },
-    { label: de.nav.myLeave, to: '/my/leave' },
-  ]
+  return [myPlan, plan, { label: de.nav.myLeave, to: '/my/leave' }]
 })
 
 async function logout() {
@@ -47,7 +48,7 @@ async function logout() {
         </nav>
         <div class="ml-auto flex items-center gap-2 text-sm">
           <span class="text-gray-500">{{ user?.username }}</span>
-          <UButton size="xs" color="neutral" variant="ghost" to="/account/password" :label="de.nav.password" />
+          <UButton v-if="user?.role !== 'terminal'" size="xs" color="neutral" variant="ghost" to="/account/password" :label="de.nav.password" />
           <UButton size="xs" color="neutral" variant="outline" :label="de.nav.logout" @click="logout" />
         </div>
       </div>
