@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { cellFillColor } from '#shared/domain/cells'
-import type { MyPlanDayDto, MyPlanDto } from '#shared/types/api'
+import { formatTime } from '#shared/domain/time'
+import type { MyPlanDayDto, MyPlanDto, MyTimeDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { errorMessage } from '~/utils/errors'
@@ -11,6 +12,13 @@ const route = useRoute()
 const year = computed(() => Number(route.params.year))
 const month = computed(() => Number(route.params.month))
 const { data, error } = await useFetch<MyPlanDto>(() => `/api/my/plan/${year.value}/${month.value}`)
+const { data: time, refresh: refreshTime } = await useFetch<MyTimeDto>('/api/my/time', { query: { year, month } })
+const recordsByDate = computed(() => {
+  const map = new Map<string, TimeRecordDto[]>()
+  for (const record of time.value?.records ?? []) map.set(record.date, [...(map.get(record.date) ?? []), record])
+  return map
+})
+const span = (record: TimeRecordDto) => `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
 
 function navigate(nextYear: number, nextMonth: number) {
   return navigateTo(`/my/plan/${nextYear}/${nextMonth}`)
@@ -40,11 +48,13 @@ function rowClass(day: MyPlanDayDto): string {
       <UBadge v-if="data?.release.changeCount" color="warning" variant="soft" :label="de.plan.changesCount(data.release.changeCount)" />
     </div>
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
+    <TimeMyTimeCard v-if="time?.enabled" :time="time" @changed="refreshTime" />
     <table v-if="data" class="w-full overflow-hidden rounded-lg text-sm ring-1 ring-gray-200">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-3 py-2">{{ de.plan.date }}</th>
           <th class="px-3 py-2">{{ de.myPlan.shift }}</th>
+          <th class="px-3 py-2">{{ de.time.records }}</th>
           <th class="px-3 py-2">{{ de.plan.info1 }}</th>
           <th class="px-3 py-2">{{ de.plan.info2 }}</th>
         </tr>
@@ -59,6 +69,11 @@ function rowClass(day: MyPlanDayDto): string {
           <td class="px-3 py-1.5" :class="fillClass(day)">
             <div class="flex flex-wrap gap-1">
               <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
+            </div>
+          </td>
+          <td class="px-3 py-1.5 text-xs">
+            <div v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id">
+              {{ span(record) }} <span v-if="record.edited" class="text-amber-700">({{ de.time.edited }})</span>
             </div>
           </td>
           <td class="px-3 py-1.5 text-xs">{{ day.info1 }}</td>
