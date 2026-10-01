@@ -11,6 +11,7 @@ export const de = {
     saved: 'Gespeichert', deleted: 'Gelöscht', confirmDelete: 'Wirklich löschen?', confirmTitle: 'Bitte bestätigen',
     previousMonth: 'Vorheriger Monat', nextMonth: 'Nächster Monat', previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
     invalidTime: 'Ungültige Uhrzeit – z. B. 8:45 oder 845 eingeben (5-Minuten-Schritte).',
+    invalidTimeAnyMinute: 'Ungültige Uhrzeit – z. B. 7:42 oder 742 eingeben.',
     invalidTimeShort: 'Ungültige Uhrzeit',
   },
   nav: {

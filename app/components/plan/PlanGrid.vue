@@ -108,6 +108,7 @@ const rows = computed(() => props.plan.days.map((day) => {
       missing: cellWarnings.some(warning => warning.type === 'missing_entry'),
       fill: cellFillColor(entriesByCell.value.get(key) ?? []),
       gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
+      actual: props.plan.admin?.actuals[key] ?? null,
       title: joinLines([
         pendingChangeText(pending),
         releasedChangeText(props.plan.changes[key]),
@@ -189,6 +190,13 @@ const rows = computed(() => props.plan.days.map((day) => {
                   @remove="emit('removeEntry', $event)" @click="onEntryClick(cell.key, entry, $event)"
                 />
                 <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
+                <NuxtLink
+                  v-if="cell.actual" :to="`/admin/time?employee=${cell.employeeId}&year=${plan.year}&month=${plan.month}&date=${row.day.date}`"
+                  class="text-xs hover:underline" :class="cell.actual.deviates || cell.actual.open ? 'font-medium text-orange-600' : 'text-gray-500'"
+                  @click.stop
+                >
+                  {{ de.time.recorded }} {{ formatDuration(cell.actual.minutes) }}<template v-if="cell.actual.open"> ({{ de.time.open }})</template>
+                </NuxtLink>
               </div>
             </td>
             <td

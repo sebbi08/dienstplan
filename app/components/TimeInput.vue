@@ -15,6 +15,7 @@ const inputAttrs = computed(() => {
 })
 const touched = ref(false)
 const invalid = computed(() => touched.value && model.value.trim() !== '' && !isValidTimeInput(model.value, props.anyMinute ? 1 : 5))
+const invalidTitle = computed(() => (props.anyMinute ? de.common.invalidTimeAnyMinute : de.common.invalidTime))
 
 function normalize() {
   touched.value = true
@@ -28,9 +29,9 @@ function normalize() {
     <UInput
       v-model="model" v-bind="inputAttrs" type="text" inputmode="decimal" autocomplete="off" :maxlength="5"
       placeholder="hh:mm" class="w-full" :color="invalid ? 'error' : 'primary'" :highlight="invalid"
-      :title="invalid ? de.common.invalidTime : undefined"
+      :title="invalid ? invalidTitle : undefined"
       @blur="normalize"
     />
-    <p v-if="invalid" class="mt-0.5 text-xs text-red-600" :title="de.common.invalidTime">{{ de.common.invalidTimeShort }}</p>
+    <p v-if="invalid" class="mt-0.5 text-xs text-red-600" :title="invalidTitle">{{ de.common.invalidTimeShort }}</p>
   </div>
 </template>
