@@ -208,6 +208,9 @@ const rows = computed(() => props.plan.days.map((day) => {
         </template>
       </tbody>
       <tfoot v-if="totals.length" class="bg-gray-50 text-xs">
+        <tr aria-hidden="true">
+          <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-2" />
+        </tr>
         <tr v-for="(row, index) in totals" :key="row.label" :class="index === totals.length - 1 ? 'font-semibold' : ''">
           <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1">{{ row.label }}</td>
           <td
