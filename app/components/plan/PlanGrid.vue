@@ -19,7 +19,19 @@ const emit = defineEmits<{
   dateClick: [date: string]
   noteSave: [date: string, field: NoteField, value: string]
   removeEntry: [id: number]
+  editEntry: [entry: EntryDto]
 }>()
+
+/** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
+function isEntryEditable(key: string, entry: EntryDto): boolean {
+  return !!props.editable && !!props.selected?.has(key) && entry.start !== null
+}
+
+function onEntryClick(key: string, entry: EntryDto, event: MouseEvent) {
+  if (!isEntryEditable(key, entry) || event.shiftKey || event.ctrlKey || event.metaKey) return
+  event.stopPropagation()
+  emit('editEntry', entry)
+}
 
 const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
 const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
@@ -171,7 +183,11 @@ const rows = computed(() => props.plan.days.map((day) => {
               @click="emit('cellClick', cell.employeeId, row.day.date, $event)"
             >
               <div class="flex flex-col items-start gap-0.5">
-                <PlanEntryChip v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable" :cell-title="cell.title" @remove="emit('removeEntry', $event)" />
+                <PlanEntryChip
+                  v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable"
+                  :editable="isEntryEditable(cell.key, entry)" :cell-title="cell.title"
+                  @remove="emit('removeEntry', $event)" @click="onEntryClick(cell.key, entry, $event)"
+                />
                 <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
               </div>
             </td>

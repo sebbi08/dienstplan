@@ -4,7 +4,8 @@ import type { EntryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { chipClasses } from '~/utils/colors'
 
-const props = defineProps<{ entry: EntryDto; removable?: boolean; cellTitle?: string }>()
+/** `editable`: a click on the chip opens the edit dialog (the parent handles the click). */
+const props = defineProps<{ entry: EntryDto; removable?: boolean; editable?: boolean; cellTitle?: string }>()
 const emit = defineEmits<{ remove: [id: number] }>()
 
 /** Additional breaks carry "[h:mm–h:mm]" as label; show them as "Pause h:mm–h:mm". */
@@ -16,12 +17,15 @@ const breakText = computed(() => {
 })
 const title = computed(() => {
   const own = [props.entry.shortLabel, props.entry.note].filter(Boolean).join(' · ')
-  return [own, props.cellTitle].filter(Boolean).join('\n') || undefined
+  return [own, props.editable ? de.plan.editEntryHint : '', props.cellTitle].filter(Boolean).join('\n') || undefined
 })
 </script>
 
 <template>
-  <span class="group inline-flex items-start gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xs" :class="chipClasses[entry.color]" :title="title">
+  <span
+    class="group inline-flex items-start gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xs"
+    :class="[chipClasses[entry.color], editable ? 'cursor-pointer ring-1 ring-sky-400 hover:ring-2' : '']" :title="title"
+  >
     <span class="flex flex-col">
       <span>{{ text }}</span>
       <span v-if="breakText" class="text-[11px] leading-tight text-red-700">{{ breakText }}</span>

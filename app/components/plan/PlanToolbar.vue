@@ -10,15 +10,20 @@ export interface GapSuggestion {
 
 <script setup lang="ts">
 import { formatTime } from '#shared/domain/time'
+import type { CodeKey } from '#shared/domain/types'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
-defineProps<{
+const props = defineProps<{
   templates: TemplateDto[]
   codes: CodeDto[]
   selectedCount: number
   gapSuggestions: GapSuggestion[]
 }>()
+
+/** Holidays are set automatically and closure days via "Schließzeiten", so they get no button. */
+const AUTOMATIC_CODES: CodeKey[] = ['holiday', 'closure_day']
+const buttonCodes = computed(() => props.codes.filter(code => !AUTOMATIC_CODES.includes(code.key)))
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
   template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
@@ -39,7 +44,7 @@ const emit = defineEmits<{
     </div>
     <div class="flex flex-wrap items-center gap-1">
       <UButton
-        v-for="code in codes" :key="code.id" size="xs" color="neutral" variant="soft"
+        v-for="code in buttonCodes" :key="code.id" size="xs" color="neutral" variant="soft"
         :label="code.requiresTimes ? `${code.label}…` : code.label" @click="emit('code', code)"
       />
       <UButton size="xs" color="neutral" variant="soft" :label="de.plan.special" @click="emit('special')" />

@@ -24,7 +24,7 @@ describe('settings service', () => {
   it('returns the seeded settings', () => {
     const settings = getSettings(db)
     expect(settings.templates.map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(settings.codes.map(c => c.key)).toEqual(['vacation', 'sick', 'training', 'school', 'other', 'prep_time', 'office', 'holiday', 'closure_day'])
+    expect(settings.codes.map(c => c.key)).toEqual(['vacation', 'sick', 'office', 'prep_time', 'training', 'school', 'other', 'holiday', 'closure_day'])
     expect(settings.coverageRules).toHaveLength(3)
   })
   it('does not change existing entries when a template changes or is deleted', () => {

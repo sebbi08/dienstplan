@@ -51,6 +51,7 @@ export const de = {
     fillGap: 'Ergänzen:',
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',
+    editEntryHint: 'Klicken zum Bearbeiten',
   },
   modal: {
     discardTitle: 'Noch nicht freigegebene Änderungen',
@@ -58,6 +59,9 @@ export const de = {
     discardSelectAll: 'Alle auswählen',
     discardSubmit: (count: number) => (count === 0 ? 'Verwerfen' : count === 1 ? '1 Änderung verwerfen' : `${count} Änderungen verwerfen`),
     changeBreakTitle: 'Pause ändern', addBreakTitle: 'Zusätzliche Pause eintragen',
+    editTitle: (name: string) => `Bearbeiten: ${name}`,
+    editBreakHint: 'Pause leer lassen = keine Pause.',
+    becomesSpecial: 'Die Zeiten weichen vom festen Dienst ab – er wird als Sonderdienst gespeichert.',
     breakEmptyHint: 'Beide Felder leer lassen, wenn dieser Dienst keine Pause haben soll.',
     specialTitle: 'Sonderdienst eintragen', codeTitle: (label: string) => `${label} eintragen`,
     start: 'Von', end: 'Bis', breakStart: 'Pause von', breakEnd: 'Pause bis', note: 'Notiz (optional)', save: 'Eintragen',
@@ -186,6 +190,7 @@ export const de = {
     break_outside_work: 'Die Pause muss innerhalb der Arbeitszeit dieses Tages liegen.',
     break_overlap: 'Die Pause überschneidet sich mit einer anderen Pause.',
     not_a_work_entry: 'Für diesen Eintrag kann keine Pause eingetragen werden.',
+    not_a_timed_entry: 'Dieser Eintrag hat keine Uhrzeiten.',
     invalid_rule: 'Bitte gültige Uhrzeiten (5-Minuten-Raster, Ende nach Beginn) und eine Mindestanzahl ab 1 angeben.',
   },
 }

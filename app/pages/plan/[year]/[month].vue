@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { ApplyMode, CodeDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import type { ApplyMode, CodeDto, EntryDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
 import { fullShiftOptions } from '#shared/domain/suggest'
+import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanToolbar.vue'
 import { de } from '~/locales/de'
@@ -22,6 +23,8 @@ const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
 const modalCode = ref<CodeDto | null>(null)
 const discardOpen = ref(false)
+const editOpen = ref(false)
+const editEntry = ref<EntryDto | null>(null)
 const breakModal = reactive<{ open: boolean; mode: 'change' | 'add'; entryId: number | null; initial: { start: number; end: number } | null }>({
   open: false, mode: 'add', entryId: null, initial: null,
 })
@@ -139,6 +142,15 @@ function onRemoveEntry(id: number) {
   run(() => $fetch<unknown>(`/api/entries/${id}`, { method: 'DELETE' }))
 }
 
+function onEditEntry(entry: EntryDto) {
+  editEntry.value = entry
+  editOpen.value = true
+}
+
+function onEditSubmit(id: number, times: TimeSpan) {
+  run(() => $fetch<unknown>(`/api/entries/${id}`, { method: 'PUT', body: times }))
+}
+
 async function release() {
   if (!await confirm(de.plan.releaseConfirm, { confirmLabel: de.plan.release, danger: false })) return
   run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' }), de.plan.releasedToast)
@@ -166,6 +178,7 @@ function navigate(nextYear: number, nextMonth: number) {
           <PlanGrid
             :plan="plan" :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
+            @edit-entry="onEditEntry"
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" @close="selectedDate = null" />
         </div>
@@ -173,6 +186,7 @@ function navigate(nextYear: number, nextMonth: number) {
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
       <PlanBreakModal v-model:open="breakModal.open" :mode="breakModal.mode" :initial="breakModal.initial" @submit="onBreakSubmit" />
+      <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" @submit="onEditSubmit" />
     </template>
     <template v-else>
       <MonthNav :year="year" :month="month" @change="navigate" />

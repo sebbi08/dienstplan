@@ -5,7 +5,7 @@ import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { validateSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import type { IsoDate } from '../../shared/domain/types'
+import type { IsoDate, Minutes } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../db/schema'
@@ -123,6 +123,65 @@ export function deleteEntry(db: Db, actor: SessionUser, id: number, now: Date = 
     tx.delete(entries).where(eq(entries.id, id)).run()
     logChange(tx, {
       ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: now.toISOString(),
+    })
+  })
+}
+
+export interface EntryTimesChange {
+  start: Minutes
+  end: Minutes
+  breakStart: Minutes | null
+  breakEnd: Minutes | null
+}
+
+/** First rule a day breaks after entry `changed` got new times: overlapping work or a misplaced break. */
+function dayConflict(day: EntryDto[], changed: EntryDto): string | null {
+  if (changed.kind !== 'break') {
+    const overlapping = day.some(other => other !== changed && other.kind !== 'break' && other.start !== null && other.end !== null
+      && changed.start! < other.end && other.start < changed.end!
+      && isTargetGapCode(other.codeKey) === isTargetGapCode(changed.codeKey))
+    if (overlapping) return 'entries_overlap'
+  }
+  for (const entry of day) {
+    const conflict = entry.kind === 'break'
+      ? breakConflict(day.filter(other => other !== entry), entry.start!, entry.end!)
+      : entry.breakStart !== null && entry.breakEnd !== null
+        ? breakConflict(day, entry.breakStart, entry.breakEnd, { ignoreBreakOf: entry })
+        : null
+    if (conflict) return conflict
+  }
+  return null
+}
+
+/**
+ * Changes the times of one timed entry (clicked in the plan). A fixed shift whose start or end changes
+ * becomes a special shift; a fixed shift with only a changed break stays a fixed shift.
+ */
+export function updateEntryTimes(db: Db, actor: SessionUser, id: number, change: EntryTimesChange, now: Date = new Date()): void {
+  const entry = db.select().from(entries).where(eq(entries.id, id)).get()
+  if (!entry) throw new ServiceError(404, 'entry_not_found')
+  if (entry.start === null || entry.end === null) throw new ServiceError(400, 'not_a_timed_entry')
+  const isBreak = entry.kind === 'break'
+  const span = { ...change, breakStart: isBreak ? null : change.breakStart, breakEnd: isBreak ? null : change.breakEnd }
+  const spanError = validateSpan(span)
+  if (spanError) throw new ServiceError(400, `span_${spanError}`)
+  const becomesSpecial = entry.kind === 'shift' && (span.start !== entry.start || span.end !== entry.end)
+
+  const cell = { employeeId: entry.employeeId, date: entry.date }
+  db.transaction((tx) => {
+    const dayEntries = loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
+    const self = dayEntries.find(candidate => candidate.id === id)!
+    const changed: EntryDto = { ...self, ...span, kind: becomesSpecial ? 'special' : self.kind }
+    const conflict = dayConflict(dayEntries.map(candidate => (candidate === self ? changed : candidate)), changed)
+    if (conflict) throw new ServiceError(400, conflict)
+
+    tx.update(entries).set({
+      ...span, ...(becomesSpecial ? { kind: 'special' as const, shiftTemplateId: null } : {}),
+      updatedAt: now.toISOString(), updatedBy: actor.id,
+    }).where(eq(entries.id, id)).run()
+    logChange(tx, {
+      ...cell, field: 'entry', before: describeCellDetailed(dayEntries), after: describeCellAt(tx, cell),
+      actorId: actor.id, now: now.toISOString(),
     })
   })
 }
