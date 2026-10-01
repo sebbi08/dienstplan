@@ -5,29 +5,41 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 
 const { data: people, refresh, error } = await useFetch<TerminalPersonDto[]>('/api/terminal/status')
-const chosen = ref<TerminalPersonDto | null>(null)
+const chosenId = ref<number | null>(null)
+// Derived from the refreshed list so a poll updates the clock-in/out state of the button.
+const chosen = computed(() => people.value?.find(person => person.employeeId === chosenId.value) ?? null)
 const pin = ref('')
 const message = ref('')
 const failure = ref('')
+const busy = ref(false)
 let resetTimer: ReturnType<typeof setTimeout> | undefined
+let poll: ReturnType<typeof setInterval> | undefined
+let unmounted = false
+// Incremented on every choose/back so late responses of an earlier selection are ignored.
+let epoch = 0
 
-// Keep the green dots current when several people use the tablet.
-const poll = setInterval(() => refresh(), 30_000)
+// Keep the green dots current when several people use the tablet (client only).
+onMounted(() => {
+  poll = setInterval(() => refresh(), 30_000)
+})
 onBeforeUnmount(() => {
+  unmounted = true
   clearInterval(poll)
   clearTimeout(resetTimer)
 })
 
 function choose(person: TerminalPersonDto) {
-  chosen.value = person
+  epoch++
+  chosenId.value = person.employeeId
   pin.value = ''
   failure.value = ''
   message.value = ''
 }
 
 function backToList() {
+  epoch++
   clearTimeout(resetTimer)
-  chosen.value = null
+  chosenId.value = null
   pin.value = ''
   failure.value = ''
   message.value = ''
@@ -35,22 +47,31 @@ function backToList() {
 }
 
 function press(digit: string) {
-  if (pin.value.length < 4) pin.value += digit
+  if (!busy.value && pin.value.length < 4) pin.value += digit
 }
 
 async function submit(action: StampAction) {
   const person = chosen.value
-  if (!person || pin.value.length !== 4) return
+  if (busy.value || !person || pin.value.length !== 4) return
+  const startedEpoch = epoch
+  const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId
+  busy.value = true
   try {
     const record = await $fetch<TimeRecordDto>('/api/terminal/stamp', { method: 'POST', body: { employeeId: person.employeeId, pin: pin.value, action } })
+    if (isStale()) return
     message.value = de.time.stamped(action, formatTime(action === 'in' ? record.start : record.end ?? record.start))
     failure.value = ''
+    pin.value = ''
     clearTimeout(resetTimer)
     resetTimer = setTimeout(backToList, 5000)
   }
   catch (caught) {
+    if (isStale()) return
     failure.value = errorMessage(caught)
     pin.value = ''
+  }
+  finally {
+    busy.value = false
   }
 }
 </script>
@@ -85,13 +106,13 @@ async function submit(action: StampAction) {
         <div class="text-3xl tracking-[0.5em]" :aria-label="de.terminal.pin">{{ '•'.repeat(pin.length).padEnd(4, '–') }}</div>
         <p v-if="failure" class="text-sm text-red-600">{{ failure }}</p>
         <div class="grid grid-cols-3 gap-2">
-          <UButton v-for="digit in ['1', '2', '3', '4', '5', '6', '7', '8', '9']" :key="digit" size="xl" color="neutral" variant="outline" class="justify-center" :label="digit" @click="press(digit)" />
-          <UButton size="xl" color="neutral" variant="ghost" class="justify-center" icon="i-lucide-delete" :aria-label="de.common.delete" @click="pin = pin.slice(0, -1)" />
-          <UButton size="xl" color="neutral" variant="outline" class="justify-center" label="0" @click="press('0')" />
+          <UButton v-for="digit in ['1', '2', '3', '4', '5', '6', '7', '8', '9']" :key="digit" size="xl" color="neutral" variant="outline" class="justify-center" :disabled="busy" :label="digit" @click="press(digit)" />
+          <UButton size="xl" color="neutral" variant="ghost" class="justify-center" icon="i-lucide-delete" :disabled="busy" :aria-label="de.common.delete" @click="pin = pin.slice(0, -1)" />
+          <UButton size="xl" color="neutral" variant="outline" class="justify-center" :disabled="busy" label="0" @click="press('0')" />
           <UButton size="xl" color="neutral" variant="ghost" class="justify-center" icon="i-lucide-x" :aria-label="de.terminal.back" @click="backToList" />
         </div>
         <UButton
-          block size="xl" :disabled="pin.length !== 4" :color="chosen.clockedIn ? 'warning' : 'success'"
+          block size="xl" :disabled="pin.length !== 4 || busy" :loading="busy" :color="chosen.clockedIn ? 'warning' : 'success'"
           :label="chosen.clockedIn ? de.time.clockOut : de.time.clockIn" @click="submit(chosen.clockedIn ? 'out' : 'in')"
         />
       </template>
