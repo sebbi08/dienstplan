@@ -76,15 +76,19 @@ export function updateUser(db: Db, id: number, update: UserUpdate): UserDto {
   const losesAdmin = user.role === 'admin' && user.active && (update.role !== 'admin' || !update.active)
   if (losesAdmin && activeAdminCount(db) <= 1) throw new ServiceError(409, 'last_admin')
   db.update(users)
-    .set({ role: update.role, employeeId: update.employeeId, active: update.active })
+    .set({
+      role: update.role, employeeId: update.employeeId, active: update.active,
+      // The tablet cannot reach the password page, so a terminal must never be forced to change it.
+      ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
+    })
     .where(eq(users.id, id)).run()
   return findUser(db, id)
 }
 
 export function resetPassword(db: Db, id: number, password: string): void {
-  findUser(db, id)
+  const user = findUser(db, id)
   assertPasswordStrength(password)
   db.update(users).set({
-    passwordHash: hashPassword(password), mustChangePassword: true, failedLogins: 0, lockedUntil: null,
+    passwordHash: hashPassword(password), mustChangePassword: user.role !== 'terminal', failedLogins: 0, lockedUntil: null,
   }).where(eq(users.id, id)).run()
 }

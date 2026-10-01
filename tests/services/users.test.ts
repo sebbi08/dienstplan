@@ -62,4 +62,18 @@ describe('terminal users', () => {
     const user = createUser(db, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
     expect(errorCode(() => updateUser(db, user.id, { role: 'terminal', employeeId: anna, active: true }))).toBe('terminal_no_employee')
   })
+  it('never forces a terminal user to change the password after a reset', () => {
+    const user = createUser(db, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    resetPassword(db, user.id, 'another-password')
+    expect(listUsers(db).find(candidate => candidate.id === user.id)!.mustChangePassword).toBe(false)
+    const admin = createUser(db, { username: 'chef', password: 'secret-password', role: 'admin', employeeId: null })
+    resetPassword(db, admin.id, 'another-password')
+    expect(listUsers(db).find(candidate => candidate.id === admin.id)!.mustChangePassword).toBe(true)
+  })
+  it('clears the forced password change when a user becomes a terminal', () => {
+    const user = createUser(db, { username: 'staff', password: 'staff-password', role: 'observer', employeeId: addEmployee(db, 'Anna') })
+    expect(user.mustChangePassword).toBe(true)
+    const updated = updateUser(db, user.id, { role: 'terminal', employeeId: null, active: true })
+    expect(updated.mustChangePassword).toBe(false)
+  })
 })

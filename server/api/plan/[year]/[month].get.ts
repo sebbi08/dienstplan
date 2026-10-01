@@ -3,7 +3,7 @@ import { monthParams } from '../../../schemas'
 import { getMonthPlan } from '../../../services/plan'
 
 export default defineServiceHandler(async (event) => {
-  const user = await requireUser(event)
+  const user = await requireUser(event, { allowTerminal: true })
   const { year, month } = await getValidatedRouterParams(event, monthParams.parse)
   return getMonthPlan(useDb(), user, year, month, todayIso())
 })

@@ -215,6 +215,7 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
   hours: { id: number; weeklyMinutes: number; validFrom: IsoDate }[]
   adjustments: { id: number; date: IsoDate; minutes: number; reason: string }[]
   entitlements: { id: number; year: number; days: number; carriedOverDays: number }[]
+  hasPin: boolean
 }
 
 export interface UserDto {
@@ -245,6 +246,8 @@ export interface SettingsDto {
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null
 }
+
+export interface TerminalPersonDto { employeeId: number; name: string; clockedIn: boolean }
 
 export type StampAction = 'in' | 'out'
 export type TimeRecordSource = 'self' | 'terminal' | 'admin'

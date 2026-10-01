@@ -53,6 +53,7 @@ export function getEmployee(db: Db, id: number, today: IsoDate): EmployeeDetailD
       .map(({ id: adjustmentId, date, minutes, reason }) => ({ id: adjustmentId, date, minutes, reason })),
     entitlements: db.select().from(leaveEntitlements).where(eq(leaveEntitlements.employeeId, id)).orderBy(asc(leaveEntitlements.year)).all()
       .map(({ id: entitlementId, year, days, carriedOverDays }) => ({ id: entitlementId, year, days, carriedOverDays })),
+    hasPin: db.select().from(employees).where(eq(employees.id, id)).get()!.pinHash !== null,
   }
 }
 
