@@ -43,13 +43,34 @@ export function dayCredit(entries: DomainEntry[], target: number): number {
   return workedMinutes(entries)
 }
 
-export function computeDay(info: EmploymentInfo, date: IsoDate, entries: DomainEntry[]): DayResult {
+/** Recorded time replaces the plan for days in [from, today) (Zeiterfassung). */
+export interface ActualTime {
+  /** First day credited from time records ("Zeiterfassung ab"). */
+  from: IsoDate
+  /** Today: today and later days still use the plan as forecast. */
+  today: IsoDate
+  /** Recorded minutes (closed records only) per date of one employee. */
+  minutesByDate: Map<IsoDate, number>
+}
+
+export function usesRecords(actual: ActualTime | undefined, date: IsoDate): boolean {
+  return actual !== undefined && actual.from <= date && date < actual.today
+}
+
+export function computeDay(info: EmploymentInfo, date: IsoDate, entries: DomainEntry[], actual?: ActualTime): DayResult {
   const target = dailyTarget(info, date)
-  const credit = isEmployedOn(info, date) ? dayCredit(entries, target) : 0
+  let credit = 0
+  if (isEmployedOn(info, date)) {
+    credit = entries.some(entry => entry.creditMode === 'daily_target') || !usesRecords(actual, date)
+      ? dayCredit(entries, target)
+      : actual!.minutesByDate.get(date) ?? 0
+  }
   return { date, target, credit, delta: credit - target }
 }
 
-export function computeRange(info: EmploymentInfo, entries: DomainEntry[], from: IsoDate, to: IsoDate): DayResult[] {
+export function computeRange(
+  info: EmploymentInfo, entries: DomainEntry[], from: IsoDate, to: IsoDate, actual?: ActualTime,
+): DayResult[] {
   const byDate = new Map<IsoDate, DomainEntry[]>()
   for (const entry of entries) {
     if (entry.date < from || entry.date > to) continue
@@ -57,7 +78,7 @@ export function computeRange(info: EmploymentInfo, entries: DomainEntry[], from:
     list.push(entry)
     byDate.set(entry.date, list)
   }
-  return dateRange(from, to).map(date => computeDay(info, date, byDate.get(date) ?? []))
+  return dateRange(from, to).map(date => computeDay(info, date, byDate.get(date) ?? [], actual))
 }
 
 export function summarize(days: DayResult[]): Totals {
@@ -73,9 +94,10 @@ export function summarize(days: DayResult[]): Totals {
 
 export function balanceUntil(
   info: EmploymentInfo, entries: DomainEntry[], adjustments: Adjustment[], until: IsoDate,
+  actual?: ActualTime,
 ): number {
   const adjusted = adjustments.filter(a => a.date <= until).reduce((sum, a) => sum + a.minutes, 0)
   const start = employmentStart(info)
   if (start === null || start > until) return adjusted
-  return adjusted + summarize(computeRange(info, entries, start, until)).delta
+  return adjusted + summarize(computeRange(info, entries, start, until, actual)).delta
 }

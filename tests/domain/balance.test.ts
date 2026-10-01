@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { balanceUntil, computeDay, computeRange, dayCredit, summarize } from '../../shared/domain/balance'
+import {
+  balanceUntil, computeDay, computeRange, dayCredit, summarize, usesRecords, type ActualTime,
+} from '../../shared/domain/balance'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import { code, F1, M, shift, special } from '../helpers/entries'
 
@@ -69,5 +71,40 @@ describe('balanceUntil', () => {
   it('only includes adjustments and days up to the given date', () => {
     expect(balanceUntil(info, entries, [{ date: '2026-10-05', minutes: 750 }], '2026-10-01')).toBe(0)
     expect(balanceUntil(info, entries, [], '2026-10-05')).toBe(-3)
+  })
+})
+
+describe('recorded time (Zeiterfassung)', () => {
+  const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+  const actual = (minutes: Record<string, number>, from = '2026-10-01', today = '2026-10-08'): ActualTime =>
+    ({ from, today, minutesByDate: new Map(Object.entries(minutes)) })
+  const planned = [shift(1, '2026-10-06', ...M), shift(1, '2026-10-08', ...M)]
+
+  it('uses records for days from the start date until yesterday', () => {
+    expect(usesRecords(actual({}), '2026-10-07')).toBe(true)
+    expect(usesRecords(actual({}), '2026-10-08')).toBe(false) // today: plan
+    expect(usesRecords(actual({}), '2026-09-30')).toBe(false) // before the start date
+    expect(usesRecords(undefined, '2026-10-07')).toBe(false)
+  })
+  it('credits recorded minutes instead of the plan for past days', () => {
+    expect(computeDay(info, '2026-10-06', planned, actual({ '2026-10-06': 500 })).credit).toBe(500)
+    expect(computeDay(info, '2026-10-07', [], actual({})).credit).toBe(0) // nothing recorded
+    expect(computeDay(info, '2026-10-08', planned, actual({ '2026-10-08': 10 })).credit).toBe(465) // today: plan
+  })
+  it('keeps the daily target for absence codes even with records', () => {
+    const sick = [code(1, '2026-10-06', 'sick', 'daily_target')]
+    expect(computeDay(info, '2026-10-06', sick, actual({ '2026-10-06': 180 })).credit).toBe(468)
+  })
+  it('counts weekend records as plus', () => {
+    expect(computeDay(info, '2026-10-04', [], actual({ '2026-10-04': 240 })).delta).toBe(240)
+  })
+  it('ignores records before the start date (start date moved later)', () => {
+    expect(computeDay(info, '2026-10-06', planned, actual({ '2026-10-06': 500 }, '2026-10-07')).credit).toBe(465)
+  })
+  it('passes the records through computeRange and balanceUntil', () => {
+    const records = actual({ '2026-10-06': 500 })
+    expect(computeRange(info, planned, '2026-10-06', '2026-10-06', records)[0]!.credit).toBe(500)
+    expect(balanceUntil(info, planned, [], '2026-10-06', records))
+      .toBe(balanceUntil(info, planned, [], '2026-10-06') + (500 - 465))
   })
 })
