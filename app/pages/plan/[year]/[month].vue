@@ -90,6 +90,7 @@ function onRemoveEntry(id: number) {
 }
 
 function release() {
+  if (!window.confirm(de.plan.releaseConfirm)) return
   run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' }), de.plan.releasedToast)
 }
 
