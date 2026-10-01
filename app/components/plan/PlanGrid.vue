@@ -134,15 +134,16 @@ const rows = computed(() => props.plan.days.map((day) => {
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-lg ring-1 ring-gray-200 print:overflow-visible print:ring-0">
+  <!-- Own scroll area so the name row (top) and the date column (left) stay visible while scrolling. -->
+  <div class="max-h-[calc(100dvh-10rem)] overflow-auto rounded-lg ring-1 ring-gray-200 print:max-h-none print:overflow-visible print:ring-0">
     <table class="w-full border-collapse text-sm">
-      <thead class="bg-gray-100 text-xs text-gray-600">
+      <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:shadow-none">
         <tr>
-          <th class="sticky left-0 z-10 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
-          <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 px-2 py-1">{{ employee.name }}</th>
-          <th class="min-w-32 border border-gray-200 px-2 py-1">{{ de.plan.info1 }}</th>
-          <th class="min-w-32 border border-gray-200 px-2 py-1">{{ de.plan.info2 }}</th>
-          <th v-if="plan.admin" class="w-8 border border-gray-200 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
+          <th class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
+          <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">{{ employee.name }}</th>
+          <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+          <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+          <th v-if="plan.admin" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
         </tr>
       </thead>
       <tbody>

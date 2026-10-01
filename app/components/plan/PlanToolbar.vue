@@ -14,7 +14,7 @@ const emit = defineEmits<{ template: [template: TemplateDto]; code: [code: CodeD
 </script>
 
 <template>
-  <div class="sticky top-0 z-30 space-y-2 rounded-lg bg-white p-2 ring-1 ring-gray-200 print:hidden">
+  <div class="space-y-2 rounded-lg bg-white p-2 ring-1 ring-gray-200 print:hidden">
     <div class="flex flex-wrap items-center gap-1">
       <span class="mr-2 text-xs text-gray-500">{{ selectedCount ? de.plan.selected(selectedCount) : de.plan.selectHint }}</span>
       <UButton
