@@ -144,6 +144,8 @@ export interface BalanceDto {
   weeklyMinutes: number | null
   today: number
   monthEnd: number
+  /** Balance at the last day of the previous month (carry-over incl. bookings). */
+  previousMonthEnd: number
 }
 
 export interface MonthPlanAdminDto {

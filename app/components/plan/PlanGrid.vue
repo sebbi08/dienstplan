@@ -52,6 +52,22 @@ function markClass(item: { pending: boolean; changed: boolean }): string {
   return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''
 }
 
+/** Admin-only month footer: carry-over, this month's difference and the resulting total per employee. */
+const totals = computed(() => {
+  const balances = props.plan.admin?.balances
+  if (!balances) return []
+  const byEmployee = new Map(balances.map(balance => [balance.employeeId, balance]))
+  const column = (pick: (carry: number, total: number) => number) => props.plan.employees.map((employee) => {
+    const balance = byEmployee.get(employee.id)
+    return balance ? pick(balance.previousMonthEnd, balance.monthEnd) : 0
+  })
+  return [
+    { label: de.plan.totalsCarryOver, values: column(carry => carry) },
+    { label: de.plan.totalsMonth, values: column((carry, total) => total - carry) },
+    { label: de.plan.totalsTotal, values: column((_, total) => total) },
+  ]
+})
+
 function rowClass(day: DayRowDto): string {
   if (day.holidayKey || day.closureLabel) return 'bg-blue-50'
   return day.isWeekend ? 'bg-gray-100 text-gray-500' : 'bg-white'
@@ -180,6 +196,18 @@ const rows = computed(() => props.plan.days.map((day) => {
           </tr>
         </template>
       </tbody>
+      <tfoot v-if="totals.length" class="bg-gray-50 text-xs">
+        <tr v-for="(row, index) in totals" :key="row.label" :class="index === totals.length - 1 ? 'font-semibold' : ''">
+          <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1">{{ row.label }}</td>
+          <td
+            v-for="(minutes, column) in row.values" :key="column"
+            class="border border-gray-200 px-2 py-1 text-center" :class="balanceClass(minutes)"
+          >
+            {{ formatSignedDuration(minutes) }}
+          </td>
+          <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200" />
+        </tr>
+      </tfoot>
     </table>
   </div>
 </template>

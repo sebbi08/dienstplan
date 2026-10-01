@@ -23,8 +23,16 @@ describe('balances and leave', () => {
     applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     addAdjustment(db, anna, { date: '2026-10-05', minutes: 750, reason: 'Übertrag' })
     expect(getBalanceOverview(db, 2026, 10, '2026-10-09')).toEqual([
-      { employeeId: anna, name: 'Anna', weeklyMinutes: 2340, today: 735, monthEnd: 735 - 15 * 468 },
+      { employeeId: anna, name: 'Anna', weeklyMinutes: 2340, today: 735, monthEnd: 735 - 15 * 468, previousMonthEnd: 0 },
     ])
+  })
+  it('carries the balance at the end of the previous month, including earlier bookings', () => {
+    applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    addAdjustment(db, anna, { date: '2026-09-30', minutes: 750, reason: 'Übertrag aus altem Plan' })
+    const [october] = getBalanceOverview(db, 2026, 10, '2026-10-09')
+    expect(october!.previousMonthEnd).toBe(750)
+    const [november] = getBalanceOverview(db, 2026, 11, '2026-10-09')
+    expect(november!.previousMonthEnd).toBe(october!.monthEnd)
   })
   it('excludes employees who are not employed in the month', () => {
     addEmployee(db, 'Carl', { validFrom: '2026-11-01' })

@@ -36,6 +36,7 @@ export const de = {
     releaseConfirm: 'Monat freigeben? Alle Beobachter sehen danach diesen Stand. Eine Freigabe kann nicht zurückgenommen werden; spätere Änderungen werden nach der nächsten Freigabe als Änderung markiert.',
     releasedToast: 'Monat freigegeben', print: 'Drucken', printNow: 'Jetzt drucken',
     week: (number: number) => `KW ${number}`, weekHint: 'Soll/Ist-Differenz der Woche',
+    totalsCarryOver: 'Übertrag Vormonat', totalsMonth: 'Dieser Monat', totalsTotal: 'Gesamt Monatsende',
     weekTooltip: (target: string, credit: string) => `Soll ${target} · Ist ${credit}`,
     selected: (count: number) => (count === 1 ? '1 Zelle ausgewählt' : `${count} Zellen ausgewählt`),
     selectHint: 'Zelle anklicken · Umschalt+Klick: Bereich · Strg+Klick: mehrere Zellen',
