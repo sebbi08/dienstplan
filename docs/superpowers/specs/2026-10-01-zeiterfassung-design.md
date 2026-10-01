@@ -127,6 +127,10 @@ dafür wird nicht gestempelt, und an solchen Tagen gibt es keinen Hinweis „Kei
   **minutengenau**, also ohne 5-Minuten-Raster). Offene Zeiträume können geschlossen werden.
 - Regeln: `Ende > Beginn` (beim Bearbeiten durch den Admin ist ein Ende Pflicht), keine
   Überschneidung mit anderen Zeiträumen des Tages, Datum nicht in der Zukunft.
+- Pro Tag außerdem **Urlaub, Krank, Fortbildung, Schule** eintragen bzw. entfernen (Knöpfe der Codes
+  mit Anrechnung „Tagessoll“). Das schreibt – wie im Dienstplan – den Eintrag **in den Dienstplan**
+  (ersetzt die Einträge des Tages; erscheint dort als noch nicht freigegebene Änderung). Es gibt nur
+  eine Quelle: den Dienstplan.
 - Oben eine Liste **„Offene Zeiträume“** (alle Personen, frühere Tage) mit Sprung zum Tag.
 
 ### 5.2 Protokoll
