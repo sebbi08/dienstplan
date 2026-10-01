@@ -100,7 +100,15 @@ export interface ChangeDto {
 export interface ReleaseDto {
   releasedAt: string | null
   releasedBy: string | null
+  /** Cells/info fields changed between releases (released changes). */
   changeCount: number
+  /** Admin only: cells/info fields whose draft differs from the newest release. */
+  pendingCount: number
+}
+
+export interface PendingChangeDto {
+  before: string
+  after: string
 }
 
 export interface EmployeeColumnDto {
@@ -142,6 +150,8 @@ export interface MonthPlanAdminDto {
   warnings: Warning[]
   weeks: WeekSummaryDto[]
   balances: BalanceDto[]
+  /** Draft changes not yet released, keyed by cellKey / noteKey. */
+  pendingChanges: Record<string, PendingChangeDto>
 }
 
 export interface MonthPlanDto {

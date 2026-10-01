@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { applyToCells } from '../../server/services/entries'
+import { applyToCells, setDayNote } from '../../server/services/entries'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
 import type { SessionUser } from '../../shared/types/api'
@@ -54,17 +54,61 @@ describe('month plan', () => {
     expect(plan.admin).toBeNull()
     expect(plan.entries).toHaveLength(1)
   })
-  it('tracks changes since the last release', () => {
-    shift(anna, '2026-10-06', 'F2', new Date('2026-09-20T10:00:00Z'))
+  it('shows observers only the released state, not later draft edits', () => {
+    shift(anna, '2026-10-06', 'F2')
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
-    shift(anna, '2026-10-06', 'S', new Date('2026-10-01T06:00:00Z'))
-    let plan = getMonthPlan(db, observer, 2026, 10, today)
-    expect(plan.release).toMatchObject({ releasedBy: 'leitung', changeCount: 1 })
-    expect(plan.changes[`${anna}|2026-10-06`]).toEqual([expect.objectContaining({ before: 'F2 7:30–15:45 [11:40–12:10]', after: 'S 8:45–17:00 [12:10–12:40]', changedBy: 'leitung' })])
-    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
-    plan = getMonthPlan(db, observer, 2026, 10, today)
-    expect(plan.release.changeCount).toBe(0)
+    shift(anna, '2026-10-06', 'S')
+    shift(ben, '2026-10-07', 'M')
+    setDayNote(db, admin, '2026-10-07', 'info1', 'Elternabend')
+    const plan = getMonthPlan(db, observer, 2026, 10, today)
+    expect(plan.entries.map(e => [e.employeeId, e.date, e.shortLabel])).toEqual([[anna, '2026-10-06', 'F2']])
+    expect(plan.days[6]!.info1).toBe('')
     expect(plan.changes).toEqual({})
+    expect(plan.release).toMatchObject({ releasedBy: 'leitung', changeCount: 0, pendingCount: 0 })
+  })
+  it('does not show employees who joined after the release to observers', () => {
+    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    addEmployee(db, 'Dora', { validFrom: '2026-10-15' })
+    expect(getMonthPlan(db, observer, 2026, 10, today).employees.map(e => e.name)).toEqual(['Anna', 'Ben'])
+    expect(getMonthPlan(db, admin, 2026, 10, today).employees.map(e => e.name)).toEqual(['Anna', 'Ben', 'Dora'])
+  })
+  it('marks released changes and keeps them across later releases', () => {
+    shift(anna, '2026-10-06', 'F2')
+    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    shift(anna, '2026-10-06', 'S')
+    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    setDayNote(db, admin, '2026-10-07', 'info1', 'Elternabend')
+    releaseMonth(db, admin, 2026, 10, new Date('2026-10-02T07:00:00Z'))
+    const plan = getMonthPlan(db, observer, 2026, 10, today)
+    expect(plan.changes[`${anna}|2026-10-06`]).toEqual([{
+      field: 'entry', employeeId: anna, date: '2026-10-06',
+      before: 'F2 7:30–15:45 [11:40–12:10]', after: 'S 8:45–17:00 [12:10–12:40]',
+      changedAt: '2026-10-01T07:00:00.000Z', changedBy: 'leitung',
+    }])
+    expect(plan.changes['info1|2026-10-07']).toEqual([expect.objectContaining({
+      field: 'info1', employeeId: null, date: '2026-10-07', before: '', after: 'Elternabend', changedAt: '2026-10-02T07:00:00.000Z',
+    })])
+    expect(plan.release.changeCount).toBe(2)
+    expect(plan.days[6]!.info1).toBe('Elternabend')
+    expect(getMyPlan(db, observer, 2026, 10, today).days[5]!.changes).toHaveLength(1)
+  })
+  it('shows admins pending draft changes separately from released ones', () => {
+    shift(anna, '2026-10-06', 'F2')
+    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    shift(anna, '2026-10-06', 'S')
+    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    expect(plan.entries.find(e => e.date === '2026-10-06')?.shortLabel).toBe('S')
+    expect(plan.changes).toEqual({})
+    expect(plan.admin!.pendingChanges).toEqual({
+      [`${anna}|2026-10-06`]: { before: 'F2 7:30–15:45 [11:40–12:10]', after: 'S 8:45–17:00 [12:10–12:40]' },
+    })
+    expect(plan.release).toMatchObject({ changeCount: 0, pendingCount: 1 })
+  })
+  it('has no pending or released changes for a never-released month', () => {
+    shift(anna, '2026-10-06', 'F2')
+    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    expect(plan.admin!.pendingChanges).toEqual({})
+    expect(plan.release).toEqual({ releasedAt: null, releasedBy: null, changeCount: 0, pendingCount: 0 })
   })
   it('returns only the own entries in the personal plan', () => {
     shift(anna, '2026-10-05')

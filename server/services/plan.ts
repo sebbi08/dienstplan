@@ -1,49 +1,33 @@
-import { and, asc, eq, gt, gte, lte } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { computeRange, summarize } from '../../shared/domain/balance'
-import { cellKey, noteKey } from '../../shared/domain/cells'
+import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayOn } from '../../shared/domain/holidays'
+import { changeHistory, diffCells, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
 import { isEmployedInRange } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings } from '../../shared/domain/warnings'
 import type {
-  ChangeDto, ClosureDto, DayRowDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, SessionUser, WeekSummaryDto,
+  ChangeDto, ClosureDto, DayRowDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, PendingChangeDto, SessionUser, SnapshotData,
+  WeekSummaryDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { changeLog, dayNotes, employees, monthPlans, users } from '../db/schema'
+import { employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { computeBalances } from './balances'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, type EmployeeRecord,
 } from './queries'
+import { buildSnapshot, loadReleases } from './release'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
 }
 
-function loadChanges(db: Db, from: IsoDate, to: IsoDate, releasedAt: string | null) {
-  const changes: Record<string, ChangeDto[]> = {}
-  if (!releasedAt) return { changes, changeCount: 0 }
-  const rows = db.select({ log: changeLog, username: users.username })
-    .from(changeLog)
-    .leftJoin(users, eq(changeLog.changedBy, users.id))
-    .where(and(gte(changeLog.date, from), lte(changeLog.date, to), gt(changeLog.changedAt, releasedAt)))
-    .orderBy(asc(changeLog.changedAt))
-    .all()
-  for (const { log, username } of rows) {
-    const key = log.field === 'entry' ? cellKey(log.employeeId!, log.date) : noteKey(log.field, log.date)
-    ;(changes[key] ??= []).push({
-      field: log.field, employeeId: log.employeeId, date: log.date,
-      before: log.before, after: log.after, changedAt: log.changedAt, changedBy: username ?? '',
-    })
-  }
-  return { changes, changeCount: Object.keys(changes).length }
-}
-
 function buildAdminData(
   db: Db, staff: EmployeeRecord[], closures: ClosureDto[], year: number, month: number, today: IsoDate,
-): MonthPlanAdminDto {
+): Omit<MonthPlanAdminDto, 'pendingChanges'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
@@ -78,50 +62,79 @@ function buildAdminData(
   return { warnings, weeks, balances: computeBalances(db, staff, monthEnd, today) }
 }
 
+function changeFromKey(key: string): Pick<ChangeDto, 'field' | 'employeeId' | 'date'> {
+  const [prefix, date] = key.split('|') as [string, string]
+  if (prefix === 'info1' || prefix === 'info2') return { field: prefix, employeeId: null, date }
+  const cell = parseCellKey(key)
+  return { field: 'entry', employeeId: cell.employeeId, date: cell.date }
+}
+
+function toChangeDtos(history: Map<string, ReleasedChange[]>): Record<string, ChangeDto[]> {
+  const changes: Record<string, ChangeDto[]> = {}
+  for (const [key, list] of history) {
+    changes[key] = list.map(change => ({
+      ...changeFromKey(key), before: change.before, after: change.after,
+      changedAt: change.releasedAt, changedBy: change.releasedBy,
+    }))
+  }
+  return changes
+}
+
 export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: number, today: IsoDate): MonthPlanDto {
-  const { monthStart, monthEnd } = monthBounds(year, month)
-  const plan = db.select().from(monthPlans).where(and(eq(monthPlans.year, year), eq(monthPlans.month, month))).get()
-  const releasedAt = plan?.releasedAt ?? null
   const isAdmin = viewer.role === 'admin'
-  if (!isAdmin && !releasedAt) throw new ServiceError(403, 'month_not_released')
+  const releases = loadReleases(db, year, month)
+  const latest = releases.at(-1) ?? null
+  if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
 
-  const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
-  const staffIds = new Set(staff.map(employee => employee.id))
-  const closures = loadClosures(db)
-  const notes = new Map(
-    db.select().from(dayNotes).where(and(gte(dayNotes.date, monthStart), lte(dayNotes.date, monthEnd))).all()
-      .map(note => [note.date, note]),
-  )
+  const states = releases.map(release => ({
+    releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: snapshotCells(release.data),
+  }))
+  const changes = toChangeDtos(changeHistory(states))
+  const shown: SnapshotData = isAdmin ? buildSnapshot(db, year, month) : latest!.data
 
+  const pendingChanges: Record<string, PendingChangeDto> = {}
+  if (isAdmin && states.length > 0) {
+    for (const diff of diffCells(states.at(-1)!.cells, snapshotCells(shown))) {
+      pendingChanges[diff.key] = { before: diff.before, after: diff.after }
+    }
+  }
+
+  const shownDays = new Map(shown.days.map(day => [day.date, day]))
   const days: DayRowDto[] = monthDates(year, month).map(date => ({
     date,
     weekday: weekday(date),
     isWeekend: isWeekend(date),
     holidayKey: holidayOn(date),
-    closureLabel: closureOn(closures, date)?.label ?? null,
-    info1: notes.get(date)?.info1 ?? '',
-    info2: notes.get(date)?.info2 ?? '',
+    closureLabel: shownDays.get(date)?.closureLabel ?? null,
+    info1: shownDays.get(date)?.info1 ?? '',
+    info2: shownDays.get(date)?.info2 ?? '',
   }))
 
-  const { changes, changeCount } = loadChanges(db, monthStart, monthEnd, releasedAt)
-  const releasedBy = releasedAt && plan?.releasedBy
-    ? db.select().from(users).where(eq(users.id, plan.releasedBy)).get()?.username ?? null
-    : null
+  let admin: MonthPlanAdminDto | null = null
+  if (isAdmin) {
+    const { monthStart, monthEnd } = monthBounds(year, month)
+    const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+    admin = { ...buildAdminData(db, staff, loadClosures(db), year, month, today), pendingChanges }
+  }
 
   return {
     year,
     month,
-    release: { releasedAt, releasedBy, changeCount },
+    release: {
+      releasedAt: latest?.releasedAt ?? null,
+      releasedBy: latest?.releasedBy ?? null,
+      changeCount: Object.keys(changes).length,
+      pendingCount: Object.keys(pendingChanges).length,
+    },
     days,
-    employees: staff.map(({ id, name, shortName }) => ({ id, name, shortName })),
-    entries: loadEntries(db, { from: monthStart, to: monthEnd }).filter(entry => staffIds.has(entry.employeeId)),
+    employees: shown.employees,
+    entries: shown.entries,
     changes,
     templates: loadTemplates(db),
     codes: loadCodes(db),
-    admin: isAdmin ? buildAdminData(db, staff, closures, year, month, today) : null,
+    admin,
   }
 }
-
 export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: number, today: IsoDate): MyPlanDto {
   if (viewer.employeeId === null) throw new ServiceError(403, 'no_employee')
   const employee = db.select().from(employees).where(eq(employees.id, viewer.employeeId)).get()
