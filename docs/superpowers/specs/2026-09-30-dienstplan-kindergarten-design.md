@@ -39,6 +39,8 @@ eigenen Server.
 - Alle Rechte werden **serverseitig in jeder API-Route** geprüft. Die Oberfläche blendet
   zusätzlich aus, ist aber nicht die Sicherung.
 
+Rolle **Stempel-Tablet** und Zeiterfassung: siehe [2026-10-01-zeiterfassung-design.md](2026-10-01-zeiterfassung-design.md).
+
 ## 3. Fachliche Regeln
 
 ### 3.1 Einträge
