@@ -235,3 +235,19 @@ export interface SettingsDto {
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null
 }
+
+export type StampAction = 'in' | 'out'
+export type TimeRecordSource = 'self' | 'terminal' | 'admin'
+
+export interface TimeRecordDto {
+  id: number
+  employeeId: number
+  date: IsoDate
+  start: Minutes
+  end: Minutes | null
+  source: TimeRecordSource
+  /** Created or changed by the admin. */
+  edited: boolean
+  editedBy: string | null
+  editedAt: string | null
+}
