@@ -10,6 +10,8 @@ const USER_ROUTES = [
   'plan/[year]/[month].get.ts',
   'my/plan/[year]/[month].get.ts',
   'my/leave.get.ts',
+  'my/time.get.ts',
+  'my/time/stamp.post.ts',
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
 const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']

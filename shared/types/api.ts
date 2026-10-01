@@ -301,6 +301,20 @@ export interface TimeDayDto {
   changes: TimeRecordChangeDto[]
 }
 
+export interface MyTimeDto {
+  enabled: boolean
+  today: IsoDate
+  /** Start of today's open record, null when clocked out. */
+  clockedInSince: Minutes | null
+  todayRecords: TimeRecordDto[]
+  /** Earlier days with a forgotten clock-out. */
+  openEarlier: IsoDate[]
+  balanceToday: number
+  balanceMonthEnd: number
+  /** All own records of the requested month. */
+  records: TimeRecordDto[]
+}
+
 export interface TimeMonthDto {
   employee: { id: number; name: string }
   trackingFrom: IsoDate | null
