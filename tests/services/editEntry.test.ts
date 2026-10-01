@@ -29,6 +29,10 @@ describe('editing the times of a clicked entry', () => {
     add({ kind: 'shift', templateId: templateId(db, 'M') })
     updateEntryTimes(db, admin, find('shift').id, { start: 465, end: 960, breakStart: 750, breakEnd: 780 })
     expect(cellEntries()).toMatchObject([{ kind: 'shift', shortLabel: 'M', breakStart: 750, breakEnd: 780 }])
+    updateEntryTimes(db, admin, find('shift').id, { start: 465, end: 960, breakStart: null, breakEnd: null })
+    expect(cellEntries()).toMatchObject([{ kind: 'shift', breakStart: null, breakEnd: null }])
+    expect(errorCode(() => updateEntryTimes(db, admin, find('shift').id, { start: 465, end: 960, breakStart: 420, breakEnd: 450 })))
+      .toBe('span_break_outside')
   })
   it('keeps HK a non-staff entry when it becomes a special shift', () => {
     add({ kind: 'shift', templateId: templateId(db, 'HK') })

@@ -3,7 +3,7 @@ import type { ApplyMode, CodeDto, EntryDto, EntryInput, MonthPlanDto, NoteField,
 import { fullShiftOptions } from '#shared/domain/suggest'
 import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
-import type { GapSuggestion } from '~/components/plan/PlanToolbar.vue'
+import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 
@@ -26,9 +26,7 @@ const discardOpen = ref(false)
 const editOpen = ref(false)
 const editEntry = ref<EntryDto | null>(null)
 const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
-const breakModal = reactive<{ open: boolean; mode: 'change' | 'add'; entryId: number | null; initial: { start: number; end: number } | null }>({
-  open: false, mode: 'add', entryId: null, initial: null,
-})
+const breakOpen = ref(false)
 
 watch([year, month], () => {
   selection.clear()
@@ -93,34 +91,12 @@ function onCode(code: CodeDto) {
   else apply(insertMode(), { kind: 'code', codeId: code.id })
 }
 
-function onChangeBreak() {
-  const cell = selection.cells.value.length === 1 ? selection.cells.value[0] : undefined
-  const work = plan.value?.entries.filter(entry => cell && entry.employeeId === cell.employeeId && entry.date === cell.date
-    && entry.kind !== 'break' && entry.start !== null) ?? []
-  const entry = work.length === 1 ? work[0]! : null
-  if (!entry) {
-    toast.add({ title: de.plan.changeBreakHint, color: 'warning' })
-    return
-  }
-  Object.assign(breakModal, {
-    open: true, mode: 'change', entryId: entry.id,
-    initial: entry.breakStart !== null && entry.breakEnd !== null ? { start: entry.breakStart, end: entry.breakEnd } : null,
-  })
-}
-
 function onAddBreak() {
-  if (!hasSelection()) return
-  Object.assign(breakModal, { open: true, mode: 'add', entryId: null, initial: null })
+  if (hasSelection()) breakOpen.value = true
 }
 
-function onBreakSubmit(value: { start: number; end: number } | null) {
-  if (breakModal.mode === 'change' && breakModal.entryId !== null) {
-    const body = { breakStart: value?.start ?? null, breakEnd: value?.end ?? null }
-    run(() => $fetch<unknown>(`/api/entries/${breakModal.entryId}/break`, { method: 'PUT', body }))
-  }
-  else if (value) {
-    apply('add', { kind: 'break', start: value.start, end: value.end })
-  }
+function onBreakSubmit(value: { start: number; end: number }) {
+  apply('add', { kind: 'break', start: value.start, end: value.end })
 }
 
 function onDiscard(keys: string[]) {
@@ -148,7 +124,7 @@ function fromMenu<A extends unknown[]>(action: (...args: A) => unknown) {
 }
 const menuActions = {
   template: fromMenu(onTemplate), code: fromMenu(onCode), special: fromMenu(() => openModal(null)), clear: fromMenu(onClear),
-  fillGap: fromMenu(onFillGap), changeBreak: fromMenu(onChangeBreak), addBreak: fromMenu(onAddBreak),
+  fillGap: fromMenu(onFillGap), addBreak: fromMenu(onAddBreak),
 }
 
 function onNoteSave(date: string, field: NoteField, value: string) {
@@ -186,9 +162,8 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"
-        :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions"
-        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @fill-gap="onFillGap"
-        @change-break="onChangeBreak" @add-break="onAddBreak"
+        :selected-count="selection.cells.value.length"
+        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-break="onAddBreak"
       />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">
@@ -202,14 +177,14 @@ function navigate(nextYear: number, nextMonth: number) {
         <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" @select-date="selectedDate = $event" />
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
-      <PlanBreakModal v-model:open="breakModal.open" :mode="breakModal.mode" :initial="breakModal.initial" @submit="onBreakSubmit" />
+      <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
       <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" @submit="onEditSubmit" />
       <PlanCellMenu
         v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions"
         @template="menuActions.template" @code="menuActions.code" @special="menuActions.special" @clear="menuActions.clear"
-        @fill-gap="menuActions.fillGap" @change-break="menuActions.changeBreak" @add-break="menuActions.addBreak"
+        @fill-gap="menuActions.fillGap" @add-break="menuActions.addBreak"
       />
     </template>
     <template v-else>

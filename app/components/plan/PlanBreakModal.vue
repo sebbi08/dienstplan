@@ -1,29 +1,21 @@
 <script setup lang="ts">
-import { formatTime, parseTime, validateSpan } from '#shared/domain/time'
+import { parseTime, validateSpan } from '#shared/domain/time'
 import { de } from '~/locales/de'
 
-/** 'change': edit the break of one entry (may be emptied); 'add': an additional break (required). */
-const props = defineProps<{ mode: 'change' | 'add'; initial: { start: number; end: number } | null }>()
+/** An additional break for the selected cells (changing a break goes through the entry's edit dialog). */
 const open = defineModel<boolean>('open', { required: true })
-const emit = defineEmits<{ submit: [value: { start: number; end: number } | null] }>()
+const emit = defineEmits<{ submit: [value: { start: number; end: number }] }>()
 
 const form = reactive({ start: '', end: '' })
 const error = ref('')
-const title = computed(() => (props.mode === 'change' ? de.modal.changeBreakTitle : de.modal.addBreakTitle))
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  form.start = props.initial ? formatTime(props.initial.start) : ''
-  form.end = props.initial ? formatTime(props.initial.end) : ''
+  Object.assign(form, { start: '', end: '' })
   error.value = ''
 })
 
 function submit() {
-  if (!form.start.trim() && !form.end.trim() && props.mode === 'change') {
-    emit('submit', null)
-    open.value = false
-    return
-  }
   if ([form.start, form.end].some(value => value.trim() && parseTime(value) === null)) {
     error.value = de.common.invalidTime
     return
@@ -45,12 +37,11 @@ function submit() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="title">
+  <UModal v-model:open="open" :title="de.modal.addBreakTitle">
     <template #body>
       <form class="grid grid-cols-2 gap-3" @submit.prevent="submit">
         <UFormField :label="de.modal.start"><TimeInput v-model="form.start" autofocus /></UFormField>
         <UFormField :label="de.modal.end"><TimeInput v-model="form.end" /></UFormField>
-        <p v-if="mode === 'change'" class="col-span-2 text-xs text-gray-500">{{ de.modal.breakEmptyHint }}</p>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex justify-end gap-2">
           <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />

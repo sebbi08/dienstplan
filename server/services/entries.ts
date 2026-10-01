@@ -186,33 +186,6 @@ export function updateEntryTimes(db: Db, actor: SessionUser, id: number, change:
   })
 }
 
-/** Changes (or removes, with nulls) the break of one working entry; the entry itself stays as it is. */
-export function updateEntryBreak(
-  db: Db, actor: SessionUser, id: number, breakStart: number | null, breakEnd: number | null, now: Date = new Date(),
-): void {
-  const entry = db.select().from(entries).where(eq(entries.id, id)).get()
-  if (!entry) throw new ServiceError(404, 'entry_not_found')
-  if (entry.kind === 'break' || entry.start === null || entry.end === null) throw new ServiceError(400, 'not_a_work_entry')
-  const spanError = validateSpan({ start: entry.start, end: entry.end, breakStart, breakEnd })
-  if (spanError) throw new ServiceError(400, `span_${spanError}`)
-
-  const cell = { employeeId: entry.employeeId, date: entry.date }
-  db.transaction((tx) => {
-    const dayEntries = loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
-    if (breakStart !== null && breakEnd !== null) {
-      const self = dayEntries.find(candidate => candidate.id === id)
-      const conflict = breakConflict(dayEntries, breakStart, breakEnd, { ignoreBreakOf: self })
-      if (conflict) throw new ServiceError(400, conflict)
-    }
-    const before = describeCellDetailed(dayEntries)
-    tx.update(entries).set({ breakStart, breakEnd, updatedAt: now.toISOString(), updatedBy: actor.id })
-      .where(eq(entries.id, id)).run()
-    logChange(tx, {
-      ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: now.toISOString(),
-    })
-  })
-}
-
 export function setDayNote(
   db: Db, actor: SessionUser, date: IsoDate, field: NoteField, value: string, now: Date = new Date(),
 ): void {

@@ -1,7 +1,16 @@
+<script lang="ts">
+/** A shift that fills up a day with VZ/Büro: a fixed shift (templateId) or a special shift (templateId null). */
+export interface GapSuggestion {
+  templateId: number | null
+  start: number
+  end: number
+  shortLabel: string
+}
+</script>
+
 <script setup lang="ts">
 import { formatTime } from '#shared/domain/time'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
-import type { GapSuggestion } from '~/components/plan/PlanToolbar.vue'
 import { de } from '~/locales/de'
 import { buttonCodes, codeButtonLabel } from '~/utils/codes'
 
@@ -17,7 +26,7 @@ const open = defineModel<boolean>('open', { required: true })
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
   template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
-  fillGap: [suggestion: GapSuggestion]; changeBreak: []; addBreak: []
+  fillGap: [suggestion: GapSuggestion]; addBreak: []
 }>()
 
 const codeButtons = computed(() => buttonCodes(props.codes))
@@ -73,7 +82,6 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
           <h3 :class="heading">{{ de.plan.menuMore }}</h3>
           <div class="flex flex-wrap gap-1">
             <UButton size="xs" color="neutral" variant="soft" :label="de.plan.special" @click="emit('special')" />
-            <UButton size="xs" color="error" variant="soft" :label="de.plan.changeBreak" @click="emit('changeBreak')" />
             <UButton size="xs" color="error" variant="soft" :label="de.plan.addBreak" @click="emit('addBreak')" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.plan.clear" @click="emit('clear')" />
           </div>
