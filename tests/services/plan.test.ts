@@ -3,8 +3,9 @@ import type { Db } from '../../server/db/client'
 import { applyToCells, setDayNote } from '../../server/services/entries'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
+import { deleteTemplate, updateCode } from '../../server/services/settings'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-01'
 
@@ -109,6 +110,27 @@ describe('month plan', () => {
     const plan = getMonthPlan(db, admin, 2026, 10, today)
     expect(plan.admin!.pendingChanges).toEqual({})
     expect(plan.release).toEqual({ releasedAt: null, releasedBy: null, changeCount: 0, pendingCount: 0 })
+  })
+  it('does not count a renamed code as a plan change', () => {
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    updateCode(db, codeId(db, 'sick'), { label: 'Krankheit', color: 'gray', creditMode: 'daily_target' })
+    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    expect(plan.entries.find(e => e.date === '2026-10-06')?.label).toBe('Krankheit')
+    expect(plan.release.pendingCount).toBe(0)
+    expect(plan.admin!.pendingChanges).toEqual({})
+    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    expect(getMonthPlan(db, observer, 2026, 10, today).changes).toEqual({})
+  })
+  it('does not count a deleted template as a plan change', () => {
+    shift(anna, '2026-10-06', 'F2')
+    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    deleteTemplate(db, templateId(db, 'F2'))
+    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    expect(plan.entries.find(e => e.date === '2026-10-06')?.shortLabel).toBeNull()
+    expect(plan.release.pendingCount).toBe(0)
+    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    expect(getMonthPlan(db, observer, 2026, 10, today).changes).toEqual({})
   })
   it('returns only the own entries in the personal plan', () => {
     shift(anna, '2026-10-05')

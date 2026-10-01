@@ -1,10 +1,24 @@
 import { cellKey, noteKey } from './cells'
 import { describeCellDetailed, type DetailedEntryLike } from './describe'
-import type { IsoDate } from './types'
+import type { EntryKind, IsoDate, Minutes } from './types'
 
 export interface SnapshotContent {
-  entries: (DetailedEntryLike & { employeeId: number; date: IsoDate })[]
+  entries: (DetailedEntryLike & {
+    employeeId: number
+    date: IsoDate
+    kind: EntryKind
+    codeId: number | null
+    start: Minutes | null
+    end: Minutes | null
+    countsAsStaff: boolean
+  })[]
   days: { date: IsoDate; info1: string; info2: string }[]
+}
+
+/** What is compared between releases: a settings-independent identity plus the readable text shown to users. */
+export interface CellState {
+  identity: string
+  text: string
 }
 
 export interface CellDiff {
@@ -16,7 +30,7 @@ export interface CellDiff {
 export interface ReleasedState {
   releasedAt: string
   releasedBy: string
-  cells: Map<string, string>
+  cells: Map<string, CellState>
 }
 
 export interface ReleasedChange extends CellDiff {
@@ -24,32 +38,39 @@ export interface ReleasedChange extends CellDiff {
   releasedBy: string
 }
 
-/** Text per plan cell (employee × day) and per non-empty info field, as compared between releases. */
-export function snapshotCells(content: SnapshotContent): Map<string, string> {
+/** Identity of a cell's entries that does not depend on code or template settings (labels), so renaming them is no change. */
+export function cellIdentity(entries: SnapshotContent['entries']): string {
+  return entries
+    .map(entry => `${entry.kind}|${entry.codeId ?? ''}|${entry.start ?? ''}|${entry.end ?? ''}|${entry.breakStart ?? ''}|${entry.breakEnd ?? ''}|${entry.countsAsStaff ? 1 : 0}|${entry.note ?? ''}`)
+    .join(';')
+}
+
+/** Identity and text per plan cell (employee × day) and per non-empty info field, as compared between releases. */
+export function snapshotCells(content: SnapshotContent): Map<string, CellState> {
   const grouped = new Map<string, SnapshotContent['entries']>()
   for (const entry of content.entries) {
     const key = cellKey(entry.employeeId, entry.date)
     grouped.set(key, [...(grouped.get(key) ?? []), entry])
   }
-  const cells = new Map<string, string>()
-  for (const [key, list] of grouped) cells.set(key, describeCellDetailed(list))
+  const cells = new Map<string, CellState>()
+  for (const [key, list] of grouped) cells.set(key, { identity: cellIdentity(list), text: describeCellDetailed(list) })
   for (const day of content.days) {
-    if (day.info1) cells.set(noteKey('info1', day.date), day.info1)
-    if (day.info2) cells.set(noteKey('info2', day.date), day.info2)
+    if (day.info1) cells.set(noteKey('info1', day.date), { identity: day.info1, text: day.info1 })
+    if (day.info2) cells.set(noteKey('info2', day.date), { identity: day.info2, text: day.info2 })
   }
   return cells
 }
 
-function emptyValue(key: string): string {
-  return key.startsWith('info') ? '' : describeCellDetailed([])
+function emptyState(key: string): CellState {
+  return { identity: '', text: key.startsWith('info') ? '' : describeCellDetailed([]) }
 }
 
-export function diffCells(before: Map<string, string>, after: Map<string, string>): CellDiff[] {
+export function diffCells(before: Map<string, CellState>, after: Map<string, CellState>): CellDiff[] {
   const keys = [...new Set([...before.keys(), ...after.keys()])].sort()
   return keys.flatMap((key) => {
-    const was = before.get(key) ?? emptyValue(key)
-    const now = after.get(key) ?? emptyValue(key)
-    return was === now ? [] : [{ key, before: was, after: now }]
+    const was = before.get(key) ?? emptyState(key)
+    const now = after.get(key) ?? emptyState(key)
+    return was.identity === now.identity ? [] : [{ key, before: was.text, after: now.text }]
   })
 }
 
