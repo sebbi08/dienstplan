@@ -48,7 +48,7 @@ function joinLines(lines: (string | undefined)[]): string | undefined {
 }
 
 function markClass(item: { pending: boolean; changed: boolean }): string {
-  if (item.pending) return 'outline-2 -outline-offset-2 outline-dashed outline-orange-500'
+  if (item.pending) return 'outline-2 -outline-offset-2 outline-dashed outline-orange-500 print:outline-none'
   return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''
 }
 
