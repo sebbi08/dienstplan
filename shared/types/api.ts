@@ -264,3 +264,47 @@ export interface TimeRecordDto {
   editedBy: string | null
   editedAt: string | null
 }
+
+export interface OpenRecordDto {
+  id: number
+  employeeId: number
+  name: string
+  date: IsoDate
+  start: Minutes
+}
+
+export interface TimeRecordChangeDto {
+  before: string
+  after: string
+  actor: string | null
+  at: string
+}
+
+export interface TimeDayDto {
+  date: IsoDate
+  weekday: number
+  isWeekend: boolean
+  holidayKey: HolidayKey | null
+  /** Plan of the day as text (live draft). */
+  plan: string
+  /** Credit the plan alone would give. */
+  plannedMinutes: number
+  target: number
+  records: TimeRecordDto[]
+  recordedMinutes: number
+  /** What the balance counts for this day. */
+  counted: number
+  usesRecords: boolean
+  /** A daily-target code (Urlaub, Krank …) is planned. */
+  absence: boolean
+  warnings: Warning[]
+  changes: TimeRecordChangeDto[]
+}
+
+export interface TimeMonthDto {
+  employee: { id: number; name: string }
+  trackingFrom: IsoDate | null
+  /** Buttons for absences entered from the time page (written to the plan). */
+  absenceCodes: CodeDto[]
+  days: TimeDayDto[]
+}

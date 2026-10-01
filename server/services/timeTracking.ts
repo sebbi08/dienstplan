@@ -1,12 +1,20 @@
-import { and, asc, eq, gte, isNull, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, isNull, lt, lte } from 'drizzle-orm'
 import type { ActualTime } from '../../shared/domain/balance'
+import { computeDay, usesRecords } from '../../shared/domain/balance'
+import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
+import { describeCellDetailed } from '../../shared/domain/describe'
+import { holidayOn } from '../../shared/domain/holidays'
+import { isEmployedOn } from '../../shared/domain/targets'
+import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
-import type { IsoDate } from '../../shared/domain/types'
-import type { StampAction, TimeRecordDto } from '../../shared/types/api'
+import type { IsoDate, Minutes } from '../../shared/domain/types'
+import { timeWarnings } from '../../shared/domain/warnings'
+import type { OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, timeRecords, users } from '../db/schema'
+import { employees, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { activeTrackingFrom } from './appSettings'
+import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
+import { loadCodes, loadEmployees, loadEntries } from './queries'
 
 export interface TimeRecordFilter {
   employeeId?: number
@@ -72,4 +80,107 @@ export function stamp(db: Db, employeeId: number, action: StampAction, source: '
     }
     return loadTimeRecords(tx, { employeeId, from: date, to: date }).find(record => record.id === id)!
   })
+}
+
+const describeSpan = (record: { start: Minutes; end: Minutes | null } | null) =>
+  record === null ? '—' : `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
+
+function findRecord(db: Db, id: number) {
+  const record = db.select().from(timeRecords).where(eq(timeRecords.id, id)).get()
+  if (!record) throw new ServiceError(404, 'record_not_found')
+  return record
+}
+
+/** Admin corrections: end after start, not in the future, no overlap with other records of the day. */
+function assertSpan(db: Db, employeeId: number, date: IsoDate, start: Minutes, end: Minutes, ignoreId: number | null, now: Date): void {
+  if (end <= start) throw new ServiceError(400, 'span_end_before_start')
+  const current = nowInBerlin(now)
+  if (date > current.date || (date === current.date && end > current.minutes)) throw new ServiceError(400, 'record_in_future')
+  const overlapping = db.select().from(timeRecords)
+    .where(and(eq(timeRecords.employeeId, employeeId), eq(timeRecords.date, date))).all()
+    .some(other => other.id !== ignoreId && start < (other.end ?? 24 * 60) && other.start < end)
+  if (overlapping) throw new ServiceError(400, 'record_overlap')
+}
+
+function logRecordChange(db: Db, actor: SessionUser, record: { employeeId: number; date: IsoDate }, recordId: number | null, before: string, after: string, now: Date): void {
+  db.insert(timeRecordChanges).values({
+    employeeId: record.employeeId, date: record.date, recordId, before, after, actorId: actor.id, at: now.toISOString(),
+  }).run()
+}
+
+export function createRecord(
+  db: Db, actor: SessionUser, input: { employeeId: number; date: IsoDate; start: Minutes; end: Minutes }, now: Date = new Date(),
+): void {
+  if (!db.select().from(employees).where(eq(employees.id, input.employeeId)).get()) throw new ServiceError(404, 'employee_not_found')
+  db.transaction((tx) => {
+    assertSpan(tx, input.employeeId, input.date, input.start, input.end, null, now)
+    const row = tx.insert(timeRecords).values({
+      ...input, source: 'admin', editedBy: actor.id, editedAt: now.toISOString(), createdAt: now.toISOString(),
+    }).returning().get()
+    logRecordChange(tx, actor, input, row.id, '—', describeSpan(input), now)
+  })
+}
+
+export function updateRecord(db: Db, actor: SessionUser, id: number, span: { start: Minutes; end: Minutes }, now: Date = new Date()): void {
+  const record = findRecord(db, id)
+  db.transaction((tx) => {
+    assertSpan(tx, record.employeeId, record.date, span.start, span.end, id, now)
+    tx.update(timeRecords).set({ ...span, editedBy: actor.id, editedAt: now.toISOString() }).where(eq(timeRecords.id, id)).run()
+    logRecordChange(tx, actor, record, id, describeSpan(record), describeSpan(span), now)
+  })
+}
+
+export function deleteRecord(db: Db, actor: SessionUser, id: number, now: Date = new Date()): void {
+  const record = findRecord(db, id)
+  db.transaction((tx) => {
+    tx.delete(timeRecords).where(eq(timeRecords.id, id)).run()
+    logRecordChange(tx, actor, record, null, describeSpan(record), '—', now)
+  })
+}
+
+export function listOpenRecords(db: Db, today: IsoDate): OpenRecordDto[] {
+  return db.select({ record: timeRecords, name: employees.name })
+    .from(timeRecords).innerJoin(employees, eq(timeRecords.employeeId, employees.id))
+    .where(and(isNull(timeRecords.end), lt(timeRecords.date, today)))
+    .orderBy(asc(timeRecords.date), asc(employees.sortOrder)).all()
+    .map(({ record, name }) => ({ id: record.id, employeeId: record.employeeId, name, date: record.date, start: record.start }))
+}
+
+export function getTimeMonth(db: Db, employeeId: number, year: number, month: number, today: IsoDate): TimeMonthDto {
+  const employee = loadEmployees(db).find(candidate => candidate.id === employeeId)
+  if (!employee) throw new ServiceError(404, 'employee_not_found')
+  const monthStart = toIsoDate(year, month, 1)
+  const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
+  const entriesByDate = Map.groupBy(loadEntries(db, { employeeId, from: monthStart, to: monthEnd }), entry => entry.date)
+  const recordsByDate = Map.groupBy(loadTimeRecords(db, { employeeId, from: monthStart, to: monthEnd }), record => record.date)
+  const changes = db.select({ change: timeRecordChanges, actor: users.username })
+    .from(timeRecordChanges).leftJoin(users, eq(timeRecordChanges.actorId, users.id))
+    .where(and(eq(timeRecordChanges.employeeId, employeeId), gte(timeRecordChanges.date, monthStart), lte(timeRecordChanges.date, monthEnd)))
+    .orderBy(asc(timeRecordChanges.id)).all()
+  const actual = actualTimeFor(db, today)(employeeId)
+  const trackingFrom = getTimeTrackingFrom(db)
+
+  return {
+    employee: { id: employee.id, name: employee.name },
+    trackingFrom,
+    absenceCodes: loadCodes(db).filter(code => ['vacation', 'sick', 'training', 'school'].includes(code.key)),
+    days: monthDates(year, month).map((date) => {
+      const dayEntries = entriesByDate.get(date) ?? []
+      const records = recordsByDate.get(date) ?? []
+      const planned = computeDay(employee.info, date, dayEntries)
+      const counted = computeDay(employee.info, date, dayEntries, actual)
+      const absence = dayEntries.some(entry => entry.creditMode === 'daily_target')
+      const inRange = actual !== undefined && usesRecords(actual, date) && isEmployedOn(employee.info, date)
+      return {
+        date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayOn(date),
+        plan: describeCellDetailed(dayEntries),
+        plannedMinutes: planned.credit, target: planned.target,
+        records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
+        usesRecords: usesRecords(actual, date), absence,
+        warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records) : [],
+        changes: changes.filter(({ change }) => change.date === date)
+          .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
+      }
+    }),
+  }
 }

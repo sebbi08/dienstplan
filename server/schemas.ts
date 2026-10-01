@@ -77,3 +77,7 @@ export const userUpdateSchema = z.object({
 })
 export const passwordResetSchema = z.object({ password: z.string().max(200) })
 export const appSettingsSchema = z.object({ timeTrackingFrom: isoDate.nullable() })
+
+export const timeRecordCreateSchema = z.object({ employeeId: z.number().int(), date: isoDate, start: minutes, end: minutes })
+export const timeRecordUpdateSchema = z.object({ start: minutes, end: minutes })
+export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number().int().positive() })
