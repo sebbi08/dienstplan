@@ -22,10 +22,10 @@ eigenen Server.
 
 | | Administrator | Beobachter |
 |---|---|---|
-| Monatsplan ansehen | alle Monate (auch Entwürfe) | nur freigegebene Monate |
-| „Mein Dienstplan“ (nur eigene Dienste) | – | ja |
+| Monatsplan ansehen | Entwurf (aktueller Stand) aller Monate | nur den zuletzt freigegebenen Stand |
+| „Mein Dienstplan“ (nur eigene Dienste) | – | ja (zuletzt freigegebener Stand) |
 | Einträge bearbeiten, Info-Spalten | ja | nein |
-| Freigeben / erneut freigeben / Freigabe zurückziehen | ja | nein |
+| Freigeben / erneut freigeben | ja | nein |
 | Tagesübersicht | ja | ja (freigegebene Monate) |
 | Änderungsmarkierungen | ja | ja |
 | Warnungen | ja | nein |
@@ -150,16 +150,32 @@ sowie gesammelte Warnungsliste in der Seitenleiste.
 
 ### 3.7 Freigabe und Änderungsmarkierung
 
-- Ein Monat ist entweder **Entwurf** oder **freigegeben**. Beobachter sehen nur freigegebene Monate
-  (Entwurf: Hinweis „Dieser Monat ist noch nicht freigegeben“).
-- Nach der Freigabe kann der Admin **weiter bearbeiten**; Beobachter sehen Änderungen sofort.
-- Jede Änderung an Einträgen oder Info-Spalten eines freigegebenen Monats wird protokolliert
-  (alter Wert, neuer Wert, wer, wann).
-- Zellen mit Änderungen seit der letzten Freigabe erhalten einen **orangen Rahmen**;
-  Tooltip: „vorher: 7:30–15:45 → jetzt: Krank · geändert 12.10. 07:12 von Admin“.
-- Kopfzeile: „Freigegeben am … von … · X Änderungen seit Freigabe“.
-- **„Erneut freigeben“** setzt den Freigabezeitpunkt neu und damit die Markierungen zurück.
-- **„Freigabe zurückziehen“** macht den Monat wieder zum Entwurf.
+*(Überarbeitet am 01.10.2026: Schnappschuss-Modell statt Live-Sicht für Beobachter.)*
+
+- Der Admin bearbeitet immer den **Entwurf** (aktueller Stand). Ein Monat ohne Freigabe ist für
+  Beobachter nicht sichtbar (Hinweis „Dieser Monat ist noch nicht freigegeben“).
+- **Freigeben / erneut freigeben** speichert einen **Schnappschuss** des Monats: Mitarbeiterspalten,
+  alle Einträge, Info-Spalten und Schließzeit-Bezeichnungen zu diesem Zeitpunkt, mit Zeitpunkt und
+  freigebender Person. Jede Freigabe erzeugt einen neuen Schnappschuss; alle bleiben erhalten.
+- **Beobachter sehen ausschließlich den neuesten Schnappschuss**: allgemeiner Dienstplan,
+  „Mein Dienstplan“, Tagesübersicht und Druckansicht. Änderungen im Entwurf werden für sie erst mit
+  der nächsten Freigabe sichtbar.
+- **Freigegebene Änderungen (durchgezogener oranger Rahmen):** Eine Zelle (bzw. Info-Feld) ist
+  markiert, wenn sich ihr Inhalt zwischen zwei aufeinanderfolgenden Schnappschüssen geändert hat –
+  über **alle** Freigaben seit der ersten. Die Markierung bleibt dauerhaft. Tooltip: die ganze
+  Geschichte, je Freigabe eine Zeile, z. B. „Freigabe 12.10.2026 08:15 (admin): Krank → 8:45–17:00“.
+  Verglichen wird der detaillierte Zellinhalt (Dienstkürzel, Zeiten, Pause, Notiz).
+- **Noch nicht freigegebene Änderungen (gestrichelter oranger Rahmen, nur Admin):** Zellen bzw.
+  Info-Felder, deren Entwurf vom neuesten Schnappschuss abweicht. Tooltip:
+  „Noch nicht freigegeben: vorher → jetzt“.
+- Kopfzeile (Admin): „Freigegeben am … von … · X freigegebene Änderungen · Y noch nicht freigegeben“.
+  Kopfzeile (Beobachter): „Freigegeben am … von … · X Änderungen“.
+- „Freigabe zurückziehen“ entfällt: ein einmal freigegebener Monat bleibt für Beobachter sichtbar.
+- **„Mein Urlaub“** rechnet weiterhin mit dem aktuellen Stand (auch aus nicht freigegebenen Monaten).
+- Das bisherige Änderungsprotokoll (`change_log`) bleibt als internes Protokoll bestehen, wird aber
+  nicht mehr für Markierungen verwendet.
+- Bereits freigegebene Monate ohne Schnappschuss erhalten beim Serverstart einmalig einen
+  Schnappschuss aus dem aktuellen Stand (ohne Markierungen).
 
 ### 3.8 Tagesübersicht
 
@@ -246,7 +262,8 @@ Die Fachlogik in `shared/domain/` ist unabhängig von Nuxt und Datenbank und wir
 | `entries` | id, employee_id, date, kind (`shift`/`special`/`code`), shift_template_id?, absence_code_id?, start?, end?, break_start?, break_end?, counts_as_staff, note?, closure_id?, updated_at, updated_by |
 | `day_notes` | date (PK), info1, info2 |
 | `closures` | id, start_date, end_date, label, mode (`vacation`/`closure_day`) |
-| `month_plans` | year, month (PK), released_at?, released_by? |
+| `month_plans` | year, month (PK), released_at?, released_by? (neueste Freigabe) |
+| `release_snapshots` | id, year, month, released_at, released_by, data (JSON: Mitarbeiterspalten, Einträge, Info-Spalten, Schließzeit-Bezeichnungen je Tag) |
 | `change_log` | id, date, employee_id?, field (`entry`/`info1`/`info2`), before (JSON), after (JSON), changed_at, changed_by |
 | `coverage_rules` | id, label, start, end?, min_count, active |
 
