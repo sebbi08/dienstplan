@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ApplyMode, CodeDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import { suggestShiftAfter } from '#shared/domain/suggest'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 
@@ -30,7 +31,10 @@ watch([year, month], () => {
 const dates = computed(() => plan.value?.days.map(day => day.date) ?? [])
 const insertMode = (): ApplyMode => (addMode.value ? 'add' : 'replace')
 
-/** One selected cell with a target gap: suggest a special shift right after its last entry (rounded up to 5 minutes). */
+/**
+ * One selected cell with a target gap (e.g. VZ only): suggest the fixed shift that best fills the day,
+ * starting right after the last entry; without a fitting shift, a special shift of exactly the missing time.
+ */
 const gapSuggestion = computed(() => {
   const current = plan.value
   const cell = selection.cells.value.length === 1 ? selection.cells.value[0] : undefined
@@ -42,8 +46,13 @@ const gapSuggestion = computed(() => {
     .map(entry => entry.end!)
   if (ends.length === 0) return null
   const start = Math.max(...ends)
+  const shift = suggestShiftAfter(start, gap.missingMinutes, current.templates)
+  if (shift) {
+    const template = current.templates.find(candidate => candidate.id === shift.templateId)
+    return { ...shift, shortLabel: template?.shortLabel ?? '' }
+  }
   const end = Math.ceil((start + gap.missingMinutes) / 5) * 5
-  return end <= 24 * 60 ? { start, end } : null
+  return end <= 24 * 60 ? { templateId: null, start, end, breakStart: null, breakEnd: null, shortLabel: '' } : null
 })
 
 function hasSelection(): boolean {
@@ -108,7 +117,9 @@ function onBreakSubmit(value: { start: number; end: number } | null) {
 
 function onFillGap() {
   const gap = gapSuggestion.value
-  if (gap) apply('add', { kind: 'special', start: gap.start, end: gap.end })
+  if (!gap) return
+  if (gap.templateId !== null) apply('add', { kind: 'shift', templateId: gap.templateId, start: gap.start })
+  else apply('add', { kind: 'special', start: gap.start, end: gap.end })
 }
 
 function onCellClick(employeeId: number, date: string, event: MouseEvent) {

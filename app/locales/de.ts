@@ -171,6 +171,8 @@ export const de = {
     label_required: 'Bitte eine Bezeichnung angeben.',
     closure_not_found: 'Diese Schließzeit existiert nicht mehr.',
     rule_not_found: 'Dieser Pflichtdienst existiert nicht mehr.',
+    entries_overlap: 'Dieser Dienst überschneidet sich mit einem anderen Eintrag des Tages (z. B. VZ). Bitte „Ergänzen“ nutzen oder einen Sonderdienst mit passenden Zeiten eintragen.',
+    invalid_shift_start: 'Der Dienst kann nur innerhalb seiner festen Zeiten später beginnen.',
     break_requires_add: 'Eine zusätzliche Pause wird immer zum bestehenden Dienst hinzugefügt.',
     break_outside_work: 'Die Pause muss innerhalb der Arbeitszeit dieses Tages liegen.',
     break_overlap: 'Die Pause überschneidet sich mit einer anderen Pause.',

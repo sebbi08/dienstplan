@@ -7,7 +7,7 @@ defineProps<{
   templates: TemplateDto[]
   codes: CodeDto[]
   selectedCount: number
-  gapSuggestion: { start: number; end: number } | null
+  gapSuggestion: { start: number; end: number; shortLabel: string } | null
 }>()
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
@@ -37,7 +37,7 @@ const emit = defineEmits<{
       <UButton size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.plan.clear" @click="emit('clear')" />
       <UButton
         v-if="gapSuggestion" size="xs" color="warning" variant="soft"
-        :label="de.plan.fillGap(`${formatTime(gapSuggestion.start)}–${formatTime(gapSuggestion.end)}`)"
+        :label="de.plan.fillGap(`${gapSuggestion.shortLabel} ${formatTime(gapSuggestion.start)}–${formatTime(gapSuggestion.end)}`.trim())"
         @click="emit('fillGap')"
       />
       <UCheckbox v-model="addMode" :label="de.plan.addMode" class="ml-auto" />

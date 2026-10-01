@@ -4,6 +4,7 @@ import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { validateSpan } from '../../shared/domain/time'
+import { TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -22,9 +23,14 @@ export function resolveEntry(db: Db, input: EntryInput): ResolvedEntry {
   if (input.kind === 'shift') {
     const template = db.select().from(shiftTemplates).where(eq(shiftTemplates.id, input.templateId ?? -1)).get()
     if (!template) throw new ServiceError(400, 'template_not_found')
+    // A shift may start later than its template (e.g. right after VZ); it keeps its end and, if still inside, its break.
+    const start = input.start ?? template.start
+    if (start % 5 !== 0 || start < template.start || start >= template.end) throw new ServiceError(400, 'invalid_shift_start')
+    const keepsBreak = template.breakStart !== null && template.breakEnd !== null && template.breakStart >= start
     return {
       kind: 'shift', shiftTemplateId: template.id, absenceCodeId: null,
-      start: template.start, end: template.end, breakStart: template.breakStart, breakEnd: template.breakEnd,
+      start, end: template.end,
+      breakStart: keepsBreak ? template.breakStart : null, breakEnd: keepsBreak ? template.breakEnd : null,
       countsAsStaff: template.countsAsStaff, note,
     }
   }
@@ -55,6 +61,22 @@ export function resolveEntry(db: Db, input: EntryInput): ResolvedEntry {
   }
 }
 
+/**
+ * A clicked fixed shift that overlaps entries kept in the cell (VZ/Büro) starts right after them,
+ * as long as it still ends after that point; its break stays only if it is still inside.
+ */
+function startAfterOverlaps(db: Db, cellFilter: { employeeId: number; from: IsoDate; to: IsoDate }, values: ResolvedEntry): ResolvedEntry {
+  const start = values.start!
+  const end = values.end!
+  const blocking = loadEntries(db, cellFilter)
+    .filter(other => other.kind !== 'break' && other.start !== null && other.end !== null && start < other.end && other.start < end)
+  if (blocking.length === 0) return values
+  const laterStart = Math.max(...blocking.map(other => other.end!))
+  if (laterStart >= end) return values
+  const keepsBreak = values.breakStart != null && values.breakStart >= laterStart
+  return { ...values, start: laterStart, breakStart: keepsBreak ? values.breakStart : null, breakEnd: keepsBreak ? values.breakEnd : null }
+}
+
 export function describeCellAt(db: Db, cell: CellRef): string {
   return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
 }
@@ -74,17 +96,30 @@ export function applyToCells(
     for (const cell of unique) {
       if (!employeeIds.has(cell.employeeId)) throw new ServiceError(400, 'employee_not_found')
       if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
+      const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
       const before = describeCellAt(tx, cell)
       if (mode !== 'add') {
-        tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()
+        // Entering a shift into a cell with VZ/Büro adds it next to them instead of removing them.
+        const keepTimedCodes = mode === 'replace' && (values?.kind === 'shift' || values?.kind === 'special')
+        for (const existing of loadEntries(tx, cellFilter)) {
+          const kept = keepTimedCodes && existing.start !== null && existing.codeKey !== null && TARGET_GAP_CODES.includes(existing.codeKey)
+          if (!kept) tx.delete(entries).where(eq(entries.id, existing.id)).run()
+        }
       }
-      if (values?.kind === 'break') {
-        const conflict = breakConflict(loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date }), values.start!, values.end!)
+      const cellValues = values?.kind === 'shift' && input?.start == null ? startAfterOverlaps(tx, cellFilter, values) : values
+      if (cellValues?.kind === 'break') {
+        const conflict = breakConflict(loadEntries(tx, cellFilter), cellValues.start!, cellValues.end!)
         if (conflict) throw new ServiceError(400, conflict)
       }
-      if (values) {
+      else if (cellValues && cellValues.start != null && cellValues.end != null) {
+        const { start, end } = cellValues
+        const overlapping = loadEntries(tx, cellFilter).some(other => other.kind !== 'break'
+          && other.start !== null && other.end !== null && start < other.end && other.start < end)
+        if (overlapping) throw new ServiceError(400, 'entries_overlap')
+      }
+      if (cellValues) {
         tx.insert(entries).values({
-          ...values, employeeId: cell.employeeId, date: cell.date,
+          ...cellValues, employeeId: cell.employeeId, date: cell.date,
           closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id,
         }).run()
       }
