@@ -4,7 +4,7 @@ import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 
 defineProps<{ plan: MonthPlanDto; isAdmin: boolean }>()
-const emit = defineEmits<{ navigate: [year: number, month: number]; release: []; unrelease: [] }>()
+const emit = defineEmits<{ navigate: [year: number, month: number]; release: [] }>()
 </script>
 
 <template>
@@ -15,11 +15,14 @@ const emit = defineEmits<{ navigate: [year: number, month: number]; release: [];
       :label="de.plan.releasedAt(formatDateTime(plan.release.releasedAt), plan.release.releasedBy ?? '')"
     />
     <UBadge v-else color="neutral" variant="soft" :label="de.plan.draft" />
-    <UBadge v-if="plan.release.changeCount > 0" color="warning" variant="soft" :label="de.plan.changesSinceRelease(plan.release.changeCount)" />
+    <UBadge
+      v-if="plan.release.changeCount > 0" color="warning" variant="soft"
+      :label="isAdmin ? de.plan.releasedChanges(plan.release.changeCount) : de.plan.changesCount(plan.release.changeCount)"
+    />
+    <UBadge v-if="isAdmin && plan.release.pendingCount > 0" color="warning" variant="outline" :label="de.plan.pendingChanges(plan.release.pendingCount)" />
     <div class="ml-auto flex flex-wrap gap-2 print:hidden">
       <template v-if="isAdmin">
         <UButton icon="i-lucide-check" :label="plan.release.releasedAt ? de.plan.rerelease : de.plan.release" @click="emit('release')" />
-        <UButton v-if="plan.release.releasedAt" color="neutral" variant="outline" :label="de.plan.unrelease" @click="emit('unrelease')" />
       </template>
       <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.plan.print" :to="`/print/${plan.year}/${plan.month}`" target="_blank" />
     </div>

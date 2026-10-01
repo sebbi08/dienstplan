@@ -4,7 +4,8 @@ import { formatDuration, formatSignedDuration } from '#shared/domain/time'
 import type { DayRowDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass, cellFillClasses } from '~/utils/colors'
-import { formatDateTime, formatDayShort } from '~/utils/format'
+import { pendingChangeText, releasedChangeText } from '~/utils/changes'
+import { formatDayShort } from '~/utils/format'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
 const props = defineProps<{
@@ -42,16 +43,13 @@ const weekByLastDay = computed(() => {
   return map
 })
 
-function changeText(key: string): string | undefined {
-  const changes = props.plan.changes[key]
-  if (!changes?.length) return undefined
-  return changes
-    .map(change => de.plan.changedTooltip(change.before || de.plan.empty, change.after || de.plan.empty, formatDateTime(change.changedAt), change.changedBy))
-    .join('\n')
-}
-
 function joinLines(lines: (string | undefined)[]): string | undefined {
   return lines.filter(Boolean).join('\n') || undefined
+}
+
+function markClass(item: { pending: boolean; changed: boolean }): string {
+  if (item.pending) return 'outline-2 -outline-offset-2 outline-dashed outline-orange-500'
+  return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''
 }
 
 function rowClass(day: DayRowDto): string {
@@ -64,20 +62,33 @@ const rows = computed(() => props.plan.days.map((day) => {
     const key = cellKey(employee.id, day.date)
     const cellWarnings = warnings.value.byCell.get(key) ?? []
     const gap = cellWarnings.find(warning => warning.type === 'target_gap')
+    const pending = props.plan.admin?.pendingChanges[key]
     return {
       key,
       employeeId: employee.id,
       entries: entriesByCell.value.get(key) ?? [],
       changed: Boolean(props.plan.changes[key]),
+      pending: Boolean(pending),
       missing: cellWarnings.some(warning => warning.type === 'missing_entry'),
       fill: cellFillColor(entriesByCell.value.get(key) ?? []),
       gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
-      title: joinLines([changeText(key), ...cellWarnings.map(warning => warningText(warning, employeeNames.value))]),
+      title: joinLines([
+        pendingChangeText(pending),
+        releasedChangeText(props.plan.changes[key]),
+        ...cellWarnings.map(warning => warningText(warning, employeeNames.value)),
+      ]),
     }
   })
   const notes = NOTE_FIELDS.map((field) => {
     const key = noteKey(field, day.date)
-    return { field, value: day[field], changed: Boolean(props.plan.changes[key]), title: changeText(key) }
+    const notePending = props.plan.admin?.pendingChanges[key]
+    return {
+      field,
+      value: day[field],
+      changed: Boolean(props.plan.changes[key]),
+      pending: Boolean(notePending),
+      title: joinLines([pendingChangeText(notePending), releasedChangeText(props.plan.changes[key])]),
+    }
   })
   const dayWarnings = warnings.value.byDate.get(day.date) ?? []
   const week = weekByLastDay.value.get(day.date)
@@ -129,7 +140,7 @@ const rows = computed(() => props.plan.days.map((day) => {
               :class="[
                 editable ? 'cursor-pointer hover:bg-sky-50' : '',
                 selected?.has(cell.key) ? 'bg-sky-100' : cell.missing ? 'bg-red-50' : cell.fill ? cellFillClasses[cell.fill] : '',
-                cell.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : '',
+                markClass(cell),
               ]"
               :title="cell.title"
               @click="emit('cellClick', cell.employeeId, row.day.date, $event)"
@@ -142,7 +153,7 @@ const rows = computed(() => props.plan.days.map((day) => {
             <td
               v-for="note in row.notes" :key="note.field"
               class="border border-gray-200 px-1 py-1 align-top"
-              :class="note.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''"
+              :class="markClass(note)"
               :title="note.title"
             >
               <input

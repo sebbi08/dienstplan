@@ -4,7 +4,8 @@ import type { MyPlanDayDto, MyPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { errorMessage } from '~/utils/errors'
-import { formatDateTime, formatDayShort } from '~/utils/format'
+import { releasedChangeText } from '~/utils/changes'
+import { formatDayShort } from '~/utils/format'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -16,9 +17,7 @@ function navigate(nextYear: number, nextMonth: number) {
 }
 
 function changeTitle(day: MyPlanDayDto): string | undefined {
-  return day.changes
-    .map(change => de.plan.changedTooltip(change.before || de.plan.empty, change.after || de.plan.empty, formatDateTime(change.changedAt), change.changedBy))
-    .join('\n') || undefined
+  return releasedChangeText(day.changes)
 }
 
 function fillClass(day: MyPlanDayDto): string {
@@ -38,7 +37,7 @@ function rowClass(day: MyPlanDayDto): string {
     <div class="flex flex-wrap items-center gap-3">
       <MonthNav :year="year" :month="month" @change="navigate" />
       <span v-if="data" class="text-gray-600">{{ data.employee.name }}</span>
-      <UBadge v-if="data?.release.changeCount" color="warning" variant="soft" :label="de.plan.changesSinceRelease(data.release.changeCount)" />
+      <UBadge v-if="data?.release.changeCount" color="warning" variant="soft" :label="de.plan.changesCount(data.release.changeCount)" />
     </div>
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <table v-if="data" class="w-full overflow-hidden rounded-lg text-sm ring-1 ring-gray-200">

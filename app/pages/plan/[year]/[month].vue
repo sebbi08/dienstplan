@@ -93,12 +93,6 @@ function release() {
   run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' }), de.plan.releasedToast)
 }
 
-function unrelease() {
-  if (window.confirm(de.plan.unreleaseConfirm)) {
-    run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'DELETE' }))
-  }
-}
-
 function navigate(nextYear: number, nextMonth: number) {
   return navigateTo(`/plan/${nextYear}/${nextMonth}`)
 }
@@ -107,7 +101,7 @@ function navigate(nextYear: number, nextMonth: number) {
 <template>
   <div class="space-y-3">
     <template v-if="plan && !error">
-      <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" @unrelease="unrelease" />
+      <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" />
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"

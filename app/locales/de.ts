@@ -26,9 +26,12 @@ export const de = {
   plan: {
     date: 'Datum', info1: 'Info 1', info2: 'Info 2', draft: 'Entwurf',
     releasedAt: (date: string, by: string) => `Freigegeben am ${date} von ${by}`,
-    changesSinceRelease: (count: number) => (count === 1 ? '1 Änderung seit Freigabe' : `${count} Änderungen seit Freigabe`),
-    release: 'Freigeben', rerelease: 'Erneut freigeben', unrelease: 'Freigabe zurückziehen',
-    unreleaseConfirm: 'Freigabe zurückziehen? Beobachter sehen diesen Monat dann nicht mehr.',
+    changesCount: (count: number) => (count === 1 ? '1 Änderung' : `${count} Änderungen`),
+    releasedChanges: (count: number) => (count === 1 ? '1 freigegebene Änderung' : `${count} freigegebene Änderungen`),
+    pendingChanges: (count: number) => `${count} noch nicht freigegeben`,
+    releasedChangeTooltip: (at: string, by: string, before: string, after: string) => `Freigabe ${at} (${by}): ${before} → ${after}`,
+    pendingTooltip: (before: string, after: string) => `Noch nicht freigegeben: ${before} → ${after}`,
+    release: 'Freigeben', rerelease: 'Erneut freigeben',
     releasedToast: 'Monat freigegeben', print: 'Drucken', printNow: 'Jetzt drucken',
     week: (number: number) => `KW ${number}`, weekHint: 'Soll/Ist-Differenz der Woche',
     weekTooltip: (target: string, credit: string) => `Soll ${target} · Ist ${credit}`,
@@ -38,7 +41,6 @@ export const de = {
     special: 'Sonderdienst…', clear: 'Leeren', clearConfirm: 'Alle Einträge in den ausgewählten Zellen löschen?', addMode: 'Zum bestehenden Eintrag hinzufügen',
     fillGap: (range: string) => `Ergänzen: ${range}`,
     stillMissing: (duration: string) => `noch ${duration} h`,
-    changedTooltip: (before: string, after: string, at: string, by: string) => `vorher: ${before} → jetzt: ${after} · geändert ${at} von ${by}`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',
   },
   modal: {
