@@ -2,6 +2,7 @@ import { dayCredit } from './balance'
 import { isWeekend } from './dates'
 import { isHoliday } from './holidays'
 import { dailyTarget, isEmployedOn, type EmploymentInfo } from './targets'
+import { breakRuleViolated, type RecordSpan } from './timeRecords'
 import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
 
 export interface CoverageRule {
@@ -16,6 +17,10 @@ export type Warning =
   | { type: 'missing_entry'; date: IsoDate; employeeId: number }
   | { type: 'coverage'; date: IsoDate; ruleId: number; label: string; found: number; required: number }
   | { type: 'target_gap'; date: IsoDate; employeeId: number; missingMinutes: number }
+  | { type: 'open_record'; date: IsoDate; employeeId: number }
+  | { type: 'missing_record'; date: IsoDate; employeeId: number }
+  | { type: 'break_rule'; date: IsoDate; employeeId: number }
+  | { type: 'record_without_plan'; date: IsoDate; employeeId: number }
 
 export interface EmployeeDay {
   employeeId: number
@@ -70,5 +75,18 @@ export function dayWarnings(
     if (target - credit >= TARGET_GAP_TOLERANCE_MINUTES) warnings.push({ type: 'target_gap', date, employeeId, missingMinutes: target - credit })
   }
 
+  return warnings
+}
+
+/** Hints for one past day with time tracking (call only for employed days with start date ≤ date < today). */
+export function timeWarnings(date: IsoDate, employeeId: number, entries: DomainEntry[], records: RecordSpan[]): Warning[] {
+  if (entries.some(entry => entry.creditMode === 'daily_target')) return []
+  const warnings: Warning[] = []
+  if (records.some(record => record.end === null)) warnings.push({ type: 'open_record', date, employeeId })
+  const plannedWork = entries.some(entry => entry.start !== null && entry.kind !== 'break'
+    && (entry.kind !== 'code' || entry.creditMode === 'timed'))
+  if (records.length === 0 && plannedWork) warnings.push({ type: 'missing_record', date, employeeId })
+  if (records.length > 0 && entries.length === 0) warnings.push({ type: 'record_without_plan', date, employeeId })
+  if (breakRuleViolated(records)) warnings.push({ type: 'break_rule', date, employeeId })
   return warnings
 }

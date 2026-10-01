@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { getBalanceOverview } from '../../server/services/balances'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { addAdjustment, setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount, getLeaveOverview } from '../../server/services/leave'
+import { stamp } from '../../server/services/timeTracking'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, templateId } from '../helpers/fixtures'
 
@@ -47,5 +49,24 @@ describe('balances and leave', () => {
       ranges: [{ from: '2026-10-05', to: '2026-10-09', days: 5 }],
     })
     expect(getLeaveOverview(db, 2026, '2026-10-07')).toHaveLength(1)
+  })
+  it('uses recorded time for past days and counts “today” until yesterday', () => {
+    applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    setTimeTrackingFrom(db, '2026-10-05')
+    stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:00:00Z')) // 7:00
+    stamp(db, anna, 'out', 'self', new Date('2026-10-05T14:30:00Z')) // 16:30 → 570 min
+    const [balance] = getBalanceOverview(db, 2026, 10, '2026-10-07')
+    // 05.10.: 570 − 468; 06.10.: nothing recorded → −468; 07.10. (today) not included
+    expect(balance!.today).toBe((570 - 468) - 468)
+    // month end: 05./06. recorded, 07.–09. planned M (465 each), rest of October target only
+    expect(balance!.monthEnd).toBe((570 - 468) - 468 + 3 * (465 - 468) - 15 * 468)
+  })
+  it('ignores records before the start date', () => {
+    setTimeTrackingFrom(db, '2026-10-05')
+    stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:00:00Z'))
+    stamp(db, anna, 'out', 'self', new Date('2026-10-05T14:30:00Z'))
+    setTimeTrackingFrom(db, '2026-10-06')
+    const [balance] = getBalanceOverview(db, 2026, 10, '2026-10-07')
+    expect(balance!.today).toBe(-468 /* 05.10. plan: nothing planned */ - 468 /* 06.10. nothing recorded */)
   })
 })

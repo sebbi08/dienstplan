@@ -1,25 +1,28 @@
 import { eq } from 'drizzle-orm'
-import { computeRange, summarize } from '../../shared/domain/balance'
+import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayOn } from '../../shared/domain/holidays'
 import { changeHistory, diffCells, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
-import { isEmployedInRange } from '../../shared/domain/targets'
+import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
+import { recordedMinutes } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
-import { dayWarnings } from '../../shared/domain/warnings'
+import { dayWarnings, timeWarnings, type Warning } from '../../shared/domain/warnings'
 import type {
-  ChangeDto, ClosureDto, DayRowDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, PendingChangeDto, SessionUser, SnapshotData,
-  WeekSummaryDto,
+  ActualCellDto, ChangeDto, ClosureDto, DayRowDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, PendingChangeDto, SessionUser, SnapshotData,
+  TimeRecordDto, WeekSummaryDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, type EmployeeRecord,
 } from './queries'
 import { buildSnapshot, loadReleases } from './release'
+import { actualTimeFor, loadTimeRecords } from './timeTracking'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
@@ -33,8 +36,17 @@ function buildAdminData(
   const rangeEnd = addDays(weekStart(monthEnd), 6)
   const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd }))
   const rules = loadCoverageRules(db)
+  const actualOf = actualTimeFor(db, today)
+  const trackingFrom = activeTrackingFrom(db, today)
+  const recordsByCell = new Map<string, TimeRecordDto[]>()
+  if (trackingFrom !== null) {
+    for (const record of loadTimeRecords(db, { from: monthStart, to: monthEnd })) {
+      const key = cellKey(record.employeeId, record.date)
+      recordsByCell.set(key, [...(recordsByCell.get(key) ?? []), record])
+    }
+  }
 
-  const warnings = monthDates(year, month).flatMap(date => dayWarnings(
+  const warnings: Warning[] = monthDates(year, month).flatMap(date => dayWarnings(
     date,
     staff.map(employee => ({
       employeeId: employee.id,
@@ -45,6 +57,24 @@ function buildAdminData(
     closureOn(closures, date) !== null,
   ))
 
+  const actuals: Record<string, ActualCellDto> = {}
+  if (trackingFrom !== null) {
+    for (const date of monthDates(year, month)) {
+      if (date < trackingFrom || date >= today) continue
+      for (const employee of staff) {
+        if (!isEmployedOn(employee.info, date)) continue
+        const key = cellKey(employee.id, date)
+        const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
+        const records = recordsByCell.get(key) ?? []
+        warnings.push(...timeWarnings(date, employee.id, dayEntries, records))
+        if (records.length === 0) continue
+        const minutes = recordedMinutes(records)
+        const planned = computeDay(employee.info, date, dayEntries).credit
+        actuals[key] = { minutes, open: records.some(record => record.end === null), deviates: Math.abs(minutes - planned) > 15 }
+      }
+    }
+  }
+
   const weeks: WeekSummaryDto[] = []
   for (let start = rangeStart; start <= monthEnd; start = addDays(start, 7)) {
     const end = addDays(start, 6)
@@ -54,12 +84,12 @@ function buildAdminData(
       weekNumber: isoWeekNumber(start),
       totals: staff.map(employee => ({
         employeeId: employee.id,
-        ...summarize(computeRange(employee.info, byEmployee.get(employee.id) ?? [], start, end)),
+        ...summarize(computeRange(employee.info, byEmployee.get(employee.id) ?? [], start, end, actualOf(employee.id))),
       })),
     })
   }
 
-  return { warnings, weeks, balances: computeBalances(db, staff, monthEnd, today) }
+  return { warnings, weeks, balances: computeBalances(db, staff, monthEnd, today), actuals }
 }
 
 function changeFromKey(key: string): Pick<ChangeDto, 'field' | 'employeeId' | 'date'> {

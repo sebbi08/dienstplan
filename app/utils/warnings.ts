@@ -30,5 +30,13 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return de.warnings.coverage(warning.label, warning.found, warning.required)
     case 'target_gap':
       return de.warnings.targetGap(names.get(warning.employeeId) ?? '?', formatDuration(warning.missingMinutes))
+    case 'open_record':
+      return de.warnings.openRecord(names.get(warning.employeeId) ?? '?')
+    case 'missing_record':
+      return de.warnings.missingRecord(names.get(warning.employeeId) ?? '?')
+    case 'break_rule':
+      return de.warnings.breakRule(names.get(warning.employeeId) ?? '?')
+    case 'record_without_plan':
+      return de.warnings.recordWithoutPlan(names.get(warning.employeeId) ?? '?')
   }
 }

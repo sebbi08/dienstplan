@@ -86,11 +86,15 @@ export const de = {
     missingEntry: (name: string) => `${name}: kein Eintrag`,
     coverage: (label: string, found: number, required: number) => `${label}: ${found}× eingetragen (${required} benötigt)`,
     targetGap: (name: string, duration: string) => `${name}: noch ${duration} h bis zum Tagessoll`,
+    openRecord: (name: string) => `${name}: Ausstempeln vergessen`,
+    missingRecord: (name: string) => `${name}: keine Stempelzeit`,
+    breakRule: (name: string) => `${name}: gesetzliche Pause nicht eingehalten`,
+    recordWithoutPlan: (name: string) => `${name}: gestempelt ohne Dienst`,
   },
   balances: {
     title: 'Stundenkonten', name: 'Mitarbeiter', weekly: 'Wochenstunden',
-    today: 'Saldo heute', monthEnd: 'Saldo Monatsende',
-    hint: '„Saldo Monatsende“ enthält alle eingetragenen Dienste bis zum Ende des Monats.',
+    today: 'Stand heute', monthEnd: 'Voraussichtlich Monatsende',
+    hint: '„Stand heute“ zählt bis gestern die gestempelte Zeit (ab „Zeiterfassung ab“), „Voraussichtlich Monatsende“ zusätzlich den Plan bis Monatsende.',
   },
   holidays: {
     new_year: 'Neujahr', epiphany: 'Heilige Drei Könige', good_friday: 'Karfreitag', easter_monday: 'Ostermontag',

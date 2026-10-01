@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { DomainEntry } from '../../shared/domain/types'
-import { dayWarnings, type CoverageRule, type EmployeeDay } from '../../shared/domain/warnings'
-import { code, F1, F2, S, shift, special } from '../helpers/entries'
+import { dayWarnings, timeWarnings, type CoverageRule, type EmployeeDay } from '../../shared/domain/warnings'
+import { code, F1, F2, M, S, shift, special } from '../helpers/entries'
 
 const date = '2026-10-06'
 const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
@@ -66,5 +66,21 @@ describe('dayWarnings', () => {
     expect(dayWarnings('2026-10-10', team([]), rules, false)).toEqual([])
     expect(dayWarnings('2026-12-25', team([]), rules, false)).toEqual([])
     expect(dayWarnings(date, team([]), rules, true)).toEqual([])
+  })
+})
+
+describe('timeWarnings', () => {
+  const date = '2026-10-06'
+  const records = (...spans: [number, number | null][]) => spans.map(([start, end]) => ({ start, end }))
+  it('reports open records, missing records, break rule and records without plan', () => {
+    expect(timeWarnings(date, 1, [shift(1, date, ...M)], records([465, null])).map(w => w.type)).toEqual(['open_record'])
+    expect(timeWarnings(date, 1, [shift(1, date, ...M)], []).map(w => w.type)).toEqual(['missing_record'])
+    expect(timeWarnings(date, 1, [shift(1, date, ...M)], records([465, 960])).map(w => w.type)).toEqual(['break_rule'])
+    expect(timeWarnings(date, 1, [], records([465, 700])).map(w => w.type)).toEqual(['record_without_plan'])
+  })
+  it('stays quiet for absences from the plan and for correct days', () => {
+    expect(timeWarnings(date, 1, [code(1, date, 'sick', 'daily_target')], [])).toEqual([])
+    expect(timeWarnings(date, 1, [shift(1, date, ...M)], records([465, 700], [730, 960]))).toEqual([])
+    expect(timeWarnings(date, 1, [], [])).toEqual([])
   })
 })

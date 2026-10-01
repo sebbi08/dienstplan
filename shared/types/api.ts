@@ -149,10 +149,20 @@ export interface BalanceDto {
   previousMonthEnd: number
 }
 
+export interface ActualCellDto {
+  /** Recorded minutes of the day (closed records). */
+  minutes: number
+  open: boolean
+  /** More than 15 minutes away from the planned credit. */
+  deviates: boolean
+}
+
 export interface MonthPlanAdminDto {
   warnings: Warning[]
   weeks: WeekSummaryDto[]
   balances: BalanceDto[]
+  /** Recorded time per cell (past days with time tracking), keyed by cellKey. */
+  actuals: Record<string, ActualCellDto>
   /** Draft changes not yet released, keyed by cellKey / noteKey. */
   pendingChanges: Record<string, PendingChangeDto>
 }
