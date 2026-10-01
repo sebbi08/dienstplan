@@ -61,6 +61,14 @@ describe('balances and leave', () => {
     // month end: 05./06. recorded, 07.–09. planned M (465 each), rest of October target only
     expect(balance!.monthEnd).toBe((570 - 468) - 468 + 3 * (465 - 468) - 15 * 468)
   })
+  it('counts bookings dated today in “Stand heute” although day deltas stop at yesterday', () => {
+    setTimeTrackingFrom(db, '2026-10-05')
+    addAdjustment(db, anna, { date: '2026-10-07', minutes: 120, reason: 'Korrektur' })
+    addAdjustment(db, anna, { date: '2026-10-08', minutes: 60, reason: 'Später' })
+    const [balance] = getBalanceOverview(db, 2026, 10, '2026-10-07')
+    // 05./06.10. nothing recorded → −468 each; today's booking counts, tomorrow's not
+    expect(balance!.today).toBe(-2 * 468 + 120)
+  })
   it('ignores records before the start date', () => {
     setTimeTrackingFrom(db, '2026-10-05')
     stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:00:00Z'))

@@ -38,6 +38,12 @@ describe('terminal', () => {
     terminalStamp(db, anna, '1234', 'in', at('2026-10-06T06:16:00Z'))
     expect(errorCode(() => terminalStamp(db, anna, '0000', 'out', at('2026-10-06T06:17:00Z')))).toBe('pin_invalid')
   })
+  it('refuses people who are no longer employed', () => {
+    const dora = addEmployee(db, 'Dora', { leftOn: '2026-10-05' })
+    setPin(db, dora, '1234')
+    expect(errorCode(() => terminalStamp(db, dora, '1234', 'in', at('2026-10-06T06:00:00Z')))).toBe('employee_not_employed')
+    expect(loadTimeRecords(db, { employeeId: dora })).toEqual([])
+  })
   it('rejects people without PIN, bad PIN formats and cleared PINs', () => {
     expect(errorCode(() => terminalStamp(db, berta, '1234', 'in', at('2026-10-06T06:00:00Z')))).toBe('pin_missing')
     expect(errorCode(() => setPin(db, berta, '12a4'))).toBe('pin_format')

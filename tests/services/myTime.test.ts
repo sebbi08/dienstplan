@@ -29,6 +29,18 @@ describe('my time', () => {
     // 01.–05.10. nothing counted (05.10. open) → 3 workdays (01., 02., 05.) × −468
     expect(mine.balanceToday).toBe(-3 * 468)
   })
+  it('never shows records of other employees', () => {
+    setTimeTrackingFrom(db, '2026-10-01')
+    const berta = addEmployee(db, 'Berta', { validFrom: '2026-10-01' })
+    stamp(db, berta, 'in', 'self', new Date('2026-10-05T05:42:00Z'))
+    stamp(db, berta, 'in', 'self', new Date('2026-10-06T05:45:00Z'))
+    stamp(db, anna, 'in', 'self', new Date('2026-10-06T06:00:00Z'))
+    const mine = getMyTime(db, viewer, 2026, 10, new Date('2026-10-06T08:00:00Z'))
+    expect(mine.records.map(record => record.employeeId)).toEqual([anna])
+    expect(mine.todayRecords.map(record => record.employeeId)).toEqual([anna])
+    expect(mine.openEarlier).toEqual([])
+    expect(mine.clockedInSince).toBe(480)
+  })
   it('requires a linked employee', () => {
     const admin = addUser(db, 'leitung', 'admin')
     expect(errorCode(() => getMyTime(db, admin, 2026, 10))).toBe('no_employee')

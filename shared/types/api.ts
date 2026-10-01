@@ -295,8 +295,10 @@ export interface TimeDayDto {
   /** What the balance counts for this day. */
   counted: number
   usesRecords: boolean
-  /** A daily-target code (Urlaub, Krank …) is planned. */
+  /** One of the four absences of the time page (Urlaub, Krank, Fortbildung, Schule) is planned. */
   absence: boolean
+  /** The plan has entries other than those absences (shifts, Feiertag, Schließtag …) that an absence would replace. */
+  otherEntries: boolean
   warnings: Warning[]
   changes: TimeRecordChangeDto[]
 }

@@ -43,6 +43,8 @@ export function terminalStatus(db: Db, now: Date = new Date()): TerminalPersonDt
 /** Checks the PIN (5 wrong attempts lock the person for 15 minutes) and stamps as "terminal". */
 export function terminalStamp(db: Db, employeeId: number, pin: string, action: StampAction, now: Date = new Date()): TimeRecordDto {
   const employee = findEmployee(db, employeeId)
+  const info = loadEmployees(db).find(candidate => candidate.id === employeeId)!.info
+  if (!isEmployedOn(info, nowInBerlin(now).date)) throw new ServiceError(400, 'employee_not_employed')
   if (employee.pinHash === null) throw new ServiceError(400, 'pin_missing')
   if (employee.pinLockedUntil && employee.pinLockedUntil > now.toISOString()) throw new ServiceError(423, 'pin_locked')
   if (!verifyPassword(pin, employee.pinHash)) {

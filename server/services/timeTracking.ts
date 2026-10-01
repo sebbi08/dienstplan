@@ -7,7 +7,7 @@ import { holidayOn } from '../../shared/domain/holidays'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
-import type { IsoDate, Minutes } from '../../shared/domain/types'
+import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { timeWarnings } from '../../shared/domain/warnings'
 import type { OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -15,6 +15,9 @@ import { employees, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
+
+/** Codes the admin enters per day on the time page (written to the plan). */
+const ABSENCE_KEYS: CodeKey[] = ['vacation', 'sick', 'training', 'school']
 
 export interface TimeRecordFilter {
   employeeId?: number
@@ -159,24 +162,27 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
     .orderBy(asc(timeRecordChanges.id)).all()
   const actual = actualTimeFor(db, today)(employeeId)
   const trackingFrom = getTimeTrackingFrom(db)
+  const isAbsence = (key: CodeKey | null) => key !== null && ABSENCE_KEYS.includes(key)
 
   return {
     employee: { id: employee.id, name: employee.name },
     trackingFrom,
-    absenceCodes: loadCodes(db).filter(code => ['vacation', 'sick', 'training', 'school'].includes(code.key)),
+    absenceCodes: loadCodes(db).filter(code => isAbsence(code.key)),
     days: monthDates(year, month).map((date) => {
       const dayEntries = entriesByDate.get(date) ?? []
       const records = recordsByDate.get(date) ?? []
       const planned = computeDay(employee.info, date, dayEntries)
       const counted = computeDay(employee.info, date, dayEntries, actual)
-      const absence = dayEntries.some(entry => entry.creditMode === 'daily_target')
+      // Only the absences entered on the time page; Feiertag/Schließtag still credit the target (computeDay).
+      const absence = dayEntries.some(entry => isAbsence(entry.codeKey))
+      const otherEntries = dayEntries.some(entry => !isAbsence(entry.codeKey))
       const inRange = actual !== undefined && usesRecords(actual, date) && isEmployedOn(employee.info, date)
       return {
         date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayOn(date),
         plan: describeCellDetailed(dayEntries),
         plannedMinutes: planned.credit, target: planned.target,
         records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
-        usesRecords: usesRecords(actual, date), absence,
+        usesRecords: usesRecords(actual, date), absence, otherEntries,
         warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records) : [],
         changes: changes.filter(({ change }) => change.date === date)
           .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),

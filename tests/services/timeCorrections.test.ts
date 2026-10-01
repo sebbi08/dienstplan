@@ -68,4 +68,21 @@ describe('admin corrections', () => {
     expect(month.days.find(d => d.date === '2026-10-07')).toMatchObject({ counted: 468, absence: true, warnings: [] })
     expect(month.days.find(d => d.date === '2026-10-08')).toMatchObject({ usesRecords: false })
   })
+  it('flags only the four absence codes as removable absence and tells other plan entries apart', () => {
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-05' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'code', codeId: codeId(db, 'closure_day') })
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-09' }], 'replace', { kind: 'code', codeId: codeId(db, 'holiday') })
+    const flags = (date: string) => {
+      const day = getTimeMonth(db, anna, 2026, 10, '2026-10-08').days.find(d => d.date === date)!
+      return { absence: day.absence, otherEntries: day.otherEntries }
+    }
+    expect(flags('2026-10-05')).toEqual({ absence: false, otherEntries: true })
+    expect(flags('2026-10-06')).toEqual({ absence: true, otherEntries: false })
+    expect(flags('2026-10-07')).toEqual({ absence: false, otherEntries: true })
+    expect(flags('2026-10-09')).toEqual({ absence: false, otherEntries: true })
+    expect(flags('2026-10-12')).toEqual({ absence: false, otherEntries: false })
+    // The balance still credits the daily target on the closure day.
+    expect(getTimeMonth(db, anna, 2026, 10, '2026-10-08').days.find(d => d.date === '2026-10-07')!.counted).toBe(468)
+  })
 })

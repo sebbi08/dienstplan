@@ -89,6 +89,8 @@ function buildAdminData(
     })
   }
 
+  // Time warnings were appended after all plan warnings; Array.prototype.sort is stable.
+  warnings.sort((a, b) => a.date.localeCompare(b.date))
   return { warnings, weeks, balances: computeBalances(db, staff, monthEnd, today), actuals }
 }
 

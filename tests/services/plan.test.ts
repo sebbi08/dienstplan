@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells, setDayNote } from '../../server/services/entries'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
 import { deleteTemplate, updateCode } from '../../server/services/settings'
+import { createRecord } from '../../server/services/timeTracking'
+import { cellKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -140,5 +143,30 @@ describe('month plan', () => {
     expect(mine.employee.name).toBe('Anna')
     expect(mine.days.flatMap(d => d.entries).map(e => e.employeeId)).toEqual([anna])
     expect(errorCode(() => getMyPlan(db, { ...observer, employeeId: null }, 2026, 10, today))).toBe('no_employee')
+  })
+
+  describe('with time tracking', () => {
+    const NOW = new Date('2026-10-08T10:00:00Z')
+    const record = (date: string, minutes: number) =>
+      createRecord(db, admin, { employeeId: anna, date, start: 465, end: 465 + minutes }, NOW)
+    beforeEach(() => setTimeTrackingFrom(db, '2026-10-01'))
+
+    it('marks recorded time that deviates more than 15 minutes from the planned credit', () => {
+      for (const date of ['2026-10-05', '2026-10-06', '2026-10-07']) shift(anna, date) // M = 465 min
+      record('2026-10-05', 465 + 15)
+      record('2026-10-06', 465 + 16)
+      record('2026-10-07', 465 - 16)
+      const actuals = getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.actuals
+      expect(actuals[cellKey(anna, '2026-10-05')]).toEqual({ minutes: 480, open: false, deviates: false })
+      expect(actuals[cellKey(anna, '2026-10-06')]).toEqual({ minutes: 481, open: false, deviates: true })
+      expect(actuals[cellKey(anna, '2026-10-07')]).toEqual({ minutes: 449, open: false, deviates: true })
+    })
+    it('sorts plan and time warnings by date', () => {
+      shift(anna, '2026-10-02') // planned, nothing recorded → missing_record on 02.10.
+      const warnings = getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.warnings
+      expect(warnings.some(w => w.type === 'missing_record' && w.date === '2026-10-02')).toBe(true)
+      const dates = warnings.map(w => w.date)
+      expect(dates).toEqual([...dates].sort())
+    })
   })
 })

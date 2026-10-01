@@ -21,11 +21,15 @@ export function computeBalances(db: Db, staff: EmployeeRecord[], monthEnd: IsoDa
     const own = byEmployee.get(employee.id) ?? []
     const ownAdjustments = adjustments.filter(a => a.employeeId === employee.id)
     const actual = actualOf(employee.id)
+    // Bookings dated today already count in "Stand heute", even when the day deltas stop at yesterday.
+    const todaysBookings = todayUntil === today
+      ? 0
+      : ownAdjustments.filter(a => a.date === today).reduce((sum, a) => sum + a.minutes, 0)
     return {
       employeeId: employee.id,
       name: employee.name,
       weeklyMinutes: weeklyMinutesOn(employee.info, today) ?? weeklyMinutesOn(employee.info, monthEnd),
-      today: balanceUntil(employee.info, own, ownAdjustments, todayUntil, actual),
+      today: balanceUntil(employee.info, own, ownAdjustments, todayUntil, actual) + todaysBookings,
       monthEnd: balanceUntil(employee.info, own, ownAdjustments, monthEnd, actual),
       previousMonthEnd: balanceUntil(employee.info, own, ownAdjustments, previousMonthEnd, actual),
     }
