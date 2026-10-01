@@ -100,6 +100,7 @@ export const dayNotes = sqliteTable('day_notes', {
   info2: text('info2').notNull().default(''),
 })
 
+/** Mirrors the newest release snapshot of a month (written in the same transaction); also read by the internal change log. */
 export const monthPlans = sqliteTable('month_plans', {
   year: integer('year').notNull(),
   month: integer('month').notNull(),

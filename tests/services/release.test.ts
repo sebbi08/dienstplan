@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { monthPlans } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
