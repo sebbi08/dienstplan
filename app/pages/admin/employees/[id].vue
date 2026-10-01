@@ -17,6 +17,7 @@ watch(employee, (value) => {
   if (value) Object.assign(master, { name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '' })
 }, { immediate: true })
 
+const confirm = useConfirm()
 const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso() })
 const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '' })
 const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30, carriedOverDays: 0 })
@@ -33,8 +34,8 @@ function addHours() {
   }), de.common.saved)
 }
 
-function deleteHours(hoursId: number) {
-  if (window.confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employee-hours/${hoursId}`, { method: 'DELETE' }))
+async function deleteHours(hoursId: number) {
+  if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employee-hours/${hoursId}`, { method: 'DELETE' }))
 }
 
 async function addAdjustment() {
@@ -50,8 +51,8 @@ async function addAdjustment() {
   if (ok) Object.assign(adjustmentForm, { amount: '', reason: '' })
 }
 
-function deleteAdjustment(adjustmentId: number) {
-  if (window.confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/balance-adjustments/${adjustmentId}`, { method: 'DELETE' }))
+async function deleteAdjustment(adjustmentId: number) {
+  if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/balance-adjustments/${adjustmentId}`, { method: 'DELETE' }))
 }
 
 function saveEntitlement() {

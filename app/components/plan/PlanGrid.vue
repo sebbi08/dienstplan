@@ -68,6 +68,14 @@ const totals = computed(() => {
   ]
 })
 
+const columnCount = computed(() => props.plan.employees.length + (props.plan.admin ? 4 : 3))
+
+/** A blank separator row closes every week (after its KW row for admins, after Sunday for observers), except at month end. */
+function endsWeek(row: { day: DayRowDto; week: unknown }, index: number): boolean {
+  if (index === rows.value.length - 1) return false
+  return props.plan.admin ? row.week !== null : row.day.weekday === 6
+}
+
 function rowClass(day: DayRowDto): string {
   if (day.holidayKey || day.closureLabel) return 'bg-blue-50'
   return day.isWeekend ? 'bg-gray-100 text-gray-500' : 'bg-white'
@@ -138,7 +146,7 @@ const rows = computed(() => props.plan.days.map((day) => {
         </tr>
       </thead>
       <tbody>
-        <template v-for="row in rows" :key="row.day.date">
+        <template v-for="(row, index) in rows" :key="row.day.date">
           <tr :class="rowClass(row.day)">
             <td
               class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top"
@@ -193,6 +201,9 @@ const rows = computed(() => props.plan.days.map((day) => {
               {{ formatSignedDuration(total.delta) }}
             </td>
             <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">{{ de.plan.weekHint }}</td>
+          </tr>
+          <tr v-if="endsWeek(row, index)" aria-hidden="true">
+            <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-2" />
           </tr>
         </template>
       </tbody>

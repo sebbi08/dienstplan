@@ -9,6 +9,7 @@ const month = computed(() => Number(route.params.month))
 const { user } = useUserSession()
 const isAdmin = computed(() => user.value?.role === 'admin')
 const toast = useToast()
+const confirm = useConfirm()
 
 const { data: plan, error, refresh } = await useFetch<MonthPlanDto>(() => `/api/plan/${year.value}/${month.value}`)
 const run = useAction(refresh)
@@ -53,8 +54,8 @@ function apply(mode: ApplyMode, entry: EntryInput | null) {
   run(() => $fetch<unknown>('/api/entries', { method: 'POST', body: { cells: selection.cells.value, mode, entry } }))
 }
 
-function onClear() {
-  if (hasSelection() && window.confirm(de.plan.clearConfirm)) apply('clear', null)
+async function onClear() {
+  if (hasSelection() && await confirm(de.plan.clearConfirm, { confirmLabel: de.plan.clear })) apply('clear', null)
 }
 
 function onTemplate(template: TemplateDto) {
@@ -89,8 +90,8 @@ function onRemoveEntry(id: number) {
   run(() => $fetch<unknown>(`/api/entries/${id}`, { method: 'DELETE' }))
 }
 
-function release() {
-  if (!window.confirm(de.plan.releaseConfirm)) return
+async function release() {
+  if (!await confirm(de.plan.releaseConfirm, { confirmLabel: de.plan.release, danger: false })) return
   run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' }), de.plan.releasedToast)
 }
 

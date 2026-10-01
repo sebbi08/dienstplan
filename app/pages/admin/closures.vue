@@ -6,6 +6,7 @@ import { formatDate } from '~/utils/format'
 
 const { data: list, refresh } = await useFetch<ClosureDto[]>('/api/closures')
 const run = useAction(refresh)
+const confirm = useConfirm()
 const form = reactive<{ startDate: string; endDate: string; label: string; mode: ClosureMode }>({
   startDate: todayIso(), endDate: todayIso(), label: '', mode: 'vacation',
 })
@@ -16,8 +17,8 @@ async function create() {
   if (ok) form.label = ''
 }
 
-function remove(closure: ClosureDto) {
-  if (window.confirm(de.closures.confirmDelete)) run(() => $fetch<unknown>(`/api/closures/${closure.id}`, { method: 'DELETE' }), de.common.deleted)
+async function remove(closure: ClosureDto) {
+  if (await confirm(de.closures.confirmDelete)) run(() => $fetch<unknown>(`/api/closures/${closure.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 </script>
 

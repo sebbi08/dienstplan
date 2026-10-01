@@ -13,6 +13,7 @@ interface RuleForm { id: number | null; label: string; start: string; end: strin
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings')
 const run = useAction(refresh)
 const toast = useToast()
+const confirm = useConfirm()
 
 const timeText = (minutes: number | null) => (minutes === null ? '' : toTimeInput(minutes))
 const optionalTime = (value: string) => (value ? parseTime(value) : null)
@@ -59,13 +60,14 @@ async function saveTemplate(form: TemplateForm) {
   if (ok && !form.id) newTemplate.value = emptyTemplate()
 }
 
-function deleteTemplate(form: TemplateForm) {
-  if (form.id && window.confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/shift-templates/${form.id}`, { method: 'DELETE' }), de.common.deleted)
+async function deleteTemplate(form: TemplateForm) {
+  if (form.id && await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/shift-templates/${form.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
-function saveCode(code: CodeDto) {
+async function saveCode(code: CodeDto) {
   const saved = settings.value?.codes.find(candidate => candidate.id === code.id)
-  if (saved && saved.creditMode !== code.creditMode && !window.confirm(de.settings.creditModeConfirm)) return
+  if (saved && saved.creditMode !== code.creditMode
+    && !await confirm(de.settings.creditModeConfirm, { confirmLabel: de.common.save, danger: false })) return
   run(() => $fetch<unknown>(`/api/absence-codes/${code.id}`, {
     method: 'PUT', body: { label: code.label, color: code.color, creditMode: code.creditMode },
   }), de.common.saved)
@@ -81,8 +83,8 @@ async function saveRule(form: RuleForm) {
   if (ok && !form.id) newRule.value = emptyRule()
 }
 
-function deleteRule(form: RuleForm) {
-  if (form.id && window.confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/coverage-rules/${form.id}`, { method: 'DELETE' }), de.common.deleted)
+async function deleteRule(form: RuleForm) {
+  if (form.id && await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/coverage-rules/${form.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
 const cell = 'px-1 py-1'
