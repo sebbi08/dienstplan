@@ -15,6 +15,7 @@ export interface TemplateInput {
   breakStart: Minutes | null
   breakEnd: Minutes | null
   countsAsStaff: boolean
+  pairsWithPrepTime: boolean
   sortOrder: number
 }
 

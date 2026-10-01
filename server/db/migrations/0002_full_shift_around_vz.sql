@@ -1,0 +1,2 @@
+ALTER TABLE `shift_templates` ADD `pairs_with_prep_time` integer DEFAULT false NOT NULL;--> statement-breakpoint
+UPDATE `shift_templates` SET `pairs_with_prep_time` = 1 WHERE `short_label` IN ('F2', 'M', 'S');

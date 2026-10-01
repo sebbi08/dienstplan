@@ -55,6 +55,7 @@ export interface TemplateDto {
   breakStart: Minutes | null
   breakEnd: Minutes | null
   countsAsStaff: boolean
+  pairsWithPrepTime: boolean
   sortOrder: number
 }
 

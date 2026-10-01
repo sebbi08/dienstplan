@@ -6,7 +6,7 @@ import { de } from '~/locales/de'
 
 interface TemplateForm {
   id: number | null; shortLabel: string; label: string; start: string; end: string
-  breakStart: string; breakEnd: string; countsAsStaff: boolean; sortOrder: number
+  breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean; sortOrder: number
 }
 interface RuleForm { id: number | null; label: string; start: string; end: string; minCount: number; active: boolean }
 
@@ -18,7 +18,7 @@ const confirm = useConfirm()
 const timeText = (minutes: number | null) => (minutes === null ? '' : toTimeInput(minutes))
 const optionalTime = (value: string) => (value ? parseTime(value) : null)
 
-const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, sortOrder: 99 })
+const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99 })
 const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true })
 
 const templates = ref<TemplateForm[]>([])
@@ -30,7 +30,8 @@ const newRule = ref(emptyRule())
 watch(settings, (value) => {
   templates.value = (value?.templates ?? []).map((t: TemplateDto) => ({
     id: t.id, shortLabel: t.shortLabel, label: t.label, start: timeText(t.start), end: timeText(t.end),
-    breakStart: timeText(t.breakStart), breakEnd: timeText(t.breakEnd), countsAsStaff: t.countsAsStaff, sortOrder: t.sortOrder,
+    breakStart: timeText(t.breakStart), breakEnd: timeText(t.breakEnd), countsAsStaff: t.countsAsStaff,
+    pairsWithPrepTime: t.pairsWithPrepTime, sortOrder: t.sortOrder,
   }))
   codes.value = (value?.codes ?? []).map(code => ({ ...code }))
   rules.value = (value?.coverageRules ?? []).map((r: CoverageRuleDto) => ({
@@ -52,7 +53,7 @@ async function saveTemplate(form: TemplateForm) {
   const body = {
     shortLabel: form.shortLabel, label: form.label, start, end,
     breakStart: optionalTime(form.breakStart), breakEnd: optionalTime(form.breakEnd),
-    countsAsStaff: form.countsAsStaff, sortOrder: form.sortOrder,
+    countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime, sortOrder: form.sortOrder,
   }
   const ok = await run(() => form.id
     ? $fetch<unknown>(`/api/shift-templates/${form.id}`, { method: 'PUT', body })
@@ -105,7 +106,9 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
               <th :class="cell">{{ de.settings.shortLabel }}</th><th :class="cell">{{ de.settings.label }}</th>
               <th :class="cell">{{ de.settings.start }}</th><th :class="cell">{{ de.settings.end }}</th>
               <th :class="cell">{{ de.settings.breakStart }}</th><th :class="cell">{{ de.settings.breakEnd }}</th>
-              <th :class="cell">{{ de.settings.countsAsStaff }}</th><th :class="cell">{{ de.settings.sortOrder }}</th><th />
+              <th :class="cell">{{ de.settings.countsAsStaff }}</th>
+              <th :class="cell" :title="de.settings.pairsWithPrepTimeHint">{{ de.settings.pairsWithPrepTime }}</th>
+              <th :class="cell">{{ de.settings.sortOrder }}</th><th />
             </tr>
           </thead>
           <tbody>
@@ -117,6 +120,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
               <td :class="cell"><input v-model="form.breakStart" type="time" step="300" :class="timeInput"></td>
               <td :class="cell"><input v-model="form.breakEnd" type="time" step="300" :class="timeInput"></td>
               <td :class="cell" class="text-center"><input v-model="form.countsAsStaff" type="checkbox"></td>
+              <td :class="cell" class="text-center"><input v-model="form.pairsWithPrepTime" type="checkbox" :title="de.settings.pairsWithPrepTimeHint"></td>
               <td :class="cell"><input v-model.number="form.sortOrder" type="number" class="w-14 rounded border border-gray-300 px-1 py-0.5"></td>
               <td :class="cell" class="whitespace-nowrap text-right">
                 <UButton size="xs" :label="form.id ? de.common.save : de.settings.addTemplate" @click="saveTemplate(form)" />

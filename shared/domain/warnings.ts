@@ -28,6 +28,11 @@ export const TARGET_GAP_TOLERANCE_MINUTES = 15
 
 export const TARGET_GAP_CODES: CodeKey[] = ['prep_time', 'office']
 
+/** VZ / Büro: timed codes that may lie inside a shift and are filled up to the daily target by hand. */
+export function isTargetGapCode(codeKey: CodeKey | null): boolean {
+  return codeKey !== null && TARGET_GAP_CODES.includes(codeKey)
+}
+
 export function isCheckedDay(date: IsoDate, isClosureDay: boolean): boolean {
   return !isWeekend(date) && !isHoliday(date) && !isClosureDay
 }
@@ -58,7 +63,7 @@ export function dayWarnings(
       warnings.push({ type: 'missing_entry', date, employeeId })
       continue
     }
-    const hasGapCode = entries.some(entry => entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey))
+    const hasGapCode = entries.some(entry => isTargetGapCode(entry.codeKey))
     if (!hasGapCode) continue
     const target = dailyTarget(info, date)
     const credit = dayCredit(entries, target)

@@ -1,4 +1,6 @@
-import type { Minutes } from './types'
+import { workedMinutes, type WorkSpan } from './balance'
+import type { CodeKey, Minutes } from './types'
+import { isTargetGapCode } from './warnings'
 
 export interface SuggestTemplate {
   id: number
@@ -6,38 +8,29 @@ export interface SuggestTemplate {
   end: Minutes
   breakStart: Minutes | null
   breakEnd: Minutes | null
-  countsAsStaff: boolean
+  pairsWithPrepTime: boolean
 }
 
-export interface ShiftSuggestion {
-  templateId: number
-  start: Minutes
-  end: Minutes
-  breakStart: Minutes | null
-  breakEnd: Minutes | null
-}
+export type SuggestDayEntry = WorkSpan & { codeKey: CodeKey | null }
 
 /**
- * Suggests the fixed (care staff) shift that, started at `start` (e.g. right after VZ), comes closest to the
- * missing minutes of the day. The shift keeps its end time and its break if the break still lies inside.
+ * Suggests the full fixed shift (one marked for VZ/Büro, e.g. F2, M, S) to enter around the VZ/Büro times
+ * of a day: preferably one that encloses all of them, among those the one whose added working minutes come
+ * closest to the missing minutes.
  */
-export function suggestShiftAfter(start: Minutes, missingMinutes: number, templates: SuggestTemplate[]): ShiftSuggestion | null {
-  let best: { suggestion: ShiftSuggestion; distance: number } | null = null
-  for (const template of templates) {
-    if (!template.countsAsStaff || template.end <= start || template.start > start) continue
-    const keepsBreak = template.breakStart !== null && template.breakEnd !== null
-      && template.breakStart >= start && template.breakEnd <= template.end
-    const net = template.end - start - (keepsBreak ? template.breakEnd! - template.breakStart! : 0)
-    const distance = Math.abs(net - missingMinutes)
-    if (!best || distance < best.distance) {
-      best = {
-        distance,
-        suggestion: {
-          templateId: template.id, start, end: template.end,
-          breakStart: keepsBreak ? template.breakStart : null, breakEnd: keepsBreak ? template.breakEnd : null,
-        },
-      }
-    }
+export function suggestFullShift<T extends SuggestTemplate>(
+  dayEntries: SuggestDayEntry[], missingMinutes: number, templates: T[],
+): T | null {
+  const gapSpans = dayEntries.filter(entry => isTargetGapCode(entry.codeKey) && entry.start !== null && entry.end !== null)
+  const candidates = templates.filter(template => template.pairsWithPrepTime)
+  const enclosing = candidates.filter(template => gapSpans.every(span => template.start <= span.start! && span.end! <= template.end))
+  const before = workedMinutes(dayEntries)
+
+  let best: { template: T; distance: number } | null = null
+  for (const template of enclosing.length > 0 ? enclosing : candidates) {
+    const added = workedMinutes([...dayEntries, { kind: 'shift', ...template }]) - before
+    const distance = Math.abs(added - missingMinutes)
+    if (!best || distance < best.distance) best = { template, distance }
   }
-  return best?.suggestion ?? null
+  return best?.template ?? null
 }

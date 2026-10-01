@@ -122,6 +122,8 @@ export const de = {
   settings: {
     title: 'Einstellungen', templates: 'Dienst-Buttons', shortLabel: 'Kürzel', label: 'Bezeichnung',
     start: 'Von', end: 'Bis', breakStart: 'Pause von', breakEnd: 'Pause bis', countsAsStaff: 'zählt als Betreuungskraft',
+    pairsWithPrepTime: 'Vorschlag bei VZ/Büro',
+    pairsWithPrepTimeHint: 'Wird als voller Dienst um VZ oder Büro vorgeschlagen (z. B. F2, M, S).',
     sortOrder: 'Reihenfolge', addTemplate: 'Dienst hinzufügen', codes: 'Codes', color: 'Farbe', creditMode: 'Anrechnung',
     creditModeConfirm: 'Die geänderte Anrechnung gilt auch für alle bereits eingetragenen Tage mit diesem Code. Dadurch ändern sich die Stundenkonten rückwirkend. Trotzdem speichern?',
     rules: 'Pflichtdienste', rulesHint: 'Die App warnt an jedem Werktag, an dem weniger Dienste mit diesem Beginn (und optional Ende) eingetragen sind.',
@@ -177,8 +179,7 @@ export const de = {
     closure_not_found: 'Diese Schließzeit existiert nicht mehr.',
     rule_not_found: 'Dieser Pflichtdienst existiert nicht mehr.',
     invalid_key: 'Diese Änderung gehört nicht zu diesem Monat.',
-    entries_overlap: 'Dieser Dienst überschneidet sich mit einem anderen Eintrag des Tages (z. B. VZ). Bitte „Ergänzen“ nutzen oder einen Sonderdienst mit passenden Zeiten eintragen.',
-    invalid_shift_start: 'Der Dienst kann nur innerhalb seiner festen Zeiten später beginnen.',
+    entries_overlap: 'Dieser Dienst überschneidet sich mit einem anderen Dienst des Tages. Nur VZ oder Büro dürfen innerhalb eines Dienstes liegen.',
     break_requires_add: 'Eine zusätzliche Pause wird immer zum bestehenden Dienst hinzugefügt.',
     break_outside_work: 'Die Pause muss innerhalb der Arbeitszeit dieses Tages liegen.',
     break_overlap: 'Die Pause überschneidet sich mit einer anderen Pause.',

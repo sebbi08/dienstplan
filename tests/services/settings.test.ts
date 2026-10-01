@@ -30,13 +30,13 @@ describe('settings service', () => {
   it('does not change existing entries when a template changes or is deleted', () => {
     const m = templateId(db, 'M')
     applyToCells(db, admin, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: m })
-    updateTemplate(db, m, { shortLabel: 'M', label: 'Mitteldienst', start: 480, end: 975, breakStart: 700, breakEnd: 730, countsAsStaff: true, sortOrder: 3 })
+    updateTemplate(db, m, { shortLabel: 'M', label: 'Mitteldienst', start: 480, end: 975, breakStart: 700, breakEnd: 730, countsAsStaff: true, pairsWithPrepTime: true, sortOrder: 3 })
     expect(loadEntries(db)[0]).toMatchObject({ start: 465, end: 960 })
     deleteTemplate(db, m)
     expect(loadEntries(db)[0]).toMatchObject({ start: 465, end: 960, templateId: null })
   })
   it('validates templates', () => {
-    const input = { shortLabel: 'X', label: 'Test', start: 465, end: 960, breakStart: 450, breakEnd: 480, countsAsStaff: true, sortOrder: 9 }
+    const input = { shortLabel: 'X', label: 'Test', start: 465, end: 960, breakStart: 450, breakEnd: 480, countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 9 }
     expect(errorCode(() => createTemplate(db, input))).toBe('span_break_outside')
     expect(errorCode(() => createTemplate(db, { ...input, label: ' ', breakStart: null, breakEnd: null }))).toBe('label_required')
     expect(createTemplate(db, { ...input, breakStart: null, breakEnd: null })).toMatchObject({ label: 'Test' })

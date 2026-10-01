@@ -89,6 +89,12 @@ Validierung: Ende > Beginn; Pause liegt innerhalb der Arbeitszeit; Zeiten im 5-M
   - Enthält der Tag einen Code mit Anrechnung „Tagessoll“ → angerechnet = Tagessoll
     (andere Einträge des Tages zählen dann für das Konto nicht; Beispiel: nach 3 h krank nach Hause).
   - Sonst → Summe der Netto-Zeiten aller zeitbehafteten Einträge (Dienste, Sonderdienste, VZ, Büro, sonstiges mit Zeit).
+    Überschneidungen zählen einmal; Pausen (des Dienstes und zusätzliche) zählen nie.
+- **VZ/Büro im Dienst:** VZ oder Büro dürfen innerhalb eines Dienstes liegen (z. B. M 7:45–16:00 mit
+  VZ 14:00–16:00 → 7:45 h). Feste Dienste werden immer mit ihren vollen Zeiten eingetragen. Der Vorschlag
+  „Ergänzen“ bietet bei einer Zelle mit nur VZ/Büro den vollen Dienst an, der in den Einstellungen als
+  „Vorschlag bei VZ/Büro“ markiert ist (Standard: F2, M, S), bevorzugt einen, der VZ/Büro umschließt.
+  Andere Einträge dürfen sich nicht überschneiden.
   - An Feiertagen/Wochenenden (Soll 0) zählt jede eingetragene Arbeitszeit als Plus (z. B. Sommerfest).
 - **Tagesdifferenz** = angerechnet − Tagessoll.
 - Ein Mitarbeiter wird ab dem ersten `gültig ab`-Datum seiner Wochenstunden berechnet und

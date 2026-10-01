@@ -22,6 +22,19 @@ describe('dayCredit', () => {
     expect(dayCredit([code(1, day, 'other', 'none')], 468)).toBe(0)
     expect(dayCredit([code(1, day, 'other', 'none', 600, 660)], 468)).toBe(60)
   })
+  it('counts VZ inside a full shift only once', () => {
+    expect(dayCredit([code(1, day, 'prep_time', 'timed', 840, 960), shift(1, day, ...M)], 468)).toBe(465)
+  })
+  it('adds only the part of VZ outside the shift', () => {
+    expect(dayCredit([code(1, day, 'prep_time', 'timed', 420, 480), shift(1, day, ...M)], 468)).toBe(465 + 45)
+  })
+  it('still subtracts the shift break when VZ lies over it', () => {
+    expect(dayCredit([code(1, day, 'prep_time', 'timed', 660, 780), shift(1, day, ...M)], 468)).toBe(465)
+  })
+  it('subtracts additional breaks', () => {
+    const extraBreak = shift(1, day, 900, 915, null, null, { kind: 'break', countsAsStaff: false })
+    expect(dayCredit([shift(1, day, ...M), extraBreak], 468)).toBe(450)
+  })
 })
 
 describe('computeDay / computeRange', () => {

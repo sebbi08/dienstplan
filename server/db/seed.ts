@@ -7,9 +7,9 @@ import { absenceCodes, coverageRules, shiftTemplates, users } from './schema'
 
 export const DEFAULT_TEMPLATES: (typeof shiftTemplates.$inferInsert)[] = [
   { shortLabel: 'F1', label: 'Frühdienst', start: 420, end: 795, breakStart: null, breakEnd: null, countsAsStaff: true, sortOrder: 1 },
-  { shortLabel: 'F2', label: 'Frühdienst 2', start: 450, end: 945, breakStart: 700, breakEnd: 730, countsAsStaff: true, sortOrder: 2 },
-  { shortLabel: 'M', label: 'Mitteldienst', start: 465, end: 960, breakStart: 700, breakEnd: 730, countsAsStaff: true, sortOrder: 3 },
-  { shortLabel: 'S', label: 'Spätdienst', start: 525, end: 1020, breakStart: 730, breakEnd: 760, countsAsStaff: true, sortOrder: 4 },
+  { shortLabel: 'F2', label: 'Frühdienst 2', start: 450, end: 945, breakStart: 700, breakEnd: 730, countsAsStaff: true, pairsWithPrepTime: true, sortOrder: 2 },
+  { shortLabel: 'M', label: 'Mitteldienst', start: 465, end: 960, breakStart: 700, breakEnd: 730, countsAsStaff: true, pairsWithPrepTime: true, sortOrder: 3 },
+  { shortLabel: 'S', label: 'Spätdienst', start: 525, end: 1020, breakStart: 730, breakEnd: 760, countsAsStaff: true, pairsWithPrepTime: true, sortOrder: 4 },
   { shortLabel: 'HK', label: 'Haushaltskraft', start: 660, end: 960, breakStart: null, breakEnd: null, countsAsStaff: false, sortOrder: 5 },
 ]
 

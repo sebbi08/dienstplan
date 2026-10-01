@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApplyMode, CodeDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
-import { suggestShiftAfter } from '#shared/domain/suggest'
+import { suggestFullShift } from '#shared/domain/suggest'
+import { isTargetGapCode } from '#shared/domain/warnings'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 
@@ -33,8 +34,8 @@ const dates = computed(() => plan.value?.days.map(day => day.date) ?? [])
 const insertMode = (): ApplyMode => (addMode.value ? 'add' : 'replace')
 
 /**
- * One selected cell with a target gap (e.g. VZ only): suggest the fixed shift that best fills the day,
- * starting right after the last entry; without a fitting shift, a special shift of exactly the missing time.
+ * One selected cell with a target gap: with only VZ/Büro, suggest the full shift (F2, M, S) around them;
+ * otherwise (or without such a shift) a special shift of exactly the missing time after the last entry.
  */
 const gapSuggestion = computed(() => {
   const current = plan.value
@@ -42,18 +43,16 @@ const gapSuggestion = computed(() => {
   if (!current?.admin || !cell) return null
   const gap = current.admin.warnings.find(w => w.type === 'target_gap' && w.employeeId === cell.employeeId && w.date === cell.date)
   if (gap?.type !== 'target_gap') return null
-  const ends = current.entries
-    .filter(entry => entry.employeeId === cell.employeeId && entry.date === cell.date && entry.end !== null)
-    .map(entry => entry.end!)
+  const dayEntries = current.entries.filter(entry => entry.employeeId === cell.employeeId && entry.date === cell.date)
+  if (dayEntries.every(entry => entry.kind === 'break' || isTargetGapCode(entry.codeKey))) {
+    const template = suggestFullShift(dayEntries, gap.missingMinutes, current.templates)
+    if (template) return { templateId: template.id, start: template.start, end: template.end, shortLabel: template.shortLabel }
+  }
+  const ends = dayEntries.filter(entry => entry.end !== null).map(entry => entry.end!)
   if (ends.length === 0) return null
   const start = Math.max(...ends)
-  const shift = suggestShiftAfter(start, gap.missingMinutes, current.templates)
-  if (shift) {
-    const template = current.templates.find(candidate => candidate.id === shift.templateId)
-    return { ...shift, shortLabel: template?.shortLabel ?? '' }
-  }
   const end = Math.ceil((start + gap.missingMinutes) / 5) * 5
-  return end <= 24 * 60 ? { templateId: null, start, end, breakStart: null, breakEnd: null, shortLabel: '' } : null
+  return end <= 24 * 60 ? { templateId: null, start, end, shortLabel: '' } : null
 })
 
 function hasSelection(): boolean {
@@ -123,7 +122,7 @@ function onDiscard(keys: string[]) {
 function onFillGap() {
   const gap = gapSuggestion.value
   if (!gap) return
-  if (gap.templateId !== null) apply('add', { kind: 'shift', templateId: gap.templateId, start: gap.start })
+  if (gap.templateId !== null) apply('add', { kind: 'shift', templateId: gap.templateId })
   else apply('add', { kind: 'special', start: gap.start, end: gap.end })
 }
 

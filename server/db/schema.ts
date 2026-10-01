@@ -52,6 +52,8 @@ export const shiftTemplates = sqliteTable('shift_templates', {
   breakStart: integer('break_start'),
   breakEnd: integer('break_end'),
   countsAsStaff: integer('counts_as_staff', { mode: 'boolean' }).notNull().default(true),
+  /** Offered as the full shift around VZ/Büro (F2, M, S). */
+  pairsWithPrepTime: integer('pairs_with_prep_time', { mode: 'boolean' }).notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 

@@ -58,7 +58,8 @@ export const closureSchema = z.object({ startDate: isoDate, endDate: isoDate, la
 
 export const templateSchema = z.object({
   shortLabel: z.string().max(10), label, start: minutes, end: minutes,
-  breakStart: minutes.nullable(), breakEnd: minutes.nullable(), countsAsStaff: z.boolean(), sortOrder: z.number().int(),
+  breakStart: minutes.nullable(), breakEnd: minutes.nullable(), countsAsStaff: z.boolean(),
+  pairsWithPrepTime: z.boolean(), sortOrder: z.number().int(),
 })
 export const codeUpdateSchema = z.object({ label, color: z.enum(COLOR_KEYS), creditMode: z.enum(['daily_target', 'timed', 'none']) })
 export const coverageRuleSchema = z.object({
