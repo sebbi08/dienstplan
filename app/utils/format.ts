@@ -1,4 +1,5 @@
 import { parseIsoDate } from '#shared/domain/dates'
+import { formatTime } from '#shared/domain/time'
 import { de } from '~/locales/de'
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -17,6 +18,11 @@ export function formatDateTime(timestamp: string): string {
   return new Intl.DateTimeFormat('de-DE', {
     timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date(timestamp))
+}
+
+/** A time record as "7:42–11:40", open records as "7:42–…". */
+export function formatSpan(record: { start: number; end: number | null }): string {
+  return `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
 }
 
 export function formatNumber(value: number): string {

@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
 import type { CodeDto, EmployeeListItemDto, OpenRecordDto, TimeDayDto, TimeMonthDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { balanceClass } from '~/utils/colors'
-import { formatDate, formatDateTime, formatDayShort } from '~/utils/format'
+import { formatDate, formatDateTime, formatDayShort, formatSpan } from '~/utils/format'
 import { warningText } from '~/utils/warnings'
+
+/** Same tolerance as the "Ist" marker in the plan (spec 4.3). */
+const DEVIATION_MINUTES = 15
 
 const route = useRoute()
 const router = useRouter()
-const today = parseIsoDate(todayIso())
+const todayDate = todayIso()
+const today = parseIsoDate(todayDate)
 const year = ref(Number(route.query.year) || today.year)
 const month = ref(Number(route.query.month) || today.month)
 const employeeId = ref<number | null>(Number(route.query.employee) || null)
@@ -30,7 +34,8 @@ const confirm = useConfirm()
 watch([employeeId, year, month], () => router.replace({ query: { employee: employeeId.value ?? undefined, year: year.value, month: month.value } }))
 
 const names = computed(() => new Map((employees.value ?? []).map(employee => [employee.id, employee.name])))
-const span = (record: TimeRecordDto) => `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
+/** Recorded minus planned credit, only where records count (not on Urlaub/Krank/Feiertag … days). */
+const difference = (day: TimeDayDto) => (day.usesRecords && !day.targetCredit ? day.recordedMinutes - day.plannedMinutes : null)
 const expanded = ref(new Set<string>())
 
 function toggleProtocol(date: string) {
@@ -48,9 +53,17 @@ function addRecord(day: TimeDayDto) {
 function editRecord(day: TimeDayDto, record: TimeRecordDto) {
   Object.assign(modal, { open: true, date: day.date, record })
 }
-function onSubmit(value: { start: number; end: number }) {
-  if (modal.record) run(() => $fetch<unknown>(`/api/time-records/${modal.record!.id}`, { method: 'PUT', body: value }), de.common.saved)
-  else if (data.value) run(() => $fetch<unknown>('/api/time-records', { method: 'POST', body: { employeeId: data.value!.employee.id, date: modal.date, ...value } }), de.common.saved)
+/** The dialog stays open until saving succeeded, so a rejected entry (overlap, future) keeps the typed times. */
+async function onSubmit(value: { start: number; end: number }) {
+  const record = modal.record
+  const shownEmployee = data.value?.employee.id
+  let saved = false
+  if (record) saved = await run(() => $fetch<unknown>(`/api/time-records/${record.id}`, { method: 'PUT', body: value }), de.common.saved)
+  else if (shownEmployee !== undefined) {
+    const body = { employeeId: shownEmployee, date: modal.date, ...value }
+    saved = await run(() => $fetch<unknown>('/api/time-records', { method: 'POST', body }), de.common.saved)
+  }
+  if (saved) modal.open = false
 }
 async function removeRecord(record: TimeRecordDto) {
   if (await confirm(de.time.deleteConfirm)) run(() => $fetch<unknown>(`/api/time-records/${record.id}`, { method: 'DELETE' }), de.common.deleted)
@@ -60,11 +73,32 @@ async function removeRecord(record: TimeRecordDto) {
 async function setAbsence(day: TimeDayDto, code: CodeDto | null) {
   if (!data.value) return
   if (!code && !await confirm(de.time.removeAbsenceConfirm)) return
+  if (code && day.otherEntries && !await confirm(de.time.replaceConfirm, { confirmLabel: code.label, danger: false })) return
   // Employee of the displayed table, not the select (which may already show the next person while loading).
   const cells = [{ employeeId: data.value.employee.id, date: day.date }]
   const body = code ? { cells, mode: 'replace', entry: { kind: 'code', codeId: code.id } } : { cells, mode: 'clear', entry: null }
   run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }), de.common.saved)
 }
+
+/** One compact menu per day instead of four buttons, so rows stay short on narrow screens. */
+function absenceItems(day: TimeDayDto): DropdownMenuItem[][] {
+  const codes = (data.value?.absenceCodes ?? []).map(code => ({ label: code.label, onSelect: () => setAbsence(day, code) }))
+  if (!day.absence) return [codes]
+  return [codes, [{ label: de.time.removeAbsence, icon: 'i-lucide-x', color: 'error', onSelect: () => setAbsence(day, null) }]]
+}
+
+// Scroll to the focused day (deep link, "Offene Zeiträume") once its row has rendered – only then, not after every save.
+const scrollPending = ref(focusDate.value !== null)
+async function scrollToFocus() {
+  if (!scrollPending.value || !focusDate.value) return
+  await nextTick()
+  const row = document.getElementById(`day-${focusDate.value}`)
+  if (!row) return
+  scrollPending.value = false
+  row.scrollIntoView({ block: 'center' })
+}
+watch(data, scrollToFocus, { flush: 'post' })
+onMounted(scrollToFocus)
 
 function openJump(record: OpenRecordDto) {
   const date = parseIsoDate(record.date)
@@ -72,16 +106,14 @@ function openJump(record: OpenRecordDto) {
   month.value = date.month
   employeeId.value = record.employeeId
   focusDate.value = record.date
+  scrollPending.value = true
+  scrollToFocus()
 }
 
 function change(nextYear: number, nextMonth: number) {
   year.value = nextYear
   month.value = nextMonth
 }
-
-onMounted(() => {
-  if (focusDate.value) document.getElementById(`day-${focusDate.value}`)?.scrollIntoView({ block: 'center' })
-})
 </script>
 
 <template>
@@ -122,14 +154,15 @@ onMounted(() => {
             <td class="whitespace-nowrap px-2 py-1.5 font-medium">{{ formatDayShort(day.date, day.weekday) }}</td>
             <td class="px-2 py-1.5 text-xs">
               {{ day.plan }}
-              <div class="mt-1 flex flex-wrap gap-1">
-                <UButton v-for="code in data.absenceCodes" :key="code.id" size="xs" color="neutral" variant="soft" :label="code.label" @click="setAbsence(day, code)" />
-                <UButton v-if="day.absence" size="xs" color="error" variant="ghost" :label="de.time.removeAbsence" @click="setAbsence(day, null)" />
+              <div class="mt-1">
+                <UDropdownMenu :items="absenceItems(day)">
+                  <UButton size="xs" color="neutral" variant="soft" :label="de.time.absence" trailing-icon="i-lucide-chevron-down" />
+                </UDropdownMenu>
               </div>
             </td>
             <td class="px-2 py-1.5">
               <div v-for="record in day.records" :key="record.id" class="flex items-center gap-1">
-                <button type="button" class="hover:underline" @click="editRecord(day, record)">{{ span(record) }}</button>
+                <button type="button" class="hover:underline" @click="editRecord(day, record)">{{ formatSpan(record) }}</button>
                 <span v-if="record.edited" class="text-xs text-amber-700" :title="record.editedAt ? `${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : undefined">({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</span>
                 <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
               </div>
@@ -138,9 +171,13 @@ onMounted(() => {
             </td>
             <td class="px-2 py-1.5 text-right">
               <span v-if="day.usesRecords">{{ formatDuration(day.recordedMinutes) }}</span>
-              <span v-else class="text-xs text-gray-400" :title="de.time.beforeStart">–</span>
+              <span v-else class="text-xs text-gray-400" :title="day.date >= todayDate ? de.time.todayPlanned : de.time.beforeStart">–</span>
             </td>
-            <td class="px-2 py-1.5 text-right font-medium" :class="balanceClass(day.counted - day.target)">{{ formatSignedDuration(day.counted - day.target) }}</td>
+            <td class="px-2 py-1.5 text-right font-medium">
+              <span v-if="difference(day) !== null" :class="Math.abs(difference(day)!) > DEVIATION_MINUTES ? 'text-orange-600' : ''">
+                {{ formatSignedDuration(difference(day)!) }}
+              </span>
+            </td>
             <td class="px-2 py-1.5 text-xs text-amber-700">
               <div v-for="(warning, index) in day.warnings" :key="index">{{ warningText(warning, names) }}</div>
             </td>

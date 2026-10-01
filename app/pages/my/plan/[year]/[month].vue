@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { cellFillColor } from '#shared/domain/cells'
-import { formatDuration, formatTime } from '#shared/domain/time'
+import { weekday } from '#shared/domain/dates'
+import { formatDuration } from '#shared/domain/time'
 import { recordedMinutes } from '#shared/domain/timeRecords'
 import type { MyPlanDayDto, MyPlanDto, MyTimeDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { errorMessage } from '~/utils/errors'
 import { releasedChangeText } from '~/utils/changes'
-import { formatDayShort } from '~/utils/format'
+import { formatDayShort, formatSpan } from '~/utils/format'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -19,7 +20,6 @@ const recordsByDate = computed(() => {
   for (const record of time.value?.records ?? []) map.set(record.date, [...(map.get(record.date) ?? []), record])
   return map
 })
-const span = (record: TimeRecordDto) => `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
 
 /** admin-created records are "nachgetragen", other admin-changed ones "geändert". */
 const recordMarker = (record: TimeRecordDto) => (record.source === 'admin' ? de.time.edited : record.edited ? de.time.changed : null)
@@ -77,7 +77,7 @@ function rowClass(day: MyPlanDayDto): string {
           </td>
           <td v-if="time?.enabled" class="px-3 py-1.5 text-xs">
             <div v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id">
-              {{ span(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
+              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
             </div>
             <div v-if="recordsByDate.get(day.date)?.length" class="font-semibold">
               {{ de.time.recorded }}: {{ formatDuration(recordedMinutes(recordsByDate.get(day.date)!)) }}
@@ -85,6 +85,27 @@ function rowClass(day: MyPlanDayDto): string {
           </td>
           <td class="px-3 py-1.5 text-xs">{{ day.info1 }}</td>
           <td class="px-3 py-1.5 text-xs">{{ day.info2 }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <!-- Stamped times are live: shown even while the month's plan is not released. -->
+    <table v-else-if="time?.enabled && recordsByDate.size" class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
+      <thead class="bg-gray-100 text-left text-xs text-gray-600">
+        <tr>
+          <th class="px-3 py-2">{{ de.plan.date }}</th>
+          <th class="px-3 py-2">{{ de.time.records }}</th>
+          <th class="px-3 py-2 text-right">{{ de.time.recorded }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="[date, records] in recordsByDate" :key="date" class="border-t border-gray-200 align-top">
+          <td class="whitespace-nowrap px-3 py-1.5 font-medium">{{ formatDayShort(date, weekday(date)) }}</td>
+          <td class="px-3 py-1.5 text-xs">
+            <div v-for="record in records" :key="record.id">
+              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
+            </div>
+          </td>
+          <td class="px-3 py-1.5 text-right font-semibold">{{ formatDuration(recordedMinutes(records)) }}</td>
         </tr>
       </tbody>
     </table>

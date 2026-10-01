@@ -1,22 +1,23 @@
 <script setup lang="ts">
 import { formatSignedDuration, formatTime } from '#shared/domain/time'
-import type { MyTimeDto, StampAction, TimeRecordDto } from '#shared/types/api'
+import type { MyTimeDto, StampAction } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
-import { formatDate } from '~/utils/format'
+import { formatDate, formatSpan } from '~/utils/format'
 
 /** Clock in/out for the signed-in employee, today's records and the own balance. */
 const props = defineProps<{ time: MyTimeDto; refresh: () => Promise<unknown> }>()
 const run = useAction(props.refresh)
 const busy = ref(false)
 
-const span = (record: TimeRecordDto) => `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
 const action = computed<StampAction>(() => (props.time.clockedInSince === null ? 'in' : 'out'))
 
 async function stampNow() {
   busy.value = true
   try {
-    await run(() => $fetch<unknown>('/api/my/time/stamp', { method: 'POST', body: { action: action.value } }))
+    const ok = await run(() => $fetch<unknown>('/api/my/time/stamp', { method: 'POST', body: { action: action.value } }))
+    // E.g. stamped meanwhile on the tablet: reload so the button shows the real state.
+    if (!ok) await props.refresh().catch(() => undefined)
   }
   finally {
     busy.value = false
@@ -38,7 +39,7 @@ async function stampNow() {
     </div>
     <p class="text-sm">
       <span class="text-gray-500">{{ de.time.todayRecords }}:</span>
-      {{ time.todayRecords.length ? time.todayRecords.map(span).join(' · ') : de.time.none }}
+      {{ time.todayRecords.length ? time.todayRecords.map(formatSpan).join(' · ') : de.time.none }}
     </p>
     <UAlert v-for="date in time.openEarlier" :key="date" color="warning" variant="soft" :title="de.time.openEarlier(formatDate(date))" />
     <div class="flex flex-wrap gap-6 text-sm">

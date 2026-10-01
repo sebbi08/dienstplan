@@ -32,6 +32,8 @@ export const de = {
     beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', removeAbsenceConfirm: 'Abwesenheit entfernen? Alle Einträge dieses Tages im Dienstplan werden gelöscht.', open: 'offen',
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),
     deleteConfirm: 'Diesen Zeitraum löschen?',
+    todayPlanned: 'heute und später – zählt nach Plan', absence: 'Abwesenheit',
+    replaceConfirm: 'Die Einträge dieses Tages im Dienstplan werden durch die Abwesenheit ersetzt. Fortfahren?',
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
@@ -112,7 +114,7 @@ export const de = {
   balances: {
     title: 'Stundenkonten', name: 'Mitarbeiter', weekly: 'Wochenstunden',
     today: 'Stand heute', monthEnd: 'Voraussichtlich Monatsende',
-    hint: '„Stand heute“ zählt bis gestern die gestempelte Zeit (ab „Zeiterfassung ab“), „Voraussichtlich Monatsende“ zusätzlich den Plan bis Monatsende.',
+    hint: '„Stand heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Voraussichtlich Monatsende“: zusätzlich der Plan bis Monatsende.',
   },
   holidays: {
     new_year: 'Neujahr', epiphany: 'Heilige Drei Könige', good_friday: 'Karfreitag', easter_monday: 'Ostermontag',
@@ -161,6 +163,7 @@ export const de = {
     backupDownload: 'Datenbank herunterladen', invalidTime: 'Bitte gültige Uhrzeiten angeben.',
     timeTracking: 'Zeiterfassung', timeTrackingFrom: 'Zeiterfassung ab',
     timeTrackingHint: 'Ab diesem Tag zählt für vergangene Tage die gestempelte Zeit. Leer = Zeiterfassung aus.',
+    timeTrackingPastConfirm: 'Das Datum liegt in der Vergangenheit. Für alle Arbeitstage seit diesem Datum zählt dann nur noch die gestempelte Zeit (ohne Stempel 0 Stunden). Trotzdem speichern?',
   },
   creditModes: { daily_target: 'Tagessoll', timed: 'tatsächliche Zeit', none: 'keine' },
   colors: { neutral: 'neutral', gray: 'grau', green: 'grün', yellow: 'gelb', blue: 'blau', red: 'rot', violet: 'violett', orange: 'orange' },
@@ -223,6 +226,7 @@ export const de = {
     pin_locked: 'Zu viele Fehlversuche – bitte in 15 Minuten erneut versuchen.',
     pin_missing: 'Für diese Person ist keine PIN hinterlegt.',
     pin_format: 'Die PIN muss genau 4 Ziffern haben.',
+    employee_not_employed: 'Diese Person ist nicht mehr beschäftigt.',
     record_overlap: 'Der Zeitraum überschneidet sich mit einem anderen Zeitraum des Tages.',
     record_in_future: 'Zeiten in der Zukunft können nicht eingetragen werden.',
     record_not_found: 'Dieser Zeitraum existiert nicht mehr.',

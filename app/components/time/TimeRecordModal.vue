@@ -2,7 +2,10 @@
 import { formatTime, parseTime } from '#shared/domain/time'
 import { de } from '~/locales/de'
 
-/** Adds or changes one time record (minute-precise; end required). */
+/**
+ * Adds or changes one time record (minute-precise; end required).
+ * The parent closes the dialog once saving succeeded, so a rejected entry keeps the typed times.
+ */
 const props = defineProps<{ title: string; initial: { start: number; end: number | null } | null }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ submit: [value: { start: number; end: number }] }>()
@@ -28,7 +31,6 @@ function submit() {
     return
   }
   emit('submit', { start, end })
-  open.value = false
 }
 </script>
 

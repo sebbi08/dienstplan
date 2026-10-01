@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { todayIso } from '#shared/domain/dates'
 import { formatTime, parseTime } from '#shared/domain/time'
 import type { CreditMode } from '#shared/domain/types'
 import { COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type TemplateDto } from '#shared/types/api'
@@ -19,7 +20,11 @@ const { data: appSettings, refresh: refreshApp } = await useFetch<AppSettingsDto
 const trackingFrom = ref('')
 watch(appSettings, value => (trackingFrom.value = value?.timeTrackingFrom ?? ''), { immediate: true })
 const runApp = useAction(refreshApp)
-function saveTracking() {
+async function saveTracking() {
+  // A start date in the past turns all workdays since then into "stamped time only" (0 h without stamps).
+  const date = trackingFrom.value
+  if (date && date < todayIso() && date !== appSettings.value?.timeTrackingFrom
+    && !await confirm(de.settings.timeTrackingPastConfirm, { confirmLabel: de.common.save, danger: false })) return
   runApp(() => $fetch<unknown>('/api/app-settings', { method: 'PUT', body: { timeTrackingFrom: trackingFrom.value || null } }), de.common.saved)
 }
 
