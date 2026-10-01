@@ -10,6 +10,8 @@ export const de = {
     save: 'Speichern', delete: 'Löschen', cancel: 'Abbrechen', add: 'Hinzufügen', close: 'Schließen', edit: 'Bearbeiten',
     saved: 'Gespeichert', deleted: 'Gelöscht', confirmDelete: 'Wirklich löschen?', confirmTitle: 'Bitte bestätigen',
     previousMonth: 'Vorheriger Monat', nextMonth: 'Nächster Monat', previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
+    invalidTime: 'Ungültige Uhrzeit – z. B. 8:45 oder 845 eingeben (5-Minuten-Schritte).',
+    invalidTimeShort: 'Ungültige Uhrzeit',
   },
   nav: {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', employees: 'Mitarbeiter',

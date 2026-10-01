@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  formatDuration, formatSignedDuration, formatTime, netMinutes,
-  parseDuration, parseTime, toTimeInput, validateSpan,
+  formatDuration, formatSignedDuration, formatTime, isValidTimeInput, netMinutes,
+  parseDuration, parseTime, validateSpan,
 } from '../../shared/domain/time'
 
 describe('parseTime', () => {
@@ -11,12 +11,29 @@ describe('parseTime', () => {
     expect(parseTime('17:00')).toBe(1020)
     expect(parseTime('24:00')).toBe(1440)
   })
+  it('parses keyboard shorthands', () => {
+    for (const value of ['8:45', '8.45', '8,45', '845', '0845', ' 08:45 ']) expect(parseTime(value)).toBe(525)
+    expect(parseTime('14')).toBe(840)
+    expect(parseTime('7')).toBe(420)
+    expect(parseTime('1400')).toBe(840)
+  })
   it('rejects invalid values', () => {
-    expect(parseTime('7.45')).toBeNull()
     expect(parseTime('25:00')).toBeNull()
+    expect(parseTime('2500')).toBeNull()
     expect(parseTime('24:05')).toBeNull()
     expect(parseTime('7:60')).toBeNull()
+    expect(parseTime('7:5')).toBeNull()
+    expect(parseTime('12345')).toBeNull()
+    expect(parseTime('8 Uhr')).toBeNull()
     expect(parseTime('')).toBeNull()
+  })
+})
+
+describe('isValidTimeInput', () => {
+  it('requires a parseable time on the 5-minute grid', () => {
+    expect(isValidTimeInput('845')).toBe(true)
+    expect(isValidTimeInput('8:43')).toBe(false)
+    expect(isValidTimeInput('abc')).toBe(false)
   })
 })
 
@@ -36,7 +53,6 @@ describe('formatting', () => {
   it('formats clock times', () => {
     expect(formatTime(465)).toBe('7:45')
     expect(formatTime(1020)).toBe('17:00')
-    expect(toTimeInput(420)).toBe('07:00')
   })
   it('formats durations with sign', () => {
     expect(formatDuration(465)).toBe('7:45')

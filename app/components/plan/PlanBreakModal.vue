@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { parseTime, toTimeInput, validateSpan } from '#shared/domain/time'
+import { formatTime, parseTime, validateSpan } from '#shared/domain/time'
 import { de } from '~/locales/de'
 
 /** 'change': edit the break of one entry (may be emptied); 'add': an additional break (required). */
@@ -13,15 +13,19 @@ const title = computed(() => (props.mode === 'change' ? de.modal.changeBreakTitl
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  form.start = props.initial ? toTimeInput(props.initial.start) : ''
-  form.end = props.initial ? toTimeInput(props.initial.end) : ''
+  form.start = props.initial ? formatTime(props.initial.start) : ''
+  form.end = props.initial ? formatTime(props.initial.end) : ''
   error.value = ''
 })
 
 function submit() {
-  if (!form.start && !form.end && props.mode === 'change') {
+  if (!form.start.trim() && !form.end.trim() && props.mode === 'change') {
     emit('submit', null)
     open.value = false
+    return
+  }
+  if ([form.start, form.end].some(value => value.trim() && parseTime(value) === null)) {
+    error.value = de.common.invalidTime
     return
   }
   const start = parseTime(form.start)
@@ -44,8 +48,8 @@ function submit() {
   <UModal v-model:open="open" :title="title">
     <template #body>
       <form class="grid grid-cols-2 gap-3" @submit.prevent="submit">
-        <UFormField :label="de.modal.start"><UInput v-model="form.start" type="time" step="300" class="w-full" /></UFormField>
-        <UFormField :label="de.modal.end"><UInput v-model="form.end" type="time" step="300" class="w-full" /></UFormField>
+        <UFormField :label="de.modal.start"><TimeInput v-model="form.start" autofocus /></UFormField>
+        <UFormField :label="de.modal.end"><TimeInput v-model="form.end" /></UFormField>
         <p v-if="mode === 'change'" class="col-span-2 text-xs text-gray-500">{{ de.modal.breakEmptyHint }}</p>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex justify-end gap-2">

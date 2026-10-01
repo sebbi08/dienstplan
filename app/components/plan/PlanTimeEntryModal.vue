@@ -18,14 +18,18 @@ watch(open, (isOpen) => {
 })
 
 function submit() {
+  if ([form.start, form.end, form.breakStart, form.breakEnd].some(value => value.trim() && parseTime(value) === null)) {
+    error.value = de.common.invalidTime
+    return
+  }
   const start = parseTime(form.start)
   const end = parseTime(form.end)
   if (start === null || end === null) {
     error.value = de.spanErrors.missing_times
     return
   }
-  const breakStart = form.breakStart ? parseTime(form.breakStart) : null
-  const breakEnd = form.breakEnd ? parseTime(form.breakEnd) : null
+  const breakStart = form.breakStart.trim() ? parseTime(form.breakStart) : null
+  const breakEnd = form.breakEnd.trim() ? parseTime(form.breakEnd) : null
   const spanError = validateSpan({ start, end, breakStart, breakEnd })
   if (spanError) {
     error.value = de.spanErrors[spanError]
@@ -43,10 +47,10 @@ function submit() {
   <UModal v-model:open="open" :title="title">
     <template #body>
       <form class="grid grid-cols-2 gap-3" @submit.prevent="submit">
-        <UFormField :label="de.modal.start"><UInput v-model="form.start" type="time" step="300" class="w-full" /></UFormField>
-        <UFormField :label="de.modal.end"><UInput v-model="form.end" type="time" step="300" class="w-full" /></UFormField>
-        <UFormField :label="de.modal.breakStart"><UInput v-model="form.breakStart" type="time" step="300" class="w-full" /></UFormField>
-        <UFormField :label="de.modal.breakEnd"><UInput v-model="form.breakEnd" type="time" step="300" class="w-full" /></UFormField>
+        <UFormField :label="de.modal.start"><TimeInput v-model="form.start" autofocus /></UFormField>
+        <UFormField :label="de.modal.end"><TimeInput v-model="form.end" /></UFormField>
+        <UFormField :label="de.modal.breakStart"><TimeInput v-model="form.breakStart" /></UFormField>
+        <UFormField :label="de.modal.breakEnd"><TimeInput v-model="form.breakEnd" /></UFormField>
         <UFormField :label="de.modal.note" class="col-span-2"><UInput v-model="form.note" maxlength="200" class="w-full" /></UFormField>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex justify-end gap-2">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { parseTime, toTimeInput } from '#shared/domain/time'
+import { formatTime, parseTime } from '#shared/domain/time'
 import type { CreditMode } from '#shared/domain/types'
 import { COLOR_KEYS, type CodeDto, type CoverageRuleDto, type SettingsDto, type TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -15,8 +15,9 @@ const run = useAction(refresh)
 const toast = useToast()
 const confirm = useConfirm()
 
-const timeText = (minutes: number | null) => (minutes === null ? '' : toTimeInput(minutes))
-const optionalTime = (value: string) => (value ? parseTime(value) : null)
+const timeText = (minutes: number | null) => (minutes === null ? '' : formatTime(minutes))
+/** Empty = no time; undefined = typed but not a valid time. */
+const optionalTime = (value: string) => (value.trim() ? parseTime(value) ?? undefined : null)
 
 const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99 })
 const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true })
@@ -49,10 +50,11 @@ function invalidTime() {
 async function saveTemplate(form: TemplateForm) {
   const start = parseTime(form.start)
   const end = parseTime(form.end)
-  if (start === null || end === null) return invalidTime()
+  const breakStart = optionalTime(form.breakStart)
+  const breakEnd = optionalTime(form.breakEnd)
+  if (start === null || end === null || breakStart === undefined || breakEnd === undefined) return invalidTime()
   const body = {
-    shortLabel: form.shortLabel, label: form.label, start, end,
-    breakStart: optionalTime(form.breakStart), breakEnd: optionalTime(form.breakEnd),
+    shortLabel: form.shortLabel, label: form.label, start, end, breakStart, breakEnd,
     countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime, sortOrder: form.sortOrder,
   }
   const ok = await run(() => form.id
@@ -76,8 +78,9 @@ async function saveCode(code: CodeDto) {
 
 async function saveRule(form: RuleForm) {
   const start = parseTime(form.start)
-  if (start === null) return invalidTime()
-  const body = { label: form.label, start, end: optionalTime(form.end), minCount: form.minCount, active: form.active }
+  const end = optionalTime(form.end)
+  if (start === null || end === undefined) return invalidTime()
+  const body = { label: form.label, start, end, minCount: form.minCount, active: form.active }
   const ok = await run(() => form.id
     ? $fetch<unknown>(`/api/coverage-rules/${form.id}`, { method: 'PUT', body })
     : $fetch<unknown>('/api/coverage-rules', { method: 'POST', body }), de.common.saved)
@@ -89,7 +92,6 @@ async function deleteRule(form: RuleForm) {
 }
 
 const cell = 'px-1 py-1'
-const timeInput = 'w-24 rounded border border-gray-300 px-1 py-0.5'
 const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 </script>
 
@@ -115,10 +117,10 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <tr v-for="form in [...templates, newTemplate]" :key="form.id ?? 'new'" class="border-t border-gray-100">
               <td :class="cell"><input v-model="form.shortLabel" maxlength="10" class="w-14 rounded border border-gray-300 px-1 py-0.5"></td>
               <td :class="cell"><input v-model="form.label" maxlength="50" :class="textInput"></td>
-              <td :class="cell"><input v-model="form.start" type="time" step="300" :class="timeInput"></td>
-              <td :class="cell"><input v-model="form.end" type="time" step="300" :class="timeInput"></td>
-              <td :class="cell"><input v-model="form.breakStart" type="time" step="300" :class="timeInput"></td>
-              <td :class="cell"><input v-model="form.breakEnd" type="time" step="300" :class="timeInput"></td>
+              <td :class="cell"><TimeInput v-model="form.start" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
+              <td :class="cell"><TimeInput v-model="form.end" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
+              <td :class="cell"><TimeInput v-model="form.breakStart" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
+              <td :class="cell"><TimeInput v-model="form.breakEnd" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
               <td :class="cell" class="text-center"><input v-model="form.countsAsStaff" type="checkbox"></td>
               <td :class="cell" class="text-center"><input v-model="form.pairsWithPrepTime" type="checkbox" :title="de.settings.pairsWithPrepTimeHint"></td>
               <td :class="cell"><input v-model.number="form.sortOrder" type="number" class="w-14 rounded border border-gray-300 px-1 py-0.5"></td>
@@ -163,8 +165,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
         <tbody>
           <tr v-for="form in [...rules, newRule]" :key="form.id ?? 'new'" class="border-t border-gray-100">
             <td :class="cell"><input v-model="form.label" maxlength="100" :class="textInput"></td>
-            <td :class="cell"><input v-model="form.start" type="time" step="300" :class="timeInput"></td>
-            <td :class="cell"><input v-model="form.end" type="time" step="300" :class="timeInput"></td>
+            <td :class="cell"><TimeInput v-model="form.start" class="w-20" @keydown.enter="saveRule(form)" /></td>
+            <td :class="cell"><TimeInput v-model="form.end" class="w-20" @keydown.enter="saveRule(form)" /></td>
             <td :class="cell"><input v-model.number="form.minCount" type="number" min="1" max="20" class="w-16 rounded border border-gray-300 px-1 py-0.5"></td>
             <td :class="cell" class="text-center"><input v-model="form.active" type="checkbox"></td>
             <td :class="cell" class="whitespace-nowrap text-right">

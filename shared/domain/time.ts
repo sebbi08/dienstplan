@@ -11,11 +11,12 @@ export type SpanError = 'not_on_grid' | 'end_before_start' | 'incomplete_break' 
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
+/** Typed clock time: "8:45", "8.45", "8,45", "845", "0845"; a bare hour ("14") means full hour. */
 export function parseTime(value: string): Minutes | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
+  const match = /^(\d{1,2})(?:[:.,]?(\d{2}))?$/.exec(value.trim())
   if (!match) return null
   const hours = Number(match[1])
-  const minutes = Number(match[2])
+  const minutes = Number(match[2] ?? 0)
   if (minutes > 59 || hours > 24 || (hours === 24 && minutes !== 0)) return null
   return hours * 60 + minutes
 }
@@ -30,9 +31,10 @@ export function formatTime(minutes: Minutes): string {
   return `${Math.floor(minutes / 60)}:${pad(minutes % 60)}`
 }
 
-/** Value for <input type="time">, which needs a two-digit hour. */
-export function toTimeInput(minutes: Minutes): string {
-  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
+/** A typed clock time that may be saved: parseable and on the 5-minute grid. */
+export function isValidTimeInput(value: string): boolean {
+  const minutes = parseTime(value)
+  return minutes !== null && minutes % 5 === 0
 }
 
 export function formatDuration(minutes: number): string {
