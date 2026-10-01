@@ -163,7 +163,7 @@ function navigate(nextYear: number, nextMonth: number) {
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length"
-        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-break="onAddBreak"
+        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear"
       />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">

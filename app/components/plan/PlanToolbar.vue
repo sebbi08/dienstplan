@@ -12,7 +12,7 @@ const props = defineProps<{
 const codeButtons = computed(() => buttonCodes(props.codes))
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
-  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; addBreak: []
+  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
 }>()
 </script>
 
@@ -33,7 +33,6 @@ const emit = defineEmits<{
         :label="codeButtonLabel(code)" @click="emit('code', code)"
       />
       <UButton size="xs" color="neutral" variant="soft" :label="de.plan.special" @click="emit('special')" />
-      <UButton size="xs" color="error" variant="soft" :label="de.plan.addBreak" @click="emit('addBreak')" />
       <UButton size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.plan.clear" @click="emit('clear')" />
       <UCheckbox v-model="addMode" :label="de.plan.addMode" class="ml-auto" />
     </div>
