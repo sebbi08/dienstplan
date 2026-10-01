@@ -23,6 +23,9 @@ export interface EmployeeDay {
   entries: DomainEntry[]
 }
 
+/** Smaller remaining times (e.g. VZ + F2 = 7:45 h of 7:48 h) are not worth a hint; the balance still counts them. */
+export const TARGET_GAP_TOLERANCE_MINUTES = 15
+
 export const TARGET_GAP_CODES: CodeKey[] = ['prep_time', 'office']
 
 export function isCheckedDay(date: IsoDate, isClosureDay: boolean): boolean {
@@ -59,7 +62,7 @@ export function dayWarnings(
     if (!hasGapCode) continue
     const target = dailyTarget(info, date)
     const credit = dayCredit(entries, target)
-    if (credit < target) warnings.push({ type: 'target_gap', date, employeeId, missingMinutes: target - credit })
+    if (target - credit >= TARGET_GAP_TOLERANCE_MINUTES) warnings.push({ type: 'target_gap', date, employeeId, missingMinutes: target - credit })
   }
 
   return warnings

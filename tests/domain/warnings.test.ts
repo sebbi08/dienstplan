@@ -58,6 +58,10 @@ describe('dayWarnings', () => {
       { type: 'target_gap', date, employeeId: 5, missingMinutes: 348 },
     ])
   })
+  it('ignores a remaining time below 15 minutes (VZ + F2 after it = 7:45 h of 7:48 h)', () => {
+    const lists = [...fullCoverage(), [code(5, date, 'prep_time', 'timed', 450, 570), shift(5, date, 570, 945, 700, 730)]]
+    expect(dayWarnings(date, team(...lists), rules, false)).toEqual([])
+  })
   it('skips weekends, holidays and closure days', () => {
     expect(dayWarnings('2026-10-10', team([]), rules, false)).toEqual([])
     expect(dayWarnings('2026-12-25', team([]), rules, false)).toEqual([])
