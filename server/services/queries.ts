@@ -55,7 +55,9 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
     note: entry.note,
     label: describeEntry(entry, code?.label ?? null),
     shortLabel: template?.shortLabel || null,
-    color: entry.kind === 'code' ? (code?.color ?? 'neutral') as ColorKey : entry.countsAsStaff ? 'neutral' : 'violet',
+    color: entry.kind === 'code'
+      ? (code?.color ?? 'neutral') as ColorKey
+      : entry.kind === 'break' ? 'red' : entry.countsAsStaff ? 'neutral' : 'violet',
   }))
 }
 

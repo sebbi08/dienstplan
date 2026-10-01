@@ -25,6 +25,7 @@ export function dayCredit(entries: DomainEntry[], target: number): number {
   if (entries.some(entry => entry.creditMode === 'daily_target')) return target
   return entries.reduce((sum, entry) => {
     if (entry.start === null || entry.end === null) return sum
+    if (entry.kind === 'break') return sum - (entry.end - entry.start)
     return sum + netMinutes({ start: entry.start, end: entry.end, breakStart: entry.breakStart, breakEnd: entry.breakEnd })
   }, 0)
 }

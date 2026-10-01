@@ -1,7 +1,8 @@
 export type Minutes = number
 export type IsoDate = string
 
-export type EntryKind = 'shift' | 'special' | 'code'
+/** 'break' = an additional break that is subtracted from the working time of its day. */
+export type EntryKind = 'shift' | 'special' | 'code' | 'break'
 export type CreditMode = 'daily_target' | 'timed' | 'none'
 export type CodeKey =
   | 'vacation' | 'sick' | 'training' | 'school' | 'other'

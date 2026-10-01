@@ -77,7 +77,7 @@ export const entries = sqliteTable('entries', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
   date: text('date').notNull(),
-  kind: text('kind', { enum: ['shift', 'special', 'code'] }).notNull(),
+  kind: text('kind', { enum: ['shift', 'special', 'code', 'break'] }).notNull(),
   shiftTemplateId: integer('shift_template_id').references(() => shiftTemplates.id, { onDelete: 'set null' }),
   absenceCodeId: integer('absence_code_id').references(() => absenceCodes.id),
   start: integer('start'),

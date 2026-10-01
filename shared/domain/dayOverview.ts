@@ -39,6 +39,7 @@ function stateAt(entries: DomainEntry[], time: Minutes): SlotState {
   let state: SlotState = 'off'
   for (const entry of entries) {
     if (entry.start === null || entry.end === null || time < entry.start || time >= entry.end) continue
+    if (entry.kind === 'break') return 'break'
     if (entry.breakStart !== null && entry.breakEnd !== null && time >= entry.breakStart && time < entry.breakEnd) {
       return 'break'
     }

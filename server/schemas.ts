@@ -28,7 +28,7 @@ export const yearQuery = z.object({ year: z.coerce.number().int().min(2000).max(
 export const employeeYearParams = idParams.extend({ year: z.coerce.number().int().min(2000).max(2100) })
 
 export const entryInputSchema = z.object({
-  kind: z.enum(['shift', 'special', 'code']),
+  kind: z.enum(['shift', 'special', 'code', 'break']),
   templateId: z.number().int().nullable().optional(),
   codeId: z.number().int().nullable().optional(),
   start: nullableMinutes,
@@ -43,6 +43,7 @@ export const applyEntriesSchema = z.object({
   entry: entryInputSchema.nullable(),
 })
 export const dayNoteSchema = z.object({ field: z.enum(['info1', 'info2']), value: z.string().max(200) })
+export const entryBreakSchema = z.object({ breakStart: minutes.nullable(), breakEnd: minutes.nullable() })
 
 const weeklyMinutes = z.number().int().min(0).max(80 * 60)
 export const employeeCreateSchema = z.object({ name: label, shortName: z.string().max(10), weeklyMinutes, validFrom: isoDate })

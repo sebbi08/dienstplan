@@ -18,6 +18,9 @@ const addMode = ref(false)
 const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
 const modalCode = ref<CodeDto | null>(null)
+const breakModal = reactive<{ open: boolean; mode: 'change' | 'add'; entryId: number | null; initial: { start: number; end: number } | null }>({
+  open: false, mode: 'add', entryId: null, initial: null,
+})
 
 watch([year, month], () => {
   selection.clear()
@@ -73,6 +76,36 @@ function onCode(code: CodeDto) {
   else apply(insertMode(), { kind: 'code', codeId: code.id })
 }
 
+function onChangeBreak() {
+  const cell = selection.cells.value.length === 1 ? selection.cells.value[0] : undefined
+  const work = plan.value?.entries.filter(entry => cell && entry.employeeId === cell.employeeId && entry.date === cell.date
+    && entry.kind !== 'break' && entry.start !== null) ?? []
+  const entry = work.length === 1 ? work[0]! : null
+  if (!entry) {
+    toast.add({ title: de.plan.changeBreakHint, color: 'warning' })
+    return
+  }
+  Object.assign(breakModal, {
+    open: true, mode: 'change', entryId: entry.id,
+    initial: entry.breakStart !== null && entry.breakEnd !== null ? { start: entry.breakStart, end: entry.breakEnd } : null,
+  })
+}
+
+function onAddBreak() {
+  if (!hasSelection()) return
+  Object.assign(breakModal, { open: true, mode: 'add', entryId: null, initial: null })
+}
+
+function onBreakSubmit(value: { start: number; end: number } | null) {
+  if (breakModal.mode === 'change' && breakModal.entryId !== null) {
+    const body = { breakStart: value?.start ?? null, breakEnd: value?.end ?? null }
+    run(() => $fetch<unknown>(`/api/entries/${breakModal.entryId}/break`, { method: 'PUT', body }))
+  }
+  else if (value) {
+    apply('add', { kind: 'break', start: value.start, end: value.end })
+  }
+}
+
 function onFillGap() {
   const gap = gapSuggestion.value
   if (gap) apply('add', { kind: 'special', start: gap.start, end: gap.end })
@@ -109,6 +142,7 @@ function navigate(nextYear: number, nextMonth: number) {
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :gap-suggestion="gapSuggestion"
         @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @fill-gap="onFillGap"
+        @change-break="onChangeBreak" @add-break="onAddBreak"
       />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">
@@ -121,6 +155,7 @@ function navigate(nextYear: number, nextMonth: number) {
         <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" @select-date="selectedDate = $event" />
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
+      <PlanBreakModal v-model:open="breakModal.open" :mode="breakModal.mode" :initial="breakModal.initial" @submit="onBreakSubmit" />
     </template>
     <template v-else>
       <MonthNav :year="year" :month="month" @change="navigate" />

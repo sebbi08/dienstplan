@@ -10,7 +10,9 @@ defineProps<{
   gapSuggestion: { start: number; end: number } | null
 }>()
 const addMode = defineModel<boolean>('addMode', { default: false })
-const emit = defineEmits<{ template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; fillGap: [] }>()
+const emit = defineEmits<{
+  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; fillGap: []; changeBreak: []; addBreak: []
+}>()
 </script>
 
 <template>
@@ -30,6 +32,8 @@ const emit = defineEmits<{ template: [template: TemplateDto]; code: [code: CodeD
         :label="code.requiresTimes ? `${code.label}…` : code.label" @click="emit('code', code)"
       />
       <UButton size="xs" color="neutral" variant="soft" :label="de.plan.special" @click="emit('special')" />
+      <UButton size="xs" color="error" variant="soft" :label="de.plan.changeBreak" @click="emit('changeBreak')" />
+      <UButton size="xs" color="error" variant="soft" :label="de.plan.addBreak" @click="emit('addBreak')" />
       <UButton size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.plan.clear" @click="emit('clear')" />
       <UButton
         v-if="gapSuggestion" size="xs" color="warning" variant="soft"
