@@ -88,6 +88,9 @@ Für jeden Tag `d` einer beschäftigten Person mit Tagessoll `soll(d)` (unverän
 
 Wochenenden/Feiertage: Soll 0, Ist-Zeit zählt als Plus (Regel 2 gilt auch dort).
 
+Urlaub, Krank, Fortbildung, Schule, Feiertag und Schließtag werden also **aus dem Dienstplan übernommen**:
+dafür wird nicht gestempelt, und an solchen Tagen gibt es keinen Hinweis „Keine Stempelzeit“.
+
 ### 4.2 Kontostände
 
 - **„Stand heute“** = Kontostand bis **gestern** (Eröffnungsbuchungen/Korrekturen + Tagesdifferenzen
