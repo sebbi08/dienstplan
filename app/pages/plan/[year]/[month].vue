@@ -19,6 +19,7 @@ const addMode = ref(false)
 const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
 const modalCode = ref<CodeDto | null>(null)
+const discardOpen = ref(false)
 const breakModal = reactive<{ open: boolean; mode: 'change' | 'add'; entryId: number | null; initial: { start: number; end: number } | null }>({
   open: false, mode: 'add', entryId: null, initial: null,
 })
@@ -115,6 +116,10 @@ function onBreakSubmit(value: { start: number; end: number } | null) {
   }
 }
 
+function onDiscard(keys: string[]) {
+  run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/revert`, { method: 'POST', body: { keys } }), de.plan.discarded)
+}
+
 function onFillGap() {
   const gap = gapSuggestion.value
   if (!gap) return
@@ -147,7 +152,8 @@ function navigate(nextYear: number, nextMonth: number) {
 <template>
   <div class="space-y-3">
     <template v-if="plan && !error">
-      <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" />
+      <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" @discard="discardOpen = true" />
+      <PlanDiscardModal v-if="isAdmin" v-model:open="discardOpen" :plan="plan" @submit="onDiscard" />
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"

@@ -4,7 +4,7 @@ import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 
 defineProps<{ plan: MonthPlanDto; isAdmin: boolean }>()
-const emit = defineEmits<{ navigate: [year: number, month: number]; release: [] }>()
+const emit = defineEmits<{ navigate: [year: number, month: number]; release: []; discard: [] }>()
 </script>
 
 <template>
@@ -22,6 +22,10 @@ const emit = defineEmits<{ navigate: [year: number, month: number]; release: [] 
     <UBadge v-if="isAdmin && plan.release.pendingCount > 0" color="warning" variant="outline" :label="de.plan.pendingChanges(plan.release.pendingCount)" />
     <div class="ml-auto flex flex-wrap gap-2 print:hidden">
       <template v-if="isAdmin">
+        <UButton
+          v-if="plan.release.pendingCount > 0" color="warning" variant="outline" icon="i-lucide-undo-2"
+          :label="de.plan.discard" @click="emit('discard')"
+        />
         <UButton icon="i-lucide-check" :label="plan.release.releasedAt ? de.plan.rerelease : de.plan.release" @click="emit('release')" />
       </template>
       <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.plan.print" :to="`/print/${plan.year}/${plan.month}`" target="_blank" />

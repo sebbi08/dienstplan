@@ -43,6 +43,7 @@ export const applyEntriesSchema = z.object({
   entry: entryInputSchema.nullable(),
 })
 export const dayNoteSchema = z.object({ field: z.enum(['info1', 'info2']), value: z.string().max(200) })
+export const revertSchema = z.object({ keys: z.array(z.string().max(40)).min(1).max(2000) })
 export const entryBreakSchema = z.object({ breakStart: minutes.nullable(), breakEnd: minutes.nullable() })
 
 const weeklyMinutes = z.number().int().min(0).max(80 * 60)
