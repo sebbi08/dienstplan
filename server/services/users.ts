@@ -40,6 +40,7 @@ function findUser(db: Db, id: number): UserDto {
 }
 
 function assertEmployeeLink(db: Db, role: Role, employeeId: number | null, userId: number | null): void {
+  if (role === 'terminal' && employeeId !== null) throw new ServiceError(400, 'terminal_no_employee')
   if (role === 'observer' && employeeId === null) throw new ServiceError(400, 'employee_required')
   if (employeeId === null) return
   if (!db.select().from(employees).where(eq(employees.id, employeeId)).get()) {
@@ -64,7 +65,7 @@ export function createUser(db: Db, input: UserInput): UserDto {
   assertEmployeeLink(db, input.role, input.employeeId, null)
   const row = db.insert(users).values({
     username, passwordHash: hashPassword(input.password), role: input.role,
-    employeeId: input.employeeId, mustChangePassword: true,
+    employeeId: input.employeeId, mustChangePassword: input.role !== 'terminal',
   }).returning().get()
   return findUser(db, row.id)
 }

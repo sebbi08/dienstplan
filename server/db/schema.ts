@@ -6,6 +6,10 @@ export const employees = sqliteTable('employees', {
   shortName: text('short_name').notNull().default(''),
   sortOrder: integer('sort_order').notNull().default(0),
   leftOn: text('left_on'),
+  /** Hash of the 4-digit stamp PIN for the shared tablet (null = no PIN). */
+  pinHash: text('pin_hash'),
+  pinFailed: integer('pin_failed').notNull().default(0),
+  pinLockedUntil: text('pin_locked_until'),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
@@ -35,7 +39,7 @@ export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: text('role', { enum: ['admin', 'observer'] }).notNull(),
+  role: text('role', { enum: ['admin', 'observer', 'terminal'] }).notNull(),
   employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'set null' }).unique(),
   mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),
   failedLogins: integer('failed_logins').notNull().default(0),
@@ -139,3 +143,33 @@ export const releaseSnapshots = sqliteTable('release_snapshots', {
   /** JSON of SnapshotData */
   data: text('data').notNull(),
 }, table => [index('release_snapshots_month').on(table.year, table.month)])
+
+/** One clocked period of a day; end null = still clocked in. */
+export const timeRecords = sqliteTable('time_records', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  start: integer('start').notNull(),
+  end: integer('end'),
+  source: text('source', { enum: ['self', 'terminal', 'admin'] }).notNull(),
+  editedBy: integer('edited_by').references(() => users.id, { onDelete: 'set null' }),
+  editedAt: text('edited_at'),
+  createdAt: text('created_at').notNull(),
+}, table => [index('time_records_employee_date').on(table.employeeId, table.date)])
+
+/** Audit trail of admin corrections of time records. */
+export const timeRecordChanges = sqliteTable('time_record_changes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  recordId: integer('record_id'),
+  before: text('before').notNull(),
+  after: text('after').notNull(),
+  actorId: integer('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  at: text('at').notNull(),
+}, table => [index('time_record_changes_employee_date').on(table.employeeId, table.date)])
+
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+})

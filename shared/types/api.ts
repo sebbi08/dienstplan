@@ -6,7 +6,7 @@ import type { Warning } from '../domain/warnings'
 export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 'violet', 'orange'] as const
 export type ColorKey = typeof COLOR_KEYS[number]
 
-export type Role = 'admin' | 'observer'
+export type Role = 'admin' | 'observer' | 'terminal'
 export type ClosureMode = 'vacation' | 'closure_day'
 export type NoteField = 'info1' | 'info2'
 export type ChangeField = 'entry' | NoteField

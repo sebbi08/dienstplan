@@ -45,3 +45,21 @@ describe('users service', () => {
     expect(errorCode(() => resetPassword(db, 999, 'reset-1234'))).toBe('user_not_found')
   })
 })
+
+describe('terminal users', () => {
+  let db: Db
+  beforeEach(() => {
+    db = createTestDb()
+  })
+  it('creates a terminal user without employee and without forced password change', () => {
+    const user = createUser(db, { username: 'Tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    expect(user).toMatchObject({ username: 'tablet', role: 'terminal', employeeId: null, mustChangePassword: false })
+  })
+  it('rejects a terminal user linked to an employee', () => {
+    const anna = addEmployee(db, 'Anna')
+    expect(errorCode(() => createUser(db, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: anna })))
+      .toBe('terminal_no_employee')
+    const user = createUser(db, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    expect(errorCode(() => updateUser(db, user.id, { role: 'terminal', employeeId: anna, active: true }))).toBe('terminal_no_employee')
+  })
+})

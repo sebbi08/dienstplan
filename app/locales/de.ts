@@ -140,7 +140,7 @@ export const de = {
   colors: { neutral: 'neutral', gray: 'grau', green: 'grün', yellow: 'gelb', blue: 'blau', red: 'rot', violet: 'violett', orange: 'orange' },
   users: {
     title: 'Benutzer', username: 'Benutzername', password: 'Startpasswort (mindestens 8 Zeichen)', role: 'Rolle',
-    roles: { admin: 'Administrator', observer: 'Beobachter' }, employee: 'Mitarbeiter', noEmployee: '– keiner –',
+    roles: { admin: 'Administrator', observer: 'Beobachter', terminal: 'Stempel-Tablet' }, employee: 'Mitarbeiter', noEmployee: '– keiner –',
     active: 'aktiv', status: 'Status', create: 'Benutzer anlegen', resetPassword: 'Passwort zurücksetzen',
     newPassword: 'Neues Passwort (mindestens 8 Zeichen)', resetHint: 'Die Person muss das Passwort bei der nächsten Anmeldung ändern.',
     locked: (until: string) => `gesperrt bis ${until}`, mustChange: 'muss Passwort ändern',

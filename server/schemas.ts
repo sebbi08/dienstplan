@@ -68,9 +68,9 @@ export const coverageRuleSchema = z.object({
 
 export const userCreateSchema = z.object({
   username: z.string().max(50), password: z.string().max(200),
-  role: z.enum(['admin', 'observer']), employeeId: z.number().int().nullable(),
+  role: z.enum(['admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(),
 })
 export const userUpdateSchema = z.object({
-  role: z.enum(['admin', 'observer']), employeeId: z.number().int().nullable(), active: z.boolean(),
+  role: z.enum(['admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
 })
 export const passwordResetSchema = z.object({ password: z.string().max(200) })
