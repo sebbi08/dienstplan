@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatTime, parseTime } from '#shared/domain/time'
 import type { CreditMode } from '#shared/domain/types'
-import { COLOR_KEYS, type CodeDto, type CoverageRuleDto, type SettingsDto, type TemplateDto } from '#shared/types/api'
+import { COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 interface TemplateForm {
@@ -14,6 +14,14 @@ const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings')
 const run = useAction(refresh)
 const toast = useToast()
 const confirm = useConfirm()
+
+const { data: appSettings, refresh: refreshApp } = await useFetch<AppSettingsDto>('/api/app-settings')
+const trackingFrom = ref('')
+watch(appSettings, value => (trackingFrom.value = value?.timeTrackingFrom ?? ''), { immediate: true })
+const runApp = useAction(refreshApp)
+function saveTracking() {
+  runApp(() => $fetch<unknown>('/api/app-settings', { method: 'PUT', body: { timeTrackingFrom: trackingFrom.value || null } }), de.common.saved)
+}
 
 const timeText = (minutes: number | null) => (minutes === null ? '' : formatTime(minutes))
 /** Empty = no time; undefined = typed but not a valid time. */
@@ -98,6 +106,15 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 <template>
   <div class="max-w-6xl space-y-6">
     <h1 class="text-2xl font-semibold">{{ de.settings.title }}</h1>
+
+    <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ de.settings.timeTracking }}</h2>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveTracking">
+        <UFormField :label="de.settings.timeTrackingFrom"><UInput v-model="trackingFrom" type="date" /></UFormField>
+        <UButton type="submit" :label="de.common.save" />
+      </form>
+      <p class="text-xs text-gray-500">{{ de.settings.timeTrackingHint }}</p>
+    </section>
 
     <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.settings.templates }}</h2>

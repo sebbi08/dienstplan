@@ -22,6 +22,15 @@ const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso() })
 const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '' })
 const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30, carriedOverDays: 0 })
 
+const pin = ref('')
+async function savePin() {
+  const ok = await run(() => $fetch<unknown>(`/api/employees/${id}/pin`, { method: 'PUT', body: { pin: pin.value } }), de.common.saved)
+  if (ok) pin.value = ''
+}
+async function removePin() {
+  if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employees/${id}/pin`, { method: 'DELETE' }), de.common.deleted)
+}
+
 function saveMaster() {
   run(() => $fetch<unknown>(`/api/employees/${id}`, {
     method: 'PUT', body: { name: master.name, shortName: master.shortName, leftOn: master.leftOn || null },
@@ -78,6 +87,19 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <UFormField :label="de.employees.leftOn"><UInput v-model="master.leftOn" type="date" class="w-full" /></UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
+
+    <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ de.employees.pin }}</h2>
+      <p class="text-sm text-gray-600">{{ employee.hasPin ? de.employees.pinSet : de.employees.pinNotSet }}</p>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="savePin">
+        <UFormField :label="de.employees.pin">
+          <UInput v-model="pin" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off" required />
+        </UFormField>
+        <UButton type="submit" :label="de.employees.savePin" />
+        <UButton v-if="employee.hasPin" color="error" variant="ghost" :label="de.employees.removePin" @click="removePin" />
+      </form>
+      <p class="text-xs text-gray-500">{{ de.employees.pinHint }}</p>
+    </section>
 
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
