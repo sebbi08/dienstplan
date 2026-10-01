@@ -1,3 +1,13 @@
+<script lang="ts">
+/** A shift that fills up a day with VZ/Büro: a fixed shift (templateId) or a special shift (templateId null). */
+export interface GapSuggestion {
+  templateId: number | null
+  start: number
+  end: number
+  shortLabel: string
+}
+</script>
+
 <script setup lang="ts">
 import { formatTime } from '#shared/domain/time'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
@@ -7,11 +17,12 @@ defineProps<{
   templates: TemplateDto[]
   codes: CodeDto[]
   selectedCount: number
-  gapSuggestion: { start: number; end: number; shortLabel: string } | null
+  gapSuggestions: GapSuggestion[]
 }>()
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
-  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; fillGap: []; changeBreak: []; addBreak: []
+  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
+  fillGap: [suggestion: GapSuggestion]; changeBreak: []; addBreak: []
 }>()
 </script>
 
@@ -35,11 +46,15 @@ const emit = defineEmits<{
       <UButton size="xs" color="error" variant="soft" :label="de.plan.changeBreak" @click="emit('changeBreak')" />
       <UButton size="xs" color="error" variant="soft" :label="de.plan.addBreak" @click="emit('addBreak')" />
       <UButton size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.plan.clear" @click="emit('clear')" />
-      <UButton
-        v-if="gapSuggestion" size="xs" color="warning" variant="soft"
-        :label="de.plan.fillGap(`${gapSuggestion.shortLabel} ${formatTime(gapSuggestion.start)}–${formatTime(gapSuggestion.end)}`.trim())"
-        @click="emit('fillGap')"
-      />
+      <span v-if="gapSuggestions.length" class="flex flex-wrap items-center gap-1">
+        <span class="text-xs text-amber-700">{{ de.plan.fillGap }}</span>
+        <UButton
+          v-for="suggestion in gapSuggestions" :key="`${suggestion.templateId}-${suggestion.start}`"
+          size="xs" color="warning" variant="soft"
+          :label="`${suggestion.shortLabel} ${formatTime(suggestion.start)}–${formatTime(suggestion.end)}`.trim()"
+          @click="emit('fillGap', suggestion)"
+        />
+      </span>
       <UCheckbox v-model="addMode" :label="de.plan.addMode" class="ml-auto" />
     </div>
   </div>

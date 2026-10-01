@@ -46,7 +46,7 @@ export const de = {
     breakEntry: (times: string) => `Pause ${times}`,
     changeBreakHint: 'Bitte genau eine Zelle mit genau einem Dienst auswählen.',
     special: 'Sonderdienst…', clear: 'Leeren', clearConfirm: 'Alle Einträge in den ausgewählten Zellen löschen?', addMode: 'Zum bestehenden Eintrag hinzufügen',
-    fillGap: (range: string) => `Ergänzen: ${range}`,
+    fillGap: 'Ergänzen:',
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',
   },

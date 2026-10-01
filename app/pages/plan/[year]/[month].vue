@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ApplyMode, CodeDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
-import { suggestFullShift } from '#shared/domain/suggest'
+import { fullShiftOptions } from '#shared/domain/suggest'
 import { isTargetGapCode } from '#shared/domain/warnings'
+import type { GapSuggestion } from '~/components/plan/PlanToolbar.vue'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 
@@ -34,25 +35,27 @@ const dates = computed(() => plan.value?.days.map(day => day.date) ?? [])
 const insertMode = (): ApplyMode => (addMode.value ? 'add' : 'replace')
 
 /**
- * One selected cell with a target gap: with only VZ/Büro, suggest the full shift (F2, M, S) around them;
+ * One selected cell with a target gap: with only VZ/Büro, offer every full shift (F2, M, S) around them;
  * otherwise (or without such a shift) a special shift of exactly the missing time after the last entry.
  */
-const gapSuggestion = computed(() => {
+const gapSuggestions = computed((): GapSuggestion[] => {
   const current = plan.value
   const cell = selection.cells.value.length === 1 ? selection.cells.value[0] : undefined
-  if (!current?.admin || !cell) return null
+  if (!current?.admin || !cell) return []
   const gap = current.admin.warnings.find(w => w.type === 'target_gap' && w.employeeId === cell.employeeId && w.date === cell.date)
-  if (gap?.type !== 'target_gap') return null
+  if (gap?.type !== 'target_gap') return []
   const dayEntries = current.entries.filter(entry => entry.employeeId === cell.employeeId && entry.date === cell.date)
   if (dayEntries.every(entry => entry.kind === 'break' || isTargetGapCode(entry.codeKey))) {
-    const template = suggestFullShift(dayEntries, gap.missingMinutes, current.templates)
-    if (template) return { templateId: template.id, start: template.start, end: template.end, shortLabel: template.shortLabel }
+    const options = fullShiftOptions(dayEntries, current.templates)
+    if (options.length > 0) {
+      return options.map(template => ({ templateId: template.id, start: template.start, end: template.end, shortLabel: template.shortLabel }))
+    }
   }
   const ends = dayEntries.filter(entry => entry.end !== null).map(entry => entry.end!)
-  if (ends.length === 0) return null
+  if (ends.length === 0) return []
   const start = Math.max(...ends)
   const end = Math.ceil((start + gap.missingMinutes) / 5) * 5
-  return end <= 24 * 60 ? { templateId: null, start, end, shortLabel: '' } : null
+  return end <= 24 * 60 ? [{ templateId: null, start, end, shortLabel: '' }] : []
 })
 
 function hasSelection(): boolean {
@@ -119,9 +122,7 @@ function onDiscard(keys: string[]) {
   run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/revert`, { method: 'POST', body: { keys } }), de.plan.discarded)
 }
 
-function onFillGap() {
-  const gap = gapSuggestion.value
-  if (!gap) return
+function onFillGap(gap: GapSuggestion) {
   if (gap.templateId !== null) apply('add', { kind: 'shift', templateId: gap.templateId })
   else apply('add', { kind: 'special', start: gap.start, end: gap.end })
 }
@@ -156,7 +157,7 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"
-        :selected-count="selection.cells.value.length" :gap-suggestion="gapSuggestion"
+        :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions"
         @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @fill-gap="onFillGap"
         @change-break="onChangeBreak" @add-break="onAddBreak"
       />
