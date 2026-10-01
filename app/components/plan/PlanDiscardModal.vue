@@ -20,8 +20,9 @@ const rows = computed(() => Object.entries(props.plan.admin?.pendingChanges ?? {
   .sort((a, b) => a.date.localeCompare(b.date) || a.who.localeCompare(b.who)))
 
 const selected = ref(new Set<string>())
+// Nothing is preselected: the admin ticks exactly what should be discarded.
 watch(open, (isOpen) => {
-  if (isOpen) selected.value = new Set(rows.value.map(row => row.key))
+  if (isOpen) selected.value = new Set()
 })
 
 const allSelected = computed(() => rows.value.length > 0 && selected.value.size === rows.value.length)

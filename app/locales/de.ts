@@ -52,9 +52,9 @@ export const de = {
   },
   modal: {
     discardTitle: 'Noch nicht freigegebene Änderungen',
-    discardHint: 'Ausgewählte Zellen erhalten wieder den zuletzt freigegebenen Stand. Durchgestrichen = freigegeben, rechts = aktueller Entwurf.',
+    discardHint: 'Hake an, was verworfen werden soll. Diese Zellen erhalten wieder den zuletzt freigegebenen Stand. Durchgestrichen = freigegeben, rechts = aktueller Entwurf.',
     discardSelectAll: 'Alle auswählen',
-    discardSubmit: (count: number) => (count === 1 ? '1 Änderung verwerfen' : `${count} Änderungen verwerfen`),
+    discardSubmit: (count: number) => (count === 0 ? 'Verwerfen' : count === 1 ? '1 Änderung verwerfen' : `${count} Änderungen verwerfen`),
     changeBreakTitle: 'Pause ändern', addBreakTitle: 'Zusätzliche Pause eintragen',
     breakEmptyHint: 'Beide Felder leer lassen, wenn dieser Dienst keine Pause haben soll.',
     specialTitle: 'Sonderdienst eintragen', codeTitle: (label: string) => `${label} eintragen`,
