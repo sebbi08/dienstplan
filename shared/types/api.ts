@@ -299,6 +299,8 @@ export interface TimeDayDto {
   absence: boolean
   /** The plan has entries other than those absences (shifts, Feiertag, Schließtag …) that an absence would replace. */
   otherEntries: boolean
+  /** A daily-target code (Urlaub … Feiertag, Schließtag) is planned: the day counts its target, records do not count. */
+  targetCredit: boolean
   warnings: Warning[]
   changes: TimeRecordChangeDto[]
 }

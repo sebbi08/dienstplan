@@ -75,13 +75,13 @@ describe('admin corrections', () => {
     applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-09' }], 'replace', { kind: 'code', codeId: codeId(db, 'holiday') })
     const flags = (date: string) => {
       const day = getTimeMonth(db, anna, 2026, 10, '2026-10-08').days.find(d => d.date === date)!
-      return { absence: day.absence, otherEntries: day.otherEntries }
+      return { absence: day.absence, otherEntries: day.otherEntries, targetCredit: day.targetCredit }
     }
-    expect(flags('2026-10-05')).toEqual({ absence: false, otherEntries: true })
-    expect(flags('2026-10-06')).toEqual({ absence: true, otherEntries: false })
-    expect(flags('2026-10-07')).toEqual({ absence: false, otherEntries: true })
-    expect(flags('2026-10-09')).toEqual({ absence: false, otherEntries: true })
-    expect(flags('2026-10-12')).toEqual({ absence: false, otherEntries: false })
+    expect(flags('2026-10-05')).toEqual({ absence: false, otherEntries: true, targetCredit: false })
+    expect(flags('2026-10-06')).toEqual({ absence: true, otherEntries: false, targetCredit: true })
+    expect(flags('2026-10-07')).toEqual({ absence: false, otherEntries: true, targetCredit: true })
+    expect(flags('2026-10-09')).toEqual({ absence: false, otherEntries: true, targetCredit: true })
+    expect(flags('2026-10-12')).toEqual({ absence: false, otherEntries: false, targetCredit: false })
     // The balance still credits the daily target on the closure day.
     expect(getTimeMonth(db, anna, 2026, 10, '2026-10-08').days.find(d => d.date === '2026-10-07')!.counted).toBe(468)
   })

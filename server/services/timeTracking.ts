@@ -183,6 +183,7 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
         plannedMinutes: planned.credit, target: planned.target,
         records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
         usesRecords: usesRecords(actual, date), absence, otherEntries,
+        targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
         warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records) : [],
         changes: changes.filter(({ change }) => change.date === date)
           .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
