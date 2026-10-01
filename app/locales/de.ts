@@ -26,7 +26,7 @@ export const de = {
     openEarlier: (date: string) => `Am ${date} nicht ausgestempelt – die Leitung trägt die Zeit nach.`,
     balanceToday: 'Stand heute', balanceMonthEnd: 'Voraussichtlich Monatsende',
     recorded: 'Ist', planned: 'Plan', difference: 'Differenz', records: 'Stempelzeiten', hints: 'Hinweise',
-    edited: 'nachgetragen', addRecord: 'Zeitraum hinzufügen', openRecords: 'Offene Zeiträume',
+    edited: 'nachgetragen', changed: 'geändert', addRecord: 'Zeitraum hinzufügen', openRecords: 'Offene Zeiträume',
     noOpenRecords: 'Keine offenen Zeiträume.', protocol: 'Protokoll', disabled: 'Die Zeiterfassung ist noch nicht aktiv (Einstellungen → „Zeiterfassung ab“).',
     beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', open: 'offen',
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),

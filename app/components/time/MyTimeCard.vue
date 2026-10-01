@@ -6,9 +6,8 @@ import { balanceClass } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
 
 /** Clock in/out for the signed-in employee, today's records and the own balance. */
-const props = defineProps<{ time: MyTimeDto }>()
-const emit = defineEmits<{ changed: [] }>()
-const run = useAction()
+const props = defineProps<{ time: MyTimeDto; refresh: () => Promise<unknown> }>()
+const run = useAction(props.refresh)
 const busy = ref(false)
 
 const span = (record: TimeRecordDto) => `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
@@ -16,9 +15,12 @@ const action = computed<StampAction>(() => (props.time.clockedInSince === null ?
 
 async function stampNow() {
   busy.value = true
-  const ok = await run(() => $fetch<unknown>('/api/my/time/stamp', { method: 'POST', body: { action: action.value } }))
-  busy.value = false
-  if (ok) emit('changed')
+  try {
+    await run(() => $fetch<unknown>('/api/my/time/stamp', { method: 'POST', body: { action: action.value } }))
+  }
+  finally {
+    busy.value = false
+  }
 }
 </script>
 
