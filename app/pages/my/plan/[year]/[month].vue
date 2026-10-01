@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { cellFillColor } from '#shared/domain/cells'
 import type { MyPlanDayDto, MyPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { cellFillClasses } from '~/utils/colors'
 import { errorMessage } from '~/utils/errors'
 import { formatDateTime, formatDayShort } from '~/utils/format'
 
@@ -17,6 +19,11 @@ function changeTitle(day: MyPlanDayDto): string | undefined {
   return day.changes
     .map(change => de.plan.changedTooltip(change.before || de.plan.empty, change.after || de.plan.empty, formatDateTime(change.changedAt), change.changedBy))
     .join('\n') || undefined
+}
+
+function fillClass(day: MyPlanDayDto): string {
+  const fill = cellFillColor(day.entries)
+  return fill ? cellFillClasses[fill] : ''
 }
 
 function rowClass(day: MyPlanDayDto): string {
@@ -50,7 +57,7 @@ function rowClass(day: MyPlanDayDto): string {
             <div v-if="day.holidayKey" class="text-xs font-normal text-blue-700">{{ de.holidays[day.holidayKey] }}</div>
             <div v-else-if="day.closureLabel" class="text-xs font-normal text-blue-700">{{ day.closureLabel }}</div>
           </td>
-          <td class="px-3 py-1.5">
+          <td class="px-3 py-1.5" :class="fillClass(day)">
             <div class="flex flex-wrap gap-1">
               <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
             </div>

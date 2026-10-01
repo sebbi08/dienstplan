@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellKey, noteKey, parseCellKey } from '../../shared/domain/cells'
+import { cellFillColor, cellKey, noteKey, parseCellKey } from '../../shared/domain/cells'
 import { describeCell, describeEntry } from '../../shared/domain/describe'
 
 describe('describeEntry', () => {
@@ -22,5 +22,28 @@ describe('cell keys', () => {
     expect(cellKey(3, '2026-10-05')).toBe('3|2026-10-05')
     expect(parseCellKey('3|2026-10-05')).toEqual({ employeeId: 3, date: '2026-10-05' })
     expect(noteKey('info1', '2026-10-05')).toBe('info1|2026-10-05')
+  })
+})
+
+describe('cellFillColor', () => {
+  const sick = { kind: 'code' as const, start: null, color: 'gray' }
+  const prepTime = { kind: 'code' as const, start: 450, color: 'green' }
+  const shift = { kind: 'shift' as const, start: 570, color: 'neutral' }
+
+  it('fills the cell with the color of a full-day code', () => {
+    expect(cellFillColor([sick])).toBe('gray')
+  })
+  it('lets a full-day code win over other entries of the day', () => {
+    expect(cellFillColor([shift, sick])).toBe('gray')
+  })
+  it('fills the cell when it only contains timed codes', () => {
+    expect(cellFillColor([prepTime])).toBe('green')
+  })
+  it('keeps the cell unfilled when a timed code is combined with a shift', () => {
+    expect(cellFillColor([prepTime, shift])).toBeNull()
+  })
+  it('keeps empty and shift-only cells unfilled', () => {
+    expect(cellFillColor([])).toBeNull()
+    expect(cellFillColor([shift])).toBeNull()
   })
 })

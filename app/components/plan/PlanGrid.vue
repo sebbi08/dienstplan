@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { cellKey, noteKey } from '#shared/domain/cells'
+import { cellFillColor, cellKey, noteKey } from '#shared/domain/cells'
 import { formatDuration, formatSignedDuration } from '#shared/domain/time'
 import type { DayRowDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { balanceClass } from '~/utils/colors'
+import { balanceClass, cellFillClasses } from '~/utils/colors'
 import { formatDateTime, formatDayShort } from '~/utils/format'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
@@ -70,6 +70,7 @@ const rows = computed(() => props.plan.days.map((day) => {
       entries: entriesByCell.value.get(key) ?? [],
       changed: Boolean(props.plan.changes[key]),
       missing: cellWarnings.some(warning => warning.type === 'missing_entry'),
+      fill: cellFillColor(entriesByCell.value.get(key) ?? []),
       gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
       title: joinLines([changeText(key), ...cellWarnings.map(warning => warningText(warning, employeeNames.value))]),
     }
@@ -127,7 +128,7 @@ const rows = computed(() => props.plan.days.map((day) => {
               class="border border-gray-200 px-1 py-1 align-top"
               :class="[
                 editable ? 'cursor-pointer hover:bg-sky-50' : '',
-                selected?.has(cell.key) ? 'bg-sky-100' : cell.missing ? 'bg-red-50' : '',
+                selected?.has(cell.key) ? 'bg-sky-100' : cell.missing ? 'bg-red-50' : cell.fill ? cellFillClasses[cell.fill] : '',
                 cell.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : '',
               ]"
               :title="cell.title"

@@ -12,6 +12,18 @@ export const chipClasses: Record<ColorKey, string> = {
   orange: 'bg-orange-200 text-orange-900',
 }
 
+/** Whole-cell background for code days; same tones as the chips so chip and cell read as one. */
+export const cellFillClasses: Record<ColorKey, string> = {
+  neutral: '',
+  gray: 'bg-gray-300',
+  green: 'bg-green-200',
+  yellow: 'bg-yellow-200',
+  blue: 'bg-blue-200',
+  red: 'bg-red-200',
+  violet: 'bg-violet-200',
+  orange: 'bg-orange-200',
+}
+
 export const slotClasses: Record<SlotState, string> = {
   off: 'bg-gray-50',
   work: 'bg-teal-400',
