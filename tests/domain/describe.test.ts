@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cellFillColor, cellKey, noteKey, parseCellKey } from '../../shared/domain/cells'
-import { describeCell, describeEntry } from '../../shared/domain/describe'
+import { describeCell, describeCellDetailed, describeEntry } from '../../shared/domain/describe'
 
 describe('describeEntry', () => {
   it('shows times for shifts and special shifts', () => {
@@ -45,5 +45,15 @@ describe('cellFillColor', () => {
   it('keeps empty and shift-only cells unfilled', () => {
     expect(cellFillColor([])).toBeNull()
     expect(cellFillColor([shift])).toBeNull()
+  })
+})
+
+describe('describeCellDetailed', () => {
+  it('includes short label, break and note', () => {
+    expect(describeCellDetailed([
+      { shortLabel: 'S', label: '8:45–17:00', breakStart: 730, breakEnd: 760, note: null },
+      { shortLabel: null, label: 'VZ 7:30–8:30', breakStart: null, breakEnd: null, note: 'Elterngespräch' },
+    ])).toBe('S 8:45–17:00 [12:10–12:40] + VZ 7:30–8:30 · Elterngespräch')
+    expect(describeCellDetailed([])).toBe('—')
   })
 })

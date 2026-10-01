@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { cellKey } from '../../shared/domain/cells'
+import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import { formatTime, validateSpan } from '../../shared/domain/time'
+import { validateSpan } from '../../shared/domain/time'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -52,20 +53,8 @@ export function resolveEntry(db: Db, input: EntryInput): ResolvedEntry {
   }
 }
 
-// Change-log description: unlike the grid label it also shows template, break and note,
-// so every visible difference between two cell states yields different strings.
-export function describeCellForLog(list: EntryDto[]): string {
-  if (list.length === 0) return '—'
-  return list.map(entry => (entry.shortLabel ? `${entry.shortLabel} ` : '')
-    + entry.label
-    + (entry.breakStart !== null && entry.breakEnd !== null
-      ? ` [${formatTime(entry.breakStart)}–${formatTime(entry.breakEnd)}]`
-      : '')
-    + (entry.note ? ` · ${entry.note}` : '')).join(' + ')
-}
-
 export function describeCellAt(db: Db, cell: CellRef): string {
-  return describeCellForLog(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
+  return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
 }
 
 export function applyToCells(
