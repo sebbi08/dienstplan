@@ -50,15 +50,18 @@ function editRecord(day: TimeDayDto, record: TimeRecordDto) {
 }
 function onSubmit(value: { start: number; end: number }) {
   if (modal.record) run(() => $fetch<unknown>(`/api/time-records/${modal.record!.id}`, { method: 'PUT', body: value }), de.common.saved)
-  else run(() => $fetch<unknown>('/api/time-records', { method: 'POST', body: { employeeId: employeeId.value, date: modal.date, ...value } }), de.common.saved)
+  else if (data.value) run(() => $fetch<unknown>('/api/time-records', { method: 'POST', body: { employeeId: data.value!.employee.id, date: modal.date, ...value } }), de.common.saved)
 }
 async function removeRecord(record: TimeRecordDto) {
   if (await confirm(de.time.deleteConfirm)) run(() => $fetch<unknown>(`/api/time-records/${record.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
 /** Absences are plan entries: they replace the day in the plan (shown there as unreleased change). */
-function setAbsence(day: TimeDayDto, code: CodeDto | null) {
-  const cells = [{ employeeId: employeeId.value, date: day.date }]
+async function setAbsence(day: TimeDayDto, code: CodeDto | null) {
+  if (!data.value) return
+  if (!code && !await confirm(de.time.removeAbsenceConfirm)) return
+  // Employee of the displayed table, not the select (which may already show the next person while loading).
+  const cells = [{ employeeId: data.value.employee.id, date: day.date }]
   const body = code ? { cells, mode: 'replace', entry: { kind: 'code', codeId: code.id } } : { cells, mode: 'clear', entry: null }
   run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }), de.common.saved)
 }
@@ -127,7 +130,7 @@ onMounted(() => {
             <td class="px-2 py-1.5">
               <div v-for="record in day.records" :key="record.id" class="flex items-center gap-1">
                 <button type="button" class="hover:underline" @click="editRecord(day, record)">{{ span(record) }}</button>
-                <span v-if="record.edited" class="text-xs text-amber-700" :title="record.editedAt ? `${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : undefined">({{ de.time.edited }})</span>
+                <span v-if="record.edited" class="text-xs text-amber-700" :title="record.editedAt ? `${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : undefined">({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</span>
                 <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
               </div>
               <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.time.addRecord" @click="addRecord(day)" />

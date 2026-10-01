@@ -29,7 +29,7 @@ export const de = {
     recorded: 'Ist', planned: 'Plan', difference: 'Differenz', records: 'Stempelzeiten', hints: 'Hinweise',
     edited: 'nachgetragen', changed: 'geändert', addRecord: 'Zeitraum hinzufügen', openRecords: 'Offene Zeiträume',
     noOpenRecords: 'Keine offenen Zeiträume.', protocol: 'Protokoll', disabled: 'Die Zeiterfassung ist noch nicht aktiv (Einstellungen → „Zeiterfassung ab“).',
-    beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', open: 'offen',
+    beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', removeAbsenceConfirm: 'Abwesenheit entfernen? Alle Einträge dieses Tages im Dienstplan werden gelöscht.', open: 'offen',
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),
     deleteConfirm: 'Diesen Zeitraum löschen?',
   },
