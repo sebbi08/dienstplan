@@ -1,6 +1,9 @@
 import type { H3Event } from 'h3'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
+import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
+
+export { USER_SESSION_DAYS }
 
 function httpError(statusCode: number, code: string) {
   return createError({ statusCode, statusMessage: code, data: { code } })
@@ -12,7 +15,8 @@ export async function requireUser(
 ): Promise<SessionUser> {
   const session = await requireUserSession(event)
   const user = getActiveUser(useDb(), session.user.id)
-  if (!user) {
+  // Normal accounts keep the 30-day limit; only the tablet stays logged in for the cookie's full lifetime.
+  if (!user || sessionExpired(user.role, session.loggedInAt)) {
     await clearUserSession(event)
     throw httpError(401, 'session_expired')
   }

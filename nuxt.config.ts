@@ -9,7 +9,9 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     session: {
-      maxAge: 60 * 60 * 24 * 30,
+      // About the browser cookie cap, so the shared tablet stays logged in; normal accounts get 30 days
+      // at login and are checked server-side in requireUser (USER_SESSION_DAYS).
+      maxAge: 60 * 60 * 24 * 400,
       cookie: { secure: true },
     },
   },
