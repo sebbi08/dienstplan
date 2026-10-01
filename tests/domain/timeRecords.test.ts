@@ -23,7 +23,7 @@ describe('breaks', () => {
     expect(breakRuleViolated([span(420, 700), span(730, 980)])).toBe(false) // 8:50 h, 30 min break
     expect(breakRuleViolated([span(420, 700), span(730, 1020)])).toBe(true) // 9:30 h, 30 min break
     expect(breakRuleViolated([span(420, 700), span(745, 1035)])).toBe(false) // 9:30 h, 45 min break
-    expect(breakRuleViolated([span(420, 710), span(710, 1000)])).toBe(true) // 10 min gap does not count
+    expect(breakRuleViolated([span(420, 700), span(710, 1000)])).toBe(true) // 10 min gap does not count
   })
 })
 
