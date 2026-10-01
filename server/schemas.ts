@@ -74,3 +74,4 @@ export const userUpdateSchema = z.object({
   role: z.enum(['admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
 })
 export const passwordResetSchema = z.object({ password: z.string().max(200) })
+export const appSettingsSchema = z.object({ timeTrackingFrom: isoDate.nullable() })

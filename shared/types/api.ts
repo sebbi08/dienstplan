@@ -231,3 +231,7 @@ export interface SettingsDto {
   codes: CodeDto[]
   coverageRules: CoverageRuleDto[]
 }
+
+export interface AppSettingsDto {
+  timeTrackingFrom: IsoDate | null
+}
