@@ -126,3 +126,13 @@ export const coverageRules = sqliteTable('coverage_rules', {
   minCount: integer('min_count').notNull().default(1),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
 })
+
+export const releaseSnapshots = sqliteTable('release_snapshots', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  year: integer('year').notNull(),
+  month: integer('month').notNull(),
+  releasedAt: text('released_at').notNull(),
+  releasedBy: integer('released_by').references(() => users.id, { onDelete: 'set null' }),
+  /** JSON of SnapshotData */
+  data: text('data').notNull(),
+}, table => [index('release_snapshots_month').on(table.year, table.month)])

@@ -2,6 +2,7 @@ import { todayIso } from '../../shared/domain/dates'
 import { migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
+import { backfillSnapshots } from '../services/release'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -9,6 +10,8 @@ export default defineNitroPlugin(() => {
   const db = useDb()
   migrateDb(db, process.env.MIGRATIONS_DIR || 'server/db/migrations')
   seedDefaults(db)
+  const backfilled = backfillSnapshots(db)
+  if (backfilled > 0) console.info(`Created release snapshots for ${backfilled} previously released month(s).`)
   if (ensureInitialAdmin(db, process.env.ADMIN_USERNAME, process.env.ADMIN_PASSWORD)) {
     console.info(`Initial admin "${process.env.ADMIN_USERNAME}" created.`)
   }

@@ -109,6 +109,20 @@ export interface EmployeeColumnDto {
   shortName: string
 }
 
+export interface SnapshotDayDto {
+  date: IsoDate
+  info1: string
+  info2: string
+  closureLabel: string | null
+}
+
+/** What observers see of a month, frozen at release time. */
+export interface SnapshotData {
+  employees: EmployeeColumnDto[]
+  entries: EntryDto[]
+  days: SnapshotDayDto[]
+}
+
 export interface WeekSummaryDto {
   weekStart: IsoDate
   weekEnd: IsoDate

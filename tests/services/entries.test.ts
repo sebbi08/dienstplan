@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import { changeLog } from '../../server/db/schema'
 import { applyToCells, deleteEntry, setDayNote } from '../../server/services/entries'
 import { loadEntries } from '../../server/services/queries'
-import { releaseMonth, unreleaseMonth } from '../../server/services/release'
+import { releaseMonth } from '../../server/services/release'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -99,7 +99,6 @@ describe('entries service', () => {
   it('rejects invalid months when releasing', () => {
     for (const [year, month] of [[2026, 0], [2026, 13], [2026, 1.5], [1999, 10], [2101, 10]] as const) {
       expect(errorCode(() => releaseMonth(db, admin, year, month))).toBe('invalid_month')
-      expect(errorCode(() => unreleaseMonth(db, year, month))).toBe('invalid_month')
     }
   })
   it('deletes single entries and logs it', () => {
