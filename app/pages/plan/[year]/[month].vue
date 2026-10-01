@@ -25,12 +25,14 @@ const modalCode = ref<CodeDto | null>(null)
 const discardOpen = ref(false)
 const editOpen = ref(false)
 const editEntry = ref<EntryDto | null>(null)
+const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
 const breakModal = reactive<{ open: boolean; mode: 'change' | 'add'; entryId: number | null; initial: { start: number; end: number } | null }>({
   open: false, mode: 'add', entryId: null, initial: null,
 })
 
 watch([year, month], () => {
   selection.clear()
+  cellMenu.open = false
   selectedDate.value = null
 })
 
@@ -131,7 +133,22 @@ function onFillGap(gap: GapSuggestion) {
 }
 
 function onCellClick(employeeId: number, date: string, event: MouseEvent) {
-  if (isAdmin.value) selection.click(employeeId, date, event, dates.value)
+  if (!isAdmin.value) return
+  selection.click(employeeId, date, event, dates.value)
+  cellMenu.reference = (event.target as HTMLElement).closest('td')
+  cellMenu.open = selection.cells.value.length > 0
+}
+
+/** Runs an action of the cell menu after closing it, so a dialog it opens gets the focus. */
+function fromMenu<A extends unknown[]>(action: (...args: A) => unknown) {
+  return (...args: A) => {
+    cellMenu.open = false
+    action(...args)
+  }
+}
+const menuActions = {
+  template: fromMenu(onTemplate), code: fromMenu(onCode), special: fromMenu(() => openModal(null)), clear: fromMenu(onClear),
+  fillGap: fromMenu(onFillGap), changeBreak: fromMenu(onChangeBreak), addBreak: fromMenu(onAddBreak),
 }
 
 function onNoteSave(date: string, field: NoteField, value: string) {
@@ -187,6 +204,13 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
       <PlanBreakModal v-model:open="breakModal.open" :mode="breakModal.mode" :initial="breakModal.initial" @submit="onBreakSubmit" />
       <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" @submit="onEditSubmit" />
+      <PlanCellMenu
+        v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"
+        :templates="plan.templates" :codes="plan.codes"
+        :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions"
+        @template="menuActions.template" @code="menuActions.code" @special="menuActions.special" @clear="menuActions.clear"
+        @fill-gap="menuActions.fillGap" @change-break="menuActions.changeBreak" @add-break="menuActions.addBreak"
+      />
     </template>
     <template v-else>
       <MonthNav :year="year" :month="month" @change="navigate" />

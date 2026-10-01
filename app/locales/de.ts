@@ -52,6 +52,7 @@ export const de = {
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',
     editEntryHint: 'Klicken zum Bearbeiten',
+    menuShifts: 'Dienste', menuCodes: 'Codes', menuMore: 'Weiteres',
   },
   modal: {
     discardTitle: 'Noch nicht freigegebene Änderungen',
