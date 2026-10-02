@@ -2,10 +2,11 @@ import { and, asc, eq } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
-import type { EmployeeDetailDto, EmployeeListItemDto } from '../../shared/types/api'
+import type { EmployeeDetailDto, EmployeeListItemDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { balanceAdjustments, employeeHours, employees, leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { bookClosuresFor } from './closures'
 import { loadEmployees, type EmployeeRecord } from './queries'
 
 export interface EmployeeInput {
@@ -77,7 +78,8 @@ export function getEmployee(db: Db, id: number, today: IsoDate): EmployeeDetailD
   }
 }
 
-export function createEmployee(db: Db, input: EmployeeInput): number {
+/** Creates an employee; existing closures are booked for them right away (closures apply to everyone). */
+export function createEmployee(db: Db, actor: SessionUser, input: EmployeeInput, now: Date = new Date()): number {
   const name = requireName(input.name)
   const workdays = requireWorkdays(input.workdays ?? MONDAY_TO_FRIDAY)
   return db.transaction((tx) => {
@@ -95,6 +97,7 @@ export function createEmployee(db: Db, input: EmployeeInput): number {
         employeeId: employee.id, date: input.validFrom, minutes: input.openingBalanceMinutes, reason: OPENING_BALANCE_REASON,
       }).run()
     }
+    bookClosuresFor(tx, actor, employee.id, now)
     return employee.id
   })
 }

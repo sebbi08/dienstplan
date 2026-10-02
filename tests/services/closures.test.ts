@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { createClosure, deleteClosure, listClosures } from '../../server/services/closures'
-import { createEmployee } from '../../server/services/employees'
+import { createEmployee, setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { getMonthPlan } from '../../server/services/plan'
@@ -62,8 +62,49 @@ describe('closures and part-time working days', () => {
   it('books the closure only on each employee’s working days', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
-    const clara = createEmployee(db, { name: 'Clara', shortName: '', weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 })
+    const clara = createEmployee(db, admin, { name: 'Clara', shortName: '', weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 })
     createClosure(db, admin, { startDate: '2026-08-10', endDate: '2026-08-14', label: 'Schließwoche', mode: 'vacation' })
     expect(loadEntries(db, { employeeId: clara }).map(entry => entry.date)).toEqual(['2026-08-10', '2026-08-11', '2026-08-12'])
+  })
+})
+
+describe('closures for employees who join later', () => {
+  let db: Db
+  let admin: SessionUser
+  beforeEach(() => {
+    db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
+  })
+  const codes = (employeeId: number) => loadEntries(db, { employeeId }).map(entry => [entry.date, entry.codeKey])
+
+  it('books existing closures for a new employee from their first day', () => {
+    const closure = createClosure(db, admin, summer)
+    const dora = createEmployee(db, admin, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-08-12', vacationDays: 30 })
+    expect(codes(dora)).toEqual(['2026-08-12', '2026-08-13', '2026-08-14', '2026-08-17'].map(date => [date, 'vacation']))
+    // linked to the closure, so deleting the closure removes them again
+    expect(loadEntries(db, { employeeId: dora, closureId: closure.id })).toHaveLength(4)
+  })
+  it('never takes a joiner below zero leave in the joining year: the rest become closure days', () => {
+    createClosure(db, admin, summer)
+    const dora = createEmployee(db, admin, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-08-01', vacationDays: 2 })
+    expect(codes(dora).map(([, code]) => code)).toEqual(['vacation', 'vacation', 'closure_day', 'closure_day', 'closure_day', 'closure_day', 'closure_day'])
+    expect(getLeaveAccount(db, dora, 2026, '2026-08-01').account.available).toBe(0)
+  })
+  it('applies the same limit to a closure entered after the joiner', () => {
+    const dora = createEmployee(db, admin, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-08-01', vacationDays: 3 })
+    createClosure(db, admin, summer)
+    expect(codes(dora).filter(([, code]) => code === 'vacation')).toHaveLength(3)
+    expect(getLeaveAccount(db, dora, 2026, '2026-08-01').account.available).toBe(0)
+  })
+  it('lets staff employed since the start of the year go below zero', () => {
+    const anna = addEmployee(db, 'Anna')
+    setEntitlement(db, anna, 2026, { days: 2, carriedOverDays: 0 })
+    createClosure(db, admin, summer)
+    expect(getLeaveAccount(db, anna, 2026, '2026-08-01').account.available).toBe(-5)
+  })
+  it('books leave normally in a year without a recorded entitlement', () => {
+    createClosure(db, admin, { startDate: '2027-01-04', endDate: '2027-01-08', label: 'Winter', mode: 'vacation' })
+    const dora = createEmployee(db, admin, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-12-01', vacationDays: 1 })
+    expect(new Set(codes(dora).map(([, code]) => code))).toEqual(new Set(['vacation']))
   })
 })

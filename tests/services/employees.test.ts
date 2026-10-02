@@ -4,25 +4,28 @@ import {
   addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees,
   moveEmployee, setEntitlement, updateEmployee,
 } from '../../server/services/employees'
-import { createTestDb, errorCode } from '../helpers/fixtures'
+import type { SessionUser } from '../../shared/types/api'
+import { addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 const today = '2026-10-05'
 
 describe('employees service', () => {
   let db: Db
+  let admin: SessionUser
   beforeEach(() => {
     db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
   })
 
   it('creates employees with their first weekly hours', () => {
-    const id = createEmployee(db, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const id = createEmployee(db, admin, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     expect(listEmployees(db, today)).toEqual([
       { id, name: 'Anna', shortName: 'AN', sortOrder: 1, leftOn: null, currentWeeklyMinutes: 2340, currentWorkdays: 0b11111 },
     ])
-    expect(errorCode(() => createEmployee(db, { name: ' ', shortName: '', weeklyMinutes: 0, validFrom: '2026-01-01' }))).toBe('name_required')
+    expect(errorCode(() => createEmployee(db, admin, { name: ' ', shortName: '', weeklyMinutes: 0, validFrom: '2026-01-01' }))).toBe('name_required')
   })
   it('keeps an hours history and never deletes the last period', () => {
-    const id = createEmployee(db, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const id = createEmployee(db, admin, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     addHours(db, id, { weeklyMinutes: 1800, validFrom: '2026-10-01' })
     addHours(db, id, { weeklyMinutes: 1950, validFrom: '2026-10-01' })
     const detail = getEmployee(db, id, today)
@@ -32,15 +35,15 @@ describe('employees service', () => {
     expect(errorCode(() => deleteHours(db, detail.hours[0]!.id))).toBe('last_hours')
   })
   it('reorders employees', () => {
-    const anna = createEmployee(db, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
-    createEmployee(db, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const anna = createEmployee(db, admin, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    createEmployee(db, admin, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     moveEmployee(db, anna, 'down')
     expect(listEmployees(db, today).map(e => e.name)).toEqual(['Ben', 'Anna'])
     moveEmployee(db, anna, 'down')
     expect(listEmployees(db, today).map(e => e.name)).toEqual(['Ben', 'Anna'])
   })
   it('updates master data, adjustments and entitlements', () => {
-    const id = createEmployee(db, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const id = createEmployee(db, admin, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     updateEmployee(db, id, { name: 'Anna B.', shortName: 'AB', leftOn: '2026-12-31' })
     addAdjustment(db, id, { date: '2026-01-01', minutes: 750, reason: 'Übertrag' })
     setEntitlement(db, id, 2026, { days: 30, carriedOverDays: 2 })
@@ -55,12 +58,14 @@ describe('employees service', () => {
 
 describe('creating an employee with working days, leave and opening balance', () => {
   let db: Db
+  let admin: SessionUser
   beforeEach(() => {
     db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
   })
 
   it('stores working days, leave entitlement, carried-over leave and existing overtime', () => {
-    const id = createEmployee(db, {
+    const id = createEmployee(db, admin, {
       name: 'Clara', shortName: 'CL', weeklyMinutes: 1200, validFrom: '2026-10-01',
       workdays: 0b00111, vacationDays: 18, carriedOverDays: 2.5, openingBalanceMinutes: -90,
     })
@@ -71,16 +76,16 @@ describe('creating an employee with working days, leave and opening balance', ()
     expect(employee.adjustments).toEqual([{ id: expect.any(Number), date: '2026-10-01', minutes: -90, reason: 'Übertrag bei Anlage' }])
   })
   it('creates nothing extra when no leave or balance is given and defaults to Monday–Friday', () => {
-    const id = createEmployee(db, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01' })
+    const id = createEmployee(db, admin, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01' })
     const employee = getEmployee(db, id, '2026-10-05')
     expect(employee.hours[0]!.workdays).toBe(0b11111)
     expect(employee.entitlements).toEqual([])
     expect(employee.adjustments).toEqual([])
   })
   it('requires at least one working day and keeps them for later hours periods', () => {
-    expect(errorCode(() => createEmployee(db, { name: 'Eva', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01', workdays: 0 })))
+    expect(errorCode(() => createEmployee(db, admin, { name: 'Eva', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01', workdays: 0 })))
       .toBe('workdays_required')
-    const id = createEmployee(db, { name: 'Eva', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01' })
+    const id = createEmployee(db, admin, { name: 'Eva', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01' })
     addHours(db, id, { weeklyMinutes: 1560, validFrom: '2027-01-01', workdays: 0b01111 })
     expect(getEmployee(db, id, '2027-01-04').hours.map(h => h.workdays)).toEqual([0b11111, 0b01111])
   })
