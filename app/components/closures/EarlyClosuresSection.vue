@@ -5,9 +5,8 @@ import type { EarlyClosureDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDayShort } from '~/utils/format'
 
-/** Admin-only year list of days the facility closed earlier; no effect on working hours. */
-const route = useRoute()
-const year = ref(Number(route.query.year) || parseIsoDate(todayIso()).year)
+/** Admin-only year list of days the facility closed earlier (part of the closures page); no effect on working hours. */
+const year = ref(parseIsoDate(todayIso()).year)
 const { data: list, refresh } = await useFetch<EarlyClosureDto[]>('/api/early-closures', { query: { year } })
 const run = useAction(refresh)
 const confirm = useConfirm()
@@ -47,9 +46,9 @@ async function remove(closure: EarlyClosureDto) {
 </script>
 
 <template>
-  <div class="max-w-4xl space-y-4">
+  <section class="space-y-4">
     <div class="flex flex-wrap items-center gap-3">
-      <h1 class="text-2xl font-semibold">{{ de.earlyClosures.title }}</h1>
+      <h2 class="text-xl font-semibold">{{ de.earlyClosures.title }}</h2>
       <div class="flex items-center gap-1">
         <UButton icon="i-lucide-chevron-left" color="neutral" variant="ghost" :aria-label="de.earlyClosures.previousYear" @click="year--" />
         <span class="min-w-16 text-center text-xl font-semibold">{{ year }}</span>
@@ -95,5 +94,5 @@ async function remove(closure: EarlyClosureDto) {
         <UButton v-if="form.id" color="neutral" variant="ghost" :label="de.common.cancel" @click="reset" />
       </div>
     </form>
-  </div>
+  </section>
 </template>

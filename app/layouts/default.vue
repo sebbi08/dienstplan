@@ -21,7 +21,6 @@ const links = computed(() => {
       // Includes the overtime balances and leave accounts of all employees.
       { label: de.nav.employees, to: '/admin/employees' },
       { label: de.nav.closures, to: '/admin/closures' },
-      { label: de.nav.earlyClosures, to: '/admin/early-closures' },
       { label: de.nav.sickDays, to: '/admin/sick-days' },
       { label: de.nav.calendar, to: '/admin/calendar' },
       { label: de.nav.users, to: '/admin/users' },

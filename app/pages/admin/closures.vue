@@ -23,7 +23,7 @@ async function remove(closure: ClosureDto) {
 </script>
 
 <template>
-  <div class="max-w-4xl space-y-4">
+  <div class="max-w-4xl space-y-6">
     <h1 class="text-2xl font-semibold">{{ de.closures.title }}</h1>
     <p v-if="!list?.length" class="text-sm text-gray-500">{{ de.closures.empty }}</p>
     <table v-else class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
@@ -49,5 +49,7 @@ async function remove(closure: ClosureDto) {
       <UFormField :label="de.closures.mode"><USelect v-model="form.mode" :items="modeItems" class="w-full" /></UFormField>
       <div class="sm:col-span-4"><UButton type="submit" icon="i-lucide-plus" :label="de.common.add" /></div>
     </form>
+
+    <ClosuresEarlyClosuresSection class="border-t border-gray-200 pt-6" />
   </div>
 </template>

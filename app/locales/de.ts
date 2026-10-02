@@ -18,7 +18,7 @@ export const de = {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', employees: 'Mitarbeiter',
     closures: 'Schließzeiten', users: 'Benutzer',
     settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
-    time: 'Zeiterfassung', stamp: 'Stempeln', earlyClosures: 'Frühere Schließungen',
+    time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender',
   },
   time: {
