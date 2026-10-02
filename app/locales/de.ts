@@ -18,7 +18,7 @@ export const de = {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', employees: 'Mitarbeiter',
     balances: 'Stundenkonten', leave: 'Urlaub', closures: 'Schließzeiten', users: 'Benutzer',
     settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
-    time: 'Zeiterfassung', stamp: 'Stempeln',
+    time: 'Zeiterfassung', stamp: 'Stempeln', earlyClosures: 'Frühere Schließungen',
   },
   time: {
     title: 'Zeiterfassung', employee: 'Mitarbeiter:in', clockIn: 'Einstempeln', clockOut: 'Ausstempeln',
@@ -33,8 +33,18 @@ export const de = {
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),
     deleteConfirm: 'Diesen Zeitraum löschen?',
     reason: 'Begründung', reasonPlaceholder: 'z. B. Arzttermin',
+    print: 'Drucken', printTitle: (name: string, month: string) => `Stempelzeiten ${name} – ${month}`,
+    weeklyHours: (hours: string) => `Wochenstunden: ${hours}`, totalTarget: 'Soll', totalCounted: 'Angerechnet', totalDelta: 'Differenz im Monat',
+    signEmployee: 'Unterschrift Mitarbeiter:in', signLead: 'Unterschrift Leitung', printedAt: (date: string) => `Gedruckt am ${date}`,
     todayPlanned: 'heute und später – zählt nach Plan', absence: 'Abwesenheit',
     replaceConfirm: 'Die Einträge dieses Tages im Dienstplan werden durch die Abwesenheit ersetzt. Fortfahren?',
+  },
+  earlyClosures: {
+    title: 'Frühere Schließungen', date: 'Datum', closedFrom: 'Geschlossen ab', reason: 'Begründung',
+    reasonPlaceholder: 'z. B. Personalausfall durch Krankheit', hint: 'Nur für die Leitung sichtbar. Die Einträge ändern keine Arbeitszeiten.',
+    create: 'Frühere Schließung eintragen', edit: 'Eintrag ändern', empty: 'In diesem Jahr ist keine frühere Schließung eingetragen.',
+    confirmDelete: 'Diesen Eintrag löschen?', print: 'Drucken', printTitle: (year: number) => `Frühere Schließungen ${year}`,
+    count: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`), previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
@@ -231,6 +241,8 @@ export const de = {
     record_overlap: 'Der Zeitraum überschneidet sich mit einem anderen Zeitraum des Tages.',
     record_in_future: 'Zeiten in der Zukunft können nicht eingetragen werden.',
     record_not_found: 'Dieser Zeitraum existiert nicht mehr.',
+    early_closure_exists: 'Für diesen Tag ist schon eine frühere Schließung eingetragen.',
+    early_closure_not_found: 'Dieser Eintrag existiert nicht mehr.',
     terminal_no_employee: 'Ein Stempel-Tablet wird mit keinem Mitarbeiter verknüpft.',
   },
 }

@@ -5,10 +5,8 @@ import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain
 import type { CodeDto, EmployeeListItemDto, OpenRecordDto, TimeDayDto, TimeMonthDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort, formatSpan } from '~/utils/format'
+import { DEVIATION_MINUTES, recordedDifference as difference } from '~/utils/timeSheet'
 import { warningText } from '~/utils/warnings'
-
-/** Same tolerance as the "Ist" marker in the plan (spec 4.3). */
-const DEVIATION_MINUTES = 15
 
 const route = useRoute()
 const router = useRouter()
@@ -34,8 +32,6 @@ const confirm = useConfirm()
 watch([employeeId, year, month], () => router.replace({ query: { employee: employeeId.value ?? undefined, year: year.value, month: month.value } }))
 
 const names = computed(() => new Map((employees.value ?? []).map(employee => [employee.id, employee.name])))
-/** Recorded minus planned credit, only where records count (not on Urlaub/Krank/Feiertag … days). */
-const difference = (day: TimeDayDto) => (day.usesRecords && !day.targetCredit ? day.recordedMinutes - day.plannedMinutes : null)
 const expanded = ref(new Set<string>())
 
 function toggleProtocol(date: string) {
@@ -132,6 +128,10 @@ function change(nextYear: number, nextMonth: number) {
       <select v-model="employeeId" class="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm" :aria-label="de.time.employee">
         <option v-for="employee in employees ?? []" :key="employee.id" :value="employee.id">{{ employee.name }}</option>
       </select>
+      <UButton
+        v-if="employeeId !== null" class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.time.print"
+        :to="`/admin/print/time/${employeeId}/${year}/${month}`" target="_blank"
+      />
     </div>
 
     <UAlert v-if="data && !data.trackingFrom" color="neutral" variant="soft" :title="de.time.disabled" />

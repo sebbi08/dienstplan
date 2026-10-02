@@ -328,3 +328,12 @@ export interface TimeMonthDto {
   absenceCodes: CodeDto[]
   days: TimeDayDto[]
 }
+
+/** A day the facility closed earlier (admin-only record). */
+export interface EarlyClosureDto {
+  id: number
+  date: IsoDate
+  /** Closing time that day, minutes since midnight. */
+  closedFrom: Minutes
+  reason: string
+}

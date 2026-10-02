@@ -80,6 +80,7 @@ export const appSettingsSchema = z.object({ timeTrackingFrom: isoDate.nullable()
 
 export const timeRecordCreateSchema = z.object({ employeeId: z.number().int(), date: isoDate, start: minutes, end: minutes })
 export const timeRecordUpdateSchema = z.object({ start: minutes, end: minutes })
+export const earlyClosureSchema = z.object({ date: isoDate, closedFrom: minutes, reason: z.string().max(200) })
 export const timeDayNoteSchema = z.object({ employeeId: z.number().int(), date: isoDate, note: z.string().max(200) })
 export const stampSchema = z.object({ action: z.enum(['in', 'out']) })
 export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number().int().positive() })

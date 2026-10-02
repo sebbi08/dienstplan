@@ -180,3 +180,11 @@ export const timeDayNotes = sqliteTable('time_day_notes', {
   date: text('date').notNull(),
   note: text('note').notNull(),
 }, table => [primaryKey({ columns: [table.employeeId, table.date] })])
+
+/** Days the facility closed earlier than usual (admin-only record; no effect on working hours). */
+export const earlyClosures = sqliteTable('early_closures', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull().unique(),
+  closedFrom: integer('closed_from').notNull(),
+  reason: text('reason').notNull(),
+})
