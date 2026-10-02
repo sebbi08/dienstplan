@@ -50,6 +50,7 @@ async function remove(closure: ClosureDto) {
       <div class="sm:col-span-4"><UButton type="submit" icon="i-lucide-plus" :label="de.common.add" /></div>
     </form>
 
+    <ClosuresHolidaysSection class="border-t border-gray-200 pt-6" />
     <ClosuresEarlyClosuresSection class="border-t border-gray-200 pt-6" />
   </div>
 </template>

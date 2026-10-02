@@ -56,7 +56,7 @@ export const de = {
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
     kinds: { sick: 'Krank', vacation: 'Urlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
-    weekend: 'Wochenende / Feiertag / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
+    weekend: 'Wochenende / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     from: 'von (optional)', to: 'bis (optional)', title2: 'Termin', titlePlaceholder: 'z. B. Elternabend', time: 'Uhrzeit',
     noEvents: 'In diesem Jahr sind keine Termine eingetragen.', confirmDelete: 'Diesen Termin löschen?',
     clickHint: 'Eintragen per Klick: auf ein Feld einer Mitarbeiterin für Urlaub, Krank, Fortbildung oder Schule, auf die Tageszahl in der Kopfzeile für einen Termin, auf einen Termin zum Ändern.',
@@ -184,6 +184,8 @@ export const de = {
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',
     empty: 'Keine Schließzeiten angelegt.',
+    holidaysTitle: 'Feiertage', holidayDate: 'Datum', holidayName: 'Feiertag',
+    holidaysHint: 'Gesetzliche Feiertage in Baden-Württemberg. Die App berücksichtigt sie automatisch: kein Soll, kein Hinweis „kein Eintrag“, im Dienstplan blau markiert.',
   },
   settings: {
     title: 'Einstellungen', templates: 'Dienst-Buttons', shortLabel: 'Kürzel', label: 'Bezeichnung',

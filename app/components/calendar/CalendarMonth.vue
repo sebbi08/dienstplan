@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { daysInMonth, isWeekend, toIsoDate } from '#shared/domain/dates'
-import { isHoliday } from '#shared/domain/holidays'
+import { holidayOn, isHoliday } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -61,15 +61,27 @@ const isOff = (date: string) => isWeekend(date) || isHoliday(date)
 /** Days off of part-time staff look like weekends. */
 const freeDays = computed(() => new Map(Object.entries(props.calendar.freeDays).map(([id, dates]) => [Number(id), new Set(dates)])))
 
+/** Name of the public holiday on that date, if any (holidays are computed, not entered). */
+function holidayName(date: string): string | undefined {
+  const key = holidayOn(date)
+  return key ? de.holidays[key] : undefined
+}
+
 function cellClass(employeeId: number, date: string): string {
   const kind = props.calendar.days[employeeId]?.[date]
   if (kind) return KIND_CLASSES[kind]
-  return isOff(date) || freeDays.value.get(employeeId)?.has(date) ? 'bg-gray-100' : ''
+  if (isHoliday(date)) return KIND_CLASSES.closed
+  return isWeekend(date) || freeDays.value.get(employeeId)?.has(date) ? 'bg-gray-100' : ''
 }
 
 function cellTitle(employeeId: number, name: string, date: string): string | undefined {
   const kind = props.calendar.days[employeeId]?.[date]
-  return kind ? `${name}: ${de.calendar.kinds[kind]}` : undefined
+  if (kind) return `${name}: ${de.calendar.kinds[kind]}`
+  return holidayName(date)
+}
+
+function headerTitle(date: string): string | undefined {
+  return [holidayName(date), props.editable ? de.calendar.addEventHint : undefined].filter(Boolean).join('\n') || undefined
 }
 </script>
 
@@ -84,9 +96,12 @@ function cellTitle(employeeId: number, name: string, date: string): string | und
       <tr>
         <th class="border border-gray-300 bg-gray-50 px-1 py-0.5 text-left text-xs">{{ de.months[month - 1] }}</th>
         <th
-          v-for="date in dates" :key="date" class="border border-gray-300 px-0 py-0.5 text-center font-normal"
-          :class="[isOff(date) ? 'bg-gray-100 text-gray-500' : 'bg-gray-50', editable ? 'cursor-pointer hover:bg-yellow-200' : '']"
-          :title="editable ? de.calendar.addEventHint : undefined"
+          v-for="date in dates" :key="date" class="border border-gray-300 px-0 py-0.5 text-center"
+          :class="[
+            isHoliday(date) ? 'bg-gray-400 font-semibold text-white' : isWeekend(date) ? 'bg-gray-100 font-normal text-gray-500' : 'bg-gray-50 font-normal',
+            editable ? 'cursor-pointer hover:bg-yellow-200' : '',
+          ]"
+          :title="headerTitle(date)"
           @click="editable && emit('eventDayClick', date)"
         >
           {{ Number(date.slice(8)) }}
