@@ -11,7 +11,7 @@ import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { timeWarnings } from '../../shared/domain/warnings'
 import type { OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, timeRecordChanges, timeRecords, users } from '../db/schema'
+import { employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
@@ -163,6 +163,9 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
   const actual = actualTimeFor(db, today)(employeeId)
   const trackingFrom = getTimeTrackingFrom(db)
   const isAbsence = (key: CodeKey | null) => key !== null && ABSENCE_KEYS.includes(key)
+  const notes = new Map(db.select().from(timeDayNotes)
+    .where(and(eq(timeDayNotes.employeeId, employeeId), gte(timeDayNotes.date, monthStart), lte(timeDayNotes.date, monthEnd))).all()
+    .map(row => [row.date, row.note]))
 
   return {
     employee: { id: employee.id, name: employee.name },
@@ -185,9 +188,22 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
         usesRecords: usesRecords(actual, date), absence, otherEntries,
         targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
         warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records) : [],
+        note: notes.get(date) ?? '',
         changes: changes.filter(({ change }) => change.date === date)
           .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
       }
     }),
   }
+}
+
+/** Sets the admin's reason note of one employee and day; an empty text removes it. */
+export function setTimeDayNote(db: Db, employeeId: number, date: IsoDate, note: string): void {
+  if (!db.select().from(employees).where(eq(employees.id, employeeId)).get()) throw new ServiceError(404, 'employee_not_found')
+  const text = note.trim()
+  if (!text) {
+    db.delete(timeDayNotes).where(and(eq(timeDayNotes.employeeId, employeeId), eq(timeDayNotes.date, date))).run()
+    return
+  }
+  db.insert(timeDayNotes).values({ employeeId, date, note: text })
+    .onConflictDoUpdate({ target: [timeDayNotes.employeeId, timeDayNotes.date], set: { note: text } }).run()
 }

@@ -32,6 +32,7 @@ export const de = {
     beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', removeAbsenceConfirm: 'Abwesenheit entfernen? Alle Einträge dieses Tages im Dienstplan werden gelöscht.', open: 'offen',
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),
     deleteConfirm: 'Diesen Zeitraum löschen?',
+    reason: 'Begründung', reasonPlaceholder: 'z. B. Arzttermin',
     todayPlanned: 'heute und später – zählt nach Plan', absence: 'Abwesenheit',
     replaceConfirm: 'Die Einträge dieses Tages im Dienstplan werden durch die Abwesenheit ersetzt. Fortfahren?',
   },

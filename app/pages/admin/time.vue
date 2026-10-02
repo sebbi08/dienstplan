@@ -65,17 +65,25 @@ async function onSubmit(value: { start: number; end: number }) {
   }
   if (saved) modal.open = false
 }
+/** Free-text reason of the day for the admin; saved when the field is left (empty = removed). */
+function saveNote(day: TimeDayDto, note: string) {
+  const shownEmployee = data.value?.employee.id
+  if (shownEmployee === undefined || note.trim() === day.note) return
+  run(() => $fetch<unknown>('/api/time-records/notes', { method: 'PUT', body: { employeeId: shownEmployee, date: day.date, note } }), de.common.saved)
+}
 async function removeRecord(record: TimeRecordDto) {
   if (await confirm(de.time.deleteConfirm)) run(() => $fetch<unknown>(`/api/time-records/${record.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
 /** Absences are plan entries: they replace the day in the plan (shown there as unreleased change). */
 async function setAbsence(day: TimeDayDto, code: CodeDto | null) {
-  if (!data.value) return
+  // Employee of the displayed table, not the select (which may already show the next person while loading);
+  // read before the confirmations so data arriving meanwhile cannot redirect the write.
+  const shownEmployee = data.value?.employee.id
+  if (shownEmployee === undefined) return
   if (!code && !await confirm(de.time.removeAbsenceConfirm)) return
   if (code && day.otherEntries && !await confirm(de.time.replaceConfirm, { confirmLabel: code.label, danger: false })) return
-  // Employee of the displayed table, not the select (which may already show the next person while loading).
-  const cells = [{ employeeId: data.value.employee.id, date: day.date }]
+  const cells = [{ employeeId: shownEmployee, date: day.date }]
   const body = code ? { cells, mode: 'replace', entry: { kind: 'code', codeId: code.id } } : { cells, mode: 'clear', entry: null }
   run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }), de.common.saved)
 }
@@ -146,6 +154,7 @@ function change(nextYear: number, nextMonth: number) {
           <th class="px-2 py-2">{{ de.plan.date }}</th><th class="px-2 py-2">{{ de.time.planned }}</th>
           <th class="px-2 py-2">{{ de.time.records }}</th><th class="px-2 py-2 text-right">{{ de.time.recorded }}</th>
           <th class="px-2 py-2 text-right">{{ de.time.difference }}</th><th class="px-2 py-2">{{ de.time.hints }}</th>
+          <th class="min-w-40 px-2 py-2">{{ de.time.reason }}</th>
         </tr>
       </thead>
       <tbody>
@@ -181,10 +190,18 @@ function change(nextYear: number, nextMonth: number) {
             <td class="px-2 py-1.5 text-xs text-amber-700">
               <div v-for="(warning, index) in day.warnings" :key="index">{{ warningText(warning, names) }}</div>
             </td>
+            <td class="px-2 py-1.5">
+              <input
+                :key="`${data.employee.id}-${day.date}-${day.note}`" :value="day.note" maxlength="200" :aria-label="de.time.reason"
+                :placeholder="de.time.reasonPlaceholder"
+                class="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-gray-300 focus:border-sky-500 focus:outline-none"
+                @change="saveNote(day, ($event.target as HTMLInputElement).value)"
+              >
+            </td>
           </tr>
           <tr v-if="expanded.has(day.date)" class="bg-gray-50 text-xs text-gray-600">
             <td />
-            <td colspan="5" class="px-2 py-1.5">
+            <td colspan="6" class="px-2 py-1.5">
               <div v-for="(entry, index) in day.changes" :key="index">{{ formatDateTime(entry.at) }} · {{ entry.actor ?? '?' }}: {{ entry.before }} → {{ entry.after }}</div>
             </td>
           </tr>

@@ -173,3 +173,10 @@ export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 })
+
+/** Admin's free-text reason per employee and day on the time tracking page (not shown to employees). */
+export const timeDayNotes = sqliteTable('time_day_notes', {
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  note: text('note').notNull(),
+}, table => [primaryKey({ columns: [table.employeeId, table.date] })])

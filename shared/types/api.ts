@@ -302,6 +302,8 @@ export interface TimeDayDto {
   /** A daily-target code (Urlaub … Feiertag, Schließtag) is planned: the day counts its target, records do not count. */
   targetCredit: boolean
   warnings: Warning[]
+  /** Admin's free-text reason for this day (not shown to the employee). */
+  note: string
   changes: TimeRecordChangeDto[]
 }
 
