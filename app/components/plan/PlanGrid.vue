@@ -33,6 +33,10 @@ function onEntryClick(key: string, entry: EntryDto, event: MouseEvent) {
   emit('editEntry', entry)
 }
 
+// Own scroll area sized to end at the window bottom, so the page does not scroll as well.
+const scroller = ref<HTMLElement | null>(null)
+const gridMaxHeight = useFitToViewport(scroller)
+
 const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
 const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const warnings = computed(() => indexWarnings(props.plan.admin?.warnings ?? []))
@@ -148,7 +152,10 @@ const rows = computed(() => props.plan.days.map((day) => {
 
 <template>
   <!-- Own scroll area so the name row (top) and the date column (left) stay visible while scrolling. -->
-  <div class="max-h-[calc(100dvh-10rem)] overflow-auto rounded-lg ring-1 ring-gray-200 print:max-h-none print:overflow-visible print:ring-0">
+  <div
+    ref="scroller" class="max-h-(--grid-max-h) overflow-auto rounded-lg ring-1 ring-gray-200 print:max-h-none print:overflow-visible print:ring-0"
+    :style="{ '--grid-max-h': gridMaxHeight ?? 'calc(100dvh - 10rem)' }"
+  >
     <table class="w-full border-collapse text-sm">
       <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:shadow-none">
         <tr>
