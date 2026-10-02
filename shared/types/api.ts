@@ -209,10 +209,12 @@ export interface EmployeeListItemDto {
   sortOrder: number
   leftOn: IsoDate | null
   currentWeeklyMinutes: number | null
+  /** Working days bitmask valid today (bit 0 = Monday). */
+  currentWorkdays: number
 }
 
 export interface EmployeeDetailDto extends EmployeeListItemDto {
-  hours: { id: number; weeklyMinutes: number; validFrom: IsoDate }[]
+  hours: { id: number; weeklyMinutes: number; validFrom: IsoDate; workdays: number }[]
   adjustments: { id: number; date: IsoDate; minutes: number; reason: string }[]
   entitlements: { id: number; year: number; days: number; carriedOverDays: number }[]
   hasPin: boolean
@@ -365,6 +367,8 @@ export interface YearCalendarDto {
   days: Record<number, Record<IsoDate, CalendarKind>>
   /** Per employee id: dates with plan entries other than the four absences (an absence would replace them). */
   otherEntries: Record<number, IsoDate[]>
+  /** Per employee id: weekdays (Mon–Fri, no holiday) that are not working days of their contract. */
+  freeDays: Record<number, IsoDate[]>
   /** Urlaub, Krank, Fortbildung, Schule — entered by clicking a day. */
   absenceCodes: CodeDto[]
   events: CalendarEventDto[]

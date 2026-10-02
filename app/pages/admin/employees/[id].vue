@@ -5,6 +5,7 @@ import type { EmployeeDetailDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
+import { workdaysText } from '~/utils/workdays'
 
 const route = useRoute()
 const id = Number(route.params.id)
@@ -18,7 +19,7 @@ watch(employee, (value) => {
 }, { immediate: true })
 
 const confirm = useConfirm()
-const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso() })
+const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso(), workdays: 31 })
 const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '' })
 const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30, carriedOverDays: 0 })
 
@@ -39,7 +40,7 @@ function saveMaster() {
 
 function addHours() {
   run(() => $fetch<unknown>(`/api/employees/${id}/hours`, {
-    method: 'POST', body: { weeklyMinutes: hoursToMinutes(hoursForm.weeklyHours), validFrom: hoursForm.validFrom },
+    method: 'POST', body: { weeklyMinutes: hoursToMinutes(hoursForm.weeklyHours), validFrom: hoursForm.validFrom, workdays: hoursForm.workdays },
   }), de.common.saved)
 }
 
@@ -104,11 +105,12 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
       <table class="w-full text-sm">
-        <thead class="text-left text-xs text-gray-500"><tr><th>{{ de.employees.validFrom }}</th><th>{{ de.employees.weeklyHours }}</th><th /></tr></thead>
+        <thead class="text-left text-xs text-gray-500"><tr><th>{{ de.employees.validFrom }}</th><th>{{ de.employees.weeklyHours }}</th><th>{{ de.employees.workdays }}</th><th /></tr></thead>
         <tbody>
           <tr v-for="period in employee.hours" :key="period.id" class="border-t border-gray-100">
             <td class="py-1">{{ formatDate(period.validFrom) }}</td>
             <td class="py-1">{{ formatHours(period.weeklyMinutes) }}</td>
+            <td class="py-1">{{ workdaysText(period.workdays) }}</td>
             <td class="py-1 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteHours(period.id)" /></td>
           </tr>
         </tbody>
@@ -116,6 +118,7 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="addHours">
         <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="hoursForm.weeklyHours" type="number" step="0.25" min="0" /></UFormField>
         <UFormField :label="de.employees.validFrom"><UInput v-model="hoursForm.validFrom" type="date" required /></UFormField>
+        <UFormField :label="de.employees.workdays"><WorkdayPicker v-model="hoursForm.workdays" /></UFormField>
         <UButton type="submit" icon="i-lucide-plus" :label="de.employees.addHours" />
       </form>
       <p class="text-xs text-gray-500">{{ de.employees.validFromHint }}</p>

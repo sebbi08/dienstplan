@@ -1,0 +1,1 @@
+ALTER TABLE `employee_hours` ADD `workdays` integer DEFAULT 31 NOT NULL;

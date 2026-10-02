@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  dailyTarget, employmentStart, isEmployedInRange, isEmployedOn, weeklyMinutesOn,
+  dailyTarget, employmentStart, isEmployedInRange, isEmployedOn, isWorkday, MONDAY_TO_FRIDAY, weeklyMinutesOn,
   type EmploymentInfo,
 } from '../../shared/domain/targets'
 
@@ -37,5 +37,36 @@ describe('targets', () => {
     const info: EmploymentInfo = { hours: [], leftOn: null }
     expect(isEmployedOn(info, '2026-10-05')).toBe(false)
     expect(employmentStart(info)).toBeNull()
+  })
+})
+
+describe('working days', () => {
+  // 20 h on Monday–Wednesday from 2026-10-01
+  const partTime = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }], leftOn: null }
+
+  it('spreads the weekly hours over the working days only', () => {
+    expect(dailyTarget(partTime, '2026-10-05')).toBe(400) // Monday: 1200 / 3
+    expect(dailyTarget(partTime, '2026-10-07')).toBe(400) // Wednesday
+    expect(dailyTarget(partTime, '2026-10-08')).toBe(0) // Thursday: free
+    expect(dailyTarget(partTime, '2026-10-10')).toBe(0) // Saturday
+  })
+  it('knows the working days of an employee', () => {
+    expect(isWorkday(partTime, '2026-10-06')).toBe(true)
+    expect(isWorkday(partTime, '2026-10-09')).toBe(false) // Friday
+    expect(isWorkday(partTime, '2026-12-25')).toBe(false) // holiday
+    expect(isWorkday(partTime, '2026-09-28')).toBe(false) // before employment
+  })
+  it('treats periods without working days as Monday to Friday', () => {
+    const info = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+    expect(isWorkday(info, '2026-10-09')).toBe(true)
+    expect(dailyTarget(info, '2026-10-09')).toBe(468)
+  })
+  it('uses the working days of the period valid on that day', () => {
+    const info = {
+      hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01', workdays: MONDAY_TO_FRIDAY }, { weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }],
+      leftOn: null,
+    }
+    expect(dailyTarget(info, '2026-09-25')).toBe(468) // Friday, still full time
+    expect(dailyTarget(info, '2026-10-09')).toBe(0) // Friday, part time from October
   })
 })

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import { formatSignedDuration } from '#shared/domain/time'
+import { MONDAY_TO_FRIDAY } from '#shared/domain/targets'
+import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { BalanceDto, EmployeeListItemDto, LeaveAccountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
+import { workdaysText } from '~/utils/workdays'
 
 /** All employees in one place: master data, overtime balance (chosen month) and leave account (that month's year). */
 const today = parseIsoDate(todayIso())
@@ -21,14 +23,40 @@ const run = useAction(async () => {
 const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [balance.employeeId, balance])))
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row])))
 
-const form = reactive({ name: '', shortName: '', weeklyHours: 39, validFrom: todayIso() })
+const toast = useToast()
+const emptyForm = () => ({
+  name: '', shortName: '', weeklyHours: 39, validFrom: todayIso(), workdays: MONDAY_TO_FRIDAY,
+  vacationDays: null as number | null, carriedOverDays: null as number | null, openingBalance: '',
+})
+const form = reactive(emptyForm())
+
+/** "12:30" → 750, "-3:00" → -180, empty → null, invalid → undefined. */
+function signedDuration(text: string): number | null | undefined {
+  const trimmed = text.trim().replace('−', '-')
+  if (!trimmed) return null
+  const negative = trimmed.startsWith('-')
+  const minutes = parseDuration(trimmed.replace(/^[+-]/, ''))
+  return minutes === null ? undefined : negative ? -minutes : minutes
+}
 
 async function create() {
+  if (form.workdays === 0) {
+    toast.add({ title: de.employees.workdaysRequired, color: 'error' })
+    return
+  }
+  const openingBalanceMinutes = signedDuration(form.openingBalance)
+  if (openingBalanceMinutes === undefined) {
+    toast.add({ title: de.employees.invalidDuration, color: 'error' })
+    return
+  }
   const ok = await run(() => $fetch<unknown>('/api/employees', {
     method: 'POST',
-    body: { name: form.name, shortName: form.shortName, weeklyMinutes: hoursToMinutes(form.weeklyHours), validFrom: form.validFrom },
+    body: {
+      name: form.name, shortName: form.shortName, weeklyMinutes: hoursToMinutes(form.weeklyHours), validFrom: form.validFrom,
+      workdays: form.workdays, vacationDays: form.vacationDays, carriedOverDays: form.carriedOverDays, openingBalanceMinutes,
+    },
   }), de.common.saved)
-  if (ok) Object.assign(form, { name: '', shortName: '' })
+  if (ok) Object.assign(form, emptyForm())
 }
 
 function move(id: number, direction: 'up' | 'down') {
@@ -58,7 +86,7 @@ const value = 'px-3 py-1.5'
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
               <NuxtLink :to="`/admin/employees/${employee.id}`" class="font-semibold text-sky-700 hover:underline">{{ employee.name }}</NuxtLink>
               <span v-if="employee.shortName" class="text-gray-600">{{ employee.shortName }}</span>
-              <span class="text-gray-600">{{ de.employees.weeklyHours }}: {{ formatHours(employee.currentWeeklyMinutes) }}</span>
+              <span class="text-gray-600">{{ de.employees.weeklyHours }}: {{ formatHours(employee.currentWeeklyMinutes) }} ({{ workdaysText(employee.currentWorkdays) }})</span>
               <span v-if="employee.leftOn" class="text-gray-600">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn) }}</span>
               <span class="ml-auto">
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.employees.moveUp" :disabled="index === 0" @click="move(employee.id, 'up')" />
@@ -110,6 +138,16 @@ const value = 'px-3 py-1.5'
       <UFormField :label="de.employees.shortName"><UInput v-model="form.shortName" maxlength="10" class="w-full" /></UFormField>
       <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="form.weeklyHours" type="number" step="0.25" min="0" class="w-full" /></UFormField>
       <UFormField :label="de.employees.validFrom"><UInput v-model="form.validFrom" type="date" class="w-full" required /></UFormField>
+      <UFormField :label="de.employees.workdays" class="sm:col-span-2"><WorkdayPicker v-model="form.workdays" /></UFormField>
+      <UFormField :label="de.employees.vacationDays" :help="de.employees.vacationDaysHint">
+        <UInput v-model.number="form.vacationDays" type="number" step="0.5" min="0" max="100" class="w-full" />
+      </UFormField>
+      <UFormField :label="de.employees.carriedOverDays" :help="de.employees.carriedOverHint">
+        <UInput v-model.number="form.carriedOverDays" type="number" step="0.5" min="0" max="100" class="w-full" />
+      </UFormField>
+      <UFormField :label="de.employees.openingBalance" :help="de.employees.openingBalanceHint">
+        <UInput v-model="form.openingBalance" placeholder="0:00" class="w-full" />
+      </UFormField>
       <p class="text-xs text-gray-500 sm:col-span-5">{{ de.employees.validFromHint }}</p>
       <div class="sm:col-span-5"><UButton type="submit" icon="i-lucide-plus" :label="de.common.add" /></div>
     </form>

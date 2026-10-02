@@ -34,10 +34,11 @@ function openAbsence(employeeId: number, date: string) {
   Object.assign(absence, { open: true, employeeId, date })
 }
 
-/** Mon–Fri without public holidays, like vacation counting. */
-function workdays(from: string, to: string): string[] {
+/** Working days of that employee: Mon–Fri without public holidays and without their contractual days off. */
+function workdays(employeeId: number, from: string, to: string): string[] {
+  const free = new Set(calendar.value?.freeDays[employeeId] ?? [])
   const dates: string[] = []
-  for (let date = from; date <= to; date = addDays(date, 1)) if (!isWeekend(date) && !isHoliday(date)) dates.push(date)
+  for (let date = from; date <= to; date = addDays(date, 1)) if (!isWeekend(date) && !isHoliday(date) && !free.has(date)) dates.push(date)
   return dates
 }
 
@@ -49,7 +50,7 @@ async function applyAbsence(codeId: number | null, until: string) {
     toast.add({ title: de.calendar.untilBeforeStart, color: 'error' })
     return
   }
-  const dates = workdays(absence.date, until)
+  const dates = workdays(employeeId, absence.date, until)
   let body
   if (codeId === null) {
     const removable = dates.filter(date => REMOVABLE.includes(data.days[employeeId]?.[date] ?? ''))

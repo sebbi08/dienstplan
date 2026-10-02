@@ -58,10 +58,13 @@ const eventLayout = computed(() => {
 const percent = (days: number) => `${(days / dates.value.length) * 100}%`
 const isOff = (date: string) => isWeekend(date) || isHoliday(date)
 
+/** Days off of part-time staff look like weekends. */
+const freeDays = computed(() => new Map(Object.entries(props.calendar.freeDays).map(([id, dates]) => [Number(id), new Set(dates)])))
+
 function cellClass(employeeId: number, date: string): string {
   const kind = props.calendar.days[employeeId]?.[date]
   if (kind) return KIND_CLASSES[kind]
-  return isOff(date) ? 'bg-gray-100' : ''
+  return isOff(date) || freeDays.value.get(employeeId)?.has(date) ? 'bg-gray-100' : ''
 }
 
 function cellTitle(employeeId: number, name: string, date: string): string | undefined {

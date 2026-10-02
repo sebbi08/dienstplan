@@ -49,10 +49,15 @@ export const revertSchema = z.object({ keys: z.array(z.string().max(40)).min(1).
 export const entryTimesSchema = z.object({ start: minutes, end: minutes, breakStart: minutes.nullable(), breakEnd: minutes.nullable() })
 
 const weeklyMinutes = z.number().int().min(0).max(80 * 60)
-export const employeeCreateSchema = z.object({ name: label, shortName: z.string().max(10), weeklyMinutes, validFrom: isoDate })
+const workdays = z.number().int().min(1).max(127)
+export const employeeCreateSchema = z.object({
+  name: label, shortName: z.string().max(10), weeklyMinutes, validFrom: isoDate, workdays: workdays.optional(),
+  vacationDays: z.number().min(0).max(100).nullable().optional(), carriedOverDays: z.number().min(0).max(100).nullable().optional(),
+  openingBalanceMinutes: z.number().int().min(-200_000).max(200_000).nullable().optional(),
+})
 export const employeeUpdateSchema = z.object({ name: label, shortName: z.string().max(10), leftOn: isoDate.nullable() })
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
-export const hoursSchema = z.object({ weeklyMinutes, validFrom: isoDate })
+export const hoursSchema = z.object({ weeklyMinutes, validFrom: isoDate, workdays: workdays.optional() })
 export const adjustmentSchema = z.object({ date: isoDate, minutes: z.number().int().min(-200_000).max(200_000), reason: z.string().max(200) })
 export const entitlementSchema = z.object({ days: z.number().min(0).max(100), carriedOverDays: z.number().min(0).max(100) })
 

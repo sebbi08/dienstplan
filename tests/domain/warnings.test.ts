@@ -84,3 +84,13 @@ describe('timeWarnings', () => {
     expect(timeWarnings(date, 1, [], [])).toEqual([])
   })
 })
+
+describe('working days in warnings', () => {
+  it('does not ask for an entry on a part-timer’s day off', () => {
+    const monToWed: EmploymentInfo = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 }], leftOn: null }
+    const employees: EmployeeDay[] = [{ employeeId: 7, info: monToWed, entries: [] }]
+    const missing = (day: string) => dayWarnings(day, employees, [], false).filter(w => w.type === 'missing_entry')
+    expect(missing('2026-10-07')).toHaveLength(1) // Wednesday: working day
+    expect(missing('2026-10-08')).toEqual([]) // Thursday: day off
+  })
+})

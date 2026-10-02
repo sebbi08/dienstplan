@@ -1,5 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm'
-import { weeklyMinutesOn } from '../../shared/domain/targets'
+import { parseIsoDate } from '../../shared/domain/dates'
+import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeDetailDto, EmployeeListItemDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -12,6 +13,22 @@ export interface EmployeeInput {
   shortName: string
   weeklyMinutes: number
   validFrom: IsoDate
+  /** Working days bitmask (bit 0 = Monday); default Monday–Friday. */
+  workdays?: number
+  /** Leave entitlement for the year of validFrom. */
+  vacationDays?: number | null
+  /** Remaining leave carried over into that year. */
+  carriedOverDays?: number | null
+  /** Existing overtime (or minus hours) when the employee is added, booked on validFrom. */
+  openingBalanceMinutes?: number | null
+}
+
+/** Reason of the balance booking created together with a new employee. */
+export const OPENING_BALANCE_REASON = 'Übertrag bei Anlage'
+
+function requireWorkdays(workdays: number): number {
+  if (workdays <= 0 || workdays > 127) throw new ServiceError(400, 'workdays_required')
+  return workdays
 }
 
 export interface EmployeeUpdate {
@@ -25,6 +42,9 @@ function toListItem(employee: EmployeeRecord, today: IsoDate): EmployeeListItemD
     id: employee.id, name: employee.name, shortName: employee.shortName,
     sortOrder: employee.sortOrder, leftOn: employee.leftOn,
     currentWeeklyMinutes: weeklyMinutesOn(employee.info, today) ?? employee.info.hours[0]?.weeklyMinutes ?? null,
+    currentWorkdays: weeklyMinutesOn(employee.info, today) !== null
+      ? workdaysOn(employee.info, today)
+      : employee.info.hours[0]?.workdays ?? MONDAY_TO_FRIDAY,
   }
 }
 
@@ -48,7 +68,7 @@ export function getEmployee(db: Db, id: number, today: IsoDate): EmployeeDetailD
   return {
     ...toListItem(employee, today),
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
-      .map(({ id: hoursId, weeklyMinutes, validFrom }) => ({ id: hoursId, weeklyMinutes, validFrom })),
+      .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
       .map(({ id: adjustmentId, date, minutes, reason }) => ({ id: adjustmentId, date, minutes, reason })),
     entitlements: db.select().from(leaveEntitlements).where(eq(leaveEntitlements.employeeId, id)).orderBy(asc(leaveEntitlements.year)).all()
@@ -59,10 +79,22 @@ export function getEmployee(db: Db, id: number, today: IsoDate): EmployeeDetailD
 
 export function createEmployee(db: Db, input: EmployeeInput): number {
   const name = requireName(input.name)
+  const workdays = requireWorkdays(input.workdays ?? MONDAY_TO_FRIDAY)
   return db.transaction((tx) => {
     const sortOrder = Math.max(0, ...tx.select().from(employees).all().map(e => e.sortOrder)) + 1
     const employee = tx.insert(employees).values({ name, shortName: input.shortName.trim(), sortOrder }).returning().get()
-    tx.insert(employeeHours).values({ employeeId: employee.id, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom }).run()
+    tx.insert(employeeHours).values({ employeeId: employee.id, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom, workdays }).run()
+    if (input.vacationDays != null || input.carriedOverDays != null) {
+      tx.insert(leaveEntitlements).values({
+        employeeId: employee.id, year: parseIsoDate(input.validFrom).year,
+        days: input.vacationDays ?? 0, carriedOverDays: input.carriedOverDays ?? 0,
+      }).run()
+    }
+    if (input.openingBalanceMinutes) {
+      tx.insert(balanceAdjustments).values({
+        employeeId: employee.id, date: input.validFrom, minutes: input.openingBalanceMinutes, reason: OPENING_BALANCE_REASON,
+      }).run()
+    }
     return employee.id
   })
 }
@@ -88,10 +120,11 @@ export function moveEmployee(db: Db, id: number, direction: 'up' | 'down'): void
   })
 }
 
-export function addHours(db: Db, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate }): void {
+export function addHours(db: Db, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate; workdays?: number }): void {
   assertEmployee(db, employeeId)
-  db.insert(employeeHours).values({ employeeId, ...period })
-    .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes } })
+  const workdays = requireWorkdays(period.workdays ?? MONDAY_TO_FRIDAY)
+  db.insert(employeeHours).values({ employeeId, weeklyMinutes: period.weeklyMinutes, validFrom: period.validFrom, workdays })
+    .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes, workdays } })
     .run()
 }
 

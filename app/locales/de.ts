@@ -56,7 +56,7 @@ export const de = {
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
     kinds: { sick: 'Krank', vacation: 'Urlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
-    weekend: 'Wochenende / Feiertag', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
+    weekend: 'Wochenende / Feiertag / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     from: 'von (optional)', to: 'bis (optional)', title2: 'Termin', titlePlaceholder: 'z. B. Elternabend', time: 'Uhrzeit',
     noEvents: 'In diesem Jahr sind keine Termine eingetragen.', confirmDelete: 'Diesen Termin löschen?',
     clickHint: 'Eintragen per Klick: auf ein Feld einer Mitarbeiterin für Urlaub, Krank, Fortbildung oder Schule, auf die Tageszahl in der Kopfzeile für einen Termin, auf einen Termin zum Ändern.',
@@ -171,6 +171,10 @@ export const de = {
     back: 'Zurück zur Übersicht', noEntries: 'Noch keine Einträge.',
     pin: 'Stempel-PIN', pinHint: '4 Ziffern für das Kita-Tablet.', pinSet: 'PIN ist gesetzt.', pinNotSet: 'Keine PIN gesetzt.',
     savePin: 'PIN speichern', removePin: 'PIN entfernen',
+    workdays: 'Arbeitstage', vacationDays: 'Urlaubstage', vacationDaysHint: 'Anspruch im Jahr von „gültig ab“ – bei Eintritt im Laufe des Jahres anteilig.',
+    carriedOverDays: 'Resturlaub', carriedOverHint: 'Übertrag aus dem Vorjahr bzw. bisherigem Arbeitsverhältnis.',
+    openingBalance: 'Bestehende Überstunden (h:mm)', openingBalanceHint: 'z. B. 12:30 – Minusstunden mit Minus davor: -3:00',
+    workdaysRequired: 'Bitte mindestens einen Arbeitstag wählen.',
   },
   closures: {
     title: 'Schließzeiten', from: 'Von', to: 'Bis', label: 'Bezeichnung', mode: 'Eintragen als',
@@ -237,6 +241,7 @@ export const de = {
     name_required: 'Bitte einen Namen angeben.',
     reason_required: 'Bitte einen Grund angeben.',
     title_required: 'Bitte einen Text angeben.',
+    workdays_required: 'Bitte mindestens einen Arbeitstag wählen.',
     event_not_found: 'Dieser Termin existiert nicht mehr.',
     hours_not_found: 'Dieser Eintrag existiert nicht mehr.',
     last_hours: 'Der letzte Wochenstunden-Eintrag kann nicht gelöscht werden.',

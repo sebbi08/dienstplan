@@ -1,7 +1,7 @@
 import { dayCredit } from './balance'
 import { isWeekend } from './dates'
 import { isHoliday } from './holidays'
-import { dailyTarget, isEmployedOn, type EmploymentInfo } from './targets'
+import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
 import { breakRuleViolated, type RecordSpan } from './timeRecords'
 import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
 
@@ -63,7 +63,8 @@ export function dayWarnings(
   }
 
   for (const { employeeId, info, entries } of employees) {
-    if (!isEmployedOn(info, date)) continue
+    // Days off of part-time staff (and days outside employment) need no entry.
+    if (!isWorkday(info, date)) continue
     if (entries.length === 0) {
       warnings.push({ type: 'missing_entry', date, employeeId })
       continue

@@ -1,10 +1,15 @@
-import { isWeekend } from './dates'
+import { weekday } from './dates'
 import { isHoliday } from './holidays'
 import type { IsoDate } from './types'
+
+/** Working days as a bitmask: bit 0 = Monday … bit 6 = Sunday. */
+export const MONDAY_TO_FRIDAY = 0b0011111
 
 export interface HoursPeriod {
   weeklyMinutes: number
   validFrom: IsoDate
+  /** Working days of this period (bitmask); missing = Monday to Friday. */
+  workdays?: number
 }
 
 export interface EmploymentInfo {
@@ -12,12 +17,31 @@ export interface EmploymentInfo {
   leftOn: IsoDate | null
 }
 
-export function weeklyMinutesOn(info: EmploymentInfo, date: IsoDate): number | null {
+function periodOn(info: EmploymentInfo, date: IsoDate): HoursPeriod | null {
   let match: HoursPeriod | null = null
   for (const period of info.hours) {
     if (period.validFrom <= date && (!match || period.validFrom > match.validFrom)) match = period
   }
-  return match ? match.weeklyMinutes : null
+  return match
+}
+
+export function weeklyMinutesOn(info: EmploymentInfo, date: IsoDate): number | null {
+  return periodOn(info, date)?.weeklyMinutes ?? null
+}
+
+/** Working-day bitmask valid on that date (Monday to Friday when not employed). */
+export function workdaysOn(info: EmploymentInfo, date: IsoDate): number {
+  return periodOn(info, date)?.workdays ?? MONDAY_TO_FRIDAY
+}
+
+export function worksOnWeekday(workdays: number, weekdayIndex: number): boolean {
+  return ((workdays >> weekdayIndex) & 1) === 1
+}
+
+export function workdayCount(workdays: number): number {
+  let count = 0
+  for (let index = 0; index < 7; index++) if (worksOnWeekday(workdays, index)) count++
+  return count
 }
 
 export function employmentStart(info: EmploymentInfo): IsoDate | null {
@@ -34,7 +58,13 @@ export function isEmployedInRange(info: EmploymentInfo, from: IsoDate, to: IsoDa
   return start !== null && start <= to && (info.leftOn === null || info.leftOn >= from)
 }
 
+/** A day the employee is expected to work: employed, one of the contract's working days, no public holiday. */
+export function isWorkday(info: EmploymentInfo, date: IsoDate): boolean {
+  return isEmployedOn(info, date) && !isHoliday(date) && worksOnWeekday(workdaysOn(info, date), weekday(date))
+}
+
+/** Weekly hours spread evenly over the working days of the valid period; 0 on all other days. */
 export function dailyTarget(info: EmploymentInfo, date: IsoDate): number {
-  if (!isEmployedOn(info, date) || isWeekend(date) || isHoliday(date)) return 0
-  return Math.round(weeklyMinutesOn(info, date)! / 5)
+  if (!isWorkday(info, date)) return 0
+  return Math.round(weeklyMinutesOn(info, date)! / workdayCount(workdaysOn(info, date)))
 }

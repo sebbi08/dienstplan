@@ -17,6 +17,8 @@ export const employeeHours = sqliteTable('employee_hours', {
   employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
   weeklyMinutes: integer('weekly_minutes').notNull(),
   validFrom: text('valid_from').notNull(),
+  /** Working days as bitmask, bit 0 = Monday … bit 6 = Sunday (31 = Monday–Friday). */
+  workdays: integer('workdays').notNull().default(31),
 }, table => [uniqueIndex('employee_hours_employee_valid_from').on(table.employeeId, table.validFrom)])
 
 export const balanceAdjustments = sqliteTable('balance_adjustments', {

@@ -1,6 +1,8 @@
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { groupLeaveRanges } from '../../shared/domain/leave'
-import { isEmployedInRange } from '../../shared/domain/targets'
+import { dateRange, isWeekend } from '../../shared/domain/dates'
+import { isHoliday } from '../../shared/domain/holidays'
+import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import type { CalendarEventDto, CalendarKind, SickYearRowDto, YearCalendarDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -35,7 +37,10 @@ function staffOfYear(db: Db, year: number) {
 export function getSickYear(db: Db, year: number): SickYearRowDto[] {
   const sickDates = loadEntries(db, { ...yearBounds(year), codeKey: 'sick' })
   return staffOfYear(db, year).map((employee) => {
-    const ranges = groupLeaveRanges(sickDates.filter(entry => entry.employeeId === employee.id).map(entry => entry.date))
+    const ranges = groupLeaveRanges(
+      sickDates.filter(entry => entry.employeeId === employee.id).map(entry => entry.date),
+      date => isWorkday(employee.info, date),
+    )
     return { employeeId: employee.id, name: employee.name, total: ranges.reduce((sum, range) => sum + range.days, 0), ranges }
   })
 }
@@ -58,6 +63,9 @@ export function getYearCalendar(db: Db, year: number): YearCalendarDto {
     employees: staff.map(employee => ({ id: employee.id, name: employee.name })),
     days,
     otherEntries: Object.fromEntries([...otherSets].map(([id, set]) => [id, [...set].sort()])),
+    // Mon–Fri (no holiday) on which a part-timer does not work: shown like weekends, skipped when entering absences.
+    freeDays: Object.fromEntries(staff.map(employee => [employee.id, dateRange(`${year}-01-01`, `${year}-12-31`)
+      .filter(date => !isWeekend(date) && !isHoliday(date) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key)),
     events: listCalendarEvents(db, year),
   }

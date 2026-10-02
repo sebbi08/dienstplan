@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { createClosure, deleteClosure, listClosures } from '../../server/services/closures'
+import { createEmployee } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { getMonthPlan } from '../../server/services/plan'
@@ -54,5 +55,15 @@ describe('closures service', () => {
     expect(errorCode(() => createClosure(db, admin, { ...summer, endDate: '2026-08-01' }))).toBe('invalid_range')
     expect(errorCode(() => createClosure(db, admin, { ...summer, label: ' ' }))).toBe('label_required')
     expect(errorCode(() => deleteClosure(db, admin, 999))).toBe('closure_not_found')
+  })
+})
+
+describe('closures and part-time working days', () => {
+  it('books the closure only on each employee’s working days', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const clara = createEmployee(db, { name: 'Clara', shortName: '', weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 })
+    createClosure(db, admin, { startDate: '2026-08-10', endDate: '2026-08-14', label: 'Schließwoche', mode: 'vacation' })
+    expect(loadEntries(db, { employeeId: clara }).map(entry => entry.date)).toEqual(['2026-08-10', '2026-08-11', '2026-08-12'])
   })
 })

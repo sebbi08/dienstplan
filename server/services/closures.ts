@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { dateRange, daysBetween, isWeekend } from '../../shared/domain/dates'
-import { isHoliday } from '../../shared/domain/holidays'
-import { isEmployedOn } from '../../shared/domain/targets'
+import { dateRange, daysBetween } from '../../shared/domain/dates'
+import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosureMode, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -36,9 +35,9 @@ export function createClosure(db: Db, actor: SessionUser, input: ClosureInput, n
       .values({ startDate: input.startDate, endDate: input.endDate, label, mode: input.mode })
       .returning().get()
     const staff = loadEmployees(tx)
+    // Only each employee's working days: a closure must not use up leave on a part-timer's day off.
     const cells = dateRange(input.startDate, input.endDate)
-      .filter(date => !isWeekend(date) && !isHoliday(date))
-      .flatMap(date => staff.filter(employee => isEmployedOn(employee.info, date)).map(employee => ({ employeeId: employee.id, date })))
+      .flatMap(date => staff.filter(employee => isWorkday(employee.info, date)).map(employee => ({ employeeId: employee.id, date })))
     applyToCells(tx, actor, cells, 'replace', { kind: 'code', codeId: code.id }, { now, closureId: closure.id })
     return closure
   })

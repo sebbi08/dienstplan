@@ -34,3 +34,17 @@ describe('groupLeaveRanges', () => {
     ])
   })
 })
+
+describe('leave on part-time working days', () => {
+  const monToWed = (date: string) => ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12', '2026-10-13', '2026-10-14'].includes(date)
+
+  it('counts only the working days of the employee', () => {
+    const dates = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09']
+    expect(leaveAccount({ days: 18, carriedOverDays: 0 }, dates, 2026, '2026-10-01', monToWed).planned).toBe(3)
+  })
+  it('bridges the free days of the employee inside one period', () => {
+    expect(groupLeaveRanges(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12'], monToWed)).toEqual([
+      { from: '2026-10-05', to: '2026-10-12', days: 4 },
+    ])
+  })
+})

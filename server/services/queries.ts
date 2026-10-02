@@ -77,7 +77,7 @@ export function loadEmployees(db: Db): EmployeeRecord[] {
     .map(row => ({
       ...row,
       info: {
-        hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom })),
+        hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
         leftOn: row.leftOn,
       },
     }))
