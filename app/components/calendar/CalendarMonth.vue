@@ -6,7 +6,7 @@ import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/ty
 import { de } from '~/locales/de'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
-/** `editable`: clicking a day emits dayClick (employee row) or eventDayClick / eventClick (appointments row). */
+/** `editable`: clicking emits dayClick (employee day), eventDayClick (day number in the header) or eventClick (appointment text). */
 const props = defineProps<{ calendar: YearCalendarDto; month: number; editable?: boolean }>()
 const emit = defineEmits<{
   dayClick: [employeeId: number, date: string]
@@ -82,7 +82,9 @@ function cellTitle(employeeId: number, name: string, date: string): string | und
         <th class="border border-gray-300 bg-gray-50 px-1 py-0.5 text-left text-xs">{{ de.months[month - 1] }}</th>
         <th
           v-for="date in dates" :key="date" class="border border-gray-300 px-0 py-0.5 text-center font-normal"
-          :class="isOff(date) ? 'bg-gray-100 text-gray-500' : 'bg-gray-50'"
+          :class="[isOff(date) ? 'bg-gray-100 text-gray-500' : 'bg-gray-50', editable ? 'cursor-pointer hover:bg-yellow-200' : '']"
+          :title="editable ? de.calendar.addEventHint : undefined"
+          @click="editable && emit('eventDayClick', date)"
         >
           {{ Number(date.slice(8)) }}
         </th>
@@ -106,9 +108,7 @@ function cellTitle(employeeId: number, name: string, date: string): string | und
           <!-- day grid behind the texts (same columns and shading as the rows above) -->
           <div
             v-for="(date, index) in dates" :key="date" class="absolute inset-y-0 border-r border-gray-300 last:border-r-0"
-            :class="[isOff(date) ? 'bg-gray-100' : '', editable ? 'cursor-pointer hover:bg-yellow-100' : '']"
-            :style="{ left: percent(index), width: percent(1) }"
-            @click="editable && emit('eventDayClick', date)"
+            :class="isOff(date) ? 'bg-gray-100' : ''" :style="{ left: percent(index), width: percent(1) }"
           />
           <div
             v-for="label in eventLayout.labels" :key="label.event.id"
