@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
-import { changeLog } from '../../server/db/schema'
+import { changeLog, shiftTemplates } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { addHours, updateEmployee } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
@@ -113,5 +114,20 @@ describe('week templates', () => {
     expect(errorCode(() => applyWeekTemplate(db, admin, template.id, '2026-10-06'))).toBe('not_a_monday')
     expect(errorCode(() => applyWeekTemplate(db, admin, 999, next))).toBe('week_template_not_found')
     expect(errorCode(() => deleteWeekTemplate(db, 999))).toBe('week_template_not_found')
+  })
+})
+
+describe('week templates and changed services', () => {
+  it('inserts a shift whose service changed since saving as a special shift with the saved times', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const anna = addEmployee(db, 'Anna')
+    applyToCells(db, admin, [{ employeeId: anna, date: week }, { employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    const template = saveWeekTemplate(db, { name: 'A', weekStart: week })
+    db.update(shiftTemplates).set({ start: 450 }).where(eq(shiftTemplates.shortLabel, 'F1')).run()
+    applyWeekTemplate(db, admin, template.id, next)
+    expect(loadEntries(db, { employeeId: anna, from: next, to: '2026-10-14' }).map(e => [e.kind, e.shortLabel, e.start]))
+      .toEqual([['special', null, 420], ['special', null, 420], ['shift', 'M', 465]])
   })
 })

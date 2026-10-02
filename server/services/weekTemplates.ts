@@ -111,6 +111,16 @@ export function applyWeekTemplate(
   const staff = new Map(loadEmployees(db).map(employee => [employee.id, employee]))
   const closures = loadClosures(db)
   const groups = Map.groupBy(rows, row => `${row.employeeId}:${row.weekday}`)
+  const shifts = new Map(db.select().from(shiftTemplates).all().map(shift => [shift.id, shift]))
+  // A saved shift whose service (Dienst) was changed or deleted since keeps its saved times as a special shift,
+  // so the plan never shows e.g. "F1" with times that are no longer F1's.
+  const keepTimesOf = (row: Pick<typeof weekTemplateEntries.$inferSelect, 'kind' | 'shiftTemplateId' | 'start' | 'end' | 'breakStart' | 'breakEnd'>) => {
+    if (row.kind !== 'shift') return {}
+    const shift = row.shiftTemplateId === null ? undefined : shifts.get(row.shiftTemplateId)
+    const unchanged = shift && shift.start === row.start && shift.end === row.end
+      && shift.breakStart === row.breakStart && shift.breakEnd === row.breakEnd
+    return unchanged ? {} : { kind: 'special' as const, shiftTemplateId: null }
+  }
   const timestamp = now.toISOString()
   const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
 
@@ -128,7 +138,7 @@ export function applyWeekTemplate(
       const cell = { employeeId, date }
       const before = describeCellAt(tx, cell)
       tx.insert(entries).values(group.map(({ id: _id, weekTemplateId: _template, weekday: _day, ...values }) => ({
-        ...values, date, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
+        ...values, ...keepTimesOf(values), date, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
       }))).run()
       logChange(tx, { ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
       result.filled += 1

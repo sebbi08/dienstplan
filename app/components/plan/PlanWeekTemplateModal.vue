@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { addDays } from '#shared/domain/dates'
 import type { WeekTemplateApplyResult, WeekTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
@@ -53,7 +54,7 @@ async function apply() {
 <template>
   <UModal
     v-model:open="open" :ui="{ content: 'sm:max-w-2xl' }"
-    :title="mode === 'save' ? de.weekTemplates.saveTitle(formatDate(weekStart)) : de.weekTemplates.applyTitle(formatDate(weekStart))"
+    :title="(mode === 'save' ? de.weekTemplates.saveTitle : de.weekTemplates.applyTitle)(formatDate(weekStart), formatDate(addDays(weekStart, 4)))"
   >
     <template #body>
       <form v-if="mode === 'save'" class="space-y-3" @submit.prevent="save">
