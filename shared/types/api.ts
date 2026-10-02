@@ -337,3 +337,31 @@ export interface EarlyClosureDto {
   closedFrom: Minutes
   reason: string
 }
+
+/** Sick periods of one employee in one year (workdays, weekends bridged). */
+export interface SickYearRowDto {
+  employeeId: number
+  name: string
+  total: number
+  ranges: LeaveRange[]
+}
+
+/** Colour group of a day in the year calendar. */
+export type CalendarKind = 'sick' | 'vacation' | 'training' | 'closed'
+
+/** Admin's own appointment in the year calendar. */
+export interface CalendarEventDto {
+  id: number
+  date: IsoDate
+  start: Minutes | null
+  end: Minutes | null
+  title: string
+}
+
+export interface YearCalendarDto {
+  year: number
+  employees: { id: number; name: string }[]
+  /** Per employee id: the calendar kind of each day that has one. */
+  days: Record<number, Record<IsoDate, CalendarKind>>
+  events: CalendarEventDto[]
+}

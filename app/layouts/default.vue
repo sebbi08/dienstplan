@@ -21,6 +21,8 @@ const links = computed(() => {
       { label: de.nav.leave, to: '/admin/leave' },
       { label: de.nav.closures, to: '/admin/closures' },
       { label: de.nav.earlyClosures, to: '/admin/early-closures' },
+      { label: de.nav.sickDays, to: '/admin/sick-days' },
+      { label: de.nav.calendar, to: '/admin/calendar' },
       { label: de.nav.users, to: '/admin/users' },
       { label: de.nav.settings, to: '/admin/settings' },
     ]

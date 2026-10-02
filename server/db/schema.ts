@@ -188,3 +188,12 @@ export const earlyClosures = sqliteTable('early_closures', {
   closedFrom: integer('closed_from').notNull(),
   reason: text('reason').notNull(),
 })
+
+/** Admin's own appointments for the year calendar (Elternabend, Teamsitzung …); no effect on plan or hours. */
+export const calendarEvents = sqliteTable('calendar_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  start: integer('start'),
+  end: integer('end'),
+  title: text('title').notNull(),
+}, table => [index('calendar_events_date').on(table.date)])

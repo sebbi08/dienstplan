@@ -19,6 +19,7 @@ export const de = {
     balances: 'Stundenkonten', leave: 'Urlaub', closures: 'Schließzeiten', users: 'Benutzer',
     settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln', earlyClosures: 'Frühere Schließungen',
+    sickDays: 'Krankheitstage', calendar: 'Jahreskalender',
   },
   time: {
     title: 'Zeiterfassung', employee: 'Mitarbeiter:in', clockIn: 'Einstempeln', clockOut: 'Ausstempeln',
@@ -45,6 +46,19 @@ export const de = {
     create: 'Frühere Schließung eintragen', edit: 'Eintrag ändern', empty: 'In diesem Jahr ist keine frühere Schließung eingetragen.',
     confirmDelete: 'Diesen Eintrag löschen?', print: 'Drucken', printTitle: (year: number) => `Frühere Schließungen ${year}`,
     count: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`), previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
+  },
+  year: { previous: 'Vorheriges Jahr', next: 'Nächstes Jahr', print: 'Drucken', adminOnly: 'Nur für die Leitung sichtbar.' },
+  sickDays: {
+    title: 'Krankheitstage', printTitle: (year: number) => `Krankheitstage ${year}`, name: 'Mitarbeiter:in', periods: 'Zeiträume',
+    total: 'Arbeitstage gesamt', none: 'keine', days: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`),
+    hint: 'Grundlage sind die Einträge „Krank“ im Dienstplan. Gezählt werden Arbeitstage (ohne Wochenenden und Feiertage).',
+  },
+  calendar: {
+    title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
+    kinds: { sick: 'Krank', vacation: 'Urlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
+    weekend: 'Wochenende / Feiertag', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
+    from: 'von (optional)', to: 'bis (optional)', title2: 'Termin', titlePlaceholder: 'z. B. Elternabend', time: 'Uhrzeit',
+    noEvents: 'In diesem Jahr sind keine Termine eingetragen.', confirmDelete: 'Diesen Termin löschen?',
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
@@ -217,6 +231,8 @@ export const de = {
     invalid_month: 'Ungültiger Monat.',
     name_required: 'Bitte einen Namen angeben.',
     reason_required: 'Bitte einen Grund angeben.',
+    title_required: 'Bitte einen Text angeben.',
+    event_not_found: 'Dieser Termin existiert nicht mehr.',
     hours_not_found: 'Dieser Eintrag existiert nicht mehr.',
     last_hours: 'Der letzte Wochenstunden-Eintrag kann nicht gelöscht werden.',
     invalid_range: 'Bitte einen gültigen Zeitraum (höchstens ein Jahr) angeben.',
