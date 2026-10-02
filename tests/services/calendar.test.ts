@@ -3,7 +3,11 @@ import type { Db } from '../../server/db/client'
 import {
   createCalendarEvent, deleteCalendarEvent, getSickYear, getYearCalendar, listCalendarEvents, updateCalendarEvent,
 } from '../../server/services/calendar'
+import { computeBalances } from '../../server/services/balances'
+import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
+import { getLeaveAccount } from '../../server/services/leave'
+import { loadEmployees } from '../../server/services/queries'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -38,14 +42,15 @@ describe('year calendar and sick days', () => {
     enter(anna, ['2026-10-12'], 'training')
     enter(berta, ['2026-10-13'], 'school')
     enter(berta, ['2026-10-14'], 'closure_day')
+    enter(berta, ['2026-10-16'], 'special_leave')
     applyToCells(db, admin, [{ employeeId: berta, date: '2026-10-15' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     const calendar = getYearCalendar(db, 2026)
     expect(calendar.employees.map(e => e.name)).toEqual(['Anna', 'Berta'])
     expect(calendar.days[anna]).toEqual({ '2026-10-08': 'sick', '2026-10-09': 'vacation', '2026-10-12': 'training' })
-    expect(calendar.days[berta]).toEqual({ '2026-10-13': 'training', '2026-10-14': 'closed' })
+    expect(calendar.days[berta]).toEqual({ '2026-10-13': 'training', '2026-10-14': 'closed', '2026-10-16': 'special_leave' })
     expect(calendar.otherEntries[berta]).toEqual(['2026-10-14', '2026-10-15'])
     expect(calendar.otherEntries[anna]).toEqual([])
-    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'sick', 'training', 'school'])
+    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'special_leave', 'sick', 'training', 'school'])
   })
   it('manages appointments of the year', () => {
     const elternabend = createCalendarEvent(db, { date: '2026-10-14', start: 1140, end: 1260, title: '  Elternabend ' })
@@ -64,5 +69,19 @@ describe('year calendar and sick days', () => {
     expect(errorCode(() => createCalendarEvent(db, { date: '2026-10-14', start: null, end: 600, title: 'x' }))).toBe('span_end_before_start')
     expect(errorCode(() => createCalendarEvent(db, { date: '2026-10-14', start: 600, end: 600, title: 'x' }))).toBe('span_end_before_start')
     expect(errorCode(() => updateCalendarEvent(db, 999, { date: '2026-10-14', start: null, end: null, title: 'x' }))).toBe('event_not_found')
+  })
+})
+
+describe('special leave', () => {
+  it('counts as a full working day but does not use up leave', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const anna = addEmployee(db, 'Anna')
+    setEntitlement(db, anna, 2026, { days: 30, carriedOverDays: 0 })
+    const monthEnd = () => computeBalances(db, loadEmployees(db), '2026-10-31', '2026-10-31')[0]!.monthEnd
+    const before = monthEnd()
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-08' }], 'replace', { kind: 'code', codeId: codeId(db, 'special_leave') })
+    expect(monthEnd() - before).toBe(468) // the daily target of 39 h / 5 days
+    expect(getLeaveAccount(db, anna, 2026, '2026-10-01').account.available).toBe(30)
   })
 })

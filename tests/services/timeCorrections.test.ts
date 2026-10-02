@@ -61,7 +61,7 @@ describe('admin corrections', () => {
     createRecord(db, admin, { employeeId: anna, date: '2026-10-06', start: 730, end: 965 }, NOW)
     const month = getTimeMonth(db, anna, 2026, 10, '2026-10-08')
     expect(month.trackingFrom).toBe('2026-10-01')
-    expect(month.absenceCodes.map(c => c.key)).toEqual(['vacation', 'sick', 'training', 'school'])
+    expect(month.absenceCodes.map(c => c.key)).toEqual(['vacation', 'special_leave', 'sick', 'training', 'school'])
     const oct6 = month.days.find(d => d.date === '2026-10-06')!
     expect(oct6).toMatchObject({ plannedMinutes: 465, recordedMinutes: 470, counted: 470, usesRecords: true, absence: false, warnings: [] })
     expect(oct6.plan).toContain('7:45–16:00')

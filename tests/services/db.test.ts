@@ -10,7 +10,7 @@ describe('database setup', () => {
     const db = createTestDb()
     seedDefaults(db)
     expect(db.select().from(shiftTemplates).all().map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(db.select().from(absenceCodes).all()).toHaveLength(9)
+    expect(db.select().from(absenceCodes).all()).toHaveLength(10)
     expect(db.select().from(coverageRules).all()).toHaveLength(3)
   })
   it('creates the initial admin only when no user exists', () => {

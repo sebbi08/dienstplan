@@ -27,7 +27,7 @@ const absenceTitle = computed(() => {
   return absence.date ? `${name} · ${formatDayShort(absence.date, weekday(absence.date))}${absence.date.slice(0, 4)}` : name
 })
 /** Kinds the calendar can remove again (Feiertag/Schließtag stay; they come from holidays and closures). */
-const REMOVABLE = ['sick', 'vacation', 'training']
+const REMOVABLE = ['sick', 'vacation', 'special_leave', 'training']
 const hasAbsence = computed(() => REMOVABLE.includes(calendar.value?.days[absence.employeeId]?.[absence.date] ?? ''))
 
 function openAbsence(employeeId: number, date: string) {

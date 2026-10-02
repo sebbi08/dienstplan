@@ -349,7 +349,7 @@ export interface SickYearRowDto {
 }
 
 /** Colour group of a day in the year calendar. */
-export type CalendarKind = 'sick' | 'vacation' | 'training' | 'closed'
+export type CalendarKind = 'sick' | 'vacation' | 'special_leave' | 'training' | 'closed'
 
 /** Admin's own appointment in the year calendar. */
 export interface CalendarEventDto {

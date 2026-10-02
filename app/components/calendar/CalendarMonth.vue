@@ -15,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const KIND_CLASSES: Record<CalendarKind, string> = {
-  sick: 'bg-red-500', vacation: 'bg-green-500', training: 'bg-sky-500', closed: 'bg-gray-400',
+  sick: 'bg-red-500', vacation: 'bg-green-500', special_leave: 'bg-lime-300', training: 'bg-sky-500', closed: 'bg-gray-400',
 }
 
 const dates = computed(() => Array.from({ length: daysInMonth(props.calendar.year, props.month) },

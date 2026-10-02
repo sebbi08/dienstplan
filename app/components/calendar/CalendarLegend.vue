@@ -4,6 +4,7 @@ import { de } from '~/locales/de'
 const ITEMS = [
   { class: 'bg-red-500', label: de.calendar.kinds.sick },
   { class: 'bg-green-500', label: de.calendar.kinds.vacation },
+  { class: 'bg-lime-300', label: de.calendar.kinds.special_leave },
   { class: 'bg-sky-500', label: de.calendar.kinds.training },
   { class: 'bg-gray-400', label: de.calendar.kinds.closed },
   { class: 'bg-gray-100 ring-1 ring-gray-300', label: de.calendar.weekend },

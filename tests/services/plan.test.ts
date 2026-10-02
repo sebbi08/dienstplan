@@ -35,7 +35,7 @@ describe('month plan', () => {
     expect(plan.days).toHaveLength(31)
     expect(plan.days[2]).toMatchObject({ date: '2026-10-03', holidayKey: 'german_unity_day', isWeekend: true })
     expect(plan.templates).toHaveLength(5)
-    expect(plan.codes).toHaveLength(9)
+    expect(plan.codes).toHaveLength(10)
     expect(plan.admin!.weeks.map(w => w.weekStart)).toEqual(['2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26'])
     expect(plan.admin!.weeks[0]!.weekNumber).toBe(40)
     expect(plan.admin!.warnings.filter(w => w.date === '2026-10-05')).toHaveLength(5)

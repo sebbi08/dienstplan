@@ -55,7 +55,7 @@ export const de = {
   },
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
-    kinds: { sick: 'Krank', vacation: 'Urlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
+    kinds: { sick: 'Krank', vacation: 'Urlaub', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
     weekend: 'Wochenende / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     from: 'von (optional)', to: 'bis (optional)', title2: 'Termin', titlePlaceholder: 'z. B. Elternabend', time: 'Uhrzeit',
     noEvents: 'In diesem Jahr sind keine Termine eingetragen.', confirmDelete: 'Diesen Termin löschen?',
