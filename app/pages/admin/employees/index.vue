@@ -70,6 +70,8 @@ function change(nextYear: number, nextMonth: number) {
 
 const label = 'w-32 whitespace-nowrap px-3 py-1.5 text-xs font-medium text-gray-500'
 const value = 'px-3 py-1.5'
+const groupTitle = 'mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500'
+const hint = 'text-xs text-gray-500'
 </script>
 
 <template>
@@ -138,24 +140,46 @@ const value = 'px-3 py-1.5'
     </div>
     <p class="text-xs text-gray-500">{{ de.balances.hint }}</p>
 
-    <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-5 sm:items-end" @submit.prevent="create">
-      <h2 class="font-semibold sm:col-span-5">{{ de.employees.create }}</h2>
-      <UFormField :label="de.employees.name" class="sm:col-span-2"><UInput v-model="form.name" class="w-full" required /></UFormField>
-      <UFormField :label="de.employees.shortName"><UInput v-model="form.shortName" maxlength="10" class="w-full" /></UFormField>
-      <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="form.weeklyHours" type="number" step="0.25" min="0" class="w-full" /></UFormField>
-      <UFormField :label="de.employees.validFrom"><UInput v-model="form.validFrom" type="date" class="w-full" required /></UFormField>
-      <UFormField :label="de.employees.workdays" class="sm:col-span-2"><WorkdayPicker v-model="form.workdays" /></UFormField>
-      <UFormField :label="de.employees.vacationDays" :help="de.employees.vacationDaysHint">
-        <UInput v-model.number="form.vacationDays" type="number" step="0.5" min="0" max="100" class="w-full" />
-      </UFormField>
-      <UFormField :label="de.employees.carriedOverDays" :help="de.employees.carriedOverHint">
-        <UInput v-model.number="form.carriedOverDays" type="number" step="0.5" min="0" max="100" class="w-full" />
-      </UFormField>
-      <UFormField :label="de.employees.openingBalance" :help="de.employees.openingBalanceHint">
-        <UInput v-model="form.openingBalance" placeholder="0:00" class="w-full" />
-      </UFormField>
-      <p class="text-xs text-gray-500 sm:col-span-5">{{ de.employees.validFromHint }}</p>
-      <div class="sm:col-span-5"><UButton type="submit" icon="i-lucide-plus" :label="de.common.add" /></div>
+    <form class="space-y-5 rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200" @submit.prevent="create">
+      <h2 class="text-lg font-semibold">{{ de.employees.create }}</h2>
+
+      <fieldset class="space-y-3">
+        <legend :class="groupTitle">{{ de.employees.groupPerson }}</legend>
+        <div class="grid gap-3 sm:grid-cols-4">
+          <UFormField :label="de.employees.name" class="sm:col-span-3"><UInput v-model="form.name" class="w-full" required /></UFormField>
+          <UFormField :label="de.employees.shortName"><UInput v-model="form.shortName" maxlength="10" class="w-full" /></UFormField>
+        </div>
+      </fieldset>
+
+      <fieldset class="space-y-3 border-t border-gray-100 pt-4">
+        <legend :class="groupTitle">{{ de.employees.groupContract }}</legend>
+        <div class="grid gap-3 sm:grid-cols-4 sm:items-end">
+          <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="form.weeklyHours" type="number" step="0.25" min="0" class="w-full" /></UFormField>
+          <UFormField :label="de.employees.validFrom"><UInput v-model="form.validFrom" type="date" class="w-full" required /></UFormField>
+          <UFormField :label="de.employees.workdays" class="sm:col-span-2"><WorkdayPicker v-model="form.workdays" /></UFormField>
+        </div>
+        <p :class="hint">{{ de.employees.contractHint }}</p>
+      </fieldset>
+
+      <fieldset class="space-y-3 border-t border-gray-100 pt-4">
+        <legend :class="groupTitle">{{ de.employees.groupCarryOver }}</legend>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <UFormField :label="de.employees.vacationDays">
+            <UInput v-model.number="form.vacationDays" type="number" step="0.5" min="0" max="100" placeholder="30" class="w-full" />
+          </UFormField>
+          <UFormField :label="de.employees.carriedOverDays">
+            <UInput v-model.number="form.carriedOverDays" type="number" step="0.5" min="0" max="100" placeholder="0" class="w-full" />
+          </UFormField>
+          <UFormField :label="de.employees.openingBalance">
+            <UInput v-model="form.openingBalance" placeholder="0:00" class="w-full" />
+          </UFormField>
+        </div>
+        <p :class="hint">{{ de.employees.carryOverHint }}</p>
+      </fieldset>
+
+      <div class="border-t border-gray-100 pt-4">
+        <UButton type="submit" icon="i-lucide-plus" :label="de.employees.create" />
+      </div>
     </form>
   </div>
 </template>
