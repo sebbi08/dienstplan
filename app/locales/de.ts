@@ -16,7 +16,7 @@ export const de = {
   },
   nav: {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', employees: 'Mitarbeiter',
-    balances: 'Stundenkonten', leave: 'Urlaub', closures: 'Schließzeiten', users: 'Benutzer',
+    closures: 'Schließzeiten', users: 'Benutzer',
     settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln', earlyClosures: 'Frühere Schließungen',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender',
@@ -142,7 +142,7 @@ export const de = {
     recordWithoutPlan: (name: string) => `${name}: gestempelt ohne Dienst`,
   },
   balances: {
-    title: 'Stundenkonten', name: 'Mitarbeiter', weekly: 'Wochenstunden',
+    title: 'Stundenkonten', account: 'Stundenkonto', name: 'Mitarbeiter', weekly: 'Wochenstunden',
     today: 'Stand heute', monthEnd: 'Voraussichtlich Monatsende',
     hint: '„Stand heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Voraussichtlich Monatsende“: zusätzlich der Plan bis Monatsende.',
   },

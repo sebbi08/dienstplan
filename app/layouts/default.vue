@@ -6,15 +6,8 @@ const { user, loggedIn, clear } = useUserSession()
 const today = parseIsoDate(todayIso())
 // Sticky on every screen; on phones it slides away while scrolling down and returns when scrolling up.
 const headerHidden = useHideOnScroll()
-const route = useRoute()
 
-interface NavLink { label: string; to: string }
-/** A plain link, or a group shown as one header item with a drop-down. */
-type NavItem = NavLink | { label: string; children: NavLink[] }
-
-const isGroupActive = (item: NavItem) => 'children' in item && item.children.some(child => route.path.startsWith(child.to))
-
-const links = computed((): NavItem[] => {
+const links = computed(() => {
   if (!user.value) return []
   const plan = { label: de.nav.plan, to: `/plan/${today.year}/${today.month}` }
   if (user.value.role === 'terminal') return [{ label: de.nav.stamp, to: '/terminal' }, plan]
@@ -25,14 +18,8 @@ const links = computed((): NavItem[] => {
       // An admin linked to an employee stamps on "Mein Dienstplan" too.
       ...(user.value.employeeId !== null ? [myPlan] : []),
       { label: de.nav.time, to: '/admin/time' },
-      {
-        label: de.nav.employees,
-        children: [
-          { label: de.nav.employees, to: '/admin/employees' },
-          { label: de.nav.balances, to: '/admin/balances' },
-          { label: de.nav.leave, to: '/admin/leave' },
-        ],
-      },
+      // Includes the overtime balances and leave accounts of all employees.
+      { label: de.nav.employees, to: '/admin/employees' },
       { label: de.nav.closures, to: '/admin/closures' },
       { label: de.nav.earlyClosures, to: '/admin/early-closures' },
       { label: de.nav.sickDays, to: '/admin/sick-days' },
@@ -59,19 +46,12 @@ async function logout() {
       <div class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">
         <NuxtLink to="/" class="font-semibold">{{ de.appName }}</NuxtLink>
         <nav class="flex flex-wrap gap-1">
-          <template v-for="item in links" :key="item.label">
-            <UDropdownMenu v-if="'children' in item" :items="item.children.map(child => ({ label: child.label, to: child.to }))">
-              <button
-                type="button" class="inline-flex items-center gap-0.5 rounded px-2 py-1 text-sm hover:bg-gray-100"
-                :class="isGroupActive(item) ? 'bg-gray-100 font-medium' : ''"
-              >
-                {{ item.label }} <UIcon name="i-lucide-chevron-down" class="size-3.5" />
-              </button>
-            </UDropdownMenu>
-            <NuxtLink v-else :to="item.to" class="rounded px-2 py-1 text-sm hover:bg-gray-100" active-class="bg-gray-100 font-medium">
-              {{ item.label }}
-            </NuxtLink>
-          </template>
+          <NuxtLink
+            v-for="link in links" :key="link.to" :to="link.to"
+            class="rounded px-2 py-1 text-sm hover:bg-gray-100" active-class="bg-gray-100 font-medium"
+          >
+            {{ link.label }}
+          </NuxtLink>
         </nav>
         <div class="ml-auto flex items-center gap-2 text-sm">
           <span class="text-gray-500">{{ user?.username }}</span>
