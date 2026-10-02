@@ -79,8 +79,13 @@ const value = 'px-3 py-1.5'
       <MonthNav :year="year" :month="month" @change="change" />
     </div>
 
-    <table class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
-      <tbody v-for="(employee, index) in list ?? []" :key="employee.id" class="border-t-4 border-gray-100 first:border-t-0">
+    <!-- One card per employee, with space in between. -->
+    <div class="space-y-5">
+      <table
+        v-for="(employee, index) in list ?? []" :key="employee.id"
+        class="w-full overflow-hidden rounded-lg bg-white text-sm shadow-sm ring-1 ring-gray-200"
+      >
+      <tbody>
         <tr class="bg-gray-50">
           <td colspan="2" class="px-3 py-2">
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -129,7 +134,8 @@ const value = 'px-3 py-1.5'
           </td>
         </tr>
       </tbody>
-    </table>
+      </table>
+    </div>
     <p class="text-xs text-gray-500">{{ de.balances.hint }}</p>
 
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-5 sm:items-end" @submit.prevent="create">
