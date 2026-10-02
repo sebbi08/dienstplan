@@ -20,6 +20,8 @@ const emit = defineEmits<{
   noteSave: [date: string, field: NoteField, value: string]
   removeEntry: [id: number]
   editEntry: [entry: EntryDto]
+  saveWeek: [weekStart: string]
+  applyWeek: [weekStart: string]
 }>()
 
 /** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
@@ -145,6 +147,7 @@ const rows = computed(() => props.plan.days.map((day) => {
     week: week
       ? {
           number: week.weekNumber,
+          start: week.weekStart,
           totals: props.plan.employees.map(employee =>
             week.totals.find(total => total.employeeId === employee.id) ?? { employeeId: employee.id, target: 0, credit: 0, delta: 0 }),
         }
@@ -243,7 +246,19 @@ const rows = computed(() => props.plan.days.map((day) => {
             >
               {{ formatSignedDuration(total.delta) }}
             </td>
-            <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">{{ de.plan.weekHint }}</td>
+            <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>{{ de.plan.weekHint }}</span>
+                <template v-if="editable">
+                  <button type="button" class="text-sky-700 hover:underline print:hidden" @click="emit('saveWeek', row.week.start)">
+                    {{ de.weekTemplates.saveWeek }}
+                  </button>
+                  <button type="button" class="text-sky-700 hover:underline print:hidden" @click="emit('applyWeek', row.week.start)">
+                    {{ de.weekTemplates.applyWeek }}
+                  </button>
+                </template>
+              </div>
+            </td>
           </tr>
           <tr v-if="endsWeek(row, index)" aria-hidden="true">
             <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-2" />

@@ -373,3 +373,18 @@ export interface YearCalendarDto {
   absenceCodes: CodeDto[]
   events: CalendarEventDto[]
 }
+
+/** A saved plan week; `rows` previews it per employee with one text per weekday Monday–Friday ('' = empty). */
+export interface WeekTemplateDto {
+  id: number
+  name: string
+  updatedAt: string
+  rows: { employeeId: number; name: string; days: string[] }[]
+}
+
+export interface WeekTemplateApplyResult {
+  /** Employee days filled from the template. */
+  filled: number
+  /** Template days left out: cell not empty, or no working day for that employee (holiday, closure, day off, left). */
+  skipped: number
+}

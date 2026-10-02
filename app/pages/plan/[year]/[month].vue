@@ -27,6 +27,7 @@ const editOpen = ref(false)
 const editEntry = ref<EntryDto | null>(null)
 const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
 const breakOpen = ref(false)
+const weekTemplate = reactive<{ open: boolean; mode: 'save' | 'apply'; weekStart: string }>({ open: false, mode: 'save', weekStart: '' })
 
 watch([year, month], () => {
   selection.clear()
@@ -144,6 +145,10 @@ function onEditSubmit(id: number, times: TimeSpan) {
   run(() => $fetch<unknown>(`/api/entries/${id}`, { method: 'PUT', body: times }))
 }
 
+function openWeekTemplate(mode: 'save' | 'apply', weekStart: string) {
+  Object.assign(weekTemplate, { open: true, mode, weekStart })
+}
+
 async function release() {
   if (!await confirm(de.plan.releaseConfirm, { confirmLabel: de.plan.release, danger: false })) return
   run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' }), de.plan.releasedToast)
@@ -170,7 +175,7 @@ function navigate(nextYear: number, nextMonth: number) {
           <PlanGrid
             :plan="plan" :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
-            @edit-entry="onEditEntry"
+            @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" @close="selectedDate = null" />
         </div>
@@ -179,6 +184,9 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
       <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" @submit="onEditSubmit" />
+      <PlanWeekTemplateModal
+        v-if="isAdmin" v-model:open="weekTemplate.open" :mode="weekTemplate.mode" :week-start="weekTemplate.weekStart" @done="refresh"
+      />
       <PlanCellMenu
         v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"
         :templates="plan.templates" :codes="plan.codes"

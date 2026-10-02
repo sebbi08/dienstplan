@@ -199,3 +199,27 @@ export const calendarEvents = sqliteTable('calendar_events', {
   end: integer('end'),
   title: text('title').notNull(),
 }, table => [index('calendar_events_date').on(table.date)])
+
+/** Saved plan weeks (Mo–Fr for all employees) that the admin can insert into any week of the plan. */
+export const weekTemplates = sqliteTable('week_templates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+/** One working entry of a week template (shift, special shift, break, VZ or Büro) on a weekday (0 = Monday). */
+export const weekTemplateEntries = sqliteTable('week_template_entries', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  weekTemplateId: integer('week_template_id').notNull().references(() => weekTemplates.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  weekday: integer('weekday').notNull(),
+  kind: text('kind', { enum: ['shift', 'special', 'code', 'break'] }).notNull(),
+  shiftTemplateId: integer('shift_template_id').references(() => shiftTemplates.id, { onDelete: 'set null' }),
+  absenceCodeId: integer('absence_code_id').references(() => absenceCodes.id),
+  start: integer('start'),
+  end: integer('end'),
+  breakStart: integer('break_start'),
+  breakEnd: integer('break_end'),
+  countsAsStaff: integer('counts_as_staff', { mode: 'boolean' }).notNull().default(true),
+  note: text('note'),
+}, table => [index('week_template_entries_template').on(table.weekTemplateId)])

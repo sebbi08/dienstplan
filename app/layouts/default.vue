@@ -17,6 +17,7 @@ const links = computed(() => {
       plan,
       // An admin linked to an employee stamps on "Mein Dienstplan" too.
       ...(user.value.employeeId !== null ? [myPlan] : []),
+      { label: de.nav.weekTemplates, to: '/admin/week-templates' },
       { label: de.nav.time, to: '/admin/time' },
       // Includes the overtime balances and leave accounts of all employees.
       { label: de.nav.employees, to: '/admin/employees' },

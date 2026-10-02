@@ -90,3 +90,6 @@ export const calendarEventSchema = z.object({ date: isoDate, start: minutes.null
 export const timeDayNoteSchema = z.object({ employeeId: z.number().int(), date: isoDate, note: z.string().max(200) })
 export const stampSchema = z.object({ action: z.enum(['in', 'out']) })
 export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number().int().positive() })
+export const weekTemplateSaveSchema = z.object({ name: label, weekStart: isoDate })
+export const weekTemplateRenameSchema = z.object({ name: label })
+export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
