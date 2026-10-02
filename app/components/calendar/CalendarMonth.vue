@@ -6,7 +6,13 @@ import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/ty
 import { de } from '~/locales/de'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
-const props = defineProps<{ calendar: YearCalendarDto; month: number }>()
+/** `editable`: clicking a day emits dayClick (employee row) or eventDayClick / eventClick (appointments row). */
+const props = defineProps<{ calendar: YearCalendarDto; month: number; editable?: boolean }>()
+const emit = defineEmits<{
+  dayClick: [employeeId: number, date: string]
+  eventDayClick: [date: string]
+  eventClick: [event: CalendarEventDto]
+}>()
 
 const KIND_CLASSES: Record<CalendarKind, string> = {
   sick: 'bg-red-500', vacation: 'bg-green-500', training: 'bg-sky-500', closed: 'bg-gray-400',
@@ -20,12 +26,6 @@ const eventText = (event: CalendarEventDto) => {
   return `${Number(event.date.slice(8))}.${time} ${event.title}`
 }
 
-/** Appointment texts per day. */
-const eventsByDate = computed(() => {
-  const map = new Map<string, string[]>()
-  for (const event of events.value) map.set(event.date, [...(map.get(event.date) ?? []), eventText(event)])
-  return map
-})
 
 /** Rough number of characters that fit into one day column (11 px font, about 26–30 px per day). */
 const CHARS_PER_DAY = 4
@@ -39,13 +39,14 @@ const LANE_HEIGHT = 15
 const eventLayout = computed(() => {
   const days = dates.value.length
   const lanes: number[] = [] // per lane: first free day index
-  const labels: { text: string; start: number; lane: number; width: number }[] = []
+  const labels: { event: CalendarEventDto; text: string; start: number; lane: number; width: number }[] = []
   dates.value.forEach((date, start) => {
-    for (const text of eventsByDate.value.get(date) ?? []) {
+    for (const event of events.value.filter(candidate => candidate.date === date)) {
+      const text = eventText(event)
       let lane = lanes.findIndex(freeFrom => freeFrom <= start)
       if (lane === -1) lane = lanes.push(0) - 1
       lanes[lane] = start + Math.max(1, Math.ceil(text.length / CHARS_PER_DAY))
-      labels.push({ text, start, lane, width: days - start })
+      labels.push({ event, text, start, lane, width: days - start })
     }
   })
   for (const label of labels) {
@@ -93,7 +94,9 @@ function cellTitle(employeeId: number, name: string, date: string): string | und
         <td class="truncate border border-gray-300 px-1 py-0.5" :title="employee.name">{{ employee.name }}</td>
         <td
           v-for="date in dates" :key="date" class="h-5 border border-gray-300 p-0"
-          :class="cellClass(employee.id, date)" :title="cellTitle(employee.id, employee.name, date)"
+          :class="[cellClass(employee.id, date), editable ? 'cursor-pointer hover:outline-2 hover:-outline-offset-2 hover:outline-sky-500' : '']"
+          :title="cellTitle(employee.id, employee.name, date)"
+          @click="editable && emit('dayClick', employee.id, date)"
         />
         <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
@@ -103,12 +106,16 @@ function cellTitle(employeeId: number, name: string, date: string): string | und
           <!-- day grid behind the texts (same columns and shading as the rows above) -->
           <div
             v-for="(date, index) in dates" :key="date" class="absolute inset-y-0 border-r border-gray-300 last:border-r-0"
-            :class="isOff(date) ? 'bg-gray-100' : ''" :style="{ left: percent(index), width: percent(1) }"
+            :class="[isOff(date) ? 'bg-gray-100' : '', editable ? 'cursor-pointer hover:bg-yellow-100' : '']"
+            :style="{ left: percent(index), width: percent(1) }"
+            @click="editable && emit('eventDayClick', date)"
           />
           <div
-            v-for="label in eventLayout.labels" :key="`${label.start}-${label.text}`"
-            class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :title="label.text"
+            v-for="label in eventLayout.labels" :key="label.event.id"
+            class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :class="editable ? 'cursor-pointer hover:bg-yellow-400' : ''"
+            :title="label.text"
             :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
+            @click="editable && emit('eventClick', label.event)"
           >
             {{ label.text }}
           </div>

@@ -59,6 +59,10 @@ export const de = {
     weekend: 'Wochenende / Feiertag', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     from: 'von (optional)', to: 'bis (optional)', title2: 'Termin', titlePlaceholder: 'z. B. Elternabend', time: 'Uhrzeit',
     noEvents: 'In diesem Jahr sind keine Termine eingetragen.', confirmDelete: 'Diesen Termin löschen?',
+    clickHint: 'Zum Eintragen auf ein Feld klicken: in der Zeile einer Mitarbeiterin für Urlaub, Krank, Fortbildung oder Schule, in der Zeile „Termine“ für einen Termin.',
+    until: 'bis einschließlich', untilHint: 'Nur Arbeitstage werden eingetragen.', removeAbsence: 'Eintrag entfernen',
+    untilBeforeStart: 'Das Bis-Datum liegt vor dem angeklickten Tag.', noWorkdays: 'Im gewählten Zeitraum liegt kein Arbeitstag.',
+    replaceConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} stehen schon Einträge im Dienstplan. Sie werden durch die Abwesenheit ersetzt. Fortfahren?`,
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',

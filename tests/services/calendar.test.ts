@@ -43,6 +43,9 @@ describe('year calendar and sick days', () => {
     expect(calendar.employees.map(e => e.name)).toEqual(['Anna', 'Berta'])
     expect(calendar.days[anna]).toEqual({ '2026-10-08': 'sick', '2026-10-09': 'vacation', '2026-10-12': 'training' })
     expect(calendar.days[berta]).toEqual({ '2026-10-13': 'training', '2026-10-14': 'closed' })
+    expect(calendar.otherEntries[berta]).toEqual(['2026-10-14', '2026-10-15'])
+    expect(calendar.otherEntries[anna]).toEqual([])
+    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'sick', 'training', 'school'])
   })
   it('manages appointments of the year', () => {
     const elternabend = createCalendarEvent(db, { date: '2026-10-14', start: 1140, end: 1260, title: '  Elternabend ' })

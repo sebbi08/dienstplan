@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import { formatTime, parseTime } from '#shared/domain/time'
+import { addDays, isWeekend, parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
+import { isHoliday } from '#shared/domain/holidays'
+import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { formatDayShort } from '~/utils/format'
+import { formatDate, formatDayShort } from '~/utils/format'
 
-/** Admin-only year calendar (absences from the plan) with the admin's own appointments. */
+/**
+ * Admin-only year calendar. Entries are made by clicking: an employee day enters Urlaub/Krank/Fortbildung/Schule
+ * into the plan (workdays only, up to a chosen date); the appointments row adds or edits the admin's appointments.
+ */
 const route = useRoute()
 const year = ref(Number(route.query.year) || parseIsoDate(todayIso()).year)
 const { data: calendar, refresh } = await useFetch<YearCalendarDto>('/api/calendar', { query: { year } })
@@ -13,43 +17,82 @@ const run = useAction(refresh)
 const confirm = useConfirm()
 const toast = useToast()
 
-const emptyForm = () => ({ id: null as number | null, date: todayIso(), start: '', end: '', title: '' })
-const form = reactive(emptyForm())
-const timeText = (minutes: number | null) => (minutes === null ? '' : formatTime(minutes))
 const eventTime = (event: CalendarEventDto) =>
   event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
-function edit(event: CalendarEventDto) {
-  Object.assign(form, { id: event.id, date: event.date, start: timeText(event.start), end: timeText(event.end), title: event.title })
+// --- absences -------------------------------------------------------------------------------------------
+const absence = reactive({ open: false, employeeId: 0, date: '' })
+const absenceTitle = computed(() => {
+  const name = calendar.value?.employees.find(employee => employee.id === absence.employeeId)?.name ?? ''
+  return absence.date ? `${name} · ${formatDayShort(absence.date, weekday(absence.date))}${absence.date.slice(0, 4)}` : name
+})
+/** Kinds the calendar can remove again (Feiertag/Schließtag stay; they come from holidays and closures). */
+const REMOVABLE = ['sick', 'vacation', 'training']
+const hasAbsence = computed(() => REMOVABLE.includes(calendar.value?.days[absence.employeeId]?.[absence.date] ?? ''))
+
+function openAbsence(employeeId: number, date: string) {
+  Object.assign(absence, { open: true, employeeId, date })
 }
 
-function reset() {
-  Object.assign(form, emptyForm())
+/** Mon–Fri without public holidays, like vacation counting. */
+function workdays(from: string, to: string): string[] {
+  const dates: string[] = []
+  for (let date = from; date <= to; date = addDays(date, 1)) if (!isWeekend(date) && !isHoliday(date)) dates.push(date)
+  return dates
 }
 
-/** Empty = no time; undefined = typed but not a valid time. */
-const optionalTime = (value: string) => (value.trim() ? parseTime(value) ?? undefined : null)
-
-async function save() {
-  const start = optionalTime(form.start)
-  const end = optionalTime(form.end)
-  if (start === undefined || end === undefined) {
-    toast.add({ title: de.common.invalidTime, color: 'error' })
+async function applyAbsence(codeId: number | null, until: string) {
+  const data = calendar.value
+  if (!data) return
+  const employeeId = absence.employeeId
+  if (until < absence.date) {
+    toast.add({ title: de.calendar.untilBeforeStart, color: 'error' })
     return
   }
-  const body = { date: form.date, start, end, title: form.title }
-  const ok = await run(() => form.id
-    ? $fetch<unknown>(`/api/calendar-events/${form.id}`, { method: 'PUT', body })
-    : $fetch<unknown>('/api/calendar-events', { method: 'POST', body }), de.common.saved)
+  const dates = workdays(absence.date, until)
+  let body
+  if (codeId === null) {
+    const removable = dates.filter(date => REMOVABLE.includes(data.days[employeeId]?.[date] ?? ''))
+    if (!removable.length) return
+    body = { cells: removable.map(date => ({ employeeId, date })), mode: 'clear', entry: null }
+  }
+  else {
+    if (!dates.length) {
+      toast.add({ title: de.calendar.noWorkdays, color: 'warning' })
+      return
+    }
+    const replaced = dates.filter(date => data.otherEntries[employeeId]?.includes(date)).length
+    if (replaced && !await confirm(de.calendar.replaceConfirm(replaced), { danger: false })) return
+    body = { cells: dates.map(date => ({ employeeId, date })), mode: 'replace', entry: { kind: 'code', codeId } }
+  }
+  if (await run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }), de.common.saved)) absence.open = false
+}
+
+// --- appointments ---------------------------------------------------------------------------------------
+const eventDialog = reactive<{ open: boolean; event: CalendarEventDto | null; date: string }>({ open: false, event: null, date: '' })
+
+function openNewEvent(date: string) {
+  Object.assign(eventDialog, { open: true, event: null, date })
+}
+
+function openEvent(event: CalendarEventDto) {
+  Object.assign(eventDialog, { open: true, event, date: event.date })
+}
+
+async function saveEvent(value: { date: string; start: number | null; end: number | null; title: string }) {
+  const event = eventDialog.event
+  const ok = await run(() => event
+    ? $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'PUT', body: value })
+    : $fetch<unknown>('/api/calendar-events', { method: 'POST', body: value }), de.common.saved)
   if (ok) {
-    const saved = parseIsoDate(form.date).year
-    reset()
-    year.value = saved
+    eventDialog.open = false
+    year.value = parseIsoDate(value.date).year
   }
 }
 
-async function remove(event: CalendarEventDto) {
-  if (await confirm(de.calendar.confirmDelete)) run(() => $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'DELETE' }), de.common.deleted)
+async function removeEvent(event: CalendarEventDto) {
+  if (!await confirm(de.calendar.confirmDelete)) return
+  if (await run(() => $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'DELETE' }), de.common.deleted)) eventDialog.open = false
 }
 </script>
 
@@ -63,12 +106,15 @@ async function remove(event: CalendarEventDto) {
         :to="`/admin/print/calendar/${year}`" target="_blank"
       />
     </div>
-    <p class="text-sm text-gray-500">{{ de.year.adminOnly }}</p>
+    <p class="text-sm text-gray-500">{{ de.year.adminOnly }} {{ de.calendar.clickHint }}</p>
     <CalendarLegend />
 
     <div v-if="calendar" class="space-y-3 overflow-x-auto">
       <div v-for="month in 12" :key="month" class="min-w-[900px] rounded-lg bg-white">
-        <CalendarMonth :calendar="calendar" :month="month" />
+        <CalendarMonth
+          :calendar="calendar" :month="month" editable
+          @day-click="openAbsence" @event-day-click="openNewEvent" @event-click="openEvent"
+        />
       </div>
     </div>
 
@@ -83,31 +129,26 @@ async function remove(event: CalendarEventDto) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="event in calendar.events" :key="event.id" class="border-t border-gray-100" :class="form.id === event.id ? 'bg-sky-50' : ''">
-            <td class="whitespace-nowrap px-3 py-2">{{ formatDayShort(event.date, weekday(event.date)) }}{{ event.date.slice(0, 4) }}</td>
+          <tr v-for="event in calendar.events" :key="event.id" class="border-t border-gray-100">
+            <td class="whitespace-nowrap px-3 py-2">{{ formatDate(event.date) }}</td>
             <td class="whitespace-nowrap px-3 py-2">{{ eventTime(event) }}</td>
             <td class="px-3 py-2">{{ event.title }}</td>
             <td class="whitespace-nowrap px-3 py-2 text-right">
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="edit(event)" />
-              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="remove(event)" />
+              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
+              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />
             </td>
           </tr>
         </tbody>
       </table>
-
-      <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-5 sm:items-end" @submit.prevent="save">
-        <h3 class="font-semibold sm:col-span-5">{{ form.id ? de.calendar.editEvent : de.calendar.addEvent }}</h3>
-        <UFormField :label="de.calendar.date"><UInput v-model="form.date" type="date" class="w-full" required /></UFormField>
-        <UFormField :label="de.calendar.from"><TimeInput v-model="form.start" /></UFormField>
-        <UFormField :label="de.calendar.to"><TimeInput v-model="form.end" /></UFormField>
-        <UFormField :label="de.calendar.title2" class="sm:col-span-2">
-          <UInput v-model="form.title" maxlength="200" :placeholder="de.calendar.titlePlaceholder" class="w-full" required />
-        </UFormField>
-        <div class="flex gap-2 sm:col-span-5">
-          <UButton type="submit" :icon="form.id ? 'i-lucide-check' : 'i-lucide-plus'" :label="form.id ? de.common.save : de.common.add" />
-          <UButton v-if="form.id" color="neutral" variant="ghost" :label="de.common.cancel" @click="reset" />
-        </div>
-      </form>
     </section>
+
+    <CalendarAbsenceDialog
+      v-model:open="absence.open" :title="absenceTitle" :date="absence.date" :codes="calendar?.absenceCodes ?? []"
+      :has-absence="hasAbsence" @apply="applyAbsence"
+    />
+    <CalendarEventDialog
+      v-model:open="eventDialog.open" :event="eventDialog.event" :date="eventDialog.date"
+      @save="saveEvent" @remove="eventDialog.event && removeEvent(eventDialog.event)"
+    />
   </div>
 </template>

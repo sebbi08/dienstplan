@@ -363,5 +363,9 @@ export interface YearCalendarDto {
   employees: { id: number; name: string }[]
   /** Per employee id: the calendar kind of each day that has one. */
   days: Record<number, Record<IsoDate, CalendarKind>>
+  /** Per employee id: dates with plan entries other than the four absences (an absence would replace them). */
+  otherEntries: Record<number, IsoDate[]>
+  /** Urlaub, Krank, Fortbildung, Schule — entered by clicking a day. */
+  absenceCodes: CodeDto[]
   events: CalendarEventDto[]
 }

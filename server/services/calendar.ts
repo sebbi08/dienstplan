@@ -6,7 +6,7 @@ import type { CalendarEventDto, CalendarKind, SickYearRowDto, YearCalendarDto } 
 import type { Db } from '../db/client'
 import { calendarEvents } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { loadEmployees, loadEntries } from './queries'
+import { loadCodes, loadEmployees, loadEntries } from './queries'
 
 /** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. */
 const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
@@ -14,6 +14,8 @@ const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
 }
 /** When a day has several codes, the first kind in this list wins. */
 const KIND_PRIORITY: CalendarKind[] = ['sick', 'vacation', 'training', 'closed']
+/** Absences the admin enters by clicking a calendar day (written to the plan). */
+const ABSENCE_KEYS: CodeKey[] = ['vacation', 'sick', 'training', 'school']
 
 export interface CalendarEventInput {
   date: IsoDate
@@ -41,7 +43,10 @@ export function getSickYear(db: Db, year: number): SickYearRowDto[] {
 export function getYearCalendar(db: Db, year: number): YearCalendarDto {
   const staff = staffOfYear(db, year)
   const days: Record<number, Record<IsoDate, CalendarKind>> = Object.fromEntries(staff.map(employee => [employee.id, {}]))
+  const otherSets = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
   for (const entry of loadEntries(db, yearBounds(year))) {
+    // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
+    if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)
     const kind = entry.codeKey ? KIND_OF_CODE[entry.codeKey] : undefined
     const row = days[entry.employeeId]
     if (!kind || !row) continue
@@ -52,6 +57,8 @@ export function getYearCalendar(db: Db, year: number): YearCalendarDto {
     year,
     employees: staff.map(employee => ({ id: employee.id, name: employee.name })),
     days,
+    otherEntries: Object.fromEntries([...otherSets].map(([id, set]) => [id, [...set].sort()])),
+    absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key)),
     events: listCalendarEvents(db, year),
   }
 }
