@@ -68,6 +68,9 @@ function markClass(item: { pending: boolean; changed: boolean }): string {
   return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''
 }
 
+/** Admin-only: current overtime balance ("Stand heute") per employee, shown under the name. */
+const balanceToday = computed(() => new Map((props.plan.admin?.balances ?? []).map(balance => [balance.employeeId, balance.today])))
+
 /** Admin-only month footer: carry-over, this month's difference and the resulting total per employee. */
 const totals = computed(() => {
   const balances = props.plan.admin?.balances
@@ -160,7 +163,15 @@ const rows = computed(() => props.plan.days.map((day) => {
       <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:shadow-none">
         <tr>
           <th class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
-          <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">{{ employee.name }}</th>
+          <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">
+            <div>{{ employee.name }}</div>
+            <div
+              v-if="balanceToday.has(employee.id)" class="font-normal" :class="balanceClass(balanceToday.get(employee.id)!)"
+              :title="de.plan.balanceTodayHint"
+            >
+              {{ formatSignedDuration(balanceToday.get(employee.id)!) }} h
+            </div>
+          </th>
           <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
           <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
           <th v-if="plan.admin" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
