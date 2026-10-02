@@ -20,12 +20,41 @@ const eventText = (event: CalendarEventDto) => {
   return `${Number(event.date.slice(8))}.${time} ${event.title}`
 }
 
-/** Appointment texts per day for the appointments row (shown as tooltip). */
+/** Appointment texts per day. */
 const eventsByDate = computed(() => {
   const map = new Map<string, string[]>()
   for (const event of events.value) map.set(event.date, [...(map.get(event.date) ?? []), eventText(event)])
   return map
 })
+
+/** Rough number of characters that fit into one day column (11 px font, about 26–30 px per day). */
+const CHARS_PER_DAY = 4
+const LANE_HEIGHT = 15
+
+/**
+ * Written appointments in the appointments row: each text starts at its day and runs to the right on one
+ * line; when it would run into an earlier text it moves to the next line (lane). A text is cut (with full
+ * text as tooltip) only where the next text of its own lane begins.
+ */
+const eventLayout = computed(() => {
+  const days = dates.value.length
+  const lanes: number[] = [] // per lane: first free day index
+  const labels: { text: string; start: number; lane: number; width: number }[] = []
+  dates.value.forEach((date, start) => {
+    for (const text of eventsByDate.value.get(date) ?? []) {
+      let lane = lanes.findIndex(freeFrom => freeFrom <= start)
+      if (lane === -1) lane = lanes.push(0) - 1
+      lanes[lane] = start + Math.max(1, Math.ceil(text.length / CHARS_PER_DAY))
+      labels.push({ text, start, lane, width: days - start })
+    }
+  })
+  for (const label of labels) {
+    const next = labels.filter(other => other.lane === label.lane && other.start > label.start).map(other => other.start)
+    if (next.length) label.width = Math.min(...next) - label.start
+  }
+  return { labels, height: Math.max(1, lanes.length) * LANE_HEIGHT + 4 }
+})
+const percent = (days: number) => `${(days / dates.value.length) * 100}%`
 const isOff = (date: string) => isWeekend(date) || isHoliday(date)
 
 function cellClass(employeeId: number, date: string): string {
@@ -70,11 +99,20 @@ function cellTitle(employeeId: number, name: string, date: string): string | und
       </tr>
       <tr>
         <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium">{{ de.calendar.events }}</td>
-        <td
-          v-for="date in dates" :key="date" class="h-5 border border-gray-300 p-0"
-          :class="eventsByDate.has(date) ? 'bg-yellow-300' : isOff(date) ? 'bg-gray-100' : ''"
-          :title="eventsByDate.get(date)?.join('\n')"
-        />
+        <td :colspan="dates.length" class="relative border border-gray-300 p-0" :style="{ height: `${eventLayout.height}px` }">
+          <!-- day grid behind the texts (same columns and shading as the rows above) -->
+          <div
+            v-for="(date, index) in dates" :key="date" class="absolute inset-y-0 border-r border-gray-300 last:border-r-0"
+            :class="isOff(date) ? 'bg-gray-100' : ''" :style="{ left: percent(index), width: percent(1) }"
+          />
+          <div
+            v-for="label in eventLayout.labels" :key="`${label.start}-${label.text}`"
+            class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :title="label.text"
+            :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
+          >
+            {{ label.text }}
+          </div>
+        </td>
         <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
     </tbody>
