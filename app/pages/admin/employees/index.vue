@@ -16,12 +16,23 @@ const month = ref(today.month)
 const { data: list, refresh } = await useFetch<EmployeeListItemDto[]>('/api/employees')
 const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year, month } })
 const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year } })
+const nextYear = computed(() => year.value + 1)
+const { data: nextLeave, refresh: refreshNextLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: nextYear } })
 const run = useAction(async () => {
-  await Promise.all([refresh(), refreshBalances(), refreshLeave()])
+  await Promise.all([refresh(), refreshBalances(), refreshLeave(), refreshNextLeave()])
 })
 
 const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [balance.employeeId, balance])))
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row])))
+const nextLeaveOf = computed(() => new Map((nextLeave.value ?? []).map(row => [row.employeeId, row])))
+
+/** This year's leave, plus next year's as soon as anything is entered for it (entitlement or planned leave). */
+function leaveRows(employeeId: number): { year: number; account: LeaveAccountDto['account'] | undefined }[] {
+  const rows = [{ year: year.value, account: leaveOf.value.get(employeeId)?.account }]
+  const next = nextLeaveOf.value.get(employeeId)?.account
+  if (next && (next.entitlement || next.carriedOver || next.planned)) rows.push({ year: nextYear.value, account: next })
+  return rows
+}
 
 const toast = useToast()
 const emptyForm = () => ({
@@ -115,21 +126,21 @@ const hint = 'text-xs text-gray-500'
             <span v-else class="text-gray-400">–</span>
           </td>
         </tr>
-        <tr class="border-t border-gray-100">
-          <td :class="label">{{ de.leave.title }} {{ year }}</td>
+        <tr v-for="row in leaveRows(employee.id)" :key="row.year" class="border-t border-gray-100">
+          <td :class="label">{{ de.leave.title }} {{ row.year }}</td>
           <td :class="value">
-            <template v-if="leaveOf.get(employee.id)">
+            <template v-if="row.account">
               <span v-for="(item, itemIndex) in [
-                [de.leave.entitlement, leaveOf.get(employee.id)!.account.entitlement],
-                [de.leave.carriedOver, leaveOf.get(employee.id)!.account.carriedOver],
-                [de.leave.taken, leaveOf.get(employee.id)!.account.taken],
-                [de.leave.planned, leaveOf.get(employee.id)!.account.planned],
+                [de.leave.entitlement, row.account.entitlement],
+                [de.leave.carriedOver, row.account.carriedOver],
+                [de.leave.taken, row.account.taken],
+                [de.leave.planned, row.account.planned],
               ] as const" :key="item[0]">
                 <span v-if="itemIndex > 0" class="mx-2 text-gray-300">|</span>{{ item[0] }}: {{ formatNumber(item[1]) }}
               </span>
               <span class="mx-2 text-gray-300">|</span>{{ de.leave.available }}:
-              <span class="font-semibold" :class="leaveOf.get(employee.id)!.account.available < 0 ? 'text-red-700' : ''">
-                {{ formatNumber(leaveOf.get(employee.id)!.account.available) }}
+              <span class="font-semibold" :class="row.account.available < 0 ? 'text-red-700' : ''">
+                {{ formatNumber(row.account.available) }}
               </span>
             </template>
             <span v-else class="text-gray-400">–</span>
