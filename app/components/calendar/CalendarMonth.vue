@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { daysInMonth, isWeekend, toIsoDate } from '#shared/domain/dates'
+import { daysInMonth, isWeekend, toIsoDate, weekday } from '#shared/domain/dates'
 import { holidayOn, isHoliday } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
@@ -104,7 +104,8 @@ function headerTitle(date: string): string | undefined {
           :title="headerTitle(date)"
           @click="editable && emit('eventDayClick', date)"
         >
-          {{ Number(date.slice(8)) }}
+          <div class="text-[9px] leading-none opacity-75">{{ de.weekdaysShort[weekday(date)] }}</div>
+          <div>{{ Number(date.slice(8)) }}</div>
         </th>
         <th v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
