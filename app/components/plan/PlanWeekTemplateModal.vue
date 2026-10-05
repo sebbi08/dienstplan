@@ -24,6 +24,13 @@ watch(open, async (isOpen) => {
   templates.value = await $fetch<WeekTemplateDto[]>('/api/week-templates').catch(() => [])
 })
 
+/** Monday to Friday of the chosen week; empty while no week is chosen yet (the dialog is rendered closed). */
+const title = computed(() => {
+  if (!props.weekStart) return ''
+  const describe = props.mode === 'save' ? de.weekTemplates.saveTitle : de.weekTemplates.applyTitle
+  return describe(formatDate(props.weekStart), formatDate(addDays(props.weekStart, 4)))
+})
+
 const items = computed(() => (templates.value ?? []).map(template => ({ label: template.name, value: template.id })))
 const chosen = computed(() => templates.value?.find(template => template.id === templateId.value))
 
@@ -54,7 +61,7 @@ async function apply() {
 <template>
   <UModal
     v-model:open="open" :ui="{ content: 'sm:max-w-2xl' }"
-    :title="(mode === 'save' ? de.weekTemplates.saveTitle : de.weekTemplates.applyTitle)(formatDate(weekStart), formatDate(addDays(weekStart, 4)))"
+    :title="title"
   >
     <template #body>
       <form v-if="mode === 'save'" class="space-y-3" @submit.prevent="save">
