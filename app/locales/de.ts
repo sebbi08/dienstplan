@@ -192,8 +192,6 @@ export const de = {
     replaceConfirm: (name: string) => `Die Vorlage „${name}“ gibt es schon. Durch diese Woche ersetzen?`,
     saved: 'Vorlage gespeichert', replace: 'Ersetzen',
     mark: (name: string) => `Vorlage: ${name}`,
-    legendBreak: (from: string, to: string) => `Pause ${from}–${to}`, legendNoBreak: 'ohne Pause',
-    legendWorked: (hours: string) => `Arbeitszeit ${hours} h`,
     markHint: 'Diese Woche wurde zuletzt als diese Vorlage gespeichert oder aus ihr gefüllt.',
     applied: (filled: number, skipped: number) => `${filled} Tage eingetragen` + (skipped ? `, ${skipped} übersprungen (schon belegt oder kein Arbeitstag)` : ''),
     rename: 'Umbenennen', deleteConfirm: (name: string) => `Vorlage „${name}“ löschen? Der Dienstplan bleibt unverändert.`,

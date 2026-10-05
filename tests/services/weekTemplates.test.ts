@@ -133,7 +133,7 @@ describe('week templates and changed services', () => {
   })
 })
 
-describe('template names in the plan and the legend', () => {
+describe('template names in the plan and the preview', () => {
   it('marks the saved and the filled week with the template name, follows renames and forgets deleted templates', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
@@ -150,20 +150,15 @@ describe('template names in the plan and the legend', () => {
     deleteWeekTemplate(db, template.id)
     expect(names()).toEqual({})
   })
-  it('lists the services used with their times and shows changed services by their saved times', () => {
+  it('shows a shift whose service changed since saving by its saved times instead of the short label', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
     const anna = addEmployee(db, 'Anna')
     applyToCells(db, admin, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
     applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
-    const template = saveWeekTemplate(db, { name: 'A', weekStart: week })
-    expect(template.legend).toEqual([
-      { shortLabel: 'F1', label: 'Frühdienst', start: 420, end: 795, breakStart: null, breakEnd: null },
-      { shortLabel: 'S', label: 'Spätdienst', start: 525, end: 1020, breakStart: 730, breakEnd: 760 },
-    ])
+    expect(saveWeekTemplate(db, { name: 'A', weekStart: week }).rows[0]!.days.slice(0, 2)).toEqual(['S', 'F1'])
     db.update(shiftTemplates).set({ start: 450 }).where(eq(shiftTemplates.shortLabel, 'F1')).run()
     const [changed] = listWeekTemplates(db)
     expect(changed!.rows[0]!.days.slice(0, 2)).toEqual(['S', '7:00–13:15'])
-    expect(changed!.legend.map(item => item.shortLabel)).toEqual(['S'])
   })
 })

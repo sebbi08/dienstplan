@@ -10,7 +10,7 @@ import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplat
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { describeCellAt } from './entries'
-import { closureOn, loadClosures, loadEmployees, loadEntries, loadTemplates } from './queries'
+import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 
 /** A template covers Monday to Friday. */
 const WEEKDAYS = 5
@@ -55,10 +55,7 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
       .join(' + '))
     return [{ employeeId: employee.id, name: employee.name, days }]
   })
-  const used = new Set(rows.filter(row => row.entry.kind === 'shift' && isCurrent(row.entry, row.shift)).map(row => row.shift?.id))
-  const legend = loadTemplates(db).filter(shift => used.has(shift.id) && shift.shortLabel)
-    .map(({ shortLabel, label, start, end, breakStart, breakEnd }) => ({ shortLabel, label, start, end, breakStart, breakEnd }))
-  return { id: template.id, name: template.name, updatedAt: template.updatedAt, rows: preview, legend }
+  return { id: template.id, name: template.name, updatedAt: template.updatedAt, rows: preview }
 }
 
 export function listWeekTemplates(db: Db): WeekTemplateDto[] {
