@@ -390,3 +390,13 @@ export interface WeekTemplateApplyResult {
   /** Template days left out: cell not empty, or no working day for that employee (holiday, closure, day off, left). */
   skipped: number
 }
+
+export interface ShiftChangeResult {
+  template: TemplateDto
+  /** Plan entries from applyFrom on that got the new times. */
+  updated: number
+  /** Plan entries left with the old times because the new ones would clash with other entries of that day. */
+  skipped: number
+  /** Template (Vorlage) entries that got the new times. */
+  inTemplates: number
+}

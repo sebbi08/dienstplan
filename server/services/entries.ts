@@ -1,11 +1,11 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, gte, inArray } from 'drizzle-orm'
 import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import { validateSpan } from '../../shared/domain/time'
+import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import type { IsoDate, Minutes } from '../../shared/domain/types'
+import type { DomainEntry, IsoDate, Minutes } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../db/schema'
@@ -135,7 +135,7 @@ export interface EntryTimesChange {
 }
 
 /** First rule a day breaks after entry `changed` got new times: overlapping work or a misplaced break. */
-function dayConflict(day: EntryDto[], changed: EntryDto): string | null {
+export function dayConflict(day: DomainEntry[], changed: DomainEntry): string | null {
   if (changed.kind !== 'break') {
     const overlapping = day.some(other => other !== changed && other.kind !== 'break' && other.start !== null && other.end !== null
       && changed.start! < other.end && other.start < changed.end!
@@ -199,4 +199,39 @@ export function setDayNote(
       .onConflictDoUpdate({ target: dayNotes.date, set: values }).run()
     logChange(tx, { date, employeeId: null, field, before, after: text, actorId: actor.id, now: now.toISOString() })
   })
+}
+
+/**
+ * After a service (Dienst) got new times: its fixed shifts from `from` on that still have the old times get the new ones.
+ * Earlier days and individually changed shifts stay as they are; a cell where the new times would clash with other
+ * entries (e.g. VZ inside the shift or an extra break) is left alone and counted as skipped.
+ */
+export function adoptShiftTimes(
+  db: Db, actor: SessionUser, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan, from: IsoDate,
+  now: Date = new Date(),
+): { updated: number; skipped: number } {
+  const result = { updated: 0, skipped: 0 }
+  const timestamp = now.toISOString()
+  const outdated = db.select().from(entries).where(and(
+    eq(entries.shiftTemplateId, shiftTemplateId), eq(entries.kind, 'shift'), gte(entries.date, from),
+  )).all().filter(entry => entry.start === oldTimes.start && entry.end === oldTimes.end
+    && entry.breakStart === oldTimes.breakStart && entry.breakEnd === oldTimes.breakEnd)
+  db.transaction((tx) => {
+    for (const entry of outdated) {
+      const cell = { employeeId: entry.employeeId, date: entry.date }
+      const day = loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
+      const self = day.find(candidate => candidate.id === entry.id)!
+      const changed: EntryDto = { ...self, ...newTimes }
+      if (dayConflict(day.map(candidate => (candidate === self ? changed : candidate)), changed)) {
+        result.skipped += 1
+        continue
+      }
+      tx.update(entries).set({ ...newTimes, updatedAt: timestamp, updatedBy: actor.id }).where(eq(entries.id, entry.id)).run()
+      logChange(tx, {
+        ...cell, field: 'entry', before: describeCellDetailed(day), after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
+      })
+      result.updated += 1
+    }
+  })
+  return result
 }

@@ -1,8 +1,9 @@
-import { idParams, templateSchema } from '../../schemas'
-import { updateTemplate } from '../../services/settings'
+import { idParams, templateChangeSchema } from '../../schemas'
+import { saveTemplateChange } from '../../services/settings'
 
 export default defineServiceHandler(async (event) => {
-  await requireAdmin(event)
+  const admin = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  return updateTemplate(useDb(), id, await readValidatedBody(event, templateSchema.parse))
+  const { applyFrom, ...input } = await readValidatedBody(event, templateChangeSchema.parse)
+  return saveTemplateChange(useDb(), admin, id, input, applyFrom ?? null)
 })

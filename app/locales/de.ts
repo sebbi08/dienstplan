@@ -212,6 +212,14 @@ export const de = {
     start: 'Von', end: 'Bis', breakStart: 'Pause von', breakEnd: 'Pause bis', countsAsStaff: 'zählt als Betreuungskraft',
     pairsWithPrepTime: 'Vorschlag bei VZ/Büro',
     workingTime: 'Arbeitszeit', legalBreak: 'Pause laut ArbZG',
+    shiftChangeTitle: (name: string) => `Zeiten von „${name}“ geändert`,
+    shiftChangeText: 'Sollen auch die bereits eingetragenen Dienste und die Vorlagen die neuen Zeiten bekommen?',
+    shiftChangeFrom: 'Bestehende Einträge anpassen ab',
+    shiftChangeHint: 'Angepasst werden nur Einträge mit den bisherigen Zeiten; einzeln geänderte Dienste bleiben. Tage vor dem Datum bleiben unverändert. Bereits freigegebene Monate müssen danach neu freigegeben werden.',
+    shiftChangeApply: 'Ab Datum anpassen', shiftChangeNewOnly: 'Nur für neue Einträge',
+    shiftChangeResult: (updated: number, skipped: number, inTemplates: number) => `Gespeichert: ${updated} Einträge angepasst`
+      + (skipped ? `, ${skipped} übersprungen (überschneidet sich mit anderen Einträgen)` : '')
+      + (inTemplates ? `, ${inTemplates} in Vorlagen` : ''),
     legalBreakHint: 'Arbeitszeitgesetz § 4: Bei mehr als 6 Stunden Arbeit mindestens 30 Minuten Pause, bei mehr als 9 Stunden mindestens 45 Minuten. Pausen unter 15 Minuten zählen nicht.',
     legalBreakText: (required: number, ok: boolean) => (required === 0 ? 'keine nötig' : `mind. ${required} Min.`) + (ok ? ' ✓' : ' – fehlt'),
     pairsWithPrepTimeHint: 'Wird als voller Dienst um VZ oder Büro vorgeschlagen (z. B. F2, M, S).',

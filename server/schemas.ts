@@ -93,3 +93,5 @@ export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number()
 export const weekTemplateSaveSchema = z.object({ name: label, weekStart: isoDate })
 export const weekTemplateRenameSchema = z.object({ name: label })
 export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
+/** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */
+export const templateChangeSchema = templateSchema.extend({ applyFrom: isoDate.nullable().optional() })

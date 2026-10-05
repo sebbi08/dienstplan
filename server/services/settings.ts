@@ -1,11 +1,13 @@
 import { eq } from 'drizzle-orm'
-import { validateSpan } from '../../shared/domain/time'
-import type { CreditMode, Minutes } from '../../shared/domain/types'
-import type { CodeDto, ColorKey, CoverageRuleDto, SettingsDto, TemplateDto } from '../../shared/types/api'
+import { validateSpan, type TimeSpan } from '../../shared/domain/time'
+import type { CreditMode, IsoDate, Minutes } from '../../shared/domain/types'
+import type { CodeDto, ColorKey, CoverageRuleDto, SessionUser, SettingsDto, ShiftChangeResult, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, coverageRules, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { adoptShiftTimes } from './entries'
 import { loadCodes, loadCoverageRules, loadTemplates } from './queries'
+import { adoptShiftTimesInTemplates } from './weekTemplates'
 
 export interface TemplateInput {
   shortLabel: string
@@ -92,4 +94,22 @@ export function updateCoverageRule(db: Db, id: number, input: CoverageRuleInput)
 
 export function deleteCoverageRule(db: Db, id: number): void {
   db.delete(coverageRules).where(eq(coverageRules.id, id)).run()
+}
+
+/**
+ * Saves a service (Dienst). With applyFrom and changed times, its fixed shifts in the plan from that day on and in the
+ * week templates that still have the old times get the new ones too; otherwise only new entries use the new times.
+ */
+export function saveTemplateChange(
+  db: Db, actor: SessionUser, id: number, input: TemplateInput, applyFrom: IsoDate | null, now: Date = new Date(),
+): ShiftChangeResult {
+  return db.transaction((tx) => {
+    const old = tx.select().from(shiftTemplates).where(eq(shiftTemplates.id, id)).get()
+    const template = updateTemplate(tx, id, input)
+    const times = (span: TimeSpan): TimeSpan => ({ start: span.start, end: span.end, breakStart: span.breakStart, breakEnd: span.breakEnd })
+    const changed = old && JSON.stringify(times(old)) !== JSON.stringify(times(template))
+    if (!applyFrom || !old || !changed) return { template, updated: 0, skipped: 0, inTemplates: 0 }
+    const result = adoptShiftTimes(tx, actor, id, times(old), times(template), applyFrom, now)
+    return { template, ...result, inTemplates: adoptShiftTimesInTemplates(tx, id, times(old), times(template)) }
+  })
 }

@@ -2,14 +2,15 @@ import { and, asc, eq, gte, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
 import { isWorkday } from '../../shared/domain/targets'
-import type { IsoDate } from '../../shared/domain/types'
+import type { TimeSpan } from '../../shared/domain/time'
+import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
 import { TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import type { SessionUser, WeekTemplateApplyResult, WeekTemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { describeCellAt } from './entries'
+import { dayConflict, describeCellAt } from './entries'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 
 /** A template covers Monday to Friday. */
@@ -169,4 +170,34 @@ export function weekTemplateNames(db: Db, from: IsoDate, to: IsoDate): Map<IsoDa
     .where(and(gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to)))
     .all()
   return new Map(rows.map(row => [row.weekStart, row.name]))
+}
+
+/**
+ * After a service (Dienst) got new times: its fixed shifts in all templates that still have the old times get the new
+ * ones, unless that would clash with other entries of the same template day. Returns how many were updated.
+ */
+export function adoptShiftTimesInTemplates(db: Db, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan): number {
+  const rows = db.select({ entry: weekTemplateEntries, code: absenceCodes })
+    .from(weekTemplateEntries)
+    .leftJoin(absenceCodes, eq(weekTemplateEntries.absenceCodeId, absenceCodes.id))
+    .all()
+  const asDomain = ({ entry, code }: (typeof rows)[number]): DomainEntry => ({
+    employeeId: entry.employeeId, date: '', kind: entry.kind, codeKey: (code?.key ?? null) as CodeKey | null,
+    creditMode: entry.kind === 'code' ? (code?.creditMode ?? 'none') : 'timed',
+    start: entry.start, end: entry.end, breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff,
+  })
+  let updated = 0
+  for (const row of rows) {
+    const { entry } = row
+    const outdated = entry.kind === 'shift' && entry.shiftTemplateId === shiftTemplateId && entry.start === oldTimes.start
+      && entry.end === oldTimes.end && entry.breakStart === oldTimes.breakStart && entry.breakEnd === oldTimes.breakEnd
+    if (!outdated) continue
+    const day = rows.filter(other => other.entry.weekTemplateId === entry.weekTemplateId
+      && other.entry.employeeId === entry.employeeId && other.entry.weekday === entry.weekday)
+    const changed = { ...asDomain(row), ...newTimes }
+    if (dayConflict(day.map(other => (other === row ? changed : asDomain(other))), changed)) continue
+    db.update(weekTemplateEntries).set(newTimes).where(eq(weekTemplateEntries.id, entry.id)).run()
+    updated += 1
+  }
+  return updated
 }

@@ -3,7 +3,7 @@ import { todayIso } from '#shared/domain/dates'
 import { formatDuration, formatTime, parseTime } from '#shared/domain/time'
 import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CreditMode } from '#shared/domain/types'
-import { COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type TemplateDto } from '#shared/types/api'
+import { COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type ShiftChangeResult, type TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 interface TemplateForm {
@@ -84,11 +84,43 @@ async function saveTemplate(form: TemplateForm) {
     shortLabel: form.shortLabel, label: form.label, start, end, breakStart, breakEnd,
     countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime, sortOrder: form.sortOrder,
   }
-  const ok = await run(() => form.id
-    ? $fetch<unknown>(`/api/shift-templates/${form.id}`, { method: 'PUT', body })
-    : $fetch<unknown>('/api/shift-templates', { method: 'POST', body }), de.common.saved)
-  if (ok && !form.id) newTemplate.value = emptyTemplate()
+  if (!form.id) {
+    if (await run(() => $fetch<unknown>('/api/shift-templates', { method: 'POST', body }), de.common.saved)) newTemplate.value = emptyTemplate()
+    return
+  }
+  // Changed times: ask whether existing shifts (from a date on) and templates get them too.
+  const saved = settings.value?.templates.find(template => template.id === form.id)
+  const timesChanged = saved && [saved.start, saved.end, saved.breakStart, saved.breakEnd].join() !== [start, end, breakStart, breakEnd].join()
+  const applyFrom = timesChanged ? await askShiftChange(form.shortLabel || form.label) : null
+  if (applyFrom === undefined) return
+  let result: ShiftChangeResult | undefined
+  await run(async () => {
+    result = await $fetch<ShiftChangeResult>(`/api/shift-templates/${form.id}`, { method: 'PUT', body: { ...body, applyFrom } })
+  })
+  if (result) {
+    toast.add({
+      title: applyFrom ? de.settings.shiftChangeResult(result.updated, result.skipped, result.inTemplates) : de.common.saved,
+      color: 'success',
+    })
+  }
 }
+
+const shiftChange = reactive<{ open: boolean; name: string; resolve: ((value: string | null | undefined) => void) | null }>({
+  open: false, name: '', resolve: null,
+})
+/** Resolves with the date to adjust existing shifts from, null for "new entries only", undefined when cancelled. */
+function askShiftChange(name: string): Promise<string | null | undefined> {
+  return new Promise((resolve) => {
+    Object.assign(shiftChange, { open: true, name, resolve })
+  })
+}
+function settleShiftChange(value: string | null | undefined) {
+  shiftChange.resolve?.(value)
+  shiftChange.resolve = null
+}
+watch(() => shiftChange.open, (isOpen) => {
+  if (!isOpen) settleShiftChange(undefined) // closed without a choice = cancel (no-op after a choice)
+})
 
 async function deleteTemplate(form: TemplateForm) {
   if (form.id && await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/shift-templates/${form.id}`, { method: 'DELETE' }), de.common.deleted)
@@ -176,6 +208,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
       </div>
       <p class="text-xs text-gray-500">{{ de.settings.legalBreakHint }}</p>
     </section>
+
+    <SettingsShiftChangeModal v-model:open="shiftChange.open" :name="shiftChange.name" @choose="settleShiftChange" />
 
     <WeekTemplatesSection />
 
