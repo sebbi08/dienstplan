@@ -1,12 +1,13 @@
 import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
 import type { Warning } from '../domain/warnings'
 
 export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 'violet', 'orange'] as const
 export type ColorKey = typeof COLOR_KEYS[number]
 
-export type Role = 'admin' | 'observer' | 'terminal'
+export type Role = 'provider' | 'admin' | 'observer' | 'terminal'
 export type ClosureMode = 'vacation' | 'closure_day'
 export type NoteField = 'info1' | 'info2'
 export type ChangeField = 'entry' | NoteField
@@ -213,6 +214,8 @@ export interface EmployeeListItemDto {
   currentWeeklyMinutes: number | null
   /** Working days bitmask valid today (bit 0 = Monday). */
   currentWorkdays: number
+  /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
+  contract?: EmployeeContractDto
 }
 
 export interface EmployeeDetailDto extends EmployeeListItemDto {
@@ -247,8 +250,19 @@ export interface SettingsDto {
   coverageRules: CoverageRuleDto[]
 }
 
+export interface EmployeeContractDto {
+  employedSince: IsoDate | null
+  jobKey: JobKey | null
+  /** Free job title, only with jobKey 'other'. */
+  jobOther: string | null
+  payGroup: PayGroup | null
+  payLevel: number | null
+}
+
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null
+  /** Set by the Träger: whether the Leitung sees the contract data of the employees. */
+  contractVisibleToAdmins: boolean
 }
 
 export interface TerminalPersonDto { employeeId: number; name: string; clockedIn: boolean }

@@ -10,6 +10,12 @@ export const employees = sqliteTable('employees', {
   pinHash: text('pin_hash'),
   pinFailed: integer('pin_failed').notNull().default(0),
   pinLockedUntil: text('pin_locked_until'),
+  // Contract data, edited only by the Träger (provider); see shared/domain/tvoed.ts.
+  employedSince: text('employed_since'),
+  jobKey: text('job_key'),
+  jobOther: text('job_other'),
+  payGroup: text('pay_group'),
+  payLevel: integer('pay_level'),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
@@ -41,7 +47,7 @@ export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: text('role', { enum: ['admin', 'observer', 'terminal'] }).notNull(),
+  role: text('role', { enum: ['provider', 'admin', 'observer', 'terminal'] }).notNull(),
   employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'set null' }).unique(),
   mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),
   failedLogins: integer('failed_logins').notNull().default(0),

@@ -1,5 +1,6 @@
-import { and, asc, count, eq } from 'drizzle-orm'
-import type { Role, UserDto } from '../../shared/types/api'
+import { and, asc, count, eq, inArray } from 'drizzle-orm'
+import { MANAGER_ROLES } from '../../shared/domain/roles'
+import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -50,12 +51,18 @@ function assertEmployeeLink(db: Db, role: Role, employeeId: number | null, userI
   if (linked && linked.id !== userId) throw new ServiceError(409, 'employee_taken')
 }
 
-function activeAdminCount(db: Db): number {
+function activeCount(db: Db, roles: Role[]): number {
   return db.select({ value: count() }).from(users)
-    .where(and(eq(users.role, 'admin'), eq(users.active, true))).get()!.value
+    .where(and(inArray(users.role, roles), eq(users.active, true))).get()!.value
 }
 
-export function createUser(db: Db, input: UserInput): UserDto {
+/** Only a Träger may create, change, appoint or reset Träger accounts. */
+function assertMayManage(actor: SessionUser, ...roles: Role[]): void {
+  if (actor.role !== 'provider' && roles.includes('provider')) throw new ServiceError(403, 'provider_only')
+}
+
+export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDto {
+  assertMayManage(actor, input.role)
   const username = normalizeUsername(input.username)
   if (!username) throw new ServiceError(400, 'username_required')
   if (db.select().from(users).where(eq(users.username, username)).get()) {
@@ -70,11 +77,13 @@ export function createUser(db: Db, input: UserInput): UserDto {
   return findUser(db, row.id)
 }
 
-export function updateUser(db: Db, id: number, update: UserUpdate): UserDto {
+export function updateUser(db: Db, actor: SessionUser, id: number, update: UserUpdate): UserDto {
   const user = findUser(db, id)
+  assertMayManage(actor, user.role, update.role)
   assertEmployeeLink(db, update.role, update.employeeId, id)
-  const losesAdmin = user.role === 'admin' && user.active && (update.role !== 'admin' || !update.active)
-  if (losesAdmin && activeAdminCount(db) <= 1) throw new ServiceError(409, 'last_admin')
+  const loses = (roles: Role[]) => roles.includes(user.role) && user.active && (!roles.includes(update.role) || !update.active)
+  if (loses(['provider']) && activeCount(db, ['provider']) <= 1) throw new ServiceError(409, 'last_provider')
+  if (loses([...MANAGER_ROLES]) && activeCount(db, [...MANAGER_ROLES]) <= 1) throw new ServiceError(409, 'last_admin')
   db.update(users)
     .set({
       role: update.role, employeeId: update.employeeId, active: update.active,
@@ -85,8 +94,9 @@ export function updateUser(db: Db, id: number, update: UserUpdate): UserDto {
   return findUser(db, id)
 }
 
-export function resetPassword(db: Db, id: number, password: string): void {
+export function resetPassword(db: Db, actor: SessionUser, id: number, password: string): void {
   const user = findUser(db, id)
+  assertMayManage(actor, user.role)
   assertPasswordStrength(password)
   db.update(users).set({
     passwordHash: hashPassword(password), mustChangePassword: user.role !== 'terminal', failedLogins: 0, lockedUntil: null,

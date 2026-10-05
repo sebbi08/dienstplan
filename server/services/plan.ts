@@ -3,6 +3,7 @@ import { computeDay, computeRange, summarize } from '../../shared/domain/balance
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayOn } from '../../shared/domain/holidays'
+import { isManager } from '../../shared/domain/roles'
 import { changeHistory, diffCells, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
 import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import { recordedMinutes } from '../../shared/domain/timeRecords'
@@ -116,7 +117,7 @@ function toChangeDtos(history: Map<string, ReleasedChange[]>): Record<string, Ch
 }
 
 export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: number, today: IsoDate): MonthPlanDto {
-  const isAdmin = viewer.role === 'admin'
+  const isAdmin = isManager(viewer.role)
   const releases = loadReleases(db, year, month)
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')

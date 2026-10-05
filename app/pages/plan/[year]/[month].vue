@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ApplyMode, CodeDto, EntryDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import { isManager } from '#shared/domain/roles'
 import { fullShiftOptions } from '#shared/domain/suggest'
 import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
@@ -11,7 +12,7 @@ const route = useRoute()
 const year = computed(() => Number(route.params.year))
 const month = computed(() => Number(route.params.month))
 const { user } = useUserSession()
-const isAdmin = computed(() => user.value?.role === 'admin')
+const isAdmin = computed(() => isManager(user.value?.role))
 const toast = useToast()
 const confirm = useConfirm()
 

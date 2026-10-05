@@ -15,6 +15,8 @@ const USER_ROUTES = [
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
 const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']
+/** Routes only the Träger (provider) may call; they must check with requireProvider(. */
+const PROVIDER_ROUTES = ['employees/[id]/contract.put.ts', 'contract-visibility.put.ts']
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 
@@ -30,13 +32,16 @@ function source(route: string): string {
 describe('API route permissions', () => {
   it('finds the API routes', () => {
     expect(routes.length).toBeGreaterThan(30)
-    for (const route of [...USER_ROUTES, ...TERMINAL_ROUTES, ...PUBLIC_ROUTES]) expect(routes).toContain(route)
+    for (const route of [...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...PUBLIC_ROUTES]) expect(routes).toContain(route)
   })
 
   it.each(routes)('%s is protected as classified', (route) => {
     const code = source(route)
     if (PUBLIC_ROUTES.includes(route)) {
-      expect(code).not.toMatch(/require(Admin|User|Terminal)\(/)
+      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider)\(/)
+    }
+    else if (PROVIDER_ROUTES.includes(route)) {
+      expect(code).toContain('requireProvider(')
     }
     else if (TERMINAL_ROUTES.includes(route)) {
       expect(code).toContain('requireTerminal(')

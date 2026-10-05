@@ -42,18 +42,18 @@ export function seedDefaults(db: Db): void {
   if (isEmpty(db, coverageRules)) db.insert(coverageRules).values(DEFAULT_COVERAGE_RULES).run()
 }
 
-/** Creates the first admin from environment variables when no user exists yet. */
+/** Creates the first account (as Träger) from environment variables when no user exists yet. */
 export function ensureInitialAdmin(db: Db, username: string | undefined, password: string | undefined): boolean {
   const name = normalizeUsername(username ?? '')
   if (!name || !password || !isEmpty(db, users)) return false
   db.insert(users).values({
-    username: name, passwordHash: hashPassword(password), role: 'admin', mustChangePassword: true,
+    username: name, passwordHash: hashPassword(password), role: 'provider', mustChangePassword: true,
   }).run()
   return true
 }
 
 /**
- * Emergency access: sets a new password for an existing user, makes them an active admin and
+ * Emergency access: sets a new password for an existing user, makes them an active Träger (provider) and
  * forces a password change at the next login. Returns false when nothing was changed.
  */
 export function resetAdminFromEnv(db: Db, username: string | undefined, password: string | undefined): boolean {
@@ -63,7 +63,7 @@ export function resetAdminFromEnv(db: Db, username: string | undefined, password
   if (!user) return false
   db.update(users).set({
     passwordHash: hashPassword(password), mustChangePassword: true, failedLogins: 0,
-    lockedUntil: null, active: true, role: 'admin',
+    lockedUntil: null, active: true, role: 'provider',
   }).where(eq(users.id, user.id)).run()
   return true
 }

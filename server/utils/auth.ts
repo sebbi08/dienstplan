@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import { isManager } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
@@ -32,8 +33,16 @@ export async function requireTerminal(event: H3Event): Promise<SessionUser> {
   return user
 }
 
+/** Träger or Leitung (everything that runs the facility). */
 export async function requireAdmin(event: H3Event): Promise<SessionUser> {
   const user = await requireUser(event)
-  if (user.role !== 'admin') throw httpError(403, 'forbidden')
+  if (!isManager(user.role)) throw httpError(403, 'forbidden')
+  return user
+}
+
+/** Only the Träger: contract data of employees and Träger accounts. */
+export async function requireProvider(event: H3Event): Promise<SessionUser> {
+  const user = await requireUser(event)
+  if (user.role !== 'provider') throw httpError(403, 'forbidden')
   return user
 }

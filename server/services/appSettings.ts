@@ -26,5 +26,18 @@ export function activeTrackingFrom(db: Db, today: IsoDate): IsoDate | null {
 }
 
 export function getAppSettings(db: Db): AppSettingsDto {
-  return { timeTrackingFrom: getTimeTrackingFrom(db) }
+  return { timeTrackingFrom: getTimeTrackingFrom(db), contractVisibleToAdmins: contractVisibleToAdmins(db) }
+}
+
+const CONTRACT_VISIBLE_TO_ADMINS = 'contract_visible_to_admins'
+
+/** Whether the Leitung may see the employees' contract data (the Träger decides; default no). */
+export function contractVisibleToAdmins(db: Db): boolean {
+  return db.select().from(appSettings).where(eq(appSettings.key, CONTRACT_VISIBLE_TO_ADMINS)).get()?.value === 'true'
+}
+
+export function setContractVisibleToAdmins(db: Db, visible: boolean): void {
+  const value = String(visible)
+  db.insert(appSettings).values({ key: CONTRACT_VISIBLE_TO_ADMINS, value })
+    .onConflictDoUpdate({ target: appSettings.key, set: { value } }).run()
 }

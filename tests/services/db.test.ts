@@ -20,7 +20,7 @@ describe('database setup', () => {
     expect(ensureInitialAdmin(db, 'leitung', 'start-password')).toBe(true)
     expect(ensureInitialAdmin(db, 'other', 'start-password')).toBe(false)
     const [admin] = db.select().from(users).all()
-    expect(admin).toMatchObject({ username: 'leitung', role: 'admin', mustChangePassword: true })
+    expect(admin).toMatchObject({ username: 'leitung', role: 'provider', mustChangePassword: true })
     expect(verifyPassword('start-password', admin!.passwordHash)).toBe(true)
   })
   it('stores the initial admin name in lower case', () => {
@@ -45,7 +45,7 @@ describe('resetAdminFromEnv', () => {
     expect(resetAdminFromEnv(db, ' Leitung ', 'reset-password')).toBe(true)
     const row = db.select().from(users).where(eq(users.id, id)).get()!
     expect(row).toMatchObject({
-      role: 'admin', active: true, mustChangePassword: true, failedLogins: 0, lockedUntil: null,
+      role: 'provider', active: true, mustChangePassword: true, failedLogins: 0, lockedUntil: null,
     })
     expect(verifyPassword('reset-password', row.passwordHash)).toBe(true)
   })

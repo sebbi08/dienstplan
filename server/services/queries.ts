@@ -21,6 +21,12 @@ export interface EmployeeRecord {
   sortOrder: number
   leftOn: IsoDate | null
   info: EmploymentInfo
+  // Contract data (see shared/domain/tvoed.ts); who may see it is decided in the employees service.
+  employedSince: IsoDate | null
+  jobKey: string | null
+  jobOther: string | null
+  payGroup: string | null
+  payLevel: number | null
 }
 
 export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {

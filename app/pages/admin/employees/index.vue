@@ -2,14 +2,22 @@
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { MONDAY_TO_FRIDAY } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
-import type { BalanceDto, EmployeeListItemDto, LeaveAccountDto } from '#shared/types/api'
+import type { AppSettingsDto, BalanceDto, EmployeeListItemDto, LeaveAccountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
+import { contractSummary } from '~/utils/contract'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { workdaysText } from '~/utils/workdays'
 
 /** All employees in one place: master data, overtime balance (chosen month) and leave account (that month's year). */
 const today = parseIsoDate(todayIso())
+const { user } = useUserSession()
+const isProvider = computed(() => user.value?.role === 'provider')
+const { data: appSettings, refresh: refreshAppSettings } = await useFetch<AppSettingsDto>('/api/app-settings')
+const runVisibility = useAction(refreshAppSettings)
+function setContractVisible(visible: boolean) {
+  runVisibility(() => $fetch<unknown>('/api/contract-visibility', { method: 'PUT', body: { visible } }), de.common.saved)
+}
 const year = ref(today.year)
 const month = ref(today.month)
 
@@ -91,6 +99,10 @@ const hint = 'text-xs text-gray-500'
       <h1 class="text-2xl font-semibold">{{ de.employees.title }}</h1>
       <MonthNav :year="year" :month="month" @change="change" />
     </div>
+    <div v-if="isProvider && appSettings" class="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-gray-200">
+      <USwitch :model-value="appSettings.contractVisibleToAdmins" :label="de.contract.visible" @update:model-value="setContractVisible" />
+      <span class="text-xs text-gray-500">{{ de.contract.visibleHint }}</span>
+    </div>
 
     <!-- One card per employee, with space in between. -->
     <div class="space-y-5">
@@ -112,6 +124,10 @@ const hint = 'text-xs text-gray-500'
               </span>
             </div>
           </td>
+        </tr>
+        <tr v-if="employee.contract" class="border-t border-gray-100">
+          <td :class="label">{{ de.contract.rowLabel }}</td>
+          <td :class="value">{{ contractSummary(employee.contract, todayIso()) || de.contract.empty }}</td>
         </tr>
         <tr class="border-t border-gray-100">
           <td :class="label">{{ de.balances.account }}</td>

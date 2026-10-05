@@ -12,6 +12,9 @@ const id = Number(route.params.id)
 const { data: employee, refresh } = await useFetch<EmployeeDetailDto>(`/api/employees/${id}`)
 const run = useAction(refresh)
 const toast = useToast()
+const { user } = useUserSession()
+// Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
+const isProvider = computed(() => user.value?.role === 'provider')
 
 const master = reactive({ name: '', shortName: '', leftOn: '' })
 watch(employee, (value) => {
@@ -88,6 +91,10 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <UFormField :label="de.employees.leftOn"><UInput v-model="master.leftOn" type="date" class="w-full" /></UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
+
+    <EmployeesContractSection
+      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="isProvider" @saved="refresh"
+    />
 
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.pin }}</h2>

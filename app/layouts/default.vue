@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { isManager } from '#shared/domain/roles'
 import { de } from '~/locales/de'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -12,7 +13,7 @@ const links = computed(() => {
   const plan = { label: de.nav.plan, to: `/plan/${today.year}/${today.month}` }
   if (user.value.role === 'terminal') return [{ label: de.nav.stamp, to: '/terminal' }, plan]
   const myPlan = { label: de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
-  if (user.value.role === 'admin') {
+  if (isManager(user.value.role)) {
     return [
       plan,
       // An admin linked to an employee stamps on "Mein Dienstplan" too.

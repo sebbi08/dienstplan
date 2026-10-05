@@ -28,10 +28,10 @@ describe('auth service', () => {
     expect(login(db, 'leitung', TEST_PASSWORD, new Date('2026-10-05T08:16:00Z')).ok).toBe(true)
   })
   it('rejects inactive users', () => {
-    addUser(db, 'leitung', 'admin')
+    const provider = addUser(db, 'traeger', 'provider')
     const anna = addEmployee(db, 'Anna')
     const observer = addUser(db, 'anna', 'observer', anna)
-    updateUser(db, observer.id, { role: 'observer', employeeId: anna, active: false })
+    updateUser(db, provider, observer.id, { role: 'observer', employeeId: anna, active: false })
     expect(login(db, 'anna', TEST_PASSWORD)).toEqual({ ok: false, reason: 'invalid' })
     expect(getActiveUser(db, observer.id)).toBeNull()
   })

@@ -1,11 +1,13 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
+import type { JobKey, PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
-import type { EmployeeDetailDto, EmployeeListItemDto, SessionUser } from '../../shared/types/api'
+import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { balanceAdjustments, employeeHours, employees, leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor } from './closures'
 import { loadEmployees, type EmployeeRecord } from './queries'
 
@@ -38,7 +40,19 @@ export interface EmployeeUpdate {
   leftOn: IsoDate | null
 }
 
-function toListItem(employee: EmployeeRecord, today: IsoDate): EmployeeListItemDto {
+/** Contract data for this viewer: always for the Träger, for the Leitung only when the Träger allows it. */
+function mayViewContract(db: Db, viewer: Role): boolean {
+  return viewer === 'provider' || (viewer === 'admin' && contractVisibleToAdmins(db))
+}
+
+function contractOf(employee: EmployeeRecord): EmployeeContractDto {
+  return {
+    employedSince: employee.employedSince, jobKey: employee.jobKey as JobKey | null, jobOther: employee.jobOther,
+    payGroup: employee.payGroup as PayGroup | null, payLevel: employee.payLevel,
+  }
+}
+
+function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: boolean): EmployeeListItemDto {
   return {
     id: employee.id, name: employee.name, shortName: employee.shortName,
     sortOrder: employee.sortOrder, leftOn: employee.leftOn,
@@ -46,6 +60,7 @@ function toListItem(employee: EmployeeRecord, today: IsoDate): EmployeeListItemD
     currentWorkdays: weeklyMinutesOn(employee.info, today) !== null
       ? workdaysOn(employee.info, today)
       : employee.info.hours[0]?.workdays ?? MONDAY_TO_FRIDAY,
+    ...(withContract ? { contract: contractOf(employee) } : {}),
   }
 }
 
@@ -59,15 +74,16 @@ function assertEmployee(db: Db, id: number): void {
   if (!db.select().from(employees).where(eq(employees.id, id)).get()) throw new ServiceError(404, 'employee_not_found')
 }
 
-export function listEmployees(db: Db, today: IsoDate): EmployeeListItemDto[] {
-  return loadEmployees(db).map(employee => toListItem(employee, today))
+export function listEmployees(db: Db, today: IsoDate, viewer: Role): EmployeeListItemDto[] {
+  const withContract = mayViewContract(db, viewer)
+  return loadEmployees(db).map(employee => toListItem(employee, today, withContract))
 }
 
-export function getEmployee(db: Db, id: number, today: IsoDate): EmployeeDetailDto {
+export function getEmployee(db: Db, id: number, today: IsoDate, viewer: Role): EmployeeDetailDto {
   const employee = loadEmployees(db).find(candidate => candidate.id === id)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   return {
-    ...toListItem(employee, today),
+    ...toListItem(employee, today, mayViewContract(db, viewer)),
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
@@ -162,4 +178,12 @@ export function setEntitlement(
   else {
     db.insert(leaveEntitlements).values({ employeeId, year, ...value }).run()
   }
+}
+
+/** Contract data of an employee; only the Träger may change it (checked by the route). */
+export function setContract(db: Db, id: number, contract: EmployeeContractDto): void {
+  assertEmployee(db, id)
+  const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
+  if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
+  db.update(employees).set({ ...contract, jobOther }).where(eq(employees.id, id)).run()
 }

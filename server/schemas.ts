@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
 import { COLOR_KEYS } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
@@ -75,10 +76,10 @@ export const coverageRuleSchema = z.object({
 
 export const userCreateSchema = z.object({
   username: z.string().max(50), password: z.string().max(200),
-  role: z.enum(['admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(),
+  role: z.enum(['provider', 'admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(),
 })
 export const userUpdateSchema = z.object({
-  role: z.enum(['admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
+  role: z.enum(['provider', 'admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
 })
 export const passwordResetSchema = z.object({ password: z.string().max(200) })
 export const appSettingsSchema = z.object({ timeTrackingFrom: isoDate.nullable() })
@@ -95,3 +96,8 @@ export const weekTemplateRenameSchema = z.object({ name: label })
 export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
 /** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */
 export const templateChangeSchema = templateSchema.extend({ applyFrom: isoDate.nullable().optional() })
+export const contractSchema = z.object({
+  employedSince: isoDate.nullable(), jobKey: z.enum(JOB_KEYS).nullable(), jobOther: z.string().max(100).nullable(),
+  payGroup: z.enum(PAY_GROUPS).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
+})
+export const contractVisibilitySchema = z.object({ visible: z.boolean() })

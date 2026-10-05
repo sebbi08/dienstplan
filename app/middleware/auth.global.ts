@@ -1,3 +1,5 @@
+import { isManager } from '#shared/domain/roles'
+
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn, user } = useUserSession()
   if (to.path === '/login') return loggedIn.value ? navigateTo('/') : undefined
@@ -7,5 +9,5 @@ export default defineNuxtRouteMiddleware((to) => {
     return to.path === '/terminal' || to.path.startsWith('/plan/') ? undefined : navigateTo('/terminal')
   }
   if (user.value?.mustChangePassword && to.path !== '/account/password') return navigateTo('/account/password')
-  if ((to.path.startsWith('/admin') || to.path === '/terminal') && user.value?.role !== 'admin') return navigateTo('/')
+  if ((to.path.startsWith('/admin') || to.path === '/terminal') && !isManager(user.value?.role)) return navigateTo('/')
 })
