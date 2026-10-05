@@ -70,8 +70,11 @@ function markClass(item: { pending: boolean; changed: boolean }): string {
   return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''
 }
 
-/** Admin-only: current overtime balance ("Stand heute") per employee, shown under the name. */
-const balanceToday = computed(() => new Map((props.plan.admin?.balances ?? []).map(balance => [balance.employeeId, balance.today])))
+/** Admin-only, under each name: balance today and the balance at the end of the shown month with all its planned shifts. */
+const headerBalances = computed(() => new Map((props.plan.admin?.balances ?? []).map(balance => [balance.employeeId, [
+  { label: de.plan.headerToday, hint: de.plan.balanceTodayHint, minutes: balance.today },
+  { label: de.plan.headerPlanned, hint: de.plan.balancePlannedHint, minutes: balance.monthEnd },
+]])))
 
 /** Admin-only month footer: carry-over, this month's difference and the resulting total per employee. */
 const totals = computed(() => {
@@ -168,12 +171,15 @@ const rows = computed(() => props.plan.days.map((day) => {
           <th class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
           <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">
             <div>{{ employee.name }}</div>
-            <div
-              v-if="balanceToday.has(employee.id)" class="font-normal" :class="balanceClass(balanceToday.get(employee.id)!)"
-              :title="de.plan.balanceTodayHint"
-            >
-              {{ formatSignedDuration(balanceToday.get(employee.id)!) }} h
-            </div>
+            <template v-if="headerBalances.has(employee.id)">
+              <div
+                v-for="line in headerBalances.get(employee.id)" :key="line.label"
+                class="whitespace-nowrap font-normal" :title="line.hint"
+              >
+                <span class="text-gray-500">{{ line.label }}</span>
+                <span class="ml-1" :class="balanceClass(line.minutes)">{{ formatSignedDuration(line.minutes) }} h</span>
+              </div>
+            </template>
           </th>
           <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
           <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
