@@ -16,6 +16,9 @@ const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings')
 const run = useAction(refresh)
 const toast = useToast()
 const confirm = useConfirm()
+const { user } = useUserSession()
+// The database download contains contract data and password hashes, so only the Träger gets it.
+const isProvider = computed(() => user.value?.role === 'provider')
 
 const { data: appSettings, refresh: refreshApp } = await useFetch<AppSettingsDto>('/api/app-settings')
 const trackingFrom = ref('')
@@ -257,7 +260,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
       </table>
     </section>
 
-    <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+    <section v-if="isProvider" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.settings.backup }}</h2>
       <p class="text-sm text-gray-600">{{ de.settings.backupHint }}</p>
       <a href="/api/backup" download class="inline-flex items-center gap-1 rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700">

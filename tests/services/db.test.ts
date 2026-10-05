@@ -1,4 +1,5 @@
-import { eq } from 'drizzle-orm'
+import { readFileSync } from 'node:fs'
+import { eq, sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { absenceCodes, coverageRules, shiftTemplates, users } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
@@ -58,5 +59,21 @@ describe('resetAdminFromEnv', () => {
     expect(resetAdminFromEnv(db, 'leitung', '')).toBe(false)
     expect(resetAdminFromEnv(db, 'leitung', 'kurz')).toBe(false)
     expect(db.select().from(users).where(eq(users.id, id)).get()).toEqual(before)
+  })
+})
+
+describe('migration to the Träger role', () => {
+  it('makes the first active administrator the Träger, once', () => {
+    const db = createTestDb()
+    const inactive = addUser(db, 'alt', 'admin')
+    db.update(users).set({ active: false }).where(eq(users.id, inactive.id)).run()
+    const leitung = addUser(db, 'leitung', 'admin')
+    const second = addUser(db, 'stellvertretung', 'admin')
+    const statement = readFileSync('server/db/migrations/0012_provider_role_and_contract.sql', 'utf8')
+      .split('--> statement-breakpoint').map(part => part.trim()).find(part => part.startsWith('UPDATE `users`'))!
+    db.run(sql.raw(statement))
+    db.run(sql.raw(statement)) // a second run changes nothing
+    const roles = Object.fromEntries(db.select().from(users).all().map(user => [user.id, user.role]))
+    expect(roles).toEqual({ [inactive.id]: 'admin', [leitung.id]: 'provider', [second.id]: 'admin' })
   })
 })

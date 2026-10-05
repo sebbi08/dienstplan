@@ -248,7 +248,7 @@ export const de = {
     creditModeConfirm: 'Die geänderte Anrechnung gilt auch für alle bereits eingetragenen Tage mit diesem Code. Dadurch ändern sich die Stundenkonten rückwirkend. Trotzdem speichern?',
     rules: 'Pflichtdienste', rulesHint: 'Die App warnt an jedem Werktag, an dem weniger Dienste mit diesem Beginn (und optional Ende) eingetragen sind.',
     ruleStart: 'Beginn', ruleEnd: 'Ende (optional)', minCount: 'Mindestanzahl', active: 'aktiv', addRule: 'Pflichtdienst hinzufügen',
-    backup: 'Datensicherung', backupHint: 'Lädt eine vollständige Kopie der Datenbank herunter. Bewahre sie an einem sicheren Ort auf.',
+    backup: 'Datensicherung', backupHint: 'Lädt eine vollständige Kopie der Datenbank herunter (nur für den Träger, weil sie auch Vertragsangaben enthält). Bewahre sie an einem sicheren Ort auf.',
     backupDownload: 'Datenbank herunterladen', invalidTime: 'Bitte gültige Uhrzeiten angeben.',
     timeTracking: 'Zeiterfassung', timeTrackingFrom: 'Zeiterfassung ab',
     timeTrackingHint: 'Ab diesem Tag zählt für vergangene Tage die gestempelte Zeit. Leer = Zeiterfassung aus.',
