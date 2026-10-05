@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { breakMinutes, breakRuleViolated, nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
+import { breakMinutes, breakRuleViolated, nowInBerlin, recordedMinutes, requiredBreakMinutes, shiftBreakCheck } from '../../shared/domain/timeRecords'
 
 const span = (start: number, end: number | null) => ({ start, end })
 
@@ -34,5 +34,20 @@ describe('nowInBerlin', () => {
     expect(nowInBerlin(new Date('2026-10-25T00:30:00Z'))).toEqual({ date: '2026-10-25', minutes: 150 }) // still CEST
     expect(nowInBerlin(new Date('2026-10-25T01:30:00Z'))).toEqual({ date: '2026-10-25', minutes: 150 }) // CET again
     expect(nowInBerlin(new Date('2026-12-31T23:30:00Z'))).toEqual({ date: '2027-01-01', minutes: 30 })
+  })
+})
+
+describe('break rule for planned shifts (§ 4 ArbZG)', () => {
+  const span = (start: number, end: number, breakStart: number | null = null, breakEnd: number | null = null) =>
+    ({ start, end, breakStart, breakEnd })
+  it('requires 30 minutes above 6 hours and 45 minutes above 9 hours of work', () => {
+    expect([360, 361, 540, 541].map(requiredBreakMinutes)).toEqual([0, 30, 30, 45])
+  })
+  it('checks the working time after the break', () => {
+    expect(shiftBreakCheck(span(420, 795))).toEqual({ worked: 375, required: 30, ok: false }) // 7:00–13:15 without break
+    expect(shiftBreakCheck(span(450, 945, 700, 730))).toEqual({ worked: 465, required: 30, ok: true })
+    expect(shiftBreakCheck(span(660, 960))).toEqual({ worked: 300, required: 0, ok: true })
+    expect(shiftBreakCheck(span(420, 1020, 700, 730))).toEqual({ worked: 570, required: 45, ok: false })
+    expect(shiftBreakCheck(span(420, 820, 600, 610)).ok).toBe(false) // 10 minutes do not count as a break
   })
 })

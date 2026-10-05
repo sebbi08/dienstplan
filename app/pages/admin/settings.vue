@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { formatTime, parseTime } from '#shared/domain/time'
+import { formatDuration, formatTime, parseTime } from '#shared/domain/time'
+import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CreditMode } from '#shared/domain/types'
 import { COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -58,6 +59,19 @@ const creditItems = (['daily_target', 'timed', 'none'] as CreditMode[]).map(mode
 
 function invalidTime() {
   toast.add({ title: de.settings.invalidTime, color: 'error' })
+}
+
+/** Working time of the (possibly unsaved) shift and the break § 4 ArbZG requires for it; '–' while times are incomplete. */
+function breakInfo(form: TemplateForm): { worked: string; text: string; ok: boolean } {
+  const start = parseTime(form.start)
+  const end = parseTime(form.end)
+  const breakStart = optionalTime(form.breakStart)
+  const breakEnd = optionalTime(form.breakEnd)
+  if (start === null || end === null || end <= start || breakStart === undefined || breakEnd === undefined) {
+    return { worked: '–', text: '', ok: true }
+  }
+  const check = shiftBreakCheck({ start, end, breakStart: breakEnd === null ? null : breakStart, breakEnd: breakStart === null ? null : breakEnd })
+  return { worked: `${formatDuration(check.worked)} h`, text: de.settings.legalBreakText(check.required, check.ok), ok: check.ok }
 }
 
 async function saveTemplate(form: TemplateForm) {
@@ -130,6 +144,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
               <th :class="cell">{{ de.settings.shortLabel }}</th><th :class="cell">{{ de.settings.label }}</th>
               <th :class="cell">{{ de.settings.start }}</th><th :class="cell">{{ de.settings.end }}</th>
               <th :class="cell">{{ de.settings.breakStart }}</th><th :class="cell">{{ de.settings.breakEnd }}</th>
+              <th :class="cell">{{ de.settings.workingTime }}</th>
+              <th :class="cell" :title="de.settings.legalBreakHint">{{ de.settings.legalBreak }}</th>
               <th :class="cell">{{ de.settings.countsAsStaff }}</th>
               <th :class="cell" :title="de.settings.pairsWithPrepTimeHint">{{ de.settings.pairsWithPrepTime }}</th>
               <th :class="cell">{{ de.settings.sortOrder }}</th><th />
@@ -143,6 +159,10 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
               <td :class="cell"><TimeInput v-model="form.end" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
               <td :class="cell"><TimeInput v-model="form.breakStart" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
               <td :class="cell"><TimeInput v-model="form.breakEnd" class="w-20" @keydown.enter="saveTemplate(form)" /></td>
+              <td :class="cell" class="whitespace-nowrap font-medium">{{ breakInfo(form).worked }}</td>
+              <td :class="[cell, breakInfo(form).ok ? 'text-green-700' : 'font-medium text-red-700']" class="whitespace-nowrap">
+                {{ breakInfo(form).text }}
+              </td>
               <td :class="cell" class="text-center"><input v-model="form.countsAsStaff" type="checkbox"></td>
               <td :class="cell" class="text-center"><input v-model="form.pairsWithPrepTime" type="checkbox" :title="de.settings.pairsWithPrepTimeHint"></td>
               <td :class="cell"><input v-model.number="form.sortOrder" type="number" class="w-14 rounded border border-gray-300 px-1 py-0.5"></td>
@@ -154,6 +174,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
           </tbody>
         </table>
       </div>
+      <p class="text-xs text-gray-500">{{ de.settings.legalBreakHint }}</p>
     </section>
 
     <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">

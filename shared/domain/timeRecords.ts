@@ -1,3 +1,4 @@
+import { netMinutes, type TimeSpan } from './time'
 import type { IsoDate, Minutes } from './types'
 
 /** A clocked period of one day; end null = still clocked in. */
@@ -30,11 +31,14 @@ export function breakMinutes(records: RecordSpan[]): number {
   return total
 }
 
-/** More than 6 h needs 30 min break, more than 9 h needs 45 min. Only a hint; nothing is deducted. */
+/** Minimum break by § 4 ArbZG for the given working time: more than 6 h → 30 min, more than 9 h → 45 min. */
+export function requiredBreakMinutes(workedMinutes: number): number {
+  return workedMinutes > 9 * 60 ? 45 : workedMinutes > 6 * 60 ? 30 : 0
+}
+
+/** Only a hint; nothing is deducted. */
 export function breakRuleViolated(records: RecordSpan[]): boolean {
-  const worked = recordedMinutes(records)
-  const required = worked > 9 * 60 ? 45 : worked > 6 * 60 ? 30 : 0
-  return breakMinutes(records) < required
+  return breakMinutes(records) < requiredBreakMinutes(recordedMinutes(records))
 }
 
 const berlinClock = new Intl.DateTimeFormat('en-CA', {
@@ -45,4 +49,12 @@ const berlinClock = new Intl.DateTimeFormat('en-CA', {
 export function nowInBerlin(now: Date): { date: IsoDate; minutes: Minutes } {
   const parts = Object.fromEntries(berlinClock.formatToParts(now).map(part => [part.type, part.value]))
   return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) }
+}
+
+/** Working time of a planned shift and whether its break meets § 4 ArbZG (a break under 15 minutes does not count). */
+export function shiftBreakCheck(span: TimeSpan): { worked: number; required: number; ok: boolean } {
+  const worked = netMinutes(span)
+  const length = span.breakStart !== null && span.breakEnd !== null ? span.breakEnd - span.breakStart : 0
+  const required = requiredBreakMinutes(worked)
+  return { worked, required, ok: (length >= BREAK_MIN_GAP ? length : 0) >= required }
 }
