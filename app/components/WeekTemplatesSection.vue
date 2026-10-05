@@ -3,7 +3,7 @@ import type { WeekTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 
-/** Saved plan weeks: preview, rename and delete (saving and inserting happen in the plan's week rows). */
+/** Settings section of the saved plan weeks: preview, rename and delete (saving and inserting happen in the plan's week rows). */
 const { data: templates, refresh } = await useFetch<WeekTemplateDto[]>('/api/week-templates')
 const run = useAction(refresh)
 const confirm = useConfirm()
@@ -27,13 +27,13 @@ async function remove(template: WeekTemplateDto) {
 </script>
 
 <template>
-  <div class="max-w-5xl space-y-4">
-    <h1 class="text-2xl font-semibold">{{ de.weekTemplates.title }}</h1>
-    <p class="text-sm text-gray-500">{{ de.weekTemplates.hint }}</p>
+  <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+    <h2 class="font-semibold">{{ de.weekTemplates.title }}</h2>
+    <p class="text-xs text-gray-500">{{ de.weekTemplates.hint }}</p>
     <p v-if="!templates?.length" class="text-sm text-gray-500">{{ de.weekTemplates.none }}</p>
-    <section
+    <div
       v-for="template in templates" :key="template.id"
-      class="space-y-3 rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200"
+      class="space-y-3 rounded-md p-3 ring-1 ring-gray-200"
     >
       <div class="flex flex-wrap items-center gap-2">
         <form v-if="renaming.id === template.id" class="flex flex-wrap items-center gap-2" @submit.prevent="saveRename">
@@ -41,7 +41,7 @@ async function remove(template: WeekTemplateDto) {
           <UButton type="submit" size="sm" :label="de.common.save" />
           <UButton size="sm" color="neutral" variant="ghost" :label="de.common.cancel" @click="renaming.id = null" />
         </form>
-        <h2 v-else class="text-lg font-semibold">{{ template.name }}</h2>
+        <h3 v-else class="font-semibold">{{ template.name }}</h3>
         <span class="text-xs text-gray-500">{{ de.weekTemplates.updated }} {{ formatDateTime(template.updatedAt) }}</span>
         <div class="ml-auto flex gap-1">
           <UButton
@@ -52,6 +52,6 @@ async function remove(template: WeekTemplateDto) {
         </div>
       </div>
       <WeekTemplatePreview :template="template" />
-    </section>
-  </div>
+    </div>
+  </section>
 </template>

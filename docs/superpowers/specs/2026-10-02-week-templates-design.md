@@ -8,7 +8,7 @@ Approved in chat on 2026-10-02 ("ja, setze es so um"). The user chose single, fr
 - **Apply**: every week row also offers "Vorlage einsetzen". The admin picks a template. For each employee and weekday in the template, the entries are copied into the plan only when the cell is empty and the day is a working day of that employee: employed, not left, a contract working day, no public holiday, and not inside a closure. Existing entries are never changed. The result says how many days were filled and how many were skipped.
 - **Afterwards**: inserted entries are normal plan entries (draft until released), editable as usual, recorded in the change log.
 - **Change a template**: apply it, adjust the week and save again under the same name.
-- **Templates page** (`/admin/week-templates`, nav "Vorlagen"): a list of the templates, each with a preview (employees × Mo–Fr, short labels), rename and delete. Admin only.
+- **Templates section** in Einstellungen (below "Dienst-Buttons"; moved there from its own page on 2026-10-05 at the user's request): a list of the templates, each with a preview (employees × Mo–Fr, short labels) and a legend, rename and delete. Admin only.
 
 ## Data
 

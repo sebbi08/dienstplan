@@ -19,7 +19,7 @@ export const de = {
     closures: 'Schließzeiten', users: 'Benutzer',
     settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
-    sickDays: 'Krankheitstage', calendar: 'Jahreskalender', weekTemplates: 'Vorlagen',
+    sickDays: 'Krankheitstage', calendar: 'Jahreskalender',
   },
   time: {
     title: 'Zeiterfassung', employee: 'Mitarbeiter:in', clockIn: 'Einstempeln', clockOut: 'Ausstempeln',
