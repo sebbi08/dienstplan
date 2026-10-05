@@ -151,6 +151,7 @@ const rows = computed(() => props.plan.days.map((day) => {
       ? {
           number: week.weekNumber,
           start: week.weekStart,
+          templateName: week.templateName,
           totals: props.plan.employees.map(employee =>
             week.totals.find(total => total.employeeId === employee.id) ?? { employeeId: employee.id, target: 0, credit: 0, delta: 0 }),
         }
@@ -244,7 +245,12 @@ const rows = computed(() => props.plan.days.map((day) => {
             </td>
           </tr>
           <tr v-if="row.week" class="bg-gray-50 text-xs">
-            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">{{ de.plan.week(row.week.number) }}</td>
+            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">
+              {{ de.plan.week(row.week.number) }}
+              <div v-if="row.week.templateName" class="font-normal text-sky-700" :title="de.weekTemplates.markHint">
+                {{ de.weekTemplates.mark(row.week.templateName) }}
+              </div>
+            </td>
             <td
               v-for="total in row.week.totals" :key="total.employeeId"
               class="border border-gray-200 px-2 py-1 text-center font-medium" :class="balanceClass(total.delta)"

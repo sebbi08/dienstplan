@@ -23,6 +23,7 @@ import {
 } from './queries'
 import { buildSnapshot, loadReleases } from './release'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
+import { weekTemplateNames } from './weekTemplates'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
@@ -76,12 +77,14 @@ function buildAdminData(
   }
 
   const weeks: WeekSummaryDto[] = []
+  const templateNames = weekTemplateNames(db, rangeStart, monthEnd)
   for (let start = rangeStart; start <= monthEnd; start = addDays(start, 7)) {
     const end = addDays(start, 6)
     weeks.push({
       weekStart: start,
       weekEnd: end,
       weekNumber: isoWeekNumber(start),
+      templateName: templateNames.get(start) ?? null,
       totals: staff.map(employee => ({
         employeeId: employee.id,
         ...summarize(computeRange(employee.info, byEmployee.get(employee.id) ?? [], start, end, actualOf(employee.id))),

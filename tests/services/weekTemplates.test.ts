@@ -5,10 +5,11 @@ import { changeLog, shiftTemplates } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { addHours, updateEmployee } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
+import { getMonthPlan } from '../../server/services/plan'
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import {
-  applyWeekTemplate, deleteWeekTemplate, listWeekTemplates, renameWeekTemplate, saveWeekTemplate,
+  applyWeekTemplate, deleteWeekTemplate, listWeekTemplates, renameWeekTemplate, saveWeekTemplate, weekTemplateNames,
 } from '../../server/services/weekTemplates'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
@@ -129,5 +130,40 @@ describe('week templates and changed services', () => {
     applyWeekTemplate(db, admin, template.id, next)
     expect(loadEntries(db, { employeeId: anna, from: next, to: '2026-10-14' }).map(e => [e.kind, e.shortLabel, e.start]))
       .toEqual([['special', null, 420], ['special', null, 420], ['shift', 'M', 465]])
+  })
+})
+
+describe('template names in the plan and the legend', () => {
+  it('marks the saved and the filled week with the template name, follows renames and forgets deleted templates', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const anna = addEmployee(db, 'Anna')
+    applyToCells(db, admin, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    const template = saveWeekTemplate(db, { name: 'Woche A', weekStart: week })
+    applyWeekTemplate(db, admin, template.id, next)
+    const names = () => Object.fromEntries(weekTemplateNames(db, '2026-09-28', '2026-10-31'))
+    expect(names()).toEqual({ [week]: 'Woche A', [next]: 'Woche A' })
+    expect(getMonthPlan(db, admin, 2026, 10, '2026-10-01').admin!.weeks.map(w => w.templateName))
+      .toEqual([null, 'Woche A', 'Woche A', null, null])
+    renameWeekTemplate(db, template.id, 'Frühjahr')
+    expect(names()[next]).toBe('Frühjahr')
+    deleteWeekTemplate(db, template.id)
+    expect(names()).toEqual({})
+  })
+  it('lists the services used with their times and shows changed services by their saved times', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const anna = addEmployee(db, 'Anna')
+    applyToCells(db, admin, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    const template = saveWeekTemplate(db, { name: 'A', weekStart: week })
+    expect(template.legend).toEqual([
+      { shortLabel: 'F1', label: 'Frühdienst', start: 420, end: 795, breakStart: null, breakEnd: null },
+      { shortLabel: 'S', label: 'Spätdienst', start: 525, end: 1020, breakStart: 730, breakEnd: 760 },
+    ])
+    db.update(shiftTemplates).set({ start: 450 }).where(eq(shiftTemplates.shortLabel, 'F1')).run()
+    const [changed] = listWeekTemplates(db)
+    expect(changed!.rows[0]!.days.slice(0, 2)).toEqual(['S', '7:00–13:15'])
+    expect(changed!.legend.map(item => item.shortLabel)).toEqual(['S'])
   })
 })

@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from 'drizzle-orm'
+import { and, asc, eq, gte, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
 import { isWorkday } from '../../shared/domain/targets'
@@ -6,11 +6,11 @@ import type { IsoDate } from '../../shared/domain/types'
 import { TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import type { SessionUser, WeekTemplateApplyResult, WeekTemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplates } from '../db/schema'
+import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { describeCellAt } from './entries'
-import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
+import { closureOn, loadClosures, loadEmployees, loadEntries, loadTemplates } from './queries'
 
 /** A template covers Monday to Friday. */
 const WEEKDAYS = 5
@@ -31,6 +31,14 @@ function requireTemplate(db: Db, id: number) {
   return template
 }
 
+type SavedTimes = Pick<typeof weekTemplateEntries.$inferSelect, 'start' | 'end' | 'breakStart' | 'breakEnd'>
+
+/** True when a saved shift still has the current times of its service (Dienst), so its short label still fits. */
+function isCurrent(entry: SavedTimes, shift: typeof shiftTemplates.$inferSelect | null | undefined): boolean {
+  return !!shift && shift.start === entry.start && shift.end === entry.end
+    && shift.breakStart === entry.breakStart && shift.breakEnd === entry.breakEnd
+}
+
 function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplateDto {
   const rows = db.select({ entry: weekTemplateEntries, code: absenceCodes, shift: shiftTemplates })
     .from(weekTemplateEntries)
@@ -43,11 +51,14 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
     const own = rows.filter(row => row.entry.employeeId === employee.id)
     if (own.length === 0) return []
     const days = Array.from({ length: WEEKDAYS }, (_, day) => own.filter(row => row.entry.weekday === day)
-      .map(({ entry, code, shift }) => (entry.kind === 'shift' && shift?.shortLabel) || describeEntry(entry, code?.label ?? null))
+      .map(({ entry, code, shift }) => (entry.kind === 'shift' && isCurrent(entry, shift) && shift?.shortLabel) || describeEntry(entry, code?.label ?? null))
       .join(' + '))
     return [{ employeeId: employee.id, name: employee.name, days }]
   })
-  return { id: template.id, name: template.name, updatedAt: template.updatedAt, rows: preview }
+  const used = new Set(rows.filter(row => row.entry.kind === 'shift' && isCurrent(row.entry, row.shift)).map(row => row.shift?.id))
+  const legend = loadTemplates(db).filter(shift => used.has(shift.id) && shift.shortLabel)
+    .map(({ shortLabel, label, start, end, breakStart, breakEnd }) => ({ shortLabel, label, start, end, breakStart, breakEnd }))
+  return { id: template.id, name: template.name, updatedAt: template.updatedAt, rows: preview, legend }
 }
 
 export function listWeekTemplates(db: Db): WeekTemplateDto[] {
@@ -79,6 +90,7 @@ export function saveWeekTemplate(db: Db, input: { name: string; weekStart: IsoDa
       shiftTemplateId: entry.templateId, absenceCodeId: entry.codeId, start: entry.start, end: entry.end,
       breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, note: entry.note,
     }))).run()
+    markWeek(tx, input.weekStart, template.id)
     return toDto(tx, template)
   })
 }
@@ -114,12 +126,10 @@ export function applyWeekTemplate(
   const shifts = new Map(db.select().from(shiftTemplates).all().map(shift => [shift.id, shift]))
   // A saved shift whose service (Dienst) was changed or deleted since keeps its saved times as a special shift,
   // so the plan never shows e.g. "F1" with times that are no longer F1's.
-  const keepTimesOf = (row: Pick<typeof weekTemplateEntries.$inferSelect, 'kind' | 'shiftTemplateId' | 'start' | 'end' | 'breakStart' | 'breakEnd'>) => {
+  const keepTimesOf = (row: SavedTimes & Pick<typeof weekTemplateEntries.$inferSelect, 'kind' | 'shiftTemplateId'>) => {
     if (row.kind !== 'shift') return {}
     const shift = row.shiftTemplateId === null ? undefined : shifts.get(row.shiftTemplateId)
-    const unchanged = shift && shift.start === row.start && shift.end === row.end
-      && shift.breakStart === row.breakStart && shift.breakEnd === row.breakEnd
-    return unchanged ? {} : { kind: 'special' as const, shiftTemplateId: null }
+    return isCurrent(row, shift) ? {} : { kind: 'special' as const, shiftTemplateId: null }
   }
   const timestamp = now.toISOString()
   const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
@@ -143,6 +153,23 @@ export function applyWeekTemplate(
       logChange(tx, { ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
       result.filled += 1
     }
+    if (result.filled > 0) markWeek(tx, weekStart, id)
   })
   return result
+}
+
+/** Remembers which template a plan week was saved as or filled from (the latest one wins). */
+function markWeek(db: Db, weekStart: IsoDate, weekTemplateId: number): void {
+  db.insert(weekTemplateMarks).values({ weekStart, weekTemplateId })
+    .onConflictDoUpdate({ target: weekTemplateMarks.weekStart, set: { weekTemplateId } }).run()
+}
+
+/** Template name per plan week (by its Monday) between from and to, for the plan's week rows. */
+export function weekTemplateNames(db: Db, from: IsoDate, to: IsoDate): Map<IsoDate, string> {
+  const rows = db.select({ weekStart: weekTemplateMarks.weekStart, name: weekTemplates.name })
+    .from(weekTemplateMarks)
+    .innerJoin(weekTemplates, eq(weekTemplateMarks.weekTemplateId, weekTemplates.id))
+    .where(and(gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to)))
+    .all()
+  return new Map(rows.map(row => [row.weekStart, row.name]))
 }

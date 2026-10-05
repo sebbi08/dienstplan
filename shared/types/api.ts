@@ -136,6 +136,8 @@ export interface WeekSummaryDto {
   weekStart: IsoDate
   weekEnd: IsoDate
   weekNumber: number
+  /** Name of the week template this week was saved as or filled from (null = none). */
+  templateName: string | null
   totals: { employeeId: number; target: number; credit: number; delta: number }[]
 }
 
@@ -380,6 +382,8 @@ export interface WeekTemplateDto {
   name: string
   updatedAt: string
   rows: { employeeId: number; name: string; days: string[] }[]
+  /** The services (Dienste) used in the template, by their short label, for a legend below the preview. */
+  legend: { shortLabel: string; label: string; start: number; end: number; breakStart: number | null; breakEnd: number | null }[]
 }
 
 export interface WeekTemplateApplyResult {
