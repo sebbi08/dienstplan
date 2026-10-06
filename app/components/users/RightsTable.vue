@@ -1,0 +1,82 @@
+<script setup lang="ts">
+import type { Role } from '#shared/types/api'
+import { de } from '~/locales/de'
+
+/**
+ * Overview of what each role may do (shown to the Träger on the users page). Keep in step with requireAdmin /
+ * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
+ * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
+ */
+type Right = 'yes' | 'no' | 1 | 2 | 3
+const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
+
+const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Right, Right] }[] }[] = [
+  { title: 'Dienstplan', rows: [
+    { label: 'Freigegebenen Dienstplan ansehen', rights: ['yes', 'yes', 'yes', 'yes'] },
+    { label: 'Entwurf ansehen, bearbeiten, freigeben, Änderungen verwerfen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Überstunden, Soll/Ist und Warnungen im Dienstplan sehen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Dienstplanvorlagen speichern, einsetzen und verwalten', rights: ['yes', 'yes', 'no', 'no'] },
+  ] },
+  { title: 'Zeiterfassung', rows: [
+    { label: 'Mit dem eigenen Handy stempeln', rights: [1, 1, 2, 'no'] },
+    { label: 'Eigene Stempelzeiten, Stundenkonto und Urlaub ansehen', rights: [1, 1, 'yes', 'no'] },
+    { label: 'Als gemeinsames Gerät: Stempeln für Mitarbeiter mit PIN', rights: ['no', 'no', 'no', 'yes'] },
+    { label: 'Alle Stempelzeiten ansehen, nachtragen und korrigieren, Begründungen', rights: ['yes', 'yes', 'no', 'no'] },
+  ] },
+  { title: 'Mitarbeiter', rows: [
+    { label: 'Anlegen, Wochenstunden, Urlaub, Stundenkonto-Buchungen, PIN, Stempeln und Pausen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Vertragsangaben (TVöD) bearbeiten', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
+    { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
+  ] },
+  { title: 'Planung und Übersichten', rows: [
+    { label: 'Schließzeiten, Feiertage, frühere Schließungen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Krankheitstage, Jahreskalender mit Terminen, Druckansichten', rights: ['yes', 'yes', 'no', 'no'] },
+  ] },
+  { title: 'Verwaltung', rows: [
+    { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Datenbank herunterladen (Datensicherung)', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Eigenes Passwort ändern', rights: ['yes', 'yes', 'yes', 'no'] },
+  ] },
+]
+
+const FOOTNOTES: Record<1 | 2 | 3, string> = {
+  1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (und dessen Einstellung „Stempeln über“ das Handy erlaubt)',
+  2: 'wenn beim Mitarbeiter „Stempeln über“ das Handy erlaubt ist',
+  3: 'nur lesen und nur, wenn der Träger die Vertragsangaben für die Leitung freigegeben hat',
+}
+</script>
+
+<template>
+  <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+    <h2 class="font-semibold">{{ de.users.rightsTitle }}</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-left text-xs text-gray-600">
+          <tr>
+            <th class="px-2 py-1" />
+            <th v-for="role in ROLES" :key="role" class="whitespace-nowrap px-2 py-1 text-center">{{ de.users.roles[role] }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template v-for="group in GROUPS" :key="group.title">
+            <tr><td colspan="5" class="bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-600">{{ group.title }}</td></tr>
+            <tr v-for="row in group.rows" :key="row.label" class="border-t border-gray-100">
+              <td class="px-2 py-1">{{ row.label }}</td>
+              <td v-for="(right, index) in row.rights" :key="index" class="px-2 py-1 text-center">
+                <span v-if="right === 'yes'" class="font-semibold text-green-700" :aria-label="de.users.rightYes">✓</span>
+                <span v-else-if="right === 'no'" class="text-gray-300" :aria-label="de.users.rightNo">–</span>
+                <span v-else class="font-semibold text-amber-700" :title="FOOTNOTES[right]">✓<sup>{{ right }}</sup></span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <ol class="space-y-0.5 text-xs text-gray-500">
+      <li v-for="(text, number) in FOOTNOTES" :key="number"><sup>{{ number }}</sup> {{ text }}</li>
+    </ol>
+  </section>
+</template>

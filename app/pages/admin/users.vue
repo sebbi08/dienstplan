@@ -121,5 +121,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
         </form>
       </template>
     </UModal>
+
+    <UsersRightsTable v-if="isProvider" />
   </div>
 </template>
