@@ -73,12 +73,11 @@ describe('stamping options per employee', () => {
     setTimeTrackingFrom(db, '2026-10-01')
   })
 
-  it('allows only the channel the Leitung chose', () => {
+  it('always allows the tablet and the own phone only when the Leitung chose both', () => {
     setStampingOptions(db, anna, { stampVia: 'tablet', breakMode: 'stamp' })
     expect(errorCode(() => stamp(db, anna, 'in', 'self', at('2026-10-06T05:42:00Z')))).toBe('stamp_tablet_only')
     stamp(db, anna, 'in', 'terminal', at('2026-10-06T05:42:00Z'))
-    setStampingOptions(db, anna, { stampVia: 'phone', breakMode: 'stamp' })
-    expect(errorCode(() => stamp(db, anna, 'out', 'terminal', at('2026-10-06T14:00:00Z')))).toBe('stamp_phone_only')
+    setStampingOptions(db, anna, { stampVia: 'both', breakMode: 'stamp' })
     stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z'))
     expect(loadTimeRecords(db, { employeeId: anna })).toHaveLength(1)
   })

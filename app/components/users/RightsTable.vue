@@ -18,6 +18,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Dienstplanvorlagen speichern, einsetzen und verwalten', rights: ['yes', 'yes', 'no', 'no'] },
   ] },
   { title: 'Zeiterfassung', rows: [
+    { label: 'Am Kita-Tablet mit PIN stempeln (immer erlaubt, sobald eine PIN gesetzt ist)', rights: [1, 1, 'yes', 'no'] },
     { label: 'Mit dem eigenen Handy stempeln', rights: [1, 1, 2, 'no'] },
     { label: 'Eigene Stempelzeiten, Stundenkonto und Urlaub ansehen', rights: [1, 1, 'yes', 'no'] },
     { label: 'Als gemeinsames Gerät: Stempeln für Mitarbeiter mit PIN', rights: ['no', 'no', 'no', 'yes'] },
@@ -43,8 +44,8 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
 ]
 
 const FOOTNOTES: Record<1 | 2 | 3, string> = {
-  1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (und dessen Einstellung „Stempeln über“ das Handy erlaubt)',
-  2: 'wenn beim Mitarbeiter „Stempeln über“ das Handy erlaubt ist',
+  1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (beim Handy zusätzlich: „Stempeln über“ erlaubt das Handy)',
+  2: 'wenn die Leitung beim Mitarbeiter „Kita-Tablet und eigenes Handy“ eingestellt hat',
   3: 'nur lesen und nur, wenn der Träger die Vertragsangaben für die Leitung freigegeben hat',
 }
 </script>

@@ -77,8 +77,8 @@ export function stamp(db: Db, employeeId: number, action: StampAction, source: '
   if (activeTrackingFrom(db, date) === null) throw new ServiceError(400, 'time_tracking_off')
   const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  // The Leitung decides per employee whether stamping works on the own phone, the tablet or both.
-  if (!mayStampVia(employee.stampVia, source)) throw new ServiceError(403, source === 'self' ? 'stamp_tablet_only' : 'stamp_phone_only')
+  // The tablet always works; the Leitung decides per employee whether the own phone may be used as well.
+  if (!mayStampVia(employee.stampVia, source)) throw new ServiceError(403, 'stamp_tablet_only')
 
   return db.transaction((tx) => {
     const open = tx.select().from(timeRecords)

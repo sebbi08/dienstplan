@@ -99,6 +99,13 @@
       "when": 1791278751424,
       "tag": "0013_stamping_options",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791297849612,
+      "tag": "0014_tablet_always",
+      "breakpoints": true
     }
   ]
 }

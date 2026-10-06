@@ -1,13 +1,13 @@
 import { breakMinutes, recordedMinutes, requiredBreakMinutes, type RecordSpan } from './timeRecords'
 import type { DomainEntry } from './types'
 
-/** Where an employee may clock in and out: own phone ("Mein Dienstplan"), the shared tablet with PIN, or both. */
-export const STAMP_CHANNELS = ['both', 'phone', 'tablet'] as const
+/** Where an employee may clock in and out: the shared tablet with PIN always; 'both' also allows the own phone ("Mein Dienstplan"). */
+export const STAMP_CHANNELS = ['both', 'tablet'] as const
 export type StampChannel = (typeof STAMP_CHANNELS)[number]
 
-/** Whether a stamp from this source is allowed for the employee's setting ('self' = own phone/account). */
+/** Whether a stamp from this source is allowed for the employee's setting ('self' = own phone; the tablet is always allowed). */
 export function mayStampVia(channel: StampChannel, source: 'self' | 'terminal'): boolean {
-  return channel === 'both' || (source === 'self' ? channel === 'phone' : channel === 'tablet')
+  return source === 'terminal' || channel === 'both'
 }
 
 /** 'stamp': breaks are clocked out and in; 'auto': the break is deducted in full without clocking it. */

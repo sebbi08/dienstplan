@@ -4,9 +4,8 @@ import { creditedMinutes, mayStampVia, plannedBreakMinutes } from '../../shared/
 const day = (...spans: [number, number][]) => spans.map(([start, end]) => ({ start, end }))
 
 describe('stamping options', () => {
-  it('allows the own phone, the tablet or both', () => {
+  it('always allows the tablet, and the own phone only with "both"', () => {
     expect([mayStampVia('both', 'self'), mayStampVia('both', 'terminal')]).toEqual([true, true])
-    expect([mayStampVia('phone', 'self'), mayStampVia('phone', 'terminal')]).toEqual([true, false])
     expect([mayStampVia('tablet', 'self'), mayStampVia('tablet', 'terminal')]).toEqual([false, true])
   })
   it('sums the planned breaks of a day', () => {
