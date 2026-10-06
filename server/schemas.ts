@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
 import { COLOR_KEYS } from '../shared/types/api'
 
@@ -55,6 +56,7 @@ export const employeeCreateSchema = z.object({
   name: label, shortName: z.string().max(10), weeklyMinutes, validFrom: isoDate, workdays: workdays.optional(),
   vacationDays: z.number().min(0).max(100).nullable().optional(), carriedOverDays: z.number().min(0).max(100).nullable().optional(),
   openingBalanceMinutes: z.number().int().min(-200_000).max(200_000).nullable().optional(),
+  stampVia: z.enum(STAMP_CHANNELS).optional(), breakMode: z.enum(BREAK_MODES).optional(),
 })
 export const employeeUpdateSchema = z.object({ name: label, shortName: z.string().max(10), leftOn: isoDate.nullable() })
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
@@ -101,3 +103,4 @@ export const contractSchema = z.object({
   payGroup: z.enum(PAY_GROUPS).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
 })
 export const contractVisibilitySchema = z.object({ visible: z.boolean() })
+export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), breakMode: z.enum(BREAK_MODES) })

@@ -3,10 +3,10 @@ import { computeDay, computeRange, summarize } from '../../shared/domain/balance
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayOn } from '../../shared/domain/holidays'
-import { isManager } from '../../shared/domain/roles'
 import { changeHistory, diffCells, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
+import { isManager } from '../../shared/domain/roles'
+import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
-import { recordedMinutes } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type Warning } from '../../shared/domain/warnings'
 import type {
@@ -68,9 +68,9 @@ function buildAdminData(
         const key = cellKey(employee.id, date)
         const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
         const records = recordsByCell.get(key) ?? []
-        warnings.push(...timeWarnings(date, employee.id, dayEntries, records))
+        warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
         if (records.length === 0) continue
-        const minutes = recordedMinutes(records)
+        const minutes = creditedMinutes(records, employee.breakMode, plannedBreakMinutes(dayEntries))
         const planned = computeDay(employee.info, date, dayEntries).credit
         actuals[key] = { minutes, open: records.some(record => record.end === null), deviates: Math.abs(minutes - planned) > 15 }
       }

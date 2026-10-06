@@ -29,14 +29,17 @@ async function stampNow() {
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <div class="flex flex-wrap items-center gap-3">
       <UButton
+        v-if="time.stampVia !== 'tablet'"
         size="xl" :loading="busy" :color="action === 'in' ? 'success' : 'warning'"
         :icon="action === 'in' ? 'i-lucide-log-in' : 'i-lucide-log-out'"
         :label="action === 'in' ? de.time.clockIn : de.time.clockOut" @click="stampNow"
       />
+      <span v-else class="text-sm font-medium">{{ de.time.tabletOnly }}</span>
       <span class="text-sm text-gray-600">
         {{ time.clockedInSince === null ? de.time.notClockedIn : de.time.clockedInSince(formatTime(time.clockedInSince)) }}
       </span>
     </div>
+    <p v-if="time.breakMode === 'auto'" class="text-xs text-gray-500">{{ de.time.autoBreakHint }}</p>
     <p class="text-sm">
       <span class="text-gray-500">{{ de.time.todayRecords }}:</span>
       {{ time.todayRecords.length ? time.todayRecords.map(formatSpan).join(' · ') : de.time.none }}

@@ -21,7 +21,8 @@ describe('employees service', () => {
   it('creates employees with their first weekly hours', () => {
     const id = createEmployee(db, admin, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     expect(listEmployees(db, today, 'admin')).toEqual([
-      { id, name: 'Anna', shortName: 'AN', sortOrder: 1, leftOn: null, currentWeeklyMinutes: 2340, currentWorkdays: 0b11111 },
+      { id, name: 'Anna', shortName: 'AN', sortOrder: 1, leftOn: null, currentWeeklyMinutes: 2340, currentWorkdays: 0b11111,
+        stampVia: 'both', breakMode: 'stamp' },
     ])
     expect(errorCode(() => createEmployee(db, admin, { name: ' ', shortName: '', weeklyMinutes: 0, validFrom: '2026-01-01' }))).toBe('name_required')
   })

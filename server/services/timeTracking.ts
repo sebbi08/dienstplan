@@ -4,6 +4,7 @@ import { computeDay, usesRecords } from '../../shared/domain/balance'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayOn } from '../../shared/domain/holidays'
+import { creditedMinutes, mayStampVia, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
@@ -53,9 +54,19 @@ export function actualTimeFor(db: Db, today: IsoDate): (employeeId: number) => A
     days.set(record.date, [...(days.get(record.date) ?? []), record])
     byEmployee.set(record.employeeId, days)
   }
+  // With automatic breaks the planned break of the day is deducted from the clocked time.
+  const breakModes = new Map(loadEmployees(db).map(employee => [employee.id, employee.breakMode]))
+  const plannedBreaks = new Map<string, number>()
+  for (const entry of loadEntries(db, { from, to: today })) {
+    const key = `${entry.employeeId}:${entry.date}`
+    plannedBreaks.set(key, (plannedBreaks.get(key) ?? 0) + plannedBreakMinutes([entry]))
+  }
   return (employeeId) => {
+    const mode = breakModes.get(employeeId) ?? 'stamp'
     const minutesByDate = new Map<IsoDate, number>()
-    for (const [date, list] of byEmployee.get(employeeId) ?? []) minutesByDate.set(date, recordedMinutes(list))
+    for (const [date, list] of byEmployee.get(employeeId) ?? []) {
+      minutesByDate.set(date, creditedMinutes(list, mode, plannedBreaks.get(`${employeeId}:${date}`) ?? 0))
+    }
     return { from, today, minutesByDate }
   }
 }
@@ -64,7 +75,10 @@ export function actualTimeFor(db: Db, today: IsoDate): (employeeId: number) => A
 export function stamp(db: Db, employeeId: number, action: StampAction, source: 'self' | 'terminal', now: Date = new Date()): TimeRecordDto {
   const { date, minutes } = nowInBerlin(now)
   if (activeTrackingFrom(db, date) === null) throw new ServiceError(400, 'time_tracking_off')
-  if (!db.select().from(employees).where(eq(employees.id, employeeId)).get()) throw new ServiceError(404, 'employee_not_found')
+  const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
+  if (!employee) throw new ServiceError(404, 'employee_not_found')
+  // The Leitung decides per employee whether stamping works on the own phone, the tablet or both.
+  if (!mayStampVia(employee.stampVia, source)) throw new ServiceError(403, source === 'self' ? 'stamp_tablet_only' : 'stamp_phone_only')
 
   return db.transaction((tx) => {
     const open = tx.select().from(timeRecords)
@@ -187,7 +201,7 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
         records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
         usesRecords: usesRecords(actual, date), absence, otherEntries,
         targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
-        warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records) : [],
+        warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
         note: notes.get(date) ?? '',
         changes: changes.filter(({ change }) => change.date === date)
           .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),

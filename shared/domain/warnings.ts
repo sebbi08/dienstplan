@@ -2,6 +2,7 @@ import { dayCredit } from './balance'
 import { isWeekend } from './dates'
 import { isHoliday } from './holidays'
 import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
+import type { BreakMode } from './stamping'
 import { breakRuleViolated, type RecordSpan } from './timeRecords'
 import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
 
@@ -80,7 +81,9 @@ export function dayWarnings(
 }
 
 /** Hints for one past day with time tracking (call only for employed days with start date ≤ date < today). */
-export function timeWarnings(date: IsoDate, employeeId: number, entries: DomainEntry[], records: RecordSpan[]): Warning[] {
+export function timeWarnings(
+  date: IsoDate, employeeId: number, entries: DomainEntry[], records: RecordSpan[], breakMode: BreakMode = 'stamp',
+): Warning[] {
   if (entries.some(entry => entry.creditMode === 'daily_target')) return []
   const warnings: Warning[] = []
   if (records.some(record => record.end === null)) warnings.push({ type: 'open_record', date, employeeId })
@@ -88,6 +91,7 @@ export function timeWarnings(date: IsoDate, employeeId: number, entries: DomainE
     && (entry.kind !== 'code' || entry.creditMode === 'timed'))
   if (records.length === 0 && plannedWork) warnings.push({ type: 'missing_record', date, employeeId })
   if (records.length > 0 && entries.length === 0) warnings.push({ type: 'record_without_plan', date, employeeId })
-  if (breakRuleViolated(records)) warnings.push({ type: 'break_rule', date, employeeId })
+  // With automatic breaks the break is deducted anyway, so there is nothing to clock.
+  if (breakMode === 'stamp' && breakRuleViolated(records)) warnings.push({ type: 'break_rule', date, employeeId })
   return warnings
 }

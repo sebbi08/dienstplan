@@ -10,6 +10,10 @@ export const employees = sqliteTable('employees', {
   pinHash: text('pin_hash'),
   pinFailed: integer('pin_failed').notNull().default(0),
   pinLockedUntil: text('pin_locked_until'),
+  /** Where the employee may clock in and out (set by the Leitung). */
+  stampVia: text('stamp_via', { enum: ['both', 'phone', 'tablet'] }).notNull().default('both'),
+  /** 'stamp': breaks are clocked (gaps count); 'auto': the planned break is deducted in full from the clocked time. */
+  breakMode: text('break_mode', { enum: ['stamp', 'auto'] }).notNull().default('stamp'),
   // Contract data, edited only by the Träger (provider); see shared/domain/tvoed.ts.
   employedSince: text('employed_since'),
   jobKey: text('job_key'),

@@ -21,6 +21,8 @@ export function getMyTime(db: Db, viewer: SessionUser, year: number, month: numb
   const todayRecords = own.filter(record => record.date === today)
   return {
     enabled: activeTrackingFrom(db, today) !== null,
+    stampVia: employee.stampVia,
+    breakMode: employee.breakMode,
     today,
     clockedInSince: todayRecords.find(record => record.end === null)?.start ?? null,
     todayRecords,

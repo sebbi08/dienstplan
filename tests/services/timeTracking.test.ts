@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { setStampingOptions } from '../../server/services/employees'
+import { applyToCells } from '../../server/services/entries'
+import { getMonthPlan } from '../../server/services/plan'
 import { actualTimeFor, loadTimeRecords, stamp } from '../../server/services/timeTracking'
-import { addEmployee, createTestDb, errorCode } from '../helpers/fixtures'
+import type { SessionUser } from '../../shared/types/api'
+import { addEmployee, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const at = (iso: string) => new Date(iso) // UTC; October 2026 is CEST (UTC+2)
 
@@ -55,5 +59,38 @@ describe('stamping', () => {
     expect(actual).toMatchObject({ from: '2026-10-01', today: '2026-10-08' })
     expect(actual.minutesByDate.get('2026-10-06')).toBe(238)
     expect(actualTimeFor(db, '2026-09-30')(anna)).toBeUndefined()
+  })
+})
+
+describe('stamping options per employee', () => {
+  let db: Db
+  let admin: SessionUser
+  let anna: number
+  beforeEach(() => {
+    db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
+    anna = addEmployee(db, 'Anna')
+    setTimeTrackingFrom(db, '2026-10-01')
+  })
+
+  it('allows only the channel the Leitung chose', () => {
+    setStampingOptions(db, anna, { stampVia: 'tablet', breakMode: 'stamp' })
+    expect(errorCode(() => stamp(db, anna, 'in', 'self', at('2026-10-06T05:42:00Z')))).toBe('stamp_tablet_only')
+    stamp(db, anna, 'in', 'terminal', at('2026-10-06T05:42:00Z'))
+    setStampingOptions(db, anna, { stampVia: 'phone', breakMode: 'stamp' })
+    expect(errorCode(() => stamp(db, anna, 'out', 'terminal', at('2026-10-06T14:00:00Z')))).toBe('stamp_phone_only')
+    stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z'))
+    expect(loadTimeRecords(db, { employeeId: anna })).toHaveLength(1)
+  })
+  it('deducts the planned break when breaks are automatic and stops the break warning', () => {
+    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    stamp(db, anna, 'in', 'self', at('2026-10-06T05:45:00Z')) // 7:45
+    stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z')) // 16:00, no break clocked
+    const minutes = () => actualTimeFor(db, '2026-10-08')(anna)!.minutesByDate.get('2026-10-06')
+    const breakWarning = () => getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.warnings
+      .some(w => w.type === 'break_rule' && w.date === '2026-10-06')
+    expect([minutes(), breakWarning()]).toEqual([495, true])
+    setStampingOptions(db, anna, { stampVia: 'both', breakMode: 'auto' })
+    expect([minutes(), breakWarning()]).toEqual([465, false]) // M's break 11:40–12:10 deducted
   })
 })

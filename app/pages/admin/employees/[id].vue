@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { EmployeeDetailDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -25,6 +26,17 @@ const confirm = useConfirm()
 const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso(), workdays: 31 })
 const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '' })
 const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30, carriedOverDays: 0 })
+
+// Where the person clocks in and out, and whether breaks are clocked or deducted automatically (Leitung decides).
+const stamping = reactive<{ stampVia: StampChannel; breakMode: BreakMode }>({ stampVia: 'both', breakMode: 'stamp' })
+watch(employee, (value) => {
+  if (value) Object.assign(stamping, { stampVia: value.stampVia, breakMode: value.breakMode })
+}, { immediate: true })
+const stampViaItems = STAMP_CHANNELS.map(channel => ({ label: de.employees.stampChannels[channel], value: channel }))
+const breakModeItems = BREAK_MODES.map(mode => ({ label: de.employees.breakModes[mode], value: mode }))
+function saveStamping() {
+  run(() => $fetch<unknown>(`/api/employees/${id}/stamping`, { method: 'PUT', body: { ...stamping } }), de.common.saved)
+}
 
 const pin = ref('')
 async function savePin() {
@@ -108,6 +120,20 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       </form>
       <p class="text-xs text-gray-500">{{ de.employees.pinHint }}</p>
     </section>
+
+    <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveStamping">
+      <h2 class="font-semibold">{{ de.employees.stamping }}</h2>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <UFormField :label="de.employees.stampVia">
+          <USelect v-model="stamping.stampVia" :items="stampViaItems" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.employees.breakMode">
+          <USelect v-model="stamping.breakMode" :items="breakModeItems" class="w-full" />
+        </UFormField>
+      </div>
+      <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
+      <UButton type="submit" :label="de.common.save" />
+    </form>
 
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>

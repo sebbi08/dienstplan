@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { setStampingOptions } from '../../server/services/employees'
 import { clearPin, setPin, terminalStamp, terminalStatus } from '../../server/services/terminal'
 import { loadTimeRecords } from '../../server/services/timeTracking'
 import { addEmployee, createTestDb, errorCode } from '../helpers/fixtures'
@@ -49,5 +50,17 @@ describe('terminal', () => {
     expect(errorCode(() => setPin(db, berta, '12a4'))).toBe('pin_format')
     clearPin(db, anna)
     expect(errorCode(() => terminalStamp(db, anna, '1234', 'in', at('2026-10-06T06:00:00Z')))).toBe('pin_missing')
+  })
+})
+
+describe('terminal and stamping options', () => {
+  it('hides people who may only stamp on their phone', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    setTimeTrackingFrom(db, '2026-10-01')
+    setPin(db, anna, '1234')
+    setStampingOptions(db, anna, { stampVia: 'phone', breakMode: 'stamp' })
+    expect(terminalStatus(db, at('2026-10-06T06:00:00Z'))).toEqual([])
+    expect(errorCode(() => terminalStamp(db, anna, '1234', 'in', at('2026-10-06T06:00:00Z')))).toBe('stamp_phone_only')
   })
 })

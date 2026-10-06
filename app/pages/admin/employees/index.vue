@@ -119,6 +119,8 @@ const hint = 'text-xs text-gray-500'
               <span v-if="employee.shortName" class="text-gray-600">{{ employee.shortName }}</span>
               <span class="text-gray-600">{{ de.employees.weeklyHours }}: {{ formatHours(employee.currentWeeklyMinutes) }} ({{ workdaysText(employee.currentWorkdays) }})</span>
               <span v-if="employee.leftOn" class="text-gray-600">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn) }}</span>
+              <span v-if="employee.stampVia !== 'both'" class="text-gray-600">{{ de.employees.stampVia }}: {{ de.employees.stampChannels[employee.stampVia] }}</span>
+              <span v-if="employee.breakMode === 'auto'" class="text-gray-600">{{ de.employees.breakMode }}: {{ de.employees.breakModes.auto }}</span>
               <span class="ml-auto">
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.employees.moveUp" :disabled="index === 0" @click="move(employee.id, 'up')" />
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.employees.moveDown" :disabled="index === (list?.length ?? 0) - 1" @click="move(employee.id, 'down')" />

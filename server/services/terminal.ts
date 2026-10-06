@@ -1,4 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm'
+import { mayStampVia } from '../../shared/domain/stamping'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { StampAction, TerminalPersonDto, TimeRecordDto } from '../../shared/types/api'
@@ -32,7 +33,9 @@ export function clearPin(db: Db, employeeId: number): void {
 /** People shown on the tablet: employed today and with a PIN; clockedIn = open record today. */
 export function terminalStatus(db: Db, now: Date = new Date()): TerminalPersonDto[] {
   const { date } = nowInBerlin(now)
-  const withPin = new Set(db.select().from(employees).all().filter(row => row.pinHash !== null).map(row => row.id))
+  // Only people with a PIN who may stamp on the tablet (not "phone only").
+  const withPin = new Set(db.select().from(employees).all()
+    .filter(row => row.pinHash !== null && mayStampVia(row.stampVia, 'terminal')).map(row => row.id))
   const open = new Set(db.select().from(timeRecords)
     .where(and(eq(timeRecords.date, date), isNull(timeRecords.end))).all().map(record => record.employeeId))
   return loadEmployees(db)

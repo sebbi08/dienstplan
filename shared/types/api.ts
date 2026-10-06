@@ -1,5 +1,6 @@
 import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
 import type { Warning } from '../domain/warnings'
@@ -214,6 +215,9 @@ export interface EmployeeListItemDto {
   currentWeeklyMinutes: number | null
   /** Working days bitmask valid today (bit 0 = Monday). */
   currentWorkdays: number
+  /** Where the employee may clock in and out, and whether breaks are clocked or deducted automatically. */
+  stampVia: StampChannel
+  breakMode: BreakMode
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
 }
@@ -328,6 +332,9 @@ export interface TimeDayDto {
 export interface MyTimeDto {
   enabled: boolean
   today: IsoDate
+  /** Where this employee may clock in and out (the stamp button is hidden for "tablet only"). */
+  stampVia: StampChannel
+  breakMode: BreakMode
   /** Start of today's open record, null when clocked out. */
   clockedInSince: Minutes | null
   todayRecords: TimeRecordDto[]

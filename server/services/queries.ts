@@ -1,5 +1,6 @@
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { describeEntry } from '../../shared/domain/describe'
+import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
@@ -27,6 +28,9 @@ export interface EmployeeRecord {
   jobOther: string | null
   payGroup: string | null
   payLevel: number | null
+  // Time tracking options set by the Leitung (see shared/domain/stamping.ts).
+  stampVia: StampChannel
+  breakMode: BreakMode
 }
 
 export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {

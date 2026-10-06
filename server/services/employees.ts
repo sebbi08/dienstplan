@@ -1,5 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
+import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
 import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
@@ -22,6 +23,9 @@ export interface EmployeeInput {
   vacationDays?: number | null
   /** Remaining leave carried over into that year. */
   carriedOverDays?: number | null
+  /** Where to clock in and out and how breaks count (default: both, breaks clocked). */
+  stampVia?: StampChannel
+  breakMode?: BreakMode
   /** Existing overtime (or minus hours) when the employee is added, booked on validFrom. */
   openingBalanceMinutes?: number | null
 }
@@ -60,6 +64,7 @@ function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: bool
     currentWorkdays: weeklyMinutesOn(employee.info, today) !== null
       ? workdaysOn(employee.info, today)
       : employee.info.hours[0]?.workdays ?? MONDAY_TO_FRIDAY,
+    stampVia: employee.stampVia, breakMode: employee.breakMode,
     ...(withContract ? { contract: contractOf(employee) } : {}),
   }
 }
@@ -100,7 +105,9 @@ export function createEmployee(db: Db, actor: SessionUser, input: EmployeeInput,
   const workdays = requireWorkdays(input.workdays ?? MONDAY_TO_FRIDAY)
   return db.transaction((tx) => {
     const sortOrder = Math.max(0, ...tx.select().from(employees).all().map(e => e.sortOrder)) + 1
-    const employee = tx.insert(employees).values({ name, shortName: input.shortName.trim(), sortOrder }).returning().get()
+    const employee = tx.insert(employees).values({
+      name, shortName: input.shortName.trim(), sortOrder, stampVia: input.stampVia ?? 'both', breakMode: input.breakMode ?? 'stamp',
+    }).returning().get()
     tx.insert(employeeHours).values({ employeeId: employee.id, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom, workdays }).run()
     if (input.vacationDays != null || input.carriedOverDays != null) {
       tx.insert(leaveEntitlements).values({
@@ -196,4 +203,10 @@ export function listLevelUps(db: Db, today: IsoDate, viewer: Role): LevelUpDto[]
     const due = dueLevelUp(employee.employedSince, employee.payLevel, today)
     return due ? [{ employeeId: employee.id, name: employee.name, fromLevel: employee.payLevel!, ...due }] : []
   })
+}
+
+/** Time tracking options of an employee, set by the Leitung: where to clock in and out, and how breaks count. */
+export function setStampingOptions(db: Db, id: number, options: { stampVia: StampChannel; breakMode: BreakMode }): void {
+  assertEmployee(db, id)
+  db.update(employees).set(options).where(eq(employees.id, id)).run()
 }
