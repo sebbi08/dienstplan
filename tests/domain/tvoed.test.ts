@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { levelBySeniority, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
+import { dueLevelUp, levelBySeniority, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
 
 describe('TVöD SuE helpers', () => {
   it('suggests the level from the years of service and the date of the next level', () => {
@@ -19,5 +19,17 @@ describe('TVöD SuE helpers', () => {
   })
   it('suggests no pay group for the management, whose group depends on the facility size', () => {
     expect([SUGGESTED_PAY_GROUP.educator, SUGGESTED_PAY_GROUP.childcare_worker, SUGGESTED_PAY_GROUP.head]).toEqual(['S 8a', 'S 3', null])
+  })
+})
+
+describe('level-up notices', () => {
+  it('announces the next level from 30 days before until it is entered', () => {
+    const since = '2019-03-01' // level 4 is due on 2027-03-01
+    expect(dueLevelUp(since, 3, '2027-01-29')).toBeNull()
+    expect(dueLevelUp(since, 3, '2027-01-30')).toEqual({ level: 4, on: '2027-03-01' })
+    expect(dueLevelUp(since, 3, '2027-06-01')).toEqual({ level: 4, on: '2027-03-01' }) // overdue, still shown
+    expect(dueLevelUp(since, 4, '2027-06-01')).toBeNull() // entered: level 5 only from 2031
+    expect(dueLevelUp(since, 6, '2040-01-01')).toBeNull()
+    expect(dueLevelUp(since, null, '2027-03-01')).toBeNull()
   })
 })

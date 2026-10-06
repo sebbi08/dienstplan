@@ -99,6 +99,7 @@ const hint = 'text-xs text-gray-500'
       <h1 class="text-2xl font-semibold">{{ de.employees.title }}</h1>
       <MonthNav :year="year" :month="month" @change="change" />
     </div>
+    <LevelUpNotice @changed="refresh" />
     <div v-if="isProvider && appSettings" class="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-gray-200">
       <USwitch :model-value="appSettings.contractVisibleToAdmins" :label="de.contract.visible" @update:model-value="setContractVisible" />
       <span class="text-xs text-gray-500">{{ de.contract.visibleHint }}</span>

@@ -163,6 +163,7 @@ function navigate(nextYear: number, nextMonth: number) {
 <template>
   <div class="space-y-3">
     <template v-if="plan && !error">
+      <LevelUpNotice v-if="isAdmin" />
       <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" @discard="discardOpen = true" />
       <PlanDiscardModal v-if="isAdmin" v-model:open="discardOpen" :plan="plan" @submit="onDiscard" />
       <PlanToolbar

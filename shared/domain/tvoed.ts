@@ -50,3 +50,16 @@ export function seniority(since: IsoDate, today: IsoDate): { years: number; mont
   if (to.day < from.day) months -= 1
   return { years: Math.floor(months / 12), months: months % 12 }
 }
+
+/** Days before a level step from which it is announced. */
+export const LEVEL_UP_NOTICE_DAYS = 30
+
+/**
+ * The next level step of an employee at `payLevel` who started on `since`, when it is due within
+ * LEVEL_UP_NOTICE_DAYS (or already overdue); null otherwise, at level 6 or without a level.
+ */
+export function dueLevelUp(since: IsoDate, payLevel: number | null, today: IsoDate): { level: number; on: IsoDate } | null {
+  if (payLevel === null || payLevel >= 6) return null
+  const on = addYears(since, LEVEL_AFTER_YEARS[payLevel - 1]!)
+  return on <= addDays(today, LEVEL_UP_NOTICE_DAYS) ? { level: payLevel + 1, on } : null
+}

@@ -1,9 +1,9 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
-import type { JobKey, PayGroup } from '../../shared/domain/tvoed'
+import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
-import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, Role, SessionUser } from '../../shared/types/api'
+import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, LevelUpDto, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { balanceAdjustments, employeeHours, employees, leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -186,4 +186,14 @@ export function setContract(db: Db, id: number, contract: EmployeeContractDto): 
   const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
   if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
   db.update(employees).set({ ...contract, jobOther }).where(eq(employees.id, id)).run()
+}
+
+/** Level steps due within the notice period or overdue, for viewers who may see contract data; staff who left are skipped. */
+export function listLevelUps(db: Db, today: IsoDate, viewer: Role): LevelUpDto[] {
+  if (!mayViewContract(db, viewer)) return []
+  return loadEmployees(db).flatMap((employee) => {
+    if (!employee.employedSince || (employee.leftOn !== null && employee.leftOn < today)) return []
+    const due = dueLevelUp(employee.employedSince, employee.payLevel, today)
+    return due ? [{ employeeId: employee.id, name: employee.name, fromLevel: employee.payLevel!, ...due }] : []
+  })
 }

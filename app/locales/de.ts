@@ -217,6 +217,9 @@ export const de = {
     visible: 'Vertragsangaben für die Leitung sichtbar',
     visibleHint: 'Nur der Träger kann die Vertragsangaben bearbeiten. Ist dieser Schalter an, sieht die Leitung sie zusätzlich (nur lesen).',
     rowLabel: 'Vertrag',
+    levelUpTitle: 'Stufenaufstieg nach TVöD',
+    levelUp: (name: string, from: number, to: number, date: string) => `${name}: Stufe ${from} → Stufe ${to} ab ${date}`,
+    enterLevel: (level: number) => `Stufe ${level} eintragen`,
   },
   closures: {
     title: 'Schließzeiten', from: 'Von', to: 'Bis', label: 'Bezeichnung', mode: 'Eintragen als',

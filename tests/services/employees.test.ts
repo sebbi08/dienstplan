@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { getAppSettings, setContractVisibleToAdmins } from '../../server/services/appSettings'
 import {
-  addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees,
+  addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees, listLevelUps,
   moveEmployee, setContract, setEntitlement, updateEmployee,
 } from '../../server/services/employees'
 import type { SessionUser } from '../../shared/types/api'
@@ -117,5 +117,25 @@ describe('contract data (Träger only)', () => {
     expect(getEmployee(db, id, today, 'provider').contract).toMatchObject({ jobKey: 'other', jobOther: 'Hauswirtschaft' })
     expect(errorCode(() => setContract(db, id, { ...contract, payLevel: 7 }))).toBe('invalid_pay_level')
     expect(errorCode(() => setContract(db, 999, contract))).toBe('employee_not_found')
+  })
+})
+
+describe('level-up notices', () => {
+  it('lists due level steps for the Träger, and for the Leitung only when contract data is shared', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'traeger', 'provider')
+    const anna = createEmployee(db, admin, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const ben = createEmployee(db, admin, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const base = { jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const }
+    setContract(db, anna, { ...base, employedSince: '2022-11-01', payLevel: 2 }) // level 3 due on 2026-11-01
+    setContract(db, ben, { ...base, employedSince: '2022-11-01', payLevel: 3 }) // already entered
+    const due = [{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-11-01' }]
+    expect(listLevelUps(db, '2026-10-05', 'provider')).toEqual(due)
+    expect(listLevelUps(db, '2026-10-01', 'provider')).toEqual([])
+    expect(listLevelUps(db, '2026-10-05', 'admin')).toEqual([])
+    setContractVisibleToAdmins(db, true)
+    expect(listLevelUps(db, '2026-10-05', 'admin')).toEqual(due)
+    updateEmployee(db, anna, { name: 'Anna', shortName: '', leftOn: '2026-10-04' })
+    expect(listLevelUps(db, '2026-10-05', 'provider')).toEqual([])
   })
 })

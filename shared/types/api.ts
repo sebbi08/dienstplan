@@ -414,3 +414,13 @@ export interface ShiftChangeResult {
   /** Template (Vorlage) entries that got the new times. */
   inTemplates: number
 }
+
+/** An employee's next TVöD level step that is due soon or overdue (see dueLevelUp). */
+export interface LevelUpDto {
+  employeeId: number
+  name: string
+  /** The level currently entered and the one that is due. */
+  fromLevel: number
+  level: number
+  on: IsoDate
+}
