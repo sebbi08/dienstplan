@@ -96,8 +96,8 @@ describe('changing a service and its existing shifts', () => {
   })
   it('updates the service in week templates too', () => {
     enter(['2026-10-05'])
-    saveWeekTemplate(db, { name: 'A', weekStart: '2026-10-05' })
+    saveWeekTemplate(db, 1, { name: 'A', weekStart: '2026-10-05' })
     expect(saveTemplateChange(db, admin, 1, id, withBreak, '2026-10-12')).toMatchObject({ updated: 0, inTemplates: 1 })
-    expect(listWeekTemplates(db)[0]!.rows[0]!.days[0]).toBe('F1')
+    expect(listWeekTemplates(db, 1)[0]!.rows[0]!.days[0]).toBe('F1')
   })
 })

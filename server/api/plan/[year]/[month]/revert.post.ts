@@ -5,5 +5,5 @@ export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { year, month } = await getValidatedRouterParams(event, monthParams.parse)
   const { keys } = await readValidatedBody(event, revertSchema.parse)
-  return { reverted: revertToRelease(useDb(), admin, year, month, keys) }
+  return { reverted: revertToRelease(useDb(), admin, admin.facilityId, year, month, keys) }
 })

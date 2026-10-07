@@ -22,34 +22,34 @@ describe('revertToRelease', () => {
     ben = addEmployee(db, 'Ben')
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
     setDayNote(db, admin, 1, '2026-10-06', 'info1', 'Elternabend')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     // draft edits after the release
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
     applyToCells(db, admin, 1, [{ employeeId: ben, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     setDayNote(db, admin, 1, '2026-10-06', 'info1', 'Elternabend 19 Uhr')
   })
-  const pending = () => getMonthPlan(db, admin, 2026, 10, today).admin!.pendingChanges
+  const pending = () => getMonthPlan(db, admin, 1, 2026, 10, today).admin!.pendingChanges
 
   it('restores the released entries of the selected cells only', () => {
-    expect(revertToRelease(db, admin, 2026, 10, [`${anna}|2026-10-06`])).toBe(1)
+    expect(revertToRelease(db, admin, 1, 2026, 10, [`${anna}|2026-10-06`])).toBe(1)
     expect(loadEntries(db, { employeeId: anna, from: '2026-10-06', to: '2026-10-06' })).toMatchObject([
       { kind: 'shift', shortLabel: 'F2', start: 450, end: 945, breakStart: 700, breakEnd: 730 },
     ])
     expect(Object.keys(pending()).sort()).toEqual([`${ben}|2026-10-07`, 'info1|2026-10-06'])
   })
   it('clears a cell that was empty in the release and restores info fields', () => {
-    revertToRelease(db, admin, 2026, 10, [`${ben}|2026-10-07`, 'info1|2026-10-06'])
+    revertToRelease(db, admin, 1, 2026, 10, [`${ben}|2026-10-07`, 'info1|2026-10-06'])
     expect(loadEntries(db, { employeeId: ben, from: '2026-10-07', to: '2026-10-07' })).toEqual([])
-    expect(getMonthPlan(db, admin, 2026, 10, today).days[5]!.info1).toBe('Elternabend')
+    expect(getMonthPlan(db, admin, 1, 2026, 10, today).days[5]!.info1).toBe('Elternabend')
   })
   it('leaves no pending changes after reverting all of them', () => {
-    revertToRelease(db, admin, 2026, 10, Object.keys(pending()))
+    revertToRelease(db, admin, 1, 2026, 10, Object.keys(pending()))
     expect(pending()).toEqual({})
   })
   it('validates month and keys', () => {
-    expect(errorCode(() => revertToRelease(db, admin, 2026, 11, [`${anna}|2026-11-02`]))).toBe('month_not_released')
-    expect(errorCode(() => revertToRelease(db, admin, 2026, 10, [`${anna}|2026-11-02`]))).toBe('invalid_key')
-    expect(errorCode(() => revertToRelease(db, admin, 2026, 10, ['info3|2026-10-06']))).toBe('invalid_key')
-    expect(errorCode(() => revertToRelease(db, admin, 2026, 10, ['999|2026-10-06']))).toBe('employee_not_found')
+    expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 11, [`${anna}|2026-11-02`]))).toBe('month_not_released')
+    expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 10, [`${anna}|2026-11-02`]))).toBe('invalid_key')
+    expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 10, ['info3|2026-10-06']))).toBe('invalid_key')
+    expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 10, ['999|2026-10-06']))).toBe('employee_not_found')
   })
 })

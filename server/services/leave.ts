@@ -8,6 +8,7 @@ import { leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { loadEmployees, loadEntries } from './queries'
 
+/** The leave account of one employee (whatever facility they belong to; callers check access). */
 export function getLeaveAccount(db: Db, employeeId: number, year: number, today: IsoDate): LeaveAccountDto {
   const employee = loadEmployees(db).find(candidate => candidate.id === employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
@@ -24,8 +25,9 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
   }
 }
 
-export function getLeaveOverview(db: Db, year: number, today: IsoDate): LeaveAccountDto[] {
-  return loadEmployees(db)
+/** Leave accounts of the facility's staff employed in the year. */
+export function getLeaveOverview(db: Db, facilityId: number, year: number, today: IsoDate): LeaveAccountDto[] {
+  return loadEmployees(db, facilityId)
     .filter(employee => isEmployedInRange(employee.info, `${year}-01-01`, `${year}-12-31`))
     .map(employee => getLeaveAccount(db, employee.id, year, today))
 }

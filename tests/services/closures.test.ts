@@ -48,7 +48,7 @@ describe('closures service', () => {
   it('suppresses warnings on closure days', () => {
     createClosure(db, admin, 1, summer)
     applyToCells(db, admin, 1, [{ employeeId: ben, date: '2026-08-12' }], 'clear', null)
-    const warnings = getMonthPlan(db, admin, 2026, 8, '2026-08-01').admin!.warnings
+    const warnings = getMonthPlan(db, admin, 1, 2026, 8, '2026-08-01').admin!.warnings
     expect(warnings.filter(w => w.date === '2026-08-12')).toEqual([])
   })
   it('validates the range and label', () => {

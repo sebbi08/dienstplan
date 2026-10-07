@@ -48,7 +48,7 @@ describe('balances and leave', () => {
       account: { entitlement: 30, carriedOver: 3, taken: 2, planned: 3, available: 28 },
       ranges: [{ from: '2026-10-05', to: '2026-10-09', days: 5 }],
     })
-    expect(getLeaveOverview(db, 2026, '2026-10-07')).toHaveLength(1)
+    expect(getLeaveOverview(db, 1, 2026, '2026-10-07')).toHaveLength(1)
   })
   it('uses recorded time for past days and counts “today” until yesterday', () => {
     applyToCells(db, admin, 1, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })

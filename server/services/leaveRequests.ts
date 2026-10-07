@@ -296,7 +296,7 @@ export function decideLeaveRequest(
 /** Year calendar with leave and open requests, people on leave per day, and the open requests to decide. */
 export function getLeavePlanning(db: Db, user: SessionUser, year: number): LeavePlanningDto {
   requirePlanner(db, user)
-  const calendar = getYearCalendar(db, year)
+  const calendar = getYearCalendar(db, user.facilityId ?? FIRST_FACILITY_ID, year)
   const staff = loadEmployees(db)
   const closures = loadClosures(db, user.facilityId ?? FIRST_FACILITY_ID)
   const from = `${year}-01-01`

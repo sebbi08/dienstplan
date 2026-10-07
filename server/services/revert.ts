@@ -5,7 +5,6 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, entries, shiftTemplates } from '../db/schema'
-import { FIRST_FACILITY_ID } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { describeCellAt, setDayNote } from './entries'
@@ -25,31 +24,29 @@ function parseKey(key: string, year: number, month: number): RevertTarget {
 }
 
 /**
- * Resets the given cells / info fields (cellKey or noteKey) of a month to the newest release.
- * Returns the number of reverted keys.
+ * Resets the given cells / info fields (cellKey or noteKey) of a facility's month to its newest release; cells of
+ * employees outside the facility are refused. Returns the number of reverted keys.
  */
 export function revertToRelease(
-  db: Db, actor: SessionUser, year: number, month: number, keys: string[], now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
 ): number {
-  const latest = loadReleases(db, year, month).at(-1)
+  const latest = loadReleases(db, facilityId, year, month).at(-1)
   if (!latest) throw new ServiceError(400, 'month_not_released')
   const targets = [...new Set(keys)].map(key => parseKey(key, year, month))
-  const templateIds = new Set(db.select({ id: shiftTemplates.id }).from(shiftTemplates).all().map(row => row.id))
-  const employeeFacilities = new Map(db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).all()
-    .map(row => [row.id, row.facilityId]))
-  // Day notes of the actor's (active) facility, until the facility is passed in explicitly.
-  const noteFacility = actor.facilityId ?? FIRST_FACILITY_ID
+  const templateIds = new Set(db.select({ id: shiftTemplates.id }).from(shiftTemplates)
+    .where(eq(shiftTemplates.facilityId, facilityId)).all().map(row => row.id))
+  const staffIds = new Set(db.select({ id: employees.id }).from(employees)
+    .where(eq(employees.facilityId, facilityId)).all().map(row => row.id))
   const timestamp = now.toISOString()
 
   db.transaction((tx) => {
     for (const target of targets) {
       if (target.type === 'note') {
         const released = latest.data.days.find(day => day.date === target.date)?.[target.field] ?? ''
-        setDayNote(tx, actor, noteFacility, target.date, target.field, released, now)
+        setDayNote(tx, actor, facilityId, target.date, target.field, released, now)
         continue
       }
-      const facilityId = employeeFacilities.get(target.employeeId)
-      if (facilityId === undefined) throw new ServiceError(400, 'employee_not_found')
+      if (!staffIds.has(target.employeeId)) throw new ServiceError(400, 'employee_not_found')
       const cell = { employeeId: target.employeeId, date: target.date }
       const before = describeCellAt(tx, cell)
       tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()

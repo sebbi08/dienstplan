@@ -29,15 +29,15 @@ export interface CalendarEventInput {
 
 const yearBounds = (year: number) => ({ from: `${year}-01-01`, to: `${year}-12-31` })
 
-function staffOfYear(db: Db, year: number) {
+function staffOfYear(db: Db, facilityId: number, year: number) {
   const { from, to } = yearBounds(year)
-  return loadEmployees(db).filter(employee => isEmployedInRange(employee.info, from, to))
+  return loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, from, to))
 }
 
-/** Sick periods (Mon–Fri without holidays, bridging weekends) and the number of sick workdays per employee. */
-export function getSickYear(db: Db, year: number): SickYearRowDto[] {
-  const sickDates = loadEntries(db, { ...yearBounds(year), codeKey: 'sick' })
-  return staffOfYear(db, year).map((employee) => {
+/** Sick periods (Mon–Fri without holidays, bridging weekends) and the number of sick workdays per employee of the facility. */
+export function getSickYear(db: Db, facilityId: number, year: number): SickYearRowDto[] {
+  const sickDates = loadEntries(db, { ...yearBounds(year), codeKey: 'sick', facilityId })
+  return staffOfYear(db, facilityId, year).map((employee) => {
     const ranges = groupLeaveRanges(
       sickDates.filter(entry => entry.employeeId === employee.id).map(entry => entry.date),
       date => isWorkday(employee.info, date),
@@ -50,18 +50,20 @@ export function getSickYear(db: Db, year: number): SickYearRowDto[] {
  * The year calendar as employees see it (read-only): everyone's leave, special leave, training and school, closures
  * and holidays, but sick days only of the viewer themselves (health data), and only appointments shared with staff.
  */
-export function getStaffYearCalendar(db: Db, year: number, viewerEmployeeId: number | null): YearCalendarDto {
-  const calendar = getYearCalendar(db, year, { sickOnlyOf: viewerEmployeeId })
+export function getStaffYearCalendar(db: Db, facilityId: number, year: number, viewerEmployeeId: number | null): YearCalendarDto {
+  const calendar = getYearCalendar(db, facilityId, year, { sickOnlyOf: viewerEmployeeId })
   return { ...calendar, otherEntries: {}, absenceCodes: [], events: calendar.events.filter(event => event.visibleToStaff) }
 }
 
-/** With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered). */
-export function getYearCalendar(db: Db, year: number, options: { sickOnlyOf?: number | null } = {}): YearCalendarDto {
-  const staff = staffOfYear(db, year)
+/** The facility's year calendar. With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered). */
+export function getYearCalendar(
+  db: Db, facilityId: number, year: number, options: { sickOnlyOf?: number | null } = {},
+): YearCalendarDto {
+  const staff = staffOfYear(db, facilityId, year)
   const days: Record<number, Record<IsoDate, CalendarKind>> = Object.fromEntries(staff.map(employee => [employee.id, {}]))
   const otherSets = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
   const hideSick = 'sickOnlyOf' in options
-  for (const entry of loadEntries(db, yearBounds(year))) {
+  for (const entry of loadEntries(db, { ...yearBounds(year), facilityId })) {
     if (hideSick && entry.codeKey === 'sick' && entry.employeeId !== options.sickOnlyOf) continue
     // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
     if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)
@@ -80,14 +82,19 @@ export function getYearCalendar(db: Db, year: number, options: { sickOnlyOf?: nu
     freeDays: Object.fromEntries(staff.map(employee => [employee.id, dateRange(`${year}-01-01`, `${year}-12-31`)
       .filter(date => !isWeekend(date) && !isHoliday(date) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key)),
-    events: listCalendarEvents(db, year),
+    events: listCalendarEvents(db, facilityId, year),
   }
 }
 
-export function listCalendarEvents(db: Db, year: number): CalendarEventDto[] {
+const eventColumns = {
+  id: calendarEvents.id, date: calendarEvents.date, start: calendarEvents.start, end: calendarEvents.end,
+  title: calendarEvents.title, visibleToStaff: calendarEvents.visibleToStaff,
+}
+
+export function listCalendarEvents(db: Db, facilityId: number, year: number): CalendarEventDto[] {
   const { from, to } = yearBounds(year)
-  return db.select().from(calendarEvents)
-    .where(and(gte(calendarEvents.date, from), lte(calendarEvents.date, to)))
+  return db.select(eventColumns).from(calendarEvents)
+    .where(and(eq(calendarEvents.facilityId, facilityId), gte(calendarEvents.date, from), lte(calendarEvents.date, to)))
     .orderBy(asc(calendarEvents.date), asc(calendarEvents.start), asc(calendarEvents.id)).all()
 }
 
@@ -99,15 +106,22 @@ function normalizeEvent(input: CalendarEventInput): CalendarEventInput {
   return { ...input, title }
 }
 
-export function createCalendarEvent(db: Db, input: CalendarEventInput): CalendarEventDto {
-  return db.insert(calendarEvents).values(normalizeEvent(input)).returning().get()
+/** Matches the facility's appointment with this id. */
+const ownEvent = (facilityId: number, id: number) => and(eq(calendarEvents.id, id), eq(calendarEvents.facilityId, facilityId))
+
+export function createCalendarEvent(db: Db, facilityId: number, input: CalendarEventInput): CalendarEventDto {
+  return db.insert(calendarEvents).values({ ...normalizeEvent(input), facilityId }).returning(eventColumns).get()
 }
 
-export function updateCalendarEvent(db: Db, id: number, input: CalendarEventInput): void {
-  if (!db.select().from(calendarEvents).where(eq(calendarEvents.id, id)).get()) throw new ServiceError(404, 'event_not_found')
+/** Another facility's appointment gives event_not_found. */
+export function updateCalendarEvent(db: Db, facilityId: number, id: number, input: CalendarEventInput): void {
+  if (!db.select({ id: calendarEvents.id }).from(calendarEvents).where(ownEvent(facilityId, id)).get()) {
+    throw new ServiceError(404, 'event_not_found')
+  }
   db.update(calendarEvents).set(normalizeEvent(input)).where(eq(calendarEvents.id, id)).run()
 }
 
-export function deleteCalendarEvent(db: Db, id: number): void {
-  db.delete(calendarEvents).where(eq(calendarEvents.id, id)).run()
+/** Deletes the facility's appointment; other ids are ignored. */
+export function deleteCalendarEvent(db: Db, facilityId: number, id: number): void {
+  db.delete(calendarEvents).where(ownEvent(facilityId, id)).run()
 }

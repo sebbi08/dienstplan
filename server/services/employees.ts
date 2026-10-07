@@ -216,10 +216,13 @@ export function setContract(db: Db, facilityId: number, id: number, contract: Em
   db.update(employees).set({ ...contract, personnelNumber, jobOther }).where(eq(employees.id, id)).run()
 }
 
-/** Level steps due within the notice period or overdue, for viewers who may see contract data; staff who left are skipped. */
-export function listLevelUps(db: Db, today: IsoDate, viewer: Role): LevelUpDto[] {
+/**
+ * Level steps of the facility's staff due within the notice period or overdue, for viewers who may see contract data;
+ * staff who left are skipped.
+ */
+export function listLevelUps(db: Db, facilityId: number, today: IsoDate, viewer: Role): LevelUpDto[] {
   if (!mayViewContract(db, viewer)) return []
-  return loadEmployees(db).flatMap((employee) => {
+  return loadEmployees(db, facilityId).flatMap((employee) => {
     if (!employee.employedSince || (employee.leftOn !== null && employee.leftOn < today)) return []
     const due = dueLevelUp(employee.employedSince, employee.payLevel, today)
     return due ? [{ employeeId: employee.id, name: employee.name, fromLevel: employee.payLevel!, ...due }] : []

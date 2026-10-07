@@ -26,8 +26,10 @@ function requireMonday(weekStart: IsoDate): void {
   if (!isValidIsoDate(weekStart) || weekday(weekStart) !== 0) throw new ServiceError(400, 'not_a_monday')
 }
 
-function requireTemplate(db: Db, id: number) {
-  const template = db.select().from(weekTemplates).where(eq(weekTemplates.id, id)).get()
+/** The facility's template; another facility's id gives week_template_not_found. */
+function requireTemplate(db: Db, facilityId: number, id: number) {
+  const template = db.select().from(weekTemplates)
+    .where(and(eq(weekTemplates.id, id), eq(weekTemplates.facilityId, facilityId))).get()
   if (!template) throw new ServiceError(404, 'week_template_not_found')
   return template
 }
@@ -48,7 +50,7 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
     .where(eq(weekTemplateEntries.weekTemplateId, template.id))
     .orderBy(asc(weekTemplateEntries.weekday), asc(weekTemplateEntries.start), asc(weekTemplateEntries.id))
     .all()
-  const preview = loadEmployees(db).flatMap((employee) => {
+  const preview = loadEmployees(db, template.facilityId).flatMap((employee) => {
     const own = rows.filter(row => row.entry.employeeId === employee.id)
     if (own.length === 0) return []
     const days = Array.from({ length: WEEKDAYS }, (_, day) => own.filter(row => row.entry.weekday === day)
@@ -59,51 +61,56 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
   return { id: template.id, name: template.name, updatedAt: template.updatedAt, rows: preview }
 }
 
-export function listWeekTemplates(db: Db): WeekTemplateDto[] {
-  return db.select().from(weekTemplates).all()
+export function listWeekTemplates(db: Db, facilityId: number): WeekTemplateDto[] {
+  return db.select().from(weekTemplates).where(eq(weekTemplates.facilityId, facilityId)).all()
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))
     .map(template => toDto(db, template))
 }
 
 /**
  * Saves Monday–Friday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro.
- * One-off entries (Urlaub, Krank, Fortbildung …) are left out. An existing template of the same name is replaced.
+ * One-off entries (Urlaub, Krank, Fortbildung …) are left out. Only the facility's staff count. An existing template of
+ * the same name in the facility is replaced.
  */
-export function saveWeekTemplate(db: Db, input: { name: string; weekStart: IsoDate }, now: Date = new Date()): WeekTemplateDto {
+export function saveWeekTemplate(
+  db: Db, facilityId: number, input: { name: string; weekStart: IsoDate }, now: Date = new Date(),
+): WeekTemplateDto {
   requireMonday(input.weekStart)
   const name = requireName(input.name)
-  const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1) })
+  const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), facilityId })
     .filter(entry => entry.kind !== 'code' || (entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey)))
   if (working.length === 0) throw new ServiceError(400, 'empty_week')
 
   return db.transaction((tx) => {
     const updatedAt = now.toISOString()
-    const existing = tx.select().from(weekTemplates).where(eq(weekTemplates.name, name)).get()
+    const existing = tx.select().from(weekTemplates)
+      .where(and(eq(weekTemplates.facilityId, facilityId), eq(weekTemplates.name, name))).get()
     const template = existing
       ? tx.update(weekTemplates).set({ updatedAt }).where(eq(weekTemplates.id, existing.id)).returning().get()
-      : tx.insert(weekTemplates).values({ name, updatedAt }).returning().get()
+      : tx.insert(weekTemplates).values({ facilityId, name, updatedAt }).returning().get()
     tx.delete(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, template.id)).run()
     tx.insert(weekTemplateEntries).values(working.map(entry => ({
       weekTemplateId: template.id, employeeId: entry.employeeId, weekday: weekday(entry.date), kind: entry.kind,
       shiftTemplateId: entry.templateId, absenceCodeId: entry.codeId, start: entry.start, end: entry.end,
       breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, note: entry.note,
     }))).run()
-    markWeek(tx, input.weekStart, template.id)
+    markWeek(tx, facilityId, input.weekStart, template.id)
     return toDto(tx, template)
   })
 }
 
-export function renameWeekTemplate(db: Db, id: number, newName: string): void {
-  requireTemplate(db, id)
+/** Template names are unique per facility. */
+export function renameWeekTemplate(db: Db, facilityId: number, id: number, newName: string): void {
+  requireTemplate(db, facilityId, id)
   const name = requireName(newName)
-  if (db.select().from(weekTemplates).where(and(eq(weekTemplates.name, name), ne(weekTemplates.id, id))).get()) {
-    throw new ServiceError(409, 'name_taken')
-  }
+  const taken = db.select().from(weekTemplates)
+    .where(and(eq(weekTemplates.facilityId, facilityId), eq(weekTemplates.name, name), ne(weekTemplates.id, id))).get()
+  if (taken) throw new ServiceError(409, 'name_taken')
   db.update(weekTemplates).set({ name }).where(eq(weekTemplates.id, id)).run()
 }
 
-export function deleteWeekTemplate(db: Db, id: number): void {
-  requireTemplate(db, id)
+export function deleteWeekTemplate(db: Db, facilityId: number, id: number): void {
+  requireTemplate(db, facilityId, id)
   db.delete(weekTemplates).where(eq(weekTemplates.id, id)).run()
 }
 
@@ -112,16 +119,18 @@ export function deleteWeekTemplate(db: Db, id: number): void {
  * it is one of their working days (employed, contract day, no public holiday) outside any closure; nothing is overwritten.
  */
 export function applyWeekTemplate(
-  db: Db, actor: SessionUser, id: number, weekStart: IsoDate, now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, id: number, weekStart: IsoDate, now: Date = new Date(),
 ): WeekTemplateApplyResult {
   requireMonday(weekStart)
-  const { facilityId } = requireTemplate(db, id)
+  requireTemplate(db, facilityId, id)
   const rows = db.select().from(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, id))
     .orderBy(asc(weekTemplateEntries.start), asc(weekTemplateEntries.id)).all()
-  const staff = new Map(loadEmployees(db).map(employee => [employee.id, employee]))
+  // Employees who have since moved to another facility are skipped.
+  const staff = new Map(loadEmployees(db, facilityId).map(employee => [employee.id, employee]))
   const closures = loadClosures(db, facilityId)
   const groups = Map.groupBy(rows, row => `${row.employeeId}:${row.weekday}`)
-  const shifts = new Map(db.select().from(shiftTemplates).all().map(shift => [shift.id, shift]))
+  const shifts = new Map(db.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, facilityId)).all()
+    .map(shift => [shift.id, shift]))
   // A saved shift whose service (Dienst) was changed or deleted since keeps its saved times as a special shift,
   // so the plan never shows e.g. "F1" with times that are no longer F1's.
   const keepTimesOf = (row: SavedTimes & Pick<typeof weekTemplateEntries.$inferSelect, 'kind' | 'shiftTemplateId'>) => {
@@ -133,7 +142,7 @@ export function applyWeekTemplate(
   const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
 
   db.transaction((tx) => {
-    const occupied = new Set(loadEntries(tx, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1) })
+    const occupied = new Set(loadEntries(tx, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1), facilityId })
       .map(entry => `${entry.employeeId}:${entry.date}`))
     for (const group of groups.values()) {
       const { employeeId, weekday: day } = group[0]!
@@ -149,27 +158,27 @@ export function applyWeekTemplate(
         ...values, ...keepTimesOf(values), date, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
       }))).run()
       logChange(tx, {
-        facilityId: employee.facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
+        facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
       })
       result.filled += 1
     }
-    if (result.filled > 0) markWeek(tx, weekStart, id)
+    if (result.filled > 0) markWeek(tx, facilityId, weekStart, id)
   })
   return result
 }
 
-/** Remembers which template a plan week was saved as or filled from (the latest one wins). */
-function markWeek(db: Db, weekStart: IsoDate, weekTemplateId: number): void {
-  db.insert(weekTemplateMarks).values({ weekStart, weekTemplateId })
+/** Remembers which template a facility's plan week was saved as or filled from (the latest one wins). */
+function markWeek(db: Db, facilityId: number, weekStart: IsoDate, weekTemplateId: number): void {
+  db.insert(weekTemplateMarks).values({ facilityId, weekStart, weekTemplateId })
     .onConflictDoUpdate({ target: [weekTemplateMarks.facilityId, weekTemplateMarks.weekStart], set: { weekTemplateId } }).run()
 }
 
-/** Template name per plan week (by its Monday) between from and to, for the plan's week rows. */
-export function weekTemplateNames(db: Db, from: IsoDate, to: IsoDate): Map<IsoDate, string> {
+/** Template name per plan week (by its Monday) of the facility between from and to, for the plan's week rows. */
+export function weekTemplateNames(db: Db, facilityId: number, from: IsoDate, to: IsoDate): Map<IsoDate, string> {
   const rows = db.select({ weekStart: weekTemplateMarks.weekStart, name: weekTemplates.name })
     .from(weekTemplateMarks)
     .innerJoin(weekTemplates, eq(weekTemplateMarks.weekTemplateId, weekTemplates.id))
-    .where(and(gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to)))
+    .where(and(eq(weekTemplateMarks.facilityId, facilityId), gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to)))
     .all()
   return new Map(rows.map(row => [row.weekStart, row.name]))
 }

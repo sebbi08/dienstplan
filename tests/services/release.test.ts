@@ -22,12 +22,12 @@ describe('release snapshots', () => {
   it('stores one snapshot per release with entries, notes and closure labels', () => {
     shift('2026-10-06', 'F2')
     setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Elternabend')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift('2026-10-06', 'S')
     createClosure(db, admin, 1, { startDate: '2026-10-12', endDate: '2026-10-12', label: 'Teamtag', mode: 'closure_day' })
-    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-01T07:00:00Z'))
 
-    const releases = loadReleases(db, 2026, 10)
+    const releases = loadReleases(db, 1, 2026, 10)
     expect(releases.map(r => [r.releasedAt, r.releasedBy])).toEqual([
       ['2026-09-25T10:00:00.000Z', 'leitung'],
       ['2026-10-01T07:00:00.000Z', 'leitung'],
@@ -45,7 +45,7 @@ describe('release snapshots', () => {
     db.insert(monthPlans).values({ year: 2026, month: 10, releasedAt: '2026-09-25T10:00:00.000Z', releasedBy: admin.id }).run()
     expect(backfillSnapshots(db)).toBe(1)
     expect(backfillSnapshots(db)).toBe(0)
-    const [release] = loadReleases(db, 2026, 10)
+    const [release] = loadReleases(db, 1, 2026, 10)
     expect(release).toMatchObject({ releasedAt: '2026-09-25T10:00:00.000Z', releasedBy: 'leitung' })
     expect(release!.data.entries).toHaveLength(1)
   })

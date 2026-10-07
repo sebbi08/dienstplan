@@ -4,7 +4,6 @@ import { isEmployedInRange } from '../../shared/domain/targets'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { dayNotes, monthPlans, releaseSnapshots, users } from '../db/schema'
-import { FIRST_FACILITY_ID } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { notifyDutyChanges } from './notifications'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
@@ -21,21 +20,21 @@ function assertMonth(year: number, month: number): void {
   }
 }
 
-/** The current (draft) state of a month in the shape observers get from a release. */
-export function buildSnapshot(db: Db, year: number, month: number): SnapshotData {
+/** The current (draft) state of a facility's month in the shape observers get from a release. */
+export function buildSnapshot(db: Db, facilityId: number, year: number, month: number): SnapshotData {
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
-  const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+  const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
   const staffIds = new Set(staff.map(employee => employee.id))
-  // Releases are still stored for the first facility (the column default) until they are kept per facility.
-  const closures = loadClosures(db, FIRST_FACILITY_ID)
+  const closures = loadClosures(db, facilityId)
   const notes = new Map(
-    db.select().from(dayNotes).where(and(gte(dayNotes.date, monthStart), lte(dayNotes.date, monthEnd))).all()
+    db.select().from(dayNotes)
+      .where(and(eq(dayNotes.facilityId, facilityId), gte(dayNotes.date, monthStart), lte(dayNotes.date, monthEnd))).all()
       .map(note => [note.date, note]),
   )
   return {
     employees: staff.map(({ id, name, shortName }) => ({ id, name, shortName })),
-    entries: loadEntries(db, { from: monthStart, to: monthEnd }).filter(entry => staffIds.has(entry.employeeId)),
+    entries: loadEntries(db, { from: monthStart, to: monthEnd, facilityId }).filter(entry => staffIds.has(entry.employeeId)),
     days: monthDates(year, month).map(date => ({
       date,
       info1: notes.get(date)?.info1 ?? '',
@@ -46,30 +45,32 @@ export function buildSnapshot(db: Db, year: number, month: number): SnapshotData
 }
 
 /**
- * Releases the month as it is now. When it was released before, everyone whose own duties changed since gets a
- * message; returns the names of those employees.
+ * Releases the facility's month as it is now. When it was released before, everyone whose own duties changed since
+ * gets a message; returns the names of those employees.
  */
-export function releaseMonth(db: Db, actor: SessionUser, year: number, month: number, now: Date = new Date()): { notified: string[] } {
+export function releaseMonth(
+  db: Db, actor: SessionUser, facilityId: number, year: number, month: number, now: Date = new Date(),
+): { notified: string[] } {
   assertMonth(year, month)
   const releasedAt = now.toISOString()
-  const snapshot = buildSnapshot(db, year, month)
-  const previous = loadReleases(db, year, month).at(-1)
+  const snapshot = buildSnapshot(db, facilityId, year, month)
+  const previous = loadReleases(db, facilityId, year, month).at(-1)
   return db.transaction((tx) => {
-    tx.insert(releaseSnapshots).values({ year, month, releasedAt, releasedBy: actor.id, data: JSON.stringify(snapshot) }).run()
-    tx.insert(monthPlans).values({ year, month, releasedAt, releasedBy: actor.id })
+    tx.insert(releaseSnapshots).values({ facilityId, year, month, releasedAt, releasedBy: actor.id, data: JSON.stringify(snapshot) }).run()
+    tx.insert(monthPlans).values({ facilityId, year, month, releasedAt, releasedBy: actor.id })
       .onConflictDoUpdate({ target: [monthPlans.facilityId, monthPlans.year, monthPlans.month], set: { releasedAt, releasedBy: actor.id } })
       .run()
     if (!previous) return { notified: [] }
-    const told = new Set(notifyDutyChanges(tx, year, month, previous.data, snapshot, releasedAt))
+    const told = new Set(notifyDutyChanges(tx, facilityId, year, month, previous.data, snapshot, releasedAt))
     return { notified: snapshot.employees.filter(employee => told.has(employee.id)).map(employee => employee.name) }
   })
 }
 
-export function loadReleases(db: Db, year: number, month: number): StoredRelease[] {
+export function loadReleases(db: Db, facilityId: number, year: number, month: number): StoredRelease[] {
   return db.select({ snapshot: releaseSnapshots, username: users.username })
     .from(releaseSnapshots)
     .leftJoin(users, eq(releaseSnapshots.releasedBy, users.id))
-    .where(and(eq(releaseSnapshots.year, year), eq(releaseSnapshots.month, month)))
+    .where(and(eq(releaseSnapshots.facilityId, facilityId), eq(releaseSnapshots.year, year), eq(releaseSnapshots.month, month)))
     .orderBy(asc(releaseSnapshots.releasedAt), asc(releaseSnapshots.id))
     .all()
     .map(({ snapshot, username }) => ({
@@ -79,16 +80,18 @@ export function loadReleases(db: Db, year: number, month: number): StoredRelease
     }))
 }
 
-/** Gives months released before snapshots existed a first snapshot built from their current state. */
+/** Gives months released before snapshots existed a first snapshot built from their current state, per facility. */
 export function backfillSnapshots(db: Db): number {
   let created = 0
   for (const plan of db.select().from(monthPlans).where(isNotNull(monthPlans.releasedAt)).all()) {
     const existing = db.select({ id: releaseSnapshots.id }).from(releaseSnapshots)
-      .where(and(eq(releaseSnapshots.year, plan.year), eq(releaseSnapshots.month, plan.month))).get()
+      .where(and(
+        eq(releaseSnapshots.facilityId, plan.facilityId), eq(releaseSnapshots.year, plan.year), eq(releaseSnapshots.month, plan.month),
+      )).get()
     if (existing) continue
     db.insert(releaseSnapshots).values({
-      year: plan.year, month: plan.month, releasedAt: plan.releasedAt!, releasedBy: plan.releasedBy,
-      data: JSON.stringify(buildSnapshot(db, plan.year, plan.month)),
+      facilityId: plan.facilityId, year: plan.year, month: plan.month, releasedAt: plan.releasedAt!, releasedBy: plan.releasedBy,
+      data: JSON.stringify(buildSnapshot(db, plan.facilityId, plan.year, plan.month)),
     }).run()
     created++
   }

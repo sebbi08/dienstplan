@@ -143,12 +143,12 @@ describe('level-up notices', () => {
     setContract(db, 1, anna, { ...base, employedSince: '2022-11-01', payLevel: 2 }) // level 3 due on 2026-11-01
     setContract(db, 1, ben, { ...base, employedSince: '2022-11-01', payLevel: 3 }) // already entered
     const due = [{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-11-01' }]
-    expect(listLevelUps(db, '2026-10-05', 'provider')).toEqual(due)
-    expect(listLevelUps(db, '2026-10-01', 'provider')).toEqual([])
-    expect(listLevelUps(db, '2026-10-05', 'admin')).toEqual([])
+    expect(listLevelUps(db, 1, '2026-10-05', 'provider')).toEqual(due)
+    expect(listLevelUps(db, 1, '2026-10-01', 'provider')).toEqual([])
+    expect(listLevelUps(db, 1, '2026-10-05', 'admin')).toEqual([])
     setContractVisibleToAdmins(db, true)
-    expect(listLevelUps(db, '2026-10-05', 'admin')).toEqual(due)
+    expect(listLevelUps(db, 1, '2026-10-05', 'admin')).toEqual(due)
     updateEmployee(db, 1, anna, { name: 'Anna', shortName: '', leftOn: '2026-10-04' })
-    expect(listLevelUps(db, '2026-10-05', 'provider')).toEqual([])
+    expect(listLevelUps(db, 1, '2026-10-05', 'provider')).toEqual([])
   })
 })

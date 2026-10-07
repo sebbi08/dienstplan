@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { describeEntry } from '../../shared/domain/describe'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import type { EmploymentInfo } from '../../shared/domain/targets'
@@ -11,6 +11,8 @@ export interface EntryFilter {
   from?: IsoDate
   to?: IsoDate
   employeeId?: number
+  /** Only entries of these employees. */
+  employeeIds?: number[]
   closureId?: number
   codeKey?: CodeKey
   /** Only entries of employees whose home facility this is. */
@@ -47,6 +49,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
       filter.from ? gte(entries.date, filter.from) : undefined,
       filter.to ? lte(entries.date, filter.to) : undefined,
       filter.employeeId !== undefined ? eq(entries.employeeId, filter.employeeId) : undefined,
+      filter.employeeIds !== undefined ? inArray(entries.employeeId, filter.employeeIds) : undefined,
       filter.closureId !== undefined ? eq(entries.closureId, filter.closureId) : undefined,
       filter.codeKey ? eq(absenceCodes.key, filter.codeKey) : undefined,
       filter.facilityId !== undefined ? eq(employees.facilityId, filter.facilityId) : undefined,

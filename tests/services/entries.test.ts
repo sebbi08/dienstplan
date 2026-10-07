@@ -62,7 +62,7 @@ describe('entries service', () => {
   it('logs changes only for released months', () => {
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') }, { now: new Date('2026-09-20T10:00:00Z') })
     expect(db.select().from(changeLog).all()).toHaveLength(0)
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') }, { now: new Date('2026-10-01T05:00:00Z') })
     expect(db.select().from(changeLog).all()).toHaveLength(0)
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'code', codeId: codeId(db, 'sick') }, { now: new Date('2026-10-01T06:00:00Z') })
@@ -75,7 +75,7 @@ describe('entries service', () => {
   })
   it('logs a template swap that keeps the visible times but drops the break', () => {
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
-    releaseMonth(db, admin, 2026, 10)
+    releaseMonth(db, admin, 1, 2026, 10)
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'special', start: 450, end: 945 })
     expect(db.select().from(changeLog).all()).toEqual([
       expect.objectContaining({ field: 'entry', before: 'F2 7:30–15:45 [11:40–12:10]', after: '7:30–15:45' }),
@@ -83,7 +83,7 @@ describe('entries service', () => {
   })
   it('logs a note-only change', () => {
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
-    releaseMonth(db, admin, 2026, 10)
+    releaseMonth(db, admin, 1, 2026, 10)
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'F2'), note: 'Vertretung' })
     expect(db.select().from(changeLog).all()).toEqual([
       expect.objectContaining({ field: 'entry', before: 'F2 7:30–15:45 [11:40–12:10]', after: 'F2 7:30–15:45 [11:40–12:10] · Vertretung' }),
@@ -98,11 +98,11 @@ describe('entries service', () => {
   })
   it('rejects invalid months when releasing', () => {
     for (const [year, month] of [[2026, 0], [2026, 13], [2026, 1.5], [1999, 10], [2101, 10]] as const) {
-      expect(errorCode(() => releaseMonth(db, admin, year, month))).toBe('invalid_month')
+      expect(errorCode(() => releaseMonth(db, admin, 1, year, month))).toBe('invalid_month')
     }
   })
   it('deletes single entries and logs it', () => {
-    releaseMonth(db, admin, 2026, 10)
+    releaseMonth(db, admin, 1, 2026, 10)
     applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     deleteEntry(db, admin, 1, cellEntries()[0]!.id)
     expect(cellEntries()).toEqual([])
@@ -111,7 +111,7 @@ describe('entries service', () => {
   })
   it('saves day notes and logs changes after release', () => {
     setDayNote(db, admin, 1, date, 'info1', 'Elternabend')
-    releaseMonth(db, admin, 2026, 10)
+    releaseMonth(db, admin, 1, 2026, 10)
     setDayNote(db, admin, 1, date, 'info1', 'Elternabend 19 Uhr')
     expect(db.select().from(changeLog).all()).toEqual([
       expect.objectContaining({ field: 'info1', employeeId: null, before: 'Elternabend', after: 'Elternabend 19 Uhr' }),

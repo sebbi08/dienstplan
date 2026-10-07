@@ -1,3 +1,4 @@
+import { inArray } from 'drizzle-orm'
 import { balanceUntil } from '../../shared/domain/balance'
 import { addDays, daysInMonth, parseIsoDate, toIsoDate } from '../../shared/domain/dates'
 import { isEmployedInRange, weeklyMinutesOn } from '../../shared/domain/targets'
@@ -14,8 +15,10 @@ export function computeBalances(
 ): BalanceDto[] {
   const { year, month } = parseIsoDate(monthEnd)
   const previousMonthEnd = addDays(toIsoDate(year, month, 1), -1)
-  const byEmployee = groupByEmployee(loadEntries(db))
-  const adjustments = db.select().from(balanceAdjustments).all()
+  // Only the given staff's entries and bookings are loaded.
+  const employeeIds = staff.map(employee => employee.id)
+  const byEmployee = groupByEmployee(loadEntries(db, { employeeIds }))
+  const adjustments = db.select().from(balanceAdjustments).where(inArray(balanceAdjustments.employeeId, employeeIds)).all()
   const actualOf = actualTimeFor(db, facilityId, today)
   // With time tracking, today is not finished yet: "Stand heute" ends yesterday.
   const todayUntil = activeTrackingFrom(db, facilityId, today) !== null ? addDays(today, -1) : today
@@ -41,6 +44,6 @@ export function computeBalances(
 export function getBalanceOverview(db: Db, facilityId: number, year: number, month: number, today: IsoDate): BalanceDto[] {
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
-  const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+  const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
   return computeBalances(db, facilityId, staff, monthEnd, today)
 }

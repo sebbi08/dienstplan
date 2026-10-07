@@ -1,6 +1,6 @@
 import { listWeekTemplates } from '../../services/weekTemplates'
 
 export default defineServiceHandler(async (event) => {
-  await requireAdmin(event)
-  return listWeekTemplates(useDb())
+  const admin = await requireAdmin(event)
+  return listWeekTemplates(useDb(), admin.facilityId)
 })

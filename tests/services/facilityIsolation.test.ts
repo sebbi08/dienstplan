@@ -1,16 +1,30 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, dayNotes, entries, monthPlans } from '../../server/db/schema'
+import { changeLog, dayNotes, entries, monthPlans, notifications, weekTemplateMarks } from '../../server/db/schema'
+import { getBalanceOverview } from '../../server/services/balances'
+import {
+  createCalendarEvent, deleteCalendarEvent, getSickYear, getStaffYearCalendar, getYearCalendar, listCalendarEvents,
+  updateCalendarEvent,
+} from '../../server/services/calendar'
 import { isMonthReleased } from '../../server/services/changeLog'
 import { createClosure, deleteClosure, listClosures } from '../../server/services/closures'
 import { createEarlyClosure, deleteEarlyClosure, listEarlyClosures, updateEarlyClosure } from '../../server/services/earlyClosures'
 import {
-  addAdjustment, addHours, createEmployee, deleteAdjustment, deleteHours, getEmployee, listEmployees, moveEmployee,
+  addAdjustment, addHours, createEmployee, deleteAdjustment, deleteHours, getEmployee, listEmployees, listLevelUps, moveEmployee,
   setContract, setEntitlement, setStampingOptions, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells, deleteEntry, setDayNote, updateEntryTimes } from '../../server/services/entries'
+import { getLeaveOverview } from '../../server/services/leave'
+import { releaseNotificationStatus } from '../../server/services/notifications'
+import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
+import { backfillSnapshots, loadReleases, releaseMonth } from '../../server/services/release'
+import { revertToRelease } from '../../server/services/revert'
+import {
+  applyWeekTemplate, deleteWeekTemplate, listWeekTemplates, renameWeekTemplate, saveWeekTemplate, weekTemplateNames,
+} from '../../server/services/weekTemplates'
+import { cellKey, noteKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -139,6 +153,137 @@ describe('facility isolation', () => {
       const first = createEmployee(db, leitungA, newFacility, { name: 'Tom', shortName: 'TO', weeklyMinutes: 2340, validFrom: '2026-01-01' })
       expect(loadEmployees(db, newFacility).map(e => [e.id, e.sortOrder])).toEqual([[first, 1]])
       expect(lea).toBeGreaterThan(0)
+    })
+  })
+
+  describe('plans, releases, templates, balances and overviews (Task 4)', () => {
+    const special = (start = 480) => ({ kind: 'special' as const, start, end: 720 })
+    const fillBoth = (start = 480, day = date) => {
+      applyToCells(db, leitungA, 1, [{ employeeId: anna, date: day }], 'replace', special(start))
+      applyToCells(db, leitungB, facility2, [{ employeeId: kim, date: day }], 'replace', special(start))
+    }
+
+    it('month plan and warnings only show the facility\'s people', () => {
+      const plan = getMonthPlan(db, leitungA, 1, 2026, 10, today)
+      expect(plan.employees.map(e => e.name)).toEqual(['Anna'])
+      expect(plan.admin!.warnings.some(w => w.type === 'missing_entry' && w.employeeId === anna)).toBe(true)
+      expect(plan.admin!.warnings.some(w => w.type === 'missing_entry' && w.employeeId === kim)).toBe(false)
+      expect(plan.admin!.balances.map(b => b.name)).toEqual(['Anna'])
+      expect(plan.admin!.weeks[0]!.totals.map(t => t.employeeId)).toEqual([anna])
+      const other = getMonthPlan(db, leitungB, facility2, 2026, 10, today)
+      expect(other.employees.map(e => e.name)).toEqual(['Kim'])
+      expect(other.templates.every(t => t.id !== templateId(db, 'M'))).toBe(true)
+    })
+
+    it('releases are per facility', () => {
+      fillBoth()
+      releaseMonth(db, leitungA, 1, 2026, 10, new Date('2026-10-01T08:00:00Z'))
+      expect(isMonthReleased(db, 1, date)).toBe(true)
+      expect(isMonthReleased(db, facility2, date)).toBe(false)
+      expect(loadReleases(db, facility2, 2026, 10)).toEqual([])
+      expect(loadReleases(db, 1, 2026, 10)[0]!.data.employees.map(e => e.name)).toEqual(['Anna'])
+      const kimAccount = addUser(db, 'kim', 'observer', kim)
+      expect(errorCode(() => getMyPlan(db, kimAccount, 2026, 10, today))).toBe('month_not_released')
+
+      fillBoth(540)
+      expect(releaseMonth(db, leitungA, 1, 2026, 10, new Date('2026-10-02T08:00:00Z'))).toEqual({ notified: ['Anna'] })
+      expect(db.select().from(notifications).all().map(n => n.employeeId)).toEqual([anna])
+      expect(releaseNotificationStatus(db, 1, 2026, 10).map(s => s.name)).toEqual(['Anna'])
+      expect(releaseNotificationStatus(db, facility2, 2026, 10)).toEqual([])
+
+      releaseMonth(db, leitungB, facility2, 2026, 10, new Date('2026-10-02T08:00:00Z'))
+      expect(releaseNotificationStatus(db, facility2, 2026, 10)).toEqual([])
+      const mine = getMyPlan(db, kimAccount, 2026, 10, today)
+      expect(mine.days.find(day => day.date === date)!.entries.map(e => e.start)).toEqual([540])
+      expect(getMonthPlan(db, kimAccount, facility2, 2026, 10, today).employees.map(e => e.name)).toEqual(['Kim'])
+    })
+
+    it('backfills snapshots per facility', () => {
+      fillBoth()
+      db.insert(monthPlans).values([
+        { facilityId: 1, year: 2026, month: 10, releasedAt: '2026-10-01T08:00:00.000Z' },
+        { facilityId: facility2, year: 2026, month: 10, releasedAt: '2026-10-01T08:00:00.000Z' },
+      ]).run()
+      expect(backfillSnapshots(db)).toBe(2)
+      expect(loadReleases(db, 1, 2026, 10).map(r => r.data.employees.map(e => e.name))).toEqual([['Anna']])
+      expect(loadReleases(db, facility2, 2026, 10).map(r => r.data.employees.map(e => e.name))).toEqual([['Kim']])
+      expect(backfillSnapshots(db)).toBe(0)
+    })
+
+    it('reverts only within the facility', () => {
+      fillBoth()
+      setDayNote(db, leitungB, facility2, date, 'info1', 'Fototag')
+      releaseMonth(db, leitungA, 1, 2026, 10)
+      expect(errorCode(() => revertToRelease(db, leitungB, facility2, 2026, 10, [cellKey(kim, date)]))).toBe('month_not_released')
+      releaseMonth(db, leitungB, facility2, 2026, 10)
+      expect(errorCode(() => revertToRelease(db, leitungB, facility2, 2026, 10, [cellKey(anna, date)]))).toBe('employee_not_found')
+      setDayNote(db, leitungA, 1, date, 'info1', 'Ausflug')
+      revertToRelease(db, leitungA, 1, 2026, 10, [noteKey('info1', date)])
+      const notes = db.select().from(dayNotes).where(eq(dayNotes.date, date)).all()
+      expect(notes.map(note => [note.facilityId, note.info1]).sort()).toEqual([[1, ''], [facility2, 'Fototag']])
+    })
+
+    it('week template names are unique per facility only', () => {
+      const week = '2026-10-05'
+      fillBoth(480, week)
+      const a = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })
+      const b = saveWeekTemplate(db, facility2, { name: 'Woche A', weekStart: week })
+      expect(a.id).not.toBe(b.id)
+      expect(a.rows.map(row => row.name)).toEqual(['Anna'])
+      expect(b.rows.map(row => row.name)).toEqual(['Kim'])
+      expect(listWeekTemplates(db, 1).map(t => t.id)).toEqual([a.id])
+      expect(listWeekTemplates(db, facility2).map(t => t.id)).toEqual([b.id])
+      expect(db.select().from(weekTemplateMarks).all().map(m => [m.facilityId, m.weekTemplateId]))
+        .toEqual([[1, a.id], [facility2, b.id]])
+      expect(weekTemplateNames(db, facility2, week, week).get(week)).toBe('Woche A')
+      expect(errorCode(() => renameWeekTemplate(db, 1, b.id, 'Woche B'))).toBe('week_template_not_found')
+      expect(errorCode(() => deleteWeekTemplate(db, 1, b.id))).toBe('week_template_not_found')
+      expect(errorCode(() => applyWeekTemplate(db, leitungA, 1, b.id, '2026-10-12'))).toBe('week_template_not_found')
+      saveWeekTemplate(db, 1, { name: 'Woche B', weekStart: week })
+      expect(errorCode(() => renameWeekTemplate(db, 1, a.id, 'Woche B'))).toBe('name_taken')
+      renameWeekTemplate(db, facility2, b.id, 'Woche B')
+      expect(applyWeekTemplate(db, leitungB, facility2, b.id, '2026-10-12')).toEqual({ filled: 1, skipped: 0 })
+      expect(weekTemplateNames(db, 1, '2026-10-12', '2026-10-12').size).toBe(0)
+    })
+
+    it('balances, calendar, sick days, leave overview and level-ups list only the facility\'s people', () => {
+      const sick = { kind: 'code' as const, codeId: codeId(db, 'sick') }
+      applyToCells(db, leitungA, 1, [{ employeeId: anna, date }], 'replace', sick)
+      applyToCells(db, leitungB, facility2, [{ employeeId: kim, date }], 'replace', sick)
+      expect(getBalanceOverview(db, 1, 2026, 10, today).map(b => b.name)).toEqual(['Anna'])
+      expect(getBalanceOverview(db, facility2, 2026, 10, today).map(b => b.name)).toEqual(['Kim'])
+      const calendar = getYearCalendar(db, 1, 2026)
+      expect(calendar.employees.map(e => e.name)).toEqual(['Anna'])
+      expect(Object.keys(calendar.days).map(Number)).toEqual([anna])
+      expect(calendar.days[anna]![date]).toBe('sick')
+      expect(getStaffYearCalendar(db, facility2, 2026, kim).employees.map(e => e.name)).toEqual(['Kim'])
+      expect(getSickYear(db, 1, 2026).map(row => [row.name, row.total])).toEqual([['Anna', 1]])
+      expect(getSickYear(db, facility2, 2026).map(row => [row.name, row.total])).toEqual([['Kim', 1]])
+      expect(getLeaveOverview(db, 1, 2026, today).map(account => account.name)).toEqual(['Anna'])
+      expect(getLeaveOverview(db, facility2, 2026, today).map(account => account.name)).toEqual(['Kim'])
+      const contract = {
+        personnelNumber: null, jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const,
+        employedSince: '2022-11-01', payLevel: 2,
+      }
+      setContract(db, 1, anna, contract)
+      setContract(db, facility2, kim, contract)
+      expect(listLevelUps(db, 1, today, 'provider').map(due => due.name)).toEqual(['Anna'])
+      expect(listLevelUps(db, facility2, today, 'provider').map(due => due.name)).toEqual(['Kim'])
+    })
+
+    it('calendar events stay in their facility', () => {
+      const input = { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true }
+      const other = createCalendarEvent(db, facility2, input)
+      expect(other).toEqual({ id: other.id, ...input })
+      expect(errorCode(() => updateCalendarEvent(db, 1, other.id, { ...input, title: 'Laternenfest' }))).toBe('event_not_found')
+      deleteCalendarEvent(db, 1, other.id)
+      expect(listCalendarEvents(db, 1, 2026)).toEqual([])
+      expect(getYearCalendar(db, 1, 2026).events).toEqual([])
+      expect(listCalendarEvents(db, facility2, 2026).map(e => e.title)).toEqual(['Elternabend'])
+      expect(getStaffYearCalendar(db, facility2, 2026, kim).events.map(e => e.title)).toEqual(['Elternabend'])
+      updateCalendarEvent(db, facility2, other.id, { ...input, title: 'Laternenfest' })
+      deleteCalendarEvent(db, facility2, other.id)
+      expect(listCalendarEvents(db, facility2, 2026)).toEqual([])
     })
   })
 })

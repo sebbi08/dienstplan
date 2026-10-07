@@ -86,7 +86,7 @@ describe('stamping options per employee', () => {
     stamp(db, anna, 'in', 'self', at('2026-10-06T05:45:00Z')) // 7:45
     stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z')) // 16:00, no break clocked
     const minutes = () => actualTimeFor(db, 1, '2026-10-08')(anna)!.minutesByDate.get('2026-10-06')
-    const breakWarning = () => getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.warnings
+    const breakWarning = () => getMonthPlan(db, admin, 1, 2026, 10, '2026-10-08').admin!.warnings
       .some(w => w.type === 'break_rule' && w.date === '2026-10-06')
     expect([minutes(), breakWarning()]).toEqual([495, true])
     setStampingOptions(db, 1, anna, { stampVia: 'both', breakMode: 'auto' })

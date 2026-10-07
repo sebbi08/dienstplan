@@ -30,7 +30,7 @@ describe('month plan', () => {
     applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) }, { now })
 
   it('gives admins the full draft plan with warnings, weeks and balances', () => {
-    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
     expect(plan.employees.map(e => e.name)).toEqual(['Anna', 'Ben'])
     expect(plan.days).toHaveLength(31)
     expect(plan.days[2]).toMatchObject({ date: '2026-10-03', holidayKey: 'german_unity_day', isWeekend: true })
@@ -43,47 +43,47 @@ describe('month plan', () => {
   })
   it('sums weeks across the year boundary', () => {
     for (const date of ['2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31']) shift(anna, date)
-    const lastWeek = getMonthPlan(db, admin, 2026, 12, today).admin!.weeks.at(-1)!
+    const lastWeek = getMonthPlan(db, admin, 1, 2026, 12, today).admin!.weeks.at(-1)!
     expect(lastWeek).toMatchObject({ weekStart: '2026-12-28', weekEnd: '2027-01-03', weekNumber: 53 })
     expect(lastWeek.totals.find(t => t.employeeId === anna)).toEqual({ employeeId: anna, target: 1872, credit: 1860, delta: -12 })
   })
   it('hides drafts from observers', () => {
-    expect(errorCode(() => getMonthPlan(db, observer, 2026, 10, today))).toBe('month_not_released')
+    expect(errorCode(() => getMonthPlan(db, observer, 1, 2026, 10, today))).toBe('month_not_released')
     expect(errorCode(() => getMyPlan(db, observer, 2026, 10, today))).toBe('month_not_released')
   })
   it('gives observers released plans without hour data or warnings', () => {
     shift(anna, '2026-10-05')
-    releaseMonth(db, admin, 2026, 10)
-    const plan = getMonthPlan(db, observer, 2026, 10, today)
+    releaseMonth(db, admin, 1, 2026, 10)
+    const plan = getMonthPlan(db, observer, 1, 2026, 10, today)
     expect(plan.admin).toBeNull()
     expect(plan.entries).toHaveLength(1)
   })
   it('shows observers only the released state, not later draft edits', () => {
     shift(anna, '2026-10-06', 'F2')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift(anna, '2026-10-06', 'S')
     shift(ben, '2026-10-07', 'M')
     setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Elternabend')
-    const plan = getMonthPlan(db, observer, 2026, 10, today)
+    const plan = getMonthPlan(db, observer, 1, 2026, 10, today)
     expect(plan.entries.map(e => [e.employeeId, e.date, e.shortLabel])).toEqual([[anna, '2026-10-06', 'F2']])
     expect(plan.days[6]!.info1).toBe('')
     expect(plan.changes).toEqual({})
     expect(plan.release).toMatchObject({ releasedBy: 'leitung', changeCount: 0, pendingCount: 0 })
   })
   it('does not show employees who joined after the release to observers', () => {
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     addEmployee(db, 'Dora', { validFrom: '2026-10-15' })
-    expect(getMonthPlan(db, observer, 2026, 10, today).employees.map(e => e.name)).toEqual(['Anna', 'Ben'])
-    expect(getMonthPlan(db, admin, 2026, 10, today).employees.map(e => e.name)).toEqual(['Anna', 'Ben', 'Dora'])
+    expect(getMonthPlan(db, observer, 1, 2026, 10, today).employees.map(e => e.name)).toEqual(['Anna', 'Ben'])
+    expect(getMonthPlan(db, admin, 1, 2026, 10, today).employees.map(e => e.name)).toEqual(['Anna', 'Ben', 'Dora'])
   })
   it('marks released changes and keeps them across later releases', () => {
     shift(anna, '2026-10-06', 'F2')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift(anna, '2026-10-06', 'S')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-01T07:00:00Z'))
     setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Elternabend')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-10-02T07:00:00Z'))
-    const plan = getMonthPlan(db, observer, 2026, 10, today)
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-02T07:00:00Z'))
+    const plan = getMonthPlan(db, observer, 1, 2026, 10, today)
     expect(plan.changes[`${anna}|2026-10-06`]).toEqual([{
       field: 'entry', employeeId: anna, date: '2026-10-06',
       before: 'F2 7:30–15:45 [11:40–12:10]', after: 'S 8:45–17:00 [12:10–12:40]',
@@ -98,9 +98,9 @@ describe('month plan', () => {
   })
   it('shows admins pending draft changes separately from released ones', () => {
     shift(anna, '2026-10-06', 'F2')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift(anna, '2026-10-06', 'S')
-    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
     expect(plan.entries.find(e => e.date === '2026-10-06')?.shortLabel).toBe('S')
     expect(plan.changes).toEqual({})
     expect(plan.admin!.pendingChanges).toEqual({
@@ -110,35 +110,35 @@ describe('month plan', () => {
   })
   it('has no pending or released changes for a never-released month', () => {
     shift(anna, '2026-10-06', 'F2')
-    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
     expect(plan.admin!.pendingChanges).toEqual({})
     expect(plan.release).toEqual({ releasedAt: null, releasedBy: null, changeCount: 0, pendingCount: 0 })
   })
   it('does not count a renamed code as a plan change', () => {
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     updateCode(db, codeId(db, 'sick'), { label: 'Krankheit', color: 'gray', creditMode: 'daily_target' })
-    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
     expect(plan.entries.find(e => e.date === '2026-10-06')?.label).toBe('Krankheit')
     expect(plan.release.pendingCount).toBe(0)
     expect(plan.admin!.pendingChanges).toEqual({})
-    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
-    expect(getMonthPlan(db, observer, 2026, 10, today).changes).toEqual({})
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    expect(getMonthPlan(db, observer, 1, 2026, 10, today).changes).toEqual({})
   })
   it('does not count a deleted template as a plan change', () => {
     shift(anna, '2026-10-06', 'F2')
-    releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     deleteTemplate(db, 1, templateId(db, 'F2'))
-    const plan = getMonthPlan(db, admin, 2026, 10, today)
+    const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
     expect(plan.entries.find(e => e.date === '2026-10-06')?.shortLabel).toBeNull()
     expect(plan.release.pendingCount).toBe(0)
-    releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
-    expect(getMonthPlan(db, observer, 2026, 10, today).changes).toEqual({})
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-01T07:00:00Z'))
+    expect(getMonthPlan(db, observer, 1, 2026, 10, today).changes).toEqual({})
   })
   it('returns only the own entries in the personal plan', () => {
     shift(anna, '2026-10-05')
     shift(ben, '2026-10-05', 'S')
-    releaseMonth(db, admin, 2026, 10)
+    releaseMonth(db, admin, 1, 2026, 10)
     const mine = getMyPlan(db, observer, 2026, 10, today)
     expect(mine.employee.name).toBe('Anna')
     expect(mine.days.flatMap(d => d.entries).map(e => e.employeeId)).toEqual([anna])
@@ -156,14 +156,14 @@ describe('month plan', () => {
       record('2026-10-05', 465 + 15)
       record('2026-10-06', 465 + 16)
       record('2026-10-07', 465 - 16)
-      const actuals = getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.actuals
+      const actuals = getMonthPlan(db, admin, 1, 2026, 10, '2026-10-08').admin!.actuals
       expect(actuals[cellKey(anna, '2026-10-05')]).toEqual({ minutes: 480, open: false, deviates: false })
       expect(actuals[cellKey(anna, '2026-10-06')]).toEqual({ minutes: 481, open: false, deviates: true })
       expect(actuals[cellKey(anna, '2026-10-07')]).toEqual({ minutes: 449, open: false, deviates: true })
     })
     it('sorts plan and time warnings by date', () => {
       shift(anna, '2026-10-02') // planned, nothing recorded → missing_record on 02.10.
-      const warnings = getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.warnings
+      const warnings = getMonthPlan(db, admin, 1, 2026, 10, '2026-10-08').admin!.warnings
       expect(warnings.some(w => w.type === 'missing_record' && w.date === '2026-10-02')).toBe(true)
       const dates = warnings.map(w => w.date)
       expect(dates).toEqual([...dates].sort())

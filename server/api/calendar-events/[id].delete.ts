@@ -2,8 +2,8 @@ import { idParams } from '../../schemas'
 import { deleteCalendarEvent } from '../../services/calendar'
 
 export default defineServiceHandler(async (event) => {
-  await requireAdmin(event)
+  const admin = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  deleteCalendarEvent(useDb(), id)
+  deleteCalendarEvent(useDb(), admin.facilityId, id)
   return { ok: true }
 })

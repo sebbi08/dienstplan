@@ -18,7 +18,6 @@ import { employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
-import { firstFacilityId } from './facilities'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, type EmployeeRecord,
@@ -37,7 +36,7 @@ function buildAdminData(
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
-  const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd }))
+  const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd, facilityId }))
   const rules = loadCoverageRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
   const trackingFrom = activeTrackingFrom(db, facilityId, today)
@@ -79,7 +78,7 @@ function buildAdminData(
   }
 
   const weeks: WeekSummaryDto[] = []
-  const templateNames = weekTemplateNames(db, rangeStart, monthEnd)
+  const templateNames = weekTemplateNames(db, facilityId, rangeStart, monthEnd)
   for (let start = rangeStart; start <= monthEnd; start = addDays(start, 7)) {
     const end = addDays(start, 6)
     weeks.push({
@@ -117,11 +116,11 @@ function toChangeDtos(history: Map<string, ReleasedChange[]>): Record<string, Ch
   return changes
 }
 
-export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: number, today: IsoDate): MonthPlanDto {
+export function getMonthPlan(
+  db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
+): MonthPlanDto {
   const isAdmin = isManager(viewer.role)
-  // A viewer without a facility (Mitarbeiter account without an employee) sees the first facility's catalogue.
-  const facilityId = viewer.facilityId ?? firstFacilityId(db) ?? 1
-  const releases = loadReleases(db, year, month)
+  const releases = loadReleases(db, facilityId, year, month)
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
 
@@ -129,7 +128,7 @@ export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: n
     releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: snapshotCells(release.data),
   }))
   const changes = toChangeDtos(changeHistory(states))
-  const shown: SnapshotData = isAdmin ? buildSnapshot(db, year, month) : latest!.data
+  const shown: SnapshotData = isAdmin ? buildSnapshot(db, facilityId, year, month) : latest!.data
 
   const pendingChanges: Record<string, PendingChangeDto> = {}
   if (isAdmin && states.length > 0) {
@@ -152,7 +151,7 @@ export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: n
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
     const { monthStart, monthEnd } = monthBounds(year, month)
-    const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+    const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
     admin = { ...buildAdminData(db, facilityId, staff, loadClosures(db, facilityId), year, month, today), pendingChanges }
   }
 
@@ -174,11 +173,13 @@ export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: n
     admin,
   }
 }
+
 export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: number, today: IsoDate): MyPlanDto {
   if (viewer.employeeId === null) throw new ServiceError(403, 'no_employee')
   const employee = db.select().from(employees).where(eq(employees.id, viewer.employeeId)).get()
   if (!employee) throw new ServiceError(403, 'no_employee')
-  const plan = getMonthPlan(db, { ...viewer, role: 'observer' }, year, month, today)
+  // The plan of the employee's own (home) facility.
+  const plan = getMonthPlan(db, { ...viewer, role: 'observer' }, employee.facilityId, year, month, today)
   const days = plan.days.map(day => ({
     ...day,
     entries: plan.entries.filter(entry => entry.employeeId === employee.id && entry.date === day.date),
