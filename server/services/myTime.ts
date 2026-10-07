@@ -1,7 +1,9 @@
+import { eq } from 'drizzle-orm'
 import { daysInMonth, toIsoDate } from '../../shared/domain/dates'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { MyTimeDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
+import { employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
@@ -11,7 +13,11 @@ import { loadTimeRecords } from './timeTracking'
 /** Own clocked times and balance of the logged-in employee. */
 export function getMyTime(db: Db, viewer: SessionUser, year: number, month: number, now: Date = new Date()): MyTimeDto {
   if (viewer.employeeId === null) throw new ServiceError(403, 'no_employee')
-  const employee = loadEmployees(db).find(candidate => candidate.id === viewer.employeeId)
+  // Tracking, balance and records follow the employee's own (home) facility.
+  const facilityId = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, viewer.employeeId)).get()?.facilityId
+  const employee = facilityId === undefined
+    ? undefined
+    : loadEmployees(db, facilityId).find(candidate => candidate.id === viewer.employeeId)
   if (!employee) throw new ServiceError(403, 'no_employee')
   const { date: today } = nowInBerlin(now)
   const monthStart = toIsoDate(year, month, 1)

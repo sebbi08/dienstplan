@@ -3,6 +3,6 @@ import { createRecord } from '../../services/timeTracking'
 
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
-  createRecord(useDb(), admin, await readValidatedBody(event, timeRecordCreateSchema.parse))
+  createRecord(useDb(), admin, admin.facilityId, await readValidatedBody(event, timeRecordCreateSchema.parse))
   return { ok: true }
 })

@@ -8,16 +8,17 @@ import type {
   LeavePlanningDto, LeaveRequestDto, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, appSettings, entries, leaveEntitlements, leavePlanners, leaveRequests, users } from '../db/schema'
-import { FIRST_FACILITY_ID } from '../db/seed'
+import {
+  absenceCodes, appSettings, employees, entries, facilities, leaveEntitlements, leavePlanners, leaveRequests, users,
+} from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getYearCalendar } from './calendar'
 import { applyToCells } from './entries'
 import { getLeaveAccount } from './leave'
 import { closureOn, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
+/** The module switch is installation-wide; the limit and the planning are per facility. */
 const ENABLED = 'leave_requests_enabled'
-const MAX_CONCURRENT = 'leave_max_concurrent'
 /** Requests and leave are looked at this far around a range when counting people on leave. */
 const MAX_RANGE_DAYS = 366
 
@@ -37,27 +38,31 @@ export function leaveRequestsEnabled(db: Db): boolean {
   return setting(db, ENABLED) === 'true'
 }
 
-export function maxConcurrent(db: Db): number | null {
-  const value = setting(db, MAX_CONCURRENT)
-  return value === null ? null : Number(value)
+/** How many people of the facility may be on leave at the same time (null = no limit). */
+export function maxConcurrent(db: Db, facilityId: number): number | null {
+  return db.select({ value: facilities.leaveMaxConcurrent }).from(facilities).where(eq(facilities.id, facilityId)).get()?.value ?? null
 }
 
 function plannerIds(db: Db): number[] {
   return db.select().from(leavePlanners).all().map(row => row.userId)
 }
 
-/** A Träger may always plan; Leitung accounts only when the Träger made them responsible. */
-export function isPlanner(db: Db, user: SessionUser): boolean {
-  return user.role === 'provider' || (user.role === 'admin' && plannerIds(db).includes(user.id))
+/**
+ * A Träger may always plan, in every facility; a Leitung only in its own facility and only when the Träger made it
+ * responsible.
+ */
+export function isPlanner(db: Db, user: SessionUser, facilityId: number): boolean {
+  if (user.role === 'provider') return true
+  return user.role === 'admin' && user.facilityId === facilityId && plannerIds(db).includes(user.id)
 }
 
 function requireEnabled(db: Db): void {
   if (!leaveRequestsEnabled(db)) throw new ServiceError(403, 'leave_requests_off')
 }
 
-function requirePlanner(db: Db, user: SessionUser): void {
+function requirePlanner(db: Db, user: SessionUser, facilityId: number): void {
   requireEnabled(db)
-  if (!isPlanner(db, user)) throw new ServiceError(403, 'not_leave_planner')
+  if (!isPlanner(db, user, facilityId)) throw new ServiceError(403, 'not_leave_planner')
 }
 
 // --- leave days and limits -------------------------------------------------------------------------------
@@ -68,15 +73,16 @@ function requestDays(employee: EmployeeRecord, from: IsoDate, to: IsoDate, closu
 }
 
 /**
- * People on leave per day between from and to: "Urlaub" entries not belonging to a closure, plus open requests
- * (optionally without one request, e.g. the one being looked at is added by the caller).
+ * People of the staff (one facility's employees) on leave per day between from and to: "Urlaub" entries not belonging
+ * to a closure, plus open requests.
  */
 function loadInRange(db: Db, from: IsoDate, to: IsoDate, staff: EmployeeRecord[], closures: ReturnType<typeof loadClosures>): LeaveDay[] {
+  const byId = new Map(staff.map(employee => [employee.id, employee]))
   const vacation = db.select({ employeeId: entries.employeeId, date: entries.date })
     .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
     .where(and(eq(absenceCodes.key, 'vacation'), isNull(entries.closureId), gte(entries.date, from), lte(entries.date, to)))
     .all()
-  const byId = new Map(staff.map(employee => [employee.id, employee]))
+    .filter(day => byId.has(day.employeeId))
   const requested = db.select().from(leaveRequests)
     .where(and(eq(leaveRequests.status, 'open'), lte(leaveRequests.startDate, to), gte(leaveRequests.endDate, from))).all()
     .flatMap((request) => {
@@ -112,22 +118,36 @@ function userNames(db: Db): Map<number, string> {
 
 // --- settings ----------------------------------------------------------------------------------------------
 
+/** The chosen planners who plan in the facility: Träger accounts and the facility's Leitung accounts. */
+function plannersOf(db: Db, facilityId: number, chosen: number[]): number[] {
+  if (chosen.length === 0) return []
+  return db.select().from(users).where(inArray(users.id, chosen)).all()
+    .filter(user => user.role === 'provider' || (user.role === 'admin' && user.facilityId === facilityId))
+    .map(user => user.id)
+}
+
+/** The module state for the viewer, in the viewer's facility (for an employee: the employee's home facility). */
 export function getLeaveSettings(db: Db, viewer: SessionUser): LeaveSettingsDto {
   const enabled = leaveRequestsEnabled(db)
-  const planner = enabled && isPlanner(db, viewer)
+  const facilityId = viewer.facilityId
+  const planner = enabled && facilityId !== null && isPlanner(db, viewer, facilityId)
   const chosen = plannerIds(db)
-  // The count (menu badge) goes to the chosen people; to the Träger only while nobody is chosen.
-  const notified = planner && (chosen.includes(viewer.id) || (chosen.length === 0 && viewer.role === 'provider'))
+  // The count (menu badge) goes to the chosen people; to the Träger only while nobody is chosen for the facility.
+  const notified = planner && (chosen.includes(viewer.id)
+    || (viewer.role === 'provider' && plannersOf(db, facilityId, chosen).length === 0))
   return {
     enabled,
-    maxConcurrent: maxConcurrent(db),
+    maxConcurrent: facilityId === null ? null : maxConcurrent(db, facilityId),
     plannerIds: isManager(viewer.role) ? chosen : [],
     isPlanner: planner,
-    openCount: notified ? listOpenRequests(db, viewer).length : 0,
+    openCount: notified ? listOpenRequests(db, viewer, facilityId).length : 0,
   }
 }
 
-/** Träger only: switch the module and choose the responsible Träger/Leitung accounts. */
+/**
+ * Träger only: switch the module and choose the responsible Träger/Leitung accounts (of any facility; a Leitung plans
+ * only in its own).
+ */
 export function setLeaveModule(db: Db, input: { enabled: boolean; plannerIds: number[] }): void {
   const ids = [...new Set(input.plannerIds)]
   const valid = ids.length === 0 ? [] : db.select().from(users)
@@ -140,11 +160,11 @@ export function setLeaveModule(db: Db, input: { enabled: boolean; plannerIds: nu
   })
 }
 
-/** Planners: how many people may be on leave at the same time (null = no limit). */
-export function setMaxConcurrent(db: Db, user: SessionUser, value: number | null): void {
-  requirePlanner(db, user)
+/** Planners: how many people of the facility may be on leave at the same time (null = no limit). */
+export function setMaxConcurrent(db: Db, user: SessionUser, facilityId: number, value: number | null): void {
+  requirePlanner(db, user, facilityId)
   if (value !== null && (!Number.isInteger(value) || value < 1)) throw new ServiceError(400, 'invalid_max_concurrent')
-  saveSetting(db, MAX_CONCURRENT, value === null ? null : String(value))
+  db.update(facilities).set({ leaveMaxConcurrent: value }).where(eq(facilities.id, facilityId)).run()
 }
 
 // --- requesting ----------------------------------------------------------------------------------------------
@@ -154,22 +174,27 @@ function requireEmployee(user: SessionUser): number {
   return user.employeeId
 }
 
+/** The employee's home facility with its staff and closures: requests are handled there. */
+function homeOf(db: Db, employeeId: number) {
+  const facilityId = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, employeeId)).get()?.facilityId
+  if (facilityId === undefined) throw new ServiceError(403, 'no_employee')
+  const staff = loadEmployees(db, facilityId)
+  return { facilityId, staff, employee: staff.find(candidate => candidate.id === employeeId)!, closures: loadClosures(db, facilityId) }
+}
+
 function validateRange(db: Db, employeeId: number, from: IsoDate, to: IsoDate, today: IsoDate) {
   if (to < from || dateRange(from, to).length > MAX_RANGE_DAYS) throw new ServiceError(400, 'invalid_range')
   if (from < today) throw new ServiceError(400, 'leave_in_past')
-  const staff = loadEmployees(db)
-  const employee = staff.find(candidate => candidate.id === employeeId)
-  if (!employee) throw new ServiceError(403, 'no_employee')
-  const closures = loadClosures(db, employee.facilityId)
-  const days = requestDays(employee, from, to, closures)
+  const home = homeOf(db, employeeId)
+  const days = requestDays(home.employee, from, to, home.closures)
   if (days.length === 0) throw new ServiceError(400, 'no_leave_days')
-  return { staff, employee, closures, days }
+  return { ...home, days }
 }
 
 export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to: IsoDate, today: IsoDate): LeaveRequestPreviewDto {
   requireEnabled(db)
   const employeeId = requireEmployee(user)
-  const { staff, employee, closures, days } = validateRange(db, employeeId, from, to, today)
+  const { facilityId, staff, employee, closures, days } = validateRange(db, employeeId, from, to, today)
   const load = leaveLoad([
     ...loadInRange(db, days[0]!, days.at(-1)!, staff, closures),
     ...days.map(date => ({ employeeId, date })),
@@ -188,7 +213,7 @@ export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to
   return {
     workdays: days.length,
     availableAfter: hasEntitlement ? getLeaveAccount(db, employeeId, year, today).account.available - newDays.size : null,
-    overLimitDates: daysOverLimit(load, days, maxConcurrent(db)),
+    overLimitDates: daysOverLimit(load, days, maxConcurrent(db, facilityId)),
   }
 }
 
@@ -213,9 +238,8 @@ export function createLeaveRequest(
 export function listMyLeaveRequests(db: Db, user: SessionUser): LeaveRequestDto[] {
   requireEnabled(db)
   const employeeId = requireEmployee(user)
-  const staff = loadEmployees(db)
-  const closures = loadClosures(db, staff.find(employee => employee.id === employeeId)?.facilityId ?? FIRST_FACILITY_ID)
-  const limit = maxConcurrent(db)
+  const { facilityId, staff, closures } = homeOf(db, employeeId)
+  const limit = maxConcurrent(db, facilityId)
   const names = userNames(db)
   return db.select().from(leaveRequests).where(eq(leaveRequests.employeeId, employeeId))
     .orderBy(desc(leaveRequests.startDate), desc(leaveRequests.id)).all()
@@ -234,28 +258,35 @@ export function withdrawLeaveRequest(db: Db, user: SessionUser, id: number, now:
 
 // --- deciding ------------------------------------------------------------------------------------------------
 
-/** Open requests a planner may decide (not their own), oldest first. */
-export function listOpenRequests(db: Db, user: SessionUser): LeaveRequestDto[] {
-  const staff = loadEmployees(db)
-  // Planners work in a facility; the load is kept per facility later on.
-  const closures = loadClosures(db, user.facilityId ?? FIRST_FACILITY_ID)
-  const limit = maxConcurrent(db)
+/** Open requests of the facility's employees a planner may decide (not their own), oldest first. */
+export function listOpenRequests(db: Db, user: SessionUser, facilityId: number): LeaveRequestDto[] {
+  const staff = loadEmployees(db, facilityId)
+  if (staff.length === 0) return []
+  const closures = loadClosures(db, facilityId)
+  const limit = maxConcurrent(db, facilityId)
   const names = userNames(db)
   return db.select().from(leaveRequests)
-    .where(and(eq(leaveRequests.status, 'open'), user.employeeId === null ? undefined : ne(leaveRequests.employeeId, user.employeeId)))
+    .where(and(
+      eq(leaveRequests.status, 'open'),
+      inArray(leaveRequests.employeeId, staff.map(employee => employee.id)),
+      user.employeeId === null ? undefined : ne(leaveRequests.employeeId, user.employeeId),
+    ))
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).all()
     .map(request => toDto(db, request, staff, closures, limit, names))
 }
 
 /**
- * Approves (writes "Urlaub" on the request's days) or rejects an open request. Approving over planned duties needs
- * `overwrite`; otherwise the server answers cells_occupied so the UI can ask first.
+ * Approves (writes "Urlaub" on the request's days) or rejects an open request of one of the facility's employees.
+ * Approving over planned duties needs `overwrite`; otherwise the server answers cells_occupied so the UI can ask first.
  */
 export function decideLeaveRequest(
-  db: Db, user: SessionUser, id: number, decision: { approve: boolean; note: string; overwrite: boolean }, now: Date = new Date(),
+  db: Db, user: SessionUser, facilityId: number, id: number, decision: { approve: boolean; note: string; overwrite: boolean },
+  now: Date = new Date(),
 ): { keptAbsences: number } {
-  requirePlanner(db, user)
-  const request = db.select().from(leaveRequests).where(eq(leaveRequests.id, id)).get()
+  requirePlanner(db, user, facilityId)
+  const request = db.select({ request: leaveRequests }).from(leaveRequests)
+    .innerJoin(employees, eq(leaveRequests.employeeId, employees.id))
+    .where(and(eq(leaveRequests.id, id), eq(employees.facilityId, facilityId))).get()?.request
   if (!request) throw new ServiceError(404, 'leave_request_not_found')
   if (request.status !== 'open') throw new ServiceError(409, 'leave_request_decided')
   if (request.employeeId === user.employeeId) throw new ServiceError(403, 'own_leave_request')
@@ -264,9 +295,9 @@ export function decideLeaveRequest(
     db.update(leaveRequests).set({ status: 'rejected', ...decided }).where(eq(leaveRequests.id, id)).run()
     return { keptAbsences: 0 }
   }
-  const employee = loadEmployees(db).find(candidate => candidate.id === request.employeeId)
+  const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === request.employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  const requested = requestDays(employee, request.startDate, request.endDate, loadClosures(db, employee.facilityId))
+  const requested = requestDays(employee, request.startDate, request.endDate, loadClosures(db, facilityId))
   const dayEntries = loadEntries(db, { employeeId: employee.id, from: request.startDate, to: request.endDate })
     .filter(entry => requested.includes(entry.date))
   // Days with another full-day absence (Krank, Fortbildung, Sonderurlaub …) stay as they are: e.g. a sick day must
@@ -284,7 +315,7 @@ export function decideLeaveRequest(
   db.transaction((tx) => {
     if (days.length) {
       const cells = days.map(date => ({ employeeId: employee.id, date }))
-      applyToCells(tx, user, employee.facilityId, cells, 'replace', { kind: 'code', codeId: vacation.id }, { now })
+      applyToCells(tx, user, facilityId, cells, 'replace', { kind: 'code', codeId: vacation.id }, { now })
     }
     tx.update(leaveRequests).set({ status: 'approved', ...decided }).where(eq(leaveRequests.id, id)).run()
   })
@@ -293,12 +324,15 @@ export function decideLeaveRequest(
 
 // --- planning page -------------------------------------------------------------------------------------------
 
-/** Year calendar with leave and open requests, people on leave per day, and the open requests to decide. */
-export function getLeavePlanning(db: Db, user: SessionUser, year: number): LeavePlanningDto {
-  requirePlanner(db, user)
-  const calendar = getYearCalendar(db, user.facilityId ?? FIRST_FACILITY_ID, year)
-  const staff = loadEmployees(db)
-  const closures = loadClosures(db, user.facilityId ?? FIRST_FACILITY_ID)
+/**
+ * The facility's year calendar with leave and open requests, its people on leave per day, and the open requests to
+ * decide.
+ */
+export function getLeavePlanning(db: Db, user: SessionUser, facilityId: number, year: number): LeavePlanningDto {
+  requirePlanner(db, user, facilityId)
+  const calendar = getYearCalendar(db, facilityId, year)
+  const staff = loadEmployees(db, facilityId)
+  const closures = loadClosures(db, facilityId)
   const from = `${year}-01-01`
   const to = `${year}-12-31`
   const days = loadInRange(db, from, to, staff, closures)
@@ -314,7 +348,7 @@ export function getLeavePlanning(db: Db, user: SessionUser, year: number): Leave
   return {
     calendar: { ...calendar, events: [] },
     counts: Object.fromEntries(leaveLoad(days)),
-    maxConcurrent: maxConcurrent(db),
-    openRequests: listOpenRequests(db, user).filter(request => request.endDate >= from && request.startDate <= to),
+    maxConcurrent: maxConcurrent(db, facilityId),
+    openRequests: listOpenRequests(db, user, facilityId).filter(request => request.endDate >= from && request.startDate <= to),
   }
 }

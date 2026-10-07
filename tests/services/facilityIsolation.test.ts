@@ -1,11 +1,12 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, dayNotes, entries, monthPlans, notifications, weekTemplateMarks } from '../../server/db/schema'
+import { changeLog, dayNotes, employees, entries, monthPlans, notifications, weekTemplateMarks } from '../../server/db/schema'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getBalanceOverview } from '../../server/services/balances'
 import {
-  createCalendarEvent, deleteCalendarEvent, getSickYear, getStaffYearCalendar, getYearCalendar, listCalendarEvents,
-  updateCalendarEvent,
+  createCalendarEvent, deleteCalendarEvent, getMyYearCalendar, getSickYear, getStaffYearCalendar, getYearCalendar,
+  listCalendarEvents, updateCalendarEvent,
 } from '../../server/services/calendar'
 import { isMonthReleased } from '../../server/services/changeLog'
 import { createClosure, deleteClosure, listClosures } from '../../server/services/closures'
@@ -16,11 +17,20 @@ import {
 } from '../../server/services/employees'
 import { applyToCells, deleteEntry, setDayNote, updateEntryTimes } from '../../server/services/entries'
 import { getLeaveOverview } from '../../server/services/leave'
+import {
+  createLeaveRequest, decideLeaveRequest, getLeavePlanning, getLeaveSettings, isPlanner, listMyLeaveRequests, listOpenRequests,
+  maxConcurrent, previewLeaveRequest, setLeaveModule, setMaxConcurrent,
+} from '../../server/services/leaveRequests'
+import { getMyTime } from '../../server/services/myTime'
 import { releaseNotificationStatus } from '../../server/services/notifications'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
 import { backfillSnapshots, loadReleases, releaseMonth } from '../../server/services/release'
 import { revertToRelease } from '../../server/services/revert'
+import { clearPin, setPin, terminalStamp, terminalStatus } from '../../server/services/terminal'
+import {
+  createRecord, deleteRecord, getTimeMonth, listOpenRecords, loadTimeRecords, setTimeDayNote, stamp, updateRecord,
+} from '../../server/services/timeTracking'
 import {
   applyWeekTemplate, deleteWeekTemplate, listWeekTemplates, renameWeekTemplate, saveWeekTemplate, weekTemplateNames,
 } from '../../server/services/weekTemplates'
@@ -284,6 +294,130 @@ describe('facility isolation', () => {
       updateCalendarEvent(db, facility2, other.id, { ...input, title: 'Laternenfest' })
       deleteCalendarEvent(db, facility2, other.id)
       expect(listCalendarEvents(db, facility2, 2026)).toEqual([])
+    })
+  })
+
+  describe('time tracking, tablet, own pages and leave requests (Task 5)', () => {
+    const morning = new Date('2026-10-06T06:00:00Z') // 08:00 Berlin
+    const later = new Date('2026-10-08T10:00:00Z')
+    const pinFailed = (id: number) => db.select().from(employees).where(eq(employees.id, id)).get()!.pinFailed
+    beforeEach(() => {
+      setTimeTrackingFrom(db, 1, '2026-10-01')
+      setTimeTrackingFrom(db, facility2, '2026-10-01')
+      setPin(db, 1, anna, '1234')
+      setPin(db, facility2, kim, '1234')
+    })
+
+    it('the tablet lists and stamps only its own facility', () => {
+      expect(terminalStatus(db, facility2, morning).map(p => p.name)).toEqual(['Kim'])
+      expect(terminalStatus(db, 1, morning).map(p => p.name)).toEqual(['Anna'])
+      expect(errorCode(() => terminalStamp(db, facility2, anna, '1234', 'in', morning))).toBe('employee_not_found')
+      expect(errorCode(() => terminalStamp(db, facility2, anna, '0000', 'in', morning))).toBe('employee_not_found')
+      expect(pinFailed(anna)).toBe(0)
+      expect(loadTimeRecords(db, { employeeId: anna })).toEqual([])
+      expect(terminalStamp(db, facility2, kim, '1234', 'in', morning).employeeId).toBe(kim)
+    })
+
+    it('PINs are set and cleared only for the facility\'s employees', () => {
+      expect(errorCode(() => setPin(db, 1, kim, '9999'))).toBe('employee_not_found')
+      expect(errorCode(() => clearPin(db, 1, kim))).toBe('employee_not_found')
+      expect(terminalStatus(db, facility2, morning).map(p => p.name)).toEqual(['Kim'])
+    })
+
+    it('time records stay in their facility', () => {
+      stamp(db, anna, 'in', 'self', morning)
+      stamp(db, kim, 'in', 'self', morning)
+      expect(listOpenRecords(db, facility2, '2026-10-08').map(r => r.name)).toEqual(['Kim'])
+      expect(listOpenRecords(db, 1, '2026-10-08').map(r => r.name)).toEqual(['Anna'])
+      const [kimRecord] = loadTimeRecords(db, { employeeId: kim })
+      const span = { start: kimRecord!.start, end: 900 }
+      expect(errorCode(() => updateRecord(db, leitungA, 1, kimRecord!.id, span, later))).toBe('record_not_found')
+      expect(errorCode(() => deleteRecord(db, leitungA, 1, kimRecord!.id, later))).toBe('record_not_found')
+      const input = { employeeId: kim, date: '2026-10-07', start: 480, end: 600 }
+      expect(errorCode(() => createRecord(db, leitungA, 1, input, later))).toBe('employee_not_found')
+      expect(errorCode(() => setTimeDayNote(db, 1, kim, date, 'Arzt'))).toBe('employee_not_found')
+      expect(errorCode(() => getTimeMonth(db, 1, kim, 2026, 10, today))).toBe('employee_not_found')
+      updateRecord(db, leitungB, facility2, kimRecord!.id, span, later)
+      createRecord(db, leitungB, facility2, input, later)
+      setTimeDayNote(db, facility2, kim, date, 'Arzt')
+      const month = getTimeMonth(db, facility2, kim, 2026, 10, '2026-10-08')
+      expect(month.days.find(d => d.date === date)!.note).toBe('Arzt')
+      deleteRecord(db, leitungB, facility2, kimRecord!.id, later)
+      expect(loadTimeRecords(db, { employeeId: kim })).toHaveLength(1)
+    })
+
+    it('stamping uses the employee\'s own tracking start', () => {
+      setTimeTrackingFrom(db, facility2, null)
+      expect(stamp(db, anna, 'in', 'self', morning).employeeId).toBe(anna)
+      expect(errorCode(() => stamp(db, kim, 'in', 'self', morning))).toBe('time_tracking_off')
+      expect(errorCode(() => terminalStamp(db, facility2, kim, '1234', 'in', morning))).toBe('time_tracking_off')
+      const kimAccount = addUser(db, 'kim', 'observer', kim)
+      expect(getMyTime(db, kimAccount, 2026, 10, morning).enabled).toBe(false)
+      expect(getMyTime(db, addUser(db, 'anna', 'observer', anna), 2026, 10, morning).enabled).toBe(true)
+    })
+
+    it('the own calendar is the one of the employee\'s facility', () => {
+      const input = { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true }
+      createCalendarEvent(db, facility2, input)
+      const kimAccount = addUser(db, 'kim', 'observer', kim)
+      expect(getMyYearCalendar(db, kimAccount, 2026).employees.map(e => e.name)).toEqual(['Kim'])
+      expect(getMyYearCalendar(db, kimAccount, 2026).events.map(e => e.title)).toEqual(['Elternabend'])
+      expect(errorCode(() => getMyYearCalendar(db, leitungA, 2026))).toBe('no_employee')
+    })
+
+    it('leave planning, limit and counting are per facility', () => {
+      const traeger = addUser(db, 'traeger', 'provider')
+      setLeaveModule(db, { enabled: true, plannerIds: [leitungA.id, leitungB.id] })
+      const lea = addEmployee(db, 'Lea', { facilityId: facility2 })
+      const annaAccount = addUser(db, 'anna', 'observer', anna)
+      const kimAccount = addUser(db, 'kim', 'observer', kim)
+      const leaAccount = addUser(db, 'lea', 'observer', lea)
+
+      // Limits are kept separately.
+      setMaxConcurrent(db, leitungA, 1, 1)
+      setMaxConcurrent(db, leitungB, facility2, 2)
+      expect([maxConcurrent(db, 1), maxConcurrent(db, facility2)]).toEqual([1, 2])
+      expect(errorCode(() => setMaxConcurrent(db, leitungB, 1, 5))).toBe('not_leave_planner')
+      expect(getLeaveSettings(db, annaAccount).maxConcurrent).toBe(1)
+      expect(getLeaveSettings(db, kimAccount).maxConcurrent).toBe(2)
+
+      // A Leitung plans only for its own facility; the Träger plans everywhere.
+      expect(isPlanner(db, leitungB, facility2)).toBe(true)
+      expect(isPlanner(db, leitungB, 1)).toBe(false)
+      expect(isPlanner(db, leitungA, facility2)).toBe(false)
+      expect([isPlanner(db, traeger, 1), isPlanner(db, traeger, facility2)]).toEqual([true, true])
+      expect(errorCode(() => getLeavePlanning(db, leitungB, 1, 2026))).toBe('not_leave_planner')
+
+      // Requests and the load are counted per facility: Anna's leave and Kim's request do not add up.
+      const vacation = { kind: 'code' as const, codeId: codeId(db, 'vacation') }
+      applyToCells(db, leitungA, 1, [{ employeeId: anna, date: '2026-11-03' }], 'replace', vacation)
+      const kimRequest = createLeaveRequest(db, kimAccount, { from: '2026-11-03', to: '2026-11-03', note: '' }, today)
+      expect(previewLeaveRequest(db, leaAccount, '2026-11-03', '2026-11-03', today).overLimitDates).toEqual([])
+      expect(previewLeaveRequest(db, annaAccount, '2026-11-02', '2026-11-04', today).overLimitDates).toEqual([])
+      createLeaveRequest(db, annaAccount, { from: '2026-11-04', to: '2026-11-04', note: '' }, today)
+      expect(listOpenRequests(db, leitungA, 1).map(r => r.name)).toEqual(['Anna'])
+      expect(listOpenRequests(db, leitungB, facility2).map(r => r.name)).toEqual(['Kim'])
+      expect(getLeaveSettings(db, leitungA)).toMatchObject({ isPlanner: true, openCount: 1 })
+      expect(getLeaveSettings(db, leitungB)).toMatchObject({ isPlanner: true, openCount: 1 })
+      const planning = getLeavePlanning(db, leitungA, 1, 2026)
+      expect(planning.counts['2026-11-03']).toBe(1)
+      expect(planning.maxConcurrent).toBe(1)
+      expect(planning.openRequests.map(r => r.name)).toEqual(['Anna'])
+      expect(getLeavePlanning(db, leitungB, facility2, 2026).counts['2026-11-03']).toBe(1)
+
+      // Deciding happens in the requesting employee's facility.
+      const decision = { approve: false, note: '', overwrite: false }
+      expect(errorCode(() => decideLeaveRequest(db, leitungA, 1, kimRequest, decision))).toBe('leave_request_not_found')
+      expect(errorCode(() => decideLeaveRequest(db, traeger, 1, kimRequest, decision))).toBe('leave_request_not_found')
+      decideLeaveRequest(db, leitungB, facility2, kimRequest, decision)
+      expect(listMyLeaveRequests(db, kimAccount)[0]!.status).toBe('rejected')
+    })
+
+    it('only Träger and Leitung accounts can be leave planners', () => {
+      const tablet = addUser(db, 'tablet', 'terminal')
+      expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [tablet.id] }))).toBe('invalid_leave_planner')
+      setLeaveModule(db, { enabled: true, plannerIds: [leitungB.id] })
+      expect(getLeaveSettings(db, leitungB).plannerIds).toEqual([leitungB.id])
     })
   })
 })

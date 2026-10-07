@@ -15,6 +15,7 @@ import type { Db } from '../db/client'
 import { employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
+import { assertEmployee } from './employees'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
 
 /** Codes the admin enters per day on the time page (written to the plan). */
@@ -22,6 +23,8 @@ const ABSENCE_KEYS: CodeKey[] = ['vacation', 'special_leave', 'sick', 'training'
 
 export interface TimeRecordFilter {
   employeeId?: number
+  /** Only records of the facility's employees. */
+  facilityId?: number
   from?: IsoDate
   to?: IsoDate
 }
@@ -29,9 +32,11 @@ export interface TimeRecordFilter {
 export function loadTimeRecords(db: Db, filter: TimeRecordFilter = {}): TimeRecordDto[] {
   return db.select({ record: timeRecords, editor: users.username })
     .from(timeRecords)
+    .innerJoin(employees, eq(timeRecords.employeeId, employees.id))
     .leftJoin(users, eq(timeRecords.editedBy, users.id))
     .where(and(
       filter.employeeId !== undefined ? eq(timeRecords.employeeId, filter.employeeId) : undefined,
+      filter.facilityId !== undefined ? eq(employees.facilityId, filter.facilityId) : undefined,
       filter.from ? gte(timeRecords.date, filter.from) : undefined,
       filter.to ? lte(timeRecords.date, filter.to) : undefined,
     ))
@@ -44,20 +49,20 @@ export function loadTimeRecords(db: Db, filter: TimeRecordFilter = {}): TimeReco
     }))
 }
 
-/** Per employee: recorded minutes for the balance, or undefined while time tracking is not active. */
+/** Per employee of the facility: recorded minutes for the balance, or undefined while time tracking is not active. */
 export function actualTimeFor(db: Db, facilityId: number, today: IsoDate): (employeeId: number) => ActualTime | undefined {
   const from = activeTrackingFrom(db, facilityId, today)
   if (from === null) return () => undefined
   const byEmployee = new Map<number, Map<IsoDate, TimeRecordDto[]>>()
-  for (const record of loadTimeRecords(db, { from })) {
+  for (const record of loadTimeRecords(db, { from, facilityId })) {
     const days = byEmployee.get(record.employeeId) ?? new Map<IsoDate, TimeRecordDto[]>()
     days.set(record.date, [...(days.get(record.date) ?? []), record])
     byEmployee.set(record.employeeId, days)
   }
   // With automatic breaks the planned break of the day is deducted from the clocked time.
-  const breakModes = new Map(loadEmployees(db).map(employee => [employee.id, employee.breakMode]))
+  const breakModes = new Map(loadEmployees(db, facilityId).map(employee => [employee.id, employee.breakMode]))
   const plannedBreaks = new Map<string, number>()
-  for (const entry of loadEntries(db, { from, to: today })) {
+  for (const entry of loadEntries(db, { from, to: today, facilityId })) {
     const key = `${entry.employeeId}:${entry.date}`
     plannedBreaks.set(key, (plannedBreaks.get(key) ?? 0) + plannedBreakMinutes([entry]))
   }
@@ -102,10 +107,13 @@ export function stamp(db: Db, employeeId: number, action: StampAction, source: '
 const describeSpan = (record: { start: Minutes; end: Minutes | null } | null) =>
   record === null ? '—' : `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`
 
-function findRecord(db: Db, id: number) {
-  const record = db.select().from(timeRecords).where(eq(timeRecords.id, id)).get()
-  if (!record) throw new ServiceError(404, 'record_not_found')
-  return record
+/** A record of one of the facility's employees; otherwise record_not_found. */
+function findRecord(db: Db, facilityId: number, id: number) {
+  const row = db.select({ record: timeRecords }).from(timeRecords)
+    .innerJoin(employees, eq(timeRecords.employeeId, employees.id))
+    .where(and(eq(timeRecords.id, id), eq(employees.facilityId, facilityId))).get()
+  if (!row) throw new ServiceError(404, 'record_not_found')
+  return row.record
 }
 
 /** Admin corrections: end after start, not in the future, no overlap with other records of the day. */
@@ -126,9 +134,10 @@ function logRecordChange(db: Db, actor: SessionUser, record: { employeeId: numbe
 }
 
 export function createRecord(
-  db: Db, actor: SessionUser, input: { employeeId: number; date: IsoDate; start: Minutes; end: Minutes }, now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, input: { employeeId: number; date: IsoDate; start: Minutes; end: Minutes },
+  now: Date = new Date(),
 ): void {
-  if (!db.select().from(employees).where(eq(employees.id, input.employeeId)).get()) throw new ServiceError(404, 'employee_not_found')
+  assertEmployee(db, facilityId, input.employeeId)
   db.transaction((tx) => {
     assertSpan(tx, input.employeeId, input.date, input.start, input.end, null, now)
     const row = tx.insert(timeRecords).values({
@@ -138,8 +147,10 @@ export function createRecord(
   })
 }
 
-export function updateRecord(db: Db, actor: SessionUser, id: number, span: { start: Minutes; end: Minutes }, now: Date = new Date()): void {
-  const record = findRecord(db, id)
+export function updateRecord(
+  db: Db, actor: SessionUser, facilityId: number, id: number, span: { start: Minutes; end: Minutes }, now: Date = new Date(),
+): void {
+  const record = findRecord(db, facilityId, id)
   db.transaction((tx) => {
     assertSpan(tx, record.employeeId, record.date, span.start, span.end, id, now)
     tx.update(timeRecords).set({ ...span, editedBy: actor.id, editedAt: now.toISOString() }).where(eq(timeRecords.id, id)).run()
@@ -147,24 +158,27 @@ export function updateRecord(db: Db, actor: SessionUser, id: number, span: { sta
   })
 }
 
-export function deleteRecord(db: Db, actor: SessionUser, id: number, now: Date = new Date()): void {
-  const record = findRecord(db, id)
+export function deleteRecord(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {
+  const record = findRecord(db, facilityId, id)
   db.transaction((tx) => {
     tx.delete(timeRecords).where(eq(timeRecords.id, id)).run()
     logRecordChange(tx, actor, record, null, describeSpan(record), '—', now)
   })
 }
 
-export function listOpenRecords(db: Db, today: IsoDate): OpenRecordDto[] {
+/** Records of earlier days still open (forgotten clock-outs) of the facility's employees. */
+export function listOpenRecords(db: Db, facilityId: number, today: IsoDate): OpenRecordDto[] {
   return db.select({ record: timeRecords, name: employees.name })
     .from(timeRecords).innerJoin(employees, eq(timeRecords.employeeId, employees.id))
-    .where(and(isNull(timeRecords.end), lt(timeRecords.date, today)))
+    .where(and(eq(employees.facilityId, facilityId), isNull(timeRecords.end), lt(timeRecords.date, today)))
     .orderBy(asc(timeRecords.date), asc(employees.sortOrder)).all()
     .map(({ record, name }) => ({ id: record.id, employeeId: record.employeeId, name, date: record.date, start: record.start }))
 }
 
-export function getTimeMonth(db: Db, employeeId: number, year: number, month: number, today: IsoDate): TimeMonthDto {
-  const employee = loadEmployees(db).find(candidate => candidate.id === employeeId)
+export function getTimeMonth(
+  db: Db, facilityId: number, employeeId: number, year: number, month: number, today: IsoDate,
+): TimeMonthDto {
+  const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
@@ -174,8 +188,8 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
     .from(timeRecordChanges).leftJoin(users, eq(timeRecordChanges.actorId, users.id))
     .where(and(eq(timeRecordChanges.employeeId, employeeId), gte(timeRecordChanges.date, monthStart), lte(timeRecordChanges.date, monthEnd)))
     .orderBy(asc(timeRecordChanges.id)).all()
-  const actual = actualTimeFor(db, employee.facilityId, today)(employeeId)
-  const trackingFrom = getTimeTrackingFrom(db, employee.facilityId)
+  const actual = actualTimeFor(db, facilityId, today)(employeeId)
+  const trackingFrom = getTimeTrackingFrom(db, facilityId)
   const isAbsence = (key: CodeKey | null) => key !== null && ABSENCE_KEYS.includes(key)
   const notes = new Map(db.select().from(timeDayNotes)
     .where(and(eq(timeDayNotes.employeeId, employeeId), gte(timeDayNotes.date, monthStart), lte(timeDayNotes.date, monthEnd))).all()
@@ -211,8 +225,8 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
 }
 
 /** Sets the admin's reason note of one employee and day; an empty text removes it. */
-export function setTimeDayNote(db: Db, employeeId: number, date: IsoDate, note: string): void {
-  if (!db.select().from(employees).where(eq(employees.id, employeeId)).get()) throw new ServiceError(404, 'employee_not_found')
+export function setTimeDayNote(db: Db, facilityId: number, employeeId: number, date: IsoDate, note: string): void {
+  assertEmployee(db, facilityId, employeeId)
   const text = note.trim()
   if (!text) {
     db.delete(timeDayNotes).where(and(eq(timeDayNotes.employeeId, employeeId), eq(timeDayNotes.date, date))).run()

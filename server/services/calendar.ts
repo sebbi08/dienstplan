@@ -4,9 +4,9 @@ import { dateRange, isWeekend } from '../../shared/domain/dates'
 import { isHoliday } from '../../shared/domain/holidays'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
-import type { CalendarEventDto, CalendarKind, SickYearRowDto, YearCalendarDto } from '../../shared/types/api'
+import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearCalendarDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { calendarEvents } from '../db/schema'
+import { calendarEvents, employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
 
@@ -53,6 +53,15 @@ export function getSickYear(db: Db, facilityId: number, year: number): SickYearR
 export function getStaffYearCalendar(db: Db, facilityId: number, year: number, viewerEmployeeId: number | null): YearCalendarDto {
   const calendar = getYearCalendar(db, facilityId, year, { sickOnlyOf: viewerEmployeeId })
   return { ...calendar, otherEntries: {}, absenceCodes: [], events: calendar.events.filter(event => event.visibleToStaff) }
+}
+
+/** The staff year calendar of the viewer's own employee's (home) facility. */
+export function getMyYearCalendar(db: Db, viewer: SessionUser, year: number): YearCalendarDto {
+  const employee = viewer.employeeId === null
+    ? undefined
+    : db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).where(eq(employees.id, viewer.employeeId)).get()
+  if (!employee) throw new ServiceError(403, 'no_employee')
+  return getStaffYearCalendar(db, employee.facilityId, year, employee.id)
 }
 
 /** The facility's year calendar. With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered). */

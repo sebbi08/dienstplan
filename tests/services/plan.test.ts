@@ -148,7 +148,7 @@ describe('month plan', () => {
   describe('with time tracking', () => {
     const NOW = new Date('2026-10-08T10:00:00Z')
     const record = (date: string, minutes: number) =>
-      createRecord(db, admin, { employeeId: anna, date, start: 465, end: 465 + minutes }, NOW)
+      createRecord(db, admin, 1, { employeeId: anna, date, start: 465, end: 465 + minutes }, NOW)
     beforeEach(() => setTimeTrackingFrom(db, 1, '2026-10-01'))
 
     it('marks recorded time that deviates more than 15 minutes from the planned credit', () => {

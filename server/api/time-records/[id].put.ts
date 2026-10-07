@@ -4,6 +4,6 @@ import { updateRecord } from '../../services/timeTracking'
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  updateRecord(useDb(), admin, id, await readValidatedBody(event, timeRecordUpdateSchema.parse))
+  updateRecord(useDb(), admin, admin.facilityId, id, await readValidatedBody(event, timeRecordUpdateSchema.parse))
   return { ok: true }
 })

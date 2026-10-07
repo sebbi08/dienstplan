@@ -1,6 +1,6 @@
 import { terminalStatus } from '../../services/terminal'
 
 export default defineServiceHandler(async (event) => {
-  await requireTerminal(event)
-  return terminalStatus(useDb())
+  const terminal = await requireTerminal(event)
+  return terminalStatus(useDb(), terminal.facilityId)
 })
