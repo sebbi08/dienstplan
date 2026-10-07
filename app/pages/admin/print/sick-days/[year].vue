@@ -10,16 +10,13 @@ definePageMeta({ layout: false })
 const year = Number(useRoute().params.year)
 const { data: rows, error } = await useFetch<SickYearRowDto[]>('/api/sick-days', { query: { year } })
 
-function print() {
-  window.print()
-}
 </script>
 
 <template>
   <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900">
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.sickDays.printTitle(year) }}</h1>
-      <UButton class="ml-auto print:hidden" icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
+      <PrintActions :file-name="`Krankheitstage-${year}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <CalendarSickYearTable v-else :rows="rows ?? []" />

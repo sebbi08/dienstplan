@@ -11,9 +11,6 @@ definePageMeta({ layout: false })
 const year = Number(useRoute().params.year)
 const { data: list, error } = await useFetch<EarlyClosureDto[]>('/api/early-closures', { query: { year } })
 
-function print() {
-  window.print()
-}
 </script>
 
 <template>
@@ -21,7 +18,7 @@ function print() {
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.earlyClosures.printTitle(year) }}</h1>
       <span v-if="list" class="text-sm text-gray-600">{{ de.earlyClosures.count(list.length) }}</span>
-      <UButton class="ml-auto print:hidden" icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
+      <PrintActions :file-name="`Fruehere-Schliessungen-${year}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <p v-else-if="!list?.length" class="text-sm text-gray-600">{{ de.earlyClosures.empty }}</p>

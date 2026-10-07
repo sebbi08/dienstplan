@@ -19,6 +19,7 @@ const USER_ROUTES = [
   'my/leave-requests.post.ts',
   'my/leave-requests/preview.get.ts',
   'my/leave-requests/[id]/withdraw.post.ts',
+  'pdf.get.ts',
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
 const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']

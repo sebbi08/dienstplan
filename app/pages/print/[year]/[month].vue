@@ -13,9 +13,6 @@ const year = Number(route.params.year)
 const month = Number(route.params.month)
 const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${month}`)
 
-function print() {
-  window.print()
-}
 </script>
 
 <template>
@@ -28,7 +25,7 @@ function print() {
       <span v-if="plan?.admin && (!plan.release.releasedAt || plan.release.pendingCount > 0)" class="text-sm font-semibold text-orange-700">
         {{ plan.release.releasedAt ? de.plan.printDraftNote(plan.release.pendingCount) : de.plan.draft }}
       </span>
-      <UButton class="ml-auto print:hidden" icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
+      <PrintActions :file-name="`Dienstplan-${year}-${String(month).padStart(2, '0')}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="plan">

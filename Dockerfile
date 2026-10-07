@@ -26,7 +26,12 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATABASE_PATH=/data/app.db \
     MIGRATIONS_DIR=/app/migrations \
-    BACKUP_DIR=/data/backups
+    BACKUP_DIR=/data/backups \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Headless Chromium (plus its system libraries) renders the print views as PDF downloads.
+# Keep the version in step with playwright-core in package.json.
+RUN npx -y playwright-core@1.63.0 install --with-deps --only-shell chromium \
+  && rm -rf /var/lib/apt/lists/* /root/.npm
 WORKDIR /app
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/server/db/migrations ./migrations

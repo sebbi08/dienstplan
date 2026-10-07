@@ -29,9 +29,6 @@ const totals = computed(() => {
   return { target, counted, delta: counted - target }
 })
 
-function print() {
-  window.print()
-}
 </script>
 
 <template>
@@ -39,7 +36,7 @@ function print() {
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
       <h1 class="text-xl font-semibold">{{ de.time.printTitle(data?.employee.name ?? '', monthTitle(year, month)) }}</h1>
       <span v-if="weeklyMinutes !== null" class="text-sm text-gray-600">{{ de.time.weeklyHours(formatHours(weeklyMinutes)) }}</span>
-      <UButton class="ml-auto print:hidden" icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
+      <PrintActions :file-name="`Stempelzeiten-${employee?.name ?? employeeId}-${year}-${String(month).padStart(2, '0')}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="data">

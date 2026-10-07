@@ -15,9 +15,6 @@ const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/calendar
 const eventTime = (event: CalendarEventDto) =>
   event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
-function print() {
-  window.print()
-}
 </script>
 
 <template>
@@ -25,7 +22,7 @@ function print() {
     <div class="mb-2 flex flex-wrap items-center gap-3">
       <h1 class="text-xl font-semibold">{{ de.calendar.printTitle(year) }}</h1>
       <CalendarLegend />
-      <UButton class="ml-auto print:hidden" icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
+      <PrintActions :file-name="`Jahreskalender-${year}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="calendar">

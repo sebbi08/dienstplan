@@ -7,6 +7,7 @@ export const de = {
   months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
   weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
   common: {
+    pdf: 'PDF herunterladen', pdfFailed: 'Das PDF konnte nicht erstellt werden. Bitte noch einmal versuchen.',
     save: 'Speichern', delete: 'Löschen', cancel: 'Abbrechen', add: 'Hinzufügen', close: 'Schließen', edit: 'Bearbeiten',
     saved: 'Gespeichert', deleted: 'Gelöscht', confirmDelete: 'Wirklich löschen?', confirmTitle: 'Bitte bestätigen',
     previousMonth: 'Vorheriger Monat', nextMonth: 'Nächster Monat', previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
