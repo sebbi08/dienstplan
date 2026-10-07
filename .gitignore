@@ -8,3 +8,7 @@ data
 *.db-wal
 *.db-shm
 coverage
+
+# Local work areas (git worktrees, plan workspaces)
+.worktrees
+.superpowers
