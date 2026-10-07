@@ -14,11 +14,16 @@ const USER_ROUTES = [
   'my/time/stamp.post.ts',
   'my/notifications.get.ts',
   'my/notifications/read.post.ts',
+  'leave-settings.get.ts',
+  'my/leave-requests.get.ts',
+  'my/leave-requests.post.ts',
+  'my/leave-requests/preview.get.ts',
+  'my/leave-requests/[id]/withdraw.post.ts',
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
 const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']
 /** Routes only the Träger (provider) may call; they must check with requireProvider(. */
-const PROVIDER_ROUTES = ['employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts']
+const PROVIDER_ROUTES = ['employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts', 'leave-settings/module.put.ts']
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 

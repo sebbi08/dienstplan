@@ -373,7 +373,7 @@ export interface SickYearRowDto {
 }
 
 /** Colour group of a day in the year calendar. */
-export type CalendarKind = 'sick' | 'vacation' | 'special_leave' | 'training' | 'closed'
+export type CalendarKind = 'sick' | 'vacation' | 'special_leave' | 'training' | 'closed' | 'requested'
 
 /** Admin's own appointment in the year calendar. */
 export interface CalendarEventDto {
@@ -457,4 +457,53 @@ export interface ReleaseNotificationStatusDto {
   readAt: string | null
   /** False when no user account is linked to the employee (nobody can read the message). */
   hasAccount: boolean
+}
+
+export type LeaveRequestStatus = 'open' | 'approved' | 'rejected' | 'withdrawn'
+
+export interface LeaveRequestDto {
+  id: number
+  employeeId: number
+  name: string
+  startDate: IsoDate
+  endDate: IsoDate
+  note: string
+  status: LeaveRequestStatus
+  createdAt: string
+  decidedAt: string | null
+  decidedBy: string | null
+  decisionNote: string
+  /** Working days of the employee in the range (without holidays, closures and days off). */
+  workdays: number
+  /** Days of the range on which more people than allowed would be on leave (open requests only). */
+  overLimitDates: IsoDate[]
+}
+
+/** Module state as far as the viewer may know it. */
+export interface LeaveSettingsDto {
+  enabled: boolean
+  maxConcurrent: number | null
+  /** Accounts responsible for leave planning (only sent to managers). */
+  plannerIds: number[]
+  /** The viewer may see the planning page and decide requests. */
+  isPlanner: boolean
+  /** Open requests the viewer could decide (0 for non-planners). */
+  openCount: number
+}
+
+/** What a request would mean, shown before sending. */
+export interface LeaveRequestPreviewDto {
+  workdays: number
+  /** Leave days left in the start year after this request (null: no entitlement recorded). */
+  availableAfter: number | null
+  overLimitDates: IsoDate[]
+}
+
+/** The planning page: year calendar of leave and open requests, people per day and the open requests. */
+export interface LeavePlanningDto {
+  calendar: YearCalendarDto
+  /** People on leave (planned + open requests) per day. */
+  counts: Record<IsoDate, number>
+  maxConcurrent: number | null
+  openRequests: LeaveRequestDto[]
 }

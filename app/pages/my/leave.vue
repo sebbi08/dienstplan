@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import type { LeaveAccountDto } from '#shared/types/api'
+import type { LeaveAccountDto, LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatNumber } from '~/utils/format'
 
 const today = todayIso()
 const year = ref(parseIsoDate(today).year)
-const { data, error } = await useFetch<LeaveAccountDto>('/api/my/leave', { query: { year } })
+const { data, error, refresh } = await useFetch<LeaveAccountDto>('/api/my/leave', { query: { year } })
+// The request form only exists while the Träger has switched leave requests on.
+const { data: leaveSettings } = await useFetch<LeaveSettingsDto>('/api/leave-settings')
 
 const cards = computed(() => {
   const account = data.value?.account
@@ -29,6 +31,7 @@ const cards = computed(() => {
       <YearNav v-model="year" />
     </div>
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
+    <LeaveRequestSection v-if="leaveSettings?.enabled" @changed="refresh" />
     <template v-if="data">
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div

@@ -253,3 +253,23 @@ export const notifications = sqliteTable('notifications', {
   /** JSON list of { date, before, after } (cell texts). */
   changes: text('changes').notNull(),
 }, table => [index('notifications_employee').on(table.employeeId)])
+
+/** An employee's request for leave (Urlaubsantrag); approving writes "Urlaub" into the plan. */
+export const leaveRequests = sqliteTable('leave_requests', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  startDate: text('start_date').notNull(),
+  endDate: text('end_date').notNull(),
+  note: text('note').notNull().default(''),
+  status: text('status', { enum: ['open', 'approved', 'rejected', 'withdrawn'] }).notNull().default('open'),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  decidedAt: text('decided_at'),
+  decidedBy: integer('decided_by').references(() => users.id, { onDelete: 'set null' }),
+  decisionNote: text('decision_note').notNull().default(''),
+}, table => [index('leave_requests_employee').on(table.employeeId), index('leave_requests_status').on(table.status)])
+
+/** Accounts (Träger/Leitung) the Träger made responsible for leave planning. */
+export const leavePlanners = sqliteTable('leave_planners', {
+  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+})

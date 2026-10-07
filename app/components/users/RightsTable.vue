@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
  * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
-type Right = 'yes' | 'no' | 1 | 2 | 3
+type Right = 'yes' | 'no' | 1 | 2 | 3 | 4 | 5
 const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
 const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Right, Right] }[] }[] = [
@@ -30,6 +30,11 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
   ] },
+  { title: 'Urlaubsanträge', rows: [
+    { label: 'Urlaub beantragen und eigene Anträge sehen', rights: [4, 4, 4, 'no'] },
+    { label: 'Urlaubsplanung: Anträge entscheiden, Kalender, Höchstzahl gleichzeitig im Urlaub', rights: [4, 5, 'no', 'no'] },
+    { label: 'Modul ein- und ausschalten, Zuständige festlegen', rights: ['yes', 'no', 'no', 'no'] },
+  ] },
   { title: 'Planung und Übersichten', rows: [
     { label: 'Schließzeiten, Feiertage, frühere Schließungen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Krankheitstage, Jahreskalender mit Terminen, Druckansichten', rights: ['yes', 'yes', 'no', 'no'] },
@@ -43,10 +48,12 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   ] },
 ]
 
-const FOOTNOTES: Record<1 | 2 | 3, string> = {
+const FOOTNOTES: Record<1 | 2 | 3 | 4 | 5, string> = {
   1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (beim Handy zusätzlich: „Stempeln über“ erlaubt das Handy)',
   2: 'wenn die Leitung beim Mitarbeiter „Kita-Tablet und eigenes Handy“ eingestellt hat',
   3: 'nur lesen und nur, wenn der Träger die Vertragsangaben für die Leitung freigegeben hat',
+  4: 'wenn der Träger das Modul Urlaubsanträge eingeschaltet hat (beim Beantragen: Konto mit einem Mitarbeiter verknüpft)',
+  5: 'wenn das Modul eingeschaltet ist und der Träger diese Leitung als zuständig für die Urlaubsplanung festgelegt hat',
 }
 </script>
 

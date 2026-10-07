@@ -8,7 +8,7 @@ export function defineServiceHandler<T>(handler: (event: H3Event<EventHandlerReq
     }
     catch (error) {
       if (error instanceof ServiceError) {
-        throw createError({ statusCode: error.statusCode, statusMessage: error.code, data: { code: error.code } })
+        throw createError({ statusCode: error.statusCode, statusMessage: error.code, data: { code: error.code, details: error.details } })
       }
       throw error
     }

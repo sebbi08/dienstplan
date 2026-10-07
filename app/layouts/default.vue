@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { isManager } from '#shared/domain/roles'
+import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -10,9 +11,15 @@ const headerHidden = useHideOnScroll()
 
 // Unread messages about changed duties show as a count on "Mein Dienstplan"; checked again on every page change.
 const notifications = useMyNotifications()
+// Leave requests: planners see "Urlaubsplanung" with the number of open requests (module switched on by the Träger).
+const signedIn = computed(() => !!user.value && user.value.role !== 'terminal')
+const { data: leave, refresh: refreshLeave } = useFetch<LeaveSettingsDto>('/api/leave-settings', {
+  key: 'leave-settings', immediate: signedIn.value, watch: false,
+})
 const route = useRoute()
 watch(() => route.fullPath, () => {
   if (notifications.enabled.value) notifications.refresh()
+  if (signedIn.value) refreshLeave()
 })
 
 const links = computed(() => {
@@ -21,11 +28,17 @@ const links = computed(() => {
   if (user.value.role === 'terminal') return [{ label: de.nav.stamp, to: '/terminal' }, plan]
   const unread = notifications.unread.value.length
   const myPlan = { label: unread ? `${de.nav.myPlan} (${unread})` : de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
+  const myLeave = { label: de.nav.myLeave, to: '/my/leave' }
+  const open = leave.value?.openCount ?? 0
+  const planning = leave.value?.isPlanner
+    ? [{ label: open ? `${de.nav.leavePlanning} (${open})` : de.nav.leavePlanning, to: '/admin/leave-planning' }]
+    : []
   if (isManager(user.value.role)) {
     return [
       plan,
-      // An admin linked to an employee stamps on "Mein Dienstplan" too.
-      ...(user.value.employeeId !== null ? [myPlan] : []),
+      // An admin linked to an employee stamps on "Mein Dienstplan" and requests leave too.
+      ...(user.value.employeeId !== null ? [myPlan, myLeave] : []),
+      ...planning,
       { label: de.nav.time, to: '/admin/time' },
       // Includes the overtime balances and leave accounts of all employees.
       { label: de.nav.employees, to: '/admin/employees' },
@@ -36,7 +49,7 @@ const links = computed(() => {
       { label: de.nav.settings, to: '/admin/settings' },
     ]
   }
-  return [myPlan, plan, { label: de.nav.myLeave, to: '/my/leave' }]
+  return [myPlan, plan, myLeave]
 })
 
 async function logout() {

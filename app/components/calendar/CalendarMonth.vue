@@ -7,7 +7,10 @@ import { de } from '~/locales/de'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
 /** `editable`: clicking emits dayClick (employee day), eventDayClick (day number in the header) or eventClick (appointment text). */
-const props = defineProps<{ calendar: YearCalendarDto; month: number; editable?: boolean }>()
+/** With `counts` (leave planning) the last row shows people on leave per day instead of appointments; red above `limit`. */
+const props = defineProps<{
+  calendar: YearCalendarDto; month: number; editable?: boolean; counts?: Record<string, number>; limit?: number | null
+}>()
 const emit = defineEmits<{
   dayClick: [employeeId: number, date: string]
   eventDayClick: [date: string]
@@ -16,6 +19,7 @@ const emit = defineEmits<{
 
 const KIND_CLASSES: Record<CalendarKind, string> = {
   sick: 'bg-red-500', vacation: 'bg-green-500', special_leave: 'bg-lime-300', training: 'bg-sky-500', closed: 'bg-gray-400',
+  requested: 'bg-[repeating-linear-gradient(45deg,var(--color-green-200)_0_3px,var(--color-green-400)_3px_6px)]',
 }
 
 const dates = computed(() => Array.from({ length: daysInMonth(props.calendar.year, props.month) },
@@ -121,7 +125,18 @@ function headerTitle(date: string): string | undefined {
         />
         <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
-      <tr>
+      <tr v-if="counts">
+        <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium">{{ de.leavePlanning.countRow }}</td>
+        <td
+          v-for="date in dates" :key="date" class="border border-gray-300 p-0 text-center"
+          :class="limit != null && (counts[date] ?? 0) > limit ? 'bg-red-600 font-semibold text-white' : isOff(date) ? 'bg-gray-100' : ''"
+          :title="limit != null && (counts[date] ?? 0) > limit ? de.leavePlanning.overLimit(counts[date] ?? 0, limit) : undefined"
+        >
+          {{ counts[date] || '' }}
+        </td>
+        <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
+      </tr>
+      <tr v-else>
         <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium">{{ de.calendar.events }}</td>
         <td :colspan="dates.length" class="relative border border-gray-300 p-0" :style="{ height: `${eventLayout.height}px` }">
           <!-- day grid behind the texts (same columns and shading as the rows above) -->
