@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, ne } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -51,6 +51,7 @@ function mayViewContract(db: Db, viewer: Role): boolean {
 
 function contractOf(employee: EmployeeRecord): EmployeeContractDto {
   return {
+    personnelNumber: employee.personnelNumber,
     employedSince: employee.employedSince, jobKey: employee.jobKey as JobKey | null, jobOther: employee.jobOther,
     payGroup: employee.payGroup as PayGroup | null, payLevel: employee.payLevel,
   }
@@ -192,7 +193,12 @@ export function setContract(db: Db, id: number, contract: EmployeeContractDto): 
   assertEmployee(db, id)
   const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
   if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
-  db.update(employees).set({ ...contract, jobOther }).where(eq(employees.id, id)).run()
+  const personnelNumber = contract.personnelNumber?.trim() || null
+  if (personnelNumber !== null && db.select().from(employees)
+    .where(and(eq(employees.personnelNumber, personnelNumber), ne(employees.id, id))).get()) {
+    throw new ServiceError(409, 'personnel_number_taken')
+  }
+  db.update(employees).set({ ...contract, personnelNumber, jobOther }).where(eq(employees.id, id)).run()
 }
 
 /** Level steps due within the notice period or overdue, for viewers who may see contract data; staff who left are skipped. */

@@ -15,6 +15,7 @@ export const employees = sqliteTable('employees', {
   /** 'stamp': breaks are clocked (gaps count); 'auto': the planned break is deducted in full from the clocked time. */
   breakMode: text('break_mode', { enum: ['stamp', 'auto'] }).notNull().default('stamp'),
   // Contract data, edited only by the Träger (provider); see shared/domain/tvoed.ts.
+  personnelNumber: text('personnel_number').unique(),
   employedSince: text('employed_since'),
   jobKey: text('job_key'),
   jobOther: text('job_other'),

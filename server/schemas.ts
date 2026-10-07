@@ -99,6 +99,7 @@ export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
 /** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */
 export const templateChangeSchema = templateSchema.extend({ applyFrom: isoDate.nullable().optional() })
 export const contractSchema = z.object({
+  personnelNumber: z.string().max(30).nullable(),
   employedSince: isoDate.nullable(), jobKey: z.enum(JOB_KEYS).nullable(), jobOther: z.string().max(100).nullable(),
   payGroup: z.enum(PAY_GROUPS).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
 })

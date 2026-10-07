@@ -11,7 +11,9 @@ const props = defineProps<{ employeeId: number; contract: EmployeeContractDto; e
 const emit = defineEmits<{ saved: [] }>()
 const run = useAction(async () => emit('saved'))
 
-const form = reactive<EmployeeContractDto>({ employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null })
+const form = reactive<EmployeeContractDto>({
+  personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null,
+})
 watch(() => props.contract, value => Object.assign(form, value), { immediate: true })
 
 const jobItems = [{ label: de.contract.none, value: null }, ...JOB_KEYS.map(key => ({ label: de.contract.jobs[key], value: key }))]
@@ -48,6 +50,9 @@ function save() {
     <h2 class="font-semibold">{{ de.contract.title }}</h2>
     <p v-if="!editable" class="text-sm">{{ contractSummary(contract, todayIso()) || de.contract.empty }}</p>
     <form v-else class="grid gap-3 sm:grid-cols-4 sm:items-start" @submit.prevent="save">
+      <UFormField :label="de.contract.personnelNumber">
+        <UInput :model-value="form.personnelNumber ?? ''" maxlength="30" class="w-full" @update:model-value="form.personnelNumber = String($event) || null" />
+      </UFormField>
       <UFormField :label="de.contract.employedSince">
         <UInput :model-value="form.employedSince ?? ''" type="date" class="w-full" @update:model-value="form.employedSince = String($event) || null" />
       </UFormField>

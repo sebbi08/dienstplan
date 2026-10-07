@@ -204,7 +204,8 @@ export const de = {
     updated: 'Gespeichert am', employee: 'Mitarbeiter',
   },
   contract: {
-    title: 'Vertragsangaben (TVöD SuE)', employedSince: 'In der Einrichtung seit', job: 'Tätigkeit',
+    title: 'Vertragsangaben (TVöD SuE)', personnelNumber: 'Personalnummer', personnelNumberShort: (number: string) => `Pers.-Nr. ${number}`,
+    employedSince: 'In der Einrichtung seit', job: 'Tätigkeit',
     jobOther: 'Tätigkeit (Freitext)', payGroup: 'Entgeltgruppe', payLevel: 'Stufe', none: '–',
     jobs: {
       childcare_worker: 'Kinderpfleger/in', social_assistant: 'Sozialassistent/in', educator: 'Erzieher/in',
@@ -295,6 +296,7 @@ export const de = {
     provider_only: 'Träger-Konten kann nur ein Träger anlegen, ändern oder ernennen.',
     stamp_tablet_only: 'Du stempelst laut Einstellung der Leitung nur am Kita-Tablet.',
     invalid_pay_level: 'Die Stufe muss zwischen 1 und 6 liegen.',
+    personnel_number_taken: 'Diese Personalnummer ist schon einem anderen Mitarbeiter zugeordnet.',
     user_not_found: 'Benutzer nicht gefunden.',
     month_not_released: 'Dieser Monat ist noch nicht freigegeben.',
     no_employee: 'Dein Konto ist mit keinem Mitarbeiter verknüpft.',

@@ -255,6 +255,7 @@ export interface SettingsDto {
 }
 
 export interface EmployeeContractDto {
+  personnelNumber: string | null
   employedSince: IsoDate | null
   jobKey: JobKey | null
   /** Free job title, only with jobKey 'other'. */

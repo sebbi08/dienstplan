@@ -23,6 +23,7 @@ export interface EmployeeRecord {
   leftOn: IsoDate | null
   info: EmploymentInfo
   // Contract data (see shared/domain/tvoed.ts); who may see it is decided in the employees service.
+  personnelNumber: string | null
   employedSince: IsoDate | null
   jobKey: string | null
   jobOther: string | null

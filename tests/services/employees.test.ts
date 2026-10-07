@@ -95,7 +95,7 @@ describe('creating an employee with working days, leave and opening balance', ()
 
 describe('contract data (Träger only)', () => {
   const today = '2026-10-05'
-  const contract = { employedSince: '2019-03-01', jobKey: 'educator' as const, jobOther: 'ignored', payGroup: 'S 8a' as const, payLevel: 3 }
+  const contract = { personnelNumber: '1042', employedSince: '2019-03-01', jobKey: 'educator' as const, jobOther: 'ignored', payGroup: 'S 8a' as const, payLevel: 3 }
   it('is shown to the Träger, to the Leitung only when allowed, and never to others', () => {
     const db = createTestDb()
     const admin = addUser(db, 'traeger', 'provider')
@@ -119,6 +119,18 @@ describe('contract data (Träger only)', () => {
     expect(errorCode(() => setContract(db, id, { ...contract, payLevel: 7 }))).toBe('invalid_pay_level')
     expect(errorCode(() => setContract(db, 999, contract))).toBe('employee_not_found')
   })
+  it('keeps personnel numbers unique and trims them', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'traeger', 'provider')
+    const anna = createEmployee(db, admin, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const ben = createEmployee(db, admin, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    setContract(db, anna, { ...contract, personnelNumber: ' 1042 ' })
+    setContract(db, anna, { ...contract, personnelNumber: '1042' }) // saving again keeps it
+    expect(getEmployee(db, anna, today, 'provider').contract!.personnelNumber).toBe('1042')
+    expect(errorCode(() => setContract(db, ben, { ...contract, personnelNumber: '1042' }))).toBe('personnel_number_taken')
+    setContract(db, ben, { ...contract, personnelNumber: ' ' })
+    expect(getEmployee(db, ben, today, 'provider').contract!.personnelNumber).toBeNull()
+  })
 })
 
 describe('level-up notices', () => {
@@ -127,7 +139,7 @@ describe('level-up notices', () => {
     const admin = addUser(db, 'traeger', 'provider')
     const anna = createEmployee(db, admin, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     const ben = createEmployee(db, admin, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
-    const base = { jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const }
+    const base = { personnelNumber: null, jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const }
     setContract(db, anna, { ...base, employedSince: '2022-11-01', payLevel: 2 }) // level 3 due on 2026-11-01
     setContract(db, ben, { ...base, employedSince: '2022-11-01', payLevel: 3 }) // already entered
     const due = [{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-11-01' }]
