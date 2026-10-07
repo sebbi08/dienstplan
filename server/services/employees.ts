@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, max, ne } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -6,7 +6,7 @@ import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoe
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, LevelUpDto, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { balanceAdjustments, employeeHours, employees, leaveEntitlements } from '../db/schema'
+import { balanceAdjustments, employeeHours, employees, facilities, leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor } from './closures'
@@ -235,4 +235,22 @@ export function setStampingOptions(
 ): void {
   assertEmployee(db, facilityId, id)
   db.update(employees).set(options).where(eq(employees.id, id)).run()
+}
+
+/**
+ * The Träger moves an employee to another facility (their home facility changes). Hours, leave, balances and entries
+ * stay attached to the employee; the employee's Mitarbeiter account follows automatically.
+ */
+export function moveEmployeeToFacility(db: Db, employeeId: number, facilityId: number): void {
+  if (!db.select({ id: employees.id }).from(employees).where(eq(employees.id, employeeId)).get()) {
+    throw new ServiceError(404, 'employee_not_found')
+  }
+  if (!db.select({ id: facilities.id }).from(facilities).where(eq(facilities.id, facilityId)).get()) {
+    throw new ServiceError(404, 'facility_not_found')
+  }
+  db.transaction((tx) => {
+    const sortOrder = (tx.select({ value: max(employees.sortOrder) }).from(employees)
+      .where(eq(employees.facilityId, facilityId)).get()?.value ?? 0) + 1
+    tx.update(employees).set({ facilityId, sortOrder }).where(eq(employees.id, employeeId)).run()
+  })
 }

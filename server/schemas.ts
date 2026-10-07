@@ -116,3 +116,4 @@ export const leaveDecisionSchema = z.object({ approve: z.boolean(), note: z.stri
 export const pdfQuery = z.object({ path: z.string().max(200), name: z.string().regex(/^[\w.-]{1,80}$/) })
 export const facilityNameSchema = z.object({ name: z.string().max(80) })
 export const activeFacilitySchema = z.object({ facilityId: z.number().int().positive() })
+export const employeeFacilitySchema = z.object({ facilityId: z.number().int().positive() })

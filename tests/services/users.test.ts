@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { login } from '../../server/services/auth'
+import { getActiveUser, login } from '../../server/services/auth'
+import { listEmployees, moveEmployeeToFacility } from '../../server/services/employees'
 import { createUser, listUsers, resetPassword, updateUser } from '../../server/services/users'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 describe('users service', () => {
   let db: Db
@@ -18,7 +19,7 @@ describe('users service', () => {
   it('creates an observer linked to an employee who must change the password', () => {
     const user = createUser(db, provider, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     expect(user).toMatchObject({ username: 'anna', role: 'observer', employeeId: anna, employeeName: 'Anna', mustChangePassword: true, active: true })
-    expect(listUsers(db)).toHaveLength(2) // with the Träger
+    expect(listUsers(db, provider)).toHaveLength(2) // with the Träger
   })
   it('stores usernames in lower case so login ignores capitalisation', () => {
     const user = createUser(db, provider, { username: '  Anna ', password: 'start-1234', role: 'observer', employeeId: anna })
@@ -82,15 +83,84 @@ describe('terminal users', () => {
   it('never forces a terminal user to change the password after a reset', () => {
     const user = createUser(db, provider, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
     resetPassword(db, provider, user.id, 'another-password')
-    expect(listUsers(db).find(candidate => candidate.id === user.id)!.mustChangePassword).toBe(false)
+    expect(listUsers(db, provider).find(candidate => candidate.id === user.id)!.mustChangePassword).toBe(false)
     const admin = createUser(db, provider, { username: 'chef', password: 'secret-password', role: 'admin', employeeId: null })
     resetPassword(db, provider, admin.id, 'another-password')
-    expect(listUsers(db).find(candidate => candidate.id === admin.id)!.mustChangePassword).toBe(true)
+    expect(listUsers(db, provider).find(candidate => candidate.id === admin.id)!.mustChangePassword).toBe(true)
   })
   it('clears the forced password change when a user becomes a terminal', () => {
     const user = createUser(db, provider, { username: 'staff', password: 'staff-password', role: 'observer', employeeId: addEmployee(db, 'Anna') })
     expect(user.mustChangePassword).toBe(true)
     const updated = updateUser(db, provider, user.id, { role: 'terminal', employeeId: null, active: true })
     expect(updated.mustChangePassword).toBe(false)
+  })
+})
+
+describe('users per facility', () => {
+  let db: Db
+  let facility2: number
+  let anna: number
+  let kim: number
+  let provider: SessionUser
+  let leitungA: SessionUser
+  let leitungB: SessionUser
+  beforeEach(() => {
+    db = createTestDb()
+    facility2 = addFacility(db, 'Krippe')
+    anna = addEmployee(db, 'Anna')
+    kim = addEmployee(db, 'Kim', { facilityId: facility2 })
+    leitungA = addUser(db, 'leitung-a', 'admin')
+    leitungB = addUser(db, 'leitung-b', 'admin', null, facility2)
+  })
+  const names = (viewer: SessionUser) => listUsers(db, viewer).map(user => user.username)
+
+  it('a Leitung only sees and manages its own facility\'s users', () => {
+    provider = addUser(db, 'traeger', 'provider')
+    addUser(db, 'tablet-a', 'terminal')
+    addUser(db, 'tablet-b', 'terminal', null, facility2)
+    addUser(db, 'anna', 'observer', anna)
+    const kimUser = addUser(db, 'kim', 'observer', kim)
+    expect(names(leitungA)).toEqual(['anna', 'leitung-a', 'tablet-a', 'traeger'])
+    expect(names(leitungB)).toEqual(['kim', 'leitung-b', 'tablet-b', 'traeger'])
+    expect(errorCode(() => updateUser(db, leitungA, kimUser.id, { role: 'observer', employeeId: kim, active: false }))).toBe('user_not_found')
+    expect(errorCode(() => resetPassword(db, leitungA, kimUser.id, 'reset-1234'))).toBe('user_not_found')
+    expect(errorCode(() => updateUser(db, leitungA, leitungB.id, { role: 'admin', employeeId: null, active: false }))).toBe('user_not_found')
+    // The Träger sees the active facility's users plus all Träger accounts.
+    expect(names(provider)).toEqual(['anna', 'leitung-a', 'tablet-a', 'traeger'])
+    expect(names({ ...provider, facilityId: facility2 })).toEqual(['kim', 'leitung-b', 'tablet-b', 'traeger'])
+  })
+  it('creates Leitung and tablet accounts in the creating user\'s facility', () => {
+    const tablet = createUser(db, leitungB, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    const leitung = createUser(db, leitungB, { username: 'neu', password: 'start-1234', role: 'admin', employeeId: null })
+    expect(names(leitungB)).toEqual(expect.arrayContaining(['tablet', 'neu']))
+    expect(names(leitungA)).not.toContain('tablet')
+    expect(getActiveUser(db, tablet.id)!.facilityId).toBe(facility2)
+    expect(getActiveUser(db, leitung.id)!.facilityId).toBe(facility2)
+  })
+  it('links Mitarbeiter accounts only to the facility\'s employees', () => {
+    expect(errorCode(() => createUser(db, leitungA, { username: 'kim', password: 'start-1234', role: 'observer', employeeId: kim }))).toBe('employee_not_found')
+    const user = createUser(db, leitungB, { username: 'kim', password: 'start-1234', role: 'observer', employeeId: kim })
+    expect(getActiveUser(db, user.id)!.facilityId).toBe(facility2)
+    const other = createUser(db, leitungA, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    expect(errorCode(() => updateUser(db, leitungA, other.id, { role: 'observer', employeeId: kim, active: true }))).toBe('employee_not_found')
+  })
+  it('counts the last Leitung per facility', () => {
+    const downgrade = (actor: SessionUser) =>
+      () => updateUser(db, actor, leitungB.id, { role: 'observer', employeeId: kim, active: true })
+    expect(errorCode(downgrade(leitungB))).toBe('last_admin')
+    expect(errorCode(() => updateUser(db, leitungB, leitungB.id, { role: 'admin', employeeId: null, active: false }))).toBe('last_admin')
+    provider = addUser(db, 'traeger', 'provider', null, facility2)
+    expect(errorCode(downgrade(provider))).toBeNull()
+    expect(getActiveUser(db, leitungB.id)!.facilityId).toBe(facility2) // now a Mitarbeiter following Kim
+  })
+  it('the Träger moves an employee to another facility', () => {
+    const kimUser = addUser(db, 'kim', 'observer', kim)
+    expect(getActiveUser(db, kimUser.id)!.facilityId).toBe(facility2)
+    moveEmployeeToFacility(db, kim, 1)
+    expect(listEmployees(db, 1, '2026-10-05', 'admin').map(employee => employee.name)).toEqual(['Anna', 'Kim'])
+    expect(listEmployees(db, facility2, '2026-10-05', 'admin')).toEqual([])
+    expect(getActiveUser(db, kimUser.id)!.facilityId).toBe(1)
+    expect(errorCode(() => moveEmployeeToFacility(db, 999, 1))).toBe('employee_not_found')
+    expect(errorCode(() => moveEmployeeToFacility(db, kim, 999))).toBe('facility_not_found')
   })
 })

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, or } from 'drizzle-orm'
 import { MANAGER_ROLES } from '../../shared/domain/roles'
 import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -21,39 +21,64 @@ export interface UserUpdate {
   active: boolean
 }
 
-export function listUsers(db: Db): UserDto[] {
+/** The users a viewer manages: Leitung and tablet of the viewer's facility, Mitarbeiter of its employees, and all Träger. */
+function visibleUsers(db: Db, viewer: SessionUser) {
+  const facilityId = viewer.facilityId
   return db.select({ user: users, employeeName: employees.name })
     .from(users)
     .leftJoin(employees, eq(users.employeeId, employees.id))
+    .where(or(
+      eq(users.role, 'provider'),
+      facilityId === null ? undefined : and(inArray(users.role, ['admin', 'terminal']), eq(users.facilityId, facilityId)),
+      facilityId === null ? undefined : and(eq(users.role, 'observer'), eq(employees.facilityId, facilityId)),
+    ))
     .orderBy(asc(users.username))
     .all()
-    .map(({ user, employeeName }) => ({
-      id: user.id, username: user.username, role: user.role, employeeId: user.employeeId,
-      employeeName: employeeName ?? null, active: user.active,
-      mustChangePassword: user.mustChangePassword, lockedUntil: user.lockedUntil,
-    }))
 }
 
-function findUser(db: Db, id: number): UserDto {
-  const user = listUsers(db).find(candidate => candidate.id === id)
-  if (!user) throw new ServiceError(404, 'user_not_found')
-  return user
+export function listUsers(db: Db, viewer: SessionUser): UserDto[] {
+  return visibleUsers(db, viewer).map(({ user, employeeName }) => ({
+    id: user.id, username: user.username, role: user.role, employeeId: user.employeeId,
+    employeeName: employeeName ?? null, active: user.active,
+    mustChangePassword: user.mustChangePassword, lockedUntil: user.lockedUntil,
+  }))
 }
 
-function assertEmployeeLink(db: Db, role: Role, employeeId: number | null, userId: number | null): void {
+function findUser(db: Db, viewer: SessionUser, id: number): { dto: UserDto; facilityId: number | null } {
+  const dto = listUsers(db, viewer).find(candidate => candidate.id === id)
+  if (!dto) throw new ServiceError(404, 'user_not_found')
+  return { dto, facilityId: db.select({ facilityId: users.facilityId }).from(users).where(eq(users.id, id)).get()!.facilityId }
+}
+
+/** The facility a new or changed Leitung or tablet account belongs to: the acting user's. */
+function actorFacility(actor: SessionUser): number {
+  if (actor.facilityId === null) throw new ServiceError(403, 'no_facility')
+  return actor.facilityId
+}
+
+/** A Mitarbeiter account may only be linked to an employee of the acting user's facility. */
+function assertEmployeeLink(db: Db, actor: SessionUser, role: Role, employeeId: number | null, userId: number | null): void {
   if (role === 'terminal' && employeeId !== null) throw new ServiceError(400, 'terminal_no_employee')
   if (role === 'observer' && employeeId === null) throw new ServiceError(400, 'employee_required')
   if (employeeId === null) return
-  if (!db.select().from(employees).where(eq(employees.id, employeeId)).get()) {
+  if (!db.select().from(employees)
+    .where(and(eq(employees.id, employeeId), actor.facilityId === null ? undefined : eq(employees.facilityId, actor.facilityId))).get()) {
     throw new ServiceError(400, 'employee_not_found')
   }
   const linked = db.select().from(users).where(eq(users.employeeId, employeeId)).get()
   if (linked && linked.id !== userId) throw new ServiceError(409, 'employee_taken')
 }
 
-function activeCount(db: Db, roles: Role[]): number {
+function activeProviders(db: Db): number {
   return db.select({ value: count() }).from(users)
-    .where(and(inArray(users.role, roles), eq(users.active, true))).get()!.value
+    .where(and(eq(users.role, 'provider'), eq(users.active, true))).get()!.value
+}
+
+/** Active Leitung accounts of the facility plus all active Träger: whoever can still manage it. */
+function activeManagers(db: Db, facilityId: number | null): number {
+  const leitung = facilityId === null ? 0 : db.select({ value: count() }).from(users)
+    .where(and(eq(users.role, 'admin'), eq(users.facilityId, facilityId), eq(users.active, true))).get()!.value
+  return leitung + activeProviders(db)
 }
 
 /** Only a Träger may create, change, appoint or reset Träger accounts. */
@@ -69,33 +94,41 @@ export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDt
     throw new ServiceError(409, 'username_taken')
   }
   assertPasswordStrength(input.password)
-  assertEmployeeLink(db, input.role, input.employeeId, null)
+  assertEmployeeLink(db, actor, input.role, input.employeeId, null)
+  // Leitung and tablet belong to the creating user's facility, a Mitarbeiter follows its employee, a new Träger starts in the creator's facility.
+  const facilityId = input.role === 'observer' ? null : input.role === 'provider' ? actor.facilityId : actorFacility(actor)
   const row = db.insert(users).values({
     username, passwordHash: hashPassword(input.password), role: input.role,
-    employeeId: input.employeeId, mustChangePassword: input.role !== 'terminal',
+    employeeId: input.employeeId, facilityId, mustChangePassword: input.role !== 'terminal',
   }).returning().get()
-  return findUser(db, row.id)
+  return findUser(db, actor, row.id).dto
 }
 
 export function updateUser(db: Db, actor: SessionUser, id: number, update: UserUpdate): UserDto {
-  const user = findUser(db, id)
+  const { dto: user, facilityId: userFacilityId } = findUser(db, actor, id)
   assertMayManage(actor, user.role, update.role)
-  assertEmployeeLink(db, update.role, update.employeeId, id)
+  assertEmployeeLink(db, actor, update.role, update.employeeId, id)
   const loses = (roles: Role[]) => roles.includes(user.role) && user.active && (!roles.includes(update.role) || !update.active)
-  if (loses(['provider']) && activeCount(db, ['provider']) <= 1) throw new ServiceError(409, 'last_provider')
-  if (loses([...MANAGER_ROLES]) && activeCount(db, [...MANAGER_ROLES]) <= 1) throw new ServiceError(409, 'last_admin')
+  if (loses(['provider']) && activeProviders(db) <= 1) throw new ServiceError(409, 'last_provider')
+  if (loses([...MANAGER_ROLES]) && activeManagers(db, user.role === 'admin' ? userFacilityId : actor.facilityId) <= 1) {
+    throw new ServiceError(409, 'last_admin')
+  }
+  // Leitung and tablet belong to a facility, a Mitarbeiter follows its employee; whoever newly becomes Leitung or tablet joins the acting user's facility.
+  const facilityId = update.role === 'observer' ? null
+    : update.role === 'provider' ? userFacilityId
+      : user.role === update.role ? userFacilityId : actorFacility(actor)
   db.update(users)
     .set({
-      role: update.role, employeeId: update.employeeId, active: update.active,
+      role: update.role, employeeId: update.employeeId, active: update.active, facilityId,
       // The tablet cannot reach the password page, so a terminal must never be forced to change it.
       ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
     })
     .where(eq(users.id, id)).run()
-  return findUser(db, id)
+  return findUser(db, actor, id).dto
 }
 
 export function resetPassword(db: Db, actor: SessionUser, id: number, password: string): void {
-  const user = findUser(db, id)
+  const { dto: user } = findUser(db, actor, id)
   assertMayManage(actor, user.role)
   assertPasswordStrength(password)
   db.update(users).set({
