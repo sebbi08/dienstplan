@@ -3,6 +3,18 @@
   "extends": ["config:recommended"],
   "packageRules": [
     {
+      "groupName": "node",
+      "matchDepNames": ["node", "@types/node"]
+    },
+    {
+      "groupName": "nuxt",
+      "matchPackageNames": ["nuxt", "@nuxt/**"]
+    },
+    {
+      "groupName": "drizzle",
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"]
+    },
+    {
       "groupName": "patch-all",
       "matchUpdateTypes": ["patch", "digest"],
       "automerge": true
