@@ -27,8 +27,11 @@ describe('page facility check (stale Träger window)', () => {
     expect(errorCode(() => assertPageFacility(user('provider', 2), undefined))).toBeNull()
     expect(errorCode(() => assertPageFacility(user('provider', 2), ''))).toBeNull()
   })
-  it('never checks the Leitung or other roles, whose facility is fixed', () => {
-    expect(errorCode(() => assertPageFacility(user('admin', 2), '1'))).toBeNull()
+  it('checks the Leitung too, whose account can move with its employee', () => {
+    expect(errorCode(() => assertPageFacility(user('admin', 2), '1'))).toBe('facility_changed')
+    expect(errorCode(() => assertPageFacility(user('admin', 2), '2'))).toBeNull()
+  })
+  it('never checks tablet or Mitarbeiter accounts', () => {
     expect(errorCode(() => assertPageFacility(user('terminal', 2), '1'))).toBeNull()
     expect(errorCode(() => assertPageFacility(user('observer', 2), '1'))).toBeNull()
   })

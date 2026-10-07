@@ -73,8 +73,11 @@ const links = computed(() => {
   return [myPlan, plan, myLeave, { label: de.nav.calendar, to: '/my/calendar' }]
 })
 
+const pageFacility = usePageFacility()
 async function logout() {
   await clear()
+  // The next login in this tab must not send the previous account's facility.
+  pageFacility.value = null
   await navigateTo('/login')
 }
 </script>
