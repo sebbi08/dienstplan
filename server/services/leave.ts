@@ -6,11 +6,11 @@ import type { LeaveAccountDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { loadEmployees, loadEntries } from './queries'
+import { loadEmployee, loadEmployees, loadEntries } from './queries'
 
 /** The leave account of one employee (whatever facility they belong to; callers check access). */
 export function getLeaveAccount(db: Db, employeeId: number, year: number, today: IsoDate): LeaveAccountDto {
-  const employee = loadEmployees(db).find(candidate => candidate.id === employeeId)
+  const employee = loadEmployee(db, employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   // Only the employee's own working days count as leave days.
   const isLeaveDay = (date: IsoDate) => isWorkday(employee.info, date)

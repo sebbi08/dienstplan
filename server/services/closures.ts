@@ -9,7 +9,7 @@ import { absenceCodes, closures, entries, leaveEntitlements } from '../db/schema
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { applyToCells, describeCellAt } from './entries'
-import { closureColumns, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
+import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
   startDate: IsoDate
@@ -105,7 +105,7 @@ export function createClosure(
  * regardless of when they joined.
  */
 export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, now: Date = new Date()): void {
-  const employee = loadEmployees(db).find(candidate => candidate.id === employeeId)
+  const employee = loadEmployee(db, employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   for (const closure of loadClosures(db, employee.facilityId)) bookClosure(db, actor, employee.facilityId, closure, [employee], now)
 }

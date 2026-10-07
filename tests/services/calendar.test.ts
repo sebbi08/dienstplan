@@ -78,7 +78,7 @@ describe('special leave', () => {
     const admin = addUser(db, 'leitung', 'admin')
     const anna = addEmployee(db, 'Anna')
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
-    const monthEnd = () => computeBalances(db, 1, loadEmployees(db), '2026-10-31', '2026-10-31')[0]!.monthEnd
+    const monthEnd = () => computeBalances(db, 1, loadEmployees(db, 1), '2026-10-31', '2026-10-31')[0]!.monthEnd
     const before = monthEnd()
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-08' }], 'replace', { kind: 'code', codeId: codeId(db, 'special_leave') })
     expect(monthEnd() - before).toBe(468) // the daily target of 39 h / 5 days

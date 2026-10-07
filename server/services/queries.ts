@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lte, type SQL } from 'drizzle-orm'
 import { describeEntry } from '../../shared/domain/describe'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import type { EmploymentInfo } from '../../shared/domain/targets'
@@ -90,11 +90,10 @@ export function groupByEmployee(list: EntryDto[]): Map<number, EntryDto[]> {
   return map
 }
 
-/** All employees, or only those whose home facility is facilityId. */
-export function loadEmployees(db: Db, facilityId?: number): EmployeeRecord[] {
+function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
   return db.select().from(employees)
-    .where(facilityId === undefined ? undefined : eq(employees.facilityId, facilityId))
+    .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
     .map(row => ({
       ...row,
@@ -103,6 +102,16 @@ export function loadEmployees(db: Db, facilityId?: number): EmployeeRecord[] {
         leftOn: row.leftOn,
       },
     }))
+}
+
+/** The employees whose home facility is facilityId. There is deliberately no way to list all facilities' employees. */
+export function loadEmployees(db: Db, facilityId: number): EmployeeRecord[] {
+  return loadEmployeeRecords(db, eq(employees.facilityId, facilityId))
+}
+
+/** One employee by id, whatever facility they belong to (callers check access; the record carries facilityId). */
+export function loadEmployee(db: Db, id: number): EmployeeRecord | undefined {
+  return loadEmployeeRecords(db, eq(employees.id, id))[0]
 }
 
 export const closureColumns = {

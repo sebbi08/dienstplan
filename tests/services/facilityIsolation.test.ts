@@ -1,7 +1,10 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, dayNotes, employees, entries, monthPlans, notifications, weekTemplateMarks } from '../../server/db/schema'
+import {
+  calendarEvents, changeLog, closures, coverageRules, dayNotes, earlyClosures, employees, entries, monthPlans, notifications,
+  shiftTemplates, weekTemplateMarks, weekTemplates,
+} from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getBalanceOverview } from '../../server/services/balances'
 import {
@@ -22,11 +25,12 @@ import {
   maxConcurrent, previewLeaveRequest, setLeaveModule, setMaxConcurrent,
 } from '../../server/services/leaveRequests'
 import { getMyTime } from '../../server/services/myTime'
-import { releaseNotificationStatus } from '../../server/services/notifications'
+import { listNotifications, notifyDutyChanges, releaseNotificationStatus } from '../../server/services/notifications'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
-import { backfillSnapshots, loadReleases, releaseMonth } from '../../server/services/release'
+import { backfillSnapshots, buildSnapshot, loadReleases, releaseMonth } from '../../server/services/release'
 import { revertToRelease } from '../../server/services/revert'
+import { createCoverageRule, createTemplate, getSettings } from '../../server/services/settings'
 import { clearPin, setPin, terminalStamp, terminalStatus } from '../../server/services/terminal'
 import {
   createRecord, deleteRecord, getTimeMonth, listOpenRecords, loadTimeRecords, setTimeDayNote, stamp, updateRecord,
@@ -62,7 +66,6 @@ describe('facility isolation', () => {
       expect(listEmployees(db, 1, today, 'admin').map(e => e.name)).toEqual(['Anna'])
       expect(listEmployees(db, facility2, today, 'admin').map(e => e.name)).toEqual(['Kim'])
       expect(loadEmployees(db, 1).map(e => e.name)).toEqual(['Anna'])
-      expect(loadEmployees(db).map(e => e.name)).toEqual(['Anna', 'Kim'])
       expect(errorCode(() => getEmployee(db, 1, kim, today, 'admin'))).toBe('employee_not_found')
       expect(getEmployee(db, facility2, kim, today, 'admin').name).toBe('Kim')
     })
@@ -418,6 +421,141 @@ describe('facility isolation', () => {
       expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [tablet.id] }))).toBe('invalid_leave_planner')
       setLeaveModule(db, { enabled: true, plannerIds: [leitungB.id] })
       expect(getLeaveSettings(db, leitungB).plannerIds).toEqual([leitungB.id])
+    })
+  })
+
+  describe('mandatory facility filter (Task 8)', () => {
+    it('every admin list is empty in a fresh facility', () => {
+      // Real data in facilities 1 and 2, so an unfiltered query would show something.
+      const traeger = addUser(db, 'traeger', 'provider')
+      setLeaveModule(db, { enabled: true, plannerIds: [traeger.id] })
+      setTimeTrackingFrom(db, 1, '2026-10-01')
+      setTimeTrackingFrom(db, facility2, '2026-10-01')
+      const annaAccount = addUser(db, 'anna', 'observer', anna)
+      const kimAccount = addUser(db, 'kim', 'observer', kim)
+      createClosure(db, leitungA, 1, { startDate: '2026-12-24', endDate: '2026-12-24', label: 'Heiligabend', mode: 'closure_day' })
+      createEarlyClosure(db, 1, { date, closedFrom: 780, reason: 'Wasserschaden' })
+      createCalendarEvent(db, facility2, { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true })
+      for (const [actor, facility, employeeId] of [[leitungA, 1, anna], [leitungB, facility2, kim]] as const) {
+        applyToCells(db, actor, facility, [{ employeeId, date }], 'replace', { kind: 'special', start: 480, end: 720 })
+        applyToCells(db, actor, facility, [{ employeeId, date: '2026-10-07' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+        saveWeekTemplate(db, facility, { name: 'Woche A', weekStart: '2026-10-05' })
+        stamp(db, employeeId, 'in', 'self', new Date('2026-10-06T06:00:00Z'))
+      }
+      createLeaveRequest(db, annaAccount, { from: '2026-11-03', to: '2026-11-03', note: '' }, today)
+      createLeaveRequest(db, kimAccount, { from: '2026-11-03', to: '2026-11-03', note: '' }, today)
+      expect(listOpenRequests(db, traeger, 1).map(r => r.name)).toEqual(['Anna'])
+      expect(listOpenRecords(db, 1, '2026-10-08').map(r => r.name)).toEqual(['Anna'])
+
+      const fresh = addFacility(db, 'Hort')
+      expect(listEmployees(db, fresh, today, 'admin')).toEqual([])
+      expect(loadEmployees(db, fresh)).toEqual([])
+      expect(listClosures(db, fresh)).toEqual([])
+      expect(listEarlyClosures(db, fresh, 2026)).toEqual([])
+      expect(listCalendarEvents(db, fresh, 2026)).toEqual([])
+      expect(listWeekTemplates(db, fresh)).toEqual([])
+      expect(listOpenRecords(db, fresh, '2026-10-08')).toEqual([])
+      expect(listOpenRequests(db, traeger, fresh)).toEqual([])
+      expect(getSickYear(db, fresh, 2026)).toEqual([])
+      expect(getBalanceOverview(db, fresh, 2026, 10, today)).toEqual([])
+      expect(getLeaveOverview(db, fresh, 2026, today)).toEqual([])
+      expect(listLevelUps(db, fresh, today, 'provider')).toEqual([])
+      expect(getStaffYearCalendar(db, fresh, 2026, null).employees).toEqual([])
+      expect(getYearCalendar(db, fresh, 2026).employees).toEqual([])
+      expect(getYearCalendar(db, fresh, 2026).events).toEqual([])
+      expect(getLeavePlanning(db, traeger, fresh, 2026).openRequests).toEqual([])
+
+      // Only the copied templates and coverage rules are there, and they are the fresh facility's own rows.
+      const settings = getSettings(db, fresh)
+      const first = getSettings(db, 1)
+      const content = <T extends { id: number }>(list: T[]) =>
+        list.map(({ id: _id, facilityId: _facility, ...rest }: T & { facilityId?: number }) => rest)
+      const ownRows = (list: object[]) => list.map(row => (row as { facilityId: number }).facilityId)
+      expect(settings.templates.length).toBeGreaterThan(0)
+      expect(content(settings.templates)).toEqual(content(first.templates))
+      expect(new Set(ownRows(settings.templates))).toEqual(new Set([fresh]))
+      expect(settings.templates.map(t => t.id)).not.toEqual(first.templates.map(t => t.id))
+      expect(content(settings.coverageRules)).toEqual(content(first.coverageRules))
+      expect(new Set(ownRows(settings.coverageRules))).toEqual(new Set([fresh]))
+      expect(db.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, fresh)).all()).toHaveLength(settings.templates.length)
+    })
+
+    it('create functions write the given facility', () => {
+      const lea = createEmployee(db, leitungB, facility2, { name: 'Lea', shortName: 'LE', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+      expect(db.select().from(employees).where(eq(employees.id, lea)).get()!.facilityId).toBe(facility2)
+
+      const closure = createClosure(db, leitungB, facility2, { startDate: date, endDate: date, label: 'Ausflug', mode: 'closure_day' })
+      expect(db.select().from(closures).where(eq(closures.id, closure.id)).get()!.facilityId).toBe(facility2)
+
+      const early = createEarlyClosure(db, facility2, { date, closedFrom: 780, reason: 'Wasserschaden' })
+      expect(db.select().from(earlyClosures).where(eq(earlyClosures.id, early.id)).get()!.facilityId).toBe(facility2)
+
+      const event = createCalendarEvent(db, facility2, { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true })
+      expect(db.select().from(calendarEvents).where(eq(calendarEvents.id, event.id)).get()!.facilityId).toBe(facility2)
+
+      const template = createTemplate(db, facility2, {
+        shortLabel: 'X1', label: 'Sonderdienst', start: 480, end: 720, breakStart: null, breakEnd: null,
+        countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99,
+      })
+      expect(db.select().from(shiftTemplates).where(eq(shiftTemplates.id, template.id)).get()!.facilityId).toBe(facility2)
+
+      const rule = createCoverageRule(db, facility2, { label: 'Spätdienst', start: 900, end: 960, minCount: 1, active: true })
+      expect(db.select().from(coverageRules).where(eq(coverageRules.id, rule.id)).get()!.facilityId).toBe(facility2)
+
+      applyToCells(db, leitungB, facility2, [{ employeeId: kim, date }], 'replace', { kind: 'special', start: 480, end: 720 })
+      const week = saveWeekTemplate(db, facility2, { name: 'Woche A', weekStart: '2026-10-05' })
+      expect(db.select().from(weekTemplates).where(eq(weekTemplates.id, week.id)).get()!.facilityId).toBe(facility2)
+
+      setDayNote(db, leitungB, facility2, date, 'info1', 'Elternabend')
+      expect(db.select().from(dayNotes).all().map(note => [note.facilityId, note.info1])).toEqual([[facility2, 'Elternabend']])
+    })
+
+    describe('duty-change messages', () => {
+      const at = (iso: string) => new Date(iso)
+      let kimAccount: SessionUser
+      let annaAccount: SessionUser
+      const shift = (actor: SessionUser, facility: number, employeeId: number, label: string) =>
+        applyToCells(db, actor, facility, [{ employeeId, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, label, facility) })
+      beforeEach(() => {
+        kimAccount = addUser(db, 'kim', 'observer', kim)
+        annaAccount = addUser(db, 'anna', 'observer', anna)
+      })
+
+      it('notifyDutyChanges only tells the employees of the given facility', () => {
+        shift(leitungA, 1, anna, 'F1')
+        shift(leitungB, facility2, kim, 'F1')
+        const merge = () => {
+          const one = buildSnapshot(db, 1, 2026, 11)
+          const two = buildSnapshot(db, facility2, 2026, 11)
+          return { employees: [...one.employees, ...two.employees], entries: [...one.entries, ...two.entries], days: one.days }
+        }
+        const before = merge()
+        shift(leitungA, 1, anna, 'F2')
+        shift(leitungB, facility2, kim, 'F2')
+        const after = merge()
+        // A snapshot that (wrongly) contains both facilities still only notifies the facility being released.
+        expect(notifyDutyChanges(db, 1, 2026, 11, before, after, '2026-10-21T08:00:00.000Z')).toEqual([anna])
+        expect(listNotifications(db, anna, at('2026-10-21T09:00:00Z'))).toHaveLength(1)
+        expect(listNotifications(db, kim, at('2026-10-21T09:00:00Z'))).toEqual([])
+        expect(notifyDutyChanges(db, facility2, 2026, 11, before, after, '2026-10-21T08:00:00.000Z')).toEqual([kim])
+        expect(listNotifications(db, kim, at('2026-10-21T09:00:00Z'))).toHaveLength(1)
+        expect(listNotifications(db, anna, at('2026-10-21T09:00:00Z'))).toHaveLength(1)
+      })
+
+      it('re-releasing a changed plan in one facility notifies nobody in the other', () => {
+        shift(leitungA, 1, anna, 'F1')
+        shift(leitungB, facility2, kim, 'F1')
+        releaseMonth(db, leitungA, 1, 2026, 11, at('2026-10-20T08:00:00Z'))
+        releaseMonth(db, leitungB, facility2, 2026, 11, at('2026-10-20T08:00:00Z'))
+        shift(leitungA, 1, anna, 'F2')
+        shift(leitungB, facility2, kim, 'F2')
+        expect(releaseMonth(db, leitungA, 1, 2026, 11, at('2026-10-21T08:00:00Z'))).toEqual({ notified: ['Anna'] })
+        expect(listNotifications(db, kim, at('2026-10-21T09:00:00Z'))).toEqual([])
+        expect(releaseMonth(db, leitungB, facility2, 2026, 11, at('2026-10-21T08:00:00Z'))).toEqual({ notified: ['Kim'] })
+        expect(listNotifications(db, kim, at('2026-10-21T09:00:00Z'))).toHaveLength(1)
+        expect(annaAccount.employeeId).toBe(anna)
+        expect(kimAccount.employeeId).toBe(kim)
+      })
     })
   })
 })
