@@ -8,11 +8,19 @@ const today = parseIsoDate(todayIso())
 // Sticky on every screen; on phones it slides away while scrolling down and returns when scrolling up.
 const headerHidden = useHideOnScroll()
 
+// Unread messages about changed duties show as a count on "Mein Dienstplan"; checked again on every page change.
+const notifications = useMyNotifications()
+const route = useRoute()
+watch(() => route.fullPath, () => {
+  if (notifications.enabled.value) notifications.refresh()
+})
+
 const links = computed(() => {
   if (!user.value) return []
   const plan = { label: de.nav.plan, to: `/plan/${today.year}/${today.month}` }
   if (user.value.role === 'terminal') return [{ label: de.nav.stamp, to: '/terminal' }, plan]
-  const myPlan = { label: de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
+  const unread = notifications.unread.value.length
+  const myPlan = { label: unread ? `${de.nav.myPlan} (${unread})` : de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
   if (isManager(user.value.role)) {
     return [
       plan,

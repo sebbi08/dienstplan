@@ -28,6 +28,7 @@ const editOpen = ref(false)
 const editEntry = ref<EntryDto | null>(null)
 const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
 const breakOpen = ref(false)
+const releaseStatusKey = ref(0) // reloads the message status after a release
 const weekTemplate = reactive<{ open: boolean; mode: 'save' | 'apply'; weekStart: string }>({ open: false, mode: 'save', weekStart: '' })
 
 watch([year, month], () => {
@@ -152,7 +153,12 @@ function openWeekTemplate(mode: 'save' | 'apply', weekStart: string) {
 
 async function release() {
   if (!await confirm(de.plan.releaseConfirm, { confirmLabel: de.plan.release, danger: false })) return
-  run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' }), de.plan.releasedToast)
+  let result: { notified: string[] } | undefined
+  const ok = await run(async () => {
+    result = await $fetch<{ notified: string[] }>(`/api/plan/${year.value}/${month.value}/release`, { method: 'POST' })
+  })
+  if (ok) toast.add({ title: de.notifications.released(result?.notified ?? []), color: 'success' })
+  releaseStatusKey.value += 1
 }
 
 function navigate(nextYear: number, nextMonth: number) {
@@ -165,6 +171,7 @@ function navigate(nextYear: number, nextMonth: number) {
     <template v-if="plan && !error">
       <LevelUpNotice v-if="isAdmin" />
       <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" @discard="discardOpen = true" />
+      <PlanReleaseNotifications v-if="isAdmin && plan.release.releasedAt" :key="`${year}-${month}-${releaseStatusKey}`" :year="year" :month="month" />
       <PlanDiscardModal v-if="isAdmin" v-model:open="discardOpen" :plan="plan" @submit="onDiscard" />
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"

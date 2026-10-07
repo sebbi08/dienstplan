@@ -105,3 +105,4 @@ export const contractSchema = z.object({
 })
 export const contractVisibilitySchema = z.object({ visible: z.boolean() })
 export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), breakMode: z.enum(BREAK_MODES) })
+export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().positive()).max(500) })

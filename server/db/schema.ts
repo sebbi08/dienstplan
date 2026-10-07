@@ -240,3 +240,16 @@ export const weekTemplateMarks = sqliteTable('week_template_marks', {
   weekStart: text('week_start').primaryKey(),
   weekTemplateId: integer('week_template_id').notNull().references(() => weekTemplates.id, { onDelete: 'cascade' }),
 })
+
+/** Message to an employee that their released duties changed (created when a month is released again). */
+export const notifications = sqliteTable('notifications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  month: integer('month').notNull(),
+  /** Time of the release that caused it (same as month_plans.released_at then). */
+  createdAt: text('created_at').notNull(),
+  readAt: text('read_at'),
+  /** JSON list of { date, before, after } (cell texts). */
+  changes: text('changes').notNull(),
+}, table => [index('notifications_employee').on(table.employeeId)])

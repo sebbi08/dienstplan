@@ -21,6 +21,14 @@ export const de = {
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender',
   },
+  notifications: {
+    title: (count: number) => count === 1 ? 'Eine Änderung an deinem Dienstplan' : `Änderungen an deinem Dienstplan (${count})`,
+    release: (month: string, year: number) => `Dienstplan ${month} ${year} – neu freigegeben:`,
+    markRead: 'Gelesen',
+    released: (names: string[]) => names.length ? `Freigegeben. Benachrichtigt über geänderte Dienste: ${names.join(', ')}` : 'Freigegeben.',
+    statusTitle: 'Mitteilungen der letzten Freigabe',
+    read: 'gelesen', unread: 'noch nicht gelesen', noAccount: 'kein Benutzerkonto',
+  },
   time: {
     title: 'Zeiterfassung', employee: 'Mitarbeiter:in', clockIn: 'Einstempeln', clockOut: 'Ausstempeln',
     clockedInSince: (time: string) => `Eingestempelt seit ${time}`, notClockedIn: 'Nicht eingestempelt',
@@ -88,7 +96,7 @@ export const de = {
     printDraftNote: (count: number) => `Entwurf – ${count === 1 ? '1 Änderung' : `${count} Änderungen`} noch nicht freigegeben`,
     release: 'Freigeben', rerelease: 'Erneut freigeben',
     releaseConfirm: 'Monat freigeben? Alle Mitarbeiter sehen danach diesen Stand. Eine Freigabe kann nicht zurückgenommen werden; spätere Änderungen werden nach der nächsten Freigabe als Änderung markiert.',
-    releasedToast: 'Monat freigegeben', print: 'Drucken', printNow: 'Jetzt drucken',
+    print: 'Drucken', printNow: 'Jetzt drucken',
     week: (number: number) => `KW ${number}`, weekHint: 'Soll/Ist-Differenz der Woche',
     headerToday: 'heute', headerPlanned: 'mit Plan',
     balanceTodayHint: 'Überstunden: Stand heute (nur bis heute geleistete bzw. geplante Tage)',

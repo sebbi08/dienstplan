@@ -432,3 +432,29 @@ export interface LevelUpDto {
   level: number
   on: IsoDate
 }
+
+/** One changed cell of an employee between two releases (texts as shown in the plan). */
+export interface DutyChangeDto {
+  date: IsoDate
+  before: string
+  after: string
+}
+
+/** Message to an employee that their released duties changed. */
+export interface NotificationDto {
+  id: number
+  year: number
+  month: number
+  createdAt: string
+  readAt: string | null
+  changes: DutyChangeDto[]
+}
+
+/** Who was told about the changes of the latest release of a month, and who has read it. */
+export interface ReleaseNotificationStatusDto {
+  employeeId: number
+  name: string
+  readAt: string | null
+  /** False when no user account is linked to the employee (nobody can read the message). */
+  hasAccount: boolean
+}

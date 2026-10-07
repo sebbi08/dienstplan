@@ -5,6 +5,7 @@ import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { dayNotes, monthPlans, releaseSnapshots, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { notifyDutyChanges } from './notifications'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 
 export interface StoredRelease {
@@ -42,15 +43,23 @@ export function buildSnapshot(db: Db, year: number, month: number): SnapshotData
   }
 }
 
-export function releaseMonth(db: Db, actor: SessionUser, year: number, month: number, now: Date = new Date()): void {
+/**
+ * Releases the month as it is now. When it was released before, everyone whose own duties changed since gets a
+ * message; returns the names of those employees.
+ */
+export function releaseMonth(db: Db, actor: SessionUser, year: number, month: number, now: Date = new Date()): { notified: string[] } {
   assertMonth(year, month)
   const releasedAt = now.toISOString()
-  const data = JSON.stringify(buildSnapshot(db, year, month))
-  db.transaction((tx) => {
-    tx.insert(releaseSnapshots).values({ year, month, releasedAt, releasedBy: actor.id, data }).run()
+  const snapshot = buildSnapshot(db, year, month)
+  const previous = loadReleases(db, year, month).at(-1)
+  return db.transaction((tx) => {
+    tx.insert(releaseSnapshots).values({ year, month, releasedAt, releasedBy: actor.id, data: JSON.stringify(snapshot) }).run()
     tx.insert(monthPlans).values({ year, month, releasedAt, releasedBy: actor.id })
       .onConflictDoUpdate({ target: [monthPlans.year, monthPlans.month], set: { releasedAt, releasedBy: actor.id } })
       .run()
+    if (!previous) return { notified: [] }
+    const told = new Set(notifyDutyChanges(tx, year, month, previous.data, snapshot, releasedAt))
+    return { notified: snapshot.employees.filter(employee => told.has(employee.id)).map(employee => employee.name) }
   })
 }
 
