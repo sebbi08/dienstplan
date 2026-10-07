@@ -31,8 +31,9 @@ async function switchFacility(facilityId: number) {
     toast.add({ title: errorMessage(error), color: 'error' })
     return
   }
-  // Every page shows data of the active facility, so start over with fresh data.
-  await reloadNuxtApp({ ttl: 0 })
+  // Every page shows data of the active facility, so start over with fresh data. The current page may belong to the old
+  // facility (e.g. an employee detail page would 404), so go to the plan start page.
+  await reloadNuxtApp({ path: `/plan/${today.year}/${today.month}`, ttl: 0 })
 }
 
 const route = useRoute()

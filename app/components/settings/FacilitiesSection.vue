@@ -5,14 +5,22 @@ import { de } from '~/locales/de'
 const { data, refresh } = useFacilities()
 const run = useAction(refresh)
 
+// One draft per facility. A refresh only touches drafts that have no unsaved edit (or are new), so typing in one row
+// survives saving another.
 const names = reactive<Record<number, string>>({})
-watch(data, (value) => {
-  for (const facility of value?.facilities ?? []) names[facility.id] = facility.name
-}, { immediate: true })
+const stored = new Map<number, string>()
+function syncNames(saved?: number) {
+  for (const facility of data.value?.facilities ?? []) {
+    const untouched = names[facility.id] === undefined || names[facility.id] === stored.get(facility.id)
+    if (untouched || facility.id === saved) names[facility.id] = facility.name
+    stored.set(facility.id, facility.name)
+  }
+}
+watch(data, () => syncNames(), { immediate: true })
 const newName = ref('')
 
-function rename(id: number) {
-  run(() => $fetch<unknown>(`/api/facilities/${id}`, { method: 'PUT', body: { name: names[id] } }), de.common.saved)
+async function rename(id: number) {
+  if (await run(() => $fetch<unknown>(`/api/facilities/${id}`, { method: 'PUT', body: { name: names[id] } }), de.common.saved)) syncNames(id)
 }
 
 async function create() {
