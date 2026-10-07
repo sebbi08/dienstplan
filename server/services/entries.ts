@@ -196,7 +196,7 @@ export function setDayNote(
     const existing = tx.select().from(dayNotes).where(eq(dayNotes.date, date)).get()
     const before = existing?.[field] ?? ''
     tx.insert(dayNotes).values({ date, ...values })
-      .onConflictDoUpdate({ target: dayNotes.date, set: values }).run()
+      .onConflictDoUpdate({ target: [dayNotes.facilityId, dayNotes.date], set: values }).run()
     logChange(tx, { date, employeeId: null, field, before, after: text, actorId: actor.id, now: now.toISOString() })
   })
 }

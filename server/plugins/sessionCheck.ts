@@ -14,8 +14,9 @@ export default defineNitroPlugin(() => {
     if (!user || sessionExpired(user.role, session.loggedInAt, new Date())) {
       throw createError({ statusCode: 401, statusMessage: 'session_expired', data: { code: 'session_expired' } })
     }
-    // Report the current role (e.g. after becoming Träger) instead of the one stored in the cookie at login;
-    // the server checks rights against the database anyway, this only keeps the menus and pages in step.
+    // Report the current role (e.g. after becoming Träger) and facility (e.g. after the Träger switched it) instead
+    // of the ones stored in the cookie at login; the server checks rights against the database anyway, this only
+    // keeps the menus and pages in step.
     Object.assign(session.user, user)
   })
 })

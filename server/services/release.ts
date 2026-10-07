@@ -55,7 +55,7 @@ export function releaseMonth(db: Db, actor: SessionUser, year: number, month: nu
   return db.transaction((tx) => {
     tx.insert(releaseSnapshots).values({ year, month, releasedAt, releasedBy: actor.id, data: JSON.stringify(snapshot) }).run()
     tx.insert(monthPlans).values({ year, month, releasedAt, releasedBy: actor.id })
-      .onConflictDoUpdate({ target: [monthPlans.year, monthPlans.month], set: { releasedAt, releasedBy: actor.id } })
+      .onConflictDoUpdate({ target: [monthPlans.facilityId, monthPlans.year, monthPlans.month], set: { releasedAt, releasedBy: actor.id } })
       .run()
     if (!previous) return { notified: [] }
     const told = new Set(notifyDutyChanges(tx, year, month, previous.data, snapshot, releasedAt))

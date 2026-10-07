@@ -159,7 +159,7 @@ export function applyWeekTemplate(
 /** Remembers which template a plan week was saved as or filled from (the latest one wins). */
 function markWeek(db: Db, weekStart: IsoDate, weekTemplateId: number): void {
   db.insert(weekTemplateMarks).values({ weekStart, weekTemplateId })
-    .onConflictDoUpdate({ target: weekTemplateMarks.weekStart, set: { weekTemplateId } }).run()
+    .onConflictDoUpdate({ target: [weekTemplateMarks.facilityId, weekTemplateMarks.weekStart], set: { weekTemplateId } }).run()
 }
 
 /** Template name per plan week (by its Monday) between from and to, for the plan's week rows. */

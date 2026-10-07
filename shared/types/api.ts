@@ -20,6 +20,22 @@ export interface SessionUser {
   role: Role
   employeeId: number | null
   mustChangePassword: boolean
+  /**
+   * The facility the user works in, resolved fresh on every request: Leitung and tablet their own, the Träger the
+   * active selection, a Mitarbeiter that of the linked employee (null without one).
+   */
+  facilityId: number | null
+}
+
+export interface FacilityDto {
+  id: number
+  name: string
+}
+
+export interface FacilitiesDto {
+  facilities: FacilityDto[]
+  /** The facility the viewer currently works in. */
+  activeId: number | null
 }
 
 export interface CellRef {

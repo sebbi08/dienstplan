@@ -5,16 +5,18 @@ import { users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
+import { resolveFacilityId } from './facilities'
 
 export const MAX_FAILED_LOGINS = 5
 export const LOCK_MINUTES = 15
 
 export type LoginResult = { ok: true; user: SessionUser } | { ok: false; reason: 'invalid' | 'locked' }
 
-export function toSessionUser(row: typeof users.$inferSelect): SessionUser {
+export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUser {
   return {
     id: row.id, username: row.username, role: row.role,
     employeeId: row.employeeId, mustChangePassword: row.mustChangePassword,
+    facilityId: resolveFacilityId(db, row),
   }
 }
 
@@ -35,12 +37,12 @@ export function login(db: Db, username: string, password: string, now: Date = ne
   }
 
   db.update(users).set({ failedLogins: 0, lockedUntil: null }).where(eq(users.id, user.id)).run()
-  return { ok: true, user: toSessionUser(user) }
+  return { ok: true, user: toSessionUser(db, user) }
 }
 
 export function getActiveUser(db: Db, id: number): SessionUser | null {
   const row = db.select().from(users).where(eq(users.id, id)).get()
-  return row && row.active ? toSessionUser(row) : null
+  return row && row.active ? toSessionUser(db, row) : null
 }
 
 export function assertPasswordStrength(password: string): void {

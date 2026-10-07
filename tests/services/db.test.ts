@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { eq, sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
+import { createDb } from '../../server/db/client'
 import { absenceCodes, coverageRules, shiftTemplates, users } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
@@ -13,6 +15,10 @@ describe('database setup', () => {
     expect(db.select().from(shiftTemplates).all().map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
     expect(db.select().from(absenceCodes).all()).toHaveLength(10)
     expect(db.select().from(coverageRules).all()).toHaveLength(3)
+  })
+  it('enforces foreign keys again after migrating', () => {
+    const db = createTestDb()
+    expect(db.get(sql`PRAGMA foreign_keys`)).toEqual({ foreign_keys: 1 })
   })
   it('creates the initial admin only when no user exists', () => {
     const db = createTestDb()
@@ -75,5 +81,62 @@ describe('migration to the Träger role', () => {
     db.run(sql.raw(statement)) // a second run changes nothing
     const roles = Object.fromEntries(db.select().from(users).all().map(user => [user.id, user.role]))
     expect(roles).toEqual({ [inactive.id]: 'admin', [leitung.id]: 'provider', [second.id]: 'admin' })
+  })
+})
+
+describe('migration to facilities', () => {
+  const MIGRATIONS = 'server/db/migrations'
+  const statementsOf = (file: string) => readFileSync(join(MIGRATIONS, file), 'utf8')
+    .split('--> statement-breakpoint').map(part => part.trim()).filter(Boolean)
+
+  it('moves app settings and users into facility 1', () => {
+    const { sqlite } = createDb(':memory:')
+    const files = readdirSync(MIGRATIONS).filter(file => /^\d{4}_.*\.sql$/.test(file)).sort()
+    for (const file of files.filter(file => file < '0019')) {
+      for (const statement of statementsOf(file)) sqlite.exec(statement)
+    }
+    sqlite.exec(`
+      INSERT INTO app_settings (key, value) VALUES ('time_tracking_from', '2026-03-01'), ('leave_max_concurrent', '3'),
+        ('contract_visible_to_admins', 'true');
+      INSERT INTO employees (id, name) VALUES (1, 'Anna');
+      INSERT INTO users (id, username, password_hash, role, employee_id) VALUES
+        (1, 'traeger', 'x', 'provider', NULL), (2, 'leitung', 'x', 'admin', NULL),
+        (3, 'tablet', 'x', 'terminal', NULL), (4, 'anna', 'x', 'observer', 1);
+      INSERT INTO shift_templates (id, short_label, label, start, end) VALUES (1, 'F1', 'Frühdienst', 420, 795);
+      INSERT INTO entries (employee_id, date, kind, shift_template_id, updated_at) VALUES (1, '2026-10-05', 'shift', 1, 'now');
+      INSERT INTO day_notes (date, info1) VALUES ('2026-10-05', 'Ausflug');
+      INSERT INTO month_plans (year, month, released_at, released_by) VALUES (2026, 10, 'now', 2);
+      INSERT INTO release_snapshots (year, month, released_at, data) VALUES (2026, 10, 'now', '{}');
+      INSERT INTO change_log (date, employee_id, field, before, after, changed_at) VALUES ('2026-10-05', 1, 'entry', '', 'F1', 'now');
+      INSERT INTO week_templates (id, name, updated_at) VALUES (1, 'Normalwoche', 'now');
+      INSERT INTO week_template_entries (week_template_id, employee_id, weekday, kind) VALUES (1, 1, 0, 'shift');
+      INSERT INTO week_template_marks (week_start, week_template_id) VALUES ('2026-10-05', 1);
+      INSERT INTO early_closures (date, closed_from, reason) VALUES ('2026-10-05', 840, 'Team');
+    `)
+
+    // Like migrateDb: foreign keys off, drizzle's migrator runs all statements in one transaction, then the check.
+    sqlite.pragma('foreign_keys = OFF')
+    sqlite.exec('BEGIN')
+    for (const statement of statementsOf(files.find(file => file.startsWith('0019'))!)) sqlite.exec(statement)
+    sqlite.exec('COMMIT')
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    sqlite.pragma('foreign_keys = ON')
+
+    expect(sqlite.prepare('SELECT * FROM facilities').all()).toEqual([
+      { id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3 },
+    ])
+    expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
+    expect(sqlite.prepare('SELECT id, facility_id FROM users ORDER BY id').all()).toEqual([
+      { id: 1, facility_id: 1 }, { id: 2, facility_id: 1 }, { id: 3, facility_id: 1 }, { id: 4, facility_id: null },
+    ])
+    // Every facility-owned row lands in facility 1, and nothing is lost by the table rebuilds.
+    for (const table of ['employees', 'shift_templates', 'day_notes', 'month_plans', 'release_snapshots', 'change_log',
+      'week_templates', 'week_template_marks', 'early_closures']) {
+      expect(sqlite.prepare(`SELECT facility_id FROM ${table}`).all(), table).toEqual([{ facility_id: 1 }])
+    }
+    expect(sqlite.prepare('SELECT count(*) AS n FROM entries').get()).toEqual({ n: 1 })
+    expect(sqlite.prepare('SELECT count(*) AS n FROM week_template_entries').get()).toEqual({ n: 1 })
+    expect(sqlite.prepare('SELECT info1 FROM day_notes').get()).toEqual({ info1: 'Ausflug' })
+    expect(sqlite.prepare('SELECT released_by FROM month_plans').get()).toEqual({ released_by: 2 })
   })
 })

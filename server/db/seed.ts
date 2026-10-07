@@ -36,10 +36,22 @@ function isEmpty(db: Db, table: SQLiteTable): boolean {
   return db.select({ value: count() }).from(table).get()!.value === 0
 }
 
+/** The facility the existing data moved into (created by the migration 0019_facilities). */
+export const FIRST_FACILITY_ID = 1
+
+function facilityHasNone(db: Db, table: typeof shiftTemplates | typeof coverageRules, facilityId: number): boolean {
+  return db.select({ value: count() }).from(table).where(eq(table.facilityId, facilityId)).get()!.value === 0
+}
+
+/** Absence codes are global; shift templates and coverage rules are seeded for the first facility. */
 export function seedDefaults(db: Db): void {
-  if (isEmpty(db, shiftTemplates)) db.insert(shiftTemplates).values(DEFAULT_TEMPLATES).run()
+  if (facilityHasNone(db, shiftTemplates, FIRST_FACILITY_ID)) {
+    db.insert(shiftTemplates).values(DEFAULT_TEMPLATES.map(template => ({ ...template, facilityId: FIRST_FACILITY_ID }))).run()
+  }
   if (isEmpty(db, absenceCodes)) db.insert(absenceCodes).values(DEFAULT_CODES).run()
-  if (isEmpty(db, coverageRules)) db.insert(coverageRules).values(DEFAULT_COVERAGE_RULES).run()
+  if (facilityHasNone(db, coverageRules, FIRST_FACILITY_ID)) {
+    db.insert(coverageRules).values(DEFAULT_COVERAGE_RULES.map(rule => ({ ...rule, facilityId: FIRST_FACILITY_ID }))).run()
+  }
 }
 
 /** Creates the first account (as Träger) from environment variables when no user exists yet. */
@@ -47,7 +59,7 @@ export function ensureInitialAdmin(db: Db, username: string | undefined, passwor
   const name = normalizeUsername(username ?? '')
   if (!name || !password || !isEmpty(db, users)) return false
   db.insert(users).values({
-    username: name, passwordHash: hashPassword(password), role: 'provider', mustChangePassword: true,
+    username: name, passwordHash: hashPassword(password), role: 'provider', mustChangePassword: true, facilityId: FIRST_FACILITY_ID,
   }).run()
   return true
 }

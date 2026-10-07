@@ -20,14 +20,18 @@ function normalize(db: Db, input: EarlyClosureInput, ignoreId: number | null): E
   return { ...input, reason }
 }
 
+const dtoColumns = {
+  id: earlyClosures.id, date: earlyClosures.date, closedFrom: earlyClosures.closedFrom, reason: earlyClosures.reason,
+}
+
 export function listEarlyClosures(db: Db, year: number): EarlyClosureDto[] {
-  return db.select().from(earlyClosures)
+  return db.select(dtoColumns).from(earlyClosures)
     .where(and(gte(earlyClosures.date, `${year}-01-01`), lte(earlyClosures.date, `${year}-12-31`)))
     .orderBy(asc(earlyClosures.date)).all()
 }
 
 export function createEarlyClosure(db: Db, input: EarlyClosureInput): EarlyClosureDto {
-  return db.insert(earlyClosures).values(normalize(db, input, null)).returning().get()
+  return db.insert(earlyClosures).values(normalize(db, input, null)).returning(dtoColumns).get()
 }
 
 export function updateEarlyClosure(db: Db, id: number, input: EarlyClosureInput): void {

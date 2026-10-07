@@ -1,7 +1,23 @@
 import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
+/** A facility (Einrichtung) of the Träger; the existing data became facility 1 "Kindergarten". */
+export const facilities = sqliteTable('facilities', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  /** Start of time tracking in this facility (ISO date; null = plan only). */
+  timeTrackingFrom: text('time_tracking_from'),
+  /** At most this many employees of the facility on leave at the same time (null = no limit). */
+  leaveMaxConcurrent: integer('leave_max_concurrent'),
+})
+
+/** The owning facility of a row (default 1 only until every insert passes it explicitly). */
+const facilityId = () => integer('facility_id').notNull().default(1).references(() => facilities.id)
+
 export const employees = sqliteTable('employees', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  /** The home facility; every employee belongs to exactly one. */
+  facilityId: facilityId(),
   name: text('name').notNull(),
   shortName: text('short_name').notNull().default(''),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -58,10 +74,13 @@ export const users = sqliteTable('users', {
   failedLogins: integer('failed_logins').notNull().default(0),
   lockedUntil: text('locked_until'),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  /** Leitung and tablet: their facility. Träger: the active facility selection. Mitarbeiter: null (follows the employee). */
+  facilityId: integer('facility_id').references(() => facilities.id),
 })
 
 export const shiftTemplates = sqliteTable('shift_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
   shortLabel: text('short_label').notNull().default(''),
   label: text('label').notNull(),
   start: integer('start').notNull(),
@@ -86,6 +105,7 @@ export const absenceCodes = sqliteTable('absence_codes', {
 
 export const closures = sqliteTable('closures', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
   startDate: text('start_date').notNull(),
   endDate: text('end_date').notNull(),
   label: text('label').notNull(),
@@ -114,21 +134,24 @@ export const entries = sqliteTable('entries', {
 ])
 
 export const dayNotes = sqliteTable('day_notes', {
-  date: text('date').primaryKey(),
+  facilityId: facilityId(),
+  date: text('date').notNull(),
   info1: text('info1').notNull().default(''),
   info2: text('info2').notNull().default(''),
-})
+}, table => [primaryKey({ columns: [table.facilityId, table.date] })])
 
 /** Mirrors the newest release snapshot of a month (written in the same transaction); also read by the internal change log. */
 export const monthPlans = sqliteTable('month_plans', {
+  facilityId: facilityId(),
   year: integer('year').notNull(),
   month: integer('month').notNull(),
   releasedAt: text('released_at'),
   releasedBy: integer('released_by').references(() => users.id, { onDelete: 'set null' }),
-}, table => [primaryKey({ columns: [table.year, table.month] })])
+}, table => [primaryKey({ columns: [table.facilityId, table.year, table.month] })])
 
 export const changeLog = sqliteTable('change_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
   date: text('date').notNull(),
   employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
   field: text('field', { enum: ['entry', 'info1', 'info2'] }).notNull(),
@@ -136,10 +159,11 @@ export const changeLog = sqliteTable('change_log', {
   after: text('after').notNull(),
   changedAt: text('changed_at').notNull(),
   changedBy: integer('changed_by').references(() => users.id, { onDelete: 'set null' }),
-}, table => [index('change_log_date').on(table.date)])
+}, table => [index('change_log_date').on(table.date), index('change_log_facility_date').on(table.facilityId, table.date)])
 
 export const coverageRules = sqliteTable('coverage_rules', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
   label: text('label').notNull(),
   start: integer('start').notNull(),
   end: integer('end'),
@@ -149,13 +173,17 @@ export const coverageRules = sqliteTable('coverage_rules', {
 
 export const releaseSnapshots = sqliteTable('release_snapshots', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
   year: integer('year').notNull(),
   month: integer('month').notNull(),
   releasedAt: text('released_at').notNull(),
   releasedBy: integer('released_by').references(() => users.id, { onDelete: 'set null' }),
   /** JSON of SnapshotData */
   data: text('data').notNull(),
-}, table => [index('release_snapshots_month').on(table.year, table.month)])
+}, table => [
+  index('release_snapshots_month').on(table.year, table.month),
+  index('release_snapshots_facility_month').on(table.facilityId, table.year, table.month),
+])
 
 /** One clocked period of a day; end null = still clocked in. */
 export const timeRecords = sqliteTable('time_records', {
@@ -197,14 +225,16 @@ export const timeDayNotes = sqliteTable('time_day_notes', {
 /** Days the facility closed earlier than usual (admin-only record; no effect on working hours). */
 export const earlyClosures = sqliteTable('early_closures', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  date: text('date').notNull().unique(),
+  facilityId: facilityId(),
+  date: text('date').notNull(),
   closedFrom: integer('closed_from').notNull(),
   reason: text('reason').notNull(),
-})
+}, table => [uniqueIndex('early_closures_facility_date').on(table.facilityId, table.date)])
 
 /** Admin's own appointments for the year calendar (Elternabend, Teamsitzung …); no effect on plan or hours. */
 export const calendarEvents = sqliteTable('calendar_events', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
   date: text('date').notNull(),
   start: integer('start'),
   end: integer('end'),
@@ -216,9 +246,10 @@ export const calendarEvents = sqliteTable('calendar_events', {
 /** Saved plan weeks (Mo–Fr for all employees) that the admin can insert into any week of the plan. */
 export const weekTemplates = sqliteTable('week_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull().unique(),
+  facilityId: facilityId(),
+  name: text('name').notNull(),
   updatedAt: text('updated_at').notNull(),
-})
+}, table => [uniqueIndex('week_templates_facility_name').on(table.facilityId, table.name)])
 
 /** One working entry of a week template (shift, special shift, break, VZ or Büro) on a weekday (0 = Monday). */
 export const weekTemplateEntries = sqliteTable('week_template_entries', {
@@ -239,9 +270,10 @@ export const weekTemplateEntries = sqliteTable('week_template_entries', {
 
 /** Which template a plan week came from or was saved as (latest wins); its name is shown in the plan's week row. */
 export const weekTemplateMarks = sqliteTable('week_template_marks', {
-  weekStart: text('week_start').primaryKey(),
+  facilityId: facilityId(),
+  weekStart: text('week_start').notNull(),
   weekTemplateId: integer('week_template_id').notNull().references(() => weekTemplates.id, { onDelete: 'cascade' }),
-})
+}, table => [primaryKey({ columns: [table.facilityId, table.weekStart] })])
 
 /** Message to an employee that their released duties changed (created when a month is released again). */
 export const notifications = sqliteTable('notifications', {
