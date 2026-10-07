@@ -129,7 +129,7 @@ function headerTitle(date: string): string | undefined {
         <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium">{{ de.leavePlanning.countRow }}</td>
         <td
           v-for="date in dates" :key="date" class="border border-gray-300 p-0 text-center"
-          :class="limit != null && (counts[date] ?? 0) > limit ? 'bg-red-600 font-semibold text-white' : isOff(date) ? 'bg-gray-100' : ''"
+          :class="limit != null && (counts[date] ?? 0) > limit ? 'bg-purple-600 font-semibold text-white' : isOff(date) ? 'bg-gray-100' : ''"
           :title="limit != null && (counts[date] ?? 0) > limit ? de.leavePlanning.overLimit(counts[date] ?? 0, limit) : undefined"
         >
           {{ counts[date] || '' }}

@@ -87,7 +87,7 @@ async function reject() {
             </span>
           </div>
           <p v-if="request.note" class="text-gray-600">„{{ request.note }}“</p>
-          <p v-if="request.overLimitDates.length" class="font-medium text-red-700">
+          <p v-if="request.overLimitDates.length" class="font-medium text-purple-700">
             {{ de.leavePlanning.overLimitDays(daysText(request.overLimitDates)) }}
           </p>
         </div>

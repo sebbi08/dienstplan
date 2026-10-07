@@ -17,7 +17,7 @@ const items = computed(() => props.planning
       COMMON[1]!,
       { class: 'bg-[repeating-linear-gradient(45deg,var(--color-green-200)_0_3px,var(--color-green-400)_3px_6px)]', label: de.calendar.kinds.requested },
       ...COMMON.filter((_, index) => index !== 1),
-      { class: 'bg-red-600', label: de.leavePlanning.overLimitLegend },
+      { class: 'bg-purple-600', label: de.leavePlanning.overLimitLegend },
     ]
   : [...COMMON, { class: 'bg-yellow-300', label: de.calendar.events }])
 </script>
