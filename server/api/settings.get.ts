@@ -1,6 +1,6 @@
 import { getSettings } from '../services/settings'
 
 export default defineServiceHandler(async (event) => {
-  await requireAdmin(event)
-  return getSettings(useDb())
+  const admin = await requireAdmin(event)
+  return getSettings(useDb(), admin.facilityId)
 })

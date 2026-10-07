@@ -18,6 +18,7 @@ import { employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
+import { firstFacilityId } from './facilities'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, type EmployeeRecord,
@@ -31,15 +32,15 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
 }
 
 function buildAdminData(
-  db: Db, staff: EmployeeRecord[], closures: ClosureDto[], year: number, month: number, today: IsoDate,
+  db: Db, facilityId: number, staff: EmployeeRecord[], closures: ClosureDto[], year: number, month: number, today: IsoDate,
 ): Omit<MonthPlanAdminDto, 'pendingChanges'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
   const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd }))
-  const rules = loadCoverageRules(db)
-  const actualOf = actualTimeFor(db, today)
-  const trackingFrom = activeTrackingFrom(db, today)
+  const rules = loadCoverageRules(db, facilityId)
+  const actualOf = actualTimeFor(db, facilityId, today)
+  const trackingFrom = activeTrackingFrom(db, facilityId, today)
   const recordsByCell = new Map<string, TimeRecordDto[]>()
   if (trackingFrom !== null) {
     for (const record of loadTimeRecords(db, { from: monthStart, to: monthEnd })) {
@@ -95,7 +96,7 @@ function buildAdminData(
 
   // Time warnings were appended after all plan warnings; Array.prototype.sort is stable.
   warnings.sort((a, b) => a.date.localeCompare(b.date))
-  return { warnings, weeks, balances: computeBalances(db, staff, monthEnd, today), actuals }
+  return { warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals }
 }
 
 function changeFromKey(key: string): Pick<ChangeDto, 'field' | 'employeeId' | 'date'> {
@@ -118,6 +119,8 @@ function toChangeDtos(history: Map<string, ReleasedChange[]>): Record<string, Ch
 
 export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: number, today: IsoDate): MonthPlanDto {
   const isAdmin = isManager(viewer.role)
+  // A viewer without a facility (Mitarbeiter account without an employee) sees the first facility's catalogue.
+  const facilityId = viewer.facilityId ?? firstFacilityId(db) ?? 1
   const releases = loadReleases(db, year, month)
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
@@ -150,7 +153,7 @@ export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: n
   if (isAdmin) {
     const { monthStart, monthEnd } = monthBounds(year, month)
     const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
-    admin = { ...buildAdminData(db, staff, loadClosures(db), year, month, today), pendingChanges }
+    admin = { ...buildAdminData(db, facilityId, staff, loadClosures(db), year, month, today), pendingChanges }
   }
 
   return {
@@ -166,7 +169,7 @@ export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: n
     employees: shown.employees,
     entries: shown.entries,
     changes,
-    templates: loadTemplates(db),
+    templates: loadTemplates(db, facilityId),
     codes: loadCodes(db),
     admin,
   }

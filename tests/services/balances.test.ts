@@ -24,21 +24,21 @@ describe('balances and leave', () => {
   it('computes the balance today and at month end', () => {
     applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     addAdjustment(db, anna, { date: '2026-10-05', minutes: 750, reason: 'Übertrag' })
-    expect(getBalanceOverview(db, 2026, 10, '2026-10-09')).toEqual([
+    expect(getBalanceOverview(db, 1, 2026, 10, '2026-10-09')).toEqual([
       { employeeId: anna, name: 'Anna', weeklyMinutes: 2340, today: 735, monthEnd: 735 - 15 * 468, previousMonthEnd: 0 },
     ])
   })
   it('carries the balance at the end of the previous month, including earlier bookings', () => {
     applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     addAdjustment(db, anna, { date: '2026-09-30', minutes: 750, reason: 'Übertrag aus altem Plan' })
-    const [october] = getBalanceOverview(db, 2026, 10, '2026-10-09')
+    const [october] = getBalanceOverview(db, 1, 2026, 10, '2026-10-09')
     expect(october!.previousMonthEnd).toBe(750)
-    const [november] = getBalanceOverview(db, 2026, 11, '2026-10-09')
+    const [november] = getBalanceOverview(db, 1, 2026, 11, '2026-10-09')
     expect(november!.previousMonthEnd).toBe(october!.monthEnd)
   })
   it('excludes employees who are not employed in the month', () => {
     addEmployee(db, 'Carl', { validFrom: '2026-11-01' })
-    expect(getBalanceOverview(db, 2026, 10, '2026-10-09').map(b => b.name)).toEqual(['Anna'])
+    expect(getBalanceOverview(db, 1, 2026, 10, '2026-10-09').map(b => b.name)).toEqual(['Anna'])
   })
   it('computes the leave account with ranges', () => {
     applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
@@ -52,29 +52,29 @@ describe('balances and leave', () => {
   })
   it('uses recorded time for past days and counts “today” until yesterday', () => {
     applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
-    setTimeTrackingFrom(db, '2026-10-05')
+    setTimeTrackingFrom(db, 1, '2026-10-05')
     stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:00:00Z')) // 7:00
     stamp(db, anna, 'out', 'self', new Date('2026-10-05T14:30:00Z')) // 16:30 → 570 min
-    const [balance] = getBalanceOverview(db, 2026, 10, '2026-10-07')
+    const [balance] = getBalanceOverview(db, 1, 2026, 10, '2026-10-07')
     // 05.10.: 570 − 468; 06.10.: nothing recorded → −468; 07.10. (today) not included
     expect(balance!.today).toBe((570 - 468) - 468)
     // month end: 05./06. recorded, 07.–09. planned M (465 each), rest of October target only
     expect(balance!.monthEnd).toBe((570 - 468) - 468 + 3 * (465 - 468) - 15 * 468)
   })
   it('counts bookings dated today in “Stand heute” although day deltas stop at yesterday', () => {
-    setTimeTrackingFrom(db, '2026-10-05')
+    setTimeTrackingFrom(db, 1, '2026-10-05')
     addAdjustment(db, anna, { date: '2026-10-07', minutes: 120, reason: 'Korrektur' })
     addAdjustment(db, anna, { date: '2026-10-08', minutes: 60, reason: 'Später' })
-    const [balance] = getBalanceOverview(db, 2026, 10, '2026-10-07')
+    const [balance] = getBalanceOverview(db, 1, 2026, 10, '2026-10-07')
     // 05./06.10. nothing recorded → −468 each; today's booking counts, tomorrow's not
     expect(balance!.today).toBe(-2 * 468 + 120)
   })
   it('ignores records before the start date', () => {
-    setTimeTrackingFrom(db, '2026-10-05')
+    setTimeTrackingFrom(db, 1, '2026-10-05')
     stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:00:00Z'))
     stamp(db, anna, 'out', 'self', new Date('2026-10-05T14:30:00Z'))
-    setTimeTrackingFrom(db, '2026-10-06')
-    const [balance] = getBalanceOverview(db, 2026, 10, '2026-10-07')
+    setTimeTrackingFrom(db, 1, '2026-10-06')
+    const [balance] = getBalanceOverview(db, 1, 2026, 10, '2026-10-07')
     expect(balance!.today).toBe(-468 /* 05.10. plan: nothing planned */ - 468 /* 06.10. nothing recorded */)
   })
 })

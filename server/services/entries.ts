@@ -17,11 +17,12 @@ type ResolvedEntry = Omit<typeof entries.$inferInsert, 'employeeId' | 'date' | '
 
 const NO_TIMES = { start: null, end: null, breakStart: null, breakEnd: null }
 
-export function resolveEntry(db: Db, input: EntryInput): ResolvedEntry {
+export function resolveEntry(db: Db, facilityId: number, input: EntryInput): ResolvedEntry {
   const note = input.note?.trim() || null
 
   if (input.kind === 'shift') {
-    const template = db.select().from(shiftTemplates).where(eq(shiftTemplates.id, input.templateId ?? -1)).get()
+    const template = db.select().from(shiftTemplates)
+      .where(and(eq(shiftTemplates.id, input.templateId ?? -1), eq(shiftTemplates.facilityId, facilityId))).get()
     if (!template) throw new ServiceError(400, 'template_not_found')
     return {
       kind: 'shift', shiftTemplateId: template.id, absenceCodeId: null,
@@ -65,10 +66,17 @@ export function applyToCells(
   options: { now?: Date; closureId?: number | null } = {},
 ): void {
   if (mode !== 'clear' && !input) throw new ServiceError(400, 'entry_required')
-  const values = mode === 'clear' ? null : resolveEntry(db, input!)
+  const employeeFacilities = new Map(db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).all()
+    .map(row => [row.id, row.facilityId]))
+  // The cells' employees decide which facility's services may be entered (Task 3 scopes the cells themselves).
+  const facilityId = employeeFacilities.get(cells[0]?.employeeId ?? -1)
+  if (facilityId === undefined) {
+    if (cells.length > 0) throw new ServiceError(400, 'employee_not_found')
+    return
+  }
+  const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
   const now = (options.now ?? new Date()).toISOString()
-  const employeeIds = new Set(db.select({ id: employees.id }).from(employees).all().map(row => row.id))
   const gapCodeIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
     .where(inArray(absenceCodes.key, TARGET_GAP_CODES)).all().map(row => row.id))
   const isGapCode = values?.absenceCodeId != null && gapCodeIds.has(values.absenceCodeId)
@@ -76,7 +84,7 @@ export function applyToCells(
 
   db.transaction((tx) => {
     for (const cell of unique) {
-      if (!employeeIds.has(cell.employeeId)) throw new ServiceError(400, 'employee_not_found')
+      if (!employeeFacilities.has(cell.employeeId)) throw new ServiceError(400, 'employee_not_found')
       if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
       const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
       const before = describeCellAt(tx, cell)

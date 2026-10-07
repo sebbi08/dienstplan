@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import type { CreditMode, IsoDate, Minutes } from '../../shared/domain/types'
 import type { CodeDto, ColorKey, CoverageRuleDto, SessionUser, SettingsDto, ShiftChangeResult, TemplateDto } from '../../shared/types/api'
@@ -56,22 +56,28 @@ function normalizeRule(input: CoverageRuleInput) {
   return { ...input, label }
 }
 
-export function getSettings(db: Db): SettingsDto {
-  return { templates: loadTemplates(db), codes: loadCodes(db), coverageRules: loadCoverageRules(db, false) }
+const ownTemplate = (facilityId: number, id: number) =>
+  and(eq(shiftTemplates.id, id), eq(shiftTemplates.facilityId, facilityId))
+
+const ownRule = (facilityId: number, id: number) =>
+  and(eq(coverageRules.id, id), eq(coverageRules.facilityId, facilityId))
+
+export function getSettings(db: Db, facilityId: number): SettingsDto {
+  return { templates: loadTemplates(db, facilityId), codes: loadCodes(db), coverageRules: loadCoverageRules(db, facilityId, false) }
 }
 
-export function createTemplate(db: Db, input: TemplateInput): TemplateDto {
-  return db.insert(shiftTemplates).values(normalizeTemplate(input)).returning().get()
+export function createTemplate(db: Db, facilityId: number, input: TemplateInput): TemplateDto {
+  return db.insert(shiftTemplates).values({ ...normalizeTemplate(input), facilityId }).returning().get()
 }
 
-export function updateTemplate(db: Db, id: number, input: TemplateInput): TemplateDto {
-  const row = db.update(shiftTemplates).set(normalizeTemplate(input)).where(eq(shiftTemplates.id, id)).returning().get()
+export function updateTemplate(db: Db, facilityId: number, id: number, input: TemplateInput): TemplateDto {
+  const row = db.update(shiftTemplates).set(normalizeTemplate(input)).where(ownTemplate(facilityId, id)).returning().get()
   if (!row) throw new ServiceError(404, 'template_not_found')
   return row
 }
 
-export function deleteTemplate(db: Db, id: number): void {
-  db.delete(shiftTemplates).where(eq(shiftTemplates.id, id)).run()
+export function deleteTemplate(db: Db, facilityId: number, id: number): void {
+  db.delete(shiftTemplates).where(ownTemplate(facilityId, id)).run()
 }
 
 export function updateCode(db: Db, id: number, update: CodeUpdate): CodeDto {
@@ -82,18 +88,18 @@ export function updateCode(db: Db, id: number, update: CodeUpdate): CodeDto {
   return loadCodes(db).find(code => code.id === id)!
 }
 
-export function createCoverageRule(db: Db, input: CoverageRuleInput): CoverageRuleDto {
-  return db.insert(coverageRules).values(normalizeRule(input)).returning().get()
+export function createCoverageRule(db: Db, facilityId: number, input: CoverageRuleInput): CoverageRuleDto {
+  return db.insert(coverageRules).values({ ...normalizeRule(input), facilityId }).returning().get()
 }
 
-export function updateCoverageRule(db: Db, id: number, input: CoverageRuleInput): CoverageRuleDto {
-  const row = db.update(coverageRules).set(normalizeRule(input)).where(eq(coverageRules.id, id)).returning().get()
+export function updateCoverageRule(db: Db, facilityId: number, id: number, input: CoverageRuleInput): CoverageRuleDto {
+  const row = db.update(coverageRules).set(normalizeRule(input)).where(ownRule(facilityId, id)).returning().get()
   if (!row) throw new ServiceError(404, 'rule_not_found')
   return row
 }
 
-export function deleteCoverageRule(db: Db, id: number): void {
-  db.delete(coverageRules).where(eq(coverageRules.id, id)).run()
+export function deleteCoverageRule(db: Db, facilityId: number, id: number): void {
+  db.delete(coverageRules).where(ownRule(facilityId, id)).run()
 }
 
 /**
@@ -101,15 +107,16 @@ export function deleteCoverageRule(db: Db, id: number): void {
  * week templates that still have the old times get the new ones too; otherwise only new entries use the new times.
  */
 export function saveTemplateChange(
-  db: Db, actor: SessionUser, id: number, input: TemplateInput, applyFrom: IsoDate | null, now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, id: number, input: TemplateInput, applyFrom: IsoDate | null,
+  now: Date = new Date(),
 ): ShiftChangeResult {
   return db.transaction((tx) => {
-    const old = tx.select().from(shiftTemplates).where(eq(shiftTemplates.id, id)).get()
-    const template = updateTemplate(tx, id, input)
+    const old = tx.select().from(shiftTemplates).where(ownTemplate(facilityId, id)).get()
+    const template = updateTemplate(tx, facilityId, id, input)
     const times = (span: TimeSpan): TimeSpan => ({ start: span.start, end: span.end, breakStart: span.breakStart, breakEnd: span.breakEnd })
     const changed = old && JSON.stringify(times(old)) !== JSON.stringify(times(template))
     if (!applyFrom || !old || !changed) return { template, updated: 0, skipped: 0, inTemplates: 0 }
     const result = adoptShiftTimes(tx, actor, id, times(old), times(template), applyFrom, now)
-    return { template, ...result, inTemplates: adoptShiftTimesInTemplates(tx, id, times(old), times(template)) }
+    return { template, ...result, inTemplates: adoptShiftTimesInTemplates(tx, facilityId, id, times(old), times(template)) }
   })
 }

@@ -2,31 +2,25 @@ import { eq } from 'drizzle-orm'
 import type { IsoDate } from '../../shared/domain/types'
 import type { AppSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { appSettings } from '../db/schema'
+import { appSettings, facilities } from '../db/schema'
 
-const TIME_TRACKING_FROM = 'time_tracking_from'
-
-export function getTimeTrackingFrom(db: Db): IsoDate | null {
-  return db.select().from(appSettings).where(eq(appSettings.key, TIME_TRACKING_FROM)).get()?.value ?? null
+/** The day time tracking starts in the facility (null: not yet). */
+export function getTimeTrackingFrom(db: Db, facilityId: number): IsoDate | null {
+  return db.select({ value: facilities.timeTrackingFrom }).from(facilities).where(eq(facilities.id, facilityId)).get()?.value ?? null
 }
 
-export function setTimeTrackingFrom(db: Db, value: IsoDate | null): void {
-  if (value === null) {
-    db.delete(appSettings).where(eq(appSettings.key, TIME_TRACKING_FROM)).run()
-    return
-  }
-  db.insert(appSettings).values({ key: TIME_TRACKING_FROM, value })
-    .onConflictDoUpdate({ target: appSettings.key, set: { value } }).run()
+export function setTimeTrackingFrom(db: Db, facilityId: number, value: IsoDate | null): void {
+  db.update(facilities).set({ timeTrackingFrom: value }).where(eq(facilities.id, facilityId)).run()
 }
 
-/** The start date when time tracking already runs today, otherwise null (plan only). */
-export function activeTrackingFrom(db: Db, today: IsoDate): IsoDate | null {
-  const from = getTimeTrackingFrom(db)
+/** The start date when time tracking already runs today in the facility, otherwise null (plan only). */
+export function activeTrackingFrom(db: Db, facilityId: number, today: IsoDate): IsoDate | null {
+  const from = getTimeTrackingFrom(db, facilityId)
   return from !== null && from <= today ? from : null
 }
 
-export function getAppSettings(db: Db): AppSettingsDto {
-  return { timeTrackingFrom: getTimeTrackingFrom(db), contractVisibleToAdmins: contractVisibleToAdmins(db) }
+export function getAppSettings(db: Db, facilityId: number): AppSettingsDto {
+  return { timeTrackingFrom: getTimeTrackingFrom(db, facilityId), contractVisibleToAdmins: contractVisibleToAdmins(db) }
 }
 
 const CONTRACT_VISIBLE_TO_ADMINS = 'contract_visible_to_admins'

@@ -16,11 +16,11 @@ export function getMyTime(db: Db, viewer: SessionUser, year: number, month: numb
   const { date: today } = nowInBerlin(now)
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
-  const [balance] = computeBalances(db, [employee], monthEnd, today)
+  const [balance] = computeBalances(db, employee.facilityId, [employee], monthEnd, today)
   const own = loadTimeRecords(db, { employeeId: employee.id })
   const todayRecords = own.filter(record => record.date === today)
   return {
-    enabled: activeTrackingFrom(db, today) !== null,
+    enabled: activeTrackingFrom(db, employee.facilityId, today) !== null,
     stampVia: employee.stampVia,
     breakMode: employee.breakMode,
     today,

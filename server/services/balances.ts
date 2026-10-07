@@ -9,14 +9,16 @@ import { activeTrackingFrom } from './appSettings'
 import { groupByEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 import { actualTimeFor } from './timeTracking'
 
-export function computeBalances(db: Db, staff: EmployeeRecord[], monthEnd: IsoDate, today: IsoDate): BalanceDto[] {
+export function computeBalances(
+  db: Db, facilityId: number, staff: EmployeeRecord[], monthEnd: IsoDate, today: IsoDate,
+): BalanceDto[] {
   const { year, month } = parseIsoDate(monthEnd)
   const previousMonthEnd = addDays(toIsoDate(year, month, 1), -1)
   const byEmployee = groupByEmployee(loadEntries(db))
   const adjustments = db.select().from(balanceAdjustments).all()
-  const actualOf = actualTimeFor(db, today)
+  const actualOf = actualTimeFor(db, facilityId, today)
   // With time tracking, today is not finished yet: "Stand heute" ends yesterday.
-  const todayUntil = activeTrackingFrom(db, today) !== null ? addDays(today, -1) : today
+  const todayUntil = activeTrackingFrom(db, facilityId, today) !== null ? addDays(today, -1) : today
   return staff.map((employee) => {
     const own = byEmployee.get(employee.id) ?? []
     const ownAdjustments = adjustments.filter(a => a.employeeId === employee.id)
@@ -36,9 +38,9 @@ export function computeBalances(db: Db, staff: EmployeeRecord[], monthEnd: IsoDa
   })
 }
 
-export function getBalanceOverview(db: Db, year: number, month: number, today: IsoDate): BalanceDto[] {
+export function getBalanceOverview(db: Db, facilityId: number, year: number, month: number, today: IsoDate): BalanceDto[] {
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
   const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
-  return computeBalances(db, staff, monthEnd, today)
+  return computeBalances(db, facilityId, staff, monthEnd, today)
 }

@@ -108,7 +108,7 @@ describe('contract data (Träger only)', () => {
     setContractVisibleToAdmins(db, true)
     expect(getEmployee(db, id, today, 'admin').contract).toEqual(saved)
     expect(listEmployees(db, today, 'observer')[0]!.contract).toBeUndefined()
-    expect(getAppSettings(db).contractVisibleToAdmins).toBe(true)
+    expect(getAppSettings(db, 1).contractVisibleToAdmins).toBe(true)
   })
   it('keeps free text for other jobs and validates the level', () => {
     const db = createTestDb()

@@ -32,7 +32,7 @@ describe('reason notes on the admin time page', () => {
     expect(errorCode(() => setTimeDayNote(db, 999, '2026-10-06', 'x'))).toBe('employee_not_found')
   })
   it('is not shown to the employee', () => {
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
     setTimeDayNote(db, anna, '2026-10-06', 'Arzttermin')
     const viewer = addUser(db, 'anna', 'observer', anna)
     expect(JSON.stringify(getMyTime(db, viewer, 2026, 10, new Date('2026-10-08T08:00:00Z')))).not.toContain('Arzttermin')

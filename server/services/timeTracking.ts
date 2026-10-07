@@ -45,8 +45,8 @@ export function loadTimeRecords(db: Db, filter: TimeRecordFilter = {}): TimeReco
 }
 
 /** Per employee: recorded minutes for the balance, or undefined while time tracking is not active. */
-export function actualTimeFor(db: Db, today: IsoDate): (employeeId: number) => ActualTime | undefined {
-  const from = activeTrackingFrom(db, today)
+export function actualTimeFor(db: Db, facilityId: number, today: IsoDate): (employeeId: number) => ActualTime | undefined {
+  const from = activeTrackingFrom(db, facilityId, today)
   if (from === null) return () => undefined
   const byEmployee = new Map<number, Map<IsoDate, TimeRecordDto[]>>()
   for (const record of loadTimeRecords(db, { from })) {
@@ -74,9 +74,9 @@ export function actualTimeFor(db: Db, today: IsoDate): (employeeId: number) => A
 /** Clocks the employee in or out now. Only today's open record can be closed; older ones are fixed by the admin. */
 export function stamp(db: Db, employeeId: number, action: StampAction, source: 'self' | 'terminal', now: Date = new Date()): TimeRecordDto {
   const { date, minutes } = nowInBerlin(now)
-  if (activeTrackingFrom(db, date) === null) throw new ServiceError(400, 'time_tracking_off')
   const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
   if (!employee) throw new ServiceError(404, 'employee_not_found')
+  if (activeTrackingFrom(db, employee.facilityId, date) === null) throw new ServiceError(400, 'time_tracking_off')
   // The tablet always works; the Leitung decides per employee whether the own phone may be used as well.
   if (!mayStampVia(employee.stampVia, source)) throw new ServiceError(403, 'stamp_tablet_only')
 
@@ -174,8 +174,8 @@ export function getTimeMonth(db: Db, employeeId: number, year: number, month: nu
     .from(timeRecordChanges).leftJoin(users, eq(timeRecordChanges.actorId, users.id))
     .where(and(eq(timeRecordChanges.employeeId, employeeId), gte(timeRecordChanges.date, monthStart), lte(timeRecordChanges.date, monthEnd)))
     .orderBy(asc(timeRecordChanges.id)).all()
-  const actual = actualTimeFor(db, today)(employeeId)
-  const trackingFrom = getTimeTrackingFrom(db)
+  const actual = actualTimeFor(db, employee.facilityId, today)(employeeId)
+  const trackingFrom = getTimeTrackingFrom(db, employee.facilityId)
   const isAbsence = (key: CodeKey | null) => key !== null && ABSENCE_KEYS.includes(key)
   const notes = new Map(db.select().from(timeDayNotes)
     .where(and(eq(timeDayNotes.employeeId, employeeId), gte(timeDayNotes.date, monthStart), lte(timeDayNotes.date, monthEnd))).all()

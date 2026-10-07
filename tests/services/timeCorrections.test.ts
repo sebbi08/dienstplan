@@ -18,7 +18,7 @@ describe('admin corrections', () => {
     db = createTestDb()
     admin = addUser(db, 'leitung', 'admin')
     anna = addEmployee(db, 'Anna')
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
   })
   const records = () => loadTimeRecords(db, { employeeId: anna })
 

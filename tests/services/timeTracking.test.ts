@@ -16,7 +16,7 @@ describe('stamping', () => {
   beforeEach(() => {
     db = createTestDb()
     anna = addEmployee(db, 'Anna')
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
   })
   const records = () => loadTimeRecords(db, { employeeId: anna })
 
@@ -48,17 +48,17 @@ describe('stamping', () => {
   })
   it('refuses stamping before the start date or without tracking', () => {
     expect(errorCode(() => stamp(db, anna, 'in', 'self', at('2026-09-30T06:00:00Z')))).toBe('time_tracking_off')
-    setTimeTrackingFrom(db, null)
+    setTimeTrackingFrom(db, 1, null)
     expect(errorCode(() => stamp(db, anna, 'in', 'self', at('2026-10-06T06:00:00Z')))).toBe('time_tracking_off')
   })
   it('provides recorded minutes per day for the balance (closed records only)', () => {
     stamp(db, anna, 'in', 'self', at('2026-10-06T05:42:00Z'))
     stamp(db, anna, 'out', 'self', at('2026-10-06T09:40:00Z'))
     stamp(db, anna, 'in', 'self', at('2026-10-06T10:10:00Z'))
-    const actual = actualTimeFor(db, '2026-10-08')(anna)!
+    const actual = actualTimeFor(db, 1, '2026-10-08')(anna)!
     expect(actual).toMatchObject({ from: '2026-10-01', today: '2026-10-08' })
     expect(actual.minutesByDate.get('2026-10-06')).toBe(238)
-    expect(actualTimeFor(db, '2026-09-30')(anna)).toBeUndefined()
+    expect(actualTimeFor(db, 1, '2026-09-30')(anna)).toBeUndefined()
   })
 })
 
@@ -70,7 +70,7 @@ describe('stamping options per employee', () => {
     db = createTestDb()
     admin = addUser(db, 'leitung', 'admin')
     anna = addEmployee(db, 'Anna')
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
   })
 
   it('always allows the tablet and the own phone only when the Leitung chose both', () => {
@@ -85,7 +85,7 @@ describe('stamping options per employee', () => {
     applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     stamp(db, anna, 'in', 'self', at('2026-10-06T05:45:00Z')) // 7:45
     stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z')) // 16:00, no break clocked
-    const minutes = () => actualTimeFor(db, '2026-10-08')(anna)!.minutesByDate.get('2026-10-06')
+    const minutes = () => actualTimeFor(db, 1, '2026-10-08')(anna)!.minutesByDate.get('2026-10-06')
     const breakWarning = () => getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.warnings
       .some(w => w.type === 'break_rule' && w.date === '2026-10-06')
     expect([minutes(), breakWarning()]).toEqual([495, true])

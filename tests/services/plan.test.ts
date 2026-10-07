@@ -128,7 +128,7 @@ describe('month plan', () => {
   it('does not count a deleted template as a plan change', () => {
     shift(anna, '2026-10-06', 'F2')
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
-    deleteTemplate(db, templateId(db, 'F2'))
+    deleteTemplate(db, 1, templateId(db, 'F2'))
     const plan = getMonthPlan(db, admin, 2026, 10, today)
     expect(plan.entries.find(e => e.date === '2026-10-06')?.shortLabel).toBeNull()
     expect(plan.release.pendingCount).toBe(0)
@@ -149,7 +149,7 @@ describe('month plan', () => {
     const NOW = new Date('2026-10-08T10:00:00Z')
     const record = (date: string, minutes: number) =>
       createRecord(db, admin, { employeeId: anna, date, start: 465, end: 465 + minutes }, NOW)
-    beforeEach(() => setTimeTrackingFrom(db, '2026-10-01'))
+    beforeEach(() => setTimeTrackingFrom(db, 1, '2026-10-01'))
 
     it('marks recorded time that deviates more than 15 minutes from the planned credit', () => {
       for (const date of ['2026-10-05', '2026-10-06', '2026-10-07']) shift(anna, date) // M = 465 min

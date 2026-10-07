@@ -19,7 +19,7 @@ describe('my time', () => {
     expect(getMyTime(db, viewer, 2026, 10, new Date('2026-10-06T08:00:00Z')).enabled).toBe(false)
   })
   it('shows today, earlier open records and the own balance', () => {
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
     stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:42:00Z'))
     stamp(db, anna, 'in', 'self', new Date('2026-10-06T05:45:00Z'))
     const mine = getMyTime(db, viewer, 2026, 10, new Date('2026-10-06T08:00:00Z'))
@@ -30,7 +30,7 @@ describe('my time', () => {
     expect(mine.balanceToday).toBe(-3 * 468)
   })
   it('never shows records of other employees', () => {
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
     const berta = addEmployee(db, 'Berta', { validFrom: '2026-10-01' })
     stamp(db, berta, 'in', 'self', new Date('2026-10-05T05:42:00Z'))
     stamp(db, berta, 'in', 'self', new Date('2026-10-06T05:45:00Z'))

@@ -17,6 +17,7 @@ export interface EntryFilter {
 
 export interface EmployeeRecord {
   id: number
+  facilityId: number
   name: string
   shortName: string
   sortOrder: number
@@ -102,8 +103,8 @@ export function closureOn(list: ClosureDto[], date: IsoDate): ClosureDto | null 
   return list.find(closure => closure.startDate <= date && date <= closure.endDate) ?? null
 }
 
-export function loadTemplates(db: Db): TemplateDto[] {
-  return db.select().from(shiftTemplates).orderBy(asc(shiftTemplates.sortOrder), asc(shiftTemplates.start)).all()
+export function loadTemplates(db: Db, facilityId: number): TemplateDto[] {
+  return db.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, facilityId)).orderBy(asc(shiftTemplates.sortOrder), asc(shiftTemplates.start)).all()
 }
 
 export function loadCodes(db: Db): CodeDto[] {
@@ -111,8 +112,8 @@ export function loadCodes(db: Db): CodeDto[] {
     .map(code => ({ ...code, key: code.key as CodeKey, color: code.color as ColorKey }))
 }
 
-export function loadCoverageRules(db: Db, activeOnly = true): CoverageRuleDto[] {
+export function loadCoverageRules(db: Db, facilityId: number, activeOnly = true): CoverageRuleDto[] {
   return db.select().from(coverageRules)
-    .where(activeOnly ? eq(coverageRules.active, true) : undefined)
+    .where(and(eq(coverageRules.facilityId, facilityId), activeOnly ? eq(coverageRules.active, true) : undefined))
     .orderBy(asc(coverageRules.start)).all()
 }

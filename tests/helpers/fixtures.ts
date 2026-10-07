@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
 import { absenceCodes, employeeHours, employees, shiftTemplates, users } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
@@ -54,8 +54,9 @@ export function addUser(
   return toSessionUser(db, row)
 }
 
-export function templateId(db: Db, shortLabel: string): number {
-  return db.select().from(shiftTemplates).where(eq(shiftTemplates.shortLabel, shortLabel)).get()!.id
+export function templateId(db: Db, shortLabel: string, facilityId = 1): number {
+  return db.select().from(shiftTemplates)
+    .where(and(eq(shiftTemplates.shortLabel, shortLabel), eq(shiftTemplates.facilityId, facilityId))).get()!.id
 }
 
 export function codeId(db: Db, key: string): number {

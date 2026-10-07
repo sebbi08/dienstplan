@@ -17,7 +17,7 @@ describe('terminal', () => {
     anna = addEmployee(db, 'Anna')
     berta = addEmployee(db, 'Berta')
     addEmployee(db, 'Carl', { leftOn: '2026-09-30' })
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
     setPin(db, anna, '1234')
   })
 
@@ -57,7 +57,7 @@ describe('terminal and stamping options', () => {
   it('always lets people stamp on the tablet, whatever their phone setting', () => {
     const db = createTestDb()
     const anna = addEmployee(db, 'Anna')
-    setTimeTrackingFrom(db, '2026-10-01')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
     setPin(db, anna, '1234')
     setStampingOptions(db, anna, { stampVia: 'tablet', breakMode: 'stamp' })
     expect(terminalStatus(db, at('2026-10-06T06:00:00Z'))).toEqual([{ employeeId: anna, name: 'Anna', clockedIn: false }])

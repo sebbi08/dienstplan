@@ -176,10 +176,14 @@ export function weekTemplateNames(db: Db, from: IsoDate, to: IsoDate): Map<IsoDa
  * After a service (Dienst) got new times: its fixed shifts in all templates that still have the old times get the new
  * ones, unless that would clash with other entries of the same template day. Returns how many were updated.
  */
-export function adoptShiftTimesInTemplates(db: Db, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan): number {
+export function adoptShiftTimesInTemplates(
+  db: Db, facilityId: number, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan,
+): number {
   const rows = db.select({ entry: weekTemplateEntries, code: absenceCodes })
     .from(weekTemplateEntries)
+    .innerJoin(weekTemplates, eq(weekTemplateEntries.weekTemplateId, weekTemplates.id))
     .leftJoin(absenceCodes, eq(weekTemplateEntries.absenceCodeId, absenceCodes.id))
+    .where(eq(weekTemplates.facilityId, facilityId))
     .all()
   const asDomain = ({ entry, code }: (typeof rows)[number]): DomainEntry => ({
     employeeId: entry.employeeId, date: '', kind: entry.kind, codeKey: (code?.key ?? null) as CodeKey | null,
