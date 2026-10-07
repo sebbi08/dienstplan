@@ -27,7 +27,7 @@ describe('month plan', () => {
     observer = addUser(db, 'anna', 'observer', anna)
   })
   const shift = (employeeId: number, date: string, label = 'M', now?: Date) =>
-    applyToCells(db, admin, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) }, { now })
+    applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) }, { now })
 
   it('gives admins the full draft plan with warnings, weeks and balances', () => {
     const plan = getMonthPlan(db, admin, 2026, 10, today)
@@ -63,7 +63,7 @@ describe('month plan', () => {
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift(anna, '2026-10-06', 'S')
     shift(ben, '2026-10-07', 'M')
-    setDayNote(db, admin, '2026-10-07', 'info1', 'Elternabend')
+    setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Elternabend')
     const plan = getMonthPlan(db, observer, 2026, 10, today)
     expect(plan.entries.map(e => [e.employeeId, e.date, e.shortLabel])).toEqual([[anna, '2026-10-06', 'F2']])
     expect(plan.days[6]!.info1).toBe('')
@@ -81,7 +81,7 @@ describe('month plan', () => {
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift(anna, '2026-10-06', 'S')
     releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
-    setDayNote(db, admin, '2026-10-07', 'info1', 'Elternabend')
+    setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Elternabend')
     releaseMonth(db, admin, 2026, 10, new Date('2026-10-02T07:00:00Z'))
     const plan = getMonthPlan(db, observer, 2026, 10, today)
     expect(plan.changes[`${anna}|2026-10-06`]).toEqual([{
@@ -115,7 +115,7 @@ describe('month plan', () => {
     expect(plan.release).toEqual({ releasedAt: null, releasedBy: null, changeCount: 0, pendingCount: 0 })
   })
   it('does not count a renamed code as a plan change', () => {
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     updateCode(db, codeId(db, 'sick'), { label: 'Krankheit', color: 'gray', creditMode: 'daily_target' })
     const plan = getMonthPlan(db, admin, 2026, 10, today)

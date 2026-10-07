@@ -17,14 +17,14 @@ describe('release snapshots', () => {
     anna = addEmployee(db, 'Anna')
   })
   const shift = (date: string, label: string) =>
-    applyToCells(db, admin, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
 
   it('stores one snapshot per release with entries, notes and closure labels', () => {
     shift('2026-10-06', 'F2')
-    setDayNote(db, admin, '2026-10-07', 'info1', 'Elternabend')
+    setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Elternabend')
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     shift('2026-10-06', 'S')
-    createClosure(db, admin, { startDate: '2026-10-12', endDate: '2026-10-12', label: 'Teamtag', mode: 'closure_day' })
+    createClosure(db, admin, 1, { startDate: '2026-10-12', endDate: '2026-10-12', label: 'Teamtag', mode: 'closure_day' })
     releaseMonth(db, admin, 2026, 10, new Date('2026-10-01T07:00:00Z'))
 
     const releases = loadReleases(db, 2026, 10)

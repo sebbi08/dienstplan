@@ -116,7 +116,7 @@ export function saveTemplateChange(
     const times = (span: TimeSpan): TimeSpan => ({ start: span.start, end: span.end, breakStart: span.breakStart, breakEnd: span.breakEnd })
     const changed = old && JSON.stringify(times(old)) !== JSON.stringify(times(template))
     if (!applyFrom || !old || !changed) return { template, updated: 0, skipped: 0, inTemplates: 0 }
-    const result = adoptShiftTimes(tx, actor, id, times(old), times(template), applyFrom, now)
+    const result = adoptShiftTimes(tx, actor, facilityId, id, times(old), times(template), applyFrom, now)
     return { template, ...result, inTemplates: adoptShiftTimesInTemplates(tx, facilityId, id, times(old), times(template)) }
   })
 }

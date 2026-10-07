@@ -74,22 +74,22 @@ describe('stamping options per employee', () => {
   })
 
   it('always allows the tablet and the own phone only when the Leitung chose both', () => {
-    setStampingOptions(db, anna, { stampVia: 'tablet', breakMode: 'stamp' })
+    setStampingOptions(db, 1, anna, { stampVia: 'tablet', breakMode: 'stamp' })
     expect(errorCode(() => stamp(db, anna, 'in', 'self', at('2026-10-06T05:42:00Z')))).toBe('stamp_tablet_only')
     stamp(db, anna, 'in', 'terminal', at('2026-10-06T05:42:00Z'))
-    setStampingOptions(db, anna, { stampVia: 'both', breakMode: 'stamp' })
+    setStampingOptions(db, 1, anna, { stampVia: 'both', breakMode: 'stamp' })
     stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z'))
     expect(loadTimeRecords(db, { employeeId: anna })).toHaveLength(1)
   })
   it('deducts the planned break when breaks are automatic and stops the break warning', () => {
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     stamp(db, anna, 'in', 'self', at('2026-10-06T05:45:00Z')) // 7:45
     stamp(db, anna, 'out', 'self', at('2026-10-06T14:00:00Z')) // 16:00, no break clocked
     const minutes = () => actualTimeFor(db, 1, '2026-10-08')(anna)!.minutesByDate.get('2026-10-06')
     const breakWarning = () => getMonthPlan(db, admin, 2026, 10, '2026-10-08').admin!.warnings
       .some(w => w.type === 'break_rule' && w.date === '2026-10-06')
     expect([minutes(), breakWarning()]).toEqual([495, true])
-    setStampingOptions(db, anna, { stampVia: 'both', breakMode: 'auto' })
+    setStampingOptions(db, 1, anna, { stampVia: 'both', breakMode: 'auto' })
     expect([minutes(), breakWarning()]).toEqual([465, false]) // M's break 11:40–12:10 deducted
   })
 })

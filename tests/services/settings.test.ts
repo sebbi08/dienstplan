@@ -30,7 +30,7 @@ describe('settings service', () => {
   })
   it('does not change existing entries when a template changes or is deleted', () => {
     const m = templateId(db, 'M')
-    applyToCells(db, admin, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: m })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: m })
     updateTemplate(db, 1, m, { shortLabel: 'M', label: 'Mitteldienst', start: 480, end: 975, breakStart: 700, breakEnd: 730, countsAsStaff: true, pairsWithPrepTime: true, sortOrder: 3 })
     expect(loadEntries(db)[0]).toMatchObject({ start: 465, end: 960 })
     deleteTemplate(db, 1, m)
@@ -44,7 +44,7 @@ describe('settings service', () => {
   })
   it('updates codes and applies the new credit mode to existing entries', () => {
     const sick = codeId(db, 'sick')
-    applyToCells(db, admin, [{ employeeId: anna, date }], 'replace', { kind: 'code', codeId: sick })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'code', codeId: sick })
     expect(updateCode(db, sick, { label: 'Krank', color: 'red', creditMode: 'none' })).toMatchObject({ color: 'red', creditMode: 'none' })
     expect(loadEntries(db)[0]).toMatchObject({ creditMode: 'none', color: 'red' })
     expect(errorCode(() => updateCode(db, 999, { label: 'X', color: 'red', creditMode: 'none' }))).toBe('code_not_found')
@@ -73,7 +73,7 @@ describe('changing a service and its existing shifts', () => {
     anna = addEmployee(db, 'Anna')
     id = templateId(db, 'F1')
   })
-  const enter = (dates: string[]) => applyToCells(db, admin, dates.map(d => ({ employeeId: anna, date: d })), 'replace', { kind: 'shift', templateId: id })
+  const enter = (dates: string[]) => applyToCells(db, admin, 1, dates.map(d => ({ employeeId: anna, date: d })), 'replace', { kind: 'shift', templateId: id })
   const breaks = () => loadEntries(db, { employeeId: anna }).filter(e => e.kind === 'shift').map(e => [e.date, e.breakStart])
 
   it('gives fixed shifts from the chosen day on the new break and keeps earlier days', () => {
@@ -87,8 +87,8 @@ describe('changing a service and its existing shifts', () => {
     expect(saveTemplateChange(db, admin, 1, id, { ...f1, breakStart: null, breakEnd: null, label: 'Früh' }, '2026-10-05'))
       .toMatchObject({ updated: 0 }) // times unchanged
     const [, second, third] = loadEntries(db, { employeeId: anna })
-    updateEntryTimes(db, admin, second!.id, { start: 420, end: 795, breakStart: 600, breakEnd: 630 }) // own break
-    applyToCells(db, admin, [{ employeeId: anna, date: third!.date }], 'add', { kind: 'break', start: 670, end: 685 }) // extra break
+    updateEntryTimes(db, admin, 1, second!.id, { start: 420, end: 795, breakStart: 600, breakEnd: 630 }) // own break
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: third!.date }], 'add', { kind: 'break', start: 670, end: 685 }) // extra break
     expect(saveTemplateChange(db, admin, 1, id, withBreak, null)).toMatchObject({ updated: 0, skipped: 0 })
     expect(saveTemplateChange(db, admin, 1, id, { ...f1, breakStart: null, breakEnd: null }, null).template.breakStart).toBeNull()
     expect(saveTemplateChange(db, admin, 1, id, withBreak, '2026-10-01')).toMatchObject({ updated: 1, skipped: 1 })

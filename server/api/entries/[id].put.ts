@@ -5,6 +5,6 @@ export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const change = await readValidatedBody(event, entryTimesSchema.parse)
-  updateEntryTimes(useDb(), admin, id, change)
+  updateEntryTimes(useDb(), admin, admin.facilityId, id, change)
   return { ok: true }
 })

@@ -21,7 +21,7 @@ describe('messages about changed duties', () => {
     addUser(db, 'anna', 'observer', anna)
   })
   const shift = (employeeId: number, date: string, label: string) =>
-    applyToCells(db, admin, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
+    applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
 
   it('tells only the people whose own duties changed since the last release', () => {
     shift(anna, '2026-11-02', 'F1')
@@ -29,7 +29,7 @@ describe('messages about changed duties', () => {
     expect(releaseMonth(db, admin, 2026, 11, at('2026-10-20T08:00:00Z'))).toEqual({ notified: [] }) // first release
     shift(anna, '2026-11-02', 'F2')
     shift(anna, '2026-11-03', 'M')
-    setDayNote(db, admin, '2026-11-02', 'info1', 'Elternabend') // not a personal change
+    setDayNote(db, admin, 1, '2026-11-02', 'info1', 'Elternabend') // not a personal change
     expect(releaseMonth(db, admin, 2026, 11, at('2026-10-21T08:00:00Z'))).toEqual({ notified: ['Anna'] })
 
     const [message] = listNotifications(db, anna, at('2026-10-21T09:00:00Z'))

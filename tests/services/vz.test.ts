@@ -15,9 +15,9 @@ describe('full shifts around VZ / Büro', () => {
     db = createTestDb()
     admin = addUser(db, 'leitung', 'admin')
     anna = addEmployee(db, 'Anna')
-    applyToCells(db, admin, [{ employeeId: anna, date }], 'replace', { kind: 'code', codeId: codeId(db, 'prep_time'), start: 840, end: 960 })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'code', codeId: codeId(db, 'prep_time'), start: 840, end: 960 })
   })
-  const apply = (mode: 'replace' | 'add', input: EntryInput) => applyToCells(db, admin, [{ employeeId: anna, date }], mode, input)
+  const apply = (mode: 'replace' | 'add', input: EntryInput) => applyToCells(db, admin, 1, [{ employeeId: anna, date }], mode, input)
   const labels = () => loadEntries(db, { employeeId: anna, from: date, to: date }).map(e => `${e.shortLabel ?? ''}${e.label}`)
 
   it('enters a clicked shift with its full times around the VZ and keeps the VZ', () => {

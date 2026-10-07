@@ -5,6 +5,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, entries, shiftTemplates } from '../db/schema'
+import { FIRST_FACILITY_ID } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { describeCellAt, setDayNote } from './entries'
@@ -34,17 +35,21 @@ export function revertToRelease(
   if (!latest) throw new ServiceError(400, 'month_not_released')
   const targets = [...new Set(keys)].map(key => parseKey(key, year, month))
   const templateIds = new Set(db.select({ id: shiftTemplates.id }).from(shiftTemplates).all().map(row => row.id))
-  const employeeIds = new Set(db.select({ id: employees.id }).from(employees).all().map(row => row.id))
+  const employeeFacilities = new Map(db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).all()
+    .map(row => [row.id, row.facilityId]))
+  // Day notes of the actor's (active) facility, until the facility is passed in explicitly.
+  const noteFacility = actor.facilityId ?? FIRST_FACILITY_ID
   const timestamp = now.toISOString()
 
   db.transaction((tx) => {
     for (const target of targets) {
       if (target.type === 'note') {
         const released = latest.data.days.find(day => day.date === target.date)?.[target.field] ?? ''
-        setDayNote(tx, actor, target.date, target.field, released, now)
+        setDayNote(tx, actor, noteFacility, target.date, target.field, released, now)
         continue
       }
-      if (!employeeIds.has(target.employeeId)) throw new ServiceError(400, 'employee_not_found')
+      const facilityId = employeeFacilities.get(target.employeeId)
+      if (facilityId === undefined) throw new ServiceError(400, 'employee_not_found')
       const cell = { employeeId: target.employeeId, date: target.date }
       const before = describeCellAt(tx, cell)
       tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()
@@ -57,7 +62,7 @@ export function revertToRelease(
           note: entry.note, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
         }).run()
       }
-      logChange(tx, { ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
+      logChange(tx, { facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
     }
   })
   return targets.length

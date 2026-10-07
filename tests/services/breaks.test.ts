@@ -18,8 +18,8 @@ describe('breaks', () => {
   })
   const cell = () => [{ employeeId: anna, date }]
   const cellEntries = () => loadEntries(db, { employeeId: anna, from: date, to: date })
-  const shiftF2 = () => applyToCells(db, admin, cell(), 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
-  const addBreak = (start: number, end: number) => applyToCells(db, admin, cell(), 'add', { kind: 'break', start, end })
+  const shiftF2 = () => applyToCells(db, admin, 1, cell(), 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
+  const addBreak = (start: number, end: number) => applyToCells(db, admin, 1, cell(), 'add', { kind: 'break', start, end })
 
   it('adds an additional break inside the working time', () => {
     shiftF2()
@@ -31,7 +31,7 @@ describe('breaks', () => {
   it('rejects invalid additional breaks', () => {
     expect(errorCode(() => addBreak(900, 915))).toBe('break_outside_work')
     shiftF2()
-    expect(errorCode(() => applyToCells(db, admin, cell(), 'replace', { kind: 'break', start: 900, end: 915 }))).toBe('break_requires_add')
+    expect(errorCode(() => applyToCells(db, admin, 1, cell(), 'replace', { kind: 'break', start: 900, end: 915 }))).toBe('break_requires_add')
     expect(errorCode(() => addBreak(940, 960))).toBe('break_outside_work')
     expect(errorCode(() => addBreak(720, 740))).toBe('break_overlap')
     expect(errorCode(() => addBreak(900, 895))).toBe('span_end_before_start')

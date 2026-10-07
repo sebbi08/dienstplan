@@ -1,6 +1,6 @@
 import { listClosures } from '../../services/closures'
 
 export default defineServiceHandler(async (event) => {
-  await requireAdmin(event)
-  return listClosures(useDb())
+  const admin = await requireAdmin(event)
+  return listClosures(useDb(), admin.facilityId)
 })

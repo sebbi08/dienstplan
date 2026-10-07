@@ -115,11 +115,11 @@ export function applyWeekTemplate(
   db: Db, actor: SessionUser, id: number, weekStart: IsoDate, now: Date = new Date(),
 ): WeekTemplateApplyResult {
   requireMonday(weekStart)
-  requireTemplate(db, id)
+  const { facilityId } = requireTemplate(db, id)
   const rows = db.select().from(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, id))
     .orderBy(asc(weekTemplateEntries.start), asc(weekTemplateEntries.id)).all()
   const staff = new Map(loadEmployees(db).map(employee => [employee.id, employee]))
-  const closures = loadClosures(db)
+  const closures = loadClosures(db, facilityId)
   const groups = Map.groupBy(rows, row => `${row.employeeId}:${row.weekday}`)
   const shifts = new Map(db.select().from(shiftTemplates).all().map(shift => [shift.id, shift]))
   // A saved shift whose service (Dienst) was changed or deleted since keeps its saved times as a special shift,
@@ -148,7 +148,9 @@ export function applyWeekTemplate(
       tx.insert(entries).values(group.map(({ id: _id, weekTemplateId: _template, weekday: _day, ...values }) => ({
         ...values, ...keepTimesOf(values), date, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
       }))).run()
-      logChange(tx, { ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
+      logChange(tx, {
+        facilityId: employee.facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
+      })
       result.filled += 1
     }
     if (result.filled > 0) markWeek(tx, weekStart, id)

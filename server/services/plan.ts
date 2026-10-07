@@ -153,7 +153,7 @@ export function getMonthPlan(db: Db, viewer: SessionUser, year: number, month: n
   if (isAdmin) {
     const { monthStart, monthEnd } = monthBounds(year, month)
     const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
-    admin = { ...buildAdminData(db, facilityId, staff, loadClosures(db), year, month, today), pendingChanges }
+    admin = { ...buildAdminData(db, facilityId, staff, loadClosures(db, facilityId), year, month, today), pendingChanges }
   }
 
   return {

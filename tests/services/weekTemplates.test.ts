@@ -30,15 +30,15 @@ describe('week templates', () => {
     berta = addEmployee(db, 'Berta')
   })
   const shift = (employeeId: number, date: string, label: string) =>
-    applyToCells(db, admin, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
+    applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
   const code = (employeeId: number, date: string, key: string, start?: number, end?: number) =>
-    applyToCells(db, admin, [{ employeeId, date }], 'replace', { kind: 'code', codeId: codeId(db, key), start, end })
+    applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'code', codeId: codeId(db, key), start, end })
   const cell = (employeeId: number, date: string) => loadEntries(db, { employeeId, from: date, to: date }).map(e => e.label)
 
   it('saves the working entries of Monday to Friday and leaves one-off absences out', () => {
     shift(anna, '2026-10-05', 'F1')
     shift(anna, '2026-10-06', 'M')
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'add', { kind: 'break', start: 900, end: 915 })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'add', { kind: 'break', start: 900, end: 915 })
     code(anna, '2026-10-07', 'vacation')
     code(berta, '2026-10-05', 'prep_time', 450, 570)
     shift(berta, '2026-10-05', 'S')
@@ -60,8 +60,8 @@ describe('week templates', () => {
     const template = saveWeekTemplate(db, { name: 'Woche A', weekStart: week })
 
     code(anna, '2026-10-12', 'sick') // already filled: stays
-    createClosure(db, admin, { startDate: '2026-10-13', endDate: '2026-10-13', label: 'Konzeptionstag', mode: 'closure_day' })
-    addHours(db, berta, { weeklyMinutes: 1200, validFrom: '2026-10-12', workdays: 0b00111 }) // Berta: Mo–Mi from now on
+    createClosure(db, admin, 1, { startDate: '2026-10-13', endDate: '2026-10-13', label: 'Konzeptionstag', mode: 'closure_day' })
+    addHours(db, 1, berta, { weeklyMinutes: 1200, validFrom: '2026-10-12', workdays: 0b00111 }) // Berta: Mo–Mi from now on
     const result = applyWeekTemplate(db, admin, template.id, next)
 
     expect(cell(anna, '2026-10-12')).toEqual(['Krank'])
@@ -71,14 +71,14 @@ describe('week templates', () => {
     expect(cell(berta, '2026-10-15')).toEqual([]) // Thursday is now her day off
     expect(result).toEqual({ filled: 2, skipped: 3 })
 
-    updateEmployee(db, anna, { name: 'Anna', shortName: 'An', leftOn: '2026-10-16' })
+    updateEmployee(db, 1, anna, { name: 'Anna', shortName: 'An', leftOn: '2026-10-16' })
     expect(applyWeekTemplate(db, admin, template.id, '2026-10-19')).toEqual({ filled: 1, skipped: 4 }) // only Berta's Monday
   })
 
   it('keeps changed times and breaks exactly and logs changes in a released month', () => {
     shift(anna, '2026-10-05', 'M')
     const [entry] = loadEntries(db, { employeeId: anna, from: '2026-10-05', to: '2026-10-05' })
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-05' }], 'add', { kind: 'break', start: 900, end: 910 })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-05' }], 'add', { kind: 'break', start: 900, end: 910 })
     const template = saveWeekTemplate(db, { name: 'Woche A', weekStart: week })
     releaseMonth(db, admin, 2026, 10)
     const before = db.select().from(changeLog).all().length
@@ -123,8 +123,8 @@ describe('week templates and changed services', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
     const anna = addEmployee(db, 'Anna')
-    applyToCells(db, admin, [{ employeeId: anna, date: week }, { employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: week }, { employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     const template = saveWeekTemplate(db, { name: 'A', weekStart: week })
     db.update(shiftTemplates).set({ start: 450 }).where(eq(shiftTemplates.shortLabel, 'F1')).run()
     applyWeekTemplate(db, admin, template.id, next)
@@ -138,7 +138,7 @@ describe('template names in the plan and the preview', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
     const anna = addEmployee(db, 'Anna')
-    applyToCells(db, admin, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
     const template = saveWeekTemplate(db, { name: 'Woche A', weekStart: week })
     applyWeekTemplate(db, admin, template.id, next)
     const names = () => Object.fromEntries(weekTemplateNames(db, '2026-09-28', '2026-10-31'))
@@ -154,8 +154,8 @@ describe('template names in the plan and the preview', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
     const anna = addEmployee(db, 'Anna')
-    applyToCells(db, admin, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
     expect(saveWeekTemplate(db, { name: 'A', weekStart: week }).rows[0]!.days.slice(0, 2)).toEqual(['S', 'F1'])
     db.update(shiftTemplates).set({ start: 450 }).where(eq(shiftTemplates.shortLabel, 'F1')).run()
     const [changed] = listWeekTemplates(db)

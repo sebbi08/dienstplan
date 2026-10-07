@@ -20,13 +20,13 @@ describe('revertToRelease', () => {
     admin = addUser(db, 'leitung', 'admin')
     anna = addEmployee(db, 'Anna')
     ben = addEmployee(db, 'Ben')
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
-    setDayNote(db, admin, '2026-10-06', 'info1', 'Elternabend')
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F2') })
+    setDayNote(db, admin, 1, '2026-10-06', 'info1', 'Elternabend')
     releaseMonth(db, admin, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     // draft edits after the release
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
-    applyToCells(db, admin, [{ employeeId: ben, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
-    setDayNote(db, admin, '2026-10-06', 'info1', 'Elternabend 19 Uhr')
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
+    applyToCells(db, admin, 1, [{ employeeId: ben, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    setDayNote(db, admin, 1, '2026-10-06', 'info1', 'Elternabend 19 Uhr')
   })
   const pending = () => getMonthPlan(db, admin, 2026, 10, today).admin!.pendingChanges
 

@@ -22,15 +22,15 @@ describe('balances and leave', () => {
   })
 
   it('computes the balance today and at month end', () => {
-    applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
-    addAdjustment(db, anna, { date: '2026-10-05', minutes: 750, reason: 'Übertrag' })
+    applyToCells(db, admin, 1, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    addAdjustment(db, 1, anna, { date: '2026-10-05', minutes: 750, reason: 'Übertrag' })
     expect(getBalanceOverview(db, 1, 2026, 10, '2026-10-09')).toEqual([
       { employeeId: anna, name: 'Anna', weeklyMinutes: 2340, today: 735, monthEnd: 735 - 15 * 468, previousMonthEnd: 0 },
     ])
   })
   it('carries the balance at the end of the previous month, including earlier bookings', () => {
-    applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
-    addAdjustment(db, anna, { date: '2026-09-30', minutes: 750, reason: 'Übertrag aus altem Plan' })
+    applyToCells(db, admin, 1, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    addAdjustment(db, 1, anna, { date: '2026-09-30', minutes: 750, reason: 'Übertrag aus altem Plan' })
     const [october] = getBalanceOverview(db, 1, 2026, 10, '2026-10-09')
     expect(october!.previousMonthEnd).toBe(750)
     const [november] = getBalanceOverview(db, 1, 2026, 11, '2026-10-09')
@@ -41,8 +41,8 @@ describe('balances and leave', () => {
     expect(getBalanceOverview(db, 1, 2026, 10, '2026-10-09').map(b => b.name)).toEqual(['Anna'])
   })
   it('computes the leave account with ranges', () => {
-    applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
-    setEntitlement(db, anna, 2026, { days: 30, carriedOverDays: 3 })
+    applyToCells(db, admin, 1, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 3 })
     expect(getLeaveAccount(db, anna, 2026, '2026-10-07')).toEqual({
       employeeId: anna, name: 'Anna', year: 2026,
       account: { entitlement: 30, carriedOver: 3, taken: 2, planned: 3, available: 28 },
@@ -51,7 +51,7 @@ describe('balances and leave', () => {
     expect(getLeaveOverview(db, 2026, '2026-10-07')).toHaveLength(1)
   })
   it('uses recorded time for past days and counts “today” until yesterday', () => {
-    applyToCells(db, admin, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    applyToCells(db, admin, 1, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     setTimeTrackingFrom(db, 1, '2026-10-05')
     stamp(db, anna, 'in', 'self', new Date('2026-10-05T05:00:00Z')) // 7:00
     stamp(db, anna, 'out', 'self', new Date('2026-10-05T14:30:00Z')) // 16:30 → 570 min
@@ -63,8 +63,8 @@ describe('balances and leave', () => {
   })
   it('counts bookings dated today in “Stand heute” although day deltas stop at yesterday', () => {
     setTimeTrackingFrom(db, 1, '2026-10-05')
-    addAdjustment(db, anna, { date: '2026-10-07', minutes: 120, reason: 'Korrektur' })
-    addAdjustment(db, anna, { date: '2026-10-08', minutes: 60, reason: 'Später' })
+    addAdjustment(db, 1, anna, { date: '2026-10-07', minutes: 120, reason: 'Korrektur' })
+    addAdjustment(db, 1, anna, { date: '2026-10-08', minutes: 60, reason: 'Später' })
     const [balance] = getBalanceOverview(db, 1, 2026, 10, '2026-10-07')
     // 05./06.10. nothing recorded → −468 each; today's booking counts, tomorrow's not
     expect(balance!.today).toBe(-2 * 468 + 120)

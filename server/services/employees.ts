@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, ne } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -76,17 +76,20 @@ function requireName(name: string): string {
   return trimmed
 }
 
-function assertEmployee(db: Db, id: number): void {
-  if (!db.select().from(employees).where(eq(employees.id, id)).get()) throw new ServiceError(404, 'employee_not_found')
+/** The employee must belong to the facility; otherwise 404 employee_not_found (other facilities' ids stay unconfirmed). */
+export function assertEmployee(db: Db, facilityId: number, id: number): void {
+  const row = db.select({ id: employees.id }).from(employees)
+    .where(and(eq(employees.id, id), eq(employees.facilityId, facilityId))).get()
+  if (!row) throw new ServiceError(404, 'employee_not_found')
 }
 
-export function listEmployees(db: Db, today: IsoDate, viewer: Role): EmployeeListItemDto[] {
+export function listEmployees(db: Db, facilityId: number, today: IsoDate, viewer: Role): EmployeeListItemDto[] {
   const withContract = mayViewContract(db, viewer)
-  return loadEmployees(db).map(employee => toListItem(employee, today, withContract))
+  return loadEmployees(db, facilityId).map(employee => toListItem(employee, today, withContract))
 }
 
-export function getEmployee(db: Db, id: number, today: IsoDate, viewer: Role): EmployeeDetailDto {
-  const employee = loadEmployees(db).find(candidate => candidate.id === id)
+export function getEmployee(db: Db, facilityId: number, id: number, today: IsoDate, viewer: Role): EmployeeDetailDto {
+  const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === id)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   return {
     ...toListItem(employee, today, mayViewContract(db, viewer)),
@@ -100,14 +103,15 @@ export function getEmployee(db: Db, id: number, today: IsoDate, viewer: Role): E
   }
 }
 
-/** Creates an employee; existing closures are booked for them right away (closures apply to everyone). */
-export function createEmployee(db: Db, actor: SessionUser, input: EmployeeInput, now: Date = new Date()): number {
+/** Creates an employee in the facility; its existing closures are booked for them right away (closures apply to everyone). */
+export function createEmployee(db: Db, actor: SessionUser, facilityId: number, input: EmployeeInput, now: Date = new Date()): number {
   const name = requireName(input.name)
   const workdays = requireWorkdays(input.workdays ?? MONDAY_TO_FRIDAY)
   return db.transaction((tx) => {
-    const sortOrder = Math.max(0, ...tx.select().from(employees).all().map(e => e.sortOrder)) + 1
+    const sortOrder = Math.max(0, ...tx.select({ sortOrder: employees.sortOrder }).from(employees)
+      .where(eq(employees.facilityId, facilityId)).all().map(e => e.sortOrder)) + 1
     const employee = tx.insert(employees).values({
-      name, shortName: input.shortName.trim(), sortOrder, stampVia: input.stampVia ?? 'both', breakMode: input.breakMode ?? 'stamp',
+      facilityId, name, shortName: input.shortName.trim(), sortOrder, stampVia: input.stampVia ?? 'both', breakMode: input.breakMode ?? 'stamp',
     }).returning().get()
     tx.insert(employeeHours).values({ employeeId: employee.id, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom, workdays }).run()
     if (input.vacationDays != null || input.carriedOverDays != null) {
@@ -126,15 +130,16 @@ export function createEmployee(db: Db, actor: SessionUser, input: EmployeeInput,
   })
 }
 
-export function updateEmployee(db: Db, id: number, update: EmployeeUpdate): void {
-  assertEmployee(db, id)
+export function updateEmployee(db: Db, facilityId: number, id: number, update: EmployeeUpdate): void {
+  assertEmployee(db, facilityId, id)
   db.update(employees)
     .set({ name: requireName(update.name), shortName: update.shortName.trim(), leftOn: update.leftOn })
     .where(eq(employees.id, id)).run()
 }
 
-export function moveEmployee(db: Db, id: number, direction: 'up' | 'down'): void {
-  const ordered = loadEmployees(db)
+/** Moves the employee one place up or down within the facility's order. */
+export function moveEmployee(db: Db, facilityId: number, id: number, direction: 'up' | 'down'): void {
+  const ordered = loadEmployees(db, facilityId)
   const index = ordered.findIndex(employee => employee.id === id)
   if (index === -1) throw new ServiceError(404, 'employee_not_found')
   const target = direction === 'up' ? index - 1 : index + 1
@@ -147,37 +152,47 @@ export function moveEmployee(db: Db, id: number, direction: 'up' | 'down'): void
   })
 }
 
-export function addHours(db: Db, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate; workdays?: number }): void {
-  assertEmployee(db, employeeId)
+export function addHours(
+  db: Db, facilityId: number, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate; workdays?: number },
+): void {
+  assertEmployee(db, facilityId, employeeId)
   const workdays = requireWorkdays(period.workdays ?? MONDAY_TO_FRIDAY)
   db.insert(employeeHours).values({ employeeId, weeklyMinutes: period.weeklyMinutes, validFrom: period.validFrom, workdays })
     .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes, workdays } })
     .run()
 }
 
-export function deleteHours(db: Db, id: number): void {
-  const period = db.select().from(employeeHours).where(eq(employeeHours.id, id)).get()
+export function deleteHours(db: Db, facilityId: number, id: number): void {
+  const period = db.select({ employeeId: employeeHours.employeeId }).from(employeeHours)
+    .innerJoin(employees, eq(employeeHours.employeeId, employees.id))
+    .where(and(eq(employeeHours.id, id), eq(employees.facilityId, facilityId))).get()
   if (!period) throw new ServiceError(404, 'hours_not_found')
   const count = db.select().from(employeeHours).where(eq(employeeHours.employeeId, period.employeeId)).all().length
   if (count <= 1) throw new ServiceError(409, 'last_hours')
   db.delete(employeeHours).where(eq(employeeHours.id, id)).run()
 }
 
-export function addAdjustment(db: Db, employeeId: number, adjustment: { date: IsoDate; minutes: number; reason: string }): void {
-  assertEmployee(db, employeeId)
+export function addAdjustment(
+  db: Db, facilityId: number, employeeId: number, adjustment: { date: IsoDate; minutes: number; reason: string },
+): void {
+  assertEmployee(db, facilityId, employeeId)
   const reason = adjustment.reason.trim()
   if (!reason) throw new ServiceError(400, 'reason_required')
   db.insert(balanceAdjustments).values({ employeeId, date: adjustment.date, minutes: adjustment.minutes, reason }).run()
 }
 
-export function deleteAdjustment(db: Db, id: number): void {
-  db.delete(balanceAdjustments).where(eq(balanceAdjustments.id, id)).run()
+/** Deletes a balance booking of one of the facility's employees; other ids are ignored. */
+export function deleteAdjustment(db: Db, facilityId: number, id: number): void {
+  db.delete(balanceAdjustments).where(and(
+    eq(balanceAdjustments.id, id),
+    inArray(balanceAdjustments.employeeId, db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId))),
+  )).run()
 }
 
 export function setEntitlement(
-  db: Db, employeeId: number, year: number, value: { days: number; carriedOverDays: number },
+  db: Db, facilityId: number, employeeId: number, year: number, value: { days: number; carriedOverDays: number },
 ): void {
-  assertEmployee(db, employeeId)
+  assertEmployee(db, facilityId, employeeId)
   const existing = db.select().from(leaveEntitlements)
     .where(and(eq(leaveEntitlements.employeeId, employeeId), eq(leaveEntitlements.year, year))).get()
   if (existing) {
@@ -189,8 +204,8 @@ export function setEntitlement(
 }
 
 /** Contract data of an employee; only the Träger may change it (checked by the route). */
-export function setContract(db: Db, id: number, contract: EmployeeContractDto): void {
-  assertEmployee(db, id)
+export function setContract(db: Db, facilityId: number, id: number, contract: EmployeeContractDto): void {
+  assertEmployee(db, facilityId, id)
   const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
   if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
   const personnelNumber = contract.personnelNumber?.trim() || null
@@ -212,7 +227,9 @@ export function listLevelUps(db: Db, today: IsoDate, viewer: Role): LevelUpDto[]
 }
 
 /** Time tracking options of an employee, set by the Leitung: where to clock in and out, and how breaks count. */
-export function setStampingOptions(db: Db, id: number, options: { stampVia: StampChannel; breakMode: BreakMode }): void {
-  assertEmployee(db, id)
+export function setStampingOptions(
+  db: Db, facilityId: number, id: number, options: { stampVia: StampChannel; breakMode: BreakMode },
+): void {
+  assertEmployee(db, facilityId, id)
   db.update(employees).set(options).where(eq(employees.id, id)).run()
 }

@@ -43,7 +43,7 @@ describe('leave requests', () => {
 
   it('lets employees request leave, shows the days and the remaining leave, and withdraw open requests', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
-    setEntitlement(db, anna, 2026, { days: 30, carriedOverDays: 0 })
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     // Mo 2.11. – So 8.11.: five working days
     expect(previewLeaveRequest(db, annaUser, '2026-11-02', '2026-11-08', today)).toEqual({ workdays: 5, availableAfter: 25, overLimitDates: [] })
     const id = request(annaUser, '2026-11-02', '2026-11-08')
@@ -59,7 +59,7 @@ describe('leave requests', () => {
   it('lets planners approve into the plan, but never their own request, and asks before overwriting duties', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
     const id = request(annaUser, '2026-11-02', '2026-11-04')
-    applyToCells(db, leitung, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    applyToCells(db, leitung, 1, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     expect(errorCode(() => decideLeaveRequest(db, annaUser, id, { approve: true, note: '', overwrite: false }))).toBe('not_leave_planner')
     expect(errorCode(() => decideLeaveRequest(db, leitung, id, { approve: true, note: '', overwrite: false }))).toBe('cells_occupied')
     decideLeaveRequest(db, leitung, id, { approve: true, note: 'Gute Erholung', overwrite: true })
@@ -83,8 +83,8 @@ describe('leave requests', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
     setMaxConcurrent(db, leitung, 1)
     expect(errorCode(() => setMaxConcurrent(db, annaUser, 3))).toBe('not_leave_planner')
-    createClosure(db, provider, { startDate: '2026-12-24', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' })
-    applyToCells(db, leitung, [{ employeeId: berta, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+    createClosure(db, provider, 1, { startDate: '2026-12-24', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' })
+    applyToCells(db, leitung, 1, [{ employeeId: berta, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
     expect(previewLeaveRequest(db, annaUser, '2026-11-02', '2026-11-04', today).overLimitDates).toEqual(['2026-11-03'])
     request(annaUser, '2026-11-02', '2026-11-04')
     expect(listOpenRequests(db, leitung)[0]!.overLimitDates).toEqual(['2026-11-03'])
@@ -103,7 +103,7 @@ describe('leave requests', () => {
   it('never turns a sick day into leave when approving', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
     const id = request(annaUser, '2026-11-02', '2026-11-04')
-    applyToCells(db, leitung, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+    applyToCells(db, leitung, 1, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
     expect(decideLeaveRequest(db, leitung, id, { approve: true, note: '', overwrite: false })).toEqual({ keptAbsences: 1 })
     expect(loadEntries(db, { employeeId: anna }).map(e => [e.date, e.codeKey])).toEqual([
       ['2026-11-02', 'vacation'], ['2026-11-03', 'sick'], ['2026-11-04', 'vacation'],
@@ -113,7 +113,7 @@ describe('leave requests', () => {
   it('subtracts other open requests from the remaining leave and counts the menu badge for the chosen people only', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
     expect(previewLeaveRequest(db, annaUser, '2026-11-02', '2026-11-03', today).availableAfter).toBeNull() // no entitlement
-    setEntitlement(db, anna, 2026, { days: 10, carriedOverDays: 0 })
+    setEntitlement(db, 1, anna, 2026, { days: 10, carriedOverDays: 0 })
     request(annaUser, '2026-11-02', '2026-11-06') // 5 days
     expect(previewLeaveRequest(db, annaUser, '2026-11-09', '2026-11-10', today).availableAfter).toBe(3)
     expect(getLeaveSettings(db, provider).openCount).toBe(1) // nobody chosen: the Träger is told

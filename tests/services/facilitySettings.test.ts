@@ -75,7 +75,7 @@ describe('facility-bound settings and catalogues', () => {
     expect(errorCode(() => resolveEntry(db, 1, { kind: 'shift', templateId: other }))).toBe('template_not_found')
     expect(resolveEntry(db, facility2, { kind: 'shift', templateId: other })).toMatchObject({ shiftTemplateId: other })
     const anna = addEmployee(db, 'Anna')
-    expect(errorCode(() => applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-05' }], 'replace', { kind: 'shift', templateId: other })))
+    expect(errorCode(() => applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-05' }], 'replace', { kind: 'shift', templateId: other })))
       .toBe('template_not_found')
   })
 })

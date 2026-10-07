@@ -2,6 +2,6 @@ import { earlyClosureSchema } from '../../schemas'
 import { createEarlyClosure } from '../../services/earlyClosures'
 
 export default defineServiceHandler(async (event) => {
-  await requireAdmin(event)
-  return createEarlyClosure(useDb(), await readValidatedBody(event, earlyClosureSchema.parse))
+  const admin = await requireAdmin(event)
+  return createEarlyClosure(useDb(), admin.facilityId, await readValidatedBody(event, earlyClosureSchema.parse))
 })

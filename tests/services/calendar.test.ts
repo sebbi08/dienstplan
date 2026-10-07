@@ -23,7 +23,7 @@ describe('year calendar and sick days', () => {
     berta = addEmployee(db, 'Berta')
   })
   const enter = (employeeId: number, dates: string[], key: string) =>
-    applyToCells(db, admin, dates.map(date => ({ employeeId, date })), 'replace', { kind: 'code', codeId: codeId(db, key) })
+    applyToCells(db, admin, 1, dates.map(date => ({ employeeId, date })), 'replace', { kind: 'code', codeId: codeId(db, key) })
 
   it('groups sick days per employee into periods over weekends and counts workdays', () => {
     enter(anna, ['2026-10-08', '2026-10-09', '2026-10-12'], 'sick') // Thu, Fri, Mon
@@ -43,7 +43,7 @@ describe('year calendar and sick days', () => {
     enter(berta, ['2026-10-13'], 'school')
     enter(berta, ['2026-10-14'], 'closure_day')
     enter(berta, ['2026-10-16'], 'special_leave')
-    applyToCells(db, admin, [{ employeeId: berta, date: '2026-10-15' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+    applyToCells(db, admin, 1, [{ employeeId: berta, date: '2026-10-15' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     const calendar = getYearCalendar(db, 2026)
     expect(calendar.employees.map(e => e.name)).toEqual(['Anna', 'Berta'])
     expect(calendar.days[anna]).toEqual({ '2026-10-08': 'sick', '2026-10-09': 'vacation', '2026-10-12': 'training' })
@@ -77,10 +77,10 @@ describe('special leave', () => {
     const db = createTestDb()
     const admin = addUser(db, 'leitung', 'admin')
     const anna = addEmployee(db, 'Anna')
-    setEntitlement(db, anna, 2026, { days: 30, carriedOverDays: 0 })
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     const monthEnd = () => computeBalances(db, 1, loadEmployees(db), '2026-10-31', '2026-10-31')[0]!.monthEnd
     const before = monthEnd()
-    applyToCells(db, admin, [{ employeeId: anna, date: '2026-10-08' }], 'replace', { kind: 'code', codeId: codeId(db, 'special_leave') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-08' }], 'replace', { kind: 'code', codeId: codeId(db, 'special_leave') })
     expect(monthEnd() - before).toBe(468) // the daily target of 39 h / 5 days
     expect(getLeaveAccount(db, anna, 2026, '2026-10-01').account.available).toBe(30)
   })
@@ -93,7 +93,7 @@ describe('year calendar for employees', () => {
     const anna = addEmployee(db, 'Anna')
     const berta = addEmployee(db, 'Berta')
     const enter = (employeeId: number, date: string, key: string) =>
-      applyToCells(db, admin, [{ employeeId, date }], 'replace', { kind: 'code', codeId: codeId(db, key) })
+      applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'code', codeId: codeId(db, key) })
     enter(anna, '2026-10-08', 'sick')
     enter(anna, '2026-10-09', 'vacation')
     enter(berta, '2026-10-08', 'sick')

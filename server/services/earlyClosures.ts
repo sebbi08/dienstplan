@@ -11,11 +11,15 @@ export interface EarlyClosureInput {
   reason: string
 }
 
-function normalize(db: Db, input: EarlyClosureInput, ignoreId: number | null): EarlyClosureInput {
+/** Trimmed input; one early closure per day and facility. */
+function normalize(db: Db, facilityId: number, input: EarlyClosureInput, ignoreId: number | null): EarlyClosureInput {
   const reason = input.reason.trim()
   if (!reason) throw new ServiceError(400, 'reason_required')
   const taken = db.select().from(earlyClosures)
-    .where(and(eq(earlyClosures.date, input.date), ignoreId === null ? undefined : ne(earlyClosures.id, ignoreId))).get()
+    .where(and(
+      eq(earlyClosures.facilityId, facilityId), eq(earlyClosures.date, input.date),
+      ignoreId === null ? undefined : ne(earlyClosures.id, ignoreId),
+    )).get()
   if (taken) throw new ServiceError(409, 'early_closure_exists')
   return { ...input, reason }
 }
@@ -24,21 +28,27 @@ const dtoColumns = {
   id: earlyClosures.id, date: earlyClosures.date, closedFrom: earlyClosures.closedFrom, reason: earlyClosures.reason,
 }
 
-export function listEarlyClosures(db: Db, year: number): EarlyClosureDto[] {
+function ownClosure(facilityId: number, id: number) {
+  return and(eq(earlyClosures.id, id), eq(earlyClosures.facilityId, facilityId))
+}
+
+export function listEarlyClosures(db: Db, facilityId: number, year: number): EarlyClosureDto[] {
   return db.select(dtoColumns).from(earlyClosures)
-    .where(and(gte(earlyClosures.date, `${year}-01-01`), lte(earlyClosures.date, `${year}-12-31`)))
+    .where(and(
+      eq(earlyClosures.facilityId, facilityId), gte(earlyClosures.date, `${year}-01-01`), lte(earlyClosures.date, `${year}-12-31`),
+    ))
     .orderBy(asc(earlyClosures.date)).all()
 }
 
-export function createEarlyClosure(db: Db, input: EarlyClosureInput): EarlyClosureDto {
-  return db.insert(earlyClosures).values(normalize(db, input, null)).returning(dtoColumns).get()
+export function createEarlyClosure(db: Db, facilityId: number, input: EarlyClosureInput): EarlyClosureDto {
+  return db.insert(earlyClosures).values({ facilityId, ...normalize(db, facilityId, input, null) }).returning(dtoColumns).get()
 }
 
-export function updateEarlyClosure(db: Db, id: number, input: EarlyClosureInput): void {
-  if (!db.select().from(earlyClosures).where(eq(earlyClosures.id, id)).get()) throw new ServiceError(404, 'early_closure_not_found')
-  db.update(earlyClosures).set(normalize(db, input, id)).where(eq(earlyClosures.id, id)).run()
+export function updateEarlyClosure(db: Db, facilityId: number, id: number, input: EarlyClosureInput): void {
+  if (!db.select().from(earlyClosures).where(ownClosure(facilityId, id)).get()) throw new ServiceError(404, 'early_closure_not_found')
+  db.update(earlyClosures).set(normalize(db, facilityId, input, id)).where(ownClosure(facilityId, id)).run()
 }
 
-export function deleteEarlyClosure(db: Db, id: number): void {
-  db.delete(earlyClosures).where(eq(earlyClosures.id, id)).run()
+export function deleteEarlyClosure(db: Db, facilityId: number, id: number): void {
+  db.delete(earlyClosures).where(ownClosure(facilityId, id)).run()
 }

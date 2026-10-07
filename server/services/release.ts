@@ -4,6 +4,7 @@ import { isEmployedInRange } from '../../shared/domain/targets'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { dayNotes, monthPlans, releaseSnapshots, users } from '../db/schema'
+import { FIRST_FACILITY_ID } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { notifyDutyChanges } from './notifications'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
@@ -26,7 +27,8 @@ export function buildSnapshot(db: Db, year: number, month: number): SnapshotData
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
   const staff = loadEmployees(db).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
   const staffIds = new Set(staff.map(employee => employee.id))
-  const closures = loadClosures(db)
+  // Releases are still stored for the first facility (the column default) until they are kept per facility.
+  const closures = loadClosures(db, FIRST_FACILITY_ID)
   const notes = new Map(
     db.select().from(dayNotes).where(and(gte(dayNotes.date, monthStart), lte(dayNotes.date, monthEnd))).all()
       .map(note => [note.date, note]),

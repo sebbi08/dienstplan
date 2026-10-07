@@ -9,6 +9,7 @@ import type {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, appSettings, entries, leaveEntitlements, leavePlanners, leaveRequests, users } from '../db/schema'
+import { FIRST_FACILITY_ID } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { getYearCalendar } from './calendar'
 import { applyToCells } from './entries'
@@ -159,7 +160,7 @@ function validateRange(db: Db, employeeId: number, from: IsoDate, to: IsoDate, t
   const staff = loadEmployees(db)
   const employee = staff.find(candidate => candidate.id === employeeId)
   if (!employee) throw new ServiceError(403, 'no_employee')
-  const closures = loadClosures(db)
+  const closures = loadClosures(db, employee.facilityId)
   const days = requestDays(employee, from, to, closures)
   if (days.length === 0) throw new ServiceError(400, 'no_leave_days')
   return { staff, employee, closures, days }
@@ -213,7 +214,7 @@ export function listMyLeaveRequests(db: Db, user: SessionUser): LeaveRequestDto[
   requireEnabled(db)
   const employeeId = requireEmployee(user)
   const staff = loadEmployees(db)
-  const closures = loadClosures(db)
+  const closures = loadClosures(db, staff.find(employee => employee.id === employeeId)?.facilityId ?? FIRST_FACILITY_ID)
   const limit = maxConcurrent(db)
   const names = userNames(db)
   return db.select().from(leaveRequests).where(eq(leaveRequests.employeeId, employeeId))
@@ -236,7 +237,8 @@ export function withdrawLeaveRequest(db: Db, user: SessionUser, id: number, now:
 /** Open requests a planner may decide (not their own), oldest first. */
 export function listOpenRequests(db: Db, user: SessionUser): LeaveRequestDto[] {
   const staff = loadEmployees(db)
-  const closures = loadClosures(db)
+  // Planners work in a facility; the load is kept per facility later on.
+  const closures = loadClosures(db, user.facilityId ?? FIRST_FACILITY_ID)
   const limit = maxConcurrent(db)
   const names = userNames(db)
   return db.select().from(leaveRequests)
@@ -264,7 +266,7 @@ export function decideLeaveRequest(
   }
   const employee = loadEmployees(db).find(candidate => candidate.id === request.employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  const requested = requestDays(employee, request.startDate, request.endDate, loadClosures(db))
+  const requested = requestDays(employee, request.startDate, request.endDate, loadClosures(db, employee.facilityId))
   const dayEntries = loadEntries(db, { employeeId: employee.id, from: request.startDate, to: request.endDate })
     .filter(entry => requested.includes(entry.date))
   // Days with another full-day absence (Krank, Fortbildung, Sonderurlaub …) stay as they are: e.g. a sick day must
@@ -281,7 +283,8 @@ export function decideLeaveRequest(
   if (!vacation) throw new ServiceError(500, 'code_not_found')
   db.transaction((tx) => {
     if (days.length) {
-      applyToCells(tx, user, days.map(date => ({ employeeId: employee.id, date })), 'replace', { kind: 'code', codeId: vacation.id }, { now })
+      const cells = days.map(date => ({ employeeId: employee.id, date }))
+      applyToCells(tx, user, employee.facilityId, cells, 'replace', { kind: 'code', codeId: vacation.id }, { now })
     }
     tx.update(leaveRequests).set({ status: 'approved', ...decided }).where(eq(leaveRequests.id, id)).run()
   })
@@ -295,7 +298,7 @@ export function getLeavePlanning(db: Db, user: SessionUser, year: number): Leave
   requirePlanner(db, user)
   const calendar = getYearCalendar(db, year)
   const staff = loadEmployees(db)
-  const closures = loadClosures(db)
+  const closures = loadClosures(db, user.facilityId ?? FIRST_FACILITY_ID)
   const from = `${year}-01-01`
   const to = `${year}-12-31`
   const days = loadInRange(db, from, to, staff, closures)

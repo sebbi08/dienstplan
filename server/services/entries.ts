@@ -61,19 +61,20 @@ export function describeCellAt(db: Db, cell: CellRef): string {
   return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
 }
 
+/** Ids of the employees whose home facility is facilityId. */
+function facilityEmployeeIds(db: Db, facilityId: number): Set<number> {
+  return new Set(db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId)).all()
+    .map(row => row.id))
+}
+
+/** Writes into plan cells of the facility; every cell's employee must belong to it, otherwise nothing is written. */
 export function applyToCells(
-  db: Db, actor: SessionUser, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
+  db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
   options: { now?: Date; closureId?: number | null } = {},
 ): void {
   if (mode !== 'clear' && !input) throw new ServiceError(400, 'entry_required')
-  const employeeFacilities = new Map(db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).all()
-    .map(row => [row.id, row.facilityId]))
-  // The cells' employees decide which facility's services may be entered (Task 3 scopes the cells themselves).
-  const facilityId = employeeFacilities.get(cells[0]?.employeeId ?? -1)
-  if (facilityId === undefined) {
-    if (cells.length > 0) throw new ServiceError(400, 'employee_not_found')
-    return
-  }
+  const own = facilityEmployeeIds(db, facilityId)
+  if (cells.some(cell => !own.has(cell.employeeId))) throw new ServiceError(400, 'employee_not_found')
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
   const now = (options.now ?? new Date()).toISOString()
@@ -84,7 +85,6 @@ export function applyToCells(
 
   db.transaction((tx) => {
     for (const cell of unique) {
-      if (!employeeFacilities.has(cell.employeeId)) throw new ServiceError(400, 'employee_not_found')
       if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
       const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
       const before = describeCellAt(tx, cell)
@@ -115,22 +115,29 @@ export function applyToCells(
         }).run()
       }
       logChange(tx, {
-        date: cell.date, employeeId: cell.employeeId, field: 'entry',
+        facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
         before, after: describeCellAt(tx, cell), actorId: actor.id, now,
       })
     }
   })
 }
 
-export function deleteEntry(db: Db, actor: SessionUser, id: number, now: Date = new Date()): void {
-  const entry = db.select().from(entries).where(eq(entries.id, id)).get()
-  if (!entry) throw new ServiceError(404, 'entry_not_found')
+/** An entry of one of the facility's employees; 404 entry_not_found for any other id. */
+function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries.$inferSelect {
+  const row = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
+    .where(and(eq(entries.id, id), eq(employees.facilityId, facilityId))).get()
+  if (!row) throw new ServiceError(404, 'entry_not_found')
+  return row.entry
+}
+
+export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {
+  const entry = requireOwnEntry(db, facilityId, id)
   const cell = { employeeId: entry.employeeId, date: entry.date }
   db.transaction((tx) => {
     const before = describeCellAt(tx, cell)
     tx.delete(entries).where(eq(entries.id, id)).run()
     logChange(tx, {
-      ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: now.toISOString(),
+      facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: now.toISOString(),
     })
   })
 }
@@ -165,9 +172,10 @@ export function dayConflict(day: DomainEntry[], changed: DomainEntry): string | 
  * Changes the times of one timed entry (clicked in the plan). A fixed shift whose start or end changes
  * becomes a special shift; a fixed shift with only a changed break stays a fixed shift.
  */
-export function updateEntryTimes(db: Db, actor: SessionUser, id: number, change: EntryTimesChange, now: Date = new Date()): void {
-  const entry = db.select().from(entries).where(eq(entries.id, id)).get()
-  if (!entry) throw new ServiceError(404, 'entry_not_found')
+export function updateEntryTimes(
+  db: Db, actor: SessionUser, facilityId: number, id: number, change: EntryTimesChange, now: Date = new Date(),
+): void {
+  const entry = requireOwnEntry(db, facilityId, id)
   if (entry.start === null || entry.end === null) throw new ServiceError(400, 'not_a_timed_entry')
   const isBreak = entry.kind === 'break'
   const span = { ...change, breakStart: isBreak ? null : change.breakStart, breakEnd: isBreak ? null : change.breakEnd }
@@ -188,41 +196,45 @@ export function updateEntryTimes(db: Db, actor: SessionUser, id: number, change:
       updatedAt: now.toISOString(), updatedBy: actor.id,
     }).where(eq(entries.id, id)).run()
     logChange(tx, {
-      ...cell, field: 'entry', before: describeCellDetailed(dayEntries), after: describeCellAt(tx, cell),
+      facilityId, ...cell, field: 'entry', before: describeCellDetailed(dayEntries), after: describeCellAt(tx, cell),
       actorId: actor.id, now: now.toISOString(),
     })
   })
 }
 
+/** Sets one of the two info lines of a day in the facility's plan. */
 export function setDayNote(
-  db: Db, actor: SessionUser, date: IsoDate, field: NoteField, value: string, now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, date: IsoDate, field: NoteField, value: string, now: Date = new Date(),
 ): void {
   if (!isValidIsoDate(date)) throw new ServiceError(400, 'invalid_date')
   const text = value.trim()
   const values = field === 'info1' ? { info1: text } : { info2: text }
   db.transaction((tx) => {
-    const existing = tx.select().from(dayNotes).where(eq(dayNotes.date, date)).get()
+    const existing = tx.select().from(dayNotes).where(and(eq(dayNotes.facilityId, facilityId), eq(dayNotes.date, date))).get()
     const before = existing?.[field] ?? ''
-    tx.insert(dayNotes).values({ date, ...values })
+    tx.insert(dayNotes).values({ facilityId, date, ...values })
       .onConflictDoUpdate({ target: [dayNotes.facilityId, dayNotes.date], set: values }).run()
-    logChange(tx, { date, employeeId: null, field, before, after: text, actorId: actor.id, now: now.toISOString() })
+    logChange(tx, { facilityId, date, employeeId: null, field, before, after: text, actorId: actor.id, now: now.toISOString() })
   })
 }
 
 /**
- * After a service (Dienst) got new times: its fixed shifts from `from` on that still have the old times get the new ones.
+ * After a service (Dienst) of the facility got new times: its fixed shifts (of the facility's employees) from `from` on
+ * that still have the old times get the new ones.
  * Earlier days and individually changed shifts stay as they are; a cell where the new times would clash with other
  * entries (e.g. VZ inside the shift or an extra break) is left alone and counted as skipped.
  */
 export function adoptShiftTimes(
-  db: Db, actor: SessionUser, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan, from: IsoDate,
-  now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan,
+  from: IsoDate, now: Date = new Date(),
 ): { updated: number; skipped: number } {
   const result = { updated: 0, skipped: 0 }
   const timestamp = now.toISOString()
-  const outdated = db.select().from(entries).where(and(
-    eq(entries.shiftTemplateId, shiftTemplateId), eq(entries.kind, 'shift'), gte(entries.date, from),
-  )).all().filter(entry => entry.start === oldTimes.start && entry.end === oldTimes.end
+  const outdated = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
+    .where(and(
+      eq(entries.shiftTemplateId, shiftTemplateId), eq(entries.kind, 'shift'), gte(entries.date, from),
+      eq(employees.facilityId, facilityId),
+    )).all().map(row => row.entry).filter(entry => entry.start === oldTimes.start && entry.end === oldTimes.end
     && entry.breakStart === oldTimes.breakStart && entry.breakEnd === oldTimes.breakEnd)
   db.transaction((tx) => {
     for (const entry of outdated) {
@@ -236,7 +248,7 @@ export function adoptShiftTimes(
       }
       tx.update(entries).set({ ...newTimes, updatedAt: timestamp, updatedBy: actor.id }).where(eq(entries.id, entry.id)).run()
       logChange(tx, {
-        ...cell, field: 'entry', before: describeCellDetailed(day), after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
+        facilityId, ...cell, field: 'entry', before: describeCellDetailed(day), after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
       })
       result.updated += 1
     }

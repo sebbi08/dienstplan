@@ -5,6 +5,6 @@ export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { date } = await getValidatedRouterParams(event, dateParams.parse)
   const body = await readValidatedBody(event, dayNoteSchema.parse)
-  setDayNote(useDb(), admin, date, body.field, body.value)
+  setDayNote(useDb(), admin, admin.facilityId, date, body.field, body.value)
   return { ok: true }
 })

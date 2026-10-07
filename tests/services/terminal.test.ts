@@ -59,7 +59,7 @@ describe('terminal and stamping options', () => {
     const anna = addEmployee(db, 'Anna')
     setTimeTrackingFrom(db, 1, '2026-10-01')
     setPin(db, anna, '1234')
-    setStampingOptions(db, anna, { stampVia: 'tablet', breakMode: 'stamp' })
+    setStampingOptions(db, 1, anna, { stampVia: 'tablet', breakMode: 'stamp' })
     expect(terminalStatus(db, at('2026-10-06T06:00:00Z'))).toEqual([{ employeeId: anna, name: 'Anna', clockedIn: false }])
     expect(terminalStamp(db, anna, '1234', 'in', at('2026-10-06T06:00:00Z'))).toMatchObject({ source: 'terminal' })
   })

@@ -9,7 +9,7 @@ import { absenceCodes, closures, entries, leaveEntitlements } from '../db/schema
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { applyToCells, describeCellAt } from './entries'
-import { loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
+import { closureColumns, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
   startDate: IsoDate
@@ -18,8 +18,8 @@ export interface ClosureInput {
   mode: ClosureMode
 }
 
-export function listClosures(db: Db): ClosureDto[] {
-  return loadClosures(db)
+export function listClosures(db: Db, facilityId: number): ClosureDto[] {
+  return loadClosures(db, facilityId)
 }
 
 function codeId(db: Db, key: 'vacation' | 'closure_day'): number {
@@ -62,8 +62,13 @@ function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacat
   return { vacation, closureDays }
 }
 
-/** Books a closure for the given staff, only on each one's working days (a closure never uses leave on a day off). */
-function bookClosure(db: Db, actor: SessionUser, closure: ClosureDto, staff: EmployeeRecord[], now: Date): void {
+/**
+ * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
+ * (a closure never uses leave on a day off).
+ */
+function bookClosure(
+  db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
+): void {
   const vacationCells: { employeeId: number; date: IsoDate }[] = []
   const closureCells: { employeeId: number; date: IsoDate }[] = []
   for (const employee of staff) {
@@ -73,11 +78,14 @@ function bookClosure(db: Db, actor: SessionUser, closure: ClosureDto, staff: Emp
     closureCells.push(...split.closureDays.map(date => ({ employeeId: employee.id, date })))
   }
   const options = { now, closureId: closure.id }
-  if (vacationCells.length) applyToCells(db, actor, vacationCells, 'replace', { kind: 'code', codeId: codeId(db, 'vacation') }, options)
-  if (closureCells.length) applyToCells(db, actor, closureCells, 'replace', { kind: 'code', codeId: codeId(db, 'closure_day') }, options)
+  if (vacationCells.length) applyToCells(db, actor, facilityId, vacationCells, 'replace', { kind: 'code', codeId: codeId(db, 'vacation') }, options)
+  if (closureCells.length) applyToCells(db, actor, facilityId, closureCells, 'replace', { kind: 'code', codeId: codeId(db, 'closure_day') }, options)
 }
 
-export function createClosure(db: Db, actor: SessionUser, input: ClosureInput, now: Date = new Date()): ClosureDto {
+/** Creates a closure of the facility and books it for the facility's staff. */
+export function createClosure(
+  db: Db, actor: SessionUser, facilityId: number, input: ClosureInput, now: Date = new Date(),
+): ClosureDto {
   const label = input.label.trim()
   if (!label) throw new ServiceError(400, 'label_required')
   const length = daysBetween(input.startDate, input.endDate)
@@ -85,28 +93,32 @@ export function createClosure(db: Db, actor: SessionUser, input: ClosureInput, n
 
   return db.transaction((tx) => {
     const closure = tx.insert(closures)
-      .values({ startDate: input.startDate, endDate: input.endDate, label, mode: input.mode })
-      .returning().get()
-    bookClosure(tx, actor, closure, loadEmployees(tx), now)
+      .values({ facilityId, startDate: input.startDate, endDate: input.endDate, label, mode: input.mode })
+      .returning(closureColumns).get()
+    bookClosure(tx, actor, facilityId, closure, loadEmployees(tx, facilityId), now)
     return closure
   })
 }
 
-/** Books all existing closures for one (new) employee, so closures apply to everyone regardless of when they joined. */
+/**
+ * Books all existing closures of the employee's facility for one (new) employee, so closures apply to everyone
+ * regardless of when they joined.
+ */
 export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, now: Date = new Date()): void {
   const employee = loadEmployees(db).find(candidate => candidate.id === employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  for (const closure of loadClosures(db)) bookClosure(db, actor, closure, [employee], now)
+  for (const closure of loadClosures(db, employee.facilityId)) bookClosure(db, actor, employee.facilityId, closure, [employee], now)
 }
 
-export function deleteClosure(db: Db, actor: SessionUser, id: number, now: Date = new Date()): void {
-  if (!db.select().from(closures).where(eq(closures.id, id)).get()) throw new ServiceError(404, 'closure_not_found')
+export function deleteClosure(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {
+  const own = db.select({ id: closures.id }).from(closures).where(and(eq(closures.id, id), eq(closures.facilityId, facilityId))).get()
+  if (!own) throw new ServiceError(404, 'closure_not_found')
   db.transaction((tx) => {
     const cells = loadEntries(tx, { closureId: id }).map(entry => ({ employeeId: entry.employeeId, date: entry.date }))
     const before = cells.map(cell => describeCellAt(tx, cell))
     tx.delete(entries).where(eq(entries.closureId, id)).run()
     cells.forEach((cell, index) => logChange(tx, {
-      ...cell, field: 'entry', before: before[index]!, after: describeCellAt(tx, cell),
+      facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(tx, cell),
       actorId: actor.id, now: now.toISOString(),
     }))
     tx.delete(closures).where(eq(closures.id, id)).run()

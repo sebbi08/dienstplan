@@ -5,5 +5,5 @@ import { getEmployee } from '../../services/employees'
 export default defineServiceHandler(async (event) => {
   const viewer = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  return getEmployee(useDb(), id, todayIso(), viewer.role)
+  return getEmployee(useDb(), viewer.facilityId, id, todayIso(), viewer.role)
 })

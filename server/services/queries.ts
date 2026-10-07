@@ -13,6 +13,8 @@ export interface EntryFilter {
   employeeId?: number
   closureId?: number
   codeKey?: CodeKey
+  /** Only entries of employees whose home facility this is. */
+  facilityId?: number
 }
 
 export interface EmployeeRecord {
@@ -38,6 +40,7 @@ export interface EmployeeRecord {
 export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
   const rows = db.select({ entry: entries, code: absenceCodes, template: shiftTemplates })
     .from(entries)
+    .innerJoin(employees, eq(entries.employeeId, employees.id))
     .leftJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
     .leftJoin(shiftTemplates, eq(entries.shiftTemplateId, shiftTemplates.id))
     .where(and(
@@ -46,6 +49,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
       filter.employeeId !== undefined ? eq(entries.employeeId, filter.employeeId) : undefined,
       filter.closureId !== undefined ? eq(entries.closureId, filter.closureId) : undefined,
       filter.codeKey ? eq(absenceCodes.key, filter.codeKey) : undefined,
+      filter.facilityId !== undefined ? eq(employees.facilityId, filter.facilityId) : undefined,
     ))
     .orderBy(asc(entries.date), asc(entries.start), asc(entries.id))
     .all()
@@ -83,9 +87,12 @@ export function groupByEmployee(list: EntryDto[]): Map<number, EntryDto[]> {
   return map
 }
 
-export function loadEmployees(db: Db): EmployeeRecord[] {
+/** All employees, or only those whose home facility is facilityId. */
+export function loadEmployees(db: Db, facilityId?: number): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
-  return db.select().from(employees).orderBy(asc(employees.sortOrder), asc(employees.name)).all()
+  return db.select().from(employees)
+    .where(facilityId === undefined ? undefined : eq(employees.facilityId, facilityId))
+    .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
     .map(row => ({
       ...row,
       info: {
@@ -95,8 +102,13 @@ export function loadEmployees(db: Db): EmployeeRecord[] {
     }))
 }
 
-export function loadClosures(db: Db): ClosureDto[] {
-  return db.select().from(closures).orderBy(asc(closures.startDate)).all()
+export const closureColumns = {
+  id: closures.id, startDate: closures.startDate, endDate: closures.endDate, label: closures.label, mode: closures.mode,
+}
+
+export function loadClosures(db: Db, facilityId: number): ClosureDto[] {
+  return db.select(closureColumns).from(closures).where(eq(closures.facilityId, facilityId))
+    .orderBy(asc(closures.startDate)).all()
 }
 
 export function closureOn(list: ClosureDto[], date: IsoDate): ClosureDto | null {
