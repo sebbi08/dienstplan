@@ -209,6 +209,8 @@ export const calendarEvents = sqliteTable('calendar_events', {
   start: integer('start'),
   end: integer('end'),
   title: text('title').notNull(),
+  /** Shown to the employees in their year calendar (the Leitung decides per appointment). */
+  visibleToStaff: integer('visible_to_staff', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('calendar_events_date').on(table.date)])
 
 /** Saved plan weeks (Mo–Fr for all employees) that the admin can insert into any week of the plan. */

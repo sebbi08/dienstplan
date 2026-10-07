@@ -49,7 +49,7 @@ const links = computed(() => {
       { label: de.nav.settings, to: '/admin/settings' },
     ]
   }
-  return [myPlan, plan, myLeave]
+  return [myPlan, plan, myLeave, { label: de.nav.calendar, to: '/my/calendar' }]
 })
 
 async function logout() {

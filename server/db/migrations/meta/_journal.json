@@ -127,6 +127,13 @@
       "when": 1791366065343,
       "tag": "0017_leave_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791373765849,
+      "tag": "0018_event_visibility",
+      "breakpoints": true
     }
   ]
 }

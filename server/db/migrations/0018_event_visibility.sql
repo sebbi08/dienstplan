@@ -1,0 +1,1 @@
+ALTER TABLE `calendar_events` ADD `visible_to_staff` integer DEFAULT false NOT NULL;

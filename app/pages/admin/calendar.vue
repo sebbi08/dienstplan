@@ -80,7 +80,7 @@ function openEvent(event: CalendarEventDto) {
   Object.assign(eventDialog, { open: true, event, date: event.date })
 }
 
-async function saveEvent(value: { date: string; start: number | null; end: number | null; title: string }) {
+async function saveEvent(value: { date: string; start: number | null; end: number | null; title: string; visibleToStaff: boolean }) {
   const event = eventDialog.event
   const ok = await run(() => event
     ? $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'PUT', body: value })
@@ -126,7 +126,7 @@ async function removeEvent(event: CalendarEventDto) {
         <thead class="bg-gray-100 text-left text-xs text-gray-600">
           <tr>
             <th class="px-3 py-2">{{ de.calendar.date }}</th><th class="px-3 py-2">{{ de.calendar.time }}</th>
-            <th class="px-3 py-2">{{ de.calendar.title2 }}</th><th />
+            <th class="px-3 py-2">{{ de.calendar.title2 }}</th><th class="px-3 py-2">{{ de.calendar.staffColumn }}</th><th />
           </tr>
         </thead>
         <tbody>
@@ -134,6 +134,7 @@ async function removeEvent(event: CalendarEventDto) {
             <td class="whitespace-nowrap px-3 py-2">{{ formatDate(event.date) }}</td>
             <td class="whitespace-nowrap px-3 py-2">{{ eventTime(event) }}</td>
             <td class="px-3 py-2">{{ event.title }}</td>
+            <td class="px-3 py-2">{{ event.visibleToStaff ? de.calendar.visibleYes : '–' }}</td>
             <td class="whitespace-nowrap px-3 py-2 text-right">
               <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />

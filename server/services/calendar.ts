@@ -24,6 +24,7 @@ export interface CalendarEventInput {
   start: Minutes | null
   end: Minutes | null
   title: string
+  visibleToStaff: boolean
 }
 
 const yearBounds = (year: number) => ({ from: `${year}-01-01`, to: `${year}-12-31` })
@@ -45,11 +46,23 @@ export function getSickYear(db: Db, year: number): SickYearRowDto[] {
   })
 }
 
-export function getYearCalendar(db: Db, year: number): YearCalendarDto {
+/**
+ * The year calendar as employees see it (read-only): everyone's leave, special leave, training and school, closures
+ * and holidays, but sick days only of the viewer themselves (health data), and only appointments shared with staff.
+ */
+export function getStaffYearCalendar(db: Db, year: number, viewerEmployeeId: number | null): YearCalendarDto {
+  const calendar = getYearCalendar(db, year, { sickOnlyOf: viewerEmployeeId })
+  return { ...calendar, otherEntries: {}, absenceCodes: [], events: calendar.events.filter(event => event.visibleToStaff) }
+}
+
+/** With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered). */
+export function getYearCalendar(db: Db, year: number, options: { sickOnlyOf?: number | null } = {}): YearCalendarDto {
   const staff = staffOfYear(db, year)
   const days: Record<number, Record<IsoDate, CalendarKind>> = Object.fromEntries(staff.map(employee => [employee.id, {}]))
   const otherSets = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
+  const hideSick = 'sickOnlyOf' in options
   for (const entry of loadEntries(db, yearBounds(year))) {
+    if (hideSick && entry.codeKey === 'sick' && entry.employeeId !== options.sickOnlyOf) continue
     // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
     if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)
     const kind = entry.codeKey ? KIND_OF_CODE[entry.codeKey] : undefined

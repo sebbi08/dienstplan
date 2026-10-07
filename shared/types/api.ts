@@ -382,6 +382,7 @@ export interface CalendarEventDto {
   start: Minutes | null
   end: Minutes | null
   title: string
+  visibleToStaff: boolean
 }
 
 export interface YearCalendarDto {
