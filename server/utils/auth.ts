@@ -1,7 +1,9 @@
 import type { H3Event } from 'h3'
+import { PAGE_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { isManager } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
+import { assertPageFacility } from '../lib/pageFacility'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
 
 export { USER_SESSION_DAYS }
@@ -17,9 +19,15 @@ function hasFacility(user: SessionUser): user is FacilityUser {
   return user.facilityId !== null
 }
 
-/** The facility the user works in; 403 `no_facility` without one. */
-export function requireFacility(user: SessionUser): number {
+/** A Träger's page loaded for another facility than the active one gets 409 `facility_changed` (see pageFacility.ts). */
+function checkPageFacility(event: H3Event, user: SessionUser): void {
+  assertPageFacility(user, getHeader(event, PAGE_FACILITY_HEADER))
+}
+
+/** The facility the user works in; 403 `no_facility` without one, 409 `facility_changed` from a stale Träger page. */
+export function requireFacility(event: H3Event, user: SessionUser): number {
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
+  checkPageFacility(event, user)
   return user.facilityId
 }
 
@@ -53,6 +61,7 @@ export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
   const user = await requireUser(event)
   if (!isManager(user.role)) throw httpError(403, 'forbidden')
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
+  checkPageFacility(event, user)
   return user
 }
 

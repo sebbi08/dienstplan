@@ -326,7 +326,9 @@ export const de = {
     hint: 'Neue Einrichtungen übernehmen die Dienste und Pflichtdienste der ersten Einrichtung; alles andere beginnt leer.',
     createdIn: (name: string) => `Neue Leitungs- und Tablet-Konten werden in „${name}“ angelegt.`,
     move: 'In andere Einrichtung verschieben',
-    moveConfirm: (name: string) => `Mitarbeiter in „${name}“ verschieben? Stunden, Urlaub und Dienste bleiben erhalten.`,
+    moveConfirm: (name: string) => `Mitarbeiter in „${name}“ verschieben? Alle bisherigen und geplanten Dienste, die Stunden `
+      + `und der Urlaub gehen mit. Sie erscheinen ab dann in den Plänen von „${name}“ und nicht mehr in denen der bisherigen `
+      + `Einrichtung. Ab heute gelten die Schließtage von „${name}“ statt der bisherigen.`,
     moveAction: 'Verschieben',
     switched: 'Einrichtung gewechselt',
   },
@@ -413,6 +415,7 @@ export const de = {
     early_closure_not_found: 'Dieser Eintrag existiert nicht mehr.',
     terminal_no_employee: 'Ein Stempel-Tablet wird mit keinem Mitarbeiter verknüpft.',
     no_facility: 'Diesem Konto ist keine Einrichtung zugeordnet.',
+    facility_changed: 'Die Einrichtung wurde in einem anderen Fenster gewechselt. Die Seite wird neu geladen.',
     facility_not_found: 'Diese Einrichtung existiert nicht mehr.',
     facility_name_required: 'Bitte einen Namen für die Einrichtung angeben.',
     facility_name_taken: 'Es gibt schon eine Einrichtung mit diesem Namen.',
