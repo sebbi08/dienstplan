@@ -44,6 +44,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Einrichtungen anlegen, umbenennen, zwischen ihnen wechseln, Mitarbeiter verschieben', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Datenbank herunterladen (Datensicherung)', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Eigenes Passwort ändern', rights: ['yes', 'yes', 'yes', 'no'] },
   ] },

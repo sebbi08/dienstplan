@@ -218,6 +218,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 
     <SettingsLeaveModuleSection v-if="isProvider" />
 
+    <SettingsFacilitiesSection v-if="isProvider" />
+
     <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.settings.codes }}</h2>
       <table class="w-full text-sm">

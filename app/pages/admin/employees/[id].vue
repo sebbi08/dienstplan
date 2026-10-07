@@ -53,6 +53,22 @@ function saveMaster() {
   }), de.common.saved)
 }
 
+// Träger only: move the person to another facility (the employee is then no longer part of the active one).
+const { data: facilities } = useFacilities()
+const runMove = useAction()
+const targetFacilityId = ref<number | undefined>(undefined)
+const otherFacilities = computed(() => (facilities.value?.facilities ?? [])
+  .filter(facility => facility.id !== facilities.value?.activeId)
+  .map(facility => ({ label: facility.name, value: facility.id })))
+async function moveFacility() {
+  const target = otherFacilities.value.find(item => item.value === targetFacilityId.value)
+  if (!target || !await confirm(de.facilities.moveConfirm(target.label), { confirmLabel: de.facilities.moveAction, danger: false })) return
+  // No `run`: it would refresh this employee, who is no longer part of the active facility.
+  if (await runMove(() => $fetch<unknown>(`/api/employees/${id}/facility`, { method: 'PUT', body: { facilityId: target.value } }), de.common.saved)) {
+    await navigateTo('/admin/employees')
+  }
+}
+
 function addHours() {
   run(() => $fetch<unknown>(`/api/employees/${id}/hours`, {
     method: 'POST', body: { weeklyMinutes: hoursToMinutes(hoursForm.weeklyHours), validFrom: hoursForm.validFrom, workdays: hoursForm.workdays },
@@ -102,6 +118,14 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <UFormField :label="de.employees.shortName"><UInput v-model="master.shortName" maxlength="10" class="w-full" /></UFormField>
       <UFormField :label="de.employees.leftOn"><UInput v-model="master.leftOn" type="date" class="w-full" /></UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
+    </form>
+
+    <form v-if="isProvider && otherFacilities.length" class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="moveFacility">
+      <h2 class="w-full font-semibold">{{ de.facilities.move }}</h2>
+      <UFormField :label="de.facilities.active">
+        <USelect v-model="targetFacilityId" :items="otherFacilities" class="w-56" />
+      </UFormField>
+      <UButton type="submit" :disabled="targetFacilityId === undefined" :label="de.facilities.moveAction" />
     </form>
 
     <EmployeesContractSection

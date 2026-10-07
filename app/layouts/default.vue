@@ -3,6 +3,7 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { isManager } from '#shared/domain/roles'
 import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { errorMessage } from '~/utils/errors'
 
 const { user, loggedIn, clear } = useUserSession()
 const today = parseIsoDate(todayIso())
@@ -16,10 +17,29 @@ const signedIn = computed(() => !!user.value && user.value.role !== 'terminal')
 const { data: leave, refresh: refreshLeave } = useFetch<LeaveSettingsDto>('/api/leave-settings', {
   key: 'leave-settings', immediate: signedIn.value, watch: false,
 })
+// Facility switcher: the Träger picks the facility they work in, the Leitung only sees theirs.
+const { data: facilities, refresh: refreshFacilities, activeName } = useFacilities()
+const isProvider = computed(() => user.value?.role === 'provider')
+const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
+const toast = useToast()
+async function switchFacility(facilityId: number) {
+  if (facilityId === facilities.value?.activeId) return
+  try {
+    await $fetch<unknown>('/api/facilities/active', { method: 'PUT', body: { facilityId } })
+  }
+  catch (error) {
+    toast.add({ title: errorMessage(error), color: 'error' })
+    return
+  }
+  // Every page shows data of the active facility, so start over with fresh data.
+  await reloadNuxtApp({ ttl: 0 })
+}
+
 const route = useRoute()
 watch(() => route.fullPath, () => {
   if (notifications.enabled.value) notifications.refresh()
   if (signedIn.value) refreshLeave()
+  if (isManager(user.value?.role)) refreshFacilities()
 })
 
 const links = computed(() => {
@@ -66,6 +86,11 @@ async function logout() {
     >
       <div class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">
         <NuxtLink to="/" class="font-semibold">{{ de.appName }}</NuxtLink>
+        <USelect
+          v-if="isProvider && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"
+          size="sm" class="w-48" :aria-label="de.facilities.active" @update:model-value="switchFacility(Number($event))"
+        />
+        <span v-else-if="activeName" class="rounded bg-gray-100 px-2 py-0.5 text-sm text-gray-700" :title="de.facilities.active">{{ activeName }}</span>
         <nav class="flex flex-wrap gap-1">
           <NuxtLink
             v-for="link in links" :key="link.to" :to="link.to"
