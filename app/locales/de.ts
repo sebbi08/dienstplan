@@ -36,6 +36,7 @@ export const de = {
     module: 'Urlaubsanträge', moduleEnabled: 'Urlaubsanträge aktiv',
     moduleHint: 'Ist das Modul aktiv, können Mitarbeiter (und Leitungskräfte mit eigenem Mitarbeiter-Eintrag) unter „Mein Urlaub“ Urlaub beantragen. Die Zuständigen entscheiden auf der Seite „Urlaubsplanung“. Der Träger darf immer entscheiden.',
     planners: 'Zuständig für die Urlaubsplanung',
+    noLeitung: 'Es gibt noch kein Konto mit der Rolle Leitung. Lege es unter „Benutzer“ an (Rolle „Leitung“), dann erscheint es hier zum Ankreuzen.',
     overLimitLegend: 'mehr im Urlaub als erlaubt',
   },
   leaveRequests: {

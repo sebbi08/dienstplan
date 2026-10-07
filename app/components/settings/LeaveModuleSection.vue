@@ -35,6 +35,7 @@ function save() {
         {{ user.username }} <span class="text-gray-500">({{ de.users.roles[user.role] }})</span>
       </label>
     </div>
+    <p v-if="!candidates.some(user => user.role === 'admin')" class="text-sm text-amber-700">{{ de.leavePlanning.noLeitung }}</p>
     <p class="text-xs text-gray-500">{{ de.leavePlanning.moduleHint }}</p>
     <UButton type="submit" :label="de.common.save" />
   </form>
