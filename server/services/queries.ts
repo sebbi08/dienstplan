@@ -141,3 +141,18 @@ export function loadCoverageRules(db: Db, facilityId: number, activeOnly = true)
     .where(and(eq(coverageRules.facilityId, facilityId), activeOnly ? eq(coverageRules.active, true) : undefined))
     .orderBy(asc(coverageRules.start)).all()
 }
+
+/**
+ * Which plan cells are the facility's own when its draft is compared with (or reset to) a release: those of its current
+ * staff, from the day each one moved in. Cells of people who moved away, and cells from before someone moved in
+ * (planned by the other facility), are left alone.
+ */
+export function ownCellFilter(db: Db, facilityId: number): (employeeId: number, date: IsoDate) => boolean {
+  const since = new Map(db.select({ id: employees.id, since: employees.facilitySince }).from(employees)
+    .where(eq(employees.facilityId, facilityId)).all().map(row => [row.id, row.since]))
+  return (employeeId, date) => {
+    if (!since.has(employeeId)) return false
+    const from = since.get(employeeId)
+    return from == null || date >= from
+  }
+}

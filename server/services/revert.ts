@@ -4,10 +4,11 @@ import { isValidIsoDate, parseIsoDate } from '../../shared/domain/dates'
 import type { IsoDate } from '../../shared/domain/types'
 import type { NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, entries, shiftTemplates } from '../db/schema'
+import { entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { describeCellAt, setDayNote } from './entries'
+import { ownCellFilter } from './queries'
 import { loadReleases } from './release'
 
 type RevertTarget = { type: 'cell'; employeeId: number; date: IsoDate } | { type: 'note'; field: NoteField; date: IsoDate }
@@ -24,8 +25,9 @@ function parseKey(key: string, year: number, month: number): RevertTarget {
 }
 
 /**
- * Resets the given cells / info fields (cellKey or noteKey) of a facility's month to its newest release; cells of
- * employees outside the facility are refused. Returns the number of reverted keys.
+ * Resets the given cells / info fields (cellKey or noteKey) of a facility's month to its newest release. Cells that are
+ * not the facility's own (other facilities' staff, someone who moved away, days before someone moved in) are skipped
+ * and stay as they are. Returns the number of reverted keys.
  */
 export function revertToRelease(
   db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
@@ -35,18 +37,21 @@ export function revertToRelease(
   const targets = [...new Set(keys)].map(key => parseKey(key, year, month))
   const templateIds = new Set(db.select({ id: shiftTemplates.id }).from(shiftTemplates)
     .where(eq(shiftTemplates.facilityId, facilityId)).all().map(row => row.id))
-  const staffIds = new Set(db.select({ id: employees.id }).from(employees)
-    .where(eq(employees.facilityId, facilityId)).all().map(row => row.id))
+  const ownsCell = ownCellFilter(db, facilityId)
   const timestamp = now.toISOString()
+  let reverted = 0
 
   db.transaction((tx) => {
     for (const target of targets) {
       if (target.type === 'note') {
         const released = latest.data.days.find(day => day.date === target.date)?.[target.field] ?? ''
         setDayNote(tx, actor, facilityId, target.date, target.field, released, now)
+        reverted++
         continue
       }
-      if (!staffIds.has(target.employeeId)) throw new ServiceError(400, 'employee_not_found')
+      // Never reset (and so delete) cells of someone who moved away or from before someone moved in.
+      if (!ownsCell(target.employeeId, target.date)) continue
+      reverted++
       const cell = { employeeId: target.employeeId, date: target.date }
       const before = describeCellAt(tx, cell)
       tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()
@@ -62,5 +67,5 @@ export function revertToRelease(
       logChange(tx, { facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
     }
   })
-  return targets.length
+  return reverted
 }

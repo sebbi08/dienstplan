@@ -1,15 +1,15 @@
 import { and, asc, eq, inArray, max, ne } from 'drizzle-orm'
-import { parseIsoDate } from '../../shared/domain/dates'
+import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
 import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, LevelUpDto, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { balanceAdjustments, employeeHours, employees, facilities, leaveEntitlements } from '../db/schema'
+import { balanceAdjustments, employeeHours, employees, facilities, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { contractVisibleToAdmins } from './appSettings'
-import { bookClosuresFor } from './closures'
+import { bookClosuresFor, unbookClosuresFrom } from './closures'
 import { loadEmployees, type EmployeeRecord } from './queries'
 
 export interface EmployeeInput {
@@ -238,19 +238,29 @@ export function setStampingOptions(
 }
 
 /**
- * The Träger moves an employee to another facility (their home facility changes). Hours, leave, balances and entries
- * stay attached to the employee; the employee's Mitarbeiter account follows automatically.
+ * The Träger moves an employee to another facility (their home facility changes) as of today. Hours, leave, balances
+ * and entries stay attached to the employee and from now on show in the new facility; the earlier days count as planned
+ * by the old one (facilitySince), so the new facility never treats them as its own unreleased changes. Closures change
+ * from today on: the old facility's are removed, the new facility's are booked (same rules as for a new employee).
+ * The employee's Mitarbeiter account follows automatically; a linked Leitung or tablet account is moved along.
  */
-export function moveEmployeeToFacility(db: Db, employeeId: number, facilityId: number): void {
-  if (!db.select({ id: employees.id }).from(employees).where(eq(employees.id, employeeId)).get()) {
-    throw new ServiceError(404, 'employee_not_found')
-  }
+export function moveEmployeeToFacility(
+  db: Db, actor: SessionUser, employeeId: number, facilityId: number, now: Date = new Date(),
+): void {
+  const employee = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, employeeId)).get()
+  if (!employee) throw new ServiceError(404, 'employee_not_found')
   if (!db.select({ id: facilities.id }).from(facilities).where(eq(facilities.id, facilityId)).get()) {
     throw new ServiceError(404, 'facility_not_found')
   }
+  if (employee.facilityId === facilityId) return
+  const today = todayIso(now)
   db.transaction((tx) => {
+    unbookClosuresFrom(tx, actor, employeeId, employee.facilityId, today, now)
     const sortOrder = (tx.select({ value: max(employees.sortOrder) }).from(employees)
       .where(eq(employees.facilityId, facilityId)).get()?.value ?? 0) + 1
-    tx.update(employees).set({ facilityId, sortOrder }).where(eq(employees.id, employeeId)).run()
+    tx.update(employees).set({ facilityId, sortOrder, facilitySince: today }).where(eq(employees.id, employeeId)).run()
+    tx.update(users).set({ facilityId })
+      .where(and(eq(users.employeeId, employeeId), inArray(users.role, ['admin', 'terminal']))).run()
+    bookClosuresFor(tx, actor, employeeId, now, today)
   })
 }

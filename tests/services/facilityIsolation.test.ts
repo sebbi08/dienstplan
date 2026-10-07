@@ -6,6 +6,7 @@ import {
   shiftTemplates, weekTemplateMarks, weekTemplates,
 } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { getActiveUser } from '../../server/services/auth'
 import { getBalanceOverview } from '../../server/services/balances'
 import {
   createCalendarEvent, deleteCalendarEvent, getMyYearCalendar, getSickYear, getStaffYearCalendar, getYearCalendar,
@@ -16,7 +17,7 @@ import { createClosure, deleteClosure, listClosures } from '../../server/service
 import { createEarlyClosure, deleteEarlyClosure, listEarlyClosures, updateEarlyClosure } from '../../server/services/earlyClosures'
 import {
   addAdjustment, addHours, createEmployee, deleteAdjustment, deleteHours, getEmployee, listEmployees, listLevelUps, moveEmployee,
-  setContract, setEntitlement, setStampingOptions, updateEmployee,
+  moveEmployeeToFacility, setContract, setEntitlement, setStampingOptions, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells, deleteEntry, setDayNote, updateEntryTimes } from '../../server/services/entries'
 import { getLeaveOverview } from '../../server/services/leave'
@@ -229,7 +230,9 @@ describe('facility isolation', () => {
       releaseMonth(db, leitungA, 1, 2026, 10)
       expect(errorCode(() => revertToRelease(db, leitungB, facility2, 2026, 10, [cellKey(kim, date)]))).toBe('month_not_released')
       releaseMonth(db, leitungB, facility2, 2026, 10)
-      expect(errorCode(() => revertToRelease(db, leitungB, facility2, 2026, 10, [cellKey(anna, date)]))).toBe('employee_not_found')
+      // Another facility's employee is skipped: nothing of theirs is deleted.
+      expect(revertToRelease(db, leitungB, facility2, 2026, 10, [cellKey(anna, date)])).toBe(0)
+      expect(loadEntries(db, { employeeId: anna })).toHaveLength(1)
       setDayNote(db, leitungA, 1, date, 'info1', 'Ausflug')
       revertToRelease(db, leitungA, 1, 2026, 10, [noteKey('info1', date)])
       const notes = db.select().from(dayNotes).where(eq(dayNotes.date, date)).all()
@@ -556,6 +559,114 @@ describe('facility isolation', () => {
         expect(annaAccount.employeeId).toBe(anna)
         expect(kimAccount.employeeId).toBe(kim)
       })
+    })
+  })
+  describe('moving an employee to another facility (final review)', () => {
+    const sept = (day: number) => `2026-09-${String(day).padStart(2, '0')}`
+    const moveDay = new Date('2026-10-05T08:00:00Z') // today
+    const earlier = new Date('2026-07-01T08:00:00Z')
+    const special = { kind: 'special' as const, start: 480, end: 720 }
+    const vacation = () => ({ kind: 'code' as const, codeId: codeId(db, 'vacation') })
+    const cellsOf = (employeeId: number) => loadEntries(db, { employeeId }).map(entry => [entry.date, entry.codeKey ?? entry.kind])
+    let lena: number
+    let provider: SessionUser
+    beforeEach(() => {
+      // Lena works in facility 1 (A) and has a duty and a leave day in September, which both facilities released.
+      lena = addEmployee(db, 'Lena')
+      provider = addUser(db, 'traeger', 'provider')
+      applyToCells(db, leitungA, 1, [{ employeeId: lena, date: sept(7) }], 'replace', special)
+      applyToCells(db, leitungA, 1, [{ employeeId: lena, date: sept(8) }], 'replace', vacation())
+      applyToCells(db, leitungB, facility2, [{ employeeId: kim, date: sept(7) }], 'replace', special)
+      releaseMonth(db, leitungA, 1, 2026, 9, new Date('2026-08-25T08:00:00Z'))
+      releaseMonth(db, leitungB, facility2, 2026, 9, new Date('2026-08-25T08:00:00Z'))
+    })
+
+    it('the old facility shows no pending changes for someone who moved out, and a discard skips their cells', () => {
+      moveEmployeeToFacility(db, provider, lena, facility2, moveDay)
+      const plan = getMonthPlan(db, leitungA, 1, 2026, 9, today)
+      expect(plan.admin!.pendingChanges).toEqual({})
+      expect(plan.release.pendingCount).toBe(0)
+      // The discard dialog can still name people who are only in the release.
+      expect(plan.admin!.releasedEmployees.map(e => e.name)).toEqual(['Anna', 'Lena'])
+
+      setDayNote(db, leitungA, 1, sept(7), 'info1', 'Ausflug')
+      const keys = [cellKey(lena, sept(7)), cellKey(lena, sept(8)), noteKey('info1', sept(7))]
+      expect(revertToRelease(db, leitungA, 1, 2026, 9, keys)).toBe(1)
+      expect(cellsOf(lena)).toEqual([[sept(7), 'special'], [sept(8), 'vacation']])
+      expect(db.select().from(dayNotes).where(eq(dayNotes.facilityId, 1)).all().map(note => note.info1)).toEqual([''])
+    })
+
+    it('the new facility never shows entries from before the move as pending, and a discard never deletes them', () => {
+      const lenaAccount = addUser(db, 'lena', 'observer', lena)
+      moveEmployeeToFacility(db, provider, lena, facility2, moveDay)
+      const plan = getMonthPlan(db, leitungB, facility2, 2026, 9, today)
+      expect(plan.employees.map(e => e.name)).toEqual(['Kim', 'Lena'])
+      expect(plan.admin!.pendingChanges).toEqual({})
+      expect(revertToRelease(db, leitungB, facility2, 2026, 9, [cellKey(lena, sept(7)), cellKey(lena, sept(8))])).toBe(0)
+      expect(cellsOf(lena)).toEqual([[sept(7), 'special'], [sept(8), 'vacation']])
+      // Releasing again takes Lena's history into the new facility's plan without telling her it changed.
+      expect(releaseMonth(db, leitungB, facility2, 2026, 9, new Date('2026-10-05T09:00:00Z'))).toEqual({ notified: [] })
+      expect(listNotifications(db, lena, moveDay)).toEqual([])
+      expect(getMyPlan(db, lenaAccount, 2026, 9, today).days.find(day => day.date === sept(7))!.entries).toHaveLength(1)
+    })
+
+    it('entries from the move day on count as pending in the new facility, like those of a new employee', () => {
+      applyToCells(db, leitungA, 1, [{ employeeId: lena, date: '2026-10-02' }, { employeeId: lena, date: '2026-10-07' }], 'replace', special)
+      releaseMonth(db, leitungB, facility2, 2026, 10, new Date('2026-10-01T08:00:00Z'))
+      const nora = addEmployee(db, 'Nora', { facilityId: facility2 })
+      applyToCells(db, leitungB, facility2, [{ employeeId: nora, date: '2026-10-08' }], 'replace', special)
+      moveEmployeeToFacility(db, provider, lena, facility2, moveDay)
+
+      const pending = getMonthPlan(db, leitungB, facility2, 2026, 10, today).admin!.pendingChanges
+      expect(Object.keys(pending).sort()).toEqual([cellKey(lena, '2026-10-07'), cellKey(nora, '2026-10-08')].sort())
+      const keys = [cellKey(lena, '2026-10-02'), cellKey(lena, '2026-10-07'), cellKey(nora, '2026-10-08')]
+      expect(revertToRelease(db, leitungB, facility2, 2026, 10, keys)).toBe(2)
+      expect(cellsOf(lena)).toEqual([[sept(7), 'special'], [sept(8), 'vacation'], ['2026-10-02', 'special']])
+      expect(cellsOf(nora)).toEqual([])
+    })
+
+    it('drops the old facility\'s closures from today on and books the new facility\'s', () => {
+      const closure = (label: string, startDate: string, endDate: string, mode: 'vacation' | 'closure_day' = 'vacation') =>
+        ({ startDate, endDate, label, mode })
+      const pastA = createClosure(db, leitungA, 1, closure('Sommer A', '2026-08-03', '2026-08-04'), earlier)
+      const futureA = createClosure(db, leitungA, 1, closure('Herbst A', '2026-10-05', '2026-10-06'), earlier)
+      createClosure(db, leitungB, facility2, closure('Sommer B', '2026-08-10', '2026-08-10'), earlier)
+      const futureB = createClosure(db, leitungB, facility2, closure('Herbst B', '2026-11-02', '2026-11-03', 'closure_day'), earlier)
+      expect(loadEntries(db, { closureId: futureA.id }).map(entry => entry.employeeId)).toContain(lena)
+
+      moveEmployeeToFacility(db, provider, lena, facility2, moveDay)
+      const closureCells = db.select({ date: entries.date, closureId: entries.closureId }).from(entries)
+        .where(eq(entries.employeeId, lena)).all().filter(row => row.closureId !== null)
+        .map(row => [row.date, row.closureId]).sort()
+      expect(closureCells).toEqual([
+        ['2026-08-03', pastA.id], ['2026-08-04', pastA.id], ['2026-11-02', futureB.id], ['2026-11-03', futureB.id],
+      ])
+      expect(cellsOf(lena).filter(([day]) => day! >= '2026-10-01'))
+        .toEqual([['2026-11-02', 'closure_day'], ['2026-11-03', 'closure_day']])
+      // Anna stays in facility 1 and keeps its closure.
+      expect(loadEntries(db, { closureId: futureA.id }).map(entry => entry.employeeId)).toEqual([anna, anna])
+    })
+
+    it('a joiner of this year moved into a facility with a closure never goes below zero leave', () => {
+      const jo = addEmployee(db, 'Jo', { validFrom: '2026-03-01' })
+      setEntitlement(db, 1, jo, 2026, { days: 2, carriedOverDays: 0 })
+      applyToCells(db, leitungA, 1, [{ employeeId: jo, date: '2026-09-14' }], 'replace', vacation())
+      createClosure(db, leitungB, facility2, { startDate: '2026-11-02', endDate: '2026-11-03', label: 'Herbst B', mode: 'vacation' }, earlier)
+      moveEmployeeToFacility(db, provider, jo, facility2, moveDay)
+      expect(cellsOf(jo)).toEqual([['2026-09-14', 'vacation'], ['2026-11-02', 'vacation'], ['2026-11-03', 'closure_day']])
+    })
+
+    it('a linked Leitung account follows the moved employee', () => {
+      const lenaLeitung = addUser(db, 'lena', 'admin', lena)
+      moveEmployeeToFacility(db, provider, lena, facility2, moveDay)
+      expect(getActiveUser(db, lenaLeitung.id)!.facilityId).toBe(facility2)
+      expect(getActiveUser(db, leitungA.id)!.facilityId).toBe(1)
+    })
+
+    it('moving to the facility the employee is already in changes nothing', () => {
+      const before = db.select().from(employees).where(eq(employees.id, lena)).get()
+      moveEmployeeToFacility(db, provider, lena, 1, moveDay)
+      expect(db.select().from(employees).where(eq(employees.id, lena)).get()).toEqual(before)
     })
   })
 })

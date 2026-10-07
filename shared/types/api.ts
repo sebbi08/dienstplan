@@ -185,6 +185,8 @@ export interface MonthPlanAdminDto {
   actuals: Record<string, ActualCellDto>
   /** Draft changes not yet released, keyed by cellKey / noteKey. */
   pendingChanges: Record<string, PendingChangeDto>
+  /** The people in the newest release (empty before the first), to name a change of someone no longer in the plan. */
+  releasedEmployees: EmployeeColumnDto[]
 }
 
 export interface MonthPlanDto {

@@ -6,6 +6,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { DutyChangeDto, NotificationDto, ReleaseNotificationStatusDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, monthPlans, notifications, users } from '../db/schema'
+import { ownCellFilter } from './queries'
 
 /** Read messages stay visible this many days. */
 const KEEP_READ_DAYS = 14
@@ -18,15 +19,17 @@ const KEEP_READ_DAYS = 14
 export function notifyDutyChanges(
   db: Db, facilityId: number, year: number, month: number, previous: SnapshotData, next: SnapshotData, releasedAt: string,
 ): number[] {
+  // Only the facility's own cells: its staff, and someone who moved in only from that day on (their earlier duties
+  // entering this plan are no change).
+  const ownsCell = ownCellFilter(db, facilityId)
   const byEmployee = new Map<number, DutyChangeDto[]>()
   for (const diff of diffCells(snapshotCells(previous), snapshotCells(next))) {
     const { employeeId, date } = parseCellKey(diff.key)
     if (!Number.isInteger(employeeId)) continue // an Info field, not a person
+    if (!ownsCell(employeeId, date)) continue
     byEmployee.set(employeeId, [...(byEmployee.get(employeeId) ?? []), { date, before: diff.before, after: diff.after }])
   }
-  const existing = new Set(db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId)).all()
-    .map(row => row.id))
-  const told = [...byEmployee.keys()].filter(id => existing.has(id))
+  const told = [...byEmployee.keys()]
   for (const employeeId of told) {
     db.insert(notifications).values({
       employeeId, year, month, createdAt: releasedAt, changes: JSON.stringify(byEmployee.get(employeeId)),

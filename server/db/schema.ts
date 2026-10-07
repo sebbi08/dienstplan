@@ -18,6 +18,11 @@ export const employees = sqliteTable('employees', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   /** The home facility; every employee belongs to exactly one. */
   facilityId: facilityId(),
+  /**
+   * Day the employee moved into this facility (null = belongs to it from the start). Plan cells before it were planned
+   * by another facility: they never count as that facility's unreleased changes and a discard never touches them.
+   */
+  facilitySince: text('facility_since'),
   name: text('name').notNull(),
   shortName: text('short_name').notNull().default(''),
   sortOrder: integer('sort_order').notNull().default(0),

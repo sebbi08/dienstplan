@@ -20,7 +20,7 @@ import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
-  loadTemplates, type EmployeeRecord,
+  loadTemplates, ownCellFilter, type EmployeeRecord,
 } from './queries'
 import { buildSnapshot, loadReleases } from './release'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
@@ -32,7 +32,7 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
 
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], closures: ClosureDto[], year: number, month: number, today: IsoDate,
-): Omit<MonthPlanAdminDto, 'pendingChanges'> {
+): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
@@ -132,7 +132,11 @@ export function getMonthPlan(
 
   const pendingChanges: Record<string, PendingChangeDto> = {}
   if (isAdmin && states.length > 0) {
+    // Someone who moved away, or the days before someone moved in, are no change of this facility's plan.
+    const ownsCell = ownCellFilter(db, facilityId)
     for (const diff of diffCells(states.at(-1)!.cells, snapshotCells(shown))) {
+      const { employeeId, date } = changeFromKey(diff.key)
+      if (employeeId !== null && !ownsCell(employeeId, date)) continue
       pendingChanges[diff.key] = { before: diff.before, after: diff.after }
     }
   }
@@ -152,7 +156,11 @@ export function getMonthPlan(
   if (isAdmin) {
     const { monthStart, monthEnd } = monthBounds(year, month)
     const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
-    admin = { ...buildAdminData(db, facilityId, staff, loadClosures(db, facilityId), year, month, today), pendingChanges }
+    admin = {
+      ...buildAdminData(db, facilityId, staff, loadClosures(db, facilityId), year, month, today),
+      pendingChanges,
+      releasedEmployees: latest?.data.employees ?? [],
+    }
   }
 
   return {

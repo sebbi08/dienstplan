@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte, inArray } from 'drizzle-orm'
 import { dateRange, daysBetween, parseIsoDate } from '../../shared/domain/dates'
 import { leaveAccount } from '../../shared/domain/leave'
 import { employmentStart, isWorkday } from '../../shared/domain/targets'
@@ -64,15 +64,16 @@ function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacat
 
 /**
  * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
- * (a closure never uses leave on a day off).
+ * (a closure never uses leave on a day off) and, with `from`, only on days from then on.
  */
 function bookClosure(
-  db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
+  db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date, from?: IsoDate,
 ): void {
   const vacationCells: { employeeId: number; date: IsoDate }[] = []
   const closureCells: { employeeId: number; date: IsoDate }[] = []
   for (const employee of staff) {
-    const dates = dateRange(closure.startDate, closure.endDate).filter(date => isWorkday(employee.info, date))
+    const dates = dateRange(closure.startDate, closure.endDate)
+      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from))
     const split = closure.mode === 'vacation' ? splitLeave(db, employee, dates) : { vacation: [], closureDays: dates }
     vacationCells.push(...split.vacation.map(date => ({ employeeId: employee.id, date })))
     closureCells.push(...split.closureDays.map(date => ({ employeeId: employee.id, date })))
@@ -102,12 +103,33 @@ export function createClosure(
 
 /**
  * Books all existing closures of the employee's facility for one (new) employee, so closures apply to everyone
- * regardless of when they joined.
+ * regardless of when they joined. With `from` (someone moving in), only closure days from then on are booked.
  */
-export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, now: Date = new Date()): void {
+export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, now: Date = new Date(), from?: IsoDate): void {
   const employee = loadEmployee(db, employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  for (const closure of loadClosures(db, employee.facilityId)) bookClosure(db, actor, employee.facilityId, closure, [employee], now)
+  for (const closure of loadClosures(db, employee.facilityId)) {
+    if (from !== undefined && closure.endDate < from) continue
+    bookClosure(db, actor, employee.facilityId, closure, [employee], now, from)
+  }
+}
+
+/**
+ * Removes the employee's closure days of the facility from `from` on (someone moving away no longer has its closures);
+ * earlier closure days stay as they were.
+ */
+export function unbookClosuresFrom(db: Db, actor: SessionUser, employeeId: number, facilityId: number, from: IsoDate, now: Date): void {
+  const own = loadClosures(db, facilityId).map(closure => closure.id)
+  if (own.length === 0) return
+  const booked = and(eq(entries.employeeId, employeeId), gte(entries.date, from), inArray(entries.closureId, own))
+  const dates = [...new Set(db.select({ date: entries.date }).from(entries).where(booked).all().map(row => row.date))]
+  const cells = dates.map(date => ({ employeeId, date }))
+  const before = cells.map(cell => describeCellAt(db, cell))
+  db.delete(entries).where(booked).run()
+  cells.forEach((cell, index) => logChange(db, {
+    facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(db, cell),
+    actorId: actor.id, now: now.toISOString(),
+  }))
 }
 
 export function deleteClosure(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {

@@ -7,7 +7,9 @@ const props = defineProps<{ plan: MonthPlanDto }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ submit: [keys: string[]] }>()
 
-const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
+// People only in the release (e.g. moved to another facility) are named as they were released.
+const names = computed(() => new Map([...(props.plan.admin?.releasedEmployees ?? []), ...props.plan.employees]
+  .map(employee => [employee.id, employee.name])))
 const weekdays = computed(() => new Map(props.plan.days.map(day => [day.date, day.weekday])))
 
 /** One row per not yet released change, ordered by day, then person / info field. */

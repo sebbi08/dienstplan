@@ -50,6 +50,7 @@ describe('revertToRelease', () => {
     expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 11, [`${anna}|2026-11-02`]))).toBe('month_not_released')
     expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 10, [`${anna}|2026-11-02`]))).toBe('invalid_key')
     expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 10, ['info3|2026-10-06']))).toBe('invalid_key')
-    expect(errorCode(() => revertToRelease(db, admin, 1, 2026, 10, ['999|2026-10-06']))).toBe('employee_not_found')
+    // Cells of people who are not (or no longer) the facility's staff are skipped, never deleted.
+    expect(revertToRelease(db, admin, 1, 2026, 10, ['999|2026-10-06'])).toBe(0)
   })
 })
