@@ -487,7 +487,7 @@ export interface LeaveSettingsDto {
   plannerIds: number[]
   /** The viewer may see the planning page and decide requests. */
   isPlanner: boolean
-  /** Open requests the viewer could decide (0 for non-planners). */
+  /** Open requests for the menu badge: for the chosen planners (the Träger only while nobody is chosen), else 0. */
   openCount: number
 }
 

@@ -15,26 +15,30 @@ const run = useAction(async () => {
 const confirm = useConfirm()
 
 const today = todayIso()
-const form = reactive({ from: today, to: today, note: '' })
+const form = reactive({ from: '', to: '', note: '' })
 const preview = ref<LeaveRequestPreviewDto | null>(null)
 const previewError = ref('')
+// Only the answer to the latest date choice is shown (quick changes may answer out of order).
+let latest = 0
 watch(() => [form.from, form.to], async ([from, to]) => {
+  const call = ++latest
   preview.value = null
   previewError.value = ''
   if (!from || !to) return
   try {
-    preview.value = await $fetch<LeaveRequestPreviewDto>('/api/my/leave-requests/preview', { query: { from, to } })
+    const answer = await $fetch<LeaveRequestPreviewDto>('/api/my/leave-requests/preview', { query: { from, to } })
+    if (call === latest) preview.value = answer
   }
   catch (failure) {
-    previewError.value = errorMessage(failure)
+    if (call === latest) previewError.value = errorMessage(failure)
   }
-}, { immediate: true })
+})
 
 const daysText = (dates: string[]) => dates.map(date => formatDayShort(date, weekday(date))).join(', ')
 
 async function send() {
   const ok = await run(() => $fetch<unknown>('/api/my/leave-requests', { method: 'POST', body: { ...form } }), de.leaveRequests.sent)
-  if (ok) Object.assign(form, { from: today, to: today, note: '' })
+  if (ok) Object.assign(form, { from: '', to: '', note: '' })
 }
 
 async function withdraw(request: LeaveRequestDto) {
@@ -51,7 +55,7 @@ const STATUS_COLOR = { open: 'warning', approved: 'success', rejected: 'error', 
       <h2 class="font-semibold">{{ de.leaveRequests.title }}</h2>
       <div class="grid gap-3 sm:grid-cols-3">
         <UFormField :label="de.leaveRequests.from"><UInput v-model="form.from" type="date" :min="today" class="w-full" required /></UFormField>
-        <UFormField :label="de.leaveRequests.to"><UInput v-model="form.to" type="date" :min="form.from" class="w-full" required /></UFormField>
+        <UFormField :label="de.leaveRequests.to"><UInput v-model="form.to" type="date" :min="form.from || today" class="w-full" required /></UFormField>
         <UFormField :label="de.leaveRequests.note"><UInput v-model="form.note" maxlength="300" class="w-full" /></UFormField>
       </div>
       <p v-if="previewError" class="text-sm text-red-700">{{ previewError }}</p>

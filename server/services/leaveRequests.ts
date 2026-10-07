@@ -8,7 +8,7 @@ import type {
   LeavePlanningDto, LeaveRequestDto, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, appSettings, entries, leavePlanners, leaveRequests, users } from '../db/schema'
+import { absenceCodes, appSettings, entries, leaveEntitlements, leavePlanners, leaveRequests, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getYearCalendar } from './calendar'
 import { applyToCells } from './entries'
@@ -114,12 +114,15 @@ function userNames(db: Db): Map<number, string> {
 export function getLeaveSettings(db: Db, viewer: SessionUser): LeaveSettingsDto {
   const enabled = leaveRequestsEnabled(db)
   const planner = enabled && isPlanner(db, viewer)
+  const chosen = plannerIds(db)
+  // The count (menu badge) goes to the chosen people; to the Träger only while nobody is chosen.
+  const notified = planner && (chosen.includes(viewer.id) || (chosen.length === 0 && viewer.role === 'provider'))
   return {
     enabled,
     maxConcurrent: maxConcurrent(db),
-    plannerIds: isManager(viewer.role) ? plannerIds(db) : [],
+    plannerIds: isManager(viewer.role) ? chosen : [],
     isPlanner: planner,
-    openCount: planner ? listOpenRequests(db, viewer).length : 0,
+    openCount: notified ? listOpenRequests(db, viewer).length : 0,
   }
 }
 
@@ -165,17 +168,25 @@ function validateRange(db: Db, employeeId: number, from: IsoDate, to: IsoDate, t
 export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to: IsoDate, today: IsoDate): LeaveRequestPreviewDto {
   requireEnabled(db)
   const employeeId = requireEmployee(user)
-  const { staff, closures, days } = validateRange(db, employeeId, from, to, today)
+  const { staff, employee, closures, days } = validateRange(db, employeeId, from, to, today)
   const load = leaveLoad([
     ...loadInRange(db, days[0]!, days.at(-1)!, staff, closures),
     ...days.map(date => ({ employeeId, date })),
   ])
+  // Remaining leave of the start year: what the leave account has left (planned leave already counted), minus this
+  // request and the person's other open requests, each without days that are already "Urlaub".
   const year = parseIsoDate(from).year
-  const account = getLeaveAccount(db, employeeId, year, today).account
-  const inYear = days.filter(date => date.startsWith(`${year}-`)).length
+  const hasEntitlement = db.select().from(leaveEntitlements)
+    .where(and(eq(leaveEntitlements.employeeId, employeeId), eq(leaveEntitlements.year, year))).get() !== undefined
+  const alreadyLeave = new Set(loadEntries(db, { employeeId, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
+    .map(entry => entry.date))
+  const otherOpen = db.select().from(leaveRequests)
+    .where(and(eq(leaveRequests.employeeId, employeeId), eq(leaveRequests.status, 'open'))).all()
+    .flatMap(request => requestDays(employee, request.startDate, request.endDate, closures))
+  const newDays = new Set([...days, ...otherOpen].filter(date => date.startsWith(`${year}-`) && !alreadyLeave.has(date)))
   return {
     workdays: days.length,
-    availableAfter: account.entitlement === 0 && account.carriedOver === 0 ? null : account.available - inYear,
+    availableAfter: hasEntitlement ? getLeaveAccount(db, employeeId, year, today).account.available - newDays.size : null,
     overLimitDates: daysOverLimit(load, days, maxConcurrent(db)),
   }
 }
@@ -240,7 +251,7 @@ export function listOpenRequests(db: Db, user: SessionUser): LeaveRequestDto[] {
  */
 export function decideLeaveRequest(
   db: Db, user: SessionUser, id: number, decision: { approve: boolean; note: string; overwrite: boolean }, now: Date = new Date(),
-): void {
+): { keptAbsences: number } {
   requirePlanner(db, user)
   const request = db.select().from(leaveRequests).where(eq(leaveRequests.id, id)).get()
   if (!request) throw new ServiceError(404, 'leave_request_not_found')
@@ -249,23 +260,32 @@ export function decideLeaveRequest(
   const decided = { decidedAt: now.toISOString(), decidedBy: user.id, decisionNote: decision.note.trim() }
   if (!decision.approve) {
     db.update(leaveRequests).set({ status: 'rejected', ...decided }).where(eq(leaveRequests.id, id)).run()
-    return
+    return { keptAbsences: 0 }
   }
   const employee = loadEmployees(db).find(candidate => candidate.id === request.employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  const days = requestDays(employee, request.startDate, request.endDate, loadClosures(db))
-  const occupied = loadEntries(db, { employeeId: employee.id, from: request.startDate, to: request.endDate })
-    .filter(entry => days.includes(entry.date) && entry.codeKey !== 'vacation')
-  const occupiedDays = new Set(occupied.map(entry => entry.date)).size
+  const requested = requestDays(employee, request.startDate, request.endDate, loadClosures(db))
+  const dayEntries = loadEntries(db, { employeeId: employee.id, from: request.startDate, to: request.endDate })
+    .filter(entry => requested.includes(entry.date))
+  // Days with another full-day absence (Krank, Fortbildung, Sonderurlaub …) stay as they are: e.g. a sick day must
+  // never become leave. Only planned duties (shifts, VZ, Büro …) may be replaced, after asking.
+  const absent = new Set(dayEntries.filter(entry => entry.codeKey !== null && entry.codeKey !== 'vacation'
+    && entry.creditMode === 'daily_target').map(entry => entry.date))
+  const days = requested.filter(date => !absent.has(date))
+  const occupiedDays = new Set(dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== 'vacation')
+    .map(entry => entry.date)).size
   if (occupiedDays > 0 && !decision.overwrite) {
     throw new ServiceError(409, 'cells_occupied', { days: occupiedDays })
   }
   const vacation = db.select().from(absenceCodes).where(eq(absenceCodes.key, 'vacation')).get()
   if (!vacation) throw new ServiceError(500, 'code_not_found')
   db.transaction((tx) => {
-    applyToCells(tx, user, days.map(date => ({ employeeId: employee.id, date })), 'replace', { kind: 'code', codeId: vacation.id }, { now })
+    if (days.length) {
+      applyToCells(tx, user, days.map(date => ({ employeeId: employee.id, date })), 'replace', { kind: 'code', codeId: vacation.id }, { now })
+    }
     tx.update(leaveRequests).set({ status: 'approved', ...decided }).where(eq(leaveRequests.id, id)).run()
   })
+  return { keptAbsences: absent.size }
 }
 
 // --- planning page -------------------------------------------------------------------------------------------

@@ -9,7 +9,10 @@ import { formatDate, formatDayShort } from '~/utils/format'
 const route = useRoute()
 const year = ref(Number(route.query.year) || parseIsoDate(todayIso()).year)
 const { data: planning, error, refresh } = await useFetch<LeavePlanningDto>('/api/leave-planning', { query: { year } })
-const run = useAction(refresh)
+// Decisions also update the open-request count in the menu.
+const run = useAction(async () => {
+  await Promise.all([refresh(), refreshNuxtData('leave-settings')])
+})
 const confirm = useConfirm()
 const toast = useToast()
 
@@ -23,11 +26,12 @@ function saveLimit() {
 const daysText = (dates: string[]) => dates.map(date => formatDayShort(date, weekday(date))).join(', ')
 
 async function approve(request: LeaveRequestDto) {
-  const send = (overwrite: boolean) => $fetch<unknown>(`/api/leave-requests/${request.id}/decide`, {
+  const send = (overwrite: boolean) => $fetch<{ keptAbsences: number }>(`/api/leave-requests/${request.id}/decide`, {
     method: 'POST', body: { approve: true, note: '', overwrite },
   })
+  let result: { keptAbsences: number } | undefined
   try {
-    await send(false)
+    result = await send(false)
   }
   catch (failure) {
     const data = (failure as { data?: { data?: { code?: string; details?: { days?: number } } } }).data?.data
@@ -36,10 +40,11 @@ async function approve(request: LeaveRequestDto) {
       return
     }
     if (!await confirm(de.leavePlanning.overwriteConfirm(data.details?.days ?? 0), { confirmLabel: de.leavePlanning.overwrite, danger: false })) return
-    if (!await run(() => send(true))) return
+    if (!await run(async () => { result = await send(true) })) return
   }
-  await refresh()
-  toast.add({ title: de.leavePlanning.approved, color: 'success' })
+  await Promise.all([refresh(), refreshNuxtData('leave-settings')])
+  const kept = result?.keptAbsences ?? 0
+  toast.add({ title: kept ? de.leavePlanning.approvedKept(kept) : de.leavePlanning.approved, color: 'success' })
 }
 
 const rejecting = reactive<{ request: LeaveRequestDto | null; note: string }>({ request: null, note: '' })

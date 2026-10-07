@@ -99,4 +99,25 @@ describe('leave requests', () => {
     expect(planning.openRequests).toHaveLength(1)
     expect(getLeaveSettings(db, leitung).openCount).toBe(1)
   })
+
+  it('never turns a sick day into leave when approving', () => {
+    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    const id = request(annaUser, '2026-11-02', '2026-11-04')
+    applyToCells(db, leitung, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+    expect(decideLeaveRequest(db, leitung, id, { approve: true, note: '', overwrite: false })).toEqual({ keptAbsences: 1 })
+    expect(loadEntries(db, { employeeId: anna }).map(e => [e.date, e.codeKey])).toEqual([
+      ['2026-11-02', 'vacation'], ['2026-11-03', 'sick'], ['2026-11-04', 'vacation'],
+    ])
+  })
+
+  it('subtracts other open requests from the remaining leave and counts the menu badge for the chosen people only', () => {
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    expect(previewLeaveRequest(db, annaUser, '2026-11-02', '2026-11-03', today).availableAfter).toBeNull() // no entitlement
+    setEntitlement(db, anna, 2026, { days: 10, carriedOverDays: 0 })
+    request(annaUser, '2026-11-02', '2026-11-06') // 5 days
+    expect(previewLeaveRequest(db, annaUser, '2026-11-09', '2026-11-10', today).availableAfter).toBe(3)
+    expect(getLeaveSettings(db, provider).openCount).toBe(1) // nobody chosen: the Träger is told
+    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    expect([getLeaveSettings(db, provider), getLeaveSettings(db, leitung)].map(s => [s.isPlanner, s.openCount])).toEqual([[true, 0], [true, 1]])
+  })
 })
