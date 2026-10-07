@@ -87,6 +87,15 @@ describe('facilities', () => {
     expect(errorCode(() => renameFacility(db, 999, 'Hort'))).toBe('facility_not_found')
   })
 
+  it('compares names case-insensitively including umlauts', () => {
+    const aue = addFacility(db, 'Kita Äußere Au')
+    expect(errorCode(() => createFacility(db, ' kita äußere au '))).toBe('facility_name_taken')
+    expect(errorCode(() => createFacility(db, 'KITA ÄUßERE AU'))).toBe('facility_name_taken')
+    const other = addFacility(db, 'Hort Österfeld')
+    expect(errorCode(() => renameFacility(db, aue, 'HORT ÖSTERFELD'))).toBe('facility_name_taken')
+    expect(errorCode(() => renameFacility(db, other, 'hort österfeld'))).toBeNull()
+  })
+
   it('lists facilities per role', () => {
     const krippe = addFacility(db, 'Krippe')
     const provider = addUser(db, 'traeger', 'provider')

@@ -14,7 +14,7 @@ import type {
   TimeRecordDto, WeekSummaryDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees } from '../db/schema'
+import { employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
@@ -116,6 +116,11 @@ function toChangeDtos(history: Map<string, ReleasedChange[]>): Record<string, Ch
   return changes
 }
 
+function facilityNameIfSeveral(db: Db, facilityId: number): string | null {
+  const all = db.select({ id: facilities.id, name: facilities.name }).from(facilities).all()
+  return all.length > 1 ? all.find(facility => facility.id === facilityId)?.name ?? null : null
+}
+
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
 ): MonthPlanDto {
@@ -166,6 +171,7 @@ export function getMonthPlan(
   return {
     year,
     month,
+    facilityName: facilityNameIfSeveral(db, facilityId),
     release: {
       releasedAt: latest?.releasedAt ?? null,
       releasedBy: latest?.releasedBy ?? null,

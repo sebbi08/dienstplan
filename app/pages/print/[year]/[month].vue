@@ -18,7 +18,9 @@ const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${
 <template>
   <div class="bg-white p-4 text-gray-900">
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
-      <h1 class="text-2xl font-semibold">{{ monthTitle(year, month) }}</h1>
+      <h1 class="text-2xl font-semibold">
+        {{ monthTitle(year, month) }}<template v-if="plan?.facilityName"> – {{ plan.facilityName }}</template>
+      </h1>
       <span v-if="plan?.release.releasedAt" class="text-sm text-gray-600">
         {{ de.plan.releasedAt(formatDateTime(plan.release.releasedAt), plan.release.releasedBy ?? '') }}
       </span>

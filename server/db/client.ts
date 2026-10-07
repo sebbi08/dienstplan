@@ -22,16 +22,28 @@ export function createDb(filename: string): { db: Db; sqlite: Database.Database 
  * Runs the pending migrations with foreign keys switched off, as SQLite requires for rebuilding tables and for adding
  * a REFERENCES column with a default to a filled table. Drizzle's migrator wraps everything in one transaction, where
  * the generated `PRAGMA foreign_keys` statements are no-ops, so it has to happen here. Afterwards every foreign key
- * is checked, and the app refuses to start on a violation.
+ * is checked when migrations actually ran, and the app refuses to start on a violation.
  */
 export function migrateDb(db: Db, migrationsFolder: string): void {
   db.run(sql`PRAGMA foreign_keys = OFF`)
   try {
+    const before = appliedMigrations(db)
     migrate(db as Parameters<typeof migrate>[0], { migrationsFolder })
-    const violations = db.all(sql`PRAGMA foreign_key_check`)
-    if (violations.length > 0) throw new Error(`Foreign key violations after migrating: ${JSON.stringify(violations.slice(0, 10))}`)
+    if (appliedMigrations(db) === before) return
+    const violations = db.all<{ table: string }>(sql`PRAGMA foreign_key_check`)
+    if (violations.length > 0) {
+      const tables = [...new Set(violations.map(violation => violation.table))].sort().join(', ')
+      throw new Error(`Datenbank-Prüfung fehlgeschlagen: fehlerhafte Verweise in Tabelle ${tables}`)
+    }
   }
   finally {
     db.run(sql`PRAGMA foreign_keys = ON`)
   }
+}
+
+/** Number of migrations drizzle has recorded as applied (0 for a new database). */
+function appliedMigrations(db: Db): number {
+  const table = db.get(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'`)
+  if (!table) return 0
+  return db.get<{ n: number }>(sql`SELECT count(*) AS n FROM __drizzle_migrations`)!.n
 }

@@ -32,6 +32,8 @@ describe('month plan', () => {
   it('gives admins the full draft plan with warnings, weeks and balances', () => {
     const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
     expect(plan.employees.map(e => e.name)).toEqual(['Anna', 'Ben'])
+    // With a single facility the plan (and its printout) does not name it.
+    expect(plan.facilityName).toBeNull()
     expect(plan.days).toHaveLength(31)
     expect(plan.days[2]).toMatchObject({ date: '2026-10-03', holidayKey: 'german_unity_day', isWeekend: true })
     expect(plan.templates).toHaveLength(5)

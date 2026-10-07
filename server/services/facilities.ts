@@ -1,4 +1,4 @@
-import { asc, eq, max, sql } from 'drizzle-orm'
+import { asc, eq, max } from 'drizzle-orm'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { coverageRules, employees, facilities, shiftTemplates, users } from '../db/schema'
@@ -45,13 +45,14 @@ export function listFacilities(db: Db, viewer: SessionUser): FacilitiesDto {
   return { facilities: rows.map(toDto), activeId: viewer.facilityId }
 }
 
-/** Trimmed, non-empty name that no other facility uses (compared case-insensitively). */
+/** Trimmed, non-empty name that no other facility uses (compared case-insensitively, umlauts included). */
 function checkedName(db: Db, name: string, exceptId: number | null = null): string {
   const trimmed = name.trim()
   if (!trimmed) throw new ServiceError(400, 'facility_name_required')
-  const clash = db.select({ id: facilities.id }).from(facilities)
-    .where(sql`lower(${facilities.name}) = lower(${trimmed})`).all()
-    .some(row => row.id !== exceptId)
+  // In JS, not SQLite's lower(), which only folds ASCII letters (Ä ≠ ä).
+  const folded = (value: string) => value.trim().toLocaleLowerCase('de')
+  const clash = db.select({ id: facilities.id, name: facilities.name }).from(facilities).all()
+    .some(row => row.id !== exceptId && folded(row.name) === folded(trimmed))
   if (clash) throw new ServiceError(409, 'facility_name_taken')
   return trimmed
 }

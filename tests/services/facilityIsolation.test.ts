@@ -186,6 +186,9 @@ describe('facility isolation', () => {
       expect(plan.admin!.weeks[0]!.totals.map(t => t.employeeId)).toEqual([anna])
       const other = getMonthPlan(db, leitungB, facility2, 2026, 10, today)
       expect(other.employees.map(e => e.name)).toEqual(['Kim'])
+      // With several facilities the plan (and its printout) names its facility.
+      expect(plan.facilityName).toBe('Kindergarten')
+      expect(other.facilityName).toBe('Krippe')
       expect(other.templates.every(t => t.id !== templateId(db, 'M'))).toBe(true)
     })
 

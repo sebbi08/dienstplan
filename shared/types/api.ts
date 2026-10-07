@@ -192,6 +192,8 @@ export interface MonthPlanAdminDto {
 export interface MonthPlanDto {
   year: number
   month: number
+  /** Name of the plan's facility when there are several (null with only one, so single-facility printouts stay as they were). */
+  facilityName: string | null
   release: ReleaseDto
   days: DayRowDto[]
   employees: EmployeeColumnDto[]
