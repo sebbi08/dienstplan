@@ -184,9 +184,11 @@ describe('entry groups (single duties in another group)', () => {
     write(anna, shift())
     write(ben, shift('S'))
     release('2026-09-25T10:00:00Z')
-    // A snapshot stored before groups existed has no groupId on its entries.
+    // A snapshot stored before groups existed has no groups and no groupId on its employees and entries.
     for (const row of db.select().from(releaseSnapshots).all()) {
-      const data = JSON.parse(row.data) as { entries: Record<string, unknown>[] }
+      const data = JSON.parse(row.data) as { groups?: unknown; employees: Record<string, unknown>[]; entries: Record<string, unknown>[] }
+      delete data.groups
+      for (const employee of data.employees) delete employee.groupId
       for (const entry of data.entries) delete entry.groupId
       db.update(releaseSnapshots).set({ data: JSON.stringify(data) }).where(eq(releaseSnapshots.id, row.id)).run()
     }

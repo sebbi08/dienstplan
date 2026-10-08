@@ -169,6 +169,8 @@ export interface EmployeeColumnDto {
   shortName: string
   /** For a helper column: the name of the helper's home facility ("Aushilfe aus …"); null for own staff (missing in old snapshots). */
   helpFrom?: string | null
+  /** The home group in the plan's facility (null = Springer, a helper, or no groups; missing in old snapshots). */
+  groupId?: number | null
 }
 
 export interface SnapshotDayDto {
@@ -180,9 +182,12 @@ export interface SnapshotDayDto {
 
 /** What observers see of a month, frozen at release time. */
 export interface SnapshotData {
+  /** In blocks: the members of each group (groups in their order), then Springer, then helpers. */
   employees: EmployeeColumnDto[]
   entries: EntryDto[]
   days: SnapshotDayDto[]
+  /** The facility's groups at release time, in their order (missing in old snapshots: no blocks). */
+  groups?: GroupDto[]
 }
 
 export interface WeekSummaryDto {
@@ -243,6 +248,13 @@ export interface MonthPlanDto {
   days: DayRowDto[]
   employees: EmployeeColumnDto[]
   entries: EntryDto[]
+  /** The groups of the shown plan (the draft for managers, the release for others), in their order; none = []. */
+  groups: GroupDto[]
+  /**
+   * Per group id and day of the month: the persons working in that group (duties with working time whose effective group
+   * it is, helpers included, help-elsewhere markers never). No groups = {}.
+   */
+  attendance: Record<string, Record<IsoDate, number>>
   /** Keyed by cellKey(employeeId, date) or noteKey(field, date). */
   changes: Record<string, ChangeDto[]>
   templates: TemplateDto[]

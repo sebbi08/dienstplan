@@ -1,7 +1,7 @@
 import { and, asc, eq, max } from 'drizzle-orm'
-import type { GroupDto } from '../../shared/types/api'
+import type { GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { coverageRules, employees, entries, groups,weekTemplateMarks, weekTemplates } from '../db/schema'
+import { coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 
 function toDto(row: { id: number; name: string; sortOrder: number }): GroupDto {
@@ -18,6 +18,15 @@ export function listGroups(db: Db, facilityId: number): GroupDto[] {
 export function groupNames(db: Db, facilityId: number): Record<number, string> {
   return Object.fromEntries(db.select({ id: groups.id, name: groups.name }).from(groups)
     .where(eq(groups.facilityId, facilityId)).all().map(row => [row.id, row.name]))
+}
+
+/**
+ * Group names for the texts of a plan state: those stored with a release (as the groups were called then, also when
+ * deleted or renamed since), over the facility's current names (the draft's, and for snapshots from before groups).
+ */
+export function snapshotGroupNames(db: Db, facilityId: number): (data: SnapshotData) => Record<number, string> {
+  const current = groupNames(db, facilityId)
+  return data => ({ ...current, ...Object.fromEntries((data.groups ?? []).map(group => [group.id, group.name])) })
 }
 
 /** The group must belong to the facility (null = no group passes); otherwise 404 group_not_found, never confirmed. */

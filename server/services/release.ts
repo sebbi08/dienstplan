@@ -6,6 +6,7 @@ import type { EntryDto, SessionUser, SnapshotData } from '../../shared/types/api
 import type { Db } from '../db/client'
 import { dayNotes, monthPlans, releaseSnapshots, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { listGroups } from './groups'
 import { listHelpers } from './helpOuts'
 import { notifyDutyChanges } from './notifications'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
@@ -35,12 +36,18 @@ export function withPlainMarkers(facilityId: number, list: EntryDto[]): EntryDto
 /**
  * The current (draft) state of a facility's month in the shape observers get from a release: the own staff (with all
  * their entries, so their help-outs elsewhere show as plain markers), then the month's helpers with only the entries
- * planned here.
+ * planned here. The staff come in blocks: the members of each group (groups in their order, members in the employee
+ * order), then Springer; with no groups, in the employee order as before. The groups are stored with the release.
  */
 export function buildSnapshot(db: Db, facilityId: number, year: number, month: number): SnapshotData {
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
+  const groups = listGroups(db, facilityId)
+  const blockOf = new Map(groups.map((group, index) => [group.id, index]))
+  const block = (groupId: number | null) => (groupId === null ? undefined : blockOf.get(groupId)) ?? groups.length
+  // Array.prototype.sort is stable: members keep the employee order within their block.
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+    .sort((a, b) => block(a.groupId) - block(b.groupId))
   const helpers = listHelpers(db, facilityId, year, month)
   const staffIds = new Set(staff.map(employee => employee.id))
   const helperIds = new Set(helpers.map(helper => helper.employeeId))
@@ -53,8 +60,11 @@ export function buildSnapshot(db: Db, facilityId: number, year: number, month: n
   )
   return {
     employees: [
-      ...staff.map(({ id, name, shortName }) => ({ id, name, shortName, helpFrom: null })),
-      ...helpers.map(helper => ({ id: helper.employeeId, name: helper.name, shortName: helper.shortName, helpFrom: helper.fromFacility })),
+      ...staff.map(({ id, name, shortName, groupId }) => ({ id, name, shortName, helpFrom: null, groupId })),
+      // A helper's home group belongs to another facility: here a helper has none.
+      ...helpers.map(helper => ({
+        id: helper.employeeId, name: helper.name, shortName: helper.shortName, helpFrom: helper.fromFacility, groupId: null,
+      })),
     ],
     entries: employeeIds.length === 0
       ? []
@@ -66,6 +76,7 @@ export function buildSnapshot(db: Db, facilityId: number, year: number, month: n
       info2: notes.get(date)?.info2 ?? '',
       closureLabel: closureOn(closures, date)?.label ?? null,
     })),
+    groups,
   }
 }
 
@@ -107,17 +118,18 @@ export function loadReleases(db: Db, facilityId: number, year: number, month: nu
 
 /**
  * Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, and snapshots from
- * before groups no entry groupId, which read as null. Markers are shown plain even if a stored snapshot has more of the
+ * before groups no groups (read as none) and no employee or entry groupId (read as null). Markers are shown plain even if a stored snapshot has more of the
  * other plan.
  */
 function readSnapshot(facilityId: number, json: string): SnapshotData {
   const data = JSON.parse(json) as SnapshotData
   return {
     ...data,
-    employees: data.employees.map(employee => ({ ...employee, helpFrom: employee.helpFrom ?? null })),
+    employees: data.employees.map(employee => ({ ...employee, helpFrom: employee.helpFrom ?? null, groupId: employee.groupId ?? null })),
     entries: withPlainMarkers(facilityId, data.entries.map(entry => ({
       ...entry, helpFacilityId: entry.helpFacilityId ?? null, groupId: entry.groupId ?? null,
     }))),
+    groups: data.groups ?? [],
   }
 }
 

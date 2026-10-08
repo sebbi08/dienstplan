@@ -65,8 +65,8 @@ describe('help-outs in plans, releases, discard and notifications', () => {
       write(leitungB, krippe, kim, tuesday, shiftIn(krippe))
       const plan = planB()
       expect(plan.employees).toEqual([
-        { id: kim, name: 'Kim', shortName: 'Ki', helpFrom: null },
-        { id: anna, name: 'Anna', shortName: 'An', helpFrom: homeName },
+        { id: kim, name: 'Kim', shortName: 'Ki', helpFrom: null, groupId: null },
+        { id: anna, name: 'Anna', shortName: 'An', helpFrom: homeName, groupId: null },
       ])
       expect(plan.entries.map(entry => [entry.employeeId, entry.date, entry.helpFacilityId])).toEqual([
         [anna, tuesday, krippe], [kim, tuesday, null],

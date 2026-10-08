@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
+import { groupAttendance } from '../../shared/domain/attendance'
 import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
@@ -20,7 +21,7 @@ import { employees, entries, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
-import { groupNames } from './groups'
+import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
@@ -173,11 +174,20 @@ function facilityNamesFor(db: Db, facilityId: number, shownEntries: EntryDto[]):
 
 /**
  * Changes and pending changes concern a plan's own cells only: help-elsewhere markers belong to another plan. Their texts
- * name the facility's group of a duty counting for another group.
+ * name the facility's group of a duty counting for another group, as the group was called in that state (a release: at
+ * release time; the draft: now).
  */
 function ownCellsOf(db: Db, facilityId: number): (data: SnapshotData) => Map<string, CellState> {
-  const names = groupNames(db, facilityId)
-  return data => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) }, names)
+  const namesOf = snapshotGroupNames(db, facilityId)
+  return data => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) }, namesOf(data))
+}
+
+/** Per group of the shown plan and day: the persons working in that group (see groupAttendance); no groups = {}. */
+function attendanceOf(facilityId: number, shown: SnapshotData, year: number, month: number): MonthPlanDto['attendance'] {
+  const groups = shown.groups ?? []
+  if (groups.length === 0) return {}
+  const homeGroups = new Map(shown.employees.map(employee => [employee.id, employee.groupId ?? null]))
+  return groupAttendance(facilityId, groups.map(group => group.id), homeGroups, shown.entries, monthDates(year, month))
 }
 
 function releasedStates(db: Db, facilityId: number, releases: StoredRelease[]): ReleasedState[] {
@@ -252,6 +262,8 @@ export function getMonthPlan(
     days,
     employees: shown.employees,
     entries: shown.entries,
+    groups: shown.groups ?? [],
+    attendance: attendanceOf(facilityId, shown, year, month),
     changes,
     templates: loadTemplates(db, facilityId),
     codes: loadCodes(db),

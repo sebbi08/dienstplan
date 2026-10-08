@@ -6,7 +6,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { DutyChangeDto, NotificationDto, ReleaseNotificationStatusDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, monthPlans, notifications, releaseSnapshots, users } from '../db/schema'
-import { groupNames } from './groups'
+import { snapshotGroupNames } from './groups'
 import { ownCellFilter } from './queries'
 
 /** Read messages stay visible this many days. */
@@ -25,8 +25,9 @@ export function notifyDutyChanges(
   // entering this plan are no change).
   const ownsCell = ownCellFilter(db, facilityId)
   // Help-elsewhere markers are another plan's cells: that plan tells the person about them, this one does not.
-  const names = groupNames(db, facilityId)
-  const own = (data: SnapshotData) => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) }, names)
+  // Each state names groups as they were called at its release (the draft: as they are called now).
+  const namesOf = snapshotGroupNames(db, facilityId)
+  const own = (data: SnapshotData) => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) }, namesOf(data))
   const byEmployee = new Map<number, DutyChangeDto[]>()
   for (const diff of diffCells(own(previous), own(next))) {
     const { employeeId, date } = parseCellKey(diff.key)
