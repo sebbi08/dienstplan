@@ -1,11 +1,11 @@
-import { and, asc, eq, gte, inArray, lte, type SQL } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull, lte, or, type SQL } from 'drizzle-orm'
 import { describeEntry } from '../../shared/domain/describe'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, shiftTemplates } from '../db/schema'
+import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, helpOuts, shiftTemplates } from '../db/schema'
 
 export interface EntryFilter {
   from?: IsoDate
@@ -15,8 +15,16 @@ export interface EntryFilter {
   employeeIds?: number[]
   closureId?: number
   codeKey?: CodeKey
-  /** Only entries of employees whose home facility this is. */
-  facilityId?: number
+  /**
+   * Only entries of employees whose home facility this is, help-outs elsewhere included: everything about the
+   * person's account (balances, week totals, leave, sick days, calendar, time tracking).
+   */
+  homeFacilityId?: number
+  /**
+   * Only the plan of this facility: its home staff's entries that are no help-out elsewhere, plus the help-out entries
+   * planned in it (plan cells, snapshots, coverage, week templates, notifications, revert).
+   */
+  planFacilityId?: number
 }
 
 export interface EmployeeRecord {
@@ -52,7 +60,13 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
       filter.employeeIds !== undefined ? inArray(entries.employeeId, filter.employeeIds) : undefined,
       filter.closureId !== undefined ? eq(entries.closureId, filter.closureId) : undefined,
       filter.codeKey ? eq(absenceCodes.key, filter.codeKey) : undefined,
-      filter.facilityId !== undefined ? eq(employees.facilityId, filter.facilityId) : undefined,
+      filter.homeFacilityId !== undefined ? eq(employees.facilityId, filter.homeFacilityId) : undefined,
+      filter.planFacilityId !== undefined
+        ? or(
+            eq(entries.helpFacilityId, filter.planFacilityId),
+            and(isNull(entries.helpFacilityId), eq(employees.facilityId, filter.planFacilityId)),
+          )
+        : undefined,
     ))
     .orderBy(asc(entries.date), asc(entries.start), asc(entries.id))
     .all()
@@ -72,6 +86,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
     breakEnd: entry.breakEnd,
     countsAsStaff: entry.countsAsStaff,
     note: entry.note,
+    helpFacilityId: entry.helpFacilityId,
     label: describeEntry(entry, code?.label ?? null),
     shortLabel: template?.shortLabel || null,
     color: entry.kind === 'code'
@@ -144,15 +159,23 @@ export function loadCoverageRules(db: Db, facilityId: number, activeOnly = true)
 
 /**
  * Which plan cells are the facility's own when its draft is compared with (or reset to) a release: those of its current
- * staff, from the day each one moved in. Cells of people who moved away, and cells from before someone moved in
- * (planned by the other facility), are left alone.
+ * staff, from the day each one moved in, and those of its helpers in the months they help out here. Cells of people who
+ * moved away, and cells from before someone moved in (planned by the other facility), are left alone.
  */
 export function ownCellFilter(db: Db, facilityId: number): (employeeId: number, date: IsoDate) => boolean {
   const since = new Map(db.select({ id: employees.id, since: employees.facilitySince }).from(employees)
     .where(eq(employees.facilityId, facilityId)).all().map(row => [row.id, row.since]))
+  const helperMonths = new Set(db.select({ employeeId: helpOuts.employeeId, year: helpOuts.year, month: helpOuts.month })
+    .from(helpOuts).where(eq(helpOuts.facilityId, facilityId)).all()
+    .map(row => helperMonthKey(row.employeeId, row.year, row.month)))
   return (employeeId, date) => {
+    if (helperMonths.has(helperMonthKey(employeeId, Number(date.slice(0, 4)), Number(date.slice(5, 7))))) return true
     if (!since.has(employeeId)) return false
     const from = since.get(employeeId)
     return from == null || date >= from
   }
+}
+
+function helperMonthKey(employeeId: number, year: number, month: number): string {
+  return `${employeeId}:${year}-${month}`
 }

@@ -6,7 +6,7 @@ import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoe
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, LevelUpDto, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { balanceAdjustments, employeeHours, employees, facilities, leaveEntitlements, users } from '../db/schema'
+import { balanceAdjustments, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
@@ -266,6 +266,10 @@ export function moveEmployeeToFacility(
     tx.update(employees).set({ facilityId, sortOrder, facilitySince: today }).where(eq(employees.id, employeeId)).run()
     tx.update(users).set({ facilityId })
       .where(and(eq(users.employeeId, employeeId), inArray(users.role, ['admin', 'terminal']))).run()
+    // Helping out in the new home is no help-out any more: those entries become home entries (help-outs elsewhere stay).
+    tx.delete(helpOuts).where(and(eq(helpOuts.employeeId, employeeId), eq(helpOuts.facilityId, facilityId))).run()
+    tx.update(entries).set({ helpFacilityId: null })
+      .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
     bookClosuresFor(tx, actor, employeeId, now, today)
   })
 }

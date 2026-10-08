@@ -62,6 +62,26 @@ export interface EntryDto extends DomainEntry {
   label: string
   shortLabel: string | null
   color: ColorKey
+  /** The facility whose plan this help-out entry belongs to; null for a normal entry of the home facility. */
+  helpFacilityId: number | null
+}
+
+/** An employee of another facility helping out in this facility's plan for a month (a helper column). */
+export interface HelperDto {
+  helpOutId: number
+  employeeId: number
+  name: string
+  shortName: string
+  fromFacilityId: number
+  fromFacility: string
+}
+
+/** Someone of another facility who could be added as a helper (only names are shown). */
+export interface HelpCandidateDto {
+  employeeId: number
+  name: string
+  shortName: string
+  facilityName: string
 }
 
 export interface TemplateDto {

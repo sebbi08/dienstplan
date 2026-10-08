@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
-import { absenceCodes, employeeHours, employees, shiftTemplates, users } from '../../server/db/schema'
+import { absenceCodes, employeeHours, employees, helpOuts, shiftTemplates, users } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { ServiceError } from '../../server/lib/errors'
 import { hashPassword } from '../../server/lib/password'
@@ -52,6 +52,11 @@ export function addUser(
     .values({ username, passwordHash: hashPassword(TEST_PASSWORD), role, employeeId, facilityId: stored })
     .returning().get()
   return toSessionUser(db, row)
+}
+
+/** Makes the employee a helper in facilityId's plan for the month (no checks); returns the help-out id. */
+export function addHelpOut(db: Db, employeeId: number, facilityId: number, year: number, month: number): number {
+  return db.insert(helpOuts).values({ employeeId, facilityId, year, month }).returning({ id: helpOuts.id }).get().id
 }
 
 export function templateId(db: Db, shortLabel: string, facilityId = 1): number {

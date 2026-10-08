@@ -62,7 +62,7 @@ export function actualTimeFor(db: Db, facilityId: number, today: IsoDate): (empl
   // With automatic breaks the planned break of the day is deducted from the clocked time.
   const breakModes = new Map(loadEmployees(db, facilityId).map(employee => [employee.id, employee.breakMode]))
   const plannedBreaks = new Map<string, number>()
-  for (const entry of loadEntries(db, { from, to: today, facilityId })) {
+  for (const entry of loadEntries(db, { from, to: today, homeFacilityId: facilityId })) {
     const key = `${entry.employeeId}:${entry.date}`
     plannedBreaks.set(key, (plannedBreaks.get(key) ?? 0) + plannedBreakMinutes([entry]))
   }

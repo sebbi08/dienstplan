@@ -117,3 +117,8 @@ export const pdfQuery = z.object({ path: z.string().max(200), name: z.string().r
 export const facilityNameSchema = z.object({ name: z.string().max(80) })
 export const activeFacilitySchema = z.object({ facilityId: z.number().int().positive() })
 export const employeeFacilitySchema = z.object({ facilityId: z.number().int().positive() })
+export const helpOutSchema = z.object({
+  employeeId: z.number().int().positive(),
+  year: z.number().int().min(2000).max(2100),
+  month: z.number().int().min(1).max(12),
+})

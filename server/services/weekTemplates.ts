@@ -77,7 +77,7 @@ export function saveWeekTemplate(
 ): WeekTemplateDto {
   requireMonday(input.weekStart)
   const name = requireName(input.name)
-  const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), facilityId })
+  const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), homeFacilityId: facilityId })
     .filter(entry => entry.kind !== 'code' || (entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey)))
   if (working.length === 0) throw new ServiceError(400, 'empty_week')
 
@@ -142,7 +142,7 @@ export function applyWeekTemplate(
   const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
 
   db.transaction((tx) => {
-    const occupied = new Set(loadEntries(tx, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1), facilityId })
+    const occupied = new Set(loadEntries(tx, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1), homeFacilityId: facilityId })
       .map(entry => `${entry.employeeId}:${entry.date}`))
     for (const group of groups.values()) {
       const { employeeId, weekday: day } = group[0]!

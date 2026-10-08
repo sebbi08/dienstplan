@@ -157,6 +157,31 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('adds help-outs without touching the existing entries', () => {
+    const { db, sqlite } = databaseAt('0020')
+    sqlite.exec(`
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1);
+      INSERT INTO shift_templates (id, short_label, label, start, end, facility_id) VALUES (1, 'F1', 'Frühdienst', 420, 795, 1);
+      INSERT INTO entries (id, employee_id, date, kind, shift_template_id, start, end, updated_at) VALUES
+        (1, 1, '2026-10-05', 'shift', 1, 420, 795, 'now'), (2, 1, '2026-10-06', 'shift', 1, 420, 795, 'now');
+    `)
+    const before = sqlite.prepare('SELECT * FROM entries ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    const after = sqlite.prepare('SELECT * FROM entries ORDER BY id').all() as Record<string, unknown>[]
+    expect(after.map(({ help_facility_id: _, ...rest }) => rest)).toEqual(before)
+    expect(after.map(row => row.help_facility_id)).toEqual([null, null])
+    expect(count(sqlite, 'help_outs')).toBe(0)
+    sqlite.exec('INSERT INTO facilities (id, name) VALUES (2, \'Krippe\')')
+    sqlite.exec('INSERT INTO help_outs (employee_id, facility_id, year, month) VALUES (1, 2, 2026, 11)')
+    expect(() => sqlite.exec('INSERT INTO help_outs (employee_id, facility_id, year, month) VALUES (1, 2, 2026, 11)')).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec('UPDATE entries SET help_facility_id = 99 WHERE id = 1')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'help_outs')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

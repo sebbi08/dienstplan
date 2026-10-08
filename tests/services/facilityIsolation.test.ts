@@ -111,8 +111,8 @@ describe('facility isolation', () => {
       expect(errorCode(() => deleteEntry(db, leitungA, 1, entry!.id))).toBe('entry_not_found')
       expect(errorCode(() => updateEntryTimes(db, leitungA, 1, entry!.id, { start: 500, end: 720, breakStart: null, breakEnd: null })))
         .toBe('entry_not_found')
-      expect(loadEntries(db, { facilityId: 1 })).toEqual([])
-      expect(loadEntries(db, { facilityId: facility2 }).map(e => e.id)).toEqual([entry!.id])
+      expect(loadEntries(db, { homeFacilityId: 1 })).toEqual([])
+      expect(loadEntries(db, { homeFacilityId: facility2 }).map(e => e.id)).toEqual([entry!.id])
     })
 
     it('logs changes only for the facility whose month is released', () => {

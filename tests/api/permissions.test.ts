@@ -29,6 +29,8 @@ const PROVIDER_ROUTES = [
   'employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts', 'leave-settings/module.put.ts',
   'facilities.post.ts', 'facilities/[id].put.ts', 'facilities/active.put.ts', 'employees/[id]/facility.put.ts',
 ]
+/** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
+const ADMIN_ROUTES = ['help-outs/candidates.get.ts', 'help-outs/index.post.ts', 'help-outs/[id].delete.ts']
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 
@@ -45,6 +47,10 @@ describe('API route permissions', () => {
   it('finds the API routes', () => {
     expect(routes.length).toBeGreaterThan(30)
     for (const route of [...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...PUBLIC_ROUTES]) expect(routes).toContain(route)
+    for (const route of ADMIN_ROUTES) {
+      expect(routes).toContain(route)
+      expect([...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...PUBLIC_ROUTES]).not.toContain(route)
+    }
   })
 
   it.each(routes)('%s is protected as classified', (route) => {

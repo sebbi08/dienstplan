@@ -36,7 +36,7 @@ function staffOfYear(db: Db, facilityId: number, year: number) {
 
 /** Sick periods (Mon–Fri without holidays, bridging weekends) and the number of sick workdays per employee of the facility. */
 export function getSickYear(db: Db, facilityId: number, year: number): SickYearRowDto[] {
-  const sickDates = loadEntries(db, { ...yearBounds(year), codeKey: 'sick', facilityId })
+  const sickDates = loadEntries(db, { ...yearBounds(year), codeKey: 'sick', homeFacilityId: facilityId })
   return staffOfYear(db, facilityId, year).map((employee) => {
     const ranges = groupLeaveRanges(
       sickDates.filter(entry => entry.employeeId === employee.id).map(entry => entry.date),
@@ -72,7 +72,7 @@ export function getYearCalendar(
   const days: Record<number, Record<IsoDate, CalendarKind>> = Object.fromEntries(staff.map(employee => [employee.id, {}]))
   const otherSets = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
   const hideSick = 'sickOnlyOf' in options
-  for (const entry of loadEntries(db, { ...yearBounds(year), facilityId })) {
+  for (const entry of loadEntries(db, { ...yearBounds(year), homeFacilityId: facilityId })) {
     if (hideSick && entry.codeKey === 'sick' && entry.employeeId !== options.sickOnlyOf) continue
     // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
     if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)

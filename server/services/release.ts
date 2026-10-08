@@ -34,7 +34,7 @@ export function buildSnapshot(db: Db, facilityId: number, year: number, month: n
   )
   return {
     employees: staff.map(({ id, name, shortName }) => ({ id, name, shortName })),
-    entries: loadEntries(db, { from: monthStart, to: monthEnd, facilityId }).filter(entry => staffIds.has(entry.employeeId)),
+    entries: loadEntries(db, { from: monthStart, to: monthEnd, homeFacilityId: facilityId }).filter(entry => staffIds.has(entry.employeeId)),
     days: monthDates(year, month).map(date => ({
       date,
       info1: notes.get(date)?.info1 ?? '',

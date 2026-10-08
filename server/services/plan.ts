@@ -36,7 +36,7 @@ function buildAdminData(
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
-  const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd, facilityId }))
+  const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd, homeFacilityId: facilityId }))
   const rules = loadCoverageRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
   const trackingFrom = activeTrackingFrom(db, facilityId, today)

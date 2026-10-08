@@ -131,12 +131,26 @@ export const entries = sqliteTable('entries', {
   countsAsStaff: integer('counts_as_staff', { mode: 'boolean' }).notNull().default(true),
   note: text('note'),
   closureId: integer('closure_id').references(() => closures.id, { onDelete: 'set null' }),
+  /**
+   * The facility whose plan this help-out entry belongs to (null = a normal entry of the home facility). Never the
+   * employee's current home facility; all entries of one employee on one date share it (one day, one facility).
+   */
+  helpFacilityId: integer('help_facility_id').references(() => facilities.id),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [
   index('entries_date').on(table.date),
   index('entries_employee_date').on(table.employeeId, table.date),
 ])
+
+/** An employee helps out in another facility (never their home) for a month: they get a helper column in its plan. */
+export const helpOuts = sqliteTable('help_outs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id),
+  year: integer('year').notNull(),
+  month: integer('month').notNull(),
+}, table => [uniqueIndex('help_outs_employee_facility_month').on(table.employeeId, table.facilityId, table.year, table.month)])
 
 export const dayNotes = sqliteTable('day_notes', {
   facilityId: facilityId(),
