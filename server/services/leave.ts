@@ -1,11 +1,10 @@
-import { and, eq } from 'drizzle-orm'
 import { groupLeaveRanges, leaveAccount } from '../../shared/domain/leave'
 import { isEmployedInRange, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { LeaveAccountDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { leaveEntitlements } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { entitlementFor } from './entitlements'
 import { loadEmployee, loadEmployees, loadEntries } from './queries'
 
 /** The leave account of one employee (whatever facility they belong to; callers check access). */
@@ -16,11 +15,11 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
   const isLeaveDay = (date: IsoDate) => isWorkday(employee.info, date)
   const vacationDates = loadEntries(db, { employeeId, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
     .map(entry => entry.date)
-  const entitlement = db.select().from(leaveEntitlements)
-    .where(and(eq(leaveEntitlements.employeeId, employeeId), eq(leaveEntitlements.year, year))).get()
+  const entitlement = entitlementFor(db, employeeId, year)
   return {
     employeeId, name: employee.name, year,
-    account: leaveAccount(entitlement ?? null, vacationDates, year, today, isLeaveDay),
+    account: leaveAccount(entitlement, vacationDates, year, today, isLeaveDay),
+    inheritedFrom: entitlement && entitlement.fromYear !== year ? entitlement.fromYear : null,
     ranges: groupLeaveRanges(vacationDates, isLeaveDay),
   }
 }

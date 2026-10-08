@@ -223,6 +223,8 @@ export interface LeaveAccountDto {
   name: string
   year: number
   account: LeaveAccount
+  /** The year whose entitlement was carried into this one (null: recorded for this year, or none). */
+  inheritedFrom: number | null
   ranges: LeaveRange[]
 }
 

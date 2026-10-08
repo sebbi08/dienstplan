@@ -201,6 +201,7 @@ export const de = {
   leave: {
     title: 'Urlaub', myTitle: 'Mein Urlaub', name: 'Mitarbeiter',
     entitlement: 'Anspruch', carriedOver: 'Übertrag Vorjahr', taken: 'genommen', planned: 'verplant', available: 'frei verfügbar',
+    inheritedFrom: (year: number) => `(aus ${year} übernommen)`,
     days, ranges: 'Urlaubstage', noRanges: 'Keine Urlaubstage eingetragen.', rangeTaken: 'genommen', rangePlanned: 'geplant',
   },
   employees: {
@@ -212,6 +213,7 @@ export const de = {
     date: 'Datum', amount: 'Stunden (h:mm)', sign: 'Art', plus: 'Plus', minus: 'Minus', reason: 'Grund',
     addAdjustment: 'Buchung hinzufügen', entitlements: 'Urlaubsanspruch', year: 'Jahr', days: 'Tage',
     carriedOver: 'Übertrag', saveEntitlement: 'Anspruch speichern',
+    entitlementsHint: 'Der Anspruch gilt auch für die folgenden Jahre, bis du für ein Jahr einen anderen speicherst. Den Übertrag trägst du für jedes Jahr selbst ein.',
     invalidDuration: 'Bitte die Stunden im Format h:mm angeben, z. B. 12:30.',
     back: 'Zurück zur Übersicht', noEntries: 'Noch keine Einträge.',
     stamping: 'Stempeln und Pausen', stampVia: 'Stempeln über', breakMode: 'Pausen',

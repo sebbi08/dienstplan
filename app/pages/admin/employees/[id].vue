@@ -211,6 +211,7 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
 
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>
+      <p class="text-sm text-gray-500">{{ de.employees.entitlementsHint }}</p>
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-500"><tr><th>{{ de.employees.year }}</th><th>{{ de.employees.days }}</th><th>{{ de.employees.carriedOver }}</th><th /></tr></thead>
         <tbody>
