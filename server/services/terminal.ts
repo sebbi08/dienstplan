@@ -3,16 +3,19 @@ import { isEmployedOn } from '../../shared/domain/targets'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { StampAction, TerminalPersonDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, timeRecords } from '../db/schema'
+import { employees, entries, timeRecords } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, verifyPassword } from '../lib/password'
-import { loadEmployees } from './queries'
+import { loadEmployee, loadEmployees } from './queries'
 import { stamp } from './timeTracking'
 
 export const MAX_PIN_ATTEMPTS = 5
 export const PIN_LOCK_MINUTES = 15
 
-/** The employee, if it belongs to the facility; otherwise employee_not_found (other facilities stay unconfirmed). */
+/**
+ * The employee, if it belongs to the facility; otherwise employee_not_found (other facilities stay unconfirmed).
+ * Home staff only: PINs are managed by the home facility, helpers included.
+ */
 function findEmployee(db: Db, facilityId: number, employeeId: number) {
   const employee = db.select().from(employees)
     .where(and(eq(employees.id, employeeId), eq(employees.facilityId, facilityId))).get()
@@ -31,12 +34,22 @@ export function clearPin(db: Db, facilityId: number, employeeId: number): void {
   db.update(employees).set({ pinHash: null, pinFailed: 0, pinLockedUntil: null }).where(eq(employees.id, employeeId)).run()
 }
 
-/** People shown on the facility's tablet: employed today and with a PIN; clockedIn = open record today. */
+/** Ids of the employees planned in the facility's helper column (help-out entry) on the date. */
+function helperIdsOn(db: Db, facilityId: number, date: string): number[] {
+  return [...new Set(db.select({ employeeId: entries.employeeId }).from(entries)
+    .where(and(eq(entries.helpFacilityId, facilityId), eq(entries.date, date))).all().map(row => row.employeeId))]
+}
+
+/**
+ * People shown on the facility's tablet: employed today and with a PIN; clockedIn = open record today.
+ * Helpers with a help-out entry in the facility today are listed after the own staff.
+ */
 export function terminalStatus(db: Db, facilityId: number, now: Date = new Date()): TerminalPersonDto[] {
   const { date } = nowInBerlin(now)
-  const staff = loadEmployees(db, facilityId)
-  const withPin = new Set(db.select().from(employees).where(eq(employees.facilityId, facilityId)).all()
-    .filter(row => row.pinHash !== null).map(row => row.id))
+  const helpers = helperIdsOn(db, facilityId, date).flatMap(id => loadEmployee(db, id) ?? [])
+    .filter(helper => helper.facilityId !== facilityId)
+  const staff = [...loadEmployees(db, facilityId), ...helpers]
+  const withPin = new Set(db.select().from(employees).all().filter(row => row.pinHash !== null).map(row => row.id))
   const open = new Set(db.select().from(timeRecords)
     .where(and(eq(timeRecords.date, date), isNull(timeRecords.end))).all().map(record => record.employeeId))
   return staff
@@ -46,14 +59,20 @@ export function terminalStatus(db: Db, facilityId: number, now: Date = new Date(
 
 /**
  * Checks the PIN (5 wrong attempts lock the person for 15 minutes) and stamps as "terminal". Only the facility's
- * employees: anyone else is employee_not_found before the PIN is looked at, so no attempt is counted.
+ * employees, and helpers on the days they are planned here: anyone else is employee_not_found before the PIN is looked
+ * at, so no attempt is counted. Employment is checked against the person's own record.
  */
 export function terminalStamp(
   db: Db, facilityId: number, employeeId: number, pin: string, action: StampAction, now: Date = new Date(),
 ): TimeRecordDto {
-  const employee = findEmployee(db, facilityId, employeeId)
-  const info = loadEmployees(db, facilityId).find(candidate => candidate.id === employeeId)!.info
-  if (!isEmployedOn(info, nowInBerlin(now).date)) throw new ServiceError(400, 'employee_not_employed')
+  const { date } = nowInBerlin(now)
+  const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
+  const isHome = employee?.facilityId === facilityId
+  if (!employee || (!isHome && !helperIdsOn(db, facilityId, date).includes(employeeId))) {
+    throw new ServiceError(404, 'employee_not_found')
+  }
+  const info = loadEmployee(db, employeeId)!.info
+  if (!isEmployedOn(info, date)) throw new ServiceError(400, 'employee_not_employed')
   if (employee.pinHash === null) throw new ServiceError(400, 'pin_missing')
   if (employee.pinLockedUntil && employee.pinLockedUntil > now.toISOString()) throw new ServiceError(423, 'pin_locked')
   if (!verifyPassword(pin, employee.pinHash)) {
