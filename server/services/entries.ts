@@ -11,7 +11,8 @@ import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { loadEntries } from './queries'
+import { isHelperOn } from './helpOuts'
+import { inPlanOf, loadEntries } from './queries'
 
 type ResolvedEntry = Omit<typeof entries.$inferInsert, 'employeeId' | 'date' | 'updatedAt' | 'updatedBy' | 'closureId'>
 
@@ -67,27 +68,64 @@ function facilityEmployeeIds(db: Db, facilityId: number): Set<number> {
     .map(row => row.id))
 }
 
-/** Writes into plan cells of the facility; every cell's employee must belong to it, otherwise nothing is written. */
+/**
+ * Which plan the person's day belongs to (one day, one facility): the facility of its help-out entries, 'home' for
+ * home entries, null when the day is empty.
+ */
+export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | null | 'home' {
+  const rows = db.select({ helpFacilityId: entries.helpFacilityId }).from(entries)
+    .where(and(eq(entries.employeeId, employeeId), eq(entries.date, date))).all()
+  if (rows.length === 0) return null
+  return rows.find(row => row.helpFacilityId !== null)?.helpFacilityId ?? 'home'
+}
+
+/**
+ * Writes into plan cells of the facility; if any cell is refused, nothing is written. A cell is accepted when
+ * 1. its employee is home staff and the day is no help-out elsewhere;
+ * 2. its employee is home staff, the day is a help-out elsewhere and the input is an absence: the help-out is replaced
+ *    (logged in both facilities); anything else gives cell_helps_elsewhere;
+ * 3. its employee is a helper of the facility that month and the day belongs to no other plan (else cell_taken): the
+ *    entries are planned here (help_facility_id); absences give help_code_not_allowed.
+ * Anyone else gives employee_not_found.
+ */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
   options: { now?: Date; closureId?: number | null } = {},
 ): void {
   if (mode !== 'clear' && !input) throw new ServiceError(400, 'entry_required')
   const own = facilityEmployeeIds(db, facilityId)
-  if (cells.some(cell => !own.has(cell.employeeId))) throw new ServiceError(400, 'employee_not_found')
+  const isHelperCell = (cell: CellRef) => !own.has(cell.employeeId)
+  if (cells.some(cell => isHelperCell(cell) && !isHelperOn(db, facilityId, cell.employeeId, cell.date))) {
+    throw new ServiceError(400, 'employee_not_found')
+  }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
   const now = (options.now ?? new Date()).toISOString()
   const gapCodeIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
     .where(inArray(absenceCodes.key, TARGET_GAP_CODES)).all().map(row => row.id))
   const isGapCode = values?.absenceCodeId != null && gapCodeIds.has(values.absenceCodeId)
+  // An absence is any code other than the timed VZ/Büro (Urlaub, Krank, Fortbildung, Schließtag …, with or without times).
+  const isAbsence = values?.kind === 'code' && !isGapCode
+  if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
   const unique = [...new Map(cells.map(cell => [cellKey(cell.employeeId, cell.date), cell])).values()]
 
   db.transaction((tx) => {
     for (const cell of unique) {
       if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
       const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
+      const helper = isHelperCell(cell)
+      const owner = cellOwner(tx, cell.employeeId, cell.date)
       const before = describeCellAt(tx, cell)
+      if (helper && owner !== null && owner !== facilityId) throw new ServiceError(409, 'cell_taken')
+      if (!helper && typeof owner === 'number') {
+        if (!isAbsence) throw new ServiceError(409, 'cell_helps_elsewhere')
+        // The absence replaces the help-out; the other plan sees its cell emptied.
+        tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()
+        logChange(tx, {
+          facilityId: owner, date: cell.date, employeeId: cell.employeeId, field: 'entry',
+          before, after: describeCellAt(tx, cell), actorId: actor.id, now,
+        })
+      }
       if (mode !== 'add') {
         // Entering a shift into a cell with VZ/Büro adds it next to them instead of removing them.
         const keepTimedCodes = mode === 'replace' && (values?.kind === 'shift' || values?.kind === 'special')
@@ -110,7 +148,7 @@ export function applyToCells(
       }
       if (values) {
         tx.insert(entries).values({
-          ...values, employeeId: cell.employeeId, date: cell.date,
+          ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null,
           closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id,
         }).run()
       }
@@ -122,10 +160,13 @@ export function applyToCells(
   })
 }
 
-/** An entry of one of the facility's employees; 404 entry_not_found for any other id. */
+/**
+ * An entry in the facility's plan (its staff's home entries and its helpers' entries planned here); 404
+ * entry_not_found for any other id, including its staff's help-outs elsewhere.
+ */
 function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries.$inferSelect {
   const row = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
-    .where(and(eq(entries.id, id), eq(employees.facilityId, facilityId))).get()
+    .where(and(eq(entries.id, id), inPlanOf(facilityId))).get()
   if (!row) throw new ServiceError(404, 'entry_not_found')
   return row.entry
 }
@@ -219,7 +260,7 @@ export function setDayNote(
 }
 
 /**
- * After a service (Dienst) of the facility got new times: its fixed shifts (of the facility's employees) from `from` on
+ * After a service (Dienst) of the facility got new times: its fixed shifts in the facility's plan (helpers' included) from `from` on
  * that still have the old times get the new ones.
  * Earlier days and individually changed shifts stay as they are; a cell where the new times would clash with other
  * entries (e.g. VZ inside the shift or an extra break) is left alone and counted as skipped.
@@ -233,7 +274,7 @@ export function adoptShiftTimes(
   const outdated = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
     .where(and(
       eq(entries.shiftTemplateId, shiftTemplateId), eq(entries.kind, 'shift'), gte(entries.date, from),
-      eq(employees.facilityId, facilityId),
+      inPlanOf(facilityId),
     )).all().map(row => row.entry).filter(entry => entry.start === oldTimes.start && entry.end === oldTimes.end
     && entry.breakStart === oldTimes.breakStart && entry.breakEnd === oldTimes.breakEnd)
   db.transaction((tx) => {

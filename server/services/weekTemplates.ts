@@ -69,7 +69,8 @@ export function listWeekTemplates(db: Db, facilityId: number): WeekTemplateDto[]
 
 /**
  * Saves Monday–Friday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro.
- * One-off entries (Urlaub, Krank, Fortbildung …) are left out. Only the facility's staff count. An existing template of
+ * One-off entries (Urlaub, Krank, Fortbildung …) are left out. Only the facility's staff count (not its helpers, and not
+ * their help-out days elsewhere). An existing template of
  * the same name in the facility is replaced.
  */
 export function saveWeekTemplate(
@@ -77,7 +78,9 @@ export function saveWeekTemplate(
 ): WeekTemplateDto {
   requireMonday(input.weekStart)
   const name = requireName(input.name)
-  const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), homeFacilityId: facilityId })
+  // The facility's plan without its helpers (helpFacilityId set) and without its staff's help-outs elsewhere.
+  const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), planFacilityId: facilityId })
+    .filter(entry => entry.helpFacilityId === null)
     .filter(entry => entry.kind !== 'code' || (entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey)))
   if (working.length === 0) throw new ServiceError(400, 'empty_week')
 
@@ -115,7 +118,8 @@ export function deleteWeekTemplate(db: Db, facilityId: number, id: number): void
 }
 
 /**
- * Copies the template into the week starting at weekStart. A day is only filled when the employee's cell is empty and
+ * Copies the template into the week starting at weekStart, for the facility's own staff only. A day is only filled
+ * when the employee's day is empty (a help-out elsewhere counts as filled) and
  * it is one of their working days (employed, contract day, no public holiday) outside any closure; nothing is overwritten.
  */
 export function applyWeekTemplate(
@@ -142,6 +146,7 @@ export function applyWeekTemplate(
   const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
 
   db.transaction((tx) => {
+    // Every entry of the staff counts, so a day helping out in another facility is occupied too.
     const occupied = new Set(loadEntries(tx, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1), homeFacilityId: facilityId })
       .map(entry => `${entry.employeeId}:${entry.date}`))
     for (const group of groups.values()) {

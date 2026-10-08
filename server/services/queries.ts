@@ -47,6 +47,14 @@ export interface EmployeeRecord {
   breakMode: BreakMode
 }
 
+/** Entries in the plan of facilityId (see `EntryFilter.planFacilityId`); needs `employees` joined on the entry's employee. */
+export function inPlanOf(facilityId: number): SQL {
+  return or(
+    eq(entries.helpFacilityId, facilityId),
+    and(isNull(entries.helpFacilityId), eq(employees.facilityId, facilityId)),
+  )!
+}
+
 export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
   const rows = db.select({ entry: entries, code: absenceCodes, template: shiftTemplates })
     .from(entries)
@@ -61,12 +69,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
       filter.closureId !== undefined ? eq(entries.closureId, filter.closureId) : undefined,
       filter.codeKey ? eq(absenceCodes.key, filter.codeKey) : undefined,
       filter.homeFacilityId !== undefined ? eq(employees.facilityId, filter.homeFacilityId) : undefined,
-      filter.planFacilityId !== undefined
-        ? or(
-            eq(entries.helpFacilityId, filter.planFacilityId),
-            and(isNull(entries.helpFacilityId), eq(employees.facilityId, filter.planFacilityId)),
-          )
-        : undefined,
+      filter.planFacilityId !== undefined ? inPlanOf(filter.planFacilityId) : undefined,
     ))
     .orderBy(asc(entries.date), asc(entries.start), asc(entries.id))
     .all()

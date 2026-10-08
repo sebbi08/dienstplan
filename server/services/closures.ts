@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { dateRange, daysBetween, parseIsoDate } from '../../shared/domain/dates'
 import { leaveAccount } from '../../shared/domain/leave'
 import { employmentStart, isWorkday } from '../../shared/domain/targets'
@@ -8,7 +8,7 @@ import type { Db } from '../db/client'
 import { absenceCodes, closures, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { applyToCells, describeCellAt } from './entries'
+import { applyToCells, cellOwner, describeCellAt } from './entries'
 import { yearEntitlement } from './leave'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
@@ -64,7 +64,8 @@ function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacat
 
 /**
  * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
- * (a closure never uses leave on a day off) and, with `from`, only on days from then on.
+ * (a closure never uses leave on a day off) and, with `from`, only on days from then on. Days on which someone helps
+ * out in another facility are skipped.
  */
 function bookClosure(
   db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date, from?: IsoDate,
@@ -73,7 +74,8 @@ function bookClosure(
   const closureCells: { employeeId: number; date: IsoDate }[] = []
   for (const employee of staff) {
     const dates = dateRange(closure.startDate, closure.endDate)
-      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from))
+      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from)
+        && typeof cellOwner(db, employee.id, date) !== 'number')
     const split = closure.mode === 'vacation' ? splitLeave(db, employee, dates) : { vacation: [], closureDays: dates }
     vacationCells.push(...split.vacation.map(date => ({ employeeId: employee.id, date })))
     closureCells.push(...split.closureDays.map(date => ({ employeeId: employee.id, date })))
@@ -121,7 +123,10 @@ export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, 
 export function unbookClosuresFrom(db: Db, actor: SessionUser, employeeId: number, facilityId: number, from: IsoDate, now: Date): void {
   const own = loadClosures(db, facilityId).map(closure => closure.id)
   if (own.length === 0) return
-  const booked = and(eq(entries.employeeId, employeeId), gte(entries.date, from), inArray(entries.closureId, own))
+  // Closure days are home entries; a help-out is never removed with them.
+  const booked = and(
+    eq(entries.employeeId, employeeId), gte(entries.date, from), inArray(entries.closureId, own), isNull(entries.helpFacilityId),
+  )
   const dates = [...new Set(db.select({ date: entries.date }).from(entries).where(booked).all().map(row => row.date))]
   const cells = dates.map(date => ({ employeeId, date }))
   const before = cells.map(cell => describeCellAt(db, cell))
@@ -136,9 +141,11 @@ export function deleteClosure(db: Db, actor: SessionUser, facilityId: number, id
   const own = db.select({ id: closures.id }).from(closures).where(and(eq(closures.id, id), eq(closures.facilityId, facilityId))).get()
   if (!own) throw new ServiceError(404, 'closure_not_found')
   db.transaction((tx) => {
-    const cells = loadEntries(tx, { closureId: id }).map(entry => ({ employeeId: entry.employeeId, date: entry.date }))
+    const cells = loadEntries(tx, { closureId: id }).filter(entry => entry.helpFacilityId === null)
+      .map(entry => ({ employeeId: entry.employeeId, date: entry.date }))
     const before = cells.map(cell => describeCellAt(tx, cell))
-    tx.delete(entries).where(eq(entries.closureId, id)).run()
+    // Closure days are home entries; a help-out is never removed with them.
+    tx.delete(entries).where(and(eq(entries.closureId, id), isNull(entries.helpFacilityId))).run()
     cells.forEach((cell, index) => logChange(tx, {
       facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(tx, cell),
       actorId: actor.id, now: now.toISOString(),
