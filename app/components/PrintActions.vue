@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
 
-/** "Jetzt drucken" and "PDF herunterladen" for a print view; the server renders this very page as a PDF. */
-const props = defineProps<{ fileName: string }>()
+/**
+ * "Jetzt drucken" and "PDF herunterladen" for a print view; the server renders this very page as a PDF.
+ * `search`: a query the PDF page needs too ("?group=3" for the plan of one group).
+ */
+const props = defineProps<{ fileName: string; search?: string }>()
 const route = useRoute()
 const downloading = ref(false)
 const toast = useToast()
 
 // File names may only contain letters, digits, dots and dashes (umlauts and spaces become dashes).
 const safeName = computed(() => props.fileName.replace(/[^A-Za-z0-9.-]+/g, '-'))
-const pdfUrl = computed(() => `/api/pdf?${new URLSearchParams({ path: route.path, name: safeName.value })}`)
+const pdfUrl = computed(() => `/api/pdf?${new URLSearchParams({ path: route.path + (props.search ?? ''), name: safeName.value })}`)
 
 function print() {
   window.print()

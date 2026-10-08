@@ -22,6 +22,14 @@ const year = ref(today.year)
 const month = ref(today.month)
 
 const { data: list, refresh } = await useFetch<EmployeeListItemDto[]>('/api/employees')
+// The home group, only when the facility has groups (null = Springer).
+const { data: groups, hasGroups } = useGroups()
+const groupText = (groupId: number | null) => groups.value?.find(group => group.id === groupId)?.name ?? de.groups.springer
+/** 0 = Springer (the select needs a non-null value). */
+const groupItems = computed(() => [
+  ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
+  { label: de.groups.springerOption, value: 0 },
+])
 const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year, month } })
 const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year } })
 const nextYear = computed(() => year.value + 1)
@@ -50,7 +58,7 @@ function leaveRows(employeeId: number): { year: number; account: LeaveAccountDto
 const toast = useToast()
 const emptyForm = () => ({
   name: '', shortName: '', weeklyHours: 39, validFrom: todayIso(), workdays: MONDAY_TO_FRIDAY,
-  vacationDays: null as number | null, carriedOverDays: null as number | null, openingBalance: '',
+  vacationDays: null as number | null, carriedOverDays: null as number | null, openingBalance: '', groupId: 0,
 })
 const form = reactive(emptyForm())
 
@@ -78,6 +86,7 @@ async function create() {
     body: {
       name: form.name, shortName: form.shortName, weeklyMinutes: hoursToMinutes(form.weeklyHours), validFrom: form.validFrom,
       workdays: form.workdays, vacationDays: form.vacationDays, carriedOverDays: form.carriedOverDays, openingBalanceMinutes,
+      ...(hasGroups.value ? { groupId: form.groupId || null } : {}),
     },
   }), de.common.saved)
   if (ok) Object.assign(form, emptyForm())
@@ -122,6 +131,7 @@ const hint = 'text-xs text-gray-500'
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
               <NuxtLink :to="`/admin/employees/${employee.id}`" class="font-semibold text-sky-700 hover:underline">{{ employee.name }}</NuxtLink>
               <span v-if="employee.shortName" class="text-gray-600">{{ employee.shortName }}</span>
+              <span v-if="hasGroups" class="text-gray-600">{{ de.groups.employeeGroup }}: {{ groupText(employee.groupId) }}</span>
               <span class="text-gray-600">{{ de.employees.weeklyHours }}: {{ formatHours(employee.currentWeeklyMinutes) }} ({{ workdaysText(employee.currentWorkdays) }})</span>
               <span v-if="employee.leftOn" class="text-gray-600">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn) }}</span>
               <span v-if="employee.stampVia !== 'both'" class="text-gray-600">{{ de.employees.stampVia }}: {{ de.employees.stampChannels[employee.stampVia] }}</span>
@@ -184,6 +194,9 @@ const hint = 'text-xs text-gray-500'
         <div class="grid gap-3 sm:grid-cols-4">
           <UFormField :label="de.employees.name" class="sm:col-span-3"><UInput v-model="form.name" class="w-full" required /></UFormField>
           <UFormField :label="de.employees.shortName"><UInput v-model="form.shortName" maxlength="10" class="w-full" /></UFormField>
+          <UFormField v-if="hasGroups" :label="de.groups.employeeGroup" class="sm:col-span-2">
+            <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
+          </UFormField>
         </div>
       </fieldset>
 

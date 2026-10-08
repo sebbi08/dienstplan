@@ -5,17 +5,30 @@ import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { slotClasses } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
+import { shownEmployees } from '~/utils/groups'
 import { isMarker } from '~/utils/helpOuts'
 
-const props = defineProps<{ plan: MonthPlanDto; date: string }>()
+/**
+ * groupId: the group chosen above the plan. Then the overview shows the same people as the plan (the group, the
+ * Springer and the helpers), plus anyone whose duty of this day counts for that group.
+ */
+const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null }>()
 const emit = defineEmits<{ close: [] }>()
 
 const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'holiday', 'other']
 const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const day = computed(() => props.plan.days.find(candidate => candidate.date === props.date))
 // Helpers count with their duties here; a help-out elsewhere counts in the other facility, not here.
+const people = computed(() => {
+  const groupId = props.groupId ?? null
+  if (groupId === null) return props.plan.employees
+  const shown = new Set(shownEmployees(props.plan, groupId).map(employee => employee.id))
+  const helping = new Set(props.plan.entries.filter(entry => entry.date === props.date && entry.groupId === groupId)
+    .map(entry => entry.employeeId))
+  return props.plan.employees.filter(employee => shown.has(employee.id) || helping.has(employee.id))
+})
 const overview = computed(() => buildDayOverview(
-  props.plan.employees.map(employee => ({
+  people.value.map(employee => ({
     employeeId: employee.id,
     entries: props.plan.entries.filter(entry => entry.employeeId === employee.id && entry.date === props.date
       && !isMarker(entry, props.plan.facilityId)),

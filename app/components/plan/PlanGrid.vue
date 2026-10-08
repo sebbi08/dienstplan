@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { cellFillColor, cellKey, noteKey } from '#shared/domain/cells'
 import { formatDuration, formatSignedDuration } from '#shared/domain/time'
-import type { DayRowDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
+import type { DayRowDto, EmployeeColumnDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass, cellFillClasses } from '~/utils/colors'
 import { pendingChangeText, releasedChangeText } from '~/utils/changes'
 import { formatDayShort } from '~/utils/format'
+import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
@@ -16,6 +17,8 @@ const props = defineProps<{
   selectedDate?: string | null
   /** The print view: helper columns say "(Aushilfe)", help-outs elsewhere are plain text. */
   print?: boolean
+  /** The group chosen above the plan: only its block is shown, plus the Springer and helpers (null = all). */
+  groupFilter?: number | null
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -45,6 +48,28 @@ const gridMaxHeight = useFitToViewport(scroller)
 
 const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
 const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
+
+/**
+ * Columns in blocks (see planBlocks): each group's members and then its "anwesend" column, the Springer, the helpers.
+ * Without groups there is one block of all employees, no header row above the names and no attendance column.
+ */
+type Column = { kind: 'employee'; employee: EmployeeColumnDto } | { kind: 'attendance'; groupId: number }
+const blocks = computed(() => planBlocks(props.plan, props.groupFilter ?? null))
+const showBlocks = computed(() => props.plan.groups.length > 0)
+const columns = computed((): Column[] => blocks.value.flatMap(block => [
+  ...block.employees.map(employee => ({ kind: 'employee' as const, employee })),
+  ...(block.groupId !== null ? [{ kind: 'attendance' as const, groupId: block.groupId }] : []),
+]))
+const blockHeaders = computed(() => blocks.value
+  .map(block => ({ key: block.key, label: block.label, span: block.employees.length + (block.groupId !== null ? 1 : 0) }))
+  .filter(block => block.span > 0))
+const groupNames = computed(() => new Map(props.plan.groups.map(group => [group.id, group.name])))
+const homeGroups = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.groupId ?? null])))
+/** The group a duty counts for when it is not the person's home group ("→ Mäuse"); null otherwise. */
+function groupTag(entry: EntryDto): string | null {
+  if (entry.groupId === null || entry.groupId === homeGroups.value.get(entry.employeeId)) return null
+  return groupNames.value.get(entry.groupId) ?? null
+}
 const warnings = computed(() => indexWarnings(props.plan.admin?.warnings ?? []))
 
 /** Helper columns ("Aushilfe aus …"): no overtime rows; removable while they hold no entries. */
@@ -110,9 +135,9 @@ const totals = computed(() => {
   const balances = props.plan.admin?.balances
   if (!balances) return []
   const byEmployee = new Map(balances.map(balance => [balance.employeeId, balance]))
-  const column = (pick: (carry: number, total: number) => number) => props.plan.employees.map((employee) => {
-    if (helperColumns.value.has(employee.id)) return null
-    const balance = byEmployee.get(employee.id)
+  const column = (pick: (carry: number, total: number) => number) => columns.value.map((column) => {
+    if (column.kind === 'attendance' || helperColumns.value.has(column.employee.id)) return null
+    const balance = byEmployee.get(column.employee.id)
     return balance ? pick(balance.previousMonthEnd, balance.monthEnd) : 0
   })
   return [
@@ -122,7 +147,7 @@ const totals = computed(() => {
   ]
 })
 
-const columnCount = computed(() => props.plan.employees.length + (props.plan.admin ? 4 : 3))
+const columnCount = computed(() => columns.value.length + (props.plan.admin ? 4 : 3))
 
 /** A blank separator row closes every week (after its KW row for admins, after Sunday for observers), except at month end. */
 function endsWeek(row: { day: DayRowDto; week: unknown }, index: number): boolean {
@@ -136,7 +161,14 @@ function rowClass(day: DayRowDto): string {
 }
 
 const rows = computed(() => props.plan.days.map((day) => {
-  const cells = props.plan.employees.map((employee) => {
+  const cells = columns.value.map((column) => {
+    if (column.kind === 'attendance') {
+      const count = props.plan.attendance[column.groupId]?.[day.date] ?? 0
+      // Nothing on free days nobody works.
+      const quiet = count === 0 && (day.isWeekend || Boolean(day.holidayKey) || Boolean(day.closureLabel))
+      return { kind: 'attendance' as const, key: `attendance-${column.groupId}`, count: quiet ? null : count }
+    }
+    const employee = column.employee
     const key = cellKey(employee.id, day.date)
     const cellWarnings = warnings.value.byCell.get(key) ?? []
     const gap = cellWarnings.find(warning => warning.type === 'target_gap')
@@ -144,6 +176,7 @@ const rows = computed(() => props.plan.days.map((day) => {
     const cellEntries = entriesByCell.value.get(key) ?? []
     const marker = markerOf(cellEntries)
     return {
+      kind: 'employee' as const,
       key,
       employeeId: employee.id,
       busy: busy.value.has(key),
@@ -188,13 +221,18 @@ const rows = computed(() => props.plan.days.map((day) => {
           number: week.weekNumber,
           start: week.weekStart,
           templateName: week.templateName,
-          // Helpers' hours count in their home facility: their column stays empty.
-          totals: props.plan.employees.map(employee => ({
-            employeeId: employee.id,
-            total: helperColumns.value.has(employee.id)
-              ? null
-              : week.totals.find(total => total.employeeId === employee.id) ?? { employeeId: employee.id, target: 0, credit: 0, delta: 0 },
-          })),
+          // Helpers' hours count in their home facility: their column stays empty. A group's template name stands
+          // in its attendance column (the facility's template name in the KW column).
+          totals: columns.value.map(column => (column.kind === 'attendance'
+            ? { key: `attendance-${column.groupId}`, total: null, templateName: week.templateNames[String(column.groupId)] ?? null }
+            : {
+                key: `employee-${column.employee.id}`,
+                templateName: null,
+                total: helperColumns.value.has(column.employee.id)
+                  ? null
+                  : week.totals.find(total => total.employeeId === column.employee.id)
+                    ?? { employeeId: column.employee.id, target: 0, credit: 0, delta: 0 },
+              })),
         }
       : null,
   }
@@ -209,37 +247,60 @@ const rows = computed(() => props.plan.days.map((day) => {
   >
     <table class="w-full border-collapse text-sm">
       <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:shadow-none">
-        <tr>
-          <th class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
-          <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">
-            <div>{{ employee.name }}</div>
-            <template v-if="employee.helpFrom">
-              <div v-if="print" class="font-normal">{{ de.plan.helperPrint }}</div>
-              <div v-else class="whitespace-nowrap font-normal text-gray-500">
-                {{ de.plan.helperFrom(employee.helpFrom) }}
-                <button
-                  v-if="removableHelpOut(employee.id) !== null" type="button"
-                  class="ml-1 align-middle text-gray-400 hover:text-red-600 print:hidden"
-                  :title="de.plan.removeHelper" :aria-label="de.plan.removeHelper"
-                  @click="emit('removeHelper', removableHelpOut(employee.id)!, employee.name)"
-                >
-                  <UIcon name="i-lucide-user-minus" />
-                </button>
-              </div>
-            </template>
-            <template v-if="headerBalances.has(employee.id)">
-              <div
-                v-for="line in headerBalances.get(employee.id)" :key="line.label"
-                class="whitespace-nowrap font-normal" :title="line.hint"
-              >
-                <span class="text-gray-500">{{ line.label }}</span>
-                <span class="ml-1" :class="balanceClass(line.minutes)">{{ formatSignedDuration(line.minutes) }} h</span>
-              </div>
-            </template>
+        <!-- With groups: the block names above the names; date and info columns span both rows. -->
+        <tr v-if="showBlocks">
+          <th rowspan="2" class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
+          <th
+            v-for="block in blockHeaders" :key="block.key" :colspan="block.span"
+            class="border border-gray-300 bg-gray-200 px-2 py-1 text-center text-sm font-semibold text-gray-800"
+          >
+            {{ block.label }}
           </th>
-          <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
-          <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
-          <th v-if="plan.admin" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
+          <th rowspan="2" class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+          <th rowspan="2" class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+          <th v-if="plan.admin" rowspan="2" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
+        </tr>
+        <tr>
+          <th v-if="!showBlocks" class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
+          <template v-for="column in columns" :key="column.kind === 'employee' ? column.employee.id : `attendance-${column.groupId}`">
+            <th
+              v-if="column.kind === 'attendance'" class="w-14 border border-gray-200 bg-gray-100 px-1 py-1 font-normal italic"
+              :title="de.groups.presentHint"
+            >
+              {{ de.groups.present }}
+            </th>
+            <th v-else class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">
+              <div>{{ column.employee.name }}</div>
+              <template v-if="column.employee.helpFrom">
+                <div v-if="print" class="font-normal">{{ de.plan.helperPrint }}</div>
+                <div v-else class="whitespace-nowrap font-normal text-gray-500">
+                  {{ de.plan.helperFrom(column.employee.helpFrom) }}
+                  <button
+                    v-if="removableHelpOut(column.employee.id) !== null" type="button"
+                    class="ml-1 align-middle text-gray-400 hover:text-red-600 print:hidden"
+                    :title="de.plan.removeHelper" :aria-label="de.plan.removeHelper"
+                    @click="emit('removeHelper', removableHelpOut(column.employee.id)!, column.employee.name)"
+                  >
+                    <UIcon name="i-lucide-user-minus" />
+                  </button>
+                </div>
+              </template>
+              <template v-if="headerBalances.has(column.employee.id)">
+                <div
+                  v-for="line in headerBalances.get(column.employee.id)" :key="line.label"
+                  class="whitespace-nowrap font-normal" :title="line.hint"
+                >
+                  <span class="text-gray-500">{{ line.label }}</span>
+                  <span class="ml-1" :class="balanceClass(line.minutes)">{{ formatSignedDuration(line.minutes) }} h</span>
+                </div>
+              </template>
+            </th>
+          </template>
+          <template v-if="!showBlocks">
+            <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+            <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+            <th v-if="plan.admin" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
+          </template>
         </tr>
       </thead>
       <tbody>
@@ -255,45 +316,53 @@ const rows = computed(() => props.plan.days.map((day) => {
               <div v-if="row.day.holidayKey" class="text-xs text-blue-700">{{ de.holidays[row.day.holidayKey] }}</div>
               <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700">{{ row.day.closureLabel }}</div>
             </td>
-            <td
-              v-for="cell in row.cells" :key="cell.key"
-              class="border border-gray-200 px-1 py-1 align-top"
-              :class="[
-                editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
-                selected?.has(cell.key) ? 'bg-sky-100'
-                : cell.missing ? 'bg-red-50' : cell.busy && !print ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
-                markClass(cell),
-              ]"
-              :title="cell.title"
-              @click="onCellClick(cell, row.day.date, $event)"
-            >
-              <div class="flex flex-col items-start gap-0.5">
-                <span v-if="cell.busy && !print" class="text-xs italic text-gray-600">{{ de.plan.helperBusy }}</span>
-                <span v-if="cell.marker && print" class="text-xs text-gray-600">
-                  {{ de.myPlan.helpOutIn(cell.marker.facility) }} {{ cell.marker.lines.join(', ') }}
-                </span>
-                <span
-                  v-else-if="cell.marker"
-                  class="inline-flex flex-col whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300"
-                >
-                  <span class="font-medium">{{ de.myPlan.helpOutIn(cell.marker.facility) }}</span>
-                  <span v-for="(line, lineIndex) in cell.marker.lines" :key="lineIndex">{{ line }}</span>
-                </span>
-                <PlanEntryChip
-                  v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable"
-                  :editable="isEntryEditable(cell.key, entry)" :cell-title="cell.title"
-                  @remove="emit('removeEntry', $event)" @click="onEntryClick(cell.key, entry, $event)"
-                />
-                <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
-                <NuxtLink
-                  v-if="cell.actual" :to="`/admin/time?employee=${cell.employeeId}&year=${plan.year}&month=${plan.month}&date=${row.day.date}`"
-                  class="text-xs hover:underline" :class="cell.actual.deviates || cell.actual.open ? 'font-medium text-orange-600' : 'text-gray-500'"
-                  @click.stop
-                >
-                  {{ de.time.recorded }} {{ formatDuration(cell.actual.minutes) }}<template v-if="cell.actual.open"> ({{ de.time.open }})</template>
-                </NuxtLink>
-              </div>
-            </td>
+            <template v-for="cell in row.cells" :key="cell.key">
+              <td
+                v-if="cell.kind === 'attendance'" class="border border-gray-200 px-1 py-1 text-center align-top font-semibold"
+                :title="de.groups.presentHint"
+              >
+                {{ cell.count ?? '' }}
+              </td>
+              <td
+                v-else
+                class="border border-gray-200 px-1 py-1 align-top"
+                :class="[
+                  editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
+                  selected?.has(cell.key) ? 'bg-sky-100'
+                  : cell.missing ? 'bg-red-50' : cell.busy && !print ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
+                  markClass(cell),
+                ]"
+                :title="cell.title"
+                @click="onCellClick(cell, row.day.date, $event)"
+              >
+                <div class="flex flex-col items-start gap-0.5">
+                  <span v-if="cell.busy && !print" class="text-xs italic text-gray-600">{{ de.plan.helperBusy }}</span>
+                  <span v-if="cell.marker && print" class="text-xs text-gray-600">
+                    {{ de.myPlan.helpOutIn(cell.marker.facility) }} {{ cell.marker.lines.join(', ') }}
+                  </span>
+                  <span
+                    v-else-if="cell.marker"
+                    class="inline-flex flex-col whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300"
+                  >
+                    <span class="font-medium">{{ de.myPlan.helpOutIn(cell.marker.facility) }}</span>
+                    <span v-for="(line, lineIndex) in cell.marker.lines" :key="lineIndex">{{ line }}</span>
+                  </span>
+                  <PlanEntryChip
+                    v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable"
+                    :editable="isEntryEditable(cell.key, entry)" :cell-title="cell.title" :group-name="groupTag(entry)"
+                    @remove="emit('removeEntry', $event)" @click="onEntryClick(cell.key, entry, $event)"
+                  />
+                  <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
+                  <NuxtLink
+                    v-if="cell.actual" :to="`/admin/time?employee=${cell.employeeId}&year=${plan.year}&month=${plan.month}&date=${row.day.date}`"
+                    class="text-xs hover:underline" :class="cell.actual.deviates || cell.actual.open ? 'font-medium text-orange-600' : 'text-gray-500'"
+                    @click.stop
+                  >
+                    {{ de.time.recorded }} {{ formatDuration(cell.actual.minutes) }}<template v-if="cell.actual.open"> ({{ de.time.open }})</template>
+                  </NuxtLink>
+                </div>
+              </td>
+            </template>
             <td
               v-for="note in row.notes" :key="note.field"
               class="border border-gray-200 px-1 py-1 align-top"
@@ -318,9 +387,15 @@ const rows = computed(() => props.plan.days.map((day) => {
                 {{ de.weekTemplates.mark(row.week.templateName) }}
               </div>
             </td>
-            <template v-for="column in row.week.totals" :key="column.employeeId">
+            <template v-for="column in row.week.totals" :key="column.key">
               <td
-                v-if="column.total" class="border border-gray-200 px-2 py-1 text-center font-medium"
+                v-if="column.templateName" class="border border-gray-200 px-1 py-1 text-center text-[11px] leading-tight text-sky-700"
+                :title="de.weekTemplates.markHint"
+              >
+                {{ column.templateName }}
+              </td>
+              <td
+                v-else-if="column.total" class="border border-gray-200 px-2 py-1 text-center font-medium"
                 :class="balanceClass(column.total.delta)"
                 :title="de.plan.weekTooltip(formatDuration(column.total.target), formatDuration(column.total.credit))"
               >

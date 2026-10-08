@@ -7,7 +7,8 @@ import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
-import { busyCellKeys, type CellScope, cellScope } from '~/utils/helpOuts'
+import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
+import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpOuts'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -37,6 +38,30 @@ watch([year, month], () => {
   selection.clear()
   cellMenu.open = false
   selectedDate.value = null
+})
+
+/**
+ * "Gruppe: alle / …" above the plan (only with groups): shows one group's block, the Springer and the helpers.
+ * Remembered per browser; read after mounting, so the server-rendered page and the browser agree.
+ */
+const groupFilter = ref<number | null>(null)
+onMounted(() => {
+  groupFilter.value = readGroupFilter()
+})
+const activeGroup = computed(() => (plan.value ? shownGroup(plan.value, groupFilter.value) : null))
+const groupItems = computed(() => [
+  { label: de.groups.filterAll, value: 0 },
+  ...(plan.value?.groups ?? []).map(group => ({ label: group.name, value: group.id })),
+])
+const groupSelect = computed({
+  get: () => activeGroup.value ?? 0,
+  set: (value: number) => {
+    groupFilter.value = value || null
+    writeGroupFilter(groupFilter.value)
+    // Cells of a hidden block must not stay selected.
+    selection.clear()
+    cellMenu.open = false
+  },
 })
 
 const dates = computed(() => plan.value?.days.map(day => day.date) ?? [])
@@ -77,7 +102,22 @@ function hasSelection(): boolean {
 
 function apply(mode: ApplyMode, entry: EntryInput | null) {
   if (!hasSelection()) return
-  run(() => $fetch<unknown>('/api/entries', { method: 'POST', body: { cells: selection.cells.value, mode, entry } }))
+  const groupId = entry ? keptGroup() : undefined
+  const body = { cells: selection.cells.value, mode, entry: entry && groupId !== undefined ? { ...entry, groupId } : entry }
+  run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }))
+}
+
+/**
+ * Writing one cell keeps the group its duty counts for ("→ Mäuse"), so changing the shift does not move it back to the
+ * home group; a range always gets the home group. The server leaves absences and breaks without a group.
+ */
+function keptGroup(): number | undefined {
+  const cells = selection.cells.value
+  const current = plan.value
+  if (cells.length !== 1 || !current?.groups.length) return undefined
+  const cell = cells[0]!
+  return current.entries.find(entry => entry.employeeId === cell.employeeId && entry.date === cell.date
+    && entry.groupId !== null && !isMarker(entry, current.facilityId))?.groupId ?? undefined
 }
 
 async function onClear() {
@@ -148,8 +188,12 @@ function onEditEntry(entry: EntryDto) {
   editOpen.value = true
 }
 
-function onEditSubmit(id: number, times: TimeSpan) {
-  run(() => $fetch<unknown>(`/api/entries/${id}`, { method: 'PUT', body: times }))
+/** New times (when changed) and the group the duty counts for (when changed; null = the home group). */
+function onEditSubmit(id: number, times: TimeSpan | null, groupId: number | null | undefined) {
+  run(async () => {
+    if (times) await $fetch<unknown>(`/api/entries/${id}`, { method: 'PUT', body: times })
+    if (groupId !== undefined) await $fetch<unknown>(`/api/entries/${id}/group`, { method: 'PUT', body: { groupId } })
+  })
 }
 
 async function onRemoveHelper(helpOutId: number, name: string) {
@@ -182,7 +226,10 @@ function navigate(nextYear: number, nextMonth: number) {
   <div class="space-y-3">
     <template v-if="plan && !error">
       <LevelUpNotice v-if="isAdmin" />
-      <PlanHeader :plan="plan" :is-admin="isAdmin" @navigate="navigate" @release="release" @discard="discardOpen = true" />
+      <PlanHeader
+        :plan="plan" :is-admin="isAdmin" :group-filter="activeGroup"
+        @navigate="navigate" @release="release" @discard="discardOpen = true"
+      />
       <PlanReleaseNotifications v-if="isAdmin && plan.release.releasedAt" :key="`${year}-${month}-${releaseStatusKey}`" :year="year" :month="month" />
       <PlanDiscardModal v-if="isAdmin" v-model:open="discardOpen" :plan="plan" @submit="onDiscard" />
       <PlanToolbar
@@ -194,21 +241,27 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanHelperModal v-if="isAdmin && plan.facilityName !== null" v-model:open="helperOpen" :year="year" :month="month" @done="refresh" />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">
+          <div v-if="plan.groups.length" class="flex items-center gap-2 print:hidden">
+            <span class="text-sm text-gray-600">{{ de.groups.filter }}:</span>
+            <USelect v-model="groupSelect" :items="groupItems" class="w-48" :aria-label="de.groups.filter" />
+          </div>
           <PlanGrid
-            :plan="plan" :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
+            :plan="plan" :group-filter="activeGroup"
+            :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
             @remove-helper="onRemoveHelper"
           />
-          <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" @close="selectedDate = null" />
+          <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
         <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" @select-date="selectedDate = $event" />
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
-      <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" @submit="onEditSubmit" />
+      <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" :plan="plan" @submit="onEditSubmit" />
       <PlanWeekTemplateModal
-        v-if="isAdmin" v-model:open="weekTemplate.open" :mode="weekTemplate.mode" :week-start="weekTemplate.weekStart" @done="refresh"
+        v-if="isAdmin" v-model:open="weekTemplate.open" :mode="weekTemplate.mode" :week-start="weekTemplate.weekStart"
+        :groups="plan.groups" @done="refresh"
       />
       <PlanCellMenu
         v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"

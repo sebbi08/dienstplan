@@ -3,7 +3,9 @@ import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 
-defineProps<{ plan: MonthPlanDto; isAdmin: boolean }>()
+/** groupFilter: the group chosen above the plan; the print view shows the same blocks. */
+const props = defineProps<{ plan: MonthPlanDto; isAdmin: boolean; groupFilter?: number | null }>()
+const printLink = computed(() => `/print/${props.plan.year}/${props.plan.month}${props.groupFilter ? `?group=${props.groupFilter}` : ''}`)
 const emit = defineEmits<{ navigate: [year: number, month: number]; release: []; discard: [] }>()
 </script>
 
@@ -28,7 +30,7 @@ const emit = defineEmits<{ navigate: [year: number, month: number]; release: [];
         />
         <UButton icon="i-lucide-check" :label="plan.release.releasedAt ? de.plan.rerelease : de.plan.release" @click="emit('release')" />
       </template>
-      <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.plan.print" :to="`/print/${plan.year}/${plan.month}`" target="_blank" />
+      <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.plan.print" :to="printLink" target="_blank" />
     </div>
   </div>
 </template>

@@ -12,10 +12,11 @@ const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
 const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Right, Right] }[] }[] = [
   { title: 'Dienstplan', rows: [
-    { label: 'Freigegebenen Dienstplan ansehen', rights: ['yes', 'yes', 'yes', 'yes'] },
+    { label: 'Freigegebenen Dienstplan ansehen (mit den Gruppen und den Anwesenden je Gruppe)', rights: ['yes', 'yes', 'yes', 'yes'] },
     { label: 'Entwurf ansehen, bearbeiten, freigeben, Änderungen verwerfen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Überstunden, Soll/Ist und Warnungen im Dienstplan sehen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Dienstplanvorlagen speichern, einsetzen und verwalten', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Dienstplanvorlagen speichern, einsetzen und verwalten (für die ganze Einrichtung oder eine Gruppe)', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Einzelne Dienste einer anderen Gruppe zuordnen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Aushilfen aus anderen Einrichtungen einplanen', rights: ['yes', 'yes', 'no', 'no'] },
   ] },
   { title: 'Zeiterfassung', rows: [
@@ -27,6 +28,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   ] },
   { title: 'Mitarbeiter', rows: [
     { label: 'Anlegen, Wochenstunden, Urlaub, Stundenkonto-Buchungen, PIN, Stempeln und Pausen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Stammgruppe festlegen (oder Springer)', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Vertragsangaben (TVöD) bearbeiten', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
@@ -44,8 +46,9 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   { title: 'Verwaltung', rows: [
     { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste (für die ganze Einrichtung oder eine Gruppe)', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Einrichtungen anlegen, umbenennen, zwischen ihnen wechseln, Mitarbeiter verschieben', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Gruppen einer Einrichtung anlegen, umbenennen und löschen', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Datenbank herunterladen (Datensicherung)', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Eigenes Passwort ändern', rights: ['yes', 'yes', 'yes', 'no'] },
   ] },

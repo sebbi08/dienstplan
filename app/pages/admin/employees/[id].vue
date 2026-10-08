@@ -17,10 +17,16 @@ const { user } = useUserSession()
 // Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
 const isProvider = computed(() => user.value?.role === 'provider')
 
-const master = reactive({ name: '', shortName: '', leftOn: '' })
+/** groupId 0 = Springer (the select needs a non-null value); only shown and sent when the facility has groups. */
+const master = reactive({ name: '', shortName: '', leftOn: '', groupId: 0 })
 watch(employee, (value) => {
-  if (value) Object.assign(master, { name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '' })
+  if (value) Object.assign(master, { name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '', groupId: value.groupId ?? 0 })
 }, { immediate: true })
+const { data: groups, hasGroups } = useGroups()
+const groupItems = computed(() => [
+  ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
+  { label: de.groups.springerOption, value: 0 },
+])
 
 const confirm = useConfirm()
 const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso(), workdays: 31 })
@@ -49,7 +55,11 @@ async function removePin() {
 
 function saveMaster() {
   run(() => $fetch<unknown>(`/api/employees/${id}`, {
-    method: 'PUT', body: { name: master.name, shortName: master.shortName, leftOn: master.leftOn || null },
+    method: 'PUT',
+    body: {
+      name: master.name, shortName: master.shortName, leftOn: master.leftOn || null,
+      ...(hasGroups.value ? { groupId: master.groupId || null } : {}),
+    },
   }), de.common.saved)
 }
 
@@ -117,6 +127,9 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <UFormField :label="de.employees.name" class="sm:col-span-2"><UInput v-model="master.name" class="w-full" required /></UFormField>
       <UFormField :label="de.employees.shortName"><UInput v-model="master.shortName" maxlength="10" class="w-full" /></UFormField>
       <UFormField :label="de.employees.leftOn"><UInput v-model="master.leftOn" type="date" class="w-full" /></UFormField>
+      <UFormField v-if="hasGroups" :label="de.groups.employeeGroup" class="sm:col-span-2">
+        <USelect v-model="master.groupId" :items="groupItems" class="w-full" />
+      </UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
 

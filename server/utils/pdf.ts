@@ -1,7 +1,7 @@
 import { chromium, type Browser } from 'playwright-core'
 
-/** Print views that may be turned into a PDF (plan print and the admin print pages). */
-export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+$/
+/** Print views that may be turned into a PDF (plan print and the admin print pages); the plan may name one group. */
+export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+(?:\?group=\d+)?$/
 
 /** The app as the headless browser reaches it from inside the server (no detour over the public domain). */
 function internalOrigin(): string {
@@ -49,7 +49,8 @@ export async function renderPdf(path: string, cookieHeader: string | undefined):
     const response = await page.goto(`${origin}${path}`, { waitUntil: 'networkidle', timeout: 30_000 })
     if (!response || !response.ok()) throw createError({ statusCode: 502, statusMessage: 'pdf_page_failed', data: { code: 'pdf_page_failed' } })
     // Someone who may not see the page is redirected (e.g. to the login or the own plan): no PDF of another page.
-    if (new URL(page.url()).pathname !== path) throw createError({ statusCode: 403, statusMessage: 'forbidden', data: { code: 'forbidden' } })
+    const reached = new URL(page.url())
+    if (reached.pathname + reached.search !== path) throw createError({ statusCode: 403, statusMessage: 'forbidden', data: { code: 'forbidden' } })
     await page.emulateMedia({ media: 'print' })
     return await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true })
   }

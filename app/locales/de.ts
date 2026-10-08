@@ -157,6 +157,23 @@ export const de = {
     removeHelperConfirm: (name: string) => `${name} als Aushilfe aus diesem Monat entfernen?`,
     removeHelperAction: 'Entfernen', helperRemoved: 'Aushilfe entfernt',
   },
+  groups: {
+    title: 'Gruppen', none: 'Noch keine Gruppen. Ohne Gruppen sieht der Dienstplan aus wie bisher.',
+    name: 'Name der Gruppe', add: 'Gruppe anlegen', rename: 'Umbenennen',
+    hint: 'Im Dienstplan erscheint jede Gruppe als eigener Block mit der Zahl der Anwesenden pro Tag. Die Leitung ordnet die Mitarbeiter ihrer Gruppe zu.',
+    deleteConfirm: (name: string) => `Gruppe „${name}“ löschen? Ihre Pflichtdienste und Dienstplanvorlagen werden mit gelöscht. `
+      + 'Dienste, die für diese Gruppe eingetragen waren, zählen danach wieder für die Stammgruppe der Person. '
+      + 'Mitarbeiter, deren Stammgruppe sie ist, müssen vorher einer anderen Gruppe zugeordnet werden.',
+    /** Block names in the plan. */
+    springer: 'Springer', helpers: 'Aushilfen',
+    present: 'anwesend', presentHint: 'Personen, die an diesem Tag in dieser Gruppe arbeiten (auch Springer und Aushilfen, die für sie eingetragen sind)',
+    filter: 'Gruppe', filterAll: 'alle Gruppen',
+    /** A duty that counts for another group than the person's home group. */
+    tag: (name: string) => `→ ${name}`,
+    tagHint: (name: string) => `Zählt für die Gruppe ${name}`,
+    countsFor: 'Zählt für Gruppe', homeGroup: (name: string) => `Stammgruppe (${name})`, noGroup: 'keine Gruppe',
+    employeeGroup: 'Gruppe', springerOption: 'Springer (keine feste Gruppe)',
+  },
   helpers: {
     title: 'Aushilfe hinzufügen',
     hint: (month: string) => `Eine Person aus einer anderen Einrichtung bekommt für ${month} eine eigene Spalte in diesem Plan. `
@@ -266,6 +283,10 @@ export const de = {
     applied: (filled: number, skipped: number) => `${filled} Tage eingetragen` + (skipped ? `, ${skipped} übersprungen (schon belegt oder kein Arbeitstag)` : ''),
     rename: 'Umbenennen', deleteConfirm: (name: string) => `Vorlage „${name}“ löschen? Der Dienstplan bleibt unverändert.`,
     updated: 'Gespeichert am', employee: 'Mitarbeiter',
+    scope: 'Für', wholeFacility: 'ganze Einrichtung',
+    scopeHint: 'Eine Vorlage für eine Gruppe speichert nur die Dienste der Mitglieder dieser Gruppe, die für sie zählen. Beim Einsetzen füllt sie nur leere Felder dieser Mitglieder.',
+    groupLabel: (name: string, group: string) => `${name} (${group})`,
+    forGroup: (group: string) => `Für ${group}`,
   },
   contract: {
     title: 'Vertragsangaben (TVöD SuE)', personnelNumber: 'Personalnummer', personnelNumberShort: (number: string) => `Pers.-Nr. ${number}`,
@@ -452,5 +473,9 @@ export const de = {
     cell_helps_elsewhere: 'An diesem Tag hilft die Person in einer anderen Einrichtung aus. Hier kann nur eine Abwesenheit eingetragen werden (z. B. Krank oder Urlaub).',
     help_code_not_allowed: 'Abwesenheiten einer Aushilfe trägt ihre eigene Einrichtung ein. Hier gehen nur Dienste, Pausen, VZ und Büro.',
     group_not_allowed: 'Abwesenheiten und Pausen gehören keiner Gruppe an.',
+    group_name_required: 'Bitte einen Namen für die Gruppe angeben.',
+    group_name_taken: 'In dieser Einrichtung gibt es schon eine Gruppe mit diesem Namen.',
+    group_not_found: 'Diese Gruppe existiert nicht mehr.',
+    group_has_members: 'Diese Gruppe ist noch die Stammgruppe von Mitarbeitern (auch von ausgeschiedenen). Bitte sie zuerst einer anderen Gruppe zuordnen oder als Springer eintragen.',
   },
 }

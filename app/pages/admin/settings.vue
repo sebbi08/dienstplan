@@ -4,7 +4,7 @@ import { formatDuration, formatTime, parseTime } from '#shared/domain/time'
 import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CreditMode } from '#shared/domain/types'
 import {
-  COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type GroupDto, type SettingsDto, type ShiftChangeResult, type TemplateDto,
+  COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type ShiftChangeResult, type TemplateDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 
@@ -43,8 +43,8 @@ const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: ''
 const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true, groupId: 0 })
 
 // Required duties may apply to one group; the choice appears only when the facility has groups.
-const { data: groups } = await useFetch<GroupDto[]>('/api/groups')
-const hasGroups = computed(() => (groups.value?.length ?? 0) > 0)
+// Shared with the Träger's group list below, which refreshes it after a change.
+const { data: groups, hasGroups } = useGroups()
 const groupItems = computed(() => [
   { label: de.settings.ruleWholeFacility, value: 0 },
   ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),

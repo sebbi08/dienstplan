@@ -8,6 +8,12 @@ const { data: templates, refresh } = await useFetch<WeekTemplateDto[]>('/api/wee
 const run = useAction(refresh)
 const confirm = useConfirm()
 const renaming = reactive<{ id: number | null; name: string }>({ id: null, name: '' })
+// With groups, each template says whom it is for.
+const { data: groups, hasGroups } = useGroups()
+function scopeText(template: WeekTemplateDto): string {
+  const group = groups.value?.find(candidate => candidate.id === template.groupId)
+  return group ? de.weekTemplates.forGroup(group.name) : de.weekTemplates.forGroup(de.weekTemplates.wholeFacility)
+}
 
 function startRename(template: WeekTemplateDto) {
   Object.assign(renaming, { id: template.id, name: template.name })
@@ -42,6 +48,7 @@ async function remove(template: WeekTemplateDto) {
           <UButton size="sm" color="neutral" variant="ghost" :label="de.common.cancel" @click="renaming.id = null" />
         </form>
         <h3 v-else class="font-semibold">{{ template.name }}</h3>
+        <UBadge v-if="hasGroups" color="neutral" variant="soft" :label="scopeText(template)" />
         <span class="text-xs text-gray-500">{{ de.weekTemplates.updated }} {{ formatDateTime(template.updatedAt) }}</span>
         <div class="ml-auto flex gap-1">
           <UButton

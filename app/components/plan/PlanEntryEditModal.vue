@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { formatTime, parseTime, validateSpan } from '#shared/domain/time'
 import type { TimeSpan } from '#shared/domain/time'
-import type { EntryDto } from '#shared/types/api'
+import { isTargetGapCode } from '#shared/domain/warnings'
+import type { EntryDto, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
-/** Changes the times of one clicked entry; a fixed shift with other start/end becomes a special shift. */
-const props = defineProps<{ entry: EntryDto | null }>()
+/**
+ * Changes the times of one clicked entry; a fixed shift with other start/end becomes a special shift. With groups, a
+ * working duty (shift, special shift, VZ, Büro) can also count for another group than the person's home group.
+ * Emits the new times only when they changed and the group only when it changed (null = the home group again).
+ */
+const props = defineProps<{ entry: EntryDto | null; plan?: MonthPlanDto | null }>()
 const open = defineModel<boolean>('open', { required: true })
-const emit = defineEmits<{ submit: [id: number, times: TimeSpan] }>()
+const emit = defineEmits<{ submit: [id: number, times: TimeSpan | null, groupId: number | null | undefined] }>()
 
-const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '' })
+/** groupId 0 = the home group (the select needs a non-null value). */
+const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', groupId: 0 })
 const error = ref('')
 const isBreak = computed(() => props.entry?.kind === 'break')
 const title = computed(() => {
@@ -19,6 +25,23 @@ const title = computed(() => {
   return de.modal.editTitle(name)
 })
 const timeText = (minutes: number | null) => (minutes === null ? '' : formatTime(minutes))
+
+// Absences and breaks belong to no group, so they never get the choice.
+const groupable = computed(() => {
+  const entry = props.entry
+  if (!entry || !props.plan?.groups.length || entry.kind === 'break') return false
+  return entry.kind !== 'code' || isTargetGapCode(entry.codeKey)
+})
+const homeGroupId = computed(() => props.plan?.employees.find(employee => employee.id === props.entry?.employeeId)?.groupId ?? null)
+const groupItems = computed(() => {
+  const groups = props.plan?.groups ?? []
+  const home = groups.find(group => group.id === homeGroupId.value)
+  return [
+    { label: home ? de.groups.homeGroup(home.name) : de.groups.noGroup, value: 0 },
+    ...groups.filter(group => group.id !== home?.id).map(group => ({ label: group.name, value: group.id })),
+  ]
+})
+
 const becomesSpecial = computed(() => props.entry?.kind === 'shift'
   && (parseTime(form.start) !== props.entry.start || parseTime(form.end) !== props.entry.end))
 
@@ -28,6 +51,7 @@ watch(open, (isOpen) => {
   Object.assign(form, {
     start: timeText(entry.start), end: timeText(entry.end),
     breakStart: timeText(entry.breakStart), breakEnd: timeText(entry.breakEnd),
+    groupId: entry.groupId ?? 0,
   })
   error.value = ''
 })
@@ -51,7 +75,12 @@ function submit() {
     error.value = de.spanErrors[spanError]
     return
   }
-  emit('submit', props.entry.id, { start, end, breakStart, breakEnd })
+  const entry = props.entry
+  const timesChanged = start !== entry.start || end !== entry.end
+    || (!isBreak.value && (breakStart !== entry.breakStart || breakEnd !== entry.breakEnd))
+  const groupId = groupable.value && form.groupId !== (entry.groupId ?? 0) ? form.groupId || null : undefined
+  // Nothing changed: save the times as before (the dialog has always done so).
+  emit('submit', entry.id, timesChanged || groupId === undefined ? { start, end, breakStart, breakEnd } : null, groupId)
   open.value = false
 }
 </script>
@@ -67,6 +96,9 @@ function submit() {
           <UFormField :label="de.modal.breakEnd"><TimeInput v-model="form.breakEnd" /></UFormField>
           <p class="col-span-2 text-xs text-gray-500">{{ de.modal.editBreakHint }}</p>
         </template>
+        <UFormField v-if="groupable" :label="de.groups.countsFor" class="col-span-2">
+          <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
+        </UFormField>
         <p v-if="becomesSpecial" class="col-span-2 text-sm text-amber-700">{{ de.modal.becomesSpecial }}</p>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex justify-end gap-2">
