@@ -189,8 +189,10 @@ export interface WeekSummaryDto {
   weekStart: IsoDate
   weekEnd: IsoDate
   weekNumber: number
-  /** Name of the week template this week was saved as or filled from (null = none). */
+  /** Name of the facility's week template this week was saved as or filled from (null = none). */
   templateName: string | null
+  /** Template names of the week keyed '0' (the whole facility, as templateName) or by group id; none = {}. */
+  templateNames: Record<string, string>
   totals: { employeeId: number; target: number; credit: number; delta: number }[]
 }
 
@@ -476,6 +478,8 @@ export interface YearCalendarDto {
 export interface WeekTemplateDto {
   id: number
   name: string
+  /** The group the template is for (null = the whole facility). */
+  groupId: number | null
   updatedAt: string
   rows: { employeeId: number; name: string; days: string[] }[]
 }

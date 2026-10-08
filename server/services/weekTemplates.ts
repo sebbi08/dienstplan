@@ -11,7 +11,7 @@ import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplat
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { dayConflict, describeCellAt } from './entries'
-import { groupNames } from './groups'
+import { assertGroup, groupNames } from './groups'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 
 /** A template covers Monday to Friday. */
@@ -59,7 +59,7 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
       .join(' + '))
     return [{ employeeId: employee.id, name: employee.name, days }]
   })
-  return { id: template.id, name: template.name, updatedAt: template.updatedAt, rows: preview }
+  return { id: template.id, name: template.name, groupId: template.groupId, updatedAt: template.updatedAt, rows: preview }
 }
 
 export function listWeekTemplates(db: Db, facilityId: number): WeekTemplateDto[] {
@@ -71,34 +71,42 @@ export function listWeekTemplates(db: Db, facilityId: number): WeekTemplateDto[]
 /**
  * Saves Monday–Friday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro.
  * One-off entries (Urlaub, Krank, Fortbildung …) are left out. Only the facility's staff count (not its helpers, and not
- * their help-out days elsewhere). An existing template of
- * the same name in the facility is replaced.
+ * their help-out days elsewhere). A group template (groupId set) keeps only the duties of the group's current members
+ * that count for the group, so duties moved to another group stay out; they are stored without group, being home-group
+ * duties. An existing template of the same name for the same group (or the whole facility) is replaced; a name that
+ * another template of the facility uses gives name_taken.
  */
 export function saveWeekTemplate(
-  db: Db, facilityId: number, input: { name: string; weekStart: IsoDate }, now: Date = new Date(),
+  db: Db, facilityId: number, input: { name: string; weekStart: IsoDate; groupId?: number | null }, now: Date = new Date(),
 ): WeekTemplateDto {
   requireMonday(input.weekStart)
   const name = requireName(input.name)
+  const groupId = input.groupId ?? null
+  assertGroup(db, facilityId, groupId)
+  const members = new Set(loadEmployees(db, facilityId).filter(employee => employee.groupId === groupId).map(employee => employee.id))
   // The facility's plan without its helpers (helpFacilityId set) and without its staff's help-outs elsewhere.
   const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), planFacilityId: facilityId })
     .filter(entry => entry.helpFacilityId === null)
     .filter(entry => entry.kind !== 'code' || (entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey)))
+    // A member's duty counts for the group unless it was moved to another one (the home group is stored as none).
+    .filter(entry => groupId === null || (members.has(entry.employeeId) && (entry.groupId ?? groupId) === groupId))
   if (working.length === 0) throw new ServiceError(400, 'empty_week')
 
   return db.transaction((tx) => {
     const updatedAt = now.toISOString()
     const existing = tx.select().from(weekTemplates)
       .where(and(eq(weekTemplates.facilityId, facilityId), eq(weekTemplates.name, name))).get()
+    if (existing && existing.groupId !== groupId) throw new ServiceError(409, 'name_taken')
     const template = existing
       ? tx.update(weekTemplates).set({ updatedAt }).where(eq(weekTemplates.id, existing.id)).returning().get()
-      : tx.insert(weekTemplates).values({ facilityId, name, updatedAt }).returning().get()
+      : tx.insert(weekTemplates).values({ facilityId, name, groupId, updatedAt }).returning().get()
     tx.delete(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, template.id)).run()
     tx.insert(weekTemplateEntries).values(working.map(entry => ({
       weekTemplateId: template.id, employeeId: entry.employeeId, weekday: weekday(entry.date), kind: entry.kind,
       shiftTemplateId: entry.templateId, absenceCodeId: entry.codeId, start: entry.start, end: entry.end,
       breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, note: entry.note,
     }))).run()
-    markWeek(tx, facilityId, input.weekStart, template.id)
+    markWeek(tx, template, input.weekStart)
     return toDto(tx, template)
   })
 }
@@ -119,19 +127,22 @@ export function deleteWeekTemplate(db: Db, facilityId: number, id: number): void
 }
 
 /**
- * Copies the template into the week starting at weekStart, for the facility's own staff only. A day is only filled
- * when the employee's day is empty (a help-out elsewhere counts as filled) and
- * it is one of their working days (employed, contract day, no public holiday) outside any closure; nothing is overwritten.
+ * Copies the template into the week starting at weekStart, for the facility's own staff only (a group template: only
+ * the group's current members). A day is only filled when the employee's day is empty (a help-out elsewhere counts as
+ * filled) and it is one of their working days (employed, contract day, no public holiday) outside any closure; nothing
+ * is overwritten.
  */
 export function applyWeekTemplate(
   db: Db, actor: SessionUser, facilityId: number, id: number, weekStart: IsoDate, now: Date = new Date(),
 ): WeekTemplateApplyResult {
   requireMonday(weekStart)
-  requireTemplate(db, facilityId, id)
+  const template = requireTemplate(db, facilityId, id)
   const rows = db.select().from(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, id))
     .orderBy(asc(weekTemplateEntries.start), asc(weekTemplateEntries.id)).all()
-  // Employees who have since moved to another facility are skipped.
-  const staff = new Map(loadEmployees(db, facilityId).map(employee => [employee.id, employee]))
+  // Employees who have since moved to another facility (or, for a group template, to another group) are skipped.
+  const staff = new Map(loadEmployees(db, facilityId)
+    .filter(employee => template.groupId === null || employee.groupId === template.groupId)
+    .map(employee => [employee.id, employee]))
   const closures = loadClosures(db, facilityId)
   const groups = Map.groupBy(rows, row => `${row.employeeId}:${row.weekday}`)
   const shifts = new Map(db.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, facilityId)).all()
@@ -169,30 +180,46 @@ export function applyWeekTemplate(
       })
       result.filled += 1
     }
-    if (result.filled > 0) markWeek(tx, facilityId, weekStart, id)
+    if (result.filled > 0) markWeek(tx, template, weekStart)
   })
   return result
 }
 
-/** Remembers which template a facility's plan week was saved as or filled from (the latest one wins). */
-function markWeek(db: Db, facilityId: number, weekStart: IsoDate, weekTemplateId: number): void {
-  db.insert(weekTemplateMarks).values({ facilityId, groupId: 0, weekStart, weekTemplateId })
+/**
+ * Remembers which template a plan week was saved as or filled from (the latest one wins), for the whole facility
+ * (group 0) or for the template's group.
+ */
+function markWeek(db: Db, template: typeof weekTemplates.$inferSelect, weekStart: IsoDate): void {
+  const weekTemplateId = template.id
+  db.insert(weekTemplateMarks).values({ facilityId: template.facilityId, groupId: template.groupId ?? 0, weekStart, weekTemplateId })
     .onConflictDoUpdate({
       target: [weekTemplateMarks.facilityId, weekTemplateMarks.groupId, weekTemplateMarks.weekStart], set: { weekTemplateId },
     }).run()
 }
 
-/** Template name per plan week (by its Monday) of the facility between from and to, for the plan's week rows. */
-export function weekTemplateNames(db: Db, facilityId: number, from: IsoDate, to: IsoDate): Map<IsoDate, string> {
-  const rows = db.select({ weekStart: weekTemplateMarks.weekStart, name: weekTemplates.name })
+/**
+ * Template names per plan week (by its Monday) of the facility between from and to, for the plan's week rows: keyed
+ * '0' for the whole facility's template and by group id for a group's template. Weeks without any are left out.
+ */
+export function weekTemplateNames(
+  db: Db, facilityId: number, from: IsoDate, to: IsoDate,
+): Map<IsoDate, Record<string, string>> {
+  const rows = db.select({ weekStart: weekTemplateMarks.weekStart, groupId: weekTemplateMarks.groupId, name: weekTemplates.name })
     .from(weekTemplateMarks)
     .innerJoin(weekTemplates, eq(weekTemplateMarks.weekTemplateId, weekTemplates.id))
     .where(and(
-      eq(weekTemplateMarks.facilityId, facilityId), eq(weekTemplateMarks.groupId, 0),
+      eq(weekTemplateMarks.facilityId, facilityId),
       gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to),
     ))
+    .orderBy(asc(weekTemplateMarks.weekStart), asc(weekTemplateMarks.groupId))
     .all()
-  return new Map(rows.map(row => [row.weekStart, row.name]))
+  const names = new Map<IsoDate, Record<string, string>>()
+  for (const row of rows) {
+    const week = names.get(row.weekStart) ?? {}
+    week[String(row.groupId)] = row.name
+    names.set(row.weekStart, week)
+  }
+  return names
 }
 
 /**

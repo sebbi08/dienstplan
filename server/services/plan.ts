@@ -125,7 +125,8 @@ function buildAdminData(
       weekStart: start,
       weekEnd: end,
       weekNumber: isoWeekNumber(start),
-      templateName: templateNames.get(start) ?? null,
+      templateName: templateNames.get(start)?.['0'] ?? null,
+      templateNames: templateNames.get(start) ?? {},
       totals: staff.map(employee => ({
         employeeId: employee.id,
         ...summarize(computeRange(employee.info, byEmployee.get(employee.id) ?? [], start, end, actualOf(employee.id))),

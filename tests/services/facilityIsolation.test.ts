@@ -255,7 +255,7 @@ describe('facility isolation', () => {
       expect(listWeekTemplates(db, facility2).map(t => t.id)).toEqual([b.id])
       expect(db.select().from(weekTemplateMarks).all().map(m => [m.facilityId, m.weekTemplateId]))
         .toEqual([[1, a.id], [facility2, b.id]])
-      expect(weekTemplateNames(db, facility2, week, week).get(week)).toBe('Woche A')
+      expect(weekTemplateNames(db, facility2, week, week).get(week)).toEqual({ 0: 'Woche A' })
       expect(errorCode(() => renameWeekTemplate(db, 1, b.id, 'Woche B'))).toBe('week_template_not_found')
       expect(errorCode(() => deleteWeekTemplate(db, 1, b.id))).toBe('week_template_not_found')
       expect(errorCode(() => applyWeekTemplate(db, leitungA, 1, b.id, '2026-10-12'))).toBe('week_template_not_found')

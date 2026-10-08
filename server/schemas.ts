@@ -105,7 +105,8 @@ export const calendarEventSchema = z.object({
 export const timeDayNoteSchema = z.object({ employeeId: z.number().int(), date: isoDate, note: z.string().max(200) })
 export const stampSchema = z.object({ action: z.enum(['in', 'out']) })
 export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number().int().positive() })
-export const weekTemplateSaveSchema = z.object({ name: label, weekStart: isoDate })
+/** groupId: the group the template is for (null or left out = the whole facility). */
+export const weekTemplateSaveSchema = z.object({ name: label, weekStart: isoDate, groupId: groupIdSchema.optional() })
 export const weekTemplateRenameSchema = z.object({ name: label })
 export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
 /** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */
