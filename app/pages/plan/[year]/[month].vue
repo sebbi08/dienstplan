@@ -191,7 +191,7 @@ function navigate(nextYear: number, nextMonth: number) {
         :selected-count="selection.cells.value.length" :scope="scope" :several-facilities="plan.facilityName !== null"
         @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-helper="helperOpen = true"
       />
-      <PlanHelperModal v-if="isAdmin && plan.facilityName !== null"v-model:open="helperOpen" :year="year" :month="month" @done="refresh" />
+      <PlanHelperModal v-if="isAdmin && plan.facilityName !== null" v-model:open="helperOpen" :year="year" :month="month" @done="refresh" />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">
           <PlanGrid
