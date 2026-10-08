@@ -6,6 +6,7 @@ import type { Db } from '../db/client'
 import { absenceCodes, coverageRules, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { adoptShiftTimes } from './entries'
+import { assertGroup } from './groups'
 import { loadCodes, loadCoverageRules, loadTemplates } from './queries'
 import { adoptShiftTimesInTemplates } from './weekTemplates'
 
@@ -33,6 +34,8 @@ export interface CoverageRuleInput {
   end: Minutes | null
   minCount: number
   active: boolean
+  /** The group the rule applies to (null = the whole facility); left out on update keeps the rule's group. */
+  groupId?: number | null
 }
 
 function requireLabel(label: string): string {
@@ -48,8 +51,9 @@ function normalizeTemplate(input: TemplateInput) {
   return { ...input, label, shortLabel: input.shortLabel.trim() }
 }
 
-function normalizeRule(input: CoverageRuleInput) {
+function normalizeRule(db: Db, facilityId: number, input: CoverageRuleInput) {
   const label = requireLabel(input.label)
+  if (input.groupId !== undefined) assertGroup(db, facilityId, input.groupId)
   const invalid = input.start % 5 !== 0 || input.minCount < 1
     || (input.end !== null && (input.end % 5 !== 0 || input.end <= input.start))
   if (invalid) throw new ServiceError(400, 'invalid_rule')
@@ -89,11 +93,11 @@ export function updateCode(db: Db, id: number, update: CodeUpdate): CodeDto {
 }
 
 export function createCoverageRule(db: Db, facilityId: number, input: CoverageRuleInput): CoverageRuleDto {
-  return db.insert(coverageRules).values({ ...normalizeRule(input), facilityId }).returning().get()
+  return db.insert(coverageRules).values({ ...normalizeRule(db, facilityId, input), facilityId }).returning().get()
 }
 
 export function updateCoverageRule(db: Db, facilityId: number, id: number, input: CoverageRuleInput): CoverageRuleDto {
-  const row = db.update(coverageRules).set(normalizeRule(input)).where(ownRule(facilityId, id)).returning().get()
+  const row = db.update(coverageRules).set(normalizeRule(db, facilityId, input)).where(ownRule(facilityId, id)).returning().get()
   if (!row) throw new ServiceError(404, 'rule_not_found')
   return row
 }

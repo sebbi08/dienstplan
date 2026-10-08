@@ -21,4 +21,6 @@ export interface DomainEntry {
   breakStart: Minutes | null
   breakEnd: Minutes | null
   countsAsStaff: boolean
+  /** The group this single duty counts for (null or missing = the employee's home group). */
+  groupId?: number | null
 }

@@ -1,4 +1,4 @@
-import { asc, eq, max } from 'drizzle-orm'
+import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { coverageRules, employees, facilities, shiftTemplates, users } from '../db/schema'
@@ -75,7 +75,8 @@ export function createFacility(db: Db, name: string): FacilityDto {
       if (templates.length > 0) {
         tx.insert(shiftTemplates).values(templates.map(({ id: _id, ...template }) => ({ ...template, facilityId: facility.id }))).run()
       }
-      const rules = tx.select().from(coverageRules).where(eq(coverageRules.facilityId, source))
+      // Group rules belong to the first facility's groups; only the facility-wide rules are copied.
+      const rules = tx.select().from(coverageRules).where(and(eq(coverageRules.facilityId, source), isNull(coverageRules.groupId)))
         .orderBy(asc(coverageRules.id)).all()
       if (rules.length > 0) {
         tx.insert(coverageRules).values(rules.map(({ id: _id, ...rule }) => ({ ...rule, facilityId: facility.id }))).run()

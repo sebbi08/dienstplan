@@ -12,11 +12,16 @@ export interface CoverageRule {
   start: Minutes
   end: Minutes | null
   minCount: number
+  /** The group the rule applies to (null or missing = the whole facility). */
+  groupId?: number | null
+  /** That group's name, for the warning. */
+  groupName?: string
 }
 
 export type Warning =
   | { type: 'missing_entry'; date: IsoDate; employeeId: number }
-  | { type: 'coverage'; date: IsoDate; ruleId: number; label: string; found: number; required: number }
+  /** groupName only for a group rule (warnings of facility rules have no such key). */
+  | { type: 'coverage'; date: IsoDate; ruleId: number; label: string; found: number; required: number; groupName?: string }
   | { type: 'target_gap'; date: IsoDate; employeeId: number; missingMinutes: number }
   | { type: 'open_record'; date: IsoDate; employeeId: number }
   | { type: 'missing_record'; date: IsoDate; employeeId: number }
@@ -25,6 +30,8 @@ export type Warning =
 
 export interface EmployeeDay {
   employeeId: number
+  /** The home group in this facility (null = Springer, a helper of another facility, or no groups). */
+  groupId: number | null
   info: EmploymentInfo
   entries: DomainEntry[]
   /** A helper of another facility: their entries count for coverage only (no missing entry, no target gap). */
@@ -58,12 +65,20 @@ export function dayWarnings(
 ): Warning[] {
   if (!isCheckedDay(date, isClosureDay)) return []
   const warnings: Warning[] = []
-  const allEntries = employees.flatMap(employee => employee.entries)
+  // Effective group of a duty: its own group, otherwise the employee's home group (helpers have none here).
+  const allEntries = employees.flatMap(employee => employee.entries
+    .map(entry => ({ entry, groupId: entry.groupId ?? employee.groupId })))
 
   for (const rule of rules) {
-    const found = allEntries.filter(entry => matchesRule(entry, rule)).length
+    // A facility rule counts every duty; a group rule only those whose effective group it is.
+    const groupId = rule.groupId ?? null
+    const found = allEntries
+      .filter(item => matchesRule(item.entry, rule) && (groupId === null || item.groupId === groupId)).length
     if (found < rule.minCount) {
-      warnings.push({ type: 'coverage', date, ruleId: rule.id, label: rule.label, found, required: rule.minCount })
+      warnings.push({
+        type: 'coverage', date, ruleId: rule.id, label: rule.label, found, required: rule.minCount,
+        ...(groupId === null ? {} : { groupName: rule.groupName ?? '' }),
+      })
     }
   }
 

@@ -80,8 +80,10 @@ export const templateSchema = z.object({
   pairsWithPrepTime: z.boolean(), sortOrder: z.number().int(),
 })
 export const codeUpdateSchema = z.object({ label, color: z.enum(COLOR_KEYS), creditMode: z.enum(['daily_target', 'timed', 'none']) })
+/** groupId: the group the rule applies to (null = the whole facility); left out = the whole facility, on update unchanged. */
 export const coverageRuleSchema = z.object({
   label, start: minutes, end: minutes.nullable(), minCount: z.number().int().min(1).max(20), active: z.boolean(),
+  groupId: z.number().int().positive().nullable().optional(),
 })
 
 export const userCreateSchema = z.object({

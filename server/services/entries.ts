@@ -61,21 +61,20 @@ export function resolveEntry(db: Db, facilityId: number, input: EntryInput): Res
   }
 }
 
-/** The cell's entries as text; with the plan's group names, a duty counting for another group names it. */
-export function describeCellAt(db: Db, cell: CellRef, names: Record<number, string> = {}): string {
+/** The cell's entries as text; a duty counting for another group names it (names: the plan's groupNames). */
+export function describeCellAt(db: Db, cell: CellRef, names: Record<number, string>): string {
   return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }), names)
 }
 
 /**
  * The cell as the facility's plan shows it (for its change log): a helper's cell only with the entries planned there,
  * the own staff's help-outs elsewhere as plain markers (times only, never the other plan's note, shift name or group).
- * Duties counting for another group of the facility name it.
+ * Duties counting for another group of the facility name it (names: groupNames of facilityId, fetched once per call).
  */
-function describeCellIn(db: Db, facilityId: number, cell: CellRef, helper: boolean): string {
+function describeCellIn(db: Db, facilityId: number, cell: CellRef, helper: boolean, names: Record<number, string>): string {
   const list = loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
   return describeCellDetailed(
-    helper ? list.filter(entry => entry.helpFacilityId === facilityId) : withPlainMarkers(facilityId, list),
-    groupNames(db, facilityId),
+    helper ? list.filter(entry => entry.helpFacilityId === facilityId) : withPlainMarkers(facilityId, list), names,
   )
 }
 
@@ -97,7 +96,7 @@ export function takeClosureDay(db: Db, cell: CellRef): ReplacedClosureDay | null
   if (home.length === 0 || home.some(row => row.closureId === null || row.helpFacilityId !== null)) return null
   const facilityId = db.select({ facilityId: employees.facilityId }).from(employees)
     .where(eq(employees.id, cell.employeeId)).get()!.facilityId
-  const before = describeCellIn(db, facilityId, cell, false)
+  const before = describeCellIn(db, facilityId, cell, false, groupNames(db, facilityId))
   db.delete(entries).where(wholeDay).run()
   return { facilityId, before }
 }
@@ -106,14 +105,35 @@ export function takeClosureDay(db: Db, cell: CellRef): ReplacedClosureDay | null
 export function logReplacedClosureDay(db: Db, actor: SessionUser, cell: CellRef, replaced: ReplacedClosureDay, now: string): void {
   logChange(db, {
     facilityId: replaced.facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
-    before: replaced.before, after: describeCellIn(db, replaced.facilityId, cell, false), actorId: actor.id, now,
+    before: replaced.before, after: describeCellIn(db, replaced.facilityId, cell, false, groupNames(db, replaced.facilityId)),
+    actorId: actor.id, now,
   })
 }
 
-/** Ids of the employees whose home facility is facilityId. */
-function facilityEmployeeIds(db: Db, facilityId: number): Set<number> {
-  return new Set(db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId)).all()
-    .map(row => row.id))
+/** The employees whose home facility is facilityId, with their home group (null = Springer or no groups). */
+function facilityEmployeeGroups(db: Db, facilityId: number): Map<number, number | null> {
+  return new Map(db.select({ id: employees.id, groupId: employees.groupId }).from(employees)
+    .where(eq(employees.facilityId, facilityId)).all().map(row => [row.id, row.groupId]))
+}
+
+/** Codes whose entries are working duties (VZ/Büro); every other code is an absence. */
+function gapCodeIdsOf(db: Db): Set<number> {
+  return new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
+    .where(inArray(absenceCodes.key, TARGET_GAP_CODES)).all().map(row => row.id))
+}
+
+/** Only working duties (shifts, special shifts, VZ, Büro) count for a group; absences and breaks belong to none. */
+function mayHaveGroup(entry: { kind: string; absenceCodeId: number | null }, gapCodeIds: Set<number>): boolean {
+  if (entry.kind === 'break') return false
+  return entry.kind !== 'code' || (entry.absenceCodeId !== null && gapCodeIds.has(entry.absenceCodeId))
+}
+
+/**
+ * The group stored on a duty of the own staff: none for their own home group, so the duty follows later changes of
+ * the home group (helpers have no home group in the plan's facility).
+ */
+function storedGroup(groupId: number | null, homeGroupId: number | null | undefined): number | null {
+  return groupId !== null && groupId === homeGroupId ? null : groupId
 }
 
 /**
@@ -137,26 +157,30 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
  *    closure bookings of the home facility counts as free when something is written: they are replaced (logged in the
  *    home facility) and booked again when the help-out day becomes empty (see rebookHomeClosure).
  * Anyone else gives employee_not_found. The entry's group (input.groupId; none = the home group) must be one of the
- * facility's groups, also in a helper cell (group_not_found otherwise).
+ * facility's groups, also in a helper cell (group_not_found otherwise). It is stored as none for absences and breaks
+ * and for the own staff's home group (see storedGroup).
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
   options: { now?: Date; closureId?: number | null } = {},
 ): void {
   if (mode !== 'clear' && !input) throw new ServiceError(400, 'entry_required')
-  const own = facilityEmployeeIds(db, facilityId)
+  const own = facilityEmployeeGroups(db, facilityId)
   const isHelperCell = (cell: CellRef) => !own.has(cell.employeeId)
   if (cells.some(cell => isHelperCell(cell) && !isHelperOn(db, facilityId, cell.employeeId, cell.date))) {
     throw new ServiceError(400, 'employee_not_found')
   }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
-  const groupId = input?.groupId ?? null
-  if (values) assertGroup(db, facilityId, groupId)
+  const inputGroupId = input?.groupId ?? null
+  if (values) assertGroup(db, facilityId, inputGroupId)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
   const now = (options.now ?? new Date()).toISOString()
-  const gapCodeIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
-    .where(inArray(absenceCodes.key, TARGET_GAP_CODES)).all().map(row => row.id))
+  const gapCodeIds = gapCodeIdsOf(db)
   const isGapCode = values?.absenceCodeId != null && gapCodeIds.has(values.absenceCodeId)
+  const groupId = values && mayHaveGroup({ kind: values.kind, absenceCodeId: values.absenceCodeId ?? null }, gapCodeIds)
+    ? inputGroupId
+    : null
+  const names = groupNames(db, facilityId)
   // An absence is any code other than the timed VZ/Büro (Urlaub, Krank, Fortbildung, Schließtag …, with or without times).
   const isAbsence = values?.kind === 'code' && !isGapCode
   if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
@@ -168,7 +192,7 @@ export function applyToCells(
       const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
       const helper = isHelperCell(cell)
       const owner = cellOwner(tx, cell.employeeId, cell.date)
-      const before = describeCellIn(tx, facilityId, cell, helper)
+      const before = describeCellIn(tx, facilityId, cell, helper, names)
       const wholeDay = and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))
       /** The home facility's closure booking replaced by this help-out (logged there after the write). */
       let replacedHome: ReplacedClosureDay | null = null
@@ -182,11 +206,12 @@ export function applyToCells(
       if (!helper && typeof owner === 'number') {
         if (!isAbsence) throw new ServiceError(409, 'cell_helps_elsewhere')
         // The absence replaces the help-out; the other plan sees its cell emptied (and keeps its full text in its log).
-        const helpBefore = describeCellIn(tx, owner, cell, true)
+        const ownerNames = groupNames(tx, owner)
+        const helpBefore = describeCellIn(tx, owner, cell, true, ownerNames)
         tx.delete(entries).where(wholeDay).run()
         logChange(tx, {
           facilityId: owner, date: cell.date, employeeId: cell.employeeId, field: 'entry',
-          before: helpBefore, after: describeCellIn(tx, owner, cell, true), actorId: actor.id, now,
+          before: helpBefore, after: describeCellIn(tx, owner, cell, true, ownerNames), actorId: actor.id, now,
         })
       }
       if (mode !== 'add') {
@@ -211,13 +236,14 @@ export function applyToCells(
       }
       if (values) {
         tx.insert(entries).values({
-          ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null, groupId,
+          ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null,
+          groupId: helper ? groupId : storedGroup(groupId, own.get(cell.employeeId)),
           closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id,
         }).run()
       }
       logChange(tx, {
         facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
-        before, after: describeCellIn(tx, facilityId, cell, helper), actorId: actor.id, now,
+        before, after: describeCellIn(tx, facilityId, cell, helper, names), actorId: actor.id, now,
       })
       if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, now)
       if (helper && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now)
@@ -260,21 +286,25 @@ export interface EntryTimesChange {
 /**
  * Lets one entry of the facility's plan count for another group of the facility (null = the home group again). The
  * entry follows the plan ownership of requireOwnEntry (entry_not_found otherwise); the group must be one of the plan's
- * facility's groups, also for a helper's entry (group_not_found otherwise).
+ * facility's groups, also for a helper's entry (group_not_found otherwise). Absences and breaks belong to no group
+ * (group_not_allowed); the own staff's home group is stored as none (see storedGroup).
  */
 export function setEntryGroup(
   db: Db, actor: SessionUser, facilityId: number, id: number, groupId: number | null, now: Date = new Date(),
 ): void {
   const entry = requireOwnEntry(db, facilityId, id)
   assertGroup(db, facilityId, groupId)
-  if (entry.groupId === groupId) return
-  const cell = { employeeId: entry.employeeId, date: entry.date }
+  if (groupId !== null && !mayHaveGroup(entry, gapCodeIdsOf(db))) throw new ServiceError(400, 'group_not_allowed')
   const helper = entry.helpFacilityId !== null
+  const stored = helper ? groupId : storedGroup(groupId, facilityEmployeeGroups(db, facilityId).get(entry.employeeId))
+  if (entry.groupId === stored) return
+  const cell = { employeeId: entry.employeeId, date: entry.date }
+  const names = groupNames(db, facilityId)
   db.transaction((tx) => {
-    const before = describeCellIn(tx, facilityId, cell, helper)
-    tx.update(entries).set({ groupId, updatedAt: now.toISOString(), updatedBy: actor.id }).where(eq(entries.id, id)).run()
+    const before = describeCellIn(tx, facilityId, cell, helper, names)
+    tx.update(entries).set({ groupId: stored, updatedAt: now.toISOString(), updatedBy: actor.id }).where(eq(entries.id, id)).run()
     logChange(tx, {
-      facilityId, ...cell, field: 'entry', before, after: describeCellIn(tx, facilityId, cell, helper),
+      facilityId, ...cell, field: 'entry', before, after: describeCellIn(tx, facilityId, cell, helper, names),
       actorId: actor.id, now: now.toISOString(),
     })
   })

@@ -13,7 +13,7 @@ const rules: CoverageRule[] = [
 ]
 
 function team(...entryLists: DomainEntry[][]): EmployeeDay[] {
-  return entryLists.map((entries, index) => ({ employeeId: index + 1, info, entries }))
+  return entryLists.map((entries, index) => ({ employeeId: index + 1, groupId: null, info, entries }))
 }
 
 const fullCoverage = () => [
@@ -43,7 +43,7 @@ describe('dayWarnings', () => {
   it('reports employees without any entry, but not those who left', () => {
     const lists = [...fullCoverage(), []]
     const employees = team(...lists)
-    employees.push({ employeeId: 9, info: { ...info, leftOn: '2026-09-30' }, entries: [] })
+    employees.push({ employeeId: 9, groupId: null, info: { ...info, leftOn: '2026-09-30' }, entries: [] })
     expect(dayWarnings(date, employees, rules, false)).toEqual([
       { type: 'missing_entry', date, employeeId: 5 },
     ])
@@ -65,20 +65,88 @@ describe('dayWarnings', () => {
   it('counts a helper for coverage only, without missing entry or target gap', () => {
     const lists = fullCoverage()
     const employees = team(...lists.slice(1))
-    employees.push({ employeeId: 7, info, entries: [shift(7, date, ...F1)], coverageOnly: true })
-    employees.push({ employeeId: 8, info, entries: [], coverageOnly: true })
-    employees.push({ employeeId: 9, info, entries: [code(9, date, 'prep_time', 'timed', 450, 570)], coverageOnly: true })
+    employees.push({ employeeId: 7, groupId: null, info, entries: [shift(7, date, ...F1)], coverageOnly: true })
+    employees.push({ employeeId: 8, groupId: null, info, entries: [], coverageOnly: true })
+    employees.push({ employeeId: 9, groupId: null, info, entries: [code(9, date, 'prep_time', 'timed', 450, 570)], coverageOnly: true })
     expect(dayWarnings(date, employees, rules, false)).toEqual([])
   })
   it('counts a day spent in another plan as filled', () => {
     const employees = team(...fullCoverage())
-    employees.push({ employeeId: 5, info, entries: [], busyElsewhere: true })
+    employees.push({ employeeId: 5, groupId: null, info, entries: [], busyElsewhere: true })
     expect(dayWarnings(date, employees, rules, false)).toEqual([])
   })
   it('skips weekends, holidays and closure days', () => {
     expect(dayWarnings('2026-10-10', team([]), rules, false)).toEqual([])
     expect(dayWarnings('2026-12-25', team([]), rules, false)).toEqual([])
     expect(dayWarnings(date, team([]), rules, true)).toEqual([])
+  })
+})
+
+describe('dayWarnings with groups (Review Focus 2)', () => {
+  const kaefer = 10
+  const maeuse = 11
+  const early: CoverageRule = { id: 1, label: 'Frühdienst ab 7:00', start: 420, end: null, minCount: 2 }
+  const earlyKaefer: CoverageRule = { ...early, id: 2, minCount: 1, groupId: kaefer, groupName: 'Käfer' }
+  const earlyMaeuse: CoverageRule = { ...early, id: 3, minCount: 2, groupId: maeuse, groupName: 'Mäuse' }
+  const member = (employeeId: number, groupId: number | null, entries: DomainEntry[]): EmployeeDay =>
+    ({ employeeId, groupId, info, entries })
+  const coverage = (employees: EmployeeDay[], list: CoverageRule[]) =>
+    dayWarnings(date, employees, list, false).filter(warning => warning.type === 'coverage')
+
+  it('counts each rule on a mixed day: a facility rule all duties, a group rule only its effective group', () => {
+    const employees = [
+      member(1, kaefer, [shift(1, date, ...F1)]),
+      // A Käfer member whose duty counts for Mäuse today.
+      member(2, kaefer, [shift(2, date, ...F1, { groupId: maeuse })]),
+      // A Springer without an assigned group: facility rules only.
+      member(3, null, [shift(3, date, ...F1)]),
+      // A Mäuse member on another shift.
+      member(4, maeuse, [shift(4, date, ...S)]),
+    ]
+    // Facility: 3 of 2; Käfer: 1 of 1 (member 1); Mäuse: 1 of 2 (member 2's moved duty).
+    expect(coverage(employees, [early, earlyKaefer, earlyMaeuse])).toEqual([
+      { type: 'coverage', date, ruleId: 3, label: 'Frühdienst ab 7:00', found: 1, required: 2, groupName: 'Mäuse' },
+    ])
+    employees[1] = member(2, kaefer, [shift(2, date, ...F1)])
+    expect(coverage(employees, [{ ...early, minCount: 4 }, { ...earlyKaefer, minCount: 3 }, earlyMaeuse])).toEqual([
+      { type: 'coverage', date, ruleId: 1, label: 'Frühdienst ab 7:00', found: 3, required: 4 },
+      { type: 'coverage', date, ruleId: 2, label: 'Frühdienst ab 7:00', found: 2, required: 3, groupName: 'Käfer' },
+      { type: 'coverage', date, ruleId: 3, label: 'Frühdienst ab 7:00', found: 0, required: 2, groupName: 'Mäuse' },
+    ])
+  })
+
+  it('counts a Springer duty for a group only when it is assigned to it', () => {
+    const springer = (groupId: number | null) => [member(3, null, [shift(3, date, ...F1, { groupId })])]
+    expect(coverage(springer(null), [early, earlyKaefer])).toEqual([
+      { type: 'coverage', date, ruleId: 1, label: 'Frühdienst ab 7:00', found: 1, required: 2 },
+      { type: 'coverage', date, ruleId: 2, label: 'Frühdienst ab 7:00', found: 0, required: 1, groupName: 'Käfer' },
+    ])
+    expect(coverage(springer(kaefer), [earlyKaefer])).toEqual([])
+  })
+
+  it('counts a member\'s duty assigned to another group for that group, not the home group', () => {
+    const employees = [member(1, kaefer, [shift(1, date, ...F1, { groupId: maeuse })])]
+    expect(coverage(employees, [earlyKaefer])).toEqual([
+      { type: 'coverage', date, ruleId: 2, label: 'Frühdienst ab 7:00', found: 0, required: 1, groupName: 'Käfer' },
+    ])
+    expect(coverage(employees, [{ ...earlyMaeuse, minCount: 1 }])).toEqual([])
+  })
+
+  it('counts a helper duty for a group only with an entry group, and always for facility rules', () => {
+    const helper = (groupId: number | null): EmployeeDay =>
+      ({ employeeId: 7, groupId: null, info, entries: [shift(7, date, ...F1, { groupId })], coverageOnly: true })
+    const facilityOnce = { ...early, minCount: 1 }
+    expect(coverage([helper(null)], [facilityOnce, earlyKaefer])).toEqual([
+      { type: 'coverage', date, ruleId: 2, label: 'Frühdienst ab 7:00', found: 0, required: 1, groupName: 'Käfer' },
+    ])
+    expect(coverage([helper(kaefer)], [facilityOnce, earlyKaefer])).toEqual([])
+  })
+
+  it('leaves facilities without groups unchanged: no groupName key, every duty counts', () => {
+    const employees = team([shift(1, date, ...F1)], [shift(2, date, ...F1, { groupId: null })])
+    expect(coverage(employees, [{ ...early, groupId: null }])).toEqual([])
+    const [warning] = coverage(employees, [{ ...early, minCount: 3 }])
+    expect(warning).toStrictEqual({ type: 'coverage', date, ruleId: 1, label: 'Frühdienst ab 7:00', found: 2, required: 3 })
   })
 })
 
@@ -101,7 +169,7 @@ describe('timeWarnings', () => {
 describe('working days in warnings', () => {
   it('does not ask for an entry on a part-timer’s day off', () => {
     const monToWed: EmploymentInfo = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 }], leftOn: null }
-    const employees: EmployeeDay[] = [{ employeeId: 7, info: monToWed, entries: [] }]
+    const employees: EmployeeDay[] = [{ employeeId: 7, groupId: null, info: monToWed, entries: [] }]
     const missing = (day: string) => dayWarnings(day, employees, [], false).filter(w => w.type === 'missing_entry')
     expect(missing('2026-10-07')).toHaveLength(1) // Wednesday: working day
     expect(missing('2026-10-08')).toEqual([]) // Thursday: day off

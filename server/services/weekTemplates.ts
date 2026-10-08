@@ -11,6 +11,7 @@ import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplat
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { dayConflict, describeCellAt } from './entries'
+import { groupNames } from './groups'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 
 /** A template covers Monday to Friday. */
@@ -144,6 +145,7 @@ export function applyWeekTemplate(
   }
   const timestamp = now.toISOString()
   const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
+  const names = groupNames(db, facilityId)
 
   db.transaction((tx) => {
     // Every entry of the staff counts, so a day helping out in another facility is occupied too.
@@ -158,12 +160,12 @@ export function applyWeekTemplate(
         continue
       }
       const cell = { employeeId, date }
-      const before = describeCellAt(tx, cell)
+      const before = describeCellAt(tx, cell, names)
       tx.insert(entries).values(group.map(({ id: _id, weekTemplateId: _template, weekday: _day, ...values }) => ({
         ...values, ...keepTimesOf(values), date, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
       }))).run()
       logChange(tx, {
-        facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
+        facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell, names), actorId: actor.id, now: timestamp,
       })
       result.filled += 1
     }

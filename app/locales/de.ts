@@ -198,7 +198,9 @@ export const de = {
   warnings: {
     title: 'Warnungen', none: 'Keine Warnungen in diesem Monat.',
     missingEntry: (name: string) => `${name}: kein Eintrag`,
-    coverage: (label: string, found: number, required: number) => `${label}: ${found}× eingetragen (${required} benötigt)`,
+    /** A group rule names its group first: „Mäuse – Frühdienst ab 7:00: 1× eingetragen (2 benötigt)“. */
+    coverage: (label: string, found: number, required: number, group?: string) =>
+      `${group ? `${group} – ` : ''}${label}: ${found}× eingetragen (${required} benötigt)`,
     targetGap: (name: string, duration: string) => `${name}: noch ${duration} h bis zum Tagessoll`,
     openRecord: (name: string) => `${name}: Ausstempeln vergessen`,
     missingRecord: (name: string) => `${name}: keine Stempelzeit`,
@@ -320,6 +322,7 @@ export const de = {
     creditModeConfirm: 'Die geänderte Anrechnung gilt auch für alle bereits eingetragenen Tage mit diesem Code. Dadurch ändern sich die Stundenkonten rückwirkend. Trotzdem speichern?',
     rules: 'Pflichtdienste', rulesHint: 'Die App warnt an jedem Werktag, an dem weniger Dienste mit diesem Beginn (und optional Ende) eingetragen sind.',
     ruleStart: 'Beginn', ruleEnd: 'Ende (optional)', minCount: 'Mindestanzahl', active: 'aktiv', addRule: 'Pflichtdienst hinzufügen',
+    ruleGroup: 'Gilt für', ruleWholeFacility: 'ganze Einrichtung',
     backup: 'Datensicherung', backupHint: 'Lädt eine vollständige Kopie der Datenbank herunter (nur für den Träger, weil sie auch Vertragsangaben enthält). Bewahre sie an einem sicheren Ort auf.',
     backupDownload: 'Datenbank herunterladen', invalidTime: 'Bitte gültige Uhrzeiten angeben.',
     timeTracking: 'Zeiterfassung', timeTrackingFrom: 'Zeiterfassung ab',
@@ -448,5 +451,6 @@ export const de = {
     cell_taken: 'An diesem Tag ist die Person schon in einem anderen Plan eingetragen.',
     cell_helps_elsewhere: 'An diesem Tag hilft die Person in einer anderen Einrichtung aus. Hier kann nur eine Abwesenheit eingetragen werden (z. B. Krank oder Urlaub).',
     help_code_not_allowed: 'Abwesenheiten einer Aushilfe trägt ihre eigene Einrichtung ein. Hier gehen nur Dienste, Pausen, VZ und Büro.',
+    group_not_allowed: 'Abwesenheiten und Pausen gehören keiner Gruppe an.',
   },
 }

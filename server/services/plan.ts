@@ -65,7 +65,10 @@ function buildAdminData(
       .filter(entry => entry.employeeId === id && entry.helpFacilityId !== facilityId && !closureBookings.has(entry.id))
       .map(entry => entry.date))]
   }
+  // Group rules name their group in the warning.
+  const names = groupNames(db, facilityId)
   const rules = loadCoverageRules(db, facilityId)
+    .map(rule => rule.groupId === null ? rule : { ...rule, groupName: names[rule.groupId] ?? '' })
   const actualOf = actualTimeFor(db, facilityId, today)
   const trackingFrom = activeTrackingFrom(db, facilityId, today)
   const recordsByCell = new Map<string, TimeRecordDto[]>()
@@ -81,10 +84,14 @@ function buildAdminData(
       const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
       // Staff entries planned elsewhere are help-elsewhere markers (one day, one plan).
       const busyElsewhere = dayEntries.some(entry => entry.helpFacilityId !== null)
-      return { employeeId: employee.id, info: employee.info, entries: busyElsewhere ? [] : dayEntries, busyElsewhere }
+      return {
+        employeeId: employee.id, groupId: employee.groupId, info: employee.info, entries: busyElsewhere ? [] : dayEntries, busyElsewhere,
+      }
     })
+    // Helpers have no home group here: their duties count for a group only with an entry group.
     const helperDays: EmployeeDay[] = helpers.map(helper => ({
       employeeId: helper.employeeId,
+      groupId: null,
       info: { hours: [], leftOn: null },
       entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
       coverageOnly: true,

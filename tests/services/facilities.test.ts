@@ -7,7 +7,8 @@ import { getActiveUser } from '../../server/services/auth'
 import {
   createFacility, listFacilities, renameFacility, resolveFacilityId, setActiveFacility,
 } from '../../server/services/facilities'
-import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { createCoverageRule } from '../../server/services/settings'
+import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 function userRow(db: Db, id: number) {
   return db.select().from(users).where(eq(users.id, id)).get()!
@@ -75,6 +76,15 @@ describe('facilities', () => {
     expect(errorCode(() => createFacility(db, ' krippe '))).toBe('facility_name_taken')
     expect(errorCode(() => createFacility(db, ''))).toBe('facility_name_required')
     expect(errorCode(() => createFacility(db, '   '))).toBe('facility_name_required')
+  })
+
+  it('copies only the facility-wide coverage rules, never the first facility\'s group rules', () => {
+    const kaefer = addGroup(db, 1, 'Käfer')
+    createCoverageRule(db, 1, { label: 'Käfer früh', start: 420, end: null, minCount: 1, active: true, groupId: kaefer })
+    const krippe = createFacility(db, 'Krippe').id
+    const rules = db.select().from(coverageRules).where(eq(coverageRules.facilityId, krippe)).all()
+    expect(rules.map(rule => rule.label)).toEqual(['Spätdienst 8:45–17:00', 'Frühdienst ab 7:00', 'Frühdienst 2 ab 7:30'])
+    expect(rules.every(rule => rule.groupId === null)).toBe(true)
   })
 
   it('renames facilities', () => {

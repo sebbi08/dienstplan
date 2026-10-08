@@ -8,7 +8,7 @@ import {
 } from '../../server/services/settings'
 import { listWeekTemplates, saveWeekTemplate } from '../../server/services/weekTemplates'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const date = '2026-10-05'
 
@@ -57,6 +57,26 @@ describe('settings service', () => {
     expect(getSettings(db, 1).coverageRules).toHaveLength(3)
     expect(errorCode(() => createCoverageRule(db, 1, { label: 'X', start: 463, end: null, minCount: 1, active: true }))).toBe('invalid_rule')
     expect(errorCode(() => createCoverageRule(db, 1, { label: 'X', start: 600, end: 540, minCount: 1, active: true }))).toBe('invalid_rule')
+  })
+  it('gives coverage rules a group of the facility, or none for the whole facility', () => {
+    const kaefer = addGroup(db, 1, 'Käfer')
+    const krippe = addFacility(db, 'Krippe')
+    const raupen = addGroup(db, krippe, 'Raupen')
+    const input = { label: 'Frühdienst Käfer', start: 420, end: null, minCount: 1, active: true }
+    expect(getSettings(db, 1).coverageRules.map(rule => rule.groupId)).toEqual([null, null, null])
+    expect(createCoverageRule(db, 1, input).groupId).toBeNull()
+    const rule = createCoverageRule(db, 1, { ...input, groupId: kaefer })
+    expect(rule).toMatchObject({ label: 'Frühdienst Käfer', groupId: kaefer })
+    // Left out on update keeps the group; null makes it a facility rule again.
+    expect(updateCoverageRule(db, 1, rule.id, { ...input, minCount: 2 })).toMatchObject({ minCount: 2, groupId: kaefer })
+    expect(updateCoverageRule(db, 1, rule.id, { ...input, groupId: null }).groupId).toBeNull()
+
+    // A group of another facility is refused with 404 and changes nothing.
+    const count = getSettings(db, 1).coverageRules.length
+    expect(errorCode(() => createCoverageRule(db, 1, { ...input, groupId: raupen }))).toBe('group_not_found')
+    expect(errorCode(() => updateCoverageRule(db, 1, rule.id, { ...input, label: 'X', groupId: raupen }))).toBe('group_not_found')
+    expect(getSettings(db, 1).coverageRules).toHaveLength(count)
+    expect(getSettings(db, 1).coverageRules.find(candidate => candidate.id === rule.id)).toMatchObject({ label: 'Frühdienst Käfer', groupId: null })
   })
 })
 

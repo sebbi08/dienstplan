@@ -125,6 +125,8 @@ export interface CoverageRuleDto {
   end: Minutes | null
   minCount: number
   active: boolean
+  /** The group the rule applies to (null = the whole facility). */
+  groupId: number | null
 }
 
 export interface DayRowDto {

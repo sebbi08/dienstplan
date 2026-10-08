@@ -1,14 +1,16 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
+import { coverageRules } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells, setDayNote } from '../../server/services/entries'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
-import { deleteTemplate, updateCode } from '../../server/services/settings'
+import { createCoverageRule, deleteTemplate, updateCode } from '../../server/services/settings'
 import { createRecord } from '../../server/services/timeTracking'
 import { cellKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-01'
 
@@ -170,5 +172,67 @@ describe('month plan', () => {
       const dates = warnings.map(w => w.date)
       expect(dates).toEqual([...dates].sort())
     })
+  })
+})
+
+describe('required duties per group in the month plan (Review Focus 2)', () => {
+  const tuesday = '2026-10-06'
+  let db: Db
+  let admin: SessionUser
+  let kaefer: number
+  let maeuse: number
+  let anna: number
+  let ben: number
+  let springer: number
+  beforeEach(() => {
+    db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
+    kaefer = addGroup(db, 1, 'Käfer')
+    maeuse = addGroup(db, 1, 'Mäuse')
+    anna = addEmployee(db, 'Anna', { groupId: kaefer })
+    ben = addEmployee(db, 'Ben', { groupId: maeuse })
+    springer = addEmployee(db, 'Sina')
+    // Only the group rules and one facility rule count here.
+    db.delete(coverageRules).run()
+  })
+  const write = (employeeId: number, label: string, groupId?: number | null) =>
+    applyToCells(db, admin, 1, [{ employeeId, date: tuesday }], 'replace',
+      { kind: 'shift', templateId: templateId(db, label), groupId })
+  const rule = (label: string, minCount: number, groupId: number | null) =>
+    createCoverageRule(db, 1, { label, start: 420, end: null, minCount, active: true, groupId }).id
+  const coverage = () => getMonthPlan(db, admin, 1, 2026, 10, today).admin!.warnings
+    .filter(warning => warning.type === 'coverage' && warning.date === tuesday)
+
+  it('counts each rule with the right duties: home groups, a moved duty, a Springer and a helper', () => {
+    const facility = rule('Frühdienst ab 7:00', 4, null)
+    const kaeferRule = rule('Frühdienst ab 7:00', 1, kaefer)
+    rule('Frühdienst ab 7:00', 2, maeuse) // met: Anna's moved duty and Ben
+    write(anna, 'F1', maeuse) // Käfer member, counts for Mäuse today
+    write(ben, 'F1') // Mäuse
+    write(springer, 'F1') // Springer: facility only
+    expect(coverage()).toEqual([
+      { type: 'coverage', date: tuesday, ruleId: facility, label: 'Frühdienst ab 7:00', found: 3, required: 4 },
+      { type: 'coverage', date: tuesday, ruleId: kaeferRule, label: 'Frühdienst ab 7:00', found: 0, required: 1, groupName: 'Käfer' },
+    ])
+
+    // A helper from another facility has no home group here: facility rules only, unless the duty has a group.
+    const krippe = addFacility(db, 'Krippe')
+    db.delete(coverageRules).where(eq(coverageRules.facilityId, krippe)).run()
+    const kim = addEmployee(db, 'Kim', { facilityId: krippe })
+    addHelpOut(db, kim, 1, 2026, 10)
+    applyToCells(db, admin, 1, [{ employeeId: kim, date: tuesday }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    expect(coverage().map(warning => [warning.ruleId, (warning as { found: number }).found])).toEqual([[kaeferRule, 0]])
+    applyToCells(db, admin, 1, [{ employeeId: kim, date: tuesday }], 'replace',
+      { kind: 'shift', templateId: templateId(db, 'F1'), groupId: kaefer })
+    expect(coverage()).toEqual([])
+  })
+
+  it('names no group in the warnings of a facility without groups', () => {
+    const plain = createTestDb()
+    const leitung = addUser(plain, 'leitung', 'admin')
+    addEmployee(plain, 'Anna')
+    const warnings = getMonthPlan(plain, leitung, 1, 2026, 10, today).admin!.warnings.filter(w => w.type === 'coverage')
+    expect(warnings.length).toBeGreaterThan(0)
+    expect(warnings.every(warning => !('groupName' in warning))).toBe(true)
   })
 })

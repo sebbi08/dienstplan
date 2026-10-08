@@ -27,7 +27,7 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
     case 'missing_entry':
       return de.warnings.missingEntry(names.get(warning.employeeId) ?? '?')
     case 'coverage':
-      return de.warnings.coverage(warning.label, warning.found, warning.required)
+      return de.warnings.coverage(warning.label, warning.found, warning.required, warning.groupName)
     case 'target_gap':
       return de.warnings.targetGap(names.get(warning.employeeId) ?? '?', formatDuration(warning.missingMinutes))
     case 'open_record':

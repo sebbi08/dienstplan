@@ -92,6 +92,43 @@ describe('entry groups (single duties in another group)', () => {
     expect([day(ben)[0]!.groupId, day(anna)[0]!.groupId]).toEqual([null, null])
   })
 
+  it('stores the own home group as none, so the duty follows later home-group changes (Ruling 4)', () => {
+    write(anna, shift('F2', { groupId: kaefer }))
+    expect(day(anna)[0]!.groupId).toBeNull()
+    setEntryGroup(db, admin, 1, entryOf(anna), maeuse)
+    expect(day(anna)[0]!.groupId).toBe(maeuse)
+    setEntryGroup(db, admin, 1, entryOf(anna), kaefer)
+    expect(day(anna)[0]!.groupId).toBeNull()
+    // Several cells at once: each person's own home group is none, another group stays.
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-07' }, { employeeId: ben, date: '2026-10-07' }], 'replace',
+      shift('M', { groupId: kaefer }))
+    expect([day(anna, '2026-10-07')[0]!.groupId, day(ben, '2026-10-07')[0]!.groupId]).toEqual([null, kaefer])
+  })
+
+  it('gives absences and breaks no group (Ruling 5)', () => {
+    const sick: EntryInput = { kind: 'code', codeId: codeId(db, 'sick'), groupId: maeuse }
+    write(anna, sick)
+    expect(day(anna)[0]).toMatchObject({ codeKey: 'sick', groupId: null })
+    expect(errorCode(() => setEntryGroup(db, admin, 1, day(anna)[0]!.id, maeuse))).toBe('group_not_allowed')
+    setEntryGroup(db, admin, 1, day(anna)[0]!.id, null)
+    expect(day(anna)[0]!.groupId).toBeNull()
+
+    write(ben, shift('F2', { groupId: maeuse }), '2026-10-07')
+    applyToCells(db, admin, 1, [{ employeeId: ben, date: '2026-10-07' }], 'add',
+      { kind: 'break', start: 600, end: 615, groupId: maeuse })
+    const pause = day(ben, '2026-10-07').find(entry => entry.kind === 'break')!
+    expect(pause.groupId).toBeNull()
+    expect(errorCode(() => setEntryGroup(db, admin, 1, pause.id, kaefer))).toBe('group_not_allowed')
+    expect(day(ben, '2026-10-07').find(entry => entry.kind === 'shift')!.groupId).toBe(maeuse)
+
+    // VZ and Büro are working duties and may count for a group.
+    applyToCells(db, admin, 1, [{ employeeId: ben, date: '2026-10-08' }], 'replace',
+      { kind: 'code', codeId: codeId(db, 'office'), start: 480, end: 600 })
+    const office = day(ben, '2026-10-08')[0]!
+    setEntryGroup(db, admin, 1, office.id, kaefer)
+    expect(day(ben, '2026-10-08')[0]!.groupId).toBe(kaefer)
+  })
+
   it('keeps the group when times change, a service adopts new times or VZ stays next to a new shift', () => {
     write(anna, shift('F2', { groupId: maeuse }))
     updateEntryTimes(db, admin, 1, entryOf(anna), { start: 480, end: 945, breakStart: 700, breakEnd: 730 })

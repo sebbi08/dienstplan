@@ -3,14 +3,17 @@ import { todayIso } from '#shared/domain/dates'
 import { formatDuration, formatTime, parseTime } from '#shared/domain/time'
 import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CreditMode } from '#shared/domain/types'
-import { COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type ShiftChangeResult, type TemplateDto } from '#shared/types/api'
+import {
+  COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type GroupDto, type SettingsDto, type ShiftChangeResult, type TemplateDto,
+} from '#shared/types/api'
 import { de } from '~/locales/de'
 
 interface TemplateForm {
   id: number | null; shortLabel: string; label: string; start: string; end: string
   breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean; sortOrder: number
 }
-interface RuleForm { id: number | null; label: string; start: string; end: string; minCount: number; active: boolean }
+/** groupId 0 = the whole facility (the select needs a non-null value). */
+interface RuleForm { id: number | null; label: string; start: string; end: string; minCount: number; active: boolean; groupId: number }
 
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings')
 const run = useAction(refresh)
@@ -37,7 +40,15 @@ const timeText = (minutes: number | null) => (minutes === null ? '' : formatTime
 const optionalTime = (value: string) => (value.trim() ? parseTime(value) ?? undefined : null)
 
 const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99 })
-const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true })
+const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true, groupId: 0 })
+
+// Required duties may apply to one group; the choice appears only when the facility has groups.
+const { data: groups } = await useFetch<GroupDto[]>('/api/groups')
+const hasGroups = computed(() => (groups.value?.length ?? 0) > 0)
+const groupItems = computed(() => [
+  { label: de.settings.ruleWholeFacility, value: 0 },
+  ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
+])
 
 const templates = ref<TemplateForm[]>([])
 const codes = ref<CodeDto[]>([])
@@ -54,6 +65,7 @@ watch(settings, (value) => {
   codes.value = (value?.codes ?? []).map(code => ({ ...code }))
   rules.value = (value?.coverageRules ?? []).map((r: CoverageRuleDto) => ({
     id: r.id, label: r.label, start: timeText(r.start), end: timeText(r.end), minCount: r.minCount, active: r.active,
+    groupId: r.groupId ?? 0,
   }))
 }, { immediate: true })
 
@@ -142,7 +154,11 @@ async function saveRule(form: RuleForm) {
   const start = parseTime(form.start)
   const end = optionalTime(form.end)
   if (start === null || end === undefined) return invalidTime()
-  const body = { label: form.label, start, end, minCount: form.minCount, active: form.active }
+  const body = {
+    label: form.label, start, end, minCount: form.minCount, active: form.active,
+    // Without groups the rule's group is left as it is (always the whole facility then).
+    ...(hasGroups.value ? { groupId: form.groupId || null } : {}),
+  }
   const ok = await run(() => form.id
     ? $fetch<unknown>(`/api/coverage-rules/${form.id}`, { method: 'PUT', body })
     : $fetch<unknown>('/api/coverage-rules', { method: 'POST', body }), de.common.saved)
@@ -245,6 +261,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
           <tr>
             <th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.ruleStart }}</th>
             <th :class="cell">{{ de.settings.ruleEnd }}</th><th :class="cell">{{ de.settings.minCount }}</th>
+            <th v-if="hasGroups" :class="cell">{{ de.settings.ruleGroup }}</th>
             <th :class="cell">{{ de.settings.active }}</th><th />
           </tr>
         </thead>
@@ -254,6 +271,9 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <td :class="cell"><TimeInput v-model="form.start" class="w-20" @keydown.enter="saveRule(form)" /></td>
             <td :class="cell"><TimeInput v-model="form.end" class="w-20" @keydown.enter="saveRule(form)" /></td>
             <td :class="cell"><input v-model.number="form.minCount" type="number" min="1" max="20" class="w-16 rounded border border-gray-300 px-1 py-0.5"></td>
+            <td v-if="hasGroups" :class="cell">
+              <USelect v-model="form.groupId" :items="groupItems" class="w-40" :aria-label="de.settings.ruleGroup" />
+            </td>
             <td :class="cell" class="text-center"><input v-model="form.active" type="checkbox"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
               <UButton size="xs" :label="form.id ? de.common.save : de.settings.addRule" @click="saveRule(form)" />

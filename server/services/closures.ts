@@ -9,6 +9,7 @@ import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { closureCodeId, splitLeave } from './closureBooking'
 import { applyToCells, cellOwner, describeCellAt } from './entries'
+import { groupNames } from './groups'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
@@ -89,10 +90,11 @@ export function unbookClosuresFrom(db: Db, actor: SessionUser, employeeId: numbe
   )
   const dates = [...new Set(db.select({ date: entries.date }).from(entries).where(booked).all().map(row => row.date))]
   const cells = dates.map(date => ({ employeeId, date }))
-  const before = cells.map(cell => describeCellAt(db, cell))
+  const names = groupNames(db, facilityId)
+  const before = cells.map(cell => describeCellAt(db, cell, names))
   db.delete(entries).where(booked).run()
   cells.forEach((cell, index) => logChange(db, {
-    facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(db, cell),
+    facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(db, cell, names),
     actorId: actor.id, now: now.toISOString(),
   }))
 }
@@ -103,11 +105,12 @@ export function deleteClosure(db: Db, actor: SessionUser, facilityId: number, id
   db.transaction((tx) => {
     const cells = loadEntries(tx, { closureId: id }).filter(entry => entry.helpFacilityId === null)
       .map(entry => ({ employeeId: entry.employeeId, date: entry.date }))
-    const before = cells.map(cell => describeCellAt(tx, cell))
+    const names = groupNames(tx, facilityId)
+    const before = cells.map(cell => describeCellAt(tx, cell, names))
     // Closure days are home entries; a help-out is never removed with them.
     tx.delete(entries).where(and(eq(entries.closureId, id), isNull(entries.helpFacilityId))).run()
     cells.forEach((cell, index) => logChange(tx, {
-      facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(tx, cell),
+      facilityId, ...cell, field: 'entry', before: before[index]!, after: describeCellAt(tx, cell, names),
       actorId: actor.id, now: now.toISOString(),
     }))
     tx.delete(closures).where(eq(closures.id, id)).run()
