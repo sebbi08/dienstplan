@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { cellKey } from '#shared/domain/cells'
 import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDayShort } from '~/utils/format'
+import { isMarker } from '~/utils/helpOuts'
 
 const props = defineProps<{ plan: MonthPlanDto }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -11,15 +13,22 @@ const emit = defineEmits<{ submit: [keys: string[]] }>()
 const names = computed(() => new Map([...(props.plan.admin?.releasedEmployees ?? []), ...props.plan.employees]
   .map(employee => [employee.id, employee.name])))
 const weekdays = computed(() => new Map(props.plan.days.map(day => [day.date, day.weekday])))
+/** Days another facility now plans (the person helps out there): the server keeps them, so they cannot be discarded. */
+const plannedElsewhere = computed(() => new Set(props.plan.entries.filter(entry => isMarker(entry, props.plan.facilityId))
+  .map(entry => cellKey(entry.employeeId, entry.date))))
 
 /** One row per not yet released change, ordered by day, then person / info field. */
 const rows = computed(() => Object.entries(props.plan.admin?.pendingChanges ?? {})
   .map(([key, change]) => {
     const [prefix, date] = key.split('|') as [string, string]
     const who = prefix === 'info1' ? de.plan.info1 : prefix === 'info2' ? de.plan.info2 : names.value.get(Number(prefix)) ?? '?'
-    return { key, date, who, before: change.before || de.plan.empty, after: change.after || de.plan.empty }
+    return {
+      key, date, who, before: change.before || de.plan.empty, after: change.after || de.plan.empty,
+      discardable: !plannedElsewhere.value.has(key),
+    }
   })
   .sort((a, b) => a.date.localeCompare(b.date) || a.who.localeCompare(b.who)))
+const discardableKeys = computed(() => rows.value.filter(row => row.discardable).map(row => row.key))
 
 const selected = ref(new Set<string>())
 // Nothing is preselected: the admin ticks exactly what should be discarded.
@@ -27,9 +36,9 @@ watch(open, (isOpen) => {
   if (isOpen) selected.value = new Set()
 })
 
-const allSelected = computed(() => rows.value.length > 0 && selected.value.size === rows.value.length)
+const allSelected = computed(() => discardableKeys.value.length > 0 && selected.value.size === discardableKeys.value.length)
 function toggleAll() {
-  selected.value = allSelected.value ? new Set() : new Set(rows.value.map(row => row.key))
+  selected.value = allSelected.value ? new Set() : new Set(discardableKeys.value)
 }
 function toggle(key: string) {
   const next = new Set(selected.value)
@@ -49,18 +58,25 @@ function submit() {
     <template #body>
       <p class="mb-3 text-sm text-gray-600">{{ de.modal.discardHint }}</p>
       <label class="mb-2 flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" :checked="allSelected" @change="toggleAll"> {{ de.modal.discardSelectAll }}
+        <input type="checkbox" :checked="allSelected" :disabled="discardableKeys.length === 0" @change="toggleAll"> {{ de.modal.discardSelectAll }}
       </label>
       <ul class="max-h-96 divide-y divide-gray-100 overflow-y-auto rounded ring-1 ring-gray-200">
         <li v-for="row in rows" :key="row.key">
-          <label class="flex cursor-pointer items-start gap-2 px-2 py-1.5 text-sm hover:bg-gray-50">
-            <input type="checkbox" class="mt-1" :checked="selected.has(row.key)" @change="toggle(row.key)">
+          <label
+            class="flex items-start gap-2 px-2 py-1.5 text-sm"
+            :class="row.discardable ? 'cursor-pointer hover:bg-gray-50' : 'text-gray-500'"
+          >
+            <input
+              type="checkbox" class="mt-1" :checked="selected.has(row.key)" :disabled="!row.discardable"
+              @change="toggle(row.key)"
+            >
             <span class="w-24 shrink-0 font-medium">{{ formatDayShort(row.date, weekdays.get(row.date) ?? 0) }}</span>
             <span class="w-24 shrink-0">{{ row.who }}</span>
             <span class="min-w-0">
               <span class="text-gray-500 line-through">{{ row.before }}</span>
               <span class="mx-1">→</span>
               <span>{{ row.after }}</span>
+              <span v-if="!row.discardable" class="block text-xs text-gray-500">{{ de.modal.discardNotHere }}</span>
             </span>
           </label>
         </li>

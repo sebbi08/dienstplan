@@ -13,15 +13,20 @@ import { formatTime } from '#shared/domain/time'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { buttonCodes, codeButtonLabel } from '~/utils/codes'
+import { type CellScope, codesForScope } from '~/utils/helpOuts'
 
-/** Drop-down next to the clicked cell with everything that can be entered into the selected cells. */
-const props = defineProps<{
+/**
+ * Drop-down next to the clicked cell with everything that can be entered into the selected cells. A helper's cells take
+ * no absences; a day on which someone helps out elsewhere takes only absences (scope, see cellScope).
+ */
+const props = withDefaults(defineProps<{
   reference: HTMLElement | null
   templates: TemplateDto[]
   codes: CodeDto[]
   selectedCount: number
   gapSuggestions: GapSuggestion[]
-}>()
+  scope?: CellScope
+}>(), { scope: 'normal' })
 const open = defineModel<boolean>('open', { required: true })
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
@@ -29,7 +34,12 @@ const emit = defineEmits<{
   fillGap: [suggestion: GapSuggestion]; addBreak: []
 }>()
 
-const codeButtons = computed(() => buttonCodes(props.codes))
+const codeButtons = computed(() => codesForScope(buttonCodes(props.codes), props.scope))
+/** Shifts, special shifts, breaks and clearing: not on a day that another facility plans. */
+const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
+const scopeHint = computed(() => ({
+  normal: null, helper: de.plan.menuHelperHint, marker: de.plan.menuMarkerHint, mixed: de.plan.menuMixedHint,
+})[props.scope])
 const range = (start: number, end: number) => `${formatTime(start)}–${formatTime(end)}`
 const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500'
 </script>
@@ -42,8 +52,9 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
     <template #content>
       <div class="max-h-[80dvh] w-64 space-y-3 overflow-y-auto p-2 text-sm">
         <p class="text-xs text-gray-500">{{ de.plan.selected(selectedCount) }}</p>
+        <p v-if="scopeHint" class="text-xs text-gray-600">{{ scopeHint }}</p>
 
-        <section v-if="gapSuggestions.length">
+        <section v-if="withShifts && gapSuggestions.length">
           <h3 :class="heading">{{ de.plan.fillGap }}</h3>
           <div class="flex flex-wrap gap-1">
             <UButton
@@ -55,7 +66,7 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
           </div>
         </section>
 
-        <section>
+        <section v-if="withShifts">
           <h3 :class="heading">{{ de.plan.menuShifts }}</h3>
           <div class="grid gap-0.5">
             <UButton
@@ -68,7 +79,7 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
           </div>
         </section>
 
-        <section>
+        <section v-if="codeButtons.length">
           <h3 :class="heading">{{ de.plan.menuCodes }}</h3>
           <div class="flex flex-wrap gap-1">
             <UButton
@@ -78,7 +89,7 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
           </div>
         </section>
 
-        <section>
+        <section v-if="withShifts">
           <h3 :class="heading">{{ de.plan.menuMore }}</h3>
           <div class="flex flex-wrap gap-1">
             <UButton size="xs" color="neutral" variant="soft" :label="de.plan.special" @click="emit('special')" />
@@ -87,7 +98,7 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
           </div>
         </section>
 
-        <UCheckbox v-model="addMode" :label="de.plan.addMode" />
+        <UCheckbox v-if="withShifts" v-model="addMode" :label="de.plan.addMode" />
       </div>
     </template>
   </UPopover>

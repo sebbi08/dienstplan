@@ -6,6 +6,7 @@ import { de } from '~/locales/de'
 import { balanceClass, cellFillClasses } from '~/utils/colors'
 import { pendingChangeText, releasedChangeText } from '~/utils/changes'
 import { formatDayShort } from '~/utils/format'
+import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
 const props = defineProps<{
@@ -13,6 +14,8 @@ const props = defineProps<{
   selected?: Set<string>
   editable?: boolean
   selectedDate?: string | null
+  /** The print view: helper columns say "(Aushilfe)", help-outs elsewhere are plain text. */
+  print?: boolean
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -22,6 +25,7 @@ const emit = defineEmits<{
   editEntry: [entry: EntryDto]
   saveWeek: [weekStart: string]
   applyWeek: [weekStart: string]
+  removeHelper: [helpOutId: number, name: string]
 }>()
 
 /** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
@@ -42,6 +46,31 @@ const gridMaxHeight = useFitToViewport(scroller)
 const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
 const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const warnings = computed(() => indexWarnings(props.plan.admin?.warnings ?? []))
+
+/** Helper columns ("Aushilfe aus …"): no overtime rows; removable while they hold no entries. */
+const helperColumns = computed(() => new Set(props.plan.employees.filter(employee => employee.helpFrom).map(employee => employee.id)))
+const helpOutIds = computed(() => new Map((props.plan.admin?.helpers ?? []).map(helper => [helper.employeeId, helper.helpOutId])))
+const withEntries = computed(() => new Set(props.plan.entries.map(entry => entry.employeeId)))
+function removableHelpOut(employeeId: number): number | null {
+  if (!props.editable || withEntries.value.has(employeeId)) return null
+  return helpOutIds.value.get(employeeId) ?? null
+}
+/** Helper days that belong to another plan: "belegt", not selectable. */
+const busy = computed(() => busyCellKeys(props.plan))
+
+function onCellClick(cell: { busy: boolean; employeeId: number }, date: string, event: MouseEvent) {
+  if (!cell.busy) emit('cellClick', cell.employeeId, date, event)
+}
+
+/** A help-out elsewhere is one read-only chip: "Aushilfe in …" with the times of its entries. */
+function markerOf(cellEntries: EntryDto[]): { facility: string; lines: string[] } | null {
+  const markers = cellEntries.filter(entry => isMarker(entry, props.plan.facilityId))
+  if (markers.length === 0) return null
+  return {
+    facility: props.plan.facilityNames[markers[0]!.helpFacilityId!] ?? '?',
+    lines: markers.map(entry => (entry.kind === 'break' ? de.plan.breakEntry(entry.label.slice(1, -1)) : entry.label)),
+  }
+}
 
 const entriesByCell = computed(() => {
   const map = new Map<string, EntryDto[]>()
@@ -82,6 +111,7 @@ const totals = computed(() => {
   if (!balances) return []
   const byEmployee = new Map(balances.map(balance => [balance.employeeId, balance]))
   const column = (pick: (carry: number, total: number) => number) => props.plan.employees.map((employee) => {
+    if (helperColumns.value.has(employee.id)) return null
     const balance = byEmployee.get(employee.id)
     return balance ? pick(balance.previousMonthEnd, balance.monthEnd) : 0
   })
@@ -111,17 +141,23 @@ const rows = computed(() => props.plan.days.map((day) => {
     const cellWarnings = warnings.value.byCell.get(key) ?? []
     const gap = cellWarnings.find(warning => warning.type === 'target_gap')
     const pending = props.plan.admin?.pendingChanges[key]
+    const cellEntries = entriesByCell.value.get(key) ?? []
+    const marker = markerOf(cellEntries)
     return {
       key,
       employeeId: employee.id,
-      entries: entriesByCell.value.get(key) ?? [],
+      busy: busy.value.has(key),
+      marker,
+      entries: marker ? [] : cellEntries,
       changed: Boolean(props.plan.changes[key]),
       pending: Boolean(pending),
       missing: cellWarnings.some(warning => warning.type === 'missing_entry'),
-      fill: cellFillColor(entriesByCell.value.get(key) ?? []),
+      fill: marker ? null : cellFillColor(cellEntries),
       gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
       actual: props.plan.admin?.actuals[key] ?? null,
       title: joinLines([
+        busy.value.has(key) ? de.plan.helperBusyHint : undefined,
+        marker && props.editable ? de.plan.markerHint : undefined,
         pendingChangeText(pending),
         releasedChangeText(props.plan.changes[key]),
         ...cellWarnings.map(warning => warningText(warning, employeeNames.value)),
@@ -152,8 +188,13 @@ const rows = computed(() => props.plan.days.map((day) => {
           number: week.weekNumber,
           start: week.weekStart,
           templateName: week.templateName,
-          totals: props.plan.employees.map(employee =>
-            week.totals.find(total => total.employeeId === employee.id) ?? { employeeId: employee.id, target: 0, credit: 0, delta: 0 }),
+          // Helpers' hours count in their home facility: their column stays empty.
+          totals: props.plan.employees.map(employee => ({
+            employeeId: employee.id,
+            total: helperColumns.value.has(employee.id)
+              ? null
+              : week.totals.find(total => total.employeeId === employee.id) ?? { employeeId: employee.id, target: 0, credit: 0, delta: 0 },
+          })),
         }
       : null,
   }
@@ -172,6 +213,20 @@ const rows = computed(() => props.plan.days.map((day) => {
           <th class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
           <th v-for="employee in plan.employees" :key="employee.id" class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">
             <div>{{ employee.name }}</div>
+            <template v-if="employee.helpFrom">
+              <div v-if="print" class="font-normal">{{ de.plan.helperPrint }}</div>
+              <div v-else class="whitespace-nowrap font-normal text-gray-500">
+                {{ de.plan.helperFrom(employee.helpFrom) }}
+                <button
+                  v-if="removableHelpOut(employee.id) !== null" type="button"
+                  class="ml-1 align-middle text-gray-400 hover:text-red-600 print:hidden"
+                  :title="de.plan.removeHelper" :aria-label="de.plan.removeHelper"
+                  @click="emit('removeHelper', removableHelpOut(employee.id)!, employee.name)"
+                >
+                  <UIcon name="i-lucide-user-minus" />
+                </button>
+              </div>
+            </template>
             <template v-if="headerBalances.has(employee.id)">
               <div
                 v-for="line in headerBalances.get(employee.id)" :key="line.label"
@@ -204,14 +259,26 @@ const rows = computed(() => props.plan.days.map((day) => {
               v-for="cell in row.cells" :key="cell.key"
               class="border border-gray-200 px-1 py-1 align-top"
               :class="[
-                editable ? 'cursor-pointer hover:bg-sky-50' : '',
-                selected?.has(cell.key) ? 'bg-sky-100' : cell.missing ? 'bg-red-50' : cell.fill ? cellFillClasses[cell.fill] : '',
+                editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
+                selected?.has(cell.key) ? 'bg-sky-100'
+                : cell.missing ? 'bg-red-50' : cell.busy ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
                 markClass(cell),
               ]"
               :title="cell.title"
-              @click="emit('cellClick', cell.employeeId, row.day.date, $event)"
+              @click="onCellClick(cell, row.day.date, $event)"
             >
               <div class="flex flex-col items-start gap-0.5">
+                <span v-if="cell.busy" class="text-xs italic text-gray-400">{{ de.plan.helperBusy }}</span>
+                <span v-if="cell.marker && print" class="text-xs text-gray-600">
+                  {{ de.myPlan.helpOutIn(cell.marker.facility) }} {{ cell.marker.lines.join(', ') }}
+                </span>
+                <span
+                  v-else-if="cell.marker"
+                  class="inline-flex flex-col whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300"
+                >
+                  <span class="font-medium">{{ de.myPlan.helpOutIn(cell.marker.facility) }}</span>
+                  <span v-for="(line, lineIndex) in cell.marker.lines" :key="lineIndex">{{ line }}</span>
+                </span>
                 <PlanEntryChip
                   v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable"
                   :editable="isEntryEditable(cell.key, entry)" :cell-title="cell.title"
@@ -251,13 +318,16 @@ const rows = computed(() => props.plan.days.map((day) => {
                 {{ de.weekTemplates.mark(row.week.templateName) }}
               </div>
             </td>
-            <td
-              v-for="total in row.week.totals" :key="total.employeeId"
-              class="border border-gray-200 px-2 py-1 text-center font-medium" :class="balanceClass(total.delta)"
-              :title="de.plan.weekTooltip(formatDuration(total.target), formatDuration(total.credit))"
-            >
-              {{ formatSignedDuration(total.delta) }}
-            </td>
+            <template v-for="column in row.week.totals" :key="column.employeeId">
+              <td
+                v-if="column.total" class="border border-gray-200 px-2 py-1 text-center font-medium"
+                :class="balanceClass(column.total.delta)"
+                :title="de.plan.weekTooltip(formatDuration(column.total.target), formatDuration(column.total.credit))"
+              >
+                {{ formatSignedDuration(column.total.delta) }}
+              </td>
+              <td v-else class="border border-gray-200" />
+            </template>
             <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>{{ de.plan.weekHint }}</span>
@@ -285,9 +355,9 @@ const rows = computed(() => props.plan.days.map((day) => {
           <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1">{{ row.label }}</td>
           <td
             v-for="(minutes, column) in row.values" :key="column"
-            class="border border-gray-200 px-2 py-1 text-center" :class="balanceClass(minutes)"
+            class="border border-gray-200 px-2 py-1 text-center" :class="minutes === null ? '' : balanceClass(minutes)"
           >
-            {{ formatSignedDuration(minutes) }}
+            <template v-if="minutes !== null">{{ formatSignedDuration(minutes) }}</template>
           </td>
           <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200" />
         </tr>

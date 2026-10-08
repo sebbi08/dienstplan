@@ -7,6 +7,7 @@ import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
+import { busyCellKeys, type CellScope, cellScope } from '~/utils/helpOuts'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -24,6 +25,7 @@ const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
 const modalCode = ref<CodeDto | null>(null)
 const discardOpen = ref(false)
+const helperOpen = ref(false)
 const editOpen = ref(false)
 const editEntry = ref<EntryDto | null>(null)
 const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
@@ -39,6 +41,9 @@ watch([year, month], () => {
 
 const dates = computed(() => plan.value?.days.map(day => day.date) ?? [])
 const insertMode = (): ApplyMode => (addMode.value ? 'add' : 'replace')
+/** What fits the selection: helper cells take no absences, help-out days elsewhere only absences. */
+const scope = computed((): CellScope => (plan.value ? cellScope(plan.value, selection.cells.value) : 'normal'))
+const busy = computed(() => (plan.value ? busyCellKeys(plan.value) : new Set<string>()))
 
 /**
  * One selected cell with a target gap: with only VZ/Büro, offer every full shift (F2, M, S) around them;
@@ -113,7 +118,7 @@ function onFillGap(gap: GapSuggestion) {
 
 function onCellClick(employeeId: number, date: string, event: MouseEvent) {
   if (!isAdmin.value) return
-  selection.click(employeeId, date, event, dates.value)
+  selection.click(employeeId, date, event, dates.value, key => !busy.value.has(key))
   cellMenu.reference = (event.target as HTMLElement).closest('td')
   cellMenu.open = selection.cells.value.length > 0
 }
@@ -147,6 +152,13 @@ function onEditSubmit(id: number, times: TimeSpan) {
   run(() => $fetch<unknown>(`/api/entries/${id}`, { method: 'PUT', body: times }))
 }
 
+async function onRemoveHelper(helpOutId: number, name: string) {
+  if (!await confirm(de.plan.removeHelperConfirm(name), { confirmLabel: de.plan.removeHelperAction })) return
+  selection.clear()
+  cellMenu.open = false
+  run(() => $fetch<unknown>(`/api/help-outs/${helpOutId}`, { method: 'DELETE' }), de.plan.helperRemoved)
+}
+
 function openWeekTemplate(mode: 'save' | 'apply', weekStart: string) {
   Object.assign(weekTemplate, { open: true, mode, weekStart })
 }
@@ -176,15 +188,17 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanToolbar
         v-if="isAdmin" v-model:add-mode="addMode"
         :templates="plan.templates" :codes="plan.codes"
-        :selected-count="selection.cells.value.length"
-        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear"
+        :selected-count="selection.cells.value.length" :scope="scope"
+        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-helper="helperOpen = true"
       />
+      <PlanHelperModal v-if="isAdmin" v-model:open="helperOpen" :year="year" :month="month" @done="refresh" />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 space-y-3">
           <PlanGrid
             :plan="plan" :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
+            @remove-helper="onRemoveHelper"
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" @close="selectedDate = null" />
         </div>
@@ -199,7 +213,7 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanCellMenu
         v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"
         :templates="plan.templates" :codes="plan.codes"
-        :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions"
+        :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions" :scope="scope"
         @template="menuActions.template" @code="menuActions.code" @special="menuActions.special" @clear="menuActions.clear"
         @fill-gap="menuActions.fillGap" @add-break="menuActions.addBreak"
       />

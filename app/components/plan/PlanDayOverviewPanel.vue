@@ -5,6 +5,7 @@ import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { slotClasses } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
+import { isMarker } from '~/utils/helpOuts'
 
 const props = defineProps<{ plan: MonthPlanDto; date: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -12,10 +13,12 @@ const emit = defineEmits<{ close: [] }>()
 const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'holiday', 'other']
 const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const day = computed(() => props.plan.days.find(candidate => candidate.date === props.date))
+// Helpers count with their duties here; a help-out elsewhere counts in the other facility, not here.
 const overview = computed(() => buildDayOverview(
   props.plan.employees.map(employee => ({
     employeeId: employee.id,
-    entries: props.plan.entries.filter(entry => entry.employeeId === employee.id && entry.date === props.date),
+    entries: props.plan.entries.filter(entry => entry.employeeId === employee.id && entry.date === props.date
+      && !isMarker(entry, props.plan.facilityId)),
   })),
   Boolean(day.value?.holidayKey),
 ))

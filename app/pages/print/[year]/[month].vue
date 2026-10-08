@@ -31,7 +31,7 @@ const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="plan">
-      <PlanGrid :plan="plan" />
+      <PlanGrid :plan="plan" print />
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <span class="font-semibold">{{ de.plan.legend }}:</span>
         <span v-for="template in plan.templates" :key="template.id">

@@ -16,6 +16,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Entwurf ansehen, bearbeiten, freigeben, Änderungen verwerfen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Überstunden, Soll/Ist und Warnungen im Dienstplan sehen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Dienstplanvorlagen speichern, einsetzen und verwalten', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Aushilfen aus anderen Einrichtungen einplanen', rights: ['yes', 'yes', 'no', 'no'] },
   ] },
   { title: 'Zeiterfassung', rows: [
     { label: 'Am Kita-Tablet mit PIN stempeln (immer erlaubt, sobald eine PIN gesetzt ist)', rights: [1, 1, 'yes', 'no'] },
