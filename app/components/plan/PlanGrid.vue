@@ -156,7 +156,7 @@ const rows = computed(() => props.plan.days.map((day) => {
       gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
       actual: props.plan.admin?.actuals[key] ?? null,
       title: joinLines([
-        busy.value.has(key) ? de.plan.helperBusyHint : undefined,
+        busy.value.has(key) && !props.print ? de.plan.helperBusyHint : undefined,
         marker && props.editable ? de.plan.markerHint : undefined,
         pendingChangeText(pending),
         releasedChangeText(props.plan.changes[key]),
@@ -261,14 +261,14 @@ const rows = computed(() => props.plan.days.map((day) => {
               :class="[
                 editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
                 selected?.has(cell.key) ? 'bg-sky-100'
-                : cell.missing ? 'bg-red-50' : cell.busy ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
+                : cell.missing ? 'bg-red-50' : cell.busy && !print ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
                 markClass(cell),
               ]"
               :title="cell.title"
               @click="onCellClick(cell, row.day.date, $event)"
             >
               <div class="flex flex-col items-start gap-0.5">
-                <span v-if="cell.busy" class="text-xs italic text-gray-400">{{ de.plan.helperBusy }}</span>
+                <span v-if="cell.busy && !print" class="text-xs italic text-gray-600">{{ de.plan.helperBusy }}</span>
                 <span v-if="cell.marker && print" class="text-xs text-gray-600">
                   {{ de.myPlan.helpOutIn(cell.marker.facility) }} {{ cell.marker.lines.join(', ') }}
                 </span>

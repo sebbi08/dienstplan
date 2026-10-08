@@ -170,7 +170,7 @@ export const de = {
     discardTitle: 'Noch nicht freigegebene Änderungen',
     discardHint: 'Hake an, was verworfen werden soll. Diese Zellen erhalten wieder den zuletzt freigegebenen Stand. Durchgestrichen = freigegeben, rechts = aktueller Entwurf.',
     discardSelectAll: 'Alle auswählen',
-    discardNotHere: 'Diesen Tag plant jetzt die andere Einrichtung (Aushilfe). Hier kann er nicht verworfen werden.',
+    discardNotHere: 'Diesen Tag plant jetzt eine andere Einrichtung. Hier kann er nicht verworfen werden.',
     discardSubmit: (count: number) => (count === 0 ? 'Verwerfen' : count === 1 ? '1 Änderung verwerfen' : `${count} Änderungen verwerfen`),
     addBreakTitle: 'Zusätzliche Pause eintragen',
     editTitle: (name: string) => `Bearbeiten: ${name}`,

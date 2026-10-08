@@ -3,7 +3,7 @@ import { cellKey } from '#shared/domain/cells'
 import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDayShort } from '~/utils/format'
-import { isMarker } from '~/utils/helpOuts'
+import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 
 const props = defineProps<{ plan: MonthPlanDto }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -13,9 +13,14 @@ const emit = defineEmits<{ submit: [keys: string[]] }>()
 const names = computed(() => new Map([...(props.plan.admin?.releasedEmployees ?? []), ...props.plan.employees]
   .map(employee => [employee.id, employee.name])))
 const weekdays = computed(() => new Map(props.plan.days.map(day => [day.date, day.weekday])))
-/** Days another facility now plans (the person helps out there): the server keeps them, so they cannot be discarded. */
-const plannedElsewhere = computed(() => new Set(props.plan.entries.filter(entry => isMarker(entry, props.plan.facilityId))
-  .map(entry => cellKey(entry.employeeId, entry.date))))
+/**
+ * Days another plan now owns, which the server skips on discard: in the home facility a help-out elsewhere (marker),
+ * in the helping facility a helper's day the home facility (or a third one) has taken over ("belegt").
+ */
+const plannedElsewhere = computed(() => new Set([
+  ...props.plan.entries.filter(entry => isMarker(entry, props.plan.facilityId)).map(entry => cellKey(entry.employeeId, entry.date)),
+  ...busyCellKeys(props.plan),
+]))
 
 /** One row per not yet released change, ordered by day, then person / info field. */
 const rows = computed(() => Object.entries(props.plan.admin?.pendingChanges ?? {})

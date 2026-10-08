@@ -11,7 +11,9 @@ const props = withDefaults(defineProps<{
   codes: CodeDto[]
   selectedCount: number
   scope?: CellScope
-}>(), { scope: 'normal' })
+  /** Helpers come from other facilities: the button only exists with several of them. */
+  severalFacilities?: boolean
+}>(), { scope: 'normal', severalFacilities: false })
 const codeButtons = computed(() => buttonCodes(props.codes))
 const allowedCodes = computed(() => new Set(codesForScope(codeButtons.value, props.scope).map(code => code.id)))
 const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
@@ -32,7 +34,7 @@ const emit = defineEmits<{
         @click="emit('template', template)"
       />
       <UButton
-        size="xs" color="neutral" variant="outline" icon="i-lucide-user-plus" class="ml-auto"
+        v-if="severalFacilities" size="xs" color="neutral" variant="outline" icon="i-lucide-user-plus" class="ml-auto"
         :label="de.plan.addHelper" @click="emit('addHelper')"
       />
     </div>
