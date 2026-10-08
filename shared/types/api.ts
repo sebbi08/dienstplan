@@ -154,6 +154,8 @@ export interface EmployeeColumnDto {
   id: number
   name: string
   shortName: string
+  /** For a helper column: the name of the helper's home facility ("Aushilfe aus …"); null for own staff (missing in old snapshots). */
+  helpFrom?: string | null
 }
 
 export interface SnapshotDayDto {
@@ -207,6 +209,10 @@ export interface MonthPlanAdminDto {
   pendingChanges: Record<string, PendingChangeDto>
   /** The people in the newest release (empty before the first), to name a change of someone no longer in the plan. */
   releasedEmployees: EmployeeColumnDto[]
+  /** The month's helpers of other facilities (their columns come after the own staff). */
+  helpers: HelperDto[]
+  /** Per helper (employee id): the days of the month that belong to another plan ("belegt", not writable here). */
+  helperBusy: Record<number, IsoDate[]>
 }
 
 export interface MonthPlanDto {
@@ -214,6 +220,10 @@ export interface MonthPlanDto {
   month: number
   /** Name of the plan's facility when there are several (null with only one, so single-facility printouts stay as they were). */
   facilityName: string | null
+  /** The facility whose plan this is. */
+  facilityId: number
+  /** Names of this facility and of the facilities its entries were planned in (for the "Aushilfe in …" markers). */
+  facilityNames: Record<number, string>
   release: ReleaseDto
   days: DayRowDto[]
   employees: EmployeeColumnDto[]

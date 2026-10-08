@@ -38,6 +38,14 @@ export interface ReleasedChange extends CellDiff {
   releasedBy: string
 }
 
+/**
+ * The entries that belong to facilityId's own plan cells: drops help-elsewhere markers, i.e. entries planned in another
+ * facility (helpFacilityId set and not facilityId). A missing helpFacilityId (old snapshots) counts as a home entry.
+ */
+export function ownEntries<T extends { helpFacilityId?: number | null }>(facilityId: number, entries: T[]): T[] {
+  return entries.filter(entry => entry.helpFacilityId == null || entry.helpFacilityId === facilityId)
+}
+
 /** Identity of a cell's entries that does not depend on code or template settings (labels), so renaming them is no change. */
 export function cellIdentity(entries: SnapshotContent['entries']): string {
   return entries

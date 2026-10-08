@@ -27,6 +27,10 @@ export interface EmployeeDay {
   employeeId: number
   info: EmploymentInfo
   entries: DomainEntry[]
+  /** A helper of another facility: their entries count for coverage only (no missing entry, no target gap). */
+  coverageOnly?: boolean
+  /** The day belongs to another facility's plan (helping out there): it counts as filled; its entries are not passed. */
+  busyElsewhere?: boolean
 }
 
 /** Smaller remaining times (e.g. VZ + F2 = 7:45 h of 7:48 h) are not worth a hint; the balance still counts them. */
@@ -63,7 +67,8 @@ export function dayWarnings(
     }
   }
 
-  for (const { employeeId, info, entries } of employees) {
+  for (const { employeeId, info, entries, coverageOnly, busyElsewhere } of employees) {
+    if (coverageOnly || busyElsewhere) continue
     // Days off of part-time staff (and days outside employment) need no entry.
     if (!isWorkday(info, date)) continue
     if (entries.length === 0) {

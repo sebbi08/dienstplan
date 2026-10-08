@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, isNull, or } from 'drizzle-orm'
 import { parseCellKey } from '../../shared/domain/cells'
 import { addDays } from '../../shared/domain/dates'
-import { diffCells, snapshotCells } from '../../shared/domain/releaseDiff'
+import { diffCells, ownEntries, snapshotCells } from '../../shared/domain/releaseDiff'
 import type { IsoDate } from '../../shared/domain/types'
 import type { DutyChangeDto, NotificationDto, ReleaseNotificationStatusDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -13,7 +13,8 @@ const KEEP_READ_DAYS = 14
 
 /**
  * After a month is released again: every employee whose own cells differ from the previous release gets one message
- * listing the changes. Day notes (Info 1/2) are not personal and are left out. Only the facility's employees are told.
+ * listing the changes. Day notes (Info 1/2) are not personal and are left out. Only the people of the facility's own cells
+ * are told: its staff, and its helpers about the duties planned here.
  * Returns the ids of the employees told.
  */
 export function notifyDutyChanges(
@@ -22,8 +23,10 @@ export function notifyDutyChanges(
   // Only the facility's own cells: its staff, and someone who moved in only from that day on (their earlier duties
   // entering this plan are no change).
   const ownsCell = ownCellFilter(db, facilityId)
+  // Help-elsewhere markers are another plan's cells: that plan tells the person about them, this one does not.
+  const own = (data: SnapshotData) => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) })
   const byEmployee = new Map<number, DutyChangeDto[]>()
-  for (const diff of diffCells(snapshotCells(previous), snapshotCells(next))) {
+  for (const diff of diffCells(own(previous), own(next))) {
     const { employeeId, date } = parseCellKey(diff.key)
     if (!Number.isInteger(employeeId)) continue // an Info field, not a person
     if (!ownsCell(employeeId, date)) continue

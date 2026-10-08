@@ -5,6 +5,7 @@ import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { dayNotes, monthPlans, releaseSnapshots, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { listHelpers } from './helpOuts'
 import { notifyDutyChanges } from './notifications'
 import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 
@@ -20,12 +21,19 @@ function assertMonth(year: number, month: number): void {
   }
 }
 
-/** The current (draft) state of a facility's month in the shape observers get from a release. */
+/**
+ * The current (draft) state of a facility's month in the shape observers get from a release: the own staff (with all
+ * their entries, so their help-outs elsewhere show as markers), then the month's helpers with only the entries planned
+ * here.
+ */
 export function buildSnapshot(db: Db, facilityId: number, year: number, month: number): SnapshotData {
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+  const helpers = listHelpers(db, facilityId, year, month)
   const staffIds = new Set(staff.map(employee => employee.id))
+  const helperIds = new Set(helpers.map(helper => helper.employeeId))
+  const employeeIds = [...staffIds, ...helperIds]
   const closures = loadClosures(db, facilityId)
   const notes = new Map(
     db.select().from(dayNotes)
@@ -33,8 +41,14 @@ export function buildSnapshot(db: Db, facilityId: number, year: number, month: n
       .map(note => [note.date, note]),
   )
   return {
-    employees: staff.map(({ id, name, shortName }) => ({ id, name, shortName })),
-    entries: loadEntries(db, { from: monthStart, to: monthEnd, homeFacilityId: facilityId }).filter(entry => staffIds.has(entry.employeeId)),
+    employees: [
+      ...staff.map(({ id, name, shortName }) => ({ id, name, shortName, helpFrom: null })),
+      ...helpers.map(helper => ({ id: helper.employeeId, name: helper.name, shortName: helper.shortName, helpFrom: helper.fromFacility })),
+    ],
+    entries: employeeIds.length === 0
+      ? []
+      : loadEntries(db, { from: monthStart, to: monthEnd, employeeIds }).filter(entry => staffIds.has(entry.employeeId)
+          || (helperIds.has(entry.employeeId) && entry.helpFacilityId === facilityId)),
     days: monthDates(year, month).map(date => ({
       date,
       info1: notes.get(date)?.info1 ?? '',
@@ -76,8 +90,18 @@ export function loadReleases(db: Db, facilityId: number, year: number, month: nu
     .map(({ snapshot, username }) => ({
       releasedAt: snapshot.releasedAt,
       releasedBy: username ?? '',
-      data: JSON.parse(snapshot.data) as SnapshotData,
+      data: readSnapshot(snapshot.data),
     }))
+}
+
+/** Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, which read as null. */
+function readSnapshot(json: string): SnapshotData {
+  const data = JSON.parse(json) as SnapshotData
+  return {
+    ...data,
+    employees: data.employees.map(employee => ({ ...employee, helpFrom: employee.helpFrom ?? null })),
+    entries: data.entries.map(entry => ({ ...entry, helpFacilityId: entry.helpFacilityId ?? null })),
+  }
 }
 
 /** Gives months released before snapshots existed a first snapshot built from their current state, per facility. */

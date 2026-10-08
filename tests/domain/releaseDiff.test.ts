@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellIdentity, changeHistory, diffCells, snapshotCells, type SnapshotContent } from '../../shared/domain/releaseDiff'
+import { cellIdentity, changeHistory, diffCells, ownEntries, snapshotCells, type SnapshotContent } from '../../shared/domain/releaseDiff'
 
 type SnapshotEntry = SnapshotContent['entries'][number]
 const entry = (employeeId: number, date: string, label: string, extra: Partial<SnapshotEntry> = {}): SnapshotEntry => ({
@@ -96,5 +96,15 @@ describe('changeHistory', () => {
     expect(history.get('info1|a')).toEqual([
       { key: 'info1|a', before: '', after: 'Fest', releasedAt: 't3', releasedBy: 'leitung' },
     ])
+  })
+})
+
+describe('ownEntries', () => {
+  it('drops entries planned in another facility, treating a missing value as a home entry', () => {
+    const list = [
+      { id: 1, helpFacilityId: null }, { id: 2, helpFacilityId: 2 }, { id: 3, helpFacilityId: 3 }, { id: 4 },
+    ]
+    expect(ownEntries(2, list).map(entry => entry.id)).toEqual([1, 2, 4])
+    expect(ownEntries(1, list).map(entry => entry.id)).toEqual([1, 4])
   })
 })

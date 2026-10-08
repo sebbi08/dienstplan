@@ -62,6 +62,19 @@ describe('dayWarnings', () => {
     const lists = [...fullCoverage(), [code(5, date, 'prep_time', 'timed', 450, 570), shift(5, date, 570, 945, 700, 730)]]
     expect(dayWarnings(date, team(...lists), rules, false)).toEqual([])
   })
+  it('counts a helper for coverage only, without missing entry or target gap', () => {
+    const lists = fullCoverage()
+    const employees = team(...lists.slice(1))
+    employees.push({ employeeId: 7, info, entries: [shift(7, date, ...F1)], coverageOnly: true })
+    employees.push({ employeeId: 8, info, entries: [], coverageOnly: true })
+    employees.push({ employeeId: 9, info, entries: [code(9, date, 'prep_time', 'timed', 450, 570)], coverageOnly: true })
+    expect(dayWarnings(date, employees, rules, false)).toEqual([])
+  })
+  it('counts a day spent in another plan as filled', () => {
+    const employees = team(...fullCoverage())
+    employees.push({ employeeId: 5, info, entries: [], busyElsewhere: true })
+    expect(dayWarnings(date, employees, rules, false)).toEqual([])
+  })
   it('skips weekends, holidays and closure days', () => {
     expect(dayWarnings('2026-10-10', team([]), rules, false)).toEqual([])
     expect(dayWarnings('2026-12-25', team([]), rules, false)).toEqual([])

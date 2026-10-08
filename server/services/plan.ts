@@ -1,23 +1,24 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayOn } from '../../shared/domain/holidays'
-import { changeHistory, diffCells, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
+import { changeHistory, diffCells, ownEntries, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
 import { isManager } from '../../shared/domain/roles'
 import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
-import { dayWarnings, timeWarnings, type Warning } from '../../shared/domain/warnings'
+import { dayWarnings, timeWarnings, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import type {
-  ActualCellDto, ChangeDto, ClosureDto, DayRowDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, PendingChangeDto, SessionUser, SnapshotData,
-  TimeRecordDto, WeekSummaryDto,
+  ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, PendingChangeDto,
+  SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
+import { listHelpers } from './helpOuts'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, ownCellFilter, type EmployeeRecord,
@@ -30,13 +31,29 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
 }
 
+/**
+ * Warnings, week totals, balances and actuals. The staff's figures use all their entries (help-outs elsewhere count on
+ * their one account), but a day spent in another plan only counts as filled, not for this facility's coverage. Helpers
+ * count for coverage only: B gets no other data about them.
+ */
 function buildAdminData(
-  db: Db, facilityId: number, staff: EmployeeRecord[], closures: ClosureDto[], year: number, month: number, today: IsoDate,
+  db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
+  year: number, month: number, today: IsoDate,
 ): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
   const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd, homeFacilityId: facilityId }))
+  const helperIds = helpers.map(helper => helper.employeeId)
+  const helperEntries = helperIds.length === 0
+    ? []
+    : loadEntries(db, { from: monthStart, to: monthEnd, employeeIds: helperIds })
+  const helpersHere = groupByEmployee(helperEntries.filter(entry => entry.helpFacilityId === facilityId))
+  const helperBusy: Record<number, IsoDate[]> = {}
+  for (const id of helperIds) {
+    helperBusy[id] = [...new Set(helperEntries
+      .filter(entry => entry.employeeId === id && entry.helpFacilityId !== facilityId).map(entry => entry.date))]
+  }
   const rules = loadCoverageRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
   const trackingFrom = activeTrackingFrom(db, facilityId, today)
@@ -48,16 +65,21 @@ function buildAdminData(
     }
   }
 
-  const warnings: Warning[] = monthDates(year, month).flatMap(date => dayWarnings(
-    date,
-    staff.map(employee => ({
-      employeeId: employee.id,
-      info: employee.info,
-      entries: (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date),
-    })),
-    rules,
-    closureOn(closures, date) !== null,
-  ))
+  const warnings: Warning[] = monthDates(year, month).flatMap((date) => {
+    const staffDays: EmployeeDay[] = staff.map((employee) => {
+      const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
+      // Staff entries planned elsewhere are help-elsewhere markers (one day, one plan).
+      const busyElsewhere = dayEntries.some(entry => entry.helpFacilityId !== null)
+      return { employeeId: employee.id, info: employee.info, entries: busyElsewhere ? [] : dayEntries, busyElsewhere }
+    })
+    const helperDays: EmployeeDay[] = helpers.map(helper => ({
+      employeeId: helper.employeeId,
+      info: { hours: [], leftOn: null },
+      entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
+      coverageOnly: true,
+    }))
+    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null)
+  })
 
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
@@ -95,7 +117,9 @@ function buildAdminData(
 
   // Time warnings were appended after all plan warnings; Array.prototype.sort is stable.
   warnings.sort((a, b) => a.date.localeCompare(b.date))
-  return { warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals }
+  return {
+    warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals, helpers, helperBusy,
+  }
 }
 
 function changeFromKey(key: string): Pick<ChangeDto, 'field' | 'employeeId' | 'date'> {
@@ -121,6 +145,13 @@ function facilityNameIfSeveral(db: Db, facilityId: number): string | null {
   return all.length > 1 ? all.find(facility => facility.id === facilityId)?.name ?? null : null
 }
 
+/** Names of the facility and of every facility the shown entries were planned in. */
+function facilityNamesFor(db: Db, facilityId: number, shownEntries: EntryDto[]): Record<number, string> {
+  const ids = [...new Set([facilityId, ...shownEntries.flatMap(entry => entry.helpFacilityId ?? [])])]
+  return Object.fromEntries(db.select({ id: facilities.id, name: facilities.name }).from(facilities)
+    .where(inArray(facilities.id, ids)).all().map(row => [row.id, row.name]))
+}
+
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
 ): MonthPlanDto {
@@ -129,8 +160,10 @@ export function getMonthPlan(
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
 
+  // Changes and pending changes concern the plan's own cells only: help-elsewhere markers belong to another plan.
+  const ownCells = (data: SnapshotData) => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) })
   const states = releases.map(release => ({
-    releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: snapshotCells(release.data),
+    releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: ownCells(release.data),
   }))
   const changes = toChangeDtos(changeHistory(states))
   const shown: SnapshotData = isAdmin ? buildSnapshot(db, facilityId, year, month) : latest!.data
@@ -139,7 +172,7 @@ export function getMonthPlan(
   if (isAdmin && states.length > 0) {
     // Someone who moved away, or the days before someone moved in, are no change of this facility's plan.
     const ownsCell = ownCellFilter(db, facilityId)
-    for (const diff of diffCells(states.at(-1)!.cells, snapshotCells(shown))) {
+    for (const diff of diffCells(states.at(-1)!.cells, ownCells(shown))) {
       const { employeeId, date } = changeFromKey(diff.key)
       if (employeeId !== null && !ownsCell(employeeId, date)) continue
       pendingChanges[diff.key] = { before: diff.before, after: diff.after }
@@ -161,8 +194,9 @@ export function getMonthPlan(
   if (isAdmin) {
     const { monthStart, monthEnd } = monthBounds(year, month)
     const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+    const helpers = listHelpers(db, facilityId, year, month)
     admin = {
-      ...buildAdminData(db, facilityId, staff, loadClosures(db, facilityId), year, month, today),
+      ...buildAdminData(db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],
     }
@@ -172,6 +206,8 @@ export function getMonthPlan(
     year,
     month,
     facilityName: facilityNameIfSeveral(db, facilityId),
+    facilityId,
+    facilityNames: facilityNamesFor(db, facilityId, shown.entries),
     release: {
       releasedAt: latest?.releasedAt ?? null,
       releasedBy: latest?.releasedBy ?? null,
