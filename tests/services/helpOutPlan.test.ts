@@ -125,6 +125,29 @@ describe('help-outs in plans, releases, discard and notifications', () => {
       write(leitungB, krippe, anna, tuesday, null, 'clear')
       expect(planA().admin!.pendingChanges).toEqual({})
     })
+
+    it('shows only the times of the marker: no note, template or shift name of B', () => {
+      write(leitungB, krippe, anna, tuesday, { ...shiftIn(krippe), note: 'Schlüssel bei Kim' })
+      const marker = (list: SnapshotData['entries']) => {
+        const found = list.filter(entry => entry.helpFacilityId === krippe)
+        expect(found).toHaveLength(1)
+        return found[0]!
+      }
+      const essentials = {
+        employeeId: anna, date: tuesday, kind: 'shift', start: 420, end: 795, countsAsStaff: true, helpFacilityId: krippe,
+        note: null, templateId: null, shortLabel: null, label: '7:00–13:15', color: 'neutral',
+      }
+      expect(marker(planA().entries)).toMatchObject(essentials)
+      expect(marker(buildSnapshot(db, 1, 2026, 10).entries)).toMatchObject(essentials)
+      release(leitungA, 1, '2026-09-25T10:00:00Z')
+      expect(marker(loadReleases(db, 1, 2026, 10)[0]!.data.entries)).toMatchObject(essentials)
+      const lenaAccount = addUser(db, 'lena', 'observer', lena)
+      expect(marker(getMonthPlan(db, lenaAccount, 1, 2026, 10, today).entries)).toMatchObject(essentials)
+      expect(JSON.stringify(db.select().from(releaseSnapshots).all())).not.toContain('Schlüssel')
+      // B's own plan and release keep the note for the helper.
+      expect(marker(planB().entries)).toMatchObject({ note: 'Schlüssel bei Kim', shortLabel: 'F1' })
+      expect(planA().admin!.pendingChanges).toEqual({})
+    })
   })
 
   describe('releases and notifications', () => {

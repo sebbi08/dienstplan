@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, isNotNull, lte } from 'drizzle-orm'
 import { daysInMonth, monthDates, toIsoDate } from '../../shared/domain/dates'
+import { describeEntry } from '../../shared/domain/describe'
 import { isEmployedInRange } from '../../shared/domain/targets'
-import type { SessionUser, SnapshotData } from '../../shared/types/api'
+import type { EntryDto, SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { dayNotes, monthPlans, releaseSnapshots, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -22,9 +23,19 @@ function assertMonth(year: number, month: number): void {
 }
 
 /**
+ * A facility's view of its staff's entries: an entry planned in another facility (a help-elsewhere marker) keeps only
+ * when the person works there, without that plan's note, shift template or shift name.
+ */
+export function withPlainMarkers(facilityId: number, list: EntryDto[]): EntryDto[] {
+  return list.map(entry => entry.helpFacilityId === null || entry.helpFacilityId === facilityId
+    ? entry
+    : { ...entry, templateId: null, note: null, label: describeEntry(entry, null), shortLabel: null, color: 'neutral' })
+}
+
+/**
  * The current (draft) state of a facility's month in the shape observers get from a release: the own staff (with all
- * their entries, so their help-outs elsewhere show as markers), then the month's helpers with only the entries planned
- * here.
+ * their entries, so their help-outs elsewhere show as plain markers), then the month's helpers with only the entries
+ * planned here.
  */
 export function buildSnapshot(db: Db, facilityId: number, year: number, month: number): SnapshotData {
   const monthStart = toIsoDate(year, month, 1)
@@ -47,8 +58,8 @@ export function buildSnapshot(db: Db, facilityId: number, year: number, month: n
     ],
     entries: employeeIds.length === 0
       ? []
-      : loadEntries(db, { from: monthStart, to: monthEnd, employeeIds }).filter(entry => staffIds.has(entry.employeeId)
-          || (helperIds.has(entry.employeeId) && entry.helpFacilityId === facilityId)),
+      : withPlainMarkers(facilityId, loadEntries(db, { from: monthStart, to: monthEnd, employeeIds })
+          .filter(entry => staffIds.has(entry.employeeId) || (helperIds.has(entry.employeeId) && entry.helpFacilityId === facilityId))),
     days: monthDates(year, month).map(date => ({
       date,
       info1: notes.get(date)?.info1 ?? '',
@@ -90,17 +101,20 @@ export function loadReleases(db: Db, facilityId: number, year: number, month: nu
     .map(({ snapshot, username }) => ({
       releasedAt: snapshot.releasedAt,
       releasedBy: username ?? '',
-      data: readSnapshot(snapshot.data),
+      data: readSnapshot(facilityId, snapshot.data),
     }))
 }
 
-/** Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, which read as null. */
-function readSnapshot(json: string): SnapshotData {
+/**
+ * Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, which read as null.
+ * Markers are shown plain even if a stored snapshot has more of the other plan.
+ */
+function readSnapshot(facilityId: number, json: string): SnapshotData {
   const data = JSON.parse(json) as SnapshotData
   return {
     ...data,
     employees: data.employees.map(employee => ({ ...employee, helpFrom: employee.helpFrom ?? null })),
-    entries: data.entries.map(entry => ({ ...entry, helpFacilityId: entry.helpFacilityId ?? null })),
+    entries: withPlainMarkers(facilityId, data.entries.map(entry => ({ ...entry, helpFacilityId: entry.helpFacilityId ?? null }))),
   }
 }
 
