@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, max, ne } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull, max, ne } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -10,6 +10,7 @@ import { balanceAdjustments, employeeHours, employees, entries, facilities, help
 import { ServiceError } from '../lib/errors'
 import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
+import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 
@@ -29,6 +30,8 @@ export interface EmployeeInput {
   breakMode?: BreakMode
   /** Existing overtime (or minus hours) when the employee is added, booked on validFrom. */
   openingBalanceMinutes?: number | null
+  /** Home group, one of the facility's (default null: Springer). */
+  groupId?: number | null
 }
 
 /** Reason of the balance booking created together with a new employee. */
@@ -43,6 +46,8 @@ export interface EmployeeUpdate {
   name: string
   shortName: string
   leftOn: IsoDate | null
+  /** Home group, one of the facility's (null = Springer); left out = unchanged. */
+  groupId?: number | null
 }
 
 /** Contract data for this viewer: always for the Träger, for the Leitung only when the Träger allows it. */
@@ -66,7 +71,7 @@ function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: bool
     currentWorkdays: weeklyMinutesOn(employee.info, today) !== null
       ? workdaysOn(employee.info, today)
       : employee.info.hours[0]?.workdays ?? MONDAY_TO_FRIDAY,
-    stampVia: employee.stampVia, breakMode: employee.breakMode,
+    stampVia: employee.stampVia, breakMode: employee.breakMode, groupId: employee.groupId,
     ...(withContract ? { contract: contractOf(employee) } : {}),
   }
 }
@@ -112,11 +117,14 @@ export function getEmployee(db: Db, facilityId: number, id: number, today: IsoDa
 export function createEmployee(db: Db, actor: SessionUser, facilityId: number, input: EmployeeInput, now: Date = new Date()): number {
   const name = requireName(input.name)
   const workdays = requireWorkdays(input.workdays ?? MONDAY_TO_FRIDAY)
+  const groupId = input.groupId ?? null
+  assertGroup(db, facilityId, groupId)
   return db.transaction((tx) => {
     const sortOrder = Math.max(0, ...tx.select({ sortOrder: employees.sortOrder }).from(employees)
       .where(eq(employees.facilityId, facilityId)).all().map(e => e.sortOrder)) + 1
     const employee = tx.insert(employees).values({
       facilityId, name, shortName: input.shortName.trim(), sortOrder, stampVia: input.stampVia ?? 'both', breakMode: input.breakMode ?? 'stamp',
+      groupId,
     }).returning().get()
     tx.insert(employeeHours).values({ employeeId: employee.id, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom, workdays }).run()
     if (input.vacationDays != null || input.carriedOverDays != null) {
@@ -137,8 +145,13 @@ export function createEmployee(db: Db, actor: SessionUser, facilityId: number, i
 
 export function updateEmployee(db: Db, facilityId: number, id: number, update: EmployeeUpdate): void {
   assertEmployee(db, facilityId, id)
+  const name = requireName(update.name)
+  if (update.groupId !== undefined) assertGroup(db, facilityId, update.groupId)
   db.update(employees)
-    .set({ name: requireName(update.name), shortName: update.shortName.trim(), leftOn: update.leftOn })
+    .set({
+      name, shortName: update.shortName.trim(), leftOn: update.leftOn,
+      ...(update.groupId !== undefined ? { groupId: update.groupId } : {}),
+    })
     .where(eq(employees.id, id)).run()
 }
 
@@ -263,13 +276,17 @@ export function moveEmployeeToFacility(
     unbookClosuresFrom(tx, actor, employeeId, employee.facilityId, today, now)
     const sortOrder = (tx.select({ value: max(employees.sortOrder) }).from(employees)
       .where(eq(employees.facilityId, facilityId)).get()?.value ?? 0) + 1
-    tx.update(employees).set({ facilityId, sortOrder, facilitySince: today }).where(eq(employees.id, employeeId)).run()
+    // Groups belong to a facility: the home group goes, and so do the groups of the duties now planned by the new home.
+    tx.update(employees).set({ facilityId, sortOrder, facilitySince: today, groupId: null }).where(eq(employees.id, employeeId)).run()
     tx.update(users).set({ facilityId })
       .where(and(eq(users.employeeId, employeeId), inArray(users.role, ['admin', 'terminal']))).run()
     // Helping out in the new home is no help-out any more: those entries become home entries (help-outs elsewhere stay).
     tx.delete(helpOuts).where(and(eq(helpOuts.employeeId, employeeId), eq(helpOuts.facilityId, facilityId))).run()
     tx.update(entries).set({ helpFacilityId: null })
       .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
+    // Help-outs in a third facility keep that plan's group; earlier days stay as the old facility planned them.
+    tx.update(entries).set({ groupId: null })
+      .where(and(eq(entries.employeeId, employeeId), isNull(entries.helpFacilityId), gte(entries.date, today))).run()
     bookClosuresFor(tx, actor, employeeId, now, today)
   })
 }

@@ -170,7 +170,8 @@ describe('upgrading a filled database through migrateDb', () => {
     migrateDb(db, MIGRATIONS)
 
     const after = sqlite.prepare('SELECT * FROM entries ORDER BY id').all() as Record<string, unknown>[]
-    expect(after.map(({ help_facility_id: _, ...rest }) => rest)).toEqual(before)
+    // group_id comes with the later migration 0022.
+    expect(after.map(({ help_facility_id: _, group_id: __, ...rest }) => rest)).toEqual(before)
     expect(after.map(row => row.help_facility_id)).toEqual([null, null])
     expect(count(sqlite, 'help_outs')).toBe(0)
     sqlite.exec('INSERT INTO facilities (id, name) VALUES (2, \'Krippe\')')
@@ -180,6 +181,49 @@ describe('upgrading a filled database through migrateDb', () => {
     sqlite.exec('DELETE FROM employees WHERE id = 1')
     expect(count(sqlite, 'help_outs')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('adds groups without touching the existing rows', () => {
+    const { db, sqlite } = databaseAt('0021')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1), (2, 'Ben', 2);
+      INSERT INTO shift_templates (id, short_label, label, start, end, facility_id) VALUES (1, 'F1', 'Frühdienst', 420, 795, 1);
+      INSERT INTO entries (id, employee_id, date, kind, shift_template_id, start, end, updated_at) VALUES
+        (1, 1, '2026-10-05', 'shift', 1, 420, 795, 'now'), (2, 2, '2026-10-06', 'shift', 1, 420, 795, 'now');
+      INSERT INTO coverage_rules (id, facility_id, label, start, end, min_count) VALUES (1, 1, 'Früh', 420, 480, 2);
+      INSERT INTO week_templates (id, facility_id, name, updated_at) VALUES (1, 1, 'Normalwoche', 'now'), (2, 2, 'Krippenwoche', 'now');
+      INSERT INTO week_template_entries (week_template_id, employee_id, weekday, kind) VALUES (1, 1, 0, 'shift');
+      INSERT INTO week_template_marks (facility_id, week_start, week_template_id) VALUES
+        (1, '2026-10-05', 1), (1, '2026-10-12', 1), (2, '2026-10-05', 2);
+    `)
+    const tables = ['employees', 'entries', 'coverage_rules', 'week_templates', 'week_template_entries', 'week_template_marks']
+    const before = Object.fromEntries(tables.map(table => [table, sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]))
+
+    migrateDb(db, MIGRATIONS)
+
+    for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
+      const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
+      expect(after.map(({ group_id: _, ...rest }) => rest), table).toEqual(before[table])
+      expect(after.every(row => row.group_id === null), table).toBe(true)
+    }
+    expect(sqlite.prepare('SELECT * FROM week_template_entries').all()).toEqual(before.week_template_entries)
+    expect(sqlite.prepare(
+      'SELECT facility_id, week_start, week_template_id, group_id FROM week_template_marks ORDER BY facility_id, week_start',
+    ).all()).toEqual([
+      { facility_id: 1, week_start: '2026-10-05', week_template_id: 1, group_id: 0 },
+      { facility_id: 1, week_start: '2026-10-12', week_template_id: 1, group_id: 0 },
+      { facility_id: 2, week_start: '2026-10-05', week_template_id: 2, group_id: 0 },
+    ])
+    expect(count(sqlite, 'groups')).toBe(0)
+    // A group's own mark sits next to the facility's mark of the same week.
+    sqlite.exec('INSERT INTO groups (id, facility_id, name) VALUES (1, 1, \'Bären\')')
+    sqlite.exec('INSERT INTO week_template_marks (facility_id, week_start, week_template_id, group_id) VALUES (1, \'2026-10-05\', 1, 1)')
+    expect(() => sqlite.exec('INSERT INTO week_template_marks (facility_id, week_start, week_template_id) VALUES (1, \'2026-10-05\', 1)'))
+      .toThrow(/UNIQUE|PRIMARY KEY/)
+    expect(() => sqlite.exec('UPDATE employees SET group_id = 99 WHERE id = 1')).toThrow(/FOREIGN KEY/)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

@@ -52,13 +52,19 @@ export const entryTimesSchema = z.object({ start: minutes, end: minutes, breakSt
 
 const weeklyMinutes = z.number().int().min(0).max(80 * 60)
 const workdays = z.number().int().min(1).max(127)
+/** A group of the facility, or null for none (Springer). */
+export const groupIdSchema = z.number().int().positive().nullable()
 export const employeeCreateSchema = z.object({
   name: label, shortName: z.string().max(10), weeklyMinutes, validFrom: isoDate, workdays: workdays.optional(),
   vacationDays: z.number().min(0).max(100).nullable().optional(), carriedOverDays: z.number().min(0).max(100).nullable().optional(),
   openingBalanceMinutes: z.number().int().min(-200_000).max(200_000).nullable().optional(),
   stampVia: z.enum(STAMP_CHANNELS).optional(), breakMode: z.enum(BREAK_MODES).optional(),
+  groupId: groupIdSchema.optional(),
 })
-export const employeeUpdateSchema = z.object({ name: label, shortName: z.string().max(10), leftOn: isoDate.nullable() })
+/** groupId left out keeps the employee's group. */
+export const employeeUpdateSchema = z.object({
+  name: label, shortName: z.string().max(10), leftOn: isoDate.nullable(), groupId: groupIdSchema.optional(),
+})
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
 export const hoursSchema = z.object({ weeklyMinutes, validFrom: isoDate, workdays: workdays.optional() })
 export const adjustmentSchema = z.object({ date: isoDate, minutes: z.number().int().min(-200_000).max(200_000), reason: z.string().max(200) })
@@ -122,3 +128,4 @@ export const helpOutSchema = z.object({
   year: z.number().int().min(2000).max(2100),
   month: z.number().int().min(1).max(12),
 })
+export const groupNameSchema = z.object({ name: z.string().max(80) })

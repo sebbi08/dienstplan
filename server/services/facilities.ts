@@ -18,6 +18,11 @@ function facilityExists(db: Db, id: number): boolean {
   return db.select({ id: facilities.id }).from(facilities).where(eq(facilities.id, id)).get() !== undefined
 }
 
+/** For the Träger's routes that name a facility: 404 facility_not_found when it does not exist. */
+export function assertFacility(db: Db, id: number): void {
+  if (!facilityExists(db, id)) throw new ServiceError(404, 'facility_not_found')
+}
+
 /**
  * The facility a user works in, fresh from the database:
  * Leitung and tablet their own, the Träger the active selection (or the first facility), a Mitarbeiter that of the employee.

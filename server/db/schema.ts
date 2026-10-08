@@ -14,6 +14,17 @@ export const facilities = sqliteTable('facilities', {
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
 const facilityId = () => integer('facility_id').notNull().default(1).references(() => facilities.id)
 
+/** A group (Gruppe) of a facility; its name is unique within the facility, compared case-insensitively. */
+export const groups = sqliteTable('groups', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, table => [index('groups_facility').on(table.facilityId)])
+
+/** The group a row belongs to (null = the whole facility, or no group of its own); always a group of the row's facility. */
+const groupId = () => integer('group_id').references(() => groups.id)
+
 export const employees = sqliteTable('employees', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   /** The home facility; every employee belongs to exactly one. */
@@ -23,6 +34,8 @@ export const employees = sqliteTable('employees', {
    * by another facility: they never count as that facility's unreleased changes and a discard never touches them.
    */
   facilitySince: text('facility_since'),
+  /** The home group in the home facility (null = Springer, or the facility has no groups). */
+  groupId: groupId(),
   name: text('name').notNull(),
   shortName: text('short_name').notNull().default(''),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -136,6 +149,8 @@ export const entries = sqliteTable('entries', {
    * employee's current home facility; all entries of one employee on one date share it (one day, one facility).
    */
   helpFacilityId: integer('help_facility_id').references(() => facilities.id),
+  /** The group this single duty counts for (null = the employee's home group); a group of the plan's facility. */
+  groupId: groupId(),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [
@@ -188,6 +203,8 @@ export const coverageRules = sqliteTable('coverage_rules', {
   end: integer('end'),
   minCount: integer('min_count').notNull().default(1),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  /** The group the rule applies to (null = the whole facility). */
+  groupId: groupId(),
 })
 
 export const releaseSnapshots = sqliteTable('release_snapshots', {
@@ -268,6 +285,8 @@ export const weekTemplates = sqliteTable('week_templates', {
   facilityId: facilityId(),
   name: text('name').notNull(),
   updatedAt: text('updated_at').notNull(),
+  /** The group the template is for (null = the whole facility). */
+  groupId: groupId(),
 }, table => [uniqueIndex('week_templates_facility_name').on(table.facilityId, table.name)])
 
 /** One working entry of a week template (shift, special shift, break, VZ or Büro) on a weekday (0 = Monday). */
@@ -292,7 +311,9 @@ export const weekTemplateMarks = sqliteTable('week_template_marks', {
   facilityId: facilityId(),
   weekStart: text('week_start').notNull(),
   weekTemplateId: integer('week_template_id').notNull().references(() => weekTemplates.id, { onDelete: 'cascade' }),
-}, table => [primaryKey({ columns: [table.facilityId, table.weekStart] })])
+  /** The group's week (0 = the whole facility; no foreign key, as 0 is no group). */
+  groupId: integer('group_id').notNull().default(0),
+}, table => [primaryKey({ columns: [table.facilityId, table.groupId, table.weekStart] })])
 
 /** Message to an employee that their released duties changed (created when a month is released again). */
 export const notifications = sqliteTable('notifications', {

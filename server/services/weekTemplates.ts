@@ -174,8 +174,10 @@ export function applyWeekTemplate(
 
 /** Remembers which template a facility's plan week was saved as or filled from (the latest one wins). */
 function markWeek(db: Db, facilityId: number, weekStart: IsoDate, weekTemplateId: number): void {
-  db.insert(weekTemplateMarks).values({ facilityId, weekStart, weekTemplateId })
-    .onConflictDoUpdate({ target: [weekTemplateMarks.facilityId, weekTemplateMarks.weekStart], set: { weekTemplateId } }).run()
+  db.insert(weekTemplateMarks).values({ facilityId, groupId: 0, weekStart, weekTemplateId })
+    .onConflictDoUpdate({
+      target: [weekTemplateMarks.facilityId, weekTemplateMarks.groupId, weekTemplateMarks.weekStart], set: { weekTemplateId },
+    }).run()
 }
 
 /** Template name per plan week (by its Monday) of the facility between from and to, for the plan's week rows. */
@@ -183,7 +185,10 @@ export function weekTemplateNames(db: Db, facilityId: number, from: IsoDate, to:
   const rows = db.select({ weekStart: weekTemplateMarks.weekStart, name: weekTemplates.name })
     .from(weekTemplateMarks)
     .innerJoin(weekTemplates, eq(weekTemplateMarks.weekTemplateId, weekTemplates.id))
-    .where(and(eq(weekTemplateMarks.facilityId, facilityId), gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to)))
+    .where(and(
+      eq(weekTemplateMarks.facilityId, facilityId), eq(weekTemplateMarks.groupId, 0),
+      gte(weekTemplateMarks.weekStart, from), lte(weekTemplateMarks.weekStart, to),
+    ))
     .all()
   return new Map(rows.map(row => [row.weekStart, row.name]))
 }

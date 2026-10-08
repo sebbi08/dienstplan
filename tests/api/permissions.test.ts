@@ -28,9 +28,10 @@ const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']
 const PROVIDER_ROUTES = [
   'employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts', 'leave-settings/module.put.ts',
   'facilities.post.ts', 'facilities/[id].put.ts', 'facilities/active.put.ts', 'employees/[id]/facility.put.ts',
+  'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'groups/[id].put.ts', 'groups/[id].delete.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
-const ADMIN_ROUTES = ['help-outs/candidates.get.ts', 'help-outs/index.post.ts', 'help-outs/[id].delete.ts']
+const ADMIN_ROUTES = ['help-outs/candidates.get.ts', 'help-outs/index.post.ts', 'help-outs/[id].delete.ts', 'groups.get.ts']
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 

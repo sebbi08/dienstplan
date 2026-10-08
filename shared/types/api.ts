@@ -32,6 +32,13 @@ export interface FacilityDto {
   name: string
 }
 
+/** A group (Gruppe) of a facility. */
+export interface GroupDto {
+  id: number
+  name: string
+  sortOrder: number
+}
+
 export interface FacilitiesDto {
   facilities: FacilityDto[]
   /** The facility the viewer currently works in. */
@@ -275,6 +282,8 @@ export interface EmployeeListItemDto {
   /** Where the employee may clock in and out, and whether breaks are clocked or deducted automatically. */
   stampVia: StampChannel
   breakMode: BreakMode
+  /** The home group in the facility (null = Springer, or the facility has no groups). */
+  groupId: number | null
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
 }

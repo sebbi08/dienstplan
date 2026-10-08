@@ -6,6 +6,7 @@ import { ServiceError } from '../../server/lib/errors'
 import { hashPassword } from '../../server/lib/password'
 import { toSessionUser } from '../../server/services/auth'
 import { createFacility } from '../../server/services/facilities'
+import { createGroup } from '../../server/services/groups'
 import type { Role, SessionUser } from '../../shared/types/api'
 
 export const TEST_PASSWORD = 'secret-password'
@@ -24,12 +25,15 @@ export function addFacility(db: Db, name: string): number {
 
 export function addEmployee(
   db: Db, name: string,
-  options: { weeklyHours?: number; validFrom?: string; leftOn?: string | null; facilityId?: number } = {},
+  options: {
+    weeklyHours?: number; validFrom?: string; leftOn?: string | null; facilityId?: number; groupId?: number | null
+  } = {},
 ): number {
   const sortOrder = db.select().from(employees).all().length + 1
   const employee = db.insert(employees)
     .values({
       name, shortName: name.slice(0, 2), sortOrder, leftOn: options.leftOn ?? null, facilityId: options.facilityId ?? 1,
+      groupId: options.groupId ?? null,
     })
     .returning().get()
   db.insert(employeeHours).values({
@@ -52,6 +56,11 @@ export function addUser(
     .values({ username, passwordHash: hashPassword(TEST_PASSWORD), role, employeeId, facilityId: stored })
     .returning().get()
   return toSessionUser(db, row)
+}
+
+/** A group of the facility, created through the service; returns its id. */
+export function addGroup(db: Db, facilityId: number, name: string): number {
+  return createGroup(db, facilityId, name).id
 }
 
 /** Makes the employee a helper in facilityId's plan for the month (no checks); returns the help-out id. */

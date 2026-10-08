@@ -34,6 +34,8 @@ export interface EmployeeRecord {
   shortName: string
   sortOrder: number
   leftOn: IsoDate | null
+  /** The home group (null = Springer, or the facility has no groups). */
+  groupId: number | null
   info: EmploymentInfo
   // Contract data (see shared/domain/tvoed.ts); who may see it is decided in the employees service.
   personnelNumber: string | null
