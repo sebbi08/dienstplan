@@ -1,4 +1,4 @@
-import { and, desc, eq, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, lte } from 'drizzle-orm'
 import type { LeaveEntitlement } from '../../shared/domain/leave'
 import type { Db } from '../db/client'
 import { leaveEntitlements } from '../db/schema'
@@ -18,4 +18,10 @@ export function entitlementFor(db: Db, employeeId: number, year: number): Effect
     .orderBy(desc(leaveEntitlements.year)).limit(1).get()
   if (!row) return null
   return { days: row.days, carriedOverDays: row.year === year ? row.carriedOverDays : 0, fromYear: row.year }
+}
+
+/** The first year an entitlement was recorded for the employee (null when none was). */
+export function firstEntitlementYear(db: Db, employeeId: number): number | null {
+  return db.select({ year: leaveEntitlements.year }).from(leaveEntitlements)
+    .where(eq(leaveEntitlements.employeeId, employeeId)).orderBy(asc(leaveEntitlements.year)).limit(1).get()?.year ?? null
 }

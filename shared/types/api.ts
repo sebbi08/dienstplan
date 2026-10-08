@@ -247,7 +247,8 @@ export interface EmployeeListItemDto {
 export interface EmployeeDetailDto extends EmployeeListItemDto {
   hours: { id: number; weeklyMinutes: number; validFrom: IsoDate; workdays: number }[]
   adjustments: { id: number; date: IsoDate; minutes: number; reason: string }[]
-  entitlements: { id: number; year: number; days: number; carriedOverDays: number }[]
+  /** carriedOverDays is the carry-over that counts; carriedAutomatically when it is the rest of the year before. */
+  entitlements: { id: number; year: number; days: number; carriedOverDays: number; carriedAutomatically: boolean }[]
   hasPin: boolean
 }
 

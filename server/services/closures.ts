@@ -8,8 +8,8 @@ import type { Db } from '../db/client'
 import { absenceCodes, closures, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { entitlementFor } from './entitlements'
 import { applyToCells, describeCellAt } from './entries'
+import { yearEntitlement } from './leave'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
@@ -46,7 +46,7 @@ function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacat
   const byYear = Map.groupBy(dates, date => parseIsoDate(date).year)
   for (const [year, yearDates] of byYear) {
     const entitlement = joinedDuring(employee, year)
-      ? entitlementFor(db, employee.id, year)
+      ? yearEntitlement(db, employee, year)
       : null
     if (!entitlement) {
       vacation.push(...yearDates)
