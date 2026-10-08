@@ -25,6 +25,7 @@ import {
   createLeaveRequest, decideLeaveRequest, getLeavePlanning, getLeaveSettings, isPlanner, listMyLeaveRequests, listOpenRequests,
   maxConcurrent, previewLeaveRequest, setLeaveModule, setMaxConcurrent,
 } from '../../server/services/leaveRequests'
+import { addHelpOut as planHelper, helpCandidates, listHelpers, removeHelpOut } from '../../server/services/helpOuts'
 import { getMyTime } from '../../server/services/myTime'
 import { listNotifications, notifyDutyChanges, releaseNotificationStatus } from '../../server/services/notifications'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
@@ -41,7 +42,7 @@ import {
 } from '../../server/services/weekTemplates'
 import { cellKey, noteKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-05'
 const date = '2026-10-06'
@@ -670,6 +671,104 @@ describe('facility isolation', () => {
       const before = db.select().from(employees).where(eq(employees.id, lena)).get()
       moveEmployeeToFacility(db, provider, lena, 1, moveDay)
       expect(db.select().from(employees).where(eq(employees.id, lena)).get()).toEqual(before)
+    })
+  })
+
+  describe('help-outs stay between the two facilities involved (Aushelfen)', () => {
+    // Anna (home facility A = 1) helps out in Krippe (B = facility2); Hort (C) has nothing to do with it.
+    const morning = new Date('2026-10-06T06:00:00Z') // 08:00 Berlin
+    let hort: number
+    let leitungC: SessionUser
+    let helpOutId: number
+    let helperEntryId: number
+    beforeEach(() => {
+      hort = addFacility(db, 'Hort')
+      leitungC = addUser(db, 'leitungC', 'admin', null, hort)
+      helpOutId = addHelpOut(db, anna, facility2, 2026, 10)
+      applyToCells(db, leitungB, facility2, [{ employeeId: anna, date }], 'replace',
+        { kind: 'shift', templateId: templateId(db, 'F1', facility2) })
+      helperEntryId = loadEntries(db, { employeeId: anna }).find(entry => entry.helpFacilityId === facility2)!.id
+    })
+
+    it('facility C lists neither the helper nor a marker', () => {
+      expect(listHelpers(db, facility2, 2026, 10).map(h => h.employeeId)).toEqual([anna])
+      expect(listHelpers(db, hort, 2026, 10)).toEqual([])
+      const plan = getMonthPlan(db, leitungC, hort, 2026, 10, today)
+      expect(plan.employees).toEqual([])
+      expect(plan.admin!.helpers).toEqual([])
+      expect(plan.admin!.helperBusy).toEqual({})
+      expect(plan.entries).toEqual([])
+      expect(plan.facilityNames).toEqual({ [hort]: 'Hort' })
+      expect(JSON.stringify(plan)).not.toContain('Anna')
+      // A and B do show it.
+      expect(getMonthPlan(db, leitungB, facility2, 2026, 10, today).admin!.helpers.map(h => h.employeeId)).toEqual([anna])
+      const planA = getMonthPlan(db, leitungA, 1, 2026, 10, today)
+      expect(planA.entries.filter(entry => entry.employeeId === anna).map(entry => entry.helpFacilityId)).toEqual([facility2])
+    })
+
+    it('C cannot remove B\'s help-out', () => {
+      expect(errorCode(() => removeHelpOut(db, hort, helpOutId))).toBe('help_out_not_found')
+      expect(errorCode(() => removeHelpOut(db, 1, helpOutId))).toBe('help_out_not_found')
+      expect(listHelpers(db, facility2, 2026, 10)).toHaveLength(1)
+    })
+
+    it('C cannot write the helper\'s cells', () => {
+      const shift = { kind: 'shift' as const, templateId: templateId(db, 'M', hort) }
+      for (const mode of ['replace', 'add'] as const) {
+        expect(errorCode(() => applyToCells(db, leitungC, hort, [{ employeeId: anna, date }], mode, shift)))
+          .toBe('employee_not_found')
+      }
+      expect(errorCode(() => applyToCells(db, leitungC, hort, [{ employeeId: anna, date }], 'clear', null))).toBe('employee_not_found')
+      expect(errorCode(() => applyToCells(db, leitungC, hort, [{ employeeId: anna, date: '2026-10-07' }], 'replace', shift)))
+        .toBe('employee_not_found')
+      expect(loadEntries(db, { employeeId: anna }).map(entry => [entry.id, entry.helpFacilityId])).toEqual([[helperEntryId, facility2]])
+    })
+
+    it('C cannot change B\'s entries by id', () => {
+      expect(errorCode(() => deleteEntry(db, leitungC, hort, helperEntryId))).toBe('entry_not_found')
+      expect(errorCode(() => updateEntryTimes(db, leitungC, hort, helperEntryId, { start: 500, end: 720, breakStart: null, breakEnd: null })))
+        .toBe('entry_not_found')
+      expect(loadEntries(db, { employeeId: anna }).map(entry => entry.id)).toEqual([helperEntryId])
+    })
+
+    it('C\'s candidates name A\'s and B\'s employees and nothing more', () => {
+      const candidates = helpCandidates(db, hort, 2026, 10)
+      expect(candidates).toEqual([
+        { employeeId: anna, name: 'Anna', shortName: expect.any(String), facilityName: 'Kindergarten' },
+        { employeeId: kim, name: 'Kim', shortName: expect.any(String), facilityName: 'Krippe' },
+      ])
+      for (const candidate of candidates) {
+        expect(Object.keys(candidate).sort()).toEqual(['employeeId', 'facilityName', 'name', 'shortName'])
+      }
+      // B already has Anna as a helper, so she is no candidate there; C can still add her for itself.
+      expect(helpCandidates(db, facility2, 2026, 10).map(c => c.employeeId)).toEqual([])
+      expect(planHelper(db, hort, { employeeId: anna, year: 2026, month: 10 })).toBeGreaterThan(0)
+    })
+
+    it('C cannot discard B\'s helper cell, and releasing C tells nobody of A or B', () => {
+      const at = (iso: string) => new Date(iso)
+      releaseMonth(db, leitungB, facility2, 2026, 10, at('2026-10-01T08:00:00Z'))
+      releaseMonth(db, leitungA, 1, 2026, 10, at('2026-10-01T08:00:00Z'))
+      releaseMonth(db, leitungC, hort, 2026, 10, at('2026-10-01T08:00:00Z'))
+      applyToCells(db, leitungB, facility2, [{ employeeId: anna, date }], 'replace',
+        { kind: 'shift', templateId: templateId(db, 'F2', facility2) })
+      const before = loadEntries(db, { employeeId: anna })
+      expect(revertToRelease(db, leitungC, hort, 2026, 10, [cellKey(anna, date)])).toBe(0)
+      expect(loadEntries(db, { employeeId: anna })).toEqual(before)
+      const sent = db.select().from(notifications).all().length
+      expect(releaseMonth(db, leitungC, hort, 2026, 10, at('2026-10-02T08:00:00Z'))).toEqual({ notified: [] })
+      expect(db.select().from(notifications).all()).toHaveLength(sent)
+      expect(buildSnapshot(db, hort, 2026, 10).entries).toEqual([])
+    })
+
+    it('the tablet of C does not list the helper', () => {
+      setTimeTrackingFrom(db, 1, '2026-10-01')
+      setTimeTrackingFrom(db, facility2, '2026-10-01')
+      setTimeTrackingFrom(db, hort, '2026-10-01')
+      setPin(db, 1, anna, '1234')
+      expect(terminalStatus(db, facility2, morning).map(p => p.name)).toEqual(['Anna'])
+      expect(terminalStatus(db, hort, morning)).toEqual([])
+      expect(errorCode(() => terminalStamp(db, hort, anna, '1234', 'in', morning))).toBe('employee_not_found')
     })
   })
 })
