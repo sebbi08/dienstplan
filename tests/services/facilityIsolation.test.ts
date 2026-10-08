@@ -19,7 +19,8 @@ import {
   addAdjustment, addHours, createEmployee, deleteAdjustment, deleteHours, getEmployee, listEmployees, listLevelUps, moveEmployee,
   moveEmployeeToFacility, setContract, setEntitlement, setStampingOptions, updateEmployee,
 } from '../../server/services/employees'
-import { applyToCells, deleteEntry, setDayNote, updateEntryTimes } from '../../server/services/entries'
+import { applyToCells, deleteEntry, setDayNote, setEntryGroup, updateEntryTimes } from '../../server/services/entries'
+import { createGroup, deleteGroup, listGroups, renameGroup } from '../../server/services/groups'
 import { getLeaveOverview } from '../../server/services/leave'
 import {
   createLeaveRequest, decideLeaveRequest, getLeavePlanning, getLeaveSettings, isPlanner, listMyLeaveRequests, listOpenRequests,
@@ -32,7 +33,7 @@ import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
 import { backfillSnapshots, buildSnapshot, loadReleases, releaseMonth } from '../../server/services/release'
 import { revertToRelease } from '../../server/services/revert'
-import { createCoverageRule, createTemplate, getSettings } from '../../server/services/settings'
+import { createCoverageRule, createTemplate, getSettings, updateCoverageRule } from '../../server/services/settings'
 import { clearPin, setPin, terminalStamp, terminalStatus } from '../../server/services/terminal'
 import {
   createRecord, deleteRecord, getTimeMonth, listOpenRecords, loadTimeRecords, setTimeDayNote, stamp, updateRecord,
@@ -42,7 +43,7 @@ import {
 } from '../../server/services/weekTemplates'
 import { cellKey, noteKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-05'
 const date = '2026-10-06'
@@ -769,6 +770,124 @@ describe('facility isolation', () => {
       expect(terminalStatus(db, facility2, morning).map(p => p.name)).toEqual(['Anna'])
       expect(terminalStatus(db, hort, morning)).toEqual([])
       expect(errorCode(() => terminalStamp(db, hort, anna, '1234', 'in', morning))).toBe('employee_not_found')
+    })
+  })
+
+  describe('groups stay inside their facility (Gruppen)', () => {
+    const day = '2026-10-06'
+    const special = { kind: 'special' as const, start: 480, end: 720 }
+    const names = ['Bärchen', 'Eulen']
+    let mäuse: number
+    let bärchen: number
+    let eulen: number
+    let annaEntryId: number
+    let kimEntryId: number
+    beforeEach(() => {
+      // Both facilities have groups, members, duties, a required duty and a group week template; both released.
+      mäuse = addGroup(db, 1, 'Mäuse')
+      bärchen = addGroup(db, facility2, names[0]!)
+      eulen = addGroup(db, facility2, names[1]!)
+      updateEmployee(db, 1, anna, { name: 'Anna', shortName: 'AN', leftOn: null, groupId: mäuse })
+      updateEmployee(db, facility2, kim, { name: 'Kim', shortName: 'KI', leftOn: null, groupId: bärchen })
+      addEmployee(db, 'Lea', { facilityId: facility2, groupId: eulen })
+      applyToCells(db, leitungA, 1, [{ employeeId: anna, date: day }], 'replace', special)
+      applyToCells(db, leitungB, facility2, [{ employeeId: kim, date: day }], 'replace', special)
+      applyToCells(db, leitungB, facility2, [{ employeeId: kim, date: '2026-10-07' }], 'replace', { ...special, groupId: eulen })
+      annaEntryId = loadEntries(db, { employeeId: anna })[0]!.id
+      kimEntryId = loadEntries(db, { employeeId: kim }).find(entry => entry.date === '2026-10-07')!.id
+      createCoverageRule(db, 1, { label: 'Frühdienst Mäuse', start: 480, end: 720, minCount: 1, active: true, groupId: mäuse })
+      createCoverageRule(db, facility2, { label: 'Frühdienst Bärchen', start: 480, end: 720, minCount: 1, active: true, groupId: bärchen })
+      saveWeekTemplate(db, 1, { name: 'Woche Mäuse', weekStart: '2026-10-05', groupId: mäuse })
+      saveWeekTemplate(db, facility2, { name: 'Woche Bärchen', weekStart: '2026-10-05', groupId: bärchen })
+      releaseMonth(db, leitungA, 1, 2026, 10, new Date('2026-10-01T08:00:00Z'))
+      releaseMonth(db, leitungB, facility2, 2026, 10, new Date('2026-10-01T08:00:00Z'))
+    })
+
+    it('another facility\'s group cannot be used anywhere', () => {
+      const groupNotFound = (action: () => unknown) => expect(errorCode(action)).toBe('group_not_found')
+      groupNotFound(() => createEmployee(db, leitungA, 1, {
+        name: 'Ben', shortName: 'BE', weeklyMinutes: 2340, validFrom: '2026-01-01', groupId: bärchen,
+      }))
+      groupNotFound(() => updateEmployee(db, 1, anna, { name: 'Anna', shortName: 'AN', leftOn: null, groupId: bärchen }))
+      groupNotFound(() => setEntryGroup(db, leitungA, 1, annaEntryId, bärchen))
+      groupNotFound(() => applyToCells(db, leitungA, 1, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { ...special, groupId: bärchen }))
+      groupNotFound(() => createCoverageRule(db, 1, { label: 'X', start: 480, end: 720, minCount: 1, active: true, groupId: bärchen }))
+      const ruleId = getSettings(db, 1).coverageRules.find(rule => rule.groupId === mäuse)!.id
+      groupNotFound(() => updateCoverageRule(db, 1, ruleId, { label: 'X', start: 480, end: 720, minCount: 1, active: true, groupId: bärchen }))
+      groupNotFound(() => saveWeekTemplate(db, 1, { name: 'Woche X', weekStart: '2026-10-05', groupId: bärchen }))
+      groupNotFound(() => renameGroup(db, 1, bärchen, 'Gehackt'))
+      groupNotFound(() => deleteGroup(db, 1, bärchen))
+      // And the other way round, with A's group in facility B.
+      groupNotFound(() => setEntryGroup(db, leitungB, facility2, kimEntryId, mäuse))
+      groupNotFound(() => renameGroup(db, facility2, mäuse, 'Gehackt'))
+      groupNotFound(() => deleteGroup(db, facility2, mäuse))
+
+      // Nothing changed.
+      expect(listGroups(db, facility2).map(group => group.name)).toEqual(names)
+      expect(listGroups(db, 1).map(group => group.name)).toEqual(['Mäuse'])
+      expect(getEmployee(db, 1, anna, today, 'admin').groupId).toBe(mäuse)
+      expect(loadEntries(db, { employeeId: anna }).map(entry => [entry.id, entry.groupId])).toEqual([[annaEntryId, null]])
+      expect(loadEntries(db, { employeeId: kim }).map(entry => [entry.id, entry.groupId])).toEqual([[expect.any(Number), null], [kimEntryId, eulen]])
+      expect(getSettings(db, 1).coverageRules.map(rule => rule.groupId)).toContain(mäuse)
+      expect(listWeekTemplates(db, 1).map(t => t.name)).toEqual(['Woche Mäuse'])
+    })
+
+    it('a group name may be used again in another facility, and A\'s list stays its own', () => {
+      expect(createGroup(db, 1, 'Bärchen').name).toBe('Bärchen')
+      expect(listGroups(db, facility2).map(group => group.id)).toEqual([bärchen, eulen])
+    })
+
+    it('facility A sees none of B\'s group names', () => {
+      const annaAccount = addUser(db, 'anna', 'observer', anna)
+      for (const name of names) {
+        for (const value of [
+          listGroups(db, 1),
+          listEmployees(db, 1, today, 'admin'),
+          getSettings(db, 1),
+          listWeekTemplates(db, 1),
+          getMonthPlan(db, leitungA, 1, 2026, 10, today),
+          getMonthPlan(db, annaAccount, 1, 2026, 10, today),
+          buildSnapshot(db, 1, 2026, 10),
+          loadReleases(db, 1, 2026, 10),
+          getMyPlan(db, annaAccount, 2026, 10, today),
+        ]) {
+          expect(JSON.stringify(value)).not.toContain(name)
+        }
+      }
+      expect(getMonthPlan(db, leitungA, 1, 2026, 10, today).groups.map(group => group.name)).toEqual(['Mäuse'])
+      expect(buildSnapshot(db, 1, 2026, 10).groups!.map(group => group.name)).toEqual(['Mäuse'])
+      // The same holds the other way round, and B really has its groups in plan and snapshot.
+      expect(getMonthPlan(db, leitungB, facility2, 2026, 10, today).groups.map(group => group.name)).toEqual(names)
+      expect(buildSnapshot(db, facility2, 2026, 10).groups!.map(group => group.name)).toEqual(names)
+      expect(JSON.stringify(buildSnapshot(db, facility2, 2026, 10))).not.toContain('Mäuse')
+      expect(JSON.stringify(getMonthPlan(db, leitungB, facility2, 2026, 10, today))).not.toContain('Mäuse')
+    })
+
+    it('a helper in B on a duty for a B group shows no group name in A\'s plan, snapshot or own page', () => {
+      addHelpOut(db, anna, facility2, 2026, 10)
+      applyToCells(db, leitungB, facility2, [{ employeeId: anna, date: '2026-10-08' }], 'replace',
+        { kind: 'shift', templateId: templateId(db, 'F1', facility2), groupId: bärchen })
+      const helperEntry = loadEntries(db, { employeeId: anna }).find(entry => entry.helpFacilityId === facility2)!
+      expect(helperEntry.groupId).toBe(bärchen)
+
+      const planA = getMonthPlan(db, leitungA, 1, 2026, 10, today)
+      // The marker is there (so the check is meaningful), but without the group.
+      expect(planA.entries.filter(entry => entry.employeeId === anna && entry.helpFacilityId === facility2)).toHaveLength(1)
+      expect(planA.entries.every(entry => entry.helpFacilityId === null || entry.groupId === null)).toBe(true)
+      const snapshotA = buildSnapshot(db, 1, 2026, 10)
+      expect(snapshotA.entries.filter(entry => entry.helpFacilityId === facility2)).toHaveLength(1)
+      expect(snapshotA.entries.every(entry => entry.helpFacilityId === null || entry.groupId === null)).toBe(true)
+      releaseMonth(db, leitungA, 1, 2026, 10, new Date('2026-10-02T08:00:00Z'))
+      const annaAccount = addUser(db, 'anna', 'observer', anna)
+      for (const name of names) {
+        for (const value of [planA, snapshotA, loadReleases(db, 1, 2026, 10), getMonthPlan(db, annaAccount, 1, 2026, 10, today),
+          getMyPlan(db, annaAccount, 2026, 10, today)]) {
+          expect(JSON.stringify(value)).not.toContain(name)
+        }
+      }
+      // B itself names its group for the helper's duty.
+      const planB = getMonthPlan(db, leitungB, facility2, 2026, 10, today)
+      expect(planB.entries.find(entry => entry.id === helperEntry.id)!.groupId).toBe(bärchen)
     })
   })
 })
