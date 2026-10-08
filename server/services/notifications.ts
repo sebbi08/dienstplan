@@ -5,7 +5,7 @@ import { diffCells, ownEntries, snapshotCells } from '../../shared/domain/releas
 import type { IsoDate } from '../../shared/domain/types'
 import type { DutyChangeDto, NotificationDto, ReleaseNotificationStatusDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, monthPlans, notifications, users } from '../db/schema'
+import { employees, monthPlans, notifications, releaseSnapshots, users } from '../db/schema'
 import { ownCellFilter } from './queries'
 
 /** Read messages stay visible this many days. */
@@ -64,20 +64,34 @@ export function markNotificationsRead(db: Db, employeeId: number, ids: number[],
     .where(and(eq(notifications.employeeId, employeeId), inArray(notifications.id, ids), isNull(notifications.readAt))).run()
 }
 
-/** For the Leitung: who of the facility got a message from its latest release of the month, and who has read it. */
+/**
+ * For the Leitung: who of the facility got a message from its latest release of the month, and who has read it: its
+ * staff, then the month's helpers (the people of that release with helpFrom).
+ */
 export function releaseNotificationStatus(db: Db, facilityId: number, year: number, month: number): ReleaseNotificationStatusDto[] {
   const plan = db.select().from(monthPlans)
     .where(and(eq(monthPlans.facilityId, facilityId), eq(monthPlans.year, year), eq(monthPlans.month, month))).get()
   if (!plan?.releasedAt) return []
+  const snapshot = db.select({ data: releaseSnapshots.data }).from(releaseSnapshots).where(and(
+    eq(releaseSnapshots.facilityId, facilityId), eq(releaseSnapshots.year, year), eq(releaseSnapshots.month, month),
+    eq(releaseSnapshots.releasedAt, plan.releasedAt),
+  )).orderBy(desc(releaseSnapshots.id)).limit(1).get()
+  const helperIds = snapshot
+    ? (JSON.parse(snapshot.data) as SnapshotData).employees.filter(employee => employee.helpFrom != null).map(employee => employee.id)
+    : []
   const linked = new Set(db.select({ employeeId: users.employeeId }).from(users).where(eq(users.active, true)).all()
     .map(row => row.employeeId))
-  return db.select({ notification: notifications, name: employees.name })
+  return db.select({ notification: notifications, name: employees.name, homeFacilityId: employees.facilityId })
     .from(notifications).innerJoin(employees, eq(notifications.employeeId, employees.id))
     .where(and(
-      eq(employees.facilityId, facilityId), eq(notifications.year, year), eq(notifications.month, month),
-      eq(notifications.createdAt, plan.releasedAt),
+      helperIds.length === 0
+        ? eq(employees.facilityId, facilityId)
+        : or(eq(employees.facilityId, facilityId), inArray(employees.id, helperIds)),
+      eq(notifications.year, year), eq(notifications.month, month), eq(notifications.createdAt, plan.releasedAt),
     ))
     .orderBy(employees.sortOrder).all()
+    // Staff first, then the helpers (as in the plan).
+    .sort((a, b) => Number(a.homeFacilityId !== facilityId) - Number(b.homeFacilityId !== facilityId))
     .map(({ notification, name }) => ({
       employeeId: notification.employeeId, name, readAt: notification.readAt, hasAccount: linked.has(notification.employeeId),
     }))

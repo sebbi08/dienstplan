@@ -443,6 +443,7 @@ export const de = {
     facility_name_taken: 'Es gibt schon eine Einrichtung mit diesem Namen.',
     help_out_exists: 'Diese Person ist in diesem Monat schon als Aushilfe eingetragen.',
     help_out_has_entries: 'Die Aushilfe hat in diesem Monat noch Einträge. Bitte zuerst ihre Dienste entfernen.',
+    help_out_released: 'Die Aushilfe hat im freigegebenen Plan noch Dienste. Bitte zuerst den Monat neu freigeben, dann die Aushilfe entfernen.',
     help_out_not_found: 'Diese Aushilfe gibt es nicht mehr.',
     cell_taken: 'An diesem Tag ist die Person schon in einem anderen Plan eingetragen.',
     cell_helps_elsewhere: 'An diesem Tag hilft die Person in einer anderen Einrichtung aus. Hier kann nur eine Abwesenheit eingetragen werden (z. B. Krank oder Urlaub).',

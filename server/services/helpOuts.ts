@@ -1,10 +1,10 @@
-import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
 import { daysInMonth, toIsoDate } from '../../shared/domain/dates'
 import { isEmployedInRange } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
-import type { HelpCandidateDto, HelperDto } from '../../shared/types/api'
+import type { HelpCandidateDto, HelperDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employeeHours, employees, entries, facilities, helpOuts } from '../db/schema'
+import { employeeHours, employees, entries, facilities, helpOuts, releaseSnapshots } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 
 export interface HelpOutInput {
@@ -82,7 +82,11 @@ export function addHelpOut(db: Db, facilityId: number, input: HelpOutInput): num
   })
 }
 
-/** Removes a helper column of facilityId; refused while the helper still has entries in its plan that month. */
+/**
+ * Removes a helper column of facilityId; refused while the helper still has entries in its plan that month, and while
+ * the facility's latest release of the month still shows duties of the helper there (their removal is not released
+ * yet: without the column nobody would be told and the published plan would keep them).
+ */
 export function removeHelpOut(db: Db, facilityId: number, id: number): void {
   db.transaction((tx) => {
     const row = tx.select().from(helpOuts).where(and(eq(helpOuts.id, id), eq(helpOuts.facilityId, facilityId))).get()
@@ -93,6 +97,13 @@ export function removeHelpOut(db: Db, facilityId: number, id: number): void {
       gte(entries.date, monthStart), lte(entries.date, monthEnd),
     )).limit(1).get()
     if (planned) throw new ServiceError(409, 'help_out_has_entries')
+    const latest = tx.select({ data: releaseSnapshots.data }).from(releaseSnapshots).where(and(
+      eq(releaseSnapshots.facilityId, facilityId), eq(releaseSnapshots.year, row.year), eq(releaseSnapshots.month, row.month),
+    )).orderBy(desc(releaseSnapshots.releasedAt), desc(releaseSnapshots.id)).limit(1).get()
+    const released = latest ? (JSON.parse(latest.data) as SnapshotData).entries : []
+    if (released.some(entry => entry.employeeId === row.employeeId && entry.helpFacilityId === facilityId)) {
+      throw new ServiceError(409, 'help_out_released')
+    }
     tx.delete(helpOuts).where(eq(helpOuts.id, id)).run()
   })
 }

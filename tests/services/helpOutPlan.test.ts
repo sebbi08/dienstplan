@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { entries, facilities, notifications, releaseSnapshots } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { createClosure } from '../../server/services/closures'
 import { moveEmployeeToFacility } from '../../server/services/employees'
-import { applyToCells } from '../../server/services/entries'
+import { applyToCells, deleteEntry } from '../../server/services/entries'
+import { listHelpers, removeHelpOut } from '../../server/services/helpOuts'
+import { releaseNotificationStatus } from '../../server/services/notifications'
 import { getMonthPlan } from '../../server/services/plan'
 import { loadEntries } from '../../server/services/queries'
 import { buildSnapshot, loadReleases, releaseMonth } from '../../server/services/release'
@@ -12,7 +15,7 @@ import { revertToRelease } from '../../server/services/revert'
 import { createRecord } from '../../server/services/timeTracking'
 import { cellKey } from '../../shared/domain/cells'
 import type { EntryInput, SessionUser, SnapshotData } from '../../shared/types/api'
-import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 // 2026-10-05 is a Monday.
 const monday = '2026-10-05'
@@ -73,6 +76,15 @@ describe('help-outs in plans, releases, discard and notifications', () => {
       expect(plan.admin!.helpers.map(helper => [helper.employeeId, helper.fromFacility])).toEqual([[anna, homeName]])
       // Monday belongs to A's plan: "belegt" in B.
       expect(plan.admin!.helperBusy).toEqual({ [anna]: [monday] })
+    })
+
+    it('does not mark A\'s closure days as busy: B may plan the helper there', () => {
+      createClosure(db, leitungA, 1, { startDate: monday, endDate: wednesday, label: 'Herbst', mode: 'closure_day' })
+      write(leitungA, 1, anna, wednesday, { kind: 'code', codeId: codeId(db, 'prep_time'), start: 450, end: 570 }, 'add')
+      expect(planB().admin!.helperBusy).toEqual({ [anna]: [wednesday] })
+      helpOutTuesday()
+      expect(planB().admin!.helperBusy).toEqual({ [anna]: [wednesday] })
+      expect(cell(anna, tuesday)).toEqual([['F1', krippe]])
     })
 
     it('counts the helper for coverage but gives no missing, target, totals, balance or actual for them', () => {
@@ -164,6 +176,45 @@ describe('help-outs in plans, releases, discard and notifications', () => {
       const told = db.select().from(notifications).all()
       expect(told.map(row => row.employeeId)).toEqual([anna])
       expect(JSON.parse(told[0]!.changes)).toEqual([{ date: tuesday, before: 'F1 7:00–13:15', after: expect.stringContaining('F2') }])
+    })
+
+    it('lists the helper in B\'s read status of the release', () => {
+      helpOutTuesday()
+      write(leitungB, krippe, kim, tuesday, shiftIn(krippe))
+      release(leitungB, krippe, '2026-09-25T10:00:00Z')
+      helpOutTuesday('F2')
+      write(leitungB, krippe, kim, tuesday, shiftIn(krippe, 'F2'))
+      release(leitungB, krippe, '2026-09-26T10:00:00Z')
+      expect(releaseNotificationStatus(db, krippe, 2026, 10).map(row => [row.employeeId, row.name, row.readAt]))
+        .toEqual([[kim, 'Kim', null], [anna, 'Anna', null]])
+      // A's status does not list a message from B's release.
+      release(leitungA, 1, '2026-09-27T10:00:00Z')
+      expect(releaseNotificationStatus(db, 1, 2026, 10)).toEqual([])
+    })
+  })
+
+  describe('removing the helper column', () => {
+    it('is refused while B\'s release still shows the helper\'s duties, and allowed after the next release', () => {
+      helpOutTuesday()
+      release(leitungB, krippe, '2026-09-25T10:00:00Z')
+      const helpOut = listHelpers(db, krippe, 2026, 10)[0]!.helpOutId
+      deleteEntry(db, leitungB, krippe, loadEntries(db, { employeeId: anna, from: tuesday, to: tuesday })[0]!.id)
+      expect(errorCode(() => removeHelpOut(db, krippe, helpOut))).toBe('help_out_released')
+      expect(listHelpers(db, krippe, 2026, 10)).toHaveLength(1)
+      expect(release(leitungB, krippe, '2026-09-26T10:00:00Z')).toEqual({ notified: ['Anna'] })
+      const told = db.select().from(notifications).all()
+      expect(told.map(row => row.employeeId)).toEqual([anna])
+      expect(JSON.parse(told[0]!.changes)).toEqual([{ date: tuesday, before: 'F1 7:00–13:15', after: '—' }])
+      removeHelpOut(db, krippe, helpOut)
+      expect(listHelpers(db, krippe, 2026, 10)).toEqual([])
+    })
+
+    it('is allowed when the helper never had a released duty in B', () => {
+      release(leitungB, krippe, '2026-09-25T10:00:00Z')
+      helpOutTuesday()
+      write(leitungB, krippe, anna, tuesday, null, 'clear')
+      removeHelpOut(db, krippe, listHelpers(db, krippe, 2026, 10)[0]!.helpOutId)
+      expect(listHelpers(db, krippe, 2026, 10)).toEqual([])
     })
   })
 

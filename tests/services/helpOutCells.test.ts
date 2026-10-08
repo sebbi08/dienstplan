@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { changeLog, entries, shiftTemplates, weekTemplateEntries } from '../../server/db/schema'
 import { createClosure, deleteClosure } from '../../server/services/closures'
+import { createEmployee } from '../../server/services/employees'
 import { adoptShiftTimes, applyToCells, cellOwner, deleteEntry, updateEntryTimes } from '../../server/services/entries'
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
+import { revertToRelease } from '../../server/services/revert'
 import { applyWeekTemplate, saveWeekTemplate } from '../../server/services/weekTemplates'
+import { cellKey } from '../../shared/domain/cells'
 import type { EntryInput, SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -48,6 +51,10 @@ describe('help-out cells (one day, one facility)', () => {
   const day = (employeeId: number, date: string) => db.select().from(entries).where(eq(entries.employeeId, employeeId)).all()
     .filter(entry => entry.date === date)
   /** Anna helps out in B on Tuesday with an F1 of B. */
+  const releaseBoth = () => {
+    releaseMonth(db, leitungA, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    releaseMonth(db, leitungB, krippe, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+  }
   const helpOutTuesday = () => write(leitungB, krippe, anna, tuesday, shiftIn(krippe))
 
   describe('writing in B (the helper column)', () => {
@@ -130,6 +137,17 @@ describe('help-out cells (one day, one facility)', () => {
       expect(log(1)[0]).toMatchObject({ after: 'Krank' })
     })
 
+    it('describes the replaced help-out in A\'s log like a plain marker; B\'s log keeps the full text', () => {
+      releaseBoth()
+      write(leitungB, krippe, anna, tuesday, { ...shiftIn(krippe), note: 'Turnhalle' })
+      write(leitungA, 1, anna, tuesday, codeInput('sick'))
+      const log = (facilityId: number) => db.select().from(changeLog).where(eq(changeLog.facilityId, facilityId)).all()
+        .filter(row => row.date === tuesday && row.employeeId === anna)
+      expect(log(krippe).at(-1)).toMatchObject({ before: 'F1 7:00–13:15 · Turnhalle', after: '—' })
+      expect(log(1)).toHaveLength(1)
+      expect(log(1)[0]).toMatchObject({ before: '7:00–13:15', after: 'Krank' })
+    })
+
     it('a timed absence such as Fortbildung with times replaces the help-out too', () => {
       helpOutTuesday()
       write(leitungA, 1, anna, tuesday, codeInput('training', 480, 900), 'add')
@@ -189,6 +207,84 @@ describe('help-out cells (one day, one facility)', () => {
       expect(loadEntries(db, { employeeId: anna, from: monday, to: '2026-10-07', codeKey: 'vacation' }).map(entry => entry.date))
         .toEqual([monday, '2026-10-07'])
       expect(day(anna, tuesday).map(entry => entry.helpFacilityId)).toEqual([krippe])
+    })
+
+    const annaLog = (facilityId: number, date = tuesday) => db.select().from(changeLog).where(eq(changeLog.facilityId, facilityId)).all()
+      .filter(row => row.date === date && row.employeeId === anna)
+    const codesOf = (employeeId: number) => loadEntries(db, { employeeId, from: monday, to: '2026-10-31' })
+      .map(entry => [entry.date, entry.codeKey ?? entry.shortLabel, entry.helpFacilityId])
+
+    it('B plans the helper over A\'s closure day: the closure booking is replaced, the leave returned and A logs it', () => {
+      releaseBoth()
+      createClosure(db, leitungA, 1, { startDate: monday, endDate: '2026-10-07', label: 'Herbst', mode: 'vacation' })
+      helpOutTuesday()
+      expect(codesOf(anna)).toEqual([[monday, 'vacation', null], [tuesday, 'F1', krippe], ['2026-10-07', 'vacation', null]])
+      expect(day(anna, tuesday).map(entry => entry.closureId)).toEqual([null])
+      // A sees a plain marker, B only its own cell.
+      expect(annaLog(1).at(-1)).toMatchObject({ before: 'Urlaub', after: '7:00–13:15', changedBy: leitungB.id })
+      expect(annaLog(krippe)).toHaveLength(1)
+      expect(annaLog(krippe)[0]).toMatchObject({ before: '—', after: 'F1 7:00–13:15' })
+    })
+
+    it('a home entry that is no closure booking still gives cell_taken', () => {
+      createClosure(db, leitungA, 1, { startDate: tuesday, endDate: tuesday, label: 'Team', mode: 'closure_day' })
+      // Clearing in B never touches A's closure day.
+      expect(errorCode(() => write(leitungB, krippe, anna, tuesday, null, 'clear'))).toBe('cell_taken')
+      write(leitungA, 1, anna, tuesday, codeInput('prep_time', 450, 570), 'add')
+      expect(errorCode(() => helpOutTuesday())).toBe('cell_taken')
+      expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([
+        [codeId(db, 'closure_day'), null], [codeId(db, 'prep_time'), null],
+      ])
+    })
+
+    it('books A\'s closure again when B deletes the help-out on a closure day', () => {
+      releaseBoth()
+      helpOutTuesday()
+      createClosure(db, leitungA, 1, { startDate: monday, endDate: '2026-10-07', label: 'Herbst', mode: 'closure_day' })
+      expect(codesOf(anna).map(([date, code]) => [date, code])).toEqual([[monday, 'closure_day'], [tuesday, 'F1'], ['2026-10-07', 'closure_day']])
+      const before = annaLog(1).length
+      deleteEntry(db, leitungB, krippe, day(anna, tuesday)[0]!.id)
+      expect(codesOf(anna)).toEqual([[monday, 'closure_day', null], [tuesday, 'closure_day', null], ['2026-10-07', 'closure_day', null]])
+      expect(day(anna, tuesday)[0]!.closureId).not.toBeNull()
+      expect(annaLog(1)).toHaveLength(before + 1)
+      expect(annaLog(1).at(-1)).toMatchObject({ before: '—', after: 'Schließtag', changedBy: leitungB.id })
+      expect(annaLog(krippe).at(-1)).toMatchObject({ before: 'F1 7:00–13:15', after: '—' })
+    })
+
+    it('books A\'s leave closure again when B clears the helper cell, never taking a joiner below zero', () => {
+      const dora = createEmployee(db, leitungA, 1, { name: 'Dora', shortName: 'Do', weeklyMinutes: 2340, validFrom: '2026-08-01', vacationDays: 2 })
+      addHelpOut(db, dora, krippe, 2026, 10)
+      createClosure(db, leitungA, 1, { startDate: monday, endDate: '2026-10-07', label: 'Herbst', mode: 'vacation' })
+      expect(codesOf(dora).map(([, code]) => code)).toEqual(['vacation', 'vacation', 'closure_day'])
+      write(leitungB, krippe, dora, tuesday, shiftIn(krippe))
+      expect(codesOf(dora).map(([, code]) => code)).toEqual(['vacation', 'F1', 'closure_day'])
+      // The returned leave day is used elsewhere; the help-out day then becomes a closure day, not leave below zero.
+      write(leitungA, 1, dora, '2026-10-12', codeInput('vacation'))
+      write(leitungB, krippe, dora, tuesday, null, 'clear')
+      expect(codesOf(dora)).toEqual([
+        [monday, 'vacation', null], [tuesday, 'closure_day', null], ['2026-10-07', 'closure_day', null], ['2026-10-12', 'vacation', null],
+      ])
+    })
+
+    it('books A\'s closure again when B discards a helper cell back to empty', () => {
+      releaseMonth(db, leitungB, krippe, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+      createClosure(db, leitungA, 1, { startDate: tuesday, endDate: tuesday, label: 'Team', mode: 'closure_day' })
+      helpOutTuesday()
+      expect(revertToRelease(db, leitungB, krippe, 2026, 10, [cellKey(anna, tuesday)])).toBe(1)
+      expect(codesOf(anna)).toEqual([[tuesday, 'closure_day', null]])
+    })
+
+    it('B\'s discard restores the released help-out over A\'s closure booking again', () => {
+      releaseBoth()
+      createClosure(db, leitungA, 1, { startDate: tuesday, endDate: tuesday, label: 'Team', mode: 'closure_day' })
+      helpOutTuesday()
+      releaseMonth(db, leitungB, krippe, 2026, 10, new Date('2026-09-26T10:00:00Z'))
+      deleteEntry(db, leitungB, krippe, day(anna, tuesday)[0]!.id)
+      expect(codesOf(anna)).toEqual([[tuesday, 'closure_day', null]])
+      expect(revertToRelease(db, leitungB, krippe, 2026, 10, [cellKey(anna, tuesday)])).toBe(1)
+      expect(codesOf(anna)).toEqual([[tuesday, 'F1', krippe]])
+      expect(annaLog(1).at(-1)).toMatchObject({ before: 'Schließtag', after: '7:00–13:15' })
+      expect(annaLog(krippe).at(-1)).toMatchObject({ before: '—', after: 'F1 7:00–13:15' })
     })
   })
 

@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { StampAction, TerminalPersonDto, TimeRecordDto } from '../../shared/types/api'
@@ -6,6 +6,7 @@ import type { Db } from '../db/client'
 import { employees, entries, timeRecords } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, verifyPassword } from '../lib/password'
+import { activeTrackingFrom } from './appSettings'
 import { loadEmployee, loadEmployees } from './queries'
 import { stamp } from './timeTracking'
 
@@ -42,14 +43,19 @@ function helperIdsOn(db: Db, facilityId: number, date: string): number[] {
 
 /**
  * People shown on the facility's tablet: employed today and with a PIN; clockedIn = open record today.
- * Helpers with a help-out entry in the facility today are listed after the own staff.
+ * Helpers with a help-out entry in the facility today are listed after the own staff, when their home facility tracks
+ * time today (their records live there; otherwise stamping would be refused).
  */
 export function terminalStatus(db: Db, facilityId: number, now: Date = new Date()): TerminalPersonDto[] {
   const { date } = nowInBerlin(now)
   const helpers = helperIdsOn(db, facilityId, date).flatMap(id => loadEmployee(db, id) ?? [])
-    .filter(helper => helper.facilityId !== facilityId)
+    .filter(helper => helper.facilityId !== facilityId && activeTrackingFrom(db, helper.facilityId, date) !== null)
   const staff = [...loadEmployees(db, facilityId), ...helpers]
-  const withPin = new Set(db.select().from(employees).all().filter(row => row.pinHash !== null).map(row => row.id))
+  const withPin = new Set(staff.length === 0
+    ? []
+    : db.select({ id: employees.id }).from(employees)
+        .where(and(inArray(employees.id, staff.map(employee => employee.id)), isNotNull(employees.pinHash))).all()
+        .map(row => row.id))
   const open = new Set(db.select().from(timeRecords)
     .where(and(eq(timeRecords.date, date), isNull(timeRecords.end))).all().map(record => record.employeeId))
   return staff

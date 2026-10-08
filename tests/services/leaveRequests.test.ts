@@ -1,5 +1,7 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
+import { changeLog } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
@@ -8,8 +10,9 @@ import {
   previewLeaveRequest, setLeaveModule, setMaxConcurrent, withdrawLeaveRequest,
 } from '../../server/services/leaveRequests'
 import { loadEntries } from '../../server/services/queries'
+import { releaseMonth } from '../../server/services/release'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-07'
 
@@ -98,6 +101,24 @@ describe('leave requests', () => {
     expect(planning.maxConcurrent).toBe(1)
     expect(planning.openRequests).toHaveLength(1)
     expect(getLeaveSettings(db, leitung).openCount).toBe(1)
+  })
+
+  it('asks before approving over a help-out day and then replaces the help-out, logged in the other facility', () => {
+    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    const krippe = addFacility(db, 'Krippe')
+    const leitungB = addUser(db, 'leitung-b', 'admin', null, krippe)
+    addHelpOut(db, anna, krippe, 2026, 11)
+    releaseMonth(db, leitungB, krippe, 2026, 11, new Date('2026-10-01T10:00:00Z'))
+    applyToCells(db, leitungB, krippe, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1', krippe) })
+    const id = request(annaUser, '2026-11-02', '2026-11-04')
+    expect(errorCode(() => decideLeaveRequest(db, leitung, 1, id, { approve: true, note: '', overwrite: false }))).toBe('cells_occupied')
+    expect(loadEntries(db, { employeeId: anna }).map(e => [e.date, e.helpFacilityId])).toEqual([['2026-11-03', krippe]])
+    decideLeaveRequest(db, leitung, 1, id, { approve: true, note: '', overwrite: true })
+    expect(loadEntries(db, { employeeId: anna }).map(e => [e.date, e.codeKey, e.helpFacilityId])).toEqual([
+      ['2026-11-02', 'vacation', null], ['2026-11-03', 'vacation', null], ['2026-11-04', 'vacation', null],
+    ])
+    const logB = db.select().from(changeLog).where(eq(changeLog.facilityId, krippe)).all().filter(row => row.employeeId === anna)
+    expect(logB.at(-1)).toMatchObject({ date: '2026-11-03', before: 'F1 7:00–13:15', after: '—', changedBy: leitung.id })
   })
 
   it('never turns a sick day into leave when approving', () => {

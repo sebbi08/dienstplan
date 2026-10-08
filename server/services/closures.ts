@@ -1,15 +1,14 @@
 import { and, eq, gte, inArray, isNull } from 'drizzle-orm'
-import { dateRange, daysBetween, parseIsoDate } from '../../shared/domain/dates'
-import { leaveAccount } from '../../shared/domain/leave'
-import { employmentStart, isWorkday } from '../../shared/domain/targets'
+import { dateRange, daysBetween } from '../../shared/domain/dates'
+import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosureMode, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, closures, entries } from '../db/schema'
+import { closures, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
+import { closureCodeId, splitLeave } from './closureBooking'
 import { applyToCells, cellOwner, describeCellAt } from './entries'
-import { yearEntitlement } from './leave'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
@@ -23,49 +22,10 @@ export function listClosures(db: Db, facilityId: number): ClosureDto[] {
   return loadClosures(db, facilityId)
 }
 
-function codeId(db: Db, key: 'vacation' | 'closure_day'): number {
-  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, key)).get()
-  if (!code) throw new ServiceError(500, 'code_not_found')
-  return code.id
-}
-
-/** True when the employee started during that year (not on 1 January); such joiners never go below zero leave by closures. */
-function joinedDuring(employee: EmployeeRecord, year: number): boolean {
-  const start = employmentStart(employee.info)
-  return start !== null && parseIsoDate(start).year === year && start > `${year}-01-01`
-}
-
-/**
- * Splits one employee's closure days into leave days and closure days. Normally all are leave (staff may go
- * below zero). Someone who joined during that year only gets as many leave days as they have left; the rest
- * become closure days (credited like leave, no leave used). Without a recorded entitlement nothing is limited.
- */
-function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacation: IsoDate[]; closureDays: IsoDate[] } {
-  const vacation: IsoDate[] = []
-  const closureDays: IsoDate[] = []
-  const byYear = Map.groupBy(dates, date => parseIsoDate(date).year)
-  for (const [year, yearDates] of byYear) {
-    const entitlement = joinedDuring(employee, year)
-      ? yearEntitlement(db, employee, year)
-      : null
-    if (!entitlement) {
-      vacation.push(...yearDates)
-      continue
-    }
-    const booking = new Set(yearDates)
-    const otherLeave = loadEntries(db, { employeeId: employee.id, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
-      .map(entry => entry.date).filter(date => !booking.has(date))
-    const left = Math.max(0, Math.floor(leaveAccount(entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(employee.info, date)).available))
-    vacation.push(...yearDates.slice(0, left))
-    closureDays.push(...yearDates.slice(left))
-  }
-  return { vacation, closureDays }
-}
-
 /**
  * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
  * (a closure never uses leave on a day off) and, with `from`, only on days from then on. Days on which someone helps
- * out in another facility are skipped.
+ * out in another facility are skipped (and booked when that help-out day becomes empty again, see rebookHomeClosure).
  */
 function bookClosure(
   db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date, from?: IsoDate,
@@ -81,8 +41,8 @@ function bookClosure(
     closureCells.push(...split.closureDays.map(date => ({ employeeId: employee.id, date })))
   }
   const options = { now, closureId: closure.id }
-  if (vacationCells.length) applyToCells(db, actor, facilityId, vacationCells, 'replace', { kind: 'code', codeId: codeId(db, 'vacation') }, options)
-  if (closureCells.length) applyToCells(db, actor, facilityId, closureCells, 'replace', { kind: 'code', codeId: codeId(db, 'closure_day') }, options)
+  if (vacationCells.length) applyToCells(db, actor, facilityId, vacationCells, 'replace', { kind: 'code', codeId: closureCodeId(db, 'vacation') }, options)
+  if (closureCells.length) applyToCells(db, actor, facilityId, closureCells, 'replace', { kind: 'code', codeId: closureCodeId(db, 'closure_day') }, options)
 }
 
 /** Creates a closure of the facility and books it for the facility's staff. */

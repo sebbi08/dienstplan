@@ -8,7 +8,8 @@ import type { Db } from '../db/client'
 import { employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { cellOwner, describeCellAt, setDayNote } from './entries'
+import { rebookHomeClosure } from './closureBooking'
+import { cellOwner, describeCellAt, logReplacedClosureDay, setDayNote, takeClosureDay } from './entries'
 import { ownCellFilter } from './queries'
 import { loadReleases } from './release'
 
@@ -30,7 +31,9 @@ function parseKey(key: string, year: number, month: number): RevertTarget {
  * not the facility's own (other facilities' staff, someone who moved away, days before someone moved in) are skipped
  * and stay as they are. Only this plan's entries are reset: help-elsewhere markers are neither deleted nor restored, a
  * helper's cell gets back the entries planned here, and a cell whose day now belongs to another plan (a help-out
- * elsewhere, or the home facility's absence over a help-out) is skipped. Returns the number of reverted keys.
+ * elsewhere, or the home facility's absence over a help-out) is skipped. A helper's day holding only closure bookings of
+ * the home facility gives way to the restored entries; a helper's day reset to empty gets the home closure booked
+ * again. Returns the number of reverted keys.
  */
 export function revertToRelease(
   db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
@@ -62,15 +65,20 @@ export function revertToRelease(
       const helpFacilityId = staffIds.has(cell.employeeId) ? null : facilityId
       const owner = cellOwner(tx, cell.employeeId, cell.date)
       const ownedHere = owner === null || (helpFacilityId === null ? owner === 'home' : owner === facilityId)
-      // Nothing is ever deleted from, or restored over, another plan.
-      if (!ownedHere) continue
+      const restored = released.filter(e => e.employeeId === cell.employeeId && e.date === cell.date)
+      // Nothing is ever deleted from, or restored over, another plan; only the home facility's closure booking gives
+      // way to a helper's restored entries, as when they are written.
+      const replacedHome = !ownedHere && helpFacilityId !== null && owner === 'home' && restored.length > 0
+        ? takeClosureDay(tx, cell)
+        : null
+      if (!ownedHere && !replacedHome) continue
       reverted++
-      const before = describeCellAt(tx, cell)
+      const before = replacedHome ? '—' : describeCellAt(tx, cell)
       tx.delete(entries).where(and(
         eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date),
         helpFacilityId === null ? isNull(entries.helpFacilityId) : eq(entries.helpFacilityId, helpFacilityId),
       )).run()
-      for (const entry of released.filter(e => e.employeeId === cell.employeeId && e.date === cell.date)) {
+      for (const entry of restored) {
         tx.insert(entries).values({
           employeeId: cell.employeeId, date: cell.date, kind: entry.kind, helpFacilityId,
           shiftTemplateId: entry.templateId !== null && templateIds.has(entry.templateId) ? entry.templateId : null,
@@ -80,6 +88,9 @@ export function revertToRelease(
         }).run()
       }
       logChange(tx, { facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
+      if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, timestamp)
+      // A help-out day reset to empty gets back the home facility's closure.
+      if (helpFacilityId !== null && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, timestamp)
     }
   })
   return reverted

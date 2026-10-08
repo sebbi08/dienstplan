@@ -11,8 +11,10 @@ import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
+import { rebookHomeClosure } from './closureBooking'
 import { isHelperOn } from './helpOuts'
 import { inPlanOf, loadEntries } from './queries'
+import { withPlainMarkers } from './release'
 
 type ResolvedEntry = Omit<typeof entries.$inferInsert, 'employeeId' | 'date' | 'updatedAt' | 'updatedBy' | 'closureId'>
 
@@ -62,6 +64,46 @@ export function describeCellAt(db: Db, cell: CellRef): string {
   return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
 }
 
+/**
+ * The cell as the facility's plan shows it (for its change log): a helper's cell only with the entries planned there,
+ * the own staff's help-outs elsewhere as plain markers (times only, never the other plan's note or shift name).
+ */
+function describeCellIn(db: Db, facilityId: number, cell: CellRef, helper: boolean): string {
+  const list = loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
+  return describeCellDetailed(helper ? list.filter(entry => entry.helpFacilityId === facilityId) : withPlainMarkers(facilityId, list))
+}
+
+/** A helper's day as the home plan showed it before its closure booking gave way to a help-out. */
+export interface ReplacedClosureDay {
+  facilityId: number
+  before: string
+}
+
+/**
+ * A helper's day whose home entries are all closure bookings of the home facility gives way to a help-out: the
+ * bookings are deleted (leave used by them is returned). Returns how the home plan showed the day, to be logged there
+ * by logReplacedClosureDay once the help-out is written; null (nothing deleted) when any other home entry keeps the day
+ * taken. The closure is booked again when the help-out day becomes empty (rebookHomeClosure).
+ */
+export function takeClosureDay(db: Db, cell: CellRef): ReplacedClosureDay | null {
+  const wholeDay = and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))
+  const home = db.select({ closureId: entries.closureId, helpFacilityId: entries.helpFacilityId }).from(entries).where(wholeDay).all()
+  if (home.length === 0 || home.some(row => row.closureId === null || row.helpFacilityId !== null)) return null
+  const facilityId = db.select({ facilityId: employees.facilityId }).from(employees)
+    .where(eq(employees.id, cell.employeeId)).get()!.facilityId
+  const before = describeCellIn(db, facilityId, cell, false)
+  db.delete(entries).where(wholeDay).run()
+  return { facilityId, before }
+}
+
+/** Logs in the home facility that its closure booking of the day was replaced: it now shows the help-out as a plain marker. */
+export function logReplacedClosureDay(db: Db, actor: SessionUser, cell: CellRef, replaced: ReplacedClosureDay, now: string): void {
+  logChange(db, {
+    facilityId: replaced.facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
+    before: replaced.before, after: describeCellIn(db, replaced.facilityId, cell, false), actorId: actor.id, now,
+  })
+}
+
 /** Ids of the employees whose home facility is facilityId. */
 function facilityEmployeeIds(db: Db, facilityId: number): Set<number> {
   return new Set(db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId)).all()
@@ -85,7 +127,9 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
  * 2. its employee is home staff, the day is a help-out elsewhere and the input is an absence: the help-out is replaced
  *    (logged in both facilities); anything else gives cell_helps_elsewhere;
  * 3. its employee is a helper of the facility that month and the day belongs to no other plan (else cell_taken): the
- *    entries are planned here (help_facility_id); absences give help_code_not_allowed.
+ *    entries are planned here (help_facility_id); absences give help_code_not_allowed. A day whose home entries are all
+ *    closure bookings of the home facility counts as free when something is written: they are replaced (logged in the
+ *    home facility) and booked again when the help-out day becomes empty (see rebookHomeClosure).
  * Anyone else gives employee_not_found.
  */
 export function applyToCells(
@@ -115,15 +159,23 @@ export function applyToCells(
       const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
       const helper = isHelperCell(cell)
       const owner = cellOwner(tx, cell.employeeId, cell.date)
-      const before = describeCellAt(tx, cell)
-      if (helper && owner !== null && owner !== facilityId) throw new ServiceError(409, 'cell_taken')
+      const before = describeCellIn(tx, facilityId, cell, helper)
+      const wholeDay = and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))
+      /** The home facility's closure booking replaced by this help-out (logged there after the write). */
+      let replacedHome: ReplacedClosureDay | null = null
+      if (helper && owner === 'home') {
+        replacedHome = values ? takeClosureDay(tx, cell) : null
+        if (!replacedHome) throw new ServiceError(409, 'cell_taken')
+      }
+      else if (helper && owner !== null && owner !== facilityId) throw new ServiceError(409, 'cell_taken')
       if (!helper && typeof owner === 'number') {
         if (!isAbsence) throw new ServiceError(409, 'cell_helps_elsewhere')
-        // The absence replaces the help-out; the other plan sees its cell emptied.
-        tx.delete(entries).where(and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))).run()
+        // The absence replaces the help-out; the other plan sees its cell emptied (and keeps its full text in its log).
+        const helpBefore = describeCellIn(tx, owner, cell, true)
+        tx.delete(entries).where(wholeDay).run()
         logChange(tx, {
           facilityId: owner, date: cell.date, employeeId: cell.employeeId, field: 'entry',
-          before, after: describeCellAt(tx, cell), actorId: actor.id, now,
+          before: helpBefore, after: describeCellIn(tx, owner, cell, true), actorId: actor.id, now,
         })
       }
       if (mode !== 'add') {
@@ -154,8 +206,10 @@ export function applyToCells(
       }
       logChange(tx, {
         facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
-        before, after: describeCellAt(tx, cell), actorId: actor.id, now,
+        before, after: describeCellIn(tx, facilityId, cell, helper), actorId: actor.id, now,
       })
+      if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, now)
+      if (helper && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now)
     }
   })
 }
@@ -180,6 +234,7 @@ export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: 
     logChange(tx, {
       facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: now.toISOString(),
     })
+    if (entry.helpFacilityId !== null) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now.toISOString())
   })
 }
 

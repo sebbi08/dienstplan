@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
@@ -16,7 +16,7 @@ import type {
   MyPlanEntryDto, PendingChangeDto, SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, facilities, helpOuts } from '../db/schema'
+import { employees, entries, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
@@ -51,10 +51,18 @@ function buildAdminData(
     ? []
     : loadEntries(db, { from: monthStart, to: monthEnd, employeeIds: helperIds })
   const helpersHere = groupByEmployee(helperEntries.filter(entry => entry.helpFacilityId === facilityId))
+  // A day of the home facility holding only its closure bookings is free for a help-out here (they give way to it).
+  const closureBookings = new Set(helperIds.length === 0
+    ? []
+    : db.select({ id: entries.id }).from(entries).where(and(
+        inArray(entries.employeeId, helperIds), gte(entries.date, monthStart), lte(entries.date, monthEnd),
+        isNotNull(entries.closureId), isNull(entries.helpFacilityId),
+      )).all().map(row => row.id))
   const helperBusy: Record<number, IsoDate[]> = {}
   for (const id of helperIds) {
     helperBusy[id] = [...new Set(helperEntries
-      .filter(entry => entry.employeeId === id && entry.helpFacilityId !== facilityId).map(entry => entry.date))]
+      .filter(entry => entry.employeeId === id && entry.helpFacilityId !== facilityId && !closureBookings.has(entry.id))
+      .map(entry => entry.date))]
   }
   const rules = loadCoverageRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
