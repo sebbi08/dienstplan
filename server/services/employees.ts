@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull, max, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, max, ne } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -276,17 +276,18 @@ export function moveEmployeeToFacility(
     unbookClosuresFrom(tx, actor, employeeId, employee.facilityId, today, now)
     const sortOrder = (tx.select({ value: max(employees.sortOrder) }).from(employees)
       .where(eq(employees.facilityId, facilityId)).get()?.value ?? 0) + 1
-    // Groups belong to a facility: the home group goes, and so do the groups of the duties now planned by the new home.
+    // Groups belong to a facility: the home group goes (and the stale entry groups below).
     tx.update(employees).set({ facilityId, sortOrder, facilitySince: today, groupId: null }).where(eq(employees.id, employeeId)).run()
     tx.update(users).set({ facilityId })
       .where(and(eq(users.employeeId, employeeId), inArray(users.role, ['admin', 'terminal']))).run()
-    // Helping out in the new home is no help-out any more: those entries become home entries (help-outs elsewhere stay).
+    // Home entries hold the old facility's group ids, which mean nothing in the new plan: all of them go, earlier days
+    // included (those cells now show in the new facility's plan). Help-outs elsewhere keep their plan's group.
+    tx.update(entries).set({ groupId: null }).where(and(eq(entries.employeeId, employeeId), isNull(entries.helpFacilityId))).run()
+    // Helping out in the new home is no help-out any more: those entries become home entries and keep their group, which
+    // belongs to the new facility (help-outs elsewhere stay).
     tx.delete(helpOuts).where(and(eq(helpOuts.employeeId, employeeId), eq(helpOuts.facilityId, facilityId))).run()
     tx.update(entries).set({ helpFacilityId: null })
       .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
-    // Help-outs in a third facility keep that plan's group; earlier days stay as the old facility planned them.
-    tx.update(entries).set({ groupId: null })
-      .where(and(eq(entries.employeeId, employeeId), isNull(entries.helpFacilityId), gte(entries.date, today))).run()
     bookClosuresFor(tx, actor, employeeId, now, today)
   })
 }

@@ -116,8 +116,10 @@ function keptGroup(): number | undefined {
   const current = plan.value
   if (cells.length !== 1 || !current?.groups.length) return undefined
   const cell = cells[0]!
-  return current.entries.find(entry => entry.employeeId === cell.employeeId && entry.date === cell.date
-    && entry.groupId !== null && !isMarker(entry, current.facilityId))?.groupId ?? undefined
+  const groupId = current.entries.find(entry => entry.employeeId === cell.employeeId && entry.date === cell.date
+    && entry.groupId !== null && !isMarker(entry, current.facilityId))?.groupId
+  // Only a group of this plan: an id left over from another facility would be refused by the server.
+  return current.groups.find(group => group.id === groupId)?.id
 }
 
 async function onClear() {

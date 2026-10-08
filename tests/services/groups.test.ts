@@ -7,6 +7,7 @@ import {
 import {
   createEmployee, getEmployee, listEmployees, moveEmployeeToFacility, updateEmployee,
 } from '../../server/services/employees'
+import { applyToCells } from '../../server/services/entries'
 import { assertGroup, createGroup, deleteGroup, listGroups, renameGroup } from '../../server/services/groups'
 import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -174,8 +175,9 @@ describe('home group of employees', () => {
     expect(db.select().from(employees).where(eq(employees.id, anna)).get()).toMatchObject({ name: 'Anna', groupId: bears })
   })
 
-  it('clears the group and the entry groups from the move day on when the employee moves', () => {
+  it('clears the group and every home entry group when the employee moves; help-out groups stay', () => {
     const krippe = addFacility(db, 'Krippe')
+    const krippeGroup = addGroup(db, krippe, 'Wichtel')
     const hort = addFacility(db, 'Hort')
     const hortGroup = addGroup(db, hort, 'Raben')
     const provider = addUser(db, 'traeger', 'provider')
@@ -188,13 +190,33 @@ describe('home group of employees', () => {
     const moveDay = entry('2026-10-08', mice)
     const later = entry('2026-10-12', bears)
     const inHort = entry('2026-10-13', hortGroup, hort)
+    // Helping out in the new home becomes a home entry and keeps its group: it belongs to the new facility.
+    const inKrippe = entry('2026-10-14', krippeGroup, krippe)
 
     moveEmployeeToFacility(db, provider, anna, krippe, new Date(`${today}T08:00:00Z`))
 
     expect(db.select().from(employees).where(eq(employees.id, anna)).get()!.groupId).toBeNull()
-    // Earlier days stay as the old facility planned them; a help-out elsewhere keeps the group of that plan.
-    expect(db.select({ id: entries.id, groupId: entries.groupId }).from(entries).orderBy(asc(entries.id)).all()).toEqual([
-      { id: before, groupId: mice }, { id: moveDay, groupId: null }, { id: later, groupId: null }, { id: inHort, groupId: hortGroup },
+    // The old facility's group ids are gone from every home entry, earlier days included; help-outs keep their plan's group.
+    expect(db.select({ id: entries.id, groupId: entries.groupId, helpFacilityId: entries.helpFacilityId })
+      .from(entries).orderBy(asc(entries.id)).all()).toEqual([
+      { id: before, groupId: null, helpFacilityId: null }, { id: moveDay, groupId: null, helpFacilityId: null },
+      { id: later, groupId: null, helpFacilityId: null }, { id: inHort, groupId: hortGroup, helpFacilityId: hort },
+      { id: inKrippe, groupId: krippeGroup, helpFacilityId: null },
     ])
+  })
+
+  it('lets the new facility rewrite a single pre-move day without a group', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const provider = addUser(db, 'traeger', 'provider')
+    const anna = addEmployee(db, 'Anna', { groupId: bears })
+    db.insert(entries).values({
+      employeeId: anna, date: '2026-10-07', kind: 'shift', shiftTemplateId: templateId(db, 'F1', 1), start: 420, end: 795,
+      groupId: mice, updatedAt: 'now',
+    }).run()
+
+    moveEmployeeToFacility(db, provider, anna, krippe, new Date(`${today}T08:00:00Z`))
+    applyToCells(db, provider, krippe, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F2', krippe) })
+
+    expect(db.select({ groupId: entries.groupId }).from(entries).where(eq(entries.employeeId, anna)).all()).toEqual([{ groupId: null }])
   })
 })

@@ -10,8 +10,8 @@ const route = useRoute()
 const downloading = ref(false)
 const toast = useToast()
 
-// File names may only contain letters, digits, dots and dashes (umlauts and spaces become dashes).
-const safeName = computed(() => props.fileName.replace(/[^A-Za-z0-9.-]+/g, '-'))
+// File names may only contain letters, digits, dots and dashes (umlauts and spaces become dashes), at most 80 characters.
+const safeName = computed(() => props.fileName.replace(/[^A-Za-z0-9.-]+/g, '-').slice(0, 80))
 const pdfUrl = computed(() => `/api/pdf?${new URLSearchParams({ path: route.path + (props.search ?? ''), name: safeName.value })}`)
 
 function print() {

@@ -33,6 +33,8 @@ const groupable = computed(() => {
   return entry.kind !== 'code' || isTargetGapCode(entry.codeKey)
 })
 const homeGroupId = computed(() => props.plan?.employees.find(employee => employee.id === props.entry?.employeeId)?.groupId ?? null)
+/** The select's value for a stored group: the home group is the first item (0), so it never shows blank. */
+const selectValue = (groupId: number | null) => (groupId === null || groupId === homeGroupId.value ? 0 : groupId)
 const groupItems = computed(() => {
   const groups = props.plan?.groups ?? []
   const home = groups.find(group => group.id === homeGroupId.value)
@@ -51,7 +53,7 @@ watch(open, (isOpen) => {
   Object.assign(form, {
     start: timeText(entry.start), end: timeText(entry.end),
     breakStart: timeText(entry.breakStart), breakEnd: timeText(entry.breakEnd),
-    groupId: entry.groupId ?? 0,
+    groupId: selectValue(entry.groupId),
   })
   error.value = ''
 })
@@ -78,7 +80,7 @@ function submit() {
   const entry = props.entry
   const timesChanged = start !== entry.start || end !== entry.end
     || (!isBreak.value && (breakStart !== entry.breakStart || breakEnd !== entry.breakEnd))
-  const groupId = groupable.value && form.groupId !== (entry.groupId ?? 0) ? form.groupId || null : undefined
+  const groupId = groupable.value && form.groupId !== selectValue(entry.groupId) ? form.groupId || null : undefined
   // Nothing changed: save the times as before (the dialog has always done so).
   emit('submit', entry.id, timesChanged || groupId === undefined ? { start, end, breakStart, breakEnd } : null, groupId)
   open.value = false
