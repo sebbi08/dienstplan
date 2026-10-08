@@ -55,17 +55,17 @@ Migration `0021_help_outs` creates the table and adds the column (`ALTER TABLE �
 ## Plan of B (the helping-out facility)
 
 - **Columns**: B's own staff, then the month's helpers, ordered by name. A helper column carries `helpFrom` (the home facility's name). `EmployeeColumnDto` gains optional `helpFrom?: string | null`. Old snapshots have none, so it reads as null.
-- **Cells**: a helper's column shows only the help-out entries planned in B. A day the helper has in another plan (at home, or helping elsewhere) shows as "belegt" with no details, and B cannot write it.
+- **Cells**: a helper's column shows only the help-out entries planned in B. A day the helper has in another plan (at home, or helping elsewhere) shows as "belegt" with no details, and B cannot write it. Exception (Ruling 9): a home day holding only closure bookings of the home facility is not "belegt"; B may plan the helper there (see Writing cells).
 - **Admin data**:
   - Coverage warnings and the day overview count the helpers' B entries.
   - Helpers get no "kein Eintrag" or target-gap warnings, no week totals, no balances, no actuals.
   - Their header rows (overtime) stay empty.
 - **Releases**:
   - B's snapshot contains the helper columns and their B entries.
-  - Re-releasing notifies a helper whose B duties changed, through the existing notification module (`notifications` rows are per employee).
+  - Re-releasing notifies a helper whose B duties changed, through the existing notification module (`notifications` rows are per employee). B's read-status list of its latest release shows its staff, then the helpers of that release.
 - **Pending changes and discard**:
   - A helper cell is B's own for the months the helper has a `help_outs` row in B.
-  - Discard restores the released B entries of a helper cell. If the home facility has meanwhile entered an absence on that day, the cell is skipped. Nothing is ever deleted from another plan.
+  - Discard restores the released B entries of a helper cell. If the home facility has meanwhile entered an absence on that day, the cell is skipped. Nothing is ever deleted from another plan, except the home facility's closure bookings, which give way to restored B entries as when B writes them; a helper cell discarded back to empty gets the home closure booked again.
 - **Print view and PDF**: they include helper columns, marked "(Aushilfe)", without overtime rows.
 - **Week templates**: saving in B ignores helper columns. Applying in B writes only B's own staff.
 
@@ -78,18 +78,23 @@ Migration `0021_help_outs` creates the table and adds the column (`ALTER TABLE �
 - **Hours**: A's week totals and balances include help-out hours, because there is one account.
 - **Writing a help-out day**:
   - A's Leitung may only enter an absence code there: Urlaub, Sonderurlaub, Krank, Fortbildung, Schule, Feiertag, Schließtag, or any code without times.
-  - That replaces the help-out. B's entries for that day are deleted and logged in both facilities' change logs, so the day then appears as a pending change in B.
+  - That replaces the help-out. B's entries for that day are deleted and logged in both facilities' change logs, so the day then appears as a pending change in B. B's log row keeps B's full text; A's row describes the help-out like the marker (times only, never B's note or shift name).
   - Any other entry is refused with 409 `cell_helps_elsewhere`.
-- **Closures**: booking a closure skips days on which the person helps out elsewhere. The leave count works as before for the remaining days.
+- **Closures** (Ruling 9: "A closed, staff help in B" is the natural help-out):
+  - Booking a closure skips days on which the person helps out elsewhere. The leave count works as before for the remaining days.
+  - B may plan a helper on a day whose home entries are all closure bookings of A (`closure_id` set): they are replaced (the leave they used is returned) and A's change log records it (before: the closure booking, after: the plain marker). Any other home entry on the day still gives `cell_taken`.
+  - When such a help-out day becomes empty again (B clears it, deletes its last entry, or discards it back to empty), A's closure covering that date is booked again for that person and day, as creating the closure would (only on a working day; leave, or a closure day for a joiner without leave left). It is logged in A with the acting user. A's own absence over a help-out leaves the day filled, so nothing is re-booked then.
 
 ## Writing cells (server rules)
 
 `applyToCells(db, actor, facilityId, cells, …)` accepts a cell when one of these holds:
 1. The employee is home staff of `facilityId`, and the day has no help-out entries. This is the existing behaviour.
 2. The employee is home staff, the day has help-out entries, and the input is an absence code (see Plan of A). The help-out entries are removed.
-3. The employee has a `help_outs` row in `facilityId` for that month, and the day has no entries outside this plan. The written entries get `help_facility_id = facilityId`. Allowed inputs: shifts, Sonderdienste and Pausen of B's services, and codes with times (VZ, Büro). Absence codes are refused with 400 `help_code_not_allowed`.
+3. The employee has a `help_outs` row in `facilityId` for that month, and the day has no entries outside this plan. The written entries get `help_facility_id = facilityId`. Allowed inputs: shifts, Sonderdienste and Pausen of B's services, and codes with times (VZ, Büro). Absence codes are refused with 400 `help_code_not_allowed`. Ruling 9: when something is written and the day's home entries are all closure bookings of the home facility (`closure_id` set), they are deleted first (logged in A) and the day counts as free; a clear never touches them.
 
 Otherwise the request is refused: 409 `cell_taken` (case 3, when the day belongs to another plan) or 400 `employee_not_found` (not staff and not a helper this month).
+
+When a write in case 3 leaves a day of B's empty, the home closure covering it is booked again (see Plan of A → Closures); `deleteEntry` and discard do the same through one helper (`rebookHomeClosure`).
 
 The same ownership applies to:
 - `deleteEntry` and `updateEntryTimes`, by entry id: B may change entries with `help_facility_id = B`. A may not touch help-out entries, except replacing them as in rule 2.
@@ -107,13 +112,14 @@ New routes, all `requireAdmin` on the active facility:
 - `DELETE /api/help-outs/:id`:
   - removes the column;
   - refused with 409 `help_out_has_entries` while the helper still has entries in B that month;
+  - refused with 409 `help_out_released` while B's latest release of that month still contains entries of the helper in B (their deletion is not released yet: without the column nobody would be told and B's published plan would keep the duty). Text: "Die Aushilfe hat im freigegebenen Plan noch Dienste. Bitte zuerst den Monat neu freigeben, dann die Aushilfe entfernen." After the re-release (which notifies the helper about the cancelled duty) the column can be removed;
   - another facility's row answers 404 `help_out_not_found`.
 
 UI: in B's plan toolbar, a button "Aushilfe hinzufügen" opens a dialog with a searchable select showing "Name (Einrichtung)". The helper column header shows the name, "Aushilfe aus A", and a remove button when the column is empty.
 
 ## Tablet and time tracking
 
-- `terminalStatus(db, B)` adds every helper who has a help-out entry in B today and has a PIN. `terminalStamp` accepts them on those days.
+- `terminalStatus(db, B)` adds every helper who has a help-out entry in B today, has a PIN, and whose home facility tracks time today (`activeTrackingFrom(home)`; otherwise stamping would be refused). `terminalStamp` accepts them on those days.
 - Records belong to the employee and count in the home account, using the home facility's `time_tracking_from` and break mode. B's time page lists only B's staff.
 - A's time page shows the helper's records as before. Planned breaks come from all the person's entries (`homeFacilityId`).
 
@@ -122,7 +128,7 @@ UI: in B's plan toolbar, a button "Aushilfe hinzufügen" opens a dialog with a s
 - **"Mein Dienstplan"**:
   - Days come from the home facility's latest release, without the help-elsewhere markers.
   - Help-out days come from the latest release of each facility the person helps in that month, marked "Aushilfe in B".
-  - Change history per cell comes from the facility that owns the cell.
+  - Change history per day is combined across the plans that held the day (home and help-out facilities), so a move of the day between plans shows too (Ruling 8).
 - **Year calendar and leave**: unchanged; help-outs are not absences.
 
 ## Moving an employee (interaction with step 1)
