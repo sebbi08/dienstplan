@@ -20,15 +20,24 @@ export interface DetailedEntryLike {
   breakStart: Minutes | null
   breakEnd: Minutes | null
   note: string | null
+  /** The group a single duty counts for (null or missing = the home group). */
+  groupId?: number | null
 }
 
-/** Full cell text used to detect and show changes (includes short label, break and note). */
-export function describeCellDetailed(entries: DetailedEntryLike[]): string {
+/**
+ * Full cell text used to detect and show changes (includes short label, break, the group of a duty counting for another
+ * group — "→ Mäuse", only when the plan passes its group names — and note).
+ */
+export function describeCellDetailed(entries: DetailedEntryLike[], groupNames: Record<number, string> = {}): string {
   if (entries.length === 0) return '—'
-  return entries.map(entry => (entry.shortLabel ? `${entry.shortLabel} ` : '')
-    + entry.label
-    + (entry.breakStart !== null && entry.breakEnd !== null
-      ? ` [${formatTime(entry.breakStart)}–${formatTime(entry.breakEnd)}]`
-      : '')
-    + (entry.note ? ` · ${entry.note}` : '')).join(' + ')
+  return entries.map((entry) => {
+    const group = entry.groupId != null ? groupNames[entry.groupId] : undefined
+    return (entry.shortLabel ? `${entry.shortLabel} ` : '')
+      + entry.label
+      + (entry.breakStart !== null && entry.breakEnd !== null
+        ? ` [${formatTime(entry.breakStart)}–${formatTime(entry.breakEnd)}]`
+        : '')
+      + (group ? ` → ${group}` : '')
+      + (entry.note ? ` · ${entry.note}` : '')
+  }).join(' + ')
 }

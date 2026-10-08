@@ -92,6 +92,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
     countsAsStaff: entry.countsAsStaff,
     note: entry.note,
     helpFacilityId: entry.helpFacilityId,
+    groupId: entry.groupId,
     label: describeEntry(entry, code?.label ?? null),
     shortLabel: template?.shortLabel || null,
     color: entry.kind === 'code'

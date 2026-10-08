@@ -17,6 +17,24 @@ describe('cellIdentity', () => {
     expect(cellIdentity([entry(1, '2026-10-05', 'x', { kind: 'shift', codeId: null, countsAsStaff: false }), a]))
       .toBe('shift||||||0|;code|4|450|600|500|520|1|x')
   })
+  it('includes the entry group, reading a missing group (old snapshots) like none', () => {
+    const plain = entry(1, '2026-10-05', 'x', { note: 'n' })
+    expect(plain).not.toHaveProperty('groupId')
+    expect(cellIdentity([{ ...plain, groupId: null }])).toBe(cellIdentity([plain]))
+    expect(cellIdentity([{ ...plain, groupId: null }])).toBe('code|1|||||1|n')
+    expect(cellIdentity([{ ...plain, groupId: 7 }])).not.toBe(cellIdentity([plain]))
+    expect(cellIdentity([{ ...plain, groupId: 7 }])).not.toBe(cellIdentity([{ ...plain, groupId: 8 }]))
+    // A note can never pass for a group.
+    expect(cellIdentity([{ ...plain, groupId: 7 }])).not.toBe(cellIdentity([{ ...plain, note: 'n|g7' }]))
+  })
+})
+
+describe('snapshotCells with groups', () => {
+  it('names an entry\'s group in the cell text when the names are given', () => {
+    const content = { entries: [entry(1, '2026-10-05', 'Krank', { groupId: 3 })], days: [] }
+    expect(snapshotCells(content).get('1|2026-10-05')!.text).toBe('Krank')
+    expect(snapshotCells(content, { 3: 'Mäuse' }).get('1|2026-10-05')!.text).toBe('Krank → Mäuse')
+  })
 })
 
 describe('snapshotCells', () => {

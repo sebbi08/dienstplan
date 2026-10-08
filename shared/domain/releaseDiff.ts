@@ -46,22 +46,29 @@ export function ownEntries<T extends { helpFacilityId?: number | null }>(facilit
   return entries.filter(entry => entry.helpFacilityId == null || entry.helpFacilityId === facilityId)
 }
 
-/** Identity of a cell's entries that does not depend on code or template settings (labels), so renaming them is no change. */
+/**
+ * Identity of a cell's entries that does not depend on code or template settings (labels), so renaming them is no change.
+ * An entry's group (a single duty counting for another group) is part of it as a prefix before the kind; no group and a
+ * missing group (snapshots from before groups) both give no prefix, so old snapshots compare as before.
+ */
 export function cellIdentity(entries: SnapshotContent['entries']): string {
   return entries
-    .map(entry => `${entry.kind}|${entry.codeId ?? ''}|${entry.start ?? ''}|${entry.end ?? ''}|${entry.breakStart ?? ''}|${entry.breakEnd ?? ''}|${entry.countsAsStaff ? 1 : 0}|${entry.note ?? ''}`)
+    .map(entry => `${entry.groupId != null ? `@${entry.groupId}|` : ''}${entry.kind}|${entry.codeId ?? ''}|${entry.start ?? ''}|${entry.end ?? ''}|${entry.breakStart ?? ''}|${entry.breakEnd ?? ''}|${entry.countsAsStaff ? 1 : 0}|${entry.note ?? ''}`)
     .join(';')
 }
 
-/** Identity and text per plan cell (employee × day) and per non-empty info field, as compared between releases. */
-export function snapshotCells(content: SnapshotContent): Map<string, CellState> {
+/**
+ * Identity and text per plan cell (employee × day) and per non-empty info field, as compared between releases. With the
+ * plan's group names, the texts name the group of a duty counting for another group.
+ */
+export function snapshotCells(content: SnapshotContent, groupNames: Record<number, string> = {}): Map<string, CellState> {
   const grouped = new Map<string, SnapshotContent['entries']>()
   for (const entry of content.entries) {
     const key = cellKey(entry.employeeId, entry.date)
     grouped.set(key, [...(grouped.get(key) ?? []), entry])
   }
   const cells = new Map<string, CellState>()
-  for (const [key, list] of grouped) cells.set(key, { identity: cellIdentity(list), text: describeCellDetailed(list) })
+  for (const [key, list] of grouped) cells.set(key, { identity: cellIdentity(list), text: describeCellDetailed(list, groupNames) })
   for (const day of content.days) {
     if (day.info1) cells.set(noteKey('info1', day.date), { identity: day.info1, text: day.info1 })
     if (day.info2) cells.set(noteKey('info2', day.date), { identity: day.info2, text: day.info2 })

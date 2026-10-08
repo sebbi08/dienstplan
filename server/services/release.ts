@@ -24,12 +24,12 @@ function assertMonth(year: number, month: number): void {
 
 /**
  * A facility's view of its staff's entries: an entry planned in another facility (a help-elsewhere marker) keeps only
- * when the person works there, without that plan's note, shift template or shift name.
+ * when the person works there, without that plan's note, shift template, shift name or group.
  */
 export function withPlainMarkers(facilityId: number, list: EntryDto[]): EntryDto[] {
   return list.map(entry => entry.helpFacilityId === null || entry.helpFacilityId === facilityId
     ? entry
-    : { ...entry, templateId: null, note: null, label: describeEntry(entry, null), shortLabel: null, color: 'neutral' })
+    : { ...entry, templateId: null, note: null, label: describeEntry(entry, null), shortLabel: null, color: 'neutral', groupId: null })
 }
 
 /**
@@ -106,15 +106,18 @@ export function loadReleases(db: Db, facilityId: number, year: number, month: nu
 }
 
 /**
- * Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, which read as null.
- * Markers are shown plain even if a stored snapshot has more of the other plan.
+ * Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, and snapshots from
+ * before groups no entry groupId, which read as null. Markers are shown plain even if a stored snapshot has more of the
+ * other plan.
  */
 function readSnapshot(facilityId: number, json: string): SnapshotData {
   const data = JSON.parse(json) as SnapshotData
   return {
     ...data,
     employees: data.employees.map(employee => ({ ...employee, helpFrom: employee.helpFrom ?? null })),
-    entries: withPlainMarkers(facilityId, data.entries.map(entry => ({ ...entry, helpFacilityId: entry.helpFacilityId ?? null }))),
+    entries: withPlainMarkers(facilityId, data.entries.map(entry => ({
+      ...entry, helpFacilityId: entry.helpFacilityId ?? null, groupId: entry.groupId ?? null,
+    }))),
   }
 }
 

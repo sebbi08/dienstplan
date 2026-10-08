@@ -12,6 +12,7 @@ import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../d
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
+import { assertGroup, groupNames } from './groups'
 import { isHelperOn } from './helpOuts'
 import { inPlanOf, loadEntries } from './queries'
 import { withPlainMarkers } from './release'
@@ -60,17 +61,22 @@ export function resolveEntry(db: Db, facilityId: number, input: EntryInput): Res
   }
 }
 
-export function describeCellAt(db: Db, cell: CellRef): string {
-  return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))
+/** The cell's entries as text; with the plan's group names, a duty counting for another group names it. */
+export function describeCellAt(db: Db, cell: CellRef, names: Record<number, string> = {}): string {
+  return describeCellDetailed(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }), names)
 }
 
 /**
  * The cell as the facility's plan shows it (for its change log): a helper's cell only with the entries planned there,
- * the own staff's help-outs elsewhere as plain markers (times only, never the other plan's note or shift name).
+ * the own staff's help-outs elsewhere as plain markers (times only, never the other plan's note, shift name or group).
+ * Duties counting for another group of the facility name it.
  */
 function describeCellIn(db: Db, facilityId: number, cell: CellRef, helper: boolean): string {
   const list = loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
-  return describeCellDetailed(helper ? list.filter(entry => entry.helpFacilityId === facilityId) : withPlainMarkers(facilityId, list))
+  return describeCellDetailed(
+    helper ? list.filter(entry => entry.helpFacilityId === facilityId) : withPlainMarkers(facilityId, list),
+    groupNames(db, facilityId),
+  )
 }
 
 /** A helper's day as the home plan showed it before its closure booking gave way to a help-out. */
@@ -130,7 +136,8 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
  *    entries are planned here (help_facility_id); absences give help_code_not_allowed. A day whose home entries are all
  *    closure bookings of the home facility counts as free when something is written: they are replaced (logged in the
  *    home facility) and booked again when the help-out day becomes empty (see rebookHomeClosure).
- * Anyone else gives employee_not_found.
+ * Anyone else gives employee_not_found. The entry's group (input.groupId; none = the home group) must be one of the
+ * facility's groups, also in a helper cell (group_not_found otherwise).
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
@@ -143,6 +150,8 @@ export function applyToCells(
     throw new ServiceError(400, 'employee_not_found')
   }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
+  const groupId = input?.groupId ?? null
+  if (values) assertGroup(db, facilityId, groupId)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
   const now = (options.now ?? new Date()).toISOString()
   const gapCodeIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
@@ -202,7 +211,7 @@ export function applyToCells(
       }
       if (values) {
         tx.insert(entries).values({
-          ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null,
+          ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null, groupId,
           closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id,
         }).run()
       }
@@ -230,11 +239,12 @@ function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries
 export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {
   const entry = requireOwnEntry(db, facilityId, id)
   const cell = { employeeId: entry.employeeId, date: entry.date }
+  const names = groupNames(db, facilityId)
   db.transaction((tx) => {
-    const before = describeCellAt(tx, cell)
+    const before = describeCellAt(tx, cell, names)
     tx.delete(entries).where(eq(entries.id, id)).run()
     logChange(tx, {
-      facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: now.toISOString(),
+      facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell, names), actorId: actor.id, now: now.toISOString(),
     })
     if (entry.helpFacilityId !== null) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now.toISOString())
   })
@@ -245,6 +255,29 @@ export interface EntryTimesChange {
   end: Minutes
   breakStart: Minutes | null
   breakEnd: Minutes | null
+}
+
+/**
+ * Lets one entry of the facility's plan count for another group of the facility (null = the home group again). The
+ * entry follows the plan ownership of requireOwnEntry (entry_not_found otherwise); the group must be one of the plan's
+ * facility's groups, also for a helper's entry (group_not_found otherwise).
+ */
+export function setEntryGroup(
+  db: Db, actor: SessionUser, facilityId: number, id: number, groupId: number | null, now: Date = new Date(),
+): void {
+  const entry = requireOwnEntry(db, facilityId, id)
+  assertGroup(db, facilityId, groupId)
+  if (entry.groupId === groupId) return
+  const cell = { employeeId: entry.employeeId, date: entry.date }
+  const helper = entry.helpFacilityId !== null
+  db.transaction((tx) => {
+    const before = describeCellIn(tx, facilityId, cell, helper)
+    tx.update(entries).set({ groupId, updatedAt: now.toISOString(), updatedBy: actor.id }).where(eq(entries.id, id)).run()
+    logChange(tx, {
+      facilityId, ...cell, field: 'entry', before, after: describeCellIn(tx, facilityId, cell, helper),
+      actorId: actor.id, now: now.toISOString(),
+    })
+  })
 }
 
 /** First rule a day breaks after entry `changed` got new times: overlapping work or a misplaced break. */
@@ -268,7 +301,7 @@ export function dayConflict(day: DomainEntry[], changed: DomainEntry): string | 
 
 /**
  * Changes the times of one timed entry (clicked in the plan). A fixed shift whose start or end changes
- * becomes a special shift; a fixed shift with only a changed break stays a fixed shift.
+ * becomes a special shift; a fixed shift with only a changed break stays a fixed shift. The entry keeps its group.
  */
 export function updateEntryTimes(
   db: Db, actor: SessionUser, facilityId: number, id: number, change: EntryTimesChange, now: Date = new Date(),
@@ -282,6 +315,7 @@ export function updateEntryTimes(
   const becomesSpecial = entry.kind === 'shift' && (span.start !== entry.start || span.end !== entry.end)
 
   const cell = { employeeId: entry.employeeId, date: entry.date }
+  const names = groupNames(db, facilityId)
   db.transaction((tx) => {
     const dayEntries = loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
     const self = dayEntries.find(candidate => candidate.id === id)!
@@ -294,7 +328,7 @@ export function updateEntryTimes(
       updatedAt: now.toISOString(), updatedBy: actor.id,
     }).where(eq(entries.id, id)).run()
     logChange(tx, {
-      facilityId, ...cell, field: 'entry', before: describeCellDetailed(dayEntries), after: describeCellAt(tx, cell),
+      facilityId, ...cell, field: 'entry', before: describeCellDetailed(dayEntries, names), after: describeCellAt(tx, cell, names),
       actorId: actor.id, now: now.toISOString(),
     })
   })
@@ -320,7 +354,7 @@ export function setDayNote(
  * After a service (Dienst) of the facility got new times: its fixed shifts in the facility's plan (helpers' included) from `from` on
  * that still have the old times get the new ones.
  * Earlier days and individually changed shifts stay as they are; a cell where the new times would clash with other
- * entries (e.g. VZ inside the shift or an extra break) is left alone and counted as skipped.
+ * entries (e.g. VZ inside the shift or an extra break) is left alone and counted as skipped. Shifts keep their group.
  */
 export function adoptShiftTimes(
   db: Db, actor: SessionUser, facilityId: number, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan,
@@ -328,6 +362,7 @@ export function adoptShiftTimes(
 ): { updated: number; skipped: number } {
   const result = { updated: 0, skipped: 0 }
   const timestamp = now.toISOString()
+  const names = groupNames(db, facilityId)
   const outdated = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
     .where(and(
       eq(entries.shiftTemplateId, shiftTemplateId), eq(entries.kind, 'shift'), gte(entries.date, from),
@@ -346,7 +381,8 @@ export function adoptShiftTimes(
       }
       tx.update(entries).set({ ...newTimes, updatedAt: timestamp, updatedBy: actor.id }).where(eq(entries.id, entry.id)).run()
       logChange(tx, {
-        facilityId, ...cell, field: 'entry', before: describeCellDetailed(day), after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp,
+        facilityId, ...cell, field: 'entry', before: describeCellDetailed(day, names), after: describeCellAt(tx, cell, names),
+        actorId: actor.id, now: timestamp,
       })
       result.updated += 1
     }

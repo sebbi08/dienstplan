@@ -59,6 +59,8 @@ export interface EntryInput {
   breakStart?: Minutes | null
   breakEnd?: Minutes | null
   note?: string | null
+  /** The group this duty counts for when it is not the home group (null or missing = the home group). */
+  groupId?: number | null
 }
 
 export interface EntryDto extends DomainEntry {
@@ -71,6 +73,8 @@ export interface EntryDto extends DomainEntry {
   color: ColorKey
   /** The facility whose plan this help-out entry belongs to; null for a normal entry of the home facility. */
   helpFacilityId: number | null
+  /** The group of the plan's facility this single duty counts for; null = the employee's home group. */
+  groupId: number | null
 }
 
 /** An employee of another facility helping out in this facility's plan for a month (a helper column). */

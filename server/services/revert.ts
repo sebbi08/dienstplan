@@ -10,6 +10,7 @@ import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
 import { cellOwner, describeCellAt, logReplacedClosureDay, setDayNote, takeClosureDay } from './entries'
+import { groupNames } from './groups'
 import { ownCellFilter } from './queries'
 import { loadReleases } from './release'
 
@@ -33,7 +34,8 @@ function parseKey(key: string, year: number, month: number): RevertTarget {
  * helper's cell gets back the entries planned here, and a cell whose day now belongs to another plan (a help-out
  * elsewhere, or the home facility's absence over a help-out) is skipped. A helper's day holding only closure bookings of
  * the home facility gives way to the restored entries; a helper's day reset to empty gets the home closure booked
- * again. Returns the number of reverted keys.
+ * again. Entries get back their released group unless that group was deleted since. Returns the number of reverted
+ * keys.
  */
 export function revertToRelease(
   db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
@@ -43,6 +45,8 @@ export function revertToRelease(
   const targets = [...new Set(keys)].map(key => parseKey(key, year, month))
   const templateIds = new Set(db.select({ id: shiftTemplates.id }).from(shiftTemplates)
     .where(eq(shiftTemplates.facilityId, facilityId)).all().map(row => row.id))
+  // Released entry groups are the facility's groups (a helper's entries here count for this plan's groups).
+  const names = groupNames(db, facilityId)
   const ownsCell = ownCellFilter(db, facilityId)
   const staffIds = new Set(db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId)).all()
     .map(row => row.id))
@@ -73,7 +77,7 @@ export function revertToRelease(
         : null
       if (!ownedHere && !replacedHome) continue
       reverted++
-      const before = replacedHome ? '—' : describeCellAt(tx, cell)
+      const before = replacedHome ? '—' : describeCellAt(tx, cell, names)
       tx.delete(entries).where(and(
         eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date),
         helpFacilityId === null ? isNull(entries.helpFacilityId) : eq(entries.helpFacilityId, helpFacilityId),
@@ -84,10 +88,11 @@ export function revertToRelease(
           shiftTemplateId: entry.templateId !== null && templateIds.has(entry.templateId) ? entry.templateId : null,
           absenceCodeId: entry.codeId, start: entry.start, end: entry.end,
           breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff,
-          note: entry.note, closureId: null, updatedAt: timestamp, updatedBy: actor.id,
+          note: entry.note, groupId: entry.groupId != null && entry.groupId in names ? entry.groupId : null,
+          closureId: null, updatedAt: timestamp, updatedBy: actor.id,
         }).run()
       }
-      logChange(tx, { facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell), actorId: actor.id, now: timestamp })
+      logChange(tx, { facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell, names), actorId: actor.id, now: timestamp })
       if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, timestamp)
       // A help-out day reset to empty gets back the home facility's closure.
       if (helpFacilityId !== null && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, timestamp)

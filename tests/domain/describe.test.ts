@@ -56,4 +56,14 @@ describe('describeCellDetailed', () => {
     ])).toBe('S 8:45–17:00 [12:10–12:40] + VZ 7:30–8:30 · Elterngespräch')
     expect(describeCellDetailed([])).toBe('—')
   })
+  it('names the group of a duty counting for another group when the plan passes group names', () => {
+    const entries = [
+      { shortLabel: 'F2', label: '7:30–15:45', breakStart: 700, breakEnd: 730, note: 'Ausflug', groupId: 3 },
+      { shortLabel: null, label: 'VZ 16:00–17:00', breakStart: null, breakEnd: null, note: null, groupId: null },
+    ]
+    expect(describeCellDetailed(entries)).toBe('F2 7:30–15:45 [11:40–12:10] · Ausflug + VZ 16:00–17:00')
+    expect(describeCellDetailed(entries, { 3: 'Mäuse' }))
+      .toBe('F2 7:30–15:45 [11:40–12:10] → Mäuse · Ausflug + VZ 16:00–17:00')
+    expect(describeCellDetailed(entries, { 4: 'Käfer' })).toBe('F2 7:30–15:45 [11:40–12:10] · Ausflug + VZ 16:00–17:00')
+  })
 })

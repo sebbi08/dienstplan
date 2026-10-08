@@ -14,6 +14,12 @@ export function listGroups(db: Db, facilityId: number): GroupDto[] {
     .orderBy(asc(groups.sortOrder), asc(groups.id)).all().map(toDto)
 }
 
+/** The facility's group names by id, for texts that name the group of a single duty ("→ Mäuse"). */
+export function groupNames(db: Db, facilityId: number): Record<number, string> {
+  return Object.fromEntries(db.select({ id: groups.id, name: groups.name }).from(groups)
+    .where(eq(groups.facilityId, facilityId)).all().map(row => [row.id, row.name]))
+}
+
 /** The group must belong to the facility (null = no group passes); otherwise 404 group_not_found, never confirmed. */
 export function assertGroup(db: Db, facilityId: number, groupId: number | null): void {
   if (groupId === null) return

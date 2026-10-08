@@ -20,6 +20,7 @@ import { employees, entries, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
+import { groupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
@@ -162,13 +163,17 @@ function facilityNamesFor(db: Db, facilityId: number, shownEntries: EntryDto[]):
     .where(inArray(facilities.id, ids)).all().map(row => [row.id, row.name]))
 }
 
-/** Changes and pending changes concern a plan's own cells only: help-elsewhere markers belong to another plan. */
-function ownCellsOf(facilityId: number): (data: SnapshotData) => Map<string, CellState> {
-  return data => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) })
+/**
+ * Changes and pending changes concern a plan's own cells only: help-elsewhere markers belong to another plan. Their texts
+ * name the facility's group of a duty counting for another group.
+ */
+function ownCellsOf(db: Db, facilityId: number): (data: SnapshotData) => Map<string, CellState> {
+  const names = groupNames(db, facilityId)
+  return data => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) }, names)
 }
 
-function releasedStates(facilityId: number, releases: StoredRelease[]): ReleasedState[] {
-  const ownCells = ownCellsOf(facilityId)
+function releasedStates(db: Db, facilityId: number, releases: StoredRelease[]): ReleasedState[] {
+  const ownCells = ownCellsOf(db, facilityId)
   return releases.map(release => ({ releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: ownCells(release.data) }))
 }
 
@@ -194,8 +199,8 @@ export function getMonthPlan(
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
 
-  const ownCells = ownCellsOf(facilityId)
-  const states = releasedStates(facilityId, releases)
+  const ownCells = ownCellsOf(db, facilityId)
+  const states = releasedStates(db, facilityId, releases)
   const changes = toChangeDtos(changeHistory(states))
   const shown: SnapshotData = isAdmin ? buildSnapshot(db, facilityId, year, month) : latest!.data
 
@@ -259,7 +264,7 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
     sources.push({
       releasedAt: home.releasedAt,
       entries: ownEntries(employee.facilityId, home.data.entries.filter(entry => entry.employeeId === employee.id)),
-      changes: toChangeDtos(changeHistory(releasedStates(employee.facilityId, homeReleases))),
+      changes: toChangeDtos(changeHistory(releasedStates(db, employee.facilityId, homeReleases))),
     })
   }
   const helpFacilities = db.select({ id: facilities.id, name: facilities.name })
@@ -277,7 +282,7 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
       entries: latest.data.entries
         .filter(entry => entry.employeeId === employee.id && entry.helpFacilityId === facility.id)
         .map(entry => ({ ...entry, helpFacilityName: facility.name })),
-      changes: toChangeDtos(changeHistory(releasedStates(facility.id, releases))),
+      changes: toChangeDtos(changeHistory(releasedStates(db, facility.id, releases))),
     })
   }
   if (sources.length === 0) throw new ServiceError(403, 'month_not_released')
