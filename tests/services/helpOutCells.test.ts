@@ -87,7 +87,8 @@ describe('help-out cells (one day, one facility)', () => {
     it('refuses a day that belongs to another plan', () => {
       write(leitungA, 1, anna, monday, shiftIn(1))
       expect(errorCode(() => write(leitungB, krippe, anna, monday, shiftIn(krippe)))).toBe('cell_taken')
-      expect(errorCode(() => write(leitungB, krippe, anna, monday, null, 'clear'))).toBe('cell_taken')
+      // Clearing a day of another plan leaves it alone (nothing of B is there).
+      write(leitungB, krippe, anna, monday, null, 'clear')
       expect(errorCode(() => write(leitungB, krippe, anna, monday, { kind: 'break', start: 900, end: 915 }, 'add'))).toBe('cell_taken')
       // A day helping out in a third facility is taken too.
       addHelpOut(db, anna, hort, 2026, 10)
@@ -226,10 +227,21 @@ describe('help-out cells (one day, one facility)', () => {
       expect(annaLog(krippe)[0]).toMatchObject({ before: '—', after: 'F1 7:00–13:15' })
     })
 
+    it('clearing a range in B clears its own help-out days and leaves A\'s closure days alone', () => {
+      createClosure(db, leitungA, 1, { startDate: monday, endDate: tuesday, label: 'Herbst', mode: 'closure_day' })
+      helpOutTuesday()
+      applyToCells(db, leitungB, krippe, [{ employeeId: anna, date: monday }, { employeeId: anna, date: tuesday }], 'clear', null)
+      // Monday stays A's closure day; Tuesday's help-out is gone and A's closure day is booked again.
+      expect([...day(anna, monday), ...day(anna, tuesday)].map(entry => [entry.date, entry.absenceCodeId, entry.helpFacilityId])).toEqual([
+        [monday, codeId(db, 'closure_day'), null], [tuesday, codeId(db, 'closure_day'), null],
+      ])
+    })
+
     it('a home entry that is no closure booking still gives cell_taken', () => {
       createClosure(db, leitungA, 1, { startDate: tuesday, endDate: tuesday, label: 'Team', mode: 'closure_day' })
-      // Clearing in B never touches A's closure day.
-      expect(errorCode(() => write(leitungB, krippe, anna, tuesday, null, 'clear'))).toBe('cell_taken')
+      // Clearing in B never touches A's closure day: the cell is left alone.
+      write(leitungB, krippe, anna, tuesday, null, 'clear')
+      expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([[codeId(db, 'closure_day'), null]])
       write(leitungA, 1, anna, tuesday, codeInput('prep_time', 450, 570), 'add')
       expect(errorCode(() => helpOutTuesday())).toBe('cell_taken')
       expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([

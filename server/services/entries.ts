@@ -163,8 +163,10 @@ export function applyToCells(
       const wholeDay = and(eq(entries.employeeId, cell.employeeId), eq(entries.date, cell.date))
       /** The home facility's closure booking replaced by this help-out (logged there after the write). */
       let replacedHome: ReplacedClosureDay | null = null
+      // Clearing a helper's day that belongs to another plan (e.g. a home closure day in a cleared range) leaves it alone.
+      if (helper && !values && owner !== null && owner !== facilityId) continue
       if (helper && owner === 'home') {
-        replacedHome = values ? takeClosureDay(tx, cell) : null
+        replacedHome = takeClosureDay(tx, cell)
         if (!replacedHome) throw new ServiceError(409, 'cell_taken')
       }
       else if (helper && owner !== null && owner !== facilityId) throw new ServiceError(409, 'cell_taken')

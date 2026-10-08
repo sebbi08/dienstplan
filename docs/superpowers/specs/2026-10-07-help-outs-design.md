@@ -92,7 +92,7 @@ Migration `0021_help_outs` creates the table and adds the column (`ALTER TABLE �
 2. The employee is home staff, the day has help-out entries, and the input is an absence code (see Plan of A). The help-out entries are removed.
 3. The employee has a `help_outs` row in `facilityId` for that month, and the day has no entries outside this plan. The written entries get `help_facility_id = facilityId`. Allowed inputs: shifts, Sonderdienste and Pausen of B's services, and codes with times (VZ, Büro). Absence codes are refused with 400 `help_code_not_allowed`. Ruling 9: when something is written and the day's home entries are all closure bookings of the home facility (`closure_id` set), they are deleted first (logged in A) and the day counts as free; a clear never touches them.
 
-Otherwise the request is refused: 409 `cell_taken` (case 3, when the day belongs to another plan) or 400 `employee_not_found` (not staff and not a helper this month).
+Otherwise the request is refused: 409 `cell_taken` (case 3, when the day belongs to another plan) or 400 `employee_not_found` (not staff and not a helper this month). Clearing ("Leeren") a helper day that belongs to another plan is no error: the cell is left alone, so a cleared range in B never fails on, or touches, such days.
 
 When a write in case 3 leaves a day of B's empty, the home closure covering it is booked again (see Plan of A → Closures); `deleteEntry` and discard do the same through one helper (`rebookHomeClosure`).
 
