@@ -10,6 +10,7 @@ import { balanceAdjustments, employeeHours, employees, facilities, leaveEntitlem
 import { ServiceError } from '../lib/errors'
 import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
+import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 
 export interface EmployeeInput {
@@ -97,8 +98,12 @@ export function getEmployee(db: Db, facilityId: number, id: number, today: IsoDa
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
       .map(({ id: adjustmentId, date, minutes, reason }) => ({ id: adjustmentId, date, minutes, reason })),
+    // The carry-over shown is the one that counts: after the first year, what was left of the year before.
     entitlements: db.select().from(leaveEntitlements).where(eq(leaveEntitlements.employeeId, id)).orderBy(asc(leaveEntitlements.year)).all()
-      .map(({ id: entitlementId, year, days, carriedOverDays }) => ({ id: entitlementId, year, days, carriedOverDays })),
+      .map(({ id: entitlementId, year, days }) => {
+        const { carriedOverDays, carriedAutomatically } = yearEntitlement(db, employee, year)!
+        return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
+      }),
     hasPin: db.select().from(employees).where(eq(employees.id, id)).get()!.pinHash !== null,
   }
 }

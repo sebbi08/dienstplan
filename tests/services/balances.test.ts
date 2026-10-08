@@ -44,7 +44,7 @@ describe('balances and leave', () => {
     applyToCells(db, admin, 1, week.map(date => ({ employeeId: anna, date })), 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 3 })
     expect(getLeaveAccount(db, anna, 2026, '2026-10-07')).toEqual({
-      employeeId: anna, name: 'Anna', year: 2026,
+      employeeId: anna, name: 'Anna', year: 2026, inheritedFrom: null,
       account: { entitlement: 30, carriedOver: 3, taken: 2, planned: 3, available: 28 },
       ranges: [{ from: '2026-10-05', to: '2026-10-09', days: 5 }],
     })

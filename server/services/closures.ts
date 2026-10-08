@@ -5,10 +5,11 @@ import { employmentStart, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosureMode, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, closures, entries, leaveEntitlements } from '../db/schema'
+import { absenceCodes, closures, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { applyToCells, describeCellAt } from './entries'
+import { yearEntitlement } from './leave'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
@@ -45,9 +46,8 @@ function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacat
   const byYear = Map.groupBy(dates, date => parseIsoDate(date).year)
   for (const [year, yearDates] of byYear) {
     const entitlement = joinedDuring(employee, year)
-      ? db.select().from(leaveEntitlements)
-        .where(and(eq(leaveEntitlements.employeeId, employee.id), eq(leaveEntitlements.year, year))).get()
-      : undefined
+      ? yearEntitlement(db, employee, year)
+      : null
     if (!entitlement) {
       vacation.push(...yearDates)
       continue

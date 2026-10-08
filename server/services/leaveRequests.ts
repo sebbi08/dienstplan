@@ -9,10 +9,11 @@ import type {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  absenceCodes, appSettings, employees, entries, facilities, leaveEntitlements, leavePlanners, leaveRequests, users,
+  absenceCodes, appSettings, employees, entries, facilities, leavePlanners, leaveRequests, users,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getYearCalendar } from './calendar'
+import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
 import { getLeaveAccount } from './leave'
 import { closureOn, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
@@ -202,8 +203,7 @@ export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to
   // Remaining leave of the start year: what the leave account has left (planned leave already counted), minus this
   // request and the person's other open requests, each without days that are already "Urlaub".
   const year = parseIsoDate(from).year
-  const hasEntitlement = db.select().from(leaveEntitlements)
-    .where(and(eq(leaveEntitlements.employeeId, employeeId), eq(leaveEntitlements.year, year))).get() !== undefined
+  const hasEntitlement = entitlementFor(db, employeeId, year) !== null
   const alreadyLeave = new Set(loadEntries(db, { employeeId, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
     .map(entry => entry.date))
   const otherOpen = db.select().from(leaveRequests)

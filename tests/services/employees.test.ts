@@ -74,7 +74,7 @@ describe('creating an employee with working days, leave and opening balance', ()
     const employee = getEmployee(db, 1, id, '2026-10-05', 'admin')
     expect(employee.hours).toEqual([{ id: expect.any(Number), weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }])
     expect(employee.currentWorkdays).toBe(0b00111)
-    expect(employee.entitlements).toEqual([{ id: expect.any(Number), year: 2026, days: 18, carriedOverDays: 2.5 }])
+    expect(employee.entitlements).toEqual([{ id: expect.any(Number), year: 2026, days: 18, carriedOverDays: 2.5, carriedAutomatically: false }])
     expect(employee.adjustments).toEqual([{ id: expect.any(Number), date: '2026-10-01', minutes: -90, reason: 'Übertrag bei Anlage' }])
   })
   it('creates nothing extra when no leave or balance is given and defaults to Monday–Friday', () => {

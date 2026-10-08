@@ -34,11 +34,16 @@ const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row])))
 const nextLeaveOf = computed(() => new Map((nextLeave.value ?? []).map(row => [row.employeeId, row])))
 
-/** This year's leave, plus next year's as soon as anything is entered for it (entitlement or planned leave). */
-function leaveRows(employeeId: number): { year: number; account: LeaveAccountDto['account'] | undefined }[] {
-  const rows = [{ year: year.value, account: leaveOf.value.get(employeeId)?.account }]
-  const next = nextLeaveOf.value.get(employeeId)?.account
-  if (next && (next.entitlement || next.carriedOver || next.planned)) rows.push({ year: nextYear.value, account: next })
+/**
+ * This year's leave, plus next year's as soon as it has anything (an entitlement, also one carried over from an earlier
+ * year, or planned leave).
+ */
+function leaveRows(employeeId: number): { year: number; account: LeaveAccountDto['account'] | undefined; inheritedFrom: number | null }[] {
+  const current = leaveOf.value.get(employeeId)
+  const rows = [{ year: year.value, account: current?.account, inheritedFrom: current?.inheritedFrom ?? null }]
+  const nextRow = nextLeaveOf.value.get(employeeId)
+  const next = nextRow?.account
+  if (next && (next.entitlement || next.carriedOver || next.planned)) rows.push({ year: nextYear.value, account: next, inheritedFrom: nextRow!.inheritedFrom })
   return rows
 }
 
@@ -156,6 +161,7 @@ const hint = 'text-xs text-gray-500'
                 [de.leave.planned, row.account.planned],
               ] as const" :key="item[0]">
                 <span v-if="itemIndex > 0" class="mx-2 text-gray-300">|</span>{{ item[0] }}: {{ formatNumber(item[1]) }}
+                <span v-if="itemIndex === 0 && row.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(row.inheritedFrom) }}</span>
               </span>
               <span class="mx-2 text-gray-300">|</span>{{ de.leave.available }}:
               <span class="font-semibold" :class="row.account.available < 0 ? 'text-red-700' : ''">

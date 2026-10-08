@@ -211,13 +211,17 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
 
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>
+      <p class="text-sm text-gray-500">{{ de.employees.entitlementsHint }}</p>
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-500"><tr><th>{{ de.employees.year }}</th><th>{{ de.employees.days }}</th><th>{{ de.employees.carriedOver }}</th><th /></tr></thead>
         <tbody>
           <tr v-for="entitlement in employee.entitlements" :key="entitlement.id" class="border-t border-gray-100">
             <td class="py-1">{{ entitlement.year }}</td>
             <td class="py-1">{{ formatNumber(entitlement.days) }}</td>
-            <td class="py-1">{{ formatNumber(entitlement.carriedOverDays) }}</td>
+            <td class="py-1">
+              {{ formatNumber(entitlement.carriedOverDays) }}
+              <span v-if="entitlement.carriedAutomatically" class="text-xs text-gray-500">{{ de.employees.carriedAutomatically }}</span>
+            </td>
             <td class="py-1 text-right"><UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="editEntitlement(entitlement)" /></td>
           </tr>
         </tbody>
