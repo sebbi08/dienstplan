@@ -1,20 +1,22 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayOn } from '../../shared/domain/holidays'
-import { changeHistory, diffCells, ownEntries, snapshotCells, type ReleasedChange } from '../../shared/domain/releaseDiff'
+import {
+  changeHistory, diffCells, ownEntries, snapshotCells, type CellState, type ReleasedChange, type ReleasedState,
+} from '../../shared/domain/releaseDiff'
 import { isManager } from '../../shared/domain/roles'
 import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import type {
-  ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDto, PendingChangeDto,
-  SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
+  ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDayDto, MyPlanDto,
+  MyPlanEntryDto, PendingChangeDto, SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, facilities } from '../db/schema'
+import { employees, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
@@ -23,7 +25,7 @@ import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, ownCellFilter, type EmployeeRecord,
 } from './queries'
-import { buildSnapshot, loadReleases } from './release'
+import { buildSnapshot, loadReleases, type StoredRelease } from './release'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
 import { weekTemplateNames } from './weekTemplates'
 
@@ -152,6 +154,16 @@ function facilityNamesFor(db: Db, facilityId: number, shownEntries: EntryDto[]):
     .where(inArray(facilities.id, ids)).all().map(row => [row.id, row.name]))
 }
 
+/** Changes and pending changes concern a plan's own cells only: help-elsewhere markers belong to another plan. */
+function ownCellsOf(facilityId: number): (data: SnapshotData) => Map<string, CellState> {
+  return data => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) })
+}
+
+function releasedStates(facilityId: number, releases: StoredRelease[]): ReleasedState[] {
+  const ownCells = ownCellsOf(facilityId)
+  return releases.map(release => ({ releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: ownCells(release.data) }))
+}
+
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
 ): MonthPlanDto {
@@ -160,11 +172,8 @@ export function getMonthPlan(
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
 
-  // Changes and pending changes concern the plan's own cells only: help-elsewhere markers belong to another plan.
-  const ownCells = (data: SnapshotData) => snapshotCells({ ...data, entries: ownEntries(facilityId, data.entries) })
-  const states = releases.map(release => ({
-    releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: ownCells(release.data),
-  }))
+  const ownCells = ownCellsOf(facilityId)
+  const states = releasedStates(facilityId, releases)
   const changes = toChangeDtos(changeHistory(states))
   const shown: SnapshotData = isAdmin ? buildSnapshot(db, facilityId, year, month) : latest!.data
 
@@ -228,13 +237,37 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
   if (viewer.employeeId === null) throw new ServiceError(403, 'no_employee')
   const employee = db.select().from(employees).where(eq(employees.id, viewer.employeeId)).get()
   if (!employee) throw new ServiceError(403, 'no_employee')
-  // The plan of the employee's own (home) facility.
+  // The released plan of the employee's own (home) facility, without the markers of help-outs elsewhere.
   const plan = getMonthPlan(db, { ...viewer, role: 'observer' }, employee.facilityId, year, month, today)
-  const days = plan.days.map(day => ({
-    ...day,
-    entries: plan.entries.filter(entry => entry.employeeId === employee.id && entry.date === day.date),
-    changes: plan.changes[cellKey(employee.id, day.date)] ?? [],
-  }))
+  const shown: MyPlanEntryDto[] = ownEntries(employee.facilityId, plan.entries.filter(entry => entry.employeeId === employee.id))
+  const changeLists = [plan.changes]
+
+  // The help-out days, each from the latest release of the facility the person helps in; nothing while it is unreleased.
+  const helpFacilities = db.select({ id: facilities.id, name: facilities.name })
+    .from(helpOuts)
+    .innerJoin(facilities, eq(helpOuts.facilityId, facilities.id))
+    .where(and(eq(helpOuts.employeeId, employee.id), eq(helpOuts.year, year), eq(helpOuts.month, month)))
+    .orderBy(asc(facilities.name))
+    .all()
+  for (const facility of helpFacilities) {
+    const releases = loadReleases(db, facility.id, year, month)
+    const latest = releases.at(-1)
+    if (!latest) continue
+    shown.push(...latest.data.entries
+      .filter(entry => entry.employeeId === employee.id && entry.helpFacilityId === facility.id)
+      .map(entry => ({ ...entry, helpFacilityName: facility.name })))
+    changeLists.push(toChangeDtos(changeHistory(releasedStates(facility.id, releases))))
+  }
+
+  // A day's changes from every plan it was in, e.g. a home duty given up before helping out that day.
+  const days: MyPlanDayDto[] = plan.days.map((day) => {
+    const key = cellKey(employee.id, day.date)
+    return {
+      ...day,
+      entries: shown.filter(entry => entry.date === day.date),
+      changes: changeLists.flatMap(changes => changes[key] ?? []).sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
+    }
+  })
   return {
     year,
     month,

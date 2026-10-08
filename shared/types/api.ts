@@ -235,8 +235,13 @@ export interface MonthPlanDto {
   admin: MonthPlanAdminDto | null
 }
 
+/** An entry in "Mein Dienstplan"; a help-out duty carries the name of the facility it is in. */
+export interface MyPlanEntryDto extends EntryDto {
+  helpFacilityName?: string
+}
+
 export interface MyPlanDayDto extends DayRowDto {
-  entries: EntryDto[]
+  entries: MyPlanEntryDto[]
   changes: ChangeDto[]
 }
 

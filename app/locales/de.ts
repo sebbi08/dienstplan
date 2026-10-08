@@ -197,7 +197,7 @@ export const de = {
     corpus_christi: 'Fronleichnam', german_unity_day: 'Tag der Deutschen Einheit', all_saints_day: 'Allerheiligen',
     christmas_day: '1. Weihnachtstag', boxing_day: '2. Weihnachtstag',
   },
-  myPlan: { shift: 'Dienst' },
+  myPlan: { shift: 'Dienst', helpOutIn: (facility: string) => `Aushilfe in ${facility}` },
   leave: {
     title: 'Urlaub', myTitle: 'Mein Urlaub', name: 'Mitarbeiter',
     entitlement: 'Anspruch', carriedOver: 'Übertrag Vorjahr', taken: 'genommen', planned: 'verplant', available: 'frei verfügbar',

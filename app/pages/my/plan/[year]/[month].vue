@@ -32,6 +32,11 @@ function changeTitle(day: MyPlanDayDto): string | undefined {
   return releasedChangeText(day.changes)
 }
 
+/** The facilities the day's help-out duties are in ("Aushilfe in …"), once each. */
+function helpFacilityNames(day: MyPlanDayDto): string[] {
+  return [...new Set(day.entries.flatMap(entry => entry.helpFacilityName ?? []))]
+}
+
 function fillClass(day: MyPlanDayDto): string {
   const fill = cellFillColor(day.entries)
   return fill ? cellFillClasses[fill] : ''
@@ -72,8 +77,9 @@ function rowClass(day: MyPlanDayDto): string {
             <div v-else-if="day.closureLabel" class="text-xs font-normal text-blue-700">{{ day.closureLabel }}</div>
           </td>
           <td class="px-3 py-1.5" :class="fillClass(day)">
-            <div class="flex flex-wrap gap-1">
+            <div class="flex flex-wrap items-center gap-1">
               <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
+              <span v-for="name in helpFacilityNames(day)" :key="name" class="text-xs text-gray-600">{{ de.myPlan.helpOutIn(name) }}</span>
             </div>
           </td>
           <td v-if="time?.enabled" class="px-3 py-1.5 text-xs">
