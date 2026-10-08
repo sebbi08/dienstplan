@@ -56,10 +56,37 @@ describe('my plan with help-outs', () => {
     expect(shown(mine(), tuesday)).toEqual([['F1', krippe, 'Krippe', 'Schlüssel bei Kim']])
   })
 
-  it('needs the home facility\'s release, as before', () => {
+  it('shows B\'s released days while the home month is unreleased; with neither released there is no plan', () => {
+    write(leitungA, 1, monday, shiftIn(1, 'M'))
     write(leitungB, krippe, tuesday, shiftIn(krippe))
-    release(leitungB, krippe, '2026-09-25T11:00:00Z')
     expect(errorCode(() => mine())).toBe('month_not_released')
+
+    release(leitungB, krippe, '2026-09-25T11:00:00Z')
+    const plan = mine()
+    expect(shown(plan, monday)).toEqual([])
+    expect(shown(plan, tuesday)).toEqual([['F1', krippe, 'Krippe', null]])
+    expect(plan.days).toHaveLength(31)
+    expect(plan.release).toEqual({ releasedAt: null, releasedBy: null, changeCount: 0, pendingCount: 0 })
+  })
+
+  it('a day in two releases shows the newer release\'s entries only', () => {
+    // A newer: A's "Krank" over a released help-out is released before B re-releases.
+    write(leitungB, krippe, tuesday, shiftIn(krippe))
+    release(leitungA, 1, '2026-09-25T10:00:00Z')
+    release(leitungB, krippe, '2026-09-25T11:00:00Z')
+    write(leitungA, 1, tuesday, { kind: 'code', codeId: codeId(db, 'sick') })
+    release(leitungA, 1, '2026-09-26T10:00:00Z')
+    expect(day(mine(), tuesday).entries.map(entry => [entry.codeKey, entry.helpFacilityId])).toEqual([['sick', null]])
+
+    // B newer: A cleared Monday's released duty but has not re-released; B plans and releases the help-out there.
+    write(leitungA, 1, monday, shiftIn(1, 'M'))
+    release(leitungA, 1, '2026-09-27T10:00:00Z')
+    applyToCells(db, leitungA, 1, [{ employeeId: anna, date: monday }], 'clear', null)
+    write(leitungB, krippe, monday, shiftIn(krippe, 'F2'))
+    release(leitungB, krippe, '2026-09-27T11:00:00Z')
+    expect(shown(mine(), monday)).toEqual([['F2', krippe, 'Krippe', null]])
+    // Tuesday: B's newer release no longer has the help-out, so A's "Krank" stays.
+    expect(day(mine(), tuesday).entries.map(entry => entry.codeKey)).toEqual(['sick'])
   })
 
   it('attaches B\'s change history to the help-out cell', () => {

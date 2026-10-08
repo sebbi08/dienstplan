@@ -164,6 +164,20 @@ function releasedStates(facilityId: number, releases: StoredRelease[]): Released
   return releases.map(release => ({ releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: ownCells(release.data) }))
 }
 
+/** The month's day rows with the shown plan's closures and Info fields (none when no plan is shown). */
+function dayRows(year: number, month: number, shownDays: SnapshotData['days']): DayRowDto[] {
+  const byDate = new Map(shownDays.map(day => [day.date, day]))
+  return monthDates(year, month).map(date => ({
+    date,
+    weekday: weekday(date),
+    isWeekend: isWeekend(date),
+    holidayKey: holidayOn(date),
+    closureLabel: byDate.get(date)?.closureLabel ?? null,
+    info1: byDate.get(date)?.info1 ?? '',
+    info2: byDate.get(date)?.info2 ?? '',
+  }))
+}
+
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
 ): MonthPlanDto {
@@ -188,16 +202,7 @@ export function getMonthPlan(
     }
   }
 
-  const shownDays = new Map(shown.days.map(day => [day.date, day]))
-  const days: DayRowDto[] = monthDates(year, month).map(date => ({
-    date,
-    weekday: weekday(date),
-    isWeekend: isWeekend(date),
-    holidayKey: holidayOn(date),
-    closureLabel: shownDays.get(date)?.closureLabel ?? null,
-    info1: shownDays.get(date)?.info1 ?? '',
-    info2: shownDays.get(date)?.info2 ?? '',
-  }))
+  const days = dayRows(year, month, shown.days)
 
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
@@ -237,12 +242,18 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
   if (viewer.employeeId === null) throw new ServiceError(403, 'no_employee')
   const employee = db.select().from(employees).where(eq(employees.id, viewer.employeeId)).get()
   if (!employee) throw new ServiceError(403, 'no_employee')
-  // The released plan of the employee's own (home) facility, without the markers of help-outs elsewhere.
-  const plan = getMonthPlan(db, { ...viewer, role: 'observer' }, employee.facilityId, year, month, today)
-  const shown: MyPlanEntryDto[] = ownEntries(employee.facilityId, plan.entries.filter(entry => entry.employeeId === employee.id))
-  const changeLists = [plan.changes]
-
-  // The help-out days, each from the latest release of the facility the person helps in; nothing while it is unreleased.
+  // Each plan the person's days come from, as last released: the home plan (without the markers of help-outs
+  // elsewhere), then every facility the person helps in that month (only the entries planned there).
+  const homeReleases = loadReleases(db, employee.facilityId, year, month)
+  const home = homeReleases.at(-1) ?? null
+  const sources: { releasedAt: string; entries: MyPlanEntryDto[]; changes: Record<string, ChangeDto[]> }[] = []
+  if (home) {
+    sources.push({
+      releasedAt: home.releasedAt,
+      entries: ownEntries(employee.facilityId, home.data.entries.filter(entry => entry.employeeId === employee.id)),
+      changes: toChangeDtos(changeHistory(releasedStates(employee.facilityId, homeReleases))),
+    })
+  }
   const helpFacilities = db.select({ id: facilities.id, name: facilities.name })
     .from(helpOuts)
     .innerJoin(facilities, eq(helpOuts.facilityId, facilities.id))
@@ -252,27 +263,43 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
   for (const facility of helpFacilities) {
     const releases = loadReleases(db, facility.id, year, month)
     const latest = releases.at(-1)
-    if (!latest) continue
-    shown.push(...latest.data.entries
-      .filter(entry => entry.employeeId === employee.id && entry.helpFacilityId === facility.id)
-      .map(entry => ({ ...entry, helpFacilityName: facility.name })))
-    changeLists.push(toChangeDtos(changeHistory(releasedStates(facility.id, releases))))
+    if (!latest) continue // an unreleased help-out month shows nothing
+    sources.push({
+      releasedAt: latest.releasedAt,
+      entries: latest.data.entries
+        .filter(entry => entry.employeeId === employee.id && entry.helpFacilityId === facility.id)
+        .map(entry => ({ ...entry, helpFacilityName: facility.name })),
+      changes: toChangeDtos(changeHistory(releasedStates(facility.id, releases))),
+    })
   }
+  if (sources.length === 0) throw new ServiceError(403, 'month_not_released')
 
-  // A day's changes from every plan it was in, e.g. a home duty given up before helping out that day.
-  const days: MyPlanDayDto[] = plan.days.map((day) => {
+  const days: MyPlanDayDto[] = dayRows(year, month, home?.data.days ?? []).map((day) => {
     const key = cellKey(employee.id, day.date)
+    // One day, one plan: when two releases disagree (one is not re-released yet), the newer release wins.
+    const candidates = sources
+      .map(source => ({ releasedAt: source.releasedAt, entries: source.entries.filter(entry => entry.date === day.date) }))
+      .filter(candidate => candidate.entries.length > 0)
+    const newest = candidates.reduce<(typeof candidates)[number] | null>(
+      (best, candidate) => (best === null || candidate.releasedAt > best.releasedAt ? candidate : best), null)
     return {
       ...day,
-      entries: shown.filter(entry => entry.date === day.date),
-      changes: changeLists.flatMap(changes => changes[key] ?? []).sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
+      entries: newest?.entries ?? [],
+      // The day's changes from every plan it was in, e.g. a home duty given up before helping out that day.
+      changes: sources.flatMap(source => source.changes[key] ?? []).sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
     }
   })
   return {
     year,
     month,
     employee: { id: employee.id, name: employee.name, shortName: employee.shortName },
-    release: { ...plan.release, changeCount: days.filter(day => day.changes.length > 0).length },
+    // The home plan's release; a month only released where the person helps out has none.
+    release: {
+      releasedAt: home?.releasedAt ?? null,
+      releasedBy: home?.releasedBy ?? null,
+      changeCount: days.filter(day => day.changes.length > 0).length,
+      pendingCount: 0,
+    },
     days,
   }
 }
