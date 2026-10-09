@@ -16,9 +16,12 @@ interface TypeListOptions<Dto, Form> {
 /**
  * Settings table of an editable list (care types, document types): one editable row per entry plus a row for a new
  * one; save creates or updates, remove asks first. The rows follow the server's list after every reload.
+ * Call as `await useTypeList(...)` so the server renders the existing rows too.
  */
-export function useTypeList<Dto, Form extends { id: number | null }>(options: TypeListOptions<Dto, Form>) {
-  const { data, refresh } = useFetch<Dto[]>(options.url, { key: options.key })
+export async function useTypeList<Dto, Form extends { id: number | null }>(options: TypeListOptions<Dto, Form>) {
+  // Everything that needs the component instance (composables, watch) is set up before the `await`.
+  const fetched = useFetch<Dto[]>(options.url, { key: options.key })
+  const { data, refresh } = fetched
   const { busy, run } = useBusyAction(async () => {
     await Promise.all([refresh(), refreshNuxtData(options.refreshKeys)])
   })
@@ -26,7 +29,10 @@ export function useTypeList<Dto, Form extends { id: number | null }>(options: Ty
 
   const forms = ref<Form[]>([])
   const newForm = ref<Form>(options.empty()) as Ref<Form>
-  watch(data, (value) => { forms.value = (value ?? []).map(options.toForm) }, { immediate: true })
+  const syncForms = () => { forms.value = (data.value ?? []).map(options.toForm) }
+  watch(data, syncForms)
+  await fetched
+  syncForms()
 
   async function save(form: Form) {
     const body = options.toBody(form)

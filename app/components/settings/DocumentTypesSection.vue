@@ -5,7 +5,7 @@ import { de } from '~/locales/de'
 /** Document types (Dokumentarten) of the facility: which ones are important, which are needed for every child, and the default visibility. */
 interface Form { id: number | null; name: string; important: boolean; required: boolean; confidentialDefault: boolean; sortOrder: number }
 
-const { forms, newForm, busy, save, remove } = useTypeList<DocumentTypeDto, Form>({
+const { forms, newForm, busy, save, remove } = await useTypeList<DocumentTypeDto, Form>({
   url: '/api/document-types',
   key: 'settings-document-types',
   // The child pages offer the same list; keep them in step.

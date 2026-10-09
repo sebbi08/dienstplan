@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
 interface Form { id: number | null; name: string; start: string; end: string; sortOrder: number }
 
 const toast = useToast()
-const { forms, newForm, busy, save, remove } = useTypeList<CareTypeDto, Form>({
+const { forms, newForm, busy, save, remove } = await useTypeList<CareTypeDto, Form>({
   url: '/api/care-types',
   key: 'settings-care-types',
   // The child pages offer the same list; keep them in step.

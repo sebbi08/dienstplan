@@ -56,7 +56,7 @@ const { busy, guard } = useBusy()
 async function create(): Promise<boolean> {
   try {
     const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: payload() })
-    // Stays busy while leaving, so the child cannot be created twice.
+    // The guard in save() holds until the navigation is done, so the child cannot be created twice.
     await navigateTo(`/children/${id}`)
     return true
   }
