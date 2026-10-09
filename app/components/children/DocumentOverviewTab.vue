@@ -49,7 +49,7 @@ const td = 'px-3 py-2'
                   >✓ {{ formatDate(row.cells[type.id]!.documentDate) }}</a>
                   <span v-else class="inline-flex items-center gap-1 whitespace-nowrap text-gray-700">
                     ✓ {{ formatDate(row.cells[type.id]!.documentDate) }}
-                    <UIcon name="i-lucide-lock" class="size-4 text-gray-500" :aria-label="de.childDocuments.lockedHint" :title="de.childDocuments.lockedHint" />
+                    <UIcon name="i-lucide-lock" class="size-4 text-gray-500" role="img" :aria-label="de.childDocuments.lockedHint" :title="de.childDocuments.lockedHint" />
                   </span>
                 </template>
                 <span v-else-if="type.required" class="font-medium text-red-700">{{ de.childDocuments.missing }}</span>

@@ -19,7 +19,10 @@ const monthDay = (iso: string) => {
 }
 const entries = computed(() => [...(data.value ?? [])].sort((a, b) => monthDay(a.birthDate) - monthDay(b.birthDate) || a.name.localeCompare(b.name, 'de')))
 const showGroups = computed(() => entries.value.some(entry => entry.groupId !== null))
-const dayMonth = (iso: string) => formatDate(iso).slice(0, 6)
+const dayMonth = (iso: string) => {
+  const { month, day } = parseIsoDate(iso)
+  return `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.`
+}
 
 const th = 'px-3 py-1.5'
 const td = 'px-3 py-1.5'

@@ -6,19 +6,8 @@ import { phonesOf, telHref } from '~/utils/children'
 /** Contact persons (Bezugspersonen): add, change, delete and re-order (the order is kept, emergency ranks are separate). */
 const props = defineProps<{ child: ChildRecordDto }>()
 const emit = defineEmits<{ saved: [] }>()
-const runAction = useAction(async () => emit('saved'))
 // One request at a time: no double submit, and moves cannot race each other.
-const busy = ref(false)
-async function run(action: () => Promise<unknown>, successMessage?: string): Promise<boolean> {
-  if (busy.value) return false
-  busy.value = true
-  try {
-    return await runAction(action, successMessage)
-  }
-  finally {
-    busy.value = false
-  }
-}
+const { busy, run } = useBusyAction(async () => emit('saved'))
 const confirm = useConfirm()
 
 const open = ref(false)

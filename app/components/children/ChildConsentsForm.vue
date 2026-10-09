@@ -5,7 +5,7 @@ import { de } from '~/locales/de'
 /** Consents (Einwilligungen) of the parents, each ja / nein / offen; the open ones are grey. */
 const props = defineProps<{ child: ChildRecordDto }>()
 const emit = defineEmits<{ saved: [] }>()
-const run = useAction(async () => emit('saved'))
+const { busy, run } = useBusyAction(async () => emit('saved'))
 
 const editing = ref(false)
 const form = reactive<ChildConsents>({ ...props.child.consents })
@@ -14,10 +14,8 @@ const reset = () => Object.assign(form, props.child.consents)
 watch(() => props.child.consents, () => { if (!editing.value) reset() })
 watch(editing, (value) => { if (value) reset() })
 
-const busy = ref(false)
 async function save() {
-  busy.value = true
-  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/consents`, { method: 'PUT', body: { ...form } }), de.common.saved).finally(() => { busy.value = false })
+  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/consents`, { method: 'PUT', body: { ...form } }), de.common.saved)
   if (ok) editing.value = false
 }
 function cancel() {

@@ -7,27 +7,15 @@ import { formatDate } from '~/utils/format'
 /** Managers only: the archived children with their deletion date; take the leaving back or delete the record right away. */
 const { data, error, refresh } = useFetch<ArchivedChildDto[]>('/api/children/archive', { key: 'children-archive' })
 // A child that left the archive is back in (or gone from) the other lists.
-const run = useAction(async () => {
+const { busy, run } = useBusyAction(async () => {
   await Promise.all([refresh(), refreshNuxtData(['children-active', 'children-planned', 'children-birthdays', 'child-documents-overview'])])
 })
 const confirm = useConfirm()
-// One request at a time: no double submit.
-const busy = ref(false)
-async function guarded(action: () => Promise<unknown>, successMessage: string) {
-  if (busy.value) return
-  busy.value = true
-  try {
-    await run(action, successMessage)
-  }
-  finally {
-    busy.value = false
-  }
-}
 
-const unleave = (child: ArchivedChildDto) => guarded(() => $fetch<unknown>(`/api/children/${child.id}/unleave`, { method: 'POST' }), de.common.saved)
+const unleave = (child: ArchivedChildDto) => run(() => $fetch<unknown>(`/api/children/${child.id}/unleave`, { method: 'POST' }), de.common.saved)
 async function deleteNow(child: ArchivedChildDto) {
   if (await confirm(de.childLifecycle.confirmDelete, { confirmLabel: de.childLifecycle.deleteNow })) {
-    guarded(() => $fetch<unknown>(`/api/children/${child.id}`, { method: 'DELETE' }), de.common.deleted)
+    run(() => $fetch<unknown>(`/api/children/${child.id}`, { method: 'DELETE' }), de.common.deleted)
   }
 }
 
@@ -56,8 +44,8 @@ const td = 'px-3 py-2'
             <td :class="td">{{ formatDate(child.leftOn) }}</td>
             <td :class="[td, 'text-gray-600']">{{ de.childLifecycle.purgeOn(formatDate(child.purgeOn)) }}</td>
             <td :class="[td, 'whitespace-nowrap text-right']">
-              <UButton size="xs" color="neutral" variant="outline" :label="de.childLifecycle.unleave" :disabled="busy" @click="unleave(child)" />
-              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.childLifecycle.deleteNow" :disabled="busy" @click="deleteNow(child)" />
+              <UButton size="xs" color="neutral" variant="outline" :label="de.childLifecycle.unleave" :aria-label="`${de.childLifecycle.unleave}: ${child.name}`" :disabled="busy" @click="unleave(child)" />
+              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.childLifecycle.deleteNow" :aria-label="`${de.childLifecycle.deleteNow}: ${child.name}`" :disabled="busy" @click="deleteNow(child)" />
             </td>
           </tr>
         </tbody>

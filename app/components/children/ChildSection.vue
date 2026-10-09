@@ -3,10 +3,10 @@ import type { SectionStamp } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { stampText } from '~/utils/children'
 
-/** One card of the record: title, "zuletzt geändert von … am …" and an edit button that swaps the `edit` slot in. */
-const props = defineProps<{ title: string; stamp: SectionStamp; canEdit: boolean }>()
+/** One card of the record: title, "zuletzt geändert von … am …" (without a `stamp` none is shown) and an edit button that swaps the `edit` slot in. */
+const props = defineProps<{ title: string; stamp?: SectionStamp; canEdit: boolean }>()
 const editing = defineModel<boolean>('editing', { default: false })
-const stamped = computed(() => stampText(props.stamp))
+const stamped = computed(() => (props.stamp ? stampText(props.stamp) : null))
 </script>
 
 <template>

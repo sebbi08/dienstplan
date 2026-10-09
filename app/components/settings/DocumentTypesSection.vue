@@ -5,21 +5,15 @@ import { de } from '~/locales/de'
 /** Document types (Dokumentarten) of the facility: which ones are important, which are needed for every child, and the default visibility. */
 interface Form { id: number | null; name: string; important: boolean; required: boolean; confidentialDefault: boolean; sortOrder: number }
 
-const { data, refresh } = await useFetch<DocumentTypeDto[]>('/api/document-types', { key: 'settings-document-types' })
-// The child pages offer the same list; keep them in step.
-const run = useAction(async () => {
-  await Promise.all([refresh(), refreshNuxtData(['document-types', 'child-documents-overview'])])
+const { forms, newForm, busy, save, remove } = useTypeList<DocumentTypeDto, Form>({
+  url: '/api/document-types',
+  key: 'settings-document-types',
+  // The child pages offer the same list; keep them in step.
+  refreshKeys: ['document-types', 'child-documents-overview'],
+  empty: () => ({ id: null, name: '', important: false, required: false, confidentialDefault: false, sortOrder: 0 }),
+  toForm: type => ({ ...type }),
+  toBody: form => ({ name: form.name, important: form.important, required: form.required, confidentialDefault: form.confidentialDefault, sortOrder: form.sortOrder }),
 })
-const confirm = useConfirm()
-// One request at a time: no double submit.
-const busy = ref(false)
-
-const emptyForm = (): Form => ({ id: null, name: '', important: false, required: false, confidentialDefault: false, sortOrder: 0 })
-const forms = ref<Form[]>([])
-const newForm = ref<Form>(emptyForm())
-watch(data, (value) => {
-  forms.value = (value ?? []).map(type => ({ ...type }))
-}, { immediate: true })
 
 /** A type needed for every child is important by definition (the server refuses the other combination). */
 function onRequired(form: Form, value: boolean) {
@@ -29,32 +23,6 @@ function onRequired(form: Form, value: boolean) {
 function onImportant(form: Form, value: boolean) {
   form.important = value
   if (!value) form.required = false
-}
-
-async function guarded(action: () => Promise<boolean>): Promise<boolean> {
-  if (busy.value) return false
-  busy.value = true
-  try {
-    return await action()
-  }
-  finally {
-    busy.value = false
-  }
-}
-
-function save(form: Form) {
-  const body = { name: form.name, important: form.important, required: form.required, confidentialDefault: form.confidentialDefault, sortOrder: form.sortOrder }
-  return guarded(async () => {
-    const ok = await run(() => form.id
-      ? $fetch<unknown>(`/api/document-types/${form.id}`, { method: 'PUT', body })
-      : $fetch<unknown>('/api/document-types', { method: 'POST', body }), de.common.saved)
-    if (ok && !form.id) newForm.value = emptyForm()
-    return ok
-  })
-}
-
-async function remove(form: Form) {
-  if (form.id && await confirm(de.childSettings.confirmDeleteType)) guarded(() => run(() => $fetch<unknown>(`/api/document-types/${form.id}`, { method: 'DELETE' }), de.common.deleted))
 }
 
 const cell = 'px-1 py-1'

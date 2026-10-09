@@ -52,25 +52,24 @@ function payload(): ChildMasterInput {
   }
 }
 
-const busy = ref(false)
-async function save() {
-  if (busy.value) return
-  busy.value = true
-  if (creating) {
-    try {
-      const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: payload() })
-      // Stays busy while leaving, so the child cannot be created twice.
-      await navigateTo(`/children/${id}`)
-    }
-    catch (error) {
-      useToast().add({ title: errorMessage(error), color: 'error' })
-      busy.value = false
-    }
-    return
+const { busy, guard } = useBusy()
+async function create(): Promise<boolean> {
+  try {
+    const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: payload() })
+    // Stays busy while leaving, so the child cannot be created twice.
+    await navigateTo(`/children/${id}`)
+    return true
   }
-  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: payload() }), de.common.saved)
-    .finally(() => { busy.value = false })
-  if (ok) editing.value = false
+  catch (error) {
+    useToast().add({ title: errorMessage(error), color: 'error' })
+    return false
+  }
+}
+async function save() {
+  const ok = await guard(() => creating
+    ? create()
+    : run(() => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: payload() }), de.common.saved))
+  if (ok && !creating) editing.value = false
 }
 
 function cancel() {

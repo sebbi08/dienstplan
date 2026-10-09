@@ -6,51 +6,24 @@ import { de } from '~/locales/de'
 /** Care types (Betreuungsformen) of the facility: a name and the booked time window. */
 interface Form { id: number | null; name: string; start: string; end: string; sortOrder: number }
 
-const { data, refresh } = await useFetch<CareTypeDto[]>('/api/care-types', { key: 'settings-care-types' })
-// The child pages offer the same list; keep them in step.
-const run = useAction(async () => {
-  await Promise.all([refresh(), refreshNuxtData('care-types')])
-})
-const confirm = useConfirm()
 const toast = useToast()
-// One request at a time: no double submit.
-const busy = ref(false)
-
-const emptyForm = (): Form => ({ id: null, name: '', start: '', end: '', sortOrder: 0 })
-const forms = ref<Form[]>([])
-const newForm = ref<Form>(emptyForm())
-watch(data, (value) => {
-  forms.value = (value ?? []).map(type => ({ id: type.id, name: type.name, start: formatTime(type.start), end: formatTime(type.end), sortOrder: type.sortOrder }))
-}, { immediate: true })
-
-async function guarded(action: () => Promise<boolean>): Promise<boolean> {
-  if (busy.value) return false
-  busy.value = true
-  try {
-    return await action()
-  }
-  finally {
-    busy.value = false
-  }
-}
-
-function save(form: Form) {
-  const start = parseTime(form.start)
-  const end = parseTime(form.end)
-  if (start === null || end === null) return void toast.add({ title: de.settings.invalidTime, color: 'error' })
-  const body = { name: form.name, start, end, sortOrder: form.sortOrder }
-  return guarded(async () => {
-    const ok = await run(() => form.id
-      ? $fetch<unknown>(`/api/care-types/${form.id}`, { method: 'PUT', body })
-      : $fetch<unknown>('/api/care-types', { method: 'POST', body }), de.common.saved)
-    if (ok && !form.id) newForm.value = emptyForm()
-    return ok
-  })
-}
-
-async function remove(form: Form) {
-  if (form.id && await confirm(de.childSettings.confirmDeleteType)) guarded(() => run(() => $fetch<unknown>(`/api/care-types/${form.id}`, { method: 'DELETE' }), de.common.deleted))
-}
+const { forms, newForm, busy, save, remove } = useTypeList<CareTypeDto, Form>({
+  url: '/api/care-types',
+  key: 'settings-care-types',
+  // The child pages offer the same list; keep them in step.
+  refreshKeys: ['care-types'],
+  empty: () => ({ id: null, name: '', start: '', end: '', sortOrder: 0 }),
+  toForm: type => ({ id: type.id, name: type.name, start: formatTime(type.start), end: formatTime(type.end), sortOrder: type.sortOrder }),
+  toBody: (form) => {
+    const start = parseTime(form.start)
+    const end = parseTime(form.end)
+    if (start === null || end === null) {
+      toast.add({ title: de.settings.invalidTime, color: 'error' })
+      return null
+    }
+    return { name: form.name, start, end, sortOrder: form.sortOrder }
+  },
+})
 
 const cell = 'px-1 py-1'
 const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'

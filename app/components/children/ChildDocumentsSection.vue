@@ -8,19 +8,7 @@ import { formatDate, formatDateTime } from '~/utils/format'
 /** Documents of a child: upload (PDF, JPG, PNG), open, download, change and delete. Confidential ones are locked for some viewers. */
 const props = defineProps<{ child: ChildRecordDto }>()
 const emit = defineEmits<{ saved: [] }>()
-const runAction = useAction(async () => emit('saved'))
-// One request at a time: no double submit.
-const busy = ref(false)
-async function run(action: () => Promise<unknown>, successMessage?: string): Promise<boolean> {
-  if (busy.value) return false
-  busy.value = true
-  try {
-    return await runAction(action, successMessage)
-  }
-  finally {
-    busy.value = false
-  }
-}
+const { busy, run } = useBusyAction(async () => emit('saved'))
 const confirm = useConfirm()
 const toast = useToast()
 
@@ -82,11 +70,10 @@ async function remove(document: ChildDocumentDto) {
 
 const link = 'text-sky-700 hover:underline'
 const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100'
-const noStamp ={ updatedAt: null, updatedBy: null }
 </script>
 
 <template>
-  <ChildrenChildSection :title="de.children.sections.documents" :stamp="noStamp" :can-edit="false">
+  <ChildrenChildSection :title="de.children.sections.documents" :can-edit="false">
     <template v-if="child.canEdit" #actions>
       <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-upload" :label="de.childDocuments.upload" @click="openNew" />
     </template>
@@ -94,10 +81,8 @@ const noStamp ={ updatedAt: null, updatedBy: null }
     <p v-if="!child.documents.length" class="text-sm text-gray-500">{{ de.childDocuments.none }}</p>
     <ul v-else class="divide-y divide-gray-100">
       <li v-for="document in child.documents" :key="document.id" class="flex flex-wrap items-start gap-3 py-3 text-sm">
-        <UIcon
-          :name="document.canOpen ? 'i-lucide-file-text' : 'i-lucide-lock'" class="mt-0.5 size-5 shrink-0 text-gray-500"
-          :aria-label="document.canOpen ? undefined : de.childDocuments.lockedHint" :title="document.canOpen ? undefined : de.childDocuments.lockedHint"
-        />
+        <UIcon v-if="document.canOpen" name="i-lucide-file-text" class="mt-0.5 size-5 shrink-0 text-gray-500" aria-hidden="true" />
+        <UIcon v-else name="i-lucide-lock" class="mt-0.5 size-5 shrink-0 text-gray-500" role="img" :aria-label="de.childDocuments.lockedHint" :title="de.childDocuments.lockedHint" />
         <div class="min-w-0 flex-1 space-y-0.5">
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
             <a v-if="document.canOpen" :href="documentFileUrl(document.id)" target="_blank" rel="noopener" :class="[link, 'font-medium']">{{ document.title || document.typeName }}</a>

@@ -4,25 +4,14 @@ import { de } from '~/locales/de'
 
 /** Träger only: how many whole years a record is kept after the child left (one setting for all facilities). */
 const { data, refresh } = await useFetch<ChildRetentionDto>('/api/child-retention')
-const run = useAction(async () => {
+const { busy, run } = useBusyAction(async () => {
   await Promise.all([refresh(), refreshNuxtData('children-archive')])
 })
 const years = ref(3)
 watch(data, (value) => { if (value) years.value = value.years }, { immediate: true })
 const yearItems = Array.from({ length: 10 }, (_, index) => ({ label: String(index + 1), value: index + 1 }))
-// One request at a time: no double submit.
-const busy = ref(false)
 
-async function save() {
-  if (busy.value) return
-  busy.value = true
-  try {
-    await run(() => $fetch<unknown>('/api/child-retention', { method: 'PUT', body: { years: years.value } }), de.common.saved)
-  }
-  finally {
-    busy.value = false
-  }
-}
+const save = () => run(() => $fetch<unknown>('/api/child-retention', { method: 'PUT', body: { years: years.value } }), de.common.saved)
 </script>
 
 <template>

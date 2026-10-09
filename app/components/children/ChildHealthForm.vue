@@ -7,7 +7,7 @@ import { formatDate } from '~/utils/format'
 /** Health (Gesundheit): measles proof, infection briefing, allergies and what the staff may do. */
 const props = defineProps<{ child: ChildRecordDto }>()
 const emit = defineEmits<{ saved: [] }>()
-const run = useAction(async () => emit('saved'))
+const { busy, run } = useBusyAction(async () => emit('saved'))
 
 const editing = ref(false)
 const form = reactive({ ...props.child.health, measlesProofDate: '', infectionBriefingDate: '' })
@@ -20,11 +20,9 @@ reset()
 watch(() => props.child.health, () => { if (!editing.value) reset() })
 watch(editing, (value) => { if (value) reset() })
 
-const busy = ref(false)
 async function save() {
   const body = { ...form, measlesProofDate: orNull(form.measlesProofDate), infectionBriefingDate: orNull(form.infectionBriefingDate) }
-  busy.value = true
-  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/health`, { method: 'PUT', body }), de.common.saved).finally(() => { busy.value = false })
+  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/health`, { method: 'PUT', body }), de.common.saved)
   if (ok) editing.value = false
 }
 function cancel() {
