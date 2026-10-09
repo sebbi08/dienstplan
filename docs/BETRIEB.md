@@ -144,7 +144,7 @@ Datenbank hat, hat alles.
 | Mitarbeiter mit der Berechtigung „darf Kinderakten pflegen“ | dürfen zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Tablet (Kita-Gerät) | sieht keine Kinderdaten. |
 
-Die Berechtigung „darf Kinderakten pflegen“ vergibst du in der Benutzerverwaltung pro Mitarbeiter.
+Die Berechtigung „darf Kinderakten pflegen“ vergibst du unter *Benutzer* pro Mitarbeiter.
 
 ### Automatische Löschung
 
