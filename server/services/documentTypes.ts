@@ -3,6 +3,7 @@ import type { DocumentTypeDto, DocumentTypeInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childDocuments, documentTypes } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { uniqueName } from '../lib/uniqueName'
 
 function toDto(row: typeof documentTypes.$inferSelect): DocumentTypeDto {
   return {
@@ -27,15 +28,9 @@ export function assertDocumentType(db: Db, facilityId: number, id: number): Docu
 
 /** Trimmed, non-empty name no other document type of the facility uses (compared case-insensitively, umlauts included). */
 function checkedName(db: Db, facilityId: number, name: string, exceptId: number | null = null): string {
-  const trimmed = name.trim()
-  if (!trimmed) throw new ServiceError(400, 'document_type_name_required')
-  // In JS, not SQLite's lower(), which only folds ASCII letters (Ä ≠ ä).
-  const folded = (value: string) => value.trim().toLocaleLowerCase('de')
-  const clash = db.select({ id: documentTypes.id, name: documentTypes.name }).from(documentTypes)
+  const existing = db.select({ id: documentTypes.id, name: documentTypes.name }).from(documentTypes)
     .where(eq(documentTypes.facilityId, facilityId)).all()
-    .some(row => row.id !== exceptId && folded(row.name) === folded(trimmed))
-  if (clash) throw new ServiceError(409, 'document_type_name_taken')
-  return trimmed
+  return uniqueName(existing, name, exceptId, { required: 'document_type_name_required', taken: 'document_type_name_taken' })
 }
 
 /** "Required" only makes sense for important types (400 required_needs_important otherwise). */

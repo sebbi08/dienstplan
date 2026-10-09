@@ -3,6 +3,7 @@ import type { CareTypeDto, CareTypeInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, children } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { uniqueName } from '../lib/uniqueName'
 
 const DAY_MINUTES = 24 * 60
 
@@ -26,15 +27,9 @@ export function assertCareType(db: Db, facilityId: number, id: number | null): v
 
 /** Trimmed, non-empty name no other care type of the facility uses (compared case-insensitively, umlauts included). */
 function checkedName(db: Db, facilityId: number, name: string, exceptId: number | null = null): string {
-  const trimmed = name.trim()
-  if (!trimmed) throw new ServiceError(400, 'care_type_name_required')
-  // In JS, not SQLite's lower(), which only folds ASCII letters (Ä ≠ ä).
-  const folded = (value: string) => value.trim().toLocaleLowerCase('de')
-  const clash = db.select({ id: careTypes.id, name: careTypes.name }).from(careTypes)
+  const existing = db.select({ id: careTypes.id, name: careTypes.name }).from(careTypes)
     .where(eq(careTypes.facilityId, facilityId)).all()
-    .some(row => row.id !== exceptId && folded(row.name) === folded(trimmed))
-  if (clash) throw new ServiceError(409, 'care_type_name_taken')
-  return trimmed
+  return uniqueName(existing, name, exceptId, { required: 'care_type_name_required', taken: 'care_type_name_taken' })
 }
 
 /** Both times within the day and on the 5-minute grid, the end after the start; otherwise 400 invalid_time. */

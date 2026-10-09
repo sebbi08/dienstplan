@@ -3,6 +3,7 @@ import type { GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { uniqueName } from '../lib/uniqueName'
 
 function toDto(row: { id: number; name: string; sortOrder: number }): GroupDto {
   return { id: row.id, name: row.name, sortOrder: row.sortOrder }
@@ -46,14 +47,8 @@ export function facilityOfGroup(db: Db, groupId: number): number {
 
 /** Trimmed, non-empty name no other group of the facility uses (compared case-insensitively, umlauts included). */
 function checkedName(db: Db, facilityId: number, name: string, exceptId: number | null = null): string {
-  const trimmed = name.trim()
-  if (!trimmed) throw new ServiceError(400, 'group_name_required')
-  // In JS, not SQLite's lower(), which only folds ASCII letters (Ä ≠ ä).
-  const folded = (value: string) => value.trim().toLocaleLowerCase('de')
-  const clash = db.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.facilityId, facilityId)).all()
-    .some(row => row.id !== exceptId && folded(row.name) === folded(trimmed))
-  if (clash) throw new ServiceError(409, 'group_name_taken')
-  return trimmed
+  const existing = db.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.facilityId, facilityId)).all()
+  return uniqueName(existing, name, exceptId, { required: 'group_name_required', taken: 'group_name_taken' })
 }
 
 /** A new group at the end of the facility's order. */
