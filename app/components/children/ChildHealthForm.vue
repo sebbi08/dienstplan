@@ -5,9 +5,9 @@ import { orNull } from '~/utils/children'
 import { formatDate } from '~/utils/format'
 
 /** Health (Gesundheit): measles proof, infection briefing, allergies and what the staff may do. */
-const props = defineProps<{ child: ChildRecordDto }>()
-const emit = defineEmits<{ saved: [] }>()
-const { busy, run } = useBusyAction(async () => emit('saved'))
+/** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
+const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
+const { busy, run } = useBusyAction(() => props.reload())
 
 const editing = ref(false)
 const form = reactive({ ...props.child.health, measlesProofDate: '', infectionBriefingDate: '' })

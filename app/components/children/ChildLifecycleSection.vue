@@ -9,13 +9,13 @@ import { formatDate } from '~/utils/format'
  * Leaving (Abmeldung) and, for the Träger, moving the record to another facility. Managers only; "Sofort löschen"
  * lives in the archive tab. The server decides who may do what as well.
  */
-const props = defineProps<{ child: ChildRecordDto }>()
-const emit = defineEmits<{ saved: [] }>()
+/** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
+const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
 const { user } = useUserSession()
 const manager = computed(() => isManager(user.value?.role))
 const isProvider = computed(() => user.value?.role === 'provider')
 
-const { busy, run } = useBusyAction(async () => emit('saved'))
+const { busy, run } = useBusyAction(() => props.reload())
 const confirm = useConfirm()
 const toast = useToast()
 

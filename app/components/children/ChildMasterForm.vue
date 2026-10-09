@@ -8,11 +8,12 @@ import { formatDate } from '~/utils/format'
 
 /**
  * Master data (Stammdaten): the section of the record, or, without `child`, the form that creates a new child.
- * Only managers can choose a group (a Mitarbeiter may not read the group list); the group is kept as it is otherwise.
+ * Whoever may edit child records can choose a group and care type (`canPickGroup`; the group list for the child pages is
+ * readable for everyone who sees child records); without that right the stored group is kept as it is.
  */
-const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups> }>()
-const emit = defineEmits<{ saved: [] }>()
-const run = useAction(async () => emit('saved'))
+/** `reload` re-reads the record after a save (not needed while creating); the guard in `save` holds until it is done. */
+const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown> }>()
+const run = useAction(async () => { await props.reload?.() })
 const { groups, careTypes, canPickGroup, groupName, careTypeName } = props.lookups
 
 const creating = !props.child

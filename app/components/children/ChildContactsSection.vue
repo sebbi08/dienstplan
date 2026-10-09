@@ -4,10 +4,10 @@ import { de } from '~/locales/de'
 import { phonesOf, telHref } from '~/utils/children'
 
 /** Contact persons (Bezugspersonen): add, change, delete and re-order (the order is kept, emergency ranks are separate). */
-const props = defineProps<{ child: ChildRecordDto }>()
-const emit = defineEmits<{ saved: [] }>()
-// One request at a time: no double submit, and moves cannot race each other.
-const { busy, run } = useBusyAction(async () => emit('saved'))
+/** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
+const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
+// One request at a time: no double submit, and moves cannot race each other (the next one waits for the reloaded order).
+const { busy, run } = useBusyAction(() => props.reload())
 const confirm = useConfirm()
 
 const open = ref(false)

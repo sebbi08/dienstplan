@@ -8,6 +8,8 @@ import { errorMessage } from '~/utils/errors'
 const route = useRoute()
 const id = Number(route.params.id)
 const { data: child, error, refresh } = await useFetch<ChildRecordDto>(`/api/children/${id}`)
+/** The sections wait for this before they accept the next action. */
+const reload = () => refresh()
 const lookups = useChildLookups()
 await lookups.ready
 
@@ -28,12 +30,12 @@ const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, to
 
       <p v-if="child.status === 'archived'" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">{{ de.childLifecycle.archived }}</p>
       <ChildrenChildImportantBox :child="child" />
-      <ChildrenChildMasterForm :child="child" :lookups="lookups" @saved="refresh" />
-      <ChildrenChildContactsSection :child="child" @saved="refresh" />
-      <ChildrenChildHealthForm :child="child" @saved="refresh" />
-      <ChildrenChildConsentsForm :child="child" @saved="refresh" />
-      <ChildrenChildDocumentsSection :child="child" @saved="refresh" />
-      <ChildrenChildLifecycleSection :child="child" @saved="refresh" />
+      <ChildrenChildMasterForm :child="child" :lookups="lookups" :reload="reload" />
+      <ChildrenChildContactsSection :child="child" :reload="reload" />
+      <ChildrenChildHealthForm :child="child" :reload="reload" />
+      <ChildrenChildConsentsForm :child="child" :reload="reload" />
+      <ChildrenChildDocumentsSection :child="child" :reload="reload" />
+      <ChildrenChildLifecycleSection :child="child" :reload="reload" />
     </template>
   </div>
 </template>

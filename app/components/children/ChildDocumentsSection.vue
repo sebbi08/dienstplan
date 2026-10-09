@@ -6,9 +6,9 @@ import { MAX_DOCUMENT_BYTES, documentFileUrl, formatSize } from '~/utils/childre
 import { formatDate, formatDateTime } from '~/utils/format'
 
 /** Documents of a child: upload (PDF, JPG, PNG), open, download, change and delete. Confidential ones are locked for some viewers. */
-const props = defineProps<{ child: ChildRecordDto }>()
-const emit = defineEmits<{ saved: [] }>()
-const { busy, run } = useBusyAction(async () => emit('saved'))
+/** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
+const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
+const { busy, run } = useBusyAction(() => props.reload())
 const confirm = useConfirm()
 const toast = useToast()
 

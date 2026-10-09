@@ -3,9 +3,9 @@ import type { ChildConsents, ChildRecordDto, ConsentKey } from '#shared/types/ap
 import { de } from '~/locales/de'
 
 /** Consents (Einwilligungen) of the parents, each ja / nein / offen; the open ones are grey. */
-const props = defineProps<{ child: ChildRecordDto }>()
-const emit = defineEmits<{ saved: [] }>()
-const { busy, run } = useBusyAction(async () => emit('saved'))
+/** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
+const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
+const { busy, run } = useBusyAction(() => props.reload())
 
 const editing = ref(false)
 const form = reactive<ChildConsents>({ ...props.child.consents })
