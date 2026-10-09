@@ -231,6 +231,12 @@ export function listArchive(db: Db, facilityId: number, today: IsoDate): Archive
     }))
 }
 
+/** How many archived children (all facilities) would be deleted at the next daily run with a retention of `years`. */
+export function countChildrenToPurge(db: Db, years: number, today: IsoDate): number {
+  return db.select({ leftOn: children.leftOn }).from(children).all()
+    .filter(row => row.leftOn !== null && purgeDate(row.leftOn, years) <= today).length
+}
+
 /**
  * Deletes every child (all facilities) whose purge date has come, with contacts and documents, in one transaction.
  * Runs at most once per calendar day; returns how many records were deleted.

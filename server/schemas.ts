@@ -133,7 +133,9 @@ export const childFacilitySchema = z.object({ facilityId: z.number().int().posit
 export const childLeaveSchema = z.object({ leftOn: isoDate })
 /** The range (whole years 1-10) is checked by the service, which answers invalid_retention. */
 export const childRetentionSchema = z.object({ years: z.number() })
-export const helpOutSchema =z.object({
+/** Query of the retention preview; out-of-range values answer 400 as for any invalid query. */
+export const childRetentionPreviewQuery = z.object({ years: z.coerce.number().int().min(1).max(10) })
+export const helpOutSchema = z.object({
   employeeId: z.number().int().positive(),
   year: z.number().int().min(2000).max(2100),
   month: z.number().int().min(1).max(12),

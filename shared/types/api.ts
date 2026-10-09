@@ -220,6 +220,11 @@ export interface ChildRetentionDto {
   years: number
 }
 
+/** How many archived children (all facilities) the next daily run would delete with the given retention. */
+export interface ChildRetentionPreviewDto {
+  count: number
+}
+
 export interface FacilitiesDto {
   facilities: FacilityDto[]
   /** The facility the viewer currently works in. */

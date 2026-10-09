@@ -444,6 +444,7 @@ export const de = {
     careTypesHint: 'Die Zeiten geben das gebuchte Zeitfenster an. Betreuungsformen, die noch bei Kindern eingetragen sind, lassen sich nicht löschen.',
     documentTypesHint: 'Wichtige Dokumentarten erscheinen in der Dokumentenübersicht. „Für jedes Kind nötig“ markiert fehlende Dokumente dort rot. „Vertraulich“ ist die Voreinstellung beim Hochladen.',
     confirmDeleteType: 'Wirklich löschen?',
+    confirmShorterRetention: (count: number) => `Mit der kürzeren Frist werden beim nächsten täglichen Lauf ${count} abgemeldete Kinderakten mit allen Dokumenten endgültig gelöscht. Trotzdem speichern?`,
   },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',

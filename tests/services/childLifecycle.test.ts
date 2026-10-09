@@ -7,7 +7,7 @@ import { getChildRetentionYears, setChildRetentionYears } from '../../server/ser
 import { createCareType } from '../../server/services/careTypes'
 import { addContact } from '../../server/services/childContacts'
 import {
-  deleteChild, getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild,
+  countChildrenToPurge, deleteChild, getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild,
 } from '../../server/services/children'
 import { listDocumentTypes } from '../../server/services/documentTypes'
 import type { FacilityUser } from '../../server/utils/auth'
@@ -170,6 +170,26 @@ describe('leaving, archive and automatic deletion of children', () => {
       expect(purgeExpiredChildren(db, '2025-02-27')).toBe(0)
       expect(purgeExpiredChildren(db, '2025-02-28')).toBe(1)
       expect(db.select().from(children).where(eq(children.id, id)).get()).toBeUndefined()
+    })
+
+    it('counts the children of every facility whose purge date has come, without deleting anything', () => {
+      const krippe = addFacility(db, 'Krippe')
+      addChild(db, 1, { leftOn: '2023-10-09' })
+      addChild(db, krippe, { leftOn: '2023-10-09' })
+      addChild(db, 1, { leftOn: '2023-10-10' })
+      addChild(db, 1)
+      addChild(db, krippe, { entryDate: null, plannedEntryDate: '2027-01-01' })
+      expect(countChildrenToPurge(db, 3, TODAY)).toBe(2)
+      expect(countChildrenToPurge(db, 2, TODAY)).toBe(3)
+      expect(countChildrenToPurge(db, 10, TODAY)).toBe(0)
+      expect(countChildrenToPurge(db, 3, '2026-10-10')).toBe(3)
+      expect(db.select().from(children).all()).toHaveLength(5)
+    })
+
+    it('counts a 29 February leaving from 28 February of a non-leap purge year', () => {
+      addChild(db, 1, { leftOn: '2024-02-29' })
+      expect(countChildrenToPurge(db, 1, '2025-02-27')).toBe(0)
+      expect(countChildrenToPurge(db, 1, '2025-02-28')).toBe(1)
     })
 
     it('does not touch children who have not left', () => {
