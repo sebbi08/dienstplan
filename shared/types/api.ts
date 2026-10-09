@@ -8,6 +8,15 @@ import type { Warning } from '../domain/warnings'
 export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 'violet', 'orange'] as const
 export type ColorKey = typeof COLOR_KEYS[number]
 
+/** The consents (Einwilligungen) in a child's record; each matches a `consent_*` column of `children`. */
+export const CONSENT_KEYS = [
+  'artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosWhatsapp',
+  'photosNamesBirthdaysDisplay', 'groupWorkWithNames', 'whatsappContact', 'whatsappPhotos', 'whatsappParentGroup',
+] as const
+export type ConsentKey = typeof CONSENT_KEYS[number]
+/** An answer that may still be open: yes, no or not answered (null). */
+export type TriState = boolean | null
+
 export type Role = 'provider' | 'admin' | 'observer' | 'terminal'
 export type ClosureMode = 'vacation' | 'closure_day'
 export type NoteField = 'info1' | 'info2'

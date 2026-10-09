@@ -3,7 +3,7 @@ import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import type { Db } from './client'
-import { absenceCodes, coverageRules, shiftTemplates, users } from './schema'
+import { absenceCodes, coverageRules, documentTypes, shiftTemplates, users } from './schema'
 
 export const DEFAULT_TEMPLATES: (typeof shiftTemplates.$inferInsert)[] = [
   { shortLabel: 'F1', label: 'Frühdienst', start: 420, end: 795, breakStart: null, breakEnd: null, countsAsStaff: true, sortOrder: 1 },
@@ -35,6 +35,20 @@ export const DEFAULT_COVERAGE_RULES: (typeof coverageRules.$inferInsert)[] = [
 function isEmpty(db: Db, table: SQLiteTable): boolean {
   return db.select({ value: count() }).from(table).get()!.value === 0
 }
+
+/**
+ * Document types every facility starts with. Facility 1 and existing facilities get them from the migration
+ * 0023_child_records (keep both lists in step), new facilities from createFacility.
+ */
+export const DEFAULT_DOCUMENT_TYPES: Omit<typeof documentTypes.$inferInsert, 'facilityId'>[] = [
+  { name: 'Betreuungsvertrag', important: true, required: true, confidentialDefault: true, sortOrder: 0 },
+  { name: 'Masernnachweis', important: true, required: true, confidentialDefault: false, sortOrder: 1 },
+  { name: 'Belehrung Infektionsschutz', important: true, required: true, confidentialDefault: false, sortOrder: 2 },
+  { name: 'Datenschutz-Einwilligung', important: true, required: true, confidentialDefault: false, sortOrder: 3 },
+  { name: 'Sorgerechtsbeschluss', important: true, required: false, confidentialDefault: true, sortOrder: 4 },
+  { name: 'Ärztliches Attest', important: false, required: false, confidentialDefault: true, sortOrder: 5 },
+  { name: 'Sonstiges', important: false, required: false, confidentialDefault: false, sortOrder: 6 },
+]
 
 /** The facility the existing data moved into (created by the migration 0019_facilities). */
 export const FIRST_FACILITY_ID = 1

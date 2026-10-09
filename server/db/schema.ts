@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /** A facility (Einrichtung) of the Träger; the existing data became facility 1 "Kindergarten". */
 export const facilities = sqliteTable('facilities', {
@@ -94,6 +94,8 @@ export const users = sqliteTable('users', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   /** Leitung and tablet: their facility. Träger: the active facility selection. Mitarbeiter: null (follows the employee). */
   facilityId: integer('facility_id').references(() => facilities.id),
+  /** Besides the Träger and the Leitung: may this account edit child records? */
+  canEditChildren: integer('can_edit_children', { mode: 'boolean' }).notNull().default(false),
 })
 
 export const shiftTemplates = sqliteTable('shift_templates', {
@@ -347,3 +349,112 @@ export const leaveRequests = sqliteTable('leave_requests', {
 export const leavePlanners = sqliteTable('leave_planners', {
   userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
 })
+
+/** A care type (Betreuungsart) of a facility, e.g. a booking time window; times in minutes since midnight. */
+export const careTypes = sqliteTable('care_types', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
+  name: text('name').notNull(),
+  start: integer('start').notNull(),
+  end: integer('end').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, table => [index('care_types_facility').on(table.facilityId)])
+
+/** A kind of document in a child's record (Dokumentart); important/required drive the completeness view. */
+export const documentTypes = sqliteTable('document_types', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
+  name: text('name').notNull(),
+  important: integer('important', { mode: 'boolean' }).notNull().default(false),
+  required: integer('required', { mode: 'boolean' }).notNull().default(false),
+  /** New documents of this type start out confidential. */
+  confidentialDefault: integer('confidential_default', { mode: 'boolean' }).notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, table => [index('document_types_facility').on(table.facilityId)])
+
+/** A child's record (Kinderakte). Tri-state columns: null = not answered yet. */
+export const children = sqliteTable('children', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
+  /** The child's group; null = no group (also after the group was deleted). */
+  groupId: integer('group_id').references(() => groups.id, { onDelete: 'set null' }),
+  careTypeId: integer('care_type_id').references(() => careTypes.id),
+  lastName: text('last_name').notNull(),
+  firstName: text('first_name').notNull(),
+  birthDate: text('birth_date').notNull(),
+  address: text('address').notNull().default(''),
+  entryDate: text('entry_date'),
+  plannedEntryDate: text('planned_entry_date'),
+  infoMeetingDate: text('info_meeting_date'),
+  schoolStartDate: text('school_start_date'),
+  primarySchool: text('primary_school').notNull().default(''),
+  note: text('note').notNull().default(''),
+  leftOn: text('left_on'),
+  // Health
+  measlesProof: integer('measles_proof', { mode: 'boolean' }),
+  measlesProofDate: text('measles_proof_date'),
+  infectionBriefingDate: text('infection_briefing_date'),
+  allergies: text('allergies').notNull().default(''),
+  mayTakeTemperature: integer('may_take_temperature', { mode: 'boolean' }),
+  mayApplySunscreen: integer('may_apply_sunscreen', { mode: 'boolean' }),
+  mayApplyPlaster: integer('may_apply_plaster', { mode: 'boolean' }),
+  // Consents (Einwilligungen)
+  consentArtworkDisplay: integer('consent_artwork_display', { mode: 'boolean' }),
+  consentPhotosDisplay: integer('consent_photos_display', { mode: 'boolean' }),
+  consentPhotosForeignPortfolios: integer('consent_photos_foreign_portfolios', { mode: 'boolean' }),
+  consentPhotosInternalEvents: integer('consent_photos_internal_events', { mode: 'boolean' }),
+  consentPhotosWhatsapp: integer('consent_photos_whatsapp', { mode: 'boolean' }),
+  consentPhotosNamesBirthdaysDisplay: integer('consent_photos_names_birthdays_display', { mode: 'boolean' }),
+  consentGroupWorkWithNames: integer('consent_group_work_with_names', { mode: 'boolean' }),
+  consentWhatsappContact: integer('consent_whatsapp_contact', { mode: 'boolean' }),
+  consentWhatsappPhotos: integer('consent_whatsapp_photos', { mode: 'boolean' }),
+  consentWhatsappParentGroup: integer('consent_whatsapp_parent_group', { mode: 'boolean' }),
+  // Who changed which section last
+  masterUpdatedAt: text('master_updated_at'),
+  masterUpdatedBy: integer('master_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  contactsUpdatedAt: text('contacts_updated_at'),
+  contactsUpdatedBy: integer('contacts_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  healthUpdatedAt: text('health_updated_at'),
+  healthUpdatedBy: integer('health_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  consentsUpdatedAt: text('consents_updated_at'),
+  consentsUpdatedBy: integer('consents_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').notNull(),
+}, table => [
+  index('children_facility').on(table.facilityId),
+  index('children_group').on(table.groupId),
+])
+
+/** A contact person of a child (guardian, emergency contact, pick-up person). */
+export const childContacts = sqliteTable('child_contacts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  name: text('name').notNull(),
+  relation: text('relation').notNull().default(''),
+  phoneHome: text('phone_home').notNull().default(''),
+  phoneMobile: text('phone_mobile').notNull().default(''),
+  phoneWork: text('phone_work').notNull().default(''),
+  isGuardian: integer('is_guardian', { mode: 'boolean' }).notNull().default(false),
+  mayPickUp: integer('may_pick_up', { mode: 'boolean' }).notNull().default(false),
+  contactBan: integer('contact_ban', { mode: 'boolean' }).notNull().default(false),
+  /** Position in the emergency call order (1 = first); null = not an emergency contact. */
+  emergencyRank: integer('emergency_rank'),
+  contactBanNote: text('contact_ban_note').notNull().default(''),
+  note: text('note').notNull().default(''),
+}, table => [index('child_contacts_child').on(table.childId)])
+
+/** An uploaded document (PDF, JPEG or PNG) in a child's record; the file itself lives in the database. */
+export const childDocuments = sqliteTable('child_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  documentTypeId: integer('document_type_id').notNull().references(() => documentTypes.id),
+  title: text('title').notNull().default(''),
+  documentDate: text('document_date'),
+  /** Only readers with the right to see confidential documents get it. */
+  confidential: integer('confidential', { mode: 'boolean' }).notNull().default(false),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  uploadedAt: text('uploaded_at').notNull(),
+}, table => [index('child_documents_child').on(table.childId)])

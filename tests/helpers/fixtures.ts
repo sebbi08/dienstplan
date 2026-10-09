@@ -1,6 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
-import { absenceCodes, employeeHours, employees, helpOuts, shiftTemplates, users } from '../../server/db/schema'
+import {
+  absenceCodes, children, documentTypes, employeeHours, employees, helpOuts, shiftTemplates, users,
+} from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { ServiceError } from '../../server/lib/errors'
 import { hashPassword } from '../../server/lib/password'
@@ -61,6 +63,31 @@ export function addUser(
 /** A group of the facility, created through the service; returns its id. */
 export function addGroup(db: Db, facilityId: number, name: string): number {
   return createGroup(db, facilityId, name).id
+}
+
+/** A child of the facility (not yet left unless leftOn is given); returns its id. */
+export function addChild(
+  db: Db, facilityId: number,
+  overrides: Partial<{
+    lastName: string; firstName: string; birthDate: string; entryDate: string | null; plannedEntryDate: string | null
+    leftOn: string | null; groupId: number | null; careTypeId: number | null; allergies: string
+  }> = {},
+): number {
+  return db.insert(children).values({
+    facilityId,
+    lastName: 'Muster',
+    firstName: 'Kind',
+    birthDate: '2022-03-15',
+    entryDate: '2025-09-01',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  }).returning({ id: children.id }).get().id
+}
+
+/** The id of the facility's document type with this name. */
+export function documentTypeId(db: Db, facilityId: number, name: string): number {
+  return db.select({ id: documentTypes.id }).from(documentTypes)
+    .where(and(eq(documentTypes.facilityId, facilityId), eq(documentTypes.name, name))).get()!.id
 }
 
 /** Makes the employee a helper in facilityId's plan for the month (no checks); returns the help-out id. */

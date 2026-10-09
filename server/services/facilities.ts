@@ -1,7 +1,8 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { coverageRules, employees, facilities, shiftTemplates, users } from '../db/schema'
+import { coverageRules, documentTypes, employees, facilities, shiftTemplates, users } from '../db/schema'
+import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 
 const ordered = [asc(facilities.sortOrder), asc(facilities.id)]
@@ -62,7 +63,10 @@ function checkedName(db: Db, name: string, exceptId: number | null = null): stri
   return trimmed
 }
 
-/** A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules. */
+/**
+ * A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules
+ * and the default document types.
+ */
 export function createFacility(db: Db, name: string): FacilityDto {
   const checked = checkedName(db, name)
   return db.transaction((tx) => {
@@ -82,6 +86,7 @@ export function createFacility(db: Db, name: string): FacilityDto {
         tx.insert(coverageRules).values(rules.map(({ id: _id, ...rule }) => ({ ...rule, facilityId: facility.id }))).run()
       }
     }
+    tx.insert(documentTypes).values(DEFAULT_DOCUMENT_TYPES.map(type => ({ ...type, facilityId: facility.id }))).run()
     return toDto(facility)
   })
 }
