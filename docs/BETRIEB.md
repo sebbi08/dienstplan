@@ -64,6 +64,10 @@ Die Daten bleiben erhalten; die Datenbank wird beim Start automatisch auf die ne
 
 Bewahre Sicherungen immer auch außerhalb des Servers auf.
 
+Seit es die Kinderakten gibt, liegen auch alle Kinderdaten und hochgeladenen Dokumente (PDF, Fotos) in der
+Datenbank. Die Datenbank und damit jede Sicherung ist deshalb größer als früher und enthält sensible
+Daten. Behandle jede Sicherung wie die Kinderakten selbst (siehe Abschnitt 8).
+
 ## 6. Wiederherstellen einer Sicherung
 
 Gehe dafür in den Projektordner (`cd /opt/dienstplan`) und führe diese vier Schritte nacheinander aus.
@@ -121,3 +125,54 @@ Ein anderer Admin kann unter *Benutzer* das Passwort zurücksetzen. Gibt es kein
 3. Melde dich mit dem neuen Passwort an. Die App verlangt sofort ein eigenes neues Passwort.
 4. Lösche die Zeile `ADMIN_RESET_PASSWORD=…` wieder aus der Datei `.env` und starte noch einmal
    mit `docker compose up -d`.
+
+## 8. Datenschutz (Kinderakten)
+
+### Was gespeichert wird
+
+Die Kinderakten (Stammdaten, Notizen, Kontakte usw.) und alle hochgeladenen Dokumente liegen in der
+Datenbank des Dienstplans (im Docker-Betrieb die Datei `/data/app.db`). Erlaubt sind PDF-, JPG- und
+PNG-Dateien bis 10 MB pro Dokument. Es gibt keinen separaten Ordner mit Dokumenten: Wer die
+Datenbank hat, hat alles.
+
+### Wer sieht was
+
+| Rolle | Kinderakten |
+|---|---|
+| Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und Akten löschen. |
+| Mitarbeiter | sehen alle Kinder der eigenen Einrichtung, aber nur lesend. |
+| Mitarbeiter mit der Berechtigung „darf Kinderakten pflegen“ | dürfen zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
+| Tablet (Kita-Gerät) | sieht keine Kinderdaten. |
+
+Die Berechtigung „darf Kinderakten pflegen“ vergibst du in der Benutzerverwaltung pro Mitarbeiter.
+
+### Automatische Löschung
+
+- Wird ein Kind abgemeldet, kommt die Akte ins Archiv.
+- Die App prüft **täglich**, ob die Aufbewahrungsfrist abgelaufen ist, und löscht dann die archivierten
+  Akten samt Dokumenten endgültig.
+- Die Frist stellt der Träger unter den Einstellungen ein: „Löschfrist für abgemeldete Kinder“,
+  1 bis 10 Jahre, voreingestellt sind **3 Jahre**.
+- Besprich die Frist mit dem/der Datenschutzbeauftragten, bevor du sie festlegst.
+
+### Gelöschte Daten und Sicherungen
+
+Gelöschte Akten stecken noch in älteren Sicherungen. Die automatischen Nachtsicherungen im Ordner
+`/data/backups` werden 14 Tage aufbewahrt, danach sind die Daten dort ebenfalls weg. Von Hand
+heruntergeladene oder auf andere Rechner kopierte Sicherungen löscht die App nicht. Räume diese selbst auf,
+sonst bleiben Kinderdaten über die Löschfrist hinaus erhalten.
+
+### Sicherungen sicher aufbewahren
+
+Die Datei, die du unter *Einstellungen → Datensicherung → Datenbank herunterladen* bekommst, enthält
+**alle Kinderdaten inklusive aller Dokumente**. Das Gleiche gilt für die Nachtsicherungen.
+
+- Speichere sie nur an geschützten Orten (verschlüsseltes Laufwerk, zugriffsgeschützter Ordner).
+- Gib sie nicht per E-Mail oder über unverschlüsselte USB-Sticks weiter.
+- Lösche sie, wenn du sie nicht mehr brauchst.
+
+### Verschlüsselung der Server-Festplatte
+
+Die App verschlüsselt die Datenbank nicht selbst. Verschlüssele deshalb die Festplatte des Servers
+(Verantwortung des Betreibers, z. B. mit LUKS unter Linux oder der Verschlüsselung deines Hosters).
+Sonst sind die Kinderdaten lesbar, wenn jemand Zugriff auf die Festplatte oder eine Server-Kopie hat.
