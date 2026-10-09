@@ -2,14 +2,14 @@ import { asc, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  coverageRules, employees, entries, groups, weekTemplateEntries, weekTemplateMarks, weekTemplates,
+  children, coverageRules, employees, entries, groups, weekTemplateEntries, weekTemplateMarks, weekTemplates,
 } from '../../server/db/schema'
 import {
   createEmployee, getEmployee, listEmployees, moveEmployeeToFacility, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { assertGroup, createGroup, deleteGroup, listGroups, renameGroup } from '../../server/services/groups'
-import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-08'
 
@@ -86,7 +86,7 @@ describe('groups of a facility', () => {
       { facilityId: 1, weekStart: '2026-10-05', groupId: mice, weekTemplateId: miceWeek },
     ]).run()
 
-    deleteGroup(db, 1, bears)
+    deleteGroup(db, 1, bears, today)
 
     expect(listGroups(db, 1).map(group => group.id)).toEqual([mice])
     // No entry is lost; the one that counted for the deleted group counts for the home group again.
@@ -108,26 +108,44 @@ describe('groups of a facility', () => {
     const anna = addEmployee(db, 'Anna', { groupId: bears, leftOn: '2026-01-31' })
     const rule = db.insert(coverageRules).values({ facilityId: 1, label: 'Bären früh', start: 420, end: 480, groupId: bears })
       .returning().get().id
-    expect(errorCode(() => deleteGroup(db, 1, bears))).toBe('group_has_members')
+    expect(errorCode(() => deleteGroup(db, 1, bears, today))).toBe('group_has_members')
     expect(listGroups(db, 1).map(group => group.id)).toEqual([bears])
     expect(db.select().from(coverageRules).where(eq(coverageRules.id, rule)).get()).toBeDefined()
 
     updateEmployee(db, 1, anna, { name: 'Anna', shortName: 'An', leftOn: '2026-01-31', groupId: null })
-    deleteGroup(db, 1, bears)
+    deleteGroup(db, 1, bears, today)
     expect(listGroups(db, 1)).toEqual([])
-    expect(errorCode(() => deleteGroup(db, 1, bears))).toBe('group_not_found')
+    expect(errorCode(() => deleteGroup(db, 1, bears, today))).toBe('group_not_found')
   })
 
   it('answers group_not_found for another facility\'s group and changes nothing', () => {
     const krippe = addFacility(db, 'Krippe')
     const foreign = addGroup(db, krippe, 'Igel')
     expect(errorCode(() => renameGroup(db, 1, foreign, 'Füchse'))).toBe('group_not_found')
-    expect(errorCode(() => deleteGroup(db, 1, foreign))).toBe('group_not_found')
+    expect(errorCode(() => deleteGroup(db, 1, foreign, today))).toBe('group_not_found')
     expect(errorCode(() => assertGroup(db, 1, foreign))).toBe('group_not_found')
     expect(errorCode(() => assertGroup(db, 1, 999))).toBe('group_not_found')
     expect(errorCode(() => assertGroup(db, 1, null))).toBeNull()
     expect(errorCode(() => assertGroup(db, krippe, foreign))).toBeNull()
     expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0 }])
+  })
+
+  it('refuses to delete a group with active or planned children, but not one with archived children only', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    const active = addChild(db, 1, { groupId: bears })
+    const planned = addChild(db, 1, { groupId: bears, entryDate: null, plannedEntryDate: '2027-01-01' })
+    // Leaving today still counts: the child is archived only the day after.
+    const leaving = addChild(db, 1, { groupId: bears, leftOn: today })
+    const archived = addChild(db, 1, { groupId: bears, leftOn: '2026-10-07' })
+    for (const child of [active, planned, leaving]) {
+      expect(errorCode(() => deleteGroup(db, 1, bears, today))).toBe('group_has_children')
+      expect(listGroups(db, 1).map(group => group.id)).toEqual([bears])
+      db.update(children).set({ groupId: null }).where(eq(children.id, child)).run()
+    }
+
+    deleteGroup(db, 1, bears, today)
+    expect(listGroups(db, 1)).toEqual([])
+    expect(db.select({ groupId: children.groupId }).from(children).where(eq(children.id, archived)).get()!.groupId).toBeNull()
   })
 })
 

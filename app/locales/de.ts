@@ -478,5 +478,8 @@ export const de = {
     group_name_taken: 'In dieser Einrichtung gibt es schon eine Gruppe mit diesem Namen.',
     group_not_found: 'Diese Gruppe existiert nicht mehr.',
     group_has_members: 'Diese Gruppe ist noch die Stammgruppe von Mitarbeitern (auch von ausgeschiedenen). Bitte sie zuerst einer anderen Gruppe zuordnen oder als Springer eintragen.',
+    group_has_children: 'In dieser Gruppe sind noch Kinder (aktive oder geplante). Bitte sie zuerst einer anderen Gruppe zuordnen.',
+    invalid_retention: 'Die Löschfrist muss eine ganze Zahl von 1 bis 10 Jahren sein.',
+    left_on_too_early: 'Das Austrittsdatum darf höchstens ein Jahr zurückliegen.',
   },
 }

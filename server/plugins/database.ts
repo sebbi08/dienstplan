@@ -2,6 +2,7 @@ import { todayIso } from '../../shared/domain/dates'
 import { migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
+import { purgeExpiredChildren } from '../services/children'
 import { backfillSnapshots } from '../services/release'
 
 const HOUR_MS = 60 * 60 * 1000
@@ -24,6 +25,19 @@ export default defineNitroPlugin(() => {
       console.warn(`ADMIN_RESET_PASSWORD is set but was not applied: user "${name}" does not exist, ADMIN_USERNAME is missing or the password is too short. Remove this variable.`)
     }
   }
+
+  // Deleting children after their retention period must not depend on the backups being configured.
+  const purge = () => {
+    try {
+      const deleted = purgeExpiredChildren(db, todayIso())
+      if (deleted > 0) console.info(`Deleted ${deleted} child record(s) after the retention period.`)
+    }
+    catch (error) {
+      console.error('Deleting expired child records failed', error)
+    }
+  }
+  purge()
+  setInterval(purge, HOUR_MS).unref()
 
   const backupDir = process.env.BACKUP_DIR
   if (backupDir) {

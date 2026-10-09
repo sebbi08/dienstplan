@@ -1,7 +1,9 @@
 import { and, asc, eq, max } from 'drizzle-orm'
+import { childStatus } from '../../shared/domain/children'
+import type { IsoDate } from '../../shared/domain/types'
 import type { GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates } from '../db/schema'
+import { children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 
@@ -66,13 +68,18 @@ export function renameGroup(db: Db, facilityId: number, id: number, name: string
 }
 
 /**
- * Deletes a group that is nobody's home group any more (409 group_has_members otherwise, also for staff who left).
+ * Deletes a group that is nobody's home group any more (409 group_has_members otherwise, also for staff who left) and
+ * that has no active or planned children (409 group_has_children).
  * Its required duties and week templates go with it; duties that counted for it count for the home group again.
  */
-export function deleteGroup(db: Db, facilityId: number, id: number): void {
+export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDate): void {
   assertGroup(db, facilityId, id)
   if (db.select({ id: employees.id }).from(employees).where(eq(employees.groupId, id)).get()) {
     throw new ServiceError(409, 'group_has_members')
+  }
+  // Active and planned children (also those leaving today) keep their group; archived ones lose it (ON DELETE SET NULL).
+  if (db.select().from(children).where(eq(children.groupId, id)).all().some(child => childStatus(child, today) !== 'archived')) {
+    throw new ServiceError(409, 'group_has_children')
   }
   db.transaction((tx) => {
     tx.update(entries).set({ groupId: null }).where(eq(entries.groupId, id)).run()

@@ -207,6 +207,19 @@ export interface BirthdayDto {
   turns: number
 }
 
+/** An archived child in the archive list; the record is deleted on `purgeOn`. */
+export interface ArchivedChildDto {
+  id: number
+  name: string
+  leftOn: IsoDate
+  purgeOn: IsoDate
+}
+
+/** Whole years (1-10) a child's record is kept after the leaving day; set by the Träger for all facilities. */
+export interface ChildRetentionDto {
+  years: number
+}
+
 export interface FacilitiesDto {
   facilities: FacilityDto[]
   /** The facility the viewer currently works in. */

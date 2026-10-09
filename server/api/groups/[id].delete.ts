@@ -1,3 +1,4 @@
+import { todayIso } from '../../../shared/domain/dates'
 import { idParams } from '../../schemas'
 import { deleteGroup, facilityOfGroup } from '../../services/groups'
 
@@ -6,6 +7,6 @@ export default defineServiceHandler(async (event) => {
   await requireProvider(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const db = useDb()
-  deleteGroup(db, facilityOfGroup(db, id), id)
+  deleteGroup(db, facilityOfGroup(db, id), id, todayIso())
   return { ok: true }
 })

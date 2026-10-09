@@ -174,7 +174,7 @@ describe('entry groups (single duties in another group)', () => {
     expect(Object.keys(pending())).toEqual([cellKey(ben, tuesday)])
 
     // Mäuse is deleted after the release (Anna's duty counts for her home group again); reverting cannot bring it back.
-    deleteGroup(db, 1, maeuse)
+    deleteGroup(db, 1, maeuse, today)
     expect(day(anna)[0]!.groupId).toBeNull()
     revertToRelease(db, admin, 1, 2026, 10, [cellKey(anna, tuesday)])
     expect(day(anna)[0]).toMatchObject({ shortLabel: 'F2', groupId: null })

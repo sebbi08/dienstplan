@@ -165,7 +165,7 @@ describe('groups in the plan and in releases', () => {
     it('shows a deleted group in the pending change, the notification and the history', () => {
       write(ben, tuesday, shift('F2', { groupId: igel }))
       release('2026-09-25T10:00:00Z')
-      deleteGroup(db, 1, igel)
+      deleteGroup(db, 1, igel, today)
       const key = cellKey(ben, tuesday)
       const change = { before: 'F2 7:30–15:45 [11:40–12:10] → Igel', after: 'F2 7:30–15:45 [11:40–12:10]' }
       expect(plan().admin!.pendingChanges).toEqual({ [key]: change })

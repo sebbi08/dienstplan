@@ -1,20 +1,23 @@
-import { asc, eq, inArray } from 'drizzle-orm'
-import { ageOn, childStatus, nextBirthday } from '../../shared/domain/children'
+import { asc, eq, inArray, max } from 'drizzle-orm'
+import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
-  type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
+  type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
   type ChildRecordDto, type ConsentKey, type SectionStamp, type SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { careTypes, childContacts, children, users } from '../db/schema'
+import { careTypes, childContacts, childDocuments, children, documentTypes, users } from '../db/schema'
+import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import { loadChild, loadEditableChild, sectionStamp, type ChildRow } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
+import { getChildrenPurgedOn, getChildRetentionYears, setChildrenPurgedOn } from './appSettings'
 import { assertCareType } from './careTypes'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
+import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
@@ -103,7 +106,7 @@ export function getChild(
       consents: stampOf(row.consentsUpdatedAt, row.consentsUpdatedBy),
     },
     leftOn: row.leftOn,
-    purgeOn: null,
+    purgeOn: row.leftOn !== null && isManager(viewer.role) ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
     canEdit: mayEditChildren(viewer) && status !== 'archived',
     documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
   }
@@ -191,4 +194,97 @@ export function listBirthdays(db: Db, facilityId: number, today: IsoDate): Birth
       date: birthday.date,
       turns: birthday.turns,
     }))
+}
+
+/** Registers the leaving day: today, in the future or up to a year back (400 left_on_too_early otherwise). */
+export function leaveChild(db: Db, facilityId: number, id: number, leftOn: IsoDate, today: IsoDate): void {
+  loadChild(db, facilityId, id)
+  if (!isValidIsoDate(leftOn)) throw new ServiceError(400, 'invalid_date')
+  // A year back from today (29 February falls on 28 February).
+  if (leftOn < purgeDate(today, -1)) throw new ServiceError(400, 'left_on_too_early')
+  db.update(children).set({ leftOn }).where(eq(children.id, id)).run()
+}
+
+/** Takes the registration back: the child is active (or planned) again. */
+export function unleaveChild(db: Db, facilityId: number, id: number): void {
+  loadChild(db, facilityId, id)
+  db.update(children).set({ leftOn: null }).where(eq(children.id, id)).run()
+}
+
+/** Deletes the record at once; contacts and documents go with it (ON DELETE CASCADE). */
+export function deleteChild(db: Db, facilityId: number, id: number): void {
+  loadChild(db, facilityId, id)
+  db.delete(children).where(eq(children.id, id)).run()
+}
+
+/** The facility's archived children, the latest leaving first, with the day their record is deleted. */
+export function listArchive(db: Db, facilityId: number, today: IsoDate): ArchivedChildDto[] {
+  const years = getChildRetentionYears(db)
+  return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+    .filter(row => childStatus(row, today) === 'archived')
+    .sort((a, b) => b.leftOn!.localeCompare(a.leftOn!) || byName(a, b))
+    .map(row => ({
+      id: row.id,
+      name: `${row.firstName} ${row.lastName}`,
+      leftOn: row.leftOn!,
+      purgeOn: purgeDate(row.leftOn!, years),
+    }))
+}
+
+/**
+ * Deletes every child (all facilities) whose purge date has come, with contacts and documents, in one transaction.
+ * Runs at most once per calendar day; returns how many records were deleted.
+ */
+export function purgeExpiredChildren(db: Db, today: IsoDate): number {
+  if (getChildrenPurgedOn(db) === today) return 0
+  return db.transaction((tx) => {
+    const years = getChildRetentionYears(tx)
+    const expired = tx.select({ id: children.id, leftOn: children.leftOn }).from(children).all()
+      .filter(row => row.leftOn !== null && purgeDate(row.leftOn, years) <= today)
+      .map(row => row.id)
+    if (expired.length > 0) tx.delete(children).where(inArray(children.id, expired)).run()
+    setChildrenPurgedOn(tx, today)
+    return expired.length
+  })
+}
+
+const OTHER_DOCUMENT_TYPE = 'Sonstiges'
+const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivity: 'accent' }) === 0
+
+/**
+ * The Träger moves a record to another facility with its contacts and documents. Group and care type belong to the old
+ * facility and are cleared; every document gets the like-named document type of the new facility, otherwise its
+ * "Sonstiges" (created with the default flags when missing).
+ */
+export function moveChildToFacility(db: Db, childId: number, targetFacilityId: number): void {
+  const child = db.select({ facilityId: children.facilityId }).from(children).where(eq(children.id, childId)).get()
+  if (!child) throw new ServiceError(404, 'child_not_found')
+  assertFacility(db, targetFacilityId)
+  if (child.facilityId === targetFacilityId) return
+  db.transaction((tx) => {
+    const typesOf = (facilityId: number) => tx.select({ id: documentTypes.id, name: documentTypes.name })
+      .from(documentTypes).where(eq(documentTypes.facilityId, facilityId)).all()
+    const sourceNames = new Map(typesOf(child.facilityId).map(type => [type.id, type.name]))
+    const targetTypes = typesOf(targetFacilityId)
+    let other = targetTypes.find(type => sameName(type.name, OTHER_DOCUMENT_TYPE))?.id ?? null
+    const otherType = (): number => {
+      if (other === null) {
+        const template = DEFAULT_DOCUMENT_TYPES.find(type => type.name === OTHER_DOCUMENT_TYPE)!
+        const sortOrder = (tx.select({ value: max(documentTypes.sortOrder) }).from(documentTypes)
+          .where(eq(documentTypes.facilityId, targetFacilityId)).get()?.value ?? -1) + 1
+        other = tx.insert(documentTypes).values({ ...template, facilityId: targetFacilityId, sortOrder })
+          .returning({ id: documentTypes.id }).get().id
+      }
+      return other
+    }
+    const documents = tx.select({ id: childDocuments.id, typeId: childDocuments.documentTypeId }).from(childDocuments)
+      .where(eq(childDocuments.childId, childId)).all()
+    for (const document of documents) {
+      const name = sourceNames.get(document.typeId)
+      const match = name === undefined ? undefined : targetTypes.find(type => sameName(type.name, name))
+      tx.update(childDocuments).set({ documentTypeId: match?.id ?? otherType() }).where(eq(childDocuments.id, document.id)).run()
+    }
+    tx.update(children).set({ facilityId: targetFacilityId, groupId: null, careTypeId: null })
+      .where(eq(children.id, childId)).run()
+  })
 }

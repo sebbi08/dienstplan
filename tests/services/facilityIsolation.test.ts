@@ -816,11 +816,11 @@ describe('facility isolation', () => {
       groupNotFound(() => updateCoverageRule(db, 1, ruleId, { label: 'X', start: 480, end: 720, minCount: 1, active: true, groupId: bärchen }))
       groupNotFound(() => saveWeekTemplate(db, 1, { name: 'Woche X', weekStart: '2026-10-05', groupId: bärchen }))
       groupNotFound(() => renameGroup(db, 1, bärchen, 'Gehackt'))
-      groupNotFound(() => deleteGroup(db, 1, bärchen))
+      groupNotFound(() => deleteGroup(db, 1, bärchen, today))
       // And the other way round, with A's group in facility B.
       groupNotFound(() => setEntryGroup(db, leitungB, facility2, kimEntryId, mäuse))
       groupNotFound(() => renameGroup(db, facility2, mäuse, 'Gehackt'))
-      groupNotFound(() => deleteGroup(db, facility2, mäuse))
+      groupNotFound(() => deleteGroup(db, facility2, mäuse, today))
 
       // Nothing changed.
       expect(listGroups(db, facility2).map(group => group.name)).toEqual(names)
