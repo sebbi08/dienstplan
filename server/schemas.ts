@@ -135,3 +135,16 @@ export const helpOutSchema = z.object({
   month: z.number().int().min(1).max(12),
 })
 export const groupNameSchema = z.object({ name: z.string().max(80) })
+export const careTypeSchema = z.object({
+  name: z.string().max(80),
+  start: z.number().int(),
+  end: z.number().int(),
+  sortOrder: z.number().int().min(0).max(10000),
+})
+export const documentTypeSchema = z.object({
+  name: z.string().max(80),
+  important: z.boolean(),
+  required: z.boolean(),
+  confidentialDefault: z.boolean(),
+  sortOrder: z.number().int().min(0).max(10000),
+})

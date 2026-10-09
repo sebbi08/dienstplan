@@ -50,6 +50,30 @@ export interface GroupDto {
   sortOrder: number
 }
 
+/** A care type (Betreuungsart) of a facility: a booking time window, times in minutes since midnight. */
+export interface CareTypeDto {
+  id: number
+  name: string
+  start: Minutes
+  end: Minutes
+  sortOrder: number
+}
+
+export type CareTypeInput = Omit<CareTypeDto, 'id'>
+
+/** A document type (Dokumentart) of a facility; important/required drive the completeness view. */
+export interface DocumentTypeDto {
+  id: number
+  name: string
+  important: boolean
+  required: boolean
+  /** New documents of this type start out confidential. */
+  confidentialDefault: boolean
+  sortOrder: number
+}
+
+export type DocumentTypeInput = Omit<DocumentTypeDto, 'id'>
+
 export interface FacilitiesDto {
   facilities: FacilityDto[]
   /** The facility the viewer currently works in. */
