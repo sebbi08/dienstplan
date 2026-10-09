@@ -51,6 +51,23 @@ function loadContact(db: Db, facilityId: number, contactId: number): ContactRow 
   return row.contact
 }
 
+/**
+ * The contact and its child for a change: the contact must belong to a child of the facility (404 contact_not_found)
+ * and the child must not be archived (managers: 409 child_archived; everybody else gets the contact's own 404
+ * contact_not_found, so nothing reveals an archived child's record).
+ */
+function loadEditableContact(db: Db, actor: SessionUser, facilityId: number, contactId: number, today: IsoDate): ContactRow {
+  const contact = loadContact(db, facilityId, contactId)
+  try {
+    loadEditableChild(db, actor, facilityId, contact.childId, today)
+  }
+  catch (error) {
+    if (error instanceof ServiceError && error.code === 'child_not_found') throw new ServiceError(404, 'contact_not_found')
+    throw error
+  }
+  return contact
+}
+
 function stamp(db: Db, childId: number, actor: SessionUser, now: Date): void {
   db.update(children).set(sectionStamp('contacts', actor.id, now)).where(eq(children.id, childId)).run()
 }
@@ -75,8 +92,7 @@ export function updateContact(
   db: Db, actor: SessionUser, facilityId: number, contactId: number, input: ChildContactInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  const contact = loadContact(db, facilityId, contactId)
-  loadEditableChild(db, actor, facilityId, contact.childId, today)
+  const contact = loadEditableContact(db, actor, facilityId, contactId, today)
   const checked = checkedContact(input)
   db.transaction((tx) => {
     tx.update(childContacts).set(checked).where(eq(childContacts.id, contactId)).run()
@@ -87,8 +103,7 @@ export function updateContact(
 export function deleteContact(
   db: Db, actor: SessionUser, facilityId: number, contactId: number, today: IsoDate, now: Date = new Date(),
 ): void {
-  const contact = loadContact(db, facilityId, contactId)
-  loadEditableChild(db, actor, facilityId, contact.childId, today)
+  const contact = loadEditableContact(db, actor, facilityId, contactId, today)
   db.transaction((tx) => {
     tx.delete(childContacts).where(eq(childContacts.id, contactId)).run()
     stamp(tx, contact.childId, actor, now)

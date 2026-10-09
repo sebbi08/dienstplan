@@ -104,7 +104,7 @@ describe('contacts of a child', () => {
     expect(getChild(db, otherAdmin, foreignChild, TODAY).contacts).toHaveLength(1)
   })
 
-  it('rejects every change for an archived child: child_archived for managers, child_not_found for a Mitarbeiter', () => {
+  it('rejects every change for an archived child: child_archived for managers, not found for a Mitarbeiter (contact_not_found for an existing contact)', () => {
     const editor = { ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true } as FacilityUser
     const archived = addChild(db, 1, { leftOn: '2026-09-30' })
     expect(errorCode(() => addContact(db, admin, 1, archived, contact(), TODAY, NOW))).toBe('child_archived')
@@ -116,7 +116,7 @@ describe('contacts of a child', () => {
     const leftContact = addContact(db, admin, 1, left, contact(), '2026-10-01', NOW)
     expect(errorCode(() => updateContact(db, admin, 1, leftContact, contact(), TODAY, NOW))).toBe('child_archived')
     expect(errorCode(() => deleteContact(db, admin, 1, leftContact, TODAY, NOW))).toBe('child_archived')
-    expect(errorCode(() => updateContact(db, editor, 1, leftContact, contact(), TODAY, NOW))).toBe('child_not_found')
-    expect(errorCode(() => deleteContact(db, editor, 1, leftContact, TODAY, NOW))).toBe('child_not_found')
+    expect(errorCode(() => updateContact(db, editor, 1, leftContact, contact(), TODAY, NOW))).toBe('contact_not_found')
+    expect(errorCode(() => deleteContact(db, editor, 1, leftContact, TODAY, NOW))).toBe('contact_not_found')
   })
 })

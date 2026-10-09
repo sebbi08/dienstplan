@@ -35,6 +35,16 @@ describe('ageOn', () => {
     expect(ageOn('2022-10-08', '2026-10-08')).toEqual({ years: 4, months: 0 })
     expect(ageOn('2022-10-09', '2026-10-08')).toEqual({ years: 3, months: 11 })
   })
+
+  it('counts a birth day the month does not have on the last day of the month', () => {
+    expect(ageOn('2020-02-29', '2027-02-28')).toEqual({ years: 7, months: 0 })
+    expect(ageOn('2020-02-29', '2027-02-27')).toEqual({ years: 6, months: 11 })
+    expect(ageOn('2020-02-29', '2028-02-28')).toEqual({ years: 7, months: 11 })
+    expect(ageOn('2020-02-29', '2028-02-29')).toEqual({ years: 8, months: 0 })
+    expect(ageOn('2025-01-31', '2025-02-28')).toEqual({ years: 0, months: 1 })
+    expect(ageOn('2025-01-31', '2025-02-27')).toEqual({ years: 0, months: 0 })
+    expect(ageOn('2025-01-31', '2025-04-30')).toEqual({ years: 0, months: 3 })
+  })
 })
 
 describe('nextBirthday', () => {

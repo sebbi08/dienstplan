@@ -21,12 +21,16 @@ export function purgeDate(leftOn: IsoDate, years: number): IsoDate {
   return inYear(leftOn, parseIsoDate(leftOn).year + years)
 }
 
-/** Completed years and months on a day (a month counts once its day of month is reached). */
+/**
+ * Completed years and months on a day (a month counts once its day of month is reached). A birth day the month does
+ * not have (29-31) counts on the month's last day, so a 29 February child turns a year older on 28 February in
+ * non-leap years, as `nextBirthday` says.
+ */
 export function ageOn(birthDate: IsoDate, date: IsoDate): { years: number; months: number } {
   const birth = parseIsoDate(birthDate)
   const on = parseIsoDate(date)
   let total = (on.year - birth.year) * 12 + (on.month - birth.month)
-  if (on.day < birth.day) total -= 1
+  if (on.day < Math.min(birth.day, daysInMonth(on.year, on.month))) total -= 1
   return { years: Math.floor(total / 12), months: total % 12 }
 }
 

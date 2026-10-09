@@ -126,10 +126,12 @@ describe('child documents', () => {
 
   describe('visibility', () => {
     it('hides confidential documents from ordinary observers but not from permitted observers and managers', () => {
-      const id = upload({ typeId: attestType, confidential: true })
-      expect(listDocuments(db, plain, 1, childId, TODAY)[0]).toMatchObject({ id, canOpen: false })
+      const id = upload({ typeId: attestType, confidential: true, title: 'Gutachten Jugendamt' })
+      expect(listDocuments(db, plain, 1, childId, TODAY)[0]).toMatchObject({ id, canOpen: false, title: '', typeName: 'Ärztliches Attest' })
+      expect(JSON.stringify(getChild(db, plain, childId, TODAY))).not.toContain('Gutachten')
       expect(errorCode(() => readDocumentFile(db, plain, 1, id, TODAY))).toBe('document_not_found')
-      expect(listDocuments(db, allowed, 1, childId, TODAY)[0]).toMatchObject({ id, canOpen: true })
+      expect(listDocuments(db, allowed, 1, childId, TODAY)[0]).toMatchObject({ id, canOpen: true, title: 'Gutachten Jugendamt' })
+      expect(listDocuments(db, admin, 1, childId, TODAY)[0]).toMatchObject({ id, canOpen: true, title: 'Gutachten Jugendamt' })
       expect(readDocumentFile(db, allowed, 1, id, TODAY).data.length).toBeGreaterThan(0)
       expect(readDocumentFile(db, admin, 1, id, TODAY).data.length).toBeGreaterThan(0)
     })

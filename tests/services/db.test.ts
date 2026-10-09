@@ -226,6 +226,37 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('adds the seven default document types to every existing facility with the exact flags', () => {
+    const { db, sqlite } = databaseAt('0022')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe'), (3, 'Hort');
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1), (2, 'Ben', 2);
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    const expected = [
+      { name: 'Betreuungsvertrag', important: 1, required: 1, confidential_default: 1, sort_order: 0 },
+      { name: 'Masernnachweis', important: 1, required: 1, confidential_default: 0, sort_order: 1 },
+      { name: 'Belehrung Infektionsschutz', important: 1, required: 1, confidential_default: 0, sort_order: 2 },
+      { name: 'Datenschutz-Einwilligung', important: 1, required: 1, confidential_default: 0, sort_order: 3 },
+      { name: 'Sorgerechtsbeschluss', important: 1, required: 0, confidential_default: 1, sort_order: 4 },
+      { name: 'Ärztliches Attest', important: 0, required: 0, confidential_default: 1, sort_order: 5 },
+      { name: 'Sonstiges', important: 0, required: 0, confidential_default: 0, sort_order: 6 },
+    ]
+    const facilities = sqlite.prepare('SELECT id FROM facilities ORDER BY id').all() as { id: number }[]
+    expect(facilities.map(row => row.id)).toEqual([1, 2, 3])
+    for (const { id } of facilities) {
+      expect(sqlite.prepare(
+        'SELECT name, important, required, confidential_default, sort_order FROM document_types WHERE facility_id = ? ORDER BY sort_order',
+      ).all(id), `facility ${id}`).toEqual(expected)
+    }
+    expect(count(sqlite, 'document_types')).toBe(21)
+    expect(count(sqlite, 'children')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

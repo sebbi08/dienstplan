@@ -90,7 +90,8 @@ export function listDocuments(
     id: row.id,
     typeId: row.documentTypeId,
     typeName: typeNames.get(row.documentTypeId) ?? '',
-    title: row.title,
+    // The title of a confidential document can be as revealing as the file itself.
+    title: mayOpen(viewer, row) ? row.title : '',
     documentDate: dayOf(row),
     confidential: row.confidential,
     mimeType: row.mimeType,
