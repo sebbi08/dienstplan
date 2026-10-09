@@ -6,7 +6,19 @@ import { phonesOf, telHref } from '~/utils/children'
 /** Contact persons (Bezugspersonen): add, change, delete and re-order (the order is kept, emergency ranks are separate). */
 const props = defineProps<{ child: ChildRecordDto }>()
 const emit = defineEmits<{ saved: [] }>()
-const run = useAction(async () => emit('saved'))
+const runAction = useAction(async () => emit('saved'))
+// One request at a time: no double submit, and moves cannot race each other.
+const busy = ref(false)
+async function run(action: () => Promise<unknown>, successMessage?: string): Promise<boolean> {
+  if (busy.value) return false
+  busy.value = true
+  try {
+    return await runAction(action, successMessage)
+  }
+  finally {
+    busy.value = false
+  }
+}
 const confirm = useConfirm()
 
 const open = ref(false)
@@ -94,10 +106,10 @@ const f = de.children.fields
           <p v-if="contact.note" class="whitespace-pre-line text-gray-600">{{ contact.note }}</p>
         </div>
         <div v-if="child.canEdit" class="flex items-center">
-          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.children.moveUp" :disabled="index === 0" @click="move(index, -1)" />
-          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.children.moveDown" :disabled="index === child.contacts.length - 1" @click="move(index, 1)" />
-          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEdit(contact)" />
-          <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="remove(contact)" />
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.children.moveUp" :disabled="busy || index === 0" @click="move(index, -1)" />
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.children.moveDown" :disabled="busy || index === child.contacts.length - 1" @click="move(index, 1)" />
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(contact)" />
+          <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(contact)" />
         </div>
       </li>
     </ul>
@@ -126,7 +138,7 @@ const f = de.children.fields
           </UFormField>
           <UFormField :label="f.note" class="sm:col-span-2"><UTextarea v-model="form.note" :rows="2" maxlength="1000" class="w-full" /></UFormField>
           <div class="flex gap-2 sm:col-span-2">
-            <UButton type="submit" :label="de.common.save" />
+            <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
             <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
           </div>
         </form>

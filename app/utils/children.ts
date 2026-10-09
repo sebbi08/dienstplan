@@ -2,9 +2,10 @@ import type { ChildContactDto, SectionStamp } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 
-/** `tel:` link target: only digits and a leading plus survive, so spaces and slashes in the stored text do not matter. */
-export function telHref(phone: string): string {
-  return `tel:${phone.replace(/[^\d+]/g, '')}`
+/** `tel:` link target (digits and plus only, so spaces and slashes do not matter); undefined for text without a digit. */
+export function telHref(phone: string): string | undefined {
+  const number = phone.replace(/[^\d+]/g, '')
+  return /\d/.test(number) ? `tel:${number}` : undefined
 }
 
 /** The phone numbers of a contact that are filled in, with their label. */

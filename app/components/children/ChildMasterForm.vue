@@ -32,7 +32,9 @@ function reset() {
     : empty)
 }
 reset()
-watch(() => props.child?.master, reset)
+// Another section's save refreshes the record; do not wipe what is being typed here.
+watch(() => props.child?.master, () => { if (!editing.value) reset() })
+watch(editing, (value) => { if (value) reset() })
 
 const showGroup = computed(() => (canPickGroup.value && groups.value.length > 0) || (!creating && props.child!.master.groupId !== null))
 const groupItems = computed(() => [{ label: de.children.noGroup, value: 0 }, ...groups.value.map(group => ({ label: group.name, value: group.id }))])
@@ -50,18 +52,24 @@ function payload(): ChildMasterInput {
   }
 }
 
+const busy = ref(false)
 async function save() {
+  if (busy.value) return
+  busy.value = true
   if (creating) {
     try {
       const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: payload() })
+      // Stays busy while leaving, so the child cannot be created twice.
       await navigateTo(`/children/${id}`)
     }
     catch (error) {
       useToast().add({ title: errorMessage(error), color: 'error' })
+      busy.value = false
     }
     return
   }
   const ok = await run(() => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: payload() }), de.common.saved)
+    .finally(() => { busy.value = false })
   if (ok) editing.value = false
 }
 
@@ -121,7 +129,7 @@ const rows = computed(() => {
         <UFormField :label="f.primarySchool" class="sm:col-span-2"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
         <UFormField :label="f.note" class="sm:col-span-2"><UTextarea v-model="form.note" :rows="3" maxlength="2000" class="w-full" /></UFormField>
         <div class="flex gap-2 sm:col-span-2">
-          <UButton type="submit" :label="creating ? de.children.create : de.common.save" />
+          <UButton type="submit" :label="creating ? de.children.create : de.common.save" :loading="busy" :disabled="busy" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="cancel" />
         </div>
       </form>

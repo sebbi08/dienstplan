@@ -16,11 +16,15 @@ function reset() {
   Object.assign(form, { ...health, measlesProofDate: health.measlesProofDate ?? '', infectionBriefingDate: health.infectionBriefingDate ?? '' })
 }
 reset()
-watch(() => props.child.health, reset)
+// Another section's save refreshes the record; do not wipe what is being typed here.
+watch(() => props.child.health, () => { if (!editing.value) reset() })
+watch(editing, (value) => { if (value) reset() })
 
+const busy = ref(false)
 async function save() {
   const body = { ...form, measlesProofDate: orNull(form.measlesProofDate), infectionBriefingDate: orNull(form.infectionBriefingDate) }
-  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/health`, { method: 'PUT', body }), de.common.saved)
+  busy.value = true
+  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/health`, { method: 'PUT', body }), de.common.saved).finally(() => { busy.value = false })
   if (ok) editing.value = false
 }
 function cancel() {
@@ -70,7 +74,7 @@ const permissions = [
           <ChildrenTriStateSelect v-model="form[permission.key]" :label="permission.label" />
         </UFormField>
         <div class="flex gap-2 sm:col-span-2">
-          <UButton type="submit" :label="de.common.save" />
+          <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="cancel" />
         </div>
       </form>

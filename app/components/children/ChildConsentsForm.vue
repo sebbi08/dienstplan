@@ -10,10 +10,14 @@ const run = useAction(async () => emit('saved'))
 const editing = ref(false)
 const form = reactive<ChildConsents>({ ...props.child.consents })
 const reset = () => Object.assign(form, props.child.consents)
-watch(() => props.child.consents, reset)
+// Another section's save refreshes the record; do not wipe what is being typed here.
+watch(() => props.child.consents, () => { if (!editing.value) reset() })
+watch(editing, (value) => { if (value) reset() })
 
+const busy = ref(false)
 async function save() {
-  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/consents`, { method: 'PUT', body: { ...form } }), de.common.saved)
+  busy.value = true
+  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}/consents`, { method: 'PUT', body: { ...form } }), de.common.saved).finally(() => { busy.value = false })
   if (ok) editing.value = false
 }
 function cancel() {
@@ -58,7 +62,7 @@ const blocks = [
           </div>
         </div>
         <div class="flex gap-2">
-          <UButton type="submit" :label="de.common.save" />
+          <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="cancel" />
         </div>
       </form>
