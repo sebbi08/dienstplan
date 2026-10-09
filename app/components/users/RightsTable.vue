@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
  * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
-type Right = 'yes' | 'no' | 1 | 2 | 3 | 4 | 5 | 6
+type Right = 'yes' | 'no' | 1 | 2 | 3 | 4 | 5 | 6 | 7
 const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
 const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Right, Right] }[] }[] = [
@@ -43,6 +43,13 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Krankheitstage, Jahreskalender bearbeiten (Termine, Abwesenheiten), Druckansichten', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Jahreskalender ansehen', rights: ['yes', 'yes', 6, 'no'] },
   ] },
+  { title: 'Kinder', rows: [
+    { label: 'Kinderliste und Akten ansehen', rights: ['yes', 'yes', 'yes', 'no'] },
+    { label: 'Kinder anlegen und Akten ändern', rights: ['yes', 'yes', 7, 'no'] },
+    { label: 'Vertrauliche Dokumente öffnen', rights: ['yes', 'yes', 7, 'no'] },
+    { label: 'Kinder abmelden, Archiv, löschen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Löschfrist einstellen', rights: ['yes', 'no', 'no', 'no'] },
+  ] },
   { title: 'Verwaltung', rows: [
     { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
@@ -54,13 +61,14 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   ] },
 ]
 
-const FOOTNOTES: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
+const FOOTNOTES: Record<1 | 2 | 3 | 4 | 5 | 6 | 7, string> = {
   1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (beim Handy zusätzlich: „Stempeln über“ erlaubt das Handy)',
   2: 'wenn die Leitung beim Mitarbeiter „Kita-Tablet und eigenes Handy“ eingestellt hat',
   3: 'nur lesen und nur, wenn der Träger die Vertragsangaben für die Leitung freigegeben hat',
   4: 'wenn der Träger das Modul Urlaubsanträge eingeschaltet hat (beim Beantragen: Konto mit einem Mitarbeiter verknüpft)',
   5: 'wenn das Modul eingeschaltet ist und der Träger diese Leitung als zuständig für die Urlaubsplanung festgelegt hat',
   6: 'nur lesen: Urlaub, Sonderurlaub, Fortbildung und Schule aller, Krankheitstage nur die eigenen, Termine nur die für Mitarbeiter freigegebenen',
+  7: 'nur mit Freischaltung „darf Kinderakten pflegen“',
 }
 </script>
 

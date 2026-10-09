@@ -26,12 +26,14 @@ const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, to
         <span v-else-if="child.status === 'archived'" class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{{ de.children.tabs.archive }}</span>
       </div>
 
+      <p v-if="child.status === 'archived'" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">{{ de.childLifecycle.archived }}</p>
       <ChildrenChildImportantBox :child="child" />
       <ChildrenChildMasterForm :child="child" :lookups="lookups" @saved="refresh" />
       <ChildrenChildContactsSection :child="child" @saved="refresh" />
       <ChildrenChildHealthForm :child="child" @saved="refresh" />
       <ChildrenChildConsentsForm :child="child" @saved="refresh" />
-      <!-- The documents section (Dokumente) is added here. -->
+      <ChildrenChildDocumentsSection :child="child" @saved="refresh" />
+      <ChildrenChildLifecycleSection :child="child" @saved="refresh" />
     </template>
   </div>
 </template>

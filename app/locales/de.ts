@@ -362,6 +362,7 @@ export const de = {
     active: 'aktiv', status: 'Status', create: 'Benutzer anlegen', resetPassword: 'Passwort zurücksetzen',
     newPassword: 'Neues Passwort (mindestens 8 Zeichen)', resetHint: 'Die Person muss das Passwort bei der nächsten Anmeldung ändern.',
     locked: (until: string) => `gesperrt bis ${until}`, mustChange: 'muss Passwort ändern',
+    canEditChildren: 'darf Kinderakten pflegen',
   },
   facilities: {
     title: 'Einrichtungen',
@@ -414,6 +415,35 @@ export const de = {
     editContact: 'Bezugsperson bearbeiten', confirmDeleteContact: 'Diese Bezugsperson löschen?',
     moveUp: 'Nach oben', moveDown: 'Nach unten', createTitle: 'Kind anlegen', ageAt: 'Alter', birthdayOn: 'Geburtstag am',
     noSelection: 'keine Angabe', noValue: '–',
+    printBirthdays: 'Geburtstage der Kinder', printDocuments: 'Dokumentenübersicht',
+  },
+  childDocuments: {
+    upload: 'Dokument hochladen', file: 'Datei (PDF, JPG oder PNG, höchstens 10 MB)', type: 'Art', title: 'Bezeichnung', date: 'Datum',
+    visibility: 'Sichtbarkeit', all: 'alle Mitarbeiter', confidential: 'vertraulich', uploadedBy: (by: string, at: string) => `hochgeladen von ${by} am ${at}`,
+    open: 'Öffnen', download: 'Herunterladen', missing: 'fehlt', onlyMissing: 'nur Kinder mit fehlenden Dokumenten', confirmDelete: 'Dokument wirklich löschen?',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    none: 'Noch keine Dokumente hochgeladen.', edit: 'Dokument bearbeiten', noTypes: 'Es gibt noch keine Dokumentarten. Die Leitung legt sie in den Einstellungen an.',
+    lockedHint: 'vertraulich – nur für die Leitung und Berechtigte', overviewHint: 'Die neueste Datei je wichtiger Dokumentart. Rot: ein nötiges Dokument fehlt.',
+    noImportantTypes: 'Es sind noch keine Dokumentarten als wichtig markiert.', unknownUploader: 'gelöschtes Konto',
+  },
+  childLifecycle: {
+    leave: 'Kind abmelden', leftOn: 'Austrittsdatum', unleave: 'Abmeldung zurücknehmen', deleteNow: 'Sofort löschen',
+    confirmDelete: 'Akte mit allen Bezugspersonen und Dokumenten endgültig löschen?', purgeOn: (date: string) => `wird gelöscht am ${date}`,
+    move: 'In andere Einrichtung verschieben', archived: 'Abgemeldet – die Akte kann nicht mehr geändert werden.',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    title: 'Abmeldung', leavesOn: (date: string) => `Austritt am ${date}`, moveTarget: 'Einrichtung', moveAction: 'Verschieben', moved: 'Akte verschoben',
+    confirmLeave: (name: string, date: string) => `${name} zum ${date} abmelden? Einen Tag nach dem Austritt wird die Akte archiviert und kann nicht mehr geändert werden.`,
+    confirmMove: (name: string) => `Die Akte nach „${name}“ verschieben? Gruppe und Betreuungsform werden zurückgesetzt, die Dokumentarten der Dokumente werden nach Namen zugeordnet (sonst „Sonstiges“). In der bisherigen Einrichtung ist die Akte danach nicht mehr zu sehen.`,
+    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden und wird nach der Löschfrist automatisch gelöscht.',
+  },
+  childSettings: {
+    careTypes: 'Betreuungsformen', documentTypes: 'Dokumentarten', important: 'wichtig', required: 'für jedes Kind nötig', confidentialDefault: 'vertraulich',
+    retention: 'Löschfrist für abgemeldete Kinder', retentionYears: 'Jahre nach dem Austritt',
+    retentionHint: 'Abgemeldete Kinder werden nach Ablauf dieser Frist mit allen Daten und Dokumenten automatisch gelöscht. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen.',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    careTypesHint: 'Die Zeiten geben das gebuchte Zeitfenster an. Betreuungsformen, die noch bei Kindern eingetragen sind, lassen sich nicht löschen.',
+    documentTypesHint: 'Wichtige Dokumentarten erscheinen in der Dokumentenübersicht. „Für jedes Kind nötig“ markiert fehlende Dokumente dort rot. „Vertraulich“ ist die Voreinstellung beim Hochladen.',
+    confirmDeleteType: 'Wirklich löschen?',
   },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',

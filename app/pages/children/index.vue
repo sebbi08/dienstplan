@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { addDays, todayIso } from '#shared/domain/dates'
-import { mayEditChildren } from '#shared/domain/roles'
+import { isManager, mayEditChildren } from '#shared/domain/roles'
 import type { BirthdayDto, ChildListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'list' | 'planned' | 'birthdays'
+type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'archive'
 
 const { user } = useUserSession()
 const canCreate = computed(() => !!user.value && mayEditChildren(user.value))
+const isLeader = computed(() => isManager(user.value?.role))
 const lookups = useChildLookups()
 const { groupName } = lookups
 
@@ -20,11 +21,13 @@ const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birt
 await lookups.ready
 
 const tab = ref<Tab>('list')
-// More tabs (documents, archive) are added to this list.
+// The archive is for the managers only (the server answers 403 to everybody else).
 const tabs = computed(() => [
   { key: 'list' as const, label: de.children.tabs.list },
   { key: 'planned' as const, label: de.children.tabs.planned },
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
+  { key: 'documents' as const, label: de.children.tabs.documents },
+  ...(isLeader.value ? [{ key: 'archive' as const, label: de.children.tabs.archive }] : []),
 ])
 
 const search = ref('')
@@ -165,8 +168,11 @@ const td = 'px-3 py-2'
         </template>
       </template>
 
-      <template v-else>
-        <p class="text-sm text-gray-500">{{ de.children.birthdaysHint }}</p>
+      <template v-else-if="tab === 'birthdays'">
+        <div class="flex flex-wrap items-center gap-3">
+          <p class="text-sm text-gray-500">{{ de.children.birthdaysHint }}</p>
+          <UButton class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/birthdays" target="_blank" />
+        </div>
         <p v-if="!birthdays.length" class="text-sm text-gray-500">{{ de.children.noBirthdays }}</p>
         <table v-else class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
           <thead class="bg-gray-100 text-left text-xs text-gray-600">
@@ -187,6 +193,9 @@ const td = 'px-3 py-2'
           </tbody>
         </table>
       </template>
+
+      <ChildrenDocumentOverviewTab v-else-if="tab === 'documents'" />
+      <ChildrenArchiveTab v-else-if="tab === 'archive' && isLeader" />
     </template>
   </div>
 </template>

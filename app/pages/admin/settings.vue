@@ -284,6 +284,12 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
       </table>
     </section>
 
+    <SettingsCareTypesSection />
+
+    <SettingsDocumentTypesSection />
+
+    <SettingsChildRetentionSection v-if="isProvider" />
+
     <section v-if="isProvider" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.settings.backup }}</h2>
       <p class="text-sm text-gray-600">{{ de.settings.backupHint }}</p>

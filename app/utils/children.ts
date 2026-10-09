@@ -25,3 +25,16 @@ export function stampText(stamp: SectionStamp): string | null {
 
 /** An empty date field means "no date". */
 export const orNull = (value: string): string | null => (value === '' ? null : value)
+
+/** The upload limit of a document (the server enforces the same). */
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+
+/** Where the file of a document is served; `download` asks for an attachment instead of showing it. */
+export const documentFileUrl = (id: number, download = false): string => `/api/child-documents/${id}/file${download ? '?download=1' : ''}`
+
+/** "812 KB", "2,4 MB". */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB`
+}

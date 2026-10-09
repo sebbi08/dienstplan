@@ -66,7 +66,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-3 py-2">{{ de.users.username }}</th><th class="px-3 py-2">{{ de.users.role }}</th>
-          <th class="px-3 py-2">{{ de.users.employee }}</th><th class="px-3 py-2">{{ de.users.active }}</th>
+          <th class="px-3 py-2">{{ de.users.employee }}</th><th class="px-3 py-2">{{ de.users.canEditChildren }}</th><th class="px-3 py-2">{{ de.users.active }}</th>
           <th class="px-3 py-2">{{ de.users.status }}</th><th />
         </tr>
       </thead>
@@ -82,6 +82,11 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
               <option :value="null">{{ de.users.noEmployee }}</option>
               <option v-for="employee in employees ?? []" :key="employee.id" :value="employee.id">{{ employee.name }}</option>
             </select>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <!-- Leitung and Träger always maintain child records, the tablet never sees them: only Mitarbeiter accounts need the flag. -->
+            <input v-if="user.role === 'observer'" v-model="user.canEditChildren" type="checkbox" :aria-label="de.users.canEditChildren" :disabled="locked(user)">
+            <span v-else class="text-gray-300">–</span>
           </td>
           <td class="px-3 py-2 text-center"><input v-model="user.active" type="checkbox" :disabled="locked(user)"></td>
           <td class="px-3 py-2 text-xs text-gray-500">
