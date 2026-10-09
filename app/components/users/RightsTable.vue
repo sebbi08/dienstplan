@@ -49,6 +49,9 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Vertrauliche Dokumente öffnen', rights: ['yes', 'yes', 7, 'no'] },
     { label: 'Kinder abmelden, Archiv, löschen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Löschfrist einstellen', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Freischaltung „darf Kinderakten pflegen“ vergeben', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Betreuungsformen und Dokumentarten pflegen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Kind in andere Einrichtung verschieben', rights: ['yes', 'no', 'no', 'no'] },
   ] },
   { title: 'Verwaltung', rows: [
     { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },

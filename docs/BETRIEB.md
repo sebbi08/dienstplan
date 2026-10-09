@@ -140,7 +140,7 @@ Datenbank hat, hat alles.
 | Rolle | Kinderakten |
 |---|---|
 | Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und Akten löschen. |
-| Mitarbeiter | sehen alle Kinder der eigenen Einrichtung, aber nur lesend. |
+| Mitarbeiter | sehen alle aktiven und geplanten Kinder der eigenen Einrichtung, aber nur lesend. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. |
 | Mitarbeiter mit der Berechtigung „darf Kinderakten pflegen“ | dürfen zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Tablet (Kita-Gerät) | sieht keine Kinderdaten. |
 
