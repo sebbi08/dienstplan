@@ -35,13 +35,14 @@ const ADMIN_ROUTES = ['help-outs/candidates.get.ts', 'help-outs/index.post.ts', 
 /** Routes anyone who may see child records can call (Träger, Leitung, Mitarbeiter; not the tablet); they must check with requireChildReader(. */
 const CHILD_READER_ROUTES = [
   'care-types/index.get.ts', 'document-types/index.get.ts', 'children/index.get.ts', 'children/birthdays.get.ts',
-  'children/[id].get.ts',
+  'children/[id].get.ts', 'child-documents/[id]/file.get.ts', 'child-documents/overview.get.ts',
 ]
 /** Routes that maintain child records (managers and Mitarbeiter with the permission); they must check with requireChildEditor(. */
 const CHILD_EDITOR_ROUTES = [
   'children/index.post.ts', 'children/[id]/master.put.ts', 'children/[id]/health.put.ts',
   'children/[id]/consents.put.ts', 'children/[id]/contacts.post.ts', 'children/[id]/contacts/order.post.ts',
   'child-contacts/[id].put.ts', 'child-contacts/[id].delete.ts',
+  'children/[id]/documents.post.ts', 'child-documents/[id].put.ts', 'child-documents/[id].delete.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']

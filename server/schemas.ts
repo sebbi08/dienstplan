@@ -193,3 +193,17 @@ export const childContactSchema = z.object({
 })
 export const contactOrderSchema = z.object({ ids: z.array(z.number().int().positive()).max(100) })
 export const childListQuery = z.object({ status: z.enum(['active', 'planned']) })
+/** The text fields of the multipart upload (everything arrives as a string). */
+export const childDocumentFields = z.object({
+  typeId: z.coerce.number().int().positive(),
+  title: z.string().max(200),
+  documentDate: isoDate,
+  confidential: z.enum(['true', 'false']).transform(value => value === 'true'),
+})
+export const childDocumentSchema = z.object({
+  typeId: z.number().int().positive(),
+  title: z.string().max(200),
+  documentDate: isoDate,
+  confidential: z.boolean(),
+})
+export const fileQuery = z.object({ download: z.enum(['1']).optional() })

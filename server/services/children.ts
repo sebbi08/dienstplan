@@ -14,6 +14,7 @@ import { loadChild, loadEditableChild, sectionStamp, type ChildRow } from '../li
 import { ServiceError } from '../lib/errors'
 import { assertCareType } from './careTypes'
 import { listContacts } from './childContacts'
+import { listDocuments } from './childDocuments'
 import { assertGroup, listGroups } from './groups'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
@@ -104,7 +105,7 @@ export function getChild(
     leftOn: row.leftOn,
     purgeOn: null,
     canEdit: mayEditChildren(viewer) && status !== 'archived',
-    documents: [],
+    documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
   }
 }
 

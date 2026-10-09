@@ -153,7 +153,47 @@ export interface ChildRecordDto {
   /** Day the archived record is deleted automatically; null while the child has not left. */
   purgeOn: IsoDate | null
   canEdit: boolean
-  documents: []
+  documents: ChildDocumentDto[]
+}
+
+/** A document in a child's record; the file itself is fetched separately. */
+export interface ChildDocumentDto {
+  id: number
+  typeId: number
+  typeName: string
+  title: string
+  documentDate: IsoDate
+  confidential: boolean
+  mimeType: string
+  size: number
+  /** Username of the uploader; null if the account is gone. */
+  uploadedBy: string | null
+  uploadedAt: string
+  /** False for a confidential document the viewer may not open (the file route answers 404). */
+  canOpen: boolean
+}
+
+/** What the user enters about a document (the file comes with the upload). */
+export interface ChildDocumentMeta {
+  typeId: number
+  title: string
+  documentDate: IsoDate
+  confidential: boolean
+}
+
+/** Completeness view: active children against the important document types. */
+export interface DocumentOverviewDto {
+  /** The important types in the facility's order. */
+  types: DocumentTypeDto[]
+  rows: {
+    childId: number
+    name: string
+    groupId: number | null
+    /** Per important type id: the newest document, or null while there is none. */
+    cells: Record<number, { documentId: number; documentDate: IsoDate; canOpen: boolean } | null>
+    /** A required type has no document yet. */
+    missingRequired: boolean
+  }[]
 }
 
 export interface BirthdayDto {
