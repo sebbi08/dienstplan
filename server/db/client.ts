@@ -15,7 +15,17 @@ export function createDb(filename: string): { db: Db; sqlite: Database.Database 
   const sqlite = new Database(filename)
   sqlite.pragma('journal_mode = WAL')
   sqlite.pragma('foreign_keys = ON')
+  // Deleted rows (children, documents) must not linger in free pages of the file and of every later backup.
+  sqlite.pragma('secure_delete = ON')
   return { db: drizzle({ client: sqlite, schema }), sqlite }
+}
+
+/**
+ * Folds the write-ahead log into the database file and truncates it, so page images from before a deletion do not
+ * linger there. Call it after deleting child records (outside any transaction).
+ */
+export function checkpointWal(sqlite: Database.Database): void {
+  sqlite.pragma('wal_checkpoint(TRUNCATE)')
 }
 
 /**

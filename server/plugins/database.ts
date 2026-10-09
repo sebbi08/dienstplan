@@ -1,5 +1,5 @@
 import { todayIso } from '../../shared/domain/dates'
-import { migrateDb } from '../db/client'
+import { checkpointWal, migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
 import { purgeExpiredChildren } from '../services/children'
@@ -30,7 +30,10 @@ export default defineNitroPlugin(() => {
   const purge = () => {
     try {
       const deleted = purgeExpiredChildren(db, todayIso())
-      if (deleted > 0) console.info(`Deleted ${deleted} child record(s) after the retention period.`)
+      if (deleted > 0) {
+        checkpointWal(useSqlite())
+        console.info(`Deleted ${deleted} child record(s) after the retention period.`)
+      }
     }
     catch (error) {
       console.error('Deleting expired child records failed', error)
