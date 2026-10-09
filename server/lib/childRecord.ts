@@ -1,5 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
+import { isManager } from '../../shared/domain/roles'
+import type { Role } from '../../shared/types/api'
 import type { IsoDate } from '../../shared/domain/types'
 import type { Db } from '../db/client'
 import { children } from '../db/schema'
@@ -15,10 +17,17 @@ export function loadChild(db: Db, facilityId: number, id: number): ChildRow {
   return row
 }
 
-/** Like `loadChild`, but a child who has left (archived) cannot be changed any more: 409 child_archived. */
-export function loadEditableChild(db: Db, facilityId: number, id: number, today: IsoDate): ChildRow {
+/**
+ * Like `loadChild`, but a child who has left (archived) cannot be changed any more: 409 child_archived for managers;
+ * everybody else must not even know the record exists (404 child_not_found, as when reading it).
+ */
+export function loadEditableChild(
+  db: Db, actor: { role: Role | null }, facilityId: number, id: number, today: IsoDate,
+): ChildRow {
   const row = loadChild(db, facilityId, id)
-  if (childStatus(row, today) === 'archived') throw new ServiceError(409, 'child_archived')
+  if (childStatus(row, today) === 'archived') {
+    throw isManager(actor.role) ? new ServiceError(409, 'child_archived') : new ServiceError(404, 'child_not_found')
+  }
   return row
 }
 

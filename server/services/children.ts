@@ -149,7 +149,7 @@ export function updateChildMaster(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, facilityId, id, today)
+  loadEditableChild(db, actor, facilityId, id, today)
   const master = checkedMaster(db, facilityId, input, today)
   db.update(children).set({ ...master, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
 }
@@ -158,7 +158,7 @@ export function updateChildHealth(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildHealthInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, facilityId, id, today)
+  loadEditableChild(db, actor, facilityId, id, today)
   const health: ChildHealthInput = {
     ...input,
     measlesProofDate: checkedDate(input.measlesProofDate),
@@ -172,7 +172,7 @@ export function updateChildConsents(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildConsents, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, facilityId, id, today)
+  loadEditableChild(db, actor, facilityId, id, today)
   const columns = Object.fromEntries(CONSENT_KEYS.map(key => [consentColumn(key), input[key]]))
   db.update(children).set({ ...columns, ...sectionStamp('consents', actor.id, now) }).where(eq(children.id, id)).run()
 }

@@ -60,7 +60,7 @@ export function addContact(
   db: Db, actor: SessionUser, facilityId: number, childId: number, input: ChildContactInput, today: IsoDate,
   now: Date = new Date(),
 ): number {
-  loadEditableChild(db, facilityId, childId, today)
+  loadEditableChild(db, actor, facilityId, childId, today)
   const checked = checkedContact(input)
   return db.transaction((tx) => {
     const sortOrder = (tx.select({ value: max(childContacts.sortOrder) }).from(childContacts)
@@ -76,7 +76,7 @@ export function updateContact(
   now: Date = new Date(),
 ): void {
   const contact = loadContact(db, facilityId, contactId)
-  loadEditableChild(db, facilityId, contact.childId, today)
+  loadEditableChild(db, actor, facilityId, contact.childId, today)
   const checked = checkedContact(input)
   db.transaction((tx) => {
     tx.update(childContacts).set(checked).where(eq(childContacts.id, contactId)).run()
@@ -88,7 +88,7 @@ export function deleteContact(
   db: Db, actor: SessionUser, facilityId: number, contactId: number, today: IsoDate, now: Date = new Date(),
 ): void {
   const contact = loadContact(db, facilityId, contactId)
-  loadEditableChild(db, facilityId, contact.childId, today)
+  loadEditableChild(db, actor, facilityId, contact.childId, today)
   db.transaction((tx) => {
     tx.delete(childContacts).where(eq(childContacts.id, contactId)).run()
     stamp(tx, contact.childId, actor, now)
@@ -100,7 +100,7 @@ export function reorderContacts(
   db: Db, actor: SessionUser, facilityId: number, childId: number, ids: number[], today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, facilityId, childId, today)
+  loadEditableChild(db, actor, facilityId, childId, today)
   const existing = new Set(listContacts(db, childId).map(contact => contact.id))
   if (ids.length !== existing.size || new Set(ids).size !== ids.length || !ids.every(id => existing.has(id))) {
     throw new ServiceError(400, 'invalid_order')

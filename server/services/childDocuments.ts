@@ -53,7 +53,7 @@ export function uploadDocument(
   db: Db, actor: SessionUser, facilityId: number, childId: number, meta: ChildDocumentMeta,
   file: { data: Buffer; filename: string }, today: IsoDate, now: Date = new Date(),
 ): number {
-  loadEditableChild(db, facilityId, childId, today)
+  loadEditableChild(db, actor, facilityId, childId, today)
   if (file.data.length > MAX_DOCUMENT_BYTES) throw new ServiceError(413, 'document_too_large')
   const mimeType = detectDocumentMime(file.data)
   if (mimeType === null) throw new ServiceError(400, 'document_type_invalid')
@@ -135,21 +135,30 @@ export function readDocumentFile(
   return { data: row.data, mimeType: row.mimeType, fileName: `${base || 'Dokument'}.${extension}` }
 }
 
-/** The document, which must belong to a child of the facility (404 document_not_found), and its child must not be archived. */
-function loadEditableDocument(db: Db, facilityId: number, id: number, today: IsoDate): MetaRow {
+/**
+ * The document, which must belong to a child of the facility (404 document_not_found), and its child must not be
+ * archived: managers get 409 child_archived, everybody else 404 document_not_found.
+ */
+function loadEditableDocument(db: Db, actor: SessionUser, facilityId: number, id: number, today: IsoDate): MetaRow {
   const row = db.select({ ...META_COLUMNS, facilityId: children.facilityId }).from(childDocuments)
     .innerJoin(children, eq(children.id, childDocuments.childId))
     .where(eq(childDocuments.id, id)).get()
   if (!row || row.facilityId !== facilityId) throw new ServiceError(404, 'document_not_found')
-  loadEditableChild(db, facilityId, row.childId, today)
+  try {
+    loadEditableChild(db, actor, facilityId, row.childId, today)
+  }
+  catch (error) {
+    if (error instanceof ServiceError && error.code === 'child_not_found') throw new ServiceError(404, 'document_not_found')
+    throw error
+  }
   return row
 }
 
 /** Changes type, title, date and confidentiality; the file stays as uploaded. */
 export function updateDocument(
-  db: Db, _actor: SessionUser, facilityId: number, id: number, meta: ChildDocumentMeta, today: IsoDate,
+  db: Db, actor: SessionUser, facilityId: number, id: number, meta: ChildDocumentMeta, today: IsoDate,
 ): void {
-  loadEditableDocument(db, facilityId, id, today)
+  loadEditableDocument(db, actor, facilityId, id, today)
   const checked = checkedMeta(db, facilityId, meta)
   db.update(childDocuments).set({
     documentTypeId: checked.typeId, title: checked.title, documentDate: checked.documentDate,
@@ -157,8 +166,8 @@ export function updateDocument(
   }).where(eq(childDocuments.id, id)).run()
 }
 
-export function deleteDocument(db: Db, _actor: SessionUser, facilityId: number, id: number, today: IsoDate): void {
-  loadEditableDocument(db, facilityId, id, today)
+export function deleteDocument(db: Db, actor: SessionUser, facilityId: number, id: number, today: IsoDate): void {
+  loadEditableDocument(db, actor, facilityId, id, today)
   db.delete(childDocuments).where(eq(childDocuments.id, id)).run()
 }
 

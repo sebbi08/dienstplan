@@ -97,9 +97,11 @@ describe('child documents', () => {
       expect(rowCount()).toBe(0)
     })
 
-    it('rejects an upload to an archived child with child_archived', () => {
+    it('rejects an upload to an archived child: child_archived for managers, child_not_found for a Mitarbeiter', () => {
       archiveChild()
       expect(errorCode(() => upload())).toBe('child_archived')
+      expect(errorCode(() => uploadDocument(db, allowed, 1, childId, meta(), { data: pdf(), filename: 'a.pdf' }, TODAY, NOW)))
+        .toBe('child_not_found')
       expect(rowCount()).toBe(0)
     })
 
@@ -177,6 +179,8 @@ describe('child documents', () => {
       archiveChild()
       expect(errorCode(() => updateDocument(db, admin, 1, id, meta(), TODAY))).toBe('child_archived')
       expect(errorCode(() => deleteDocument(db, admin, 1, id, TODAY))).toBe('child_archived')
+      expect(errorCode(() => updateDocument(db, allowed, 1, id, meta(), TODAY))).toBe('document_not_found')
+      expect(errorCode(() => deleteDocument(db, allowed, 1, id, TODAY))).toBe('document_not_found')
       expect(rowCount()).toBe(1)
     })
 

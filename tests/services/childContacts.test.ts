@@ -4,7 +4,7 @@ import type { Db } from '../../server/db/client'
 import { addContact, deleteContact, reorderContacts, updateContact } from '../../server/services/childContacts'
 import { getChild } from '../../server/services/children'
 import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
 const NOW = new Date('2026-10-09T08:30:00.000Z')
@@ -104,14 +104,19 @@ describe('contacts of a child', () => {
     expect(getChild(db, otherAdmin, foreignChild, TODAY).contacts).toHaveLength(1)
   })
 
-  it('rejects every change for an archived child with child_archived', () => {
+  it('rejects every change for an archived child: child_archived for managers, child_not_found for a Mitarbeiter', () => {
+    const editor = { ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true } as FacilityUser
     const archived = addChild(db, 1, { leftOn: '2026-09-30' })
     expect(errorCode(() => addContact(db, admin, 1, archived, contact(), TODAY, NOW))).toBe('child_archived')
     expect(errorCode(() => reorderContacts(db, admin, 1, archived, [], TODAY, NOW))).toBe('child_archived')
+    expect(errorCode(() => addContact(db, editor, 1, archived, contact(), TODAY, NOW))).toBe('child_not_found')
+    expect(errorCode(() => reorderContacts(db, editor, 1, archived, [], TODAY, NOW))).toBe('child_not_found')
     // A child who was still active when the contact was added and has left since
     const left = addChild(db, 1, { leftOn: '2026-10-01' })
     const leftContact = addContact(db, admin, 1, left, contact(), '2026-10-01', NOW)
     expect(errorCode(() => updateContact(db, admin, 1, leftContact, contact(), TODAY, NOW))).toBe('child_archived')
     expect(errorCode(() => deleteContact(db, admin, 1, leftContact, TODAY, NOW))).toBe('child_archived')
+    expect(errorCode(() => updateContact(db, editor, 1, leftContact, contact(), TODAY, NOW))).toBe('child_not_found')
+    expect(errorCode(() => deleteContact(db, editor, 1, leftContact, TODAY, NOW))).toBe('child_not_found')
   })
 })

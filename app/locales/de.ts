@@ -384,6 +384,7 @@ export const de = {
     login_locked: 'Zu viele Fehlversuche. Das Konto ist für 15 Minuten gesperrt.',
     session_expired: 'Deine Sitzung ist abgelaufen. Bitte melde dich neu an.',
     forbidden: 'Dafür fehlt dir die Berechtigung.',
+    length_required: 'Die Datei konnte nicht übertragen werden. Bitte versuche es noch einmal.',
     password_change_required: 'Bitte ändere zuerst dein Passwort.',
     wrong_password: 'Das aktuelle Passwort ist falsch.',
     password_too_short: 'Das Passwort muss mindestens 8 Zeichen lang sein.',

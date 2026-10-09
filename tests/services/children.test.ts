@@ -177,15 +177,20 @@ describe('child records', () => {
       expect(record).toMatchObject({ status: 'archived', leftOn: '2026-09-30', canEdit: false })
     })
 
-    it('rejects every update of an archived child with child_archived', () => {
+    it('rejects every update of an archived child: child_archived for managers, child_not_found for a Mitarbeiter', () => {
       const id = addChild(db, 1, { leftOn: '2026-09-30' })
-      expect(errorCode(() => updateChildMaster(db, admin, 1, id, master(), TODAY, NOW))).toBe('child_archived')
-      expect(errorCode(() => updateChildHealth(db, admin, 1, id, {
+      const editor = { ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true } as FacilityUser
+      const health = {
         measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
         mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null,
-      }, TODAY, NOW))).toBe('child_archived')
-      const consents = Object.fromEntries(CONSENT_KEYS.map(key => [key, null]))
-      expect(errorCode(() => updateChildConsents(db, admin, 1, id, consents as never, TODAY, NOW))).toBe('child_archived')
+      }
+      const consents = Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as never
+      expect(errorCode(() => updateChildMaster(db, admin, 1, id, master(), TODAY, NOW))).toBe('child_archived')
+      expect(errorCode(() => updateChildHealth(db, admin, 1, id, health, TODAY, NOW))).toBe('child_archived')
+      expect(errorCode(() => updateChildConsents(db, admin, 1, id, consents, TODAY, NOW))).toBe('child_archived')
+      expect(errorCode(() => updateChildMaster(db, editor, 1, id, master(), TODAY, NOW))).toBe('child_not_found')
+      expect(errorCode(() => updateChildHealth(db, editor, 1, id, health, TODAY, NOW))).toBe('child_not_found')
+      expect(errorCode(() => updateChildConsents(db, editor, 1, id, consents, TODAY, NOW))).toBe('child_not_found')
     })
 
     it('lets only editors edit: canEdit follows the permission', () => {
