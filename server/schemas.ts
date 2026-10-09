@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
-import { COLOR_KEYS } from '../shared/types/api'
+import { COLOR_KEYS, CONSENT_KEYS, type ConsentKey } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
 export const minutes = z.number().int().min(0).max(1440)
@@ -148,3 +148,48 @@ export const documentTypeSchema = z.object({
   confidentialDefault: z.boolean(),
   sortOrder: z.number().int().min(0).max(10000),
 })
+
+const triState = z.boolean().nullable()
+const optionalDate = isoDate.nullable()
+const nullableId = z.number().int().positive().nullable()
+export const childMasterSchema = z.object({
+  lastName: z.string().max(100),
+  firstName: z.string().max(100),
+  birthDate: isoDate,
+  address: z.string().max(500),
+  groupId: nullableId,
+  careTypeId: nullableId,
+  entryDate: optionalDate,
+  plannedEntryDate: optionalDate,
+  infoMeetingDate: optionalDate,
+  schoolStartDate: optionalDate,
+  primarySchool: z.string().max(200),
+  note: z.string().max(2000),
+})
+export const childHealthSchema = z.object({
+  measlesProof: triState,
+  measlesProofDate: optionalDate,
+  infectionBriefingDate: optionalDate,
+  allergies: z.string().max(2000),
+  mayTakeTemperature: triState,
+  mayApplySunscreen: triState,
+  mayApplyPlaster: triState,
+})
+export const childConsentsSchema = z.object(
+  Object.fromEntries(CONSENT_KEYS.map(key => [key, triState])) as Record<ConsentKey, typeof triState>,
+)
+export const childContactSchema = z.object({
+  name: z.string().max(100),
+  relation: z.string().max(100),
+  phoneHome: z.string().max(50),
+  phoneMobile: z.string().max(50),
+  phoneWork: z.string().max(50),
+  isGuardian: z.boolean(),
+  mayPickUp: z.boolean(),
+  emergencyRank: z.number().int().min(1).max(20).nullable(),
+  contactBan: z.boolean(),
+  contactBanNote: z.string().max(500),
+  note: z.string().max(1000),
+})
+export const contactOrderSchema = z.object({ ids: z.array(z.number().int().positive()).max(100) })
+export const childListQuery = z.object({ status: z.enum(['active', 'planned']) })

@@ -1,3 +1,4 @@
+import type { ChildStatus } from '../domain/children'
 import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -73,6 +74,98 @@ export interface DocumentTypeDto {
 }
 
 export type DocumentTypeInput = Omit<DocumentTypeDto, 'id'>
+
+/** Master data (Stammdaten) of a child; the dates are optional except the birth date. */
+export interface ChildMasterInput {
+  lastName: string
+  firstName: string
+  birthDate: IsoDate
+  address: string
+  groupId: number | null
+  careTypeId: number | null
+  entryDate: IsoDate | null
+  plannedEntryDate: IsoDate | null
+  infoMeetingDate: IsoDate | null
+  schoolStartDate: IsoDate | null
+  primarySchool: string
+  note: string
+}
+
+export interface ChildHealthInput {
+  measlesProof: TriState
+  measlesProofDate: IsoDate | null
+  infectionBriefingDate: IsoDate | null
+  allergies: string
+  mayTakeTemperature: TriState
+  mayApplySunscreen: TriState
+  mayApplyPlaster: TriState
+}
+
+export type ChildConsents = Record<ConsentKey, TriState>
+
+/** A contact person (Bezugsperson) of a child. */
+export interface ChildContactInput {
+  name: string
+  relation: string
+  phoneHome: string
+  phoneMobile: string
+  phoneWork: string
+  isGuardian: boolean
+  mayPickUp: boolean
+  /** Position in the emergency call order (1 = first); null = not an emergency contact. */
+  emergencyRank: number | null
+  contactBan: boolean
+  contactBanNote: string
+  note: string
+}
+
+export type ChildContactDto = ChildContactInput & { id: number }
+
+/** Who changed a section of the record last and when (ISO timestamp); both null while untouched. */
+export interface SectionStamp {
+  updatedAt: string | null
+  updatedBy: string | null
+}
+
+export interface ChildListItemDto {
+  id: number
+  lastName: string
+  firstName: string
+  birthDate: IsoDate
+  age: { years: number; months: number }
+  groupId: number | null
+  careTypeName: string | null
+  entryDate: IsoDate | null
+  plannedEntryDate: IsoDate | null
+  hasAllergies: boolean
+  contactBans: { name: string; note: string }[]
+}
+
+export interface ChildRecordDto {
+  id: number
+  status: ChildStatus
+  master: ChildMasterInput
+  health: ChildHealthInput
+  consents: ChildConsents
+  contacts: ChildContactDto[]
+  stamps: Record<'master' | 'contacts' | 'health' | 'consents', SectionStamp>
+  leftOn: IsoDate | null
+  /** Day the archived record is deleted automatically; null while the child has not left. */
+  purgeOn: IsoDate | null
+  canEdit: boolean
+  documents: []
+}
+
+export interface BirthdayDto {
+  childId: number
+  name: string
+  birthDate: IsoDate
+  groupId: number | null
+  /** The next birthday on or after today. */
+  date: IsoDate
+  /** The age turned on that day. */
+  turns: number
+}
 
 export interface FacilitiesDto {
   facilities: FacilityDto[]
