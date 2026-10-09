@@ -38,7 +38,7 @@ async function create() {
 
 function save(user: UserDto) {
   run(() => $fetch<unknown>(`/api/users/${user.id}`, {
-    method: 'PUT', body: { role: user.role, employeeId: user.role === 'terminal' ? null : user.employeeId, active: user.active },
+    method: 'PUT', body: { role: user.role, employeeId: user.role === 'terminal' ? null : user.employeeId, active: user.active, canEditChildren: user.canEditChildren },
   }), de.common.saved)
 }
 

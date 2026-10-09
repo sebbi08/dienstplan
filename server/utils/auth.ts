@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import { PAGE_FACILITY_HEADER } from '../../shared/domain/pageFacility'
-import { isManager } from '../../shared/domain/roles'
+import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
 import { assertPageFacility } from '../lib/pageFacility'
@@ -62,6 +62,20 @@ export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
   if (!isManager(user.role)) throw httpError(403, 'forbidden')
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
   checkPageFacility(event, user)
+  return user
+}
+
+/** Whoever may see child records: Träger, Leitung and Mitarbeiter of a facility (never the tablet). */
+export async function requireChildReader(event: H3Event): Promise<FacilityUser> {
+  const user = await requireUser(event)
+  requireFacility(event, user)
+  return user as FacilityUser
+}
+
+/** Whoever may maintain child records: the managers, and Mitarbeiter with the permission. */
+export async function requireChildEditor(event: H3Event): Promise<FacilityUser> {
+  const user = await requireChildReader(event)
+  if (!mayEditChildren(user)) throw httpError(403, 'forbidden')
   return user
 }
 

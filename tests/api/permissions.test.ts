@@ -32,6 +32,10 @@ const PROVIDER_ROUTES = [
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = ['help-outs/candidates.get.ts', 'help-outs/index.post.ts', 'help-outs/[id].delete.ts', 'groups.get.ts']
+/** Routes anyone who may see child records can call (Träger, Leitung, Mitarbeiter; not the tablet); they must check with requireChildReader(. */
+const CHILD_READER_ROUTES: string[] = []
+/** Routes that maintain child records (managers and Mitarbeiter with the permission); they must check with requireChildEditor(. */
+const CHILD_EDITOR_ROUTES: string[] = []
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 
@@ -47,17 +51,24 @@ function source(route: string): string {
 describe('API route permissions', () => {
   it('finds the API routes', () => {
     expect(routes.length).toBeGreaterThan(30)
-    for (const route of [...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...PUBLIC_ROUTES]) expect(routes).toContain(route)
+    const others = [...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...CHILD_READER_ROUTES, ...CHILD_EDITOR_ROUTES, ...PUBLIC_ROUTES]
+    for (const route of others) expect(routes).toContain(route)
     for (const route of ADMIN_ROUTES) {
       expect(routes).toContain(route)
-      expect([...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...PUBLIC_ROUTES]).not.toContain(route)
+      expect(others).not.toContain(route)
     }
   })
 
   it.each(routes)('%s is protected as classified', (route) => {
     const code = source(route)
     if (PUBLIC_ROUTES.includes(route)) {
-      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider)\(/)
+      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider|ChildReader|ChildEditor)\(/)
+    }
+    else if (CHILD_READER_ROUTES.includes(route)) {
+      expect(code).toContain('requireChildReader(')
+    }
+    else if (CHILD_EDITOR_ROUTES.includes(route)) {
+      expect(code).toContain('requireChildEditor(')
     }
     else if (PROVIDER_ROUTES.includes(route)) {
       expect(code).toContain('requireProvider(')

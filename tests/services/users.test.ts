@@ -3,6 +3,7 @@ import type { Db } from '../../server/db/client'
 import { getActiveUser, login } from '../../server/services/auth'
 import { listEmployees, moveEmployeeToFacility } from '../../server/services/employees'
 import { createUser, listUsers, resetPassword, updateUser } from '../../server/services/users'
+import { mayEditChildren } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -59,6 +60,43 @@ describe('users service', () => {
     resetPassword(db, provider, user.id, 'reset-1234')
     expect(login(db, 'leitung', 'reset-1234')).toMatchObject({ ok: true, user: { mustChangePassword: true } })
     expect(errorCode(() => resetPassword(db, provider, 999, 'reset-1234'))).toBe('user_not_found')
+  })
+})
+
+describe('permission to maintain child records', () => {
+  let db: Db
+  let leitung: SessionUser
+  let anna: number
+  beforeEach(() => {
+    db = createTestDb()
+    leitung = addUser(db, 'leitung', 'admin')
+    anna = addEmployee(db, 'Anna')
+  })
+  const set = (id: number, role: SessionUser['role'], employeeId: number | null, canEditChildren: boolean) =>
+    updateUser(db, leitung, id, { role, employeeId, active: true, canEditChildren })
+
+  it('lets the Leitung grant the permission to a Mitarbeiter', () => {
+    const user = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    expect(user.canEditChildren).toBe(false)
+    expect(set(user.id, 'observer', anna, true).canEditChildren).toBe(true)
+    expect(listUsers(db, leitung).find(candidate => candidate.id === user.id)!.canEditChildren).toBe(true)
+    expect(getActiveUser(db, user.id)!.canEditChildren).toBe(true)
+    expect(mayEditChildren(getActiveUser(db, user.id)!)).toBe(true)
+    set(user.id, 'observer', anna, false)
+    expect(mayEditChildren(getActiveUser(db, user.id)!)).toBe(false)
+  })
+  it('stores false for every other role', () => {
+    const tablet = createUser(db, leitung, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    expect(set(tablet.id, 'terminal', null, true).canEditChildren).toBe(false)
+    expect(getActiveUser(db, tablet.id)!.canEditChildren).toBe(false)
+    const second = createUser(db, leitung, { username: 'leitung2', password: 'start-1234', role: 'admin', employeeId: null })
+    expect(set(second.id, 'admin', null, true).canEditChildren).toBe(false)
+  })
+  it('clears the permission when the account becomes a Leitung', () => {
+    const user = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    set(user.id, 'observer', anna, true)
+    expect(set(user.id, 'admin', null, true).canEditChildren).toBe(false)
+    expect(set(user.id, 'observer', anna, false).canEditChildren).toBe(false)
   })
 })
 

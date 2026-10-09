@@ -16,7 +16,7 @@ export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUs
   return {
     id: row.id, username: row.username, role: row.role,
     employeeId: row.employeeId, mustChangePassword: row.mustChangePassword,
-    facilityId: resolveFacilityId(db, row),
+    canEditChildren: row.canEditChildren, facilityId: resolveFacilityId(db, row),
   }
 }
 

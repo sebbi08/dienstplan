@@ -19,6 +19,8 @@ export interface UserUpdate {
   role: Role
   employeeId: number | null
   active: boolean
+  /** Stored only for a Mitarbeiter; any other role stores false. */
+  canEditChildren: boolean
 }
 
 /** The users a viewer manages: Leitung and tablet of the viewer's facility, Mitarbeiter of its employees, and all Träger. */
@@ -40,7 +42,7 @@ export function listUsers(db: Db, viewer: SessionUser): UserDto[] {
   return visibleUsers(db, viewer).map(({ user, employeeName }) => ({
     id: user.id, username: user.username, role: user.role, employeeId: user.employeeId,
     employeeName: employeeName ?? null, active: user.active,
-    mustChangePassword: user.mustChangePassword, lockedUntil: user.lockedUntil,
+    mustChangePassword: user.mustChangePassword, canEditChildren: user.canEditChildren, lockedUntil: user.lockedUntil,
   }))
 }
 
@@ -120,6 +122,7 @@ export function updateUser(db: Db, actor: SessionUser, id: number, update: UserU
   db.update(users)
     .set({
       role: update.role, employeeId: update.employeeId, active: update.active, facilityId,
+      canEditChildren: update.role === 'observer' && update.canEditChildren,
       // The tablet cannot reach the password page, so a terminal must never be forced to change it.
       ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
     })

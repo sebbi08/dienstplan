@@ -29,6 +29,8 @@ export interface SessionUser {
   role: Role
   employeeId: number | null
   mustChangePassword: boolean
+  /** The stored flag as is (only meaningful for a Mitarbeiter); `mayEditChildren` decides who may edit child records. */
+  canEditChildren: boolean
   /**
    * The facility the user works in, resolved fresh on every request: Leitung and tablet their own, the Träger the
    * active selection, a Mitarbeiter that of the linked employee (null without one).
@@ -333,6 +335,7 @@ export interface UserDto {
   employeeName: string | null
   active: boolean
   mustChangePassword: boolean
+  canEditChildren: boolean
   lockedUntil: string | null
 }
 
