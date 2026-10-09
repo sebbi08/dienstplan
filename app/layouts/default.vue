@@ -50,6 +50,7 @@ const links = computed(() => {
   const unread = notifications.unread.value.length
   const myPlan = { label: unread ? `${de.nav.myPlan} (${unread})` : de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
   const myLeave = { label: de.nav.myLeave, to: '/my/leave' }
+  const childrenLink = { label: de.nav.children, to: '/children' }
   const open = leave.value?.openCount ?? 0
   const planning = leave.value?.isPlanner
     ? [{ label: open ? `${de.nav.leavePlanning} (${open})` : de.nav.leavePlanning, to: '/admin/leave-planning' }]
@@ -65,12 +66,13 @@ const links = computed(() => {
       { label: de.nav.employees, to: '/admin/employees' },
       { label: de.nav.closures, to: '/admin/closures' },
       { label: de.nav.sickDays, to: '/admin/sick-days' },
+      childrenLink,
       { label: de.nav.calendar, to: '/admin/calendar' },
       { label: de.nav.users, to: '/admin/users' },
       { label: de.nav.settings, to: '/admin/settings' },
     ]
   }
-  return [myPlan, plan, myLeave, { label: de.nav.calendar, to: '/my/calendar' }]
+  return [myPlan, plan, myLeave, childrenLink, { label: de.nav.calendar, to: '/my/calendar' }]
 })
 
 const pageFacility = usePageFacility()
