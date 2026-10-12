@@ -50,6 +50,7 @@ const links = computed(() => {
   const unread = notifications.unread.value.length
   const myPlan = { label: unread ? `${de.nav.myPlan} (${unread})` : de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
   const myLeave = { label: de.nav.myLeave, to: '/my/leave' }
+  const myRequirements = { label: de.nav.myRequirements, to: '/my/requirements' }
   const open = leave.value?.openCount ?? 0
   const planning = leave.value?.isPlanner
     ? [{ label: open ? `${de.nav.leavePlanning} (${open})` : de.nav.leavePlanning, to: '/admin/leave-planning' }]
@@ -57,8 +58,8 @@ const links = computed(() => {
   if (isManager(user.value.role)) {
     return [
       plan,
-      // An admin linked to an employee stamps on "Mein Dienstplan" and requests leave too.
-      ...(user.value.employeeId !== null ? [myPlan, myLeave] : []),
+      // An admin linked to an employee stamps on "Mein Dienstplan", requests leave and sees their own appointments too.
+      ...(user.value.employeeId !== null ? [myPlan, myLeave, myRequirements] : []),
       ...planning,
       { label: de.nav.time, to: '/admin/time' },
       // Includes the overtime balances and leave accounts of all employees.
@@ -70,7 +71,7 @@ const links = computed(() => {
       { label: de.nav.settings, to: '/admin/settings' },
     ]
   }
-  return [myPlan, plan, myLeave, { label: de.nav.calendar, to: '/my/calendar' }]
+  return [myPlan, plan, myLeave, myRequirements, { label: de.nav.calendar, to: '/my/calendar' }]
 })
 
 const pageFacility = usePageFacility()

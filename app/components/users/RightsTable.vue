@@ -32,6 +32,9 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Vertragsangaben (TVöD) bearbeiten', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Pflichttermine (z. B. Betriebsarzt, Erste-Hilfe-Kurs) und Fortbildungen der Mitarbeiter eintragen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Hinweis auf fällige, überfällige und fehlende Pflichttermine sehen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Eigene Pflichttermine und Fortbildungen ansehen („Meine Termine“, ohne Hinweis)', rights: [1, 1, 'yes', 'no'] },
   ] },
   { title: 'Urlaubsanträge', rows: [
     { label: 'Urlaub beantragen und eigene Anträge sehen', rights: [4, 4, 4, 'no'] },
@@ -47,6 +50,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste (für die ganze Einrichtung oder eine Gruppe)', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Einstellungen: Arten der Pflichttermine und nach wie vielen Monaten sie wieder fällig sind', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Einrichtungen anlegen, umbenennen, zwischen ihnen wechseln, Mitarbeiter verschieben', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Gruppen einer Einrichtung anlegen, umbenennen und löschen', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Datenbank herunterladen (Datensicherung)', rights: ['yes', 'no', 'no', 'no'] },
