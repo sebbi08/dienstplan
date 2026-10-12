@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, max, ne } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import { BUILTIN_REQUIREMENTS, requirementState } from '../../shared/domain/requirements'
+import { BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, requirementState } from '../../shared/domain/requirements'
 import { isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -108,8 +108,12 @@ function assertHomeEmployee(db: Db, facilityId: number, employeeId: number): voi
   if (!row) throw new ServiceError(404, 'employee_not_found')
 }
 
+/**
+ * A real calendar day from 1900 on; otherwise 400 invalid_date. A mistyped year (0202 for 2020) would otherwise count as
+ * a record, and settle a kind that is needed once for good.
+ */
 function checkedDate(date: string): IsoDate {
-  if (!isValidIsoDate(date)) throw new ServiceError(400, 'invalid_date')
+  if (!isValidIsoDate(date) || date < EARLIEST_REQUIREMENT_DATE) throw new ServiceError(400, 'invalid_date')
   return date
 }
 

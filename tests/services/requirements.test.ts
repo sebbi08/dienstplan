@@ -230,6 +230,24 @@ describe('records and trainings of an employee', () => {
     expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: 999, date: '2027-01-01' }, today))).toBe('requirement_type_not_found')
   })
 
+  it('refuses records and trainings dated before 1900, so a mistyped year cannot settle a kind for good', () => {
+    const training = addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung' })
+    const before = stored(db)
+    for (const bad of ['0202-10-05', '0001-01-01', '1899-12-31']) {
+      expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: doctor, date: bad }, today)), bad).toBe('invalid_date')
+      expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: measles, date: bad }, today)), bad).toBe('invalid_date')
+      expect(errorCode(() => addTraining(db, 1, anna, { date: bad, title: 'Kinderschutz' })), bad).toBe('invalid_date')
+      expect(errorCode(() => updateTraining(db, 1, training, { date: bad, title: 'Sprachförderung' })), bad).toBe('invalid_date')
+    }
+    expect(stored(db)).toEqual(before)
+    expect(kind(anna, measles)).toMatchObject({ state: 'missing' })
+    // The first day that counts is accepted.
+    addRequirementRecord(db, 1, anna, { typeId: measles, date: '1900-01-01' }, today)
+    expect(kind(anna, measles)).toMatchObject({ state: 'ok', lastDate: '1900-01-01' })
+    updateTraining(db, 1, training, { date: '1900-01-01', title: 'Sprachförderung' })
+    expect(getEmployeeRequirements(db, 1, anna, today).trainings.map(entry => entry.date)).toEqual(['1900-01-01'])
+  })
+
   it('accepts trainings that are still to come', () => {
     const planned = addTraining(db, 1, anna, { date: '2027-02-15', title: 'Kinderschutz' })
     const moved = addTraining(db, 1, anna, { date: '2026-09-01', title: 'Sprachförderung' })

@@ -14,6 +14,9 @@ export type BuiltinRequirementKey = (typeof BUILTIN_REQUIREMENTS)[number]['key']
 /** Longest interval of a recurring kind (20 years). */
 export const MAX_REQUIREMENT_INTERVAL_MONTHS = 240
 
+/** Earliest day a record or training may be dated: an older one is a mistyped year (0202 for 2020). */
+export const EARLIEST_REQUIREMENT_DATE: IsoDate = '1900-01-01'
+
 /** A kind is announced to Leitung and Träger this many months before it is due. */
 export const REQUIREMENT_SOON_MONTHS = 2
 
