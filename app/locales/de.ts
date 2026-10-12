@@ -345,7 +345,7 @@ export const de = {
     noticeCompactLink: 'ansehen',
     /** Settings. */
     settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vier vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen.',
-    name: 'Bezeichnung', recurring: 'wiederkehrend', months: (count: number) => (count === 1 ? 'Monat' : 'Monate'), everyPrefix: (count: number) => (count === 1 ? 'jeden' : 'alle'),
+    name: 'Bezeichnung', recurring: 'wiederkehrend', months: (count: number) => (count === 1 ? 'Monat' : 'Monate'), everyPrefix: 'Abstand:',
     builtin: 'vorgegeben', addKind: 'Art hinzufügen', newKindPlaceholder: 'z. B. Hygienebelehrung',
     deleteKindConfirm: (name: string) => `Art „${name}“ löschen? Alle Einträge, die für die Mitarbeiter dazu gespeichert sind, werden mit gelöscht.`,
     /** The employee's own page. */
