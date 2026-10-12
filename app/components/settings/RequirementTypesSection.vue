@@ -66,9 +66,9 @@ async function remove(type: RequirementTypeDto) {
         <UInput v-model="drafts[type.id]!.name" maxlength="80" required size="sm" class="w-64" :aria-label="de.requirements.name" />
         <USelect v-model="drafts[type.id]!.mode" :items="intervalItems" size="sm" class="w-40" :aria-label="de.requirements.interval" />
         <label v-if="drafts[type.id]!.mode === 'recurring'" class="flex items-center gap-1 text-sm">
-          {{ de.requirements.everyPrefix }}
+          {{ de.requirements.everyPrefix(drafts[type.id]!.months) }}
           <UInput v-model.number="drafts[type.id]!.months" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm" class="w-20" />
-          {{ de.requirements.months }}
+          {{ de.requirements.months(drafts[type.id]!.months) }}
         </label>
         <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.common.save" />
         <UButton
@@ -85,9 +85,9 @@ async function remove(type: RequirementTypeDto) {
       />
       <USelect v-model="newKind.mode" :items="intervalItems" size="sm" class="w-40" :aria-label="de.requirements.interval" />
       <label v-if="newKind.mode === 'recurring'" class="flex items-center gap-1 text-sm">
-        {{ de.requirements.everyPrefix }}
+        {{ de.requirements.everyPrefix(newKind.months) }}
         <UInput v-model.number="newKind.months" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm" class="w-20" />
-        {{ de.requirements.months }}
+        {{ de.requirements.months(newKind.months) }}
       </label>
       <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.requirements.addKind" />
     </form>

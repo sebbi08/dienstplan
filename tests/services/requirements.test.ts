@@ -276,6 +276,17 @@ describe('records and trainings of an employee', () => {
     expect(getEmployeeRequirements(db, 1, anna, today).kinds.every(entry => entry.state === 'missing')).toBe(true)
   })
 
+  it('refuses trainings dated after 2100, a mistyped year, but accepts one booked far ahead', () => {
+    const training = addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung' })
+    const before = stored(db)
+    for (const bad of ['2101-01-01', '9999-12-31', '3026-03-10']) {
+      expect(errorCode(() => addTraining(db, 1, anna, { date: bad, title: 'Kinderschutz' })), bad).toBe('invalid_date')
+      expect(errorCode(() => updateTraining(db, 1, training, { date: bad, title: 'Sprachförderung' })), bad).toBe('invalid_date')
+    }
+    expect(stored(db)).toEqual(before)
+    addTraining(db, 1, anna, { date: '2100-12-31', title: 'Kinderschutz' })
+  })
+
   it('refuses trainings without a title, with impossible dates or for unknown ids', () => {
     const training = addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung' })
     const before = stored(db)

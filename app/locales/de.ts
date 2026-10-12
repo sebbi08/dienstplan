@@ -335,9 +335,17 @@ export const de = {
     noticeOverdue: (kind: string, date: string) => `${kind} (fällig seit ${date})`,
     noticeMore: (count: number) => (count === 1 ? 'und 1 weitere Person' : `und ${count} weitere Personen`),
     showAll: 'Alle anzeigen', showLess: 'Weniger anzeigen',
+    /** The one-line notice on the plan page: persons per state, no names. */
+    noticeCompactTitle: 'Pflichttermine',
+    noticeCompactParts: {
+      overdue: (count: number) => `${count} überfällig`,
+      missing: (count: number) => `${count} ohne Eintrag`,
+      soon: (count: number) => `${count} bald fällig`,
+    },
+    noticeCompactLink: 'ansehen',
     /** Settings. */
     settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vier vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen.',
-    name: 'Bezeichnung', recurring: 'wiederkehrend', months: 'Monate', everyPrefix: 'alle',
+    name: 'Bezeichnung', recurring: 'wiederkehrend', months: (count: number) => (count === 1 ? 'Monat' : 'Monate'), everyPrefix: (count: number) => (count === 1 ? 'jeden' : 'alle'),
     builtin: 'vorgegeben', addKind: 'Art hinzufügen', newKindPlaceholder: 'z. B. Hygienebelehrung',
     deleteKindConfirm: (name: string) => `Art „${name}“ löschen? Alle Einträge, die für die Mitarbeiter dazu gespeichert sind, werden mit gelöscht.`,
     /** The employee's own page. */

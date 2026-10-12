@@ -6,8 +6,10 @@ import { formatDate } from '~/utils/format'
 /**
  * Yellow notice for Leitung and Träger: mandatory appointments that are overdue, missing or due within two months.
  * Grouped by state, one line per employee (their kinds side by side), each linking to the employee page, where the
- * record is entered. Long groups are cut after a few people until "Alle anzeigen".
+ * record is entered. Long groups are cut after a few people until "Alle anzeigen". With `compact` (plan page) it is a
+ * single line with the number of people per state and a link to the employee overview, without any names.
  */
+const props = defineProps<{ compact?: boolean }>()
 const { data: due } = await useFetch<DueRequirementDto[]>('/api/requirements/due')
 
 type State = DueRequirementDto['state']
@@ -35,13 +37,26 @@ const groups = computed(() => STATES.map((state) => {
   return { state, total: all.length, shown, hidden: all.length - shown.length }
 }).filter(group => group.total > 0))
 
+/** "Pflichttermine: 1 überfällig · 12 ohne Eintrag": only the states that have people. */
+const compactLine = computed(() => `${de.requirements.noticeCompactTitle}: ${groups.value.map(group => de.requirements.noticeCompactParts[group.state](group.total)).join(' · ')}`)
+
 const collapsible = computed(() => groups.value.some(group => group.total > LIMIT))
 </script>
 
 <template>
   <!-- Never on paper: a plan printed straight from the browser may end up on the wall. -->
   <UAlert
-    v-if="groups.length" class="print:hidden" color="warning" variant="soft" icon="i-lucide-clipboard-check"
+    v-if="groups.length && props.compact" class="print:hidden" color="warning" variant="soft" icon="i-lucide-clipboard-check"
+  >
+    <template #description>
+      <p>
+        {{ compactLine }}
+        <NuxtLink to="/admin/employees" class="ml-1 font-medium underline hover:no-underline">{{ de.requirements.noticeCompactLink }}</NuxtLink>
+      </p>
+    </template>
+  </UAlert>
+  <UAlert
+    v-else-if="groups.length" class="print:hidden" color="warning" variant="soft" icon="i-lucide-clipboard-check"
     :title="de.requirements.noticeTitle"
   >
     <template #description>

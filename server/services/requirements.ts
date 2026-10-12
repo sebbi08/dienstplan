@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, max, ne } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import { BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, requirementState } from '../../shared/domain/requirements'
+import { BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, requirementState } from '../../shared/domain/requirements'
 import { isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -174,7 +174,9 @@ export function deleteRequirementRecord(db: Db, facilityId: number, id: number):
 function checkedTraining(input: TrainingInput): { date: IsoDate; title: string; note: string | null } {
   const title = input.title.trim()
   if (!title) throw new ServiceError(400, 'title_required')
-  return { date: checkedDate(input.date), title, note: optionalText(input.note) }
+  const date = checkedDate(input.date)
+  if (date > LATEST_TRAINING_DATE) throw new ServiceError(400, 'invalid_date')
+  return { date, title, note: optionalText(input.note) }
 }
 
 /** The training must be one of an employee of the facility; otherwise 404 training_not_found. */

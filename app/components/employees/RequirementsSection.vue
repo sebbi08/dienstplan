@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { EARLIEST_REQUIREMENT_DATE, type RequirementState } from '#shared/domain/requirements'
+import { EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, type RequirementState } from '#shared/domain/requirements'
 import type { EmployeeRequirementKindDto, EmployeeRequirementsDto, RequirementRecordDto, TrainingDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import { intervalText } from '~/utils/requirements'
 
@@ -11,9 +12,11 @@ import { intervalText } from '~/utils/requirements'
  * date and the state, with "Eintragen" and the history; below, the list of trainings.
  */
 const props = defineProps<{ employeeId: number }>()
-const { data, refresh } = await useFetch<EmployeeRequirementsDto>(`/api/employees/${props.employeeId}/requirements`)
+const { data, error, refresh } = await useFetch<EmployeeRequirementsDto>(`/api/employees/${props.employeeId}/requirements`)
 const run = useAction(refresh)
 const confirm = useConfirm()
+// A 404 (employee not found) is the page's own business; any other failure is shown instead of hiding the section.
+const loadError = computed(() => (error.value && (error.value as { statusCode?: number }).statusCode !== 404 ? errorMessage(error.value) : null))
 
 const STATE_BADGE: Record<RequirementState, { color: 'error' | 'warning' | 'success'; variant: 'soft' | 'outline' }> = {
   overdue: { color: 'error', variant: 'soft' },
@@ -46,8 +49,7 @@ async function deleteRecord(kind: EmployeeRequirementKindDto, record: Requiremen
   }
 }
 
-// Trainings may lie ahead (a booked course), so only the year is kept within reason.
-const LATEST_TRAINING_DATE = '2100-12-31'
+// Trainings may lie ahead (a booked course); the latest day keeps a mistyped year out.
 const emptyTraining = () => ({ id: null as number | null, date: todayIso(), title: '', note: '' })
 const training = reactive(emptyTraining())
 function editTraining(item: TrainingDto) {
@@ -73,7 +75,8 @@ async function deleteTraining(item: TrainingDto) {
 </script>
 
 <template>
-  <section v-if="data" id="requirements" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+  <UAlert v-if="loadError" color="error" variant="soft" :title="loadError" />
+  <section v-else-if="data" id="requirements" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.requirements.title }}</h2>
     <p class="text-xs text-gray-500">{{ de.requirements.hint }}</p>
     <div class="overflow-x-auto">

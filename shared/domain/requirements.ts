@@ -17,6 +17,9 @@ export const MAX_REQUIREMENT_INTERVAL_MONTHS = 240
 /** Earliest day a record or training may be dated: an older one is a mistyped year (0202 for 2020). */
 export const EARLIEST_REQUIREMENT_DATE: IsoDate = '1900-01-01'
 
+/** Latest day a training may be dated: it may lie ahead (a booked course), but 3026 is a mistyped year. */
+export const LATEST_TRAINING_DATE: IsoDate = '2100-12-31'
+
 /** A kind is announced to Leitung and Träger this many months before it is due. */
 export const REQUIREMENT_SOON_MONTHS = 2
 

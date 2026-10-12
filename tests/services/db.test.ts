@@ -90,14 +90,20 @@ describe('migration to the Träger role', () => {
 describe('upgrading a filled database through migrateDb', () => {
   const MIGRATIONS = 'server/db/migrations'
 
-  /** A database migrated with drizzle's migrator up to and including `last` (e.g. '0018'), as an older app version left it. */
-  function databaseAt(last: string) {
+  /** A temporary copy of the migrations folder holding only the migrations up to and including `last` (e.g. '0023'). */
+  function migrationsThrough(last: string): string {
     const folder = mkdtempSync(join(tmpdir(), 'dienstplan-migrations-'))
     mkdirSync(join(folder, 'meta'))
     const journal = JSON.parse(readFileSync(join(MIGRATIONS, 'meta', '_journal.json'), 'utf8')) as { entries: { tag: string }[] }
     journal.entries = journal.entries.filter(entry => entry.tag.slice(0, 4) <= last)
     writeFileSync(join(folder, 'meta', '_journal.json'), JSON.stringify(journal))
     for (const entry of journal.entries) copyFileSync(join(MIGRATIONS, `${entry.tag}.sql`), join(folder, `${entry.tag}.sql`))
+    return folder
+  }
+
+  /** A database migrated with drizzle's migrator up to and including `last` (e.g. '0018'), as an older app version left it. */
+  function databaseAt(last: string) {
+    const folder = migrationsThrough(last)
     const { db, sqlite } = createDb(':memory:')
     migrate(db as Parameters<typeof migrate>[0], { migrationsFolder: folder })
     rmSync(folder, { recursive: true, force: true })
@@ -250,7 +256,14 @@ describe('upgrading a filled database through migrateDb', () => {
     const before = dump()
     const schemaBefore = existingSchema()
 
-    migrateDb(db, MIGRATIONS)
+    // Only through 0023, so a later migration that alters these tables does not break the test.
+    const folder = migrationsThrough('0023')
+    try {
+      migrateDb(db, folder)
+    }
+    finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
 
     // Nothing existing is rebuilt or changed: the same rows and the same table and index definitions.
     expect(dump()).toEqual(before)
