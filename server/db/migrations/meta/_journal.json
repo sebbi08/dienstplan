@@ -169,6 +169,13 @@
       "when": 1791790368135,
       "tag": "0023_requirements",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791795368299,
+      "tag": "0024_early_sick_leaves",
+      "breakpoints": true
     }
   ]
 }

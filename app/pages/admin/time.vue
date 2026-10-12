@@ -3,6 +3,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
 import type { CodeDto, EmployeeListItemDto, OpenRecordDto, TimeDayDto, TimeMonthDto, TimeRecordDto } from '#shared/types/api'
+import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort, formatSpan } from '~/utils/format'
 import { DEVIATION_MINUTES, recordedDifference as difference } from '~/utils/timeSheet'
@@ -84,11 +85,24 @@ async function setAbsence(day: TimeDayDto, code: CodeDto | null) {
   run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }), de.common.saved)
 }
 
+/** "Im Dienst erkrankt": the duty stays, its planned time is credited; set, changed and removed in one dialog. */
+const sickLeave = reactive<{ open: boolean; target: SickLeaveTarget | null }>({ open: false, target: null })
+function openSickLeave(day: TimeDayDto) {
+  // Employee of the displayed table, as for absences.
+  const shown = data.value?.employee
+  if (!shown) return
+  Object.assign(sickLeave, { open: true, target: { employeeId: shown.id, name: shown.name, date: day.date, mark: day.sickLeave } })
+}
+/** Only a day with a duty, today or earlier, can be marked (a marked day can always be opened). */
+const canMarkSick = (day: TimeDayDto) => day.sickLeave !== null || (day.plannedDuty && day.date <= todayDate)
+
 /** One compact menu per day instead of four buttons, so rows stay short on narrow screens. */
 function absenceItems(day: TimeDayDto): DropdownMenuItem[][] {
   const codes = (data.value?.absenceCodes ?? []).map(code => ({ label: code.label, onSelect: () => setAbsence(day, code) }))
-  if (!day.absence) return [codes]
-  return [codes, [{ label: de.time.removeAbsence, icon: 'i-lucide-x', color: 'error', onSelect: () => setAbsence(day, null) }]]
+  const groups: DropdownMenuItem[][] = [codes]
+  if (canMarkSick(day)) groups.push([{ label: de.sickLeave.action, icon: 'i-lucide-thermometer', onSelect: () => openSickLeave(day) }])
+  if (day.absence) groups.push([{ label: de.time.removeAbsence, icon: 'i-lucide-x', color: 'error', onSelect: () => setAbsence(day, null) }])
+  return groups
 }
 
 // Scroll to the focused day (deep link, "Offene Zeiträume") once its row has rendered – only then, not after every save.
@@ -189,6 +203,14 @@ function change(nextYear: number, nextMonth: number) {
             </td>
             <td class="px-2 py-1.5 text-xs text-amber-700">
               <div v-for="(warning, index) in day.warnings" :key="index">{{ warningText(warning, names) }}</div>
+              <button
+                v-if="day.sickLeave" type="button" :title="day.sickLeave.note ?? undefined"
+                class="inline-flex items-start gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-left text-rose-800 ring-1 ring-rose-200 hover:bg-rose-100"
+                @click="openSickLeave(day)"
+              >
+                <UIcon name="i-lucide-thermometer" class="mt-0.5 shrink-0" />
+                <span>{{ de.sickLeave.badge(day.sickLeave.leftAt === null ? null : formatTime(day.sickLeave.leftAt)) }}</span>
+              </button>
             </td>
             <td class="px-2 py-1.5">
               <input
@@ -210,5 +232,6 @@ function change(nextYear: number, nextMonth: number) {
     </table>
 
     <TimeRecordModal v-model:open="modal.open" :title="modalTitle" :initial="modal.record" @submit="onSubmit" />
+    <SickLeaveModal v-model:open="sickLeave.open" :target="sickLeave.target" @done="refresh" />
   </div>
 </template>

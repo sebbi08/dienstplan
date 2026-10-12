@@ -1,4 +1,5 @@
 import { and, eq, gte, inArray } from 'drizzle-orm'
+import { hasPlannedDuty } from '../../shared/domain/balance'
 import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
@@ -8,7 +9,7 @@ import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import type { DomainEntry, IsoDate, Minutes } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, dayNotes, employees, entries, shiftTemplates } from '../db/schema'
+import { absenceCodes, dayNotes, earlySickLeaves, employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
@@ -148,6 +149,17 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
 }
 
 /**
+ * "Im Dienst erkrankt" needs a duty: once a cell was written and its day has no planned working time any more (it is
+ * empty or carries a full-day absence), the day's marker goes. Called inside the transaction that wrote the cell.
+ */
+export function dropStaleSickLeave(db: Db, cell: CellRef): void {
+  const marker = db.select({ id: earlySickLeaves.id }).from(earlySickLeaves)
+    .where(and(eq(earlySickLeaves.employeeId, cell.employeeId), eq(earlySickLeaves.date, cell.date))).get()
+  if (!marker || hasPlannedDuty(loadEntries(db, { employeeId: cell.employeeId, from: cell.date, to: cell.date }))) return
+  db.delete(earlySickLeaves).where(eq(earlySickLeaves.id, marker.id)).run()
+}
+
+/**
  * Writes into plan cells of the facility; if any cell is refused, nothing is written. A cell is accepted when
  * 1. its employee is home staff and the day is no help-out elsewhere;
  * 2. its employee is home staff, the day is a help-out elsewhere and the input is an absence: the help-out is replaced
@@ -158,7 +170,8 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
  *    home facility) and booked again when the help-out day becomes empty (see rebookHomeClosure).
  * Anyone else gives employee_not_found. The entry's group (input.groupId; none = the home group) must be one of the
  * facility's groups, also in a helper cell (group_not_found otherwise). It is stored as none for absences and breaks
- * and for the own staff's home group (see storedGroup).
+ * and for the own staff's home group (see storedGroup). A written cell without working time loses its "Im Dienst
+ * erkrankt" marker (see dropStaleSickLeave).
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
@@ -247,6 +260,7 @@ export function applyToCells(
       })
       if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, now)
       if (helper && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now)
+      dropStaleSickLeave(tx, cell)
     }
   })
 }
@@ -273,6 +287,7 @@ export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: 
       facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell, names), actorId: actor.id, now: now.toISOString(),
     })
     if (entry.helpFacilityId !== null) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now.toISOString())
+    dropStaleSickLeave(tx, cell)
   })
 }
 

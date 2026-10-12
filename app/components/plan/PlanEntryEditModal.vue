@@ -10,9 +10,17 @@ import { de } from '~/locales/de'
  * working duty (shift, special shift, VZ, Büro) can also count for another group than the person's home group.
  * Emits the new times only when they changed and the group only when it changed (null = the home group again).
  */
-const props = defineProps<{ entry: EntryDto | null; plan?: MonthPlanDto | null }>()
+const props = defineProps<{
+  entry: EntryDto | null
+  plan?: MonthPlanDto | null
+  /** The entry's day can be marked "Im Dienst erkrankt" (a duty of the own staff, today or earlier). */
+  canMarkSick?: boolean
+}>()
 const open = defineModel<boolean>('open', { required: true })
-const emit = defineEmits<{ submit: [id: number, times: TimeSpan | null, groupId: number | null | undefined] }>()
+const emit = defineEmits<{
+  submit: [id: number, times: TimeSpan | null, groupId: number | null | undefined]
+  sickLeave: [entry: EntryDto]
+}>()
 
 /** groupId 0 = the home group (the select needs a non-null value). */
 const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', groupId: 0 })
@@ -85,6 +93,13 @@ function submit() {
   emit('submit', entry.id, timesChanged || groupId === undefined ? { start, end, breakStart, breakEnd } : null, groupId)
   open.value = false
 }
+
+/** Leaves this dialog (unsaved times are dropped) for the "Im Dienst erkrankt" dialog of the entry's day. */
+function markSick() {
+  if (!props.entry) return
+  open.value = false
+  emit('sickLeave', props.entry)
+}
 </script>
 
 <template>
@@ -103,7 +118,11 @@ function submit() {
         </UFormField>
         <p v-if="becomesSpecial" class="col-span-2 text-sm text-amber-700">{{ de.modal.becomesSpecial }}</p>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
-        <div class="col-span-2 flex justify-end gap-2">
+        <div class="col-span-2 flex flex-wrap justify-end gap-2">
+          <UButton
+            v-if="canMarkSick" class="mr-auto" color="neutral" variant="soft" icon="i-lucide-thermometer"
+            :label="de.sickLeave.action" @click="markSick"
+          />
           <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
           <UButton type="submit" :label="de.common.save" />
         </div>

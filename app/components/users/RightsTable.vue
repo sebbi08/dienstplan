@@ -44,6 +44,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   { title: 'Planung und Übersichten', rows: [
     { label: 'Schließzeiten, Feiertage, frühere Schließungen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Krankheitstage, Jahreskalender bearbeiten (Termine, Abwesenheiten), Druckansichten', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: '„Im Dienst erkrankt“ eintragen (die geplante Zeit bleibt gutgeschrieben) und die Liste „Vorzeitig gegangen wegen Krankheit“ sehen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Jahreskalender ansehen', rights: ['yes', 'yes', 6, 'no'] },
   ] },
   { title: 'Verwaltung', rows: [

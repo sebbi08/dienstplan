@@ -38,6 +38,7 @@ const ADMIN_ROUTES = [
   'requirements/due.get.ts', 'employees/[id]/requirements.get.ts', 'employees/[id]/requirements.post.ts',
   'employee-requirements/[id].delete.ts', 'employees/[id]/trainings.post.ts', 'employee-trainings/[id].put.ts',
   'employee-trainings/[id].delete.ts',
+  'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts', 'early-sick-leaves/[id].delete.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
@@ -97,6 +98,18 @@ describe('API route permissions', () => {
         expect(code, route).not.toMatch(/require(User|Provider|Terminal)\(/)
         expect(code, route).toContain('.facilityId')
       }
+    }
+  })
+
+  it('opens the markers for falling ill during duty to managers of the active facility only', () => {
+    const touching = routes.filter(route => /sick-leave/i.test(route) || source(route).includes('services/earlySickLeaves\''))
+    expect(touching).toEqual(['early-sick-leaves/[id].delete.ts', 'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      expect(ADMIN_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireAdmin(')
+      expect(code, route).not.toMatch(/require(User|Provider|Terminal)\(/)
+      expect(code, route).toContain('admin.facilityId')
     }
   })
 

@@ -103,6 +103,10 @@ export const earlyClosureSchema = z.object({ date: isoDate, closedFrom: minutes,
 export const calendarEventSchema = z.object({
   date: isoDate, start: minutes.nullable(), end: minutes.nullable(), title: z.string().max(200), visibleToStaff: z.boolean(),
 })
+/** leftAt is checked by the service (invalid_time), so a wrong time gets its own message. */
+export const earlySickLeaveSchema = z.object({
+  employeeId: z.number().int().positive(), date: isoDate, leftAt: z.number().nullable(), note: z.string().max(200).nullable().optional(),
+})
 export const timeDayNoteSchema = z.object({ employeeId: z.number().int(), date: isoDate, note: z.string().max(200) })
 export const stampSchema = z.object({ action: z.enum(['in', 'out']) })
 export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number().int().positive() })

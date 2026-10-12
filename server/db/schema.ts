@@ -387,3 +387,19 @@ export const employeeTrainings = sqliteTable('employee_trainings', {
   title: text('title').notNull(),
   note: text('note'),
 }, table => [index('employee_trainings_employee').on(table.employeeId)])
+
+/**
+ * "Im Dienst erkrankt": the employee fell ill during the duty of that day and left early. The day stays a working day
+ * (no sick day), its planned time is credited in full, and the marker is only for Leitung and Träger. It belongs to the
+ * person: one per employee and day, kept when they move to another facility.
+ */
+export const earlySickLeaves = sqliteTable('early_sick_leaves', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  /** Time of leaving in minutes of the day (null = not entered: the end of the last time record counts). */
+  leftAt: integer('left_at'),
+  note: text('note'),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [uniqueIndex('early_sick_leaves_employee_date').on(table.employeeId, table.date)])

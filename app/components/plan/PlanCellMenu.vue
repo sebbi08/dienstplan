@@ -26,12 +26,14 @@ const props = withDefaults(defineProps<{
   selectedCount: number
   gapSuggestions: GapSuggestion[]
   scope?: CellScope
-}>(), { scope: 'normal' })
+  /** One selected cell with a duty of the own staff, today or earlier: it can be marked "Im Dienst erkrankt". */
+  canMarkSick?: boolean
+}>(), { scope: 'normal', canMarkSick: false })
 const open = defineModel<boolean>('open', { required: true })
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
   template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
-  fillGap: [suggestion: GapSuggestion]; addBreak: []
+  fillGap: [suggestion: GapSuggestion]; addBreak: []; sickLeave: []
 }>()
 
 const codeButtons = computed(() => codesForScope(buttonCodes(props.codes), props.scope))
@@ -96,6 +98,13 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
             <UButton size="xs" color="error" variant="soft" :label="de.plan.addBreak" @click="emit('addBreak')" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.plan.clear" @click="emit('clear')" />
           </div>
+        </section>
+
+        <section v-if="canMarkSick">
+          <UButton
+            size="xs" color="neutral" variant="soft" icon="i-lucide-thermometer" :label="de.sickLeave.action"
+            @click="emit('sickLeave')"
+          />
         </section>
 
         <UCheckbox v-if="withShifts" v-model="addMode" :label="de.plan.addMode" />

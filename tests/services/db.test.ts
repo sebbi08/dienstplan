@@ -323,6 +323,75 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(statements.join('\n')).not.toMatch(/ALTER TABLE|DROP TABLE|__new_|PRAGMA/)
   })
 
+  it('adds the markers for falling ill during duty and keeps every existing row', () => {
+    const { db, sqlite } = databaseAt('0023')
+    expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE name = \'early_sick_leaves\'').all()).toEqual([])
+    sqlite.exec(`
+      INSERT INTO facilities (id, name, sort_order) VALUES (2, 'Krippe', 1);
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1), (2, 'Ben', 2);
+      INSERT INTO employee_hours (employee_id, weekly_minutes, valid_from) VALUES (1, 2340, '2026-01-01'), (2, 1200, '2026-01-01');
+      INSERT INTO users (id, username, password_hash, role, employee_id, facility_id) VALUES
+        (1, 'traeger', 'x', 'provider', NULL, 1), (2, 'leitung', 'x', 'admin', NULL, 1), (3, 'anna', 'x', 'observer', 1, NULL);
+      INSERT INTO shift_templates (id, short_label, label, start, end, facility_id) VALUES (1, 'F1', 'Frühdienst', 420, 795, 1);
+      INSERT INTO entries (id, employee_id, date, kind, shift_template_id, start, end, updated_at) VALUES
+        (1, 1, '2026-10-05', 'shift', 1, 420, 795, 'now'), (2, 2, '2026-10-06', 'shift', 1, 420, 795, 'now');
+      INSERT INTO time_records (employee_id, date, start, end, source, created_at) VALUES (1, '2026-10-05', 420, 680, 'terminal', 'now');
+      INSERT INTO time_day_notes (employee_id, date, note) VALUES (1, '2026-10-05', 'Arzttermin');
+      INSERT INTO employee_trainings (employee_id, date, title) VALUES (1, '2026-03-10', 'Sprachförderung');
+    `)
+    const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\' AND name NOT LIKE \'sqlite_%\' AND name NOT LIKE \'__drizzle%\' ORDER BY name')
+      .all() as { name: string }[]).map(row => row.name)
+    const dump = () => Object.fromEntries(tables.map(table => [table, sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]))
+    const existingSchema = () => (sqlite.prepare('SELECT name, tbl_name, sql FROM sqlite_master ORDER BY name').all() as { tbl_name: string }[])
+      .filter(object => object.tbl_name !== 'early_sick_leaves')
+    const before = dump()
+    const schemaBefore = existingSchema()
+    expect(before.entries).toHaveLength(2)
+
+    // Only through 0024, so a later migration that alters these tables does not break the test.
+    const folder = migrationsThrough('0024')
+    try {
+      migrateDb(db, folder)
+    }
+    finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
+
+    // Nothing existing is rebuilt or changed: the same rows and the same table and index definitions.
+    expect(dump()).toEqual(before)
+    expect(existingSchema()).toEqual(schemaBefore)
+    expect(count(sqlite, 'early_sick_leaves')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+
+    // The new table: one marker per employee and day, following its employee; the user who entered it may go.
+    const marker = sqlite.prepare('INSERT INTO early_sick_leaves (employee_id, date, left_at, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+    marker.run(1, '2026-10-05', 680, 'Migräne', 'now', 2)
+    marker.run(1, '2026-10-06', null, null, 'now', 2)
+    marker.run(2, '2026-10-06', null, null, 'now', null)
+    expect(() => marker.run(1, '2026-10-05', 700, null, 'now', 2)).toThrow(/UNIQUE/)
+    expect(() => marker.run(99, '2026-10-05', null, null, 'now', 2)).toThrow(/FOREIGN KEY/)
+    expect(() => marker.run(2, '2026-10-07', null, null, 'now', 99)).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM users WHERE id = 2')
+    expect(sqlite.prepare('SELECT employee_id, date, left_at, note, created_by FROM early_sick_leaves ORDER BY id').all()).toEqual([
+      { employee_id: 1, date: '2026-10-05', left_at: 680, note: 'Migräne', created_by: null },
+      { employee_id: 1, date: '2026-10-06', left_at: null, note: null, created_by: null },
+      { employee_id: 2, date: '2026-10-06', left_at: null, note: null, created_by: null },
+    ])
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(sqlite.prepare('SELECT employee_id FROM early_sick_leaves').all()).toEqual([{ employee_id: 2 }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('only creates the new table and its index in the migration for falling ill during duty', () => {
+    const statements = readFileSync(join(MIGRATIONS, '0024_early_sick_leaves.sql'), 'utf8')
+      .split('--> statement-breakpoint').map(part => part.trim()).filter(part => part !== '')
+    expect(statements).toHaveLength(2)
+    expect(statements[0]).toMatch(/^CREATE TABLE `early_sick_leaves` \(/)
+    expect(statements[1]).toMatch(/^CREATE UNIQUE INDEX `early_sick_leaves_employee_date` ON `early_sick_leaves` \(`employee_id`,`date`\);?$/)
+    expect(statements.join('\n')).not.toMatch(/ALTER TABLE|DROP TABLE|__new_|PRAGMA|INSERT INTO/)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')
