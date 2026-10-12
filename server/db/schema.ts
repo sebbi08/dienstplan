@@ -347,3 +347,43 @@ export const leaveRequests = sqliteTable('leave_requests', {
 export const leavePlanners = sqliteTable('leave_planners', {
   userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
 })
+
+/**
+ * A kind of mandatory appointment or proof (Pflichttermin) of a facility. Its name is unique within the facility,
+ * compared case-insensitively. Every facility has the four built-in kinds (see shared/domain/requirements.ts).
+ */
+export const requirementTypes = sqliteTable('requirement_types', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id),
+  name: text('name').notNull(),
+  /** Due again every this many months (null = needed once). */
+  intervalMonths: integer('interval_months'),
+  /** Key of a built-in kind, which cannot be deleted (null = one of the facility's own kinds). */
+  builtinKey: text('builtin_key'),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, table => [uniqueIndex('requirement_types_facility_builtin').on(table.facilityId, table.builtinKey)])
+
+/**
+ * One appointment kept or proof shown by an employee; the rows of an employee and kind form the history, and the newest
+ * date counts. The kind always belongs to the employee's home facility.
+ */
+export const employeeRequirements = sqliteTable('employee_requirements', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  typeId: integer('type_id').notNull().references(() => requirementTypes.id, { onDelete: 'cascade' }),
+  /** Day of the appointment, or the day the proof was shown. */
+  date: text('date').notNull(),
+  note: text('note'),
+}, table => [
+  index('employee_requirements_employee').on(table.employeeId),
+  index('employee_requirements_type').on(table.typeId),
+])
+
+/** A training (Fortbildung) an employee took part in; it stays with the employee in whatever facility they work. */
+export const employeeTrainings = sqliteTable('employee_trainings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  title: text('title').notNull(),
+  note: text('note'),
+}, table => [index('employee_trainings_employee').on(table.employeeId)])

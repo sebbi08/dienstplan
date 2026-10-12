@@ -21,6 +21,7 @@ const USER_ROUTES = [
   'my/leave-requests/[id]/withdraw.post.ts',
   'pdf.get.ts',
   'my/calendar.get.ts',
+  'my/requirements.get.ts',
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
 const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']
@@ -31,7 +32,13 @@ const PROVIDER_ROUTES = [
   'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'groups/[id].put.ts', 'groups/[id].delete.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
-const ADMIN_ROUTES = ['help-outs/candidates.get.ts', 'help-outs/index.post.ts', 'help-outs/[id].delete.ts', 'groups.get.ts']
+const ADMIN_ROUTES = [
+  'help-outs/candidates.get.ts', 'help-outs/index.post.ts', 'help-outs/[id].delete.ts', 'groups.get.ts',
+  'requirement-types.get.ts', 'requirement-types.post.ts', 'requirement-types/[id].put.ts', 'requirement-types/[id].delete.ts',
+  'requirements/due.get.ts', 'employees/[id]/requirements.get.ts', 'employees/[id]/requirements.post.ts',
+  'employee-requirements/[id].delete.ts', 'employees/[id]/trainings.post.ts', 'employee-trainings/[id].put.ts',
+  'employee-trainings/[id].delete.ts',
+]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 
@@ -70,6 +77,26 @@ describe('API route permissions', () => {
     }
     else {
       expect(code, 'new routes must call requireAdmin( or be added to the allowlists').toContain('requireAdmin(')
+    }
+  })
+
+  it('opens the mandatory appointments to managers only, apart from the read-only own view', () => {
+    const touching = routes.filter(route => /requirement|training/i.test(route) || source(route).includes('services/requirements\''))
+    expect(touching).toHaveLength(12)
+    for (const route of touching) {
+      const code = source(route)
+      if (route === 'my/requirements.get.ts') {
+        // The own view takes nothing from the request: whose records it shows follows from the session alone.
+        expect(code).toContain('requireUser(')
+        expect(code).toContain('getMyRequirements(')
+        expect(code).not.toMatch(/getRouterParam|getValidated|readValidatedBody|readBody|getQuery/)
+      }
+      else {
+        expect(ADMIN_ROUTES, route).toContain(route)
+        expect(code, route).toContain('requireAdmin(')
+        expect(code, route).not.toMatch(/require(User|Provider|Terminal)\(/)
+        expect(code, route).toContain('.facilityId')
+      }
     }
   })
 

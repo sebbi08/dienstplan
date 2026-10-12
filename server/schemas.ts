@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
 import { COLOR_KEYS } from '../shared/types/api'
@@ -134,3 +135,11 @@ export const helpOutSchema = z.object({
   month: z.number().int().min(1).max(12),
 })
 export const groupNameSchema = z.object({ name: z.string().max(80) })
+/** intervalMonths: due again every … months (null = needed once). */
+export const requirementTypeSchema = z.object({
+  name: z.string().max(80), intervalMonths: z.number().int().min(1).max(MAX_REQUIREMENT_INTERVAL_MONTHS).nullable(),
+})
+export const requirementRecordSchema = z.object({
+  typeId: z.number().int().positive(), date: isoDate, note: z.string().max(200).nullable().optional(),
+})
+export const trainingSchema = z.object({ date: isoDate, title: z.string().max(200), note: z.string().max(500).nullable().optional() })

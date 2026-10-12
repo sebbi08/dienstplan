@@ -1,5 +1,6 @@
 import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
@@ -596,4 +597,57 @@ export interface LeavePlanningDto {
   counts: Record<IsoDate, number>
   maxConcurrent: number | null
   openRequests: LeaveRequestDto[]
+}
+
+/** A kind of mandatory appointment or proof (Pflichttermin) of a facility. */
+export interface RequirementTypeDto {
+  id: number
+  name: string
+  /** Due again every this many months (null = needed once). */
+  intervalMonths: number | null
+  /** 'company_doctor', 'first_aid', 'criminal_record' or 'measles' for the built-in kinds, null for the facility's own. */
+  builtinKey: string | null
+  sortOrder: number
+}
+
+/** One appointment kept or proof shown: the day, and an optional note. */
+export interface RequirementRecordDto {
+  id: number
+  date: IsoDate
+  note: string | null
+}
+
+export interface TrainingDto {
+  id: number
+  date: IsoDate
+  title: string
+  note: string | null
+}
+
+/** A kind as it stands for one employee: the newest record counts. */
+export interface EmployeeRequirementKindDto {
+  type: RequirementTypeDto
+  state: RequirementState
+  /** Date of the newest record (null = none). */
+  lastDate: IsoDate | null
+  /** When the next one is due (null without a record or for a kind needed once). */
+  dueOn: IsoDate | null
+  /** The history, newest first. */
+  records: RequirementRecordDto[]
+}
+
+/** Mandatory appointments (every kind of the employee's facility) and trainings (newest first) of one employee. */
+export interface EmployeeRequirementsDto {
+  kinds: EmployeeRequirementKindDto[]
+  trainings: TrainingDto[]
+}
+
+/** A row of the notice for Leitung and Träger: a kind that is overdue, missing or due soon for an employee. */
+export interface DueRequirementDto {
+  employeeId: number
+  employeeName: string
+  typeId: number
+  typeName: string
+  state: Exclude<RequirementState, 'ok'>
+  dueOn: IsoDate | null
 }

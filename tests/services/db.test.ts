@@ -226,6 +226,90 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('adds mandatory appointments with the built-in kinds for every existing facility, without touching existing rows', () => {
+    const { db, sqlite } = databaseAt('0022')
+    expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE name = \'requirement_types\'').all()).toEqual([])
+    sqlite.exec(`
+      INSERT INTO facilities (id, name, sort_order) VALUES (2, 'Krippe', 1);
+      INSERT INTO groups (id, facility_id, name) VALUES (1, 1, 'Bären');
+      INSERT INTO employees (id, name, facility_id, group_id, left_on) VALUES (1, 'Anna', 1, 1, NULL), (2, 'Ben', 2, NULL, '2026-06-30');
+      INSERT INTO employee_hours (employee_id, weekly_minutes, valid_from) VALUES (1, 2340, '2026-01-01'), (2, 1200, '2026-01-01');
+      INSERT INTO users (id, username, password_hash, role, employee_id, facility_id) VALUES
+        (1, 'traeger', 'x', 'provider', NULL, 2), (2, 'anna', 'x', 'observer', 1, NULL);
+      INSERT INTO shift_templates (id, short_label, label, start, end, facility_id) VALUES (1, 'F1', 'Frühdienst', 420, 795, 1);
+      INSERT INTO entries (id, employee_id, date, kind, shift_template_id, start, end, group_id, updated_at) VALUES
+        (1, 1, '2026-10-05', 'shift', 1, 420, 795, 1, 'now'), (2, 2, '2026-10-06', 'shift', 1, 420, 795, NULL, 'now');
+      INSERT INTO help_outs (employee_id, facility_id, year, month) VALUES (1, 2, 2026, 10);
+      INSERT INTO coverage_rules (id, facility_id, label, start, end, min_count, group_id) VALUES (1, 1, 'Früh', 420, 480, 2, 1);
+    `)
+    const tables = ['facilities', 'groups', 'employees', 'employee_hours', 'users', 'shift_templates', 'entries', 'help_outs', 'coverage_rules']
+    const dump = () => Object.fromEntries(tables.map(table => [table, sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]))
+    const NEW_TABLES = ['requirement_types', 'employee_requirements', 'employee_trainings']
+    const existingSchema = () => (sqlite.prepare('SELECT name, tbl_name, sql FROM sqlite_master ORDER BY name').all() as { tbl_name: string }[])
+      .filter(object => !NEW_TABLES.includes(object.tbl_name))
+    const before = dump()
+    const schemaBefore = existingSchema()
+
+    migrateDb(db, MIGRATIONS)
+
+    // Nothing existing is rebuilt or changed: the same rows and the same table and index definitions.
+    expect(dump()).toEqual(before)
+    expect(existingSchema()).toEqual(schemaBefore)
+    expect(sqlite.prepare(
+      'SELECT facility_id, name, interval_months, builtin_key, sort_order FROM requirement_types ORDER BY facility_id, sort_order',
+    ).all()).toEqual([1, 2].flatMap(facility_id => [
+      { facility_id, name: 'Betriebsarzt', interval_months: 24, builtin_key: 'company_doctor', sort_order: 0 },
+      { facility_id, name: 'Erste-Hilfe-Kurs', interval_months: 24, builtin_key: 'first_aid', sort_order: 1 },
+      { facility_id, name: 'Erweitertes Führungszeugnis', interval_months: 60, builtin_key: 'criminal_record', sort_order: 2 },
+      { facility_id, name: 'Masernimpfung (Nachweis)', interval_months: null, builtin_key: 'measles', sort_order: 3 },
+    ]))
+    expect(count(sqlite, 'employee_requirements')).toBe(0)
+    expect(count(sqlite, 'employee_trainings')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+
+    // The new tables check their references and follow their employee and kind.
+    const kind = (facility: number, key: string) => (sqlite.prepare(
+      'SELECT id FROM requirement_types WHERE facility_id = ? AND builtin_key = ?',
+    ).get(facility, key) as { id: number }).id
+    sqlite.exec('INSERT INTO requirement_types (id, facility_id, name, interval_months, sort_order) VALUES (100, 1, \'Hygienebelehrung\', 24, 4)')
+    const record = sqlite.prepare('INSERT INTO employee_requirements (employee_id, type_id, date, note) VALUES (?, ?, ?, ?)')
+    record.run(1, kind(1, 'company_doctor'), '2026-01-15', null)
+    record.run(1, 100, '2026-02-01', 'Gesundheitsamt')
+    record.run(2, kind(2, 'measles'), '2020-03-01', null)
+    sqlite.exec(`INSERT INTO employee_trainings (employee_id, date, title, note) VALUES
+      (1, '2026-03-10', 'Sprachförderung', NULL), (2, '2026-04-20', 'Kinderschutz', 'online')`)
+    expect(() => record.run(99, 100, '2026-02-01', null)).toThrow(/FOREIGN KEY/)
+    expect(() => record.run(1, 999, '2026-02-01', null)).toThrow(/FOREIGN KEY/)
+    expect(() => sqlite.exec('INSERT INTO requirement_types (facility_id, name) VALUES (99, \'Fremd\')')).toThrow(/FOREIGN KEY/)
+    expect(() => sqlite.exec('INSERT INTO requirement_types (facility_id, name, builtin_key) VALUES (1, \'Doppelt\', \'measles\')'))
+      .toThrow(/UNIQUE/)
+    sqlite.exec('DELETE FROM requirement_types WHERE id = 100')
+    expect(sqlite.prepare('SELECT employee_id, date FROM employee_requirements ORDER BY id').all())
+      .toEqual([{ employee_id: 1, date: '2026-01-15' }, { employee_id: 2, date: '2020-03-01' }])
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(sqlite.prepare('SELECT employee_id FROM employee_requirements').all()).toEqual([{ employee_id: 2 }])
+    expect(sqlite.prepare('SELECT employee_id, title FROM employee_trainings').all()).toEqual([{ employee_id: 2, title: 'Kinderschutz' }])
+    expect(count(sqlite, 'requirement_types')).toBe(8)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('creates only the three new tables in the migration for mandatory appointments', () => {
+    const statements = readFileSync(join(MIGRATIONS, '0023_requirements.sql'), 'utf8')
+      .split('--> statement-breakpoint').map(part => part.trim()).filter(part => part !== '')
+    const created = statements.filter(part => part.startsWith('CREATE TABLE')).map(part => /^CREATE TABLE `(\w+)`/.exec(part)![1])
+    expect(created.sort()).toEqual(['employee_requirements', 'employee_trainings', 'requirement_types'])
+    const inserts = statements.filter(part => part.startsWith('INSERT INTO'))
+    expect(inserts).toHaveLength(4)
+    for (const insert of inserts) expect(insert).toMatch(/^INSERT INTO `requirement_types` [^;]* FROM `facilities`;?$/)
+    // Everything else only indexes the new tables: no table is altered, dropped or rebuilt.
+    const others = statements.filter(part => !part.startsWith('CREATE TABLE') && !part.startsWith('INSERT INTO'))
+    for (const other of others) {
+      expect(other).toMatch(/^CREATE (UNIQUE )?INDEX `\w+` ON `(requirement_types|employee_requirements|employee_trainings)` /)
+    }
+    expect(statements.join('\n')).not.toMatch(/ALTER TABLE|DROP TABLE|__new_|PRAGMA/)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

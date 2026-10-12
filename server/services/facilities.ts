@@ -3,6 +3,7 @@ import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types
 import type { Db } from '../db/client'
 import { coverageRules, employees, facilities, shiftTemplates, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { seedBuiltinRequirementTypes } from './requirements'
 
 const ordered = [asc(facilities.sortOrder), asc(facilities.id)]
 
@@ -62,13 +63,17 @@ function checkedName(db: Db, name: string, exceptId: number | null = null): stri
   return trimmed
 }
 
-/** A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules. */
+/**
+ * A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules and the
+ * built-in kinds of mandatory appointments (with their defaults, not the first facility's names and intervals).
+ */
 export function createFacility(db: Db, name: string): FacilityDto {
   const checked = checkedName(db, name)
   return db.transaction((tx) => {
     const source = firstFacilityId(tx)
     const sortOrder = (tx.select({ value: max(facilities.sortOrder) }).from(facilities).get()?.value ?? -1) + 1
     const facility = tx.insert(facilities).values({ name: checked, sortOrder }).returning().get()
+    seedBuiltinRequirementTypes(tx, facility.id)
     if (source !== null) {
       const templates = tx.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, source))
         .orderBy(asc(shiftTemplates.sortOrder), asc(shiftTemplates.id)).all()

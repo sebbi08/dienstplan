@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
-import { absenceCodes, employeeHours, employees, helpOuts, shiftTemplates, users } from '../../server/db/schema'
+import { absenceCodes, employeeHours, employees, helpOuts, requirementTypes, shiftTemplates, users } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { ServiceError } from '../../server/lib/errors'
 import { hashPassword } from '../../server/lib/password'
@@ -71,6 +71,12 @@ export function addHelpOut(db: Db, employeeId: number, facilityId: number, year:
 export function templateId(db: Db, shortLabel: string, facilityId = 1): number {
   return db.select().from(shiftTemplates)
     .where(and(eq(shiftTemplates.shortLabel, shortLabel), eq(shiftTemplates.facilityId, facilityId))).get()!.id
+}
+
+/** The facility's built-in kind of mandatory appointment with this key ('company_doctor', 'first_aid', 'criminal_record', 'measles'). */
+export function requirementTypeId(db: Db, key: string, facilityId = 1): number {
+  return db.select().from(requirementTypes)
+    .where(and(eq(requirementTypes.builtinKey, key), eq(requirementTypes.facilityId, facilityId))).get()!.id
 }
 
 export function codeId(db: Db, key: string): number {
