@@ -642,6 +642,20 @@ export interface EmployeeRequirementsDto {
   trainings: TrainingDto[]
 }
 
+/**
+ * An employee's own view (read-only): per kind of their facility the newest date and when the next is due, and their
+ * trainings, newest first. Deliberately no state (the warning is for Leitung and Träger only), no history and none of
+ * the notes the Leitung typed.
+ */
+export interface MyRequirementsDto {
+  kinds: {
+    type: Pick<RequirementTypeDto, 'id' | 'name' | 'intervalMonths'>
+    lastDate: IsoDate | null
+    dueOn: IsoDate | null
+  }[]
+  trainings: Pick<TrainingDto, 'id' | 'date' | 'title'>[]
+}
+
 /** A row of the notice for Leitung and Träger: a kind that is overdue, missing or due soon for an employee. */
 export interface DueRequirementDto {
   employeeId: number

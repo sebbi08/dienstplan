@@ -4,7 +4,7 @@ import { BUILTIN_REQUIREMENTS, requirementState } from '../../shared/domain/requ
 import { isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  DueRequirementDto, EmployeeRequirementsDto, RequirementTypeDto, SessionUser, TrainingDto,
+  DueRequirementDto, EmployeeRequirementsDto, MyRequirementsDto, RequirementTypeDto, SessionUser, TrainingDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employeeRequirements, employeeTrainings, employees, requirementTypes } from '../db/schema'
@@ -142,12 +142,19 @@ export function getEmployeeRequirements(db: Db, facilityId: number, employeeId: 
   }
 }
 
-/** Enters an appointment kept or a proof shown; the kind must be one of the employee's facility. Returns the record's id. */
-export function addRequirementRecord(db: Db, facilityId: number, employeeId: number, input: RequirementRecordInput): number {
+/**
+ * Enters an appointment kept or a proof shown; the kind must be one of the employee's facility. Only what has happened
+ * counts: a date after `today` (the Berlin date) is refused with 400 date_in_future, as a planned appointment would
+ * otherwise clear the notice early. Returns the record's id.
+ */
+export function addRequirementRecord(
+  db: Db, facilityId: number, employeeId: number, input: RequirementRecordInput, today: IsoDate,
+): number {
   assertHomeEmployee(db, facilityId, employeeId)
   ownType(db, facilityId, input.typeId)
-  return db.insert(employeeRequirements)
-    .values({ employeeId, typeId: input.typeId, date: checkedDate(input.date), note: optionalText(input.note) })
+  const date = checkedDate(input.date)
+  if (date > today) throw new ServiceError(400, 'date_in_future')
+  return db.insert(employeeRequirements).values({ employeeId, typeId: input.typeId, date, note: optionalText(input.note) })
     .returning({ id: employeeRequirements.id }).get().id
 }
 
@@ -220,13 +227,23 @@ export function listDueRequirements(db: Db, facilityId: number, today: IsoDate):
     || a.typeIndex - b.typeIndex).map(({ row }) => row)
 }
 
-/** The viewer's own mandatory appointments and trainings, in their employee's home facility (403 no_employee without one). */
-export function getMyRequirements(db: Db, viewer: SessionUser, today: IsoDate): EmployeeRequirementsDto {
+/**
+ * The viewer's own mandatory appointments and trainings, in their employee's home facility (403 no_employee without one).
+ * Only the plain dates: every field is picked by name, so the state, the history and the notes of the Leitung (and
+ * whatever the manager's view gains later) never reach the employee.
+ */
+export function getMyRequirements(db: Db, viewer: SessionUser, today: IsoDate): MyRequirementsDto {
   const employee = viewer.employeeId === null
     ? undefined
     : db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).where(eq(employees.id, viewer.employeeId)).get()
   if (!employee) throw new ServiceError(403, 'no_employee')
-  return getEmployeeRequirements(db, employee.facilityId, employee.id, today)
+  const { kinds, trainings } = getEmployeeRequirements(db, employee.facilityId, employee.id, today)
+  return {
+    kinds: kinds.map(({ type, lastDate, dueOn }) => ({
+      type: { id: type.id, name: type.name, intervalMonths: type.intervalMonths }, lastDate, dueOn,
+    })),
+    trainings: trainings.map(({ id, date, title }) => ({ id, date, title })),
+  }
 }
 
 /**

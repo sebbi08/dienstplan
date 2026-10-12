@@ -103,13 +103,13 @@ describe('kinds of mandatory appointments', () => {
     const hygiene = createRequirementType(db, 1, { name: 'Hygienebelehrung', intervalMonths: 24 })
     const fire = createRequirementType(db, 1, { name: 'Brandschutz', intervalMonths: 36 })
     const doctor = requirementTypeId(db, 'company_doctor')
-    addRequirementRecord(db, 1, anna, { typeId: hygiene.id, date: '2025-03-01' })
-    addRequirementRecord(db, 1, anna, { typeId: hygiene.id, date: '2026-03-01' })
-    addRequirementRecord(db, 1, ben, { typeId: hygiene.id, date: '2026-04-01' })
+    addRequirementRecord(db, 1, anna, { typeId: hygiene.id, date: '2025-03-01' }, today)
+    addRequirementRecord(db, 1, anna, { typeId: hygiene.id, date: '2026-03-01' }, today)
+    addRequirementRecord(db, 1, ben, { typeId: hygiene.id, date: '2026-04-01' }, today)
     const kept = [
-      addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2026-05-01' }),
-      addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-06-01' }),
-      addRequirementRecord(db, 1, ben, { typeId: doctor, date: '2026-07-01' }),
+      addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2026-05-01' }, today),
+      addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-06-01' }, today),
+      addRequirementRecord(db, 1, ben, { typeId: doctor, date: '2026-07-01' }, today),
     ]
     const training = addTraining(db, 1, anna, { date: '2026-02-02', title: 'Hygiene in der Kita' })
 
@@ -126,7 +126,7 @@ describe('kinds of mandatory appointments', () => {
   it('refuses to delete a built-in kind, also when renamed', () => {
     const anna = addEmployee(db, 'Anna')
     const doctor = requirementTypeId(db, 'company_doctor')
-    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-06-01' })
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-06-01' }, today)
     updateRequirementType(db, 1, doctor, { name: 'Vorsorge', intervalMonths: null })
     const before = stored(db)
     for (const key of ['company_doctor', 'first_aid', 'criminal_record', 'measles']) {
@@ -163,15 +163,15 @@ describe('records and trainings of an employee', () => {
   })
 
   it('adds records as a history in which the newest date counts', () => {
-    const first = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-10-12', note: '  Dr. Sommer ' })
+    const first = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-10-12', note: '  Dr. Sommer ' }, today)
     expect(kind(anna, doctor)).toEqual({
       type: listRequirementTypes(db, 1)[0], state: 'overdue', lastDate: '2024-10-12', dueOn: '2026-10-12',
       records: [{ id: first, date: '2024-10-12', note: 'Dr. Sommer' }],
     })
     // An older record entered later joins the history, but does not count.
-    const older = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2022-09-01', note: '   ' })
+    const older = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2022-09-01', note: '   ' }, today)
     expect(kind(anna, doctor)).toMatchObject({ state: 'overdue', lastDate: '2024-10-12', dueOn: '2026-10-12' })
-    const newest = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-05' })
+    const newest = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-05' }, today)
     expect(kind(anna, doctor)).toEqual({
       type: listRequirementTypes(db, 1)[0], state: 'ok', lastDate: '2026-10-05', dueOn: '2028-10-05',
       records: [
@@ -185,19 +185,19 @@ describe('records and trainings of an employee', () => {
   })
 
   it('follows the state rules: soon within two months, once is done for good, the interval can change', () => {
-    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-12-12' })
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-12-12' }, today)
     expect(kind(anna, doctor)).toMatchObject({ state: 'soon', dueOn: '2026-12-12' })
     expect(kind(anna, doctor, '2026-10-11')).toMatchObject({ state: 'ok', dueOn: '2026-12-12' })
     expect(kind(anna, doctor, '2026-12-12')).toMatchObject({ state: 'overdue', dueOn: '2026-12-12' })
-    addRequirementRecord(db, 1, anna, { typeId: measles, date: '2015-04-01' })
+    addRequirementRecord(db, 1, anna, { typeId: measles, date: '2015-04-01' }, today)
     expect(kind(anna, measles)).toMatchObject({ state: 'ok', lastDate: '2015-04-01', dueOn: null })
     updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 36 })
     expect(kind(anna, doctor)).toMatchObject({ state: 'ok', dueOn: '2027-12-12' })
   })
 
   it('deletes a single record, after which the one before counts again', () => {
-    const first = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-10-12' })
-    const second = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-05' })
+    const first = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-10-12' }, today)
+    const second = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-05' }, today)
     deleteRequirementRecord(db, 1, second)
     expect(kind(anna, doctor)).toMatchObject({ state: 'overdue', lastDate: '2024-10-12', records: [{ id: first, date: '2024-10-12', note: null }] })
     deleteRequirementRecord(db, 1, first)
@@ -207,13 +207,35 @@ describe('records and trainings of an employee', () => {
   })
 
   it('refuses records for unknown employees or kinds and impossible dates', () => {
-    expect(errorCode(() => addRequirementRecord(db, 1, 999, { typeId: doctor, date: today }))).toBe('employee_not_found')
-    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: 999, date: today }))).toBe('requirement_type_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, 999, { typeId: doctor, date: today }, today))).toBe('employee_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: 999, date: today }, today))).toBe('requirement_type_not_found')
     for (const bad of ['2026-02-30', '2026-13-01', '12.10.2026', '']) {
-      expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: doctor, date: bad })), bad).toBe('invalid_date')
+      expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: doctor, date: bad }, today)), bad).toBe('invalid_date')
     }
     expect(errorCode(() => getEmployeeRequirements(db, 1, 999, today))).toBe('employee_not_found')
     expect(stored(db).records).toEqual([])
+  })
+
+  it('refuses a record dated after today, for recurring kinds and kinds needed once alike', () => {
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-13' }, today))).toBe('date_in_future')
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: measles, date: '2026-10-13' }, today))).toBe('date_in_future')
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2027-01-01' }, today))).toBe('date_in_future')
+    expect(stored(db).records).toEqual([])
+    // Today itself is fine, and so is the day that was refused once it has come.
+    const onTheDay = addRequirementRecord(db, 1, anna, { typeId: doctor, date: today }, today)
+    const dayLater = addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-13' }, '2026-10-13')
+    expect(kind(anna, doctor).records).toEqual([{ id: dayLater, date: '2026-10-13', note: null }, { id: onTheDay, date: today, note: null }])
+    // The other refusals come first: nothing is said about the date of an unknown employee or kind.
+    expect(errorCode(() => addRequirementRecord(db, 1, 999, { typeId: doctor, date: '2027-01-01' }, today))).toBe('employee_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: 999, date: '2027-01-01' }, today))).toBe('requirement_type_not_found')
+  })
+
+  it('accepts trainings that are still to come', () => {
+    const planned = addTraining(db, 1, anna, { date: '2027-02-15', title: 'Kinderschutz' })
+    const moved = addTraining(db, 1, anna, { date: '2026-09-01', title: 'Sprachförderung' })
+    updateTraining(db, 1, moved, { date: '2026-12-01', title: 'Sprachförderung' })
+    expect(getEmployeeRequirements(db, 1, anna, today).trainings.map(training => [training.id, training.date]))
+      .toEqual([[planned, '2027-02-15'], [moved, '2026-12-01']])
   })
 
   it('adds, changes and deletes trainings, listed newest first', () => {
@@ -251,9 +273,9 @@ describe('records and trainings of an employee', () => {
 
   it('removes records and trainings with the employee', () => {
     const ben = addEmployee(db, 'Ben')
-    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-01-01' })
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-01-01' }, today)
     addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung' })
-    const record = addRequirementRecord(db, 1, ben, { typeId: doctor, date: '2026-01-01' })
+    const record = addRequirementRecord(db, 1, ben, { typeId: doctor, date: '2026-01-01' }, today)
     const training = addTraining(db, 1, ben, { date: '2026-03-10', title: 'Sprachförderung' })
     db.delete(employees).where(eq(employees.id, anna)).run()
     expect(stored(db).records.map(row => row.id)).toEqual([record])
@@ -278,7 +300,7 @@ describe('notice of due mandatory appointments', () => {
   /** Records that leave nothing to do, except for the kinds named in `open`. */
   function complete(employeeId: number, facilityId = 1, open: number[] = []) {
     for (const type of listRequirementTypes(db, facilityId)) {
-      if (!open.includes(type.id)) addRequirementRecord(db, facilityId, employeeId, { typeId: type.id, date: '2026-09-01' })
+      if (!open.includes(type.id)) addRequirementRecord(db, facilityId, employeeId, { typeId: type.id, date: '2026-09-01' }, today)
     }
   }
 
@@ -289,11 +311,11 @@ describe('notice of due mandatory appointments', () => {
     const fine = addEmployee(db, 'Carla')
     complete(fine)
     complete(zoe, 1, [doctor, firstAid])
-    addRequirementRecord(db, 1, zoe, { typeId: doctor, date: '2023-01-01' }) // overdue since 2025-01-01
-    addRequirementRecord(db, 1, zoe, { typeId: firstAid, date: '2024-12-12' }) // due in exactly two months
+    addRequirementRecord(db, 1, zoe, { typeId: doctor, date: '2023-01-01' }, today) // overdue since 2025-01-01
+    addRequirementRecord(db, 1, zoe, { typeId: firstAid, date: '2024-12-12' }, today) // due in exactly two months
     complete(anna, 1, [doctor, firstAid, measles])
-    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-10-12' }) // due today
-    addRequirementRecord(db, 1, anna, { typeId: firstAid, date: '2024-11-01' }) // due on 2026-11-01
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2024-10-12' }, today) // due today
+    addRequirementRecord(db, 1, anna, { typeId: firstAid, date: '2024-11-01' }, today) // due on 2026-11-01
 
     expect(listDueRequirements(db, 1, today)).toEqual([
       { employeeId: anna, employeeName: 'Anna', typeId: doctor, typeName: 'Betriebsarzt', state: 'overdue', dueOn: '2026-10-12' },
@@ -313,7 +335,7 @@ describe('notice of due mandatory appointments', () => {
     const anna = addEmployee(db, 'Anna')
     complete(anna, 1, [doctor])
     expect(listDueRequirements(db, 1, today).map(row => [row.typeId, row.state])).toEqual([[doctor, 'missing']])
-    addRequirementRecord(db, 1, anna, { typeId: doctor, date: today })
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: today }, today)
     expect(listDueRequirements(db, 1, today)).toEqual([])
     expect(listDueRequirements(db, 1, '2028-08-11').filter(row => row.typeId === doctor)).toEqual([])
     expect(listDueRequirements(db, 1, '2028-08-12').filter(row => row.typeId === doctor))
@@ -338,7 +360,7 @@ describe('notice of due mandatory appointments', () => {
     const firstDay = addEmployee(db, 'Heute erster Tag', { validFrom: today })
     const notYet = addEmployee(db, 'Morgen erster Tag', { validFrom: '2026-10-13' })
     // Overdue records do not bring back somebody who left.
-    addRequirementRecord(db, 1, left, { typeId: doctor, date: '2020-01-01' })
+    addRequirementRecord(db, 1, left, { typeId: doctor, date: '2020-01-01' }, today)
 
     expect([...new Set(listDueRequirements(db, 1, today).map(row => row.employeeId))]).toEqual([firstDay, lastDay])
     expect(listDueRequirements(db, 1, today).filter(row => row.employeeId === firstDay).map(row => row.state))
@@ -383,7 +405,7 @@ describe('isolation between facilities', () => {
     kim = addEmployee(db, 'Kim', { facilityId: krippe })
     foreignType = requirementTypeId(db, 'company_doctor', krippe)
     foreignOwnType = createRequirementType(db, krippe, { name: 'Hygienebelehrung', intervalMonths: 24 }).id
-    foreignRecord = addRequirementRecord(db, krippe, kim, { typeId: foreignType, date: '2026-01-01', note: 'Krippe' })
+    foreignRecord = addRequirementRecord(db, krippe, kim, { typeId: foreignType, date: '2026-01-01', note: 'Krippe' }, today)
     foreignTraining = addTraining(db, krippe, kim, { date: '2026-03-10', title: 'Krippenpädagogik' })
   })
 
@@ -392,13 +414,13 @@ describe('isolation between facilities', () => {
     const own = requirementTypeId(db, 'company_doctor')
 
     expect(errorCode(() => getEmployeeRequirements(db, 1, kim, today))).toBe('employee_not_found')
-    expect(errorCode(() => addRequirementRecord(db, 1, kim, { typeId: own, date: today }))).toBe('employee_not_found')
-    expect(errorCode(() => addRequirementRecord(db, 1, kim, { typeId: foreignType, date: today }))).toBe('employee_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, kim, { typeId: own, date: today }, today))).toBe('employee_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, kim, { typeId: foreignType, date: today }, today))).toBe('employee_not_found')
     expect(errorCode(() => addTraining(db, 1, kim, { date: today, title: 'Kinderschutz' }))).toBe('employee_not_found')
 
     // The own employee never gets a record of another facility's kind.
-    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: foreignType, date: today }))).toBe('requirement_type_not_found')
-    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: foreignOwnType, date: today }))).toBe('requirement_type_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: foreignType, date: today }, today))).toBe('requirement_type_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, anna, { typeId: foreignOwnType, date: today }, today))).toBe('requirement_type_not_found')
     expect(errorCode(() => updateRequirementType(db, 1, foreignOwnType, { name: 'Gekapert', intervalMonths: 1 }))).toBe('requirement_type_not_found')
     expect(errorCode(() => updateRequirementType(db, 1, foreignType, { name: 'Gekapert', intervalMonths: 1 }))).toBe('requirement_type_not_found')
     expect(errorCode(() => deleteRequirementType(db, 1, foreignOwnType))).toBe('requirement_type_not_found')
@@ -424,7 +446,7 @@ describe('isolation between facilities', () => {
     addHelpOut(db, kim, 1, 2026, 10)
     const before = stored(db)
     expect(errorCode(() => getEmployeeRequirements(db, 1, kim, today))).toBe('employee_not_found')
-    expect(errorCode(() => addRequirementRecord(db, 1, kim, { typeId: requirementTypeId(db, 'measles'), date: today }))).toBe('employee_not_found')
+    expect(errorCode(() => addRequirementRecord(db, 1, kim, { typeId: requirementTypeId(db, 'measles'), date: today }, today))).toBe('employee_not_found')
     expect(errorCode(() => addTraining(db, 1, kim, { date: today, title: 'Kinderschutz' }))).toBe('employee_not_found')
     expect(errorCode(() => deleteRequirementRecord(db, 1, foreignRecord))).toBe('requirement_not_found')
     expect(errorCode(() => deleteTraining(db, 1, foreignTraining))).toBe('training_not_found')
@@ -451,21 +473,21 @@ describe('moving an employee to another facility', () => {
     const krippeHygiene = createRequirementType(db, krippe, { name: 'HYGIENEBELEHRUNG', intervalMonths: 24 })
 
     const doctorRecords = [
-      addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2024-10-12', note: 'alt' }),
-      addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2026-01-15' }),
+      addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2024-10-12', note: 'alt' }, today),
+      addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2026-01-15' }, today),
     ]
-    const firstAidRecord = addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'first_aid'), date: '2026-02-01' })
-    const measlesRecord = addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'measles'), date: '2020-03-01' })
-    const hygieneRecord = addRequirementRecord(db, 1, anna, { typeId: hygiene.id, date: '2026-03-01' })
+    const firstAidRecord = addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'first_aid'), date: '2026-02-01' }, today)
+    const measlesRecord = addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'measles'), date: '2020-03-01' }, today)
+    const hygieneRecord = addRequirementRecord(db, 1, anna, { typeId: hygiene.id, date: '2026-03-01' }, today)
     const fireRecords = [
-      addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2025-04-01' }),
-      addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2026-04-01' }),
+      addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2025-04-01' }, today),
+      addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2026-04-01' }, today),
     ]
-    const onceRecord = addRequirementRecord(db, 1, anna, { typeId: once.id, date: '2026-05-01' })
+    const onceRecord = addRequirementRecord(db, 1, anna, { typeId: once.id, date: '2026-05-01' }, today)
     const training = addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung', note: 'VHS' })
     const benRecords = [
-      addRequirementRecord(db, 1, ben, { typeId: fire.id, date: '2026-06-01' }),
-      addRequirementRecord(db, 1, ben, { typeId: requirementTypeId(db, 'measles'), date: '2026-06-02' }),
+      addRequirementRecord(db, 1, ben, { typeId: fire.id, date: '2026-06-01' }, today),
+      addRequirementRecord(db, 1, ben, { typeId: requirementTypeId(db, 'measles'), date: '2026-06-02' }, today),
     ]
     const benBefore = getEmployeeRequirements(db, 1, ben, today)
     const homeTypes = listRequirementTypes(db, 1)
@@ -522,8 +544,8 @@ describe('moving an employee to another facility', () => {
     const provider = addUser(db, 'traeger', 'provider')
     const anna = addEmployee(db, 'Anna')
     const fire = createRequirementType(db, 1, { name: 'Brandschutz', intervalMonths: 36 })
-    const record = addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2026-04-01' })
-    const doctorRecord = addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2026-04-02' })
+    const record = addRequirementRecord(db, 1, anna, { typeId: fire.id, date: '2026-04-01' }, today)
+    const doctorRecord = addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2026-04-02' }, today)
     const homeTypes = listRequirementTypes(db, 1)
 
     moveEmployeeToFacility(db, provider, anna, krippe, new Date(`${today}T08:00:00Z`))
@@ -547,23 +569,56 @@ describe('the employee\'s own view', () => {
     db = createTestDb()
     anna = addEmployee(db, 'Anna')
     ben = addEmployee(db, 'Ben')
-    addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2026-01-15', note: 'Anna' })
-    addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung' })
-    addRequirementRecord(db, 1, ben, { typeId: requirementTypeId(db, 'measles'), date: '2020-03-01', note: 'Ben' })
-    addTraining(db, 1, ben, { date: '2026-04-20', title: 'Kinderschutz' })
+    addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2024-11-02', note: 'Attest fehlte zunächst' }, today)
+    addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2022-10-01', note: 'Erstuntersuchung' }, today)
+    addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'first_aid'), date: '2023-05-05', note: 'längst fällig' }, today)
+    addTraining(db, 1, anna, { date: '2026-03-10', title: 'Sprachförderung', note: 'nur halb anwesend' })
+    addTraining(db, 1, anna, { date: '2026-06-01', title: 'Kinderschutz' })
+    addRequirementRecord(db, 1, ben, { typeId: requirementTypeId(db, 'measles'), date: '2020-03-01', note: 'Impfpass Ben' }, today)
+    addTraining(db, 1, ben, { date: '2026-04-20', title: 'Elterngespräche führen', note: 'Ben' })
   })
 
-  it('shows a Mitarbeiter only their own records and trainings', () => {
+  it('shows a Mitarbeiter their own kinds with last and due date and their trainings, nothing else', () => {
     const viewer = addUser(db, 'anna', 'observer', anna)
+    const [doctor, firstAid, record, measles] = listRequirementTypes(db, 1)
     const mine = getMyRequirements(db, viewer, today)
-    expect(mine).toEqual(getEmployeeRequirements(db, 1, anna, today))
-    expect(mine.trainings.map(training => training.title)).toEqual(['Sprachförderung'])
-    expect(mine.kinds.flatMap(entry => entry.records.map(record => record.note))).toEqual(['Anna'])
-    expect(mine.kinds.map(entry => [entry.type.builtinKey, entry.lastDate, entry.dueOn])).toEqual([
-      ['company_doctor', '2026-01-15', '2028-01-15'], ['first_aid', null, null], ['criminal_record', null, null], ['measles', null, null],
-    ])
-    expect(JSON.stringify(mine)).not.toContain('Ben')
-    expect(JSON.stringify(mine)).not.toContain('Kinderschutz')
+    expect(mine).toEqual({
+      kinds: [
+        // Due soon and overdue for the Leitung; here only the plain dates.
+        { type: { id: doctor!.id, name: 'Betriebsarzt', intervalMonths: 24 }, lastDate: '2024-11-02', dueOn: '2026-11-02' },
+        { type: { id: firstAid!.id, name: 'Erste-Hilfe-Kurs', intervalMonths: 24 }, lastDate: '2023-05-05', dueOn: '2025-05-05' },
+        { type: { id: record!.id, name: 'Erweitertes Führungszeugnis', intervalMonths: 60 }, lastDate: null, dueOn: null },
+        { type: { id: measles!.id, name: 'Masernimpfung (Nachweis)', intervalMonths: null }, lastDate: null, dueOn: null },
+      ],
+      trainings: [
+        { id: mine.trainings[0]!.id, date: '2026-06-01', title: 'Kinderschutz' },
+        { id: mine.trainings[1]!.id, date: '2026-03-10', title: 'Sprachförderung' },
+      ],
+    })
+  })
+
+  it('leaves out the notes of the Leitung, the history and every state', () => {
+    const viewer = addUser(db, 'anna', 'observer', anna)
+    // What the Leitung sees of Anna has all of it.
+    const managed = JSON.stringify(getEmployeeRequirements(db, 1, anna, today))
+    for (const internal of ['Attest fehlte zunächst', 'Erstuntersuchung', 'längst fällig', 'nur halb anwesend', '"state"', '"records"', '"note"', 'overdue', 'soon', '2022-10-01']) {
+      expect(managed, internal).toContain(internal)
+    }
+    const mine = getMyRequirements(db, viewer, today)
+    const sent = JSON.stringify(mine)
+    for (const internal of [
+      'Attest fehlte zunächst', 'Erstuntersuchung', 'längst fällig', 'nur halb anwesend', 'note', 'state', 'records', 'overdue', 'soon', 'missing',
+      '2022-10-01', 'builtinKey', 'sortOrder',
+    ]) {
+      expect(sent, internal).not.toContain(internal)
+    }
+    for (const kind of mine.kinds) {
+      expect(Object.keys(kind).sort()).toEqual(['dueOn', 'lastDate', 'type'])
+      expect(Object.keys(kind.type).sort()).toEqual(['id', 'intervalMonths', 'name'])
+    }
+    for (const training of mine.trainings) expect(Object.keys(training).sort()).toEqual(['date', 'id', 'title'])
+    // Nothing of anybody else either.
+    for (const foreign of ['Ben', 'Elterngespräche führen', '2020-03-01']) expect(sent, foreign).not.toContain(foreign)
   })
 
   it('shows a manager with an employee their own, in the employee\'s home facility', () => {
@@ -575,7 +630,7 @@ describe('the employee\'s own view', () => {
     const provider = addUser(db, 'traeger', 'provider', kim)
     expect(provider.facilityId).toBe(1)
     const mine = getMyRequirements(db, provider, today)
-    expect(mine).toEqual(getEmployeeRequirements(db, krippe, kim, today))
+    expect(mine.kinds.map(entry => entry.type.id)).toEqual(listRequirementTypes(db, krippe).map(type => type.id))
     expect(mine.kinds.map(entry => entry.type.name)).toContain('Hygienebelehrung')
     expect(mine.trainings.map(training => training.title)).toEqual(['Krippenpädagogik'])
   })
