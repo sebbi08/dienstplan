@@ -164,11 +164,14 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
       <ChildrenReviewBanner :child="child" section="keyEducator" :reload="reload" named />
     </template>
 
-    <div v-if="canPlanChange && child!.pendingGroupChange" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 p-3 text-sm text-sky-900 ring-1 ring-sky-200">
+    <!-- The planned change stands in the record for everyone who reads it; only managers change or delete it. -->
+    <div v-if="child?.pendingGroupChange" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 p-3 text-sm text-sky-900 ring-1 ring-sky-200">
       <UIcon name="i-lucide-arrow-right-left" class="size-4 shrink-0" aria-hidden="true" />
-      <span class="min-w-0 flex-1">{{ de.groupChange.pending(formatDate(child!.pendingGroupChange.date), child!.pendingGroupChange.groupName) }}</span>
-      <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="changeBusy" @click="changeDialog = true" />
-      <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :loading="changeBusy" :disabled="changeBusy" @click="removeChange" />
+      <span class="min-w-0 flex-1">{{ de.groupChange.pending(formatDate(child.pendingGroupChange.date), child.pendingGroupChange.groupName) }}</span>
+      <template v-if="canPlanChange">
+        <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="changeBusy" @click="changeDialog = true" />
+        <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :loading="changeBusy" :disabled="changeBusy" @click="removeChange" />
+      </template>
     </div>
 
     <dl class="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
