@@ -9,7 +9,9 @@ import {
   createEmployee, getEmployee, listEmployees, moveEmployeeToFacility, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
-import { assertGroup, createGroup, deleteGroup, listGroups, renameGroup, setGroupCapacity } from '../../server/services/groups'
+import {
+  assertGroup, createGroup, deleteGroup, listChildGroups, listGroups, renameGroup, setGroupCapacity,
+} from '../../server/services/groups'
 import type { FacilityUser } from '../../server/utils/auth'
 import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -300,6 +302,21 @@ describe('group capacity', () => {
       { id: bears, name: 'Bären', sortOrder: 0, capacity: 12, forSchoolChildren: false },
       { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false },
     ])
+  })
+
+  it('gives the places to Träger and Leitung only in the group list of the child pages', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    const mice = addGroup(db, 1, 'Mäuse')
+    setGroupCapacity(db, 1, bears, 12)
+    for (const role of ['provider', 'admin'] as const) {
+      expect(listChildGroups(db, 1, role), role).toEqual(listGroups(db, 1))
+    }
+    for (const role of ['observer', 'terminal', null] as const) {
+      expect(listChildGroups(db, 1, role), String(role)).toEqual([
+        { id: bears, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false },
+        { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false },
+      ])
+    }
   })
 
   it('accepts 1 and 200, and null clears the capacity', () => {

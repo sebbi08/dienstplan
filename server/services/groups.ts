@@ -1,7 +1,8 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
+import { isManager } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
-import type { GroupDto, SnapshotData } from '../../shared/types/api'
+import type { GroupDto, Role, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
@@ -18,6 +19,15 @@ function toDto(row: typeof groups.$inferSelect): GroupDto {
 export function listGroups(db: Db, facilityId: number): GroupDto[] {
   return db.select().from(groups).where(eq(groups.facilityId, facilityId))
     .orderBy(asc(groups.sortOrder), asc(groups.id)).all().map(toDto)
+}
+
+/**
+ * The facility's groups for the child pages, readable for everyone who sees child records. The places (capacity)
+ * belong to the occupancy, which is for Träger and Leitung: everybody else gets the groups without them (null).
+ */
+export function listChildGroups(db: Db, facilityId: number, role: Role | null): GroupDto[] {
+  const all = listGroups(db, facilityId)
+  return isManager(role) ? all : all.map(group => ({ ...group, capacity: null }))
 }
 
 /** The facility's group names by id, for texts that name the group of a single duty ("→ Mäuse"). */
