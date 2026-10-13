@@ -1,7 +1,11 @@
 import { addDays, daysInMonth, toIsoDate } from './dates'
 import type { IsoDate } from './types'
 
-/** One entry of a child's group history. `from: null` means "since the beginning". */
+/**
+ * One entry of a child's group history. `from: null` means "since the beginning".
+ * Entries with the same `from` are resolved by input order (the last one wins), so
+ * callers must pass them in a deterministic order.
+ */
 export interface GroupEntry {
   from: IsoDate | null
   groupId: number | null
@@ -42,11 +46,12 @@ export interface OccupancyCell {
  */
 export function groupStays(child: OccupancyChild): GroupStay[] {
   const { start, end } = child
-  if (start === null || (end !== null && end < start)) return []
+  if (start === null || isInvertedStay(start, end)) return []
 
   const byDate = new Map<string, GroupEntry>()
   for (const entry of child.groups) byDate.set(entry.from ?? '', entry)
-  const entries = [...byDate.values()].sort((a, b) => (a.from ?? '').localeCompare(b.from ?? ''))
+  const key = (entry: GroupEntry) => entry.from ?? ''
+  const entries = [...byDate.values()].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
 
   let startGroup: number | null = null
   for (const entry of entries) {
@@ -65,8 +70,22 @@ export function groupStays(child: OccupancyChild): GroupStay[] {
   return stays
 }
 
-function monthBorders(year: number, month: number): { first: IsoDate; last: IsoDate } {
-  return { first: toIsoDate(year, month, 1), last: toIsoDate(year, month, daysInMonth(year, month)) }
+/** A stay whose end lies before its start never counts. */
+function isInvertedStay(from: IsoDate, to: IsoDate | null): boolean {
+  return to !== null && to < from
+}
+
+/**
+ * How a stay `[from, to]` (to null = open) relates to the given month: `fresh` when
+ * it starts in the month, `present` when it started earlier and still contains a day
+ * of the month, else null (also for inverted stays).
+ */
+function classifyInMonth(from: IsoDate, to: IsoDate | null, year: number, month: number): 'fresh' | 'present' | null {
+  if (isInvertedStay(from, to)) return null
+  const first = toIsoDate(year, month, 1)
+  const last = toIsoDate(year, month, daysInMonth(year, month))
+  if (from > last || (to !== null && to < first)) return null
+  return from >= first ? 'fresh' : 'present'
 }
 
 /**
@@ -76,12 +95,15 @@ function monthBorders(year: number, month: number): { first: IsoDate; last: IsoD
  * the earliest decides. `from`/`to` are the group stay's borders.
  */
 export function groupCell(children: OccupancyChild[], groupId: number | null, year: number, month: number): OccupancyCell {
-  const { first, last } = monthBorders(year, month)
   const cell: OccupancyCell = { present: [], fresh: [] }
   for (const child of children) {
-    const stay = groupStays(child).find(s => s.groupId === groupId && s.from <= last && (s.to === null || s.to >= first))
-    if (!stay) continue
-    ;(stay.from >= first ? cell.fresh : cell.present).push({ childId: child.id, from: stay.from, to: stay.to })
+    for (const stay of groupStays(child)) {
+      if (stay.groupId !== groupId) continue
+      const kind = classifyInMonth(stay.from, stay.to, year, month)
+      if (!kind) continue
+      cell[kind].push({ childId: child.id, from: stay.from, to: stay.to })
+      break
+    }
   }
   return cell
 }
@@ -91,13 +113,11 @@ export function groupCell(children: OccupancyChild[], groupId: number | null, ye
  * the whole stay's borders, `fresh` when the stay starts in the month.
  */
 export function facilityCell(children: OccupancyChild[], year: number, month: number): OccupancyCell {
-  const { first, last } = monthBorders(year, month)
   const cell: OccupancyCell = { present: [], fresh: [] }
   for (const child of children) {
-    const { start, end } = child
-    if (start === null || (end !== null && end < start)) continue
-    if (start > last || (end !== null && end < first)) continue
-    ;(start >= first ? cell.fresh : cell.present).push({ childId: child.id, from: start, to: end })
+    if (child.start === null) continue
+    const kind = classifyInMonth(child.start, child.end, year, month)
+    if (kind) cell[kind].push({ childId: child.id, from: child.start, to: child.end })
   }
   return cell
 }

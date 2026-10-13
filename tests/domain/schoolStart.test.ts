@@ -23,6 +23,27 @@ describe('schoolStart', () => {
     expect(computedSchoolStart('2021-06-30', { month: 6, day: 30, ageYears: 5 })).toBe('2026-09-01')
   })
 
+  it('handles a cutoff on the last day of the year', () => {
+    expect(computedSchoolStart('2021-12-31', { month: 12, day: 31, ageYears: 6 })).toBe('2027-09-01')
+    expect(computedSchoolStart('2022-01-01', { month: 12, day: 31, ageYears: 6 })).toBe('2028-09-01')
+  })
+
+  it('honours other ages', () => {
+    expect(computedSchoolStart('2021-06-30', { month: 6, day: 30, ageYears: 4 })).toBe('2025-09-01')
+    expect(computedSchoolStart('2021-07-01', { month: 6, day: 30, ageYears: 4 })).toBe('2026-09-01')
+    expect(computedSchoolStart('2021-06-30', { month: 6, day: 30, ageYears: 8 })).toBe('2029-09-01')
+    expect(computedSchoolStart('2021-07-01', { month: 6, day: 30, ageYears: 8 })).toBe('2030-09-01')
+  })
+
+  it('keeps 29 February when the birthday really exists in the target year', () => {
+    // born 29 Feb 2020, age 4 -> 29 Feb 2024 (leap year)
+    expect(computedSchoolStart('2020-02-29', { month: 2, day: 29, ageYears: 4 })).toBe('2024-09-01')
+    // reached on 29 Feb, one day after a 28 Feb cutoff
+    expect(computedSchoolStart('2020-02-29', { month: 2, day: 28, ageYears: 4 })).toBe('2025-09-01')
+    // born 29 Feb 2016, age 8 -> 29 Feb 2024
+    expect(computedSchoolStart('2016-02-29', { month: 2, day: 28, ageYears: 8 })).toBe('2025-09-01')
+  })
+
   it('treats a 29 February cutoff as the last day of February in non-leap years', () => {
     const cutoff = { month: 2, day: 29, ageYears: 6 }
     // born 28 February 2020: reached 28 February 2026 = last February day of 2026

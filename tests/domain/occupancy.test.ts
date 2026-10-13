@@ -125,6 +125,32 @@ describe('groupStays', () => {
     expect(groupStays(same)).toEqual([{ groupId: 2, from: '2026-10-15', to: null }])
   })
 
+  it('sorts several dated entries given out of order', () => {
+    const shuffled = child(1, '2025-09-01', null, [
+      { from: '2026-05-10', groupId: 1 }, { from: '2026-01-10', groupId: 2 }, { from: null, groupId: 1 },
+    ])
+    expect(groupStays(shuffled)).toEqual([
+      { groupId: 1, from: '2025-09-01', to: '2026-01-09' },
+      { groupId: 2, from: '2026-01-10', to: '2026-05-09' },
+      { groupId: 1, from: '2026-05-10', to: null },
+    ])
+  })
+
+  it('picks the newest of several entries dated before the stay start, whatever the order', () => {
+    const newestFirst = child(1, '2026-10-15', null, [{ from: '2025-01-01', groupId: 5 }, { from: '2020-01-01', groupId: 3 }])
+    expect(groupStays(newestFirst)).toEqual([{ groupId: 5, from: '2026-10-15', to: null }])
+    const oldestFirst = child(1, '2026-10-15', null, [{ from: '2020-01-01', groupId: 3 }, { from: '2025-01-01', groupId: 5 }])
+    expect(groupStays(oldestFirst)).toEqual([{ groupId: 5, from: '2026-10-15', to: null }])
+  })
+
+  it('gives a one-day stay in the new group when the change falls on the last stay day', () => {
+    const last = child(1, '2026-10-01', '2026-10-31', [{ from: null, groupId: 1 }, { from: '2026-10-31', groupId: 2 }])
+    expect(groupStays(last)).toEqual([
+      { groupId: 1, from: '2026-10-01', to: '2026-10-30' },
+      { groupId: 2, from: '2026-10-31', to: '2026-10-31' },
+    ])
+  })
+
   it('lets the last of two entries with the same date win', () => {
     const dup = child(1, '2025-09-01', null, [
       { from: '2026-01-01', groupId: 2 }, { from: '2026-01-01', groupId: 3 }, { from: null, groupId: 1 },
@@ -138,6 +164,27 @@ describe('facilityCell', () => {
     const cell = facilityCell([mover, child(2, '2027-03-02', '2027-03-20')], 2027, 3)
     expect(cell.present).toEqual([{ childId: 1, from: '2025-09-01', to: null }])
     expect(cell.fresh).toEqual([{ childId: 2, from: '2027-03-02', to: '2027-03-20' }])
+  })
+
+  it('classifies stays at the month borders', () => {
+    // October 2026 has 31 days
+    const one = (start: string, end: string | null) => ids(facilityCell([child(1, start, end)], 2026, 10))
+    expect(one('2026-10-01', null)).toEqual({ present: [], fresh: [1] })
+    expect(one('2026-10-31', null)).toEqual({ present: [], fresh: [1] })
+    expect(one('2026-11-01', null)).toEqual({ present: [], fresh: [] })
+    expect(one('2026-09-01', '2026-10-01')).toEqual({ present: [1], fresh: [] })
+    expect(one('2026-09-01', '2026-09-30')).toEqual({ present: [], fresh: [] })
+    expect(one('2026-09-01', '2026-10-31')).toEqual({ present: [1], fresh: [] })
+  })
+
+  it('never counts a stay that ends before it starts', () => {
+    expect(ids(facilityCell([child(1, '2026-10-20', '2026-10-10')], 2026, 10))).toEqual({ present: [], fresh: [] })
+    expect(ids(facilityCell([child(1, '2026-09-20', '2026-09-10')], 2026, 10))).toEqual({ present: [], fresh: [] })
+    expect(ids(facilityCell([child(1, '2026-10-20', '2026-09-10')], 2026, 10))).toEqual({ present: [], fresh: [] })
+  })
+
+  it('counts a one-day stay on the last day of the month as fresh', () => {
+    expect(ids(facilityCell([child(1, '2026-10-31', '2026-10-31')], 2026, 10))).toEqual({ present: [], fresh: [1] })
   })
 
   it('excludes children without a stay in the month', () => {
