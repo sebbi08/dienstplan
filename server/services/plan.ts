@@ -21,6 +21,7 @@ import { employees, entries, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
+import { loadSickLeaves, sickLeavesByCell } from './earlySickLeaves'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import {
@@ -38,7 +39,8 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
 /**
  * Warnings, week totals, balances and actuals. The staff's figures use all their entries (help-outs elsewhere count on
  * their one account), but a day spent in another plan only counts as filled, not for this facility's coverage. Helpers
- * count for coverage only: B gets no other data about them.
+ * count for coverage only: B gets no other data about them. The "Im Dienst erkrankt" markers are those of the own staff
+ * only; a marked day has no time warnings and its recorded time never counts as deviating (the plan is credited).
  */
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
@@ -100,6 +102,7 @@ function buildAdminData(
     return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null)
   })
 
+  const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staff.map(employee => employee.id), monthStart, monthEnd))
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
     for (const date of monthDates(year, month)) {
@@ -109,11 +112,14 @@ function buildAdminData(
         const key = cellKey(employee.id, date)
         const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
         const records = recordsByCell.get(key) ?? []
-        warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
+        const marked = key in sickLeaves
+        if (!marked) warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
         if (records.length === 0) continue
         const minutes = creditedMinutes(records, employee.breakMode, plannedBreakMinutes(dayEntries))
         const planned = computeDay(employee.info, date, dayEntries).credit
-        actuals[key] = { minutes, open: records.some(record => record.end === null), deviates: Math.abs(minutes - planned) > 15 }
+        actuals[key] = {
+          minutes, open: records.some(record => record.end === null), deviates: !marked && Math.abs(minutes - planned) > 15,
+        }
       }
     }
   }
@@ -138,7 +144,7 @@ function buildAdminData(
   // Time warnings were appended after all plan warnings; Array.prototype.sort is stable.
   warnings.sort((a, b) => a.date.localeCompare(b.date))
   return {
-    warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals, helpers, helperBusy,
+    warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals, helpers, helperBusy, sickLeaves,
   }
 }
 

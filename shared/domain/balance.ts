@@ -43,6 +43,19 @@ export function dayCredit(entries: DomainEntry[], target: number): number {
   return workedMinutes(entries)
 }
 
+/** A timed entry that is working time: a shift, a special shift or a timed code (VZ, Büro); never a break or an absence. */
+export function isWorkEntry(entry: Pick<DomainEntry, 'kind' | 'creditMode' | 'start'>): boolean {
+  return entry.start !== null && entry.kind !== 'break' && (entry.kind !== 'code' || entry.creditMode === 'timed')
+}
+
+/**
+ * The day has planned working time and no full-day absence (an entry crediting the daily target, e.g. Krank or
+ * Urlaub): only on such a day someone can fall ill during duty ("Im Dienst erkrankt").
+ */
+export function hasPlannedDuty(entries: Pick<DomainEntry, 'kind' | 'creditMode' | 'start'>[]): boolean {
+  return !entries.some(entry => entry.creditMode === 'daily_target') && entries.some(isWorkEntry)
+}
+
 /** Recorded time replaces the plan for days in [from, today) (Zeiterfassung). */
 export interface ActualTime {
   /** First day credited from time records ("Zeiterfassung ab"). */
@@ -51,19 +64,36 @@ export interface ActualTime {
   today: IsoDate
   /** Recorded minutes (closed records only) per date of one employee. */
   minutesByDate: Map<IsoDate, number>
+  /**
+   * Days credited from the plan although they lie in the range of the records ("Im Dienst erkrankt": the planned
+   * working time counts in full even when less was stamped; when more was stamped, the stamped time counts).
+   */
+  plannedDates?: Set<IsoDate>
 }
 
+/** The day lies in the range of the time records (shown and checked against them). */
 export function usesRecords(actual: ActualTime | undefined, date: IsoDate): boolean {
   return actual !== undefined && actual.from <= date && date < actual.today
+}
+
+/** The day's credit comes from the time records: a day of their range that is not credited from the plan. */
+export function creditsRecords(actual: ActualTime | undefined, date: IsoDate): boolean {
+  return usesRecords(actual, date) && !actual!.plannedDates?.has(date)
 }
 
 export function computeDay(info: EmploymentInfo, date: IsoDate, entries: DomainEntry[], actual?: ActualTime): DayResult {
   const target = dailyTarget(info, date)
   let credit = 0
   if (isEmployedOn(info, date)) {
-    credit = entries.some(entry => entry.creditMode === 'daily_target') || !usesRecords(actual, date)
-      ? dayCredit(entries, target)
-      : actual!.minutesByDate.get(date) ?? 0
+    const planned = dayCredit(entries, target)
+    if (entries.some(entry => entry.creditMode === 'daily_target') || !usesRecords(actual, date)) {
+      credit = planned
+    }
+    else {
+      const recorded = actual!.minutesByDate.get(date) ?? 0
+      // "Im Dienst erkrankt": the plan counts in full, but never less than was actually recorded.
+      credit = creditsRecords(actual, date) ? recorded : Math.max(planned, recorded)
+    }
   }
   return { date, target, credit, delta: credit - target }
 }

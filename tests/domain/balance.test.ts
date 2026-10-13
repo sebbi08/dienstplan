@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  balanceUntil, computeDay, computeRange, dayCredit, summarize, usesRecords, type ActualTime,
+  balanceUntil, computeDay, computeRange, dayCredit, hasPlannedDuty, summarize, usesRecords, type ActualTime,
 } from '../../shared/domain/balance'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import { code, F1, M, shift, special } from '../helpers/entries'
@@ -106,5 +106,40 @@ describe('recorded time (Zeiterfassung)', () => {
     expect(computeRange(info, planned, '2026-10-06', '2026-10-06', records)[0]!.credit).toBe(500)
     expect(balanceUntil(info, planned, [], '2026-10-06', records))
       .toBe(balanceUntil(info, planned, [], '2026-10-06') + (500 - 465))
+  })
+  it('credits the plan on days marked as planned ("Im Dienst erkrankt"), whatever was recorded', () => {
+    const marked: ActualTime = { ...actual({ '2026-10-06': 230, '2026-10-07': 200 }), plannedDates: new Set(['2026-10-06']) }
+    expect(computeDay(info, '2026-10-06', planned, marked).credit).toBe(465)
+    expect(computeDay(info, '2026-10-07', [shift(1, '2026-10-07', ...M)], marked).credit).toBe(200) // not marked: records
+    expect(usesRecords(marked, '2026-10-06')).toBe(true) // still a day of the time tracking
+    expect(balanceUntil(info, planned, [], '2026-10-06', marked)).toBe(balanceUntil(info, planned, [], '2026-10-06'))
+  })
+  it('never credits less than was recorded on a marked day: the larger of plan and records counts', () => {
+    const short = [special(1, '2026-10-06', 600, 720)] // 2:00 planned
+    const marked = (minutes: number): ActualTime => ({ ...actual({ '2026-10-06': minutes }), plannedDates: new Set(['2026-10-06']) })
+    expect(computeDay(info, '2026-10-06', short, marked(300)).credit).toBe(300) // came earlier: 5:00 stamped
+    expect(computeDay(info, '2026-10-06', short, marked(120)).credit).toBe(120)
+    expect(computeDay(info, '2026-10-06', short, marked(45)).credit).toBe(120) // left early: the plan
+    expect(computeDay(info, '2026-10-06', short, { ...marked(0), minutesByDate: new Map() }).credit).toBe(120) // nothing stamped
+    // Today is still the forecast from the plan, and a full-day absence still counts its target.
+    expect(computeDay(info, '2026-10-08', [special(1, '2026-10-08', 600, 720)],
+      { ...actual({ '2026-10-08': 300 }), plannedDates: new Set(['2026-10-08']) }).credit).toBe(120)
+    expect(computeDay(info, '2026-10-06', [code(1, '2026-10-06', 'sick', 'daily_target')], marked(600)).credit).toBe(468)
+  })
+})
+
+describe('hasPlannedDuty', () => {
+  it('is true for shifts, special shifts, VZ and Büro', () => {
+    expect(hasPlannedDuty([shift(1, day, ...M)])).toBe(true)
+    expect(hasPlannedDuty([special(1, day, 600, 720)])).toBe(true)
+    expect(hasPlannedDuty([code(1, day, 'prep_time', 'timed', 450, 570)])).toBe(true)
+    expect(hasPlannedDuty([code(1, day, 'office', 'timed', 450, 570)])).toBe(true)
+  })
+  it('is false without working time or with a full-day absence', () => {
+    expect(hasPlannedDuty([])).toBe(false)
+    expect(hasPlannedDuty([code(1, day, 'other', 'none')])).toBe(false)
+    expect(hasPlannedDuty([shift(1, day, 600, 660, null, null, { kind: 'break' })])).toBe(false)
+    expect(hasPlannedDuty([code(1, day, 'sick', 'daily_target')])).toBe(false)
+    expect(hasPlannedDuty([shift(1, day, ...M), code(1, day, 'vacation', 'daily_target')])).toBe(false)
   })
 })

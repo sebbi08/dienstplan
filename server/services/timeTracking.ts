@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, isNull, lt, lte } from 'drizzle-orm'
 import type { ActualTime } from '../../shared/domain/balance'
-import { computeDay, usesRecords } from '../../shared/domain/balance'
+import { computeDay, hasPlannedDuty, usesRecords } from '../../shared/domain/balance'
+import { cellKey } from '../../shared/domain/cells'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayOn } from '../../shared/domain/holidays'
@@ -15,6 +16,7 @@ import type { Db } from '../db/client'
 import { employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
+import { loadSickLeaves, sickLeaveDates, sickLeavesByCell } from './earlySickLeaves'
 import { assertEmployee } from './employees'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
 
@@ -49,7 +51,11 @@ export function loadTimeRecords(db: Db, filter: TimeRecordFilter = {}): TimeReco
     }))
 }
 
-/** Per employee of the facility: recorded minutes for the balance, or undefined while time tracking is not active. */
+/**
+ * Per employee of the facility: recorded minutes for the balance, or undefined while time tracking is not active. Days
+ * marked "Im Dienst erkrankt" are credited from the plan instead (plannedDates), so balances, week totals and the
+ * time page all count the planned working time of such a day.
+ */
 export function actualTimeFor(db: Db, facilityId: number, today: IsoDate): (employeeId: number) => ActualTime | undefined {
   const from = activeTrackingFrom(db, facilityId, today)
   if (from === null) return () => undefined
@@ -66,13 +72,14 @@ export function actualTimeFor(db: Db, facilityId: number, today: IsoDate): (empl
     const key = `${entry.employeeId}:${entry.date}`
     plannedBreaks.set(key, (plannedBreaks.get(key) ?? 0) + plannedBreakMinutes([entry]))
   }
+  const sickDates = sickLeaveDates(db, facilityId, from)
   return (employeeId) => {
     const mode = breakModes.get(employeeId) ?? 'stamp'
     const minutesByDate = new Map<IsoDate, number>()
     for (const [date, list] of byEmployee.get(employeeId) ?? []) {
       minutesByDate.set(date, creditedMinutes(list, mode, plannedBreaks.get(`${employeeId}:${date}`) ?? 0))
     }
-    return { from, today, minutesByDate }
+    return { from, today, minutesByDate, plannedDates: sickDates.get(employeeId) ?? new Set() }
   }
 }
 
@@ -194,6 +201,7 @@ export function getTimeMonth(
   const notes = new Map(db.select().from(timeDayNotes)
     .where(and(eq(timeDayNotes.employeeId, employeeId), gte(timeDayNotes.date, monthStart), lte(timeDayNotes.date, monthEnd))).all()
     .map(row => [row.date, row.note]))
+  const sickLeaves = sickLeavesByCell(loadSickLeaves(db, [employeeId], monthStart, monthEnd))
 
   return {
     employee: { id: employee.id, name: employee.name },
@@ -208,6 +216,8 @@ export function getTimeMonth(
       const absence = dayEntries.some(entry => isAbsence(entry.codeKey))
       const otherEntries = dayEntries.some(entry => !isAbsence(entry.codeKey))
       const inRange = actual !== undefined && usesRecords(actual, date) && isEmployedOn(employee.info, date)
+      // "Im Dienst erkrankt": the stamped times stay visible, the planned time counts and the day gets no time hints.
+      const sickLeave = sickLeaves[cellKey(employeeId, date)] ?? null
       return {
         date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayOn(date),
         plan: describeCellDetailed(dayEntries),
@@ -215,10 +225,12 @@ export function getTimeMonth(
         records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
         usesRecords: usesRecords(actual, date), absence, otherEntries,
         targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
-        warnings: inRange ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
+        warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
         note: notes.get(date) ?? '',
         changes: changes.filter(({ change }) => change.date === date)
           .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
+        plannedDuty: hasPlannedDuty(dayEntries),
+        sickLeave,
       }
     }),
   }

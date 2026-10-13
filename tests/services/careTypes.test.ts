@@ -47,12 +47,12 @@ describe('care types of a facility', () => {
   })
 
   it('rejects times off the 5-minute grid and ends not after the start', () => {
-    expect(errorCode(() => createCareType(db, 1, input('A', 421, 780)))).toBe('invalid_time')
-    expect(errorCode(() => createCareType(db, 1, input('A', 420, 783)))).toBe('invalid_time')
-    expect(errorCode(() => createCareType(db, 1, input('A', 420, 420)))).toBe('invalid_time')
-    expect(errorCode(() => createCareType(db, 1, input('A', 480, 420)))).toBe('invalid_time')
-    expect(errorCode(() => createCareType(db, 1, input('A', -5, 420)))).toBe('invalid_time')
-    expect(errorCode(() => createCareType(db, 1, input('A', 420, 1445)))).toBe('invalid_time')
+    expect(errorCode(() => createCareType(db, 1, input('A', 421, 780)))).toBe('care_type_invalid_time')
+    expect(errorCode(() => createCareType(db, 1, input('A', 420, 783)))).toBe('care_type_invalid_time')
+    expect(errorCode(() => createCareType(db, 1, input('A', 420, 420)))).toBe('care_type_invalid_time')
+    expect(errorCode(() => createCareType(db, 1, input('A', 480, 420)))).toBe('care_type_invalid_time')
+    expect(errorCode(() => createCareType(db, 1, input('A', -5, 420)))).toBe('care_type_invalid_time')
+    expect(errorCode(() => createCareType(db, 1, input('A', 420, 1445)))).toBe('care_type_invalid_time')
     expect(listCareTypes(db, 1)).toEqual([])
   })
 
@@ -63,7 +63,7 @@ describe('care types of a facility', () => {
     expect(updated).toEqual({ id: type.id, name: 'HALBTAG', start: 480, end: 720, sortOrder: 5 })
     expect(listCareTypes(db, 1).map(entry => entry.id)).toEqual([other.id, type.id])
     expect(errorCode(() => updateCareType(db, 1, type.id, input('ganztag')))).toBe('care_type_name_taken')
-    expect(errorCode(() => updateCareType(db, 1, type.id, input('X', 421, 720)))).toBe('invalid_time')
+    expect(errorCode(() => updateCareType(db, 1, type.id, input('X', 421, 720)))).toBe('care_type_invalid_time')
     expect(errorCode(() => updateCareType(db, 1, type.id, input(' ')))).toBe('care_type_name_required')
   })
 

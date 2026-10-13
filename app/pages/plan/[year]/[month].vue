@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { ApplyMode, CodeDto, EntryDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import { hasPlannedDuty } from '#shared/domain/balance'
+import { cellKey } from '#shared/domain/cells'
+import { todayIso } from '#shared/domain/dates'
 import { isManager } from '#shared/domain/roles'
 import { fullShiftOptions } from '#shared/domain/suggest'
 import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
+import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
@@ -94,6 +98,33 @@ const gapSuggestions = computed((): GapSuggestion[] => {
   return end <= 24 * 60 ? [{ templateId: null, start, end, shortLabel: '' }] : []
 })
 
+/**
+ * "Im Dienst erkrankt" fits a cell of the own staff (never a helper's: their home facility marks it) whose day, today or
+ * earlier, has a duty and no full-day absence; a help-out elsewhere counts as duty. A marked cell can always be opened.
+ */
+const today = todayIso()
+function canMarkSick(employeeId: number, date: string): boolean {
+  const current = plan.value
+  if (!current?.admin) return false
+  if (current.admin.sickLeaves[cellKey(employeeId, date)]) return true
+  const employee = current.employees.find(candidate => candidate.id === employeeId)
+  if (date > today || !employee || employee.helpFrom) return false
+  return hasPlannedDuty(current.entries.filter(entry => entry.employeeId === employeeId && entry.date === date))
+}
+const sickLeave = reactive<{ open: boolean; target: SickLeaveTarget | null }>({ open: false, target: null })
+function openSickLeave(employeeId: number, date: string) {
+  const current = plan.value
+  const employee = current?.employees.find(candidate => candidate.id === employeeId)
+  if (!current?.admin || !employee) return
+  const mark = current.admin.sickLeaves[cellKey(employeeId, date)] ?? null
+  Object.assign(sickLeave, { open: true, target: { employeeId, name: employee.name, date, mark } })
+}
+/** The single selected cell, when it can be marked. */
+const sickLeaveCell = computed(() => {
+  const cell = selection.cells.value.length === 1 ? selection.cells.value[0] : undefined
+  return cell && canMarkSick(cell.employeeId, cell.date) ? cell : null
+})
+
 function hasSelection(): boolean {
   if (selection.cells.value.length > 0) return true
   toast.add({ title: de.plan.selectFirst, color: 'warning' })
@@ -175,6 +206,9 @@ function fromMenu<A extends unknown[]>(action: (...args: A) => unknown) {
 const menuActions = {
   template: fromMenu(onTemplate), code: fromMenu(onCode), special: fromMenu(() => openModal(null)), clear: fromMenu(onClear),
   fillGap: fromMenu(onFillGap), addBreak: fromMenu(onAddBreak),
+  sickLeave: fromMenu(() => {
+    if (sickLeaveCell.value) openSickLeave(sickLeaveCell.value.employeeId, sickLeaveCell.value.date)
+  }),
 }
 
 function onNoteSave(date: string, field: NoteField, value: string) {
@@ -228,6 +262,7 @@ function navigate(nextYear: number, nextMonth: number) {
   <div class="space-y-3">
     <template v-if="plan && !error">
       <LevelUpNotice v-if="isAdmin" />
+      <RequirementNotice v-if="isAdmin" compact />
       <PlanHeader
         :plan="plan" :is-admin="isAdmin" :group-filter="activeGroup"
         @navigate="navigate" @release="release" @discard="discardOpen = true"
@@ -252,7 +287,7 @@ function navigate(nextYear: number, nextMonth: number) {
             :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
-            @remove-helper="onRemoveHelper"
+            @remove-helper="onRemoveHelper" @sick-leave="openSickLeave"
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
@@ -260,7 +295,12 @@ function navigate(nextYear: number, nextMonth: number) {
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
-      <PlanEntryEditModal v-model:open="editOpen" :entry="editEntry" :plan="plan" @submit="onEditSubmit" />
+      <PlanEntryEditModal
+        v-model:open="editOpen" :entry="editEntry" :plan="plan"
+        :can-mark-sick="editEntry !== null && canMarkSick(editEntry.employeeId, editEntry.date)"
+        @submit="onEditSubmit" @sick-leave="openSickLeave($event.employeeId, $event.date)"
+      />
+      <SickLeaveModal v-if="isAdmin" v-model:open="sickLeave.open" :target="sickLeave.target" @done="refresh" />
       <PlanWeekTemplateModal
         v-if="isAdmin" v-model:open="weekTemplate.open" :mode="weekTemplate.mode" :week-start="weekTemplate.weekStart"
         :groups="plan.groups" @done="refresh"
@@ -269,6 +309,7 @@ function navigate(nextYear: number, nextMonth: number) {
         v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions" :scope="scope"
+        :can-mark-sick="sickLeaveCell !== null" @sick-leave="menuActions.sickLeave"
         @template="menuActions.template" @code="menuActions.code" @special="menuActions.special" @clear="menuActions.clear"
         @fill-gap="menuActions.fillGap" @add-break="menuActions.addBreak"
       />

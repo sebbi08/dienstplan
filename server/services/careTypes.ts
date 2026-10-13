@@ -32,11 +32,14 @@ function checkedName(db: Db, facilityId: number, name: string, exceptId: number 
   return uniqueName(existing, name, exceptId, { required: 'care_type_name_required', taken: 'care_type_name_taken' })
 }
 
-/** Both times within the day and on the 5-minute grid, the end after the start; otherwise 400 invalid_time. */
+/**
+ * Both times within the day and on the 5-minute grid, the end after the start; otherwise 400 care_type_invalid_time
+ * (invalid_time belongs to "im Dienst erkrankt" and has another message).
+ */
 function checkedTimes(input: CareTypeInput): void {
   const { start, end } = input
   const onGrid = (value: number) => Number.isInteger(value) && value >= 0 && value <= DAY_MINUTES && value % 5 === 0
-  if (!onGrid(start) || !onGrid(end) || end <= start) throw new ServiceError(400, 'invalid_time')
+  if (!onGrid(start) || !onGrid(end) || end <= start) throw new ServiceError(400, 'care_type_invalid_time')
 }
 
 /** A new care type at the end of the facility's order (the input's sortOrder is ignored). */

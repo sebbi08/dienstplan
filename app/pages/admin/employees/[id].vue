@@ -246,5 +246,7 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
         <UButton type="submit" :label="de.employees.saveEntitlement" />
       </form>
     </section>
+
+    <EmployeesRequirementsSection :employee-id="id" />
   </div>
 </template>

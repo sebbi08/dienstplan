@@ -1,6 +1,7 @@
 import type { ChildStatus } from '../domain/children'
 import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
@@ -419,6 +420,8 @@ export interface MonthPlanAdminDto {
   helpers: HelperDto[]
   /** Per helper (employee id): the days of the month that belong to another plan ("belegt", not writable here). */
   helperBusy: Record<number, IsoDate[]>
+  /** "Im Dienst erkrankt" markers of the own staff's days in this month, keyed by cellKey (never part of a release). */
+  sickLeaves: Record<string, SickLeaveMarkDto>
 }
 
 export interface MonthPlanDto {
@@ -602,6 +605,10 @@ export interface TimeDayDto {
   /** Admin's free-text reason for this day (not shown to the employee). */
   note: string
   changes: TimeRecordChangeDto[]
+  /** The day has planned working time and no full-day absence: it can be marked "Im Dienst erkrankt". */
+  plannedDuty: boolean
+  /** "Im Dienst erkrankt": the planned time is credited whatever was stamped, and the day has no time hints. */
+  sickLeave: SickLeaveMarkDto | null
 }
 
 export interface MyTimeDto {
@@ -644,6 +651,43 @@ export interface SickYearRowDto {
   name: string
   total: number
   ranges: LeaveRange[]
+}
+
+/**
+ * "Im Dienst erkrankt": the employee fell ill during the duty of a day and left early. Only for Leitung and Träger of
+ * the employee's home facility.
+ */
+export interface SickLeaveMarkDto {
+  id: number
+  /** When the person left: the entered time, otherwise the end of the day's last closed time record, otherwise null. */
+  leftAt: Minutes | null
+  /** leftAt comes from the time record, not from an entered time. */
+  leftAtFromRecord: boolean
+  note: string | null
+}
+
+export interface EarlySickLeaveRowDto extends SickLeaveMarkDto {
+  employeeId: number
+  employeeName: string
+  date: IsoDate
+  /** The planned duty of the day as text, e.g. "F2 7:30–15:45" (a help-out elsewhere: its times only). */
+  duty: string
+}
+
+/** The year's list of the sick-days page: who left early because of illness, and how often. */
+export interface EarlySickLeavesDto {
+  /** Newest first. */
+  rows: EarlySickLeaveRowDto[]
+  /** Only employees with at least one row, in the staff order. */
+  totals: { employeeId: number; employeeName: string; count: number }[]
+}
+
+export interface EarlySickLeaveInput {
+  employeeId: number
+  date: IsoDate
+  /** Time of leaving (minutes of the day); null = not entered. */
+  leftAt: Minutes | null
+  note?: string | null
 }
 
 /** Colour group of a day in the year calendar. */
@@ -783,4 +827,71 @@ export interface LeavePlanningDto {
   counts: Record<IsoDate, number>
   maxConcurrent: number | null
   openRequests: LeaveRequestDto[]
+}
+
+/** A kind of mandatory appointment or proof (Pflichttermin) of a facility. */
+export interface RequirementTypeDto {
+  id: number
+  name: string
+  /** Due again every this many months (null = needed once). */
+  intervalMonths: number | null
+  /** 'company_doctor', 'first_aid', 'criminal_record' or 'measles' for the built-in kinds, null for the facility's own. */
+  builtinKey: string | null
+  sortOrder: number
+}
+
+/** One appointment kept or proof shown: the day, and an optional note. */
+export interface RequirementRecordDto {
+  id: number
+  date: IsoDate
+  note: string | null
+}
+
+export interface TrainingDto {
+  id: number
+  date: IsoDate
+  title: string
+  note: string | null
+}
+
+/** A kind as it stands for one employee: the newest record counts. */
+export interface EmployeeRequirementKindDto {
+  type: RequirementTypeDto
+  state: RequirementState
+  /** Date of the newest record (null = none). */
+  lastDate: IsoDate | null
+  /** When the next one is due (null without a record or for a kind needed once). */
+  dueOn: IsoDate | null
+  /** The history, newest first. */
+  records: RequirementRecordDto[]
+}
+
+/** Mandatory appointments (every kind of the employee's facility) and trainings (newest first) of one employee. */
+export interface EmployeeRequirementsDto {
+  kinds: EmployeeRequirementKindDto[]
+  trainings: TrainingDto[]
+}
+
+/**
+ * An employee's own view (read-only): per kind of their facility the newest date and when the next is due, and their
+ * trainings, newest first. Deliberately no state (the warning is for Leitung and Träger only), no history and none of
+ * the notes the Leitung typed.
+ */
+export interface MyRequirementsDto {
+  kinds: {
+    type: Pick<RequirementTypeDto, 'id' | 'name' | 'intervalMonths'>
+    lastDate: IsoDate | null
+    dueOn: IsoDate | null
+  }[]
+  trainings: Pick<TrainingDto, 'id' | 'date' | 'title'>[]
+}
+
+/** A row of the notice for Leitung and Träger: a kind that is overdue, missing or due soon for an employee. */
+export interface DueRequirementDto {
+  employeeId: number
+  employeeName: string
+  typeId: number
+  typeName: string
+  state: Exclude<RequirementState, 'ok'>
+  dueOn: IsoDate | null
 }

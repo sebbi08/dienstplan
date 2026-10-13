@@ -64,7 +64,7 @@ const totals = computed(() => {
             <td class="whitespace-nowrap border border-gray-400 px-1.5 py-0.5 text-right" :class="Math.abs(recordedDifference(day) ?? 0) > DEVIATION_MINUTES ? 'font-semibold' : ''">
               {{ recordedDifference(day) === null ? '' : formatSignedDuration(recordedDifference(day)!) }}
             </td>
-            <td class="border border-gray-400 px-1.5 py-0.5">{{ day.note }}</td>
+            <td class="border border-gray-400 px-1.5 py-0.5">{{ [day.sickLeave ? de.sickLeave.sheetReason : '', day.note].filter(Boolean).join(' · ') }}</td>
           </tr>
         </tbody>
       </table>

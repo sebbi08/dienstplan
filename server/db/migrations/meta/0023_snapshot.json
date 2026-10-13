@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "dc468640-85ca-4088-914b-4364ec5bd559",
+  "id": "100a762f-2867-4a9e-b42b-167125f35aef",
   "prevId": "297d1333-85d1-4bb4-80b5-ae42c1f28775",
   "tables": {
     "absence_codes": {
@@ -239,82 +239,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "care_types": {
-      "name": "care_types",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "facility_id": {
-          "name": "facility_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "start": {
-          "name": "start",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "end": {
-          "name": "end",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "care_types_facility": {
-          "name": "care_types_facility",
-          "columns": [
-            "facility_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "care_types_facility_id_facilities_id_fk": {
-          "name": "care_types_facility_id_facilities_id_fk",
-          "tableFrom": "care_types",
-          "tableTo": "facilities",
-          "columnsFrom": [
-            "facility_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "change_log": {
       "name": "change_log",
       "columns": {
@@ -433,692 +357,6 @@
           "tableTo": "users",
           "columnsFrom": [
             "changed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "child_contacts": {
-      "name": "child_contacts",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "child_id": {
-          "name": "child_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "relation": {
-          "name": "relation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "phone_home": {
-          "name": "phone_home",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "phone_mobile": {
-          "name": "phone_mobile",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "phone_work": {
-          "name": "phone_work",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "is_guardian": {
-          "name": "is_guardian",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "may_pick_up": {
-          "name": "may_pick_up",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "contact_ban": {
-          "name": "contact_ban",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "emergency_rank": {
-          "name": "emergency_rank",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "contact_ban_note": {
-          "name": "contact_ban_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        }
-      },
-      "indexes": {
-        "child_contacts_child": {
-          "name": "child_contacts_child",
-          "columns": [
-            "child_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "child_contacts_child_id_children_id_fk": {
-          "name": "child_contacts_child_id_children_id_fk",
-          "tableFrom": "child_contacts",
-          "tableTo": "children",
-          "columnsFrom": [
-            "child_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "child_documents": {
-      "name": "child_documents",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "child_id": {
-          "name": "child_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "document_type_id": {
-          "name": "document_type_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "document_date": {
-          "name": "document_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "confidential": {
-          "name": "confidential",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "size": {
-          "name": "size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "data": {
-          "name": "data",
-          "type": "blob",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "uploaded_by": {
-          "name": "uploaded_by",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "uploaded_at": {
-          "name": "uploaded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "child_documents_child": {
-          "name": "child_documents_child",
-          "columns": [
-            "child_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "child_documents_child_id_children_id_fk": {
-          "name": "child_documents_child_id_children_id_fk",
-          "tableFrom": "child_documents",
-          "tableTo": "children",
-          "columnsFrom": [
-            "child_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "child_documents_document_type_id_document_types_id_fk": {
-          "name": "child_documents_document_type_id_document_types_id_fk",
-          "tableFrom": "child_documents",
-          "tableTo": "document_types",
-          "columnsFrom": [
-            "document_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "child_documents_uploaded_by_users_id_fk": {
-          "name": "child_documents_uploaded_by_users_id_fk",
-          "tableFrom": "child_documents",
-          "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "children": {
-      "name": "children",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "facility_id": {
-          "name": "facility_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "group_id": {
-          "name": "group_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "care_type_id": {
-          "name": "care_type_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "last_name": {
-          "name": "last_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "first_name": {
-          "name": "first_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "birth_date": {
-          "name": "birth_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "address": {
-          "name": "address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "entry_date": {
-          "name": "entry_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "planned_entry_date": {
-          "name": "planned_entry_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "info_meeting_date": {
-          "name": "info_meeting_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "school_start_date": {
-          "name": "school_start_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "primary_school": {
-          "name": "primary_school",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "left_on": {
-          "name": "left_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "measles_proof": {
-          "name": "measles_proof",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "measles_proof_date": {
-          "name": "measles_proof_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "infection_briefing_date": {
-          "name": "infection_briefing_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "allergies": {
-          "name": "allergies",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "may_take_temperature": {
-          "name": "may_take_temperature",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "may_apply_sunscreen": {
-          "name": "may_apply_sunscreen",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "may_apply_plaster": {
-          "name": "may_apply_plaster",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_artwork_display": {
-          "name": "consent_artwork_display",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_photos_display": {
-          "name": "consent_photos_display",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_photos_foreign_portfolios": {
-          "name": "consent_photos_foreign_portfolios",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_photos_internal_events": {
-          "name": "consent_photos_internal_events",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_photos_whatsapp": {
-          "name": "consent_photos_whatsapp",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_photos_names_birthdays_display": {
-          "name": "consent_photos_names_birthdays_display",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_group_work_with_names": {
-          "name": "consent_group_work_with_names",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_whatsapp_contact": {
-          "name": "consent_whatsapp_contact",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_whatsapp_photos": {
-          "name": "consent_whatsapp_photos",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_whatsapp_parent_group": {
-          "name": "consent_whatsapp_parent_group",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "master_updated_at": {
-          "name": "master_updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "master_updated_by": {
-          "name": "master_updated_by",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "contacts_updated_at": {
-          "name": "contacts_updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "contacts_updated_by": {
-          "name": "contacts_updated_by",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "health_updated_at": {
-          "name": "health_updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "health_updated_by": {
-          "name": "health_updated_by",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consents_updated_at": {
-          "name": "consents_updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consents_updated_by": {
-          "name": "consents_updated_by",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "children_facility": {
-          "name": "children_facility",
-          "columns": [
-            "facility_id"
-          ],
-          "isUnique": false
-        },
-        "children_group": {
-          "name": "children_group",
-          "columns": [
-            "group_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "children_facility_id_facilities_id_fk": {
-          "name": "children_facility_id_facilities_id_fk",
-          "tableFrom": "children",
-          "tableTo": "facilities",
-          "columnsFrom": [
-            "facility_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "children_group_id_groups_id_fk": {
-          "name": "children_group_id_groups_id_fk",
-          "tableFrom": "children",
-          "tableTo": "groups",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "children_care_type_id_care_types_id_fk": {
-          "name": "children_care_type_id_care_types_id_fk",
-          "tableFrom": "children",
-          "tableTo": "care_types",
-          "columnsFrom": [
-            "care_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "children_master_updated_by_users_id_fk": {
-          "name": "children_master_updated_by_users_id_fk",
-          "tableFrom": "children",
-          "tableTo": "users",
-          "columnsFrom": [
-            "master_updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "children_contacts_updated_by_users_id_fk": {
-          "name": "children_contacts_updated_by_users_id_fk",
-          "tableFrom": "children",
-          "tableTo": "users",
-          "columnsFrom": [
-            "contacts_updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "children_health_updated_by_users_id_fk": {
-          "name": "children_health_updated_by_users_id_fk",
-          "tableFrom": "children",
-          "tableTo": "users",
-          "columnsFrom": [
-            "health_updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "children_consents_updated_by_users_id_fk": {
-          "name": "children_consents_updated_by_users_id_fk",
-          "tableFrom": "children",
-          "tableTo": "users",
-          "columnsFrom": [
-            "consents_updated_by"
           ],
           "columnsTo": [
             "id"
@@ -1357,92 +595,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "document_types": {
-      "name": "document_types",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "facility_id": {
-          "name": "facility_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "important": {
-          "name": "important",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "required": {
-          "name": "required",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "confidential_default": {
-          "name": "confidential_default",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "document_types_facility": {
-          "name": "document_types_facility",
-          "columns": [
-            "facility_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "document_types_facility_id_facilities_id_fk": {
-          "name": "document_types_facility_id_facilities_id_fk",
-          "tableFrom": "document_types",
-          "tableTo": "facilities",
-          "columnsFrom": [
-            "facility_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "early_closures": {
       "name": "early_closures",
       "columns": {
@@ -1566,6 +718,160 @@
         "employee_hours_employee_id_employees_id_fk": {
           "name": "employee_hours_employee_id_employees_id_fk",
           "tableFrom": "employee_hours",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "employee_requirements": {
+      "name": "employee_requirements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type_id": {
+          "name": "type_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "employee_requirements_employee": {
+          "name": "employee_requirements_employee",
+          "columns": [
+            "employee_id"
+          ],
+          "isUnique": false
+        },
+        "employee_requirements_type": {
+          "name": "employee_requirements_type",
+          "columns": [
+            "type_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "employee_requirements_employee_id_employees_id_fk": {
+          "name": "employee_requirements_employee_id_employees_id_fk",
+          "tableFrom": "employee_requirements",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "employee_requirements_type_id_requirement_types_id_fk": {
+          "name": "employee_requirements_type_id_requirement_types_id_fk",
+          "tableFrom": "employee_requirements",
+          "tableTo": "requirement_types",
+          "columnsFrom": [
+            "type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "employee_trainings": {
+      "name": "employee_trainings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "employee_trainings_employee": {
+          "name": "employee_trainings_employee",
+          "columns": [
+            "employee_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "employee_trainings_employee_id_employees_id_fk": {
+          "name": "employee_trainings_employee_id_employees_id_fk",
+          "tableFrom": "employee_trainings",
           "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
@@ -2714,6 +2020,82 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "requirement_types": {
+      "name": "requirement_types",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "facility_id": {
+          "name": "facility_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "interval_months": {
+          "name": "interval_months",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "builtin_key": {
+          "name": "builtin_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "requirement_types_facility_builtin": {
+          "name": "requirement_types_facility_builtin",
+          "columns": [
+            "facility_id",
+            "builtin_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "requirement_types_facility_id_facilities_id_fk": {
+          "name": "requirement_types_facility_id_facilities_id_fk",
+          "tableFrom": "requirement_types",
+          "tableTo": "facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "shift_templates": {
       "name": "shift_templates",
       "columns": {
@@ -3159,14 +2541,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "can_edit_children": {
-          "name": "can_edit_children",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         }
       },
       "indexes": {

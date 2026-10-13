@@ -9,7 +9,7 @@ import { employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
-import { cellOwner, describeCellAt, logReplacedClosureDay, setDayNote, takeClosureDay } from './entries'
+import { cellOwner, describeCellAt, dropStaleSickLeave, logReplacedClosureDay, setDayNote, takeClosureDay } from './entries'
 import { groupNames } from './groups'
 import { ownCellFilter } from './queries'
 import { loadReleases } from './release'
@@ -34,8 +34,8 @@ function parseKey(key: string, year: number, month: number): RevertTarget {
  * helper's cell gets back the entries planned here, and a cell whose day now belongs to another plan (a help-out
  * elsewhere, or the home facility's absence over a help-out) is skipped. A helper's day holding only closure bookings of
  * the home facility gives way to the restored entries; a helper's day reset to empty gets the home closure booked
- * again. Entries get back their released group unless that group was deleted since. Returns the number of reverted
- * keys.
+ * again. Entries get back their released group unless that group was deleted since. A cell reset to a day without
+ * working time loses its "Im Dienst erkrankt" marker. Returns the number of reverted keys.
  */
 export function revertToRelease(
   db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
@@ -96,6 +96,7 @@ export function revertToRelease(
       if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, timestamp)
       // A help-out day reset to empty gets back the home facility's closure.
       if (helpFacilityId !== null && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, timestamp)
+      dropStaleSickLeave(tx, cell)
     }
   })
   return reverted

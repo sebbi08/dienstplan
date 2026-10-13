@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { cellFillColor, cellKey, noteKey } from '#shared/domain/cells'
-import { formatDuration, formatSignedDuration } from '#shared/domain/time'
+import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
 import type { DayRowDto, EmployeeColumnDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass, cellFillClasses } from '~/utils/colors'
@@ -29,6 +29,7 @@ const emit = defineEmits<{
   saveWeek: [weekStart: string]
   applyWeek: [weekStart: string]
   removeHelper: [helpOutId: number, name: string]
+  sickLeave: [employeeId: number, date: string]
 }>()
 
 /** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
@@ -115,6 +116,16 @@ const weekByLastDay = computed(() => {
   return map
 })
 
+/**
+ * "Im Dienst erkrankt" as tooltip of a marked cell; managers only (the markers come with plan.admin) and never in the
+ * print view.
+ */
+function sickLeaveText(key: string): string | undefined {
+  const mark = props.print ? undefined : props.plan.admin?.sickLeaves[key]
+  if (!mark) return undefined
+  return de.sickLeave.tooltip(mark.leftAt === null ? null : formatTime(mark.leftAt)) + (mark.note ? ` · ${mark.note}` : '')
+}
+
 function joinLines(lines: (string | undefined)[]): string | undefined {
   return lines.filter(Boolean).join('\n') || undefined
 }
@@ -175,6 +186,7 @@ const rows = computed(() => props.plan.days.map((day) => {
     const pending = props.plan.admin?.pendingChanges[key]
     const cellEntries = entriesByCell.value.get(key) ?? []
     const marker = markerOf(cellEntries)
+    const sickLeave = sickLeaveText(key)
     return {
       kind: 'employee' as const,
       key,
@@ -188,7 +200,9 @@ const rows = computed(() => props.plan.days.map((day) => {
       fill: marker ? null : cellFillColor(cellEntries),
       gapMinutes: gap?.type === 'target_gap' ? gap.missingMinutes : null,
       actual: props.plan.admin?.actuals[key] ?? null,
+      sickLeave,
       title: joinLines([
+        sickLeave,
         busy.value.has(key) && !props.print ? de.plan.helperBusyHint : undefined,
         marker && props.editable ? de.plan.markerHint : undefined,
         pendingChangeText(pending),
@@ -352,6 +366,12 @@ const rows = computed(() => props.plan.days.map((day) => {
                     :editable="isEntryEditable(cell.key, entry)" :cell-title="cell.title" :group-name="groupTag(entry)"
                     @remove="emit('removeEntry', $event)" @click="onEntryClick(cell.key, entry, $event)"
                   />
+                  <button
+                    v-if="cell.sickLeave" type="button" class="inline-flex text-rose-700 hover:text-rose-900 print:hidden"
+                    :title="cell.sickLeave" :aria-label="cell.sickLeave" @click.stop="emit('sickLeave', cell.employeeId, row.day.date)"
+                  >
+                    <UIcon name="i-lucide-thermometer" class="size-4" />
+                  </button>
                   <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
                   <NuxtLink
                     v-if="cell.actual" :to="`/admin/time?employee=${cell.employeeId}&year=${plan.year}&month=${plan.month}&date=${row.day.date}`"

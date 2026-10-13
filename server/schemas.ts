@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
 import { COLOR_KEYS, CONSENT_KEYS, type ConsentKey } from '../shared/types/api'
@@ -103,6 +104,10 @@ export const earlyClosureSchema = z.object({ date: isoDate, closedFrom: minutes,
 export const calendarEventSchema = z.object({
   date: isoDate, start: minutes.nullable(), end: minutes.nullable(), title: z.string().max(200), visibleToStaff: z.boolean(),
 })
+/** leftAt is checked by the service (invalid_time), so a wrong time gets its own message. */
+export const earlySickLeaveSchema = z.object({
+  employeeId: z.number().int().positive(), date: isoDate, leftAt: z.number().nullable(), note: z.string().max(200).nullable().optional(),
+})
 export const timeDayNoteSchema = z.object({ employeeId: z.number().int(), date: isoDate, note: z.string().max(200) })
 export const stampSchema = z.object({ action: z.enum(['in', 'out']) })
 export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number().int().positive() })
@@ -141,6 +146,15 @@ export const helpOutSchema = z.object({
   month: z.number().int().min(1).max(12),
 })
 export const groupNameSchema = z.object({ name: z.string().max(80) })
+/** intervalMonths: due again every … months (null = needed once). */
+export const requirementTypeSchema = z.object({
+  name: z.string().max(80), intervalMonths: z.number().int().min(1).max(MAX_REQUIREMENT_INTERVAL_MONTHS).nullable(),
+})
+export const requirementRecordSchema = z.object({
+  typeId: z.number().int().positive(), date: isoDate, note: z.string().max(200).nullable().optional(),
+})
+export const trainingSchema = z.object({ date: isoDate, title: z.string().max(200), note: z.string().max(500).nullable().optional() })
+
 export const careTypeSchema = z.object({
   name: z.string().max(80),
   start: z.number().int(),

@@ -13,6 +13,7 @@ import { bookClosuresFor, unbookClosuresFrom } from './closures'
 import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
+import { moveRequirementRecords } from './requirements'
 
 export interface EmployeeInput {
   name: string
@@ -261,6 +262,7 @@ export function setStampingOptions(
  * by the old one (facilitySince), so the new facility never treats them as its own unreleased changes. Closures change
  * from today on: the old facility's are removed, the new facility's are booked (same rules as for a new employee).
  * The employee's Mitarbeiter account follows automatically; a linked Leitung or tablet account is moved along.
+ * Records of mandatory appointments are re-pointed to the new facility's kinds; trainings stay with the employee.
  */
 export function moveEmployeeToFacility(
   db: Db, actor: SessionUser, employeeId: number, facilityId: number, now: Date = new Date(),
@@ -288,6 +290,7 @@ export function moveEmployeeToFacility(
     tx.delete(helpOuts).where(and(eq(helpOuts.employeeId, employeeId), eq(helpOuts.facilityId, facilityId))).run()
     tx.update(entries).set({ helpFacilityId: null })
       .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
+    moveRequirementRecords(tx, employeeId, facilityId)
     bookClosuresFor(tx, actor, employeeId, now, today)
   })
 }
