@@ -176,3 +176,61 @@ Die Datei, die du unter *Einstellungen → Datensicherung → Datenbank herunter
 Die App verschlüsselt die Datenbank nicht selbst. Verschlüssele deshalb die Festplatte des Servers
 (Verantwortung des Betreibers, z. B. mit LUKS unter Linux oder der Verschlüsselung deines Hosters).
 Sonst sind die Kinderdaten lesbar, wenn jemand Zugriff auf die Festplatte oder eine Server-Kopie hat.
+
+## 9. Platzplanung (Vormerkungen, Belegung, Gruppenwechsel, Schulkinder)
+
+### Vormerkungen
+
+- Ein Kind, das sich nur gemeldet hat, legst du mit dem Stand „Vormerkung“ an. Es hat noch keinen Vertrag,
+  steht in einer eigenen Liste und wird in der Belegung **nicht gezählt**.
+- Vormerkungen werden **nicht automatisch gelöscht**. Sieh die Liste deshalb regelmäßig durch und lösche
+  Vormerkungen, die nicht mehr gebraucht werden (Leitung und Träger: „Vormerkung löschen“).
+- Ein Kind, das schon aufgenommen ist, kann nicht wieder zur Vormerkung werden.
+
+### Belegung
+
+Die Belegung (Leitung und Träger) zeigt pro Kita-Jahr (1. September bis 31. August) eine Zahl je Gruppe und
+Monat. Ein Beispiel: **„17 (+2)“** heißt, 17 Kinder waren schon vor diesem Monat in der Gruppe, 2 kommen in
+diesem Monat neu dazu (Eingewöhnung oder Wechsel aus einer anderen Gruppe). Ein Kind zählt in jedem Monat, in
+dem es mindestens an einem Tag in der Gruppe ist, also auch im Monat seines letzten Tages. Eine Zelle wird
+rot, sobald die **Plätze** der Gruppe erreicht sind. Unter der Tabelle stehen Hinweise auf Kinder, die nicht
+gezählt werden: Verträge ohne Eintrittsdatum und Kinder, deren Schulstart oder Austritt vor dem Eintritt liegt.
+
+### Gruppenwechsel
+
+Einen Wechsel planst du mit Datum. Am Wechseltag stellt die App das Kind automatisch in die neue Gruppe.
+Bereiche, die du nicht übernommen hast (z. B. Gesundheit), bleiben sichtbar und sind als „nicht bestätigt“
+markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen im Reiter „Offen“.
+
+### Schulkinder
+
+- **Stichtag prüfen:** Der Träger stellt pro Einrichtung den Stichtag ein (voreingestellt: 30. Juni, 6 Jahre).
+  Die Regeln unterscheiden sich je Bundesland und ändern sich manchmal. Bitte prüfe den Wert für deine
+  Einrichtung. Soll ein Kind, das am Tag nach dem Stichtag geboren ist, noch dazugehören, stelle den Stichtag
+  einen Tag später ein.
+- Schulstart ist immer der 1. September. Ein von Hand eingetragener „voraussichtlicher Schulstart“
+  (z. B. bei Zurückstellung) hat Vorrang.
+- Ab 1. März zeigt die Belegung die Liste **„Schulkinder zum 1.9.“**, damit du Zurückstellungen rechtzeitig
+  einträgst.
+
+### Automatische Abmeldung der Schulkinder
+
+- Der Schalter „Schulkinder automatisch abmelden“ ist **voreingestellt aus**. Nur der Träger schaltet ihn pro
+  Einrichtung ein.
+- Beim Einschalten zeigt die App, welche Kinder **sofort** abgemeldet werden (Schulstart schon erreicht).
+  Erst nach deiner Bestätigung wird eingeschaltet und abgemeldet.
+- Danach bekommen alle Schulkinder am 1. September den Austritt 31. August und kommen ins Archiv.
+  Ab dann läuft die Löschfrist (siehe Abschnitt 8).
+- **Nicht abgemeldet** werden Kinder mit späterem, von Hand eingetragenem Schulstart, Kinder, die erst am oder
+  nach ihrem Schulstart aufgenommen wurden, Kinder, deren Akte mit dem Austritt sofort gelöscht würde, und
+  Kinder, die in einer Gruppe „für Schulkinder“ sind oder dorthin wechseln. Diese meldest du bei Bedarf von
+  Hand ab.
+- **Schulkinder-Gruppen (z. B. Hort):** Der Träger kennzeichnet sie in der Gruppenverwaltung. Beim Wechsel in
+  eine solche Gruppe musst du bestätigen, dass ein weiterer Betreuungsvertrag abgeschlossen wurde. Der
+  Betreuungsvertrag ist danach „nicht bestätigt“, bis der neue Vertrag hochgeladen ist.
+- **Der Schalter schaltet sich von selbst aus**, wenn der Stichtag geändert wird, wenn einer Gruppe das
+  Kennzeichen „für Schulkinder“ genommen oder eine solche Gruppe gelöscht wird oder wenn die Löschfrist
+  geändert wird. Die App weist darauf hin. Prüfe dann die Liste und schalte wieder ein.
+
+Noch nicht enthalten: Bundesland je Einrichtung und Feiertage je Bundesland. Das ist für die nächste Version
+geplant.
