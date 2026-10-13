@@ -114,6 +114,18 @@ describe('recorded time (Zeiterfassung)', () => {
     expect(usesRecords(marked, '2026-10-06')).toBe(true) // still a day of the time tracking
     expect(balanceUntil(info, planned, [], '2026-10-06', marked)).toBe(balanceUntil(info, planned, [], '2026-10-06'))
   })
+  it('never credits less than was recorded on a marked day: the larger of plan and records counts', () => {
+    const short = [special(1, '2026-10-06', 600, 720)] // 2:00 planned
+    const marked = (minutes: number): ActualTime => ({ ...actual({ '2026-10-06': minutes }), plannedDates: new Set(['2026-10-06']) })
+    expect(computeDay(info, '2026-10-06', short, marked(300)).credit).toBe(300) // came earlier: 5:00 stamped
+    expect(computeDay(info, '2026-10-06', short, marked(120)).credit).toBe(120)
+    expect(computeDay(info, '2026-10-06', short, marked(45)).credit).toBe(120) // left early: the plan
+    expect(computeDay(info, '2026-10-06', short, { ...marked(0), minutesByDate: new Map() }).credit).toBe(120) // nothing stamped
+    // Today is still the forecast from the plan, and a full-day absence still counts its target.
+    expect(computeDay(info, '2026-10-08', [special(1, '2026-10-08', 600, 720)],
+      { ...actual({ '2026-10-08': 300 }), plannedDates: new Set(['2026-10-08']) }).credit).toBe(120)
+    expect(computeDay(info, '2026-10-06', [code(1, '2026-10-06', 'sick', 'daily_target')], marked(600)).credit).toBe(468)
+  })
 })
 
 describe('hasPlannedDuty', () => {

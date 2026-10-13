@@ -96,7 +96,8 @@ export const de = {
   sickLeave: {
     action: 'Im Dienst erkrankt …',
     title: (name: string, day: string) => `Im Dienst erkrankt · ${name} · ${day}`,
-    hint: 'Der Dienst bleibt im Dienstplan und die geplante Arbeitszeit wird voll gutgeschrieben, auch wenn weniger gestempelt wurde. Der Tag zählt nicht als Krankheitstag. Mitarbeiter sehen diese Markierung nicht.',
+    hint: 'Der Dienst bleibt im Dienstplan und die geplante Arbeitszeit wird voll gutgeschrieben, auch wenn weniger gestempelt wurde. Wurde mehr gestempelt als geplant, zählt die gestempelte Zeit. Der Tag zählt nicht als Krankheitstag. Im Dienstplan sehen Mitarbeiter diese Markierung nicht; auf dem Stundenzettel zum Unterschreiben steht „im Dienst erkrankt“.',
+    sheetReason: 'im Dienst erkrankt',
     leftAt: 'Gegangen um', note: 'Bemerkung',
     leftAtHelp: 'Kann leer bleiben. Mit Zeiterfassung gilt dann das letzte Ausstempeln des Tages.',
     leftAtFromRecord: (time: string) => `Bleibt das Feld leer, gilt die Stempeluhr (${time}).`,

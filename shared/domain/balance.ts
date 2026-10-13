@@ -66,7 +66,7 @@ export interface ActualTime {
   minutesByDate: Map<IsoDate, number>
   /**
    * Days credited from the plan although they lie in the range of the records ("Im Dienst erkrankt": the planned
-   * working time counts in full, whatever was stamped).
+   * working time counts in full even when less was stamped; when more was stamped, the stamped time counts).
    */
   plannedDates?: Set<IsoDate>
 }
@@ -85,9 +85,15 @@ export function computeDay(info: EmploymentInfo, date: IsoDate, entries: DomainE
   const target = dailyTarget(info, date)
   let credit = 0
   if (isEmployedOn(info, date)) {
-    credit = entries.some(entry => entry.creditMode === 'daily_target') || !creditsRecords(actual, date)
-      ? dayCredit(entries, target)
-      : actual!.minutesByDate.get(date) ?? 0
+    const planned = dayCredit(entries, target)
+    if (entries.some(entry => entry.creditMode === 'daily_target') || !usesRecords(actual, date)) {
+      credit = planned
+    }
+    else {
+      const recorded = actual!.minutesByDate.get(date) ?? 0
+      // "Im Dienst erkrankt": the plan counts in full, but never less than was actually recorded.
+      credit = creditsRecords(actual, date) ? recorded : Math.max(planned, recorded)
+    }
   }
   return { date, target, credit, delta: credit - target }
 }

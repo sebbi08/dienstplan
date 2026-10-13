@@ -10,7 +10,7 @@ When an employee falls ill during their duty and goes home early:
 - the time-tracking page still shows that the person left early;
 - the sick-days page ("Krankheit") gets a second list: when did who leave early because of illness.
 
-Only Leitung and Träger enter and see this. Colleagues and the person's own plan show the duty unchanged.
+Only Leitung and Träger enter and see this. Colleagues and the person's own plan show the duty unchanged. One exception: the time sheet the employee signs shows the fixed text "im Dienst erkrankt" in the Begründung column of a marked day (never the note or the time of leaving), so the credited time is explained.
 
 ## Data model
 
@@ -35,7 +35,7 @@ Migration `0024_early_sick_leaves` only creates this table and its index.
   - the date must not be in the future: 400 `date_in_future`;
   - `left_at`, if given, must be a valid time: 400 `invalid_time`.
 - **One marker per person and day.** Saving again replaces the time and note.
-- **Credit:** on a marked day the credited time is the planned working time of the day (the same value as without time tracking), also when time tracking is active and the stamped time is shorter. Balances, week totals and "Mein Dienstplan" totals follow, since they all use the same day computation.
+- **Credit:** on a marked day the credited time is the planned working time of the day (the same value as without time tracking), also when time tracking is active and the stamped time is shorter. When more was stamped than planned, the stamped time counts: the credit is the larger of the two. Balances, week totals and "Mein Dienstplan" totals follow, since they all use the same day computation.
 - **Time warnings:** a marked day produces no time warnings (missing record, break and deviation hints), and the plan's "recorded time deviates" flag is off.
 - **Effective time of leaving:** `left_at` if entered; otherwise the end of the last closed time record of that day; otherwise unknown.
 - **Stale markers:** when a cell loses its working time (cleared, replaced by an absence, discarded back to empty), its marker is deleted in the same transaction. The paths are `applyToCells`, `deleteEntry` and `revertToRelease`.

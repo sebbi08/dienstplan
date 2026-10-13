@@ -151,6 +151,7 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
 /**
  * "Im Dienst erkrankt" needs a duty: once a cell was written and its day has no planned working time any more (it is
  * empty or carries a full-day absence), the day's marker goes. Called inside the transaction that wrote the cell.
+ * Every path that can remove a duty must call this: a marker left on a day without duty would credit nothing.
  */
 export function dropStaleSickLeave(db: Db, cell: CellRef): void {
   const marker = db.select({ id: earlySickLeaves.id }).from(earlySickLeaves)

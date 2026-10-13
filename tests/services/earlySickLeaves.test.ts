@@ -6,8 +6,10 @@ import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getBalanceOverview } from '../../server/services/balances'
 import { getSickYear } from '../../server/services/calendar'
 import { deleteEarlySickLeave, listEarlySickLeaves, saveEarlySickLeave } from '../../server/services/earlySickLeaves'
-import { moveEmployeeToFacility } from '../../server/services/employees'
+import { moveEmployeeToFacility, setStampingOptions } from '../../server/services/employees'
 import { applyToCells, deleteEntry } from '../../server/services/entries'
+import { getMyTime } from '../../server/services/myTime'
+import { listNotifications } from '../../server/services/notifications'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { loadEntries } from '../../server/services/queries'
 import { loadReleases, releaseMonth } from '../../server/services/release'
@@ -103,6 +105,33 @@ describe('falling ill during duty (Im Dienst erkrankt)', () => {
       f2(ben, tuesday)
       mark(ben, tuesday, 600)
       expect(timeDay(ben, tuesday)).toMatchObject({ counted: F2_MINUTES, recordedMinutes: 0 })
+    })
+    it('never credits less than was stamped: the larger of planned and stamped time counts', () => {
+      enter(ben, tuesday, { kind: 'special', start: 600, end: 720 }) // 2:00 planned
+      record(ben, tuesday, 420, 720) // came early: 5:00 stamped
+      const balanceOf = () => getBalanceOverview(db, 1, 2026, 10, today).find(row => row.employeeId === ben)!.today
+      const before = balanceOf()
+      expect(timeDay(ben, tuesday).counted).toBe(300)
+      mark(ben, tuesday)
+      expect(timeDay(ben, tuesday)).toMatchObject({ counted: 300, recordedMinutes: 300, plannedMinutes: 120 })
+      expect(balanceOf()).toBe(before)
+      expect(adminPlan().weeks.find(week => week.weekStart === '2026-10-05')!.totals.find(total => total.employeeId === ben)!.credit).toBe(300)
+      // Still no deviation flag and no time hints on the marked day.
+      expect(adminPlan().actuals[cellKey(ben, tuesday)]).toMatchObject({ minutes: 300, deviates: false })
+    })
+    it('compares the plan with the credited time of someone whose breaks are deducted automatically', () => {
+      setStampingOptions(db, 1, ben, { stampVia: 'both', breakMode: 'auto' })
+      f2(ben, tuesday)
+      record(ben, tuesday, 450, 680) // 3:50 stamped, minus the planned break of 0:30
+      expect(timeDay(ben, tuesday).counted).toBe(200)
+      mark(ben, tuesday)
+      expect(timeDay(ben, tuesday)).toMatchObject({ counted: F2_MINUTES, recordedMinutes: 230 })
+      // Stamped longer than planned: the stamped time counts, with the legal break deducted as on any other day.
+      enter(ben, wednesday, { kind: 'special', start: 600, end: 720 })
+      record(ben, wednesday, 420, 840) // 7:00 stamped, no break planned: 0:30 deducted
+      expect(timeDay(ben, wednesday).counted).toBe(390)
+      mark(ben, wednesday)
+      expect(timeDay(ben, wednesday)).toMatchObject({ counted: 390, plannedMinutes: 120 })
     })
     it('switches off time warnings and the deviation flag on the marked day', () => {
       f2(ben, tuesday) // no record: "keine Stempelzeit"
@@ -368,7 +397,14 @@ describe('falling ill during duty (Im Dienst erkrankt)', () => {
       const shiftB = { kind: 'shift' as const, templateId: templateId(db, 'F1', krippe) }
       enter(anna, wednesday, shiftB, leitungB, krippe)
       expect(refusal(() => mark(anna, wednesday, 600, undefined, leitungB, krippe))).toEqual([404, 'employee_not_found'])
+      // With time tracking at home, the short stamped time of the help-out day counts until the day is marked.
+      setTimeTrackingFrom(db, 1, '2026-10-01')
+      record(anna, wednesday, 420, 600)
+      const balanceBefore = getBalanceOverview(db, 1, 2026, 10, today).find(row => row.employeeId === anna)!.today
+      expect(timeDay(anna, wednesday)).toMatchObject({ counted: 180, plannedMinutes: 375, plannedDuty: true })
       mark(anna, wednesday, 600)
+      expect(timeDay(anna, wednesday)).toMatchObject({ counted: 375, recordedMinutes: 180, warnings: [] })
+      expect(getBalanceOverview(db, 1, 2026, 10, today).find(row => row.employeeId === anna)!.today).toBe(balanceBefore + 195)
       expect(listEarlySickLeaves(db, 1, 2026).rows).toMatchObject([{ date: wednesday, duty: '7:00–13:15', leftAt: 600 }])
       expect(adminPlan().sickLeaves[cellKey(anna, wednesday)]).toMatchObject({ leftAt: 600 })
       // The plan Anna helps in learns nothing of it.
@@ -390,16 +426,24 @@ describe('falling ill during duty (Im Dienst erkrankt)', () => {
   })
 
   describe('not part of releases', () => {
-    it('keeps the marker out of snapshots, pending changes, the observer plan and "Mein Dienstplan"', () => {
+    it('keeps the marker out of snapshots, pending changes, messages, the observer plan, "Mein Dienstplan" and the own times', () => {
       const observer = addUser(db, 'anna', 'observer', anna)
       f2(anna, tuesday)
       releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
       mark(anna, tuesday, 680, 'Migräne')
       // Marking is no change of the plan.
       expect(adminPlan().pendingChanges).toEqual({})
+      // A changed duty gives Anna a message with the next release; its marker is no part of it.
+      f2(anna, wednesday)
+      mark(anna, wednesday, 700, 'Kreislauf')
       releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-08T11:00:00Z'))
 
-      const leak = /sickLeave|leftAt|Migräne|early/i
+      const leak = /sickLeave|leftAt|Migräne|Kreislauf|erkrankt|early/i
+      const messages = listNotifications(db, anna, NOW)
+      expect(messages).toHaveLength(1)
+      expect(messages[0]!.changes.map(change => change.date)).toEqual([wednesday])
+      expect(JSON.stringify(messages)).not.toMatch(leak)
+      expect(JSON.stringify(getMyTime(db, observer, 2026, 10, NOW))).not.toMatch(leak)
       const snapshot = loadReleases(db, 1, 2026, 10).at(-1)!.data
       expect(Object.keys(snapshot).sort()).toEqual(['days', 'employees', 'entries', 'groups'])
       expect(JSON.stringify(snapshot)).not.toMatch(leak)
