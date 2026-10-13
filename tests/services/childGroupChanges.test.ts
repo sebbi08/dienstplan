@@ -543,8 +543,10 @@ describe('group history and planned group changes', () => {
       const id = addChild(db, 1, { groupId: bears })
       planGroupChange(db, admin, 1, id, change(mice, '2026-11-01'), TODAY, NOW)
       setGroup(id, bears, '2026-11-01')
-      expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, false]])
-      expect(applyDueGroupChanges(db, '2026-11-01')).toBe(1)
+      // The save settles the due change first (so it clears the markers the change sets); the group is not undone.
+      expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, true]])
+      expect(groupOf(id)).toBe(mice)
+      expect(applyDueGroupChanges(db, '2026-11-01')).toBe(0)
       expect(groupOf(id)).toBe(mice)
     })
 

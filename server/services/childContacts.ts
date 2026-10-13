@@ -5,6 +5,7 @@ import type { Db } from '../db/client'
 import { childContacts, children } from '../db/schema'
 import { clearedReviews, loadEditableChild, sectionStamp } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
+import { settleDue } from './childGroupChanges'
 
 type ContactRow = typeof childContacts.$inferSelect
 
@@ -68,8 +69,12 @@ function loadEditableContact(db: Db, actor: SessionUser, facilityId: number, con
   return contact
 }
 
-/** Every contact write stamps the section and counts as confirming it after a group change. */
-function stamp(db: Db, childId: number, actor: SessionUser, now: Date): void {
+/**
+ * Every contact write stamps the section and counts as confirming it after a group change; a change whose day has
+ * come is applied first, so the marker it sets is cleared too.
+ */
+function stamp(db: Db, childId: number, actor: SessionUser, today: IsoDate, now: Date): void {
+  settleDue(db, childId, today, now)
   db.update(children).set({ ...sectionStamp('contacts', actor.id, now), ...clearedReviews('contacts') })
     .where(eq(children.id, childId)).run()
 }
@@ -85,7 +90,7 @@ export function addContact(
     const sortOrder = (tx.select({ value: max(childContacts.sortOrder) }).from(childContacts)
       .where(eq(childContacts.childId, childId)).get()?.value ?? -1) + 1
     const { id } = tx.insert(childContacts).values({ ...checked, childId, sortOrder }).returning({ id: childContacts.id }).get()
-    stamp(tx, childId, actor, now)
+    stamp(tx, childId, actor, today, now)
     return id
   })
 }
@@ -98,7 +103,7 @@ export function updateContact(
   const checked = checkedContact(input)
   db.transaction((tx) => {
     tx.update(childContacts).set(checked).where(eq(childContacts.id, contactId)).run()
-    stamp(tx, contact.childId, actor, now)
+    stamp(tx, contact.childId, actor, today, now)
   })
 }
 
@@ -108,7 +113,7 @@ export function deleteContact(
   const contact = loadEditableContact(db, actor, facilityId, contactId, today)
   db.transaction((tx) => {
     tx.delete(childContacts).where(eq(childContacts.id, contactId)).run()
-    stamp(tx, contact.childId, actor, now)
+    stamp(tx, contact.childId, actor, today, now)
   })
 }
 
@@ -124,6 +129,6 @@ export function reorderContacts(
   }
   db.transaction((tx) => {
     ids.forEach((id, index) => tx.update(childContacts).set({ sortOrder: index }).where(eq(childContacts.id, id)).run())
-    stamp(tx, childId, actor, now)
+    stamp(tx, childId, actor, today, now)
   })
 }

@@ -14,7 +14,7 @@ import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import {
-  clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, sectionStamp, type ChildRow, type ChildSection,
+  clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, REVIEW_STAMP_SECTION, sectionStamp, type ChildRow,
 } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { getChildrenPurgedOn, getChildRetentionYears, setChildrenPurgedOn } from './appSettings'
@@ -23,7 +23,9 @@ import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, deleteChangesAfterLeaving, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup,
+  settleDue,
 } from './childGroupChanges'
+import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
 import { schoolCutoffOf } from './schoolChildren'
@@ -169,7 +171,7 @@ export function getChild(
     status,
     master: masterOf(row, keyEducatorName === null ? null : row.keyEducatorId),
     pendingGroupChange: pendingGroupChange(db, row.id),
-    reviews: openReviews(row),
+    reviews: effectiveReviews(db, viewer.facilityId, [row]).get(row.id)!,
     computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
     health: healthOf(row),
@@ -262,6 +264,8 @@ export function updateChildMaster(
   // A waitlist child cannot have left: the purge job keys on leftOn and must never delete a waitlist record.
   const leftOn = master.admissionStatus === 'waitlist' ? { leftOn: null } : {}
   db.transaction((tx) => {
+    // A change whose day has come is applied first, so this save clears the markers it sets.
+    settleDue(tx, id, today, now)
     if (master.groupId !== row.groupId) changeGroupDirectly(tx, actor, row, master.groupId, today, now)
     // A Vormerkung has no planned group change, as a child who left has none after its leaving day.
     if (master.admissionStatus === 'waitlist') dropPlannedChanges(tx, id, today, now)
@@ -278,6 +282,7 @@ export function updateChildHealth(
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, id, today)
+  settleDue(db, id, today, now)
   const health: ChildHealthInput = {
     ...input,
     measlesProofDate: checkedDate(input.measlesProofDate),
@@ -293,17 +298,10 @@ export function updateChildConsents(
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, id, today)
+  settleDue(db, id, today, now)
   const columns = Object.fromEntries(CONSENT_KEYS.map(key => [consentColumn(key), input[key]]))
   db.update(children).set({ ...columns, ...clearedReviews('consents'), ...sectionStamp('consents', actor.id, now) })
     .where(eq(children.id, id)).run()
-}
-
-/**
- * The record section whose stamp a confirmation sets: care type and Bezugserzieher are part of the master data; the
- * documents have no stamp (each document carries its own upload data).
- */
-const STAMP_SECTION: Record<ReviewSection, ChildSection | null> = {
-  contacts: 'contacts', health: 'health', consents: 'consents', documents: null, careType: 'master', keyEducator: 'master',
 }
 
 /**
@@ -314,23 +312,40 @@ export function confirmSection(
   db: Db, actor: SessionUser, facilityId: number, childId: number, section: ReviewSection, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  const row = loadEditableChild(db, actor, facilityId, childId, today)
-  if (row[REVIEW_COLUMN[section]] === null) return
-  const stampSection = STAMP_SECTION[section]
+  loadEditableChild(db, actor, facilityId, childId, today)
+  // A marker a due change sets is set first, so confirming also clears it.
+  settleDue(db, childId, today, now)
+  if (loadChild(db, facilityId, childId)[REVIEW_COLUMN[section]] === null) return
+  const stampSection = REVIEW_STAMP_SECTION[section]
   db.update(children).set({ ...clearedReviews(section), ...(stampSection && sectionStamp(stampSection, actor.id, now)) })
     .where(eq(children.id, childId)).run()
 }
 
+/**
+ * The open markers of the rows. The documents marker only counts while a required document type is still stale (see
+ * `staleRequiredTypes`): without one there is nothing to upload and nothing to confirm.
+ */
+function effectiveReviews(db: Db, facilityId: number, rows: ChildRow[]): Map<number, Partial<Record<ReviewSection, IsoDate>>> {
+  const stale = staleRequiredTypes(db, facilityId, rows)
+  return new Map(rows.map((row) => {
+    const reviews = openReviews(row)
+    if (stale.get(row.id)?.length === 0) delete reviews.documents
+    return [row.id, reviews]
+  }))
+}
+
 /** The facility's active children with sections still to be confirmed, in the order of the child list. */
 export function listOpenReviews(db: Db, facilityId: number, today: IsoDate): OpenChildDto[] {
-  return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+  const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) === 'active')
     .sort(listOrder(db, facilityId))
+  const reviews = effectiveReviews(db, facilityId, rows)
+  return rows
     .map(row => ({
       id: row.id,
       name: `${row.firstName} ${row.lastName}`,
       groupId: row.groupId,
-      sections: Object.keys(openReviews(row)) as ReviewSection[],
+      sections: Object.keys(reviews.get(row.id)!) as ReviewSection[],
     }))
     .filter(item => item.sections.length > 0)
 }

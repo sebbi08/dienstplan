@@ -9,6 +9,7 @@ import type { Db } from '../db/client'
 import { childGroupChanges, children, groups } from '../db/schema'
 import { loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
+import { settleDocumentReview } from './documentReview'
 import { assertGroup } from './groups'
 
 type ChangeRow = typeof childGroupChanges.$inferSelect
@@ -114,6 +115,8 @@ function applyDue(db: Db, today: IsoDate, now: Date, childId?: number): number {
       .map(section => [REVIEW_COLUMN[section], change.fromDate]))
     db.update(children).set({ groupId: change.groupId, ...marks }).where(eq(children.id, change.childId)).run()
     db.update(childGroupChanges).set({ appliedAt: now.toISOString() }).where(eq(childGroupChanges.id, change.id)).run()
+    // A documents marker nobody could act on (nothing required, or everything uploaded since) is not set at all.
+    if (!keep.documents) settleDocumentReview(db, change.childId)
   }
   return due.length
 }
@@ -128,9 +131,10 @@ export function applyDueGroupChanges(db: Db, today: IsoDate, now: Date = new Dat
 
 /**
  * Applies the child's due changes before a request is judged: a change whose day has come counts as applied, even
- * when the daily run has not come by yet. In a transaction of its own, so it stays applied when the request is refused.
+ * when the daily run has not come by yet (so a save clears the marker the change sets, instead of being followed by
+ * it). In a transaction of its own, so it stays applied when the request is refused.
  */
-function settleDue(db: Db, childId: number, today: IsoDate, now: Date): void {
+export function settleDue(db: Db, childId: number, today: IsoDate, now: Date): void {
   db.transaction(tx => applyDue(tx, today, now, childId))
 }
 

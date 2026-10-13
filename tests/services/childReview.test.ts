@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { children } from '../../server/db/schema'
 import { addContact, deleteContact, reorderContacts, updateContact } from '../../server/services/childContacts'
-import { documentOverview, uploadDocument } from '../../server/services/childDocuments'
+import { documentOverview, updateDocument, uploadDocument } from '../../server/services/childDocuments'
+import { listDocumentTypes, updateDocumentType } from '../../server/services/documentTypes'
 import { applyDueGroupChanges, planGroupChange } from '../../server/services/childGroupChanges'
 import {
   confirmSection, getChild, listOpenReviews, updateChildConsents, updateChildHealth, updateChildMaster,
@@ -227,6 +228,137 @@ describe('review markers after group changes', () => {
       moveWith({ documents: false })
       upload('Datenschutz-Einwilligung', NOW)
       expect(reviews()).toEqual({ documents: CHANGE_DAY })
+    })
+  })
+
+  describe('a documents marker nobody can act on', () => {
+    const typeNamed = (name: string) => documentTypeId(db, 1, name)
+    const setRequired = (required: boolean) => {
+      for (const type of listDocumentTypes(db, 1).filter(item => item.required || !required)) {
+        updateDocumentType(db, 1, type.id, { ...type, required, important: type.important })
+      }
+    }
+    const storedMarker = () => childRow().documentsReviewSince
+    const childRow = () => db.select().from(children).where(eq(children.id, childId)).get()!
+    const upload = (name: string, now: Date) => uploadDocument(
+      db, admin, 1, childId, { typeId: typeNamed(name), title: name, documentDate: '2026-09-01', confidential: false },
+      { data: pdf(), filename: 'scan.pdf' }, TODAY, now,
+    )
+
+    it('is not even set for a facility without required types, and not reported when it is stored', () => {
+      setRequired(false)
+      moveWith({ documents: false, health: false })
+      expect(storedMarker()).toBeNull()
+      expect(reviews()).toEqual({ health: CHANGE_DAY })
+      db.update(children).set({ documentsReviewSince: CHANGE_DAY, healthReviewSince: null }).where(eq(children.id, childId)).run()
+      expect(reviews()).toEqual({})
+      expect(listOpenReviews(db, 1, TODAY)).toEqual([])
+    })
+
+    it('is not set when every required type was uploaded since the change day already', () => {
+      for (const name of ['Betreuungsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Datenschutz-Einwilligung']) upload(name, NOW)
+      moveWith({ documents: false })
+      expect(storedMarker()).toBeNull()
+    })
+
+    it('disappears from the record and the list when the required flags are switched off, and is cleared by the next write', () => {
+      moveWith({ documents: false })
+      expect(reviews()).toEqual({ documents: CHANGE_DAY })
+      expect(listOpenReviews(db, 1, TODAY).map(item => item.sections)).toEqual([['documents']])
+      setRequired(false)
+      expect(reviews()).toEqual({})
+      expect(listOpenReviews(db, 1, TODAY)).toEqual([])
+      expect(storedMarker()).toBe(CHANGE_DAY)
+      upload('Sonstiges', NOW)
+      expect(storedMarker()).toBeNull()
+    })
+
+    it('is cleared when a document is re-typed so that the last required type is complete', () => {
+      for (const name of ['Betreuungsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Datenschutz-Einwilligung']) upload(name, EARLIER)
+      moveWith({ documents: false })
+      for (const name of ['Betreuungsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz']) upload(name, NOW)
+      const misc = upload('Sonstiges', NOW)
+      expect(storedMarker()).toBe(CHANGE_DAY)
+      updateDocument(db, admin, 1, misc, {
+        typeId: typeNamed('Datenschutz-Einwilligung'), title: 'Datenschutz', documentDate: '2026-09-01', confidential: false,
+      }, TODAY)
+      expect(storedMarker()).toBeNull()
+    })
+
+    it('counts a required type without any document as missing but not as stale in the overview', () => {
+      upload('Betreuungsvertrag', EARLIER)
+      moveWith({ documents: false })
+      const row = documentOverview(db, admin, 1, TODAY).rows.find(item => item.childId === childId)!
+      expect(row.cells[typeNamed('Betreuungsvertrag')]).toMatchObject({ stale: true })
+      expect(row.cells[typeNamed('Masernnachweis')]).toBeNull()
+      expect(row.missingRequired).toBe(true)
+      // Only the missing types are left: no stale cell, but still missing.
+      for (const name of ['Betreuungsvertrag']) upload(name, NOW)
+      const after = documentOverview(db, admin, 1, TODAY).rows.find(item => item.childId === childId)!
+      expect(after.cells[typeNamed('Betreuungsvertrag')]).toMatchObject({ stale: false })
+      expect(after.cells[typeNamed('Masernnachweis')]).toBeNull()
+      expect(after.missingRequired).toBe(true)
+      expect(reviews()).toEqual({ documents: CHANGE_DAY })
+    })
+  })
+
+  describe('writes after a due change the daily run has not applied yet', () => {
+    const LATER = '2026-10-20'
+    const LATER_NOW = new Date('2026-10-20T09:00:00.000Z')
+    const stored = () => db.select().from(children).where(eq(children.id, childId)).get()!
+    const reviewsLater = () => getChild(db, admin, childId, LATER).reviews
+
+    beforeEach(() => {
+      planGroupChange(db, admin, 1, childId, change(mice, LATER, REVIEW_ALL), TODAY, NOW)
+      expect(stored().groupId).toBe(bears)
+    })
+
+    /** Afterwards the daily run has nothing left to do for the day and the saved section is not marked. */
+    const expectSettledWithout = (section: ReviewSection) => {
+      expect(stored().groupId).toBe(mice)
+      expect(applyDueGroupChanges(db, LATER, LATER_NOW)).toBe(0)
+      const open = Object.keys(reviewsLater())
+      expect(open).not.toContain(section)
+      expect(open).toHaveLength(REVIEW_SECTIONS.length - 1)
+    }
+
+    it('clears the health marker the due change sets', () => {
+      updateChildHealth(db, admin, 1, childId, HEALTH, LATER, LATER_NOW)
+      expectSettledWithout('health')
+    })
+
+    it('clears the consents marker the due change sets', () => {
+      updateChildConsents(db, admin, 1, childId, CONSENTS, LATER, LATER_NOW)
+      expectSettledWithout('consents')
+    })
+
+    it('clears the contacts marker with a contact write', () => {
+      addContact(db, admin, 1, childId, contact(), LATER, LATER_NOW)
+      expectSettledWithout('contacts')
+    })
+
+    it('clears care type and key educator with a master save that shows the group from before the change', () => {
+      const master = getChild(db, admin, childId, LATER).master
+      updateChildMaster(db, admin, 1, childId, { ...master, note: 'Neu' }, LATER, LATER_NOW)
+      expect(stored().groupId).toBe(mice)
+      expect(Object.keys(reviewsLater())).toEqual(['contacts', 'health', 'consents', 'documents'])
+    })
+
+    it('lets a confirmation clear a marker the due change sets', () => {
+      confirmSection(db, admin, 1, childId, 'consents', LATER, LATER_NOW)
+      expectSettledWithout('consents')
+      expect(getChild(db, admin, childId, LATER).stamps.consents.updatedAt).toBe(LATER_NOW.toISOString())
+    })
+
+    it('judges an upload after the change: the marker is set first and cleared once every required type is there', () => {
+      const names = ['Betreuungsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Datenschutz-Einwilligung']
+      names.forEach((name, index) => {
+        uploadDocument(db, admin, 1, childId, { typeId: documentTypeId(db, 1, name), title: name, documentDate: '2026-09-01', confidential: false },
+          { data: pdf(), filename: 'scan.pdf' }, LATER, LATER_NOW)
+        expect('documents' in reviewsLater()).toBe(index < names.length - 1)
+      })
+      expect(applyDueGroupChanges(db, LATER, LATER_NOW)).toBe(0)
+      expect('documents' in reviewsLater()).toBe(false)
     })
   })
 

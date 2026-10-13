@@ -37,6 +37,14 @@ export const REVIEW_COLUMN = {
   documents: 'documentsReviewSince', careType: 'careTypeReviewSince', keyEducator: 'keyEducatorReviewSince',
 } as const satisfies Record<ReviewSection, keyof ChildRow>
 
+/**
+ * The record section whose stamp a confirmation sets: care type and Bezugserzieher are part of the master data; the
+ * documents have no stamp (each document carries its own upload data).
+ */
+export const REVIEW_STAMP_SECTION: Record<ReviewSection, ChildSection | null> = {
+  contacts: 'contacts', health: 'health', consents: 'consents', documents: null, careType: 'master', keyEducator: 'master',
+}
+
 /** The columns that clear the markers of these sections (to set on the child). */
 export function clearedReviews(...sections: ReviewSection[]): Partial<ChildRow> {
   return Object.fromEntries(sections.map(section => [REVIEW_COLUMN[section], null]))
