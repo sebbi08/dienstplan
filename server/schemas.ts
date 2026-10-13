@@ -146,6 +146,12 @@ export const helpOutSchema = z.object({
   month: z.number().int().min(1).max(12),
 })
 export const groupNameSchema = z.object({ name: z.string().max(80) })
+/** The range (whole number 1-200 or null) is checked by the service, which answers invalid_capacity. */
+export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
+/** The values are checked by the service, which answers invalid_school_cutoff. */
+export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
+/** The Kita year's start year; the range is checked by the service, which answers invalid_year. */
+export const occupancyQuery = z.object({ year: z.coerce.number() })
 /** intervalMonths: due again every … months (null = needed once). */
 export const requirementTypeSchema = z.object({
   name: z.string().max(80), intervalMonths: z.number().int().min(1).max(MAX_REQUIREMENT_INTERVAL_MONTHS).nullable(),

@@ -7,8 +7,8 @@ import { children, coverageRules, employees, entries, groups, weekTemplateMarks,
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 
-function toDto(row: { id: number; name: string; sortOrder: number }): GroupDto {
-  return { id: row.id, name: row.name, sortOrder: row.sortOrder }
+function toDto(row: { id: number; name: string; sortOrder: number; capacity: number | null }): GroupDto {
+  return { id: row.id, name: row.name, sortOrder: row.sortOrder, capacity: row.capacity }
 }
 
 /** The facility's groups in their order. */
@@ -65,6 +65,15 @@ export function renameGroup(db: Db, facilityId: number, id: number, name: string
   assertGroup(db, facilityId, id)
   const checked = checkedName(db, facilityId, name, id)
   db.update(groups).set({ name: checked }).where(eq(groups.id, id)).run()
+}
+
+/** Sets the number of places of a group (a whole number from 1 to 200; null = not set). */
+export function setGroupCapacity(db: Db, facilityId: number, id: number, capacity: number | null): void {
+  assertGroup(db, facilityId, id)
+  if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 200)) {
+    throw new ServiceError(400, 'invalid_capacity')
+  }
+  db.update(groups).set({ capacity }).where(eq(groups.id, id)).run()
 }
 
 /**

@@ -50,6 +50,8 @@ export interface GroupDto {
   id: number
   name: string
   sortOrder: number
+  /** Number of places (null = not set). */
+  capacity: number | null
 }
 
 /** A care type (Betreuungsart) of a facility: a booking time window, times in minutes since midnight. */
@@ -172,10 +174,58 @@ export interface PlannedChildrenDto {
   contracted: PlannedChildDto[]
 }
 
+/** The school cutoff of a facility: a child is of school age when it reaches `ageYears` by `cutoffDay`.`cutoffMonth`. */
+export interface SchoolSettingsDto {
+  cutoffMonth: number
+  cutoffDay: number
+  ageYears: number
+}
+
+/** A child named in an occupancy cell, with the borders of the stay counted there (to null = open). */
+export interface OccupancyNameDto {
+  id: number
+  name: string
+  from: IsoDate
+  to: IsoDate | null
+}
+
+export interface OccupancyCellDto {
+  /** Children who were already there before the month. */
+  present: OccupancyNameDto[]
+  /** Children whose stay starts in the month (shown in brackets). */
+  fresh: OccupancyNameDto[]
+  red: boolean
+  /** Number of children above the capacity (0 = at or below it). */
+  over: number
+}
+
+export interface OccupancyRowDto {
+  /** null = the row "ohne Gruppe". */
+  groupId: number | null
+  name: string
+  capacity: number | null
+  /** One cell per month of `months`. */
+  cells: OccupancyCellDto[]
+}
+
+/** The occupancy of a Kita year (September to August) by group and month. */
+export interface OccupancyDto {
+  year: number
+  label: string
+  months: { year: number; month: number }[]
+  rows: OccupancyRowDto[]
+  /** Capacity is null unless every group has one. */
+  total: { capacity: number | null; cells: OccupancyCellDto[] }
+  /** Contract children without a start date; they are not counted. */
+  undated: { id: number; name: string }[]
+}
+
 export interface ChildRecordDto {
   id: number
   status: ChildStatus
   master: ChildMasterInput
+  /** The school start the facility's cutoff yields from the birth date (the manual master.schoolStartDate wins over it). */
+  computedSchoolStart: IsoDate
   /** Name of master.keyEducatorId (null together with it). */
   keyEducatorName: string | null
   health: ChildHealthInput

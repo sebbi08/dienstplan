@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
 import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
+import { computedSchoolStart } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
@@ -19,6 +20,7 @@ import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
+import { schoolCutoffOf } from './schoolChildren'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
 const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key.slice(1)}` as ConsentColumn
@@ -155,6 +157,7 @@ export function getChild(
     id: row.id,
     status,
     master: masterOf(row, keyEducatorName === null ? null : row.keyEducatorId),
+    computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
     health: healthOf(row),
     consents: consentsOf(row),

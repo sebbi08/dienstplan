@@ -145,7 +145,10 @@ describe('upgrading a filled database through migrateDb', () => {
 
     expect(Object.fromEntries(tables.map(table => [table, count(sqlite, table)]))).toEqual(before)
     expect(sqlite.prepare('SELECT * FROM facilities').all()).toEqual([
-      { id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3 },
+      {
+        id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3,
+        school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6,
+      },
     ])
     expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
     expect(sqlite.prepare('SELECT role, facility_id FROM users ORDER BY id').all()).toEqual([
@@ -464,6 +467,28 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(27)
     expect(sqlite.prepare('SELECT last_name, admission_status, waitlisted_on FROM children WHERE id = 1').get())
       .toEqual({ last_name: 'Meier', admission_status: 'contract', waitlisted_on: null })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('keeps groups without capacity and gives facilities the default school cutoff', () => {
+    const { db, sqlite } = databaseAt('0027')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(28)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name, sort_order) VALUES (1, 1, 'Bären', 0), (2, 2, 'Wichtel', 0);
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(28)
+    expect(sqlite.prepare('SELECT id, name, capacity FROM groups ORDER BY id').all())
+      .toEqual([{ id: 1, name: 'Bären', capacity: null }, { id: 2, name: 'Wichtel', capacity: null }])
+    expect(sqlite.prepare('SELECT id, school_cutoff_month, school_cutoff_day, school_age_years FROM facilities ORDER BY id').all())
+      .toEqual([
+        { id: 1, school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6 },
+        { id: 2, school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6 },
+      ])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })

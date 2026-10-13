@@ -8,7 +8,7 @@ import {
   createEmployee, getEmployee, listEmployees, moveEmployeeToFacility, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
-import { assertGroup, createGroup, deleteGroup, listGroups, renameGroup } from '../../server/services/groups'
+import { assertGroup, createGroup, deleteGroup, listGroups, renameGroup, setGroupCapacity } from '../../server/services/groups'
 import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-08'
@@ -26,7 +26,7 @@ describe('groups of a facility', () => {
   it('creates groups in order and lists only the facility\'s own', () => {
     const krippe = addFacility(db, 'Krippe')
     const bears = createGroup(db, 1, '  Bären ')
-    expect(bears).toEqual({ id: bears.id, name: 'Bären', sortOrder: 0 })
+    expect(bears).toEqual({ id: bears.id, name: 'Bären', sortOrder: 0, capacity: null })
     const mice = createGroup(db, 1, 'Mäuse')
     expect(mice.sortOrder).toBe(1)
     // The same name in another facility is fine: names are unique per facility.
@@ -127,7 +127,7 @@ describe('groups of a facility', () => {
     expect(errorCode(() => assertGroup(db, 1, 999))).toBe('group_not_found')
     expect(errorCode(() => assertGroup(db, 1, null))).toBeNull()
     expect(errorCode(() => assertGroup(db, krippe, foreign))).toBeNull()
-    expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0 }])
+    expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0, capacity: null }])
   })
 
   it('refuses to delete a group holding only a waitlist child', () => {
@@ -245,5 +245,50 @@ describe('home group of employees', () => {
     applyToCells(db, provider, krippe, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F2', krippe) })
 
     expect(db.select({ groupId: entries.groupId }).from(entries).where(eq(entries.employeeId, anna)).all()).toEqual([{ groupId: null }])
+  })
+})
+
+describe('group capacity', () => {
+  let db: Db
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  it('has no capacity at first and keeps what is set, per group', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    const mice = addGroup(db, 1, 'Mäuse')
+    expect(listGroups(db, 1).map(group => group.capacity)).toEqual([null, null])
+    setGroupCapacity(db, 1, bears, 12)
+    expect(listGroups(db, 1)).toEqual([
+      { id: bears, name: 'Bären', sortOrder: 0, capacity: 12 },
+      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null },
+    ])
+  })
+
+  it('accepts 1 and 200, and null clears the capacity', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    setGroupCapacity(db, 1, bears, 1)
+    expect(listGroups(db, 1)[0]!.capacity).toBe(1)
+    setGroupCapacity(db, 1, bears, 200)
+    expect(listGroups(db, 1)[0]!.capacity).toBe(200)
+    setGroupCapacity(db, 1, bears, null)
+    expect(listGroups(db, 1)[0]!.capacity).toBeNull()
+  })
+
+  it('refuses anything but a whole number from 1 to 200', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    setGroupCapacity(db, 1, bears, 10)
+    for (const value of [0, 201, 2.5, -1, Number.NaN]) {
+      expect(errorCode(() => setGroupCapacity(db, 1, bears, value)), String(value)).toBe('invalid_capacity')
+    }
+    expect(listGroups(db, 1)[0]!.capacity).toBe(10)
+  })
+
+  it('answers 404 group_not_found for another facility\'s group and leaves it alone', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const wichtel = addGroup(db, krippe, 'Wichtel')
+    expect(errorCode(() => setGroupCapacity(db, 1, wichtel, 5))).toBe('group_not_found')
+    expect(errorCode(() => setGroupCapacity(db, 1, 999, 5))).toBe('group_not_found')
+    expect(listGroups(db, krippe)[0]!.capacity).toBeNull()
   })
 })

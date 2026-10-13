@@ -9,6 +9,10 @@ export const facilities = sqliteTable('facilities', {
   timeTrackingFrom: text('time_tracking_from'),
   /** At most this many employees of the facility on leave at the same time (null = no limit). */
   leaveMaxConcurrent: integer('leave_max_concurrent'),
+  /** School cutoff (Stichtag): a child is of school age when it reaches `schoolAgeYears` on or before this day of the year. */
+  schoolCutoffMonth: integer('school_cutoff_month').notNull().default(6),
+  schoolCutoffDay: integer('school_cutoff_day').notNull().default(30),
+  schoolAgeYears: integer('school_age_years').notNull().default(6),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -20,6 +24,8 @@ export const groups = sqliteTable('groups', {
   facilityId: integer('facility_id').notNull().references(() => facilities.id),
   name: text('name').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
+  /** Number of places in the group (null = not set). */
+  capacity: integer('capacity'),
 }, table => [index('groups_facility').on(table.facilityId)])
 
 /** The group a row belongs to (null = the whole facility, or no group of its own); always a group of the row's facility. */
