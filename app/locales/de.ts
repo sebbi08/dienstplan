@@ -514,6 +514,26 @@ export const de = {
     confirmDeleteType: 'Wirklich löschen?',
     confirmShorterRetention: (count: number) => `Mit der kürzeren Frist werden beim nächsten täglichen Lauf ${count} abgemeldete Kinderakten mit allen Dokumenten endgültig gelöscht. Trotzdem speichern?`,
   },
+  occupancy: {
+    tab: 'Belegung', capacity: 'Plätze', total: 'Summe', noGroup: 'ohne Gruppe', over: (n: number) => `+${n} über Plätze`,
+    present: 'schon da', fresh: 'neu in diesem Monat', undated: (n: number) => `${n} Kinder mit Vertrag ohne Eintrittsdatum werden nicht gezählt.`,
+    inconsistent: (n: number) => `${n} Kinder werden nicht gezählt, weil ihr Schulstart oder Austritt vor dem Eintritt liegt. Bitte die Daten prüfen.`,
+    open: 'offen', print: 'Belegung drucken',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    group: 'Gruppe', kitaYear: 'Kita-Jahr', hint: 'Hauptzahl, in Klammern die Kinder, die in diesem Monat neu in die Gruppe kommen. Klicke auf eine Zahl, um die Kinder zu sehen.',
+    printTitle: (label: string) => `Belegung ${label}`, none: 'keine Kinder', stay: (from: string, to: string) => `${from} – ${to}`,
+    cellTitle: (group: string, month: string) => `${group}, ${month}`, overFull: 'Plätze belegt oder überschritten',
+    capacityOf: (group: string) => `Plätze für ${group}`, showNames: 'Namen anzeigen', empty: 'Es gibt noch keine Gruppen oder Kinder mit Vertrag.',
+    count: (present: number, fresh: number) => (fresh ? `${present + fresh} Kinder, davon ${fresh} neu` : `${present} Kinder`),
+  },
+  schoolChildren: {
+    title: 'Schulkinder', cutoff: 'Stichtag', age: 'Alter (Jahre)',
+    hint: 'Wer bis einschließlich Stichtag das Alter erreicht hat, wird zum 1. September Schulkind. Die Stichtage unterscheiden sich je Bundesland und können sich ändern. Bitte den Wert prüfen.',
+    hintBirthday: 'Soll ein am Tag nach dem Stichtag geborenes Kind noch dazugehören (z. B. Geburtstag 1. Juli bei Stichtag 30. Juni), stelle den Stichtag einen Tag später ein.',
+    computed: (date: string) => `errechnet: ${date}`, deviating: 'abweichend',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    day: 'Tag', month: 'Monat', readOnly: 'Nur der Träger kann den Stichtag ändern.',
+  },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',
     login_invalid: 'Benutzername oder Passwort ist falsch.',

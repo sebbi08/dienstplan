@@ -7,7 +7,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'archive'
+type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'occupancy' | 'archive'
 
 const { user } = useUserSession()
 const canCreate = computed(() => !!user.value && mayEditChildren(user.value))
@@ -20,13 +20,15 @@ const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birt
 await lookups.ready
 
 const tab = ref<Tab>('list')
-// The archive is for the managers only (the server answers 403 to everybody else).
+// The occupancy and the archive are for the managers only (the server answers 403 to everybody else).
 const tabs = computed(() => [
   { key: 'list' as const, label: de.children.tabs.list },
   { key: 'planned' as const, label: de.children.tabs.planned },
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
   { key: 'documents' as const, label: de.children.tabs.documents },
-  ...(isLeader.value ? [{ key: 'archive' as const, label: de.children.tabs.archive }] : []),
+  ...(isLeader.value
+    ? [{ key: 'occupancy' as const, label: de.occupancy.tab }, { key: 'archive' as const, label: de.children.tabs.archive }]
+    : []),
 ])
 
 const search = ref('')
@@ -80,7 +82,7 @@ const td = 'px-3 py-2'
 </script>
 
 <template>
-  <div class="max-w-5xl space-y-4">
+  <div class="space-y-4" :class="tab === 'occupancy' ? 'max-w-7xl' : 'max-w-5xl'">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.title }}</h1>
       <UButton v-if="canCreate && tab !== 'planned'" class="ml-auto" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
@@ -180,6 +182,7 @@ const td = 'px-3 py-2'
       </template>
 
       <ChildrenDocumentOverviewTab v-else-if="tab === 'documents'" />
+      <ChildrenOccupancyTab v-else-if="tab === 'occupancy' && isLeader" />
       <ChildrenArchiveTab v-else-if="tab === 'archive' && isLeader" />
     </template>
   </div>

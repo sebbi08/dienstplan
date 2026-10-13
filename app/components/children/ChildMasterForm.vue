@@ -100,7 +100,9 @@ function cancel() {
 
 const f = de.children.fields
 const a = de.children.admission
-const rows = computed(() => {
+/** The school start the facility's cutoff yields; the manual date wins over it. Not known while a child is created. */
+const computedText = computed(() => (props.child ? de.schoolChildren.computed(formatDate(props.child.computedSchoolStart)) : ''))
+const rows = computed<{ label: string; value: string; multiline?: boolean; hint?: string; badge?: string }[]>(() => {
   const master = props.child?.master
   if (!master) return []
   const date = (value: string | null) => (value ? formatDate(value) : '')
@@ -114,7 +116,10 @@ const rows = computed(() => {
     { label: f.entryDate, value: date(master.entryDate) },
     { label: f.plannedEntryDate, value: date(master.plannedEntryDate) },
     { label: f.infoMeetingDate, value: date(master.infoMeetingDate) },
-    { label: f.schoolStartDate, value: date(master.schoolStartDate) },
+    {
+      label: f.schoolStartDate, value: date(master.schoolStartDate), hint: computedText.value,
+      badge: master.schoolStartDate !== null && master.schoolStartDate !== props.child?.computedSchoolStart ? de.schoolChildren.deviating : '',
+    },
     { label: f.primarySchool, value: master.primarySchool },
     { label: f.schoolDistrict, value: master.schoolDistrict },
     { label: f.keyEducator, value: props.child?.keyEducatorName ?? '' },
@@ -131,7 +136,11 @@ const rows = computed(() => {
     <dl class="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       <div v-for="row in rows" :key="row.label" :class="row.multiline ? 'sm:col-span-2' : ''">
         <dt class="text-xs text-gray-500">{{ row.label }}</dt>
-        <dd :class="row.multiline ? 'whitespace-pre-line' : ''">{{ row.value || de.children.noValue }}</dd>
+        <dd :class="row.multiline ? 'whitespace-pre-line' : ''">
+          {{ row.value || de.children.noValue }}
+          <UBadge v-if="row.badge" color="warning" variant="subtle" size="sm" class="ml-1" :label="row.badge" />
+        </dd>
+        <p v-if="row.hint" class="text-xs text-gray-500">{{ row.hint }}</p>
       </div>
     </dl>
 
@@ -148,7 +157,7 @@ const rows = computed(() => {
         <UFormField :label="f.entryDate"><UInput v-model="form.entryDate" type="date" :disabled="waitlisted" class="w-full" /></UFormField>
         <UFormField :label="f.plannedEntryDate"><UInput v-model="form.plannedEntryDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.infoMeetingDate"><UInput v-model="form.infoMeetingDate" type="date" class="w-full" /></UFormField>
-        <UFormField :label="f.schoolStartDate"><UInput v-model="form.schoolStartDate" type="date" class="w-full" /></UFormField>
+        <UFormField :label="f.schoolStartDate" :help="computedText || undefined"><UInput v-model="form.schoolStartDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.primarySchool"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
         <UFormField :label="f.schoolDistrict"><UInput v-model="form.schoolDistrict" maxlength="100" class="w-full" /></UFormField>
         <UFormField :label="f.keyEducator"><USelect v-model="form.keyEducatorId" :items="staffItems" class="w-full" /></UFormField>

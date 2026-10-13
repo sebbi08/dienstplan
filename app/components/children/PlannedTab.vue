@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { kitaYearLabel, kitaYearOf } from '#shared/domain/kitaYear'
 import { mayEditChildren } from '#shared/domain/roles'
 import type { PlannedChildDto, PlannedChildrenDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { ageAtStartText, kitaYearLabel, kitaYearOf, telHref } from '~/utils/children'
+import { ageAtStartText, telHref } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
