@@ -33,15 +33,14 @@ const monthItems = de.months.map((label, index) => ({ label, value: index + 1 })
 const ageItems = Array.from({ length: 5 }, (_, index) => ({ label: String(index + 4), value: index + 4 }))
 
 async function save() {
-  const wasOn = data.value?.autoLeave === true
-  const answer: { settings?: SchoolSettingsDto } = {}
+  const answer = { autoLeaveSwitchedOff: false }
   const ok = await run(async () => {
-    answer.settings = await $fetch<SchoolSettingsDto>('/api/school-settings', {
+    answer.autoLeaveSwitchedOff = (await $fetch<SchoolSettingsDto & { autoLeaveSwitchedOff: boolean }>('/api/school-settings', {
       method: 'PUT', body: { cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value },
-    })
+    })).autoLeaveSwitchedOff
   }, de.common.saved)
-  // Another cutoff changes whom the automatic leaving takes, so the server switched it off.
-  if (ok && wasOn && answer.settings && !answer.settings.autoLeave) notifySwitchedOff()
+  // Another cutoff changes whom the automatic leaving takes; the server tells when it switched it off.
+  if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
 
 // Switching on: the preview is loaded first, the dialog lists it and sends exactly this list back with the confirmation.

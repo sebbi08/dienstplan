@@ -26,12 +26,6 @@ function onImportant(form: Form, value: boolean) {
   if (!value) form.required = false
 }
 
-/** Only one type is the care contract: the server takes the flag from the other one, the rows follow at once. */
-function onCareContract(form: Form, value: boolean) {
-  form.careContract = value
-  if (value) for (const other of [...forms.value, newForm.value]) if (other !== form) other.careContract = false
-}
-
 const cell = 'px-1 py-1'
 const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 </script>
@@ -57,7 +51,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <td :class="cell" class="text-center"><input :checked="form.important" type="checkbox" :aria-label="de.childSettings.important" @change="onImportant(form, ($event.target as HTMLInputElement).checked)"></td>
             <td :class="cell" class="text-center"><input :checked="form.required" type="checkbox" :aria-label="de.childSettings.required" @change="onRequired(form, ($event.target as HTMLInputElement).checked)"></td>
             <td :class="cell" class="text-center"><input v-model="form.confidentialDefault" type="checkbox" :aria-label="de.childSettings.confidentialDefault"></td>
-            <td :class="cell" class="text-center"><input :checked="form.careContract" type="checkbox" :aria-label="s.careContract" @change="onCareContract(form, ($event.target as HTMLInputElement).checked)"></td>
+            <td :class="cell" class="text-center"><input v-model="form.careContract" type="checkbox" :aria-label="s.careContract"></td>
             <td :class="cell"><input v-model.number="form.sortOrder" type="number" min="0" max="10000" class="w-16 rounded border border-gray-300 px-1 py-0.5" :aria-label="de.settings.sortOrder" :disabled="!form.id"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
               <UButton size="xs" :label="form.id ? de.common.save : de.common.add" :disabled="busy" @click="save(form)" />

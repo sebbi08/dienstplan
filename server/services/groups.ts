@@ -4,7 +4,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  childGroupChanges, children, coverageRules, employees, entries, facilities, groups, weekTemplateMarks, weekTemplates,
+  childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
 } from '../db/schema'
 import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
@@ -85,23 +85,16 @@ export function setGroupCapacity(db: Db, facilityId: number, id: number, capacit
  * before, and a change into it needs a further care contract.
  *
  * Taking the flag away from a group that had it makes its school children leave, so it switches the facility's
- * automatic leaving off in the same transaction: the Träger sees whom it takes before switching it on again. Returns
- * the switch as it is afterwards.
+ * automatic leaving off in the same transaction: the Träger sees whom it takes before switching it on again.
+ * `autoLeaveSwitchedOff` is true only when the switch was on and is off now.
  */
-export function setGroupForSchoolChildren(db: Db, groupId: number, value: boolean): { autoLeave: boolean } {
+export function setGroupForSchoolChildren(db: Db, groupId: number, value: boolean): { autoLeaveSwitchedOff: boolean } {
   const facilityId = facilityOfGroup(db, groupId)
   return db.transaction((tx) => {
     const widens = !value && isForSchoolChildren(tx, groupId)
     tx.update(groups).set({ forSchoolChildren: value }).where(eq(groups.id, groupId)).run()
-    if (widens) switchAutoLeaveOff(tx, facilityId)
-    return { autoLeave: autoLeaveOf(tx, facilityId) }
+    return { autoLeaveSwitchedOff: widens ? switchAutoLeaveOff(tx, facilityId) : false }
   })
-}
-
-/** Whether the facility deregisters its school children automatically. */
-function autoLeaveOf(db: Db, facilityId: number): boolean {
-  return db.select({ value: facilities.autoLeaveSchoolChildren }).from(facilities)
-    .where(eq(facilities.id, facilityId)).get()?.value ?? false
 }
 
 /** Whether the group is for school children (null = no group: never). */
@@ -118,9 +111,10 @@ export function isForSchoolChildren(db: Db, groupId: number | null): boolean {
  *
  * With a group for school children gone, the histories no longer say that a child was in one, so a child that stayed
  * because of it would be deregistered. Deleting such a group therefore switches the facility's automatic leaving off
- * in the same transaction, like taking its flag away. Returns the switch as it is afterwards.
+ * in the same transaction, like taking its flag away. `autoLeaveSwitchedOff` is true only when the switch was on and is
+ * off now.
  */
-export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDate): { autoLeave: boolean } {
+export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDate): { autoLeaveSwitchedOff: boolean } {
   assertGroup(db, facilityId, id)
   if (db.select({ id: employees.id }).from(employees).where(eq(employees.groupId, id)).get()) {
     throw new ServiceError(409, 'group_has_members')
@@ -142,7 +136,6 @@ export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDa
     // Template entries and remaining marks of these templates go along (ON DELETE CASCADE).
     tx.delete(weekTemplates).where(eq(weekTemplates.groupId, id)).run()
     tx.delete(groups).where(eq(groups.id, id)).run()
-    if (wasForSchoolChildren) switchAutoLeaveOff(tx, facilityId)
-    return { autoLeave: autoLeaveOf(tx, facilityId) }
+    return { autoLeaveSwitchedOff: wasForSchoolChildren ? switchAutoLeaveOff(tx, facilityId) : false }
   })
 }

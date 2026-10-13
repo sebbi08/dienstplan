@@ -546,7 +546,9 @@ export const de = {
     listTitle: (date: string) => `Schulkinder zum ${date}`, autoLeave: 'Schulkinder automatisch abmelden',
     autoLeaveHint: 'Am 1. September erhalten alle Schulkinder den Austritt 31. August. Kinder mit späterem Schulstart oder mit Wechsel in eine Gruppe für Schulkinder bleiben.',
     previewNone: 'Heute würde niemand abgemeldet. Einschalten?',
-    preview: (n: number) => `Beim Einschalten werden diese ${n} Kinder sofort abgemeldet (ihr Schulstart ist schon erreicht):`,
+    preview: (n: number) => (n === 1
+      ? 'Beim Einschalten wird dieses Kind sofort abgemeldet (sein Schulstart ist schon erreicht):'
+      : `Beim Einschalten werden diese ${n} Kinder sofort abgemeldet (ihr Schulstart ist schon erreicht):`),
     leaveNow: 'zum 31.8. abmelden', forSchoolChildren: 'für Schulkinder', careContract: 'ist der Betreuungsvertrag',
     newContract: 'Weiterer Betreuungsvertrag abgeschlossen', newSchoolStart: 'Neuer voraussichtlicher Schulstart',
     switchedOff: 'Die automatische Abmeldung der Schulkinder wurde ausgeschaltet. Bitte unter Einstellungen → Schulkinder prüfen und neu einschalten.',

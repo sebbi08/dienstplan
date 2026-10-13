@@ -38,9 +38,11 @@ export function schoolCutoffOf(db: Db, facilityId: number): SchoolCutoff {
  * Stores the cutoff: a real calendar day (29 February allowed) and an age of 4 to 8 years, else 400
  * invalid_school_cutoff. Another cutoff than before moves school starts, so it switches the facility's automatic
  * leaving off in the same transaction: the Träger sees whom it takes now before switching it on again. Returns the
- * settings as they are afterwards.
+ * settings as they are afterwards and whether the switch was on and is off now.
  */
-export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolCutoffInput): SchoolSettingsDto {
+export function setSchoolCutoff(
+  db: Db, facilityId: number, input: SchoolCutoffInput,
+): { settings: SchoolSettingsDto; autoLeaveSwitchedOff: boolean } {
   const { cutoffMonth, cutoffDay, ageYears } = input
   const wholeNumbers = [cutoffMonth, cutoffDay, ageYears].every(Number.isInteger)
   if (!wholeNumbers || cutoffMonth < 1 || cutoffMonth > 12 || cutoffDay < 1 || cutoffDay > daysInMonth(LEAP_YEAR, cutoffMonth)
@@ -49,13 +51,14 @@ export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolCutoffI
   }
   return db.transaction((tx) => {
     const stored = getSchoolSettings(tx, facilityId)
+    let autoLeaveSwitchedOff = false
     if (stored.cutoffMonth !== cutoffMonth || stored.cutoffDay !== cutoffDay || stored.ageYears !== ageYears) {
       tx.update(facilities)
         .set({ schoolCutoffMonth: cutoffMonth, schoolCutoffDay: cutoffDay, schoolAgeYears: ageYears })
         .where(eq(facilities.id, facilityId)).run()
-      switchAutoLeaveOff(tx, facilityId)
+      autoLeaveSwitchedOff = switchAutoLeaveOff(tx, facilityId)
     }
-    return getSchoolSettings(tx, facilityId)
+    return { settings: getSchoolSettings(tx, facilityId), autoLeaveSwitchedOff }
   })
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GroupDto, SchoolSettingsDto } from '#shared/types/api'
+import type { GroupDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /** Träger only: the groups of one facility, with add, rename and delete (the delete dialog names what goes with it). */
@@ -8,20 +8,11 @@ const props = defineProps<{ facilityId: number }>()
 // Awaited, so the drafts below are filled before the page is rendered on the server.
 const { data: groups, refresh } = await useFetch<GroupDto[]>(() => `/api/facilities/${props.facilityId}/groups`, { default: () => [] })
 const { refresh: refreshActive } = useGroups()
-// The active facility's groups (rules, templates, employees) follow at once.
-// The switch of the automatic leaving (settings section) follows a flag or a deleted group.
+// The active facility's groups (rules, templates, employees) follow at once, and the switch of the automatic leaving
+// (settings section) follows a flag or a deleted group.
 const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshActive(), refreshNuxtData('school-settings')]))
 const confirm = useConfirm()
 const notifySwitchedOff = useAutoLeaveNotice()
-const { data: facilitiesData } = useFacilities()
-const { data: schoolSettings } = useNuxtData<SchoolSettingsDto>('school-settings')
-
-/**
- * Whether the facility's automatic leaving may have been on before a flagged group lost its flag or was deleted. The
- * answer of the server only names the switch afterwards. The settings section knows it for the active facility; for
- * another facility the notice is shown to be safe.
- */
-const switchMayHaveBeenOn = () => facilitiesData.value?.activeId !== props.facilityId || schoolSettings.value?.autoLeave !== false
 
 // One draft per group; a refresh keeps drafts with an unsaved edit (as for the facility names).
 const names = reactive<Record<number, string>>({})
@@ -47,22 +38,20 @@ async function create() {
 
 async function remove(group: GroupDto) {
   if (!await confirm(de.groups.deleteConfirm(group.name))) return
-  const mayBeOn = switchMayHaveBeenOn()
-  const answer = { autoLeave: true }
+  const answer = { autoLeaveSwitchedOff: false }
   const ok = await run(async () => {
-    answer.autoLeave = (await $fetch<{ ok: boolean; autoLeave: boolean }>(`/api/groups/${group.id}`, { method: 'DELETE' })).autoLeave
+    answer.autoLeaveSwitchedOff = (await $fetch<{ ok: boolean; autoLeaveSwitchedOff: boolean }>(`/api/groups/${group.id}`, { method: 'DELETE' })).autoLeaveSwitchedOff
   }, de.common.deleted)
-  if (ok && group.forSchoolChildren && !answer.autoLeave && mayBeOn) notifySwitchedOff()
+  if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
 
 /** Flags the group as being for school children or takes the flag away (which switches the facility's automatic leaving off). */
 async function setForSchoolChildren(group: GroupDto, value: boolean) {
-  const mayBeOn = switchMayHaveBeenOn()
-  const answer = { autoLeave: true }
+  const answer = { autoLeaveSwitchedOff: false }
   const ok = await run(async () => {
-    answer.autoLeave = (await $fetch<{ ok: boolean; autoLeave: boolean }>(`/api/groups/${group.id}/school-children`, { method: 'PUT', body: { forSchoolChildren: value } })).autoLeave
+    answer.autoLeaveSwitchedOff = (await $fetch<{ ok: boolean; autoLeaveSwitchedOff: boolean }>(`/api/groups/${group.id}/school-children`, { method: 'PUT', body: { forSchoolChildren: value } })).autoLeaveSwitchedOff
   }, de.common.saved)
-  if (ok && !value && group.forSchoolChildren && !answer.autoLeave && mayBeOn) notifySwitchedOff()
+  if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
 </script>
 
@@ -74,7 +63,7 @@ async function setForSchoolChildren(group: GroupDto, value: boolean) {
       <UInput v-model="names[group.id]" maxlength="80" required size="sm" :aria-label="de.groups.name" />
       <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy" />
       <UCheckbox
-        :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :disabled="busy"
+        :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :aria-label="`${de.schoolChildren.forSchoolChildren}: ${group.name}`" :disabled="busy"
         @update:model-value="setForSchoolChildren(group, $event === true)"
       />
       <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(group)" />

@@ -361,13 +361,17 @@ describe('automatic leaving of school children', () => {
         switchOn(krippe)
 
         expect(setSchoolCutoff(db, 1, { cutoffMonth: 6, cutoffDay: 30, ageYears: 6 }))
-          .toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true })
+          .toEqual({ settings: { cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true }, autoLeaveSwitchedOff: false })
         expect(errorCode(() => setSchoolCutoff(db, 1, { cutoffMonth: 6, cutoffDay: 31, ageYears: 6 }))).toBe('invalid_school_cutoff')
         expect(isOn()).toBe(true)
 
         expect(setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 30, ageYears: 6 }))
-          .toEqual({ cutoffMonth: 9, cutoffDay: 30, ageYears: 6, autoLeave: false })
+          .toEqual({ settings: { cutoffMonth: 9, cutoffDay: 30, ageYears: 6, autoLeave: false }, autoLeaveSwitchedOff: true })
         expect(isOn()).toBe(false)
+        // Already off: another cutoff changes nothing about the switch, and nothing is reported.
+        expect(setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 29, ageYears: 6 }).autoLeaveSwitchedOff).toBe(false)
+        switchOn()
+        setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 30, ageYears: 6 })
         expect(isOn(krippe)).toBe(true)
         // Each of the three values counts.
         switchOn()
@@ -403,18 +407,31 @@ describe('automatic leaving of school children', () => {
         switchOn(krippe)
 
         // Flagging, and taking away a flag that was not there, cannot widen anything.
-        expect(setGroupForSchoolChildren(db, hort, true)).toEqual({ autoLeave: true })
-        expect(setGroupForSchoolChildren(db, bears, false)).toEqual({ autoLeave: true })
-        expect(setGroupForSchoolChildren(db, bears, true)).toEqual({ autoLeave: true })
+        expect(setGroupForSchoolChildren(db, hort, true)).toEqual({ autoLeaveSwitchedOff: false })
+        expect(setGroupForSchoolChildren(db, bears, false)).toEqual({ autoLeaveSwitchedOff: false })
+        expect(setGroupForSchoolChildren(db, bears, true)).toEqual({ autoLeaveSwitchedOff: false })
         expect(isOn()).toBe(true)
 
-        expect(setGroupForSchoolChildren(db, hort, false)).toEqual({ autoLeave: false })
+        expect(setGroupForSchoolChildren(db, hort, false)).toEqual({ autoLeaveSwitchedOff: true })
 
         expect(isOn()).toBe(false)
         expect(isOn(krippe)).toBe(true)
         expect(leaveSchoolChildren(db, TODAY)).toBe(0)
         expect(leftOn(id)).toBeNull()
         expect(schoolLeavers(db, 1, TODAY).map(child => child.id)).toEqual([id])
+      })
+
+      it('reports the switch only when it was on', () => {
+        setGroupForSchoolChildren(db, hort, true)
+        // Off already: taking the flag away reports nothing.
+        expect(setGroupForSchoolChildren(db, hort, false)).toEqual({ autoLeaveSwitchedOff: false })
+        setGroupForSchoolChildren(db, hort, true)
+        switchOn()
+        expect(setGroupForSchoolChildren(db, hort, false)).toEqual({ autoLeaveSwitchedOff: true })
+        // Deleting a flagged group while the switch is off reports nothing either.
+        const second = addGroup(db, 1, 'Hort 2')
+        setGroupForSchoolChildren(db, second, true)
+        expect(deleteGroup(db, 1, second, TODAY)).toEqual({ autoLeaveSwitchedOff: false })
       })
 
       it('by deleting a group that was for school children, in that group\'s facility only', () => {
@@ -429,11 +446,11 @@ describe('automatic leaving of school children', () => {
         expect(schoolLeavers(db, 1, TODAY)).toEqual([])
 
         // An ordinary group cannot make anybody stay, so deleting it widens nothing.
-        expect(deleteGroup(db, 1, mice, TODAY)).toEqual({ autoLeave: true })
+        expect(deleteGroup(db, 1, mice, TODAY)).toEqual({ autoLeaveSwitchedOff: false })
         expect(isOn()).toBe(true)
 
         // With the Hort gone the history no longer says the child was in a group for school children.
-        expect(deleteGroup(db, 1, hort, TODAY)).toEqual({ autoLeave: false })
+        expect(deleteGroup(db, 1, hort, TODAY)).toEqual({ autoLeaveSwitchedOff: true })
 
         expect(isOn()).toBe(false)
         expect(isOn(krippe)).toBe(true)
