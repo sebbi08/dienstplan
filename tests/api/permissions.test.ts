@@ -44,7 +44,7 @@ const ADMIN_ROUTES = [
 ]
 /** Routes anyone who may see child records can call (Träger, Leitung, Mitarbeiter; not the tablet); they must check with requireChildReader(. */
 const CHILD_READER_ROUTES = [
-  'care-types/index.get.ts', 'document-types/index.get.ts', 'children/index.get.ts', 'children/birthdays.get.ts', 'children/groups.get.ts',
+  'care-types/index.get.ts', 'document-types/index.get.ts', 'children/index.get.ts', 'children/planned.get.ts', 'children/birthdays.get.ts', 'children/groups.get.ts',
   'children/staff.get.ts', 'children/[id].get.ts', 'child-documents/[id]/file.get.ts', 'child-documents/overview.get.ts',
 ]
 /** Routes that maintain child records (managers and Mitarbeiter with the permission); they must check with requireChildEditor(. */

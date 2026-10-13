@@ -1,4 +1,4 @@
-import type { ChildStatus } from '../domain/children'
+import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { RequirementState } from '../domain/requirements'
@@ -86,6 +86,10 @@ export interface ChildMasterInput {
   careTypeId: number | null
   entryDate: IsoDate | null
   plannedEntryDate: IsoDate | null
+  /** 'waitlist' = Vormerkung: never active, no entry date (400 waitlist_has_entry). */
+  admissionStatus: AdmissionStatus
+  /** Day of the Vormerkung; stored only for waitlist children (null = today on a new one). */
+  waitlistedOn: IsoDate | null
   infoMeetingDate: IsoDate | null
   schoolStartDate: IsoDate | null
   primarySchool: string
@@ -145,6 +149,27 @@ export interface ChildListItemDto {
   plannedEntryDate: IsoDate | null
   hasAllergies: boolean
   contactBans: { name: string; note: string }[]
+}
+
+/** A child on the waitlist or with a contract that has not started yet. */
+export interface PlannedChildDto {
+  id: number
+  lastName: string
+  firstName: string
+  birthDate: IsoDate
+  /** Entry date, else planned entry date. */
+  plannedStart: IsoDate | null
+  groupId: number | null
+  careTypeName: string | null
+  /** The first contact's mobile, else home, else work number; '' when there is none. */
+  phone: string
+  note: string
+  waitlistedOn: IsoDate | null
+}
+
+export interface PlannedChildrenDto {
+  waitlist: PlannedChildDto[]
+  contracted: PlannedChildDto[]
 }
 
 export interface ChildRecordDto {

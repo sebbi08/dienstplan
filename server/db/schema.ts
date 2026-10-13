@@ -441,6 +441,10 @@ export const children = sqliteTable('children', {
   address: text('address').notNull().default(''),
   entryDate: text('entry_date'),
   plannedEntryDate: text('planned_entry_date'),
+  /** 'waitlist' = Vormerkung (no contract yet, never active, needs no entry date); 'contract' = a child with a contract. */
+  admissionStatus: text('admission_status', { enum: ['waitlist', 'contract'] }).notNull().default('contract'),
+  /** Day the child was put on the waitlist; only kept for waitlist children. */
+  waitlistedOn: text('waitlisted_on'),
   infoMeetingDate: text('info_meeting_date'),
   schoolStartDate: text('school_start_date'),
   primarySchool: text('primary_school').notNull().default(''),

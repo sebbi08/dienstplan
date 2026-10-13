@@ -451,6 +451,23 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('keeps children as contract children when the admission columns are added', () => {
+    const { db, sqlite } = databaseAt('0026')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(27)
+    sqlite.exec(`
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at)
+        VALUES (1, 1, 'Meier', 'Lena', '2022-03-15', '2026-01-01T00:00:00.000Z');
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(27)
+    expect(sqlite.prepare('SELECT last_name, admission_status, waitlisted_on FROM children WHERE id = 1').get())
+      .toEqual({ last_name: 'Meier', admission_status: 'contract', waitlisted_on: null })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

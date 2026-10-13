@@ -71,7 +71,7 @@ export function addChild(
   overrides: Partial<{
     lastName: string; firstName: string; birthDate: string; entryDate: string | null; plannedEntryDate: string | null
     leftOn: string | null; groupId: number | null; careTypeId: number | null; allergies: string
-    keyEducatorId: number | null; schoolDistrict: string
+    keyEducatorId: number | null; schoolDistrict: string; admissionStatus: 'waitlist' | 'contract'; waitlistedOn: string | null
   }> = {},
 ): number {
   return db.insert(children).values({

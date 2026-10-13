@@ -49,6 +49,8 @@ function payload(): ChildMasterInput {
     groupId: canPickGroup.value ? form.groupId || null : props.child?.master.groupId ?? null,
     careTypeId: form.careTypeId || null,
     entryDate: orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
+    // The admission status is edited in the planning lists, the form keeps what is stored.
+    admissionStatus: props.child?.master.admissionStatus ?? 'contract', waitlistedOn: props.child?.master.waitlistedOn ?? null,
     infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: orNull(form.schoolStartDate),
     primarySchool: form.primarySchool, schoolDistrict: form.schoolDistrict, keyEducatorId: form.keyEducatorId || null,
     note: form.note,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { addDays, todayIso } from '#shared/domain/dates'
 import { isManager, mayEditChildren } from '#shared/domain/roles'
-import type { BirthdayDto, ChildListItemDto } from '#shared/types/api'
+import type { BirthdayDto, ChildListItemDto, PlannedChildrenDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -16,7 +16,9 @@ const lookups = useChildLookups()
 const { groupName, staff } = lookups
 
 const { data: active, error } = await useFetch<ChildListItemDto[]>('/api/children', { query: { status: 'active' }, key: 'children-active' })
-const { data: planned } = await useFetch<ChildListItemDto[]>('/api/children', { query: { status: 'planned' }, key: 'children-planned' })
+const { data: plannedLists } = await useFetch<PlannedChildrenDto>('/api/children/planned', { key: 'children-planned' })
+// Interim: both lists one after another in the simple table (the real planning lists follow).
+const planned = computed(() => [...(plannedLists.value?.waitlist ?? []), ...(plannedLists.value?.contracted ?? [])])
 const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birthdays', { key: 'children-birthdays' })
 await lookups.ready
 
@@ -51,7 +53,7 @@ const keyEducatorItems = computed(() => [
 // Offering the filter only makes sense when at least one child has a group.
 const showGroups = computed(() => (active.value ?? []).some(child => child.groupId !== null))
 
-const matches = (child: ChildListItemDto, term: string) =>
+const matches = (child: Pick<ChildListItemDto, 'firstName' | 'lastName'>, term: string) =>
   `${child.firstName} ${child.lastName}`.toLowerCase().includes(term) || `${child.lastName} ${child.firstName}`.toLowerCase().includes(term)
 
 const blocks = computed(() => {
@@ -164,7 +166,7 @@ const td = 'px-3 py-2'
             <thead class="bg-gray-100 text-left text-xs text-gray-600">
               <tr>
                 <th :class="th">{{ de.children.fields.lastName }}, {{ de.children.fields.firstName }}</th>
-                <th :class="th">{{ de.children.ageAt }}</th>
+                <th :class="th">{{ de.children.fields.birthDate }}</th>
                 <th :class="th">{{ de.children.fields.careType }}</th>
                 <th :class="th">{{ de.children.fields.plannedEntryDate }}</th>
               </tr>
@@ -172,9 +174,9 @@ const td = 'px-3 py-2'
             <tbody>
               <tr v-for="child in shownPlanned" :key="child.id" class="border-t border-gray-100">
                 <td :class="td"><NuxtLink :to="`/children/${child.id}`" class="font-medium text-sky-700 hover:underline">{{ child.lastName }}, {{ child.firstName }}</NuxtLink></td>
-                <td :class="td">{{ de.children.age(child.age.years, child.age.months) }}</td>
+                <td :class="td">{{ formatDate(child.birthDate) }}</td>
                 <td :class="td">{{ child.careTypeName ?? '–' }}</td>
-                <td :class="td">{{ child.entryDate ?? child.plannedEntryDate ? formatDate((child.entryDate ?? child.plannedEntryDate)!) : '–' }}</td>
+                <td :class="td">{{ child.plannedStart ? formatDate(child.plannedStart) : '–' }}</td>
               </tr>
             </tbody>
           </table>

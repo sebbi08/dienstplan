@@ -3,17 +3,22 @@ import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain
 
 describe('childStatus', () => {
   it('is planned without an entry date or before it', () => {
-    expect(childStatus({ entryDate: null, leftOn: null }, '2026-10-08')).toBe('planned')
-    expect(childStatus({ entryDate: '2026-11-01', leftOn: null }, '2026-10-08')).toBe('planned')
+    expect(childStatus({ admissionStatus: 'contract', entryDate: null, leftOn: null }, '2026-10-08')).toBe('planned')
+    expect(childStatus({ admissionStatus: 'contract', entryDate: '2026-11-01', leftOn: null }, '2026-10-08')).toBe('planned')
   })
 
   it('is active from the entry day through the leaving day', () => {
-    expect(childStatus({ entryDate: '2026-10-08', leftOn: null }, '2026-10-08')).toBe('active')
-    expect(childStatus({ entryDate: '2024-09-01', leftOn: '2026-10-08' }, '2026-10-08')).toBe('active')
+    expect(childStatus({ admissionStatus: 'contract', entryDate: '2026-10-08', leftOn: null }, '2026-10-08')).toBe('active')
+    expect(childStatus({ admissionStatus: 'contract', entryDate: '2024-09-01', leftOn: '2026-10-08' }, '2026-10-08')).toBe('active')
+  })
+
+  it('is always planned for a waitlist child, whatever its dates', () => {
+    expect(childStatus({ admissionStatus: 'waitlist', entryDate: null, leftOn: null }, '2026-10-13')).toBe('planned')
+    expect(childStatus({ admissionStatus: 'waitlist', entryDate: '2025-09-01', leftOn: null }, '2026-10-13')).toBe('planned')
   })
 
   it('is archived the day after leaving', () => {
-    expect(childStatus({ entryDate: '2024-09-01', leftOn: '2026-10-07' }, '2026-10-08')).toBe('archived')
+    expect(childStatus({ admissionStatus: 'contract', entryDate: '2024-09-01', leftOn: '2026-10-07' }, '2026-10-08')).toBe('archived')
   })
 })
 

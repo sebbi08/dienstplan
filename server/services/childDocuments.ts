@@ -123,7 +123,7 @@ export function readDocumentFile(
 ): { data: Buffer; mimeType: string; fileName: string } {
   const row = db.select({
     ...META_COLUMNS, data: childDocuments.data, lastName: children.lastName, entryDate: children.entryDate,
-    leftOn: children.leftOn, facilityId: children.facilityId, typeName: documentTypes.name,
+    admissionStatus: children.admissionStatus, leftOn: children.leftOn, facilityId: children.facilityId, typeName: documentTypes.name,
   }).from(childDocuments)
     .innerJoin(children, eq(children.id, childDocuments.childId))
     .innerJoin(documentTypes, eq(documentTypes.id, childDocuments.documentTypeId))

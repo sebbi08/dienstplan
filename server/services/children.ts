@@ -6,7 +6,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
-  type ChildRecordDto, type ConsentKey, type SectionStamp, type SessionUser,
+  type ChildRecordDto, type ConsentKey, type PlannedChildDto, type PlannedChildrenDto, type SectionStamp, type SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
@@ -38,8 +38,8 @@ export function listChildStaff(db: Db, facilityId: number, today: IsoDate): { id
   return staffOf(db, facilityId, today)
 }
 
-/** Active children grouped in the groups' order (no group last), or planned children by their (planned) entry date. */
-export function listChildren(db: Db, facilityId: number, status: 'active' | 'planned', today: IsoDate): ChildListItemDto[] {
+/** Active children grouped in the groups' order (no group last), then by name. */
+export function listChildren(db: Db, facilityId: number, status: 'active', today: IsoDate): ChildListItemDto[] {
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) === status)
   const ids = rows.map(row => row.id)
@@ -51,10 +51,7 @@ export function listChildren(db: Db, facilityId: number, status: 'active' | 'pla
   const staff = new Map(staffOf(db, facilityId, today).map(person => [person.id, person.name]))
   const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
   const rank = (row: ChildRow) => (row.groupId === null ? Infinity : groupRank.get(row.groupId) ?? Infinity)
-  const dateKey = (row: ChildRow) => row.entryDate ?? row.plannedEntryDate ?? '9999-99-99'
-  rows.sort(status === 'active'
-    ? (a, b) => rank(a) - rank(b) || byName(a, b)
-    : (a, b) => dateKey(a).localeCompare(dateKey(b)) || byName(a, b))
+  rows.sort((a, b) => rank(a) - rank(b) || byName(a, b))
   return rows.map(row => ({
     id: row.id,
     lastName: row.lastName,
@@ -72,12 +69,56 @@ export function listChildren(db: Db, facilityId: number, status: 'active' | 'pla
   }))
 }
 
+/** Date comparison with undated rows last. */
+const nullsLast = (a: string | null, b: string | null) => (a ?? '9999-99-99').localeCompare(b ?? '9999-99-99')
+
+/**
+ * The facility's planned children: the waitlist (Vormerkungen) by waitlist date and name, and the contract children
+ * who have not started yet by their start (entry date, else planned entry date) and name; undated ones come last.
+ */
+export function listPlanned(db: Db, facilityId: number, today: IsoDate): PlannedChildrenDto {
+  const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+    .filter(row => childStatus(row, today) === 'planned')
+  const ids = rows.map(row => row.id)
+  // The first contact by sort order is the one whose number is shown.
+  const firstContact = new Map<number, typeof childContacts.$inferSelect>()
+  if (ids.length > 0) {
+    for (const contact of db.select().from(childContacts).where(inArray(childContacts.childId, ids))
+      .orderBy(asc(childContacts.sortOrder), asc(childContacts.id)).all()) {
+      if (!firstContact.has(contact.childId)) firstContact.set(contact.childId, contact)
+    }
+  }
+  const careTypeNames = new Map(db.select({ id: careTypes.id, name: careTypes.name }).from(careTypes)
+    .where(eq(careTypes.facilityId, facilityId)).all().map(row => [row.id, row.name]))
+  const toDto = (row: ChildRow): PlannedChildDto => {
+    const contact = firstContact.get(row.id)
+    return {
+      id: row.id,
+      lastName: row.lastName,
+      firstName: row.firstName,
+      birthDate: row.birthDate,
+      plannedStart: row.entryDate ?? row.plannedEntryDate,
+      groupId: row.groupId,
+      careTypeName: row.careTypeId === null ? null : careTypeNames.get(row.careTypeId) ?? null,
+      phone: contact?.phoneMobile || contact?.phoneHome || contact?.phoneWork || '',
+      note: row.note,
+      waitlistedOn: row.admissionStatus === 'waitlist' ? row.waitlistedOn : null,
+    }
+  }
+  return {
+    waitlist: rows.filter(row => row.admissionStatus === 'waitlist').map(toDto)
+      .sort((a, b) => nullsLast(a.waitlistedOn, b.waitlistedOn) || byName(a, b)),
+    contracted: rows.filter(row => row.admissionStatus === 'contract').map(toDto)
+      .sort((a, b) => nullsLast(a.plannedStart, b.plannedStart) || byName(a, b)),
+  }
+}
+
 /** The master data; keyEducatorId is the effective one (null when the person left or is no longer in the facility). */
 function masterOf(row: ChildRow, keyEducatorId: number | null): ChildMasterInput {
   return {
     lastName: row.lastName, firstName: row.firstName, birthDate: row.birthDate, address: row.address,
     groupId: row.groupId, careTypeId: row.careTypeId, entryDate: row.entryDate, plannedEntryDate: row.plannedEntryDate,
-    infoMeetingDate: row.infoMeetingDate, schoolStartDate: row.schoolStartDate, primarySchool: row.primarySchool,
+    admissionStatus: row.admissionStatus, waitlistedOn: row.waitlistedOn, infoMeetingDate: row.infoMeetingDate, schoolStartDate: row.schoolStartDate, primarySchool: row.primarySchool,
     schoolDistrict: row.schoolDistrict, keyEducatorId, note: row.note,
   }
 }
@@ -138,9 +179,13 @@ function checkedDate(value: IsoDate | null): IsoDate | null {
 
 /**
  * Trimmed texts, valid dates, a birth date that is not in the future, group and care type of the facility and a
- * Bezugserzieher from the facility's staff who has not left (400 key_educator_not_found otherwise).
+ * Bezugserzieher from the facility's staff who has not left (400 key_educator_not_found otherwise). A waitlist child
+ * has no entry date (400 waitlist_has_entry) and keeps its waitlist date (`storedWaitlistedOn` on an update, else
+ * today); a contract child has none.
  */
-function checkedMaster(db: Db, facilityId: number, input: ChildMasterInput, today: IsoDate): ChildMasterInput {
+function checkedMaster(
+  db: Db, facilityId: number, input: ChildMasterInput, today: IsoDate, storedWaitlistedOn: IsoDate | null = null,
+): ChildMasterInput {
   const lastName = input.lastName.trim()
   const firstName = input.firstName.trim()
   if (lastName === '' || firstName === '') throw new ServiceError(400, 'name_required')
@@ -151,11 +196,16 @@ function checkedMaster(db: Db, facilityId: number, input: ChildMasterInput, toda
   if (input.keyEducatorId !== null && !staffOf(db, facilityId, today).some(person => person.id === input.keyEducatorId)) {
     throw new ServiceError(400, 'key_educator_not_found')
   }
+  const entryDate = checkedDate(input.entryDate)
+  const waitlisted = input.admissionStatus === 'waitlist'
+  if (waitlisted && entryDate !== null) throw new ServiceError(400, 'waitlist_has_entry')
+  const waitlistedOn = checkedDate(input.waitlistedOn)
   return {
     ...input, lastName, firstName, birthDate,
     address: input.address.trim(),
-    entryDate: checkedDate(input.entryDate),
+    entryDate,
     plannedEntryDate: checkedDate(input.plannedEntryDate),
+    waitlistedOn: waitlisted ? waitlistedOn ?? storedWaitlistedOn ?? today : null,
     infoMeetingDate: checkedDate(input.infoMeetingDate),
     schoolStartDate: checkedDate(input.schoolStartDate),
     primarySchool: input.primarySchool.trim(),
@@ -178,9 +228,11 @@ export function updateChildMaster(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, actor, facilityId, id, today)
-  const master = checkedMaster(db, facilityId, input, today)
-  db.update(children).set({ ...master, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
+  const row = loadEditableChild(db, actor, facilityId, id, today)
+  const master = checkedMaster(db, facilityId, input, today, row.waitlistedOn)
+  // A waitlist child cannot have left.
+  const leftOn = master.admissionStatus === 'waitlist' ? { leftOn: null } : {}
+  db.update(children).set({ ...master, ...leftOn, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
 }
 
 export function updateChildHealth(
@@ -222,9 +274,12 @@ export function listBirthdays(db: Db, facilityId: number, today: IsoDate): Birth
     }))
 }
 
-/** Registers the leaving day: today, in the future or up to a year back (400 left_on_too_early otherwise). */
+/**
+ * Registers the leaving day: today, in the future or up to a year back (400 left_on_too_early otherwise). A waitlist
+ * child cannot leave, only be deleted (400 waitlist_cannot_leave).
+ */
 export function leaveChild(db: Db, facilityId: number, id: number, leftOn: IsoDate, today: IsoDate): void {
-  loadChild(db, facilityId, id)
+  if (loadChild(db, facilityId, id).admissionStatus === 'waitlist') throw new ServiceError(400, 'waitlist_cannot_leave')
   if (!isValidIsoDate(leftOn)) throw new ServiceError(400, 'invalid_date')
   // A year back from today (29 February falls on 28 February).
   if (leftOn < purgeDate(today, -1)) throw new ServiceError(400, 'left_on_too_early')

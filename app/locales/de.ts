@@ -622,6 +622,8 @@ export const de = {
     left_on_too_early: 'Das Austrittsdatum darf höchstens ein Jahr zurückliegen.',
     child_not_found: 'Dieses Kind existiert nicht mehr.',
     child_archived: 'Die Akte dieses Kindes ist archiviert und kann nicht mehr geändert werden.',
+    waitlist_has_entry: 'Eine Vormerkung hat noch keinen Eintritt. Trage den gewünschten Termin unter „geplanter Eintritt“ ein oder stelle den Stand auf „Vertrag“.',
+    waitlist_cannot_leave: 'Eine Vormerkung kann nicht abgemeldet, nur gelöscht werden.',
     birth_date_in_future: 'Das Geburtsdatum darf nicht in der Zukunft liegen.',
     contact_not_found: 'Diese Bezugsperson existiert nicht mehr.',
     contact_name_required: 'Bitte einen Namen für die Bezugsperson angeben.',

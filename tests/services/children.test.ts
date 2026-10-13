@@ -16,7 +16,7 @@ const NOW = new Date('2026-10-09T08:30:00.000Z')
 const master = (overrides: Partial<ChildMasterInput> = {}): ChildMasterInput => ({
   lastName: 'Meier', firstName: 'Lena', birthDate: '2022-03-15', address: '', groupId: null, careTypeId: null,
   entryDate: '2025-09-01', plannedEntryDate: null, infoMeetingDate: null, schoolStartDate: null, primarySchool: '',
-  schoolDistrict: '', keyEducatorId: null, note: '', ...overrides,
+  schoolDistrict: '', keyEducatorId: null, note: '', admissionStatus: 'contract', waitlistedOn: null, ...overrides,
 })
 
 const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput => ({
@@ -59,17 +59,6 @@ describe('child records', () => {
         lastName: 'Aktiv', age: { years: 4, months: 6 }, careTypeName: 'Ganztag', entryDate: '2025-09-01',
         plannedEntryDate: null, groupId: null, hasAllergies: false, contactBans: [],
       })
-    })
-
-    it('lists planned children by entry date or planned entry date, those without a date last', () => {
-      addChild(db, 1, { lastName: 'Spaet', entryDate: '2027-01-01' })
-      addChild(db, 1, { lastName: 'Geplant', entryDate: null, plannedEntryDate: '2026-12-01' })
-      addChild(db, 1, { lastName: 'Zeitlos', entryDate: null })
-      addChild(db, 1, { lastName: 'Admin', entryDate: null })
-      addChild(db, 1, { lastName: 'Bald', entryDate: '2026-10-20' })
-      addChild(db, 1, { lastName: 'Aktiv' })
-      expect(listChildren(db, 1, 'planned', TODAY).map(item => item.lastName))
-        .toEqual(['Bald', 'Geplant', 'Spaet', 'Admin', 'Zeitlos'])
     })
 
     it('shows allergies and contact bans on the list item', () => {

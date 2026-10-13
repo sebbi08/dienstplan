@@ -3,8 +3,17 @@ import type { IsoDate } from './types'
 
 export type ChildStatus = 'planned' | 'active' | 'archived'
 
-/** Archived the day after leaving; active from the entry day on; otherwise planned (no or future entry date). */
-export function childStatus(child: { entryDate: IsoDate | null; leftOn: IsoDate | null }, today: IsoDate): ChildStatus {
+/** Vormerkung (no contract yet) or a child with a contract. */
+export type AdmissionStatus = 'waitlist' | 'contract'
+
+/**
+ * A waitlist child is always planned. Otherwise archived the day after leaving; active from the entry day on; planned
+ * with no or a future entry date.
+ */
+export function childStatus(
+  child: { admissionStatus: AdmissionStatus; entryDate: IsoDate | null; leftOn: IsoDate | null }, today: IsoDate,
+): ChildStatus {
+  if (child.admissionStatus === 'waitlist') return 'planned'
   if (child.leftOn !== null && today > child.leftOn) return 'archived'
   if (child.entryDate !== null && child.entryDate <= today) return 'active'
   return 'planned'
