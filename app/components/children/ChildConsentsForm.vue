@@ -34,6 +34,8 @@ const blocks = [
 
 <template>
   <ChildrenChildSection v-model:editing="editing" :title="de.children.sections.consents" :stamp="child.stamps.consents" :can-edit="child.canEdit">
+    <template #banner><ChildrenReviewBanner :child="child" section="consents" :reload="reload" /></template>
+
     <div class="grid gap-4 md:grid-cols-2">
       <div v-for="block in blocks" :key="block.key" class="space-y-1">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ block.title }}</h3>

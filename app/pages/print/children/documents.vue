@@ -38,7 +38,8 @@ const td = 'px-2 py-1.5'
           <td :class="td" class="font-medium">{{ row.name }}</td>
           <td v-if="showGroups" :class="td">{{ groupName(row.groupId) }}</td>
           <td v-for="type in data.types" :key="type.id" :class="td" class="whitespace-nowrap">
-            <template v-if="row.cells[type.id]">✓ {{ formatDate(row.cells[type.id]!.documentDate) }}</template>
+            <span v-if="row.cells[type.id]?.stale" class="font-medium text-red-700">{{ de.groupChange.resubmit }}</span>
+            <template v-else-if="row.cells[type.id]">✓ {{ formatDate(row.cells[type.id]!.documentDate) }}</template>
             <span v-else-if="type.required" class="font-medium text-red-700">{{ de.childDocuments.missing }}</span>
           </td>
         </tr>

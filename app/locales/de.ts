@@ -491,7 +491,7 @@ export const de = {
     open: 'Öffnen', download: 'Herunterladen', missing: 'fehlt', onlyMissing: 'nur Kinder mit fehlenden Dokumenten', confirmDelete: 'Dokument wirklich löschen?',
     // Small helper texts of the pages (beyond the agreed wording list above).
     none: 'Noch keine Dokumente hochgeladen.', edit: 'Dokument bearbeiten', noTypes: 'Es gibt noch keine Dokumentarten. Die Leitung legt sie in den Einstellungen an.',
-    lockedHint: 'vertraulich – nur für die Leitung und Berechtigte', overviewHint: 'Die neueste Datei je wichtiger Dokumentart. Rot: ein nötiges Dokument fehlt.',
+    lockedHint: 'vertraulich – nur für die Leitung und Berechtigte', overviewHint: 'Die neueste Datei je wichtiger Dokumentart. Rot: ein nötiges Dokument fehlt oder muss neu eingereicht werden.',
     noImportantTypes: 'Es sind noch keine Dokumentarten als wichtig markiert.', unknownUploader: 'gelöschtes Konto',
   },
   childLifecycle: {
@@ -503,6 +503,16 @@ export const de = {
     confirmLeave: (name: string, date: string) => `${name} zum ${date} abmelden? Einen Tag nach dem Austritt wird die Akte archiviert und kann nicht mehr geändert werden.`,
     confirmMove: (name: string) => `Die Akte nach „${name}“ verschieben? Gruppe und Betreuungsform werden zurückgesetzt, die Dokumentarten der Dokumente werden nach Namen zugeordnet (sonst „Sonstiges“). In der bisherigen Einrichtung ist die Akte danach nicht mehr zu sehen.`,
     archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden und wird nach der Löschfrist automatisch gelöscht.',
+  },
+  groupChange: {
+    plan: 'Gruppenwechsel planen', pending: (date: string, group: string) => `wechselt am ${date} in ${group}`, group: 'Neue Gruppe', date: 'Wechseltag',
+    keepTitle: 'Was wird übernommen?', keepHint: 'Nicht übernommene Bereiche bleiben sichtbar und werden als „nicht bestätigt“ markiert, bis sie durchgesehen sind.',
+    sections: { contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente', careType: 'Betreuungsform', keyEducator: 'Bezugserzieher' },
+    unconfirmed: (date: string) => `Seit dem Gruppenwechsel am ${date} nicht bestätigt`, confirm: 'Angaben bestätigen', resubmit: 'neu einzureichen',
+    openTab: 'Offen', openEmpty: 'Keine offenen Bestätigungen.', confirmDelete: 'Geplanten Gruppenwechsel löschen?',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    editTitle: 'Gruppenwechsel ändern', choose: 'Gruppe wählen', openHint: 'Aktive Kinder, bei denen nach einem Gruppenwechsel noch Angaben durchzusehen sind.',
+    openSections: 'Zu bestätigen',
   },
   childSettings: {
     careTypes: 'Betreuungsformen', documentTypes: 'Dokumentarten', important: 'wichtig', required: 'für jedes Kind nötig', confidentialDefault: 'vertraulich',

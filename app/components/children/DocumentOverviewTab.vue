@@ -42,7 +42,11 @@ const td = 'px-3 py-2'
               <td :class="td"><NuxtLink :to="`/children/${row.childId}`" class="font-medium text-sky-700 hover:underline">{{ row.name }}</NuxtLink></td>
               <td v-if="showGroups" :class="td">{{ groupName(row.groupId) }}</td>
               <td v-for="type in data.types" :key="type.id" :class="td">
-                <template v-if="row.cells[type.id]">
+                <span
+                  v-if="row.cells[type.id]?.stale" class="whitespace-nowrap font-medium text-red-700"
+                  :title="formatDate(row.cells[type.id]!.documentDate)"
+                >{{ de.groupChange.resubmit }}</span>
+                <template v-else-if="row.cells[type.id]">
                   <a
                     v-if="row.cells[type.id]!.canOpen" :href="documentFileUrl(row.cells[type.id]!.documentId)" target="_blank" rel="noopener"
                     class="whitespace-nowrap text-sky-700 hover:underline"

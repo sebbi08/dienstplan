@@ -7,7 +7,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'occupancy' | 'archive'
+type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
 
 const { user } = useUserSession()
 const canCreate = computed(() => !!user.value && mayEditChildren(user.value))
@@ -26,6 +26,7 @@ const tabs = computed(() => [
   { key: 'planned' as const, label: de.children.tabs.planned },
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
   { key: 'documents' as const, label: de.children.tabs.documents },
+  { key: 'open' as const, label: de.groupChange.openTab },
   ...(isLeader.value
     ? [{ key: 'occupancy' as const, label: de.occupancy.tab }, { key: 'archive' as const, label: de.children.tabs.archive }]
     : []),
@@ -182,6 +183,7 @@ const td = 'px-3 py-2'
       </template>
 
       <ChildrenDocumentOverviewTab v-else-if="tab === 'documents'" />
+      <ChildrenOpenTab v-else-if="tab === 'open'" />
       <ChildrenOccupancyTab v-else-if="tab === 'occupancy' && isLeader" />
       <ChildrenArchiveTab v-else-if="tab === 'archive' && isLeader" />
     </template>

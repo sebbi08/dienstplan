@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
+import { isManager } from '#shared/domain/roles'
 import type { AdmissionStatus } from '#shared/domain/children'
 import type { ChildMasterInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -45,10 +46,26 @@ watch(waitlisted, (value) => {
   form.entryDate = ''
   if (!form.waitlistedOn) form.waitlistedOn = today
 })
+// A child that has already started cannot become a waitlist entry again (the server refuses it); for such a record the
+// "Stand" is only shown.
+const mayChooseStatus = computed(() => creating || props.child?.status === 'planned')
 const statusItems = [
   { label: de.children.admission.waitlist, value: 'waitlist' },
   { label: de.children.admission.contract, value: 'contract' },
 ]
+
+const { user } = useUserSession()
+/** Managers plan group changes; a Vormerkung only has a desired group and an archived record cannot change. */
+const canPlanChange = computed(() =>
+  !!props.child && !!props.reload && isManager(user.value?.role)
+  && props.child.master.admissionStatus !== 'waitlist' && props.child.status !== 'archived')
+const changeDialog = ref(false)
+const confirm = useConfirm()
+const { busy: changeBusy, run: runChange } = useBusyAction(async () => { await props.reload?.() })
+async function removeChange() {
+  const change = props.child?.pendingGroupChange
+  if (change && await confirm(de.groupChange.confirmDelete)) runChange(() => $fetch<unknown>(`/api/child-group-changes/${change.id}`, { method: 'DELETE' }), de.common.deleted)
+}
 
 const showGroup = computed(() => (canPickGroup.value && groups.value.length > 0) || (!creating && props.child!.master.groupId !== null))
 const groupItems = computed(() => [{ label: de.children.noGroup, value: 0 }, ...groups.value.map(group => ({ label: group.name, value: group.id }))])
@@ -133,6 +150,22 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     v-model:editing="editing" :title="creating ? de.children.createTitle : de.children.sections.master"
     :stamp="child?.stamps.master ?? { updatedAt: null, updatedBy: null }" :can-edit="!!child?.canEdit"
   >
+    <template v-if="canPlanChange && !child!.pendingGroupChange" #actions>
+      <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-arrow-right-left" :label="de.groupChange.plan" @click="changeDialog = true" />
+    </template>
+    <template v-if="child && reload" #banner>
+      <ChildrenReviewBanner :child="child" section="careType" :reload="reload" named />
+      <ChildrenReviewBanner :child="child" section="keyEducator" :reload="reload" named />
+      <ChildrenGroupChangeDialog v-if="canPlanChange" v-model:open="changeDialog" :child="child" :groups="groups" :reload="reload" />
+    </template>
+
+    <div v-if="canPlanChange && child!.pendingGroupChange" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 p-3 text-sm text-sky-900 ring-1 ring-sky-200">
+      <UIcon name="i-lucide-arrow-right-left" class="size-4 shrink-0" aria-hidden="true" />
+      <span class="min-w-0 flex-1">{{ de.groupChange.pending(formatDate(child!.pendingGroupChange.date), child!.pendingGroupChange.groupName) }}</span>
+      <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="changeBusy" @click="changeDialog = true" />
+      <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :loading="changeBusy" :disabled="changeBusy" @click="removeChange" />
+    </div>
+
     <dl class="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       <div v-for="row in rows" :key="row.label" :class="row.multiline ? 'sm:col-span-2' : ''">
         <dt class="text-xs text-gray-500">{{ row.label }}</dt>
@@ -152,7 +185,8 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
         <UFormField v-if="showGroup && canPickGroup" :label="f.group"><USelect v-model="form.groupId" :items="groupItems" class="w-full" /></UFormField>
         <UFormField :label="f.careType"><USelect v-model="form.careTypeId" :items="careTypeItems" class="w-full" /></UFormField>
         <UFormField :label="f.address" class="sm:col-span-2"><UTextarea v-model="form.address" :rows="3" maxlength="500" class="w-full" /></UFormField>
-        <UFormField :label="a.label"><USelect v-model="form.admissionStatus" :items="statusItems" class="w-full" /></UFormField>
+        <UFormField v-if="mayChooseStatus" :label="a.label"><USelect v-model="form.admissionStatus" :items="statusItems" class="w-full" /></UFormField>
+        <UFormField v-else :label="a.label"><p class="py-1.5 text-sm">{{ form.admissionStatus === 'waitlist' ? a.waitlist : a.contract }}</p></UFormField>
         <UFormField v-if="waitlisted" :label="a.waitlistedOn"><UInput v-model="form.waitlistedOn" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.entryDate"><UInput v-model="form.entryDate" type="date" :disabled="waitlisted" class="w-full" /></UFormField>
         <UFormField :label="f.plannedEntryDate"><UInput v-model="form.plannedEntryDate" type="date" class="w-full" /></UFormField>

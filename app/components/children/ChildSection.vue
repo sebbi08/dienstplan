@@ -3,7 +3,7 @@ import type { SectionStamp } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { stampText } from '~/utils/children'
 
-/** One card of the record: title, "zuletzt geändert von … am …" (without a `stamp` none is shown) and an edit button that swaps the `edit` slot in. */
+/** One card of the record: title, an optional `banner` (review markers), "zuletzt geändert von … am …" (without a `stamp` none is shown) and an edit button that swaps the `edit` slot in. */
 const props = defineProps<{ title: string; stamp?: SectionStamp; canEdit: boolean }>()
 const editing = defineModel<boolean>('editing', { default: false })
 const stamped = computed(() => (props.stamp ? stampText(props.stamp) : null))
@@ -21,6 +21,7 @@ const stamped = computed(() => (props.stamp ? stampText(props.stamp) : null))
         <UButton v-if="canEdit && !editing" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.common.edit" @click="editing = true" />
       </div>
     </div>
+    <slot name="banner" />
     <slot v-if="editing" name="edit" />
     <slot v-else />
   </section>

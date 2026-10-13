@@ -40,6 +40,8 @@ const permissions = [
 
 <template>
   <ChildrenChildSection v-model:editing="editing" :title="de.children.sections.health" :stamp="child.stamps.health" :can-edit="child.canEdit">
+    <template #banner><ChildrenReviewBanner :child="child" section="health" :reload="reload" /></template>
+
     <dl class="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       <div>
         <dt class="text-xs text-gray-500">{{ f.measlesProof }}</dt>

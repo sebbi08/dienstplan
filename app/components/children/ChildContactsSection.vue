@@ -74,6 +74,8 @@ const f = de.children.fields
       <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-plus" :label="de.children.addContact" @click="openNew" />
     </template>
 
+    <template #banner><ChildrenReviewBanner :child="child" section="contacts" :reload="reload" /></template>
+
     <p v-if="!child.contacts.length" class="text-sm text-gray-500">{{ de.children.noContacts }}</p>
     <ul v-else class="divide-y divide-gray-100">
       <li v-for="(contact, index) in child.contacts" :key="contact.id" class="flex flex-wrap items-start gap-3 py-3 text-sm">
