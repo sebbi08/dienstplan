@@ -223,6 +223,28 @@ export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): Schoo
   return leavers
 }
 
+/** Whether the next daily run would deregister the child: its facility's switch is on and `schoolLeavers` selects it. */
+export function leavesAtNextRun(db: Db, facilityId: number, childId: number, today: IsoDate): boolean {
+  return getSchoolSettings(db, facilityId).autoLeave && schoolLeavers(db, facilityId, today).some(leaver => leaver.id === childId)
+}
+
+/**
+ * Guards a single write to a child's record or group history against the automatic leaving. The Träger has seen whom
+ * it takes only when switching it on, so no edit of one child may hand it a further one without anybody seeing it: a
+ * write after which the next run would deregister the child, though it would not have before, is refused
+ * (409 would_deregister). A child the run takes anyway can be edited as before, and with the switch off nothing is
+ * refused. Whether it would is asked of the leaving's own selection, like for a move into the facility.
+ *
+ * Call it inside the write's transaction before writing (`childId` left out: the write creates the child), then call
+ * what it returns with the child's id after writing; the refusal rolls the whole write back.
+ */
+export function guardAgainstLeaving(db: Db, facilityId: number, today: IsoDate, childId?: number): (childId: number) => void {
+  const takenAnyway = childId !== undefined && leavesAtNextRun(db, facilityId, childId, today)
+  return (writtenId) => {
+    if (!takenAnyway && leavesAtNextRun(db, facilityId, writtenId, today)) throw new ServiceError(409, 'would_deregister')
+  }
+}
+
 /**
  * Deregisters the facility's children `schoolLeavers` selects: each leaves on the day before its school start, like a
  * child that is deregistered by hand (a planned group change after that day is deleted). They are archived with that;

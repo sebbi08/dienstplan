@@ -27,7 +27,7 @@ import {
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
-import { getSchoolSettings, schoolCutoffOf, schoolLeavers, schoolRules } from './schoolChildren'
+import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf, schoolRules } from './schoolChildren'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
 const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key.slice(1)}` as ConsentColumn
@@ -231,16 +231,22 @@ function checkedMaster(
   }
 }
 
-/** A new child of the facility with the start entry of its group history; returns its id. */
+/**
+ * A new child of the facility with the start entry of its group history; returns its id. A record the automatic
+ * leaving would take at its next run is not created (409 would_deregister, see `guardAgainstLeaving`).
+ */
 export function createChild(
   db: Db, actor: SessionUser, facilityId: number, input: ChildMasterInput, now: Date = new Date(),
 ): number {
-  const master = checkedMaster(db, facilityId, input, todayIso(now))
+  const today = todayIso(now)
+  const master = checkedMaster(db, facilityId, input, today)
   return db.transaction((tx) => {
+    const assertStays = guardAgainstLeaving(tx, facilityId, today)
     const id = tx.insert(children)
       .values({ ...master, facilityId, createdAt: now.toISOString(), ...sectionStamp('master', actor.id, now) })
       .returning({ id: children.id }).get().id
     recordStartGroup(tx, id, master.groupId, actor.id, now)
+    assertStays(id)
     return id
   })
 }
@@ -254,6 +260,10 @@ export function createChild(
  * the form was loaded with is none, whatever the stored group is by now: a form that was open while a planned change
  * was applied, or that is saved on the change day before the daily run, never undoes that change. The group it sends
  * is not even looked at then (it may have been deleted since).
+ *
+ * A save after which the automatic leaving would deregister the child at its next run, though it would not have
+ * before, is refused and nothing of it is stored (409 would_deregister, see `guardAgainstLeaving`): clearing a later
+ * school start, another birth or entry date, a contract for a Vormerkung, a group change on the school start day.
  */
 export function updateChildMaster(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterUpdateInput, today: IsoDate,
@@ -273,6 +283,7 @@ export function updateChildMaster(
   db.transaction((tx) => {
     // A change whose day has come is applied first, so this save clears the markers it sets.
     settleDue(tx, id, today, now)
+    const assertStays = guardAgainstLeaving(tx, facilityId, today, id)
     if (groupChosen) changeGroupDirectly(tx, actor, row, master.groupId, today, now)
     // A Vormerkung has no planned group change, as a child who left has none after its leaving day.
     if (master.admissionStatus === 'waitlist') dropPlannedChanges(tx, id, today, now)
@@ -281,6 +292,7 @@ export function updateChildMaster(
     tx.update(children).set({
       ...rest, ...leftOn, ...clearedReviews('careType', 'keyEducator'), ...sectionStamp('master', actor.id, now),
     }).where(eq(children.id, id)).run()
+    assertStays(id)
   })
 }
 
@@ -502,9 +514,6 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
     tx.update(children).set({ facilityId: targetFacilityId, groupId: null, careTypeId: null, keyEducatorId: null })
       .where(eq(children.id, childId)).run()
     // Judged on the record as it is there now; refusing rolls the whole move back.
-    if (getSchoolSettings(tx, targetFacilityId).autoLeave
-      && schoolLeavers(tx, targetFacilityId, today).some(leaver => leaver.id === childId)) {
-      throw new ServiceError(409, 'school_start_reached')
-    }
+    if (leavesAtNextRun(tx, targetFacilityId, childId, today)) throw new ServiceError(409, 'school_start_reached')
   })
 }

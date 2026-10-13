@@ -5,16 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { childGroupChanges, children } from '../../server/db/schema'
 import { setChildRetentionYears } from '../../server/services/appSettings'
-import { applyDueGroupChanges, planGroupChange } from '../../server/services/childGroupChanges'
 import {
-  getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild,
+  applyDueGroupChanges, deleteGroupChange, planGroupChange, updateGroupChange,
+} from '../../server/services/childGroupChanges'
+import {
+  createChild, getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild, updateChildMaster,
 } from '../../server/services/children'
 import { deleteGroup, listGroups, setGroupForSchoolChildren } from '../../server/services/groups'
 import {
   getSchoolSettings, leaveSchoolChildren, occupancyChildren, schoolLeavers, setAutoLeave, setSchoolCutoff,
 } from '../../server/services/schoolChildren'
 import type { FacilityUser } from '../../server/utils/auth'
-import type { GroupChangeInput } from '../../shared/types/api'
+import type { ChildMasterInput, GroupChangeInput } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
@@ -881,6 +883,184 @@ describe('automatic leaving of school children', () => {
       planGroupChange(db, admin, 1, id, change(bears, '2027-06-01'), TODAY, NOW)
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
       expect(leftOn(id)).toBe(DAY_BEFORE)
+    })
+  })
+
+  describe('single edits that would deregister a child at the next run', () => {
+    const NEW_CHILD: ChildMasterInput = {
+      lastName: 'Meier', firstName: 'Lena', birthDate: '2020-03-01', address: '', groupId: null, careTypeId: null,
+      entryDate: '2026-01-01', plannedEntryDate: null, infoMeetingDate: null, schoolStartDate: null, primarySchool: '',
+      schoolDistrict: '', keyEducatorId: null, note: '', admissionStatus: 'contract', waitlistedOn: null,
+    }
+    /** School start 1 September 2026: reached on 13 October 2026. */
+    const reached = (overrides: Parameters<typeof addChild>[2] = {}) => schoolChild({ birthDate: '2020-03-01', ...overrides })
+    const saveMaster = (id: number, changes: Partial<ChildMasterInput>, today = TODAY) =>
+      updateChildMaster(db, admin, 1, id, { ...getChild(db, admin, id, today).master, ...changes }, today, new Date(`${today}T08:30:00.000Z`))
+    const refusal = (write: () => unknown) => {
+      try {
+        write()
+        return null
+      }
+      catch (error) {
+        return { statusCode: (error as { statusCode?: number }).statusCode, code: (error as { code?: string }).code }
+      }
+    }
+    const REFUSED = { statusCode: 409, code: 'would_deregister' }
+    const pendingId = (id: number) => getChild(db, admin, id, TODAY).pendingGroupChange!.id
+    /** The child stays because of a planned change into the Hort after its school start, with a further care contract. */
+    const withPlannedHort = () => {
+      setGroupForSchoolChildren(db, hort, true)
+      const id = reached()
+      planGroupChange(db, admin, 1, id, change(hort, '2026-11-01', true), TODAY, NOW)
+      return id
+    }
+
+    describe('while the automatic leaving is on', () => {
+      it('refuses to clear the manual school start of a deferred child, and leaves the record as it is', () => {
+        const id = reached({ schoolStartDate: '2027-09-01' })
+        switchOn()
+        const before = row(id)
+
+        expect(refusal(() => saveMaster(id, { schoolStartDate: null, note: 'zurückgestellt' }))).toEqual(REFUSED)
+
+        expect(row(id)).toEqual(before)
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+        expect(leftOn(id)).toBeNull()
+        // A later school start, or any other change, is saved as before.
+        saveMaster(id, { schoolStartDate: '2028-09-01', note: 'zurückgestellt' })
+        expect(row(id)).toMatchObject({ schoolStartDate: '2028-09-01', note: 'zurückgestellt' })
+      })
+
+      it('refuses an earlier manual school start and a birth date that make the school start reached', () => {
+        const id = schoolChild()
+        switchOn()
+        expect(refusal(() => saveMaster(id, { schoolStartDate: '2026-09-01' }))).toEqual(REFUSED)
+        expect(refusal(() => saveMaster(id, { birthDate: '2020-06-30' }))).toEqual(REFUSED)
+        expect(row(id)).toMatchObject({ schoolStartDate: null, birthDate: BORN_ON_CUTOFF })
+      })
+
+      it('refuses a new record the next run would take at once, and creates nothing', () => {
+        switchOn()
+        const count = () => db.select().from(children).all().length
+        const before = count()
+
+        expect(refusal(() => createChild(db, admin, 1, NEW_CHILD, NOW))).toEqual(REFUSED)
+
+        expect(count()).toBe(before)
+        expect(db.select().from(childGroupChanges).all()).toEqual([])
+        // With a later school start, as a Vormerkung or before it starts the record is created.
+        expect(row(createChild(db, admin, 1, { ...NEW_CHILD, schoolStartDate: '2027-09-01' }, NOW)).leftOn).toBeNull()
+        createChild(db, admin, 1, { ...NEW_CHILD, admissionStatus: 'waitlist', entryDate: null }, NOW)
+        createChild(db, admin, 1, { ...NEW_CHILD, entryDate: '2026-11-01' }, NOW)
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+      })
+
+      it('refuses to turn a Vormerkung into a contract child that would be taken at once', () => {
+        const id = reached({ admissionStatus: 'waitlist', entryDate: null, waitlistedOn: '2026-01-10' })
+        switchOn()
+        expect(refusal(() => saveMaster(id, { admissionStatus: 'contract', entryDate: '2026-02-01' }))).toEqual(REFUSED)
+        expect(row(id)).toMatchObject({ admissionStatus: 'waitlist', entryDate: null, waitlistedOn: '2026-01-10' })
+      })
+
+      it('refuses to delete the planned after-school change after the school start, and keeps it', () => {
+        const id = withPlannedHort()
+        switchOn()
+
+        expect(refusal(() => deleteGroupChange(db, 1, pendingId(id), TODAY, NOW))).toEqual(REFUSED)
+
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', hort, false]])
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+        expect(leftOn(id)).toBeNull()
+      })
+
+      it('refuses to retarget that change into an ordinary group, not to move it to another day', () => {
+        const id = withPlannedHort()
+        const mice = addGroup(db, 1, 'Mäuse')
+        switchOn()
+
+        expect(refusal(() => updateGroupChange(db, admin, 1, pendingId(id), change(mice, '2026-11-01'), TODAY, NOW))).toEqual(REFUSED)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', hort, false]])
+        expect(getChild(db, admin, id, TODAY).pendingGroupChange).toMatchObject({ groupId: hort, newContract: true })
+
+        updateGroupChange(db, admin, 1, pendingId(id), change(hort, '2026-12-01', true), TODAY, NOW)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-12-01', hort, false]])
+      })
+
+      it('refuses a backdated change that takes a child out of its group for school children before the school start', () => {
+        setGroupForSchoolChildren(db, hort, true)
+        const id = reached({ groupId: hort })
+        switchOn()
+
+        expect(refusal(() => planGroupChange(db, admin, 1, id, change(bears, '2026-08-15'), TODAY, NOW))).toEqual(REFUSED)
+
+        expect(row(id).groupId).toBe(hort)
+        expect(history(id)).toEqual([[null, hort, true]])
+        // After the school start the same change leaves the child where the school rules see it.
+        planGroupChange(db, admin, 1, id, change(bears, '2026-10-01'), TODAY, NOW)
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+      })
+
+      it('refuses a direct group change out of the group for school children on the school start day', () => {
+        setGroupForSchoolChildren(db, hort, true)
+        const id = schoolChild({ groupId: hort })
+        switchOn()
+        expect(refusal(() => saveMaster(id, { groupId: bears }, SCHOOL_START))).toEqual(REFUSED)
+        expect(row(id).groupId).toBe(hort)
+        expect(history(id)).toEqual([[null, hort, true]])
+      })
+
+      it('lets a child be edited that the next run takes anyway: the edit is not what deregisters it', () => {
+        const id = schoolChild()
+        switchOn()
+        // The school start day has come, the daily run has not.
+        saveMaster(id, { note: 'Abschiedsfest am Freitag' }, SCHOOL_START)
+        expect(row(id).note).toBe('Abschiedsfest am Freitag')
+        expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
+      })
+
+      it('lets a child be edited that the selection passes over on purpose', () => {
+        // Started after its school start: the automatic leaving never takes it.
+        const id = reached({ entryDate: '2026-09-15' })
+        switchOn()
+        saveMaster(id, { note: 'Hortkind ohne Hortgruppe' })
+        expect(row(id).note).toBe('Hortkind ohne Hortgruppe')
+        // Moving its entry before the school start would make the next run take it.
+        expect(refusal(() => saveMaster(id, { entryDate: '2026-08-01' }))).toEqual(REFUSED)
+        expect(row(id).entryDate).toBe('2026-09-15')
+      })
+
+      it('judges by the facility of the child: another facility\'s switch plays no part', () => {
+        const krippe = addFacility(db, 'Krippe')
+        switchOn(krippe)
+        const id = reached({ schoolStartDate: '2027-09-01' })
+        saveMaster(id, { schoolStartDate: null })
+        expect(row(id).schoolStartDate).toBeNull()
+      })
+    })
+
+    describe('while it is off', () => {
+      it('saves all of these as before', () => {
+        const deferred = reached({ schoolStartDate: '2027-09-01' })
+        saveMaster(deferred, { schoolStartDate: null })
+        expect(row(deferred).schoolStartDate).toBeNull()
+
+        const created = createChild(db, admin, 1, NEW_CHILD, NOW)
+        expect(row(created)).toMatchObject({ entryDate: '2026-01-01', leftOn: null })
+
+        const waitlisted = reached({ admissionStatus: 'waitlist', entryDate: null })
+        saveMaster(waitlisted, { admissionStatus: 'contract', entryDate: '2026-02-01' })
+        expect(row(waitlisted).admissionStatus).toBe('contract')
+
+        const planned = withPlannedHort()
+        const mice = addGroup(db, 1, 'Mäuse')
+        updateGroupChange(db, admin, 1, pendingId(planned), change(mice, '2026-11-01'), TODAY, NOW)
+        deleteGroupChange(db, 1, pendingId(planned), TODAY, NOW)
+        expect(history(planned)).toEqual([[null, bears, true]])
+
+        const inHort = reached({ groupId: hort })
+        planGroupChange(db, admin, 1, inHort, change(bears, '2026-08-15'), TODAY, NOW)
+        expect(row(inHort).groupId).toBe(bears)
+      })
     })
   })
 

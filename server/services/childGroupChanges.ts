@@ -11,6 +11,8 @@ import { loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRec
 import { ServiceError } from '../lib/errors'
 import { settleDocumentReview } from './documentReview'
 import { assertGroup, isForSchoolChildren } from './groups'
+// The two services call each other's functions (the school rules read the histories); neither does so while loading.
+import { guardAgainstLeaving } from './schoolChildren'
 
 type ChangeRow = typeof childGroupChanges.$inferSelect
 type Keep = Record<KeepSection, boolean>
@@ -190,6 +192,10 @@ function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupC
  * Plans a group change of a contract child that has not left (409 child_archived, 400 waitlist_no_group_change); the
  * rules are those of `assertChange`, and a child has at most one change that is not applied yet
  * (409 group_change_pending). A change dated today or earlier is applied at once.
+ *
+ * Planning, changing and deleting a planned change are all refused when the automatic leaving would deregister the
+ * child at its next run because of it (409 would_deregister, see `guardAgainstLeaving`): a backdated change out of
+ * the group for school children, or a planned change into one that is retargeted.
  */
 export function planGroupChange(
   db: Db, actor: SessionUser, facilityId: number, childId: number, input: GroupChangeInput, today: IsoDate,
@@ -198,6 +204,7 @@ export function planGroupChange(
   const child = loadEditableChild(db, actor, facilityId, childId, today)
   settleDue(db, childId, today, now)
   db.transaction((tx) => {
+    const assertStays = guardAgainstLeaving(tx, facilityId, today, childId)
     const history = historyOf(tx, childId)
     const newContract = assertChange(tx, facilityId, child, input, history)
     if (history.some(entry => entry.appliedAt === null)) throw new ServiceError(409, 'group_change_pending')
@@ -206,6 +213,7 @@ export function planGroupChange(
       createdAt: now.toISOString(),
     }).run()
     if (input.date <= today) applyDue(tx, today, now, childId)
+    assertStays(childId)
   })
 }
 
@@ -237,23 +245,30 @@ export function updateGroupChange(
   const change = loadPlannedChange(db, facilityId, changeId, today, now)
   db.transaction((tx) => {
     const child = loadEditableChild(tx, actor, facilityId, change.childId, today)
+    const assertStays = guardAgainstLeaving(tx, facilityId, today, child.id)
     const newContract = assertChange(tx, facilityId, child, input, historyOf(tx, child.id).filter(entry => entry.id !== changeId))
     tx.update(childGroupChanges)
       .set({ groupId: input.groupId, fromDate: input.date, ...keepColumns(input.keep), newContract })
       .where(eq(childGroupChanges.id, changeId)).run()
     if (input.date <= today) applyDue(tx, today, now, child.id)
+    assertStays(child.id)
   })
 }
 
 /**
  * Deletes a planned change until the day before it takes effect (409 group_change_applied afterwards, and for the
- * start entry).
+ * start entry). A change that is all that keeps the child from the automatic leaving (it leads into a group for school
+ * children after the school start) is not deleted: 409 would_deregister.
  */
 export function deleteGroupChange(
   db: Db, facilityId: number, changeId: number, today: IsoDate, now: Date = new Date(),
 ): void {
   const change = loadPlannedChange(db, facilityId, changeId, today, now)
-  db.delete(childGroupChanges).where(eq(childGroupChanges.id, change.id)).run()
+  db.transaction((tx) => {
+    const assertStays = guardAgainstLeaving(tx, facilityId, today, change.childId)
+    tx.delete(childGroupChanges).where(eq(childGroupChanges.id, change.id)).run()
+    assertStays(change.childId)
+  })
 }
 
 /**
