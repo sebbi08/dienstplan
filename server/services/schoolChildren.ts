@@ -272,7 +272,7 @@ function leaveFacilitySchoolChildren(db: Db, facilityId: number, today: IsoDate)
  * leaving day is never selected. Each facility has its own transaction: when one fails, nothing of it is written, the
  * others are done all the same and the next run tries again. The failure is logged with the facility's id only.
  */
-export function leaveSchoolChildren(db: Db, today: IsoDate): number {
+export function leaveSchoolChildren(db: Db, today: IsoDate, log: Pick<Console, 'error'> = console): number {
   const switchedOn = db.select({ id: facilities.id }).from(facilities)
     .where(eq(facilities.autoLeaveSchoolChildren, true)).orderBy(asc(facilities.id)).all()
   let deregistered = 0
@@ -281,7 +281,7 @@ export function leaveSchoolChildren(db: Db, today: IsoDate): number {
       deregistered += db.transaction(tx => leaveFacilitySchoolChildren(tx, facility.id, today))
     }
     catch (error) {
-      console.error(`Deregistering the school children of facility ${facility.id} failed`, error)
+      log.error(`Deregistering the school children of facility ${facility.id} failed`, error)
     }
   }
   return deregistered

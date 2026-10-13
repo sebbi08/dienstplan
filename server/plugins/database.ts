@@ -2,10 +2,8 @@ import { todayIso } from '../../shared/domain/dates'
 import { checkpointWal, migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
-import { applyDueGroupChanges } from '../services/childGroupChanges'
-import { purgeExpiredChildren } from '../services/children'
+import { runDaily } from '../services/dailyRun'
 import { backfillSnapshots } from '../services/release'
-import { leaveSchoolChildren } from '../services/schoolChildren'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -28,36 +26,15 @@ export default defineNitroPlugin(() => {
     }
   }
 
-  // The daily run (tried every hour, each part does its work once): planned group changes whose day has come, then
-  // the school children who leave (a change into a group for school children is applied by then), then deleting
-  // children after their retention period. None depends on another one succeeding or on the backups being configured.
+  // The daily run (see `runDaily`), tried every hour; it does not depend on the backups being configured.
   const dailyRun = () => {
-    // One day for all parts: a run across midnight must not apply changes for one day and deregister for the next.
-    const today = todayIso()
     try {
-      const applied = applyDueGroupChanges(db, today)
-      if (applied > 0) console.info(`Applied ${applied} group change(s).`)
+      const { deleted } = runDaily(db, todayIso())
+      // Page images of the deleted records must not linger in the write-ahead log.
+      if (deleted > 0) checkpointWal(useSqlite())
     }
     catch (error) {
-      console.error('Applying planned group changes failed', error)
-    }
-    try {
-      // Only the number goes into the log, never a name. A facility that fails is logged by the service and skipped.
-      const deregistered = leaveSchoolChildren(db, today)
-      if (deregistered > 0) console.info(`Deregistered ${deregistered} school child(ren).`)
-    }
-    catch (error) {
-      console.error('Deregistering school children failed', error)
-    }
-    try {
-      const deleted = purgeExpiredChildren(db, today)
-      if (deleted > 0) {
-        checkpointWal(useSqlite())
-        console.info(`Deleted ${deleted} child record(s) after the retention period.`)
-      }
-    }
-    catch (error) {
-      console.error('Deleting expired child records failed', error)
+      console.error('The daily run failed', error)
     }
   }
   dailyRun()

@@ -1315,28 +1315,8 @@ describe('automatic leaving of school children', () => {
     })
   })
 
+  // The run as a whole (its order, its log, a part that fails) is tested in dailyRun.test.ts.
   describe('the daily run', () => {
-    const plugin = readFileSync(join(process.cwd(), 'server', 'plugins', 'database.ts'), 'utf8')
-
-    it('deregisters after applying the due group changes and before deleting expired records', () => {
-      const applying = plugin.indexOf('applyDueGroupChanges(db')
-      const leaving = plugin.indexOf('leaveSchoolChildren(db')
-      const purging = plugin.indexOf('purgeExpiredChildren(db')
-      expect(applying).toBeGreaterThan(-1)
-      expect(leaving).toBeGreaterThan(applying)
-      expect(purging).toBeGreaterThan(leaving)
-    })
-
-    it('logs the number only, never a name', () => {
-      expect(plugin).toContain('`Deregistered ${deregistered} school child(ren).`')
-      expect(plugin).toContain('\'Deregistering school children failed\'')
-    })
-
-    it('uses one day for all its parts, also when it runs across midnight', () => {
-      const run = plugin.slice(plugin.indexOf('const dailyRun'), plugin.indexOf('dailyRun()'))
-      expect(run.match(/todayIso\(\)/g)).toHaveLength(1)
-    })
-
     it('deregisters the other facilities\' children when one facility fails, and names nobody in the log', () => {
       const krippe = addFacility(db, 'Krippe')
       const hortKita = addFacility(db, 'Hort-Kita')
