@@ -3,7 +3,7 @@ import { isValidIsoDate } from '../shared/domain/dates'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
-import { COLOR_KEYS, CONSENT_KEYS, type ConsentKey } from '../shared/types/api'
+import { COLOR_KEYS, CONSENT_KEYS, REVIEW_SECTIONS, type ConsentKey } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
 export const minutes = z.number().int().min(0).max(1440)
@@ -206,6 +206,8 @@ export const groupChangeSchema = z.object({
     keyEducator: z.boolean(),
   }),
 })
+/** The section of a child's record to confirm again after a group change. */
+export const confirmSectionSchema = z.object({ section: z.enum(REVIEW_SECTIONS) })
 /** A new child may omit the admission status (a contract child). */
 export const childCreateSchema = childMasterSchema.extend({
   admissionStatus: z.enum(['waitlist', 'contract']).default('contract'),

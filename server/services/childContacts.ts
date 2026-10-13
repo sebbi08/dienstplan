@@ -3,7 +3,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { ChildContactDto, ChildContactInput, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childContacts, children } from '../db/schema'
-import { loadEditableChild, sectionStamp } from '../lib/childRecord'
+import { clearedReviews, loadEditableChild, sectionStamp } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 
 type ContactRow = typeof childContacts.$inferSelect
@@ -68,8 +68,10 @@ function loadEditableContact(db: Db, actor: SessionUser, facilityId: number, con
   return contact
 }
 
+/** Every contact write stamps the section and counts as confirming it after a group change. */
 function stamp(db: Db, childId: number, actor: SessionUser, now: Date): void {
-  db.update(children).set(sectionStamp('contacts', actor.id, now)).where(eq(children.id, childId)).run()
+  db.update(children).set({ ...sectionStamp('contacts', actor.id, now), ...clearedReviews('contacts') })
+    .where(eq(children.id, childId)).run()
 }
 
 /** A new contact at the end of the child's list; returns its id. */

@@ -7,7 +7,7 @@ import {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childGroupChanges, children, groups } from '../db/schema'
-import { loadEditableChild, type ChildRow } from '../lib/childRecord'
+import { loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { assertGroup } from './groups'
 
@@ -25,11 +25,6 @@ const KEEP_COLUMN = {
   contacts: 'keepContacts', health: 'keepHealth', consents: 'keepConsents', documents: 'keepDocuments',
   careType: 'keepCareType', keyEducator: 'keepKeyEducator',
 } as const satisfies Record<ReviewSection, keyof ChangeRow>
-
-const REVIEW_COLUMN = {
-  contacts: 'contactsReviewSince', health: 'healthReviewSince', consents: 'consentsReviewSince',
-  documents: 'documentsReviewSince', careType: 'careTypeReviewSince', keyEducator: 'keyEducatorReviewSince',
-} as const satisfies Record<ReviewSection, keyof ChildRow>
 
 function keepOf(row: ChangeRow): Keep {
   return Object.fromEntries(REVIEW_SECTIONS.map(section => [section, row[KEEP_COLUMN[section]]])) as Keep

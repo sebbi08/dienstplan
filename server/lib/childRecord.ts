@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
 import { isManager } from '../../shared/domain/roles'
-import type { Role } from '../../shared/types/api'
+import { REVIEW_SECTIONS, type ReviewSection, type Role } from '../../shared/types/api'
 import type { IsoDate } from '../../shared/domain/types'
 import type { Db } from '../db/client'
 import { children } from '../db/schema'
@@ -29,6 +29,25 @@ export function loadEditableChild(
     throw isManager(actor.role) ? new ServiceError(409, 'child_archived') : new ServiceError(404, 'child_not_found')
   }
   return row
+}
+
+/** The child's column holding the day since which a section has to be confirmed again (null = nothing to confirm). */
+export const REVIEW_COLUMN = {
+  contacts: 'contactsReviewSince', health: 'healthReviewSince', consents: 'consentsReviewSince',
+  documents: 'documentsReviewSince', careType: 'careTypeReviewSince', keyEducator: 'keyEducatorReviewSince',
+} as const satisfies Record<ReviewSection, keyof ChildRow>
+
+/** The columns that clear the markers of these sections (to set on the child). */
+export function clearedReviews(...sections: ReviewSection[]): Partial<ChildRow> {
+  return Object.fromEntries(sections.map(section => [REVIEW_COLUMN[section], null]))
+}
+
+/** The sections of the record that are still to be confirmed, with the day since which they are. */
+export function openReviews(row: ChildRow): Partial<Record<ReviewSection, IsoDate>> {
+  return Object.fromEntries(REVIEW_SECTIONS.flatMap((section) => {
+    const since = row[REVIEW_COLUMN[section]]
+    return since === null ? [] : [[section, since]]
+  }))
 }
 
 /** Marks a section of the record as changed by the actor at `now` (the columns to set on the child). */

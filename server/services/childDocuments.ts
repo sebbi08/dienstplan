@@ -8,7 +8,7 @@ import type {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childDocuments, children, documentTypes, users } from '../db/schema'
-import { loadChild, loadEditableChild } from '../lib/childRecord'
+import { clearedReviews, loadChild, loadEditableChild, type ChildRow } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { DOCUMENT_EXTENSIONS, MAX_DOCUMENT_BYTES, detectDocumentMime, type DocumentMime } from '../lib/fileSignature'
 import { assertDocumentType, listDocumentTypes } from './documentTypes'
@@ -48,28 +48,50 @@ function checkedMeta(db: Db, facilityId: number, meta: ChildDocumentMeta): Child
   return { ...meta, title: meta.title.trim() }
 }
 
+/** The day a document was uploaded; the day of the marker counts as "since". */
+const uploadDay = (uploadedAt: string): IsoDate => uploadedAt.slice(0, 10)
+
+/**
+ * The child's documents are confirmed again after a group change as soon as a document of every required type of the
+ * facility was uploaded since the marker's day (a facility without required types has nothing to wait for).
+ */
+function clearDocumentReviewIfDone(db: Db, facilityId: number, child: ChildRow): void {
+  const since = child.documentsReviewSince
+  if (since === null) return
+  const uploaded = new Set(db.select({ typeId: childDocuments.documentTypeId, uploadedAt: childDocuments.uploadedAt })
+    .from(childDocuments).where(eq(childDocuments.childId, child.id)).all()
+    .filter(row => uploadDay(row.uploadedAt) >= since).map(row => row.typeId))
+  if (listDocumentTypes(db, facilityId).every(type => !type.required || uploaded.has(type.id))) {
+    db.update(children).set(clearedReviews('documents')).where(eq(children.id, child.id)).run()
+  }
+}
+
 /** A new document in the child's record; returns its id. The stored type is the detected one, never the claimed one. */
 export function uploadDocument(
   db: Db, actor: SessionUser, facilityId: number, childId: number, meta: ChildDocumentMeta,
   file: { data: Buffer; filename: string }, today: IsoDate, now: Date = new Date(),
 ): number {
-  loadEditableChild(db, actor, facilityId, childId, today)
+  const child = loadEditableChild(db, actor, facilityId, childId, today)
   if (file.data.length > MAX_DOCUMENT_BYTES) throw new ServiceError(413, 'document_too_large')
   const mimeType = detectDocumentMime(file.data)
   if (mimeType === null) throw new ServiceError(400, 'document_type_invalid')
   const checked = checkedMeta(db, facilityId, meta)
-  return db.insert(childDocuments).values({
-    childId,
-    documentTypeId: checked.typeId,
-    title: checked.title,
-    documentDate: checked.documentDate,
-    confidential: checked.confidential,
-    mimeType,
-    size: file.data.length,
-    data: file.data,
-    uploadedBy: actor.id,
-    uploadedAt: now.toISOString(),
-  }).returning({ id: childDocuments.id }).get().id
+  return db.transaction((tx) => {
+    const id = tx.insert(childDocuments).values({
+      childId,
+      documentTypeId: checked.typeId,
+      title: checked.title,
+      documentDate: checked.documentDate,
+      confidential: checked.confidential,
+      mimeType,
+      size: file.data.length,
+      data: file.data,
+      uploadedBy: actor.id,
+      uploadedAt: now.toISOString(),
+    }).returning({ id: childDocuments.id }).get().id
+    clearDocumentReviewIfDone(tx, facilityId, child)
+    return id
+  })
 }
 
 /** The child's documents, newest document date first. An archived child is only visible to Träger and Leitung. */
@@ -182,8 +204,12 @@ export function documentOverview(db: Db, viewer: Viewer, facilityId: number, tod
     .where(and(inArray(childDocuments.childId, ids), inArray(childDocuments.documentTypeId, types.map(type => type.id))))
     .all()
   const newest = new Map<string, MetaRow>()
+  // The latest upload day per child and type, which is not that of the newest document by document day.
+  const lastUpload = new Map<string, IsoDate>()
   for (const document of documents) {
     const key = `${document.childId}:${document.documentTypeId}`
+    const uploaded = uploadDay(document.uploadedAt)
+    if (uploaded > (lastUpload.get(key) ?? '')) lastUpload.set(key, uploaded)
     const current = newest.get(key)
     if (!current || dayOf(document) > dayOf(current) || (dayOf(document) === dayOf(current) && document.id > current.id)) {
       newest.set(key, document)
@@ -198,15 +224,19 @@ export function documentOverview(db: Db, viewer: Viewer, facilityId: number, tod
     rows: kids.map((kid) => {
       const cells: DocumentOverviewDto['rows'][number]['cells'] = {}
       for (const type of types) {
-        const document = newest.get(`${kid.id}:${type.id}`)
-        cells[type.id] = document ? { documentId: document.id, documentDate: dayOf(document), canOpen: mayOpen(viewer, document) } : null
+        const key = `${kid.id}:${type.id}`
+        const document = newest.get(key)
+        const stale = type.required && kid.documentsReviewSince !== null && (lastUpload.get(key) ?? '') < kid.documentsReviewSince
+        cells[type.id] = document
+          ? { documentId: document.id, documentDate: dayOf(document), canOpen: mayOpen(viewer, document), stale }
+          : null
       }
       return {
         childId: kid.id,
         name: `${kid.firstName} ${kid.lastName}`,
         groupId: kid.groupId,
         cells,
-        missingRequired: types.some(type => type.required && cells[type.id] === null),
+        missingRequired: types.some(type => type.required && (cells[type.id] === null || cells[type.id]!.stale)),
       }
     }),
   }

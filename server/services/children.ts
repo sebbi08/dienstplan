@@ -7,12 +7,15 @@ import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
-  type ChildRecordDto, type ConsentKey, type PlannedChildDto, type PlannedChildrenDto, type SectionStamp, type SessionUser,
+  type ChildRecordDto, type ConsentKey, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
+  type SectionStamp, type SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
-import { loadChild, loadEditableChild, sectionStamp, type ChildRow } from '../lib/childRecord'
+import {
+  clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, sectionStamp, type ChildRow, type ChildSection,
+} from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { getChildrenPurgedOn, getChildRetentionYears, setChildrenPurgedOn } from './appSettings'
 import { assertCareType } from './careTypes'
@@ -43,6 +46,13 @@ export function listChildStaff(db: Db, facilityId: number, today: IsoDate): { id
   return staffOf(db, facilityId, today)
 }
 
+/** The order of the child list: the groups' order (no group last), then by name. */
+function listOrder(db: Db, facilityId: number): (a: ChildRow, b: ChildRow) => number {
+  const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
+  const rank = (row: ChildRow) => (row.groupId === null ? Infinity : groupRank.get(row.groupId) ?? Infinity)
+  return (a, b) => rank(a) - rank(b) || byName(a, b)
+}
+
 /** Active children grouped in the groups' order (no group last), then by name. */
 export function listChildren(db: Db, facilityId: number, status: 'active', today: IsoDate): ChildListItemDto[] {
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
@@ -54,9 +64,7 @@ export function listChildren(db: Db, facilityId: number, status: 'active', today
   const careTypeNames = new Map(db.select({ id: careTypes.id, name: careTypes.name }).from(careTypes)
     .where(eq(careTypes.facilityId, facilityId)).all().map(row => [row.id, row.name]))
   const staff = new Map(staffOf(db, facilityId, today).map(person => [person.id, person.name]))
-  const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
-  const rank = (row: ChildRow) => (row.groupId === null ? Infinity : groupRank.get(row.groupId) ?? Infinity)
-  rows.sort((a, b) => rank(a) - rank(b) || byName(a, b))
+  rows.sort(listOrder(db, facilityId))
   return rows.map(row => ({
     id: row.id,
     lastName: row.lastName,
@@ -161,6 +169,7 @@ export function getChild(
     status,
     master: masterOf(row, keyEducatorName === null ? null : row.keyEducatorId),
     pendingGroupChange: pendingGroupChange(db, row.id),
+    reviews: openReviews(row),
     computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
     health: healthOf(row),
@@ -258,7 +267,9 @@ export function updateChildMaster(
     if (master.admissionStatus === 'waitlist') dropPlannedChanges(tx, id, today, now)
     // The group itself is only ever written through the history, so it cannot drift from it.
     const { groupId: _, ...rest } = master
-    tx.update(children).set({ ...rest, ...leftOn, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
+    tx.update(children).set({
+      ...rest, ...leftOn, ...clearedReviews('careType', 'keyEducator'), ...sectionStamp('master', actor.id, now),
+    }).where(eq(children.id, id)).run()
   })
 }
 
@@ -273,7 +284,8 @@ export function updateChildHealth(
     infectionBriefingDate: checkedDate(input.infectionBriefingDate),
     allergies: input.allergies.trim(),
   }
-  db.update(children).set({ ...health, ...sectionStamp('health', actor.id, now) }).where(eq(children.id, id)).run()
+  db.update(children).set({ ...health, ...clearedReviews('health'), ...sectionStamp('health', actor.id, now) })
+    .where(eq(children.id, id)).run()
 }
 
 export function updateChildConsents(
@@ -282,7 +294,45 @@ export function updateChildConsents(
 ): void {
   loadEditableChild(db, actor, facilityId, id, today)
   const columns = Object.fromEntries(CONSENT_KEYS.map(key => [consentColumn(key), input[key]]))
-  db.update(children).set({ ...columns, ...sectionStamp('consents', actor.id, now) }).where(eq(children.id, id)).run()
+  db.update(children).set({ ...columns, ...clearedReviews('consents'), ...sectionStamp('consents', actor.id, now) })
+    .where(eq(children.id, id)).run()
+}
+
+/**
+ * The record section whose stamp a confirmation sets: care type and Bezugserzieher are part of the master data; the
+ * documents have no stamp (each document carries its own upload data).
+ */
+const STAMP_SECTION: Record<ReviewSection, ChildSection | null> = {
+  contacts: 'contacts', health: 'health', consents: 'consents', documents: null, careType: 'master', keyEducator: 'master',
+}
+
+/**
+ * Confirms a section after a group change: its marker goes away. A section without marker is left as it is (no stamp).
+ * The same write rules as for every change of the record apply (archived: 409 child_archived / 404 child_not_found).
+ */
+export function confirmSection(
+  db: Db, actor: SessionUser, facilityId: number, childId: number, section: ReviewSection, today: IsoDate,
+  now: Date = new Date(),
+): void {
+  const row = loadEditableChild(db, actor, facilityId, childId, today)
+  if (row[REVIEW_COLUMN[section]] === null) return
+  const stampSection = STAMP_SECTION[section]
+  db.update(children).set({ ...clearedReviews(section), ...(stampSection && sectionStamp(stampSection, actor.id, now)) })
+    .where(eq(children.id, childId)).run()
+}
+
+/** The facility's active children with sections still to be confirmed, in the order of the child list. */
+export function listOpenReviews(db: Db, facilityId: number, today: IsoDate): OpenChildDto[] {
+  return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+    .filter(row => childStatus(row, today) === 'active')
+    .sort(listOrder(db, facilityId))
+    .map(row => ({
+      id: row.id,
+      name: `${row.firstName} ${row.lastName}`,
+      groupId: row.groupId,
+      sections: Object.keys(openReviews(row)) as ReviewSection[],
+    }))
+    .filter(item => item.sections.length > 0)
 }
 
 /** The next birthday of every active child of the facility, soonest first (the screens cut off what they show). */

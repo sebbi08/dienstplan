@@ -230,7 +230,7 @@ describe('child documents', () => {
       const newest = upload({ typeId: contractType, documentDate: '2026-06-01' })
       upload({ typeId: contractType, documentDate: '2026-03-01' })
       const row = rowOf()
-      expect(row.cells[contractType]).toEqual({ documentId: newest, documentDate: '2026-06-01', canOpen: true })
+      expect(row.cells[contractType]).toEqual({ documentId: newest, documentDate: '2026-06-01', canOpen: true, stale: false })
       expect(row.cells[custody]).toBeNull()
       expect(row.missingRequired).toBe(false)
       setType('Sorgerechtsbeschluss', { important: true, required: true })
@@ -252,7 +252,7 @@ describe('child documents', () => {
 
     it('shows confidential cells with canOpen false to ordinary observers', () => {
       const id = upload({ confidential: true })
-      expect(rowOf(plain).cells[contractType]).toEqual({ documentId: id, documentDate: '2026-09-01', canOpen: false })
+      expect(rowOf(plain).cells[contractType]).toEqual({ documentId: id, documentDate: '2026-09-01', canOpen: false, stale: false })
       expect(rowOf(allowed).cells[contractType]?.canOpen).toBe(true)
     })
 

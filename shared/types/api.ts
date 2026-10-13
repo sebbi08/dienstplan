@@ -242,12 +242,22 @@ export interface GroupChangeDto {
   keep: Record<ReviewSection, boolean>
 }
 
+/** An active child with sections to confirm after a group change (the "Offen" list). */
+export interface OpenChildDto {
+  id: number
+  name: string
+  groupId: number | null
+  sections: ReviewSection[]
+}
+
 export interface ChildRecordDto {
   id: number
   status: ChildStatus
   master: ChildMasterInput
   /** The planned group change that is not applied yet (at most one per child). */
   pendingGroupChange: GroupChangeDto | null
+  /** The sections to confirm again after a group change, with the day since which they are (only the open ones). */
+  reviews: Partial<Record<ReviewSection, IsoDate>>
   /** The school start the facility's cutoff yields from the birth date (the manual master.schoolStartDate wins over it). */
   computedSchoolStart: IsoDate
   /** Name of master.keyEducatorId (null together with it). */
@@ -296,9 +306,12 @@ export interface DocumentOverviewDto {
     childId: number
     name: string
     groupId: number | null
-    /** Per important type id: the newest document, or null while there is none. */
-    cells: Record<number, { documentId: number; documentDate: IsoDate; canOpen: boolean } | null>
-    /** A required type has no document yet. */
+    /**
+     * Per important type id: the newest document, or null while there is none. `stale`: the child's documents are to be
+     * confirmed again after a group change, the type is required and no document of it was uploaded since then.
+     */
+    cells: Record<number, { documentId: number; documentDate: IsoDate; canOpen: boolean; stale: boolean } | null>
+    /** A required type has no document yet, or only a stale one. */
     missingRequired: boolean
   }[]
 }
