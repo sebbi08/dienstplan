@@ -1,3 +1,6 @@
+import { ageOn } from '#shared/domain/children'
+import { parseIsoDate } from '#shared/domain/dates'
+import type { IsoDate } from '#shared/domain/types'
 import type { ChildContactDto, SectionStamp } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
@@ -37,4 +40,20 @@ export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB`
+}
+
+/** Start year of the Kita year a date belongs to: 1 September starts a new one, so January to August belong to the previous year's. */
+export function kitaYearOf(date: IsoDate): number {
+  const { year, month } = parseIsoDate(date)
+  return month >= 9 ? year : year - 1
+}
+
+/** "2026/27" for the Kita year that starts in 2026. */
+export const kitaYearLabel = (startYear: number): string => `${startYear}/${String((startYear + 1) % 100).padStart(2, '0')}`
+
+/** Age at the planned start as text ("2 J. 3 M."); "–" without a start or when the child is not born yet at that day. */
+export function ageAtStartText(birthDate: IsoDate, start: IsoDate | null): string {
+  if (!start || start < birthDate) return de.children.noValue
+  const { years, months } = ageOn(birthDate, start)
+  return de.children.age(years, months)
 }

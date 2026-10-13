@@ -440,7 +440,7 @@ export const de = {
     switched: 'Einrichtung gewechselt',
   },
   children: {
-    nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', planned: 'Geplant', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
+    nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', planned: 'Vormerkungen & Verträge', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
     create: 'Kind anlegen', search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
     allKeyEducators: 'Alle Bezugserzieher', noKeyEducator: '– niemand –',
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',
@@ -476,7 +476,14 @@ export const de = {
     editContact: 'Bezugsperson bearbeiten', confirmDeleteContact: 'Diese Bezugsperson löschen?',
     moveUp: 'Nach oben', moveDown: 'Nach unten', createTitle: 'Kind anlegen', ageAt: 'Alter', birthdayOn: 'Geburtstag am',
     noSelection: 'keine Angabe', noValue: '–',
-    printBirthdays: 'Geburtstage der Kinder', printDocuments: 'Dokumentenübersicht',
+    printBirthdays: 'Geburtstage der Kinder', printDocuments: 'Dokumentenübersicht', printPlanned: 'Vormerkungen & Verträge',
+    admission: {
+      label: 'Stand', waitlist: 'Vormerkung', contract: 'Vertrag', waitlistedOn: 'Vorgemerkt am',
+      waitlistTitle: 'Vormerkungen', contractedTitle: 'Künftige Kinder mit Vertrag', createWaitlist: 'Vormerkung anlegen',
+      desiredStart: 'gewünschter Eintritt', contractStart: 'Vertragsbeginn', desiredGroup: 'gewünschte Gruppe', assignedGroup: 'zugesagte Gruppe',
+      ageAtStart: 'Alter zum Eintritt', phone: 'Telefon', kitaYear: 'Kita-Jahr', allKitaYears: 'Alle Kita-Jahre',
+      deleteWaitlist: 'Vormerkung löschen', confirmDeleteWaitlist: 'Vormerkung mit allen Angaben endgültig löschen?',
+    },
   },
   childDocuments: {
     upload: 'Dokument hochladen', file: 'Datei (PDF, JPG oder PNG, höchstens 10 MB)', type: 'Art', title: 'Bezeichnung', date: 'Datum',

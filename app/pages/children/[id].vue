@@ -24,7 +24,8 @@ const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, to
       <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 class="text-2xl font-semibold">{{ child.master.firstName }} {{ child.master.lastName }}</h1>
         <span v-if="age" class="text-gray-600">{{ de.children.age(age.years, age.months) }}</span>
-        <span v-if="child.status === 'planned'" class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{{ de.children.planned }}</span>
+        <span v-if="child.master.admissionStatus === 'waitlist'" class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">{{ de.children.admission.waitlist }}</span>
+        <span v-else-if="child.status === 'planned'" class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{{ de.children.planned }}</span>
         <span v-else-if="child.status === 'archived'" class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">{{ de.children.tabs.archive }}</span>
       </div>
 

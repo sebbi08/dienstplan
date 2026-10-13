@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
+import type { AdmissionStatus } from '#shared/domain/children'
 import type { ChildMasterInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
@@ -12,7 +13,7 @@ import { formatDate } from '~/utils/format'
  * readable for everyone who sees child records); without that right the stored group is kept as it is.
  */
 /** `reload` re-reads the record after a save (not needed while creating); the guard in `save` holds until it is done. */
-const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown> }>()
+const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown>; initialStatus?: AdmissionStatus }>()
 const run = useAction(async () => { await props.reload?.() })
 const { groups, careTypes, staff, canPickGroup, groupName, careTypeName } = props.lookups
 
@@ -20,22 +21,34 @@ const creating = !props.child
 const editing = ref(creating)
 const today = todayIso()
 
-const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', schoolDistrict: '', keyEducatorId: 0, note: '' }
+const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, admissionStatus: 'contract' as AdmissionStatus, waitlistedOn: '', entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', schoolDistrict: '', keyEducatorId: 0, note: '' }
 const form = reactive({ ...empty })
 function reset() {
   const master = props.child?.master
   Object.assign(form, master
     ? {
         ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0, keyEducatorId: master.keyEducatorId ?? 0,
-        entryDate: master.entryDate ?? '', plannedEntryDate: master.plannedEntryDate ?? '',
+        waitlistedOn: master.waitlistedOn ?? '', entryDate: master.entryDate ?? '', plannedEntryDate: master.plannedEntryDate ?? '',
         infoMeetingDate: master.infoMeetingDate ?? '', schoolStartDate: master.schoolStartDate ?? '',
       }
-    : empty)
+    : { ...empty, admissionStatus: props.initialStatus ?? 'contract', waitlistedOn: props.initialStatus === 'waitlist' ? today : '' })
 }
 reset()
 // Another section's save refreshes the record; do not wipe what is being typed here.
 watch(() => props.child?.master, () => { if (!editing.value) reset() })
 watch(editing, (value) => { if (value) reset() })
+
+const waitlisted = computed(() => form.admissionStatus === 'waitlist')
+// A waitlist entry has no entry date (the wish goes into "geplanter Eintritt") and is dated; the date is pre-filled with today.
+watch(waitlisted, (value) => {
+  if (!value) return
+  form.entryDate = ''
+  if (!form.waitlistedOn) form.waitlistedOn = today
+})
+const statusItems = [
+  { label: de.children.admission.waitlist, value: 'waitlist' },
+  { label: de.children.admission.contract, value: 'contract' },
+]
 
 const showGroup = computed(() => (canPickGroup.value && groups.value.length > 0) || (!creating && props.child!.master.groupId !== null))
 const groupItems = computed(() => [{ label: de.children.noGroup, value: 0 }, ...groups.value.map(group => ({ label: group.name, value: group.id }))])
@@ -48,9 +61,8 @@ function payload(): ChildMasterInput {
     // Without the right to read the groups the form keeps what is stored (null for a new child).
     groupId: canPickGroup.value ? form.groupId || null : props.child?.master.groupId ?? null,
     careTypeId: form.careTypeId || null,
-    entryDate: orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
-    // The admission status is edited in the planning lists, the form keeps what is stored.
-    admissionStatus: props.child?.master.admissionStatus ?? 'contract', waitlistedOn: props.child?.master.waitlistedOn ?? null,
+    entryDate: waitlisted.value ? null : orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
+    admissionStatus: form.admissionStatus, waitlistedOn: waitlisted.value ? orNull(form.waitlistedOn) : null,
     infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: orNull(form.schoolStartDate),
     primarySchool: form.primarySchool, schoolDistrict: form.schoolDistrict, keyEducatorId: form.keyEducatorId || null,
     note: form.note,
@@ -87,6 +99,7 @@ function cancel() {
 }
 
 const f = de.children.fields
+const a = de.children.admission
 const rows = computed(() => {
   const master = props.child?.master
   if (!master) return []
@@ -96,6 +109,8 @@ const rows = computed(() => {
     { label: f.address, value: master.address, multiline: true },
     ...(showGroup.value ? [{ label: f.group, value: groupName(master.groupId) }] : []),
     { label: f.careType, value: careTypeName(master.careTypeId) ?? '' },
+    { label: a.label, value: master.admissionStatus === 'waitlist' ? a.waitlist : a.contract },
+    ...(master.admissionStatus === 'waitlist' ? [{ label: a.waitlistedOn, value: date(master.waitlistedOn) }] : []),
     { label: f.entryDate, value: date(master.entryDate) },
     { label: f.plannedEntryDate, value: date(master.plannedEntryDate) },
     { label: f.infoMeetingDate, value: date(master.infoMeetingDate) },
@@ -128,7 +143,9 @@ const rows = computed(() => {
         <UFormField v-if="showGroup && canPickGroup" :label="f.group"><USelect v-model="form.groupId" :items="groupItems" class="w-full" /></UFormField>
         <UFormField :label="f.careType"><USelect v-model="form.careTypeId" :items="careTypeItems" class="w-full" /></UFormField>
         <UFormField :label="f.address" class="sm:col-span-2"><UTextarea v-model="form.address" :rows="3" maxlength="500" class="w-full" /></UFormField>
-        <UFormField :label="f.entryDate"><UInput v-model="form.entryDate" type="date" class="w-full" /></UFormField>
+        <UFormField :label="a.label"><USelect v-model="form.admissionStatus" :items="statusItems" class="w-full" /></UFormField>
+        <UFormField v-if="waitlisted" :label="a.waitlistedOn"><UInput v-model="form.waitlistedOn" type="date" class="w-full" /></UFormField>
+        <UFormField :label="f.entryDate"><UInput v-model="form.entryDate" type="date" :disabled="waitlisted" class="w-full" /></UFormField>
         <UFormField :label="f.plannedEntryDate"><UInput v-model="form.plannedEntryDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.infoMeetingDate"><UInput v-model="form.infoMeetingDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.schoolStartDate"><UInput v-model="form.schoolStartDate" type="date" class="w-full" /></UFormField>
@@ -137,7 +154,7 @@ const rows = computed(() => {
         <UFormField :label="f.keyEducator"><USelect v-model="form.keyEducatorId" :items="staffItems" class="w-full" /></UFormField>
         <UFormField :label="f.note" class="sm:col-span-2"><UTextarea v-model="form.note" :rows="3" maxlength="2000" class="w-full" /></UFormField>
         <div class="flex gap-2 sm:col-span-2">
-          <UButton type="submit" :label="creating ? de.children.create : de.common.save" :loading="busy" :disabled="busy" />
+          <UButton type="submit" :label="creating ? (waitlisted ? a.createWaitlist : de.children.create) : de.common.save" :loading="busy" :disabled="busy" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="cancel" />
         </div>
       </form>

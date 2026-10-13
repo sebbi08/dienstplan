@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { addDays, todayIso } from '#shared/domain/dates'
 import { isManager, mayEditChildren } from '#shared/domain/roles'
-import type { BirthdayDto, ChildListItemDto, PlannedChildrenDto } from '#shared/types/api'
+import type { BirthdayDto, ChildListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -16,9 +16,6 @@ const lookups = useChildLookups()
 const { groupName, staff } = lookups
 
 const { data: active, error } = await useFetch<ChildListItemDto[]>('/api/children', { query: { status: 'active' }, key: 'children-active' })
-const { data: plannedLists } = await useFetch<PlannedChildrenDto>('/api/children/planned', { key: 'children-planned' })
-// Interim: both lists one after another in the simple table (the real planning lists follow).
-const planned = computed(() => [...(plannedLists.value?.waitlist ?? []), ...(plannedLists.value?.contracted ?? [])])
 const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birthdays', { key: 'children-birthdays' })
 await lookups.ready
 
@@ -74,11 +71,6 @@ const blocks = computed(() => {
   return result
 })
 
-const shownPlanned = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  return (planned.value ?? []).filter(child => !term || matches(child, term))
-})
-
 const today = todayIso()
 const limit = addDays(today, BIRTHDAY_WEEKS * 7)
 const birthdays = computed(() => (birthdayList.value ?? []).filter(entry => entry.date <= limit))
@@ -91,7 +83,7 @@ const td = 'px-3 py-2'
   <div class="max-w-5xl space-y-4">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.title }}</h1>
-      <UButton v-if="canCreate" class="ml-auto" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
+      <UButton v-if="canCreate && tab !== 'planned'" class="ml-auto" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
     </div>
 
     <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorCode(error) === 'no_facility' ? de.errors.no_facility : errorMessage(error) }}</p>
@@ -107,81 +99,59 @@ const td = 'px-3 py-2'
         </button>
       </div>
 
-      <template v-if="tab === 'list' || tab === 'planned'">
+      <template v-if="tab === 'list'">
         <div class="flex flex-wrap items-center gap-3">
           <UInput v-model="search" :placeholder="de.children.search" :aria-label="de.children.search" icon="i-lucide-search" class="w-64" />
-          <USelect v-if="tab === 'list' && showGroups" v-model="groupFilter" :items="groupItems" class="w-48" :aria-label="de.children.fields.group" />
+          <USelect v-if="showGroups" v-model="groupFilter" :items="groupItems" class="w-48" :aria-label="de.children.fields.group" />
           <USelect
-            v-if="tab === 'list' && staff.length" v-model="keyEducatorFilter" :items="keyEducatorItems" class="w-56"
+            v-if="staff.length" v-model="keyEducatorFilter" :items="keyEducatorItems" class="w-56"
             :aria-label="de.children.fields.keyEducator"
           />
         </div>
 
-        <template v-if="tab === 'list'">
-          <p v-if="!blocks.length" class="text-sm text-gray-500">{{ de.children.empty }}</p>
-          <div v-for="block in blocks" :key="block.key" class="space-y-1">
-            <h2 v-if="block.label" class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ block.label }}</h2>
-            <table class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
-              <thead class="bg-gray-100 text-left text-xs text-gray-600">
-                <tr>
-                  <th :class="th">{{ de.children.fields.lastName }}, {{ de.children.fields.firstName }}</th>
-                  <th :class="th">{{ de.children.ageAt }}</th>
-                  <th :class="th">{{ de.children.fields.careType }}</th>
-                  <th :class="th">{{ de.children.fields.keyEducator }}</th>
-                  <th :class="th">{{ de.children.entry }}</th>
-                  <th :class="th" />
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="child in block.children" :key="child.id" class="border-t border-gray-100">
-                  <td :class="td"><NuxtLink :to="`/children/${child.id}`" class="font-medium text-sky-700 hover:underline">{{ child.lastName }}, {{ child.firstName }}</NuxtLink></td>
-                  <td :class="td">{{ de.children.age(child.age.years, child.age.months) }}</td>
-                  <td :class="td">{{ child.careTypeName ?? '–' }}</td>
-                  <td :class="td">{{ child.keyEducatorName ?? '–' }}</td>
-                  <td :class="td">{{ child.entryDate ? formatDate(child.entryDate) : '–' }}</td>
-                  <td :class="[td, 'text-right']">
-                    <span class="inline-flex items-center gap-2">
-                      <UTooltip v-if="child.hasAllergies" :text="de.children.allergies">
-                        <UIcon name="i-lucide-triangle-alert" class="size-5 text-amber-500" tabindex="0" :aria-label="de.children.allergies" />
-                      </UTooltip>
-                      <UTooltip v-if="child.contactBans.length">
-                        <UIcon name="i-lucide-ban" class="size-5 text-red-600" tabindex="0" :aria-label="de.children.contactBan" />
-                        <template #content>
-                          <ul class="space-y-0.5 p-1 text-sm">
-                            <li v-for="(ban, index) in child.contactBans" :key="index">{{ de.children.contactBan }}: {{ ban.name }} – {{ ban.note }}</li>
-                          </ul>
-                        </template>
-                      </UTooltip>
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </template>
-
-        <template v-else>
-          <p v-if="!shownPlanned.length" class="text-sm text-gray-500">{{ de.children.empty }}</p>
-          <table v-else class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
+        <p v-if="!blocks.length" class="text-sm text-gray-500">{{ de.children.empty }}</p>
+        <div v-for="block in blocks" :key="block.key" class="space-y-1">
+          <h2 v-if="block.label" class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ block.label }}</h2>
+          <table class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
             <thead class="bg-gray-100 text-left text-xs text-gray-600">
               <tr>
                 <th :class="th">{{ de.children.fields.lastName }}, {{ de.children.fields.firstName }}</th>
-                <th :class="th">{{ de.children.fields.birthDate }}</th>
+                <th :class="th">{{ de.children.ageAt }}</th>
                 <th :class="th">{{ de.children.fields.careType }}</th>
-                <th :class="th">{{ de.children.fields.plannedEntryDate }}</th>
+                <th :class="th">{{ de.children.fields.keyEducator }}</th>
+                <th :class="th">{{ de.children.entry }}</th>
+                <th :class="th" />
               </tr>
             </thead>
             <tbody>
-              <tr v-for="child in shownPlanned" :key="child.id" class="border-t border-gray-100">
+              <tr v-for="child in block.children" :key="child.id" class="border-t border-gray-100">
                 <td :class="td"><NuxtLink :to="`/children/${child.id}`" class="font-medium text-sky-700 hover:underline">{{ child.lastName }}, {{ child.firstName }}</NuxtLink></td>
-                <td :class="td">{{ formatDate(child.birthDate) }}</td>
+                <td :class="td">{{ de.children.age(child.age.years, child.age.months) }}</td>
                 <td :class="td">{{ child.careTypeName ?? '–' }}</td>
-                <td :class="td">{{ child.plannedStart ? formatDate(child.plannedStart) : '–' }}</td>
+                <td :class="td">{{ child.keyEducatorName ?? '–' }}</td>
+                <td :class="td">{{ child.entryDate ? formatDate(child.entryDate) : '–' }}</td>
+                <td :class="[td, 'text-right']">
+                  <span class="inline-flex items-center gap-2">
+                    <UTooltip v-if="child.hasAllergies" :text="de.children.allergies">
+                      <UIcon name="i-lucide-triangle-alert" class="size-5 text-amber-500" tabindex="0" :aria-label="de.children.allergies" />
+                    </UTooltip>
+                    <UTooltip v-if="child.contactBans.length">
+                      <UIcon name="i-lucide-ban" class="size-5 text-red-600" tabindex="0" :aria-label="de.children.contactBan" />
+                      <template #content>
+                        <ul class="space-y-0.5 p-1 text-sm">
+                          <li v-for="(ban, index) in child.contactBans" :key="index">{{ de.children.contactBan }}: {{ ban.name }} – {{ ban.note }}</li>
+                        </ul>
+                      </template>
+                    </UTooltip>
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>
-        </template>
+        </div>
       </template>
+
+      <ChildrenPlannedTab v-else-if="tab === 'planned'" />
 
       <template v-else-if="tab === 'birthdays'">
         <div class="flex flex-wrap items-center gap-3">

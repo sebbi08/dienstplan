@@ -28,6 +28,17 @@ async function leave() {
     run(() => $fetch<unknown>(`/api/children/${props.child.id}/leave`, { method: 'POST', body: { leftOn: leftOn.value } }), de.common.saved)
   }
 }
+// A waitlist entry cannot leave (the server says 400 waitlist_cannot_leave); it is deleted with everything on it.
+const waitlisted = computed(() => props.child.master.admissionStatus === 'waitlist')
+async function deleteWaitlist() {
+  if (!await confirm(de.children.admission.confirmDeleteWaitlist, { confirmLabel: de.children.admission.deleteWaitlist })) return
+  const ok = await run(() => $fetch<unknown>(`/api/children/${props.child.id}`, { method: 'DELETE' }))
+  if (ok) {
+    toast.add({ title: de.common.deleted, color: 'success' })
+    // The record is gone, so the page would only answer "not found" now.
+    await navigateTo('/children')
+  }
+}
 const unleave = () => run(() => $fetch<unknown>(`/api/children/${props.child.id}/unleave`, { method: 'POST' }), de.common.saved)
 
 // Moving: the Träger works in one facility at a time, so the others are the possible targets.
@@ -52,7 +63,10 @@ async function move() {
   <section v-if="manager" class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.childLifecycle.title }}</h2>
 
-    <div v-if="child.leftOn" class="flex flex-wrap items-center gap-3 text-sm">
+    <div v-if="waitlisted">
+      <UButton color="error" variant="outline" icon="i-lucide-trash-2" :label="de.children.admission.deleteWaitlist" :disabled="busy" @click="deleteWaitlist" />
+    </div>
+    <div v-else-if="child.leftOn" class="flex flex-wrap items-center gap-3 text-sm">
       <span>{{ de.childLifecycle.leavesOn(formatDate(child.leftOn)) }}<template v-if="child.purgeOn"> · {{ de.childLifecycle.purgeOn(formatDate(child.purgeOn)) }}</template></span>
       <UButton size="xs" color="neutral" variant="outline" :label="de.childLifecycle.unleave" :disabled="busy" @click="unleave" />
     </div>
