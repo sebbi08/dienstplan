@@ -130,6 +130,15 @@ describe('groups of a facility', () => {
     expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0 }])
   })
 
+  it('refuses to delete a group holding only a waitlist child', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    const waitlisted = addChild(db, 1, { groupId: bears, admissionStatus: 'waitlist', entryDate: null })
+    expect(errorCode(() => deleteGroup(db, 1, bears, today))).toBe('group_has_children')
+    db.update(children).set({ groupId: null }).where(eq(children.id, waitlisted)).run()
+    deleteGroup(db, 1, bears, today)
+    expect(listGroups(db, 1)).toEqual([])
+  })
+
   it('refuses to delete a group with active or planned children, but not one with archived children only', () => {
     const bears = addGroup(db, 1, 'Bären')
     const active = addChild(db, 1, { groupId: bears })

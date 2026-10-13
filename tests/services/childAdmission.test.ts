@@ -1,4 +1,6 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { childCreateSchema, childMasterSchema } from '../../server/schemas'
 import type { Db } from '../../server/db/client'
 import { children } from '../../server/db/schema'
 import { createCareType } from '../../server/services/careTypes'
@@ -71,10 +73,32 @@ describe('admission status and planned lists', () => {
     })
   })
 
+  describe('switching to the waitlist', () => {
+    it('clears a future leaving day, so the purge job never keys on a waitlist child', () => {
+      const id = addChild(db, 1, { entryDate: '2027-01-01', leftOn: '2027-06-30' })
+      updateChildMaster(db, admin, 1, id, master({ plannedEntryDate: '2027-01-01' }), TODAY, NOW)
+      expect(db.select({ leftOn: children.leftOn }).from(children).where(eq(children.id, id)).get()!.leftOn).toBeNull()
+      expect(getChild(db, admin, id, TODAY)).toMatchObject({ status: 'planned', leftOn: null })
+    })
+  })
+
+  describe('request schemas', () => {
+    const body = (({ admissionStatus: _status, ...rest }) => rest)(master())
+
+    it('requires the admission status on update, so an old client cannot turn a waitlist child into a contract child', () => {
+      expect(childMasterSchema.safeParse(body).success).toBe(false)
+      expect(childMasterSchema.safeParse(master()).success).toBe(true)
+    })
+
+    it('lets a new child omit it (a contract child)', () => {
+      expect(childCreateSchema.parse(body).admissionStatus).toBe('contract')
+    })
+  })
+
   describe('waitlist children are never active', () => {
     it('stays out of the active list, the birthdays and the document overview even with a past planned date', () => {
       const id = addChild(db, 1, {
-        lastName: 'Wartend', admissionStatus: 'waitlist', entryDate: null, plannedEntryDate: '2025-09-01', waitlistedOn: '2025-01-01',
+        lastName: 'Wartend', admissionStatus: 'waitlist', entryDate: '2025-09-01', plannedEntryDate: '2025-09-01', waitlistedOn: '2025-01-01',
       })
       addChild(db, 1, { lastName: 'Aktiv' })
       expect(names(listChildren(db, 1, 'active', TODAY))).toEqual(['Aktiv'])
@@ -111,7 +135,7 @@ describe('admission status and planned lists', () => {
       const group = addGroup(db, 1, 'Mäuse')
       const careType = createCareType(db, 1, { name: 'Ganztag', start: 420, end: 960, sortOrder: 0 })
       const id = addChild(db, 1, { lastName: 'Kind', entryDate: null, groupId: group, careTypeId: careType.id })
-      db.update(children).set({ note: 'Geschwisterkind' }).run()
+      db.update(children).set({ note: 'Geschwisterkind' }).where(eq(children.id, id)).run()
       const phoneOf = () => listPlanned(db, 1, TODAY).contracted.find(item => item.id === id)!.phone
       expect(phoneOf()).toBe('')
       addContact(db, admin, 1, id, contact({ name: 'Erste', phoneWork: '03', phoneHome: '02' }), TODAY, NOW)

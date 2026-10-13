@@ -230,7 +230,7 @@ export function updateChildMaster(
 ): void {
   const row = loadEditableChild(db, actor, facilityId, id, today)
   const master = checkedMaster(db, facilityId, input, today, row.waitlistedOn)
-  // A waitlist child cannot have left.
+  // A waitlist child cannot have left: the purge job keys on leftOn and must never delete a waitlist record.
   const leftOn = master.admissionStatus === 'waitlist' ? { leftOn: null } : {}
   db.update(children).set({ ...master, ...leftOn, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
 }

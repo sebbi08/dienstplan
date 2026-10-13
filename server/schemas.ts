@@ -181,7 +181,8 @@ export const childMasterSchema = z.object({
   careTypeId: nullableId,
   entryDate: optionalDate,
   plannedEntryDate: optionalDate,
-  admissionStatus: z.enum(['waitlist', 'contract']).default('contract'),
+  // Required: an old client omitting it must not silently turn a waitlist child into a contract child.
+  admissionStatus: z.enum(['waitlist', 'contract']),
   waitlistedOn: optionalDate.default(null),
   infoMeetingDate: optionalDate,
   schoolStartDate: optionalDate,
@@ -189,6 +190,10 @@ export const childMasterSchema = z.object({
   schoolDistrict: z.string().max(100),
   keyEducatorId: nullableId,
   note: z.string().max(2000),
+})
+/** A new child may omit the admission status (a contract child). */
+export const childCreateSchema = childMasterSchema.extend({
+  admissionStatus: z.enum(['waitlist', 'contract']).default('contract'),
 })
 export const childHealthSchema = z.object({
   measlesProof: triState,
