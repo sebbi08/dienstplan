@@ -50,8 +50,8 @@ und meldet Schulkinder zum 1. September automatisch ab – außer sie wechseln i
 - **Vertragsbeginn:** `Eintritt`, sonst `geplanter Eintritt`.
 - **Errechneter Schulstart:** siehe Abschnitt 7. **Schulstart** eines Kindes: der von Hand eingetragene
   `voraussichtliche Schulstart`, sonst der errechnete.
-- **Letzter Tag:** `Austritt`; sonst der Tag vor dem Schulstart – außer das Kind ist am Schulstart in einer
-  Gruppe für Schulkinder, dann offen.
+- **Letzter Tag:** `Austritt`; sonst der Tag vor dem Schulstart – außer das Kind bleibt wegen einer Gruppe für
+  Schulkinder (am Schulstart oder durch einen späteren Wechsel, siehe 7.4), dann offen.
 - **Plätze:** definierte Kinderanzahl einer Gruppe.
 - **Kita-Jahr J/J+1:** 1. September J bis 31. August J+1, Anzeige „2026/27“.
 - **Gruppenhistorie:** für jedes Kind die Folge „ab Datum X in Gruppe G“ (einschließlich geplanter Wechsel);
@@ -206,28 +206,54 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
 ### 7.3 Automatische Abmeldung
 
 - Schalter je Einrichtung (Träger): **„Schulkinder automatisch abmelden“**, Vorbelegung aus.
-- Beim Einschalten zeigt die App in der Bestätigung, welche Kinder **sofort** abgemeldet würden (Schulstart
-  schon erreicht) – mit Namen und Austrittsdatum. Erst nach Bestätigung wird eingeschaltet.
+- Beim Einschalten zeigt die App in der Bestätigung, welche Kinder **sofort** abgemeldet werden (Schulstart
+  schon erreicht) – mit Namen und Austrittsdatum. Mit der Bestätigung wird eingeschaltet, und genau die
+  angezeigten Kinder werden im selben Schritt abgemeldet. Hat sich die Liste seit der Anzeige geändert, lehnt
+  die App ab (`auto_leave_preview_changed`) und zeigt sie neu. Ausschalten braucht keine Bestätigung.
 - Täglicher Lauf bei eingeschaltetem Schalter: Jedes aktive Kind mit Stand „Vertrag“, ohne Austritt, dessen
-  Schulstart erreicht ist (≤ heute) und das am Schulstart nicht in einer Gruppe für Schulkinder ist, bekommt
+  Schulstart erreicht ist (≤ heute) und das nicht wegen einer Gruppe für Schulkinder bleibt (7.4), bekommt
   den Austritt „Tag vor dem Schulstart“ (31.8.) und ist damit archiviert; die Löschfrist der Kinderakte läuft.
-  Das Server-Protokoll vermerkt nur die Anzahl.
+  Das Server-Protokoll vermerkt nur die Anzahl. Vorschau, Einschalten und Lauf verwenden dieselbe Auswahl. Jede
+  Einrichtung wird für sich verarbeitet; ein Fehler in einer Einrichtung hält die anderen nicht auf.
+- **Nicht automatisch abgemeldet** wird ein Kind,
+  - das erst am oder nach seinem Schulstart eingetreten ist (der Austritt läge vor dem Eintritt; die Belegung
+    nennt es im Hinweis „Schulstart oder Austritt liegt vor dem Eintritt“),
+  - dessen Akte mit diesem Austritt sofort gelöscht würde (Löschfrist schon abgelaufen),
+  - für das ein Gruppenwechsel mit weiterem Betreuungsvertrag geplant ist, der nach dem Austritt läge.
+
+  Diese Kinder bleiben aktiv und stehen in der Liste „Schulkinder zum 1.9.“, bis Leitung oder Träger von Hand
+  entscheiden.
+- **Der Schalter schaltet sich aus**, wenn sich ändert, wen er trifft: wenn der Stichtag der Einrichtung
+  geändert wird, wenn einer Gruppe der Einrichtung das Kennzeichen „für Schulkinder“ genommen wird, und in
+  allen Einrichtungen, wenn die Löschfrist der Kinderakte geändert wird. Der Träger schaltet ihn danach mit der
+  neuen Liste wieder ein.
 - Unabhängig vom Schalter: Reiter „Belegung“ zeigt ab 1. März die Liste **„Schulkinder zum 1.9.“** des
   kommenden Septembers (Name, Gruppe, Schulstart, ggf. geplanter Wechsel in eine Schulkind-Gruppe), damit
   Zurückstellungen rechtzeitig eingetragen werden. Bei ausgeschaltetem Schalter gibt es dort den Knopf „zum
   31.8. abmelden“ je Kind.
 - **Abmeldung zurücknehmen** bei einem Kind, dessen Schulstart schon erreicht ist, verlangt einen neuen,
   künftigen „voraussichtlichen Schulstart“ (`school_start_required`), damit der Lauf es nicht erneut abmeldet –
-  außer das Kind ist in einer Gruppe für Schulkinder.
+  außer das Kind bleibt wegen einer Gruppe für Schulkinder (7.4).
 
 ### 7.4 Hort / Schulkindbetreuung
 
 - Der Träger kennzeichnet eine Gruppe als **„für Schulkinder“** (in der Gruppenverwaltung).
 - Ein **Gruppenwechsel in eine solche Gruppe** kann nur geplant werden, wenn „weiterer Betreuungsvertrag
   abgeschlossen“ bestätigt ist (`new_contract_required`); der Wechseltag ist der Beginn dieses Vertrags.
-  Beim Vollzug wird die Markierung „Betreuungsvertrag nicht bestätigt“ gesetzt (6.3).
-- Ein Kind, das am Schulstart in einer Gruppe für Schulkinder ist (laut Historie einschließlich geplanter
-  Wechsel), wird nicht automatisch abgemeldet und hat kein errechnetes Ende; es wird von Hand abgemeldet.
+  Beim Vollzug wird die Markierung „Betreuungsvertrag nicht bestätigt“ gesetzt (6.3) – maßgeblich ist, ob die
+  Gruppe am Wechseltag „für Schulkinder“ ist, nicht ob sie es beim Planen war.
+- **Ein Kind bleibt**, wenn es am Schulstart in einer Gruppe für Schulkinder ist oder seine Gruppenhistorie
+  (einschließlich geplanter Wechsel) danach in eine solche Gruppe führt – etwa wenn der Hortvertrag erst am
+  13.9. beginnt. Ein Kind, das bleibt, wird nicht automatisch abgemeldet, hat kein errechnetes Ende (offener
+  Aufenthalt in der Belegung; es steht nicht im Hinweis „Schulstart oder Austritt liegt vor dem Eintritt“) und
+  wird von Hand abgemeldet. Belegung,
+  Vorschau, täglicher Lauf, Liste „Schulkinder zum 1.9.“ und „Abmeldung zurücknehmen“ urteilen nach derselben
+  Regel.
+- Der automatische Lauf löscht nie einen geplanten Wechsel mit weiterem Betreuungsvertrag (7.3).
+- **Kita-Wechsel in eine Einrichtung mit eingeschaltetem Schalter:** Ein Kind mit Stand „Vertrag“ und ohne
+  Austritt, dessen Schulstart (eingetragen, sonst nach dem Stichtag der Ziel-Einrichtung errechnet) schon
+  erreicht ist, kann nicht dorthin verschoben werden (`school_start_reached`): Es käme ohne Gruppe an und würde
+  sofort abgemeldet. Erst den voraussichtlichen Schulstart anpassen oder dort den Schalter ausschalten.
 - In der Belegung zählen Schulkind-Gruppen wie jede andere Gruppe.
 
 ## 8. Rechte

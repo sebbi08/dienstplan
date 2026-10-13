@@ -325,13 +325,28 @@ describe('occupancy table', () => {
       expect(ids(occupancyTable(db, 1, 2030).rows[2]!.cells[AUG]!.present)).toEqual([id])
     })
 
-    it('ends the stay the day before the school start when the change into such a group only comes afterwards', () => {
+    it('keeps the stay open when the change into such a group only comes after the school start', () => {
+      const id = addChild(db, 1, { firstName: 'Anna', lastName: 'A', groupId: bears, birthDate: '2021-06-30', entryDate: '2025-09-01' })
+      planGroupChange(db, admin, 1, id, { groupId: hort, date: '2027-09-13', keep: KEEP_ALL, newContract: true }, TODAY, NOW)
+
+      // Until the change the child counts in its old group, also in the first days of September.
+      const table = occupancyTable(db, 1, 2027)
+      const [bearsRow, , hortRow] = table.rows
+      expect(bearsRow!.cells[SEP]!.present).toEqual([{ id, name: 'Anna A', from: '2025-09-01', to: '2027-09-12' }])
+      expect(bearsRow!.cells[OCT]).toMatchObject({ present: [], fresh: [] })
+      expect(hortRow!.cells[SEP]!.fresh).toEqual([{ id, name: 'Anna A', from: '2027-09-13', to: null }])
+      expect(ids(hortRow!.cells[OCT]!.present)).toEqual([id])
+      expect(ids(table.total.cells[SEP]!.present)).toEqual([id])
+      expect(table.inconsistent).toEqual([])
+    })
+
+    it('ends the stay the day before the school start when the later change leads into another group', () => {
       const id = addChild(db, 1, { groupId: bears, birthDate: '2021-06-30', entryDate: '2025-09-01' })
-      planGroupChange(db, admin, 1, id, { groupId: hort, date: '2027-09-15', keep: KEEP_ALL, newContract: true }, TODAY, NOW)
+      planGroupChange(db, admin, 1, id, { groupId: mice, date: '2027-09-13', keep: KEEP_ALL }, TODAY, NOW)
 
       expect(occupancyTable(db, 1, 2026).rows[0]!.cells[AUG]!.present[0]).toMatchObject({ id, to: '2027-08-31' })
       const table = occupancyTable(db, 1, 2027)
-      expect(table.rows[2]!.cells[SEP]).toMatchObject({ present: [], fresh: [] })
+      expect(table.rows[1]!.cells[SEP]).toMatchObject({ present: [], fresh: [] })
       expect(table.total.cells[SEP]).toMatchObject({ present: [], fresh: [] })
     })
 
@@ -356,6 +371,8 @@ describe('occupancy table', () => {
     const schoolChild = (overrides: Parameters<typeof addChild>[2] = {}) =>
       addChild(db, 1, { birthDate: '2021-06-30', groupId: bears, ...overrides })
     const listed = (today: string) => upcomingSchoolChildren(db, 1, today).map(child => child.id)
+    /** Switches the automatic leaving on as the Träger does: confirming the children the preview shows that day. */
+    const switchOn = (today = TODAY) => setAutoLeave(db, 1, true, today, schoolLeavers(db, 1, today).map(child => child.id))
 
     it('is empty before 1 March and lists the children of the coming 1 September from then on', () => {
       const id = schoolChild({ firstName: 'Lena', lastName: 'Meier' })
@@ -368,21 +385,25 @@ describe('occupancy table', () => {
       expect(upcomingSchoolChildren(db, 1, '2027-08-31')).toEqual([entry])
     })
 
-    it('names the group for school children the child is in on its school start by a planned change', () => {
+    it('names the group for school children the child is in on its school start or changes into afterwards', () => {
       const changes = schoolChild({ firstName: 'Anna', lastName: 'A' })
-      const tooLate = schoolChild({ firstName: 'Ben', lastName: 'B' })
+      const later = schoolChild({ firstName: 'Ben', lastName: 'B' })
       const elsewhere = schoolChild({ firstName: 'Carl', lastName: 'C' })
+      const laterElsewhere = schoolChild({ firstName: 'Dora', lastName: 'D' })
       planGroupChange(db, admin, 1, changes, { groupId: hort, date: '2027-09-01', keep: KEEP_ALL, newContract: true }, TODAY, NOW)
-      planGroupChange(db, admin, 1, tooLate, { groupId: hort, date: '2027-09-15', keep: KEEP_ALL, newContract: true }, TODAY, NOW)
+      planGroupChange(db, admin, 1, later, { groupId: hort, date: '2027-09-13', keep: KEEP_ALL, newContract: true }, TODAY, NOW)
       planGroupChange(db, admin, 1, elsewhere, { groupId: mice, date: '2027-09-01', keep: KEEP_ALL }, TODAY, NOW)
+      planGroupChange(db, admin, 1, laterElsewhere, { groupId: mice, date: '2027-09-13', keep: KEEP_ALL }, TODAY, NOW)
 
       expect(upcomingSchoolChildren(db, 1, '2027-03-01')).toEqual([
         { id: changes, name: 'Anna A', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: 'Hort' },
-        { id: tooLate, name: 'Ben B', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null },
+        { id: later, name: 'Ben B', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: 'Hort' },
         { id: elsewhere, name: 'Carl C', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null },
+        { id: laterElsewhere, name: 'Dora D', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null },
       ])
-      // Exactly those without such a group are the ones the automatic leaving takes.
-      expect(schoolLeavers(db, 1, '2027-09-01').map(child => child.id)).toEqual([tooLate, elsewhere])
+      // Exactly those without such a group are the ones the automatic leaving takes, and the only ones still listed then.
+      expect(schoolLeavers(db, 1, '2027-09-01').map(child => child.id)).toEqual([elsewhere, laterElsewhere])
+      expect(listed('2027-09-01')).toEqual([elsewhere, laterElsewhere])
     })
 
     it('keeps listing the children whose school start is reached until they are deregistered, whatever the month', () => {
@@ -400,7 +421,7 @@ describe('occupancy table', () => {
     })
 
     it('shows exactly the children the automatic leaving takes once their school start is reached', () => {
-      setAutoLeave(db, 1, true)
+      switchOn()
       const id = schoolChild()
       expect(listed('2027-09-01')).toEqual([id])
       expect(schoolLeavers(db, 1, '2027-09-01').map(child => child.id)).toEqual([id])
@@ -413,7 +434,7 @@ describe('occupancy table', () => {
       const expired = schoolChild({ firstName: 'Anna', birthDate: '2017-03-01', entryDate: '2022-09-01' })
       // School start 1 September 2026, but it only started afterwards.
       const startedLate = schoolChild({ firstName: 'Ben', birthDate: '2020-03-01', entryDate: '2026-10-01' })
-      setAutoLeave(db, 1, true)
+      switchOn()
 
       expect(schoolLeavers(db, 1, TODAY)).toEqual([])
       expect(leaveSchoolChildren(db, TODAY)).toBe(0)

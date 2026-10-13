@@ -3,6 +3,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { AppSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { appSettings, facilities } from '../db/schema'
+import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 
 /** The day time tracking starts in the facility (null: not yet). */
@@ -53,10 +54,18 @@ export function getChildRetentionYears(db: Db): number {
   return Number.isInteger(stored) && stored >= 1 && stored <= 10 ? stored : DEFAULT_CHILD_RETENTION_YEARS
 }
 
-/** The Träger sets the retention: whole years from 1 to 10, otherwise 400 invalid_retention. */
+/**
+ * The Träger sets the retention: whole years from 1 to 10, otherwise 400 invalid_retention. Another retention than
+ * before switches the automatic leaving of school children off in every facility: it decides which children the
+ * leaving passes over (those whose record would be deleted at once), so the lists the Träger confirmed no longer hold.
+ */
 export function setChildRetentionYears(db: Db, years: number): void {
   if (!Number.isInteger(years) || years < 1 || years > 10) throw new ServiceError(400, 'invalid_retention')
-  writeSetting(db, CHILD_RETENTION_YEARS, String(years))
+  if (years === getChildRetentionYears(db)) return
+  db.transaction((tx) => {
+    writeSetting(tx, CHILD_RETENTION_YEARS, String(years))
+    switchAutoLeaveOff(tx, null)
+  })
 }
 
 /** The day the automatic deletion of children ran last (null: never). */

@@ -1,14 +1,18 @@
+import { todayIso } from '../../../shared/domain/dates'
 import { autoLeaveSchema } from '../../schemas'
 import { setAutoLeave } from '../../services/schoolChildren'
 
 /**
- * The Träger switches the automatic leaving of school children of the active facility on or off. The daily run does
- * the deregistering (within the hour); the preview route says beforehand whom it takes.
+ * The Träger switches the automatic leaving of school children of the active facility on or off. Switching on takes
+ * `confirmedIds`, the children the preview route showed: they are deregistered at once, and 409
+ * auto_leave_preview_changed answers when they are no longer the ones it would deregister.
  */
 export default defineServiceHandler(async (event) => {
   const provider = await requireProvider(event)
   const facilityId = requireFacility(event, provider)
-  const { autoLeave } = await readValidatedBody(event, autoLeaveSchema.parse)
-  setAutoLeave(useDb(), facilityId, autoLeave)
-  return { ok: true }
+  const { value, confirmedIds } = await readValidatedBody(event, autoLeaveSchema.parse)
+  const deregistered = setAutoLeave(useDb(), facilityId, value, todayIso(), confirmedIds)
+  // Only the number goes into the log, never a name.
+  if (deregistered > 0) console.info(`Deregistered ${deregistered} school child(ren).`)
+  return { ok: true, deregistered }
 })

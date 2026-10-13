@@ -38,27 +38,36 @@ export interface OccupancyCell {
   fresh: CellEntry[]
 }
 
+/** The sort key of an entry's day: "since the beginning" comes before every date. */
+const dayKey = (entry: GroupEntry) => entry.from ?? ''
+
 /**
- * Maximal continuous periods of a child in one group, clipped to `[start, end]`.
- * The group on a day is the history entry with the greatest `from` <= day (null lowest);
- * of several entries with the same date the last one given wins. Without any entry
- * valid on the first day the child is in "no group" (`null`) until the first entry.
+ * The group a history gives on a day: that of the entry with the greatest `from` <= day (null lowest); of several
+ * entries with the same date the last one given wins. Without any entry valid on the day it is "no group" (`null`).
+ * The entries may come in any order.
+ */
+export function groupOnDay(entries: GroupEntry[], day: IsoDate): number | null {
+  let valid: GroupEntry | undefined
+  for (const entry of entries) {
+    if (entry.from !== null && entry.from > day) continue
+    if (valid === undefined || dayKey(entry) >= dayKey(valid)) valid = entry
+  }
+  return valid?.groupId ?? null
+}
+
+/**
+ * Maximal continuous periods of a child in one group, clipped to `[start, end]`. The group on a day is the one
+ * `groupOnDay` gives: before the first entry the child is in "no group" (`null`).
  */
 export function groupStays(child: OccupancyChild): GroupStay[] {
   const { start, end } = child
   if (start === null || isInvertedStay(start, end)) return []
 
   const byDate = new Map<string, GroupEntry>()
-  for (const entry of child.groups) byDate.set(entry.from ?? '', entry)
-  const key = (entry: GroupEntry) => entry.from ?? ''
-  const entries = [...byDate.values()].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
+  for (const entry of child.groups) byDate.set(dayKey(entry), entry)
+  const entries = [...byDate.values()].sort((a, b) => (dayKey(a) < dayKey(b) ? -1 : dayKey(a) > dayKey(b) ? 1 : 0))
 
-  let startGroup: number | null = null
-  for (const entry of entries) {
-    if (entry.from === null || entry.from <= start) startGroup = entry.groupId
-  }
-
-  const stays: GroupStay[] = [{ groupId: startGroup, from: start, to: end }]
+  const stays: GroupStay[] = [{ groupId: groupOnDay(child.groups, start), from: start, to: end }]
   for (const entry of entries) {
     if (entry.from === null || entry.from <= start) continue
     if (end !== null && entry.from > end) continue

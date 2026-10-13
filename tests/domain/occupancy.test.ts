@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  cellState, facilityCell, groupCell, groupStays,
+  cellState, facilityCell, groupCell, groupOnDay, groupStays,
   type CellEntry, type GroupEntry, type OccupancyChild,
 } from '../../shared/domain/occupancy'
 
@@ -12,6 +12,35 @@ const ids = (cell: { present: CellEntry[]; fresh: CellEntry[] }) => ({
   present: cell.present.map(e => e.childId), fresh: cell.fresh.map(e => e.childId),
 })
 const mover = child(1, '2025-09-01', null, [{ from: null, groupId: 1 }, { from: '2027-03-15', groupId: 2 }])
+
+describe('groupOnDay', () => {
+  const history: GroupEntry[] = [{ from: null, groupId: 1 }, { from: '2027-03-15', groupId: 2 }, { from: '2027-09-01', groupId: null }]
+
+  it('is the group of the last entry from that day or earlier', () => {
+    expect(groupOnDay(history, '2020-01-01')).toBe(1)
+    expect(groupOnDay(history, '2027-03-14')).toBe(1)
+    expect(groupOnDay(history, '2027-03-15')).toBe(2)
+    expect(groupOnDay(history, '2027-08-31')).toBe(2)
+    expect(groupOnDay(history, '2027-09-01')).toBeNull()
+  })
+
+  it('does not depend on the order of the entries', () => {
+    const reversed = [...history].reverse()
+    for (const day of ['2020-01-01', '2027-03-15', '2027-08-31', '2030-01-01']) {
+      expect(groupOnDay(reversed, day)).toBe(groupOnDay(history, day))
+    }
+  })
+
+  it('is no group before the first entry and without entries', () => {
+    expect(groupOnDay([{ from: '2027-03-15', groupId: 2 }], '2027-03-14')).toBeNull()
+    expect(groupOnDay([], '2027-03-14')).toBeNull()
+  })
+
+  it('lets the last of several entries for the same day win', () => {
+    expect(groupOnDay([{ from: '2027-03-15', groupId: 2 }, { from: '2027-03-15', groupId: 3 }], '2027-03-15')).toBe(3)
+    expect(groupOnDay([{ from: null, groupId: 1 }, { from: null, groupId: 4 }], '2027-03-15')).toBe(4)
+  })
+})
 
 describe('groupCell', () => {
   it('lists an entry on 15 Oct as bracket in October and main from November', () => {

@@ -74,7 +74,7 @@ describe('group history and planned group changes', () => {
       expect(groupOf(id)).toBe(bears)
       const planned = pending(id)!
       expect(planned).toEqual({
-        id: planned.id, groupId: mice, groupName: 'Mäuse', date: '2027-03-15', keep: { ...KEEP_ALL, health: false },
+        id: planned.id, groupId: mice, groupName: 'Mäuse', date: '2027-03-15', keep: { ...KEEP_ALL, health: false }, newContract: false,
       })
       expect(history(id)).toEqual([[null, bears, true], ['2027-03-15', mice, false]])
       const stored = db.select().from(childGroupChanges).where(eq(childGroupChanges.id, planned.id)).get()!
@@ -230,7 +230,7 @@ describe('group history and planned group changes', () => {
       updateGroupChange(db, admin, 1, changeId, change(owls, '2027-04-01', { documents: false }), TODAY)
 
       expect(pending(id)).toEqual({
-        id: changeId, groupId: owls, groupName: 'Eulen', date: '2027-04-01', keep: { ...KEEP_ALL, documents: false },
+        id: changeId, groupId: owls, groupName: 'Eulen', date: '2027-04-01', keep: { ...KEEP_ALL, documents: false }, newContract: false,
       })
       expect(groupOf(id)).toBe(bears)
       expect(applyDueGroupChanges(db, '2027-03-15')).toBe(0)
@@ -632,7 +632,7 @@ describe('group history and planned group changes', () => {
         expect(groupOf(id)).toBe(bears)
 
         plan(id, change(hort, '2027-09-01', {}, true))
-        expect(pending(id)).toMatchObject({ groupId: hort, groupName: 'Hort', date: '2027-09-01' })
+        expect(pending(id)).toMatchObject({ groupId: hort, groupName: 'Hort', date: '2027-09-01', newContract: true })
         expect(newContracts(id)).toEqual([false, true])
       })
 
@@ -692,6 +692,24 @@ describe('group history and planned group changes', () => {
         plan(id, change(hort, TODAY))
         expect(groupOf(id)).toBe(hort)
         expect(contractMark(id)).toBeNull()
+      })
+
+      it('sets the marker by what the group is when the change is applied, not when it was planned', () => {
+        // Planned while the Eulen were an ordinary group; they are for school children by the change day.
+        const flaggedLater = addChild(db, 1, { groupId: bears })
+        plan(flaggedLater, change(owls, '2027-09-01'))
+        // Planned with the further contract; the Hort is an ordinary group by the change day.
+        const unflaggedLater = addChild(db, 1, { groupId: bears })
+        plan(unflaggedLater, change(hort, '2027-09-01', {}, true))
+        expect(pending(flaggedLater)).toMatchObject({ newContract: false })
+        expect(pending(unflaggedLater)).toMatchObject({ newContract: true })
+        setGroupForSchoolChildren(db, owls, true)
+        setGroupForSchoolChildren(db, hort, false)
+
+        expect(applyDueGroupChanges(db, '2027-09-01')).toBe(2)
+
+        expect([groupOf(flaggedLater), contractMark(flaggedLater)]).toEqual([owls, '2027-09-01'])
+        expect([groupOf(unflaggedLater), contractMark(unflaggedLater)]).toEqual([hort, null])
       })
     })
 

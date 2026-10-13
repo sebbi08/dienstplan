@@ -675,6 +675,8 @@ export const de = {
     group_has_pending_changes: 'In diese Gruppe ist noch ein Gruppenwechsel geplant. Bitte ihn zuerst ändern oder löschen.',
     new_contract_required: 'Für den Wechsel in eine Gruppe für Schulkinder ist ein weiterer Betreuungsvertrag nötig. Bitte bestätige ihn im Dialog „Gruppenwechsel planen“.',
     school_start_required: 'Der Schulstart dieses Kindes ist schon erreicht. Bitte gib einen neuen voraussichtlichen Schulstart an.',
+    school_start_reached: 'Der Schulstart dieses Kindes ist schon erreicht. In der Ziel-Einrichtung würde es sofort abgemeldet. Passe zuerst den voraussichtlichen Schulstart an oder schalte dort die automatische Abmeldung aus.',
+    auto_leave_preview_changed: 'Die Liste der betroffenen Kinder hat sich geändert. Bitte prüfe sie noch einmal.',
     birth_date_in_future: 'Das Geburtsdatum darf nicht in der Zukunft liegen.',
     contact_not_found: 'Diese Bezugsperson existiert nicht mehr.',
     contact_name_required: 'Bitte einen Namen für die Bezugsperson angeben.',

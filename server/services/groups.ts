@@ -4,8 +4,9 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
+  childGroupChanges, children, coverageRules, employees, entries, facilities, groups, weekTemplateMarks, weekTemplates,
 } from '../db/schema'
+import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 
@@ -82,10 +83,21 @@ export function setGroupCapacity(db: Db, facilityId: number, id: number, capacit
  * The Träger flags a group as being for school children (after-school care) or takes the flag away; 404
  * group_not_found for an unknown group. A child in such a group on its school start stays instead of leaving the day
  * before, and a change into it needs a further care contract.
+ *
+ * Taking the flag away from a group that had it makes its school children leave, so it switches the facility's
+ * automatic leaving off in the same transaction: the Träger sees whom it takes before switching it on again. Returns
+ * the switch as it is afterwards.
  */
-export function setGroupForSchoolChildren(db: Db, groupId: number, value: boolean): void {
-  facilityOfGroup(db, groupId)
-  db.update(groups).set({ forSchoolChildren: value }).where(eq(groups.id, groupId)).run()
+export function setGroupForSchoolChildren(db: Db, groupId: number, value: boolean): { autoLeave: boolean } {
+  const facilityId = facilityOfGroup(db, groupId)
+  return db.transaction((tx) => {
+    const widens = !value && isForSchoolChildren(tx, groupId)
+    tx.update(groups).set({ forSchoolChildren: value }).where(eq(groups.id, groupId)).run()
+    if (widens) switchAutoLeaveOff(tx, facilityId)
+    const facility = tx.select({ autoLeave: facilities.autoLeaveSchoolChildren }).from(facilities)
+      .where(eq(facilities.id, facilityId)).get()
+    return { autoLeave: facility?.autoLeave ?? false }
+  })
 }
 
 /** Whether the group is for school children (null = no group: never). */

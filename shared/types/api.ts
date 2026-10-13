@@ -187,14 +187,17 @@ export interface SchoolSettingsDto {
   cutoffMonth: number
   cutoffDay: number
   ageYears: number
-  /** The daily run deregisters the facility's school children to the day before their school start. */
+  /**
+   * The daily run deregisters the facility's school children to the day before their school start. Switched off again
+   * by the server when the cutoff, a group's flag "for school children" or the retention period changes.
+   */
   autoLeave: boolean
 }
 
 /** The cutoff alone, as the Träger stores it. */
 export type SchoolCutoffInput = Pick<SchoolSettingsDto, 'cutoffMonth' | 'cutoffDay' | 'ageYears'>
 
-/** A child the automatic leaving deregisters (at its next run, once it is switched on): its leaving day is the day before its school start. */
+/** A child the automatic leaving deregisters (when it is switched on, and in its daily run): its leaving day is the day before its school start. */
 export interface SchoolLeaverDto {
   id: number
   name: string
@@ -210,8 +213,8 @@ export interface UpcomingSchoolChildDto {
   groupId: number | null
   schoolStart: IsoDate
   /**
-   * The group for school children the child is in on its school start, by a group change that is planned or already
-   * applied; null = none, so its stay ends the day before the school start.
+   * The group for school children that makes the child stay: the one it is in on its school start, else the first one
+   * it changes into afterwards (planned or applied); null = none, so its stay ends the day before the school start.
    */
   pendingSchoolGroup: string | null
 }
@@ -255,7 +258,7 @@ export interface OccupancyDto {
   undated: { id: number; name: string }[]
   /**
    * Contract children whose stay ends before it starts (left or school start before the contract start); not counted.
-   * A child in a group for school children on its school start has an open stay and is not one of them.
+   * A child that a group for school children makes stay has an open stay and is not one of them.
    */
   inconsistent: { id: number; name: string }[]
 }
@@ -290,6 +293,8 @@ export interface GroupChangeDto {
   groupName: string
   date: IsoDate
   keep: Record<KeepSection, boolean>
+  /** The change was planned into a group for school children, with the further care contract confirmed. */
+  newContract: boolean
 }
 
 /** An active child with sections to confirm after a group change (the "Offen" list). */

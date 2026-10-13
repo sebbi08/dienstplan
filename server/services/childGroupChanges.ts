@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, gte, isNotNull, isNull, lte, or } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import type { GroupEntry } from '../../shared/domain/occupancy'
+import { groupOnDay, type GroupEntry } from '../../shared/domain/occupancy'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   KEEP_SECTIONS, type GroupChangeDto, type GroupChangeInput, type KeepSection, type ReviewSection, type SessionUser,
@@ -68,7 +68,25 @@ export function pendingGroupChange(db: Db, childId: number): GroupChangeDto | nu
     .orderBy(...HISTORY_ORDER).get()
   if (!row) return null
   const { change, groupName } = row
-  return { id: change.id, groupId: change.groupId!, groupName, date: change.fromDate!, keep: keepOf(change) }
+  return {
+    id: change.id, groupId: change.groupId!, groupName, date: change.fromDate!, keep: keepOf(change),
+    newContract: change.newContract,
+  }
+}
+
+/**
+ * Per child of the facility with a planned change that carries a further care contract: the day of that change. The
+ * automatic leaving of school children passes such a child over, so it never deletes a change somebody concluded a
+ * contract for.
+ */
+export function plannedContractChanges(db: Db, facilityId: number): Map<number, IsoDate> {
+  const rows = db.select({ childId: childGroupChanges.childId, date: childGroupChanges.fromDate }).from(childGroupChanges)
+    .innerJoin(children, eq(children.id, childGroupChanges.childId))
+    .where(and(
+      eq(children.facilityId, facilityId), isNull(childGroupChanges.appliedAt), isNotNull(childGroupChanges.fromDate),
+      eq(childGroupChanges.newContract, true),
+    )).all()
+  return new Map(rows.map(row => [row.childId, row.date!]))
 }
 
 /**
@@ -97,9 +115,9 @@ export function recordStartGroup(db: Db, childId: number, groupId: number | null
 
 /**
  * Applies the planned changes whose day has come (`childId`: only this child's), oldest first: the child gets the
- * group and, for every section that is not kept, the mark "not confirmed since the change day"; a change with a
- * further care contract (into a group for school children) marks the care contract likewise. Children who left before
- * the change day are skipped. Must run inside a transaction.
+ * group and, for every section that is not kept, the mark "not confirmed since the change day"; a change into a group
+ * that is for school children on that day marks the further care contract likewise. Children who left before the
+ * change day are skipped. Must run inside a transaction.
  */
 function applyDue(db: Db, today: IsoDate, now: Date, childId?: number): number {
   const due = db.select({ change: childGroupChanges }).from(childGroupChanges)
@@ -113,13 +131,16 @@ function applyDue(db: Db, today: IsoDate, now: Date, childId?: number): number {
   for (const { change } of due) {
     const keep = keepOf(change)
     const marked: ReviewSection[] = KEEP_SECTIONS.filter(section => !keep[section])
-    if (change.newContract) marked.push('contract')
+    // What the group is now decides, not what it was when the change was planned: a group flagged since then asks
+    // for the contract, one that lost the flag is an ordinary group.
+    const intoSchoolGroup = isForSchoolChildren(db, change.groupId)
+    if (intoSchoolGroup) marked.push('contract')
     const marks = Object.fromEntries(marked.map(section => [REVIEW_COLUMN[section], change.fromDate]))
     db.update(children).set({ groupId: change.groupId, ...marks }).where(eq(children.id, change.childId)).run()
     db.update(childGroupChanges).set({ appliedAt: now.toISOString() }).where(eq(childGroupChanges.id, change.id)).run()
     // A documents marker nobody could act on (nothing required, or everything uploaded since) is not set at all, and
     // neither is a contract marker when the care contract was already uploaded since the change day.
-    if (!keep.documents || change.newContract) settleDocumentReview(db, change.childId)
+    if (!keep.documents || intoSchoolGroup) settleDocumentReview(db, change.childId)
   }
   return due.length
 }
@@ -153,10 +174,7 @@ function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupC
   if (child.admissionStatus === 'waitlist') throw new ServiceError(400, 'waitlist_no_group_change')
   if (!isValidIsoDate(input.date)) throw new ServiceError(400, 'invalid_date')
   assertGroup(db, facilityId, input.groupId)
-  let groupThen: number | null = null
-  for (const entry of others) {
-    if (entry.fromDate === null || entry.fromDate <= input.date) groupThen = entry.groupId
-  }
+  const groupThen = groupOnDay(others.map(entry => ({ from: entry.fromDate, groupId: entry.groupId })), input.date)
   if (groupThen === input.groupId) throw new ServiceError(400, 'same_group')
   if (others.some(entry => entry.appliedAt !== null && entry.fromDate !== null && entry.fromDate >= input.date)) {
     throw new ServiceError(400, 'group_change_order')

@@ -1,15 +1,16 @@
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { childStatus, purgeDate } from '../../shared/domain/children'
 import { addDays, daysInMonth } from '../../shared/domain/dates'
-import type { GroupEntry, OccupancyChild } from '../../shared/domain/occupancy'
+import { groupOnDay, type GroupEntry, type OccupancyChild } from '../../shared/domain/occupancy'
 import { effectiveSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
 import type { GroupDto, SchoolCutoffInput, SchoolLeaverDto, SchoolSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { children, facilities } from '../db/schema'
+import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
-import { groupHistories, registerLeaving } from './childGroupChanges'
+import { groupHistories, plannedContractChanges, registerLeaving } from './childGroupChanges'
 import { listGroups } from './groups'
 
 type ChildRow = typeof children.$inferSelect
@@ -33,27 +34,53 @@ export function schoolCutoffOf(db: Db, facilityId: number): SchoolCutoff {
   return { month: settings.cutoffMonth, day: settings.cutoffDay, ageYears: settings.ageYears }
 }
 
-/** Stores the cutoff: a real calendar day (29 February allowed) and an age of 4 to 8 years, else 400 invalid_school_cutoff. */
-export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolCutoffInput): void {
+/**
+ * Stores the cutoff: a real calendar day (29 February allowed) and an age of 4 to 8 years, else 400
+ * invalid_school_cutoff. Another cutoff than before moves school starts, so it switches the facility's automatic
+ * leaving off in the same transaction: the Träger sees whom it takes now before switching it on again. Returns the
+ * settings as they are afterwards.
+ */
+export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolCutoffInput): SchoolSettingsDto {
   const { cutoffMonth, cutoffDay, ageYears } = input
   const wholeNumbers = [cutoffMonth, cutoffDay, ageYears].every(Number.isInteger)
   if (!wholeNumbers || cutoffMonth < 1 || cutoffMonth > 12 || cutoffDay < 1 || cutoffDay > daysInMonth(LEAP_YEAR, cutoffMonth)
     || ageYears < 4 || ageYears > 8) {
     throw new ServiceError(400, 'invalid_school_cutoff')
   }
-  getSchoolSettings(db, facilityId)
-  db.update(facilities)
-    .set({ schoolCutoffMonth: cutoffMonth, schoolCutoffDay: cutoffDay, schoolAgeYears: ageYears })
-    .where(eq(facilities.id, facilityId)).run()
+  return db.transaction((tx) => {
+    const stored = getSchoolSettings(tx, facilityId)
+    if (stored.cutoffMonth !== cutoffMonth || stored.cutoffDay !== cutoffDay || stored.ageYears !== ageYears) {
+      tx.update(facilities)
+        .set({ schoolCutoffMonth: cutoffMonth, schoolCutoffDay: cutoffDay, schoolAgeYears: ageYears })
+        .where(eq(facilities.id, facilityId)).run()
+      switchAutoLeaveOff(tx, facilityId)
+    }
+    return getSchoolSettings(tx, facilityId)
+  })
 }
 
 /**
- * The Träger switches the automatic leaving of the facility's school children on or off (404 facility_not_found). It
- * only stores the switch: the daily run (`leaveSchoolChildren`) does the rest, and `schoolLeavers` says beforehand whom.
+ * The Träger switches the automatic leaving of the facility's school children on or off (404 facility_not_found).
+ *
+ * Switching on needs the ids of the children the Träger has just seen in the preview (`schoolLeavers`). They must be
+ * exactly the children it would deregister now, in any order (409 auto_leave_preview_changed otherwise, and nothing
+ * changes). Then the switch is stored and these children are deregistered in the same transaction, so what was
+ * confirmed is what happens. Returns how many children were deregistered. Switching off needs no ids and deregisters
+ * nobody.
  */
-export function setAutoLeave(db: Db, facilityId: number, value: boolean): void {
-  getSchoolSettings(db, facilityId)
-  db.update(facilities).set({ autoLeaveSchoolChildren: value }).where(eq(facilities.id, facilityId)).run()
+export function setAutoLeave(db: Db, facilityId: number, value: boolean, today: IsoDate, confirmedIds: number[] = []): number {
+  return db.transaction((tx) => {
+    getSchoolSettings(tx, facilityId)
+    if (value) {
+      const confirmed = new Set(confirmedIds)
+      const leavers = schoolLeavers(tx, facilityId, today)
+      if (leavers.length !== confirmed.size || leavers.some(leaver => !confirmed.has(leaver.id))) {
+        throw new ServiceError(409, 'auto_leave_preview_changed')
+      }
+    }
+    tx.update(facilities).set({ autoLeaveSchoolChildren: value }).where(eq(facilities.id, facilityId)).run()
+    return value ? leaveFacilitySchoolChildren(tx, facilityId, today) : 0
+  })
 }
 
 /** What the school rules say about a child. */
@@ -61,24 +88,16 @@ export interface SchoolFacts {
   /** The manual school start, else the one the facility's cutoff yields from the birth date. */
   schoolStart: IsoDate
   /**
-   * The group for school children the child is in on its school start, by its group history with the planned changes;
-   * null = none, so its stay ends the day before the school start.
+   * The group for school children that makes the child stay: the one it is in on its school start, else the first one
+   * its group history enters afterwards (planned changes included, so an after-school contract that starts some days
+   * into the school year counts). null = none, so its stay ends the day before the school start.
    */
   schoolGroup: GroupDto | null
 }
 
-/** The group a history (in the history order) gives on a day: its last entry from that day or earlier. */
-function groupOn(history: GroupEntry[], day: IsoDate): number | null {
-  let groupId: number | null = null
-  for (const entry of history) {
-    if (entry.from === null || entry.from <= day) groupId = entry.groupId
-  }
-  return groupId
-}
-
 /**
  * The school rules of a facility, loaded once for all its children: the one place that says when a child's school
- * start is and whether it is in a group for school children then. The occupancy, the automatic leaving, its preview,
+ * start is and whether a group for school children makes it stay. The occupancy, the automatic leaving, its preview,
  * the list of the coming school children and taking a leaving back all judge by it. A group of another facility in
  * the history (from before the child moved here) counts as no group, whatever it is flagged as there.
  */
@@ -93,8 +112,14 @@ export function schoolRules(db: Db, facilityId: number): {
     histories,
     factsOf: (row) => {
       const schoolStart = effectiveSchoolStart(row.schoolStartDate, row.birthDate, cutoff)
-      const groupId = groupOn(histories.get(row.id) ?? [], schoolStart)
-      return { schoolStart, schoolGroup: groupId === null ? null : schoolGroups.get(groupId) ?? null }
+      // The histories come in the history order: the group on the school start, then those of the later entries.
+      const history = histories.get(row.id) ?? []
+      const fromSchoolStart = [
+        groupOnDay(history, schoolStart),
+        ...history.filter(entry => entry.from !== null && entry.from > schoolStart).map(entry => entry.groupId),
+      ]
+      const staysIn = fromSchoolStart.find(groupId => groupId !== null && schoolGroups.has(groupId))
+      return { schoolStart, schoolGroup: staysIn == null ? null : schoolGroups.get(staysIn)! }
     },
   }
 }
@@ -105,7 +130,7 @@ const byName = (a: ChildRow, b: ChildRow) =>
 /**
  * The input of the occupancy table: the facility's contract children (those who left included), each with the stay from
  * its contract start to its last day and its group history, planned changes included. The last day is `left_on`, else
- * the day before the school start; a child in a group for school children on its school start stays for good (open).
+ * the day before the school start; a child a group for school children makes stay (see `SchoolFacts`) stays for good (open).
  * Contract children without a start are listed as undated; those whose stay ends before it starts (left before the
  * start, or already of school age at the start without such a group) never count and are listed as inconsistent.
  * Everything is in the order last name, first name, id.
@@ -152,52 +177,72 @@ export function activeSchoolChildren(db: Db, facilityId: number, today: IsoDate)
     .map(row => ({ row, ...rules.factsOf(row) }))
 }
 
-/** The child's school start is reached and it is not in a group for school children on it: its stay has ended. */
+/** The child's school start is reached and no group for school children makes it stay: its stay has ended. */
 export function isSchoolStartDue(child: SchoolFacts, today: IsoDate): boolean {
   return child.schoolStart <= today && child.schoolGroup === null
 }
 
 /**
  * The one selection of the automatic leaving: the facility's active contract children without a leaving day whose
- * school start is reached and who are not in a group for school children on it, each with the leaving day it gets (the
- * day before its school start, however long ago that is). The daily run deregisters exactly these and the preview
- * shows exactly these, so they cannot differ. The switch plays no part here: this is what the run does once it is on.
+ * school start is reached and whom no group for school children makes stay, each with the leaving day it gets (the day
+ * before its school start, however long ago that is). The daily run deregisters exactly these, switching on
+ * deregisters exactly these and the preview shows exactly these, so they cannot differ. The switch plays no part
+ * here: this is what happens once it is on.
  *
- * Two kinds of children are left out, because nobody could have expected what the leaving day would do to them: a
+ * Three kinds of children are left out, because nobody could have expected what the leaving day would do to them: a
  * child that only started on or after its school start (it would have left before it came; the occupancy lists it as
- * inconsistent), and a child whose record would be deleted at once (its leaving day is already past the retention
- * period). Both stay active, and in the list of the coming school children, until somebody decides about them by hand.
+ * inconsistent), a child whose record would be deleted at once (its leaving day is already past the retention
+ * period), and a child with a planned group change that carries a further care contract (the change would be deleted
+ * with the leaving, although its group may only have lost the flag "for school children" by mistake). They stay
+ * active, and in the list of the coming school children, until somebody decides about them by hand.
  */
 export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): SchoolLeaverDto[] {
   const retentionYears = getChildRetentionYears(db)
+  const contractChanges = plannedContractChanges(db, facilityId)
   const leavers: SchoolLeaverDto[] = []
   for (const child of activeSchoolChildren(db, facilityId, today)) {
     if (!isSchoolStartDue(child, today)) continue
     const { row, schoolStart } = child
     const leftOn = addDays(schoolStart, -1)
-    const leftBeforeStart = row.entryDate === null || leftOn < row.entryDate
-    if (leftBeforeStart || purgeDate(leftOn, retentionYears) <= today) continue
+    // An active child has an entry day.
+    const leftBeforeStart = leftOn < row.entryDate!
+    const deletedAtOnce = purgeDate(leftOn, retentionYears) <= today
+    const contractChange = contractChanges.get(row.id)
+    const losesContractChange = contractChange !== undefined && contractChange > leftOn
+    if (leftBeforeStart || deletedAtOnce || losesContractChange) continue
     leavers.push({ id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn })
   }
   return leavers
 }
 
 /**
- * The daily run: in every facility with the switch on, the children `schoolLeavers` selects leave on the day before
- * their school start, like a child that is deregistered by hand (a planned group change after that day is deleted).
- * They are archived with that; the retention period runs from the leaving day. Returns how many children were
- * deregistered. Running it again changes nothing, because a child with a leaving day is never selected.
+ * Deregisters the facility's children `schoolLeavers` selects: each leaves on the day before its school start, like a
+ * child that is deregistered by hand (a planned group change after that day is deleted). They are archived with that;
+ * the retention period runs from the leaving day. Returns how many. Must run inside a transaction.
+ */
+function leaveFacilitySchoolChildren(db: Db, facilityId: number, today: IsoDate): number {
+  const leavers = schoolLeavers(db, facilityId, today)
+  for (const leaver of leavers) registerLeaving(db, leaver.id, leaver.leftOn)
+  return leavers.length
+}
+
+/**
+ * The daily run: deregisters the school children of every facility with the switch on (see
+ * `leaveFacilitySchoolChildren`) and returns how many. Running it again changes nothing, because a child with a
+ * leaving day is never selected. Each facility has its own transaction: when one fails, nothing of it is written, the
+ * others are done all the same and the next run tries again. The failure is logged with the facility's id only.
  */
 export function leaveSchoolChildren(db: Db, today: IsoDate): number {
-  return db.transaction((tx) => {
-    const switchedOn = tx.select({ id: facilities.id }).from(facilities).where(eq(facilities.autoLeaveSchoolChildren, true)).all()
-    let deregistered = 0
-    for (const facility of switchedOn) {
-      for (const leaver of schoolLeavers(tx, facility.id, today)) {
-        registerLeaving(tx, leaver.id, leaver.leftOn)
-        deregistered += 1
-      }
+  const switchedOn = db.select({ id: facilities.id }).from(facilities)
+    .where(eq(facilities.autoLeaveSchoolChildren, true)).orderBy(asc(facilities.id)).all()
+  let deregistered = 0
+  for (const facility of switchedOn) {
+    try {
+      deregistered += db.transaction(tx => leaveFacilitySchoolChildren(tx, facility.id, today))
     }
-    return deregistered
-  })
+    catch (error) {
+      console.error(`Deregistering the school children of facility ${facility.id} failed`, error)
+    }
+  }
+  return deregistered
 }

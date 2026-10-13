@@ -2,7 +2,7 @@ import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
 import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
-import { computedSchoolStart } from '../../shared/domain/schoolStart'
+import { computedSchoolStart, effectiveSchoolStart } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
@@ -27,7 +27,7 @@ import {
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
-import { schoolCutoffOf, schoolRules } from './schoolChildren'
+import { getSchoolSettings, schoolCutoffOf, schoolRules } from './schoolChildren'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
 const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key.slice(1)}` as ConsentColumn
@@ -454,13 +454,22 @@ const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivit
  * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility); every document gets the
  * like-named document type of the new facility, otherwise its "Sonstiges" (created with the default flags when missing).
  * The group history ends with "no group from today"; a planned group change is deleted.
+ *
+ * A contract child without a leaving day whose school start is reached (by its manual school start, else by the
+ * target facility's cutoff) is not moved into a facility that deregisters school children automatically
+ * (409 school_start_reached): it arrives without a group, so the next run there would deregister it at once. A
+ * Vormerkung and a child with a leaving day are never taken by that run and move as before.
  */
 export function moveChildToFacility(db: Db, childId: number, targetFacilityId: number, now: Date = new Date()): void {
-  const child = db.select({ facilityId: children.facilityId }).from(children).where(eq(children.id, childId)).get()
+  const child = db.select().from(children).where(eq(children.id, childId)).get()
   if (!child) throw new ServiceError(404, 'child_not_found')
   assertFacility(db, targetFacilityId)
   if (child.facilityId === targetFacilityId) return
   db.transaction((tx) => {
+    if (child.admissionStatus === 'contract' && child.leftOn === null && getSchoolSettings(tx, targetFacilityId).autoLeave
+      && effectiveSchoolStart(child.schoolStartDate, child.birthDate, schoolCutoffOf(tx, targetFacilityId)) <= todayIso(now)) {
+      throw new ServiceError(409, 'school_start_reached')
+    }
     const typesOf = (facilityId: number) => tx.select({ id: documentTypes.id, name: documentTypes.name })
       .from(documentTypes).where(eq(documentTypes.facilityId, facilityId)).all()
     const sourceNames = new Map(typesOf(child.facilityId).map(type => [type.id, type.name]))

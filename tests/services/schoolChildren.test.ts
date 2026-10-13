@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { asc, eq } from 'drizzle-orm'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { asc, eq, sql } from 'drizzle-orm'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { childGroupChanges, children } from '../../server/db/schema'
 import { setChildRetentionYears } from '../../server/services/appSettings'
 import { applyDueGroupChanges, planGroupChange } from '../../server/services/childGroupChanges'
-import { getChild, leaveChild, listArchive, purgeExpiredChildren, unleaveChild } from '../../server/services/children'
+import {
+  getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild,
+} from '../../server/services/children'
 import { deleteGroup, listGroups, setGroupForSchoolChildren } from '../../server/services/groups'
 import {
   getSchoolSettings, leaveSchoolChildren, occupancyChildren, schoolLeavers, setAutoLeave, setSchoolCutoff,
@@ -227,23 +229,192 @@ describe('automatic leaving of school children', () => {
   /** A child of the Bären born on the cutoff: its school start is 1 September 2027. */
   const schoolChild = (overrides: Parameters<typeof addChild>[2] = {}, facilityId = 1) =>
     addChild(db, facilityId, { birthDate: BORN_ON_CUTOFF, groupId: facilityId === 1 ? bears : null, ...overrides })
+  /** Switches the automatic leaving on as the Träger does: confirming the children the preview shows that day. */
+  const switchOn = (facilityId = 1, today = TODAY) =>
+    setAutoLeave(db, facilityId, true, today, schoolLeavers(db, facilityId, today).map(child => child.id))
+  const isOn = (facilityId = 1) => getSchoolSettings(db, facilityId).autoLeave
 
   describe('the switch', () => {
     it('is off for every facility until it is set, per facility', () => {
       const krippe = addFacility(db, 'Krippe')
       expect(getSchoolSettings(db, 1).autoLeave).toBe(false)
-      setAutoLeave(db, 1, true)
+      switchOn()
       expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true })
       expect(getSchoolSettings(db, krippe).autoLeave).toBe(false)
-      setAutoLeave(db, 1, false)
+      setAutoLeave(db, 1, false, TODAY)
       expect(getSchoolSettings(db, 1).autoLeave).toBe(false)
     })
 
-    it('keeps the switch when the cutoff is stored and answers facility_not_found for an unknown facility', () => {
-      setAutoLeave(db, 1, true)
-      setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 30, ageYears: 5 })
-      expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 9, cutoffDay: 30, ageYears: 5, autoLeave: true })
-      expect(errorCode(() => setAutoLeave(db, 999, true))).toBe('facility_not_found')
+    it('answers facility_not_found for an unknown facility', () => {
+      expect(errorCode(() => setAutoLeave(db, 999, true, TODAY, []))).toBe('facility_not_found')
+      expect(errorCode(() => setAutoLeave(db, 999, false, TODAY))).toBe('facility_not_found')
+    })
+
+    describe('switching on', () => {
+      it('deregisters exactly the confirmed children at once, like the daily run', () => {
+        const krippe = addFacility(db, 'Krippe')
+        const mice = addGroup(db, 1, 'Mäuse')
+        const here = schoolChild()
+        const young = schoolChild({ birthDate: '2022-03-15' })
+        const there = schoolChild({}, krippe)
+        planGroupChange(db, admin, 1, here, change(mice, '2027-10-01'), TODAY, NOW)
+        const preview = schoolLeavers(db, 1, '2027-09-20')
+        expect(preview.map(child => child.id)).toEqual([here])
+
+        expect(setAutoLeave(db, 1, true, '2027-09-20', [here])).toBe(1)
+
+        expect(isOn()).toBe(true)
+        expect(leftOn(here)).toBe(DAY_BEFORE)
+        expect([young, there].map(leftOn)).toEqual([null, null])
+        // The planned change after the leaving day goes with it.
+        expect(history(here)).toEqual([[null, bears, true]])
+        // Nothing is left for the daily run.
+        expect(leaveSchoolChildren(db, '2027-09-20')).toBe(0)
+        expect(isOn(krippe)).toBe(false)
+      })
+
+      it('refuses when the confirmed children are not the ones it would deregister now, and changes nothing', () => {
+        const first = schoolChild()
+        const second = schoolChild()
+        const young = schoolChild({ birthDate: '2022-03-15' })
+        const switching = (confirmedIds?: number[]) => errorCode(() => setAutoLeave(db, 1, true, SCHOOL_START, confirmedIds))
+
+        expect(switching([first])).toBe('auto_leave_preview_changed')
+        expect(switching([first, second, young])).toBe('auto_leave_preview_changed')
+        expect(switching([first, young])).toBe('auto_leave_preview_changed')
+        expect(switching([])).toBe('auto_leave_preview_changed')
+        expect(switching()).toBe('auto_leave_preview_changed')
+
+        expect(isOn()).toBe(false)
+        expect(leftIds()).toEqual([])
+        // The order of the ids and a doubled id do not matter.
+        expect(setAutoLeave(db, 1, true, SCHOOL_START, [second, first, second])).toBe(2)
+        expect(leftIds()).toEqual([first, second])
+      })
+
+      it('answers 409 so the Träger looks at the list again', () => {
+        schoolChild()
+        try {
+          setAutoLeave(db, 1, true, SCHOOL_START, [])
+          expect.unreachable()
+        }
+        catch (error) {
+          expect(error).toMatchObject({ statusCode: 409, code: 'auto_leave_preview_changed' })
+        }
+      })
+
+      it('refuses when the list changed between the preview and the confirmation', () => {
+        const id = schoolChild()
+        const confirmed = schoolLeavers(db, 1, SCHOOL_START).map(child => child.id)
+        // In between somebody registers a leaving day by hand: nobody is left to deregister.
+        leaveChild(db, 1, id, '2027-09-30', SCHOOL_START)
+        expect(errorCode(() => setAutoLeave(db, 1, true, SCHOOL_START, confirmed))).toBe('auto_leave_preview_changed')
+        expect(isOn()).toBe(false)
+        expect(leftOn(id)).toBe('2027-09-30')
+        expect(setAutoLeave(db, 1, true, SCHOOL_START, [])).toBe(0)
+        expect(isOn()).toBe(true)
+      })
+
+      it('needs no children to switch on when nobody is to be deregistered, and none to switch off', () => {
+        const id = schoolChild()
+        expect(setAutoLeave(db, 1, true, TODAY)).toBe(0)
+        expect(isOn()).toBe(true)
+        // Switching off never deregisters, whoever is due by then.
+        expect(setAutoLeave(db, 1, false, SCHOOL_START)).toBe(0)
+        expect(isOn()).toBe(false)
+        expect(leftOn(id)).toBeNull()
+      })
+
+      it('checks the list again when it is switched on while it is on', () => {
+        const id = schoolChild()
+        switchOn()
+        expect(errorCode(() => setAutoLeave(db, 1, true, SCHOOL_START, []))).toBe('auto_leave_preview_changed')
+        expect(isOn()).toBe(true)
+        expect(setAutoLeave(db, 1, true, SCHOOL_START, [id])).toBe(1)
+      })
+    })
+
+    describe('is switched off when a setting widens whom it takes', () => {
+      it('by another cutoff, not by storing the same one', () => {
+        const krippe = addFacility(db, 'Krippe')
+        switchOn()
+        switchOn(krippe)
+
+        expect(setSchoolCutoff(db, 1, { cutoffMonth: 6, cutoffDay: 30, ageYears: 6 }))
+          .toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true })
+        expect(errorCode(() => setSchoolCutoff(db, 1, { cutoffMonth: 6, cutoffDay: 31, ageYears: 6 }))).toBe('invalid_school_cutoff')
+        expect(isOn()).toBe(true)
+
+        expect(setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 30, ageYears: 6 }))
+          .toEqual({ cutoffMonth: 9, cutoffDay: 30, ageYears: 6, autoLeave: false })
+        expect(isOn()).toBe(false)
+        expect(isOn(krippe)).toBe(true)
+        // Each of the three values counts.
+        switchOn()
+        setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 29, ageYears: 6 })
+        expect(isOn()).toBe(false)
+        switchOn()
+        setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 29, ageYears: 5 })
+        expect(isOn()).toBe(false)
+      })
+
+      it('so a child the new cutoff makes a school child is not deregistered behind the Träger\'s back', () => {
+        // Born 1 July 2020: school start 2027 with the cutoff 30 June, 2026 (reached) with the cutoff 1 July.
+        const id = schoolChild({ birthDate: '2020-07-01' })
+        switchOn()
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+
+        setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
+
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+        expect(leftOn(id)).toBeNull()
+        // The preview names it; only confirming that switches on again.
+        expect(schoolLeavers(db, 1, TODAY).map(child => child.id)).toEqual([id])
+        expect(errorCode(() => setAutoLeave(db, 1, true, TODAY, []))).toBe('auto_leave_preview_changed')
+      })
+
+      it('by taking the flag "for school children" away from a group, in that group\'s facility only', () => {
+        const krippe = addFacility(db, 'Krippe')
+        const foreignHort = addGroup(db, krippe, 'Hort')
+        setGroupForSchoolChildren(db, hort, true)
+        setGroupForSchoolChildren(db, foreignHort, true)
+        const id = addChild(db, 1, { birthDate: '2020-03-01', groupId: hort })
+        switchOn()
+        switchOn(krippe)
+
+        // Flagging, and taking away a flag that was not there, cannot widen anything.
+        expect(setGroupForSchoolChildren(db, hort, true)).toEqual({ autoLeave: true })
+        expect(setGroupForSchoolChildren(db, bears, false)).toEqual({ autoLeave: true })
+        expect(setGroupForSchoolChildren(db, bears, true)).toEqual({ autoLeave: true })
+        expect(isOn()).toBe(true)
+
+        expect(setGroupForSchoolChildren(db, hort, false)).toEqual({ autoLeave: false })
+
+        expect(isOn()).toBe(false)
+        expect(isOn(krippe)).toBe(true)
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+        expect(leftOn(id)).toBeNull()
+        expect(schoolLeavers(db, 1, TODAY).map(child => child.id)).toEqual([id])
+      })
+
+      it('by another retention period, in every facility', () => {
+        const krippe = addFacility(db, 'Krippe')
+        // School start 1 September 2023: left out with three years of retention, taken with four.
+        const id = schoolChild({ birthDate: '2017-03-01', entryDate: '2022-09-01' })
+        switchOn()
+        switchOn(krippe)
+
+        setChildRetentionYears(db, 3)
+        expect(errorCode(() => setChildRetentionYears(db, 11))).toBe('invalid_retention')
+        expect([isOn(), isOn(krippe)]).toEqual([true, true])
+
+        setChildRetentionYears(db, 4)
+
+        expect([isOn(), isOn(krippe)]).toEqual([false, false])
+        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+        expect(leftOn(id)).toBeNull()
+        expect(schoolLeavers(db, 1, TODAY).map(child => child.id)).toEqual([id])
+      })
     })
 
     it('deregisters nobody while the switch is off, whatever the day', () => {
@@ -259,7 +430,7 @@ describe('automatic leaving of school children', () => {
       const krippe = addFacility(db, 'Krippe')
       const here = schoolChild()
       const there = schoolChild({}, krippe)
-      setAutoLeave(db, 1, true)
+      switchOn()
 
       expect(schoolLeavers(db, 1, SCHOOL_START).map(child => child.id)).toEqual([here])
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
@@ -267,16 +438,16 @@ describe('automatic leaving of school children', () => {
       expect(leftOn(here)).toBe(DAY_BEFORE)
       expect(leftOn(there)).toBeNull()
       expect(schoolLeavers(db, krippe, SCHOOL_START).map(child => child.id)).toEqual([there])
-      // Each facility on its own: the other one switches on later.
-      setAutoLeave(db, krippe, true)
-      expect(leaveSchoolChildren(db, '2027-09-02')).toBe(1)
+      // Each facility on its own: the other one switches on later, and its child leaves with that.
+      expect(switchOn(krippe, '2027-09-02')).toBe(1)
       expect(leftOn(there)).toBe(DAY_BEFORE)
+      expect(leaveSchoolChildren(db, '2027-09-02')).toBe(0)
     })
   })
 
   describe('the day', () => {
     beforeEach(() => {
-      setAutoLeave(db, 1, true)
+      switchOn()
     })
 
     it('deregisters on the school start day and not the day before', () => {
@@ -343,6 +514,8 @@ describe('automatic leaving of school children', () => {
     it('follows the facility\'s cutoff', () => {
       const id = schoolChild({ birthDate: '2021-07-01' })
       setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
+      // The new cutoff switched the automatic leaving off; the Träger switches it on again.
+      switchOn()
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
       expect(leftOn(id)).toBe(DAY_BEFORE)
     })
@@ -350,7 +523,7 @@ describe('automatic leaving of school children', () => {
 
   describe('who is left alone', () => {
     beforeEach(() => {
-      setAutoLeave(db, 1, true)
+      switchOn()
     })
 
     it('never touches a leaving day that is already set, later or earlier', () => {
@@ -422,7 +595,7 @@ describe('automatic leaving of school children', () => {
 
   describe('planned group changes', () => {
     beforeEach(() => {
-      setAutoLeave(db, 1, true)
+      switchOn()
     })
 
     it('removes a planned change after the leaving day, so it neither is applied later nor blocks deleting the group', () => {
@@ -479,17 +652,31 @@ describe('automatic leaving of school children', () => {
         { id: older, name: 'Ole Hansen', schoolStart: '2026-09-01', leftOn: '2026-08-31' },
       ])
 
-      setAutoLeave(db, 1, true)
-      expect(leaveSchoolChildren(db, TODAY)).toBe(2)
+      // Switching on with the list confirmed deregisters them at once; the daily run finds nobody else.
+      expect(switchOn()).toBe(2)
       expect(leftIds()).toEqual(preview.map(child => child.id).sort())
       expect(leftOn(young)).toBeNull()
       for (const child of preview) expect(leftOn(child.id)).toBe(child.leftOn)
+      expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+    })
+
+    it('deregisters exactly the listed ones in the daily run as well, when they come up while the switch is on', () => {
+      switchOn()
+      const older = addChild(db, 1, { birthDate: '2020-03-01', groupId: hort })
+      const young = addChild(db, 1, { birthDate: '2022-03-15', groupId: bears })
+      const preview = schoolLeavers(db, 1, TODAY)
+      expect(preview.map(child => child.id)).toEqual([older])
+
+      expect(leaveSchoolChildren(db, TODAY)).toBe(1)
+
+      expect(leftIds()).toEqual([older])
+      expect(leftOn(young)).toBeNull()
     })
 
     it('lists and deregisters nobody of a group once it is flagged', () => {
       const older = addChild(db, 1, { birthDate: '2020-03-01', groupId: hort })
       setGroupForSchoolChildren(db, hort, true)
-      setAutoLeave(db, 1, true)
+      switchOn()
 
       expect(schoolLeavers(db, 1, TODAY)).toEqual([])
       expect(leaveSchoolChildren(db, TODAY)).toBe(0)
@@ -499,7 +686,7 @@ describe('automatic leaving of school children', () => {
 
     it('does not deregister a child with a planned change into a group for school children on its school start', () => {
       setGroupForSchoolChildren(db, hort, true)
-      setAutoLeave(db, 1, true)
+      switchOn()
       const id = schoolChild()
       planGroupChange(db, admin, 1, id, change(hort, SCHOOL_START, true), TODAY, NOW)
 
@@ -516,28 +703,74 @@ describe('automatic leaving of school children', () => {
 
     it('does not deregister a child that changed into such a group before its school start', () => {
       setGroupForSchoolChildren(db, hort, true)
-      setAutoLeave(db, 1, true)
+      switchOn()
       const id = schoolChild()
       planGroupChange(db, admin, 1, id, change(hort, '2027-08-01', true), TODAY, NOW)
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(0)
       expect(leftOn(id)).toBeNull()
     })
 
-    it('deregisters a child whose change into such a group only comes after its school start, and says so beforehand', () => {
+    it('does not deregister a child whose change into such a group only comes after its school start, and keeps the change', () => {
       setGroupForSchoolChildren(db, hort, true)
-      setAutoLeave(db, 1, true)
+      switchOn()
       const id = schoolChild()
-      planGroupChange(db, admin, 1, id, change(hort, '2027-09-15', true), TODAY, NOW)
+      // The after-school contract starts on 13 September, after the first days of school.
+      planGroupChange(db, admin, 1, id, change(hort, '2027-09-13', true), TODAY, NOW)
 
-      expect(schoolLeavers(db, 1, SCHOOL_START).map(child => child.id)).toEqual([id])
-      expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
-      expect(leftOn(id)).toBe(DAY_BEFORE)
-      expect(history(id)).toEqual([[null, bears, true]])
+      expect(schoolLeavers(db, 1, SCHOOL_START)).toEqual([])
+      expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(0)
+      expect(leaveSchoolChildren(db, '2027-09-12')).toBe(0)
+      expect(leftOn(id)).toBeNull()
+      expect(history(id)).toEqual([[null, bears, true], ['2027-09-13', hort, false]])
+      expect(occupancyChildren(db, 1).children.find(child => child.id === id)).toMatchObject({ end: null })
+
+      // The change is applied on its day, with the care contract to confirm; the child stays for good.
+      expect(applyDueGroupChanges(db, '2027-09-13')).toBe(1)
+      expect(row(id)).toMatchObject({ groupId: hort, leftOn: null, contractReviewSince: '2027-09-13' })
+      expect(leaveSchoolChildren(db, '2027-09-13')).toBe(0)
+      expect(leaveSchoolChildren(db, '2029-09-01')).toBe(0)
+      expect(leftOn(id)).toBeNull()
+    })
+
+    it('does not deregister a child that is in such a group through an applied change dated after its school start', () => {
+      setGroupForSchoolChildren(db, hort, true)
+      // School start 1 September 2026; in the Hort since 1 October 2026 (applied at once on 13 October).
+      const id = schoolChild({ birthDate: '2020-03-01' })
+      planGroupChange(db, admin, 1, id, change(hort, '2026-10-01', true), TODAY, NOW)
+      expect(history(id)).toEqual([[null, bears, true], ['2026-10-01', hort, true]])
+
+      expect(schoolLeavers(db, 1, TODAY)).toEqual([])
+      expect(switchOn()).toBe(0)
+      expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+      expect(leaveSchoolChildren(db, '2028-01-01')).toBe(0)
+      expect(leftOn(id)).toBeNull()
+      expect(occupancyChildren(db, 1)).toMatchObject({ inconsistent: [] })
+      expect(occupancyChildren(db, 1).children.find(child => child.id === id)).toMatchObject({ end: null })
+      // Taking a leaving back needs no new school start either.
+      leaveChild(db, 1, id, '2026-12-31', '2027-01-10')
+      unleaveChild(db, 1, id, '2027-01-10')
+      expect(row(id)).toMatchObject({ leftOn: null, schoolStartDate: null })
+    })
+
+    it('never deletes a planned change that carries a further care contract, whatever became of the group\'s flag', () => {
+      setGroupForSchoolChildren(db, hort, true)
+      const id = schoolChild()
+      planGroupChange(db, admin, 1, id, change(hort, '2027-09-13', true), TODAY, NOW)
+      // The Träger takes the flag away (which switches off) and switches on again: by the groups the child would leave.
+      setGroupForSchoolChildren(db, hort, false)
+      switchOn()
+
+      expect(schoolLeavers(db, 1, SCHOOL_START)).toEqual([])
+      expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(0)
+
+      expect(leftOn(id)).toBeNull()
+      expect(history(id)).toEqual([[null, bears, true], ['2027-09-13', hort, false]])
+      expect(getChild(db, admin, id, SCHOOL_START).pendingGroupChange).toMatchObject({ groupId: hort, newContract: true })
     })
 
     it('deregisters a child that moved back out of such a group before its school start', () => {
       setGroupForSchoolChildren(db, hort, true)
-      setAutoLeave(db, 1, true)
+      switchOn()
       const id = schoolChild({ groupId: hort })
       planGroupChange(db, admin, 1, id, change(bears, '2027-06-01'), TODAY, NOW)
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
@@ -547,7 +780,7 @@ describe('automatic leaving of school children', () => {
 
   describe('taking the leaving back', () => {
     beforeEach(() => {
-      setAutoLeave(db, 1, true)
+      switchOn()
     })
 
     it('needs a new school start after today for a child whose school start is reached', () => {
@@ -581,7 +814,7 @@ describe('automatic leaving of school children', () => {
     })
 
     it('asks for the new school start whatever the switch says and however the child was deregistered', () => {
-      setAutoLeave(db, 1, false)
+      setAutoLeave(db, 1, false, TODAY)
       const id = schoolChild()
       leaveChild(db, 1, id, '2027-09-05', '2027-09-05')
       expect(errorCode(() => unleaveChild(db, 1, id, '2027-09-10'))).toBe('school_start_required')
@@ -616,6 +849,95 @@ describe('automatic leaving of school children', () => {
     })
   })
 
+  describe('moving a child to another facility', () => {
+    let krippe: number
+    beforeEach(() => {
+      krippe = addFacility(db, 'Krippe')
+    })
+    const move = (id: number, today = TODAY) => moveChildToFacility(db, id, krippe, new Date(`${today}T08:30:00.000Z`))
+    /** School start 1 September 2026: reached on 13 October 2026. */
+    const reached = (overrides: Parameters<typeof addChild>[2] = {}) => schoolChild({ birthDate: '2020-03-01', ...overrides })
+
+    it('refuses a child whose school start is reached when the target deregisters automatically, and changes nothing', () => {
+      const id = reached()
+      switchOn(krippe)
+
+      try {
+        move(id)
+        expect.unreachable()
+      }
+      catch (error) {
+        expect(error).toMatchObject({ statusCode: 409, code: 'school_start_reached' })
+      }
+
+      expect(row(id)).toMatchObject({ facilityId: 1, groupId: bears, leftOn: null })
+      expect(history(id)).toEqual([[null, bears, true]])
+      // Without the refusal the next run there would have taken it.
+      expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+    })
+
+    it('moves it when the target does not deregister automatically, whatever the facility it comes from does', () => {
+      const id = reached()
+      switchOn(1)
+      expect(leftOn(id)).toBe('2026-08-31')
+      const other = reached()
+      // Switching on took the first child; the second one came afterwards and moves before the next run.
+      move(other)
+      expect(row(other)).toMatchObject({ facilityId: krippe, groupId: null, leftOn: null })
+    })
+
+    it('moves a child whose school start is still to come, until the day before it', () => {
+      const id = schoolChild()
+      const late = schoolChild()
+      switchOn(krippe)
+
+      move(id, DAY_BEFORE)
+      expect(row(id).facilityId).toBe(krippe)
+      expect(errorCode(() => move(late, SCHOOL_START))).toBe('school_start_reached')
+      expect(row(late).facilityId).toBe(1)
+    })
+
+    it('judges by the manual school start and by the cutoff of the target facility', () => {
+      // Born 1 July 2020: school start 2027 with the cutoff 30 June, 2026 (reached) with the cutoff 1 July.
+      const deferred = reached({ schoolStartDate: '2027-09-01' })
+      const byCutoff = schoolChild({ birthDate: '2020-07-01' })
+      setSchoolCutoff(db, krippe, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
+      switchOn(krippe)
+
+      move(deferred)
+      expect(row(deferred).facilityId).toBe(krippe)
+      expect(errorCode(() => move(byCutoff))).toBe('school_start_reached')
+
+      // The other way round: reached by the cutoff of the facility it leaves, not by the target's.
+      setSchoolCutoff(db, krippe, { cutoffMonth: 6, cutoffDay: 30, ageYears: 6 })
+      setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
+      switchOn(krippe)
+      move(byCutoff)
+      expect(row(byCutoff)).toMatchObject({ facilityId: krippe, leftOn: null })
+      expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+    })
+
+    it('moves a Vormerkung and a child with a leaving day: the automatic leaving never takes them', () => {
+      const waitlisted = reached({ admissionStatus: 'waitlist', entryDate: null })
+      const leaving = reached({ leftOn: '2026-12-31' })
+      const archived = reached({ leftOn: '2026-07-31' })
+      switchOn(krippe)
+
+      for (const id of [waitlisted, leaving, archived]) move(id)
+
+      expect([waitlisted, leaving, archived].map(id => row(id).facilityId)).toEqual([krippe, krippe, krippe])
+      expect(leaveSchoolChildren(db, TODAY)).toBe(0)
+      expect([waitlisted, leaving, archived].map(leftOn)).toEqual([null, '2026-12-31', '2026-07-31'])
+    })
+
+    it('still does nothing for a child that is already there', () => {
+      const id = reached()
+      switchOn(1, '2026-08-01')
+      expect(errorCode(() => moveChildToFacility(db, id, 1, NOW))).toBeNull()
+      expect(row(id)).toMatchObject({ facilityId: 1, groupId: bears })
+    })
+  })
+
   describe('the daily run', () => {
     const plugin = readFileSync(join(process.cwd(), 'server', 'plugins', 'database.ts'), 'utf8')
 
@@ -631,6 +953,43 @@ describe('automatic leaving of school children', () => {
     it('logs the number only, never a name', () => {
       expect(plugin).toContain('`Deregistered ${deregistered} school child(ren).`')
       expect(plugin).toContain('\'Deregistering school children failed\'')
+    })
+
+    it('uses one day for all its parts, also when it runs across midnight', () => {
+      const run = plugin.slice(plugin.indexOf('const dailyRun'), plugin.indexOf('dailyRun()'))
+      expect(run.match(/todayIso\(\)/g)).toHaveLength(1)
+    })
+
+    it('deregisters the other facilities\' children when one facility fails, and names nobody in the log', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const hortKita = addFacility(db, 'Hort-Kita')
+      const failing = schoolChild({ firstName: 'Lena', lastName: 'Meier' })
+      const alsoFailing = schoolChild({ firstName: 'Ole', lastName: 'Hansen' })
+      const second = schoolChild({ firstName: 'Ida', lastName: 'Adler' }, krippe)
+      const third = schoolChild({ firstName: 'Ben', lastName: 'Kurz' }, hortKita)
+      for (const facilityId of [1, krippe, hortKita]) switchOn(facilityId)
+      // Facility 1 fails at its second child (by name: Hansen, then Meier), so the first one must be rolled back as well.
+      db.run(sql.raw(`CREATE TRIGGER fail_one_facility BEFORE UPDATE OF left_on ON children
+        WHEN NEW.id = ${failing} BEGIN SELECT RAISE(ABORT, 'disk trouble'); END`))
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      try {
+        expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(2)
+
+        expect([failing, alsoFailing].map(leftOn)).toEqual([null, null])
+        expect([second, third].map(leftOn)).toEqual([DAY_BEFORE, DAY_BEFORE])
+        expect(logged).toHaveBeenCalledTimes(1)
+        const text = logged.mock.calls.flat().map(part => (part instanceof Error ? `${part.message} ${part.stack}` : String(part))).join(' ')
+        expect(text).toContain('facility 1')
+        for (const name of ['Lena', 'Meier', 'Ole', 'Hansen']) expect(text).not.toContain(name)
+      }
+      finally {
+        logged.mockRestore()
+      }
+      // Once the trouble is over, the next run catches up.
+      db.run(sql.raw('DROP TRIGGER fail_one_facility'))
+      expect(leaveSchoolChildren(db, '2027-09-02')).toBe(2)
+      expect([failing, alsoFailing].map(leftOn)).toEqual([DAY_BEFORE, DAY_BEFORE])
     })
   })
 })
