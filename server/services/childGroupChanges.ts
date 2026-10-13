@@ -92,9 +92,19 @@ export function contractChangeDays(db: Db, facilityId: number): Map<number, IsoD
   return new Map(rows.map(row => [row.childId, row.date!]))
 }
 
+const KEEP_ALL: Keep = { contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true }
+
 /**
- * Writes the applied entry of a day (null = the start entry). An entry the child already has for that day is replaced
- * instead of getting a second one beside it; it keeps its sections to confirm and the time it was applied.
+ * Writes the applied entry of a day (null = the start entry): a change that keeps every section and carries no further
+ * care contract (a direct change, the start group, the end of the history at a facility move). An entry the child
+ * already has for that day is replaced instead of getting a second one beside it and becomes such a change as well,
+ * so a planned change applied that day leaves neither its contract nor its sections on an entry for another group;
+ * only the time it was applied stays.
+ *
+ * The sections the replaced change marked on the child stay to be confirmed: somebody asked for that, and the child
+ * did change its group that day. Its contract marker goes, though, unless the new group is one for school children:
+ * it was set for the group the child is no longer in, and a marker dated that day can only come from that entry (one
+ * entry per day).
  */
 function putAppliedEntry(
   db: Db, childId: number, fromDate: IsoDate | null, groupId: number | null, actorId: number | null, now: Date,
@@ -103,8 +113,13 @@ function putAppliedEntry(
   const sameDay = fromDate === null ? isNull(childGroupChanges.fromDate) : eq(childGroupChanges.fromDate, fromDate)
   const existing = db.select().from(childGroupChanges).where(and(eq(childGroupChanges.childId, childId), sameDay)).get()
   if (existing) {
-    db.update(childGroupChanges).set({ groupId, appliedAt: existing.appliedAt ?? at })
+    db.update(childGroupChanges)
+      .set({ groupId, appliedAt: existing.appliedAt ?? at, ...keepColumns(KEEP_ALL), newContract: false })
       .where(eq(childGroupChanges.id, existing.id)).run()
+    if (fromDate !== null && !isForSchoolChildren(db, groupId)) {
+      db.update(children).set({ contractReviewSince: null })
+        .where(and(eq(children.id, childId), eq(children.contractReviewSince, fromDate))).run()
+    }
   }
   else {
     db.insert(childGroupChanges).values({ childId, groupId, fromDate, appliedAt: at, createdBy: actorId, createdAt: at }).run()

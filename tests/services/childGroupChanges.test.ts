@@ -11,6 +11,7 @@ import {
 } from '../../server/services/children'
 import { listDocumentTypes, updateDocumentType } from '../../server/services/documentTypes'
 import { deleteGroup, setGroupForSchoolChildren } from '../../server/services/groups'
+import { schoolLeavers } from '../../server/services/schoolChildren'
 import type { FacilityUser } from '../../server/utils/auth'
 import type { ChildMasterInput, GroupChangeInput, KeepSection } from '../../shared/types/api'
 import { addChild, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
@@ -782,6 +783,75 @@ describe('group history and planned group changes', () => {
         const inHort = addChild(db, 1, { groupId: hort })
         setGroup(inHort, bears)
         expect(history(inHort)).toEqual([[null, hort, true], [TODAY, bears, true]])
+      })
+
+      describe('on the day a change into such a group was applied', () => {
+        const storedToday = (id: number) => db.select().from(childGroupChanges).where(eq(childGroupChanges.childId, id)).all()
+          .find(row => row.fromDate === TODAY)!
+
+        it('replaces that change with its own values: no further care contract, every section kept', () => {
+          const id = addChild(db, 1, { groupId: bears })
+          plan(id, change(hort, TODAY, { health: false, documents: false }, true))
+          expect(storedToday(id)).toMatchObject({ groupId: hort, newContract: true, keepHealth: false, keepDocuments: false })
+          const appliedAt = storedToday(id).appliedAt
+
+          setGroup(id, mice)
+
+          expect(history(id)).toEqual([[null, bears, true], [TODAY, mice, true]])
+          expect(storedToday(id)).toMatchObject({
+            groupId: mice, newContract: false, appliedAt, keepContacts: true, keepHealth: true, keepConsents: true,
+            keepDocuments: true, keepCareType: true, keepKeyEducator: true,
+          })
+          expect(newContracts(id)).toEqual([false, false])
+        })
+
+        it('clears the contract marker the replaced change set: the child is in no group for school children any more', () => {
+          const id = addChild(db, 1, { groupId: bears })
+          plan(id, change(hort, TODAY, { health: false }, true))
+          expect(getChild(db, admin, id, TODAY).reviews).toEqual({ health: TODAY, contract: TODAY })
+
+          setGroup(id, mice)
+
+          expect(contractMark(id)).toBeNull()
+          // What the Leitung asked to be confirmed again with the change stays to be confirmed.
+          expect(getChild(db, admin, id, TODAY).reviews).toEqual({ health: TODAY })
+        })
+
+        it('no longer counts the replaced change as a further care contract for the automatic leaving', () => {
+          // School start 1 September 2026, reached: the change into the Hort is all that kept the child.
+          const id = addChild(db, 1, { groupId: bears, birthDate: '2020-03-01' })
+          plan(id, change(hort, TODAY, {}, true))
+          expect(schoolLeavers(db, 1, TODAY)).toEqual([])
+
+          setGroup(id, mice)
+
+          expect(schoolLeavers(db, 1, TODAY).map(child => child.id)).toEqual([id])
+        })
+
+        it('keeps a contract marker of an earlier day', () => {
+          const id = addChild(db, 1, { groupId: bears })
+          plan(id, change(hort, CHANGE_DAY, {}, true))
+          plan(id, change(mice, TODAY))
+          expect(contractMark(id)).toBe(CHANGE_DAY)
+
+          setGroup(id, owls)
+
+          expect(history(id)).toEqual([[null, bears, true], [CHANGE_DAY, hort, true], [TODAY, owls, true]])
+          expect(contractMark(id)).toBe(CHANGE_DAY)
+          expect(newContracts(id)).toEqual([false, true, false])
+        })
+
+        it('clears the marker as well when the record is moved to another facility that day', () => {
+          const krippe = addFacility(db, 'Krippe')
+          const id = addChild(db, 1, { groupId: bears })
+          plan(id, change(hort, TODAY, {}, true))
+
+          moveChildToFacility(db, id, krippe, NOW)
+
+          expect(history(id)).toEqual([[null, bears, true], [TODAY, null, true]])
+          expect(newContracts(id)).toEqual([false, false])
+          expect(contractMark(id)).toBeNull()
+        })
       })
 
       it('refuses it for a child that has not started but already has an applied change', () => {
