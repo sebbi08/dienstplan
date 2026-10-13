@@ -197,6 +197,15 @@ export const childMasterSchema = z.object({
   keyEducatorId: nullableId,
   note: z.string().max(2000),
 })
+/** A planned group change: the new group, the change day and per section whether it is kept (false = confirm again). */
+export const groupChangeSchema = z.object({
+  groupId: z.number().int().positive(),
+  date: isoDate,
+  keep: z.object({
+    contacts: z.boolean(), health: z.boolean(), consents: z.boolean(), documents: z.boolean(), careType: z.boolean(),
+    keyEducator: z.boolean(),
+  }),
+})
 /** A new child may omit the admission status (a contract child). */
 export const childCreateSchema = childMasterSchema.extend({
   admissionStatus: z.enum(['waitlist', 'contract']).default('contract'),

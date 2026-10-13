@@ -6,6 +6,7 @@ import type { SchoolSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { children, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { groupHistories } from './childGroupChanges'
 
 /** A leap year, so that 29 February is a valid cutoff day. */
 const LEAP_YEAR = 2024
@@ -41,8 +42,8 @@ export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolSetting
 
 /**
  * The input of the occupancy table: the facility's contract children (those who left included), each with the stay from
- * its contract start to its last day (`left_on`, else the day before the school start). The group history is only the
- * child's group today. Contract children without a start are listed as undated; those whose stay ends before it starts
+ * its contract start to its last day (`left_on`, else the day before the school start) and its group history, planned
+ * changes included. Contract children without a start are listed as undated; those whose stay ends before it starts
  * (left before the start, or already of school age at the start) never count and are listed as inconsistent.
  * Everything is in the order last name, first name, id.
  */
@@ -54,6 +55,7 @@ export function occupancyChildren(db: Db, facilityId: number): {
   const rows = db.select().from(children)
     .where(and(eq(children.facilityId, facilityId), eq(children.admissionStatus, 'contract'))).all()
     .sort((a, b) => a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de') || a.id - b.id)
+  const histories = groupHistories(db, facilityId)
   const names: Record<number, string> = {}
   const undated: { id: number; name: string }[] = []
   const inconsistent: { id: number; name: string }[] = []
@@ -64,7 +66,7 @@ export function occupancyChildren(db: Db, facilityId: number): {
     const end = row.leftOn ?? addDays(effectiveSchoolStart(row.schoolStartDate, row.birthDate, cutoff), -1)
     if (start === null) undated.push({ id: row.id, name })
     else if (end < start) inconsistent.push({ id: row.id, name })
-    return { id: row.id, start, end, groups: [{ from: null, groupId: row.groupId }] }
+    return { id: row.id, start, end, groups: histories.get(row.id) ?? [] }
   })
   return { children: result, names, undated, inconsistent }
 }

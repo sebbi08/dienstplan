@@ -493,6 +493,60 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('gives every existing child one applied start entry of the group history with its current group', () => {
+    const { db, sqlite } = databaseAt('0028')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(29)
+    expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE name = \'child_group_changes\'').all()).toEqual([])
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name, sort_order) VALUES (1, 1, 'Bären', 0), (2, 1, 'Mäuse', 1), (3, 2, 'Wichtel', 0);
+      INSERT INTO children (id, facility_id, group_id, last_name, first_name, birth_date, admission_status, left_on, created_at) VALUES
+        (1, 1, 1, 'Meier', 'Lena', '2022-03-15', 'contract', NULL, '2026-01-01T00:00:00.000Z'),
+        (2, 1, 2, 'Kurz', 'Ben', '2021-05-01', 'contract', '2026-08-31', '2025-06-01T09:00:00.000Z'),
+        (3, 1, NULL, 'Weber', 'Mia', '2024-02-02', 'waitlist', NULL, '2026-10-01T12:00:00.000Z'),
+        (4, 2, 3, 'Adler', 'Ida', '2023-07-07', 'contract', NULL, '2026-09-15T07:30:00.000Z');
+    `)
+    const childrenBefore = sqlite.prepare('SELECT * FROM children ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(29)
+    const keepAll = {
+      keep_contacts: 1, keep_health: 1, keep_consents: 1, keep_documents: 1, keep_care_type: 1, keep_key_educator: 1,
+    }
+    expect(sqlite.prepare(`SELECT child_id, group_id, from_date, keep_contacts, keep_health, keep_consents, keep_documents,
+      keep_care_type, keep_key_educator, applied_at, created_by, created_at FROM child_group_changes ORDER BY child_id`).all()).toEqual([
+      { child_id: 1, group_id: 1, from_date: null, ...keepAll, applied_at: '2026-01-01T00:00:00.000Z', created_by: null, created_at: '2026-01-01T00:00:00.000Z' },
+      { child_id: 2, group_id: 2, from_date: null, ...keepAll, applied_at: '2025-06-01T09:00:00.000Z', created_by: null, created_at: '2025-06-01T09:00:00.000Z' },
+      { child_id: 3, group_id: null, from_date: null, ...keepAll, applied_at: '2026-10-01T12:00:00.000Z', created_by: null, created_at: '2026-10-01T12:00:00.000Z' },
+      { child_id: 4, group_id: 3, from_date: null, ...keepAll, applied_at: '2026-09-15T07:30:00.000Z', created_by: null, created_at: '2026-09-15T07:30:00.000Z' },
+    ])
+    // The children keep everything; the new marks start out empty.
+    const reviewColumns = ['contacts_review_since', 'health_review_since', 'consents_review_since', 'documents_review_since',
+      'care_type_review_since', 'key_educator_review_since']
+    const childrenAfter = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
+    expect(childrenAfter.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !reviewColumns.includes(column)))))
+      .toEqual(childrenBefore)
+    for (const row of childrenAfter) expect(reviewColumns.map(column => row[column])).toEqual([null, null, null, null, null, null])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+
+    // One entry per child and day and one start entry; a deleted group empties the entry, a deleted child takes its entries along.
+    const insert = sqlite.prepare('INSERT INTO child_group_changes (child_id, group_id, from_date, created_at) VALUES (?, ?, ?, ?)')
+    insert.run(1, 2, '2027-01-01', 'now')
+    expect(() => insert.run(1, 1, '2027-01-01', 'now')).toThrow(/UNIQUE/)
+    expect(() => insert.run(1, 1, null, 'now')).toThrow(/UNIQUE/)
+    expect(() => insert.run(99, 1, '2027-01-01', 'now')).toThrow(/FOREIGN KEY/)
+    expect(() => insert.run(1, 99, '2027-02-01', 'now')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('UPDATE children SET group_id = NULL WHERE group_id = 3')
+    sqlite.exec('DELETE FROM groups WHERE id = 3')
+    expect(sqlite.prepare('SELECT group_id FROM child_group_changes WHERE child_id = 4').all()).toEqual([{ group_id: null }])
+    sqlite.exec('DELETE FROM children WHERE id = 1')
+    expect(sqlite.prepare('SELECT DISTINCT child_id FROM child_group_changes ORDER BY child_id').all())
+      .toEqual([{ child_id: 2 }, { child_id: 3 }, { child_id: 4 }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

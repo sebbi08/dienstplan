@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
 import {
-  absenceCodes, children, documentTypes, employeeHours, employees, helpOuts, requirementTypes, shiftTemplates, users,
+  absenceCodes, childGroupChanges, children, documentTypes, employeeHours, employees, helpOuts, requirementTypes, shiftTemplates, users,
 } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { ServiceError } from '../../server/lib/errors'
@@ -65,7 +65,7 @@ export function addGroup(db: Db, facilityId: number, name: string): number {
   return createGroup(db, facilityId, name).id
 }
 
-/** A child of the facility (not yet left unless leftOn is given); returns its id. */
+/** A child of the facility (not yet left unless leftOn is given) with the start entry of its group history; returns its id. */
 export function addChild(
   db: Db, facilityId: number,
   overrides: Partial<{
@@ -75,15 +75,19 @@ export function addChild(
     admissionStatus: 'waitlist' | 'contract'; waitlistedOn: string | null
   }> = {},
 ): number {
-  return db.insert(children).values({
+  const createdAt = '2026-01-01T00:00:00.000Z'
+  const id = db.insert(children).values({
     facilityId,
     lastName: 'Muster',
     firstName: 'Kind',
     birthDate: '2022-03-15',
     entryDate: '2025-09-01',
-    createdAt: '2026-01-01T00:00:00.000Z',
+    createdAt,
     ...overrides,
   }).returning({ id: children.id }).get().id
+  db.insert(childGroupChanges)
+    .values({ childId: id, groupId: overrides.groupId ?? null, fromDate: null, appliedAt: createdAt, createdAt }).run()
+  return id
 }
 
 /** The id of the facility's document type with this name. */

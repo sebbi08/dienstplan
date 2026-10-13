@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /** A facility (Einrichtung) of the Träger; the existing data became facility 1 "Kindergarten". */
@@ -490,10 +491,46 @@ export const children = sqliteTable('children', {
   healthUpdatedBy: integer('health_updated_by').references(() => users.id, { onDelete: 'set null' }),
   consentsUpdatedAt: text('consents_updated_at'),
   consentsUpdatedBy: integer('consents_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  // Sections not confirmed since the group change of this day (null = confirmed); set when a change is applied.
+  contactsReviewSince: text('contacts_review_since'),
+  healthReviewSince: text('health_review_since'),
+  consentsReviewSince: text('consents_review_since'),
+  documentsReviewSince: text('documents_review_since'),
+  careTypeReviewSince: text('care_type_review_since'),
+  keyEducatorReviewSince: text('key_educator_review_since'),
   createdAt: text('created_at').notNull(),
 }, table => [
   index('children_facility').on(table.facilityId),
   index('children_group').on(table.groupId),
+])
+
+/**
+ * A child's group history: "in group `groupId` from `fromDate` on". Every child has exactly one start entry
+ * (`fromDate` null = from the beginning) and at most one entry per day. An entry without `appliedAt` is a planned
+ * change the daily run has not applied yet; `children.groupId` follows the applied entries.
+ */
+export const childGroupChanges = sqliteTable('child_group_changes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  /** null = no group (also after the group was deleted). */
+  groupId: integer('group_id').references(() => groups.id, { onDelete: 'set null' }),
+  fromDate: text('from_date'),
+  // false = the section must be confirmed again after the change.
+  keepContacts: integer('keep_contacts', { mode: 'boolean' }).notNull().default(true),
+  keepHealth: integer('keep_health', { mode: 'boolean' }).notNull().default(true),
+  keepConsents: integer('keep_consents', { mode: 'boolean' }).notNull().default(true),
+  keepDocuments: integer('keep_documents', { mode: 'boolean' }).notNull().default(true),
+  keepCareType: integer('keep_care_type', { mode: 'boolean' }).notNull().default(true),
+  keepKeyEducator: integer('keep_key_educator', { mode: 'boolean' }).notNull().default(true),
+  /** ISO timestamp of applying the change to the child; null = planned. */
+  appliedAt: text('applied_at'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').notNull(),
+}, table => [
+  uniqueIndex('child_group_changes_child_date').on(table.childId, table.fromDate),
+  // NULLs are distinct in a unique index, so the single start entry needs its own.
+  uniqueIndex('child_group_changes_child_start').on(table.childId).where(sql`\`from_date\` IS NULL`),
+  index('child_group_changes_group').on(table.groupId),
 ])
 
 /** A contact person of a child (guardian, emergency contact, pick-up person). */

@@ -222,10 +222,32 @@ export interface OccupancyDto {
   inconsistent: { id: number; name: string }[]
 }
 
+/** The sections of a child's record a group change can leave unconfirmed. */
+export const REVIEW_SECTIONS = ['contacts', 'health', 'consents', 'documents', 'careType', 'keyEducator'] as const
+export type ReviewSection = (typeof REVIEW_SECTIONS)[number]
+
+/** A group change of a child from `date` on; `keep[section] === false` = the section must be confirmed again after it. */
+export interface GroupChangeInput {
+  groupId: number
+  date: IsoDate
+  keep: Record<ReviewSection, boolean>
+}
+
+/** A planned group change that is not applied yet. */
+export interface GroupChangeDto {
+  id: number
+  groupId: number
+  groupName: string
+  date: IsoDate
+  keep: Record<ReviewSection, boolean>
+}
+
 export interface ChildRecordDto {
   id: number
   status: ChildStatus
   master: ChildMasterInput
+  /** The planned group change that is not applied yet (at most one per child). */
+  pendingGroupChange: GroupChangeDto | null
   /** The school start the facility's cutoff yields from the birth date (the manual master.schoolStartDate wins over it). */
   computedSchoolStart: IsoDate
   /** Name of master.keyEducatorId (null together with it). */

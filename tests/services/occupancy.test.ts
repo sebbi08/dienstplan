@@ -1,15 +1,26 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
+import { childGroupChanges } from '../../server/db/schema'
+import { applyDueGroupChanges, planGroupChange } from '../../server/services/childGroupChanges'
+import { moveChildToFacility } from '../../server/services/children'
 import { setGroupCapacity } from '../../server/services/groups'
 import { occupancyTable } from '../../server/services/occupancy'
-import { setSchoolCutoff } from '../../server/services/schoolChildren'
-import { addChild, addFacility, addGroup, createTestDb, errorCode } from '../helpers/fixtures'
+import { occupancyChildren, setSchoolCutoff } from '../../server/services/schoolChildren'
+import type { FacilityUser } from '../../server/utils/auth'
+import { addChild, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 /** Month index in the table: 0 = September, 1 = October … 11 = August. */
 const SEP = 0
 const OCT = 1
 const NOV = 2
+const FEB = 5
+const MAR = 6
+const APR = 7
 const AUG = 11
+
+const TODAY = '2026-10-13'
+const NOW = new Date('2026-10-13T08:30:00.000Z')
+const KEEP_ALL = { contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true }
 
 describe('occupancy table', () => {
   let db: Db
@@ -208,6 +219,80 @@ describe('occupancy table', () => {
     expect(table.total.cells.every(cell => cell.present.length === 0 && cell.fresh.length === 0)).toBe(true)
     expect(table.undated).toEqual([])
     expect(table.inconsistent).toEqual([])
+  })
+
+  describe('group history', () => {
+    let admin: FacilityUser
+    beforeEach(() => {
+      admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    })
+
+    it('counts a child with a planned mid-month change in the old group (present) and in the new one (fresh), once in the total', () => {
+      const id = addChild(db, 1, { firstName: 'Anna', lastName: 'A', groupId: bears, entryDate: '2025-09-01', birthDate: '2024-01-01' })
+      planGroupChange(db, admin, 1, id, { groupId: mice, date: '2027-03-15', keep: KEEP_ALL }, TODAY, NOW)
+
+      const check = () => {
+        const table = occupancyTable(db, 1, 2026)
+        const [bearsRow, miceRow] = table.rows
+        expect(bearsRow!.cells[MAR]!.present).toEqual([{ id, name: 'Anna A', from: '2025-09-01', to: '2027-03-14' }])
+        expect(bearsRow!.cells[MAR]!.fresh).toEqual([])
+        expect(bearsRow!.cells[APR]).toMatchObject({ present: [], fresh: [] })
+        expect(miceRow!.cells[FEB]).toMatchObject({ present: [], fresh: [] })
+        expect(miceRow!.cells[MAR]!.fresh).toEqual([{ id, name: 'Anna A', from: '2027-03-15', to: '2030-08-31' }])
+        expect(miceRow!.cells[MAR]!.present).toEqual([])
+        expect(ids(miceRow!.cells[APR]!.present)).toEqual([id])
+        expect(miceRow!.cells[APR]!.fresh).toEqual([])
+        // A group change is not a new child of the facility.
+        expect(ids(table.total.cells[MAR]!.present)).toEqual([id])
+        expect(table.total.cells[MAR]!.fresh).toEqual([])
+        expect(ids(table.total.cells[APR]!.present)).toEqual([id])
+      }
+      check()
+      // Applying the change on its day does not change the numbers.
+      expect(applyDueGroupChanges(db, '2027-03-15')).toBe(1)
+      check()
+    })
+
+    it('counts a past change from its day on, not with today\'s group for every month', () => {
+      const id = addChild(db, 1, { groupId: bears, entryDate: '2025-09-01', birthDate: '2024-01-01' })
+      planGroupChange(db, admin, 1, id, { groupId: mice, date: '2026-10-01', keep: KEEP_ALL }, TODAY, NOW)
+
+      const [bearsRow, miceRow] = occupancyTable(db, 1, 2026).rows
+      expect(ids(bearsRow!.cells[SEP]!.present)).toEqual([id])
+      expect(bearsRow!.cells[OCT]).toMatchObject({ present: [], fresh: [] })
+      expect(miceRow!.cells[SEP]).toMatchObject({ present: [], fresh: [] })
+      expect(ids(miceRow!.cells[OCT]!.fresh)).toEqual([id])
+      expect(ids(miceRow!.cells[NOV]!.present)).toEqual([id])
+    })
+
+    it('passes the history to the counting rule ordered by day (start entry first), whatever the order of the rows', () => {
+      const id = addChild(db, 1, { groupId: bears })
+      const other = addChild(db, 1, { lastName: 'Zander', groupId: mice })
+      const entry = { childId: id, createdAt: NOW.toISOString(), appliedAt: NOW.toISOString() }
+      db.insert(childGroupChanges).values({ ...entry, groupId: mice, fromDate: '2027-05-01' }).run()
+      db.insert(childGroupChanges).values({ ...entry, groupId: null, fromDate: '2026-12-01' }).run()
+      db.insert(childGroupChanges).values({ ...entry, groupId: bears, fromDate: '2027-01-01', appliedAt: null }).run()
+
+      const result = occupancyChildren(db, 1).children
+      expect(result.find(child => child.id === id)!.groups).toEqual([
+        { from: null, groupId: bears }, { from: '2026-12-01', groupId: null }, { from: '2027-01-01', groupId: bears },
+        { from: '2027-05-01', groupId: mice },
+      ])
+      expect(result.find(child => child.id === other)!.groups).toEqual([{ from: null, groupId: mice }])
+    })
+
+    it('counts the time in a group of another facility as without group', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const wichtel = addGroup(db, krippe, 'Wichtel')
+      const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2026-09-01', birthDate: '2024-01-01' })
+      moveChildToFacility(db, id, 1, NOW)
+
+      const table = occupancyTable(db, 1, 2026)
+      expect(table.rows.map(row => row.groupId)).toEqual([bears, mice, null])
+      expect(ids(table.rows[2]!.cells[SEP]!.fresh)).toEqual([id])
+      expect(table.rows[2]!.cells[OCT]!.present).toEqual([{ id, name: 'Kind Muster', from: '2026-09-01', to: '2030-08-31' }])
+      expect(ids(table.total.cells[OCT]!.present)).toEqual([id])
+    })
   })
 
   it('refuses years outside 2000 to 2100', () => {

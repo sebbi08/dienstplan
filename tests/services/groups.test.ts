@@ -2,13 +2,15 @@ import { asc, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  children, coverageRules, employees, entries, groups, weekTemplateEntries, weekTemplateMarks, weekTemplates,
+  childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateEntries, weekTemplateMarks, weekTemplates,
 } from '../../server/db/schema'
+import { deleteGroupChange, planGroupChange } from '../../server/services/childGroupChanges'
 import {
   createEmployee, getEmployee, listEmployees, moveEmployeeToFacility, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { assertGroup, createGroup, deleteGroup, listGroups, renameGroup, setGroupCapacity } from '../../server/services/groups'
+import type { FacilityUser } from '../../server/utils/auth'
 import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-08'
@@ -155,6 +157,41 @@ describe('groups of a facility', () => {
     deleteGroup(db, 1, bears, today)
     expect(listGroups(db, 1)).toEqual([])
     expect(db.select({ groupId: children.groupId }).from(children).where(eq(children.id, archived)).get()!.groupId).toBeNull()
+  })
+
+  const KEEP_ALL = { contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true }
+
+  it('refuses to delete a group a planned change still leads into', () => {
+    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    const bears = addGroup(db, 1, 'Bären')
+    const mice = addGroup(db, 1, 'Mäuse')
+    const id = addChild(db, 1, { groupId: bears })
+    planGroupChange(db, admin, 1, id, { groupId: mice, date: '2027-03-15', keep: KEEP_ALL }, today)
+
+    expect(errorCode(() => deleteGroup(db, 1, mice, today))).toBe('group_has_pending_changes')
+    expect(listGroups(db, 1).map(group => group.id)).toEqual([bears, mice])
+
+    const pending = db.select().from(childGroupChanges).where(eq(childGroupChanges.groupId, mice)).get()!
+    deleteGroupChange(db, 1, pending.id)
+    deleteGroup(db, 1, mice, today)
+    expect(listGroups(db, 1).map(group => group.id)).toEqual([bears])
+  })
+
+  it('lets the history entries of a deleted group lose the group', () => {
+    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    const bears = addGroup(db, 1, 'Bären')
+    const mice = addGroup(db, 1, 'Mäuse')
+    const archived = addChild(db, 1, { groupId: bears, leftOn: '2026-10-07' })
+    const moved = addChild(db, 1, { groupId: bears })
+    // An applied change into another group does not hold the old group.
+    planGroupChange(db, admin, 1, moved, { groupId: mice, date: '2026-10-01', keep: KEEP_ALL }, today)
+
+    deleteGroup(db, 1, bears, today)
+
+    const history = (childId: number) => db.select().from(childGroupChanges).where(eq(childGroupChanges.childId, childId))
+      .orderBy(asc(childGroupChanges.fromDate)).all().map(row => [row.fromDate, row.groupId])
+    expect(history(archived)).toEqual([[null, null]])
+    expect(history(moved)).toEqual([[null, null], ['2026-10-01', mice]])
   })
 })
 

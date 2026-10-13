@@ -18,6 +18,9 @@ import { getChildrenPurgedOn, getChildRetentionYears, setChildrenPurgedOn } from
 import { assertCareType } from './careTypes'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
+import {
+  changeGroupDirectly, deleteChangesAfterLeaving, endGroupHistory, pendingGroupChange, recordStartGroup,
+} from './childGroupChanges'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
 import { schoolCutoffOf } from './schoolChildren'
@@ -157,6 +160,7 @@ export function getChild(
     id: row.id,
     status,
     master: masterOf(row, keyEducatorName === null ? null : row.keyEducatorId),
+    pendingGroupChange: pendingGroupChange(db, row.id),
     computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
     health: healthOf(row),
@@ -217,16 +221,24 @@ function checkedMaster(
   }
 }
 
-/** A new child of the facility; returns its id. */
+/** A new child of the facility with the start entry of its group history; returns its id. */
 export function createChild(
   db: Db, actor: SessionUser, facilityId: number, input: ChildMasterInput, now: Date = new Date(),
 ): number {
   const master = checkedMaster(db, facilityId, input, todayIso(now))
-  return db.insert(children)
-    .values({ ...master, facilityId, createdAt: now.toISOString(), ...sectionStamp('master', actor.id, now) })
-    .returning({ id: children.id }).get().id
+  return db.transaction((tx) => {
+    const id = tx.insert(children)
+      .values({ ...master, facilityId, createdAt: now.toISOString(), ...sectionStamp('master', actor.id, now) })
+      .returning({ id: children.id }).get().id
+    recordStartGroup(tx, id, master.groupId, actor.id, now)
+    return id
+  })
 }
 
+/**
+ * Saves the master data. Another group than the stored one is a direct group change and goes into the group history
+ * (see `changeGroupDirectly`); a group that only differs because a planned change is due is not one.
+ */
 export function updateChildMaster(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterInput, today: IsoDate,
   now: Date = new Date(),
@@ -235,7 +247,12 @@ export function updateChildMaster(
   const master = checkedMaster(db, facilityId, input, today, row.waitlistedOn)
   // A waitlist child cannot have left: the purge job keys on leftOn and must never delete a waitlist record.
   const leftOn = master.admissionStatus === 'waitlist' ? { leftOn: null } : {}
-  db.update(children).set({ ...master, ...leftOn, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
+  db.transaction((tx) => {
+    if (master.groupId !== row.groupId) changeGroupDirectly(tx, actor, { id, ...master }, master.groupId, today, now)
+    // The group itself is only ever written through the history, so it cannot drift from it.
+    const { groupId: _, ...rest } = master
+    tx.update(children).set({ ...rest, ...leftOn, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
+  })
 }
 
 export function updateChildHealth(
@@ -279,14 +296,18 @@ export function listBirthdays(db: Db, facilityId: number, today: IsoDate): Birth
 
 /**
  * Registers the leaving day: today, in the future or up to a year back (400 left_on_too_early otherwise). A waitlist
- * child cannot leave, only be deleted (400 waitlist_cannot_leave).
+ * child cannot leave, only be deleted (400 waitlist_cannot_leave). A planned group change after the leaving day is
+ * deleted with it.
  */
 export function leaveChild(db: Db, facilityId: number, id: number, leftOn: IsoDate, today: IsoDate): void {
   if (loadChild(db, facilityId, id).admissionStatus === 'waitlist') throw new ServiceError(400, 'waitlist_cannot_leave')
   if (!isValidIsoDate(leftOn)) throw new ServiceError(400, 'invalid_date')
   // A year back from today (29 February falls on 28 February).
   if (leftOn < purgeDate(today, -1)) throw new ServiceError(400, 'left_on_too_early')
-  db.update(children).set({ leftOn }).where(eq(children.id, id)).run()
+  db.transaction((tx) => {
+    tx.update(children).set({ leftOn }).where(eq(children.id, id)).run()
+    deleteChangesAfterLeaving(tx, id, leftOn)
+  })
 }
 
 /** Takes the registration back: the child is active (or planned) again. */
@@ -345,8 +366,9 @@ const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivit
  * The Träger moves a record to another facility with its contacts and documents. Group and care type belong to the old
  * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility); every document gets the
  * like-named document type of the new facility, otherwise its "Sonstiges" (created with the default flags when missing).
+ * The group history ends with "no group from today"; a planned group change is deleted.
  */
-export function moveChildToFacility(db: Db, childId: number, targetFacilityId: number): void {
+export function moveChildToFacility(db: Db, childId: number, targetFacilityId: number, now: Date = new Date()): void {
   const child = db.select({ facilityId: children.facilityId }).from(children).where(eq(children.id, childId)).get()
   if (!child) throw new ServiceError(404, 'child_not_found')
   assertFacility(db, targetFacilityId)
@@ -374,6 +396,7 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
       const match = name === undefined ? undefined : targetTypes.find(type => sameName(type.name, name))
       tx.update(childDocuments).set({ documentTypeId: match?.id ?? otherType() }).where(eq(childDocuments.id, document.id)).run()
     }
+    endGroupHistory(tx, childId, todayIso(now), now)
     tx.update(children).set({ facilityId: targetFacilityId, groupId: null, careTypeId: null, keyEducatorId: null })
       .where(eq(children.id, childId)).run()
   })

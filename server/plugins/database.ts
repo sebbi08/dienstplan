@@ -2,6 +2,7 @@ import { todayIso } from '../../shared/domain/dates'
 import { checkpointWal, migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
+import { applyDueGroupChanges } from '../services/childGroupChanges'
 import { purgeExpiredChildren } from '../services/children'
 import { backfillSnapshots } from '../services/release'
 
@@ -26,8 +27,16 @@ export default defineNitroPlugin(() => {
     }
   }
 
-  // Deleting children after their retention period must not depend on the backups being configured.
+  // The daily run (tried every hour, each part does its work once): planned group changes whose day has come, then
+  // deleting children after their retention period. Neither depends on the other or on the backups being configured.
   const purge = () => {
+    try {
+      const applied = applyDueGroupChanges(db, todayIso())
+      if (applied > 0) console.info(`Applied ${applied} group change(s).`)
+    }
+    catch (error) {
+      console.error('Applying planned group changes failed', error)
+    }
     try {
       const deleted = purgeExpiredChildren(db, todayIso())
       if (deleted > 0) {

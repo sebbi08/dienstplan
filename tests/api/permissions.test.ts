@@ -41,6 +41,7 @@ const ADMIN_ROUTES = [
   'employee-requirements/[id].delete.ts', 'employees/[id]/trainings.post.ts', 'employee-trainings/[id].put.ts',
   'employee-trainings/[id].delete.ts',
   'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts', 'early-sick-leaves/[id].delete.ts',
+  'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
 ]
 /** Routes anyone who may see child records can call (Träger, Leitung, Mitarbeiter; not the tablet); they must check with requireChildReader(. */
 const CHILD_READER_ROUTES = [
@@ -130,6 +131,18 @@ describe('API route permissions', () => {
       expect(ADMIN_ROUTES, route).toContain(route)
       expect(code, route).toContain('requireAdmin(')
       expect(code, route).not.toMatch(/require(User|Provider|Terminal)\(/)
+      expect(code, route).toContain('admin.facilityId')
+    }
+  })
+
+  it('opens planned group changes to managers of the active facility only', () => {
+    const touching = routes.filter(route => /group-change/i.test(route) || source(route).includes('services/childGroupChanges\''))
+    expect(touching).toEqual(['child-group-changes/[id].delete.ts', 'child-group-changes/[id].put.ts', 'children/[id]/group-change.post.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      expect(ADMIN_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireAdmin(')
+      expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor)\(/)
       expect(code, route).toContain('admin.facilityId')
     }
   })
