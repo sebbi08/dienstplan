@@ -289,11 +289,75 @@ describe('occupancy table', () => {
       const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2026-09-01', birthDate: '2024-01-01' })
       moveChildToFacility(db, id, 1, NOW)
 
+      const result = occupancyChildren(db, 1).children.find(child => child.id === id)!
+      expect(result.groups).toEqual([{ from: null, groupId: null }, { from: TODAY, groupId: null }])
+    })
+  })
+
+  describe('a child that moved here from another facility', () => {
+    let krippe: number
+    let wichtel: number
+    beforeEach(() => {
+      krippe = addFacility(db, 'Krippe')
+      wichtel = addGroup(db, krippe, 'Wichtel')
+    })
+
+    it('counts here from the day of the move, not from its entry, and no longer in the old facility\'s past months', () => {
+      const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2026-09-01', birthDate: '2024-01-01' })
+      expect(ids(occupancyTable(db, krippe, 2026).total.cells[SEP]!.fresh)).toEqual([id])
+
+      moveChildToFacility(db, id, 1, NOW)
+
       const table = occupancyTable(db, 1, 2026)
       expect(table.rows.map(row => row.groupId)).toEqual([bears, mice, null])
-      expect(ids(table.rows[2]!.cells[SEP]!.fresh)).toEqual([id])
-      expect(table.rows[2]!.cells[OCT]!.present).toEqual([{ id, name: 'Kind Muster', from: '2026-09-01', to: '2030-08-31' }])
-      expect(ids(table.total.cells[OCT]!.present)).toEqual([id])
+      // September, when it still was in the Krippe, is not counted here.
+      expect(table.rows[2]!.cells[SEP]).toMatchObject({ present: [], fresh: [] })
+      expect(table.total.cells[SEP]).toMatchObject({ present: [], fresh: [] })
+      expect(table.rows[2]!.cells[OCT]!.fresh).toEqual([{ id, name: 'Kind Muster', from: TODAY, to: '2030-08-31' }])
+      expect(table.total.cells[OCT]!.fresh).toEqual([{ id, name: 'Kind Muster', from: TODAY, to: '2030-08-31' }])
+      expect(ids(table.total.cells[NOV]!.present)).toEqual([id])
+      expect(occupancyChildren(db, 1).children.find(child => child.id === id)).toMatchObject({ start: TODAY, end: '2030-08-31' })
+      // The record is here now: the old facility's table no longer knows the child, also for the months it was there.
+      const old = occupancyTable(db, krippe, 2026)
+      expect(old.total.cells.every(cell => cell.present.length === 0 && cell.fresh.length === 0)).toBe(true)
+    })
+
+    it('counts in the group it gets here from the day of that change', () => {
+      const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+      const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2026-09-01', birthDate: '2024-01-01' })
+      moveChildToFacility(db, id, 1, NOW)
+      planGroupChange(db, admin, 1, id, { groupId: bears, date: '2026-11-01', keep: KEEP_ALL }, TODAY, NOW)
+
+      const table = occupancyTable(db, 1, 2026)
+      expect(table.rows[2]!.cells[OCT]!.fresh).toEqual([{ id, name: 'Kind Muster', from: TODAY, to: '2026-10-31' }])
+      expect(table.rows[0]!.cells[NOV]!.fresh).toEqual([{ id, name: 'Kind Muster', from: '2026-11-01', to: '2030-08-31' }])
+      expect(ids(table.rows[0]!.cells[OCT]!.present.concat(table.rows[0]!.cells[OCT]!.fresh))).toEqual([])
+    })
+
+    it('counts a child that moved before it starts from its start', () => {
+      const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2027-01-15', birthDate: '2024-01-01' })
+      moveChildToFacility(db, id, 1, NOW)
+      expect(occupancyChildren(db, 1).children.find(child => child.id === id)).toMatchObject({ start: '2027-01-15' })
+    })
+
+    it('uses the last move for a child that moved more than once', () => {
+      const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2026-09-01', birthDate: '2024-01-01' })
+      moveChildToFacility(db, id, 1, NOW)
+      moveChildToFacility(db, id, krippe, new Date('2026-12-01T08:30:00.000Z'))
+      expect(occupancyChildren(db, krippe).children.find(child => child.id === id)).toMatchObject({ start: '2026-12-01' })
+      expect(occupancyChildren(db, 1).children).toEqual([])
+    })
+
+    it('never counts a child here whose stay ended before it came, without calling its dates inconsistent', () => {
+      const left = addChild(db, krippe, { entryDate: '2025-09-01', birthDate: '2024-01-01', leftOn: '2026-09-30' })
+      // School start 1 September 2026, not deregistered: its stay ended on 31 August.
+      const schoolAge = addChild(db, krippe, { entryDate: '2025-09-01', birthDate: '2020-03-01' })
+      for (const id of [left, schoolAge]) moveChildToFacility(db, id, 1, NOW)
+
+      const table = occupancyTable(db, 1, 2026)
+      expect(table.inconsistent).toEqual([])
+      expect(table.undated).toEqual([])
+      expect(table.total.cells.every(cell => cell.present.length === 0 && cell.fresh.length === 0)).toBe(true)
     })
   })
 

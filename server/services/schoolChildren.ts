@@ -140,6 +140,10 @@ const byName = (a: ChildRow, b: ChildRow) =>
  * the day before the school start; a child a group for school children makes stay (see `SchoolFacts`) stays for good (open).
  * Contract children without a start are listed as undated; those whose stay ends before it starts (left before the
  * start, or already of school age at the start without such a group) never count and are listed as inconsistent.
+ *
+ * A child whose record was moved here from another facility counts here from the day of the move (the record's
+ * `facilitySince`), not from its contract start: the time before belongs to the other facility. One whose stay had
+ * ended by then never counts here, and its dates are not called inconsistent for that.
  * Everything is in the order last name, first name, id.
  */
 export function occupancyChildren(db: Db, facilityId: number): {
@@ -155,11 +159,15 @@ export function occupancyChildren(db: Db, facilityId: number): {
   const result = rows.map((row): OccupancyChild => {
     const name = `${row.firstName} ${row.lastName}`
     names[row.id] = name
-    const start = row.entryDate ?? row.plannedEntryDate
+    const contractStart = row.entryDate ?? row.plannedEntryDate
     const { schoolStart, schoolGroup } = rules.factsOf(row)
     const end = row.leftOn ?? (schoolGroup === null ? addDays(schoolStart, -1) : null)
-    if (start === null) undated.push({ id: row.id, name })
-    else if (end !== null && end < start) inconsistent.push({ id: row.id, name })
+    if (contractStart === null) undated.push({ id: row.id, name })
+    else if (end !== null && end < contractStart) inconsistent.push({ id: row.id, name })
+    // The stay in this facility: from the day the record was moved here, when that is after the contract start.
+    const start = contractStart !== null && row.facilitySince !== null && row.facilitySince > contractStart
+      ? row.facilitySince
+      : contractStart
     return { id: row.id, start, end, groups: rules.histories.get(row.id) ?? [] }
   })
   return { children: result, names, undated, inconsistent }

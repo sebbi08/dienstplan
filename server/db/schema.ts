@@ -445,6 +445,11 @@ export const documentTypes = sqliteTable('document_types', {
 export const children = sqliteTable('children', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: facilityId(),
+  /**
+   * Day the record was moved into this facility (null = it was created here). The time before it belongs to another
+   * facility: the occupancy counts the child here only from this day on.
+   */
+  facilitySince: text('facility_since'),
   /** The child's group; null = no group (also after the group was deleted). */
   groupId: integer('group_id').references(() => groups.id, { onDelete: 'set null' }),
   careTypeId: integer('care_type_id').references(() => careTypes.id),

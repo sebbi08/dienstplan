@@ -473,7 +473,9 @@ const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivit
  * The Träger moves a record to another facility with its contacts and documents. Group and care type belong to the old
  * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility); every document gets the
  * like-named document type of the new facility, otherwise its "Sonstiges" (created with the default flags when missing).
- * The group history ends with "no group from today"; a planned group change is deleted.
+ * The group history ends with "no group from today"; a planned group change is deleted. The day of the move is stored
+ * with the record (`facilitySince`): the occupancy of the new facility counts the child from that day on, and the old
+ * facility's no longer knows it, also for the months it was there.
  *
  * A child is not moved into a facility that deregisters school children automatically when the next run there would
  * deregister it at once (409 school_start_reached, nothing is moved): it arrives without a group, and with a school
@@ -511,7 +513,8 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
       tx.update(childDocuments).set({ documentTypeId: match?.id ?? otherType() }).where(eq(childDocuments.id, document.id)).run()
     }
     endGroupHistory(tx, childId, today, now)
-    tx.update(children).set({ facilityId: targetFacilityId, groupId: null, careTypeId: null, keyEducatorId: null })
+    tx.update(children)
+      .set({ facilityId: targetFacilityId, facilitySince: today, groupId: null, careTypeId: null, keyEducatorId: null })
       .where(eq(children.id, childId)).run()
     // Judged on the record as it is there now; refusing rolls the whole move back.
     if (leavesAtNextRun(tx, targetFacilityId, childId, today)) throw new ServiceError(409, 'school_start_reached')

@@ -521,11 +521,13 @@ describe('upgrading a filled database through migrateDb', () => {
       { child_id: 3, group_id: null, from_date: null, ...keepAll, applied_at: '2026-10-01T12:00:00.000Z', created_by: null, created_at: '2026-10-01T12:00:00.000Z' },
       { child_id: 4, group_id: 3, from_date: null, ...keepAll, applied_at: '2026-09-15T07:30:00.000Z', created_by: null, created_at: '2026-09-15T07:30:00.000Z' },
     ])
-    // The children keep everything; the new marks start out empty (the contract mark comes with 0030_school_children).
+    // The children keep everything; the new marks start out empty (the contract mark comes with 0030_school_children,
+    // the day of a move into the facility with 0031_child_facility_since).
     const reviewColumns = ['contacts_review_since', 'health_review_since', 'consents_review_since', 'documents_review_since',
       'care_type_review_since', 'key_educator_review_since', 'contract_review_since']
+    const laterColumns = [...reviewColumns, 'facility_since']
     const childrenAfter = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
-    expect(childrenAfter.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !reviewColumns.includes(column)))))
+    expect(childrenAfter.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !laterColumns.includes(column)))))
       .toEqual(childrenBefore)
     for (const row of childrenAfter) expect(reviewColumns.map(column => row[column])).toEqual([null, null, null, null, null, null, null])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -590,12 +592,35 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, health_review_since, contract_review_since FROM children').all())
       .toEqual([{ id: 1, health_review_since: '2026-10-01', contract_review_since: null }])
     // Every existing row keeps its values.
-    const without = (rows: unknown[], column: string) =>
-      (rows as Record<string, unknown>[]).map(row => Object.fromEntries(Object.entries(row).filter(([name]) => name !== column)))
-    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since')).toEqual(before.children)
+    const without = (rows: unknown[], ...columns: string[]) =>
+      (rows as Record<string, unknown>[]).map(row => Object.fromEntries(Object.entries(row).filter(([name]) => !columns.includes(name))))
+    // (facility_since comes with the later 0031_child_facility_since.)
+    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since')).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
     expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children')).toEqual(before.groups)
     expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children')).toEqual(before.facilities)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('adds the day a record was moved into its facility, empty for every existing child', () => {
+    const { db, sqlite } = databaseAt('0030')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(31)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, entry_date, admission_status, left_on, created_at) VALUES
+        (1, 1, 'Meier', 'Lena', '2022-03-15', '2025-09-01', 'contract', NULL, '2026-01-01T00:00:00.000Z'),
+        (2, 2, 'Kurz', 'Ben', '2021-05-01', '2024-09-01', 'contract', '2026-08-31', '2025-06-01T09:00:00.000Z');
+    `)
+    const before = sqlite.prepare('SELECT * FROM children ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(31)
+    const after = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
+    // Nobody counts as moved: every child is counted from its contract start, as before.
+    expect(after.map(row => row.facility_since)).toEqual([null, null])
+    expect(after.map(({ facility_since: _, ...rest }) => rest)).toEqual(before)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
