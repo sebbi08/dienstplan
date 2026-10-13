@@ -32,6 +32,7 @@ const PROVIDER_ROUTES = [
   'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'groups/[id].put.ts', 'groups/[id].delete.ts',
   'children/[id]/facility.put.ts', 'child-retention.get.ts', 'child-retention.put.ts',
   'child-retention/preview.get.ts', 'school-settings.put.ts',
+  'school-settings/auto-leave.put.ts', 'school-settings/auto-leave-preview.get.ts', 'groups/[id]/school-children.put.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = [
@@ -42,6 +43,7 @@ const ADMIN_ROUTES = [
   'employee-trainings/[id].delete.ts',
   'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts', 'early-sick-leaves/[id].delete.ts',
   'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
+  'children/school-children.get.ts',
 ]
 /** Routes anyone who may see child records can call (Träger, Leitung, Mitarbeiter; not the tablet); they must check with requireChildReader(. */
 const CHILD_READER_ROUTES = [
@@ -145,6 +147,27 @@ describe('API route permissions', () => {
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor)\(/)
       expect(code, route).toContain('admin.facilityId')
     }
+  })
+
+  it('leaves the automatic leaving of school children, its preview and the group flag to the Träger', () => {
+    const settings = ['school-settings/auto-leave-preview.get.ts', 'school-settings/auto-leave.put.ts']
+    for (const route of [...settings, 'groups/[id]/school-children.put.ts']) {
+      const code = source(route)
+      expect(PROVIDER_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireProvider(')
+      expect(code, route).not.toMatch(/require(User|Admin|Terminal|ChildReader|ChildEditor)\(/)
+    }
+    // The switch and its preview are those of the facility the Träger works in.
+    for (const route of settings) expect(source(route), route).toContain('requireFacility(event, provider)')
+    // The preview and the daily run share one selection: the route must not build its own.
+    expect(source('school-settings/auto-leave-preview.get.ts')).toContain('schoolLeavers(')
+  })
+
+  it('opens the list of the coming school children to managers of the active facility only', () => {
+    const code = source('children/school-children.get.ts')
+    expect(code).toContain('requireAdmin(')
+    expect(code).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor)\(/)
+    expect(code).toContain('admin.facilityId')
   })
 
   it('lets the tablet into the general plan only', () => {

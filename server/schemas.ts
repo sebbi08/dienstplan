@@ -148,8 +148,12 @@ export const helpOutSchema = z.object({
 export const groupNameSchema = z.object({ name: z.string().max(80) })
 /** The range (whole number 1-200 or null) is checked by the service, which answers invalid_capacity. */
 export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
+/** Whether the group is for school children (after-school care). */
+export const groupSchoolChildrenSchema = z.object({ forSchoolChildren: z.boolean() })
 /** The values are checked by the service, which answers invalid_school_cutoff. */
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
+/** The switch "deregister school children automatically". */
+export const autoLeaveSchema = z.object({ autoLeave: z.boolean() })
 /** The Kita year's start year; the range is checked by the service, which answers invalid_year. */
 export const occupancyQuery = z.object({ year: z.coerce.number() })
 /** intervalMonths: due again every … months (null = needed once). */
@@ -173,6 +177,8 @@ export const documentTypeSchema = z.object({
   required: z.boolean(),
   confidentialDefault: z.boolean(),
   sortOrder: z.number().int().min(0).max(10000),
+  // Left out = unchanged: a client that does not know the flag must not take it away.
+  careContract: z.boolean().optional(),
 })
 
 const triState = z.boolean().nullable()
@@ -205,7 +211,11 @@ export const groupChangeSchema = z.object({
     contacts: z.boolean(), health: z.boolean(), consents: z.boolean(), documents: z.boolean(), careType: z.boolean(),
     keyEducator: z.boolean(),
   }),
+  // "A further care contract has been concluded": the service requires it for a group for school children.
+  newContract: z.boolean().optional(),
 })
+/** Taking a leaving back; the new school start is only needed when the child's school start is already reached. */
+export const childUnleaveSchema = z.object({ schoolStartDate: isoDate.optional() })
 /** The section of a child's record to confirm again after a group change. */
 export const confirmSectionSchema = z.object({ section: z.enum(REVIEW_SECTIONS) })
 /** A new child may omit the admission status (a contract child). */

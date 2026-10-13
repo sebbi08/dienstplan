@@ -5,6 +5,7 @@ import { runDailyBackup } from '../services/backup'
 import { applyDueGroupChanges } from '../services/childGroupChanges'
 import { purgeExpiredChildren } from '../services/children'
 import { backfillSnapshots } from '../services/release'
+import { leaveSchoolChildren } from '../services/schoolChildren'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -28,7 +29,8 @@ export default defineNitroPlugin(() => {
   }
 
   // The daily run (tried every hour, each part does its work once): planned group changes whose day has come, then
-  // deleting children after their retention period. Neither depends on the other or on the backups being configured.
+  // the school children who leave (a change into a group for school children is applied by then), then deleting
+  // children after their retention period. None depends on another one succeeding or on the backups being configured.
   const dailyRun = () => {
     try {
       const applied = applyDueGroupChanges(db, todayIso())
@@ -36,6 +38,14 @@ export default defineNitroPlugin(() => {
     }
     catch (error) {
       console.error('Applying planned group changes failed', error)
+    }
+    try {
+      // Only the number goes into the log, never a name.
+      const deregistered = leaveSchoolChildren(db, todayIso())
+      if (deregistered > 0) console.info(`Deregistered ${deregistered} school child(ren).`)
+    }
+    catch (error) {
+      console.error('Deregistering school children failed', error)
     }
     try {
       const deleted = purgeExpiredChildren(db, todayIso())

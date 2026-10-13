@@ -147,7 +147,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT * FROM facilities').all()).toEqual([
       {
         id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3,
-        school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6,
+        school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
       },
     ])
     expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
@@ -521,13 +521,13 @@ describe('upgrading a filled database through migrateDb', () => {
       { child_id: 3, group_id: null, from_date: null, ...keepAll, applied_at: '2026-10-01T12:00:00.000Z', created_by: null, created_at: '2026-10-01T12:00:00.000Z' },
       { child_id: 4, group_id: 3, from_date: null, ...keepAll, applied_at: '2026-09-15T07:30:00.000Z', created_by: null, created_at: '2026-09-15T07:30:00.000Z' },
     ])
-    // The children keep everything; the new marks start out empty.
+    // The children keep everything; the new marks start out empty (the contract mark comes with 0030_school_children).
     const reviewColumns = ['contacts_review_since', 'health_review_since', 'consents_review_since', 'documents_review_since',
-      'care_type_review_since', 'key_educator_review_since']
+      'care_type_review_since', 'key_educator_review_since', 'contract_review_since']
     const childrenAfter = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
     expect(childrenAfter.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !reviewColumns.includes(column)))))
       .toEqual(childrenBefore)
-    for (const row of childrenAfter) expect(reviewColumns.map(column => row[column])).toEqual([null, null, null, null, null, null])
+    for (const row of childrenAfter) expect(reviewColumns.map(column => row[column])).toEqual([null, null, null, null, null, null, null])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
 
@@ -545,6 +545,59 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT DISTINCT child_id FROM child_group_changes ORDER BY child_id').all())
       .toEqual([{ child_id: 2 }, { child_id: 3 }, { child_id: 4 }])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('flags the type "Betreuungsvertrag" of every facility as the care contract and leaves the new switches off', () => {
+    const { db, sqlite } = databaseAt('0029')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(30)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe'), (3, 'Hort');
+      INSERT INTO document_types (facility_id, name, important, required, sort_order) VALUES
+        (2, 'Betreuungsvertrag', 1, 1, 0), (2, 'Sonstiges', 0, 0, 1), (3, 'Vertrag', 1, 1, 0);
+      INSERT INTO groups (id, facility_id, name, sort_order, capacity) VALUES (1, 1, 'Bären', 0, 20), (2, 2, 'Wichtel', 0, NULL);
+      INSERT INTO children (id, facility_id, group_id, last_name, first_name, birth_date, admission_status, health_review_since, created_at) VALUES
+        (1, 1, 1, 'Meier', 'Lena', '2021-06-30', 'contract', '2026-10-01', '2026-01-01T00:00:00.000Z');
+      INSERT INTO child_group_changes (child_id, group_id, from_date, applied_at, created_at) VALUES
+        (1, 1, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+        (1, NULL, '2027-03-15', NULL, '2026-10-13T08:00:00.000Z');
+    `)
+    const before = {
+      types: sqlite.prepare('SELECT id, facility_id, name, important, required, confidential_default, sort_order FROM document_types ORDER BY id').all(),
+      children: sqlite.prepare('SELECT * FROM children ORDER BY id').all(),
+      changes: sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(),
+      groups: sqlite.prepare('SELECT * FROM groups ORDER BY id').all(),
+      facilities: sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(),
+    }
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(30)
+    // Exactly the types named "Betreuungsvertrag" (facilities 1 and 2); facility 3 has none of that name.
+    expect(sqlite.prepare('SELECT facility_id, name FROM document_types WHERE care_contract = 1 ORDER BY facility_id').all())
+      .toEqual([{ facility_id: 1, name: 'Betreuungsvertrag' }, { facility_id: 2, name: 'Betreuungsvertrag' }])
+    expect(count(sqlite, 'document_types')).toBe(10)
+    expect(sqlite.prepare('SELECT id, facility_id, name, important, required, confidential_default, sort_order FROM document_types ORDER BY id').all())
+      .toEqual(before.types)
+    // Nobody is deregistered automatically and no group is for school children until the Träger says so.
+    expect(sqlite.prepare('SELECT id, auto_leave_school_children FROM facilities ORDER BY id').all()).toEqual([
+      { id: 1, auto_leave_school_children: 0 }, { id: 2, auto_leave_school_children: 0 }, { id: 3, auto_leave_school_children: 0 },
+    ])
+    expect(sqlite.prepare('SELECT id, for_school_children FROM groups ORDER BY id').all())
+      .toEqual([{ id: 1, for_school_children: 0 }, { id: 2, for_school_children: 0 }])
+    expect(sqlite.prepare('SELECT child_id, from_date, new_contract FROM child_group_changes ORDER BY id').all()).toEqual([
+      { child_id: 1, from_date: null, new_contract: 0 }, { child_id: 1, from_date: '2027-03-15', new_contract: 0 },
+    ])
+    expect(sqlite.prepare('SELECT id, health_review_since, contract_review_since FROM children').all())
+      .toEqual([{ id: 1, health_review_since: '2026-10-01', contract_review_since: null }])
+    // Every existing row keeps its values.
+    const without = (rows: unknown[], column: string) =>
+      (rows as Record<string, unknown>[]).map(row => Object.fromEntries(Object.entries(row).filter(([name]) => name !== column)))
+    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since')).toEqual(before.children)
+    expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
+    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children')).toEqual(before.groups)
+    expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children')).toEqual(before.facilities)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

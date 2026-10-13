@@ -52,6 +52,8 @@ export interface GroupDto {
   sortOrder: number
   /** Number of places (null = not set). */
   capacity: number | null
+  /** After-school care: a child in this group on its school start stays instead of leaving the day before. */
+  forSchoolChildren: boolean
 }
 
 /** A care type (Betreuungsart) of a facility: a booking time window, times in minutes since midnight. */
@@ -74,9 +76,15 @@ export interface DocumentTypeDto {
   /** New documents of this type start out confidential. */
   confidentialDefault: boolean
   sortOrder: number
+  /** The type of the care contract (Betreuungsvertrag); at most one type of a facility. */
+  careContract: boolean
 }
 
-export type DocumentTypeInput = Omit<DocumentTypeDto, 'id'>
+/**
+ * `careContract: true` makes the type the facility's care contract type (the flag leaves the type that had it), false
+ * takes the flag away; left out = unchanged (a new type does not get it).
+ */
+export type DocumentTypeInput = Omit<DocumentTypeDto, 'id' | 'careContract'> & { careContract?: boolean }
 
 /** Master data (Stammdaten) of a child; the dates are optional except the birth date. */
 export interface ChildMasterInput {
@@ -179,6 +187,33 @@ export interface SchoolSettingsDto {
   cutoffMonth: number
   cutoffDay: number
   ageYears: number
+  /** The daily run deregisters the facility's school children to the day before their school start. */
+  autoLeave: boolean
+}
+
+/** The cutoff alone, as the Träger stores it. */
+export type SchoolCutoffInput = Pick<SchoolSettingsDto, 'cutoffMonth' | 'cutoffDay' | 'ageYears'>
+
+/** A child the automatic leaving deregisters (at its next run, once it is switched on): its leaving day is the day before its school start. */
+export interface SchoolLeaverDto {
+  id: number
+  name: string
+  schoolStart: IsoDate
+  leftOn: IsoDate
+}
+
+/** A child of the list "Schulkinder zum 1.9.": its school start is the coming 1 September, or reached without a leaving day. */
+export interface UpcomingSchoolChildDto {
+  id: number
+  name: string
+  /** The group the child is in today. */
+  groupId: number | null
+  schoolStart: IsoDate
+  /**
+   * The group for school children the child is in on its school start, by a group change that is planned or already
+   * applied; null = none, so its stay ends the day before the school start.
+   */
+  pendingSchoolGroup: string | null
 }
 
 /** A child named in an occupancy cell, with the borders of the stay counted there (to null = open). */
@@ -218,19 +253,34 @@ export interface OccupancyDto {
   total: { capacity: number | null; cells: OccupancyCellDto[] }
   /** Contract children without a start date; they are not counted. */
   undated: { id: number; name: string }[]
-  /** Contract children whose stay ends before it starts (left or school start before the contract start); not counted. */
+  /**
+   * Contract children whose stay ends before it starts (left or school start before the contract start); not counted.
+   * A child in a group for school children on its school start has an open stay and is not one of them.
+   */
   inconsistent: { id: number; name: string }[]
 }
 
-/** The sections of a child's record a group change can leave unconfirmed. */
-export const REVIEW_SECTIONS = ['contacts', 'health', 'consents', 'documents', 'careType', 'keyEducator'] as const
+/** The sections of a child's record a group change can leave unconfirmed: one "keep" choice each. */
+export const KEEP_SECTIONS = ['contacts', 'health', 'consents', 'documents', 'careType', 'keyEducator'] as const
+export type KeepSection = (typeof KEEP_SECTIONS)[number]
+
+/**
+ * Everything of a child's record that can be marked "not confirmed" after a group change: the sections that were not
+ * kept and, only after a change into a group for school children, the further care contract.
+ */
+export const REVIEW_SECTIONS = [...KEEP_SECTIONS, 'contract'] as const
 export type ReviewSection = (typeof REVIEW_SECTIONS)[number]
 
 /** A group change of a child from `date` on; `keep[section] === false` = the section must be confirmed again after it. */
 export interface GroupChangeInput {
   groupId: number
   date: IsoDate
-  keep: Record<ReviewSection, boolean>
+  keep: Record<KeepSection, boolean>
+  /**
+   * "A further care contract has been concluded": required (true) for a change into a group for school children, whose
+   * day is the start of that contract; without a meaning for every other group.
+   */
+  newContract?: boolean
 }
 
 /** A planned group change that is not applied yet. */
@@ -239,7 +289,7 @@ export interface GroupChangeDto {
   groupId: number
   groupName: string
   date: IsoDate
-  keep: Record<ReviewSection, boolean>
+  keep: Record<KeepSection, boolean>
 }
 
 /** An active child with sections to confirm after a group change (the "Offen" list). */
@@ -307,8 +357,9 @@ export interface DocumentOverviewDto {
     name: string
     groupId: number | null
     /**
-     * Per important type id: the newest document, or null while there is none. `stale`: the child's documents are to be
-     * confirmed again after a group change, the type is required and no document of it was uploaded since then.
+     * Per important type id: the newest document, or null while there is none. `stale`: no document of the type was
+     * uploaded since the group change after which it has to be handed in again - a required type while the child's
+     * documents are to be confirmed, the care contract type while its further care contract is.
      */
     cells: Record<number, { documentId: number; documentDate: IsoDate; canOpen: boolean; stale: boolean } | null>
     /** A required type has no document yet, or only a stale one. */

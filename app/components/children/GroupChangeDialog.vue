@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { REVIEW_SECTIONS } from '#shared/types/api'
-import type { ChildRecordDto, GroupChangeInput, ReviewSection } from '#shared/types/api'
+import { KEEP_SECTIONS } from '#shared/types/api'
+import type { ChildRecordDto, GroupChangeInput, KeepSection } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
@@ -13,7 +13,7 @@ const props = defineProps<{ child: ChildRecordDto; groups: { id: number; name: s
 const open = defineModel<boolean>('open', { default: false })
 const { busy, run } = useBusyAction(() => props.reload())
 
-const allKept = (): Record<ReviewSection, boolean> => Object.fromEntries(REVIEW_SECTIONS.map(section => [section, true])) as Record<ReviewSection, boolean>
+const allKept = (): Record<KeepSection, boolean> => Object.fromEntries(KEEP_SECTIONS.map(section => [section, true])) as Record<KeepSection, boolean>
 const form = reactive({ groupId: 0, date: todayIso(), keep: allKept() })
 const pending = computed(() => props.child.pendingGroupChange)
 
@@ -58,7 +58,7 @@ async function save() {
           <legend class="text-sm font-medium">{{ de.groupChange.keepTitle }}</legend>
           <p class="text-xs text-gray-500">{{ de.groupChange.keepHint }}</p>
           <div class="grid gap-2 sm:grid-cols-2">
-            <UCheckbox v-for="section in REVIEW_SECTIONS" :key="section" v-model="form.keep[section]" :label="de.groupChange.sections[section]" />
+            <UCheckbox v-for="section in KEEP_SECTIONS" :key="section" v-model="form.keep[section]" :label="de.groupChange.sections[section]" />
           </div>
         </fieldset>
         <div class="flex gap-2">

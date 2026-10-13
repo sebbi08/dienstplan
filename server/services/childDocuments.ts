@@ -12,7 +12,7 @@ import { loadChild, loadEditableChild } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { DOCUMENT_EXTENSIONS, MAX_DOCUMENT_BYTES, detectDocumentMime, type DocumentMime } from '../lib/fileSignature'
 import { settleDue } from './childGroupChanges'
-import { settleDocumentReview, staleRequiredTypes } from './documentReview'
+import { settleDocumentReview, staleContractTypes, staleRequiredTypes } from './documentReview'
 import { assertDocumentType, listDocumentTypes } from './documentTypes'
 import { listGroups } from './groups'
 
@@ -200,8 +200,12 @@ export function documentOverview(db: Db, viewer: Viewer, facilityId: number, tod
       newest.set(key, document)
     }
   }
-  // Per child with a documents marker: the required types without a document uploaded since (also those without any).
-  const staleTypes = staleRequiredTypes(db, facilityId, kids)
+  // Per child with a documents marker: the required types without a document uploaded since (also those without any);
+  // per child with a contract marker: the care contract type, likewise.
+  const staleRequired = staleRequiredTypes(db, facilityId, kids)
+  const staleContract = staleContractTypes(db, facilityId, kids)
+  const isStale = (childId: number, typeId: number) =>
+    (staleRequired.get(childId)?.includes(typeId) ?? false) || (staleContract.get(childId)?.includes(typeId) ?? false)
   const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
   const rank = (groupId: number | null) => (groupId === null ? Infinity : groupRank.get(groupId) ?? Infinity)
   kids.sort((a, b) => rank(a.groupId) - rank(b.groupId)
@@ -212,9 +216,8 @@ export function documentOverview(db: Db, viewer: Viewer, facilityId: number, tod
       const cells: DocumentOverviewDto['rows'][number]['cells'] = {}
       for (const type of types) {
         const document = newest.get(`${kid.id}:${type.id}`)
-        const stale = staleTypes.get(kid.id)?.includes(type.id) ?? false
         cells[type.id] = document
-          ? { documentId: document.id, documentDate: dayOf(document), canOpen: mayOpen(viewer, document), stale }
+          ? { documentId: document.id, documentDate: dayOf(document), canOpen: mayOpen(viewer, document), stale: isStale(kid.id, type.id) }
           : null
       }
       return {

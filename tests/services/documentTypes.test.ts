@@ -6,7 +6,10 @@ import {
 } from '../../server/services/documentTypes'
 import { addChild, addFacility, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
-const input = (name: string, flags: Partial<{ important: boolean; required: boolean; confidentialDefault: boolean; sortOrder: number }> = {}) => ({
+const input = (
+  name: string,
+  flags: Partial<{ important: boolean; required: boolean; confidentialDefault: boolean; sortOrder: number; careContract: boolean }> = {},
+) => ({
   name, important: false, required: false, confidentialDefault: false, sortOrder: 0, ...flags,
 })
 
@@ -56,7 +59,9 @@ describe('document types of a facility', () => {
   it('updates a type; keeping its own name is no clash', () => {
     const id = documentTypeId(db, 1, 'Sonstiges')
     const updated = updateDocumentType(db, 1, id, input('SONSTIGES', { important: true, confidentialDefault: true, sortOrder: 20 }))
-    expect(updated).toEqual({ id, name: 'SONSTIGES', important: true, required: false, confidentialDefault: true, sortOrder: 20 })
+    expect(updated).toEqual({
+      id, name: 'SONSTIGES', important: true, required: false, confidentialDefault: true, sortOrder: 20, careContract: false,
+    })
     expect(listDocumentTypes(db, 1).at(-1)!.id).toBe(id)
     expect(errorCode(() => updateDocumentType(db, 1, id, input('Masernnachweis')))).toBe('document_type_name_taken')
     expect(errorCode(() => updateDocumentType(db, 1, id, input('')))).toBe('document_type_name_required')
@@ -75,7 +80,62 @@ describe('document types of a facility', () => {
     const id = documentTypeId(db, 1, 'Sorgerechtsbeschluss')
     expect(assertDocumentType(db, 1, id)).toEqual({
       id, name: 'Sorgerechtsbeschluss', important: true, required: false, confidentialDefault: true,
-      sortOrder: expect.any(Number),
+      sortOrder: expect.any(Number), careContract: false,
+    })
+  })
+
+  describe('the care contract type', () => {
+    /** The names of the facility's types flagged as the care contract. */
+    const contractTypes = (facilityId = 1) => listDocumentTypes(db, facilityId).filter(type => type.careContract).map(type => type.name)
+
+    it('is the type "Betreuungsvertrag" to begin with, also in a new facility', () => {
+      expect(contractTypes()).toEqual(['Betreuungsvertrag'])
+      expect(contractTypes(addFacility(db, 'Andere Kita'))).toEqual(['Betreuungsvertrag'])
+    })
+
+    it('moves to the type that is saved with the flag, so a facility never has two', () => {
+      const id = documentTypeId(db, 1, 'Sonstiges')
+      const updated = updateDocumentType(db, 1, id, input('Sonstiges', { careContract: true }))
+      expect(updated.careContract).toBe(true)
+      expect(contractTypes()).toEqual(['Sonstiges'])
+
+      const created = createDocumentType(db, 1, input('Hortvertrag', { careContract: true }))
+      expect(created.careContract).toBe(true)
+      expect(contractTypes()).toEqual(['Hortvertrag'])
+    })
+
+    it('leaves the other facilities\' flags alone', () => {
+      const other = addFacility(db, 'Andere Kita')
+      updateDocumentType(db, 1, documentTypeId(db, 1, 'Sonstiges'), input('Sonstiges', { careContract: true }))
+      expect(contractTypes(other)).toEqual(['Betreuungsvertrag'])
+      createDocumentType(db, other, input('Hortvertrag', { careContract: true }))
+      expect(contractTypes()).toEqual(['Sonstiges'])
+      expect(contractTypes(other)).toEqual(['Hortvertrag'])
+    })
+
+    it('keeps the flag when a type is saved without saying anything about it', () => {
+      const id = documentTypeId(db, 1, 'Betreuungsvertrag')
+      const updated = updateDocumentType(db, 1, id, input('Vertrag', { important: true, required: true }))
+      expect(updated).toMatchObject({ name: 'Vertrag', careContract: true })
+      updateDocumentType(db, 1, documentTypeId(db, 1, 'Sonstiges'), input('Sonstiges'))
+      expect(contractTypes()).toEqual(['Vertrag'])
+      expect(createDocumentType(db, 1, input('Foto')).careContract).toBe(false)
+      expect(contractTypes()).toEqual(['Vertrag'])
+    })
+
+    it('can be taken away, leaving the facility without one', () => {
+      const id = documentTypeId(db, 1, 'Betreuungsvertrag')
+      updateDocumentType(db, 1, id, input('Betreuungsvertrag', { important: true, required: true, careContract: false }))
+      expect(contractTypes()).toEqual([])
+      updateDocumentType(db, 1, documentTypeId(db, 1, 'Sonstiges'), input('Sonstiges', { careContract: false }))
+      expect(contractTypes()).toEqual([])
+    })
+
+    it('stays where it is when the save is refused', () => {
+      const id = documentTypeId(db, 1, 'Sonstiges')
+      expect(errorCode(() => updateDocumentType(db, 1, id, input('Masernnachweis', { careContract: true })))).toBe('document_type_name_taken')
+      expect(errorCode(() => createDocumentType(db, 1, input('A', { required: true, careContract: true })))).toBe('required_needs_important')
+      expect(contractTypes()).toEqual(['Betreuungsvertrag'])
     })
   })
 

@@ -38,10 +38,11 @@ function isEmpty(db: Db, table: SQLiteTable): boolean {
 
 /**
  * Document types every facility starts with. Facility 1 and existing facilities get them from the migration
- * 0025_child_records (keep both lists in step), new facilities from createFacility.
+ * 0025_child_records (keep both lists in step), new facilities from createFacility. "Betreuungsvertrag" is the care
+ * contract type (existing facilities: migration 0030_school_children).
  */
 export const DEFAULT_DOCUMENT_TYPES: Omit<typeof documentTypes.$inferInsert, 'facilityId'>[] = [
-  { name: 'Betreuungsvertrag', important: true, required: true, confidentialDefault: true, sortOrder: 0 },
+  { name: 'Betreuungsvertrag', important: true, required: true, confidentialDefault: true, sortOrder: 0, careContract: true },
   { name: 'Masernnachweis', important: true, required: true, confidentialDefault: false, sortOrder: 1 },
   { name: 'Belehrung Infektionsschutz', important: true, required: true, confidentialDefault: false, sortOrder: 2 },
   { name: 'Datenschutz-Einwilligung', important: true, required: true, confidentialDefault: false, sortOrder: 3 },

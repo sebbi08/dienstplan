@@ -22,13 +22,12 @@ import { assertCareType } from './careTypes'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
 import {
-  changeGroupDirectly, deleteChangesAfterLeaving, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup,
-  settleDue,
+  changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
 } from './childGroupChanges'
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
-import { schoolCutoffOf } from './schoolChildren'
+import { schoolCutoffOf, schoolRules } from './schoolChildren'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
 const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key.slice(1)}` as ConsentColumn
@@ -376,16 +375,32 @@ export function leaveChild(db: Db, facilityId: number, id: number, leftOn: IsoDa
   if (!isValidIsoDate(leftOn)) throw new ServiceError(400, 'invalid_date')
   // A year back from today (29 February falls on 28 February).
   if (leftOn < purgeDate(today, -1)) throw new ServiceError(400, 'left_on_too_early')
-  db.transaction((tx) => {
-    tx.update(children).set({ leftOn }).where(eq(children.id, id)).run()
-    deleteChangesAfterLeaving(tx, id, leftOn)
-  })
+  db.transaction(tx => registerLeaving(tx, id, leftOn))
 }
 
-/** Takes the registration back: the child is active (or planned) again. */
-export function unleaveChild(db: Db, facilityId: number, id: number): void {
-  loadChild(db, facilityId, id)
-  db.update(children).set({ leftOn: null }).where(eq(children.id, id)).run()
+/**
+ * Takes the leaving back: the child is active (or planned) again. A child whose school start is reached and that is
+ * not in a group for school children on it would be deregistered again by the next automatic leaving, so it needs a
+ * new school start after today, which is stored as its manual one (400 school_start_required otherwise, whether or not
+ * the facility deregisters automatically). For every other child `newSchoolStart` is not needed and left unused. A
+ * child that has not left stays as it is.
+ */
+export function unleaveChild(
+  db: Db, facilityId: number, id: number, today: IsoDate, newSchoolStart?: IsoDate, now: Date = new Date(),
+): void {
+  if (loadChild(db, facilityId, id).leftOn === null) return
+  // The group history decides: a change whose day has come counts as applied first, as for every write that judges on it.
+  settleDue(db, id, today, now)
+  const child = loadChild(db, facilityId, id)
+  const { schoolStart, schoolGroup } = schoolRules(db, facilityId).factsOf(child)
+  const needsSchoolStart = schoolStart <= today && schoolGroup === null
+  if (needsSchoolStart) {
+    if (newSchoolStart === undefined) throw new ServiceError(400, 'school_start_required')
+    if (!isValidIsoDate(newSchoolStart)) throw new ServiceError(400, 'invalid_date')
+    if (newSchoolStart <= today) throw new ServiceError(400, 'school_start_required')
+  }
+  db.update(children).set({ leftOn: null, ...(needsSchoolStart ? { schoolStartDate: newSchoolStart } : {}) })
+    .where(eq(children.id, id)).run()
 }
 
 /** Deletes the record at once; contacts and documents go with it (ON DELETE CASCADE). */

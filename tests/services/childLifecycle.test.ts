@@ -99,7 +99,7 @@ describe('leaving, archive and automatic deletion of children', () => {
     it('takes a leaving date back', () => {
       const id = addChild(db, 1, { leftOn: '2026-09-30' })
       expect(getChild(db, admin, id, TODAY).status).toBe('archived')
-      unleaveChild(db, 1, id)
+      unleaveChild(db, 1, id, TODAY)
       const record = getChild(db, admin, id, TODAY)
       expect(record.status).toBe('active')
       expect(record.leftOn).toBeNull()
@@ -110,7 +110,7 @@ describe('leaving, archive and automatic deletion of children', () => {
       const krippe = addFacility(db, 'Krippe')
       const foreign = addChild(db, krippe, { leftOn: '2026-01-31' })
       expect(errorCode(() => leaveChild(db, 1, foreign, TODAY, TODAY))).toBe('child_not_found')
-      expect(errorCode(() => unleaveChild(db, 1, foreign))).toBe('child_not_found')
+      expect(errorCode(() => unleaveChild(db, 1, foreign, TODAY))).toBe('child_not_found')
       expect(errorCode(() => deleteChild(db, 1, foreign))).toBe('child_not_found')
       expect(errorCode(() => leaveChild(db, 1, 999, TODAY, TODAY))).toBe('child_not_found')
       expect(leftOnOf(foreign)).toBe('2026-01-31')

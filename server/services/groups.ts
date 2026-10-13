@@ -9,8 +9,8 @@ import {
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 
-function toDto(row: { id: number; name: string; sortOrder: number; capacity: number | null }): GroupDto {
-  return { id: row.id, name: row.name, sortOrder: row.sortOrder, capacity: row.capacity }
+function toDto(row: typeof groups.$inferSelect): GroupDto {
+  return { id: row.id, name: row.name, sortOrder: row.sortOrder, capacity: row.capacity, forSchoolChildren: row.forSchoolChildren }
 }
 
 /** The facility's groups in their order. */
@@ -76,6 +76,22 @@ export function setGroupCapacity(db: Db, facilityId: number, id: number, capacit
     throw new ServiceError(400, 'invalid_capacity')
   }
   db.update(groups).set({ capacity }).where(eq(groups.id, id)).run()
+}
+
+/**
+ * The Träger flags a group as being for school children (after-school care) or takes the flag away; 404
+ * group_not_found for an unknown group. A child in such a group on its school start stays instead of leaving the day
+ * before, and a change into it needs a further care contract.
+ */
+export function setGroupForSchoolChildren(db: Db, groupId: number, value: boolean): void {
+  facilityOfGroup(db, groupId)
+  db.update(groups).set({ forSchoolChildren: value }).where(eq(groups.id, groupId)).run()
+}
+
+/** Whether the group is for school children (null = no group: never). */
+export function isForSchoolChildren(db: Db, groupId: number | null): boolean {
+  if (groupId === null) return false
+  return db.select({ value: groups.forSchoolChildren }).from(groups).where(eq(groups.id, groupId)).get()?.value ?? false
 }
 
 /**

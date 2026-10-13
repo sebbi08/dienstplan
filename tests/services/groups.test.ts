@@ -28,7 +28,7 @@ describe('groups of a facility', () => {
   it('creates groups in order and lists only the facility\'s own', () => {
     const krippe = addFacility(db, 'Krippe')
     const bears = createGroup(db, 1, '  Bären ')
-    expect(bears).toEqual({ id: bears.id, name: 'Bären', sortOrder: 0, capacity: null })
+    expect(bears).toEqual({ id: bears.id, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false })
     const mice = createGroup(db, 1, 'Mäuse')
     expect(mice.sortOrder).toBe(1)
     // The same name in another facility is fine: names are unique per facility.
@@ -129,7 +129,7 @@ describe('groups of a facility', () => {
     expect(errorCode(() => assertGroup(db, 1, 999))).toBe('group_not_found')
     expect(errorCode(() => assertGroup(db, 1, null))).toBeNull()
     expect(errorCode(() => assertGroup(db, krippe, foreign))).toBeNull()
-    expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0, capacity: null }])
+    expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0, capacity: null, forSchoolChildren: false }])
   })
 
   it('refuses to delete a group holding only a waitlist child', () => {
@@ -297,8 +297,8 @@ describe('group capacity', () => {
     expect(listGroups(db, 1).map(group => group.capacity)).toEqual([null, null])
     setGroupCapacity(db, 1, bears, 12)
     expect(listGroups(db, 1)).toEqual([
-      { id: bears, name: 'Bären', sortOrder: 0, capacity: 12 },
-      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null },
+      { id: bears, name: 'Bären', sortOrder: 0, capacity: 12, forSchoolChildren: false },
+      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false },
     ])
   })
 

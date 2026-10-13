@@ -14,6 +14,8 @@ export const facilities = sqliteTable('facilities', {
   schoolCutoffMonth: integer('school_cutoff_month').notNull().default(6),
   schoolCutoffDay: integer('school_cutoff_day').notNull().default(30),
   schoolAgeYears: integer('school_age_years').notNull().default(6),
+  /** The daily run deregisters the facility's school children to the day before their school start (off until the Träger turns it on). */
+  autoLeaveSchoolChildren: integer('auto_leave_school_children', { mode: 'boolean' }).notNull().default(false),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -27,6 +29,8 @@ export const groups = sqliteTable('groups', {
   sortOrder: integer('sort_order').notNull().default(0),
   /** Number of places in the group (null = not set). */
   capacity: integer('capacity'),
+  /** After-school care (Hort): a child in such a group on its school start stays instead of leaving the day before. */
+  forSchoolChildren: integer('for_school_children', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('groups_facility').on(table.facilityId)])
 
 /** The group a row belongs to (null = the whole facility, or no group of its own); always a group of the row's facility. */
@@ -433,6 +437,8 @@ export const documentTypes = sqliteTable('document_types', {
   /** New documents of this type start out confidential. */
   confidentialDefault: integer('confidential_default', { mode: 'boolean' }).notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
+  /** The type of the care contract (Betreuungsvertrag); at most one per facility, which the service sees to. */
+  careContract: integer('care_contract', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('document_types_facility').on(table.facilityId)])
 
 /** A child's record (Kinderakte). Tri-state columns: null = not answered yet. */
@@ -498,6 +504,8 @@ export const children = sqliteTable('children', {
   documentsReviewSince: text('documents_review_since'),
   careTypeReviewSince: text('care_type_review_since'),
   keyEducatorReviewSince: text('key_educator_review_since'),
+  /** The further care contract of a change into a group for school children is not confirmed since this day. */
+  contractReviewSince: text('contract_review_since'),
   createdAt: text('created_at').notNull(),
 }, table => [
   index('children_facility').on(table.facilityId),
@@ -522,6 +530,8 @@ export const childGroupChanges = sqliteTable('child_group_changes', {
   keepDocuments: integer('keep_documents', { mode: 'boolean' }).notNull().default(true),
   keepCareType: integer('keep_care_type', { mode: 'boolean' }).notNull().default(true),
   keepKeyEducator: integer('keep_key_educator', { mode: 'boolean' }).notNull().default(true),
+  /** A change into a group for school children: the further care contract it needs was confirmed when planning it. */
+  newContract: integer('new_contract', { mode: 'boolean' }).notNull().default(false),
   /** ISO timestamp of applying the change to the child; null = planned. */
   appliedAt: text('applied_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),

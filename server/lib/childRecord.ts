@@ -35,14 +35,16 @@ export function loadEditableChild(
 export const REVIEW_COLUMN = {
   contacts: 'contactsReviewSince', health: 'healthReviewSince', consents: 'consentsReviewSince',
   documents: 'documentsReviewSince', careType: 'careTypeReviewSince', keyEducator: 'keyEducatorReviewSince',
+  contract: 'contractReviewSince',
 } as const satisfies Record<ReviewSection, keyof ChildRow>
 
 /**
  * The record section whose stamp a confirmation sets: care type and Bezugserzieher are part of the master data; the
- * documents have no stamp (each document carries its own upload data).
+ * documents and the care contract (a document as well) have no stamp (each document carries its own upload data).
  */
 export const REVIEW_STAMP_SECTION: Record<ReviewSection, ChildSection | null> = {
   contacts: 'contacts', health: 'health', consents: 'consents', documents: null, careType: 'master', keyEducator: 'master',
+  contract: null,
 }
 
 /** The columns that clear the markers of these sections (to set on the child). */

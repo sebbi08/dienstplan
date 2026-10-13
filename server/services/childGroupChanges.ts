@@ -3,17 +3,17 @@ import { isValidIsoDate } from '../../shared/domain/dates'
 import type { GroupEntry } from '../../shared/domain/occupancy'
 import type { IsoDate } from '../../shared/domain/types'
 import {
-  REVIEW_SECTIONS, type GroupChangeDto, type GroupChangeInput, type ReviewSection, type SessionUser,
+  KEEP_SECTIONS, type GroupChangeDto, type GroupChangeInput, type KeepSection, type ReviewSection, type SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childGroupChanges, children, groups } from '../db/schema'
 import { loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { settleDocumentReview } from './documentReview'
-import { assertGroup } from './groups'
+import { assertGroup, isForSchoolChildren } from './groups'
 
 type ChangeRow = typeof childGroupChanges.$inferSelect
-type Keep = Record<ReviewSection, boolean>
+type Keep = Record<KeepSection, boolean>
 
 /**
  * The order in which every history is read: the start entry (no date; SQLite sorts NULL first), then by day. A child
@@ -25,15 +25,15 @@ const HISTORY_ORDER = [asc(childGroupChanges.fromDate), asc(childGroupChanges.id
 const KEEP_COLUMN = {
   contacts: 'keepContacts', health: 'keepHealth', consents: 'keepConsents', documents: 'keepDocuments',
   careType: 'keepCareType', keyEducator: 'keepKeyEducator',
-} as const satisfies Record<ReviewSection, keyof ChangeRow>
+} as const satisfies Record<KeepSection, keyof ChangeRow>
 
 function keepOf(row: ChangeRow): Keep {
-  return Object.fromEntries(REVIEW_SECTIONS.map(section => [section, row[KEEP_COLUMN[section]]])) as Keep
+  return Object.fromEntries(KEEP_SECTIONS.map(section => [section, row[KEEP_COLUMN[section]]])) as Keep
 }
 
-function keepColumns(keep: Keep): Pick<ChangeRow, (typeof KEEP_COLUMN)[ReviewSection]> {
-  return Object.fromEntries(REVIEW_SECTIONS.map(section => [KEEP_COLUMN[section], keep[section]])) as
-    Pick<ChangeRow, (typeof KEEP_COLUMN)[ReviewSection]>
+function keepColumns(keep: Keep): Pick<ChangeRow, (typeof KEEP_COLUMN)[KeepSection]> {
+  return Object.fromEntries(KEEP_SECTIONS.map(section => [KEEP_COLUMN[section], keep[section]])) as
+    Pick<ChangeRow, (typeof KEEP_COLUMN)[KeepSection]>
 }
 
 /** A child's history, planned changes included, in the history order. */
@@ -97,8 +97,9 @@ export function recordStartGroup(db: Db, childId: number, groupId: number | null
 
 /**
  * Applies the planned changes whose day has come (`childId`: only this child's), oldest first: the child gets the
- * group and, for every section that is not kept, the mark "not confirmed since the change day". Children who left
- * before the change day are skipped. Must run inside a transaction.
+ * group and, for every section that is not kept, the mark "not confirmed since the change day"; a change with a
+ * further care contract (into a group for school children) marks the care contract likewise. Children who left before
+ * the change day are skipped. Must run inside a transaction.
  */
 function applyDue(db: Db, today: IsoDate, now: Date, childId?: number): number {
   const due = db.select({ change: childGroupChanges }).from(childGroupChanges)
@@ -111,12 +112,14 @@ function applyDue(db: Db, today: IsoDate, now: Date, childId?: number): number {
     )).orderBy(...HISTORY_ORDER).all()
   for (const { change } of due) {
     const keep = keepOf(change)
-    const marks = Object.fromEntries(REVIEW_SECTIONS.filter(section => !keep[section])
-      .map(section => [REVIEW_COLUMN[section], change.fromDate]))
+    const marked: ReviewSection[] = KEEP_SECTIONS.filter(section => !keep[section])
+    if (change.newContract) marked.push('contract')
+    const marks = Object.fromEntries(marked.map(section => [REVIEW_COLUMN[section], change.fromDate]))
     db.update(children).set({ groupId: change.groupId, ...marks }).where(eq(children.id, change.childId)).run()
     db.update(childGroupChanges).set({ appliedAt: now.toISOString() }).where(eq(childGroupChanges.id, change.id)).run()
-    // A documents marker nobody could act on (nothing required, or everything uploaded since) is not set at all.
-    if (!keep.documents) settleDocumentReview(db, change.childId)
+    // A documents marker nobody could act on (nothing required, or everything uploaded since) is not set at all, and
+    // neither is a contract marker when the care contract was already uploaded since the change day.
+    if (!keep.documents || change.newContract) settleDocumentReview(db, change.childId)
   }
   return due.length
 }
@@ -142,9 +145,11 @@ export function settleDue(db: Db, childId: number, today: IsoDate, now: Date): v
  * The rules for a planned change, checked against the child's other entries (in the history order): a valid day, a
  * group of the facility (404 group_not_found) other than the one the child is in on that day (400 same_group), a day
  * after the last applied change (400 group_change_order) and not after the day the child leaves
- * (400 group_change_after_leaving), since such a change would never be applied.
+ * (400 group_change_after_leaving), since such a change would never be applied. A change into a group for school
+ * children needs the further care contract to be confirmed (400 new_contract_required). Returns whether the change
+ * carries that contract: only one into such a group does, whatever the request says for another group.
  */
-function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupChangeInput, others: ChangeRow[]): void {
+function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupChangeInput, others: ChangeRow[]): boolean {
   if (child.admissionStatus === 'waitlist') throw new ServiceError(400, 'waitlist_no_group_change')
   if (!isValidIsoDate(input.date)) throw new ServiceError(400, 'invalid_date')
   assertGroup(db, facilityId, input.groupId)
@@ -157,6 +162,9 @@ function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupC
     throw new ServiceError(400, 'group_change_order')
   }
   if (child.leftOn !== null && input.date > child.leftOn) throw new ServiceError(400, 'group_change_after_leaving')
+  const forSchoolChildren = isForSchoolChildren(db, input.groupId)
+  if (forSchoolChildren && input.newContract !== true) throw new ServiceError(400, 'new_contract_required')
+  return forSchoolChildren
 }
 
 /**
@@ -172,10 +180,10 @@ export function planGroupChange(
   settleDue(db, childId, today, now)
   db.transaction((tx) => {
     const history = historyOf(tx, childId)
-    assertChange(tx, facilityId, child, input, history)
+    const newContract = assertChange(tx, facilityId, child, input, history)
     if (history.some(entry => entry.appliedAt === null)) throw new ServiceError(409, 'group_change_pending')
     tx.insert(childGroupChanges).values({
-      childId, groupId: input.groupId, fromDate: input.date, ...keepColumns(input.keep), createdBy: actor.id,
+      childId, groupId: input.groupId, fromDate: input.date, ...keepColumns(input.keep), newContract, createdBy: actor.id,
       createdAt: now.toISOString(),
     }).run()
     if (input.date <= today) applyDue(tx, today, now, childId)
@@ -210,8 +218,9 @@ export function updateGroupChange(
   const change = loadPlannedChange(db, facilityId, changeId, today, now)
   db.transaction((tx) => {
     const child = loadEditableChild(tx, actor, facilityId, change.childId, today)
-    assertChange(tx, facilityId, child, input, historyOf(tx, child.id).filter(entry => entry.id !== changeId))
-    tx.update(childGroupChanges).set({ groupId: input.groupId, fromDate: input.date, ...keepColumns(input.keep) })
+    const newContract = assertChange(tx, facilityId, child, input, historyOf(tx, child.id).filter(entry => entry.id !== changeId))
+    tx.update(childGroupChanges)
+      .set({ groupId: input.groupId, fromDate: input.date, ...keepColumns(input.keep), newContract })
       .where(eq(childGroupChanges.id, changeId)).run()
     if (input.date <= today) applyDue(tx, today, now, child.id)
   })
@@ -232,8 +241,9 @@ export function deleteGroupChange(
  * Another group was chosen in the master data: the child gets it at once. `child` is the record as stored before this
  * save, because whether the child has started must not depend on what is saved together with the group: for a child
  * that had not started (waitlist, or no contract start up to today) and has no applied dated change, only the start
- * group changes; otherwise the history gets a change dated today that keeps every section. A planned change for a
- * later day stays as it is. Must run inside a transaction.
+ * group changes; otherwise the history gets a change dated today that keeps every section. Such a change cannot lead
+ * into a group for school children (400 new_contract_required): that needs a further care contract, which only a
+ * planned change can confirm. A planned change for a later day stays as it is. Must run inside a transaction.
  */
 export function changeGroupDirectly(
   db: Db, actor: SessionUser, child: Pick<ChildRow, 'id' | 'admissionStatus' | 'entryDate' | 'plannedEntryDate'>,
@@ -246,12 +256,19 @@ export function changeGroupDirectly(
   const start = child.entryDate ?? child.plannedEntryDate
   const started = child.admissionStatus === 'contract' && start !== null && start <= today
   const hasAppliedChange = historyOf(db, child.id).some(entry => entry.fromDate !== null && entry.appliedAt !== null)
-  putAppliedEntry(db, child.id, (started || hasAppliedChange) ? today : null, groupId, actor.id, now)
+  const dated = started || hasAppliedChange
+  if (dated && isForSchoolChildren(db, groupId)) throw new ServiceError(400, 'new_contract_required')
+  putAppliedEntry(db, child.id, dated ? today : null, groupId, actor.id, now)
   db.update(children).set({ groupId }).where(eq(children.id, child.id)).run()
 }
 
-/** The child leaves on `leftOn`: a planned change after that day is deleted, so it can never be applied. */
-export function deleteChangesAfterLeaving(db: Db, childId: number, leftOn: IsoDate): void {
+/**
+ * The child leaves on `leftOn`, by hand or by the automatic leaving of school children: the leaving day is stored and
+ * a planned change after that day is deleted, so it can never be applied (nor block deleting its group). The one place
+ * that sets a leaving day, so neither happens without the other. Must run inside a transaction.
+ */
+export function registerLeaving(db: Db, childId: number, leftOn: IsoDate): void {
+  db.update(children).set({ leftOn }).where(eq(children.id, childId)).run()
   db.delete(childGroupChanges).where(and(
     eq(childGroupChanges.childId, childId), isNull(childGroupChanges.appliedAt), gt(childGroupChanges.fromDate, leftOn),
   )).run()

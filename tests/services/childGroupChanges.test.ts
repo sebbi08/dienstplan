@@ -5,19 +5,27 @@ import { childGroupChanges, children } from '../../server/db/schema'
 import {
   applyDueGroupChanges, deleteGroupChange, planGroupChange, updateGroupChange,
 } from '../../server/services/childGroupChanges'
-import { createChild, getChild, leaveChild, moveChildToFacility, updateChildMaster } from '../../server/services/children'
+import { documentOverview, uploadDocument } from '../../server/services/childDocuments'
+import {
+  confirmSection, createChild, getChild, leaveChild, listOpenReviews, moveChildToFacility, updateChildMaster,
+} from '../../server/services/children'
+import { listDocumentTypes, updateDocumentType } from '../../server/services/documentTypes'
+import { setGroupForSchoolChildren } from '../../server/services/groups'
 import type { FacilityUser } from '../../server/utils/auth'
-import type { ChildMasterInput, GroupChangeInput, ReviewSection } from '../../shared/types/api'
-import { addChild, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import type { ChildMasterInput, GroupChangeInput, KeepSection } from '../../shared/types/api'
+import { addChild, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
-const KEEP_ALL: Record<ReviewSection, boolean> = {
+const KEEP_ALL: Record<KeepSection, boolean> = {
   contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true,
 }
 
-const change = (groupId: number, date: string, keep: Partial<Record<ReviewSection, boolean>> = {}): GroupChangeInput =>
-  ({ groupId, date, keep: { ...KEEP_ALL, ...keep } })
+/** `newContract` left out = the request does not say anything about a further care contract. */
+const change = (
+  groupId: number, date: string, keep: Partial<Record<KeepSection, boolean>> = {}, newContract?: boolean,
+): GroupChangeInput =>
+  ({ groupId, date, keep: { ...KEEP_ALL, ...keep }, ...(newContract === undefined ? {} : { newContract }) })
 
 describe('group history and planned group changes', () => {
   let db: Db
@@ -594,6 +602,227 @@ describe('group history and planned group changes', () => {
       planGroupChange(db, admin, 1, id, change(mice, '2027-03-15'), TODAY, NOW)
       moveChildToFacility(db, id, 1, NOW)
       expect(history(id)).toEqual([[null, bears, true], ['2027-03-15', mice, false]])
+    })
+  })
+
+  describe('groups for school children', () => {
+    /** Before the change day of the marker tests. */
+    const EARLIER = new Date('2026-09-20T09:00:00.000Z')
+    const CHANGE_DAY = '2026-10-01'
+    let hort: number
+    beforeEach(() => {
+      hort = addGroup(db, 1, 'Hort')
+      setGroupForSchoolChildren(db, hort, true)
+    })
+
+    const contractMark = (id: number) => childRow(id).contractReviewSince
+    /** Per history entry whether it carries the further care contract. */
+    const newContracts = (id: number) => db.select().from(childGroupChanges).where(eq(childGroupChanges.childId, id))
+      .orderBy(asc(childGroupChanges.fromDate), asc(childGroupChanges.id)).all().map(row => row.newContract)
+    const plan = (id: number, input: GroupChangeInput) => planGroupChange(db, admin, 1, id, input, TODAY, NOW)
+
+    describe('planning', () => {
+      it('refuses a change into such a group unless the further care contract is confirmed', () => {
+        const id = addChild(db, 1, { groupId: bears })
+
+        expect(errorCode(() => plan(id, change(hort, '2027-09-01')))).toBe('new_contract_required')
+        expect(errorCode(() => plan(id, change(hort, '2027-09-01', {}, false)))).toBe('new_contract_required')
+        expect(errorCode(() => plan(id, change(hort, TODAY)))).toBe('new_contract_required')
+        expect(history(id)).toEqual([[null, bears, true]])
+        expect(groupOf(id)).toBe(bears)
+
+        plan(id, change(hort, '2027-09-01', {}, true))
+        expect(pending(id)).toMatchObject({ groupId: hort, groupName: 'Hort', date: '2027-09-01' })
+        expect(newContracts(id)).toEqual([false, true])
+      })
+
+      it('marks the care contract as not confirmed since the change day when the change is applied, and nothing else', () => {
+        const id = addChild(db, 1, { groupId: bears })
+        plan(id, change(hort, '2027-09-01', {}, true))
+        expect(contractMark(id)).toBeNull()
+
+        expect(applyDueGroupChanges(db, '2027-08-31')).toBe(0)
+        expect(contractMark(id)).toBeNull()
+
+        expect(applyDueGroupChanges(db, '2027-09-03', new Date('2027-09-03T00:10:00.000Z'))).toBe(1)
+        expect(groupOf(id)).toBe(hort)
+        expect(contractMark(id)).toBe('2027-09-01')
+        expect(reviewMarks(id)).toEqual(NO_MARKS)
+        expect(getChild(db, admin, id, '2027-09-03').reviews).toEqual({ contract: '2027-09-01' })
+      })
+
+      it('applies a change dated today at once, with the marker next to those of the sections not kept', () => {
+        const id = addChild(db, 1, { groupId: bears })
+        plan(id, change(hort, TODAY, { health: false }, true))
+        expect(groupOf(id)).toBe(hort)
+        expect(getChild(db, admin, id, TODAY).reviews).toEqual({ health: TODAY, contract: TODAY })
+      })
+
+      it('sets no contract marker for a change into another group, whatever the request says', () => {
+        const id = addChild(db, 1, { groupId: bears })
+        plan(id, change(mice, TODAY, {}, true))
+        expect(groupOf(id)).toBe(mice)
+        expect(newContracts(id)).toEqual([false, false])
+        expect(contractMark(id)).toBeNull()
+      })
+
+      it('asks for the contract again when a planned change is moved into such a group, and drops it when moved out', () => {
+        const id = addChild(db, 1, { groupId: bears })
+        plan(id, change(mice, '2027-03-15'))
+        const planned = pending(id)!
+        const update = (input: GroupChangeInput) => updateGroupChange(db, admin, 1, planned.id, input, TODAY, NOW)
+
+        expect(errorCode(() => update(change(hort, '2027-03-15')))).toBe('new_contract_required')
+        expect(pending(id)).toMatchObject({ groupId: mice })
+        update(change(hort, '2027-03-15', {}, true))
+        expect(pending(id)).toMatchObject({ groupId: hort })
+        expect(newContracts(id)).toEqual([false, true])
+        // Changing only the day needs the confirmation again: the change still leads into the group.
+        expect(errorCode(() => update(change(hort, '2027-04-01')))).toBe('new_contract_required')
+
+        update(change(owls, '2027-03-15', {}, true))
+        expect(newContracts(id)).toEqual([false, false])
+        expect(applyDueGroupChanges(db, '2027-03-15')).toBe(1)
+        expect(contractMark(id)).toBeNull()
+      })
+
+      it('lets a group that is no longer flagged be planned like any other', () => {
+        const id = addChild(db, 1, { groupId: bears })
+        setGroupForSchoolChildren(db, hort, false)
+        plan(id, change(hort, TODAY))
+        expect(groupOf(id)).toBe(hort)
+        expect(contractMark(id)).toBeNull()
+      })
+    })
+
+    describe('changing the group in the master data', () => {
+      it('refuses to move a child that has started into such a group and saves nothing', () => {
+        const id = addChild(db, 1, { groupId: bears })
+
+        expect(errorCode(() => saveMaster(id, { groupId: hort, note: 'Hort ab Herbst' }))).toBe('new_contract_required')
+
+        expect(groupOf(id)).toBe(bears)
+        expect(history(id)).toEqual([[null, bears, true]])
+        expect(getChild(db, admin, id, TODAY).master.note).toBe('')
+        // Out of such a group the direct change stays possible.
+        const inHort = addChild(db, 1, { groupId: hort })
+        setGroup(inHort, bears)
+        expect(history(inHort)).toEqual([[null, hort, true], [TODAY, bears, true]])
+      })
+
+      it('refuses it for a child that has not started but already has an applied change', () => {
+        const id = addChild(db, 1, { groupId: bears, entryDate: null, plannedEntryDate: '2027-01-01' })
+        plan(id, change(mice, '2026-10-01'))
+        expect(errorCode(() => setGroup(id, hort))).toBe('new_contract_required')
+        expect(groupOf(id)).toBe(mice)
+      })
+
+      it('lets a child that has not started get such a group as its start group, without a marker', () => {
+        const planned = addChild(db, 1, { groupId: bears, entryDate: null, plannedEntryDate: '2027-01-01' })
+        setGroup(planned, hort)
+        expect(history(planned)).toEqual([[null, hort, true]])
+        expect(contractMark(planned)).toBeNull()
+
+        const created = createChild(db, admin, 1, { ...getChild(db, admin, planned, TODAY).master, firstName: 'Neu', groupId: hort }, NOW)
+        expect(history(created)).toEqual([[null, hort, true]])
+        expect(contractMark(created)).toBeNull()
+      })
+    })
+
+    describe('the care contract marker', () => {
+      const pdf = () => Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('content')])
+      let id: number
+      const upload = (name: string, now: Date) => uploadDocument(
+        db, admin, 1, id, { typeId: documentTypeId(db, 1, name), title: name, documentDate: '2026-09-01', confidential: false },
+        { data: pdf(), filename: 'scan.pdf' }, TODAY, now,
+      )
+      const overviewRow = () => documentOverview(db, admin, 1, TODAY).rows.find(item => item.childId === id)!
+      const stale = (name: string) => overviewRow().cells[documentTypeId(db, 1, name)]?.stale
+      const reviews = () => getChild(db, admin, id, TODAY).reviews
+      const flagAsContract = (name: string, careContract: boolean) => {
+        const type = listDocumentTypes(db, 1).find(item => item.name === name)!
+        updateDocumentType(db, 1, type.id, { ...type, careContract })
+      }
+
+      /** The child has its documents from before the change and moves to the Hort on CHANGE_DAY (applied at once). */
+      beforeEach(() => {
+        id = addChild(db, 1, { groupId: bears })
+        upload('Betreuungsvertrag', EARLIER)
+        upload('Masernnachweis', EARLIER)
+        plan(id, change(hort, CHANGE_DAY, {}, true))
+      })
+
+      it('shows the care contract of before the change as stale, and no other type', () => {
+        expect(reviews()).toEqual({ contract: CHANGE_DAY })
+        expect(stale('Betreuungsvertrag')).toBe(true)
+        expect(stale('Masernnachweis')).toBe(false)
+        expect(overviewRow().missingRequired).toBe(true)
+        expect(listOpenReviews(db, 1, TODAY)).toEqual([{ id, name: 'Kind Muster', groupId: hort, sections: ['contract'] }])
+      })
+
+      it('clears the marker when a newer care contract is uploaded, not by another type', () => {
+        upload('Masernnachweis', NOW)
+        expect(reviews()).toEqual({ contract: CHANGE_DAY })
+        expect(stale('Betreuungsvertrag')).toBe(true)
+
+        upload('Betreuungsvertrag', NOW)
+
+        expect(contractMark(id)).toBeNull()
+        expect(reviews()).toEqual({})
+        expect(stale('Betreuungsvertrag')).toBe(false)
+        expect(listOpenReviews(db, 1, TODAY)).toEqual([])
+      })
+
+      it('counts an upload on the change day as new and one from the day before as old', () => {
+        upload('Betreuungsvertrag', new Date('2026-09-30T10:00:00.000Z'))
+        expect(contractMark(id)).toBe(CHANGE_DAY)
+        upload('Betreuungsvertrag', new Date('2026-10-01T10:00:00.000Z'))
+        expect(contractMark(id)).toBeNull()
+      })
+
+      it('clears the marker by confirming it, leaving the other sections alone', () => {
+        const other = addChild(db, 1, { groupId: bears })
+        plan(other, change(hort, CHANGE_DAY, { health: false }, true))
+
+        confirmSection(db, admin, 1, other, 'contract', TODAY, NOW)
+
+        expect(getChild(db, admin, other, TODAY).reviews).toEqual({ health: CHANGE_DAY })
+        expect(reviews()).toEqual({ contract: CHANGE_DAY })
+        confirmSection(db, admin, 1, id, 'contract', TODAY, NOW)
+        expect(reviews()).toEqual({})
+        expect(stale('Betreuungsvertrag')).toBe(false)
+      })
+
+      it('is independent of the documents marker: each is cleared by its own rule', () => {
+        const other = addChild(db, 1, { groupId: bears })
+        plan(other, change(hort, CHANGE_DAY, { documents: false }, true))
+        expect(getChild(db, admin, other, TODAY).reviews).toEqual({ documents: CHANGE_DAY, contract: CHANGE_DAY })
+
+        confirmSection(db, admin, 1, other, 'documents', TODAY, NOW)
+        expect(getChild(db, admin, other, TODAY).reviews).toEqual({ contract: CHANGE_DAY })
+      })
+
+      it('follows the document type that is flagged as the care contract', () => {
+        flagAsContract('Masernnachweis', true)
+        expect(stale('Betreuungsvertrag')).toBe(false)
+        expect(stale('Masernnachweis')).toBe(true)
+
+        upload('Betreuungsvertrag', NOW)
+        expect(reviews()).toEqual({ contract: CHANGE_DAY })
+        upload('Masernnachweis', NOW)
+        expect(reviews()).toEqual({})
+      })
+
+      it('stays until it is confirmed when no document type is flagged as the care contract', () => {
+        flagAsContract('Betreuungsvertrag', false)
+        expect(stale('Betreuungsvertrag')).toBe(false)
+        expect(reviews()).toEqual({ contract: CHANGE_DAY })
+
+        upload('Betreuungsvertrag', NOW)
+        expect(reviews()).toEqual({ contract: CHANGE_DAY })
+        confirmSection(db, admin, 1, id, 'contract', TODAY, NOW)
+        expect(reviews()).toEqual({})
+      })
     })
   })
 

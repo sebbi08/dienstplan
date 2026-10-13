@@ -11,8 +11,8 @@ import {
 } from '../../server/services/children'
 import type { FacilityUser } from '../../server/utils/auth'
 import {
-  CONSENT_KEYS, REVIEW_SECTIONS, type ChildConsents, type ChildContactInput, type ChildHealthInput, type ChildMasterInput,
-  type GroupChangeInput, type ReviewSection,
+  CONSENT_KEYS, KEEP_SECTIONS, type ChildConsents, type ChildContactInput, type ChildHealthInput, type ChildMasterInput,
+  type GroupChangeInput, type KeepSection,
 } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
@@ -22,13 +22,13 @@ const NOW = new Date('2026-10-13T08:30:00.000Z')
 const EARLIER = new Date('2026-09-20T09:00:00.000Z')
 const CHANGE_DAY = '2026-10-01'
 
-const KEEP_ALL: Record<ReviewSection, boolean> = {
+const KEEP_ALL: Record<KeepSection, boolean> = {
   contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true,
 }
-const REVIEW_ALL: Record<ReviewSection, boolean> = {
+const REVIEW_ALL: Record<KeepSection, boolean> = {
   contacts: false, health: false, consents: false, documents: false, careType: false, keyEducator: false,
 }
-const change = (groupId: number, date: string, keep: Partial<Record<ReviewSection, boolean>> = {}): GroupChangeInput =>
+const change = (groupId: number, date: string, keep: Partial<Record<KeepSection, boolean>> = {}): GroupChangeInput =>
   ({ groupId, date, keep: { ...KEEP_ALL, ...keep } })
 
 const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput => ({
@@ -59,7 +59,7 @@ describe('review markers after group changes', () => {
 
   const reviews = (id = childId) => getChild(db, admin, id, TODAY).reviews
   /** The child moves to the Mäuse on CHANGE_DAY; the sections not kept get their marker (the change is applied at once). */
-  const moveWith = (keep: Partial<Record<ReviewSection, boolean>>, id = childId) =>
+  const moveWith = (keep: Partial<Record<KeepSection, boolean>>, id = childId) =>
     planGroupChange(db, admin, 1, id, change(mice, CHANGE_DAY, keep), TODAY, NOW)
   const saveMaster = (changes: Partial<ChildMasterInput> = {}) => {
     const master: ChildMasterInput = { ...getChild(db, admin, childId, TODAY).master, ...changes }
@@ -86,13 +86,13 @@ describe('review markers after group changes', () => {
     it('clears health when the health data are saved, and only that', () => {
       moveWith(REVIEW_ALL)
       updateChildHealth(db, admin, 1, childId, HEALTH, TODAY, NOW)
-      expect(Object.keys(reviews())).toEqual(REVIEW_SECTIONS.filter(section => section !== 'health'))
+      expect(Object.keys(reviews())).toEqual(KEEP_SECTIONS.filter(section => section !== 'health'))
     })
 
     it('clears consents when the consents are saved, and only that', () => {
       moveWith(REVIEW_ALL)
       updateChildConsents(db, admin, 1, childId, CONSENTS, TODAY, NOW)
-      expect(Object.keys(reviews())).toEqual(REVIEW_SECTIONS.filter(section => section !== 'consents'))
+      expect(Object.keys(reviews())).toEqual(KEEP_SECTIONS.filter(section => section !== 'consents'))
     })
 
     it('clears contacts on every contact write', () => {
@@ -141,7 +141,7 @@ describe('review markers after group changes', () => {
     it('stamps the master data for care type and key educator', () => {
       moveWith(REVIEW_ALL)
       confirmSection(db, admin, 1, childId, 'keyEducator', TODAY, NOW)
-      expect(Object.keys(reviews())).toEqual(REVIEW_SECTIONS.filter(section => section !== 'keyEducator'))
+      expect(Object.keys(reviews())).toEqual(KEEP_SECTIONS.filter(section => section !== 'keyEducator'))
       expect(stamps().master).toEqual({ updatedAt: NOW.toISOString(), updatedBy: 'leitung' })
       confirmSection(db, admin, 1, childId, 'careType', TODAY, NOW)
       expect(Object.keys(reviews())).toEqual(['contacts', 'health', 'consents', 'documents'])
@@ -314,12 +314,12 @@ describe('review markers after group changes', () => {
     })
 
     /** Afterwards the daily run has nothing left to do for the day and the saved section is not marked. */
-    const expectSettledWithout = (section: ReviewSection) => {
+    const expectSettledWithout = (section: KeepSection) => {
       expect(stored().groupId).toBe(mice)
       expect(applyDueGroupChanges(db, LATER, LATER_NOW)).toBe(0)
       const open = Object.keys(reviewsLater())
       expect(open).not.toContain(section)
-      expect(open).toHaveLength(REVIEW_SECTIONS.length - 1)
+      expect(open).toHaveLength(KEEP_SECTIONS.length - 1)
     }
 
     it('clears the health marker the due change sets', () => {

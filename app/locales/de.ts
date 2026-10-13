@@ -507,7 +507,7 @@ export const de = {
   groupChange: {
     plan: 'Gruppenwechsel planen', pending: (date: string, group: string) => `wechselt am ${date} in ${group}`, group: 'Neue Gruppe', date: 'Wechseltag',
     keepTitle: 'Was wird übernommen?', keepHint: 'Nicht übernommene Bereiche bleiben sichtbar und werden als „nicht bestätigt“ markiert, bis sie durchgesehen sind.',
-    sections: { contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente', careType: 'Betreuungsform', keyEducator: 'Bezugserzieher' },
+    sections: { contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente', careType: 'Betreuungsform', keyEducator: 'Bezugserzieher', contract: 'Betreuungsvertrag' },
     unconfirmed: (date: string) => `Seit dem Gruppenwechsel am ${date} nicht bestätigt`, confirm: 'Angaben bestätigen', resubmit: 'neu einzureichen',
     openTab: 'Offen', openEmpty: 'Keine offenen Bestätigungen.', confirmDelete: 'Geplanten Gruppenwechsel löschen?',
     // Small helper texts of the pages (beyond the agreed wording list above).
@@ -673,6 +673,8 @@ export const de = {
     group_change_not_found: 'Dieser Gruppenwechsel existiert nicht mehr.',
     group_change_after_leaving: 'Der Wechseltag liegt nach dem Austritt des Kindes. Ändere zuerst das Austrittsdatum.',
     group_has_pending_changes: 'In diese Gruppe ist noch ein Gruppenwechsel geplant. Bitte ihn zuerst ändern oder löschen.',
+    new_contract_required: 'Für den Wechsel in eine Gruppe für Schulkinder ist ein weiterer Betreuungsvertrag nötig. Bitte bestätige ihn im Dialog „Gruppenwechsel planen“.',
+    school_start_required: 'Der Schulstart dieses Kindes ist schon erreicht. Bitte gib einen neuen voraussichtlichen Schulstart an.',
     birth_date_in_future: 'Das Geburtsdatum darf nicht in der Zukunft liegen.',
     contact_not_found: 'Diese Bezugsperson existiert nicht mehr.',
     contact_name_required: 'Bitte einen Namen für die Bezugsperson angeben.',

@@ -8,7 +8,7 @@ import { uniqueName } from '../lib/uniqueName'
 function toDto(row: typeof documentTypes.$inferSelect): DocumentTypeDto {
   return {
     id: row.id, name: row.name, important: row.important, required: row.required,
-    confidentialDefault: row.confidentialDefault, sortOrder: row.sortOrder,
+    confidentialDefault: row.confidentialDefault, sortOrder: row.sortOrder, careContract: row.careContract,
   }
 }
 
@@ -38,26 +38,47 @@ function checkedFlags(input: DocumentTypeInput): void {
   if (input.required && !input.important) throw new ServiceError(400, 'required_needs_important')
 }
 
-/** A new document type at the end of the facility's order (the input's sortOrder is ignored). */
+/**
+ * A facility has at most one care contract type: before a type is saved with the flag, every type of the facility
+ * loses it. Must run in the transaction of that save.
+ */
+function clearCareContract(db: Db, facilityId: number): void {
+  db.update(documentTypes).set({ careContract: false })
+    .where(and(eq(documentTypes.facilityId, facilityId), eq(documentTypes.careContract, true))).run()
+}
+
+/**
+ * A new document type at the end of the facility's order (the input's sortOrder is ignored). With `careContract` it
+ * becomes the facility's care contract type instead of the one that was.
+ */
 export function createDocumentType(db: Db, facilityId: number, input: DocumentTypeInput): DocumentTypeDto {
   const name = checkedName(db, facilityId, input.name)
   checkedFlags(input)
-  const sortOrder = (db.select({ value: max(documentTypes.sortOrder) }).from(documentTypes)
-    .where(eq(documentTypes.facilityId, facilityId)).get()?.value ?? -1) + 1
-  return toDto(db.insert(documentTypes).values({
-    facilityId, name, important: input.important, required: input.required,
-    confidentialDefault: input.confidentialDefault, sortOrder,
-  }).returning().get())
+  const careContract = input.careContract === true
+  return db.transaction((tx) => {
+    const sortOrder = (tx.select({ value: max(documentTypes.sortOrder) }).from(documentTypes)
+      .where(eq(documentTypes.facilityId, facilityId)).get()?.value ?? -1) + 1
+    if (careContract) clearCareContract(tx, facilityId)
+    return toDto(tx.insert(documentTypes).values({
+      facilityId, name, important: input.important, required: input.required,
+      confidentialDefault: input.confidentialDefault, sortOrder, careContract,
+    }).returning().get())
+  })
 }
 
+/** Saves a type. `careContract`: true moves the facility's flag to this type, false takes it away, left out keeps it. */
 export function updateDocumentType(db: Db, facilityId: number, id: number, input: DocumentTypeInput): DocumentTypeDto {
   assertDocumentType(db, facilityId, id)
   const name = checkedName(db, facilityId, input.name, id)
   checkedFlags(input)
-  return toDto(db.update(documentTypes).set({
-    name, important: input.important, required: input.required,
-    confidentialDefault: input.confidentialDefault, sortOrder: input.sortOrder,
-  }).where(eq(documentTypes.id, id)).returning().get())
+  return db.transaction((tx) => {
+    if (input.careContract === true) clearCareContract(tx, facilityId)
+    return toDto(tx.update(documentTypes).set({
+      name, important: input.important, required: input.required,
+      confidentialDefault: input.confidentialDefault, sortOrder: input.sortOrder,
+      ...(input.careContract === undefined ? {} : { careContract: input.careContract }),
+    }).where(eq(documentTypes.id, id)).returning().get())
+  })
 }
 
 /** Deletes a document type no document uses (409 document_type_in_use otherwise). */
