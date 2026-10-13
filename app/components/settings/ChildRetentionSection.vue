@@ -8,25 +8,29 @@ const { busy, guard } = useBusy()
 const act = useAction(async () => {
   await Promise.all([refresh(), refreshNuxtData('children-archive')])
 })
+// The preview only reads: no refresh, so the stored value does not overwrite what was typed before the confirmation.
+const preview = useAction()
 const confirm = useConfirm()
 const years = ref(3)
 watch(data, (value) => { if (value) years.value = value.years }, { immediate: true })
 const yearItems = Array.from({ length: 10 }, (_, index) => ({ label: String(index + 1), value: index + 1 }))
 
 /** A shorter period can schedule records for deletion at once: the Träger is told how many before it is saved. */
-async function confirmedShorter(): Promise<boolean> {
-  if (!data.value || years.value >= data.value.years) return true
+async function confirmedShorter(target: number): Promise<boolean> {
+  if (!data.value || target >= data.value.years) return true
   let count = 0
-  const counted = await act(async () => {
-    count = (await $fetch<ChildRetentionPreviewDto>('/api/child-retention/preview', { query: { years: years.value } })).count
+  const counted = await preview(async () => {
+    count = (await $fetch<ChildRetentionPreviewDto>('/api/child-retention/preview', { query: { years: target } })).count
   })
   if (!counted) return false
   return count === 0 || await confirm(de.childSettings.confirmShorterRetention(count), { confirmLabel: de.common.save, danger: true })
 }
 
 const save = () => guard(async () => {
-  if (!await confirmedShorter()) return false
-  return act(() => $fetch<unknown>('/api/child-retention', { method: 'PUT', body: { years: years.value } }), de.common.saved)
+  // Fixed before anything is awaited: the field must not change what is confirmed and saved.
+  const target = years.value
+  if (!await confirmedShorter(target)) return false
+  return act(() => $fetch<unknown>('/api/child-retention', { method: 'PUT', body: { years: target } }), de.common.saved)
 })
 </script>
 
