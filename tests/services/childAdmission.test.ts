@@ -114,8 +114,13 @@ describe('admission status and planned lists', () => {
     const body = (({ admissionStatus: _status, ...rest }) => rest)(master())
 
     it('requires the admission status on update, so an old client cannot turn a waitlist child into a contract child', () => {
-      expect(childMasterSchema.safeParse(body).success).toBe(false)
-      expect(childMasterSchema.safeParse(master()).success).toBe(true)
+      expect(childMasterSchema.safeParse({ ...body, baseGroupId: null }).success).toBe(false)
+      expect(childMasterSchema.safeParse({ ...master(), baseGroupId: null }).success).toBe(true)
+    })
+
+    it('requires the group the form was loaded with on update, so an old client cannot undo an applied group change', () => {
+      expect(childMasterSchema.safeParse(master()).success).toBe(false)
+      expect(childMasterSchema.parse({ ...master(), baseGroupId: 3 }).baseGroupId).toBe(3)
     })
 
     it('lets a new child omit it (a contract child)', () => {

@@ -7,7 +7,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
-  type ChildRecordDto, type ConsentKey, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
+  type ChildMasterUpdateInput, type ChildRecordDto, type ConsentKey, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
   type SectionStamp, type SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -247,25 +247,33 @@ export function createChild(
 
 /**
  * Saves the master data. A child that has already started (active) cannot become a Vormerkung any more
- * (400 waitlist_after_start); one that becomes a Vormerkung loses its planned group change. Another group than the
- * stored one is a direct group change and goes into the group history (see `changeGroupDirectly`, which judges on the
- * stored record); a group that only differs because a planned change is due is not one.
+ * (400 waitlist_after_start); one that becomes a Vormerkung loses its planned group change.
+ *
+ * Another group than the one the form was loaded with (`baseGroupId`; left out: the stored one) is a direct group
+ * change and goes into the group history (see `changeGroupDirectly`, which judges on the stored record). The group
+ * the form was loaded with is none, whatever the stored group is by now: a form that was open while a planned change
+ * was applied, or that is saved on the change day before the daily run, never undoes that change. The group it sends
+ * is not even looked at then (it may have been deleted since).
  */
 export function updateChildMaster(
-  db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterInput, today: IsoDate,
+  db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterUpdateInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   const row = loadEditableChild(db, actor, facilityId, id, today)
   if (input.admissionStatus === 'waitlist' && childStatus(row, today) === 'active') {
     throw new ServiceError(400, 'waitlist_after_start')
   }
-  const master = checkedMaster(db, facilityId, input, today, row.waitlistedOn)
+  const { baseGroupId = row.groupId, ...fields } = input
+  const groupChosen = fields.groupId !== baseGroupId
+  const master = checkedMaster(
+    db, facilityId, { ...fields, groupId: groupChosen ? fields.groupId : row.groupId }, today, row.waitlistedOn,
+  )
   // A waitlist child cannot have left: the purge job keys on leftOn and must never delete a waitlist record.
   const leftOn = master.admissionStatus === 'waitlist' ? { leftOn: null } : {}
   db.transaction((tx) => {
     // A change whose day has come is applied first, so this save clears the markers it sets.
     settleDue(tx, id, today, now)
-    if (master.groupId !== row.groupId) changeGroupDirectly(tx, actor, row, master.groupId, today, now)
+    if (groupChosen) changeGroupDirectly(tx, actor, row, master.groupId, today, now)
     // A Vormerkung has no planned group change, as a child who left has none after its leaving day.
     if (master.admissionStatus === 'waitlist') dropPlannedChanges(tx, id, today, now)
     // The group itself is only ever written through the history, so it cannot drift from it.

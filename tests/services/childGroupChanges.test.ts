@@ -10,7 +10,7 @@ import {
   confirmSection, createChild, getChild, leaveChild, listOpenReviews, moveChildToFacility, updateChildMaster,
 } from '../../server/services/children'
 import { listDocumentTypes, updateDocumentType } from '../../server/services/documentTypes'
-import { setGroupForSchoolChildren } from '../../server/services/groups'
+import { deleteGroup, setGroupForSchoolChildren } from '../../server/services/groups'
 import type { FacilityUser } from '../../server/utils/auth'
 import type { ChildMasterInput, GroupChangeInput, KeepSection } from '../../shared/types/api'
 import { addChild, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
@@ -556,6 +556,62 @@ describe('group history and planned group changes', () => {
       expect(groupOf(id)).toBe(mice)
       expect(applyDueGroupChanges(db, '2026-11-01')).toBe(0)
       expect(groupOf(id)).toBe(mice)
+    })
+
+    describe('saved from a form that was loaded before a planned change was applied', () => {
+      /** Loaded on 13 October with the Bären; the planned change into the Mäuse is applied by the daily run of 1 November. */
+      const staleForm = () => {
+        const id = addChild(db, 1, { groupId: bears })
+        planGroupChange(db, admin, 1, id, change(mice, '2026-11-01', { health: false }), TODAY, NOW)
+        const loaded = getChild(db, admin, id, TODAY).master
+        expect(applyDueGroupChanges(db, '2026-11-01')).toBe(1)
+        return { id, loaded }
+      }
+      const LATER = new Date('2026-11-02T08:30:00.000Z')
+
+      it('does not undo the applied change: the group the form was loaded with is no direct change', () => {
+        const { id, loaded } = staleForm()
+
+        updateChildMaster(db, admin, 1, id, { ...loaded, note: 'Geschwisterkind', baseGroupId: loaded.groupId }, '2026-11-02', LATER)
+
+        expect(groupOf(id)).toBe(mice)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, true]])
+        expect(getChild(db, admin, id, '2026-11-02').master).toMatchObject({ groupId: mice, note: 'Geschwisterkind' })
+        // The marker the change set is still there: the master data do not confirm the health section.
+        expect(reviewMarks(id).health).toBe('2026-11-01')
+      })
+
+      it('still saves when the group the form was loaded with has been deleted since', () => {
+        const { id, loaded } = staleForm()
+        deleteGroup(db, 1, bears, '2026-11-02')
+
+        updateChildMaster(db, admin, 1, id, { ...loaded, note: 'neu', baseGroupId: loaded.groupId }, '2026-11-02', LATER)
+
+        expect(childRow(id)).toMatchObject({ groupId: mice, note: 'neu' })
+      })
+
+      it('takes another group than the loaded one as a direct change from the stored group', () => {
+        const { id, loaded } = staleForm()
+
+        updateChildMaster(db, admin, 1, id, { ...loaded, groupId: owls, baseGroupId: loaded.groupId }, '2026-11-02', LATER)
+
+        expect(groupOf(id)).toBe(owls)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, true], ['2026-11-02', owls, true]])
+      })
+
+      it('leaves the history alone when the stored group is chosen on the stale form', () => {
+        const { id, loaded } = staleForm()
+        updateChildMaster(db, admin, 1, id, { ...loaded, groupId: mice, baseGroupId: loaded.groupId }, '2026-11-02', LATER)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, true]])
+      })
+
+      it('judges a save that does not name the loaded group against the stored one', () => {
+        const { id, loaded } = staleForm()
+        updateChildMaster(db, admin, 1, id, { ...loaded, groupId: mice }, '2026-11-02', LATER)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, true]])
+        updateChildMaster(db, admin, 1, id, { ...loaded, groupId: owls }, '2026-11-02', LATER)
+        expect(groupOf(id)).toBe(owls)
+      })
     })
 
     it('leaves a planned change to the same group on a later day untouched', () => {

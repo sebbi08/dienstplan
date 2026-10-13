@@ -109,6 +109,16 @@ export interface ChildMasterInput {
   note: string
 }
 
+/** The master data as saved for an existing child. */
+export interface ChildMasterUpdateInput extends ChildMasterInput {
+  /**
+   * The group the form was loaded with. Only a `groupId` other than this one is a direct group change; with the same
+   * one the stored group stays as it is, so a form that was open while a planned change was applied does not undo it.
+   * The route requires it; left out (services called directly), the stored group is the base.
+   */
+  baseGroupId?: number | null
+}
+
 export interface ChildHealthInput {
   measlesProof: TriState
   measlesProofDate: IsoDate | null

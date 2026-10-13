@@ -191,7 +191,7 @@ export const documentTypeSchema = z.object({
 const triState = z.boolean().nullable()
 const optionalDate = isoDate.nullable()
 const nullableId = z.number().int().positive().nullable()
-export const childMasterSchema = z.object({
+const childMasterFields = z.object({
   lastName: z.string().max(100),
   firstName: z.string().max(100),
   birthDate: isoDate,
@@ -210,6 +210,11 @@ export const childMasterSchema = z.object({
   keyEducatorId: nullableId,
   note: z.string().max(2000),
 })
+/**
+ * Saving the master data of an existing child. `baseGroupId` is the group the form was loaded with and is required:
+ * an old client omitting it must not silently undo a group change that was applied while its form was open.
+ */
+export const childMasterSchema = childMasterFields.extend({ baseGroupId: nullableId })
 /** A planned group change: the new group, the change day and per section whether it is kept (false = confirm again). */
 export const groupChangeSchema = z.object({
   groupId: z.number().int().positive(),
@@ -226,7 +231,7 @@ export const childUnleaveSchema = z.object({ schoolStartDate: isoDate.optional()
 /** The section of a child's record to confirm again after a group change. */
 export const confirmSectionSchema = z.object({ section: z.enum(REVIEW_SECTIONS) })
 /** A new child may omit the admission status (a contract child). */
-export const childCreateSchema = childMasterSchema.extend({
+export const childCreateSchema = childMasterFields.extend({
   admissionStatus: z.enum(['waitlist', 'contract']).default('contract'),
 })
 export const childHealthSchema = z.object({

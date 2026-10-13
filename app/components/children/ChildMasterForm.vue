@@ -2,7 +2,7 @@
 import { todayIso } from '#shared/domain/dates'
 import { isManager } from '#shared/domain/roles'
 import type { AdmissionStatus } from '#shared/domain/children'
-import type { ChildMasterInput, ChildRecordDto } from '#shared/types/api'
+import type { ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
@@ -24,8 +24,14 @@ const today = todayIso()
 
 const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, admissionStatus: 'contract' as AdmissionStatus, waitlistedOn: '', entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', schoolDistrict: '', keyEducatorId: 0, note: '' }
 const form = reactive({ ...empty })
+/**
+ * The group the form was filled with. It goes along with every save, so the server takes only another group than this
+ * one as a group change: a form that was open while a planned change was applied does not undo it.
+ */
+let loadedGroupId: number | null = null
 function reset() {
   const master = props.child?.master
+  loadedGroupId = master?.groupId ?? null
   Object.assign(form, master
     ? {
         ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0, keyEducatorId: master.keyEducatorId ?? 0,
@@ -75,8 +81,8 @@ const careTypeItems = computed(() => [{ label: de.children.noSelection, value: 0
 function payload(): ChildMasterInput {
   return {
     lastName: form.lastName, firstName: form.firstName, birthDate: form.birthDate, address: form.address,
-    // Without the right to read the groups the form keeps what is stored (null for a new child).
-    groupId: canPickGroup.value ? form.groupId || null : props.child?.master.groupId ?? null,
+    // Without the right to read the groups the form keeps the group it was filled with (null for a new child).
+    groupId: canPickGroup.value ? form.groupId || null : loadedGroupId,
     careTypeId: form.careTypeId || null,
     entryDate: waitlisted.value ? null : orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
     admissionStatus: form.admissionStatus, waitlistedOn: waitlisted.value ? orNull(form.waitlistedOn) : null,
@@ -102,7 +108,7 @@ async function create(): Promise<boolean> {
 async function save() {
   const ok = await guard(() => creating
     ? create()
-    : run(() => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: payload() }), de.common.saved))
+    : run(() => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: { ...payload(), baseGroupId: loadedGroupId } satisfies ChildMasterUpdateInput }), de.common.saved))
   if (ok && !creating) editing.value = false
 }
 
