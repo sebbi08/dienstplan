@@ -156,7 +156,6 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     <template v-if="child && reload" #banner>
       <ChildrenReviewBanner :child="child" section="careType" :reload="reload" named />
       <ChildrenReviewBanner :child="child" section="keyEducator" :reload="reload" named />
-      <ChildrenGroupChangeDialog v-if="canPlanChange" v-model:open="changeDialog" :child="child" :groups="groups" :reload="reload" />
     </template>
 
     <div v-if="canPlanChange && child!.pendingGroupChange" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 p-3 text-sm text-sky-900 ring-1 ring-sky-200">
@@ -203,4 +202,5 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
       </form>
     </template>
   </ChildrenChildSection>
+  <ChildrenGroupChangeDialog v-if="canPlanChange && child && reload" v-model:open="changeDialog" :child="child" :groups="groups" :reload="reload" />
 </template>

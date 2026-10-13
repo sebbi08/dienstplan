@@ -26,7 +26,11 @@ watch(open, (value) => {
     : { groupId: 0, date: todayIso(), keep: allKept() })
 })
 
-const groupItems = computed(() => props.groups.map(group => ({ label: group.name, value: group.id })))
+// The new group must differ from the current one (the server answers `same_group` otherwise); the target of the planned
+// change stays selectable so that the pre-filled value has an item.
+const groupItems = computed(() => props.groups
+  .filter(group => group.id !== props.child.master.groupId || group.id === pending.value?.groupId)
+  .map(group => ({ label: group.name, value: group.id })))
 const valid = computed(() => form.groupId > 0 && form.date !== '')
 
 async function save() {
