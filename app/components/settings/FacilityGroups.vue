@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GroupDto } from '#shared/types/api'
+import type { GroupDto, SchoolSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /** Träger only: the groups of one facility, with add, rename and delete (the delete dialog names what goes with it). */
@@ -9,8 +9,19 @@ const props = defineProps<{ facilityId: number }>()
 const { data: groups, refresh } = await useFetch<GroupDto[]>(() => `/api/facilities/${props.facilityId}/groups`, { default: () => [] })
 const { refresh: refreshActive } = useGroups()
 // The active facility's groups (rules, templates, employees) follow at once.
-const run = useAction(() => Promise.all([refresh(), refreshActive()]))
+// The switch of the automatic leaving (settings section) follows a flag or a deleted group.
+const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshActive(), refreshNuxtData('school-settings')]))
 const confirm = useConfirm()
+const notifySwitchedOff = useAutoLeaveNotice()
+const { data: facilitiesData } = useFacilities()
+const { data: schoolSettings } = useNuxtData<SchoolSettingsDto>('school-settings')
+
+/**
+ * Whether the facility's automatic leaving may have been on before a flagged group lost its flag or was deleted. The
+ * answer of the server only names the switch afterwards. The settings section knows it for the active facility; for
+ * another facility the notice is shown to be safe.
+ */
+const switchMayHaveBeenOn = () => facilitiesData.value?.activeId !== props.facilityId || schoolSettings.value?.autoLeave !== false
 
 // One draft per group; a refresh keeps drafts with an unsaved edit (as for the facility names).
 const names = reactive<Record<number, string>>({})
@@ -35,9 +46,23 @@ async function create() {
 }
 
 async function remove(group: GroupDto) {
-  if (await confirm(de.groups.deleteConfirm(group.name))) {
-    run(() => $fetch<unknown>(`/api/groups/${group.id}`, { method: 'DELETE' }), de.common.deleted)
-  }
+  if (!await confirm(de.groups.deleteConfirm(group.name))) return
+  const mayBeOn = switchMayHaveBeenOn()
+  const answer = { autoLeave: true }
+  const ok = await run(async () => {
+    answer.autoLeave = (await $fetch<{ ok: boolean; autoLeave: boolean }>(`/api/groups/${group.id}`, { method: 'DELETE' })).autoLeave
+  }, de.common.deleted)
+  if (ok && group.forSchoolChildren && !answer.autoLeave && mayBeOn) notifySwitchedOff()
+}
+
+/** Flags the group as being for school children or takes the flag away (which switches the facility's automatic leaving off). */
+async function setForSchoolChildren(group: GroupDto, value: boolean) {
+  const mayBeOn = switchMayHaveBeenOn()
+  const answer = { autoLeave: true }
+  const ok = await run(async () => {
+    answer.autoLeave = (await $fetch<{ ok: boolean; autoLeave: boolean }>(`/api/groups/${group.id}/school-children`, { method: 'PUT', body: { forSchoolChildren: value } })).autoLeave
+  }, de.common.saved)
+  if (ok && !value && group.forSchoolChildren && !answer.autoLeave && mayBeOn) notifySwitchedOff()
 }
 </script>
 
@@ -47,12 +72,17 @@ async function remove(group: GroupDto) {
     <p v-if="!groups?.length" class="text-xs text-gray-500">{{ de.groups.none }}</p>
     <form v-for="group in groups ?? []" :key="group.id" class="flex flex-wrap items-center gap-2" @submit.prevent="rename(group.id)">
       <UInput v-model="names[group.id]" maxlength="80" required size="sm" :aria-label="de.groups.name" />
-      <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" />
-      <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="remove(group)" />
+      <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy" />
+      <UCheckbox
+        :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :disabled="busy"
+        @update:model-value="setForSchoolChildren(group, $event === true)"
+      />
+      <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(group)" />
     </form>
+    <p v-if="groups?.length" class="text-xs text-gray-500">{{ de.schoolChildren.forSchoolChildrenHint }}</p>
     <form class="flex flex-wrap items-center gap-2" @submit.prevent="create">
       <UInput v-model="newName" maxlength="80" required size="sm" :placeholder="de.groups.name" :aria-label="de.groups.name" />
-      <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.groups.add" />
+      <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.groups.add" :disabled="busy" />
     </form>
   </div>
 </template>

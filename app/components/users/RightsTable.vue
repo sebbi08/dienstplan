@@ -49,9 +49,13 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   ] },
   { title: 'Kinder', rows: [
     { label: 'Kinderliste und Akten ansehen', rights: ['yes', 'yes', 'yes', 'no'] },
+    { label: 'Vormerkungen & Verträge und offene Bestätigungen ansehen', rights: ['yes', 'yes', 'yes', 'no'] },
     { label: 'Kinder anlegen und Akten ändern', rights: ['yes', 'yes', 7, 'no'] },
     { label: 'Vertrauliche Dokumente öffnen', rights: ['yes', 'yes', 7, 'no'] },
     { label: 'Kinder abmelden, Archiv, löschen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Vormerkung löschen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Belegung ansehen, Plätze ändern, Gruppenwechsel planen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Stichtag, automatische Abmeldung der Schulkinder, Gruppe „für Schulkinder“', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Löschfrist einstellen', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Freischaltung „darf Kinderakten pflegen“ vergeben', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Betreuungsformen und Dokumentarten pflegen', rights: ['yes', 'yes', 'no', 'no'] },

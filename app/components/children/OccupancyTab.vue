@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { todayIso } from '#shared/domain/dates'
+import { addDays, todayIso } from '#shared/domain/dates'
 import { kitaYearLabel, kitaYearOf } from '#shared/domain/kitaYear'
-import type { OccupancyCellDto, OccupancyDto, OccupancyRowDto } from '#shared/types/api'
+import type { OccupancyCellDto, OccupancyDto, OccupancyRowDto, SchoolSettingsDto, UpcomingSchoolChildDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
@@ -66,6 +66,23 @@ const detail = computed(() => {
 })
 const toggle = (key: string, month: number) => {
   selected.value = selected.value?.rowKey === key && selected.value.month === month ? null : { rowKey: key, month }
+}
+
+// The list "Schulkinder zum 1.9.": the children whose school start is the coming 1 September or already reached. With the
+// automatic leaving off, each child can be deregistered here by hand to the day before its school start.
+const { data: schoolChildren } = useFetch<UpcomingSchoolChildDto[]>('/api/children/school-children', { key: 'children-school-children' })
+const { data: schoolSettings } = useFetch<SchoolSettingsDto>('/api/school-settings', { key: 'school-settings' })
+const { groupName } = useChildLookups()
+const confirm = useConfirm()
+const { busy: leaving, run: runLeave } = useBusyAction(async () => {
+  await Promise.all([refreshNuxtData(['children-school-children', 'children-occupancy', 'children-active', 'children-archive', 'children-open', 'child-documents-overview'])])
+})
+const today = todayIso()
+const manualLeave = computed(() => schoolSettings.value?.autoLeave === false)
+async function leaveAtSchoolStart(child: UpcomingSchoolChildDto) {
+  const leftOn = addDays(child.schoolStart, -1)
+  if (!await confirm(de.childLifecycle.confirmLeave(child.name, formatDate(leftOn)), { confirmLabel: de.childLifecycle.leave })) return
+  runLeave(() => $fetch<unknown>(`/api/children/${child.id}/leave`, { method: 'POST', body: { leftOn } }), de.common.saved)
 }
 
 const th = 'px-2 py-2 text-center'
@@ -144,6 +161,41 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
               <span class="text-gray-500">{{ stay(child.from, child.to) }}</span>
             </li>
           </ul>
+        </div>
+      </section>
+
+      <section v-if="schoolChildren?.length" class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+        <h2 class="font-semibold">{{ de.schoolChildren.listTitle('1.9.') }}</h2>
+        <p class="text-gray-500">{{ de.schoolChildren.listHint }}</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="text-xs text-gray-600">
+              <tr>
+                <th class="px-2 py-1">{{ de.children.fields.name }}</th>
+                <th class="px-2 py-1">{{ de.occupancy.group }}</th>
+                <th class="px-2 py-1">{{ de.schoolChildren.schoolStart }}</th>
+                <th class="px-2 py-1">{{ de.schoolChildren.afterSchoolGroup }}</th>
+                <th v-if="manualLeave" class="px-2 py-1" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="child in schoolChildren" :key="child.id" class="border-t border-gray-100">
+                <td class="px-2 py-1.5"><NuxtLink :to="`/children/${child.id}`" class="font-medium text-sky-700 hover:underline">{{ child.name }}</NuxtLink></td>
+                <td class="px-2 py-1.5">{{ groupName(child.groupId) }}</td>
+                <td class="px-2 py-1.5">
+                  {{ formatDate(child.schoolStart) }}
+                  <span v-if="child.schoolStart <= today" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{{ de.schoolChildren.reached }}</span>
+                </td>
+                <td class="px-2 py-1.5">{{ child.pendingSchoolGroup ?? de.children.noValue }}</td>
+                <td v-if="manualLeave" class="whitespace-nowrap px-2 py-1.5 text-right">
+                  <UButton
+                    v-if="child.pendingSchoolGroup === null" size="xs" color="neutral" variant="outline" :label="de.schoolChildren.leaveNow"
+                    :aria-label="`${de.schoolChildren.leaveNow}: ${child.name}`" :loading="leaving" :disabled="leaving" @click="leaveAtSchoolStart(child)"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

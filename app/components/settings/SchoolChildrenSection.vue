@@ -1,12 +1,23 @@
 <script setup lang="ts">
-import type { SchoolSettingsDto } from '#shared/types/api'
+import type { SchoolLeaverDto, SchoolSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { errorCode, errorMessage } from '~/utils/errors'
+import { formatDate } from '~/utils/format'
 
-/** The school cutoff of the facility: the Träger changes it, the Leitung sees it. */
+/**
+ * The school cutoff of the facility (the Träger changes it, the Leitung sees it) and the automatic leaving of school
+ * children: switching it on shows the children it deregisters at once and needs the Träger's confirmation of exactly that list.
+ */
 const { data, refresh } = await useFetch<SchoolSettingsDto>('/api/school-settings', { key: 'school-settings' })
 const { user } = useUserSession()
 const isProvider = computed(() => user.value?.role === 'provider')
-const { busy, run } = useBusyAction(refresh)
+const toast = useToast()
+const notifySwitchedOff = useAutoLeaveNotice()
+const s = de.schoolChildren
+// Who left or is listed elsewhere changes with the switch; those lists follow.
+const { busy, run } = useBusyAction(async () => {
+  await Promise.all([refresh(), refreshNuxtData(['children-school-children', 'children-active', 'children-archive', 'children-occupancy', 'children-open', 'child-documents-overview'])])
+})
 
 const month = ref(6)
 const day = ref(30)
@@ -21,11 +32,64 @@ watch(data, (value) => {
 const monthItems = de.months.map((label, index) => ({ label, value: index + 1 }))
 const ageItems = Array.from({ length: 5 }, (_, index) => ({ label: String(index + 4), value: index + 4 }))
 
-const save = () => run(() => $fetch<unknown>('/api/school-settings', {
-  method: 'PUT', body: { cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value },
-}), de.common.saved)
+async function save() {
+  const wasOn = data.value?.autoLeave === true
+  const answer: { settings?: SchoolSettingsDto } = {}
+  const ok = await run(async () => {
+    answer.settings = await $fetch<SchoolSettingsDto>('/api/school-settings', {
+      method: 'PUT', body: { cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value },
+    })
+  }, de.common.saved)
+  // Another cutoff changes whom the automatic leaving takes, so the server switched it off.
+  if (ok && wasOn && answer.settings && !answer.settings.autoLeave) notifySwitchedOff()
+}
 
-const s = de.schoolChildren
+// Switching on: the preview is loaded first, the dialog lists it and sends exactly this list back with the confirmation.
+const dialogOpen = ref(false)
+const leavers = ref<SchoolLeaverDto[]>([])
+async function loadPreview(): Promise<boolean> {
+  try {
+    leavers.value = await $fetch<SchoolLeaverDto[]>('/api/school-settings/auto-leave-preview')
+    return true
+  }
+  catch (error) {
+    toast.add({ title: errorMessage(error), color: 'error' })
+    return false
+  }
+}
+
+/** Switch off needs no confirmation; switch on asks first (the switch itself only follows the stored value). */
+async function toggle(value: boolean) {
+  if (!value) {
+    await run(() => $fetch<unknown>('/api/school-settings/auto-leave', { method: 'PUT', body: { value: false } }), de.common.saved)
+    return
+  }
+  await run(async () => {
+    if (await loadPreview()) dialogOpen.value = true
+  })
+}
+
+async function confirmSwitchOn() {
+  const confirmed = leavers.value.map(({ id, leftOn }) => ({ id, leftOn }))
+  let deregistered = 0
+  let failure: unknown
+  const ok = await run(async () => {
+    try {
+      deregistered = (await $fetch<{ ok: boolean; deregistered: number }>('/api/school-settings/auto-leave', { method: 'PUT', body: { value: true, confirmed } })).deregistered
+    }
+    catch (error) {
+      failure = error
+      throw error
+    }
+  })
+  if (ok) {
+    dialogOpen.value = false
+    toast.add({ title: deregistered > 0 ? s.deregistered(deregistered) : de.common.saved, color: 'success' })
+  }
+  // The list changed meanwhile: show the new one and ask again (the dialog stays open).
+  else if (errorCode(failure) === 'auto_leave_preview_changed') await loadPreview()
+}
+
 </script>
 
 <template>
@@ -50,5 +114,32 @@ const s = de.schoolChildren
     </template>
     <p class="text-xs text-gray-500">{{ s.hint }}</p>
     <p class="text-xs text-gray-500">{{ s.hintBirthday }}</p>
+
+    <div class="space-y-1 border-t border-gray-100 pt-3">
+      <USwitch v-if="isProvider" :model-value="data.autoLeave" :label="s.autoLeave" :disabled="busy" @update:model-value="toggle" />
+      <template v-else>
+        <h3 class="text-sm font-medium">{{ s.autoLeave }}</h3>
+        <p class="text-sm">{{ data.autoLeave ? s.autoLeaveOn : s.autoLeaveOff }}</p>
+      </template>
+      <p class="text-xs text-gray-500">{{ s.autoLeaveHint }}</p>
+    </div>
+
+    <UModal v-model:open="dialogOpen" :title="s.autoLeave">
+      <template #body>
+        <p v-if="!leavers.length" class="text-sm">{{ s.previewNone }}</p>
+        <div v-else class="space-y-2 text-sm">
+          <p>{{ s.preview(leavers.length) }}</p>
+          <ul class="max-h-64 list-disc space-y-0.5 overflow-y-auto pl-5">
+            <li v-for="leaver in leavers" :key="leaver.id">{{ leaver.name }} <span class="text-gray-500">({{ de.childLifecycle.leavesOn(formatDate(leaver.leftOn)) }})</span></li>
+          </ul>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton color="neutral" variant="ghost" :label="de.common.cancel" :disabled="busy" @click="dialogOpen = false" />
+          <UButton :label="s.switchOn" :loading="busy" :disabled="busy" @click="confirmSwitchOn" />
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>

@@ -6,11 +6,12 @@ import { de } from '~/locales/de'
 const { data, refresh } = await useFetch<ChildRetentionDto>('/api/child-retention')
 const { busy, guard } = useBusy()
 const act = useAction(async () => {
-  await Promise.all([refresh(), refreshNuxtData('children-archive')])
+  await Promise.all([refresh(), refreshNuxtData(['children-archive', 'school-settings'])])
 })
 // The preview only reads: no refresh, so the stored value does not overwrite what was typed before the confirmation.
 const preview = useAction()
 const confirm = useConfirm()
+const notifySwitchedOff = useAutoLeaveNotice()
 const years = ref(3)
 watch(data, (value) => { if (value) years.value = value.years }, { immediate: true })
 const yearItems = Array.from({ length: 10 }, (_, index) => ({ label: String(index + 1), value: index + 1 }))
@@ -30,7 +31,13 @@ const save = () => guard(async () => {
   // Fixed before anything is awaited: the field must not change what is confirmed and saved.
   const target = years.value
   if (!await confirmedShorter(target)) return false
-  return act(() => $fetch<unknown>('/api/child-retention', { method: 'PUT', body: { years: target } }), de.common.saved)
+  const answer = { autoLeaveSwitchedOff: false }
+  const ok = await act(async () => {
+    answer.autoLeaveSwitchedOff = (await $fetch<{ ok: boolean; autoLeaveSwitchedOff: boolean }>('/api/child-retention', { method: 'PUT', body: { years: target } })).autoLeaveSwitchedOff
+  }, de.common.saved)
+  // Another period changes whom the automatic leaving of school children can take.
+  if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
+  return ok
 })
 </script>
 

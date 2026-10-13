@@ -543,6 +543,20 @@ export const de = {
     computed: (date: string) => `errechnet: ${date}`, deviating: 'abweichend',
     // Small helper texts of the pages (beyond the agreed wording list above).
     day: 'Tag', month: 'Monat', readOnly: 'Nur der Träger kann den Stichtag ändern.',
+    listTitle: (date: string) => `Schulkinder zum ${date}`, autoLeave: 'Schulkinder automatisch abmelden',
+    autoLeaveHint: 'Am 1. September erhalten alle Schulkinder den Austritt 31. August. Kinder mit späterem Schulstart oder mit Wechsel in eine Gruppe für Schulkinder bleiben.',
+    previewNone: 'Heute würde niemand abgemeldet. Einschalten?',
+    preview: (n: number) => `Beim Einschalten werden diese ${n} Kinder sofort abgemeldet (ihr Schulstart ist schon erreicht):`,
+    leaveNow: 'zum 31.8. abmelden', forSchoolChildren: 'für Schulkinder', careContract: 'ist der Betreuungsvertrag',
+    newContract: 'Weiterer Betreuungsvertrag abgeschlossen', newSchoolStart: 'Neuer voraussichtlicher Schulstart',
+    switchedOff: 'Die automatische Abmeldung der Schulkinder wurde ausgeschaltet. Bitte unter Einstellungen → Schulkinder prüfen und neu einschalten.',
+    // Small helper texts of the pages (beyond the agreed wording list above).
+    listHint: 'Kinder, deren Schulstart der kommende 1. September ist oder schon erreicht ist. Trage Zurückstellungen rechtzeitig im Feld „voraussichtlicher Schulstart“ ein.',
+    schoolStart: 'Schulstart', afterSchoolGroup: 'Gruppe für Schulkinder', reached: 'Schulstart erreicht', switchOn: 'Einschalten',
+    autoLeaveOn: 'Die automatische Abmeldung ist eingeschaltet.', autoLeaveOff: 'Die automatische Abmeldung ist ausgeschaltet.',
+    deregistered: (n: number) => (n === 1 ? '1 Kind wurde abgemeldet' : `${n} Kinder wurden abgemeldet`),
+    careContractHint: 'Der Betreuungsvertrag ist die Dokumentart, die nach einem Wechsel in eine Gruppe für Schulkinder neu einzureichen ist. Nur eine Dokumentart kann so markiert sein.',
+    forSchoolChildrenHint: 'Kinder in einer solchen Gruppe werden zum Schulstart nicht automatisch abgemeldet.',
   },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',

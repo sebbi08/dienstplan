@@ -78,7 +78,10 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-upload" :label="de.childDocuments.upload" @click="openNew" />
     </template>
 
-    <template #banner><ChildrenReviewBanner :child="child" section="documents" :reload="reload" /></template>
+    <template #banner>
+      <ChildrenReviewBanner :child="child" section="documents" :reload="reload" named />
+      <ChildrenReviewBanner :child="child" section="contract" :reload="reload" named />
+    </template>
 
     <p v-if="!child.documents.length" class="text-sm text-gray-500">{{ de.childDocuments.none }}</p>
     <ul v-else class="divide-y divide-gray-100">

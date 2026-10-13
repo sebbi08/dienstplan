@@ -39,7 +39,6 @@ async function deleteWaitlist() {
     await navigateTo('/children')
   }
 }
-const unleave = () => run(() => $fetch<unknown>(`/api/children/${props.child.id}/unleave`, { method: 'POST' }), de.common.saved)
 
 // Moving: the Träger works in one facility at a time, so the others are the possible targets.
 const { data: facilities } = useFacilities()
@@ -68,7 +67,7 @@ async function move() {
     </div>
     <div v-else-if="child.leftOn" class="flex flex-wrap items-center gap-3 text-sm">
       <span>{{ de.childLifecycle.leavesOn(formatDate(child.leftOn)) }}<template v-if="child.purgeOn"> · {{ de.childLifecycle.purgeOn(formatDate(child.purgeOn)) }}</template></span>
-      <UButton size="xs" color="neutral" variant="outline" :label="de.childLifecycle.unleave" :disabled="busy" @click="unleave" />
+      <ChildrenUnleaveButton :child-id="child.id" :disabled="busy" :refresh="reload" />
     </div>
     <form v-else class="flex flex-wrap items-end gap-3" @submit.prevent="leave">
       <UFormField :label="de.childLifecycle.leftOn"><UInput v-model="leftOn" type="date" required /></UFormField>

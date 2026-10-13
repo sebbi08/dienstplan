@@ -7,12 +7,12 @@ import { formatDate } from '~/utils/format'
 /** Managers only: the archived children with their deletion date; take the leaving back or delete the record right away. */
 const { data, error, refresh } = useFetch<ArchivedChildDto[]>('/api/children/archive', { key: 'children-archive' })
 // A child that left the archive is back in (or gone from) the other lists.
-const { busy, run } = useBusyAction(async () => {
-  await Promise.all([refresh(), refreshNuxtData(['children-active', 'children-planned', 'children-birthdays', 'child-documents-overview'])])
-})
+const reloadAll = async () => {
+  await Promise.all([refresh(), refreshNuxtData(['children-active', 'children-planned', 'children-birthdays', 'child-documents-overview', 'children-school-children', 'children-occupancy'])])
+}
+const { busy, run } = useBusyAction(reloadAll)
 const confirm = useConfirm()
 
-const unleave = (child: ArchivedChildDto) => run(() => $fetch<unknown>(`/api/children/${child.id}/unleave`, { method: 'POST' }), de.common.saved)
 async function deleteNow(child: ArchivedChildDto) {
   if (await confirm(de.childLifecycle.confirmDelete, { confirmLabel: de.childLifecycle.deleteNow })) {
     run(() => $fetch<unknown>(`/api/children/${child.id}`, { method: 'DELETE' }), de.common.deleted)
@@ -44,7 +44,7 @@ const td = 'px-3 py-2'
             <td :class="td">{{ formatDate(child.leftOn) }}</td>
             <td :class="[td, 'text-gray-600']">{{ de.childLifecycle.purgeOn(formatDate(child.purgeOn)) }}</td>
             <td :class="[td, 'whitespace-nowrap text-right']">
-              <UButton size="xs" color="neutral" variant="outline" :label="de.childLifecycle.unleave" :aria-label="`${de.childLifecycle.unleave}: ${child.name}`" :disabled="busy" @click="unleave(child)" />
+              <ChildrenUnleaveButton :child-id="child.id" :aria-label="`${de.childLifecycle.unleave}: ${child.name}`" :disabled="busy" :refresh="reloadAll" />
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.childLifecycle.deleteNow" :aria-label="`${de.childLifecycle.deleteNow}: ${child.name}`" :disabled="busy" @click="deleteNow(child)" />
             </td>
           </tr>
