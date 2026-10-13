@@ -184,6 +184,8 @@ export const childMasterSchema = z.object({
   infoMeetingDate: optionalDate,
   schoolStartDate: optionalDate,
   primarySchool: z.string().max(200),
+  schoolDistrict: z.string().max(100),
+  keyEducatorId: nullableId,
   note: z.string().max(2000),
 })
 export const childHealthSchema = z.object({

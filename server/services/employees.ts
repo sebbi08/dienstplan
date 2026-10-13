@@ -6,7 +6,7 @@ import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoe
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, LevelUpDto, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { balanceAdjustments, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
+import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
@@ -291,6 +291,8 @@ export function moveEmployeeToFacility(
     tx.update(entries).set({ helpFacilityId: null })
       .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
     moveRequirementRecords(tx, employeeId, facilityId)
+    // Bezugserzieher must belong to the child's facility: the children of the old facility lose this one.
+    tx.update(children).set({ keyEducatorId: null }).where(eq(children.keyEducatorId, employeeId)).run()
     bookClosuresFor(tx, actor, employeeId, now, today)
   })
 }

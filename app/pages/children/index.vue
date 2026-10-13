@@ -13,7 +13,7 @@ const { user } = useUserSession()
 const canCreate = computed(() => !!user.value && mayEditChildren(user.value))
 const isLeader = computed(() => isManager(user.value?.role))
 const lookups = useChildLookups()
-const { groupName } = lookups
+const { groupName, staff } = lookups
 
 const { data: active, error } = await useFetch<ChildListItemDto[]>('/api/children', { query: { status: 'active' }, key: 'children-active' })
 const { data: planned } = await useFetch<ChildListItemDto[]>('/api/children', { query: { status: 'planned' }, key: 'children-planned' })
@@ -33,6 +33,8 @@ const tabs = computed(() => [
 const search = ref('')
 /** -1 = all groups, 0 = no group, otherwise the group id. */
 const groupFilter = ref(-1)
+/** -1 = all key educators, otherwise the employee id. */
+const keyEducatorFilter = ref(-1)
 
 const groupItems = computed(() => {
   const ids: (number | null)[] = []
@@ -42,6 +44,10 @@ const groupItems = computed(() => {
     ...ids.map(id => ({ label: groupName(id), value: id ?? 0 })),
   ]
 })
+const keyEducatorItems = computed(() => [
+  { label: de.children.allKeyEducators, value: -1 },
+  ...staff.value.map(person => ({ label: person.name, value: person.id })),
+])
 // Offering the filter only makes sense when at least one child has a group.
 const showGroups = computed(() => (active.value ?? []).some(child => child.groupId !== null))
 
@@ -53,6 +59,7 @@ const blocks = computed(() => {
   const result: { key: string; label: string | null; children: ChildListItemDto[] }[] = []
   for (const child of active.value ?? []) {
     if (groupFilter.value !== -1 && (child.groupId ?? 0) !== groupFilter.value) continue
+    if (keyEducatorFilter.value !== -1 && child.keyEducatorId !== keyEducatorFilter.value) continue
     if (term && !matches(child, term)) continue
     const key = String(child.groupId)
     let block = result.find(entry => entry.key === key)
@@ -102,6 +109,10 @@ const td = 'px-3 py-2'
         <div class="flex flex-wrap items-center gap-3">
           <UInput v-model="search" :placeholder="de.children.search" :aria-label="de.children.search" icon="i-lucide-search" class="w-64" />
           <USelect v-if="tab === 'list' && showGroups" v-model="groupFilter" :items="groupItems" class="w-48" :aria-label="de.children.fields.group" />
+          <USelect
+            v-if="tab === 'list' && staff.length" v-model="keyEducatorFilter" :items="keyEducatorItems" class="w-56"
+            :aria-label="de.children.fields.keyEducator"
+          />
         </div>
 
         <template v-if="tab === 'list'">
@@ -114,6 +125,7 @@ const td = 'px-3 py-2'
                   <th :class="th">{{ de.children.fields.lastName }}, {{ de.children.fields.firstName }}</th>
                   <th :class="th">{{ de.children.ageAt }}</th>
                   <th :class="th">{{ de.children.fields.careType }}</th>
+                  <th :class="th">{{ de.children.fields.keyEducator }}</th>
                   <th :class="th">{{ de.children.entry }}</th>
                   <th :class="th" />
                 </tr>
@@ -123,6 +135,7 @@ const td = 'px-3 py-2'
                   <td :class="td"><NuxtLink :to="`/children/${child.id}`" class="font-medium text-sky-700 hover:underline">{{ child.lastName }}, {{ child.firstName }}</NuxtLink></td>
                   <td :class="td">{{ de.children.age(child.age.years, child.age.months) }}</td>
                   <td :class="td">{{ child.careTypeName ?? '–' }}</td>
+                  <td :class="td">{{ child.keyEducatorName ?? '–' }}</td>
                   <td :class="td">{{ child.entryDate ? formatDate(child.entryDate) : '–' }}</td>
                   <td :class="[td, 'text-right']">
                     <span class="inline-flex items-center gap-2">

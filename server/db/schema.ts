@@ -444,6 +444,12 @@ export const children = sqliteTable('children', {
   infoMeetingDate: text('info_meeting_date'),
   schoolStartDate: text('school_start_date'),
   primarySchool: text('primary_school').notNull().default(''),
+  schoolDistrict: text('school_district').notNull().default(''),
+  /**
+   * The child's Bezugserzieher, an employee of the child's facility; null = nobody (also after the employee was deleted).
+   * Whether the person still counts (same facility, not left) is checked when reading; see services/children.
+   */
+  keyEducatorId: integer('key_educator_id').references(() => employees.id, { onDelete: 'set null' }),
   note: text('note').notNull().default(''),
   leftOn: text('left_on'),
   // Health

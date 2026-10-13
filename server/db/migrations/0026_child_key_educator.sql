@@ -1,0 +1,2 @@
+ALTER TABLE `children` ADD `school_district` text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE `children` ADD `key_educator_id` integer REFERENCES employees(id) ON UPDATE no action ON DELETE set null;

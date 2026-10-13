@@ -14,19 +14,19 @@ import { formatDate } from '~/utils/format'
 /** `reload` re-reads the record after a save (not needed while creating); the guard in `save` holds until it is done. */
 const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown> }>()
 const run = useAction(async () => { await props.reload?.() })
-const { groups, careTypes, canPickGroup, groupName, careTypeName } = props.lookups
+const { groups, careTypes, staff, canPickGroup, groupName, careTypeName } = props.lookups
 
 const creating = !props.child
 const editing = ref(creating)
 const today = todayIso()
 
-const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', note: '' }
+const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', schoolDistrict: '', keyEducatorId: 0, note: '' }
 const form = reactive({ ...empty })
 function reset() {
   const master = props.child?.master
   Object.assign(form, master
     ? {
-        ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0,
+        ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0, keyEducatorId: master.keyEducatorId ?? 0,
         entryDate: master.entryDate ?? '', plannedEntryDate: master.plannedEntryDate ?? '',
         infoMeetingDate: master.infoMeetingDate ?? '', schoolStartDate: master.schoolStartDate ?? '',
       }
@@ -39,6 +39,7 @@ watch(editing, (value) => { if (value) reset() })
 
 const showGroup = computed(() => (canPickGroup.value && groups.value.length > 0) || (!creating && props.child!.master.groupId !== null))
 const groupItems = computed(() => [{ label: de.children.noGroup, value: 0 }, ...groups.value.map(group => ({ label: group.name, value: group.id }))])
+const staffItems = computed(() => [{ label: de.children.noKeyEducator, value: 0 }, ...staff.value.map(person => ({ label: person.name, value: person.id }))])
 const careTypeItems = computed(() => [{ label: de.children.noSelection, value: 0 }, ...careTypes.value.map(type => ({ label: type.name, value: type.id }))])
 
 function payload(): ChildMasterInput {
@@ -49,7 +50,8 @@ function payload(): ChildMasterInput {
     careTypeId: form.careTypeId || null,
     entryDate: orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
     infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: orNull(form.schoolStartDate),
-    primarySchool: form.primarySchool, note: form.note,
+    primarySchool: form.primarySchool, schoolDistrict: form.schoolDistrict, keyEducatorId: form.keyEducatorId || null,
+    note: form.note,
   }
 }
 
@@ -97,6 +99,8 @@ const rows = computed(() => {
     { label: f.infoMeetingDate, value: date(master.infoMeetingDate) },
     { label: f.schoolStartDate, value: date(master.schoolStartDate) },
     { label: f.primarySchool, value: master.primarySchool },
+    { label: f.schoolDistrict, value: master.schoolDistrict },
+    { label: f.keyEducator, value: props.child?.keyEducatorName ?? '' },
     { label: f.note, value: master.note, multiline: true },
   ]
 })
@@ -126,7 +130,9 @@ const rows = computed(() => {
         <UFormField :label="f.plannedEntryDate"><UInput v-model="form.plannedEntryDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.infoMeetingDate"><UInput v-model="form.infoMeetingDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.schoolStartDate"><UInput v-model="form.schoolStartDate" type="date" class="w-full" /></UFormField>
-        <UFormField :label="f.primarySchool" class="sm:col-span-2"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
+        <UFormField :label="f.keyEducator"><USelect v-model="form.keyEducatorId" :items="staffItems" class="w-full" /></UFormField>
+        <UFormField :label="f.primarySchool"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
+        <UFormField :label="f.schoolDistrict"><UInput v-model="form.schoolDistrict" maxlength="100" class="w-full" /></UFormField>
         <UFormField :label="f.note" class="sm:col-span-2"><UTextarea v-model="form.note" :rows="3" maxlength="2000" class="w-full" /></UFormField>
         <div class="flex gap-2 sm:col-span-2">
           <UButton type="submit" :label="creating ? de.children.create : de.common.save" :loading="busy" :disabled="busy" />

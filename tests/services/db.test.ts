@@ -429,6 +429,28 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('keeps children when the key educator and school district columns are added', () => {
+    const { db, sqlite } = databaseAt('0025')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(26)
+    sqlite.exec(`
+      INSERT INTO employees (id, name) VALUES (1, 'Anna');
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at)
+        VALUES (1, 1, 'Meier', 'Lena', '2022-03-15', '2026-01-01T00:00:00.000Z');
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(26)
+    expect(sqlite.prepare('SELECT last_name, school_district, key_educator_id FROM children WHERE id = 1').get())
+      .toEqual({ last_name: 'Meier', school_district: '', key_educator_id: null })
+    // The new reference works: deleting the employee leaves the child with no key educator.
+    sqlite.exec('UPDATE children SET key_educator_id = 1 WHERE id = 1')
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(sqlite.prepare('SELECT key_educator_id FROM children WHERE id = 1').get()).toEqual({ key_educator_id: null })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

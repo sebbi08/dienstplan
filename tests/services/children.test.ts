@@ -16,7 +16,7 @@ const NOW = new Date('2026-10-09T08:30:00.000Z')
 const master = (overrides: Partial<ChildMasterInput> = {}): ChildMasterInput => ({
   lastName: 'Meier', firstName: 'Lena', birthDate: '2022-03-15', address: '', groupId: null, careTypeId: null,
   entryDate: '2025-09-01', plannedEntryDate: null, infoMeetingDate: null, schoolStartDate: null, primarySchool: '',
-  note: '', ...overrides,
+  schoolDistrict: '', keyEducatorId: null, note: '', ...overrides,
 })
 
 const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput => ({

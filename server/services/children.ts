@@ -1,4 +1,4 @@
-import { asc, eq, inArray, max } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
 import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
@@ -9,7 +9,7 @@ import {
   type ChildRecordDto, type ConsentKey, type SectionStamp, type SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { careTypes, childContacts, childDocuments, children, documentTypes, users } from '../db/schema'
+import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import { loadChild, loadEditableChild, sectionStamp, type ChildRow } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
@@ -26,6 +26,18 @@ const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key
 const byName = (a: { lastName: string; firstName: string }, b: { lastName: string; firstName: string }) =>
   a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de')
 
+/** The facility's employees who can be a Bezugserzieher: they have not left (leaving today or later still counts). */
+function staffOf(db: Db, facilityId: number, today: IsoDate): { id: number; name: string }[] {
+  return db.select({ id: employees.id, name: employees.name }).from(employees)
+    .where(and(eq(employees.facilityId, facilityId), or(isNull(employees.leftOn), gte(employees.leftOn, today))))
+    .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
+}
+
+/** Id and name of the facility's staff who can be chosen as Bezugserzieher, in the order of the employee list. */
+export function listChildStaff(db: Db, facilityId: number, today: IsoDate): { id: number; name: string }[] {
+  return staffOf(db, facilityId, today)
+}
+
 /** Active children grouped in the groups' order (no group last), or planned children by their (planned) entry date. */
 export function listChildren(db: Db, facilityId: number, status: 'active' | 'planned', today: IsoDate): ChildListItemDto[] {
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
@@ -36,6 +48,7 @@ export function listChildren(db: Db, facilityId: number, status: 'active' | 'pla
     .filter(contact => contact.contactBan)
   const careTypeNames = new Map(db.select({ id: careTypes.id, name: careTypes.name }).from(careTypes)
     .where(eq(careTypes.facilityId, facilityId)).all().map(row => [row.id, row.name]))
+  const staff = new Map(staffOf(db, facilityId, today).map(person => [person.id, person.name]))
   const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
   const rank = (row: ChildRow) => (row.groupId === null ? Infinity : groupRank.get(row.groupId) ?? Infinity)
   const dateKey = (row: ChildRow) => row.entryDate ?? row.plannedEntryDate ?? '9999-99-99'
@@ -50,6 +63,8 @@ export function listChildren(db: Db, facilityId: number, status: 'active' | 'pla
     age: ageOn(row.birthDate, today),
     groupId: row.groupId,
     careTypeName: row.careTypeId === null ? null : careTypeNames.get(row.careTypeId) ?? null,
+    keyEducatorId: row.keyEducatorId !== null && staff.has(row.keyEducatorId) ? row.keyEducatorId : null,
+    keyEducatorName: row.keyEducatorId === null ? null : staff.get(row.keyEducatorId) ?? null,
     entryDate: row.entryDate,
     plannedEntryDate: row.plannedEntryDate,
     hasAllergies: row.allergies.trim() !== '',
@@ -57,12 +72,13 @@ export function listChildren(db: Db, facilityId: number, status: 'active' | 'pla
   }))
 }
 
-function masterOf(row: ChildRow): ChildMasterInput {
+/** The master data; keyEducatorId is the effective one (null when the person left or is no longer in the facility). */
+function masterOf(row: ChildRow, keyEducatorId: number | null): ChildMasterInput {
   return {
     lastName: row.lastName, firstName: row.firstName, birthDate: row.birthDate, address: row.address,
     groupId: row.groupId, careTypeId: row.careTypeId, entryDate: row.entryDate, plannedEntryDate: row.plannedEntryDate,
     infoMeetingDate: row.infoMeetingDate, schoolStartDate: row.schoolStartDate, primarySchool: row.primarySchool,
-    note: row.note,
+    schoolDistrict: row.schoolDistrict, keyEducatorId, note: row.note,
   }
 }
 
@@ -92,10 +108,13 @@ export function getChild(
     .where(inArray(users.id, stampUsers)).all().map(user => [user.id, user.username]))
   const stampOf = (updatedAt: string | null, updatedBy: number | null): SectionStamp =>
     ({ updatedAt, updatedBy: updatedBy === null ? null : usernames.get(updatedBy) ?? null })
+  const keyEducatorName = row.keyEducatorId === null ? null
+    : staffOf(db, viewer.facilityId, today).find(person => person.id === row.keyEducatorId)?.name ?? null
   return {
     id: row.id,
     status,
-    master: masterOf(row),
+    master: masterOf(row, keyEducatorName === null ? null : row.keyEducatorId),
+    keyEducatorName,
     health: healthOf(row),
     consents: consentsOf(row),
     contacts: listContacts(db, row.id),
@@ -117,7 +136,10 @@ function checkedDate(value: IsoDate | null): IsoDate | null {
   return value
 }
 
-/** Trimmed texts, valid dates, a birth date that is not in the future and group and care type of the facility. */
+/**
+ * Trimmed texts, valid dates, a birth date that is not in the future, group and care type of the facility and a
+ * Bezugserzieher from the facility's staff who has not left (400 key_educator_not_found otherwise).
+ */
 function checkedMaster(db: Db, facilityId: number, input: ChildMasterInput, today: IsoDate): ChildMasterInput {
   const lastName = input.lastName.trim()
   const firstName = input.firstName.trim()
@@ -126,6 +148,9 @@ function checkedMaster(db: Db, facilityId: number, input: ChildMasterInput, toda
   if (birthDate > today) throw new ServiceError(400, 'birth_date_in_future')
   assertGroup(db, facilityId, input.groupId)
   assertCareType(db, facilityId, input.careTypeId)
+  if (input.keyEducatorId !== null && !staffOf(db, facilityId, today).some(person => person.id === input.keyEducatorId)) {
+    throw new ServiceError(400, 'key_educator_not_found')
+  }
   return {
     ...input, lastName, firstName, birthDate,
     address: input.address.trim(),
@@ -134,6 +159,7 @@ function checkedMaster(db: Db, facilityId: number, input: ChildMasterInput, toda
     infoMeetingDate: checkedDate(input.infoMeetingDate),
     schoolStartDate: checkedDate(input.schoolStartDate),
     primarySchool: input.primarySchool.trim(),
+    schoolDistrict: input.schoolDistrict.trim(),
     note: input.note.trim(),
   }
 }
@@ -259,8 +285,8 @@ const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivit
 
 /**
  * The Träger moves a record to another facility with its contacts and documents. Group and care type belong to the old
- * facility and are cleared; every document gets the like-named document type of the new facility, otherwise its
- * "Sonstiges" (created with the default flags when missing).
+ * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility); every document gets the
+ * like-named document type of the new facility, otherwise its "Sonstiges" (created with the default flags when missing).
  */
 export function moveChildToFacility(db: Db, childId: number, targetFacilityId: number): void {
   const child = db.select({ facilityId: children.facilityId }).from(children).where(eq(children.id, childId)).get()
@@ -290,7 +316,7 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
       const match = name === undefined ? undefined : targetTypes.find(type => sameName(type.name, name))
       tx.update(childDocuments).set({ documentTypeId: match?.id ?? otherType() }).where(eq(childDocuments.id, document.id)).run()
     }
-    tx.update(children).set({ facilityId: targetFacilityId, groupId: null, careTypeId: null })
+    tx.update(children).set({ facilityId: targetFacilityId, groupId: null, careTypeId: null, keyEducatorId: null })
       .where(eq(children.id, childId)).run()
   })
 }

@@ -89,6 +89,9 @@ export interface ChildMasterInput {
   infoMeetingDate: IsoDate | null
   schoolStartDate: IsoDate | null
   primarySchool: string
+  schoolDistrict: string
+  /** Bezugserzieher: an employee of the child's facility who has not left; null = nobody. */
+  keyEducatorId: number | null
   note: string
 }
 
@@ -136,6 +139,8 @@ export interface ChildListItemDto {
   age: { years: number; months: number }
   groupId: number | null
   careTypeName: string | null
+  keyEducatorId: number | null
+  keyEducatorName: string | null
   entryDate: IsoDate | null
   plannedEntryDate: IsoDate | null
   hasAllergies: boolean
@@ -146,6 +151,8 @@ export interface ChildRecordDto {
   id: number
   status: ChildStatus
   master: ChildMasterInput
+  /** Name of master.keyEducatorId (null together with it). */
+  keyEducatorName: string | null
   health: ChildHealthInput
   consents: ChildConsents
   contacts: ChildContactDto[]

@@ -60,8 +60,9 @@ Neuer Menüpunkt **„Kinder“** für Träger, Leitung und Mitarbeiter (nicht f
 die gewählte bzw. eigene Kita. Reiter:
 
 - **Liste:** aktive Kinder, gruppiert nach Gruppe (Reihenfolge der Gruppen), darin nach Nachname, Vorname.
-  Spalten: Name, Alter (Jahre und Monate), Betreuungsform, Eintritt. Symbole: Warnsymbol bei Allergien,
-  rotes Symbol bei mindestens einem Kontaktverbot (Tooltip mit Text). Suche nach Namen, Filter nach Gruppe.
+  Spalten: Name, Alter (Jahre und Monate), Betreuungsform, Bezugserzieher, Eintritt. Symbole: Warnsymbol bei
+  Allergien, rotes Symbol bei mindestens einem Kontaktverbot (Tooltip mit Text). Suche nach Namen, Filter nach
+  Gruppe und nach Bezugserzieher (alle oder ein Mitarbeiter der Kita).
   Knopf **„Kind anlegen“** nur für Pfleger der Akte.
 - **Geplant:** Kinder mit geplantem bzw. künftigem Eintritt, nach Datum sortiert.
 - **Geburtstage:** aktive Kinder mit Geburtstag in den nächsten 8 Wochen (Datum, neues Alter); Druckansicht
@@ -104,9 +105,13 @@ Eine Seite pro Kind. Oben ein Kasten **„Wichtig“**: alle Kontaktverbote (Nam
 
 Nachname, Vorname (Pflicht), Geburtsdatum (Pflicht), Adresse (Freitext, mehrzeilig), Gruppe (wenn die Kita
 Gruppen hat), Betreuungsform, Eintritt, geplanter Eintritt, Infogespräch (Datum), voraussichtlicher Schulstart
-(Datum), Grundschule (Text), Bemerkung (Freitext).
+(Datum), Grundschule (Text), Schulbezirk (Text), Bezugserzieher (ein Mitarbeiter der Kita, optional; wird leer,
+wenn die Person ausscheidet oder die Kita wechselt oder das Kind die Kita wechselt), Bemerkung (Freitext).
 
-Validierung: Geburtsdatum nicht in der Zukunft; Gruppe und Betreuungsform aus der eigenen Kita.
+Validierung: Geburtsdatum nicht in der Zukunft; Gruppe und Betreuungsform aus der eigenen Kita; Bezugserzieher
+ein Mitarbeiter der eigenen Kita, der nicht ausgeschieden ist (`key_educator_not_found`). Angezeigt wird der
+Bezugserzieher nur, solange die Person zur Kita des Kindes gehört und nicht ausgeschieden ist; die Auswahlliste
+liefert `GET /api/children/staff` (nur Id und Name, für alle, die Kinder sehen dürfen).
 
 ### 5.2 Bezugspersonen
 
@@ -203,18 +208,19 @@ nach Beginn), Reihenfolge. Eine Form, die einem Kind zugeordnet ist, kann nicht 
 - **Gruppenwechsel:** Gruppe in der Akte ändern; gilt sofort. Keine Gruppenhistorie (Stufe 2 speichert die
   Gruppe je Anwesenheitstag). Eine Gruppe mit aktiven oder geplanten Kindern kann – wie bei Mitarbeitern – nicht
   gelöscht werden (`group_has_children`); archivierte Kinder verlieren beim Löschen der Gruppe ihre Gruppe.
-- **Kita-Wechsel** (nur Träger): Die Akte zieht mit allen Bezugspersonen und Dokumenten um; Gruppe und
-  Betreuungsform werden geleert (gehören zur alten Kita); jedes Dokument bekommt die gleichnamige Dokumentart der
+- **Kita-Wechsel** (nur Träger): Die Akte zieht mit allen Bezugspersonen und Dokumenten um; Gruppe,
+  Betreuungsform und Bezugserzieher werden geleert (gehören zur alten Kita); jedes Dokument bekommt die gleichnamige Dokumentart der
   neuen Kita oder, falls es keine gibt, „Sonstiges“ der neuen Kita (wird bei Bedarf angelegt).
 
 ## 11. Technik
 
-### 11.1 Datenmodell (neue Tabellen, Migration 0023)
+### 11.1 Datenmodell (neue Tabellen: Migration 0025; Spalten Schulbezirk und Bezugserzieher: Migration 0026)
 
 - `children`: id, facility_id, group_id (nullable, FK groups, ON DELETE SET NULL), care_type_id (nullable),
   last_name, first_name, birth_date, address, entry_date, planned_entry_date, info_meeting_date,
-  school_start_date, primary_school, note, left_on (nullable), Gesundheits- und Einwilligungsfelder
-  (ja/nein/offen als nullable integer 1/0/null; Datumsfelder als ISO-Text), je Bereich
+  school_start_date, primary_school, school_district (Standard ''), key_educator_id (nullable, FK employees,
+  ON DELETE SET NULL; wird beim Kita-Wechsel des Kindes oder des Mitarbeiters geleert), note, left_on (nullable),
+  Gesundheits- und Einwilligungsfelder (ja/nein/offen als nullable integer 1/0/null; Datumsfelder als ISO-Text), je Bereich
   `<bereich>_updated_at` / `<bereich>_updated_by` (users, ON DELETE SET NULL), created_at.
 - `child_contacts`: id, child_id (FK cascade), sort_order, name, relation, phone_home, phone_mobile, phone_work,
   is_guardian, may_pick_up, emergency_rank (nullable), contact_ban, contact_ban_note, note.
@@ -276,7 +282,9 @@ Seiten unter `/children` (Liste mit Reitern, `/children/new`, `/children/[id]`),
   vertraulich ohne Recht → nicht anklickbar.
 - **Abmelden/Löschen:** aktiv bis einschließlich Austritt; Archiv; Rücknahme; automatische Löschung genau am
   Löschdatum, vorher nichts gelöscht; nach Löschung keine Bezugspersonen und Dokumente mehr; nur einmal pro Tag.
-- **Kita-Wechsel:** Dokumentarten werden zugeordnet, Gruppe/Betreuungsform geleert.
+- **Kita-Wechsel:** Dokumentarten werden zugeordnet, Gruppe/Betreuungsform/Bezugserzieher geleert.
+- **Bezugserzieher:** nur Mitarbeiter der eigenen Kita, nicht Ausgeschiedene; verschwindet in Liste und Akte nach dem
+  Austritt; geleert beim Kita-Wechsel des Kindes oder des Mitarbeiters; Löschen des Mitarbeiters setzt das Feld auf leer.
 - **Migration:** bestehende Datenbank bekommt die Tabellen und je Kita die vorbelegten Dokumentarten; keine
   Fremdschlüsselverletzungen.
 

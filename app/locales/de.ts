@@ -442,6 +442,7 @@ export const de = {
   children: {
     nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', planned: 'Geplant', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
     create: 'Kind anlegen', search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
+    allKeyEducators: 'Alle Bezugserzieher', noKeyEducator: '– niemand –',
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',
     allergies: 'Allergien', emergencyContacts: 'Notfallkontakte',
     sections: { master: 'Stammdaten', contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente' },
@@ -450,7 +451,7 @@ export const de = {
     fields: {
       lastName: 'Nachname', firstName: 'Vorname', birthDate: 'Geburtsdatum', address: 'Adresse', group: 'Gruppe', careType: 'Betreuungsform',
       entryDate: 'Eintritt', plannedEntryDate: 'geplanter Eintritt', infoMeetingDate: 'Infogespräch', schoolStartDate: 'voraussichtlicher Schulstart',
-      primarySchool: 'Grundschule', note: 'Bemerkung',
+      primarySchool: 'Grundschule', schoolDistrict: 'Schulbezirk', keyEducator: 'Bezugserzieher', note: 'Bemerkung',
       name: 'Name', relation: 'Beziehung', phoneHome: 'Telefon privat', phoneMobile: 'Telefon mobil', phoneWork: 'Telefon Arbeit',
       isGuardian: 'sorgeberechtigt', mayPickUp: 'darf abholen', emergencyRank: 'Notfallkontakt (Reihenfolge)', contactBanNote: 'Hinweis zum Kontaktverbot',
       measlesProof: 'Masernnachweis', measlesProofDate: 'Datum Masernnachweis', infectionBriefingDate: 'Belehrung Infektionsschutz',
@@ -628,6 +629,7 @@ export const de = {
     contact_ban_note_required: 'Bitte einen Hinweis zum Kontaktverbot angeben.',
     invalid_order: 'Die Reihenfolge stimmt nicht mehr. Bitte lade die Seite neu.',
     care_type_not_found: 'Diese Betreuungsform existiert nicht mehr.',
+    key_educator_not_found: 'Diese Person gehört nicht (mehr) zu den Mitarbeitern dieser Einrichtung.',
     care_type_name_required: 'Bitte einen Namen für die Betreuungsform angeben.',
     care_type_name_taken: 'Es gibt schon eine Betreuungsform mit diesem Namen.',
     care_type_in_use: 'Diese Betreuungsform ist noch bei Kindern eingetragen. Bitte ändere zuerst deren Betreuungsform.',
