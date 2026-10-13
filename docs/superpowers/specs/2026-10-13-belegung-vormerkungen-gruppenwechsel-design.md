@@ -208,8 +208,9 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
 - Schalter je Einrichtung (Träger): **„Schulkinder automatisch abmelden“**, Vorbelegung aus.
 - Beim Einschalten zeigt die App in der Bestätigung, welche Kinder **sofort** abgemeldet werden (Schulstart
   schon erreicht) – mit Namen und Austrittsdatum. Mit der Bestätigung wird eingeschaltet, und genau die
-  angezeigten Kinder werden im selben Schritt abgemeldet. Hat sich die Liste seit der Anzeige geändert, lehnt
-  die App ab (`auto_leave_preview_changed`) und zeigt sie neu. Ausschalten braucht keine Bestätigung.
+  angezeigten Kinder werden im selben Schritt zu den angezeigten Austrittsdaten abgemeldet. Hat sich die Liste
+  seit der Anzeige geändert – andere Kinder oder ein anderes Austrittsdatum –, lehnt die App ab
+  (`auto_leave_preview_changed`) und zeigt sie neu. Ausschalten braucht keine Bestätigung.
 - Täglicher Lauf bei eingeschaltetem Schalter: Jedes aktive Kind mit Stand „Vertrag“, ohne Austritt, dessen
   Schulstart erreicht ist (≤ heute) und das nicht wegen einer Gruppe für Schulkinder bleibt (7.4), bekommt
   den Austritt „Tag vor dem Schulstart“ (31.8.) und ist damit archiviert; die Löschfrist der Kinderakte läuft.
@@ -219,13 +220,16 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
   - das erst am oder nach seinem Schulstart eingetreten ist (der Austritt läge vor dem Eintritt; die Belegung
     nennt es im Hinweis „Schulstart oder Austritt liegt vor dem Eintritt“),
   - dessen Akte mit diesem Austritt sofort gelöscht würde (Löschfrist schon abgelaufen),
-  - für das ein Gruppenwechsel mit weiterem Betreuungsvertrag geplant ist, der nach dem Austritt läge.
+  - das einen Gruppenwechsel mit weiterem Betreuungsvertrag hat, der nach dem Austritt läge – gleich ob der
+    Wechsel noch geplant oder schon vollzogen ist und ob die Gruppe heute noch „für Schulkinder“ ist: Für diese
+    Zeit wurde ein Vertrag geschlossen.
 
   Diese Kinder bleiben aktiv und stehen in der Liste „Schulkinder zum 1.9.“, bis Leitung oder Träger von Hand
   entscheiden.
 - **Der Schalter schaltet sich aus**, wenn sich ändert, wen er trifft: wenn der Stichtag der Einrichtung
-  geändert wird, wenn einer Gruppe der Einrichtung das Kennzeichen „für Schulkinder“ genommen wird, und in
-  allen Einrichtungen, wenn die Löschfrist der Kinderakte geändert wird. Der Träger schaltet ihn danach mit der
+  geändert wird, wenn einer Gruppe der Einrichtung das Kennzeichen „für Schulkinder“ genommen oder eine so
+  gekennzeichnete Gruppe gelöscht wird, und in allen Einrichtungen, wenn die Löschfrist der Kinderakte geändert
+  wird. Die App sagt dem Träger dabei, dass der Schalter ausgeschaltet wurde; er schaltet ihn danach mit der
   neuen Liste wieder ein.
 - Unabhängig vom Schalter: Reiter „Belegung“ zeigt ab 1. März die Liste **„Schulkinder zum 1.9.“** des
   kommenden Septembers (Name, Gruppe, Schulstart, ggf. geplanter Wechsel in eine Schulkind-Gruppe), damit
@@ -249,11 +253,14 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
   wird von Hand abgemeldet. Belegung,
   Vorschau, täglicher Lauf, Liste „Schulkinder zum 1.9.“ und „Abmeldung zurücknehmen“ urteilen nach derselben
   Regel.
-- Der automatische Lauf löscht nie einen geplanten Wechsel mit weiterem Betreuungsvertrag (7.3).
-- **Kita-Wechsel in eine Einrichtung mit eingeschaltetem Schalter:** Ein Kind mit Stand „Vertrag“ und ohne
-  Austritt, dessen Schulstart (eingetragen, sonst nach dem Stichtag der Ziel-Einrichtung errechnet) schon
-  erreicht ist, kann nicht dorthin verschoben werden (`school_start_reached`): Es käme ohne Gruppe an und würde
-  sofort abgemeldet. Erst den voraussichtlichen Schulstart anpassen oder dort den Schalter ausschalten.
+- Der automatische Lauf löscht nie einen geplanten Wechsel mit weiterem Betreuungsvertrag und meldet kein Kind
+  zu einem Tag vor einem solchen Wechsel ab (7.3).
+- **Kita-Wechsel in eine Einrichtung mit eingeschaltetem Schalter:** Ein Kind, das der Lauf dort sofort
+  abmelden würde, kann nicht dorthin verschoben werden (`school_start_reached`): Es käme ohne Gruppe an, und
+  sein Schulstart (eingetragen, sonst nach dem Stichtag der Ziel-Einrichtung errechnet) ist schon erreicht.
+  Geprüft wird mit derselben Auswahl wie beim Lauf; Vormerkungen, Kinder, die noch nicht begonnen haben, Kinder
+  mit Austritt und die oben ausgenommenen Kinder können verschoben werden. Sonst erst den voraussichtlichen
+  Schulstart anpassen oder dort den Schalter ausschalten.
 - In der Belegung zählen Schulkind-Gruppen wie jede andere Gruppe.
 
 ## 8. Rechte

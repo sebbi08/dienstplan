@@ -94,10 +94,14 @@ export function setGroupForSchoolChildren(db: Db, groupId: number, value: boolea
     const widens = !value && isForSchoolChildren(tx, groupId)
     tx.update(groups).set({ forSchoolChildren: value }).where(eq(groups.id, groupId)).run()
     if (widens) switchAutoLeaveOff(tx, facilityId)
-    const facility = tx.select({ autoLeave: facilities.autoLeaveSchoolChildren }).from(facilities)
-      .where(eq(facilities.id, facilityId)).get()
-    return { autoLeave: facility?.autoLeave ?? false }
+    return { autoLeave: autoLeaveOf(tx, facilityId) }
   })
+}
+
+/** Whether the facility deregisters its school children automatically. */
+function autoLeaveOf(db: Db, facilityId: number): boolean {
+  return db.select({ value: facilities.autoLeaveSchoolChildren }).from(facilities)
+    .where(eq(facilities.id, facilityId)).get()?.value ?? false
 }
 
 /** Whether the group is for school children (null = no group: never). */
@@ -111,8 +115,12 @@ export function isForSchoolChildren(db: Db, groupId: number | null): boolean {
  * that has no active or planned children (409 group_has_children) and no planned group change leading into it
  * (409 group_has_pending_changes). Its required duties and week templates go with it; duties that counted for it count
  * for the home group again; the entries of the children's group histories lose the group.
+ *
+ * With a group for school children gone, the histories no longer say that a child was in one, so a child that stayed
+ * because of it would be deregistered. Deleting such a group therefore switches the facility's automatic leaving off
+ * in the same transaction, like taking its flag away. Returns the switch as it is afterwards.
  */
-export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDate): void {
+export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDate): { autoLeave: boolean } {
   assertGroup(db, facilityId, id)
   if (db.select({ id: employees.id }).from(employees).where(eq(employees.groupId, id)).get()) {
     throw new ServiceError(409, 'group_has_members')
@@ -126,12 +134,15 @@ export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDa
     .where(and(eq(childGroupChanges.groupId, id), isNull(childGroupChanges.appliedAt))).get()) {
     throw new ServiceError(409, 'group_has_pending_changes')
   }
-  db.transaction((tx) => {
+  return db.transaction((tx) => {
+    const wasForSchoolChildren = isForSchoolChildren(tx, id)
     tx.update(entries).set({ groupId: null }).where(eq(entries.groupId, id)).run()
     tx.delete(coverageRules).where(eq(coverageRules.groupId, id)).run()
     tx.delete(weekTemplateMarks).where(and(eq(weekTemplateMarks.facilityId, facilityId), eq(weekTemplateMarks.groupId, id))).run()
     // Template entries and remaining marks of these templates go along (ON DELETE CASCADE).
     tx.delete(weekTemplates).where(eq(weekTemplates.groupId, id)).run()
     tx.delete(groups).where(eq(groups.id, id)).run()
+    if (wasForSchoolChildren) switchAutoLeaveOff(tx, facilityId)
+    return { autoLeave: autoLeaveOf(tx, facilityId) }
   })
 }

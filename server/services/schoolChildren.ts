@@ -10,7 +10,7 @@ import { children, facilities } from '../db/schema'
 import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
-import { groupHistories, plannedContractChanges, registerLeaving } from './childGroupChanges'
+import { contractChangeDays, groupHistories, registerLeaving } from './childGroupChanges'
 import { listGroups } from './groups'
 
 type ChildRow = typeof children.$inferSelect
@@ -62,19 +62,23 @@ export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolCutoffI
 /**
  * The Träger switches the automatic leaving of the facility's school children on or off (404 facility_not_found).
  *
- * Switching on needs the ids of the children the Träger has just seen in the preview (`schoolLeavers`). They must be
- * exactly the children it would deregister now, in any order (409 auto_leave_preview_changed otherwise, and nothing
+ * Switching on needs the children the Träger has just seen in the preview (`schoolLeavers`), each with the leaving day
+ * shown there (the preview's entries can be passed as they are). They must be exactly the children it would
+ * deregister now, with exactly these leaving days, in any order (409 auto_leave_preview_changed otherwise, and nothing
  * changes). Then the switch is stored and these children are deregistered in the same transaction, so what was
- * confirmed is what happens. Returns how many children were deregistered. Switching off needs no ids and deregisters
+ * confirmed is what happens. Returns how many children were deregistered. Switching off needs no list and deregisters
  * nobody.
  */
-export function setAutoLeave(db: Db, facilityId: number, value: boolean, today: IsoDate, confirmedIds: number[] = []): number {
+export function setAutoLeave(
+  db: Db, facilityId: number, value: boolean, today: IsoDate, confirmed: Pick<SchoolLeaverDto, 'id' | 'leftOn'>[] = [],
+): number {
   return db.transaction((tx) => {
     getSchoolSettings(tx, facilityId)
     if (value) {
-      const confirmed = new Set(confirmedIds)
+      const key = (child: Pick<SchoolLeaverDto, 'id' | 'leftOn'>) => `${child.id}:${child.leftOn}`
+      const confirmedKeys = new Set(confirmed.map(key))
       const leavers = schoolLeavers(tx, facilityId, today)
-      if (leavers.length !== confirmed.size || leavers.some(leaver => !confirmed.has(leaver.id))) {
+      if (leavers.length !== confirmedKeys.size || leavers.some(leaver => !confirmedKeys.has(key(leaver)))) {
         throw new ServiceError(409, 'auto_leave_preview_changed')
       }
     }
@@ -192,13 +196,14 @@ export function isSchoolStartDue(child: SchoolFacts, today: IsoDate): boolean {
  * Three kinds of children are left out, because nobody could have expected what the leaving day would do to them: a
  * child that only started on or after its school start (it would have left before it came; the occupancy lists it as
  * inconsistent), a child whose record would be deleted at once (its leaving day is already past the retention
- * period), and a child with a planned group change that carries a further care contract (the change would be deleted
- * with the leaving, although its group may only have lost the flag "for school children" by mistake). They stay
- * active, and in the list of the coming school children, until somebody decides about them by hand.
+ * period), and a child with a group change after the leaving day that carries a further care contract, planned or
+ * applied (somebody concluded a contract for that time; its group may only have lost the flag "for school children"
+ * by mistake, and a planned change would be deleted with the leaving). They stay active, and in the list of the
+ * coming school children, until somebody decides about them by hand.
  */
 export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): SchoolLeaverDto[] {
   const retentionYears = getChildRetentionYears(db)
-  const contractChanges = plannedContractChanges(db, facilityId)
+  const contractChanges = contractChangeDays(db, facilityId)
   const leavers: SchoolLeaverDto[] = []
   for (const child of activeSchoolChildren(db, facilityId, today)) {
     if (!isSchoolStartDue(child, today)) continue
@@ -208,8 +213,8 @@ export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): Schoo
     const leftBeforeStart = leftOn < row.entryDate!
     const deletedAtOnce = purgeDate(leftOn, retentionYears) <= today
     const contractChange = contractChanges.get(row.id)
-    const losesContractChange = contractChange !== undefined && contractChange > leftOn
-    if (leftBeforeStart || deletedAtOnce || losesContractChange) continue
+    const hasLaterContract = contractChange !== undefined && contractChange > leftOn
+    if (leftBeforeStart || deletedAtOnce || hasLaterContract) continue
     leavers.push({ id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn })
   }
   return leavers

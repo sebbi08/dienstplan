@@ -58,13 +58,14 @@ export function getChildRetentionYears(db: Db): number {
  * The Träger sets the retention: whole years from 1 to 10, otherwise 400 invalid_retention. Another retention than
  * before switches the automatic leaving of school children off in every facility: it decides which children the
  * leaving passes over (those whose record would be deleted at once), so the lists the Träger confirmed no longer hold.
+ * Returns whether that switched it off anywhere, so the caller can say so.
  */
-export function setChildRetentionYears(db: Db, years: number): void {
+export function setChildRetentionYears(db: Db, years: number): { autoLeaveSwitchedOff: boolean } {
   if (!Number.isInteger(years) || years < 1 || years > 10) throw new ServiceError(400, 'invalid_retention')
-  if (years === getChildRetentionYears(db)) return
-  db.transaction((tx) => {
+  if (years === getChildRetentionYears(db)) return { autoLeaveSwitchedOff: false }
+  return db.transaction((tx) => {
     writeSetting(tx, CHILD_RETENTION_YEARS, String(years))
-    switchAutoLeaveOff(tx, null)
+    return { autoLeaveSwitchedOff: switchAutoLeaveOff(tx, null) }
   })
 }
 

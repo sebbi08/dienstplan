@@ -75,17 +75,18 @@ export function pendingGroupChange(db: Db, childId: number): GroupChangeDto | nu
 }
 
 /**
- * Per child of the facility with a planned change that carries a further care contract: the day of that change. The
- * automatic leaving of school children passes such a child over, so it never deletes a change somebody concluded a
- * contract for.
+ * Per child of the facility with a change that carries a further care contract, planned or applied: the day of the
+ * latest such change. The automatic leaving of school children passes a child over whose contract change lies after
+ * the leaving day: somebody concluded a contract for that time, so it neither deletes the planned change nor
+ * deregisters the child to a day before the applied one, whatever became of the group's flag.
  */
-export function plannedContractChanges(db: Db, facilityId: number): Map<number, IsoDate> {
+export function contractChangeDays(db: Db, facilityId: number): Map<number, IsoDate> {
   const rows = db.select({ childId: childGroupChanges.childId, date: childGroupChanges.fromDate }).from(childGroupChanges)
     .innerJoin(children, eq(children.id, childGroupChanges.childId))
     .where(and(
-      eq(children.facilityId, facilityId), isNull(childGroupChanges.appliedAt), isNotNull(childGroupChanges.fromDate),
-      eq(childGroupChanges.newContract, true),
-    )).all()
+      eq(children.facilityId, facilityId), isNotNull(childGroupChanges.fromDate), eq(childGroupChanges.newContract, true),
+    )).orderBy(...HISTORY_ORDER).all()
+  // In the history order, so the latest day of a child is the one that stays in the map.
   return new Map(rows.map(row => [row.childId, row.date!]))
 }
 

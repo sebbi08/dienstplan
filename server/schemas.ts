@@ -153,12 +153,13 @@ export const groupSchoolChildrenSchema = z.object({ forSchoolChildren: z.boolean
 /** The values are checked by the service, which answers invalid_school_cutoff. */
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
 /**
- * The switch "deregister school children automatically". Switching on needs the ids of the children the preview
- * showed (`confirmedIds`); the service refuses when they are not the ones it would deregister now.
+ * The switch "deregister school children automatically". Switching on needs the children the preview showed, each
+ * with its leaving day (`confirmed`; the preview's entries can be sent back as they are, further fields are dropped);
+ * the service refuses when they are not the ones it would deregister now.
  */
 export const autoLeaveSchema = z.object({
   value: z.boolean(),
-  confirmedIds: z.array(z.number().int().positive()).max(5000).optional(),
+  confirmed: z.array(z.object({ id: z.number().int().positive(), leftOn: isoDate })).max(5000).optional(),
 })
 /** The Kita year's start year; the range is checked by the service, which answers invalid_year. */
 export const occupancyQuery = z.object({ year: z.coerce.number() })

@@ -372,7 +372,7 @@ describe('occupancy table', () => {
       addChild(db, 1, { birthDate: '2021-06-30', groupId: bears, ...overrides })
     const listed = (today: string) => upcomingSchoolChildren(db, 1, today).map(child => child.id)
     /** Switches the automatic leaving on as the Träger does: confirming the children the preview shows that day. */
-    const switchOn = (today = TODAY) => setAutoLeave(db, 1, true, today, schoolLeavers(db, 1, today).map(child => child.id))
+    const switchOn = (today = TODAY) => setAutoLeave(db, 1, true, today, schoolLeavers(db, 1, today))
 
     it('is empty before 1 March and lists the children of the coming 1 September from then on', () => {
       const id = schoolChild({ firstName: 'Lena', lastName: 'Meier' })
