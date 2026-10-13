@@ -5,7 +5,7 @@ import type { OccupancyCellDto, OccupancyDto, OccupancyRowDto } from '#shared/ty
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
-import { occupancyCellLabel, occupancyCellText, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
+import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
 
 /**
  * Managers only: the occupancy of a Kita year by group and month, with the places of each group editable in place. A click on a cell
@@ -15,9 +15,11 @@ const year = ref(kitaYearOf(todayIso()))
 const { data, error, refresh } = useFetch<OccupancyDto>('/api/children/occupancy', { query: { year }, key: 'children-occupancy' })
 
 // The places are part of the group list too; keep that cache in step.
-const { busy, run } = useBusyAction(async () => {
+const run = useAction(async () => {
   await Promise.all([refresh(), refreshNuxtData(['groups', 'child-groups'])])
 })
+// Only the field that is being saved is disabled, so tabbing on to the next field keeps the focus.
+const saving = reactive<Record<number, boolean>>({})
 
 const rows = computed(() => data.value?.rows ?? [])
 const months = computed(() => data.value?.months ?? [])
@@ -40,7 +42,10 @@ async function saveCapacity(row: OccupancyRowDto) {
   if (id === null) return
   const text = (drafts[id] ?? '').trim()
   if (text === (stored.get(id) ?? '')) return
+  if (saving[id]) return
+  saving[id] = true
   const ok = await run(() => $fetch<unknown>(`/api/groups/${id}/capacity`, { method: 'PUT', body: { capacity: text === '' ? null : Number(text) } }), de.common.saved)
+  saving[id] = false
   if (!ok) drafts[id] = stored.get(id) ?? ''
 }
 const blurOnEnter = (event: KeyboardEvent) => (event.target as HTMLInputElement).blur()
@@ -97,21 +102,16 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
               <th scope="row" :class="[td, 'text-left font-medium']">{{ occupancyRowName(row) }}</th>
               <td :class="td">
                 <input
-                  v-if="row.groupId !== null" type="number" :value="drafts[row.groupId]" min="1" max="200" step="1" :disabled="busy"
+                  v-if="row.groupId !== null" type="number" :value="drafts[row.groupId]" min="1" max="200" step="1" :disabled="saving[row.groupId]"
                   class="w-16 rounded border border-gray-300 px-1 py-0.5 text-center" :aria-label="de.occupancy.capacityOf(row.name)"
                   @input="drafts[row.groupId!] = ($event.target as HTMLInputElement).value" @blur="saveCapacity(row)" @keydown.enter.prevent="blurOnEnter"
                 >
               </td>
               <td v-for="(cell, index) in row.cells" :key="index" class="p-0.5">
-                <button
-                  type="button" class="block w-full rounded px-1 py-1 text-center hover:ring-2 hover:ring-sky-300"
-                  :class="[cell.red ? 'bg-red-100 font-bold text-red-800 ring-1 ring-inset ring-red-400' : '', selected?.rowKey === rowKey(row) && selected.month === index ? 'ring-2 ring-sky-600' : '']"
-                  :aria-label="occupancyCellLabel(occupancyRowName(row), months[index]!, cell)" :aria-pressed="selected?.rowKey === rowKey(row) && selected.month === index"
-                  @click="toggle(rowKey(row), index)"
-                >
-                  <span class="whitespace-nowrap"><UIcon v-if="cell.red" name="i-lucide-triangle-alert" class="mr-0.5 size-3.5 align-text-bottom" aria-hidden="true" />{{ occupancyCellText(cell) }}</span>
-                  <span v-if="cell.over > 0" class="block text-[10px] font-semibold leading-tight">{{ de.occupancy.over(cell.over) }}</span>
-                </button>
+                <ChildrenOccupancyCell
+                  :cell="cell" :label="occupancyCellLabel(occupancyRowName(row), months[index]!, cell)"
+                  :selected="selected?.rowKey === rowKey(row) && selected.month === index" @select="toggle(rowKey(row), index)"
+                />
               </td>
             </tr>
           </tbody>
@@ -120,15 +120,10 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
               <th scope="row" :class="[td, 'text-left']">{{ de.occupancy.total }}</th>
               <td :class="td">{{ data.total.capacity ?? de.children.noValue }}</td>
               <td v-for="(cell, index) in data.total.cells" :key="index" class="p-0.5">
-                <button
-                  type="button" class="block w-full rounded px-1 py-1 text-center hover:ring-2 hover:ring-sky-300"
-                  :class="[cell.red ? 'bg-red-100 font-bold text-red-800 ring-1 ring-inset ring-red-400' : '', selected?.rowKey === 'total' && selected.month === index ? 'ring-2 ring-sky-600' : '']"
-                  :aria-label="occupancyCellLabel(de.occupancy.total, months[index]!, cell)" :aria-pressed="selected?.rowKey === 'total' && selected.month === index"
-                  @click="toggle('total', index)"
-                >
-                  <span class="whitespace-nowrap"><UIcon v-if="cell.red" name="i-lucide-triangle-alert" class="mr-0.5 size-3.5 align-text-bottom" aria-hidden="true" />{{ occupancyCellText(cell) }}</span>
-                  <span v-if="cell.over > 0" class="block text-[10px] font-semibold leading-tight">{{ de.occupancy.over(cell.over) }}</span>
-                </button>
+                <ChildrenOccupancyCell
+                  :cell="cell" :label="occupancyCellLabel(de.occupancy.total, months[index]!, cell)"
+                  :selected="selected?.rowKey === 'total' && selected.month === index" @select="toggle('total', index)"
+                />
               </td>
             </tr>
           </tfoot>

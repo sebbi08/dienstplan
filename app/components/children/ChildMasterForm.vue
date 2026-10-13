@@ -118,7 +118,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     { label: f.infoMeetingDate, value: date(master.infoMeetingDate) },
     {
       label: f.schoolStartDate, value: date(master.schoolStartDate), hint: computedText.value,
-      badge: master.schoolStartDate !== null && master.schoolStartDate !== props.child?.computedSchoolStart ? de.schoolChildren.deviating : '',
+      badge: master.schoolStartDate !== null ? de.schoolChildren.deviating : '',
     },
     { label: f.primarySchool, value: master.primarySchool },
     { label: f.schoolDistrict, value: master.schoolDistrict },

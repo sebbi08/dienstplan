@@ -5,7 +5,7 @@ import type { OccupancyDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
-import { occupancyCellText, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
+import { occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
 
 definePageMeta({ layout: false })
 
@@ -14,8 +14,6 @@ const { data, error } = await useFetch<OccupancyDto>('/api/children/occupancy', 
 
 const th = 'px-1.5 py-1 text-center'
 const td = 'px-1.5 py-1 text-center'
-// Red must survive a black-and-white print: bold, a thick frame and the text "+n über Plätze" say the same as the colour.
-const red = 'border-2 border-red-600 bg-red-100 font-bold text-red-800 [print-color-adjust:exact]'
 </script>
 
 <template>
@@ -39,20 +37,14 @@ const red = 'border-2 border-red-600 bg-red-100 font-bold text-red-800 [print-co
           <tr v-for="row in data.rows" :key="row.groupId ?? 'none'" class="border-b border-gray-200">
             <th scope="row" :class="[td, 'text-left font-medium']">{{ occupancyRowName(row) }}</th>
             <td :class="td">{{ row.capacity ?? de.children.noValue }}</td>
-            <td v-for="(cell, index) in row.cells" :key="index" :class="[td, cell.red ? red : '']">
-              <span class="whitespace-nowrap">{{ occupancyCellText(cell) }}</span>
-              <span v-if="cell.over > 0" class="block text-[9px] font-semibold leading-tight">{{ de.occupancy.over(cell.over) }}</span>
-            </td>
+            <td v-for="(cell, index) in row.cells" :key="index" class="p-0.5"><ChildrenOccupancyCell :cell="cell" print /></td>
           </tr>
         </tbody>
         <tfoot>
           <tr class="border-t-2 border-gray-400 font-semibold">
             <th scope="row" :class="[td, 'text-left']">{{ de.occupancy.total }}</th>
             <td :class="td">{{ data.total.capacity ?? de.children.noValue }}</td>
-            <td v-for="(cell, index) in data.total.cells" :key="index" :class="[td, cell.red ? red : '']">
-              <span class="whitespace-nowrap">{{ occupancyCellText(cell) }}</span>
-              <span v-if="cell.over > 0" class="block text-[9px] font-semibold leading-tight">{{ de.occupancy.over(cell.over) }}</span>
-            </td>
+            <td v-for="(cell, index) in data.total.cells" :key="index" class="p-0.5"><ChildrenOccupancyCell :cell="cell" print /></td>
           </tr>
         </tfoot>
       </table>
