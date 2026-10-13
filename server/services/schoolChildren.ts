@@ -192,7 +192,8 @@ export function isSchoolStartDue(child: SchoolFacts, today: IsoDate): boolean {
 /**
  * The one selection of the automatic leaving: the facility's active contract children without a leaving day whose
  * school start is reached and whom no group for school children makes stay, each with the leaving day it gets (the day
- * before its school start, however long ago that is). The daily run deregisters exactly these, switching on
+ * before its school start, however long ago that is) and the day its record is deleted with that (the leaving day plus
+ * the retention period, always after today). The daily run deregisters exactly these, switching on
  * deregisters exactly these and the preview shows exactly these, so they cannot differ. The switch plays no part
  * here: this is what happens once it is on.
  *
@@ -214,11 +215,12 @@ export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): Schoo
     const leftOn = addDays(schoolStart, -1)
     // An active child has an entry day.
     const leftBeforeStart = leftOn < row.entryDate!
-    const deletedAtOnce = purgeDate(leftOn, retentionYears) <= today
+    const purgeOn = purgeDate(leftOn, retentionYears)
+    const deletedAtOnce = purgeOn <= today
     const contractChange = contractChanges.get(row.id)
     const hasLaterContract = contractChange !== undefined && contractChange > leftOn
     if (leftBeforeStart || deletedAtOnce || hasLaterContract) continue
-    leavers.push({ id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn })
+    leavers.push({ id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn, purgeOn })
   }
   return leavers
 }

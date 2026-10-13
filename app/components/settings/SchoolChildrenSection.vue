@@ -128,8 +128,11 @@ async function confirmSwitchOn() {
         <p v-if="!leavers.length" class="text-sm">{{ s.previewNone }}</p>
         <div v-else class="space-y-2 text-sm">
           <p>{{ s.preview(leavers.length) }}</p>
-          <ul class="max-h-64 list-disc space-y-0.5 overflow-y-auto pl-5">
-            <li v-for="leaver in leavers" :key="leaver.id">{{ leaver.name }} <span class="text-gray-500">({{ de.childLifecycle.leavesOn(formatDate(leaver.leftOn)) }})</span></li>
+          <ul class="max-h-64 list-disc space-y-1 overflow-y-auto pl-5">
+            <li v-for="leaver in leavers" :key="leaver.id">
+              {{ leaver.name }} <span class="text-gray-500">({{ de.childLifecycle.leavesOn(formatDate(leaver.leftOn)) }})</span>
+              <p class="text-xs text-gray-500">{{ s.purgeOn(formatDate(leaver.purgeOn)) }}</p>
+            </li>
           </ul>
         </div>
       </template>

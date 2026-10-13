@@ -277,6 +277,24 @@ describe('automatic leaving of school children', () => {
         expect(isOn(krippe)).toBe(false)
       })
 
+      it('shows with every child of the preview the day its record will be deleted: the leaving day plus the retention period', () => {
+        const id = schoolChild()
+        const leapDay = schoolChild({ schoolStartDate: '2028-03-01' })
+        // Sorted by name, then id.
+        expect(schoolLeavers(db, 1, '2028-03-05').map(child => [child.id, child.leftOn, child.purgeOn])).toEqual([
+          [id, DAY_BEFORE, '2030-08-31'], [leapDay, '2028-02-29', '2031-02-28'],
+        ])
+        setChildRetentionYears(db, 5)
+        const preview = schoolLeavers(db, 1, '2028-03-05')
+        expect(preview.map(child => child.purgeOn)).toEqual(['2032-08-31', '2033-02-28'])
+
+        // What the preview announces is what the archive shows once they are deregistered.
+        expect(setAutoLeave(db, 1, true, '2028-03-05', preview.map(({ id, leftOn }) => ({ id, leftOn })))).toBe(2)
+        expect(listArchive(db, 1, '2028-03-05').map(child => [child.id, child.purgeOn]).sort()).toEqual(
+          preview.map(child => [child.id, child.purgeOn]).sort(),
+        )
+      })
+
       it('refuses when the confirmed children are not the ones it would deregister now, and changes nothing', () => {
         const first = schoolChild()
         const second = schoolChild()
@@ -325,7 +343,7 @@ describe('automatic leaving of school children', () => {
       it('refuses when a child\'s leaving day changed between the preview and the confirmation', () => {
         const id = schoolChild()
         const preview = schoolLeavers(db, 1, SCHOOL_START)
-        expect(preview).toEqual([{ id, name: 'Kind Muster', schoolStart: SCHOOL_START, leftOn: DAY_BEFORE }])
+        expect(preview).toEqual([{ id, name: 'Kind Muster', schoolStart: SCHOOL_START, leftOn: DAY_BEFORE, purgeOn: '2030-08-31' }])
         // In between somebody enters an earlier school start: the same child, but it would leave two weeks earlier.
         db.update(children).set({ schoolStartDate: '2027-08-16' }).where(eq(children.id, id)).run()
 
@@ -535,7 +553,7 @@ describe('automatic leaving of school children', () => {
       expect(leftOn(id)).toBeNull()
       expect(getChild(db, admin, id, DAY_BEFORE).status).toBe('active')
 
-      expect(schoolLeavers(db, 1, SCHOOL_START)).toEqual([{ id, name: 'Lena Meier', schoolStart: SCHOOL_START, leftOn: DAY_BEFORE }])
+      expect(schoolLeavers(db, 1, SCHOOL_START)).toEqual([{ id, name: 'Lena Meier', schoolStart: SCHOOL_START, leftOn: DAY_BEFORE, purgeOn: '2030-08-31' }])
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
       expect(leftOn(id)).toBe(DAY_BEFORE)
       expect(getChild(db, admin, id, SCHOOL_START).status).toBe('archived')
@@ -725,8 +743,8 @@ describe('automatic leaving of school children', () => {
 
       const preview = schoolLeavers(db, 1, TODAY)
       expect(preview).toEqual([
-        { id: oldest, name: 'Mia Berg', schoolStart: '2025-09-01', leftOn: '2025-08-31' },
-        { id: older, name: 'Ole Hansen', schoolStart: '2026-09-01', leftOn: '2026-08-31' },
+        { id: oldest, name: 'Mia Berg', schoolStart: '2025-09-01', leftOn: '2025-08-31', purgeOn: '2028-08-31' },
+        { id: older, name: 'Ole Hansen', schoolStart: '2026-09-01', leftOn: '2026-08-31', purgeOn: '2029-08-31' },
       ])
 
       // Switching on with the list confirmed deregisters them at once; the daily run finds nobody else.

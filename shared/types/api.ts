@@ -213,6 +213,8 @@ export interface SchoolLeaverDto {
   name: string
   schoolStart: IsoDate
   leftOn: IsoDate
+  /** The day the record is deleted once the child is deregistered: the leaving day plus the retention period. */
+  purgeOn: IsoDate
 }
 
 /** A child of the list "Schulkinder zum 1.9.": its school start is the coming 1 September, or reached without a leaving day. */
