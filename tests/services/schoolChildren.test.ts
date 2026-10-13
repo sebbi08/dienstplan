@@ -84,7 +84,8 @@ describe('children for the occupancy table', () => {
 
     const result = occupancyChildren(db, 1)
 
-    expect(result.children.map(child => child.id).sort()).toEqual([planned, left, manual].sort())
+    // In the order last name, first name: Arnold, Klein, Meier.
+    expect(result.children.map(child => child.id)).toEqual([left, manual, planned])
     const byId = new Map(result.children.map(child => [child.id, child]))
     // Born on the cutoff: school start 1 September 2027, so the stay ends on 31 August 2027.
     expect(byId.get(planned)).toEqual({ id: planned, start: '2026-11-01', end: '2027-08-31', groups: [{ from: null, groupId: bears }] })
@@ -94,14 +95,34 @@ describe('children for the occupancy table', () => {
     expect(byId.get(manual)).toMatchObject({ end: '2028-08-31' })
     expect(result.names).toEqual({ [planned]: 'Lena Meier', [left]: 'Ben Arnold', [manual]: 'Zoe Klein' })
     expect(result.undated).toEqual([])
+    expect(result.inconsistent).toEqual([])
+  })
+
+  it('orders by last name, first name, then id', () => {
+    const second = addChild(db, 1, { firstName: 'Ida', lastName: 'Müller' })
+    const third = addChild(db, 1, { firstName: 'Ida', lastName: 'Müller' })
+    const first = addChild(db, 1, { firstName: 'Zoe', lastName: 'Adler' })
+    const last = addChild(db, 1, { firstName: 'Ben', lastName: 'Zeller' })
+    expect(occupancyChildren(db, 1).children.map(child => child.id)).toEqual([first, second, third, last])
   })
 
   it('reports contract children without a start as undated and does not count them', () => {
     const nameless = addChild(db, 1, { firstName: 'Mia', lastName: 'Weber', entryDate: null, plannedEntryDate: null })
+    const first = addChild(db, 1, { firstName: 'Ole', lastName: 'Adam', entryDate: null, plannedEntryDate: null })
     addChild(db, 1, { firstName: 'Vorgemerkt', admissionStatus: 'waitlist', entryDate: null })
     const result = occupancyChildren(db, 1)
-    expect(result.undated).toEqual([{ id: nameless, name: 'Mia Weber' }])
+    expect(result.undated).toEqual([{ id: first, name: 'Ole Adam' }, { id: nameless, name: 'Mia Weber' }])
+    expect(result.inconsistent).toEqual([])
     expect(result.children.find(child => child.id === nameless)?.start).toBeNull()
+  })
+
+  it('reports children whose stay ends before it starts as inconsistent, not as undated', () => {
+    const tooOld = addChild(db, 1, { firstName: 'Max', lastName: 'Zander', birthDate: '2015-01-01', entryDate: '2026-09-01' })
+    const leftEarly = addChild(db, 1, { firstName: 'Ida', lastName: 'Adler', entryDate: '2026-10-01', leftOn: '2026-09-15' })
+    addChild(db, 1, { firstName: 'Eva', lastName: 'Klein', birthDate: '2024-01-01', entryDate: '2026-10-01', leftOn: '2026-10-01' })
+    const result = occupancyChildren(db, 1)
+    expect(result.inconsistent).toEqual([{ id: leftEarly, name: 'Ida Adler' }, { id: tooOld, name: 'Max Zander' }])
+    expect(result.undated).toEqual([])
   })
 
   it('uses the facility\'s own cutoff', () => {

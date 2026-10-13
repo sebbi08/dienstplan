@@ -42,28 +42,29 @@ export function setSchoolCutoff(db: Db, facilityId: number, input: SchoolSetting
 /**
  * The input of the occupancy table: the facility's contract children (those who left included), each with the stay from
  * its contract start to its last day (`left_on`, else the day before the school start). The group history is only the
- * child's group today. Contract children without a start are listed as undated.
+ * child's group today. Contract children without a start are listed as undated; those whose stay ends before it starts
+ * (left before the start, or already of school age at the start) never count and are listed as inconsistent.
+ * Everything is in the order last name, first name, id.
  */
 export function occupancyChildren(db: Db, facilityId: number): {
-  children: OccupancyChild[]; names: Record<number, string>; undated: { id: number; name: string }[]
+  children: OccupancyChild[]; names: Record<number, string>
+  undated: { id: number; name: string }[]; inconsistent: { id: number; name: string }[]
 } {
   const cutoff = schoolCutoffOf(db, facilityId)
   const rows = db.select().from(children)
     .where(and(eq(children.facilityId, facilityId), eq(children.admissionStatus, 'contract'))).all()
+    .sort((a, b) => a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de') || a.id - b.id)
   const names: Record<number, string> = {}
   const undated: { id: number; name: string }[] = []
+  const inconsistent: { id: number; name: string }[] = []
   const result = rows.map((row): OccupancyChild => {
     const name = `${row.firstName} ${row.lastName}`
     names[row.id] = name
     const start = row.entryDate ?? row.plannedEntryDate
+    const end = row.leftOn ?? addDays(effectiveSchoolStart(row.schoolStartDate, row.birthDate, cutoff), -1)
     if (start === null) undated.push({ id: row.id, name })
-    return {
-      id: row.id,
-      start,
-      end: row.leftOn ?? addDays(effectiveSchoolStart(row.schoolStartDate, row.birthDate, cutoff), -1),
-      groups: [{ from: null, groupId: row.groupId }],
-    }
+    else if (end < start) inconsistent.push({ id: row.id, name })
+    return { id: row.id, start, end, groups: [{ from: null, groupId: row.groupId }] }
   })
-  undated.sort((a, b) => a.name.localeCompare(b.name, 'de'))
-  return { children: result, names, undated }
+  return { children: result, names, undated, inconsistent }
 }

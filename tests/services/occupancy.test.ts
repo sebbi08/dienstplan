@@ -50,11 +50,12 @@ describe('occupancy table', () => {
     expect(ids(bearsRow!.cells[OCT]!.present)).toEqual([early])
     expect(ids(bearsRow!.cells[OCT]!.fresh)).toEqual([late])
     expect(bearsRow!.cells[NOV]!.fresh).toEqual([])
-    expect(ids(bearsRow!.cells[NOV]!.present).sort()).toEqual([early, late].sort())
+    // In the order last name, first name.
+    expect(ids(bearsRow!.cells[NOV]!.present)).toEqual([early, late])
     // Born 2024-01-01: six on 2030-01-01, school start 2030-09-01, last day 2030-08-31.
     expect(bearsRow!.cells[OCT]!.fresh[0]).toEqual({ id: late, name: 'Ben B', from: '2026-10-15', to: '2030-08-31' })
     expect(ids(miceRow!.cells[SEP]!.fresh)).toEqual([other])
-    expect(ids(table.total.cells[SEP]!.fresh).sort()).toEqual([early, other].sort())
+    expect(ids(table.total.cells[SEP]!.fresh)).toEqual([early, other])
     expect(table.total.cells[NOV]!.present).toHaveLength(3)
   })
 
@@ -67,6 +68,32 @@ describe('occupancy table', () => {
     expect(table.rows[0]!.cells.every(cell => cell.present.length === 0 && cell.fresh.length === 0)).toBe(true)
     expect(table.total.cells.every(cell => cell.present.length === 0 && cell.fresh.length === 0)).toBe(true)
     expect(table.undated).toEqual([{ id: undated, name: 'Mia Weber' }])
+  })
+
+  it('lists children whose stay ends before it starts as inconsistent, counts them nowhere and does not crash', () => {
+    // Already of school age at the contract start: the school start lies before the entry.
+    const tooOld = addChild(db, 1, { firstName: 'Max', lastName: 'Zander', groupId: bears, birthDate: '2015-01-01', entryDate: '2026-09-01' })
+    // Left before the entry.
+    const leftEarly = addChild(db, 1, {
+      firstName: 'Ida', lastName: 'Adler', groupId: mice, birthDate: '2024-01-01', entryDate: '2026-10-01', leftOn: '2026-09-15',
+    })
+    // Left before the planned start, no group.
+    const leftPlanned = addChild(db, 1, {
+      firstName: 'Tim', lastName: 'Mohr', entryDate: null, plannedEntryDate: '2026-11-01', birthDate: '2024-01-01', leftOn: '2026-10-01',
+    })
+    // Leaving on the first day is a one-day stay, not inconsistent.
+    const oneDay = addChild(db, 1, { firstName: 'Eva', lastName: 'Klein', groupId: mice, birthDate: '2024-01-01', entryDate: '2026-10-01', leftOn: '2026-10-01' })
+
+    const table = occupancyTable(db, 1, 2026)
+
+    expect(table.inconsistent).toEqual([
+      { id: leftEarly, name: 'Ida Adler' }, { id: leftPlanned, name: 'Tim Mohr' }, { id: tooOld, name: 'Max Zander' },
+    ])
+    expect(table.undated).toEqual([])
+    const counted = table.rows.flatMap(row => row.cells).concat(table.total.cells).flatMap(cell => [...cell.present, ...cell.fresh])
+    expect(new Set(counted.map(name => name.id))).toEqual(new Set([oneDay]))
+    expect(table.rows.map(row => row.groupId)).toEqual([bears, mice])
+    expect(occupancyTable(db, 1, 2025).inconsistent).toHaveLength(3)
   })
 
   it('counts a contract child by its planned start when there is no entry date', () => {
@@ -134,7 +161,8 @@ describe('occupancy table', () => {
     const table = occupancyTable(db, 1, 2026)
     expect(table.rows.map(row => row.groupId)).toEqual([bears, mice, null])
     const row = table.rows[2]!
-    expect(row).toMatchObject({ name: 'ohne Gruppe', capacity: null })
+    // The client labels this row, the server sends no German text.
+    expect(row).toMatchObject({ name: '', capacity: null })
     expect(ids(row.cells[OCT]!.fresh)).toEqual([id])
     expect(row.cells.every(cell => !cell.red)).toBe(true)
     // A year the child is not part of: no row.
@@ -179,6 +207,7 @@ describe('occupancy table', () => {
     expect(table.rows.map(row => row.groupId)).toEqual([bears, mice])
     expect(table.total.cells.every(cell => cell.present.length === 0 && cell.fresh.length === 0)).toBe(true)
     expect(table.undated).toEqual([])
+    expect(table.inconsistent).toEqual([])
   })
 
   it('refuses years outside 2000 to 2100', () => {

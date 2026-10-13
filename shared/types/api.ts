@@ -200,7 +200,7 @@ export interface OccupancyCellDto {
 }
 
 export interface OccupancyRowDto {
-  /** null = the row "ohne Gruppe". */
+  /** null = the row for children without a group (the client labels it; its name is empty). */
   groupId: number | null
   name: string
   capacity: number | null
@@ -218,6 +218,8 @@ export interface OccupancyDto {
   total: { capacity: number | null; cells: OccupancyCellDto[] }
   /** Contract children without a start date; they are not counted. */
   undated: { id: number; name: string }[]
+  /** Contract children whose stay ends before it starts (left or school start before the contract start); not counted. */
+  inconsistent: { id: number; name: string }[]
 }
 
 export interface ChildRecordDto {

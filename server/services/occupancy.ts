@@ -6,13 +6,10 @@ import { ServiceError } from '../lib/errors'
 import { listGroups } from './groups'
 import { occupancyChildren } from './schoolChildren'
 
-/** The row of children who have no group. */
-const NO_GROUP_NAME = 'ohne Gruppe'
-
 /** The Kita year `startYear` (September to August) by group and month; 400 invalid_year outside 2000 to 2100. */
 export function occupancyTable(db: Db, facilityId: number, startYear: number): OccupancyDto {
   if (!Number.isInteger(startYear) || startYear < 2000 || startYear > 2100) throw new ServiceError(400, 'invalid_year')
-  const { children, names, undated } = occupancyChildren(db, facilityId)
+  const { children, names, undated, inconsistent } = occupancyChildren(db, facilityId)
   const groups = listGroups(db, facilityId)
   const months = kitaYearMonths(startYear)
 
@@ -32,7 +29,8 @@ export function occupancyTable(db: Db, facilityId: number, startYear: number): O
   }))
   const ungrouped = months.map(({ year, month }) => toDto(groupCell(children, null, year, month), null))
   if (ungrouped.some(cell => cell.present.length > 0 || cell.fresh.length > 0)) {
-    rows.push({ groupId: null, name: NO_GROUP_NAME, capacity: null, cells: ungrouped })
+    // The client labels this row ("ohne Gruppe"); the name stays empty.
+    rows.push({ groupId: null, name: '', capacity: null, cells: ungrouped })
   }
 
   const everyGroupHasCapacity = groups.length > 0 && groups.every(group => group.capacity !== null)
@@ -47,5 +45,6 @@ export function occupancyTable(db: Db, facilityId: number, startYear: number): O
       cells: months.map(({ year, month }) => toDto(facilityCell(children, year, month), totalCapacity)),
     },
     undated,
+    inconsistent,
   }
 }
