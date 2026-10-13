@@ -527,7 +527,7 @@ export const de = {
   occupancy: {
     tab: 'Belegung', capacity: 'Plätze', total: 'Summe', noGroup: 'ohne Gruppe', over: (n: number) => `+${n} über Plätze`,
     present: 'schon da', fresh: 'neu in diesem Monat', undated: (n: number) => `${n} Kinder mit Vertrag ohne Eintrittsdatum werden nicht gezählt.`,
-    inconsistent: (n: number) => `${n} Kinder werden nicht gezählt, weil ihr Schulstart oder Austritt vor dem Eintritt liegt. Bitte die Daten prüfen.`,
+    inconsistent: (n: number) => `${n} Kinder werden nicht gezählt, weil ihr Schulstart oder Austritt am oder vor dem Eintritt liegt. Bitte die Daten prüfen.`,
     open: 'offen', print: 'Belegung drucken',
     // Small helper texts of the pages (beyond the agreed wording list above).
     group: 'Gruppe', kitaYear: 'Kita-Jahr', hint: 'Hauptzahl, in Klammern die Kinder, die in diesem Monat neu in die Gruppe kommen. Klicke auf eine Zahl, um die Kinder zu sehen.',
