@@ -27,7 +27,7 @@ import {
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
-import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf, schoolRules } from './schoolChildren'
+import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
 const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key.slice(1)}` as ConsentColumn
@@ -399,11 +399,12 @@ export function leaveChild(db: Db, facilityId: number, id: number, leftOn: IsoDa
 }
 
 /**
- * Takes the leaving back: the child is active (or planned) again. A child whose school start is reached and that is
- * not in a group for school children on it would be deregistered again by the next automatic leaving, so it needs a
- * new school start after today, which is stored as its manual one (400 school_start_required otherwise, whether or not
- * the facility deregisters automatically). For every other child `newSchoolStart` is not needed and left unused. A
- * child that has not left stays as it is.
+ * Takes the leaving back: the child is active (or planned) again. While the facility deregisters school children
+ * automatically, a child the next run would take again at once (see `schoolLeavers`: its school start is reached and
+ * no group for school children makes it stay) needs a new school start after today, which is stored as its manual one
+ * (400 school_start_required otherwise, and the leaving stays). With the switch off, and for every other child,
+ * `newSchoolStart` is not needed and left unused: nothing deregisters the child again, and the Träger sees it in the
+ * preview before switching on. A child that has not left stays as it is.
  */
 export function unleaveChild(
   db: Db, facilityId: number, id: number, today: IsoDate, newSchoolStart?: IsoDate, now: Date = new Date(),
@@ -411,16 +412,15 @@ export function unleaveChild(
   if (loadChild(db, facilityId, id).leftOn === null) return
   // The group history decides: a change whose day has come counts as applied first, as for every write that judges on it.
   settleDue(db, id, today, now)
-  const child = loadChild(db, facilityId, id)
-  const { schoolStart, schoolGroup } = schoolRules(db, facilityId).factsOf(child)
-  const needsSchoolStart = schoolStart <= today && schoolGroup === null
-  if (needsSchoolStart) {
+  db.transaction((tx) => {
+    tx.update(children).set({ leftOn: null }).where(eq(children.id, id)).run()
+    // Judged on the record as it is now, without its leaving day; refusing rolls that back.
+    if (!leavesAtNextRun(tx, facilityId, id, today)) return
     if (newSchoolStart === undefined) throw new ServiceError(400, 'school_start_required')
     if (!isValidIsoDate(newSchoolStart)) throw new ServiceError(400, 'invalid_date')
     if (newSchoolStart <= today) throw new ServiceError(400, 'school_start_required')
-  }
-  db.update(children).set({ leftOn: null, ...(needsSchoolStart ? { schoolStartDate: newSchoolStart } : {}) })
-    .where(eq(children.id, id)).run()
+    tx.update(children).set({ schoolStartDate: newSchoolStart }).where(eq(children.id, id)).run()
+  })
 }
 
 /** Deletes the record at once; contacts and documents go with it (ON DELETE CASCADE). */

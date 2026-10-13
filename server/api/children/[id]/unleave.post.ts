@@ -3,8 +3,8 @@ import { childUnleaveSchema, idParams } from '../../../schemas'
 import { unleaveChild } from '../../../services/children'
 
 /**
- * Takes a leaving back. The body may be left out; `schoolStartDate` is the new school start a child needs whose
- * school start is already reached (400 school_start_required without it).
+ * Takes a leaving back. The body may be left out; `schoolStartDate` is the new school start a child needs that the
+ * facility's automatic leaving would deregister again at once (400 school_start_required without it).
  */
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)

@@ -1117,13 +1117,55 @@ describe('automatic leaving of school children', () => {
       expect(leftOn(id)).toBe('2028-08-31')
     })
 
-    it('asks for the new school start whatever the switch says and however the child was deregistered', () => {
-      setAutoLeave(db, 1, false, TODAY)
+    it('asks for the new school start however the child was deregistered', () => {
       const id = schoolChild()
-      leaveChild(db, 1, id, '2027-09-05', '2027-09-05')
+      leaveChild(db, 1, id, '2027-08-20', '2027-08-20')
       expect(errorCode(() => unleaveChild(db, 1, id, '2027-09-10'))).toBe('school_start_required')
       unleaveChild(db, 1, id, '2027-09-10', '2027-09-11')
       expect(row(id)).toMatchObject({ leftOn: null, schoolStartDate: '2027-09-11' })
+    })
+
+    it('needs no new school start while the automatic leaving is off: nothing deregisters the child again', () => {
+      const id = schoolChild()
+      leaveSchoolChildren(db, SCHOOL_START)
+      expect(leftOn(id)).toBe(DAY_BEFORE)
+      setAutoLeave(db, 1, false, '2027-09-10')
+
+      unleaveChild(db, 1, id, '2027-09-10')
+
+      expect(row(id)).toMatchObject({ leftOn: null, schoolStartDate: null })
+      expect(getChild(db, admin, id, '2027-09-10').status).toBe('active')
+      expect(leaveSchoolChildren(db, '2027-09-10')).toBe(0)
+      expect(leftOn(id)).toBeNull()
+      // A school start that is sent all the same is not needed and left unused.
+      leaveChild(db, 1, id, '2027-09-05', '2027-09-10')
+      unleaveChild(db, 1, id, '2027-09-10', '2028-09-01')
+      expect(row(id)).toMatchObject({ leftOn: null, schoolStartDate: null })
+      // The Träger sees the child in the preview before switching on again.
+      expect(schoolLeavers(db, 1, '2027-09-10').map(child => child.id)).toEqual([id])
+    })
+
+    it('judges by the switch of the child\'s facility', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const there = schoolChild({ leftOn: DAY_BEFORE }, krippe)
+      unleaveChild(db, krippe, there, '2027-09-10')
+      expect(row(there)).toMatchObject({ leftOn: null, schoolStartDate: null })
+    })
+
+    it('needs none for a child the automatic leaving passes over on purpose', () => {
+      // Started after its school start: the next run would not take it.
+      const id = schoolChild({ entryDate: '2027-09-06', leftOn: '2027-09-08' })
+      unleaveChild(db, 1, id, '2027-09-10')
+      expect(row(id)).toMatchObject({ leftOn: null, schoolStartDate: null })
+      expect(leaveSchoolChildren(db, '2027-09-10')).toBe(0)
+    })
+
+    it('stores nothing when the new school start is refused', () => {
+      const id = schoolChild()
+      leaveSchoolChildren(db, SCHOOL_START)
+      const before = row(id)
+      expect(errorCode(() => unleaveChild(db, 1, id, '2027-09-10', '2027-09-10'))).toBe('school_start_required')
+      expect(row(id)).toEqual(before)
     })
 
     it('needs no school start for a child in a group for school children on its school start', () => {

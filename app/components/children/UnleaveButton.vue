@@ -4,8 +4,9 @@ import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 
 /**
- * "Abmeldung zurücknehmen". A child whose school start is already reached would be deregistered again at once, so the
- * server answers `school_start_required` and this button then asks for a new, future school start in a dialog. The dialog
+ * "Abmeldung zurücknehmen". While the facility deregisters school children automatically, a child whose school start is
+ * already reached would be deregistered again at once, so the server answers `school_start_required` and this button
+ * then asks for a new, future school start in a dialog (with the automatic off the server just takes it back). The dialog
  * stays open when saving fails. `refresh` re-reads what the page shows; it runs before the busy flag goes off.
  */
 const props = defineProps<{ childId: number; label?: string; ariaLabel?: string; size?: 'xs' | 'sm'; disabled?: boolean; refresh: () => Promise<unknown> }>()
