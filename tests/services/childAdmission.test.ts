@@ -80,6 +80,34 @@ describe('admission status and planned lists', () => {
       expect(db.select({ leftOn: children.leftOn }).from(children).where(eq(children.id, id)).get()!.leftOn).toBeNull()
       expect(getChild(db, admin, id, TODAY)).toMatchObject({ status: 'planned', leftOn: null })
     })
+
+    it('refuses a child that has already started', () => {
+      const active = addChild(db, 1, { entryDate: '2025-09-01' })
+      const sinceToday = addChild(db, 1, { entryDate: TODAY })
+      const leaving = addChild(db, 1, { entryDate: '2025-09-01', leftOn: '2026-12-31' })
+      for (const id of [active, sinceToday, leaving]) {
+        const before = db.select().from(children).where(eq(children.id, id)).get()
+        expect(errorCode(() => updateChildMaster(db, admin, 1, id, master(), TODAY, NOW))).toBe('waitlist_after_start')
+        // The reason is the same when the entry date is still filled in.
+        expect(errorCode(() => updateChildMaster(db, admin, 1, id, master({ entryDate: '2025-09-01' }), TODAY, NOW)))
+          .toBe('waitlist_after_start')
+        expect(db.select().from(children).where(eq(children.id, id)).get()).toEqual(before)
+      }
+    })
+
+    it('allows a contract child that has not started: entry tomorrow, or only a planned entry', () => {
+      const tomorrow = addChild(db, 1, { entryDate: '2026-10-14' })
+      const plannedOnly = addChild(db, 1, { entryDate: null, plannedEntryDate: '2026-09-01' })
+      for (const id of [tomorrow, plannedOnly]) {
+        updateChildMaster(db, admin, 1, id, master(), TODAY, NOW)
+        expect(getChild(db, admin, id, TODAY)).toMatchObject({ status: 'planned', master: { admissionStatus: 'waitlist', entryDate: null } })
+      }
+    })
+
+    it('lets a waitlist child be saved again', () => {
+      const id = addChild(db, 1, { admissionStatus: 'waitlist', entryDate: null })
+      expect(errorCode(() => updateChildMaster(db, admin, 1, id, master({ note: 'ruft zurück' }), TODAY, NOW))).toBeNull()
+    })
   })
 
   describe('request schemas', () => {

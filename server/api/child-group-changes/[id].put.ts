@@ -2,7 +2,7 @@ import { todayIso } from '../../../shared/domain/dates'
 import { groupChangeSchema, idParams } from '../../schemas'
 import { updateGroupChange } from '../../services/childGroupChanges'
 
-/** Changes a planned group change that is not applied yet. */
+/** Changes a planned group change until the day before it takes effect. */
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)

@@ -1,5 +1,4 @@
 import { and, asc, eq, gt, gte, isNotNull, isNull, lte, or } from 'drizzle-orm'
-import type { AdmissionStatus } from '../../shared/domain/children'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import type { GroupEntry } from '../../shared/domain/occupancy'
 import type { IsoDate } from '../../shared/domain/types'
@@ -133,6 +132,14 @@ export function applyDueGroupChanges(db: Db, today: IsoDate, now: Date = new Dat
 }
 
 /**
+ * Applies the child's due changes before a request is judged: a change whose day has come counts as applied, even
+ * when the daily run has not come by yet. In a transaction of its own, so it stays applied when the request is refused.
+ */
+function settleDue(db: Db, childId: number, today: IsoDate, now: Date): void {
+  db.transaction(tx => applyDue(tx, today, now, childId))
+}
+
+/**
  * The rules for a planned change, checked against the child's other entries (in the history order): a valid day, a
  * group of the facility (404 group_not_found) other than the one the child is in on that day (400 same_group), a day
  * after the last applied change (400 group_change_order) and not after the day the child leaves
@@ -162,10 +169,9 @@ export function planGroupChange(
   db: Db, actor: SessionUser, facilityId: number, childId: number, input: GroupChangeInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
+  const child = loadEditableChild(db, actor, facilityId, childId, today)
+  settleDue(db, childId, today, now)
   db.transaction((tx) => {
-    const child = loadEditableChild(tx, actor, facilityId, childId, today)
-    // What is due counts as applied, even when the daily run has not come by yet.
-    applyDue(tx, today, now, childId)
     const history = historyOf(tx, childId)
     assertChange(tx, facilityId, child, input, history)
     if (history.some(entry => entry.appliedAt === null)) throw new ServiceError(409, 'group_change_pending')
@@ -178,28 +184,32 @@ export function planGroupChange(
 }
 
 /**
- * The facility's planned change with this id that is not applied yet; unknown or of another facility's child:
- * 404 group_change_not_found, applied (the start entry included): 409 group_change_applied.
+ * The facility's planned change with this id that can still be changed; unknown or of another facility's child:
+ * 404 group_change_not_found. What is due is settled first, so a change whose day has come is applied like the start
+ * entry and every other applied one: 409 group_change_applied.
  */
-function loadChange(db: Db, facilityId: number, changeId: number): ChangeRow {
-  const row = db.select({ change: childGroupChanges }).from(childGroupChanges)
+function loadPlannedChange(db: Db, facilityId: number, changeId: number, today: IsoDate, now: Date): ChangeRow {
+  const found = db.select({ childId: childGroupChanges.childId }).from(childGroupChanges)
     .innerJoin(children, eq(children.id, childGroupChanges.childId))
     .where(and(eq(childGroupChanges.id, changeId), eq(children.facilityId, facilityId))).get()
-  if (!row) throw new ServiceError(404, 'group_change_not_found')
-  if (row.change.appliedAt !== null) throw new ServiceError(409, 'group_change_applied')
-  return row.change
+  if (!found) throw new ServiceError(404, 'group_change_not_found')
+  settleDue(db, found.childId, today, now)
+  const change = db.select().from(childGroupChanges).where(eq(childGroupChanges.id, changeId)).get()
+  if (!change) throw new ServiceError(404, 'group_change_not_found')
+  if (change.appliedAt !== null) throw new ServiceError(409, 'group_change_applied')
+  return change
 }
 
 /**
- * Changes a planned change that is not applied yet (409 group_change_applied, also for the start entry), with the
- * rules of planning. Moved to today or earlier it is applied at once.
+ * Changes a planned change until the day before it takes effect (409 group_change_applied afterwards, and for the
+ * start entry), with the rules of planning. Moved to today or earlier it is applied at once.
  */
 export function updateGroupChange(
   db: Db, actor: SessionUser, facilityId: number, changeId: number, input: GroupChangeInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
+  const change = loadPlannedChange(db, facilityId, changeId, today, now)
   db.transaction((tx) => {
-    const change = loadChange(tx, facilityId, changeId)
     const child = loadEditableChild(tx, actor, facilityId, change.childId, today)
     assertChange(tx, facilityId, child, input, historyOf(tx, child.id).filter(entry => entry.id !== changeId))
     tx.update(childGroupChanges).set({ groupId: input.groupId, fromDate: input.date, ...keepColumns(input.keep) })
@@ -208,21 +218,26 @@ export function updateGroupChange(
   })
 }
 
-/** Deletes a planned change that is not applied yet (409 group_change_applied, also for the start entry). */
-export function deleteGroupChange(db: Db, facilityId: number, changeId: number): void {
-  const change = loadChange(db, facilityId, changeId)
+/**
+ * Deletes a planned change until the day before it takes effect (409 group_change_applied afterwards, and for the
+ * start entry).
+ */
+export function deleteGroupChange(
+  db: Db, facilityId: number, changeId: number, today: IsoDate, now: Date = new Date(),
+): void {
+  const change = loadPlannedChange(db, facilityId, changeId, today, now)
   db.delete(childGroupChanges).where(eq(childGroupChanges.id, change.id)).run()
 }
 
 /**
- * Another group was chosen in the master data: the child gets it at once. For a child that has not started (waitlist,
- * or no contract start up to today) and has no applied dated change, only the start group changes; otherwise the
- * history gets a change dated today that keeps every section. A planned change for a later day stays as it is.
- * Must run inside a transaction.
+ * Another group was chosen in the master data: the child gets it at once. `child` is the record as stored before this
+ * save, because whether the child has started must not depend on what is saved together with the group: for a child
+ * that had not started (waitlist, or no contract start up to today) and has no applied dated change, only the start
+ * group changes; otherwise the history gets a change dated today that keeps every section. A planned change for a
+ * later day stays as it is. Must run inside a transaction.
  */
 export function changeGroupDirectly(
-  db: Db, actor: SessionUser,
-  child: { id: number; admissionStatus: AdmissionStatus; entryDate: IsoDate | null; plannedEntryDate: IsoDate | null },
+  db: Db, actor: SessionUser, child: Pick<ChildRow, 'id' | 'admissionStatus' | 'entryDate' | 'plannedEntryDate'>,
   groupId: number | null, today: IsoDate, now: Date,
 ): void {
   // What is due is applied first: its marks are set and today's entry, if any, is the one that gets replaced.
@@ -244,11 +259,19 @@ export function deleteChangesAfterLeaving(db: Db, childId: number, leftOn: IsoDa
 }
 
 /**
+ * The child can have no planned change any more (it becomes a Vormerkung or moves to another facility): what is due
+ * is still applied, the rest is deleted and so never applied. Must run inside a transaction.
+ */
+export function dropPlannedChanges(db: Db, childId: number, today: IsoDate, now: Date): void {
+  applyDue(db, today, now, childId)
+  db.delete(childGroupChanges).where(and(eq(childGroupChanges.childId, childId), isNull(childGroupChanges.appliedAt))).run()
+}
+
+/**
  * The child moves to another facility: its history ends with "no group from today" and a planned change is deleted
  * (the caller clears the group on the child). Must run inside a transaction.
  */
 export function endGroupHistory(db: Db, childId: number, today: IsoDate, now: Date): void {
-  applyDue(db, today, now, childId)
-  db.delete(childGroupChanges).where(and(eq(childGroupChanges.childId, childId), isNull(childGroupChanges.appliedAt))).run()
+  dropPlannedChanges(db, childId, today, now)
   putAppliedEntry(db, childId, today, null, null, now)
 }

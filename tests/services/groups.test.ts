@@ -172,7 +172,7 @@ describe('groups of a facility', () => {
     expect(listGroups(db, 1).map(group => group.id)).toEqual([bears, mice])
 
     const pending = db.select().from(childGroupChanges).where(eq(childGroupChanges.groupId, mice)).get()!
-    deleteGroupChange(db, 1, pending.id)
+    deleteGroupChange(db, 1, pending.id, today)
     deleteGroup(db, 1, mice, today)
     expect(listGroups(db, 1).map(group => group.id)).toEqual([bears])
   })

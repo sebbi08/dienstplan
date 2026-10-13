@@ -48,11 +48,13 @@ describe('group history and planned group changes', () => {
     }
   }
   const NO_MARKS = { contacts: null, health: null, consents: null, documents: null, careType: null, keyEducator: null }
-  /** Saves the master data as they are, with another group. */
-  const setGroup = (id: number, groupId: number | null, today = TODAY, now = NOW) => {
-    const master: ChildMasterInput = { ...getChild(db, admin, id, today).master, groupId }
+  /** Saves the master data as they are, with the given changes. */
+  const saveMaster = (id: number, changes: Partial<ChildMasterInput>, today = TODAY, now = NOW) => {
+    const master: ChildMasterInput = { ...getChild(db, admin, id, today).master, ...changes }
     updateChildMaster(db, admin, 1, id, master, today, now)
   }
+  /** Saves the master data as they are, with another group. */
+  const setGroup = (id: number, groupId: number | null, today = TODAY, now = NOW) => saveMaster(id, { groupId }, today, now)
 
   describe('planning', () => {
     it('keeps the group until the change day, then switches it exactly once', () => {
@@ -262,7 +264,7 @@ describe('group history and planned group changes', () => {
 
       for (const row of [start!, applied!]) {
         expect(errorCode(() => updateGroupChange(db, admin, 1, row.id, change(owls, '2027-01-01'), TODAY))).toBe('group_change_applied')
-        expect(errorCode(() => deleteGroupChange(db, 1, row.id))).toBe('group_change_applied')
+        expect(errorCode(() => deleteGroupChange(db, 1, row.id, TODAY))).toBe('group_change_applied')
       }
       expect(history(id)).toEqual([[null, bears, true], ['2026-10-01', mice, true]])
     })
@@ -271,13 +273,57 @@ describe('group history and planned group changes', () => {
       const id = addChild(db, 1, { groupId: bears })
       planGroupChange(db, admin, 1, id, change(mice, '2027-03-15', { health: false }), TODAY, NOW)
 
-      deleteGroupChange(db, 1, pending(id)!.id)
+      // The day before the change is the last day it can be deleted.
+      deleteGroupChange(db, 1, pending(id)!.id, '2027-03-14')
 
       expect(pending(id)).toBeNull()
       expect(history(id)).toEqual([[null, bears, true]])
       expect(applyDueGroupChanges(db, '2027-03-15')).toBe(0)
       expect(groupOf(id)).toBe(bears)
       expect(reviewMarks(id)).toEqual(NO_MARKS)
+    })
+
+    it('treats a change whose day has come as applied, even before the daily run', () => {
+      const edited = addChild(db, 1, { groupId: bears })
+      const deleted = addChild(db, 1, { groupId: bears })
+      planGroupChange(db, admin, 1, edited, change(mice, '2026-11-01', { health: false }), TODAY, NOW)
+      planGroupChange(db, admin, 1, deleted, change(mice, '2026-11-01', { health: false }), TODAY, NOW)
+      const editedId = pending(edited)!.id
+      const deletedId = pending(deleted)!.id
+      const onTheDay = new Date('2026-11-01T00:20:00.000Z')
+
+      expect(errorCode(() => updateGroupChange(db, admin, 1, editedId, change(owls, '2026-12-01'), '2026-11-01', onTheDay)))
+        .toBe('group_change_applied')
+      expect(errorCode(() => deleteGroupChange(db, 1, deletedId, '2026-11-01', onTheDay))).toBe('group_change_applied')
+
+      // The change is settled by the refused request, not only refused.
+      for (const id of [edited, deleted]) {
+        expect(groupOf(id)).toBe(mice)
+        expect(history(id)).toEqual([[null, bears, true], ['2026-11-01', mice, true]])
+        expect(reviewMarks(id)).toEqual({ ...NO_MARKS, health: '2026-11-01' })
+      }
+      expect(db.select().from(childGroupChanges).where(eq(childGroupChanges.id, editedId)).get()!.appliedAt)
+        .toBe(onTheDay.toISOString())
+      expect(applyDueGroupChanges(db, '2026-11-01')).toBe(0)
+    })
+
+    it('refuses to move a planned change behind the leaving day or to change it for a waitlist child', () => {
+      const leaving = addChild(db, 1, { groupId: bears })
+      planGroupChange(db, admin, 1, leaving, change(mice, '2027-03-15'), TODAY, NOW)
+      leaveChild(db, 1, leaving, '2027-07-31', TODAY)
+      const leavingChange = pending(leaving)!.id
+      expect(errorCode(() => updateGroupChange(db, admin, 1, leavingChange, change(mice, '2027-08-01'), TODAY)))
+        .toBe('group_change_after_leaving')
+      expect(pending(leaving)).toMatchObject({ date: '2027-03-15' })
+      expect(errorCode(() => updateGroupChange(db, admin, 1, leavingChange, change(mice, '2027-07-31'), TODAY))).toBeNull()
+
+      const waitlisted = addChild(db, 1, { groupId: bears })
+      planGroupChange(db, admin, 1, waitlisted, change(mice, '2027-03-15'), TODAY, NOW)
+      // The status gets there without the service that removes the change.
+      db.update(children).set({ admissionStatus: 'waitlist', entryDate: null }).where(eq(children.id, waitlisted)).run()
+      expect(errorCode(() => updateGroupChange(db, admin, 1, pending(waitlisted)!.id, change(owls, '2027-04-01'), TODAY)))
+        .toBe('waitlist_no_group_change')
+      expect(pending(waitlisted)).toMatchObject({ groupId: mice, date: '2027-03-15' })
     })
 
     it('answers group_change_not_found for unknown changes and those of another facility', () => {
@@ -290,9 +336,12 @@ describe('group history and planned group changes', () => {
 
       expect(errorCode(() => updateGroupChange(db, krippeAdmin, krippe, changeId, change(wichtel, '2027-04-01'), TODAY)))
         .toBe('group_change_not_found')
-      expect(errorCode(() => deleteGroupChange(db, krippe, changeId))).toBe('group_change_not_found')
+      expect(errorCode(() => deleteGroupChange(db, krippe, changeId, TODAY))).toBe('group_change_not_found')
       expect(errorCode(() => updateGroupChange(db, admin, 1, 999, change(owls, '2027-04-01'), TODAY))).toBe('group_change_not_found')
-      expect(errorCode(() => deleteGroupChange(db, 1, 999))).toBe('group_change_not_found')
+      expect(errorCode(() => deleteGroupChange(db, 1, 999, TODAY))).toBe('group_change_not_found')
+      // Not even on its day is another facility's change touched.
+      expect(errorCode(() => deleteGroupChange(db, krippe, changeId, '2027-03-15'))).toBe('group_change_not_found')
+      expect(groupOf(id)).toBe(bears)
       expect(pending(id)).toMatchObject({ id: changeId, groupId: mice, date: '2027-03-15' })
     })
 
@@ -390,6 +439,59 @@ describe('group history and planned group changes', () => {
         createdBy: admin.id, appliedAt: NOW.toISOString(), keepContacts: true, keepHealth: true, keepConsents: true,
         keepDocuments: true, keepCareType: true, keepKeyEducator: true,
       })
+    })
+
+    it('judges whether the child has started on the stored record, not on what is saved with the group', () => {
+      // A Vormerkung becomes a contract with a backdated entry and another group in one save: it never was in the wish group.
+      const waitlisted = addChild(db, 1, { groupId: bears, admissionStatus: 'waitlist', entryDate: null, waitlistedOn: '2026-05-04' })
+      saveMaster(waitlisted, { admissionStatus: 'contract', entryDate: '2026-10-01', groupId: mice })
+      expect(history(waitlisted)).toEqual([[null, mice, true]])
+      expect(groupOf(waitlisted)).toBe(mice)
+
+      // A future entry day is moved into the past together with the group.
+      const future = addChild(db, 1, { groupId: bears, entryDate: '2027-01-01' })
+      saveMaster(future, { entryDate: '2026-10-01', groupId: mice })
+      expect(history(future)).toEqual([[null, mice, true]])
+      expect(groupOf(future)).toBe(mice)
+      // From then on it has started: the next change is dated.
+      saveMaster(future, { groupId: owls })
+      expect(history(future)).toEqual([[null, mice, true], [TODAY, owls, true]])
+
+      // The other way round: a child that has started keeps its past, whatever entry day is saved with the group.
+      const started = addChild(db, 1, { groupId: bears, entryDate: '2026-09-01' })
+      saveMaster(started, { entryDate: '2027-01-01', groupId: mice })
+      expect(history(started)).toEqual([[null, bears, true], [TODAY, mice, true]])
+    })
+
+    it('never rewrites the start group of a child that has started by making it a Vormerkung', () => {
+      const id = addChild(db, 1, { groupId: bears, entryDate: '2026-09-01' })
+      expect(errorCode(() => saveMaster(id, { admissionStatus: 'waitlist', entryDate: null, groupId: mice })))
+        .toBe('waitlist_after_start')
+      expect(history(id)).toEqual([[null, bears, true]])
+      expect(childRow(id)).toMatchObject({ admissionStatus: 'contract', entryDate: '2026-09-01', groupId: bears })
+    })
+
+    it('deletes a planned change when the child becomes a Vormerkung, so it is never applied', () => {
+      const id = addChild(db, 1, { groupId: bears, entryDate: '2027-01-01' })
+      planGroupChange(db, admin, 1, id, change(mice, '2027-03-15', { health: false }), TODAY, NOW)
+      const other = addChild(db, 1, { groupId: bears, entryDate: '2027-01-01' })
+      planGroupChange(db, admin, 1, other, change(mice, '2027-03-15'), TODAY, NOW)
+
+      saveMaster(id, { admissionStatus: 'waitlist', entryDate: null, plannedEntryDate: '2027-01-01' })
+
+      expect(pending(id)).toBeNull()
+      expect(history(id)).toEqual([[null, bears, true]])
+      // Only this child's change is gone.
+      expect(applyDueGroupChanges(db, '2027-03-15')).toBe(1)
+      expect([id, other].map(groupOf)).toEqual([bears, mice])
+      expect(reviewMarks(id)).toEqual(NO_MARKS)
+    })
+
+    it('keeps the planned change of a Vormerkung-free save', () => {
+      const id = addChild(db, 1, { groupId: bears, entryDate: '2027-01-01' })
+      planGroupChange(db, admin, 1, id, change(mice, '2027-03-15'), TODAY, NOW)
+      saveMaster(id, { note: 'Geschwisterkind' })
+      expect(pending(id)).toMatchObject({ groupId: mice, date: '2027-03-15' })
     })
 
     it('records a dated change for a child that has not started but already has an applied change', () => {

@@ -29,7 +29,7 @@ export default defineNitroPlugin(() => {
 
   // The daily run (tried every hour, each part does its work once): planned group changes whose day has come, then
   // deleting children after their retention period. Neither depends on the other or on the backups being configured.
-  const purge = () => {
+  const dailyRun = () => {
     try {
       const applied = applyDueGroupChanges(db, todayIso())
       if (applied > 0) console.info(`Applied ${applied} group change(s).`)
@@ -48,8 +48,8 @@ export default defineNitroPlugin(() => {
       console.error('Deleting expired child records failed', error)
     }
   }
-  purge()
-  setInterval(purge, HOUR_MS).unref()
+  dailyRun()
+  setInterval(dailyRun, HOUR_MS).unref()
 
   const backupDir = process.env.BACKUP_DIR
   if (backupDir) {

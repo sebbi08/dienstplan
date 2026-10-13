@@ -654,6 +654,7 @@ export const de = {
     child_archived: 'Die Akte dieses Kindes ist archiviert und kann nicht mehr geändert werden.',
     waitlist_has_entry: 'Eine Vormerkung hat noch keinen Eintritt. Trage den gewünschten Termin unter „geplanter Eintritt“ ein oder stelle den Stand auf „Vertrag“.',
     waitlist_cannot_leave: 'Eine Vormerkung kann nicht abgemeldet, nur gelöscht werden.',
+    waitlist_after_start: 'Ein Kind, das schon aufgenommen ist, kann nicht zur Vormerkung werden.',
     waitlist_no_group_change: 'Für eine Vormerkung kann kein Gruppenwechsel geplant werden. Ändere die gewünschte Gruppe in den Stammdaten.',
     same_group: 'Das Kind ist an diesem Tag schon in dieser Gruppe.',
     group_change_order: 'Der Wechseltag muss nach dem letzten Gruppenwechsel des Kindes liegen.',

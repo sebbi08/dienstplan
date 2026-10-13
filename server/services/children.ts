@@ -19,7 +19,7 @@ import { assertCareType } from './careTypes'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
 import {
-  changeGroupDirectly, deleteChangesAfterLeaving, endGroupHistory, pendingGroupChange, recordStartGroup,
+  changeGroupDirectly, deleteChangesAfterLeaving, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup,
 } from './childGroupChanges'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
@@ -236,19 +236,26 @@ export function createChild(
 }
 
 /**
- * Saves the master data. Another group than the stored one is a direct group change and goes into the group history
- * (see `changeGroupDirectly`); a group that only differs because a planned change is due is not one.
+ * Saves the master data. A child that has already started (active) cannot become a Vormerkung any more
+ * (400 waitlist_after_start); one that becomes a Vormerkung loses its planned group change. Another group than the
+ * stored one is a direct group change and goes into the group history (see `changeGroupDirectly`, which judges on the
+ * stored record); a group that only differs because a planned change is due is not one.
  */
 export function updateChildMaster(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   const row = loadEditableChild(db, actor, facilityId, id, today)
+  if (input.admissionStatus === 'waitlist' && childStatus(row, today) === 'active') {
+    throw new ServiceError(400, 'waitlist_after_start')
+  }
   const master = checkedMaster(db, facilityId, input, today, row.waitlistedOn)
   // A waitlist child cannot have left: the purge job keys on leftOn and must never delete a waitlist record.
   const leftOn = master.admissionStatus === 'waitlist' ? { leftOn: null } : {}
   db.transaction((tx) => {
-    if (master.groupId !== row.groupId) changeGroupDirectly(tx, actor, { id, ...master }, master.groupId, today, now)
+    if (master.groupId !== row.groupId) changeGroupDirectly(tx, actor, row, master.groupId, today, now)
+    // A Vormerkung has no planned group change, as a child who left has none after its leaving day.
+    if (master.admissionStatus === 'waitlist') dropPlannedChanges(tx, id, today, now)
     // The group itself is only ever written through the history, so it cannot drift from it.
     const { groupId: _, ...rest } = master
     tx.update(children).set({ ...rest, ...leftOn, ...sectionStamp('master', actor.id, now) }).where(eq(children.id, id)).run()
