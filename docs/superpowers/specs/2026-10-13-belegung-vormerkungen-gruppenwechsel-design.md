@@ -64,6 +64,9 @@ und meldet Schulkinder zum 1. September automatisch ab – außer sie wechseln i
 - Eine Vormerkung hat keinen `Eintritt`; der gewünschte Eintritt steht in `geplanter Eintritt`. Wird ein
   `Eintritt` eingetragen, während der Stand „Vormerkung“ ist, lehnt die App ab (`waitlist_has_entry`).
 - Eine Vormerkung ist immer „geplant“ (nie aktiv, nie archiviert) und zählt nirgends als anwesend.
+- Ein Kind, das schon begonnen hat (aktiv ist), kann nicht wieder zur Vormerkung werden
+  (`waitlist_after_start`); nur ein Vertragskind, das noch nicht begonnen hat, kann zurück auf „Vormerkung“.
+  Dabei wird ein geplanter Gruppenwechsel gelöscht (eine Vormerkung hat keinen, siehe 6.1).
 - Pflichtfelder einer Vormerkung: Nachname, Vorname, Geburtsdatum. Alles andere optional.
 - **Vormerkung löschen** (Leitung, Träger): löscht die Akte sofort (mit Bestätigung).
 - Vormerkungen werden nicht automatisch gelöscht; die Betriebsanleitung weist darauf hin, sie regelmäßig
@@ -114,6 +117,14 @@ mehr; Kindergarten: März Klammer, April Hauptzahl. Schulstart 1.9.2027 → zäh
 **Summe:** jedes Kind einmal, wenn sein Aufenthalt den Monat berührt; Klammer = Vertragsbeginn im Monat
 (Gruppenwechsel zählen hier nicht als neu).
 
+**Nach einem Kita-Wechsel** (6.4) zählt ein Kind in der neuen Einrichtung erst ab dem Tag des Wechsels: Sein
+Aufenthalt dort beginnt am späteren der beiden Tage Vertragsbeginn und Wechseltag. Der Wechseltag steht an der
+Akte (`children.facility_since`, leer = hier angelegt; bei mehreren Wechseln der letzte); die Gruppenhistorie
+allein genügt dafür nicht, weil ihr Eintrag „ohne Gruppe ab heute“ von einem direkten Wechsel in „ohne Gruppe“
+nicht zu unterscheiden ist und am selben Tag ersetzt werden kann. In der alten Einrichtung erscheint das Kind
+nicht mehr, auch nicht in zurückliegenden Monaten (die Akte gehört zur neuen). Ein Kind, dessen Aufenthalt am
+Wechseltag schon beendet war, zählt in der neuen Einrichtung nie und steht deshalb nicht im Hinweis aus 5.5.
+
 ### 5.4 Rot
 
 - Gruppenzelle rot, wenn Plätze eingetragen sind und Hauptzahl + Klammer ≥ Plätze. Liegt die Zahl über den
@@ -127,7 +138,11 @@ mehr; Kindergarten: März Klammer, April Hauptzahl. Schulstart 1.9.2027 → zäh
   je mit Beginn und Ende der Gruppenzeit; Namen verlinken zur Akte.
 - Hinweis unter der Tabelle (nur wenn > 0), aufklappbar mit Namen: „n Kinder mit Vertrag ohne Eintrittsdatum
   werden nicht gezählt.“
-- Druckansicht pro Kita-Jahr (Tabelle und Hinweis).
+- Zweiter Hinweis (nur wenn > 0), ebenso aufklappbar: „n Kinder werden nicht gezählt, weil ihr Schulstart oder
+  Austritt am oder vor dem Eintritt liegt. Bitte die Daten prüfen.“ Er nennt Vertragskinder, deren Aufenthalt
+  endet, bevor er beginnt: Austritt vor dem Vertragsbeginn, oder beim Vertragsbeginn schon im Schulalter, ohne
+  wegen einer Gruppe für Schulkinder zu bleiben (7.4). Sie zählen nirgends.
+- Druckansicht pro Kita-Jahr (Tabelle und Hinweise).
 
 ## 6. Gruppenwechsel
 
@@ -138,10 +153,13 @@ mehr; Kindergarten: März Klammer, April Hauptzahl. Schulstart 1.9.2027 → zäh
   Bezugspersonen, Gesundheit, Einwilligungen, Dokumente, Betreuungsform, Bezugserzieher (Vorbelegung: alle
   übernehmen).
 - Regeln: Datum nach dem letzten bereits vollzogenen Wechsel des Kindes (`group_change_order`); höchstens ein
-  noch nicht vollzogener Wechsel je Kind (`group_change_pending`); nicht für Vormerkungen und nicht für
-  archivierte Kinder.
+  noch nicht vollzogener Wechsel je Kind (`group_change_pending`); nicht für Vormerkungen
+  (`waitlist_no_group_change`) und nicht für archivierte Kinder. Hat das Kind schon ein Austrittsdatum, darf
+  der Wechseltag nicht danach liegen (`group_change_after_leaving`): Ein solcher Wechsel würde nie vollzogen.
+  Wird ein Vertragskind wieder zur Vormerkung (Abschnitt 3), wird sein geplanter Wechsel gelöscht.
 - Ein Wechsel mit Datum ≤ heute wird sofort vollzogen. Ein künftiger Wechsel steht in der Akte („wechselt am
-  … in …“) und kann bis zum Wechseltag geändert oder gelöscht werden.
+  … in …“), sichtbar für alle, die die Akte lesen dürfen; ändern oder löschen können ihn Leitung und Träger bis
+  zum Wechseltag.
 - **Vollzug** (täglicher Lauf; mehrfaches Ausführen ändert nichts): Gruppe des Kindes umstellen, Wechsel als
   vollzogen kennzeichnen, für jeden nicht übernommenen Bereich die Markierung „nicht bestätigt seit
   <Wechseltag>“ setzen.
@@ -154,6 +172,15 @@ Das Ändern der Gruppe in den Stammdaten bleibt möglich:
   vollzogenen Wechsel, wird nur die Startgruppe geändert.
 - Sonst wird ein Wechsel „heute, alles übernehmen“ festgehalten und sofort vollzogen. In eine Gruppe für
   Schulkinder kann man so nicht wechseln (dafür „Gruppenwechsel planen“, siehe 7.4).
+- **Was als direkte Änderung gilt:** Das Formular schickt beim Speichern die Gruppe mit, mit der es geladen
+  wurde (`baseGroupId`, Pflicht beim Speichern der Stammdaten). Nur eine *andere* gewählte Gruppe ist eine
+  direkte Änderung; ist sie gleich, bleibt die gespeicherte Gruppe unberührt und wird nicht einmal geprüft. So
+  macht ein Formular, das offen war, während ein geplanter Wechsel vollzogen wurde, diesen Wechsel beim
+  Speichern eines anderen Feldes nicht rückgängig.
+- Gibt es für heute schon einen vollzogenen Eintrag (ein heute vollzogener geplanter Wechsel), ersetzt die
+  direkte Änderung ihn (ein Eintrag je Tag) mit ihren eigenen Werten: alles übernommen, kein weiterer
+  Betreuungsvertrag. Eine Markierung „Betreuungsvertrag“ dieses Tages verschwindet damit (das Kind ist in keiner
+  Gruppe für Schulkinder mehr); die übrigen an diesem Tag gesetzten Markierungen bleiben bis zur Bestätigung.
 
 ### 6.3 Nicht bestätigte Bereiche
 
@@ -176,8 +203,9 @@ Das Ändern der Gruppe in den Stammdaten bleibt möglich:
 
 ### 6.4 Zusammenspiel
 
-- **Kita-Wechsel** (Träger): beendet die Gruppenhistorie mit „ohne Gruppe ab heute“ und löscht einen noch nicht
-  vollzogenen Wechsel.
+- **Kita-Wechsel** (Träger): beendet die Gruppenhistorie mit „ohne Gruppe ab heute“, löscht einen noch nicht
+  vollzogenen Wechsel und hält den Wechseltag an der Akte fest (Zählung in der Belegung: 5.3; Ablehnung bei
+  eingeschalteter automatischer Abmeldung der Ziel-Einrichtung: 7.4).
 - **Gruppe löschen:** zusätzlich gesperrt, solange ein noch nicht vollzogener Wechsel in diese Gruppe führt
   (`group_has_pending_changes`). Historieneinträge archivierter Kinder verlieren beim Löschen die Gruppe.
 - **Abmelden:** ein noch nicht vollzogener Wechsel nach dem Austrittsdatum wird beim Abmelden gelöscht.
@@ -207,7 +235,9 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
 
 - Schalter je Einrichtung (Träger): **„Schulkinder automatisch abmelden“**, Vorbelegung aus.
 - Beim Einschalten zeigt die App in der Bestätigung, welche Kinder **sofort** abgemeldet werden (Schulstart
-  schon erreicht) – mit Namen und Austrittsdatum. Mit der Bestätigung wird eingeschaltet, und genau die
+  schon erreicht) – mit Namen, Austrittsdatum und dem Tag, an dem die Akte gelöscht wird („Akte wird am …
+  gelöscht“; `purgeOn` = Austritt + Löschfrist). Mit der Bestätigung (weiterhin nur Kind und Austrittsdatum)
+  wird eingeschaltet, und genau die
   angezeigten Kinder werden im selben Schritt zu den angezeigten Austrittsdaten abgemeldet. Hat sich die Liste
   seit der Anzeige geändert – andere Kinder oder ein anderes Austrittsdatum –, lehnt die App ab
   (`auto_leave_preview_changed`) und zeigt sie neu. Ausschalten braucht keine Bestätigung.
@@ -218,7 +248,7 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
   Einrichtung wird für sich verarbeitet; ein Fehler in einer Einrichtung hält die anderen nicht auf.
 - **Nicht automatisch abgemeldet** wird ein Kind,
   - das erst am oder nach seinem Schulstart eingetreten ist (der Austritt läge vor dem Eintritt; die Belegung
-    nennt es im Hinweis „Schulstart oder Austritt liegt vor dem Eintritt“),
+    nennt es im zweiten Hinweis aus 5.5),
   - dessen Akte mit diesem Austritt sofort gelöscht würde (Löschfrist schon abgelaufen),
   - das einen Gruppenwechsel mit weiterem Betreuungsvertrag hat, der nach dem Austritt läge – gleich ob der
     Wechsel noch geplant oder schon vollzogen ist und ob die Gruppe heute noch „für Schulkinder“ ist: Für diese
@@ -235,9 +265,24 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
   kommenden Septembers (Name, Gruppe, Schulstart, ggf. geplanter Wechsel in eine Schulkind-Gruppe), damit
   Zurückstellungen rechtzeitig eingetragen werden. Bei ausgeschaltetem Schalter gibt es dort den Knopf „zum
   31.8. abmelden“ je Kind.
-- **Abmeldung zurücknehmen** bei einem Kind, dessen Schulstart schon erreicht ist, verlangt einen neuen,
-  künftigen „voraussichtlichen Schulstart“ (`school_start_required`), damit der Lauf es nicht erneut abmeldet –
-  außer das Kind bleibt wegen einer Gruppe für Schulkinder (7.4).
+- **Abmeldung zurücknehmen:** Solange der Schalter der Einrichtung eingeschaltet ist, verlangt das Zurücknehmen
+  bei einem Kind, das der nächste Lauf sofort wieder abmelden würde (dieselbe Auswahl wie beim Lauf: Schulstart
+  erreicht, bleibt nicht wegen einer Gruppe für Schulkinder, nicht eines der oben ausgenommenen Kinder), einen
+  neuen, künftigen „voraussichtlichen Schulstart“ (`school_start_required`); ohne ihn bleibt die Abmeldung
+  bestehen. Bei ausgeschaltetem Schalter wird ohne diese Angabe zurückgenommen: Niemand meldet das Kind erneut
+  ab, und vor dem Wiedereinschalten steht es in der Vorschau.
+- **Einzelne Änderungen, die ein Kind sofort abmelden würden:** Der Träger hat die betroffenen Kinder nur beim
+  Einschalten gesehen. Solange der Schalter eingeschaltet ist, wird deshalb jede einzelne Änderung abgelehnt
+  und vollständig zurückgenommen (409 `would_deregister`), nach der der nächste Lauf das Kind abmelden würde,
+  obwohl er es vorher nicht getan hätte. Geprüft wird in derselben Transaktion mit der Auswahl des Laufs,
+  vorher und nachher. Das betrifft das Speichern der Stammdaten (späteren Schulstart leeren oder vorziehen,
+  Geburtsdatum, Eintritt, Vormerkung → Vertrag, direkte Gruppenänderung), das Anlegen eines Kindes sowie das
+  Planen, Ändern und Löschen eines Gruppenwechsels (z. B. den geplanten Wechsel in die Gruppe für Schulkinder
+  nach dem Schulstart löschen). Ein Kind, das der Lauf ohnehin abmeldet, kann weiter bearbeitet werden; bei
+  ausgeschaltetem Schalter wird nichts abgelehnt. Meldung: „Mit dieser Änderung würde das Kind sofort
+  automatisch abgemeldet, weil sein Schulstart schon erreicht ist. Trage einen späteren voraussichtlichen
+  Schulstart ein oder schalte die automatische Abmeldung der Schulkinder aus.“ Der Kita-Wechsel folgt demselben
+  Grundsatz mit eigener Meldung (`school_start_reached`, 7.4).
 
 ### 7.4 Hort / Schulkindbetreuung
 
@@ -249,8 +294,8 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
 - **Ein Kind bleibt**, wenn es am Schulstart in einer Gruppe für Schulkinder ist oder seine Gruppenhistorie
   (einschließlich geplanter Wechsel) danach in eine solche Gruppe führt – etwa wenn der Hortvertrag erst am
   13.9. beginnt. Ein Kind, das bleibt, wird nicht automatisch abgemeldet, hat kein errechnetes Ende (offener
-  Aufenthalt in der Belegung; es steht nicht im Hinweis „Schulstart oder Austritt liegt vor dem Eintritt“) und
-  wird von Hand abgemeldet. Belegung,
+  Aufenthalt in der Belegung, in der es bis zur Abmeldung von Hand weiter zählt; es steht nicht im zweiten
+  Hinweis aus 5.5) und wird von Hand abgemeldet. Belegung,
   Vorschau, täglicher Lauf, Liste „Schulkinder zum 1.9.“ und „Abmeldung zurücknehmen“ urteilen nach derselben
   Regel.
 - Der automatische Lauf löscht nie einen geplanten Wechsel mit weiterem Betreuungsvertrag und meldet kein Kind
@@ -270,11 +315,13 @@ gekennzeichnet; Leeren des Feldes kehrt zum errechneten Wert zurück.
 | Übersicht „Vormerkungen & Verträge“, Reiter „Offen“ ansehen | ja | ja | ja | ja |
 | Vormerkung/Kind anlegen, Stand ändern, Schulstart überschreiben, Bereiche bestätigen | ja | ja | ja | nein |
 | Vormerkung löschen | ja | ja | nein | nein |
-| Belegung und Liste „Schulkinder zum 1.9.“ ansehen, Plätze ändern | ja | ja | nein | nein |
+| Geplanten Gruppenwechsel in der Akte sehen („wechselt am … in …“) | ja | ja | ja | ja |
+| Belegung und Liste „Schulkinder zum 1.9.“ ansehen, Plätze sehen und ändern | ja | ja | nein | nein |
 | Gruppenwechsel planen, ändern, löschen | ja | ja | nein | nein |
 | Stichtag, automatische Abmeldung, Gruppe „für Schulkinder“ | ja | nein | nein | nein |
 
 Das Stempel-Tablet hat keinen Zugriff. Alle Prüfungen serverseitig; fremde Kitas → 404 wie in der Kinderakte.
+Die Gruppenliste der Kinderseiten (für alle, die Akten lesen) enthält die Plätze nur für Leitung und Träger.
 
 ## 9. Technik
 
@@ -282,6 +329,8 @@ Das Stempel-Tablet hat keinen Zugriff. Alle Prüfungen serverseitig; fremde Kita
 
 - `children.admission_status` (`waitlist` | `contract`, Standard `contract`), `children.waitlisted_on`
   (ISO-Datum, nullable).
+- `children.facility_since` (ISO-Datum, nullable): Tag, an dem die Akte in diese Einrichtung verschoben wurde
+  (leer = hier angelegt; bestehende Kinder: leer). Siehe 5.3.
 - `groups.capacity` (integer, nullable), `groups.for_school_children` (boolean, Standard false).
 - `facilities.school_cutoff_month` (Standard 6), `school_cutoff_day` (Standard 30), `school_age_years`
   (Standard 6), `auto_leave_school_children` (boolean, Standard false).
@@ -308,8 +357,11 @@ Das Stempel-Tablet hat keinen Zugriff. Alle Prüfungen serverseitig; fremde Kita
   (Einstellungen, Vorschau, automatische Abmeldung), Erweiterung `children.ts` (Stand, geplante Listen,
   Bestätigen, Schulstart), `groups.ts` (Plätze, Kennzeichen, Löschsperre), `childDocuments.ts` (Übersicht mit
   „neu einzureichen“).
-- Täglicher Lauf im Datenbank-Plugin ruft zusätzlich `applyDueGroupChanges(db, today)` und danach
-  `leaveSchoolChildren(db, today)`.
+- Täglicher Lauf: `server/services/dailyRun.ts` – `runDaily(db, today, log)` ruft nacheinander
+  `applyDueGroupChanges`, `leaveSchoolChildren` und `purgeExpiredChildren`, alle mit demselben Tag, jeden Teil
+  für sich (ein Fehler wird protokolliert und hält die anderen nicht auf), und gibt die drei Anzahlen zurück.
+  Das Datenbank-Plugin ruft nur diese Funktion (stündlich). Ein im Lauf abgemeldetes Kind wird nie im selben
+  Lauf gelöscht.
 - Routen: Belegung, Plätze und Gruppenwechsel über `requireAdmin`; Stichtag, Schalter und Gruppen-Kennzeichen
   über `requireProvider`; Bestätigen über `requireChildEditor`; Listen „Vormerkungen & Verträge“ und „Offen“
   über `requireChildReader`.

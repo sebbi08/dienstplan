@@ -194,7 +194,15 @@ Monat. Ein Beispiel: **„17 (+2)“** heißt, 17 Kinder waren schon vor diesem 
 diesem Monat neu dazu (Eingewöhnung oder Wechsel aus einer anderen Gruppe). Ein Kind zählt in jedem Monat, in
 dem es mindestens an einem Tag in der Gruppe ist, also auch im Monat seines letzten Tages. Eine Zelle wird
 rot, sobald die **Plätze** der Gruppe erreicht sind. Unter der Tabelle stehen Hinweise auf Kinder, die nicht
-gezählt werden: Verträge ohne Eintrittsdatum und Kinder, deren Schulstart oder Austritt vor dem Eintritt liegt.
+gezählt werden: Verträge ohne Eintrittsdatum und Kinder, deren Schulstart oder Austritt am oder vor dem
+Eintritt liegt.
+
+- **Kinder in einer Gruppe „für Schulkinder“ (z. B. Hort)** zählen ohne Enddatum weiter, auch nach ihrem
+  Schulstart. Sie werden nie automatisch abgemeldet. Melde sie von Hand ab, wenn sie gehen, sonst bleiben sie
+  in der Belegung stehen.
+- **Nach dem Verschieben in eine andere Einrichtung** zählt ein Kind in der neuen Einrichtung erst **ab dem Tag
+  des Verschiebens**, nicht ab seinem ursprünglichen Eintritt. In der alten Einrichtung erscheint es nicht mehr,
+  auch nicht in den zurückliegenden Monaten: Die Akte gehört jetzt zur neuen Einrichtung.
 
 ### Gruppenwechsel
 
@@ -217,8 +225,9 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
 
 - Der Schalter „Schulkinder automatisch abmelden“ ist **voreingestellt aus**. Nur der Träger schaltet ihn pro
   Einrichtung ein.
-- Beim Einschalten zeigt die App, welche Kinder **sofort** abgemeldet werden (Schulstart schon erreicht).
-  Erst nach deiner Bestätigung wird eingeschaltet und abgemeldet.
+- Beim Einschalten zeigt die App, welche Kinder **sofort** abgemeldet werden (Schulstart schon erreicht), und
+  bei jedem Kind, **an welchem Tag seine Akte gelöscht wird**. Erst nach deiner Bestätigung wird eingeschaltet
+  und abgemeldet.
 - Danach bekommen alle Schulkinder am 1. September den Austritt 31. August und kommen ins Archiv.
   Ab dann läuft die Löschfrist (siehe Abschnitt 8).
 - **Nicht abgemeldet** werden Kinder mit späterem, von Hand eingetragenem Schulstart, Kinder, die erst am oder
@@ -231,6 +240,22 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
 - **Der Schalter schaltet sich von selbst aus**, wenn der Stichtag geändert wird, wenn einer Gruppe das
   Kennzeichen „für Schulkinder“ genommen oder eine solche Gruppe gelöscht wird oder wenn die Löschfrist
   geändert wird. Die App weist darauf hin. Prüfe dann die Liste und schalte wieder ein.
+
+Solange der Schalter eingeschaltet ist, schützt die App davor, dass ein einzelnes Kind unbemerkt abgemeldet
+wird:
+
+- **Einzelne Änderungen werden abgelehnt**, wenn das Kind dadurch beim nächsten täglichen Lauf sofort
+  abgemeldet würde. Beispiele: Du löschst einen späteren voraussichtlichen Schulstart, änderst das
+  Geburtsdatum oder den Eintritt, legst ein Kind an, dessen Schulstart schon erreicht ist, machst aus einer
+  Vormerkung einen Vertrag oder löschst den geplanten Wechsel in eine Gruppe „für Schulkinder“. Die App sagt
+  dann, was zu tun ist: einen späteren voraussichtlichen Schulstart eintragen oder die automatische Abmeldung
+  ausschalten. Soll das Kind wirklich gehen, melde es von Hand ab.
+- **Verschieben in eine andere Einrichtung wird abgelehnt**, wenn die Ziel-Einrichtung automatisch abmeldet
+  und das Kind dort sofort abgemeldet würde (Schulstart schon erreicht). Passe zuerst den voraussichtlichen
+  Schulstart an oder schalte dort die automatische Abmeldung aus.
+- **Abmeldung zurücknehmen:** Ist der Schulstart des Kindes schon erreicht, fragt die App nach einem neuen
+  voraussichtlichen Schulstart in der Zukunft. Sonst würde das Kind gleich wieder abgemeldet. Ist der Schalter
+  ausgeschaltet, nimmst du die Abmeldung ohne diese Angabe zurück.
 
 Noch nicht enthalten: Bundesland je Einrichtung und Feiertage je Bundesland. Das ist für die nächste Version
 geplant.
