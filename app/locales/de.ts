@@ -258,6 +258,14 @@ export const de = {
     labour_day: 'Tag der Arbeit', ascension_day: 'Christi Himmelfahrt', whit_monday: 'Pfingstmontag',
     corpus_christi: 'Fronleichnam', german_unity_day: 'Tag der Deutschen Einheit', all_saints_day: 'Allerheiligen',
     christmas_day: '1. Weihnachtstag', boxing_day: '2. Weihnachtstag',
+    womens_day: 'Internationaler Frauentag', assumption_day: 'Mariä Himmelfahrt', childrens_day: 'Weltkindertag',
+    reformation_day: 'Reformationstag', repentance_day: 'Buß- und Bettag',
+  },
+  states: {
+    BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg',
+    HE: 'Hessen', MV: 'Mecklenburg-Vorpommern', NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen',
+    RP: 'Rheinland-Pfalz', SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein',
+    TH: 'Thüringen',
   },
   myPlan: { shift: 'Dienst', helpOutIn: (facility: string) => `Aushilfe in ${facility}` },
   leave: {
