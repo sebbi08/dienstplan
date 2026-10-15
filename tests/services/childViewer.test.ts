@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { childDocuments, terminalUnlocks, users } from '../../server/db/schema'
-import type { ChildActor } from '../../server/lib/childViewer'
+import { asChildEditor, asChildManager, type ChildActor } from '../../server/lib/childViewer'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { readDocumentFile, uploadDocument } from '../../server/services/childDocuments'
 import { getChild, listPlanned, updateChildHealth } from '../../server/services/children'
@@ -71,6 +71,33 @@ describe('the child viewer', () => {
     })
     // Every request at the tablet counts as use and keeps it unlocked.
     expect(db.select().from(terminalUnlocks).get()!.lastActiveAt).toBe(later.toISOString())
+  })
+
+  it('the editor and manager checks refuse an unlocked Mitarbeiter by their rights', () => {
+    // These are the decisions requireChildEditor( and requireChildManager( apply to the viewer of the request.
+    const account = addUser(db, 'anna', 'observer', anna)
+    const reader = resolveChildViewer(db, tablet, unlock(), NOW)
+    expect(reader).toMatchObject({ id: account.id, role: 'observer', canEditChildren: false, onTablet: true })
+    expect(errorCode(() => asChildEditor(reader))).toBe('forbidden')
+    expect(errorCode(() => asChildManager(reader))).toBe('forbidden')
+
+    // With the permission: maintains records, but the manager pages stay closed.
+    db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+    const editor = resolveChildViewer(db, tablet, unlock(), NOW)
+    expect(asChildEditor(editor)).toMatchObject({ id: account.id })
+    expect(errorCode(() => asChildManager(editor))).toBe('forbidden')
+
+    // Without an account (PIN only) only reading, even if the Leitung set nothing else.
+    const pinOnly = resolveChildViewer(db, tablet, unlock(berta, '4321'), NOW)
+    expect(pinOnly).toMatchObject({ id: null, onTablet: true })
+    expect(errorCode(() => asChildEditor(pinOnly))).toBe('forbidden')
+    expect(errorCode(() => asChildManager(pinOnly))).toBe('forbidden')
+
+    // An unlocked Leitung passes both.
+    const leitung = addUser(db, 'leitung', 'admin', berta)
+    const manager = resolveChildViewer(db, tablet, unlock(berta, '4321'), NOW)
+    expect(asChildEditor(manager)).toMatchObject({ id: leitung.id, onTablet: true })
+    expect(asChildManager(manager)).toMatchObject({ id: leitung.id, onTablet: true })
   })
 
   describe('hidden planned children at the tablet', () => {

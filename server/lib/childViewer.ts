@@ -1,4 +1,6 @@
+import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import type { ChildVisibility, Role } from '../../shared/types/api'
+import { ServiceError } from './errors'
 
 /**
  * Who looks at child records, with the rights the access is judged by: a logged-in account, or at the facility's tablet
@@ -17,3 +19,21 @@ export interface ChildViewer {
 
 /** A viewer who may change records: it has an account to record as "changed by". */
 export type ChildActor = ChildViewer & { id: number }
+
+/** A viewer who may change records always has an account (the tablet's readers without one may not). */
+function asActor(viewer: ChildViewer): ChildActor {
+  if (viewer.id === null) throw new ServiceError(403, 'forbidden')
+  return viewer as ChildActor
+}
+
+/** The viewer as one who maintains child records (managers, Mitarbeiter with the permission at the tablet); 403 forbidden otherwise. */
+export function asChildEditor(viewer: ChildViewer): ChildActor {
+  if (!mayEditChildren(viewer)) throw new ServiceError(403, 'forbidden')
+  return asActor(viewer)
+}
+
+/** The viewer as Träger or Leitung on the child pages (archive, occupancy, group changes …); 403 forbidden otherwise. */
+export function asChildManager(viewer: ChildViewer): ChildActor {
+  if (!isManager(viewer.role)) throw new ServiceError(403, 'forbidden')
+  return asActor(viewer)
+}
