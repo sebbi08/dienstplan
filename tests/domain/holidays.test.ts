@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BW_RULES, easterSunday, holidayIn, holidaysOf, isHolidayIn,
-  type HolidayRules,
+  type HolidayKey, type HolidayRules,
 } from '../../shared/domain/holidays'
 import { GERMAN_STATES, type GermanState } from '../../shared/domain/states'
 
@@ -61,15 +61,57 @@ describe('holidays', () => {
     }
   })
 
-  it('the number of holidays per state in 2026', () => {
+  it('the number of holidays per state in 2024–2027', () => {
+    // Every listed holiday counts, also when it falls on a weekend; none of them coincide in these years.
     const counts: Record<GermanState, number> = {
       BW: 12, BY: 13, BE: 10, BB: 10, HB: 10, HH: 10, HE: 10, MV: 11,
       NI: 10, NW: 11, RP: 11, SL: 12, SN: 11, ST: 11, SH: 10, TH: 11,
     }
-    for (const state of GERMAN_STATES) {
-      expect(holidaysOf(rulesOf(state), 2026).size, state).toBe(counts[state])
+    for (const year of [2024, 2025, 2026, 2027]) {
+      for (const state of GERMAN_STATES) {
+        expect(holidaysOf(rulesOf(state), year).size, `${state} ${year}`).toBe(counts[state])
+      }
+      expect(holidaysOf(rulesOf('BY', false), year).size, `BY without Assumption Day ${year}`).toBe(12)
     }
-    expect(holidaysOf(rulesOf('BY', false), 2026).size).toBe(12)
+  })
+
+  it('every state\'s holidays in 2024–2027 against a fixed calendar', () => {
+    const moveable: Record<number, Partial<Record<HolidayKey, string>>> = {
+      2024: { good_friday: '03-29', easter_monday: '04-01', ascension_day: '05-09', whit_monday: '05-20', corpus_christi: '05-30', repentance_day: '11-20' },
+      2025: { good_friday: '04-18', easter_monday: '04-21', ascension_day: '05-29', whit_monday: '06-09', corpus_christi: '06-19', repentance_day: '11-19' },
+      2026: { good_friday: '04-03', easter_monday: '04-06', ascension_day: '05-14', whit_monday: '05-25', corpus_christi: '06-04', repentance_day: '11-18' },
+      2027: { good_friday: '03-26', easter_monday: '03-29', ascension_day: '05-06', whit_monday: '05-17', corpus_christi: '05-27', repentance_day: '11-17' },
+    }
+    const fixed: Partial<Record<HolidayKey, string>> = {
+      new_year: '01-01', epiphany: '01-06', womens_day: '03-08', labour_day: '05-01', assumption_day: '08-15',
+      childrens_day: '09-20', german_unity_day: '10-03', reformation_day: '10-31', all_saints_day: '11-01',
+      christmas_day: '12-25', boxing_day: '12-26',
+    }
+    const nationwide: HolidayKey[] = [
+      'new_year', 'good_friday', 'easter_monday', 'labour_day', 'ascension_day', 'whit_monday', 'german_unity_day',
+      'christmas_day', 'boxing_day',
+    ]
+    const regional: Partial<Record<HolidayKey, GermanState[]>> = {
+      epiphany: ['BW', 'BY', 'ST'],
+      womens_day: ['BE', 'MV'],
+      corpus_christi: ['BW', 'BY', 'HE', 'NW', 'RP', 'SL'],
+      assumption_day: ['SL', 'BY'],
+      childrens_day: ['TH'],
+      reformation_day: ['BB', 'HB', 'HH', 'MV', 'NI', 'SN', 'ST', 'SH', 'TH'],
+      all_saints_day: ['BW', 'BY', 'NW', 'RP', 'SL'],
+      repentance_day: ['SN'],
+    }
+    for (const year of [2024, 2025, 2026, 2027]) {
+      const dateOf = (key: HolidayKey) => `${year}-${moveable[year]![key] ?? fixed[key]}`
+      for (const state of GERMAN_STATES) {
+        const keys = [...nationwide, ...(Object.keys(regional) as HolidayKey[]).filter(key => regional[key]!.includes(state))]
+        const expected = Object.fromEntries(keys.map(key => [dateOf(key), key]))
+        expect(Object.fromEntries(holidaysOf(rulesOf(state), year)), `${state} ${year}`).toEqual(expected)
+      }
+      const bavariaWithout = Object.fromEntries(holidaysOf(rulesOf('BY', false), year))
+      expect(bavariaWithout[dateOf('assumption_day')], `BY ${year}`).toBeUndefined()
+      expect(bavariaWithout[dateOf('corpus_christi')], `BY ${year}`).toBe('corpus_christi')
+    }
   })
 
   it('state-specific days', () => {
