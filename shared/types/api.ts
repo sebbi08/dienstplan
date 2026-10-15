@@ -1119,3 +1119,12 @@ export interface DueRequirementDto {
   state: Exclude<RequirementState, 'ok'>
   dueOn: IsoDate | null
 }
+
+/** Why a child is away on a day (child attendance). */
+export type AbsenceKind = 'sick' | 'vacation' | 'excused'
+
+/** A child's status on a day: not here yet, here, picked up, away with a kind, or unexcused (past care day, nothing entered). */
+export type AttendanceStatus = 'not_yet' | 'present' | 'gone' | AbsenceKind | 'unexcused'
+
+/** One cell of the month table: present (here or picked up), an absence kind, unexcused, or empty. */
+export type MonthCell = 'present' | AbsenceKind | 'unexcused' | 'none'
