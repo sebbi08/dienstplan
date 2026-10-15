@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countsForMeal, dayStatus, monthCell, monthSums, OVERDUE_MINUTES, pickupOverdue } from '../../shared/domain/attendance'
+import { countsForMeal, dayStatus, monthCell, monthSums, OVERDUE_MINUTES, pickupOverdue } from '../../shared/domain/childAttendance'
 import type { AttendanceStatus } from '../../shared/types/api'
 
 const open = (arrived: number) => ({ arrived, left: null })
