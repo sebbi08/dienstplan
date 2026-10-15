@@ -99,10 +99,18 @@ const { busy, guard } = useBusy()
  * a Vormerkung without the waitlist switch, a contract without an entry date or starting after today without the switch
  * for future contracts. Its record would then answer "not found", so creating or saving goes back to the list.
  */
-function hiddenAtTablet(input: ChildMasterInput): 'waitlist' | 'future' | null {
+type HiddenReason = 'waitlist' | 'future' | 'noEntry'
+function hiddenAtTablet(input: ChildMasterInput): HiddenReason | null {
   if (input.admissionStatus === 'waitlist') return rights.value?.showWaitlist ? null : 'waitlist'
-  const future = input.entryDate === null || input.entryDate > todayIso()
-  return future && !rights.value?.showFutureContracts ? 'future' : null
+  if (rights.value?.showFutureContracts) return null
+  if (input.entryDate === null) return 'noEntry'
+  return input.entryDate > todayIso() ? 'future' : null
+}
+const HIDDEN_CREATED: Record<HiddenReason, string> = {
+  waitlist: de.children.createdHiddenWaitlist, future: de.children.createdHiddenFuture, noEntry: de.children.createdHiddenNoEntry,
+}
+const HIDDEN_SAVED: Record<HiddenReason, string> = {
+  waitlist: de.children.savedHiddenWaitlist, future: de.children.savedHiddenFuture, noEntry: de.children.savedHiddenNoEntry,
 }
 async function create(): Promise<boolean> {
   try {
@@ -111,7 +119,7 @@ async function create(): Promise<boolean> {
     // The guard in save() holds until the navigation is done, so the child cannot be created twice.
     const hidden = hiddenAtTablet(input)
     if (hidden) {
-      useToast().add({ title: hidden === 'waitlist' ? de.children.createdHiddenWaitlist : de.children.createdHiddenFuture, color: 'success' })
+      useToast().add({ title: HIDDEN_CREATED[hidden], color: 'success' })
       await navigateTo('/children')
     }
     else {
@@ -131,7 +139,7 @@ async function update(): Promise<boolean> {
   const request = () => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: { ...input, baseGroupId: loadedGroupId } satisfies ChildMasterUpdateInput })
   const hidden = hiddenAtTablet(input)
   if (!hidden) return run(request, de.common.saved)
-  const ok = await runWithoutReload(request, hidden === 'waitlist' ? de.children.savedHiddenWaitlist : de.children.savedHiddenFuture)
+  const ok = await runWithoutReload(request, HIDDEN_SAVED[hidden])
   if (ok) await navigateTo('/children')
   return ok
 }
