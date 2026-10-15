@@ -64,6 +64,29 @@ export function terminalStatus(db: Db, facilityId: number, now: Date = new Date(
 }
 
 /**
+ * Checks the employee's PIN: pin_missing without one, pin_locked while locked, pin_invalid when wrong. The fifth wrong
+ * attempt in a row locks the person for 15 minutes (pin_locked); a right PIN resets the counter. Stamping and unlocking
+ * the child records count together. The caller has checked that the person belongs to this tablet.
+ */
+export function verifyEmployeePin(db: Db, employeeId: number, pin: string, now: Date): void {
+  const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
+  if (!employee) throw new ServiceError(404, 'employee_not_found')
+  if (employee.pinHash === null) throw new ServiceError(400, 'pin_missing')
+  if (employee.pinLockedUntil && employee.pinLockedUntil > now.toISOString()) throw new ServiceError(423, 'pin_locked')
+  if (!verifyPassword(pin, employee.pinHash)) {
+    const failed = employee.pinFailed + 1
+    if (failed >= MAX_PIN_ATTEMPTS) {
+      const pinLockedUntil = new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000).toISOString()
+      db.update(employees).set({ pinFailed: 0, pinLockedUntil }).where(eq(employees.id, employeeId)).run()
+      throw new ServiceError(423, 'pin_locked')
+    }
+    db.update(employees).set({ pinFailed: failed }).where(eq(employees.id, employeeId)).run()
+    throw new ServiceError(401, 'pin_invalid')
+  }
+  db.update(employees).set({ pinFailed: 0, pinLockedUntil: null }).where(eq(employees.id, employeeId)).run()
+}
+
+/**
  * Checks the PIN (5 wrong attempts lock the person for 15 minutes) and stamps as "terminal". Only the facility's
  * employees, and helpers on the days they are planned here: anyone else is employee_not_found before the PIN is looked
  * at, so no attempt is counted. Employment is checked against the person's own record.
@@ -79,18 +102,6 @@ export function terminalStamp(
   }
   const info = loadEmployee(db, employeeId)!.info
   if (!isEmployedOn(info, date)) throw new ServiceError(400, 'employee_not_employed')
-  if (employee.pinHash === null) throw new ServiceError(400, 'pin_missing')
-  if (employee.pinLockedUntil && employee.pinLockedUntil > now.toISOString()) throw new ServiceError(423, 'pin_locked')
-  if (!verifyPassword(pin, employee.pinHash)) {
-    const failed = employee.pinFailed + 1
-    if (failed >= MAX_PIN_ATTEMPTS) {
-      const pinLockedUntil = new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000).toISOString()
-      db.update(employees).set({ pinFailed: 0, pinLockedUntil }).where(eq(employees.id, employeeId)).run()
-      throw new ServiceError(423, 'pin_locked')
-    }
-    db.update(employees).set({ pinFailed: failed }).where(eq(employees.id, employeeId)).run()
-    throw new ServiceError(401, 'pin_invalid')
-  }
-  db.update(employees).set({ pinFailed: 0, pinLockedUntil: null }).where(eq(employees.id, employeeId)).run()
+  verifyEmployeePin(db, employeeId, pin, now)
   return stamp(db, employeeId, action, 'terminal', now)
 }

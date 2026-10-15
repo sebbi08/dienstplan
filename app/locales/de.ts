@@ -681,6 +681,7 @@ export const de = {
     invalid_capacity: 'Bitte eine ganze Zahl von 1 bis 200 eingeben oder das Feld leer lassen.',
     invalid_school_cutoff: 'Bitte einen gültigen Stichtag und ein Alter von 4 bis 8 Jahren angeben.',
     tablet_lock_minutes_invalid: 'Die Sperrzeit muss zwischen 1 und 30 Minuten liegen.',
+    tablet_locked: 'Die Kinderakten sind gesperrt. Bitte gib deinen Namen und deine PIN neu ein.',
     invalid_year: 'Dieses Kita-Jahr kann nicht angezeigt werden.',
     left_on_too_early: 'Das Austrittsdatum darf höchstens ein Jahr zurückliegen.',
     child_not_found: 'Dieses Kind existiert nicht mehr.',

@@ -3,6 +3,7 @@ import type { Db } from '../db/client'
 import { applyDueGroupChanges } from './childGroupChanges'
 import { purgeExpiredChildren } from './children'
 import { leaveSchoolChildren } from './schoolChildren'
+import { deleteExpiredUnlocks } from './tabletUnlock'
 
 /** Where the daily run reports: the console in the app. Only numbers and facility ids go there, never a name. */
 export type DailyRunLog = Pick<Console, 'info' | 'error'>
@@ -14,19 +15,22 @@ export interface DailyRunResult {
   deregistered: number
   /** Child records that were deleted after their retention period. */
   deleted: number
+  /** Tablet unlocks of child records that ran out. */
+  unlocksDeleted: number
 }
 
 /**
  * The daily run for all facilities (the app tries it every hour; each part does its work once): the planned group
  * changes whose day has come, then the school children who leave (a change into a group for school children is
  * applied by then), then deleting the records whose retention period is over. A child deregistered in a run is never
- * deleted in it: the leaving passes over a child whose record would be deleted at once.
+ * deleted in it: the leaving passes over a child whose record would be deleted at once. Last, the tablet unlocks that
+ * ran out (as of `now`) are deleted.
  *
  * `today` is the one day for all parts, so a run across midnight cannot apply changes for one day and deregister for
  * the next. No part depends on another one succeeding: one that fails is logged, counts as 0 and is tried again by the
  * next run.
  */
-export function runDaily(db: Db, today: IsoDate, log: DailyRunLog = console): DailyRunResult {
+export function runDaily(db: Db, today: IsoDate, log: DailyRunLog = console, now: Date = new Date()): DailyRunResult {
   const part = (failure: string, run: () => number): number => {
     try {
       return run()
@@ -43,5 +47,7 @@ export function runDaily(db: Db, today: IsoDate, log: DailyRunLog = console): Da
   if (deregistered > 0) log.info(`Deregistered ${deregistered} school child(ren).`)
   const deleted = part('Deleting expired child records failed', () => purgeExpiredChildren(db, today))
   if (deleted > 0) log.info(`Deleted ${deleted} child record(s) after the retention period.`)
-  return { applied, deregistered, deleted }
+  const unlocksDeleted = part('Deleting expired tablet unlocks failed', () => deleteExpiredUnlocks(db, now))
+  if (unlocksDeleted > 0) log.info(`Deleted ${unlocksDeleted} expired tablet unlock(s).`)
+  return { applied, deregistered, deleted, unlocksDeleted }
 }

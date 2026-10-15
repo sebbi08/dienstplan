@@ -746,6 +746,24 @@ export interface AppSettingsDto {
 
 export interface TerminalPersonDto { employeeId: number; name: string; clockedIn: boolean }
 
+/** Which children beyond the current ones a viewer without manager rights sees (the facility's tablet switches). */
+export interface ChildVisibility { waitlist: boolean; futureContracts: boolean }
+
+/** What the person at the child records may do and see. */
+export interface ChildRightsDto {
+  canEdit: boolean
+  isManager: boolean
+  /** Moving a child to another facility (Träger only; never at the tablet). */
+  canMoveFacility: boolean
+  showWaitlist: boolean
+  showFutureContracts: boolean
+}
+
+/** Whether the tablet shows child records, and for whom (name and rights of the person who unlocked it). */
+export type TabletUnlockStatusDto =
+  | { unlocked: false }
+  | { unlocked: true; employeeId: number; name: string; rights: ChildRightsDto; lockMinutes: number }
+
 export type StampAction = 'in' | 'out'
 export type TimeRecordSource = 'self' | 'terminal' | 'admin'
 

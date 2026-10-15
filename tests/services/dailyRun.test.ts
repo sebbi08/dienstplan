@@ -1,13 +1,16 @@
 import { asc, eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childGroupChanges, children } from '../../server/db/schema'
+import { childGroupChanges, children, terminalUnlocks } from '../../server/db/schema'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { planGroupChange } from '../../server/services/childGroupChanges'
 import { runDaily } from '../../server/services/dailyRun'
 import { setGroupForSchoolChildren } from '../../server/services/groups'
 import { schoolLeavers, setAutoLeave } from '../../server/services/schoolChildren'
+import { setPin } from '../../server/services/terminal'
+import { unlockChildren } from '../../server/services/tabletUnlock'
 import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addFacility, addGroup, addUser, createTestDb } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
@@ -60,10 +63,10 @@ describe('the daily run', () => {
   it('applies the due group change, deregisters the school child and deletes the expired record in one run', () => {
     const { changing, schoolChild, expired, archived } = threeDue()
 
-    expect(runDaily(db, DAY_BEFORE, log)).toEqual({ applied: 0, deregistered: 0, deleted: 0 })
+    expect(runDaily(db, DAY_BEFORE, log)).toEqual({ applied: 0, deregistered: 0, deleted: 0, unlocksDeleted: 0 })
     expect(messages).toEqual([])
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 1, deleted: 1 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 1, deleted: 1, unlocksDeleted: 0 })
 
     expect(row(changing)).toMatchObject({ groupId: mice, healthReviewSince: SCHOOL_START, leftOn: null })
     expect(history(changing)).toEqual([[null, bears, true], [SCHOOL_START, mice, true]])
@@ -91,7 +94,7 @@ describe('the daily run', () => {
     const longAgo = addChild(db, 1, { birthDate: '2017-03-01', entryDate: '2022-09-01', groupId: bears })
     switchOn()
 
-    expect(runDaily(db, TODAY, log)).toEqual({ applied: 0, deregistered: 0, deleted: 0 })
+    expect(runDaily(db, TODAY, log)).toEqual({ applied: 0, deregistered: 0, deleted: 0, unlocksDeleted: 0 })
 
     expect(row(longAgo)).toMatchObject({ leftOn: null })
   })
@@ -102,7 +105,7 @@ describe('the daily run', () => {
     const after = { children: db.select().from(children).all(), changes: db.select().from(childGroupChanges).all() }
     messages = []
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 0, deleted: 0 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 0, deleted: 0, unlocksDeleted: 0 })
 
     expect({ children: db.select().from(children).all(), changes: db.select().from(childGroupChanges).all() }).toEqual(after)
     expect(messages).toEqual([])
@@ -113,7 +116,7 @@ describe('the daily run', () => {
     plan(id, mice, SCHOOL_START)
     switchOn()
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 1, deleted: 0 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 1, deleted: 0, unlocksDeleted: 0 })
 
     // The other way round the leaving would have deleted the change as one after the leaving day.
     expect(history(id)).toEqual([[null, bears, true], [SCHOOL_START, mice, true]])
@@ -127,7 +130,7 @@ describe('the daily run', () => {
     plan(id, hort, SCHOOL_START, true)
     switchOn()
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 0, deleted: 0 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 0, deleted: 0, unlocksDeleted: 0 })
 
     expect(row(id)).toMatchObject({ groupId: hort, leftOn: null, contractReviewSince: SCHOOL_START })
   })
@@ -140,7 +143,7 @@ describe('the daily run', () => {
     const expiredThere = addChild(db, krippe, { leftOn: '2024-09-01' })
     switchOn()
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 1, deleted: 1 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 1, deleted: 1, unlocksDeleted: 0 })
 
     expect(row(here)).toMatchObject({ leftOn: DAY_BEFORE })
     expect(row(there)).toMatchObject({ leftOn: null })
@@ -164,7 +167,7 @@ describe('the daily run', () => {
     db.run(sql.raw(`CREATE TRIGGER fail_applying BEFORE UPDATE OF applied_at ON child_group_changes
       BEGIN SELECT RAISE(ABORT, 'disk trouble'); END`))
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 1, deleted: 1 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 1, deleted: 1, unlocksDeleted: 0 })
 
     // Nothing of the failed part is written; the other two are done.
     expect(row(changing)).toMatchObject({ groupId: bears, healthReviewSince: null })
@@ -184,12 +187,48 @@ describe('the daily run', () => {
     expect(row(changing)).toMatchObject({ groupId: mice, healthReviewSince: SCHOOL_START })
   })
 
+  describe('tablet unlocks', () => {
+    const unlockAt = (now: Date) => {
+      const employeeId = addEmployee(db, 'Anna')
+      setTimeTrackingFrom(db, 1, '2026-10-01')
+      setPin(db, 1, employeeId, '1234')
+      const tablet = addUser(db, 'tablet', 'terminal')
+      unlockChildren(db, { id: tablet.id, facilityId: 1 }, employeeId, '1234', now)
+    }
+
+    it('deletes expired tablet unlocks and keeps the others', () => {
+      unlockAt(new Date('2026-10-13T08:00:00.000Z'))
+
+      // Lock time 2 minutes plus 30 seconds of grace.
+      expect(runDaily(db, TODAY, log, new Date('2026-10-13T08:02:00.000Z'))).toMatchObject({ unlocksDeleted: 0 })
+      expect(db.select().from(terminalUnlocks).all()).toHaveLength(1)
+      expect(runDaily(db, TODAY, log, new Date('2026-10-13T08:03:00.000Z'))).toEqual({ applied: 0, deregistered: 0, deleted: 0, unlocksDeleted: 1 })
+      expect(db.select().from(terminalUnlocks).all()).toEqual([])
+      expect(messages).toEqual([{ level: 'info', text: 'Deleted 1 expired tablet unlock(s).' }])
+    })
+
+    it('still does the other parts when deleting unlocks fails', () => {
+      unlockAt(new Date('2026-10-13T08:00:00.000Z'))
+      const { expired } = threeDue()
+      db.run(sql.raw(`CREATE TRIGGER fail_unlocks BEFORE DELETE ON terminal_unlocks
+        BEGIN SELECT RAISE(ABORT, 'disk trouble'); END`))
+      messages = []
+
+      expect(runDaily(db, SCHOOL_START, log, new Date('2027-09-01T08:00:00.000Z'))).toEqual({ applied: 1, deregistered: 1, deleted: 1, unlocksDeleted: 0 })
+
+      expect(row(expired)).toBeUndefined()
+      expect(db.select().from(terminalUnlocks).all()).toHaveLength(1)
+      expect(messages.filter(message => message.level === 'error').map(message => message.text.includes('Deleting expired tablet unlocks failed')))
+        .toEqual([true])
+    })
+  })
+
   it('still applies and deregisters when deleting fails, and tries deleting again in the next run', () => {
     const { changing, schoolChild, expired } = threeDue()
     db.run(sql.raw(`CREATE TRIGGER fail_deleting BEFORE DELETE ON children
       BEGIN SELECT RAISE(ABORT, 'disk trouble'); END`))
 
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 1, deleted: 0 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 1, deregistered: 1, deleted: 0, unlocksDeleted: 0 })
 
     expect(row(changing)).toMatchObject({ groupId: mice })
     expect(row(schoolChild)).toMatchObject({ leftOn: DAY_BEFORE })
@@ -198,7 +237,7 @@ describe('the daily run', () => {
       .toEqual([true])
 
     db.run(sql.raw('DROP TRIGGER fail_deleting'))
-    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 0, deleted: 1 })
+    expect(runDaily(db, SCHOOL_START, log)).toEqual({ applied: 0, deregistered: 0, deleted: 1, unlocksDeleted: 0 })
     expect(row(expired)).toBeUndefined()
   })
 })

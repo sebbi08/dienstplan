@@ -24,7 +24,10 @@ const USER_ROUTES = [
   'my/requirements.get.ts',
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
-const TERMINAL_ROUTES = ['terminal/status.get.ts', 'terminal/stamp.post.ts']
+const TERMINAL_ROUTES = [
+  'terminal/status.get.ts', 'terminal/stamp.post.ts', 'terminal/children/unlock.post.ts', 'terminal/children/lock.post.ts',
+  'terminal/children/keep-alive.post.ts', 'terminal/children/status.get.ts',
+]
 /** Routes only the Träger (provider) may call; they must check with requireProvider(. */
 const PROVIDER_ROUTES = [
   'employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts', 'leave-settings/module.put.ts',

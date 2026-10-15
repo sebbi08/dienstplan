@@ -24,7 +24,9 @@ const label = z.string().max(100)
 export const idParams = z.object({ id: z.coerce.number().int().positive() })
 export const pinSchema = z.object({ pin: z.string().regex(/^\d{4}$/) })
 export const terminalStampSchema = z.object({ employeeId: z.number().int(), pin: z.string().max(10), action: z.enum(['in', 'out']) })
-export const dateParams = z.object({ date: isoDate })
+/** Unlocking the child records at the tablet: the person and the PIN (checked by the service). */
+export const tabletUnlockSchema = z.object({ employeeId: z.number().int(), pin: z.string().max(10) })
+export const dateParams =z.object({ date: isoDate })
 export const monthParams = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
