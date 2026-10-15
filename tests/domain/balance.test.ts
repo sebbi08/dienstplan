@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   balanceUntil, computeDay, computeRange, dayCredit, hasPlannedDuty, summarize, usesRecords, type ActualTime,
 } from '../../shared/domain/balance'
+import { BW_RULES } from '../../shared/domain/holidays'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import { code, F1, M, shift, special } from '../helpers/entries'
 
-const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-10-05' }], leftOn: null }
+const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-10-05' }], leftOn: null, holidays: BW_RULES }
 const day = '2026-10-06'
 
 describe('dayCredit', () => {
@@ -52,7 +53,7 @@ describe('computeDay / computeRange', () => {
       .toEqual({ target: 2340, credit: 2325, delta: -15 })
   })
   it('sums a week across the year boundary with Neujahr at target 0', () => {
-    const yearInfo: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+    const yearInfo: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null, holidays: BW_RULES }
     const dates = ['2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31']
     const entries = dates.map(date => shift(1, date, ...M))
     const days = computeRange(yearInfo, entries, '2026-12-28', '2027-01-03')
@@ -75,7 +76,7 @@ describe('balanceUntil', () => {
 })
 
 describe('recorded time (Zeiterfassung)', () => {
-  const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+  const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null, holidays: BW_RULES }
   const actual = (minutes: Record<string, number>, from = '2026-10-01', today = '2026-10-08'): ActualTime =>
     ({ from, today, minutesByDate: new Map(Object.entries(minutes)) })
   const planned = [shift(1, '2026-10-06', ...M), shift(1, '2026-10-08', ...M)]

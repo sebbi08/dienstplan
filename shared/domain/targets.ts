@@ -1,5 +1,5 @@
 import { weekday } from './dates'
-import { isHoliday } from './holidays'
+import { isHolidayIn, type HolidayRules } from './holidays'
 import type { IsoDate } from './types'
 
 /** Working days as a bitmask: bit 0 = Monday … bit 6 = Sunday. */
@@ -15,6 +15,8 @@ export interface HoursPeriod {
 export interface EmploymentInfo {
   hours: HoursPeriod[]
   leftOn: IsoDate | null
+  /** Public-holiday rules of the home facility: they decide the working days everywhere, help-outs included. */
+  holidays: HolidayRules
 }
 
 function periodOn(info: EmploymentInfo, date: IsoDate): HoursPeriod | null {
@@ -58,9 +60,9 @@ export function isEmployedInRange(info: EmploymentInfo, from: IsoDate, to: IsoDa
   return start !== null && start <= to && (info.leftOn === null || info.leftOn >= from)
 }
 
-/** A day the employee is expected to work: employed, one of the contract's working days, no public holiday. */
+/** A day the employee is expected to work: employed, one of the contract's working days, no public holiday of the home facility. */
 export function isWorkday(info: EmploymentInfo, date: IsoDate): boolean {
-  return isEmployedOn(info, date) && !isHoliday(date) && worksOnWeekday(workdaysOn(info, date), weekday(date))
+  return isEmployedOn(info, date) && !isHolidayIn(date, info.holidays) && worksOnWeekday(workdaysOn(info, date), weekday(date))
 }
 
 /** Weekly hours spread evenly over the working days of the valid period; 0 on all other days. */

@@ -3,6 +3,7 @@ import type { HolidayKey } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
+import type { GermanState } from '../domain/states'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
 import type { Warning } from '../domain/warnings'
@@ -43,6 +44,10 @@ export interface SessionUser {
 export interface FacilityDto {
   id: number
   name: string
+  /** The state (Bundesland) whose public holidays apply. */
+  state: GermanState
+  /** Mariä Himmelfahrt is a holiday (effective only in Bavaria). */
+  assumptionDay: boolean
 }
 
 /** A group (Gruppe) of a facility. */

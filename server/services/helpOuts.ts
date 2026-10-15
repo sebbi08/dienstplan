@@ -40,7 +40,7 @@ function otherFacilitiesStaff(db: Db, facilityId: number, year: number, month: n
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rows = db.select({
     employeeId: employees.id, name: employees.name, shortName: employees.shortName, leftOn: employees.leftOn,
-    facilityName: facilities.name,
+    facilityName: facilities.name, state: facilities.state, assumptionDay: facilities.assumptionDay,
   })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
@@ -54,6 +54,7 @@ function otherFacilitiesStaff(db: Db, facilityId: number, year: number, month: n
     hours: hours.filter(h => h.employeeId === row.employeeId)
       .map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
     leftOn: row.leftOn,
+    holidays: { state: row.state, assumptionDay: row.assumptionDay },
   }, monthStart, monthEnd))
 }
 

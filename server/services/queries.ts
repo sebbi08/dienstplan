@@ -5,7 +5,7 @@ import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, helpOuts, shiftTemplates } from '../db/schema'
+import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, shiftTemplates } from '../db/schema'
 
 export interface EntryFilter {
   from?: IsoDate
@@ -111,16 +111,20 @@ export function groupByEmployee(list: EntryDto[]): Map<number, EntryDto[]> {
   return map
 }
 
+/** Employees with their contract hours and the public-holiday rules of their home facility. */
 function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
-  return db.select().from(employees)
+  return db.select({ row: employees, state: facilities.state, assumptionDay: facilities.assumptionDay })
+    .from(employees)
+    .innerJoin(facilities, eq(employees.facilityId, facilities.id))
     .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-    .map(row => ({
+    .map(({ row, state, assumptionDay }) => ({
       ...row,
       info: {
         hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
         leftOn: row.leftOn,
+        holidays: { state, assumptionDay },
       },
     }))
 }

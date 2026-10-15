@@ -8,8 +8,10 @@ import { seedBuiltinRequirementTypes } from './requirements'
 
 const ordered = [asc(facilities.sortOrder), asc(facilities.id)]
 
-function toDto(row: { id: number; name: string }): FacilityDto {
-  return { id: row.id, name: row.name }
+const dtoColumns = { id: facilities.id, name: facilities.name, state: facilities.state, assumptionDay: facilities.assumptionDay }
+
+function toDto(row: FacilityDto): FacilityDto {
+  return { id: row.id, name: row.name, state: row.state, assumptionDay: row.assumptionDay }
 }
 
 export function firstFacilityId(db: Db): number | null {
@@ -45,7 +47,7 @@ export function resolveFacilityId(db: Db, user: typeof users.$inferSelect): numb
 
 /** The Träger sees every facility, everyone else only their own. */
 export function listFacilities(db: Db, viewer: SessionUser): FacilitiesDto {
-  const query = db.select({ id: facilities.id, name: facilities.name }).from(facilities)
+  const query = db.select(dtoColumns).from(facilities)
   const rows = viewer.role === 'provider'
     ? query.orderBy(...ordered).all()
     : viewer.facilityId === null ? [] : query.where(eq(facilities.id, viewer.facilityId)).all()

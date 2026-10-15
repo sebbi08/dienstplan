@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { groupLeaveRanges } from '../../shared/domain/leave'
 import { dateRange, isWeekend } from '../../shared/domain/dates'
-import { isHoliday } from '../../shared/domain/holidays'
+import { isHolidayIn } from '../../shared/domain/holidays'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearCalendarDto } from '../../shared/types/api'
@@ -87,9 +87,10 @@ export function getYearCalendar(
     employees: staff.map(employee => ({ id: employee.id, name: employee.name })),
     days,
     otherEntries: Object.fromEntries([...otherSets].map(([id, set]) => [id, [...set].sort()])),
-    // Mon–Fri (no holiday) on which a part-timer does not work: shown like weekends, skipped when entering absences.
+    // Mon–Fri (no holiday of the person's home facility) on which a part-timer does not work: shown like weekends,
+    // skipped when entering absences.
     freeDays: Object.fromEntries(staff.map(employee => [employee.id, dateRange(`${year}-01-01`, `${year}-12-31`)
-      .filter(date => !isWeekend(date) && !isHoliday(date) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
+      .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key)),
     events: listCalendarEvents(db, facilityId, year),
   }

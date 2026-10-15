@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { BW_RULES } from '../../shared/domain/holidays'
 import {
   dailyTarget, employmentStart, isEmployedInRange, isEmployedOn, isWorkday, MONDAY_TO_FRIDAY, weeklyMinutesOn,
   type EmploymentInfo,
 } from '../../shared/domain/targets'
 
-const fullTime: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+const fullTime: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null, holidays: BW_RULES }
 
 describe('targets', () => {
   it('derives the daily target from weekly hours (39 h → 7:48 h)', () => {
@@ -19,6 +20,7 @@ describe('targets', () => {
     const info: EmploymentInfo = {
       hours: [{ weeklyMinutes: 1800, validFrom: '2026-10-07' }, { weeklyMinutes: 2340, validFrom: '2026-01-01' }],
       leftOn: null,
+      holidays: BW_RULES,
     }
     expect(weeklyMinutesOn(info, '2026-10-06')).toBe(2340)
     expect(dailyTarget(info, '2026-10-06')).toBe(468)
@@ -34,7 +36,7 @@ describe('targets', () => {
     expect(isEmployedInRange(info, '2026-11-01', '2026-11-30')).toBe(false)
   })
   it('treats employees without hours as not employed', () => {
-    const info: EmploymentInfo = { hours: [], leftOn: null }
+    const info: EmploymentInfo = { hours: [], leftOn: null, holidays: BW_RULES }
     expect(isEmployedOn(info, '2026-10-05')).toBe(false)
     expect(employmentStart(info)).toBeNull()
   })
@@ -42,7 +44,7 @@ describe('targets', () => {
 
 describe('working days', () => {
   // 20 h on Monday–Wednesday from 2026-10-01
-  const partTime = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }], leftOn: null }
+  const partTime = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }], leftOn: null, holidays: BW_RULES }
 
   it('spreads the weekly hours over the working days only', () => {
     expect(dailyTarget(partTime, '2026-10-05')).toBe(400) // Monday: 1200 / 3
@@ -57,7 +59,7 @@ describe('working days', () => {
     expect(isWorkday(partTime, '2026-09-28')).toBe(false) // before employment
   })
   it('treats periods without working days as Monday to Friday', () => {
-    const info = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+    const info = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null, holidays: BW_RULES }
     expect(isWorkday(info, '2026-10-09')).toBe(true)
     expect(dailyTarget(info, '2026-10-09')).toBe(468)
   })
@@ -65,6 +67,7 @@ describe('working days', () => {
     const info = {
       hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01', workdays: MONDAY_TO_FRIDAY }, { weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }],
       leftOn: null,
+      holidays: BW_RULES,
     }
     expect(dailyTarget(info, '2026-09-25')).toBe(468) // Friday, still full time
     expect(dailyTarget(info, '2026-10-09')).toBe(0) // Friday, part time from October

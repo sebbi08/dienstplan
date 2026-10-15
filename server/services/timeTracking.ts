@@ -4,7 +4,7 @@ import { computeDay, hasPlannedDuty, usesRecords } from '../../shared/domain/bal
 import { cellKey } from '../../shared/domain/cells'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
-import { holidayOn } from '../../shared/domain/holidays'
+import { holidayIn } from '../../shared/domain/holidays'
 import { creditedMinutes, mayStampVia, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { formatTime } from '../../shared/domain/time'
@@ -219,7 +219,8 @@ export function getTimeMonth(
       // "Im Dienst erkrankt": the stamped times stay visible, the planned time counts and the day gets no time hints.
       const sickLeave = sickLeaves[cellKey(employeeId, date)] ?? null
       return {
-        date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayOn(date),
+        // The time sheet is the person's: holidays of their home facility.
+        date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayIn(date, employee.info.holidays),
         plan: describeCellDetailed(dayEntries),
         plannedMinutes: planned.credit, target: planned.target,
         records, recordedMinutes: recordedMinutes(records), counted: counted.credit,

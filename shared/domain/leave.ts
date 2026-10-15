@@ -1,5 +1,5 @@
 import { addDays, isWeekend } from './dates'
-import { isHoliday } from './holidays'
+import { isHolidayIn, type HolidayRules } from './holidays'
 import type { IsoDate } from './types'
 
 export interface LeaveEntitlement {
@@ -21,11 +21,12 @@ export interface LeaveRange {
   days: number
 }
 
-export function countsAsLeaveDay(date: IsoDate): boolean {
-  return !isWeekend(date) && !isHoliday(date)
+/** Monday to Friday without the public holidays of the rules. */
+export function countsAsLeaveDay(date: IsoDate, rules: HolidayRules): boolean {
+  return !isWeekend(date) && !isHolidayIn(date, rules)
 }
 
-/** Decides which dates count as leave days; per employee this is their working days (default Monday–Friday). */
+/** Decides which dates count as leave days; per employee this is their working days (`isWorkday`). */
 export type LeaveDayRule = (date: IsoDate) => boolean
 
 function leaveDays(dates: IsoDate[], isLeaveDay: LeaveDayRule): IsoDate[] {
@@ -34,7 +35,7 @@ function leaveDays(dates: IsoDate[], isLeaveDay: LeaveDayRule): IsoDate[] {
 
 export function leaveAccount(
   entitlement: LeaveEntitlement | null, vacationDates: IsoDate[], year: number, today: IsoDate,
-  isLeaveDay: LeaveDayRule = countsAsLeaveDay,
+  isLeaveDay: LeaveDayRule,
 ): LeaveAccount {
   const days = leaveDays(vacationDates, isLeaveDay).filter(date => date.startsWith(`${year}-`))
   const taken = days.filter(date => date < today).length
@@ -51,7 +52,7 @@ function nextLeaveDay(date: IsoDate, isLeaveDay: LeaveDayRule): IsoDate | null {
   return null
 }
 
-export function groupLeaveRanges(dates: IsoDate[], isLeaveDay: LeaveDayRule = countsAsLeaveDay): LeaveRange[] {
+export function groupLeaveRanges(dates: IsoDate[], isLeaveDay: LeaveDayRule): LeaveRange[] {
   const ranges: LeaveRange[] = []
   for (const date of leaveDays(dates, isLeaveDay)) {
     const current = ranges.at(-1)

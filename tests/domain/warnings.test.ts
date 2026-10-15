@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { BW_RULES } from '../../shared/domain/holidays'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { DomainEntry } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type CoverageRule, type EmployeeDay } from '../../shared/domain/warnings'
 import { code, F1, F2, M, S, shift, special } from '../helpers/entries'
 
 const date = '2026-10-06'
-const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null }
+const info: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null, holidays: BW_RULES }
 const rules: CoverageRule[] = [
   { id: 1, label: 'Spätdienst 8:45–17:00', start: 525, end: 1020, minCount: 2 },
   { id: 2, label: 'Frühdienst ab 7:00', start: 420, end: null, minCount: 1 },
@@ -22,12 +23,12 @@ const fullCoverage = () => [
 
 describe('dayWarnings', () => {
   it('returns nothing for a fully covered day', () => {
-    expect(dayWarnings(date, team(...fullCoverage()), rules, false)).toEqual([])
+    expect(dayWarnings(date, team(...fullCoverage()), rules, false, BW_RULES)).toEqual([])
   })
   it('reports a missing coverage shift with counts', () => {
     const lists = fullCoverage()
     lists[3] = [shift(4, date, 465, 960, 700, 730)]
-    expect(dayWarnings(date, team(...lists), rules, false)).toEqual([
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([
       { type: 'coverage', date, ruleId: 1, label: 'Spätdienst 8:45–17:00', found: 1, required: 2 },
     ])
   })
@@ -35,7 +36,7 @@ describe('dayWarnings', () => {
     const lists = fullCoverage()
     lists[3] = [special(4, date, 525, 1020)]
     lists[0] = [code(1, date, 'prep_time', 'timed', 420, 540)]
-    expect(dayWarnings(date, team(...lists), rules, false)).toEqual([
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([
       { type: 'coverage', date, ruleId: 2, label: 'Frühdienst ab 7:00', found: 0, required: 1 },
       { type: 'target_gap', date, employeeId: 1, missingMinutes: 348 },
     ])
@@ -44,23 +45,23 @@ describe('dayWarnings', () => {
     const lists = [...fullCoverage(), []]
     const employees = team(...lists)
     employees.push({ employeeId: 9, groupId: null, info: { ...info, leftOn: '2026-09-30' }, entries: [] })
-    expect(dayWarnings(date, employees, rules, false)).toEqual([
+    expect(dayWarnings(date, employees, rules, false, BW_RULES)).toEqual([
       { type: 'missing_entry', date, employeeId: 5 },
     ])
   })
   it('does not report sick employees', () => {
     const lists = [...fullCoverage(), [code(5, date, 'sick', 'daily_target')]]
-    expect(dayWarnings(date, team(...lists), rules, false)).toEqual([])
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([])
   })
   it('reports the remaining time when VZ does not fill the day (5:48 h)', () => {
     const lists = [...fullCoverage(), [code(5, date, 'prep_time', 'timed', 450, 570)]]
-    expect(dayWarnings(date, team(...lists), rules, false)).toEqual([
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([
       { type: 'target_gap', date, employeeId: 5, missingMinutes: 348 },
     ])
   })
   it('ignores a remaining time below 15 minutes (VZ + F2 after it = 7:45 h of 7:48 h)', () => {
     const lists = [...fullCoverage(), [code(5, date, 'prep_time', 'timed', 450, 570), shift(5, date, 570, 945, 700, 730)]]
-    expect(dayWarnings(date, team(...lists), rules, false)).toEqual([])
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([])
   })
   it('counts a helper for coverage only, without missing entry or target gap', () => {
     const lists = fullCoverage()
@@ -68,17 +69,17 @@ describe('dayWarnings', () => {
     employees.push({ employeeId: 7, groupId: null, info, entries: [shift(7, date, ...F1)], coverageOnly: true })
     employees.push({ employeeId: 8, groupId: null, info, entries: [], coverageOnly: true })
     employees.push({ employeeId: 9, groupId: null, info, entries: [code(9, date, 'prep_time', 'timed', 450, 570)], coverageOnly: true })
-    expect(dayWarnings(date, employees, rules, false)).toEqual([])
+    expect(dayWarnings(date, employees, rules, false, BW_RULES)).toEqual([])
   })
   it('counts a day spent in another plan as filled', () => {
     const employees = team(...fullCoverage())
     employees.push({ employeeId: 5, groupId: null, info, entries: [], busyElsewhere: true })
-    expect(dayWarnings(date, employees, rules, false)).toEqual([])
+    expect(dayWarnings(date, employees, rules, false, BW_RULES)).toEqual([])
   })
   it('skips weekends, holidays and closure days', () => {
-    expect(dayWarnings('2026-10-10', team([]), rules, false)).toEqual([])
-    expect(dayWarnings('2026-12-25', team([]), rules, false)).toEqual([])
-    expect(dayWarnings(date, team([]), rules, true)).toEqual([])
+    expect(dayWarnings('2026-10-10', team([]), rules, false, BW_RULES)).toEqual([])
+    expect(dayWarnings('2026-12-25', team([]), rules, false, BW_RULES)).toEqual([])
+    expect(dayWarnings(date, team([]), rules, true, BW_RULES)).toEqual([])
   })
 })
 
@@ -91,7 +92,7 @@ describe('dayWarnings with groups (Review Focus 2)', () => {
   const member = (employeeId: number, groupId: number | null, entries: DomainEntry[]): EmployeeDay =>
     ({ employeeId, groupId, info, entries })
   const coverage = (employees: EmployeeDay[], list: CoverageRule[]) =>
-    dayWarnings(date, employees, list, false).filter(warning => warning.type === 'coverage')
+    dayWarnings(date, employees, list, false, BW_RULES).filter(warning => warning.type === 'coverage')
 
   it('counts each rule on a mixed day: a facility rule all duties, a group rule only its effective group', () => {
     const employees = [
@@ -168,9 +169,9 @@ describe('timeWarnings', () => {
 
 describe('working days in warnings', () => {
   it('does not ask for an entry on a part-timer’s day off', () => {
-    const monToWed: EmploymentInfo = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 }], leftOn: null }
+    const monToWed: EmploymentInfo = { hours: [{ weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 }], leftOn: null, holidays: BW_RULES }
     const employees: EmployeeDay[] = [{ employeeId: 7, groupId: null, info: monToWed, entries: [] }]
-    const missing = (day: string) => dayWarnings(day, employees, [], false).filter(w => w.type === 'missing_entry')
+    const missing = (day: string) => dayWarnings(day, employees, [], false, BW_RULES).filter(w => w.type === 'missing_entry')
     expect(missing('2026-10-07')).toHaveLength(1) // Wednesday: working day
     expect(missing('2026-10-08')).toEqual([]) // Thursday: day off
   })

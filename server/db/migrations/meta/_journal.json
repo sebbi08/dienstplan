@@ -232,6 +232,13 @@
       "when": 1792047612003,
       "tag": "0032_tablet_children",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1792067583096,
+      "tag": "0033_facility_state",
+      "breakpoints": true
     }
   ]
 }

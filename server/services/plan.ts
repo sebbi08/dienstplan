@@ -3,7 +3,7 @@ import { groupAttendance } from '../../shared/domain/attendance'
 import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
-import { holidayOn } from '../../shared/domain/holidays'
+import { holidayIn, type HolidayRules } from '../../shared/domain/holidays'
 import {
   changeHistory, diffCells, ownEntries, snapshotCells, type CellState, type ReleasedChange, type ReleasedState,
 } from '../../shared/domain/releaseDiff'
@@ -24,6 +24,7 @@ import { computeBalances } from './balances'
 import { loadSickLeaves, sickLeavesByCell } from './earlySickLeaves'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
+import { facilityHolidayRules } from './holidayRules'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, ownCellFilter, type EmployeeRecord,
@@ -72,6 +73,8 @@ function buildAdminData(
   const names = groupNames(db, facilityId)
   const rules = loadCoverageRules(db, facilityId)
     .map(rule => rule.groupId === null ? rule : { ...rule, groupName: names[rule.groupId] ?? '' })
+  // The plan's days are checked against this facility's holidays; each person's own working days follow their info.
+  const holidays = facilityHolidayRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
   const trackingFrom = activeTrackingFrom(db, facilityId, today)
   const recordsByCell = new Map<string, TimeRecordDto[]>()
@@ -91,15 +94,16 @@ function buildAdminData(
         employeeId: employee.id, groupId: employee.groupId, info: employee.info, entries: busyElsewhere ? [] : dayEntries, busyElsewhere,
       }
     })
-    // Helpers have no home group here: their duties count for a group only with an entry group.
+    // Helpers have no home group here: their duties count for a group only with an entry group. They count for
+    // coverage only, so their info (a placeholder) is never read.
     const helperDays: EmployeeDay[] = helpers.map(helper => ({
       employeeId: helper.employeeId,
       groupId: null,
-      info: { hours: [], leftOn: null },
+      info: { hours: [], leftOn: null, holidays },
       entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
       coverageOnly: true,
     }))
-    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null)
+    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays)
   })
 
   const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staff.map(employee => employee.id), monthStart, monthEnd))
@@ -201,14 +205,17 @@ function releasedStates(db: Db, facilityId: number, releases: StoredRelease[]): 
   return releases.map(release => ({ releasedAt: release.releasedAt, releasedBy: release.releasedBy, cells: ownCells(release.data) }))
 }
 
-/** The month's day rows with the shown plan's closures and Info fields (none when no plan is shown). */
-function dayRows(year: number, month: number, shownDays: SnapshotData['days']): DayRowDto[] {
+/**
+ * The month's day rows with the shown plan's closures and Info fields (none when no plan is shown); holidays are those
+ * of the given rules (a facility's plan: the facility; a person's own plan: their home facility).
+ */
+function dayRows(year: number, month: number, shownDays: SnapshotData['days'], holidays: HolidayRules): DayRowDto[] {
   const byDate = new Map(shownDays.map(day => [day.date, day]))
   return monthDates(year, month).map(date => ({
     date,
     weekday: weekday(date),
     isWeekend: isWeekend(date),
-    holidayKey: holidayOn(date),
+    holidayKey: holidayIn(date, holidays),
     closureLabel: byDate.get(date)?.closureLabel ?? null,
     info1: byDate.get(date)?.info1 ?? '',
     info2: byDate.get(date)?.info2 ?? '',
@@ -239,7 +246,7 @@ export function getMonthPlan(
     }
   }
 
-  const days = dayRows(year, month, shown.days)
+  const days = dayRows(year, month, shown.days, facilityHolidayRules(db, facilityId))
 
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
@@ -313,7 +320,9 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
   }
   if (sources.length === 0) throw new ServiceError(403, 'month_not_released')
 
-  const days: MyPlanDayDto[] = dayRows(year, month, home?.data.days ?? []).map((day) => {
+  // The person's own plan shows the holidays of their home facility, also on days helping out elsewhere.
+  const homeHolidays = facilityHolidayRules(db, employee.facilityId)
+  const days: MyPlanDayDto[] = dayRows(year, month, home?.data.days ?? [], homeHolidays).map((day) => {
     const key = cellKey(employee.id, day.date)
     // One day, one plan: when two releases disagree (one is not re-released yet), the newer release wins.
     const candidates = sources

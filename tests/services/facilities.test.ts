@@ -63,7 +63,7 @@ describe('facilities', () => {
 
   it('creates facilities with a copy of shift templates and coverage rules', () => {
     const krippe = createFacility(db, ' Krippe ')
-    expect(krippe).toEqual({ id: 2, name: 'Krippe' })
+    expect(krippe).toEqual({ id: 2, name: 'Krippe', state: 'BW', assumptionDay: true })
     expect(shortLabels(db, 2)).toEqual(shortLabels(db, 1))
     expect(shortLabels(db, 2).length).toBeGreaterThan(0)
     const rules = (facilityId: number) => db.select().from(coverageRules).where(eq(coverageRules.facilityId, facilityId)).all()
@@ -110,10 +110,16 @@ describe('facilities', () => {
     const krippe = addFacility(db, 'Krippe')
     const provider = addUser(db, 'traeger', 'provider')
     expect(listFacilities(db, provider)).toEqual({
-      facilities: [{ id: 1, name: 'Kindergarten' }, { id: krippe, name: 'Krippe' }], activeId: 1,
+      facilities: [
+        { id: 1, name: 'Kindergarten', state: 'BW', assumptionDay: true },
+        { id: krippe, name: 'Krippe', state: 'BW', assumptionDay: true },
+      ],
+      activeId: 1,
     })
     const admin = addUser(db, 'leitung', 'admin', null, krippe)
-    expect(listFacilities(db, admin)).toEqual({ facilities: [{ id: krippe, name: 'Krippe' }], activeId: krippe })
+    expect(listFacilities(db, admin)).toEqual({
+      facilities: [{ id: krippe, name: 'Krippe', state: 'BW', assumptionDay: true }], activeId: krippe,
+    })
   })
 
   it('switches the active facility for the Träger only', () => {

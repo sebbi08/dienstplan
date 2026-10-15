@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import type { GermanState } from '../../shared/domain/states'
 
 /** A facility (Einrichtung) of the Träger; the existing data became facility 1 "Kindergarten". */
 export const facilities = sqliteTable('facilities', {
@@ -22,6 +23,10 @@ export const facilities = sqliteTable('facilities', {
   tabletShowWaitlist: integer('tablet_show_waitlist', { mode: 'boolean' }).notNull().default(false),
   /** Whether the tablet shows children with a contract that has not started yet to staff and helpers. */
   tabletShowFutureContracts: integer('tablet_show_future_contracts', { mode: 'boolean' }).notNull().default(false),
+  /** The state (Bundesland) whose public holidays apply to the facility and to the staff it is home to. */
+  state: text('state').$type<GermanState>().notNull().default('BW'),
+  /** Mariä Himmelfahrt (15 August) is a holiday here; effective only in Bavaria (BY). */
+  assumptionDay: integer('assumption_day', { mode: 'boolean' }).notNull().default(true),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */

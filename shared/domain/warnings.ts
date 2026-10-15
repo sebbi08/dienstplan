@@ -1,6 +1,6 @@
 import { dayCredit, isWorkEntry } from './balance'
 import { isWeekend } from './dates'
-import { isHoliday } from './holidays'
+import { isHolidayIn, type HolidayRules } from './holidays'
 import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
 import type { BreakMode } from './stamping'
 import { breakRuleViolated, type RecordSpan } from './timeRecords'
@@ -50,8 +50,9 @@ export function isTargetGapCode(codeKey: CodeKey | null): boolean {
   return codeKey !== null && TARGET_GAP_CODES.includes(codeKey)
 }
 
-export function isCheckedDay(date: IsoDate, isClosureDay: boolean): boolean {
-  return !isWeekend(date) && !isHoliday(date) && !isClosureDay
+/** A day the plan is checked: no weekend, no public holiday of the plan's facility (its rules), no closure. */
+export function isCheckedDay(date: IsoDate, isClosureDay: boolean, rules: HolidayRules): boolean {
+  return !isWeekend(date) && !isHolidayIn(date, rules) && !isClosureDay
 }
 
 function matchesRule(entry: DomainEntry, rule: CoverageRule): boolean {
@@ -60,10 +61,11 @@ function matchesRule(entry: DomainEntry, rule: CoverageRule): boolean {
     && (rule.end === null || entry.end === rule.end)
 }
 
+/** Warnings of one day of a facility's plan; `holidays` are the plan facility's rules (a person's own days: their info). */
 export function dayWarnings(
-  date: IsoDate, employees: EmployeeDay[], rules: CoverageRule[], isClosureDay: boolean,
+  date: IsoDate, employees: EmployeeDay[], rules: CoverageRule[], isClosureDay: boolean, holidays: HolidayRules,
 ): Warning[] {
-  if (!isCheckedDay(date, isClosureDay)) return []
+  if (!isCheckedDay(date, isClosureDay, holidays)) return []
   const warnings: Warning[] = []
   // Effective group of a duty: its own group, otherwise the employee's home group (helpers have none here).
   const allEntries = employees.flatMap(employee => employee.entries
