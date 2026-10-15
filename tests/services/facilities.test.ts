@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { coverageRules, facilities, shiftTemplates, users } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
+import { facilityUpdateSchema } from '../../server/schemas'
 import { getActiveUser } from '../../server/services/auth'
 import {
   createFacility, listFacilities, resolveFacilityId, setActiveFacility, updateFacility,
@@ -137,6 +138,10 @@ describe('facilities', () => {
     it('rejects an unknown state and stores nothing', () => {
       expect(errorCode(() => updateFacility(db, traeger(db), 1, { name: 'Neu', state: 'XX' as never, assumptionDay: false }))).toBe('state_invalid')
       expect(db.select().from(facilities).get()).toMatchObject({ name: 'Kindergarten', state: 'BW', assumptionDay: true })
+      // The request schema leaves the check to the service, so a long unknown value is state_invalid too.
+      const body = facilityUpdateSchema.parse({ name: 'Neu', state: 'Mecklenburg-Vorpommern' })
+      expect(errorCode(() => updateFacility(db, traeger(db), 1, { name: body.name, state: body.state as never, assumptionDay: true })))
+        .toBe('state_invalid')
     })
 
     it('stores the Bavaria flag', () => {
