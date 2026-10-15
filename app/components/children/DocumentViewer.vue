@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PDFDocumentLoadingTask } from 'pdfjs-dist'
+import type { PDFDocumentLoadingTask } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { de } from '~/locales/de'
 import { documentFileUrl } from '~/utils/children'
 
@@ -37,9 +37,11 @@ function release() {
 }
 
 async function renderPdf(data: ArrayBuffer, current: number) {
-  const pdfjs = await import('pdfjs-dist')
+  // The legacy build carries the polyfills the main build leaves out (Promise.try, Math.sumPrecise …), so older
+  // tablet browsers can show PDFs too.
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   if (current !== generation) return
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString()
   const task = pdfjs.getDocument({ data: new Uint8Array(data), enableXfa: false })
   loadingTask = task
   const document = await task.promise
