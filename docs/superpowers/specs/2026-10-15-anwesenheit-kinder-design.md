@@ -16,7 +16,7 @@ zum Drucken.
 | Kommen | Uhrzeit (jetzt, änderbar); **geplante Abholzeit Pflicht**; Bringperson nur, wenn die Einrichtung sie erfasst (Schalter, Voreinstellung aus); freie Tagesnotiz. |
 | Gehen | Uhrzeit (jetzt, änderbar); **Abholperson Pflicht**: Bezugsperson mit „darf abholen“ oder eine für heute angekündigte Person. |
 | Angekündigte Abholer | Jederzeit am Tag eintragbar (Name, freiwillig „angekündigt von“), gilt nur für diesen Tag. |
-| Infospalte | Oben automatisch die wichtigen Hinweise aus der Akte, darunter die freie Notiz des Tages; digital und im Druck. |
+| Infospalte | Allergien aus der Akte und „Was ist heute passiert“ (freier Text der Mitarbeiter über den Tag); digital und im Druck. |
 | Snack/Mittagessen | Automatisch aus Uhrzeit und Anwesenheit; pro Kind von Hand korrigierbar. |
 | Abwesenheit | krank (K), Urlaub (U), entschuldigt (E); auch vorab für mehrere Tage; sonst am Ende des Tages unentschuldigt (–). |
 | Ändern | Alle aufgeschlossenen Personen am Tablet, auch ältere Tage; jede Änderung mit Person und Uhrzeit festgehalten. |
@@ -45,7 +45,7 @@ zum Drucken.
 
 Dialog: Uhrzeit (Voreinstellung jetzt), **geplante Abholzeit** (Pflicht; vorgeschlagen das Ende der Betreuungszeit der
 Betreuungsform des Kindes, ohne Betreuungsform leer), Bringperson (nur bei eingeschaltetem Schalter, freiwillig, Auswahl
-aus den Bezugspersonen oder freier Name), Notiz (freiwillig). War das Kind schon abgeholt, ist „Kommt“ erneut möglich
+aus den Bezugspersonen oder freier Name). War das Kind schon abgeholt, ist „Kommt“ erneut möglich
 (zweiter Aufenthalt am selben Tag, z. B. Arzttermin): ein Anwesenheitstag hat dann mehrere Zeiträume.
 
 ### 3.3 Abholer ankündigen
@@ -84,10 +84,13 @@ Abwesenheit für diesen Tag.
 
 ### 3.8 Infospalte
 
-- Oben automatisch aus der Akte (nur Kurzform): Allergien/Unverträglichkeiten (falls eingetragen), Umgangsverbot
-  („Umgangsverbot: ‹Name›“), sowie die heute angekündigten Abholer.
-- Darunter die Notiz des Tages (freier Text, jederzeit änderbar).
-- Vertrauliche Dokumente und andere Akteninhalte erscheinen nie in der Liste.
+- Oben automatisch aus der Akte: **Allergien/Unverträglichkeiten** (falls eingetragen).
+- Darunter **„Was ist heute passiert“**: freier Text, den die Mitarbeiter über den Tag ergänzen (z. B. „hingefallen,
+  Knie gekühlt“, „kaum gegessen“), damit es beim Abholen weitergegeben werden kann. Jederzeit änderbar; jede Änderung
+  steht im Verlauf (3.9).
+- Andere Akteninhalte und vertrauliche Dokumente erscheinen nie in der Liste. Ein Umgangsverbot steht nicht in der
+  Infospalte, sondern als roter Hinweis im Dialog „Geht“ (3.4); angekündigte Abholer stehen im Stand des Kindes
+  („Abholer heute: ‹Name›“) und im Dialog „Geht“.
 
 ### 3.9 Ändern und Nachvollziehbarkeit
 
