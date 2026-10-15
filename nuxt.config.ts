@@ -7,6 +7,12 @@ export default defineNuxtConfig({
   app: {
     head: { htmlAttrs: { lang: 'de' }, title: 'Dienstplan' },
   },
+  // Child data never stays in the browser cache (the shared tablet above all): the JSON answers and the pages that are
+  // rendered with it on the server.
+  routeRules: Object.fromEntries([
+    '/api/children', '/api/children/**', '/api/child-contacts/**', '/api/child-documents/**', '/api/child-group-changes/**', '/api/terminal/**',
+    '/children', '/children/**', '/print/children/**',
+  ].map(path => [path, { headers: { 'Cache-Control': 'no-store' } }])),
   runtimeConfig: {
     session: {
       // About the browser cookie cap, so the shared tablet stays logged in; normal accounts get 30 days
