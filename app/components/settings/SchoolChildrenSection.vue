@@ -3,6 +3,7 @@ import type { SchoolCutoffInput, SchoolLeaverDto, SchoolSettingsDto } from '#sha
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
+import { inState } from '~/utils/states'
 
 /**
  * The school cutoff of the facility (the Träger changes it, the Leitung sees it) and the automatic leaving of school
@@ -46,12 +47,10 @@ async function saveCutoff(cutoff: SchoolCutoffInput) {
 
 const save = () => saveCutoff({ cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value })
 
-// The cutoff the school law of the facility's state names, offered while the stored one differs. Adopting is a normal
-// cutoff change (it switches the automatic leaving off, as the server tells).
-const stateName = computed(() => {
-  const active = facilities.value?.facilities.find(facility => facility.id === facilities.value?.activeId)
-  return active ? de.states[active.state] : null
-})
+// The cutoff the school law of the facility's state names, offered while the stored one differs (the hint on where
+// suggestions come from is always shown). Adopting is a normal cutoff change (it switches the automatic leaving off,
+// as the server tells).
+const activeState = computed(() => facilities.value?.facilities.find(facility => facility.id === facilities.value?.activeId)?.state ?? null)
 const stateCutoff = computed(() => {
   const law = data.value?.stateCutoff
   const same = law && law.cutoffMonth === data.value?.cutoffMonth && law.cutoffDay === data.value?.cutoffDay && law.ageYears === data.value?.ageYears
@@ -128,15 +127,13 @@ async function confirmSwitchOn() {
       </dl>
       <p class="text-xs text-gray-500">{{ s.readOnly }}</p>
     </template>
+    <p class="text-xs text-gray-500">{{ s.stateCutoffHint }}</p>
+    <p v-if="stateCutoff && activeState" class="flex flex-wrap items-center gap-2 rounded bg-sky-50 p-2 text-sm">
+      <span>{{ s.stateCutoff(inState(activeState), stateCutoffDate, stateCutoff.ageYears) }}</span>
+      <UButton v-if="isProvider" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />
+    </p>
     <p class="text-xs text-gray-500">{{ s.hint }}</p>
     <p class="text-xs text-gray-500">{{ s.hintBirthday }}</p>
-    <div v-if="stateCutoff && stateName" class="space-y-1 rounded bg-sky-50 p-2 text-sm">
-      <p class="flex flex-wrap items-center gap-2">
-        <span>{{ s.stateCutoff(stateName, stateCutoffDate, stateCutoff.ageYears) }}</span>
-        <UButton v-if="isProvider" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />
-      </p>
-      <p class="text-xs text-gray-500">{{ s.stateCutoffHint }}</p>
-    </div>
 
     <div class="space-y-1 border-t border-gray-100 pt-3">
       <USwitch v-if="isProvider" :model-value="data.autoLeave" :label="s.autoLeave" :disabled="busy" @update:model-value="toggle" />
