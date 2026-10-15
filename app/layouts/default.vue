@@ -3,6 +3,7 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { isManager } from '#shared/domain/roles'
 import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { isChildPagePath } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -78,7 +79,7 @@ const links = computed(() => {
 
 // At the tablet, a child page shows who unlocked it and the lock button instead of the menu; that bar never slides away,
 // so "Sperren" stays in reach on a narrow tablet.
-const tabletChildren = computed(() => user.value?.role === 'terminal' && (route.path === '/children' || route.path.startsWith('/children/')))
+const tabletChildren = computed(() => user.value?.role === 'terminal' && isChildPagePath(route.path))
 
 const pageFacility = usePageFacility()
 async function logout() {

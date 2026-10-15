@@ -1,10 +1,11 @@
 import { isManager } from '#shared/domain/roles'
+import { isChildPagePath } from '~/utils/children'
 
-export default defineNuxtRouteMiddleware(async (to) => {
+export default defineNuxtRouteMiddleware(async (to, from) => {
   const { loggedIn, user } = useUserSession()
   if (to.path === '/login') return loggedIn.value ? navigateTo('/') : undefined
   if (!loggedIn.value) return navigateTo('/login')
-  const childPage = to.path === '/children' || to.path.startsWith('/children/')
+  const childPage = isChildPagePath(to.path)
   if (user.value?.role === 'terminal') {
     // The child pages only while a person has unlocked them (asked afresh, also on a full page load).
     if (childPage) {
@@ -12,6 +13,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
       await refreshUnlock()
       return unlock.value?.unlocked ? undefined : navigateTo('/terminal')
     }
+    // Leaving the child pages (e.g. for the plan) ends the unlock, so it does not stay alive behind the tablet's back.
+    if (import.meta.client && isChildPagePath(from.path)) useChildRights().lockOnLeave()
     // Otherwise the shared tablet only stamps and shows the general plan.
     return to.path === '/terminal' || to.path.startsWith('/plan/') ? undefined : navigateTo('/terminal')
   }

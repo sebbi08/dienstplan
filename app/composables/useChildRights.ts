@@ -15,6 +15,7 @@ export function useChildRights() {
   const unlock = useTabletUnlock()
   // On the server this forwards the tablet's cookie (the middleware asks for the status during a full page load).
   const requestFetch = useRequestFetch()
+  const router = useRouter()
   const onTablet = computed(() => user.value?.role === 'terminal')
 
   const rights = computed<ChildRightsDto | null>(() => {
@@ -52,5 +53,21 @@ export function useChildRights() {
     }
   }
 
-  return { rights, onTablet, unlock, refreshUnlock, lock }
+  /**
+   * The tablet leaves the child pages for another page (e.g. the plan): the unlock ends on the server at once (best
+   * effort), and on the screen once that navigation is through - earlier, the lock bar still on screen would take the
+   * tablet to its start page instead of where it is going.
+   */
+  function lockOnLeave() {
+    if (!onTablet.value) return
+    $fetch<TabletUnlockStatusDto>('/api/terminal/children/lock', { method: 'POST' }).catch(() => {
+      // The server ends the unlock after the lock time anyway.
+    })
+    const stop = router.afterEach(() => {
+      stop()
+      unlock.value = { unlocked: false }
+    })
+  }
+
+  return { rights, onTablet, unlock, refreshUnlock, lock, lockOnLeave }
 }

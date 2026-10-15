@@ -8,3 +8,6 @@ export const UNLOCK_GRACE_SECONDS = 30
 
 /** After an interaction the tablet sends a keep-alive at most this often. */
 export const KEEP_ALIVE_MIN_SECONDS = 15
+
+/** While unlocked, the tablet asks this often whether the server still counts it as unlocked (the status changes nothing). */
+export const STATUS_POLL_SECONDS = 30
