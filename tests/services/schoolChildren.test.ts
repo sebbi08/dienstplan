@@ -27,6 +27,8 @@ const BORN_ON_CUTOFF = '2021-06-30'
 const SCHOOL_START = '2027-09-01'
 const DAY_BEFORE = '2027-08-31'
 
+const BW_CUTOFF = { cutoffMonth: 6, cutoffDay: 30, ageYears: 6 }
+
 describe('school settings of a facility', () => {
   let db: Db
   beforeEach(() => {
@@ -34,21 +36,21 @@ describe('school settings of a facility', () => {
   })
 
   it('starts with 30 June and six years', () => {
-    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: false })
+    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: false, stateCutoff: BW_CUTOFF })
   })
 
   it('stores the cutoff per facility', () => {
     const krippe = addFacility(db, 'Krippe')
     setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 30, ageYears: 5 })
-    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 9, cutoffDay: 30, ageYears: 5, autoLeave: false })
-    expect(getSchoolSettings(db, krippe)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: false })
+    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 9, cutoffDay: 30, ageYears: 5, autoLeave: false, stateCutoff: BW_CUTOFF })
+    expect(getSchoolSettings(db, krippe)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: false, stateCutoff: BW_CUTOFF })
   })
 
   it('accepts 29 February and the age limits 4 and 8', () => {
     setSchoolCutoff(db, 1, { cutoffMonth: 2, cutoffDay: 29, ageYears: 4 })
-    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 2, cutoffDay: 29, ageYears: 4, autoLeave: false })
+    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 2, cutoffDay: 29, ageYears: 4, autoLeave: false, stateCutoff: BW_CUTOFF })
     setSchoolCutoff(db, 1, { cutoffMonth: 12, cutoffDay: 31, ageYears: 8 })
-    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 12, cutoffDay: 31, ageYears: 8, autoLeave: false })
+    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 12, cutoffDay: 31, ageYears: 8, autoLeave: false, stateCutoff: BW_CUTOFF })
   })
 
   it.each([
@@ -63,7 +65,7 @@ describe('school settings of a facility', () => {
     ['day 15.5', { cutoffMonth: 6, cutoffDay: 15.5, ageYears: 6 }],
   ])('refuses %s', (_label, input) => {
     expect(errorCode(() => setSchoolCutoff(db, 1, input))).toBe('invalid_school_cutoff')
-    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: false })
+    expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: false, stateCutoff: BW_CUTOFF })
   })
 
   it('shows the computed school start in the record, for managers and Mitarbeiter, following the cutoff', () => {
@@ -242,7 +244,7 @@ describe('automatic leaving of school children', () => {
       const krippe = addFacility(db, 'Krippe')
       expect(getSchoolSettings(db, 1).autoLeave).toBe(false)
       switchOn()
-      expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true })
+      expect(getSchoolSettings(db, 1)).toEqual({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true, stateCutoff: BW_CUTOFF })
       expect(getSchoolSettings(db, krippe).autoLeave).toBe(false)
       setAutoLeave(db, 1, false, TODAY)
       expect(getSchoolSettings(db, 1).autoLeave).toBe(false)
@@ -381,12 +383,12 @@ describe('automatic leaving of school children', () => {
         switchOn(krippe)
 
         expect(setSchoolCutoff(db, 1, { cutoffMonth: 6, cutoffDay: 30, ageYears: 6 }))
-          .toEqual({ settings: { cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true }, autoLeaveSwitchedOff: false })
+          .toEqual({ settings: { cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true, stateCutoff: BW_CUTOFF }, autoLeaveSwitchedOff: false })
         expect(errorCode(() => setSchoolCutoff(db, 1, { cutoffMonth: 6, cutoffDay: 31, ageYears: 6 }))).toBe('invalid_school_cutoff')
         expect(isOn()).toBe(true)
 
         expect(setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 30, ageYears: 6 }))
-          .toEqual({ settings: { cutoffMonth: 9, cutoffDay: 30, ageYears: 6, autoLeave: false }, autoLeaveSwitchedOff: true })
+          .toEqual({ settings: { cutoffMonth: 9, cutoffDay: 30, ageYears: 6, autoLeave: false, stateCutoff: BW_CUTOFF }, autoLeaveSwitchedOff: true })
         expect(isOn()).toBe(false)
         // Already off: another cutoff changes nothing about the switch, and nothing is reported.
         expect(setSchoolCutoff(db, 1, { cutoffMonth: 9, cutoffDay: 29, ageYears: 6 }).autoLeaveSwitchedOff).toBe(false)

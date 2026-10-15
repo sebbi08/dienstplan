@@ -3,6 +3,7 @@ import { childStatus, purgeDate } from '../../shared/domain/children'
 import { addDays, daysInMonth } from '../../shared/domain/dates'
 import { groupOnDay, type GroupEntry, type OccupancyChild } from '../../shared/domain/occupancy'
 import { effectiveSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
+import { schoolCutoffOf as stateSchoolCutoff } from '../../shared/domain/states'
 import type { IsoDate } from '../../shared/domain/types'
 import type { GroupDto, SchoolCutoffInput, SchoolLeaverDto, SchoolSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -18,14 +19,21 @@ type ChildRow = typeof children.$inferSelect
 /** A leap year, so that 29 February is a valid cutoff day. */
 const LEAP_YEAR = 2024
 
-/** The facility's school settings (the defaults for a new facility are 30 June, 6 years and no automatic leaving). */
+/**
+ * The facility's school settings (a new facility starts with the cutoff of its state and no automatic leaving) and, for
+ * the offer to adopt it, the cutoff the school law of its state names.
+ */
 export function getSchoolSettings(db: Db, facilityId: number): SchoolSettingsDto {
   const row = db.select({
     month: facilities.schoolCutoffMonth, day: facilities.schoolCutoffDay, ageYears: facilities.schoolAgeYears,
-    autoLeave: facilities.autoLeaveSchoolChildren,
+    autoLeave: facilities.autoLeaveSchoolChildren, state: facilities.state,
   }).from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
-  return { cutoffMonth: row.month, cutoffDay: row.day, ageYears: row.ageYears, autoLeave: row.autoLeave }
+  const law = stateSchoolCutoff(row.state)
+  return {
+    cutoffMonth: row.month, cutoffDay: row.day, ageYears: row.ageYears, autoLeave: row.autoLeave,
+    stateCutoff: { cutoffMonth: law.month, cutoffDay: law.day, ageYears: law.ageYears },
+  }
 }
 
 /** The facility's settings as the domain's cutoff. */

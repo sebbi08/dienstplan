@@ -5,13 +5,21 @@ import { coverageRules, facilities, shiftTemplates, users } from '../../server/d
 import { ServiceError } from '../../server/lib/errors'
 import { getActiveUser } from '../../server/services/auth'
 import {
-  createFacility, listFacilities, renameFacility, resolveFacilityId, setActiveFacility,
+  createFacility, listFacilities, resolveFacilityId, setActiveFacility, updateFacility,
 } from '../../server/services/facilities'
+import { facilityHolidayRules } from '../../server/services/holidayRules'
+import { getSchoolSettings, setAutoLeave, setSchoolCutoff } from '../../server/services/schoolChildren'
 import { createCoverageRule } from '../../server/services/settings'
 import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 function userRow(db: Db, id: number) {
   return db.select().from(users).where(eq(users.id, id)).get()!
+}
+
+/** Renames only: state and Bavaria flag stay as they are. */
+function renameFacility(db: Db, id: number, name: string) {
+  const { state, assumptionDay } = facilityHolidayRules(db, id)
+  updateFacility(db, id, { name, state, assumptionDay })
 }
 
 function shortLabels(db: Db, facilityId: number): string[] {
@@ -95,6 +103,47 @@ describe('facilities', () => {
     expect(errorCode(() => renameFacility(db, krippe, 'Kindergarten'))).toBe('facility_name_taken')
     expect(errorCode(() => renameFacility(db, krippe, ' '))).toBe('facility_name_required')
     expect(errorCode(() => renameFacility(db, 999, 'Hort'))).toBe('facility_not_found')
+  })
+
+  describe('state', () => {
+    it('a new facility takes the cutoff of its state', () => {
+      const nord = createFacility(db, 'Krippe Nord', 'TH').id
+      expect(facilityHolidayRules(db, nord).state).toBe('TH')
+      expect(getSchoolSettings(db, nord)).toMatchObject({ cutoffMonth: 8, cutoffDay: 1, ageYears: 6 })
+      const sued = createFacility(db, 'Krippe Süd').id
+      expect(facilityHolidayRules(db, sued).state).toBe('BW')
+      expect(getSchoolSettings(db, sued)).toMatchObject({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6 })
+      expect(errorCode(() => createFacility(db, 'Krippe Ost', 'XX' as never))).toBe('state_invalid')
+      expect(db.select().from(facilities).all().map(f => f.name)).not.toContain('Krippe Ost')
+    })
+
+    it('changing the state keeps the cutoff and the switch', () => {
+      setAutoLeave(db, 1, true, '2026-01-01')
+      expect(getSchoolSettings(db, 1)).toMatchObject({ cutoffMonth: 6, cutoffDay: 30, autoLeave: true })
+      updateFacility(db, 1, { name: 'Kindergarten', state: 'NW', assumptionDay: true })
+      expect(getSchoolSettings(db, 1)).toEqual({
+        cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true,
+        stateCutoff: { cutoffMonth: 9, cutoffDay: 30, ageYears: 6 },
+      })
+    })
+
+    it('rejects an unknown state and stores nothing', () => {
+      expect(errorCode(() => updateFacility(db, 1, { name: 'Neu', state: 'XX' as never, assumptionDay: false }))).toBe('state_invalid')
+      expect(db.select().from(facilities).get()).toMatchObject({ name: 'Kindergarten', state: 'BW', assumptionDay: true })
+    })
+
+    it('stores the Bavaria flag', () => {
+      updateFacility(db, 1, { name: 'Kindergarten', state: 'BY', assumptionDay: false })
+      expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BY', assumptionDay: false })
+    })
+
+    it('adopting the state cutoff is a normal cutoff change that switches the automatic leaving off', () => {
+      setAutoLeave(db, 1, true, '2026-01-01')
+      updateFacility(db, 1, { name: 'Kindergarten', state: 'NW', assumptionDay: true })
+      const { settings, autoLeaveSwitchedOff } = setSchoolCutoff(db, 1, getSchoolSettings(db, 1).stateCutoff)
+      expect(autoLeaveSwitchedOff).toBe(true)
+      expect(settings).toMatchObject({ cutoffMonth: 9, cutoffDay: 30, autoLeave: false })
+    })
   })
 
   it('compares names case-insensitively including umlauts', () => {

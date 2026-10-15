@@ -69,10 +69,14 @@ const runMove = useAction()
 const targetFacilityId = ref<number | undefined>(undefined)
 const otherFacilities = computed(() => (facilities.value?.facilities ?? [])
   .filter(facility => facility.id !== facilities.value?.activeId)
-  .map(facility => ({ label: facility.name, value: facility.id })))
+  .map(facility => ({ label: facility.name, value: facility.id, state: facility.state })))
 async function moveFacility() {
   const target = otherFacilities.value.find(item => item.value === targetFacilityId.value)
-  if (!target || !await confirm(de.facilities.moveConfirm(target.label), { confirmLabel: de.facilities.moveAction, danger: false })) return
+  if (!target) return
+  // Other holidays then apply to this person, also for past days.
+  const current = facilities.value?.facilities.find(facility => facility.id === facilities.value?.activeId)
+  const stateHint = current && current.state !== target.state ? ` ${de.facilities.moveStateHint(de.states[target.state])}` : ''
+  if (!await confirm(de.facilities.moveConfirm(target.label) + stateHint, { confirmLabel: de.facilities.moveAction, danger: false })) return
   // No `run`: it would refresh this employee, who is no longer part of the active facility.
   if (await runMove(() => $fetch<unknown>(`/api/employees/${id}/facility`, { method: 'PUT', body: { facilityId: target.value } }), de.common.saved)) {
     await navigateTo('/admin/employees')

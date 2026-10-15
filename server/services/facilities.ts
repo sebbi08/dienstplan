@@ -1,4 +1,5 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
+import { isGermanState, schoolCutoffOf, type GermanState } from '../../shared/domain/states'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { coverageRules, documentTypes, employees, facilities, shiftTemplates, users } from '../db/schema'
@@ -66,17 +67,26 @@ function checkedName(db: Db, name: string, exceptId: number | null = null): stri
   return trimmed
 }
 
+/** The state code, or 400 state_invalid. */
+function assertState(state: string): asserts state is GermanState {
+  if (!isGermanState(state)) throw new ServiceError(400, 'state_invalid')
+}
+
 /**
  * A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules, the
  * built-in kinds of mandatory appointments (with their defaults, not the first facility's names and intervals)
  * and the default document types.
  */
-export function createFacility(db: Db, name: string): FacilityDto {
+export function createFacility(db: Db, name: string, state: GermanState = 'BW'): FacilityDto {
   const checked = checkedName(db, name)
+  assertState(state)
+  const cutoff = schoolCutoffOf(state)
   return db.transaction((tx) => {
     const source = firstFacilityId(tx)
     const sortOrder = (tx.select({ value: max(facilities.sortOrder) }).from(facilities).get()?.value ?? -1) + 1
-    const facility = tx.insert(facilities).values({ name: checked, sortOrder }).returning().get()
+    const facility = tx.insert(facilities).values({
+      name: checked, sortOrder, state, schoolCutoffMonth: cutoff.month, schoolCutoffDay: cutoff.day, schoolAgeYears: cutoff.ageYears,
+    }).returning().get()
     seedBuiltinRequirementTypes(tx, facility.id)
     if (source !== null) {
       const templates = tx.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, source))
@@ -96,10 +106,12 @@ export function createFacility(db: Db, name: string): FacilityDto {
   })
 }
 
-export function renameFacility(db: Db, id: number, name: string): void {
+/** The facility's name, state and Bavaria flag. The school cutoff and the automatic leaving are never touched here. */
+export function updateFacility(db: Db, id: number, input: { name: string; state: GermanState; assumptionDay: boolean }): void {
   if (!facilityExists(db, id)) throw new ServiceError(404, 'facility_not_found')
-  const checked = checkedName(db, name, id)
-  db.update(facilities).set({ name: checked }).where(eq(facilities.id, id)).run()
+  assertState(input.state)
+  const checked = checkedName(db, input.name, id)
+  db.update(facilities).set({ name: checked, state: input.state, assumptionDay: input.assumptionDay }).where(eq(facilities.id, id)).run()
 }
 
 /** Stores the facility the Träger works in (only the Träger switches; everyone else has a fixed facility). */

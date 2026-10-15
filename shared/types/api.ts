@@ -207,10 +207,12 @@ export interface SchoolSettingsDto {
    * by the server when the cutoff, a group's flag "for school children" or the retention period changes.
    */
   autoLeave: boolean
+  /** The cutoff the school law of the facility's state names (a suggestion; the stored cutoff may differ). */
+  stateCutoff: SchoolCutoffInput
 }
 
 /** The cutoff alone, as the Träger stores it. */
-export type SchoolCutoffInput = Pick<SchoolSettingsDto, 'cutoffMonth' | 'cutoffDay' | 'ageYears'>
+export type SchoolCutoffInput = { cutoffMonth: number; cutoffDay: number; ageYears: number }
 
 /** A facility's tablet settings: when it locks the child records again and what it shows staff and helpers beyond the current children. */
 export interface TabletSettingsDto {

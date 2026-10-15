@@ -441,7 +441,12 @@ export const de = {
     active: 'Einrichtung',
     add: 'Einrichtung anlegen',
     name: 'Name',
-    rename: 'Umbenennen',
+    state: 'Bundesland', assumptionDay: 'Mariä Himmelfahrt ist hier Feiertag',
+    stateChangeConfirm: 'Die Feiertage dieser Einrichtung ändern sich für alle Tage, auch rückwirkend. Sollstunden, Stundenkonten und '
+      + 'Urlaubstage der Mitarbeiter dieser Einrichtung können sich dadurch auch für vergangene Monate ändern.',
+    stateChangeAction: 'Ändern',
+    moveStateHint: (state: string) => `Die neue Einrichtung liegt in ${state}. Für diese Person gelten dann deren Feiertage, auch rückwirkend; `
+      + 'Sollstunden und Urlaubstage können sich dadurch ändern.',
     hint: 'Neue Einrichtungen übernehmen die Dienste und Pflichtdienste der ersten Einrichtung; alles andere beginnt leer.',
     createdIn: (name: string) => `Neue Leitungs- und Tablet-Konten werden in „${name}“ angelegt.`,
     move: 'In andere Einrichtung verschieben',
@@ -563,6 +568,9 @@ export const de = {
     hint: 'Wer bis einschließlich Stichtag das Alter erreicht hat, wird zum 1. September Schulkind. Die Stichtage unterscheiden sich je Bundesland und können sich ändern. Bitte den Wert prüfen.',
     hintBirthday: 'Soll ein am Tag nach dem Stichtag geborenes Kind noch dazugehören (z. B. Geburtstag 1. Juli bei Stichtag 30. Juni), stelle den Stichtag einen Tag später ein.',
     computed: (date: string) => `errechnet: ${date}`, deviating: 'abweichend',
+    stateCutoff: (state: string, date: string, age: number) => `Stichtag laut Schulgesetz ${state}: ${date} (Alter ${age})`,
+    adopt: 'übernehmen',
+    stateCutoffHint: 'Vorschlag nach dem Schulgesetz des Bundeslands (Stand Oktober 2026). Bitte bei Änderungen des Schulgesetzes prüfen.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     day: 'Tag', month: 'Monat', readOnly: 'Nur der Träger kann den Stichtag ändern.',
     listTitle: (date: string) => `Schulkinder zum ${date}`, autoLeave: 'Schulkinder automatisch abmelden',
@@ -675,6 +683,7 @@ export const de = {
     facility_changed: 'Die Einrichtung wurde in einem anderen Fenster gewechselt. Die Seite wird neu geladen.',
     facility_not_found: 'Diese Einrichtung existiert nicht mehr.',
     facility_name_required: 'Bitte einen Namen für die Einrichtung angeben.',
+    state_invalid: 'Bitte wähle ein Bundesland aus der Liste.',
     facility_name_taken: 'Es gibt schon eine Einrichtung mit diesem Namen.',
     help_out_exists: 'Diese Person ist in diesem Monat schon als Aushilfe eingetragen.',
     help_out_has_entries: 'Die Aushilfe hat in diesem Monat noch Einträge. Bitte zuerst ihre Dienste entfernen.',

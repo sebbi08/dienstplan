@@ -1,10 +1,19 @@
-import { facilityNameSchema, idParams } from '../../schemas'
-import { renameFacility } from '../../services/facilities'
+import type { GermanState } from '../../../shared/domain/states'
+import { facilityUpdateSchema, idParams } from '../../schemas'
+import { facilityHolidayRules } from '../../services/holidayRules'
+import { updateFacility } from '../../services/facilities'
 
 export default defineServiceHandler(async (event) => {
   await requireProvider(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  const { name } = await readValidatedBody(event, facilityNameSchema.parse)
-  renameFacility(useDb(), id, name)
+  const body = await readValidatedBody(event, facilityUpdateSchema.parse)
+  const db = useDb()
+  // Left out = as stored, so a plain rename never changes the holidays.
+  const stored = facilityHolidayRules(db, id)
+  updateFacility(db, id, {
+    name: body.name,
+    state: (body.state ?? stored.state) as GermanState,
+    assumptionDay: body.assumptionDay ?? stored.assumptionDay,
+  })
   return { ok: true }
 })

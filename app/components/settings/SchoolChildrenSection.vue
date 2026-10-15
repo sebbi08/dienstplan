@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SchoolLeaverDto, SchoolSettingsDto } from '#shared/types/api'
+import type { SchoolCutoffInput, SchoolLeaverDto, SchoolSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -12,6 +12,7 @@ const { data, refresh } = await useFetch<SchoolSettingsDto>('/api/school-setting
 const { user } = useUserSession()
 const isProvider = computed(() => user.value?.role === 'provider')
 const toast = useToast()
+const { data: facilities } = useFacilities()
 const notifySwitchedOff = useAutoLeaveNotice()
 const s = de.schoolChildren
 // Who left or is listed elsewhere changes with the switch; those lists follow.
@@ -32,16 +33,32 @@ watch(data, (value) => {
 const monthItems = de.months.map((label, index) => ({ label, value: index + 1 }))
 const ageItems = Array.from({ length: 5 }, (_, index) => ({ label: String(index + 4), value: index + 4 }))
 
-async function save() {
+async function saveCutoff(cutoff: SchoolCutoffInput) {
   const answer = { autoLeaveSwitchedOff: false }
   const ok = await run(async () => {
     answer.autoLeaveSwitchedOff = (await $fetch<SchoolSettingsDto & { autoLeaveSwitchedOff: boolean }>('/api/school-settings', {
-      method: 'PUT', body: { cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value },
+      method: 'PUT', body: cutoff,
     })).autoLeaveSwitchedOff
   }, de.common.saved)
   // Another cutoff changes whom the automatic leaving takes; the server tells when it switched it off.
   if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
+
+const save = () => saveCutoff({ cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value })
+
+// The cutoff the school law of the facility's state names, offered while the stored one differs. Adopting is a normal
+// cutoff change (it switches the automatic leaving off, as the server tells).
+const stateName = computed(() => {
+  const active = facilities.value?.facilities.find(facility => facility.id === facilities.value?.activeId)
+  return active ? de.states[active.state] : null
+})
+const stateCutoff = computed(() => {
+  const law = data.value?.stateCutoff
+  const same = law && law.cutoffMonth === data.value?.cutoffMonth && law.cutoffDay === data.value?.cutoffDay && law.ageYears === data.value?.ageYears
+  return law && !same ? law : null
+})
+const stateCutoffDate = computed(() => stateCutoff.value
+  ? `${String(stateCutoff.value.cutoffDay).padStart(2, '0')}.${String(stateCutoff.value.cutoffMonth).padStart(2, '0')}.` : '')
 
 // Switching on: the preview is loaded first, the dialog lists it and sends exactly this list back with the confirmation.
 const dialogOpen = ref(false)
@@ -113,6 +130,13 @@ async function confirmSwitchOn() {
     </template>
     <p class="text-xs text-gray-500">{{ s.hint }}</p>
     <p class="text-xs text-gray-500">{{ s.hintBirthday }}</p>
+    <div v-if="stateCutoff && stateName" class="space-y-1 rounded bg-sky-50 p-2 text-sm">
+      <p class="flex flex-wrap items-center gap-2">
+        <span>{{ s.stateCutoff(stateName, stateCutoffDate, stateCutoff.ageYears) }}</span>
+        <UButton v-if="isProvider" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />
+      </p>
+      <p class="text-xs text-gray-500">{{ s.stateCutoffHint }}</p>
+    </div>
 
     <div class="space-y-1 border-t border-gray-100 pt-3">
       <USwitch v-if="isProvider" :model-value="data.autoLeave" :label="s.autoLeave" :disabled="busy" @update:model-value="toggle" />
