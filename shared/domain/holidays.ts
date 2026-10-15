@@ -49,7 +49,8 @@ function repentanceDay(year: number): IsoDate {
 
 const cache = new Map<string, Map<IsoDate, HolidayKey>>()
 
-export function holidaysOf(rules: HolidayRules, year: number): Map<IsoDate, HolidayKey> {
+/** The holidays of the year under these rules; cached, so callers must not change the map. */
+export function holidaysOf(rules: HolidayRules, year: number): ReadonlyMap<IsoDate, HolidayKey> {
   const { state } = rules
   const assumptionDay = state === 'BY' && rules.assumptionDay
   const cacheKey = `${state}:${assumptionDay}:${year}`
