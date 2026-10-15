@@ -13,8 +13,9 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       await refreshUnlock()
       return unlock.value?.unlocked ? undefined : navigateTo('/terminal')
     }
-    // Leaving the child pages (e.g. for the plan) ends the unlock, so it does not stay alive behind the tablet's back.
-    if (import.meta.client && isChildPagePath(from.path)) useChildRights().lockOnLeave()
+    // Leaving the child pages (e.g. for the plan) ends the unlock, so it does not stay alive behind the tablet's back;
+    // the start page locks by itself.
+    if (import.meta.client && isChildPagePath(from.path) && to.path !== '/terminal') useChildRights().lockOnLeave()
     // Otherwise the shared tablet only stamps and shows the general plan.
     return to.path === '/terminal' || to.path.startsWith('/plan/') ? undefined : navigateTo('/terminal')
   }
