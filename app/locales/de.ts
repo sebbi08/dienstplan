@@ -502,6 +502,9 @@ export const de = {
     none: 'Noch keine Dokumente hochgeladen.', edit: 'Dokument bearbeiten', noTypes: 'Es gibt noch keine Dokumentarten. Die Leitung legt sie in den Einstellungen an.',
     lockedHint: 'vertraulich – nur für die Leitung und Berechtigte', overviewHint: 'Die neueste Datei je wichtiger Dokumentart. Rot: ein nötiges Dokument fehlt oder muss neu eingereicht werden.',
     noImportantTypes: 'Es sind noch keine Dokumentarten als wichtig markiert.', unknownUploader: 'gelöschtes Konto',
+    // Document viewer and photo upload at the tablet.
+    viewerFailed: 'Das Dokument konnte nicht angezeigt werden.', viewerLoading: 'Das Dokument wird geladen …', takePhoto: 'Foto aufnehmen',
+    photoChosen: (name: string) => `Foto ausgewählt: ${name}`,
   },
   childLifecycle: {
     leave: 'Kind abmelden', leftOn: 'Austrittsdatum', unleave: 'Abmeldung zurücknehmen', deleteNow: 'Sofort löschen',

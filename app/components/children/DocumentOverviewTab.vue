@@ -8,8 +8,9 @@ import { formatDate } from '~/utils/format'
 /** Completeness view: the active children against the important document types. */
 const { data, error } = useFetch<DocumentOverviewDto>('/api/child-documents/overview', { key: 'child-documents-overview' })
 const { groupName } = useChildLookups()
-// No printouts at the tablet.
+// No printouts at the tablet, and documents open in the app instead of as a link to the file.
 const { onTablet } = useChildRights()
+const viewing = ref<{ id: number; title: string } | null>(null)
 
 const onlyMissing = ref(false)
 const rows = computed(() => (data.value?.rows ?? []).filter(row => !onlyMissing.value || row.missingRequired))
@@ -49,8 +50,12 @@ const td = 'px-3 py-2'
                   :title="formatDate(row.cells[type.id]!.documentDate)"
                 >{{ de.groupChange.resubmit }}</span>
                 <template v-else-if="row.cells[type.id]">
+                  <button
+                    v-if="row.cells[type.id]!.canOpen && onTablet" type="button" class="whitespace-nowrap text-sky-700 hover:underline"
+                    @click="viewing = { id: row.cells[type.id]!.documentId, title: `${row.name} – ${type.name}` }"
+                  >✓ {{ formatDate(row.cells[type.id]!.documentDate) }}</button>
                   <a
-                    v-if="row.cells[type.id]!.canOpen" :href="documentFileUrl(row.cells[type.id]!.documentId)" target="_blank" rel="noopener"
+                    v-else-if="row.cells[type.id]!.canOpen" :href="documentFileUrl(row.cells[type.id]!.documentId)" target="_blank" rel="noopener"
                     class="whitespace-nowrap text-sky-700 hover:underline"
                   >✓ {{ formatDate(row.cells[type.id]!.documentDate) }}</a>
                   <span v-else class="inline-flex items-center gap-1 whitespace-nowrap text-gray-700">
@@ -65,5 +70,7 @@ const td = 'px-3 py-2'
         </table>
       </div>
     </template>
+    <!-- The overview does not know the file type; the viewer takes it from the answer. -->
+    <ChildrenDocumentViewer v-if="viewing" :open="true" :document-id="viewing.id" :title="viewing.title" mime-type="" @update:open="viewing = null" />
   </div>
 </template>

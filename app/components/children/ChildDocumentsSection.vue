@@ -16,15 +16,26 @@ const { data: typeList } = useFetch<DocumentTypeDto[]>('/api/document-types', { 
 const types = computed(() => typeList.value ?? [])
 const typeItems = computed(() => types.value.map(type => ({ label: type.name, value: type.id })))
 
+// At the tablet documents open in the app (no download, no link to the file) and photos can be taken with the camera.
+const { onTablet } = useChildRights()
+const viewing = ref<{ id: number; title: string; mimeType: string } | null>(null)
+function view(document: ChildDocumentDto) {
+  viewing.value = { id: document.id, title: document.title || document.typeName, mimeType: document.mimeType }
+}
+
 const open = ref(false)
 /** null = a new upload, otherwise the document being changed. */
 const editingId = ref<number | null>(null)
 const file = shallowRef<File | null>(null)
+const fromCamera = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const cameraInput = ref<HTMLInputElement | null>(null)
 const form = reactive({ typeId: 0, title: '', documentDate: todayIso(), confidential: false })
 
 function openNew() {
   editingId.value = null
   file.value = null
+  fromCamera.value = false
   const first = types.value[0]
   Object.assign(form, { typeId: first?.id ?? 0, title: '', documentDate: todayIso(), confidential: first?.confidentialDefault ?? false })
   open.value = true
@@ -41,8 +52,12 @@ function onType(typeId: number) {
   if (editingId.value === null) form.confidential = types.value.find(type => type.id === typeId)?.confidentialDefault ?? false
 }
 
-function onFile(event: Event) {
+/** The chosen file and the photo feed the same upload; the other input is emptied so only one of them counts. */
+function onFile(event: Event, camera = false) {
   file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  fromCamera.value = camera && file.value !== null
+  const other = camera ? fileInput.value : cameraInput.value
+  if (other && file.value) other.value = ''
 }
 
 async function save() {
@@ -90,7 +105,8 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
         <UIcon v-else name="i-lucide-lock" class="mt-0.5 size-5 shrink-0 text-gray-500" role="img" :aria-label="de.childDocuments.lockedHint" :title="de.childDocuments.lockedHint" />
         <div class="min-w-0 flex-1 space-y-0.5">
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <a v-if="document.canOpen" :href="documentFileUrl(document.id)" target="_blank" rel="noopener" :class="[link, 'font-medium']">{{ document.title || document.typeName }}</a>
+            <button v-if="document.canOpen && onTablet" type="button" :class="[link, 'text-left font-medium']" @click="view(document)">{{ document.title || document.typeName }}</button>
+            <a v-else-if="document.canOpen" :href="documentFileUrl(document.id)" target="_blank" rel="noopener" :class="[link, 'font-medium']">{{ document.title || document.typeName }}</a>
             <span v-else class="font-medium text-gray-700">{{ document.title || document.typeName }}</span>
             <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{{ document.typeName }}</span>
             <span v-if="document.confidential" class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{{ de.childDocuments.confidential }}</span>
@@ -99,7 +115,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
           <p class="text-xs text-gray-500">{{ de.childDocuments.uploadedBy(document.uploadedBy ?? de.childDocuments.unknownUploader, formatDateTime(document.uploadedAt)) }}</p>
         </div>
         <div class="flex items-center">
-          <template v-if="document.canOpen">
+          <template v-if="document.canOpen && !onTablet">
             <a :href="documentFileUrl(document.id)" target="_blank" rel="noopener" :class="iconLink" :aria-label="de.childDocuments.open" :title="de.childDocuments.open"><UIcon name="i-lucide-external-link" class="size-4" /></a>
             <a :href="documentFileUrl(document.id, true)" :class="iconLink" :aria-label="de.childDocuments.download" :title="de.childDocuments.download"><UIcon name="i-lucide-download" class="size-4" /></a>
           </template>
@@ -111,17 +127,24 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       </li>
     </ul>
 
+    <ChildrenDocumentViewer v-if="viewing" :open="true" :document-id="viewing.id" :title="viewing.title" :mime-type="viewing.mimeType" @update:open="viewing = null" />
+
     <UModal v-model:open="open" :title="editingId === null ? de.childDocuments.upload : de.childDocuments.edit">
       <template #body>
         <p v-if="!types.length" class="text-sm text-gray-600">{{ de.childDocuments.noTypes }}</p>
         <form v-else class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
           <UFormField v-if="editingId === null" :label="de.childDocuments.file" class="sm:col-span-2" required>
-            <!-- No `capture`: it would force the camera and block choosing an existing file; phones offer both anyway. -->
+            <!-- No `capture` here: it would force the camera and block choosing an existing file; the tablet has its own photo button. -->
             <input
-              type="file" accept="application/pdf,image/jpeg,image/png" required
+              ref="fileInput" type="file" accept="application/pdf,image/jpeg,image/png" :required="!onTablet"
               class="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm hover:file:bg-gray-200"
-              @change="onFile"
+              @change="onFile($event)"
             >
+            <div v-if="onTablet" class="mt-2 flex flex-wrap items-center gap-2">
+              <UButton type="button" color="neutral" variant="outline" icon="i-lucide-camera" :label="de.childDocuments.takePhoto" @click="cameraInput?.click()" />
+              <input ref="cameraInput" type="file" accept="image/*" capture="environment" class="hidden" @change="onFile($event, true)">
+              <span v-if="fromCamera && file" class="text-sm text-gray-600">{{ de.childDocuments.photoChosen(file.name) }}</span>
+            </div>
           </UFormField>
           <UFormField :label="de.childDocuments.type" required>
             <USelect :model-value="form.typeId" :items="typeItems" class="w-full" @update:model-value="onType(Number($event))" />
