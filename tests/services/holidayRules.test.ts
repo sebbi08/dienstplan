@@ -3,16 +3,17 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employeeHours, entries, facilities } from '../../server/db/schema'
 import { getYearCalendar } from '../../server/services/calendar'
+import { applyToCells } from '../../server/services/entries'
 import { facilityHolidayRules } from '../../server/services/holidayRules'
 import { getLeaveAccount } from '../../server/services/leave'
 import { previewLeaveRequest, setLeaveModule } from '../../server/services/leaveRequests'
 import { getMonthPlan } from '../../server/services/plan'
-import { loadEmployee } from '../../server/services/queries'
+import { loadEmployee, loadEntries } from '../../server/services/queries'
 import { getTimeMonth } from '../../server/services/timeTracking'
 import { dateRange } from '../../shared/domain/dates'
 import { dailyTarget } from '../../shared/domain/targets'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 // 2027-03-08 is a Monday (Women's Day in Berlin), 2026-01-06 a Tuesday (Epiphany in Baden-Württemberg).
 const womensDay = '2027-03-08'
@@ -81,11 +82,19 @@ describe('holidays follow the facility', () => {
     addHelpOut(db, anna, berlin, 2027, 3)
     const leitungBerlin: SessionUser = addUser(db, 'leitung-berlin', 'admin', null, berlin)
     const leitungHome: SessionUser = addUser(db, 'leitung', 'admin')
+    // Anna (home BW) works in the Berlin plan on Women's Day.
+    applyToCells(db, leitungBerlin, berlin, [{ employeeId: anna, date: womensDay }], 'replace', { kind: 'shift', templateId: templateId(db, 'M', berlin) })
     const berlinPlan = getMonthPlan(db, leitungBerlin, berlin, 2027, 3, today)
     expect(berlinPlan.admin!.helpers.map(helper => helper.employeeId)).toEqual([anna])
     expect(berlinPlan.days.find(day => day.date === womensDay)!.holidayKey).toBe('womens_day')
+    expect(loadEntries(db, { planFacilityId: berlin, employeeId: anna }).map(entry => entry.date)).toEqual([womensDay])
     expect(getMonthPlan(db, leitungHome, 1, 2027, 3, today).days.find(day => day.date === womensDay)!.holidayKey).toBeNull()
     expect(dailyTarget(infoOf(anna), womensDay)).toBeGreaterThan(0)
+    // Her own time sheet keeps the home facility's target for that day, with the help-out duty in it.
+    const sheetDay = getTimeMonth(db, 1, anna, 2027, 3, today).days.find(row => row.date === womensDay)!
+    expect(sheetDay).toMatchObject({ holidayKey: null })
+    expect(sheetDay.target).toBe(468)
+    expect(sheetDay.plannedMinutes).toBeGreaterThan(0)
   })
 
   it('coverage warnings skip the plan facility\'s holidays', () => {
