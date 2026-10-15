@@ -391,8 +391,8 @@ export const de = {
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',
     empty: 'Keine Schließzeiten angelegt.',
-    holidaysTitle: 'Feiertage', holidayDate: 'Datum', holidayName: 'Feiertag',
-    holidaysHint: 'Gesetzliche Feiertage in Baden-Württemberg. Die App berücksichtigt sie automatisch: kein Soll, kein Hinweis „kein Eintrag“, im Dienstplan blau markiert.',
+    holidaysTitle: (state: string) => `Feiertage in ${state}`, holidayDate: 'Datum', holidayName: 'Feiertag',
+    holidaysHint: 'Gesetzliche Feiertage der Einrichtung. Die App berücksichtigt sie automatisch: kein Soll, kein Hinweis „kein Eintrag“, im Dienstplan blau markiert. Örtliche Feiertage (z. B. Fronleichnam in einzelnen Gemeinden) und einmalige Sonderfeiertage bitte als Schließzeit eintragen.',
   },
   settings: {
     title: 'Einstellungen', templates: 'Dienst-Buttons', shortLabel: 'Kürzel', label: 'Bezeichnung',

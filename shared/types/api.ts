@@ -1,5 +1,5 @@
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
-import type { HolidayKey } from '../domain/holidays'
+import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -925,6 +925,8 @@ export interface CalendarEventDto {
 
 export interface YearCalendarDto {
   year: number
+  /** The public-holiday rules the calendar's staff follow (their home facility's state). */
+  holidays: HolidayRules
   employees: { id: number; name: string }[]
   /** Per employee id: the calendar kind of each day that has one. */
   days: Record<number, Record<IsoDate, CalendarKind>>

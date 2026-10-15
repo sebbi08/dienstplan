@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { daysInMonth, isWeekend, toIsoDate, weekday } from '#shared/domain/dates'
-import { holidayOn, isHoliday } from '#shared/domain/holidays'
+import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -60,21 +60,22 @@ const eventLayout = computed(() => {
   return { labels, height: Math.max(1, lanes.length) * LANE_HEIGHT + 4 }
 })
 const percent = (days: number) => `${(days / dates.value.length) * 100}%`
-const isOff = (date: string) => isWeekend(date) || isHoliday(date)
+const onHoliday = (date: string) => isHolidayIn(date, props.calendar.holidays)
+const isOff = (date: string) => isWeekend(date) || onHoliday(date)
 
 /** Days off of part-time staff look like weekends. */
 const freeDays = computed(() => new Map(Object.entries(props.calendar.freeDays).map(([id, dates]) => [Number(id), new Set(dates)])))
 
 /** Name of the public holiday on that date, if any (holidays are computed, not entered). */
 function holidayName(date: string): string | undefined {
-  const key = holidayOn(date)
+  const key = holidayIn(date, props.calendar.holidays)
   return key ? de.holidays[key] : undefined
 }
 
 function cellClass(employeeId: number, date: string): string {
   const kind = props.calendar.days[employeeId]?.[date]
   if (kind) return KIND_CLASSES[kind]
-  if (isHoliday(date)) return KIND_CLASSES.closed
+  if (onHoliday(date)) return KIND_CLASSES.closed
   return isWeekend(date) || freeDays.value.get(employeeId)?.has(date) ? 'bg-gray-100' : ''
 }
 
@@ -102,7 +103,7 @@ function headerTitle(date: string): string | undefined {
         <th
           v-for="date in dates" :key="date" class="border border-gray-300 px-0 py-0.5 text-center"
           :class="[
-            isHoliday(date) ? 'bg-gray-400 font-semibold text-white' : isWeekend(date) ? 'bg-gray-100 font-normal text-gray-500' : 'bg-gray-50 font-normal',
+            onHoliday(date) ? 'bg-gray-400 font-semibold text-white' : isWeekend(date) ? 'bg-gray-100 font-normal text-gray-500' : 'bg-gray-50 font-normal',
             editable ? 'cursor-pointer hover:bg-yellow-200' : '',
           ]"
           :title="headerTitle(date)"

@@ -1,15 +1,18 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
+import { facilities } from '../../server/db/schema'
 import {
-  createCalendarEvent, deleteCalendarEvent, getSickYear, getStaffYearCalendar, getYearCalendar, listCalendarEvents, updateCalendarEvent,
+  createCalendarEvent, deleteCalendarEvent, getMyYearCalendar, getSickYear, getStaffYearCalendar, getYearCalendar, listCalendarEvents, updateCalendarEvent,
 } from '../../server/services/calendar'
 import { computeBalances } from '../../server/services/balances'
 import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
+import { getLeavePlanning, setLeaveModule } from '../../server/services/leaveRequests'
 import { loadEmployees } from '../../server/services/queries'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 describe('year calendar and sick days', () => {
   let db: Db
@@ -109,5 +112,24 @@ describe('year calendar for employees', () => {
     expect([forAnna.otherEntries, forAnna.absenceCodes]).toEqual([{}, []])
     expect(getStaffYearCalendar(db, 1, 2026, null).days[anna]).toEqual({ '2026-10-09': 'vacation' })
     expect(getYearCalendar(db, 1, 2026).days[berta]!['2026-10-08']).toBe('sick') // the Leitung still sees everything
+  })
+})
+
+describe('the calendar sends the rules it was computed with', () => {
+  it('facility calendar, leave planning and "Mein Kalender" carry the facility\'s state', () => {
+    const db = createTestDb()
+    const berlin = addFacility(db, 'Kita Berlin')
+    db.update(facilities).set({ state: 'BE' }).where(eq(facilities.id, berlin)).run()
+    const bea = addEmployee(db, 'Bea', { facilityId: berlin })
+    const beaUser = addUser(db, 'bea', 'observer', bea)
+    const traeger = addUser(db, 'traeger', 'provider')
+    expect(getYearCalendar(db, berlin, 2027).holidays).toEqual({ state: 'BE', assumptionDay: true })
+    expect(getYearCalendar(db, 1, 2027).holidays).toEqual({ state: 'BW', assumptionDay: true })
+    expect(getStaffYearCalendar(db, berlin, 2027, bea).holidays.state).toBe('BE')
+    // "Mein Kalender" follows the home facility, whichever facility a Träger has active.
+    expect(getMyYearCalendar(db, beaUser, 2027).holidays.state).toBe('BE')
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    expect(getLeavePlanning(db, traeger, berlin, 2027).calendar.holidays.state).toBe('BE')
+    expect(getLeavePlanning(db, traeger, 1, 2027).calendar.holidays.state).toBe('BW')
   })
 })

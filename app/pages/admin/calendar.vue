@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { addDays, isWeekend, parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import { isHoliday } from '#shared/domain/holidays'
+import { isHolidayIn } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -37,8 +37,9 @@ function openAbsence(employeeId: number, date: string) {
 /** Working days of that employee: Mon–Fri without public holidays and without their contractual days off. */
 function workdays(employeeId: number, from: string, to: string): string[] {
   const free = new Set(calendar.value?.freeDays[employeeId] ?? [])
+  const holidays = calendar.value?.holidays
   const dates: string[] = []
-  for (let date = from; date <= to; date = addDays(date, 1)) if (!isWeekend(date) && !isHoliday(date) && !free.has(date)) dates.push(date)
+  for (let date = from; date <= to; date = addDays(date, 1)) if (!isWeekend(date) && !(holidays && isHolidayIn(date, holidays)) && !free.has(date)) dates.push(date)
   return dates
 }
 

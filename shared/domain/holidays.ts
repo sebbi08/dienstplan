@@ -86,15 +86,3 @@ export function holidayIn(iso: IsoDate, rules: HolidayRules): HolidayKey | null 
 export function isHolidayIn(iso: IsoDate, rules: HolidayRules): boolean {
   return holidayIn(iso, rules) !== null
 }
-
-export function bwHolidays(year: number): Map<IsoDate, HolidayKey> {
-  return holidaysOf(BW_RULES, year)
-}
-
-export function holidayOn(iso: IsoDate): HolidayKey | null {
-  return holidayIn(iso, BW_RULES)
-}
-
-export function isHoliday(iso: IsoDate): boolean {
-  return isHolidayIn(iso, BW_RULES)
-}

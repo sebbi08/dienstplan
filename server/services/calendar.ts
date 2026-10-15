@@ -8,6 +8,7 @@ import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearC
 import type { Db } from '../db/client'
 import { calendarEvents, employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { facilityHolidayRules } from './holidayRules'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
 
 /** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. */
@@ -84,6 +85,7 @@ export function getYearCalendar(
   }
   return {
     year,
+    holidays: facilityHolidayRules(db, facilityId),
     employees: staff.map(employee => ({ id: employee.id, name: employee.name })),
     days,
     otherEntries: Object.fromEntries([...otherSets].map(([id, set]) => [id, [...set].sort()])),

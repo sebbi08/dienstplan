@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BW_RULES, bwHolidays, easterSunday, holidayIn, holidayOn, holidaysOf, isHoliday, isHolidayIn,
+  BW_RULES, easterSunday, holidayIn, holidaysOf, isHolidayIn,
   type HolidayRules,
 } from '../../shared/domain/holidays'
 import { GERMAN_STATES, type GermanState } from '../../shared/domain/states'
@@ -14,7 +14,7 @@ describe('holidays', () => {
     expect(easterSunday(2027)).toBe('2027-03-28')
   })
   it('lists the 12 Baden-Württemberg holidays for 2026', () => {
-    const holidays = bwHolidays(2026)
+    const holidays = holidaysOf(BW_RULES, 2026)
     expect(holidays.size).toBe(12)
     expect(holidays.get('2026-01-06')).toBe('epiphany')
     expect(holidays.get('2026-04-03')).toBe('good_friday')
@@ -26,13 +26,13 @@ describe('holidays', () => {
     expect(holidays.get('2026-11-01')).toBe('all_saints_day')
   })
   it('does not include holidays of other states', () => {
-    expect(holidayOn('2026-10-31')).toBeNull()
-    expect(holidayOn('2026-11-18')).toBeNull()
+    expect(holidayIn('2026-10-31', BW_RULES)).toBeNull()
+    expect(holidayIn('2026-11-18', BW_RULES)).toBeNull()
   })
   it('answers lookups for any year', () => {
-    expect(isHoliday('2027-01-01')).toBe(true)
-    expect(holidayOn('2027-05-06')).toBe('ascension_day')
-    expect(isHoliday('2026-10-05')).toBe(false)
+    expect(isHolidayIn('2027-01-01', BW_RULES)).toBe(true)
+    expect(holidayIn('2027-05-06', BW_RULES)).toBe('ascension_day')
+    expect(isHolidayIn('2026-10-05', BW_RULES)).toBe(false)
   })
 
   it('the nationwide holidays of 2026', () => {
@@ -98,9 +98,5 @@ describe('holidays', () => {
       expect(holidayIn(date, rulesOf('SN'))).toBe('repentance_day')
       expect(holidayIn(date, rulesOf('BW'))).toBeNull()
     }
-  })
-
-  it('the old BW helpers are unchanged', () => {
-    expect(bwHolidays(2026)).toEqual(holidaysOf(BW_RULES, 2026))
   })
 })

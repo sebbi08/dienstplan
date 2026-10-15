@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import { bwHolidays } from '#shared/domain/holidays'
+import { holidaysOf } from '#shared/domain/holidays'
 import { de } from '~/locales/de'
 import { formatDayShort } from '~/utils/format'
 
-/** Public holidays of Baden-Württemberg for a chosen year (computed, read-only; part of the closures page). */
+/** Public holidays of the active facility's state for a chosen year (computed, read-only; part of the closures page). */
 const year = ref(parseIsoDate(todayIso()).year)
-const holidays = computed(() => [...bwHolidays(year.value)].sort(([a], [b]) => a.localeCompare(b)))
+const { data: facilities } = useFacilities()
+const facility = computed(() => facilities.value?.facilities.find(candidate => candidate.id === facilities.value?.activeId))
+const holidays = computed(() => facility.value
+  ? [...holidaysOf({ state: facility.value.state, assumptionDay: facility.value.assumptionDay }, year.value)].sort(([a], [b]) => a.localeCompare(b))
+  : [])
 </script>
 
 <template>
-  <section class="space-y-3">
+  <section v-if="facility" class="space-y-3">
     <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold">{{ de.closures.holidaysTitle }}</h2>
+      <h2 class="text-xl font-semibold">{{ de.closures.holidaysTitle(de.states[facility.state]) }}</h2>
       <YearNav v-model="year" />
     </div>
     <p class="text-sm text-gray-500">{{ de.closures.holidaysHint }}</p>
