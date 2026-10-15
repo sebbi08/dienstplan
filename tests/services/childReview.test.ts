@@ -9,12 +9,12 @@ import { applyDueGroupChanges, planGroupChange } from '../../server/services/chi
 import {
   confirmSection, getChild, listOpenReviews, updateChildConsents, updateChildHealth, updateChildMaster,
 } from '../../server/services/children'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import {
   CONSENT_KEYS, KEEP_SECTIONS, type ChildConsents, type ChildContactInput, type ChildHealthInput, type ChildMasterInput,
   type GroupChangeInput, type KeepSection,
 } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
@@ -44,14 +44,14 @@ const pdf = () => Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('content
 
 describe('review markers after group changes', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   let bears: number
   let mice: number
   let childId: number
 
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     bears = addGroup(db, 1, 'Bären')
     mice = addGroup(db, 1, 'Mäuse')
     childId = addChild(db, 1, { groupId: bears })
@@ -157,7 +157,7 @@ describe('review markers after group changes', () => {
 
     it('follows the usual write rules: other facility and unknown child 404, archived child 409 / 404', () => {
       const foreign = addChild(db, addFacility(db, 'Zweite'))
-      const observer = addUser(db, 'obs', 'observer', addEmployee(db, 'Obs')) as FacilityUser
+      const observer = asChildViewer(addUser(db, 'obs', 'observer', addEmployee(db, 'Obs')))
       expect(errorCode(() => confirmSection(db, admin, 1, foreign, 'health', TODAY, NOW))).toBe('child_not_found')
       expect(errorCode(() => confirmSection(db, admin, 1, 9999, 'health', TODAY, NOW))).toBe('child_not_found')
       db.update(children).set({ leftOn: '2026-09-30', healthReviewSince: CHANGE_DAY }).where(eq(children.id, childId)).run()

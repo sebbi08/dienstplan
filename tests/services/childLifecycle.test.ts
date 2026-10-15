@@ -10,9 +10,9 @@ import {
   countChildrenToPurge, deleteChild, getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild,
 } from '../../server/services/children'
 import { listDocumentTypes } from '../../server/services/documentTypes'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import {
-  addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode,
+  addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, documentTypeId, errorCode,
 } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
@@ -30,10 +30,10 @@ function addRawContact(db: Db, childId: number): void {
 
 describe('leaving, archive and automatic deletion of children', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
   })
 
   const leftOnOf = (id: number) => db.select().from(children).where(eq(children.id, id)).get()!.leftOn
@@ -68,7 +68,7 @@ describe('leaving, archive and automatic deletion of children', () => {
 
     it('shows the purge date to managers only, and only for a child who has left', () => {
       const id = addChild(db, 1)
-      const staff = addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')) as FacilityUser
+      const staff = asChildViewer(addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')))
       expect(getChild(db, admin, id, TODAY).purgeOn).toBeNull()
       leaveChild(db, 1, id, TODAY, TODAY)
       expect(getChild(db, admin, id, TODAY).purgeOn).toBe('2029-10-09')

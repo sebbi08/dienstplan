@@ -4,6 +4,7 @@ import {
   absenceCodes, childGroupChanges, children, documentTypes, employeeHours, employees, helpOuts, requirementTypes, shiftTemplates, users,
 } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
+import type { ChildActor } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import { hashPassword } from '../../server/lib/password'
 import { toSessionUser } from '../../server/services/auth'
@@ -58,6 +59,14 @@ export function addUser(
     .values({ username, passwordHash: hashPassword(TEST_PASSWORD), role, employeeId, facilityId: stored })
     .returning().get()
   return toSessionUser(db, row)
+}
+
+/**
+ * The account as the child guards see it at the office (no visibility switches, not on the tablet). The user's own
+ * fields stay, so the same object still serves the services that take a session user.
+ */
+export function asChildViewer(user: SessionUser, facilityId = 1): ChildActor {
+  return { ...user, facilityId: user.facilityId ?? facilityId, visibility: null, onTablet: false }
 }
 
 /** A group of the facility, created through the service; returns its id. */

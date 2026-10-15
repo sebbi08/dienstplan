@@ -3,11 +3,12 @@ import { isValidIsoDate } from '../../shared/domain/dates'
 import { groupOnDay, type GroupEntry } from '../../shared/domain/occupancy'
 import type { IsoDate } from '../../shared/domain/types'
 import {
-  KEEP_SECTIONS, type GroupChangeDto, type GroupChangeInput, type KeepSection, type ReviewSection, type SessionUser,
+  KEEP_SECTIONS, type GroupChangeDto, type GroupChangeInput, type KeepSection, type ReviewSection,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childGroupChanges, children, groups } from '../db/schema'
 import { loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRecord'
+import type { ChildActor } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { settleDocumentReview } from './documentReview'
 import { assertGroup, isForSchoolChildren } from './groups'
@@ -213,7 +214,7 @@ function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupC
  * the group for school children, or a planned change into one that is retargeted.
  */
 export function planGroupChange(
-  db: Db, actor: SessionUser, facilityId: number, childId: number, input: GroupChangeInput, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, childId: number, input: GroupChangeInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   const child = loadEditableChild(db, actor, facilityId, childId, today)
@@ -254,7 +255,7 @@ function loadPlannedChange(db: Db, facilityId: number, changeId: number, today: 
  * start entry), with the rules of planning. Moved to today or earlier it is applied at once.
  */
 export function updateGroupChange(
-  db: Db, actor: SessionUser, facilityId: number, changeId: number, input: GroupChangeInput, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, changeId: number, input: GroupChangeInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   const change = loadPlannedChange(db, facilityId, changeId, today, now)
@@ -295,7 +296,7 @@ export function deleteGroupChange(
  * planned change can confirm. A planned change for a later day stays as it is. Must run inside a transaction.
  */
 export function changeGroupDirectly(
-  db: Db, actor: SessionUser, child: Pick<ChildRow, 'id' | 'admissionStatus' | 'entryDate' | 'plannedEntryDate'>,
+  db: Db, actor: ChildActor, child: Pick<ChildRow, 'id' | 'admissionStatus' | 'entryDate' | 'plannedEntryDate'>,
   groupId: number | null, today: IsoDate, now: Date,
 ): void {
   // What is due is applied first: its marks are set and today's entry, if any, is the one that gets replaced.

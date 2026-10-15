@@ -9,8 +9,8 @@ import { setGroupForSchoolChildren } from '../../server/services/groups'
 import { schoolLeavers, setAutoLeave } from '../../server/services/schoolChildren'
 import { setPin } from '../../server/services/terminal'
 import { unlockChildren } from '../../server/services/tabletUnlock'
-import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb } from '../helpers/fixtures'
+import type { ChildActor } from '../../server/lib/childViewer'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
@@ -22,7 +22,7 @@ const DAY_BEFORE = '2027-08-31'
 
 describe('the daily run', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   let bears: number
   let mice: number
   let messages: { level: 'info' | 'error'; text: string }[]
@@ -34,7 +34,7 @@ describe('the daily run', () => {
   }
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     bears = addGroup(db, 1, 'Bären')
     mice = addGroup(db, 1, 'Mäuse')
     messages = []

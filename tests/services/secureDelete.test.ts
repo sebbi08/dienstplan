@@ -9,8 +9,7 @@ import { seedDefaults } from '../../server/db/seed'
 import { createBackup } from '../../server/services/backup'
 import { deleteDocument, uploadDocument } from '../../server/services/childDocuments'
 import { deleteChild, purgeExpiredChildren } from '../../server/services/children'
-import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addUser, documentTypeId } from '../helpers/fixtures'
+import { addChild, addUser, asChildViewer, documentTypeId } from '../helpers/fixtures'
 
 const MARKER = 'KINDERAKTE-GEHEIM-MARKER-7f3a9c'
 const TODAY = '2026-10-09'
@@ -30,7 +29,7 @@ describe('deleting child records leaves no trace in the database file or in back
     const { db, sqlite } = createDb(join(dataDir, 'app.db'))
     migrateDb(db, 'server/db/migrations')
     seedDefaults(db)
-    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     const upload = (childId: number) => uploadDocument(db, admin, 1, childId, {
       typeId: documentTypeId(db, 1, 'Betreuungsvertrag'), title: 'Vertrag', documentDate: '2026-09-01', confidential: false,
     }, { data: markedPdf(), filename: 'scan.pdf' }, TODAY)

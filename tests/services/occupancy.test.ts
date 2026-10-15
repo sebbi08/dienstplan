@@ -8,8 +8,8 @@ import { occupancyTable, upcomingSchoolChildren } from '../../server/services/oc
 import {
   leaveSchoolChildren, occupancyChildren, schoolLeavers, setAutoLeave, setSchoolCutoff,
 } from '../../server/services/schoolChildren'
-import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import type { ChildActor } from '../../server/lib/childViewer'
+import { addChild, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 /** Month index in the table: 0 = September, 1 = October … 11 = August. */
 const SEP = 0
@@ -224,9 +224,9 @@ describe('occupancy table', () => {
   })
 
   describe('group history', () => {
-    let admin: FacilityUser
+    let admin: ChildActor
     beforeEach(() => {
-      admin = addUser(db, 'leitung', 'admin') as FacilityUser
+      admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     })
 
     it('counts a child with a planned mid-month change in the old group (present) and in the new one (fresh), once in the total', () => {
@@ -323,7 +323,7 @@ describe('occupancy table', () => {
     })
 
     it('counts in the group it gets here from the day of that change', () => {
-      const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+      const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
       const id = addChild(db, krippe, { groupId: wichtel, entryDate: '2026-09-01', birthDate: '2024-01-01' })
       moveChildToFacility(db, id, 1, NOW)
       planGroupChange(db, admin, 1, id, { groupId: bears, date: '2026-11-01', keep: KEEP_ALL }, TODAY, NOW)
@@ -362,10 +362,10 @@ describe('occupancy table', () => {
   })
 
   describe('groups for school children', () => {
-    let admin: FacilityUser
+    let admin: ChildActor
     let hort: number
     beforeEach(() => {
-      admin = addUser(db, 'leitung', 'admin') as FacilityUser
+      admin = asChildViewer(addUser(db, 'leitung', 'admin'))
       hort = addGroup(db, 1, 'Hort')
       setGroupForSchoolChildren(db, hort, true)
     })
@@ -423,10 +423,10 @@ describe('occupancy table', () => {
   })
 
   describe('school children of the coming September', () => {
-    let admin: FacilityUser
+    let admin: ChildActor
     let hort: number
     beforeEach(() => {
-      admin = addUser(db, 'leitung', 'admin') as FacilityUser
+      admin = asChildViewer(addUser(db, 'leitung', 'admin'))
       hort = addGroup(db, 1, 'Hort')
       setGroupForSchoolChildren(db, hort, true)
     })

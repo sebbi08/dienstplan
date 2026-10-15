@@ -1,3 +1,4 @@
+import type { ChildVisibility } from '../types/api'
 import { daysInMonth, parseIsoDate, toIsoDate } from './dates'
 import type { IsoDate } from './types'
 
@@ -17,6 +18,19 @@ export function childStatus(
   if (child.leftOn !== null && today > child.leftOn) return 'archived'
   if (child.entryDate !== null && child.entryDate <= today) return 'active'
   return 'planned'
+}
+
+/**
+ * Whether the facility's tablet switches hide the child from this viewer (spec §5.1): a planned waitlist child while
+ * the waitlist is off, a planned contract child (no entry date or a future one) while future contracts are off.
+ * Active and archived children are never hidden; `null` (managers) sees every child.
+ */
+export function hiddenFromViewer(
+  child: { admissionStatus: AdmissionStatus; entryDate: IsoDate | null; leftOn: IsoDate | null },
+  visibility: ChildVisibility | null, today: IsoDate,
+): boolean {
+  if (visibility === null || childStatus(child, today) !== 'planned') return false
+  return child.admissionStatus === 'waitlist' ? !visibility.waitlist : !visibility.futureContracts
 }
 
 /** The same calendar day `year` of the given year; 29 February falls on 28 February in non-leap years. */

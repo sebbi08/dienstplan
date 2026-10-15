@@ -45,20 +45,33 @@ const ADMIN_ROUTES = [
   'employee-requirements/[id].delete.ts', 'employees/[id]/trainings.post.ts', 'employee-trainings/[id].put.ts',
   'employee-trainings/[id].delete.ts',
   'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts', 'early-sick-leaves/[id].delete.ts',
-  'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
-  'children/school-children.get.ts',
 ]
-/** Routes anyone who may see child records can call (Träger, Leitung, Mitarbeiter; not the tablet); they must check with requireChildReader(. */
+/**
+ * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
+ * tablet; never a Mitarbeiter account); they must check with requireChildReader(.
+ */
 const CHILD_READER_ROUTES = [
   'care-types/index.get.ts', 'document-types/index.get.ts', 'children/index.get.ts', 'children/planned.get.ts', 'children/birthdays.get.ts', 'children/groups.get.ts',
   'children/open.get.ts', 'children/staff.get.ts', 'children/[id].get.ts', 'child-documents/[id]/file.get.ts', 'child-documents/overview.get.ts',
 ]
-/** Routes that maintain child records (managers and Mitarbeiter with the permission); they must check with requireChildEditor(. */
+/**
+ * Routes that maintain child records (managers, and at the tablet Mitarbeiter with the permission); they must check
+ * with requireChildEditor(.
+ */
 const CHILD_EDITOR_ROUTES = [
   'children/index.post.ts', 'children/[id]/master.put.ts', 'children/[id]/health.put.ts',
   'children/[id]/consents.put.ts', 'children/[id]/confirm.post.ts', 'children/[id]/contacts.post.ts', 'children/[id]/contacts/order.post.ts',
   'child-contacts/[id].put.ts', 'child-contacts/[id].delete.ts',
   'children/[id]/documents.post.ts', 'child-documents/[id].put.ts', 'child-documents/[id].delete.ts',
+]
+/**
+ * The child pages for Träger and Leitung only, at the office or at the unlocked tablet; they must check with
+ * requireChildManager(.
+ */
+const CHILD_MANAGER_ROUTES = [
+  'children/[id].delete.ts', 'children/archive.get.ts', 'children/occupancy.get.ts', 'children/school-children.get.ts',
+  'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
+  'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
@@ -75,7 +88,10 @@ function source(route: string): string {
 describe('API route permissions', () => {
   it('finds the API routes', () => {
     expect(routes.length).toBeGreaterThan(30)
-    const others = [...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...CHILD_READER_ROUTES, ...CHILD_EDITOR_ROUTES, ...PUBLIC_ROUTES]
+    const others = [
+      ...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...CHILD_READER_ROUTES, ...CHILD_EDITOR_ROUTES,
+      ...CHILD_MANAGER_ROUTES, ...PUBLIC_ROUTES,
+    ]
     for (const route of others) expect(routes).toContain(route)
     for (const route of ADMIN_ROUTES) {
       expect(routes).toContain(route)
@@ -86,13 +102,16 @@ describe('API route permissions', () => {
   it.each(routes)('%s is protected as classified', (route) => {
     const code = source(route)
     if (PUBLIC_ROUTES.includes(route)) {
-      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider|ChildReader|ChildEditor)\(/)
+      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider|ChildReader|ChildEditor|ChildManager)\(/)
     }
     else if (CHILD_READER_ROUTES.includes(route)) {
       expect(code).toContain('requireChildReader(')
     }
     else if (CHILD_EDITOR_ROUTES.includes(route)) {
       expect(code).toContain('requireChildEditor(')
+    }
+    else if (CHILD_MANAGER_ROUTES.includes(route)) {
+      expect(code).toContain('requireChildManager(')
     }
     else if (PROVIDER_ROUTES.includes(route)) {
       expect(code).toContain('requireProvider(')
@@ -145,10 +164,28 @@ describe('API route permissions', () => {
     expect(touching).toEqual(['child-group-changes/[id].delete.ts', 'child-group-changes/[id].put.ts', 'children/[id]/group-change.post.ts'])
     for (const route of touching) {
       const code = source(route)
-      expect(ADMIN_ROUTES, route).toContain(route)
-      expect(code, route).toContain('requireAdmin(')
-      expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor)\(/)
-      expect(code, route).toContain('admin.facilityId')
+      expect(CHILD_MANAGER_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireChildManager(')
+      expect(code, route).not.toMatch(/require(User|Admin|Provider|Terminal|ChildReader|ChildEditor)\(/)
+      expect(code, route).toContain('manager.facilityId')
+    }
+  })
+
+  it('checks with requireChildManager( on exactly the child pages for managers', () => {
+    const managing = routes.filter(route => source(route).includes('requireChildManager('))
+    expect(managing).toEqual([...CHILD_MANAGER_ROUTES].sort())
+    for (const route of CHILD_MANAGER_ROUTES) {
+      expect(source(route), route).not.toMatch(/require(User|Admin|Provider|Terminal|ChildReader|ChildEditor)\(/)
+    }
+  })
+
+  it('keeps the Träger move and the settings of child records away from the tablet', () => {
+    for (const route of ['children/[id]/facility.put.ts', 'child-retention/preview.get.ts']) {
+      expect(source(route), route).toContain('requireProvider(')
+    }
+    for (const route of ['care-types/index.post.ts', 'care-types/[id].put.ts', 'care-types/[id].delete.ts',
+      'document-types/index.post.ts', 'document-types/[id].put.ts', 'document-types/[id].delete.ts']) {
+      expect(source(route), route).toContain('requireAdmin(')
     }
   })
 
@@ -168,9 +205,9 @@ describe('API route permissions', () => {
 
   it('opens the list of the coming school children to managers of the active facility only', () => {
     const code = source('children/school-children.get.ts')
-    expect(code).toContain('requireAdmin(')
-    expect(code).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor)\(/)
-    expect(code).toContain('admin.facilityId')
+    expect(code).toContain('requireChildManager(')
+    expect(code).not.toMatch(/require(User|Admin|Provider|Terminal|ChildReader|ChildEditor)\(/)
+    expect(code).toContain('manager.facilityId')
   })
 
   it('lets the tablet into the general plan only', () => {

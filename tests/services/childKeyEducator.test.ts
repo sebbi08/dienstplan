@@ -6,9 +6,9 @@ import {
   createChild, getChild, listChildStaff, listChildren, moveChildToFacility, updateChildMaster,
 } from '../../server/services/children'
 import { moveEmployeeToFacility } from '../../server/services/employees'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import type { ChildMasterInput } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
 const NOW = new Date('2026-10-09T08:30:00.000Z')
@@ -21,11 +21,11 @@ const master = (overrides: Partial<ChildMasterInput> = {}): ChildMasterInput => 
 
 describe('Bezugserzieher and Schulbezirk of a child', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   let anna: number
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     anna = addEmployee(db, 'Anna Beck')
   })
 

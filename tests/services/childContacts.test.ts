@@ -3,8 +3,8 @@ import type { ChildContactInput } from '../../shared/types/api'
 import type { Db } from '../../server/db/client'
 import { addContact, deleteContact, reorderContacts, updateContact } from '../../server/services/childContacts'
 import { getChild } from '../../server/services/children'
-import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import type { ChildActor } from '../../server/lib/childViewer'
+import { addChild, addEmployee, addFacility, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
 const NOW = new Date('2026-10-09T08:30:00.000Z')
@@ -16,11 +16,11 @@ const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput 
 
 describe('contacts of a child', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   let childId: number
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     childId = addChild(db, 1)
   })
 
@@ -93,7 +93,7 @@ describe('contacts of a child', () => {
 
   it('answers not_found for contacts and children of another facility', () => {
     const other = addFacility(db, 'Andere Kita')
-    const otherAdmin = addUser(db, 'andere-leitung', 'admin', null, other) as FacilityUser
+    const otherAdmin = asChildViewer(addUser(db, 'andere-leitung', 'admin', null, other))
     const foreignChild = addChild(db, other)
     const foreignContact = addContact(db, otherAdmin, other, foreignChild, contact(), TODAY, NOW)
     expect(errorCode(() => updateContact(db, admin, 1, foreignContact, contact(), TODAY, NOW))).toBe('contact_not_found')
@@ -105,7 +105,7 @@ describe('contacts of a child', () => {
   })
 
   it('rejects every change for an archived child: child_archived for managers, not found for a Mitarbeiter (contact_not_found for an existing contact)', () => {
-    const editor = { ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true } as FacilityUser
+    const editor = asChildViewer({ ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true })
     const archived = addChild(db, 1, { leftOn: '2026-09-30' })
     expect(errorCode(() => addContact(db, admin, 1, archived, contact(), TODAY, NOW))).toBe('child_archived')
     expect(errorCode(() => reorderContacts(db, admin, 1, archived, [], TODAY, NOW))).toBe('child_archived')

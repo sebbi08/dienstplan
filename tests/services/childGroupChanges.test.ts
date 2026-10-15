@@ -12,9 +12,9 @@ import {
 import { listDocumentTypes, updateDocumentType } from '../../server/services/documentTypes'
 import { deleteGroup, setGroupForSchoolChildren } from '../../server/services/groups'
 import { schoolLeavers } from '../../server/services/schoolChildren'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import type { ChildMasterInput, GroupChangeInput, KeepSection } from '../../shared/types/api'
-import { addChild, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
+import { addChild, addFacility, addGroup, addUser, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
@@ -30,13 +30,13 @@ const change = (
 
 describe('group history and planned group changes', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   let bears: number
   let mice: number
   let owls: number
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     bears = addGroup(db, 1, 'Bären')
     mice = addGroup(db, 1, 'Mäuse')
     owls = addGroup(db, 1, 'Eulen')
@@ -138,7 +138,7 @@ describe('group history and planned group changes', () => {
     it('applies the due changes of every facility in one run and counts them', () => {
       const krippe = addFacility(db, 'Krippe')
       const wichtel = addGroup(db, krippe, 'Wichtel')
-      const krippeAdmin = addUser(db, 'krippe', 'admin', null, krippe) as FacilityUser
+      const krippeAdmin = asChildViewer(addUser(db, 'krippe', 'admin', null, krippe))
       const a = addChild(db, 1, { groupId: bears })
       const b = addChild(db, 1, { groupId: bears })
       const c = addChild(db, krippe)
@@ -160,7 +160,7 @@ describe('group history and planned group changes', () => {
       const krippe = addFacility(db, 'Krippe')
       const foreignGroup = addGroup(db, krippe, 'Wichtel')
       const foreignChild = addChild(db, krippe)
-      const staff = addUser(db, 'anna', 'observer', null, 1) as FacilityUser
+      const staff = asChildViewer(addUser(db, 'anna', 'observer', null, 1))
 
       expect(errorCode(() => planGroupChange(db, admin, 1, archived, change(mice, '2027-01-01'), TODAY, NOW))).toBe('child_archived')
       expect(errorCode(() => planGroupChange(db, staff, 1, archived, change(mice, '2027-01-01'), TODAY, NOW))).toBe('child_not_found')
@@ -337,7 +337,7 @@ describe('group history and planned group changes', () => {
 
     it('answers group_change_not_found for unknown changes and those of another facility', () => {
       const krippe = addFacility(db, 'Krippe')
-      const krippeAdmin = addUser(db, 'krippe', 'admin', null, krippe) as FacilityUser
+      const krippeAdmin = asChildViewer(addUser(db, 'krippe', 'admin', null, krippe))
       const wichtel = addGroup(db, krippe, 'Wichtel')
       const id = addChild(db, 1, { groupId: bears })
       planGroupChange(db, admin, 1, id, change(mice, '2027-03-15'), TODAY, NOW)

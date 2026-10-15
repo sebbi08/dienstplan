@@ -9,9 +9,9 @@ import {
 } from '../../server/services/childDocuments'
 import { getChild } from '../../server/services/children'
 import { deleteDocumentType, updateDocumentType } from '../../server/services/documentTypes'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import type { ChildDocumentMeta } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
 const NOW = new Date('2026-10-09T08:30:00.000Z')
@@ -22,9 +22,9 @@ const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A
 
 describe('child documents', () => {
   let db: Db
-  let admin: FacilityUser
-  let plain: FacilityUser
-  let allowed: FacilityUser
+  let admin: ChildActor
+  let plain: ChildActor
+  let allowed: ChildActor
   let childId: number
   let contractType: number
   let attestType: number
@@ -40,11 +40,11 @@ describe('child documents', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
-    plain = addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')) as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
+    plain = asChildViewer(addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')))
     const allowedUser = addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed'))
     db.update(users).set({ canEditChildren: true }).where(eq(users.id, allowedUser.id)).run()
-    allowed = getActiveUser(db, allowedUser.id) as FacilityUser
+    allowed = asChildViewer(getActiveUser(db, allowedUser.id)!)
     childId = addChild(db, 1, { lastName: 'Müller-Ö' })
     contractType = documentTypeId(db, 1, 'Betreuungsvertrag')
     attestType = documentTypeId(db, 1, 'Ärztliches Attest')
@@ -144,7 +144,7 @@ describe('child documents', () => {
     it('answers document_not_found for another facility or an unknown id', () => {
       const id = upload()
       const other = addFacility(db, 'Zweite')
-      const outsider = addUser(db, 'zwei', 'admin', null, other) as FacilityUser
+      const outsider = asChildViewer(addUser(db, 'zwei', 'admin', null, other))
       expect(errorCode(() => readDocumentFile(db, outsider, other, id, TODAY))).toBe('document_not_found')
       expect(errorCode(() => readDocumentFile(db, admin, 1, 99999, TODAY))).toBe('document_not_found')
       expect(errorCode(() => listDocuments(db, outsider, other, childId, TODAY))).toBe('child_not_found')
@@ -197,7 +197,7 @@ describe('child documents', () => {
   })
 
   describe('overview', () => {
-    const rowOf = (viewer: FacilityUser = admin) => documentOverview(db, viewer, 1, TODAY).rows.find(item => item.childId === childId)!
+    const rowOf = (viewer: ChildActor = admin) => documentOverview(db, viewer, 1, TODAY).rows.find(item => item.childId === childId)!
     const setType = (name: string, input: { important: boolean; required: boolean }) => {
       const id = documentTypeId(db, 1, name)
       updateDocumentType(db, 1, id, { name, confidentialDefault: false, sortOrder: 0, ...input })

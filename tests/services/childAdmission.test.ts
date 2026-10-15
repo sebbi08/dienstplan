@@ -9,9 +9,9 @@ import { documentOverview } from '../../server/services/childDocuments'
 import {
   createChild, deleteChild, getChild, leaveChild, listBirthdays, listChildren, listPlanned, updateChildMaster,
 } from '../../server/services/children'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import type { ChildContactInput, ChildMasterInput } from '../../shared/types/api'
-import { addChild, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
@@ -29,10 +29,10 @@ const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput 
 
 describe('admission status and planned lists', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
   })
 
   const names = (items: { lastName: string }[]) => items.map(item => item.lastName)
@@ -62,11 +62,11 @@ describe('admission status and planned lists', () => {
 
     it('keeps the record when the waitlist child gets a contract and the child moves to the contracted list', () => {
       const id = createChild(db, admin, 1, master({ lastName: 'Wechsel', waitlistedOn: '2026-05-04' }), NOW)
-      expect(names(listPlanned(db, 1, TODAY).waitlist)).toEqual(['Wechsel'])
+      expect(names(listPlanned(db, admin, TODAY).waitlist)).toEqual(['Wechsel'])
       updateChildMaster(db, admin, 1, id, master({
         lastName: 'Wechsel', admissionStatus: 'contract', entryDate: '2027-01-01', waitlistedOn: '2026-05-04',
       }), TODAY, NOW)
-      const planned = listPlanned(db, 1, TODAY)
+      const planned = listPlanned(db, admin, TODAY)
       expect(planned.waitlist).toEqual([])
       expect(planned.contracted).toMatchObject([{ id, lastName: 'Wechsel', plannedStart: '2027-01-01', waitlistedOn: null }])
       expect(getChild(db, admin, id, TODAY)).toMatchObject({ status: 'planned' })
@@ -148,7 +148,7 @@ describe('admission status and planned lists', () => {
       addChild(db, 1, { lastName: 'Zwilling', admissionStatus: 'waitlist', entryDate: null, waitlistedOn: '2026-03-01' })
       addChild(db, 1, { lastName: 'Admin', admissionStatus: 'waitlist', entryDate: null, waitlistedOn: '2026-03-01' })
       addChild(db, 1, { lastName: 'Ohne', admissionStatus: 'waitlist', entryDate: null, waitlistedOn: null })
-      expect(names(listPlanned(db, 1, TODAY).waitlist)).toEqual(['Admin', 'Zwilling', 'Spaet', 'Ohne', 'Zeitlos'])
+      expect(names(listPlanned(db, admin, TODAY).waitlist)).toEqual(['Admin', 'Zwilling', 'Spaet', 'Ohne', 'Zeitlos'])
     })
 
     it('sorts the contracted by planned start (undated last) then name; entry date wins over planned entry date', () => {
@@ -158,7 +158,7 @@ describe('admission status and planned lists', () => {
       addChild(db, 1, { lastName: 'Admin', entryDate: null })
       addChild(db, 1, { lastName: 'Bald', entryDate: '2026-10-20', plannedEntryDate: '2030-01-01' })
       addChild(db, 1, { lastName: 'Aktiv' })
-      const { contracted, waitlist } = listPlanned(db, 1, TODAY)
+      const { contracted, waitlist } = listPlanned(db, admin, TODAY)
       expect(names(contracted)).toEqual(['Bald', 'Geplant', 'Spaet', 'Admin', 'Zeitlos'])
       expect(contracted.map(item => item.plannedStart)).toEqual(['2026-10-20', '2026-12-01', '2027-01-01', null, null])
       expect(waitlist).toEqual([])
@@ -169,12 +169,12 @@ describe('admission status and planned lists', () => {
       const careType = createCareType(db, 1, { name: 'Ganztag', start: 420, end: 960, sortOrder: 0 })
       const id = addChild(db, 1, { lastName: 'Kind', entryDate: null, groupId: group, careTypeId: careType.id })
       db.update(children).set({ note: 'Geschwisterkind' }).where(eq(children.id, id)).run()
-      const phoneOf = () => listPlanned(db, 1, TODAY).contracted.find(item => item.id === id)!.phone
+      const phoneOf = () => listPlanned(db, admin, TODAY).contracted.find(item => item.id === id)!.phone
       expect(phoneOf()).toBe('')
       addContact(db, admin, 1, id, contact({ name: 'Erste', phoneWork: '03', phoneHome: '02' }), TODAY, NOW)
       addContact(db, admin, 1, id, contact({ name: 'Zweite', phoneMobile: '0170 9' }), TODAY, NOW)
       expect(phoneOf()).toBe('02')
-      expect(listPlanned(db, 1, TODAY).contracted[0]).toMatchObject({
+      expect(listPlanned(db, admin, TODAY).contracted[0]).toMatchObject({
         id, groupId: group, careTypeName: 'Ganztag', note: 'Geschwisterkind', waitlistedOn: null,
       })
     })
@@ -184,7 +184,7 @@ describe('admission status and planned lists', () => {
       const b = addChild(db, 1, { lastName: 'B', entryDate: null })
       addContact(db, admin, 1, a, contact({ phoneMobile: '0170 1', phoneHome: '02', phoneWork: '03' }), TODAY, NOW)
       addContact(db, admin, 1, b, contact({ phoneWork: '03' }), TODAY, NOW)
-      const phones = Object.fromEntries(listPlanned(db, 1, TODAY).contracted.map(item => [item.lastName, item.phone]))
+      const phones = Object.fromEntries(listPlanned(db, admin, TODAY).contracted.map(item => [item.lastName, item.phone]))
       expect(phones).toEqual({ A: '0170 1', B: '03' })
     })
 
@@ -193,8 +193,8 @@ describe('admission status and planned lists', () => {
       addChild(db, other, { lastName: 'Fremd', entryDate: null })
       addChild(db, other, { lastName: 'FremdWartend', admissionStatus: 'waitlist', entryDate: null })
       addChild(db, 1, { lastName: 'Eigen', entryDate: null })
-      expect(names(listPlanned(db, 1, TODAY).contracted)).toEqual(['Eigen'])
-      expect(listPlanned(db, 1, TODAY).waitlist).toEqual([])
+      expect(names(listPlanned(db, admin, TODAY).contracted)).toEqual(['Eigen'])
+      expect(listPlanned(db, admin, TODAY).waitlist).toEqual([])
     })
   })
 
@@ -207,7 +207,7 @@ describe('admission status and planned lists', () => {
     it('lets a manager delete a waitlist child', () => {
       const id = addChild(db, 1, { admissionStatus: 'waitlist', entryDate: null })
       deleteChild(db, 1, id)
-      expect(listPlanned(db, 1, TODAY).waitlist).toEqual([])
+      expect(listPlanned(db, admin, TODAY).waitlist).toEqual([])
     })
   })
 })

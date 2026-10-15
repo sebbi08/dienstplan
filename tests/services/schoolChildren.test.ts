@@ -15,9 +15,9 @@ import { deleteGroup, listGroups, setGroupForSchoolChildren } from '../../server
 import {
   getSchoolSettings, leaveSchoolChildren, occupancyChildren, schoolLeavers, setAutoLeave, setSchoolCutoff,
 } from '../../server/services/schoolChildren'
-import type { FacilityUser } from '../../server/utils/auth'
+import type { ChildActor } from '../../server/lib/childViewer'
 import type { ChildMasterInput, GroupChangeInput } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-13'
 const NOW = new Date('2026-10-13T08:30:00.000Z')
@@ -67,8 +67,8 @@ describe('school settings of a facility', () => {
   })
 
   it('shows the computed school start in the record, for managers and Mitarbeiter, following the cutoff', () => {
-    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
-    const staff = addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')) as FacilityUser
+    const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
+    const staff = asChildViewer(addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')))
     const id = addChild(db, 1, { birthDate: '2021-07-01' })
     expect(getChild(db, admin, id, TODAY).computedSchoolStart).toBe('2028-09-01')
     setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
@@ -77,7 +77,7 @@ describe('school settings of a facility', () => {
   })
 
   it('keeps the manual school start separate from the computed one', () => {
-    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     const id = addChild(db, 1, { birthDate: '2021-06-30', schoolStartDate: '2028-09-01' })
     const record = getChild(db, admin, id, TODAY)
     expect(record.master.schoolStartDate).toBe('2028-09-01')
@@ -209,12 +209,12 @@ describe('groups for school children', () => {
 
 describe('automatic leaving of school children', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   let bears: number
   let hort: number
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     bears = addGroup(db, 1, 'Bären')
     hort = addGroup(db, 1, 'Hort')
   })

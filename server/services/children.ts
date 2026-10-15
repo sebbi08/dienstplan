@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
-import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain/children'
+import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import { computedSchoolStart } from '../../shared/domain/schoolStart'
@@ -8,7 +8,7 @@ import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
   type ChildMasterUpdateInput, type ChildRecordDto, type ConsentKey, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
-  type SectionStamp, type SessionUser,
+  type SectionStamp,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
@@ -16,6 +16,7 @@ import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import {
   clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, REVIEW_STAMP_SECTION, sectionStamp, type ChildRow,
 } from '../lib/childRecord'
+import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { getChildrenPurgedOn, getChildRetentionYears, setChildrenPurgedOn } from './appSettings'
 import { assertCareType } from './careTypes'
@@ -89,10 +90,12 @@ const nullsLast = (a: string | null, b: string | null) => (a ?? '9999-99-99').lo
 /**
  * The facility's planned children: the waitlist (Vormerkungen) by waitlist date and name, and the contract children
  * who have not started yet by their start (entry date, else planned entry date) and name; undated ones come last.
+ * The part the facility's tablet switches hide from the viewer is empty.
  */
-export function listPlanned(db: Db, facilityId: number, today: IsoDate): PlannedChildrenDto {
+export function listPlanned(db: Db, viewer: ChildViewer, today: IsoDate): PlannedChildrenDto {
+  const { facilityId } = viewer
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) === 'planned')
+    .filter(row => childStatus(row, today) === 'planned' && !hiddenFromViewer(row, viewer.visibility, today))
   const ids = rows.map(row => row.id)
   // The first contact by sort order is the one whose number is shown.
   const firstContact = new Map<number, typeof childContacts.$inferSelect>()
@@ -150,13 +153,17 @@ function consentsOf(row: ChildRow): ChildConsents {
   return Object.fromEntries(CONSENT_KEYS.map(key => [key, row[consentColumn(key)]])) as ChildConsents
 }
 
-/** The whole record; an archived child is only visible to Träger and Leitung (others: 404 child_not_found). */
+/**
+ * The whole record; an archived child is only visible to Träger and Leitung, a child the tablet hides from the viewer
+ * not at all (others: 404 child_not_found).
+ */
 export function getChild(
-  db: Db, viewer: SessionUser & { facilityId: number }, id: number, today: IsoDate,
+  db: Db, viewer: ChildViewer, id: number, today: IsoDate,
 ): ChildRecordDto {
   const row = loadChild(db, viewer.facilityId, id)
   const status = childStatus(row, today)
   if (status === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'child_not_found')
+  if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   const stampUsers = [row.masterUpdatedBy, row.contactsUpdatedBy, row.healthUpdatedBy, row.consentsUpdatedBy]
     .filter((userId): userId is number => userId !== null)
   const usernames = new Map(stampUsers.length === 0 ? [] : db.select({ id: users.id, username: users.username }).from(users)
@@ -236,7 +243,7 @@ function checkedMaster(
  * leaving would take at its next run is not created (409 would_deregister, see `guardAgainstLeaving`).
  */
 export function createChild(
-  db: Db, actor: SessionUser, facilityId: number, input: ChildMasterInput, now: Date = new Date(),
+  db: Db, actor: ChildActor, facilityId: number, input: ChildMasterInput, now: Date = new Date(),
 ): number {
   const today = todayIso(now)
   const master = checkedMaster(db, facilityId, input, today)
@@ -266,7 +273,7 @@ export function createChild(
  * school start, another birth or entry date, a contract for a Vormerkung, a group change on the school start day.
  */
 export function updateChildMaster(
-  db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildMasterUpdateInput, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildMasterUpdateInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   const row = loadEditableChild(db, actor, facilityId, id, today)
@@ -297,7 +304,7 @@ export function updateChildMaster(
 }
 
 export function updateChildHealth(
-  db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildHealthInput, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildHealthInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, id, today)
@@ -313,7 +320,7 @@ export function updateChildHealth(
 }
 
 export function updateChildConsents(
-  db: Db, actor: SessionUser, facilityId: number, id: number, input: ChildConsents, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildConsents, today: IsoDate,
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, id, today)
@@ -328,7 +335,7 @@ export function updateChildConsents(
  * The same write rules as for every change of the record apply (archived: 409 child_archived / 404 child_not_found).
  */
 export function confirmSection(
-  db: Db, actor: SessionUser, facilityId: number, childId: number, section: ReviewSection, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, childId: number, section: ReviewSection, today: IsoDate,
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, childId, today)

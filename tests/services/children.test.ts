@@ -7,8 +7,8 @@ import { addContact } from '../../server/services/childContacts'
 import {
   createChild, getChild, listBirthdays, listChildren, updateChildConsents, updateChildHealth, updateChildMaster,
 } from '../../server/services/children'
-import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import type { ChildActor } from '../../server/lib/childViewer'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
 const NOW = new Date('2026-10-09T08:30:00.000Z')
@@ -26,10 +26,10 @@ const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput 
 
 describe('child records', () => {
   let db: Db
-  let admin: FacilityUser
+  let admin: ChildActor
   beforeEach(() => {
     db = createTestDb()
-    admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    admin = asChildViewer(addUser(db, 'leitung', 'admin'))
   })
 
   const names = (items: { lastName: string; firstName: string }[]) => items.map(item => `${item.lastName} ${item.firstName}`)
@@ -113,7 +113,7 @@ describe('child records', () => {
 
     it('updates master data, health and consents and stamps each section', () => {
       const id = createChild(db, admin, 1, master(), NOW)
-      const editor = addUser(db, 'frau-k', 'observer', addEmployee(db, 'Frau K')) as FacilityUser
+      const editor = asChildViewer(addUser(db, 'frau-k', 'observer', addEmployee(db, 'Frau K')))
       const later = new Date('2026-10-10T09:00:00.000Z')
       updateChildMaster(db, editor, 1, id, master({ firstName: 'Lea', address: 'Weg 1' }), TODAY, later)
       updateChildHealth(db, editor, 1, id, {
@@ -160,7 +160,7 @@ describe('child records', () => {
 
     it('hides archived children from non-managers and shows managers a read-only record', () => {
       const id = addChild(db, 1, { leftOn: '2026-09-30' })
-      const observer = addUser(db, 'mitarbeiter', 'observer', addEmployee(db, 'Mit Arbeiter')) as FacilityUser
+      const observer = asChildViewer(addUser(db, 'mitarbeiter', 'observer', addEmployee(db, 'Mit Arbeiter')))
       expect(errorCode(() => getChild(db, observer, id, TODAY))).toBe('child_not_found')
       const record = getChild(db, admin, id, TODAY)
       expect(record).toMatchObject({ status: 'archived', leftOn: '2026-09-30', canEdit: false })
@@ -168,7 +168,7 @@ describe('child records', () => {
 
     it('rejects every update of an archived child: child_archived for managers, child_not_found for a Mitarbeiter', () => {
       const id = addChild(db, 1, { leftOn: '2026-09-30' })
-      const editor = { ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true } as FacilityUser
+      const editor = asChildViewer({ ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true })
       const health = {
         measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
         mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null,
@@ -184,8 +184,8 @@ describe('child records', () => {
 
     it('lets only editors edit: canEdit follows the permission', () => {
       const id = addChild(db, 1)
-      const plain = addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')) as FacilityUser
-      const allowed = addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed')) as FacilityUser
+      const plain = asChildViewer(addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')))
+      const allowed = asChildViewer(addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed')))
       allowed.canEditChildren = true
       expect(getChild(db, plain, id, TODAY).canEdit).toBe(false)
       expect(getChild(db, allowed, id, TODAY).canEdit).toBe(true)

@@ -1,10 +1,11 @@
 import { and, eq } from 'drizzle-orm'
-import { childStatus } from '../../shared/domain/children'
+import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isManager } from '../../shared/domain/roles'
-import { REVIEW_SECTIONS, type ReviewSection, type Role } from '../../shared/types/api'
+import { REVIEW_SECTIONS, type ReviewSection } from '../../shared/types/api'
 import type { IsoDate } from '../../shared/domain/types'
 import type { Db } from '../db/client'
 import { children } from '../db/schema'
+import type { ChildViewer } from './childViewer'
 import { ServiceError } from './errors'
 
 export type ChildRow = typeof children.$inferSelect
@@ -19,15 +20,17 @@ export function loadChild(db: Db, facilityId: number, id: number): ChildRow {
 
 /**
  * Like `loadChild`, but a child who has left (archived) cannot be changed any more: 409 child_archived for managers;
- * everybody else must not even know the record exists (404 child_not_found, as when reading it).
+ * everybody else must not even know the record exists (404 child_not_found, as when reading it). Nor can a child the
+ * facility's tablet hides from the actor (404 child_not_found).
  */
 export function loadEditableChild(
-  db: Db, actor: { role: Role | null }, facilityId: number, id: number, today: IsoDate,
+  db: Db, actor: Pick<ChildViewer, 'role' | 'visibility'>, facilityId: number, id: number, today: IsoDate,
 ): ChildRow {
   const row = loadChild(db, facilityId, id)
   if (childStatus(row, today) === 'archived') {
     throw isManager(actor.role) ? new ServiceError(409, 'child_archived') : new ServiceError(404, 'child_not_found')
   }
+  if (hiddenFromViewer(row, actor.visibility, today)) throw new ServiceError(404, 'child_not_found')
   return row
 }
 

@@ -5,6 +5,6 @@ import { listChildGroups } from '../../services/groups'
  * group only go to managers.
  */
 export default defineServiceHandler(async (event) => {
-  const user = await requireChildReader(event)
-  return listChildGroups(useDb(), user.facilityId, user.role)
+  const viewer = await requireChildReader(event)
+  return listChildGroups(useDb(), viewer.facilityId, viewer.role)
 })

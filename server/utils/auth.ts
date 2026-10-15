@@ -3,6 +3,8 @@ import { PAGE_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
+import { resolveChildViewer } from '../services/tabletUnlock'
+import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { assertPageFacility } from '../lib/pageFacility'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
 
@@ -65,18 +67,38 @@ export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
   return user
 }
 
-/** Whoever may see child records: Träger, Leitung and Mitarbeiter of a facility (never the tablet). */
-export async function requireChildReader(event: H3Event): Promise<FacilityUser> {
-  const user = await requireUser(event)
-  requireFacility(event, user)
-  return user as FacilityUser
+/**
+ * Whoever looks at child records (see `resolveChildViewer`): Träger and Leitung with their own account, or the person
+ * who unlocked the facility's tablet. A Mitarbeiter account gets 403 children_tablet_only, a locked tablet 403
+ * tablet_locked.
+ */
+export async function requireChildReader(event: H3Event): Promise<ChildViewer> {
+  const user = await requireUser(event, { allowTerminal: true })
+  const { childUnlock } = await getUserSession(event)
+  const viewer = resolveChildViewer(useDb(), user, childUnlock)
+  // The tablet has one facility; only a Träger's page can be stale.
+  if (!viewer.onTablet) checkPageFacility(event, user)
+  return viewer
 }
 
-/** Whoever may maintain child records: the managers, and Mitarbeiter with the permission. */
-export async function requireChildEditor(event: H3Event): Promise<FacilityUser> {
-  const user = await requireChildReader(event)
-  if (!mayEditChildren(user)) throw httpError(403, 'forbidden')
-  return user
+/** A viewer who may change records always has an account (the tablet's readers without one may not). */
+function asActor(viewer: ChildViewer): ChildActor {
+  if (viewer.id === null) throw httpError(403, 'forbidden')
+  return viewer as ChildActor
+}
+
+/** Whoever may maintain child records: the managers, and Mitarbeiter with the permission at the tablet. */
+export async function requireChildEditor(event: H3Event): Promise<ChildActor> {
+  const viewer = await requireChildReader(event)
+  if (!mayEditChildren(viewer)) throw httpError(403, 'forbidden')
+  return asActor(viewer)
+}
+
+/** Träger or Leitung on the child pages, at the office or at the unlocked tablet (archive, occupancy, group changes …). */
+export async function requireChildManager(event: H3Event): Promise<ChildActor> {
+  const viewer = await requireChildReader(event)
+  if (!isManager(viewer.role)) throw httpError(403, 'forbidden')
+  return asActor(viewer)
 }
 
 /** Only the Träger: contract data of employees, Träger accounts and the facilities. */

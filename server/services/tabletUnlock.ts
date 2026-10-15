@@ -2,7 +2,9 @@ import { randomBytes } from 'node:crypto'
 import { and, eq, inArray } from 'drizzle-orm'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import { UNLOCK_GRACE_SECONDS } from '../../shared/domain/tablet'
-import type { ChildRightsDto, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto } from '../../shared/types/api'
+import type {
+  ChildRightsDto, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities, terminalUnlocks, users } from '../db/schema'
 import type { ChildViewer } from '../lib/childViewer'
@@ -115,6 +117,25 @@ export function tabletChildViewer(
   }
   if (touch) db.update(terminalUnlocks).set({ lastActiveAt: now.toISOString() }).where(eq(terminalUnlocks.id, resolved.row.id)).run()
   return resolved.viewer
+}
+
+/**
+ * Who looks at child records with this request (spec §4, §8.2): the tablet only through a valid unlock (403
+ * tablet_locked otherwise; the request counts as use), Leitung and Träger with their own account in their facility (403
+ * no_facility without one). Every other account, Mitarbeiter with or without the edit flag, sees no child data at all:
+ * 403 children_tablet_only.
+ */
+export function resolveChildViewer(db: Db, user: SessionUser, token: string | undefined, now: Date = new Date()): ChildViewer {
+  if (user.role === 'terminal') {
+    if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
+    return tabletChildViewer(db, { id: user.id, facilityId: user.facilityId }, token, now, true)
+  }
+  if (!isManager(user.role)) throw new ServiceError(403, 'children_tablet_only')
+  if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
+  return {
+    id: user.id, role: user.role, canEditChildren: user.canEditChildren, facilityId: user.facilityId,
+    visibility: null, onTablet: false,
+  }
 }
 
 /** Like tabletChildViewer, but answers { unlocked: false } instead of throwing and changes nothing. */

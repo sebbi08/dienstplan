@@ -12,8 +12,7 @@ import { applyToCells } from '../../server/services/entries'
 import {
   assertGroup, createGroup, deleteGroup, listChildGroups, listGroups, renameGroup, setGroupCapacity,
 } from '../../server/services/groups'
-import type { FacilityUser } from '../../server/utils/auth'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-08'
 
@@ -164,7 +163,7 @@ describe('groups of a facility', () => {
   const KEEP_ALL = { contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true }
 
   it('refuses to delete a group a planned change still leads into', () => {
-    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     const bears = addGroup(db, 1, 'Bären')
     const mice = addGroup(db, 1, 'Mäuse')
     const id = addChild(db, 1, { groupId: bears })
@@ -180,7 +179,7 @@ describe('groups of a facility', () => {
   })
 
   it('lets the history entries of a deleted group lose the group', () => {
-    const admin = addUser(db, 'leitung', 'admin') as FacilityUser
+    const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     const bears = addGroup(db, 1, 'Bären')
     const mice = addGroup(db, 1, 'Mäuse')
     const archived = addChild(db, 1, { groupId: bears, leftOn: '2026-10-07' })

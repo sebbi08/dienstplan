@@ -1,5 +1,38 @@
 import { describe, expect, it } from 'vitest'
-import { ageOn, childStatus, nextBirthday, purgeDate } from '../../shared/domain/children'
+import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
+
+describe('hiddenFromViewer', () => {
+  const today = '2026-10-08'
+  const waitlist = { admissionStatus: 'waitlist' as const, entryDate: null, leftOn: null }
+  const future = { admissionStatus: 'contract' as const, entryDate: '2026-11-01', leftOn: null }
+  const undated = { admissionStatus: 'contract' as const, entryDate: null, leftOn: null }
+  const active = { admissionStatus: 'contract' as const, entryDate: '2026-10-08', leftOn: null }
+  const archived = { admissionStatus: 'contract' as const, entryDate: '2024-09-01', leftOn: '2026-10-07' }
+  const none = { waitlist: false, futureContracts: false }
+
+  it('hides the waitlist only while it is switched off', () => {
+    expect(hiddenFromViewer(waitlist, none, today)).toBe(true)
+    expect(hiddenFromViewer(waitlist, { waitlist: true, futureContracts: false }, today)).toBe(false)
+    expect(hiddenFromViewer(waitlist, { waitlist: false, futureContracts: true }, today)).toBe(true)
+  })
+
+  it('hides contract children before their entry day (or without one) while future contracts are switched off', () => {
+    for (const child of [future, undated]) {
+      expect(hiddenFromViewer(child, none, today)).toBe(true)
+      expect(hiddenFromViewer(child, { waitlist: true, futureContracts: false }, today)).toBe(true)
+      expect(hiddenFromViewer(child, { waitlist: false, futureContracts: true }, today)).toBe(false)
+    }
+  })
+
+  it('never hides active or archived children', () => {
+    expect(hiddenFromViewer(active, none, today)).toBe(false)
+    expect(hiddenFromViewer(archived, none, today)).toBe(false)
+  })
+
+  it('hides nothing from a viewer without visibility switches (managers)', () => {
+    for (const child of [waitlist, future, undated, active, archived]) expect(hiddenFromViewer(child, null, today)).toBe(false)
+  })
+})
 
 describe('childStatus', () => {
   it('is planned without an entry date or before it', () => {

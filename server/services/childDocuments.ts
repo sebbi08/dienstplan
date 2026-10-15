@@ -1,22 +1,19 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
-import { childStatus } from '../../shared/domain/children'
+import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
-import type {
-  ChildDocumentDto, ChildDocumentMeta, DocumentOverviewDto, SessionUser,
-} from '../../shared/types/api'
+import type { ChildDocumentDto, ChildDocumentMeta, DocumentOverviewDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childDocuments, children, documentTypes, users } from '../db/schema'
 import { loadChild, loadEditableChild } from '../lib/childRecord'
+import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { DOCUMENT_EXTENSIONS, MAX_DOCUMENT_BYTES, detectDocumentMime, type DocumentMime } from '../lib/fileSignature'
 import { settleDue } from './childGroupChanges'
 import { settleDocumentReview, staleContractTypes, staleRequiredTypes } from './documentReview'
 import { assertDocumentType, listDocumentTypes } from './documentTypes'
 import { listGroups } from './groups'
-
-type Viewer = SessionUser & { facilityId: number }
 
 /** Every column except the file itself: lists and overviews must never pull the bytes out of the database. */
 const META_COLUMNS = {
@@ -38,7 +35,7 @@ type MetaRow = {
 }
 
 /** Confidential documents may only be opened by those who maintain child records. */
-const mayOpen = (viewer: Viewer, row: { confidential: boolean }) => !row.confidential || mayEditChildren(viewer)
+const mayOpen = (viewer: ChildViewer, row: { confidential: boolean }) => !row.confidential || mayEditChildren(viewer)
 
 /** The document day; every write requires one, the column is only nullable for historic rows. */
 const dayOf = (row: MetaRow): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
@@ -52,7 +49,7 @@ function checkedMeta(db: Db, facilityId: number, meta: ChildDocumentMeta): Child
 
 /** A new document in the child's record; returns its id. The stored type is the detected one, never the claimed one. */
 export function uploadDocument(
-  db: Db, actor: SessionUser, facilityId: number, childId: number, meta: ChildDocumentMeta,
+  db: Db, actor: ChildActor, facilityId: number, childId: number, meta: ChildDocumentMeta,
   file: { data: Buffer; filename: string }, today: IsoDate, now: Date = new Date(),
 ): number {
   loadEditableChild(db, actor, facilityId, childId, today)
@@ -80,12 +77,16 @@ export function uploadDocument(
   })
 }
 
-/** The child's documents, newest document date first. An archived child is only visible to Träger and Leitung. */
+/**
+ * The child's documents, newest document date first. An archived child is only visible to Träger and Leitung, a child
+ * the tablet hides not at all (404 child_not_found).
+ */
 export function listDocuments(
-  db: Db, viewer: Viewer, facilityId: number, childId: number, today: IsoDate = todayIso(),
+  db: Db, viewer: ChildViewer, facilityId: number, childId: number, today: IsoDate = todayIso(),
 ): ChildDocumentDto[] {
   const child = loadChild(db, facilityId, childId)
   if (childStatus(child, today) === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'child_not_found')
+  if (hiddenFromViewer(child, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   const rows: MetaRow[] = db.select(META_COLUMNS).from(childDocuments).where(eq(childDocuments.childId, childId))
     .orderBy(desc(childDocuments.documentDate), desc(childDocuments.id)).all()
   if (rows.length === 0) return []
@@ -123,11 +124,12 @@ function safeFileNamePart(text: string): string {
 
 /**
  * The file with its stored type and a download name `<type>-<lastName>-<date>.<ext>`. Anything the viewer may not see
- * (another facility, an archived child for non-managers, a confidential document without the right) is 404
+ * (another facility, an archived child for non-managers, a child the tablet hides, a confidential document without the
+ * right) is 404
  * document_not_found, so nothing reveals that the document exists.
  */
 export function readDocumentFile(
-  db: Db, viewer: Viewer, facilityId: number, id: number, today: IsoDate = todayIso(),
+  db: Db, viewer: ChildViewer, facilityId: number, id: number, today: IsoDate = todayIso(),
 ): { data: Buffer; mimeType: string; fileName: string } {
   const row = db.select({
     ...META_COLUMNS, data: childDocuments.data, lastName: children.lastName, entryDate: children.entryDate,
@@ -138,6 +140,7 @@ export function readDocumentFile(
     .where(eq(childDocuments.id, id)).get()
   if (!row || row.facilityId !== facilityId) throw new ServiceError(404, 'document_not_found')
   if (childStatus(row, today) === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'document_not_found')
+  if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'document_not_found')
   if (!mayOpen(viewer, row)) throw new ServiceError(404, 'document_not_found')
   const extension = DOCUMENT_EXTENSIONS[row.mimeType as DocumentMime] ?? 'bin'
   const base = [row.typeName, row.lastName, dayOf(row)].map(safeFileNamePart).filter(part => part !== '').join('-')
@@ -148,7 +151,7 @@ export function readDocumentFile(
  * The document, which must belong to a child of the facility (404 document_not_found), and its child must not be
  * archived: managers get 409 child_archived, everybody else 404 document_not_found.
  */
-function loadEditableDocument(db: Db, actor: SessionUser, facilityId: number, id: number, today: IsoDate): MetaRow {
+function loadEditableDocument(db: Db, actor: ChildActor, facilityId: number, id: number, today: IsoDate): MetaRow {
   const row = db.select({ ...META_COLUMNS, facilityId: children.facilityId }).from(childDocuments)
     .innerJoin(children, eq(children.id, childDocuments.childId))
     .where(eq(childDocuments.id, id)).get()
@@ -165,7 +168,7 @@ function loadEditableDocument(db: Db, actor: SessionUser, facilityId: number, id
 
 /** Changes type, title, date and confidentiality; the file stays as uploaded. A new type can complete the required ones. */
 export function updateDocument(
-  db: Db, actor: SessionUser, facilityId: number, id: number, meta: ChildDocumentMeta, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, id: number, meta: ChildDocumentMeta, today: IsoDate,
 ): void {
   const { childId } = loadEditableDocument(db, actor, facilityId, id, today)
   const checked = checkedMeta(db, facilityId, meta)
@@ -178,13 +181,13 @@ export function updateDocument(
   })
 }
 
-export function deleteDocument(db: Db, actor: SessionUser, facilityId: number, id: number, today: IsoDate): void {
+export function deleteDocument(db: Db, actor: ChildActor, facilityId: number, id: number, today: IsoDate): void {
   loadEditableDocument(db, actor, facilityId, id, today)
   db.delete(childDocuments).where(eq(childDocuments.id, id)).run()
 }
 
 /** Active children against the important document types: the newest document per type, and who lacks a required one. */
-export function documentOverview(db: Db, viewer: Viewer, facilityId: number, today: IsoDate): DocumentOverviewDto {
+export function documentOverview(db: Db, viewer: ChildViewer, facilityId: number, today: IsoDate): DocumentOverviewDto {
   const types = listDocumentTypes(db, facilityId).filter(type => type.important)
   const kids = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) === 'active')

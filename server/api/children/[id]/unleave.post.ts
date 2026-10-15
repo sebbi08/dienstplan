@@ -7,9 +7,9 @@ import { unleaveChild } from '../../../services/children'
  * facility's automatic leaving would deregister again at once (400 school_start_required without it).
  */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const manager = await requireChildManager(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { schoolStartDate } = await readValidatedBody(event, body => childUnleaveSchema.parse(body ?? {}))
-  unleaveChild(useDb(), admin.facilityId, id, todayIso(), schoolStartDate)
+  unleaveChild(useDb(), manager.facilityId, id, todayIso(), schoolStartDate)
   return { ok: true }
 })

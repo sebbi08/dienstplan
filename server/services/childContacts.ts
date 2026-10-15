@@ -1,9 +1,10 @@
 import { asc, eq, max } from 'drizzle-orm'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ChildContactDto, ChildContactInput, SessionUser } from '../../shared/types/api'
+import type { ChildContactDto, ChildContactInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childContacts, children } from '../db/schema'
 import { clearedReviews, loadEditableChild, sectionStamp } from '../lib/childRecord'
+import type { ChildActor } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { settleDue } from './childGroupChanges'
 
@@ -57,7 +58,7 @@ function loadContact(db: Db, facilityId: number, contactId: number): ContactRow 
  * and the child must not be archived (managers: 409 child_archived; everybody else gets the contact's own 404
  * contact_not_found, so nothing reveals an archived child's record).
  */
-function loadEditableContact(db: Db, actor: SessionUser, facilityId: number, contactId: number, today: IsoDate): ContactRow {
+function loadEditableContact(db: Db, actor: ChildActor, facilityId: number, contactId: number, today: IsoDate): ContactRow {
   const contact = loadContact(db, facilityId, contactId)
   try {
     loadEditableChild(db, actor, facilityId, contact.childId, today)
@@ -73,7 +74,7 @@ function loadEditableContact(db: Db, actor: SessionUser, facilityId: number, con
  * Every contact write stamps the section and counts as confirming it after a group change; a change whose day has
  * come is applied first, so the marker it sets is cleared too.
  */
-function stamp(db: Db, childId: number, actor: SessionUser, today: IsoDate, now: Date): void {
+function stamp(db: Db, childId: number, actor: ChildActor, today: IsoDate, now: Date): void {
   settleDue(db, childId, today, now)
   db.update(children).set({ ...sectionStamp('contacts', actor.id, now), ...clearedReviews('contacts') })
     .where(eq(children.id, childId)).run()
@@ -81,7 +82,7 @@ function stamp(db: Db, childId: number, actor: SessionUser, today: IsoDate, now:
 
 /** A new contact at the end of the child's list; returns its id. */
 export function addContact(
-  db: Db, actor: SessionUser, facilityId: number, childId: number, input: ChildContactInput, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, childId: number, input: ChildContactInput, today: IsoDate,
   now: Date = new Date(),
 ): number {
   loadEditableChild(db, actor, facilityId, childId, today)
@@ -96,7 +97,7 @@ export function addContact(
 }
 
 export function updateContact(
-  db: Db, actor: SessionUser, facilityId: number, contactId: number, input: ChildContactInput, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, contactId: number, input: ChildContactInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
   const contact = loadEditableContact(db, actor, facilityId, contactId, today)
@@ -108,7 +109,7 @@ export function updateContact(
 }
 
 export function deleteContact(
-  db: Db, actor: SessionUser, facilityId: number, contactId: number, today: IsoDate, now: Date = new Date(),
+  db: Db, actor: ChildActor, facilityId: number, contactId: number, today: IsoDate, now: Date = new Date(),
 ): void {
   const contact = loadEditableContact(db, actor, facilityId, contactId, today)
   db.transaction((tx) => {
@@ -119,7 +120,7 @@ export function deleteContact(
 
 /** Puts the child's contacts in the given order; the ids must be exactly the child's contacts (400 invalid_order). */
 export function reorderContacts(
-  db: Db, actor: SessionUser, facilityId: number, childId: number, ids: number[], today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, childId: number, ids: number[], today: IsoDate,
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, childId, today)
