@@ -156,7 +156,9 @@ der Einrichtung.
   *Mitarbeiter*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Nach 5
   falschen PINs ist die Person 15 Minuten gesperrt – beim Stempeln und beim Aufschließen.
 - Das Tablet sperrt sich wieder, wenn die **Sperrzeit** ohne Bedienung abgelaufen ist, wenn jemand „Sperren“
-  antippt, zur Startseite oder zum Stempeln wechselt oder eine andere Person aufschließt.
+  antippt, die Kinderseiten verlässt (zur Startseite, zum Stempeln oder zum Dienstplan) oder eine andere Person
+  aufschließt. Das merkt das Tablet spätestens nach einer halben Minute auch von selbst, z. B. wenn die Sperrzeit
+  verkürzt oder der Person die PIN gelöscht wurde.
 - Unter *Einstellungen → Tablet* stellen Leitung und Träger pro Einrichtung ein:
   - die **Sperrzeit ohne Bedienung** (1 bis 30 Minuten, voreingestellt 2 Minuten),
   - **Vormerkungen am Tablet zeigen** (voreingestellt aus),
@@ -167,6 +169,11 @@ der Einrichtung.
 - Dokumente öffnen sich am Tablet in einer Anzeige **innerhalb der App** (PDFs Seite für Seite, Fotos als Bild).
   Es gibt am Tablet kein Herunterladen, damit keine Datei auf dem Gerät liegen bleibt. Ein Bildschirmfoto kann
   die App allerdings nicht verhindern.
+- **Fotos mit „Foto aufnehmen“:** Manche Kamera-Apps (vor allem auf Android) legen von jedem Foto, das du für
+  ein Dokument aufnimmst, zusätzlich eine Kopie in der Galerie des Tablets ab. Prüfe deshalb einmal, ob die
+  Kamera-App deines Tablets das tut: Foto für ein Dokument aufnehmen, hochladen, danach in der Galerie
+  nachsehen. Liegt dort eine Kopie, lösch sie (und schau auch in den Papierkorb der Galerie, dort bleibt sie
+  sonst noch einige Tage).
 - Einstellungen und das Verschieben eines Kindes in eine andere Einrichtung gibt es am Tablet nicht – auch nicht
   für Leitung und Träger.
 
