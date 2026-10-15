@@ -15,6 +15,7 @@ import { formatDate } from '~/utils/format'
 /** `reload` re-reads the record after a save (not needed while creating); the guard in `save` holds until it is done. */
 const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown>; initialStatus?: AdmissionStatus }>()
 const run = useAction(async () => { await props.reload?.() })
+const { rights } = useChildRights()
 const { groups, careTypes, staff, canPickGroup, groupName, careTypeName } = props.lookups
 
 const creating = !props.child
@@ -53,13 +54,14 @@ watch(waitlisted, (value) => {
 })
 // A child that has already started cannot become a waitlist entry again (the server refuses it); for such a record the
 // "Stand" is only shown.
-const mayChooseStatus = computed(() => creating || props.child?.status === 'planned')
+// At the tablet, whoever may not see the waitlist cannot make a child one either (it would vanish for them); the
+// "Stand" is then only shown.
+const mayChooseStatus = computed(() => (creating || props.child?.status === 'planned') && !!rights.value?.showWaitlist)
 const statusItems = [
   { label: de.children.admission.waitlist, value: 'waitlist' },
   { label: de.children.admission.contract, value: 'contract' },
 ]
 
-const { rights } = useChildRights()
 /** Managers plan group changes; a Vormerkung only has a desired group and an archived record cannot change. */
 const canPlanChange = computed(() =>
   !!props.child && !!props.reload && !!rights.value?.isManager
@@ -92,11 +94,30 @@ function payload(): ChildMasterInput {
 }
 
 const { busy, guard } = useBusy()
+/**
+ * Why the new child is hidden from the current viewer (only at the tablet, by the facility's switches), or null: a
+ * Vormerkung without the waitlist switch, a contract without an entry date or starting after today without the switch
+ * for future contracts.
+ */
+function hiddenAfterCreate(input: ChildMasterInput): string | null {
+  if (input.admissionStatus === 'waitlist') return rights.value?.showWaitlist ? null : de.children.createdHiddenWaitlist
+  const future = input.entryDate === null || input.entryDate > todayIso()
+  return future && !rights.value?.showFutureContracts ? de.children.createdHiddenFuture : null
+}
 async function create(): Promise<boolean> {
   try {
-    const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: payload() })
+    const input = payload()
+    const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: input })
     // The guard in save() holds until the navigation is done, so the child cannot be created twice.
-    await navigateTo(`/children/${id}`)
+    const hidden = hiddenAfterCreate(input)
+    if (hidden) {
+      // Its record would answer "not found" here, so back to the list.
+      useToast().add({ title: hidden, color: 'success' })
+      await navigateTo('/children')
+    }
+    else {
+      await navigateTo(`/children/${id}`)
+    }
     return true
   }
   catch (error) {

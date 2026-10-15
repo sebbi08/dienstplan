@@ -16,7 +16,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return to.path === '/terminal' || to.path.startsWith('/plan/') ? undefined : navigateTo('/terminal')
   }
   if (user.value?.mustChangePassword && to.path !== '/account/password') return navigateTo('/account/password')
-  // Mitarbeiter see the children only at the facility's tablet.
-  if (childPage && user.value?.role === 'observer') return navigateTo('/')
+  // Mitarbeiter see the children only at the facility's tablet (and printouts of them nowhere; the tablet never gets
+  // to /print above).
+  if ((childPage || to.path.startsWith('/print/children/')) && user.value?.role === 'observer') return navigateTo('/')
   if ((to.path.startsWith('/admin') || to.path === '/terminal') && !isManager(user.value?.role)) return navigateTo('/')
 })

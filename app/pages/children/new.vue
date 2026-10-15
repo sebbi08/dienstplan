@@ -9,7 +9,8 @@ if (!rights.value?.canEdit) await navigateTo('/children')
 const lookups = useChildLookups()
 await lookups.ready
 // "Vormerkung anlegen" links here with ?status=waitlist, so the form starts as a waitlist entry.
-const initialStatus = useRoute().query.status === 'waitlist' ? 'waitlist' : 'contract'
+// At the tablet without the waitlist switch there are no Vormerkungen to create.
+const initialStatus = useRoute().query.status === 'waitlist' && rights.value?.showWaitlist ? 'waitlist' : 'contract'
 </script>
 
 <template>

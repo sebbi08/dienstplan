@@ -76,7 +76,8 @@ const links = computed(() => {
   return [myPlan, plan, myLeave, myRequirements, { label: de.nav.calendar, to: '/my/calendar' }]
 })
 
-// At the tablet, a child page shows who unlocked it and the lock button instead of the menu.
+// At the tablet, a child page shows who unlocked it and the lock button instead of the menu; that bar never slides away,
+// so "Sperren" stays in reach on a narrow tablet.
 const tabletChildren = computed(() => user.value?.role === 'terminal' && (route.path === '/children' || route.path.startsWith('/children/')))
 
 const pageFacility = usePageFacility()
@@ -92,7 +93,7 @@ async function logout() {
   <div class="min-h-screen bg-gray-50 text-gray-900">
     <header
       v-if="loggedIn" class="sticky top-0 z-40 border-b border-gray-200 bg-white transition-transform duration-200 print:hidden"
-      :class="headerHidden ? 'max-md:-translate-y-full' : ''"
+      :class="headerHidden && !tabletChildren ? 'max-md:-translate-y-full' : ''"
     >
       <TerminalTabletUnlockBar v-if="tabletChildren" />
       <div v-else class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">

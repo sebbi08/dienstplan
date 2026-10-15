@@ -418,7 +418,7 @@ export const de = {
   users: {
     title: 'Benutzer', username: 'Benutzername', password: 'Startpasswort (mindestens 8 Zeichen)', role: 'Rolle',
     roles: { provider: 'Träger', admin: 'Leitung', observer: 'Mitarbeiter', terminal: 'Stempel-Tablet' },
-    rolesHint: 'Träger: alles, zusätzlich Vertragsangaben der Mitarbeiter und Träger-Konten. Leitung: Dienstplan, Mitarbeiter, Zeiterfassung und Einstellungen. Mitarbeiter: Dienstplan ansehen, eigener Plan, Stempeln und Urlaub (muss mit einem Mitarbeiter verknüpft sein). Stempel-Tablet: gemeinsames Gerät zum Stempeln.',
+    rolesHint: 'Träger: alles, zusätzlich Vertragsangaben der Mitarbeiter und Träger-Konten. Leitung: Dienstplan, Mitarbeiter, Zeiterfassung und Einstellungen. Mitarbeiter: Dienstplan ansehen, eigener Plan, Stempeln und Urlaub (muss mit einem Mitarbeiter verknüpft sein); Kinder nur am Tablet. Stempel-Tablet: gemeinsames Gerät der Einrichtung zum Stempeln; nach dem Aufschließen mit Name und PIN zeigt es auch die Kinder, mit den Rechten der Person, die aufgeschlossen hat.',
     providerLocked: 'nur durch Träger änderbar',
     rightsTitle: 'Rechte der Rollen', rightYes: 'erlaubt', rightNo: 'nicht erlaubt',
     employee: 'Mitarbeiter', noEmployee: '– keiner –',
@@ -445,7 +445,10 @@ export const de = {
   },
   children: {
     nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', planned: 'Vormerkungen & Verträge', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
-    create: 'Kind anlegen', search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
+    create: 'Kind anlegen',
+    createdHiddenFuture: 'Kind angelegt. Es erscheint am Tablet ab dem Eintrittstag.',
+    createdHiddenWaitlist: 'Kind angelegt. Vormerkungen sind am Tablet ausgeblendet.',
+    search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
     allKeyEducators: 'Alle Bezugserzieher', noKeyEducator: '– niemand –',
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',
     allergies: 'Allergien', emergencyContacts: 'Notfallkontakte',

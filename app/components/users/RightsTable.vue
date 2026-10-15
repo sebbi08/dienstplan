@@ -7,7 +7,8 @@ import { de } from '~/locales/de'
  * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
-type Right = 'yes' | 'no' | 1 | 2 | 3 | 4 | 5 | 6 | 7
+type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
+type Right = 'yes' | 'no' | Footnote
 const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
 const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Right, Right] }[] }[] = [
@@ -48,15 +49,17 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Jahreskalender ansehen', rights: ['yes', 'yes', 6, 'no'] },
   ] },
   { title: 'Kinder', rows: [
-    { label: 'Kinderliste und Akten ansehen', rights: ['yes', 'yes', 'yes', 'no'] },
-    { label: 'Vormerkungen & Verträge und offene Bestätigungen ansehen', rights: ['yes', 'yes', 'yes', 'no'] },
-    { label: 'Kinder anlegen und Akten ändern', rights: ['yes', 'yes', 7, 'no'] },
-    { label: 'Vertrauliche Dokumente öffnen', rights: ['yes', 'yes', 7, 'no'] },
-    { label: 'Kinder abmelden, Archiv, löschen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Vormerkung löschen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Belegung ansehen, Plätze ändern, Gruppenwechsel planen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Kinderliste und Akten ansehen', rights: ['yes', 'yes', 8, 10] },
+    { label: 'Vormerkungen & Verträge ansehen', rights: ['yes', 'yes', 9, 11] },
+    { label: 'Offene Bestätigungen ansehen', rights: ['yes', 'yes', 8, 10] },
+    { label: 'Kinder anlegen und Akten ändern', rights: ['yes', 'yes', 7, 10] },
+    { label: 'Vertrauliche Dokumente öffnen', rights: ['yes', 'yes', 7, 10] },
+    { label: 'Kinder abmelden, Archiv, löschen', rights: ['yes', 'yes', 'no', 10] },
+    { label: 'Vormerkung löschen', rights: ['yes', 'yes', 'no', 10] },
+    { label: 'Belegung ansehen, Plätze ändern, Gruppenwechsel planen', rights: ['yes', 'yes', 'no', 10] },
     { label: 'Stichtag, automatische Abmeldung der Schulkinder, Gruppe „für Schulkinder“', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Löschfrist einstellen', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Tablet einstellen: Sperrzeit, Vormerkungen und künftige Vertragskinder am Tablet zeigen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Freischaltung „darf Kinderakten pflegen“ vergeben', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Betreuungsformen und Dokumentarten pflegen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Kind in andere Einrichtung verschieben', rights: ['yes', 'no', 'no', 'no'] },
@@ -73,14 +76,18 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   ] },
 ]
 
-const FOOTNOTES: Record<1 | 2 | 3 | 4 | 5 | 6 | 7, string> = {
+const FOOTNOTES: Record<Footnote, string> = {
   1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (beim Handy zusätzlich: „Stempeln über“ erlaubt das Handy)',
   2: 'wenn die Leitung beim Mitarbeiter „Kita-Tablet und eigenes Handy“ eingestellt hat',
   3: 'nur lesen und nur, wenn der Träger die Vertragsangaben für die Leitung freigegeben hat',
   4: 'wenn der Träger das Modul Urlaubsanträge eingeschaltet hat (beim Beantragen: Konto mit einem Mitarbeiter verknüpft)',
   5: 'wenn das Modul eingeschaltet ist und der Träger diese Leitung als zuständig für die Urlaubsplanung festgelegt hat',
   6: 'nur lesen: Urlaub, Sonderurlaub, Fortbildung und Schule aller, Krankheitstage nur die eigenen, Termine nur die für Mitarbeiter freigegebenen',
-  7: 'nur mit Freischaltung „darf Kinderakten pflegen“',
+  7: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN) und nur mit Freischaltung „darf Kinderakten pflegen“',
+  8: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN)',
+  9: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN) und nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
+  10: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person',
+  11: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person; ohne Leitungsrechte nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
 }
 </script>
 

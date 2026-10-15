@@ -22,6 +22,10 @@ const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birt
 await lookups.ready
 
 const tab = ref<Tab>('list')
+// A keep-alive at the tablet can switch the planned tab off while it is open; fall back to the list.
+watch(showPlanned, (shown) => {
+  if (!shown && tab.value === 'planned') tab.value = 'list'
+})
 // The occupancy and the archive are for the managers only (the server answers 403 to everybody else).
 const tabs = computed(() => [
   { key: 'list' as const, label: de.children.tabs.list },
