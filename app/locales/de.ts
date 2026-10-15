@@ -448,6 +448,8 @@ export const de = {
     create: 'Kind anlegen',
     createdHiddenFuture: 'Kind angelegt. Es erscheint am Tablet ab dem Eintrittstag.',
     createdHiddenWaitlist: 'Kind angelegt. Vormerkungen sind am Tablet ausgeblendet.',
+    savedHiddenFuture: 'Gespeichert. Das Kind erscheint am Tablet ab dem Eintrittstag.',
+    savedHiddenWaitlist: 'Gespeichert. Vormerkungen sind am Tablet ausgeblendet.',
     search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
     allKeyEducators: 'Alle Bezugserzieher', noKeyEducator: '– niemand –',
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',

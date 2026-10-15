@@ -11,6 +11,8 @@ import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/uti
  * Managers only: the occupancy of a Kita year by group and month, with the places of each group editable in place. A click on a cell
  * lists its children below the table. The server counts; this view only shows (red cells carry a text and an icon, not just the colour).
  */
+// At the tablet there are no printouts and no settings: the places are only shown, not edited.
+const { onTablet } = useChildRights()
 const year = ref(kitaYearOf(todayIso()))
 const { data, error, refresh } = useFetch<OccupancyDto>('/api/children/occupancy', { query: { year }, key: 'children-occupancy' })
 
@@ -39,7 +41,7 @@ watch(data, (value) => {
 /** Saves on blur (Enter blurs the field); an empty field removes the places. A failed save puts the stored value back. */
 async function saveCapacity(row: OccupancyRowDto) {
   const id = row.groupId
-  if (id === null) return
+  if (id === null || onTablet.value) return
   const text = (drafts[id] ?? '').trim()
   if (text === (stored.get(id) ?? '')) return
   if (saving[id]) return
@@ -71,16 +73,16 @@ const toggle = (key: string, month: number) => {
 // The list "Schulkinder zum 1.9.": the children whose school start is the coming 1 September or already reached. With the
 // automatic leaving off, each child can be deregistered here by hand to the day before its school start.
 const { data: schoolChildren } = useFetch<UpcomingSchoolChildDto[]>('/api/children/school-children', { key: 'children-school-children' })
-const { data: schoolSettings } = useFetch<SchoolSettingsDto>('/api/school-settings', { key: 'school-settings' })
+// The school settings are a settings route, which the tablet never gets: there the list is shown without the
+// "deregister now" buttons.
+const { data: schoolSettings } = useFetch<SchoolSettingsDto>('/api/school-settings', { key: 'school-settings', immediate: !onTablet.value })
 const { groupName } = useChildLookups()
-// No printouts at the tablet.
-const { onTablet } = useChildRights()
 const confirm = useConfirm()
 const { busy: leaving, run: runLeave } = useBusyAction(async () => {
   await Promise.all([refreshNuxtData(['children-school-children', 'children-occupancy', 'children-active', 'children-archive', 'children-open', 'child-documents-overview'])])
 })
 const today = todayIso()
-const manualLeave = computed(() => schoolSettings.value?.autoLeave === false)
+const manualLeave = computed(() => !onTablet.value && schoolSettings.value?.autoLeave === false)
 async function leaveAtSchoolStart(child: UpcomingSchoolChildDto) {
   const leftOn = addDays(child.schoolStart, -1)
   if (!await confirm(de.childLifecycle.confirmLeave(child.name, formatDate(leftOn)), { confirmLabel: de.childLifecycle.leave })) return
@@ -120,8 +122,9 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
             <tr v-for="row in rows" :key="rowKey(row)" class="border-t border-gray-100">
               <th scope="row" :class="[td, 'text-left font-medium']">{{ occupancyRowName(row) }}</th>
               <td :class="td">
+                <template v-if="onTablet">{{ row.capacity ?? de.children.noValue }}</template>
                 <input
-                  v-if="row.groupId !== null" type="number" :value="drafts[row.groupId]" min="1" max="200" step="1" :disabled="saving[row.groupId]"
+                  v-else-if="row.groupId !== null" type="number" :value="drafts[row.groupId]" min="1" max="200" step="1" :disabled="saving[row.groupId]"
                   class="w-16 rounded border border-gray-300 px-1 py-0.5 text-center" :aria-label="de.occupancy.capacityOf(row.name)"
                   @input="drafts[row.groupId!] = ($event.target as HTMLInputElement).value" @blur="saveCapacity(row)" @keydown.enter.prevent="blurOnEnter"
                 >

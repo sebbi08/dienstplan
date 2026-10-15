@@ -95,24 +95,23 @@ function payload(): ChildMasterInput {
 
 const { busy, guard } = useBusy()
 /**
- * Why the new child is hidden from the current viewer (only at the tablet, by the facility's switches), or null: a
- * Vormerkung without the waitlist switch, a contract without an entry date or starting after today without the switch
- * for future contracts.
+ * Why the child as saved is hidden from the current viewer (only at the tablet, by the facility's switches), or null:
+ * a Vormerkung without the waitlist switch, a contract without an entry date or starting after today without the switch
+ * for future contracts. Its record would then answer "not found", so creating or saving goes back to the list.
  */
-function hiddenAfterCreate(input: ChildMasterInput): string | null {
-  if (input.admissionStatus === 'waitlist') return rights.value?.showWaitlist ? null : de.children.createdHiddenWaitlist
+function hiddenAtTablet(input: ChildMasterInput): 'waitlist' | 'future' | null {
+  if (input.admissionStatus === 'waitlist') return rights.value?.showWaitlist ? null : 'waitlist'
   const future = input.entryDate === null || input.entryDate > todayIso()
-  return future && !rights.value?.showFutureContracts ? de.children.createdHiddenFuture : null
+  return future && !rights.value?.showFutureContracts ? 'future' : null
 }
 async function create(): Promise<boolean> {
   try {
     const input = payload()
     const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: input })
     // The guard in save() holds until the navigation is done, so the child cannot be created twice.
-    const hidden = hiddenAfterCreate(input)
+    const hidden = hiddenAtTablet(input)
     if (hidden) {
-      // Its record would answer "not found" here, so back to the list.
-      useToast().add({ title: hidden, color: 'success' })
+      useToast().add({ title: hidden === 'waitlist' ? de.children.createdHiddenWaitlist : de.children.createdHiddenFuture, color: 'success' })
       await navigateTo('/children')
     }
     else {
@@ -125,10 +124,19 @@ async function create(): Promise<boolean> {
     return false
   }
 }
+// Saving a child that the save hides at the tablet: no reload (it would be "not found").
+const runWithoutReload = useAction()
+async function update(): Promise<boolean> {
+  const input = payload()
+  const request = () => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: { ...input, baseGroupId: loadedGroupId } satisfies ChildMasterUpdateInput })
+  const hidden = hiddenAtTablet(input)
+  if (!hidden) return run(request, de.common.saved)
+  const ok = await runWithoutReload(request, hidden === 'waitlist' ? de.children.savedHiddenWaitlist : de.children.savedHiddenFuture)
+  if (ok) await navigateTo('/children')
+  return ok
+}
 async function save() {
-  const ok = await guard(() => creating
-    ? create()
-    : run(() => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: { ...payload(), baseGroupId: loadedGroupId } satisfies ChildMasterUpdateInput }), de.common.saved))
+  const ok = await guard(() => creating ? create() : update())
   if (ok && !creating) editing.value = false
 }
 
