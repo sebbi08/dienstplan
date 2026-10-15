@@ -67,6 +67,16 @@ export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
   return user
 }
 
+/** The tablet's unlock token, kept in the server-only part of the session (never sent to the browser). */
+export async function childUnlockToken(event: H3Event): Promise<string | undefined> {
+  return (await getUserSession(event)).secure?.childUnlock
+}
+
+/** Remembers the tablet's unlock token in the server-only part of the session. */
+export async function storeChildUnlockToken(event: H3Event, token: string): Promise<void> {
+  await setUserSession(event, { secure: { childUnlock: token } })
+}
+
 /**
  * Whoever looks at child records (see `resolveChildViewer`): Träger and Leitung with their own account, or the person
  * who unlocked the facility's tablet. A Mitarbeiter account gets 403 children_tablet_only, a locked tablet 403
@@ -74,8 +84,7 @@ export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
  */
 export async function requireChildReader(event: H3Event): Promise<ChildViewer> {
   const user = await requireUser(event, { allowTerminal: true })
-  const { childUnlock } = await getUserSession(event)
-  const viewer = resolveChildViewer(useDb(), user, childUnlock)
+  const viewer = resolveChildViewer(useDb(), user, await childUnlockToken(event))
   // The tablet has one facility; only a Träger's page can be stale.
   if (!viewer.onTablet) checkPageFacility(event, user)
   return viewer

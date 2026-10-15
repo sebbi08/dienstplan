@@ -210,6 +210,14 @@ describe('API route permissions', () => {
     expect(code).toContain('manager.facilityId')
   })
 
+  it('keeps the tablet\'s unlock token in the server-only part of the session', () => {
+    // Routes go through childUnlockToken( / storeChildUnlockToken( instead of touching the session field.
+    for (const route of routes) expect(source(route), route).not.toMatch(/childUnlock(?!Token)/)
+    const auth = readFileSync(join(process.cwd(), 'server', 'utils', 'auth.ts'), 'utf8')
+    expect(auth).toContain('setUserSession(event, { secure: { childUnlock: token } })')
+    expect(auth).toContain('.secure?.childUnlock')
+  })
+
   it('lets the tablet into the general plan only', () => {
     const allowing = routes.filter(route => source(route).includes('allowTerminal: true'))
     expect(allowing).toEqual(['plan/[year]/[month].get.ts'])
