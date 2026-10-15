@@ -1,15 +1,17 @@
 import { and, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { dateRange, daysBetween } from '../../shared/domain/dates'
+import { isHolidayIn, type HolidayRules } from '../../shared/domain/holidays'
 import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosureMode, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { closures, entries } from '../db/schema'
+import { closures, employees, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { closureCodeId, splitLeave } from './closureBooking'
 import { applyToCells, cellOwner, describeCellAt } from './entries'
 import { groupNames } from './groups'
+import { facilityHolidayRules } from './holidayRules'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
@@ -23,20 +25,30 @@ export function listClosures(db: Db, facilityId: number): ClosureDto[] {
   return loadClosures(db, facilityId)
 }
 
+interface BookingScope {
+  /** Only days from then on. */
+  from?: IsoDate
+  /** Only the days this accepts, and only cells that are still empty (nothing is overwritten). */
+  onlyEmpty?: (employeeId: number, date: IsoDate) => boolean
+}
+
 /**
  * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
  * (a closure never uses leave on a day off) and, with `from`, only on days from then on. Days on which someone helps
  * out in another facility are skipped (and booked when that help-out day becomes empty again, see rebookHomeClosure).
  */
 function bookClosure(
-  db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date, from?: IsoDate,
+  db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
+  { from, onlyEmpty }: BookingScope = {},
 ): void {
   const vacationCells: { employeeId: number; date: IsoDate }[] = []
   const closureCells: { employeeId: number; date: IsoDate }[] = []
   for (const employee of staff) {
+    const free = (date: IsoDate) => onlyEmpty
+      ? onlyEmpty(employee.id, date) && cellOwner(db, employee.id, date) === null
+      : typeof cellOwner(db, employee.id, date) !== 'number'
     const dates = dateRange(closure.startDate, closure.endDate)
-      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from)
-        && typeof cellOwner(db, employee.id, date) !== 'number')
+      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from) && free(date))
     const split = closure.mode === 'vacation' ? splitLeave(db, employee, dates) : { vacation: [], closureDays: dates }
     vacationCells.push(...split.vacation.map(date => ({ employeeId: employee.id, date })))
     closureCells.push(...split.closureDays.map(date => ({ employeeId: employee.id, date })))
@@ -73,8 +85,28 @@ export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, 
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   for (const closure of loadClosures(db, employee.facilityId)) {
     if (from !== undefined && closure.endDate < from) continue
-    bookClosure(db, actor, employee.facilityId, closure, [employee], now, from)
+    bookClosure(db, actor, employee.facilityId, closure, [employee], now, { from })
   }
+}
+
+/**
+ * After the facility's holiday rules changed (state or Bavaria flag, the new rules already stored): books its closures
+ * for its staff on the days that stopped being holidays, as creating the closure would have (leave in vacation mode),
+ * so no closure is left with a hole. Only cells that are still empty and only days since each one moved in; days
+ * that became holidays keep their entries.
+ */
+export function bookFreedClosureDays(db: Db, actor: SessionUser, facilityId: number, before: HolidayRules, now: Date): void {
+  const list = loadClosures(db, facilityId)
+  if (list.length === 0) return
+  const after = facilityHolidayRules(db, facilityId)
+  const since = new Map(db.select({ id: employees.id, since: employees.facilitySince }).from(employees)
+    .where(eq(employees.facilityId, facilityId)).all().map(row => [row.id, row.since]))
+  const onlyEmpty = (employeeId: number, date: IsoDate) => {
+    const from = since.get(employeeId)
+    return isHolidayIn(date, before) && !isHolidayIn(date, after) && (from == null || date >= from)
+  }
+  const staff = loadEmployees(db, facilityId)
+  for (const closure of list) bookClosure(db, actor, facilityId, closure, staff, now, { onlyEmpty })
 }
 
 /**

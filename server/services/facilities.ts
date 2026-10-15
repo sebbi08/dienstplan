@@ -5,6 +5,8 @@ import type { Db } from '../db/client'
 import { coverageRules, documentTypes, employees, facilities, shiftTemplates, users } from '../db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import { ServiceError } from '../lib/errors'
+import { bookFreedClosureDays } from './closures'
+import { facilityHolidayRules } from './holidayRules'
 import { seedBuiltinRequirementTypes } from './requirements'
 
 const ordered = [asc(facilities.sortOrder), asc(facilities.id)]
@@ -106,12 +108,23 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW'):
   })
 }
 
-/** The facility's name, state and Bavaria flag. The school cutoff and the automatic leaving are never touched here. */
-export function updateFacility(db: Db, id: number, input: { name: string; state: GermanState; assumptionDay: boolean }): void {
-  if (!facilityExists(db, id)) throw new ServiceError(404, 'facility_not_found')
+/**
+ * The facility's name, state and Bavaria flag. The school cutoff and the automatic leaving are never touched here.
+ * When the state or the flag changes, the facility's closures are booked on the days that are no holidays any more
+ * (see bookFreedClosureDays), in the same transaction.
+ */
+export function updateFacility(
+  db: Db, actor: SessionUser, id: number, input: { name: string; state: GermanState; assumptionDay: boolean }, now: Date = new Date(),
+): void {
+  const before = facilityHolidayRules(db, id)
   assertState(input.state)
   const checked = checkedName(db, input.name, id)
-  db.update(facilities).set({ name: checked, state: input.state, assumptionDay: input.assumptionDay }).where(eq(facilities.id, id)).run()
+  db.transaction((tx) => {
+    tx.update(facilities).set({ name: checked, state: input.state, assumptionDay: input.assumptionDay }).where(eq(facilities.id, id)).run()
+    if (before.state !== input.state || before.assumptionDay !== input.assumptionDay) {
+      bookFreedClosureDays(tx, actor, id, before, now)
+    }
+  })
 }
 
 /** Stores the facility the Träger works in (only the Träger switches; everyone else has a fixed facility). */
