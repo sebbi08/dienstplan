@@ -3,6 +3,7 @@ import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
 import { holidaysOf } from '#shared/domain/holidays'
 import { de } from '~/locales/de'
 import { formatDayShort } from '~/utils/format'
+import { inState } from '~/utils/states'
 
 /** Public holidays of the active facility's state for a chosen year (computed, read-only; part of the closures page). */
 const year = ref(parseIsoDate(todayIso()).year)
@@ -16,7 +17,7 @@ const holidays = computed(() => facility.value
 <template>
   <section v-if="facility" class="space-y-3">
     <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold">{{ de.closures.holidaysTitle(de.states[facility.state]) }}</h2>
+      <h2 class="text-xl font-semibold">{{ de.closures.holidaysTitle(inState(facility.state)) }}</h2>
       <YearNav v-model="year" />
     </div>
     <p class="text-sm text-gray-500">{{ de.closures.holidaysHint }}</p>

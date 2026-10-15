@@ -6,6 +6,7 @@ import type { EmployeeDetailDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
+import { inState } from '~/utils/states'
 import { workdaysText } from '~/utils/workdays'
 
 const route = useRoute()
@@ -75,7 +76,7 @@ async function moveFacility() {
   if (!target) return
   // Other holidays then apply to this person, also for past days.
   const current = facilities.value?.facilities.find(facility => facility.id === facilities.value?.activeId)
-  const stateHint = current && current.state !== target.state ? ` ${de.facilities.moveStateHint(de.states[target.state])}` : ''
+  const stateHint = current && current.state !== target.state ? ` ${de.facilities.moveStateHint(inState(target.state))}` : ''
   if (!await confirm(de.facilities.moveConfirm(target.label) + stateHint, { confirmLabel: de.facilities.moveAction, danger: false })) return
   // No `run`: it would refresh this employee, who is no longer part of the active facility.
   if (await runMove(() => $fetch<unknown>(`/api/employees/${id}/facility`, { method: 'PUT', body: { facilityId: target.value } }), de.common.saved)) {

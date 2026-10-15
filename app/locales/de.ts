@@ -391,7 +391,7 @@ export const de = {
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',
     empty: 'Keine Schließzeiten angelegt.',
-    holidaysTitle: (state: string) => `Feiertage in ${state}`, holidayDate: 'Datum', holidayName: 'Feiertag',
+    holidaysTitle: (inState: string) => `Feiertage ${inState}`, holidayDate: 'Datum', holidayName: 'Feiertag',
     holidaysHint: 'Gesetzliche Feiertage der Einrichtung. Die App berücksichtigt sie automatisch: kein Soll, kein Hinweis „kein Eintrag“, im Dienstplan blau markiert. Örtliche Feiertage (z. B. Fronleichnam in einzelnen Gemeinden) und einmalige Sonderfeiertage bitte als Schließzeit eintragen.',
   },
   settings: {
@@ -445,7 +445,7 @@ export const de = {
     stateChangeConfirm: 'Die Feiertage dieser Einrichtung ändern sich für alle Tage, auch rückwirkend. Sollstunden, Stundenkonten und '
       + 'Urlaubstage der Mitarbeiter dieser Einrichtung können sich dadurch auch für vergangene Monate ändern.',
     stateChangeAction: 'Ändern',
-    moveStateHint: (state: string) => `Die neue Einrichtung liegt in ${state}. Für diese Person gelten dann deren Feiertage, auch rückwirkend; `
+    moveStateHint: (inState: string) => `Die neue Einrichtung liegt ${inState}. Für diese Person gelten dann deren Feiertage, auch rückwirkend; `
       + 'Sollstunden und Urlaubstage können sich dadurch ändern.',
     hint: 'Neue Einrichtungen übernehmen die Dienste und Pflichtdienste der ersten Einrichtung; alles andere beginnt leer.',
     createdIn: (name: string) => `Neue Leitungs- und Tablet-Konten werden in „${name}“ angelegt.`,
@@ -568,7 +568,7 @@ export const de = {
     hint: 'Wer bis einschließlich Stichtag das Alter erreicht hat, wird zum 1. September Schulkind. Die Stichtage unterscheiden sich je Bundesland und können sich ändern. Bitte den Wert prüfen.',
     hintBirthday: 'Soll ein am Tag nach dem Stichtag geborenes Kind noch dazugehören (z. B. Geburtstag 1. Juli bei Stichtag 30. Juni), stelle den Stichtag einen Tag später ein.',
     computed: (date: string) => `errechnet: ${date}`, deviating: 'abweichend',
-    stateCutoff: (state: string, date: string, age: number) => `Stichtag laut Schulgesetz ${state}: ${date} (Alter ${age})`,
+    stateCutoff: (inState: string, date: string, age: number) => `Stichtag laut Schulgesetz ${inState}: ${date} (Alter ${age})`,
     adopt: 'übernehmen',
     stateCutoffHint: 'Vorschlag nach dem Schulgesetz des Bundeslands (Stand Oktober 2026). Bitte bei Änderungen des Schulgesetzes prüfen.',
     // Small helper texts of the pages (beyond the agreed wording list above).
