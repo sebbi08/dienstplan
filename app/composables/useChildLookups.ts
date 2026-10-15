@@ -1,4 +1,3 @@
-import { mayEditChildren } from '#shared/domain/roles'
 import type { CareTypeDto, GroupDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
@@ -8,8 +7,9 @@ import { de } from '~/locales/de'
  * the names too.
  */
 export function useChildLookups() {
-  const { user } = useUserSession()
-  const canPickGroup = computed(() => !!user.value && mayEditChildren(user.value))
+  // At the tablet the person who unlocked it decides.
+  const { rights } = useChildRights()
+  const canPickGroup = computed(() => !!rights.value?.canEdit)
   const groupsFetch = useFetch<GroupDto[]>('/api/children/groups', { key: 'child-groups', default: () => [] })
   const careTypesFetch = useFetch<CareTypeDto[]>('/api/care-types', { key: 'care-types', default: () => [] })
   const staffFetch = useFetch<{ id: number; name: string }[]>('/api/children/staff', { key: 'child-staff', default: () => [] })

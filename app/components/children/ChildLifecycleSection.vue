@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { isManager } from '#shared/domain/roles'
 import type { ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
@@ -11,9 +10,10 @@ import { formatDate } from '~/utils/format'
  */
 /** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
 const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
-const { user } = useUserSession()
-const manager = computed(() => isManager(user.value?.role))
-const isProvider = computed(() => user.value?.role === 'provider')
+const { rights } = useChildRights()
+const manager = computed(() => !!rights.value?.isManager)
+// Moving to another facility is for the Träger in the office only (never at the tablet).
+const isProvider = computed(() => !!rights.value?.canMoveFacility)
 
 const { busy, run } = useBusyAction(() => props.reload())
 const confirm = useConfirm()

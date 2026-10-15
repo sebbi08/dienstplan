@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { kitaYearLabel, kitaYearOf } from '#shared/domain/kitaYear'
-import { mayEditChildren } from '#shared/domain/roles'
 import type { PlannedChildDto, PlannedChildrenDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { ageAtStartText, telHref } from '~/utils/children'
@@ -10,9 +9,12 @@ import { formatDate } from '~/utils/format'
 /**
  * The waitlist (Vormerkungen) and the contract children who have not started yet, with filters for the group and the
  * Kita year of the (desired) start. Everybody who may read the child records sees it, the keepers of the records create.
+ * At the tablet, people without manager rights see only the parts the facility's switches allow.
  */
-const { user } = useUserSession()
-const canCreate = computed(() => !!user.value && mayEditChildren(user.value))
+const { rights, onTablet } = useChildRights()
+const canCreate = computed(() => !!rights.value?.canEdit)
+const showWaitlist = computed(() => !!rights.value?.showWaitlist)
+const showContracted = computed(() => !!rights.value?.showFutureContracts)
 const { groupName } = useChildLookups()
 
 const { data, error } = useFetch<PlannedChildrenDto>('/api/children/planned', { key: 'children-planned' })
@@ -65,15 +67,16 @@ const td = 'px-3 py-2'
       <USelect v-model="groupFilter" :items="groupItems" class="w-48" :aria-label="de.children.fields.group" />
       <USelect v-model="yearFilter" :items="yearItems" class="w-44" :aria-label="a.kitaYear" />
       <span class="ml-auto flex flex-wrap items-center gap-2">
-        <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/planned" target="_blank" />
-        <UButton v-if="canCreate" color="neutral" variant="outline" icon="i-lucide-plus" :label="a.createWaitlist" to="/children/new?status=waitlist" />
+        <!-- No printouts at the tablet. -->
+        <UButton v-if="!onTablet" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/planned" target="_blank" />
+        <UButton v-if="canCreate && showWaitlist" color="neutral" variant="outline" icon="i-lucide-plus" :label="a.createWaitlist" to="/children/new?status=waitlist" />
         <UButton v-if="canCreate" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
       </span>
     </div>
 
     <section v-for="list in [
-      { key: 'waitlist', title: a.waitlistTitle, rows: waitlist, start: a.desiredStart, group: a.desiredGroup, waitlisted: true },
-      { key: 'contracted', title: a.contractedTitle, rows: contracted, start: a.contractStart, group: a.assignedGroup, waitlisted: false },
+      ...(showWaitlist ? [{ key: 'waitlist', title: a.waitlistTitle, rows: waitlist, start: a.desiredStart, group: a.desiredGroup, waitlisted: true }] : []),
+      ...(showContracted ? [{ key: 'contracted', title: a.contractedTitle, rows: contracted, start: a.contractStart, group: a.assignedGroup, waitlisted: false }] : []),
     ]" :key="list.key" class="space-y-1">
       <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ list.title }} ({{ list.rows.length }})</h2>
       <p v-if="!list.rows.length" class="text-sm text-gray-500">{{ de.children.empty }}</p>

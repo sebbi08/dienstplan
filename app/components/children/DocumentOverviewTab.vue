@@ -8,6 +8,8 @@ import { formatDate } from '~/utils/format'
 /** Completeness view: the active children against the important document types. */
 const { data, error } = useFetch<DocumentOverviewDto>('/api/child-documents/overview', { key: 'child-documents-overview' })
 const { groupName } = useChildLookups()
+// No printouts at the tablet.
+const { onTablet } = useChildRights()
 
 const onlyMissing = ref(false)
 const rows = computed(() => (data.value?.rows ?? []).filter(row => !onlyMissing.value || row.missingRequired))
@@ -24,7 +26,7 @@ const td = 'px-3 py-2'
     <template v-else>
       <div class="flex flex-wrap items-center gap-3">
         <UCheckbox v-model="onlyMissing" :label="de.childDocuments.onlyMissing" />
-        <UButton class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/documents" target="_blank" />
+        <UButton v-if="!onTablet" class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/documents" target="_blank" />
       </div>
       <p class="text-sm text-gray-500">{{ de.childDocuments.overviewHint }}</p>
       <p v-if="!rows.length" class="text-sm text-gray-500">{{ de.children.empty }}</p>

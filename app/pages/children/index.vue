@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { addDays, todayIso } from '#shared/domain/dates'
-import { isManager, mayEditChildren } from '#shared/domain/roles'
 import type { BirthdayDto, ChildListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
@@ -9,9 +8,12 @@ import { formatDate } from '~/utils/format'
 const BIRTHDAY_WEEKS = 8
 type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
 
-const { user } = useUserSession()
-const canCreate = computed(() => !!user.value && mayEditChildren(user.value))
-const isLeader = computed(() => isManager(user.value?.role))
+// In the office the account's rights, at the tablet those of the person who unlocked it.
+const { rights, onTablet } = useChildRights()
+const canCreate = computed(() => !!rights.value?.canEdit)
+const isLeader = computed(() => !!rights.value?.isManager)
+// Without both switches the tablet shows no planned children for people without manager rights.
+const showPlanned = computed(() => !!rights.value && (rights.value.showWaitlist || rights.value.showFutureContracts))
 const lookups = useChildLookups()
 const { groupName, staff } = lookups
 
@@ -23,7 +25,7 @@ const tab = ref<Tab>('list')
 // The occupancy and the archive are for the managers only (the server answers 403 to everybody else).
 const tabs = computed(() => [
   { key: 'list' as const, label: de.children.tabs.list },
-  { key: 'planned' as const, label: de.children.tabs.planned },
+  ...(showPlanned.value ? [{ key: 'planned' as const, label: de.children.tabs.planned }] : []),
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
   { key: 'documents' as const, label: de.children.tabs.documents },
   { key: 'open' as const, label: de.groupChange.openTab },
@@ -154,12 +156,13 @@ const td = 'px-3 py-2'
         </div>
       </template>
 
-      <ChildrenPlannedTab v-else-if="tab === 'planned'" />
+      <ChildrenPlannedTab v-else-if="tab === 'planned' && showPlanned" />
 
       <template v-else-if="tab === 'birthdays'">
         <div class="flex flex-wrap items-center gap-3">
           <p class="text-sm text-gray-500">{{ de.children.birthdaysHint }}</p>
-          <UButton class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/birthdays" target="_blank" />
+          <!-- No printouts at the tablet. -->
+          <UButton v-if="!onTablet" class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print" to="/print/children/birthdays" target="_blank" />
         </div>
         <p v-if="!birthdays.length" class="text-sm text-gray-500">{{ de.children.noBirthdays }}</p>
         <table v-else class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">

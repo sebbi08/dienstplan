@@ -51,7 +51,6 @@ const links = computed(() => {
   const myPlan = { label: unread ? `${de.nav.myPlan} (${unread})` : de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
   const myLeave = { label: de.nav.myLeave, to: '/my/leave' }
   const myRequirements = { label: de.nav.myRequirements, to: '/my/requirements' }
-  const childrenLink = { label: de.nav.children, to: '/children' }
   const open = leave.value?.openCount ?? 0
   const planning = leave.value?.isPlanner
     ? [{ label: open ? `${de.nav.leavePlanning} (${open})` : de.nav.leavePlanning, to: '/admin/leave-planning' }]
@@ -67,14 +66,18 @@ const links = computed(() => {
       { label: de.nav.employees, to: '/admin/employees' },
       { label: de.nav.closures, to: '/admin/closures' },
       { label: de.nav.sickDays, to: '/admin/sick-days' },
-      childrenLink,
+      // Mitarbeiter see the children only at the tablet, so only the managers get the menu entry.
+      { label: de.nav.children, to: '/children' },
       { label: de.nav.calendar, to: '/admin/calendar' },
       { label: de.nav.users, to: '/admin/users' },
       { label: de.nav.settings, to: '/admin/settings' },
     ]
   }
-  return [myPlan, plan, myLeave, myRequirements, childrenLink, { label: de.nav.calendar, to: '/my/calendar' }]
+  return [myPlan, plan, myLeave, myRequirements, { label: de.nav.calendar, to: '/my/calendar' }]
 })
+
+// At the tablet, a child page shows who unlocked it and the lock button instead of the menu.
+const tabletChildren = computed(() => user.value?.role === 'terminal' && (route.path === '/children' || route.path.startsWith('/children/')))
 
 const pageFacility = usePageFacility()
 async function logout() {
@@ -91,7 +94,8 @@ async function logout() {
       v-if="loggedIn" class="sticky top-0 z-40 border-b border-gray-200 bg-white transition-transform duration-200 print:hidden"
       :class="headerHidden ? 'max-md:-translate-y-full' : ''"
     >
-      <div class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">
+      <TerminalTabletUnlockBar v-if="tabletChildren" />
+      <div v-else class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">
         <NuxtLink to="/" class="font-semibold">{{ de.appName }}</NuxtLink>
         <USelect
           v-if="isProvider && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"

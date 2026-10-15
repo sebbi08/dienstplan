@@ -1,0 +1,56 @@
+import { isManager, mayEditChildren } from '#shared/domain/roles'
+import type { ChildRightsDto, TabletUnlockStatusDto } from '#shared/types/api'
+
+/** The tablet's unlock as last reported by the server (null until asked); shared by the pages, the lock bar and the plugin. */
+export function useTabletUnlock() {
+  return useState<TabletUnlockStatusDto | null>('tablet-unlock', () => null)
+}
+
+/**
+ * What the child pages may show: in the office the signed-in account's rights, at the tablet those of the person who
+ * unlocked it (null while it is locked). The server checks every request as well.
+ */
+export function useChildRights() {
+  const { user } = useUserSession()
+  const unlock = useTabletUnlock()
+  // On the server this forwards the tablet's cookie (the middleware asks for the status during a full page load).
+  const requestFetch = useRequestFetch()
+  const onTablet = computed(() => user.value?.role === 'terminal')
+
+  const rights = computed<ChildRightsDto | null>(() => {
+    const current = user.value
+    if (!current) return null
+    if (current.role === 'terminal') return unlock.value?.unlocked ? unlock.value.rights : null
+    return {
+      canEdit: mayEditChildren(current),
+      isManager: isManager(current.role),
+      canMoveFacility: current.role === 'provider',
+      showWaitlist: true,
+      showFutureContracts: true,
+    }
+  })
+
+  async function refreshUnlock() {
+    if (!onTablet.value) return
+    try {
+      unlock.value = await requestFetch<TabletUnlockStatusDto>('/api/terminal/children/status')
+    }
+    catch {
+      // Without an answer the tablet counts as locked; the start page is always reachable.
+      unlock.value = { unlocked: false }
+    }
+  }
+
+  async function lock() {
+    if (!onTablet.value) return
+    unlock.value = { unlocked: false }
+    try {
+      await $fetch<TabletUnlockStatusDto>('/api/terminal/children/lock', { method: 'POST' })
+    }
+    catch {
+      // The server ends the unlock after the lock time anyway.
+    }
+  }
+
+  return { rights, onTablet, unlock, refreshUnlock, lock }
+}

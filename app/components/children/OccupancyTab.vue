@@ -73,6 +73,8 @@ const toggle = (key: string, month: number) => {
 const { data: schoolChildren } = useFetch<UpcomingSchoolChildDto[]>('/api/children/school-children', { key: 'children-school-children' })
 const { data: schoolSettings } = useFetch<SchoolSettingsDto>('/api/school-settings', { key: 'school-settings' })
 const { groupName } = useChildLookups()
+// No printouts at the tablet.
+const { onTablet } = useChildRights()
 const confirm = useConfirm()
 const { busy: leaving, run: runLeave } = useBusyAction(async () => {
   await Promise.all([refreshNuxtData(['children-school-children', 'children-occupancy', 'children-active', 'children-archive', 'children-open', 'child-documents-overview'])])
@@ -99,7 +101,7 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
         <span class="min-w-24 text-center text-xl font-semibold" :aria-label="de.occupancy.kitaYear">{{ kitaYearLabel(year) }}</span>
         <UButton icon="i-lucide-chevron-right" color="neutral" variant="ghost" :aria-label="de.year.next" @click="year++" />
       </div>
-      <UButton class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.occupancy.print" :to="`/print/children/occupancy/${year}`" target="_blank" />
+      <UButton v-if="!onTablet" class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.occupancy.print" :to="`/print/children/occupancy/${year}`" target="_blank" />
     </div>
 
     <template v-if="data">

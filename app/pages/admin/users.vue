@@ -61,6 +61,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
   <div class="max-w-5xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.users.title }}</h1>
     <p class="text-sm text-gray-500">{{ de.users.rolesHint }}</p>
+    <p class="text-sm text-gray-500">„{{ de.users.canEditChildren }}“: {{ de.users.canEditChildrenHint }}</p>
     <p v-if="activeName" class="text-sm text-gray-500">{{ de.facilities.createdIn(activeName) }}</p>
     <table class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">

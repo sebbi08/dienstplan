@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { isManager } from '#shared/domain/roles'
 import type { AdmissionStatus } from '#shared/domain/children'
 import type { ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -60,10 +59,10 @@ const statusItems = [
   { label: de.children.admission.contract, value: 'contract' },
 ]
 
-const { user } = useUserSession()
+const { rights } = useChildRights()
 /** Managers plan group changes; a Vormerkung only has a desired group and an archived record cannot change. */
 const canPlanChange = computed(() =>
-  !!props.child && !!props.reload && isManager(user.value?.role)
+  !!props.child && !!props.reload && !!rights.value?.isManager
   && props.child.master.admissionStatus !== 'waitlist' && props.child.status !== 'archived')
 const changeDialog = ref(false)
 const confirm = useConfirm()

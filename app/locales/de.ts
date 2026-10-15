@@ -130,6 +130,9 @@ export const de = {
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
+    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', toStart: 'Startseite',
+    chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
+    unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
   },
   login: { title: 'Anmelden', username: 'Benutzername', password: 'Passwort', submit: 'Anmelden' },
   password: {
@@ -423,6 +426,7 @@ export const de = {
     newPassword: 'Neues Passwort (mindestens 8 Zeichen)', resetHint: 'Die Person muss das Passwort bei der nächsten Anmeldung ändern.',
     locked: (until: string) => `gesperrt bis ${until}`, mustChange: 'muss Passwort ändern',
     canEditChildren: 'darf Kinderakten pflegen',
+    canEditChildrenHint: 'Gilt am Tablet der Einrichtung. Mit dem eigenen Konto sehen Mitarbeiter keine Kinder.',
   },
   facilities: {
     title: 'Einrichtungen',
