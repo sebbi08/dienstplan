@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertUploadLength, documentResponseHeaders, parseUploadForm, type UploadPart } from '../../server/lib/documentHttp'
+import { assertUploadLength, documentDownload, documentResponseHeaders, parseUploadForm, type UploadPart } from '../../server/lib/documentHttp'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import { errorCode } from '../helpers/fixtures'
 
@@ -22,6 +22,29 @@ describe('documentResponseHeaders', () => {
     expect(headers['Content-Disposition']).toBe('attachment; filename="Betreuungsvertrag-Mueller-2026-09-01.png"')
     expect(headers['X-Content-Type-Options']).toBe('nosniff')
     expect(headers['Cache-Control']).toBe('no-store')
+  })
+})
+
+describe('documentDownload', () => {
+  const office = { onTablet: false }
+  const tablet = { onTablet: true }
+
+  it('follows ?download=1 in the office, whatever the browser fetches the file for', () => {
+    expect(documentDownload(office, true, 'document')).toBe(true)
+    expect(documentDownload(office, false, 'document')).toBe(false)
+    expect(documentDownload(office, false, undefined)).toBe(false)
+  })
+
+  it('never sends a download at the tablet, also when asked for one', () => {
+    expect(documentDownload(tablet, true, 'empty')).toBe(false)
+    expect(documentDownload(tablet, true, undefined)).toBe(false)
+  })
+
+  it('refuses at the tablet to open the file as a page, in a frame or an embed', () => {
+    for (const dest of ['document', 'iframe', 'frame', 'embed', 'object']) {
+      expect(errorCode(() => documentDownload(tablet, false, dest))).toBe('forbidden')
+    }
+    expect(errorCode(() => documentDownload(tablet, true, 'document'))).toBe('forbidden')
   })
 })
 

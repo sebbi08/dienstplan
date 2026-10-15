@@ -36,6 +36,18 @@ export function parseUploadForm(parts: UploadPart[]): { file: { data: Buffer; fi
 }
 
 /**
+ * Whether a document file is sent as a download. In the office as asked (`?download=1`). At the tablet (spec §6) only
+ * the in-app viewer may fetch the file: never as a download, and a request the browser makes to show the file itself
+ * (address bar, link, frame, embed: any `Sec-Fetch-Dest` other than `empty`, which fetch() sends) is refused with 403
+ * forbidden, as such a page could land in the downloads. Browsers without the header are let through.
+ */
+export function documentDownload(viewer: { onTablet: boolean }, downloadAsked: boolean, fetchDest: string | undefined): boolean {
+  if (!viewer.onTablet) return downloadAsked
+  if (fetchDest !== undefined && fetchDest !== 'empty') throw new ServiceError(403, 'forbidden')
+  return false
+}
+
+/**
  * Headers of a document download: the stored type, never sniffed (nosniff), never cached, shown in the browser
  * (inline) or saved (attachment). `fileName` is already reduced to letters, digits, dot and dash.
  */
