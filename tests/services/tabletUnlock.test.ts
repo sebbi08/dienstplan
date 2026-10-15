@@ -109,7 +109,7 @@ describe('unlocking the tablet for child records', () => {
 
   it('ends the unlock by locking, and by a second unlock', () => {
     const first = unlock()
-    lockChildren(db, tablet.id)
+    lockChildren(db, tablet.id, first.token)
     expect(errorCode(() => viewer(first.token))).toBe('tablet_locked')
     expect(tabletUnlockStatus(db, tablet, first.token, NOW)).toEqual({ unlocked: false })
 
@@ -118,6 +118,21 @@ describe('unlocking the tablet for child records', () => {
     expect(errorCode(() => viewer(second.token))).toBe('tablet_locked')
     expect(tabletUnlockStatus(db, tablet, third.token, NOW)).toMatchObject({ unlocked: true, employeeId: berta, name: 'Berta' })
     expect(rows()).toHaveLength(1)
+  })
+
+  it('leaves a newer unlock alone when a device locks with its replaced token', () => {
+    // Device A unlocked, then device B with the same account; A notices, goes to its start page and locks there.
+    const deviceA = unlock(anna)
+    const deviceB = unlock(berta, '4321')
+    lockChildren(db, tablet.id, deviceA.token)
+    lockChildren(db, tablet.id, undefined)
+    expect(tabletUnlockStatus(db, tablet, deviceB.token, NOW)).toMatchObject({ unlocked: true, employeeId: berta })
+    // Another tablet account cannot end it with the token either.
+    const other = addUser(db, 'tablet-2', 'terminal')
+    lockChildren(db, other.id, deviceB.token)
+    expect(tabletUnlockStatus(db, tablet, deviceB.token, NOW)).toMatchObject({ unlocked: true })
+    lockChildren(db, tablet.id, deviceB.token)
+    expect(rows()).toEqual([])
   })
 
   it('locks a token of another tablet or facility', () => {

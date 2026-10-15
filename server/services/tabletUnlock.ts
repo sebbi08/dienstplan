@@ -96,9 +96,14 @@ export function unlockChildren(
   return { token, status: statusOf(resolveUnlock(db, terminal, token, now)) }
 }
 
-/** Ends the tablet's unlock. */
-export function lockChildren(db: Db, terminalUserId: number): void {
-  db.delete(terminalUnlocks).where(eq(terminalUnlocks.terminalUserId, terminalUserId)).run()
+/**
+ * Ends the tablet's unlock the token stands for. Only that one: a device whose unlock was already replaced (another
+ * device with the same account unlocked since) goes back to its start page and locks there, which must not end the
+ * other device's unlock. Without a token nothing is unlocked, so nothing is deleted.
+ */
+export function lockChildren(db: Db, terminalUserId: number, token: string | undefined): void {
+  if (!token) return
+  db.delete(terminalUnlocks).where(and(eq(terminalUnlocks.terminalUserId, terminalUserId), eq(terminalUnlocks.id, token))).run()
 }
 
 /**
@@ -112,7 +117,7 @@ export function tabletChildViewer(
 ): ChildViewer {
   const resolved = resolveUnlock(db, terminal, token, now)
   if (!resolved.unlocked) {
-    if (resolved.dropped) lockChildren(db, resolved.dropped.terminalUserId)
+    if (resolved.dropped) lockChildren(db, resolved.dropped.terminalUserId, resolved.dropped.id)
     throw new ServiceError(403, 'tablet_locked')
   }
   if (touch) db.update(terminalUnlocks).set({ lastActiveAt: now.toISOString() }).where(eq(terminalUnlocks.id, resolved.row.id)).run()
