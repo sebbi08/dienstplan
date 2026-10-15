@@ -207,6 +207,16 @@ export interface SchoolSettingsDto {
 /** The cutoff alone, as the Träger stores it. */
 export type SchoolCutoffInput = Pick<SchoolSettingsDto, 'cutoffMonth' | 'cutoffDay' | 'ageYears'>
 
+/** A facility's tablet settings: when it locks the child records again and what it shows staff and helpers beyond the current children. */
+export interface TabletSettingsDto {
+  /** Whole minutes without use until the tablet locks again (1–30). */
+  lockMinutes: number
+  /** Show waitlisted children (Vormerkungen) at the tablet. */
+  showWaitlist: boolean
+  /** Show children whose contract has not started yet at the tablet. */
+  showFutureContracts: boolean
+}
+
 /** A child the automatic leaving deregisters (when it is switched on, and in its daily run): its leaving day is the day before its school start. */
 export interface SchoolLeaverDto {
   id: number

@@ -16,6 +16,12 @@ export const facilities = sqliteTable('facilities', {
   schoolAgeYears: integer('school_age_years').notNull().default(6),
   /** The daily run deregisters the facility's school children to the day before their school start (off until the Träger turns it on). */
   autoLeaveSchoolChildren: integer('auto_leave_school_children', { mode: 'boolean' }).notNull().default(false),
+  /** Minutes without use after which the facility's tablet locks the child records again (1–30). */
+  tabletLockMinutes: integer('tablet_lock_minutes').notNull().default(2),
+  /** Whether the tablet shows waitlisted children (Vormerkungen) to staff and helpers. */
+  tabletShowWaitlist: integer('tablet_show_waitlist', { mode: 'boolean' }).notNull().default(false),
+  /** Whether the tablet shows children with a contract that has not started yet to staff and helpers. */
+  tabletShowFutureContracts: integer('tablet_show_future_contracts', { mode: 'boolean' }).notNull().default(false),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -582,3 +588,16 @@ export const childDocuments = sqliteTable('child_documents', {
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   uploadedAt: text('uploaded_at').notNull(),
 }, table => [index('child_documents_child').on(table.childId)])
+
+/**
+ * The child records are unlocked at a facility's tablet by one person (name + PIN): at most one row per tablet account.
+ * Locking deletes the row; the tablet's session holds its id. Valid until `lastActiveAt` plus the facility's lock time.
+ */
+export const terminalUnlocks = sqliteTable('terminal_unlocks', {
+  id: text('id').primaryKey(),
+  terminalUserId: integer('terminal_user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  createdAt: text('created_at').notNull(),
+  lastActiveAt: text('last_active_at').notNull(),
+})

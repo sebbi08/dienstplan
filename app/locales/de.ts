@@ -561,6 +561,11 @@ export const de = {
     careContractHint: 'Der Betreuungsvertrag ist die Dokumentart, die nach einem Wechsel in eine Gruppe für Schulkinder neu einzureichen ist. Nur eine Dokumentart kann so markiert sein.',
     forSchoolChildrenHint: 'Kinder in einer solchen Gruppe werden zum Schulstart nicht automatisch abgemeldet.',
   },
+  tablet: {
+    title: 'Tablet', lockMinutes: 'Sperrzeit ohne Bedienung (Minuten)',
+    showWaitlist: 'Vormerkungen am Tablet zeigen', showFutureContracts: 'Künftige Kinder mit Vertrag am Tablet zeigen',
+    hint: 'Mitarbeiter sehen Kinder nur am Tablet: Name antippen und PIN eingeben. Das Tablet sperrt sich nach der Sperrzeit ohne Bedienung von selbst.',
+  },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',
     login_invalid: 'Benutzername oder Passwort ist falsch.',
@@ -675,6 +680,7 @@ export const de = {
     invalid_retention: 'Die Löschfrist muss eine ganze Zahl von 1 bis 10 Jahren sein.',
     invalid_capacity: 'Bitte eine ganze Zahl von 1 bis 200 eingeben oder das Feld leer lassen.',
     invalid_school_cutoff: 'Bitte einen gültigen Stichtag und ein Alter von 4 bis 8 Jahren angeben.',
+    tablet_lock_minutes_invalid: 'Die Sperrzeit muss zwischen 1 und 30 Minuten liegen.',
     invalid_year: 'Dieses Kita-Jahr kann nicht angezeigt werden.',
     left_on_too_early: 'Das Austrittsdatum darf höchstens ein Jahr zurückliegen.',
     child_not_found: 'Dieses Kind existiert nicht mehr.',

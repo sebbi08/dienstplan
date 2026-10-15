@@ -152,6 +152,8 @@ export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
 export const groupSchoolChildrenSchema = z.object({ forSchoolChildren: z.boolean() })
 /** The values are checked by the service, which answers invalid_school_cutoff. */
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
+/** The tablet settings of a facility. The lock time is checked by the service, which answers tablet_lock_minutes_invalid. */
+export const tabletSettingsSchema = z.object({ lockMinutes: z.number(), showWaitlist: z.boolean(), showFutureContracts: z.boolean() })
 /**
  * The switch "deregister school children automatically". Switching on needs the children the preview showed, each
  * with its leaving day (`confirmed`; the preview's entries can be sent back as they are, further fields are dropped);

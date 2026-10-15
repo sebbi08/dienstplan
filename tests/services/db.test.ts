@@ -6,10 +6,10 @@ import { eq, sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
-import { absenceCodes, coverageRules, shiftTemplates, users } from '../../server/db/schema'
+import { absenceCodes, coverageRules, shiftTemplates, terminalUnlocks, users } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
-import { addUser, createTestDb } from '../helpers/fixtures'
+import { addEmployee, addUser, createTestDb } from '../helpers/fixtures'
 
 describe('database setup', () => {
   it('seeds templates, codes and coverage rules once', () => {
@@ -148,6 +148,7 @@ describe('upgrading a filled database through migrateDb', () => {
       {
         id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3,
         school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
+        tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0,
       },
     ])
     expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
@@ -598,7 +599,9 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since')).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
     expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children')).toEqual(before.groups)
-    expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children')).toEqual(before.facilities)
+    // (the tablet settings come with the later 0032_tablet_children.)
+    expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children',
+      'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts')).toEqual(before.facilities)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
@@ -623,6 +626,44 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(after.map(({ facility_since: _, ...rest }) => rest)).toEqual(before)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('0032 adds the tablet columns with defaults to existing facilities', () => {
+    const { db, sqlite } = databaseAt('0031')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(32)
+    sqlite.exec('INSERT INTO facilities (id, name) VALUES (2, \'Krippe\')')
+    const before = sqlite.prepare('SELECT * FROM facilities ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(32)
+    expect(sqlite.prepare('SELECT id, tablet_lock_minutes, tablet_show_waitlist, tablet_show_future_contracts FROM facilities ORDER BY id').all())
+      .toEqual([
+        { id: 1, tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0 },
+        { id: 2, tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0 },
+      ])
+    const columns = ['tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts']
+    expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
+      .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('terminal_unlocks rows go with their tablet account', () => {
+    const db = createTestDb()
+    const employeeId = addEmployee(db, 'Anna Beispiel')
+    const terminal = addUser(db, 'tablet', 'terminal')
+    const other = addUser(db, 'tablet2', 'terminal')
+    const row = (id: string, terminalUserId: number) => ({
+      id, terminalUserId, facilityId: 1, employeeId, createdAt: '2026-10-15T08:00:00.000Z', lastActiveAt: '2026-10-15T08:00:00.000Z',
+    })
+    db.insert(terminalUnlocks).values([row('a', terminal.id), row('b', other.id)]).run()
+    // At most one unlock per tablet account.
+    expect(() => db.insert(terminalUnlocks).values(row('c', terminal.id)).run()).toThrow(/UNIQUE/)
+
+    db.delete(users).where(eq(users.id, terminal.id)).run()
+
+    expect(db.select({ id: terminalUnlocks.id }).from(terminalUnlocks).all()).toEqual([{ id: 'b' }])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
