@@ -12,8 +12,8 @@ const props = defineProps<{ facilityId: number }>()
 const { data: groups, refresh } = await useFetch<GroupDto[]>(() => `/api/facilities/${props.facilityId}/groups`, { default: () => [] })
 const { refresh: refreshActive } = useGroups()
 // The active facility's groups (rules, templates, employees) follow at once, and the switch of the automatic leaving
-// (settings section) follows a flag or a deleted group.
-const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshActive(), refreshNuxtData('school-settings')]))
+// (settings section) follows a flag or a deleted group, and the opening hours list the groups too.
+const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshActive(), refreshNuxtData('school-settings'), refreshNuxtData('opening-hours')]))
 const confirm = useConfirm()
 const notifySwitchedOff = useAutoLeaveNotice()
 

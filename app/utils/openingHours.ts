@@ -28,6 +28,11 @@ export function toHoursForm(hours: OpeningHours | null): HoursForm {
   }
 }
 
+/** A minimum count as a number: an emptied field gives '' and becomes 0, which the server rejects as opening_min_invalid. */
+function count(value: unknown): number {
+  return typeof value === 'number' ? value : Number(value) || 0
+}
+
 /** The body to save, or null while a typed time is unreadable. A closed day sends no times. */
 export function fromHoursForm(form: HoursForm): OpeningHours | null {
   const days: DayHours[] = []
@@ -41,7 +46,7 @@ export function fromHoursForm(form: HoursForm): OpeningHours | null {
     if ((day.open.trim() && open === null) || (day.close.trim() && close === null)) return null
     days.push({ open, close, closed: false })
   }
-  return { days, minAtOpening: form.minAtOpening, minAtClosing: form.minAtClosing }
+  return { days, minAtOpening: count(form.minAtOpening), minAtClosing: count(form.minAtClosing) }
 }
 
 /** Whether any weekday of the hours is entered (times or closed). */

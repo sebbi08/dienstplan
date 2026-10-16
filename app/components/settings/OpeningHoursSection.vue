@@ -12,10 +12,27 @@ const o = de.openingHours
 
 const facilityForm = ref<HoursForm>(toHoursForm(null))
 const groupForms = ref<Record<number, HoursForm>>({})
+
+// What each form was last built from, to tell an untouched form from one with unsaved edits (key: 'facility' or the group id).
+const stored = new Map<string, string>()
+// The forms just saved: they are rebuilt from the answer, the others keep their unsaved edits.
+const saved = new Set<string>()
+const keyOf = (groupId?: number) => groupId === undefined ? 'facility' : String(groupId)
+
+function sync(key: string, current: HoursForm | undefined, hours: OpeningHours | null): HoursForm {
+  const fresh = toHoursForm(hours)
+  const untouched = current === undefined || JSON.stringify(current) === stored.get(key)
+  stored.set(key, JSON.stringify(fresh))
+  return untouched || saved.has(key) ? fresh : current
+}
+
 watch(data, (value) => {
   if (!value) return
-  facilityForm.value = toHoursForm(value.facility)
-  groupForms.value = Object.fromEntries(value.groups.map(group => [group.groupId, toHoursForm(group.hours)]))
+  facilityForm.value = sync('facility', facilityForm.value, value.facility)
+  groupForms.value = Object.fromEntries(value.groups.map(group => [
+    group.groupId, sync(keyOf(group.groupId), groupForms.value[group.groupId], group.hours),
+  ]))
+  saved.clear()
 }, { immediate: true })
 
 function body(form: HoursForm): OpeningHours | null {
@@ -24,18 +41,26 @@ function body(form: HoursForm): OpeningHours | null {
   return hours
 }
 
+/** Sends the hours of one scope; on success that scope's form is rebuilt from the refreshed data. */
+function put(url: string, hours: OpeningHours | null, key: string) {
+  return run(async () => {
+    await $fetch<unknown>(url, { method: 'PUT', body: { hours } })
+    saved.add(key)
+  }, de.common.saved)
+}
+
 function saveFacility() {
   const hours = body(facilityForm.value)
-  if (hours) run(() => $fetch<unknown>('/api/opening-hours', { method: 'PUT', body: { hours } }), de.common.saved)
+  if (hours) put('/api/opening-hours', hours, keyOf())
 }
 
 function saveGroup(groupId: number) {
   const hours = body(groupForms.value[groupId]!)
-  if (hours) run(() => $fetch<unknown>(`/api/groups/${groupId}/opening-hours`, { method: 'PUT', body: { hours } }), de.common.saved)
+  if (hours) put(`/api/groups/${groupId}/opening-hours`, hours, keyOf(groupId))
 }
 
 function removeGroup(groupId: number) {
-  run(() => $fetch<unknown>(`/api/groups/${groupId}/opening-hours`, { method: 'PUT', body: { hours: null } }), de.common.saved)
+  put(`/api/groups/${groupId}/opening-hours`, null, keyOf(groupId))
 }
 </script>
 

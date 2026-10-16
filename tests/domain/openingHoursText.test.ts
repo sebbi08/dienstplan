@@ -51,4 +51,14 @@ describe('hours form', () => {
     form.days[2]!.open = 'abc'
     expect(fromHoursForm(form)).toBeNull()
   })
+  it('sends an emptied minimum count as a number the server rejects, not as a string', () => {
+    const form = toHoursForm(null)
+    ;(form as { minAtOpening: unknown }).minAtOpening = ''
+    ;(form as { minAtClosing: unknown }).minAtClosing = null
+    const hours = fromHoursForm(form)!
+    expect(typeof hours.minAtOpening).toBe('number')
+    expect(typeof hours.minAtClosing).toBe('number')
+    expect(hours.minAtOpening).toBeLessThan(1)
+    expect(hours.minAtClosing).toBeLessThan(1)
+  })
 })
