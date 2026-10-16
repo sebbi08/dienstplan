@@ -367,6 +367,25 @@ describe('child attendance', () => {
     expect(errorCode(() => updateStay(db, leitung, stayId, { arrived: 0, left: null }, NOW))).toBe('stay_not_found')
   })
 
+  it('does not let another facility correct or delete a stay or remove an announced person', () => {
+    arriveAt('08:00')
+    leaveAt('15:00', mamaPickup())
+    const stayId = rowOf().stays[0]!.id
+    const oma = announcePickup(db, leitung, { childId: lena, date: TODAY, name: 'Oma Erika', announcedBy: '' }, NOW)
+    const krippe = addFacility(db, 'Krippe')
+    const krippeLeitung = asChildViewer(addUser(db, 'krippe', 'admin', null, krippe))
+
+    expect(errorCode(() => updateStay(db, krippeLeitung, stayId, { arrived: hm('07:00'), left: hm('15:00') }, NOW))).toBe('stay_not_found')
+    expect(errorCode(() => deleteStay(db, krippeLeitung, stayId, NOW))).toBe('stay_not_found')
+    expect(errorCode(() => removeAnnouncement(db, krippeLeitung, oma, NOW))).toBe('announcement_not_found')
+    // Nothing changed and nothing was logged for the other facility.
+    expect(rowOf()).toMatchObject({
+      stays: [expect.objectContaining({ arrived: hm('08:00'), left: hm('15:00') })], announcements: [expect.objectContaining({ id: oma })],
+    })
+    expect(db.select().from(childAttendanceChanges).all().every(change => change.changedByName === 'leitung')).toBe(true)
+    expect(since(krippe)).toBeNull()
+  })
+
   it('refuses stays of a day that overlap; stays that only touch are fine', () => {
     arriveAt('08:00')
     leaveAt('10:00', mamaPickup())
