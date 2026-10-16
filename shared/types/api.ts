@@ -61,6 +61,12 @@ export interface GroupDto {
   forSchoolChildren: boolean
 }
 
+/**
+ * A group for the child pages with the viewer's right in it: 'write' = own group (or no group access: every group),
+ * 'read' = granted group. Groups the viewer may not see are not listed.
+ */
+export interface ChildGroupDto extends GroupDto { right: 'write' | 'read' }
+
 /** A care type (Betreuungsart) of a facility: a booking time window, times in minutes since midnight. */
 export interface CareTypeDto {
   id: number

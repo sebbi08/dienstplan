@@ -1,8 +1,9 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
+import { groupRight } from '../../shared/domain/groupAccess'
 import { isManager } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
-import type { GroupDto, Role, SnapshotData } from '../../shared/types/api'
+import type { ChildGroupDto, GroupAccess, GroupDto, Role, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
@@ -22,12 +23,19 @@ export function listGroups(db: Db, facilityId: number): GroupDto[] {
 }
 
 /**
- * The facility's groups for the child pages, readable for everyone who sees child records. The places (capacity)
- * belong to the occupancy, which is for Träger and Leitung: everybody else gets the groups without them (null).
+ * The facility's groups for the child pages, readable for everyone who sees child records, with the viewer's right in
+ * each (`groupRight`): groups hidden from the viewer are left out, so a form offers only what the server accepts. The
+ * places (capacity) belong to the occupancy, which is for Träger and Leitung: everybody else gets them as null.
  */
-export function listChildGroups(db: Db, facilityId: number, role: Role | null): GroupDto[] {
-  const all = listGroups(db, facilityId)
-  return isManager(role) ? all : all.map(group => ({ ...group, capacity: null }))
+export function listChildGroups(
+  db: Db, viewer: { facilityId: number; role: Role | null; groups: GroupAccess | null },
+): ChildGroupDto[] {
+  const manager = isManager(viewer.role)
+  return listGroups(db, viewer.facilityId).flatMap((group) => {
+    const right = groupRight(group.id, viewer.groups)
+    if (right === 'none') return []
+    return [{ ...group, capacity: manager ? group.capacity : null, right }]
+  })
 }
 
 /** The facility's group names by id, for texts that name the group of a single duty ("→ Mäuse"). */

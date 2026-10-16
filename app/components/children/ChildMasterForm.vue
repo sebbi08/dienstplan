@@ -10,7 +10,8 @@ import { formatDate } from '~/utils/format'
 /**
  * Master data (Stammdaten): the section of the record, or, without `child`, the form that creates a new child.
  * Whoever may edit child records can choose a group and care type (`canPickGroup`; the group list for the child pages is
- * readable for everyone who sees child records); without that right the stored group is kept as it is.
+ * readable for everyone who sees child records, with the viewer's right per group); without that right the stored
+ * group is kept as it is.
  */
 /** `reload` re-reads the record after a save (not needed while creating); the guard in `save` holds until it is done. */
 const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown>; initialStatus?: AdmissionStatus }>()
@@ -75,7 +76,18 @@ async function removeChange() {
 }
 
 const showGroup = computed(() => (canPickGroup.value && groups.value.length > 0) || (!creating && props.child!.master.groupId !== null))
-const groupItems = computed(() => [{ label: de.children.noGroup, value: 0 }, ...groups.value.map(group => ({ label: group.name, value: group.id }))])
+/**
+ * The groups a child can be put into: "Keine Gruppe" and the viewer's writable groups (the server refuses the others).
+ * The child's current group stays in the list as the current value, but cannot be picked again once left if the
+ * viewer may not write it.
+ */
+const groupItems = computed(() => {
+  const current = props.child?.master.groupId ?? null
+  const items = groups.value.filter(group => group.right === 'write' || group.id === current)
+    .map(group => ({ label: group.name, value: group.id, disabled: group.right !== 'write' }))
+  if (current !== null && !items.some(item => item.value === current)) items.push({ label: groupName(current), value: current, disabled: true })
+  return [{ label: de.children.noGroup, value: 0, disabled: false }, ...items]
+})
 const staffItems = computed(() => [{ label: de.children.noKeyEducator, value: 0 }, ...staff.value.map(person => ({ label: person.name, value: person.id }))])
 const careTypeItems = computed(() => [{ label: de.children.noSelection, value: 0 }, ...careTypes.value.map(type => ({ label: type.name, value: type.id }))])
 

@@ -307,15 +307,28 @@ describe('group capacity', () => {
     const bears = addGroup(db, 1, 'Bären')
     const mice = addGroup(db, 1, 'Mäuse')
     setGroupCapacity(db, 1, bears, 12)
+    const viewer = (role: 'provider' | 'admin' | 'observer' | 'terminal' | null) => ({ facilityId: 1, role, groups: null })
     for (const role of ['provider', 'admin'] as const) {
-      expect(listChildGroups(db, 1, role), role).toEqual(listGroups(db, 1))
+      expect(listChildGroups(db, viewer(role)), role).toEqual(listGroups(db, 1).map(group => ({ ...group, right: 'write' })))
     }
     for (const role of ['observer', 'terminal', null] as const) {
-      expect(listChildGroups(db, 1, role), String(role)).toEqual([
-        { id: bears, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false },
-        { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false },
+      expect(listChildGroups(db, viewer(role)), String(role)).toEqual([
+        { id: bears, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false, right: 'write' },
+        { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, right: 'write' },
       ])
     }
+  })
+
+  it('gives a viewer with a group only the own (write) and granted (read) groups for the child pages', () => {
+    const bears = addGroup(db, 1, 'Bären')
+    const mice = addGroup(db, 1, 'Mäuse')
+    const owls = addGroup(db, 1, 'Eulen')
+    const anna = { facilityId: 1, role: 'terminal' as const, groups: { own: mice, readable: [owls] } }
+    expect(listChildGroups(db, anna)).toEqual([
+      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, right: 'write' },
+      { id: owls, name: 'Eulen', sortOrder: 2, capacity: null, forSchoolChildren: false, right: 'read' },
+    ])
+    expect(listChildGroups(db, anna).some(group => group.id === bears)).toBe(false)
   })
 
   it('accepts 1 and 200, and null clears the capacity', () => {
