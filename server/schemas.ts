@@ -282,16 +282,17 @@ export const childDocumentSchema = z.object({
 })
 export const fileQuery = z.object({ download: z.enum(['1']).optional() })
 
-// Child attendance: clock times are minutes of the day (0–1439); the rules (planned pickup, pickup person) are the service's.
+// Child attendance: clock times are minutes of the day (0–1439); the rules (planned pickup, pickup person) are the service's,
+// so a missing planned pickup or pickup person passes here and gets the service's own hint.
 const clockTime = z.number().int().min(0).max(1439)
 const attendanceChild = { childId: z.number().int().positive(), date: isoDate }
 const pickupChoice = z.object({ kind: z.enum(['contact', 'announcement']), id: z.number().int().positive() })
 export const attendanceDayQuery = z.object({ date: isoDate })
 export const attendanceHistoryQuery = z.object({ childId: z.coerce.number().int().positive(), date: isoDate })
 export const attendanceArriveSchema = z.object({
-  ...attendanceChild, time: clockTime, plannedPickup: clockTime.nullable(), broughtBy: z.string().max(100).optional(),
+  ...attendanceChild, time: clockTime, plannedPickup: clockTime.nullish(), broughtBy: z.string().max(100).optional(),
 })
-export const attendanceLeaveSchema = z.object({ ...attendanceChild, time: clockTime, pickup: pickupChoice.nullable() })
+export const attendanceLeaveSchema = z.object({ ...attendanceChild, time: clockTime, pickup: pickupChoice.nullish() })
 export const attendanceAnnouncementSchema = z.object({
   ...attendanceChild, name: z.string().max(100), announcedBy: z.string().max(100).default(''),
 })

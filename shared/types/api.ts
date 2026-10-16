@@ -1228,7 +1228,8 @@ export interface AttendanceArriveInput {
   childId: number
   date: IsoDate
   time: Minutes
-  plannedPickup: Minutes | null
+  /** Required by the service (400 planned_pickup_required when missing). */
+  plannedPickup?: Minutes | null
   broughtBy?: string
 }
 
@@ -1236,7 +1237,8 @@ export interface AttendanceLeaveInput {
   childId: number
   date: IsoDate
   time: Minutes
-  pickup: AttendancePickupChoice | null
+  /** Required by the service (400 pickup_person_required when missing). */
+  pickup?: AttendancePickupChoice | null
 }
 
 export interface AttendanceAnnouncementInput {

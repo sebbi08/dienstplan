@@ -6,6 +6,7 @@ import {
   children, closures,
 } from '../../server/db/schema'
 import type { ChildActor } from '../../server/lib/childViewer'
+import { attendanceArriveSchema, attendanceLeaveSchema } from '../../server/schemas'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import {
   announcePickup, arrive, attendanceHistory, deleteStay, getAttendanceDay, getAttendanceMonth, getAttendanceSettings, leave,
@@ -90,6 +91,16 @@ describe('child attendance', () => {
       leaveAt('12:00', mamaPickup())
       expect(rowOf().status).toBe('gone')
     })
+  })
+
+  it('answers a missing planned pickup or pickup person with its own hint, not a generic error', () => {
+    const arriveBody = attendanceArriveSchema.parse({ childId: lena, date: TODAY, time: hm('08:00') })
+    expect(errorCode(() => arrive(db, leitung, arriveBody, NOW))).toBe('planned_pickup_required')
+    arriveAt('08:00')
+    const leaveBody = attendanceLeaveSchema.parse({ childId: lena, date: TODAY, time: hm('15:00') })
+    expect(errorCode(() => leave(db, leitung, leaveBody, NOW))).toBe('pickup_person_required')
+    // Sent as null, the same.
+    expect(errorCode(() => leave(db, leitung, attendanceLeaveSchema.parse({ ...leaveBody, pickup: null }), NOW))).toBe('pickup_person_required')
   })
 
   describe('a later day', () => {
