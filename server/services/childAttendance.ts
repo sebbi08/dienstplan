@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or } from 'drizzle-orm'
-import { countsForMeal, dayStatus, monthCell, monthSums, pickupOverdue, type StaySpan } from '../../shared/domain/childAttendance'
+import { countsForMeal, dayStatus, monthCell, monthSums, pickupOverdue, staysOverlap, type StaySpan } from '../../shared/domain/childAttendance'
 import { childStatus } from '../../shared/domain/children'
 import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
@@ -301,7 +301,8 @@ export function attendanceHistory(db: Db, viewer: ChildViewer, childId: number, 
 
 /**
  * Stamps the child in (spec §3.2): a new stay from `time`; the planned pickup is required (400 planned_pickup_required),
- * a child already here cannot come again (409 already_present), not on a later day (400 attendance_future). An absence
+ * a child already here cannot come again (409 already_present), nor before it was picked up from an earlier stay of the
+ * day (400 stays_overlap), nor on a later day (400 attendance_future). An absence
  * of the day is replaced. Returns the stay's id.
  */
 export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput, now: Date = new Date()): number {
@@ -312,7 +313,9 @@ export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput
   const history = historyOf(db, viewer.facilityId, input.childId)
   return db.transaction((tx) => {
     const day = ensureDay(tx, input.childId, input.date, history)
-    if (staysOf(tx, day.id).some(stay => stay.left === null)) throw new ServiceError(409, 'already_present')
+    const earlier = staysOf(tx, day.id)
+    if (earlier.some(stay => stay.left === null)) throw new ServiceError(409, 'already_present')
+    if (earlier.some(stay => staysOverlap(stay, { arrived: input.time, left: null }))) throw new ServiceError(400, 'stays_overlap')
     const { id } = tx.insert(childAttendanceStays).values({ dayId: day.id, arrived: input.time }).returning({ id: childAttendanceStays.id }).get()
     const broughtBy = input.broughtBy === undefined ? day.broughtBy : input.broughtBy.trim()
     tx.update(childAttendanceDays).set({ plannedPickup, broughtBy, absence: null }).where(eq(childAttendanceDays.id, day.id)).run()
@@ -456,7 +459,8 @@ function loadStay(db: Db, viewer: ChildViewer, stayId: number): { stay: StayRow;
 
 /**
  * Corrects a stay (spec §3.9) by the same rules as stamping: not left before arriving (400 leave_before_arrival); a
- * stay opened again while another one of the day is open: 409 already_present. A closed stay keeps its pickup person
+ * stay opened again while another one of the day is open: 409 already_present; times sharing some time with another
+ * stay of the day (an open stay lasts the rest of the day): 400 stays_overlap. A closed stay keeps its pickup person
  * unless a new one is given (checked like leaving); closing an open stay needs one (400 pickup_person_required). A stay
  * of a later day cannot get times (400 attendance_future).
  */
@@ -465,13 +469,16 @@ export function updateStay(db: Db, viewer: ChildViewer, stayId: number, input: A
   refuseFuture(day.date, now)
   if (input.left !== null && input.left < input.arrived) throw new ServiceError(400, 'leave_before_arrival')
   db.transaction((tx) => {
+    const others = staysOf(tx, day.id).filter(other => other.id !== stay.id)
+    if (input.left === null && others.some(other => other.left === null)) throw new ServiceError(409, 'already_present')
+    if (others.some(other => staysOverlap(other, input))) throw new ServiceError(400, 'stays_overlap')
+    // Opened again: nobody picked the child up.
     let person: { name: string | null; contactId: number | null } = { name: null, contactId: null }
-    if (input.left === null) {
-      if (staysOf(tx, day.id).some(other => other.id !== stay.id && other.left === null)) throw new ServiceError(409, 'already_present')
+    if (input.left !== null) {
+      if (input.pickup) person = pickupPerson(tx, day.childId, day.id, input.pickup)
+      else if (stay.left !== null && stay.pickedUpBy !== null) person = { name: stay.pickedUpBy, contactId: stay.pickedUpContactId }
+      else throw new ServiceError(400, 'pickup_person_required')
     }
-    else if (input.pickup) person = pickupPerson(tx, day.childId, day.id, input.pickup)
-    else if (stay.left !== null && stay.pickedUpBy !== null) person = { name: stay.pickedUpBy, contactId: stay.pickedUpContactId }
-    else throw new ServiceError(400, 'pickup_person_required')
     tx.update(childAttendanceStays)
       .set({ arrived: input.arrived, left: input.left, pickedUpBy: person.name, pickedUpContactId: person.contactId })
       .where(eq(childAttendanceStays.id, stay.id)).run()

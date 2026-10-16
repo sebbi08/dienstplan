@@ -367,6 +367,32 @@ describe('child attendance', () => {
     expect(errorCode(() => updateStay(db, leitung, stayId, { arrived: 0, left: null }, NOW))).toBe('stay_not_found')
   })
 
+  it('refuses stays of a day that overlap; stays that only touch are fine', () => {
+    arriveAt('08:00')
+    leaveAt('10:00', mamaPickup())
+    expect(errorCode(() => arriveAt('09:59'))).toBe('stays_overlap')
+    expect(errorCode(() => arriveAt('07:00'))).toBe('stays_overlap')
+    arriveAt('11:00')
+    leaveAt('12:00', mamaPickup())
+    const [first, second] = rowOf().stays.map(stay => stay.id) as [number, number]
+
+    const correct = (stayId: number, arrived: string, left: string | null) =>
+      updateStay(db, leitung, stayId, { arrived: hm(arrived), left: left === null ? null : hm(left) }, NOW)
+    expect(errorCode(() => correct(second, '09:30', '12:00'))).toBe('stays_overlap')
+    expect(errorCode(() => correct(first, '08:00', '11:30'))).toBe('stays_overlap')
+    expect(errorCode(() => correct(first, '11:15', '11:45'))).toBe('stays_overlap')
+    expect(errorCode(() => correct(first, '07:00', '13:00'))).toBe('stays_overlap')
+    // Opened again, the first stay would last into the second.
+    expect(errorCode(() => correct(first, '08:00', null))).toBe('stays_overlap')
+    expect(rowOf().stays.map(stay => [stay.arrived, stay.left])).toEqual([[hm('08:00'), hm('10:00')], [hm('11:00'), hm('12:00')]])
+
+    correct(first, '08:00', '11:00')
+    correct(second, '11:00', null)
+    expect(rowOf().stays.map(stay => [stay.arrived, stay.left])).toEqual([[hm('08:00'), hm('11:00')], [hm('11:00'), null]])
+    // An arrival after the open stay is still already_present.
+    expect(errorCode(() => arriveAt('13:00'))).toBe('already_present')
+  })
+
   it('logs every change with the person, also for a tablet person without account', () => {
     const berta = addEmployee(db, 'Berta Beispiel')
     setTimeTrackingFrom(db, 1, '2026-10-01')

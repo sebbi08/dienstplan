@@ -844,5 +844,6 @@ export const de = {
     announcement_not_found: 'Diese angekündigte Person existiert nicht mehr. Bitte lade die Seite neu.',
     attendance_time_invalid: 'Bitte gib eine Uhrzeit von 0:00 bis 23:59 an.',
     attendance_future: 'Für einen späteren Tag kannst du noch nicht ein- oder ausstempeln.',
+    stays_overlap: 'Die Zeiten überschneiden sich mit einem anderen Aufenthalt an diesem Tag.',
   },
 }

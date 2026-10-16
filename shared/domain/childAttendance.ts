@@ -26,6 +26,11 @@ export function dayStatus(input: {
   return 'not_yet'
 }
 
+/** Whether two stays of a day share some time (an open stay lasts the rest of the day); stays that only touch do not. */
+export function staysOverlap(a: StaySpan, b: StaySpan): boolean {
+  return a.arrived < (b.left ?? Infinity) && b.arrived < (a.left ?? Infinity)
+}
+
 /**
  * Whether a child counts for a meal at `mealTime`: a manual tick wins; otherwise some stay must cover the time. An open
  * stay lasts until the planned pickup (forever without one).

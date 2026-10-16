@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countsForMeal, dayStatus, monthCell, monthSums, OVERDUE_MINUTES, pickupOverdue } from '../../shared/domain/childAttendance'
+import { countsForMeal, dayStatus, monthCell, monthSums, OVERDUE_MINUTES, pickupOverdue, staysOverlap } from '../../shared/domain/childAttendance'
 import type { AttendanceStatus } from '../../shared/types/api'
 
 const open = (arrived: number) => ({ arrived, left: null })
@@ -44,6 +44,21 @@ describe('dayStatus', () => {
     // Entries before that day still show.
     expect(status({ recordedFrom: null, absence: 'sick' })).toBe('sick')
     expect(status({ recordedFrom: '2026-10-15', stays: [closed(465, 900)] })).toBe('gone')
+  })
+})
+
+describe('staysOverlap', () => {
+  it('finds stays sharing some time; an open stay lasts the rest of the day', () => {
+    expect(staysOverlap(closed(480, 600), closed(590, 700))).toBe(true)
+    expect(staysOverlap(closed(480, 700), closed(500, 600))).toBe(true)
+    expect(staysOverlap(open(480), closed(600, 700))).toBe(true)
+    expect(staysOverlap(closed(480, 600), open(599))).toBe(true)
+    expect(staysOverlap(open(480), open(600))).toBe(true)
+  })
+  it('lets stays touch', () => {
+    expect(staysOverlap(closed(480, 600), closed(600, 700))).toBe(false)
+    expect(staysOverlap(closed(480, 600), open(600))).toBe(false)
+    expect(staysOverlap(closed(600, 700), closed(480, 590))).toBe(false)
   })
 })
 
