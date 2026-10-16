@@ -9,6 +9,7 @@ import type { Db } from '../db/client'
 import { employees, facilities, terminalUnlocks, users } from '../db/schema'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
+import { readableGroupIds } from './groupReadAccess'
 import { getTabletSettings } from './tabletSettings'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -25,15 +26,19 @@ function validUntil(lastActiveAt: string, lockMinutes: number): number {
 
 /**
  * The rights of the person who unlocked, as they are now (spec §4.1): home staff with an active linked account have the
- * rights of that account; everyone else (no or deactivated account, helpers) can only read.
+ * rights of that account; everyone else (no or deactivated account, helpers) can only read. Home staff with a group and
+ * without manager rights work with their own group and the groups it may read (group book spec §3.1); everyone else
+ * with every group.
  */
 function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): ChildViewer {
-  const employee = db.select({ facilityId: employees.facilityId, name: employees.name }).from(employees)
-    .where(eq(employees.id, employeeId)).get()
-  const account = employee?.facilityId === terminal.facilityId
+  const employee = db.select({ facilityId: employees.facilityId, name: employees.name, groupId: employees.groupId })
+    .from(employees).where(eq(employees.id, employeeId)).get()
+  const homeStaff = employee?.facilityId === terminal.facilityId
+  const account = homeStaff
     ? db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
     : undefined
   const role = account?.role ?? 'observer'
+  const ownGroup = homeStaff && !isManager(role) ? employee.groupId : null
   return {
     id: account?.id ?? null,
     employeeId,
@@ -43,6 +48,8 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     facilityId: terminal.facilityId,
     visibility: isManager(role) ? null : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts },
     onTablet: true,
+    // No facility check here: the employee's group is one of the home facility, and a stray one must not break the tablet.
+    groups: ownGroup === null ? null : { own: ownGroup, readable: readableGroupIds(db, ownGroup) },
   }
 }
 
@@ -144,7 +151,7 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
     : db.select({ name: employees.name }).from(employees).where(eq(employees.id, user.employeeId)).get()
   return {
     id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
-    canEditChildren: user.canEditChildren, facilityId: user.facilityId, visibility: null, onTablet: false,
+    canEditChildren: user.canEditChildren, facilityId: user.facilityId, visibility: null, onTablet: false, groups: null,
   }
 }
 

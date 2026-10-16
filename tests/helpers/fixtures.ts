@@ -62,11 +62,13 @@ export function addUser(
 }
 
 /**
- * The account as the child guards see it at the office (no visibility switches, not on the tablet), named by its
- * username. The user's own fields stay, so the same object still serves the services that take a session user.
+ * The account as the child guards see it at the office (no visibility switches, not on the tablet, every group), named
+ * by its username. The user's own fields stay, so the same object still serves the services that take a session user.
  */
 export function asChildViewer(user: SessionUser, facilityId = 1): ChildActor {
-  return { ...user, name: user.username, facilityId: user.facilityId ?? facilityId, visibility: null, onTablet: false }
+  return {
+    ...user, name: user.username, facilityId: user.facilityId ?? facilityId, visibility: null, onTablet: false, groups: null,
+  }
 }
 
 /** A group of the facility, created through the service; returns its id. */

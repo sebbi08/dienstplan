@@ -157,7 +157,7 @@ describe('unlocking the tablet for child records', () => {
       const { token } = unlock()
       expect(viewer(token)).toEqual({
         id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
-        visibility: { waitlist: false, futureContracts: false }, onTablet: true,
+        visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
       })
     })
     it('gives a Mitarbeiter account its edit flag, as it is now', () => {

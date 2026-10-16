@@ -682,3 +682,50 @@ export const terminalUnlocks = sqliteTable('terminal_unlocks', {
   createdAt: text('created_at').notNull(),
   lastActiveAt: text('last_active_at').notNull(),
 })
+
+/**
+ * The Leitung lets the staff of `groupId` also read the group book of `readableGroupId` (records and weekly overview,
+ * no entries). One direction only: A reading B does not let B read A.
+ */
+export const groupReadAccess = sqliteTable('group_read_access', {
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  readableGroupId: integer('readable_group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+}, table => [primaryKey({ columns: [table.groupId, table.readableGroupId] })])
+
+/** The weekly overview's theme of a group for a week; `weekStart` is the week's Monday (ISO date). */
+export const groupWeekNotes = sqliteTable('group_week_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  weekStart: text('week_start').notNull(),
+  text: text('text').notNull().default(''),
+  updatedAt: text('updated_at').notNull(),
+  updatedByName: text('updated_by_name').notNull(),
+}, table => [uniqueIndex('group_week_notes_group_week').on(table.groupId, table.weekStart)])
+
+/** The weekly overview's "Was haben wir gemacht" of a group on a day (Monday to Friday). */
+export const groupDayNotes = sqliteTable('group_day_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  text: text('text').notNull().default(''),
+  updatedAt: text('updated_at').notNull(),
+  updatedByName: text('updated_by_name').notNull(),
+}, table => [uniqueIndex('group_day_notes_group_date').on(table.groupId, table.date)])
+
+/**
+ * The change log of the group book: one row per change of the week's theme (`field` 'week', `date` the week's Monday)
+ * or of a day's text ('day', the day), with who changed it. A person at the tablet without account has no user id but
+ * the employee id and name of the person who unlocked it.
+ */
+export const groupBookChanges = sqliteTable('group_book_changes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  field: text('field', { enum: ['week', 'day'] }).notNull(),
+  date: text('date').notNull(),
+  before: text('before').notNull(),
+  after: text('after').notNull(),
+  changedAt: text('changed_at').notNull(),
+  changedByUserId: integer('changed_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  changedByEmployeeId: integer('changed_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  changedByName: text('changed_by_name').notNull(),
+}, table => [index('group_book_changes_group_date').on(table.groupId, table.date)])

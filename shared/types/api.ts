@@ -756,6 +756,9 @@ export interface TerminalPersonDto { employeeId: number; name: string; clockedIn
 /** Which children beyond the current ones a viewer without manager rights sees (the facility's tablet switches). */
 export interface ChildVisibility { waitlist: boolean; futureContracts: boolean }
 
+/** The groups a tablet person with a group of their own works with: the own one (write) and the granted ones (read only). */
+export interface GroupAccess { own: number; readable: number[] }
+
 /** What the person at the child records may do and see. */
 export interface ChildRightsDto {
   canEdit: boolean

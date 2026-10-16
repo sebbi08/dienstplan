@@ -1,5 +1,5 @@
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
-import type { ChildVisibility, Role } from '../../shared/types/api'
+import type { ChildVisibility, GroupAccess, Role } from '../../shared/types/api'
 import { ServiceError } from './errors'
 
 /**
@@ -19,6 +19,11 @@ export interface ChildViewer {
   /** null = sees every child (managers); set at the tablet for everyone else. */
   visibility: ChildVisibility | null
   onTablet: boolean
+  /**
+   * The groups the viewer works with (see `groupRight`): set at the tablet for home staff of the facility with a group
+   * of their own and without manager rights; null = every group (Leitung, Träger, staff without group, helpers, office).
+   */
+  groups: GroupAccess | null
 }
 
 /** A viewer who may change records: it has an account to record as "changed by". */

@@ -187,7 +187,11 @@ export const de = {
   groups: {
     title: 'Gruppen', none: 'Noch keine Gruppen. Ohne Gruppen sieht der Dienstplan aus wie bisher.',
     name: 'Name der Gruppe', add: 'Gruppe anlegen', rename: 'Umbenennen',
-    hint: 'Im Dienstplan erscheint jede Gruppe als eigener Block mit der Zahl der Anwesenden pro Tag. Die Leitung ordnet die Mitarbeiter ihrer Gruppe zu.',
+    /** Group books: which other groups the staff of a group may also read at the tablet. */
+    mayAlsoRead: 'Darf zusätzlich lesen:',
+    mayAlsoReadLabel: (group: string, other: string) => `${group} darf zusätzlich lesen: ${other}`,
+    readOnlyHint: 'Nur lesen: keine Einträge, keine Änderungen an Kinderakten.',
+    hint:'Im Dienstplan erscheint jede Gruppe als eigener Block mit der Zahl der Anwesenden pro Tag. Die Leitung ordnet die Mitarbeiter ihrer Gruppe zu.',
     deleteConfirm: (name: string) => `Gruppe „${name}“ löschen? Ihre Pflichtdienste und Dienstplanvorlagen werden mit gelöscht. `
       + 'Dienste, die für diese Gruppe eingetragen waren, zählen danach wieder für die Stammgruppe der Person. '
       + 'Mitarbeiter, deren Stammgruppe sie ist, müssen vorher einer anderen Gruppe zugeordnet werden.',

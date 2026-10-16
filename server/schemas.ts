@@ -154,6 +154,8 @@ export const groupNameSchema = z.object({ name: z.string().max(80) })
 export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
 /** Whether the group is for school children (after-school care). */
 export const groupSchoolChildrenSchema = z.object({ forSchoolChildren: z.boolean() })
+/** The groups the staff of a group may also read; the service checks that they belong to its facility. */
+export const groupReadAccessSchema = z.object({ readable: z.array(z.number().int().positive()).max(100) })
 /** The values are checked by the service, which answers invalid_school_cutoff. */
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
 /** The tablet settings of a facility. The lock time is checked by the service, which answers tablet_lock_minutes_invalid. */

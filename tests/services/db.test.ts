@@ -759,6 +759,45 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('0037 adds the group book tables, which go with their group', () => {
+    const { db, sqlite } = databaseAt('0036')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(37)
+    sqlite.exec('INSERT INTO groups (id, facility_id, name) VALUES (1, 1, \'Bären\'), (2, 1, \'Mäuse\')')
+    const before = sqlite.prepare('SELECT * FROM groups ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(37)
+    expect(sqlite.prepare('SELECT * FROM groups ORDER BY id').all()).toEqual(before)
+    const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
+    for (const table of ['group_read_access', 'group_week_notes', 'group_day_notes', 'group_book_changes']) expect(tables).toContain(table)
+
+    sqlite.exec(`
+      INSERT INTO group_read_access (group_id, readable_group_id) VALUES (1, 2), (2, 1);
+      INSERT INTO group_week_notes (group_id, week_start, updated_at, updated_by_name)
+        VALUES (1, '2026-10-12', '2026-10-16T08:00:00.000Z', 'Anna'), (2, '2026-10-12', '2026-10-16T08:00:00.000Z', 'Anna');
+      INSERT INTO group_day_notes (group_id, date, text, updated_at, updated_by_name)
+        VALUES (1, '2026-10-12', 'Herbstbasteln', '2026-10-16T08:00:00.000Z', 'Anna'), (2, '2026-10-12', 'Ausflug', '2026-10-16T08:00:00.000Z', 'Anna');
+      INSERT INTO group_book_changes (group_id, field, date, before, after, changed_at, changed_by_name)
+        VALUES (1, 'day', '2026-10-12', '', 'Herbstbasteln', '2026-10-16T08:00:00.000Z', 'Anna'),
+               (2, 'week', '2026-10-12', '', 'Herbst', '2026-10-16T08:00:00.000Z', 'Anna');
+    `)
+    // The week's theme starts empty; one theme per group and week, one text per group and day, one grant per pair.
+    expect(sqlite.prepare('SELECT text FROM group_week_notes WHERE group_id = 1').get()).toEqual({ text: '' })
+    expect(() => sqlite.exec('INSERT INTO group_week_notes (group_id, week_start, updated_at, updated_by_name) VALUES (1, \'2026-10-12\', \'x\', \'Anna\')')).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec('INSERT INTO group_day_notes (group_id, date, text, updated_at, updated_by_name) VALUES (1, \'2026-10-12\', \'\', \'x\', \'Anna\')')).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec('INSERT INTO group_read_access (group_id, readable_group_id) VALUES (1, 2)')).toThrow(/UNIQUE/)
+
+    // Deleting a group takes its rows of every table along, also the grants that name it as readable.
+    sqlite.exec('DELETE FROM groups WHERE id = 2')
+    expect(sqlite.prepare('SELECT group_id, readable_group_id FROM group_read_access').all()).toEqual([])
+    for (const table of ['group_week_notes', 'group_day_notes', 'group_book_changes']) {
+      expect(sqlite.prepare(`SELECT group_id FROM ${table}`).all(), table).toEqual([{ group_id: 1 }])
+    }
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
   it('terminal_unlocks rows go with their tablet account', () => {
     const db = createTestDb()
     const employeeId = addEmployee(db, 'Anna Beispiel')
