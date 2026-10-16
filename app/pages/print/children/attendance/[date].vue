@@ -3,6 +3,7 @@ import { todayIso, weekday } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type { AttendanceChildDto, AttendanceDayDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { pickupPersonText } from '~/utils/attendance'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
@@ -66,13 +67,16 @@ const td = 'border border-gray-400 px-1.5 py-1 align-top'
               <td :class="td" class="whitespace-nowrap"><div v-for="(text, i) in arrivals(child)" :key="i">{{ text }}</div></td>
               <td v-if="data.recordBroughtBy" :class="td">{{ child.broughtBy }}</td>
               <td :class="td" class="whitespace-nowrap">{{ time(child.plannedPickup) }}</td>
-              <td :class="td"><div v-for="stay in child.stays" :key="stay.id">{{ stay.pickedUpBy ?? '' }}&nbsp;</div></td>
+              <td :class="td"><div v-for="stay in child.stays" :key="stay.id">{{ pickupPersonText(stay) ?? '' }}&nbsp;</div></td>
               <td :class="td" class="whitespace-nowrap"><div v-for="stay in child.stays" :key="stay.id">{{ time(stay.left) }}&nbsp;</div></td>
               <td :class="td" class="text-center">{{ child.snack ? '✓' : '' }}</td>
               <td :class="td" class="text-center">{{ child.lunch ? '✓' : '' }}</td>
               <td :class="td" class="whitespace-pre-line break-words">
                 <div v-if="child.allergies">{{ s.allergies }}: {{ child.allergies }}</div>
                 <div v-if="child.note">{{ child.note }}</div>
+                <template v-for="stay in child.stays" :key="stay.id">
+                  <div v-if="stay.pickedUpOther && stay.pickedUpBy && stay.pickedUpConfirmedWith">{{ s.pickedUpByInfo(stay.pickedUpBy, stay.pickedUpConfirmedWith) }}</div>
+                </template>
               </td>
             </tr>
           </tbody>

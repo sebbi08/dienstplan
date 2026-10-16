@@ -622,7 +622,11 @@ export const childAttendanceDays = sqliteTable('child_attendance_days', {
   lunch: integer('lunch', { mode: 'boolean' }),
 }, table => [uniqueIndex('child_attendance_days_child_date').on(table.childId, table.date)])
 
-/** One stay of a child on a day; `left` null while the child is still here. The pickup person's name as it was. */
+/**
+ * One stay of a child on a day; `left` null while the child is still here. The pickup person's name as it was;
+ * `pickedUpOther` = a person typed by hand who is neither a contact nor announced ("nicht hinterlegt"), with whom that
+ * was agreed in `pickedUpConfirmedWith` ("Rücksprache mit", '' = not given).
+ */
 export const childAttendanceStays = sqliteTable('child_attendance_stays', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   dayId: integer('day_id').notNull().references(() => childAttendanceDays.id, { onDelete: 'cascade' }),
@@ -630,6 +634,8 @@ export const childAttendanceStays = sqliteTable('child_attendance_stays', {
   left: integer('left'),
   pickedUpBy: text('picked_up_by'),
   pickedUpContactId: integer('picked_up_contact_id').references(() => childContacts.id, { onDelete: 'set null' }),
+  pickedUpOther: integer('picked_up_other', { mode: 'boolean' }).notNull().default(false),
+  pickedUpConfirmedWith: text('picked_up_confirmed_with').notNull().default(''),
 }, table => [index('child_attendance_stays_day').on(table.dayId)])
 
 /** A person announced to pick the child up on this day only. */

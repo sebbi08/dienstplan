@@ -735,6 +735,30 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('0036 marks every existing stay as picked up by a registered person', () => {
+    const { db, sqlite } = databaseAt('0035')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(36)
+    sqlite.exec(`
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, entry_date, created_at)
+        VALUES (1, 1, 'Meier', 'Lena', '2022-03-15', '2025-09-01', '2026-01-01T00:00:00.000Z');
+      INSERT INTO child_attendance_days (id, child_id, date) VALUES (1, 1, '2026-10-14');
+      INSERT INTO child_attendance_stays (id, day_id, arrived, left, picked_up_by) VALUES (1, 1, 480, 600, 'Oma Erika'), (2, 1, 660, NULL, NULL);
+    `)
+    const before = sqlite.prepare('SELECT * FROM child_attendance_stays ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(36)
+    expect(sqlite.prepare('SELECT id, picked_up_other, picked_up_confirmed_with FROM child_attendance_stays ORDER BY id').all()).toEqual([
+      { id: 1, picked_up_other: 0, picked_up_confirmed_with: '' },
+      { id: 2, picked_up_other: 0, picked_up_confirmed_with: '' },
+    ])
+    expect((sqlite.prepare('SELECT * FROM child_attendance_stays ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ picked_up_other: _, picked_up_confirmed_with: __, ...rest }) => rest)).toEqual(before)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
   it('terminal_unlocks rows go with their tablet account', () => {
     const db = createTestDb()
     const employeeId = addEmployee(db, 'Anna Beispiel')

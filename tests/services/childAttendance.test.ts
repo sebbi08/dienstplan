@@ -174,6 +174,36 @@ describe('child attendance', () => {
         .toBe('name_required')
     })
 
+    it('with a person who is not registered, typed by hand and marked as such', () => {
+      arriveAt('08:00')
+      expect(errorCode(() => leaveAt('15:00', { kind: 'other', name: '   ' }))).toBe('pickup_person_required')
+      // Never under the name of a contact with a contact ban, in whatever spelling.
+      expect(errorCode(() => leaveAt('15:00', { kind: 'other', name: ' max  MEIER', confirmedWith: 'Mama' }))).toBe('pickup_person_invalid')
+      expect(rowOf().status).toBe('present')
+
+      leaveAt('15:00', { kind: 'other', name: '  Tante Uta ', confirmedWith: ' Mama, telefonisch ' })
+      expect(rowOf()).toMatchObject({
+        status: 'gone',
+        stays: [{ left: hm('15:00'), pickedUpBy: 'Tante Uta', pickedUpOther: true, pickedUpConfirmedWith: 'Mama, telefonisch' }],
+      })
+      expect(db.select().from(childAttendanceStays).get()!.pickedUpContactId).toBeNull()
+      expect(attendanceHistory(db, leitung, lena, TODAY).slice(0, 4).map(entry => [entry.field, entry.before, entry.after]).reverse()).toEqual([
+        ['left', '', '15:00'], ['pickedUpBy', '', 'Tante Uta'], ['pickedUpOther', '', 'true'], ['pickedUpConfirmedWith', '', 'Mama, telefonisch'],
+      ])
+
+      // Without "Rücksprache mit" fine too; a registered person carries no marker.
+      arriveAt('15:30')
+      leaveAt('16:00', { kind: 'other', name: 'Nachbarin Rosa' })
+      arriveAt('16:30')
+      leaveAt('17:00', mamaPickup())
+      expect(rowOf().stays.slice(1)).toEqual([
+        expect.objectContaining({ pickedUpBy: 'Nachbarin Rosa', pickedUpOther: true, pickedUpConfirmedWith: '' }),
+        expect.objectContaining({ pickedUpBy: 'Anna Meier', pickedUpOther: false, pickedUpConfirmedWith: '' }),
+      ])
+      expect(attendanceLeaveSchema.parse({ childId: lena, date: TODAY, time: 900, pickup: { kind: 'other', name: 'Rosa' } }).pickup)
+        .toEqual({ kind: 'other', name: 'Rosa' })
+    })
+
     it('offers exactly the allowed contacts and today\'s announcements, never a person with a contact ban', () => {
       announcePickup(db, leitung, { childId: lena, date: YESTERDAY, name: 'Tante Uta', announcedBy: '' }, NOW)
       const oma = announcePickup(db, leitung, { childId: lena, date: TODAY, name: 'Oma Erika', announcedBy: '' }, NOW)
@@ -365,6 +395,42 @@ describe('child attendance', () => {
     expect(rowOf().stays.map(stay => stay.arrived)).toEqual([hm('16:00')])
     expect(errorCode(() => deleteStay(db, leitung, stayId, NOW))).toBe('stay_not_found')
     expect(errorCode(() => updateStay(db, leitung, stayId, { arrived: 0, left: null }, NOW))).toBe('stay_not_found')
+  })
+
+  it('corrects a stay to a person who is not registered and back, and logs it', () => {
+    arriveAt('08:00')
+    leaveAt('15:00', mamaPickup())
+    const stayId = rowOf().stays[0]!.id
+    const correct = (pickup?: AttendancePickupChoice, left: string | null = '15:00') =>
+      updateStay(db, leitung, stayId, { arrived: hm('08:00'), left: left === null ? null : hm(left), ...(pickup ? { pickup } : {}) }, NOW)
+    const fields = ['pickedUpBy', 'pickedUpOther', 'pickedUpConfirmedWith']
+    const logged = () => attendanceHistory(db, leitung, lena, TODAY).filter(entry => fields.includes(entry.field))
+      .map(entry => [entry.field, entry.before, entry.after]).reverse()
+
+    expect(errorCode(() => correct({ kind: 'other', name: '' }))).toBe('pickup_person_required')
+    expect(errorCode(() => correct({ kind: 'other', name: 'Max Meier' }))).toBe('pickup_person_invalid')
+
+    correct({ kind: 'other', name: 'Tante Uta', confirmedWith: 'Papa, persönlich' })
+    expect(rowOf().stays[0]).toMatchObject({ pickedUpBy: 'Tante Uta', pickedUpOther: true, pickedUpConfirmedWith: 'Papa, persönlich' })
+    expect(db.select().from(childAttendanceStays).get()!.pickedUpContactId).toBeNull()
+    // Only the times corrected: the person stays as it was, marker and "Rücksprache mit" included.
+    correct(undefined, '15:20')
+    expect(rowOf().stays[0]).toMatchObject({ left: hm('15:20'), pickedUpBy: 'Tante Uta', pickedUpOther: true, pickedUpConfirmedWith: 'Papa, persönlich' })
+
+    correct(mamaPickup())
+    expect(rowOf().stays[0]).toMatchObject({ pickedUpBy: 'Anna Meier', pickedUpOther: false, pickedUpConfirmedWith: '' })
+    correct({ kind: 'other', name: 'Tante Uta' })
+    // Opened again: nobody picked the child up, no marker.
+    correct(undefined, null)
+    expect(rowOf().stays[0]).toMatchObject({ left: null, pickedUpBy: null, pickedUpOther: false, pickedUpConfirmedWith: '' })
+
+    expect(logged()).toEqual([
+      ['pickedUpBy', '', 'Anna Meier'],
+      ['pickedUpBy', 'Anna Meier', 'Tante Uta'], ['pickedUpOther', '', 'true'], ['pickedUpConfirmedWith', '', 'Papa, persönlich'],
+      ['pickedUpBy', 'Tante Uta', 'Anna Meier'], ['pickedUpOther', 'true', ''], ['pickedUpConfirmedWith', 'Papa, persönlich', ''],
+      ['pickedUpBy', 'Anna Meier', 'Tante Uta'], ['pickedUpOther', '', 'true'],
+      ['pickedUpBy', 'Tante Uta', ''], ['pickedUpOther', 'true', ''],
+    ])
   })
 
   it('does not let another facility correct or delete a stay or remove an announced person', () => {

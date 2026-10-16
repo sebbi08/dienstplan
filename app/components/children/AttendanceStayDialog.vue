@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { formatTime } from '#shared/domain/time'
 import type { IsoDate } from '#shared/domain/types'
-import type { AttendanceChildDto, AttendanceDayInput, AttendancePickupOption, AttendanceStayInput } from '#shared/types/api'
+import type { AttendanceChildDto, AttendanceDayInput, AttendancePickupChoice, AttendancePickupOption, AttendanceStayInput } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { parseClock } from '~/utils/attendance'
+import { confirmedWithText, parseClock, pickupPersonText } from '~/utils/attendance'
 
 /**
  * Corrects a stay of the day (spec §3.9): arrival, pickup time (empty = still here) and the pickup person (kept unless
- * another one is chosen; closing an open stay needs one), with the brought-by person of the day when it is recorded.
+ * another one is chosen, also "Andere Person" typed by hand; closing an open stay needs one), with the brought-by person
+ * of the day when it is recorded.
  * A stay stamped by mistake can be deleted. Every change shows up in the history.
  */
 const props = defineProps<{ child: AttendanceChildDto; stayId: number; date: IsoDate; recordBroughtBy: boolean; reload: () => Promise<unknown> }>()
@@ -17,37 +18,49 @@ const confirm = useConfirm()
 const s = de.attendance
 
 const stay = computed(() => props.child.stays.find(candidate => candidate.id === props.stayId))
+/** The key of "Andere Person" among the choices. */
+const OTHER = 'other'
 const optionKey = (option: Pick<AttendancePickupOption, 'kind' | 'id'>) => `${option.kind}-${option.id}`
-/** '' = keep the person stored with the stay. */
-const form = reactive({ arrived: '', left: '', person: '', broughtBy: '' })
+/** person '' = keep the person stored with the stay. */
+const form = reactive({ arrived: '', left: '', person: '', otherName: '', confirmedWith: '', broughtBy: '' })
 const error = ref('')
 watch(open, (value) => {
   if (!value || !stay.value) return
   Object.assign(form, {
     arrived: formatTime(stay.value.arrived), left: stay.value.left === null ? '' : formatTime(stay.value.left), person: '',
-    broughtBy: props.child.broughtBy,
+    otherName: '', confirmedWith: '', broughtBy: props.child.broughtBy,
   })
   error.value = ''
 }, { immediate: true })
 
 const leaving = computed(() => form.left.trim() !== '')
-const keptPerson = computed(() => stay.value?.pickedUpBy ?? null)
+/** The stored person as the list shows it ("Tante Uta (nicht hinterlegt)"), null for none. */
+const keptPerson = computed(() => (stay.value ? pickupPersonText(stay.value) : null))
+const keptConfirmedWith = computed(() => (stay.value ? confirmedWithText(stay.value) : ''))
+/** A newly chosen person (undefined = keep the stored one; null = "Andere Person" without a name yet). */
+const newPerson = computed<AttendancePickupChoice | null | undefined>(() => {
+  if (form.person === OTHER) {
+    return form.otherName.trim() ? { kind: 'other', name: form.otherName, confirmedWith: form.confirmedWith } : null
+  }
+  const option = props.child.pickupOptions.find(candidate => optionKey(candidate) === form.person)
+  return option ? { kind: option.kind, id: option.id } : undefined
+})
 
 async function save() {
   const current = stay.value
   if (!current) return
   const arrived = parseClock(form.arrived)
   const left = leaving.value ? parseClock(form.left) : null
-  const option = props.child.pickupOptions.find(candidate => optionKey(candidate) === form.person)
+  const chosen = newPerson.value
   if (arrived === null || (leaving.value && left === null)) error.value = de.common.invalidTimeAnyMinute
   else if (left !== null && left < arrived) error.value = de.errors.leave_before_arrival
-  else if (left !== null && !option && keptPerson.value === null) error.value = de.errors.pickup_person_required
+  else if (left !== null && (chosen === null || (chosen === undefined && keptPerson.value === null))) error.value = de.errors.pickup_person_required
   else error.value = ''
   if (error.value || arrived === null) return
-  const newPerson = left !== null ? option : undefined
-  const body: AttendanceStayInput = { arrived, left, ...(newPerson ? { pickup: { kind: newPerson.kind, id: newPerson.id } } : {}) }
+  const pickup = left !== null && chosen ? chosen : undefined
+  const body: AttendanceStayInput = { arrived, left, ...(pickup ? { pickup } : {}) }
   // Only what really changed is sent: the stay first, then the brought-by person of the day.
-  const stayChanged = arrived !== current.arrived || left !== current.left || newPerson !== undefined
+  const stayChanged = arrived !== current.arrived || left !== current.left || pickup !== undefined
   const broughtByChanged = props.recordBroughtBy && form.broughtBy.trim() !== props.child.broughtBy
   if (!stayChanged && !broughtByChanged) {
     open.value = false
@@ -70,7 +83,7 @@ async function save() {
   }
   // The stay was stored but the brought-by person was not: show the stored stay and keep the unsaved brought-by to retry.
   if (staySaved) {
-    form.person = ''
+    Object.assign(form, { person: '', otherName: '', confirmedWith: '' })
     await props.reload()
   }
 }
@@ -111,8 +124,14 @@ async function remove() {
             >
               {{ option.name }}<span v-if="option.kind === 'announcement'" class="text-xs opacity-80">({{ s.leave.announced }})</span>
             </UButton>
+            <UButton
+              type="button" size="xl" block role="radio" :aria-checked="form.person === OTHER"
+              :variant="form.person === OTHER ? 'solid' : 'outline'" :color="form.person === OTHER ? 'primary' : 'neutral'"
+              :label="s.leave.other" @click="form.person = OTHER"
+            />
           </div>
-          <p v-if="keptPerson === null && !child.pickupOptions.length" class="rounded-lg bg-amber-50 p-3 text-amber-900 ring-1 ring-amber-200">{{ s.leave.noPerson }}</p>
+          <p v-if="keptConfirmedWith && form.person === ''" class="text-sm text-gray-600">{{ keptConfirmedWith }}</p>
+          <ChildrenAttendanceOtherPerson v-if="form.person === OTHER" v-model:name="form.otherName" v-model:confirmed-with="form.confirmedWith" />
         </fieldset>
         <UFormField v-if="recordBroughtBy" :label="s.stay.broughtBy">
           <UInput v-model="form.broughtBy" size="xl" maxlength="100" class="w-full" />

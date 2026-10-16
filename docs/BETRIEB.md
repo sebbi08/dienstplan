@@ -333,9 +333,15 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
   Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Anwesenheit* „Bringperson
   erfassen“ an, fragt der Dialog zusätzlich, wer das Kind gebracht hat. Ein Kind, das schon abgeholt wurde, kann
   am selben Tag noch einmal kommen (z. B. nach einem Arzttermin).
-- **„Geht“**: Uhrzeit (nicht vor der Ankunft) und **wer abholt**. Zur Auswahl stehen nur die Bezugspersonen mit
+- **„Geht“**: Uhrzeit (nicht vor der Ankunft) und **wer abholt**. Zur Auswahl stehen die Bezugspersonen mit
   „darf abholen“ und die Personen, die für diesen Tag angekündigt sind. Personen mit Umgangsverbot stehen nie in
   der Auswahl; hat das Kind ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot.
+- Holt jemand ab, der weder in der Akte steht noch angekündigt ist, tippst du auf **„Andere Person“**, gibst
+  den Namen ein und – wenn es eine gab – mit wem das abgesprochen ist (**„Rücksprache mit“**, z. B. „Mama,
+  telefonisch“). Der Name einer Person mit Umgangsverbot wird abgewiesen. In der Tagesliste, im Druck und im
+  Verlauf steht danach „Name (nicht hinterlegt)“, so sieht man auch später, dass die Person nicht eingetragen war.
+  Die „Rücksprache mit“ siehst du, wenn du mit der Maus auf dem Aufenthalt bleibst, beim „Zeiten korrigieren“ und
+  im Druck unter Info. Auch beim „Zeiten korrigieren“ kannst du „Andere Person“ wählen.
 - **Abholzeit überschritten**: Ist ein Kind 15 Minuten nach seiner geplanten Abholzeit noch da, wird seine Zeile
   rot – auch wenn die Liste die ganze Zeit offen ist (die Markierung folgt der Uhr des Geräts, jede Minute).
   Einträge anderer Geräte erscheinen erst nach dem nächsten eigenen Eintrag oder beim Öffnen der Liste; die Liste

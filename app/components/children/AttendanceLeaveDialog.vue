@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { IsoDate } from '#shared/domain/types'
-import type { AttendanceChildDto, AttendanceLeaveInput, AttendancePickupOption } from '#shared/types/api'
+import type { AttendanceChildDto, AttendanceLeaveInput, AttendancePickupChoice, AttendancePickupOption } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { nowClock, parseClock } from '~/utils/attendance'
 
 /**
- * "Geht" (spec §3.4): the time (now, not before the arrival) and who picks the child up — a contact allowed to or a
- * person announced for the day (the server never offers anybody with a contact ban). A contact ban of the child shows
- * in red; without anybody to choose, the dialog says so and offers to announce a person.
+ * "Geht" (spec §3.4): the time (now, not before the arrival) and who picks the child up — a contact allowed to, a
+ * person announced for the day (the server never offers anybody with a contact ban) or "Andere Person", typed by hand
+ * and marked "nicht hinterlegt". A contact ban of the child shows in red; without anybody registered, the dialog says
+ * so and offers to announce a person.
  */
 const props = defineProps<{ child: AttendanceChildDto; date: IsoDate; reload: () => Promise<unknown> }>()
 const open = defineModel<boolean>('open', { default: false })
@@ -15,29 +16,37 @@ const emit = defineEmits<{ announce: [] }>()
 const { busy, run } = useBusyAction(() => props.reload())
 const s = de.attendance
 
+/** The key of "Andere Person" among the choices. */
+const OTHER = 'other'
 const optionKey = (option: Pick<AttendancePickupOption, 'kind' | 'id'>) => `${option.kind}-${option.id}`
-const form = reactive({ time: '', person: '' })
+const form = reactive({ time: '', person: '', otherName: '', confirmedWith: '' })
 const error = ref('')
 watch(open, (value) => {
   if (!value) return
   // Nobody is preselected, not even a single person on offer: who picks the child up is chosen consciously.
-  Object.assign(form, { time: nowClock(), person: '' })
+  Object.assign(form, { time: nowClock(), person: '', otherName: '', confirmedWith: '' })
   error.value = ''
 }, { immediate: true })
 
-/** A person of the current offer is chosen (submit stays off until then). */
-const chosen = computed(() => props.child.pickupOptions.some(option => optionKey(option) === form.person))
+/** The chosen person; null until one of the offer is chosen or "Andere Person" has a name (submit stays off until then). */
+const pickup = computed<AttendancePickupChoice | null>(() => {
+  if (form.person === OTHER) {
+    return form.otherName.trim() ? { kind: 'other', name: form.otherName, confirmedWith: form.confirmedWith } : null
+  }
+  const option = props.child.pickupOptions.find(candidate => optionKey(candidate) === form.person)
+  return option ? { kind: option.kind, id: option.id } : null
+})
 const openStay = computed(() => props.child.stays.find(stay => stay.left === null))
 
 async function save() {
   const time = parseClock(form.time)
-  const option = props.child.pickupOptions.find(candidate => optionKey(candidate) === form.person)
+  const person = pickup.value
   if (time === null) error.value = de.common.invalidTimeAnyMinute
   else if (openStay.value && time < openStay.value.arrived) error.value = de.errors.leave_before_arrival
-  else if (!option) error.value = de.errors.pickup_person_required
+  else if (!person) error.value = de.errors.pickup_person_required
   else error.value = ''
-  if (error.value || time === null || !option) return
-  const body: AttendanceLeaveInput = { childId: props.child.childId, date: props.date, time, pickup: { kind: option.kind, id: option.id } }
+  if (error.value || time === null || !person) return
+  const body: AttendanceLeaveInput = { childId: props.child.childId, date: props.date, time, pickup: person }
   if (await run(() => $fetch<unknown>('/api/attendance/leave', { method: 'POST', body }))) open.value = false
 }
 </script>
@@ -54,7 +63,11 @@ async function save() {
         <UFormField :label="s.leave.time" required class="w-40"><TimeInput v-model="form.time" any-minute size="xl" /></UFormField>
         <fieldset class="space-y-2">
           <legend class="mb-1 text-sm font-medium">{{ s.leave.person }}</legend>
-          <div v-if="child.pickupOptions.length" class="grid gap-2 sm:grid-cols-2" role="radiogroup">
+          <div v-if="!child.pickupOptions.length" class="space-y-2 rounded-lg bg-amber-50 p-3 text-amber-900 ring-1 ring-amber-200">
+            <p>{{ s.leave.noPerson }}</p>
+            <UButton type="button" size="lg" color="neutral" variant="outline" icon="i-lucide-user-plus" :label="s.actions.announce" @click="emit('announce')" />
+          </div>
+          <div class="grid gap-2 sm:grid-cols-2" role="radiogroup">
             <UButton
               v-for="option in child.pickupOptions" :key="optionKey(option)" type="button" size="xl" block
               role="radio" :aria-checked="form.person === optionKey(option)"
@@ -64,17 +77,20 @@ async function save() {
             >
               {{ option.name }}<span v-if="option.kind === 'announcement'" class="text-xs opacity-80">({{ s.leave.announced }})</span>
             </UButton>
+            <UButton
+              type="button" size="xl" block role="radio" :aria-checked="form.person === OTHER"
+              :variant="form.person === OTHER ? 'solid' : 'outline'" :color="form.person === OTHER ? 'primary' : 'neutral'"
+              :icon="form.person === OTHER ? 'i-lucide-circle-check' : 'i-lucide-circle'" :label="s.leave.other"
+              @click="form.person = OTHER"
+            />
           </div>
-          <div v-else class="space-y-2 rounded-lg bg-amber-50 p-3 text-amber-900 ring-1 ring-amber-200">
-            <p>{{ s.leave.noPerson }}</p>
-            <UButton type="button" size="lg" color="neutral" variant="outline" icon="i-lucide-user-plus" :label="s.actions.announce" @click="emit('announce')" />
-          </div>
+          <ChildrenAttendanceOtherPerson v-if="form.person === OTHER" v-model:name="form.otherName" v-model:confirmed-with="form.confirmedWith" />
         </fieldset>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
         <div class="flex gap-2">
           <UButton
             type="submit" size="xl" icon="i-lucide-log-out" :label="s.leave.submit" :loading="busy"
-            :disabled="busy || !chosen"
+            :disabled="busy || !pickup"
           />
           <UButton type="button" size="xl" color="neutral" variant="ghost" :label="de.common.cancel" :disabled="busy" @click="open = false" />
         </div>

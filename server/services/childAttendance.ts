@@ -131,30 +131,57 @@ function bannedNames(db: Db, childId: number): Set<string> {
     .map(contact => personKey(contact.name)))
 }
 
+/** The pickup person as a stay stores it (`other` = typed by hand, "nicht hinterlegt"); all null/empty while nobody picked up. */
+interface PickupPerson { name: string | null; contactId: number | null; other: boolean; confirmedWith: string }
+
+const NOBODY: PickupPerson = { name: null, contactId: null, other: false, confirmedWith: '' }
+
 /**
  * The person who may take the child home on this day (spec §3.4): a contact of this child with "darf abholen" and no
- * contact ban, or a person announced for this very day of this child who does not carry the name of a banned contact.
- * 400 pickup_person_required without a choice, 400 pickup_person_invalid for everybody else.
+ * contact ban, a person announced for this very day of this child, or another person typed by hand (with whom it was
+ * agreed, freely) – the last two never under the name of a banned contact. 400 pickup_person_required without a choice
+ * or a typed name, 400 pickup_person_invalid for everybody else.
  */
 function pickupPerson(
   db: Db, childId: number, dayId: number, pickup: AttendancePickupChoice | null | undefined,
-): { name: string; contactId: number | null } {
+): PickupPerson & { name: string } {
   if (!pickup) throw new ServiceError(400, 'pickup_person_required')
+  if (pickup.kind === 'other') {
+    const name = pickup.name.trim()
+    if (name === '') throw new ServiceError(400, 'pickup_person_required')
+    if (bannedNames(db, childId).has(personKey(name))) throw new ServiceError(400, 'pickup_person_invalid')
+    return { name, contactId: null, other: true, confirmedWith: pickup.confirmedWith?.trim() ?? '' }
+  }
   if (pickup.kind === 'contact') {
     const contact = db.select().from(childContacts)
       .where(and(eq(childContacts.id, pickup.id), eq(childContacts.childId, childId))).get()
     if (!contact || !contact.mayPickUp || contact.contactBan) throw new ServiceError(400, 'pickup_person_invalid')
-    return { name: contact.name, contactId: contact.id }
+    return { name: contact.name, contactId: contact.id, other: false, confirmedWith: '' }
   }
-  if (pickup.kind === 'announcement') {
-    const announcement = db.select().from(childPickupAnnouncements)
-      .where(and(eq(childPickupAnnouncements.id, pickup.id), eq(childPickupAnnouncements.dayId, dayId))).get()
-    if (announcement && !bannedNames(db, childId).has(personKey(announcement.name))) {
-      return { name: announcement.name, contactId: null }
-    }
+  const announcement = db.select().from(childPickupAnnouncements)
+    .where(and(eq(childPickupAnnouncements.id, pickup.id), eq(childPickupAnnouncements.dayId, dayId))).get()
+  if (announcement && !bannedNames(db, childId).has(personKey(announcement.name))) {
+    return { name: announcement.name, contactId: null, other: false, confirmedWith: '' }
   }
   throw new ServiceError(400, 'pickup_person_invalid')
 }
+
+/** The stored pickup person of a stay. */
+const storedPerson = (stay: StayRow): PickupPerson => ({
+  name: stay.pickedUpBy, contactId: stay.pickedUpContactId, other: stay.pickedUpOther, confirmedWith: stay.pickedUpConfirmedWith,
+})
+
+/** The columns of a stay for a pickup person. */
+const personColumns = (person: PickupPerson) => ({
+  pickedUpBy: person.name, pickedUpContactId: person.contactId, pickedUpOther: person.other, pickedUpConfirmedWith: person.confirmedWith,
+})
+
+/** The logged fields of a change of the pickup person; the marker as 'true' or '' (so a registered person logs nothing extra). */
+const personChanges = (before: PickupPerson, after: PickupPerson): AttendanceChange[] => [
+  { field: 'pickedUpBy', before: before.name ?? '', after: after.name ?? '' },
+  { field: 'pickedUpOther', before: before.other ? 'true' : '', after: after.other ? 'true' : '' },
+  { field: 'pickedUpConfirmedWith', before: before.confirmedWith, after: after.confirmedWith },
+]
 
 // ---- reading ----
 
@@ -225,7 +252,10 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
       status: dayStatus({
         stays: spans, absence: day?.absence ?? null, date, today: clock.date, isCareDay, recordedFrom: settings.attendanceSince,
       }),
-      stays: own.map(stay => ({ id: stay.id, arrived: stay.arrived, left: stay.left, pickedUpBy: stay.pickedUpBy })),
+      stays: own.map(stay => ({
+        id: stay.id, arrived: stay.arrived, left: stay.left, pickedUpBy: stay.pickedUpBy, pickedUpOther: stay.pickedUpOther,
+        pickedUpConfirmedWith: stay.pickedUpConfirmedWith,
+      })),
       plannedPickup,
       broughtBy: day?.broughtBy ?? '',
       absence: day?.absence ?? null,
@@ -343,11 +373,10 @@ export function leave(db: Db, viewer: ChildViewer, input: AttendanceLeaveInput, 
     if (!day || !open) throw new ServiceError(409, 'not_present')
     if (input.time < open.arrived) throw new ServiceError(400, 'leave_before_arrival')
     const person = pickupPerson(tx, input.childId, day.id, input.pickup)
-    tx.update(childAttendanceStays).set({ left: input.time, pickedUpBy: person.name, pickedUpContactId: person.contactId })
-      .where(eq(childAttendanceStays.id, open.id)).run()
+    tx.update(childAttendanceStays).set({ left: input.time, ...personColumns(person) }).where(eq(childAttendanceStays.id, open.id)).run()
     logAttendanceChanges(tx, viewer, input.childId, input.date, [
       { field: 'left', before: '', after: timeText(input.time) },
-      { field: 'pickedUpBy', before: '', after: person.name },
+      ...personChanges(NOBODY, person),
     ], now)
   })
 }
@@ -473,19 +502,18 @@ export function updateStay(db: Db, viewer: ChildViewer, stayId: number, input: A
     if (input.left === null && others.some(other => other.left === null)) throw new ServiceError(409, 'already_present')
     if (others.some(other => staysOverlap(other, input))) throw new ServiceError(400, 'stays_overlap')
     // Opened again: nobody picked the child up.
-    let person: { name: string | null; contactId: number | null } = { name: null, contactId: null }
+    let person = NOBODY
     if (input.left !== null) {
       if (input.pickup) person = pickupPerson(tx, day.childId, day.id, input.pickup)
-      else if (stay.left !== null && stay.pickedUpBy !== null) person = { name: stay.pickedUpBy, contactId: stay.pickedUpContactId }
+      else if (stay.left !== null && stay.pickedUpBy !== null) person = storedPerson(stay)
       else throw new ServiceError(400, 'pickup_person_required')
     }
-    tx.update(childAttendanceStays)
-      .set({ arrived: input.arrived, left: input.left, pickedUpBy: person.name, pickedUpContactId: person.contactId })
+    tx.update(childAttendanceStays).set({ arrived: input.arrived, left: input.left, ...personColumns(person) })
       .where(eq(childAttendanceStays.id, stay.id)).run()
     logAttendanceChanges(tx, viewer, day.childId, day.date, [
       { field: 'arrived', before: timeText(stay.arrived), after: timeText(input.arrived) },
       { field: 'left', before: timeText(stay.left), after: timeText(input.left) },
-      { field: 'pickedUpBy', before: stay.pickedUpBy ?? '', after: person.name ?? '' },
+      ...personChanges(storedPerson(stay), person),
     ], now)
   })
 }
@@ -498,7 +526,7 @@ export function deleteStay(db: Db, viewer: ChildViewer, stayId: number, now: Dat
     logAttendanceChanges(tx, viewer, day.childId, day.date, [
       { field: 'arrived', before: timeText(stay.arrived), after: '' },
       { field: 'left', before: timeText(stay.left), after: '' },
-      { field: 'pickedUpBy', before: stay.pickedUpBy ?? '', after: '' },
+      ...personChanges(storedPerson(stay), NOBODY),
     ], now)
   })
 }

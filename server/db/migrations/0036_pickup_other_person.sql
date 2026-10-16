@@ -1,0 +1,2 @@
+ALTER TABLE `child_attendance_stays` ADD `picked_up_other` integer DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE `child_attendance_stays` ADD `picked_up_confirmed_with` text DEFAULT '' NOT NULL;

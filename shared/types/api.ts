@@ -1129,23 +1129,38 @@ export type AttendanceStatus = 'not_yet' | 'present' | 'gone' | AbsenceKind | 'u
 /** One cell of the month table: present (here or picked up), an absence kind, unexcused, or empty. */
 export type MonthCell = 'present' | AbsenceKind | 'unexcused' | 'none'
 
-/** The person picking a child up: one of its contacts allowed to, or a person announced for that day. */
-export interface AttendancePickupChoice {
+/** A registered person picking a child up: one of its contacts allowed to, or a person announced for that day. */
+export interface AttendanceRegisteredPickup {
   kind: 'contact' | 'announcement'
   id: number
 }
 
+/** A person neither registered nor announced, typed by hand ("Andere Person"), with whom it was agreed ("Rücksprache mit"). */
+export interface AttendanceOtherPickup {
+  kind: 'other'
+  name: string
+  confirmedWith?: string
+}
+
+/** The person picking a child up. */
+export type AttendancePickupChoice = AttendanceRegisteredPickup | AttendanceOtherPickup
+
 /** A person the "Geht" dialog offers (never one with a contact ban). */
-export interface AttendancePickupOption extends AttendancePickupChoice {
+export interface AttendancePickupOption extends AttendanceRegisteredPickup {
   name: string
 }
 
-/** One stay of a child on a day; `left` null while the child is here, `pickedUpBy` the name as it was. */
+/**
+ * One stay of a child on a day; `left` null while the child is here, `pickedUpBy` the name as it was. `pickedUpOther`:
+ * the person was typed by hand ("nicht hinterlegt"), `pickedUpConfirmedWith` its "Rücksprache mit" ('' = none).
+ */
 export interface AttendanceStayDto {
   id: number
   arrived: Minutes
   left: Minutes | null
   pickedUpBy: string | null
+  pickedUpOther: boolean
+  pickedUpConfirmedWith: string
 }
 
 export interface AttendanceAnnouncementDto {

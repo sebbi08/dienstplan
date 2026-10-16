@@ -6,7 +6,7 @@ import { nowInBerlin } from '#shared/domain/timeRecords'
 import type { IsoDate } from '#shared/domain/types'
 import type { AttendanceChildDto, AttendanceDayDto, AttendanceDayInput } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { attendanceStatusText, parseClock, stayText } from '~/utils/attendance'
+import { attendanceStatusText, confirmedWithText, parseClock, stayText } from '~/utils/attendance'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
@@ -228,7 +228,9 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                 <div v-if="child.stays.length" class="flex flex-wrap gap-1 pt-1">
                   <UButton
                     v-for="stay in child.stays" :key="stay.id" size="md" color="neutral" variant="soft" icon="i-lucide-pencil"
-                    :label="stayText(stay)" :aria-label="`${s.editStay}: ${stayText(stay)}`" @click="openDialog('stay', child, stay.id)"
+                    :label="stayText(stay)" :title="confirmedWithText(stay) || undefined"
+                    :aria-label="[`${s.editStay}: ${stayText(stay)}`, confirmedWithText(stay)].filter(Boolean).join(', ')"
+                    @click="openDialog('stay', child, stay.id)"
                   />
                 </div>
               </div>

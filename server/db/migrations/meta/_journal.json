@@ -253,6 +253,13 @@
       "when": 1792136011187,
       "tag": "0035_attendance_since",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1792137851679,
+      "tag": "0036_pickup_other_person",
+      "breakpoints": true
     }
   ]
 }

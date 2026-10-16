@@ -286,7 +286,11 @@ export const fileQuery = z.object({ download: z.enum(['1']).optional() })
 // so a missing planned pickup or pickup person passes here and gets the service's own hint.
 const clockTime = z.number().int().min(0).max(1439)
 const attendanceChild = { childId: z.number().int().positive(), date: isoDate }
-const pickupChoice = z.object({ kind: z.enum(['contact', 'announcement']), id: z.number().int().positive() })
+const pickupChoice = z.union([
+  z.object({ kind: z.enum(['contact', 'announcement']), id: z.number().int().positive() }),
+  // A person typed by hand; an empty name passes here and gets the service's pickup_person_required.
+  z.object({ kind: z.literal('other'), name: z.string().max(100), confirmedWith: z.string().max(100).optional() }),
+])
 export const attendanceDayQuery = z.object({ date: isoDate })
 export const attendanceHistoryQuery = z.object({ childId: z.coerce.number().int().positive(), date: isoDate })
 export const attendanceArriveSchema = z.object({

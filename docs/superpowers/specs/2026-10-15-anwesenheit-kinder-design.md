@@ -57,8 +57,12 @@ löschbar. Gilt nur für diesen Tag.
 
 Dialog: Uhrzeit (Voreinstellung jetzt, nicht vor der Ankunft), **Abholperson** (Pflicht): Auswahl aus den Bezugspersonen
 mit „darf abholen“ und den für heute angekündigten Personen. Personen mit Umgangsverbot erscheinen nie; hat das Kind
-ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot. Gibt es keine auswählbare Person, sagt der Dialog:
-„Für dieses Kind ist niemand zum Abholen eingetragen. Bitte eine angekündigte Person eintragen.“
+ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot. Darunter steht immer **„Andere Person“**: Name
+eintippen (Pflicht), freiwillig „Rücksprache mit“ (z. B. „Mama, telefonisch“); der Name einer Bezugsperson mit
+Umgangsverbot wird abgewiesen. Der Aufenthalt merkt sich, dass die Person nicht hinterlegt war: Tagesliste, Druck und
+Verlauf zeigen „‹Name› (nicht hinterlegt)“, „Rücksprache mit“ steht im Tooltip, beim Korrigieren und im Druck unter Info.
+„Zeiten korrigieren“ bietet „Andere Person“ genauso. Gibt es keine Bezugsperson und keine angekündigte Person, sagt der
+Dialog: „Für dieses Kind ist niemand zum Abholen eingetragen. Wähle „Andere Person“ oder trage eine angekündigte Person ein.“
 
 ### 3.5 Abwesend
 

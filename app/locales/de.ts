@@ -639,9 +639,16 @@ export const de = {
     leave: {
       title: (name: string) => `Geht: ${name}`, time: 'Uhrzeit', person: 'Wer holt ab?', announced: 'angekündigt',
       contactBan: 'Achtung, Umgangsverbot', contactBanGeneric: 'Für dieses Kind gibt es ein Umgangsverbot. Näheres steht in der Akte.',
-      noPerson: 'Für dieses Kind ist niemand zum Abholen eingetragen. Bitte eine angekündigte Person eintragen.',
+      noPerson: 'Für dieses Kind ist niemand zum Abholen eingetragen. Wähle „Andere Person“ oder trage eine angekündigte Person ein.',
       submit: 'Ausstempeln',
+      other: 'Andere Person', otherName: 'Name', confirmedWith: 'Rücksprache mit (freiwillig)',
+      confirmedWithPlaceholder: 'z. B. Mama, telefonisch',
+      otherHint: 'Die Person ist nicht in der Akte hinterlegt. Das wird so vermerkt.',
     },
+    /** A pickup person typed by hand, as the lists show it. */
+    notRegistered: (name: string) => `${name} (nicht hinterlegt)`,
+    confirmedWith: (text: string) => `Rücksprache mit ${text}`,
+    pickedUpByInfo: (name: string, confirmedWith: string) => `Abgeholt von ${name} (nicht hinterlegt), Rücksprache mit ${confirmedWith}`,
     absent: {
       title: (name: string) => `Abwesend: ${name}`, kind: 'Grund', until: 'Bis einschließlich',
       hint: 'Für mehrere Tage (z. B. angekündigter Urlaub) ein späteres Datum wählen. Eingetragen wird an Betreuungstagen, an denen das Kind nicht da war.',
@@ -664,7 +671,8 @@ export const de = {
       title: (name: string) => `Verlauf: ${name}`, empty: 'Noch keine Änderungen.', emptyValue: '(leer)',
       yes: 'ja', no: 'nein', automatic: 'automatisch', by: (name: string, at: string) => `${name}, ${at}`,
       fields: {
-        arrived: 'Ankunft', left: 'Abholzeit', pickedUpBy: 'Abholperson', plannedPickup: 'Geplante Abholzeit', broughtBy: 'Bringperson',
+        arrived: 'Ankunft', left: 'Abholzeit', pickedUpBy: 'Abholperson', pickedUpOther: 'Abholperson nicht hinterlegt',
+        pickedUpConfirmedWith: 'Rücksprache mit (Abholperson)', plannedPickup: 'Geplante Abholzeit', broughtBy: 'Bringperson',
         absence: 'Abwesenheit', announcement: 'Angekündigter Abholer', note: 'Was ist heute passiert', snack: 'Snack',
         lunch: 'Mittagessen', monthRemark: 'Bemerkung (Monat)',
       } as Record<string, string>,
