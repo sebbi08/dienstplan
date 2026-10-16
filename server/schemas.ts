@@ -311,5 +311,10 @@ export const attendanceMonthQuery = monthParams
 export const attendanceMonthRemarkSchema = z.object({
   childId: z.number().int().positive(), month: z.string().regex(/^\d{4}-\d{2}$/), remark: z.string().max(500),
 })
-/** The attendance settings of a facility. The times are checked by the service, which answers attendance_time_invalid. */
-export const attendanceSettingsSchema = z.object({ snackTime: z.number(), lunchTime: z.number(), recordBroughtBy: z.boolean() })
+/**
+ * The attendance settings of a facility. The times and the recording start are checked by the service, which answers
+ * attendance_time_invalid or invalid_date.
+ */
+export const attendanceSettingsSchema = z.object({
+  snackTime: z.number(), lunchTime: z.number(), recordBroughtBy: z.boolean(), attendanceSince: z.string().nullable(),
+})

@@ -1304,4 +1304,6 @@ export interface AttendanceSettingsDto {
   snackTime: Minutes
   lunchTime: Minutes
   recordBroughtBy: boolean
+  /** Attendance is recorded from this day on ("Anwesenheit erfasst ab"; null = not yet): only from then on is a day unexcused. */
+  attendanceSince: IsoDate | null
 }

@@ -8,7 +8,7 @@ export interface StaySpan { arrived: Minutes, left: Minutes | null }
 
 /**
  * The status of a child on a day. Stays win over an absence (the child came after all); without stay and absence a past
- * care day is unexcused, everything else is not yet.
+ * care day is unexcused once the facility records attendance (`recordedFrom`, null = not yet), everything else is not yet.
  */
 export function dayStatus(input: {
   stays: StaySpan[]
@@ -16,11 +16,13 @@ export function dayStatus(input: {
   date: IsoDate
   today: IsoDate
   isCareDay: boolean
+  recordedFrom: IsoDate | null
 }): AttendanceStatus {
   if (input.stays.some(stay => stay.left === null)) return 'present'
   if (input.stays.length > 0) return 'gone'
   if (input.absence !== null) return input.absence
-  if (input.date < input.today && input.isCareDay) return 'unexcused'
+  const recorded = input.recordedFrom !== null && input.date >= input.recordedFrom
+  if (recorded && input.date < input.today && input.isCareDay) return 'unexcused'
   return 'not_yet'
 }
 

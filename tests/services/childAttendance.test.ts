@@ -64,6 +64,10 @@ describe('child attendance', () => {
   const leaveAt = (time: string, pickup: AttendancePickupChoice | null, options: { childId?: number; date?: string } = {}) =>
     leave(db, leitung, { childId: options.childId ?? lena, date: options.date ?? TODAY, time: hm(time), pickup }, NOW)
   const mamaPickup = (): AttendancePickupChoice => ({ kind: 'contact', id: mama })
+  /** Sets the day attendance is recorded from, as Leitung does under Einstellungen → Anwesenheit. */
+  const recordFrom = (attendanceSince: string | null, facilityId = 1) =>
+    setAttendanceSettings(db, facilityId, { ...getAttendanceSettings(db, facilityId), attendanceSince })
+  const since = (facilityId = 1) => getAttendanceSettings(db, facilityId).attendanceSince
 
   describe('arriving', () => {
     it('needs a planned pickup, refuses a second arrival while present, allows a second stay after leaving', () => {
@@ -173,6 +177,7 @@ describe('child attendance', () => {
     it('go only to care days without a stay; a later arrival replaces the absence of that day', () => {
       // Monday 21 to Sunday 27 December 2026: 24th a closure day, 25th and 26th public holidays, the weekend.
       db.insert(closures).values({ facilityId: 1, startDate: '2026-12-24', endDate: '2026-12-24', label: 'Heiligabend', mode: 'closure_day' }).run()
+      recordFrom('2026-12-01')
       const tuesday = berlin('2026-12-22', '09:00')
       arriveAt('08:00', { date: '2026-12-22', now: tuesday })
 
@@ -399,6 +404,7 @@ describe('child attendance', () => {
       const mice = addGroup(db, 1, 'Mäuse')
       const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben', groupId: bears })
       planGroupChange(db, leitung, 1, ben, { groupId: mice, date: oct(20), keep: move }, TODAY, NOW)
+      recordFrom(oct(1))
       setAbsence(db, leitung, { childId: ben, from: oct(19), to: oct(19), kind: 'sick' }, NOW)
       // The stored group of an attendance day does not decide; the group history does.
       db.update(childAttendanceDays).set({ groupId: mice }).where(eq(childAttendanceDays.childId, ben)).run()
@@ -465,25 +471,100 @@ describe('child attendance', () => {
   })
 
   describe('settings', () => {
-    it('start with 09:30, 12:00 and no brought-by, and accept times of the day', () => {
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 570, lunchTime: 720, recordBroughtBy: false })
-      setAttendanceSettings(db, 1, { snackTime: hm('09:45'), lunchTime: hm('11:30'), recordBroughtBy: true })
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 585, lunchTime: 690, recordBroughtBy: true })
+    it('start with 09:30, 12:00, no brought-by and no recording yet, and accept times of the day', () => {
+      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 570, lunchTime: 720, recordBroughtBy: false, attendanceSince: null })
+      setAttendanceSettings(db, 1, { snackTime: hm('09:45'), lunchTime: hm('11:30'), recordBroughtBy: true, attendanceSince: '2026-10-01' })
+      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 585, lunchTime: 690, recordBroughtBy: true, attendanceSince: '2026-10-01' })
       expect(dayOf()).toMatchObject({ snackTime: 585, lunchTime: 690, recordBroughtBy: true })
-      setAttendanceSettings(db, 1, { snackTime: 0, lunchTime: 1439, recordBroughtBy: false })
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 0, lunchTime: 1439, recordBroughtBy: false })
+      setAttendanceSettings(db, 1, { snackTime: 0, lunchTime: 1439, recordBroughtBy: false, attendanceSince: null })
+      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 0, lunchTime: 1439, recordBroughtBy: false, attendanceSince: null })
     })
 
-    it('refuse times outside 0–1439, and belong to one facility', () => {
+    it('refuse times outside 0–1439 and invalid dates, and belong to one facility', () => {
       const krippe = addFacility(db, 'Krippe')
+      const valid = { snackTime: 570, lunchTime: 720, recordBroughtBy: false, attendanceSince: null }
       for (const snackTime of [-1, 1440, 9.5, Number.NaN]) {
-        expect(errorCode(() => setAttendanceSettings(db, 1, { snackTime, lunchTime: 720, recordBroughtBy: false }))).toBe('attendance_time_invalid')
+        expect(errorCode(() => setAttendanceSettings(db, 1, { ...valid, snackTime }))).toBe('attendance_time_invalid')
       }
-      expect(errorCode(() => setAttendanceSettings(db, 1, { snackTime: 570, lunchTime: 1440, recordBroughtBy: false }))).toBe('attendance_time_invalid')
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 570, lunchTime: 720, recordBroughtBy: false })
-      setAttendanceSettings(db, krippe, { snackTime: 600, lunchTime: 700, recordBroughtBy: true })
-      expect(getAttendanceSettings(db, 1).snackTime).toBe(570)
+      expect(errorCode(() => setAttendanceSettings(db, 1, { ...valid, lunchTime: 1440 }))).toBe('attendance_time_invalid')
+      for (const attendanceSince of ['2026-02-30', '14.10.2026', '']) {
+        expect(errorCode(() => setAttendanceSettings(db, 1, { ...valid, attendanceSince }))).toBe('invalid_date')
+      }
+      expect(getAttendanceSettings(db, 1)).toEqual(valid)
+      setAttendanceSettings(db, krippe, { snackTime: 600, lunchTime: 700, recordBroughtBy: true, attendanceSince: '2026-09-01' })
+      expect(getAttendanceSettings(db, 1)).toEqual(valid)
       expect(errorCode(() => getAttendanceSettings(db, 9999))).toBe('facility_not_found')
+    })
+  })
+
+  describe('recording start (Anwesenheit erfasst ab)', () => {
+    const oct = (day: number) => `2026-10-${String(day).padStart(2, '0')}`
+    const lenaMonth = (now = NOW) => getAttendanceMonth(db, leitung, 2026, 10, now).groups[0]!.children.find(child => child.childId === lena)!
+
+    it('shows nothing as unexcused while nothing was ever recorded', () => {
+      const later = berlin('2026-10-30', '10:00')
+      expect(since()).toBeNull()
+      const row = lenaMonth(later)
+      expect(Object.values(row.cells).every(cell => cell === 'none')).toBe(true)
+      expect(row.sums).toEqual({ present: 0, sick: 0, vacation: 0, excused: 0, unexcused: 0 })
+      expect(rowOf(lena, YESTERDAY).status).toBe('not_yet')
+      expect(dayOf(YESTERDAY).counts).toMatchObject({ absent: 0, notYet: 1 })
+    })
+
+    it('starts on the go-live day: earlier care days stay empty and are not counted', () => {
+      const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
+      arriveAt('08:00') // the first entry ever, today (14 October)
+      expect(since()).toBe(TODAY)
+
+      // Seen from the 16th: the 15th is unexcused, the days before the go-live are not.
+      const friday = berlin('2026-10-16', '10:00')
+      const row = lenaMonth(friday)
+      expect([oct(1), oct(7), oct(13)].map(date => row.cells[date])).toEqual(['none', 'none', 'none'])
+      expect(row.cells[oct(14)]).toBe('present')
+      expect(row.cells[oct(15)]).toBe('unexcused')
+      expect(row.sums).toEqual({ present: 1, sick: 0, vacation: 0, excused: 0, unexcused: 1 })
+      expect(rowOf(ben, YESTERDAY, friday).status).toBe('not_yet')
+      expect(dayOf(YESTERDAY, friday).counts).toMatchObject({ absent: 0, notYet: 2 })
+      expect(rowOf(ben, oct(15), friday).status).toBe('unexcused')
+      expect(dayOf(oct(15), friday).counts).toMatchObject({ absent: 2, notYet: 0 })
+
+      // Another facility has its own start.
+      const krippe = addFacility(db, 'Krippe')
+      expect(since(krippe)).toBeNull()
+    })
+
+    it('is set by the first write of any kind, to its day or today if that is earlier, and then kept', () => {
+      const writes: [string, () => void][] = [
+        ['absence ahead', () => setAbsence(db, leitung, { childId: lena, from: oct(19), to: oct(23), kind: 'vacation' }, NOW)],
+        ['arrival yesterday', () => arriveAt('08:00', { date: YESTERDAY })],
+        ['absence range', () => setAbsence(db, leitung, { childId: lena, from: oct(8), to: oct(9), kind: 'sick' }, NOW)],
+        ['announcement', () => announcePickup(db, leitung, { childId: lena, date: oct(12), name: 'Oma Erika', announcedBy: '' }, NOW)],
+        ['note', () => updateDay(db, leitung, { childId: lena, date: oct(12), note: 'müde' }, NOW)],
+        ['meal', () => updateDay(db, leitung, { childId: lena, date: oct(12), lunch: false }, NOW)],
+        ['month remark', () => setMonthRemark(db, leitung, { childId: lena, month: '2026-10', remark: 'Eingewöhnung' }, NOW)],
+      ]
+      const expected = { 'absence ahead': TODAY, 'arrival yesterday': YESTERDAY, 'absence range': oct(8), 'announcement': oct(12), 'note': oct(12), 'meal': oct(12), 'month remark': TODAY }
+      for (const [name, write] of writes) {
+        recordFrom(null)
+        write()
+        expect(since(), name).toBe(expected[name as keyof typeof expected])
+      }
+
+      // Once set, a later write for an earlier day does not move it.
+      recordFrom(null)
+      arriveAt('08:00', { date: oct(12) })
+      setAbsence(db, leitung, { childId: lena, from: oct(5), to: oct(5), kind: 'sick' }, NOW)
+      expect(since()).toBe(oct(12))
+      expect(lenaMonth().cells[oct(5)]).toBe('sick') // the entry still shows
+      expect(lenaMonth().cells[oct(6)]).toBe('none')
+    })
+
+    it('respects the day set by hand', () => {
+      recordFrom(oct(1))
+      arriveAt('08:00')
+      expect(since()).toBe(oct(1))
+      expect(lenaMonth().cells[oct(7)]).toBe('unexcused')
+      expect(lenaMonth().sums.unexcused).toBe(9)
     })
   })
 

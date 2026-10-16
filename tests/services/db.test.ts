@@ -149,7 +149,7 @@ describe('upgrading a filled database through migrateDb', () => {
         id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3,
         school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
-        snack_time: 570, lunch_time: 720, record_brought_by: 0,
+        snack_time: 570, lunch_time: 720, record_brought_by: 0, attendance_since: null,
       },
     ])
     expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
@@ -601,10 +601,10 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
     expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children')).toEqual(before.groups)
     // (the tablet settings come with the later 0032_tablet_children, state and assumption_day with 0033_facility_state,
-    // the attendance settings with 0034_child_attendance.)
+    // the attendance settings with 0034_child_attendance and 0035_attendance_since.)
     expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children',
       'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts', 'state', 'assumption_day',
-      'snack_time', 'lunch_time', 'record_brought_by'))
+      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since'))
       .toEqual(before.facilities)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
@@ -646,10 +646,10 @@ describe('upgrading a filled database through migrateDb', () => {
         { id: 1, tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0 },
         { id: 2, tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0 },
       ])
-    // (state and assumption_day come with the later 0033_facility_state, the attendance settings with 0034.)
+    // (state and assumption_day come with the later 0033_facility_state, the attendance settings with 0034 and 0035.)
     const columns = [
       'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts', 'state', 'assumption_day',
-      'snack_time', 'lunch_time', 'record_brought_by',
+      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since',
     ]
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
@@ -669,8 +669,8 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, state, assumption_day FROM facilities ORDER BY id').all()).toEqual([
       { id: 1, state: 'BW', assumption_day: 1 }, { id: 2, state: 'BW', assumption_day: 1 },
     ])
-    // (the attendance settings come with the later 0034_child_attendance.)
-    const columns = ['state', 'assumption_day', 'snack_time', 'lunch_time', 'record_brought_by']
+    // (the attendance settings come with the later 0034_child_attendance and 0035_attendance_since.)
+    const columns = ['state', 'assumption_day', 'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since']
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
     // A facility created without naming them gets the defaults too.
@@ -693,7 +693,8 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 1, snack_time: 570, lunch_time: 720, record_brought_by: 0 },
       { id: 2, snack_time: 570, lunch_time: 720, record_brought_by: 0 },
     ])
-    const columns = ['snack_time', 'lunch_time', 'record_brought_by']
+    // (attendance_since comes with the later 0035_attendance_since.)
+    const columns = ['snack_time', 'lunch_time', 'record_brought_by', 'attendance_since']
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
     const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
@@ -712,6 +713,24 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(() => sqlite.exec('INSERT INTO child_attendance_days (child_id, date) VALUES (1, \'2026-10-14\')')).toThrow(/UNIQUE/)
     sqlite.exec('DELETE FROM groups WHERE id = 1')
     expect(sqlite.prepare('SELECT group_id FROM child_attendance_days').get()).toEqual({ group_id: null })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('0035 adds an empty attendance start to existing facilities', () => {
+    const { db, sqlite } = databaseAt('0034')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(35)
+    sqlite.exec('INSERT INTO facilities (id, name, snack_time) VALUES (2, \'Krippe\', 600)')
+    const before = sqlite.prepare('SELECT * FROM facilities ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(35)
+    // Nothing was recorded anywhere yet: no earlier day counts as unexcused.
+    expect(sqlite.prepare('SELECT id, attendance_since FROM facilities ORDER BY id').all())
+      .toEqual([{ id: 1, attendance_since: null }, { id: 2, attendance_since: null }])
+    expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ attendance_since: _, ...rest }) => rest)).toEqual(before)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })

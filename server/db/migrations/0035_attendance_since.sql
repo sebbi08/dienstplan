@@ -1,0 +1,1 @@
+ALTER TABLE `facilities` ADD `attendance_since` text;

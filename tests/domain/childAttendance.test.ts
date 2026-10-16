@@ -6,7 +6,7 @@ const open = (arrived: number) => ({ arrived, left: null })
 const closed = (arrived: number, left: number) => ({ arrived, left })
 
 const status = (over: Partial<Parameters<typeof dayStatus>[0]> = {}) =>
-  dayStatus({ stays: [], absence: null, date: '2026-10-14', today: '2026-10-15', isCareDay: true, ...over })
+  dayStatus({ stays: [], absence: null, date: '2026-10-14', today: '2026-10-15', isCareDay: true, recordedFrom: '2026-10-01', ...over })
 
 describe('dayStatus', () => {
   it('is present while any stay is open', () => {
@@ -36,6 +36,14 @@ describe('dayStatus', () => {
   })
   it('lets an absence beat unexcused', () => {
     expect(status({ absence: 'vacation', isCareDay: true })).toBe('vacation')
+  })
+  it('is never unexcused before attendance was recorded, or while it never was', () => {
+    expect(status({ recordedFrom: '2026-10-14' })).toBe('unexcused')
+    expect(status({ recordedFrom: '2026-10-15' })).toBe('not_yet')
+    expect(status({ recordedFrom: null })).toBe('not_yet')
+    // Entries before that day still show.
+    expect(status({ recordedFrom: null, absence: 'sick' })).toBe('sick')
+    expect(status({ recordedFrom: '2026-10-15', stays: [closed(465, 900)] })).toBe('gone')
   })
 })
 

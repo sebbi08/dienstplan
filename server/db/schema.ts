@@ -32,6 +32,11 @@ export const facilities = sqliteTable('facilities', {
   lunchTime: integer('lunch_time').notNull().default(720),
   /** Child attendance: whether arriving asks who brought the child. */
   recordBroughtBy: integer('record_brought_by', { mode: 'boolean' }).notNull().default(false),
+  /**
+   * Child attendance is recorded from this day on (ISO date; null = not yet): only from here a past care day without an
+   * entry is unexcused. Set by the first attendance entry, changed only in the settings.
+   */
+  attendanceSince: text('attendance_since'),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
