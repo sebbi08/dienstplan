@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childContacts, childDocuments, children, users } from '../../server/db/schema'
+import { childContacts, childDocuments, childGroupChanges, children, users } from '../../server/db/schema'
 import type { ChildActor, ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
@@ -9,8 +9,9 @@ import { addContact, deleteContact, reorderContacts, updateContact } from '../..
 import {
   deleteDocument, documentOverview, listDocuments, readDocumentFile, updateDocument, uploadDocument,
 } from '../../server/services/childDocuments'
+import { planGroupChange } from '../../server/services/childGroupChanges'
 import {
-  confirmSection, getChild, listBirthdays, listChildren, listOpenReviews, listPlanned, updateChildConsents,
+  confirmSection, createChild, getChild, listBirthdays, listChildren, listOpenReviews, listPlanned, updateChildConsents,
   updateChildHealth, updateChildMaster,
 } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
@@ -227,4 +228,67 @@ describe('child records by group rights', () => {
     expect(getChild(db, viewer(), kidC, TODAY).canEdit).toBe(true)
     expect(failure(writes(kidC).health!)).toBeNull()
   })
+
+  it('hides a Vormerkung wishing for another group, shows one wishing for the own', () => {
+    const wishA = addChild(db, 1, { lastName: 'Gans', groupId: a, entryDate: null, admissionStatus: 'waitlist', waitlistedOn: '2026-09-01' })
+    const wishB = addChild(db, 1, { lastName: 'Hase', groupId: b, entryDate: null, admissionStatus: 'waitlist', waitlistedOn: '2026-09-02' })
+    const wishC = addChild(db, 1, { lastName: 'Igel', groupId: c, entryDate: null, admissionStatus: 'waitlist', waitlistedOn: '2026-09-03' })
+    expect(listPlanned(db, viewer(), TODAY).waitlist.map(item => item.id)).toEqual([wishA, wishB])
+    expect(failure(() => getChild(db, viewer(), wishC, TODAY))).toBe('404 child_not_found')
+    expect(listPlanned(db, admin, TODAY).waitlist.map(item => item.id)).toEqual([wishA, wishB, wishC])
+  })
+
+  describe('choosing a group', () => {
+    const childCount = () => db.select({ id: children.id }).from(children).all().length
+    const create = (groupId: number | null, who: ChildActor = viewer()) =>
+      createChild(db, who, 1, { ...recordOf(kidA).master, lastName: 'Neu', groupId }, NOW)
+    const saveGroup = (groupId: number | null) =>
+      updateChildMaster(db, viewer(), 1, kidA, { ...recordOf(kidA).master, groupId, baseGroupId: a }, TODAY, NOW)
+    const groupOf = (id: number) => db.select({ groupId: children.groupId }).from(children).where(eq(children.id, id)).get()!.groupId
+
+    it('creates a child only in the own group or without group', () => {
+      expect(groupOf(create(a))).toBe(a)
+      expect(groupOf(create(null))).toBeNull()
+      const before = childCount()
+      expect(failure(() => create(b))).toBe('403 group_read_only')
+      expect(failure(() => create(c))).toBe('404 group_not_found')
+      expect(childCount()).toBe(before)
+      // The Leitung creates in every group.
+      expect(groupOf(create(c, admin))).toBe(c)
+    })
+
+    it('moves a child by its master data only into the own group or out of every group', () => {
+      expect(failure(() => saveGroup(c))).toBe('404 group_not_found')
+      expect(failure(() => saveGroup(b))).toBe('403 group_read_only')
+      expect(groupOf(kidA)).toBe(a)
+      expect(failure(() => saveGroup(a))).toBeNull()
+      expect(groupOf(kidA)).toBe(a)
+      expect(failure(() => saveGroup(null))).toBeNull()
+      expect(groupOf(kidA)).toBeNull()
+    })
+
+    it('plans a group change only into a writable group', () => {
+      const change = (groupId: number) => ({ groupId, date: '2026-11-02', keep: KEEP, newContract: false })
+      expect(failure(() => planGroupChange(db, viewer(), 1, kidA, change(c), TODAY, NOW))).toBe('404 group_not_found')
+      expect(failure(() => planGroupChange(db, viewer(), 1, kidA, change(b), TODAY, NOW))).toBe('403 group_read_only')
+      expect(db.select().from(childGroupChanges).where(eq(childGroupChanges.childId, kidA)).all()).toHaveLength(1)
+      // The Leitung plans into every group.
+      expect(failure(() => planGroupChange(db, admin, 1, kidA, change(c), TODAY, NOW))).toBeNull()
+    })
+
+    it('judges a write by the group a change due today gives the child', () => {
+      db.insert(childGroupChanges).values({
+        childId: kidA, groupId: c, fromDate: TODAY, createdAt: '2026-09-01T00:00:00.000Z', ...KEEP_COLUMNS,
+      }).run()
+      expect(groupOf(kidA)).toBe(a)
+      expect(failure(writes(kidA).health!)).toBe('404 child_not_found')
+      expect(failure(writes(kidA).upload!)).toBe('404 child_not_found')
+      expect(failure(() => getChild(db, viewer(), kidA, TODAY))).toBe('404 child_not_found')
+    })
+  })
 })
+
+const KEEP = { contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true }
+const KEEP_COLUMNS = {
+  keepContacts: true, keepHealth: true, keepConsents: true, keepDocuments: true, keepCareType: true, keepKeyEducator: true,
+}

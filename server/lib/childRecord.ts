@@ -6,6 +6,8 @@ import { REVIEW_SECTIONS, type GroupAccess, type ReviewSection } from '../../sha
 import type { IsoDate } from '../../shared/domain/types'
 import type { Db } from '../db/client'
 import { children } from '../db/schema'
+// The group service reads the record helpers here as well; neither module calls the other while loading.
+import { settleDue } from '../services/childGroupChanges'
 import type { ChildViewer } from './childViewer'
 import { ServiceError } from './errors'
 
@@ -42,17 +44,22 @@ export function seesGroup(groups: GroupAccess | null, groupId: number | null): b
  * everybody else must not even know the record exists (404 child_not_found, as when reading it). Nor can a child the
  * facility's tablet hides from the actor or whose group the actor does not see (404 child_not_found), and one of a
  * group the actor may only read is not changed either (403 group_read_only). Every write of a record goes through here.
+ * The group is judged after the child's due group changes are applied (`settleDue`), so a change whose day has come
+ * counts even before the daily run; the returned row is the settled one.
  */
 export function loadEditableChild(
   db: Db, actor: Pick<ChildViewer, 'role' | 'visibility' | 'groups'>, facilityId: number, id: number, today: IsoDate,
+  now: Date,
 ): ChildRow {
   const row = loadChild(db, facilityId, id)
   if (childStatus(row, today) === 'archived') {
     throw isManager(actor.role) ? new ServiceError(409, 'child_archived') : new ServiceError(404, 'child_not_found')
   }
   if (hiddenFromViewer(row, actor.visibility, today)) throw new ServiceError(404, 'child_not_found')
-  assertGroupRight(actor, row.groupId, 'write')
-  return row
+  settleDue(db, id, today, now)
+  const settled = loadChild(db, facilityId, id)
+  assertGroupRight(actor, settled.groupId, 'write')
+  return settled
 }
 
 /** The child's column holding the day since which a section has to be confirmed again (null = nothing to confirm). */

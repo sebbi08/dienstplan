@@ -58,10 +58,12 @@ function loadContact(db: Db, facilityId: number, contactId: number): ContactRow 
  * and the child must not be archived (managers: 409 child_archived; everybody else gets the contact's own 404
  * contact_not_found, so nothing reveals an archived child's record).
  */
-function loadEditableContact(db: Db, actor: ChildActor, facilityId: number, contactId: number, today: IsoDate): ContactRow {
+function loadEditableContact(
+  db: Db, actor: ChildActor, facilityId: number, contactId: number, today: IsoDate, now: Date,
+): ContactRow {
   const contact = loadContact(db, facilityId, contactId)
   try {
-    loadEditableChild(db, actor, facilityId, contact.childId, today)
+    loadEditableChild(db, actor, facilityId, contact.childId, today, now)
   }
   catch (error) {
     if (error instanceof ServiceError && error.code === 'child_not_found') throw new ServiceError(404, 'contact_not_found')
@@ -85,7 +87,7 @@ export function addContact(
   db: Db, actor: ChildActor, facilityId: number, childId: number, input: ChildContactInput, today: IsoDate,
   now: Date = new Date(),
 ): number {
-  loadEditableChild(db, actor, facilityId, childId, today)
+  loadEditableChild(db, actor, facilityId, childId, today, now)
   const checked = checkedContact(input)
   return db.transaction((tx) => {
     const sortOrder = (tx.select({ value: max(childContacts.sortOrder) }).from(childContacts)
@@ -100,7 +102,7 @@ export function updateContact(
   db: Db, actor: ChildActor, facilityId: number, contactId: number, input: ChildContactInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  const contact = loadEditableContact(db, actor, facilityId, contactId, today)
+  const contact = loadEditableContact(db, actor, facilityId, contactId, today, now)
   const checked = checkedContact(input)
   db.transaction((tx) => {
     tx.update(childContacts).set(checked).where(eq(childContacts.id, contactId)).run()
@@ -111,7 +113,7 @@ export function updateContact(
 export function deleteContact(
   db: Db, actor: ChildActor, facilityId: number, contactId: number, today: IsoDate, now: Date = new Date(),
 ): void {
-  const contact = loadEditableContact(db, actor, facilityId, contactId, today)
+  const contact = loadEditableContact(db, actor, facilityId, contactId, today, now)
   db.transaction((tx) => {
     tx.delete(childContacts).where(eq(childContacts.id, contactId)).run()
     stamp(tx, contact.childId, actor, today, now)
@@ -123,7 +125,7 @@ export function reorderContacts(
   db: Db, actor: ChildActor, facilityId: number, childId: number, ids: number[], today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, actor, facilityId, childId, today)
+  loadEditableChild(db, actor, facilityId, childId, today, now)
   const existing = new Set(listContacts(db, childId).map(contact => contact.id))
   if (ids.length !== existing.size || new Set(ids).size !== ids.length || !ids.every(id => existing.has(id))) {
     throw new ServiceError(400, 'invalid_order')

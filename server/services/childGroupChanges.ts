@@ -7,7 +7,7 @@ import {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childGroupChanges, children, groups } from '../db/schema'
-import { loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRecord'
+import { assertGroupRight, loadEditableChild, REVIEW_COLUMN, type ChildRow } from '../lib/childRecord'
 import type { ChildActor } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { settleDocumentReview } from './documentReview'
@@ -207,7 +207,8 @@ function assertChange(db: Db, facilityId: number, child: ChildRow, input: GroupC
 /**
  * Plans a group change of a contract child that has not left (409 child_archived, 400 waitlist_no_group_change); the
  * rules are those of `assertChange`, and a child has at most one change that is not applied yet
- * (409 group_change_pending). A change dated today or earlier is applied at once.
+ * (409 group_change_pending). A change dated today or earlier is applied at once. The target group must be one the
+ * actor may write in (403 group_read_only / 404 group_not_found; managers may every group).
  *
  * Planning, changing and deleting a planned change are all refused when the automatic leaving would deregister the
  * child at its next run because of it (409 would_deregister, see `guardAgainstLeaving`): a backdated change out of
@@ -217,8 +218,8 @@ export function planGroupChange(
   db: Db, actor: ChildActor, facilityId: number, childId: number, input: GroupChangeInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  const child = loadEditableChild(db, actor, facilityId, childId, today)
-  settleDue(db, childId, today, now)
+  const child = loadEditableChild(db, actor, facilityId, childId, today, now)
+  assertGroupRight(actor, input.groupId, 'write', 'group_not_found')
   db.transaction((tx) => {
     const assertStays = guardAgainstLeaving(tx, facilityId, today, childId)
     const history = historyOf(tx, childId)
@@ -260,7 +261,8 @@ export function updateGroupChange(
 ): void {
   const change = loadPlannedChange(db, facilityId, changeId, today, now)
   db.transaction((tx) => {
-    const child = loadEditableChild(tx, actor, facilityId, change.childId, today)
+    const child = loadEditableChild(tx, actor, facilityId, change.childId, today, now)
+    assertGroupRight(actor, input.groupId, 'write', 'group_not_found')
     const assertStays = guardAgainstLeaving(tx, facilityId, today, child.id)
     const newContract = assertChange(tx, facilityId, child, input, historyOf(tx, child.id).filter(entry => entry.id !== changeId))
     tx.update(childGroupChanges)

@@ -251,12 +251,16 @@ function checkedMaster(
 
 /**
  * A new child of the facility with the start entry of its group history; returns its id. A record the automatic
- * leaving would take at its next run is not created (409 would_deregister, see `guardAgainstLeaving`).
+ * leaving would take at its next run is not created (409 would_deregister, see `guardAgainstLeaving`). A person with
+ * group rights creates it only in a group they may write in: 403 group_read_only for a read-only group, 404
+ * group_not_found for a hidden one.
  */
 export function createChild(
   db: Db, actor: ChildActor, facilityId: number, input: ChildMasterInput, now: Date = new Date(),
 ): number {
   const today = todayIso(now)
+  // A person with group rights creates children only in a group they may write in (or without group).
+  assertGroupRight(actor, input.groupId, 'write', 'group_not_found')
   const master = checkedMaster(db, facilityId, input, today)
   return db.transaction((tx) => {
     const assertStays = guardAgainstLeaving(tx, facilityId, today)
@@ -277,7 +281,8 @@ export function createChild(
  * change and goes into the group history (see `changeGroupDirectly`, which judges on the stored record). The group
  * the form was loaded with is none, whatever the stored group is by now: a form that was open while a planned change
  * was applied, or that is saved on the change day before the daily run, never undoes that change. The group it sends
- * is not even looked at then (it may have been deleted since).
+ * is not even looked at then (it may have been deleted since). A chosen group must be one the actor may write in
+ * (403 group_read_only for a read-only group, 404 group_not_found for a hidden one).
  *
  * A save after which the automatic leaving would deregister the child at its next run, though it would not have
  * before, is refused and nothing of it is stored (409 would_deregister, see `guardAgainstLeaving`): clearing a later
@@ -287,12 +292,16 @@ export function updateChildMaster(
   db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildMasterUpdateInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  const row = loadEditableChild(db, actor, facilityId, id, today)
+  // The group stored before the due changes are settled: what a form without `baseGroupId` was loaded with.
+  const storedGroupId = loadChild(db, facilityId, id).groupId
+  const row = loadEditableChild(db, actor, facilityId, id, today, now)
   if (input.admissionStatus === 'waitlist' && childStatus(row, today) === 'active') {
     throw new ServiceError(400, 'waitlist_after_start')
   }
-  const { baseGroupId = row.groupId, ...fields } = input
+  const { baseGroupId = storedGroupId, ...fields } = input
   const groupChosen = fields.groupId !== baseGroupId
+  // A person with group rights moves a child only into a group they may write in (or out of every group).
+  if (groupChosen) assertGroupRight(actor, fields.groupId, 'write', 'group_not_found')
   const master = checkedMaster(
     db, facilityId, { ...fields, groupId: groupChosen ? fields.groupId : row.groupId }, today, row.waitlistedOn,
   )
@@ -318,7 +327,7 @@ export function updateChildHealth(
   db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildHealthInput, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, actor, facilityId, id, today)
+  loadEditableChild(db, actor, facilityId, id, today, now)
   settleDue(db, id, today, now)
   const health: ChildHealthInput = {
     ...input,
@@ -334,7 +343,7 @@ export function updateChildConsents(
   db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildConsents, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, actor, facilityId, id, today)
+  loadEditableChild(db, actor, facilityId, id, today, now)
   settleDue(db, id, today, now)
   const columns = Object.fromEntries(CONSENT_KEYS.map(key => [consentColumn(key), input[key]]))
   db.update(children).set({ ...columns, ...clearedReviews('consents'), ...sectionStamp('consents', actor.id, now) })
@@ -349,7 +358,7 @@ export function confirmSection(
   db: Db, actor: ChildActor, facilityId: number, childId: number, section: ReviewSection, today: IsoDate,
   now: Date = new Date(),
 ): void {
-  loadEditableChild(db, actor, facilityId, childId, today)
+  loadEditableChild(db, actor, facilityId, childId, today, now)
   // A marker a due change sets is set first, so confirming also clears it.
   settleDue(db, childId, today, now)
   if (loadChild(db, facilityId, childId)[REVIEW_COLUMN[section]] === null) return
