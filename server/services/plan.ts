@@ -103,7 +103,7 @@ function buildAdminData(
       entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
       coverageOnly: true,
     }))
-    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays)
+    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, { facility: null, groups: [] })
   })
 
   const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staff.map(employee => employee.id), monthStart, monthEnd))

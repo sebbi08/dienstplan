@@ -253,6 +253,9 @@ export const de = {
     /** A group rule names its group first: „Mäuse – Frühdienst ab 7:00: 1× eingetragen (2 benötigt)“. */
     coverage: (label: string, found: number, required: number, group?: string) =>
       `${group ? `${group} – ` : ''}${label}: ${found}× eingetragen (${required} benötigt)`,
+    /** „Mäuse – 7:00 Öffnung: niemand eingeplant“ / „7:00 Öffnung: 1 von 2 eingeplant“. */
+    edge: (edge: 'opening' | 'closing', time: string, found: number, required: number, group?: string) =>
+      `${group ? `${group} – ` : ''}${time} ${edge === 'opening' ? 'Öffnung' : 'Schließung'}: ${found === 0 ? 'niemand' : `${found} von ${required}`} eingeplant`,
     targetGap: (name: string, duration: string) => `${name}: noch ${duration} h bis zum Tagessoll`,
     openRecord: (name: string) => `${name}: Ausstempeln vergessen`,
     missingRecord: (name: string) => `${name}: keine Stempelzeit`,

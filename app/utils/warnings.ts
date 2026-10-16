@@ -1,5 +1,5 @@
 import { cellKey } from '#shared/domain/cells'
-import { formatDuration } from '#shared/domain/time'
+import { formatDuration, formatTime } from '#shared/domain/time'
 import type { Warning } from '#shared/domain/warnings'
 import { de } from '~/locales/de'
 
@@ -17,7 +17,7 @@ export function indexWarnings(warnings: Warning[]): WarningIndex {
   const byDate = new Map<string, Warning[]>()
   for (const warning of warnings) {
     push(byDate, warning.date, warning)
-    if (warning.type !== 'coverage') push(byCell, cellKey(warning.employeeId, warning.date), warning)
+    if (warning.type !== 'coverage' && warning.type !== 'edge') push(byCell, cellKey(warning.employeeId, warning.date), warning)
   }
   return { byCell, byDate }
 }
@@ -28,6 +28,8 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return de.warnings.missingEntry(names.get(warning.employeeId) ?? '?')
     case 'coverage':
       return de.warnings.coverage(warning.label, warning.found, warning.required, warning.groupName)
+    case 'edge':
+      return de.warnings.edge(warning.edge, formatTime(warning.time), warning.found, warning.required, warning.groupName)
     case 'target_gap':
       return de.warnings.targetGap(names.get(warning.employeeId) ?? '?', formatDuration(warning.missingMinutes))
     case 'open_record':

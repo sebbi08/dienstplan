@@ -1,6 +1,7 @@
 import { dayCredit, isWorkEntry } from './balance'
 import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
+import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
 import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
 import type { BreakMode } from './stamping'
 import { breakRuleViolated, type RecordSpan } from './timeRecords'
@@ -16,12 +17,16 @@ export interface CoverageRule {
   groupId?: number | null
   /** That group's name, for the warning. */
   groupName?: string
+  /** Weekdays the rule is checked on (mask Mo = 1 … Fr = 16); missing = all weekdays. */
+  weekdays?: number
 }
 
 export type Warning =
   | { type: 'missing_entry'; date: IsoDate; employeeId: number }
   /** groupName only for a group rule (warnings of facility rules have no such key). */
   | { type: 'coverage'; date: IsoDate; ruleId: number; label: string; found: number; required: number; groupName?: string }
+  /** Too few staff at opening / until closing; groupName only for a group with its own hours. */
+  | { type: 'edge'; date: IsoDate; edge: 'opening' | 'closing'; time: Minutes; found: number; required: number; groupName?: string }
   | { type: 'target_gap'; date: IsoDate; employeeId: number; missingMinutes: number }
   | { type: 'open_record'; date: IsoDate; employeeId: number }
   | { type: 'missing_record'; date: IsoDate; employeeId: number }
@@ -55,15 +60,59 @@ export function isCheckedDay(date: IsoDate, isClosureDay: boolean, rules: Holida
   return !isWeekend(date) && !isHolidayIn(date, rules) && !isClosureDay
 }
 
+/** A duty that counts as staff for coverage: a shift or special shift (codes and breaks never do). */
+function isDuty(entry: DomainEntry): boolean {
+  return entry.kind === 'shift' || entry.kind === 'special'
+}
+
 function matchesRule(entry: DomainEntry, rule: CoverageRule): boolean {
-  return (entry.kind === 'shift' || entry.kind === 'special')
+  return isDuty(entry)
     && entry.start === rule.start
     && (rule.end === null || entry.end === rule.end)
 }
 
-/** Warnings of one day of a facility's plan; `holidays` are the plan facility's rules (a person's own days: their info). */
+/** The opening hours of a plan's facility and of those of its groups that have their own. */
+export interface DayHoursContext {
+  facility: OpeningHours | null
+  groups: { groupId: number; groupName: string; hours: OpeningHours }[]
+}
+
+const NO_HOURS: DayHoursContext = { facility: null, groups: [] }
+
+/** Edge warnings of one entered opening day: staff at opening (start <= open < end) and until closing (start < close <= end). */
+function edgeWarnings(
+  date: IsoDate, hours: OpeningHours, duties: { entry: DomainEntry; groupId: number | null }[], groupName?: string,
+): Warning[] {
+  const day = hoursOn(hours, date)
+  if (!isEntered(day)) return []
+  const spans = duties
+    .filter(({ entry }) => isDuty(entry) && entry.start !== null && entry.end !== null)
+    .map(({ entry }) => ({ start: entry.start!, end: entry.end! }))
+  const warnings: Warning[] = []
+  const atOpening = spans.filter(span => span.start <= day.open && span.end > day.open).length
+  if (atOpening < hours.minAtOpening) {
+    warnings.push({
+      type: 'edge', date, edge: 'opening', time: day.open, found: atOpening, required: hours.minAtOpening,
+      ...(groupName === undefined ? {} : { groupName }),
+    })
+  }
+  const atClosing = spans.filter(span => span.start < day.close && span.end >= day.close).length
+  if (atClosing < hours.minAtClosing) {
+    warnings.push({
+      type: 'edge', date, edge: 'closing', time: day.close, found: atClosing, required: hours.minAtClosing,
+      ...(groupName === undefined ? {} : { groupName }),
+    })
+  }
+  return warnings
+}
+
+/**
+ * Warnings of one day of a facility's plan; `holidays` are the plan facility's rules (a person's own days: their info).
+ * `hours` are the opening hours: a closed weekday suppresses the coverage rules, entered ones add the edge warnings.
+ */
 export function dayWarnings(
   date: IsoDate, employees: EmployeeDay[], rules: CoverageRule[], isClosureDay: boolean, holidays: HolidayRules,
+  hours: DayHoursContext = NO_HOURS,
 ): Warning[] {
   if (!isCheckedDay(date, isClosureDay, holidays)) return []
   const warnings: Warning[] = []
@@ -71,9 +120,14 @@ export function dayWarnings(
   const allEntries = employees.flatMap(employee => employee.entries
     .map(entry => ({ entry, groupId: entry.groupId ?? employee.groupId })))
 
+  const facilityDay = hoursOn(hours.facility, date)
   for (const rule of rules) {
+    if (!ruleAppliesOn(rule.weekdays ?? ALL_WEEKDAYS, date)) continue
     // A facility rule counts every duty; a group rule only those whose effective group it is.
     const groupId = rule.groupId ?? null
+    // A closed weekday (the group's own hours if it has some, else the facility's) is not checked.
+    const ruleHours = groupId === null ? undefined : hours.groups.find(group => group.groupId === groupId)?.hours
+    if ((ruleHours === undefined ? facilityDay : hoursOn(ruleHours, date))?.closed) continue
     const found = allEntries
       .filter(item => matchesRule(item.entry, rule) && (groupId === null || item.groupId === groupId)).length
     if (found < rule.minCount) {
@@ -82,6 +136,12 @@ export function dayWarnings(
         ...(groupId === null ? {} : { groupName: rule.groupName ?? '' }),
       })
     }
+  }
+
+  // Facility: every duty of the plan (helpers included); a group with own hours: only its own duties.
+  if (hours.facility !== null) warnings.push(...edgeWarnings(date, hours.facility, allEntries))
+  for (const group of hours.groups) {
+    warnings.push(...edgeWarnings(date, group.hours, allEntries.filter(item => item.groupId === group.groupId), group.groupName))
   }
 
   for (const { employeeId, info, entries, coverageOnly, busyElsewhere } of employees) {
