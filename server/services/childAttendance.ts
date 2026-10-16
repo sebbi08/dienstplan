@@ -594,10 +594,14 @@ export function getAttendanceMonth(db: Db, viewer: ChildViewer, year: number, mo
 
   const byGroup = new Map<number | null, AttendanceMonthChildDto[]>()
   for (const row of rows) {
+    const history = histories.get(row.id) ?? []
     const cellsByGroup = new Map<number | null, Record<IsoDate, MonthCell>>()
+    // The remark is the child's for the month: writable with one own group on an active day (as `setMonthRemark`).
+    let remarkEditable = false
     for (const date of dates) {
       if (!activeOn(row, date)) continue
-      const groupId = groupOnDay(histories.get(row.id) ?? [], date)
+      if (!remarkEditable && ownOnDay(viewer, history, date)) remarkEditable = true
+      const groupId = groupOnDay(history, date)
       const key = groupId !== null && known.has(groupId) ? groupId : null
       const day = dayOf.get(`${row.id}|${date}`)
       const status = dayStatus({
@@ -608,6 +612,7 @@ export function getAttendanceMonth(db: Db, viewer: ChildViewer, year: number, mo
     for (const [groupId, cells] of cellsByGroup) {
       byGroup.set(groupId, [...(byGroup.get(groupId) ?? []), {
         childId: row.id, name: nameOf(row), cells, sums: monthSums(Object.values(cells)), remark: remarks.get(row.id) ?? '',
+        remarkEditable, recordReadable: groupRight(row.groupId, viewer.groups) !== 'none',
       }])
     }
   }

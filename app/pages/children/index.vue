@@ -6,7 +6,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'attendance' | 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
+type Tab = 'attendance' | 'week' | 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
 
 // In the office the account's rights, at the tablet those of the person who unlocked it.
 const { rights, onTablet } = useChildRights()
@@ -30,6 +30,7 @@ watch(showPlanned, (shown) => {
 // The occupancy and the archive are for the managers only (the server answers 403 to everybody else).
 const tabs = computed(() => [
   { key: 'attendance' as const, label: de.attendance.tab },
+  { key: 'week' as const, label: de.groupBook.tab },
   { key: 'list' as const, label: de.children.tabs.list },
   ...(showPlanned.value ? [{ key: 'planned' as const, label: de.children.tabs.planned }] : []),
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
@@ -111,6 +112,7 @@ const td = 'px-3 py-2'
       </div>
 
       <ChildrenAttendanceTab v-if="tab === 'attendance'" />
+      <ChildrenWeekOverviewTab v-else-if="tab === 'week'" />
 
       <template v-else-if="tab === 'list'">
         <div class="flex flex-wrap items-center gap-3">

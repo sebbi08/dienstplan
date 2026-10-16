@@ -1310,6 +1310,10 @@ export interface AttendanceMonthChildDto {
   sums: Record<Exclude<MonthCell, 'none'>, number>
   /** The free text of the child for this month ("Bemerkung"). */
   remark: string
+  /** The viewer may change the remark: one of the child's groups on an active day of the month is the viewer's own. */
+  remarkEditable: boolean
+  /** The viewer may open the child's record (its current group is visible to the viewer); the name links to it. */
+  recordReadable: boolean
 }
 
 /** The month table (spec §4): one table per group in the groups' order, children without a group last (`id: null`, empty name). */

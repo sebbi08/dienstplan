@@ -614,6 +614,18 @@ export const de = {
     printTitle: (group: string) => `Wochenübersicht ${group}`,
     theme: 'Wochenthema / geplant', done: 'Was haben wir gemacht',
     holiday: (name: string) => `Feiertag: ${name}`, closure: (label: string) => `Schließtag: ${label}`,
+    // The "Wochenübersicht" tab under "Kinder" (tablet and office).
+    tab: 'Wochenübersicht', period: (week: number, days: string) => `KW ${week} · ${days}`,
+    previousWeek: 'Vorherige Woche', nextWeek: 'Nächste Woche', thisWeek: 'Diese Woche', print: 'Drucken',
+    group: 'Gruppe', readGroup: (name: string) => `${name} (nur lesen)`,
+    readOnly: 'Nur lesen', readOnlyHint: 'Die Wochenübersicht dieser Gruppe kannst du nur lesen.',
+    themePlaceholder: 'Was ist für diese Woche geplant?', donePlaceholder: 'Was haben wir gemacht?', nothing: 'Noch nichts eingetragen.',
+    lastChanged: (name: string, at: string) => `zuletzt geändert von ${name}, ${at}`,
+    noGroups: 'Es gibt noch keine Gruppen. Der Träger legt sie unter Einstellungen → Einrichtungen an.',
+    history: {
+      title: (field: string) => `Verlauf: ${field}`, empty: 'Noch keine Änderungen.', emptyValue: '(leer)',
+      by: (name: string, at: string) => `${name}, ${at}`,
+    },
   },
   attendance: {
     // Settings section (Leitung and Träger) and the print pages of the child attendance.

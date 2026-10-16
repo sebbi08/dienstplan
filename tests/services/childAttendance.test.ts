@@ -922,6 +922,19 @@ describe('child attendance by group rights', () => {
     expect(errorCode(() => setMonthRemark(db, viewer(), { childId: mover, month: '2026-09', remark: 'x' }, NOW))).toBe('group_read_only')
   })
 
+  it('flags in the month table whose remark the person may write and whose record they may open', () => {
+    const flags = (year: number, month: number, who: ChildActor = viewer()) => getAttendanceMonth(db, who, year, month, NOW).groups
+      .flatMap(group => group.children.map(child => [group.id, child.childId, child.remarkEditable, child.recordReadable]))
+    // The mover shows in B and in A in October; the remark is the same child's, so it is editable in both rows.
+    expect(flags(2026, 10)).toEqual([
+      [a, kidA, true, true], [a, mover, true, true], [b, kidB, false, true], [b, mover, true, true], [c, kidC, false, false],
+      [null, kidNone, true, true],
+    ])
+    // In September the mover was only in B: foreign.
+    expect(flags(2026, 9)).toContainEqual([b, mover, false, true])
+    expect(flags(2026, 10, leitung).every(([, , editable, readable]) => editable && readable)).toBe(true)
+  })
+
   it('leaves a viewer without group access unchanged', () => {
     const stayId = arrive(db, leitung, { childId: kidC, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
     updateDay(db, leitung, { childId: kidC, date: TODAY, note: 'müde' }, NOW)

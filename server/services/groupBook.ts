@@ -54,11 +54,23 @@ const toNote = (row: { text: string; updatedAt: string; updatedByName: string } 
   row ? { text: row.text, updatedAt: row.updatedAt, updatedByName: row.updatedByName } : NO_NOTE
 
 /**
+ * The group the weekly overview opens with when none is chosen: the viewer's own group, otherwise the first one of the
+ * facility the viewer sees (404 group_not_found when there is none).
+ */
+function defaultGroupId(db: Db, viewer: ChildViewer): number {
+  const visible = listGroups(db, viewer.facilityId).filter(group => groupRight(group.id, viewer.groups) !== 'none')
+  const chosen = visible.find(group => group.id === viewer.groups?.own) ?? visible[0]
+  if (!chosen) throw new ServiceError(404, 'group_not_found')
+  return chosen.id
+}
+
+/**
  * One week of a group's weekly overview (`anyDateInWeek` is any day of it; the week starts on Monday): the theme, the
  * five days with their holiday or closure label (texts for them are the client's), and the groups the viewer may see.
+ * Without a group (`null`) the viewer's own group, else the first visible one.
  */
-export function getGroupWeek(db: Db, viewer: ChildViewer, groupId: number, anyDateInWeek: IsoDate): GroupWeekDto {
-  const group = visibleGroup(db, viewer, groupId)
+export function getGroupWeek(db: Db, viewer: ChildViewer, groupId: number | null, anyDateInWeek: IsoDate): GroupWeekDto {
+  const group = visibleGroup(db, viewer, groupId ?? defaultGroupId(db, viewer))
   const monday = mondayOf(anyDateInWeek)
   const friday = addDays(monday, 4)
   const rules = facilityHolidayRules(db, viewer.facilityId)

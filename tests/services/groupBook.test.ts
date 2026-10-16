@@ -75,6 +75,17 @@ describe('group book weekly overview', () => {
     expect(db.select().from(groupBookChanges).all()[0]!.changedByEmployeeId).not.toBeNull()
   })
 
+  it('opens the own group without a group given, otherwise the first one the viewer sees', () => {
+    // Anna's own group comes first even when it is not the facility's first one.
+    const anna = { ...atTablet, groups: { own: c, readable: [a] } }
+    expect(getGroupWeek(db, anna, null, FRIDAY)).toMatchObject({ groupId: c, canWrite: true })
+    expect(getGroupWeek(db, leitung, null, FRIDAY)).toMatchObject({ groupId: a, weekStart: MONDAY, canWrite: true })
+    // A facility without groups has nothing to show.
+    const other = addFacility(db, 'Zweite')
+    expect(errorCode(() => getGroupWeek(db, asChildViewer(addUser(db, 'leitung2', 'admin', null, other)), null, FRIDAY)))
+      .toBe('group_not_found')
+  })
+
   it('names the account of the Leitung', () => {
     setDayNote(db, leitung, a, MONDAY, 'Ausflug', NOW)
     expect(db.select().from(groupBookChanges).get()).toMatchObject({ changedByUserId: leitung.id, changedByName: 'leitung' })

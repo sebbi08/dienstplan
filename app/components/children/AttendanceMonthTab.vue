@@ -10,7 +10,8 @@ import { formatDate } from '~/utils/format'
 /**
  * The month table of the child attendance (spec §4): per group a row per child and a column per day (✓ K U E –), grey
  * days that are no care days, hatched days on which the child was not in this group (or not active), the sums and the
- * remark of the month, editable in place. A click on a day number opens that day in the day list.
+ * remark of the month, editable in place for the person's own children (`remarkEditable`, group book spec §3.4). A click
+ * on a day number opens that day in the day list; a name opens the record only when its group may be read.
  */
 const props = defineProps<{ initial: IsoDate; canPrint: boolean }>()
 const emit = defineEmits<{ openDay: [date: IsoDate] }>()
@@ -100,7 +101,8 @@ const hatched = 'background-image: repeating-linear-gradient(45deg, #d1d5db 0 1p
             <tbody>
               <tr v-for="child in group.children" :key="child.childId">
                 <th scope="row" :class="td" class="sticky left-0 z-10 whitespace-nowrap bg-white px-2 text-left font-medium">
-                  <NuxtLink :to="`/children/${child.childId}`" class="text-sky-700 hover:underline">{{ child.name }}</NuxtLink>
+                  <NuxtLink v-if="child.recordReadable" :to="`/children/${child.childId}`" class="text-sky-700 hover:underline">{{ child.name }}</NuxtLink>
+                  <template v-else>{{ child.name }}</template>
                 </th>
                 <td
                   v-for="day in data.days" :key="day.date" :class="[td, day.grey ? 'bg-gray-200' : '', child.cells[day.date] === 'unexcused' ? 'text-red-700' : '']"
@@ -111,7 +113,10 @@ const hatched = 'background-image: repeating-linear-gradient(45deg, #d1d5db 0 1p
                 </td>
                 <td v-for="kind in kinds" :key="kind" :class="td" class="font-semibold">{{ child.sums[kind] || '' }}</td>
                 <td :class="td" class="px-1">
+                  <!-- The remark of another group's child is read only (group book spec §3.4). -->
+                  <p v-if="!child.remarkEditable" class="whitespace-pre-line break-words px-1 text-left text-sm">{{ child.remark }}</p>
                   <UInput
+                    v-else
                     v-model="drafts[child.childId]" size="md" maxlength="500" :placeholder="s.month.remarkPlaceholder"
                     :aria-label="`${s.remark}: ${child.name}`" :disabled="saving[child.childId]" class="w-full"
                     @blur="saveRemark(child)" @keydown.enter="blurOnEnter"

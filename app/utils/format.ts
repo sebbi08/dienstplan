@@ -20,6 +20,16 @@ export function formatDateTime(timestamp: string): string {
   }).format(new Date(timestamp))
 }
 
+/** Two days as short as they stay clear: "19.–23.10.2026", "28.09.–02.10.2026", "28.12.2026–01.01.2027". */
+export function formatDateSpan(from: string, to: string): string {
+  const start = parseIsoDate(from)
+  const end = parseIsoDate(to)
+  const head = start.year !== end.year
+    ? formatDate(from)
+    : start.month !== end.month ? `${pad(start.day)}.${pad(start.month)}.` : `${pad(start.day)}.`
+  return `${head}–${formatDate(to)}`
+}
+
 /** A time record as "7:42–11:40", open records as "7:42–…". */
 export function formatSpan(record: { start: number; end: number | null }): string {
   return `${formatTime(record.start)}–${record.end === null ? '…' : formatTime(record.end)}`

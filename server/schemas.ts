@@ -328,7 +328,8 @@ export const attendanceSettingsSchema = z.object({
 
 // Group book (weekly overview): the date rules (Monday to Friday) and the group rights are the service's.
 const groupBookText = z.string().max(5000)
-export const groupBookWeekQuery = z.object({ groupId: z.coerce.number().int().positive(), date: isoDate })
+/** Without `groupId` the viewer's own group (or the first one the viewer sees). */
+export const groupBookWeekQuery = z.object({ groupId: z.coerce.number().int().positive().optional(), date: isoDate })
 export const groupBookWeekSchema = z.object({ groupId: z.number().int().positive(), weekStart: isoDate, text: groupBookText })
 export const groupBookDaySchema = z.object({ groupId: z.number().int().positive(), date: isoDate, text: groupBookText })
 export const groupBookHistoryQuery = z.object({

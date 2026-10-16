@@ -3,7 +3,7 @@ import { todayIso } from '#shared/domain/dates'
 import type { GroupDayLabel, GroupWeekDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
-import { formatDate } from '~/utils/format'
+import { formatDate, formatDateSpan } from '~/utils/format'
 
 /** The weekly overview of a group for printing (Leitung and Träger): A4 landscape, the theme and Monday to Friday side by side. */
 definePageMeta({ layout: false })
@@ -18,7 +18,7 @@ const { data, error } = await useFetch<GroupWeekDto>('/api/group-book/week', {
 
 const s = de.groupBook
 const period = computed(() => (data.value
-  ? `${s.weekNumber(data.value.weekNumber)} · ${formatDate(data.value.days[0]!.date)} – ${formatDate(data.value.days[4]!.date)}`
+  ? s.period(data.value.weekNumber, formatDateSpan(data.value.days[0]!.date, data.value.days[4]!.date))
   : ''))
 const fileName = computed(() => `Wochenuebersicht-${data.value?.groupName ?? groupId}-${weekStart}`)
 

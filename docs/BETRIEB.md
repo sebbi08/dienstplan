@@ -147,6 +147,9 @@ Datenbank hat, hat alles.
 Die Berechtigung „darf Kinderakten pflegen“ vergibst du unter *Benutzer* pro Mitarbeiter. Sie gilt am Tablet
 der Einrichtung.
 
+Mitarbeiter **mit einer Gruppe** sehen am Tablet nur die Akten ihrer eigenen Gruppe (und der Gruppen, die für sie
+freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
+
 ### Kinder am Tablet
 
 - Auf der Startseite des Tablets gibt es zwei Knöpfe: **Stempeln** und **Kinder**. Unter „Kinder“ tippt die
@@ -327,6 +330,8 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
 - Am Tablet stempelt jede aufgeschlossene Person die Kinder ein und aus – auch wer kein eigenes Konto hat und
   Aushilfen an ihren Einsatztagen. Leitung und Träger können das auf jedem Gerät. Mit dem eigenen
   Mitarbeiterkonto (Handy, privater PC) gibt es die Anwesenheit nicht.
+- Die Liste zeigt immer **alle** Kinder der Einrichtung. Bei Kindern einer **fremden Gruppe** geht für
+  Mitarbeiter mit Gruppe nur Kommen, Gehen und Abholer ankündigen (siehe Abschnitt 12).
 - Oben steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind, und wie viele beim Snack und
   beim Mittagessen dabei sind. Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende).
 - **„Kommt“**: Uhrzeit (vorgeschlagen ist jetzt) und **geplante Abholzeit** (Pflicht). Vorgeschlagen wird das
@@ -398,3 +403,60 @@ Alle Angaben lassen sich ändern, auch an älteren Tagen: Zeiten und Abholperson
 (ein versehentlich gestempelter Aufenthalt lässt sich dort auch löschen), die geplante Abholzeit und die Notiz
 direkt in der Zeile. Jede Änderung wird mit Person und Uhrzeit festgehalten. Ein kleines Uhr-Symbol neben dem
 Namen zeigt, dass ein Eintrag geändert wurde; ein Tipp darauf zeigt den Verlauf.
+
+## 12. Wochenübersicht und Gruppenbücher
+
+Jede Gruppe hat ihr eigenes **Gruppenbuch**: die Wochenübersicht und die Kinderakten ihrer Kinder (Liste, Akte,
+Geburtstage, Dokumente, „Offen“).
+
+### Die Wochenübersicht
+
+- Unter *Kinder* ist **„Wochenübersicht“** der Reiter nach „Anwesenheit“: am Tablet nach dem Aufschließen, für
+  Leitung und Träger auf jedem Gerät.
+- Oben stehen Kalenderwoche und Tage („KW 43 · 19.–23.10.2026“). Mit den Pfeilen und **„Diese Woche“** wechselst
+  du die Woche, mit der Auswahl daneben die Gruppe (nur, wenn du mehr als eine Gruppe sehen darfst). Geöffnet wird
+  die eigene Gruppe.
+- Es gibt ein Feld **„Wochenthema / geplant“** für die Woche und für Montag bis Freitag je ein Feld **„Was haben
+  wir gemacht“**. Feiertage und Schließtage sind grau und beschriftet; eintragen kannst du dort trotzdem.
+- Gespeichert wird, sobald du ein Feld verlässt (oder mit **„Speichern“** darunter). Eintragen geht auch für
+  vergangene Wochen.
+- Unter jedem Feld steht, wer es zuletzt geändert hat und wann. Ein Tipp darauf zeigt den ganzen **Verlauf**
+  (vorher → nachher, wer, wann) – auch mit dem Namen der Person, die das Tablet aufgeschlossen hat, wenn sie kein
+  eigenes Konto hat.
+- Wird eine Gruppe gelöscht, werden ihre Wochenübersichten mit gelöscht.
+
+### Wer was sieht
+
+| Person | Gruppenbücher |
+|---|---|
+| Leitung und Träger (jedes Gerät), Mitarbeiter ohne Gruppe, Aushilfen | alle Gruppen, sehen und eintragen (im Rahmen ihrer bisherigen Rechte) |
+| Mitarbeiter mit Gruppe (am Tablet) | die **eigene Gruppe** sehen und eintragen; **freigeschaltete Gruppen** nur lesen; alle anderen Gruppen sehen sie nicht |
+
+- Die eigene Gruppe ist die Gruppe aus dem Mitarbeiter-Eintrag in der Stammeinrichtung.
+- **Nur lesen** heißt: Wochenübersicht und Kinderakten ansehen, aber nichts eintragen oder ändern – auch nicht mit
+  „darf Kinderakten pflegen“. Vertrauliche Dokumente öffnet die Person dort nur, wenn sie das in der eigenen Gruppe
+  auch dürfte. Die Wochenübersicht zeigt dann oben „Nur lesen“.
+- Kinder ohne Gruppe sieht jeder.
+
+### Freischalten (Einstellungen)
+
+- Welche anderen Gruppen eine Gruppe zusätzlich **lesen** darf, legt die Leitung unter *Einstellungen →
+  Gruppenbücher* fest, der Träger unter *Einstellungen → Einrichtungen* bei den Gruppen der Einrichtung: bei jeder
+  Gruppe „Darf zusätzlich lesen:“ mit einem Häkchen je andere Gruppe. Voreingestellt ist keine.
+- Das gilt nur in eine Richtung: Darf die Gruppe A die Gruppe B lesen, darf B deshalb noch nicht A lesen.
+- Änderungen wirken sofort, auch an einem gerade aufgeschlossenen Tablet.
+
+### Kinder fremder Gruppen in der Anwesenheit
+
+- Die Anwesenheitsliste zeigt weiter **alle** Kinder. Maßgeblich ist die Gruppe des Kindes **an dem Tag**.
+- Bei einem Kind einer fremden Gruppe (auch einer nur freigeschalteten) gibt es nur **„Kommt“**, **„Geht“** und
+  **„Abholer ankündigen“**. Allergien, die Notiz des Tages, die Zeiten, die geplante Abholzeit und die Häkchen
+  für Snack und Mittag sind zu sehen, aber nicht zu ändern; „Abwesend“ und „Zeiten korrigieren“ gibt es dort nicht.
+- Der Name eines fremden Kindes führt nur dann zur Akte, wenn dessen Gruppe freigeschaltet ist (dann nur lesen).
+- In der Monatsübersicht stehen alle Kinder; die **Bemerkung** kann nur die eigene Gruppe ändern.
+
+### Drucken
+
+Leitung und Träger drucken die Woche einer Gruppe im Büro mit **„Drucken“** (A4 quer: Einrichtung, Gruppe,
+Kalenderwoche, Wochenthema und Montag bis Freitag nebeneinander, als Ausdruck oder PDF). Am Tablet gibt es keine
+Druck-Knöpfe.
