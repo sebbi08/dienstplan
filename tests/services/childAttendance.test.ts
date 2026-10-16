@@ -889,6 +889,10 @@ describe('child attendance by group rights', () => {
         if (name !== 'deleteStay') expect(errorCode(write), `${name} ${id}`).toBeNull()
       }
       expect(errorCode(() => deleteStay(db, viewer(), stayId, NOW))).toBeNull()
+      // On a day without a stay the absence is stored (today's goes nowhere: the child had a stay).
+      const thursday = '2026-10-15'
+      expect(setAbsence(db, viewer(), { childId: id, from: thursday, to: thursday, kind: 'sick' }, NOW), `${id}`).toBe(1)
+      expect(rowOf(viewer(), id, thursday).absence, `${id}`).toBe('sick')
     }
   })
 
