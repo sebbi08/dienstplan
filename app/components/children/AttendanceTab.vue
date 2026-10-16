@@ -214,7 +214,8 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                 <div class="flex items-center gap-1">
                   <NuxtLink :to="`/children/${child.childId}`" class="truncate text-base font-medium text-sky-700 hover:underline">{{ child.name }}</NuxtLink>
                   <UButton
-                    v-if="child.changed" size="sm" color="neutral" variant="ghost" icon="i-lucide-history" :aria-label="s.changed" :title="s.changed"
+                    v-if="child.changed" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral" variant="ghost" icon="i-lucide-history"
+                    :aria-label="s.changed" :title="s.changed"
                     @click="openDialog('history', child)"
                   />
                 </div>
@@ -250,7 +251,8 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                     <span v-if="meal === 'snack' ? child.snackManual : child.lunchManual" class="text-xs text-gray-500">({{ s.manual }})</span>
                   </button>
                   <UButton
-                    v-if="meal === 'snack' ? child.snackManual : child.lunchManual" size="sm" color="neutral" variant="ghost" icon="i-lucide-rotate-ccw"
+                    v-if="meal === 'snack' ? child.snackManual : child.lunchManual" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral"
+                    variant="ghost" icon="i-lucide-rotate-ccw"
                     :aria-label="`${s[meal]}: ${s.resetMeal}`" :title="s.resetMeal" :disabled="saving[child.childId]" @click="setMeal(child, meal, null)"
                   />
                 </div>
