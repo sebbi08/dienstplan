@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements,
+  careTypes, childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements,
   children, closures,
 } from '../../server/db/schema'
 import type { ChildActor } from '../../server/lib/childViewer'
@@ -157,6 +157,15 @@ describe('child attendance', () => {
       removeAnnouncement(db, leitung, oma, NOW)
       expect(rowOf().pickupOptions).toEqual([{ kind: 'contact', id: mama, name: 'Anna Meier' }])
       expect(errorCode(() => removeAnnouncement(db, leitung, oma, NOW))).toBe('announcement_not_found')
+    })
+
+    it('suggests the end of the care type and offers the contacts without a ban as brought-by', () => {
+      expect(rowOf().careEnd).toBeNull()
+      const care = db.insert(careTypes).values({ facilityId: 1, name: 'Ganztag', start: hm('07:00'), end: hm('16:30') }).returning().get().id
+      db.update(children).set({ careTypeId: care }).where(eq(children.id, lena)).run()
+      const row = rowOf()
+      expect(row.careEnd).toBe(hm('16:30'))
+      expect(row.bringOptions).toEqual(['Anna Meier', 'Opa Karl'])
     })
   })
 

@@ -1177,6 +1177,10 @@ export interface AttendanceChildDto {
   lunchManual: boolean
   announcements: AttendanceAnnouncementDto[]
   pickupOptions: AttendancePickupOption[]
+  /** The end of the child's care type (the suggested planned pickup when it arrives); null without a care type. */
+  careEnd: Minutes | null
+  /** The names of the child's contacts without a contact ban (offered for "Bringperson"). */
+  bringOptions: string[]
   /** The child has a contact with a contact ban; the notes are for the "Geht" dialog only, never the info column. */
   hasContactBan: boolean
   contactBanNotes: string[]

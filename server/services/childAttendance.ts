@@ -15,8 +15,8 @@ import type {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements, children,
-  facilities,
+  careTypes, childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements,
+  children, facilities,
 } from '../db/schema'
 import { loadChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
@@ -146,7 +146,8 @@ const nameOf = (row: { lastName: string; firstName: string }) => `${row.lastName
 /**
  * The day list (spec §3): the facility's children active on the date (the tablet's visibility switches do not apply,
  * planned children are never listed), ordered by the group of the day (no group last), then by name; with status,
- * stays, meals, the pickup persons on offer and the open stays of the 14 days before.
+ * stays, meals, the pickup and brought-by persons on offer, the care type's end (suggested planned pickup) and the open
+ * stays of the 14 days before.
  */
 export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now: Date = new Date()): AttendanceDayDto {
   const { facilityId } = viewer
@@ -173,6 +174,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
     .where(and(eq(childAttendanceChanges.date, date), inArray(childAttendanceChanges.childId, ids), ne(childAttendanceChanges.before, ''),
       ne(childAttendanceChanges.field, MONTH_REMARK_FIELD)))
     .all().map(row => row.childId))
+  const careEnds = new Map(db.select({ id: careTypes.id, end: careTypes.end }).from(careTypes)
+    .where(eq(careTypes.facilityId, facilityId)).all().map(type => [type.id, type.end]))
   const histories = groupHistories(db, facilityId)
   const groups = listGroups(db, facilityId)
   const groupRank = new Map(groups.map((group, index) => [group.id, index]))
@@ -217,6 +220,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
         id: announcement.id, name: announcement.name, announcedBy: announcement.announcedBy,
       })),
       pickupOptions,
+      careEnd: row.careTypeId === null ? null : careEnds.get(row.careTypeId) ?? null,
+      bringOptions: ownContacts.filter(contact => !contact.contactBan).map(contact => contact.name),
       hasContactBan: banned.length > 0,
       contactBanNotes: banned.map(contact => contact.contactBanNote.trim()).filter(note => note !== ''),
       pickupOverdue: pickupOverdue(spans, plannedPickup, date === clock.date, clock.minutes),

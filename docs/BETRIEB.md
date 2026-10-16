@@ -316,3 +316,75 @@ Bundesland und Stichtag: siehe Abschnitt 10.
   zeigt der Abschnitt „Schulkinder“ diesen mit dem Knopf **„übernehmen“**. Das ist eine normale
   Stichtagsänderung und schaltet die automatische Abmeldung der Schulkinder aus (siehe Abschnitt 9). Die
   Stichtage stehen im Stand Oktober 2026; prüfe sie bei Änderungen des Schulgesetzes.
+
+## 11. Anwesenheit der Kinder
+
+Unter *Kinder* ist **„Anwesenheit“** der erste Reiter. Er öffnet die Tagesliste von heute; mit den Pfeilen,
+dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Monatsübersicht.
+
+### Ein- und Ausstempeln am Tablet
+
+- Am Tablet stempelt jede aufgeschlossene Person die Kinder ein und aus – auch wer kein eigenes Konto hat und
+  Aushilfen an ihren Einsatztagen. Leitung und Träger können das auf jedem Gerät. Mit dem eigenen
+  Mitarbeiterkonto (Handy, privater PC) gibt es die Anwesenheit nicht.
+- Oben steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind, und wie viele beim Snack und
+  beim Mittagessen dabei sind. Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende).
+- **„Kommt“**: Uhrzeit (vorgeschlagen ist jetzt) und **geplante Abholzeit** (Pflicht). Vorgeschlagen wird das
+  Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Anwesenheit* „Bringperson
+  erfassen“ an, fragt der Dialog zusätzlich, wer das Kind gebracht hat. Ein Kind, das schon abgeholt wurde, kann
+  am selben Tag noch einmal kommen (z. B. nach einem Arzttermin).
+- **„Geht“**: Uhrzeit (nicht vor der Ankunft) und **wer abholt**. Zur Auswahl stehen nur die Bezugspersonen mit
+  „darf abholen“ und die Personen, die für diesen Tag angekündigt sind. Personen mit Umgangsverbot stehen nie in
+  der Auswahl; hat das Kind ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot.
+- **Abholzeit überschritten**: Ist ein Kind 15 Minuten nach seiner geplanten Abholzeit noch da, wird seine Zeile
+  rot. Die Liste aktualisiert sich nicht von selbst (damit sich das Tablet nach der Sperrzeit sperrt); nach jedem
+  Eintrag und beim Öffnen ist sie aktuell.
+- **Nicht ausgestempelt**: Wurde ein Kind an einem der letzten 14 Tage nicht ausgestempelt, steht oben ein Hinweis
+  mit dem Knopf **„Zum Tag“**. Dort trägst du die Abholung über **„Zeiten korrigieren“** (Stift am Aufenthalt) nach.
+
+### Angekündigte Abholer
+
+Holt heute jemand anderes ab (z. B. die Oma), trägst du ihn mit **„Abholer ankündigen“** ein: Name und
+freiwillig „angekündigt von“ (z. B. „Mama, telefonisch“). Die Person gilt nur für diesen Tag, steht beim Kind
+(„Abholer heute: …“) und kann beim Gehen gewählt werden. Im selben Dialog kannst du sie wieder entfernen.
+
+### Abwesenheiten
+
+**„Abwesend“** gibt es für ein Kind, das an dem Tag noch nicht da war: krank, Urlaub oder entschuldigt, für
+diesen Tag oder bis zu einem Enddatum (z. B. angekündigter Urlaub). Eingetragen wird an Betreuungstagen; Wochenenden,
+Feiertage und Schließtage werden übersprungen. Kommt ein abwesend eingetragenes Kind doch, ersetzt „Kommt“ die
+Abwesenheit für diesen Tag. Ist an einem vergangenen Betreuungstag nichts eingetragen, gilt das Kind als
+unentschuldigt (–).
+
+### Snack und Mittagessen
+
+Die Uhrzeiten stellen Leitung und Träger unter *Einstellungen → Anwesenheit* ein (voreingestellt 9:30 und
+12:00). Ein Kind zählt für eine Mahlzeit, wenn es zu deren Uhrzeit da ist oder laut geplanter Abholzeit da sein
+wird. Ein Tipp auf das Häkchen ändert das von Hand (z. B. „isst heute nicht mit“), der Pfeil daneben stellt
+wieder auf automatisch.
+
+### Infospalte
+
+Rechts beim Kind stehen die **Allergien und Unverträglichkeiten** aus der Akte und das Feld **„Was ist heute
+passiert“** für kurze Notizen über den Tag (z. B. „hingefallen, Knie gekühlt“), damit sie beim Abholen
+weitergegeben werden. Andere Inhalte der Akte und vertrauliche Dokumente erscheinen hier nie.
+
+### Monatsübersicht
+
+Pro Gruppe eine Tabelle mit einer Zeile je Kind: ✓ da, K krank, U Urlaub, E entschuldigt, – unentschuldigt.
+Grau sind Wochenenden, Feiertage und Schließtage; schraffiert sind Tage, an denen das Kind nicht in dieser Gruppe
+(oder noch nicht bzw. nicht mehr in der Kita) war. Rechts stehen die Summen und eine **Bemerkung** pro Kind und
+Monat. Ein Tipp auf eine Tageszahl öffnet diesen Tag.
+
+### Drucken im Büro
+
+Tagesliste und Monatsübersicht drucken Leitung und Träger im Büro mit **„Drucken“** (A4 quer, als Ausdruck oder
+PDF). Am Tablet gibt es keine Druck-Knöpfe; dort ist die Liste jederzeit am Bildschirm zu sehen (z. B. bei einer
+Räumung).
+
+### Ändern und Verlauf
+
+Alle Angaben lassen sich ändern, auch an älteren Tagen: Zeiten und Abholperson über den Stift am Aufenthalt
+(ein versehentlich gestempelter Aufenthalt lässt sich dort auch löschen), die geplante Abholzeit und die Notiz
+direkt in der Zeile. Jede Änderung wird mit Person und Uhrzeit festgehalten. Ein kleines Uhr-Symbol neben dem
+Namen zeigt, dass ein Eintrag geändert wurde; ein Tipp darauf zeigt den Verlauf.

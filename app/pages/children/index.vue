@@ -6,7 +6,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
+type Tab = 'attendance' | 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
 
 // In the office the account's rights, at the tablet those of the person who unlocked it.
 const { rights, onTablet } = useChildRights()
@@ -21,13 +21,15 @@ const { data: active, error } = await useFetch<ChildListItemDto[]>('/api/childre
 const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birthdays', { key: 'children-birthdays' })
 await lookups.ready
 
-const tab = ref<Tab>('list')
+// The attendance is the first tab and the one the page opens with (spec Anwesenheit §3.1).
+const tab = ref<Tab>('attendance')
 // A keep-alive at the tablet can switch the planned tab off while it is open; fall back to the list.
 watch(showPlanned, (shown) => {
   if (!shown && tab.value === 'planned') tab.value = 'list'
 })
 // The occupancy and the archive are for the managers only (the server answers 403 to everybody else).
 const tabs = computed(() => [
+  { key: 'attendance' as const, label: de.attendance.tab },
   { key: 'list' as const, label: de.children.tabs.list },
   ...(showPlanned.value ? [{ key: 'planned' as const, label: de.children.tabs.planned }] : []),
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
@@ -89,7 +91,7 @@ const td = 'px-3 py-2'
 </script>
 
 <template>
-  <div class="space-y-4" :class="tab === 'occupancy' ? 'max-w-7xl' : 'max-w-5xl'">
+  <div class="space-y-4" :class="tab === 'occupancy' || tab === 'attendance' ? 'max-w-7xl' : 'max-w-5xl'">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.title }}</h1>
       <UButton v-if="canCreate && tab !== 'planned'" class="ml-auto" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
@@ -108,7 +110,9 @@ const td = 'px-3 py-2'
         </button>
       </div>
 
-      <template v-if="tab === 'list'">
+      <ChildrenAttendanceTab v-if="tab === 'attendance'" />
+
+      <template v-else-if="tab === 'list'">
         <div class="flex flex-wrap items-center gap-3">
           <UInput v-model="search" :placeholder="de.children.search" :aria-label="de.children.search" icon="i-lucide-search" class="w-64" />
           <USelect v-if="showGroups" v-model="groupFilter" :items="groupItems" class="w-48" :aria-label="de.children.fields.group" />
