@@ -756,5 +756,13 @@ export const de = {
     document_too_large: 'Die Datei ist größer als 10 MB.',
     file_required: 'Bitte eine Datei auswählen.',
     invalid_input: 'Die Angaben sind unvollständig oder ungültig. Bitte prüfe sie.',
+    planned_pickup_required: 'Bitte trag ein, wann das Kind abgeholt wird.',
+    already_present: 'Das Kind ist schon eingestempelt.',
+    not_present: 'Das Kind ist gerade nicht eingestempelt.',
+    leave_before_arrival: 'Die Abholzeit liegt vor der Ankunft.',
+    pickup_person_invalid: 'Diese Person darf das Kind nicht abholen.',
+    pickup_person_required: 'Bitte wähle aus, wer das Kind abholt.',
+    stay_not_found: 'Dieser Aufenthalt existiert nicht mehr. Bitte lade die Seite neu.',
+    announcement_not_found: 'Diese angekündigte Person existiert nicht mehr. Bitte lade die Seite neu.',
   },
 }

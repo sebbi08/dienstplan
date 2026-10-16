@@ -156,7 +156,7 @@ describe('unlocking the tablet for child records', () => {
     it('gives a person without account read rights only', () => {
       const { token } = unlock()
       expect(viewer(token)).toEqual({
-        id: null, role: 'observer', canEditChildren: false, facilityId: 1,
+        id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
         visibility: { waitlist: false, futureContracts: false }, onTablet: true,
       })
     })
@@ -179,7 +179,9 @@ describe('unlocking the tablet for child records', () => {
     it('gives the Leitung every right and every child', () => {
       const account = addUser(db, 'leitung', 'admin', anna)
       const { token, status } = unlock()
-      expect(viewer(token)).toMatchObject({ id: account.id, role: 'admin', visibility: null, onTablet: true })
+      expect(viewer(token)).toMatchObject({
+        id: account.id, employeeId: anna, name: 'Anna', role: 'admin', visibility: null, onTablet: true,
+      })
       expect(status).toMatchObject({
         rights: { canEdit: true, isManager: true, canMoveFacility: false, showWaitlist: true, showFutureContracts: true },
       })

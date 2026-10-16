@@ -27,6 +27,11 @@ export const facilities = sqliteTable('facilities', {
   state: text('state').$type<GermanState>().notNull().default('BW'),
   /** Mariä Himmelfahrt (15 August) is a holiday here; effective only in Bavaria (BY). */
   assumptionDay: integer('assumption_day', { mode: 'boolean' }).notNull().default(true),
+  /** Child attendance: the times (minutes after midnight) at which snack and lunch are counted. */
+  snackTime: integer('snack_time').notNull().default(570),
+  lunchTime: integer('lunch_time').notNull().default(720),
+  /** Child attendance: whether arriving asks who brought the child. */
+  recordBroughtBy: integer('record_brought_by', { mode: 'boolean' }).notNull().default(false),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -593,6 +598,66 @@ export const childDocuments = sqliteTable('child_documents', {
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   uploadedAt: text('uploaded_at').notNull(),
 }, table => [index('child_documents_child').on(table.childId)])
+
+/**
+ * A child on a date (Anwesenheitstag), created by the first entry of that day. `groupId` is the child's group on the
+ * day, stored when the row was created. `snack`/`lunch`: null = counted automatically, true/false = set by hand.
+ */
+export const childAttendanceDays = sqliteTable('child_attendance_days', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  groupId: integer('group_id').references(() => groups.id, { onDelete: 'set null' }),
+  plannedPickup: integer('planned_pickup'),
+  broughtBy: text('brought_by').notNull().default(''),
+  absence: text('absence', { enum: ['sick', 'vacation', 'excused'] }),
+  /** "Was ist heute passiert": free text of the staff about the day. */
+  note: text('note').notNull().default(''),
+  snack: integer('snack', { mode: 'boolean' }),
+  lunch: integer('lunch', { mode: 'boolean' }),
+}, table => [uniqueIndex('child_attendance_days_child_date').on(table.childId, table.date)])
+
+/** One stay of a child on a day; `left` null while the child is still here. The pickup person's name as it was. */
+export const childAttendanceStays = sqliteTable('child_attendance_stays', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dayId: integer('day_id').notNull().references(() => childAttendanceDays.id, { onDelete: 'cascade' }),
+  arrived: integer('arrived').notNull(),
+  left: integer('left'),
+  pickedUpBy: text('picked_up_by'),
+  pickedUpContactId: integer('picked_up_contact_id').references(() => childContacts.id, { onDelete: 'set null' }),
+}, table => [index('child_attendance_stays_day').on(table.dayId)])
+
+/** A person announced to pick the child up on this day only. */
+export const childPickupAnnouncements = sqliteTable('child_pickup_announcements', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dayId: integer('day_id').notNull().references(() => childAttendanceDays.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  announcedBy: text('announced_by').notNull().default(''),
+}, table => [index('child_pickup_announcements_day').on(table.dayId)])
+
+/** The remark (Bemerkung) of a child's row in the month overview; `month` is YYYY-MM. */
+export const childAttendanceMonths = sqliteTable('child_attendance_months', {
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  month: text('month').notNull(),
+  remark: text('remark').notNull().default(''),
+}, table => [uniqueIndex('child_attendance_months_child_month').on(table.childId, table.month)])
+
+/**
+ * The change log of the attendance: one row per changed field, with who changed it. A person at the tablet without
+ * account has no user id but the employee id and name of the person who unlocked it.
+ */
+export const childAttendanceChanges = sqliteTable('child_attendance_changes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  field: text('field').notNull(),
+  before: text('before').notNull(),
+  after: text('after').notNull(),
+  changedAt: text('changed_at').notNull(),
+  changedByUserId: integer('changed_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  changedByEmployeeId: integer('changed_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  changedByName: text('changed_by_name').notNull(),
+}, table => [index('child_attendance_changes_child_date').on(table.childId, table.date)])
 
 /**
  * The child records are unlocked at a facility's tablet by one person (name + PIN): at most one row per tablet account.

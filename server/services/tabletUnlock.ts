@@ -28,13 +28,16 @@ function validUntil(lastActiveAt: string, lockMinutes: number): number {
  * rights of that account; everyone else (no or deactivated account, helpers) can only read.
  */
 function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): ChildViewer {
-  const employee = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, employeeId)).get()
+  const employee = db.select({ facilityId: employees.facilityId, name: employees.name }).from(employees)
+    .where(eq(employees.id, employeeId)).get()
   const account = employee?.facilityId === terminal.facilityId
     ? db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
     : undefined
   const role = account?.role ?? 'observer'
   return {
     id: account?.id ?? null,
+    employeeId,
+    name: employee?.name ?? '',
     role,
     canEditChildren: account?.canEditChildren ?? false,
     facilityId: terminal.facilityId,
@@ -137,9 +140,11 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
   }
   if (!isManager(user.role)) throw new ServiceError(403, 'children_tablet_only')
   if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
+  const employee = user.employeeId === null ? undefined
+    : db.select({ name: employees.name }).from(employees).where(eq(employees.id, user.employeeId)).get()
   return {
-    id: user.id, role: user.role, canEditChildren: user.canEditChildren, facilityId: user.facilityId,
-    visibility: null, onTablet: false,
+    id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
+    canEditChildren: user.canEditChildren, facilityId: user.facilityId, visibility: null, onTablet: false,
   }
 }
 

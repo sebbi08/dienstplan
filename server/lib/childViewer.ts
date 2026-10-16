@@ -9,6 +9,10 @@ import { ServiceError } from './errors'
 export interface ChildViewer {
   /** Account for "changed by"; null for a person without (active) account at the tablet, who can only read. */
   id: number | null
+  /** The person for "changed by" in the attendance log: at the tablet the one who unlocked, else the account's employee. */
+  employeeId: number | null
+  /** Their name for the log: the unlocking employee at the tablet; the linked employee's name, else the username. */
+  name: string
   role: Role
   canEditChildren: boolean
   facilityId: number

@@ -281,3 +281,29 @@ export const childDocumentSchema = z.object({
   confidential: z.boolean(),
 })
 export const fileQuery = z.object({ download: z.enum(['1']).optional() })
+
+// Child attendance: clock times are minutes of the day (0–1439); the rules (planned pickup, pickup person) are the service's.
+const clockTime = z.number().int().min(0).max(1439)
+const attendanceChild = { childId: z.number().int().positive(), date: isoDate }
+const pickupChoice = z.object({ kind: z.enum(['contact', 'announcement']), id: z.number().int().positive() })
+export const attendanceDayQuery = z.object({ date: isoDate })
+export const attendanceHistoryQuery = z.object({ childId: z.coerce.number().int().positive(), date: isoDate })
+export const attendanceArriveSchema = z.object({
+  ...attendanceChild, time: clockTime, plannedPickup: clockTime.nullable(), broughtBy: z.string().max(100).optional(),
+})
+export const attendanceLeaveSchema = z.object({ ...attendanceChild, time: clockTime, pickup: pickupChoice.nullable() })
+export const attendanceAnnouncementSchema = z.object({
+  ...attendanceChild, name: z.string().max(100), announcedBy: z.string().max(100).default(''),
+})
+export const attendanceAbsenceSchema = z.object({
+  childId: z.number().int().positive(), from: isoDate, to: isoDate, kind: z.enum(['sick', 'vacation', 'excused']).nullable(),
+})
+export const attendanceDaySchema = z.object({
+  ...attendanceChild,
+  plannedPickup: clockTime.optional(),
+  broughtBy: z.string().max(100).optional(),
+  note: z.string().max(2000).optional(),
+  snack: z.boolean().nullable().optional(),
+  lunch: z.boolean().nullable().optional(),
+})
+export const attendanceStaySchema = z.object({ arrived: clockTime, left: clockTime.nullable(), pickup: pickupChoice.optional() })

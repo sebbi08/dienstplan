@@ -1128,3 +1128,142 @@ export type AttendanceStatus = 'not_yet' | 'present' | 'gone' | AbsenceKind | 'u
 
 /** One cell of the month table: present (here or picked up), an absence kind, unexcused, or empty. */
 export type MonthCell = 'present' | AbsenceKind | 'unexcused' | 'none'
+
+/** The person picking a child up: one of its contacts allowed to, or a person announced for that day. */
+export interface AttendancePickupChoice {
+  kind: 'contact' | 'announcement'
+  id: number
+}
+
+/** A person the "Geht" dialog offers (never one with a contact ban). */
+export interface AttendancePickupOption extends AttendancePickupChoice {
+  name: string
+}
+
+/** One stay of a child on a day; `left` null while the child is here, `pickedUpBy` the name as it was. */
+export interface AttendanceStayDto {
+  id: number
+  arrived: Minutes
+  left: Minutes | null
+  pickedUpBy: string | null
+}
+
+export interface AttendanceAnnouncementDto {
+  id: number
+  name: string
+  announcedBy: string
+}
+
+/** A row of the day list: an active child of the facility on the day. */
+export interface AttendanceChildDto {
+  childId: number
+  /** "Nachname, Vorname". */
+  name: string
+  /** The child's group on the day (null = none). */
+  groupId: number | null
+  status: AttendanceStatus
+  stays: AttendanceStayDto[]
+  plannedPickup: Minutes | null
+  broughtBy: string
+  absence: AbsenceKind | null
+  /** "Was ist heute passiert". */
+  note: string
+  /** From the record, for the info column. */
+  allergies: string
+  /** Counted for the meal (automatically or by hand); `…Manual` = set by hand for the day. */
+  snack: boolean
+  lunch: boolean
+  snackManual: boolean
+  lunchManual: boolean
+  announcements: AttendanceAnnouncementDto[]
+  pickupOptions: AttendancePickupOption[]
+  /** The child has a contact with a contact ban; the notes are for the "Geht" dialog only, never the info column. */
+  hasContactBan: boolean
+  contactBanNotes: string[]
+  pickupOverdue: boolean
+  /** An entry of the day was changed or removed after it was made (see the history). */
+  changed: boolean
+}
+
+export interface AttendanceCountsDto {
+  present: number
+  gone: number
+  /** Sick, vacation, excused and unexcused. */
+  absent: number
+  notYet: number
+  snack: number
+  lunch: number
+}
+
+export interface AttendanceDayDto {
+  date: IsoDate
+  /** A weekday that is no public holiday of the facility and no closure day. */
+  isCareDay: boolean
+  snackTime: Minutes
+  lunchTime: Minutes
+  recordBroughtBy: boolean
+  counts: AttendanceCountsDto
+  /** The groups of the listed children in the groups' order; `id: null` (children without group) last, with an empty name. */
+  groups: { id: number | null; name: string }[]
+  children: AttendanceChildDto[]
+  /** Stays of the 14 days before that were never closed ("nicht ausgestempelt"). */
+  openStays: { date: IsoDate; childId: number; name: string }[]
+}
+
+/** One entry of a day's history: one field, its value before and after (text, '' = empty), who and when. */
+export interface AttendanceChangeDto {
+  id: number
+  field: string
+  before: string
+  after: string
+  changedAt: string
+  changedByName: string
+}
+
+export interface AttendanceArriveInput {
+  childId: number
+  date: IsoDate
+  time: Minutes
+  plannedPickup: Minutes | null
+  broughtBy?: string
+}
+
+export interface AttendanceLeaveInput {
+  childId: number
+  date: IsoDate
+  time: Minutes
+  pickup: AttendancePickupChoice | null
+}
+
+export interface AttendanceAnnouncementInput {
+  childId: number
+  date: IsoDate
+  name: string
+  announcedBy: string
+}
+
+/** An absence for every care day from `from` to `to` without a stay; `kind: null` clears it. */
+export interface AttendanceAbsenceInput {
+  childId: number
+  from: IsoDate
+  to: IsoDate
+  kind: AbsenceKind | null
+}
+
+/** The fields of a day to change; left out = unchanged, `snack`/`lunch` null = back to automatic. */
+export interface AttendanceDayInput {
+  childId: number
+  date: IsoDate
+  plannedPickup?: Minutes
+  broughtBy?: string
+  note?: string
+  snack?: boolean | null
+  lunch?: boolean | null
+}
+
+/** A corrected stay; a new pickup person may be given, closing an open stay needs one. */
+export interface AttendanceStayInput {
+  arrived: Minutes
+  left: Minutes | null
+  pickup?: AttendancePickupChoice
+}

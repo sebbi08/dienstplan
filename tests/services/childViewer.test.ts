@@ -52,11 +52,16 @@ describe('the child viewer', () => {
     const leitung = addUser(db, 'leitung', 'admin')
     const traeger = addUser(db, 'traeger', 'provider')
     expect(resolveChildViewer(db, leitung, undefined, NOW)).toEqual({
-      id: leitung.id, role: 'admin', canEditChildren: leitung.canEditChildren, facilityId: 1, visibility: null, onTablet: false,
+      id: leitung.id, employeeId: null, name: 'leitung', role: 'admin', canEditChildren: leitung.canEditChildren, facilityId: 1,
+      visibility: null, onTablet: false,
     })
     expect(resolveChildViewer(db, traeger, undefined, NOW)).toEqual({
-      id: traeger.id, role: 'provider', canEditChildren: traeger.canEditChildren, facilityId: 1, visibility: null, onTablet: false,
+      id: traeger.id, employeeId: null, name: 'traeger', role: 'provider', canEditChildren: traeger.canEditChildren, facilityId: 1,
+      visibility: null, onTablet: false,
     })
+    // An account linked with an employee is named like the employee.
+    const linked = addUser(db, 'leitung-berta', 'admin', berta)
+    expect(resolveChildViewer(db, linked, undefined, NOW)).toMatchObject({ id: linked.id, employeeId: berta, name: 'Berta' })
     expect(errorCode(() => resolveChildViewer(db, { ...traeger, facilityId: null }, undefined, NOW))).toBe('no_facility')
   })
 
@@ -66,7 +71,7 @@ describe('the child viewer', () => {
     const token = unlock()
     const later = new Date(NOW.getTime() + 60_000)
     expect(resolveChildViewer(db, tablet, token, later)).toEqual({
-      id: null, role: 'observer', canEditChildren: false, facilityId: 1,
+      id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
       visibility: { waitlist: false, futureContracts: false }, onTablet: true,
     })
     // Every request at the tablet counts as use and keeps it unlocked.
