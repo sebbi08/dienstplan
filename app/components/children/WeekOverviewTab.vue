@@ -50,7 +50,31 @@ const groupItems = computed(() => (data.value?.groups ?? []).map(group => ({
   label: group.right === 'read' ? s.readGroup(group.name) : group.name, value: group.id,
 })))
 
-const thisWeek = weekStart(todayIso())
+// Today follows the clock for "Diese Woche" (the tablet stays open past midnight and over the weekend): read again when
+// the page becomes visible, when the tab is shown again, whenever the week changes and once a minute for a screen that
+// stays on. Only the device's clock is read, the server is not asked (the tablet's lock time keeps running).
+const today = ref<IsoDate>(todayIso())
+const updateToday = () => (today.value = todayIso())
+const onVisibility = () => {
+  if (document.visibilityState === 'visible') updateToday()
+}
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  updateToday()
+  document.addEventListener('visibilitychange', onVisibility)
+  clock = setInterval(updateToday, 60_000)
+})
+onActivated(updateToday)
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibility)
+  clearInterval(clock)
+})
+watch(date, updateToday)
+const thisWeek = computed(() => weekStart(today.value))
+const showThisWeek = () => {
+  updateToday()
+  date.value = today.value
+}
 const period = computed(() => (data.value ? s.period(data.value.weekNumber, formatDateSpan(data.value.days[0]!.date, data.value.days[4]!.date)) : ''))
 const shiftWeek = (weeks: number) => (date.value = addDays(weekStart(date.value), weeks * 7))
 
@@ -137,7 +161,7 @@ watch(query, () => (history.value = null))
     <div class="flex flex-wrap items-center gap-2">
       <UButton size="lg" icon="i-lucide-chevron-left" color="neutral" variant="outline" :aria-label="s.previousWeek" @click="shiftWeek(-1)" />
       <UButton size="lg" icon="i-lucide-chevron-right" color="neutral" variant="outline" :aria-label="s.nextWeek" @click="shiftWeek(1)" />
-      <UButton size="lg" color="neutral" variant="outline" :label="s.thisWeek" :disabled="weekStart(date) === thisWeek" @click="date = todayIso()" />
+      <UButton size="lg" color="neutral" variant="outline" :label="s.thisWeek" :disabled="weekStart(date) === thisWeek" @click="showThisWeek" />
       <span class="text-lg font-semibold">{{ period }}</span>
       <USelect
         v-if="groupItems.length > 1" v-model="selectedGroup" :items="groupItems" size="lg" class="w-56" :aria-label="s.group"
