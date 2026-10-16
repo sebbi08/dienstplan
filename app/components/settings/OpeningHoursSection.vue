@@ -2,7 +2,7 @@
 import type { OpeningHours } from '#shared/domain/openingHours'
 import type { OpeningHoursDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { fromHoursForm, hasOwnDays, toHoursForm, type HoursForm } from '~/utils/openingHours'
+import { fromHoursForm, hasOwnDays, nextForm, toHoursForm, type HoursForm } from '~/utils/openingHours'
 
 /** Opening hours of the facility and the own hours of each group (Leitung and Träger). */
 const { data, refresh } = await useFetch<OpeningHoursDto>('/api/opening-hours', { key: 'opening-hours' })
@@ -21,9 +21,9 @@ const keyOf = (groupId?: number) => groupId === undefined ? 'facility' : String(
 
 function sync(key: string, current: HoursForm | undefined, hours: OpeningHours | null): HoursForm {
   const fresh = toHoursForm(hours)
-  const untouched = current === undefined || JSON.stringify(current) === stored.get(key)
+  const next = nextForm(current, stored.get(key), fresh, saved.has(key))
   stored.set(key, JSON.stringify(fresh))
-  return untouched || saved.has(key) ? fresh : current
+  return next
 }
 
 watch(data, (value) => {

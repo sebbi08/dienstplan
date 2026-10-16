@@ -28,6 +28,15 @@ export function toHoursForm(hours: OpeningHours | null): HoursForm {
   }
 }
 
+/**
+ * The form to show after the data was (re)loaded. `storedJson` is what the form was last built from (undefined: never synced).
+ * A form never synced or without edits takes the fresh values; one with unsaved edits keeps them unless it was just saved.
+ */
+export function nextForm(current: HoursForm | undefined, storedJson: string | undefined, fresh: HoursForm, justSaved: boolean): HoursForm {
+  const untouched = current === undefined || storedJson === undefined || JSON.stringify(current) === storedJson
+  return untouched || justSaved ? fresh : current
+}
+
 /** A minimum count as a number: an emptied field gives '' and becomes 0, which the server rejects as opening_min_invalid. */
 function count(value: unknown): number {
   return typeof value === 'number' ? value : Number(value) || 0

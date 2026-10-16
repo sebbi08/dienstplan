@@ -1,6 +1,40 @@
 import { describe, expect, it } from 'vitest'
 import { de } from '../../app/locales/de'
-import { dayHoursText, fromHoursForm, toHoursForm, weekdaysText } from '../../app/utils/openingHours'
+import { dayHoursText, fromHoursForm, nextForm, toHoursForm, weekdaysText } from '../../app/utils/openingHours'
+
+describe('nextForm', () => {
+  const hours = {
+    days: [
+      { open: 420, close: 990, closed: false }, { open: null, close: null, closed: false },
+      { open: null, close: null, closed: false }, { open: null, close: null, closed: false }, { open: null, close: null, closed: false },
+    ],
+    minAtOpening: 2, minAtClosing: 2,
+  }
+  const fresh = toHoursForm(hours)
+
+  it('shows the stored hours on first load, even though the form was only the empty start value', () => {
+    const empty = toHoursForm(null)
+    expect(nextForm(empty, undefined, fresh, false)).toBe(fresh)
+    expect(nextForm(undefined, undefined, fresh, false)).toBe(fresh)
+  })
+
+  it('rebuilds an untouched form after a refresh', () => {
+    const current = toHoursForm(null)
+    expect(nextForm(current, JSON.stringify(current), fresh, false)).toBe(fresh)
+  })
+
+  it('keeps the edits of a form when another form was saved', () => {
+    const edited = toHoursForm(null)
+    edited.days[1]!.open = '8:00'
+    expect(nextForm(edited, JSON.stringify(toHoursForm(null)), fresh, false)).toBe(edited)
+  })
+
+  it('rebuilds the saved form from the answer even with unsaved edits', () => {
+    const edited = toHoursForm(null)
+    edited.days[1]!.open = '8:00'
+    expect(nextForm(edited, JSON.stringify(toHoursForm(null)), fresh, true)).toBe(fresh)
+  })
+})
 
 describe('edge warning text', () => {
   it('names the time, the edge and how many are planned, with the group first', () => {
