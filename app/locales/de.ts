@@ -816,6 +816,7 @@ export const de = {
     group_name_taken: 'In dieser Einrichtung gibt es schon eine Gruppe mit diesem Namen.',
     group_not_found: 'Diese Gruppe existiert nicht mehr.',
     group_read_only: 'Das ist nur für die eigene Gruppe möglich.',
+    absence_foreign_days: 'Im Zeitraum war das Kind an einzelnen Tagen in einer anderen Gruppe. Trag die Abwesenheit nur für die eigenen Tage ein.',
     requirement_type_not_found: 'Diese Art von Pflichttermin existiert nicht mehr.',
     requirement_name_required: 'Bitte eine Bezeichnung für den Pflichttermin angeben.',
     requirement_name_taken: 'In dieser Einrichtung gibt es schon einen Pflichttermin mit dieser Bezeichnung.',

@@ -439,7 +439,9 @@ export function removeAnnouncement(db: Db, viewer: ChildViewer, id: number, now:
 /**
  * Enters an absence for a day or a range (spec §3.5, at most a year; 400 invalid_range otherwise): every care day of
  * the range on which the child is active and has no stay gets it. `kind: null` clears the absences of the range.
- * 404 child_not_found when the child is active on no day of the range. Returns the number of days changed.
+ * 404 child_not_found when the child is active on no day of the range. A range of foreign days only (group of the day
+ * not the viewer's own) is 403 group_read_only, one with some foreign days 403 absence_foreign_days; nothing is entered
+ * then. Returns the number of days changed.
  */
 export function setAbsence(db: Db, viewer: ChildViewer, input: AttendanceAbsenceInput, now: Date = new Date()): number {
   const span = daysBetween(input.from, input.to)
@@ -449,8 +451,11 @@ export function setAbsence(db: Db, viewer: ChildViewer, input: AttendanceAbsence
   if (dates.length === 0) throw new ServiceError(404, 'child_not_found')
   const isCareDay = careDays(db, viewer.facilityId)
   const history = historyOf(db, viewer.facilityId, input.childId)
-  // One foreign day in the range refuses the whole entry.
-  for (const date of dates) assertOwnDay(viewer, history, date)
+  // One foreign day in the range refuses the whole entry: only foreign days are group_read_only, a range that is partly
+  // the viewer's own gets its own hint (enter the own days only).
+  const foreign = dates.filter(date => !ownOnDay(viewer, history, date)).length
+  if (foreign === dates.length) throw new ServiceError(403, 'group_read_only')
+  if (foreign > 0) throw new ServiceError(403, 'absence_foreign_days')
   return db.transaction((tx) => {
     let changed = 0
     for (const date of dates) {

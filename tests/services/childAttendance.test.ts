@@ -898,9 +898,12 @@ describe('child attendance by group rights', () => {
     expect(errorCode(() => updateDay(db, viewer(), { childId: mover, date: before, note: 'x' }, NOW))).toBe('group_read_only')
     expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: before, to: before, kind: 'sick' }, NOW))).toBe('group_read_only')
     expect(errorCode(() => updateDay(db, viewer(), { childId: mover, date: after, note: 'x' }, NOW))).toBeNull()
-    expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: after, to: after, kind: 'sick' }, NOW))).toBeNull()
-    // A range over the move reaches the part in B, so it is refused as a whole.
-    expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: before, to: after, kind: 'vacation' }, NOW))).toBe('group_read_only')
+    expect(setAbsence(db, viewer(), { childId: mover, from: after, to: after, kind: 'sick' }, NOW)).toBe(1)
+    expect(rowOf(viewer(), mover, after).absence).toBe('sick')
+    // A range over the move reaches the part in B, so it is refused as a whole, with its own hint.
+    expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: before, to: after, kind: 'vacation' }, NOW))).toBe('absence_foreign_days')
+    expect(rowOf(viewer(), mover, before).absence).toBeNull()
+    expect(rowOf(viewer(), mover, after).absence).toBe('sick')
     // Stamping is open on both sides.
     expect(errorCode(() => arrive(db, viewer(), { childId: mover, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW))).toBeNull()
   })
