@@ -20,12 +20,13 @@ const form = reactive({ time: '', person: '' })
 const error = ref('')
 watch(open, (value) => {
   if (!value) return
-  // A single person on offer is chosen already.
-  const only = props.child.pickupOptions.length === 1 ? props.child.pickupOptions[0] : undefined
-  Object.assign(form, { time: nowClock(), person: only ? optionKey(only) : '' })
+  // Nobody is preselected, not even a single person on offer: who picks the child up is chosen consciously.
+  Object.assign(form, { time: nowClock(), person: '' })
   error.value = ''
 }, { immediate: true })
 
+/** A person of the current offer is chosen (submit stays off until then). */
+const chosen = computed(() => props.child.pickupOptions.some(option => optionKey(option) === form.person))
 const openStay = computed(() => props.child.stays.find(stay => stay.left === null))
 
 async function save() {
@@ -73,7 +74,7 @@ async function save() {
         <div class="flex gap-2">
           <UButton
             type="submit" size="xl" icon="i-lucide-log-out" :label="s.leave.submit" :loading="busy"
-            :disabled="busy || !child.pickupOptions.length"
+            :disabled="busy || !chosen"
           />
           <UButton type="button" size="xl" color="neutral" variant="ghost" :label="de.common.cancel" :disabled="busy" @click="open = false" />
         </div>

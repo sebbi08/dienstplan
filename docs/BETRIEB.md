@@ -337,8 +337,9 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
   „darf abholen“ und die Personen, die für diesen Tag angekündigt sind. Personen mit Umgangsverbot stehen nie in
   der Auswahl; hat das Kind ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot.
 - **Abholzeit überschritten**: Ist ein Kind 15 Minuten nach seiner geplanten Abholzeit noch da, wird seine Zeile
-  rot. Die Liste aktualisiert sich nicht von selbst (damit sich das Tablet nach der Sperrzeit sperrt); nach jedem
-  Eintrag und beim Öffnen ist sie aktuell.
+  rot – auch wenn die Liste die ganze Zeit offen ist (die Markierung folgt der Uhr des Geräts, jede Minute).
+  Einträge anderer Geräte erscheinen erst nach dem nächsten eigenen Eintrag oder beim Öffnen der Liste; die Liste
+  fragt nicht selbst beim Server nach, damit sich das Tablet nach der Sperrzeit sperrt.
 - **Nicht ausgestempelt**: Wurde ein Kind an einem der letzten 14 Tage nicht ausgestempelt, steht oben ein Hinweis
   mit dem Knopf **„Zum Tag“**. Dort trägst du die Abholung über **„Zeiten korrigieren“** (Stift am Aufenthalt) nach.
 

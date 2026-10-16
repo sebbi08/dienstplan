@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { addDays, isValidIsoDate, todayIso, weekday } from '#shared/domain/dates'
+import { pickupOverdue } from '#shared/domain/childAttendance'
 import { formatTime } from '#shared/domain/time'
+import { nowInBerlin } from '#shared/domain/timeRecords'
 import type { IsoDate } from '#shared/domain/types'
 import type { AttendanceChildDto, AttendanceDayDto, AttendanceDayInput } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -11,7 +13,8 @@ import { formatDate } from '~/utils/format'
 /**
  * The "Anwesenheit" tab (spec §3): the day list with stamping in and out, absences, announced pickup persons, the meal
  * ticks and the info column, or the month table. Every child viewer may change everything, also on older days; the
- * printouts are for Leitung and Träger off the tablet. Nothing here refreshes on a timer, so the tablet's lock time runs.
+ * printouts are for Leitung and Träger off the tablet. Nothing here asks the server on a timer (only the overdue marker
+ * follows a local clock), so the tablet's lock time runs.
  */
 const { rights, onTablet } = useChildRights()
 const canPrint = computed(() => !!rights.value?.isManager && !onTablet.value)
@@ -127,6 +130,22 @@ const stayOpen = dialogOpen('stay')
 const historyOpen = dialogOpen('history')
 watch(date, () => (dialog.value = null))
 
+// The overdue pickup (spec §3.6) follows the clock in the browser only: a tick every minute, never a request, so the
+// tablet's lock time keeps running. Until the page is mounted (SSR) the server's value is shown.
+const now = ref<Date | null>(null)
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  now.value = new Date()
+  clock = setInterval(() => (now.value = new Date()), 60_000)
+})
+onBeforeUnmount(() => clearInterval(clock))
+const berlinNow = computed(() => (now.value ? nowInBerlin(now.value) : null))
+function isOverdue(child: AttendanceChildDto): boolean {
+  const current = berlinNow.value
+  if (!current || !data.value) return child.pickupOverdue
+  return pickupOverdue(child.stays, child.plannedPickup, data.value.date === current.date, current.minutes)
+}
+
 const isAbsent = (child: AttendanceChildDto) => !['not_yet', 'present', 'gone'].includes(child.status)
 const statusClass = (child: AttendanceChildDto) => ({
   'text-green-700': child.status === 'present',
@@ -185,7 +204,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
             <li
               v-for="child in section.rows" :key="child.childId"
               class="grid gap-3 p-3 lg:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)_auto] lg:items-start"
-              :class="child.pickupOverdue ? 'bg-red-50 ring-2 ring-inset ring-red-500' : ''"
+              :class="isOverdue(child) ? 'bg-red-50 ring-2 ring-inset ring-red-500' : ''"
             >
               <!-- Name and status -->
               <div class="min-w-0 space-y-0.5">
@@ -197,7 +216,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                   />
                 </div>
                 <p class="font-medium" :class="statusClass(child)">{{ attendanceStatusText(child) }}</p>
-                <p v-if="child.pickupOverdue && child.plannedPickup !== null" class="flex items-center gap-1 font-semibold text-red-700" role="alert">
+                <p v-if="isOverdue(child) && child.plannedPickup !== null" class="flex items-center gap-1 font-semibold text-red-700" role="alert">
                   <UIcon name="i-lucide-alarm-clock" class="size-4" />{{ s.pickupOverdue(formatTime(child.plannedPickup)) }}
                 </p>
                 <p v-if="child.announcements.length" class="text-sm text-sky-800">{{ s.pickupToday(child.announcements.map(entry => entry.name).join(', ')) }}</p>
