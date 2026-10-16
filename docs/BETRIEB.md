@@ -463,3 +463,32 @@ Geburtstage, Dokumente, „Offen“).
 Leitung und Träger drucken die Woche einer Gruppe im Büro mit **„Drucken“** (A4 quer: Einrichtung, Gruppe,
 Kalenderwoche, Wochenthema und Montag bis Freitag nebeneinander, als Ausdruck oder PDF). Am Tablet gibt es keine
 Druck-Knöpfe.
+
+## 13. Öffnungszeiten und Pflichtdienste
+
+Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Einrichtung, in der sie gerade arbeiten.
+
+- **Öffnungszeiten:** Im Abschnitt „Öffnungszeiten“ (unter „Pflichtdienste“) trägst du für Montag bis Freitag
+  Öffnung und Schließung ein oder hakst „geschlossen“ an. Die Schließung muss nach der Öffnung liegen. Ein Tag ohne
+  Eintrag gilt als „nicht eingetragen“: Dafür gibt es keine neue Warnung. Samstag und Sonntag gibt es nicht.
+- **Mindestzahlen:** „Mindestens zur Öffnung“ und „Mindestens bis zur Schließung“ (1 bis 20, voreingestellt 1).
+- **Eigene Zeiten einer Gruppe:** Unter der Einrichtung steht bei jeder Gruppe aufklappbar „Eigene
+  Öffnungszeiten“ mit derselben Tabelle. Leer heißt: Es gelten die Zeiten der Einrichtung, die Gruppe hat dann keine
+  eigene Warnung. Mit **„Eigene Zeiten entfernen“** fällt die Gruppe wieder auf die Einrichtung zurück. Hat eine
+  Gruppe eigene Zeiten, prüft die Warnung der Gruppe nur die Dienste dieser Gruppe (eigene Gruppe des Dienstes,
+  sonst die Stammgruppe des Mitarbeiters).
+- **Anzeige im Dienstplan:** Im Kopf jedes Tages steht klein die Öffnungszeit („7:00–16:30“ oder „geschlossen“).
+  Eigene Zeiten einer Gruppe stehen klein in deren Spalte „anwesend“.
+- **Rand-Warnung:** Zur Öffnung zählen Dienste, die spätestens zur Öffnung beginnen und nach der Öffnung enden. Bis
+  zur Schließung zählen Dienste, die vor der Schließung beginnen und frühestens zur Schließung enden. Sind es
+  weniger als die Mindestzahl, steht im Dienstplan zum Beispiel „7:00 Öffnung: niemand eingeplant“ oder
+  „16:30 Schließung: 1 von 2 eingeplant“ (bei einer Gruppe mit dem Gruppennamen davor). Für die Einrichtung zählen alle
+  Dienste des Plans, auch von Aushilfen. Nicht geprüft werden Wochenenden, Feiertage, Schließtage, nicht eingetragene
+  Tage und „geschlossen“.
+- **Pflichtdienste je Wochentag:** Jeder Pflichtdienst hat die Knöpfe **Mo Di Mi Do Fr** (mindestens einer muss
+  gewählt sein). Er wird nur an diesen Tagen geprüft; ist nicht jeder Tag gewählt, steht darunter z. B. „Mo–Do“.
+  Bisherige Pflichtdienste gelten weiter an allen Werktagen. An einem als „geschlossen“ eingetragenen Tag wird kein
+  Pflichtdienst geprüft (bei einer Gruppe: gilt „geschlossen“ der Gruppe, falls sie eigene Zeiten hat, sonst der
+  Einrichtung).
+- **Rückwirkend:** Änderungen an Öffnungszeiten und Pflichtdiensten gelten für alle Tage, auch für vergangene Monate.
+  Wer nichts einträgt, bekommt keine neuen Warnungen.

@@ -8,6 +8,7 @@ import { pendingChangeText, releasedChangeText } from '~/utils/changes'
 import { formatDayShort } from '~/utils/format'
 import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
+import { dayHoursText } from '~/utils/openingHours'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
 const props = defineProps<{
@@ -177,7 +178,11 @@ const rows = computed(() => props.plan.days.map((day) => {
       const count = props.plan.attendance[column.groupId]?.[day.date] ?? 0
       // Nothing on free days nobody works.
       const quiet = count === 0 && (day.isWeekend || Boolean(day.holidayKey) || Boolean(day.closureLabel))
-      return { kind: 'attendance' as const, key: `attendance-${column.groupId}`, count: quiet ? null : count }
+      return {
+        kind: 'attendance' as const, key: `attendance-${column.groupId}`, count: quiet ? null : count,
+        // The group's own opening hours of the day, small beside its count.
+        hours: dayHoursText(day.groupOpening[column.groupId]), groupName: groupNames.value.get(column.groupId) ?? '',
+      }
     }
     const employee = column.employee
     const key = cellKey(employee.id, day.date)
@@ -329,6 +334,7 @@ const rows = computed(() => props.plan.days.map((day) => {
               </button>
               <div v-if="row.day.holidayKey" class="text-xs text-blue-700">{{ de.holidays[row.day.holidayKey] }}</div>
               <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700">{{ row.day.closureLabel }}</div>
+              <div v-if="dayHoursText(row.day.opening)" class="text-xs font-normal text-gray-500">{{ dayHoursText(row.day.opening) }}</div>
             </td>
             <template v-for="cell in row.cells" :key="cell.key">
               <td
@@ -336,6 +342,9 @@ const rows = computed(() => props.plan.days.map((day) => {
                 :title="de.groups.presentHint"
               >
                 {{ cell.count ?? '' }}
+                <div v-if="cell.hours" class="whitespace-nowrap text-[10px] font-normal text-gray-500" :title="de.openingHours.planHint(cell.groupName)">
+                  {{ cell.hours }}
+                </div>
               </td>
               <td
                 v-else

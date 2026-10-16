@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
+import { ALL_WEEKDAYS } from '#shared/domain/openingHours'
 import { formatDuration, formatTime, parseTime } from '#shared/domain/time'
 import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CreditMode } from '#shared/domain/types'
@@ -7,13 +8,18 @@ import {
   COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type ShiftChangeResult, type TemplateDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { weekdaysText } from '~/utils/openingHours'
 
 interface TemplateForm {
   id: number | null; shortLabel: string; label: string; start: string; end: string
   breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean; sortOrder: number
 }
 /** groupId 0 = the whole facility (the select needs a non-null value). */
-interface RuleForm { id: number | null; label: string; start: string; end: string; minCount: number; active: boolean; groupId: number }
+interface RuleForm {
+  id: number | null; label: string; start: string; end: string; minCount: number; active: boolean; groupId: number
+  /** Weekday mask Mo = 1 … Fr = 16. */
+  weekdays: number
+}
 
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings')
 const run = useAction(refresh)
@@ -40,7 +46,7 @@ const timeText = (minutes: number | null) => (minutes === null ? '' : formatTime
 const optionalTime = (value: string) => (value.trim() ? parseTime(value) ?? undefined : null)
 
 const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99 })
-const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true, groupId: 0 })
+const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true, groupId: 0, weekdays: ALL_WEEKDAYS })
 
 // Required duties may apply to one group; the choice appears only when the facility has groups.
 // Shared with the Träger's group list below, which refreshes it after a change.
@@ -65,7 +71,7 @@ watch(settings, (value) => {
   codes.value = (value?.codes ?? []).map(code => ({ ...code }))
   rules.value = (value?.coverageRules ?? []).map((r: CoverageRuleDto) => ({
     id: r.id, label: r.label, start: timeText(r.start), end: timeText(r.end), minCount: r.minCount, active: r.active,
-    groupId: r.groupId ?? 0,
+    groupId: r.groupId ?? 0, weekdays: r.weekdays,
   }))
 }, { immediate: true })
 
@@ -154,8 +160,9 @@ async function saveRule(form: RuleForm) {
   const start = parseTime(form.start)
   const end = optionalTime(form.end)
   if (start === null || end === undefined) return invalidTime()
+  if (form.weekdays === 0) return void toast.add({ title: de.settings.ruleWeekdaysMissing, color: 'error' })
   const body = {
-    label: form.label, start, end, minCount: form.minCount, active: form.active,
+    label: form.label, start, end, minCount: form.minCount, active: form.active, weekdays: form.weekdays,
     // Without groups the rule's group is left as it is (always the whole facility then).
     ...(hasGroups.value ? { groupId: form.groupId || null } : {}),
   }
@@ -261,6 +268,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
           <tr>
             <th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.ruleStart }}</th>
             <th :class="cell">{{ de.settings.ruleEnd }}</th><th :class="cell">{{ de.settings.minCount }}</th>
+            <th :class="cell">{{ de.settings.ruleWeekdays }}</th>
             <th v-if="hasGroups" :class="cell">{{ de.settings.ruleGroup }}</th>
             <th :class="cell">{{ de.settings.active }}</th><th />
           </tr>
@@ -271,6 +279,10 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <td :class="cell"><TimeInput v-model="form.start" class="w-20" @keydown.enter="saveRule(form)" /></td>
             <td :class="cell"><TimeInput v-model="form.end" class="w-20" @keydown.enter="saveRule(form)" /></td>
             <td :class="cell"><input v-model.number="form.minCount" type="number" min="1" max="20" class="w-16 rounded border border-gray-300 px-1 py-0.5"></td>
+            <td :class="cell">
+              <WorkdayPicker v-model="form.weekdays" :aria-label="de.settings.ruleWeekdays" />
+              <div v-if="form.weekdays !== ALL_WEEKDAYS && form.weekdays !== 0" class="mt-0.5 text-xs text-gray-500">{{ weekdaysText(form.weekdays) }}</div>
+            </td>
             <td v-if="hasGroups" :class="cell">
               <USelect v-model="form.groupId" :items="groupItems" class="w-40" :aria-label="de.settings.ruleGroup" />
             </td>
@@ -283,6 +295,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
         </tbody>
       </table>
     </section>
+
+    <SettingsOpeningHoursSection />
 
     <SettingsRequirementTypesSection />
 
