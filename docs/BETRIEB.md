@@ -355,7 +355,8 @@ freiwillig „angekündigt von“ (z. B. „Mama, telefonisch“). Die Person gi
 diesen Tag oder bis zu einem Enddatum (z. B. angekündigter Urlaub). Eingetragen wird an Betreuungstagen; Wochenenden,
 Feiertage und Schließtage werden übersprungen. Kommt ein abwesend eingetragenes Kind doch, ersetzt „Kommt“ die
 Abwesenheit für diesen Tag. Ist an einem vergangenen Betreuungstag nichts eingetragen, gilt das Kind als
-unentschuldigt (–).
+unentschuldigt (–) – aber erst ab dem Tag, der unter *Einstellungen → Anwesenheit* bei **„Anwesenheit erfasst ab“**
+steht (der erste Eintrag setzt ihn von selbst; Tage davor bleiben leer und zählen nicht).
 
 ### Snack und Mittagessen
 

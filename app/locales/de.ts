@@ -600,6 +600,8 @@ export const de = {
     // Settings section (Leitung and Träger) and the print pages of the child attendance.
     settingsTitle: 'Anwesenheit', snackTime: 'Uhrzeit Snack', lunchTime: 'Uhrzeit Mittagessen', recordBroughtBy: 'Bringperson erfassen',
     settingsHint: 'Zu diesen Uhrzeiten werden die Kinder für Snack und Mittagessen gezählt. Ist „Bringperson erfassen“ an, fragt das Tablet beim Kommen, wer das Kind gebracht hat.',
+    attendanceSince: 'Anwesenheit erfasst ab', attendanceSinceEmpty: 'Noch nicht begonnen',
+    attendanceSinceHint: 'Erst ab diesem Tag zählt ein Betreuungstag ohne Eintrag als unentschuldigt (–). Der erste Eintrag in der Anwesenheit setzt das Datum von selbst; ändern kannst du es nur hier. Leer = noch nicht begonnen.',
     printDayTitle: (date: string) => `Anwesenheit Kinder ${date}`, printMonthTitle: (month: string) => `Anwesenheit Kinder ${month}`,
     noGroup: 'Ohne Gruppe', noChildren: 'Keine Kinder.',
     printColumns: {
