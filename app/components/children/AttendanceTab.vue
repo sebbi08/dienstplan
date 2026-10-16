@@ -146,6 +146,9 @@ function isOverdue(child: AttendanceChildDto): boolean {
   return pickupOverdue(child.stays, child.plannedPickup, data.value.date === current.date, current.minutes)
 }
 
+/** A later day: stamping in and out is not possible there yet (absences and announced persons are). */
+const isFutureDay = computed(() => !!data.value && data.value.date > (berlinNow.value?.date ?? todayIso()))
+
 const isAbsent = (child: AttendanceChildDto) => !['not_yet', 'present', 'gone'].includes(child.status)
 const statusClass = (child: AttendanceChildDto) => ({
   'text-green-700': child.status === 'present',
@@ -266,8 +269,11 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
 
               <!-- Actions by status -->
               <div class="flex flex-wrap gap-2 lg:max-w-80 lg:justify-end">
-                <UButton v-if="child.status !== 'present'" size="xl" color="success" icon="i-lucide-log-in" :label="s.actions.arrive" @click="openDialog('arrive', child)" />
-                <UButton v-if="child.status === 'present'" size="xl" icon="i-lucide-log-out" :label="s.actions.leave" @click="openDialog('leave', child)" />
+                <UButton
+                  v-if="!isFutureDay && child.status !== 'present'" size="xl" color="success" icon="i-lucide-log-in" :label="s.actions.arrive"
+                  @click="openDialog('arrive', child)"
+                />
+                <UButton v-if="!isFutureDay && child.status === 'present'" size="xl" icon="i-lucide-log-out" :label="s.actions.leave" @click="openDialog('leave', child)" />
                 <UButton
                   v-if="!child.stays.length" size="xl" color="neutral" variant="outline" icon="i-lucide-calendar-x" :label="s.actions.absent"
                   @click="openDialog('absent', child)"

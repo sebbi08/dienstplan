@@ -92,6 +92,36 @@ describe('child attendance', () => {
     })
   })
 
+  describe('a later day', () => {
+    const TOMORROW = '2026-10-15'
+
+    it('cannot be stamped in or out or get stay times; absences and announcements ahead are fine', () => {
+      expect(errorCode(() => arriveAt('08:00', { date: TOMORROW }))).toBe('attendance_future')
+      expect(errorCode(() => leaveAt('15:00', mamaPickup(), { date: TOMORROW }))).toBe('attendance_future')
+      expect(db.select().from(childAttendanceStays).all()).toEqual([])
+
+      // A stay of a later day (as it could be stored before this rule) cannot be corrected.
+      const dayId = db.insert(childAttendanceDays).values({ childId: lena, date: TOMORROW }).returning().get().id
+      const stayId = db.insert(childAttendanceStays).values({ dayId, arrived: hm('08:00') }).returning().get().id
+      expect(errorCode(() => updateStay(db, leitung, stayId, { arrived: hm('08:00'), left: hm('15:00'), pickup: mamaPickup() }, NOW)))
+        .toBe('attendance_future')
+      deleteStay(db, leitung, stayId, NOW)
+
+      expect(setAbsence(db, leitung, { childId: lena, from: TOMORROW, to: TOMORROW, kind: 'vacation' }, NOW)).toBe(1)
+      announcePickup(db, leitung, { childId: lena, date: TOMORROW, name: 'Oma Erika', announcedBy: '' }, NOW)
+      expect(rowOf(lena, TOMORROW)).toMatchObject({ status: 'vacation', announcements: [expect.objectContaining({ name: 'Oma Erika' })] })
+    })
+
+    it('is the next day in Berlin, also late in the evening', () => {
+      const lateEvening = berlin(TODAY, '23:30')
+      expect(errorCode(() => arriveAt('08:00', { date: TOMORROW, now: lateEvening }))).toBe('attendance_future')
+      arriveAt('23:30', { now: lateEvening })
+      const afterMidnight = berlin(TOMORROW, '00:10') // 22:10 UTC on the 14th, but the 15th in Berlin
+      arriveAt('00:10', { date: TOMORROW, now: afterMidnight })
+      expect(rowOf(lena, TOMORROW, afterMidnight).status).toBe('present')
+    })
+  })
+
   describe('leaving', () => {
     it('only with a person who may pick the child up', () => {
       expect(errorCode(() => leaveAt('09:00', mamaPickup()))).toBe('not_present')
@@ -260,7 +290,7 @@ describe('child attendance', () => {
     expect(rowOf(ben, '2026-10-20').groupId).toBe(mice)
     expect(rowOf(ben, '2026-10-21').groupId).toBe(mice)
     expect(db.select().from(childAttendanceDays).where(eq(childAttendanceDays.childId, ben)).get()!.groupId).toBe(bears)
-    arriveAt('08:00', { childId: ben, date: '2026-10-21' })
+    arriveAt('08:00', { childId: ben, date: '2026-10-21', now: berlin('2026-10-21', '08:00') })
     expect(db.select().from(childAttendanceDays).where(eq(childAttendanceDays.date, '2026-10-21')).get()!.groupId).toBe(mice)
 
     // The groups in their order, children without a group last; within them by name.

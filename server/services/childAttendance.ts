@@ -49,6 +49,11 @@ function attendanceChild(db: Db, viewer: ChildViewer, childId: number, date: Iso
   return row
 }
 
+/** Stamping and stay times only up to today (Berlin); a later day: 400 attendance_future. Absences and announcements may lie ahead. */
+function refuseFuture(date: IsoDate, now: Date): void {
+  if (date > nowInBerlin(now).date) throw new ServiceError(400, 'attendance_future')
+}
+
 /** Care days of the facility (spec §2): weekdays that are neither a public holiday of the facility nor a closure day. */
 function careDays(db: Db, facilityId: number): (date: IsoDate) => boolean {
   const rules = facilityHolidayRules(db, facilityId)
@@ -294,10 +299,12 @@ export function attendanceHistory(db: Db, viewer: ChildViewer, childId: number, 
 
 /**
  * Stamps the child in (spec §3.2): a new stay from `time`; the planned pickup is required (400 planned_pickup_required),
- * a child already here cannot come again (409 already_present). An absence of the day is replaced. Returns the stay's id.
+ * a child already here cannot come again (409 already_present), not on a later day (400 attendance_future). An absence
+ * of the day is replaced. Returns the stay's id.
  */
 export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput, now: Date = new Date()): number {
   attendanceChild(db, viewer, input.childId, input.date)
+  refuseFuture(input.date, now)
   const plannedPickup = input.plannedPickup ?? null
   if (plannedPickup === null) throw new ServiceError(400, 'planned_pickup_required')
   const history = historyOf(db, viewer.facilityId, input.childId)
@@ -319,10 +326,12 @@ export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput
 
 /**
  * Stamps the child out (spec §3.4): closes the open stay of the day (409 not_present without one) at `time`, not before
- * the arrival (400 leave_before_arrival), with a person who may pick the child up (see `pickupPerson`).
+ * the arrival (400 leave_before_arrival), with a person who may pick the child up (see `pickupPerson`); not on a later
+ * day (400 attendance_future).
  */
 export function leave(db: Db, viewer: ChildViewer, input: AttendanceLeaveInput, now: Date = new Date()): void {
   attendanceChild(db, viewer, input.childId, input.date)
+  refuseFuture(input.date, now)
   db.transaction((tx) => {
     const day = findDay(tx, input.childId, input.date)
     const open = day ? staysOf(tx, day.id).find(stay => stay.left === null) : undefined
@@ -446,10 +455,12 @@ function loadStay(db: Db, viewer: ChildViewer, stayId: number): { stay: StayRow;
 /**
  * Corrects a stay (spec §3.9) by the same rules as stamping: not left before arriving (400 leave_before_arrival); a
  * stay opened again while another one of the day is open: 409 already_present. A closed stay keeps its pickup person
- * unless a new one is given (checked like leaving); closing an open stay needs one (400 pickup_person_required).
+ * unless a new one is given (checked like leaving); closing an open stay needs one (400 pickup_person_required). A stay
+ * of a later day cannot get times (400 attendance_future).
  */
 export function updateStay(db: Db, viewer: ChildViewer, stayId: number, input: AttendanceStayInput, now: Date = new Date()): void {
   const { stay, day } = loadStay(db, viewer, stayId)
+  refuseFuture(day.date, now)
   if (input.left !== null && input.left < input.arrived) throw new ServiceError(400, 'leave_before_arrival')
   db.transaction((tx) => {
     let person: { name: string | null; contactId: number | null } = { name: null, contactId: null }
