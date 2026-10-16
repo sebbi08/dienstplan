@@ -57,6 +57,8 @@ const CHILD_READER_ROUTES = [
   'attendance/day.get.ts', 'attendance/arrive.post.ts', 'attendance/leave.post.ts', 'attendance/announcements/index.post.ts',
   'attendance/announcements/[id].delete.ts', 'attendance/absence.put.ts', 'attendance/day.put.ts', 'attendance/stays/[id].put.ts',
   'attendance/stays/[id].delete.ts', 'attendance/history.get.ts', 'attendance/month.get.ts', 'attendance/month-remark.put.ts',
+  // Weekly overview of the group books: the service decides per group who reads and who writes.
+  'group-book/week.get.ts', 'group-book/week.put.ts', 'group-book/day.put.ts', 'group-book/history.get.ts',
 ]
 /**
  * Routes that maintain child records (managers, and at the tablet Mitarbeiter with the permission); they must check

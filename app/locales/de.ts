@@ -196,7 +196,7 @@ export const de = {
     groupBooks: 'Gruppenbücher',
     groupBooksHint: 'Mitarbeiter mit Gruppe sehen am Tablet nur ihre eigene Gruppe. Hier legst du fest, welche anderen Gruppen sie zusätzlich lesen dürfen (gilt nur in eine Richtung).',
     hint: 'Im Dienstplan erscheint jede Gruppe als eigener Block mit der Zahl der Anwesenden pro Tag. Die Leitung ordnet die Mitarbeiter ihrer Gruppe zu.',
-    deleteConfirm: (name: string) => `Gruppe „${name}“ löschen? Ihre Pflichtdienste und Dienstplanvorlagen werden mit gelöscht. `
+    deleteConfirm: (name: string) => `Gruppe „${name}“ löschen? Ihre Pflichtdienste, Dienstplanvorlagen und Wochenübersichten werden mit gelöscht. `
       + 'Dienste, die für diese Gruppe eingetragen waren, zählen danach wieder für die Stammgruppe der Person. '
       + 'Mitarbeiter, deren Stammgruppe sie ist, müssen vorher einer anderen Gruppe zugeordnet werden.',
     /** Block names in the plan. */
@@ -606,6 +606,14 @@ export const de = {
     title: 'Tablet', lockMinutes: 'Sperrzeit ohne Bedienung (Minuten)',
     showWaitlist: 'Vormerkungen am Tablet zeigen', showFutureContracts: 'Künftige Kinder mit Vertrag am Tablet zeigen',
     hint: 'Mitarbeiter sehen Kinder nur am Tablet: Name antippen und PIN eingeben. Das Tablet sperrt sich nach der Sperrzeit ohne Bedienung von selbst.',
+  },
+  groupBook: {
+    // Weekly overview (Wochenübersicht) of a group: the print page for Leitung and Träger.
+    weekNumber: (number: number) => `KW ${number}`,
+    weekdays: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'],
+    printTitle: (group: string) => `Wochenübersicht ${group}`,
+    theme: 'Wochenthema / geplant', done: 'Was haben wir gemacht',
+    holiday: (name: string) => `Feiertag: ${name}`, closure: (label: string) => `Schließtag: ${label}`,
   },
   attendance: {
     // Settings section (Leitung and Träger) and the print pages of the child attendance.

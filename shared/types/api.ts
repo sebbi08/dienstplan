@@ -1336,3 +1336,47 @@ export interface AttendanceSettingsDto {
   /** Attendance is recorded from this day on ("Anwesenheit erfasst ab"; null = not yet): only from then on is a day unexcused. */
   attendanceSince: IsoDate | null
 }
+
+// ---- Group book: weekly overview (Wochenübersicht) ----
+
+/** A free text of the weekly overview with who changed it last; empty and without a person while nothing was entered. */
+export interface NoteDto {
+  text: string
+  updatedAt: string | null
+  updatedByName: string | null
+}
+
+/** Why a day of the weekly overview is greyed: a public holiday of the facility's state (the client names it) or a closure day. */
+export type GroupDayLabel = { kind: 'holiday'; key: HolidayKey } | { kind: 'closure'; label: string }
+
+/** A group of the weekly overview's group choice with what the viewer may do there. */
+export interface GroupBookGroupDto { id: number; name: string; right: 'write' | 'read' }
+
+/** One week (Monday to Friday) of a group's weekly overview. */
+export interface GroupWeekDto {
+  groupId: number
+  groupName: string
+  facilityName: string
+  /** The week's Monday. */
+  weekStart: IsoDate
+  weekNumber: number
+  /** "Wochenthema / geplant". */
+  theme: NoteDto
+  /** Monday to Friday: the day's label (holiday or closure, null on an ordinary day) and the "Was haben wir gemacht" text. */
+  days: { date: IsoDate; label: GroupDayLabel | null; note: NoteDto }[]
+  canWrite: boolean
+  /** The groups the viewer may see, in the facility's order. */
+  groups: GroupBookGroupDto[]
+}
+
+export interface GroupBookWeekInput { groupId: number; weekStart: IsoDate; text: string }
+export interface GroupBookDayInput { groupId: number; date: IsoDate; text: string }
+
+/** One change of a weekly overview field: what it was and what it is now, who and when. */
+export interface GroupBookChangeDto {
+  id: number
+  before: string
+  after: string
+  changedAt: string
+  changedByName: string
+}
