@@ -228,6 +228,19 @@ describe('dayWarnings with weekdays and opening hours', () => {
       const hours = { facility: closedMonday, groups: [{ groupId: 5, groupName: 'Mäuse', hours: week(allDays(open(420, 960))) }] }
       expect(coverageOf(dayWarnings(monday, [], [groupRule], false, BW_RULES, hours))).toHaveLength(1)
     })
+    it('falls back to the facility closed day when the group left that weekday empty', () => {
+      const groupHours = week([emptyDay, open(420, 960), open(420, 960), open(420, 960), open(420, 960)])
+      const hours = { facility: closedMonday, groups: [{ groupId: 5, groupName: 'Mäuse', hours: groupHours }] }
+      expect(coverageOf(dayWarnings(monday, [], [groupRule], false, BW_RULES, hours))).toEqual([])
+      expect(edges(dayWarnings(monday, [], [], false, BW_RULES, hours))).toEqual([])
+      // the group's set weekdays still apply
+      expect(coverageOf(dayWarnings(friday, [], [groupRule], false, BW_RULES, hours))).toHaveLength(1)
+    })
+    it('uses the group closed day even when the facility is open that weekday', () => {
+      const groupHours = week([closedDay, emptyDay, emptyDay, emptyDay, emptyDay])
+      const hours = { facility: week(allDays(open(420, 960))), groups: [{ groupId: 5, groupName: 'Mäuse', hours: groupHours }] }
+      expect(coverageOf(dayWarnings(monday, [], [groupRule], false, BW_RULES, hours))).toEqual([])
+    })
   })
 
   describe('facility edges', () => {
@@ -267,6 +280,12 @@ describe('dayWarnings with weekdays and opening hours', () => {
     })
     it('counts a shift with a break inside', () => {
       expect(run([person(1, null, [shift(1, date, 420, 990, 700, 730)])])).toEqual([])
+    })
+    it('does not count a shift that does not count as staff', () => {
+      const kitchen = (start: number, end: number) => shift(1, date, start, end, null, null, { countsAsStaff: false })
+      expect(run([person(1, null, [kitchen(420, 990)])])).toEqual([openingWarning, closingWarning])
+      expect(run([person(1, null, [kitchen(420, 720)]), person(2, null, [shift(2, date, 600, 990)])])).toEqual([openingWarning])
+      expect(run([earlyDuty, person(2, null, [kitchen(600, 990)])])).toEqual([closingWarning])
     })
     it('warns on an entered day without any duty', () => {
       expect(run([])).toEqual([openingWarning, closingWarning])

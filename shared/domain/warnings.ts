@@ -86,7 +86,7 @@ function edgeWarnings(
   const day = hoursOn(hours, date)
   if (!isEntered(day)) return []
   const spans = duties
-    .filter(({ entry }) => isDuty(entry) && entry.start !== null && entry.end !== null)
+    .filter(({ entry }) => isDuty(entry) && entry.countsAsStaff && entry.start !== null && entry.end !== null)
     .map(({ entry }) => ({ start: entry.start!, end: entry.end! }))
   const warnings: Warning[] = []
   const atOpening = spans.filter(span => span.start <= day.open && span.end > day.open).length
@@ -125,9 +125,11 @@ export function dayWarnings(
     if (!ruleAppliesOn(rule.weekdays ?? ALL_WEEKDAYS, date)) continue
     // A facility rule counts every duty; a group rule only those whose effective group it is.
     const groupId = rule.groupId ?? null
-    // A closed weekday (the group's own hours if it has some, else the facility's) is not checked.
+    // A closed weekday (the group's own day if it set one, else the facility's) is not checked.
     const ruleHours = groupId === null ? undefined : hours.groups.find(group => group.groupId === groupId)?.hours
-    if ((ruleHours === undefined ? facilityDay : hoursOn(ruleHours, date))?.closed) continue
+    const groupDay = hoursOn(ruleHours ?? null, date)
+    const hasOwnDay = groupDay !== null && (groupDay.closed || groupDay.open !== null || groupDay.close !== null)
+    if ((hasOwnDay ? groupDay : facilityDay)?.closed) continue
     const found = allEntries
       .filter(item => matchesRule(item.entry, rule) && (groupId === null || item.groupId === groupId)).length
     if (found < rule.minCount) {
