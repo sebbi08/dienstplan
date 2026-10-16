@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or } from 'drizzle-orm'
 import { countsForMeal, dayStatus, monthCell, monthSums, pickupOverdue, type StaySpan } from '../../shared/domain/childAttendance'
 import { childStatus } from '../../shared/domain/children'
 import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
@@ -249,6 +249,7 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
   })
 
   const usedGroups = new Set(list.map(item => item.groupId))
+  // Not the stays of the facility a child came from (before its facilitySince).
   const openStays = db.select({ date: childAttendanceDays.date, childId: childAttendanceDays.childId, lastName: children.lastName, firstName: children.firstName })
     .from(childAttendanceStays)
     .innerJoin(childAttendanceDays, eq(childAttendanceDays.id, childAttendanceStays.dayId))
@@ -256,6 +257,7 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
     .where(and(
       eq(children.facilityId, facilityId), isNull(childAttendanceStays.left),
       gte(childAttendanceDays.date, addDays(date, -OPEN_STAY_DAYS)), lt(childAttendanceDays.date, date),
+      or(isNull(children.facilitySince), gte(childAttendanceDays.date, children.facilitySince)),
     )).all()
     .sort((a, b) => a.date.localeCompare(b.date) || a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de'))
     .map(row => ({ date: row.date, childId: row.childId, name: nameOf(row) }))

@@ -253,6 +253,17 @@ describe('child attendance', () => {
     expect(rowOf()).toMatchObject({ status: 'present', stays: [expect.objectContaining({ arrived: hm('08:10') })] })
   })
 
+  it('does not report an open stay of the facility the child came from', () => {
+    const nina = addChild(db, 1, { lastName: 'Neu', firstName: 'Nina' })
+    db.update(children).set({ facilitySince: '2026-10-12' }).where(eq(children.id, nina)).run()
+    // Left open in the old facility before the move; the stay stays with the child.
+    const oldDay = db.insert(childAttendanceDays).values({ childId: nina, date: '2026-10-09' }).returning().get().id
+    db.insert(childAttendanceStays).values({ dayId: oldDay, arrived: hm('08:00') }).run()
+    expect(dayOf().openStays).toEqual([])
+    arriveAt('08:00', { childId: nina, date: '2026-10-12' })
+    expect(dayOf().openStays).toEqual([{ date: '2026-10-12', childId: nina, name: 'Neu, Nina' }])
+  })
+
   it('counts meals automatically and by hand, and the totals of the day', () => {
     const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
     const cleo = addChild(db, 1, { lastName: 'Christ', firstName: 'Cleo' })
