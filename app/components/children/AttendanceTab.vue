@@ -226,12 +226,15 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                 <p v-if="child.announcements.length" class="text-sm text-sky-800">{{ s.pickupToday(child.announcements.map(entry => entry.name).join(', ')) }}</p>
                 <p v-if="data.recordBroughtBy && child.broughtBy" class="text-sm text-gray-600">{{ s.broughtByShort(child.broughtBy) }}</p>
                 <div v-if="child.stays.length" class="flex flex-wrap gap-1 pt-1">
-                  <UButton
-                    v-for="stay in child.stays" :key="stay.id" size="md" color="neutral" variant="soft" icon="i-lucide-pencil"
-                    :label="stayText(stay)" :title="confirmedWithText(stay) || undefined"
-                    :aria-label="[`${s.editStay}: ${stayText(stay)}`, confirmedWithText(stay)].filter(Boolean).join(', ')"
-                    @click="openDialog('stay', child, stay.id)"
-                  />
+                  <div v-for="stay in child.stays" :key="stay.id" class="space-y-0.5">
+                    <UButton
+                      size="md" color="neutral" variant="soft" icon="i-lucide-pencil" :label="stayText(stay)"
+                      :aria-label="[`${s.editStay}: ${stayText(stay)}`, confirmedWithText(stay)].filter(Boolean).join(', ')"
+                      @click="openDialog('stay', child, stay.id)"
+                    />
+                    <!-- "Rücksprache mit" of a person typed by hand, readable on the tablet too. -->
+                    <p v-if="confirmedWithText(stay)" class="px-1 text-xs text-gray-600" aria-hidden="true">{{ confirmedWithText(stay) }}</p>
+                  </div>
                 </div>
               </div>
 

@@ -1,6 +1,9 @@
 import type { SlotState } from '#shared/domain/dayOverview'
 
 const days = (count: number) => (count === 1 ? '1 Tag' : `${count.toLocaleString('de-DE')} Tage`)
+/** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
+const notRegistered = (name: string) => `${name} (nicht hinterlegt)`
+const confirmedWith = (text: string) => `Rücksprache mit ${text}`
 
 export const de = {
   appName: 'Dienstplan',
@@ -644,11 +647,14 @@ export const de = {
       other: 'Andere Person', otherName: 'Name', confirmedWith: 'Rücksprache mit (freiwillig)',
       confirmedWithPlaceholder: 'z. B. Mama, telefonisch',
       otherHint: 'Die Person ist nicht in der Akte hinterlegt. Das wird so vermerkt.',
+      noPickupRight: (name: string) =>
+        `${name} ist in der Akte ohne Abholberechtigung eingetragen. Bitte nur nach Rücksprache mit den Sorgeberechtigten.`,
     },
-    /** A pickup person typed by hand, as the lists show it. */
-    notRegistered: (name: string) => `${name} (nicht hinterlegt)`,
-    confirmedWith: (text: string) => `Rücksprache mit ${text}`,
-    pickedUpByInfo: (name: string, confirmedWith: string) => `Abgeholt von ${name} (nicht hinterlegt), Rücksprache mit ${confirmedWith}`,
+    notRegistered,
+    confirmedWith,
+    pickedUpByInfo: (name: string, text: string) => `Abgeholt von ${notRegistered(name)}, ${confirmedWith(text)}`,
+    /** A logged pickup person typed by hand in the history: "Tante Uta (nicht hinterlegt), Rücksprache mit Mama". */
+    loggedOther: (name: string, text: string) => (text ? `${notRegistered(name)}, ${confirmedWith(text)}` : notRegistered(name)),
     absent: {
       title: (name: string) => `Abwesend: ${name}`, kind: 'Grund', until: 'Bis einschließlich',
       hint: 'Für mehrere Tage (z. B. angekündigter Urlaub) ein späteres Datum wählen. Eingetragen wird an Betreuungstagen, an denen das Kind nicht da war.',
@@ -671,8 +677,7 @@ export const de = {
       title: (name: string) => `Verlauf: ${name}`, empty: 'Noch keine Änderungen.', emptyValue: '(leer)',
       yes: 'ja', no: 'nein', automatic: 'automatisch', by: (name: string, at: string) => `${name}, ${at}`,
       fields: {
-        arrived: 'Ankunft', left: 'Abholzeit', pickedUpBy: 'Abholperson', pickedUpOther: 'Abholperson nicht hinterlegt',
-        pickedUpConfirmedWith: 'Rücksprache mit (Abholperson)', plannedPickup: 'Geplante Abholzeit', broughtBy: 'Bringperson',
+        arrived: 'Ankunft', left: 'Abholzeit', pickedUpBy: 'Abholperson', plannedPickup: 'Geplante Abholzeit', broughtBy: 'Bringperson',
         absence: 'Abwesenheit', announcement: 'Angekündigter Abholer', note: 'Was ist heute passiert', snack: 'Snack',
         lunch: 'Mittagessen', monthRemark: 'Bemerkung (Monat)',
       } as Record<string, string>,

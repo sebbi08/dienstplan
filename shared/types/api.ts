@@ -1196,6 +1196,8 @@ export interface AttendanceChildDto {
   careEnd: Minutes | null
   /** The names of the child's contacts without a contact ban (offered for "Bringperson"). */
   bringOptions: string[]
+  /** The names of the child's contacts without "darf abholen" and without a contact ban (a hint when typed as "Andere Person"). */
+  noPickupContacts: string[]
   /** The child has a contact with a contact ban; the notes are for the "Geht" dialog only, never the info column. */
   hasContactBan: boolean
   contactBanNotes: string[]

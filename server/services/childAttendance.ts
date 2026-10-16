@@ -1,5 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or } from 'drizzle-orm'
-import { countsForMeal, dayStatus, monthCell, monthSums, pickupOverdue, staysOverlap, type StaySpan } from '../../shared/domain/childAttendance'
+import {
+  countsForMeal, dayStatus, monthCell, monthSums, personKey, pickupLogValue, pickupOverdue, staysOverlap, type StaySpan,
+} from '../../shared/domain/childAttendance'
 import { childStatus } from '../../shared/domain/children'
 import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
@@ -121,9 +123,6 @@ function startRecording(db: Db, facilityId: number, day: IsoDate, now: Date): vo
 
 // ---- pickup persons ----
 
-/** A name as compared with the names of banned persons: trimmed, single spaces, lower case. */
-const personKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('de')
-
 /** The names of the child's contacts with a contact ban, as person keys. */
 function bannedNames(db: Db, childId: number): Set<string> {
   return new Set(db.select({ name: childContacts.name }).from(childContacts)
@@ -176,11 +175,9 @@ const personColumns = (person: PickupPerson) => ({
   pickedUpBy: person.name, pickedUpContactId: person.contactId, pickedUpOther: person.other, pickedUpConfirmedWith: person.confirmedWith,
 })
 
-/** The logged fields of a change of the pickup person; the marker as 'true' or '' (so a registered person logs nothing extra). */
+/** The logged change of the pickup person: one row, a person typed by hand marked on either side (see `pickupLogValue`). */
 const personChanges = (before: PickupPerson, after: PickupPerson): AttendanceChange[] => [
-  { field: 'pickedUpBy', before: before.name ?? '', after: after.name ?? '' },
-  { field: 'pickedUpOther', before: before.other ? 'true' : '', after: after.other ? 'true' : '' },
-  { field: 'pickedUpConfirmedWith', before: before.confirmedWith, after: after.confirmedWith },
+  { field: 'pickedUpBy', before: pickupLogValue(before), after: pickupLogValue(after) },
 ]
 
 // ---- reading ----
@@ -271,6 +268,7 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
       pickupOptions,
       careEnd: row.careTypeId === null ? null : careEnds.get(row.careTypeId) ?? null,
       bringOptions: ownContacts.filter(contact => !contact.contactBan).map(contact => contact.name),
+      noPickupContacts: ownContacts.filter(contact => !contact.mayPickUp && !contact.contactBan).map(contact => contact.name),
       hasContactBan: banned.length > 0,
       contactBanNotes: banned.map(contact => contact.contactBanNote.trim()).filter(note => note !== ''),
       pickupOverdue: pickupOverdue(spans, plannedPickup, date === clock.date, clock.minutes),

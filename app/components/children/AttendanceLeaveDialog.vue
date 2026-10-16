@@ -84,7 +84,10 @@ async function save() {
               @click="form.person = OTHER"
             />
           </div>
-          <ChildrenAttendanceOtherPerson v-if="form.person === OTHER" v-model:name="form.otherName" v-model:confirmed-with="form.confirmedWith" />
+          <ChildrenAttendanceOtherPerson
+            v-if="form.person === OTHER" v-model:name="form.otherName" v-model:confirmed-with="form.confirmedWith"
+            :no-pickup-contacts="child.noPickupContacts"
+          />
         </fieldset>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
         <div class="flex gap-2">

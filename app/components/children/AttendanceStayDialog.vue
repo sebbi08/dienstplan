@@ -131,7 +131,10 @@ async function remove() {
             />
           </div>
           <p v-if="keptConfirmedWith && form.person === ''" class="text-sm text-gray-600">{{ keptConfirmedWith }}</p>
-          <ChildrenAttendanceOtherPerson v-if="form.person === OTHER" v-model:name="form.otherName" v-model:confirmed-with="form.confirmedWith" />
+          <ChildrenAttendanceOtherPerson
+            v-if="form.person === OTHER" v-model:name="form.otherName" v-model:confirmed-with="form.confirmedWith"
+            :no-pickup-contacts="child.noPickupContacts"
+          />
         </fieldset>
         <UFormField v-if="recordBroughtBy" :label="s.stay.broughtBy">
           <UInput v-model="form.broughtBy" size="xl" maxlength="100" class="w-full" />

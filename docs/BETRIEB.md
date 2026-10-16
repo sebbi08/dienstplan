@@ -338,10 +338,12 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
   der Auswahl; hat das Kind ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot.
 - Holt jemand ab, der weder in der Akte steht noch angekündigt ist, tippst du auf **„Andere Person“**, gibst
   den Namen ein und – wenn es eine gab – mit wem das abgesprochen ist (**„Rücksprache mit“**, z. B. „Mama,
-  telefonisch“). Der Name einer Person mit Umgangsverbot wird abgewiesen. In der Tagesliste, im Druck und im
-  Verlauf steht danach „Name (nicht hinterlegt)“, so sieht man auch später, dass die Person nicht eingetragen war.
-  Die „Rücksprache mit“ siehst du, wenn du mit der Maus auf dem Aufenthalt bleibst, beim „Zeiten korrigieren“ und
-  im Druck unter Info. Auch beim „Zeiten korrigieren“ kannst du „Andere Person“ wählen.
+  telefonisch“). Der Name einer Person mit Umgangsverbot wird abgewiesen. Steht die Person in der Akte, aber ohne
+  „darf abholen“, zeigt der Dialog vor dem Speichern einen gelben Hinweis: dann bitte nur nach Rücksprache mit den
+  Sorgeberechtigten. In der Tagesliste, im Druck und im Verlauf steht danach „Name (nicht hinterlegt)“, so sieht man
+  auch später, dass die Person nicht eingetragen war. Die „Rücksprache mit“ steht in der Tagesliste klein unter dem
+  Aufenthalt, beim „Zeiten korrigieren“, im Verlauf und im Druck unter Info. Auch beim „Zeiten korrigieren“ kannst
+  du „Andere Person“ wählen.
 - **Abholzeit überschritten**: Ist ein Kind 15 Minuten nach seiner geplanten Abholzeit noch da, wird seine Zeile
   rot – auch wenn die Liste die ganze Zeit offen ist (die Markierung folgt der Uhr des Geräts, jede Minute).
   Einträge anderer Geräte erscheinen erst nach dem nächsten eigenen Eintrag oder beim Öffnen der Liste; die Liste

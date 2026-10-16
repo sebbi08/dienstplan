@@ -59,8 +59,11 @@ Dialog: Uhrzeit (Voreinstellung jetzt, nicht vor der Ankunft), **Abholperson** (
 mit „darf abholen“ und den für heute angekündigten Personen. Personen mit Umgangsverbot erscheinen nie; hat das Kind
 ein Umgangsverbot, zeigt der Dialog den Hinweis aus der Akte in Rot. Darunter steht immer **„Andere Person“**: Name
 eintippen (Pflicht), freiwillig „Rücksprache mit“ (z. B. „Mama, telefonisch“); der Name einer Bezugsperson mit
-Umgangsverbot wird abgewiesen. Der Aufenthalt merkt sich, dass die Person nicht hinterlegt war: Tagesliste, Druck und
-Verlauf zeigen „‹Name› (nicht hinterlegt)“, „Rücksprache mit“ steht im Tooltip, beim Korrigieren und im Druck unter Info.
+Umgangsverbot wird abgewiesen; der Name einer Bezugsperson ohne „darf abholen“ ist erlaubt, der Dialog zeigt dann vor dem
+Speichern gelb „‹Name› ist in der Akte ohne Abholberechtigung eingetragen. Bitte nur nach Rücksprache mit den
+Sorgeberechtigten.“ Der Aufenthalt merkt sich, dass die Person nicht hinterlegt war: Tagesliste, Druck und Verlauf
+zeigen „‹Name› (nicht hinterlegt)“; „Rücksprache mit“ steht klein unter dem Aufenthalt, beim Korrigieren, im Verlauf
+und im Druck unter Info.
 „Zeiten korrigieren“ bietet „Andere Person“ genauso. Gibt es keine Bezugsperson und keine angekündigte Person, sagt der
 Dialog: „Für dieses Kind ist niemand zum Abholen eingetragen. Wähle „Andere Person“ oder trage eine angekündigte Person ein.“
 
@@ -150,7 +153,10 @@ Liste stehen nur aktive Kinder.
   ersten Eintrag gespeichert), `planned_pickup` (Minuten), `brought_by` (Text), `absence` (`'sick'|'vacation'|'excused'`
   oder null), `note` (Text), `snack` / `lunch` (null = automatisch, true/false = von Hand), unique (`child_id`, `date`).
 - `child_attendance_stays`: `id`, `day_id` (→ days, cascade), `arrived` (Minuten), `left` (Minuten oder null),
-  `picked_up_by` (Text, Name zum Zeitpunkt), `picked_up_contact_id` (→ child_contacts, set null).
+  `picked_up_by` (Text, Name zum Zeitpunkt), `picked_up_contact_id` (→ child_contacts, set null), `picked_up_other`
+  (bool, default false: von Hand eingetippt, „nicht hinterlegt“), `picked_up_confirmed_with` (Text, default '':
+  „Rücksprache mit“); die beiden letzten kamen mit `0036_pickup_other_person`. Im Verlauf steht eine solche Person
+  mit Markierung im Wert von `pickedUpBy`, damit beide Seiten einer Änderung „(nicht hinterlegt)“ zeigen.
 - `child_pickup_announcements`: `id`, `day_id` (cascade), `name`, `announced_by`.
 - `child_attendance_months`: `child_id`, `month` (YYYY-MM), `remark`; unique.
 - `child_attendance_changes`: `id`, `child_id` (cascade), `date`, `field`, `before`, `after`, `changed_at`,
@@ -164,8 +170,9 @@ Liste stehen nur aktive Kinder.
   Anwesenheits-Schreibvorgänge; nur Druck und Einstellungen verlangen Leitung/Träger.
 - Die Änderungs-Protokollierung braucht einen Namen auch für Personen ohne Konto: Der Kinder-Betrachter am Tablet trägt
   dafür die Mitarbeiter-Kennung und den Namen der aufschließenden Person.
-- Pflichtfelder und Regeln (Abholzeit beim Kommen, Abholperson beim Gehen aus der erlaubten Auswahl, Gehen nicht vor
-  Kommen, Abwesenheit nur ohne Aufenthalt) werden im Server geprüft; deutsche Fehlertexte.
+- Pflichtfelder und Regeln (Abholzeit beim Kommen, Abholperson beim Gehen aus der erlaubten Auswahl oder von Hand
+  eingetippt – dann als „nicht hinterlegt“ markiert und nie unter dem Namen einer Person mit Umgangsverbot –, Gehen
+  nicht vor Kommen, Abwesenheit nur ohne Aufenthalt) werden im Server geprüft; deutsche Fehlertexte.
 - Die automatischen Mahlzeiten und der Stand „unentschuldigt“ werden beim Lesen berechnet, nicht gespeichert.
 
 ### 8.3 Oberfläche

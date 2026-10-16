@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { countsForMeal, dayStatus, monthCell, monthSums, OVERDUE_MINUTES, pickupOverdue, staysOverlap } from '../../shared/domain/childAttendance'
+import {
+  countsForMeal, dayStatus, monthCell, monthSums, OVERDUE_MINUTES, personKey, pickupLogValue, pickupOverdue, readPickupLogValue, sameName,
+  staysOverlap,
+} from '../../shared/domain/childAttendance'
 import type { AttendanceStatus } from '../../shared/types/api'
 
 const open = (arrived: number) => ({ arrived, left: null })
@@ -119,5 +122,33 @@ describe('month cells', () => {
     const statuses: AttendanceStatus[] = ['present', 'gone', 'gone', 'sick', 'sick', 'vacation', 'excused', 'unexcused', 'not_yet']
     expect(monthSums(statuses.map(monthCell))).toEqual({ present: 3, sick: 2, vacation: 1, excused: 1, unexcused: 1 })
     expect(monthSums([])).toEqual({ present: 0, sick: 0, vacation: 0, excused: 0, unexcused: 0 })
+  })
+})
+
+describe('person names', () => {
+  it('compares names trimmed, with single spaces and in any case', () => {
+    expect(personKey('  Max   MEIER ')).toBe('max meier')
+    expect(sameName(['Anna Meier', 'Opa Karl'], ' opa  karl')).toBe('Opa Karl')
+    expect(sameName(['Anna Meier', 'Opa Karl'], 'Opa Karla')).toBeUndefined()
+    expect(sameName(['Opa Karl'], '   ')).toBeUndefined()
+  })
+})
+
+describe('the pickup person in the history', () => {
+  it('logs a registered person by the plain name and nobody as empty', () => {
+    expect(pickupLogValue({ name: 'Anna Meier', other: false, confirmedWith: '' })).toBe('Anna Meier')
+    expect(pickupLogValue({ name: null, other: false, confirmedWith: '' })).toBe('')
+    expect(readPickupLogValue('Anna Meier')).toEqual({ name: 'Anna Meier', other: false, confirmedWith: '' })
+    expect(readPickupLogValue('')).toBeNull()
+  })
+
+  it('marks a person typed by hand, with the "Rücksprache mit", so both sides of a change show it', () => {
+    const logged = pickupLogValue({ name: 'Tante Uta', other: true, confirmedWith: 'Mama, telefonisch' })
+    expect(logged).not.toBe('Tante Uta')
+    expect(readPickupLogValue(logged)).toEqual({ name: 'Tante Uta', other: true, confirmedWith: 'Mama, telefonisch' })
+    expect(readPickupLogValue(pickupLogValue({ name: 'Rosa', other: true, confirmedWith: '' })))
+      .toEqual({ name: 'Rosa', other: true, confirmedWith: '' })
+    // A name that only looks like the mark stays a name.
+    expect(readPickupLogValue('{"other": nicht')).toEqual({ name: '{"other": nicht', other: false, confirmedWith: '' })
   })
 })

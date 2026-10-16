@@ -1,3 +1,4 @@
+import { readPickupLogValue } from '#shared/domain/childAttendance'
 import { formatTime, parseTime } from '#shared/domain/time'
 import { nowInBerlin } from '#shared/domain/timeRecords'
 import type { Minutes } from '#shared/domain/types'
@@ -61,8 +62,11 @@ export function historyFieldLabel(field: string): string {
 export function historyValueText(field: string, value: string): string {
   const h = de.attendance.history
   if (field === 'snack' || field === 'lunch') return value === 'true' ? h.yes : value === 'false' ? h.no : h.automatic
-  if (field === 'pickedUpOther') return value === 'true' ? h.yes : h.no
   if (value === '') return h.emptyValue
+  if (field === 'pickedUpBy') {
+    const person = readPickupLogValue(value)
+    if (person?.other) return de.attendance.loggedOther(person.name, person.confirmedWith)
+  }
   if (field === 'absence' && (ABSENCE_KINDS as string[]).includes(value)) return de.attendance.absence[value as AbsenceKind]
   return value
 }

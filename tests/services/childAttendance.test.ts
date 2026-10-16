@@ -17,6 +17,7 @@ import { planGroupChange } from '../../server/services/childGroupChanges'
 import { deleteChild } from '../../server/services/children'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
+import { pickupLogValue, readPickupLogValue } from '../../shared/domain/childAttendance'
 import type { AttendancePickupChoice, ChildContactInput } from '../../shared/types/api'
 import {
   addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode,
@@ -187,8 +188,10 @@ describe('child attendance', () => {
         stays: [{ left: hm('15:00'), pickedUpBy: 'Tante Uta', pickedUpOther: true, pickedUpConfirmedWith: 'Mama, telefonisch' }],
       })
       expect(db.select().from(childAttendanceStays).get()!.pickedUpContactId).toBeNull()
-      expect(attendanceHistory(db, leitung, lena, TODAY).slice(0, 4).map(entry => [entry.field, entry.before, entry.after]).reverse()).toEqual([
-        ['left', '', '15:00'], ['pickedUpBy', '', 'Tante Uta'], ['pickedUpOther', '', 'true'], ['pickedUpConfirmedWith', '', 'Mama, telefonisch'],
+      // One history row for the person, marked as typed by hand, with the "Rücksprache mit".
+      expect(attendanceHistory(db, leitung, lena, TODAY).slice(0, 2).map(entry => [entry.field, entry.before, entry.after]).reverse()).toEqual([
+        ['left', '', '15:00'],
+        ['pickedUpBy', '', pickupLogValue({ name: 'Tante Uta', other: true, confirmedWith: 'Mama, telefonisch' })],
       ])
 
       // Without "Rücksprache mit" fine too; a registered person carries no marker.
@@ -403,9 +406,10 @@ describe('child attendance', () => {
     const stayId = rowOf().stays[0]!.id
     const correct = (pickup?: AttendancePickupChoice, left: string | null = '15:00') =>
       updateStay(db, leitung, stayId, { arrived: hm('08:00'), left: left === null ? null : hm(left), ...(pickup ? { pickup } : {}) }, NOW)
-    const fields = ['pickedUpBy', 'pickedUpOther', 'pickedUpConfirmedWith']
-    const logged = () => attendanceHistory(db, leitung, lena, TODAY).filter(entry => fields.includes(entry.field))
-      .map(entry => [entry.field, entry.before, entry.after]).reverse()
+    const logged = () => attendanceHistory(db, leitung, lena, TODAY).filter(entry => entry.field.startsWith('pickedUp'))
+      .map(entry => [entry.field, readPickupLogValue(entry.before), readPickupLogValue(entry.after)]).reverse()
+    const other = (name: string, confirmedWith = '') => ({ name, other: true, confirmedWith })
+    const registered = (name: string) => ({ name, other: false, confirmedWith: '' })
 
     expect(errorCode(() => correct({ kind: 'other', name: '' }))).toBe('pickup_person_required')
     expect(errorCode(() => correct({ kind: 'other', name: 'Max Meier' }))).toBe('pickup_person_invalid')
@@ -420,17 +424,34 @@ describe('child attendance', () => {
     correct(mamaPickup())
     expect(rowOf().stays[0]).toMatchObject({ pickedUpBy: 'Anna Meier', pickedUpOther: false, pickedUpConfirmedWith: '' })
     correct({ kind: 'other', name: 'Tante Uta' })
+    // A typo corrected: both sides are marked.
+    correct({ kind: 'other', name: 'Tante Ute' })
     // Opened again: nobody picked the child up, no marker.
     correct(undefined, null)
     expect(rowOf().stays[0]).toMatchObject({ left: null, pickedUpBy: null, pickedUpOther: false, pickedUpConfirmedWith: '' })
+    correct({ kind: 'other', name: 'Nachbarin Rosa', confirmedWith: 'Mama' })
+    deleteStay(db, leitung, stayId, NOW)
 
     expect(logged()).toEqual([
-      ['pickedUpBy', '', 'Anna Meier'],
-      ['pickedUpBy', 'Anna Meier', 'Tante Uta'], ['pickedUpOther', '', 'true'], ['pickedUpConfirmedWith', '', 'Papa, persönlich'],
-      ['pickedUpBy', 'Tante Uta', 'Anna Meier'], ['pickedUpOther', 'true', ''], ['pickedUpConfirmedWith', 'Papa, persönlich', ''],
-      ['pickedUpBy', 'Anna Meier', 'Tante Uta'], ['pickedUpOther', '', 'true'],
-      ['pickedUpBy', 'Tante Uta', ''], ['pickedUpOther', 'true', ''],
+      ['pickedUpBy', null, registered('Anna Meier')],
+      ['pickedUpBy', registered('Anna Meier'), other('Tante Uta', 'Papa, persönlich')],
+      ['pickedUpBy', other('Tante Uta', 'Papa, persönlich'), registered('Anna Meier')],
+      ['pickedUpBy', registered('Anna Meier'), other('Tante Uta')],
+      ['pickedUpBy', other('Tante Uta'), other('Tante Ute')],
+      ['pickedUpBy', other('Tante Ute'), null],
+      ['pickedUpBy', null, other('Nachbarin Rosa', 'Mama')],
+      // Deleted: the person that is gone is still shown as typed by hand.
+      ['pickedUpBy', other('Nachbarin Rosa', 'Mama'), null],
     ])
+  })
+
+  it('names the contacts without "darf abholen" for the hint on a typed name', () => {
+    // Opa Karl may not pick up; Max Meier has a contact ban and is never named; Anna Meier may pick up.
+    expect(rowOf().noPickupContacts).toEqual(['Opa Karl'])
+    // Still allowed after the hint, typed in another spelling, and stored as typed.
+    arriveAt('08:00')
+    leaveAt('15:00', { kind: 'other', name: 'opa  karl' })
+    expect(rowOf().stays[0]).toMatchObject({ pickedUpBy: 'opa  karl', pickedUpOther: true })
   })
 
   it('does not let another facility correct or delete a stay or remove an announced person', () => {
