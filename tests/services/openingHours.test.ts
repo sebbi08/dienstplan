@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { facilities, groups, openingHours } from '../../server/db/schema'
+import { openingHoursBodySchema } from '../../server/schemas'
 import { createFacility } from '../../server/services/facilities'
 import { deleteGroup } from '../../server/services/groups'
 import { getOpeningHours, setFacilityOpeningHours, setGroupOpeningHours } from '../../server/services/openingHours'
@@ -45,9 +46,18 @@ describe('opening hours', () => {
     expect(getOpeningHours(db, 1).facility).toMatchObject({ minAtOpening: 1, minAtClosing: 1 })
   })
 
-  it('treats a week without any entered day as no hours', () => {
+  it('keeps the minimum counts although no weekday is entered, and resets them only with null', () => {
+    const kaefer = addGroup(db, 1, 'Käfer')
     setFacilityOpeningHours(db, 1, week([times(420, 990)]))
-    setFacilityOpeningHours(db, 1, week([], 3, 3))
+    setFacilityOpeningHours(db, 1, week([], 3, 4))
+    expect(getOpeningHours(db, 1).facility).toEqual(week([], 3, 4))
+    expect(db.select().from(openingHours).all()).toEqual([])
+    setGroupOpeningHours(db, 1, kaefer, week([], 2, 5))
+    expect(getOpeningHours(db, 1).groups[0]!.hours).toEqual(week([], 2, 5))
+    // Default counts and no weekday = no hours at all.
+    setGroupOpeningHours(db, 1, kaefer, week([]))
+    expect(getOpeningHours(db, 1).groups[0]!.hours).toBeNull()
+    setFacilityOpeningHours(db, 1, null)
     expect(getOpeningHours(db, 1).facility).toBeNull()
   })
 
@@ -71,11 +81,16 @@ describe('opening hours', () => {
     for (const day of [times(600, 600), times(600, 540)]) {
       expect(errorCode(() => setFacilityOpeningHours(db, 1, week([day])))).toBe('opening_hours_invalid')
     }
-    // Only one of the two times, times outside the day and a wrong number of days are invalid too.
-    expect(errorCode(() => setFacilityOpeningHours(db, 1, week([{ open: 420, close: null, closed: false }])))).toBe('opening_hours_invalid')
-    expect(errorCode(() => setFacilityOpeningHours(db, 1, week([times(-5, 600)])))).toBe('opening_hours_invalid')
-    expect(errorCode(() => setFacilityOpeningHours(db, 1, week([times(420, 1500)])))).toBe('opening_hours_invalid')
-    expect(errorCode(() => setFacilityOpeningHours(db, 1, { ...week([]), days: [none] }))).toBe('opening_hours_invalid')
+    expect(getOpeningHours(db, 1).facility).toBeNull()
+  })
+
+  it('names the other mistakes apart: one time only, times outside the day, a wrong number of days', () => {
+    expect(errorCode(() => setFacilityOpeningHours(db, 1, week([{ open: 420, close: null, closed: false }])))).toBe('opening_hours_incomplete')
+    expect(errorCode(() => setFacilityOpeningHours(db, 1, week([{ open: null, close: 990, closed: false }])))).toBe('opening_hours_incomplete')
+    for (const day of [times(-5, 600), times(420, 1440), times(420, 1500), times(420.5, 600)]) {
+      expect(errorCode(() => setFacilityOpeningHours(db, 1, week([day])))).toBe('invalid_time')
+    }
+    expect(errorCode(() => setFacilityOpeningHours(db, 1, { ...week([]), days: [none] }))).toBe('invalid_input')
     expect(getOpeningHours(db, 1).facility).toBeNull()
   })
 
@@ -92,6 +107,11 @@ describe('opening hours', () => {
     expect(getOpeningHours(db, 1).facility).toMatchObject({ minAtOpening: 1, minAtClosing: 20 })
     const kaefer = addGroup(db, 1, 'Käfer')
     expect(errorCode(() => setGroupOpeningHours(db, 1, kaefer, week([times(420, 990)], 0, 1)))).toBe('opening_min_invalid')
+  })
+
+  it('leaves a fractional minimum count to the service, so the answer is opening_min_invalid', () => {
+    const body = openingHoursBodySchema.parse({ hours: { ...week([times(420, 990)]), minAtOpening: 1.5 } })
+    expect(errorCode(() => setFacilityOpeningHours(db, 1, body.hours))).toBe('opening_min_invalid')
   })
 
   it('refuses a group of another facility with 404 and changes nothing', () => {

@@ -9,12 +9,16 @@ import { ServiceError } from '../lib/errors'
 import { assertGroup } from './groups'
 
 const WEEKDAYS = 5
+/** Minutes of a day run from 0 to 1439. */
 const DAY_END = 1440
 
-/** The hours of one scope (the facility, or one of its groups) from its rows; null = no rows, no hours. */
+/**
+ * The hours of one scope (the facility, or one of its groups) from its rows. Null = no hours: no rows and the default
+ * minimum counts; entered minimum counts are kept (and returned) even while no weekday is entered.
+ */
 function toHours(rows: { weekday: number; open: number | null; close: number | null; closed: boolean }[],
   minAtOpening: number, minAtClosing: number): OpeningHours | null {
-  if (rows.length === 0) return null
+  if (rows.length === 0 && minAtOpening === 1 && minAtClosing === 1) return null
   const days: DayHours[] = Array.from({ length: WEEKDAYS }, () => ({ open: null, close: null, closed: false }))
   for (const row of rows) days[row.weekday] = { open: row.open, close: row.close, closed: row.closed }
   return { days, minAtOpening, minAtClosing }
@@ -45,12 +49,19 @@ export function getOpeningHours(db: Db, facilityId: number): OpeningHoursDto {
   return load(db, facilityId)
 }
 
-/** The hours the plan's warnings check: the facility's, and only those groups that have their own. */
+/** Whether any weekday is entered (times or closed): only then the hours exist for the warnings. */
+function hasEnteredDay(hours: OpeningHours | null): hours is OpeningHours {
+  return hours !== null && hours.days.some(isSet)
+}
+
+/** The hours the plan's warnings check: the facility's, and only those groups that have a weekday of their own entered. */
 export function loadHoursContext(db: Db, facilityId: number): DayHoursContext {
   const { facility, groups: all } = load(db, facilityId)
   return {
-    facility,
-    groups: all.flatMap(group => group.hours === null ? [] : [{ groupId: group.groupId, groupName: group.groupName, hours: group.hours }]),
+    facility: hasEnteredDay(facility) ? facility : null,
+    groups: all.flatMap(group => hasEnteredDay(group.hours)
+      ? [{ groupId: group.groupId, groupName: group.groupName, hours: group.hours }]
+      : []),
   }
 }
 
@@ -80,13 +91,15 @@ export function withOpeningHours<T extends { date: IsoDate }>(
 }
 
 /**
- * Checks one scope's input and returns the rows to store, or null when no weekday is entered (= no hours). The minimum
- * counts are 1–20; a closed day keeps no times; close must lie after open.
+ * Checks one scope's input and returns the rows to store (none when no weekday is entered). The minimum counts are
+ * 1–20 (opening_min_invalid); a closed day keeps no times; a day with one time only is opening_hours_incomplete, times
+ * that are no minutes of the day invalid_time, a wrong number of days invalid_input, and a close time not after the
+ * open time opening_hours_invalid.
  */
-function checked(input: OpeningHours): Omit<typeof openingHours.$inferInsert, 'facilityId' | 'groupId'>[] | null {
+function checked(input: OpeningHours): Omit<typeof openingHours.$inferInsert, 'facilityId' | 'groupId'>[] {
   const validMin = (value: number) => Number.isInteger(value) && value >= 1 && value <= 20
   if (!validMin(input.minAtOpening) || !validMin(input.minAtClosing)) throw new ServiceError(400, 'opening_min_invalid')
-  if (!Array.isArray(input.days) || input.days.length !== WEEKDAYS) throw new ServiceError(400, 'opening_hours_invalid')
+  if (!Array.isArray(input.days) || input.days.length !== WEEKDAYS) throw new ServiceError(400, 'invalid_input')
   const rows: Omit<typeof openingHours.$inferInsert, 'facilityId' | 'groupId'>[] = []
   input.days.forEach((day, weekday) => {
     if (day.closed) {
@@ -94,30 +107,32 @@ function checked(input: OpeningHours): Omit<typeof openingHours.$inferInsert, 'f
       return
     }
     if (day.open === null && day.close === null) return
-    const valid = day.open !== null && day.close !== null && Number.isInteger(day.open) && Number.isInteger(day.close)
-      && day.open >= 0 && day.close <= DAY_END && day.close > day.open
-    if (!valid) throw new ServiceError(400, 'opening_hours_invalid')
+    if (day.open === null || day.close === null) throw new ServiceError(400, 'opening_hours_incomplete')
+    const minute = (value: number) => Number.isInteger(value) && value >= 0 && value < DAY_END
+    if (!minute(day.open) || !minute(day.close)) throw new ServiceError(400, 'invalid_time')
+    if (day.close <= day.open) throw new ServiceError(400, 'opening_hours_invalid')
     rows.push({ weekday, open: day.open, close: day.close, closed: false })
   })
-  return rows.length === 0 ? null : rows
+  return rows
 }
 
 function save(db: Db, facilityId: number, groupId: number | null, input: OpeningHours | null): void {
-  const rows = input === null ? null : checked(input)
+  const rows = input === null ? [] : checked(input)
   const scope = and(eq(openingHours.facilityId, facilityId), groupId === null ? isNull(openingHours.groupId) : eq(openingHours.groupId, groupId))
-  const counts = { minAtOpening: rows === null ? 1 : input!.minAtOpening, minAtClosing: rows === null ? 1 : input!.minAtClosing }
+  // An explicit null removes the hours and resets the counts; given hours keep their counts even with no weekday entered.
+  const counts = { minAtOpening: input?.minAtOpening ?? 1, minAtClosing: input?.minAtClosing ?? 1 }
   db.transaction((tx) => {
     tx.delete(openingHours).where(scope).run()
-    if (rows !== null) tx.insert(openingHours).values(rows.map(row => ({ ...row, facilityId, groupId }))).run()
+    if (rows.length > 0) tx.insert(openingHours).values(rows.map(row => ({ ...row, facilityId, groupId }))).run()
     if (groupId === null) tx.update(facilities).set(counts).where(eq(facilities.id, facilityId)).run()
     else tx.update(groups).set(counts).where(eq(groups.id, groupId)).run()
   })
 }
 
 /**
- * Sets the facility's opening hours (null, or a week without any entered day, removes them and resets the minimum
- * counts). 400 opening_hours_invalid for a close time not after the open time, 400 opening_min_invalid for a minimum
- * outside 1–20.
+ * Sets the facility's opening hours; null removes them and resets the minimum counts, given counts are kept even with
+ * no weekday entered. 400 opening_hours_invalid for a close time not after the open time, opening_hours_incomplete for
+ * a day with one time only, opening_min_invalid for a minimum outside 1–20.
  */
 export function setFacilityOpeningHours(db: Db, facilityId: number, input: OpeningHours | null): void {
   save(db, facilityId, null, input)

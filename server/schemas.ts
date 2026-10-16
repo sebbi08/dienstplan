@@ -91,11 +91,9 @@ export const coverageRuleSchema = z.object({
   weekdays: z.number().int().min(1).max(31).optional(),
 })
 
-/** One weekday's opening hours; the service checks the times (close after open). */
-const dayHoursSchema = z.object({ open: z.number().int().nullable(), close: z.number().int().nullable(), closed: z.boolean() })
-const openingHoursSchema = z.object({
-  days: z.array(dayHoursSchema).max(7), minAtOpening: z.number().int(), minAtClosing: z.number().int(),
-})
+/** One weekday's opening hours; the service checks the times, the number of days and the minimum counts. */
+const dayHoursSchema = z.object({ open: z.number().nullable(), close: z.number().nullable(), closed: z.boolean() })
+const openingHoursSchema = z.object({ days: z.array(dayHoursSchema).max(20), minAtOpening: z.number(), minAtClosing: z.number() })
 /** `hours: null` removes the hours (a group falls back to the facility's). */
 export const openingHoursBodySchema = z.object({ hours: openingHoursSchema.nullable() })
 

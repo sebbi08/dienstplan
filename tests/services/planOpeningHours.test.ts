@@ -60,7 +60,9 @@ describe('opening hours and weekday rules in the month plan', () => {
 
     // Hours without any entered day are no hours.
     setFacilityOpeningHours(db, 1, week({}, 3, 3))
+    setGroupOpeningHours(db, 1, kaefer, week({}, 2, 2))
     expect(warnings()).toEqual(before)
+    expect(plan().days.every(day => day.opening === null && Object.keys(day.groupOpening).length === 0)).toBe(true)
 
     setFacilityOpeningHours(db, 1, week({ 1: times(420, 990) }, 1, 2))
     expect(edges(tuesday)).toEqual([{ type: 'edge', date: tuesday, edge: 'closing', time: 990, found: 0, required: 2 }])

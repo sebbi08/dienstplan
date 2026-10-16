@@ -788,6 +788,7 @@ export const de = {
     not_a_timed_entry: 'Dieser Eintrag hat keine Uhrzeiten.',
     invalid_rule: 'Bitte gültige Uhrzeiten (5-Minuten-Raster, Ende nach Beginn) und eine Mindestanzahl ab 1 angeben.',
     opening_hours_invalid: 'Die Schließzeit muss nach der Öffnungszeit liegen.',
+    opening_hours_incomplete: 'Bitte trag Öffnung und Schließung ein oder hake „geschlossen“ an.',
     opening_min_invalid: 'Die Mindestzahl muss zwischen 1 und 20 liegen.',
     time_tracking_off: 'Die Zeiterfassung ist noch nicht aktiv.',
     already_clocked_in: 'Du bist bereits eingestempelt.',

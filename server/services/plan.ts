@@ -11,7 +11,7 @@ import { isManager } from '../../shared/domain/roles'
 import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
-import { dayWarnings, timeWarnings, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
+import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import type {
   ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDayDto, MyPlanDto,
   MyPlanEntryDto, PendingChangeDto, SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
@@ -46,7 +46,7 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
  */
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
-  year: number, month: number, today: IsoDate,
+  year: number, month: number, today: IsoDate, hours: DayHoursContext,
 ): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
@@ -74,8 +74,6 @@ function buildAdminData(
   const names = groupNames(db, facilityId)
   const rules = loadCoverageRules(db, facilityId)
     .map(rule => rule.groupId === null ? rule : { ...rule, groupName: names[rule.groupId] ?? '' })
-  // Opening hours: a closed weekday suppresses the rules, entered days add the edge warnings (none entered: nothing changes).
-  const hours = loadHoursContext(db, facilityId)
   // The plan's days are checked against this facility's holidays; each person's own working days follow their info.
   const holidays = facilityHolidayRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
@@ -249,7 +247,9 @@ export function getMonthPlan(
     }
   }
 
-  const days = withOpeningHours(dayRows(year, month, shown.days, facilityHolidayRules(db, facilityId)), loadHoursContext(db, facilityId))
+  // Opening hours: a closed weekday suppresses the rules, entered days add the edge warnings (none entered: nothing changes).
+  const hours = loadHoursContext(db, facilityId)
+  const days = withOpeningHours(dayRows(year, month, shown.days, facilityHolidayRules(db, facilityId)), hours)
 
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
@@ -257,7 +257,7 @@ export function getMonthPlan(
     const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
     const helpers = listHelpers(db, facilityId, year, month)
     admin = {
-      ...buildAdminData(db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today),
+      ...buildAdminData(db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],
     }
