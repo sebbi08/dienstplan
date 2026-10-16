@@ -191,7 +191,11 @@ export const de = {
     mayAlsoRead: 'Darf zusätzlich lesen:',
     mayAlsoReadLabel: (group: string, other: string) => `${group} darf zusätzlich lesen: ${other}`,
     readOnlyHint: 'Nur lesen: keine Einträge, keine Änderungen an Kinderakten.',
-    hint:'Im Dienstplan erscheint jede Gruppe als eigener Block mit der Zahl der Anwesenden pro Tag. Die Leitung ordnet die Mitarbeiter ihrer Gruppe zu.',
+    readAccessLoadFailed: 'Die Freischaltungen konnten nicht geladen werden. Lade die Seite neu, um sie zu ändern.',
+    readAccessNeedsTwo: 'Freischaltungen gibt es, sobald die Einrichtung mindestens zwei Gruppen hat.',
+    groupBooks: 'Gruppenbücher',
+    groupBooksHint: 'Mitarbeiter mit Gruppe sehen am Tablet nur ihre eigene Gruppe. Hier legst du fest, welche anderen Gruppen sie zusätzlich lesen dürfen (gilt nur in eine Richtung).',
+    hint: 'Im Dienstplan erscheint jede Gruppe als eigener Block mit der Zahl der Anwesenden pro Tag. Die Leitung ordnet die Mitarbeiter ihrer Gruppe zu.',
     deleteConfirm: (name: string) => `Gruppe „${name}“ löschen? Ihre Pflichtdienste und Dienstplanvorlagen werden mit gelöscht. `
       + 'Dienste, die für diese Gruppe eingetragen waren, zählen danach wieder für die Stammgruppe der Person. '
       + 'Mitarbeiter, deren Stammgruppe sie ist, müssen vorher einer anderen Gruppe zugeordnet werden.',

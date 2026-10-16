@@ -4,7 +4,9 @@ import type { Db } from '../../server/db/client'
 import { employees, groupReadAccess } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells } from '../../server/services/entries'
-import { getReadAccess, setReadAccess } from '../../server/services/groupReadAccess'
+import {
+  getReadAccess, listReadAccess, readAccessFacility, setReadAccess,
+} from '../../server/services/groupReadAccess'
 import { deleteGroup } from '../../server/services/groups'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
@@ -61,6 +63,37 @@ describe('group read access', () => {
     setReadAccess(db, 1, a, [b])
     expect(errorCode(() => setReadAccess(db, 1, a, [c, foreign]))).toBe('group_not_found')
     expect(getReadAccess(db, 1, a)).toEqual([b])
+  })
+
+  it('lists every group of the facility with its grants', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const igel = addGroup(db, krippe, 'Igel')
+    const hasen = addGroup(db, krippe, 'Hasen')
+    setReadAccess(db, 1, a, [c, b])
+    setReadAccess(db, krippe, igel, [hasen])
+    expect(listReadAccess(db, 1)).toEqual({ [a]: [b, c], [b]: [], [c]: [] })
+    expect(listReadAccess(db, krippe)).toEqual({ [igel]: [hasen], [hasen]: [] })
+    expect(listReadAccess(db, addFacility(db, 'Hort'))).toEqual({})
+  })
+
+  it('lets the Leitung set read access only in her active facility, the Träger in the group\'s own', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const igel = addGroup(db, krippe, 'Igel')
+    const hasen = addGroup(db, krippe, 'Hasen')
+    const leitung = { role: 'admin' as const, facilityId: 1 }
+    const traeger = { role: 'provider' as const, facilityId: 1 }
+    // The Leitung of facility 1 names a Krippe group: refused, nothing stored.
+    expect(errorCode(() => setReadAccess(db, readAccessFacility(db, leitung, igel), igel, [hasen]))).toBe('group_not_found')
+    expect(errorCode(() => getReadAccess(db, readAccessFacility(db, leitung, igel), igel))).toBe('group_not_found')
+    expect(listReadAccess(db, krippe)).toEqual({ [igel]: [], [hasen]: [] })
+    // In her own facility it works.
+    setReadAccess(db, readAccessFacility(db, leitung, a), a, [b])
+    expect(getReadAccess(db, 1, a)).toEqual([b])
+    // The Träger (active facility 1) sets it for the Krippe group, but never across facilities.
+    setReadAccess(db, readAccessFacility(db, traeger, igel), igel, [hasen])
+    expect(getReadAccess(db, krippe, igel)).toEqual([hasen])
+    expect(errorCode(() => setReadAccess(db, readAccessFacility(db, traeger, igel), igel, [a]))).toBe('group_not_found')
+    expect(errorCode(() => readAccessFacility(db, traeger, 9999))).toBe('group_not_found')
   })
 
   it('goes with either group when it is deleted', () => {

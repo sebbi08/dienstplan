@@ -10,21 +10,10 @@ const props = defineProps<{ facilityId: number }>()
 
 // Awaited, so the drafts below are filled before the page is rendered on the server.
 const { data: groups, refresh } = await useFetch<GroupDto[]>(() => `/api/facilities/${props.facilityId}/groups`, { default: () => [] })
-// Per group the ids of the groups it may also read. On the server this forwards the session cookie.
-const requestFetch = useRequestFetch()
-const { data: readAccess, refresh: refreshReadAccess } = await useAsyncData(
-  () => `group-read-access-${props.facilityId}`,
-  async (): Promise<Record<number, number[]>> => Object.fromEntries(await Promise.all((groups.value ?? []).map(async group =>
-    [group.id, (await requestFetch<{ readable: number[] }>(`/api/groups/${group.id}/read-access`)).readable] as const))),
-  { default: (): Record<number, number[]> => ({}) },
-)
 const { refresh: refreshActive } = useGroups()
 // The active facility's groups (rules, templates, employees) follow at once, and the switch of the automatic leaving
-// (settings section) follows a flag or a deleted group. The read access follows the groups (a new or deleted one).
-const { busy, run } = useBusyAction(async () => {
-  await Promise.all([refresh(), refreshActive(), refreshNuxtData('school-settings')])
-  await refreshReadAccess()
-})
+// (settings section) follows a flag or a deleted group.
+const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshActive(), refreshNuxtData('school-settings')]))
 const confirm = useConfirm()
 const notifySwitchedOff = useAutoLeaveNotice()
 
@@ -67,43 +56,23 @@ async function setForSchoolChildren(group: GroupDto, value: boolean) {
   }, de.common.saved)
   if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
-
-const otherGroups = (group: GroupDto) => (groups.value ?? []).filter(other => other.id !== group.id)
-const mayRead = (group: GroupDto, other: GroupDto) => readAccess.value[group.id]?.includes(other.id) ?? false
-
-/** Lets the staff of the group also read the other group (one direction), or takes that away. */
-async function setMayRead(group: GroupDto, other: GroupDto, value: boolean) {
-  const current = readAccess.value[group.id] ?? []
-  const readable = value ? [...current, other.id] : current.filter(id => id !== other.id)
-  await run(() => $fetch<unknown>(`/api/groups/${group.id}/read-access`, { method: 'PUT', body: { readable } }), de.common.saved)
-}
 </script>
 
 <template>
   <div class="space-y-2 border-l-2 border-gray-100 pl-3">
     <h3 class="text-sm font-semibold text-gray-700">{{ de.groups.title }}</h3>
     <p v-if="!groups?.length" class="text-xs text-gray-500">{{ de.groups.none }}</p>
-    <div v-for="group in groups ?? []" :key="group.id" class="space-y-1">
-      <form class="flex flex-wrap items-center gap-2" @submit.prevent="rename(group.id)">
-        <UInput v-model="names[group.id]" maxlength="80" required size="sm" :aria-label="de.groups.name" />
-        <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy" />
-        <UCheckbox
-          :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :aria-label="`${de.schoolChildren.forSchoolChildren}: ${group.name}`" :disabled="busy"
-          @update:model-value="setForSchoolChildren(group, $event === true)"
-        />
-        <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(group)" />
-      </form>
-      <div v-if="otherGroups(group).length" class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-1">
-        <span class="text-xs text-gray-600">{{ de.groups.mayAlsoRead }}</span>
-        <UCheckbox
-          v-for="other in otherGroups(group)" :key="other.id" size="sm" :model-value="mayRead(group, other)" :label="other.name"
-          :aria-label="de.groups.mayAlsoReadLabel(group.name, other.name)" :disabled="busy"
-          @update:model-value="setMayRead(group, other, $event === true)"
-        />
-      </div>
-    </div>
+    <form v-for="group in groups ?? []" :key="group.id" class="flex flex-wrap items-center gap-2" @submit.prevent="rename(group.id)">
+      <UInput v-model="names[group.id]" maxlength="80" required size="sm" :aria-label="de.groups.name" />
+      <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy" />
+      <UCheckbox
+        :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :aria-label="`${de.schoolChildren.forSchoolChildren}: ${group.name}`" :disabled="busy"
+        @update:model-value="setForSchoolChildren(group, $event === true)"
+      />
+      <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(group)" />
+    </form>
     <p v-if="groups?.length" class="text-xs text-gray-500">{{ de.schoolChildren.forSchoolChildrenHint }}</p>
-    <p v-if="(groups?.length ?? 0) > 1" class="text-xs text-gray-500">{{ de.groups.readOnlyHint }}</p>
+    <SettingsGroupReadAccess v-if="(groups?.length ?? 0) > 1" :groups="groups ?? []" :source="`/api/facilities/${facilityId}/group-read-access`" />
     <form class="flex flex-wrap items-center gap-2" @submit.prevent="create">
       <UInput v-model="newName" maxlength="80" required size="sm" :placeholder="de.groups.name" :aria-label="de.groups.name" />
       <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.groups.add" :disabled="busy" />

@@ -1,16 +1,15 @@
 import { groupReadAccessSchema, idParams } from '../../../schemas'
-import { setReadAccess } from '../../../services/groupReadAccess'
-import { facilityOfGroup } from '../../../services/groups'
+import { readAccessFacility, setReadAccess } from '../../../services/groupReadAccess'
 
 /**
  * Sets the groups the staff of this group may also read (one direction; every group of the same facility). The Leitung
- * sets it for a group of the active facility; the Träger, whose facility settings list every facility, for any group.
+ * sets it for a group of the active facility, the Träger for any group (see `readAccessFacility`).
  */
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { readable } = await readValidatedBody(event, groupReadAccessSchema.parse)
   const db = useDb()
-  setReadAccess(db, admin.role === 'provider' ? facilityOfGroup(db, id) : admin.facilityId, id, readable)
+  setReadAccess(db, readAccessFacility(db, admin, id), id, readable)
   return { ok: true }
 })

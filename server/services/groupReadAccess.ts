@@ -1,7 +1,29 @@
 import { asc, eq } from 'drizzle-orm'
+import type { Role } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { groupReadAccess } from '../db/schema'
-import { assertGroup } from './groups'
+import { groupReadAccess, groups } from '../db/schema'
+import { assertGroup, facilityOfGroup } from './groups'
+
+/**
+ * The facility a manager sets a group's read access in: the Leitung only in her active facility (a group of another
+ * one is then 404 group_not_found); the Träger, whose facility settings list every facility, in the group's own.
+ */
+export function readAccessFacility(db: Db, user: { role: Role; facilityId: number }, groupId: number): number {
+  return user.role === 'provider' ? facilityOfGroup(db, groupId) : user.facilityId
+}
+
+/** Every group of the facility with the groups its staff may also read (empty = none), by group id. */
+export function listReadAccess(db: Db, facilityId: number): Record<number, number[]> {
+  const result: Record<number, number[]> = {}
+  for (const group of db.select({ id: groups.id }).from(groups).where(eq(groups.facilityId, facilityId)).all()) {
+    result[group.id] = []
+  }
+  const grants = db.select({ groupId: groupReadAccess.groupId, readable: groupReadAccess.readableGroupId })
+    .from(groupReadAccess).innerJoin(groups, eq(groups.id, groupReadAccess.groupId))
+    .where(eq(groups.facilityId, facilityId)).orderBy(asc(groupReadAccess.readableGroupId)).all()
+  for (const grant of grants) result[grant.groupId]!.push(grant.readable)
+  return result
+}
 
 /** The groups whose group book the staff of this group of the facility may also read; 404 group_not_found otherwise. */
 export function getReadAccess(db: Db, facilityId: number, groupId: number): number[] {

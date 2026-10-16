@@ -33,7 +33,7 @@ const PROVIDER_ROUTES = [
   'employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts', 'leave-settings/module.put.ts',
   'facilities.post.ts', 'facilities/[id].put.ts', 'facilities/active.put.ts', 'employees/[id]/facility.put.ts',
   'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'groups/[id].put.ts', 'groups/[id].delete.ts',
-  'children/[id]/facility.put.ts', 'child-retention.get.ts', 'child-retention.put.ts',
+  'facilities/[id]/group-read-access.get.ts', 'children/[id]/facility.put.ts', 'child-retention.get.ts', 'child-retention.put.ts',
   'child-retention/preview.get.ts', 'school-settings.put.ts',
   'school-settings/auto-leave.put.ts', 'school-settings/auto-leave-preview.get.ts', 'groups/[id]/school-children.put.ts',
 ]
