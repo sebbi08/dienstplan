@@ -901,7 +901,7 @@ describe('group history and planned group changes', () => {
         expect(stale('Betreuungsvertrag')).toBe(true)
         expect(stale('Masernnachweis')).toBe(false)
         expect(overviewRow().missingRequired).toBe(true)
-        expect(listOpenReviews(db, 1, TODAY)).toEqual([{ id, name: 'Kind Muster', groupId: hort, sections: ['contract'] }])
+        expect(listOpenReviews(db, 1, TODAY, null)).toEqual([{ id, name: 'Kind Muster', groupId: hort, sections: ['contract'] }])
       })
 
       it('clears the marker when a newer care contract is uploaded, not by another type', () => {
@@ -914,7 +914,7 @@ describe('group history and planned group changes', () => {
         expect(contractMark(id)).toBeNull()
         expect(reviews()).toEqual({})
         expect(stale('Betreuungsvertrag')).toBe(false)
-        expect(listOpenReviews(db, 1, TODAY)).toEqual([])
+        expect(listOpenReviews(db, 1, TODAY, null)).toEqual([])
       })
 
       it('counts an upload on the change day as new and one from the day before as old', () => {

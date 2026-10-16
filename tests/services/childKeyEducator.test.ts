@@ -30,7 +30,7 @@ describe('Bezugserzieher and Schulbezirk of a child', () => {
   })
 
   const record = (id: number, today = TODAY) => getChild(db, admin, id, today)
-  const listed = (id: number, today = TODAY) => listChildren(db, 1, 'active', today).find(item => item.id === id)!
+  const listed = (id: number, today = TODAY) => listChildren(db, 1, 'active', today, null).find(item => item.id === id)!
 
   describe('storing', () => {
     it('stores a key educator of the facility on create and update and returns id and name in record and list', () => {

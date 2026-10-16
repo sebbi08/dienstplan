@@ -1,20 +1,22 @@
 import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
 import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
+import { groupRight } from '../../shared/domain/groupAccess'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
 import { computedSchoolStart } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
-  type ChildMasterUpdateInput, type ChildRecordDto, type ConsentKey, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
+  type ChildMasterUpdateInput, type ChildRecordDto, type ConsentKey, type GroupAccess, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
   type SectionStamp,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import {
-  clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, REVIEW_STAMP_SECTION, sectionStamp, type ChildRow,
+  assertGroupRight, clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, REVIEW_STAMP_SECTION, seesGroup,
+  sectionStamp, type ChildRow,
 } from '../lib/childRecord'
 import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
@@ -55,10 +57,15 @@ function listOrder(db: Db, facilityId: number): (a: ChildRow, b: ChildRow) => nu
   return (a, b) => rank(a) - rank(b) || byName(a, b)
 }
 
-/** Active children grouped in the groups' order (no group last), then by name. */
-export function listChildren(db: Db, facilityId: number, status: 'active', today: IsoDate): ChildListItemDto[] {
+/**
+ * Active children grouped in the groups' order (no group last), then by name; only those whose group the viewer's
+ * group access (`groups`, null = every group) lets them see.
+ */
+export function listChildren(
+  db: Db, facilityId: number, status: 'active', today: IsoDate, groups: GroupAccess | null,
+): ChildListItemDto[] {
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) === status)
+    .filter(row => childStatus(row, today) === status && seesGroup(groups, row.groupId))
   const ids = rows.map(row => row.id)
   const bans = ids.length === 0 ? [] : db.select().from(childContacts)
     .where(inArray(childContacts.childId, ids)).orderBy(asc(childContacts.sortOrder), asc(childContacts.id)).all()
@@ -90,12 +97,14 @@ const nullsLast = (a: string | null, b: string | null) => (a ?? '9999-99-99').lo
 /**
  * The facility's planned children: the waitlist (Vormerkungen) by waitlist date and name, and the contract children
  * who have not started yet by their start (entry date, else planned entry date) and name; undated ones come last.
- * The part the facility's tablet switches hide from the viewer is empty.
+ * The part the facility's tablet switches hide from the viewer is empty, and children of groups the viewer does not
+ * see (by their promised or wished-for group) are left out.
  */
 export function listPlanned(db: Db, viewer: ChildViewer, today: IsoDate): PlannedChildrenDto {
   const { facilityId } = viewer
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) === 'planned' && !hiddenFromViewer(row, viewer.visibility, today))
+    .filter(row => childStatus(row, today) === 'planned' && !hiddenFromViewer(row, viewer.visibility, today)
+      && seesGroup(viewer.groups, row.groupId))
   const ids = rows.map(row => row.id)
   // The first contact by sort order is the one whose number is shown.
   const firstContact = new Map<number, typeof childContacts.$inferSelect>()
@@ -155,7 +164,8 @@ function consentsOf(row: ChildRow): ChildConsents {
 
 /**
  * The whole record; an archived child is only visible to Träger and Leitung, a child the tablet hides from the viewer
- * not at all (others: 404 child_not_found).
+ * or whose group the viewer does not see not at all (others: 404 child_not_found). A child of a group the viewer may
+ * only read cannot be edited, whatever the viewer's other rights.
  */
 export function getChild(
   db: Db, viewer: ChildViewer, id: number, today: IsoDate,
@@ -164,6 +174,7 @@ export function getChild(
   const status = childStatus(row, today)
   if (status === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
+  assertGroupRight(viewer, row.groupId, 'read')
   const stampUsers = [row.masterUpdatedBy, row.contactsUpdatedBy, row.healthUpdatedBy, row.consentsUpdatedBy]
     .filter((userId): userId is number => userId !== null)
   const usernames = new Map(stampUsers.length === 0 ? [] : db.select({ id: users.id, username: users.username }).from(users)
@@ -191,7 +202,7 @@ export function getChild(
     },
     leftOn: row.leftOn,
     purgeOn: row.leftOn !== null && isManager(viewer.role) ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
-    canEdit: mayEditChildren(viewer) && status !== 'archived',
+    canEdit: mayEditChildren(viewer) && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write',
     documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
   }
 }
@@ -360,10 +371,13 @@ function effectiveReviews(db: Db, facilityId: number, rows: ChildRow[]): Map<num
   }))
 }
 
-/** The facility's active children with sections still to be confirmed, in the order of the child list. */
-export function listOpenReviews(db: Db, facilityId: number, today: IsoDate): OpenChildDto[] {
+/**
+ * The facility's active children with sections still to be confirmed, in the order of the child list; only those whose
+ * group the viewer's group access (`groups`, null = every group) lets them see.
+ */
+export function listOpenReviews(db: Db, facilityId: number, today: IsoDate, groups: GroupAccess | null): OpenChildDto[] {
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) === 'active')
+    .filter(row => childStatus(row, today) === 'active' && seesGroup(groups, row.groupId))
     .sort(listOrder(db, facilityId))
   const reviews = effectiveReviews(db, facilityId, rows)
   return rows
@@ -376,10 +390,13 @@ export function listOpenReviews(db: Db, facilityId: number, today: IsoDate): Ope
     .filter(item => item.sections.length > 0)
 }
 
-/** The next birthday of every active child of the facility, soonest first (the screens cut off what they show). */
-export function listBirthdays(db: Db, facilityId: number, today: IsoDate): BirthdayDto[] {
+/**
+ * The next birthday of every active child of the facility whose group the viewer's group access (`groups`, null = every
+ * group) lets them see, soonest first (the screens cut off what they show).
+ */
+export function listBirthdays(db: Db, facilityId: number, today: IsoDate, groups: GroupAccess | null): BirthdayDto[] {
   return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) === 'active')
+    .filter(row => childStatus(row, today) === 'active' && seesGroup(groups, row.groupId))
     .map(row => ({ row, birthday: nextBirthday(row.birthDate, today) }))
     .sort((a, b) => a.birthday.date.localeCompare(b.birthday.date) || byName(a.row, b.row))
     .map(({ row, birthday }) => ({

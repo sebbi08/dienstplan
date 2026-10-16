@@ -42,7 +42,7 @@ describe('child records', () => {
       addChild(db, 1, { lastName: 'Adler', firstName: 'Ben', groupId: bears })
       addChild(db, 1, { lastName: 'Berg', firstName: 'Mia', groupId: mice })
       addChild(db, 1, { lastName: 'Albers', firstName: 'Tom', groupId: null })
-      expect(names(listChildren(db, 1, 'active', TODAY))).toEqual([
+      expect(names(listChildren(db, 1, 'active', TODAY, null))).toEqual([
         'Berg Mia', 'Adler Ben', 'Zander Zoe', 'Albers Tom',
       ])
     })
@@ -53,7 +53,7 @@ describe('child records', () => {
       addChild(db, 1, { lastName: 'Zukunft', entryDate: '2026-11-01' })
       addChild(db, 1, { lastName: 'Ohne', entryDate: null })
       addChild(db, 1, { lastName: 'Weg', leftOn: '2026-10-08' })
-      const [only, ...rest] = listChildren(db, 1, 'active', TODAY)
+      const [only, ...rest] = listChildren(db, 1, 'active', TODAY, null)
       expect(rest).toEqual([])
       expect(only).toMatchObject({
         lastName: 'Aktiv', age: { years: 4, months: 6 }, careTypeName: 'Ganztag', entryDate: '2025-09-01',
@@ -65,7 +65,7 @@ describe('child records', () => {
       const id = addChild(db, 1, { allergies: 'Nüsse' })
       addContact(db, admin, 1, id, contact({ name: 'Karl', mayPickUp: false, contactBan: true, contactBanNote: 'gerichtlich' }), TODAY, NOW)
       addContact(db, admin, 1, id, contact({ name: 'Anna' }), TODAY, NOW)
-      const [item] = listChildren(db, 1, 'active', TODAY)
+      const [item] = listChildren(db, 1, 'active', TODAY, null)
       expect(item!.hasAllergies).toBe(true)
       expect(item!.contactBans).toEqual([{ name: 'Karl', note: 'gerichtlich' }])
     })
@@ -74,8 +74,8 @@ describe('child records', () => {
       const other = addFacility(db, 'Andere Kita')
       addChild(db, other, { lastName: 'Fremd' })
       addChild(db, 1, { lastName: 'Eigen' })
-      expect(names(listChildren(db, 1, 'active', TODAY))).toEqual(['Eigen Kind'])
-      expect(names(listChildren(db, other, 'active', TODAY))).toEqual(['Fremd Kind'])
+      expect(names(listChildren(db, 1, 'active', TODAY, null))).toEqual(['Eigen Kind'])
+      expect(names(listChildren(db, other, 'active', TODAY, null))).toEqual(['Fremd Kind'])
     })
   })
 
@@ -214,7 +214,7 @@ describe('child records', () => {
       addChild(db, 1, { lastName: 'Weg', firstName: 'F', birthDate: '2022-10-10', leftOn: '2026-09-01' })
       addChild(db, 1, { lastName: 'Neu', firstName: 'G', birthDate: '2022-10-11', entryDate: '2026-12-01' })
       addChild(db, addFacility(db, 'Andere Kita'), { lastName: 'Fremd', birthDate: '2022-10-10' })
-      const result = listBirthdays(db, 1, TODAY)
+      const result = listBirthdays(db, 1, TODAY, null)
       expect(result.map(item => [item.name, item.date, item.turns])).toEqual([
         ['B Heute', '2026-10-09', 4],
         ['E Gruppe', '2026-10-12', 3],

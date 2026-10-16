@@ -6,5 +6,5 @@ import { listChildren } from '../../services/children'
 export default defineServiceHandler(async (event) => {
   const viewer = await requireChildReader(event)
   const { status } = await getValidatedQuery(event, childListQuery.parse)
-  return listChildren(useDb(), viewer.facilityId, status, todayIso())
+  return listChildren(useDb(), viewer.facilityId, status, todayIso(), viewer.groups)
 })

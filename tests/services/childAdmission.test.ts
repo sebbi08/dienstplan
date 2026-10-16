@@ -134,8 +134,8 @@ describe('admission status and planned lists', () => {
         lastName: 'Wartend', admissionStatus: 'waitlist', entryDate: '2025-09-01', plannedEntryDate: '2025-09-01', waitlistedOn: '2025-01-01',
       })
       addChild(db, 1, { lastName: 'Aktiv' })
-      expect(names(listChildren(db, 1, 'active', TODAY))).toEqual(['Aktiv'])
-      expect(listBirthdays(db, 1, TODAY).map(item => item.childId)).not.toContain(id)
+      expect(names(listChildren(db, 1, 'active', TODAY, null))).toEqual(['Aktiv'])
+      expect(listBirthdays(db, 1, TODAY, null).map(item => item.childId)).not.toContain(id)
       expect(documentOverview(db, admin, 1, TODAY).rows.map(row => row.childId)).not.toContain(id)
       expect(getChild(db, admin, id, TODAY).status).toBe('planned')
     })

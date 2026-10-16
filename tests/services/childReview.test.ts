@@ -252,7 +252,7 @@ describe('review markers after group changes', () => {
       expect(reviews()).toEqual({ health: CHANGE_DAY })
       db.update(children).set({ documentsReviewSince: CHANGE_DAY, healthReviewSince: null }).where(eq(children.id, childId)).run()
       expect(reviews()).toEqual({})
-      expect(listOpenReviews(db, 1, TODAY)).toEqual([])
+      expect(listOpenReviews(db, 1, TODAY, null)).toEqual([])
     })
 
     it('is not set when every required type was uploaded since the change day already', () => {
@@ -264,10 +264,10 @@ describe('review markers after group changes', () => {
     it('disappears from the record and the list when the required flags are switched off, and is cleared by the next write', () => {
       moveWith({ documents: false })
       expect(reviews()).toEqual({ documents: CHANGE_DAY })
-      expect(listOpenReviews(db, 1, TODAY).map(item => item.sections)).toEqual([['documents']])
+      expect(listOpenReviews(db, 1, TODAY, null).map(item => item.sections)).toEqual([['documents']])
       setRequired(false)
       expect(reviews()).toEqual({})
-      expect(listOpenReviews(db, 1, TODAY)).toEqual([])
+      expect(listOpenReviews(db, 1, TODAY, null)).toEqual([])
       expect(storedMarker()).toBe(CHANGE_DAY)
       upload('Sonstiges', NOW)
       expect(storedMarker()).toBeNull()
@@ -370,14 +370,14 @@ describe('review markers after group changes', () => {
       moveWith({ health: false, contacts: false })
       moveWith({ consents: false }, other)
       db.update(children).set({ keyEducatorReviewSince: CHANGE_DAY }).where(eq(children.id, ungrouped)).run()
-      expect(listOpenReviews(db, 1, TODAY)).toEqual([
+      expect(listOpenReviews(db, 1, TODAY, null)).toEqual([
         { id: other, name: 'Kind Adler', groupId: mice, sections: ['consents'] },
         { id: childId, name: 'Kind Muster', groupId: mice, sections: ['contacts', 'health'] },
         { id: ungrouped, name: 'Kind Zorn', groupId: null, sections: ['keyEducator'] },
       ])
       updateChildHealth(db, admin, 1, childId, HEALTH, TODAY, NOW)
       confirmSection(db, admin, 1, childId, 'contacts', TODAY, NOW)
-      expect(listOpenReviews(db, 1, TODAY).map(item => item.id)).toEqual([other, ungrouped])
+      expect(listOpenReviews(db, 1, TODAY, null).map(item => item.id)).toEqual([other, ungrouped])
     })
 
     it('omits archived, planned and other facilities\' children', () => {
@@ -388,8 +388,8 @@ describe('review markers after group changes', () => {
       for (const id of [foreign, archived, planned]) {
         db.update(children).set({ healthReviewSince: CHANGE_DAY }).where(eq(children.id, id)).run()
       }
-      expect(listOpenReviews(db, 1, TODAY)).toEqual([])
-      expect(listOpenReviews(db, facility, TODAY).map(item => item.id)).toEqual([foreign])
+      expect(listOpenReviews(db, 1, TODAY, null)).toEqual([])
+      expect(listOpenReviews(db, facility, TODAY, null).map(item => item.id)).toEqual([foreign])
     })
   })
 })

@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
+import { groupRight } from '../../shared/domain/groupAccess'
 import { isManager } from '../../shared/domain/roles'
-import { REVIEW_SECTIONS, type ReviewSection } from '../../shared/types/api'
+import { REVIEW_SECTIONS, type GroupAccess, type ReviewSection } from '../../shared/types/api'
 import type { IsoDate } from '../../shared/domain/types'
 import type { Db } from '../db/client'
 import { children } from '../db/schema'
@@ -19,18 +20,38 @@ export function loadChild(db: Db, facilityId: number, id: number): ChildRow {
 }
 
 /**
+ * Whether the viewer's group access (group book spec §3.1) lets them `need` the records of a child in this group (its
+ * current group, `children.groupId`): a hidden group answers 404 `notFound` (as if the record did not exist), a group
+ * the viewer may only read refuses a write with 403 group_read_only.
+ */
+export function assertGroupRight(
+  viewer: Pick<ChildViewer, 'groups'>, groupId: number | null, need: 'read' | 'write', notFound = 'child_not_found',
+): void {
+  const right = groupRight(groupId, viewer.groups)
+  if (right === 'none') throw new ServiceError(404, notFound)
+  if (need === 'write' && right === 'read') throw new ServiceError(403, 'group_read_only')
+}
+
+/** Whether a viewer with this group access sees the records of a child in this group at all (for the lists). */
+export function seesGroup(groups: GroupAccess | null, groupId: number | null): boolean {
+  return groupRight(groupId, groups) !== 'none'
+}
+
+/**
  * Like `loadChild`, but a child who has left (archived) cannot be changed any more: 409 child_archived for managers;
  * everybody else must not even know the record exists (404 child_not_found, as when reading it). Nor can a child the
- * facility's tablet hides from the actor (404 child_not_found).
+ * facility's tablet hides from the actor or whose group the actor does not see (404 child_not_found), and one of a
+ * group the actor may only read is not changed either (403 group_read_only). Every write of a record goes through here.
  */
 export function loadEditableChild(
-  db: Db, actor: Pick<ChildViewer, 'role' | 'visibility'>, facilityId: number, id: number, today: IsoDate,
+  db: Db, actor: Pick<ChildViewer, 'role' | 'visibility' | 'groups'>, facilityId: number, id: number, today: IsoDate,
 ): ChildRow {
   const row = loadChild(db, facilityId, id)
   if (childStatus(row, today) === 'archived') {
     throw isManager(actor.role) ? new ServiceError(409, 'child_archived') : new ServiceError(404, 'child_not_found')
   }
   if (hiddenFromViewer(row, actor.visibility, today)) throw new ServiceError(404, 'child_not_found')
+  assertGroupRight(actor, row.groupId, 'write')
   return row
 }
 
