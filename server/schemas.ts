@@ -307,3 +307,9 @@ export const attendanceDaySchema = z.object({
   lunch: z.boolean().nullable().optional(),
 })
 export const attendanceStaySchema = z.object({ arrived: clockTime, left: clockTime.nullable(), pickup: pickupChoice.optional() })
+export const attendanceMonthQuery = monthParams
+export const attendanceMonthRemarkSchema = z.object({
+  childId: z.number().int().positive(), month: z.string().regex(/^\d{4}-\d{2}$/), remark: z.string().max(500),
+})
+/** The attendance settings of a facility. The times are checked by the service, which answers attendance_time_invalid. */
+export const attendanceSettingsSchema = z.object({ snackTime: z.number(), lunchTime: z.number(), recordBroughtBy: z.boolean() })

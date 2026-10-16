@@ -294,6 +294,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 
     <SettingsTabletSection />
 
+    <SettingsAttendanceSection />
+
     <SettingsChildRetentionSection v-if="isProvider" />
 
     <section v-if="isProvider" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">

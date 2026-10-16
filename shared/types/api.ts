@@ -1267,3 +1267,37 @@ export interface AttendanceStayInput {
   left: Minutes | null
   pickup?: AttendancePickupChoice
 }
+
+/** One child's row in one group of the month table; `cells` has an entry for each day of the month the child was active in that group. */
+export interface AttendanceMonthChildDto {
+  childId: number
+  /** "Nachname, Vorname". */
+  name: string
+  cells: Record<IsoDate, MonthCell>
+  sums: Record<Exclude<MonthCell, 'none'>, number>
+  /** The free text of the child for this month ("Bemerkung"). */
+  remark: string
+}
+
+/** The month table (spec §4): one table per group in the groups' order, children without a group last (`id: null`, empty name). */
+export interface AttendanceMonthDto {
+  year: number
+  month: number
+  /** Every day of the month; `grey` = weekend, public holiday of the facility or closure day. */
+  days: { date: IsoDate; grey: boolean }[]
+  groups: { id: number | null; name: string; children: AttendanceMonthChildDto[] }[]
+}
+
+export interface AttendanceMonthRemarkInput {
+  childId: number
+  /** YYYY-MM. */
+  month: string
+  remark: string
+}
+
+/** The attendance settings of a facility (spec §6): the times (minutes after midnight) snack and lunch are counted at. */
+export interface AttendanceSettingsDto {
+  snackTime: Minutes
+  lunchTime: Minutes
+  recordBroughtBy: boolean
+}

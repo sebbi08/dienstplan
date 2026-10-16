@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lt, ne } from 'drizzle-orm'
-import { countsForMeal, dayStatus, pickupOverdue } from '../../shared/domain/childAttendance'
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne } from 'drizzle-orm'
+import { countsForMeal, dayStatus, monthCell, monthSums, pickupOverdue, type StaySpan } from '../../shared/domain/childAttendance'
 import { childStatus } from '../../shared/domain/children'
-import { addDays, dateRange, daysBetween, isWeekend } from '../../shared/domain/dates'
+import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
 import { groupOnDay, type GroupEntry } from '../../shared/domain/occupancy'
 import { formatTime } from '../../shared/domain/time'
@@ -9,12 +9,13 @@ import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate, Minutes } from '../../shared/domain/types'
 import type {
   AttendanceAbsenceInput, AttendanceAnnouncementInput, AttendanceArriveInput, AttendanceChangeDto, AttendanceChildDto,
-  AttendanceDayDto, AttendanceDayInput, AttendanceLeaveInput, AttendancePickupChoice, AttendancePickupOption,
-  AttendanceStayInput,
+  AttendanceDayDto, AttendanceDayInput, AttendanceLeaveInput, AttendanceMonthChildDto, AttendanceMonthDto,
+  AttendanceMonthRemarkInput, AttendancePickupChoice, AttendancePickupOption, AttendanceSettingsDto, AttendanceStayInput,
+  MonthCell,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  childAttendanceChanges, childAttendanceDays, childAttendanceStays, childContacts, childPickupAnnouncements, children,
+  childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements, children,
   facilities,
 } from '../db/schema'
 import { loadChild, type ChildRow } from '../lib/childRecord'
@@ -77,6 +78,9 @@ function staysOf(db: Db, dayId: number): StayRow[] {
 }
 
 // ---- change log ----
+
+/** The field a change of a month remark is logged under (on the first day of that month; it is no entry of a day). */
+const MONTH_REMARK_FIELD = 'monthRemark'
 
 /** A field of an attendance day as it was and as it is now, as text ('' = empty). */
 export interface AttendanceChange { field: string; before: string; after: string }
@@ -166,7 +170,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
   // Changed = a value that was there was overwritten or removed (a first entry is no change).
   const changed = new Set(ids.length === 0 ? [] : db.selectDistinct({ childId: childAttendanceChanges.childId })
     .from(childAttendanceChanges)
-    .where(and(eq(childAttendanceChanges.date, date), inArray(childAttendanceChanges.childId, ids), ne(childAttendanceChanges.before, '')))
+    .where(and(eq(childAttendanceChanges.date, date), inArray(childAttendanceChanges.childId, ids), ne(childAttendanceChanges.before, ''),
+      ne(childAttendanceChanges.field, MONTH_REMARK_FIELD)))
     .all().map(row => row.childId))
   const histories = groupHistories(db, facilityId)
   const groups = listGroups(db, facilityId)
@@ -457,4 +462,112 @@ export function deleteStay(db: Db, viewer: ChildViewer, stayId: number, now: Dat
       { field: 'pickedUpBy', before: stay.pickedUpBy ?? '', after: '' },
     ], now)
   })
+}
+
+// ---- month overview ----
+
+/**
+ * The month table (spec §4): per group a table with a row for every child that belonged to the group on a day of the
+ * month and was active then (not before the entry or the move to this facility, not after leaving). The group of a day
+ * comes from the group history, like in the day list; a child that changed the group appears in both with its days there.
+ * `cells` has an entry for each of those days (`none` = nothing to show yet). Unexcused only counts for past care days.
+ */
+export function getAttendanceMonth(db: Db, viewer: ChildViewer, year: number, month: number, now: Date = new Date()): AttendanceMonthDto {
+  const { facilityId } = viewer
+  const dates = monthDates(year, month)
+  const monthKey = dates[0]!.slice(0, 7)
+  const isCareDay = careDays(db, facilityId)
+  const today = nowInBerlin(now).date
+  const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+    .filter(row => dates.some(date => activeOn(row, date))).sort(byName)
+  const ids = rows.map(row => row.id)
+
+  const days = ids.length === 0 ? [] : db.select().from(childAttendanceDays)
+    .where(and(
+      inArray(childAttendanceDays.childId, ids), gte(childAttendanceDays.date, dates[0]!), lte(childAttendanceDays.date, dates[dates.length - 1]!),
+    )).all()
+  const dayIds = days.map(day => day.id)
+  const stays = dayIds.length === 0 ? [] : db.select().from(childAttendanceStays).where(inArray(childAttendanceStays.dayId, dayIds)).all()
+  const remarks = new Map(ids.length === 0 ? [] : db.select().from(childAttendanceMonths)
+    .where(and(eq(childAttendanceMonths.month, monthKey), inArray(childAttendanceMonths.childId, ids))).all()
+    .map(row => [row.childId, row.remark]))
+  const dayOf = new Map(days.map(day => [`${day.childId}|${day.date}`, day]))
+  const spansOf = new Map<number, StaySpan[]>()
+  for (const stay of stays) spansOf.set(stay.dayId, [...(spansOf.get(stay.dayId) ?? []), { arrived: stay.arrived, left: stay.left }])
+
+  const histories = groupHistories(db, facilityId)
+  const facilityGroups = listGroups(db, facilityId)
+  const known = new Set(facilityGroups.map(group => group.id))
+  const care = new Map(dates.map(date => [date, isCareDay(date)]))
+
+  const byGroup = new Map<number | null, AttendanceMonthChildDto[]>()
+  for (const row of rows) {
+    const cellsByGroup = new Map<number | null, Record<IsoDate, MonthCell>>()
+    for (const date of dates) {
+      if (!activeOn(row, date)) continue
+      const groupId = groupOnDay(histories.get(row.id) ?? [], date)
+      const key = groupId !== null && known.has(groupId) ? groupId : null
+      const day = dayOf.get(`${row.id}|${date}`)
+      const status = dayStatus({
+        stays: day ? spansOf.get(day.id) ?? [] : [], absence: day?.absence ?? null, date, today, isCareDay: care.get(date)!,
+      })
+      cellsByGroup.set(key, { ...cellsByGroup.get(key), [date]: monthCell(status) })
+    }
+    for (const [groupId, cells] of cellsByGroup) {
+      byGroup.set(groupId, [...(byGroup.get(groupId) ?? []), {
+        childId: row.id, name: nameOf(row), cells, sums: monthSums(Object.values(cells)), remark: remarks.get(row.id) ?? '',
+      }])
+    }
+  }
+
+  return {
+    year,
+    month,
+    days: dates.map(date => ({ date, grey: !care.get(date) })),
+    groups: [
+      ...facilityGroups.filter(group => byGroup.has(group.id)).map(group => ({ id: group.id, name: group.name, children: byGroup.get(group.id)! })),
+      ...(byGroup.has(null) ? [{ id: null, name: '', children: byGroup.get(null)! }] : []),
+    ],
+  }
+}
+
+/**
+ * Sets the remark of a child for a month ("YYYY-MM", 400 invalid_input otherwise; 404 child_not_found when the child is
+ * not active in this facility on any day of it). The change is logged on the first day of the month.
+ */
+export function setMonthRemark(db: Db, viewer: ChildViewer, input: AttendanceMonthRemarkInput, now: Date = new Date()): void {
+  const { childId, month } = input
+  if (!/^\d{4}-\d{2}$/.test(month) || !isValidIsoDate(`${month}-01`)) throw new ServiceError(400, 'invalid_input')
+  const child = loadChild(db, viewer.facilityId, childId)
+  if (!monthDates(Number(month.slice(0, 4)), Number(month.slice(5))).some(date => activeOn(child, date))) {
+    throw new ServiceError(404, 'child_not_found')
+  }
+  const remark = input.remark.trim()
+  db.transaction((tx) => {
+    const before = tx.select({ remark: childAttendanceMonths.remark }).from(childAttendanceMonths)
+      .where(and(eq(childAttendanceMonths.childId, childId), eq(childAttendanceMonths.month, month))).get()?.remark ?? ''
+    tx.insert(childAttendanceMonths).values({ childId, month, remark })
+      .onConflictDoUpdate({ target: [childAttendanceMonths.childId, childAttendanceMonths.month], set: { remark } }).run()
+    logAttendanceChanges(tx, viewer, childId, `${month}-01`, [{ field: MONTH_REMARK_FIELD, before, after: remark }], now)
+  })
+}
+
+// ---- settings ----
+
+/** The facility's attendance settings (404 facility_not_found). */
+export function getAttendanceSettings(db: Db, facilityId: number): AttendanceSettingsDto {
+  const row = db.select({ snackTime: facilities.snackTime, lunchTime: facilities.lunchTime, recordBroughtBy: facilities.recordBroughtBy })
+    .from(facilities).where(eq(facilities.id, facilityId)).get()
+  if (!row) throw new ServiceError(404, 'facility_not_found')
+  return row
+}
+
+const validClockTime = (value: number) => Number.isInteger(value) && value >= 0 && value <= 1439
+
+/** Stores the facility's attendance settings; the meal times are minutes of the day (0–1439), else 400 attendance_time_invalid. */
+export function setAttendanceSettings(db: Db, facilityId: number, input: AttendanceSettingsDto): void {
+  if (!validClockTime(input.snackTime) || !validClockTime(input.lunchTime)) throw new ServiceError(400, 'attendance_time_invalid')
+  getAttendanceSettings(db, facilityId)
+  db.update(facilities).set({ snackTime: input.snackTime, lunchTime: input.lunchTime, recordBroughtBy: input.recordBroughtBy })
+    .where(eq(facilities.id, facilityId)).run()
 }

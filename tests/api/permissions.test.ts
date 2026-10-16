@@ -56,7 +56,7 @@ const CHILD_READER_ROUTES = [
   // Attendance: every child viewer reads and writes it (spec Anwesenheit §7).
   'attendance/day.get.ts', 'attendance/arrive.post.ts', 'attendance/leave.post.ts', 'attendance/announcements/index.post.ts',
   'attendance/announcements/[id].delete.ts', 'attendance/absence.put.ts', 'attendance/day.put.ts', 'attendance/stays/[id].put.ts',
-  'attendance/stays/[id].delete.ts', 'attendance/history.get.ts',
+  'attendance/stays/[id].delete.ts', 'attendance/history.get.ts', 'attendance/month.get.ts', 'attendance/month-remark.put.ts',
 ]
 /**
  * Routes that maintain child records (managers, and at the tablet Mitarbeiter with the permission); they must check
@@ -188,7 +188,8 @@ describe('API route permissions', () => {
       expect(source(route), route).toContain('requireProvider(')
     }
     for (const route of ['care-types/index.post.ts', 'care-types/[id].put.ts', 'care-types/[id].delete.ts',
-      'document-types/index.post.ts', 'document-types/[id].put.ts', 'document-types/[id].delete.ts']) {
+      'document-types/index.post.ts', 'document-types/[id].put.ts', 'document-types/[id].delete.ts',
+      'attendance-settings.get.ts', 'attendance-settings.put.ts']) {
       expect(source(route), route).toContain('requireAdmin(')
     }
   })

@@ -596,6 +596,21 @@ export const de = {
     showWaitlist: 'Vormerkungen am Tablet zeigen', showFutureContracts: 'Künftige Kinder mit Vertrag am Tablet zeigen',
     hint: 'Mitarbeiter sehen Kinder nur am Tablet: Name antippen und PIN eingeben. Das Tablet sperrt sich nach der Sperrzeit ohne Bedienung von selbst.',
   },
+  attendance: {
+    // Settings section (Leitung and Träger) and the print pages of the child attendance.
+    settingsTitle: 'Anwesenheit', snackTime: 'Uhrzeit Snack', lunchTime: 'Uhrzeit Mittagessen', recordBroughtBy: 'Bringperson erfassen',
+    settingsHint: 'Zu diesen Uhrzeiten werden die Kinder für Snack und Mittagessen gezählt. Ist „Bringperson erfassen“ an, fragt das Tablet beim Kommen, wer das Kind gebracht hat.',
+    printDayTitle: (date: string) => `Anwesenheit Kinder ${date}`, printMonthTitle: (month: string) => `Anwesenheit Kinder ${month}`,
+    noGroup: 'Ohne Gruppe', noChildren: 'Keine Kinder.',
+    printColumns: {
+      child: 'Kind', arrived: 'Ankunft', broughtBy: 'Bringperson', plannedPickup: 'Geplante Abholzeit', pickedUpBy: 'Abholperson',
+      left: 'Abholzeit', snack: 'Snack', lunch: 'Mittag', info: 'Info',
+    },
+    absence: { sick: 'krank', vacation: 'Urlaub', excused: 'entschuldigt', unexcused: 'unentschuldigt' },
+    allergies: 'Allergien',
+    monthLegend: '✓ da · K krank · U Urlaub · E entschuldigt · – unentschuldigt',
+    monthSums: { present: '✓', sick: 'K', vacation: 'U', excused: 'E', unexcused: '–' }, remark: 'Bemerkung',
+  },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',
     login_invalid: 'Benutzername oder Passwort ist falsch.',
@@ -764,5 +779,6 @@ export const de = {
     pickup_person_required: 'Bitte wähle aus, wer das Kind abholt.',
     stay_not_found: 'Dieser Aufenthalt existiert nicht mehr. Bitte lade die Seite neu.',
     announcement_not_found: 'Diese angekündigte Person existiert nicht mehr. Bitte lade die Seite neu.',
+    attendance_time_invalid: 'Bitte gib eine Uhrzeit von 0:00 bis 23:59 an.',
   },
 }
