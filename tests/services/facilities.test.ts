@@ -9,6 +9,7 @@ import {
   createFacility, listFacilities, resolveFacilityId, setActiveFacility, updateFacility,
 } from '../../server/services/facilities'
 import { facilityHolidayRules } from '../../server/services/holidayRules'
+import { getOpeningHours, setFacilityOpeningHours } from '../../server/services/openingHours'
 import { getSchoolSettings, setAutoLeave, setSchoolCutoff } from '../../server/services/schoolChildren'
 import { createCoverageRule } from '../../server/services/settings'
 import type { SessionUser } from '../../shared/types/api'
@@ -101,6 +102,19 @@ describe('facilities', () => {
     const rules = db.select().from(coverageRules).where(eq(coverageRules.facilityId, krippe)).all()
     expect(rules.map(rule => rule.label)).toEqual(['Spätdienst 8:45–17:00', 'Frühdienst ab 7:00', 'Frühdienst 2 ab 7:30'])
     expect(rules.every(rule => rule.groupId === null)).toBe(true)
+  })
+
+  it('copies the weekdays of the coverage rules, but not the opening hours', () => {
+    const rule = createCoverageRule(db, 1, { label: 'Nur Montag', start: 420, end: null, minCount: 1, active: true, weekdays: 1 })
+    setFacilityOpeningHours(db, 1, {
+      days: Array(5).fill({ open: 420, close: 990, closed: false }), minAtOpening: 2, minAtClosing: 2,
+    })
+    const krippe = createFacility(db, 'Krippe').id
+    const copied = db.select().from(coverageRules).where(eq(coverageRules.facilityId, krippe)).all()
+    expect(copied.find(candidate => candidate.label === rule.label)!.weekdays).toBe(1)
+    expect(copied.filter(candidate => candidate.label !== rule.label).every(candidate => candidate.weekdays === 31)).toBe(true)
+    expect(getOpeningHours(db, krippe).facility).toBeNull()
+    expect(db.select().from(facilities).where(eq(facilities.id, krippe)).get()).toMatchObject({ minAtOpening: 1, minAtClosing: 1 })
   })
 
   it('renames facilities', () => {

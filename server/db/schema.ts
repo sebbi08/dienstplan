@@ -37,6 +37,9 @@ export const facilities = sqliteTable('facilities', {
    * entry is unexcused. Set by the first attendance entry, changed only in the settings.
    */
   attendanceSince: text('attendance_since'),
+  /** Opening hours: the minimum number of staff at opening and until closing (1–20). */
+  minAtOpening: integer('min_at_opening').notNull().default(1),
+  minAtClosing: integer('min_at_closing').notNull().default(1),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -52,6 +55,9 @@ export const groups = sqliteTable('groups', {
   capacity: integer('capacity'),
   /** After-school care (Hort): a child in such a group on its school start stays instead of leaving the day before. */
   forSchoolChildren: integer('for_school_children', { mode: 'boolean' }).notNull().default(false),
+  /** Minimum number of staff at opening and until closing, used with the group's own opening hours (1–20). */
+  minAtOpening: integer('min_at_opening').notNull().default(1),
+  minAtClosing: integer('min_at_closing').notNull().default(1),
 }, table => [index('groups_facility').on(table.facilityId)])
 
 /** The group a row belongs to (null = the whole facility, or no group of its own); always a group of the row's facility. */
@@ -239,7 +245,27 @@ export const coverageRules = sqliteTable('coverage_rules', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   /** The group the rule applies to (null = the whole facility). */
   groupId: groupId(),
+  /** Weekdays the rule is checked on: bit 0 = Monday … bit 4 = Friday (31 = every weekday). */
+  weekdays: integer('weekdays').notNull().default(31),
 })
+
+/**
+ * Opening hours of one weekday (0 = Monday … 4 = Friday) of a facility (`groupId` null) or of a group with its own hours.
+ * A day without a row, or with neither times nor `closed`, is not entered. The minimum counts live on the facility / group.
+ */
+export const openingHours = sqliteTable('opening_hours', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').references(() => groups.id, { onDelete: 'cascade' }),
+  weekday: integer('weekday').notNull(),
+  open: integer('open'),
+  close: integer('close'),
+  closed: integer('closed', { mode: 'boolean' }).notNull().default(false),
+}, table => [
+  // NULLs are distinct in a unique index, so the facility's rows (no group) and the groups' rows each need their own.
+  uniqueIndex('opening_hours_facility_weekday').on(table.facilityId, table.weekday).where(sql`\`group_id\` IS NULL`),
+  uniqueIndex('opening_hours_group_weekday').on(table.groupId, table.weekday).where(sql`\`group_id\` IS NOT NULL`),
+])
 
 export const releaseSnapshots = sqliteTable('release_snapshots', {
   id: integer('id').primaryKey({ autoIncrement: true }),

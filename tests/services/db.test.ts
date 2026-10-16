@@ -150,6 +150,7 @@ describe('upgrading a filled database through migrateDb', () => {
         school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
         snack_time: 570, lunch_time: 720, record_brought_by: 0, attendance_since: null,
+        min_at_opening: 1, min_at_closing: 1,
       },
     ])
     expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
@@ -215,7 +216,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
-      expect(after.map(({ group_id: _, ...rest }) => rest), table).toEqual(before[table])
+      // (weekdays of the coverage rules comes with the later 0038_opening_hours.)
+      expect(after.map(({ group_id: _, weekdays: __, ...rest }) => rest), table).toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }
     expect(sqlite.prepare('SELECT * FROM week_template_entries').all()).toEqual(before.week_template_entries)
@@ -599,12 +601,14 @@ describe('upgrading a filled database through migrateDb', () => {
     // (facility_since comes with the later 0031_child_facility_since.)
     expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since')).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
-    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children')).toEqual(before.groups)
+    // (the minimum counts come with the later 0038_opening_hours.)
+    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing'))
+      .toEqual(before.groups)
     // (the tablet settings come with the later 0032_tablet_children, state and assumption_day with 0033_facility_state,
     // the attendance settings with 0034_child_attendance and 0035_attendance_since.)
     expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children',
       'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts', 'state', 'assumption_day',
-      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since'))
+      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing'))
       .toEqual(before.facilities)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
@@ -649,7 +653,7 @@ describe('upgrading a filled database through migrateDb', () => {
     // (state and assumption_day come with the later 0033_facility_state, the attendance settings with 0034 and 0035.)
     const columns = [
       'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts', 'state', 'assumption_day',
-      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since',
+      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing',
     ]
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
@@ -670,7 +674,7 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 1, state: 'BW', assumption_day: 1 }, { id: 2, state: 'BW', assumption_day: 1 },
     ])
     // (the attendance settings come with the later 0034_child_attendance and 0035_attendance_since.)
-    const columns = ['state', 'assumption_day', 'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since']
+    const columns = ['state', 'assumption_day', 'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing']
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
     // A facility created without naming them gets the defaults too.
@@ -694,7 +698,7 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 2, snack_time: 570, lunch_time: 720, record_brought_by: 0 },
     ])
     // (attendance_since comes with the later 0035_attendance_since.)
-    const columns = ['snack_time', 'lunch_time', 'record_brought_by', 'attendance_since']
+    const columns = ['snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing']
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
     const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
@@ -730,7 +734,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, attendance_since FROM facilities ORDER BY id').all())
       .toEqual([{ id: 1, attendance_since: null }, { id: 2, attendance_since: null }])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ attendance_since: _, ...rest }) => rest)).toEqual(before)
+      .map(({ attendance_since: _, min_at_opening: __, min_at_closing: ___, ...rest }) => rest)).toEqual(before)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
@@ -768,7 +772,9 @@ describe('upgrading a filled database through migrateDb', () => {
     migrateDb(db, MIGRATIONS)
 
     expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(37)
-    expect(sqlite.prepare('SELECT * FROM groups ORDER BY id').all()).toEqual(before)
+    // (the minimum counts come with the later 0038_opening_hours.)
+    expect((sqlite.prepare('SELECT * FROM groups ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ min_at_opening: _, min_at_closing: __, ...rest }) => rest)).toEqual(before)
     const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
     for (const table of ['group_read_access', 'group_week_notes', 'group_day_notes', 'group_book_changes']) expect(tables).toContain(table)
 
@@ -794,6 +800,40 @@ describe('upgrading a filled database through migrateDb', () => {
     for (const table of ['group_week_notes', 'group_day_notes', 'group_book_changes']) {
       expect(sqlite.prepare(`SELECT group_id FROM ${table}`).all(), table).toEqual([{ group_id: 1 }])
     }
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('0038 adds opening hours: existing rules get every weekday, minimum counts 1, no hours', () => {
+    const { db, sqlite } = databaseAt('0037')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(38)
+    sqlite.exec(`
+      INSERT INTO groups (id, facility_id, name) VALUES (1, 1, 'Bären');
+      INSERT INTO coverage_rules (label, start, min_count, active, facility_id) VALUES ('Früh', 420, 1, 1, 1), ('Spät', 900, 2, 1, 1);
+    `)
+    const rulesBefore = sqlite.prepare('SELECT id, label, start, min_count FROM coverage_rules ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(38)
+    expect(sqlite.prepare('SELECT id, label, start, min_count FROM coverage_rules ORDER BY id').all()).toEqual(rulesBefore)
+    expect(sqlite.prepare('SELECT weekdays FROM coverage_rules').all()).toEqual([{ weekdays: 31 }, { weekdays: 31 }])
+    expect(sqlite.prepare('SELECT min_at_opening, min_at_closing FROM facilities').all()).toEqual([{ min_at_opening: 1, min_at_closing: 1 }])
+    expect(sqlite.prepare('SELECT min_at_opening, min_at_closing FROM groups').all()).toEqual([{ min_at_opening: 1, min_at_closing: 1 }])
+    expect(count(sqlite, 'opening_hours')).toBe(0)
+
+    // One row per facility and weekday although group_id is NULL, one per group and weekday.
+    const insert = (groupId: number | null, weekday: number) => sqlite.prepare(
+      'INSERT INTO opening_hours (facility_id, group_id, weekday, open, close) VALUES (1, ?, ?, 420, 990)').run(groupId, weekday)
+    insert(null, 0)
+    insert(1, 0)
+    expect(() => insert(null, 0)).toThrow(/UNIQUE/)
+    expect(() => insert(1, 0)).toThrow(/UNIQUE/)
+    expect(sqlite.prepare('SELECT closed FROM opening_hours WHERE group_id IS NULL').all()).toEqual([{ closed: 0 }])
+
+    // Hours go with their group and their facility.
+    sqlite.exec('DELETE FROM groups WHERE id = 1')
+    expect(sqlite.prepare('SELECT group_id FROM opening_hours').all()).toEqual([{ group_id: null }])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })

@@ -25,6 +25,7 @@ import { loadSickLeaves, sickLeavesByCell } from './earlySickLeaves'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
+import { loadHoursContext, withOpeningHours } from './openingHours'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, ownCellFilter, type EmployeeRecord,
@@ -73,6 +74,8 @@ function buildAdminData(
   const names = groupNames(db, facilityId)
   const rules = loadCoverageRules(db, facilityId)
     .map(rule => rule.groupId === null ? rule : { ...rule, groupName: names[rule.groupId] ?? '' })
+  // Opening hours: a closed weekday suppresses the rules, entered days add the edge warnings (none entered: nothing changes).
+  const hours = loadHoursContext(db, facilityId)
   // The plan's days are checked against this facility's holidays; each person's own working days follow their info.
   const holidays = facilityHolidayRules(db, facilityId)
   const actualOf = actualTimeFor(db, facilityId, today)
@@ -103,7 +106,7 @@ function buildAdminData(
       entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
       coverageOnly: true,
     }))
-    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, { facility: null, groups: [] })
+    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, hours)
   })
 
   const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staff.map(employee => employee.id), monthStart, monthEnd))
@@ -246,7 +249,7 @@ export function getMonthPlan(
     }
   }
 
-  const days = dayRows(year, month, shown.days, facilityHolidayRules(db, facilityId))
+  const days = withOpeningHours(dayRows(year, month, shown.days, facilityHolidayRules(db, facilityId)), loadHoursContext(db, facilityId))
 
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {

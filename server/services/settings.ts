@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { ALL_WEEKDAYS } from '../../shared/domain/openingHours'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import type { CreditMode, IsoDate, Minutes } from '../../shared/domain/types'
 import type { CodeDto, ColorKey, CoverageRuleDto, SessionUser, SettingsDto, ShiftChangeResult, TemplateDto } from '../../shared/types/api'
@@ -36,6 +37,8 @@ export interface CoverageRuleInput {
   active: boolean
   /** The group the rule applies to (null = the whole facility); left out on update keeps the rule's group. */
   groupId?: number | null
+  /** Weekdays the rule is checked on (mask Mo = 1 … Fr = 16); left out: all on create, kept on update. */
+  weekdays?: number
 }
 
 function requireLabel(label: string): string {
@@ -55,6 +58,7 @@ function normalizeRule(db: Db, facilityId: number, input: CoverageRuleInput) {
   const label = requireLabel(input.label)
   if (input.groupId !== undefined) assertGroup(db, facilityId, input.groupId)
   const invalid = input.start % 5 !== 0 || input.minCount < 1
+    || (input.weekdays !== undefined && (!Number.isInteger(input.weekdays) || input.weekdays < 1 || input.weekdays > ALL_WEEKDAYS))
     || (input.end !== null && (input.end % 5 !== 0 || input.end <= input.start))
   if (invalid) throw new ServiceError(400, 'invalid_rule')
   return { ...input, label }

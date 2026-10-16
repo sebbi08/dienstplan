@@ -1,6 +1,7 @@
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { GermanState } from '../domain/states'
@@ -524,6 +525,8 @@ export interface CoverageRuleDto {
   active: boolean
   /** The group the rule applies to (null = the whole facility). */
   groupId: number | null
+  /** Weekdays the rule is checked on (mask Mo = 1 … Fr = 16; 31 = all). */
+  weekdays: number
 }
 
 export interface DayRowDto {
@@ -534,6 +537,20 @@ export interface DayRowDto {
   closureLabel: string | null
   info1: string
   info2: string
+}
+
+/** A day of the facility's plan: with the opening hours entered for it (null = none entered). */
+export interface PlanDayDto extends DayRowDto {
+  /** The facility's hours of the day. */
+  opening: DayHours | null
+  /** The own hours of the groups that have some entered for the day, by group id. */
+  groupOpening: Record<number, DayHours>
+}
+
+/** The facility's opening hours and those of each group (null = no own hours). */
+export interface OpeningHoursDto {
+  facility: OpeningHours | null
+  groups: { groupId: number; groupName: string; hours: OpeningHours | null }[]
 }
 
 export interface ChangeDto {
@@ -644,7 +661,7 @@ export interface MonthPlanDto {
   /** Names of this facility and of the facilities its entries were planned in (for the "Aushilfe in …" markers). */
   facilityNames: Record<number, string>
   release: ReleaseDto
-  days: DayRowDto[]
+  days: PlanDayDto[]
   employees: EmployeeColumnDto[]
   entries: EntryDto[]
   /** The groups of the shown plan (the draft for managers, the release for others), in their order; none = []. */

@@ -87,7 +87,17 @@ export const codeUpdateSchema = z.object({ label, color: z.enum(COLOR_KEYS), cre
 export const coverageRuleSchema = z.object({
   label, start: minutes, end: minutes.nullable(), minCount: z.number().int().min(1).max(20), active: z.boolean(),
   groupId: z.number().int().positive().nullable().optional(),
+  /** Weekday mask Mo = 1 … Fr = 16; left out on update keeps the rule's weekdays, on create means all. */
+  weekdays: z.number().int().min(1).max(31).optional(),
 })
+
+/** One weekday's opening hours; the service checks the times (close after open). */
+const dayHoursSchema = z.object({ open: z.number().int().nullable(), close: z.number().int().nullable(), closed: z.boolean() })
+const openingHoursSchema = z.object({
+  days: z.array(dayHoursSchema).max(7), minAtOpening: z.number().int(), minAtClosing: z.number().int(),
+})
+/** `hours: null` removes the hours (a group falls back to the facility's). */
+export const openingHoursBodySchema = z.object({ hours: openingHoursSchema.nullable() })
 
 export const userCreateSchema = z.object({
   username: z.string().max(50), password: z.string().max(200),

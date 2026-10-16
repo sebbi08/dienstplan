@@ -58,6 +58,21 @@ describe('settings service', () => {
     expect(errorCode(() => createCoverageRule(db, 1, { label: 'X', start: 463, end: null, minCount: 1, active: true }))).toBe('invalid_rule')
     expect(errorCode(() => createCoverageRule(db, 1, { label: 'X', start: 600, end: 540, minCount: 1, active: true }))).toBe('invalid_rule')
   })
+  it('gives coverage rules weekdays: all by default, kept when left out on update, only 1 to 31', () => {
+    const input = { label: 'Frühdienst', start: 420, end: null, minCount: 1, active: true }
+    expect(getSettings(db, 1).coverageRules.map(rule => rule.weekdays)).toEqual([31, 31, 31])
+    expect(createCoverageRule(db, 1, input).weekdays).toBe(31)
+    const rule = createCoverageRule(db, 1, { ...input, weekdays: 1 | 4 | 16 })
+    expect(rule.weekdays).toBe(21)
+    // Left out on update keeps the stored mask; a given one replaces it.
+    expect(updateCoverageRule(db, 1, rule.id, { ...input, minCount: 2 })).toMatchObject({ minCount: 2, weekdays: 21 })
+    expect(updateCoverageRule(db, 1, rule.id, { ...input, weekdays: 3 }).weekdays).toBe(3)
+    expect(getSettings(db, 1).coverageRules.find(candidate => candidate.id === rule.id)!.weekdays).toBe(3)
+    for (const weekdays of [0, 32, -1, 1.5]) {
+      expect(errorCode(() => createCoverageRule(db, 1, { ...input, weekdays }))).toBe('invalid_rule')
+      expect(errorCode(() => updateCoverageRule(db, 1, rule.id, { ...input, weekdays }))).toBe('invalid_rule')
+    }
+  })
   it('gives coverage rules a group of the facility, or none for the whole facility', () => {
     const kaefer = addGroup(db, 1, 'Käfer')
     const krippe = addFacility(db, 'Krippe')
