@@ -35,7 +35,7 @@ function labelText(label: GroupDayLabel | null): string {
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
       <h1 class="text-xl font-semibold">
         <template v-if="data">{{ data.facilityName }} – {{ data.groupName }} – {{ period }}</template>
-        <template v-else>{{ s.printTitle('') }}</template>
+        <template v-else>{{ s.printTitle }}</template>
       </h1>
       <PrintActions :file-name="fileName" />
     </div>
@@ -45,6 +45,7 @@ function labelText(label: GroupDayLabel | null): string {
         <h2 class="text-sm font-semibold">{{ s.theme }}</h2>
         <p class="min-h-12 whitespace-pre-line break-words text-sm">{{ data.theme.text }}</p>
       </section>
+      <h2 class="mb-1 text-sm font-semibold">{{ s.done }}</h2>
       <div class="grid grid-cols-5 gap-0 text-sm">
         <section
           v-for="(day, index) in data.days"
@@ -57,7 +58,6 @@ function labelText(label: GroupDayLabel | null): string {
           <p class="mt-1 whitespace-pre-line break-words">{{ day.note.text }}</p>
         </section>
       </div>
-      <p class="mt-1 text-xs text-gray-500">{{ s.done }}</p>
     </template>
     <p class="mt-3 text-xs text-gray-500">{{ de.time.printedAt(formatDate(todayIso())) }}</p>
   </div>

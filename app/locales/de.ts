@@ -611,7 +611,7 @@ export const de = {
     // Weekly overview (Wochenübersicht) of a group: the print page for Leitung and Träger.
     weekNumber: (number: number) => `KW ${number}`,
     weekdays: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'],
-    printTitle: (group: string) => `Wochenübersicht ${group}`,
+    printTitle: 'Wochenübersicht',
     theme: 'Wochenthema / geplant', done: 'Was haben wir gemacht',
     holiday: (name: string) => `Feiertag: ${name}`, closure: (label: string) => `Schließtag: ${label}`,
     // The "Wochenübersicht" tab under "Kinder" (tablet and office).
