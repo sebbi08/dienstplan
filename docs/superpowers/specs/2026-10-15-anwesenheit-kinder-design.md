@@ -125,6 +125,7 @@ Pro Einrichtung, Leitung und Träger:
 | Uhrzeit Snack | 09:30 |
 | Uhrzeit Mittagessen | 12:00 |
 | Bringperson erfassen | aus |
+| Anwesenheit erfasst ab | leer; wird beim ersten Eintrag automatisch gesetzt (frühestens heute); Tage davor gelten nie als unentschuldigt |
 
 ## 7. Rechte
 
