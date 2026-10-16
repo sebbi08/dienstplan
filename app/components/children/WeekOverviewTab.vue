@@ -21,14 +21,24 @@ const date = ref<IsoDate>(todayIso())
 /** The chosen group; null = the server's choice (the own group, else the first one the person sees). */
 const groupId = ref<number | null>(null)
 const query = computed(() => (groupId.value === null ? { date: date.value } : { groupId: groupId.value, date: date.value }))
-const { data, error, refresh } = await useFetch<GroupWeekDto>('/api/group-book/week', { query, key: 'group-book-week' })
+const { data, error, status, refresh } = await useFetch<GroupWeekDto>('/api/group-book/week', { query, key: 'group-book-week' })
 const run = useAction(refresh)
 
 // A group that is no longer visible (the read access was taken away, the group deleted): back to the server's choice.
+// Until that new request is answered, the old 404 is not shown as "no groups" ('waiting' for the request to start,
+// 'loading' while it runs).
+const fallback = ref<'none' | 'waiting' | 'loading'>('none')
 watch(error, (value) => {
-  if (value && errorCode(value) === 'group_not_found' && groupId.value !== null) groupId.value = null
+  if (value && errorCode(value) === 'group_not_found' && groupId.value !== null) {
+    fallback.value = 'waiting'
+    groupId.value = null
+  }
 })
-const noGroups = computed(() => !!error.value && errorCode(error.value) === 'group_not_found' && groupId.value === null)
+watch(status, (value) => {
+  if (value === 'pending' && fallback.value === 'waiting') fallback.value = 'loading'
+  else if ((value === 'success' || value === 'error') && fallback.value === 'loading') fallback.value = 'none'
+})
+const noGroups = computed(() => fallback.value === 'none' && !!error.value && errorCode(error.value) === 'group_not_found' && groupId.value === null)
 
 const selectedGroup = computed({
   get: () => data.value?.groupId,
@@ -46,6 +56,7 @@ const shiftWeek = (weeks: number) => (date.value = addDays(weekStart(date.value)
 
 /** One text field of the week: the theme or a day. */
 interface Field {
+  /** Group, week and field ("3|2026-10-19|week", "3|2026-10-19|2026-10-21"): drafts and saves never mix weeks or groups. */
   key: string
   field: 'week' | 'day'
   date: IsoDate
@@ -54,9 +65,9 @@ interface Field {
   note: NoteDto
 }
 const fieldsOf = (week: GroupWeekDto): Field[] => [
-  { key: 'week', field: 'week', date: week.weekStart, title: s.theme, label: null, note: week.theme },
+  { key: `${week.groupId}|${week.weekStart}|week`, field: 'week', date: week.weekStart, title: s.theme, label: null, note: week.theme },
   ...week.days.map((day, index) => ({
-    key: day.date, field: 'day' as const, date: day.date, title: `${s.weekdays[index]}, ${formatDate(day.date)}`, label: day.label, note: day.note,
+    key: `${week.groupId}|${week.weekStart}|${day.date}`, field: 'day' as const, date: day.date, title: `${s.weekdays[index]}, ${formatDate(day.date)}`, label: day.label, note: day.note,
   })),
 ]
 const fields = computed(() => (data.value ? fieldsOf(data.value) : []))
@@ -66,23 +77,21 @@ function labelText(label: GroupDayLabel): string {
   return label.kind === 'holiday' ? s.holiday(de.holidays[label.key]) : s.closure(label.label)
 }
 
-// Drafts of the fields; a refresh keeps an unsaved edit, another week or group starts afresh.
+// Drafts of the fields by group, week and field. They are kept for the whole visit of the tab: a refresh keeps an
+// unsaved edit, and a text whose save failed after the person went on to another week or group is there again (still
+// unsaved, with "Speichern") when they come back.
 const drafts = reactive<Record<string, string>>({})
 const stored = new Map<string, string>()
-let loaded = ''
-const weekKey = (week: GroupWeekDto) => `${week.groupId}|${week.weekStart}`
 watch(data, (week) => {
   if (!week) return
-  if (weekKey(week) !== loaded) {
-    for (const key of Object.keys(drafts)) delete drafts[key]
-    stored.clear()
-    loaded = weekKey(week)
-  }
   for (const field of fieldsOf(week)) {
     if (drafts[field.key] === undefined || drafts[field.key] === stored.get(field.key)) drafts[field.key] = field.note.text
     stored.set(field.key, field.note.text)
   }
 }, { immediate: true })
+
+/** The server says no for good (no write right any more, group gone, bad day): the typed text cannot be saved. */
+const REFUSALS = ['group_read_only', 'group_not_found', 'invalid_date']
 
 const dirty = (field: Field) => (drafts[field.key] ?? '').trim() !== (stored.get(field.key) ?? '')
 const saving = reactive<Record<string, boolean>>({})
@@ -91,14 +100,25 @@ async function save(field: Field) {
   if (!week?.canWrite || !dirty(field) || saving[field.key]) return
   const text = (drafts[field.key] ?? '').trim()
   const before = stored.get(field.key) ?? ''
-  const key = weekKey(week)
   saving[field.key] = true
-  const ok = await run(() => (field.field === 'week'
-    ? $fetch<unknown>('/api/group-book/week', { method: 'PUT', body: { groupId: week.groupId, weekStart: week.weekStart, text } })
-    : $fetch<unknown>('/api/group-book/day', { method: 'PUT', body: { groupId: week.groupId, date: field.date, text } })), de.common.saved)
+  let refused = false
+  const ok = await run(async () => {
+    try {
+      await (field.field === 'week'
+        ? $fetch<unknown>('/api/group-book/week', { method: 'PUT', body: { groupId: week.groupId, weekStart: week.weekStart, text } })
+        : $fetch<unknown>('/api/group-book/day', { method: 'PUT', body: { groupId: week.groupId, date: field.date, text } }))
+    }
+    catch (failure) {
+      refused = REFUSALS.includes(errorCode(failure) ?? '')
+      throw failure
+    }
+  }, de.common.saved)
   saving[field.key] = false
-  // A refused text goes back to the stored one (unless the person went on to another week meanwhile).
-  if (!ok && loaded === key) drafts[field.key] = before
+  if (ok || !refused) return
+  // Refused: the stored text comes back, and the tab reloads to show the right as it is now (a group gone from view
+  // falls back to the own group). On any other failure (no connection, timeout) the draft stays for another try.
+  drafts[field.key] = before
+  await refresh()
 }
 
 // The history of one field.
@@ -130,6 +150,7 @@ watch(query, () => (history.value = null))
     </div>
 
     <p v-if="noGroups" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ s.noGroups }}</p>
+    <p v-else-if="fallback !== 'none'" class="text-sm text-gray-500"><UIcon name="i-lucide-loader-circle" class="size-4 animate-spin" /></p>
     <p v-else-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
     <template v-else-if="data">
       <p v-if="!data.canWrite" class="flex items-center gap-2 rounded-lg bg-gray-100 p-3 text-sm text-gray-700" role="status">
