@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { coverageRules } from '../../server/db/schema'
+import { createClosure } from '../../server/services/closures'
 import { applyToCells } from '../../server/services/entries'
 import { setFacilityOpeningHours, setGroupOpeningHours } from '../../server/services/openingHours'
 import { getMonthPlan } from '../../server/services/plan'
@@ -107,5 +108,23 @@ describe('opening hours and weekday rules in the month plan', () => {
       expect(day(date).opening).toBeNull()
       expect(day(date).groupOpening).toEqual({})
     }
+  })
+
+  it('shows no opening hours on a closure day or a public holiday', () => {
+    const everyDay = week({ 0: times(420, 990), 1: times(420, 990), 2: times(420, 990), 3: times(420, 990), 4: times(420, 990) })
+    setFacilityOpeningHours(db, 1, everyDay)
+    setGroupOpeningHours(db, 1, kaefer, everyDay)
+    createClosure(db, admin, 1, { startDate: '2026-10-07', endDate: '2026-10-07', label: 'Teamtag', mode: 'closure_day' })
+    const october = plan().days
+    const wednesday = october.find(candidate => candidate.date === '2026-10-07')!
+    expect(wednesday.closureLabel).toBe('Teamtag')
+    expect(wednesday.opening).toBeNull()
+    expect(wednesday.groupOpening).toEqual({})
+    expect(october.find(candidate => candidate.date === tuesday)!.opening).toEqual(times(420, 990))
+
+    const christmas = getMonthPlan(db, admin, 1, 2026, 12, today).days.find(candidate => candidate.date === '2026-12-25')!
+    expect(christmas.holidayKey).not.toBeNull()
+    expect(christmas.opening).toBeNull()
+    expect(christmas.groupOpening).toEqual({})
   })
 })

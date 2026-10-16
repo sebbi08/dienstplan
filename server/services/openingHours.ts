@@ -76,11 +76,12 @@ function dayOf(hours: OpeningHours | null, date: IsoDate): DayHours | null {
   return isSet(day) ? day : null
 }
 
-/** Adds the opening hours of each day to the plan's day rows. */
-export function withOpeningHours<T extends { date: IsoDate }>(
+/** Adds the opening hours of each day to the plan's day rows; none on a public holiday or closure day (closed anyway). */
+export function withOpeningHours<T extends { date: IsoDate; holidayKey: string | null; closureLabel: string | null }>(
   days: T[], context: DayHoursContext,
 ): (T & Pick<PlanDayDto, 'opening' | 'groupOpening'>)[] {
   return days.map((day) => {
+    if (day.holidayKey || day.closureLabel) return { ...day, opening: null, groupOpening: {} }
     const groupOpening: Record<number, DayHours> = {}
     for (const group of context.groups) {
       const own = dayOf(group.hours, day.date)
