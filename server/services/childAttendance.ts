@@ -3,6 +3,7 @@ import {
   countsForMeal, dayStatus, monthCell, monthSums, personKey, pickupLogValue, pickupOverdue, staysOverlap, type StaySpan,
 } from '../../shared/domain/childAttendance'
 import { childStatus } from '../../shared/domain/children'
+import { groupRight } from '../../shared/domain/groupAccess'
 import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
 import { groupOnDay, type GroupEntry } from '../../shared/domain/occupancy'
@@ -29,7 +30,9 @@ import { facilityHolidayRules } from './holidayRules'
 import { closureOn, loadClosures } from './queries'
 
 // Child attendance (Gruppenbuch, spec Anwesenheit): the day list and every write on it. Every child viewer may read
-// and write (also older days); each write logs one row per changed field with the person (spec §3.9, §8.2).
+// and write (also older days); each write logs one row per changed field with the person (spec §3.9, §8.2). A tablet
+// person with a group may only stamp in/out and announce pickup persons for children whose group of that day is not
+// their own (group book spec §3.4); every other write answers 403 group_read_only.
 
 type DayRow = typeof childAttendanceDays.$inferSelect
 type StayRow = typeof childAttendanceStays.$inferSelect
@@ -66,6 +69,19 @@ function careDays(db: Db, facilityId: number): (date: IsoDate) => boolean {
 /** The child's group history (planned changes included; a group of another facility counts as none). */
 function historyOf(db: Db, facilityId: number, childId: number): GroupEntry[] {
   return groupHistories(db, facilityId).get(childId) ?? []
+}
+
+/**
+ * Whether the day is the viewer's own to write (group book spec §3.4): the child's group on that day is the viewer's own
+ * group, or the child has none, or the viewer has no group access. A group the viewer may only read is foreign here.
+ */
+function ownOnDay(viewer: Pick<ChildViewer, 'groups'>, history: GroupEntry[], date: IsoDate): boolean {
+  return groupRight(groupOnDay(history, date), viewer.groups) === 'write'
+}
+
+/** Everything but stamping and announcing is closed on a foreign child's day: 403 group_read_only. */
+function assertOwnDay(viewer: Pick<ChildViewer, 'groups'>, history: GroupEntry[], date: IsoDate): void {
+  if (!ownOnDay(viewer, history, date)) throw new ServiceError(403, 'group_read_only')
 }
 
 function findDay(db: Db, childId: number, date: IsoDate): DayRow | undefined {
@@ -224,10 +240,10 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
 
   const list = rows.map((row) => {
     const groupId = groupOnDay(histories.get(row.id) ?? [], date)
-    return { row, groupId: groupId !== null && groupRank.has(groupId) ? groupId : null }
+    return { row, groupId: groupId !== null && groupRank.has(groupId) ? groupId : null, own: ownOnDay(viewer, histories.get(row.id) ?? [], date) }
   }).sort((a, b) => rank(a.groupId) - rank(b.groupId) || byName(a.row, b.row))
 
-  const entries: AttendanceChildDto[] = list.map(({ row, groupId }) => {
+  const entries: AttendanceChildDto[] = list.map(({ row, groupId, own: ownDay }) => {
     const day = days.find(candidate => candidate.childId === row.id)
     const own = day ? stays.filter(stay => stay.dayId === day.id) : []
     const spans = own.map(stay => ({ arrived: stay.arrived, left: stay.left }))
@@ -246,6 +262,9 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
       childId: row.id,
       name: nameOf(row),
       groupId,
+      own: ownDay,
+      // The record follows the child's current group, not the one of the day.
+      recordReadable: groupRight(row.groupId, viewer.groups) !== 'none',
       status: dayStatus({
         stays: spans, absence: day?.absence ?? null, date, today: clock.date, isCareDay, recordedFrom: settings.attendanceSince,
       }),
@@ -430,6 +449,8 @@ export function setAbsence(db: Db, viewer: ChildViewer, input: AttendanceAbsence
   if (dates.length === 0) throw new ServiceError(404, 'child_not_found')
   const isCareDay = careDays(db, viewer.facilityId)
   const history = historyOf(db, viewer.facilityId, input.childId)
+  // One foreign day in the range refuses the whole entry.
+  for (const date of dates) assertOwnDay(viewer, history, date)
   return db.transaction((tx) => {
     let changed = 0
     for (const date of dates) {
@@ -453,6 +474,7 @@ export function setAbsence(db: Db, viewer: ChildViewer, input: AttendanceAbsence
 export function updateDay(db: Db, viewer: ChildViewer, input: AttendanceDayInput, now: Date = new Date()): void {
   attendanceChild(db, viewer, input.childId, input.date)
   const history = historyOf(db, viewer.facilityId, input.childId)
+  assertOwnDay(viewer, history, input.date)
   db.transaction((tx) => {
     const day = ensureDay(tx, input.childId, input.date, history)
     const next = {
@@ -473,7 +495,10 @@ export function updateDay(db: Db, viewer: ChildViewer, input: AttendanceDayInput
   })
 }
 
-/** The stay with its day; 404 stay_not_found for an unknown one or one of another facility, child_not_found for an inactive child. */
+/**
+ * The stay with its day, for a correction or deletion; 404 stay_not_found for an unknown one or one of another facility,
+ * child_not_found for an inactive child, 403 group_read_only for the stay of a foreign child's day.
+ */
 function loadStay(db: Db, viewer: ChildViewer, stayId: number): { stay: StayRow; day: DayRow } {
   const found = db.select({ stay: childAttendanceStays, day: childAttendanceDays }).from(childAttendanceStays)
     .innerJoin(childAttendanceDays, eq(childAttendanceDays.id, childAttendanceStays.dayId))
@@ -481,6 +506,7 @@ function loadStay(db: Db, viewer: ChildViewer, stayId: number): { stay: StayRow;
     .where(and(eq(childAttendanceStays.id, stayId), eq(children.facilityId, viewer.facilityId))).get()
   if (!found) throw new ServiceError(404, 'stay_not_found')
   attendanceChild(db, viewer, found.day.childId, found.day.date)
+  assertOwnDay(viewer, historyOf(db, viewer.facilityId, found.day.childId), found.day.date)
   return found
 }
 
@@ -605,9 +631,12 @@ export function setMonthRemark(db: Db, viewer: ChildViewer, input: AttendanceMon
   const { childId, month } = input
   if (!/^\d{4}-\d{2}$/.test(month) || !isValidIsoDate(`${month}-01`)) throw new ServiceError(400, 'invalid_input')
   const child = loadChild(db, viewer.facilityId, childId)
-  if (!monthDates(Number(month.slice(0, 4)), Number(month.slice(5))).some(date => activeOn(child, date))) {
-    throw new ServiceError(404, 'child_not_found')
-  }
+  const activeDays = monthDates(Number(month.slice(0, 4)), Number(month.slice(5))).filter(date => activeOn(child, date))
+  if (activeDays.length === 0) throw new ServiceError(404, 'child_not_found')
+  // The remark is the child's for the whole month: the viewer needs one group the child was in that month (as the month
+  // table shows it) to be their own.
+  const history = historyOf(db, viewer.facilityId, childId)
+  if (!activeDays.some(date => ownOnDay(viewer, history, date))) throw new ServiceError(403, 'group_read_only')
   const remark = input.remark.trim()
   db.transaction((tx) => {
     const before = tx.select({ remark: childAttendanceMonths.remark }).from(childAttendanceMonths)

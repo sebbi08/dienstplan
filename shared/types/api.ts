@@ -1179,6 +1179,13 @@ export interface AttendanceChildDto {
   name: string
   /** The child's group on the day (null = none). */
   groupId: number | null
+  /**
+   * The viewer may write all of the child's day: its group on the day is the viewer's own group (or the viewer has no
+   * group access). Otherwise only coming, going and announcing a pickup person are possible.
+   */
+  own: boolean
+  /** The viewer may open the child's record (its current group is visible to the viewer); the name links to it. */
+  recordReadable: boolean
   status: AttendanceStatus
   stays: AttendanceStayDto[]
   plannedPickup: Minutes | null

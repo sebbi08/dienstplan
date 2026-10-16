@@ -15,10 +15,12 @@ import {
 import { addContact } from '../../server/services/childContacts'
 import { planGroupChange } from '../../server/services/childGroupChanges'
 import { deleteChild } from '../../server/services/children'
+import { setReadAccess } from '../../server/services/groupReadAccess'
+import { setTabletSettings } from '../../server/services/tabletSettings'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import { pickupLogValue, readPickupLogValue } from '../../shared/domain/childAttendance'
-import type { AttendancePickupChoice, ChildContactInput } from '../../shared/types/api'
+import type { AttendancePickupChoice, ChildContactInput, SessionUser } from '../../shared/types/api'
 import {
   addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode,
 } from '../helpers/fixtures'
@@ -763,5 +765,169 @@ describe('child attendance', () => {
     for (const table of [childAttendanceDays, childAttendanceStays, childPickupAnnouncements, childAttendanceMonths, childAttendanceChanges]) {
       expect(db.select().from(table).all()).toEqual([])
     }
+  })
+})
+
+describe('child attendance by group rights', () => {
+  let db: Db
+  let leitung: ChildActor
+  let tablet: SessionUser
+  let token: string
+  let a: number
+  let b: number
+  let c: number
+  let kidA: number
+  let kidB: number
+  let kidC: number
+  let kidNone: number
+  let mover: number
+  let momOf: Record<number, number>
+
+  /** The person at the tablet as the server sees them with this request (group A, read access to B). */
+  const viewer = () => resolveChildViewer(db, tablet, token, NOW) as ChildActor
+  const rowOf = (who: ChildActor, childId: number, date = TODAY) =>
+    getAttendanceDay(db, who, date, NOW).children.find(child => child.childId === childId)!
+  const pickup = (id: number): AttendancePickupChoice => ({ kind: 'contact', id: momOf[id]! })
+  const move = { contacts: true, health: true, consents: true, documents: true, careType: true, keyEducator: true }
+
+  beforeEach(() => {
+    db = createTestDb()
+    leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
+    a = addGroup(db, 1, 'Bären')
+    b = addGroup(db, 1, 'Mäuse')
+    c = addGroup(db, 1, 'Füchse')
+    setTabletSettings(db, 1, { lockMinutes: 10, showWaitlist: true, showFutureContracts: true })
+    tablet = addUser(db, 'tablet', 'terminal')
+    const anna = addEmployee(db, 'Anna', { groupId: a })
+    setPin(db, 1, anna, '1234')
+    setReadAccess(db, 1, a, [b])
+    kidA = addChild(db, 1, { lastName: 'Amsel', groupId: a })
+    kidB = addChild(db, 1, { lastName: 'Biber', groupId: b })
+    kidC = addChild(db, 1, { lastName: 'Chamäleon', groupId: c })
+    kidNone = addChild(db, 1, { lastName: 'Dachs', groupId: null })
+    mover = addChild(db, 1, { lastName: 'Elch', groupId: b })
+    planGroupChange(db, leitung, 1, mover, { groupId: a, date: '2026-10-19', keep: move }, TODAY, NOW)
+    momOf = {}
+    for (const id of [kidA, kidB, kidC, kidNone, mover]) momOf[id] = addContact(db, leitung, 1, id, contact(), TODAY, NOW)
+    token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '1234', NOW).token
+  })
+
+  it('lists every child and flags the own ones and the readable records', () => {
+    expect(viewer().groups).toEqual({ own: a, readable: [b] })
+    const day = getAttendanceDay(db, viewer(), TODAY, NOW).children
+    expect(day.map(child => [child.childId, child.own, child.recordReadable])).toEqual([
+      [kidA, true, true], [kidB, false, true], [mover, false, true], [kidC, false, false], [kidNone, true, true],
+    ])
+    // The group of the day decides `own`, the current group `recordReadable`: the mover is A's from the 19th on.
+    expect(rowOf(viewer(), mover, '2026-10-19')).toMatchObject({ own: true, recordReadable: true, groupId: a })
+    // Without group access everything is own and readable.
+    expect(getAttendanceDay(db, leitung, TODAY, NOW).children.every(child => child.own && child.recordReadable)).toBe(true)
+  })
+
+  it('lets the person stamp in and out and announce for a child of another group', () => {
+    for (const id of [kidB, kidC]) {
+      arrive(db, viewer(), { childId: id, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+      expect(rowOf(viewer(), id).status).toBe('present')
+      const oma = announcePickup(db, viewer(), { childId: id, date: TODAY, name: 'Oma Erika', announcedBy: 'Anna' }, NOW)
+      leave(db, viewer(), { childId: id, date: TODAY, time: hm('15:00'), pickup: { kind: 'announcement', id: oma } }, NOW)
+      expect(rowOf(viewer(), id).status).toBe('gone')
+      const again = announcePickup(db, viewer(), { childId: id, date: TODAY, name: 'Opa Karl', announcedBy: '' }, NOW)
+      removeAnnouncement(db, viewer(), again, NOW)
+      expect(rowOf(viewer(), id).announcements.map(item => item.name)).toEqual(['Oma Erika'])
+    }
+    // A contact is a valid pickup person as well.
+    arrive(db, viewer(), { childId: kidC, date: TODAY, time: hm('16:00'), plannedPickup: hm('17:00') }, NOW)
+    leave(db, viewer(), { childId: kidC, date: TODAY, time: hm('16:30'), pickup: pickup(kidC) }, NOW)
+    expect(rowOf(viewer(), kidC).stays.at(-1)).toMatchObject({ pickedUpBy: 'Anna Meier' })
+  })
+
+  /** Every write that is closed to a foreign child (the stay is one of the child of the test). */
+  const closedWrites = (id: number, stayId: number): Record<string, () => unknown> => ({
+    note: () => updateDay(db, viewer(), { childId: id, date: TODAY, note: 'müde' }, NOW),
+    meal: () => updateDay(db, viewer(), { childId: id, date: TODAY, lunch: false }, NOW),
+    plannedPickup: () => updateDay(db, viewer(), { childId: id, date: TODAY, plannedPickup: hm('16:00') }, NOW),
+    broughtBy: () => updateDay(db, viewer(), { childId: id, date: TODAY, broughtBy: 'Opa' }, NOW),
+    absence: () => setAbsence(db, viewer(), { childId: id, from: TODAY, to: TODAY, kind: 'sick' }, NOW),
+    absenceRange: () => setAbsence(db, viewer(), { childId: id, from: TODAY, to: '2026-10-16', kind: null }, NOW),
+    updateStay: () => updateStay(db, viewer(), stayId, { arrived: hm('07:00'), left: hm('15:00'), pickup: pickup(id) }, NOW),
+    deleteStay: () => deleteStay(db, viewer(), stayId, NOW),
+    monthRemark: () => setMonthRemark(db, viewer(), { childId: id, month: '2026-10', remark: 'x' }, NOW),
+  })
+
+  it('refuses everything else for a child of another group, for a readable and a hidden one alike', () => {
+    for (const id of [kidB, kidC]) {
+      const stayId = arrive(db, leitung, { childId: id, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+      const logged = db.select().from(childAttendanceChanges).all().length
+      const stays = db.select().from(childAttendanceStays).all()
+      const days = db.select().from(childAttendanceDays).all()
+      for (const [name, write] of Object.entries(closedWrites(id, stayId))) {
+        expect(errorCode(write), `${name} ${id}`).toBe('group_read_only')
+      }
+      expect(db.select().from(childAttendanceChanges).all()).toHaveLength(logged)
+      expect(db.select().from(childAttendanceStays).all()).toEqual(stays)
+      expect(db.select().from(childAttendanceDays).all()).toEqual(days)
+      expect(db.select().from(childAttendanceMonths).all()).toEqual([])
+    }
+  })
+
+  it('cannot reach a foreign child through the id of a stay, an announcement or a contact of another child', () => {
+    const stayId = arrive(db, leitung, { childId: kidC, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+    const oma = announcePickup(db, leitung, { childId: kidA, date: TODAY, name: 'Oma Erika', announcedBy: '' }, NOW)
+    expect(errorCode(() => leave(db, viewer(), { childId: kidC, date: TODAY, time: hm('15:00'), pickup: { kind: 'announcement', id: oma } }, NOW)))
+      .toBe('pickup_person_invalid')
+    expect(errorCode(() => leave(db, viewer(), { childId: kidC, date: TODAY, time: hm('15:00'), pickup: pickup(kidA) }, NOW)))
+      .toBe('pickup_person_invalid')
+    expect(errorCode(() => updateStay(db, viewer(), stayId, { arrived: hm('07:00'), left: null }, NOW))).toBe('group_read_only')
+    expect(rowOf(leitung, kidC).stays).toEqual([expect.objectContaining({ id: stayId, arrived: hm('08:00'), left: null })])
+  })
+
+  it('keeps everything open for the own children and the ones without group', () => {
+    for (const id of [kidA, kidNone]) {
+      const stayId = arrive(db, viewer(), { childId: id, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+      for (const [name, write] of Object.entries(closedWrites(id, stayId))) {
+        // The stay is deleted last, the corrections come before.
+        if (name !== 'deleteStay') expect(errorCode(write), `${name} ${id}`).toBeNull()
+      }
+      expect(errorCode(() => deleteStay(db, viewer(), stayId, NOW))).toBeNull()
+    }
+  })
+
+  it('judges by the group of the day: a child moved from B to A is foreign before and own from the move on', () => {
+    const before = '2026-10-16'
+    const after = '2026-10-19'
+    expect(errorCode(() => updateDay(db, viewer(), { childId: mover, date: before, note: 'x' }, NOW))).toBe('group_read_only')
+    expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: before, to: before, kind: 'sick' }, NOW))).toBe('group_read_only')
+    expect(errorCode(() => updateDay(db, viewer(), { childId: mover, date: after, note: 'x' }, NOW))).toBeNull()
+    expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: after, to: after, kind: 'sick' }, NOW))).toBeNull()
+    // A range over the move reaches the part in B, so it is refused as a whole.
+    expect(errorCode(() => setAbsence(db, viewer(), { childId: mover, from: before, to: after, kind: 'vacation' }, NOW))).toBe('group_read_only')
+    // Stamping is open on both sides.
+    expect(errorCode(() => arrive(db, viewer(), { childId: mover, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW))).toBeNull()
+  })
+
+  it('judges a day by the group history, not by the group stored on the day', () => {
+    const stayId = arrive(db, leitung, { childId: kidB, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+    db.update(childAttendanceDays).set({ groupId: a }).where(eq(childAttendanceDays.childId, kidB)).run()
+    expect(errorCode(() => deleteStay(db, viewer(), stayId, NOW))).toBe('group_read_only')
+  })
+
+  it('shows the month of every child but lets only the own ones get a remark', () => {
+    const month = getAttendanceMonth(db, viewer(), 2026, 10, NOW)
+    expect(month.groups.flatMap(group => group.children.map(child => child.childId))).toContain(kidC)
+    setMonthRemark(db, viewer(), { childId: kidA, month: '2026-10', remark: 'Eingewöhnung' }, NOW)
+    setMonthRemark(db, viewer(), { childId: kidNone, month: '2026-10', remark: 'Eingewöhnung' }, NOW)
+    expect(errorCode(() => setMonthRemark(db, viewer(), { childId: kidB, month: '2026-10', remark: 'x' }, NOW))).toBe('group_read_only')
+    // The mover belonged to A in the second half of October (so the remark is A's as well), but only to B in September.
+    expect(errorCode(() => setMonthRemark(db, viewer(), { childId: mover, month: '2026-10', remark: 'x' }, NOW))).toBeNull()
+    expect(errorCode(() => setMonthRemark(db, viewer(), { childId: mover, month: '2026-09', remark: 'x' }, NOW))).toBe('group_read_only')
+  })
+
+  it('leaves a viewer without group access unchanged', () => {
+    const stayId = arrive(db, leitung, { childId: kidC, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+    updateDay(db, leitung, { childId: kidC, date: TODAY, note: 'müde' }, NOW)
+    updateStay(db, leitung, stayId, { arrived: hm('07:00'), left: null }, NOW)
+    setMonthRemark(db, leitung, { childId: kidC, month: '2026-10', remark: 'x' }, NOW)
+    deleteStay(db, leitung, stayId, NOW)
+    expect(rowOf(leitung, kidC)).toMatchObject({ note: 'müde', stays: [] })
   })
 })
