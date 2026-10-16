@@ -441,7 +441,8 @@ Geburtstage, Dokumente, „Offen“).
 ### Freischalten (Einstellungen)
 
 - Welche anderen Gruppen eine Gruppe zusätzlich **lesen** darf, legt die Leitung unter *Einstellungen →
-  Gruppenbücher* fest, der Träger unter *Einstellungen → Einrichtungen* bei den Gruppen der Einrichtung: bei jeder
+  Gruppenbücher* fest. Der Träger hat denselben Block *Gruppenbücher* in den Einstellungen (für die gerade gewählte
+  Einrichtung) und außerdem *Einstellungen → Einrichtungen* bei den Gruppen jeder Einrichtung. Überall gilt: bei jeder
   Gruppe „Darf zusätzlich lesen:“ mit einem Häkchen je andere Gruppe. Voreingestellt ist keine.
 - Das gilt nur in eine Richtung: Darf die Gruppe A die Gruppe B lesen, darf B deshalb noch nicht A lesen.
 - Änderungen wirken sofort, auch an einem gerade aufgeschlossenen Tablet.
