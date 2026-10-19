@@ -721,8 +721,10 @@ export const de = {
     noCareDay: 'Kein Betreuungstag (Wochenende, Feiertag oder Schließtag). Einstempeln geht trotzdem, z. B. bei einer Notbetreuung.',
     counts: (c: { present: number; gone: number; absent: number; notYet: number }) =>
       `Da: ${c.present} · Abgeholt: ${c.gone} · Abwesend: ${c.absent} · Noch nicht da: ${c.notYet}`,
-    /** The meals of the day with their counts: "Snack 9:30: 12 · Mittagessen 12:00: 15". */
-    meals: (items: { name: string; time: string; count: number }[]) => items.map(item => `${item.name} ${item.time}: ${item.count}`).join(' · '),
+    /** The count of a meal tile and of a cell of the meal table: "22 Kinder", "1 Kind", "0 Kinder". */
+    mealChildren: (count: number) => (count === 1 ? '1 Kind' : `${count} Kinder`),
+    /** The head of a meal tile: "Snack · 9:30". */
+    mealTileHead: (name: string, time: string) => `${name} · ${time}`,
     // The meal box above the day list and in the print: the totals, then the counts per group (no names).
     mealsToday: 'Essen heute', mealsOn: (date: string) => `Essen am ${date}`,
     summary: { group: 'Gruppe', here: 'Kinder da', total: 'Gesamt', noGroup: 'ohne Gruppe' },

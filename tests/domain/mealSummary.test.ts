@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceChildDto } from '../../shared/types/api'
+import { de } from '../../app/locales/de'
 import { mealSummaryTable } from '../../app/utils/mealSummary'
 
 const child = (groupId: number | null) => ({ groupId }) as AttendanceChildDto
@@ -27,5 +28,18 @@ describe('meal table of a day', () => {
     const table = mealSummaryTable({ meals: [], summary: [{ groupId: 7, name: 'Igel', here: 2, meals: {} }], children: [child(7), child(7)] })
     expect(table.rows).toEqual([{ groupId: 7, name: 'Igel', here: 2, meals: [] }])
     expect(table.total).toEqual({ groupId: null, name: '', here: 2, meals: [] })
+  })
+})
+
+describe('meal texts', () => {
+  it('counts "Kinder" in the plural and "1 Kind" in the singular', () => {
+    expect(de.attendance.mealChildren(22)).toBe('22 Kinder')
+    expect(de.attendance.mealChildren(1)).toBe('1 Kind')
+    expect(de.attendance.mealChildren(0)).toBe('0 Kinder')
+  })
+
+  it('heads a meal tile with name and time, and adds "nicht" to a table cell', () => {
+    expect(de.attendance.mealTileHead('Frühstück', '8:00')).toBe('Frühstück · 8:00')
+    expect(de.attendance.notEating(2)).toBe('2 nicht')
   })
 })
