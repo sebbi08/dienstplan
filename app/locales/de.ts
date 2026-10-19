@@ -716,6 +716,7 @@ export const de = {
       goneAt: (time: string) => (time ? `abgeholt um ${time}` : 'abgeholt'),
       allergy: 'Allergie', note: 'Notiz vorhanden', changed: 'geändert', contactBan: 'Kontaktverbot',
       meals: 'Essen', children: (n: number) => (n === 1 ? '1 Kind' : `${n} Kinder`),
+      overdue: (n: number) => `${n} überfällig`,
     },
     broughtByShort: (name: string) => `gebracht von ${name}`,
     plannedPickup: 'Abholung', plannedPickupLabel: 'Geplante Abholzeit',

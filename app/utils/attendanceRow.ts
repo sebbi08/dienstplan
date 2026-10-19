@@ -66,7 +66,22 @@ export function countedMealNames(child: Pick<AttendanceChildDto, 'meals'>, meals
   return meals.filter(meal => child.meals[meal.mealId]?.counted).map(meal => meal.name)
 }
 
-const CLOSED_GROUPS_KEY = 'dienstplan.attendanceClosedGroups'
+/**
+ * The rows of a group the list shows: all of an open group; of a closed one only the children whose pickup is overdue,
+ * so nothing urgent is hidden by closing a group (the closed state is remembered on the device for later days too).
+ */
+export function visibleAttendanceRows<T>(rows: T[], closed: boolean, overdue: (row: T) => boolean): T[] {
+  return closed ? rows.filter(overdue) : rows
+}
+
+/** The warnings on the heading of a closed group: how many children are past their pickup, and whether any has a contact ban. */
+export function closedGroupWarnings<T extends Pick<AttendanceChildDto, 'hasContactBan'>>(
+  rows: T[], overdue: (row: T) => boolean,
+): { overdue: number; contactBan: boolean } {
+  return { overdue: rows.filter(overdue).length, contactBan: rows.some(row => row.hasContactBan) }
+}
+
+const CLOSED_GROUPS_KEY ='dienstplan.attendanceClosedGroups'
 
 /** The groups of the day list closed on this device (keys as the list uses them); none when storage is unavailable. */
 export function readClosedAttendanceGroups(): string[] {

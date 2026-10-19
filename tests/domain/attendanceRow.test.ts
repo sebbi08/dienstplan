@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AttendanceChildDto, AttendanceStatus, AttendanceStayDto } from '../../shared/types/api'
 import {
-  attendanceQuickAction, attendanceRowTone, compactStatusText, countedMealNames, readClosedAttendanceGroups, writeClosedAttendanceGroups,
+  attendanceQuickAction, attendanceRowTone, closedGroupWarnings, compactStatusText, countedMealNames, readClosedAttendanceGroups,
+  visibleAttendanceRows, writeClosedAttendanceGroups,
 } from '../../app/utils/attendanceRow'
 
 const stay = (arrived: number, left: number | null): AttendanceStayDto => ({
@@ -96,5 +97,28 @@ describe('closed groups remembered per device', () => {
     })
     expect(readClosedAttendanceGroups()).toEqual([])
     expect(() => writeClosedAttendanceGroups(['7'])).not.toThrow()
+  })
+})
+
+describe('closed groups of the day list', () => {
+  const rows = [
+    { id: 1, overdue: false, hasContactBan: false },
+    { id: 2, overdue: true, hasContactBan: false },
+    { id: 3, overdue: false, hasContactBan: true },
+  ]
+  const overdue = (row: { overdue: boolean }) => row.overdue
+
+  it('keeps only the overdue children of a closed group', () => {
+    expect(visibleAttendanceRows(rows, true, overdue).map(row => row.id)).toEqual([2])
+    expect(visibleAttendanceRows(rows.filter(row => !row.overdue), true, overdue)).toEqual([])
+  })
+
+  it('shows all children of an open group', () => {
+    expect(visibleAttendanceRows(rows, false, overdue).map(row => row.id)).toEqual([1, 2, 3])
+  })
+
+  it('counts the overdue children and notes a contact ban for the heading', () => {
+    expect(closedGroupWarnings(rows, overdue)).toEqual({ overdue: 1, contactBan: true })
+    expect(closedGroupWarnings([rows[0]!], overdue)).toEqual({ overdue: 0, contactBan: false })
   })
 })

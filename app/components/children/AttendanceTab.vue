@@ -9,7 +9,7 @@ import { de } from '~/locales/de'
 import { attendanceStatusText, confirmedWithText, parseClock, stayText } from '~/utils/attendance'
 import {
   ATTENDANCE_ROW_CLASS, ATTENDANCE_STATUS_CLASS, attendanceQuickAction, attendanceRowTone, compactStatusText, countedMealNames,
-  readClosedAttendanceGroups, writeClosedAttendanceGroups,
+  closedGroupWarnings, readClosedAttendanceGroups, visibleAttendanceRows, writeClosedAttendanceGroups,
 } from '~/utils/attendanceRow'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -67,6 +67,14 @@ function toggleGroup(key: string) {
   closedGroups.value = closedGroups.value.includes(key) ? closedGroups.value.filter(entry => entry !== key) : [...closedGroups.value, key]
   writeClosedAttendanceGroups(closedGroups.value)
 }
+const isClosed = (key: string) => closedGroups.value.includes(key)
+/** The groups as listed: a closed one keeps its overdue children and warns on its heading (overdue count, contact ban). */
+const shownSections = computed(() => sections.value.map(section => ({
+  ...section,
+  closed: isClosed(section.key),
+  shown: visibleAttendanceRows(section.rows, isClosed(section.key), isOverdue),
+  warnings: closedGroupWarnings(section.rows, isOverdue),
+})))
 
 /** The stays never closed on earlier days, one line per day ("Gestern nicht ausgestempelt: …"). */
 const openStayDays = computed(() => {
@@ -226,23 +234,38 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
         </div>
 
         <p v-if="!sections.length" class="text-sm text-gray-500">{{ s.noChildren }}</p>
-        <section v-for="section in sections" :key="section.key" class="space-y-1">
+        <section v-for="section in shownSections" :key="section.key" class="space-y-1">
           <h2>
             <button
               type="button"
-              class="flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-left text-sm font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary"
-              :aria-expanded="!closedGroups.includes(section.key)" :aria-controls="`attendance-group-${section.key}`" @click="toggleGroup(section.key)"
+              class="flex min-h-11 w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-1 text-left text-sm font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary"
+              :aria-expanded="!section.closed" :aria-controls="`attendance-group-${section.key}`" @click="toggleGroup(section.key)"
             >
-              <UIcon :name="closedGroups.includes(section.key) ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'" class="size-5 shrink-0" aria-hidden="true" />
+              <UIcon :name="section.closed ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'" class="size-5 shrink-0" aria-hidden="true" />
               <span>{{ section.name }}</span>
               <span class="font-normal normal-case tracking-normal text-gray-500">· {{ s.row.children(section.rows.length) }}</span>
+              <!-- A closed group still warns: its overdue children stay listed below, and a contact ban shows here. -->
+              <template v-if="section.closed">
+                <span
+                  v-if="section.warnings.overdue"
+                  class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 normal-case tracking-normal text-red-800 ring-1 ring-red-300"
+                >
+                  <UIcon name="i-lucide-alarm-clock" class="size-4" aria-hidden="true" />{{ s.row.overdue(section.warnings.overdue) }}
+                </span>
+                <span
+                  v-if="section.warnings.contactBan"
+                  class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 normal-case tracking-normal text-red-800 ring-1 ring-red-300"
+                >
+                  <UIcon name="i-lucide-ban" class="size-4" aria-hidden="true" />{{ s.row.contactBan }}
+                </span>
+              </template>
             </button>
           </h2>
           <ul
-            v-show="!closedGroups.includes(section.key)" :id="`attendance-group-${section.key}`"
+            v-if="section.shown.length" :id="`attendance-group-${section.key}`"
             class="divide-y divide-gray-200 overflow-hidden rounded-lg bg-white ring-1 ring-gray-200"
           >
-            <li v-for="child in section.rows" :key="child.childId" class="border-l-4" :class="ATTENDANCE_ROW_CLASS[rowTone(child)]">
+            <li v-for="child in section.shown" :key="child.childId" class="border-l-4" :class="ATTENDANCE_ROW_CLASS[rowTone(child)]">
               <!-- The compact row: tapping it opens the rest; "Kommt" or "Geht" works without opening. -->
               <div class="flex items-center gap-2 px-2 py-1.5">
                 <button
