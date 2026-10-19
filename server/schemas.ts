@@ -332,13 +332,15 @@ export const attendanceMonthQuery = monthParams
 export const attendanceMonthRemarkSchema = z.object({
   childId: z.number().int().positive(), month: z.string().regex(/^\d{4}-\d{2}$/), remark: z.string().max(500),
 })
+/** The attendance settings of a facility. The recording start is checked by the service, which answers invalid_date. */
+export const attendanceSettingsSchema = z.object({ recordBroughtBy: z.boolean(), attendanceSince: z.string().nullable() })
 /**
- * The attendance settings of a facility. The times and the recording start are checked by the service, which answers
- * attendance_time_invalid or invalid_date.
+ * A new meal or a change of one from a day on. Name, time and day are checked by the service (meal_name_required,
+ * meal_name_too_long, attendance_time_invalid, invalid_date, meal_valid_from_past), so the answers are in German.
  */
-export const attendanceSettingsSchema = z.object({
-  snackTime: z.number(), lunchTime: z.number(), recordBroughtBy: z.boolean(), attendanceSince: z.string().nullable(),
-})
+export const mealSchema = z.object({ name: z.string().max(200), time: z.number(), validFrom: z.string() })
+/** The day from which a meal is gone (body or query). */
+export const mealRemoveSchema = z.object({ validFrom: z.string() })
 
 // Group book (weekly overview): the date rules (Monday to Friday) and the group rights are the service's.
 const groupBookText = z.string().max(5000)

@@ -659,8 +659,8 @@ export const de = {
   },
   attendance: {
     // Settings section (Leitung and Träger) and the print pages of the child attendance.
-    settingsTitle: 'Anwesenheit', snackTime: 'Uhrzeit Snack', lunchTime: 'Uhrzeit Mittagessen', recordBroughtBy: 'Bringperson erfassen',
-    settingsHint: 'Zu diesen Uhrzeiten werden die Kinder für Snack und Mittagessen gezählt. Ist „Bringperson erfassen“ an, fragt das Tablet beim Kommen, wer das Kind gebracht hat.',
+    settingsTitle: 'Anwesenheit', recordBroughtBy: 'Bringperson erfassen',
+    settingsHint: 'Ist „Bringperson erfassen“ an, fragt das Tablet beim Kommen, wer das Kind gebracht hat.',
     attendanceSince: 'Anwesenheit erfasst ab', attendanceSinceEmpty: 'Noch nicht begonnen',
     attendanceSinceHint: 'Erst ab diesem Tag zählt ein Betreuungstag ohne Eintrag als unentschuldigt (–). Der erste Eintrag in der Anwesenheit setzt das Datum von selbst; ändern kannst du es nur hier. Leer = noch nicht begonnen.',
     printDayTitle: (date: string) => `Anwesenheit Kinder ${date}`, printMonthTitle: (month: string) => `Anwesenheit Kinder ${month}`,
@@ -920,6 +920,12 @@ export const de = {
     stay_not_found: 'Dieser Aufenthalt existiert nicht mehr. Bitte lade die Seite neu.',
     announcement_not_found: 'Diese angekündigte Person existiert nicht mehr. Bitte lade die Seite neu.',
     attendance_time_invalid: 'Bitte gib eine Uhrzeit von 0:00 bis 23:59 an.',
+    meal_name_required: 'Bitte gib einen Namen für das Essen an.',
+    meal_name_too_long: 'Der Name des Essens darf höchstens 40 Zeichen lang sein.',
+    meal_name_taken: 'Dieses Essen gibt es schon.',
+    meal_limit: 'Es sind höchstens 8 Essen möglich.',
+    meal_valid_from_past: 'Änderungen gelten frühestens ab heute.',
+    meal_not_found: 'Dieses Essen gibt es nicht.',
     attendance_future: 'Für einen späteren Tag kannst du noch nicht ein- oder ausstempeln.',
     stays_overlap: 'Die Zeiten überschneiden sich mit einem anderen Aufenthalt an diesem Tag.',
   },

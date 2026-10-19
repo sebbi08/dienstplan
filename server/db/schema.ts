@@ -650,6 +650,34 @@ export const childAttendanceDays = sqliteTable('child_attendance_days', {
   lunch: integer('lunch', { mode: 'boolean' }),
 }, table => [uniqueIndex('child_attendance_days_child_date').on(table.childId, table.date)])
 
+/** A meal (Essen) of a facility; its name and time come from its dated versions. */
+export const meals = sqliteTable('meals', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+}, table => [index('meals_facility').on(table.facilityId)])
+
+/**
+ * A meal's name and time from `validFrom` on (null = since always) until its next version; `removed` = no meal from
+ * then on. One version per meal and day; SQLite lets several nulls through, so the service keeps one null version per meal.
+ */
+export const mealVersions = sqliteTable('meal_versions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  mealId: integer('meal_id').notNull().references(() => meals.id, { onDelete: 'cascade' }),
+  validFrom: text('valid_from'),
+  name: text('name').notNull(),
+  /** Minutes after midnight at which the meal is counted. */
+  time: integer('time').notNull(),
+  removed: integer('removed', { mode: 'boolean' }).notNull().default(false),
+}, table => [uniqueIndex('meal_versions_meal_valid_from').on(table.mealId, table.validFrom)])
+
+/** A meal ticked by hand for a child on a day (no row = counted automatically). */
+export const childAttendanceMeals = sqliteTable('child_attendance_meals', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dayId: integer('day_id').notNull().references(() => childAttendanceDays.id, { onDelete: 'cascade' }),
+  mealId: integer('meal_id').notNull().references(() => meals.id, { onDelete: 'cascade' }),
+  value: integer('value', { mode: 'boolean' }).notNull(),
+}, table => [uniqueIndex('child_attendance_meals_day_meal').on(table.dayId, table.mealId), index('child_attendance_meals_meal').on(table.mealId)])
+
 /**
  * One stay of a child on a day; `left` null while the child is still here. The pickup person's name as it was;
  * `pickedUpOther` = a person typed by hand who is neither a contact nor announced ("nicht hinterlegt"), with whom that

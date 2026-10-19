@@ -9,6 +9,7 @@ import {
   createFacility, listFacilities, resolveFacilityId, setActiveFacility, updateFacility,
 } from '../../server/services/facilities'
 import { facilityHolidayRules } from '../../server/services/holidayRules'
+import { addMeal, listMeals, mealVersionsOf } from '../../server/services/meals'
 import { getOpeningHours, setFacilityOpeningHours } from '../../server/services/openingHours'
 import { getSchoolSettings, setAutoLeave, setSchoolCutoff } from '../../server/services/schoolChildren'
 import { createCoverageRule } from '../../server/services/settings'
@@ -115,6 +116,16 @@ describe('facilities', () => {
     expect(copied.filter(candidate => candidate.label !== rule.label).every(candidate => candidate.weekdays === 31)).toBe(true)
     expect(getOpeningHours(db, krippe).facility).toBeNull()
     expect(db.select().from(facilities).where(eq(facilities.id, krippe)).get()).toMatchObject({ minAtOpening: 1, minAtClosing: 1 })
+  })
+
+  it('gives a new facility Snack 9:30 and Mittagessen 12:00 since always, not the first facility\'s meals', () => {
+    const now = new Date('2026-10-19T08:00:00.000Z')
+    addMeal(db, 1, { name: 'Vesper', time: 900, validFrom: '2026-10-19' }, now)
+    const krippe = createFacility(db, 'Krippe').id
+    expect(listMeals(db, krippe, now).current.map(({ name, time }) => ({ name, time })))
+      .toEqual([{ name: 'Snack', time: 570 }, { name: 'Mittagessen', time: 720 }])
+    expect(mealVersionsOf(db, krippe).map(({ validFrom, removed }) => ({ validFrom, removed })))
+      .toEqual([{ validFrom: null, removed: false }, { validFrom: null, removed: false }])
   })
 
   it('renames facilities', () => {

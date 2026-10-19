@@ -281,6 +281,13 @@
       "when": 1792415164111,
       "tag": "0039_group_colors",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1792416401277,
+      "tag": "0040_meals",
+      "breakpoints": true
     }
   ]
 }

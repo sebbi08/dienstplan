@@ -657,27 +657,23 @@ describe('child attendance', () => {
   })
 
   describe('settings', () => {
-    it('start with 09:30, 12:00, no brought-by and no recording yet, and accept times of the day', () => {
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 570, lunchTime: 720, recordBroughtBy: false, attendanceSince: null })
-      setAttendanceSettings(db, 1, { snackTime: hm('09:45'), lunchTime: hm('11:30'), recordBroughtBy: true, attendanceSince: '2026-10-01' })
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 585, lunchTime: 690, recordBroughtBy: true, attendanceSince: '2026-10-01' })
-      expect(dayOf()).toMatchObject({ snackTime: 585, lunchTime: 690, recordBroughtBy: true })
-      setAttendanceSettings(db, 1, { snackTime: 0, lunchTime: 1439, recordBroughtBy: false, attendanceSince: null })
-      expect(getAttendanceSettings(db, 1)).toEqual({ snackTime: 0, lunchTime: 1439, recordBroughtBy: false, attendanceSince: null })
+    it('start with no brought-by and no recording yet; the meal times are no attendance settings any more', () => {
+      expect(getAttendanceSettings(db, 1)).toEqual({ recordBroughtBy: false, attendanceSince: null })
+      setAttendanceSettings(db, 1, { recordBroughtBy: true, attendanceSince: '2026-10-01' })
+      expect(getAttendanceSettings(db, 1)).toEqual({ recordBroughtBy: true, attendanceSince: '2026-10-01' })
+      expect(dayOf()).toMatchObject({ recordBroughtBy: true })
+      setAttendanceSettings(db, 1, { recordBroughtBy: false, attendanceSince: null })
+      expect(getAttendanceSettings(db, 1)).toEqual({ recordBroughtBy: false, attendanceSince: null })
     })
 
-    it('refuse times outside 0–1439 and invalid dates, and belong to one facility', () => {
+    it('refuse invalid dates and belong to one facility', () => {
       const krippe = addFacility(db, 'Krippe')
-      const valid = { snackTime: 570, lunchTime: 720, recordBroughtBy: false, attendanceSince: null }
-      for (const snackTime of [-1, 1440, 9.5, Number.NaN]) {
-        expect(errorCode(() => setAttendanceSettings(db, 1, { ...valid, snackTime }))).toBe('attendance_time_invalid')
-      }
-      expect(errorCode(() => setAttendanceSettings(db, 1, { ...valid, lunchTime: 1440 }))).toBe('attendance_time_invalid')
+      const valid = { recordBroughtBy: false, attendanceSince: null }
       for (const attendanceSince of ['2026-02-30', '14.10.2026', '']) {
         expect(errorCode(() => setAttendanceSettings(db, 1, { ...valid, attendanceSince }))).toBe('invalid_date')
       }
       expect(getAttendanceSettings(db, 1)).toEqual(valid)
-      setAttendanceSettings(db, krippe, { snackTime: 600, lunchTime: 700, recordBroughtBy: true, attendanceSince: '2026-09-01' })
+      setAttendanceSettings(db, krippe, { recordBroughtBy: true, attendanceSince: '2026-09-01' })
       expect(getAttendanceSettings(db, 1)).toEqual(valid)
       expect(errorCode(() => getAttendanceSettings(db, 9999))).toBe('facility_not_found')
     })

@@ -210,7 +210,7 @@ const nameOf = (row: { lastName: string; firstName: string }) => `${row.lastName
  */
 export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now: Date = new Date()): AttendanceDayDto {
   const { facilityId } = viewer
-  const settings = getAttendanceSettings(db, facilityId)
+  const settings = { ...getAttendanceSettings(db, facilityId), ...legacyMealTimes(db, facilityId) }
   const isCareDay = careDays(db, facilityId)(date)
   const clock = nowInBerlin(now)
 
@@ -662,25 +662,25 @@ export function setMonthRemark(db: Db, viewer: ChildViewer, input: AttendanceMon
 
 /** The facility's attendance settings (404 facility_not_found). */
 export function getAttendanceSettings(db: Db, facilityId: number): AttendanceSettingsDto {
-  const row = db.select({
-    snackTime: facilities.snackTime, lunchTime: facilities.lunchTime, recordBroughtBy: facilities.recordBroughtBy,
-    attendanceSince: facilities.attendanceSince,
-  }).from(facilities).where(eq(facilities.id, facilityId)).get()
+  const row = db.select({ recordBroughtBy: facilities.recordBroughtBy, attendanceSince: facilities.attendanceSince })
+    .from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
   return row
 }
 
-const validClockTime = (value: number) => Number.isInteger(value) && value >= 0 && value <= 1439
+/** The old fixed snack and lunch times, which the day list still counts with until it reads the meals (services/meals). */
+function legacyMealTimes(db: Db, facilityId: number): { snackTime: Minutes; lunchTime: Minutes } {
+  return db.select({ snackTime: facilities.snackTime, lunchTime: facilities.lunchTime }).from(facilities)
+    .where(eq(facilities.id, facilityId)).get() ?? { snackTime: 570, lunchTime: 720 }
+}
 
 /**
- * Stores the facility's attendance settings; the meal times are minutes of the day (0–1439), else 400
- * attendance_time_invalid; the recording start is a date or null (not yet; the next entry sets it), else 400 invalid_date.
+ * Stores the facility's attendance settings; the recording start is a date or null (not yet; the next entry sets it),
+ * else 400 invalid_date.
  */
 export function setAttendanceSettings(db: Db, facilityId: number, input: AttendanceSettingsDto): void {
-  if (!validClockTime(input.snackTime) || !validClockTime(input.lunchTime)) throw new ServiceError(400, 'attendance_time_invalid')
   if (input.attendanceSince !== null && !isValidIsoDate(input.attendanceSince)) throw new ServiceError(400, 'invalid_date')
   getAttendanceSettings(db, facilityId)
-  db.update(facilities).set({
-    snackTime: input.snackTime, lunchTime: input.lunchTime, recordBroughtBy: input.recordBroughtBy, attendanceSince: input.attendanceSince,
-  }).where(eq(facilities.id, facilityId)).run()
+  db.update(facilities).set({ recordBroughtBy: input.recordBroughtBy, attendanceSince: input.attendanceSince })
+    .where(eq(facilities.id, facilityId)).run()
 }

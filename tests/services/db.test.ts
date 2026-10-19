@@ -859,6 +859,60 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('0040 moves the two fixed meals into meals per facility and keeps only the ticks set by hand', () => {
+    const { db, sqlite } = databaseAt('0039')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(40)
+    sqlite.exec(`
+      UPDATE facilities SET snack_time = 555, lunch_time = 705 WHERE id = 1;
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES
+        (1, 1, 'Meier', 'Lena', '2022-03-15', '2026-01-01T00:00:00.000Z'),
+        (2, 2, 'Kurz', 'Ben', '2023-05-01', '2026-01-01T00:00:00.000Z');
+      INSERT INTO child_attendance_days (id, child_id, date, snack, lunch) VALUES
+        (1, 1, '2026-10-12', NULL, NULL), (2, 1, '2026-10-13', 1, 0), (3, 1, '2026-10-14', 0, NULL),
+        (4, 2, '2026-10-13', NULL, 1);
+    `)
+    const daysBefore = sqlite.prepare('SELECT * FROM child_attendance_days ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(40)
+    expect(sqlite.prepare('SELECT * FROM child_attendance_days ORDER BY id').all()).toEqual(daysBefore)
+    expect(sqlite.prepare(`
+      SELECT m.facility_id, v.valid_from, v.name, v.time, v.removed FROM meals m JOIN meal_versions v ON v.meal_id = m.id
+      ORDER BY m.facility_id, v.time`).all()).toEqual([
+      { facility_id: 1, valid_from: null, name: 'Snack', time: 555, removed: 0 },
+      { facility_id: 1, valid_from: null, name: 'Mittagessen', time: 705, removed: 0 },
+      { facility_id: 2, valid_from: null, name: 'Snack', time: 570, removed: 0 },
+      { facility_id: 2, valid_from: null, name: 'Mittagessen', time: 720, removed: 0 },
+    ])
+    expect(sqlite.prepare(`
+      SELECT a.day_id, m.facility_id, v.name, a.value FROM child_attendance_meals a
+        JOIN meals m ON m.id = a.meal_id JOIN meal_versions v ON v.meal_id = m.id
+      ORDER BY a.day_id, v.time`).all()).toEqual([
+      { day_id: 2, facility_id: 1, name: 'Snack', value: 1 },
+      { day_id: 2, facility_id: 1, name: 'Mittagessen', value: 0 },
+      { day_id: 3, facility_id: 1, name: 'Snack', value: 0 },
+      { day_id: 4, facility_id: 2, name: 'Mittagessen', value: 1 },
+    ])
+
+    // One tick per day and meal; ticks go with their day, versions and ticks with their meal, meals with their facility.
+    const lunch = (sqlite.prepare('SELECT meal_id AS id FROM meal_versions v JOIN meals m ON m.id = v.meal_id WHERE m.facility_id = 1 AND v.name = \'Mittagessen\'').get() as { id: number }).id
+    expect(() => sqlite.prepare('INSERT INTO child_attendance_meals (day_id, meal_id, value) VALUES (2, ?, 1)').run(lunch)).toThrow(/UNIQUE/)
+    expect(() => sqlite.prepare('INSERT INTO meal_versions (meal_id, valid_from, name, time) VALUES (?, \'2026-11-02\', \'Mittag\', 720)').run(lunch)).not.toThrow()
+    expect(() => sqlite.prepare('INSERT INTO meal_versions (meal_id, valid_from, name, time) VALUES (?, \'2026-11-02\', \'Mittag\', 730)').run(lunch)).toThrow(/UNIQUE/)
+    sqlite.exec('DELETE FROM child_attendance_days WHERE id = 3')
+    expect(count(sqlite, 'child_attendance_meals')).toBe(3)
+    sqlite.prepare('DELETE FROM meals WHERE id = ?').run(lunch)
+    expect(sqlite.prepare('SELECT day_id FROM child_attendance_meals ORDER BY day_id').all()).toEqual([{ day_id: 2 }, { day_id: 4 }])
+    expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = ?').get(lunch)).toEqual({ n: 0 })
+    sqlite.exec('DELETE FROM children WHERE id = 2; DELETE FROM facilities WHERE id = 2')
+    expect(count(sqlite, 'meals')).toBe(1)
+    expect(count(sqlite, 'meal_versions')).toBe(1)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
   it('terminal_unlocks rows go with their tablet account', () => {
     const db = createTestDb()
     const employeeId = addEmployee(db, 'Anna Beispiel')

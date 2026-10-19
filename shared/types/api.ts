@@ -1,6 +1,7 @@
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -1373,13 +1374,27 @@ export interface AttendanceMonthRemarkInput {
   remark: string
 }
 
-/** The attendance settings of a facility (spec §6): the times (minutes after midnight) snack and lunch are counted at. */
+/** The attendance settings of a facility (spec §6); the meals are set apart (MealSettingsDto). */
 export interface AttendanceSettingsDto {
-  snackTime: Minutes
-  lunchTime: Minutes
   recordBroughtBy: boolean
   /** Attendance is recorded from this day on ("Anwesenheit erfasst ab"; null = not yet): only from then on is a day unexcused. */
   attendanceSince: IsoDate | null
+}
+
+/** A change of a meal that starts after today (a new name or time, a new meal, or `removed` = gone from then on). */
+export interface PlannedMealDto {
+  versionId: number
+  mealId: number
+  validFrom: IsoDate
+  name: string
+  time: Minutes
+  removed: boolean
+}
+
+/** The facility's meals: those of today (by time, then name) and the changes planned after today (by date, then time). */
+export interface MealSettingsDto {
+  current: DayMeal[]
+  planned: PlannedMealDto[]
 }
 
 // ---- Group book: weekly overview (Wochenübersicht) ----
