@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull } from 'drizzle-orm'
+import { and, asc, eq, gte, isNull } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { currentAndPlanned, mealsOn, type MealVersion } from '../../shared/domain/meals'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
@@ -60,20 +60,36 @@ function assertFromToday(validFrom: string, now: Date): void {
   if (validFrom < nowInBerlin(now).date) throw new ServiceError(400, 'meal_valid_from_past')
 }
 
+/** Stands for the meal being added while it has no id yet. */
+const NEW_MEAL = -1
+
 /**
- * Checks a new meal or a change of `exceptMealId`: the time is a minute of the day (attendance_time_invalid), the date
- * today or later, the name 1–40 characters (meal_name_required, meal_name_too_long) and not the name of another meal
- * that is not removed (409 meal_name_taken, case-insensitive), and at most 8 such meals with this one (meal_limit).
- * Another meal counts by its version that starts last, planned ones included. Returns the trimmed name.
+ * Checks a new meal (`mealId` null) or a change of a meal: the time is a minute of the day (attendance_time_invalid),
+ * the date today or later, the name 1–40 characters (meal_name_required, meal_name_too_long). On every day from
+ * `validFrom` on, with the new version in place, the meal's name is no other meal's name of that day (409
+ * meal_name_taken, case-insensitive) and there are at most 8 meals (meal_limit); only the start days of versions can
+ * change that, so those are the days checked. Returns the trimmed name.
  */
-function checked(db: Db, facilityId: number, input: MealInput, exceptMealId: number | null, now: Date): string {
+function checked(db: Db, facilityId: number, input: MealInput, mealId: number | null, now: Date): string {
   if (!Number.isInteger(input.time) || input.time < 0 || input.time > 1439) throw new ServiceError(400, 'attendance_time_invalid')
   assertFromToday(input.validFrom, now)
-  if (input.name.trim().length > MAX_NAME) throw new ServiceError(400, 'meal_name_too_long')
-  const others = mealsOn(mealVersionsOf(db, facilityId), END_OF_TIME).filter(meal => meal.mealId !== exceptMealId)
-  const name = uniqueName(others.map(meal => ({ id: meal.mealId, name: meal.name })), input.name, exceptMealId,
-    { required: 'meal_name_required', taken: 'meal_name_taken' })
-  if (others.length >= MAX_MEALS) throw new ServiceError(400, 'meal_limit')
+  const name = input.name.trim()
+  if (!name) throw new ServiceError(400, 'meal_name_required')
+  if (name.length > MAX_NAME) throw new ServiceError(400, 'meal_name_too_long')
+  const own = mealId ?? NEW_MEAL
+  const versions = mealVersionsOf(db, facilityId)
+  const candidate: MealVersion = { id: Number.MAX_SAFE_INTEGER, mealId: own, validFrom: input.validFrom, name, time: input.time, removed: false }
+  const withCandidate = [...versions.filter(version => version.mealId !== own || version.validFrom !== input.validFrom), candidate]
+  const days = new Set([input.validFrom])
+  for (const version of versions) if (version.validFrom !== null && version.validFrom > input.validFrom) days.add(version.validFrom)
+  for (const day of days) {
+    const onDay = mealsOn(withCandidate, day)
+    const meal = onDay.find(entry => entry.mealId === own)
+    if (meal === undefined) continue
+    uniqueName(onDay.map(entry => ({ id: entry.mealId, name: entry.name })), meal.name, own,
+      { required: 'meal_name_required', taken: 'meal_name_taken' })
+    if (onDay.length > MAX_MEALS) throw new ServiceError(400, 'meal_limit')
+  }
   return name
 }
 
@@ -115,24 +131,24 @@ export function changeMeal(db: Db, facilityId: number, mealId: number, input: Me
 }
 
 /**
- * From `validFrom` on (today at the earliest) the meal is gone; days before keep it. Changes planned after that day are
- * dropped; a meal that would have no day left at all is deleted. 404 meal_not_found for a meal of another facility.
+ * From `validFrom` on (today at the earliest) the meal is gone; days before keep it. Its versions from that day on
+ * (changes planned, a reactivation included) are dropped; a meal that would have no day left at all is deleted.
+ * 404 meal_not_found for a meal of another facility.
  */
 export function removeMeal(db: Db, facilityId: number, mealId: number, validFrom: IsoDate, now: Date = new Date()): void {
   assertFromToday(validFrom, now)
   db.transaction((tx) => {
     assertMeal(tx, facilityId, mealId)
-    tx.delete(mealVersions).where(and(eq(mealVersions.mealId, mealId), gt(mealVersions.validFrom, validFrom))).run()
-    const left = mealVersionsOf(tx, facilityId).filter(version => version.mealId === mealId)
-    const before = left.filter(version => version.validFrom === null || version.validFrom < validFrom)
-    if (before.length === 0) {
+    tx.delete(mealVersions).where(and(eq(mealVersions.mealId, mealId), gte(mealVersions.validFrom, validFrom))).run()
+    const before = mealVersionsOf(tx, facilityId).filter(version => version.mealId === mealId)
+    if (!before.some(version => !version.removed)) {
       tx.delete(meals).where(eq(meals.id, mealId)).run()
       return
     }
     const [last] = mealsOn(before, END_OF_TIME)
-    if (last === undefined) return // gone already
+    if (last === undefined) return // gone already the day before: nothing to end
     // The removed version keeps the name and time it ends, for the list of planned changes.
-    putVersion(tx, mealId, { validFrom, name: last.name, time: last.time, removed: true })
+    tx.insert(mealVersions).values({ mealId, validFrom, name: last.name, time: last.time, removed: true }).run()
   })
 }
 

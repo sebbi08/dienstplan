@@ -5,6 +5,7 @@ import { mealVersions, meals } from '../../server/db/schema'
 import {
   addMeal, cancelMealVersion, changeMeal, listMeals, mealVersionsOf, removeMeal,
 } from '../../server/services/meals'
+import { mealsOn } from '../../shared/domain/meals'
 import { addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
 // 10:00 in Berlin on Monday 2026-10-19.
@@ -143,6 +144,35 @@ describe('meals per facility', () => {
     removeMeal(db, 1, lunch, '2026-10-26', NOW)
     expect(listMeals(db, 1, NOW).planned).toMatchObject([{ mealId: lunch, validFrom: '2026-10-26', removed: true }])
     expect(mealVersionsOf(db, 1).filter(version => version.mealId === lunch)).toHaveLength(2)
+  })
+
+  it('removing on the day of a planned reactivation drops the reactivation', () => {
+    removeMeal(db, 1, snack, '2026-10-26', NOW)
+    changeMeal(db, 1, snack, { name: 'Snack', time: 600, validFrom: '2026-11-02' }, NOW)
+    expect(mealsOn(mealVersionsOf(db, 1), '2026-11-02').map(meal => meal.name)).toEqual(['Snack', 'Mittagessen'])
+    removeMeal(db, 1, snack, '2026-11-02', NOW)
+    const versions = mealVersionsOf(db, 1)
+    expect(mealsOn(versions, '2026-11-02').map(meal => meal.name)).toEqual(['Mittagessen'])
+    expect(mealsOn(versions, '2026-10-25').map(meal => meal.name)).toEqual(['Snack', 'Mittagessen'])
+    expect(versionsOf(snack).map(version => [version.validFrom, version.removed])).toEqual([[null, false], ['2026-10-26', true]])
+  })
+
+  it('checks the name on every day from the change on', () => {
+    changeMeal(db, 1, snack, { name: 'Frühstück', time: 480, validFrom: '2026-11-02' }, NOW)
+    expect(errorCode(() => add('Snack', 900, TODAY))).toBe('meal_name_taken')
+    expect(errorCode(() => add('Snack', 900, '2026-11-02'))).toBeNull()
+    // A rename into a name another meal only has later is refused as well.
+    changeMeal(db, 1, lunch, { name: 'Mittag', time: 720, validFrom: '2026-11-09' }, NOW)
+    expect(errorCode(() => changeMeal(db, 1, snack, { name: 'Mittag', time: 480, validFrom: '2026-11-02' }, NOW))).toBe('meal_name_taken')
+  })
+
+  it('checks the number of meals on every day from the new meal on', () => {
+    for (const name of ['Obst', 'Brotzeit', 'Tee', 'Kuchen', 'Vesper', 'Abendbrot']) add(name)
+    removeMeal(db, 1, snack, '2026-10-26', NOW)
+    expect(errorCode(() => add('Neuntes', 900, TODAY))).toBe('meal_limit')
+    expect(errorCode(() => add('Neuntes', 900, '2026-10-26'))).toBeNull()
+    // Bringing Snack back from later would make nine again.
+    expect(errorCode(() => changeMeal(db, 1, snack, { name: 'Snack', time: 570, validFrom: '2026-11-02' }, NOW))).toBe('meal_limit')
   })
 
   it('cancelling a planned version restores the one before', () => {
