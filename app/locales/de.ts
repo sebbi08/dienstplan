@@ -495,7 +495,7 @@ export const de = {
     switched: 'Einrichtung gewechselt',
   },
   children: {
-    nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', planned: 'Vormerkungen & Verträge', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
+    nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', overview: 'Übersicht', planned: 'Vormerkungen & Verträge', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
     create: 'Kind anlegen',
     createdHiddenFuture: 'Kind angelegt. Es erscheint am Tablet ab dem Eintrittstag.',
     createdHiddenWaitlist: 'Kind angelegt. Vormerkungen sind am Tablet ausgeblendet.',
@@ -539,6 +539,30 @@ export const de = {
     editContact: 'Bezugsperson bearbeiten', confirmDeleteContact: 'Diese Bezugsperson löschen?',
     moveUp: 'Nach oben', moveDown: 'Nach unten', createTitle: 'Kind anlegen', ageAt: 'Alter', birthdayOn: 'Geburtstag am',
     noSelection: 'keine Angabe', noValue: '–',
+    // The Excel-like overview tables: short column heads, the full text as hint on the head.
+    overview: {
+      sheets: {
+        privacy: 'Datenschutz', messenger: 'Messenger', health: 'Gesundheit', pickup: 'Abholberechtigte',
+        guardians: 'Sorgeberechtigte', emergency: 'Notfallkontakte', phones: 'Telefonnummern',
+      },
+      short: {
+        artworkDisplay: 'Bastelarbeiten', photosDisplay: 'Fotos aufhängen', photosForeignPortfolios: 'Fremde Portfolios',
+        photosInternalEvents: 'Fotos Feste', photosNamesBirthdaysDisplay: 'Fotos, Namen, Geb.', groupWorkWithNames: 'Gruppenarbeiten',
+        whatsappContact: 'Kontakt WhatsApp', whatsappPhotos: 'Fotos WhatsApp', signalPhotos: 'Fotos Signal', whatsappParentGroup: 'Elterngruppe',
+        measlesProof: 'Masern', infectionBriefingDate: 'Belehrung', allergies: 'Allergien', mayTakeTemperature: 'Fieber',
+        mayApplySunscreen: 'Sonnenschutz', mayApplyPlaster: 'Pflaster', insectRepellent: 'Insektenschutz',
+        pickUp: 'Abholberechtigte', guardians: 'Sorgeberechtigte', contactBan: 'Kontaktverbot', address: 'Adresse',
+      },
+      measlesTitle: 'Masernnachweis (mit Datum)', infectionBriefingTitle: 'Belehrung Infektionsschutz (Datum)',
+      pickUpTitle: 'Alle Bezugspersonen, die das Kind abholen dürfen (ohne Kontaktverbot)',
+      guardiansTitle: 'Sorgeberechtigte Bezugspersonen', contactBanTitle: 'Bezugspersonen mit Kontaktverbot und Hinweis',
+      emergencyShort: (rank: number) => `${rank}.`, emergencyTitle: (rank: number) => `${rank}. Notfallkontakt`,
+      contactShort: (n: number) => `Kontakt ${n}`,
+      contactTitle: (n: number) => `Kontakt ${n} in der Reihenfolge der Akte, mit Telefon privat / mobil / Arbeit`,
+      phoneHome: 'privat', phoneMobile: 'mobil', phoneWork: 'Arbeit',
+      child: 'Kind', hint: 'Alle Angaben kommen aus den Kinderakten und werden dort geändert. Tippe auf einen Spaltenkopf für den vollen Text.',
+      printTitle: (facility: string | null, sheet: string, group: string) => [facility, sheet, group].filter(Boolean).join(' – '),
+    },
     printBirthdays: 'Geburtstage der Kinder', printDocuments: 'Dokumentenübersicht', printPlanned: 'Vormerkungen & Verträge',
     admission: {
       label: 'Stand', waitlist: 'Vormerkung', contract: 'Vertrag', waitlistedOn: 'Vorgemerkt am',

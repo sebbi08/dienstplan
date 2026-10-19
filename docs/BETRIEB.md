@@ -542,3 +542,41 @@ Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Ein
   Einrichtung).
 - **Rückwirkend:** Änderungen an Öffnungszeiten und Pflichtdiensten gelten für alle Tage, auch für vergangene Monate.
   Wer nichts einträgt, bekommt keine neuen Warnungen.
+
+## 14. Übersicht der Kinder (wie die Excel-Liste)
+
+Unter *Kinder* ist **„Übersicht“** der Reiter nach „Liste“. Er zeigt die Angaben der Kinder als Tabellen, aufgebaut
+wie die Blätter der bisherigen Excel-Liste. Erfasst wird hier nichts: alle Werte kommen aus den Kinderakten und werden
+dort geändert. Ein Kind steht je Zeile (Nachname, Vorname), nach Gruppen geordnet wie in der Liste, Kinder ohne Gruppe
+am Ende („ohne Gruppe“). Mit der Gruppenauswahl zeigst du nur eine Gruppe. Der Name führt zur Akte.
+
+### Die Unterreiter
+
+| Unterreiter | Spalten |
+|---|---|
+| Datenschutz | Bastel-/Malarbeiten aufhängen · Einzel-/Gruppenfotos aufhängen · Fotoerlaubnis für fremde Portfolios · Fotos hausinterner Feste · Fotos, Namen, Geburtsdaten aufhängen · Gruppenarbeiten mit Namen ausstellen |
+| Messenger | Kontaktaufnahme über WhatsApp · Fotos über WhatsApp · Fotos über Signal · WhatsApp-Elterngruppe |
+| Gesundheit | Masernnachweis (mit Datum) · Belehrung Infektionsschutz (Datum) · Allergien · Fieber messen · Sonnenschutz · Pflaster kleben · Insektenschutz |
+| Abholberechtigte | alle Bezugspersonen mit „darf abholen“, z. B. „Erika Muster (Oma)“ – Bezugspersonen mit Kontaktverbot stehen hier nie |
+| Sorgeberechtigte | die sorgeberechtigten Bezugspersonen · **Kontaktverbot**: Name und Hinweis, rot |
+| Notfallkontakte | je Spalte ein Notfallkontakt in seiner Reihenfolge (1., 2., …) mit Beziehung und Telefonnummern |
+| Telefonnummern | Adresse · je Spalte eine Bezugsperson (in der Reihenfolge der Akte) mit Beziehung und Telefon privat / mobil / Arbeit |
+
+- Einwilligungen und Ja/Nein-Angaben: **✓** ja (grün), **✗** nein (rot), **–** offen (grau). Leere Textfelder
+  (z. B. keine Allergien) bleiben leer.
+- Die Spaltenköpfe sind kurz. Tippe auf einen Kopf (oder fahre mit der Maus darüber), um den vollen Text zu sehen.
+- Am Tablet im Hochformat lässt sich die Tabelle seitlich wischen; die Namensspalte bleibt dabei stehen.
+
+### Wer was sieht
+
+Es gelten dieselben Regeln wie für die Kinderakten (Abschnitt 8 und 12): Mitarbeiter sehen die Übersicht nur am
+aufgeschlossenen Tablet, mit Gruppe nur die eigene und die für sie freigeschalteten Gruppen; Mitarbeiter ohne Gruppe,
+Aushilfen, Leitung und Träger sehen alle aktiven Kinder (keine Vormerkungen, kein Archiv). Der Server schickt nur die
+Kinder, die die Person sehen darf – Telefonnummern und Kontaktverbote anderer Gruppen kommen gar nicht erst auf das
+Gerät. Mit dem eigenen Konto (Handy, privater PC) sehen Mitarbeiter keine Übersicht.
+
+### Drucken
+
+Leitung und Träger drucken im Büro jeden Unterreiter mit **„Drucken“** (A4 quer, als Ausdruck oder PDF). Im Kopf
+stehen Einrichtung, Unterreiter, die gewählte Gruppe bzw. „Alle Gruppen“ und das Datum. Am Tablet gibt es keine
+Druck-Knöpfe.

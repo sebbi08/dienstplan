@@ -6,7 +6,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'attendance' | 'week' | 'list' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
+type Tab = 'attendance' | 'week' | 'list' | 'overview' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
 
 // In the office the account's rights, at the tablet those of the person who unlocked it.
 const { rights, onTablet } = useChildRights()
@@ -32,6 +32,7 @@ const tabs = computed(() => [
   { key: 'attendance' as const, label: de.attendance.tab },
   { key: 'week' as const, label: de.groupBook.tab },
   { key: 'list' as const, label: de.children.tabs.list },
+  { key: 'overview' as const, label: de.children.tabs.overview },
   ...(showPlanned.value ? [{ key: 'planned' as const, label: de.children.tabs.planned }] : []),
   { key: 'birthdays' as const, label: de.children.tabs.birthdays },
   { key: 'documents' as const, label: de.children.tabs.documents },
@@ -92,7 +93,7 @@ const td = 'px-3 py-2'
 </script>
 
 <template>
-  <div class="space-y-4" :class="tab === 'occupancy' || tab === 'attendance' ? 'max-w-7xl' : 'max-w-5xl'">
+  <div class="space-y-4" :class="tab === 'occupancy' || tab === 'attendance' || tab === 'overview' ? 'max-w-7xl' : 'max-w-5xl'">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.title }}</h1>
       <UButton v-if="canCreate && tab !== 'planned'" class="ml-auto" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
@@ -166,6 +167,7 @@ const td = 'px-3 py-2'
         </div>
       </template>
 
+      <ChildrenOverviewTab v-else-if="tab === 'overview'" />
       <ChildrenPlannedTab v-else-if="tab === 'planned' && showPlanned" />
 
       <template v-else-if="tab === 'birthdays'">
