@@ -664,6 +664,18 @@ export const de = {
     settingsHint: 'Ist „Bringperson erfassen“ an, fragt das Tablet beim Kommen, wer das Kind gebracht hat.',
     attendanceSince: 'Anwesenheit erfasst ab', attendanceSinceEmpty: 'Noch nicht begonnen',
     attendanceSinceHint: 'Erst ab diesem Tag zählt ein Betreuungstag ohne Eintrag als unentschuldigt (–). Der erste Eintrag in der Anwesenheit setzt das Datum von selbst; ändern kannst du es nur hier. Leer = noch nicht begonnen.',
+    // The meals of the facility (Leitung and Träger), part of the section "Anwesenheit".
+    mealsTitle: 'Essen',
+    mealsHint: 'Gezählt wird ein Kind, das zur Uhrzeit des Essens da ist; in der Anwesenheit kannst du das für den Tag von Hand ändern. Jede Änderung gilt ab dem gewählten Tag, frühere Tage bleiben unverändert.',
+    noMeals: 'Es gibt kein Essen. Die Anwesenheit zeigt dann keine Essensspalten.',
+    mealName: 'Name', mealTime: 'Uhrzeit', mealValidFrom: 'gilt ab',
+    mealChange: 'Ändern', mealRemove: 'Entfernen', mealAdd: 'Essen hinzufügen',
+    confirmMealRemove: (name: string, date: string) => `${name} ab ${date} entfernen? Frühere Tage bleiben unverändert.`,
+    plannedMeals: 'Geplante Änderungen',
+    plannedMeal: (date: string, name: string, time: string) => `ab ${date}: ${name} ${time}`,
+    plannedMealRemoved: (date: string, name: string) => `ab ${date}: ${name} entfällt`,
+    cancelPlanned: 'Zurücknehmen', confirmCancelPlanned: (text: string) => `Geplante Änderung „${text}“ zurücknehmen?`,
+    plannedCancelled: 'Zurückgenommen',
     printDayTitle: (date: string) => `Anwesenheit Kinder ${date}`, printMonthTitle: (month: string) => `Anwesenheit Kinder ${month}`,
     noGroup: 'Ohne Gruppe', noChildren: 'Keine Kinder.',
     printColumns: {
@@ -682,6 +694,13 @@ export const de = {
       `Da: ${c.present} · Abgeholt: ${c.gone} · Abwesend: ${c.absent} · Noch nicht da: ${c.notYet}`,
     /** The meals of the day with their counts: "Snack 9:30: 12 · Mittagessen 12:00: 15". */
     meals: (items: { name: string; time: string; count: number }[]) => items.map(item => `${item.name} ${item.time}: ${item.count}`).join(' · '),
+    // The meal box above the day list and in the print: the totals, then the counts per group (no names).
+    mealsToday: 'Essen heute',
+    summary: { group: 'Gruppe', here: 'Kinder da', total: 'Gesamt', noGroup: 'ohne Gruppe' },
+    /** The second half of a cell of the meal table ("10 · 2 nicht"): the listed children not counted for the meal. */
+    notEating: (count: number) => `${count} nicht`,
+    /** The info column when the consent to insect repellent is "nein". */
+    noInsectRepellent: 'kein Insektenschutz',
     openStays: (when: string, names: string) => `${when} nicht ausgestempelt: ${names}`,
     yesterday: 'Gestern', onDay: (date: string) => `Am ${date}`, goToDay: 'Zum Tag',
     notYet: 'noch nicht da', presentSince: (time: string) => `da seit ${time}`,

@@ -44,6 +44,7 @@ const td = 'border border-gray-400 px-1.5 py-1 align-top'
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-else-if="data">
+      <ChildrenAttendanceMealSummary :day="data" print />
       <p v-if="!sections.length" class="text-sm text-gray-600">{{ s.noChildren }}</p>
       <section v-for="(section, index) in sections" :key="section.key" :class="index < sections.length - 1 ? 'break-after-page' : ''" class="mb-6">
         <h2 class="mb-1 text-lg font-semibold">{{ section.name }}</h2>
@@ -56,7 +57,7 @@ const td = 'border border-gray-400 px-1.5 py-1 align-top'
               <th :class="th">{{ c.plannedPickup }}</th>
               <th :class="th">{{ c.pickedUpBy }}</th>
               <th :class="th">{{ c.left }}</th>
-              <th v-for="meal in data.meals" :key="meal.mealId" :class="[th, 'text-center']">{{ meal.name }}</th>
+              <th v-for="meal in data.meals" :key="meal.mealId" :class="[th, 'text-center']">{{ meal.name }}<div class="font-normal">{{ formatTime(meal.time) }}</div></th>
               <th :class="th">{{ c.info }}</th>
             </tr>
           </thead>
@@ -71,6 +72,7 @@ const td = 'border border-gray-400 px-1.5 py-1 align-top'
               <td v-for="meal in data.meals" :key="meal.mealId" :class="td" class="text-center">{{ child.meals[meal.mealId]?.counted ? '✓' : '' }}</td>
               <td :class="td" class="whitespace-pre-line break-words">
                 <div v-if="child.allergies">{{ s.allergies }}: {{ child.allergies }}</div>
+                <div v-if="child.insectRepellent === false">{{ s.noInsectRepellent }}</div>
                 <div v-if="child.note">{{ child.note }}</div>
                 <template v-for="stay in child.stays" :key="stay.id">
                   <div v-if="stay.pickedUpOther && stay.pickedUpBy && stay.pickedUpConfirmedWith">{{ s.pickedUpByInfo(stay.pickedUpBy, stay.pickedUpConfirmedWith) }}</div>

@@ -2,7 +2,10 @@
 import type { AttendanceSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
-/** Whether the tablet asks who brought a child, and the day attendance is recorded from (Leitung and Träger). */
+/**
+ * Whether the tablet asks who brought a child, and the day attendance is recorded from (Leitung and Träger); below,
+ * the facility's meals (MealsSection).
+ */
 const { data, refresh } = await useFetch<AttendanceSettingsDto>('/api/attendance-settings', { key: 'attendance-settings' })
 const { busy, run } = useBusyAction(refresh)
 const s = de.attendance
@@ -35,5 +38,6 @@ const save = () => run(() => $fetch<unknown>('/api/attendance-settings', {
       <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
     </form>
     <p class="text-xs text-gray-500">{{ s.settingsHint }}</p>
+    <SettingsMealsSection />
   </section>
 </template>

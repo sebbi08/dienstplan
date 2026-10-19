@@ -9,6 +9,12 @@ export function formatDate(iso: string): string {
   return `${pad(day)}.${pad(month)}.${year}`
 }
 
+/** A day without the year: "01.11.". */
+export function formatDayMonth(iso: string): string {
+  const { month, day } = parseIsoDate(iso)
+  return `${pad(day)}.${pad(month)}.`
+}
+
 export function formatDayShort(iso: string, weekdayIndex: number): string {
   const { month, day } = parseIsoDate(iso)
   return `${de.weekdaysShort[weekdayIndex]} ${pad(day)}.${pad(month)}.`

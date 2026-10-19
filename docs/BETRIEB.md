@@ -135,6 +135,16 @@ Datenbank des Dienstplans (im Docker-Betrieb die Datei `/data/app.db`). Erlaubt 
 PNG-Dateien bis 10 MB pro Dokument. Es gibt keinen separaten Ordner mit Dokumenten: Wer die
 Datenbank hat, hat alles.
 
+### Einwilligungen
+
+Die Einwilligungen in der Akte (ja / nein / offen) sind in Blöcke geteilt: **„Datenschutz“**, **„Messenger
+(WhatsApp, Signal)“** mit „Kontaktaufnahme über WhatsApp“, „Fotos über WhatsApp versenden“, **„Fotos über Signal
+versenden“** und „WhatsApp-Elterngruppe“, und **„Gesundheit“** mit **„Darf mit Insektenschutz eingesprüht
+werden“**. Bei „nein“ zum Insektenschutz steht in der Anwesenheitsliste (und im Ausdruck) in der Infospalte „kein
+Insektenschutz“. Die neuen Punkte sind bei allen Kindern zunächst offen und zählen in der Liste „Offen“ wie die
+anderen. Früher gab es „Fotos über WhatsApp versenden“ zweimal (auch unter Datenschutz); die beiden Werte wurden
+zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und nein, gilt **nein**.
+
 ### Wer sieht was
 
 | Rolle | Kinderakten |
@@ -336,8 +346,8 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
   Mitarbeiterkonto (Handy, privater PC) gibt es die Anwesenheit nicht.
 - Die Liste zeigt immer **alle** Kinder der Einrichtung. Bei Kindern einer **fremden Gruppe** geht für
   Mitarbeiter mit Gruppe nur Kommen, Gehen und Abholer ankündigen (siehe Abschnitt 12).
-- Oben steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind, und wie viele beim Snack und
-  beim Mittagessen dabei sind. Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende).
+- Oben steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind, darunter der Kasten **„Essen
+  heute“** (siehe „Essen“ unten). Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende).
 - **„Kommt“**: Uhrzeit (vorgeschlagen ist jetzt) und **geplante Abholzeit** (Pflicht). Vorgeschlagen wird das
   Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Anwesenheit* „Bringperson
   erfassen“ an, fragt der Dialog zusätzlich, wer das Kind gebracht hat. Ein Kind, das schon abgeholt wurde, kann
@@ -375,18 +385,39 @@ Abwesenheit für diesen Tag. Ist an einem vergangenen Betreuungstag nichts einge
 unentschuldigt (–) – aber erst ab dem Tag, der unter *Einstellungen → Anwesenheit* bei **„Anwesenheit erfasst ab“**
 steht (der erste Eintrag setzt ihn von selbst; Tage davor bleiben leer und zählen nicht).
 
-### Snack und Mittagessen
+### Essen
 
-Die Uhrzeiten stellen Leitung und Träger unter *Einstellungen → Anwesenheit* ein (voreingestellt 9:30 und
-12:00). Ein Kind zählt für eine Mahlzeit, wenn es zu deren Uhrzeit da ist oder laut geplanter Abholzeit da sein
-wird. Ein Tipp auf das Häkchen ändert das von Hand (z. B. „isst heute nicht mit“), der Pfeil daneben stellt
-wieder auf automatisch.
+- **Welche Essen es gibt**, legen Leitung und Träger unter *Einstellungen → Anwesenheit* im Block **„Essen“** fest,
+  je Einrichtung: Name (z. B. „Frühstück“, „Vesper“; höchstens 40 Zeichen, nicht doppelt) und Uhrzeit, höchstens
+  8 Essen. Voreingestellt sind Snack 9:30 und Mittagessen 12:00. Es darf auch kein Essen geben; dann zeigen Liste
+  und Druck keine Essensspalten und keinen Essenskasten.
+- **„Ändern“** (Name, Uhrzeit), **„Entfernen“** und **„Essen hinzufügen“** fragen nach **„gilt ab“** (voreingestellt
+  heute, frühestens heute). **Vergangene Tage ändern sich nie**: Tage davor behalten die Essen mit Name und Uhrzeit
+  von damals, dort wird weiter nach der alten Uhrzeit gezählt, und alle Häkchen bleiben. Ein entferntes Essen
+  ist an früheren Tagen weiter mit seinen Häkchen zu sehen.
+- Änderungen ab einem späteren Tag stehen unter **„Geplante Änderungen“** („ab 01.11.: Mittagessen 12:15“,
+  „ab 01.11.: Vesper entfällt“). Mit **„Zurücknehmen“** nimmst du eine davon wieder zurück; ein Essen, das erst
+  später beginnen sollte, ist dann ganz weg.
+- **Zählen**: Ein Kind zählt für ein Essen, wenn es zu dessen Uhrzeit da ist oder laut geplanter Abholzeit da sein
+  wird. Je Essen gibt es beim Kind ein Häkchen (nach Uhrzeit geordnet); ein Tipp ändert das für den Tag von Hand
+  (z. B. „isst heute nicht mit“, dann steht „(von Hand)“ daneben), der Pfeil daneben stellt **„Wieder automatisch
+  zählen“** ein.
+- **Kasten „Essen heute“** über der Liste: je Essen die Zahl der Kinder („Snack 9:30: 12 · Mittagessen 12:00: 15“),
+  darunter eine kleine Tabelle je Gruppe: **Kinder da** (da oder heute schon abgeholt) und je Essen, wie viele
+  mitessen und wie viele Kinder der Gruppe nicht (z. B. „10 · 2 nicht“; mitgezählt sind alle Kinder der Liste, auch
+  abwesende und noch nicht gekommene). Kinder ohne Gruppe stehen als „ohne Gruppe“, die letzte Zeile ist
+  **„Gesamt“**. Es stehen nur Zahlen da, keine Namen.
+- Jeder Tag zeigt die Essen, die **an diesem Tag** galten. So ist auch später nachvollziehbar, welches Kind zu
+  welchem Essen da war und ob automatisch oder von Hand gezählt. Im Verlauf steht bei einem Häkchen der Name des
+  Essens von damals.
 
 ### Infospalte
 
 Rechts beim Kind stehen die **Allergien und Unverträglichkeiten** aus der Akte und das Feld **„Was ist heute
 passiert“** für kurze Notizen über den Tag (z. B. „hingefallen, Knie gekühlt“), damit sie beim Abholen
-weitergegeben werden. Andere Inhalte der Akte und vertrauliche Dokumente erscheinen hier nie.
+weitergegeben werden. Steht in der Akte bei „Darf mit Insektenschutz eingesprüht werden“ **nein**, steht dort
+außerdem **„kein Insektenschutz“** (bei „ja“ und „offen“ nichts). Andere Inhalte der Akte und vertrauliche
+Dokumente erscheinen hier nie.
 
 ### Monatsübersicht
 
@@ -398,7 +429,8 @@ Monat. Ein Tipp auf eine Tageszahl öffnet diesen Tag.
 ### Drucken im Büro
 
 Tagesliste und Monatsübersicht drucken Leitung und Träger im Büro mit **„Drucken“** (A4 quer, als Ausdruck oder
-PDF). Am Tablet gibt es keine Druck-Knöpfe; dort ist die Liste jederzeit am Bildschirm zu sehen (z. B. bei einer
+PDF). Der Ausdruck der Tagesliste hat je Essen eine Spalte mit ✓, darüber stehen dieselbe Gesamtzahl je Essen und
+dieselbe Tabelle je Gruppe wie im Kasten „Essen heute“, in der Infospalte auch „kein Insektenschutz“. Am Tablet gibt es keine Druck-Knöpfe; dort ist die Liste jederzeit am Bildschirm zu sehen (z. B. bei einer
 Räumung).
 
 ### Ändern und Verlauf
@@ -466,7 +498,7 @@ Fortbildung verwendet.
 - Die Anwesenheitsliste zeigt weiter **alle** Kinder. Maßgeblich ist die Gruppe des Kindes **an dem Tag**.
 - Bei einem Kind einer fremden Gruppe (auch einer nur freigeschalteten) gibt es nur **„Kommt“**, **„Geht“** und
   **„Abholer ankündigen“**. Allergien, die Notiz des Tages, die Zeiten, die geplante Abholzeit und die Häkchen
-  für Snack und Mittag sind zu sehen, aber nicht zu ändern; „Abwesend“ und „Zeiten korrigieren“ gibt es dort nicht.
+  der Essen sind zu sehen, aber nicht zu ändern; „Abwesend“ und „Zeiten korrigieren“ gibt es dort nicht.
 - War das Kind in einem Abwesenheits-Zeitraum an einzelnen Tagen in einer anderen Gruppe, wird nichts eingetragen
   und ein Hinweis erscheint: Trag die Abwesenheit dann nur für die Tage in deiner Gruppe ein.
 - Der Name eines fremden Kindes führt nur dann zur Akte, wenn dessen Gruppe freigeschaltet ist (dann nur lesen).

@@ -113,10 +113,6 @@ function setMeal(child: AttendanceChildDto, mealId: number, value: boolean | nul
 }
 const mealCounted = (child: AttendanceChildDto, mealId: number) => child.meals[mealId]?.counted ?? false
 const mealManual = (child: AttendanceChildDto, mealId: number) => child.meals[mealId]?.manual ?? false
-/** The meals of the day with their counts ("Snack 9:30: 12 · Mittagessen 12:00: 15"); '' on a day without meals. */
-const mealsLine = computed(() => s.meals((data.value?.meals ?? []).map(meal => ({
-  name: meal.name, time: formatTime(meal.time), count: data.value?.counts.meals[meal.mealId] ?? 0,
-}))))
 const blurOnEnter = (event: KeyboardEvent) => (event.target as HTMLElement).blur()
 
 // One dialog at a time, for a child of the shown day (looked up again after every refresh).
@@ -196,8 +192,8 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
       <template v-else-if="data">
         <div class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
           <p class="text-base font-medium">{{ s.counts(data.counts) }}</p>
-          <p v-if="mealsLine" class="text-sm text-gray-600">{{ mealsLine }}</p>
         </div>
+        <ChildrenAttendanceMealSummary :day="data" />
         <p v-if="!data.isCareDay" class="rounded-lg bg-gray-100 p-3 text-sm text-gray-700">{{ s.noCareDay }}</p>
         <div
           v-for="entry in openStayDays" :key="entry.date"
@@ -291,6 +287,9 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
               <div class="min-w-0 space-y-1">
                 <p v-if="child.allergies" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
                   <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" /><span class="whitespace-pre-line break-words">{{ s.allergies }}: {{ child.allergies }}</span>
+                </p>
+                <p v-if="child.insectRepellent === false" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
+                  <UIcon name="i-lucide-bug-off" class="mt-0.5 size-4 shrink-0" /><span>{{ s.noInsectRepellent }}</span>
                 </p>
                 <template v-if="!child.own">
                   <p v-if="child.note" class="whitespace-pre-line break-words text-sm text-gray-700">{{ child.note }}</p>
