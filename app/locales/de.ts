@@ -215,7 +215,7 @@ export const de = {
       + 'Der Name bekommt die Farbe seiner Gruppe. Mitarbeiter ohne Gruppe stehen am Ende und bleiben weiß.',
     noColor: 'keine Farbe',
     colorNames: {
-      amber: 'Gelb', orange: 'Orange', rose: 'Rosa', fuchsia: 'Pink', violet: 'Lila', blue: 'Blau', teal: 'Türkis', slate: 'Grau',
+      amber: 'Gelb', orange: 'Orange', rose: 'Rosa', fuchsia: 'Pink', violet: 'Lila', brown: 'Hellbraun', teal: 'Türkis', slate: 'Grau',
     } satisfies Record<GroupColor, string>,
     colorLabel: (group: string, color: string) => `Farbe für ${group}: ${color}`,
   },

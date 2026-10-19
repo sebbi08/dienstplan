@@ -8,7 +8,8 @@ export const groupColorClasses: Record<GroupColor, string> = {
   rose: 'bg-rose-200',
   fuchsia: 'bg-fuchsia-200',
   violet: 'bg-violet-200',
-  blue: 'bg-blue-200',
+  // Light brown (no Tailwind shade fits: amber/orange are taken, stone is grey); written out so Tailwind generates it.
+  brown: 'bg-[#dcc3a1] text-gray-900',
   teal: 'bg-teal-200',
   slate: 'bg-slate-300',
 }

@@ -1016,6 +1016,27 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it('0043 turns the blue group colour into light brown and leaves every other colour as it is', () => {
+    const { db, sqlite } = databaseAt('0042')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(43)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name, sort_order, color) VALUES
+        (1, 1, 'Bären', 0, 'blue'), (2, 1, 'Mäuse', 1, 'teal'), (3, 1, 'Eulen', 2, NULL), (4, 2, 'Wichtel', 0, 'blue');
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(43)
+    expect(sqlite.prepare('SELECT id, name, color FROM groups ORDER BY id').all()).toEqual([
+      { id: 1, name: 'Bären', color: 'brown' },
+      { id: 2, name: 'Mäuse', color: 'teal' },
+      { id: 3, name: 'Eulen', color: null },
+      { id: 4, name: 'Wichtel', color: 'brown' },
+    ])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('terminal_unlocks rows go with their tablet account', () => {
     const db = createTestDb()
     const employeeId = addEmployee(db, 'Anna Beispiel')

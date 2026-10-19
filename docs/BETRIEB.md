@@ -506,7 +506,9 @@ Kalender“ und im Ausdruck des Jahreskalenders stehen die Mitarbeiter dann nach
 der Gruppen, Mitarbeiter ohne Gruppe am Ende), ihr Name hat die Farbe ihrer Stammgruppe, und über dem Kalender
 steht eine kleine Legende der Gruppenfarben. Mitarbeiter ohne Gruppe und Gruppen ohne Farbe bleiben weiß. Die
 Gruppenfarben sind heller als die Farben, mit denen der Kalender Abwesenheiten zeigt (z. B. das kräftige Blau der
-Fortbildung), damit man Name und Abwesenheit nicht verwechselt.
+Fortbildung), damit man Name und Abwesenheit nicht verwechselt. Zur Wahl stehen Gelb, Orange, Rosa, Pink, Lila,
+Hellbraun, Türkis und Grau – Blau, Grün und Rot gibt es bewusst nicht. Gruppen, die früher „Blau“ hatten, sind nach
+dem Update hellbraun.
 
 ### Kinder fremder Gruppen in der Anwesenheit
 

@@ -370,16 +370,16 @@ describe('group colour', () => {
     const mice = addGroup(db, 1, 'Mäuse')
     expect(listGroups(db, 1).map(group => group.color)).toEqual([null, null])
     setGroupColor(db, 1, bears, 'amber')
-    setGroupColor(db, 1, mice, 'violet')
-    expect(listGroups(db, 1).map(group => group.color)).toEqual(['amber', 'violet'])
+    setGroupColor(db, 1, mice, 'brown')
+    expect(listGroups(db, 1).map(group => group.color)).toEqual(['amber', 'brown'])
     setGroupColor(db, 1, bears, null)
-    expect(listGroups(db, 1).map(group => group.color)).toEqual([null, 'violet'])
+    expect(listGroups(db, 1).map(group => group.color)).toEqual([null, 'brown'])
   })
 
   it('refuses a key outside the palette (400 invalid_group_color) and keeps the colour', () => {
     const bears = addGroup(db, 1, 'Bären')
     setGroupColor(db, 1, bears, 'teal')
-    for (const value of ['green', 'red', '', 'bg-red-500', '#ff0000', 'Amber']) {
+    for (const value of ['green', 'red', 'blue', '', 'bg-red-500', '#ff0000', 'Amber']) {
       expect(errorCode(() => setGroupColor(db, 1, bears, value)), value).toBe('invalid_group_color')
     }
     expect(() => setGroupColor(db, 1, bears, 'green')).toThrow(expect.objectContaining({ statusCode: 400 }))

@@ -14,10 +14,10 @@ export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 
 export type ColorKey = typeof COLOR_KEYS[number]
 
 /**
- * The colours a group may have (palette keys, shown as light Tailwind shades). Green, red, lime and sky are left out:
- * the year calendar uses them for vacation, sick days, special leave and training.
+ * The colours a group may have (palette keys, shown as light shades). Green, red, lime and blue tones are left out:
+ * the year calendar uses them for vacation, sick days, special leave and training (Fortbildung).
  */
-export const GROUP_COLORS = ['amber', 'orange', 'rose', 'fuchsia', 'violet', 'blue', 'teal', 'slate'] as const
+export const GROUP_COLORS = ['amber', 'orange', 'rose', 'fuchsia', 'violet', 'brown', 'teal', 'slate'] as const
 export type GroupColor = typeof GROUP_COLORS[number]
 export const isGroupColor = (value: string): value is GroupColor => (GROUP_COLORS as readonly string[]).includes(value)
 
