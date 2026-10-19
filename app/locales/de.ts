@@ -301,7 +301,7 @@ export const de = {
   employees: {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',
     validFromHint: 'Ab diesem Datum berechnet die App das Stundenkonto. Einen bisherigen Stand trägst du als Startsaldo unter „Stundenkonto-Buchungen“ ein.',
-    leftOn: 'ausgeschieden am', order: 'Reihenfolge', create: 'Mitarbeiter anlegen', moveUp: 'Nach oben', moveDown: 'Nach unten',
+    leftOn: 'ausgeschieden am', archived: (count: number) => `Ausgeschiedene Mitarbeiter (${count})`, order: 'Reihenfolge', create: 'Mitarbeiter anlegen', moveUp: 'Nach oben', moveDown: 'Nach unten',
     masterData: 'Stammdaten', hoursHistory: 'Wochenstunden', addHours: 'Wochenstunden hinzufügen',
     adjustments: 'Stundenkonto-Buchungen', adjustmentsHint: 'Startsaldo, Übertrag, Auszahlung oder Korrektur.',
     date: 'Datum', amount: 'Stunden (h:mm)', sign: 'Art', plus: 'Plus', minus: 'Minus', reason: 'Grund',

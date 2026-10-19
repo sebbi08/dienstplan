@@ -591,3 +591,9 @@ Gerät. Mit dem eigenen Konto (Handy, privater PC) sehen Mitarbeiter keine Über
 Leitung und Träger drucken im Büro jeden Unterreiter mit **„Drucken“** (A4 quer, als Ausdruck oder PDF). Im Kopf
 stehen Einrichtung, Unterreiter, die gewählte Gruppe bzw. „Alle Gruppen“ und das Datum. Am Tablet gibt es keine
 Druck-Knöpfe.
+
+## 15. Mitarbeiter
+
+Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht unter *Mitarbeiter* nicht mehr bei den
+aktiven Mitarbeitern, sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht
+wird dabei nichts, der Name führt weiter zu allen Daten der Person.

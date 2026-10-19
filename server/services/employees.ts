@@ -156,12 +156,19 @@ export function updateEmployee(db: Db, facilityId: number, id: number, update: E
     .where(eq(employees.id, id)).run()
 }
 
-/** Moves the employee one place up or down within the facility's order. */
-export function moveEmployee(db: Db, facilityId: number, id: number, direction: 'up' | 'down'): void {
+/**
+ * Moves the employee one place up or down within the facility's order. People who already left (`leftOn` before
+ * today) are skipped: the staff page shows them apart, so the move swaps with the next person of the active list and
+ * the leavers in between keep their places.
+ */
+export function moveEmployee(db: Db, facilityId: number, id: number, direction: 'up' | 'down', today: IsoDate = todayIso()): void {
   const ordered = loadEmployees(db, facilityId)
   const index = ordered.findIndex(employee => employee.id === id)
   if (index === -1) throw new ServiceError(404, 'employee_not_found')
-  const target = direction === 'up' ? index - 1 : index + 1
+  const hasLeft = (leftOn: IsoDate | null) => leftOn !== null && leftOn < today
+  const step = direction === 'up' ? -1 : 1
+  let target = index + step
+  if (!hasLeft(ordered[index]!.leftOn)) while (target >= 0 && target < ordered.length && hasLeft(ordered[target]!.leftOn)) target += step
   if (target < 0 || target >= ordered.length) return
   ;[ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!]
   db.transaction((tx) => {

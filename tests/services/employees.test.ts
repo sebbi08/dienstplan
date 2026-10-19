@@ -44,6 +44,27 @@ describe('employees service', () => {
     moveEmployee(db, 1, anna, 'down')
     expect(listEmployees(db, 1, today, 'admin').map(e => e.name)).toEqual(['Ben', 'Anna'])
   })
+  it('moves past people who already left (they are hidden in the archive), not past those who leave later', () => {
+    const add = (name: string) => createEmployee(db, admin, 1, { name, shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const anna = add('Anna')
+    const ben = add('Ben')
+    add('Carla')
+    const dora = add('Dora')
+    updateEmployee(db, 1, ben, { name: 'Ben', shortName: '', leftOn: '2026-09-30' })
+    updateEmployee(db, 1, dora, { name: 'Dora', shortName: '', leftOn: today })
+    const names = () => listEmployees(db, 1, today, 'admin').map(e => e.name)
+    moveEmployee(db, 1, anna, 'down', today)
+    expect(names()).toEqual(['Carla', 'Ben', 'Anna', 'Dora'])
+    // Dora leaves today and is still in the active list: Anna moves past her.
+    moveEmployee(db, 1, anna, 'down', today)
+    expect(names()).toEqual(['Carla', 'Ben', 'Dora', 'Anna'])
+    moveEmployee(db, 1, anna, 'down', today)
+    expect(names()).toEqual(['Carla', 'Ben', 'Dora', 'Anna'])
+    // Up past the leaver Ben; then Dora is the first of the active list and stays there.
+    moveEmployee(db, 1, dora, 'up', today)
+    moveEmployee(db, 1, dora, 'up', today)
+    expect(names()).toEqual(['Dora', 'Ben', 'Carla', 'Anna'])
+  })
   it('updates master data, adjustments and entitlements', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     updateEmployee(db, 1, id, { name: 'Anna B.', shortName: 'AB', leftOn: '2026-12-31' })

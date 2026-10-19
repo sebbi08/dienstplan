@@ -7,6 +7,7 @@ import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { contractSummary } from '~/utils/contract'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
+import { splitLeavers } from '~/utils/leavers'
 import { workdaysText } from '~/utils/workdays'
 
 /** All employees in one place: master data, overtime balance (chosen month) and leave account (that month's year). */
@@ -22,6 +23,8 @@ const year = ref(today.year)
 const month = ref(today.month)
 
 const { data: list, refresh } = await useFetch<EmployeeListItemDto[]>('/api/employees')
+/** Who left before today is listed apart at the end (the move arrows work on the active list only). */
+const split = computed(() => splitLeavers(list.value ?? [], todayIso()))
 // The home group, only when the facility has groups (null = Springer).
 const { data: groups, hasGroups } = useGroups()
 const groupText = (groupId: number | null) => groups.value?.find(group => group.id === groupId)?.name ?? de.groups.springer
@@ -123,7 +126,7 @@ const hint = 'text-xs text-gray-500'
     <!-- One card per employee, with space in between. -->
     <div class="space-y-5">
       <table
-        v-for="(employee, index) in list ?? []" :key="employee.id"
+        v-for="(employee, index) in split.active" :key="employee.id"
         class="w-full overflow-hidden rounded-lg bg-white text-sm shadow-sm ring-1 ring-gray-200"
       >
       <tbody>
@@ -139,7 +142,7 @@ const hint = 'text-xs text-gray-500'
               <span v-if="employee.breakMode === 'auto'" class="text-gray-600">{{ de.employees.breakMode }}: {{ de.employees.breakModes.auto }}</span>
               <span class="ml-auto">
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.employees.moveUp" :disabled="index === 0" @click="move(employee.id, 'up')" />
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.employees.moveDown" :disabled="index === (list?.length ?? 0) - 1" @click="move(employee.id, 'down')" />
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.employees.moveDown" :disabled="index === split.active.length - 1" @click="move(employee.id, 'down')" />
               </span>
             </div>
           </td>
@@ -231,5 +234,18 @@ const hint = 'text-xs text-gray-500'
         <UButton type="submit" icon="i-lucide-plus" :label="de.employees.create" />
       </div>
     </form>
+
+    <!-- Who already left: closed by default; nothing is deleted, the detail page stays as it is. -->
+    <details v-if="split.archived.length" class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-200">
+      <summary class="cursor-pointer font-semibold text-gray-700">{{ de.employees.archived(split.archived.length) }}</summary>
+      <ul class="mt-2 divide-y divide-gray-100">
+        <li v-for="employee in split.archived" :key="employee.id" class="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5">
+          <NuxtLink :to="`/admin/employees/${employee.id}`" class="font-medium text-sky-700 hover:underline">{{ employee.name }}</NuxtLink>
+          <span v-if="employee.shortName" class="text-gray-600">{{ employee.shortName }}</span>
+          <span v-if="hasGroups" class="text-gray-600">{{ de.groups.employeeGroup }}: {{ groupText(employee.groupId) }}</span>
+          <span class="text-gray-600">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn!) }}</span>
+        </li>
+      </ul>
+    </details>
   </div>
 </template>
