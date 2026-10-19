@@ -2,11 +2,11 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  careTypes, childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements,
-  children, closures,
+  careTypes, childAttendanceChanges, childAttendanceDays, childAttendanceMeals, childAttendanceMonths, childAttendanceStays, childContacts,
+  childPickupAnnouncements, children, closures,
 } from '../../server/db/schema'
 import type { ChildActor } from '../../server/lib/childViewer'
-import { attendanceArriveSchema, attendanceLeaveSchema } from '../../server/schemas'
+import { attendanceArriveSchema, attendanceDaySchema, attendanceLeaveSchema } from '../../server/schemas'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import {
   announcePickup, arrive, attendanceHistory, deleteStay, getAttendanceDay, getAttendanceMonth, getAttendanceSettings, leave,
@@ -16,6 +16,7 @@ import { addContact } from '../../server/services/childContacts'
 import { planGroupChange } from '../../server/services/childGroupChanges'
 import { deleteChild } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
+import { addMeal, changeMeal, listMeals, removeMeal } from '../../server/services/meals'
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
@@ -33,6 +34,9 @@ const hm = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3
 const TODAY = '2026-10-14' // a Wednesday
 const YESTERDAY = '2026-10-13'
 const NOW = berlin(TODAY, '10:00')
+
+/** The id of the facility's meal of that name today (facility 1 starts with Snack and Mittagessen). */
+const mealIdOf = (db: Db, name: string, facilityId = 1) => listMeals(db, facilityId, NOW).current.find(meal => meal.name === name)!.mealId
 
 const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput => ({
   name: 'Anna Meier', relation: 'Mutter', phoneHome: '', phoneMobile: '0170 1', phoneWork: '', isGuardian: true,
@@ -299,37 +303,190 @@ describe('child attendance', () => {
     expect(dayOf().openStays).toEqual([{ date: '2026-10-12', childId: nina, name: 'Neu, Nina' }])
   })
 
-  it('counts meals automatically and by hand, and the totals of the day', () => {
-    const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
-    const cleo = addChild(db, 1, { lastName: 'Christ', firstName: 'Cleo' })
-    const dora = addChild(db, 1, { lastName: 'Dorn', firstName: 'Dora' })
-    addChild(db, 1, { lastName: 'Ernst', firstName: 'Emil' })
-    arriveAt('09:00', { plannedPickup: hm('13:00') }) // snack and lunch
-    arriveAt('10:00', { childId: ben, plannedPickup: hm('15:00') }) // lunch only
-    arriveAt('08:00', { childId: cleo, plannedPickup: hm('11:30') }) // snack only
-    setAbsence(db, leitung, { childId: dora, from: TODAY, to: TODAY, kind: 'sick' }, NOW)
+  describe('meals', () => {
+    const TOMORROW = '2026-10-15'
+    let snack: number
+    let lunch: number
 
-    const meals = () => Object.fromEntries(dayOf().children.map(child => [child.name, [child.snack, child.lunch]]))
-    expect(meals()).toEqual({
-      'Bauer, Ben': [false, true], 'Christ, Cleo': [true, false], 'Dorn, Dora': [false, false], 'Ernst, Emil': [false, false],
-      'Meier, Lena': [true, true],
+    beforeEach(() => {
+      snack = mealIdOf(db, 'Snack')
+      lunch = mealIdOf(db, 'Mittagessen')
     })
-    expect(dayOf()).toMatchObject({ snackTime: 570, lunchTime: 720, recordBroughtBy: false })
-    expect(dayOf().counts).toEqual({ present: 3, gone: 0, absent: 1, notYet: 1, snack: 2, lunch: 2 })
 
-    updateDay(db, leitung, { childId: ben, date: TODAY, snack: true }, NOW)
-    updateDay(db, leitung, { childId: lena, date: TODAY, lunch: false }, NOW)
-    expect(rowOf(ben)).toMatchObject({ snack: true, snackManual: true, lunchManual: false })
-    expect(dayOf().counts).toMatchObject({ snack: 3, lunch: 1 })
-    updateDay(db, leitung, { childId: ben, date: TODAY, snack: null }, NOW)
-    expect(rowOf(ben)).toMatchObject({ snack: false, snackManual: false })
+    const tick = (childId: number, meals: Record<number, boolean | null>, date = TODAY, viewer: ChildActor = leitung) =>
+      updateDay(db, viewer, { childId, date, meals }, NOW)
+    const ticksOf = (childId: number) => db.select({ mealId: childAttendanceMeals.mealId, value: childAttendanceMeals.value })
+      .from(childAttendanceMeals).innerJoin(childAttendanceDays, eq(childAttendanceDays.id, childAttendanceMeals.dayId))
+      .where(eq(childAttendanceDays.childId, childId)).all()
+    const auto = (counted: boolean) => ({ counted, manual: false })
+    const byHand = (counted: boolean) => ({ counted, manual: true })
 
-    leaveAt('11:00', { kind: 'contact', id: addContact(db, leitung, 1, cleo, contact({ name: 'Carla Christ' }), TODAY, NOW) }, { childId: cleo })
-    expect(dayOf().counts).toMatchObject({ present: 2, gone: 1, absent: 1, notYet: 1 })
+    it('counts every meal of the day at its time, automatically and by hand, and the totals of the day', () => {
+      const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
+      const cleo = addChild(db, 1, { lastName: 'Christ', firstName: 'Cleo' })
+      const dora = addChild(db, 1, { lastName: 'Dorn', firstName: 'Dora' })
+      addChild(db, 1, { lastName: 'Ernst', firstName: 'Emil' })
+      arriveAt('09:00', { plannedPickup: hm('13:00') }) // snack and lunch
+      arriveAt('10:00', { childId: ben, plannedPickup: hm('15:00') }) // lunch only
+      arriveAt('08:00', { childId: cleo, plannedPickup: hm('11:30') }) // snack only
+      setAbsence(db, leitung, { childId: dora, from: TODAY, to: TODAY, kind: 'sick' }, NOW)
 
-    // 15 minutes after the planned pickup (13:00) a child still here is overdue.
-    expect(rowOf(lena, TODAY, berlin(TODAY, '13:14')).pickupOverdue).toBe(false)
-    expect(rowOf(lena, TODAY, berlin(TODAY, '13:15')).pickupOverdue).toBe(true)
+      expect(dayOf()).toMatchObject({
+        recordBroughtBy: false,
+        meals: [{ mealId: snack, name: 'Snack', time: hm('09:30') }, { mealId: lunch, name: 'Mittagessen', time: hm('12:00') }],
+      })
+      const meals = () => Object.fromEntries(dayOf().children.map(child => [child.name, child.meals]))
+      expect(meals()).toEqual({
+        'Bauer, Ben': { [snack]: auto(false), [lunch]: auto(true) },
+        'Christ, Cleo': { [snack]: auto(true), [lunch]: auto(false) },
+        'Dorn, Dora': { [snack]: auto(false), [lunch]: auto(false) },
+        'Ernst, Emil': { [snack]: auto(false), [lunch]: auto(false) },
+        'Meier, Lena': { [snack]: auto(true), [lunch]: auto(true) },
+      })
+      expect(dayOf().counts).toEqual({ present: 3, gone: 0, absent: 1, notYet: 1, meals: { [snack]: 2, [lunch]: 2 } })
+      expect(rowOf().insectRepellent).toBeNull()
+
+      tick(ben, { [snack]: true })
+      tick(lena, { [lunch]: false })
+      expect(rowOf(ben).meals).toEqual({ [snack]: byHand(true), [lunch]: auto(true) })
+      expect(rowOf(lena).meals).toEqual({ [snack]: auto(true), [lunch]: byHand(false) })
+      expect(dayOf().counts.meals).toEqual({ [snack]: 3, [lunch]: 1 })
+
+      // Back to automatic: the tick is gone, not stored as "automatic".
+      tick(ben, { [snack]: null })
+      expect(rowOf(ben).meals[snack]).toEqual(auto(false))
+      expect(ticksOf(ben)).toEqual([])
+      // Several meals at once; a meal left out keeps its tick.
+      tick(lena, { [snack]: false, [lunch]: true })
+      expect(rowOf(lena).meals).toEqual({ [snack]: byHand(false), [lunch]: byHand(true) })
+      tick(lena, { [snack]: null })
+      expect(rowOf(lena).meals).toEqual({ [snack]: auto(true), [lunch]: byHand(true) })
+      expect(ticksOf(lena)).toEqual([{ mealId: lunch, value: true }])
+
+      leaveAt('11:00', { kind: 'contact', id: addContact(db, leitung, 1, cleo, contact({ name: 'Carla Christ' }), TODAY, NOW) }, { childId: cleo })
+      expect(dayOf().counts).toMatchObject({ present: 2, gone: 1, absent: 1, notYet: 1 })
+
+      // 15 minutes after the planned pickup (13:00) a child still here is overdue.
+      expect(rowOf(lena, TODAY, berlin(TODAY, '13:14')).pickupOverdue).toBe(false)
+      expect(rowOf(lena, TODAY, berlin(TODAY, '13:15')).pickupOverdue).toBe(true)
+    })
+
+    it('counts yesterday with the meals of yesterday after a change from today on, with its ticks', () => {
+      const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
+      arriveAt('09:45', { date: YESTERDAY, plannedPickup: hm('12:30') })
+      arriveAt('08:00', { childId: ben, date: YESTERDAY, plannedPickup: hm('15:00') })
+      tick(ben, { [lunch]: false }, YESTERDAY)
+      changeMeal(db, 1, snack, { name: 'Obstpause', time: hm('10:00'), validFrom: TODAY }, NOW)
+
+      // Yesterday: Snack at 9:30, Lena came at 9:45; Ben's lunch stays ticked off by hand.
+      expect(dayOf(YESTERDAY).meals).toEqual([
+        { mealId: snack, name: 'Snack', time: hm('09:30') }, { mealId: lunch, name: 'Mittagessen', time: hm('12:00') },
+      ])
+      expect(rowOf(lena, YESTERDAY).meals).toEqual({ [snack]: auto(false), [lunch]: auto(true) })
+      expect(rowOf(ben, YESTERDAY).meals).toEqual({ [snack]: auto(true), [lunch]: byHand(false) })
+      expect(dayOf(YESTERDAY).counts.meals).toEqual({ [snack]: 1, [lunch]: 1 })
+
+      // Today: Obstpause at 10:00, so Lena coming at 9:45 counts.
+      arriveAt('09:45', { plannedPickup: hm('12:30') })
+      expect(dayOf().meals).toEqual([
+        { mealId: snack, name: 'Obstpause', time: hm('10:00') }, { mealId: lunch, name: 'Mittagessen', time: hm('12:00') },
+      ])
+      expect(rowOf(lena).meals).toEqual({ [snack]: auto(true), [lunch]: auto(true) })
+
+      // The history names the meal as it was called on the day.
+      tick(lena, { [snack]: true }, YESTERDAY)
+      tick(lena, { [snack]: false })
+      expect(attendanceHistory(db, leitung, lena, YESTERDAY)[0]).toMatchObject({ field: 'meal:Snack', before: '', after: 'true' })
+      expect(attendanceHistory(db, leitung, lena, TODAY)[0]).toMatchObject({ field: 'meal:Obstpause', before: '', after: 'false' })
+    })
+
+    it('keeps a meal removed from today on with its ticks on yesterday, and refuses a tick for a meal not on the day', () => {
+      tick(lena, { [snack]: true }, YESTERDAY)
+      removeMeal(db, 1, snack, TODAY, NOW)
+
+      expect(dayOf(YESTERDAY).meals.map(meal => meal.name)).toEqual(['Snack', 'Mittagessen'])
+      expect(rowOf(lena, YESTERDAY).meals).toEqual({ [snack]: byHand(true), [lunch]: auto(false) })
+      expect(dayOf(YESTERDAY).counts.meals).toEqual({ [snack]: 1, [lunch]: 0 })
+      // Yesterday's tick can still be handed back to the automatic.
+      expect(errorCode(() => tick(lena, { [snack]: null }, YESTERDAY))).toBeNull()
+      expect(rowOf(lena, YESTERDAY).meals[snack]).toEqual(auto(false))
+
+      expect(dayOf().meals).toEqual([{ mealId: lunch, name: 'Mittagessen', time: hm('12:00') }])
+      expect(rowOf().meals).toEqual({ [lunch]: auto(false) })
+      expect(dayOf().counts.meals).toEqual({ [lunch]: 0 })
+
+      const vesper = addMeal(db, 1, { name: 'Vesper', time: hm('15:00'), validFrom: TOMORROW }, NOW)
+      const krippe = addFacility(db, 'Krippe')
+      const logged = db.select().from(childAttendanceChanges).all().length
+      for (const mealId of [snack, vesper, mealIdOf(db, 'Snack', krippe), 9999]) {
+        expect(errorCode(() => tick(lena, { [mealId]: true })), `${mealId}`).toBe('meal_not_on_day')
+        expect(errorCode(() => tick(lena, { [lunch]: true, [mealId]: null })), `${mealId}`).toBe('meal_not_on_day')
+      }
+      // Nothing was written, not even the day.
+      expect(db.select().from(childAttendanceChanges).all()).toHaveLength(logged)
+      expect(db.select().from(childAttendanceDays).where(eq(childAttendanceDays.date, TODAY)).all()).toEqual([])
+      expect(ticksOf(lena)).toEqual([])
+      // The planned meal can be ticked on its first day.
+      expect(errorCode(() => tick(lena, { [vesper]: true }, TOMORROW))).toBeNull()
+      expect(rowOf(lena, TOMORROW).meals[vesper]).toEqual(byHand(true))
+    })
+
+    it('sums up the children here and each meal per group of the list, children without group as their own row', () => {
+      const bears = addGroup(db, 1, 'Bären')
+      const mice = addGroup(db, 1, 'Mäuse')
+      addGroup(db, 1, 'Igel') // nobody in it: no row
+      const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben', groupId: bears })
+      const cleo = addChild(db, 1, { lastName: 'Christ', firstName: 'Cleo', groupId: bears })
+      const dora = addChild(db, 1, { lastName: 'Dorn', firstName: 'Dora', groupId: mice })
+      addChild(db, 1, { lastName: 'Zorn', firstName: 'Zoe', groupId: mice })
+      arriveAt('08:00', { childId: ben, plannedPickup: hm('15:00') }) // snack and lunch
+      arriveAt('11:00', { childId: cleo, plannedPickup: hm('14:00') }) // lunch only
+      tick(cleo, { [snack]: true }) // and snack by hand
+      setAbsence(db, leitung, { childId: dora, from: TODAY, to: TODAY, kind: 'sick' }, NOW)
+      tick(dora, { [lunch]: true }) // by hand although away: counted, but not here
+      arriveAt('08:00', { plannedPickup: hm('15:00') })
+      leaveAt('11:00', mamaPickup()) // Lena (no group): gone, snack only
+
+      const day = dayOf()
+      expect(day.summary).toEqual([
+        { groupId: bears, name: 'Bären', here: 2, meals: { [snack]: 2, [lunch]: 2 } },
+        { groupId: mice, name: 'Mäuse', here: 0, meals: { [snack]: 0, [lunch]: 1 } },
+        { groupId: null, name: '', here: 1, meals: { [snack]: 1, [lunch]: 0 } },
+      ])
+      expect(day.summary.map(row => row.groupId)).toEqual(day.groups.map(group => group.id))
+      // The rows add up to the totals of the day.
+      expect(day.summary.reduce((sum, row) => sum + row.here, 0)).toBe(day.counts.present + day.counts.gone)
+      for (const meal of day.meals) {
+        expect(day.summary.reduce((sum, row) => sum + row.meals[meal.mealId]!, 0)).toBe(day.counts.meals[meal.mealId])
+        expect(day.counts.meals[meal.mealId]).toBe(day.children.filter(child => child.meals[meal.mealId]!.counted).length)
+      }
+    })
+
+    it('reads the ticks of a request body by meal id', () => {
+      const body = attendanceDaySchema.parse({ childId: lena, date: TODAY, meals: { [snack]: true, [lunch]: null } })
+      updateDay(db, leitung, body, NOW)
+      expect(rowOf().meals).toEqual({ [snack]: byHand(true), [lunch]: auto(false) })
+      for (const meals of [{ Snack: true }, { [-1]: true }, { [snack]: 'ja' }, { [snack]: undefined }]) {
+        expect(() => attendanceDaySchema.parse({ childId: lena, date: TODAY, meals }), JSON.stringify(meals)).toThrow()
+      }
+    })
+
+    it('has no meal columns and no meal numbers on a day without meals', () => {
+      tick(lena, { [lunch]: true }, YESTERDAY)
+      removeMeal(db, 1, snack, TODAY, NOW)
+      removeMeal(db, 1, lunch, TODAY, NOW)
+      arriveAt('08:00')
+      const day = dayOf()
+      expect(day.meals).toEqual([])
+      expect(day.counts.meals).toEqual({})
+      expect(day.children.map(child => child.meals)).toEqual([{}])
+      expect(day.summary).toEqual([{ groupId: null, name: '', here: 1, meals: {} }])
+      expect(errorCode(() => tick(lena, { [lunch]: true }))).toBe('meal_not_on_day')
+      // Other fields of the day are saved as before; no meals given is no meal change.
+      expect(errorCode(() => updateDay(db, leitung, { childId: lena, date: TODAY, note: 'müde', meals: {} }, NOW))).toBeNull()
+      expect(rowOf().note).toBe('müde')
+      expect(rowOf(lena, YESTERDAY).meals).toEqual({ [snack]: auto(false), [lunch]: byHand(true) })
+    })
   })
 
   it('lists each child in the group of the day and keeps the group stored with an earlier day', () => {
@@ -531,8 +688,16 @@ describe('child attendance', () => {
       ['arrived', '', '8:00'], ['plannedPickup', '', '15:00'],
       ['left', '', '12:00'], ['pickedUpBy', '', 'Anna Meier'],
     ])
-    updateDay(db, leitung, { childId: lena, date: TODAY, note: 'hingefallen, Knie gekühlt', snack: false }, NOW)
-    expect(attendanceHistory(db, leitung, lena, TODAY)[0]).toMatchObject({ field: 'snack', before: '', after: 'false', changedByName: 'leitung' })
+    const lunch = mealIdOf(db, 'Mittagessen')
+    updateDay(db, leitung, { childId: lena, date: TODAY, note: 'hingefallen, Knie gekühlt', meals: { [lunch]: false } }, NOW)
+    expect(attendanceHistory(db, leitung, lena, TODAY)[0])
+      .toMatchObject({ field: 'meal:Mittagessen', before: '', after: 'false', changedByName: 'leitung' })
+    updateDay(db, leitung, { childId: lena, date: TODAY, meals: { [lunch]: true } }, NOW)
+    updateDay(db, leitung, { childId: lena, date: TODAY, meals: { [lunch]: null } }, NOW)
+    updateDay(db, leitung, { childId: lena, date: TODAY, meals: { [lunch]: null } }, NOW) // already automatic: nothing logged
+    expect(attendanceHistory(db, leitung, lena, TODAY).slice(0, 3).map(entry => [entry.field, entry.before, entry.after])).toEqual([
+      ['meal:Mittagessen', 'true', ''], ['meal:Mittagessen', 'false', 'true'], ['meal:Mittagessen', '', 'false'],
+    ])
     expect(attendanceHistory(db, leitung, lena, YESTERDAY)).toEqual([])
   })
 
@@ -722,7 +887,7 @@ describe('child attendance', () => {
         ['absence range', () => setAbsence(db, leitung, { childId: lena, from: oct(8), to: oct(9), kind: 'sick' }, NOW)],
         ['announcement', () => announcePickup(db, leitung, { childId: lena, date: oct(12), name: 'Oma Erika', announcedBy: '' }, NOW)],
         ['note', () => updateDay(db, leitung, { childId: lena, date: oct(12), note: 'müde' }, NOW)],
-        ['meal', () => updateDay(db, leitung, { childId: lena, date: oct(12), lunch: false }, NOW)],
+        ['meal', () => updateDay(db, leitung, { childId: lena, date: oct(12), meals: { [mealIdOf(db, 'Mittagessen')]: false } }, NOW)],
         ['month remark', () => setMonthRemark(db, leitung, { childId: lena, month: '2026-10', remark: 'Eingewöhnung' }, NOW)],
       ]
       const expected = { 'absence ahead': TODAY, 'arrival yesterday': YESTERDAY, 'absence range': oct(8), 'announcement': oct(12), 'note': oct(12), 'meal': oct(12), 'month remark': TODAY }
@@ -840,7 +1005,7 @@ describe('child attendance by group rights', () => {
   /** Every write that is closed to a foreign child (the stay is one of the child of the test). */
   const closedWrites = (id: number, stayId: number): Record<string, () => unknown> => ({
     note: () => updateDay(db, viewer(), { childId: id, date: TODAY, note: 'müde' }, NOW),
-    meal: () => updateDay(db, viewer(), { childId: id, date: TODAY, lunch: false }, NOW),
+    meal: () => updateDay(db, viewer(), { childId: id, date: TODAY, meals: { [mealIdOf(db, 'Mittagessen')]: false } }, NOW),
     plannedPickup: () => updateDay(db, viewer(), { childId: id, date: TODAY, plannedPickup: hm('16:00') }, NOW),
     broughtBy: () => updateDay(db, viewer(), { childId: id, date: TODAY, broughtBy: 'Opa' }, NOW),
     absence: () => setAbsence(db, viewer(), { childId: id, from: TODAY, to: TODAY, kind: 'sick' }, NOW),
@@ -862,6 +1027,7 @@ describe('child attendance by group rights', () => {
       expect(db.select().from(childAttendanceChanges).all()).toHaveLength(logged)
       expect(db.select().from(childAttendanceStays).all()).toEqual(stays)
       expect(db.select().from(childAttendanceDays).all()).toEqual(days)
+      expect(db.select().from(childAttendanceMeals).all()).toEqual([])
       expect(db.select().from(childAttendanceMonths).all()).toEqual([])
     }
   })

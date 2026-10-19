@@ -667,7 +667,7 @@ export const de = {
     noGroup: 'Ohne Gruppe', noChildren: 'Keine Kinder.',
     printColumns: {
       child: 'Kind', arrived: 'Ankunft', broughtBy: 'Bringperson', plannedPickup: 'Geplante Abholzeit', pickedUpBy: 'Abholperson',
-      left: 'Abholzeit', snack: 'Snack', lunch: 'Mittag', info: 'Info',
+      left: 'Abholzeit', info: 'Info',
     },
     absence: { sick: 'krank', vacation: 'Urlaub', excused: 'entschuldigt', unexcused: 'unentschuldigt' },
     allergies: 'Allergien',
@@ -679,7 +679,8 @@ export const de = {
     noCareDay: 'Kein Betreuungstag (Wochenende, Feiertag oder Schließtag). Einstempeln geht trotzdem, z. B. bei einer Notbetreuung.',
     counts: (c: { present: number; gone: number; absent: number; notYet: number }) =>
       `Da: ${c.present} · Abgeholt: ${c.gone} · Abwesend: ${c.absent} · Noch nicht da: ${c.notYet}`,
-    meals: (snackTime: string, snack: number, lunchTime: string, lunch: number) => `Snack ${snackTime}: ${snack} · Mittagessen ${lunchTime}: ${lunch}`,
+    /** The meals of the day with their counts: "Snack 9:30: 12 · Mittagessen 12:00: 15". */
+    meals: (items: { name: string; time: string; count: number }[]) => items.map(item => `${item.name} ${item.time}: ${item.count}`).join(' · '),
     openStays: (when: string, names: string) => `${when} nicht ausgestempelt: ${names}`,
     yesterday: 'Gestern', onDay: (date: string) => `Am ${date}`, goToDay: 'Zum Tag',
     notYet: 'noch nicht da', presentSince: (time: string) => `da seit ${time}`,
@@ -688,7 +689,7 @@ export const de = {
     broughtByShort: (name: string) => `gebracht von ${name}`,
     plannedPickup: 'Abholung', plannedPickupLabel: 'Geplante Abholzeit',
     pickupOverdue: (time: string) => `Abholzeit ${time} überschritten`,
-    snack: 'Snack', lunch: 'Mittag', manual: 'von Hand', resetMeal: 'Wieder automatisch zählen',
+    manual: 'von Hand', resetMeal: 'Wieder automatisch zählen',
     note: 'Was ist heute passiert', notePlaceholder: 'Was ist heute passiert?',
     changed: 'Geändert – Verlauf ansehen', editStay: 'Zeiten korrigieren',
     actions: { arrive: 'Kommt', leave: 'Geht', absent: 'Abwesend', announce: 'Abholer ankündigen' },
@@ -926,6 +927,7 @@ export const de = {
     meal_limit: 'Es sind höchstens 8 Essen möglich.',
     meal_valid_from_past: 'Änderungen gelten frühestens ab heute.',
     meal_not_found: 'Dieses Essen gibt es nicht.',
+    meal_not_on_day: 'Dieses Essen gibt es an dem Tag nicht.',
     attendance_future: 'Für einen späteren Tag kannst du noch nicht ein- oder ausstempeln.',
     stays_overlap: 'Die Zeiten überschneiden sich mit einem anderen Aufenthalt an diesem Tag.',
   },

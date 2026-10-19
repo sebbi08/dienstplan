@@ -108,9 +108,15 @@ function savePlannedPickup(child: AttendanceChildDto) {
   saveDay(child, { plannedPickup: minutes }, () => (draft.plannedPickup = before))
 }
 /** A tick overrides the automatic count for the day; `null` hands the meal back to the automatic. */
-function setMeal(child: AttendanceChildDto, meal: 'snack' | 'lunch', value: boolean | null) {
-  saveDay(child, { [meal]: value }, () => {})
+function setMeal(child: AttendanceChildDto, mealId: number, value: boolean | null) {
+  saveDay(child, { meals: { [mealId]: value } }, () => {})
 }
+const mealCounted = (child: AttendanceChildDto, mealId: number) => child.meals[mealId]?.counted ?? false
+const mealManual = (child: AttendanceChildDto, mealId: number) => child.meals[mealId]?.manual ?? false
+/** The meals of the day with their counts ("Snack 9:30: 12 · Mittagessen 12:00: 15"); '' on a day without meals. */
+const mealsLine = computed(() => s.meals((data.value?.meals ?? []).map(meal => ({
+  name: meal.name, time: formatTime(meal.time), count: data.value?.counts.meals[meal.mealId] ?? 0,
+}))))
 const blurOnEnter = (event: KeyboardEvent) => (event.target as HTMLElement).blur()
 
 // One dialog at a time, for a child of the shown day (looked up again after every refresh).
@@ -190,7 +196,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
       <template v-else-if="data">
         <div class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
           <p class="text-base font-medium">{{ s.counts(data.counts) }}</p>
-          <p class="text-sm text-gray-600">{{ s.meals(formatTime(data.snackTime), data.counts.snack, formatTime(data.lunchTime), data.counts.lunch) }}</p>
+          <p v-if="mealsLine" class="text-sm text-gray-600">{{ mealsLine }}</p>
         </div>
         <p v-if="!data.isCareDay" class="rounded-lg bg-gray-100 p-3 text-sm text-gray-700">{{ s.noCareDay }}</p>
         <div
@@ -251,9 +257,9 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
               <!-- Another group's child: planned pickup and meals as text (the own group changes them). -->
               <div v-if="!child.own" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
                 <span v-if="child.plannedPickup !== null">{{ s.plannedPickup }}: {{ formatTime(child.plannedPickup) }}</span>
-                <span v-for="meal in (['snack', 'lunch'] as const)" :key="meal" class="inline-flex items-center gap-1">
-                  <UIcon :name="child[meal] ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-4" aria-hidden="true" />
-                  {{ s[meal] }}<span class="sr-only">: {{ child[meal] ? s.history.yes : s.history.no }}</span>
+                <span v-for="meal in data.meals" :key="meal.mealId" class="inline-flex items-center gap-1">
+                  <UIcon :name="mealCounted(child, meal.mealId) ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-4" aria-hidden="true" />
+                  {{ meal.name }}<span class="sr-only">: {{ mealCounted(child, meal.mealId) ? s.history.yes : s.history.no }}</span>
                 </span>
               </div>
               <div v-else class="flex flex-wrap items-end gap-2">
@@ -263,19 +269,20 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                     :disabled="saving[child.childId]" @blur="savePlannedPickup(child)" @keydown.enter="blurOnEnter"
                   />
                 </UFormField>
-                <div v-for="meal in (['snack', 'lunch'] as const)" :key="meal" class="flex items-center">
+                <div v-for="meal in data.meals" :key="meal.mealId" class="flex items-center">
                   <button
-                    type="button" class="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ring-1" :class="mealButton(child[meal])"
-                    :aria-pressed="child[meal]" :disabled="saving[child.childId]" @click="setMeal(child, meal, !child[meal])"
+                    type="button" class="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ring-1" :class="mealButton(mealCounted(child, meal.mealId))"
+                    :aria-pressed="mealCounted(child, meal.mealId)" :disabled="saving[child.childId]"
+                    @click="setMeal(child, meal.mealId, !mealCounted(child, meal.mealId))"
                   >
-                    <UIcon :name="child[meal] ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-5" />
-                    {{ s[meal] }}
-                    <span v-if="meal === 'snack' ? child.snackManual : child.lunchManual" class="text-xs text-gray-500">({{ s.manual }})</span>
+                    <UIcon :name="mealCounted(child, meal.mealId) ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-5" />
+                    {{ meal.name }}
+                    <span v-if="mealManual(child, meal.mealId)" class="text-xs text-gray-500">({{ s.manual }})</span>
                   </button>
                   <UButton
-                    v-if="meal === 'snack' ? child.snackManual : child.lunchManual" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral"
+                    v-if="mealManual(child, meal.mealId)" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral"
                     variant="ghost" icon="i-lucide-rotate-ccw"
-                    :aria-label="`${s[meal]}: ${s.resetMeal}`" :title="s.resetMeal" :disabled="saving[child.childId]" @click="setMeal(child, meal, null)"
+                    :aria-label="`${meal.name}: ${s.resetMeal}`" :title="s.resetMeal" :disabled="saving[child.childId]" @click="setMeal(child, meal.mealId, null)"
                   />
                 </div>
               </div>

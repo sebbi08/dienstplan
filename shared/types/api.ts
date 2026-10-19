@@ -1237,11 +1237,13 @@ export interface AttendanceChildDto {
   note: string
   /** From the record, for the info column. */
   allergies: string
-  /** Counted for the meal (automatically or by hand); `…Manual` = set by hand for the day. */
-  snack: boolean
-  lunch: boolean
-  snackManual: boolean
-  lunchManual: boolean
+  /**
+   * Per meal of the day (`AttendanceDayDto.meals`, by `mealId`): counted for it (automatically or by hand); `manual` = set
+   * by hand for the day.
+   */
+  meals: Record<number, { counted: boolean; manual: boolean }>
+  /** From the record's consent "Darf mit Insektenschutz eingesprüht werden" (null = open). */
+  insectRepellent: boolean | null
   announcements: AttendanceAnnouncementDto[]
   pickupOptions: AttendancePickupOption[]
   /** The end of the child's care type (the suggested planned pickup when it arrives); null without a care type. */
@@ -1264,20 +1266,33 @@ export interface AttendanceCountsDto {
   /** Sick, vacation, excused and unexcused. */
   absent: number
   notYet: number
-  snack: number
-  lunch: number
+  /** Per meal of the day (by `mealId`): the children counted for it. */
+  meals: Record<number, number>
+}
+
+/** A row of the meal summary: one group of the day list. */
+export interface AttendanceSummaryRowDto {
+  /** As in `AttendanceDayDto.groups` (null = the children without group, with an empty name). */
+  groupId: number | null
+  name: string
+  /** Children here or already gone today (status `present` or `gone`). */
+  here: number
+  /** Per meal of the day (by `mealId`): the group's children counted for it. */
+  meals: Record<number, number>
 }
 
 export interface AttendanceDayDto {
   date: IsoDate
   /** A weekday that is no public holiday of the facility and no closure day. */
   isCareDay: boolean
-  snackTime: Minutes
-  lunchTime: Minutes
+  /** The meals on this date, with the name and time valid then (by time, then name); empty without meals. */
+  meals: DayMeal[]
   recordBroughtBy: boolean
   counts: AttendanceCountsDto
   /** The groups of the listed children in the groups' order; `id: null` (children without group) last, with an empty name. */
   groups: { id: number | null; name: string }[]
+  /** The children here and the meal counts per group, one row per entry of `groups`, in that order. */
+  summary: AttendanceSummaryRowDto[]
   children: AttendanceChildDto[]
   /** Stays of the 14 days before that were never closed ("nicht ausgestempelt"). */
   openStays: { date: IsoDate; childId: number; name: string }[]
@@ -1325,15 +1340,17 @@ export interface AttendanceAbsenceInput {
   kind: AbsenceKind | null
 }
 
-/** The fields of a day to change; left out = unchanged, `snack`/`lunch` null = back to automatic. */
+/**
+ * The fields of a day to change; left out = unchanged. `meals`: ticks by `mealId` of meals on that day (400
+ * meal_not_on_day otherwise), null = back to automatic; a meal left out keeps its tick.
+ */
 export interface AttendanceDayInput {
   childId: number
   date: IsoDate
   plannedPickup?: Minutes
   broughtBy?: string
   note?: string
-  snack?: boolean | null
-  lunch?: boolean | null
+  meals?: Record<number, boolean | null>
 }
 
 /** A corrected stay; a new pickup person may be given, closing an open stay needs one. */

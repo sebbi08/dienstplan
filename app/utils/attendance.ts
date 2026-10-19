@@ -53,15 +53,20 @@ export function confirmedWithText(stay: AttendanceStayDto): string {
   return stay.pickedUpOther && stay.pickedUpConfirmedWith ? de.attendance.confirmedWith(stay.pickedUpConfirmedWith) : ''
 }
 
-/** The German name of a logged field of an attendance day (the raw name for one this list does not know). */
+/** A logged meal tick is the field `meal:<name of the meal on that day>`; older ones are `snack` and `lunch`. */
+const MEAL_FIELD = 'meal:'
+const isMealField = (field: string) => field.startsWith(MEAL_FIELD) || field === 'snack' || field === 'lunch'
+
+/** The German name of a logged field of an attendance day: a meal by its name, the raw name for one this list does not know. */
 export function historyFieldLabel(field: string): string {
+  if (field.startsWith(MEAL_FIELD)) return field.slice(MEAL_FIELD.length)
   return de.attendance.history.fields[field] ?? field
 }
 
 /** A logged value as text: absences and meal ticks in words, '' as "(leer)" (or "automatisch" for the meals). */
 export function historyValueText(field: string, value: string): string {
   const h = de.attendance.history
-  if (field === 'snack' || field === 'lunch') return value === 'true' ? h.yes : value === 'false' ? h.no : h.automatic
+  if (isMealField(field)) return value === 'true' ? h.yes : value === 'false' ? h.no : h.automatic
   if (value === '') return h.emptyValue
   if (field === 'pickedUpBy') {
     const person = readPickupLogValue(value)

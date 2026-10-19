@@ -6,6 +6,7 @@ import { childStatus } from '../../shared/domain/children'
 import { groupRight } from '../../shared/domain/groupAccess'
 import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
+import { mealsOn } from '../../shared/domain/meals'
 import { groupOnDay, type GroupEntry } from '../../shared/domain/occupancy'
 import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
@@ -18,8 +19,8 @@ import type {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  careTypes, childAttendanceChanges, childAttendanceDays, childAttendanceMonths, childAttendanceStays, childContacts, childPickupAnnouncements,
-  children, facilities,
+  careTypes, childAttendanceChanges, childAttendanceDays, childAttendanceMeals, childAttendanceMonths, childAttendanceStays, childContacts,
+  childPickupAnnouncements, children, facilities,
 } from '../db/schema'
 import { loadChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
@@ -27,6 +28,7 @@ import { ServiceError } from '../lib/errors'
 import { groupHistories } from './childGroupChanges'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
+import { mealVersionsOf } from './meals'
 import { closureOn, loadClosures } from './queries'
 
 // Child attendance (Gruppenbuch, spec Anwesenheit): the day list and every write on it. Every child viewer may read
@@ -206,11 +208,13 @@ const nameOf = (row: { lastName: string; firstName: string }) => `${row.lastName
  * The day list (spec §3): the facility's children active on the date (the tablet's visibility switches do not apply,
  * planned children are never listed), ordered by the group of the day (no group last), then by name; with status,
  * stays, meals, the pickup and brought-by persons on offer, the care type's end (suggested planned pickup) and the open
- * stays of the 14 days before.
+ * stays of the 14 days before. The meals are those valid on the date, with the name and time of then (spec Essen §3):
+ * each counted at its time or by its tick; totals per meal and per group of the list (children here, each meal).
  */
 export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now: Date = new Date()): AttendanceDayDto {
   const { facilityId } = viewer
-  const settings = { ...getAttendanceSettings(db, facilityId), ...legacyMealTimes(db, facilityId) }
+  const settings = getAttendanceSettings(db, facilityId)
+  const dayMeals = mealsOn(mealVersionsOf(db, facilityId), date)
   const isCareDay = careDays(db, facilityId)(date)
   const clock = nowInBerlin(now)
 
@@ -223,6 +227,9 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
     .where(inArray(childAttendanceStays.dayId, dayIds)).orderBy(asc(childAttendanceStays.arrived), asc(childAttendanceStays.id)).all()
   const announcements = dayIds.length === 0 ? [] : db.select().from(childPickupAnnouncements)
     .where(inArray(childPickupAnnouncements.dayId, dayIds)).orderBy(asc(childPickupAnnouncements.id)).all()
+  // The ticks by hand, as "day|meal" (a tick of a meal not on the day, e.g. one removed later, is not shown).
+  const ticks = new Map((dayIds.length === 0 ? [] : db.select().from(childAttendanceMeals)
+    .where(inArray(childAttendanceMeals.dayId, dayIds)).all()).map(tick => [`${tick.dayId}|${tick.mealId}`, tick.value]))
   const contacts = ids.length === 0 ? [] : db.select().from(childContacts)
     .where(inArray(childContacts.childId, ids)).orderBy(asc(childContacts.sortOrder), asc(childContacts.id)).all()
   // Changed = a value that was there was overwritten or removed (a first entry is no change).
@@ -277,10 +284,12 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
       absence: day?.absence ?? null,
       note: day?.note ?? '',
       allergies: row.allergies,
-      snack: countsForMeal(settings.snackTime, spans, plannedPickup, day?.snack ?? null),
-      lunch: countsForMeal(settings.lunchTime, spans, plannedPickup, day?.lunch ?? null),
-      snackManual: (day?.snack ?? null) !== null,
-      lunchManual: (day?.lunch ?? null) !== null,
+      meals: Object.fromEntries(dayMeals.map((meal) => {
+        const manual = day ? ticks.get(`${day.id}|${meal.mealId}`) ?? null : null
+        return [meal.mealId, { counted: countsForMeal(meal.time, spans, plannedPickup, manual), manual: manual !== null }]
+      })),
+      // Open until the record has the insect repellent consent.
+      insectRepellent: null,
       announcements: ownAnnouncements.map(announcement => ({
         id: announcement.id, name: announcement.name, announcedBy: announcement.announcedBy,
       })),
@@ -310,24 +319,34 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
     .map(row => ({ date: row.date, childId: row.childId, name: nameOf(row) }))
 
   const count = (test: (entry: AttendanceChildDto) => boolean) => entries.filter(test).length
+  const mealCounts = (rows: AttendanceChildDto[]) =>
+    Object.fromEntries(dayMeals.map(meal => [meal.mealId, rows.filter(entry => entry.meals[meal.mealId]?.counted).length]))
+  const listedGroups = [
+    ...groups.filter(group => usedGroups.has(group.id)).map(group => ({ id: group.id, name: group.name })),
+    ...(usedGroups.has(null) ? [{ id: null, name: '' }] : []),
+  ]
   return {
     date,
     isCareDay,
-    snackTime: settings.snackTime,
-    lunchTime: settings.lunchTime,
+    meals: dayMeals,
     recordBroughtBy: settings.recordBroughtBy,
     counts: {
       present: count(entry => entry.status === 'present'),
       gone: count(entry => entry.status === 'gone'),
       absent: count(entry => !['present', 'gone', 'not_yet'].includes(entry.status)),
       notYet: count(entry => entry.status === 'not_yet'),
-      snack: count(entry => entry.snack),
-      lunch: count(entry => entry.lunch),
+      meals: mealCounts(entries),
     },
-    groups: [
-      ...groups.filter(group => usedGroups.has(group.id)).map(group => ({ id: group.id, name: group.name })),
-      ...(usedGroups.has(null) ? [{ id: null, name: '' }] : []),
-    ],
+    groups: listedGroups,
+    summary: listedGroups.map((group) => {
+      const rows = entries.filter(entry => entry.groupId === group.id)
+      return {
+        groupId: group.id,
+        name: group.name,
+        here: rows.filter(entry => entry.status === 'present' || entry.status === 'gone').length,
+        meals: mealCounts(rows),
+      }
+    }),
     children: entries,
     openStays,
   }
@@ -475,27 +494,44 @@ export function setAbsence(db: Db, viewer: ChildViewer, input: AttendanceAbsence
   })
 }
 
-/** Changes the planned pickup, brought-by, the day's note or the meal ticks (null = automatic again); left out = kept. */
+/**
+ * Changes the planned pickup, brought-by, the day's note or the meal ticks (null = automatic again: the tick is
+ * removed); left out = kept. A tick for a meal that is not one of the day (another facility's, removed or not yet
+ * valid then): 400 meal_not_on_day, nothing is changed. A tick is logged as `meal:<name of the meal on the day>`.
+ */
 export function updateDay(db: Db, viewer: ChildViewer, input: AttendanceDayInput, now: Date = new Date()): void {
   attendanceChild(db, viewer, input.childId, input.date)
   const history = historyOf(db, viewer.facilityId, input.childId)
   assertOwnDay(viewer, history, input.date)
+  const dayMeals = mealsOn(mealVersionsOf(db, viewer.facilityId), input.date)
+  const mealTicks = Object.entries(input.meals ?? {}).map(([key, value]) => {
+    const meal = dayMeals.find(candidate => candidate.mealId === Number(key))
+    if (!meal) throw new ServiceError(400, 'meal_not_on_day')
+    return { meal, value }
+  })
   db.transaction((tx) => {
     const day = ensureDay(tx, input.childId, input.date, history)
     const next = {
       plannedPickup: input.plannedPickup ?? day.plannedPickup,
       broughtBy: input.broughtBy === undefined ? day.broughtBy : input.broughtBy.trim(),
       note: input.note === undefined ? day.note : input.note.trim(),
-      snack: input.snack === undefined ? day.snack : input.snack,
-      lunch: input.lunch === undefined ? day.lunch : input.lunch,
     }
     tx.update(childAttendanceDays).set(next).where(eq(childAttendanceDays.id, day.id)).run()
+    const mealChanges = mealTicks.map(({ meal, value }) => {
+      const where = and(eq(childAttendanceMeals.dayId, day.id), eq(childAttendanceMeals.mealId, meal.mealId))
+      const before = tx.select({ value: childAttendanceMeals.value }).from(childAttendanceMeals).where(where).get()?.value ?? null
+      if (value === null) tx.delete(childAttendanceMeals).where(where).run()
+      else {
+        tx.insert(childAttendanceMeals).values({ dayId: day.id, mealId: meal.mealId, value })
+          .onConflictDoUpdate({ target: [childAttendanceMeals.dayId, childAttendanceMeals.mealId], set: { value } }).run()
+      }
+      return { field: `meal:${meal.name}`, before: flagText(before), after: flagText(value) }
+    })
     logAttendanceChanges(tx, viewer, input.childId, input.date, [
       { field: 'plannedPickup', before: timeText(day.plannedPickup), after: timeText(next.plannedPickup) },
       { field: 'broughtBy', before: day.broughtBy, after: next.broughtBy },
       { field: 'note', before: day.note, after: next.note },
-      { field: 'snack', before: flagText(day.snack), after: flagText(next.snack) },
-      { field: 'lunch', before: flagText(day.lunch), after: flagText(next.lunch) },
+      ...mealChanges,
     ], now)
   })
 }
@@ -666,12 +702,6 @@ export function getAttendanceSettings(db: Db, facilityId: number): AttendanceSet
     .from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
   return row
-}
-
-/** The old fixed snack and lunch times, which the day list still counts with until it reads the meals (services/meals). */
-function legacyMealTimes(db: Db, facilityId: number): { snackTime: Minutes; lunchTime: Minutes } {
-  return db.select({ snackTime: facilities.snackTime, lunchTime: facilities.lunchTime }).from(facilities)
-    .where(eq(facilities.id, facilityId)).get() ?? { snackTime: 570, lunchTime: 720 }
 }
 
 /**

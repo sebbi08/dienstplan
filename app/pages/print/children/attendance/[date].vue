@@ -56,8 +56,7 @@ const td = 'border border-gray-400 px-1.5 py-1 align-top'
               <th :class="th">{{ c.plannedPickup }}</th>
               <th :class="th">{{ c.pickedUpBy }}</th>
               <th :class="th">{{ c.left }}</th>
-              <th :class="[th, 'text-center']">{{ c.snack }}</th>
-              <th :class="[th, 'text-center']">{{ c.lunch }}</th>
+              <th v-for="meal in data.meals" :key="meal.mealId" :class="[th, 'text-center']">{{ meal.name }}</th>
               <th :class="th">{{ c.info }}</th>
             </tr>
           </thead>
@@ -69,8 +68,7 @@ const td = 'border border-gray-400 px-1.5 py-1 align-top'
               <td :class="td" class="whitespace-nowrap">{{ time(child.plannedPickup) }}</td>
               <td :class="td"><div v-for="stay in child.stays" :key="stay.id">{{ pickupPersonText(stay) ?? '' }}&nbsp;</div></td>
               <td :class="td" class="whitespace-nowrap"><div v-for="stay in child.stays" :key="stay.id">{{ time(stay.left) }}&nbsp;</div></td>
-              <td :class="td" class="text-center">{{ child.snack ? '✓' : '' }}</td>
-              <td :class="td" class="text-center">{{ child.lunch ? '✓' : '' }}</td>
+              <td v-for="meal in data.meals" :key="meal.mealId" :class="td" class="text-center">{{ child.meals[meal.mealId]?.counted ? '✓' : '' }}</td>
               <td :class="td" class="whitespace-pre-line break-words">
                 <div v-if="child.allergies">{{ s.allergies }}: {{ child.allergies }}</div>
                 <div v-if="child.note">{{ child.note }}</div>

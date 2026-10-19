@@ -27,9 +27,6 @@ export const facilities = sqliteTable('facilities', {
   state: text('state').$type<GermanState>().notNull().default('BW'),
   /** Mariä Himmelfahrt (15 August) is a holiday here; effective only in Bavaria (BY). */
   assumptionDay: integer('assumption_day', { mode: 'boolean' }).notNull().default(true),
-  /** Child attendance: the times (minutes after midnight) at which snack and lunch are counted. */
-  snackTime: integer('snack_time').notNull().default(570),
-  lunchTime: integer('lunch_time').notNull().default(720),
   /** Child attendance: whether arriving asks who brought the child. */
   recordBroughtBy: integer('record_brought_by', { mode: 'boolean' }).notNull().default(false),
   /**
@@ -634,7 +631,7 @@ export const childDocuments = sqliteTable('child_documents', {
 
 /**
  * A child on a date (Anwesenheitstag), created by the first entry of that day. `groupId` is the child's group on the
- * day, stored when the row was created. `snack`/`lunch`: null = counted automatically, true/false = set by hand.
+ * day, stored when the row was created. The meals ticked by hand are in `childAttendanceMeals`.
  */
 export const childAttendanceDays = sqliteTable('child_attendance_days', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -646,8 +643,6 @@ export const childAttendanceDays = sqliteTable('child_attendance_days', {
   absence: text('absence', { enum: ['sick', 'vacation', 'excused'] }),
   /** "Was ist heute passiert": free text of the staff about the day. */
   note: text('note').notNull().default(''),
-  snack: integer('snack', { mode: 'boolean' }),
-  lunch: integer('lunch', { mode: 'boolean' }),
 }, table => [uniqueIndex('child_attendance_days_child_date').on(table.childId, table.date)])
 
 /** A meal (Essen) of a facility; its name and time come from its dated versions. */

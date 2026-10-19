@@ -324,8 +324,8 @@ export const attendanceDaySchema = z.object({
   plannedPickup: clockTime.optional(),
   broughtBy: z.string().max(100).optional(),
   note: z.string().max(2000).optional(),
-  snack: z.boolean().nullable().optional(),
-  lunch: z.boolean().nullable().optional(),
+  // Ticks by meal id (JSON keys are text); whether the meal is one of the day is checked by the service.
+  meals: z.record(z.string().regex(/^[1-9]\d{0,9}$/), z.boolean().nullable()).optional(),
 })
 export const attendanceStaySchema = z.object({ arrived: clockTime, left: clockTime.nullable(), pickup: pickupChoice.optional() })
 export const attendanceMonthQuery = monthParams

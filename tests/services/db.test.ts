@@ -149,10 +149,12 @@ describe('upgrading a filled database through migrateDb', () => {
         id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3,
         school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
-        snack_time: 570, lunch_time: 720, record_brought_by: 0, attendance_since: null,
-        min_at_opening: 1, min_at_closing: 1,
+        record_brought_by: 0, attendance_since: null, min_at_opening: 1, min_at_closing: 1,
       },
     ])
+    // The meal times of 0034 became meals in 0040 (0041 drops the columns).
+    expect(sqlite.prepare('SELECT v.name, v.time FROM meals m JOIN meal_versions v ON v.meal_id = m.id WHERE m.facility_id = 1 ORDER BY v.time').all())
+      .toEqual([{ name: 'Snack', time: 570 }, { name: 'Mittagessen', time: 720 }])
     expect(sqlite.prepare('SELECT key FROM app_settings').all()).toEqual([{ key: 'contract_visible_to_admins' }])
     expect(sqlite.prepare('SELECT role, facility_id FROM users ORDER BY id').all()).toEqual([
       { role: 'provider', facility_id: 1 }, { role: 'admin', facility_id: 1 }, { role: 'terminal', facility_id: 1 },
@@ -693,10 +695,14 @@ describe('upgrading a filled database through migrateDb', () => {
     migrateDb(db, MIGRATIONS)
 
     expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(34)
-    expect(sqlite.prepare('SELECT id, snack_time, lunch_time, record_brought_by FROM facilities ORDER BY id').all()).toEqual([
-      { id: 1, snack_time: 570, lunch_time: 720, record_brought_by: 0 },
-      { id: 2, snack_time: 570, lunch_time: 720, record_brought_by: 0 },
-    ])
+    expect(sqlite.prepare('SELECT id, record_brought_by FROM facilities ORDER BY id').all())
+      .toEqual([{ id: 1, record_brought_by: 0 }, { id: 2, record_brought_by: 0 }])
+    // The default meal times (snack_time, lunch_time) live on as meals since 0040; 0041 drops the columns.
+    expect(sqlite.prepare('SELECT m.facility_id, v.name, v.time FROM meals m JOIN meal_versions v ON v.meal_id = m.id ORDER BY m.facility_id, v.time').all())
+      .toEqual([
+        { facility_id: 1, name: 'Snack', time: 570 }, { facility_id: 1, name: 'Mittagessen', time: 720 },
+        { facility_id: 2, name: 'Snack', time: 570 }, { facility_id: 2, name: 'Mittagessen', time: 720 },
+      ])
     // (attendance_since comes with the later 0035_attendance_since.)
     const columns = ['snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing']
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
@@ -712,8 +718,8 @@ describe('upgrading a filled database through migrateDb', () => {
         VALUES (1, 1, 'Meier', 'Lena', '2022-03-15', '2025-09-01', '2026-01-01T00:00:00.000Z');
       INSERT INTO child_attendance_days (id, child_id, date, group_id) VALUES (1, 1, '2026-10-14', 1);
     `)
-    expect(sqlite.prepare('SELECT planned_pickup, brought_by, absence, note, snack, lunch FROM child_attendance_days').get())
-      .toEqual({ planned_pickup: null, brought_by: '', absence: null, note: '', snack: null, lunch: null })
+    expect(sqlite.prepare('SELECT planned_pickup, brought_by, absence, note FROM child_attendance_days').get())
+      .toEqual({ planned_pickup: null, brought_by: '', absence: null, note: '' })
     expect(() => sqlite.exec('INSERT INTO child_attendance_days (child_id, date) VALUES (1, \'2026-10-14\')')).toThrow(/UNIQUE/)
     sqlite.exec('DELETE FROM groups WHERE id = 1')
     expect(sqlite.prepare('SELECT group_id FROM child_attendance_days').get()).toEqual({ group_id: null })
@@ -733,8 +739,12 @@ describe('upgrading a filled database through migrateDb', () => {
     // Nothing was recorded anywhere yet: no earlier day counts as unexcused.
     expect(sqlite.prepare('SELECT id, attendance_since FROM facilities ORDER BY id').all())
       .toEqual([{ id: 1, attendance_since: null }, { id: 2, attendance_since: null }])
+    // (the meal times go with the later 0041_meals_cleanup; Krippe's 10:00 became its Snack in 0040.)
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ attendance_since: _, min_at_opening: __, min_at_closing: ___, ...rest }) => rest)).toEqual(before)
+      .map(({ attendance_since: _, min_at_opening: __, min_at_closing: ___, ...rest }) => rest))
+      .toEqual((before as Record<string, unknown>[]).map(({ snack_time: _, lunch_time: __, ...rest }) => rest))
+    expect(sqlite.prepare('SELECT v.time FROM meals m JOIN meal_versions v ON v.meal_id = m.id WHERE m.facility_id = 2 AND v.name = \'Snack\'').get())
+      .toEqual({ time: 600 })
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
@@ -877,7 +887,9 @@ describe('upgrading a filled database through migrateDb', () => {
     migrateDb(db, MIGRATIONS)
 
     expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(40)
-    expect(sqlite.prepare('SELECT * FROM child_attendance_days ORDER BY id').all()).toEqual(daysBefore)
+    // (snack and lunch go with the later 0041_meals_cleanup.)
+    expect(sqlite.prepare('SELECT * FROM child_attendance_days ORDER BY id').all())
+      .toEqual((daysBefore as Record<string, unknown>[]).map(({ snack: _, lunch: __, ...rest }) => rest))
     expect(sqlite.prepare(`
       SELECT m.facility_id, v.valid_from, v.name, v.time, v.removed FROM meals m JOIN meal_versions v ON v.meal_id = m.id
       ORDER BY m.facility_id, v.time`).all()).toEqual([
@@ -911,6 +923,71 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(count(sqlite, 'meal_versions')).toBe(1)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('0041 drops the old meal columns and keeps every day, stay, tick and facility with its references', () => {
+    const { db, sqlite } = databaseAt('0040')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(41)
+    const mealOf = (name: string) => (sqlite.prepare('SELECT meal_id AS id FROM meal_versions v JOIN meals m ON m.id = v.meal_id WHERE m.facility_id = 1 AND v.name = ?').get(name) as { id: number }).id
+    sqlite.exec(`
+      UPDATE facilities SET record_brought_by = 1, attendance_since = '2026-10-01' WHERE id = 1;
+      INSERT INTO facilities (id, name, snack_time, lunch_time) VALUES (2, 'Krippe', 600, 735);
+      INSERT INTO meals (id, facility_id) VALUES (100, 2);
+      INSERT INTO meal_versions (meal_id, valid_from, name, time) VALUES (100, NULL, 'Snack', 600);
+      INSERT INTO groups (id, facility_id, name) VALUES (1, 1, 'Bären');
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES
+        (1, 1, 'Meier', 'Lena', '2022-03-15', '2026-01-01T00:00:00.000Z');
+      INSERT INTO child_attendance_days (id, child_id, date, group_id, planned_pickup, brought_by, absence, note, snack, lunch) VALUES
+        (1, 1, '2026-10-13', 1, 900, 'Mama', NULL, 'müde', 1, NULL), (2, 1, '2026-10-14', NULL, NULL, '', 'sick', '', NULL, 0);
+      INSERT INTO child_attendance_stays (id, day_id, arrived, left, picked_up_by) VALUES (1, 1, 480, 900, 'Anna Meier');
+      INSERT INTO child_pickup_announcements (id, day_id, name, announced_by) VALUES (1, 1, 'Oma Erika', 'Mama');
+    `)
+    sqlite.prepare('INSERT INTO child_attendance_meals (id, day_id, meal_id, value) VALUES (1, 1, ?, 1), (2, 2, ?, 0)').run(mealOf('Snack'), mealOf('Mittagessen'))
+    const all = (table: string) => sqlite.prepare(`SELECT * FROM ${table} ORDER BY id`).all() as Record<string, unknown>[]
+    const without = (rows: Record<string, unknown>[], ...columns: string[]) =>
+      rows.map(row => Object.fromEntries(Object.entries(row).filter(([name]) => !columns.includes(name))))
+    const before = {
+      facilities: without(all('facilities'), 'snack_time', 'lunch_time'),
+      days: without(all('child_attendance_days'), 'snack', 'lunch'),
+      stays: all('child_attendance_stays'), announcements: all('child_pickup_announcements'), ticks: all('child_attendance_meals'),
+      meals: all('meals'), versions: all('meal_versions'),
+    }
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(41)
+    const columns = (table: string) => (sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(row => row.name)
+    expect(columns('facilities')).not.toContain('snack_time')
+    expect(columns('facilities')).not.toContain('lunch_time')
+    expect(columns('child_attendance_days')).not.toContain('snack')
+    expect(columns('child_attendance_days')).not.toContain('lunch')
+    expect(all('facilities')).toEqual(before.facilities)
+    expect(all('child_attendance_days')).toEqual(before.days)
+    expect(all('child_attendance_stays')).toEqual(before.stays)
+    expect(all('child_pickup_announcements')).toEqual(before.announcements)
+    expect(all('child_attendance_meals')).toEqual(before.ticks)
+    expect(all('meals')).toEqual(before.meals)
+    expect(all('meal_versions')).toEqual(before.versions)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+
+    // The days keep their unique index and their references: one row per child and date, the group goes, the day stays;
+    // a deleted day takes its stays, announcements and ticks along; a deleted child its days.
+    expect(() => sqlite.exec('INSERT INTO child_attendance_days (child_id, date) VALUES (1, \'2026-10-13\')')).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec('INSERT INTO child_attendance_days (child_id, date) VALUES (99, \'2026-10-15\')')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM groups WHERE id = 1')
+    expect(sqlite.prepare('SELECT group_id FROM child_attendance_days WHERE id = 1').get()).toEqual({ group_id: null })
+    sqlite.exec('DELETE FROM child_attendance_days WHERE id = 1')
+    expect([count(sqlite, 'child_attendance_stays'), count(sqlite, 'child_pickup_announcements'), count(sqlite, 'child_attendance_meals')])
+      .toEqual([0, 0, 1])
+    sqlite.exec('DELETE FROM children WHERE id = 1')
+    expect([count(sqlite, 'child_attendance_days'), count(sqlite, 'child_attendance_meals')]).toEqual([0, 0])
+    // Facilities keep their references too: a group of an unknown facility is refused, a facility's meals go with it.
+    expect(() => sqlite.exec('INSERT INTO groups (facility_id, name) VALUES (99, \'Igel\')')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM facilities WHERE id = 2')
+    expect(sqlite.prepare('SELECT DISTINCT facility_id FROM meals').all()).toEqual([{ facility_id: 1 }])
+    expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = 100').get()).toEqual({ n: 0 })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
   it('terminal_unlocks rows go with their tablet account', () => {
