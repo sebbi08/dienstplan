@@ -451,6 +451,8 @@ export const de = {
     ruleWeekdays: 'Wochentage', ruleWeekdaysMissing: 'Wähle mindestens einen Wochentag.',
     ruleStart: 'Beginn', ruleEnd: 'Ende (optional)', minCount: 'Mindestanzahl', active: 'aktiv', addRule: 'Pflichtdienst hinzufügen',
     ruleGroup: 'Gilt für', ruleWholeFacility: 'ganze Einrichtung',
+    /** Block headings of the mandatory duties list. */
+    ruleSectionFacility: 'Ganze Einrichtung', ruleSectionUnknown: 'ohne bekannte Gruppe', ruleSectionNew: 'Neuer Pflichtdienst',
     backup: 'Datensicherung', backupHint: 'Lädt eine vollständige Kopie der Datenbank herunter (nur für den Träger, weil sie auch Vertragsangaben enthält). Bewahre sie an einem sicheren Ort auf.',
     backupDownload: 'Datenbank herunterladen', invalidTime: 'Bitte gültige Uhrzeiten angeben.',
     timeTracking: 'Zeiterfassung', timeTrackingFrom: 'Zeiterfassung ab',

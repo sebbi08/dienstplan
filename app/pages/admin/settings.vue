@@ -5,9 +5,12 @@ import { formatDuration, formatTime, parseTime } from '#shared/domain/time'
 import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CreditMode } from '#shared/domain/types'
 import {
-  COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type SettingsDto, type ShiftChangeResult, type TemplateDto,
+  COLOR_KEYS, type AppSettingsDto, type CodeDto, type CoverageRuleDto, type GroupColor, type SettingsDto, type ShiftChangeResult,
+  type TemplateDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { coverageRuleSections } from '~/utils/coverageRuleSections'
+import { groupColorClasses } from '~/utils/groups'
 import { weekdaysText } from '~/utils/openingHours'
 
 interface TemplateForm {
@@ -74,6 +77,29 @@ watch(settings, (value) => {
     groupId: r.groupId ?? 0, weekdays: r.weekdays,
   }))
 }, { immediate: true })
+
+/**
+ * The rule table: the whole facility first, then one block per group (with its colour), each sorted by the saved times
+ * (so a row does not jump while it is being edited), the new rule last. Without groups there are no block headings.
+ */
+interface RuleRow { key: string; heading: string | null; color: GroupColor | null; form: RuleForm | null }
+const ruleRows = computed<RuleRow[]>(() => {
+  const forms = new Map(rules.value.map(form => [form.id, form]))
+  const sections = coverageRuleSections(settings.value?.coverageRules ?? [], groups.value ?? [])
+  const headed = hasGroups.value || sections.some(section => section.key !== 'facility')
+  const title = (key: string, name: string | null) =>
+    name ?? (key === 'facility' ? de.settings.ruleSectionFacility : de.settings.ruleSectionUnknown)
+  const rows: RuleRow[] = sections.flatMap(section => [
+    ...(headed ? [{ key: section.key, heading: title(section.key, section.name), color: section.color, form: null }] : []),
+    ...section.rules.flatMap((rule) => {
+      const form = forms.get(rule.id)
+      return form ? [{ key: `rule-${rule.id}`, heading: null, color: null, form }] : []
+    }),
+  ])
+  if (headed) rows.push({ key: 'new-heading', heading: de.settings.ruleSectionNew, color: null, form: null })
+  rows.push({ key: 'new', heading: null, color: null, form: newRule.value })
+  return rows
+})
 
 const colorItems = COLOR_KEYS.map(color => ({ label: de.colors[color], value: color }))
 const creditItems = (['daily_target', 'timed', 'none'] as CreditMode[]).map(mode => ({ label: de.creditModes[mode], value: mode }))
@@ -274,24 +300,34 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
           </tr>
         </thead>
         <tbody>
-          <tr v-for="form in [...rules, newRule]" :key="form.id ?? 'new'" class="border-t border-gray-100">
-            <td :class="cell"><input v-model="form.label" maxlength="100" :class="textInput"></td>
-            <td :class="cell"><TimeInput v-model="form.start" class="w-20" @keydown.enter="saveRule(form)" /></td>
-            <td :class="cell"><TimeInput v-model="form.end" class="w-20" @keydown.enter="saveRule(form)" /></td>
-            <td :class="cell"><input v-model.number="form.minCount" type="number" min="1" max="20" class="w-16 rounded border border-gray-300 px-1 py-0.5"></td>
-            <td :class="cell">
-              <WorkdayPicker v-model="form.weekdays" :aria-label="de.settings.ruleWeekdays" />
-              <div v-if="form.weekdays !== ALL_WEEKDAYS && form.weekdays !== 0" class="mt-0.5 text-xs text-gray-500">{{ weekdaysText(form.weekdays) }}</div>
-            </td>
-            <td v-if="hasGroups" :class="cell">
-              <USelect v-model="form.groupId" :items="groupItems" class="w-40" :aria-label="de.settings.ruleGroup" />
-            </td>
-            <td :class="cell" class="text-center"><input v-model="form.active" type="checkbox"></td>
-            <td :class="cell" class="whitespace-nowrap text-right">
-              <UButton size="xs" :label="form.id ? de.common.save : de.settings.addRule" @click="saveRule(form)" />
-              <UButton v-if="form.id" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteRule(form)" />
-            </td>
-          </tr>
+          <template v-for="row in ruleRows" :key="row.key">
+            <tr v-if="row.heading !== null">
+              <td :colspan="hasGroups ? 8 : 7" class="px-2 pt-3 pb-1">
+                <span
+                  class="inline-block rounded px-2 py-0.5 text-xs font-semibold text-gray-800"
+                  :class="row.color ? groupColorClasses[row.color] : 'bg-gray-100'"
+                >{{ row.heading }}</span>
+              </td>
+            </tr>
+            <tr v-else-if="row.form" class="border-t border-gray-100">
+              <td :class="cell"><input v-model="row.form.label" maxlength="100" :class="textInput"></td>
+              <td :class="cell"><TimeInput v-model="row.form.start" class="w-20" @keydown.enter="saveRule(row.form)" /></td>
+              <td :class="cell"><TimeInput v-model="row.form.end" class="w-20" @keydown.enter="saveRule(row.form)" /></td>
+              <td :class="cell"><input v-model.number="row.form.minCount" type="number" min="1" max="20" class="w-16 rounded border border-gray-300 px-1 py-0.5"></td>
+              <td :class="cell">
+                <WorkdayPicker v-model="row.form.weekdays" :aria-label="de.settings.ruleWeekdays" />
+                <div v-if="row.form.weekdays !== ALL_WEEKDAYS && row.form.weekdays !== 0" class="mt-0.5 text-xs text-gray-500">{{ weekdaysText(row.form.weekdays) }}</div>
+              </td>
+              <td v-if="hasGroups" :class="cell">
+                <USelect v-model="row.form.groupId" :items="groupItems" class="w-40" :aria-label="de.settings.ruleGroup" />
+              </td>
+              <td :class="cell" class="text-center"><input v-model="row.form.active" type="checkbox"></td>
+              <td :class="cell" class="whitespace-nowrap text-right">
+                <UButton size="xs" :label="row.form.id ? de.common.save : de.settings.addRule" @click="saveRule(row.form)" />
+                <UButton v-if="row.form.id" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteRule(row.form)" />
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </section>
