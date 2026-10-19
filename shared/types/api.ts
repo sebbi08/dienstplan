@@ -432,6 +432,46 @@ export interface BirthdayDto {
   turns: number
 }
 
+/** A contact person in the children overview (without the internal note). */
+export interface OverviewContactDto {
+  name: string
+  relation: string
+  phoneHome: string
+  phoneMobile: string
+  phoneWork: string
+  isGuardian: boolean
+  mayPickUp: boolean
+  contactBan: boolean
+  contactBanNote: string
+  emergencyRank: number | null
+}
+
+/** One child in the Excel-like overview tables. */
+export interface ChildrenOverviewRowDto {
+  id: number
+  lastName: string
+  firstName: string
+  groupId: number | null
+  address: string
+  consents: ChildConsents
+  measlesProof: boolean | null
+  measlesProofDate: IsoDate | null
+  infectionBriefingDate: IsoDate | null
+  allergies: string
+  mayTakeTemperature: boolean | null
+  mayApplySunscreen: boolean | null
+  mayApplyPlaster: boolean | null
+  /** In the record's order. */
+  contacts: OverviewContactDto[]
+}
+
+export interface ChildrenOverviewDto {
+  /** The listed children's groups in the groups' order; children without group last as `{ id: null, name: '' }`. */
+  groups: { id: number | null; name: string }[]
+  /** In the order of the child list. */
+  children: ChildrenOverviewRowDto[]
+}
+
 /** An archived child in the archive list; the record is deleted on `purgeOn`. */
 export interface ArchivedChildDto {
   id: number

@@ -54,6 +54,8 @@ const ADMIN_ROUTES = [
 const CHILD_READER_ROUTES = [
   'care-types/index.get.ts', 'document-types/index.get.ts', 'children/index.get.ts', 'children/planned.get.ts', 'children/birthdays.get.ts', 'children/groups.get.ts',
   'children/open.get.ts', 'children/staff.get.ts', 'children/school-cutoff.get.ts', 'children/[id].get.ts', 'child-documents/[id]/file.get.ts', 'child-documents/overview.get.ts',
+  // The Excel-like overview: the tablet lock for staff like the records (spec Übersicht §3).
+  'children/overview.get.ts',
   // Attendance: every child viewer reads and writes it (spec Anwesenheit §7).
   'attendance/day.get.ts', 'attendance/arrive.post.ts', 'attendance/leave.post.ts', 'attendance/announcements/index.post.ts',
   'attendance/announcements/[id].delete.ts', 'attendance/absence.put.ts', 'attendance/day.put.ts', 'attendance/stays/[id].put.ts',

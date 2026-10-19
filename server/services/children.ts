@@ -8,8 +8,8 @@ import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
-  type ChildMasterUpdateInput, type ChildRecordDto, type ConsentKey, type GroupAccess, type OpenChildDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection,
-  type SectionStamp,
+  type ChildMasterUpdateInput, type ChildRecordDto, type ChildrenOverviewDto, type ConsentKey, type GroupAccess, type OpenChildDto,
+  type OverviewContactDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection, type SectionStamp,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
@@ -438,6 +438,48 @@ export function listBirthdays(db: Db, facilityId: number, today: IsoDate, groups
       date: birthday.date,
       turns: birthday.turns,
     }))
+}
+
+/**
+ * The values of the Excel-like overview tables for the facility's active children whose group the viewer sees, in the
+ * order of the child list: consents, health fields, address and the contacts in the record's order (without their
+ * internal note). Contacts of children the viewer does not see are never read. `groups` are the listed children's
+ * groups in the groups' order, children without group last (`{ id: null, name: '' }`).
+ */
+export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate): ChildrenOverviewDto {
+  const { facilityId } = viewer
+  const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+    .filter(row => childStatus(row, today) === 'active' && seesGroup(viewer.groups, row.groupId))
+    .sort(listOrder(db, facilityId))
+  const ids = rows.map(row => row.id)
+  const contactsOf = new Map<number, OverviewContactDto[]>(ids.map(id => [id, []]))
+  if (ids.length > 0) {
+    for (const contact of db.select().from(childContacts).where(inArray(childContacts.childId, ids))
+      .orderBy(asc(childContacts.sortOrder), asc(childContacts.id)).all()) {
+      contactsOf.get(contact.childId)!.push({
+        name: contact.name, relation: contact.relation, phoneHome: contact.phoneHome, phoneMobile: contact.phoneMobile,
+        phoneWork: contact.phoneWork, isGuardian: contact.isGuardian, mayPickUp: contact.mayPickUp,
+        contactBan: contact.contactBan, contactBanNote: contact.contactBanNote, emergencyRank: contact.emergencyRank,
+      })
+    }
+  }
+  const listed = new Set(rows.map(row => row.groupId))
+  const groups: ChildrenOverviewDto['groups'] = listGroups(db, facilityId)
+    .filter(group => listed.has(group.id)).map(group => ({ id: group.id, name: group.name }))
+  if (listed.has(null)) groups.push({ id: null, name: '' })
+  return {
+    groups,
+    children: rows.map(row => ({
+      id: row.id,
+      lastName: row.lastName,
+      firstName: row.firstName,
+      groupId: row.groupId,
+      address: row.address,
+      consents: consentsOf(row),
+      ...healthOf(row),
+      contacts: contactsOf.get(row.id)!,
+    })),
+  }
 }
 
 /**
