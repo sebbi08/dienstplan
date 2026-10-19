@@ -26,6 +26,7 @@ const eventTime = (event: CalendarEventDto) =>
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="calendar">
+      <CalendarGroupLegend class="mb-2" :groups="calendar.groups" />
       <!-- Wide enough for 31 readable day columns; A4 landscape (about 1050 px) still fits. -->
       <div class="overflow-x-auto print:overflow-visible">
         <div

@@ -58,6 +58,8 @@ export const groups = sqliteTable('groups', {
   /** Minimum number of staff at opening and until closing, used with the group's own opening hours (1–20). */
   minAtOpening: integer('min_at_opening').notNull().default(1),
   minAtClosing: integer('min_at_closing').notNull().default(1),
+  /** Palette key of the group's colour in the year calendar (see GROUP_COLORS; null = no colour). */
+  color: text('color'),
 }, table => [index('groups_facility').on(table.facilityId)])
 
 /** The group a row belongs to (null = the whole facility, or no group of its own); always a group of the row's facility. */

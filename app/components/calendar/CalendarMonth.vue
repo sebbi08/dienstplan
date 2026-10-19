@@ -4,6 +4,7 @@ import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { groupColorClasses } from '~/utils/groups'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
 /** `editable`: clicking emits dayClick (employee day), eventDayClick (day number in the header) or eventClick (appointment text). */
@@ -117,7 +118,12 @@ function headerTitle(date: string): string | undefined {
     </thead>
     <tbody>
       <tr v-for="employee in calendar.employees" :key="employee.id">
-        <td class="truncate border border-gray-300 px-1 py-0.5" :title="employee.name">{{ employee.name }}</td>
+        <td
+          class="truncate border border-gray-300 px-1 py-0.5" :class="employee.color ? groupColorClasses[employee.color] : ''"
+          :title="employee.name"
+        >
+          {{ employee.name }}
+        </td>
         <td
           v-for="date in dates" :key="date" class="h-5 border border-gray-300 p-0"
           :class="[cellClass(employee.id, date), editable ? 'cursor-pointer hover:outline-2 hover:-outline-offset-2 hover:outline-sky-500' : '']"

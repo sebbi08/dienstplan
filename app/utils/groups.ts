@@ -1,5 +1,17 @@
-import type { EmployeeColumnDto, MonthPlanDto } from '#shared/types/api'
+import type { EmployeeColumnDto, GroupColor, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+
+/** Background of a name cell (year calendar, leave planning) and of the swatches, per group colour. */
+export const groupColorClasses: Record<GroupColor, string> = {
+  amber: 'bg-amber-200',
+  orange: 'bg-orange-200',
+  rose: 'bg-rose-200',
+  fuchsia: 'bg-fuchsia-200',
+  violet: 'bg-violet-200',
+  blue: 'bg-blue-200',
+  teal: 'bg-teal-200',
+  slate: 'bg-slate-300',
+}
 
 /** A block of plan columns: one group (with its "anwesend" column), the Springer, or the helpers of other facilities. */
 export interface PlanBlock {

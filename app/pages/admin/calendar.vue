@@ -110,6 +110,7 @@ async function removeEvent(event: CalendarEventDto) {
     </div>
     <p class="text-sm text-gray-500">{{ de.year.adminOnly }} {{ de.calendar.clickHint }}</p>
     <CalendarLegend />
+    <CalendarGroupLegend v-if="calendar" :groups="calendar.groups" />
 
     <div v-if="calendar" class="space-y-3 overflow-x-auto">
       <div v-for="month in 12" :key="month" class="min-w-[900px] rounded-lg bg-white">

@@ -451,6 +451,16 @@ Geburtstage, Dokumente, „Offen“).
 - Das gilt nur in eine Richtung: Darf die Gruppe A die Gruppe B lesen, darf B deshalb noch nicht A lesen.
 - Änderungen wirken sofort, auch an einem gerade aufgeschlossenen Tablet.
 
+### Gruppenfarben (Jahreskalender und Urlaubsplanung)
+
+Leitung und Träger geben jeder Gruppe unter *Einstellungen → Gruppenfarben* eine helle Farbe (für die gerade
+gewählte Einrichtung; voreingestellt ist „keine Farbe“). Im Jahreskalender, in der Urlaubsplanung, in „Mein
+Kalender“ und im Ausdruck des Jahreskalenders stehen die Mitarbeiter dann nach Gruppen sortiert (in der Reihenfolge
+der Gruppen, Mitarbeiter ohne Gruppe am Ende), ihr Name hat die Farbe ihrer Stammgruppe, und über dem Kalender
+steht eine kleine Legende der Gruppenfarben. Mitarbeiter ohne Gruppe und Gruppen ohne Farbe bleiben weiß. Grün, Rot,
+Hellgrün und Hellblau gibt es als Gruppenfarbe nicht, weil der Kalender sie für Urlaub, Krank, Sonderurlaub und
+Fortbildung verwendet.
+
 ### Kinder fremder Gruppen in der Anwesenheit
 
 - Die Anwesenheitsliste zeigt weiter **alle** Kinder. Maßgeblich ist die Gruppe des Kindes **an dem Tag**.

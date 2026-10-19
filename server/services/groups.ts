@@ -3,7 +3,8 @@ import { childStatus } from '../../shared/domain/children'
 import { groupRight } from '../../shared/domain/groupAccess'
 import { isManager } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ChildGroupDto, GroupAccess, GroupDto, Role, SnapshotData } from '../../shared/types/api'
+import { isGroupColor } from '../../shared/types/api'
+import type { ChildGroupDto, GroupAccess, GroupColor, GroupDto, Role, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
@@ -12,8 +13,14 @@ import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 
+/** A stored colour key, null for none or a key no longer in the palette. */
+export const groupColor = (value: string | null): GroupColor | null => (value !== null && isGroupColor(value) ? value : null)
+
 function toDto(row: typeof groups.$inferSelect): GroupDto {
-  return { id: row.id, name: row.name, sortOrder: row.sortOrder, capacity: row.capacity, forSchoolChildren: row.forSchoolChildren }
+  return {
+    id: row.id, name: row.name, sortOrder: row.sortOrder, capacity: row.capacity, forSchoolChildren: row.forSchoolChildren,
+    color: groupColor(row.color),
+  }
 }
 
 /** The facility's groups in their order. */
@@ -95,6 +102,16 @@ export function setGroupCapacity(db: Db, facilityId: number, id: number, capacit
     throw new ServiceError(400, 'invalid_capacity')
   }
   db.update(groups).set({ capacity }).where(eq(groups.id, id)).run()
+}
+
+/**
+ * Sets the colour of a group of the facility (a key of GROUP_COLORS, 400 invalid_group_color otherwise; null = no
+ * colour); 404 group_not_found for a group of another facility.
+ */
+export function setGroupColor(db: Db, facilityId: number, id: number, color: string | null): void {
+  assertGroup(db, facilityId, id)
+  if (color !== null && !isGroupColor(color)) throw new ServiceError(400, 'invalid_group_color')
+  db.update(groups).set({ color }).where(eq(groups.id, id)).run()
 }
 
 /**

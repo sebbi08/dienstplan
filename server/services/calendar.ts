@@ -8,8 +8,9 @@ import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearC
 import type { Db } from '../db/client'
 import { calendarEvents, employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
-import { loadCodes, loadEmployees, loadEntries } from './queries'
+import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './queries'
 
 /** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. */
 const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
@@ -65,6 +66,27 @@ export function getMyYearCalendar(db: Db, viewer: SessionUser, year: number): Ye
   return getStaffYearCalendar(db, employee.facilityId, year, employee.id)
 }
 
+/**
+ * The calendar rows sorted by home group: the facility's groups in their order, people without a group last; within a
+ * group the staff order stays. Also the groups that have people in it, for the legend.
+ */
+function groupedRows(db: Db, facilityId: number, staff: EmployeeRecord[]) {
+  const facilityGroups = listGroups(db, facilityId)
+  const position = new Map(facilityGroups.map((group, index) => [group.id, index]))
+  const rank = (groupId: number | null) => (groupId === null ? undefined : position.get(groupId)) ?? facilityGroups.length
+  const rows = staff
+    .map(employee => ({ employee, rank: rank(employee.groupId) }))
+    .sort((a, b) => a.rank - b.rank) // stable: the staff order within a group
+    .map(({ employee, rank }) => {
+      const group = facilityGroups[rank]
+      return { id: employee.id, name: employee.name, groupId: group?.id ?? null, color: group?.color ?? null }
+    })
+  const present = new Set(rows.map(row => row.groupId))
+  const groups = facilityGroups.filter(group => present.has(group.id))
+    .map(group => ({ id: group.id, name: group.name, color: group.color }))
+  return { rows, groups }
+}
+
 /** The facility's year calendar. With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered). */
 export function getYearCalendar(
   db: Db, facilityId: number, year: number, options: { sickOnlyOf?: number | null } = {},
@@ -83,10 +105,12 @@ export function getYearCalendar(
     const current = row[entry.date]
     if (!current || KIND_PRIORITY.indexOf(kind) < KIND_PRIORITY.indexOf(current)) row[entry.date] = kind
   }
+  const { rows, groups } = groupedRows(db, facilityId, staff)
   return {
     year,
     holidays: facilityHolidayRules(db, facilityId),
-    employees: staff.map(employee => ({ id: employee.id, name: employee.name })),
+    employees: rows,
+    groups,
     days,
     otherEntries: Object.fromEntries([...otherSets].map(([id, set]) => [id, [...set].sort()])),
     // Mon–Fri (no holiday of the person's home facility) on which a part-timer does not work: shown like weekends,

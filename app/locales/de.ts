@@ -1,4 +1,5 @@
 import type { SlotState } from '#shared/domain/dayOverview'
+import type { GroupColor } from '#shared/types/api'
 
 const days = (count: number) => (count === 1 ? '1 Tag' : `${count.toLocaleString('de-DE')} Tage`)
 /** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
@@ -208,6 +209,15 @@ export const de = {
     tagHint: (name: string) => `Zählt für die Gruppe ${name}`,
     countsFor: 'Zählt für Gruppe', homeGroup: (name: string) => `Stammgruppe (${name})`, noGroup: 'keine Gruppe',
     employeeGroup: 'Gruppe', springerOption: 'Springer (keine feste Gruppe)',
+    /** Group colours in the year calendar and the leave planning. */
+    colorsTitle: 'Gruppenfarben',
+    colorsHint: 'Im Jahreskalender und in der Urlaubsplanung stehen die Mitarbeiter nach Gruppen sortiert. '
+      + 'Der Name bekommt die Farbe seiner Gruppe. Mitarbeiter ohne Gruppe stehen am Ende und bleiben weiß.',
+    noColor: 'keine Farbe',
+    colorNames: {
+      amber: 'Gelb', orange: 'Orange', rose: 'Rosa', fuchsia: 'Pink', violet: 'Lila', blue: 'Blau', teal: 'Türkis', slate: 'Grau',
+    } satisfies Record<GroupColor, string>,
+    colorLabel: (group: string, color: string) => `Farbe für ${group}: ${color}`,
   },
   helpers: {
     title: 'Aushilfe hinzufügen',

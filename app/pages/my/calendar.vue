@@ -23,6 +23,7 @@ const eventTime = (event: CalendarEventDto) =>
     <p class="text-sm text-gray-500">{{ de.calendar.staffHint }}</p>
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <CalendarLegend />
+    <CalendarGroupLegend v-if="calendar" :groups="calendar.groups" />
 
     <div v-if="calendar" class="space-y-3 overflow-x-auto">
       <div v-for="month in 12" :key="month" class="min-w-[900px] rounded-lg bg-white">

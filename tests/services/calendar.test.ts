@@ -7,12 +7,13 @@ import {
 } from '../../server/services/calendar'
 import { computeBalances } from '../../server/services/balances'
 import { setEntitlement } from '../../server/services/employees'
+import { setGroupColor } from '../../server/services/groups'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { getLeavePlanning, setLeaveModule } from '../../server/services/leaveRequests'
 import { loadEmployees } from '../../server/services/queries'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 describe('year calendar and sick days', () => {
   let db: Db
@@ -112,6 +113,53 @@ describe('year calendar for employees', () => {
     expect([forAnna.otherEntries, forAnna.absenceCodes]).toEqual([{}, []])
     expect(getStaffYearCalendar(db, 1, 2026, null).days[anna]).toEqual({ '2026-10-09': 'vacation' })
     expect(getYearCalendar(db, 1, 2026).days[berta]!['2026-10-08']).toBe('sick') // the Leitung still sees everything
+  })
+})
+
+describe('group colours in the year calendar', () => {
+  it('sorts the rows by group (in the groups\' order, no group last) and carries each person\'s group and colour', () => {
+    const db = createTestDb()
+    const mice = addGroup(db, 1, 'Mäuse')
+    const bears = addGroup(db, 1, 'Bären')
+    const owls = addGroup(db, 1, 'Eulen') // nobody in it: not listed
+    setGroupColor(db, 1, mice, 'rose')
+    setGroupColor(db, 1, owls, 'teal')
+    const anna = addEmployee(db, 'Anna')
+    const berta = addEmployee(db, 'Berta', { groupId: bears })
+    const clara = addEmployee(db, 'Clara', { groupId: mice })
+    const dora = addEmployee(db, 'Dora', { groupId: bears })
+    const emma = addEmployee(db, 'Emma', { groupId: mice })
+
+    const calendar = getYearCalendar(db, 1, 2026)
+    expect(calendar.employees).toEqual([
+      { id: clara, name: 'Clara', groupId: mice, color: 'rose' },
+      { id: emma, name: 'Emma', groupId: mice, color: 'rose' },
+      { id: berta, name: 'Berta', groupId: bears, color: null },
+      { id: dora, name: 'Dora', groupId: bears, color: null },
+      { id: anna, name: 'Anna', groupId: null, color: null },
+    ])
+    expect(calendar.groups).toEqual([
+      { id: mice, name: 'Mäuse', color: 'rose' },
+      { id: bears, name: 'Bären', color: null },
+    ])
+    // The staff calendar and the leave planning keep the same rows.
+    expect(getStaffYearCalendar(db, 1, 2026, anna).employees.map(row => row.id)).toEqual([clara, emma, berta, dora, anna])
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    const planning = getLeavePlanning(db, addUser(db, 'traeger', 'provider'), 1, 2026).calendar
+    expect(planning.employees.map(row => row.id)).toEqual([clara, emma, berta, dora, anna])
+    expect(planning.groups.map(group => group.id)).toEqual([mice, bears])
+  })
+
+  it('keeps the existing order and lists no groups when the facility has none', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    const berta = addEmployee(db, 'Berta')
+    const calendar = getYearCalendar(db, 1, 2026)
+    expect(calendar.employees).toEqual([
+      { id: anna, name: 'Anna', groupId: null, color: null },
+      { id: berta, name: 'Berta', groupId: null, color: null },
+    ])
+    expect(calendar.groups).toEqual([])
   })
 })
 

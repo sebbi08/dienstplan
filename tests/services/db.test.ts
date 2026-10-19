@@ -601,8 +601,8 @@ describe('upgrading a filled database through migrateDb', () => {
     // (facility_since comes with the later 0031_child_facility_since.)
     expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since')).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
-    // (the minimum counts come with the later 0038_opening_hours.)
-    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing'))
+    // (the minimum counts come with the later 0038_opening_hours, the colour with 0039_group_colors.)
+    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing', 'color'))
       .toEqual(before.groups)
     // (the tablet settings come with the later 0032_tablet_children, state and assumption_day with 0033_facility_state,
     // the attendance settings with 0034_child_attendance and 0035_attendance_since.)
@@ -772,9 +772,9 @@ describe('upgrading a filled database through migrateDb', () => {
     migrateDb(db, MIGRATIONS)
 
     expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(37)
-    // (the minimum counts come with the later 0038_opening_hours.)
+    // (the minimum counts come with the later 0038_opening_hours, the colour with 0039_group_colors.)
     expect((sqlite.prepare('SELECT * FROM groups ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ min_at_opening: _, min_at_closing: __, ...rest }) => rest)).toEqual(before)
+      .map(({ min_at_opening: _, min_at_closing: __, color: ___, ...rest }) => rest)).toEqual(before)
     const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
     for (const table of ['group_read_access', 'group_week_notes', 'group_day_notes', 'group_book_changes']) expect(tables).toContain(table)
 
@@ -834,6 +834,27 @@ describe('upgrading a filled database through migrateDb', () => {
     // Hours go with their group and their facility.
     sqlite.exec('DELETE FROM groups WHERE id = 1')
     expect(sqlite.prepare('SELECT group_id FROM opening_hours').all()).toEqual([{ group_id: null }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+
+  it('0039 adds the group colour: existing groups keep everything and get no colour', () => {
+    const { db, sqlite } = databaseAt('0038')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(39)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name, sort_order, capacity) VALUES (1, 1, 'Bären', 0, 12), (2, 2, 'Wichtel', 0, NULL);
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(39)
+    expect(sqlite.prepare('SELECT id, name, capacity, color FROM groups ORDER BY id').all()).toEqual([
+      { id: 1, name: 'Bären', capacity: 12, color: null },
+      { id: 2, name: 'Wichtel', capacity: null, color: null },
+    ])
+    sqlite.exec(`INSERT INTO groups (id, facility_id, name) VALUES (3, 1, 'Mäuse')`)
+    expect(sqlite.prepare('SELECT color FROM groups WHERE id = 3').get()).toEqual({ color: null })
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })

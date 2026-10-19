@@ -12,6 +12,14 @@ import type { Warning } from '../domain/warnings'
 export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 'violet', 'orange'] as const
 export type ColorKey = typeof COLOR_KEYS[number]
 
+/**
+ * The colours a group may have (palette keys, shown as light Tailwind shades). Green, red, lime and sky are left out:
+ * the year calendar uses them for vacation, sick days, special leave and training.
+ */
+export const GROUP_COLORS = ['amber', 'orange', 'rose', 'fuchsia', 'violet', 'blue', 'teal', 'slate'] as const
+export type GroupColor = typeof GROUP_COLORS[number]
+export const isGroupColor = (value: string): value is GroupColor => (GROUP_COLORS as readonly string[]).includes(value)
+
 /** The consents (Einwilligungen) in a child's record; each matches a `consent_*` column of `children`. */
 export const CONSENT_KEYS = [
   'artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosWhatsapp',
@@ -60,6 +68,8 @@ export interface GroupDto {
   capacity: number | null
   /** After-school care: a child in this group on its school start stays instead of leaving the day before. */
   forSchoolChildren: boolean
+  /** Colour of the group's people in the year calendar and the leave planning (null = none). */
+  color: GroupColor | null
 }
 
 /**
@@ -957,7 +967,13 @@ export interface YearCalendarDto {
   year: number
   /** The public-holiday rules the calendar's staff follow (their home facility's state). */
   holidays: HolidayRules
-  employees: { id: number; name: string }[]
+  /**
+   * The rows, sorted by home group (in the groups' order, people without a group last; the usual order within), with
+   * the home group and its colour (null = no group, or a group without colour).
+   */
+  employees: { id: number; name: string; groupId: number | null; color: GroupColor | null }[]
+  /** The groups that have people in the calendar, in their order, for the legend. */
+  groups: { id: number; name: string; color: GroupColor | null }[]
   /** Per employee id: the calendar kind of each day that has one. */
   days: Record<number, Record<IsoDate, CalendarKind>>
   /** Per employee id: dates with plan entries other than the four absences (an absence would replace them). */
