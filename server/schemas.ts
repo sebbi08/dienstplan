@@ -230,7 +230,11 @@ const childMasterFields = z.object({
  * Saving the master data of an existing child. `baseGroupId` is the group the form was loaded with and is required:
  * an old client omitting it must not silently undo a group change that was applied while its form was open.
  */
-export const childMasterSchema = childMasterFields.extend({ baseGroupId: nullableId })
+export const childMasterSchema = childMasterFields.extend({
+  baseGroupId: nullableId,
+  // Left out = the stored one stays: the forms of those who may not change it (only Leitung and Träger) omit it.
+  schoolStartDate: optionalDate.optional(),
+})
 /** A planned group change: the new group, the change day and per section whether it is kept (false = confirm again). */
 export const groupChangeSchema = z.object({
   groupId: z.number().int().positive(),

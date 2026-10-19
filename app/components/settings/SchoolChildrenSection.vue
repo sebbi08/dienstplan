@@ -18,7 +18,7 @@ const notifySwitchedOff = useAutoLeaveNotice()
 const s = de.schoolChildren
 // Who left or is listed elsewhere changes with the switch; those lists follow.
 const { busy, run } = useBusyAction(async () => {
-  await Promise.all([refresh(), refreshNuxtData(['children-school-children', 'children-active', 'children-archive', 'children-occupancy', 'children-open', 'child-documents-overview'])])
+  await Promise.all([refresh(), refreshNuxtData(['children-school-children', 'children-active', 'children-archive', 'children-occupancy', 'children-open', 'child-documents-overview', 'child-school-cutoff'])])
 })
 
 const month = ref(6)

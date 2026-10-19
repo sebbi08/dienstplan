@@ -122,7 +122,9 @@ export interface ChildMasterInput {
 }
 
 /** The master data as saved for an existing child. */
-export interface ChildMasterUpdateInput extends ChildMasterInput {
+export interface ChildMasterUpdateInput extends Omit<ChildMasterInput, 'schoolStartDate'> {
+  /** Left out = the stored one stays; only Träger and Leitung may send another one (403 school_start_managers_only). */
+  schoolStartDate?: IsoDate | null
   /**
    * The group the form was loaded with. Only a `groupId` other than this one is a direct group change; with the same
    * one the stored group stays as it is, so a form that was open while a planned change was applied does not undo it.

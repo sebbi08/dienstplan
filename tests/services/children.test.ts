@@ -275,6 +275,14 @@ describe('child records', () => {
       expect(getChild(db, admin, id, TODAY).master).toMatchObject({ note: 'neu', schoolStartDate: '2029-09-01' })
     })
 
+    it('keeps the stored school start when a Mitarbeiter leaves the field out, even one changed since their form was loaded', () => {
+      const id = createChild(db, admin, 1, master({ birthDate: BIRTH }), NOW)
+      const { schoolStartDate: _, ...loaded } = getChild(db, editor, id, TODAY).master
+      updateChildMaster(db, admin, 1, id, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), TODAY, NOW)
+      updateChildMaster(db, editor, 1, id, { ...loaded, note: 'neu' }, TODAY, NOW)
+      expect(getChild(db, admin, id, TODAY).master).toMatchObject({ note: 'neu', schoolStartDate: '2029-09-01' })
+    })
+
     it('lets Leitung and Träger set, change and clear the school start', () => {
       const id = createChild(db, admin, 1, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), NOW)
       expect(stored(id)).toBe('2029-09-01')

@@ -293,8 +293,8 @@ export function createChild(
 }
 
 /**
- * Saves the master data. Only Träger and Leitung change the school start: everyone else sends the stored one along
- * (403 school_start_managers_only for another value, clearing included). A child that has already started (active) cannot become a Vormerkung any more
+ * Saves the master data. Only Träger and Leitung change the school start: everyone else leaves it out (the stored one
+ * stays) or sends the stored one (403 school_start_managers_only for another value, clearing included). A child that has already started (active) cannot become a Vormerkung any more
  * (400 waitlist_after_start); one that becomes a Vormerkung loses its planned group change.
  *
  * Another group than the one the form was loaded with (`baseGroupId`; left out: the stored one) is a direct group
@@ -318,8 +318,9 @@ export function updateChildMaster(
   if (input.admissionStatus === 'waitlist' && childStatus(row, today) === 'active') {
     throw new ServiceError(400, 'waitlist_after_start')
   }
-  const { baseGroupId = storedGroupId, ...fields } = input
-  assertSchoolStartRight(actor, fields.schoolStartDate, row.schoolStartDate)
+  const { baseGroupId = storedGroupId, schoolStartDate = row.schoolStartDate, ...rest } = input
+  assertSchoolStartRight(actor, schoolStartDate, row.schoolStartDate)
+  const fields = { ...rest, schoolStartDate }
   const groupChosen = fields.groupId !== baseGroupId
   // A person with group rights moves a child only into a group they may write in (or out of every group).
   if (groupChosen) assertGroupRight(actor, fields.groupId, 'write', 'group_not_found')

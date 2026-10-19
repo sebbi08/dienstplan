@@ -7,6 +7,7 @@ import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
+import { automaticSchoolStart, openSchoolStart, resyncSchoolStart, schoolStartToSave, type SchoolStartInput } from '~/utils/schoolStartForm'
 
 /**
  * Master data (Stammdaten): the section of the record, or, without `child`, the form that creates a new child.
@@ -33,10 +34,13 @@ const form = reactive({ ...empty })
 let loadedGroupId: number | null = null
 /** The date input for a school start by hand is open (Leitung or Träger chose "Ändern"). */
 const schoolStartOpen = ref(false)
+/** The computed date "Ändern" put into the input ('' = none, see `SchoolStartInput`). */
+const schoolStartPrefill = ref('')
 function reset() {
   const master = props.child?.master
   loadedGroupId = master?.groupId ?? null
   schoolStartOpen.value = false
+  schoolStartPrefill.value = ''
   Object.assign(form, master
     ? {
         ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0, keyEducatorId: master.keyEducatorId ?? 0,
@@ -104,34 +108,34 @@ const mayChangeSchoolStart = computed(() => !!rights.value?.isManager)
 /** '' while there is no valid birth date yet or the cutoff is still loading. */
 const autoSchoolStart = computed(() =>
   isValidIsoDate(form.birthDate) && schoolCutoff.value ? computedSchoolStart(form.birthDate, schoolCutoff.value) : '')
-const schoolStartManual = computed(() => form.schoolStartDate !== '')
+const schoolStartInput = (): SchoolStartInput => ({ value: form.schoolStartDate, prefill: schoolStartPrefill.value })
+function setSchoolStartInput(input: SchoolStartInput) {
+  form.schoolStartDate = input.value
+  schoolStartPrefill.value = input.prefill
+}
+/**
+ * The school start set by hand that a save stores, null = automatic. An untouched prefill of "Ändern" is no choice: the
+ * school start keeps following later changes of cutoff or birth date.
+ */
+const chosenSchoolStart = computed(() => schoolStartToSave(schoolStartInput()))
 const shownSchoolStart = computed(() => {
-  const value = form.schoolStartDate || autoSchoolStart.value
+  const value = chosenSchoolStart.value ?? autoSchoolStart.value
   return value ? formatDate(value) : ''
 })
 const schoolStartHelp = computed(() => [
-  schoolStartManual.value && autoSchoolStart.value ? de.schoolChildren.computed(formatDate(autoSchoolStart.value)) : '',
+  chosenSchoolStart.value !== null && autoSchoolStart.value ? de.schoolChildren.computed(formatDate(autoSchoolStart.value)) : '',
   mayChangeSchoolStart.value ? '' : de.schoolChildren.managersOnly,
 ].filter(Boolean).join(' · '))
+// A prefill the user has not touched moves along with the birth date.
+watch(autoSchoolStart, value => setSchoolStartInput(resyncSchoolStart(schoolStartInput(), value)))
 /** Opens the date input, starting from the school start shown. */
 function changeSchoolStart() {
-  form.schoolStartDate ||= autoSchoolStart.value
+  setSchoolStartInput(openSchoolStart(schoolStartInput(), autoSchoolStart.value))
   schoolStartOpen.value = true
 }
-function automaticSchoolStart() {
-  form.schoolStartDate = ''
+function backToAutomatic() {
+  setSchoolStartInput(automaticSchoolStart())
   schoolStartOpen.value = false
-}
-/**
- * The school start to save. Others than Leitung and Träger send the stored one along. A child without a school start
- * by hand keeps the automatic one when "Ändern" leaves the computed date as it is: storing it would stop the school
- * start from following a later change of cutoff or birth date.
- */
-function schoolStartToSave(): string | null {
-  const stored = props.child?.master.schoolStartDate ?? null
-  if (!mayChangeSchoolStart.value) return stored
-  const chosen = orNull(form.schoolStartDate)
-  return stored === null && chosen === autoSchoolStart.value ? null : chosen
 }
 
 function payload(): ChildMasterInput {
@@ -142,7 +146,8 @@ function payload(): ChildMasterInput {
     careTypeId: form.careTypeId || null,
     entryDate: waitlisted.value ? null : orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
     admissionStatus: form.admissionStatus, waitlistedOn: waitlisted.value ? orNull(form.waitlistedOn) : null,
-    infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: schoolStartToSave(),
+    // Others than Leitung and Träger create a child with the automatic school start (and leave it out when saving).
+    infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: mayChangeSchoolStart.value ? chosenSchoolStart.value : null,
     primarySchool: form.primarySchool, schoolDistrict: form.schoolDistrict, keyEducatorId: form.keyEducatorId || null,
     note: form.note,
   }
@@ -191,7 +196,11 @@ async function create(): Promise<boolean> {
 const runWithoutReload = useAction()
 async function update(): Promise<boolean> {
   const input = payload()
-  const request = () => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body: { ...input, baseGroupId: loadedGroupId } satisfies ChildMasterUpdateInput })
+  // Without the right to change it the school start is left out: the server keeps the stored one, even if Leitung or
+  // Träger changed it while this form was open.
+  const { schoolStartDate, ...fields } = input
+  const body: ChildMasterUpdateInput = { ...fields, ...(mayChangeSchoolStart.value ? { schoolStartDate } : {}), baseGroupId: loadedGroupId }
+  const request = () => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body })
   const hidden = hiddenAtTablet(input)
   if (!hidden) return run(request, de.common.saved)
   const ok = await runWithoutReload(request, HIDDEN_SAVED[hidden])
@@ -295,7 +304,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
             <p v-else class="py-1.5 text-sm">
               {{ shownSchoolStart || de.children.noValue }}
               <span v-if="shownSchoolStart" class="text-xs text-gray-500">
-                ({{ schoolStartManual ? de.schoolChildren.manual : de.schoolChildren.automaticByCutoff }})
+                ({{ chosenSchoolStart !== null ? de.schoolChildren.manual : de.schoolChildren.automaticByCutoff }})
               </span>
             </p>
             <UButton
@@ -303,8 +312,8 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
               icon="i-lucide-pencil" :label="de.schoolChildren.change" @click="changeSchoolStart"
             />
             <UButton
-              v-if="mayChangeSchoolStart && (schoolStartOpen || schoolStartManual)" type="button" size="xs" color="neutral"
-              variant="ghost" icon="i-lucide-rotate-ccw" :label="de.schoolChildren.backToAutomatic" @click="automaticSchoolStart"
+              v-if="mayChangeSchoolStart && (schoolStartOpen || chosenSchoolStart !== null)" type="button" size="xs" color="neutral"
+              variant="ghost" icon="i-lucide-rotate-ccw" :label="de.schoolChildren.backToAutomatic" @click="backToAutomatic"
             />
           </div>
         </UFormField>
