@@ -4,8 +4,10 @@ import type { ChildMasterInput, ChildContactInput } from '../../shared/types/api
 import type { Db } from '../../server/db/client'
 import { createCareType } from '../../server/services/careTypes'
 import { addContact } from '../../server/services/childContacts'
+import { setSchoolCutoff } from '../../server/services/schoolChildren'
+import { computedSchoolStart } from '../../shared/domain/schoolStart'
 import {
-  createChild, getChild, listBirthdays, listChildren, updateChildConsents, updateChildHealth, updateChildMaster,
+  childSchoolCutoff, createChild, getChild, listBirthdays, listChildren, updateChildConsents, updateChildHealth, updateChildMaster,
 } from '../../server/services/children'
 import type { ChildActor } from '../../server/lib/childViewer'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
@@ -224,6 +226,71 @@ describe('child records', () => {
       ])
       expect(result[1]).toMatchObject({ groupId, birthDate: '2023-10-12' })
       expect(result[0]!.childId).toBeGreaterThan(0)
+    })
+  })
+
+  describe('school start', () => {
+    // Born 1 July 2021: with the default cutoff (30 June, 6 years) school starts on 1 September 2028.
+    const BIRTH = '2021-07-01'
+    let editor: ChildActor
+    let provider: ChildActor
+    beforeEach(() => {
+      editor = asChildViewer({ ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true })
+      provider = asChildViewer(addUser(db, 'traeger', 'provider'))
+    })
+    const stored = (id: number) => getChild(db, admin, id, TODAY).master.schoolStartDate
+
+    it('refuses a school start from a Mitarbeiter when creating and stores nothing', () => {
+      expect(errorCode(() => createChild(db, editor, 1, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), NOW)))
+        .toBe('school_start_managers_only')
+      expect(listChildren(db, 1, 'active', TODAY, null)).toEqual([])
+    })
+
+    it('keeps the school start of a child a Mitarbeiter creates automatic: nothing stored, the computed one counts', () => {
+      const id = createChild(db, editor, 1, master({ birthDate: BIRTH }), NOW)
+      const record = getChild(db, admin, id, TODAY)
+      expect(record.master.schoolStartDate).toBeNull()
+      expect(record.computedSchoolStart).toBe('2028-09-01')
+      // It keeps following the cutoff.
+      setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
+      expect(getChild(db, admin, id, TODAY).computedSchoolStart).toBe('2027-09-01')
+    })
+
+    it('refuses a Mitarbeiter setting, changing or clearing the school start in the master data', () => {
+      const automatic = createChild(db, admin, 1, master({ birthDate: BIRTH }), NOW)
+      expect(errorCode(() => updateChildMaster(db, editor, 1, automatic, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), TODAY, NOW)))
+        .toBe('school_start_managers_only')
+      expect(stored(automatic)).toBeNull()
+      const manual = createChild(db, admin, 1, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), NOW)
+      expect(errorCode(() => updateChildMaster(db, editor, 1, manual, master({ birthDate: BIRTH, schoolStartDate: '2030-09-01' }), TODAY, NOW)))
+        .toBe('school_start_managers_only')
+      expect(errorCode(() => updateChildMaster(db, editor, 1, manual, master({ birthDate: BIRTH, schoolStartDate: null }), TODAY, NOW)))
+        .toBe('school_start_managers_only')
+      expect(stored(manual)).toBe('2029-09-01')
+    })
+
+    it('keeps a stored school start when a Mitarbeiter saves other master data', () => {
+      const id = createChild(db, admin, 1, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), NOW)
+      updateChildMaster(db, editor, 1, id, { ...getChild(db, editor, id, TODAY).master, note: 'neu' }, TODAY, NOW)
+      expect(getChild(db, admin, id, TODAY).master).toMatchObject({ note: 'neu', schoolStartDate: '2029-09-01' })
+    })
+
+    it('lets Leitung and Träger set, change and clear the school start', () => {
+      const id = createChild(db, admin, 1, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), NOW)
+      expect(stored(id)).toBe('2029-09-01')
+      updateChildMaster(db, provider, 1, id, master({ birthDate: BIRTH, schoolStartDate: '2030-09-01' }), TODAY, NOW)
+      expect(stored(id)).toBe('2030-09-01')
+      updateChildMaster(db, admin, 1, id, master({ birthDate: BIRTH, schoolStartDate: null }), TODAY, NOW)
+      expect(stored(id)).toBeNull()
+      expect(createChild(db, provider, 1, master({ birthDate: BIRTH, schoolStartDate: '2029-09-01' }), NOW)).toBeGreaterThan(0)
+    })
+
+    it('gives the child pages the cutoff the record computes the school start with', () => {
+      setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
+      const id = createChild(db, editor, 1, master({ birthDate: BIRTH }), NOW)
+      const preview = computedSchoolStart(BIRTH, childSchoolCutoff(db, editor))
+      expect(preview).toBe(getChild(db, editor, id, TODAY).computedSchoolStart)
+      expect(preview).toBe('2027-09-01')
     })
   })
 })

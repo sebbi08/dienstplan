@@ -252,6 +252,10 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
   einen Tag später ein.
 - Schulstart ist immer der 1. September. Ein von Hand eingetragener „voraussichtlicher Schulstart“
   (z. B. bei Zurückstellung) hat Vorrang.
+- In der Kinderakte steht der „voraussichtliche Schulstart“ schon beim Anlegen da, sobald das Geburtsdatum
+  eingetragen ist („automatisch nach Stichtag“). Ändern („Ändern“, zurück mit „Wieder automatisch“) können ihn nur
+  Leitung und Träger; für alle anderen ist er nur zu lesen. Ein automatischer Schulstart folgt späteren Änderungen
+  von Stichtag oder Geburtsdatum.
 - Ab 1. März zeigt die Belegung die Liste **„Schulkinder zum 1.9.“**, damit du Zurückstellungen rechtzeitig
   einträgst.
 

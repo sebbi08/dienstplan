@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { todayIso } from '#shared/domain/dates'
+import { isValidIsoDate, todayIso } from '#shared/domain/dates'
 import type { AdmissionStatus } from '#shared/domain/children'
+import { computedSchoolStart } from '#shared/domain/schoolStart'
 import type { ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
@@ -17,7 +18,7 @@ import { formatDate } from '~/utils/format'
 const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown>; initialStatus?: AdmissionStatus }>()
 const run = useAction(async () => { await props.reload?.() })
 const { rights } = useChildRights()
-const { groups, careTypes, staff, canPickGroup, groupName, careTypeName } = props.lookups
+const { groups, careTypes, staff, schoolCutoff, canPickGroup, groupName, careTypeName } = props.lookups
 
 const creating = !props.child
 const editing = ref(creating)
@@ -30,9 +31,12 @@ const form = reactive({ ...empty })
  * one as a group change: a form that was open while a planned change was applied does not undo it.
  */
 let loadedGroupId: number | null = null
+/** The date input for a school start by hand is open (Leitung or Träger chose "Ändern"). */
+const schoolStartOpen = ref(false)
 function reset() {
   const master = props.child?.master
   loadedGroupId = master?.groupId ?? null
+  schoolStartOpen.value = false
   Object.assign(form, master
     ? {
         ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0, keyEducatorId: master.keyEducatorId ?? 0,
@@ -91,6 +95,45 @@ const groupItems = computed(() => {
 const staffItems = computed(() => [{ label: de.children.noKeyEducator, value: 0 }, ...staff.value.map(person => ({ label: person.name, value: person.id }))])
 const careTypeItems = computed(() => [{ label: de.children.noSelection, value: 0 }, ...careTypes.value.map(type => ({ label: type.name, value: type.id }))])
 
+/**
+ * The school start: the one the facility's cutoff yields for the birth date in the form, unless Leitung or Träger set
+ * another one by hand (`form.schoolStartDate`, '' = automatic). Only they may change it, the server refuses it from
+ * everyone else.
+ */
+const mayChangeSchoolStart = computed(() => !!rights.value?.isManager)
+/** '' while there is no valid birth date yet or the cutoff is still loading. */
+const autoSchoolStart = computed(() =>
+  isValidIsoDate(form.birthDate) && schoolCutoff.value ? computedSchoolStart(form.birthDate, schoolCutoff.value) : '')
+const schoolStartManual = computed(() => form.schoolStartDate !== '')
+const shownSchoolStart = computed(() => {
+  const value = form.schoolStartDate || autoSchoolStart.value
+  return value ? formatDate(value) : ''
+})
+const schoolStartHelp = computed(() => [
+  schoolStartManual.value && autoSchoolStart.value ? de.schoolChildren.computed(formatDate(autoSchoolStart.value)) : '',
+  mayChangeSchoolStart.value ? '' : de.schoolChildren.managersOnly,
+].filter(Boolean).join(' · '))
+/** Opens the date input, starting from the school start shown. */
+function changeSchoolStart() {
+  form.schoolStartDate ||= autoSchoolStart.value
+  schoolStartOpen.value = true
+}
+function automaticSchoolStart() {
+  form.schoolStartDate = ''
+  schoolStartOpen.value = false
+}
+/**
+ * The school start to save. Others than Leitung and Träger send the stored one along. A child without a school start
+ * by hand keeps the automatic one when "Ändern" leaves the computed date as it is: storing it would stop the school
+ * start from following a later change of cutoff or birth date.
+ */
+function schoolStartToSave(): string | null {
+  const stored = props.child?.master.schoolStartDate ?? null
+  if (!mayChangeSchoolStart.value) return stored
+  const chosen = orNull(form.schoolStartDate)
+  return stored === null && chosen === autoSchoolStart.value ? null : chosen
+}
+
 function payload(): ChildMasterInput {
   return {
     lastName: form.lastName, firstName: form.firstName, birthDate: form.birthDate, address: form.address,
@@ -99,7 +142,7 @@ function payload(): ChildMasterInput {
     careTypeId: form.careTypeId || null,
     entryDate: waitlisted.value ? null : orNull(form.entryDate), plannedEntryDate: orNull(form.plannedEntryDate),
     admissionStatus: form.admissionStatus, waitlistedOn: waitlisted.value ? orNull(form.waitlistedOn) : null,
-    infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: orNull(form.schoolStartDate),
+    infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: schoolStartToSave(),
     primarySchool: form.primarySchool, schoolDistrict: form.schoolDistrict, keyEducatorId: form.keyEducatorId || null,
     note: form.note,
   }
@@ -171,11 +214,14 @@ function cancel() {
 
 const f = de.children.fields
 const a = de.children.admission
-/** The school start the facility's cutoff yields; the manual date wins over it. Not known while a child is created. */
-const computedText = computed(() => (props.child ? de.schoolChildren.computed(formatDate(props.child.computedSchoolStart)) : ''))
-const rows = computed<{ label: string; value: string; multiline?: boolean; hint?: string; badge?: string }[]>(() => {
+const rows = computed<{ label: string; value: string; multiline?: boolean; hint?: string }[]>(() => {
   const master = props.child?.master
   if (!master) return []
+  // The effective school start: the one set by hand wins over the one the facility's cutoff yields.
+  const computedStart = props.child!.computedSchoolStart
+  const schoolStartHint = master.schoolStartDate === null
+    ? de.schoolChildren.automatic
+    : `${de.schoolChildren.manual} · ${de.schoolChildren.computed(formatDate(computedStart))}`
   const date = (value: string | null) => (value ? formatDate(value) : '')
   return [
     { label: f.birthDate, value: date(master.birthDate) },
@@ -187,10 +233,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     { label: f.entryDate, value: date(master.entryDate) },
     { label: f.plannedEntryDate, value: date(master.plannedEntryDate) },
     { label: f.infoMeetingDate, value: date(master.infoMeetingDate) },
-    {
-      label: f.schoolStartDate, value: date(master.schoolStartDate), hint: computedText.value,
-      badge: master.schoolStartDate !== null ? de.schoolChildren.deviating : '',
-    },
+    { label: f.schoolStartDate, value: date(master.schoolStartDate ?? computedStart), hint: schoolStartHint },
     { label: f.primarySchool, value: master.primarySchool },
     { label: f.schoolDistrict, value: master.schoolDistrict },
     { label: f.keyEducator, value: props.child?.keyEducatorName ?? '' },
@@ -227,7 +270,6 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
         <dt class="text-xs text-gray-500">{{ row.label }}</dt>
         <dd :class="row.multiline ? 'whitespace-pre-line' : ''">
           {{ row.value || de.children.noValue }}
-          <UBadge v-if="row.badge" color="warning" variant="subtle" size="sm" class="ml-1" :label="row.badge" />
         </dd>
         <p v-if="row.hint" class="text-xs text-gray-500">{{ row.hint }}</p>
       </div>
@@ -247,7 +289,25 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
         <UFormField :label="f.entryDate"><UInput v-model="form.entryDate" type="date" :disabled="waitlisted" class="w-full" /></UFormField>
         <UFormField :label="f.plannedEntryDate"><UInput v-model="form.plannedEntryDate" type="date" class="w-full" /></UFormField>
         <UFormField :label="f.infoMeetingDate"><UInput v-model="form.infoMeetingDate" type="date" class="w-full" /></UFormField>
-        <UFormField :label="f.schoolStartDate" :help="computedText || undefined"><UInput v-model="form.schoolStartDate" type="date" class="w-full" /></UFormField>
+        <UFormField :label="f.schoolStartDate" :help="schoolStartHelp || undefined">
+          <div class="flex flex-wrap items-center gap-2">
+            <UInput v-if="schoolStartOpen" v-model="form.schoolStartDate" type="date" class="min-w-0 flex-1" />
+            <p v-else class="py-1.5 text-sm">
+              {{ shownSchoolStart || de.children.noValue }}
+              <span v-if="shownSchoolStart" class="text-xs text-gray-500">
+                ({{ schoolStartManual ? de.schoolChildren.manual : de.schoolChildren.automaticByCutoff }})
+              </span>
+            </p>
+            <UButton
+              v-if="mayChangeSchoolStart && !schoolStartOpen" type="button" size="xs" color="neutral" variant="outline"
+              icon="i-lucide-pencil" :label="de.schoolChildren.change" @click="changeSchoolStart"
+            />
+            <UButton
+              v-if="mayChangeSchoolStart && (schoolStartOpen || schoolStartManual)" type="button" size="xs" color="neutral"
+              variant="ghost" icon="i-lucide-rotate-ccw" :label="de.schoolChildren.backToAutomatic" @click="automaticSchoolStart"
+            />
+          </div>
+        </UFormField>
         <UFormField :label="f.primarySchool"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
         <UFormField :label="f.schoolDistrict"><UInput v-model="form.schoolDistrict" maxlength="100" class="w-full" /></UFormField>
         <UFormField :label="f.keyEducator"><USelect v-model="form.keyEducatorId" :items="staffItems" class="w-full" /></UFormField>

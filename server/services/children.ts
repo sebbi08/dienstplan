@@ -3,7 +3,7 @@ import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '.
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { groupRight } from '../../shared/domain/groupAccess'
 import { isManager, mayEditChildren } from '../../shared/domain/roles'
-import { computedSchoolStart } from '../../shared/domain/schoolStart'
+import { computedSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
@@ -207,6 +207,22 @@ export function getChild(
   }
 }
 
+/**
+ * The facility's school cutoff for everyone who sees child records: the form computes with it the school start of a
+ * child being entered, as `getChild` does for a stored one. The cutoff is not sensitive.
+ */
+export function childSchoolCutoff(db: Db, viewer: ChildViewer): SchoolCutoff {
+  return schoolCutoffOf(db, viewer.facilityId)
+}
+
+/**
+ * Only Träger and Leitung set the school start by hand (403 school_start_managers_only): for everyone else the input
+ * has to carry the stored value (`stored`; null for a new child, whose school start then stays the computed one).
+ */
+function assertSchoolStartRight(actor: ChildActor, input: IsoDate | null, stored: IsoDate | null): void {
+  if (!isManager(actor.role) && input !== stored) throw new ServiceError(403, 'school_start_managers_only')
+}
+
 function checkedDate(value: IsoDate | null): IsoDate | null {
   if (value !== null && !isValidIsoDate(value)) throw new ServiceError(400, 'invalid_date')
   return value
@@ -250,7 +266,9 @@ function checkedMaster(
 }
 
 /**
- * A new child of the facility with the start entry of its group history; returns its id. A record the automatic
+ * A new child of the facility with the start entry of its group history; returns its id. Without a school start the
+ * computed one counts (nothing is stored, so it follows later changes of cutoff or birth date); only Träger and Leitung
+ * may enter one (403 school_start_managers_only, see `assertSchoolStartRight`). A record the automatic
  * leaving would take at its next run is not created (409 would_deregister, see `guardAgainstLeaving`). A person with
  * group rights creates it only in a group they may write in: 403 group_read_only for a read-only group, 404
  * group_not_found for a hidden one.
@@ -261,6 +279,7 @@ export function createChild(
   const today = todayIso(now)
   // A person with group rights creates children only in a group they may write in (or without group).
   assertGroupRight(actor, input.groupId, 'write', 'group_not_found')
+  assertSchoolStartRight(actor, input.schoolStartDate, null)
   const master = checkedMaster(db, facilityId, input, today)
   return db.transaction((tx) => {
     const assertStays = guardAgainstLeaving(tx, facilityId, today)
@@ -274,7 +293,8 @@ export function createChild(
 }
 
 /**
- * Saves the master data. A child that has already started (active) cannot become a Vormerkung any more
+ * Saves the master data. Only Träger and Leitung change the school start: everyone else sends the stored one along
+ * (403 school_start_managers_only for another value, clearing included). A child that has already started (active) cannot become a Vormerkung any more
  * (400 waitlist_after_start); one that becomes a Vormerkung loses its planned group change.
  *
  * Another group than the one the form was loaded with (`baseGroupId`; left out: the stored one) is a direct group
@@ -299,6 +319,7 @@ export function updateChildMaster(
     throw new ServiceError(400, 'waitlist_after_start')
   }
   const { baseGroupId = storedGroupId, ...fields } = input
+  assertSchoolStartRight(actor, fields.schoolStartDate, row.schoolStartDate)
   const groupChosen = fields.groupId !== baseGroupId
   // A person with group rights moves a child only into a group they may write in (or out of every group).
   if (groupChosen) assertGroupRight(actor, fields.groupId, 'write', 'group_not_found')
