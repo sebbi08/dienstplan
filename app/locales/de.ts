@@ -711,6 +711,12 @@ export const de = {
     notYet: 'noch nicht da', presentSince: (time: string) => `da seit ${time}`,
     goneAt: (time: string, name: string | null) => (name ? `abgeholt ${time} · ${name}` : `abgeholt ${time}`),
     pickupToday: (names: string) => `Abholer heute: ${names}`,
+    // The compact row of the day list (tap it for everything else) and the collapsible group headings.
+    row: {
+      goneAt: (time: string) => (time ? `abgeholt um ${time}` : 'abgeholt'),
+      allergy: 'Allergie', note: 'Notiz vorhanden', changed: 'geändert', contactBan: 'Kontaktverbot',
+      meals: 'Essen', children: (n: number) => (n === 1 ? '1 Kind' : `${n} Kinder`),
+    },
     broughtByShort: (name: string) => `gebracht von ${name}`,
     plannedPickup: 'Abholung', plannedPickupLabel: 'Geplante Abholzeit',
     pickupOverdue: (time: string) => `Abholzeit ${time} überschritten`,

@@ -7,6 +7,10 @@ import type { IsoDate } from '#shared/domain/types'
 import type { AttendanceChildDto, AttendanceDayDto, AttendanceDayInput } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { attendanceStatusText, confirmedWithText, parseClock, stayText } from '~/utils/attendance'
+import {
+  ATTENDANCE_ROW_CLASS, ATTENDANCE_STATUS_CLASS, attendanceQuickAction, attendanceRowTone, compactStatusText, countedMealNames,
+  readClosedAttendanceGroups, writeClosedAttendanceGroups,
+} from '~/utils/attendanceRow'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
@@ -17,6 +21,10 @@ import { formatDate } from '~/utils/format'
  * "Kommt", "Geht" and "Abholer ankündigen" are offered, the rest is shown read only, and its name opens the record only
  * when that group may be read. The printouts are for Leitung and Träger off the tablet. Nothing here asks the server on
  * a timer (only the overdue marker follows a local clock), so the tablet's lock time runs.
+ *
+ * Every child is one compact row (status, planned pickup, the meals counted, small markers, the contact ban always in
+ * red) with "Kommt" or "Geht" on its right; tapping the row opens everything else below it (several rows may be open,
+ * for this page view only). The group headings close and open their children, remembered per device.
  */
 const { rights, onTablet } = useChildRights()
 const canPrint = computed(() => !!rights.value?.isManager && !onTablet.value)
@@ -40,10 +48,25 @@ function openDay(iso: IsoDate) {
 }
 
 const sections = computed(() => (data.value?.groups ?? []).map(group => ({
-  key: group.id ?? 'none',
+  key: group.id === null ? 'none' : String(group.id),
   name: group.id === null ? s.noGroup : group.name,
   rows: (data.value?.children ?? []).filter(child => child.groupId === group.id),
 })))
+
+// Rows opened by tapping (several at once, kept for this page view only, also across days).
+const openRows = reactive(new Set<number>())
+function toggleRow(child: AttendanceChildDto) {
+  if (openRows.has(child.childId)) openRows.delete(child.childId)
+  else openRows.add(child.childId)
+}
+
+// Closed group headings, remembered per device; read after mounting so the server's page (all open) matches.
+const closedGroups = ref<string[]>([])
+onMounted(() => (closedGroups.value = readClosedAttendanceGroups()))
+function toggleGroup(key: string) {
+  closedGroups.value = closedGroups.value.includes(key) ? closedGroups.value.filter(entry => entry !== key) : [...closedGroups.value, key]
+  writeClosedAttendanceGroups(closedGroups.value)
+}
 
 /** The stays never closed on earlier days, one line per day ("Gestern nicht ausgestempelt: …"). */
 const openStayDays = computed(() => {
@@ -153,12 +176,10 @@ function isOverdue(child: AttendanceChildDto): boolean {
 /** A later day: stamping in and out is not possible there yet (absences and announced persons are). */
 const isFutureDay = computed(() => !!data.value && data.value.date > (berlinNow.value?.date ?? todayIso()))
 
-const isAbsent = (child: AttendanceChildDto) => !['not_yet', 'present', 'gone'].includes(child.status)
-const statusClass = (child: AttendanceChildDto) => ({
-  'text-green-700': child.status === 'present',
-  'text-gray-600': child.status === 'gone' || child.status === 'not_yet',
-  'text-amber-700': isAbsent(child),
-})
+/** The row's colour (and its status text's), by status; red for an overdue pickup. */
+const rowTone = (child: AttendanceChildDto) => attendanceRowTone(child, isOverdue(child))
+const statusClass = (child: AttendanceChildDto) => ATTENDANCE_STATUS_CLASS[rowTone(child)]
+const quickAction = (child: AttendanceChildDto) => attendanceQuickAction(child, isFutureDay.value)
 const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green-400' : 'bg-white text-gray-600 ring-gray-300')
 </script>
 
@@ -206,112 +227,178 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
 
         <p v-if="!sections.length" class="text-sm text-gray-500">{{ s.noChildren }}</p>
         <section v-for="section in sections" :key="section.key" class="space-y-1">
-          <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ section.name }}</h2>
-          <ul class="divide-y divide-gray-200 overflow-hidden rounded-lg bg-white ring-1 ring-gray-200">
-            <li
-              v-for="child in section.rows" :key="child.childId"
-              class="grid gap-3 p-3 lg:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)_auto] lg:items-start"
-              :class="isOverdue(child) ? 'bg-red-50 ring-2 ring-inset ring-red-500' : ''"
+          <h2>
+            <button
+              type="button"
+              class="flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-left text-sm font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary"
+              :aria-expanded="!closedGroups.includes(section.key)" :aria-controls="`attendance-group-${section.key}`" @click="toggleGroup(section.key)"
             >
-              <!-- Name and status -->
-              <div class="min-w-0 space-y-0.5">
-                <div class="flex items-center gap-1">
-                  <NuxtLink
-                    v-if="child.recordReadable" :to="`/children/${child.childId}`" class="truncate text-base font-medium text-sky-700 hover:underline"
-                  >
-                    {{ child.name }}
-                  </NuxtLink>
-                  <span v-else class="truncate text-base font-medium">{{ child.name }}</span>
-                  <UButton
-                    v-if="child.changed" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral" variant="ghost" icon="i-lucide-history"
-                    :aria-label="s.changed" :title="s.changed"
-                    @click="openDialog('history', child)"
+              <UIcon :name="closedGroups.includes(section.key) ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'" class="size-5 shrink-0" aria-hidden="true" />
+              <span>{{ section.name }}</span>
+              <span class="font-normal normal-case tracking-normal text-gray-500">· {{ s.row.children(section.rows.length) }}</span>
+            </button>
+          </h2>
+          <ul
+            v-show="!closedGroups.includes(section.key)" :id="`attendance-group-${section.key}`"
+            class="divide-y divide-gray-200 overflow-hidden rounded-lg bg-white ring-1 ring-gray-200"
+          >
+            <li v-for="child in section.rows" :key="child.childId" class="border-l-4" :class="ATTENDANCE_ROW_CLASS[rowTone(child)]">
+              <!-- The compact row: tapping it opens the rest; "Kommt" or "Geht" works without opening. -->
+              <div class="flex items-center gap-2 px-2 py-1.5">
+                <button
+                  type="button"
+                  class="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-1 text-left focus-visible:outline-2 focus-visible:outline-primary"
+                  :aria-expanded="openRows.has(child.childId)" :aria-controls="`attendance-row-${child.childId}`" @click="toggleRow(child)"
+                >
+                  <UIcon
+                    :name="openRows.has(child.childId) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-5 shrink-0 text-gray-500"
+                    aria-hidden="true"
                   />
-                </div>
-                <p class="font-medium" :class="statusClass(child)">{{ attendanceStatusText(child) }}</p>
-                <p v-if="isOverdue(child) && child.plannedPickup !== null" class="flex items-center gap-1 font-semibold text-red-700" role="alert">
-                  <UIcon name="i-lucide-alarm-clock" class="size-4" />{{ s.pickupOverdue(formatTime(child.plannedPickup)) }}
-                </p>
-                <p v-if="child.announcements.length" class="text-sm text-sky-800">{{ s.pickupToday(child.announcements.map(entry => entry.name).join(', ')) }}</p>
-                <p v-if="data.recordBroughtBy && child.broughtBy" class="text-sm text-gray-600">{{ s.broughtByShort(child.broughtBy) }}</p>
-                <div v-if="child.stays.length" class="flex flex-wrap gap-1 pt-1">
-                  <div v-for="stay in child.stays" :key="stay.id" class="space-y-0.5">
-                    <UButton
-                      v-if="child.own" size="md" color="neutral" variant="soft" icon="i-lucide-pencil" :label="stayText(stay)"
-                      :aria-label="[`${s.editStay}: ${stayText(stay)}`, confirmedWithText(stay)].filter(Boolean).join(', ')"
-                      @click="openDialog('stay', child, stay.id)"
-                    />
-                    <!-- Another group's child: the times are shown, corrections are for its own group. -->
-                    <p v-else class="rounded-md bg-gray-100 px-2 py-1 text-sm text-gray-700">{{ stayText(stay) }}</p>
-                    <!-- "Rücksprache mit" of a person typed by hand, readable on the tablet too. -->
-                    <p v-if="confirmedWithText(stay)" class="px-1 text-xs text-gray-600" aria-hidden="true">{{ confirmedWithText(stay) }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Planned pickup and meals -->
-              <!-- Another group's child: planned pickup and meals as text (the own group changes them). -->
-              <div v-if="!child.own" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
-                <span v-if="child.plannedPickup !== null">{{ s.plannedPickup }}: {{ formatTime(child.plannedPickup) }}</span>
-                <span v-for="meal in data.meals" :key="meal.mealId" class="inline-flex items-center gap-1">
-                  <UIcon :name="mealCounted(child, meal.mealId) ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-4" aria-hidden="true" />
-                  {{ meal.name }}<span class="sr-only">: {{ mealCounted(child, meal.mealId) ? s.history.yes : s.history.no }}</span>
-                </span>
-              </div>
-              <div v-else class="flex flex-wrap items-end gap-2">
-                <UFormField v-if="drafts[child.childId] && (child.stays.length || child.plannedPickup !== null)" :label="s.plannedPickup">
-                  <TimeInput
-                    v-model="drafts[child.childId]!.plannedPickup" any-minute size="lg" class="w-24" :aria-label="s.plannedPickupLabel"
-                    :disabled="saving[child.childId]" @blur="savePlannedPickup(child)" @keydown.enter="blurOnEnter"
-                  />
-                </UFormField>
-                <div v-for="meal in data.meals" :key="meal.mealId" class="flex items-center">
-                  <button
-                    type="button" class="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ring-1" :class="mealButton(mealCounted(child, meal.mealId))"
-                    :aria-pressed="mealCounted(child, meal.mealId)" :disabled="saving[child.childId]"
-                    @click="setMeal(child, meal.mealId, !mealCounted(child, meal.mealId))"
-                  >
-                    <UIcon :name="mealCounted(child, meal.mealId) ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-5" />
-                    {{ meal.name }}
-                    <span v-if="mealManual(child, meal.mealId)" class="text-xs text-gray-500">({{ s.manual }})</span>
-                  </button>
-                  <UButton
-                    v-if="mealManual(child, meal.mealId)" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral"
-                    variant="ghost" icon="i-lucide-rotate-ccw"
-                    :aria-label="`${meal.name}: ${s.resetMeal}`" :title="s.resetMeal" :disabled="saving[child.childId]" @click="setMeal(child, meal.mealId, null)"
-                  />
-                </div>
-              </div>
-
-              <!-- Info column: allergies from the record, then the day's note -->
-              <div class="min-w-0 space-y-1">
-                <p v-if="child.allergies" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
-                  <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" /><span class="whitespace-pre-line break-words">{{ s.allergies }}: {{ child.allergies }}</span>
-                </p>
-                <p v-if="child.insectRepellent === false" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
-                  <UIcon name="i-lucide-bug-off" class="mt-0.5 size-4 shrink-0" /><span>{{ s.noInsectRepellent }}</span>
-                </p>
-                <template v-if="!child.own">
-                  <p v-if="child.note" class="whitespace-pre-line break-words text-sm text-gray-700">{{ child.note }}</p>
-                </template>
-                <UTextarea
-                  v-else-if="drafts[child.childId]" v-model="drafts[child.childId]!.note" :rows="1" autoresize maxlength="2000" class="w-full"
-                  :placeholder="s.notePlaceholder" :aria-label="`${s.note}: ${child.name}`" :disabled="saving[child.childId]" @blur="saveNote(child)"
-                />
-              </div>
-
-              <!-- Actions by status -->
-              <div class="flex flex-wrap gap-2 lg:max-w-80 lg:justify-end">
+                  <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span class="text-base font-medium">{{ child.name }}</span>
+                    <span class="font-medium" :class="statusClass(child)">· {{ compactStatusText(child) }}</span>
+                    <span v-if="child.plannedPickup !== null" class="text-sm text-gray-700">· {{ s.plannedPickup }} {{ formatTime(child.plannedPickup) }}</span>
+                    <span v-if="countedMealNames(child, data.meals).length" class="inline-flex flex-wrap items-center gap-x-2 text-sm text-green-800">
+                      <span class="sr-only">{{ s.row.meals }}:</span>
+                      <span v-for="name in countedMealNames(child, data.meals)" :key="name" class="inline-flex items-center gap-0.5">
+                        <UIcon name="i-lucide-check" class="size-4" aria-hidden="true" />{{ name }}
+                      </span>
+                    </span>
+                    <span
+                      v-if="child.hasContactBan"
+                      class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-sm font-semibold text-red-800 ring-1 ring-red-300"
+                    >
+                      <UIcon name="i-lucide-ban" class="size-4" aria-hidden="true" />{{ s.row.contactBan }}
+                    </span>
+                    <span v-if="child.allergies" class="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                      <UIcon name="i-lucide-triangle-alert" class="size-3.5" aria-hidden="true" />{{ s.row.allergy }}
+                    </span>
+                    <span
+                      v-if="child.insectRepellent === false"
+                      class="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900"
+                    >
+                      <UIcon name="i-lucide-bug-off" class="size-3.5" aria-hidden="true" />{{ s.noInsectRepellent }}
+                    </span>
+                    <span v-if="child.note" class="inline-flex items-center text-gray-600" :title="s.row.note">
+                      <UIcon name="i-lucide-notebook-pen" class="size-4" aria-hidden="true" /><span class="sr-only">{{ s.row.note }}</span>
+                    </span>
+                    <span v-if="child.changed" class="inline-flex items-center text-gray-600" :title="s.changed">
+                      <UIcon name="i-lucide-history" class="size-4" aria-hidden="true" /><span class="sr-only">{{ s.row.changed }}</span>
+                    </span>
+                  </span>
+                </button>
                 <UButton
-                  v-if="!isFutureDay && child.status !== 'present'" size="xl" color="success" icon="i-lucide-log-in" :label="s.actions.arrive"
+                  v-if="quickAction(child) === 'arrive'" size="xl" color="success" icon="i-lucide-log-in" :label="s.actions.arrive" class="min-h-11 shrink-0"
                   @click="openDialog('arrive', child)"
                 />
-                <UButton v-if="!isFutureDay && child.status === 'present'" size="xl" icon="i-lucide-log-out" :label="s.actions.leave" @click="openDialog('leave', child)" />
                 <UButton
-                  v-if="child.own && !child.stays.length" size="xl" color="neutral" variant="outline" icon="i-lucide-calendar-x" :label="s.actions.absent"
-                  @click="openDialog('absent', child)"
+                  v-else-if="quickAction(child) === 'leave'" size="xl" icon="i-lucide-log-out" :label="s.actions.leave" class="min-h-11 shrink-0"
+                  @click="openDialog('leave', child)"
                 />
-                <UButton size="xl" color="neutral" variant="outline" icon="i-lucide-user-plus" :label="s.actions.announce" @click="openDialog('announce', child)" />
+              </div>
+              <p
+                v-if="isOverdue(child) && child.plannedPickup !== null" class="flex items-center gap-1 px-3 pb-2 font-semibold text-red-700" role="alert"
+              >
+                <UIcon name="i-lucide-alarm-clock" class="size-4" />{{ s.pickupOverdue(formatTime(child.plannedPickup)) }}
+              </p>
+
+              <!-- Opened: everything of the day (Kommt and Geht stay in the row above). -->
+              <div
+                v-if="openRows.has(child.childId)" :id="`attendance-row-${child.childId}`"
+                class="grid gap-3 border-t border-gray-200 bg-white p-3 lg:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)_auto] lg:items-start"
+              >
+                <!-- Name and status -->
+                <div class="min-w-0 space-y-0.5">
+                  <div class="flex items-center gap-1">
+                    <NuxtLink
+                      v-if="child.recordReadable" :to="`/children/${child.childId}`" class="truncate text-base font-medium text-sky-700 hover:underline"
+                    >
+                      {{ child.name }}
+                    </NuxtLink>
+                    <span v-else class="truncate text-base font-medium">{{ child.name }}</span>
+                    <UButton
+                      v-if="child.changed" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral" variant="ghost" icon="i-lucide-history"
+                      :aria-label="s.changed" :title="s.changed"
+                      @click="openDialog('history', child)"
+                    />
+                  </div>
+                  <p class="font-medium" :class="statusClass(child)">{{ attendanceStatusText(child) }}</p>
+                  <p v-if="child.announcements.length" class="text-sm text-sky-800">{{ s.pickupToday(child.announcements.map(entry => entry.name).join(', ')) }}</p>
+                  <p v-if="data.recordBroughtBy && child.broughtBy" class="text-sm text-gray-600">{{ s.broughtByShort(child.broughtBy) }}</p>
+                  <div v-if="child.stays.length" class="flex flex-wrap gap-1 pt-1">
+                    <div v-for="stay in child.stays" :key="stay.id" class="space-y-0.5">
+                      <UButton
+                        v-if="child.own" size="md" color="neutral" variant="soft" icon="i-lucide-pencil" :label="stayText(stay)"
+                        :aria-label="[`${s.editStay}: ${stayText(stay)}`, confirmedWithText(stay)].filter(Boolean).join(', ')"
+                        @click="openDialog('stay', child, stay.id)"
+                      />
+                      <!-- Another group's child: the times are shown, corrections are for its own group. -->
+                      <p v-else class="rounded-md bg-gray-100 px-2 py-1 text-sm text-gray-700">{{ stayText(stay) }}</p>
+                      <!-- "Rücksprache mit" of a person typed by hand, readable on the tablet too. -->
+                      <p v-if="confirmedWithText(stay)" class="px-1 text-xs text-gray-600" aria-hidden="true">{{ confirmedWithText(stay) }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Planned pickup and meals -->
+                <!-- Another group's child: planned pickup and meals as text (the own group changes them). -->
+                <div v-if="!child.own" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
+                  <span v-if="child.plannedPickup !== null">{{ s.plannedPickup }}: {{ formatTime(child.plannedPickup) }}</span>
+                  <span v-for="meal in data.meals" :key="meal.mealId" class="inline-flex items-center gap-1">
+                    <UIcon :name="mealCounted(child, meal.mealId) ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-4" aria-hidden="true" />
+                    {{ meal.name }}<span class="sr-only">: {{ mealCounted(child, meal.mealId) ? s.history.yes : s.history.no }}</span>
+                  </span>
+                </div>
+                <div v-else class="flex flex-wrap items-end gap-2">
+                  <UFormField v-if="drafts[child.childId] && (child.stays.length || child.plannedPickup !== null)" :label="s.plannedPickup">
+                    <TimeInput
+                      v-model="drafts[child.childId]!.plannedPickup" any-minute size="lg" class="w-24" :aria-label="s.plannedPickupLabel"
+                      :disabled="saving[child.childId]" @blur="savePlannedPickup(child)" @keydown.enter="blurOnEnter"
+                    />
+                  </UFormField>
+                  <div v-for="meal in data.meals" :key="meal.mealId" class="flex items-center">
+                    <button
+                      type="button" class="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ring-1" :class="mealButton(mealCounted(child, meal.mealId))"
+                      :aria-pressed="mealCounted(child, meal.mealId)" :disabled="saving[child.childId]"
+                      @click="setMeal(child, meal.mealId, !mealCounted(child, meal.mealId))"
+                    >
+                      <UIcon :name="mealCounted(child, meal.mealId) ? 'i-lucide-square-check' : 'i-lucide-square'" class="size-5" />
+                      {{ meal.name }}
+                      <span v-if="mealManual(child, meal.mealId)" class="text-xs text-gray-500">({{ s.manual }})</span>
+                    </button>
+                    <UButton
+                      v-if="mealManual(child, meal.mealId)" size="lg" class="min-h-11 min-w-11 justify-center" color="neutral"
+                      variant="ghost" icon="i-lucide-rotate-ccw"
+                      :aria-label="`${meal.name}: ${s.resetMeal}`" :title="s.resetMeal" :disabled="saving[child.childId]" @click="setMeal(child, meal.mealId, null)"
+                    />
+                  </div>
+                </div>
+
+                <!-- Info column: allergies from the record, then the day's note -->
+                <div class="min-w-0 space-y-1">
+                  <p v-if="child.allergies" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
+                    <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" /><span class="whitespace-pre-line break-words">{{ s.allergies }}: {{ child.allergies }}</span>
+                  </p>
+                  <p v-if="child.insectRepellent === false" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
+                    <UIcon name="i-lucide-bug-off" class="mt-0.5 size-4 shrink-0" /><span>{{ s.noInsectRepellent }}</span>
+                  </p>
+                  <template v-if="!child.own">
+                    <p v-if="child.note" class="whitespace-pre-line break-words text-sm text-gray-700">{{ child.note }}</p>
+                  </template>
+                  <UTextarea
+                    v-else-if="drafts[child.childId]" v-model="drafts[child.childId]!.note" :rows="1" autoresize maxlength="2000" class="w-full"
+                    :placeholder="s.notePlaceholder" :aria-label="`${s.note}: ${child.name}`" :disabled="saving[child.childId]" @blur="saveNote(child)"
+                  />
+                </div>
+
+                <!-- The other actions (Kommt and Geht are in the row) -->
+                <div class="flex flex-wrap gap-2 lg:max-w-80 lg:justify-end">
+                  <UButton
+                    v-if="child.own && !child.stays.length" size="xl" color="neutral" variant="outline" icon="i-lucide-calendar-x" :label="s.actions.absent"
+                    @click="openDialog('absent', child)"
+                  />
+                  <UButton size="xl" color="neutral" variant="outline" icon="i-lucide-user-plus" :label="s.actions.announce" @click="openDialog('announce', child)" />
+                </div>
               </div>
             </li>
           </ul>
