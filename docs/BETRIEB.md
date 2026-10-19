@@ -140,7 +140,7 @@ Datenbank hat, hat alles.
 Die Einwilligungen in der Akte (ja / nein / offen) sind in Blöcke geteilt: **„Datenschutz“**, **„Messenger
 (WhatsApp, Signal)“** mit „Kontaktaufnahme über WhatsApp“, „Fotos über WhatsApp versenden“, **„Fotos über Signal
 versenden“** und „WhatsApp-Elterngruppe“, und **„Gesundheit“** mit **„Darf mit Insektenschutz eingesprüht
-werden“**. Bei „nein“ zum Insektenschutz steht in der Anwesenheitsliste (und im Ausdruck) in der Infospalte „kein
+werden“**. Bei „nein“ zum Insektenschutz steht in der Anwesenheitsliste (und im Ausdruck) „kein
 Insektenschutz“. Die neuen Punkte sind bei allen Kindern zunächst offen und zählen in der Liste „Offen“ wie die
 anderen. Früher gab es „Fotos über WhatsApp versenden“ zweimal (auch unter Datenschutz); die beiden Werte wurden
 zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und nein, gilt **nein**.
@@ -347,7 +347,8 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
 - Die Liste zeigt immer **alle** Kinder der Einrichtung. Bei Kindern einer **fremden Gruppe** geht für
   Mitarbeiter mit Gruppe nur Kommen, Gehen und Abholer ankündigen (siehe Abschnitt 12).
 - Oben steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind, darunter der Kasten **„Essen
-  heute“** (siehe „Essen“ unten). Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende).
+  heute“** (siehe „Essen“ unten). Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende); wie sie
+  aussieht, steht unter „Die Liste am Bildschirm“.
 - **„Kommt“**: Uhrzeit (vorgeschlagen ist jetzt) und **geplante Abholzeit** (Pflicht). Vorgeschlagen wird das
   Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Anwesenheit* „Bringperson
   erfassen“ an, fragt der Dialog zusätzlich, wer das Kind gebracht hat. Ein Kind, das schon abgeholt wurde, kann
@@ -414,13 +415,23 @@ steht (der erste Eintrag setzt ihn von selbst; Tage davor bleiben leer und zähl
   welchem Essen da war und ob automatisch oder von Hand gezählt. Im Verlauf steht bei einem Häkchen der Name des
   Essens von damals.
 
-### Infospalte
+### Die Liste am Bildschirm
 
-Rechts beim Kind stehen die **Allergien und Unverträglichkeiten** aus der Akte und das Feld **„Was ist heute
-passiert“** für kurze Notizen über den Tag (z. B. „hingefallen, Knie gekühlt“), damit sie beim Abholen
-weitergegeben werden. Steht in der Akte bei „Darf mit Insektenschutz eingesprüht werden“ **nein**, steht dort
-außerdem **„kein Insektenschutz“** (bei „ja“ und „offen“ nichts). Andere Inhalte der Akte und vertrauliche
-Dokumente erscheinen hier nie.
+- **Eine Zeile je Kind**, farbig nach dem Stand: **grün** da, **grau** abgeholt, **blau** abwesend, **gelb**
+  unentschuldigt, **weiß** noch nicht da, **rot** Abholzeit überschritten. In der Zeile stehen Name, Stand, geplante
+  Abholzeit, die gezählten Essen und kleine Hinweise (Allergie, „kein Insektenschutz“, Notiz vorhanden, geändert).
+  Hat ein Kind ein **Kontaktverbot**, steht das in seiner Zeile immer in Rot, in jeder Farbe der Zeile.
+- **„Kommt“** und **„Geht“** stehen rechts in der Zeile; du brauchst die Zeile dafür nicht zu öffnen.
+- **Antippen** der Zeile öffnet alles zum Kind: Aufenthalte mit den Zeiten, **Abholzeit**, die **Essen**, die
+  **Infospalte** (die **Allergien und Unverträglichkeiten** aus der Akte, bei „nein“ zum Insektenschutz **„kein
+  Insektenschutz“**, und das Feld **„Was ist heute passiert“** für kurze Notizen über den Tag, z. B. „hingefallen,
+  Knie gekühlt“, damit sie beim Abholen weitergegeben werden), den **Verlauf** sowie **„Abwesend“** und **„Abholer
+  ankündigen“**. Du kannst mehrere Zeilen gleichzeitig öffnen; beim Neuladen der Seite sind sie wieder zu. Andere
+  Inhalte der Akte und vertrauliche Dokumente erscheinen hier nie.
+- **Gruppen einklappen**: Ein Tipp auf die Gruppenüberschrift klappt die Gruppe ein oder aus. Das merkt sich das
+  Gerät. Eine eingeklappte Gruppe zeigt ihre **überfälligen Kinder** (Abholzeit überschritten) weiter an, und die
+  Überschrift warnt in Rot, z. B. **„2 überfällig“** und **„Kontaktverbot“**, wenn ein Kind der Gruppe ein
+  Kontaktverbot hat.
 
 ### Monatsübersicht
 
@@ -441,8 +452,8 @@ dieselbe Gesamtzahl je Essen und dieselbe Tabelle je Gruppe wie im Kasten „Ess
 
 Alle Angaben lassen sich ändern, auch an älteren Tagen: Zeiten und Abholperson über den Stift am Aufenthalt
 (ein versehentlich gestempelter Aufenthalt lässt sich dort auch löschen), die geplante Abholzeit und die Notiz
-direkt in der Zeile. Jede Änderung wird mit Person und Uhrzeit festgehalten. Ein kleines Uhr-Symbol neben dem
-Namen zeigt, dass ein Eintrag geändert wurde; ein Tipp darauf zeigt den Verlauf.
+in der geöffneten Zeile. Jede Änderung wird mit Person und Uhrzeit festgehalten. Ein kleines Verlaufs-Symbol in der
+Zeile zeigt, dass ein Eintrag geändert wurde; in der geöffneten Zeile zeigt ein Tipp darauf den Verlauf.
 
 ## 12. Wochenübersicht und Gruppenbücher
 

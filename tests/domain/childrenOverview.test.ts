@@ -129,7 +129,7 @@ describe('children overview columns', () => {
         kind: 'lines',
         lines: [
           { text: 'Anna Muster (Mutter)', details: [], danger: false },
-          { text: 'Max Muster (Vater)', details: [], danger: false },
+          { text: 'Max Muster (Vater) – Kontaktverbot', details: [], danger: true },
         ],
       },
       { kind: 'lines', lines: [{ text: 'Max Muster', details: ['Beschluss Familiengericht'], danger: true }] },
@@ -162,7 +162,7 @@ describe('children overview columns', () => {
       address: 'Hauptstr. 1\n70173 Stuttgart',
       contacts: [
         contact('Anna Muster', { relation: 'Mutter', phoneHome: '0711 1', phoneMobile: '0171 1', phoneWork: '0711 9' }),
-        contact('Max Muster', { relation: 'Vater', contactBan: true }),
+        contact('Max Muster', { relation: 'Vater' }),
       ],
     })
     const columns = overviewColumns('phones', [row, child({ id: 2 })])
@@ -172,6 +172,27 @@ describe('children overview columns', () => {
       { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1', 'mobil 0171 1', 'Arbeit 0711 9'], danger: false }] },
       { kind: 'lines', lines: [{ text: 'Max Muster (Vater)', details: [], danger: false }] },
     ])
+  })
+
+  it('marks a contact with a contact ban on the phone sheet in words and in red, phone numbers included', () => {
+    const row = child({
+      contacts: [
+        contact('Max Muster', { relation: 'Vater', contactBan: true, phoneMobile: '0171 5' }),
+        contact('Anna Muster', { relation: 'Mutter', phoneHome: '0711 1' }),
+      ],
+    })
+    const columns = overviewColumns('phones', [row])
+    expect(columns.map(column => column.cell(row)).slice(1)).toEqual([
+      { kind: 'lines', lines: [{ text: 'Max Muster (Vater) – Kontaktverbot', details: ['mobil 0171 5'], danger: true }] },
+      { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1'], danger: false }] },
+    ])
+  })
+
+  it('marks a contact with a contact ban in an emergency column too', () => {
+    const row = child({ contacts: [contact('Max Muster', { relation: 'Vater', contactBan: true, emergencyRank: 1 })] })
+    expect(overviewColumns('emergency', [row])[0]!.cell(row)).toEqual({
+      kind: 'lines', lines: [{ text: 'Max Muster (Vater) – Kontaktverbot', details: [], danger: true }],
+    })
   })
 
   it('keeps one contact column when no child has contacts, so the sheet still shows its rows', () => {

@@ -57,7 +57,12 @@ const phoneLines = (contact: OverviewContactDto): string[] => [
   [t.phoneHome, contact.phoneHome], [t.phoneMobile, contact.phoneMobile], [t.phoneWork, contact.phoneWork],
 ].filter(([, number]) => number!.trim() !== '').map(([label, number]) => `${label} ${number!.trim()}`)
 
-const person = (contact: OverviewContactDto, details: string[] = []): OverviewLine => ({ text: contactLabel(contact), details, danger: false })
+/** A person in a list; a contact ban is named in the text ("… – Kontaktverbot"), not only shown in red. */
+const person = (contact: OverviewContactDto, details: string[] = []): OverviewLine => ({
+  text: contact.contactBan ? `${contactLabel(contact)} – ${de.children.contactBan}` : contactLabel(contact),
+  details,
+  danger: contact.contactBan,
+})
 const lines = (list: OverviewLine[]): OverviewCell => ({ kind: 'lines', lines: list })
 const tri = (value: TriState, date = ''): OverviewCell => ({ kind: 'tri', value, date })
 const text = (value: string): OverviewCell => ({ kind: 'text', text: value })

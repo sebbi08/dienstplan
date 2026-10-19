@@ -44,7 +44,7 @@ const wide = computed(() => (props.print ? '' : 'min-w-40 max-w-72'))
       </thead>
       <tbody v-for="section in sections" :key="section.key">
         <tr v-if="showGroups" :class="print ? 'break-after-avoid' : 'border-t border-gray-200 bg-gray-50'">
-          <th :colspan="columns.length + 1" :class="[td, 'text-left']" scope="colgroup">
+          <th :colspan="columns.length + 1" :class="[td, 'text-left']" scope="rowgroup">
             <span v-if="print" class="text-sm font-semibold">{{ section.name }}</span>
             <!-- Stays readable at the left edge while the table scrolls sideways. -->
             <span v-else class="sticky left-3 inline-block text-xs font-semibold uppercase tracking-wide text-gray-500">{{ section.name }}</span>
