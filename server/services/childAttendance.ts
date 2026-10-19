@@ -288,8 +288,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
         const manual = day ? ticks.get(`${day.id}|${meal.mealId}`) ?? null : null
         return [meal.mealId, { counted: countsForMeal(meal.time, spans, plannedPickup, manual), manual: manual !== null }]
       })),
-      // Open until the record has the insect repellent consent.
-      insectRepellent: null,
+      // From the record: null while the consent is still open.
+      insectRepellent: row.consentInsectRepellent,
       announcements: ownAnnouncements.map(announcement => ({
         id: announcement.id, name: announcement.name, announcedBy: announcement.announcedBy,
       })),

@@ -137,6 +137,17 @@ describe('child records', () => {
       expect(record.stamps.contacts).toEqual({ updatedAt: null, updatedBy: null })
     })
 
+    it('stores the Signal photo and insect repellent consents; the WhatsApp photo duplicate is gone', () => {
+      expect(CONSENT_KEYS).toEqual(expect.arrayContaining(['signalPhotos', 'insectRepellent', 'whatsappPhotos']))
+      expect(CONSENT_KEYS).not.toContain('photosWhatsapp')
+      const id = createChild(db, admin, 1, master(), NOW)
+      const consents = Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as Record<string, boolean | null>
+      consents.signalPhotos = true
+      consents.insectRepellent = false
+      updateChildConsents(db, admin, 1, id, consents as never, TODAY, NOW)
+      expect(getChild(db, admin, id, TODAY).consents).toMatchObject({ signalPhotos: true, insectRepellent: false, whatsappPhotos: null })
+    })
+
     it('validates updates like creation', () => {
       const id = createChild(db, admin, 1, master(), NOW)
       expect(errorCode(() => updateChildMaster(db, admin, 1, id, master({ lastName: ' ' }), TODAY, NOW))).toBe('name_required')

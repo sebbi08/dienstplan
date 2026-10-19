@@ -109,6 +109,10 @@ describe('upgrading a filled database through migrateDb', () => {
     rmSync(folder, { recursive: true, force: true })
     return { db, sqlite }
   }
+  // Columns of `children` that 0042_consents adds / drops; the older tests compare the rows before and after without them.
+  const NEW_CONSENT_COLUMNS = ['consent_signal_photos', 'consent_insect_repellent']
+  const withoutOldConsent = (rows: unknown[]) =>
+    (rows as Record<string, unknown>[]).map(({ consent_photos_whatsapp: _, ...rest }) => rest)
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
   it('keeps every row and moves settings, users and data into facility 1 "Kindergarten"', () => {
@@ -512,7 +516,7 @@ describe('upgrading a filled database through migrateDb', () => {
         (3, 1, NULL, 'Weber', 'Mia', '2024-02-02', 'waitlist', NULL, '2026-10-01T12:00:00.000Z'),
         (4, 2, 3, 'Adler', 'Ida', '2023-07-07', 'contract', NULL, '2026-09-15T07:30:00.000Z');
     `)
-    const childrenBefore = sqlite.prepare('SELECT * FROM children ORDER BY id').all()
+    const childrenBefore = withoutOldConsent(sqlite.prepare('SELECT * FROM children ORDER BY id').all())
 
     migrateDb(db, MIGRATIONS)
 
@@ -531,7 +535,7 @@ describe('upgrading a filled database through migrateDb', () => {
     // the day of a move into the facility with 0031_child_facility_since).
     const reviewColumns = ['contacts_review_since', 'health_review_since', 'consents_review_since', 'documents_review_since',
       'care_type_review_since', 'key_educator_review_since', 'contract_review_since']
-    const laterColumns = [...reviewColumns, 'facility_since']
+    const laterColumns = [...reviewColumns, 'facility_since', ...NEW_CONSENT_COLUMNS]
     const childrenAfter = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
     expect(childrenAfter.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !laterColumns.includes(column)))))
       .toEqual(childrenBefore)
@@ -571,7 +575,7 @@ describe('upgrading a filled database through migrateDb', () => {
     `)
     const before = {
       types: sqlite.prepare('SELECT id, facility_id, name, important, required, confidential_default, sort_order FROM document_types ORDER BY id').all(),
-      children: sqlite.prepare('SELECT * FROM children ORDER BY id').all(),
+      children: withoutOldConsent(sqlite.prepare('SELECT * FROM children ORDER BY id').all()),
       changes: sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(),
       groups: sqlite.prepare('SELECT * FROM groups ORDER BY id').all(),
       facilities: sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(),
@@ -601,7 +605,7 @@ describe('upgrading a filled database through migrateDb', () => {
     const without = (rows: unknown[], ...columns: string[]) =>
       (rows as Record<string, unknown>[]).map(row => Object.fromEntries(Object.entries(row).filter(([name]) => !columns.includes(name))))
     // (facility_since comes with the later 0031_child_facility_since.)
-    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since')).toEqual(before.children)
+    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since', ...NEW_CONSENT_COLUMNS)).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
     // (the minimum counts come with the later 0038_opening_hours, the colour with 0039_group_colors.)
     expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing', 'color'))
@@ -625,7 +629,7 @@ describe('upgrading a filled database through migrateDb', () => {
         (1, 1, 'Meier', 'Lena', '2022-03-15', '2025-09-01', 'contract', NULL, '2026-01-01T00:00:00.000Z'),
         (2, 2, 'Kurz', 'Ben', '2021-05-01', '2024-09-01', 'contract', '2026-08-31', '2025-06-01T09:00:00.000Z');
     `)
-    const before = sqlite.prepare('SELECT * FROM children ORDER BY id').all()
+    const before = withoutOldConsent(sqlite.prepare('SELECT * FROM children ORDER BY id').all())
 
     migrateDb(db, MIGRATIONS)
 
@@ -633,7 +637,7 @@ describe('upgrading a filled database through migrateDb', () => {
     const after = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
     // Nobody counts as moved: every child is counted from its contract start, as before.
     expect(after.map(row => row.facility_since)).toEqual([null, null])
-    expect(after.map(({ facility_since: _, ...rest }) => rest)).toEqual(before)
+    expect(after.map(({ facility_since: _, consent_signal_photos: _s, consent_insect_repellent: _i, ...rest }) => rest)).toEqual(before)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
@@ -987,6 +991,28 @@ describe('upgrading a filled database through migrateDb', () => {
     sqlite.exec('DELETE FROM facilities WHERE id = 2')
     expect(sqlite.prepare('SELECT DISTINCT facility_id FROM meals').all()).toEqual([{ facility_id: 1 }])
     expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = 100').get()).toEqual({ n: 0 })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0042 merges the two WhatsApp photo consents (the stricter answer wins) and adds the Signal and insect repellent consents', () => {
+    const { db, sqlite } = databaseAt('0041')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(42)
+    // (whatsapp_photos, photos_whatsapp) -> merged whatsapp_photos
+    const cases: [number | null, number | null, number | null][] = [
+      [null, 1, 1], [1, null, 1], [1, 0, 0], [0, 1, 0], [null, null, null], [1, 1, 1], [0, null, 0], [null, 0, 0], [0, 0, 0],
+    ]
+    const insert = sqlite.prepare(`INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at,
+      consent_whatsapp_photos, consent_photos_whatsapp, consent_photos_display) VALUES (?, 1, 'Kind', ?, '2022-03-15', '2026-01-01T00:00:00.000Z', ?, ?, 1)`)
+    cases.forEach(([whatsapp, photos], index) => insert.run(index + 1, `K${index + 1}`, whatsapp, photos))
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(42)
+    const columns = (sqlite.prepare('PRAGMA table_info(children)').all() as { name: string }[]).map(row => row.name)
+    expect(columns).not.toContain('consent_photos_whatsapp')
+    expect(columns).toEqual(expect.arrayContaining(['consent_signal_photos', 'consent_insect_repellent', 'consent_whatsapp_photos']))
+    const rows = sqlite.prepare('SELECT id, consent_whatsapp_photos AS merged, consent_signal_photos AS signal, consent_insect_repellent AS insect, consent_photos_display AS display FROM children ORDER BY id').all()
+    expect(rows).toEqual(cases.map(([, , merged], index) => ({ id: index + 1, merged, signal: null, insect: null, display: 1 })))
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 

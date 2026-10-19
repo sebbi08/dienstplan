@@ -23,12 +23,14 @@ function cancel() {
   editing.value = false
 }
 
-const privacyKeys: ConsentKey[] = ['artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosWhatsapp', 'photosNamesBirthdaysDisplay', 'groupWorkWithNames']
-const whatsappKeys: ConsentKey[] = ['whatsappContact', 'whatsappPhotos', 'whatsappParentGroup']
-// The ten consents split into the two blocks of the form sheet.
+const privacyKeys: ConsentKey[] = ['artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosNamesBirthdaysDisplay', 'groupWorkWithNames']
+const messengerKeys: ConsentKey[] = ['whatsappContact', 'whatsappPhotos', 'signalPhotos', 'whatsappParentGroup']
+const healthKeys: ConsentKey[] = ['insectRepellent']
+// The consents split into the three blocks of the form sheet.
 const blocks = [
   { key: 'privacy', title: de.children.consentGroups.privacy, keys: privacyKeys },
-  { key: 'whatsapp', title: de.children.consentGroups.whatsapp, keys: whatsappKeys },
+  { key: 'messenger', title: de.children.consentGroups.messenger, keys: messengerKeys },
+  { key: 'health', title: de.children.consentGroups.health, keys: healthKeys },
 ]
 </script>
 

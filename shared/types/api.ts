@@ -23,8 +23,8 @@ export const isGroupColor = (value: string): value is GroupColor => (GROUP_COLOR
 
 /** The consents (Einwilligungen) in a child's record; each matches a `consent_*` column of `children`. */
 export const CONSENT_KEYS = [
-  'artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosWhatsapp',
-  'photosNamesBirthdaysDisplay', 'groupWorkWithNames', 'whatsappContact', 'whatsappPhotos', 'whatsappParentGroup',
+  'artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents',
+  'photosNamesBirthdaysDisplay', 'groupWorkWithNames', 'whatsappContact', 'whatsappPhotos', 'signalPhotos', 'whatsappParentGroup', 'insectRepellent',
 ] as const
 export type ConsentKey = typeof CONSENT_KEYS[number]
 /** An answer that may still be open: yes, no or not answered (null). */

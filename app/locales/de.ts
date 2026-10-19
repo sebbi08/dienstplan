@@ -523,11 +523,12 @@ export const de = {
     consents: {
       artworkDisplay: 'Bastel- und Malarbeiten aufhängen', photosDisplay: 'Einzel- und Gruppenfotos aufhängen',
       photosForeignPortfolios: 'Fotoerlaubnis für fremde Portfolios', photosInternalEvents: 'Fotos hausinterner Feste',
-      photosWhatsapp: 'Fotos über WhatsApp versenden', photosNamesBirthdaysDisplay: 'Fotos, Namen und Geburtsdaten aufhängen',
+      photosNamesBirthdaysDisplay: 'Fotos, Namen und Geburtsdaten aufhängen',
       groupWorkWithNames: 'Gruppenarbeiten mit Namen ausstellen', whatsappContact: 'Kontaktaufnahme über WhatsApp',
-      whatsappPhotos: 'Fotos über WhatsApp', whatsappParentGroup: 'WhatsApp-Elterngruppe',
+      whatsappPhotos: 'Fotos über WhatsApp versenden', signalPhotos: 'Fotos über Signal versenden',
+      whatsappParentGroup: 'WhatsApp-Elterngruppe', insectRepellent: 'Darf mit Insektenschutz eingesprüht werden',
     },
-    consentGroups: { privacy: 'Datenschutz', whatsapp: 'WhatsApp' },
+    consentGroups: { privacy: 'Datenschutz', messenger: 'Messenger (WhatsApp, Signal)', health: 'Gesundheit' },
     addContact: 'Bezugsperson hinzufügen', birthdaysHint: 'Geburtstage der nächsten 8 Wochen', turns: (n: number) => `wird ${n}`,
     // Small helper texts of the pages (beyond the agreed wording list above).
     empty: 'Keine Kinder gefunden.', noBirthdays: 'In den nächsten 8 Wochen hat kein Kind Geburtstag.',

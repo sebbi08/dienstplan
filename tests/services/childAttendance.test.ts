@@ -371,6 +371,16 @@ describe('child attendance', () => {
       expect(rowOf(lena, TODAY, berlin(TODAY, '13:15')).pickupOverdue).toBe(true)
     })
 
+    it('shows the insect repellent consent of the record: open, yes or no', () => {
+      const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
+      const cleo = addChild(db, 1, { lastName: 'Christ', firstName: 'Cleo' })
+      db.update(children).set({ consentInsectRepellent: true }).where(eq(children.id, ben)).run()
+      db.update(children).set({ consentInsectRepellent: false }).where(eq(children.id, cleo)).run()
+      expect(rowOf(lena).insectRepellent).toBeNull()
+      expect(rowOf(ben).insectRepellent).toBe(true)
+      expect(rowOf(cleo).insectRepellent).toBe(false)
+    })
+
     it('counts yesterday with the meals of yesterday after a change from today on, with its ticks', () => {
       const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
       arriveAt('09:45', { date: YESTERDAY, plannedPickup: hm('12:30') })
