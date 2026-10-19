@@ -671,10 +671,15 @@ export const de = {
     mealName: 'Name', mealTime: 'Uhrzeit', mealValidFrom: 'gilt ab',
     mealChange: 'Ändern', mealRemove: 'Entfernen', mealAdd: 'Essen hinzufügen',
     confirmMealRemove: (name: string, date: string) => `${name} ab ${date} entfernen? Frühere Tage bleiben unverändert.`,
-    plannedMeals: 'Geplante Änderungen',
+    plannedMeals: 'Geplante und heutige Änderungen',
+    /** Stands for the date of a change of today: „ab heute: …“. */
+    plannedToday: 'heute',
     plannedMeal: (date: string, name: string, time: string) => `ab ${date}: ${name} ${time}`,
     plannedMealRemoved: (date: string, name: string) => `ab ${date}: ${name} entfällt`,
-    cancelPlanned: 'Zurücknehmen', confirmCancelPlanned: (text: string) => `Geplante Änderung „${text}“ zurücknehmen?`,
+    cancelPlanned: 'Zurücknehmen', confirmCancelPlanned: (text: string) => `Änderung „${text}“ zurücknehmen?`,
+    /** Taking back today's change that brought in a meal: the meal is gone today, and with it today's ticks. */
+    confirmCancelTodayMeal: (text: string, name: string) =>
+      `Änderung „${text}“ zurücknehmen? ${name} gibt es dann heute nicht, und alle Häkchen von heute für ${name} gehen verloren.`,
     plannedCancelled: 'Zurückgenommen',
     printDayTitle: (date: string) => `Anwesenheit Kinder ${date}`, printMonthTitle: (month: string) => `Anwesenheit Kinder ${month}`,
     noGroup: 'Ohne Gruppe', noChildren: 'Keine Kinder.',
@@ -695,7 +700,7 @@ export const de = {
     /** The meals of the day with their counts: "Snack 9:30: 12 · Mittagessen 12:00: 15". */
     meals: (items: { name: string; time: string; count: number }[]) => items.map(item => `${item.name} ${item.time}: ${item.count}`).join(' · '),
     // The meal box above the day list and in the print: the totals, then the counts per group (no names).
-    mealsToday: 'Essen heute',
+    mealsToday: 'Essen heute', mealsOn: (date: string) => `Essen am ${date}`,
     summary: { group: 'Gruppe', here: 'Kinder da', total: 'Gesamt', noGroup: 'ohne Gruppe' },
     /** The second half of a cell of the meal table ("10 · 2 nicht"): the listed children not counted for the meal. */
     notEating: (count: number) => `${count} nicht`,

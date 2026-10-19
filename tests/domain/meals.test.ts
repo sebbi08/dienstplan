@@ -68,10 +68,13 @@ describe('currentAndPlanned', () => {
     expect(result.current.map(meal => meal.name)).toEqual(['Frühstück', 'Obst'])
     expect(result.planned.map(v => v.name)).toEqual(['Vesper', 'Mittag', 'Brunch'])
   })
-  it('does not plan a version that starts today', () => {
-    const versions = [version({ mealId: 1, validFrom: '2026-10-19' })]
+  it('lists a version that starts today as well, so it can still be taken back', () => {
+    const versions = [
+      version({ mealId: 1, validFrom: '2026-10-19', name: 'Obst' }),
+      version({ mealId: 2, validFrom: '2026-10-18', name: 'Tee' }),
+    ]
     const result = currentAndPlanned(versions, '2026-10-19')
-    expect(result.current).toHaveLength(1)
-    expect(result.planned).toEqual([])
+    expect(result.current.map(meal => meal.name)).toEqual(['Obst', 'Tee'])
+    expect(result.planned.map(v => v.name)).toEqual(['Obst'])
   })
 })

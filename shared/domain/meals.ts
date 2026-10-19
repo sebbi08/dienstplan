@@ -36,10 +36,13 @@ export function mealsOn(versions: MealVersion[], date: IsoDate): DayMeal[] {
     .sort(byTimeThenName)
 }
 
-/** The meals applying today and the versions that only start after today (by date, then time). */
+/**
+ * The meals applying today and the versions that start today or later (by date, then time): those can still be taken
+ * back, today's as well.
+ */
 export function currentAndPlanned(versions: MealVersion[], today: IsoDate): { current: DayMeal[], planned: MealVersion[] } {
   const planned = versions
-    .filter(version => version.validFrom !== null && version.validFrom > today)
+    .filter(version => version.validFrom !== null && version.validFrom >= today)
     .sort((a, b) => (a.validFrom as IsoDate).localeCompare(b.validFrom as IsoDate) || byTimeThenName(a, b))
   return { current: mealsOn(versions, today), planned }
 }

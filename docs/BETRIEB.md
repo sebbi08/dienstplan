@@ -395,18 +395,21 @@ steht (der erste Eintrag setzt ihn von selbst; Tage davor bleiben leer und zähl
   heute, frühestens heute). **Vergangene Tage ändern sich nie**: Tage davor behalten die Essen mit Name und Uhrzeit
   von damals, dort wird weiter nach der alten Uhrzeit gezählt, und alle Häkchen bleiben. Ein entferntes Essen
   ist an früheren Tagen weiter mit seinen Häkchen zu sehen.
-- Änderungen ab einem späteren Tag stehen unter **„Geplante Änderungen“** („ab 01.11.: Mittagessen 12:15“,
-  „ab 01.11.: Vesper entfällt“). Mit **„Zurücknehmen“** nimmst du eine davon wieder zurück; ein Essen, das erst
-  später beginnen sollte, ist dann ganz weg.
+- Änderungen ab heute oder einem späteren Tag stehen unter **„Geplante und heutige Änderungen“** („ab 01.11.:
+  Mittagessen 12:15“, „ab 01.11.: Vesper entfällt“, eine Änderung von heute als „ab heute: …“). Mit
+  **„Zurücknehmen“** nimmst du eine davon wieder zurück, auch eine von heute: Nimmst du z. B. „ab heute: Vesper
+  entfällt“ zurück, ist Vesper heute wieder da, mit den Häkchen von heute. Ein Essen, das erst heute oder später
+  beginnen sollte, ist dann ganz weg; bei einem Essen ab heute gehen dabei die Häkchen von heute verloren (das
+  Fenster sagt das vorher). Auch beim Zurücknehmen gilt: kein Name doppelt, höchstens 8 Essen.
 - **Zählen**: Ein Kind zählt für ein Essen, wenn es zu dessen Uhrzeit da ist oder laut geplanter Abholzeit da sein
   wird. Je Essen gibt es beim Kind ein Häkchen (nach Uhrzeit geordnet); ein Tipp ändert das für den Tag von Hand
   (z. B. „isst heute nicht mit“, dann steht „(von Hand)“ daneben), der Pfeil daneben stellt **„Wieder automatisch
   zählen“** ein.
-- **Kasten „Essen heute“** über der Liste: je Essen die Zahl der Kinder („Snack 9:30: 12 · Mittagessen 12:00: 15“),
-  darunter eine kleine Tabelle je Gruppe: **Kinder da** (da oder heute schon abgeholt) und je Essen, wie viele
-  mitessen und wie viele Kinder der Gruppe nicht (z. B. „10 · 2 nicht“; mitgezählt sind alle Kinder der Liste, auch
-  abwesende und noch nicht gekommene). Kinder ohne Gruppe stehen als „ohne Gruppe“, die letzte Zeile ist
-  **„Gesamt“**. Es stehen nur Zahlen da, keine Namen.
+- **Kasten „Essen heute“** über der Liste (an einem anderen Tag „Essen am 14.10.2026“): je Essen die Zahl der
+  Kinder („Snack 9:30: 12 · Mittagessen 12:00: 15“), darunter eine kleine Tabelle je Gruppe: **Kinder da** (da
+  oder heute schon abgeholt) und je Essen, wie viele mitessen und wie viele Kinder der Gruppe nicht (z. B. „10 · 2
+  nicht“; mitgezählt sind alle Kinder der Liste, auch abwesende und noch nicht gekommene). Kinder ohne Gruppe
+  stehen als „ohne Gruppe“, die letzte Zeile ist **„Gesamt“**. Es stehen nur Zahlen da, keine Namen.
 - Jeder Tag zeigt die Essen, die **an diesem Tag** galten. So ist auch später nachvollziehbar, welches Kind zu
   welchem Essen da war und ob automatisch oder von Hand gezählt. Im Verlauf steht bei einem Häkchen der Name des
   Essens von damals.
@@ -429,9 +432,10 @@ Monat. Ein Tipp auf eine Tageszahl öffnet diesen Tag.
 ### Drucken im Büro
 
 Tagesliste und Monatsübersicht drucken Leitung und Träger im Büro mit **„Drucken“** (A4 quer, als Ausdruck oder
-PDF). Der Ausdruck der Tagesliste hat je Essen eine Spalte mit ✓, darüber stehen dieselbe Gesamtzahl je Essen und
-dieselbe Tabelle je Gruppe wie im Kasten „Essen heute“, in der Infospalte auch „kein Insektenschutz“. Am Tablet gibt es keine Druck-Knöpfe; dort ist die Liste jederzeit am Bildschirm zu sehen (z. B. bei einer
-Räumung).
+PDF). Der Ausdruck der Tagesliste hat je Essen eine Spalte mit ✓, darüber stehen unter „Essen am ‹Datum›“
+dieselbe Gesamtzahl je Essen und dieselbe Tabelle je Gruppe wie im Kasten „Essen heute“, in der Infospalte auch
+„kein Insektenschutz“. Am Tablet gibt es keine Druck-Knöpfe; dort ist die Liste jederzeit am Bildschirm zu sehen
+(z. B. bei einer Räumung).
 
 ### Ändern und Verlauf
 
@@ -489,9 +493,9 @@ Leitung und Träger geben jeder Gruppe unter *Einstellungen → Gruppenfarben* e
 gewählte Einrichtung; voreingestellt ist „keine Farbe“). Im Jahreskalender, in der Urlaubsplanung, in „Mein
 Kalender“ und im Ausdruck des Jahreskalenders stehen die Mitarbeiter dann nach Gruppen sortiert (in der Reihenfolge
 der Gruppen, Mitarbeiter ohne Gruppe am Ende), ihr Name hat die Farbe ihrer Stammgruppe, und über dem Kalender
-steht eine kleine Legende der Gruppenfarben. Mitarbeiter ohne Gruppe und Gruppen ohne Farbe bleiben weiß. Grün, Rot,
-Hellgrün und Hellblau gibt es als Gruppenfarbe nicht, weil der Kalender sie für Urlaub, Krank, Sonderurlaub und
-Fortbildung verwendet.
+steht eine kleine Legende der Gruppenfarben. Mitarbeiter ohne Gruppe und Gruppen ohne Farbe bleiben weiß. Die
+Gruppenfarben sind heller als die Farben, mit denen der Kalender Abwesenheiten zeigt (z. B. das kräftige Blau der
+Fortbildung), damit man Name und Abwesenheit nicht verwechselt.
 
 ### Kinder fremder Gruppen in der Anwesenheit
 

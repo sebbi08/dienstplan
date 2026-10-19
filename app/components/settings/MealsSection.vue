@@ -9,8 +9,8 @@ import { formatDate, formatDayMonth } from '~/utils/format'
 
 /**
  * The meals of the facility (Leitung and Träger): those of today with „Ändern“ and „Entfernen“, „Essen hinzufügen“,
- * and the changes planned after today, which can be taken back. Every change applies from a day on („gilt ab“, today
- * at the earliest); earlier days keep the meals they had.
+ * and the changes from today on („Geplante und heutige Änderungen“), which can be taken back. Every change applies
+ * from a day on („gilt ab“, today at the earliest); earlier days keep the meals they had.
  */
 const { data, refresh } = await useFetch<MealSettingsDto>('/api/meals', { key: 'meal-settings' })
 const { busy, run } = useBusyAction(refresh)
@@ -30,8 +30,14 @@ const openForm = (kind: Form['kind'], meal?: DayMeal) => {
 }
 const isOpen = (kind: Form['kind'], mealId: number | null) => form.value?.kind === kind && form.value.mealId === mealId
 
-/** "01.11.", with the year when it is not this year's. */
-const dayText = (iso: string) => (iso.slice(0, 4) === today.value.slice(0, 4) ? formatDayMonth(iso) : formatDate(iso))
+// The list from the server counts from its today; keep the own one in step for „ab heute“.
+watch(data, () => { today.value = todayIso() })
+
+/** "heute" for today, otherwise "01.11.", with the year when it is not this year's. */
+const dayText = (iso: string) => {
+  if (iso === today.value) return s.plannedToday
+  return iso.slice(0, 4) === today.value.slice(0, 4) ? formatDayMonth(iso) : formatDate(iso)
+}
 const plannedText = (entry: PlannedMealDto) => (entry.removed
   ? s.plannedMealRemoved(dayText(entry.validFrom), entry.name)
   : s.plannedMeal(dayText(entry.validFrom), entry.name, formatTime(entry.time)))
@@ -60,7 +66,11 @@ async function submit() {
 }
 
 async function cancelPlanned(entry: PlannedMealDto) {
-  if (!(await confirm(s.confirmCancelPlanned(plannedText(entry)), { confirmLabel: s.cancelPlanned }))) return
+  // A meal that is only there from today on is gone today, and so are today's ticks for it.
+  const text = entry.cancelRemovesMeal && entry.validFrom === todayIso()
+    ? s.confirmCancelTodayMeal(plannedText(entry), entry.name)
+    : s.confirmCancelPlanned(plannedText(entry))
+  if (!(await confirm(text, { confirmLabel: s.cancelPlanned }))) return
   await run(() => $fetch<unknown>(`/api/meals/versions/${entry.versionId}`, { method: 'DELETE' }), s.plannedCancelled)
 }
 </script>

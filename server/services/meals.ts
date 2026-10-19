@@ -34,14 +34,18 @@ export function mealVersionsOf(db: Db, facilityId: number): MealVersion[] {
     .orderBy(asc(mealVersions.mealId), asc(mealVersions.id)).all()
 }
 
-/** The meals of today and the changes planned after today. */
+/** The meals of today and the changes from today on (today's can still be taken back). */
 export function listMeals(db: Db, facilityId: number, now: Date = new Date()): MealSettingsDto {
-  const { current, planned } = currentAndPlanned(mealVersionsOf(db, facilityId), nowInBerlin(now).date)
+  const versions = mealVersionsOf(db, facilityId)
+  const { current, planned } = currentAndPlanned(versions, nowInBerlin(now).date)
+  /** Without the version, the meal is not on the version's first day. */
+  const cancelRemovesMeal = (version: MealVersion) => !version.removed
+    && !mealsOn(versions.filter(other => other.id !== version.id), version.validFrom as IsoDate).some(meal => meal.mealId === version.mealId)
   return {
     current,
     planned: planned.map(version => ({
       versionId: version.id, mealId: version.mealId, validFrom: version.validFrom as IsoDate, name: version.name,
-      time: version.time, removed: version.removed,
+      time: version.time, removed: version.removed, cancelRemovesMeal: cancelRemovesMeal(version),
     })),
   }
 }
@@ -64,11 +68,27 @@ function assertFromToday(validFrom: string, now: Date): void {
 const NEW_MEAL = -1
 
 /**
+ * With `versions` in place, on every day from `from` on that the meal is on: its name is no other meal's name of that
+ * day (409 meal_name_taken, case-insensitive) and there are at most 8 meals (meal_limit). Only the start days of
+ * versions can change that, so those are the days checked.
+ */
+function assertFits(versions: MealVersion[], mealId: number, from: IsoDate): void {
+  const days = new Set([from])
+  for (const version of versions) if (version.validFrom !== null && version.validFrom > from) days.add(version.validFrom)
+  for (const day of days) {
+    const onDay = mealsOn(versions, day)
+    const meal = onDay.find(entry => entry.mealId === mealId)
+    if (meal === undefined) continue
+    uniqueName(onDay.map(entry => ({ id: entry.mealId, name: entry.name })), meal.name, mealId,
+      { required: 'meal_name_required', taken: 'meal_name_taken' })
+    if (onDay.length > MAX_MEALS) throw new ServiceError(400, 'meal_limit')
+  }
+}
+
+/**
  * Checks a new meal (`mealId` null) or a change of a meal: the time is a minute of the day (attendance_time_invalid),
- * the date today or later, the name 1–40 characters (meal_name_required, meal_name_too_long). On every day from
- * `validFrom` on, with the new version in place, the meal's name is no other meal's name of that day (409
- * meal_name_taken, case-insensitive) and there are at most 8 meals (meal_limit); only the start days of versions can
- * change that, so those are the days checked. Returns the trimmed name.
+ * the date today or later, the name 1–40 characters (meal_name_required, meal_name_too_long), and with the new
+ * version in place the meal fits on every day from `validFrom` on (see `assertFits`). Returns the trimmed name.
  */
 function checked(db: Db, facilityId: number, input: MealInput, mealId: number | null, now: Date): string {
   if (!Number.isInteger(input.time) || input.time < 0 || input.time > 1439) throw new ServiceError(400, 'attendance_time_invalid')
@@ -79,17 +99,7 @@ function checked(db: Db, facilityId: number, input: MealInput, mealId: number | 
   const own = mealId ?? NEW_MEAL
   const versions = mealVersionsOf(db, facilityId)
   const candidate: MealVersion = { id: Number.MAX_SAFE_INTEGER, mealId: own, validFrom: input.validFrom, name, time: input.time, removed: false }
-  const withCandidate = [...versions.filter(version => version.mealId !== own || version.validFrom !== input.validFrom), candidate]
-  const days = new Set([input.validFrom])
-  for (const version of versions) if (version.validFrom !== null && version.validFrom > input.validFrom) days.add(version.validFrom)
-  for (const day of days) {
-    const onDay = mealsOn(withCandidate, day)
-    const meal = onDay.find(entry => entry.mealId === own)
-    if (meal === undefined) continue
-    uniqueName(onDay.map(entry => ({ id: entry.mealId, name: entry.name })), meal.name, own,
-      { required: 'meal_name_required', taken: 'meal_name_taken' })
-    if (onDay.length > MAX_MEALS) throw new ServiceError(400, 'meal_limit')
-  }
+  assertFits([...versions.filter(version => version.mealId !== own || version.validFrom !== input.validFrom), candidate], own, input.validFrom)
   return name
 }
 
@@ -153,8 +163,10 @@ export function removeMeal(db: Db, facilityId: number, mealId: number, validFrom
 }
 
 /**
- * Takes back a change of today or later: the version before applies again. A meal without any version left is
- * deleted. 404 meal_not_found for a version of another facility, 400 meal_valid_from_past for one that already began.
+ * Takes back a change of today or later: the version before applies again. A meal left without a version that is not
+ * removed (it would never be on a day) is deleted, with its ticks. Otherwise the meal must still fit on the version's
+ * day and every later version start, as at `checked` (409 meal_name_taken, 400 meal_limit; nothing is changed then).
+ * 404 meal_not_found for a version of another facility, 400 meal_valid_from_past for one that already began.
  */
 export function cancelMealVersion(db: Db, facilityId: number, versionId: number, now: Date = new Date()): void {
   db.transaction((tx) => {
@@ -164,7 +176,11 @@ export function cancelMealVersion(db: Db, facilityId: number, versionId: number,
     if (!version) throw new ServiceError(404, 'meal_not_found')
     if (version.validFrom === null || version.validFrom < nowInBerlin(now).date) throw new ServiceError(400, 'meal_valid_from_past')
     tx.delete(mealVersions).where(eq(mealVersions.id, versionId)).run()
-    const rest = tx.select({ id: mealVersions.id }).from(mealVersions).where(eq(mealVersions.mealId, version.mealId)).get()
-    if (!rest) tx.delete(meals).where(eq(meals.id, version.mealId)).run()
+    const versions = mealVersionsOf(tx, facilityId)
+    if (!versions.some(other => other.mealId === version.mealId && !other.removed)) {
+      tx.delete(meals).where(eq(meals.id, version.mealId)).run()
+      return
+    }
+    assertFits(versions, version.mealId, version.validFrom)
   })
 }

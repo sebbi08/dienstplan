@@ -51,9 +51,13 @@ describe('meals per facility', () => {
     const fruehstueck = add('Frühstück', 480, '2026-11-02')
     const list = listMeals(db, 1, NOW)
     expect(list.current.map(meal => meal.mealId)).not.toContain(fruehstueck)
-    expect(list.planned).toEqual([{
-      versionId: versionsOf(fruehstueck)[0]!.id, mealId: fruehstueck, validFrom: '2026-11-02', name: 'Frühstück', time: 480, removed: false,
-    }])
+    expect(list.planned).toEqual([
+      { versionId: versionsOf(vesper)[0]!.id, mealId: vesper, validFrom: TODAY, name: 'Vesper', time: 900, removed: false, cancelRemovesMeal: true },
+      {
+        versionId: versionsOf(fruehstueck)[0]!.id, mealId: fruehstueck, validFrom: '2026-11-02', name: 'Frühstück', time: 480, removed: false,
+        cancelRemovesMeal: true,
+      },
+    ])
   })
 
   it('checks name, time, date and the number of meals', () => {
@@ -194,6 +198,56 @@ describe('meals per facility', () => {
     cancelMealVersion(db, 1, versionsOf(fruehstueck)[0]!.id, NOW)
     expect(db.select().from(meals).where(eq(meals.id, fruehstueck)).get()).toBeUndefined()
     expect(listMeals(db, 1, NOW).planned).toEqual([])
+  })
+
+  it('cancelling the last version that is not removed deletes the meal', () => {
+    const fruehstueck = add('Frühstück', 480, '2026-11-02')
+    removeMeal(db, 1, fruehstueck, '2026-11-09', NOW)
+    cancelMealVersion(db, 1, versionsOf(fruehstueck).find(version => !version.removed)!.id, NOW)
+    expect(db.select().from(meals).where(eq(meals.id, fruehstueck)).get()).toBeUndefined()
+    expect(listMeals(db, 1, NOW).planned).toEqual([])
+  })
+
+  it('lists the changes of today with the planned ones, so they can be taken back', () => {
+    changeMeal(db, 1, lunch, { name: 'Mittag', time: 735, validFrom: TODAY }, NOW)
+    changeMeal(db, 1, lunch, { name: 'Mittag', time: 750, validFrom: '2026-11-02' }, NOW)
+    const vesper = add('Vesper', 900)
+    removeMeal(db, 1, snack, TODAY, NOW)
+    const versionId = (mealId: number, validFrom: string) => versionsOf(mealId).find(version => version.validFrom === validFrom)!.id
+    expect(listMeals(db, 1, NOW).planned).toEqual([
+      { versionId: versionId(snack, TODAY), mealId: snack, validFrom: TODAY, name: 'Snack', time: 570, removed: true, cancelRemovesMeal: false },
+      { versionId: versionId(lunch, TODAY), mealId: lunch, validFrom: TODAY, name: 'Mittag', time: 735, removed: false, cancelRemovesMeal: false },
+      { versionId: versionId(vesper, TODAY), mealId: vesper, validFrom: TODAY, name: 'Vesper', time: 900, removed: false, cancelRemovesMeal: true },
+      {
+        versionId: versionId(lunch, '2026-11-02'), mealId: lunch, validFrom: '2026-11-02', name: 'Mittag', time: 750, removed: false,
+        cancelRemovesMeal: false,
+      },
+    ])
+  })
+
+  it('cancelling checks the name again on the day of the version and every later version start', () => {
+    const vesper = add('Vesper', 900)
+    removeMeal(db, 1, vesper, '2026-10-26', NOW)
+    const removal = versionsOf(vesper).find(version => version.removed)!
+    const other = add('Vesper', 960, '2026-10-26')
+    expect(errorCode(() => cancelMealVersion(db, 1, removal.id, NOW))).toBe('meal_name_taken')
+    expect(versionsOf(vesper)).toHaveLength(2)
+    // Only from a later day on: Snack is called „Vesper“ from 2026-11-02, after the other Vesper is gone again.
+    removeMeal(db, 1, other, '2026-10-26', NOW)
+    expect(db.select().from(meals).where(eq(meals.id, other)).get()).toBeUndefined()
+    changeMeal(db, 1, snack, { name: 'vesper', time: 570, validFrom: '2026-11-02' }, NOW)
+    expect(errorCode(() => cancelMealVersion(db, 1, removal.id, NOW))).toBe('meal_name_taken')
+    expect(versionsOf(vesper)).toHaveLength(2)
+  })
+
+  it('cancelling checks the number of meals again', () => {
+    const obst = add('Obst')
+    for (const name of ['Brotzeit', 'Tee', 'Kuchen', 'Vesper', 'Abendbrot']) add(name)
+    removeMeal(db, 1, obst, '2026-10-26', NOW)
+    add('Neuntes', 900, '2026-10-26')
+    const removal = versionsOf(obst).find(version => version.removed)!
+    expect(errorCode(() => cancelMealVersion(db, 1, removal.id, NOW))).toBe('meal_limit')
+    expect(versionsOf(obst)).toHaveLength(2)
   })
 
   it('cancels neither versions of the past nor those of another facility', () => {

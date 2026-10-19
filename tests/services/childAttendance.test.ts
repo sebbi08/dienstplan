@@ -16,7 +16,7 @@ import { addContact } from '../../server/services/childContacts'
 import { planGroupChange } from '../../server/services/childGroupChanges'
 import { deleteChild } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
-import { addMeal, changeMeal, listMeals, removeMeal } from '../../server/services/meals'
+import { addMeal, cancelMealVersion, changeMeal, listMeals, removeMeal } from '../../server/services/meals'
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
@@ -408,6 +408,18 @@ describe('child attendance', () => {
       tick(lena, { [snack]: false })
       expect(attendanceHistory(db, leitung, lena, YESTERDAY)[0]).toMatchObject({ field: 'meal:Snack', before: '', after: 'true' })
       expect(attendanceHistory(db, leitung, lena, TODAY)[0]).toMatchObject({ field: 'meal:Obstpause', before: '', after: 'false' })
+    })
+
+    it('taking back a removal of today brings back today\'s ticks of the meal', () => {
+      tick(lena, { [snack]: false, [lunch]: true })
+      removeMeal(db, 1, snack, TODAY, NOW)
+      expect(rowOf().meals).toEqual({ [lunch]: byHand(true) })
+
+      const removal = listMeals(db, 1, NOW).planned.find(entry => entry.mealId === snack && entry.removed)!
+      expect(removal.validFrom).toBe(TODAY)
+      cancelMealVersion(db, 1, removal.versionId, NOW)
+      expect(dayOf().meals.map(meal => meal.name)).toEqual(['Snack', 'Mittagessen'])
+      expect(rowOf().meals).toEqual({ [snack]: byHand(false), [lunch]: byHand(true) })
     })
 
     it('keeps a meal removed from today on with its ticks on yesterday, and refuses a tick for a meal not on the day', () => {

@@ -1398,7 +1398,7 @@ export interface AttendanceSettingsDto {
   attendanceSince: IsoDate | null
 }
 
-/** A change of a meal that starts after today (a new name or time, a new meal, or `removed` = gone from then on). */
+/** A change of a meal that starts today or later (a new name or time, a new meal, or `removed` = gone from then on). */
 export interface PlannedMealDto {
   versionId: number
   mealId: number
@@ -1406,9 +1406,14 @@ export interface PlannedMealDto {
   name: string
   time: Minutes
   removed: boolean
+  /**
+   * Taking this change back leaves the meal away on `validFrom` (a new meal, or one brought back after a removal): for
+   * a change of today, today's ticks of the meal are lost.
+   */
+  cancelRemovesMeal: boolean
 }
 
-/** The facility's meals: those of today (by time, then name) and the changes planned after today (by date, then time). */
+/** The facility's meals: those of today (by time, then name) and the changes from today on (by date, then time). */
 export interface MealSettingsDto {
   current: DayMeal[]
   planned: PlannedMealDto[]
