@@ -124,6 +124,29 @@ describe('reminders', () => {
       expect(getChild(db, leitung, id, '2026-11-02').developmentDoc.nextDue).toBe('2027-05-02')
     })
 
+    it('a start („Beginn“) in the past counts from the start, overdue once passed; „Erledigt“ still wins', () => {
+      const id = addChild(db, 1, { firstName: 'Alt', lastName: 'Kind', groupId: baeren, entryDate: '2021-09-01' })
+      setGroupDocSettings(db, 1, baeren, { ...INTERVAL, intervalMonths: 1, docSince: '2026-09-01' }, NOW)
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2026-10-01')
+      expect(listReminders(db, leitung, TODAY).filter(reminder => reminder.kind === 'doc').map(reminder => [reminder.state, reminder.date]))
+        .toEqual([['overdue', '2026-10-01']])
+      setGroupDocSettings(db, 1, baeren, { ...INTERVAL, docSince: '2026-09-01' }, NOW)
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2027-09-01')
+      markDocDone(db, leitung, id, NOW)
+      setGroupDocSettings(db, 1, baeren, { ...INTERVAL, docSince: '2020-01-01' }, NOW)
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2027-10-20')
+    })
+
+    it('a start in the future shows nothing before it; a child entering after the start counts from its entry', () => {
+      const old = addChild(db, 1, { firstName: 'Alt', lastName: 'Kind', groupId: baeren, entryDate: '2021-09-01' })
+      setGroupDocSettings(db, 1, baeren, { ...INTERVAL, intervalMonths: 1, docSince: '2027-09-01' }, NOW)
+      expect(getChild(db, leitung, old, TODAY).developmentDoc.nextDue).toBe('2027-10-01')
+      expect(listReminders(db, leitung, TODAY).filter(reminder => reminder.kind === 'doc')).toEqual([])
+      expect(listReminders(db, leitung, '2027-09-01').filter(reminder => reminder.kind === 'doc')).toEqual([])
+      const neu = addChild(db, 1, { firstName: 'Neu', lastName: 'Kind', groupId: baeren, entryDate: '2027-11-02' })
+      expect(getChild(db, leitung, neu, '2027-11-02').developmentDoc.nextDue).toBe('2027-12-02')
+    })
+
     it('a mode change resets „gilt seit“, a changed interval keeps it', () => {
       const id = docChild('Lena', baeren, '2026-09-01')
       expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2026-09-01')

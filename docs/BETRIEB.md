@@ -659,20 +659,29 @@ Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einric
 - **Abschied**: wie viele Wochen vorher (0 bis 12, voreingestellt 4),
 - die **Entwicklungsdokumentation** je Gruppe und für die Kinder ohne Gruppe (voreingestellt jeweils „aus“):
   - **alle X Monate** (1 bis 24): fällig X Monate nach dem letzten „Erledigt“; ohne „Erledigt“ X Monate nach dem
-    Eintritt (sonst nach dem geplanten Eintritt), frühestens X Monate nach „gilt seit“ (siehe unten),
+    Eintritt (sonst nach dem geplanten Eintritt), frühestens X Monate nach dem **„Beginn“** (siehe unten),
   - **um den Geburtstag**: fällig am Geburtstag des Kindes; ohne „Erledigt“ am ersten Geburtstag ab dem Eintritt,
     frühestens ab „gilt seit“. Wer innerhalb der Vorlaufzeit vor dem Geburtstag „Erledigt“ antippt, hat die Doku
     für diesen Geburtstag erledigt,
   - dazu **„erinnern Wochen vorher“** (0 bis 12, voreingestellt 2).
 
-  **„gilt seit“**: Die App merkt sich je Gruppe (und für die Kinder ohne Gruppe) den Tag, an dem die Erinnerung
-  eingeschaltet oder die Art („alle X Monate“ / „um den Geburtstag“) gewechselt wurde; er steht in den Einstellungen
-  unter der Auswahl. Ohne „Erledigt“ zählt die App erst ab diesem Tag. So gibt es beim Einschalten **keine Flut
-  alter Erinnerungen** für Kinder, die schon lange da sind: Bei „alle 12 Monate“ ist die Doku für sie erst 12 Monate
-  nach dem Einschalten fällig, bei „um den Geburtstag“ am nächsten Geburtstag. Ein Kind, das später eintritt, zählt
-  ab seinem Eintritt. Ändert ihr nur die Monate oder die Wochen vorher, bleibt „gilt seit“ gleich; beim Ausschalten
-  wird es gelöscht, beim nächsten Einschalten neu gesetzt. Bei Gruppen, die vor diesem Update schon eingeschaltet
-  waren, gilt der Tag des Updates.
+  **„Beginn“ und „gilt seit“**: Die App merkt sich je Gruppe (und für die Kinder ohne Gruppe) einen Starttag. Ohne
+  „Erledigt“ zählt die App erst ab diesem Tag.
+  - Bei **„alle X Monate“** steht er als Datumsfeld **„Beginn“** in der Zeile. Beim Umstellen auf „alle X Monate“ ist
+    heute eingetragen; ihr könnt aber jedes Datum wählen, auch in der Vergangenheit oder Zukunft – zum Beispiel den
+    01.09.2026 als Start des Kitajahres. Nach „Speichern“ gilt der neue Beginn sofort für alle Kinder der Gruppe, die
+    noch kein „Erledigt“ haben. Beispiel: Beginn 01.09.2026 und „alle 12 Monate“ → fällig am 01.09.2027. Liegt der
+    Beginn so weit zurück, dass X Monate schon vorbei sind, ist die Erinnerung **sofort rot (überfällig)** – das ist
+    so gewollt. Ein Beginn in der Zukunft zeigt bis dahin keine Erinnerung.
+  - Bei **„um den Geburtstag“** setzt die App den Tag selbst (der Tag, an dem die Erinnerung eingeschaltet oder die
+    Art gewechselt wurde); er steht als „gilt seit ‹Datum›“ unter der Auswahl.
+
+  So gibt es beim Einschalten **keine Flut alter Erinnerungen** für Kinder, die schon lange da sind: Bei „alle 12
+  Monate“ mit Beginn heute ist die Doku für sie erst 12 Monate später fällig, bei „um den Geburtstag“ am nächsten
+  Geburtstag. Ein Kind, das nach dem Beginn eintritt, zählt ab seinem Eintritt. Ändert ihr nur die Monate oder die
+  Wochen vorher, bleibt der Tag gleich; beim Ausschalten wird er gelöscht, beim nächsten Einschalten neu gesetzt
+  (heute). Bei Gruppen, die vor dem Update mit „gilt seit“ schon eingeschaltet waren, gilt der Tag jenes Updates.
+  Ein „Erledigt“ geht immer vor: Danach zählt die App ab dem letzten „Erledigt“, der Beginn spielt keine Rolle mehr.
 
   Ein verpasster Termin bleibt in beiden Fällen **rot als überfällig stehen, bis jemand „Erledigt“ tippt** – auch
   wenn der Geburtstag schon lange vorbei ist.

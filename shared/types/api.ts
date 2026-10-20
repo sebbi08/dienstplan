@@ -249,8 +249,8 @@ export interface TabletSettingsDto {
 export interface ReminderSettingsDto {
   noGroupDoc: DocSettings
   /**
-   * „gilt seit“ of `noGroupDoc`: the day it was switched on or its mode last changed (null while off); without a done
-   * date the due day is counted from no earlier than this day. Set by the server, never by the input.
+   * „gilt seit“ of `noGroupDoc`: the day it was switched on or its mode last changed (null while off), or in interval
+   * mode the start („Beginn“) the Leitung set; without a done date the due day is counted from no earlier than this day.
    */
   noGroupDocSince: IsoDate | null
   /** Days before a child's birthday (0–30). */
@@ -263,8 +263,14 @@ export interface ReminderSettingsDto {
   groups: { groupId: number; name: string; doc: DocSettings; docSince: IsoDate | null }[]
 }
 
-/** What the Leitung or Träger sets for the facility (the groups are set one by one; „gilt seit“ is set by the server). */
-export type ReminderSettingsInput = Omit<ReminderSettingsDto, 'groups' | 'noGroupDocSince'>
+/**
+ * A documentation setting as sent: in interval mode an optional start („Beginn“, any valid day) stored as „gilt seit“;
+ * without it (and in birthday mode) the server sets „gilt seit“ itself.
+ */
+export type DocSettingsInput = DocSettings & { docSince?: IsoDate }
+
+/** What the Leitung or Träger sets for the facility (the groups are set one by one). */
+export type ReminderSettingsInput = Omit<ReminderSettingsDto, 'groups' | 'noGroupDocSince' | 'noGroupDoc'> & { noGroupDoc: DocSettingsInput }
 
 /** An entry of the box „Erinnerungen“ on the children page. */
 export interface ReminderDto {

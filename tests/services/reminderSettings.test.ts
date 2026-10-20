@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { docSettingsSchema, reminderSettingsSchema } from '../../server/schemas'
 import { getReminderSettings, setGroupDocSettings, setReminderSettings } from '../../server/services/reminderSettings'
 import type { DocSettings } from '../../shared/domain/reminders'
 import { addFacility, addGroup, createTestDb, errorCode } from '../helpers/fixtures'
@@ -45,6 +46,70 @@ describe('reminder settings, „gilt seit“', () => {
     setReminderSettings(db, 1, facilityInput({ noGroupDoc: BIRTHDAY }), later('2026-11-02'))
     expect(getReminderSettings(db, 1).noGroupDocSince).toBe('2026-11-02')
     setReminderSettings(db, 1, facilityInput({ noGroupDoc: OFF }), later('2026-11-03'))
+    expect(getReminderSettings(db, 1).noGroupDocSince).toBeNull()
+  })
+})
+
+describe('reminder settings, „Beginn“ in interval mode', () => {
+  const interval = (intervalMonths = 12, leadWeeks = 2): DocSettings => ({ mode: 'interval', intervalMonths, leadWeeks })
+  const later = (iso: string) => new Date(`${iso}T08:00:00Z`)
+  const groupSince = (db: ReturnType<typeof createTestDb>) => getReminderSettings(db, 1).groups[0]!.docSince
+
+  it('stores a given start of a group, past or future, and returns it', () => {
+    const db = createTestDb()
+    const baeren = addGroup(db, 1, 'Bären')
+    setGroupDocSettings(db, 1, baeren, { ...interval(), docSince: '2026-09-01' }, NOW)
+    expect(groupSince(db)).toBe('2026-09-01')
+    setGroupDocSettings(db, 1, baeren, { ...interval(6), docSince: '2027-09-01' }, later('2026-11-01'))
+    expect(groupSince(db)).toBe('2027-09-01')
+    expect(getReminderSettings(db, 1).groups[0]!.doc).toEqual(interval(6))
+  })
+
+  it('stores a given start of the children without group and returns it', () => {
+    const db = createTestDb()
+    setReminderSettings(db, 1, facilityInput({ noGroupDoc: { ...interval(), docSince: '2025-09-01' } }), NOW)
+    expect(getReminderSettings(db, 1).noGroupDocSince).toBe('2025-09-01')
+    expect(getReminderSettings(db, 1).noGroupDoc).toEqual(interval())
+  })
+
+  it('without a start keeps the automatic rule: today on a mode change, else unchanged', () => {
+    const db = createTestDb()
+    const baeren = addGroup(db, 1, 'Bären')
+    setGroupDocSettings(db, 1, baeren, { ...interval(), docSince: '2026-09-01' }, NOW)
+    setGroupDocSettings(db, 1, baeren, interval(6), later('2026-11-01'))
+    expect(groupSince(db)).toBe('2026-09-01')
+    setGroupDocSettings(db, 1, baeren, OFF, later('2026-11-03'))
+    setGroupDocSettings(db, 1, baeren, interval(), later('2026-11-04'))
+    expect(groupSince(db)).toBe('2026-11-04')
+  })
+
+  it('birthday mode keeps the automatic „gilt seit“ and „aus“ clears it, whatever start is sent', () => {
+    const db = createTestDb()
+    const baeren = addGroup(db, 1, 'Bären')
+    setGroupDocSettings(db, 1, baeren, { mode: 'birthday', intervalMonths: 12, leadWeeks: 2, docSince: '2025-01-01' }, NOW)
+    expect(groupSince(db)).toBe(TODAY)
+    setGroupDocSettings(db, 1, baeren, { ...OFF, docSince: '2025-01-01' }, NOW)
+    expect(groupSince(db)).toBeNull()
+  })
+
+  it('both routes pass the start on to the service, and leave it out when not sent', () => {
+    const doc = { ...interval(), docSince: '2026-09-01' }
+    expect(docSettingsSchema.parse(doc)).toEqual(doc)
+    expect(docSettingsSchema.parse(interval())).toEqual(interval())
+    expect(reminderSettingsSchema.parse(facilityInput({ noGroupDoc: doc })).noGroupDoc).toEqual(doc)
+  })
+
+  it('refuses an invalid start and changes nothing', () => {
+    const db = createTestDb()
+    const baeren = addGroup(db, 1, 'Bären')
+    setGroupDocSettings(db, 1, baeren, { ...interval(), docSince: '2026-09-01' }, NOW)
+    for (const docSince of ['2026-02-30', '2026-13-01', '01.09.2026', '', '2026-9-1']) {
+      expect(errorCode(() => setGroupDocSettings(db, 1, baeren, { ...interval(6), docSince }, NOW)), docSince)
+        .toBe('reminder_setting_invalid')
+      expect(errorCode(() => setReminderSettings(db, 1, facilityInput({ noGroupDoc: { ...interval(), docSince } }), NOW)), docSince)
+        .toBe('reminder_setting_invalid')
+    }
+    expect(getReminderSettings(db, 1).groups[0]).toMatchObject({ doc: interval(), docSince: '2026-09-01' })
     expect(getReminderSettings(db, 1).noGroupDocSince).toBeNull()
   })
 })

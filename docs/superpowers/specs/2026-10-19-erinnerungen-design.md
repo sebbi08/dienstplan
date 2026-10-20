@@ -38,7 +38,9 @@ Kinder ohne Gruppe: es gilt eine Einstellung der Einrichtung mit denselben Mögl
 
 - Die App merkt sich je Gruppe (und für Kinder ohne Gruppe), **seit wann** die Erinnerung eingeschaltet ist bzw. die
   Art („alle X Monate“ / „um den Geburtstag“) zuletzt gewechselt wurde („gilt seit“). Ohne „Erledigt“ wird erst ab
-  diesem Tag gezählt (keine Flut alter Erinnerungen beim Einschalten).
+  diesem Tag gezählt (keine Flut alter Erinnerungen beim Einschalten). Bei „alle X Monate“ können Leitung und Träger
+  diesen Tag als **„Beginn“** selbst setzen (jedes gültige Datum, auch vergangen oder künftig, z. B. der Start des
+  Kitajahres; voreingestellt heute); er gilt sofort für alle Kinder ohne „Erledigt“ (Entschieden am 20.10.2026).
 - **Alle X Monate**: fällig X Monate nach dem letzten „Erledigt“; ohne „Erledigt“ X Monate nach dem späteren von
   Eintritt (sonst geplanter Eintritt) und „gilt seit“.
 - **Um den Geburtstag**: fällig am nächsten Geburtstag nach dem letzten „Erledigt“; ohne „Erledigt“ am ersten Geburtstag

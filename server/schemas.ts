@@ -169,8 +169,13 @@ export const groupSchoolChildrenSchema = z.object({ forSchoolChildren: z.boolean
 export const groupReadAccessSchema = z.object({ readable: z.array(z.number().int().positive()).max(100) })
 /** The values are checked by the service, which answers invalid_school_cutoff. */
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
-/** A documentation setting; the numbers are checked by the service, which answers reminder_setting_invalid. */
-export const docSettingsSchema = z.object({ mode: z.enum(['off', 'interval', 'birthday']), intervalMonths: z.number(), leadWeeks: z.number() })
+/**
+ * A documentation setting with the optional start („Beginn“) of interval mode; the numbers and the start are checked by
+ * the service, which answers reminder_setting_invalid.
+ */
+export const docSettingsSchema = z.object({
+  mode: z.enum(['off', 'interval', 'birthday']), intervalMonths: z.number(), leadWeeks: z.number(), docSince: z.string().optional(),
+})
 /** The facility's reminder settings; the numbers are checked by the service, which answers reminder_setting_invalid. */
 export const reminderSettingsSchema = z.object({
   noGroupDoc: docSettingsSchema, birthdayLeadDays: z.number(), staffBirthdayLeadDays: z.number(), leavingLeadWeeks: z.number(),

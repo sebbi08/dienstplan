@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { todayIso } from '#shared/domain/dates'
 import type { DocMode, DocSettings } from '#shared/domain/reminders'
-import type { ReminderSettingsDto, ReminderSettingsInput } from '#shared/types/api'
+import type { IsoDate } from '#shared/domain/types'
+import type { DocSettingsInput, ReminderSettingsDto, ReminderSettingsInput } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 
@@ -17,16 +19,35 @@ const s = de.reminders.settings
 const { data: groups } = useGroups()
 watch(groups, () => refresh())
 
-const facility = reactive<ReminderSettingsInput>({
-  noGroupDoc: { mode: 'off', intervalMonths: 12, leadWeeks: 2 }, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4,
+/** A documentation form: the setting and the start („Beginn“) shown in interval mode. */
+type DocForm = DocSettings & { docSince: string }
+
+/** The form of a stored setting: the start is the stored „gilt seit“ in interval mode, else today (for a switch to it). */
+const formOf = (doc: DocSettings, since: IsoDate | null): DocForm =>
+  ({ ...doc, docSince: doc.mode === 'interval' && since ? since : todayIso() })
+
+const facility = reactive<Omit<ReminderSettingsInput, 'noGroupDoc'> & { noGroupDoc: DocForm }>({
+  noGroupDoc: formOf({ mode: 'off', intervalMonths: 12, leadWeeks: 2 }, null),
+  birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4,
 })
-const groupForms = ref<Record<number, DocSettings>>({})
+const groupForms = ref<Record<number, DocForm>>({})
 
 function fill(value: ReminderSettingsDto) {
   Object.assign(facility, {
-    noGroupDoc: { ...value.noGroupDoc }, birthdayLeadDays: value.birthdayLeadDays,
+    noGroupDoc: formOf(value.noGroupDoc, value.noGroupDocSince), birthdayLeadDays: value.birthdayLeadDays,
     staffBirthdayLeadDays: value.staffBirthdayLeadDays, leavingLeadWeeks: value.leavingLeadWeeks,
   })
+}
+
+/** What is sent for a form: the start only in interval mode (left empty, the server keeps its automatic „gilt seit“). */
+function docBody(form: DocForm): DocSettingsInput {
+  const { docSince, ...doc } = form
+  return doc.mode === 'interval' && docSince ? { ...doc, docSince } : doc
+}
+
+/** Switching a row to interval mode shows its stored start if it already was in interval mode, else today. */
+function modeChanged(form: DocForm, stored: { mode: DocMode; since: IsoDate | null } | null, mode: DocMode) {
+  if (mode === 'interval') form.docSince = stored?.mode === 'interval' && stored.since ? stored.since : todayIso()
 }
 // The facility form is filled once (and from each save's answer); new groups get a form, existing forms keep their edits.
 let filled = false
@@ -34,7 +55,7 @@ watch(data, (value) => {
   if (!value) return
   if (!filled) fill(value)
   filled = true
-  for (const group of value.groups) groupForms.value[group.groupId] ??= { ...group.doc }
+  for (const group of value.groups) groupForms.value[group.groupId] ??= formOf(group.doc, group.docSince)
 }, { immediate: true })
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => ({ label: String(from + index), value: from + index }))
@@ -59,14 +80,15 @@ const docRows = computed(() => [
 
 function saveFacility() {
   run(async () => {
-    const answer = await $fetch<ReminderSettingsDto>('/api/reminder-settings', { method: 'PUT', body: { ...facility, noGroupDoc: { ...facility.noGroupDoc } } })
+    const body: ReminderSettingsInput = { ...facility, noGroupDoc: docBody(facility.noGroupDoc) }
+    const answer = await $fetch<ReminderSettingsDto>('/api/reminder-settings', { method: 'PUT', body })
     fill(answer)
   }, de.common.saved)
 }
 
-function saveRow(groupId: number | null, form: DocSettings) {
+function saveRow(groupId: number | null, form: DocForm) {
   if (groupId === null) return saveFacility()
-  run(() => $fetch<unknown>(`/api/groups/${groupId}/documentation`, { method: 'PUT', body: { ...form } }), de.common.saved)
+  run(() => $fetch<unknown>(`/api/groups/${groupId}/documentation`, { method: 'PUT', body: docBody(form) }), de.common.saved)
 }
 
 const cell = 'px-1 py-1'
@@ -92,15 +114,22 @@ const cell = 'px-1 py-1'
           <thead class="text-left text-xs text-gray-500">
             <tr>
               <th :class="cell">{{ s.group }}</th><th :class="cell">{{ s.mode }}</th>
-              <th :class="cell">{{ s.intervalMonths }}</th><th :class="cell">{{ s.leadWeeks }}</th><th />
+              <th :class="cell">{{ s.intervalMonths }}</th><th :class="cell">{{ s.start }}</th>
+              <th :class="cell">{{ s.leadWeeks }}</th><th />
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in docRows" :key="row.key" class="border-t border-gray-100">
               <td :class="cell" class="font-medium">{{ row.label }}</td>
               <td :class="cell">
-                <USelect v-model="row.form.mode" :items="modeItems" class="w-48" :aria-label="`${s.mode} ${row.label}`" />
-                <p v-if="row.stored?.since && row.stored.mode === row.form.mode" class="mt-0.5 text-xs text-gray-500">
+                <USelect
+                  v-model="row.form.mode" :items="modeItems" class="w-48" :aria-label="`${s.mode} ${row.label}`"
+                  @update:model-value="modeChanged(row.form, row.stored, $event)"
+                />
+                <p
+                  v-if="row.stored?.since && row.form.mode === 'birthday' && row.stored.mode === row.form.mode"
+                  class="mt-0.5 text-xs text-gray-500"
+                >
                   {{ s.since(formatDate(row.stored.since)) }}
                 </p>
               </td>
@@ -108,6 +137,12 @@ const cell = 'px-1 py-1'
                 <USelect
                   v-if="row.form.mode === 'interval'" v-model="row.form.intervalMonths" :items="monthItems" class="w-24"
                   :aria-label="`${s.intervalMonths} ${row.label}`"
+                />
+              </td>
+              <td :class="cell">
+                <UInput
+                  v-if="row.form.mode === 'interval'" v-model="row.form.docSince" type="date" class="w-40"
+                  :aria-label="`${s.start} ${row.label}`"
                 />
               </td>
               <td :class="cell">

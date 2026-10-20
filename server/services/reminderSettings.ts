@@ -1,8 +1,9 @@
 import { asc, eq } from 'drizzle-orm'
+import { isValidIsoDate } from '../../shared/domain/dates'
 import type { DocMode, DocSettings } from '../../shared/domain/reminders'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ReminderSettingsDto, ReminderSettingsInput } from '../../shared/types/api'
+import type { DocSettingsInput, ReminderSettingsDto, ReminderSettingsInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, groups } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -15,19 +16,25 @@ function checkRange(value: number, min: number, max: number): void {
   if (!Number.isInteger(value) || value < min || value > max) throw new ServiceError(400, 'reminder_setting_invalid')
 }
 
-/** Mode off, interval or birthday; interval 1–24 months; lead 0–12 weeks (checked whatever the mode). */
-function checkDoc(doc: DocSettings): void {
+/**
+ * Mode off, interval or birthday; interval 1–24 months; lead 0–12 weeks; a sent start a valid day (all checked whatever
+ * the mode).
+ */
+function checkDoc(doc: DocSettingsInput): void {
   if (!DOC_MODES.includes(doc.mode)) throw new ServiceError(400, 'reminder_setting_invalid')
   checkRange(doc.intervalMonths, 1, 24)
   checkRange(doc.leadWeeks, 0, 12)
+  if (doc.docSince !== undefined && !isValidIsoDate(doc.docSince)) throw new ServiceError(400, 'reminder_setting_invalid')
 }
 
 /**
- * The columns to store for `doc`. „gilt seit“ (`docSince`) becomes today when the mode changes (switched on, or
- * interval ↔ birthday), stays when only the months or the lead weeks change, and is cleared when switched off.
+ * The columns to store for `doc`. „gilt seit“ (`docSince`) is the sent start („Beginn“) in interval mode, past or
+ * future. Otherwise it becomes today when the mode changes (switched on, or interval ↔ birthday), stays when only the
+ * months or the lead weeks change, and is cleared when switched off.
  */
-function docColumns(doc: DocSettings, stored: { docMode: DocMode; docSince: IsoDate | null }, today: IsoDate) {
-  const docSince = doc.mode === 'off' ? null : doc.mode === stored.docMode ? stored.docSince : today
+function docColumns(doc: DocSettingsInput, stored: { docMode: DocMode; docSince: IsoDate | null }, today: IsoDate) {
+  const automatic = doc.mode === 'off' ? null : doc.mode === stored.docMode ? stored.docSince : today
+  const docSince = doc.mode === 'interval' && doc.docSince !== undefined ? doc.docSince : automatic
   return { docMode: doc.mode, docIntervalMonths: doc.intervalMonths, docLeadWeeks: doc.leadWeeks, docSince }
 }
 
@@ -55,8 +62,8 @@ export function getReminderSettings(db: Db, facilityId: number): ReminderSetting
 }
 
 /**
- * Stores the facility's settings: the documentation of children without group (its „gilt seit“ as `docColumns`, today
- * in Berlin), the lead days before child and staff birthdays (0–30) and the lead weeks before a child leaves (0–12); any
+ * Stores the facility's settings: the documentation of children without group (its „gilt seit“ or sent start as
+ * `docColumns`, today in Berlin), the lead days before child and staff birthdays (0–30) and the lead weeks before a child leaves (0–12); any
  * value out of range → 400 reminder_setting_invalid and nothing changes (404 facility_not_found).
  */
 export function setReminderSettings(db: Db, facilityId: number, input: ReminderSettingsInput, now: Date = new Date()): void {
@@ -74,10 +81,10 @@ export function setReminderSettings(db: Db, facilityId: number, input: ReminderS
 
 /**
  * Stores the documentation setting of a group of the facility (400 reminder_setting_invalid; 404 group_not_found for a
- * group of another facility; „gilt seit“ as `docColumns`, today in Berlin). It applies at once to every child in the
- * group today.
+ * group of another facility; „gilt seit“ or the sent start as `docColumns`, today in Berlin). It applies at once to
+ * every child in the group today.
  */
-export function setGroupDocSettings(db: Db, facilityId: number, groupId: number, doc: DocSettings, now: Date = new Date()): void {
+export function setGroupDocSettings(db: Db, facilityId: number, groupId: number, doc: DocSettingsInput, now: Date = new Date()): void {
   assertGroup(db, facilityId, groupId)
   checkDoc(doc)
   const stored = db.select({ docMode: groups.docMode, docSince: groups.docSince }).from(groups).where(eq(groups.id, groupId)).get()!
