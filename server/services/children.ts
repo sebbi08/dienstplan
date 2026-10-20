@@ -30,6 +30,7 @@ import {
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
+import { developmentDocOf } from './reminders'
 import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
 
 type ConsentColumn = `consent${Capitalize<ConsentKey>}`
@@ -204,6 +205,7 @@ export function getChild(
     purgeOn: row.leftOn !== null && isManager(viewer.role) ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
     canEdit: mayEditChildren(viewer) && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write',
     documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
+    developmentDoc: developmentDocOf(db, viewer, row, status, today),
   }
 }
 

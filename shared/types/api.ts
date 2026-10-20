@@ -3,7 +3,7 @@ import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
-import type { DocSettings } from '../domain/reminders'
+import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { GermanState } from '../domain/states'
@@ -261,6 +261,37 @@ export interface ReminderSettingsDto {
 /** What the Leitung or Träger sets for the facility (the groups are set one by one). */
 export type ReminderSettingsInput = Omit<ReminderSettingsDto, 'groups'>
 
+/** An entry of the box „Erinnerungen“ on the children page. */
+export interface ReminderDto {
+  kind: ReminderKind
+  /** The day it is about: the documentation's due day, the birthday, the last day before leaving. */
+  date: IsoDate
+  /** Overdue only for a documentation. */
+  state: 'upcoming' | 'today' | 'overdue'
+  /** The child's first and last name, or the employee's name. */
+  name: string
+  /** null for a staff birthday. */
+  childId: number | null
+  /** For a child's birthday: the age the child turns; null otherwise. */
+  age: number | null
+  /** The child's key educator is the person looking at the box. */
+  ownChild: boolean
+  /** The documentation can be marked done (always true for a listed documentation, false for the other kinds). */
+  canDone: boolean
+}
+
+/** The record's „Entwicklungsdokumentation“. */
+export interface DevelopmentDocDto {
+  /** The latest „Erledigt“, with the stored name of whoever marked it. */
+  lastDone: { id: number; date: IsoDate; name: string } | null
+  /** When it is due next under the setting of the child's group today; null with the setting off or for a child not active. */
+  nextDue: IsoDate | null
+  /** The viewer may take the latest „Erledigt“ back: Leitung/Träger any time, others on its day in their own group. */
+  canUndo: boolean
+  /** The viewer may mark it done: an active child of a group they may write in. */
+  canDone: boolean
+}
+
 /** A child the automatic leaving deregisters (when it is switched on, and in its daily run): its leaving day is the day before its school start. */
 export interface SchoolLeaverDto {
   id: number
@@ -392,6 +423,7 @@ export interface ChildRecordDto {
   purgeOn: IsoDate | null
   canEdit: boolean
   documents: ChildDocumentDto[]
+  developmentDoc: DevelopmentDocDto
 }
 
 /** A document in a child's record; the file itself is fetched separately. */

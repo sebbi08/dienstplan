@@ -821,6 +821,8 @@ export const de = {
     employee_not_found: 'Mitarbeiter nicht gefunden.',
     employee_birthday_invalid: 'Bitte einen gültigen Geburtstag (Tag und Monat) angeben.',
     reminder_setting_invalid: 'Bitte einen gültigen Zeitraum angeben.',
+    development_doc_not_found: 'Dieser Eintrag existiert nicht mehr.',
+    undo_too_late: 'Rückgängig machen geht nur am selben Tag. Frag die Leitung.',
     last_admin: 'Es muss mindestens ein aktives Konto mit der Rolle Leitung oder Träger bleiben.',
     last_provider: 'Es muss mindestens ein aktiver Träger bleiben.',
     provider_only: 'Träger-Konten kann nur ein Träger anlegen, ändern oder ernennen.',

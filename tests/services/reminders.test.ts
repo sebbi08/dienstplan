@@ -1,0 +1,285 @@
+import { eq } from 'drizzle-orm'
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { Db } from '../../server/db/client'
+import { childDevelopmentDocs, children, employees, facilities } from '../../server/db/schema'
+import type { ChildViewer } from '../../server/lib/childViewer'
+import { getChild } from '../../server/services/children'
+import { setGroupDocSettings, setReminderSettings } from '../../server/services/reminderSettings'
+import { listReminders, markDocDone, undoDocDone } from '../../server/services/reminders'
+import type { DocSettings } from '../../shared/domain/reminders'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
+
+const TODAY = '2026-10-20'
+const NOW = new Date('2026-10-20T08:00:00Z')
+const TOMORROW = new Date('2026-10-21T08:00:00Z')
+
+const INTERVAL: DocSettings = { mode: 'interval', intervalMonths: 12, leadWeeks: 2 }
+const OFF: DocSettings = { mode: 'off', intervalMonths: 12, leadWeeks: 2 }
+
+describe('reminders', () => {
+  let db: Db
+  let baeren: number
+  let maeuse: number
+  let fuechse: number
+  let berta: number
+  /** Berta at the tablet without an account: own group Bären, Mäuse readable, Füchse hidden. */
+  let staff: ChildViewer
+  let leitung: ChildViewer
+
+  beforeEach(() => {
+    db = createTestDb()
+    baeren = addGroup(db, 1, 'Bären')
+    maeuse = addGroup(db, 1, 'Mäuse')
+    fuechse = addGroup(db, 1, 'Füchse')
+    berta = addEmployee(db, 'Berta', { groupId: baeren })
+    staff = {
+      id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, facilityId: 1,
+      visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: baeren, readable: [maeuse] },
+    }
+    leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
+    for (const group of [baeren, maeuse, fuechse]) setGroupDocSettings(db, 1, group, INTERVAL)
+  })
+
+  /** An active child whose interval documentation (12 months after entry) is due on `due`. */
+  const docChild = (firstName: string, groupId: number | null, due: string, extra: Parameters<typeof addChild>[2] = {}) =>
+    addChild(db, 1, {
+      firstName, lastName: 'Kind', groupId, entryDate: `${Number(due.slice(0, 4)) - 1}${due.slice(4)}`,
+      birthDate: '2022-03-15', ...extra,
+    })
+
+  const kindsFor = (viewer: ChildViewer, today = TODAY) =>
+    listReminders(db, viewer, today).map(reminder => `${reminder.kind}:${reminder.name}`)
+
+  describe('documentation', () => {
+    it('lists a documentation due within the lead window with the button', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      expect(listReminders(db, staff, TODAY)).toEqual([{
+        kind: 'doc', date: '2026-10-25', state: 'upcoming', name: 'Lena Kind', childId: id, age: null, ownChild: false,
+        canDone: true,
+      }])
+    })
+
+    it('leaves out a documentation before its lead window, and marks today and overdue', () => {
+      docChild('Spät', baeren, '2026-11-20')
+      docChild('Heute', baeren, TODAY)
+      docChild('Alt', baeren, '2026-09-01')
+      expect(listReminders(db, staff, TODAY).map(reminder => [reminder.name, reminder.state, reminder.date])).toEqual([
+        ['Alt Kind', 'overdue', '2026-09-01'],
+        ['Heute Kind', 'today', TODAY],
+      ])
+    })
+
+    it('shows staff only the own group, never a read-only or hidden one; Leitung and staff without group see all', () => {
+      docChild('Bär', baeren, '2026-10-25')
+      docChild('Maus', maeuse, '2026-10-25')
+      docChild('Fuchs', fuechse, '2026-10-25')
+      docChild('Ohne', null, '2026-10-25')
+      setReminderSettings(db, 1, {
+        noGroupDoc: INTERVAL, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4,
+      })
+      expect(kindsFor(staff)).toEqual(['doc:Bär Kind', 'doc:Ohne Kind'])
+      expect(kindsFor(leitung)).toEqual(['doc:Bär Kind', 'doc:Fuchs Kind', 'doc:Maus Kind', 'doc:Ohne Kind'])
+      expect(kindsFor({ ...staff, groups: null })).toHaveLength(4)
+    })
+
+    it('uses the setting of the child\'s group today: a change applies at once, „aus“ hides it', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      setGroupDocSettings(db, 1, maeuse, OFF)
+      db.update(children).set({ groupId: maeuse }).where(eq(children.id, id)).run()
+      expect(listReminders(db, leitung, TODAY)).toEqual([])
+      setGroupDocSettings(db, 1, fuechse, { mode: 'birthday', intervalMonths: 12, leadWeeks: 2 })
+      db.update(children).set({ groupId: fuechse, birthDate: '2022-10-25' }).where(eq(children.id, id)).run()
+      expect(listReminders(db, leitung, TODAY).map(reminder => [reminder.kind, reminder.date]))
+        .toEqual([['doc', '2026-10-25'], ['birthday', '2026-10-25']])
+      setGroupDocSettings(db, 1, fuechse, OFF)
+      expect(listReminders(db, leitung, TODAY).map(reminder => reminder.kind)).toEqual(['birthday'])
+    })
+
+    it('ignores children who are planned or have left', () => {
+      docChild('Geplant', baeren, '2026-10-25', { entryDate: null, plannedEntryDate: '2025-10-25' })
+      docChild('Weg', baeren, '2026-10-25', { leftOn: '2026-10-01' })
+      docChild('Warte', baeren, '2026-10-25', { admissionStatus: 'waitlist' })
+      expect(listReminders(db, leitung, TODAY)).toEqual([])
+    })
+
+    it('marks the key educator\'s own child', () => {
+      docChild('Lena', baeren, '2026-10-25', { keyEducatorId: berta })
+      expect(listReminders(db, staff, TODAY)[0]!.ownChild).toBe(true)
+      expect(listReminders(db, leitung, TODAY)[0]!.ownChild).toBe(false)
+    })
+  })
+
+  describe('done and undo', () => {
+    it('stores the tablet person without account by name and hides the reminder until the next due date', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      const docId = markDocDone(db, staff, id, NOW)
+      expect(db.select().from(childDevelopmentDocs).all()).toEqual([{
+        id: docId, childId: id, doneOn: TODAY, doneByUserId: null, doneByEmployeeId: berta, doneByName: 'Berta',
+        createdAt: NOW.toISOString(),
+      }])
+      expect(listReminders(db, staff, TODAY)).toEqual([])
+      expect(getChild(db, staff, id, TODAY).developmentDoc).toEqual({
+        lastDone: { id: docId, date: TODAY, name: 'Berta' }, nextDue: '2027-10-20', canUndo: true, canDone: true,
+      })
+    })
+
+    it('stores the account of a logged-in viewer', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      markDocDone(db, leitung, id, NOW)
+      expect(db.select().from(childDevelopmentDocs).get()).toMatchObject({
+        doneByUserId: leitung.id, doneByEmployeeId: null, doneByName: 'leitung',
+      })
+    })
+
+    it('refuses a child of a read-only group (403) and one the viewer does not see (404)', () => {
+      const maus = docChild('Maus', maeuse, '2026-10-25')
+      const fuchs = docChild('Fuchs', fuechse, '2026-10-25')
+      expect(errorCode(() => markDocDone(db, staff, maus, NOW))).toBe('group_read_only')
+      expect(errorCode(() => markDocDone(db, staff, fuchs, NOW))).toBe('child_not_found')
+      expect(errorCode(() => markDocDone(db, staff, 9999, NOW))).toBe('child_not_found')
+      const other = addFacility(db, 'Krippe')
+      const foreign = addChild(db, other, {})
+      expect(errorCode(() => markDocDone(db, leitung, foreign, NOW))).toBe('child_not_found')
+      expect(db.select().from(childDevelopmentDocs).all()).toEqual([])
+    })
+
+    it('refuses undo of a read-only group\'s done (403)', () => {
+      const maus = docChild('Maus', maeuse, '2026-10-25')
+      const docId = markDocDone(db, leitung, maus, NOW)
+      expect(errorCode(() => undoDocDone(db, staff, docId, NOW))).toBe('group_read_only')
+      expect(getChild(db, staff, maus, TODAY).developmentDoc.canUndo).toBe(false)
+      expect(getChild(db, staff, maus, TODAY).developmentDoc.canDone).toBe(false)
+    })
+
+    it('lets staff undo only on the same day, Leitung later as well; then the previous done counts', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      db.insert(childDevelopmentDocs)
+        .values({ childId: id, doneOn: '2025-10-15', doneByName: 'Anna', createdAt: '2025-10-15T08:00:00.000Z' }).run()
+      expect(listReminders(db, staff, TODAY).map(reminder => [reminder.state, reminder.date])).toEqual([['overdue', '2026-10-15']])
+
+      const sameDay = markDocDone(db, staff, id, NOW)
+      undoDocDone(db, staff, sameDay, NOW)
+      expect(listReminders(db, staff, TODAY).map(reminder => reminder.date)).toEqual(['2026-10-15'])
+
+      const docId = markDocDone(db, staff, id, NOW)
+      expect(getChild(db, staff, id, '2026-10-21').developmentDoc.canUndo).toBe(false)
+      expect(errorCode(() => undoDocDone(db, staff, docId, TOMORROW))).toBe('undo_too_late')
+      expect(getChild(db, leitung, id, '2026-10-21').developmentDoc.canUndo).toBe(true)
+      undoDocDone(db, leitung, docId, TOMORROW)
+      expect(listReminders(db, staff, '2026-10-21').map(reminder => [reminder.state, reminder.date]))
+        .toEqual([['overdue', '2026-10-15']])
+      expect(getChild(db, leitung, id, '2026-10-21').developmentDoc.lastDone)
+        .toEqual({ id: expect.any(Number), date: '2025-10-15', name: 'Anna' })
+    })
+
+    it('answers 404 for an unknown done or one of another facility', () => {
+      const other = addFacility(db, 'Krippe')
+      const foreign = addChild(db, other, {})
+      const docId = db.insert(childDevelopmentDocs)
+        .values({ childId: foreign, doneOn: TODAY, doneByName: 'X', createdAt: NOW.toISOString() }).returning().get().id
+      expect(errorCode(() => undoDocDone(db, leitung, docId, NOW))).toBe('development_doc_not_found')
+      expect(errorCode(() => undoDocDone(db, leitung, 9999, NOW))).toBe('development_doc_not_found')
+    })
+
+    it('shows the record\'s documentation without done and with the setting off', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      expect(getChild(db, staff, id, TODAY).developmentDoc)
+        .toEqual({ lastDone: null, nextDue: '2026-10-25', canUndo: false, canDone: true })
+      setGroupDocSettings(db, 1, baeren, OFF)
+      expect(getChild(db, staff, id, TODAY).developmentDoc)
+        .toEqual({ lastDone: null, nextDue: null, canUndo: false, canDone: true })
+    })
+  })
+
+  describe('birthdays', () => {
+    beforeEach(() => {
+      for (const group of [baeren, maeuse, fuechse]) setGroupDocSettings(db, 1, group, OFF)
+    })
+
+    it('lists children\'s birthdays within the lead days with the age they turn, own group only', () => {
+      const lena = addChild(db, 1, { firstName: 'Lena', lastName: 'Sommer', groupId: baeren, birthDate: '2021-10-23' })
+      addChild(db, 1, { firstName: 'Tom', lastName: 'Heute', groupId: baeren, birthDate: '2022-10-20' })
+      addChild(db, 1, { firstName: 'Spät', lastName: 'Kind', groupId: baeren, birthDate: '2021-10-28' })
+      addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse, birthDate: '2021-10-22' })
+      expect(listReminders(db, staff, TODAY)).toEqual([
+        { kind: 'birthday', date: TODAY, state: 'today', name: 'Tom Heute', childId: expect.any(Number), age: 4, ownChild: false, canDone: false },
+        { kind: 'birthday', date: '2026-10-23', state: 'upcoming', name: 'Lena Sommer', childId: lena, age: 5, ownChild: false, canDone: false },
+      ])
+      expect(kindsFor(leitung)).toEqual(['birthday:Tom Heute', 'birthday:Maus Kind', 'birthday:Lena Sommer'])
+    })
+
+    it('lists staff birthdays of the facility for everyone, never of employees who left', () => {
+      db.update(employees).set({ birthday: '10-22' }).where(eq(employees.id, berta)).run()
+      const anna = addEmployee(db, 'Anna', { leftOn: '2026-12-31' })
+      db.update(employees).set({ birthday: '10-20' }).where(eq(employees.id, anna)).run()
+      const gone = addEmployee(db, 'Gerd', { leftOn: '2026-09-30' })
+      db.update(employees).set({ birthday: '10-21' }).where(eq(employees.id, gone)).run()
+      const krippe = addFacility(db, 'Krippe')
+      const away = addEmployee(db, 'Fremd', { facilityId: krippe })
+      db.update(employees).set({ birthday: '10-21' }).where(eq(employees.id, away)).run()
+      const late = addEmployee(db, 'Spät')
+      db.update(employees).set({ birthday: '11-20' }).where(eq(employees.id, late)).run()
+      addEmployee(db, 'Ohne')
+      const expected = [
+        { kind: 'staffBirthday', date: TODAY, state: 'today', name: 'Anna', childId: null, age: null, ownChild: false, canDone: false },
+        { kind: 'staffBirthday', date: '2026-10-22', state: 'upcoming', name: 'Berta', childId: null, age: null, ownChild: false, canDone: false },
+      ]
+      expect(listReminders(db, staff, TODAY)).toEqual(expected)
+      expect(listReminders(db, leitung, TODAY)).toEqual(expected)
+    })
+
+    it('uses the facility\'s lead days for children and staff separately', () => {
+      setReminderSettings(db, 1, { noGroupDoc: OFF, birthdayLeadDays: 2, staffBirthdayLeadDays: 0, leavingLeadWeeks: 4 })
+      addChild(db, 1, { firstName: 'Lena', lastName: 'Sommer', groupId: baeren, birthDate: '2021-10-23' })
+      addChild(db, 1, { firstName: 'Tom', lastName: 'Bald', groupId: baeren, birthDate: '2021-10-22' })
+      db.update(employees).set({ birthday: '10-21' }).where(eq(employees.id, berta)).run()
+      expect(kindsFor(staff)).toEqual(['birthday:Tom Bald'])
+      expect(kindsFor(staff, '2026-10-21')).toEqual(['staffBirthday:Berta', 'birthday:Tom Bald', 'birthday:Lena Sommer'])
+    })
+  })
+
+  describe('leaving', () => {
+    beforeEach(() => {
+      for (const group of [baeren, maeuse, fuechse]) setGroupDocSettings(db, 1, group, OFF)
+    })
+
+    it('lists a registered leaving day within the lead weeks until the day', () => {
+      const id = addChild(db, 1, { firstName: 'Lena', lastName: 'Sommer', groupId: baeren, leftOn: '2026-11-10' })
+      addChild(db, 1, { firstName: 'Spät', lastName: 'Kind', groupId: baeren, leftOn: '2026-12-31' })
+      addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse, leftOn: '2026-11-10' })
+      expect(listReminders(db, staff, TODAY)).toEqual([{
+        kind: 'leaving', date: '2026-11-10', state: 'upcoming', name: 'Lena Sommer', childId: id, age: null, ownChild: false,
+        canDone: false,
+      }])
+      expect(listReminders(db, staff, '2026-11-10').map(reminder => reminder.state)).toEqual(['today'])
+      expect(listReminders(db, staff, '2026-10-12')).toEqual([])
+      expect(kindsFor(leitung)).toEqual(['leaving:Lena Sommer', 'leaving:Maus Kind'])
+    })
+
+    it('lists the automatic deregistration of a school child while the switch is on', () => {
+      const id = addChild(db, 1, {
+        firstName: 'Paul', lastName: 'Schule', groupId: baeren, birthDate: '2020-05-01', entryDate: '2023-09-01',
+        schoolStartDate: '2026-11-01',
+      })
+      expect(listReminders(db, staff, TODAY)).toEqual([])
+      db.update(facilities).set({ autoLeaveSchoolChildren: true }).where(eq(facilities.id, 1)).run()
+      expect(listReminders(db, staff, TODAY)).toEqual([{
+        kind: 'leaving', date: '2026-10-31', state: 'upcoming', name: 'Paul Schule', childId: id, age: null, ownChild: false,
+        canDone: false,
+      }])
+      setReminderSettings(db, 1, { noGroupDoc: OFF, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 1 })
+      expect(listReminders(db, staff, TODAY)).toEqual([])
+    })
+  })
+
+  it('sorts overdue, today, then by date and kind', () => {
+    for (const group of [maeuse, fuechse]) setGroupDocSettings(db, 1, group, OFF)
+    docChild('Alt', baeren, '2026-09-01')
+    docChild('Bald', baeren, '2026-10-23', { birthDate: '2021-10-23' })
+    db.update(employees).set({ birthday: '10-20' }).where(eq(employees.id, berta)).run()
+    addChild(db, 1, { firstName: 'Weg', lastName: 'Kind', groupId: baeren, entryDate: '2026-01-01', leftOn: '2026-10-22' })
+    expect(kindsFor(staff)).toEqual([
+      'doc:Alt Kind', 'staffBirthday:Berta', 'leaving:Weg Kind', 'doc:Bald Kind', 'birthday:Bald Kind',
+    ])
+  })
+})
