@@ -147,6 +147,7 @@ export const de = {
   },
   plan: {
     date: 'Datum', info1: 'Info 1', info2: 'Info 2', draft: 'Entwurf',
+    autoEventsHint: 'Automatisch aus den Kinder- und Mitarbeiterdaten – hier nicht bearbeitbar.',
     releasedAt: (date: string, by: string) => `Freigegeben am ${date} von ${by}`,
     changesCount: (count: number) => (count === 1 ? '1 Änderung' : `${count} Änderungen`),
     releasedChanges: (count: number) => (count === 1 ? '1 freigegebene Änderung' : `${count} freigegebene Änderungen`),

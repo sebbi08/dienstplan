@@ -404,6 +404,8 @@ const rows = computed(() => props.plan.days.map((day) => {
                 @change="emit('noteSave', row.day.date, note.field, ($event.target as HTMLInputElement).value)"
               >
               <span v-else class="text-xs">{{ note.value }}</span>
+              <!-- After the own Info texts, outside the input: the day's automatic events, read-only. -->
+              <PlanAutoEvents v-if="note.field === 'info2'" :events="row.day.autoEvents" class="mt-0.5 px-1" />
             </td>
             <td v-if="plan.admin" class="border border-gray-200 px-1 py-1 text-center align-top print:hidden" :title="row.warningTitle">
               <UIcon v-if="row.hasWarnings" name="i-lucide-triangle-alert" class="text-red-600" />

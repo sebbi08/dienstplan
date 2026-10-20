@@ -4,6 +4,7 @@ import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { type CalendarLabelItem, calendarLanes } from '~/utils/calendarLanes'
 import { groupColorClasses } from '~/utils/groups'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
@@ -31,35 +32,16 @@ const eventText = (event: CalendarEventDto) => {
   return `${Number(event.date.slice(8))}.${time} ${event.title}`
 }
 
-
-/** Rough number of characters that fit into one day column (11 px font, about 26–30 px per day). */
-const CHARS_PER_DAY = 4
 const LANE_HEIGHT = 15
 
-/**
- * Written appointments in the appointments row: each text starts at its day and runs to the right on one
- * line; when it would run into an earlier text it moves to the next line (lane). A text is cut (with full
- * text as tooltip) only where the next text of its own lane begins.
- */
+/** Written appointments, then the day's automatic events (read-only), in lanes; see calendarLanes. */
 const eventLayout = computed(() => {
-  const days = dates.value.length
-  const lanes: number[] = [] // per lane: first free day index
-  const labels: { event: CalendarEventDto; text: string; start: number; lane: number; width: number }[] = []
-  dates.value.forEach((date, start) => {
-    for (const event of events.value.filter(candidate => candidate.date === date)) {
-      const text = eventText(event)
-      let lane = lanes.findIndex(freeFrom => freeFrom <= start)
-      if (lane === -1) lane = lanes.push(0) - 1
-      lanes[lane] = start + Math.max(1, Math.ceil(text.length / CHARS_PER_DAY))
-      labels.push({ event, text, start, lane, width: days - start })
-    }
-  })
-  for (const label of labels) {
-    const next = labels.filter(other => other.lane === label.lane && other.start > label.start).map(other => other.start)
-    if (next.length) label.width = Math.min(...next) - label.start
-  }
-  return { labels, height: Math.max(1, lanes.length) * LANE_HEIGHT + 4 }
+  const { labels, laneCount } = calendarLanes(dates.value, events.value, eventText, props.calendar.autoEvents)
+  return { labels, height: Math.max(1, laneCount) * LANE_HEIGHT + 4 }
 })
+function onLabelClick(item: CalendarLabelItem) {
+  if (props.editable && item.kind === 'event') emit('eventClick', item.event)
+}
 const percent = (days: number) => `${(days / dates.value.length) * 100}%`
 const onHoliday = (date: string) => isHolidayIn(date, props.calendar.holidays)
 const isOff = (date: string) => isWeekend(date) || onHoliday(date)
@@ -151,15 +133,26 @@ function headerTitle(date: string): string | undefined {
             v-for="(date, index) in dates" :key="date" class="absolute inset-y-0 border-r border-gray-300 last:border-r-0"
             :class="isOff(date) ? 'bg-gray-100' : ''" :style="{ left: percent(index), width: percent(1) }"
           />
-          <div
-            v-for="label in eventLayout.labels" :key="label.event.id"
-            class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :class="editable ? 'cursor-pointer hover:bg-yellow-400' : ''"
-            :title="label.text"
-            :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
-            @click="editable && emit('eventClick', label.event)"
-          >
-            {{ label.text }}
-          </div>
+          <template v-for="label in eventLayout.labels" :key="label.key">
+            <div
+              v-if="label.item.kind === 'event'"
+              class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :class="editable ? 'cursor-pointer hover:bg-yellow-400' : ''"
+              :title="label.text"
+              :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
+              @click="onLabelClick(label.item)"
+            >
+              {{ label.text }}
+            </div>
+            <!-- Automatic events: read-only, grey italic with a small icon, never clickable. -->
+            <div
+              v-else
+              class="absolute truncate rounded-sm bg-white px-0.5 italic leading-[14px] text-gray-600 ring-1 ring-inset ring-gray-300"
+              :title="`${label.text}\n${de.plan.autoEventsHint}`"
+              :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
+            >
+              <UIcon name="i-lucide-sparkles" class="mr-0.5 size-2.5 align-[-1px]" aria-hidden="true" />{{ label.text }}
+            </div>
+          </template>
         </td>
         <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>

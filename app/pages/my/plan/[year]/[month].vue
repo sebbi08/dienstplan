@@ -75,6 +75,8 @@ function rowClass(day: MyPlanDayDto): string {
             {{ formatDayShort(day.date, day.weekday) }}
             <div v-if="day.holidayKey" class="text-xs font-normal text-blue-700">{{ de.holidays[day.holidayKey] }}</div>
             <div v-else-if="day.closureLabel" class="text-xs font-normal text-blue-700">{{ day.closureLabel }}</div>
+            <!-- On a phone the Info columns lie off to the right: the automatic events stand under the date instead. -->
+            <PlanAutoEvents :events="day.autoEvents" class="mt-0.5 font-normal sm:hidden" />
           </td>
           <td class="px-3 py-1.5" :class="fillClass(day)">
             <div class="flex flex-wrap items-center gap-1">
@@ -91,7 +93,10 @@ function rowClass(day: MyPlanDayDto): string {
             </div>
           </td>
           <td class="px-3 py-1.5 text-xs">{{ day.info1 }}</td>
-          <td class="px-3 py-1.5 text-xs">{{ day.info2 }}</td>
+          <td class="px-3 py-1.5 text-xs">
+            {{ day.info2 }}
+            <PlanAutoEvents :events="day.autoEvents" class="hidden sm:block" :class="day.info2 ? 'mt-0.5' : ''" />
+          </td>
         </tr>
       </tbody>
     </table>

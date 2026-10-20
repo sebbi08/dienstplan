@@ -652,7 +652,8 @@ wird dabei nichts, der Name führt weiter zu allen Daten der Person.
 
 Oben auf der Seite **Kinder** (über den Reitern) steht der Kasten **„Erinnerungen“**: am Tablet, sobald es
 aufgeschlossen ist, bei Leitung und Träger auf jedem Gerät. Mit dem eigenen Konto (Handy, privater PC) sehen
-Mitarbeiter keine Erinnerungen – auch nicht die Geburtstage der Kollegen. Der Kasten lässt sich zuklappen; das
+Mitarbeiter keine Erinnerungen – auch nicht die Geburtstage der Kollegen (die stehen aber als automatisches
+Ereignis im Dienstplan und Jahreskalender, Abschnitt 17). Der Kasten lässt sich zuklappen; das
 Gerät merkt sich, ob er zu- oder aufgeklappt ist. Gibt es nichts zu erinnern, ist er gar nicht da.
 
 Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum.
@@ -746,3 +747,33 @@ Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einric
 Den **Geburtstag eines Mitarbeiters** (Tag und Monat, ohne Jahr) tragen Leitung und Träger freiwillig in den
 Stammdaten unter *Mitarbeiter* ein. Wer am 29. Februar Geburtstag hat, wird in Nicht-Schaltjahren am 28. Februar
 erinnert (bei Kindern ebenso).
+
+## 17. Automatische Ereignisse im Dienstplan und Jahreskalender
+
+Der Dienstplan (Spalte „Info 2“, unter dem eigenen Text; in „Mein Dienstplan“ auf dem Handy unter dem Datum, weil
+die Info-Spalten dort rechts außerhalb des Bildschirms liegen) und der Jahreskalender (Zeile „Termine“, nach den eigenen
+Terminen) zeigen von selbst, was an einem Tag in der Einrichtung los ist:
+
+| Ereignis | Text | Wann |
+|---|---|---|
+| Eingewöhnung | „Eingewöhnung (Bären)“ | am Eintrittstag eines Kindes (nicht der geplante Eintritt, keine Vormerkungen) |
+| Elterngespräch | „Elterngespräch 14:00 (Bären)“ | am Tag eines Gesprächs, geplant oder schon geführt |
+| Kindergeburtstag | „Kindergeburtstag (Bären)“ | am Geburtstag eines Kindes, das an dem Tag da ist |
+| Geburtstag Mitarbeiter | „Geburtstag Anna“ | am Geburtstag (Tag und Monat) eines Mitarbeiters, der noch nicht ausgeschieden ist |
+
+- **Keine Kindernamen**: bei Kindern stehen nur das Ereignis und die Gruppe, in der das Kind **an dem Tag** ist (ohne
+  Gruppe ohne Klammer). Notizen der Elterngespräche erscheinen nie.
+- **Zusammengefasst**: mehrere gleiche Ereignisse am Tag und in derselben Gruppe stehen in einer Zeile,
+  z. B. „2× Kindergeburtstag (Bären)“; Elterngespräche je Uhrzeit („2× Elterngespräch 14:00 (Bären)“).
+- **Reihenfolge**: zuerst eure eigenen Info-Texte bzw. Termine, dann Eingewöhnung, Elterngespräche (nach Uhrzeit),
+  Kindergeburtstage, Geburtstage der Mitarbeiter (nach Name).
+- **Überall sichtbar**, wo Dienstplan und Jahreskalender zu sehen sind: bei Leitung und Träger, am Tablet und bei
+  den Mitarbeitern auf dem Handy („Mein Dienstplan“, „Mein Kalender“) – auch die **Geburtstage der Kollegen mit
+  Namen** (so mit dem Träger entschieden am 20.10.2026). Im Kasten „Erinnerungen“ (Abschnitt 16) bleibt es wie bisher.
+- **Ausdruck**: Der gedruckte Dienstplan und der gedruckte Jahreskalender zeigen die Ereignisse ebenso. Die
+  Terminliste am Ende des Jahreskalenders enthält nur die eingetragenen Termine.
+- **Nicht bearbeitbar**: Die Ereignisse stehen klein, grau und schräg mit einem kleinen Stern-Symbol da und lassen
+  sich nicht anklicken oder ändern. Sie kommen aus den Kinderakten (Eintritt, Geburtstag, Gruppe, Elterngespräche) und
+  den Mitarbeiter-Stammdaten (Geburtstag) – wer dort etwas ändert, sieht es sofort im Plan.
+- **Nicht Teil der Freigabe**: Die Ereignisse werden jedes Mal neu berechnet, auch für einen schon freigegebenen
+  Monat. Sie zählen nicht als Änderung, lösen keine Benachrichtigung aus und machen kein erneutes Freigeben nötig.
