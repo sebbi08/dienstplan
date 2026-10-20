@@ -18,11 +18,31 @@ const { user } = useUserSession()
 // Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
 const isProvider = computed(() => user.value?.role === 'provider')
 
-/** groupId 0 = Springer (the select needs a non-null value); only shown and sent when the facility has groups. */
-const master = reactive({ name: '', shortName: '', leftOn: '', groupId: 0 })
+/**
+ * groupId 0 = Springer (the select needs a non-null value); only shown and sent when the facility has groups.
+ * birthdayDay / birthdayMonth 0 = no birthday (both empty); the birthday is sent as MM-DD.
+ */
+const master = reactive({ name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0 })
 watch(employee, (value) => {
-  if (value) Object.assign(master, { name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '', groupId: value.groupId ?? 0 })
+  if (!value) return
+  const [month = 0, day = 0] = value.birthday ? value.birthday.split('-').map(Number) : []
+  Object.assign(master, {
+    name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '', groupId: value.groupId ?? 0,
+    birthdayDay: day, birthdayMonth: month,
+  })
 }, { immediate: true })
+const birthdayDayItems = [
+  { label: de.employees.birthdayNone, value: 0 },
+  ...Array.from({ length: 31 }, (_, index) => ({ label: String(index + 1), value: index + 1 })),
+]
+const birthdayMonthItems = [{ label: de.employees.birthdayNone, value: 0 }, ...de.months.map((label, index) => ({ label, value: index + 1 }))]
+/** MM-DD, null without a birthday, undefined when only the day or only the month is chosen. */
+function birthdayValue(): string | null | undefined {
+  const { birthdayDay: day, birthdayMonth: month } = master
+  if (!day && !month) return null
+  if (!day || !month) return undefined
+  return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
 const { data: groups, hasGroups } = useGroups()
 const groupItems = computed(() => [
   ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
@@ -55,10 +75,12 @@ async function removePin() {
 }
 
 function saveMaster() {
+  const birthday = birthdayValue()
+  if (birthday === undefined) return void toast.add({ title: de.errors.employee_birthday_invalid, color: 'error' })
   run(() => $fetch<unknown>(`/api/employees/${id}`, {
     method: 'PUT',
     body: {
-      name: master.name, shortName: master.shortName, leftOn: master.leftOn || null,
+      name: master.name, shortName: master.shortName, leftOn: master.leftOn || null, birthday,
       ...(hasGroups.value ? { groupId: master.groupId || null } : {}),
     },
   }), de.common.saved)
@@ -134,6 +156,12 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <UFormField :label="de.employees.leftOn"><UInput v-model="master.leftOn" type="date" class="w-full" /></UFormField>
       <UFormField v-if="hasGroups" :label="de.groups.employeeGroup" class="sm:col-span-2">
         <USelect v-model="master.groupId" :items="groupItems" class="w-full" />
+      </UFormField>
+      <UFormField :label="de.employees.birthday" :help="de.employees.birthdayHint" class="sm:col-span-2">
+        <span class="flex gap-2">
+          <USelect v-model="master.birthdayDay" :items="birthdayDayItems" class="w-20" :aria-label="de.employees.birthdayDay" />
+          <USelect v-model="master.birthdayMonth" :items="birthdayMonthItems" class="w-36" :aria-label="de.employees.birthdayMonth" />
+        </span>
       </UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>

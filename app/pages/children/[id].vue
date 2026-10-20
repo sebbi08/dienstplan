@@ -36,6 +36,7 @@ const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, to
       <ChildrenChildHealthForm :child="child" :reload="reload" />
       <ChildrenChildConsentsForm :child="child" :reload="reload" />
       <ChildrenChildDocumentsSection :child="child" :reload="reload" />
+      <ChildrenChildDevelopmentDocSection :child="child" :reload="reload" />
       <ChildrenChildLifecycleSection :child="child" :reload="reload" />
     </template>
   </div>

@@ -101,6 +101,7 @@ const td = 'px-3 py-2'
 
     <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorCode(error) === 'no_facility' ? de.errors.no_facility : errorMessage(error) }}</p>
     <template v-else>
+      <ChildrenRemindersBox />
       <div class="flex flex-wrap gap-1 border-b border-gray-200" role="tablist">
         <button
           v-for="entry in tabs" :key="entry.key" type="button" role="tab" :aria-selected="tab === entry.key"

@@ -599,3 +599,64 @@ Druck-Knöpfe.
 Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht unter *Mitarbeiter* nicht mehr bei den
 aktiven Mitarbeitern, sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht
 wird dabei nichts, der Name führt weiter zu allen Daten der Person.
+
+## 16. Erinnerungen
+
+Oben auf der Seite **Kinder** (über den Reitern) steht der Kasten **„Erinnerungen“**: am Tablet, sobald es
+aufgeschlossen ist, bei Leitung und Träger auf jedem Gerät. Mit dem eigenen Konto (Handy, privater PC) sehen
+Mitarbeiter keine Erinnerungen – auch nicht die Geburtstage der Kollegen. Der Kasten lässt sich zuklappen; das
+Gerät merkt sich, ob er zu- oder aufgeklappt ist. Gibt es nichts zu erinnern, ist er gar nicht da.
+
+Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum.
+
+- **Entwicklungsdokumentation**: „Entwicklungsdoku für Lena Muster fällig am 12.11.“, am Tag selbst „… heute
+  fällig“, danach rot „… überfällig seit 12.11.“, bis jemand **„Erledigt“** antippt.
+- **Geburtstage der Kinder**: „Lena Muster wird am 12.11. 5 Jahre“, am Tag „Lena Muster hat heute Geburtstag (5)“.
+- **Geburtstage der Mitarbeiter**: „Anna hat am 12.11. Geburtstag“, am Tag „Anna hat heute Geburtstag“ – ohne
+  Jahr und ohne Alter. Ausgeschiedene Mitarbeiter stehen nicht da.
+- **Abschied**: „Lena Muster verlässt uns am 31.07.“ – für Kinder mit eingetragenem Austritt und, wenn die
+  automatische Abmeldung der Schulkinder eingeschaltet ist, für die Kinder, die sie abmelden wird. Ein Wechsel in
+  eine andere Einrichtung geschieht in der App sofort und gibt keine Erinnerung.
+
+Ist die aufschließende Person als Bezugserzieher des Kindes eingetragen, steht beim Eintrag **„dein Kind“**. Der
+Name eines Kindes führt zu seiner Akte.
+
+### Wer welche Kinder sieht
+
+- Mitarbeiter mit Gruppe: die Kinder der **eigenen** Gruppe – nicht die Kinder einer Gruppe, die für sie nur zum
+  Lesen freigeschaltet ist.
+- **Kinder ohne Gruppe** sehen alle (wie im Gruppenbuch).
+- Mitarbeiter ohne Gruppe, Aushilfen, Leitung und Träger: alle Kinder.
+- Es zählen nur aktive Kinder (keine Vormerkungen, keine Ausgetretenen).
+
+### Erledigt und Rückgängig
+
+„Erledigt“ speichert das Datum und die Person (am Tablet die aufschließende Person, auch ohne eigenes Konto). Der
+Eintrag verschwindet dann bis zur nächsten Fälligkeit. Erledigen darf, wer das Kind in der eigenen Gruppe sieht
+(wie Eintragen in der Wochenübersicht), sowie Leitung und Träger.
+
+In der Kinderakte steht unter **„Entwicklungsdokumentation“**, wann und von wem sie zuletzt erledigt wurde und wann
+sie als Nächstes fällig ist; dort gibt es ebenfalls „Erledigt“ und **„Rückgängig“**. Rückgängig machen können
+Mitarbeiter nur am selben Tag (falls aus Versehen getippt), Leitung und Träger jederzeit. Danach gilt wieder das
+vorherige „Erledigt“.
+
+### Einstellungen
+
+Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einrichtung fest:
+
+- **Geburtstage der Kinder**: wie viele Tage vorher erinnert wird (0 bis 30, voreingestellt 7),
+- **Geburtstage der Mitarbeiter**: ebenso (0 bis 30, voreingestellt 7),
+- **Abschied**: wie viele Wochen vorher (0 bis 12, voreingestellt 4),
+- die **Entwicklungsdokumentation** je Gruppe und für die Kinder ohne Gruppe (voreingestellt jeweils „aus“):
+  - **alle X Monate** (1 bis 24): fällig X Monate nach dem letzten „Erledigt“; ohne „Erledigt“ X Monate nach dem
+    Eintritt (sonst nach dem geplanten Eintritt; ohne beides gibt es keine Erinnerung),
+  - **um den Geburtstag**: fällig am Geburtstag des Kindes. Wer innerhalb der Vorlaufzeit vor dem Geburtstag
+    „Erledigt“ antippt, hat die Doku für diesen Geburtstag erledigt,
+  - dazu **„erinnern Wochen vorher“** (0 bis 12, voreingestellt 2).
+
+  Es gilt die Einstellung der Gruppe, in der das Kind **heute** ist. Wechselt ein Kind die Gruppe oder ändert sich
+  die Einstellung, gilt das sofort.
+
+Den **Geburtstag eines Mitarbeiters** (Tag und Monat, ohne Jahr) tragen Leitung und Träger freiwillig in den
+Stammdaten unter *Mitarbeiter* ein. Wer am 29. Februar Geburtstag hat, wird in Nicht-Schaltjahren am 28. Februar
+erinnert (bei Kindern ebenso).

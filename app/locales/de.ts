@@ -302,6 +302,8 @@ export const de = {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',
     validFromHint: 'Ab diesem Datum berechnet die App das Stundenkonto. Einen bisherigen Stand trägst du als Startsaldo unter „Stundenkonto-Buchungen“ ein.',
     leftOn: 'ausgeschieden am', archived: (count: number) => `Ausgeschiedene Mitarbeiter (${count})`, order: 'Reihenfolge', create: 'Mitarbeiter anlegen', moveUp: 'Nach oben', moveDown: 'Nach unten',
+    birthday: 'Geburtstag', birthdayDay: 'Geburtstag (Tag)', birthdayMonth: 'Geburtstag (Monat)', birthdayNone: '–',
+    birthdayHint: 'Freiwillig, ohne Jahr. Steht als Erinnerung am Tablet auf der Seite „Kinder“.',
     masterData: 'Stammdaten', hoursHistory: 'Wochenstunden', addHours: 'Wochenstunden hinzufügen',
     adjustments: 'Stundenkonto-Buchungen', adjustmentsHint: 'Startsaldo, Übertrag, Auszahlung oder Korrektur.',
     date: 'Datum', amount: 'Stunden (h:mm)', sign: 'Art', plus: 'Plus', minus: 'Minus', reason: 'Grund',
@@ -802,6 +804,47 @@ export const de = {
     month: {
       remarkPlaceholder: 'Bemerkung', openDay: (date: string) => `${date} als Tag öffnen`,
       notInGroup: 'An diesem Tag nicht in dieser Gruppe',
+    },
+  },
+  reminders: {
+    // The box „Erinnerungen“ on the children page. Each text is split around the name (the child's name links to the record).
+    title: 'Erinnerungen', show: 'Erinnerungen aufklappen', hide: 'Erinnerungen zuklappen', ownChild: 'dein Kind',
+    done: 'Erledigt', doneSaved: 'Als erledigt vermerkt.',
+    doc: {
+      upcoming: (date: string) => ({ before: 'Entwicklungsdoku für ', after: ` fällig am ${date}` }),
+      today: () => ({ before: 'Entwicklungsdoku für ', after: ' heute fällig' }),
+      overdue: (date: string) => ({ before: 'Entwicklungsdoku für ', after: ` überfällig seit ${date}` }),
+    },
+    birthday: {
+      upcoming: (date: string, age: number) => ({ before: '', after: ` wird am ${date} ${age} ${age === 1 ? 'Jahr' : 'Jahre'}` }),
+      today: (age: number) => ({ before: '', after: ` hat heute Geburtstag (${age})` }),
+    },
+    staffBirthday: {
+      upcoming: (date: string) => ({ before: '', after: ` hat am ${date} Geburtstag` }),
+      today: () => ({ before: '', after: ' hat heute Geburtstag' }),
+    },
+    leaving: (date: string) => ({ before: '', after: ` verlässt uns am ${date}` }),
+    kinds: { doc: 'Entwicklungsdokumentation', birthday: 'Geburtstag', staffBirthday: 'Geburtstag', leaving: 'Abschied' },
+    // The record's section.
+    section: 'Entwicklungsdokumentation',
+    lastDone: (date: string, name: string) => `Zuletzt erledigt am ${date} von ${name}`,
+    neverDone: 'Zuletzt erledigt: noch nie',
+    nextDue: (date: string) => `Nächste Fälligkeit: ${date}`,
+    noReminder: 'Nächste Fälligkeit: keine Erinnerung eingestellt',
+    undo: 'Rückgängig', undone: 'Rückgängig gemacht.',
+    confirmUndo: (date: string) => `„Erledigt“ vom ${date} zurücknehmen?`,
+    // The settings section (Leitung and Träger).
+    settings: {
+      title: 'Erinnerungen',
+      hint: 'Die Erinnerungen stehen am Tablet oben auf der Seite „Kinder“ (Leitung und Träger sehen sie auf jedem Gerät). Mitarbeiter mit Gruppe sehen die Kinder ihrer eigenen Gruppe und die Kinder ohne Gruppe.',
+      birthdayLeadDays: 'Geburtstage der Kinder: erinnern Tage vorher',
+      staffBirthdayLeadDays: 'Geburtstage der Mitarbeiter: erinnern Tage vorher',
+      leavingLeadWeeks: 'Abschied: erinnern Wochen vorher',
+      docTitle: 'Entwicklungsdokumentation',
+      docHint: '„Alle X Monate“: fällig X Monate nach dem letzten „Erledigt“, ohne „Erledigt“ X Monate nach dem Eintritt. „Um den Geburtstag“: fällig am Geburtstag des Kindes. Es gilt die Einstellung der Gruppe, in der das Kind heute ist.',
+      noGroup: 'Kinder ohne Gruppe', allChildren: 'Alle Kinder', group: 'Gruppe',
+      mode: 'Erinnerung', intervalMonths: 'Abstand (Monate)', leadWeeks: 'erinnern Wochen vorher',
+      modes: { off: 'aus', interval: 'alle X Monate', birthday: 'um den Geburtstag' },
     },
   },
   errors: {
