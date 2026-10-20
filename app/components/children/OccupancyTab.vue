@@ -108,6 +108,9 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
 
     <template v-if="data">
       <p class="text-sm text-gray-500">{{ de.occupancy.hint }}</p>
+      <p v-if="rows.length && data.total.fromFacility && data.total.capacity !== null" class="text-sm text-gray-500">
+        {{ de.occupancy.totalAgainstFacility(data.total.capacity) }}
+      </p>
       <p v-if="!rows.length" class="text-sm text-gray-500">{{ de.occupancy.empty }}</p>
       <div v-else class="overflow-x-auto rounded-lg ring-1 ring-gray-200">
         <table class="w-full bg-white text-sm">
@@ -140,7 +143,7 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
           <tfoot>
             <tr class="border-t-2 border-gray-300 font-semibold">
               <th scope="row" :class="[td, 'text-left']">{{ de.occupancy.total }}</th>
-              <td :class="td">{{ data.total.capacity ?? de.children.noValue }}</td>
+              <td :class="td" :title="data.total.fromFacility ? de.occupancy.facilityCapacity : undefined">{{ data.total.capacity ?? de.children.noValue }}</td>
               <td v-for="(cell, index) in data.total.cells" :key="index" class="p-0.5">
                 <ChildrenOccupancyCell
                   :cell="cell" :label="occupancyCellLabel(de.occupancy.total, months[index]!, cell)"

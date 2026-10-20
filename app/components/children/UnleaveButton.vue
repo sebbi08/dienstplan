@@ -12,6 +12,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 const props = defineProps<{ childId: number; label?: string; ariaLabel?: string; size?: 'xs' | 'sm'; disabled?: boolean; refresh: () => Promise<unknown> }>()
 const { busy, guard } = useBusy()
 const toast = useToast()
+const showCapacityWarnings = useCapacityWarnings()
 const open = ref(false)
 const schoolStartDate = ref('')
 const tomorrow = computed(() => addDays(todayIso(), 1))
@@ -19,8 +20,9 @@ const tomorrow = computed(() => addDays(todayIso(), 1))
 /** Sends the request; false when it failed (the dialog opens when the server wants a new school start and none was sent). */
 function send(body?: { schoolStartDate: string }): Promise<boolean> {
   return guard(async () => {
+    let answer: unknown
     try {
-      await $fetch<unknown>(`/api/children/${props.childId}/unleave`, { method: 'POST', body })
+      answer = await $fetch<unknown>(`/api/children/${props.childId}/unleave`, { method: 'POST', body })
     }
     catch (error) {
       if (!body && errorCode(error) === 'school_start_required') {
@@ -34,6 +36,7 @@ function send(body?: { schoolStartDate: string }): Promise<boolean> {
     open.value = false
     await props.refresh()
     toast.add({ title: de.common.saved, color: 'success' })
+    showCapacityWarnings(answer)
     return true
   })
 }

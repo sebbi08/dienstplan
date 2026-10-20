@@ -161,6 +161,8 @@ export const helpOutSchema = z.object({
 export const groupNameSchema = z.object({ name: z.string().max(80) })
 /** The range (whole number 1-200 or null) is checked by the service, which answers invalid_capacity. */
 export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
+/** The range (whole number 1-999 or null) is checked by the service, which answers invalid_facility_capacity. */
+export const facilityCapacitySchema = z.object({ capacity: z.number().nullable() })
 /** A palette key of GROUP_COLORS (null = no colour); the service answers invalid_group_color for any other. */
 export const groupColorSchema = z.object({ color: z.string().max(20).nullable() })
 /** Whether the group is for school children (after-school care). */

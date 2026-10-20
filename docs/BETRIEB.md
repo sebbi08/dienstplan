@@ -221,7 +221,7 @@ Die App verschlüsselt die Datenbank nicht selbst. Verschlüssele deshalb die Fe
 (Verantwortung des Betreibers, z. B. mit LUKS unter Linux oder der Verschlüsselung deines Hosters).
 Sonst sind die Kinderdaten lesbar, wenn jemand Zugriff auf die Festplatte oder eine Server-Kopie hat.
 
-## 9. Platzplanung (Vormerkungen, Belegung, Gruppenwechsel, Schulkinder)
+## 9. Platzplanung (Vormerkungen, Belegung, Höchstzahl Kinder, Gruppenwechsel, Schulkinder)
 
 ### Vormerkungen
 
@@ -241,12 +241,35 @@ rot, sobald die **Plätze** der Gruppe erreicht sind. Unter der Tabelle stehen H
 gezählt werden: Verträge ohne Eintrittsdatum und Kinder, deren Schulstart oder Austritt am oder vor dem
 Eintritt liegt.
 
+Die Zeile **„Summe“** zählt jedes Kind der Einrichtung einmal. Hat der Träger eine **Höchstzahl Kinder in der
+Einrichtung** eingetragen, wird die Summe damit verglichen (rot ab Erreichen, „+n über Plätze“ darüber), auch wenn
+die Gruppen zusammen mehr Plätze haben. Ohne diese Zahl gilt wie bisher die Summe der Plätze aller Gruppen, aber
+nur, wenn jede Gruppe Plätze hat. Der Ausdruck der Belegung zeigt dasselbe.
+
 - **Kinder in einer Gruppe „für Schulkinder“ (z. B. Hort)** zählen ohne Enddatum weiter, auch nach ihrem
   Schulstart. Sie werden nie automatisch abgemeldet. Melde sie von Hand ab, wenn sie gehen, sonst bleiben sie
   in der Belegung stehen.
 - **Nach dem Verschieben in eine andere Einrichtung** zählt ein Kind in der neuen Einrichtung erst **ab dem Tag
   des Verschiebens**, nicht ab seinem ursprünglichen Eintritt. In der alten Einrichtung erscheint es nicht mehr,
   auch nicht in den zurückliegenden Monaten: Die Akte gehört jetzt zur neuen Einrichtung.
+
+### Höchstzahl Kinder (Gruppen und Einrichtung)
+
+- **Pro Gruppe:** Leitung und Träger tragen unter Einstellungen → **„Höchstzahl Kinder pro Gruppe“** für jede Gruppe
+  der aktuellen Einrichtung eine Zahl von 1 bis 200 ein (leer = keine). Das ist dieselbe Zahl wie **„Plätze“** in
+  der Belegung; du kannst sie an beiden Stellen ändern.
+- **Für die ganze Einrichtung:** Nur der Träger trägt unter Einstellungen → **Einrichtungen** bei jeder Einrichtung
+  die **„Höchstzahl Kinder in der Einrichtung“** ein, z. B. aus der Betriebserlaubnis: 1 bis 999 (leer = keine;
+  200 wie bei einer Gruppe reicht für eine große Einrichtung nicht). Sie darf kleiner sein als die Plätze aller
+  Gruppen zusammen. Die Leitung sieht sie in den Einstellungen und in der Belegung, ändern kann sie sie nicht.
+- **Hinweis, keine Sperre:** Wird ein Kind angelegt, bekommt eine Vormerkung einen Vertrag, wechselt ein Kind die
+  Gruppe (sofort oder geplant, auch beim Ändern oder Löschen eines geplanten Wechsels) oder wird eine Abmeldung
+  zurückgenommen, und ist die Gruppe oder die Einrichtung dadurch in einem Monat über ihrer Höchstzahl, zeigt die
+  App nach dem Speichern einen gelben Hinweis, z. B. **„Bären hat dann 21 von 20 Plätzen (ab November 2026).“**
+  oder **„Die Einrichtung hat dann 61 von 60 Plätzen (ab September 2027).“** Gespeichert wird trotzdem. Die App
+  zählt dabei wie die Belegung (Monate ab dem laufenden Monat); genannt wird der erste Monat über der Höchstzahl und
+  die höchste Zahl der Kinder in diesen Monaten. Den Hinweis sehen nur Leitung und Träger, weil nur sie die Plätze
+  sehen; ein Mitarbeiter am Tablet bekommt ihn nicht.
 
 ### Gruppenwechsel
 

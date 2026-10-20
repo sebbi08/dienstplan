@@ -627,6 +627,22 @@ export const de = {
     cellTitle: (group: string, month: string) => `${group}, ${month}`, overFull: 'Plätze belegt oder überschritten',
     capacityOf: (group: string) => `Plätze für ${group}`, showNames: 'Namen anzeigen', empty: 'Es gibt noch keine Gruppen oder Kinder mit Vertrag.',
     count: (present: number, fresh: number) => (fresh ? `${present + fresh} Kinder, davon ${fresh} neu` : `${present} Kinder`),
+    facilityCapacity: 'Höchstzahl Kinder in der Einrichtung (vom Träger festgelegt)',
+    totalAgainstFacility: (count: number) => `Die Summe wird mit der Höchstzahl Kinder in der Einrichtung verglichen (${count}, legt der Träger fest).`,
+  },
+  /** Höchstzahl Kinder: the settings and the hint after a save that takes a group or the facility over it. */
+  capacity: {
+    groupLabel: 'Höchstzahl Kinder', groupLabelOf: (group: string) => `Höchstzahl Kinder für ${group}`,
+    groupsTitle: 'Höchstzahl Kinder pro Gruppe',
+    groupsHint: 'So viele Kinder dürfen höchstens in der Gruppe sein. Es ist dieselbe Zahl wie „Plätze“ in der Belegung. Leer = keine Höchstzahl.',
+    facilityLabel: 'Höchstzahl Kinder in der Einrichtung',
+    facilityHint: 'Zum Beispiel laut Betriebserlaubnis (1 bis 999, leer = keine). Sie darf kleiner sein als die Plätze aller Gruppen zusammen. '
+      + 'Die Zeile „Summe“ der Belegung wird damit verglichen.',
+    facilityShown: (count: number) => `Höchstzahl Kinder in der Einrichtung: ${count} (legt der Träger fest).`,
+    facilityNone: 'Für die Einrichtung ist keine Höchstzahl festgelegt (legt der Träger fest).',
+    warningTitle: 'Gespeichert – Höchstzahl überschritten',
+    group: (name: string, count: number, capacity: number, from: string) => `${name} hat dann ${count} von ${capacity} Plätzen (ab ${from}).`,
+    facility: (count: number, capacity: number, from: string) => `Die Einrichtung hat dann ${count} von ${capacity} Plätzen (ab ${from}).`,
   },
   schoolChildren: {
     title: 'Schulkinder', cutoff: 'Stichtag', age: 'Alter (Jahre)',
@@ -972,6 +988,7 @@ export const de = {
     group_has_children: 'In dieser Gruppe sind noch Kinder (aktive oder geplante). Bitte sie zuerst einer anderen Gruppe zuordnen.',
     invalid_retention: 'Die Löschfrist muss eine ganze Zahl von 1 bis 10 Jahren sein.',
     invalid_capacity: 'Bitte eine ganze Zahl von 1 bis 200 eingeben oder das Feld leer lassen.',
+    invalid_facility_capacity: 'Bitte eine ganze Zahl von 1 bis 999 eingeben oder das Feld leer lassen.',
     invalid_school_cutoff: 'Bitte einen gültigen Stichtag und ein Alter von 4 bis 8 Jahren angeben.',
     tablet_lock_minutes_invalid: 'Die Sperrzeit muss zwischen 1 und 30 Minuten liegen.',
     tablet_locked: 'Die Kinderakten sind gesperrt. Bitte gib deinen Namen und deine PIN neu ein.',

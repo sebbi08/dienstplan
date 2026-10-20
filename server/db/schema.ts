@@ -58,6 +58,8 @@ export const facilities = sqliteTable('facilities', {
   birthdayLeadDays: integer('birthday_lead_days').notNull().default(7),
   staffBirthdayLeadDays: integer('staff_birthday_lead_days').notNull().default(7),
   leavingLeadWeeks: integer('leaving_lead_weeks').notNull().default(4),
+  /** Höchstzahl Kinder in der Einrichtung (e.g. from the Betriebserlaubnis; 1–999, null = not set); set by the Träger only. */
+  capacity: integer('capacity'),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */

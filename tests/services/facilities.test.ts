@@ -6,7 +6,7 @@ import { ServiceError } from '../../server/lib/errors'
 import { facilityUpdateSchema } from '../../server/schemas'
 import { getActiveUser } from '../../server/services/auth'
 import {
-  createFacility, listFacilities, resolveFacilityId, setActiveFacility, updateFacility,
+  createFacility, listFacilities, resolveFacilityId, setActiveFacility, setFacilityCapacity, updateFacility,
 } from '../../server/services/facilities'
 import { facilityHolidayRules } from '../../server/services/holidayRules'
 import { addMeal, listMeals, mealVersionsOf } from '../../server/services/meals'
@@ -81,7 +81,7 @@ describe('facilities', () => {
 
   it('creates facilities with a copy of shift templates and coverage rules', () => {
     const krippe = createFacility(db, ' Krippe ')
-    expect(krippe).toEqual({ id: 2, name: 'Krippe', state: 'BW', assumptionDay: true })
+    expect(krippe).toEqual({ id: 2, name: 'Krippe', state: 'BW', assumptionDay: true, capacity: null })
     expect(shortLabels(db, 2)).toEqual(shortLabels(db, 1))
     expect(shortLabels(db, 2).length).toBeGreaterThan(0)
     const rules = (facilityId: number) => db.select().from(coverageRules).where(eq(coverageRules.facilityId, facilityId)).all()
@@ -197,14 +197,14 @@ describe('facilities', () => {
     const provider = addUser(db, 'traeger', 'provider')
     expect(listFacilities(db, provider)).toEqual({
       facilities: [
-        { id: 1, name: 'Kindergarten', state: 'BW', assumptionDay: true },
-        { id: krippe, name: 'Krippe', state: 'BW', assumptionDay: true },
+        { id: 1, name: 'Kindergarten', state: 'BW', assumptionDay: true, capacity: null },
+        { id: krippe, name: 'Krippe', state: 'BW', assumptionDay: true, capacity: null },
       ],
       activeId: 1,
     })
     const admin = addUser(db, 'leitung', 'admin', null, krippe)
     expect(listFacilities(db, admin)).toEqual({
-      facilities: [{ id: krippe, name: 'Krippe', state: 'BW', assumptionDay: true }], activeId: krippe,
+      facilities: [{ id: krippe, name: 'Krippe', state: 'BW', assumptionDay: true, capacity: null }], activeId: krippe,
     })
   })
 
@@ -228,5 +228,46 @@ describe('facilities', () => {
 
     expect(errorCode(() => setActiveFacility(db, provider, 999))).toBe('facility_not_found')
     expect(getActiveUser(db, provider.id)!.facilityId).toBe(krippe)
+  })
+
+  describe('maximum number of children', () => {
+    const capacityOf = (id: number) => listFacilities(db, traeger(db)).facilities.find(facility => facility.id === id)!.capacity
+
+    it('is not set at first, per facility, and the Träger sets and clears it', () => {
+      const krippe = addFacility(db, 'Krippe')
+      expect(capacityOf(1)).toBeNull()
+      setFacilityCapacity(db, traeger(db), 1, 60)
+      expect(capacityOf(1)).toBe(60)
+      expect(capacityOf(krippe)).toBeNull()
+      setFacilityCapacity(db, traeger(db), 1, null)
+      expect(capacityOf(1)).toBeNull()
+    })
+
+    it('accepts 1 to 999 and refuses everything else with its own error', () => {
+      setFacilityCapacity(db, traeger(db), 1, 1)
+      expect(capacityOf(1)).toBe(1)
+      setFacilityCapacity(db, traeger(db), 1, 999)
+      expect(capacityOf(1)).toBe(999)
+      for (const value of [0, -1, 1000, 2.5, Number.NaN]) {
+        expect(errorCode(() => setFacilityCapacity(db, traeger(db), 1, value)), String(value)).toBe('invalid_facility_capacity')
+      }
+      expect(capacityOf(1)).toBe(999)
+      expect(errorCode(() => setFacilityCapacity(db, traeger(db), 999, 50))).toBe('facility_not_found')
+    })
+
+    it('is for the Träger only: the Leitung gets 403 and nothing changes', () => {
+      const admin = addUser(db, 'leitung', 'admin')
+      expect(() => setFacilityCapacity(db, admin, 1, 60)).toThrow(expect.objectContaining({ statusCode: 403, code: 'forbidden' }))
+      expect(capacityOf(1)).toBeNull()
+      // The Leitung sees it for its own facility.
+      setFacilityCapacity(db, traeger(db), 1, 60)
+      expect(listFacilities(db, admin).facilities[0]!.capacity).toBe(60)
+    })
+
+    it('stays when the facility is renamed', () => {
+      setFacilityCapacity(db, traeger(db), 1, 60)
+      renameFacility(db, 1, 'Kita Sonnenschein')
+      expect(capacityOf(1)).toBe(60)
+    })
   })
 })

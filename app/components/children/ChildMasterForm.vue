@@ -2,7 +2,7 @@
 import { isValidIsoDate, todayIso } from '#shared/domain/dates'
 import type { AdmissionStatus } from '#shared/domain/children'
 import { computedSchoolStart } from '#shared/domain/schoolStart'
-import type { ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
+import type { CapacityWarningDto, ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
@@ -18,6 +18,8 @@ import { automaticSchoolStart, openSchoolStart, resyncSchoolStart, schoolStartTo
 /** `reload` re-reads the record after a save (not needed while creating); the guard in `save` holds until it is done. */
 const props = defineProps<{ child?: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload?: () => Promise<unknown>; initialStatus?: AdmissionStatus }>()
 const run = useAction(async () => { await props.reload?.() })
+/** The yellow hint when a save takes a group or the facility over its Höchstzahl Kinder (the save happened anyway). */
+const showCapacityWarnings = useCapacityWarnings()
 const { rights } = useChildRights()
 const { groups, careTypes, staff, schoolCutoff, canPickGroup, groupName, careTypeName } = props.lookups
 
@@ -80,7 +82,9 @@ const confirm = useConfirm()
 const { busy: changeBusy, run: runChange } = useBusyAction(async () => { await props.reload?.() })
 async function removeChange() {
   const change = props.child?.pendingGroupChange
-  if (change && await confirm(de.groupChange.confirmDelete)) runChange(() => $fetch<unknown>(`/api/child-group-changes/${change.id}`, { method: 'DELETE' }), de.common.deleted)
+  if (change && await confirm(de.groupChange.confirmDelete)) {
+    runChange(() => $fetch<unknown>(`/api/child-group-changes/${change.id}`, { method: 'DELETE' }).then(showCapacityWarnings), de.common.deleted)
+  }
 }
 
 const showGroup = computed(() => (canPickGroup.value && groups.value.length > 0) || (!creating && props.child!.master.groupId !== null))
@@ -175,7 +179,9 @@ const HIDDEN_SAVED: Record<HiddenReason, string> = {
 async function create(): Promise<boolean> {
   try {
     const input = payload()
-    const { id } = await $fetch<{ id: number }>('/api/children', { method: 'POST', body: input })
+    const answer = await $fetch<{ id: number; capacityWarnings: CapacityWarningDto[] }>('/api/children', { method: 'POST', body: input })
+    const { id } = answer
+    showCapacityWarnings(answer)
     // The guard in save() holds until the navigation is done, so the child cannot be created twice.
     const hidden = hiddenAtTablet(input)
     if (hidden) {
@@ -200,7 +206,7 @@ async function update(): Promise<boolean> {
   // Träger changed it while this form was open.
   const { schoolStartDate, ...fields } = input
   const body: ChildMasterUpdateInput = { ...fields, ...(mayChangeSchoolStart.value ? { schoolStartDate } : {}), baseGroupId: loadedGroupId }
-  const request = () => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body })
+  const request = () => $fetch<unknown>(`/api/children/${props.child!.id}/master`, { method: 'PUT', body }).then(showCapacityWarnings)
   const hidden = hiddenAtTablet(input)
   if (!hidden) return run(request, de.common.saved)
   const ok = await runWithoutReload(request, HIDDEN_SAVED[hidden])

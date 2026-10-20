@@ -3,6 +3,7 @@ import type { Db } from '../../server/db/client'
 import { childGroupChanges } from '../../server/db/schema'
 import { applyDueGroupChanges, planGroupChange } from '../../server/services/childGroupChanges'
 import { leaveChild, moveChildToFacility } from '../../server/services/children'
+import { setFacilityCapacity } from '../../server/services/facilities'
 import { setGroupCapacity, setGroupForSchoolChildren } from '../../server/services/groups'
 import { occupancyTable, upcomingSchoolChildren } from '../../server/services/occupancy'
 import {
@@ -36,6 +37,12 @@ describe('occupancy table', () => {
   })
 
   const ids = (names: { id: number }[]) => names.map(name => name.id)
+  /** The Träger, who sets the facility maximum (created on first use). */
+  let traeger: ChildActor | null = null
+  const provider = () => (traeger ??= asChildViewer(addUser(db, 'traeger-belegung', 'provider')))
+  beforeEach(() => {
+    traeger = null
+  })
 
   it('lays out the Kita year with a row per group in the groups\' order and a total', () => {
     const table = occupancyTable(db, 1, 2026)
@@ -201,6 +208,45 @@ describe('occupancy table', () => {
     expect(full).toMatchObject({ red: true, over: 0 })
     expect(full.present).toHaveLength(3)
     expect(full.fresh).toHaveLength(1)
+  })
+
+  it('compares the total with the facility maximum when it is set, also below the places of the groups', () => {
+    setGroupCapacity(db, 1, bears, 10)
+    setGroupCapacity(db, 1, mice, 10)
+    addChild(db, 1, { groupId: bears, entryDate: '2025-09-01', birthDate: '2024-01-01' })
+    addChild(db, 1, { groupId: mice, entryDate: '2025-09-01', birthDate: '2024-01-01' })
+    expect(occupancyTable(db, 1, 2026).total).toMatchObject({ capacity: 20, fromFacility: false })
+
+    // Under the maximum.
+    setFacilityCapacity(db, provider(), 1, 3)
+    let table = occupancyTable(db, 1, 2026)
+    expect(table.total).toMatchObject({ capacity: 3, fromFacility: true })
+    expect(table.total.cells[SEP]).toMatchObject({ red: false, over: 0 })
+    // The group rows keep their own places.
+    expect(table.rows.map(row => row.capacity)).toEqual([10, 10])
+
+    // At the maximum: red, nobody above it.
+    setFacilityCapacity(db, provider(), 1, 2)
+    expect(occupancyTable(db, 1, 2026).total.cells[SEP]).toMatchObject({ red: true, over: 0 })
+
+    // Over it.
+    setFacilityCapacity(db, provider(), 1, 1)
+    table = occupancyTable(db, 1, 2026)
+    expect(table.total.capacity).toBe(1)
+    expect(table.total.cells[SEP]).toMatchObject({ red: true, over: 1 })
+    expect(table.rows[0]!.cells[SEP]).toMatchObject({ red: false, over: 0 })
+
+    // Also when not every group has places.
+    setGroupCapacity(db, 1, mice, null)
+    expect(occupancyTable(db, 1, 2026).total).toMatchObject({ capacity: 1 })
+
+    // Cleared: the places of the groups again (none here, as Mäuse has none).
+    setFacilityCapacity(db, provider(), 1, null)
+    table = occupancyTable(db, 1, 2026)
+    expect(table.total.capacity).toBeNull()
+    expect(table.total.cells[SEP]).toMatchObject({ red: false, over: 0 })
+    setGroupCapacity(db, 1, mice, 10)
+    expect(occupancyTable(db, 1, 2026).total).toMatchObject({ capacity: 20, fromFacility: false })
   })
 
   it('has no total capacity without groups', () => {

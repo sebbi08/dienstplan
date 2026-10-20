@@ -234,6 +234,13 @@ export function planGroupChange(
   })
 }
 
+/** The child of the facility's group change with this id (null: none), for the capacity hint of a route. */
+export function childOfGroupChange(db: Db, facilityId: number, changeId: number): number | null {
+  return db.select({ childId: childGroupChanges.childId }).from(childGroupChanges)
+    .innerJoin(children, eq(children.id, childGroupChanges.childId))
+    .where(and(eq(childGroupChanges.id, changeId), eq(children.facilityId, facilityId))).get()?.childId ?? null
+}
+
 /**
  * The facility's planned change with this id that can still be changed; unknown or of another facility's child:
  * 404 group_change_not_found. What is due is settled first, so a change whose day has come is applied like the start

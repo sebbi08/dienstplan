@@ -12,6 +12,7 @@ import { de } from '~/locales/de'
 const props = defineProps<{ child: ChildRecordDto; groups: { id: number; name: string; forSchoolChildren: boolean }[]; reload: () => Promise<unknown> }>()
 const open = defineModel<boolean>('open', { default: false })
 const { busy, run } = useBusyAction(() => props.reload())
+const showCapacityWarnings = useCapacityWarnings()
 
 const allKept = (): Record<KeepSection, boolean> => Object.fromEntries(KEEP_SECTIONS.map(section => [section, true])) as Record<KeepSection, boolean>
 const form = reactive({ groupId: 0, date: todayIso(), keep: allKept(), newContract: false })
@@ -40,8 +41,8 @@ async function save() {
   const body: GroupChangeInput = { groupId: form.groupId, date: form.date, keep: { ...form.keep }, newContract: forSchoolChildren.value && form.newContract }
   const change = pending.value
   const request = change
-    ? () => $fetch<unknown>(`/api/child-group-changes/${change.id}`, { method: 'PUT', body })
-    : () => $fetch<unknown>(`/api/children/${props.child.id}/group-change`, { method: 'POST', body })
+    ? () => $fetch<unknown>(`/api/child-group-changes/${change.id}`, { method: 'PUT', body }).then(showCapacityWarnings)
+    : () => $fetch<unknown>(`/api/children/${props.child.id}/group-change`, { method: 'POST', body }).then(showCapacityWarnings)
   if (await run(request, de.common.saved)) open.value = false
 }
 </script>

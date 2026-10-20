@@ -12,11 +12,16 @@ import { seedBuiltinRequirementTypes } from './requirements'
 
 const ordered = [asc(facilities.sortOrder), asc(facilities.id)]
 
-const dtoColumns = { id: facilities.id, name: facilities.name, state: facilities.state, assumptionDay: facilities.assumptionDay }
+const dtoColumns = {
+  id: facilities.id, name: facilities.name, state: facilities.state, assumptionDay: facilities.assumptionDay, capacity: facilities.capacity,
+}
 
 function toDto(row: FacilityDto): FacilityDto {
-  return { id: row.id, name: row.name, state: row.state, assumptionDay: row.assumptionDay }
+  return { id: row.id, name: row.name, state: row.state, assumptionDay: row.assumptionDay, capacity: row.capacity }
 }
+
+/** The largest Höchstzahl Kinder of a facility (a group has at most 200 places, a facility often more). */
+export const MAX_FACILITY_CAPACITY = 999
 
 export function firstFacilityId(db: Db): number | null {
   return db.select({ id: facilities.id }).from(facilities).orderBy(...ordered).limit(1).get()?.id ?? null
@@ -127,6 +132,25 @@ export function updateFacility(
       bookFreedClosureDays(tx, actor, id, before, now)
     }
   })
+}
+
+/**
+ * The Träger sets the facility's Höchstzahl Kinder (e.g. from the Betriebserlaubnis): a whole number from 1 to 999, null
+ * for none (400 invalid_facility_capacity). It may be lower than the places of the groups together. Only the Träger
+ * (403 forbidden); 404 facility_not_found.
+ */
+export function setFacilityCapacity(db: Db, actor: SessionUser, id: number, capacity: number | null): void {
+  if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
+  assertFacility(db, id)
+  if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_FACILITY_CAPACITY)) {
+    throw new ServiceError(400, 'invalid_facility_capacity')
+  }
+  db.update(facilities).set({ capacity }).where(eq(facilities.id, id)).run()
+}
+
+/** The facility's Höchstzahl Kinder (null = not set). */
+export function facilityCapacity(db: Db, id: number): number | null {
+  return db.select({ capacity: facilities.capacity }).from(facilities).where(eq(facilities.id, id)).get()?.capacity ?? null
 }
 
 /** Stores the facility the Träger works in (only the Träger switches; everyone else has a fixed facility). */

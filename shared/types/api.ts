@@ -59,6 +59,8 @@ export interface FacilityDto {
   state: GermanState
   /** Mariä Himmelfahrt is a holiday (effective only in Bavaria). */
   assumptionDay: boolean
+  /** Höchstzahl Kinder in der Einrichtung (1–999; null = not set), set by the Träger only. */
+  capacity: number | null
 }
 
 /** A group (Gruppe) of a facility. */
@@ -354,14 +356,31 @@ export interface OccupancyRowDto {
   cells: OccupancyCellDto[]
 }
 
+/**
+ * A hint after a save that put a child into a group or the facility: from `year`/`month` on (the first month over) the
+ * group or the facility has more children than its Höchstzahl Kinder, at most `count`. The save happened anyway.
+ */
+export interface CapacityWarningDto {
+  kind: 'group' | 'facility'
+  /** The group's or the facility's name. */
+  name: string
+  count: number
+  capacity: number
+  year: number
+  month: number
+}
+
 /** The occupancy of a Kita year (September to August) by group and month. */
 export interface OccupancyDto {
   year: number
   label: string
   months: { year: number; month: number }[]
   rows: OccupancyRowDto[]
-  /** Capacity is null unless every group has one. */
-  total: { capacity: number | null; cells: OccupancyCellDto[] }
+  /**
+   * The facility's Höchstzahl Kinder when the Träger set one (`fromFacility`), else the places of the groups together,
+   * which are null unless every group has some.
+   */
+  total: { capacity: number | null; fromFacility: boolean; cells: OccupancyCellDto[] }
   /** Contract children without a start date; they are not counted. */
   undated: { id: number; name: string }[]
   /**

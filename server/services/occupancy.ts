@@ -5,10 +5,21 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { OccupancyCellDto, OccupancyDto, OccupancyNameDto, UpcomingSchoolChildDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { ServiceError } from '../lib/errors'
+import { facilityCapacity } from './facilities'
 import { listGroups } from './groups'
 import { activeSchoolChildren, isSchoolStartDue, occupancyChildren } from './schoolChildren'
 
-/** The Kita year `startYear` (September to August) by group and month; 400 invalid_year outside 2000 to 2100. */
+/** The places of the groups together, only when every group has a number of places (null otherwise, and without groups). */
+function groupsCapacity(groups: { capacity: number | null }[]): number | null {
+  if (groups.length === 0 || groups.some(group => group.capacity === null)) return null
+  return groups.reduce((sum, group) => sum + group.capacity!, 0)
+}
+
+/**
+ * The Kita year `startYear` (September to August) by group and month; 400 invalid_year outside 2000 to 2100. The total
+ * ("Summe") is compared with the facility's Höchstzahl Kinder when the Träger set one (it may be lower than the places
+ * of the groups), else with the places of the groups together when every group has some.
+ */
 export function occupancyTable(db: Db, facilityId: number, startYear: number): OccupancyDto {
   if (!Number.isInteger(startYear) || startYear < 2000 || startYear > 2100) throw new ServiceError(400, 'invalid_year')
   const { children, names, undated, inconsistent } = occupancyChildren(db, facilityId)
@@ -35,8 +46,8 @@ export function occupancyTable(db: Db, facilityId: number, startYear: number): O
     rows.push({ groupId: null, name: '', capacity: null, cells: ungrouped })
   }
 
-  const everyGroupHasCapacity = groups.length > 0 && groups.every(group => group.capacity !== null)
-  const totalCapacity = everyGroupHasCapacity ? groups.reduce((sum, group) => sum + group.capacity!, 0) : null
+  const facilityMaximum = facilityCapacity(db, facilityId)
+  const totalCapacity = facilityMaximum ?? groupsCapacity(groups)
   return {
     year: startYear,
     label: kitaYearLabel(startYear),
@@ -44,6 +55,7 @@ export function occupancyTable(db: Db, facilityId: number, startYear: number): O
     rows,
     total: {
       capacity: totalCapacity,
+      fromFacility: facilityMaximum !== null,
       cells: months.map(({ year, month }) => toDto(facilityCell(children, year, month), totalCapacity)),
     },
     undated,

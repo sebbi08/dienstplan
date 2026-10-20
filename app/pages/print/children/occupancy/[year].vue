@@ -43,11 +43,14 @@ const td = 'px-1.5 py-1 text-center'
         <tfoot>
           <tr class="border-t-2 border-gray-400 font-semibold">
             <th scope="row" :class="[td, 'text-left']">{{ de.occupancy.total }}</th>
-            <td :class="td">{{ data.total.capacity ?? de.children.noValue }}</td>
+            <td :class="td" :title="data.total.fromFacility ? de.occupancy.facilityCapacity : undefined">{{ data.total.capacity ?? de.children.noValue }}</td>
             <td v-for="(cell, index) in data.total.cells" :key="index" class="p-0.5"><ChildrenOccupancyCell :cell="cell" print /></td>
           </tr>
         </tfoot>
       </table>
+      <p v-if="data.rows.length && data.total.fromFacility && data.total.capacity !== null" class="mt-3 text-xs text-gray-700">
+        {{ de.occupancy.totalAgainstFacility(data.total.capacity) }}
+      </p>
       <p v-if="data.undated.length" class="mt-3 text-xs text-gray-700">
         {{ de.occupancy.undated(data.undated.length) }} ({{ data.undated.map(child => child.name).join(', ') }})
       </p>
