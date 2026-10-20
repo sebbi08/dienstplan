@@ -610,7 +610,8 @@ Gerät merkt sich, ob er zu- oder aufgeklappt ist. Gibt es nichts zu erinnern, i
 Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum.
 
 - **Entwicklungsdokumentation**: „Entwicklungsdoku für Lena Muster fällig am 12.11.“, am Tag selbst „… heute
-  fällig“, danach rot „… überfällig seit 12.11.“, bis jemand **„Erledigt“** antippt.
+  fällig“, danach rot „… überfällig seit 12.11.“, bis jemand **„Erledigt“** antippt. Liegt der Tag nicht im
+  laufenden Jahr, steht das Jahr dabei („überfällig seit 03.04.2024“).
 - **Geburtstage der Kinder**: „Lena Muster wird am 12.11. 5 Jahre“, am Tag „Lena Muster hat heute Geburtstag (5)“.
 - **Geburtstage der Mitarbeiter**: „Anna hat am 12.11. Geburtstag“, am Tag „Anna hat heute Geburtstag“ – ohne
   Jahr und ohne Alter. Ausgeschiedene Mitarbeiter stehen nicht da.
@@ -632,13 +633,22 @@ Name eines Kindes führt zu seiner Akte.
 ### Erledigt und Rückgängig
 
 „Erledigt“ speichert das Datum und die Person (am Tablet die aufschließende Person, auch ohne eigenes Konto). Der
-Eintrag verschwindet dann bis zur nächsten Fälligkeit. Erledigen darf, wer das Kind in der eigenen Gruppe sieht
-(wie Eintragen in der Wochenübersicht), sowie Leitung und Träger.
+Eintrag verschwindet dann bis zur nächsten Fälligkeit. Pro Kind und Tag gibt es nur ein „Erledigt“: Tippt jemand
+zweimal (oder tippen zwei Personen am selben Tag), bleibt es bei dem ersten Eintrag.
+
+Erledigen dürfen:
+
+- Mitarbeiter mit Gruppe: die Kinder der **eigenen** Gruppe und die Kinder ohne Gruppe – nicht die Kinder einer
+  Gruppe, die für sie nur zum Lesen freigeschaltet ist (wie Eintragen in der Wochenübersicht),
+- Mitarbeiter ohne Gruppe und Aushilfen: alle Kinder,
+- Leitung und Träger: alle Kinder.
 
 In der Kinderakte steht unter **„Entwicklungsdokumentation“**, wann und von wem sie zuletzt erledigt wurde und wann
-sie als Nächstes fällig ist; dort gibt es ebenfalls „Erledigt“ und **„Rückgängig“**. Rückgängig machen können
-Mitarbeiter nur am selben Tag (falls aus Versehen getippt), Leitung und Träger jederzeit. Danach gilt wieder das
-vorherige „Erledigt“.
+sie als Nächstes fällig ist (rot erst nach dem Fälligkeitstag); dort gibt es ebenfalls „Erledigt“ und
+**„Rückgängig“**. Zurücknehmen lässt sich nur das **letzte** „Erledigt“ eines Kindes. Mitarbeiter brauchen dafür
+dieselbe Berechtigung wie zum Erledigen (das Kind in der eigenen Gruppe, ohne Gruppe oder als Aushilfe) und können
+es nur **am selben Tag** zurücknehmen (falls aus Versehen getippt); Leitung und Träger jederzeit. Danach gilt wieder
+das vorherige „Erledigt“. Bei einem ausgetretenen Kind lässt sich nichts mehr ändern.
 
 ### Einstellungen
 
@@ -649,10 +659,23 @@ Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einric
 - **Abschied**: wie viele Wochen vorher (0 bis 12, voreingestellt 4),
 - die **Entwicklungsdokumentation** je Gruppe und für die Kinder ohne Gruppe (voreingestellt jeweils „aus“):
   - **alle X Monate** (1 bis 24): fällig X Monate nach dem letzten „Erledigt“; ohne „Erledigt“ X Monate nach dem
-    Eintritt (sonst nach dem geplanten Eintritt; ohne beides gibt es keine Erinnerung),
-  - **um den Geburtstag**: fällig am Geburtstag des Kindes. Wer innerhalb der Vorlaufzeit vor dem Geburtstag
-    „Erledigt“ antippt, hat die Doku für diesen Geburtstag erledigt,
+    Eintritt (sonst nach dem geplanten Eintritt), frühestens X Monate nach „gilt seit“ (siehe unten),
+  - **um den Geburtstag**: fällig am Geburtstag des Kindes; ohne „Erledigt“ am ersten Geburtstag ab dem Eintritt,
+    frühestens ab „gilt seit“. Wer innerhalb der Vorlaufzeit vor dem Geburtstag „Erledigt“ antippt, hat die Doku
+    für diesen Geburtstag erledigt,
   - dazu **„erinnern Wochen vorher“** (0 bis 12, voreingestellt 2).
+
+  **„gilt seit“**: Die App merkt sich je Gruppe (und für die Kinder ohne Gruppe) den Tag, an dem die Erinnerung
+  eingeschaltet oder die Art („alle X Monate“ / „um den Geburtstag“) gewechselt wurde; er steht in den Einstellungen
+  unter der Auswahl. Ohne „Erledigt“ zählt die App erst ab diesem Tag. So gibt es beim Einschalten **keine Flut
+  alter Erinnerungen** für Kinder, die schon lange da sind: Bei „alle 12 Monate“ ist die Doku für sie erst 12 Monate
+  nach dem Einschalten fällig, bei „um den Geburtstag“ am nächsten Geburtstag. Ein Kind, das später eintritt, zählt
+  ab seinem Eintritt. Ändert ihr nur die Monate oder die Wochen vorher, bleibt „gilt seit“ gleich; beim Ausschalten
+  wird es gelöscht, beim nächsten Einschalten neu gesetzt. Bei Gruppen, die vor diesem Update schon eingeschaltet
+  waren, gilt der Tag des Updates.
+
+  Ein verpasster Termin bleibt in beiden Fällen **rot als überfällig stehen, bis jemand „Erledigt“ tippt** – auch
+  wenn der Geburtstag schon lange vorbei ist.
 
   Es gilt die Einstellung der Gruppe, in der das Kind **heute** ist. Wechselt ein Kind die Gruppe oder ändert sich
   die Einstellung, gilt das sofort.
