@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { todayIso } from '#shared/domain/dates'
 import type { ReminderDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { formatDayMonth } from '~/utils/format'
+import { formatDayMonth, formatDayMonthNear } from '~/utils/format'
 
 /**
  * The box „Erinnerungen“ above the tabs of the children page: documentation, birthdays and leavings (already sorted by
@@ -39,12 +40,14 @@ const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper', leaving: 'i-lucide-door-open',
 }
 
-/** The text around the name. */
+/** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
 function textOf(entry: ReminderDto): { before: string; after: string } {
   const date = formatDayMonth(entry.date)
   switch (entry.kind) {
-    case 'doc':
-      return entry.state === 'overdue' ? r.doc.overdue(date) : entry.state === 'today' ? r.doc.today() : r.doc.upcoming(date)
+    case 'doc': {
+      const docDate = formatDayMonthNear(entry.date, todayIso())
+      return entry.state === 'overdue' ? r.doc.overdue(docDate) : entry.state === 'today' ? r.doc.today() : r.doc.upcoming(docDate)
+    }
     case 'birthday':
       return entry.state === 'today' ? r.birthday.today(entry.age ?? 0) : r.birthday.upcoming(date, entry.age ?? 0)
     case 'staffBirthday':
@@ -89,7 +92,7 @@ async function markDone(entry: ReminderDto) {
         v-for="(entry, index) in entries" :key="`${entry.kind}-${entry.childId ?? entry.name}-${index}`"
         class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2" :class="rowClass(entry)"
       >
-        <UIcon :name="icons[entry.kind]" class="size-5 shrink-0" :class="entry.state === 'overdue' ? 'text-red-600' : 'text-gray-500'" :aria-label="r.kinds[entry.kind]" />
+        <UIcon :name="icons[entry.kind]" class="size-5 shrink-0" :class="entry.state === 'overdue' ? 'text-red-600' : 'text-gray-500'" role="img" :aria-label="r.kinds[entry.kind]" />
         <span class="min-w-0 flex-1">
           {{ textOf(entry).before }}<NuxtLink
             v-if="entry.childId !== null" :to="`/children/${entry.childId}`" class="font-medium text-sky-700 hover:underline"

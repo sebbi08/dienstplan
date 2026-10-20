@@ -2,6 +2,7 @@
 import type { DocMode, DocSettings } from '#shared/domain/reminders'
 import type { ReminderSettingsDto, ReminderSettingsInput } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { formatDate } from '~/utils/format'
 
 /**
  * Leitung and Träger: the lead times of the facility's reminders and the development documentation reminder of the
@@ -9,7 +10,8 @@ import { de } from '~/locales/de'
  * in the other rows.
  */
 const { data, refresh } = await useFetch<ReminderSettingsDto>('/api/reminder-settings', { key: 'reminder-settings' })
-const { busy, run } = useBusyAction()
+// After a save the stored settings are read again (for „gilt seit“); the forms keep what is typed.
+const { busy, run } = useBusyAction(refresh)
 const s = de.reminders.settings
 // The Träger's group list on this page refreshes the shared groups after a change: pick up new or renamed groups.
 const { data: groups } = useGroups()
@@ -44,10 +46,14 @@ const modeItems = (['off', 'interval', 'birthday'] as DocMode[]).map(mode => ({ 
 const hasGroups = computed(() => (data.value?.groups.length ?? 0) > 0)
 /** The rows of the documentation table: the children without group first, then the groups in their order. */
 const docRows = computed(() => [
-  { key: 'facility', label: hasGroups.value ? s.noGroup : s.allChildren, form: facility.noGroupDoc, groupId: null as number | null },
+  {
+    key: 'facility', label: hasGroups.value ? s.noGroup : s.allChildren, form: facility.noGroupDoc, groupId: null as number | null,
+    stored: data.value ? { mode: data.value.noGroupDoc.mode, since: data.value.noGroupDocSince } : null,
+  },
   ...(data.value?.groups ?? []).flatMap(group => {
     const form = groupForms.value[group.groupId]
-    return form ? [{ key: `group-${group.groupId}`, label: group.name, form, groupId: group.groupId as number | null }] : []
+    const stored = { mode: group.doc.mode, since: group.docSince }
+    return form ? [{ key: `group-${group.groupId}`, label: group.name, form, groupId: group.groupId as number | null, stored }] : []
   }),
 ])
 
@@ -92,7 +98,12 @@ const cell = 'px-1 py-1'
           <tbody>
             <tr v-for="row in docRows" :key="row.key" class="border-t border-gray-100">
               <td :class="cell" class="font-medium">{{ row.label }}</td>
-              <td :class="cell"><USelect v-model="row.form.mode" :items="modeItems" class="w-48" :aria-label="`${s.mode} ${row.label}`" /></td>
+              <td :class="cell">
+                <USelect v-model="row.form.mode" :items="modeItems" class="w-48" :aria-label="`${s.mode} ${row.label}`" />
+                <p v-if="row.stored?.since && row.stored.mode === row.form.mode" class="mt-0.5 text-xs text-gray-500">
+                  {{ s.since(formatDate(row.stored.since)) }}
+                </p>
+              </td>
               <td :class="cell">
                 <USelect
                   v-if="row.form.mode === 'interval'" v-model="row.form.intervalMonths" :items="monthItems" class="w-24"

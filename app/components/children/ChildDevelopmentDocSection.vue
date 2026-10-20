@@ -17,7 +17,8 @@ const confirm = useConfirm()
 const r = de.reminders
 
 const doc = computed(() => props.child.developmentDoc)
-const overdue = computed(() => doc.value.nextDue !== null && doc.value.nextDue <= todayIso())
+// Red only after the due day, as in the box (on the day itself it is „heute fällig“ there).
+const overdue = computed(() => doc.value.nextDue !== null && doc.value.nextDue < todayIso())
 
 /** Which button's request runs (for its spinner; both are disabled meanwhile). */
 const pending = ref<'done' | 'undo' | null>(null)

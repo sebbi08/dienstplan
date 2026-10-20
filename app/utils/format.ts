@@ -15,6 +15,11 @@ export function formatDayMonth(iso: string): string {
   return `${pad(day)}.${pad(month)}.`
 }
 
+/** A day without the year when it lies in the year of `today` ("01.11."), else with it ("03.04.2024"). */
+export function formatDayMonthNear(iso: string, today: string): string {
+  return iso.slice(0, 4) === today.slice(0, 4) ? formatDayMonth(iso) : formatDate(iso)
+}
+
 export function formatDayShort(iso: string, weekdayIndex: number): string {
   const { month, day } = parseIsoDate(iso)
   return `${de.weekdaysShort[weekdayIndex]} ${pad(day)}.${pad(month)}.`
