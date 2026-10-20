@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { GermanState } from '../../shared/domain/states'
+import { MEETING_KINDS } from '../../shared/types/api'
 
 /**
  * Reminder of the development documentation (see shared/domain/reminders.ts DocSettings): off, every
@@ -671,6 +672,29 @@ export const childDevelopmentDocs = sqliteTable('child_development_docs', {
   doneByName: text('done_by_name').notNull().default(''),
   createdAt: text('created_at').notNull(),
 }, table => [index('child_development_docs_child').on(table.childId)])
+
+/**
+ * A parent meeting (Elterngespräch) in a child's record, held or planned: the day, the time from (minutes of the day)
+ * and optionally until, the kind and who took part. `note` is confidential: only Leitung and Träger read and write it.
+ * Who entered it is kept as account, employee and name (the name stays when the person is gone); who changed it last
+ * by name.
+ */
+export const childParentMeetings = sqliteTable('child_parent_meetings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  start: integer('start').notNull(),
+  end: integer('end'),
+  kind: text('kind', { enum: MEETING_KINDS }).notNull(),
+  participants: text('participants').notNull().default(''),
+  note: text('note').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdByEmployeeId: integer('created_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  createdByName: text('created_by_name').notNull().default(''),
+  updatedAt: text('updated_at'),
+  updatedByName: text('updated_by_name'),
+}, table => [index('child_parent_meetings_child').on(table.childId)])
 
 /**
  * A child on a date (Anwesenheitstag), created by the first entry of that day. `groupId` is the child's group on the

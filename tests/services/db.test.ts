@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
 import {
-  absenceCodes, childDevelopmentDocs, children, coverageRules, employees, shiftTemplates, terminalUnlocks, users,
+  absenceCodes, childDevelopmentDocs, childParentMeetings, children, coverageRules, employees, shiftTemplates, terminalUnlocks, users,
 } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
@@ -1125,6 +1125,55 @@ describe('upgrading a filled database through migrateDb', () => {
       .toEqual([{ id: 1, capacity: 20 }, { id: 2, capacity: null }])
     sqlite.exec(`INSERT INTO facilities (id, name) VALUES (3, 'Hort')`)
     expect(sqlite.prepare('SELECT capacity FROM facilities WHERE id = 3').get()).toEqual({ capacity: null })
+  })
+
+  it('0047 adds the empty parent meetings with their index and references, and keeps the children', () => {
+    const { db, sqlite } = databaseAt('0046')
+    sqlite.exec(`INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at)
+      VALUES (1, 1, 'Muster', 'Lena', '2022-03-15', '2026-01-01T00:00:00.000Z')`)
+    const before = sqlite.prepare('SELECT * FROM children').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(sqlite.prepare('SELECT * FROM children').all()).toEqual(before)
+    expect(count(sqlite, 'child_parent_meetings')).toBe(0)
+    expect(sqlite.prepare('PRAGMA table_info(child_parent_meetings)').all()
+      .map(column => { const { name, notnull, dflt_value } = column as Record<string, unknown>; return [name, notnull, dflt_value] }))
+      .toEqual([
+        ['id', 1, null], ['child_id', 1, null], ['date', 1, null], ['start', 1, null], ['end', 0, null], ['kind', 1, null],
+        ['participants', 1, '\'\''], ['note', 1, '\'\''], ['created_at', 1, null], ['created_by_user_id', 0, null],
+        ['created_by_employee_id', 0, null], ['created_by_name', 1, '\'\''], ['updated_at', 0, null], ['updated_by_name', 0, null],
+      ])
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'child_parent_meetings'`).all())
+      .toEqual([{ name: 'child_parent_meetings_child' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_list(child_parent_meetings)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'children', from: 'child_id', on_delete: 'CASCADE' },
+      { table: 'employees', from: 'created_by_employee_id', on_delete: 'SET NULL' },
+      { table: 'users', from: 'created_by_user_id', on_delete: 'SET NULL' },
+    ])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('child_parent_meetings rows go with their child and keep the name when the person is deleted', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    const user = addUser(db, 'anna', 'observer', anna)
+    const lena = addChild(db, 1, { firstName: 'Lena' })
+    const max = addChild(db, 1, { firstName: 'Max' })
+    const row = (childId: number) => ({
+      childId, date: '2026-10-20', start: 840, kind: 'development' as const, createdAt: '2026-10-20T08:00:00.000Z',
+      createdByUserId: user.id, createdByEmployeeId: anna, createdByName: 'Anna',
+    })
+    db.insert(childParentMeetings).values([row(lena), row(max)]).run()
+    db.delete(users).where(eq(users.id, user.id)).run()
+    db.delete(employees).where(eq(employees.id, anna)).run()
+    expect(db.select({ userId: childParentMeetings.createdByUserId, employeeId: childParentMeetings.createdByEmployeeId,
+      name: childParentMeetings.createdByName }).from(childParentMeetings).all())
+      .toEqual([1, 2].map(() => ({ userId: null, employeeId: null, name: 'Anna' })))
+    db.delete(children).where(eq(children.id, lena)).run()
+    expect(db.select({ childId: childParentMeetings.childId }).from(childParentMeetings).all()).toEqual([{ childId: max }])
   })
 
   it('child_development_docs rows go with their child and keep the name when the person is deleted', () => {

@@ -177,6 +177,39 @@ export interface ChildContactInput {
 
 export type ChildContactDto = ChildContactInput & { id: number }
 
+/** The kinds of a parent meeting (Elterngespräch). */
+export const MEETING_KINDS = ['development', 'settling_in', 'final', 'other'] as const
+export type MeetingKind = typeof MEETING_KINDS[number]
+
+/** A parent meeting as entered: `start` and `end` are minutes of the day; `note` only from Leitung and Träger. */
+export interface ParentMeetingInput {
+  date: IsoDate
+  start: Minutes
+  end: Minutes | null
+  kind: MeetingKind
+  participants: string
+  /** Confidential; only Leitung and Träger send it. Left out on a change, the stored note stays. */
+  note?: string
+}
+
+/** A parent meeting in a child's record. */
+export interface ParentMeetingDto {
+  id: number
+  date: IsoDate
+  start: Minutes
+  end: Minutes | null
+  kind: MeetingKind
+  participants: string
+  /** Confidential: only Leitung and Träger get the field; for everyone else it is absent. */
+  note?: string
+  /** It lies ahead: a later day (Berlin), or today with a start later than now. */
+  planned: boolean
+  createdByName: string
+  createdAt: string
+  updatedByName: string | null
+  updatedAt: string | null
+}
+
 /** Who changed a section of the record last and when (ISO timestamp); both null while untouched. */
 export interface SectionStamp {
   updatedAt: string | null
@@ -454,6 +487,10 @@ export interface ChildRecordDto {
   canEdit: boolean
   documents: ChildDocumentDto[]
   developmentDoc: DevelopmentDocDto
+  /** The parent meetings, newest first (by date and start). */
+  meetings: ParentMeetingDto[]
+  /** Whether the viewer may enter, change and delete parent meetings (the record's write rules). */
+  canEditMeetings: boolean
 }
 
 /** A document in a child's record; the file itself is fetched separately. */

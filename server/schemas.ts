@@ -3,7 +3,7 @@ import { isValidIsoDate } from '../shared/domain/dates'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
-import { COLOR_KEYS, CONSENT_KEYS, REVIEW_SECTIONS, type ConsentKey } from '../shared/types/api'
+import { COLOR_KEYS, CONSENT_KEYS, REVIEW_SECTIONS, type ConsentKey, type MeetingKind } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
 export const minutes = z.number().int().min(0).max(1440)
@@ -321,6 +321,19 @@ const pickupChoice = z.union([
   // A person typed by hand; an empty name passes here and gets the service's pickup_person_required.
   z.object({ kind: z.literal('other'), name: z.string().max(100), confirmedWith: z.string().max(100).optional() }),
 ])
+/**
+ * A parent meeting. The end after the start, the kind and the text lengths (trimmed) are the service's checks, so they
+ * get its own hints; `note` is only accepted from Leitung and Träger (also the service's).
+ */
+export const parentMeetingSchema = z.object({
+  date: isoDate,
+  start: clockTime,
+  end: clockTime.nullable(),
+  // Checked by the service (400 meeting_kind_invalid), so a stale client gets its hint.
+  kind: z.string().max(40).transform(value => value as MeetingKind),
+  participants: z.string().max(1000),
+  note: z.string().max(10_000).optional(),
+})
 export const attendanceDayQuery = z.object({ date: isoDate })
 export const attendanceHistoryQuery = z.object({ childId: z.coerce.number().int().positive(), date: isoDate })
 export const attendanceArriveSchema = z.object({

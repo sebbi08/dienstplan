@@ -75,6 +75,8 @@ const CHILD_EDITOR_ROUTES = [
   'children/[id]/consents.put.ts', 'children/[id]/confirm.post.ts', 'children/[id]/contacts.post.ts', 'children/[id]/contacts/order.post.ts',
   'child-contacts/[id].put.ts', 'child-contacts/[id].delete.ts',
   'children/[id]/documents.post.ts', 'child-documents/[id].put.ts', 'child-documents/[id].delete.ts',
+  // Parent meetings: the record section's rights; the service keeps the note to Leitung and Träger (spec Elterngespräche §1).
+  'children/[id]/meetings.post.ts', 'children/meetings/[id].put.ts', 'children/meetings/[id].delete.ts',
 ]
 /**
  * The child pages for Träger and Leitung only, at the office or at the unlocked tablet; they must check with

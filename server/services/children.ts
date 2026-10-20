@@ -30,6 +30,7 @@ import {
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
+import { meetingsOf } from './parentMeetings'
 import { developmentDocOf } from './reminders'
 import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
 
@@ -166,10 +167,11 @@ function consentsOf(row: ChildRow): ChildConsents {
 /**
  * The whole record; an archived child is only visible to Träger and Leitung, a child the tablet hides from the viewer
  * or whose group the viewer does not see not at all (others: 404 child_not_found). A child of a group the viewer may
- * only read cannot be edited, whatever the viewer's other rights.
+ * only read cannot be edited, whatever the viewer's other rights. Whether a parent meeting is still planned is judged
+ * at `now`; its confidential note only goes to Leitung and Träger.
  */
 export function getChild(
-  db: Db, viewer: ChildViewer, id: number, today: IsoDate,
+  db: Db, viewer: ChildViewer, id: number, today: IsoDate, now: Date = new Date(),
 ): ChildRecordDto {
   const row = loadChild(db, viewer.facilityId, id)
   const status = childStatus(row, today)
@@ -184,6 +186,7 @@ export function getChild(
     ({ updatedAt, updatedBy: updatedBy === null ? null : usernames.get(updatedBy) ?? null })
   const keyEducatorName = row.keyEducatorId === null ? null
     : staffOf(db, viewer.facilityId, today).find(person => person.id === row.keyEducatorId)?.name ?? null
+  const canEdit = mayEditChildren(viewer) && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write'
   return {
     id: row.id,
     status,
@@ -203,9 +206,11 @@ export function getChild(
     },
     leftOn: row.leftOn,
     purgeOn: row.leftOn !== null && isManager(viewer.role) ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
-    canEdit: mayEditChildren(viewer) && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write',
+    canEdit,
     documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
     developmentDoc: developmentDocOf(db, viewer, row, status, today),
+    meetings: meetingsOf(db, viewer, row.id, now),
+    canEditMeetings: canEdit,
   }
 }
 
