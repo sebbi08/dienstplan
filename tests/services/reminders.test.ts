@@ -15,6 +15,9 @@ const TOMORROW = new Date('2026-10-21T08:00:00Z')
 
 const INTERVAL: DocSettings = { mode: 'interval', intervalMonths: 12, leadWeeks: 2 }
 const OFF: DocSettings = { mode: 'off', intervalMonths: 12, leadWeeks: 2 }
+const BIRTHDAY: DocSettings = { mode: 'birthday', intervalMonths: 12, leadWeeks: 2 }
+/** The documentation settings of the tests are switched on long ago, so „gilt seit“ does not hold the due days back. */
+const LONG_AGO = new Date('2020-01-01T08:00:00Z')
 
 describe('reminders', () => {
   let db: Db
@@ -37,7 +40,7 @@ describe('reminders', () => {
       visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: baeren, readable: [maeuse] },
     }
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
-    for (const group of [baeren, maeuse, fuechse]) setGroupDocSettings(db, 1, group, INTERVAL)
+    for (const group of [baeren, maeuse, fuechse]) setGroupDocSettings(db, 1, group, INTERVAL, LONG_AGO)
   })
 
   /** An active child whose interval documentation (12 months after entry) is due on `due`. */
@@ -76,7 +79,7 @@ describe('reminders', () => {
       docChild('Ohne', null, '2026-10-25')
       setReminderSettings(db, 1, {
         noGroupDoc: INTERVAL, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4,
-      })
+      }, LONG_AGO)
       expect(kindsFor(staff)).toEqual(['doc:Bär Kind', 'doc:Ohne Kind'])
       expect(kindsFor(leitung)).toEqual(['doc:Bär Kind', 'doc:Fuchs Kind', 'doc:Maus Kind', 'doc:Ohne Kind'])
       expect(kindsFor({ ...staff, groups: null })).toHaveLength(4)
@@ -87,7 +90,7 @@ describe('reminders', () => {
       setGroupDocSettings(db, 1, maeuse, OFF)
       db.update(children).set({ groupId: maeuse }).where(eq(children.id, id)).run()
       expect(listReminders(db, leitung, TODAY)).toEqual([])
-      setGroupDocSettings(db, 1, fuechse, { mode: 'birthday', intervalMonths: 12, leadWeeks: 2 })
+      setGroupDocSettings(db, 1, fuechse, BIRTHDAY, NOW)
       db.update(children).set({ groupId: fuechse, birthDate: '2022-10-25' }).where(eq(children.id, id)).run()
       expect(listReminders(db, leitung, TODAY).map(reminder => [reminder.kind, reminder.date]))
         .toEqual([['doc', '2026-10-25'], ['birthday', '2026-10-25']])
@@ -100,6 +103,45 @@ describe('reminders', () => {
       docChild('Weg', baeren, '2026-10-25', { leftOn: '2026-10-01' })
       docChild('Warte', baeren, '2026-10-25', { admissionStatus: 'waitlist' })
       expect(listReminders(db, leitung, TODAY)).toEqual([])
+    })
+
+    it('switching a group on today does not make long-enrolled children overdue (interval and birthday)', () => {
+      setGroupDocSettings(db, 1, baeren, OFF, NOW)
+      setGroupDocSettings(db, 1, baeren, INTERVAL, NOW)
+      const id = addChild(db, 1, { firstName: 'Alt', lastName: 'Kind', groupId: baeren, entryDate: '2021-09-01', birthDate: '2020-10-21' })
+      expect(listReminders(db, leitung, TODAY).map(reminder => reminder.kind)).toEqual(['birthday'])
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2027-10-20')
+      setGroupDocSettings(db, 1, baeren, BIRTHDAY, NOW)
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2026-10-21')
+      expect(listReminders(db, leitung, TODAY).map(reminder => [reminder.kind, reminder.state]))
+        .toEqual([['doc', 'upcoming'], ['birthday', 'upcoming']])
+    })
+
+    it('a child entering after „gilt seit“ counts from its entry', () => {
+      setGroupDocSettings(db, 1, baeren, OFF, NOW)
+      setGroupDocSettings(db, 1, baeren, { ...INTERVAL, intervalMonths: 6 }, NOW)
+      const id = addChild(db, 1, { firstName: 'Neu', lastName: 'Kind', groupId: baeren, entryDate: '2026-11-02' })
+      expect(getChild(db, leitung, id, '2026-11-02').developmentDoc.nextDue).toBe('2027-05-02')
+    })
+
+    it('a mode change resets „gilt seit“, a changed interval keeps it', () => {
+      const id = docChild('Lena', baeren, '2026-09-01')
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2026-09-01')
+      setGroupDocSettings(db, 1, baeren, { ...INTERVAL, intervalMonths: 6, leadWeeks: 4 }, NOW)
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2026-03-01')
+      setGroupDocSettings(db, 1, baeren, BIRTHDAY, NOW)
+      setGroupDocSettings(db, 1, baeren, INTERVAL, NOW)
+      expect(getChild(db, leitung, id, TODAY).developmentDoc.nextDue).toBe('2027-10-20')
+    })
+
+    it('a birthday passed without done stays overdue the next day and a month later', () => {
+      setGroupDocSettings(db, 1, baeren, BIRTHDAY, new Date('2026-10-01T08:00:00Z'))
+      addChild(db, 1, { firstName: 'Lena', lastName: 'Kind', groupId: baeren, entryDate: '2024-09-01', birthDate: '2022-10-19' })
+      const docOf = (today: string) => listReminders(db, leitung, today)
+        .filter(reminder => reminder.kind === 'doc').map(reminder => [reminder.state, reminder.date])
+      expect(docOf('2026-10-19')).toEqual([['today', '2026-10-19']])
+      expect(docOf(TODAY)).toEqual([['overdue', '2026-10-19']])
+      expect(docOf('2026-11-20')).toEqual([['overdue', '2026-10-19']])
     })
 
     it('marks the key educator\'s own child', () => {
@@ -121,6 +163,27 @@ describe('reminders', () => {
       expect(getChild(db, staff, id, TODAY).developmentDoc).toEqual({
         lastDone: { id: docId, date: TODAY, name: 'Berta' }, nextDue: '2027-10-20', canUndo: true, canDone: true,
       })
+    })
+
+    it('is idempotent per day: a second „Erledigt“ the same day returns the same entry', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      const first = markDocDone(db, staff, id, NOW)
+      expect(markDocDone(db, leitung, id, new Date('2026-10-20T15:00:00Z'))).toBe(first)
+      expect(db.select().from(childDevelopmentDocs).all()).toHaveLength(1)
+      const next = markDocDone(db, staff, id, TOMORROW)
+      expect(next).not.toBe(first)
+      expect(db.select().from(childDevelopmentDocs).all()).toHaveLength(2)
+    })
+
+    it('lets staff with a group mark and undo only in the own group, staff without group everywhere', () => {
+      const fuchs = docChild('Fuchs', fuechse, '2026-10-25')
+      expect(errorCode(() => markDocDone(db, staff, fuchs, NOW))).toBe('child_not_found')
+      const helper: ChildViewer = { ...staff, groups: null }
+      const docId = markDocDone(db, helper, fuchs, NOW)
+      expect(errorCode(() => undoDocDone(db, staff, docId, NOW))).toBe('child_not_found')
+      expect(getChild(db, helper, fuchs, TODAY).developmentDoc.canUndo).toBe(true)
+      undoDocDone(db, helper, docId, NOW)
+      expect(db.select().from(childDevelopmentDocs).all()).toEqual([])
     })
 
     it('stores the account of a logged-in viewer', () => {
@@ -170,6 +233,28 @@ describe('reminders', () => {
         .toEqual([['overdue', '2026-10-15']])
       expect(getChild(db, leitung, id, '2026-10-21').developmentDoc.lastDone)
         .toEqual({ id: expect.any(Number), date: '2025-10-15', name: 'Anna' })
+    })
+
+    it('undoes only the child\'s latest „Erledigt“ (409 undo_not_latest), also for Leitung', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      const older = db.insert(childDevelopmentDocs)
+        .values({ childId: id, doneOn: '2025-10-15', doneByName: 'Anna', createdAt: '2025-10-15T08:00:00.000Z' }).returning().get().id
+      const latest = markDocDone(db, leitung, id, NOW)
+      expect(errorCode(() => undoDocDone(db, leitung, older, NOW))).toBe('undo_not_latest')
+      expect(db.select().from(childDevelopmentDocs).all()).toHaveLength(2)
+      undoDocDone(db, leitung, latest, NOW)
+      undoDocDone(db, leitung, older, NOW)
+      expect(db.select().from(childDevelopmentDocs).all()).toEqual([])
+    })
+
+    it('refuses undo for a child who has left: 409 child_archived for Leitung, 404 for staff', () => {
+      const id = docChild('Lena', baeren, '2026-10-25')
+      const docId = markDocDone(db, leitung, id, NOW)
+      db.update(children).set({ leftOn: TODAY }).where(eq(children.id, id)).run()
+      const nextDay = new Date('2026-10-21T08:00:00Z')
+      expect(errorCode(() => undoDocDone(db, leitung, docId, nextDay))).toBe('child_archived')
+      expect(errorCode(() => undoDocDone(db, staff, docId, nextDay))).toBe('child_not_found')
+      expect(db.select().from(childDevelopmentDocs).all()).toHaveLength(1)
     })
 
     it('answers 404 for an unknown done or one of another facility', () => {

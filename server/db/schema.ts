@@ -5,12 +5,15 @@ import type { GermanState } from '../../shared/domain/states'
 /**
  * Reminder of the development documentation (see shared/domain/reminders.ts DocSettings): off, every
  * `doc_interval_months` months (1–24) or around the birthday, shown `doc_lead_weeks` weeks (0–12) before it is due.
+ * `doc_since` („gilt seit“, ISO date): the day the mode last changed (switched on, or interval ↔ birthday); without a
+ * done date the due day is counted from no earlier than this day. Null while the mode is off.
  */
 function docSettings() {
   return {
     docMode: text('doc_mode', { enum: ['off', 'interval', 'birthday'] }).notNull().default('off'),
     docIntervalMonths: integer('doc_interval_months').notNull().default(12),
     docLeadWeeks: integer('doc_lead_weeks').notNull().default(2),
+    docSince: text('doc_since'),
   }
 }
 

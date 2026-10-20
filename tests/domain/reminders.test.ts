@@ -4,7 +4,7 @@ import { docDue, inWindow, nextBirthday, sortReminders, type DocSettings, type R
 const interval = (intervalMonths = 12, leadWeeks = 2): DocSettings => ({ mode: 'interval', intervalMonths, leadWeeks })
 const birthday = (leadWeeks = 2): DocSettings => ({ mode: 'birthday', intervalMonths: 12, leadWeeks })
 const child = (over: Partial<Parameters<typeof docDue>[0]> = {}) => ({
-  birthDate: '2022-03-15', entryDate: '2024-09-01', plannedEntryDate: null, lastDone: null, ...over,
+  birthDate: '2022-03-15', entryDate: '2024-09-01', plannedEntryDate: null, since: null, lastDone: null, ...over,
 })
 
 describe('docDue, interval mode', () => {
@@ -33,6 +33,27 @@ describe('docDue, interval mode', () => {
     expect(docDue(child({ entryDate: null, plannedEntryDate: null }), interval(), '2026-10-19')).toBeNull()
   })
 
+  it('counts from „gilt seit“ when it is later than the entry, else from the entry', () => {
+    // long enrolled, switched on today: not overdue, due one interval after today
+    expect(docDue(child({ entryDate: '2021-09-01', since: '2026-10-19' }), interval(12), '2026-10-19')).toBe('2027-10-19')
+    // entered after „gilt seit“: counts from the entry
+    expect(docDue(child({ entryDate: '2026-11-01', since: '2026-10-19' }), interval(6), '2026-11-02')).toBe('2027-05-01')
+    expect(docDue(child({ entryDate: null, plannedEntryDate: '2027-01-01', since: '2026-10-19' }), interval(3), '2026-10-19'))
+      .toBe('2027-04-01')
+    // no entry date at all: „gilt seit“ alone
+    expect(docDue(child({ entryDate: null, since: '2026-10-19' }), interval(3), '2026-10-19')).toBe('2027-01-19')
+  })
+
+  it('a done date wins over „gilt seit“', () => {
+    expect(docDue(child({ since: '2026-10-19', lastDone: '2026-05-05' }), interval(12), '2026-10-19')).toBe('2027-05-05')
+  })
+
+  it('without a done date an overdue day stays put', () => {
+    const lena = child({ entryDate: '2025-01-01', since: '2025-06-01' })
+    expect(docDue(lena, interval(12), '2026-06-02')).toBe('2026-06-01')
+    expect(docDue(lena, interval(12), '2026-10-19')).toBe('2026-06-01')
+  })
+
   it('still counts from the done date when there is no entry date at all', () => {
     expect(docDue(child({ entryDate: null, lastDone: '2026-05-05' }), interval(12), '2026-10-19')).toBe('2027-05-05')
   })
@@ -41,14 +62,35 @@ describe('docDue, interval mode', () => {
 describe('docDue, birthday mode', () => {
   const today = '2026-10-19'
 
-  it('without a done date is the next birthday on or after today', () => {
-    expect(docDue(child({ birthDate: '2022-12-01' }), birthday(), today)).toBe('2026-12-01')
-    expect(docDue(child({ birthDate: '2022-03-15' }), birthday(), today)).toBe('2027-03-15')
-    expect(docDue(child({ birthDate: '2022-10-19' }), birthday(), today)).toBe('2026-10-19')
+  it('without a done date is the first birthday on or after the later of entry and „gilt seit“', () => {
+    expect(docDue(child({ birthDate: '2022-12-01', since: today }), birthday(), today)).toBe('2026-12-01')
+    expect(docDue(child({ birthDate: '2022-03-15', since: today }), birthday(), today)).toBe('2027-03-15')
+    expect(docDue(child({ birthDate: '2022-10-19', since: today }), birthday(), today)).toBe('2026-10-19')
+    // entered after „gilt seit“: counts from the entry
+    expect(docDue(child({ birthDate: '2022-03-15', entryDate: '2027-04-01', since: today }), birthday(), today)).toBe('2028-03-15')
+    // without „gilt seit“ from the entry
+    expect(docDue(child({ birthDate: '2022-12-01', entryDate: '2024-09-01' }), birthday(), today)).toBe('2024-12-01')
   })
 
-  it('does not need an entry date', () => {
+  it('without an entry date counts from the planned entry, else from „gilt seit“, else from today', () => {
+    expect(docDue(child({ birthDate: '2022-12-01', entryDate: null, plannedEntryDate: '2027-01-01', since: today }), birthday(), today))
+      .toBe('2027-12-01')
+    expect(docDue(child({ birthDate: '2022-12-01', entryDate: null, since: today }), birthday(), today)).toBe('2026-12-01')
     expect(docDue(child({ birthDate: '2022-12-01', entryDate: null }), birthday(), today)).toBe('2026-12-01')
+  })
+
+  it('without a done date a passed birthday stays overdue: the due day does not move with today', () => {
+    const lena = child({ birthDate: '2022-10-19', since: '2026-10-01' })
+    expect(docDue(lena, birthday(), '2026-10-19')).toBe('2026-10-19')
+    expect(inWindow(docDue(lena, birthday(), '2026-10-20')!, 14, '2026-10-20')).toBe('overdue')
+    expect(docDue(lena, birthday(), '2026-11-20')).toBe('2026-10-19')
+    expect(inWindow(docDue(lena, birthday(), '2026-11-20')!, 14, '2026-11-20')).toBe('overdue')
+  })
+
+  it('switching on today does not make a long-enrolled child overdue', () => {
+    const old = child({ birthDate: '2020-03-15', entryDate: '2021-09-01', since: today })
+    expect(docDue(old, birthday(), today)).toBe('2027-03-15')
+    expect(inWindow(docDue(old, birthday(), today)!, 14, today)).toBe('before')
   })
 
   it('with a done date is the next birthday strictly after it (done well before the window)', () => {
@@ -87,8 +129,8 @@ describe('docDue, birthday mode', () => {
   })
 
   it('a 29 February child has the birthday on 28 February in non-leap years and 29 February in leap years', () => {
-    expect(docDue(child({ birthDate: '2024-02-29' }), birthday(), '2026-10-19')).toBe('2027-02-28')
-    expect(docDue(child({ birthDate: '2024-02-29' }), birthday(), '2027-10-19')).toBe('2028-02-29')
+    expect(docDue(child({ birthDate: '2024-02-29', since: '2026-10-19' }), birthday(), '2026-10-19')).toBe('2027-02-28')
+    expect(docDue(child({ birthDate: '2024-02-29', since: '2027-10-19' }), birthday(), '2027-10-19')).toBe('2028-02-29')
   })
 })
 

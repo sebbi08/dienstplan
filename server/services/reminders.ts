@@ -17,10 +17,14 @@ import { getSchoolSettings, schoolLeavers } from './schoolChildren'
 
 type DocRow = typeof childDevelopmentDocs.$inferSelect
 
+/** A documentation setting with its „gilt seit“. */
+interface DocSetting { doc: DocSettings; since: IsoDate | null }
+
 /** The documentation setting for a child of this group (null = without group: the facility's own setting). */
-function docSettingsLookup(settings: ReminderSettingsDto): (groupId: number | null) => DocSettings {
-  const byGroup = new Map(settings.groups.map(group => [group.groupId, group.doc]))
-  return groupId => (groupId === null ? settings.noGroupDoc : byGroup.get(groupId) ?? settings.noGroupDoc)
+function docSettingsLookup(settings: ReminderSettingsDto): (groupId: number | null) => DocSetting {
+  const noGroup: DocSetting = { doc: settings.noGroupDoc, since: settings.noGroupDocSince }
+  const byGroup = new Map(settings.groups.map(group => [group.groupId, { doc: group.doc, since: group.docSince }]))
+  return groupId => (groupId === null ? noGroup : byGroup.get(groupId) ?? noGroup)
 }
 
 /** The latest „Erledigt“ of each of these children (the latest day; on one day the last entered). */
@@ -34,8 +38,8 @@ function latestDone(db: Db, childIds: number[]): Map<number, DocRow> {
 }
 
 /** The day the child's documentation is due next under its group's setting today (null: off, or no date to count from). */
-function dueOf(row: ChildRow, settings: DocSettings, lastDone: DocRow | undefined, today: IsoDate): IsoDate | null {
-  return docDue({ ...row, lastDone: lastDone?.doneOn ?? null }, settings, today)
+function dueOf(row: ChildRow, setting: DocSetting, lastDone: DocRow | undefined, today: IsoDate): IsoDate | null {
+  return docDue({ ...row, since: setting.since, lastDone: lastDone?.doneOn ?? null }, setting.doc, today)
 }
 
 /**
@@ -68,9 +72,9 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
 
   const leavingLead = settings.leavingLeadWeeks * 7
   for (const row of rows) {
-    const docSettings = docSettingsOf(row.groupId)
-    const due = dueOf(row, docSettings, done.get(row.id), today)
-    if (due !== null) addChildItem(row, 'doc', due, docSettings.leadWeeks * 7)
+    const docSetting = docSettingsOf(row.groupId)
+    const due = dueOf(row, docSetting, done.get(row.id), today)
+    if (due !== null) addChildItem(row, 'doc', due, docSetting.doc.leadWeeks * 7)
     const birthday = nextBirthday(row.birthDate.slice(5), today)
     addChildItem(row, 'birthday', birthday, settings.birthdayLeadDays, ageOn(row.birthDate, birthday).years)
     // An active child's leaving day is today or later.
@@ -120,12 +124,16 @@ export function developmentDocOf(
  * Marks the child's documentation done today (Berlin) with the viewer as the person: the account, the employee and the
  * name, so a person without account at the tablet is stored by name. Whoever may write in the child's group may (403
  * group_read_only for a group the viewer may only read; 404 child_not_found for a child the viewer does not see, of
- * another facility, not active yet or archived; 409 child_archived for managers). Returns the entry's id.
+ * another facility, not active yet or archived; 409 child_archived for managers). Returns the entry's id. Once per day:
+ * when the child already has an entry of today (a double tap, or two people), that entry's id is returned unchanged.
  */
 export function markDocDone(db: Db, viewer: ChildViewer, childId: number, now: Date = new Date()): number {
   const today = nowInBerlin(now).date
   const row = loadEditableChild(db, viewer, viewer.facilityId, childId, today, now)
   if (childStatus(row, today) !== 'active') throw new ServiceError(404, 'child_not_found')
+  const existing = db.select({ id: childDevelopmentDocs.id }).from(childDevelopmentDocs)
+    .where(and(eq(childDevelopmentDocs.childId, childId), eq(childDevelopmentDocs.doneOn, today))).get()
+  if (existing) return existing.id
   return db.insert(childDevelopmentDocs).values({
     childId, doneOn: today, doneByUserId: viewer.id, doneByEmployeeId: viewer.employeeId, doneByName: viewer.name,
     createdAt: now.toISOString(),
@@ -133,9 +141,10 @@ export function markDocDone(db: Db, viewer: ChildViewer, childId: number, now: D
 }
 
 /**
- * Takes an „Erledigt“ back; the one before counts again. Leitung and Träger may any time, everybody else only on the
- * day it was marked (403 undo_too_late), and only with the write right in the child's group (as `markDocDone`).
- * 404 development_doc_not_found for an unknown entry or one of another facility's child.
+ * Takes the child's latest „Erledigt“ back; the one before counts again. Only the latest (409 undo_not_latest for an
+ * older one). Leitung and Träger may any time, everybody else only on the day it was marked (403 undo_too_late), and
+ * only with the write right in the child's group (as `markDocDone`, so 409 child_archived for managers once the child
+ * has left). 404 development_doc_not_found for an unknown entry or one of another facility's child.
  */
 export function undoDocDone(db: Db, viewer: ChildViewer, docId: number, now: Date = new Date()): void {
   const today = nowInBerlin(now).date
@@ -144,6 +153,7 @@ export function undoDocDone(db: Db, viewer: ChildViewer, docId: number, now: Dat
     .where(and(eq(childDevelopmentDocs.id, docId), eq(children.facilityId, viewer.facilityId))).get()
   if (!doc) throw new ServiceError(404, 'development_doc_not_found')
   loadEditableChild(db, viewer, viewer.facilityId, doc.childId, today, now)
+  if (latestDone(db, [doc.childId]).get(doc.childId)?.id !== doc.id) throw new ServiceError(409, 'undo_not_latest')
   if (!isManager(viewer.role) && doc.doneOn !== today) throw new ServiceError(403, 'undo_too_late')
   db.delete(childDevelopmentDocs).where(eq(childDevelopmentDocs.id, docId)).run()
 }

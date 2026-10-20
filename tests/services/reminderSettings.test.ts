@@ -4,8 +4,49 @@ import type { DocSettings } from '../../shared/domain/reminders'
 import { addFacility, addGroup, createTestDb, errorCode } from '../helpers/fixtures'
 
 const OFF: DocSettings = { mode: 'off', intervalMonths: 12, leadWeeks: 2 }
+const TODAY = '2026-10-20'
+const NOW = new Date('2026-10-20T08:00:00Z')
 const facilityInput = (overrides: Partial<Parameters<typeof setReminderSettings>[2]> = {}) => ({
   noGroupDoc: OFF, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4, ...overrides,
+})
+
+describe('reminder settings, „gilt seit“', () => {
+  const interval = (intervalMonths = 12, leadWeeks = 2): DocSettings => ({ mode: 'interval', intervalMonths, leadWeeks })
+  const BIRTHDAY: DocSettings = { mode: 'birthday', intervalMonths: 12, leadWeeks: 2 }
+  const later = (iso: string) => new Date(`${iso}T08:00:00Z`)
+  const groupSince = (db: ReturnType<typeof createTestDb>) => getReminderSettings(db, 1).groups[0]!.docSince
+
+  it('a group\'s setting gets today (Berlin) when it is switched on or the mode changes, not for months or lead weeks', () => {
+    const db = createTestDb()
+    const baeren = addGroup(db, 1, 'Bären')
+    // 22:30 UTC is already the next day in Berlin
+    setGroupDocSettings(db, 1, baeren, interval(), new Date('2026-10-19T22:30:00Z'))
+    expect(groupSince(db)).toBe(TODAY)
+    setGroupDocSettings(db, 1, baeren, interval(6, 4), later('2026-11-05'))
+    expect(groupSince(db)).toBe(TODAY)
+    setGroupDocSettings(db, 1, baeren, BIRTHDAY, later('2026-12-01'))
+    expect(groupSince(db)).toBe('2026-12-01')
+    setGroupDocSettings(db, 1, baeren, { ...BIRTHDAY, leadWeeks: 6 }, later('2027-01-10'))
+    expect(groupSince(db)).toBe('2026-12-01')
+    setGroupDocSettings(db, 1, baeren, interval(), later('2027-02-01'))
+    expect(groupSince(db)).toBe('2027-02-01')
+    setGroupDocSettings(db, 1, baeren, OFF, later('2027-03-01'))
+    expect(groupSince(db)).toBeNull()
+    setGroupDocSettings(db, 1, baeren, interval(), later('2027-04-01'))
+    expect(groupSince(db)).toBe('2027-04-01')
+  })
+
+  it('the setting for children without group behaves the same, and saving the lead times keeps it', () => {
+    const db = createTestDb()
+    setReminderSettings(db, 1, facilityInput({ noGroupDoc: interval() }), NOW)
+    expect(getReminderSettings(db, 1).noGroupDocSince).toBe(TODAY)
+    setReminderSettings(db, 1, facilityInput({ noGroupDoc: interval(3), birthdayLeadDays: 2 }), later('2026-11-01'))
+    expect(getReminderSettings(db, 1).noGroupDocSince).toBe(TODAY)
+    setReminderSettings(db, 1, facilityInput({ noGroupDoc: BIRTHDAY }), later('2026-11-02'))
+    expect(getReminderSettings(db, 1).noGroupDocSince).toBe('2026-11-02')
+    setReminderSettings(db, 1, facilityInput({ noGroupDoc: OFF }), later('2026-11-03'))
+    expect(getReminderSettings(db, 1).noGroupDocSince).toBeNull()
+  })
 })
 
 describe('reminder settings', () => {
@@ -17,7 +58,8 @@ describe('reminder settings', () => {
     addGroup(db, other, 'Wichtel')
     expect(getReminderSettings(db, 1)).toEqual({
       noGroupDoc: OFF, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4,
-      groups: [{ groupId: baeren, name: 'Bären', doc: OFF }, { groupId: maeuse, name: 'Mäuse', doc: OFF }],
+      noGroupDocSince: null,
+      groups: [{ groupId: baeren, name: 'Bären', doc: OFF, docSince: null }, { groupId: maeuse, name: 'Mäuse', doc: OFF, docSince: null }],
     })
   })
 
@@ -27,10 +69,10 @@ describe('reminder settings', () => {
     setReminderSettings(db, 1, {
       noGroupDoc: { mode: 'interval', intervalMonths: 6, leadWeeks: 3 },
       birthdayLeadDays: 14, staffBirthdayLeadDays: 0, leavingLeadWeeks: 8,
-    })
+    }, NOW)
     expect(getReminderSettings(db, 1)).toEqual({
       noGroupDoc: { mode: 'interval', intervalMonths: 6, leadWeeks: 3 },
-      birthdayLeadDays: 14, staffBirthdayLeadDays: 0, leavingLeadWeeks: 8, groups: [],
+      noGroupDocSince: TODAY, birthdayLeadDays: 14, staffBirthdayLeadDays: 0, leavingLeadWeeks: 8, groups: [],
     })
     expect(getReminderSettings(db, other)).toMatchObject({ noGroupDoc: OFF, birthdayLeadDays: 7, leavingLeadWeeks: 4 })
   })
@@ -39,10 +81,10 @@ describe('reminder settings', () => {
     const db = createTestDb()
     const baeren = addGroup(db, 1, 'Bären')
     const maeuse = addGroup(db, 1, 'Mäuse')
-    setGroupDocSettings(db, 1, baeren, { mode: 'birthday', intervalMonths: 12, leadWeeks: 4 })
+    setGroupDocSettings(db, 1, baeren, { mode: 'birthday', intervalMonths: 12, leadWeeks: 4 }, NOW)
     expect(getReminderSettings(db, 1).groups).toEqual([
-      { groupId: baeren, name: 'Bären', doc: { mode: 'birthday', intervalMonths: 12, leadWeeks: 4 } },
-      { groupId: maeuse, name: 'Mäuse', doc: OFF },
+      { groupId: baeren, name: 'Bären', doc: { mode: 'birthday', intervalMonths: 12, leadWeeks: 4 }, docSince: TODAY },
+      { groupId: maeuse, name: 'Mäuse', doc: OFF, docSince: null },
     ])
     expect(getReminderSettings(db, 1).noGroupDoc).toEqual(OFF)
   })
@@ -53,11 +95,11 @@ describe('reminder settings', () => {
     setReminderSettings(db, 1, facilityInput({
       noGroupDoc: { mode: 'interval', intervalMonths: 1, leadWeeks: 0 }, birthdayLeadDays: 0, staffBirthdayLeadDays: 30, leavingLeadWeeks: 0,
     }))
-    setGroupDocSettings(db, 1, baeren, { mode: 'interval', intervalMonths: 24, leadWeeks: 12 })
+    setGroupDocSettings(db, 1, baeren, { mode: 'interval', intervalMonths: 24, leadWeeks: 12 }, NOW)
     setReminderSettings(db, 1, facilityInput({ birthdayLeadDays: 30, staffBirthdayLeadDays: 0, leavingLeadWeeks: 12 }))
     expect(getReminderSettings(db, 1)).toEqual({
       noGroupDoc: OFF, birthdayLeadDays: 30, staffBirthdayLeadDays: 0, leavingLeadWeeks: 12,
-      groups: [{ groupId: baeren, name: 'Bären', doc: { mode: 'interval', intervalMonths: 24, leadWeeks: 12 } }],
+      noGroupDocSince: null, groups: [{ groupId: baeren, name: 'Bären', doc: { mode: 'interval', intervalMonths: 24, leadWeeks: 12 }, docSince: TODAY }],
     })
   })
 
@@ -82,7 +124,7 @@ describe('reminder settings', () => {
     }
     expect(getReminderSettings(db, 1)).toEqual({
       noGroupDoc: OFF, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 4,
-      groups: [{ groupId: baeren, name: 'Bären', doc: OFF }],
+      noGroupDocSince: null, groups: [{ groupId: baeren, name: 'Bären', doc: OFF, docSince: null }],
     })
   })
 
@@ -93,7 +135,7 @@ describe('reminder settings', () => {
     expect(errorCode(() => setGroupDocSettings(db, 1, wichtel, { mode: 'interval', intervalMonths: 6, leadWeeks: 2 })))
       .toBe('group_not_found')
     expect(errorCode(() => setGroupDocSettings(db, 1, 999, OFF))).toBe('group_not_found')
-    expect(getReminderSettings(db, other).groups).toEqual([{ groupId: wichtel, name: 'Wichtel', doc: OFF }])
+    expect(getReminderSettings(db, other).groups).toEqual([{ groupId: wichtel, name: 'Wichtel', doc: OFF, docSince: null }])
   })
 
   it('answers 404 for an unknown facility', () => {

@@ -44,23 +44,37 @@ export function nextBirthday(monthDay: string, today: IsoDate): IsoDate {
   return thisYear >= today ? thisYear : birthdayIn(monthDay, year + 1)
 }
 
+/** The later of two optional dates (null when both are null). */
+function laterOf(a: IsoDate | null, b: IsoDate | null): IsoDate | null {
+  if (a === null) return b
+  if (b === null) return a
+  return a > b ? a : b
+}
+
 /**
- * The day the next documentation is due, or null (mode off, or interval mode with neither a done date nor any entry
- * date). Interval: last done plus the interval; without one, the entry date (else the planned entry date) plus the
- * interval. Birthday: the next birthday strictly after the last done date, except that a done date inside the lead window
- * before a birthday counts for that birthday; without a done date, the next birthday on or after today.
+ * The day the next documentation is due, or null (mode off, or interval mode with neither a done date nor any date to
+ * count from). `since` is the setting's „gilt seit“ (the day the mode was switched on or last changed; null = none).
+ * Without a done date it counts from the later of the entry date (else the planned entry date) and `since`, so switching
+ * on does not make long-enrolled children overdue, and a missed due day stays put (overdue until done).
+ * Interval: last done plus the interval; without one, that start plus the interval. Birthday: the next birthday strictly
+ * after the last done date, except that a done date inside the lead window before a birthday counts for that birthday;
+ * without a done date, the first birthday on or after that start (with no date at all: on or after today).
  */
 export function docDue(
-  input: { birthDate: IsoDate; entryDate: IsoDate | null; plannedEntryDate: IsoDate | null; lastDone: IsoDate | null },
+  input: {
+    birthDate: IsoDate; entryDate: IsoDate | null; plannedEntryDate: IsoDate | null; since: IsoDate | null
+    lastDone: IsoDate | null
+  },
   settings: DocSettings, today: IsoDate,
 ): IsoDate | null {
   if (settings.mode === 'off') return null
+  const start = laterOf(input.entryDate ?? input.plannedEntryDate, input.since)
   if (settings.mode === 'interval') {
-    const base = input.lastDone ?? input.entryDate ?? input.plannedEntryDate
+    const base = input.lastDone ?? start
     return base === null ? null : addMonths(base, settings.intervalMonths)
   }
   const monthDay = monthDayOf(input.birthDate)
-  if (input.lastDone === null) return nextBirthday(monthDay, today)
+  if (input.lastDone === null) return nextBirthday(monthDay, start ?? today)
   const following = nextBirthday(monthDay, addDays(input.lastDone, 1))
   const inLeadWindow = input.lastDone >= addDays(following, -settings.leadWeeks * 7)
   return inLeadWindow ? nextBirthday(monthDay, addDays(following, 1)) : following

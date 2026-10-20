@@ -115,9 +115,9 @@ describe('upgrading a filled database through migrateDb', () => {
   const NEW_CONSENT_COLUMNS = ['consent_signal_photos', 'consent_insect_repellent']
   const withoutOldConsent = (rows: unknown[]) =>
     (rows as Record<string, unknown>[]).map(({ consent_photos_whatsapp: _, ...rest }) => rest)
-  // Columns of `facilities`, `groups` and `employees` that 0044_reminders adds; the older tests compare rows without them.
+  // Columns of `facilities`, `groups` and `employees` that 0044_reminders and 0045_doc_since add; the older tests compare rows without them.
   const REMINDER_COLUMNS = ['doc_mode', 'doc_interval_months', 'doc_lead_weeks', 'birthday_lead_days', 'staff_birthday_lead_days',
-    'leaving_lead_weeks', 'birthday']
+    'leaving_lead_weeks', 'birthday', 'doc_since']
   const withoutReminders = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !REMINDER_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
@@ -162,7 +162,7 @@ describe('upgrading a filled database through migrateDb', () => {
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
         record_brought_by: 0, attendance_since: null, min_at_opening: 1, min_at_closing: 1,
         doc_mode: 'off', doc_interval_months: 12, doc_lead_weeks: 2, birthday_lead_days: 7, staff_birthday_lead_days: 7,
-        leaving_lead_weeks: 4,
+        leaving_lead_weeks: 4, doc_since: null,
       },
     ])
     // The meal times of 0034 became meals in 0040 (0041 drops the columns).
@@ -1081,6 +1081,26 @@ describe('upgrading a filled database through migrateDb', () => {
       { table: 'users', from: 'done_by_user_id', on_delete: 'SET NULL' },
     ])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0045 gives every documentation setting that is on „gilt seit“ the migration day, and none to those off', () => {
+    const { db, sqlite } = databaseAt('0044')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name, doc_mode) VALUES (2, 'Krippe', 'birthday');
+      INSERT INTO groups (id, facility_id, name, sort_order, doc_mode) VALUES
+        (1, 1, 'Bären', 0, 'interval'), (2, 1, 'Mäuse', 1, 'off'), (3, 2, 'Wichtel', 0, 'birthday');
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    const today = (sqlite.prepare(`SELECT date('now', 'localtime') AS d`).get() as { d: string }).d
+    expect(sqlite.prepare('SELECT id, doc_since FROM facilities ORDER BY id').all())
+      .toEqual([{ id: 1, doc_since: null }, { id: 2, doc_since: today }])
+    expect(sqlite.prepare('SELECT id, doc_mode, doc_since FROM groups ORDER BY id').all()).toEqual([
+      { id: 1, doc_mode: 'interval', doc_since: today },
+      { id: 2, doc_mode: 'off', doc_since: null },
+      { id: 3, doc_mode: 'birthday', doc_since: today },
+    ])
   })
 
   it('child_development_docs rows go with their child and keep the name when the person is deleted', () => {
