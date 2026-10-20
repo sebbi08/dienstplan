@@ -47,6 +47,8 @@ export interface EmployeeRecord {
   // Time tracking options set by the Leitung (see shared/domain/stamping.ts).
   stampVia: StampChannel
   breakMode: BreakMode
+  /** Birthday as `MM-DD` without a year (null = not given). */
+  birthday: string | null
 }
 
 /** Entries in the plan of facilityId (see `EntryFilter.planFacilityId`); needs `employees` joined on the entry's employee. */

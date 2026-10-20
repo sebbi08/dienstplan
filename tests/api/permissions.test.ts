@@ -46,6 +46,7 @@ const ADMIN_ROUTES = [
   'employee-trainings/[id].delete.ts',
   'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts', 'early-sick-leaves/[id].delete.ts',
   'meals/index.get.ts', 'meals/index.post.ts', 'meals/[id].put.ts', 'meals/[id].delete.ts', 'meals/versions/[id].delete.ts',
+  'reminder-settings.get.ts', 'reminder-settings.put.ts', 'groups/[id]/documentation.put.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -160,6 +161,18 @@ describe('API route permissions', () => {
     const touching = routes.filter(route => /^meals\//.test(route) || source(route).includes('services/meals\''))
     expect(touching).toEqual(['meals/[id].delete.ts', 'meals/[id].put.ts', 'meals/index.get.ts', 'meals/index.post.ts',
       'meals/versions/[id].delete.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      expect(ADMIN_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireAdmin(')
+      expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code, route).toContain('admin.facilityId')
+    }
+  })
+
+  it('opens the reminder settings to managers of the active facility only', () => {
+    const touching = routes.filter(route => source(route).includes('services/reminderSettings\''))
+    expect(touching).toEqual(['groups/[id]/documentation.put.ts', 'reminder-settings.get.ts', 'reminder-settings.put.ts'])
     for (const route of touching) {
       const code = source(route)
       expect(ADMIN_ROUTES, route).toContain(route)

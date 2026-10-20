@@ -27,6 +27,16 @@ function birthdayIn(monthDay: string, year: number): IsoDate {
   return toIsoDate(year, month, Math.min(day, daysInMonth(year, month)))
 }
 
+/** Whether `value` is a day of the year as `MM-DD` (29 February included), the form of a staff birthday. */
+export function isValidMonthDay(value: string): boolean {
+  const match = /^(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+  const month = Number(match[1])
+  const day = Number(match[2])
+  // 2024 is a leap year, so 29 February counts.
+  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(2024, month)
+}
+
 /** The next occurrence of `monthDay` (`MM-DD`) on or after today (today counts); 29 February becomes 28 February in non-leap years. */
 export function nextBirthday(monthDay: string, today: IsoDate): IsoDate {
   const year = parseIsoDate(today).year

@@ -66,9 +66,10 @@ export const employeeCreateSchema = z.object({
   stampVia: z.enum(STAMP_CHANNELS).optional(), breakMode: z.enum(BREAK_MODES).optional(),
   groupId: groupIdSchema.optional(),
 })
-/** groupId left out keeps the employee's group. */
+/** groupId and birthday left out keep them; the birthday (MM-DD) is checked by the service (employee_birthday_invalid). */
 export const employeeUpdateSchema = z.object({
   name: label, shortName: z.string().max(10), leftOn: isoDate.nullable(), groupId: groupIdSchema.optional(),
+  birthday: z.string().max(10).nullable().optional(),
 })
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
 export const hoursSchema = z.object({ weeklyMinutes, validFrom: isoDate, workdays: workdays.optional() })
@@ -168,6 +169,12 @@ export const groupSchoolChildrenSchema = z.object({ forSchoolChildren: z.boolean
 export const groupReadAccessSchema = z.object({ readable: z.array(z.number().int().positive()).max(100) })
 /** The values are checked by the service, which answers invalid_school_cutoff. */
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
+/** A documentation setting; the numbers are checked by the service, which answers reminder_setting_invalid. */
+export const docSettingsSchema = z.object({ mode: z.enum(['off', 'interval', 'birthday']), intervalMonths: z.number(), leadWeeks: z.number() })
+/** The facility's reminder settings; the numbers are checked by the service, which answers reminder_setting_invalid. */
+export const reminderSettingsSchema = z.object({
+  noGroupDoc: docSettingsSchema, birthdayLeadDays: z.number(), staffBirthdayLeadDays: z.number(), leavingLeadWeeks: z.number(),
+})
 /** The tablet settings of a facility. The lock time is checked by the service, which answers tablet_lock_minutes_invalid. */
 export const tabletSettingsSchema = z.object({ lockMinutes: z.number(), showWaitlist: z.boolean(), showFutureContracts: z.boolean() })
 /**

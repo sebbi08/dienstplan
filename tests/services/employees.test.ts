@@ -22,7 +22,7 @@ describe('employees service', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     expect(listEmployees(db, 1, today, 'admin')).toEqual([
       { id, name: 'Anna', shortName: 'AN', sortOrder: 1, leftOn: null, currentWeeklyMinutes: 2340, currentWorkdays: 0b11111,
-        stampVia: 'both', breakMode: 'stamp', groupId: null },
+        stampVia: 'both', breakMode: 'stamp', groupId: null, birthday: null },
     ])
     expect(errorCode(() => createEmployee(db, admin, 1, { name: ' ', shortName: '', weeklyMinutes: 0, validFrom: '2026-01-01' }))).toBe('name_required')
   })
@@ -76,6 +76,28 @@ describe('employees service', () => {
     expect(detail.adjustments).toMatchObject([{ date: '2026-01-01', minutes: 750, reason: 'Übertrag' }])
     expect(detail.entitlements).toMatchObject([{ year: 2026, days: 30, carriedOverDays: 3 }])
     expect(errorCode(() => getEmployee(db, 1, 999, today, 'admin'))).toBe('employee_not_found')
+  })
+  it('stores a birthday as day and month, keeps it when left out and clears it with null', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    expect(getEmployee(db, 1, id, today, 'admin').birthday).toBeNull()
+    updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, birthday: '02-29' })
+    expect(getEmployee(db, 1, id, today, 'admin').birthday).toBe('02-29')
+    expect(listEmployees(db, 1, today, 'admin')[0]!.birthday).toBe('02-29')
+    updateEmployee(db, 1, id, { name: 'Anna B.', shortName: '', leftOn: null })
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ name: 'Anna B.', birthday: '02-29' })
+    updateEmployee(db, 1, id, { name: 'Anna B.', shortName: '', leftOn: null, birthday: '12-31' })
+    expect(getEmployee(db, 1, id, today, 'admin').birthday).toBe('12-31')
+    updateEmployee(db, 1, id, { name: 'Anna B.', shortName: '', leftOn: null, birthday: null })
+    expect(getEmployee(db, 1, id, today, 'admin').birthday).toBeNull()
+  })
+  it('refuses a birthday that is no valid day and month and changes nothing', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, birthday: '05-12' })
+    for (const birthday of ['02-30', '04-31', '13-01', '00-10', '06-00', '1-5', '2026-02-01', '', 'ab-cd', '05-12 ']) {
+      expect(errorCode(() => updateEmployee(db, 1, id, { name: 'Ben', shortName: '', leftOn: null, birthday })), birthday)
+        .toBe('employee_birthday_invalid')
+    }
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ name: 'Anna', birthday: '05-12' })
   })
 })
 

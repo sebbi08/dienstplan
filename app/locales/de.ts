@@ -819,6 +819,8 @@ export const de = {
     employee_required: 'Konten mit der Rolle Mitarbeiter müssen mit einem Mitarbeiter verknüpft sein.',
     employee_taken: 'Dieser Mitarbeiter hat schon ein Benutzerkonto.',
     employee_not_found: 'Mitarbeiter nicht gefunden.',
+    employee_birthday_invalid: 'Bitte einen gültigen Geburtstag (Tag und Monat) angeben.',
+    reminder_setting_invalid: 'Bitte einen gültigen Zeitraum angeben.',
     last_admin: 'Es muss mindestens ein aktives Konto mit der Rolle Leitung oder Träger bleiben.',
     last_provider: 'Es muss mindestens ein aktiver Träger bleiben.',
     provider_only: 'Träger-Konten kann nur ein Träger anlegen, ändern oder ernennen.',

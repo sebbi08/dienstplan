@@ -2,6 +2,18 @@ import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { GermanState } from '../../shared/domain/states'
 
+/**
+ * Reminder of the development documentation (see shared/domain/reminders.ts DocSettings): off, every
+ * `doc_interval_months` months (1–24) or around the birthday, shown `doc_lead_weeks` weeks (0–12) before it is due.
+ */
+function docSettings() {
+  return {
+    docMode: text('doc_mode', { enum: ['off', 'interval', 'birthday'] }).notNull().default('off'),
+    docIntervalMonths: integer('doc_interval_months').notNull().default(12),
+    docLeadWeeks: integer('doc_lead_weeks').notNull().default(2),
+  }
+}
+
 /** A facility (Einrichtung) of the Träger; the existing data became facility 1 "Kindergarten". */
 export const facilities = sqliteTable('facilities', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -37,6 +49,12 @@ export const facilities = sqliteTable('facilities', {
   /** Opening hours: the minimum number of staff at opening and until closing (1–20). */
   minAtOpening: integer('min_at_opening').notNull().default(1),
   minAtClosing: integer('min_at_closing').notNull().default(1),
+  /** Development documentation (Entwicklungsdokumentation) of the children without group; see docSettings. */
+  ...docSettings(),
+  /** Reminders: days before a child's birthday, days before a staff birthday, weeks before a child leaves (0–30, 0–30, 0–12). */
+  birthdayLeadDays: integer('birthday_lead_days').notNull().default(7),
+  staffBirthdayLeadDays: integer('staff_birthday_lead_days').notNull().default(7),
+  leavingLeadWeeks: integer('leaving_lead_weeks').notNull().default(4),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -57,6 +75,8 @@ export const groups = sqliteTable('groups', {
   minAtClosing: integer('min_at_closing').notNull().default(1),
   /** Palette key of the group's colour in the year calendar (see GROUP_COLORS; null = no colour). */
   color: text('color'),
+  /** Development documentation (Entwicklungsdokumentation) of the group's children; see docSettings. */
+  ...docSettings(),
 }, table => [index('groups_facility').on(table.facilityId)])
 
 /** The group a row belongs to (null = the whole facility, or no group of its own); always a group of the row's facility. */
@@ -92,6 +112,8 @@ export const employees = sqliteTable('employees', {
   jobOther: text('job_other'),
   payGroup: text('pay_group'),
   payLevel: integer('pay_level'),
+  /** Birthday as `MM-DD` without a year (null = not given), for the reminders; never shown with a year or age. */
+  birthday: text('birthday'),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
@@ -629,6 +651,21 @@ export const childDocuments = sqliteTable('child_documents', {
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   uploadedAt: text('uploaded_at').notNull(),
 }, table => [index('child_documents_child').on(table.childId)])
+
+/**
+ * A development documentation (Entwicklungsdokumentation) of a child marked done on `doneOn` (Berlin date), by an
+ * account (`doneByUserId`) and/or an employee (`doneByEmployeeId`; the tablet person without an account) and always by
+ * name, which stays when the person is deleted. The latest done date counts for the reminder.
+ */
+export const childDevelopmentDocs = sqliteTable('child_development_docs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  doneOn: text('done_on').notNull(),
+  doneByUserId: integer('done_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  doneByEmployeeId: integer('done_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  doneByName: text('done_by_name').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+}, table => [index('child_development_docs_child').on(table.childId)])
 
 /**
  * A child on a date (Anwesenheitstag), created by the first entry of that day. `groupId` is the child's group on the

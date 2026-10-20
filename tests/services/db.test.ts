@@ -6,10 +6,12 @@ import { eq, sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
-import { absenceCodes, coverageRules, shiftTemplates, terminalUnlocks, users } from '../../server/db/schema'
+import {
+  absenceCodes, childDevelopmentDocs, children, coverageRules, employees, shiftTemplates, terminalUnlocks, users,
+} from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
-import { addEmployee, addUser, createTestDb } from '../helpers/fixtures'
+import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
 
 describe('database setup', () => {
   it('seeds templates, codes and coverage rules once', () => {
@@ -113,6 +115,11 @@ describe('upgrading a filled database through migrateDb', () => {
   const NEW_CONSENT_COLUMNS = ['consent_signal_photos', 'consent_insect_repellent']
   const withoutOldConsent = (rows: unknown[]) =>
     (rows as Record<string, unknown>[]).map(({ consent_photos_whatsapp: _, ...rest }) => rest)
+  // Columns of `facilities`, `groups` and `employees` that 0044_reminders adds; the older tests compare rows without them.
+  const REMINDER_COLUMNS = ['doc_mode', 'doc_interval_months', 'doc_lead_weeks', 'birthday_lead_days', 'staff_birthday_lead_days',
+    'leaving_lead_weeks', 'birthday']
+  const withoutReminders = (rows: unknown[]) => (rows as Record<string, unknown>[])
+    .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !REMINDER_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
   it('keeps every row and moves settings, users and data into facility 1 "Kindergarten"', () => {
@@ -154,6 +161,8 @@ describe('upgrading a filled database through migrateDb', () => {
         school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
         record_brought_by: 0, attendance_since: null, min_at_opening: 1, min_at_closing: 1,
+        doc_mode: 'off', doc_interval_months: 12, doc_lead_weeks: 2, birthday_lead_days: 7, staff_birthday_lead_days: 7,
+        leaving_lead_weeks: 4,
       },
     ])
     // The meal times of 0034 became meals in 0040 (0041 drops the columns).
@@ -222,8 +231,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
-      // (weekdays of the coverage rules comes with the later 0038_opening_hours.)
-      expect(after.map(({ group_id: _, weekdays: __, ...rest }) => rest), table).toEqual(before[table])
+      // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044.)
+      expect(withoutReminders(after.map(({ group_id: _, weekdays: __, ...rest }) => rest)), table).toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }
     expect(sqlite.prepare('SELECT * FROM week_template_entries').all()).toEqual(before.week_template_entries)
@@ -608,13 +617,13 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since', ...NEW_CONSENT_COLUMNS)).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
     // (the minimum counts come with the later 0038_opening_hours, the colour with 0039_group_colors.)
-    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing', 'color'))
-      .toEqual(before.groups)
+    expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing', 'color',
+      ...REMINDER_COLUMNS)).toEqual(before.groups)
     // (the tablet settings come with the later 0032_tablet_children, state and assumption_day with 0033_facility_state,
     // the attendance settings with 0034_child_attendance and 0035_attendance_since.)
     expect(without(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all(), 'auto_leave_school_children',
       'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts', 'state', 'assumption_day',
-      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing'))
+      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing', ...REMINDER_COLUMNS))
       .toEqual(before.facilities)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
@@ -659,7 +668,7 @@ describe('upgrading a filled database through migrateDb', () => {
     // (state and assumption_day come with the later 0033_facility_state, the attendance settings with 0034 and 0035.)
     const columns = [
       'tablet_lock_minutes', 'tablet_show_waitlist', 'tablet_show_future_contracts', 'state', 'assumption_day',
-      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing',
+      'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing', ...REMINDER_COLUMNS,
     ]
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
@@ -680,7 +689,8 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 1, state: 'BW', assumption_day: 1 }, { id: 2, state: 'BW', assumption_day: 1 },
     ])
     // (the attendance settings come with the later 0034_child_attendance and 0035_attendance_since.)
-    const columns = ['state', 'assumption_day', 'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing']
+    const columns = ['state', 'assumption_day', 'snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing',
+      ...REMINDER_COLUMNS]
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
     // A facility created without naming them gets the defaults too.
@@ -708,7 +718,7 @@ describe('upgrading a filled database through migrateDb', () => {
         { facility_id: 2, name: 'Snack', time: 570 }, { facility_id: 2, name: 'Mittagessen', time: 720 },
       ])
     // (attendance_since comes with the later 0035_attendance_since.)
-    const columns = ['snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing']
+    const columns = ['snack_time', 'lunch_time', 'record_brought_by', 'attendance_since', 'min_at_opening', 'min_at_closing', ...REMINDER_COLUMNS]
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !columns.includes(column))))).toEqual(before)
     const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
@@ -744,8 +754,8 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, attendance_since FROM facilities ORDER BY id').all())
       .toEqual([{ id: 1, attendance_since: null }, { id: 2, attendance_since: null }])
     // (the meal times go with the later 0041_meals_cleanup; Krippe's 10:00 became its Snack in 0040.)
-    expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ attendance_since: _, min_at_opening: __, min_at_closing: ___, ...rest }) => rest))
+    expect(withoutReminders((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ attendance_since: _, min_at_opening: __, min_at_closing: ___, ...rest }) => rest)))
       .toEqual((before as Record<string, unknown>[]).map(({ snack_time: _, lunch_time: __, ...rest }) => rest))
     expect(sqlite.prepare('SELECT v.time FROM meals m JOIN meal_versions v ON v.meal_id = m.id WHERE m.facility_id = 2 AND v.name = \'Snack\'').get())
       .toEqual({ time: 600 })
@@ -787,8 +797,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(37)
     // (the minimum counts come with the later 0038_opening_hours, the colour with 0039_group_colors.)
-    expect((sqlite.prepare('SELECT * FROM groups ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ min_at_opening: _, min_at_closing: __, color: ___, ...rest }) => rest)).toEqual(before)
+    expect(withoutReminders((sqlite.prepare('SELECT * FROM groups ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ min_at_opening: _, min_at_closing: __, color: ___, ...rest }) => rest))).toEqual(before)
     const tables = (sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'table\'').all() as { name: string }[]).map(row => row.name)
     for (const table of ['group_read_access', 'group_week_notes', 'group_day_notes', 'group_book_changes']) expect(tables).toContain(table)
 
@@ -965,7 +975,8 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(columns('facilities')).not.toContain('lunch_time')
     expect(columns('child_attendance_days')).not.toContain('snack')
     expect(columns('child_attendance_days')).not.toContain('lunch')
-    expect(all('facilities')).toEqual(before.facilities)
+    // (the reminder settings come with the later 0044_reminders.)
+    expect(withoutReminders(all('facilities'))).toEqual(before.facilities)
     expect(all('child_attendance_days')).toEqual(before.days)
     expect(all('child_attendance_stays')).toEqual(before.stays)
     expect(all('child_pickup_announcements')).toEqual(before.announcements)
@@ -1035,6 +1046,59 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 4, name: 'Wichtel', color: 'brown' },
     ])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0044 adds the reminder settings with their defaults, the staff birthday and the documentation log', () => {
+    const { db, sqlite } = databaseAt('0043')
+    expect(count(sqlite, '__drizzle_migrations')).toBe(44)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name, sort_order, color) VALUES (1, 1, 'Bären', 0, 'teal'), (2, 2, 'Wichtel', 0, NULL);
+      INSERT INTO employees (id, facility_id, name) VALUES (1, 1, 'Anna');
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(count(sqlite, '__drizzle_migrations')).toBeGreaterThan(44)
+    expect(sqlite.prepare('SELECT id, name, color, doc_mode, doc_interval_months, doc_lead_weeks FROM groups ORDER BY id').all()).toEqual([
+      { id: 1, name: 'Bären', color: 'teal', doc_mode: 'off', doc_interval_months: 12, doc_lead_weeks: 2 },
+      { id: 2, name: 'Wichtel', color: null, doc_mode: 'off', doc_interval_months: 12, doc_lead_weeks: 2 },
+    ])
+    expect(sqlite.prepare(`SELECT id, doc_mode, doc_interval_months, doc_lead_weeks, birthday_lead_days,
+      staff_birthday_lead_days, leaving_lead_weeks FROM facilities ORDER BY id`).all()).toEqual([1, 2].map(id => ({
+      id, doc_mode: 'off', doc_interval_months: 12, doc_lead_weeks: 2, birthday_lead_days: 7, staff_birthday_lead_days: 7,
+      leaving_lead_weeks: 4,
+    })))
+    expect(sqlite.prepare('SELECT id, name, birthday FROM employees').all()).toEqual([{ id: 1, name: 'Anna', birthday: null }])
+    expect(count(sqlite, 'child_development_docs')).toBe(0)
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'child_development_docs'`).all())
+      .toEqual([{ name: 'child_development_docs_child' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_list(child_development_docs)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'children', from: 'child_id', on_delete: 'CASCADE' },
+      { table: 'employees', from: 'done_by_employee_id', on_delete: 'SET NULL' },
+      { table: 'users', from: 'done_by_user_id', on_delete: 'SET NULL' },
+    ])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('child_development_docs rows go with their child and keep the name when the person is deleted', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    const user = addUser(db, 'leitung', 'admin')
+    const lena = addChild(db, 1, { firstName: 'Lena' })
+    db.insert(childDevelopmentDocs).values({
+      childId: lena, doneOn: '2026-10-20', doneByUserId: user.id, doneByEmployeeId: anna, doneByName: 'Anna',
+      createdAt: '2026-10-20T08:00:00.000Z',
+    }).run()
+    db.delete(users).where(eq(users.id, user.id)).run()
+    db.delete(employees).where(eq(employees.id, anna)).run()
+    expect(db.select({ userId: childDevelopmentDocs.doneByUserId, employeeId: childDevelopmentDocs.doneByEmployeeId,
+      name: childDevelopmentDocs.doneByName }).from(childDevelopmentDocs).all())
+      .toEqual([{ userId: null, employeeId: null, name: 'Anna' }])
+    db.delete(children).where(eq(children.id, lena)).run()
+    expect(db.select().from(childDevelopmentDocs).all()).toEqual([])
   })
 
   it('terminal_unlocks rows go with their tablet account', () => {

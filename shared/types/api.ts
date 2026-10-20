@@ -3,6 +3,7 @@ import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
+import type { DocSettings } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { GermanState } from '../domain/states'
@@ -243,6 +244,22 @@ export interface TabletSettingsDto {
   /** Show children whose contract has not started yet at the tablet. */
   showFutureContracts: boolean
 }
+
+/** The facility's reminder settings: documentation for children without group, lead times, and each group's documentation. */
+export interface ReminderSettingsDto {
+  noGroupDoc: DocSettings
+  /** Days before a child's birthday (0–30). */
+  birthdayLeadDays: number
+  /** Days before a staff birthday (0–30). */
+  staffBirthdayLeadDays: number
+  /** Weeks before a child leaves (0–12). */
+  leavingLeadWeeks: number
+  /** The facility's groups in their order. */
+  groups: { groupId: number; name: string; doc: DocSettings }[]
+}
+
+/** What the Leitung or Träger sets for the facility (the groups are set one by one). */
+export type ReminderSettingsInput = Omit<ReminderSettingsDto, 'groups'>
 
 /** A child the automatic leaving deregisters (when it is switched on, and in its daily run): its leaving day is the day before its school start. */
 export interface SchoolLeaverDto {
@@ -773,6 +790,8 @@ export interface EmployeeListItemDto {
   breakMode: BreakMode
   /** The home group in the facility (null = Springer, or the facility has no groups). */
   groupId: number | null
+  /** Birthday as MM-DD without a year (null = not given). */
+  birthday: string | null
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
 }
