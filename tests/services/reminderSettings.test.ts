@@ -99,18 +99,27 @@ describe('reminder settings, „Beginn“ in interval mode', () => {
     expect(reminderSettingsSchema.parse(facilityInput({ noGroupDoc: doc })).noGroupDoc).toEqual(doc)
   })
 
-  it('refuses an invalid start and changes nothing', () => {
+  it('refuses an invalid start or one outside the years 2000–2100 (reminder_date_invalid) and changes nothing', () => {
     const db = createTestDb()
     const baeren = addGroup(db, 1, 'Bären')
     setGroupDocSettings(db, 1, baeren, { ...interval(), docSince: '2026-09-01' }, NOW)
-    for (const docSince of ['2026-02-30', '2026-13-01', '01.09.2026', '', '2026-9-1']) {
+    for (const docSince of ['2026-02-30', '2026-13-01', '01.09.2026', '', '2026-9-1', '1999-12-31', '2101-01-01', '0001-01-01']) {
       expect(errorCode(() => setGroupDocSettings(db, 1, baeren, { ...interval(6), docSince }, NOW)), docSince)
-        .toBe('reminder_setting_invalid')
+        .toBe('reminder_date_invalid')
       expect(errorCode(() => setReminderSettings(db, 1, facilityInput({ noGroupDoc: { ...interval(), docSince } }), NOW)), docSince)
-        .toBe('reminder_setting_invalid')
+        .toBe('reminder_date_invalid')
     }
     expect(getReminderSettings(db, 1).groups[0]).toMatchObject({ doc: interval(), docSince: '2026-09-01' })
     expect(getReminderSettings(db, 1).noGroupDocSince).toBeNull()
+  })
+
+  it('accepts a start on the first and the last day of the allowed years', () => {
+    const db = createTestDb()
+    const baeren = addGroup(db, 1, 'Bären')
+    setGroupDocSettings(db, 1, baeren, { ...interval(), docSince: '2000-01-01' }, NOW)
+    expect(groupSince(db)).toBe('2000-01-01')
+    setGroupDocSettings(db, 1, baeren, { ...interval(), docSince: '2100-12-31' }, NOW)
+    expect(groupSince(db)).toBe('2100-12-31')
   })
 })
 

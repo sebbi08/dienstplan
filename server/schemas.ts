@@ -173,7 +173,7 @@ export const groupReadAccessSchema = z.object({ readable: z.array(z.number().int
 export const schoolSettingsSchema = z.object({ cutoffMonth: z.number(), cutoffDay: z.number(), ageYears: z.number() })
 /**
  * A documentation setting with the optional start („Beginn“) of interval mode; the numbers and the start are checked by
- * the service, which answers reminder_setting_invalid.
+ * the service, which answers reminder_setting_invalid (reminder_date_invalid for the start).
  */
 export const docSettingsSchema = z.object({
   mode: z.enum(['off', 'interval', 'birthday']), intervalMonths: z.number(), leadWeeks: z.number(), docSince: z.string().optional(),

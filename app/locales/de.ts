@@ -881,6 +881,7 @@ export const de = {
     employee_not_found: 'Mitarbeiter nicht gefunden.',
     employee_birthday_invalid: 'Bitte einen gültigen Geburtstag (Tag und Monat) angeben.',
     reminder_setting_invalid: 'Bitte einen gültigen Zeitraum angeben.',
+    reminder_date_invalid: 'Bitte ein gültiges Datum angeben.',
     development_doc_not_found: 'Dieser Eintrag existiert nicht mehr.',
     undo_too_late: 'Rückgängig machen geht nur am selben Tag. Frag die Leitung.',
     undo_not_latest: 'Nur das letzte „Erledigt“ kann zurückgenommen werden.',

@@ -691,7 +691,7 @@ Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einric
   **„Beginn“ und „gilt seit“**: Die App merkt sich je Gruppe (und für die Kinder ohne Gruppe) einen Starttag. Ohne
   „Erledigt“ zählt die App erst ab diesem Tag.
   - Bei **„alle X Monate“** steht er als Datumsfeld **„Beginn“** in der Zeile. Beim Umstellen auf „alle X Monate“ ist
-    heute eingetragen; ihr könnt aber jedes Datum wählen, auch in der Vergangenheit oder Zukunft – zum Beispiel den
+    heute eingetragen; ihr könnt aber jedes Datum der Jahre 2000 bis 2100 wählen, auch in der Vergangenheit oder Zukunft – zum Beispiel den
     01.09.2026 als Start des Kitajahres. Nach „Speichern“ gilt der neue Beginn sofort für alle Kinder der Gruppe, die
     noch kein „Erledigt“ haben. Beispiel: Beginn 01.09.2026 und „alle 12 Monate“ → fällig am 01.09.2027. Liegt der
     Beginn so weit zurück, dass X Monate schon vorbei sind, ist die Erinnerung **sofort rot (überfällig)** – das ist

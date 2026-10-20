@@ -16,15 +16,21 @@ function checkRange(value: number, min: number, max: number): void {
   if (!Number.isInteger(value) || value < min || value > max) throw new ServiceError(400, 'reminder_setting_invalid')
 }
 
+/** A valid day in the years 2000–2100, else 400 reminder_date_invalid. */
+function checkStart(value: string): void {
+  const year = Number(value.slice(0, 4))
+  if (!isValidIsoDate(value) || year < 2000 || year > 2100) throw new ServiceError(400, 'reminder_date_invalid')
+}
+
 /**
- * Mode off, interval or birthday; interval 1–24 months; lead 0–12 weeks; a sent start a valid day (all checked whatever
- * the mode).
+ * Mode off, interval or birthday; interval 1–24 months; lead 0–12 weeks (400 reminder_setting_invalid); a sent start
+ * as `checkStart` (all checked whatever the mode).
  */
 function checkDoc(doc: DocSettingsInput): void {
   if (!DOC_MODES.includes(doc.mode)) throw new ServiceError(400, 'reminder_setting_invalid')
   checkRange(doc.intervalMonths, 1, 24)
   checkRange(doc.leadWeeks, 0, 12)
-  if (doc.docSince !== undefined && !isValidIsoDate(doc.docSince)) throw new ServiceError(400, 'reminder_setting_invalid')
+  if (doc.docSince !== undefined) checkStart(doc.docSince)
 }
 
 /**

@@ -86,9 +86,12 @@ function saveFacility() {
   }, de.common.saved)
 }
 
-function saveRow(groupId: number | null, form: DocForm) {
+/** After a group's save (and the refresh), its „Beginn“ shows the day in force, e.g. when the field was left empty. */
+async function saveRow(groupId: number | null, form: DocForm) {
   if (groupId === null) return saveFacility()
-  run(() => $fetch<unknown>(`/api/groups/${groupId}/documentation`, { method: 'PUT', body: docBody(form) }), de.common.saved)
+  const saved = await run(() => $fetch<unknown>(`/api/groups/${groupId}/documentation`, { method: 'PUT', body: docBody(form) }), de.common.saved)
+  const group = data.value?.groups.find(stored => stored.groupId === groupId)
+  if (saved && group) form.docSince = formOf(group.doc, group.docSince).docSince
 }
 
 const cell = 'px-1 py-1'
