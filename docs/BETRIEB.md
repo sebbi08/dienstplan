@@ -211,7 +211,8 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
   Abschnitt 14).
 - **Erinnerung:** Am Tag eines Gesprächs steht es den ganzen Tag im Kasten „Erinnerungen“, z. B. „Elterngespräch
   Lena Muster heute 14:00 (Entwicklungsgespräch)“. „Erledigt“ gibt es dafür nicht: am nächsten Tag ist die
-  Erinnerung weg, das Gespräch bleibt in der Akte (siehe Abschnitt 16).
+  Erinnerung weg, das Gespräch bleibt in der Akte (siehe Abschnitt 16). Das gilt auch für Kinder, die noch nicht
+  angefangen haben (Vertragskinder vor dem Eintritt und Vormerkungen).
 
 ### Automatische Löschung
 
@@ -661,6 +662,10 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
   laufenden Jahr, steht das Jahr dabei („überfällig seit 03.04.2024“).
 - **Elterngespräche**: nur am Tag des Gesprächs, den ganzen Tag: „Elterngespräch Lena Muster heute 14:00
   (Entwicklungsgespräch)“ – ohne „Erledigt“; am nächsten Tag ist der Eintrag weg (Abschnitt 8, „Elterngespräche“).
+  Auch für Kinder, die noch nicht angefangen haben (Vertragskinder vor dem Eintritt, Vormerkungen): Mitarbeiter
+  sehen sie nur für die zugesagte bzw. gewünschte Gruppe und nur, wenn das Tablet diese Kinder zeigt (Einstellung für
+  Vormerkungen bzw. künftige Verträge); Leitung und Träger sehen alle. Ausgetretene Kinder nicht. Alle anderen
+  Erinnerungen (Doku, Geburtstag, Abschied) gibt es nur für Kinder, die schon da sind.
 - **Geburtstage der Kinder**: „Lena Muster wird am 12.11. 5 Jahre“, am Tag „Lena Muster hat heute Geburtstag (5)“.
 - **Geburtstage der Mitarbeiter**: „Anna hat am 12.11. Geburtstag“, am Tag „Anna hat heute Geburtstag“ – ohne
   Jahr und ohne Alter. Ausgeschiedene Mitarbeiter stehen nicht da.

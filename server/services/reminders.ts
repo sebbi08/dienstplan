@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, isNotNull, isNull, or } from 'drizzle-orm'
-import { ageOn, childStatus, type ChildStatus } from '../../shared/domain/children'
+import { ageOn, childStatus, hiddenFromViewer, type ChildStatus } from '../../shared/domain/children'
 import { addDays } from '../../shared/domain/dates'
 import { groupRight } from '../../shared/domain/groupAccess'
 import { docDue, inWindow, nextBirthday, sortReminders, type DocSettings, type ReminderKind } from '../../shared/domain/reminders'
@@ -45,7 +45,9 @@ function dueOf(row: ChildRow, setting: DocSetting, lastDone: DocRow | undefined,
 
 /**
  * The reminders of the box „Erinnerungen“ for this viewer, sorted (`sortReminders`). Children's entries (documentation,
- * parent meeting, birthday, leaving) only for active children of a group the viewer may write in: staff with a group of their own see
+ * birthday, leaving) only for active children of a group the viewer may write in; parent meetings also for children who
+ * have not started yet (contract before the entry, Vormerkung; by their promised or wished-for group, and not when the
+ * tablet's switches hide them from the viewer). Staff with a group of their own see
  * that group (and children without group), never a group they may only read; everybody else sees every child. A
  * documentation is listed from its due day minus the group's lead weeks until it is done (overdue from the due day); a
  * parent meeting only on its day, all day, with its start and kind (never the note); a
@@ -57,9 +59,15 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   const { facilityId } = viewer
   const settings = getReminderSettings(db, facilityId)
   const docSettingsOf = docSettingsLookup(settings)
-  const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) === 'active' && groupRight(row.groupId, viewer.groups) === 'write')
+  const writable = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+    .filter(row => groupRight(row.groupId, viewer.groups) === 'write')
+  const rows = writable.filter(row => childStatus(row, today) === 'active')
+  // Children who have not started yet (contract before the entry, Vormerkung) and are still to come, unless the
+  // tablet's switches hide them from the viewer: only their parent meetings are reminded.
+  const planned = writable.filter(row => childStatus(row, today) === 'planned'
+    && (row.leftOn === null || row.leftOn >= today) && !hiddenFromViewer(row, viewer.visibility, today))
   const visible = new Map(rows.map(row => [row.id, row]))
+  const meetingChildren = new Map([...rows, ...planned].map(row => [row.id, row]))
   const done = latestDone(db, rows.map(row => row.id))
   const items: ReminderDto[] = []
 
@@ -89,8 +97,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
 
   // Parent meetings only on their day, the whole day (also once begun); nothing to mark done, the next day they are
   // gone.
-  for (const meeting of meetingsOnDay(db, rows.map(row => row.id), today)) {
-    addChildItem(visible.get(meeting.childId)!, 'meeting', today, 0, { time: meeting.start, meetingKind: meeting.kind })
+  for (const meeting of meetingsOnDay(db, [...meetingChildren.keys()], today)) {
+    addChildItem(meetingChildren.get(meeting.childId)!, 'meeting', today, 0, { time: meeting.start, meetingKind: meeting.kind })
   }
 
   // The children the daily run will deregister within the lead weeks: as the selection would be on the day after the

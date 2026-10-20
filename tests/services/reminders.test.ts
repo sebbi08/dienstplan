@@ -429,6 +429,78 @@ describe('reminders', () => {
       expect(listReminders(db, leitung, TODAY)).toEqual([])
     })
 
+    describe('children who have not started yet', () => {
+      /** Staff at the tablet with the switches for Vormerkungen and future contracts on. */
+      let staffSeeing: ChildViewer
+      beforeEach(() => {
+        staffSeeing = { ...staff, visibility: { waitlist: true, futureContracts: true } }
+      })
+      const future = (extra: Parameters<typeof addChild>[2] = {}) =>
+        addChild(db, 1, { firstName: 'Neu', lastName: 'Kind', groupId: baeren, entryDate: '2027-01-01', ...extra })
+      const waiting = (extra: Parameters<typeof addChild>[2] = {}) =>
+        addChild(db, 1, { firstName: 'Warte', lastName: 'Kind', groupId: baeren, admissionStatus: 'waitlist', entryDate: null, ...extra })
+
+      it('lists a future-entry contract child\'s meeting on its day for Leitung and the promised group\'s staff', () => {
+        const id = future({ keyEducatorId: berta })
+        meetingOf(id, TODAY, 840)
+        const expected = [{
+          kind: 'meeting', date: TODAY, state: 'today', name: 'Neu Kind', childId: id, age: null, ownChild: true,
+          canDone: false, time: 840, meetingKind: 'development',
+        }]
+        expect(listReminders(db, leitung, TODAY)).toEqual([{ ...expected[0], ownChild: false }])
+        expect(listReminders(db, staffSeeing, TODAY)).toEqual(expected)
+        expect(listReminders(db, staffSeeing, '2026-10-21')).toEqual([])
+      })
+
+      it('also lists a contract child without entry date but a planned one', () => {
+        meetingOf(future({ entryDate: null, plannedEntryDate: '2027-03-01' }), TODAY, 600)
+        expect(kindsFor(leitung)).toEqual(['meeting:Neu Kind'])
+      })
+
+      it('shows staff only the promised group\'s children (own group, none), never another or a read-only group', () => {
+        meetingOf(future({ firstName: 'Bär' }), TODAY, 600)
+        meetingOf(future({ firstName: 'Maus', groupId: maeuse }), TODAY, 600)
+        meetingOf(future({ firstName: 'Fuchs', groupId: fuechse }), TODAY, 600)
+        meetingOf(future({ firstName: 'Ohne', groupId: null }), TODAY, 600)
+        expect(kindsFor(staffSeeing)).toEqual(['meeting:Bär Kind', 'meeting:Ohne Kind'])
+        expect(kindsFor(leitung)).toHaveLength(4)
+      })
+
+      it('leaves out a child the tablet switches hide from the viewer, for staff only', () => {
+        meetingOf(future(), TODAY, 600)
+        meetingOf(waiting(), TODAY, 660)
+        expect(kindsFor(staff)).toEqual([])
+        expect(kindsFor({ ...staff, visibility: { waitlist: true, futureContracts: false } })).toEqual(['meeting:Warte Kind'])
+        expect(kindsFor({ ...staff, visibility: { waitlist: false, futureContracts: true } })).toEqual(['meeting:Neu Kind'])
+        expect(kindsFor(leitung)).toEqual(['meeting:Neu Kind', 'meeting:Warte Kind'])
+      })
+
+      it('lists a waitlist child\'s meeting with the wished-for group\'s rule', () => {
+        meetingOf(waiting(), TODAY, 600)
+        meetingOf(waiting({ firstName: 'Fuchs', groupId: fuechse }), TODAY, 660)
+        expect(kindsFor(staffSeeing)).toEqual(['meeting:Warte Kind'])
+        expect(kindsFor(leitung)).toEqual(['meeting:Warte Kind', 'meeting:Fuchs Kind'])
+      })
+
+      it('lists no meeting of a child who has left', () => {
+        const contract = future()
+        const waitlist = waiting()
+        meetingOf(contract, TODAY, 600)
+        meetingOf(waitlist, TODAY, 660)
+        db.update(children).set({ leftOn: '2026-10-19' }).where(eq(children.id, contract)).run()
+        db.update(children).set({ leftOn: '2026-10-19' }).where(eq(children.id, waitlist)).run()
+        expect(listReminders(db, leitung, TODAY)).toEqual([])
+      })
+
+      it('gives planned children no documentation, birthday or leaving reminder', () => {
+        setGroupDocSettings(db, 1, baeren, INTERVAL, LONG_AGO)
+        future({ birthDate: '2022-10-22' })
+        waiting({ birthDate: '2022-10-22' })
+        expect(listReminders(db, leitung, TODAY)).toEqual([])
+        expect(listReminders(db, staffSeeing, TODAY)).toEqual([])
+      })
+    })
+
     it('sorts a meeting after the documentation and before the birthdays of the day, meetings by time', () => {
       setGroupDocSettings(db, 1, baeren, INTERVAL, LONG_AGO)
       const lena = docChild('Lena', baeren, TODAY, { birthDate: '2022-10-20' })
