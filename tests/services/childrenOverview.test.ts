@@ -24,7 +24,7 @@ const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput 
 const meeting = (overrides: Partial<ParentMeetingInput> = {}): ParentMeetingInput => ({
   date: '2026-09-01', start: 600, end: 660, kind: 'development', participants: 'Mutter', ...overrides,
 })
-const openConsents =(): ChildConsents => Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as ChildConsents
+const openConsents = (): ChildConsents => Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as ChildConsents
 
 describe('children overview', () => {
   let db: Db

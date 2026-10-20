@@ -190,6 +190,29 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 - Einstellungen und das Verschieben eines Kindes in eine andere Einrichtung gibt es am Tablet nicht – auch nicht
   für Leitung und Träger.
 
+### Elterngespräche
+
+- In der Kinderakte steht der Abschnitt **„Elterngespräche“**: alle Gespräche, das neueste oben, je Eintrag Datum,
+  Uhrzeit (von – bis), Art und Teilnehmer, darunter klein „eingetragen von … am …“ (nach einer Änderung „geändert
+  von … am …“). Gespräche in der Zukunft tragen den Zusatz **„geplant“** – auch eines heute, solange es noch nicht
+  begonnen hat.
+- **Wer einträgt:** wer die Akte bearbeiten darf – Leitung und Träger, am Tablet auch Mitarbeiter mit „darf
+  Kinderakten pflegen“ (Mitarbeiter mit Gruppe für die eigene Gruppe, nicht für Gruppen, die für sie nur zum Lesen
+  freigeschaltet sind). Mit **„Gespräch eintragen“** gibst du Datum (voreingestellt heute), Uhrzeit von, bis
+  (freiwillig), Art (Entwicklungsgespräch, Eingewöhnung, Abschlussgespräch, Sonstiges) und Teilnehmer ein; mit
+  **„Ändern“** und dem Papierkorb (mit Rückfrage) änderst bzw. löschst du ein Gespräch. Wer es eingetragen oder
+  zuletzt geändert hat (am Tablet die aufschließende Person, auch ohne eigenes Konto), steht beim Eintrag. Bei
+  einem ausgetretenen Kind lässt sich nichts mehr ändern.
+- **Vertrauliche Notiz:** Zu jedem Gespräch können **nur Leitung und Träger** eine Notiz schreiben und lesen.
+  Mitarbeiter sehen Datum, Uhrzeit, Art und Teilnehmer, aber nie die Notiz – sie wird gar nicht erst an ihr Gerät
+  geschickt. Ändert ein Mitarbeiter ein Gespräch, bleibt die Notiz der Leitung unverändert.
+- **Übersicht:** Unter *Kinder → Übersicht* zeigt der Unterreiter **„Elterngespräche“** je Kind das letzte Gespräch,
+  das nächste geplante, alle Gespräche (neueste zuerst) und ihre Anzahl – ohne Notizen und ohne Teilnehmer (siehe
+  Abschnitt 14).
+- **Erinnerung:** Am Tag eines Gesprächs steht es den ganzen Tag im Kasten „Erinnerungen“, z. B. „Elterngespräch
+  Lena Muster heute 14:00 (Entwicklungsgespräch)“. „Erledigt“ gibt es dafür nicht: am nächsten Tag ist die
+  Erinnerung weg, das Gespräch bleibt in der Akte (siehe Abschnitt 16).
+
 ### Automatische Löschung
 
 - Wird ein Kind abgemeldet, kommt die Akte ins Archiv.
@@ -597,6 +620,7 @@ am Ende („ohne Gruppe“). Mit der Gruppenauswahl zeigst du nur eine Gruppe. D
 | Sorgeberechtigte | die sorgeberechtigten Bezugspersonen · **Kontaktverbot**: Name und Hinweis, rot |
 | Notfallkontakte | je Spalte ein Notfallkontakt in seiner Reihenfolge (1., 2., …) mit Beziehung und Telefonnummern |
 | Telefonnummern | Adresse · je Spalte eine Bezugsperson (in der Reihenfolge der Akte) mit Beziehung und Telefon privat / mobil / Arbeit |
+| Elterngespräche | Letztes Gespräch („20.10.2026 Entwicklungsgespräch“) · Nächstes geplant („12.11.2026 14:00 Eingewöhnung“) · Alle Gespräche („20.10.26 Entwicklungsgespräch“, neueste zuerst) · Anzahl – ohne die vertraulichen Notizen (Abschnitt 8) |
 
 - Einwilligungen und Ja/Nein-Angaben: **✓** ja (grün), **✗** nein (rot), **–** offen (grau). Leere Textfelder
   (z. B. keine Allergien) bleiben leer.
@@ -635,6 +659,8 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
 - **Entwicklungsdokumentation**: „Entwicklungsdoku für Lena Muster fällig am 12.11.“, am Tag selbst „… heute
   fällig“, danach rot „… überfällig seit 12.11.“, bis jemand **„Erledigt“** antippt. Liegt der Tag nicht im
   laufenden Jahr, steht das Jahr dabei („überfällig seit 03.04.2024“).
+- **Elterngespräche**: nur am Tag des Gesprächs, den ganzen Tag: „Elterngespräch Lena Muster heute 14:00
+  (Entwicklungsgespräch)“ – ohne „Erledigt“; am nächsten Tag ist der Eintrag weg (Abschnitt 8, „Elterngespräche“).
 - **Geburtstage der Kinder**: „Lena Muster wird am 12.11. 5 Jahre“, am Tag „Lena Muster hat heute Geburtstag (5)“.
 - **Geburtstage der Mitarbeiter**: „Anna hat am 12.11. Geburtstag“, am Tag „Anna hat heute Geburtstag“ – ohne
   Jahr und ohne Alter. Ausgeschiedene Mitarbeiter stehen nicht da.

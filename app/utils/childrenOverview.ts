@@ -1,11 +1,14 @@
 // The columns of the Excel-like overview tables ("Übersicht" under "Kinder"). The texts are imported relative so a
 // test can load this file.
 import { parseIsoDate } from '#shared/domain/dates'
-import type { ChildrenOverviewDto, ChildrenOverviewRowDto, ConsentKey, OverviewContactDto, TriState } from '#shared/types/api'
+import { formatTime } from '#shared/domain/time'
+import type {
+  ChildrenOverviewDto, ChildrenOverviewRowDto, ConsentKey, OverviewContactDto, OverviewMeetingDto, TriState,
+} from '#shared/types/api'
 import { de } from '../locales/de'
 
-/** The sub-tabs, in the order of the sheets of the Excel list. */
-export const OVERVIEW_SHEETS = ['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones'] as const
+/** The sub-tabs, in the order of the sheets of the Excel list, then the parent meetings. */
+export const OVERVIEW_SHEETS = ['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones', 'meetings'] as const
 export type OverviewSheet = typeof OVERVIEW_SHEETS[number]
 export const isOverviewSheet = (value: unknown): value is OverviewSheet => (OVERVIEW_SHEETS as readonly unknown[]).includes(value)
 
@@ -47,6 +50,20 @@ const dateText = (iso: string | null): string => {
   const { year, month, day } = parseIsoDate(iso)
   return `${pad(day)}.${pad(month)}.${year}`
 }
+
+/** "04.03.27" (the list of all meetings). */
+const shortDateText = (iso: string): string => {
+  const { year, month, day } = parseIsoDate(iso)
+  return `${pad(day)}.${pad(month)}.${pad(year % 100)}`
+}
+
+const kindText = (meeting: OverviewMeetingDto): string => de.parentMeetings.kinds[meeting.kind]
+/** The latest meeting that took place (the list is newest first). */
+const lastMeeting = (row: ChildrenOverviewRowDto): OverviewMeetingDto | undefined => row.meetings.find(meeting => !meeting.planned)
+/** The nearest planned meeting: the earliest of those ahead. */
+const nextMeeting = (row: ChildrenOverviewRowDto): OverviewMeetingDto | undefined =>
+  row.meetings.filter(meeting => meeting.planned).reduce<OverviewMeetingDto | undefined>((nearest, meeting) =>
+    !nearest || meeting.date < nearest.date || (meeting.date === nearest.date && meeting.start < nearest.start) ? meeting : nearest, undefined)
 
 /** "Erika Muster (Oma)", without the parentheses when the relation is empty. */
 export const contactLabel = (contact: Pick<OverviewContactDto, 'name' | 'relation'>): string =>
@@ -133,6 +150,28 @@ export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowD
             return lines(contact ? [person(contact, phoneLines(contact))] : [])
           },
         })),
+      ]
+    case 'meetings':
+      return [
+        {
+          key: 'lastMeeting', label: t.short.lastMeeting, title: t.lastMeetingTitle,
+          cell: (row) => {
+            const meeting = lastMeeting(row)
+            return text(meeting ? `${dateText(meeting.date)} ${kindText(meeting)}` : '')
+          },
+        },
+        {
+          key: 'nextMeeting', label: t.short.nextMeeting, title: t.nextMeetingTitle,
+          cell: (row) => {
+            const meeting = nextMeeting(row)
+            return text(meeting ? `${dateText(meeting.date)} ${formatTime(meeting.start)} ${kindText(meeting)}` : '')
+          },
+        },
+        {
+          key: 'allMeetings', label: t.short.allMeetings, title: t.allMeetingsTitle,
+          cell: row => lines(row.meetings.map(meeting => ({ text: `${shortDateText(meeting.date)} ${kindText(meeting)}`, details: [], danger: false }))),
+        },
+        { key: 'meetingCount', label: t.short.meetingCount, title: t.meetingCountTitle, cell: row => text(String(row.meetings.length)) },
       ]
   }
 }

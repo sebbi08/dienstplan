@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { CONSENT_KEYS, type ChildConsents, type ChildrenOverviewRowDto, type OverviewContactDto } from '../../shared/types/api'
+import {
+  CONSENT_KEYS, type ChildConsents, type ChildrenOverviewRowDto, type OverviewContactDto, type OverviewMeetingDto,
+} from '../../shared/types/api'
 import { de } from '../../app/locales/de'
 import {
   OVERVIEW_SHEETS, contactLabel, isOverviewSheet, overviewColumns, overviewSections, triSymbol,
@@ -15,18 +17,20 @@ const contact = (name: string, values: Partial<OverviewContactDto> = {}): Overvi
 const child = (values: Partial<ChildrenOverviewRowDto> = {}): ChildrenOverviewRowDto => ({
   id: 1, lastName: 'Muster', firstName: 'Mia', groupId: null, address: '', consents: openConsents,
   measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
-  mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null, contacts: [], ...values,
+  mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null, contacts: [], meetings: [], ...values,
 })
 
 const keys = (sheet: typeof OVERVIEW_SHEETS[number], rows: ChildrenOverviewRowDto[] = [child()]) =>
   overviewColumns(sheet, rows).map(column => column.key)
 
 describe('children overview sheets', () => {
-  it('has the seven sheets of the Excel list in their order, with their labels', () => {
-    expect(OVERVIEW_SHEETS).toEqual(['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones'])
+  it('has the seven sheets of the Excel list in their order, then the parent meetings, with their labels', () => {
+    expect(OVERVIEW_SHEETS).toEqual(['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones', 'meetings'])
     expect(OVERVIEW_SHEETS.map(sheet => de.children.overview.sheets[sheet])).toEqual([
       'Datenschutz', 'Messenger', 'Gesundheit', 'Abholberechtigte', 'Sorgeberechtigte', 'Notfallkontakte', 'Telefonnummern',
+      'Elterngespräche',
     ])
+    expect(isOverviewSheet('meetings')).toBe(true)
     expect(isOverviewSheet('phones')).toBe(true)
     expect(isOverviewSheet('archive')).toBe(false)
   })
@@ -198,6 +202,57 @@ describe('children overview columns', () => {
   it('keeps one contact column when no child has contacts, so the sheet still shows its rows', () => {
     expect(keys('emergency')).toEqual(['emergency1'])
     expect(keys('phones')).toEqual(['address', 'contact1'])
+  })
+})
+
+describe('children overview parent meetings', () => {
+  const meeting = (date: string, start: number, kind: OverviewMeetingDto['kind'], planned = false): OverviewMeetingDto =>
+    ({ date, start, kind, planned })
+
+  it('has the columns last meeting, next planned, all meetings and count', () => {
+    const columns = overviewColumns('meetings', [child()])
+    expect(columns.map(column => column.key)).toEqual(['lastMeeting', 'nextMeeting', 'allMeetings', 'meetingCount'])
+    expect(columns.map(column => column.label)).toEqual(['Letztes Gespräch', 'Nächstes geplant', 'Alle Gespräche', 'Anzahl'])
+  })
+
+  it('shows the latest held meeting, the nearest planned one with its time, all meetings newest first and their count', () => {
+    // Newest first, as the server sends them: two planned ones ahead, then the held ones.
+    const row = child({
+      meetings: [
+        meeting('2027-03-04', 600, 'final', true),
+        meeting('2026-11-02', 14 * 60 + 30, 'development', true),
+        meeting('2026-10-01', 540, 'settling_in'),
+        meeting('2025-09-15', 480, 'other'),
+      ],
+    })
+    expect(overviewColumns('meetings', [row]).map(column => column.cell(row))).toEqual([
+      { kind: 'text', text: '01.10.2026 Eingewöhnung' },
+      { kind: 'text', text: '02.11.2026 14:30 Entwicklungsgespräch' },
+      {
+        kind: 'lines',
+        lines: [
+          { text: '04.03.27 Abschlussgespräch', details: [], danger: false },
+          { text: '02.11.26 Entwicklungsgespräch', details: [], danger: false },
+          { text: '01.10.26 Eingewöhnung', details: [], danger: false },
+          { text: '15.09.25 Sonstiges', details: [], danger: false },
+        ],
+      },
+      { kind: 'text', text: '4' },
+    ])
+  })
+
+  it('leaves last and next empty without such a meeting, and counts zero without any', () => {
+    const plannedOnly = child({ meetings: [meeting('2026-12-01', 9 * 60, 'development', true)] })
+    const heldOnly = child({ id: 2, meetings: [meeting('2026-10-01', 9 * 60, 'other')] })
+    const none = child({ id: 3 })
+    const columns = overviewColumns('meetings', [plannedOnly, heldOnly, none])
+    const [last, next] = columns
+    expect(last!.cell(plannedOnly)).toEqual({ kind: 'text', text: '' })
+    expect(next!.cell(plannedOnly)).toEqual({ kind: 'text', text: '01.12.2026 9:00 Entwicklungsgespräch' })
+    expect(next!.cell(heldOnly)).toEqual({ kind: 'text', text: '' })
+    expect(columns.map(column => column.cell(none))).toEqual([
+      { kind: 'text', text: '' }, { kind: 'text', text: '' }, { kind: 'lines', lines: [] }, { kind: 'text', text: '0' },
+    ])
   })
 })
 

@@ -87,7 +87,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     if (row.leftOn !== null) addChildItem(row, 'leaving', row.leftOn, leavingLead)
   }
 
-  // Parent meetings only on their day, the whole day (also once begun); nothing to mark done, the next day they are gone.
+  // Parent meetings only on their day, the whole day (also once begun); nothing to mark done, the next day they are
+  // gone.
   for (const meeting of meetingsOnDay(db, rows.map(row => row.id), today)) {
     addChildItem(visible.get(meeting.childId)!, 'meeting', today, 0, { time: meeting.start, meetingKind: meeting.kind })
   }

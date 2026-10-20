@@ -545,7 +545,7 @@ export const de = {
     overview: {
       sheets: {
         privacy: 'Datenschutz', messenger: 'Messenger', health: 'Gesundheit', pickup: 'Abholberechtigte',
-        guardians: 'Sorgeberechtigte', emergency: 'Notfallkontakte', phones: 'Telefonnummern',
+        guardians: 'Sorgeberechtigte', emergency: 'Notfallkontakte', phones: 'Telefonnummern', meetings: 'Elterngespräche',
       },
       short: {
         artworkDisplay: 'Bastelarbeiten', photosDisplay: 'Fotos aufhängen', photosForeignPortfolios: 'Fremde Portfolios',
@@ -554,7 +554,11 @@ export const de = {
         measlesProof: 'Masern', infectionBriefingDate: 'Belehrung', allergies: 'Allergien', mayTakeTemperature: 'Fieber',
         mayApplySunscreen: 'Sonnenschutz', mayApplyPlaster: 'Pflaster', insectRepellent: 'Insektenschutz',
         pickUp: 'Abholberechtigte', guardians: 'Sorgeberechtigte', contactBan: 'Kontaktverbot', address: 'Adresse',
+        lastMeeting: 'Letztes Gespräch', nextMeeting: 'Nächstes geplant', allMeetings: 'Alle Gespräche', meetingCount: 'Anzahl',
       },
+      lastMeetingTitle: 'Letztes Elterngespräch (Datum, Art)',
+      nextMeetingTitle: 'Nächstes geplantes Elterngespräch (Datum, Uhrzeit, Art)',
+      allMeetingsTitle: 'Alle Elterngespräche, neueste zuerst', meetingCountTitle: 'Anzahl der Elterngespräche',
       measlesTitle: 'Masernnachweis (mit Datum)', infectionBriefingTitle: 'Belehrung Infektionsschutz (Datum)',
       pickUpTitle: 'Alle Bezugspersonen, die das Kind abholen dürfen (ohne Kontaktverbot)',
       guardiansTitle: 'Sorgeberechtigte Bezugspersonen', contactBanTitle: 'Bezugspersonen mit Kontaktverbot und Hinweis',
@@ -591,6 +595,16 @@ export const de = {
     kinds: {
       development: 'Entwicklungsgespräch', settling_in: 'Eingewöhnung', final: 'Abschlussgespräch', other: 'Sonstiges',
     } satisfies Record<MeetingKind, string>,
+    // The record's section.
+    section: 'Elterngespräche', add: 'Gespräch eintragen', edit: 'Ändern', editTitle: 'Gespräch ändern',
+    none: 'Noch keine Elterngespräche eingetragen.', planned: 'geplant',
+    date: 'Datum', start: 'Uhrzeit von', end: 'bis', endHint: 'freiwillig', kind: 'Art', participants: 'Teilnehmer',
+    participantsPlaceholder: 'z. B. Mama, Papa, Frau Weber', note: 'Notiz', noteHint: 'Vertraulich: nur Leitung und Träger sehen die Notiz.',
+    confidential: 'vertraulich',
+    startRequired: 'Bitte die Uhrzeit angeben, zu der das Gespräch beginnt.',
+    createdBy: (name: string, date: string) => `eingetragen von ${name} am ${date}`,
+    updatedBy: (name: string, date: string) => `geändert von ${name} am ${date}`,
+    confirmDelete: (date: string) => `Das Elterngespräch vom ${date} löschen?`,
   },
   childLifecycle: {
     leave: 'Kind abmelden', leftOn: 'Austrittsdatum', unleave: 'Abmeldung zurücknehmen', deleteNow: 'Sofort löschen',

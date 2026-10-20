@@ -73,7 +73,7 @@ export function meetingsOnDay(
     .orderBy(asc(childParentMeetings.start), asc(childParentMeetings.id)).all()
 }
 
-const isClockTime =(value: number) => Number.isInteger(value) && value >= 0 && value <= 1439
+const isClockTime = (value: number) => Number.isInteger(value) && value >= 0 && value <= 1439
 
 /**
  * The checked values: a valid day (400 invalid_date), a start and an optional end as minutes 0–1439 (400 invalid_time)

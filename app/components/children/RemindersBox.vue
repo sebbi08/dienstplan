@@ -6,8 +6,8 @@ import { de } from '~/locales/de'
 import { formatDayMonth, formatDayMonthNear } from '~/utils/format'
 
 /**
- * The box „Erinnerungen“ above the tabs of the children page: documentation, birthdays and leavings (already sorted by
- * the server). Hidden without entries; closed or open is remembered on the device.
+ * The box „Erinnerungen“ above the tabs of the children page: documentation, parent meetings of the day, birthdays and
+ * leavings (already sorted by the server). Hidden without entries; closed or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
 const { busy, run } = useBusyAction(refresh)
@@ -56,6 +56,7 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
       return entry.state === 'today' ? r.staffBirthday.today() : r.staffBirthday.upcoming(date)
     case 'leaving':
       return r.leaving(date)
+    // „Elterngespräch ‹Name› heute ‹h:mm› (‹Art›)“; the server always sends a meeting's time and kind.
     case 'meeting':
       return r.meeting(entry.time === null ? '' : formatTime(entry.time), entry.meetingKind ? de.parentMeetings.kinds[entry.meetingKind] : '')
   }
