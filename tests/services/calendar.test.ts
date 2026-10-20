@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { facilities } from '../../server/db/schema'
+import { childParentMeetings, employees, facilities } from '../../server/db/schema'
 import {
   createCalendarEvent, deleteCalendarEvent, getMyYearCalendar, getSickYear, getStaffYearCalendar, getYearCalendar, listCalendarEvents, updateCalendarEvent,
 } from '../../server/services/calendar'
@@ -13,7 +13,7 @@ import { getLeaveAccount } from '../../server/services/leave'
 import { getLeavePlanning, setLeaveModule } from '../../server/services/leaveRequests'
 import { loadEmployees } from '../../server/services/queries'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addGroup, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 describe('year calendar and sick days', () => {
   let db: Db
@@ -179,5 +179,33 @@ describe('the calendar sends the rules it was computed with', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
     expect(getLeavePlanning(db, traeger, berlin, 2027).calendar.holidays.state).toBe('BE')
     expect(getLeavePlanning(db, traeger, 1, 2027).calendar.holidays.state).toBe('BW')
+  })
+})
+
+describe('automatic day events in the year calendar (Review Focus 4)', () => {
+  it('carries the year\'s events for the Leitung and "Mein Kalender", without child names, ids or notes', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    const annaUser = addUser(db, 'anna', 'observer', anna)
+    db.update(employees).set({ birthday: '03-02' }).where(eq(employees.id, anna)).run()
+    const baeren = addGroup(db, 1, 'Bären')
+    const kid = addChild(db, 1, { firstName: 'Zoraida', lastName: 'Quintus', birthDate: '2022-10-14', groupId: baeren })
+    addChild(db, 1, { entryDate: '2027-01-11', groupId: baeren })
+    db.insert(childParentMeetings).values({
+      childId: kid, date: '2026-10-14', start: 840, end: null, kind: 'development', note: 'Vertraulich', createdAt: '2026-01-01T00:00:00Z',
+    }).run()
+    const expected = {
+      '2026-03-02': ['Geburtstag Anna'],
+      '2026-10-14': ['Elterngespräch 14:00 (Bären)', 'Kindergeburtstag (Bären)'],
+    }
+    const forLeitung = getYearCalendar(db, 1, 2026)
+    expect(forLeitung.autoEvents).toEqual(expected)
+    const mine = getMyYearCalendar(db, annaUser, 2026)
+    expect(mine.autoEvents).toEqual(expected)
+    expect(getStaffYearCalendar(db, 1, 2027, null).autoEvents).toMatchObject({ '2027-01-11': ['Eingewöhnung (Bären)'] })
+    for (const dto of [forLeitung, mine]) {
+      const json = JSON.stringify(dto)
+      for (const secret of ['Zoraida', 'Quintus', 'Vertraulich', 'childId']) expect(json).not.toContain(secret)
+    }
   })
 })

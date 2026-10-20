@@ -8,6 +8,7 @@ import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearC
 import type { Db } from '../db/client'
 import { calendarEvents, employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { autoEventsFor } from './autoEvents'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './queries'
@@ -119,6 +120,8 @@ export function getYearCalendar(
       .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key)),
     events: listCalendarEvents(db, facilityId, year),
+    // Anonymous (no child names), so the staff calendar keeps them all.
+    autoEvents: Object.fromEntries(autoEventsFor(db, facilityId, `${year}-01-01`, `${year}-12-31`)),
   }
 }
 

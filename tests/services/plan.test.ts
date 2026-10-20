@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { coverageRules } from '../../server/db/schema'
+import { childParentMeetings, coverageRules, employees, notifications, releaseSnapshots } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells, setDayNote } from '../../server/services/entries'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
@@ -10,7 +10,7 @@ import { createCoverageRule, deleteTemplate, updateCode } from '../../server/ser
 import { createRecord } from '../../server/services/timeTracking'
 import { cellKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-01'
 
@@ -234,5 +234,79 @@ describe('required duties per group in the month plan (Review Focus 2)', () => {
     const warnings = getMonthPlan(plain, leitung, 1, 2026, 10, today).admin!.warnings.filter(w => w.type === 'coverage')
     expect(warnings.length).toBeGreaterThan(0)
     expect(warnings.every(warning => !('groupName' in warning))).toBe(true)
+  })
+})
+
+describe('automatic day events in the plan (Review Focus 1, 4)', () => {
+  let db: Db
+  let admin: SessionUser
+  let observer: SessionUser
+  let anna: number
+  let baeren: number
+  beforeEach(() => {
+    db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
+    anna = addEmployee(db, 'Anna')
+    observer = addUser(db, 'anna', 'observer', anna)
+    baeren = addGroup(db, 1, 'Bären')
+  })
+  const shift = (date: string, label = 'M') =>
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
+  const day = (days: { date: string; autoEvents: string[] }[], date: string) => days.find(row => row.date === date)!.autoEvents
+
+  it('adds them to the draft next to the own Info texts, empty on other days', () => {
+    addChild(db, 1, { firstName: 'Zoraida', lastName: 'Quintus', birthDate: '2022-10-14', groupId: baeren })
+    setDayNote(db, admin, 1, '2026-10-14', 'info1', 'Elternabend')
+    const plan = getMonthPlan(db, admin, 1, 2026, 10, today)
+    expect(plan.days[13]).toMatchObject({ info1: 'Elternabend', info2: '', autoEvents: ['Kindergeburtstag (Bären)'] })
+    expect(day(plan.days, '2026-10-15')).toEqual([])
+  })
+
+  it('shows staff the live events of a released month, without changing releases, diffs or notifications', () => {
+    shift('2026-10-05')
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    // Added after the release: computed live for every viewer.
+    const kid = addChild(db, 1, { firstName: 'Zoraida', lastName: 'Quintus', birthDate: '2022-10-14', groupId: baeren })
+    db.insert(childParentMeetings).values({
+      childId: kid, date: '2026-10-14', start: 840, end: null, kind: 'development', note: 'Vertraulich', createdAt: '2026-01-01T00:00:00Z',
+    }).run()
+    db.update(employees).set({ birthday: '10-14' }).where(eq(employees.id, anna)).run()
+    const events = ['Elterngespräch 14:00 (Bären)', 'Kindergeburtstag (Bären)', 'Geburtstag Anna']
+
+    const forStaff = getMonthPlan(db, observer, 1, 2026, 10, today)
+    expect(day(forStaff.days, '2026-10-14')).toEqual(events)
+    const mine = getMyPlan(db, observer, 2026, 10, today)
+    expect(day(mine.days, '2026-10-14')).toEqual(events)
+    const forAdmin = getMonthPlan(db, admin, 1, 2026, 10, today)
+    expect(day(forAdmin.days, '2026-10-14')).toEqual(events)
+    expect(forAdmin.admin!.pendingChanges).toEqual({})
+    expect(forAdmin.release).toMatchObject({ changeCount: 0, pendingCount: 0 })
+
+    expect(releaseMonth(db, admin, 1, 2026, 10, new Date('2026-10-02T10:00:00Z'))).toEqual({ notified: [] })
+    expect(db.select().from(notifications).all()).toEqual([])
+    expect(getMonthPlan(db, observer, 1, 2026, 10, today).changes).toEqual({})
+    for (const snapshot of db.select().from(releaseSnapshots).all()) {
+      expect(snapshot.data).not.toContain('autoEvents')
+      expect(snapshot.data).not.toContain('Kindergeburtstag')
+    }
+
+    // Review Focus 4: no child name, child id or meeting note in what staff phones get.
+    for (const dto of [forStaff, mine, forAdmin]) {
+      const json = JSON.stringify(dto)
+      for (const secret of ['Zoraida', 'Quintus', 'Vertraulich', 'childId']) expect(json).not.toContain(secret)
+    }
+  })
+
+  it('gives a person\'s own plan the events of their home facility', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const leitungB = addUser(db, 'leitung-b', 'admin', null, krippe)
+    addChild(db, krippe, { birthDate: '2022-10-14' })
+    addChild(db, 1, { birthDate: '2022-10-20', groupId: baeren })
+    addHelpOut(db, anna, krippe, 2026, 10)
+    releaseMonth(db, admin, 1, 2026, 10)
+    releaseMonth(db, leitungB, krippe, 2026, 10)
+    const mine = getMyPlan(db, observer, 2026, 10, today)
+    expect(day(mine.days, '2026-10-14')).toEqual([])
+    expect(day(mine.days, '2026-10-20')).toEqual(['Kindergeburtstag (Bären)'])
   })
 })

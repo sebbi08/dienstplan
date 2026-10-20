@@ -20,6 +20,7 @@ import type { Db } from '../db/client'
 import { employees, entries, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
+import { autoEventsFor } from './autoEvents'
 import { computeBalances } from './balances'
 import { loadSickLeaves, sickLeavesByCell } from './earlySickLeaves'
 import { groupNames, snapshotGroupNames } from './groups'
@@ -208,10 +209,15 @@ function releasedStates(db: Db, facilityId: number, releases: StoredRelease[]): 
 
 /**
  * The month's day rows with the shown plan's closures and Info fields (none when no plan is shown); holidays are those
- * of the given rules (a facility's plan: the facility; a person's own plan: their home facility).
+ * of the given rules (a facility's plan: the facility; a person's own plan: their home facility). The automatic events
+ * are those of that facility as they are now, also for a released month: they are not part of a release.
  */
-function dayRows(year: number, month: number, shownDays: SnapshotData['days'], holidays: HolidayRules): DayRowDto[] {
+function dayRows(
+  db: Db, facilityId: number, year: number, month: number, shownDays: SnapshotData['days'], holidays: HolidayRules,
+): DayRowDto[] {
   const byDate = new Map(shownDays.map(day => [day.date, day]))
+  const { monthStart, monthEnd } = monthBounds(year, month)
+  const events = autoEventsFor(db, facilityId, monthStart, monthEnd)
   return monthDates(year, month).map(date => ({
     date,
     weekday: weekday(date),
@@ -220,6 +226,7 @@ function dayRows(year: number, month: number, shownDays: SnapshotData['days'], h
     closureLabel: byDate.get(date)?.closureLabel ?? null,
     info1: byDate.get(date)?.info1 ?? '',
     info2: byDate.get(date)?.info2 ?? '',
+    autoEvents: events.get(date) ?? [],
   }))
 }
 
@@ -249,7 +256,7 @@ export function getMonthPlan(
 
   // Opening hours: a closed weekday suppresses the rules, entered days add the edge warnings (none entered: nothing changes).
   const hours = loadHoursContext(db, facilityId)
-  const days = withOpeningHours(dayRows(year, month, shown.days, facilityHolidayRules(db, facilityId)), hours)
+  const days = withOpeningHours(dayRows(db, facilityId, year, month, shown.days, facilityHolidayRules(db, facilityId)), hours)
 
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
@@ -325,7 +332,7 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
 
   // The person's own plan shows the holidays of their home facility, also on days helping out elsewhere.
   const homeHolidays = facilityHolidayRules(db, employee.facilityId)
-  const days: MyPlanDayDto[] = dayRows(year, month, home?.data.days ?? [], homeHolidays).map((day) => {
+  const days: MyPlanDayDto[] = dayRows(db, employee.facilityId, year, month, home?.data.days ?? [], homeHolidays).map((day) => {
     const key = cellKey(employee.id, day.date)
     // One day, one plan: when two releases disagree (one is not re-released yet), the newer release wins.
     const candidates = sources

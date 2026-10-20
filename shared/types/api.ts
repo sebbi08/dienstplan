@@ -721,6 +721,11 @@ export interface DayRowDto {
   closureLabel: string | null
   info1: string
   info2: string
+  /**
+   * The facility's automatic, anonymous events of the day (Eingewöhnung, Elterngespräch, Kindergeburtstag, staff
+   * birthday), shown after the Info texts; computed when read, never part of a release (none = []).
+   */
+  autoEvents: string[]
 }
 
 /** A day of the facility's plan: with the opening hours entered for it (null = none entered). */
@@ -1157,6 +1162,8 @@ export interface YearCalendarDto {
   /** Urlaub, Krank, Fortbildung, Schule — entered by clicking a day. */
   absenceCodes: CodeDto[]
   events: CalendarEventDto[]
+  /** The facility's automatic, anonymous events per day of the year (only days that have some), after the appointments. */
+  autoEvents: Record<IsoDate, string[]>
 }
 
 /** A saved plan week; `rows` previews it per employee with one text per weekday Monday–Friday ('' = empty). */
