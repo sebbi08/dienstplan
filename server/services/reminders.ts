@@ -12,6 +12,7 @@ import { childDevelopmentDocs, children, employees } from '../db/schema'
 import { loadEditableChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
+import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
 import { getSchoolSettings, schoolLeavers } from './schoolChildren'
 
@@ -44,9 +45,10 @@ function dueOf(row: ChildRow, setting: DocSetting, lastDone: DocRow | undefined,
 
 /**
  * The reminders of the box „Erinnerungen“ for this viewer, sorted (`sortReminders`). Children's entries (documentation,
- * birthday, leaving) only for active children of a group the viewer may write in: staff with a group of their own see
+ * parent meeting, birthday, leaving) only for active children of a group the viewer may write in: staff with a group of their own see
  * that group (and children without group), never a group they may only read; everybody else sees every child. A
  * documentation is listed from its due day minus the group's lead weeks until it is done (overdue from the due day); a
+ * parent meeting only on its day, all day, with its start and kind (never the note); a
  * birthday from the facility's lead days before until the day; a leaving day (registered, or the day before the school
  * start the daily run deregisters on while the automatic leaving is switched on) from the lead weeks before until the
  * day. Staff birthdays of every employee of the facility who has not left, for everyone (no year, no age).
@@ -61,12 +63,16 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   const done = latestDone(db, rows.map(row => row.id))
   const items: ReminderDto[] = []
 
-  const addChildItem = (row: ChildRow, kind: ReminderKind, date: IsoDate, leadDays: number, age: number | null = null) => {
+  const addChildItem = (
+    row: ChildRow, kind: ReminderKind, date: IsoDate, leadDays: number,
+    extra: Partial<Pick<ReminderDto, 'age' | 'time' | 'meetingKind'>> = {},
+  ) => {
     const state = inWindow(date, leadDays, today)
     if (state === 'before') return
     items.push({
-      kind, date, state, name: `${row.firstName} ${row.lastName}`, childId: row.id, age,
+      kind, date, state, name: `${row.firstName} ${row.lastName}`, childId: row.id, age: null,
       ownChild: row.keyEducatorId !== null && row.keyEducatorId === viewer.employeeId, canDone: kind === 'doc',
+      time: null, meetingKind: null, ...extra,
     })
   }
 
@@ -76,9 +82,14 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     const due = dueOf(row, docSetting, done.get(row.id), today)
     if (due !== null) addChildItem(row, 'doc', due, docSetting.doc.leadWeeks * 7)
     const birthday = nextBirthday(row.birthDate.slice(5), today)
-    addChildItem(row, 'birthday', birthday, settings.birthdayLeadDays, ageOn(row.birthDate, birthday).years)
+    addChildItem(row, 'birthday', birthday, settings.birthdayLeadDays, { age: ageOn(row.birthDate, birthday).years })
     // An active child's leaving day is today or later.
     if (row.leftOn !== null) addChildItem(row, 'leaving', row.leftOn, leavingLead)
+  }
+
+  // Parent meetings only on their day, the whole day (also once begun); nothing to mark done, the next day they are gone.
+  for (const meeting of meetingsOnDay(db, rows.map(row => row.id), today)) {
+    addChildItem(visible.get(meeting.childId)!, 'meeting', today, 0, { time: meeting.start, meetingKind: meeting.kind })
   }
 
   // The children the daily run will deregister within the lead weeks: as the selection would be on the day after the
@@ -97,7 +108,10 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     const date = nextBirthday(person.birthday!, today)
     const state = inWindow(date, settings.staffBirthdayLeadDays, today)
     if (state === 'before') continue
-    items.push({ kind: 'staffBirthday', date, state, name: person.name, childId: null, age: null, ownChild: false, canDone: false })
+    items.push({
+      kind: 'staffBirthday', date, state, name: person.name, childId: null, age: null, ownChild: false, canDone: false,
+      time: null, meetingKind: null,
+    })
   }
   return sortReminders(items)
 }

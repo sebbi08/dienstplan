@@ -186,17 +186,27 @@ describe('sortReminders', () => {
     expect(sorted.map((entry) => entry.name)).toEqual(['C', 'B', 'D', 'A'])
   })
 
-  it('breaks ties by kind (doc, birthday, staff birthday, leaving), then name', () => {
+  it('breaks ties by kind (doc, meeting, birthday, staff birthday, leaving), then name', () => {
     const sorted = sortReminders([
       item('leaving', '2026-10-25', 'upcoming', 'A'),
+      item('meeting', '2026-10-25', 'upcoming', 'M'),
       item('staffBirthday', '2026-10-25', 'upcoming', 'A'),
       item('birthday', '2026-10-25', 'upcoming', 'Zoe'),
       item('birthday', '2026-10-25', 'upcoming', 'Ali'),
       item('doc', '2026-10-25', 'upcoming', 'Z'),
     ])
     expect(sorted.map((entry) => `${entry.kind}:${entry.name}`)).toEqual([
-      'doc:Z', 'birthday:Ali', 'birthday:Zoe', 'staffBirthday:A', 'leaving:A',
+      'doc:Z', 'meeting:M', 'birthday:Ali', 'birthday:Zoe', 'staffBirthday:A', 'leaving:A',
     ])
+  })
+
+  it('orders the meetings of a day by time before the name', () => {
+    const sorted = sortReminders([
+      { ...item('meeting', '2026-10-25', 'today', 'Ali'), time: 840 },
+      { ...item('meeting', '2026-10-25', 'today', 'Zoe'), time: 480 },
+      { ...item('meeting', '2026-10-25', 'today', 'Ben'), time: 840 },
+    ])
+    expect(sorted.map((entry) => entry.name)).toEqual(['Zoe', 'Ali', 'Ben'])
   })
 
   it('sorts overdue items by date, oldest first, and does not mutate the input', () => {

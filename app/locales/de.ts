@@ -1,5 +1,5 @@
 import type { SlotState } from '#shared/domain/dayOverview'
-import type { GroupColor } from '#shared/types/api'
+import type { GroupColor, MeetingKind } from '#shared/types/api'
 
 const days = (count: number) => (count === 1 ? '1 Tag' : `${count.toLocaleString('de-DE')} Tage`)
 /** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
@@ -586,6 +586,12 @@ export const de = {
     viewerFailed: 'Das Dokument konnte nicht angezeigt werden.', viewerLoading: 'Das Dokument wird geladen …', takePhoto: 'Foto aufnehmen',
     photoChosen: (name: string) => `Foto ausgewählt: ${name}`,
   },
+  parentMeetings: {
+    // The kinds of a parent meeting (record section, overview sheet, reminders).
+    kinds: {
+      development: 'Entwicklungsgespräch', settling_in: 'Eingewöhnung', final: 'Abschlussgespräch', other: 'Sonstiges',
+    } satisfies Record<MeetingKind, string>,
+  },
   childLifecycle: {
     leave: 'Kind abmelden', leftOn: 'Austrittsdatum', unleave: 'Abmeldung zurücknehmen', deleteNow: 'Sofort löschen',
     confirmDelete: 'Akte mit allen Bezugspersonen und Dokumenten endgültig löschen?', purgeOn: (date: string) => `wird gelöscht am ${date}`,
@@ -840,7 +846,11 @@ export const de = {
       today: () => ({ before: '', after: ' hat heute Geburtstag' }),
     },
     leaving: (date: string) => ({ before: '', after: ` verlässt uns am ${date}` }),
-    kinds: { doc: 'Entwicklungsdokumentation', birthday: 'Geburtstag', staffBirthday: 'Geburtstag', leaving: 'Abschied' },
+    meeting: (time: string, kind: string) => ({ before: 'Elterngespräch ', after: ` heute ${time} (${kind})` }),
+    kinds: {
+      doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
+      leaving: 'Abschied',
+    },
     // The record's section.
     section: 'Entwicklungsdokumentation',
     lastDone: (date: string, name: string) => `Zuletzt erledigt am ${date} von ${name}`,

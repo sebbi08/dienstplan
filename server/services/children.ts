@@ -30,7 +30,7 @@ import {
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
-import { meetingsOf } from './parentMeetings'
+import { meetingsOf, overviewMeetingsOf } from './parentMeetings'
 import { developmentDocOf } from './reminders'
 import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
 
@@ -450,10 +450,11 @@ export function listBirthdays(db: Db, facilityId: number, today: IsoDate, groups
 /**
  * The values of the Excel-like overview tables for the facility's active children whose group the viewer sees, in the
  * order of the child list: consents, health fields, address and the contacts in the record's order (without their
- * internal note). Contacts of children the viewer does not see are never read. `groups` are the listed children's
- * groups in the groups' order, children without group last (`{ id: null, name: '' }`).
+ * internal note) and the parent meetings newest first (date, start, kind, planned at `now`; never the confidential
+ * note, not even for Leitung and Träger). Contacts and meetings of children the viewer does not see are never read.
+ * `groups` are the listed children's groups in the groups' order, children without group last (`{ id: null, name: '' }`).
  */
-export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate): ChildrenOverviewDto {
+export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate, now: Date = new Date()): ChildrenOverviewDto {
   const { facilityId } = viewer
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) === 'active' && seesGroup(viewer.groups, row.groupId))
@@ -470,6 +471,7 @@ export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate): C
       })
     }
   }
+  const meetingsOfChild = overviewMeetingsOf(db, ids, now)
   const listed = new Set(rows.map(row => row.groupId))
   const groups: ChildrenOverviewDto['groups'] = listGroups(db, facilityId)
     .filter(group => listed.has(group.id)).map(group => ({ id: group.id, name: group.name }))
@@ -485,6 +487,7 @@ export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate): C
       consents: consentsOf(row),
       ...healthOf(row),
       contacts: contactsOf.get(row.id)!,
+      meetings: meetingsOfChild.get(row.id)!,
     })),
   }
 }

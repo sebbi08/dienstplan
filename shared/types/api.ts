@@ -324,6 +324,10 @@ export interface ReminderDto {
   ownChild: boolean
   /** The documentation can be marked done (always true for a listed documentation, false for the other kinds). */
   canDone: boolean
+  /** For a parent meeting: its start (minutes of the day); null otherwise. */
+  time: Minutes | null
+  /** For a parent meeting: its kind; null otherwise. */
+  meetingKind: MeetingKind | null
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -579,6 +583,17 @@ export interface ChildrenOverviewRowDto {
   mayApplyPlaster: boolean | null
   /** In the record's order. */
   contacts: OverviewContactDto[]
+  /** The child's parent meetings, newest first (as in the record), without the confidential note. */
+  meetings: OverviewMeetingDto[]
+}
+
+/** A parent meeting in the children overview: never with participants or the note. */
+export interface OverviewMeetingDto {
+  date: IsoDate
+  start: Minutes
+  kind: MeetingKind
+  /** It lies ahead: a later day (Berlin), or today with a start later than now. */
+  planned: boolean
 }
 
 export interface ChildrenOverviewDto {

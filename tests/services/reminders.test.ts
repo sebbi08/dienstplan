@@ -1,12 +1,14 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childDevelopmentDocs, children, employees, facilities } from '../../server/db/schema'
+import { childDevelopmentDocs, childParentMeetings, children, employees, facilities } from '../../server/db/schema'
 import type { ChildViewer } from '../../server/lib/childViewer'
 import { getChild } from '../../server/services/children'
 import { setGroupDocSettings, setReminderSettings } from '../../server/services/reminderSettings'
+import { addMeeting } from '../../server/services/parentMeetings'
 import { listReminders, markDocDone, undoDocDone } from '../../server/services/reminders'
 import type { DocSettings } from '../../shared/domain/reminders'
+import type { MeetingKind } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-20'
@@ -58,7 +60,7 @@ describe('reminders', () => {
       const id = docChild('Lena', baeren, '2026-10-25')
       expect(listReminders(db, staff, TODAY)).toEqual([{
         kind: 'doc', date: '2026-10-25', state: 'upcoming', name: 'Lena Kind', childId: id, age: null, ownChild: false,
-        canDone: true,
+        canDone: true, time: null, meetingKind: null,
       }])
     })
 
@@ -310,8 +312,8 @@ describe('reminders', () => {
       addChild(db, 1, { firstName: 'Spät', lastName: 'Kind', groupId: baeren, birthDate: '2021-10-28' })
       addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse, birthDate: '2021-10-22' })
       expect(listReminders(db, staff, TODAY)).toEqual([
-        { kind: 'birthday', date: TODAY, state: 'today', name: 'Tom Heute', childId: expect.any(Number), age: 4, ownChild: false, canDone: false },
-        { kind: 'birthday', date: '2026-10-23', state: 'upcoming', name: 'Lena Sommer', childId: lena, age: 5, ownChild: false, canDone: false },
+        { kind: 'birthday', date: TODAY, state: 'today', name: 'Tom Heute', childId: expect.any(Number), age: 4, ownChild: false, canDone: false, time: null, meetingKind: null },
+        { kind: 'birthday', date: '2026-10-23', state: 'upcoming', name: 'Lena Sommer', childId: lena, age: 5, ownChild: false, canDone: false, time: null, meetingKind: null },
       ])
       expect(kindsFor(leitung)).toEqual(['birthday:Tom Heute', 'birthday:Maus Kind', 'birthday:Lena Sommer'])
     })
@@ -329,8 +331,8 @@ describe('reminders', () => {
       db.update(employees).set({ birthday: '11-20' }).where(eq(employees.id, late)).run()
       addEmployee(db, 'Ohne')
       const expected = [
-        { kind: 'staffBirthday', date: TODAY, state: 'today', name: 'Anna', childId: null, age: null, ownChild: false, canDone: false },
-        { kind: 'staffBirthday', date: '2026-10-22', state: 'upcoming', name: 'Berta', childId: null, age: null, ownChild: false, canDone: false },
+        { kind: 'staffBirthday', date: TODAY, state: 'today', name: 'Anna', childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null },
+        { kind: 'staffBirthday', date: '2026-10-22', state: 'upcoming', name: 'Berta', childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null },
       ]
       expect(listReminders(db, staff, TODAY)).toEqual(expected)
       expect(listReminders(db, leitung, TODAY)).toEqual(expected)
@@ -357,7 +359,7 @@ describe('reminders', () => {
       addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse, leftOn: '2026-11-10' })
       expect(listReminders(db, staff, TODAY)).toEqual([{
         kind: 'leaving', date: '2026-11-10', state: 'upcoming', name: 'Lena Sommer', childId: id, age: null, ownChild: false,
-        canDone: false,
+        canDone: false, time: null, meetingKind: null,
       }])
       expect(listReminders(db, staff, '2026-11-10').map(reminder => reminder.state)).toEqual(['today'])
       expect(listReminders(db, staff, '2026-10-12')).toEqual([])
@@ -373,10 +375,73 @@ describe('reminders', () => {
       db.update(facilities).set({ autoLeaveSchoolChildren: true }).where(eq(facilities.id, 1)).run()
       expect(listReminders(db, staff, TODAY)).toEqual([{
         kind: 'leaving', date: '2026-10-31', state: 'upcoming', name: 'Paul Schule', childId: id, age: null, ownChild: false,
-        canDone: false,
+        canDone: false, time: null, meetingKind: null,
       }])
       setReminderSettings(db, 1, { noGroupDoc: OFF, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 1 })
       expect(listReminders(db, staff, TODAY)).toEqual([])
+    })
+  })
+
+  describe('parent meetings', () => {
+    beforeEach(() => {
+      for (const group of [baeren, maeuse, fuechse]) setGroupDocSettings(db, 1, group, OFF)
+    })
+
+    const meetingOf = (childId: number, date: string, start: number, kind: MeetingKind = 'development') =>
+      addMeeting(db, leitung, childId, { date, start, end: null, kind, participants: 'Eltern', note: 'Vertraulich' }, NOW)
+
+    it('lists a meeting only on its day, all day long, with time and kind and without „Erledigt“', () => {
+      const id = addChild(db, 1, { firstName: 'Lena', lastName: 'Sommer', groupId: baeren, keyEducatorId: berta })
+      meetingOf(id, TODAY, 840)
+      meetingOf(id, '2026-10-21', 600, 'final')
+      meetingOf(id, '2026-10-19', 600, 'other')
+      const expected = [{
+        kind: 'meeting', date: TODAY, state: 'today', name: 'Lena Sommer', childId: id, age: null, ownChild: true,
+        canDone: false, time: 840, meetingKind: 'development',
+      }]
+      expect(listReminders(db, staff, TODAY)).toEqual(expected)
+      // Before the start and after it the same: the reminder holds for the whole day; the note never comes along.
+      expect(JSON.stringify(listReminders(db, leitung, TODAY))).not.toContain('Vertraulich')
+      expect(listReminders(db, staff, '2026-10-21').map(reminder => [reminder.kind, reminder.meetingKind, reminder.time]))
+        .toEqual([['meeting', 'final', 600]])
+      expect(listReminders(db, staff, '2026-10-22')).toEqual([])
+      expect(listReminders(db, staff, '2026-10-18')).toEqual([])
+    })
+
+    it('shows staff the own group\'s and group-less children\'s meetings, never a read-only or hidden group; Leitung all', () => {
+      meetingOf(addChild(db, 1, { firstName: 'Bär', lastName: 'Kind', groupId: baeren }), TODAY, 600)
+      meetingOf(addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse }), TODAY, 600)
+      meetingOf(addChild(db, 1, { firstName: 'Fuchs', lastName: 'Kind', groupId: fuechse }), TODAY, 600)
+      meetingOf(addChild(db, 1, { firstName: 'Ohne', lastName: 'Kind', groupId: null }), TODAY, 600)
+      expect(kindsFor(staff)).toEqual(['meeting:Bär Kind', 'meeting:Ohne Kind'])
+      expect(kindsFor(leitung)).toEqual(['meeting:Bär Kind', 'meeting:Fuchs Kind', 'meeting:Maus Kind', 'meeting:Ohne Kind'])
+    })
+
+    it('leaves out the meetings of a child who has left, and of another facility', () => {
+      const id = addChild(db, 1, { firstName: 'Lena', lastName: 'Sommer', groupId: baeren })
+      meetingOf(id, TODAY, 600)
+      db.update(children).set({ leftOn: '2026-10-19' }).where(eq(children.id, id)).run()
+      const krippe = addFacility(db, 'Krippe')
+      const foreign = addChild(db, krippe, { groupId: null })
+      db.insert(childParentMeetings).values({
+        childId: foreign, date: TODAY, start: 600, kind: 'other', createdByName: 'X', createdAt: NOW.toISOString(),
+      }).run()
+      expect(listReminders(db, leitung, TODAY)).toEqual([])
+    })
+
+    it('sorts a meeting after the documentation and before the birthdays of the day, meetings by time', () => {
+      setGroupDocSettings(db, 1, baeren, INTERVAL, LONG_AGO)
+      const lena = docChild('Lena', baeren, TODAY, { birthDate: '2022-10-20' })
+      // Entered lately: their documentation is not due yet.
+      const zoe = addChild(db, 1, { firstName: 'Zoe', lastName: 'Kind', groupId: baeren, entryDate: '2026-09-01' })
+      const ali = addChild(db, 1, { firstName: 'Ali', lastName: 'Kind', groupId: baeren, entryDate: '2026-09-01' })
+      meetingOf(lena, TODAY, 900)
+      meetingOf(zoe, TODAY, 480)
+      meetingOf(ali, TODAY, 840)
+      db.update(employees).set({ birthday: '10-20' }).where(eq(employees.id, berta)).run()
+      expect(kindsFor(staff)).toEqual([
+        'doc:Lena Kind', 'meeting:Zoe Kind', 'meeting:Ali Kind', 'meeting:Lena Kind', 'birthday:Lena Kind', 'staffBirthday:Berta',
+      ])
     })
   })
 

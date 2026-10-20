@@ -1,6 +1,6 @@
 import { addDays, daysInMonth, parseIsoDate, toIsoDate } from './dates'
 import { addMonths } from './requirements'
-import type { IsoDate } from './types'
+import type { IsoDate, Minutes } from './types'
 
 // The age a child turns is `ageOn(birthDate, birthdayDate).years` from ./children; there is no second age helper here.
 
@@ -12,7 +12,7 @@ export interface DocSettings {
   leadWeeks: number
 }
 
-export type ReminderKind = 'doc' | 'birthday' | 'staffBirthday' | 'leaving'
+export type ReminderKind = 'doc' | 'meeting' | 'birthday' | 'staffBirthday' | 'leaving'
 
 export type ReminderWindow = 'before' | 'upcoming' | 'today' | 'overdue'
 
@@ -91,15 +91,19 @@ export function inWindow(due: IsoDate, leadDays: number, today: IsoDate): Remind
 }
 
 const STATE_ORDER = { overdue: 0, today: 1, upcoming: 2 } as const
-const KIND_ORDER: Record<ReminderKind, number> = { doc: 0, birthday: 1, staffBirthday: 2, leaving: 3 }
+const KIND_ORDER: Record<ReminderKind, number> = { doc: 0, meeting: 1, birthday: 2, staffBirthday: 3, leaving: 4 }
 
-/** Overdue, then today, then upcoming; within a state by date, then kind (doc, birthday, staff birthday, leaving), then name. */
-export function sortReminders<T extends { kind: ReminderKind; date: IsoDate; state: 'upcoming' | 'today' | 'overdue'; name: string }>(
-  items: T[],
-): T[] {
+/**
+ * Overdue, then today, then upcoming; within a state by date, then kind (doc, parent meeting, birthday, staff birthday,
+ * leaving), then time (the meetings of a day; no time first), then name.
+ */
+export function sortReminders<T extends {
+  kind: ReminderKind; date: IsoDate; state: 'upcoming' | 'today' | 'overdue'; name: string; time?: Minutes | null
+}>(items: T[]): T[] {
   return [...items].sort((a, b) =>
     STATE_ORDER[a.state] - STATE_ORDER[b.state]
     || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
     || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]
+    || (a.time ?? -1) - (b.time ?? -1)
     || a.name.localeCompare(b.name, 'de'))
 }

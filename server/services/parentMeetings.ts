@@ -1,8 +1,11 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { isManager } from '../../shared/domain/roles'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
-import { MEETING_KINDS, type ParentMeetingDto, type ParentMeetingInput } from '../../shared/types/api'
+import type { IsoDate, Minutes } from '../../shared/domain/types'
+import {
+  MEETING_KINDS, type MeetingKind, type OverviewMeetingDto, type ParentMeetingDto, type ParentMeetingInput,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childParentMeetings, children } from '../db/schema'
 import { loadEditableChild } from '../lib/childRecord'
@@ -40,7 +43,37 @@ export function meetingsOf(db: Db, viewer: Pick<ChildViewer, 'role'>, childId: n
     .map(row => toDto(row, viewer, now))
 }
 
-const isClockTime = (value: number) => Number.isInteger(value) && value >= 0 && value <= 1439
+/**
+ * The parent meetings of these children for the overview, newest first per child (as `meetingsOf`), with date, start,
+ * kind and planned only: never the participants or the note. The caller passes only children the viewer sees. Every
+ * given child has an entry (an empty list without meetings).
+ */
+export function overviewMeetingsOf(db: Db, childIds: number[], now: Date = new Date()): Map<number, OverviewMeetingDto[]> {
+  const byChild = new Map<number, OverviewMeetingDto[]>(childIds.map(id => [id, []]))
+  if (childIds.length === 0) return byChild
+  const rows = db.select({
+    childId: childParentMeetings.childId, date: childParentMeetings.date, start: childParentMeetings.start,
+    kind: childParentMeetings.kind,
+  }).from(childParentMeetings).where(inArray(childParentMeetings.childId, childIds))
+    .orderBy(desc(childParentMeetings.date), desc(childParentMeetings.start), desc(childParentMeetings.id)).all()
+  for (const row of rows) {
+    byChild.get(row.childId)!.push({ date: row.date, start: row.start, kind: row.kind, planned: isPlanned(row, now) })
+  }
+  return byChild
+}
+
+/** The meetings of these children on `date` (start and kind only), by start. The caller passes only children the viewer sees. */
+export function meetingsOnDay(
+  db: Db, childIds: number[], date: IsoDate,
+): { childId: number; start: Minutes; kind: MeetingKind }[] {
+  if (childIds.length === 0) return []
+  return db.select({ childId: childParentMeetings.childId, start: childParentMeetings.start, kind: childParentMeetings.kind })
+    .from(childParentMeetings)
+    .where(and(inArray(childParentMeetings.childId, childIds), eq(childParentMeetings.date, date)))
+    .orderBy(asc(childParentMeetings.start), asc(childParentMeetings.id)).all()
+}
+
+const isClockTime =(value: number) => Number.isInteger(value) && value >= 0 && value <= 1439
 
 /**
  * The checked values: a valid day (400 invalid_date), a start and an optional end as minutes 0–1439 (400 invalid_time)
