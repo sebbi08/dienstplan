@@ -47,6 +47,7 @@ const ADMIN_ROUTES = [
   'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts', 'early-sick-leaves/[id].delete.ts',
   'meals/index.get.ts', 'meals/index.post.ts', 'meals/[id].put.ts', 'meals/[id].delete.ts', 'meals/versions/[id].delete.ts',
   'reminder-settings.get.ts', 'reminder-settings.put.ts', 'groups/[id]/documentation.put.ts',
+  'time-mark-settings.get.ts', 'time-mark-settings.put.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the

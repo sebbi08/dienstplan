@@ -7,6 +7,7 @@ import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayIn } from '../../shared/domain/holidays'
 import { creditedMinutes, mayStampVia, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedOn } from '../../shared/domain/targets'
+import { dayMarks, summarizeMarks } from '../../shared/domain/timeMarks'
 import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
@@ -19,6 +20,7 @@ import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
 import { loadSickLeaves, sickLeaveDates, sickLeavesByCell } from './earlySickLeaves'
 import { assertEmployee } from './employees'
 import { loadCodes, loadEmployees, loadEntries } from './queries'
+import { getTimeMarkSettings } from './timeMarkSettings'
 
 /** Codes the admin enters per day on the time page (written to the plan). */
 const ABSENCE_KEYS: CodeKey[] = ['vacation', 'special_leave', 'sick', 'training', 'school']
@@ -182,8 +184,13 @@ export function listOpenRecords(db: Db, facilityId: number, today: IsoDate): Ope
     .map(({ record, name }) => ({ id: record.id, employeeId: record.employeeId, name, date: record.date, start: record.start }))
 }
 
+/**
+ * The time sheet of one employee and month for Leitung and Träger, with late arrivals and early leaving marked under
+ * the facility's settings. `nowMinutes` is the current minute of `today` (early leaving today waits for the planned end).
+ */
 export function getTimeMonth(
   db: Db, facilityId: number, employeeId: number, year: number, month: number, today: IsoDate,
+  nowMinutes: Minutes = nowInBerlin(new Date()).minutes,
 ): TimeMonthDto {
   const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
@@ -202,38 +209,51 @@ export function getTimeMonth(
     .where(and(eq(timeDayNotes.employeeId, employeeId), gte(timeDayNotes.date, monthStart), lte(timeDayNotes.date, monthEnd))).all()
     .map(row => [row.date, row.note]))
   const sickLeaves = sickLeavesByCell(loadSickLeaves(db, [employeeId], monthStart, monthEnd))
+  const markSettings = getTimeMarkSettings(db, facilityId)
+
+  const days = monthDates(year, month).map((date) => {
+    const dayEntries = entriesByDate.get(date) ?? []
+    const records = recordsByDate.get(date) ?? []
+    const planned = computeDay(employee.info, date, dayEntries)
+    const counted = computeDay(employee.info, date, dayEntries, actual)
+    // Only the absences entered on the time page; Feiertag/Schließtag still credit the target (computeDay).
+    const absence = dayEntries.some(entry => isAbsence(entry.codeKey))
+    const otherEntries = dayEntries.some(entry => !isAbsence(entry.codeKey))
+    const inRange = actual !== undefined && usesRecords(actual, date) && isEmployedOn(employee.info, date)
+    // "Im Dienst erkrankt": the stamped times stay visible, the planned time counts and the day gets no time hints.
+    const sickLeave = sickLeaves[cellKey(employeeId, date)] ?? null
+    // The current times (after corrections) against all planned work of the day, help-outs elsewhere included, as
+    // for the time hints. Someone who fell ill during duty did not leave early.
+    const marks = actual !== undefined && actual.from <= date && date <= today && isEmployedOn(employee.info, date)
+      ? dayMarks(dayEntries, records, {
+          tolerance: markSettings.toleranceMinutes, markEarly: markSettings.markEarlyLeave && !sickLeave,
+          now: date === today ? nowMinutes : null,
+        })
+      : { lateMinutes: null, earlyMinutes: null }
+    return {
+      // The time sheet is the person's: holidays of their home facility.
+      date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayIn(date, employee.info.holidays),
+      plan: describeCellDetailed(dayEntries),
+      plannedMinutes: planned.credit, target: planned.target,
+      records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
+      usesRecords: usesRecords(actual, date), absence, otherEntries,
+      targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
+      warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
+      note: notes.get(date) ?? '',
+      changes: changes.filter(({ change }) => change.date === date)
+        .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
+      plannedDuty: hasPlannedDuty(dayEntries),
+      sickLeave,
+      ...marks,
+    }
+  })
 
   return {
     employee: { id: employee.id, name: employee.name },
     trackingFrom,
     absenceCodes: loadCodes(db).filter(code => isAbsence(code.key)),
-    days: monthDates(year, month).map((date) => {
-      const dayEntries = entriesByDate.get(date) ?? []
-      const records = recordsByDate.get(date) ?? []
-      const planned = computeDay(employee.info, date, dayEntries)
-      const counted = computeDay(employee.info, date, dayEntries, actual)
-      // Only the absences entered on the time page; Feiertag/Schließtag still credit the target (computeDay).
-      const absence = dayEntries.some(entry => isAbsence(entry.codeKey))
-      const otherEntries = dayEntries.some(entry => !isAbsence(entry.codeKey))
-      const inRange = actual !== undefined && usesRecords(actual, date) && isEmployedOn(employee.info, date)
-      // "Im Dienst erkrankt": the stamped times stay visible, the planned time counts and the day gets no time hints.
-      const sickLeave = sickLeaves[cellKey(employeeId, date)] ?? null
-      return {
-        // The time sheet is the person's: holidays of their home facility.
-        date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayIn(date, employee.info.holidays),
-        plan: describeCellDetailed(dayEntries),
-        plannedMinutes: planned.credit, target: planned.target,
-        records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
-        usesRecords: usesRecords(actual, date), absence, otherEntries,
-        targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
-        warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
-        note: notes.get(date) ?? '',
-        changes: changes.filter(({ change }) => change.date === date)
-          .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
-        plannedDuty: hasPlannedDuty(dayEntries),
-        sickLeave,
-      }
-    }),
+    days,
+    marks: { ...summarizeMarks(days), ...markSettings },
   }
 }
 

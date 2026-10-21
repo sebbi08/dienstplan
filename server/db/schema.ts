@@ -25,6 +25,10 @@ export const facilities = sqliteTable('facilities', {
   sortOrder: integer('sort_order').notNull().default(0),
   /** Start of time tracking in this facility (ISO date; null = plan only). */
   timeTrackingFrom: text('time_tracking_from'),
+  /** Time tracking: a delay or early leaving of more than this many minutes is marked for the Leitung (0–60). */
+  markToleranceMinutes: integer('mark_tolerance_minutes').notNull().default(5),
+  /** Time tracking: whether leaving earlier than planned is marked (late arrivals always are). */
+  markEarlyLeave: integer('mark_early_leave', { mode: 'boolean' }).notNull().default(true),
   /** At most this many employees of the facility on leave at the same time (null = no limit). */
   leaveMaxConcurrent: integer('leave_max_concurrent'),
   /** School cutoff (Stichtag): a child is of school age when it reaches `schoolAgeYears` on or before this day of the year. */

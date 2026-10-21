@@ -7,6 +7,7 @@ import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type { GermanState } from '../domain/states'
+import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
 import type { Warning } from '../domain/warnings'
@@ -278,6 +279,14 @@ export interface TabletSettingsDto {
   showWaitlist: boolean
   /** Show children whose contract has not started yet at the tablet. */
   showFutureContracts: boolean
+}
+
+/** How a facility's time tracking marks late arrivals and early leaving for the Leitung (never shown to staff). */
+export interface TimeMarkSettingsDto {
+  /** "Kulanz": only a delay / early leaving of more than this many whole minutes is marked (0–60). */
+  toleranceMinutes: number
+  /** Whether leaving earlier than planned is marked at all (late arrivals always are). */
+  markEarlyLeave: boolean
 }
 
 /** The facility's reminder settings: documentation for children without group, lead times, and each group's documentation. */
@@ -1048,6 +1057,13 @@ export interface TimeDayDto {
   plannedDuty: boolean
   /** "Im Dienst erkrankt": the planned time is credited whatever was stamped, and the day has no time hints. */
   sickLeave: SickLeaveMarkDto | null
+  /**
+   * Minutes the first stamped arrival came after the first planned work start, when more than the facility's tolerance
+   * (null = not marked). Leitung and Träger only, like the whole time page; never in the staff's own time view.
+   */
+  lateMinutes: number | null
+  /** Minutes the last departure lay before the last planned work end, when more than the tolerance and switched on. */
+  earlyMinutes: number | null
 }
 
 export interface MyTimeDto {
@@ -1073,6 +1089,8 @@ export interface TimeMonthDto {
   /** Buttons for absences entered from the time page (written to the plan). */
   absenceCodes: CodeDto[]
   days: TimeDayDto[]
+  /** The month's late arrivals and early leaving (how often, minutes in total) under the facility's settings. */
+  marks: MarkSummary & TimeMarkSettingsDto
 }
 
 /** A day the facility closed earlier (admin-only record). */

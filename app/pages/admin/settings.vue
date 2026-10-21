@@ -217,6 +217,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
         <UButton type="submit" :label="de.common.save" />
       </form>
       <p class="text-xs text-gray-500">{{ de.settings.timeTrackingHint }}</p>
+      <SettingsTimeMarksForm />
     </section>
 
     <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">

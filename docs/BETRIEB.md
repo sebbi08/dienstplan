@@ -777,3 +777,32 @@ Terminen) zeigen von selbst, was an einem Tag in der Einrichtung los ist:
   den Mitarbeiter-Stammdaten (Geburtstag) – wer dort etwas ändert, sieht es sofort im Plan.
 - **Nicht Teil der Freigabe**: Die Ereignisse werden jedes Mal neu berechnet, auch für einen schon freigegebenen
   Monat. Sie zählen nicht als Änderung, lösen keine Benachrichtigung aus und machen kein erneutes Freigeben nötig.
+
+## 18. Zeiterfassung: zu spät und früher gegangen
+
+In der **Zeiterfassung** (und auf dem gedruckten Stundenzettel) markiert die App, wer später gekommen oder früher
+gegangen ist, als es im Dienstplan steht:
+
+- **Zu spät (rot)**: Das erste Einstempeln des Tages liegt mehr als die Kulanz nach dem Beginn des ersten geplanten
+  Dienstes. Die Ankunftszeit steht dann rot da, darunter klein z. B. „10 Min. zu spät“.
+- **Früher gegangen (blau)**: Das letzte Ausstempeln liegt mehr als die Kulanz vor dem Ende des letzten geplanten
+  Dienstes, z. B. „30 Min. früher gegangen“.
+- **Geteilte Dienste, mehrere Zeiträume**: verglichen werden nur das erste Kommen mit dem ersten Dienstbeginn und das
+  letzte Gehen mit dem letzten Dienstende. Als Dienst zählen Schichten, Sonderdienste und Zeiten wie VZ oder Büro,
+  auch Aushilfen in einer anderen Einrichtung – wie bei den übrigen Hinweisen der Zeiterfassung.
+- **Keine Markierung** an Tagen ohne geplanten Dienst, bei Urlaub, Krank, Fortbildung, Schule, Feiertag oder
+  Schließtag, solange jemand noch eingestempelt ist, und für „früher gegangen“ an Tagen mit „Im Dienst erkrankt“.
+- **Heute**: „zu spät“ erscheint gleich nach dem Einstempeln, „früher gegangen“ erst nach dem geplanten Dienstende
+  (vorher könnte die Person nur in der Pause sein).
+- **Korrekturen zählen**: Ändert die Leitung eine Stempelzeit, gilt sofort die geänderte Zeit.
+- **Monatssumme** unter der Tabelle: „2× zu spät, zusammen 25 Min.“ und „1× früher gegangen, zusammen 30 Min.“.
+
+**Einstellungen → Zeiterfassung** (Leitung und Träger, je Einrichtung):
+
+- **Kulanz bei zu spät / früher gehen (Minuten)**: ganze Minuten von 0 bis 60, voreingestellt 5. Markiert wird erst,
+  was **mehr** als die Kulanz ist (bei 5 Minuten also ab 6 Minuten).
+- **Früher gehen markieren**: an (voreingestellt) oder aus. Aus = nur „zu spät“ wird markiert.
+
+Die Einstellungen gelten sofort für alle angezeigten Monate, auch für frühere. **Nur Leitung und Träger** sehen die
+Markierungen. Mitarbeiter sehen sie in der App nirgends, auch nicht unter „Meine Zeit“ – nur auf einem Stundenzettel,
+den die Leitung ausdruckt und ihnen gibt, stehen sie mit drauf.

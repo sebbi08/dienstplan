@@ -120,8 +120,9 @@ describe('upgrading a filled database through migrateDb', () => {
     'leaving_lead_weeks', 'birthday', 'doc_since']
   const withoutReminders = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !REMINDER_COLUMNS.includes(column))))
-  // Columns of `facilities` that later migrations add (0046_facility_capacity: `capacity`, which `groups` has had long since).
-  const LATER_FACILITY_COLUMNS = [...REMINDER_COLUMNS, 'capacity']
+  // Columns of `facilities` that later migrations add (0046_facility_capacity: `capacity`, which `groups` has had long since;
+  // 0048_time_marks: the tolerance and the early-leave switch of the time tracking).
+  const LATER_FACILITY_COLUMNS = [...REMINDER_COLUMNS, 'capacity', 'mark_tolerance_minutes', 'mark_early_leave']
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
@@ -162,6 +163,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT * FROM facilities').all()).toEqual([
       {
         id: 1, name: 'Kindergarten', sort_order: 0, time_tracking_from: '2026-03-01', leave_max_concurrent: 3,
+        mark_tolerance_minutes: 5, mark_early_leave: 1,
         school_cutoff_month: 6, school_cutoff_day: 30, school_age_years: 6, auto_leave_school_children: 0,
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
         record_brought_by: 0, attendance_since: null, min_at_opening: 1, min_at_closing: 1,
@@ -1120,7 +1122,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, capacity FROM facilities ORDER BY id').all())
       .toEqual([{ id: 1, capacity: null }, { id: 2, capacity: null }])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ capacity: _, ...rest }) => rest)).toEqual(before)
+      .map(({ capacity: _, mark_tolerance_minutes: _tolerance, mark_early_leave: _early, ...rest }) => rest)).toEqual(before)
     expect(sqlite.prepare('SELECT id, capacity FROM groups ORDER BY id').all())
       .toEqual([{ id: 1, capacity: 20 }, { id: 2, capacity: null }])
     sqlite.exec(`INSERT INTO facilities (id, name) VALUES (3, 'Hort')`)
@@ -1154,6 +1156,20 @@ describe('upgrading a filled database through migrateDb', () => {
       { table: 'users', from: 'created_by_user_id', on_delete: 'SET NULL' },
     ])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0048 gives every existing facility the default tolerance of 5 minutes with early leaving marked', () => {
+    const { db, sqlite } = databaseAt('0047')
+    sqlite.exec(`INSERT INTO facilities (id, name, time_tracking_from) VALUES (2, 'Krippe', '2026-10-01')`)
+    const before = sqlite.prepare('SELECT * FROM facilities ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(sqlite.prepare('SELECT id, mark_tolerance_minutes, mark_early_leave FROM facilities ORDER BY id').all()).toEqual([
+      { id: 1, mark_tolerance_minutes: 5, mark_early_leave: 1 }, { id: 2, mark_tolerance_minutes: 5, mark_early_leave: 1 },
+    ])
+    expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ mark_tolerance_minutes: _tolerance, mark_early_leave: _early, ...rest }) => rest)).toEqual(before)
   })
 
   it('child_parent_meetings rows go with their child and keep the name when the person is deleted', () => {
