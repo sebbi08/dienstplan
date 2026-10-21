@@ -25,7 +25,7 @@ const save = () => run(() => $fetch<unknown>('/api/time-mark-settings', {
   <form v-if="data" class="space-y-3 border-t border-gray-100 pt-3" @submit.prevent="save">
     <div class="flex flex-wrap items-end gap-4">
       <UFormField :label="s.markTolerance">
-        <UInput v-model.number="toleranceMinutes" type="number" :min="MIN_MARK_TOLERANCE" :max="MAX_MARK_TOLERANCE" step="1" class="w-24" required />
+        <UInput v-model.number="toleranceMinutes" type="number" :min="MIN_MARK_TOLERANCE" :max="MAX_MARK_TOLERANCE" step="1" class="w-24" />
       </UFormField>
       <USwitch v-model="markEarlyLeave" :label="s.markEarlyLeave" class="pb-2" />
       <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />

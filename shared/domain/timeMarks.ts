@@ -20,6 +20,11 @@ export interface MarkOptions {
   markEarly: boolean
   /** The minute of the day when the day is today; missing or null for a past day. */
   now?: Minutes | null
+  /**
+   * The facility closed earlier that day ("Frühere Schließung") from this minute: the duty then ends at the earlier of
+   * its planned end and the closing time for early leaving. Missing or null = no early closure.
+   */
+  closedFrom?: Minutes | null
 }
 
 export interface MarkSummary {
@@ -36,6 +41,7 @@ const NONE: DayMarks = { lateMinutes: null, earlyMinutes: null }
  * arrival with the first planned start, the last departure with the last planned end. Days without planned work or with
  * an entry crediting the daily target (Urlaub, Krank, Feiertag …) get no marks. While a stay is open nobody has left, and
  * today early leaving counts only once the planned end has passed, so a stamped break is not taken for a departure.
+ * An early closure of the facility moves the planned end forward to the closing time.
  */
 export function dayMarks(
   entries: Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'>[], records: RecordSpan[], options: MarkOptions,
@@ -44,7 +50,8 @@ export function dayMarks(
   const work = entries.filter(entry => isWorkEntry(entry) && entry.end !== null)
   if (work.length === 0) return NONE
   const plannedStart = Math.min(...work.map(entry => entry.start!))
-  const plannedEnd = Math.max(...work.map(entry => entry.end!))
+  const dutyEnd = Math.max(...work.map(entry => entry.end!))
+  const plannedEnd = options.closedFrom === undefined || options.closedFrom === null ? dutyEnd : Math.min(dutyEnd, options.closedFrom)
 
   const late = Math.min(...records.map(record => record.start)) - plannedStart
   let early: number | null = null

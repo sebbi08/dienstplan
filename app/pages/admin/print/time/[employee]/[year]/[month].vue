@@ -5,7 +5,7 @@ import type { EmployeeDetailDto, TimeMonthDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort, formatHours, monthTitle } from '~/utils/format'
-import { DEVIATION_MINUTES, recordedDifference } from '~/utils/timeSheet'
+import { DEVIATION_MINUTES, markedRecords, recordedDifference } from '~/utils/timeSheet'
 
 /** Monthly time sheet of one employee for printing (admin only): plan, records, Ist, difference, reason, totals. */
 definePageMeta({ layout: false })
@@ -57,7 +57,7 @@ const totals = computed(() => {
             <td class="border border-gray-400 px-1.5 py-0.5">{{ day.plan === '—' ? '' : day.plan }}</td>
             <td class="border border-gray-400 px-1.5 py-0.5">
               <span v-for="(record, index) in day.records" :key="record.id">
-                {{ index > 0 ? ' · ' : '' }}<TimeMarkedSpan :record="record" :late="index === 0 && day.lateMinutes !== null" :early="index === day.records.length - 1 && day.earlyMinutes !== null" /><template v-if="record.edited"> ({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</template>
+                {{ index > 0 ? ' · ' : '' }}<TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" /><template v-if="record.edited"> ({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</template>
               </span>
               <div v-if="day.lateMinutes !== null" class="text-red-600">{{ de.time.lateBy(day.lateMinutes) }}</div>
               <div v-if="day.earlyMinutes !== null" class="text-blue-600">{{ de.time.earlyBy(day.earlyMinutes) }}</div>

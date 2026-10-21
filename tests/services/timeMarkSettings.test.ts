@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { de } from '../../app/locales/de'
+import { timeMarkSettingsSchema } from '../../server/schemas'
 import { getTimeMarkSettings, setTimeMarkSettings } from '../../server/services/timeMarkSettings'
 import { addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -30,6 +32,16 @@ describe('time mark settings', () => {
       expect(errorCode(() => setTimeMarkSettings(db, 1, { toleranceMinutes, markEarlyLeave: false }))).toBe('mark_tolerance_invalid')
     }
     expect(getTimeMarkSettings(db, 1)).toEqual({ toleranceMinutes: 5, markEarlyLeave: true })
+  })
+
+  it('lets an empty field through the schema so the service answers its own German error', () => {
+    const db = createTestDb()
+    for (const toleranceMinutes of ['', null]) {
+      const input = timeMarkSettingsSchema.parse({ toleranceMinutes, markEarlyLeave: true })
+      expect(errorCode(() => setTimeMarkSettings(db, 1, input))).toBe('mark_tolerance_invalid')
+    }
+    expect(() => timeMarkSettingsSchema.parse({ toleranceMinutes: 'abc', markEarlyLeave: true })).toThrow()
+    expect(de.errors.mark_tolerance_invalid).toContain('0 bis 60')
   })
 
   it('answers 404 for an unknown facility', () => {

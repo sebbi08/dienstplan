@@ -65,6 +65,17 @@ describe('late arrival and early leave of a day', () => {
     expect(dayMarks([M], records, { ...options, now: 960 })).toEqual({ lateMinutes: 15, earlyMinutes: 260 })
   })
 
+  it('ends the duty at an earlier closing of the facility for early leaving (not for late arrivals)', () => {
+    const closing = { ...options, closedFrom: 840 } // closed from 14:00, M until 16:00
+    expect(dayMarks([M], [{ start: 465, end: 845 }], closing)).toEqual({ lateMinutes: null, earlyMinutes: null })
+    expect(dayMarks([M], [{ start: 465, end: 835 }], closing)).toEqual({ lateMinutes: null, earlyMinutes: null }) // within 5
+    expect(dayMarks([M], [{ start: 480, end: 810 }], closing)).toEqual({ lateMinutes: 15, earlyMinutes: 30 })
+    // A closing after the planned end changes nothing.
+    expect(dayMarks([M], [{ start: 465, end: 900 }], { ...options, closedFrom: 1000 }).earlyMinutes).toBe(60)
+    // Today the earlier end also decides when early leaving can be marked.
+    expect(dayMarks([M], [{ start: 465, end: 810 }], { ...closing, now: 840 }).earlyMinutes).toBe(30)
+  })
+
   it('evaluates the times it is given, i.e. the corrected ones', () => {
     const stamped = [{ start: 500, end: 960 }]
     expect(dayMarks([M], stamped, options).lateMinutes).toBe(35)

@@ -6,7 +6,7 @@ import type { CodeDto, EmployeeListItemDto, OpenRecordDto, TimeDayDto, TimeMonth
 import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort } from '~/utils/format'
-import { DEVIATION_MINUTES, recordedDifference as difference } from '~/utils/timeSheet'
+import { DEVIATION_MINUTES, markedRecords, recordedDifference as difference } from '~/utils/timeSheet'
 import { warningText } from '~/utils/warnings'
 
 const route = useRoute()
@@ -184,9 +184,9 @@ function change(nextYear: number, nextMonth: number) {
               </div>
             </td>
             <td class="px-2 py-1.5">
-              <div v-for="(record, index) in day.records" :key="record.id" class="flex items-center gap-1">
+              <div v-for="record in day.records" :key="record.id" class="flex items-center gap-1">
                 <button type="button" class="hover:underline" @click="editRecord(day, record)">
-                  <TimeMarkedSpan :record="record" :late="index === 0 && day.lateMinutes !== null" :early="index === day.records.length - 1 && day.earlyMinutes !== null" />
+                  <TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" />
                 </button>
                 <span v-if="record.edited" class="text-xs text-amber-700" :title="record.editedAt ? `${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : undefined">({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</span>
                 <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />

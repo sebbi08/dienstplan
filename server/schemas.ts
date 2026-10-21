@@ -184,8 +184,11 @@ export const reminderSettingsSchema = z.object({
 })
 /** The tablet settings of a facility. The lock time is checked by the service, which answers tablet_lock_minutes_invalid. */
 export const tabletSettingsSchema = z.object({ lockMinutes: z.number(), showWaitlist: z.boolean(), showFutureContracts: z.boolean() })
-/** Late / early marks of the time tracking. The tolerance is checked by the service, which answers mark_tolerance_invalid. */
-export const timeMarkSettingsSchema = z.object({ toleranceMinutes: z.number(), markEarlyLeave: z.boolean() })
+/**
+ * Late / early marks of the time tracking. The tolerance is checked by the service, which answers mark_tolerance_invalid;
+ * an emptied number field arrives as '' or null and passes here, so the user gets that German error.
+ */
+export const timeMarkSettingsSchema = z.object({ toleranceMinutes: z.union([z.number(), z.literal(''), z.null()]), markEarlyLeave: z.boolean() })
 /**
  * The switch "deregister school children automatically". Switching on needs the children the preview showed, each
  * with its leaving day (`confirmed`; the preview's entries can be sent back as they are, further fields are dropped);

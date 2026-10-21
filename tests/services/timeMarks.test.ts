@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { createEarlyClosure } from '../../server/services/earlyClosures'
 import { saveEarlySickLeave } from '../../server/services/earlySickLeaves'
 import { applyToCells } from '../../server/services/entries'
 import { getMyTime } from '../../server/services/myTime'
@@ -99,6 +100,31 @@ describe('late arrival and early leave marks in the time tracking', () => {
     expect(day('2026-10-06').plan).toContain('7:00–13:15')
     record('2026-10-06', 440, 795) // F1 7:00–13:15, came 7:20
     expect(day('2026-10-06').lateMinutes).toBe(20)
+  })
+
+  it('ends the duty at an early closure of the facility for early leaving', () => {
+    createEarlyClosure(db, 1, { date: '2026-10-05', closedFrom: 840, reason: 'Personalausfall' }) // closed from 14:00
+    planM('2026-10-05')
+    planM('2026-10-06')
+    record('2026-10-05', 465, 845) // left 14:05
+    expect(day('2026-10-05')).toMatchObject({ lateMinutes: null, earlyMinutes: null })
+    createEarlyClosure(db, 1, { date: '2026-10-06', closedFrom: 840, reason: 'Personalausfall' })
+    record('2026-10-06', 465, 810) // left 13:30
+    expect(day('2026-10-06')).toMatchObject({ lateMinutes: null, earlyMinutes: 30 })
+  })
+
+  it('takes the early closure of the facility the last duty belongs to', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const leitungB = addUser(db, 'leitung-b', 'admin', null, krippe)
+    addHelpOut(db, anna, krippe, 2026, 10)
+    // M (until 16:00) as a help-out in the Krippe; only the home facility closed at 14:00.
+    applyToCells(db, leitungB, krippe, [{ employeeId: anna, date: '2026-10-06' }], 'replace',
+      { kind: 'shift', templateId: templateId(db, 'M', krippe) })
+    createEarlyClosure(db, 1, { date: '2026-10-06', closedFrom: 840, reason: 'Personalausfall' })
+    record('2026-10-06', 465, 845)
+    expect(day('2026-10-06').earlyMinutes).toBe(115)
+    createEarlyClosure(db, krippe, { date: '2026-10-06', closedFrom: 840, reason: 'Personalausfall' })
+    expect(day('2026-10-06').earlyMinutes).toBeNull()
   })
 
   it('never puts the marks into the staff member\'s own time view', () => {

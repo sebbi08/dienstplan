@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, isNull, lt, lte } from 'drizzle-orm'
 import type { ActualTime } from '../../shared/domain/balance'
-import { computeDay, hasPlannedDuty, usesRecords } from '../../shared/domain/balance'
+import { computeDay, hasPlannedDuty, isWorkEntry, usesRecords } from '../../shared/domain/balance'
 import { cellKey } from '../../shared/domain/cells'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
@@ -12,9 +12,9 @@ import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { timeWarnings } from '../../shared/domain/warnings'
-import type { OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
+import type { EntryDto, OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
+import { earlyClosures, employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom, getTimeTrackingFrom } from './appSettings'
 import { loadSickLeaves, sickLeaveDates, sickLeavesByCell } from './earlySickLeaves'
@@ -210,6 +210,14 @@ export function getTimeMonth(
     .map(row => [row.date, row.note]))
   const sickLeaves = sickLeavesByCell(loadSickLeaves(db, [employeeId], monthStart, monthEnd))
   const markSettings = getTimeMarkSettings(db, facilityId)
+  // "Frühere Schließung" of any facility in the month: the day's last duty ends at its facility's closing time at the latest.
+  const closings = new Map(db.select().from(earlyClosures)
+    .where(and(gte(earlyClosures.date, monthStart), lte(earlyClosures.date, monthEnd))).all()
+    .map(row => [`${row.facilityId}:${row.date}`, row.closedFrom]))
+  const closedFromOfLastDuty = (dayEntries: EntryDto[], date: IsoDate): Minutes | null => {
+    const last = dayEntries.filter(entry => isWorkEntry(entry) && entry.end !== null).sort((a, b) => b.end! - a.end!)[0]
+    return last ? closings.get(`${last.helpFacilityId ?? facilityId}:${date}`) ?? null : null
+  }
 
   const days = monthDates(year, month).map((date) => {
     const dayEntries = entriesByDate.get(date) ?? []
@@ -227,7 +235,7 @@ export function getTimeMonth(
     const marks = actual !== undefined && actual.from <= date && date <= today && isEmployedOn(employee.info, date)
       ? dayMarks(dayEntries, records, {
           tolerance: markSettings.toleranceMinutes, markEarly: markSettings.markEarlyLeave && !sickLeave,
-          now: date === today ? nowMinutes : null,
+          now: date === today ? nowMinutes : null, closedFrom: closedFromOfLastDuty(dayEntries, date),
         })
       : { lateMinutes: null, earlyMinutes: null }
     return {

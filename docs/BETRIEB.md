@@ -794,6 +794,9 @@ gegangen ist, als es im Dienstplan steht:
   Schließtag, solange jemand noch eingestempelt ist, und für „früher gegangen“ an Tagen mit „Im Dienst erkrankt“.
 - **Heute**: „zu spät“ erscheint gleich nach dem Einstempeln, „früher gegangen“ erst nach dem geplanten Dienstende
   (vorher könnte die Person nur in der Pause sein).
+- **Frühere Schließung**: Hat die Einrichtung an dem Tag früher geschlossen, endet der Dienst für „früher gegangen“
+  spätestens mit der Schließzeit (bei einer Aushilfe zählt die Schließung der Einrichtung, in der der letzte Dienst
+  des Tages liegt). Wer zur Schließzeit geht (abzüglich Kulanz), wird nicht markiert.
 - **Korrekturen zählen**: Ändert die Leitung eine Stempelzeit, gilt sofort die geänderte Zeit.
 - **Monatssumme** unter der Tabelle: „2× zu spät, zusammen 25 Min.“ und „1× früher gegangen, zusammen 30 Min.“.
 
