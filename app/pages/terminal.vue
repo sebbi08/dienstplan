@@ -116,7 +116,7 @@ async function openChildren() {
   <div class="mx-auto max-w-3xl space-y-4">
     <template v-if="mode === 'start'">
       <h1 class="text-2xl font-semibold">{{ de.terminal.startTitle }}</h1>
-      <div class="grid gap-4 sm:grid-cols-2">
+      <div class="grid gap-4 sm:grid-cols-3">
         <button
           type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
           @click="setMode('stamp')"
@@ -131,6 +131,13 @@ async function openChildren() {
           <UIcon name="i-lucide-baby" class="size-12 text-sky-700" />
           {{ de.terminal.childrenTitle }}
         </button>
+        <!-- Blank forms to print: no child data, so no PIN is needed. -->
+        <NuxtLink
+          to="/templates" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+        >
+          <UIcon name="i-lucide-printer" class="size-12 text-sky-700" />
+          {{ de.terminal.templatesTitle }}
+        </NuxtLink>
       </div>
     </template>
 

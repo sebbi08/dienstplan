@@ -9,7 +9,8 @@ import { childDocuments, children, documentTypes, users } from '../db/schema'
 import { assertGroupRight, loadChild, loadEditableChild, seesGroup } from '../lib/childRecord'
 import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
-import { DOCUMENT_EXTENSIONS, MAX_DOCUMENT_BYTES, detectDocumentMime, type DocumentMime } from '../lib/fileSignature'
+import { safeFileNamePart } from '../lib/fileName'
+import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
 import { settleDue } from './childGroupChanges'
 import { settleDocumentReview, staleContractTypes, staleRequiredTypes } from './documentReview'
 import { assertDocumentType, listDocumentTypes } from './documentTypes'
@@ -53,9 +54,7 @@ export function uploadDocument(
   file: { data: Buffer; filename: string }, today: IsoDate, now: Date = new Date(),
 ): number {
   loadEditableChild(db, actor, facilityId, childId, today, now)
-  if (file.data.length > MAX_DOCUMENT_BYTES) throw new ServiceError(413, 'document_too_large')
-  const mimeType = detectDocumentMime(file.data)
-  if (mimeType === null) throw new ServiceError(400, 'document_type_invalid')
+  const mimeType = checkedDocumentFile(file.data)
   const checked = checkedMeta(db, facilityId, meta)
   return db.transaction((tx) => {
     // A change whose day has come is applied first: its documents marker is set (or not) before this upload counts.
@@ -110,17 +109,6 @@ export function listDocuments(
     uploadedAt: row.uploadedAt,
     canOpen: mayOpen(viewer, row),
   }))
-}
-
-/** Only letters, digits, dot and dash; umlauts are spelled out, everything else becomes a dash. */
-function safeFileNamePart(text: string): string {
-  return text
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
-    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue').replace(/ß/g, 'ss')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9.-]+/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
 }
 
 /**

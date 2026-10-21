@@ -851,3 +851,20 @@ export const groupBookChanges = sqliteTable('group_book_changes', {
   changedByEmployeeId: integer('changed_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
   changedByName: text('changed_by_name').notNull(),
 }, table => [index('group_book_changes_group_date').on(table.groupId, table.date)])
+
+/**
+ * A blank PDF form (Vorlage) to open and print: of one facility, or for all facilities (`facilityId` null, only the
+ * Träger maintains those). `uploadedAt` is the first upload, `updatedAt` the last change of title, category or file.
+ */
+export const printTemplates = sqliteTable('print_templates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').references(() => facilities.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  category: text('category').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  uploadedAt: text('uploaded_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [index('print_templates_facility').on(table.facilityId)])

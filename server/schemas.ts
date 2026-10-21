@@ -316,6 +316,11 @@ export const childDocumentSchema = z.object({
   confidential: z.boolean(),
 })
 export const fileQuery = z.object({ download: z.enum(['1']).optional() })
+// Print templates: the form fields of the upload (multipart, so all text) and the change of title and category.
+export const printTemplateSchema = z.object({ title: z.string().max(200), category: z.string().max(60) })
+export const printTemplateFields = printTemplateSchema.extend({ scope: z.enum(['facility', 'all']).default('facility') })
+/** Replacing the file sends the file alone. */
+export const noFields = z.object({})
 
 // Child attendance: clock times are minutes of the day (0–1439); the rules (planned pickup, pickup person) are the service's,
 // so a missing planned pickup or pickup person passes here and gets the service's own hint.

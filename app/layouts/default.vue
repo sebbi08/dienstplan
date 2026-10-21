@@ -69,6 +69,8 @@ const links = computed(() => {
       { label: de.nav.sickDays, to: '/admin/sick-days' },
       // Mitarbeiter see the children only at the tablet, so only the managers get the menu entry.
       { label: de.nav.children, to: '/children' },
+      // Blank forms to print; the tablet reaches them from its start page, Mitarbeiter accounts not at all.
+      { label: de.nav.templates, to: '/templates' },
       { label: de.nav.calendar, to: '/admin/calendar' },
       { label: de.nav.users, to: '/admin/users' },
       { label: de.nav.settings, to: '/admin/settings' },

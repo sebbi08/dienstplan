@@ -162,8 +162,8 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 
 ### Kinder am Tablet
 
-- Auf der Startseite des Tablets gibt es zwei Knöpfe: **Stempeln** und **Kinder**. Unter „Kinder“ tippt die
-  Person ihren Namen an und gibt ihre PIN ein; danach ist das Tablet für sie **aufgeschlossen**. Oben steht
+- Auf der Startseite des Tablets gibt es drei Knöpfe: **Stempeln**, **Kinder** und **Vorlagen** (siehe Abschnitt 19).
+  Unter „Kinder“ tippt die Person ihren Namen an und gibt ihre PIN ein; danach ist das Tablet für sie **aufgeschlossen**. Oben steht
   „Aufgeschlossen: ‹Name›“ mit dem Knopf **Sperren**.
 - Für den Zugang braucht jeder Mitarbeiter eine **PIN**. Die vergibt die Leitung wie fürs Stempeln (unter
   *Mitarbeiter*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Nach 5
@@ -809,3 +809,24 @@ gegangen ist, als es im Dienstplan steht:
 Die Einstellungen gelten sofort für alle angezeigten Monate, auch für frühere. **Nur Leitung und Träger** sehen die
 Markierungen. Mitarbeiter sehen sie in der App nirgends, auch nicht unter „Meine Zeit“ – nur auf einem Stundenzettel,
 den die Leitung ausdruckt und ihnen gibt, stehen sie mit drauf.
+
+## 19. Vorlagen (leere Formulare zum Ausdrucken)
+
+Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,
+Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
+
+- **Hochladen**: Leitung und Träger öffnen im Menü **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt sind nur
+  **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
+  **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist frei wählbar; die App
+  schlägt die schon benutzten vor (und „Eltern“, „Gesundheit“, „Personal“). Ohne Kategorie landet die Vorlage unter
+  „Sonstiges“.
+- **Für wen**: Die **Leitung** lädt Vorlagen für die **eigene Einrichtung** hoch. Der **Träger** wählt beim Hochladen
+  „nur ‹Einrichtung›“ (die oben gewählte) oder **„alle Einrichtungen“**. Jede Einrichtung sieht ihre eigenen Vorlagen und
+  die für alle Einrichtungen; diese sind mit **„alle Einrichtungen“** markiert.
+- **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
+  **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
+- **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
+- **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**. Dort lassen sich alle Vorlagen der
+  Einrichtung öffnen und drucken – **ohne PIN**, weil darin keine Daten von Kindern stehen. Hochladen und ändern geht am
+  Tablet nicht.
+- **Nicht auf dem Handy**: Mitarbeiter sehen die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) nicht.

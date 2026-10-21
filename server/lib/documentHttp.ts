@@ -1,3 +1,4 @@
+import type { z } from 'zod'
 import type { ChildDocumentMeta } from '../../shared/types/api'
 import { childDocumentFields } from '../schemas'
 import { ServiceError } from './errors'
@@ -22,17 +23,27 @@ export interface UploadPart {
   data: Buffer
 }
 
-/** The file (400 file_required) and the document fields (400 invalid_input) of a multipart upload. */
-export function parseUploadForm(parts: UploadPart[]): { file: { data: Buffer; filename: string }; meta: ChildDocumentMeta } {
+/**
+ * The file (400 file_required) and the form fields of a multipart upload, checked with `schema` (400 invalid_input).
+ */
+export function parseUploadParts<T>(
+  parts: UploadPart[], schema: z.ZodType<T>,
+): { file: { data: Buffer; filename: string }; fields: T } {
   const file = parts.find(part => part.name === 'file' && part.filename !== undefined)
   if (!file) throw new ServiceError(400, 'file_required')
-  const fields = childDocumentFields.safeParse(Object.fromEntries(
+  const fields = schema.safeParse(Object.fromEntries(
     parts.filter(part => part.filename === undefined && part.name !== undefined)
       .map(part => [part.name, part.data.toString('utf8')]),
   ))
   if (!fields.success) throw new ServiceError(400, 'invalid_input')
-  const { typeId, title, documentDate, confidential } = fields.data
-  return { file: { data: file.data, filename: file.filename ?? '' }, meta: { typeId, title, documentDate, confidential } }
+  return { file: { data: file.data, filename: file.filename ?? '' }, fields: fields.data }
+}
+
+/** The file and the document fields of a child document upload. */
+export function parseUploadForm(parts: UploadPart[]): { file: { data: Buffer; filename: string }; meta: ChildDocumentMeta } {
+  const { file, fields } = parseUploadParts(parts, childDocumentFields)
+  const { typeId, title, documentDate, confidential } = fields
+  return { file, meta: { typeId, title, documentDate, confidential } }
 }
 
 /**

@@ -3,6 +3,7 @@ import { PAGE_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { isManager } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
+import { templateReaderFacility } from '../services/printTemplates'
 import { resolveChildViewer } from '../services/tabletUnlock'
 import { asChildEditor, asChildManager, type ChildActor, type ChildViewer } from '../lib/childViewer'
 import { assertPageFacility } from '../lib/pageFacility'
@@ -65,6 +66,17 @@ export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
   checkPageFacility(event, user)
   return user
+}
+
+/**
+ * Whoever opens the print templates (blank forms, no child data): Träger and Leitung in their (active) facility, and the
+ * facility's tablet without unlocking it. A Mitarbeiter account gets 403 forbidden.
+ */
+export async function requireTemplateReader(event: H3Event): Promise<FacilityUser> {
+  const user = await requireUser(event, { allowTerminal: true })
+  const facilityId = templateReaderFacility(user)
+  checkPageFacility(event, user)
+  return { ...user, facilityId }
 }
 
 /** The tablet's unlock token, kept in the server-only part of the session (never sent to the browser). */

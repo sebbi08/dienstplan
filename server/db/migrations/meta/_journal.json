@@ -344,6 +344,13 @@
       "when": 1792562406623,
       "tag": "0048_time_marks",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1792574342528,
+      "tag": "0049_print_templates",
+      "breakpoints": true
     }
   ]
 }

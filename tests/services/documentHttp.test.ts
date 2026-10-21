@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { assertUploadLength, documentDownload, documentResponseHeaders, parseUploadForm, type UploadPart } from '../../server/lib/documentHttp'
+import {
+  assertUploadLength, documentDownload, documentResponseHeaders, parseUploadForm, parseUploadParts, type UploadPart,
+} from '../../server/lib/documentHttp'
+import { noFields, printTemplateFields } from '../../server/schemas'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import { errorCode } from '../helpers/fixtures'
 
@@ -96,5 +99,24 @@ describe('parseUploadForm', () => {
     expect(errorCode(() => parseUploadForm(replaced('documentDate', '2026-02-30')))).toBe('invalid_input')
     expect(errorCode(() => parseUploadForm(replaced('typeId', 'abc')))).toBe('invalid_input')
     expect(errorCode(() => parseUploadForm(replaced('title', 'x'.repeat(201))))).toBe('invalid_input')
+  })
+})
+
+describe('parseUploadParts for print templates', () => {
+  const text = (name: string, value: string): UploadPart => ({ name, data: Buffer.from(value) })
+  const file: UploadPart = { name: 'file', filename: 'Elternbrief.pdf', data: Buffer.from('%PDF-1.7') }
+  const parse = (parts: UploadPart[]) => parseUploadParts(parts, printTemplateFields)
+
+  it('reads title, category and scope, the facility being the default scope', () => {
+    expect(parse([file, text('title', 'Brief'), text('category', 'Eltern'), text('scope', 'all')]).fields)
+      .toEqual({ title: 'Brief', category: 'Eltern', scope: 'all' })
+    expect(parse([file, text('title', 'Brief'), text('category', '')]).fields.scope).toBe('facility')
+  })
+
+  it('needs the file and well-formed fields', () => {
+    expect(errorCode(() => parse([text('title', 'Brief'), text('category', '')]))).toBe('file_required')
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('category', ''), text('scope', 'mine')]))).toBe('invalid_input')
+    expect(errorCode(() => parse([file, text('title', 'x'.repeat(201)), text('category', '')]))).toBe('invalid_input')
+    expect(parseUploadParts([file], noFields).file.filename).toBe('Elternbrief.pdf')
   })
 })

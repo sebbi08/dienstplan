@@ -88,6 +88,11 @@ const CHILD_MANAGER_ROUTES = [
   'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
   'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts',
 ]
+/**
+ * The print templates to open: Träger, Leitung and the tablet (no unlock, they are no child data), never a Mitarbeiter
+ * account; they must check with requireTemplateReader(. Uploading and changing them is requireAdmin(.
+ */
+const TEMPLATE_READER_ROUTES = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts']
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 
@@ -105,7 +110,7 @@ describe('API route permissions', () => {
     expect(routes.length).toBeGreaterThan(30)
     const others = [
       ...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...CHILD_READER_ROUTES, ...CHILD_EDITOR_ROUTES,
-      ...CHILD_MANAGER_ROUTES, ...PUBLIC_ROUTES,
+      ...CHILD_MANAGER_ROUTES, ...TEMPLATE_READER_ROUTES, ...PUBLIC_ROUTES,
     ]
     for (const route of others) expect(routes).toContain(route)
     for (const route of ADMIN_ROUTES) {
@@ -117,7 +122,10 @@ describe('API route permissions', () => {
   it.each(routes)('%s is protected as classified', (route) => {
     const code = source(route)
     if (PUBLIC_ROUTES.includes(route)) {
-      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code).not.toMatch(/require(Admin|User|Terminal|Provider|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
+    }
+    else if (TEMPLATE_READER_ROUTES.includes(route)) {
+      expect(code).toContain('requireTemplateReader(')
     }
     else if (CHILD_READER_ROUTES.includes(route)) {
       expect(code).toContain('requireChildReader(')
@@ -249,6 +257,26 @@ describe('API route permissions', () => {
     expect(code).toContain('requireChildManager(')
     expect(code).not.toMatch(/require(User|Admin|Provider|Terminal|ChildReader|ChildEditor)\(/)
     expect(code).toContain('manager.facilityId')
+  })
+
+  it('lets the tablet open the print templates, but only managers of the active facility change them', () => {
+    const touching = routes.filter(route => /^print-templates\//.test(route) || source(route).includes('services/printTemplates\''))
+    expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
+      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      if (TEMPLATE_READER_ROUTES.includes(route)) {
+        expect(code, route).toContain('requireTemplateReader(')
+        expect(code, route).not.toMatch(/require(User|Admin|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+      }
+      else {
+        expect(code, route).toContain('requireAdmin(')
+        expect(code, route).not.toMatch(/require(User|Provider|Terminal|TemplateReader|ChildReader|ChildEditor|ChildManager)\(/)
+      }
+    }
+    // The guard admits the tablet without an unlock, and decides the rest with the tested service function.
+    const auth = readFileSync(join(process.cwd(), 'server', 'utils', 'auth.ts'), 'utf8')
+    expect(auth).toMatch(/requireTemplateReader[\s\S]*?allowTerminal: true[\s\S]*?templateReaderFacility\(user\)/)
   })
 
   it('keeps the tablet\'s unlock token in the server-only part of the session', () => {

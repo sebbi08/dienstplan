@@ -25,6 +25,7 @@ export const de = {
     settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
+    templates: 'Vorlagen',
   },
   leavePlanning: {
     title: 'Urlaubsplanung', countRow: 'im Urlaub',
@@ -139,7 +140,7 @@ export const de = {
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
-    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', toStart: 'Startseite',
+    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Vorlagen', toStart: 'Startseite',
     chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
     unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
   },
@@ -597,6 +598,18 @@ export const de = {
     // Document viewer and photo upload at the tablet.
     viewerFailed: 'Das Dokument konnte nicht angezeigt werden.', viewerLoading: 'Das Dokument wird geladen …', takePhoto: 'Foto aufnehmen',
     photoChosen: (name: string) => `Foto ausgewählt: ${name}`,
+  },
+  printTemplates: {
+    title: 'Vorlagen',
+    intro: 'Leere Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
+    none: 'Es gibt noch keine Vorlagen.',
+    upload: 'Vorlage hochladen', edit: 'Vorlage bearbeiten', open: 'Öffnen',
+    file: 'Datei (nur PDF, höchstens 10 MB)', replaceFile: 'Datei ersetzen (freiwillig, nur PDF)',
+    name: 'Titel', category: 'Kategorie', categoryHint: 'Leer = „Sonstiges“',
+    scope: 'Gilt für', scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'alle Einrichtungen',
+    global: 'alle Einrichtungen', globalHint: 'Vom Träger für alle Einrichtungen – nur der Träger kann sie ändern.',
+    uploadedAt: (date: string) => `hochgeladen am ${date}`, updatedAt: (date: string) => `geändert am ${date}`,
+    confirmDelete: (title: string) => `Die Vorlage „${title}“ wirklich löschen?`,
   },
   parentMeetings: {
     // The kinds of a parent meeting (record section, overview sheet, reminders).
@@ -1074,6 +1087,9 @@ export const de = {
     document_type_invalid: 'Es sind nur PDF-, JPEG- und PNG-Dateien erlaubt.',
     document_too_large: 'Die Datei ist größer als 10 MB.',
     file_required: 'Bitte eine Datei auswählen.',
+    print_template_type_invalid: 'Als Vorlage sind nur PDF-Dateien erlaubt.',
+    print_template_not_found: 'Diese Vorlage gibt es nicht (mehr).',
+    print_template_title_required: 'Bitte einen Titel für die Vorlage angeben.',
     invalid_input: 'Die Angaben sind unvollständig oder ungültig. Bitte prüfe sie.',
     planned_pickup_required: 'Bitte trag ein, wann das Kind abgeholt wird.',
     already_present: 'Das Kind ist schon eingestempelt.',

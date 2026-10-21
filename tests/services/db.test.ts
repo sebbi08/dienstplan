@@ -7,7 +7,8 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
 import {
-  absenceCodes, childDevelopmentDocs, childParentMeetings, children, coverageRules, employees, shiftTemplates, terminalUnlocks, users,
+  absenceCodes, childDevelopmentDocs, childParentMeetings, children, coverageRules, employees, printTemplates, shiftTemplates,
+  terminalUnlocks, users,
 } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
@@ -1170,6 +1171,43 @@ describe('upgrading a filled database through migrateDb', () => {
     ])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
       .map(({ mark_tolerance_minutes: _tolerance, mark_early_leave: _early, ...rest }) => rest)).toEqual(before)
+  })
+
+  it('0049 adds the empty print templates with their index and references, and keeps the facilities', () => {
+    const { db, sqlite } = databaseAt('0048')
+    sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)
+    const before = sqlite.prepare('SELECT * FROM facilities ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all()).toEqual(before)
+    expect(count(sqlite, 'print_templates')).toBe(0)
+    expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
+      .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
+      .toEqual([
+        ['id', 1], ['facility_id', 0], ['title', 1], ['category', 1], ['mime_type', 1], ['size', 1], ['data', 1],
+        ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1],
+      ])
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates'`).all())
+      .toEqual([{ name: 'print_templates_facility' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_list(print_templates)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { table: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
+    ])
+  })
+
+  it('print_templates keep their file when the uploader is deleted', () => {
+    const db = createTestDb()
+    const user = addUser(db, 'leitung', 'admin')
+    db.insert(printTemplates).values({
+      facilityId: 1, title: 'Elternbrief', category: 'Eltern', mimeType: 'application/pdf', size: 5, data: Buffer.from('%PDF-'),
+      uploadedBy: user.id, uploadedAt: '2026-10-21T08:00:00.000Z', updatedAt: '2026-10-21T08:00:00.000Z',
+    }).run()
+    db.delete(users).where(eq(users.id, user.id)).run()
+    expect(db.select({ title: printTemplates.title, uploadedBy: printTemplates.uploadedBy }).from(printTemplates).all())
+      .toEqual([{ title: 'Elternbrief', uploadedBy: null }])
   })
 
   it('child_parent_meetings rows go with their child and keep the name when the person is deleted', () => {

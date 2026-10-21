@@ -531,6 +531,29 @@ export interface ChildDocumentMeta {
   confidential: boolean
 }
 
+/** Where a new print template applies: the facility the uploader works in, or every facility (Träger only). */
+export type PrintTemplateScope = 'facility' | 'all'
+
+/** What the user enters about a print template (the file comes with the upload). Empty category = „Sonstiges“. */
+export interface PrintTemplateMeta {
+  title: string
+  category: string
+}
+
+/** A blank PDF form to open and print (the file itself is served separately). */
+export interface PrintTemplateDto {
+  id: number
+  title: string
+  category: string
+  /** For all facilities (maintained by the Träger). */
+  global: boolean
+  size: number
+  uploadedAt: string
+  updatedAt: string
+  /** Whether the viewer may rename, replace and delete it. */
+  canEdit: boolean
+}
+
 /** Completeness view: active children against the important document types. */
 export interface DocumentOverviewDto {
   /** The important types in the facility's order. */
