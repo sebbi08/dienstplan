@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
+import { todayIso } from '../../shared/domain/dates'
 import { groupRight } from '../../shared/domain/groupAccess'
 import { isManager } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
@@ -12,6 +13,7 @@ import {
 import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
+import { isStaffingGroupType } from './staffing'
 
 /** A stored colour key, null for none or a key no longer in the palette. */
 export const groupColor = (value: string | null): GroupColor | null => (value !== null && isGroupColor(value) ? value : null)
@@ -19,7 +21,7 @@ export const groupColor = (value: string | null): GroupColor | null => (value !=
 function toDto(row: typeof groups.$inferSelect): GroupDto {
   return {
     id: row.id, name: row.name, sortOrder: row.sortOrder, capacity: row.capacity, forSchoolChildren: row.forSchoolChildren,
-    color: groupColor(row.color),
+    color: groupColor(row.color), groupType: row.groupType,
   }
 }
 
@@ -112,6 +114,17 @@ export function setGroupColor(db: Db, facilityId: number, id: number, color: str
   assertGroup(db, facilityId, id)
   if (color !== null && !isGroupColor(color)) throw new ServiceError(400, 'invalid_group_color')
   db.update(groups).set({ color }).where(eq(groups.id, id)).run()
+}
+
+/**
+ * Sets the group type (Gruppenart) of the staffing ratio of a group of the facility: a key of the group types of the
+ * facility's rules valid today (400 staffing_group_type_invalid otherwise, also in states without group types);
+ * null = none. 404 group_not_found for a group of another facility.
+ */
+export function setGroupType(db: Db, facilityId: number, id: number, groupType: string | null, today: IsoDate = todayIso()): void {
+  assertGroup(db, facilityId, id)
+  if (!isStaffingGroupType(db, facilityId, groupType, today)) throw new ServiceError(400, 'staffing_group_type_invalid')
+  db.update(groups).set({ groupType }).where(eq(groups.id, id)).run()
 }
 
 /**

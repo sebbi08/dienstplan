@@ -70,6 +70,9 @@ export const employeeCreateSchema = z.object({
 export const employeeUpdateSchema = z.object({
   name: label, shortName: z.string().max(10), leftOn: isoDate.nullable(), groupId: groupIdSchema.optional(),
   birthday: z.string().max(10).nullable().optional(),
+  // Staffing ratio; left out = unchanged, checked by the service (qualification_invalid, staffing_share_invalid).
+  qualification: z.string().max(20).nullable().optional(),
+  staffingShare: z.number().nullable().optional(),
 })
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
 export const hoursSchema = z.object({ weeklyMinutes, validFrom: isoDate, workdays: workdays.optional() })
@@ -151,6 +154,15 @@ export const childFacilitySchema = z.object({ facilityId: z.number().int().posit
 export const childLeaveSchema = z.object({ leftOn: isoDate })
 /** The range (whole years 1-10) is checked by the service, which answers invalid_retention. */
 export const childRetentionSchema = z.object({ years: z.number() })
+/**
+ * The Träger's staffing overrides, path → number; the service checks the paths and the values (staffing_override_invalid)
+ * and whether the rules stay usable (staffing_rules_invalid).
+ */
+export const staffingOverridesSchema = z.object({ overrides: z.record(z.string().max(200), z.unknown()) })
+/** „Auf Vorgabe zurücksetzen“: without `path` every override goes, with it only that one. */
+export const staffingResetQuery = z.object({ path: z.string().max(200).optional() })
+/** A key of the state's group types (null = none); the service answers staffing_group_type_invalid for any other. */
+export const groupTypeSchema = z.object({ groupType: z.string().max(40).nullable() })
 /** Query of the retention preview; out-of-range values answer 400 as for any invalid query. */
 export const childRetentionPreviewQuery = z.object({ years: z.coerce.number().int().min(1).max(10) })
 export const helpOutSchema = z.object({
@@ -214,6 +226,8 @@ export const careTypeSchema = z.object({
   start: z.number().int(),
   end: z.number().int(),
   sortOrder: z.number().int().min(0).max(10000),
+  // 1–7, checked by the service (care_type_invalid_days); left out = 5 for a new care type, unchanged on update.
+  daysPerWeek: z.number().optional(),
 })
 export const documentTypeSchema = z.object({
   name: z.string().max(80),

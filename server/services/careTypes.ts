@@ -8,7 +8,14 @@ import { uniqueName } from '../lib/uniqueName'
 const DAY_MINUTES = 24 * 60
 
 function toDto(row: typeof careTypes.$inferSelect): CareTypeDto {
-  return { id: row.id, name: row.name, start: row.start, end: row.end, sortOrder: row.sortOrder }
+  return { id: row.id, name: row.name, start: row.start, end: row.end, sortOrder: row.sortOrder, daysPerWeek: row.daysPerWeek }
+}
+
+/** Care days per week: a whole number 1–7 (400 care_type_invalid_days); left out = `fallback`. */
+function checkedDays(days: number | undefined, fallback: number): number {
+  if (days === undefined) return fallback
+  if (!Number.isInteger(days) || days < 1 || days > 7) throw new ServiceError(400, 'care_type_invalid_days')
+  return days
 }
 
 /** The facility's care types in their order. */
@@ -46,18 +53,21 @@ function checkedTimes(input: CareTypeInput): void {
 export function createCareType(db: Db, facilityId: number, input: CareTypeInput): CareTypeDto {
   const name = checkedName(db, facilityId, input.name)
   checkedTimes(input)
+  const daysPerWeek = checkedDays(input.daysPerWeek, 5)
   const sortOrder = (db.select({ value: max(careTypes.sortOrder) }).from(careTypes)
     .where(eq(careTypes.facilityId, facilityId)).get()?.value ?? -1) + 1
-  return toDto(db.insert(careTypes).values({ facilityId, name, start: input.start, end: input.end, sortOrder })
+  return toDto(db.insert(careTypes).values({ facilityId, name, start: input.start, end: input.end, sortOrder, daysPerWeek })
     .returning().get())
 }
 
+/** Updates a care type; daysPerWeek left out keeps the stored days. */
 export function updateCareType(db: Db, facilityId: number, id: number, input: CareTypeInput): CareTypeDto {
   assertCareType(db, facilityId, id)
   const name = checkedName(db, facilityId, input.name, id)
   checkedTimes(input)
+  const days = input.daysPerWeek === undefined ? {} : { daysPerWeek: checkedDays(input.daysPerWeek, 5) }
   return toDto(db.update(careTypes)
-    .set({ name, start: input.start, end: input.end, sortOrder: input.sortOrder })
+    .set({ name, start: input.start, end: input.end, sortOrder: input.sortOrder, ...days })
     .where(eq(careTypes.id, id)).returning().get())
 }
 

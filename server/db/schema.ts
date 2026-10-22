@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { GermanState } from '../../shared/domain/states'
+import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import { MEETING_KINDS } from '../../shared/types/api'
 
 /**
@@ -85,6 +86,8 @@ export const groups = sqliteTable('groups', {
   minAtClosing: integer('min_at_closing').notNull().default(1),
   /** Palette key of the group's colour in the year calendar (see GROUP_COLORS; null = no colour). */
   color: text('color'),
+  /** Group type (Gruppenart) of the staffing ratio, a key of the state's groupTypes (null = not entered). */
+  groupType: text('group_type'),
   /** Development documentation (Entwicklungsdokumentation) of the group's children; see docSettings. */
   ...docSettings(),
 }, table => [index('groups_facility').on(table.facilityId)])
@@ -124,6 +127,10 @@ export const employees = sqliteTable('employees', {
   payLevel: integer('pay_level'),
   /** Birthday as `MM-DD` without a year (null = not given), for the reminders; never shown with a year or age. */
   birthday: text('birthday'),
+  /** Qualification for the staffing ratio (see shared/domain/staffing/types.ts; null = not entered yet). */
+  qualification: text('qualification', { enum: QUALIFICATIONS }),
+  /** Counting share for the staffing ratio in percent, 0–100 (null = the state's default for the qualification). */
+  staffingShare: integer('staffing_share'),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
@@ -503,6 +510,8 @@ export const careTypes = sqliteTable('care_types', {
   start: integer('start').notNull(),
   end: integer('end').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
+  /** Care days per week (1–7); with start and end it gives the child's weekly hours for the staffing ratio. */
+  daysPerWeek: integer('days_per_week').notNull().default(5),
 }, table => [index('care_types_facility').on(table.facilityId)])
 
 /** A kind of document in a child's record (Dokumentart); important/required drive the completeness view. */
@@ -868,3 +877,14 @@ export const printTemplates = sqliteTable('print_templates', {
   uploadedAt: text('uploaded_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 }, table => [index('print_templates_facility').on(table.facilityId)])
+
+/**
+ * The Träger's overrides of the state's staffing preset, one row per facility (no row = the preset as it is).
+ * `overrides` is JSON `{ [path]: { value, preset } }` (see shared/domain/staffing/overrides.ts).
+ */
+export const staffingOverrides = sqliteTable('staffing_overrides', {
+  facilityId: integer('facility_id').primaryKey().references(() => facilities.id, { onDelete: 'cascade' }),
+  overrides: text('overrides').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+})

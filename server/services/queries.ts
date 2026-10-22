@@ -1,5 +1,6 @@
 import { and, asc, eq, gte, inArray, isNull, lte, or, type SQL } from 'drizzle-orm'
 import { describeEntry } from '../../shared/domain/describe'
+import type { Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate } from '../../shared/domain/types'
@@ -49,6 +50,9 @@ export interface EmployeeRecord {
   breakMode: BreakMode
   /** Birthday as `MM-DD` without a year (null = not given). */
   birthday: string | null
+  /** Staffing ratio: qualification (null = not entered) and counting share in percent (null = the state's default). */
+  qualification: Qualification | null
+  staffingShare: number | null
 }
 
 /** Entries in the plan of facilityId (see `EntryFilter.planFacilityId`); needs `employees` joined on the entry's employee. */

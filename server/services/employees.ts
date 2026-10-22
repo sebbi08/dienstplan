@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNull, max, ne } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { isValidMonthDay } from '../../shared/domain/reminders'
+import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
 import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
@@ -52,7 +53,13 @@ export interface EmployeeUpdate {
   groupId?: number | null
   /** Birthday as `MM-DD` without a year (null = none); left out = unchanged. */
   birthday?: string | null
+  /** Qualification for the staffing ratio, one of QUALIFICATIONS (null = not entered); left out = unchanged. */
+  qualification?: string | null
+  /** Counting share in percent, a whole number 0–100 (null = the state's default); left out = unchanged. */
+  staffingShare?: number | null
 }
+
+const isQualification = (value: string): value is Qualification => (QUALIFICATIONS as readonly string[]).includes(value)
 
 /** Contract data for this viewer: always for the Träger, for the Leitung only when the Träger allows it. */
 function mayViewContract(db: Db, viewer: Role): boolean {
@@ -76,6 +83,7 @@ function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: bool
       ? workdaysOn(employee.info, today)
       : employee.info.hours[0]?.workdays ?? MONDAY_TO_FRIDAY,
     stampVia: employee.stampVia, breakMode: employee.breakMode, groupId: employee.groupId, birthday: employee.birthday,
+    qualification: employee.qualification, staffingShare: employee.staffingShare,
     ...(withContract ? { contract: contractOf(employee) } : {}),
   }
 }
@@ -148,19 +156,27 @@ export function createEmployee(db: Db, actor: SessionUser, facilityId: number, i
 }
 
 /**
- * Updates the master data; a birthday must be a valid `MM-DD` (29 February allowed), else 400 employee_birthday_invalid
- * and nothing changes.
+ * Updates the master data; a birthday must be a valid `MM-DD` (29 February allowed), else 400 employee_birthday_invalid,
+ * a qualification one of QUALIFICATIONS (400 qualification_invalid), a share a whole number 0–100 (400
+ * staffing_share_invalid); on any error nothing changes.
  */
 export function updateEmployee(db: Db, facilityId: number, id: number, update: EmployeeUpdate): void {
   assertEmployee(db, facilityId, id)
   const name = requireName(update.name)
   if (update.groupId !== undefined) assertGroup(db, facilityId, update.groupId)
   if (update.birthday != null && !isValidMonthDay(update.birthday)) throw new ServiceError(400, 'employee_birthday_invalid')
+  const { qualification, staffingShare } = update
+  if (qualification != null && !isQualification(qualification)) throw new ServiceError(400, 'qualification_invalid')
+  if (staffingShare != null && !(Number.isInteger(staffingShare) && staffingShare >= 0 && staffingShare <= 100)) {
+    throw new ServiceError(400, 'staffing_share_invalid')
+  }
   db.update(employees)
     .set({
       name, shortName: update.shortName.trim(), leftOn: update.leftOn,
       ...(update.groupId !== undefined ? { groupId: update.groupId } : {}),
       ...(update.birthday !== undefined ? { birthday: update.birthday } : {}),
+      ...(qualification !== undefined ? { qualification: qualification as Qualification | null } : {}),
+      ...(staffingShare !== undefined ? { staffingShare } : {}),
     })
     .where(eq(employees.id, id)).run()
 }

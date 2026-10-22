@@ -36,6 +36,8 @@ const PROVIDER_ROUTES = [
   'facilities/[id]/group-read-access.get.ts', 'children/[id]/facility.put.ts', 'child-retention.get.ts', 'child-retention.put.ts',
   'child-retention/preview.get.ts', 'school-settings.put.ts', 'facilities/[id]/capacity.put.ts',
   'school-settings/auto-leave.put.ts', 'school-settings/auto-leave-preview.get.ts', 'groups/[id]/school-children.put.ts',
+  // Staffing ratio: only the Träger changes the state's values (spec Personalschlüssel §5, Review Focus 4).
+  'staffing-settings.put.ts', 'staffing-settings.delete.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = [
@@ -48,6 +50,8 @@ const ADMIN_ROUTES = [
   'meals/index.get.ts', 'meals/index.post.ts', 'meals/[id].put.ts', 'meals/[id].delete.ts', 'meals/versions/[id].delete.ts',
   'reminder-settings.get.ts', 'reminder-settings.put.ts', 'groups/[id]/documentation.put.ts',
   'time-mark-settings.get.ts', 'time-mark-settings.put.ts',
+  // Staffing ratio: the Leitung reads the settings and sets the group type.
+  'staffing-settings.get.ts', 'groups/[id]/group-type.put.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -181,6 +185,22 @@ describe('API route permissions', () => {
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
       expect(code, route).toContain('admin.facilityId')
     }
+  })
+
+  it('lets only the Träger change the staffing overrides; managers read them in their active facility', () => {
+    const touching = routes.filter(route => source(route).includes('services/staffing\''))
+    expect(touching).toEqual(['staffing-settings.delete.ts', 'staffing-settings.get.ts', 'staffing-settings.put.ts'])
+    for (const route of ['staffing-settings.delete.ts', 'staffing-settings.put.ts']) {
+      const code = source(route)
+      expect(PROVIDER_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireProvider(')
+      expect(code, route).toContain('requireFacility(')
+      expect(code, route).not.toMatch(/require(Admin|User)\(/)
+    }
+    const read = source('staffing-settings.get.ts')
+    expect(ADMIN_ROUTES).toContain('staffing-settings.get.ts')
+    expect(read).toContain('requireAdmin(')
+    expect(read).toContain('admin.facilityId')
   })
 
   it('opens the reminder settings to managers of the active facility only', () => {

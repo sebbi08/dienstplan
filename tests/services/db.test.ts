@@ -116,9 +116,10 @@ describe('upgrading a filled database through migrateDb', () => {
   const NEW_CONSENT_COLUMNS = ['consent_signal_photos', 'consent_insect_repellent']
   const withoutOldConsent = (rows: unknown[]) =>
     (rows as Record<string, unknown>[]).map(({ consent_photos_whatsapp: _, ...rest }) => rest)
-  // Columns of `facilities`, `groups` and `employees` that 0044_reminders and 0045_doc_since add; the older tests compare rows without them.
+  // Columns of `facilities`, `groups`, `employees` and `care_types` that 0044_reminders, 0045_doc_since and 0050_staffing
+  // add; the older tests compare rows without them.
   const REMINDER_COLUMNS = ['doc_mode', 'doc_interval_months', 'doc_lead_weeks', 'birthday_lead_days', 'staff_birthday_lead_days',
-    'leaving_lead_weeks', 'birthday', 'doc_since']
+    'leaving_lead_weeks', 'birthday', 'doc_since', 'group_type', 'qualification', 'staffing_share', 'days_per_week']
   const withoutReminders = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !REMINDER_COLUMNS.includes(column))))
   // Columns of `facilities` that later migrations add (0046_facility_capacity: `capacity`, which `groups` has had long since;
@@ -1196,6 +1197,42 @@ describe('upgrading a filled database through migrateDb', () => {
       { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
       { table: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
     ])
+  })
+
+  it('0050 adds the staffing fields with their defaults and the empty overrides, and keeps every row', () => {
+    const { db, sqlite } = databaseAt('0049')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name) VALUES (1, 1, 'Bären'), (2, 2, 'Wichtel');
+      INSERT INTO employees (id, facility_id, name) VALUES (1, 1, 'Anna'), (2, 2, 'Berta');
+      INSERT INTO care_types (id, facility_id, name, start, "end") VALUES (1, 1, 'Ganztags', 420, 990);
+    `)
+    const rows = (table: string) => sqlite.prepare(`SELECT * FROM ${table} ORDER BY 1`).all() as Record<string, unknown>[]
+    const before = { facilities: rows('facilities'), groups: rows('groups'), employees: rows('employees'), careTypes: rows('care_types') }
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(rows('facilities')).toEqual(before.facilities)
+    expect(rows('groups').map(({ group_type: _type, ...rest }) => rest)).toEqual(before.groups)
+    expect(rows('employees').map(({ qualification: _q, staffing_share: _s, ...rest }) => rest)).toEqual(before.employees)
+    expect(rows('care_types').map(({ days_per_week: _d, ...rest }) => rest)).toEqual(before.careTypes)
+    expect(sqlite.prepare('SELECT id, group_type FROM groups ORDER BY id').all()).toEqual([
+      { id: 1, group_type: null }, { id: 2, group_type: null },
+    ])
+    expect(sqlite.prepare('SELECT id, qualification, staffing_share FROM employees ORDER BY id').all()).toEqual([
+      { id: 1, qualification: null, staffing_share: null }, { id: 2, qualification: null, staffing_share: null },
+    ])
+    expect(sqlite.prepare('SELECT days_per_week FROM care_types').all()).toEqual([{ days_per_week: 5 }])
+    sqlite.exec(`INSERT INTO care_types (facility_id, name, start, "end") VALUES (2, 'Vormittags', 450, 750)`)
+    expect(sqlite.prepare('SELECT days_per_week FROM care_types WHERE facility_id = 2').get()).toEqual({ days_per_week: 5 })
+    expect(count(sqlite, 'staffing_overrides')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_list(staffing_overrides)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { table: 'users', from: 'updated_by', on_delete: 'SET NULL' },
+    ])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {

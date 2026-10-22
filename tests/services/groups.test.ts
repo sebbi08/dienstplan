@@ -29,7 +29,7 @@ describe('groups of a facility', () => {
   it('creates groups in order and lists only the facility\'s own', () => {
     const krippe = addFacility(db, 'Krippe')
     const bears = createGroup(db, 1, '  Bären ')
-    expect(bears).toEqual({ id: bears.id, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false, color: null })
+    expect(bears).toEqual({ id: bears.id, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false, color: null, groupType: null })
     const mice = createGroup(db, 1, 'Mäuse')
     expect(mice.sortOrder).toBe(1)
     // The same name in another facility is fine: names are unique per facility.
@@ -130,7 +130,7 @@ describe('groups of a facility', () => {
     expect(errorCode(() => assertGroup(db, 1, 999))).toBe('group_not_found')
     expect(errorCode(() => assertGroup(db, 1, null))).toBeNull()
     expect(errorCode(() => assertGroup(db, krippe, foreign))).toBeNull()
-    expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0, capacity: null, forSchoolChildren: false, color: null }])
+    expect(listGroups(db, krippe)).toEqual([{ id: foreign, name: 'Igel', sortOrder: 0, capacity: null, forSchoolChildren: false, color: null, groupType: null }])
   })
 
   it('refuses to delete a group holding only a waitlist child', () => {
@@ -298,8 +298,8 @@ describe('group capacity', () => {
     expect(listGroups(db, 1).map(group => group.capacity)).toEqual([null, null])
     setGroupCapacity(db, 1, bears, 12)
     expect(listGroups(db, 1)).toEqual([
-      { id: bears, name: 'Bären', sortOrder: 0, capacity: 12, forSchoolChildren: false, color: null },
-      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null },
+      { id: bears, name: 'Bären', sortOrder: 0, capacity: 12, forSchoolChildren: false, color: null, groupType: null },
+      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null, groupType: null },
     ])
   })
 
@@ -313,8 +313,8 @@ describe('group capacity', () => {
     }
     for (const role of ['observer', 'terminal', null] as const) {
       expect(listChildGroups(db, viewer(role)), String(role)).toEqual([
-        { id: bears, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false, color: null, right: 'write' },
-        { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null, right: 'write' },
+        { id: bears, name: 'Bären', sortOrder: 0, capacity: null, forSchoolChildren: false, color: null, groupType: null, right: 'write' },
+        { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null, groupType: null, right: 'write' },
       ])
     }
   })
@@ -325,8 +325,8 @@ describe('group capacity', () => {
     const owls = addGroup(db, 1, 'Eulen')
     const anna = { facilityId: 1, role: 'terminal' as const, groups: { own: mice, readable: [owls] } }
     expect(listChildGroups(db, anna)).toEqual([
-      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null, right: 'write' },
-      { id: owls, name: 'Eulen', sortOrder: 2, capacity: null, forSchoolChildren: false, color: null, right: 'read' },
+      { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null, groupType: null, right: 'write' },
+      { id: owls, name: 'Eulen', sortOrder: 2, capacity: null, forSchoolChildren: false, color: null, groupType: null, right: 'read' },
     ])
     expect(listChildGroups(db, anna).some(group => group.id === bears)).toBe(false)
   })

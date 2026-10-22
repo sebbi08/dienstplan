@@ -6,6 +6,7 @@ import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
+import type { Confidence, Qualification, StaffingMethod, StaffingRuleSet } from '../domain/staffing/types'
 import type { GermanState } from '../domain/states'
 import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, PayGroup } from '../domain/tvoed'
@@ -75,6 +76,8 @@ export interface GroupDto {
   forSchoolChildren: boolean
   /** Colour of the group's people in the year calendar and the leave planning (null = none). */
   color: GroupColor | null
+  /** Group type (Gruppenart) of the staffing ratio, a key of the state's group types (null = not entered). */
+  groupType: string | null
 }
 
 /**
@@ -90,9 +93,12 @@ export interface CareTypeDto {
   start: Minutes
   end: Minutes
   sortOrder: number
+  /** Care days per week (1–7): the child's weekly hours = (end − start) × days. */
+  daysPerWeek: number
 }
 
-export type CareTypeInput = Omit<CareTypeDto, 'id'>
+/** daysPerWeek left out: 5 for a new care type, unchanged on update. */
+export type CareTypeInput = Omit<CareTypeDto, 'id' | 'daysPerWeek'> & { daysPerWeek?: number }
 
 /** A document type (Dokumentart) of a facility; important/required drive the completeness view. */
 export interface DocumentTypeDto {
@@ -943,6 +949,10 @@ export interface EmployeeListItemDto {
   groupId: number | null
   /** Birthday as MM-DD without a year (null = not given). */
   birthday: string | null
+  /** Qualification for the staffing ratio (null = not entered yet). */
+  qualification: Qualification | null
+  /** Counting share in percent, 0–100 (null = the state's default for the qualification). */
+  staffingShare: number | null
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
 }
@@ -1682,4 +1692,39 @@ export interface GroupBookChangeDto {
   after: string
   changedAt: string
   changedByName: string
+}
+
+/** One value of the staffing preset the Träger may change (see shared/domain/staffing/overrides.ts). */
+export interface StaffingValueDto {
+  path: string
+  /** The state's value in the version valid today. */
+  preset: number
+  /** The value that counts: the Träger's override, else the preset. */
+  value: number
+  overridden: boolean
+}
+
+/** Einstellungen → Personalschlüssel: the state's preset valid today, the Träger's overrides and the result. */
+export interface StaffingSettingsDto {
+  land: GermanState
+  validFrom: IsoDate
+  source: string
+  confidence: Confidence
+  note: string | null
+  method: StaffingMethod
+  /** false = presence rules only (HB): no monthly Soll/Ist. */
+  periodCheck: boolean
+  preset: StaffingRuleSet
+  /** The preset with the overrides that apply to it. */
+  effective: StaffingRuleSet
+  /** Every value the Träger may change, in the order of the rule set. */
+  values: StaffingValueDto[]
+  /** The stored overrides by path (also those that do not apply today, see `ignored`). */
+  overrides: Record<string, number>
+  /** Stored overrides the version valid today has no place for, or whose preset value the law changed since. */
+  ignored: string[]
+  /** Every version of the state's preset (oldest first), to show upcoming changes. */
+  versions: { validFrom: IsoDate; source: string; confidence: Confidence }[]
+  /** Only the Träger changes the values; the Leitung reads them. */
+  canEdit: boolean
 }

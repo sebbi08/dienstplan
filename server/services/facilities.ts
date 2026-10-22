@@ -9,6 +9,7 @@ import { bookFreedClosureDays } from './closures'
 import { facilityHolidayRules } from './holidayRules'
 import { seedDefaultMeals } from './meals'
 import { seedBuiltinRequirementTypes } from './requirements'
+import { adaptStaffingToState } from './staffing'
 
 const ordered = [asc(facilities.sortOrder), asc(facilities.id)]
 
@@ -118,7 +119,8 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW'):
 /**
  * The facility's name, state and Bavaria flag. The school cutoff and the automatic leaving are never touched here.
  * When the state or the flag changes, the facility's closures are booked on the days that are no holidays any more
- * (see bookFreedClosureDays), in the same transaction.
+ * (see bookFreedClosureDays), in the same transaction. A new state keeps only the staffing overrides that fit its preset
+ * and clears group types it does not know (see adaptStaffingToState).
  */
 export function updateFacility(
   db: Db, actor: SessionUser, id: number, input: { name: string; state: GermanState; assumptionDay: boolean }, now: Date = new Date(),
@@ -131,6 +133,7 @@ export function updateFacility(
     if (before.state !== input.state || before.assumptionDay !== input.assumptionDay) {
       bookFreedClosureDays(tx, actor, id, before, now)
     }
+    if (before.state !== input.state) adaptStaffingToState(tx, actor, id, input.state, now)
   })
 }
 

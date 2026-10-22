@@ -22,7 +22,7 @@ describe('employees service', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: 'AN', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     expect(listEmployees(db, 1, today, 'admin')).toEqual([
       { id, name: 'Anna', shortName: 'AN', sortOrder: 1, leftOn: null, currentWeeklyMinutes: 2340, currentWorkdays: 0b11111,
-        stampVia: 'both', breakMode: 'stamp', groupId: null, birthday: null },
+        stampVia: 'both', breakMode: 'stamp', groupId: null, birthday: null, qualification: null, staffingShare: null },
     ])
     expect(errorCode(() => createEmployee(db, admin, 1, { name: ' ', shortName: '', weeklyMinutes: 0, validFrom: '2026-01-01' }))).toBe('name_required')
   })
@@ -89,6 +89,33 @@ describe('employees service', () => {
     expect(getEmployee(db, 1, id, today, 'admin').birthday).toBe('12-31')
     updateEmployee(db, 1, id, { name: 'Anna B.', shortName: '', leftOn: null, birthday: null })
     expect(getEmployee(db, 1, id, today, 'admin').birthday).toBeNull()
+  })
+  it('stores qualification and counting share for the staffing ratio, keeps them when left out and clears them with null', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ qualification: null, staffingShare: null })
+    const base = { name: 'Anna', shortName: '', leftOn: null }
+    updateEmployee(db, 1, id, { ...base, qualification: 'azubi_2', staffingShare: 40 })
+    expect(listEmployees(db, 1, today, 'admin')[0]).toMatchObject({ qualification: 'azubi_2', staffingShare: 40 })
+    updateEmployee(db, 1, id, base)
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ qualification: 'azubi_2', staffingShare: 40 })
+    updateEmployee(db, 1, id, { ...base, staffingShare: 0 })
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ qualification: 'azubi_2', staffingShare: 0 })
+    updateEmployee(db, 1, id, { ...base, staffingShare: 100, qualification: 'fachkraft' })
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ qualification: 'fachkraft', staffingShare: 100 })
+    updateEmployee(db, 1, id, { ...base, qualification: null, staffingShare: null })
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ qualification: null, staffingShare: null })
+  })
+  it('refuses an unknown qualification and a share outside 0–100 % or not whole, and changes nothing', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const base = { name: 'Ben', shortName: '', leftOn: null }
+    updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, qualification: 'ergaenzung', staffingShare: 50 })
+    for (const qualification of ['', 'Fachkraft', 'azubi_4', 'leitung']) {
+      expect(errorCode(() => updateEmployee(db, 1, id, { ...base, qualification })), qualification).toBe('qualification_invalid')
+    }
+    for (const staffingShare of [-1, 101, 50.5, Number.NaN]) {
+      expect(errorCode(() => updateEmployee(db, 1, id, { ...base, staffingShare })), String(staffingShare)).toBe('staffing_share_invalid')
+    }
+    expect(getEmployee(db, 1, id, today, 'admin')).toMatchObject({ name: 'Anna', qualification: 'ergaenzung', staffingShare: 50 })
   })
   it('refuses a birthday that is no valid day and month and changes nothing', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
