@@ -32,6 +32,14 @@ export type Warning =
   | { type: 'missing_record'; date: IsoDate; employeeId: number }
   | { type: 'break_rule'; date: IsoDate; employeeId: number }
   | { type: 'record_without_plan'; date: IsoDate; employeeId: number }
+  /**
+   * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
+   * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.
+   */
+  | {
+    type: 'staffing'; date: IsoDate; groupId: number; groupName: string; from: Minutes; to: Minutes
+    have: number; need: number; fachkraft: boolean
+  }
 
 export interface EmployeeDay {
   employeeId: number

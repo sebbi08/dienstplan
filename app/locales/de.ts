@@ -278,6 +278,9 @@ export const de = {
     missingRecord: (name: string) => `${name}: keine Stempelzeit`,
     breakRule: (name: string) => `${name}: gesetzliche Pause nicht eingehalten`,
     recordWithoutPlan: (name: string) => `${name}: gestempelt ohne Dienst`,
+    /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
+    staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
+      `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
   },
   balances: {
     title: 'Stundenkonten', account: 'Stundenkonto', name: 'Mitarbeiter', weekly: 'Wochenstunden',

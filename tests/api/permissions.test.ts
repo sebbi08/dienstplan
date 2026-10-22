@@ -52,6 +52,8 @@ const ADMIN_ROUTES = [
   'time-mark-settings.get.ts', 'time-mark-settings.put.ts',
   // Staffing ratio: the Leitung reads the settings and sets the group type.
   'staffing-settings.get.ts', 'groups/[id]/group-type.put.ts',
+  // The monthly Personalschlüssel report of the active facility (Leitung and Träger).
+  'staffing/[year]/[month].get.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -201,6 +203,15 @@ describe('API route permissions', () => {
     expect(ADMIN_ROUTES).toContain('staffing-settings.get.ts')
     expect(read).toContain('requireAdmin(')
     expect(read).toContain('admin.facilityId')
+  })
+
+  it('opens the monthly staffing report to managers of the active facility only', () => {
+    const touching = routes.filter(route => source(route).includes('services/staffingReport\''))
+    expect(touching).toEqual(['staffing/[year]/[month].get.ts'])
+    const code = source('staffing/[year]/[month].get.ts')
+    expect(code).toContain('requireAdmin(')
+    expect(code).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+    expect(code).toContain('admin.facilityId')
   })
 
   it('opens the reminder settings to managers of the active facility only', () => {

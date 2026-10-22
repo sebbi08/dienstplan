@@ -6,7 +6,9 @@ import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
-import type { Confidence, Qualification, StaffingMethod, StaffingRuleSet } from '../domain/staffing/types'
+import type {
+  Confidence, Qualification, QuotaLine, RequirementLine, StaffingMethod, StaffingRuleSet,
+} from '../domain/staffing/types'
 import type { GermanState } from '../domain/states'
 import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, PayGroup } from '../domain/tvoed'
@@ -1744,4 +1746,55 @@ export interface StaffingSettingsDto {
   versions: { validFrom: IsoDate; source: string; confidence: Confidence }[]
   /** Only the Träger changes the values; the Leitung reads them. */
   canEdit: boolean
+}
+
+/** The figures of one row of the Personalschlüssel tab (a group, the row without a group, or the facility total). */
+export interface StaffingFiguresDto {
+  /** Contract children counted in the month as the Belegung counts them; `u3` = under 3 on the month's first day. */
+  children: { total: number; u3: number }
+  /** Soll: required full-time positions (sum of the counting lines) with every line, shown-only ones (Leitung) included. */
+  required: { fte: number; demandFte: number; fachkraftFte: number; lines: RequirementLine[] }
+  /** Ist: planned full-time positions of the month (planned working hours × counting share). */
+  planned: { fte: number; fachkraftFte: number; unqualifiedFte: number }
+  /** Ist − Soll. */
+  diff: number
+  /** Ist reaches Soll (tie-safe); null = nothing to check (presence-only state, or no care day in the month). */
+  ok: boolean | null
+  quotas: QuotaLine[]
+  /** Children no demand row matched (e.g. the group type is missing). */
+  unmatchedChildren: number
+  /** Names of the planned staff without a qualification (counted at their share, never as Fachkraft), sorted. */
+  staffWithoutQualification: string[]
+  /** Children without a care type: they do not count for the Soll. */
+  childrenWithoutCareType: number
+}
+
+export interface StaffingRowDto extends StaffingFiguresDto {
+  /** null = the children and duties without a group (only listed when there are some). */
+  groupId: number | null
+  /** The group's name; empty for the row without a group (the client labels it). */
+  name: string
+  groupType: string | null
+}
+
+/** The Personalschlüssel tab of a month: per group, the facility total and the state's rules that applied. */
+export interface StaffingMonthDto {
+  year: number
+  month: number
+  groups: StaffingRowDto[]
+  total: StaffingFiguresDto
+  meta: {
+    land: GermanState
+    /** The version of the state's preset valid on the month's first day. */
+    validFrom: IsoDate
+    source: string
+    confidence: Confidence
+    note: string | null
+    /** false = presence rules only (HB): no Soll/Ist. */
+    periodCheck: boolean
+    fteHoursPerWeek: number
+    /** Care days of the month (weekdays without public holidays and closures); weeks = careDays ÷ 5. */
+    careDays: number
+    weeks: number
+  }
 }

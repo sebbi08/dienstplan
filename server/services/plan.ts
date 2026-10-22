@@ -32,6 +32,7 @@ import {
   loadTemplates, ownCellFilter, type EmployeeRecord,
 } from './queries'
 import { buildSnapshot, loadReleases, type StoredRelease } from './release'
+import { staffingWarnings } from './staffingReport'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
 import { weekTemplateNames } from './weekTemplates'
 
@@ -107,6 +108,8 @@ function buildAdminData(
     }))
     return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, hours)
   })
+  // The state's presence rules (Personalschlüssel) per group and time of day.
+  warnings.push(...staffingWarnings(db, facilityId, year, month))
 
   const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staff.map(employee => employee.id), monthStart, monthEnd))
   const actuals: Record<string, ActualCellDto> = {}

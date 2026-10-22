@@ -17,7 +17,7 @@ export function indexWarnings(warnings: Warning[]): WarningIndex {
   const byDate = new Map<string, Warning[]>()
   for (const warning of warnings) {
     push(byDate, warning.date, warning)
-    if (warning.type !== 'coverage' && warning.type !== 'edge') push(byCell, cellKey(warning.employeeId, warning.date), warning)
+    if (warning.type !== 'coverage' && warning.type !== 'edge' && warning.type !== 'staffing') push(byCell, cellKey(warning.employeeId, warning.date), warning)
   }
   return { byCell, byDate }
 }
@@ -40,5 +40,9 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return de.warnings.breakRule(names.get(warning.employeeId) ?? '?')
     case 'record_without_plan':
       return de.warnings.recordWithoutPlan(names.get(warning.employeeId) ?? '?')
+    case 'staffing':
+      return de.warnings.staffing(
+        warning.groupName, formatTime(warning.from), formatTime(warning.to), warning.have, warning.need, warning.fachkraft,
+      )
   }
 }
