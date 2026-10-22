@@ -709,7 +709,7 @@ export const de = {
     noCareDays: 'In diesem Monat gibt es keinen Betreuungstag (Wochenenden, Feiertage, Schließtage) – es wird nichts geprüft.',
     presenceOnly: (inLand: string) => `${inLand.charAt(0).toUpperCase()}${inLand.slice(1)} wird nur die Mindestbesetzung nach Uhrzeit geprüft (Warnungen im Dienstplan).`,
     qualificationsMissing: 'Bitte bei den Mitarbeitern die Qualifikation eintragen – bis dahin erscheinen keine Warnungen im Dienstplan.',
-    staffWithoutQualification: (names: string) => `Mitarbeiter ohne Qualifikation: ${names} (zählen mit 100 %, aber nie als Fachkraft).`,
+    staffWithoutQualification: (names: string) => `Mitarbeiter ohne Qualifikation: ${names} (zählen mit ihrer Anrechnung (ohne Angabe 100 %), aber nicht als Fachkraft).`,
     childrenWithoutCareType: (count: number) => `Kinder ohne Betreuungsform: ${count} (sie zählen nicht für das Soll).`,
     unmatched: (count: number, groups: string) => `${count === 1 ? '1 Kind passt' : `${count} Kinder passen`} zu keiner Vorgabe des Landes (z. B. fehlt bei der Gruppe die Gruppenart)${groups ? `: ${groups}` : ''}.`,
     pleaseCheck: 'Werte des Landes bitte prüfen',

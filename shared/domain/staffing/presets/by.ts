@@ -24,7 +24,7 @@ export const BY: StaffingRuleSet[] = [{
   presence: [],
   staffShares: shares(),
   quotas: [{
-    key: 'fachkraftquote', label: 'Fachkraftquote mind. 50 %', kind: 'min_share',
+    key: 'fachkraftquote', label: 'Fachkraftquote', kind: 'min_share',
     qualifications: ['fachkraft'], pct: 50, base: 'required',
   }],
 }]

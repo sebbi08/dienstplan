@@ -25,7 +25,7 @@ export const SH: StaffingRuleSet[] = [{
   presence: [{ window: 'always', minStaff: 2, minFachkraft: 1, perChildren: { children: 15, staff: 1 }, childWeights: { u3: 2 } }],
   staffShares: shares(),
   quotas: [{
-    key: 'fachkraftquote', label: 'Fachkräfte mind. 50 %', kind: 'min_share',
+    key: 'fachkraftquote', label: 'Fachkräfte', kind: 'min_share',
     qualifications: ['fachkraft'], pct: 50, base: 'required',
   }],
 }]

@@ -848,7 +848,7 @@ auch im Reiter und in den Einstellungen.
   Feld). Eine eigene Zahl (0 bis 100) gilt nur für diese Person.
 - **Solange bei keinem Mitarbeiter der Einrichtung eine Qualifikation eingetragen ist, zeigt der Dienstplan keine
   Personalschlüssel-Warnungen.** Der Reiter sagt dann „Bitte bei den Mitarbeitern die Qualifikation eintragen“.
-  Mitarbeiter ohne Qualifikation zählen mit 100 %, aber nie als Fachkraft; der Reiter nennt ihre Namen.
+  Mitarbeiter ohne Qualifikation zählen mit ihrer Anrechnung (ohne Angabe 100 %), aber nicht als Fachkraft; der Reiter nennt ihre Namen.
 - **Gruppenart** (Einstellungen → „Gruppenart (Personalschlüssel)“, Leitung oder Träger) – nur in Ländern, die danach
   rechnen (z. B. Baden-Württemberg: Halbtags-, Regel-, VÖ-, Ganztagsgruppe, Krippe). Ohne Gruppenart zählen die Kinder
   der Gruppe nicht für das Soll; der Reiter weist darauf hin.
@@ -860,7 +860,8 @@ auch im Reiter und in den Einstellungen.
 ### So wird gerechnet
 
 - **Kinder:** die Kinder mit Vertrag im Monat, wie in der Belegung (wer im Monat die Gruppe wechselt, zählt in beiden
-  Gruppen; für die Einrichtung einmal). Das Alter zählt am Monatsersten: unter 3, 3 bis Schule, Schulkind.
+  Gruppen mit; in der Kinderzahl der Einrichtung einmal, bei Verfahren je Kind steht sein Bedarf für diesen Monat aber
+  in beiden Gruppen im Soll). Das Alter zählt am Monatsersten: unter 3, 3 bis Schule, Schulkind.
 - **Soll** je nach Land, zum Beispiel: Vollzeitkräfte je Gruppe nach Gruppenart (Baden-Württemberg Regelgruppe 1,8;
   angepasst an die Öffnungszeit), Kinder je Vollzeitkraft nach Alter und Betreuungszeit (Berlin, Brandenburg, Sachsen
   …), gewichtete Buchungsstunden (Bayern 1 : 11, unter 3 doppelt) oder Stundenpauschalen je Gruppenform

@@ -4,7 +4,7 @@ import type { QuotaLine } from '#shared/domain/staffing/types'
 import type { StaffingFiguresDto, StaffingMonthDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatNumber } from '~/utils/format'
-import { formatFte, formatSignedFte } from '~/utils/staffing'
+import { formatFte, formatSignedFte, quotaLabel } from '~/utils/staffing'
 import { inState } from '~/utils/states'
 
 /**
@@ -103,7 +103,7 @@ const sub = props.print ? 'px-1.5 py-0.5' : 'px-3 py-1'
               <td :class="[sub, 'text-gray-500 whitespace-nowrap']" colspan="2">{{ lineHours(line.fte) }}</td>
             </tr>
             <tr v-for="quota in row.figures.quotas" :key="quota.key" class="text-xs" :class="quota.ok ? 'text-gray-600' : 'font-semibold text-red-700'">
-              <td :class="[sub, 'pl-6']" :colspan="columns - 3">{{ quota.label }} ({{ t.quotaFte }})</td>
+              <td :class="[sub, 'pl-6']" :colspan="columns - 3">{{ quotaLabel(quota) }} ({{ t.quotaFte }})</td>
               <td :class="[sub, 'text-right whitespace-nowrap']" colspan="3">
                 <span class="inline-flex items-center gap-1">
                   <UIcon :name="quota.ok ? 'i-lucide-check' : 'i-lucide-triangle-alert'" class="size-4" aria-hidden="true" />

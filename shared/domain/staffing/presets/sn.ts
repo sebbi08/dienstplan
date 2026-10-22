@@ -15,7 +15,7 @@ const base: Omit<StaffingRuleSet, 'validFrom' | 'note' | 'demand'> = {
   // Erzieher-Praktikanten in der berufspraktischen Ausbildung: 0.5
   staffShares: shares({ praktikant: 50 }),
   quotas: [{
-    key: 'assistenz', label: 'Assistenzkräfte höchstens 20 %', kind: 'max_share',
+    key: 'assistenz', label: 'Assistenzkräfte', kind: 'max_share',
     qualifications: ['ergaenzung'], pct: 20, base: 'planned',
   }],
 }

@@ -125,7 +125,7 @@ const by = base({
     { ageBand: 'school', childWeight: 1.2, childHoursPerStaffHour: 11 },
   ],
   quotas: [{
-    key: 'fachkraftquote', label: 'Fachkraftquote mind. 50 %', kind: 'min_share',
+    key: 'fachkraftquote', label: 'Fachkraftquote', kind: 'min_share',
     qualifications: ['fachkraft'], pct: 50, base: 'required',
   }],
 })
@@ -303,7 +303,7 @@ describe('facilityAddOns', () => {
 
 describe('quotaLines', () => {
   it('max_share of the planned FTE (SN: at most 20 % Assistenz)', () => {
-    const sn = base({ quotas: [{ key: 'assistenz', label: 'Assistenzkräfte höchstens 20 %', kind: 'max_share', qualifications: ['ergaenzung'], pct: 20, base: 'planned' }] })
+    const sn = base({ quotas: [{ key: 'assistenz', label: 'Assistenzkräfte', kind: 'max_share', qualifications: ['ergaenzung'], pct: 20, base: 'planned' }] })
     const required = requiredFte(sn, { groupType: null, openingMinutesPerDay: null, children: [] })
     const planned = plannedFte(sn, [
       { qualification: 'fachkraft', share: null, hours: 3 * fullTime },

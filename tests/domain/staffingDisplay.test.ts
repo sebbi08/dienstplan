@@ -3,7 +3,7 @@ import { overridableValues } from '../../shared/domain/staffing/overrides'
 import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
 import { GERMAN_STATES } from '../../shared/domain/states'
 import {
-  demandTitle, formatDecimal, formatFte, formatSignedFte, parseDecimal, staffingPathLabel, staffingSections,
+  demandTitle, formatDecimal, formatFte, formatSignedFte, parseDecimal, quotaLabel, staffingPathLabel, staffingSections,
 } from '../../app/utils/staffing'
 
 describe('staffing numbers', () => {
@@ -16,7 +16,10 @@ describe('staffing numbers', () => {
   it('signs the difference, but not a rounded zero', () => {
     expect(formatSignedFte(0.2)).toBe('+0,20')
     expect(formatSignedFte(-0.8)).toBe('−0,80')
-    expect(formatSignedFte(-0.001)).toBe('0,00')
+    expect(formatSignedFte(-0.001)).toBe('< −0,01')
+    expect(formatSignedFte(0.004)).toBe('< +0,01')
+    expect(formatSignedFte(-0.006)).toBe('−0,01')
+    expect(formatSignedFte(1e-12)).toBe('0,00')
     expect(formatSignedFte(0)).toBe('0,00')
   })
 
@@ -66,7 +69,7 @@ describe('staffing settings sections', () => {
     expect(sections[0]!.title).toBe('Bedarf je Altersgruppe')
     expect(sections[0]!.blocks.map(block => block.title)).toEqual(['unter 3 Jahre', '3 Jahre bis Schule', 'Schulkinder'])
     const quotas = sections.find(section => section.key === 'quotas')!
-    expect(quotas.blocks).toEqual([{ title: 'Fachkraftquote mind. 50 %', fields: [{ path: 'quotas.fachkraftquote.pct', label: 'mindestens', unit: '%' }] }])
+    expect(quotas.blocks).toEqual([{ title: 'Fachkraftquote', fields: [{ path: 'quotas.fachkraftquote.pct', label: 'mindestens', unit: '%' }] }])
   })
 
   it('describes hours bands and months', () => {
@@ -81,5 +84,14 @@ describe('staffing settings sections', () => {
     expect(staffingPathLabel('fteHoursPerWeek', versions)).toBe('Vollzeit: Wochenstunden einer Vollzeitkraft')
     expect(staffingPathLabel('staffShares.praktikant', versions)).toBe('Anrechnung je Qualifikation: Praktikant/in')
     expect(staffingPathLabel('demand.nowhere.childrenPerFte', versions)).toBe('demand.nowhere.childrenPerFte')
+  })
+})
+
+describe('quota labels', () => {
+  it('builds the label from the effective percentage', () => {
+    expect(quotaLabel({ label: 'Fachkraftquote', kind: 'min_share', pct: 50 })).toBe('Fachkraftquote mind. 50 %')
+    expect(quotaLabel({ label: 'Fachkraftquote', kind: 'min_share', pct: 66.5 })).toBe('Fachkraftquote mind. 66,5 %')
+    expect(quotaLabel({ label: 'Assistenzkräfte', kind: 'max_share', pct: 20 })).toBe('Assistenzkräfte höchstens 20 %')
+    expect(quotaLabel({ label: 'Fachkraftstunden', kind: 'demand_minimum' })).toBe('Fachkraftstunden')
   })
 })

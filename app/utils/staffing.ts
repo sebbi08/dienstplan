@@ -1,3 +1,4 @@
+import { FTE_EPSILON } from '#shared/domain/staffing/calc'
 import { demandKey, presenceKey } from '#shared/domain/staffing/overrides'
 import {
   QUALIFICATIONS, type AgeBand, type DemandRule, type HoursBand, type PresenceRule, type StaffingRuleSet,
@@ -39,10 +40,20 @@ export function formatFte(value: number): string {
   return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/** Ist − Soll with its sign: +0,20, −0,80, 0,00 (a value that rounds to zero has none). */
+/**
+ * Ist − Soll with its sign: +0,20, −0,80, 0,00 (only a true zero has none). A value that merely rounds to zero shows
+ * as < −0,01 / < +0,01, so a red row never reads 0,00.
+ */
 export function formatSignedFte(value: number): string {
-  if (Math.abs(value) < 0.005) return formatFte(0)
+  if (Math.abs(value) <= FTE_EPSILON) return formatFte(0)
+  if (Math.abs(value) < 0.005) return value > 0 ? '< +0,01' : '< −0,01'
   return `${value > 0 ? '+' : '−'}${formatFte(Math.abs(value))}`
+}
+
+/** A quota line's name with its effective percentage (the Träger may have changed it): Fachkraftquote mind. 50 %. */
+export function quotaLabel(line: { label: string; kind: 'min_share' | 'max_share' | 'demand_minimum'; pct?: number }): string {
+  if (line.kind === 'demand_minimum' || line.pct === undefined) return line.label
+  return `${line.label} ${line.kind === 'min_share' ? 'mind.' : 'höchstens'} ${formatDecimal(line.pct)} %`
 }
 
 /** A preset value as typed in a form: 4,5014 (no rounding to two places, no thousands separator). */

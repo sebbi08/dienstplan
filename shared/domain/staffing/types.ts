@@ -249,6 +249,8 @@ export interface QuotaLine {
   /** min_share / demand_minimum: the minimum; max_share: the maximum. */
   limit: number
   have: number
+  /** The effective percentage of a share quota (with the Träger's change); absent for demand_minimum. */
+  pct?: number
   ok: boolean
 }
 

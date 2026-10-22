@@ -214,7 +214,7 @@ export function quotaLines(rules: StaffingRuleSet, required: Requirement, planne
     }
     const limit = (quota.base === 'required' ? required.fte : planned.fte) * quota.pct / 100
     const ok = quota.kind === 'min_share' ? meets(have, limit) : atMost(have, limit)
-    return { key: quota.key, label: quota.label, kind: quota.kind, limit, have, ok }
+    return { key: quota.key, label: quota.label, kind: quota.kind, limit, have, pct: quota.pct, ok }
   })
 }
 

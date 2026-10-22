@@ -36,7 +36,7 @@ const current: StaffingRuleSet = {
   presence: [],
   staffShares: shares({ ergaenzung: 80, azubi_1: 70, azubi_2: 70, azubi_3: 70 }),
   quotas: [{
-    key: 'fachkraftquote', label: 'Fachkräfte mind. 80 %', kind: 'min_share',
+    key: 'fachkraftquote', label: 'Fachkräfte', kind: 'min_share',
     qualifications: ['fachkraft'], pct: 80, base: 'required',
   }],
 }
