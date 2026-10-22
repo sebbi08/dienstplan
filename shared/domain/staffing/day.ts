@@ -17,9 +17,12 @@ export type GroupedEntry = Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | '
  * Per minute of one person's day: the group the included entries make them work for (NOT_WORKING, NO_GROUP or the
  * group id). Breaks (break entries and the breaks of entries) never count; overlapping entries count once (the later
  * one in the list wins the minute). A day with an entry crediting the daily target (Urlaub, Krank, Fortbildung …) is
- * an absence: nothing counts.
+ * an absence: nothing counts. Entries `clear` names blank their minutes like a break does (the presence check: VZ or
+ * Büro inside a shift is no time with the children).
  */
-export function minuteGroups<T extends GroupedEntry>(entries: T[], include: (entry: T) => boolean): Int32Array {
+export function minuteGroups<T extends GroupedEntry>(
+  entries: T[], include: (entry: T) => boolean, clear: (entry: T) => boolean = () => false,
+): Int32Array {
   const minutes = new Int32Array(DAY_MINUTES).fill(NOT_WORKING)
   if (entries.some(entry => entry.creditMode === 'daily_target')) return minutes
   for (const entry of entries) {
@@ -27,10 +30,16 @@ export function minuteGroups<T extends GroupedEntry>(entries: T[], include: (ent
     minutes.fill(entry.group ?? NO_GROUP, entry.start, entry.end)
   }
   for (const entry of entries) {
-    if (entry.kind === 'break' && entry.start !== null && entry.end !== null) minutes.fill(NOT_WORKING, entry.start, entry.end)
+    const blank = entry.kind === 'break' || clear(entry)
+    if (blank && entry.start !== null && entry.end !== null) minutes.fill(NOT_WORKING, entry.start, entry.end)
     else if (entry.breakStart !== null && entry.breakEnd !== null) minutes.fill(NOT_WORKING, entry.breakStart, entry.breakEnd)
   }
   return minutes
+}
+
+/** A code entry with times (VZ, Büro, …): working time perhaps, but never time with the children. */
+export function isTimedCode(entry: Pick<GroupedEntry, 'kind' | 'start' | 'end'>): boolean {
+  return entry.kind === 'code' && entry.start !== null && entry.end !== null
 }
 
 /** Minutes per mark (group id or NO_GROUP) of a `minuteGroups` day. */

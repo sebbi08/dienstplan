@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { daysInMonth, monthDates, toIsoDate } from '../../shared/domain/dates'
 import { facilityCell, groupCell, groupStays, type GroupStay, type OccupancyChild } from '../../shared/domain/occupancy'
 import { hoursOn, isEntered } from '../../shared/domain/openingHours'
@@ -6,7 +6,7 @@ import {
   facilityAddOns, hasPeriodCheck, meets, plannedFte, quotaLines, requiredFte,
 } from '../../shared/domain/staffing/calc'
 import {
-  ageBandOn, minuteGroups, minutesByGroup, NO_GROUP, phaseOf, presentInSlot, weeklyHours, worksWholeSlot,
+  ageBandOn, isTimedCode, minuteGroups, minutesByGroup, NO_GROUP, phaseOf, presentInSlot, weeklyHours, worksWholeSlot,
   type GroupedEntry,
 } from '../../shared/domain/staffing/day'
 import { presenceShortfalls, SLOT_MINUTES } from '../../shared/domain/staffing/presence'
@@ -53,6 +53,15 @@ interface MonthData {
   /** Weekdays without public holidays and closures. */
   careDays: IsoDate[]
   hours: DayHoursContext
+}
+
+/**
+ * None of the facility's employees has a qualification entered yet: the presence check stays silent (it would flag
+ * every slot as without Fachkraft) and the tab asks for the qualifications.
+ */
+function qualificationsMissing(db: Db, facilityId: number): boolean {
+  return db.select({ id: employees.id }).from(employees)
+    .where(and(eq(employees.facilityId, facilityId), isNotNull(employees.qualification))).limit(1).all().length === 0
 }
 
 function assertMonth(year: number, month: number): void {
@@ -133,12 +142,17 @@ function averageOpening(data: MonthData, groupId: number | null): Minutes | null
   return spans.length === 0 ? null : spans.reduce((a, b) => a + b, 0) / spans.length
 }
 
-/** Planned working minutes of the month per employee and group mark (group id or NO_GROUP). */
+/**
+ * Planned working minutes of the month's care days per employee and group mark (group id or NO_GROUP); time on other
+ * days (a Saturday event) does not count, as the weeks count care days only.
+ */
 function plannedMinutes(data: MonthData): Map<number, Map<number, number>> {
+  const careDays = new Set(data.careDays)
   const result = new Map<number, Map<number, number>>()
   for (const [employeeId, byDate] of data.days) {
     const perGroup = new Map<number, number>()
-    for (const dayEntries of byDate.values()) {
+    for (const [date, dayEntries] of byDate) {
+      if (!careDays.has(date)) continue
       for (const [mark, minutes] of minutesByGroup(minuteGroups(dayEntries, isWorkEntry))) {
         perGroup.set(mark, (perGroup.get(mark) ?? 0) + minutes)
       }
@@ -187,12 +201,16 @@ function figures(
   counted: { total: number; u3: number; withoutCareType: number }, weeks: number,
 ): StaffingFiguresDto {
   const planned = plannedFte(rules, staff.planned, weeks)
-  const checked = hasPeriodCheck(rules) && weeks > 0
+  const periodCheck = hasPeriodCheck(rules)
+  const checked = periodCheck && weeks > 0
   return {
     children: { total: counted.total, u3: counted.u3 },
     required: { fte: required.fte, demandFte: required.demandFte, fachkraftFte: required.fachkraftFte, lines: required.lines },
-    planned: { fte: planned.fte, fachkraftFte: planned.fachkraftFte, unqualifiedFte: planned.unqualifiedFte },
-    diff: planned.fte - required.fte,
+    // A presence-only state has no Ist to compare: nothing to show.
+    planned: periodCheck
+      ? { fte: planned.fte, fachkraftFte: planned.fachkraftFte, unqualifiedFte: planned.unqualifiedFte }
+      : { fte: null, fachkraftFte: null, unqualifiedFte: null },
+    diff: periodCheck ? planned.fte - required.fte : null,
     ok: checked ? meets(planned.fte, required.fte) : null,
     quotas: quotaLines(rules, required, planned),
     unmatchedChildren: required.unmatchedChildren,
@@ -239,7 +257,8 @@ export function staffingMonth(db: Db, facilityId: number, year: number, month: n
   }
   const rows = data.groups.map(group => rowFor(group.id, group.name, group.groupType))
   const ungrouped = rowFor(null, '', null)
-  if (ungrouped.children.total > 0 || ungrouped.planned.fte > 0) rows.push(ungrouped)
+  const ungroupedMinutes = [...minutesFor(NO_GROUP).values()].some(value => value > 0)
+  if (ungrouped.children.total > 0 || ungroupedMinutes) rows.push(ungrouped)
 
   const facilityIds = (() => {
     const cell = facilityCell(data.occupancy, year, month)
@@ -279,6 +298,7 @@ export function staffingMonth(db: Db, facilityId: number, year: number, month: n
       fteHoursPerWeek: rules.fteHoursPerWeek,
       careDays: data.careDays.length,
       weeks,
+      qualificationsMissing: qualificationsMissing(db, facilityId),
     },
   }
 }
@@ -301,9 +321,10 @@ function groupOfDay(stays: GroupStay[], date: IsoDate): number | null | undefine
  */
 export function staffingWarnings(db: Db, facilityId: number, year: number, month: number): Warning[] {
   assertMonth(year, month)
-  // Without entered opening hours nothing is checked.
+  // Without entered opening hours nothing is checked; nor before anybody's qualification is entered (the tab asks for it).
   const hours = loadHoursContext(db, facilityId)
   if (hours.facility === null && hours.groups.length === 0) return []
+  if (qualificationsMissing(db, facilityId)) return []
   const data = loadMonth(db, facilityId, year, month)
   const stays = data.occupancy.map(child => ({ id: child.id, stays: groupStays(child) }))
   const warnings: Warning[] = []
@@ -312,7 +333,8 @@ export function staffingWarnings(db: Db, facilityId: number, year: number, month
     if (rules.presence.length === 0) continue
     const onDuty = [...data.days].flatMap(([employeeId, byDate]) => {
       const dayEntries = byDate.get(date)
-      return dayEntries === undefined ? [] : [{ employeeId, minutes: minuteGroups(dayEntries, isPresenceDuty) }]
+      // VZ / Büro inside a shift is working time, but not with the children.
+      return dayEntries === undefined ? [] : [{ employeeId, minutes: minuteGroups(dayEntries, isPresenceDuty, isTimedCode) }]
     })
     for (const group of data.groups) {
       const day = openingOn(data.hours, group.id, date)
@@ -337,7 +359,8 @@ export function staffingWarnings(db: Db, facilityId: number, year: number, month
         })
       }
       for (const gap of presenceShortfalls(rules, slots, phaseOf(rules, kids.map(kid => kid.care)), group.groupType)) {
-        warnings.push({ type: 'staffing', date, groupId: group.id, groupName: group.name, ...gap })
+        // The last slot may end after a closing off the quarter hour (16:50).
+        warnings.push({ type: 'staffing', date, groupId: group.id, groupName: group.name, ...gap, to: Math.min(gap.to, day.close) })
       }
     }
   }

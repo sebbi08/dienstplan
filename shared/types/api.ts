@@ -1754,10 +1754,13 @@ export interface StaffingFiguresDto {
   children: { total: number; u3: number }
   /** Soll: required full-time positions (sum of the counting lines) with every line, shown-only ones (Leitung) included. */
   required: { fte: number; demandFte: number; fachkraftFte: number; lines: RequirementLine[] }
-  /** Ist: planned full-time positions of the month (planned working hours × counting share). */
-  planned: { fte: number; fachkraftFte: number; unqualifiedFte: number }
-  /** Ist − Soll. */
-  diff: number
+  /**
+   * Ist: planned full-time positions of the month (planned working hours on care days × counting share); all null in a
+   * presence-only state (HB), where there is nothing to compare.
+   */
+  planned: { fte: number | null; fachkraftFte: number | null; unqualifiedFte: number | null }
+  /** Ist − Soll; null in a presence-only state. */
+  diff: number | null
   /** Ist reaches Soll (tie-safe); null = nothing to check (presence-only state, or no care day in the month). */
   ok: boolean | null
   quotas: QuotaLine[]
@@ -1796,5 +1799,10 @@ export interface StaffingMonthDto {
     /** Care days of the month (weekdays without public holidays and closures); weeks = careDays ÷ 5. */
     careDays: number
     weeks: number
+    /**
+     * None of the facility's employees has a qualification entered: the plan shows no staffing warnings yet and the tab
+     * asks „Bitte Qualifikationen eintragen“.
+     */
+    qualificationsMissing: boolean
   }
 }

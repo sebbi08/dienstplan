@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { de } from '../../app/locales/de'
 import type { Db } from '../../server/db/client'
-import { childGroupChanges, employees, entries, facilities, groups } from '../../server/db/schema'
+import { childGroupChanges, children as childrenTable, employees, entries, facilities, groups } from '../../server/db/schema'
 import { createCareType } from '../../server/services/careTypes'
 import { createClosure } from '../../server/services/closures'
 import { setFacilityOpeningHours, setGroupOpeningHours } from '../../server/services/openingHours'
@@ -275,13 +275,42 @@ describe('staffingMonth – children, staff and the facility total', () => {
     expect(report().meta).toMatchObject({ land: 'BE', fteHoursPerWeek: 38.5, validFrom: '2026-08-01' })
   })
 
-  it('a presence-only state (HB) has no Soll/Ist: ok is null', () => {
+  it('a presence-only state (HB) has no Soll/Ist: ok, diff and the planned figures are null', () => {
     setState('HB')
     children(5, bears, careType('Ganztag', 420, 900))
+    everyWeekday(staff('Anna', 'fachkraft', { groupId: bears }))
     const result = report()
     expect(result.meta.periodCheck).toBe(false)
-    expect(result.groups.find(r => r.groupId === bears)!.ok).toBeNull()
-    expect(result.total.ok).toBeNull()
+    for (const figures of [result.groups.find(r => r.groupId === bears)!, result.total]) {
+      expect(figures.ok).toBeNull()
+      expect(figures.diff).toBeNull()
+      expect(figures.planned).toEqual({ fte: null, fachkraftFte: null, unqualifiedFte: null })
+    }
+  })
+
+  it('counts only planned time on care days (the weeks count care days only)', () => {
+    setType(bears, 'regel')
+    children(5, bears, careType('Ganztag', 420, 900))
+    const anna = staff('Anna', 'fachkraft', { groupId: bears })
+    everyWeekday(anna)
+    duty(anna, '2026-10-10', 540, 780) // a Saturday
+    expect(row(bears).planned.fte).toBeCloseTo(1, 9)
+  })
+
+  it('a contract ending mid-month counts in that month, not in the next', () => {
+    setType(bears, 'regel')
+    const ganztag = careType('Ganztag', 420, 900)
+    children(4, bears, ganztag)
+    addChild(db, 1, { firstName: 'Lea', lastName: 'Geht', groupId: bears, careTypeId: ganztag, entryDate: '2025-09-01', leftOn: '2026-10-15' })
+    expect(row(bears).children.total).toBe(5)
+    expect(row(bears, 2026, 11).children.total).toBe(4)
+  })
+
+  it('flags a facility where nobody has a qualification entered', () => {
+    staff('Eva', null, { groupId: bears })
+    expect(report().meta.qualificationsMissing).toBe(true)
+    staff('Anna', 'ergaenzung', { groupId: bears })
+    expect(report().meta.qualificationsMissing).toBe(false)
   })
 
   it('rejects an invalid month', () => {
@@ -367,5 +396,67 @@ describe('plan warnings – Review Focus 5 (BW presence)', () => {
     addHelpOut(db, kim, 1, 2026, 10)
     duty(kim, TUESDAY, 420, 480, { helpFacilityId: 1, groupId: bears })
     expect(staffingOf(planWarnings(), TUESDAY)).toEqual([])
+  })
+
+  const gaps = (date: string, list: Warning[] = planWarnings()) =>
+    (staffingOf(list, date) as Extract<Warning, { type: 'staffing' }>[]).map(w => [w.from, w.to, w.have, w.need, w.fachkraft])
+
+  it('VZ or Büro inside a shift is no time with the children', () => {
+    // Berta from 7:00: no gap at all.
+    db.delete(entries).where(eq(entries.employeeId, berta)).run()
+    db.insert(entries).values({ employeeId: berta, date: TUESDAY, kind: 'shift', start: 420, end: 960, countsAsStaff: true, updatedAt: NOW }).run()
+    expect(gaps(TUESDAY)).toEqual([])
+    db.insert(entries).values({
+      employeeId: berta, date: TUESDAY, kind: 'code', absenceCodeId: codeId(db, 'prep_time'), start: 420, end: 480, countsAsStaff: true, updatedAt: NOW,
+    }).run()
+    expect(gaps(TUESDAY)).toEqual([[420, 480, 1, 2, true]])
+    // The monthly Ist still counts the whole shift once.
+    const bertaMinutes = 960 - 420
+    expect(row(bears).planned.fachkraftFte).toBeCloseTo((480 + 480 + bertaMinutes) / 60 / (39 * 22 / 5), 9)
+  })
+
+  it('no warnings while nobody of the facility has a qualification entered', () => {
+    db.update(employees).set({ qualification: null }).run()
+    expect(staffingWarnings(db, 1, 2026, 10)).toEqual([])
+    db.update(employees).set({ qualification: 'ergaenzung' }).where(eq(employees.id, zoe)).run()
+    expect(staffingWarnings(db, 1, 2026, 10).length).toBeGreaterThan(0)
+  })
+
+  it('a warning ends at the closing time, also off the quarter hour', () => {
+    setFacilityOpeningHours(db, 1, allWeek(420, 1010)) // 7:00–16:50
+    db.delete(entries).where(eq(entries.employeeId, dora)).run()
+    duty(dora, TUESDAY, 540, 960)
+    expect(gaps(TUESDAY)).toEqual([[420, 480, 1, 2, true], [960, 1010, 0, 1, true]])
+  })
+
+  it('Bremen: presence warnings without a monthly check', () => {
+    setState('HB')
+    setType(bears, null)
+    // 1 Fachkraft per started 20 children: Anna alone covers 7:00–8:00, without her nobody does.
+    expect(gaps(TUESDAY)).toEqual([])
+    db.delete(entries).where(eq(entries.employeeId, anna)).run()
+    expect(gaps(TUESDAY)).toEqual([[420, 480, 0, 1, true]])
+  })
+
+  it('leaves every other plan warning as it was', () => {
+    const all = planWarnings()
+    expect(staffingOf(all).length).toBeGreaterThan(0)
+    const others = all.filter(w => w.type !== 'staffing')
+    expect(others.some(w => w.type === 'missing_entry')).toBe(true)
+    expect(others.some(w => w.type === 'edge')).toBe(true)
+    // Without qualifications there are no staffing warnings; the rest is unchanged and in the same order.
+    db.update(employees).set({ qualification: null }).run()
+    expect(planWarnings()).toEqual(others)
+  })
+
+  it('a child whose contract ended no longer counts on later days', () => {
+    // Same duties on Tuesday 20 Oct without anyone after 15:00: the late child needs a Fachkraft 15:00–17:00.
+    const late = '2026-10-20'
+    duty(anna, late, 420, 900)
+    duty(berta, late, 480, 900)
+    expect(gaps(late)).toEqual([[420, 480, 1, 2, true], [900, 1020, 0, 1, true]])
+    const spaet = db.select({ id: childGroupChanges.childId }).from(childGroupChanges).all().at(-1)!.id
+    db.update(childrenTable).set({ leftOn: '2026-10-13' }).where(eq(childrenTable.id, spaet)).run()
+    expect(gaps(late)).toEqual([[420, 480, 1, 2, true]])
   })
 })
