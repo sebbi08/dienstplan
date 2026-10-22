@@ -47,6 +47,9 @@ describe('staffing overrides – paths', () => {
       'addOns.verfuegung.hours': 7.5,
       'presence.haupt+krippe+ab11.minStaff': 3,
     })
+    const bb = valuesOf('BB')
+    expect(bb).toMatchObject({ 'addOns.leitung.steps.bis4.fte': 0.125, 'addOns.leitung.steps.rest.fte': 0.5 })
+    expect(Object.keys(bb).some(path => path.endsWith('.upTo'))).toBe(false)
     const nw = valuesOf('NW')
     expect(Object.keys(nw).some(path => path.includes('.weeklyHoursPerGroup.total'))).toBe(true)
   })

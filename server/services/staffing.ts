@@ -6,7 +6,7 @@ import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
 import type { StaffingRuleSet } from '../../shared/domain/staffing/types'
 import type { GermanState } from '../../shared/domain/states'
 import type { IsoDate } from '../../shared/domain/types'
-import type { SessionUser, StaffingSettingsDto } from '../../shared/types/api'
+import type { SessionUser, StaffingResetDto, StaffingSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, groups, staffingOverrides } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -86,6 +86,11 @@ export function getStaffingSettings(
   const { rules, preset, applied, ignored } = effectiveRules(state, today, overrides)
   const effective = new Map(overridableValues(rules).map(v => [v.path, v.value]))
   const overridden = new Set(applied)
+  const stored = (path: string) => ({ path, value: overrides[path]!.value, preset: overrides[path]!.preset })
+  const upcomingIgnored = laterVersions(state, today).flatMap((version) => {
+    const lapsing = new Set(effectiveRules(state, version.validFrom, overrides).ignored)
+    return applied.filter(path => lapsing.has(path)).map(path => ({ validFrom: version.validFrom, ...stored(path) }))
+  })
   return {
     land: state,
     validFrom: preset.validFrom,
@@ -99,8 +104,9 @@ export function getStaffingSettings(
     values: overridableValues(preset).map(({ path, value }) => ({
       path, preset: value, value: effective.get(path) ?? value, overridden: overridden.has(path),
     })),
-    overrides: Object.fromEntries(Object.entries(overrides).map(([path, override]) => [path, override.value])),
-    ignored,
+    overrides: Object.fromEntries(applied.map(path => [path, overrides[path]!.value])),
+    ignored: ignored.map(stored),
+    upcomingIgnored,
     versions: presetVersions(state).map(v => ({ validFrom: v.validFrom, source: v.source, confidence: v.confidence })),
     canEdit: viewer.role === 'provider',
   }
@@ -110,25 +116,38 @@ function assertProvider(actor: SessionUser): void {
   if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
 }
 
+/** The versions of the state's preset that start after the one valid today. */
+function laterVersions(state: GermanState, today: IsoDate): StaffingRuleSet[] {
+  const current = presetFor(state, today)
+  return presetVersions(state).filter(v => v.validFrom > current.validFrom)
+}
+
+/** The first problem the overrides cause in the version valid today or a later one (null = all usable). */
+function firstProblem(state: GermanState, overrides: StaffingOverrides, today: IsoDate): { problem: string; validFrom: IsoDate } | null {
+  for (const version of [presetFor(state, today), ...laterVersions(state, today)]) {
+    const problems = ruleSetProblems(applyOverrides(version, overrides).rules)
+    if (problems.length > 0) return { problem: problems[0]!, validFrom: version.validFrom }
+  }
+  return null
+}
+
 /**
  * The overrides must leave the version valid today and every later version usable (ruleSetProblems empty);
  * otherwise 400 staffing_rules_invalid with the first problem (and the version's validFrom) as detail.
  */
 function assertUsable(state: GermanState, overrides: StaffingOverrides, today: IsoDate): void {
-  const current = presetFor(state, today)
-  const checked = [current, ...presetVersions(state).filter(v => v.validFrom > current.validFrom)]
-  for (const version of checked) {
-    const problems = ruleSetProblems(applyOverrides(version, overrides).rules)
-    if (problems.length > 0) {
-      throw new ServiceError(400, 'staffing_rules_invalid', { problem: problems[0], validFrom: version.validFrom })
-    }
-  }
+  const found = firstProblem(state, overrides, today)
+  if (found) throw new ServiceError(400, 'staffing_rules_invalid', found)
 }
 
 /**
- * The Träger replaces the facility's overrides with `values` (path → number; left out = the preset). Every path must
- * be a value of the preset valid today and every value a finite number, else 400 staffing_override_invalid (detail:
- * the path); a value equal to the preset is no override. The result must stay usable (see assertUsable). Only the
+ * The Träger sets the overrides that apply today: `values` (path → number) replaces the active ones, a path left out
+ * goes back to the preset. Stored overrides that do not apply today (`ignored` in the settings: the law changed the
+ * value, or the row is gone) are kept as they are – they may still count for earlier months – unless `values` gives
+ * the path a value other than today's preset, which makes a new override against today's preset (one entry per path);
+ * DELETE ?path= removes them. Every path must be a
+ * value of the preset valid today and every value a finite number, else 400 staffing_override_invalid (detail: the
+ * path); a value equal to the preset is no override. The result must stay usable (see assertUsable). Only the
  * Träger (403 forbidden). Answers the settings afterwards.
  */
 export function setStaffingOverrides(
@@ -138,12 +157,15 @@ export function setStaffingOverrides(
   assertProvider(actor)
   const state = facilityState(db, facilityId)
   const presetValues = new Map(overridableValues(presetFor(state, today)).map(v => [v.path, v.value]))
-  const overrides: StaffingOverrides = {}
+  const stored = loadStaffingOverrides(db, facilityId)
+  const { ignored } = effectiveRules(state, today, stored)
+  const overrides: StaffingOverrides = Object.fromEntries(ignored.map(path => [path, stored[path]!]))
   for (const [path, value] of Object.entries(values)) {
     const preset = presetValues.get(path)
     if (preset === undefined || typeof value !== 'number' || !Number.isFinite(value)) {
       throw new ServiceError(400, 'staffing_override_invalid', { path })
     }
+    // Today's preset value sent back is no override; it never removes an ignored entry (only DELETE ?path= does).
     if (value !== preset) overrides[path] = { value, preset }
   }
   assertUsable(state, overrides, today)
@@ -152,43 +174,49 @@ export function setStaffingOverrides(
 }
 
 /**
- * „Auf Vorgabe zurücksetzen“: the Träger deletes all overrides of the facility, or (with `path`) only that one; a
- * path without an override changes nothing. What is left must stay usable (400 staffing_rules_invalid otherwise:
- * reset everything instead). Only the Träger (403 forbidden). Answers the settings afterwards.
+ * „Auf Vorgabe zurücksetzen“: the Träger deletes all overrides of the facility, or (with `path`) only that one (also
+ * an ignored one); a path without an override changes nothing. A reset never fails: should the overrides left not fit
+ * together any more, they all go too (`droppedOthers`). Only the Träger (403 forbidden). Answers the settings
+ * afterwards.
  */
 export function resetStaffingOverrides(
   db: Db, actor: SessionUser, facilityId: number, path: string | null, today: IsoDate = todayIso(), now: Date = new Date(),
-): StaffingSettingsDto {
+): StaffingResetDto {
   assertProvider(actor)
   const state = facilityState(db, facilityId)
+  let droppedOthers = false
   if (path === null) {
     storeOverrides(db, facilityId, {}, actor, now)
   }
   else {
-    const overrides = loadStaffingOverrides(db, facilityId)
+    let overrides = loadStaffingOverrides(db, facilityId)
     if (path in overrides) {
       delete overrides[path]
-      assertUsable(state, overrides, today)
+      if (firstProblem(state, overrides, today)) {
+        droppedOthers = Object.keys(overrides).length > 0
+        overrides = {}
+      }
       storeOverrides(db, facilityId, overrides, actor, now)
     }
   }
-  return getStaffingSettings(db, actor, facilityId, today)
+  return { ...getStaffingSettings(db, actor, facilityId, today), droppedOthers }
 }
 
 /**
  * After the facility's state changed (same transaction): the overrides that apply to the new state's preset valid
  * today stay (same path, same preset value, e.g. the shares or 39 h), all others are deleted – a BW Regelgruppe value
- * means nothing in Bavaria. Should the rest not be usable, all go. Group types the new state does not know are
- * cleared, so a group never keeps a type it cannot have.
+ * means nothing in Bavaria. Should the rest not be usable today or in a later version, all go. Group types the new
+ * state does not know are cleared, so a group never keeps a type it cannot have.
  */
 export function adaptStaffingToState(
   db: Db, actor: SessionUser, facilityId: number, state: GermanState, now: Date = new Date(),
 ): void {
+  const today = todayIso(now)
   const overrides = loadStaffingOverrides(db, facilityId)
-  const preset = presetFor(state, todayIso(now))
+  const preset = presetFor(state, today)
   const { applied } = applyOverrides(preset, overrides)
   let kept: StaffingOverrides = Object.fromEntries(applied.map(path => [path, overrides[path]!]))
-  if (ruleSetProblems(applyOverrides(preset, kept).rules).length > 0) kept = {}
+  if (firstProblem(state, kept, today)) kept = {}
   if (Object.keys(kept).length !== Object.keys(overrides).length) storeOverrides(db, facilityId, kept, actor, now)
 
   const keys = (preset.groupTypes ?? []).map(type => type.key)

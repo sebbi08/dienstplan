@@ -43,7 +43,7 @@ describe('staffing settings – reading', () => {
     const bw = presetFor('BW', TODAY)
     expect(result).toMatchObject({
       land: 'BW', validFrom: bw.validFrom, source: bw.source, confidence: 'high', method: 'group_fte', periodCheck: true,
-      overrides: {}, ignored: [], canEdit: false,
+      overrides: {}, ignored: [], upcomingIgnored: [], canEdit: false,
     })
     expect(result.effective).toEqual(bw)
     expect(result.values.find(v => v.path === REGEL)).toEqual({ path: REGEL, preset: 1.8, value: 1.8, overridden: false })
@@ -152,6 +152,58 @@ describe('staffing settings – overrides', () => {
     expect(january.rules.demand[2]!.childrenPerFte).toBe(9)
     expect(january.ignored).toEqual([u3])
     expect(january.rules.validFrom).toBe('2027-01-01')
+    // The settings warn in advance.
+    expect(settings().upcomingIgnored).toEqual([{ validFrom: '2027-01-01', path: u3, value: 4.5, preset: 4.25 }])
+  })
+
+  it('keeps ignored overrides apart: re-saving after the version change neither re-arms nor fails', () => {
+    changeState('BB')
+    const u3 = 'demand.u3+h<=30.childrenPerFte'
+    const ue3 = 'demand.ue3+h<=30.childrenPerFte'
+    set({ [u3]: 4.5, [ue3]: 9 })
+    const LATER = '2027-02-01'
+    const later = getStaffingSettings(db, traeger, 1, LATER)
+    expect(later.overrides).toEqual({ [ue3]: 9 })
+    expect(later.ignored).toEqual([{ path: u3, value: 4.5, preset: 4.25 }])
+    expect(later.upcomingIgnored).toEqual([])
+    expect(later.values.find(v => v.path === u3)).toEqual({ path: u3, preset: 4, value: 4, overridden: false })
+
+    const u3On = (date: string) => staffingRulesFor(db, 1, date).rules.demand[0]!.childrenPerFte
+    const ue3On = (date: string) => staffingRulesFor(db, 1, date).rules.demand[2]!.childrenPerFte
+    // Sending back the active overrides, or every value of the form, changes nothing.
+    setStaffingOverrides(db, traeger, 1, later.overrides, LATER)
+    setStaffingOverrides(db, traeger, 1, Object.fromEntries(later.values.map(v => [v.path, v.value])), LATER)
+    expect([u3On('2026-12-01'), u3On('2027-01-01'), ue3On('2026-12-01'), ue3On('2027-01-01')]).toEqual([4.5, 4, 9, 9])
+    expect(getStaffingSettings(db, traeger, 1, LATER).ignored).toEqual([{ path: u3, value: 4.5, preset: 4.25 }])
+
+    // Leaving the active one out resets it everywhere; the ignored one stays for 2026.
+    setStaffingOverrides(db, traeger, 1, {}, LATER)
+    expect([u3On('2026-12-01'), ue3On('2026-12-01'), ue3On('2027-01-01')]).toEqual([4.5, 10, 10])
+    // Only DELETE ?path= removes an ignored override.
+    const reset = resetStaffingOverrides(db, traeger, 1, u3, LATER)
+    expect(reset).toMatchObject({ overrides: {}, ignored: [], droppedOthers: false })
+    expect(u3On('2026-12-01')).toBe(4.25)
+    expect(db.select().from(staffingOverrides).all()).toEqual([])
+  })
+
+  it('a new value for an ignored path is a new override against today\'s preset', () => {
+    changeState('BB')
+    const u3 = 'demand.u3+h<=30.childrenPerFte'
+    set({ [u3]: 4.5 })
+    const LATER = '2027-02-01'
+    const result = setStaffingOverrides(db, traeger, 1, { [u3]: 3.8 }, LATER)
+    expect(result).toMatchObject({ overrides: { [u3]: 3.8 }, ignored: [] })
+    expect(staffingRulesFor(db, 1, '2027-01-01').rules.demand[0]!.childrenPerFte).toBe(3.8)
+    expect(staffingRulesFor(db, 1, '2026-12-01').rules.demand[0]!.childrenPerFte).toBe(4.25)
+  })
+
+  it('a reset of one value never fails: when the rest no longer fits together, it goes too', () => {
+    changeState('TH') // Leitung: minFte 0.2, capFte 1.5
+    set({ 'addOns.leitung.minFte': 1.8, 'addOns.leitung.capFte': 2, 'staffShares.azubi_1': 50 })
+    const result = resetStaffingOverrides(db, traeger, 1, 'addOns.leitung.capFte', TODAY)
+    expect(result).toMatchObject({ overrides: {}, ignored: [], droppedOthers: true })
+    expect(result.effective).toEqual(presetFor('TH', TODAY))
+    expect(db.select().from(staffingOverrides).all()).toEqual([])
   })
 })
 

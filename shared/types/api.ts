@@ -1704,6 +1704,18 @@ export interface StaffingValueDto {
   overridden: boolean
 }
 
+/** A stored override: the Träger's value and the preset value it replaced. */
+export interface StaffingStoredOverrideDto {
+  path: string
+  value: number
+  preset: number
+}
+
+/** The answer of a reset: `droppedOthers` = what was left did not fit together any more, so every override went. */
+export interface StaffingResetDto extends StaffingSettingsDto {
+  droppedOthers: boolean
+}
+
 /** Einstellungen → Personalschlüssel: the state's preset valid today, the Träger's overrides and the result. */
 export interface StaffingSettingsDto {
   land: GermanState
@@ -1719,10 +1731,15 @@ export interface StaffingSettingsDto {
   effective: StaffingRuleSet
   /** Every value the Träger may change, in the order of the rule set. */
   values: StaffingValueDto[]
-  /** The stored overrides by path (also those that do not apply today, see `ignored`). */
+  /**
+   * The overrides that apply today, by path – what PUT takes back. Stored overrides that do not apply today are only in
+   * `ignored`; PUT keeps them (they may still count for earlier months) until DELETE ?path= removes them.
+   */
   overrides: Record<string, number>
   /** Stored overrides the version valid today has no place for, or whose preset value the law changed since. */
-  ignored: string[]
+  ignored: StaffingStoredOverrideDto[]
+  /** Overrides that apply today but lapse with a later version of the law (to warn in advance). */
+  upcomingIgnored: (StaffingStoredOverrideDto & { validFrom: IsoDate })[]
   /** Every version of the state's preset (oldest first), to show upcoming changes. */
   versions: { validFrom: IsoDate; source: string; confidence: Confidence }[]
   /** Only the Träger changes the values; the Leitung reads them. */

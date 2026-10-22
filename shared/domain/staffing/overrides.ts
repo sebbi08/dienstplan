@@ -7,7 +7,8 @@ import { QUALIFICATIONS, type AddOn, type DemandRule, type HoursBand, type Prese
  * `demand.<row>.<field>`, `addOns.<key>.<field>`, `presence.<rule>.<field>`, `quotas.<key>.pct`. Demand rows and presence
  * rules have no key of their own: their key is made of their conditions (`regel+mit-u3`, `haupt+krippe+ab11`, `all`),
  * so it means the same row in every version and every state, and never the row that happens to be at that index.
- * Conditions themselves (group type, age band, hours bands, minimum children) select a row and are not values.
+ * Conditions themselves (group type, age band, hours bands, minimum children) select a row and are not values; the
+ * same holds for the limits of a step table (`addOns.leitung.steps.bis4.fte`, `….steps.rest.fte`).
  *
  * An override remembers the preset value it replaced. It applies to a version only where that version has the path
  * with the same preset value: when a new version of the law changes the number, the new law value wins.
@@ -110,8 +111,10 @@ function slots(rules: StaffingRuleSet): Slot[] {
   rules.addOns.forEach((addOn) => {
     const prefix = `addOns.${addOn.key}`
     result.push(...numericSlots(prefix, addOn, ADD_ON_FIELDS))
+    // A step is named by its limit (`bis4`, `rest` for the open end), which is its identity like a row condition.
+    const stepKeys = uniqueKeys((addOn.steps ?? []).map(step => (step.upTo === null ? 'rest' : `bis${num(step.upTo)}`)))
     addOn.steps?.forEach((step, i) => {
-      result.push(...numericSlots(`${prefix}.steps.${i}`, step, ['upTo', 'fte']))
+      result.push(...numericSlots(`${prefix}.steps.${stepKeys[i]}`, step, ['fte']))
     })
   })
   const presenceKeys = uniqueKeys(rules.presence.map(presenceKey))
