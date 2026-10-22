@@ -60,11 +60,13 @@ export function presenceShortfalls(
   return mergeShortfalls(raw)
 }
 
-/** Merges touching shortfalls of the same kind and counts; sorted by start, Fachkraft gaps first. */
+const byStart = (a: Shortfall, b: Shortfall) => a.from - b.from || Number(b.fachkraft) - Number(a.fachkraft)
+
+/** Merges touching shortfalls of the same kind and counts (input in any order); sorted by start, Fachkraft gaps first. */
 export function mergeShortfalls(shortfalls: Shortfall[]): Shortfall[] {
   const open = new Map<string, Shortfall>()
   const merged: Shortfall[] = []
-  for (const s of shortfalls) {
+  for (const s of [...shortfalls].sort(byStart)) {
     const key = `${s.fachkraft}|${s.have}|${s.need}`
     const last = open.get(key)
     if (last !== undefined && last.to === s.from) {
@@ -75,5 +77,5 @@ export function mergeShortfalls(shortfalls: Shortfall[]): Shortfall[] {
     open.set(key, copy)
     merged.push(copy)
   }
-  return merged.sort((a, b) => a.from - b.from || Number(b.fachkraft) - Number(a.fachkraft))
+  return merged.sort(byStart)
 }

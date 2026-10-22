@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { presenceShortfalls } from '../../shared/domain/staffing/presence'
+import { mergeShortfalls, presenceShortfalls } from '../../shared/domain/staffing/presence'
 import type {
   AgeBand, Phase, PresenceRule, PresenceSlot, Qualification, StaffingRuleSet,
 } from '../../shared/domain/staffing/types'
@@ -127,5 +127,15 @@ describe('presenceShortfalls', () => {
 
   it('returns nothing for a state without presence rules', () => {
     expect(presenceShortfalls(rulesWith([]), slots(420, 480, { children: children(20), staff: staff() }), () => 'always')).toEqual([])
+  })
+})
+
+describe('mergeShortfalls', () => {
+  it('sorts its input before merging', () => {
+    const gap = (from: number, fachkraft = true) => ({ from, to: from + 15, have: 1, need: 2, fachkraft })
+    expect(mergeShortfalls([gap(450), gap(420), gap(435, false), gap(435), gap(420, false)])).toEqual([
+      { from: 420, to: 465, have: 1, need: 2, fachkraft: true },
+      { from: 420, to: 450, have: 1, need: 2, fachkraft: false },
+    ])
   })
 })

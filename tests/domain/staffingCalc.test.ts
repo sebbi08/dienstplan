@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  facilityAddOns, plannedFte, quotaLines, requiredFte, ruleSetProblems,
+  atMost, facilityAddOns, hasPeriodCheck, meets, plannedFte, quotaLines, requiredFte, ruleSetProblems,
 } from '../../shared/domain/staffing/calc'
 import type { DemandChild, StaffingRuleSet } from '../../shared/domain/staffing/types'
 
@@ -324,6 +324,7 @@ describe('ruleSetProblems', () => {
   it('reports missing method values, bad shares and bad numbers', () => {
     const broken = base({
       method: 'group_fte', fteHoursPerWeek: 0,
+      groupTypes: [{ key: 'rg', label: 'Regelgruppe' }],
       demand: [{ groupType: 'rg' }],
       staffShares: { ...shares, ergaenzung: 120 },
       addOns: [{ key: 'x', label: 'X', scope: 'group', counts: true, mode: 'pct_of_demand' }],
@@ -334,5 +335,122 @@ describe('ruleSetProblems', () => {
     expect(problems.join('\n')).toMatch(/demand\[0\]/)
     expect(problems.join('\n')).toMatch(/ergaenzung/)
     expect(problems.join('\n')).toMatch(/addOns\[0\]/)
+  })
+
+  const only = (over: Partial<StaffingRuleSet>) => ruleSetProblems(base({ demand: [{ ftePerGroup: 1.8 }], ...over }))
+
+  it('keeps the full-time hours within 30–42', () => {
+    expect(only({ fteHoursPerWeek: 29 })).toEqual([expect.stringMatching(/fteHoursPerWeek/)])
+    expect(only({ fteHoursPerWeek: 43 })).toEqual([expect.stringMatching(/fteHoursPerWeek/)])
+    expect(only({ fteHoursPerWeek: 30 })).toEqual([])
+    expect(only({ fteHoursPerWeek: 42 })).toEqual([])
+  })
+
+  it('checks quota percentages, unique keys and min ≤ cap', () => {
+    const quota = { label: 'Q', kind: 'min_share' as const, qualifications: ['fachkraft' as const], base: 'required' as const }
+    expect(only({ quotas: [{ ...quota, key: 'q', pct: 120 }] })).toEqual([expect.stringMatching(/quotas\[0\].*pct/)])
+    expect(only({ quotas: [{ ...quota, key: 'q', pct: 50 }, { ...quota, key: 'q', pct: 60 }] })).toEqual([expect.stringMatching(/quotas\[1\].*key/)])
+    const addOn = { label: 'A', scope: 'group' as const, counts: false, mode: 'fte_flat' as const, fte: 0.1 }
+    expect(only({ addOns: [{ ...addOn, key: 'a' }, { ...addOn, key: 'a' }] })).toEqual([expect.stringMatching(/addOns\[1\].*key/)])
+    expect(only({ addOns: [{ ...addOn, key: 'demand' }] })).toEqual([expect.stringMatching(/addOns\[0\].*key/)])
+    expect(only({ addOns: [{ ...addOn, key: 'a', minFte: 0.5, capFte: 0.2 }] })).toEqual([expect.stringMatching(/addOns\[0\].*minFte/)])
+  })
+
+  it('reserves the key "leitung" when the NW table rows carry Leitung hours', () => {
+    const addOn = { key: 'leitung', label: 'L', scope: 'facility' as const, counts: false, mode: 'fte_flat' as const, fte: 0.1 }
+    expect(ruleSetProblems({ ...nw, addOns: [addOn] })).toEqual([expect.stringMatching(/addOns\[0\].*key/)])
+    expect(only({ addOns: [addOn] })).toEqual([])
+  })
+
+  it('requires group types of rows and presence rules to be declared', () => {
+    expect(only({ demand: [{ groupType: 'vö', ftePerGroup: 1.9 }] })).toEqual([expect.stringMatching(/demand\[0\].*groupType/)])
+    expect(only({
+      groupTypes: [{ key: 'rg', label: 'RG' }], demand: [{ groupType: 'rg', ftePerGroup: 1.8 }],
+      presence: [{ window: 'always', minStaff: 2, groupTypes: ['rg', 'krippe'] }],
+    })).toEqual([expect.stringMatching(/presence\[0\].*krippe/)])
+  })
+
+  it('flags per-child conditions on group_fte rows (they would be ignored)', () => {
+    expect(only({ demand: [{ ageBand: 'u3', ftePerGroup: 2 }] })).toEqual([expect.stringMatching(/demand\[0\].*ageBand/)])
+    expect(only({ demand: [{ weeklyHours: { over: 25 }, ftePerGroup: 2 }] })).toEqual([expect.stringMatching(/demand\[0\].*weeklyHours/)])
+    expect(only({ demand: [{ ageMonths: { below: 24 }, ftePerGroup: 2 }] })).toEqual([expect.stringMatching(/demand\[0\].*ageMonths/)])
+  })
+
+  it('checks presence rules: something required, sensible numbers', () => {
+    expect(only({ presence: [{ window: 'haupt' }] })).toEqual([expect.stringMatching(/presence\[0\]/)])
+    expect(only({ presence: [{ window: 'always', minStaff: -1 }] })).toEqual([expect.stringMatching(/presence\[0\].*minStaff/)])
+    expect(only({ presence: [{ window: 'always', perChildren: { children: 0, staff: 1 } }] })).toEqual([expect.stringMatching(/presence\[0\].*perChildren/)])
+    expect(only({ presence: [{ window: 'always', minFachkraft: 2, relaxFachkraft: { maxChildren: 15, minFachkraft: 3 } }] }))
+      .toEqual([expect.stringMatching(/presence\[0\].*relaxFachkraft/)])
+    expect(only({ presence: [{ window: 'haupt', minFachkraft: 2, relaxFachkraft: { maxChildren: 15, minFachkraft: 1 } }] })).toEqual([])
+  })
+})
+
+// --- presence-only states (HB BremKTG § 10a) ---
+const hb = base({
+  land: 'HB', periodCheck: false, demand: [],
+  presence: [{ window: 'always', perChildren: { children: 20, staff: 1, fachkraft: 1 } }],
+})
+
+describe('presence-only states', () => {
+  it('have no period check: nothing required, nothing unmatched, no lines', () => {
+    expect(hasPeriodCheck(hb)).toBe(false)
+    expect(hasPeriodCheck(bw)).toBe(true)
+    const r = requiredFte(hb, { groupType: null, openingMinutesPerDay: 480, children: kids(18, { ageBand: 'ue3', weeklyHours: 40 }) })
+    expect(r).toEqual({ fte: 0, demandFte: 0, fachkraftFte: 0, lines: [], unmatchedChildren: 0, periodCheck: false })
+    expect(requiredFte(bw, { groupType: 'rg', openingMinutesPerDay: 360, children: [] }).periodCheck).toBe(true)
+    expect(facilityAddOns({ ...hb, addOns: [{ key: 'x', label: 'X', scope: 'facility', counts: false, mode: 'fte_flat', fte: 1 }] }, { children: [], groupCount: 1, demandFte: 0 })).toEqual([])
+  })
+
+  it('are valid with presence rules only; a set without demand needs periodCheck false and presence rules', () => {
+    expect(ruleSetProblems(hb)).toEqual([])
+    expect(ruleSetProblems({ ...hb, presence: [] })).toEqual([expect.stringMatching(/presence/)])
+    expect(ruleSetProblems({ ...hb, periodCheck: true })).toEqual([expect.stringMatching(/demand/)])
+  })
+})
+
+describe('tie-safe comparisons', () => {
+  it('meets / atMost tolerate floating-point noise', () => {
+    expect(meets(1.7999999999999998, 1.8)).toBe(true)
+    expect(meets(1.79, 1.8)).toBe(false)
+    expect(atMost(0.30000000000000004, 0.3)).toBe(true)
+    expect(atMost(0.31, 0.3)).toBe(false)
+  })
+
+  it('quotaLines: an exact tie holds for min_share and max_share', () => {
+    const tie = base({
+      groupTypes: [{ key: 'rg', label: 'RG' }], demand: [{ groupType: 'rg', ftePerGroup: 1.8 }],
+      quotas: [{ key: 'fk', label: 'FK', kind: 'min_share', qualifications: ['fachkraft'], pct: 100, base: 'required' }],
+    })
+    const required = requiredFte(tie, { groupType: 'rg', openingMinutesPerDay: null, children: kids(20, { ageBand: 'ue3', weeklyHours: 30 }) })
+    const planned = plannedFte(tie, [
+      { qualification: 'fachkraft', share: null, hours: fullTime },
+      { qualification: 'fachkraft', share: null, hours: 31.2 * weeks },
+    ], weeks)
+    const [min] = quotaLines(tie, required, planned)
+    expect(min!.have < min!.limit).toBe(true) // the raw comparison would fail
+    expect(min!.ok).toBe(true)
+
+    const capped = base({ quotas: [{ key: 'erg', label: 'Erg', kind: 'max_share', qualifications: ['ergaenzung'], pct: 30, base: 'planned' }] })
+    const plannedErg = plannedFte(capped, [
+      { qualification: 'fachkraft', share: null, hours: 0.7 * fullTime },
+      { qualification: 'ergaenzung', share: null, hours: 0.1 * fullTime },
+      { qualification: 'ergaenzung', share: null, hours: 0.2 * fullTime },
+    ], weeks)
+    const [max] = quotaLines(capped, requiredFte(capped, { groupType: null, openingMinutesPerDay: null, children: [] }), plannedErg)
+    expect(max!.have > max!.limit).toBe(true)
+    expect(max!.ok).toBe(true)
+  })
+})
+
+describe('minor edge cases', () => {
+  it('opening minutes 0 count as not entered (no scaling)', () => {
+    expect(requiredFte(bw, { groupType: 'rg', openingMinutesPerDay: 0, children: kids(20, { ageBand: 'ue3', weeklyHours: 30 }) }).fte).toBeCloseTo(1.8, 10)
+  })
+
+  it('a step table yields 0 when its basis is 0', () => {
+    const rules = base({ addOns: [{ key: 's', label: 'S', scope: 'facility', counts: false, mode: 'step_table', basis: 'children', steps: [{ upTo: 4, fte: 0.125 }] }] })
+    expect(facilityAddOns(rules, { children: [], groupCount: 1, demandFte: 0 })[0]!.fte).toBe(0)
+    expect(facilityAddOns(rules, { children: kids(1, { ageBand: 'ue3', weeklyHours: 30 }), groupCount: 1, demandFte: 0 })[0]!.fte).toBe(0.125)
   })
 })

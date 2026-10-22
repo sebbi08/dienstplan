@@ -2,12 +2,31 @@ import { isValidIsoDate } from '../dates'
 import {
   QUALIFICATIONS,
   type AddOn, type AgeBand, type DemandChild, type DemandInput, type DemandRule, type HoursBand,
-  type Planned, type PlannedStaff, type Qualification, type QuotaLine, type Requirement,
+  type Planned, type PlannedStaff, type PresenceRule, type Qualification, type QuotaLine, type Requirement,
   type RequirementLine, type StaffingRuleSet,
 } from './types'
 
 export const DEMAND_LABEL = 'Grundbedarf'
 export const DEFAULT_FACHKRAFT: Qualification[] = ['fachkraft']
+export const FTE_HOURS_RANGE = { min: 30, max: 42 } as const
+
+/** Tolerance for comparing sums of FTE (floating-point noise, e.g. 1.7999999999999998 vs 1.8). */
+export const FTE_EPSILON = 1e-9
+
+/** have reaches need (tie-safe); use for red/green. */
+export function meets(have: number, need: number): boolean {
+  return have >= need - FTE_EPSILON
+}
+
+/** have stays within limit (tie-safe). */
+export function atMost(have: number, limit: number): boolean {
+  return have <= limit + FTE_EPSILON
+}
+
+/** Whether the state checks a period demand at all (false = presence rules only, HB). */
+export function hasPeriodCheck(rules: StaffingRuleSet): boolean {
+  return rules.periodCheck !== false
+}
 
 export function inHoursBand(hours: number, band: HoursBand | undefined): boolean {
   if (band === undefined) return true
@@ -63,7 +82,7 @@ function demandOf(rules: StaffingRuleSet, input: DemandInput): Demand {
     if (input.children.length === 0) return result
     const rule = rules.demand.find(r => groupMatches(r, input))
     if (rule === undefined) return { ...result, unmatched: input.children.length }
-    const scale = rule.refHoursPerDay && input.openingMinutesPerDay !== null
+    const scale = rule.refHoursPerDay && input.openingMinutesPerDay
       ? input.openingMinutesPerDay / 60 / rule.refHoursPerDay
       : 1
     return { ...result, fte: (rule.ftePerGroup ?? 0) * scale }
@@ -117,7 +136,7 @@ function addOnFte(addOn: AddOn, ctx: AddOnContext, fteHours: number): number {
       break
     case 'step_table': {
       const value = addOn.basis === 'children' ? ctx.children.length : ctx.demandFte
-      raw = (addOn.steps ?? []).find(s => s.upTo === null || value <= s.upTo)?.fte ?? 0
+      raw = value > 0 ? (addOn.steps ?? []).find(s => s.upTo === null || value <= s.upTo)?.fte ?? 0 : 0
       break
     }
   }
@@ -135,6 +154,9 @@ function addOnLines(rules: StaffingRuleSet, scope: AddOn['scope'], ctx: AddOnCon
 
 /** Required FTE of one group: base demand by the state's method plus the group add-ons. */
 export function requiredFte(rules: StaffingRuleSet, input: DemandInput): Requirement {
+  if (!hasPeriodCheck(rules)) {
+    return { fte: 0, demandFte: 0, fachkraftFte: 0, lines: [], unmatchedChildren: 0, periodCheck: false }
+  }
   const demand = demandOf(rules, input)
   const lines: RequirementLine[] = [{ key: 'demand', label: DEMAND_LABEL, fte: demand.fte, counts: true }]
   if (demand.leitungFte > 0) lines.push({ key: 'leitung', label: 'Leitungszeit', fte: demand.leitungFte, counts: false })
@@ -145,12 +167,13 @@ export function requiredFte(rules: StaffingRuleSet, input: DemandInput): Require
     fachkraftFte: demand.fachkraftFte,
     lines,
     unmatchedChildren: demand.unmatched,
+    periodCheck: true,
   }
 }
 
 /** The facility-wide add-ons (e.g. Leitung by number of groups), computed once for the facility. */
 export function facilityAddOns(rules: StaffingRuleSet, ctx: AddOnContext): RequirementLine[] {
-  return addOnLines(rules, 'facility', ctx)
+  return hasPeriodCheck(rules) ? addOnLines(rules, 'facility', ctx) : []
 }
 
 const fachkraftSet = (rules: StaffingRuleSet) => rules.fachkraftQualifications ?? DEFAULT_FACHKRAFT
@@ -187,10 +210,10 @@ export function quotaLines(rules: StaffingRuleSet, required: Requirement, planne
     const have = quota.qualifications.reduce((sum, q) => sum + planned.byQualification[q], 0)
     if (quota.kind === 'demand_minimum') {
       const limit = required.fachkraftFte
-      return { key: quota.key, label: quota.label, kind: quota.kind, limit, have, ok: have >= limit }
+      return { key: quota.key, label: quota.label, kind: quota.kind, limit, have, ok: meets(have, limit) }
     }
     const limit = (quota.base === 'required' ? required.fte : planned.fte) * quota.pct / 100
-    const ok = quota.kind === 'min_share' ? have >= limit : have <= limit
+    const ok = quota.kind === 'min_share' ? meets(have, limit) : atMost(have, limit)
     return { key: quota.key, label: quota.label, kind: quota.kind, limit, have, ok }
   })
 }
@@ -224,20 +247,98 @@ function addOnProblem(addOn: AddOn): string | null {
   }
 }
 
+const PER_CHILD_CONDITIONS = ['ageBand', 'ageMonths', 'weeklyHours'] as const
+const GROUP_CONDITIONS = ['withAgeBand', 'minChildren'] as const
+
+/** Conditions a row carries that its method never reads (they would silently be ignored). */
+function ignoredConditions(rules: StaffingRuleSet, rule: DemandRule): string[] {
+  const ignored = rules.method === 'group_fte' ? PER_CHILD_CONDITIONS : GROUP_CONDITIONS
+  return ignored.filter(field => rule[field] !== undefined)
+}
+
+const nonNegative = (value: number | undefined) => value === undefined || (Number.isFinite(value) && value >= 0)
+
+function presenceProblems(rule: PresenceRule): string[] {
+  const problems: string[] = []
+  if (rule.minStaff === undefined && rule.minFachkraft === undefined && rule.perChildren === undefined) {
+    problems.push('requires nothing (set minStaff, minFachkraft or perChildren)')
+  }
+  for (const field of ['minStaff', 'minFachkraft', 'minChildren'] as const) {
+    if (!nonNegative(rule[field])) problems.push(`${field} must be ≥ 0`)
+  }
+  const per = rule.perChildren
+  if (per !== undefined && (!positive(per.children) || !nonNegative(per.staff) || !nonNegative(per.fachkraft))) {
+    problems.push('perChildren: children must be > 0, staff and fachkraft ≥ 0')
+  }
+  const relax = rule.relaxFachkraft
+  if (relax !== undefined) {
+    if (!nonNegative(relax.maxChildren) || !nonNegative(relax.minFachkraft)) {
+      problems.push('relaxFachkraft: values must be ≥ 0')
+    } else if (relax.minFachkraft > (rule.minFachkraft ?? 0)) {
+      problems.push('relaxFachkraft.minFachkraft must not exceed minFachkraft')
+    }
+  }
+  return problems
+}
+
 /** Data errors of a rule set (empty = usable); for presets and Träger overrides. */
 export function ruleSetProblems(rules: StaffingRuleSet): string[] {
   const problems: string[] = []
+  const knownGroupTypes = new Set((rules.groupTypes ?? []).map(t => t.key))
+  const unknownGroupType = (key: string | undefined) => key !== undefined && !knownGroupTypes.has(key)
+
   if (!isValidIsoDate(rules.validFrom)) problems.push(`validFrom: not a date (${rules.validFrom})`)
-  if (!positive(rules.fteHoursPerWeek)) problems.push('fteHoursPerWeek must be > 0')
-  if (rules.demand.length === 0) problems.push('demand: no rows')
-  rules.demand.forEach((rule, i) => {
-    const problem = demandProblem(rules, rule)
-    if (problem) problems.push(`demand[${i}]: ${problem}`)
-  })
+  const { min, max } = FTE_HOURS_RANGE
+  if (!(rules.fteHoursPerWeek >= min && rules.fteHoursPerWeek <= max)) {
+    problems.push(`fteHoursPerWeek must be ${min}–${max} (${rules.fteHoursPerWeek})`)
+  }
+
+  if (hasPeriodCheck(rules)) {
+    if (rules.demand.length === 0) problems.push('demand: no rows (or set periodCheck: false for a presence-only state)')
+    rules.demand.forEach((rule, i) => {
+      const problem = demandProblem(rules, rule)
+      if (problem) problems.push(`demand[${i}]: ${problem}`)
+      if (unknownGroupType(rule.groupType)) problems.push(`demand[${i}]: groupType "${rule.groupType}" not in groupTypes`)
+      for (const field of ignoredConditions(rules, rule)) problems.push(`demand[${i}]: ${field} is ignored by ${rules.method}`)
+    })
+  } else if (rules.presence.length === 0) {
+    problems.push('presence: a rule set without period check needs presence rules')
+  }
+
+  const reserved = new Set(['demand'])
+  if (rules.method === 'group_pauschale' && rules.demand.some(r => r.weeklyHoursPerGroup?.leitung !== undefined)) {
+    reserved.add('leitung')
+  }
+  const addOnKeys = new Set<string>()
   rules.addOns.forEach((addOn, i) => {
+    const at = `addOns[${i}] (${addOn.key})`
     const problem = addOnProblem(addOn)
-    if (problem) problems.push(`addOns[${i}] (${addOn.key}): ${problem}`)
+    if (problem) problems.push(`${at}: ${problem}`)
+    if (reserved.has(addOn.key)) problems.push(`${at}: key is reserved`)
+    else if (addOnKeys.has(addOn.key)) problems.push(`${at}: duplicate key`)
+    addOnKeys.add(addOn.key)
+    if (addOn.minFte !== undefined && addOn.capFte !== undefined && addOn.minFte > addOn.capFte) {
+      problems.push(`${at}: minFte > capFte`)
+    }
   })
+
+  rules.presence.forEach((rule, i) => {
+    for (const problem of presenceProblems(rule)) problems.push(`presence[${i}]: ${problem}`)
+    for (const key of rule.groupTypes ?? []) {
+      if (unknownGroupType(key)) problems.push(`presence[${i}]: groupType "${key}" not in groupTypes`)
+    }
+  })
+
+  const quotaKeys = new Set<string>()
+  rules.quotas.forEach((quota, i) => {
+    const at = `quotas[${i}] (${quota.key})`
+    if (quota.kind !== 'demand_minimum' && !(quota.pct >= 0 && quota.pct <= 100)) {
+      problems.push(`${at}: pct must be 0–100 (${quota.pct})`)
+    }
+    if (quotaKeys.has(quota.key)) problems.push(`${at}: duplicate key`)
+    quotaKeys.add(quota.key)
+  })
+
   for (const q of QUALIFICATIONS) {
     const share = rules.staffShares[q]
     if (!(share >= 0 && share <= 100)) problems.push(`staffShares.${q}: must be 0–100 (${share})`)

@@ -166,8 +166,13 @@ export interface StaffingRuleSet {
   confidence: Confidence
   /** Hint for partial or unverified data. */
   note?: string
+  /**
+   * false = the state has presence rules only, no period demand (HB): requiredFte is empty and
+   * Soll/Ist should be hidden; `method` and `demand` are then ignored. Default true.
+   */
+  periodCheck?: boolean
   method: StaffingMethod
-  /** Weekly hours of one full-time position (default 39, BE 38.5, BB/SN 40). */
+  /** Weekly hours of one full-time position (default 39, BE 38.5, BB/SN 40; allowed 30–42). */
   fteHoursPerWeek: number
   demand: DemandRule[]
   addOns: AddOn[]
@@ -217,6 +222,8 @@ export interface Requirement {
   lines: RequirementLine[]
   /** Children no demand row matched (missing group type, hours outside every band …). */
   unmatchedChildren: number
+  /** false = presence-only state: no Soll/Ist to show. */
+  periodCheck: boolean
 }
 
 export interface PlannedStaff {
