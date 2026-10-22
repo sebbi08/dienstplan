@@ -11,8 +11,9 @@ export const NI: StaffingRuleSet[] = [{
   source: 'NKiTaG §§ 7, 9–12 (Änderungen vom 18.06.2024 und 13.12.2024); DVO-NKiTaG § 7',
   confidence: 'high',
   note: 'Monats-Soll vereinfacht: 2 Kräfte je Gruppe (Krippe ab 11 belegten Plätzen 3 – die dritte Kraft ist nur in '
-    + 'der Kernzeit nötig), ohne Anpassung an die Öffnungszeit; maßgeblich ist die Anwesenheit (Kernzeit = '
-    + 'Hauptbetreuungszeit; die dritte Krippen-Kraft wird ab 11 anwesenden Kindern geprüft). Leitung: 5 Std. je Gruppe, bei Gruppen bis 10 Kindern nur 2,5 Std. (+10 Std. unter '
+    + 'der Kernzeit nötig), nicht an die Öffnungszeit angepasst – lange Öffnungszeiten erfasst die '
+    + 'Anwesenheitsregel (Kernzeit = Hauptbetreuungszeit; die dritte Krippen-Kraft wird ab 11 anwesenden Kindern '
+    + 'geprüft). Leitung: 5 Std. je Gruppe, bei Gruppen bis 10 Kindern nur 2,5 Std. (+10 Std. unter '
     + 'Bedingungen) – nicht unterschieden. Verfügungszeit +0,8 Std. je Platzsharing-Platz nicht abgebildet. '
     + 'Flexibilitäten (erfahrene Assistenzkräfte als Gruppenleitung bis 31.07.2030; zwei Assistenzkräfte in der '
     + 'Randzeit; Vertretung durch andere geeignete Personen 5 Tage/Monat bis 31.07.2026, dann 3) nicht abgebildet; '

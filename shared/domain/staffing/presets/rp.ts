@@ -11,7 +11,8 @@ export const RP: StaffingRuleSet[] = [{
     + '(Bezug 7 Std./Tag). Nicht abgebildet: kleine Einrichtungen mind. 2 Vollzeitstellen; mind. 0,256 Stellen je '
     + 'tägliche Betreuungsstunde; Leitung +0,005 Stellen je 40 Std. wöchentliche Betreuungszeit (Leitungswerte aus '
     + 'einer kommunalen Quelle, nicht im Gesetz geprüft). Auszubildende zählen nicht; Anrechnung von '
-    + 'Ergänzungskräften nicht geprüft.',
+    + 'Ergänzungskräften nicht geprüft. Mindestbesetzung hier je Gruppe geprüft; das Gesetz meint ggf. die ganze '
+    + 'Einrichtung – bitte prüfen.',
   method: 'fte_per_child',
   fteHoursPerWeek: 39,
   demand: [

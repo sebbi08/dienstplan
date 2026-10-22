@@ -11,7 +11,8 @@ export const BW: StaffingRuleSet[] = [{
     + 'eine zweite Kraft für die halbe Öffnungszeit; eingruppige Einrichtungen immer 2 Kräfte; Krippen-Schlüssel ab '
     + '15 Std./Woche. Übergangsregelung § 1a bis 31.08.2027 (Fachkraft durch Zusatzkräfte ersetzbar, höchstens '
     + '20 % unter dem Schlüssel, Meldung an den KVJS) nicht berücksichtigt. Zusatzkräfte zählen grundsätzlich nicht; '
-    + 'Anrechnung von PiA/Auszubildenden nicht geprüft.',
+    + 'Anrechnung von PiA/Auszubildenden nicht geprüft. Beginn dieser Fassung nicht recherchiert (Datum der '
+    + 'Änderungsverordnung vom 14.07.2025).',
   method: 'group_fte',
   fteHoursPerWeek: 39,
   groupTypes: [

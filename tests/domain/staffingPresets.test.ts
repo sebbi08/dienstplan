@@ -56,7 +56,7 @@ describe('presets – every state', () => {
       NI: 'high', NW: 'high', RP: 'high', SL: 'low', SN: 'high', ST: 'medium', SH: 'medium', TH: 'medium',
     }
     for (const land of GERMAN_STATES) expect([land, presetFor(land, OCTOBER).confidence]).toEqual([land, expected[land]])
-    // pending / announced changes without numbers yet: the hint „bitte prüfen“ appears from their date
+    // enacted change with a reported postponement (BB) / announced change without numbers yet (NW): „bitte prüfen“
     expect(presetFor('BB', '2027-01-01').confidence).toBe('medium')
     expect(presetFor('NW', '2027-08-01').confidence).toBe('low')
   })
@@ -102,6 +102,17 @@ describe('presets – versions', () => {
     // scaled linearly to the 9-h day (Hort: 6-h day)
     expect(sn('2026-08-01', { ageBand: 'u3', weeklyHours: 30 })).toBeCloseTo(30 / 45 / 4.5014, 10)
     expect(sn('2026-08-01', { ageBand: 'school', weeklyHours: 15 })).toBeCloseTo(15 / 30 / 20.473, 10)
+  })
+
+  it('BB: U3 4.25 until 2026, 1 : 4 from 01.01.2027 as enacted; Ü3 and school unchanged', () => {
+    const bb = (date: string, child: DemandChild) =>
+      requiredFte(presetFor('BB', date), { groupType: null, openingMinutesPerDay: null, children: [child] }).demandFte
+    expect(bb('2026-12-31', { ageBand: 'u3', weeklyHours: 40 })).toBeCloseTo(1 / 4.25, 10)
+    expect(bb('2027-01-01', { ageBand: 'u3', weeklyHours: 40 })).toBeCloseTo(1 / 4, 10)
+    expect(bb('2027-01-01', { ageBand: 'u3', weeklyHours: 30 })).toBeCloseTo(0.8 / 4, 10)
+    expect(bb('2027-01-01', { ageBand: 'ue3', weeklyHours: 40 })).toBeCloseTo(1 / 10, 10)
+    expect(bb('2027-01-01', { ageBand: 'school', weeklyHours: 20 })).toBeCloseTo(0.6 / 15, 10)
+    expect(presetFor('BB', '2027-01-01').note).toMatch(/1:4.*bitte prüfen/)
   })
 
   it('falls back to the oldest version before the first date', () => {
@@ -249,6 +260,16 @@ describe('presets – sample calculations', () => {
     expect(presenceShortfalls(sh, slot(20, 6, ['fachkraft', 'ergaenzung']), () => 'always')).toEqual([
       { from: 480, to: 495, have: 2, need: 3, fachkraft: false },
     ])
+  })
+
+  it('HH: trainees count 30 / 90 / 90 %, never as Fachkraft (SPA trainees stay Zweitkraft)', () => {
+    const hh = presetFor('HH', OCTOBER)
+    const planned = plannedFte(hh, [
+      { qualification: 'azubi_1', share: null, hours: fullTime(39) },
+      { qualification: 'azubi_3', share: null, hours: fullTime(39) },
+    ], weeks)
+    expect(planned.fte).toBeCloseTo(1.2, 10)
+    expect(planned.fachkraftFte).toBe(0)
   })
 
   it('HE: Mittelwert bands, Ausfall 22 % counts, Leitung 20 % capped at 1.5 FTE for the facility', () => {

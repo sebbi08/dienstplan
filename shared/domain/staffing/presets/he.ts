@@ -23,7 +23,9 @@ export const HE: StaffingRuleSet[] = [{
   confidence: 'high',
   note: 'Nicht abgebildet: Kräfte der Nr. 7–9 des § 25b (Gesundheitsberufe, Fachfremde) höchstens 30 % des Bedarfs '
     + 'ohne Leitung; Kräfte, die 42 Tage oder länger fehlen, zählen nicht; Gruppengröße nach § 25d. Praktikant/in = '
-    + 'Anerkennungsjahr (bis 50 %); Anrechnung anderer Auszubildender nicht geprüft.',
+    + 'Anerkennungsjahr (bis 50 %); Anrechnung anderer Auszubildender nicht geprüft. Mindestbesetzung hier je '
+    + 'Gruppe geprüft; das Gesetz meint ggf. die ganze Einrichtung – bitte prüfen. Beginn dieser Fassung nicht '
+    + 'recherchiert (Datum des Änderungsgesetzes).',
   method: 'child_hours',
   fteHoursPerWeek: 39,
   demand,

@@ -10,7 +10,9 @@ export const BY: StaffingRuleSet[] = [{
   note: 'Weitere Gewichte (Behinderung 4,5; nichtdeutschsprachige Eltern 1,3; Tagespflege 1,3) erst mit dem '
     + 'Kindergewicht; das Gewicht 4,5 dürfte nicht für die Fachkraftquote zählen – hier nicht abgebildet. Berechnet '
     + 'wird je Monat; Jahresdurchschnitt und bis zu 3 Monate Überschreitung nicht abgebildet. Leitung ist enthalten. '
-    + 'Anrechnung von Auszubildenden (SPS/PiA) nicht geprüft (Ministeriumsvorgabe).',
+    + 'Berufspraktikanten (Erzieherausbildung) zählen als Ergänzungskräfte. Nicht abgebildet: Buchungen bis 3 '
+    + 'Std./Tag für Kinder ab 3 werden nicht gefördert; Kräfte, die 42 Tage oder länger fehlen, zählen ab dem '
+    + 'Folgemonat nicht. Anrechnung von Auszubildenden (SPS/PiA) nicht geprüft (Ministeriumsvorgabe).',
   method: 'child_hours',
   fteHoursPerWeek: 39,
   demand: [
