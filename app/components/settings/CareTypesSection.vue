@@ -3,8 +3,11 @@ import { formatTime, parseTime } from '#shared/domain/time'
 import type { CareTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
-/** Care types (Betreuungsformen) of the facility: a name and the booked time window. */
-interface Form { id: number | null; name: string; start: string; end: string; sortOrder: number }
+/**
+ * Care types (Betreuungsformen) of the facility: a name, the booked time window and the care days per week (the
+ * child's weekly hours for the Personalschlüssel = window × days).
+ */
+interface Form { id: number | null; name: string; start: string; end: string; sortOrder: number; daysPerWeek: number }
 
 const toast = useToast()
 const { forms, newForm, busy, save, remove } = await useTypeList<CareTypeDto, Form>({
@@ -12,8 +15,11 @@ const { forms, newForm, busy, save, remove } = await useTypeList<CareTypeDto, Fo
   key: 'settings-care-types',
   // The child pages offer the same list; keep them in step.
   refreshKeys: ['care-types'],
-  empty: () => ({ id: null, name: '', start: '', end: '', sortOrder: 0 }),
-  toForm: type => ({ id: type.id, name: type.name, start: formatTime(type.start), end: formatTime(type.end), sortOrder: type.sortOrder }),
+  empty: () => ({ id: null, name: '', start: '', end: '', sortOrder: 0, daysPerWeek: 5 }),
+  toForm: type => ({
+    id: type.id, name: type.name, start: formatTime(type.start), end: formatTime(type.end), sortOrder: type.sortOrder,
+    daysPerWeek: type.daysPerWeek,
+  }),
   toBody: (form) => {
     const start = parseTime(form.start)
     const end = parseTime(form.end)
@@ -21,7 +27,12 @@ const { forms, newForm, busy, save, remove } = await useTypeList<CareTypeDto, Fo
       toast.add({ title: de.settings.invalidTime, color: 'error' })
       return null
     }
-    return { name: form.name, start, end, sortOrder: form.sortOrder }
+    const daysPerWeek = Number(form.daysPerWeek)
+    if (!Number.isInteger(daysPerWeek) || daysPerWeek < 1 || daysPerWeek > 7) {
+      toast.add({ title: de.errors.care_type_invalid_days, color: 'error' })
+      return null
+    }
+    return { name: form.name, start, end, sortOrder: form.sortOrder, daysPerWeek }
   },
 })
 
@@ -32,12 +43,13 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 <template>
   <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.childSettings.careTypes }}</h2>
-    <p class="text-xs text-gray-500">{{ de.childSettings.careTypesHint }}</p>
+    <p class="text-xs text-gray-500">{{ de.childSettings.careTypesHint }} {{ de.childSettings.daysPerWeekHint }}</p>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-500">
           <tr>
             <th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.start }}</th><th :class="cell">{{ de.settings.end }}</th>
+            <th :class="cell">{{ de.childSettings.daysPerWeek }}</th>
             <th :class="cell">{{ de.settings.sortOrder }}</th><th />
           </tr>
         </thead>
@@ -46,6 +58,12 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <td :class="cell"><input v-model="form.name" maxlength="80" :class="textInput" :aria-label="de.settings.label"></td>
             <td :class="cell"><TimeInput v-model="form.start" class="w-20" :aria-label="de.settings.start" @keydown.enter="save(form)" /></td>
             <td :class="cell"><TimeInput v-model="form.end" class="w-20" :aria-label="de.settings.end" @keydown.enter="save(form)" /></td>
+            <td :class="cell">
+              <input
+                v-model.number="form.daysPerWeek" type="number" min="1" max="7" step="1" class="w-14 rounded border border-gray-300 px-1 py-0.5"
+                :aria-label="de.childSettings.daysPerWeek" @keydown.enter="save(form)"
+              >
+            </td>
             <td :class="cell"><input v-model.number="form.sortOrder" type="number" min="0" max="10000" class="w-16 rounded border border-gray-300 px-1 py-0.5" :aria-label="de.settings.sortOrder" :disabled="!form.id"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
               <UButton size="xs" :label="form.id ? de.common.save : de.common.add" :disabled="busy" @click="save(form)" />

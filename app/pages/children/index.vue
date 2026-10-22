@@ -6,7 +6,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 const BIRTHDAY_WEEKS = 8
-type Tab = 'attendance' | 'week' | 'list' | 'overview' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'archive'
+type Tab = 'attendance' | 'week' | 'list' | 'overview' | 'planned' | 'birthdays' | 'documents' | 'open' | 'occupancy' | 'staffing' | 'archive'
 
 // In the office the account's rights, at the tablet those of the person who unlocked it.
 const { rights, onTablet } = useChildRights()
@@ -27,7 +27,8 @@ const tab = ref<Tab>('attendance')
 watch(showPlanned, (shown) => {
   if (!shown && tab.value === 'planned') tab.value = 'list'
 })
-// The occupancy and the archive are for the managers only (the server answers 403 to everybody else).
+// The occupancy and the archive are for the managers only (the server answers 403 to everybody else); the
+// Personalschlüssel only in the office, never at the tablet (its route is for the signed-in managers).
 const tabs = computed(() => [
   { key: 'attendance' as const, label: de.attendance.tab },
   { key: 'week' as const, label: de.groupBook.tab },
@@ -38,7 +39,11 @@ const tabs = computed(() => [
   { key: 'documents' as const, label: de.children.tabs.documents },
   { key: 'open' as const, label: de.groupChange.openTab },
   ...(isLeader.value
-    ? [{ key: 'occupancy' as const, label: de.occupancy.tab }, { key: 'archive' as const, label: de.children.tabs.archive }]
+    ? [
+        { key: 'occupancy' as const, label: de.occupancy.tab },
+        ...(onTablet.value ? [] : [{ key: 'staffing' as const, label: de.staffing.tab }]),
+        { key: 'archive' as const, label: de.children.tabs.archive },
+      ]
     : []),
 ])
 
@@ -93,7 +98,7 @@ const td = 'px-3 py-2'
 </script>
 
 <template>
-  <div class="space-y-4" :class="tab === 'occupancy' || tab === 'attendance' || tab === 'overview' ? 'max-w-7xl' : 'max-w-5xl'">
+  <div class="space-y-4" :class="tab === 'occupancy' || tab === 'staffing' || tab === 'attendance' || tab === 'overview' ? 'max-w-7xl' : 'max-w-5xl'">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.title }}</h1>
       <UButton v-if="canCreate && tab !== 'planned'" class="ml-auto" icon="i-lucide-plus" :label="de.children.create" to="/children/new" />
@@ -201,6 +206,7 @@ const td = 'px-3 py-2'
       <ChildrenDocumentOverviewTab v-else-if="tab === 'documents'" />
       <ChildrenOpenTab v-else-if="tab === 'open'" />
       <ChildrenOccupancyTab v-else-if="tab === 'occupancy' && isLeader" />
+      <ChildrenStaffingTab v-else-if="tab === 'staffing' && isLeader && !onTablet" />
       <ChildrenArchiveTab v-else-if="tab === 'archive' && isLeader" />
     </template>
   </div>

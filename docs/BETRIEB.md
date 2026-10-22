@@ -830,3 +830,87 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   Einrichtung öffnen und drucken – **ohne PIN**, weil darin keine Daten von Kindern stehen. Hochladen und ändern geht am
   Tablet nicht.
 - **Nicht auf dem Handy**: Mitarbeiter sehen die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) nicht.
+
+## 20. Personalschlüssel
+
+Die App rechnet je Gruppe und für die ganze Einrichtung aus, wie viel pädagogisches Personal nach den Vorgaben des
+Bundeslands nötig ist (**Soll**), und vergleicht das mit dem Dienstplan (**Ist**). Sie ist eine **Planungshilfe – keine
+rechtliche Prüfung.** Bitte die Vorgaben mit der Heimaufsicht/dem Landesjugendamt abgleichen. Dieser Hinweis steht
+auch im Reiter und in den Einstellungen.
+
+### Was vorher eingetragen sein muss
+
+- **Bundesland** der Einrichtung (Einstellungen → Einrichtungen, Träger). Danach richten sich alle Zahlen.
+- **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Stammdaten, Leitung oder Träger): Fachkraft,
+  Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Praktikant/in oder **keine pädagogische Kraft**. Küche,
+  Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen sie mit.
+  „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im
+  Feld). Eine eigene Zahl (0 bis 100) gilt nur für diese Person.
+- **Solange bei keinem Mitarbeiter der Einrichtung eine Qualifikation eingetragen ist, zeigt der Dienstplan keine
+  Personalschlüssel-Warnungen.** Der Reiter sagt dann „Bitte bei den Mitarbeitern die Qualifikation eintragen“.
+  Mitarbeiter ohne Qualifikation zählen mit 100 %, aber nie als Fachkraft; der Reiter nennt ihre Namen.
+- **Gruppenart** (Einstellungen → „Gruppenart (Personalschlüssel)“, Leitung oder Träger) – nur in Ländern, die danach
+  rechnen (z. B. Baden-Württemberg: Halbtags-, Regel-, VÖ-, Ganztagsgruppe, Krippe). Ohne Gruppenart zählen die Kinder
+  der Gruppe nicht für das Soll; der Reiter weist darauf hin.
+- **Betreuungsform** mit Zeitfenster und **Tage pro Woche** (Einstellungen → Betreuungsformen, voreingestellt 5) bei
+  jedem Kind. Wochenstunden des Kindes = Zeitfenster × Tage. Kinder ohne Betreuungsform zählen nicht für das Soll
+  („Kinder ohne Betreuungsform: 2“).
+- Für die Warnungen nach Uhrzeit: **Öffnungszeiten** (Abschnitt 13).
+
+### So wird gerechnet
+
+- **Kinder:** die Kinder mit Vertrag im Monat, wie in der Belegung (wer im Monat die Gruppe wechselt, zählt in beiden
+  Gruppen; für die Einrichtung einmal). Das Alter zählt am Monatsersten: unter 3, 3 bis Schule, Schulkind.
+- **Soll** je nach Land, zum Beispiel: Vollzeitkräfte je Gruppe nach Gruppenart (Baden-Württemberg Regelgruppe 1,8;
+  angepasst an die Öffnungszeit), Kinder je Vollzeitkraft nach Alter und Betreuungszeit (Berlin, Brandenburg, Sachsen
+  …), gewichtete Buchungsstunden (Bayern 1 : 11, unter 3 doppelt) oder Stundenpauschalen je Gruppenform
+  (Nordrhein-Westfalen). Dazu kommen Zuschläge des Landes (z. B. Ausfallzeiten); die **Leitungszeit** wird nur
+  angezeigt, nicht geprüft.
+- **Ist:** die im Dienstplan eingeplante Arbeitszeit des Monats an Betreuungstagen (ohne Wochenenden, Feiertage,
+  Schließtage) × Anrechnung der Qualifikation, umgerechnet in Vollzeitkräfte (Vollzeit = Wochenstunden laut Land,
+  meist 39). Ein Dienst zählt für seine Gruppe, sonst für die Stammgruppe. Aushilfen zählen dort, wo sie eingeplant
+  sind. Urlaub, Krankheit, Fortbildung und Schließtage zählen nicht.
+- **Quoten** (z. B. Bayern: mindestens 50 % Fachkräfte) stehen als eigene Zeile mit Soll und Ist.
+- Gilt ab einem Datum eine neue Fassung der Vorgabe, nimmt die App für jeden Monat die Fassung, die am Monatsersten
+  gilt.
+
+### Reiter „Personalschlüssel“
+
+Unter *Kinder* hat der Reiter **„Personalschlüssel“** für Leitung und Träger (nicht am Tablet) eine Monatsauswahl.
+Je Gruppe stehen Gruppe, Gruppenart, Kinder (davon unter 3), Soll, Ist und Differenz in Vollzeitkräften. **Rot**
+heißt: Ist liegt unter Soll („zu wenig“), **grün**: es reicht. Darunter stehen die Zuschläge und Quoten, als letzte
+Zeile „Einrichtung gesamt“. Die Hinweise darunter nennen Mitarbeiter ohne Qualifikation, Kinder ohne Betreuungsform,
+Kinder ohne passende Vorgabe und den „Stand der Vorgabe“ (Gesetz und Paragraph, gültig ab).
+**„Personalschlüssel drucken“** öffnet die Seite zum Drucken (A4 quer, als Ausdruck oder PDF).
+
+In Bremen gibt es keine Monatsrechnung, nur die Mindestbesetzung nach Uhrzeit; der Reiter zeigt dann kein Soll und
+Ist.
+
+### Warnungen im Dienstplan
+
+In Ländern mit Mindestbesetzung nach Uhrzeit (z. B. Baden-Württemberg: eine Fachkraft während der ganzen
+Öffnungszeit, in VÖ-, Ganztagsgruppe und Krippe in der Hauptbetreuungszeit zwei) prüft die App jede Viertelstunde der
+Öffnungszeit: die laut Betreuungsform anwesenden Kinder gegen die eingeplanten Kräfte der Gruppe. Fehlt jemand, steht
+beim Tag eine Warnung, zusammengefasst je Zeitraum, z. B. „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. Geprüft werden nur
+Betreuungstage mit eingetragenen Öffnungszeiten. Büro- und Vorbereitungszeit zählen nicht als Anwesenheit.
+
+### Einstellungen → Personalschlüssel
+
+- Leitung und Träger sehen die Zahlen der Vorgabe des Landes, geordnet nach Bedarf (je Altersgruppe oder Gruppenart),
+  Mindestbesetzung nach Uhrzeit, Anrechnung je Qualifikation, Zuschlägen, Quoten und Vollzeit-Wochenstunden.
+- **Nur der Träger** ändert Zahlen (Dezimalzahlen mit Komma, z. B. 1,8) und speichert. Geänderte Werte sind gelb
+  markiert („geändert“, daneben die Vorgabe des Landes). **„zurücksetzen“** nimmt bei einem Wert wieder die Vorgabe,
+  **„Alles auf Vorgabe des Landes zurücksetzen“** (mit Rückfrage) bei allen. Die Leitung sieht die Werte nur.
+- Ändert das Land später einen Wert, den der Träger geändert hat, gilt ab dann der neue Wert des Landes. Die Änderung
+  steht dann unter **„Nicht mehr angewendet (neue Landesvorgabe)“** und lässt sich dort löschen. Ist so eine neue
+  Fassung schon bekannt, steht vorher: „Ab ‹Datum› gilt eine neue Landesvorgabe; deine Änderung an … wird dann nicht
+  mehr angewendet.“
+- Wechselt der Träger das Bundesland der Einrichtung, bleiben nur Änderungen, die im neuen Land dieselbe Vorgabe
+  betreffen; Gruppenarten, die es dort nicht gibt, werden entfernt.
+
+### Unsichere Vorgaben
+
+Für einige Länder sind die Zahlen nicht sicher belegt (Hamburg, Saarland, teils Nordrhein-Westfalen, Brandenburg,
+Mecklenburg-Vorpommern, Sachsen-Anhalt, Schleswig-Holstein und Thüringen). Dann steht im Reiter und in den
+Einstellungen **„Werte des Landes bitte prüfen“**, dazu ein Hinweis, was nicht abgebildet ist. Bitte diese Zahlen mit
+dem Landesjugendamt klären und bei Bedarf als Träger anpassen.

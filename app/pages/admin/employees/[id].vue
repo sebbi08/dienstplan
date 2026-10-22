@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { shareOf } from '#shared/domain/staffing/calc'
+import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { EmployeeDetailDto } from '#shared/types/api'
@@ -17,20 +19,45 @@ const toast = useToast()
 const { user } = useUserSession()
 // Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
 const isProvider = computed(() => user.value?.role === 'provider')
+/** The select's value for "qualification not entered" ('none' is a qualification of its own). */
+const NO_QUALIFICATION = 'unset'
 
 /**
  * groupId 0 = Springer (the select needs a non-null value); only shown and sent when the facility has groups.
  * birthdayDay / birthdayMonth 0 = no birthday (both empty); the birthday is sent as MM-DD.
  */
-const master = reactive({ name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0 })
+const master = reactive({
+  name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0,
+  qualification: NO_QUALIFICATION as Qualification | typeof NO_QUALIFICATION, staffingShare: '',
+})
 watch(employee, (value) => {
   if (!value) return
   const [month = 0, day = 0] = value.birthday ? value.birthday.split('-').map(Number) : []
   Object.assign(master, {
     name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '', groupId: value.groupId ?? 0,
     birthdayDay: day, birthdayMonth: month,
+    qualification: value.qualification ?? NO_QUALIFICATION, staffingShare: value.staffingShare === null ? '' : String(value.staffingShare),
   })
 }, { immediate: true })
+
+// Personalschlüssel: the qualification and the counting share (empty = the state's default, shown as placeholder).
+const { data: staffingSettings } = useStaffingSettings()
+const qualificationItems = [
+  { label: de.staffing.qualificationNone, value: NO_QUALIFICATION },
+  ...QUALIFICATIONS.map(key => ({ label: de.staffing.qualifications[key], value: key })),
+]
+const qualificationValue = () => (master.qualification === NO_QUALIFICATION ? null : master.qualification)
+const sharePlaceholder = computed(() => {
+  const rules = staffingSettings.value?.effective
+  return rules ? de.staffing.sharePlaceholder(shareOf(rules, qualificationValue(), null)) : ''
+})
+/** null = empty field (the state's default), undefined = not a whole number from 0 to 100. */
+function shareValue(): number | null | undefined {
+  const text = String(master.staffingShare).trim()
+  if (!text) return null
+  const value = Number(text)
+  return Number.isInteger(value) && value >= 0 && value <= 100 ? value : undefined
+}
 const birthdayDayItems = [
   { label: de.employees.birthdayNone, value: 0 },
   ...Array.from({ length: 31 }, (_, index) => ({ label: String(index + 1), value: index + 1 })),
@@ -77,10 +104,13 @@ async function removePin() {
 function saveMaster() {
   const birthday = birthdayValue()
   if (birthday === undefined) return void toast.add({ title: de.errors.employee_birthday_invalid, color: 'error' })
+  const staffingShare = shareValue()
+  if (staffingShare === undefined) return void toast.add({ title: de.errors.staffing_share_invalid, color: 'error' })
   run(() => $fetch<unknown>(`/api/employees/${id}`, {
     method: 'PUT',
     body: {
       name: master.name, shortName: master.shortName, leftOn: master.leftOn || null, birthday,
+      qualification: qualificationValue(), staffingShare,
       ...(hasGroups.value ? { groupId: master.groupId || null } : {}),
     },
   }), de.common.saved)
@@ -162,6 +192,12 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
           <USelect v-model="master.birthdayDay" :items="birthdayDayItems" class="w-20" :aria-label="de.employees.birthdayDay" />
           <USelect v-model="master.birthdayMonth" :items="birthdayMonthItems" class="w-36" :aria-label="de.employees.birthdayMonth" />
         </span>
+      </UFormField>
+      <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
+        <USelect v-model="master.qualification" :items="qualificationItems" class="w-full" />
+      </UFormField>
+      <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
+        <UInput v-model="master.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
       </UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
