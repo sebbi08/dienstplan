@@ -683,8 +683,9 @@ Druck-Knöpfe.
 ### Die Liste
 
 - Unter *Mitarbeiter* steht **eine Zeile pro Person** (auf dem Handy eine kleine Karte): Name, Gruppe, Wochenstunden,
-  **Stundenkonto heute** (grün im Plus, rot im Minus) und **Resturlaub** (frei verfügbare Tage im Jahr des Monats, der
-  oben gewählt ist). Mit den Pfeilen neben dem Monat blätterst du zu einem anderen Monat bzw. Jahr.
+  **Stundenkonto heute** (grün im Plus, rot im Minus; immer der Stand von heute) und **Resturlaub** (frei verfügbare
+  Tage im Jahr des Monats, der oben gewählt ist). Mit den Pfeilen neben dem Monat blätterst du zu einem anderen Jahr
+  für den Resturlaub.
 - Kleine Hinweise zeigen, was fehlt: **„PIN fehlt“**, **„PIN gesperrt“** (die PIN geht gerade nicht), **„Qualifikation
   fehlt“** (für den Personalschlüssel), **„Pflichttermine offen“** (überfällig, noch kein Eintrag oder bald fällig) und
   **„kein Zugang“** (die Person hat kein Benutzerkonto).
@@ -700,10 +701,13 @@ Druck-Knöpfe.
 
 Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in Reiter aufgeteilt: **Stammdaten** (Name, Kürzel,
 ausgeschieden am, Gruppe, Geburtstag; beim Träger auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
-(Stundenkonto heute und zum Monatsende, Wochenstunden, Stundenkonto-Buchungen, Vertragsangaben) · **Urlaub**
-(Urlaubskonto dieses und – sobald etwas eingetragen ist – des nächsten Jahres, Urlaubsanspruch) · **Zeiterfassung &
-PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** · **Zugang**. Die App merkt sich keinen Reiter; sie
-öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter (z. B. aus dem Hinweis auf Pflichttermine).
+(Stundenkonto heute und am Ende eines wählbaren Monats, Wochenstunden, Stundenkonto-Buchungen, Vertragsangaben) ·
+**Urlaub** (Urlaubskonto eines wählbaren Jahres: Anspruch, Übertrag, genommen, verplant, frei verfügbar; dazu der
+Urlaubsanspruch) · **Zeiterfassung & PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** · **Zugang**.
+Die App merkt sich keinen Reiter; sie öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter (z. B.
+aus dem Hinweis auf Pflichttermine). Was du in einem Reiter eingibst, bleibt beim Wechsel in einen anderen Reiter
+stehen. **Speichern speichert nur die Felder des Reiters, in dem du gerade bist** – Eingaben in einem anderen Reiter
+werden dabei nicht mitgespeichert und auch nicht gelöscht.
 
 ### Zugang (Benutzerkonto der Person)
 
@@ -718,7 +722,7 @@ PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** · **Zugan
 ### Die Seite *Benutzer*
 
 Unter *Benutzer* stehen weiterhin **alle Konten**. Dort legst du vor allem Konten an, die zu keinem Mitarbeiter
-gehören (Träger, Stempel-Tablet), und kannst jedes Konto ändern. Die lange Übersicht, was jede Rolle darf, ist beim
+gehören (Stempel-Tablet; der Träger auch Träger-Konten), und kannst die Konten ändern (Träger-Konten nur der Träger). Die lange Übersicht, was jede Rolle darf, ist beim
 Träger zugeklappt: **„Rechte der Rollen anzeigen“** klappt sie auf. Auf dem Handy lässt sich die Tabelle der Konten
 seitlich wischen.
 

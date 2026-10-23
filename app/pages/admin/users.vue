@@ -60,7 +60,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
 <template>
   <div class="max-w-5xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.users.title }}</h1>
-    <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint }}</p>
+    <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint(isProvider) }}</p>
     <p class="text-sm text-gray-500">{{ de.users.rolesHint }}</p>
     <p class="text-sm text-gray-500">„{{ de.users.canEditChildren }}“: {{ de.users.canEditChildrenHint }}</p>
     <p v-if="activeName" class="text-sm text-gray-500">{{ de.facilities.createdIn(activeName) }}</p>

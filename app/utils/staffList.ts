@@ -32,7 +32,7 @@ const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss'
 export function suggestUsername(name: string, taken: readonly string[] = []): string {
   const base = name.normalize('NFC').toLowerCase()
     .replace(/[äöüß]/g, letter => UMLAUTS[letter]!)
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, '')
   if (!base) return ''
   const used = new Set(taken.map(username => username.trim().toLowerCase()))

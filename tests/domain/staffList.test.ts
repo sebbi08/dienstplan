@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { employeeTabs, requestedEmployeeTab, staffBadges, suggestUsername } from '../../app/utils/staffList'
 
-const person = (overrides: Partial<{ hasPin: boolean; pinLocked: boolean; qualification: 'educator' | null }> = {}) => ({
-  hasPin: true, pinLocked: false, qualification: 'educator' as const, ...overrides,
+const person = (overrides: Partial<{ hasPin: boolean; pinLocked: boolean; qualification: 'fachkraft' | null }> = {}) => ({
+  hasPin: true, pinLocked: false, qualification: 'fachkraft' as const, ...overrides,
 })
 const fine = { requirementsOpen: false, hasAccount: true }
 
@@ -33,7 +33,7 @@ describe('suggestUsername', () => {
   it('drops other accents and characters', () => {
     expect(suggestUsername('René D’Angelo')).toBe('renedangelo')
     // Already decomposed umlauts (as some keyboards send them) count as umlauts, too.
-    expect(suggestUsername('Müller')).toBe('mueller')
+    expect(suggestUsername('Mu\u0308ller')).toBe('mueller')
   })
 
   it('adds a number when the name is taken', () => {

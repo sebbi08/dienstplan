@@ -38,7 +38,8 @@ const groupItems = computed(() => [
   ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
   { label: de.groups.springerOption, value: 0 },
 ])
-const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year, month } })
+// „Stundenkonto heute“ does not depend on the month chosen above (only Resturlaub follows it): always today's month.
+const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year: today.year, month: today.month } })
 const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year } })
 // For the badges: the accounts (linked to whom) and the people in the notice of mandatory appointments.
 const { data: users, refresh: refreshUsers } = await useFetch<UserDto[]>('/api/users')
@@ -242,7 +243,7 @@ const td = 'px-3 py-2'
         </div>
       </li>
     </ul>
-    <p :class="hint">{{ de.employees.listHint }}</p>
+    <p :class="hint">{{ de.employees.listHint(isProvider || appSettings?.contractVisibleToAdmins === true) }}</p>
 
     <!-- Who already left: closed by default; nothing is deleted, the detail page stays as it is. -->
     <details v-if="split.archived.length" class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-200">

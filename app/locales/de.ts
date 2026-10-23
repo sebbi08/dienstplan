@@ -373,7 +373,9 @@ export const de = {
       pinMissing: 'PIN fehlt', pinLocked: 'PIN gesperrt', qualificationMissing: 'Qualifikation fehlt',
       requirementsOpen: 'Pflichttermine offen', noAccess: 'kein Zugang',
     },
-    listHint: '„Stundenkonto heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Resturlaub“: frei verfügbare Urlaubstage im Jahr des gewählten Monats. Alles Weitere (Monatsende, Urlaub im Detail, Vertrag) steht auf der Seite der Person.',
+    listHint: (withContract: boolean) => '„Stundenkonto heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Resturlaub“: frei verfügbare Urlaubstage im Jahr des gewählten Monats. '
+      + `Alles Weitere (Monatsende, Urlaub im Detail${withContract ? ', Vertrag' : ''}) steht auf der Seite der Person.`,
+    monthEndOver: 'Stand am Monatsende', noLeaveYear: 'In diesem Jahr gibt es kein Urlaubskonto für diese Person.',
     /** The tabs of the employee page. */
     tabsLabel: 'Bereiche',
     tabs: {
@@ -540,7 +542,8 @@ export const de = {
     rolesHint: 'Träger: alles, zusätzlich Vertragsangaben der Mitarbeiter und Träger-Konten. Leitung: Dienstplan, Mitarbeiter, Zeiterfassung und Einstellungen. Mitarbeiter: Dienstplan ansehen, eigener Plan, Stempeln und Urlaub (muss mit einem Mitarbeiter verknüpft sein); Kinder nur am Tablet. Stempel-Tablet: gemeinsames Gerät der Einrichtung zum Stempeln; nach dem Aufschließen mit Name und PIN zeigt es auch die Kinder, mit den Rechten der Person, die aufgeschlossen hat.',
     providerLocked: 'nur durch Träger änderbar',
     rightsTitle: 'Rechte der Rollen', showRights: 'Rechte der Rollen anzeigen', rightYes: 'erlaubt', rightNo: 'nicht erlaubt',
-    employeeAccessHint: 'Den Zugang für eine Mitarbeiterin oder einen Mitarbeiter richtest du am einfachsten bei der Person selbst ein (Mitarbeiter → Name → Reiter „Zugang“). Hier legst du vor allem Konten ohne Mitarbeiter an (Träger, Stempel-Tablet) und siehst alle Konten.',
+    employeeAccessHint: (isProvider: boolean) => 'Den Zugang für eine Mitarbeiterin oder einen Mitarbeiter richtest du am einfachsten bei der Person selbst ein (Mitarbeiter → Name → Reiter „Zugang“). '
+      + `Hier legst du vor allem Konten ohne Mitarbeiter an (${isProvider ? 'Träger, Stempel-Tablet' : 'Stempel-Tablet'}) und siehst alle Konten.`,
     employee: 'Mitarbeiter', noEmployee: '– keiner –',
     active: 'aktiv', status: 'Status', create: 'Benutzer anlegen', resetPassword: 'Passwort zurücksetzen',
     newPassword: 'Neues Passwort (mindestens 8 Zeichen)', resetHint: 'Die Person muss das Passwort bei der nächsten Anmeldung ändern.',

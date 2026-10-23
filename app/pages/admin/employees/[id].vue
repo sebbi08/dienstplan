@@ -2,13 +2,17 @@
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PIN_LENGTH, isValidPin } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
-import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
+import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
-import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
+import {
+  NO_QUALIFICATION, masterFieldsOf, masterUpdate, qualificationFieldsOf, qualificationUpdate, qualificationValue, reloadedFields,
+  type MasterFields, type QualificationFields,
+} from '~/utils/employeeForms'
+import { formatDate, formatHours, formatNumber, hoursToMinutes, monthTitle, shiftMonth } from '~/utils/format'
 import { pinStateText } from '~/utils/pin'
 import { employeeTabs, requestedEmployeeTab, type EmployeeTab } from '~/utils/staffList'
 import { inState } from '~/utils/states'
@@ -17,48 +21,51 @@ import { workdaysText } from '~/utils/workdays'
 const route = useRoute()
 const id = Number(route.params.id)
 const { data: employee, refresh: refreshEmployee } = await useFetch<EmployeeDetailDto>(`/api/employees/${id}`)
-// What the compact list no longer shows: the balance (today and at the end of this month) and the leave accounts.
+// What the compact list does not show: the balance today and at the end of a chosen month, the leave account of a
+// chosen year (Anspruch, Übertrag, genommen, verplant, frei).
 const now = parseIsoDate(todayIso())
-const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year: now.year, month: now.month } })
-const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: now.year } })
-const { data: nextLeave, refresh: refreshNextLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: now.year + 1 } })
+const balanceMonth = reactive({ year: now.year, month: now.month })
+const leaveYear = ref(now.year)
+const { data: todayBalances, refresh: refreshTodayBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year: now.year, month: now.month } })
+const { data: monthBalances, refresh: refreshMonthBalances } = await useFetch<BalanceDto[]>('/api/balances', {
+  query: { year: computed(() => balanceMonth.year), month: computed(() => balanceMonth.month) },
+})
+const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: leaveYear } })
 async function refresh() {
-  await Promise.all([refreshEmployee(), refreshBalances(), refreshLeave(), refreshNextLeave()])
+  await Promise.all([refreshEmployee(), refreshTodayBalances(), refreshMonthBalances(), refreshLeave()])
 }
 const run = useAction(refresh)
-const balance = computed(() => balances.value?.find(row => row.employeeId === id) ?? null)
-/** This year's leave, plus next year's as soon as it has anything (an entitlement, also one carried over, or planned leave). */
-const leaveRows = computed(() => {
-  const rows: LeaveAccountDto[] = []
-  const current = leave.value?.find(row => row.employeeId === id)
-  if (current) rows.push(current)
-  const next = nextLeave.value?.find(row => row.employeeId === id)
-  if (next && (next.account.entitlement || next.account.carriedOver || next.account.planned)) rows.push(next)
-  return rows
-})
+const todayBalance = computed(() => todayBalances.value?.find(row => row.employeeId === id) ?? null)
+const monthBalance = computed(() => monthBalances.value?.find(row => row.employeeId === id) ?? null)
+/** A month that is over shows its final balance, the current and later ones the expected one. */
+const monthIsOver = computed(() => balanceMonth.year * 12 + balanceMonth.month < now.year * 12 + now.month)
+function changeBalanceMonth(delta: number) {
+  Object.assign(balanceMonth, shiftMonth(balanceMonth.year, balanceMonth.month, delta))
+}
+const leaveRow = computed(() => leave.value?.find(row => row.employeeId === id) ?? null)
 const toast = useToast()
 const { user } = useUserSession()
 // Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
 const isProvider = computed(() => user.value?.role === 'provider')
-/** The select's value for "qualification not entered" ('none' is a qualification of its own). */
-const NO_QUALIFICATION = 'unset'
 
 /**
- * groupId 0 = Springer (the select needs a non-null value); only shown and sent when the facility has groups.
- * birthdayDay / birthdayMonth 0 = no birthday (both empty); the birthday is sent as MM-DD.
+ * The forms of „Stammdaten“ and „Qualifikation“ (one route, but each tab saves only its own fields). A reload keeps
+ * what is typed and not saved yet in a tab; the tab just saved shows the saved values.
  */
-const master = reactive({
-  name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0,
-  qualification: NO_QUALIFICATION as Qualification | typeof NO_QUALIFICATION, staffingShare: '',
-})
+const master = reactive<MasterFields>({ name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0 })
+const qualificationForm = reactive<QualificationFields>({ qualification: NO_QUALIFICATION, staffingShare: '' })
+let loadedMaster: MasterFields | null = null
+let loadedQualification: QualificationFields | null = null
+const justSaved = { master: false, qualification: false }
 watch(employee, (value) => {
   if (!value) return
-  const [month = 0, day = 0] = value.birthday ? value.birthday.split('-').map(Number) : []
-  Object.assign(master, {
-    name: value.name, shortName: value.shortName, leftOn: value.leftOn ?? '', groupId: value.groupId ?? 0,
-    birthdayDay: day, birthdayMonth: month,
-    qualification: value.qualification ?? NO_QUALIFICATION, staffingShare: value.staffingShare === null ? '' : String(value.staffingShare),
-  })
+  const nextMaster = masterFieldsOf(value)
+  const nextQualification = qualificationFieldsOf(value)
+  Object.assign(master, reloadedFields({ ...master }, loadedMaster, nextMaster, justSaved.master))
+  Object.assign(qualificationForm, reloadedFields({ ...qualificationForm }, loadedQualification, nextQualification, justSaved.qualification))
+  loadedMaster = nextMaster
+  loadedQualification = nextQualification
+  justSaved.master = justSaved.qualification = false
 }, { immediate: true })
 
 // Personalschlüssel: the qualification and the counting share (empty = the state's default, shown as placeholder).
@@ -67,30 +74,15 @@ const qualificationItems = [
   { label: de.staffing.qualificationNone, value: NO_QUALIFICATION },
   ...QUALIFICATIONS.map(key => ({ label: de.staffing.qualifications[key], value: key })),
 ]
-const qualificationValue = () => (master.qualification === NO_QUALIFICATION ? null : master.qualification)
 const sharePlaceholder = computed(() => {
   const rules = staffingSettings.value?.effective
-  return rules ? de.staffing.sharePlaceholder(shareOf(rules, qualificationValue(), null)) : ''
+  return rules ? de.staffing.sharePlaceholder(shareOf(rules, qualificationValue(qualificationForm), null)) : ''
 })
-/** null = empty field (the state's default), undefined = not a whole number from 0 to 100. */
-function shareValue(): number | null | undefined {
-  const text = String(master.staffingShare).trim()
-  if (!text) return null
-  const value = Number(text)
-  return Number.isInteger(value) && value >= 0 && value <= 100 ? value : undefined
-}
 const birthdayDayItems = [
   { label: de.employees.birthdayNone, value: 0 },
   ...Array.from({ length: 31 }, (_, index) => ({ label: String(index + 1), value: index + 1 })),
 ]
 const birthdayMonthItems = [{ label: de.employees.birthdayNone, value: 0 }, ...de.months.map((label, index) => ({ label, value: index + 1 }))]
-/** MM-DD, null without a birthday, undefined when only the day or only the month is chosen. */
-function birthdayValue(): string | null | undefined {
-  const { birthdayDay: day, birthdayMonth: month } = master
-  if (!day && !month) return null
-  if (!day || !month) return undefined
-  return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
 const { data: groups, hasGroups } = useGroups()
 const groupItems = computed(() => [
   ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
@@ -135,19 +127,14 @@ async function removePin() {
   if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employees/${id}/pin`, { method: 'DELETE' }), de.common.deleted)
 }
 
-function saveMaster() {
-  const birthday = birthdayValue()
-  if (birthday === undefined) return void toast.add({ title: de.errors.employee_birthday_invalid, color: 'error' })
-  const staffingShare = shareValue()
-  if (staffingShare === undefined) return void toast.add({ title: de.errors.staffing_share_invalid, color: 'error' })
-  run(() => $fetch<unknown>(`/api/employees/${id}`, {
-    method: 'PUT',
-    body: {
-      name: master.name, shortName: master.shortName, leftOn: master.leftOn || null, birthday,
-      qualification: qualificationValue(), staffingShare,
-      ...(hasGroups.value ? { groupId: master.groupId || null } : {}),
-    },
-  }), de.common.saved)
+/** Saves one tab's fields („Stammdaten“ or „Qualifikation“); a check that fails is shown right away, on that tab. */
+async function saveEmployee(part: 'master' | 'qualification') {
+  if (!employee.value) return
+  const update = part === 'master' ? masterUpdate(master, hasGroups.value) : qualificationUpdate(employee.value, qualificationForm)
+  if ('error' in update) return void toast.add({ title: de.errors[update.error], color: 'error' })
+  justSaved[part] = true
+  const ok = await run(() => $fetch<unknown>(`/api/employees/${id}`, { method: 'PUT', body: update.body }), de.common.saved)
+  if (!ok) justSaved[part] = false
 }
 
 // Träger only: move the person to another facility (the employee is then no longer part of the active one).
@@ -213,6 +200,8 @@ const visibleTabs = computed(() => employeeTabs(user.value?.role ?? null))
 const requestedTab = () => requestedEmployeeTab(route.query.tab, route.hash, visibleTabs.value)
 const tab = ref<EmployeeTab>(requestedTab())
 watch(() => [route.query.tab, route.hash], () => (tab.value = requestedTab()))
+/** The attributes of a tab's panel (all panels stay mounted, only the open one shows). */
+const panel = (key: EmployeeTab) => ({ id: `employee-panel-${key}`, role: 'tabpanel', 'aria-labelledby': `employee-tab-${key}`, class: 'space-y-4' })
 function selectTab(next: EmployeeTab) {
   tab.value = next
   router.replace({ query: { ...route.query, tab: next }, hash: '' })
@@ -239,7 +228,7 @@ function onTabKey(event: KeyboardEvent) {
     <div role="tablist" :aria-label="de.employees.tabsLabel" class="flex flex-wrap gap-1.5">
       <button
         v-for="key in visibleTabs" :id="`employee-tab-${key}`" :key="key" type="button" role="tab"
-        :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" aria-controls="employee-tab-panel"
+        :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" :aria-controls="`employee-panel-${key}`"
         class="min-h-10 rounded-full px-3.5 text-sm ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         :class="tab === key ? 'bg-sky-50 font-semibold text-sky-800 ring-sky-400' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
         @click="selectTab(key)" @keydown="onTabKey"
@@ -248,9 +237,9 @@ function onTabKey(event: KeyboardEvent) {
       </button>
     </div>
 
-    <div id="employee-tab-panel" role="tabpanel" :aria-labelledby="`employee-tab-${tab}`" class="space-y-4">
-    <template v-if="tab === 'master'">
-    <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveMaster">
+    <!-- All tabs stay mounted (v-show): what is typed in one survives a look at another. -->
+    <div v-show="tab === 'master'" v-bind="panel('master')">
+    <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveEmployee('master')">
       <h2 class="font-semibold sm:col-span-4">{{ de.employees.masterData }}</h2>
       <UFormField :label="de.employees.name" class="sm:col-span-2"><UInput v-model="master.name" class="w-full" required /></UFormField>
       <UFormField :label="de.employees.shortName"><UInput v-model="master.shortName" maxlength="10" class="w-full" /></UFormField>
@@ -274,21 +263,23 @@ function onTabKey(event: KeyboardEvent) {
       </UFormField>
       <UButton type="submit" :disabled="targetFacilityId === undefined" :label="de.facilities.moveAction" />
     </form>
-    </template>
+    </div>
 
-    <!-- Saved with the master data (one route); the fields only live in their own tab. -->
-    <form v-else-if="tab === 'qualification'" class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveMaster">
+    <!-- The same route as the master data, but only the qualification and the share are sent from here. -->
+    <div v-show="tab === 'qualification'" v-bind="panel('qualification')">
+    <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveEmployee('qualification')">
       <h2 class="font-semibold sm:col-span-4">{{ de.employees.tabs.qualification }}</h2>
       <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
-        <USelect v-model="master.qualification" :items="qualificationItems" class="w-full" />
+        <USelect v-model="qualificationForm.qualification" :items="qualificationItems" class="w-full" />
       </UFormField>
       <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
-        <UInput v-model="master.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
+        <UInput v-model="qualificationForm.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
       </UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
+    </div>
 
-    <template v-else-if="tab === 'stamping'">
+    <div v-show="tab === 'stamping'" v-bind="panel('stamping')">
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.pin }}</h2>
       <p class="text-sm text-gray-600">{{ employee.hasPin ? de.employees.pinSet : de.employees.pinNotSet }}</p>
@@ -322,16 +313,27 @@ function onTabKey(event: KeyboardEvent) {
       <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
       <UButton type="submit" :label="de.common.save" />
     </form>
-    </template>
+    </div>
 
-    <template v-else-if="tab === 'hours'">
-    <p v-if="balance" class="rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
-      {{ de.balances.account }} – {{ de.balances.today }}:
-      <span class="font-semibold" :class="balanceClass(balance.today)">{{ formatSignedDuration(balance.today) }}</span>
-      <span class="mx-2 text-gray-300">|</span>
-      {{ de.balances.monthEnd }}:
-      <span class="font-semibold" :class="balanceClass(balance.monthEnd)">{{ formatSignedDuration(balance.monthEnd) }}</span>
-    </p>
+    <div v-show="tab === 'hours'" v-bind="panel('hours')">
+    <section class="space-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ de.balances.account }}</h2>
+      <p>
+        {{ de.balances.today }}:
+        <span v-if="todayBalance" class="font-semibold" :class="balanceClass(todayBalance.today)">{{ formatSignedDuration(todayBalance.today) }}</span>
+        <span v-else class="text-gray-400">–</span>
+      </p>
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span>{{ monthIsOver ? de.employees.monthEndOver : de.balances.monthEnd }}</span>
+        <span class="flex items-center">
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-chevron-left" :aria-label="de.common.previousMonth" @click="changeBalanceMonth(-1)" />
+          <span class="min-w-32 text-center font-medium">{{ monthTitle(balanceMonth.year, balanceMonth.month) }}</span>
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-chevron-right" :aria-label="de.common.nextMonth" @click="changeBalanceMonth(1)" />
+        </span>
+        <span v-if="monthBalance" class="font-semibold" :class="balanceClass(monthBalance.monthEnd)">{{ formatSignedDuration(monthBalance.monthEnd) }}</span>
+        <span v-else class="text-gray-400">–</span>
+      </div>
+    </section>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
       <table class="w-full text-sm">
@@ -385,21 +387,25 @@ function onTabKey(event: KeyboardEvent) {
     <EmployeesContractSection
       v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="isProvider" @saved="refresh"
     />
-    </template>
-
-    <template v-else-if="tab === 'leave'">
-    <div v-if="leaveRows.length" class="space-y-1 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
-      <p v-for="row in leaveRows" :key="row.year">
-        <span class="font-medium">{{ de.leave.title }} {{ row.year }}:</span>
-        {{ de.leave.entitlement }} {{ formatNumber(row.account.entitlement) }}
-        <span v-if="row.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(row.inheritedFrom) }}</span>
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(row.account.carriedOver) }}
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(row.account.taken) }}
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(row.account.planned) }}
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.available }}
-        <span class="font-semibold" :class="row.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(row.account.available) }}</span>
-      </p>
     </div>
+
+    <div v-show="tab === 'leave'" v-bind="panel('leave')">
+    <section class="space-y-1 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+      <div class="flex flex-wrap items-center gap-x-2">
+        <h2 class="font-semibold">{{ de.leave.title }}</h2>
+        <YearNav v-model="leaveYear" />
+      </div>
+      <p v-if="leaveRow">
+        {{ de.leave.entitlement }} {{ formatNumber(leaveRow.account.entitlement) }}
+        <span v-if="leaveRow.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(leaveRow.inheritedFrom) }}</span>
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(leaveRow.account.carriedOver) }}
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(leaveRow.account.taken) }}
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(leaveRow.account.planned) }}
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.available }}
+        <span class="font-semibold" :class="leaveRow.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(leaveRow.account.available) }}</span>
+      </p>
+      <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
+    </section>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>
       <p class="text-sm text-gray-500">{{ de.employees.entitlementsHint }}</p>
@@ -424,11 +430,14 @@ function onTabKey(event: KeyboardEvent) {
         <UButton type="submit" :label="de.employees.saveEntitlement" />
       </form>
     </section>
-    </template>
+    </div>
 
-    <EmployeesRequirementsSection v-else-if="tab === 'requirements'" :employee-id="id" />
+    <div v-show="tab === 'requirements'" v-bind="panel('requirements')">
+      <EmployeesRequirementsSection :employee-id="id" />
+    </div>
 
-    <EmployeesAccessSection v-else-if="tab === 'access'" :employee-id="id" :employee-name="employee.name" />
+    <div v-if="visibleTabs.includes('access')" v-show="tab === 'access'" v-bind="panel('access')">
+      <EmployeesAccessSection :employee-id="id" :employee-name="employee.name" />
     </div>
   </div>
 </template>
