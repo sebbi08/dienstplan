@@ -272,16 +272,25 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
 
     <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.settings.codes }}</h2>
+      <!-- The codes apply to every facility: only the Träger changes them, the Leitung sees them read-only. -->
+      <p v-if="!isProvider" class="text-xs text-gray-500">{{ de.settings.codesProviderOnly }}</p>
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-500">
-          <tr><th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.color }}</th><th :class="cell">{{ de.settings.creditMode }}</th><th /></tr>
+          <tr><th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.color }}</th><th :class="cell">{{ de.settings.creditMode }}</th><th v-if="isProvider" /></tr>
         </thead>
         <tbody>
           <tr v-for="code in codes" :key="code.id" class="border-t border-gray-100">
-            <td :class="cell"><input v-model="code.label" maxlength="50" :class="textInput"></td>
-            <td :class="cell"><USelect v-model="code.color" :items="colorItems" class="w-32" /></td>
-            <td :class="cell"><USelect v-model="code.creditMode" :items="creditItems" class="w-44" /></td>
-            <td :class="cell" class="text-right"><UButton size="xs" :label="de.common.save" @click="saveCode(code)" /></td>
+            <template v-if="isProvider">
+              <td :class="cell"><input v-model="code.label" maxlength="50" :class="textInput"></td>
+              <td :class="cell"><USelect v-model="code.color" :items="colorItems" class="w-32" /></td>
+              <td :class="cell"><USelect v-model="code.creditMode" :items="creditItems" class="w-44" /></td>
+              <td :class="cell" class="text-right"><UButton size="xs" :label="de.common.save" @click="saveCode(code)" /></td>
+            </template>
+            <template v-else>
+              <td :class="cell">{{ code.label }}</td>
+              <td :class="cell">{{ de.colors[code.color] }}</td>
+              <td :class="cell">{{ de.creditModes[code.creditMode] }}</td>
+            </template>
           </tr>
         </tbody>
       </table>

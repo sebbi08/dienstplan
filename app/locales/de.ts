@@ -459,6 +459,7 @@ export const de = {
     legalBreakText: (required: number, ok: boolean) => (required === 0 ? 'keine nötig' : `mind. ${required} Min.`) + (ok ? ' ✓' : ' – fehlt'),
     pairsWithPrepTimeHint: 'Wird als voller Dienst um VZ oder Büro vorgeschlagen (z. B. F2, M, S).',
     sortOrder: 'Reihenfolge', addTemplate: 'Dienst hinzufügen', codes: 'Codes', color: 'Farbe', creditMode: 'Anrechnung',
+    codesProviderOnly: 'Codes kann nur der Träger ändern.',
     creditModeConfirm: 'Die geänderte Anrechnung gilt auch für alle bereits eingetragenen Tage mit diesem Code. Dadurch ändern sich die Stundenkonten rückwirkend. Trotzdem speichern?',
     rules: 'Pflichtdienste', rulesHint: 'Die App warnt an jedem gewählten Werktag, an dem weniger Dienste mit diesem Beginn (und optional Ende) eingetragen sind. An Tagen, die bei den Öffnungszeiten als „geschlossen“ eingetragen sind, wird nicht gewarnt.',
     ruleWeekdays: 'Wochentage', ruleWeekdaysMissing: 'Wähle mindestens einen Wochentag.',

@@ -915,3 +915,9 @@ Für einige Länder sind die Zahlen nicht sicher belegt (Hamburg, Saarland, teil
 Mecklenburg-Vorpommern, Sachsen-Anhalt, Schleswig-Holstein und Thüringen). Dann steht im Reiter und in den
 Einstellungen **„Werte des Landes bitte prüfen“**, dazu ein Hinweis, was nicht abgebildet ist. Bitte diese Zahlen mit
 dem Landesjugendamt klären und bei Bedarf als Träger anpassen.
+
+## 21. Codes (Urlaub, Krank …)
+
+Die Codes für Abwesenheiten (Urlaub, Krank, Fortbildung …) gelten für **alle Einrichtungen**. Bezeichnung, Farbe und
+Anrechnung ändert deshalb **nur der Träger** unter *Einstellungen → Codes*. Die Leitung sieht die Codes dort nur zum
+Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).

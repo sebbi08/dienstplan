@@ -38,6 +38,8 @@ const PROVIDER_ROUTES = [
   'school-settings/auto-leave.put.ts', 'school-settings/auto-leave-preview.get.ts', 'groups/[id]/school-children.put.ts',
   // Staffing ratio: only the Träger changes the state's values (spec Personalschlüssel §5, Review Focus 4).
   'staffing-settings.put.ts', 'staffing-settings.delete.ts',
+  // The absence codes (Urlaub, Krank …) apply to every facility: only the Träger changes them.
+  'absence-codes/[id].put.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = [
@@ -203,6 +205,17 @@ describe('API route permissions', () => {
     expect(ADMIN_ROUTES).toContain('staffing-settings.get.ts')
     expect(read).toContain('requireAdmin(')
     expect(read).toContain('admin.facilityId')
+  })
+
+  it('lets only the Träger change the absence codes', () => {
+    const touching = routes.filter(route => /^absence-codes\//.test(route) || /\bupdateCode\b/.test(source(route)))
+    expect(touching).toEqual(['absence-codes/[id].put.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      expect(PROVIDER_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireProvider(')
+      expect(code, route).not.toMatch(/require(Admin|User|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+    }
   })
 
   it('opens the monthly staffing report to managers of the active facility only', () => {
