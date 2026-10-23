@@ -1131,6 +1131,8 @@ export const de = {
     pin_locked: 'PIN für 15 Minuten gesperrt.',
     pin_locked_long: 'PIN für 30 Minuten gesperrt.',
     pin_locked_permanent: 'PIN gesperrt. Bitte die Leitung oder den Träger um Freischaltung.',
+    warning_ack_not_found: 'Diese Warnung ist nicht (mehr) als zur Kenntnis genommen markiert. Bitte lade die Seite neu.',
+    invalid_warning_key: 'Diese Warnung lässt sich so nicht als zur Kenntnis genommen markieren. Bitte lade die Seite neu.',
     pin_missing: 'Für diese Person ist keine PIN hinterlegt.',
     pin_format: 'Die PIN muss aus 6 Ziffern bestehen.',
     employee_not_employed: 'Diese Person ist nicht mehr beschäftigt.',

@@ -880,6 +880,8 @@ export interface MonthPlanAdminDto {
   sickLeaves: Record<string, SickLeaveMarkDto>
   /** Warnings of this month marked „Zur Kenntnis genommen“ (see shared/domain/warningList.ts). */
   warningAcks: WarningAckDto[]
+  /** Per own employee: the month's weekdays they do not work (part-time days off, before or after employment, holidays). */
+  offDays: Record<number, IsoDate[]>
 }
 
 /** A warning marked „Zur Kenntnis genommen“: its key and its values then, by whom and when (ISO timestamp). */

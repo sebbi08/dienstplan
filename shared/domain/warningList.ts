@@ -26,7 +26,8 @@ function subject(warning: Warning): string {
     case 'coverage':
       return String(warning.ruleId)
     case 'edge':
-      return `${warning.edge}|${warning.groupName ?? ''}`
+      // The group's id (rename-safe); facility hours have none.
+      return `${warning.edge}|${warning.groupId ?? ''}`
     case 'staffing':
       return `${warning.groupId}|${warning.fachkraft ? 'f' : 'a'}|${warning.from}-${warning.to}`
     default:
@@ -58,10 +59,25 @@ export function warningSignature(warning: Warning): string {
   }
 }
 
-/** The day of an acknowledgement key (its second part), or null for a malformed key. */
+const ID = /^[1-9]\d*$/
+/** The subject's format per type, as `subject` writes it. */
+const SUBJECT_FORMATS: Record<Warning['type'], RegExp> = {
+  missing_entry: ID, target_gap: ID, open_record: ID, missing_record: ID, break_rule: ID, record_without_plan: ID,
+  coverage: ID,
+  edge: /^(opening|closing)\|([1-9]\d*)?$/,
+  staffing: /^[1-9]\d*\|[fa]\|\d{1,4}-\d{1,4}$/,
+}
+export const MAX_ACK_SIGNATURE_LENGTH = 100
+
+/**
+ * The day of an acknowledgement key, or null when the key is not one `warningAckKey` writes (a known type, an ISO day,
+ * the type's subject format).
+ */
 export function ackKeyDate(key: string): IsoDate | null {
-  const date = key.split('|')[1]
-  return date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null
+  const [type, date, ...rest] = key.split('|')
+  if (type === undefined || date === undefined || !Object.hasOwn(SUBJECT_FORMATS, type)) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  return SUBJECT_FORMATS[type as Warning['type']].test(rest.join('|')) ? date : null
 }
 
 /** Acknowledgements of a facility: key → signature. */
@@ -101,27 +117,34 @@ export interface WarningLine {
   missingMinutes: number
 }
 
-/** Whether a run ending on `last` goes on at `next`: no open day without the warning lies between them. */
-function continues(last: IsoDate, next: IsoDate, openDays: ReadonlySet<IsoDate>): boolean {
+/** Per employee: the open days they do not work (part-time days off), which do not break their runs either. */
+export type EmployeeOffDays = ReadonlyMap<number, ReadonlySet<IsoDate>>
+
+/** Whether a run ending on `last` goes on at `next`: no open day (and workday of `off`'s person) lies between them. */
+function continues(last: IsoDate, next: IsoDate, openDays: ReadonlySet<IsoDate>, off: ReadonlySet<IsoDate> | undefined): boolean {
   if (next <= last) return next === last
   for (let date = addDays(last, 1); date < next; date = addDays(date, 1)) {
-    if (openDays.has(date)) return false
+    if (openDays.has(date) && !off?.has(date)) return false
   }
   return true
 }
 
 /**
  * Joins identical warnings on consecutive days into lines. `openDays` are the plan's checked days (no weekend, holiday
- * or closure): a run goes on over the days in between that are not open. Lines are sorted by their first day.
+ * or closure): a run goes on over the days in between that are not open, and for a person's warnings also over their
+ * days off (`offDays`). Lines are sorted by their first day.
  */
-export function condenseWarnings(warnings: Warning[], openDays: ReadonlySet<IsoDate>): WarningLine[] {
+export function condenseWarnings(
+  warnings: Warning[], openDays: ReadonlySet<IsoDate>, offDays: EmployeeOffDays = new Map(),
+): WarningLine[] {
   const sorted = [...warnings].sort((a, b) => a.date.localeCompare(b.date))
   const lines: WarningLine[] = []
   const open = new Map<string, WarningLine>()
   for (const warning of sorted) {
     const key = runKey(warning)
     const line = open.get(key)
-    if (line && continues(line.to, warning.date, openDays)) {
+    const employeeId = employeeOf(warning)
+    if (line && continues(line.to, warning.date, openDays, employeeId === null ? undefined : offDays.get(employeeId))) {
       if (warning.date !== line.to) line.days += 1
       line.to = warning.date
       line.warnings.push(warning)
@@ -165,6 +188,7 @@ function employeeOf(warning: Warning): number | null {
 /** The group a warning is about: a person's home group, or the group of a group rule or group hours (null = facility). */
 function groupOf(warning: Warning, context: WarningFilterContext): number | null {
   if (warning.type === 'staffing') return warning.groupId
+  if (warning.type === 'edge' && warning.groupId !== undefined) return warning.groupId
   if (warning.type === 'coverage' || warning.type === 'edge') {
     if (warning.groupName === undefined) return null
     for (const [id, name] of context.groupNames) if (name === warning.groupName) return id
@@ -173,9 +197,20 @@ function groupOf(warning: Warning, context: WarningFilterContext): number | null
   return context.employeeGroups.get(warning.employeeId) ?? null
 }
 
+/** Whether a group filter keeps the warning: its own group, or a facility-wide Besetzung warning (that concerns all groups). */
+function keptByGroup(warning: Warning, groupId: number, context: WarningFilterContext): boolean {
+  const group = groupOf(warning, context)
+  if (group === groupId) return true
+  return group === null && employeeOf(warning) === null
+}
+
+/**
+ * The group filter keeps that group's warnings, its members' and the facility-wide Besetzung warnings (rules and opening
+ * hours of the whole facility); the person filter only that person's.
+ */
 export function filterWarnings(warnings: Warning[], filter: WarningFilter, context: WarningFilterContext): Warning[] {
   return warnings.filter(warning => (filter.employeeId === null || employeeOf(warning) === filter.employeeId)
-    && (filter.groupId === null || groupOf(warning, context) === filter.groupId))
+    && (filter.groupId === null || keptByGroup(warning, filter.groupId, context)))
 }
 
 /** One group of the list, as shown. */
@@ -192,7 +227,7 @@ export interface WarningSection {
 }
 
 export function warningSections(
-  warnings: Warning[], acks: WarningAcks, openDays: ReadonlySet<IsoDate>, today: IsoDate,
+  warnings: Warning[], acks: WarningAcks, openDays: ReadonlySet<IsoDate>, today: IsoDate, offDays: EmployeeOffDays = new Map(),
 ): WarningSection[] {
   return WARNING_CATEGORIES.map((category) => {
     const own = warnings.filter(warning => warningCategory(warning) === category)
@@ -202,9 +237,9 @@ export function warningSections(
     return {
       category,
       count: shown.length,
-      current: condenseWarnings(current, openDays),
-      past: condenseWarnings(past, openDays),
-      acknowledged: condenseWarnings(acknowledged, openDays),
+      current: condenseWarnings(current, openDays, offDays),
+      past: condenseWarnings(past, openDays, offDays),
+      acknowledged: condenseWarnings(acknowledged, openDays, offDays),
       acknowledgedCount: acknowledged.length,
     }
   })

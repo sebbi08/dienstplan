@@ -21,6 +21,7 @@ const all = computed(() => props.plan.admin?.warnings ?? [])
 const acks = computed(() => new Map((props.plan.admin?.warningAcks ?? []).map(ack => [ack.key, ack])))
 const ackSignatures = computed(() => new Map([...acks.value].map(([key, ack]) => [key, ack.signature])))
 const openDays = computed(() => openDaysOf(props.plan.days))
+const offDays = computed(() => new Map(Object.entries(props.plan.admin?.offDays ?? {}).map(([id, dates]) => [Number(id), new Set(dates)])))
 const today = todayIso()
 
 // Filter by group and person, remembered per device; read after mounting so the server-rendered page agrees.
@@ -55,7 +56,7 @@ const context = computed(() => ({
 }))
 const shown = computed(() => filterWarnings(all.value, { groupId: groupSelect.value || null, employeeId: employeeSelect.value || null }, context.value))
 
-const sections = computed(() => warningSections(shown.value, ackSignatures.value, openDays.value, today))
+const sections = computed(() => warningSections(shown.value, ackSignatures.value, openDays.value, today, offDays.value))
 const summary = computed(() => warningSummary(sections.value))
 const acknowledgedCount = computed(() => sections.value.reduce((sum, section) => sum + section.acknowledgedCount, 0))
 

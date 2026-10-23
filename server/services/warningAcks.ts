@@ -1,7 +1,7 @@
 import { and, asc, between, eq, inArray } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import type { IsoDate } from '../../shared/domain/types'
-import { ackKeyDate } from '../../shared/domain/warningList'
+import { ackKeyDate, MAX_ACK_SIGNATURE_LENGTH } from '../../shared/domain/warningList'
 import type { SessionUser, WarningAckDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, warningAcks } from '../db/schema'
@@ -22,7 +22,9 @@ export function acknowledgeWarnings(
 ): void {
   const rows = items.map((item) => {
     const date = ackKeyDate(item.key)
-    if (date === null || !isValidIsoDate(date)) throw new ServiceError(400, 'invalid_warning_key')
+    if (date === null || !isValidIsoDate(date) || item.signature.length > MAX_ACK_SIGNATURE_LENGTH) {
+      throw new ServiceError(400, 'invalid_warning_key')
+    }
     return { ...item, date }
   })
   const acknowledgedAt = now.toISOString()

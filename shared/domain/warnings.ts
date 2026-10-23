@@ -25,8 +25,8 @@ export type Warning =
   | { type: 'missing_entry'; date: IsoDate; employeeId: number }
   /** groupName only for a group rule (warnings of facility rules have no such key). */
   | { type: 'coverage'; date: IsoDate; ruleId: number; label: string; found: number; required: number; groupName?: string }
-  /** Too few staff at opening / until closing; groupName only for a group with its own hours. */
-  | { type: 'edge'; date: IsoDate; edge: 'opening' | 'closing'; time: Minutes; found: number; required: number; groupName?: string }
+  /** Too few staff at opening / until closing; groupName and groupId only for a group with its own hours. */
+  | { type: 'edge'; date: IsoDate; edge: 'opening' | 'closing'; time: Minutes; found: number; required: number; groupName?: string; groupId?: number }
   | { type: 'target_gap'; date: IsoDate; employeeId: number; missingMinutes: number }
   | { type: 'open_record'; date: IsoDate; employeeId: number }
   | { type: 'missing_record'; date: IsoDate; employeeId: number }
@@ -89,7 +89,7 @@ const NO_HOURS: DayHoursContext = { facility: null, groups: [] }
 
 /** Edge warnings of one entered opening day: staff at opening (start <= open < end) and until closing (start < close <= end). */
 function edgeWarnings(
-  date: IsoDate, hours: OpeningHours, duties: { entry: DomainEntry; groupId: number | null }[], groupName?: string,
+  date: IsoDate, hours: OpeningHours, duties: { entry: DomainEntry; groupId: number | null }[], group?: { groupId: number; groupName: string },
 ): Warning[] {
   const day = hoursOn(hours, date)
   if (!isEntered(day)) return []
@@ -101,14 +101,14 @@ function edgeWarnings(
   if (atOpening < hours.minAtOpening) {
     warnings.push({
       type: 'edge', date, edge: 'opening', time: day.open, found: atOpening, required: hours.minAtOpening,
-      ...(groupName === undefined ? {} : { groupName }),
+      ...(group === undefined ? {} : { groupName: group.groupName, groupId: group.groupId }),
     })
   }
   const atClosing = spans.filter(span => span.start < day.close && span.end >= day.close).length
   if (atClosing < hours.minAtClosing) {
     warnings.push({
       type: 'edge', date, edge: 'closing', time: day.close, found: atClosing, required: hours.minAtClosing,
-      ...(groupName === undefined ? {} : { groupName }),
+      ...(group === undefined ? {} : { groupName: group.groupName, groupId: group.groupId }),
     })
   }
   return warnings
@@ -151,7 +151,7 @@ export function dayWarnings(
   // Facility: every duty of the plan (helpers included); a group with own hours: only its own duties.
   if (hours.facility !== null) warnings.push(...edgeWarnings(date, hours.facility, allEntries))
   for (const group of hours.groups) {
-    warnings.push(...edgeWarnings(date, group.hours, allEntries.filter(item => item.groupId === group.groupId), group.groupName))
+    warnings.push(...edgeWarnings(date, group.hours, allEntries.filter(item => item.groupId === group.groupId), group))
   }
 
   for (const { employeeId, info, entries, coverageOnly, busyElsewhere } of employees) {

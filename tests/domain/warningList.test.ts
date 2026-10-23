@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { dateRange, isWeekend } from '../../shared/domain/dates'
 import type { Warning } from '../../shared/domain/warnings'
 import {
-  condenseWarnings, filterWarnings, isAcknowledged, splitPast, warningAckKey, warningCategory, warningSections,
+  ackKeyDate, condenseWarnings, filterWarnings, isAcknowledged, splitPast, warningAckKey, warningCategory, warningSections,
   warningSignature,
 } from '../../shared/domain/warningList'
 
@@ -45,6 +45,16 @@ describe('condenseWarnings', () => {
     expect(condenseWarnings([missing('2026-10-02'), missing('2026-10-06')], openDays('2026-10-05'))).toHaveLength(1)
     const lines = condenseWarnings([missing('2026-10-05'), missing('2026-10-07')], openDays())
     expect(lines.map(line => [line.from, line.to])).toEqual([['2026-10-05', '2026-10-05'], ['2026-10-07', '2026-10-07']])
+  })
+
+  it('joins a person\'s run over their days off (part-time), not over someone else\'s', () => {
+    // Anna (1) does not work on Wednesdays; Mi 07.10. lies between.
+    const offDays = new Map([[1, new Set(['2026-10-07'])]])
+    const days = ['2026-10-05', '2026-10-06', '2026-10-08']
+    const anna = condenseWarnings(days.map(date => missing(date, 1)), openDays(), offDays)
+    expect(anna.map(line => [line.from, line.to, line.days])).toEqual([['2026-10-05', '2026-10-08', 3]])
+    expect(condenseWarnings(days.map(date => missing(date, 2)), openDays(), offDays)).toHaveLength(2)
+    expect(condenseWarnings(days.map(date => staffing(date)), openDays(), offDays)).toHaveLength(2)
   })
 
   it('breaks a run when the values differ', () => {
@@ -90,8 +100,25 @@ describe('acknowledging', () => {
     expect(warningAckKey(missing('2026-10-05', 4))).toBe('missing_entry|2026-10-05|4')
     expect(warningAckKey(coverage('2026-10-05'))).toBe('coverage|2026-10-05|3')
     expect(warningAckKey(staffing('2026-10-05'))).toBe('staffing|2026-10-05|7|f|420-480')
-    expect(warningAckKey({ type: 'edge', date: '2026-10-05', edge: 'closing', time: 1020, found: 0, required: 1, groupName: 'Mäuse' }))
-      .toBe('edge|2026-10-05|closing|Mäuse')
+    // By the group's id, so renaming the group keeps the acknowledgement.
+    expect(warningAckKey({ type: 'edge', date: '2026-10-05', edge: 'closing', time: 1020, found: 0, required: 1, groupName: 'Mäuse', groupId: 5 }))
+      .toBe('edge|2026-10-05|closing|5')
+    expect(warningAckKey({ type: 'edge', date: '2026-10-05', edge: 'opening', time: 420, found: 0, required: 1 }))
+      .toBe('edge|2026-10-05|opening|')
+  })
+
+  it('accepts only keys it writes itself', () => {
+    const keys = [
+      missing('2026-10-05', 4), coverage('2026-10-05'), staffing('2026-10-05'), gap('2026-10-05', 30),
+      { type: 'edge', date: '2026-10-05', edge: 'closing', time: 1020, found: 0, required: 1, groupId: 5, groupName: 'Mäuse' },
+      { type: 'edge', date: '2026-10-05', edge: 'opening', time: 420, found: 0, required: 1 },
+    ].map(w => warningAckKey(w as Warning))
+    for (const key of keys) expect(ackKeyDate(key)).toBe('2026-10-05')
+    for (const key of [
+      'nonsense', 'unknown_type|2026-10-05|1', 'toString|2026-10-05|1', 'missing_entry|05.10.2026|1', 'missing_entry|2026-10-05|',
+      'missing_entry|2026-10-05|abc', 'missing_entry|2026-10-05|1|2', 'edge|2026-10-05|middle|5', 'edge|2026-10-05|opening|Mäuse',
+      'staffing|2026-10-05|7|x|420-480', 'staffing|2026-10-05|7|f',
+    ]) expect(ackKeyDate(key), key).toBeNull()
   })
 
   it('shows a warning again when its values changed', () => {
@@ -139,20 +166,36 @@ describe('warningSections', () => {
 })
 
 describe('filterWarnings', () => {
-  const context = { employeeGroups: new Map<number, number | null>([[1, 7], [2, 8]]), groupNames: new Map([[7, 'Bären'], [8, 'Mäuse']]) }
+  // Employee 3 is a Springer (no home group).
+  const context = {
+    employeeGroups: new Map<number, number | null>([[1, 7], [2, 8], [3, null]]), groupNames: new Map([[7, 'Bären'], [8, 'Mäuse']]),
+  }
+  const facilityOpening: Warning = { type: 'edge', date: '2026-10-05', edge: 'opening', time: 420, found: 0, required: 1 }
   const warnings: Warning[] = [
     staffing('2026-10-05'), missing('2026-10-05', 1), missing('2026-10-05', 2), coverage('2026-10-05'),
     { type: 'coverage', date: '2026-10-05', ruleId: 4, label: 'Spät', found: 0, required: 1, groupName: 'Mäuse' },
-    { type: 'edge', date: '2026-10-05', edge: 'opening', time: 420, found: 0, required: 1, groupName: 'Bären' },
+    { type: 'edge', date: '2026-10-05', edge: 'opening', time: 420, found: 0, required: 1, groupName: 'Bären', groupId: 7 },
+    { type: 'edge', date: '2026-10-05', edge: 'closing', time: 960, found: 0, required: 1, groupName: 'Mäuse', groupId: 8 },
+    facilityOpening, missing('2026-10-05', 3),
   ]
 
   it('keeps everything without a filter', () => {
     expect(filterWarnings(warnings, { groupId: null, employeeId: null }, context)).toHaveLength(warnings.length)
   })
 
-  it('keeps a group\'s own warnings and those of its members', () => {
+  it('keeps a group\'s own warnings, those of its members and the facility-wide Besetzung', () => {
     const kept = filterWarnings(warnings, { groupId: 7, employeeId: null }, context)
-    expect(kept.map(w => w.type)).toEqual(['staffing', 'missing_entry', 'edge'])
+    expect(kept.map(w => w.type)).toEqual(['staffing', 'missing_entry', 'coverage', 'edge', 'edge'])
+    expect(kept).toContain(facilityOpening)
+    expect(kept).toContainEqual(coverage('2026-10-05'))
+    // A Springer's own warnings belong to no group.
+    expect(kept).not.toContainEqual(missing('2026-10-05', 3))
+  })
+
+  it('counts the facility-wide Besetzung under a group filter', () => {
+    const kept = filterWarnings(warnings, { groupId: 8, employeeId: null }, context)
+    const [besetzung] = warningSections(kept, new Map(), openDays(), '2026-10-01')
+    expect(besetzung!.count).toBe(4)
   })
 
   it('keeps only the warnings of one person', () => {

@@ -992,7 +992,10 @@ sehen keine Warnungen.
 - **Vergangene Tage** stehen bei Besetzung und Lücken zugeklappt unter „vergangene Tage (n)“; zuerst kommt ab heute.
   Bei der Zeiterfassung zählt gerade die Vergangenheit, sie steht dort ganz normal.
 - **Klick auf eine Zeile** springt zum Tag im Plan (bei mehreren Tagen zum ersten) und hebt ihn kurz hervor.
-- **Filter** nach Gruppe und Mitarbeiter gelten für alle drei Gruppen; das Gerät merkt sich die Auswahl.
+- **Filter** nach Gruppe und Mitarbeiter gelten für alle drei Gruppen; das Gerät merkt sich die Auswahl. Mit einer
+  Gruppe gewählt bleiben die Warnungen der ganzen Einrichtung (Pflichtdienste und Öffnung/Schließung der Einrichtung)
+  sichtbar; dazu kommen die Warnungen der Gruppe und ihrer Mitarbeiter (Springer gehören zu keiner Gruppe).
+- Teilzeitkräfte: Ihre freien Wochentage unterbrechen eine zusammengefasste Zeile nicht.
 - **„Zur Kenntnis genommen“** (Haken rechts an der Zeile) blendet die Warnung für die ganze Einrichtung aus, bei einer
   zusammengefassten Zeile für alle ihre Tage. Gespeichert wird, wer es wann gemacht hat. Ändert sich an der Warnung
   etwas (z. B. andere Zahlen, andere fehlende Zeit, anderer Zeitraum), erscheint sie wieder. Die Zahl in der

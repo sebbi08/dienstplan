@@ -83,7 +83,7 @@ describe('opening hours and weekday rules in the month plan', () => {
     setFacilityOpeningHours(db, 1, week({ 1: times(420, 795) }))
     setGroupOpeningHours(db, 1, kaefer, week({ 1: times(420, 795) }, 2, 1))
     expect(edges(tuesday)).toEqual([
-      { type: 'edge', date: tuesday, edge: 'opening', time: 420, found: 1, required: 2, groupName: 'Käfer' },
+      { type: 'edge', date: tuesday, edge: 'opening', time: 420, found: 1, required: 2, groupName: 'Käfer', groupId: kaefer },
     ])
   })
 

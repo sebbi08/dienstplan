@@ -305,8 +305,8 @@ describe('dayWarnings with weekdays and opening hours', () => {
   describe('group edges', () => {
     const groupHours = week(allDays(open(450, 960)))
     const hours = { facility: null, groups: [{ groupId: 5, groupName: 'Mäuse', hours: groupHours }] }
-    const mouseOpening = { type: 'edge', date, edge: 'opening', time: 450, found: 0, required: 1, groupName: 'Mäuse' }
-    const mouseClosing = { type: 'edge', date, edge: 'closing', time: 960, found: 0, required: 1, groupName: 'Mäuse' }
+    const mouseOpening = { type: 'edge', date, edge: 'opening', time: 450, found: 0, required: 1, groupName: 'Mäuse', groupId: 5 }
+    const mouseClosing = { type: 'edge', date, edge: 'closing', time: 960, found: 0, required: 1, groupName: 'Mäuse', groupId: 5 }
     it('counts duties of the home group', () => {
       expect(edges(dayWarnings(date, [person(1, 5, [shift(1, date, 450, 960)])], [], false, BW_RULES, hours))).toEqual([])
     })

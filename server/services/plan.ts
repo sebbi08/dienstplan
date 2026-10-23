@@ -9,7 +9,7 @@ import {
 } from '../../shared/domain/releaseDiff'
 import { isManager } from '../../shared/domain/roles'
 import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
-import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
+import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import type {
@@ -156,6 +156,9 @@ function buildAdminData(
   return {
     warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals, helpers, helperBusy, sickLeaves,
     warningAcks: loadWarningAcks(db, facilityId, monthStart, monthEnd),
+    // Weekdays the own staff do not work (part-time days off): a condensed warning line goes on over them.
+    offDays: Object.fromEntries(staff.map(employee => [employee.id, monthDates(year, month)
+      .filter(date => !isWeekend(date) && !isWorkday(employee.info, date))])),
   }
 }
 
