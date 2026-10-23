@@ -3,7 +3,7 @@ import { de } from '~/locales/de'
 
 /**
  * On the group's page: its name and the flag „für Schulkinder“. As under Einrichtung → Einrichtungen only the Träger
- * changes them; the Leitung sees them. (The order of the groups is the order they were created in; nobody changes it.)
+ * changes them; the Leitung sees them. The order of the groups is changed in the group list.
  */
 const props = defineProps<{ groupId: number }>()
 const { user } = useUserSession()
@@ -18,9 +18,10 @@ const storedName = computed(() => group.value?.name ?? '')
 // The draft follows the stored name while it is not edited.
 const name = ref(storedName.value)
 watch(storedName, (next, previous) => {
-  if (name.value === previous) name.value = next
+  if (name.value.trim() === previous) name.value = next
 })
-const dirty = useDirty(() => isProvider.value && !!group.value && name.value !== storedName.value)
+// Spaces around the name do not count as a change (the server trims them).
+const dirty = useDirty(() => isProvider.value && !!group.value && name.value.trim() !== storedName.value)
 
 async function rename() {
   const current = group.value
@@ -53,12 +54,12 @@ async function setForSchoolChildren(value: boolean) {
         @update:model-value="setForSchoolChildren($event === true)"
       />
       <p class="text-xs text-gray-500">{{ de.schoolChildren.forSchoolChildrenHint }}</p>
+      <p class="text-xs text-gray-500">{{ de.settingsAreas.groupOrderHint }}</p>
     </template>
     <template v-else>
       <p class="text-sm">{{ group.name }}</p>
       <p v-if="group.forSchoolChildren" class="text-sm">{{ de.schoolChildren.forSchoolChildren }}</p>
       <p class="text-xs text-gray-500">{{ de.settingsAreas.groupNameReadOnly }}</p>
     </template>
-    <p class="text-xs text-gray-500">{{ de.settingsAreas.groupOrderHint }}</p>
   </section>
 </template>

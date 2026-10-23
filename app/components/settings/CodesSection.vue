@@ -2,6 +2,7 @@
 import type { CreditMode } from '#shared/domain/types'
 import { COLOR_KEYS, type CodeDto, type SettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { builtRows, mergeRows } from '~/utils/settingsForms'
 
 /** Einstellungen → Dienstplan → Codes. They apply to every facility: only the Träger changes them, the Leitung sees them read-only. */
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings', { key: 'settings' })
@@ -11,8 +12,14 @@ const { user } = useUserSession()
 const isProvider = computed(() => user.value?.role === 'provider')
 
 const codes = ref<CodeDto[]>([])
+// Any save on the page reloads the shared settings: rows with unsaved edits keep them unless they were just saved.
+let built = new Map<number, string>()
+const justSaved = new Set<number>()
 watch(settings, (value) => {
-  codes.value = (value?.codes ?? []).map(code => ({ ...code }))
+  const fresh = (value?.codes ?? []).map(code => ({ ...code }))
+  codes.value = mergeRows(codes.value, built, fresh, justSaved)
+  built = builtRows(fresh)
+  justSaved.clear()
 }, { immediate: true })
 
 const colorItems = COLOR_KEYS.map(color => ({ label: de.colors[color], value: color }))
@@ -29,9 +36,12 @@ async function saveCode(code: CodeDto) {
   const saved = settings.value?.codes.find(candidate => candidate.id === code.id)
   if (saved && saved.creditMode !== code.creditMode
     && !await confirm(de.settings.creditModeConfirm, { confirmLabel: de.common.save, danger: false })) return
-  run(() => $fetch<unknown>(`/api/absence-codes/${code.id}`, {
-    method: 'PUT', body: { label: code.label, color: code.color, creditMode: code.creditMode },
-  }), de.common.saved)
+  run(async () => {
+    await $fetch<unknown>(`/api/absence-codes/${code.id}`, {
+      method: 'PUT', body: { label: code.label, color: code.color, creditMode: code.creditMode },
+    })
+    justSaved.add(code.id)
+  }, de.common.saved)
 }
 
 const cell = 'px-1 py-1'

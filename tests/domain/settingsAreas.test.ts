@@ -80,13 +80,23 @@ describe('searchSettings', () => {
     expect(firstHit('pin', leitung)?.key).toBe('tablet')
   })
 
+  const facility = { groups: [{ id: 4, name: 'Bären' }], hasGroupTypes: true }
+
   it('leads „Farbe“ to the groups', () => {
-    expect(firstHit('Farbe')).toMatchObject({ key: 'group-color', to: '/admin/settings/groups#section-group-list' })
+    expect(searchSettings('Farbe', provider, facility)[0]).toMatchObject({ key: 'group-color', to: '/admin/settings/groups#section-group-list' })
+  })
+
+  it('offers the sections of a group\'s page only when the facility has groups, the Gruppenart only with group types', () => {
+    expect(searchSettings('Farbe', provider).map(hit => hit.key)).not.toContain('group-color')
+    expect(searchSettings('Öffnungszeiten', provider).map(hit => hit.key)).toEqual(['facility-hours'])
+    expect(searchSettings('Gruppenart', provider, facility).map(hit => hit.key)).toContain('group-type')
+    expect(searchSettings('Gruppenart', provider, { ...facility, hasGroupTypes: false }).map(hit => hit.key)).not.toContain('group-type')
+    expect(searchSettings('Farbe', provider, { ...facility, hasGroupTypes: false }).map(hit => hit.key)).toContain('group-color')
   })
 
   it('prefers a name starting with the text over one containing it and over a keyword', () => {
     expect(searchSettings('Codes', provider).map(hit => hit.key)[0]).toBe('codes')
-    expect(searchSettings('Öffnungszeiten', provider).map(hit => hit.key)).toEqual(['facility-hours', 'group-hours'])
+    expect(searchSettings('Öffnungszeiten', provider, facility).map(hit => hit.key)).toEqual(['facility-hours', 'group-hours'])
   })
 
   it('ignores case and umlauts', () => {
@@ -104,7 +114,7 @@ describe('searchSettings', () => {
 
   it('finds a group by its name and opens its page', () => {
     const groups = [{ id: 4, name: 'Bären' }, { id: 7, name: 'Füchse' }]
-    expect(searchSettings('bär', leitung, groups)).toEqual([{ key: 'group-4', title: 'Bären', where: 'Gruppen · Seite der Gruppe', to: '/admin/settings/groups/4' }])
+    expect(searchSettings('bär', leitung, { groups })).toEqual([{ key: 'group-4', title: 'Bären', where: 'Gruppen · Seite der Gruppe', to: '/admin/settings/groups/4' }])
   })
 
   it('needs at least two letters', () => {

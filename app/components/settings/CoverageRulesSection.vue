@@ -6,7 +6,7 @@ import { de } from '~/locales/de'
 import { coverageRuleSections } from '~/utils/coverageRuleSections'
 import { groupColorClasses } from '~/utils/groups'
 import { weekdaysText } from '~/utils/openingHours'
-import { optionalTime, timeKey, timeText } from '~/utils/settingsForms'
+import { builtRows, mergeRows, optionalTime, timeKey, timeText } from '~/utils/settingsForms'
 
 /** Einstellungen → Dienstplan → Pflichtdienste: the facility's first, then those of each group; a row saves on its own. */
 /** groupId 0 = the whole facility (the select needs a non-null value). */
@@ -31,11 +31,17 @@ const groupItems = computed(() => [
 const emptyRule = (): RuleForm => ({ id: null, label: '', start: '', end: '', minCount: 1, active: true, groupId: 0, weekdays: ALL_WEEKDAYS })
 const rules = ref<RuleForm[]>([])
 const newRule = ref(emptyRule())
+// Any save on the page reloads the shared settings: rows with unsaved edits keep them unless they were just saved.
+let built = new Map<number, string>()
+const justSaved = new Set<number>()
 watch(settings, (value) => {
-  rules.value = (value?.coverageRules ?? []).map((r: CoverageRuleDto) => ({
+  const fresh = (value?.coverageRules ?? []).map((r: CoverageRuleDto): RuleForm => ({
     id: r.id, label: r.label, start: timeText(r.start), end: timeText(r.end), minCount: r.minCount, active: r.active,
     groupId: r.groupId ?? 0, weekdays: r.weekdays,
   }))
+  rules.value = mergeRows(rules.value, built, fresh, justSaved)
+  built = builtRows(fresh)
+  justSaved.clear()
 }, { immediate: true })
 
 function rowDirty(form: RuleForm): boolean {
@@ -83,9 +89,14 @@ async function saveRule(form: RuleForm) {
     // Without groups the rule's group is left as it is (always the whole facility then).
     ...(hasGroups.value ? { groupId: form.groupId || null } : {}),
   }
-  const ok = await run(() => form.id
-    ? $fetch<unknown>(`/api/coverage-rules/${form.id}`, { method: 'PUT', body })
-    : $fetch<unknown>('/api/coverage-rules', { method: 'POST', body }), de.common.saved)
+  const id = form.id
+  const ok = await run(async () => {
+    if (id) {
+      await $fetch<unknown>(`/api/coverage-rules/${id}`, { method: 'PUT', body })
+      justSaved.add(id)
+    }
+    else await $fetch<unknown>('/api/coverage-rules', { method: 'POST', body })
+  }, de.common.saved)
   if (ok && !form.id) newRule.value = emptyRule()
 }
 

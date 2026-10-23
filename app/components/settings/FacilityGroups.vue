@@ -29,12 +29,13 @@ function syncNames(saved?: number) {
 }
 watch(groups, () => syncNames(), { immediate: true })
 const newName = ref('')
-// Only a changed, non-empty name can be saved.
-const nameDirty = (id: number) => {
+// Spaces around the name do not count as a change (the server trims them); only a changed, non-empty name can be saved.
+const nameChanged = (id: number) => {
   const name = names[id]
-  return name !== undefined && name !== stored.get(id) && name.trim() !== ''
+  return name !== undefined && name.trim() !== stored.get(id)
 }
-useDirty(() => newName.value.trim() !== '' || (groups.value ?? []).some(group => names[group.id] !== undefined && names[group.id] !== stored.get(group.id)))
+const nameDirty = (id: number) => nameChanged(id) && (names[id] ?? '').trim() !== ''
+useDirty(() => newName.value.trim() !== '' || (groups.value ?? []).some(group => nameChanged(group.id)))
 
 async function rename(id: number) {
   if (!nameDirty(id)) return

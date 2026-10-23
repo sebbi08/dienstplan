@@ -10,7 +10,7 @@ import {
 } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import {
-  assertGroup, createGroup, deleteGroup, listChildGroups, listGroups, renameGroup, setGroupCapacity, setGroupColor,
+  assertGroup, createGroup, deleteGroup, listChildGroups, listGroups, moveGroup, renameGroup, setGroupCapacity, setGroupColor,
 } from '../../server/services/groups'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -38,6 +38,26 @@ describe('groups of a facility', () => {
     expect(listGroups(db, 1)).toEqual([bears, mice])
     expect(listGroups(db, krippe)).toEqual([krippeBears])
     expect(listGroups(db, addFacility(db, 'Hort'))).toEqual([])
+  })
+
+  it('moves a group up or down and numbers the facility\'s groups 1..n again', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const bears = createGroup(db, 1, 'Bären')
+    const mice = createGroup(db, 1, 'Mäuse')
+    const foxes = createGroup(db, 1, 'Füchse')
+    const other = createGroup(db, krippe, 'Igel')
+    moveGroup(db, 1, foxes.id, 'up')
+    expect(listGroups(db, 1).map(group => [group.name, group.sortOrder])).toEqual([['Bären', 1], ['Füchse', 2], ['Mäuse', 3]])
+    moveGroup(db, 1, bears.id, 'down')
+    expect(listGroups(db, 1).map(group => group.name)).toEqual(['Füchse', 'Bären', 'Mäuse'])
+    // The first one up and the last one down stay where they are.
+    moveGroup(db, 1, foxes.id, 'up')
+    moveGroup(db, 1, mice.id, 'down')
+    expect(listGroups(db, 1).map(group => group.name)).toEqual(['Füchse', 'Bären', 'Mäuse'])
+    // Another facility's group is not found, and its order is untouched.
+    expect(errorCode(() => moveGroup(db, 1, other.id, 'up'))).toBe('group_not_found')
+    expect(errorCode(() => moveGroup(db, 1, 999, 'down'))).toBe('group_not_found')
+    expect(listGroups(db, krippe)).toEqual([other])
   })
 
   it('refuses empty names and names taken in any spelling, umlauts included', () => {

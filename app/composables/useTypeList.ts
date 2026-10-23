@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import { de } from '~/locales/de'
+import { builtRows, mergeRows } from '~/utils/settingsForms'
 
 interface TypeListOptions<Dto, Form> {
   /** Collection route, e.g. `/api/care-types` (items are PUT/DELETE at `${url}/${id}`). */
@@ -15,7 +16,8 @@ interface TypeListOptions<Dto, Form> {
 
 /**
  * Settings table of an editable list (care types, document types): one editable row per entry plus a row for a new
- * one; save creates or updates, remove asks first. The rows follow the server's list after every reload.
+ * one; save creates or updates, remove asks first. The rows follow the server's list after every reload (a row with
+ * unsaved edits keeps them).
  * Call as `await useTypeList(...)` so the server renders the existing rows too.
  */
 export async function useTypeList<Dto, Form extends { id: number | null }>(options: TypeListOptions<Dto, Form>) {
@@ -29,7 +31,15 @@ export async function useTypeList<Dto, Form extends { id: number | null }>(optio
 
   const forms = ref<Form[]>([])
   const newForm = ref<Form>(options.empty()) as Ref<Form>
-  const syncForms = () => { forms.value = (data.value ?? []).map(options.toForm) }
+  // After a reload, rows with unsaved edits keep them unless they were just saved.
+  let built = new Map<number, string>()
+  const justSaved = new Set<number>()
+  const syncForms = () => {
+    const fresh = (data.value ?? []).map(options.toForm)
+    forms.value = mergeRows(forms.value as Form[], built, fresh, justSaved)
+    built = builtRows(fresh)
+    justSaved.clear()
+  }
   watch(data, syncForms)
   useDirty(() => [...forms.value as Form[], newForm.value].some(isDirty))
   await fetched
@@ -46,9 +56,14 @@ export async function useTypeList<Dto, Form extends { id: number | null }>(optio
     if (!isDirty(form)) return
     const body = options.toBody(form)
     if (!body) return
-    const ok = await run(() => form.id
-      ? $fetch<unknown>(`${options.url}/${form.id}`, { method: 'PUT', body })
-      : $fetch<unknown>(options.url, { method: 'POST', body }), de.common.saved)
+    const id = form.id
+    const ok = await run(async () => {
+      if (id) {
+        await $fetch<unknown>(`${options.url}/${id}`, { method: 'PUT', body })
+        justSaved.add(id)
+      }
+      else await $fetch<unknown>(options.url, { method: 'POST', body })
+    }, de.common.saved)
     if (ok && !form.id) newForm.value = options.empty()
   }
 

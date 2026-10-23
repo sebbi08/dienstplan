@@ -9,9 +9,14 @@ import { areaPath, GROUP_SECTIONS, sectionAnchor } from '~/utils/settingsAreas'
  */
 const route = useRoute()
 const groupId = computed(() => Number(route.params.id))
-const { data: groups, status } = useGroups()
+const groupsFetch = useGroups()
+const { data: groups } = groupsFetch
 const group = computed(() => groups.value?.find(candidate => candidate.id === groupId.value) ?? null)
 const s = de.settingsAreas
+// A group that is not one of the active facility's (unknown, deleted or another facility's): the error page.
+await groupsFetch
+if (groupsFetch.error.value) throw createError({ statusCode: groupsFetch.error.value.statusCode ?? 500, fatal: true })
+if (!group.value) throw createError({ statusCode: 404, statusMessage: s.groupNotFound, fatal: true })
 </script>
 
 <template>
@@ -35,8 +40,6 @@ const s = de.settingsAreas
         <SettingsGroupBooksSection v-else-if="section.key === 'group-read-access'" :group-id="group.id" />
       </div>
     </template>
-    <p v-else-if="status === 'success' || status === 'error'" class="rounded-lg bg-white p-4 text-sm text-gray-600 ring-1 ring-gray-200">
-      {{ s.groupNotFound }}
-    </p>
+    <p v-else class="rounded-lg bg-white p-4 text-sm text-gray-600 ring-1 ring-gray-200">{{ s.groupNotFound }}</p>
   </div>
 </template>

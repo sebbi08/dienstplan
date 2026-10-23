@@ -66,7 +66,7 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
   groups: [
     {
       key: 'group-list', title: s.groupList, replaces: [],
-      keywords: ['Gruppe', 'Gruppen'],
+      keywords: ['Gruppe', 'Gruppen', 'Reihenfolge', 'sortieren'],
     },
   ],
   roster: [
@@ -200,12 +200,22 @@ export interface SettingsHit {
   to: string
 }
 
+/** What the search needs to know about the active facility. */
+export interface SettingsSearchContext {
+  /** Its groups (none: the sections of a group's page are not offered). */
+  groups?: readonly { id: number; name: string }[]
+  /** The state's rules know group types (otherwise there is no Gruppenart to find). */
+  hasGroupTypes?: boolean
+}
+
 /**
  * The sections whose name or keywords contain the typed text (best first: the name starting with it, the name
- * containing it, a keyword). The sections of a group's page lead to the list of groups; a group's name leads to its
- * page. Nothing for less than two letters.
+ * containing it, a keyword). The sections of a group's page lead to the list of groups (only when the facility has
+ * groups; the Gruppenart only where the state has group types); a group's name leads to its page. Nothing for less
+ * than two letters.
  */
-export function searchSettings(query: string, viewer: SettingsViewer, groups: readonly { id: number; name: string }[] = []): SettingsHit[] {
+export function searchSettings(query: string, viewer: SettingsViewer, context: SettingsSearchContext = {}): SettingsHit[] {
+  const groups = context.groups ?? []
   const needle = normalizeSearch(query)
   if (needle.length < 2) return []
   const rank = (section: Pick<SettingsSection, 'title' | 'keywords'>): number | null => {
@@ -224,7 +234,8 @@ export function searchSettings(query: string, viewer: SettingsViewer, groups: re
     }
   }
   const groupsTitle = s.areas.groups
-  for (const section of GROUP_SECTIONS) {
+  const groupSections = groups.length === 0 ? [] : GROUP_SECTIONS.filter(section => section.key !== 'group-type' || context.hasGroupTypes)
+  for (const section of groupSections) {
     add({
       key: section.key, title: section.title, where: `${groupsTitle} · ${s.perGroup}`,
       to: `${areaPath('groups')}#${sectionAnchor('group-list')}`,

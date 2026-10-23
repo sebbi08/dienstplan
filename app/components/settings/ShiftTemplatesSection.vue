@@ -3,7 +3,7 @@ import { formatDuration, parseTime } from '#shared/domain/time'
 import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { SettingsDto, ShiftChangeResult, TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { optionalTime, timeKey, timeText } from '~/utils/settingsForms'
+import { builtRows, mergeRows, optionalTime, timeKey, timeText } from '~/utils/settingsForms'
 
 /** Einstellungen → Dienstplan → Dienst-Buttons: the services with their times, breaks and order; a row saves on its own. */
 interface TemplateForm {
@@ -19,12 +19,18 @@ const confirm = useConfirm()
 const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99 })
 const templates = ref<TemplateForm[]>([])
 const newTemplate = ref(emptyTemplate())
+// Any save on the page reloads the shared settings: rows with unsaved edits keep them unless they were just saved.
+let built = new Map<number, string>()
+const justSaved = new Set<number>()
 watch(settings, (value) => {
-  templates.value = (value?.templates ?? []).map((t: TemplateDto) => ({
+  const fresh = (value?.templates ?? []).map((t: TemplateDto): TemplateForm => ({
     id: t.id, shortLabel: t.shortLabel, label: t.label, start: timeText(t.start), end: timeText(t.end),
     breakStart: timeText(t.breakStart), breakEnd: timeText(t.breakEnd), countsAsStaff: t.countsAsStaff,
     pairsWithPrepTime: t.pairsWithPrepTime, sortOrder: t.sortOrder,
   }))
+  templates.value = mergeRows(templates.value, built, fresh, justSaved)
+  built = builtRows(fresh)
+  justSaved.clear()
 }, { immediate: true })
 
 /** A row differs from the stored service (times compared as times, so "8:00" and "800" are the same). */
@@ -77,6 +83,7 @@ async function saveTemplate(form: TemplateForm) {
   let result: ShiftChangeResult | undefined
   await run(async () => {
     result = await $fetch<ShiftChangeResult>(`/api/shift-templates/${form.id}`, { method: 'PUT', body: { ...body, applyFrom } })
+    if (form.id) justSaved.add(form.id)
   })
   if (result) {
     toast.add({

@@ -33,6 +33,8 @@ const PROVIDER_ROUTES = [
   'employees/[id]/contract.put.ts', 'contract-visibility.put.ts', 'backup.get.ts', 'leave-settings/module.put.ts',
   'facilities.post.ts', 'facilities/[id].put.ts', 'facilities/active.put.ts', 'employees/[id]/facility.put.ts',
   'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'groups/[id].put.ts', 'groups/[id].delete.ts',
+  // The order of the active facility's groups (the Träger, like renaming them).
+  'groups/[id]/move.post.ts',
   'facilities/[id]/group-read-access.get.ts', 'children/[id]/facility.put.ts', 'child-retention.get.ts', 'child-retention.put.ts',
   'child-retention/preview.get.ts', 'school-settings.put.ts', 'facilities/[id]/capacity.put.ts',
   'school-settings/auto-leave.put.ts', 'school-settings/auto-leave-preview.get.ts', 'groups/[id]/school-children.put.ts',
@@ -310,6 +312,13 @@ describe('API route permissions', () => {
     for (const route of settings) expect(source(route), route).toContain('requireFacility(event, provider)')
     // The preview and the daily run share one selection: the route must not build its own.
     expect(source('school-settings/auto-leave-preview.get.ts')).toContain('schoolLeavers(')
+  })
+
+  it('leaves the order of the groups to the Träger, in the facility they work in', () => {
+    const code = source('groups/[id]/move.post.ts')
+    expect(code).toContain('requireProvider(')
+    expect(code).toContain('requireFacility(event, provider)')
+    expect(code).not.toMatch(/require(User|Admin|Terminal|ChildReader|ChildEditor)\(/)
   })
 
   it('opens the list of the coming school children to managers of the active facility only', () => {

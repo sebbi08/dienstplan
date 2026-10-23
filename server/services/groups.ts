@@ -91,6 +91,25 @@ export function createGroup(db: Db, facilityId: number, name: string): GroupDto 
   return toDto(db.insert(groups).values({ facilityId, name: checked, sortOrder }).returning().get())
 }
 
+/**
+ * Moves a group of the facility one place up or down in its order (the plan, the Belegung, the attendance and the
+ * calendars follow it) and numbers the facility's groups 1..n again. The first group up or the last one down stays
+ * where it is; 404 group_not_found for a group of another facility.
+ */
+export function moveGroup(db: Db, facilityId: number, id: number, direction: 'up' | 'down'): void {
+  const ordered = listGroups(db, facilityId)
+  const index = ordered.findIndex(group => group.id === id)
+  if (index === -1) throw new ServiceError(404, 'group_not_found')
+  const target = index + (direction === 'up' ? -1 : 1)
+  if (target < 0 || target >= ordered.length) return
+  ;[ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!]
+  db.transaction((tx) => {
+    ordered.forEach((group, position) => {
+      tx.update(groups).set({ sortOrder: position + 1 }).where(eq(groups.id, group.id)).run()
+    })
+  })
+}
+
 export function renameGroup(db: Db, facilityId: number, id: number, name: string): void {
   assertGroup(db, facilityId, id)
   const checked = checkedName(db, facilityId, name, id)

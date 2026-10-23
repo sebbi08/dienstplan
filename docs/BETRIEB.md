@@ -586,6 +586,13 @@ Fortbildung), damit man Name und Abwesenheit nicht verwechselt. Zur Wahl stehen 
 Hellbraun, Türkis und Grau – Blau, Grün und Rot gibt es bewusst nicht. Gruppen, die früher „Blau“ hatten, sind nach
 dem Update hellbraun.
 
+### Reihenfolge der Gruppen
+
+Die Gruppen stehen zuerst in der Reihenfolge, in der sie angelegt wurden. **Nur der Träger** ändert sie unter
+*Einstellungen → Gruppen* mit den Pfeilen **nach oben / nach unten** neben jeder Gruppe (für die gerade gewählte
+Einrichtung). Dienstplan, Belegung, Anwesenheit, Jahreskalender und Urlaubsplanung zeigen die Gruppen danach in
+dieser Reihenfolge. Die Leitung sieht die Reihenfolge, aber keine Pfeile.
+
 ### Kinder fremder Gruppen in der Anwesenheit
 
 - Die Anwesenheitsliste zeigt weiter **alle** Kinder. Maßgeblich ist die Gruppe des Kindes **an dem Tag**.
