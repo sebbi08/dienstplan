@@ -54,7 +54,7 @@ werden (siehe Abschnitt 15, „Stempel-PIN“).
 
 - **Automatisch:** Die App legt jede Nacht eine Kopie der Datenbank im Datenbereich im Ordner `backups`
   ab (Dateiname `app-JJJJ-MM-TT.db`) und behält die letzten 14 Tage.
-- **Von Hand:** In der App unter *Einstellungen → Datensicherung → Datenbank herunterladen*
+- **Von Hand:** In der App unter *Einstellungen → Einrichtung → Datensicherung → Datenbank herunterladen*
   (Dateiname `dienstplan-JJJJ-MM-TT.db`).
 - **Sicherungen vom Server holen** (z. B. auf einen anderen Rechner kopieren). Erst den Zielordner
   anlegen, dann den Inhalt des Server-Ordners hineinkopieren (der Punkt am Ende ist wichtig):
@@ -175,7 +175,7 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
   antippt, die Kinderseiten verlässt (zur Startseite, zum Stempeln oder zum Dienstplan) oder eine andere Person
   aufschließt. Das merkt das Tablet spätestens nach einer halben Minute auch von selbst, z. B. wenn die Sperrzeit
   verkürzt oder der Person die PIN gelöscht wurde.
-- Unter *Einstellungen → Tablet* stellen Leitung und Träger pro Einrichtung ein:
+- Unter *Einstellungen → Einrichtung → Tablet* stellen Leitung und Träger pro Einrichtung ein:
   - die **Sperrzeit ohne Bedienung** (1 bis 30 Minuten, voreingestellt 2 Minuten),
   - **Vormerkungen am Tablet zeigen** (voreingestellt aus),
   - **Künftige Kinder mit Vertrag am Tablet zeigen** (voreingestellt aus; aus heißt: ein Kind mit Vertrag
@@ -205,7 +205,7 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 
 - Die Reiter haben ihre bisherigen Regeln: „Personalschlüssel“ gibt es nicht am Tablet. Mitarbeiter sehen den
   Bereich „Planung“ nie. **„Vormerkungen & Verträge“** sehen sie am Tablet als letzten Reiter unter **„Kinder“** (nach
-  „Offen“) – aber nur, wenn unter *Einstellungen → Tablet* „Vormerkungen am Tablet zeigen“ oder „Künftige Kinder mit
+  „Offen“) – aber nur, wenn unter *Einstellungen → Einrichtung → Tablet* „Vormerkungen am Tablet zeigen“ oder „Künftige Kinder mit
   Vertrag am Tablet zeigen“ an ist; sind beide aus, gibt es den Reiter für sie nicht. Leitung und Träger finden ihn
   immer unter „Planung“.
 - Die Seite öffnet mit **Heute → Anwesenheit**. Das Gerät merkt sich den zuletzt benutzten Reiter (auch je Bereich)
@@ -242,7 +242,7 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 - Wird ein Kind abgemeldet, kommt die Akte ins Archiv.
 - Die App prüft **täglich**, ob die Aufbewahrungsfrist abgelaufen ist, und löscht dann die archivierten
   Akten samt Dokumenten endgültig.
-- Die Frist stellt der Träger unter den Einstellungen ein: „Löschfrist für abgemeldete Kinder“,
+- Die Frist stellt der Träger unter *Einstellungen → Einrichtung* ein: „Löschfrist für abgemeldete Kinder“,
   1 bis 10 Jahre, voreingestellt sind **3 Jahre**.
 - Besprich die Frist mit dem/der Datenschutzbeauftragten, bevor du sie festlegst.
 
@@ -255,7 +255,7 @@ sonst bleiben Kinderdaten über die Löschfrist hinaus erhalten.
 
 ### Sicherungen sicher aufbewahren
 
-Die Datei, die du unter *Einstellungen → Datensicherung → Datenbank herunterladen* bekommst, enthält
+Die Datei, die du unter *Einstellungen → Einrichtung → Datensicherung → Datenbank herunterladen* bekommst, enthält
 **alle Kinderdaten inklusive aller Dokumente**. Das Gleiche gilt für die Nachtsicherungen.
 
 - Speichere sie nur an geschützten Orten (verschlüsseltes Laufwerk, zugriffsgeschützter Ordner).
@@ -302,13 +302,15 @@ nur, wenn jede Gruppe Plätze hat. Der Ausdruck der Belegung zeigt dasselbe.
 
 ### Höchstzahl Kinder (Gruppen und Einrichtung)
 
-- **Pro Gruppe:** Leitung und Träger tragen unter Einstellungen → **„Höchstzahl Kinder pro Gruppe“** für jede Gruppe
-  der aktuellen Einrichtung eine Zahl von 1 bis 200 ein (leer = keine). Das ist dieselbe Zahl wie **„Plätze“** in
-  der Belegung; du kannst sie an beiden Stellen ändern.
-- **Für die ganze Einrichtung:** Nur der Träger trägt unter Einstellungen → **Einrichtungen** bei jeder Einrichtung
+- **Pro Gruppe:** Leitung und Träger tragen unter *Einstellungen → Gruppen → ‹Gruppe› →* **„Höchstzahl Kinder“** für
+  jede Gruppe der aktuellen Einrichtung eine Zahl von 1 bis 200 ein (leer = keine). Das ist dieselbe Zahl wie
+  **„Plätze“** in der Belegung; du kannst sie an beiden Stellen ändern. In der Belegung führt der Name der Gruppe
+  direkt zur Seite der Gruppe in den Einstellungen.
+- **Für die ganze Einrichtung:** Nur der Träger trägt unter *Einstellungen → Einrichtung → Einrichtungen* bei jeder Einrichtung
   die **„Höchstzahl Kinder in der Einrichtung“** ein, z. B. aus der Betriebserlaubnis: 1 bis 999 (leer = keine;
   200 wie bei einer Gruppe reicht für eine große Einrichtung nicht). Sie darf kleiner sein als die Plätze aller
-  Gruppen zusammen. Die Leitung sieht sie in den Einstellungen und in der Belegung, ändern kann sie sie nicht.
+  Gruppen zusammen. Die Leitung sieht sie auf der Seite jeder Gruppe (*Einstellungen → Gruppen*) und in der
+  Belegung, ändern kann sie sie nicht.
 - **Hinweis, keine Sperre:** Wird ein Kind angelegt, bekommt eine Vormerkung einen Vertrag, wechselt ein Kind die
   Gruppe (sofort oder geplant, auch beim Ändern oder Löschen eines geplanten Wechsels) oder wird eine Abmeldung
   zurückgenommen, und ist die Gruppe oder die Einrichtung dadurch in einem Monat über ihrer Höchstzahl, zeigt die
@@ -379,7 +381,7 @@ Bundesland und Stichtag: siehe Abschnitt 10.
 
 ## 10. Bundesland und Feiertage
 
-- **Wer stellt es ein:** Nur der Träger, unter Einstellungen → Einrichtungen. Beim Anlegen einer Einrichtung wählt er
+- **Wer stellt es ein:** Nur der Träger, unter *Einstellungen → Einrichtung → Einrichtungen*. Beim Anlegen einer Einrichtung wählt er
   das Bundesland (voreingestellt: Baden-Württemberg); alle bestehenden Einrichtungen sind Baden-Württemberg. Die
   Leitung sieht die Feiertage ihres Bundeslands, kann es aber nicht ändern. Für Bayern gibt es das Häkchen
   „Mariä Himmelfahrt ist hier Feiertag“ (nicht in allen bayerischen Gemeinden ein Feiertag).
@@ -400,7 +402,7 @@ Bundesland und Stichtag: siehe Abschnitt 10.
   Ostersonntag und Pfingstsonntag werden nicht geführt, weil sie immer auf einen Sonntag fallen.
 - **Stichtag für Schulkinder:** Eine neu angelegte Einrichtung bekommt den Stichtag ihres Bundeslands. Ändert der
   Träger das Bundesland, bleibt der eingestellte Stichtag unverändert. Weicht er vom Stichtag des Bundeslands ab,
-  zeigt der Abschnitt „Schulkinder“ diesen mit dem Knopf **„übernehmen“**. Das ist eine normale
+  zeigt *Einstellungen → Kinder → Schulkinder* diesen mit dem Knopf **„übernehmen“**. Das ist eine normale
   Stichtagsänderung und schaltet die automatische Abmeldung der Schulkinder aus (siehe Abschnitt 9). Die
   Stichtage stehen im Stand Oktober 2026; prüfe sie bei Änderungen des Schulgesetzes.
 
@@ -424,7 +426,7 @@ klappt die genauen Zahlen und den Kasten „Essen heute“ auf; das Gerät merkt
   darunter der Kasten **„Essen heute“** (siehe „Essen“ unten). Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende); wie sie
   aussieht, steht unter „Die Liste am Bildschirm“.
 - **„Kommt“**: Uhrzeit (vorgeschlagen ist jetzt) und **geplante Abholzeit** (Pflicht). Vorgeschlagen wird das
-  Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Anwesenheit* „Bringperson
+  Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Kinder → Anwesenheit & Essen* „Bringperson
   erfassen“ an, fragt der Dialog zusätzlich, wer das Kind gebracht hat. Ein Kind, das schon abgeholt wurde, kann
   am selben Tag noch einmal kommen (z. B. nach einem Arzttermin).
 - **„Geht“**: Uhrzeit (nicht vor der Ankunft) und **wer abholt**. Zur Auswahl stehen die Bezugspersonen mit
@@ -457,12 +459,12 @@ freiwillig „angekündigt von“ (z. B. „Mama, telefonisch“). Die Person gi
 diesen Tag oder bis zu einem Enddatum (z. B. angekündigter Urlaub). Eingetragen wird an Betreuungstagen; Wochenenden,
 Feiertage und Schließtage werden übersprungen. Kommt ein abwesend eingetragenes Kind doch, ersetzt „Kommt“ die
 Abwesenheit für diesen Tag. Ist an einem vergangenen Betreuungstag nichts eingetragen, gilt das Kind als
-unentschuldigt (–) – aber erst ab dem Tag, der unter *Einstellungen → Anwesenheit* bei **„Anwesenheit erfasst ab“**
+unentschuldigt (–) – aber erst ab dem Tag, der unter *Einstellungen → Kinder → Anwesenheit & Essen* bei **„Anwesenheit erfasst ab“**
 steht (der erste Eintrag setzt ihn von selbst; Tage davor bleiben leer und zählen nicht).
 
 ### Essen
 
-- **Welche Essen es gibt**, legen Leitung und Träger unter *Einstellungen → Anwesenheit* im Block **„Essen“** fest,
+- **Welche Essen es gibt**, legen Leitung und Träger unter *Einstellungen → Kinder → Anwesenheit & Essen* im Block **„Essen“** fest,
   je Einrichtung: Name (z. B. „Frühstück“, „Vesper“; höchstens 40 Zeichen, nicht doppelt) und Uhrzeit, höchstens
   8 Essen. Voreingestellt sind Snack 9:30 und Mittagessen 12:00. Es darf auch kein Essen geben; dann zeigen Liste
   und Druck keine Essensspalten und keinen Essenskasten.
@@ -565,16 +567,16 @@ Geburtstage, Dokumente, „Offen“).
 
 ### Freischalten (Einstellungen)
 
-- Welche anderen Gruppen eine Gruppe zusätzlich **lesen** darf, legt die Leitung unter *Einstellungen →
-  Gruppenbücher* fest. Der Träger hat denselben Block *Gruppenbücher* in den Einstellungen (für die gerade gewählte
-  Einrichtung) und außerdem *Einstellungen → Einrichtungen* bei den Gruppen jeder Einrichtung. Überall gilt: bei jeder
-  Gruppe „Darf zusätzlich lesen:“ mit einem Häkchen je andere Gruppe. Voreingestellt ist keine.
+- Welche anderen Gruppen eine Gruppe zusätzlich **lesen** darf, legt die Leitung unter *Einstellungen → Gruppen →
+  ‹Gruppe› → Darf zusätzlich lesen* fest. Der Träger hat denselben Block auf der Seite jeder Gruppe (für die gerade
+  gewählte Einrichtung) und außerdem *Einstellungen → Einrichtung → Einrichtungen* bei den Gruppen jeder Einrichtung.
+  Überall gilt: „Darf zusätzlich lesen:“ mit einem Häkchen je andere Gruppe. Voreingestellt ist keine.
 - Das gilt nur in eine Richtung: Darf die Gruppe A die Gruppe B lesen, darf B deshalb noch nicht A lesen.
 - Änderungen wirken sofort, auch an einem gerade aufgeschlossenen Tablet.
 
 ### Gruppenfarben (Jahreskalender und Urlaubsplanung)
 
-Leitung und Träger geben jeder Gruppe unter *Einstellungen → Gruppenfarben* eine helle Farbe (für die gerade
+Leitung und Träger geben jeder Gruppe unter *Einstellungen → Gruppen → ‹Gruppe› → Gruppenfarben* eine helle Farbe (für die gerade
 gewählte Einrichtung; voreingestellt ist „keine Farbe“). Im Jahreskalender, in der Urlaubsplanung, in „Mein
 Kalender“ und im Ausdruck des Jahreskalenders stehen die Mitarbeiter dann nach Gruppen sortiert (in der Reihenfolge
 der Gruppen, Mitarbeiter ohne Gruppe am Ende), ihr Name hat die Farbe ihrer Stammgruppe, und über dem Kalender
@@ -605,12 +607,12 @@ Druck-Knöpfe.
 
 Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Einrichtung, in der sie gerade arbeiten.
 
-- **Öffnungszeiten:** Im Abschnitt „Öffnungszeiten“ (unter „Pflichtdienste“) trägst du für Montag bis Freitag
+- **Öffnungszeiten:** Unter *Einstellungen → Einrichtung → Öffnungszeiten der Einrichtung* trägst du für Montag bis Freitag
   Öffnung und Schließung ein oder hakst „geschlossen“ an. Die Schließung muss nach der Öffnung liegen. Ein Tag ohne
   Eintrag gilt als „nicht eingetragen“: Dafür gibt es keine neue Warnung. Samstag und Sonntag lassen sich nicht eintragen; am Wochenende wird nie gewarnt.
 - **Mindestzahlen:** „Mindestens zur Öffnung“ und „Mindestens bis zur Schließung“ (1 bis 20, voreingestellt 1).
-- **Eigene Zeiten einer Gruppe:** Unter der Einrichtung steht bei jeder Gruppe aufklappbar „Eigene
-  Öffnungszeiten“ mit derselben Tabelle. Leer heißt: Es gelten die Zeiten der Einrichtung, die Gruppe hat dann keine
+- **Eigene Zeiten einer Gruppe:** Unter *Einstellungen → Gruppen → ‹Gruppe›* steht „Eigene Öffnungszeiten“ mit
+  derselben Tabelle. Leer heißt: Es gelten die Zeiten der Einrichtung, die Gruppe hat dann keine
   eigene Warnung. Mit **„Eigene Zeiten entfernen“** fällt die Gruppe wieder auf die Einrichtung zurück. Hat eine
   Gruppe eigene Zeiten, prüft die Warnung der Gruppe nur die Dienste dieser Gruppe (eigene Gruppe des Dienstes,
   sonst die Stammgruppe des Mitarbeiters).
@@ -622,7 +624,7 @@ Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Ein
   „16:30 Schließung: 1 von 2 eingeplant“ (bei einer Gruppe mit dem Gruppennamen davor). Für die Einrichtung zählen alle
   Dienste des Plans, auch von Aushilfen. Nicht geprüft werden Wochenenden, Feiertage, Schließtage, nicht eingetragene
   Tage und „geschlossen“.
-- **Pflichtdienste je Wochentag:** Jeder Pflichtdienst hat die Knöpfe **Mo Di Mi Do Fr** (mindestens einer muss
+- **Pflichtdienste je Wochentag:** Unter *Einstellungen → Dienstplan → Pflichtdienste* hat jeder Pflichtdienst die Knöpfe **Mo Di Mi Do Fr** (mindestens einer muss
   gewählt sein). Er wird nur an diesen Tagen geprüft; ist nicht jeder Tag gewählt, steht darunter z. B. „Mo–Do“.
   Bisherige Pflichtdienste gelten weiter an allen Werktagen. An einem als „geschlossen“ eingetragenen Tag wird kein
   Pflichtdienst geprüft (bei einer Gruppe: gilt „geschlossen“ der Gruppe, falls sie eigene Zeiten hat, sonst der
@@ -760,7 +762,9 @@ das vorherige „Erledigt“. Bei einem ausgetretenen Kind lässt sich nichts me
 
 ### Einstellungen
 
-Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einrichtung fest:
+Unter *Einstellungen → Kinder → Erinnerungen* legen Leitung und Träger für die Einrichtung fest (die
+Entwicklungsdokumentation einer Gruppe steht auf der Seite der Gruppe: *Einstellungen → Gruppen → ‹Gruppe› →
+Entwicklungsdokumentation*):
 
 - **Geburtstage der Kinder**: wie viele Tage vorher erinnert wird (0 bis 30, voreingestellt 7),
 - **Geburtstage der Mitarbeiter**: ebenso (0 bis 30, voreingestellt 7),
@@ -775,7 +779,7 @@ Unter *Einstellungen → Erinnerungen* legen Leitung und Träger für die Einric
 
   **„Beginn“ und „gilt seit“**: Die App merkt sich je Gruppe (und für die Kinder ohne Gruppe) einen Starttag. Ohne
   „Erledigt“ zählt die App erst ab diesem Tag.
-  - Bei **„alle X Monate“** steht er als Datumsfeld **„Beginn“** in der Zeile. Beim Umstellen auf „alle X Monate“ ist
+  - Bei **„alle X Monate“** steht er als Datumsfeld **„Beginn“** neben der Auswahl. Beim Umstellen auf „alle X Monate“ ist
     heute eingetragen; ihr könnt aber jedes Datum der Jahre 2000 bis 2100 wählen, auch in der Vergangenheit oder Zukunft – zum Beispiel den
     01.09.2026 als Start des Kitajahres. Nach „Speichern“ gilt der neue Beginn sofort für alle Kinder der Gruppe, die
     noch kein „Erledigt“ haben. Beispiel: Beginn 01.09.2026 und „alle 12 Monate“ → fällig am 01.09.2027. Liegt der
@@ -853,7 +857,7 @@ gegangen ist, als es im Dienstplan steht:
 - **Korrekturen zählen**: Ändert die Leitung eine Stempelzeit, gilt sofort die geänderte Zeit.
 - **Monatssumme** unter der Tabelle: „2× zu spät, zusammen 25 Min.“ und „1× früher gegangen, zusammen 30 Min.“.
 
-**Einstellungen → Zeiterfassung** (Leitung und Träger, je Einrichtung):
+**Einstellungen → Zeiterfassung → Zeiterfassung** (Leitung und Träger, je Einrichtung):
 
 - **Kulanz bei zu spät / früher gehen (Minuten)**: ganze Minuten von 0 bis 60, voreingestellt 5. Markiert wird erst,
   was **mehr** als die Kulanz ist (bei 5 Minuten also ab 6 Minuten).
@@ -893,7 +897,7 @@ auch im Reiter und in den Einstellungen.
 
 ### Was vorher eingetragen sein muss
 
-- **Bundesland** der Einrichtung (Einstellungen → Einrichtungen, Träger). Danach richten sich alle Zahlen.
+- **Bundesland** der Einrichtung (Einstellungen → Einrichtung → Einrichtungen, Träger). Danach richten sich alle Zahlen.
 - **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Stammdaten, Leitung oder Träger): Fachkraft,
   Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Praktikant/in oder **keine pädagogische Kraft**. Küche,
   Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen sie mit.
@@ -902,10 +906,10 @@ auch im Reiter und in den Einstellungen.
 - **Solange bei keinem Mitarbeiter der Einrichtung eine Qualifikation eingetragen ist, zeigt der Dienstplan keine
   Personalschlüssel-Warnungen.** Der Reiter sagt dann „Bitte bei den Mitarbeitern die Qualifikation eintragen“.
   Mitarbeiter ohne Qualifikation zählen mit ihrer Anrechnung (ohne Angabe 100 %), aber nicht als Fachkraft; der Reiter nennt ihre Namen.
-- **Gruppenart** (Einstellungen → „Gruppenart (Personalschlüssel)“, Leitung oder Träger) – nur in Ländern, die danach
+- **Gruppenart** (Einstellungen → Gruppen → ‹Gruppe› → „Gruppenart (Personalschlüssel)“, Leitung oder Träger) – nur in Ländern, die danach
   rechnen (z. B. Baden-Württemberg: Halbtags-, Regel-, VÖ-, Ganztagsgruppe, Krippe). Ohne Gruppenart zählen die Kinder
   der Gruppe nicht für das Soll; der Reiter weist darauf hin.
-- **Betreuungsform** mit Zeitfenster und **Tage pro Woche** (Einstellungen → Betreuungsformen, voreingestellt 5) bei
+- **Betreuungsform** mit Zeitfenster und **Tage pro Woche** (Einstellungen → Kinder → Betreuungsformen, voreingestellt 5) bei
   jedem Kind. Wochenstunden des Kindes = Zeitfenster × Tage. Kinder ohne Betreuungsform zählen nicht für das Soll
   („Kinder ohne Betreuungsform: 2“).
 - Für die Warnungen nach Uhrzeit: **Öffnungszeiten** (Abschnitt 13).
@@ -948,7 +952,7 @@ In Ländern mit Mindestbesetzung nach Uhrzeit (z. B. Baden-Württemberg: eine Fa
 beim Tag eine Warnung, zusammengefasst je Zeitraum, z. B. „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. Geprüft werden nur
 Betreuungstage mit eingetragenen Öffnungszeiten. Büro- und Vorbereitungszeit zählen nicht als Anwesenheit.
 
-### Einstellungen → Personalschlüssel
+### Einstellungen → Personal → Personalschlüssel
 
 - Leitung und Träger sehen die Zahlen der Vorgabe des Landes, geordnet nach Bedarf (je Altersgruppe oder Gruppenart),
   Mindestbesetzung nach Uhrzeit, Anrechnung je Qualifikation, Zuschlägen, Quoten und Vollzeit-Wochenstunden.
@@ -972,7 +976,7 @@ dem Landesjugendamt klären und bei Bedarf als Träger anpassen.
 ## 21. Codes (Urlaub, Krank …)
 
 Die Codes für Abwesenheiten (Urlaub, Krank, Fortbildung …) gelten für **alle Einrichtungen**. Bezeichnung, Farbe und
-Anrechnung ändert deshalb **nur der Träger** unter *Einstellungen → Codes*. Die Leitung sieht die Codes dort nur zum
+Anrechnung ändert deshalb **nur der Träger** unter *Einstellungen → Dienstplan → Codes*. Die Leitung sieht die Codes dort nur zum
 Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).
 
 ## 22. Warnungen im Dienstplan (die Liste rechts)

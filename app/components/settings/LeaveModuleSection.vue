@@ -19,7 +19,11 @@ function toggle(id: number, on: boolean) {
   form.plannerIds = on ? [...form.plannerIds, id] : form.plannerIds.filter(other => other !== id)
 }
 
+const dirty = useDirty(() => !!settings.value && (form.enabled !== settings.value.enabled
+  || !sameValue([...form.plannerIds].sort((a, b) => a - b), [...settings.value.plannerIds].sort((a, b) => a - b))))
+
 function save() {
+  if (!dirty.value) return
   run(() => $fetch<unknown>('/api/leave-settings/module', { method: 'PUT', body: { ...form } }), de.common.saved)
 }
 </script>
@@ -37,6 +41,6 @@ function save() {
     </div>
     <p v-if="!candidates.some(user => user.role === 'admin')" class="text-sm text-amber-700">{{ de.leavePlanning.noLeitung }}</p>
     <p class="text-xs text-gray-500">{{ de.leavePlanning.moduleHint }}</p>
-    <UButton type="submit" :label="de.common.save" />
+    <UButton type="submit" :label="de.common.save" :disabled="!dirty" />
   </form>
 </template>

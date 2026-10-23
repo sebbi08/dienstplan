@@ -27,7 +27,10 @@ async function confirmedShorter(target: number): Promise<boolean> {
   return count === 0 || await confirm(de.childSettings.confirmShorterRetention(count), { confirmLabel: de.common.save, danger: true })
 }
 
+const dirty = useDirty(() => !!data.value && years.value !== data.value.years)
+
 const save = () => guard(async () => {
+  if (!dirty.value) return false
   // Fixed before anything is awaited: the field must not change what is confirmed and saved.
   const target = years.value
   if (!await confirmedShorter(target)) return false
@@ -46,7 +49,7 @@ const save = () => guard(async () => {
     <h2 class="font-semibold">{{ de.childSettings.retention }}</h2>
     <form class="flex flex-wrap items-end gap-3" @submit.prevent="save">
       <UFormField :label="de.childSettings.retentionYears"><USelect v-model="years" :items="yearItems" class="w-24" /></UFormField>
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
+      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
     <p class="text-xs text-gray-500">{{ de.childSettings.retentionHint }}</p>
   </section>

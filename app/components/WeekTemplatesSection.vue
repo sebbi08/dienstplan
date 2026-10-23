@@ -15,13 +15,18 @@ function scopeText(template: WeekTemplateDto): string {
   return group ? de.weekTemplates.forGroup(group.name) : de.weekTemplates.forGroup(de.weekTemplates.wholeFacility)
 }
 
+// Only a changed, non-empty name can be saved.
+const renameDirty = (template: WeekTemplateDto) => renaming.id === template.id && renaming.name.trim() !== '' && renaming.name !== template.name
+useDirty(() => templates.value?.some(template => renaming.id === template.id && renaming.name !== template.name) ?? false)
+
 function startRename(template: WeekTemplateDto) {
   Object.assign(renaming, { id: template.id, name: template.name })
 }
 
 async function saveRename() {
   const id = renaming.id
-  if (id === null || !renaming.name.trim()) return
+  const template = templates.value?.find(candidate => candidate.id === id)
+  if (id === null || !template || !renameDirty(template)) return
   const ok = await run(() => $fetch<unknown>(`/api/week-templates/${id}`, { method: 'PUT', body: { name: renaming.name } }), de.common.saved)
   if (ok) renaming.id = null
 }
@@ -44,7 +49,7 @@ async function remove(template: WeekTemplateDto) {
       <div class="flex flex-wrap items-center gap-2">
         <form v-if="renaming.id === template.id" class="flex flex-wrap items-center gap-2" @submit.prevent="saveRename">
           <UInput v-model="renaming.name" maxlength="100" autofocus required />
-          <UButton type="submit" size="sm" :label="de.common.save" />
+          <UButton type="submit" size="sm" :label="de.common.save" :disabled="!renameDirty(template)" />
           <UButton size="sm" color="neutral" variant="ghost" :label="de.common.cancel" @click="renaming.id = null" />
         </form>
         <h3 v-else class="font-semibold">{{ template.name }}</h3>

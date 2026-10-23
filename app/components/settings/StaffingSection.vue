@@ -50,6 +50,9 @@ function sync(force: boolean | string[] = false) {
 watch(data, () => sync(), { immediate: true })
 
 const draftValue = (path: string) => parseDecimal(drafts[path] ?? '')
+// A number typed differently from the value in force (an unreadable one counts as a change, saving then says why).
+const dirty = useDirty(() => canEdit.value
+  && (data.value?.values ?? []).some(entry => drafts[entry.path] !== undefined && draftValue(entry.path) !== entry.value))
 /** The draft differs from the state's value (shown as „geändert“). */
 const changed = (entry: StaffingValueDto) => (canEdit.value ? draftValue(entry.path) !== entry.preset : entry.overridden)
 const labelOf = (path: string) => (data.value ? staffingPathLabel(path, [data.value.preset, ...presetVersions(data.value.land)]) : path)
@@ -72,6 +75,7 @@ async function request<T extends StaffingSettingsDto>(action: () => Promise<T>, 
 }
 
 async function save() {
+  if (!dirty.value) return
   const overrides: Record<string, number> = {}
   for (const entry of data.value?.values ?? []) {
     const value = draftValue(entry.path)
@@ -140,7 +144,7 @@ const cell = 'px-2 py-1'
       </ul>
 
       <form class="space-y-3" @submit.prevent="save">
-        <div v-for="section in sections" :key="section.title" class="space-y-1">
+        <div v-for="section in sections" :key="section.title" class="space-y-1 overflow-x-auto">
           <h3 class="text-sm font-semibold text-gray-800">{{ section.title }}</h3>
           <table class="w-full text-sm">
             <tbody>
@@ -175,7 +179,7 @@ const cell = 'px-2 py-1'
         </div>
         <p v-if="!hasPresence" class="text-xs text-gray-500">{{ t.presenceNone }}</p>
         <div v-if="canEdit" class="flex flex-wrap gap-2">
-          <UButton type="submit" :label="de.common.save" :disabled="busy" />
+          <UButton type="submit" :label="de.common.save" :disabled="busy || !dirty" />
           <UButton v-if="anyStored" color="neutral" variant="outline" icon="i-lucide-rotate-ccw" :label="t.resetAll" :disabled="busy" @click="resetAll" />
         </div>
       </form>

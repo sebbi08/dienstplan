@@ -39,8 +39,18 @@ const intervalItems: { label: string; value: Draft['mode'] }[] = [
 ]
 const body = (draft: Draft) => ({ name: draft.name, intervalMonths: draft.mode === 'once' ? null : draft.months })
 
+/** A kind's draft would save something else than it has (the months do not count while "einmalig" is chosen). */
+function kindDirty(type: RequirementTypeDto): boolean {
+  const draft = drafts[type.id]
+  return !!draft && !sameValue(body(draft), body(toDraft(type)))
+}
+const newKindDirty = computed(() => newKind.name.trim() !== '')
+useDirty(() => newKindDirty.value || (types.value ?? []).some(kindDirty))
+
 async function save(id: number) {
   const draft = drafts[id]
+  const type = types.value?.find(candidate => candidate.id === id)
+  if (!type || !kindDirty(type)) return
   if (draft && await run(() => $fetch<unknown>(`/api/requirement-types/${id}`, { method: 'PUT', body: body(draft) }), de.common.saved)) syncDrafts(id)
 }
 
@@ -70,7 +80,7 @@ async function remove(type: RequirementTypeDto) {
           <UInput v-model.number="drafts[type.id]!.months" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm" class="w-20" />
           {{ de.requirements.months(drafts[type.id]!.months) }}
         </label>
-        <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.common.save" />
+        <UButton v-if="kindDirty(type)" type="submit" size="sm" color="neutral" variant="outline" :label="de.common.save" />
         <UButton
           v-if="type.builtinKey === null" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2"
           :aria-label="de.common.delete" @click="remove(type)"
@@ -89,7 +99,7 @@ async function remove(type: RequirementTypeDto) {
         <UInput v-model.number="newKind.months" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm" class="w-20" />
         {{ de.requirements.months(newKind.months) }}
       </label>
-      <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.requirements.addKind" />
+      <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.requirements.addKind" :disabled="!newKindDirty" />
     </form>
   </section>
 </template>

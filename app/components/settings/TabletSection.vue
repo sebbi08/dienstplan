@@ -18,7 +18,11 @@ watch(data, (value) => {
   showFutureContracts.value = value.showFutureContracts
 }, { immediate: true })
 
-const save = () => run(() => $fetch<unknown>('/api/tablet-settings', {
+const dirty = useDirty(() => !!data.value && !sameValue(
+  [Number(lockMinutes.value), showWaitlist.value, showFutureContracts.value],
+  [data.value.lockMinutes, data.value.showWaitlist, data.value.showFutureContracts],
+))
+const save = () => dirty.value && run(() => $fetch<unknown>('/api/tablet-settings', {
   method: 'PUT',
   body: { lockMinutes: lockMinutes.value, showWaitlist: showWaitlist.value, showFutureContracts: showFutureContracts.value },
 }), de.common.saved)
@@ -33,7 +37,7 @@ const save = () => run(() => $fetch<unknown>('/api/tablet-settings', {
       </UFormField>
       <USwitch v-model="showWaitlist" :label="s.showWaitlist" />
       <USwitch v-model="showFutureContracts" :label="s.showFutureContracts" />
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
+      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
     <p class="text-xs text-gray-500">{{ s.hint }}</p>
   </section>

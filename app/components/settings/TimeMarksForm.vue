@@ -15,8 +15,10 @@ watch(data, (value) => {
   toleranceMinutes.value = value.toleranceMinutes
   markEarlyLeave.value = value.markEarlyLeave
 }, { immediate: true })
+const dirty = useDirty(() => !!data.value
+  && (Number(toleranceMinutes.value) !== data.value.toleranceMinutes || markEarlyLeave.value !== data.value.markEarlyLeave))
 
-const save = () => run(() => $fetch<unknown>('/api/time-mark-settings', {
+const save = () => dirty.value && run(() => $fetch<unknown>('/api/time-mark-settings', {
   method: 'PUT', body: { toleranceMinutes: toleranceMinutes.value, markEarlyLeave: markEarlyLeave.value },
 }), de.common.saved)
 </script>
@@ -28,7 +30,7 @@ const save = () => run(() => $fetch<unknown>('/api/time-mark-settings', {
         <UInput v-model.number="toleranceMinutes" type="number" :min="MIN_MARK_TOLERANCE" :max="MAX_MARK_TOLERANCE" step="1" class="w-24" />
       </UFormField>
       <USwitch v-model="markEarlyLeave" :label="s.markEarlyLeave" class="pb-2" />
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
+      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </div>
     <p class="text-xs text-gray-500">{{ s.markHint }}</p>
   </form>

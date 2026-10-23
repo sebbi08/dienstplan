@@ -6,7 +6,7 @@ import { de } from '~/locales/de'
 interface Form { id: number | null; name: string; important: boolean; required: boolean; confidentialDefault: boolean; careContract: boolean; sortOrder: number }
 
 const s = de.schoolChildren
-const { forms, newForm, busy, save, remove } = await useTypeList<DocumentTypeDto, Form>({
+const { forms, newForm, busy, save, remove, isDirty } = await useTypeList<DocumentTypeDto, Form>({
   url: '/api/document-types',
   key: 'settings-document-types',
   // The child pages offer the same list; keep them in step.
@@ -54,7 +54,8 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <td :class="cell" class="text-center"><input v-model="form.careContract" type="checkbox" :aria-label="s.careContract"></td>
             <td :class="cell"><input v-model.number="form.sortOrder" type="number" min="0" max="10000" class="w-16 rounded border border-gray-300 px-1 py-0.5" :aria-label="de.settings.sortOrder" :disabled="!form.id"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
-              <UButton size="xs" :label="form.id ? de.common.save : de.common.add" :disabled="busy" @click="save(form)" />
+              <UButton v-if="!form.id" size="xs" :label="de.common.add" :disabled="busy || !isDirty(form)" @click="save(form)" />
+              <UButton v-else-if="isDirty(form)" size="xs" :label="de.common.save" :disabled="busy" @click="save(form)" />
               <UButton v-if="form.id" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(form)" />
             </td>
           </tr>

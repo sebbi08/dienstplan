@@ -29,6 +29,16 @@ const openForm = (kind: Form['kind'], meal?: DayMeal) => {
   }
 }
 const isOpen = (kind: Form['kind'], mealId: number | null) => form.value?.kind === kind && form.value.mealId === mealId
+/** A new meal with something typed, or a change of name or time; a removal has nothing typed to lose. */
+const formDirty = computed(() => {
+  const current = form.value
+  if (!current || current.kind === 'remove') return false
+  if (current.kind === 'add') return current.name.trim() !== '' || current.time.trim() !== ''
+  const meal = data.value?.current.find(candidate => candidate.mealId === current.mealId)
+  return !!meal && (current.name !== meal.name || parseClock(current.time) !== meal.time)
+})
+useDirty(() => formDirty.value)
+const canSubmit = computed(() => form.value?.kind === 'remove' || formDirty.value)
 
 // The list from the server counts from its today; keep the own one in step for „ab heute“.
 watch(data, () => { today.value = todayIso() })
@@ -44,7 +54,7 @@ const plannedText = (entry: PlannedMealDto) => (entry.removed
 
 async function submit() {
   const current = form.value
-  if (!current) return
+  if (!current || !canSubmit.value) return
   if (current.kind === 'remove') {
     if (current.mealId === null) return
     const ok = await confirm(s.confirmMealRemove(current.name, formatDate(current.validFrom)), { confirmLabel: s.mealRemove })
@@ -92,13 +102,13 @@ async function cancelPlanned(entry: PlannedMealDto) {
         </div>
         <SettingsMealForm
           v-if="form && (isOpen('change', meal.mealId) || isOpen('remove', meal.mealId))" v-model:name="form.name" v-model:time="form.time"
-          v-model:valid-from="form.validFrom" :kind="form.kind" :busy="busy" :min="today" @submit="submit" @cancel="form = null"
+          v-model:valid-from="form.validFrom" :kind="form.kind" :busy="busy" :can-submit="canSubmit" :min="today" @submit="submit" @cancel="form = null"
         />
       </li>
     </ul>
     <SettingsMealForm
       v-if="form && isOpen('add', null)" v-model:name="form.name" v-model:time="form.time" v-model:valid-from="form.validFrom"
-      :kind="form.kind" :busy="busy" :min="today" @submit="submit" @cancel="form = null"
+      :kind="form.kind" :busy="busy" :can-submit="canSubmit" :min="today" @submit="submit" @cancel="form = null"
     />
     <UButton v-else size="sm" color="neutral" variant="outline" icon="i-lucide-plus" :label="s.mealAdd" :disabled="busy" @click="openForm('add')" />
 

@@ -19,7 +19,7 @@ const notifySwitchedOff = useAutoLeaveNotice()
 
 // One draft per group; a refresh keeps drafts with an unsaved edit (as for the facility names).
 const names = reactive<Record<number, string>>({})
-const stored = new Map<number, string>()
+const stored = reactive(new Map<number, string>())
 function syncNames(saved?: number) {
   for (const group of groups.value ?? []) {
     const untouched = names[group.id] === undefined || names[group.id] === stored.get(group.id)
@@ -29,8 +29,15 @@ function syncNames(saved?: number) {
 }
 watch(groups, () => syncNames(), { immediate: true })
 const newName = ref('')
+// Only a changed, non-empty name can be saved.
+const nameDirty = (id: number) => {
+  const name = names[id]
+  return name !== undefined && name !== stored.get(id) && name.trim() !== ''
+}
+useDirty(() => newName.value.trim() !== '' || (groups.value ?? []).some(group => names[group.id] !== undefined && names[group.id] !== stored.get(group.id)))
 
 async function rename(id: number) {
+  if (!nameDirty(id)) return
   if (await run(() => $fetch<unknown>(`/api/groups/${id}`, { method: 'PUT', body: { name: names[id] } }), de.common.saved)) syncNames(id)
 }
 
@@ -64,7 +71,7 @@ async function setForSchoolChildren(group: GroupDto, value: boolean) {
     <p v-if="!groups?.length" class="text-xs text-gray-500">{{ de.groups.none }}</p>
     <form v-for="group in groups ?? []" :key="group.id" class="flex flex-wrap items-center gap-2" @submit.prevent="rename(group.id)">
       <UInput v-model="names[group.id]" maxlength="80" required size="sm" :aria-label="de.groups.name" />
-      <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy" />
+      <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy || !nameDirty(group.id)" />
       <UCheckbox
         :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :aria-label="`${de.schoolChildren.forSchoolChildren}: ${group.name}`" :disabled="busy"
         @update:model-value="setForSchoolChildren(group, $event === true)"
@@ -75,7 +82,7 @@ async function setForSchoolChildren(group: GroupDto, value: boolean) {
     <SettingsGroupReadAccess v-if="(groups?.length ?? 0) > 1" :groups="groups ?? []" :source="`/api/facilities/${facilityId}/group-read-access`" />
     <form class="flex flex-wrap items-center gap-2" @submit.prevent="create">
       <UInput v-model="newName" maxlength="80" required size="sm" :placeholder="de.groups.name" :aria-label="de.groups.name" />
-      <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.groups.add" :disabled="busy" />
+      <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.groups.add" :disabled="busy || !newName.trim()" />
     </form>
   </div>
 </template>

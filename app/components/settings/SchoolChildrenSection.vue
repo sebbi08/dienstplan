@@ -45,7 +45,9 @@ async function saveCutoff(cutoff: SchoolCutoffInput) {
   if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
 
-const save = () => saveCutoff({ cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value })
+const dirty = useDirty(() => isProvider.value && !!data.value
+  && !sameValue([Number(day.value), month.value, age.value], [data.value.cutoffDay, data.value.cutoffMonth, data.value.ageYears]))
+const save = () => dirty.value && saveCutoff({ cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value })
 
 // The cutoff the school law of the facility's state names, offered while the stored one differs (the hint on where
 // suggestions come from is always shown). Adopting is a normal cutoff change (it switches the automatic leaving off,
@@ -118,7 +120,7 @@ async function confirmSwitchOn() {
         </span>
       </UFormField>
       <UFormField :label="s.age"><USelect v-model="age" :items="ageItems" class="w-24" /></UFormField>
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
+      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
     <template v-else>
       <dl class="flex flex-wrap gap-x-8 gap-y-1 text-sm">

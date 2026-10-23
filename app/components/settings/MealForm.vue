@@ -2,7 +2,8 @@
 import { de } from '~/locales/de'
 
 /** The form of a new meal, a change (name, time, „gilt ab“) or a removal („gilt ab“ only) in the meal settings. */
-defineProps<{ kind: 'add' | 'change' | 'remove'; busy: boolean; min: string }>()
+// `canSubmit`: something is typed (a new meal) or changed (name or time); a removal can always be sent.
+defineProps<{ kind: 'add' | 'change' | 'remove'; busy: boolean; canSubmit: boolean; min: string }>()
 const name = defineModel<string>('name', { required: true })
 const time = defineModel<string>('time', { required: true })
 const validFrom = defineModel<string>('validFrom', { required: true })
@@ -25,7 +26,7 @@ const s = de.attendance
     </UFormField>
     <UButton
       type="submit" :color="kind === 'remove' ? 'error' : 'primary'" :label="kind === 'remove' ? s.mealRemove : kind === 'add' ? de.common.add : de.common.save"
-      :loading="busy" :disabled="busy"
+      :loading="busy" :disabled="busy || !canSubmit"
     />
     <UButton color="neutral" variant="ghost" :label="de.common.cancel" :disabled="busy" @click="emit('cancel')" />
   </form>

@@ -4,9 +4,11 @@ import { de } from '~/locales/de'
 
 /**
  * Leitung and Träger: per group of one facility the other groups its staff may also read at the tablet (one
- * direction). `source` is the facility-level read of the grants; every toggle saves the group's list at once.
+ * direction). `source` is the facility-level read of the grants; every toggle saves the group's list at once. With
+ * `groupId` (the group's page) only that group's row is shown.
  */
-const props = defineProps<{ groups: GroupDto[]; source: string }>()
+const props = defineProps<{ groups: GroupDto[]; source: string; groupId?: number }>()
+const rows = computed(() => (props.groupId === undefined ? props.groups : props.groups.filter(group => group.id === props.groupId)))
 
 const KEY_PREFIX = 'group-read-access:'
 const { data: grants, status, refresh } = await useFetch<Record<number, number[]>>(() => props.source, {
@@ -17,7 +19,7 @@ const loaded = computed(() => status.value === 'success')
 // A new or deleted group changes the lists.
 watch(() => props.groups.map(group => group.id).join(), () => refresh())
 
-// The same grants may be on screen twice (the Träger's facility list and the Gruppenbücher block): refresh every copy.
+// The same grants may be on screen twice (the Träger's facility list and the group's page): refresh every copy.
 const nuxtApp = useNuxtApp()
 const refreshAll = () => refreshNuxtData(Object.keys(nuxtApp.payload.data).filter(key => key.startsWith(KEY_PREFIX)))
 const { busy, run } = useBusyAction(refreshAll)
@@ -37,8 +39,8 @@ async function setMayRead(group: GroupDto, other: GroupDto, value: boolean) {
 
 <template>
   <div v-if="groups.length > 1" class="space-y-1">
-    <div v-for="group in groups" :key="group.id" class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span class="text-sm font-medium">{{ group.name }}</span>
+    <div v-for="group in rows" :key="group.id" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span v-if="groupId === undefined" class="text-sm font-medium">{{ group.name }}</span>
       <span class="text-xs text-gray-600">{{ de.groups.mayAlsoRead }}</span>
       <UCheckbox
         v-for="other in others(group)" :key="other.id" size="sm" :model-value="mayRead(group, other)" :label="other.name"

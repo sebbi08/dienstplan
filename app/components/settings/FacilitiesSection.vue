@@ -22,7 +22,7 @@ const stateItems = GERMAN_STATES.map(value => ({ label: de.states[value], value 
 // The Höchstzahl Kinder as typed ('' = none).
 type Draft = Pick<FacilityDto, 'name' | 'state' | 'assumptionDay'> & { capacity: string }
 const drafts = reactive<Record<number, Draft>>({})
-const stored = new Map<number, Draft>()
+const stored = reactive(new Map<number, Draft>())
 const capacityText = (draft: Draft) => String(draft.capacity ?? '').trim()
 const sameDraft = (a: Draft, b: Draft) => a.name === b.name && a.state === b.state && a.assumptionDay === b.assumptionDay
   && capacityText(a) === capacityText(b)
@@ -42,11 +42,17 @@ function syncDrafts(saved?: number) {
 watch(data, () => syncDrafts(), { immediate: true })
 const newName = ref('')
 const newState = ref<GermanState>('BW')
+const facilityDirty = (id: number) => {
+  const draft = drafts[id]
+  const before = stored.get(id)
+  return !!draft && !!before && !sameDraft(draft, before)
+}
+useDirty(() => newName.value.trim() !== '' || Object.keys(drafts).some(id => facilityDirty(Number(id))))
 
 async function save(id: number) {
   const draft = drafts[id]
   const before = stored.get(id)
-  if (!draft || !before) return
+  if (!draft || !before || !facilityDirty(id)) return
   // Other holidays apply to all days, also past ones: only after an explicit yes.
   const holidaysChange = draft.state !== before.state || (draft.state === 'BY' && draft.assumptionDay !== before.assumptionDay)
   if (holidaysChange && !await confirm(de.facilities.stateChangeConfirm, { confirmLabel: de.facilities.stateChangeAction, danger: false })) return
@@ -83,14 +89,14 @@ async function create() {
         <UFormField :label="de.capacity.facilityLabel">
           <UInput v-model="drafts[facility.id]!.capacity" type="number" min="1" max="999" step="1" class="w-28" />
         </UFormField>
-        <UButton type="submit" color="neutral" variant="outline" :label="de.common.save" />
+        <UButton type="submit" color="neutral" variant="outline" :label="de.common.save" :disabled="!facilityDirty(facility.id)" />
       </form>
       <SettingsFacilityGroups :facility-id="facility.id" />
     </div>
     <form class="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-3" @submit.prevent="create">
       <UFormField :label="de.facilities.name"><UInput v-model="newName" maxlength="80" required /></UFormField>
       <UFormField :label="de.facilities.state"><USelect v-model="newState" :items="stateItems" class="w-56" /></UFormField>
-      <UButton type="submit" icon="i-lucide-plus" :label="de.facilities.add" />
+      <UButton type="submit" icon="i-lucide-plus" :label="de.facilities.add" :disabled="!newName.trim()" />
     </form>
     <p class="text-xs text-gray-500">{{ de.capacity.facilityHint }}</p>
     <p class="text-xs text-gray-500">{{ de.facilities.hint }}</p>

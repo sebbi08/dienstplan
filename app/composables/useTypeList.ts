@@ -31,10 +31,19 @@ export async function useTypeList<Dto, Form extends { id: number | null }>(optio
   const newForm = ref<Form>(options.empty()) as Ref<Form>
   const syncForms = () => { forms.value = (data.value ?? []).map(options.toForm) }
   watch(data, syncForms)
+  useDirty(() => [...forms.value as Form[], newForm.value].some(isDirty))
   await fetched
   syncForms()
 
+  /** A row differs from its stored entry (the new row: from the empty one). */
+  function isDirty(form: Form): boolean {
+    if (!form.id) return !sameValue(form, options.empty())
+    const stored = (data.value ?? []).find(entry => options.toForm(entry).id === form.id)
+    return !!stored && !sameValue(form, options.toForm(stored))
+  }
+
   async function save(form: Form) {
+    if (!isDirty(form)) return
     const body = options.toBody(form)
     if (!body) return
     const ok = await run(() => form.id
@@ -47,5 +56,5 @@ export async function useTypeList<Dto, Form extends { id: number | null }>(optio
     if (form.id && await confirm(de.childSettings.confirmDeleteType)) run(() => $fetch<unknown>(`${options.url}/${form.id}`, { method: 'DELETE' }), de.common.deleted)
   }
 
-  return { forms, newForm, busy, save, remove }
+  return { forms, newForm, busy, save, remove, isDirty }
 }

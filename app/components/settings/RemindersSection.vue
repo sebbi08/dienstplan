@@ -7,15 +7,17 @@ import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 
 /**
- * Leitung and Träger: the lead times of the facility's reminders and the development documentation reminder of the
- * children without group and of each group. Forms are built once from the stored values; a save keeps what is typed
- * in the other rows.
+ * Leitung and Träger: without `groupId` the lead times of the facility's reminders and the development documentation
+ * reminder of the children without group (Einstellungen → Kinder → Erinnerungen); with it the development documentation
+ * reminder of that group (on the group's page). Forms are built once from the stored values; a save keeps what is
+ * typed elsewhere.
  */
+const props = defineProps<{ groupId?: number }>()
 const { data, refresh } = await useFetch<ReminderSettingsDto>('/api/reminder-settings', { key: 'reminder-settings' })
 // After a save the stored settings are read again (for „gilt seit“); the forms keep what is typed.
 const { busy, run } = useBusyAction(refresh)
 const s = de.reminders.settings
-// The Träger's group list on this page refreshes the shared groups after a change: pick up new or renamed groups.
+// The Träger's group list refreshes the shared groups after a change: pick up new or renamed groups.
 const { data: groups } = useGroups()
 watch(groups, () => refresh())
 
@@ -65,20 +67,39 @@ const monthItems = range(1, 24)
 const modeItems = (['off', 'interval', 'birthday'] as DocMode[]).map(mode => ({ label: s.modes[mode], value: mode }))
 
 const hasGroups = computed(() => (data.value?.groups.length ?? 0) > 0)
-/** The rows of the documentation table: the children without group first, then the groups in their order. */
-const docRows = computed(() => [
-  {
-    key: 'facility', label: hasGroups.value ? s.noGroup : s.allChildren, form: facility.noGroupDoc, groupId: null as number | null,
-    stored: data.value ? { mode: data.value.noGroupDoc.mode, since: data.value.noGroupDocSince } : null,
-  },
-  ...(data.value?.groups ?? []).flatMap(group => {
-    const form = groupForms.value[group.groupId]
-    const stored = { mode: group.doc.mode, since: group.docSince }
-    return form ? [{ key: `group-${group.groupId}`, label: group.name, form, groupId: group.groupId as number | null, stored }] : []
-  }),
-])
+
+interface DocRow {
+  key: string; label: string; form: DocForm; groupId: number | null
+  stored: { mode: DocMode; since: IsoDate | null; form: DocForm }
+}
+/** The documentation row shown here: the children without group, or the group of this page. */
+const docRow = computed<DocRow | null>(() => {
+  const value = data.value
+  if (!value) return null
+  if (props.groupId === undefined) {
+    return {
+      key: 'facility', label: hasGroups.value ? s.noGroup : s.allChildren, form: facility.noGroupDoc, groupId: null,
+      stored: { mode: value.noGroupDoc.mode, since: value.noGroupDocSince, form: formOf(value.noGroupDoc, value.noGroupDocSince) },
+    }
+  }
+  const group = value.groups.find(entry => entry.groupId === props.groupId)
+  const form = group ? groupForms.value[group.groupId] : undefined
+  if (!group || !form) return null
+  return {
+    key: `group-${group.groupId}`, label: group.name, form, groupId: group.groupId,
+    stored: { mode: group.doc.mode, since: group.docSince, form: formOf(group.doc, group.docSince) },
+  }
+})
+
+const rowDirty = computed(() => !!docRow.value && !sameValue(docBody(docRow.value.form), docBody(docRow.value.stored.form)))
+const leadDirty = computed(() => !!data.value && props.groupId === undefined && !sameValue(
+  [facility.birthdayLeadDays, facility.staffBirthdayLeadDays, facility.leavingLeadWeeks],
+  [data.value.birthdayLeadDays, data.value.staffBirthdayLeadDays, data.value.leavingLeadWeeks],
+))
+useDirty(() => rowDirty.value || leadDirty.value)
 
 function saveFacility() {
+  if (!leadDirty.value && !rowDirty.value) return
   run(async () => {
     const body: ReminderSettingsInput = { ...facility, noGroupDoc: docBody(facility.noGroupDoc) }
     const answer = await $fetch<ReminderSettingsDto>('/api/reminder-settings', { method: 'PUT', body })
@@ -87,80 +108,58 @@ function saveFacility() {
 }
 
 /** After a group's save (and the refresh), its „Beginn“ shows the day in force, e.g. when the field was left empty. */
-async function saveRow(groupId: number | null, form: DocForm) {
-  if (groupId === null) return saveFacility()
-  const saved = await run(() => $fetch<unknown>(`/api/groups/${groupId}/documentation`, { method: 'PUT', body: docBody(form) }), de.common.saved)
+async function saveRow(row: DocRow) {
+  if (row.groupId === null) return saveFacility()
+  if (!rowDirty.value) return
+  const groupId = row.groupId
+  const saved = await run(() => $fetch<unknown>(`/api/groups/${groupId}/documentation`, { method: 'PUT', body: docBody(row.form) }), de.common.saved)
   const group = data.value?.groups.find(stored => stored.groupId === groupId)
-  if (saved && group) form.docSince = formOf(group.doc, group.docSince).docSince
+  if (saved && group) row.form.docSince = formOf(group.doc, group.docSince).docSince
 }
-
-const cell = 'px-1 py-1'
 </script>
 
 <template>
-  <section v-if="data" class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ s.title }}</h2>
-    <p class="text-xs text-gray-500">{{ s.hint }}</p>
+  <section v-if="data && docRow" class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+    <template v-if="groupId === undefined">
+      <h2 class="font-semibold">{{ s.title }}</h2>
+      <p class="text-xs text-gray-500">{{ s.hint }}</p>
 
-    <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveFacility">
-      <UFormField :label="s.birthdayLeadDays"><USelect v-model="facility.birthdayLeadDays" :items="dayItems" class="w-24" /></UFormField>
-      <UFormField :label="s.staffBirthdayLeadDays"><USelect v-model="facility.staffBirthdayLeadDays" :items="dayItems" class="w-24" /></UFormField>
-      <UFormField :label="s.leavingLeadWeeks"><USelect v-model="facility.leavingLeadWeeks" :items="weekItems" class="w-24" /></UFormField>
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
-    </form>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveFacility">
+        <UFormField :label="s.birthdayLeadDays"><USelect v-model="facility.birthdayLeadDays" :items="dayItems" class="w-24" /></UFormField>
+        <UFormField :label="s.staffBirthdayLeadDays"><USelect v-model="facility.staffBirthdayLeadDays" :items="dayItems" class="w-24" /></UFormField>
+        <UFormField :label="s.leavingLeadWeeks"><USelect v-model="facility.leavingLeadWeeks" :items="weekItems" class="w-24" /></UFormField>
+        <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !(leadDirty || rowDirty)" />
+      </form>
+    </template>
 
-    <div class="space-y-2 border-t border-gray-100 pt-3">
-      <h3 class="text-sm font-semibold">{{ s.docTitle }}</h3>
+    <div :class="groupId === undefined ? 'space-y-2 border-t border-gray-100 pt-3' : 'space-y-2'">
+      <component :is="groupId === undefined ? 'h3' : 'h2'" :class="groupId === undefined ? 'text-sm font-semibold' : 'font-semibold'">
+        {{ s.docTitle }}<template v-if="groupId === undefined"> – {{ docRow.label }}</template>
+      </component>
       <p class="text-xs text-gray-500">{{ s.docHint }}</p>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="text-left text-xs text-gray-500">
-            <tr>
-              <th :class="cell">{{ s.group }}</th><th :class="cell">{{ s.mode }}</th>
-              <th :class="cell">{{ s.intervalMonths }}</th><th :class="cell">{{ s.start }}</th>
-              <th :class="cell">{{ s.leadWeeks }}</th><th />
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in docRows" :key="row.key" class="border-t border-gray-100">
-              <td :class="cell" class="font-medium">{{ row.label }}</td>
-              <td :class="cell">
-                <USelect
-                  v-model="row.form.mode" :items="modeItems" class="w-48" :aria-label="`${s.mode} ${row.label}`"
-                  @update:model-value="modeChanged(row.form, row.stored, $event)"
-                />
-                <p
-                  v-if="row.stored?.since && row.form.mode === 'birthday' && row.stored.mode === row.form.mode"
-                  class="mt-0.5 text-xs text-gray-500"
-                >
-                  {{ s.since(formatDate(row.stored.since)) }}
-                </p>
-              </td>
-              <td :class="cell">
-                <USelect
-                  v-if="row.form.mode === 'interval'" v-model="row.form.intervalMonths" :items="monthItems" class="w-24"
-                  :aria-label="`${s.intervalMonths} ${row.label}`"
-                />
-              </td>
-              <td :class="cell">
-                <UInput
-                  v-if="row.form.mode === 'interval'" v-model="row.form.docSince" type="date" class="w-40"
-                  :aria-label="`${s.start} ${row.label}`"
-                />
-              </td>
-              <td :class="cell">
-                <USelect
-                  v-if="row.form.mode !== 'off'" v-model="row.form.leadWeeks" :items="weekItems" class="w-24"
-                  :aria-label="`${s.leadWeeks} ${row.label}`"
-                />
-              </td>
-              <td :class="cell" class="text-right">
-                <UButton size="xs" :label="de.common.save" :disabled="busy" @click="saveRow(row.groupId, row.form)" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveRow(docRow)">
+        <UFormField :label="s.mode">
+          <USelect
+            v-model="docRow.form.mode" :items="modeItems" class="w-48" :aria-label="`${s.mode} ${docRow.label}`"
+            @update:model-value="modeChanged(docRow.form, docRow.stored, $event)"
+          />
+        </UFormField>
+        <UFormField v-if="docRow.form.mode === 'interval'" :label="s.intervalMonths">
+          <USelect v-model="docRow.form.intervalMonths" :items="monthItems" class="w-24" :aria-label="`${s.intervalMonths} ${docRow.label}`" />
+        </UFormField>
+        <UFormField v-if="docRow.form.mode === 'interval'" :label="s.start">
+          <UInput v-model="docRow.form.docSince" type="date" class="w-40" :aria-label="`${s.start} ${docRow.label}`" />
+        </UFormField>
+        <UFormField v-if="docRow.form.mode !== 'off'" :label="s.leadWeeks">
+          <USelect v-model="docRow.form.leadWeeks" :items="weekItems" class="w-24" :aria-label="`${s.leadWeeks} ${docRow.label}`" />
+        </UFormField>
+        <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !rowDirty" />
+      </form>
+      <p v-if="docRow.stored.since && docRow.form.mode === 'birthday' && docRow.stored.mode === docRow.form.mode" class="text-xs text-gray-500">
+        {{ s.since(formatDate(docRow.stored.since)) }}
+      </p>
+      <p v-if="groupId === undefined && hasGroups" class="text-xs text-gray-500">{{ de.settingsAreas.groupDocOnGroupPages }}</p>
+      <p v-if="groupId !== undefined" class="text-xs text-gray-500">{{ de.settingsAreas.groupDocNoGroupHint }}</p>
     </div>
   </section>
 </template>

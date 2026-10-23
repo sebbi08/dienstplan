@@ -18,7 +18,9 @@ watch(data, (value) => {
   attendanceSince.value = value.attendanceSince ?? ''
 }, { immediate: true })
 
-const save = () => run(() => $fetch<unknown>('/api/attendance-settings', {
+const dirty = useDirty(() => !!data.value
+  && (recordBroughtBy.value !== data.value.recordBroughtBy || attendanceSince.value !== (data.value.attendanceSince ?? '')))
+const save = () => dirty.value && run(() => $fetch<unknown>('/api/attendance-settings', {
   method: 'PUT',
   body: { recordBroughtBy: recordBroughtBy.value, attendanceSince: attendanceSince.value === '' ? null : attendanceSince.value },
 }), de.common.saved)
@@ -26,7 +28,7 @@ const save = () => run(() => $fetch<unknown>('/api/attendance-settings', {
 
 <template>
   <section v-if="data" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ s.settingsTitle }}</h2>
+    <h2 class="font-semibold">{{ de.settingsAreas.attendance }}</h2>
     <form class="space-y-3" @submit.prevent="save">
       <USwitch v-model="recordBroughtBy" :label="s.recordBroughtBy" />
       <UFormField :label="s.attendanceSince" :help="s.attendanceSinceHint">
@@ -35,7 +37,7 @@ const save = () => run(() => $fetch<unknown>('/api/attendance-settings', {
           <span v-if="attendanceSince === ''" class="text-sm text-gray-500">{{ s.attendanceSinceEmpty }}</span>
         </div>
       </UFormField>
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
+      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
     <p class="text-xs text-gray-500">{{ s.settingsHint }}</p>
     <SettingsMealsSection />

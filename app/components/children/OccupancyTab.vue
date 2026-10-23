@@ -6,6 +6,7 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
 import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
+import { groupPath } from '~/utils/settingsAreas'
 
 /**
  * Managers only: the occupancy of a Kita year by group and month, with the places of each group editable in place. A click on a cell
@@ -123,7 +124,14 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
           </thead>
           <tbody>
             <tr v-for="row in rows" :key="rowKey(row)" class="border-t border-gray-100">
-              <th scope="row" :class="[td, 'text-left font-medium']">{{ occupancyRowName(row) }}</th>
+              <th scope="row" :class="[td, 'text-left font-medium']">
+                <!-- In the office the group's name opens its settings page (the tablet has no settings). -->
+                <NuxtLink
+                  v-if="!onTablet && row.groupId !== null" :to="groupPath(row.groupId)" class="text-sky-700 hover:underline"
+                  :title="de.settingsAreas.openGroupSettings(occupancyRowName(row))"
+                >{{ occupancyRowName(row) }}</NuxtLink>
+                <template v-else>{{ occupancyRowName(row) }}</template>
+              </th>
               <td :class="td">
                 <template v-if="onTablet">{{ row.capacity ?? de.children.noValue }}</template>
                 <input
