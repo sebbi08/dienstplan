@@ -5,18 +5,37 @@ import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
-import type { EmployeeDetailDto } from '#shared/types/api'
+import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { pinStateText } from '~/utils/pin'
+import { employeeTabs, requestedEmployeeTab, type EmployeeTab } from '~/utils/staffList'
 import { inState } from '~/utils/states'
 import { workdaysText } from '~/utils/workdays'
 
 const route = useRoute()
 const id = Number(route.params.id)
-const { data: employee, refresh } = await useFetch<EmployeeDetailDto>(`/api/employees/${id}`)
+const { data: employee, refresh: refreshEmployee } = await useFetch<EmployeeDetailDto>(`/api/employees/${id}`)
+// What the compact list no longer shows: the balance (today and at the end of this month) and the leave accounts.
+const now = parseIsoDate(todayIso())
+const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year: now.year, month: now.month } })
+const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: now.year } })
+const { data: nextLeave, refresh: refreshNextLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: now.year + 1 } })
+async function refresh() {
+  await Promise.all([refreshEmployee(), refreshBalances(), refreshLeave(), refreshNextLeave()])
+}
 const run = useAction(refresh)
+const balance = computed(() => balances.value?.find(row => row.employeeId === id) ?? null)
+/** This year's leave, plus next year's as soon as it has anything (an entitlement, also one carried over, or planned leave). */
+const leaveRows = computed(() => {
+  const rows: LeaveAccountDto[] = []
+  const current = leave.value?.find(row => row.employeeId === id)
+  if (current) rows.push(current)
+  const next = nextLeave.value?.find(row => row.employeeId === id)
+  if (next && (next.account.entitlement || next.account.carriedOver || next.account.planned)) rows.push(next)
+  return rows
+})
 const toast = useToast()
 const { user } = useUserSession()
 // Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
@@ -187,6 +206,28 @@ function saveEntitlement() {
 function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number]) {
   Object.assign(entitlementForm, { year: entitlement.year, days: entitlement.days, carriedOverDays: entitlement.carriedOverDays })
 }
+
+// The page's tabs; `?tab=` opens one directly (nothing is remembered). The old anchor #requirements still leads to its tab.
+const router = useRouter()
+const visibleTabs = computed(() => employeeTabs(user.value?.role ?? null))
+const requestedTab = () => requestedEmployeeTab(route.query.tab, route.hash, visibleTabs.value)
+const tab = ref<EmployeeTab>(requestedTab())
+watch(() => [route.query.tab, route.hash], () => (tab.value = requestedTab()))
+function selectTab(next: EmployeeTab) {
+  tab.value = next
+  router.replace({ query: { ...route.query, tab: next }, hash: '' })
+}
+/** Arrow keys, Home and End move between the tabs (and open the one reached), as in a tab list. */
+function onTabKey(event: KeyboardEvent) {
+  const keys = visibleTabs.value
+  const index = keys.indexOf(tab.value)
+  const last = keys.length - 1
+  const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index <= 0 ? last : index - 1, Home: 0, End: last }[event.key]
+  if (next === undefined || !keys[next]) return
+  event.preventDefault()
+  selectTab(keys[next])
+  nextTick(() => document.getElementById(`employee-tab-${keys[next]}`)?.focus())
+}
 </script>
 
 <template>
@@ -194,6 +235,21 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
     <NuxtLink to="/admin/employees" class="text-sm text-sky-700 hover:underline">← {{ de.employees.back }}</NuxtLink>
     <h1 class="text-2xl font-semibold">{{ employee.name }}</h1>
 
+    <!-- The tabs wrap on a phone instead of scrolling the page sideways. -->
+    <div role="tablist" :aria-label="de.employees.tabsLabel" class="flex flex-wrap gap-1.5">
+      <button
+        v-for="key in visibleTabs" :id="`employee-tab-${key}`" :key="key" type="button" role="tab"
+        :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" aria-controls="employee-tab-panel"
+        class="min-h-10 rounded-full px-3.5 text-sm ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :class="tab === key ? 'bg-sky-50 font-semibold text-sky-800 ring-sky-400' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
+        @click="selectTab(key)" @keydown="onTabKey"
+      >
+        {{ de.employees.tabs[key] }}
+      </button>
+    </div>
+
+    <div id="employee-tab-panel" role="tabpanel" :aria-labelledby="`employee-tab-${tab}`" class="space-y-4">
+    <template v-if="tab === 'master'">
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveMaster">
       <h2 class="font-semibold sm:col-span-4">{{ de.employees.masterData }}</h2>
       <UFormField :label="de.employees.name" class="sm:col-span-2"><UInput v-model="master.name" class="w-full" required /></UFormField>
@@ -208,12 +264,6 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
           <USelect v-model="master.birthdayMonth" :items="birthdayMonthItems" class="w-36" :aria-label="de.employees.birthdayMonth" />
         </span>
       </UFormField>
-      <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
-        <USelect v-model="master.qualification" :items="qualificationItems" class="w-full" />
-      </UFormField>
-      <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
-        <UInput v-model="master.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
-      </UFormField>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
 
@@ -224,11 +274,21 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       </UFormField>
       <UButton type="submit" :disabled="targetFacilityId === undefined" :label="de.facilities.moveAction" />
     </form>
+    </template>
 
-    <EmployeesContractSection
-      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="isProvider" @saved="refresh"
-    />
+    <!-- Saved with the master data (one route); the fields only live in their own tab. -->
+    <form v-else-if="tab === 'qualification'" class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveMaster">
+      <h2 class="font-semibold sm:col-span-4">{{ de.employees.tabs.qualification }}</h2>
+      <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
+        <USelect v-model="master.qualification" :items="qualificationItems" class="w-full" />
+      </UFormField>
+      <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
+        <UInput v-model="master.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
+      </UFormField>
+      <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
+    </form>
 
+    <template v-else-if="tab === 'stamping'">
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.pin }}</h2>
       <p class="text-sm text-gray-600">{{ employee.hasPin ? de.employees.pinSet : de.employees.pinNotSet }}</p>
@@ -262,7 +322,16 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
       <UButton type="submit" :label="de.common.save" />
     </form>
+    </template>
 
+    <template v-else-if="tab === 'hours'">
+    <p v-if="balance" class="rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+      {{ de.balances.account }} – {{ de.balances.today }}:
+      <span class="font-semibold" :class="balanceClass(balance.today)">{{ formatSignedDuration(balance.today) }}</span>
+      <span class="mx-2 text-gray-300">|</span>
+      {{ de.balances.monthEnd }}:
+      <span class="font-semibold" :class="balanceClass(balance.monthEnd)">{{ formatSignedDuration(balance.monthEnd) }}</span>
+    </p>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
       <table class="w-full text-sm">
@@ -313,6 +382,24 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
       </form>
     </section>
 
+    <EmployeesContractSection
+      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="isProvider" @saved="refresh"
+    />
+    </template>
+
+    <template v-else-if="tab === 'leave'">
+    <div v-if="leaveRows.length" class="space-y-1 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+      <p v-for="row in leaveRows" :key="row.year">
+        <span class="font-medium">{{ de.leave.title }} {{ row.year }}:</span>
+        {{ de.leave.entitlement }} {{ formatNumber(row.account.entitlement) }}
+        <span v-if="row.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(row.inheritedFrom) }}</span>
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(row.account.carriedOver) }}
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(row.account.taken) }}
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(row.account.planned) }}
+        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.available }}
+        <span class="font-semibold" :class="row.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(row.account.available) }}</span>
+      </p>
+    </div>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>
       <p class="text-sm text-gray-500">{{ de.employees.entitlementsHint }}</p>
@@ -337,7 +424,11 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
         <UButton type="submit" :label="de.employees.saveEntitlement" />
       </form>
     </section>
+    </template>
 
-    <EmployeesRequirementsSection :employee-id="id" />
+    <EmployeesRequirementsSection v-else-if="tab === 'requirements'" :employee-id="id" />
+
+    <EmployeesAccessSection v-else-if="tab === 'access'" :employee-id="id" :employee-name="employee.name" />
+    </div>
   </div>
 </template>

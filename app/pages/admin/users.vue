@@ -60,10 +60,13 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
 <template>
   <div class="max-w-5xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.users.title }}</h1>
+    <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint }}</p>
     <p class="text-sm text-gray-500">{{ de.users.rolesHint }}</p>
     <p class="text-sm text-gray-500">„{{ de.users.canEditChildren }}“: {{ de.users.canEditChildrenHint }}</p>
     <p v-if="activeName" class="text-sm text-gray-500">{{ de.facilities.createdIn(activeName) }}</p>
-    <table class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
+    <!-- Wide on a phone: the table scrolls on its own, not the page. -->
+    <div class="overflow-x-auto rounded-lg ring-1 ring-gray-200">
+    <table class="w-full bg-white text-sm">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-3 py-2">{{ de.users.username }}</th><th class="px-3 py-2">{{ de.users.role }}</th>
@@ -102,6 +105,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
         </tr>
       </tbody>
     </table>
+    </div>
 
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="create">
       <h2 class="font-semibold sm:col-span-4">{{ de.users.create }}</h2>
@@ -130,6 +134,12 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
       </template>
     </UModal>
 
-    <UsersRightsTable v-if="isProvider" />
+    <!-- Long: closed until asked for. -->
+    <details v-if="isProvider" class="group">
+      <summary class="cursor-pointer rounded-lg bg-white px-4 py-3 text-sm font-semibold text-gray-700 ring-1 ring-gray-200 group-open:mb-3">
+        {{ de.users.showRights }}
+      </summary>
+      <UsersRightsTable />
+    </details>
   </div>
 </template>

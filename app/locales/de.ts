@@ -364,6 +364,33 @@ export const de = {
     groupPerson: 'Person', groupContract: 'Vertrag', groupCarryOver: 'Urlaub und Stunden zum Start',
     contractHint: 'Ab „gültig ab“ rechnet die App das Stundenkonto. Die Wochenstunden werden gleichmäßig auf die Arbeitstage verteilt.',
     carryOverHint: 'Urlaubstage = Anspruch im Jahr von „gültig ab“ (bei Eintritt im Laufe des Jahres anteilig). Resturlaub = Übertrag. Überstunden im Format h:mm, Minusstunden mit Minus davor (z. B. -3:00). Leer lassen, wenn nichts zu übernehmen ist. Vorhandene Schließzeiten werden automatisch als Urlaub eingetragen; reichen die Urlaubstage dafür nicht, werden die übrigen Tage Schließtage (kein Minus-Urlaub). Dafür müssen die Urlaubstage hier angegeben sein.',
+    /** The compact list. */
+    notices: (count: number) => (count === 0 ? 'Keine Hinweise' : count === 1 ? '1 Hinweis' : `${count} Hinweise`),
+    reorder: 'Reihenfolge ändern', reorderDone: 'Fertig',
+    group: 'Gruppe', balanceToday: 'Stundenkonto heute', leaveLeft: (year: number) => `Resturlaub ${year}`,
+    leaveLeftShort: 'Resturlaub', badgesLabel: 'Was fehlt', hoursShort: 'Std.', balanceShort: 'Konto',
+    badges: {
+      pinMissing: 'PIN fehlt', pinLocked: 'PIN gesperrt', qualificationMissing: 'Qualifikation fehlt',
+      requirementsOpen: 'Pflichttermine offen', noAccess: 'kein Zugang',
+    },
+    listHint: '„Stundenkonto heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Resturlaub“: frei verfügbare Urlaubstage im Jahr des gewählten Monats. Alles Weitere (Monatsende, Urlaub im Detail, Vertrag) steht auf der Seite der Person.',
+    /** The tabs of the employee page. */
+    tabsLabel: 'Bereiche',
+    tabs: {
+      master: 'Stammdaten', hours: 'Stunden & Vertrag', leave: 'Urlaub', stamping: 'Zeiterfassung & PIN',
+      qualification: 'Qualifikation', requirements: 'Pflichttermine', access: 'Zugang',
+    },
+    /** The tab „Zugang“: the account linked to the person. */
+    access: {
+      title: 'Zugang zur App',
+      none: 'Diese Person hat noch keinen Zugang. Mit einem Zugang kann sie sich anmelden, ihren Plan, ihr Stundenkonto und ihren Urlaub sehen und – wenn erlaubt – mit dem Handy stempeln.',
+      setUp: 'Zugang einrichten',
+      usernameHint: 'Vorschlag aus dem Namen, du kannst ihn ändern. Groß- und Kleinschreibung spielt keine Rolle.',
+      passwordHint: 'Gib der Person Benutzername und Startpasswort weiter. Sie muss das Passwort bei der ersten Anmeldung ändern.',
+      linked: 'Dieses Benutzerkonto gehört zu dieser Person.',
+      inactiveHint: 'Nicht aktiv: Die Person kann sich nicht anmelden.',
+      usersPage: 'Alle Benutzer ansehen',
+    },
   },
   weekTemplates: {
     title: 'Dienstplanvorlagen',
@@ -405,6 +432,7 @@ export const de = {
     hint: 'Die Entgeltgruppe wird zur Tätigkeit nur vorgeschlagen; bei der Leitung hängt sie von der Größe der Einrichtung ab. Die Stufe richtet sich nach den Jahren in der Einrichtung (Stufe 2 nach 1 Jahr, 3 nach 4, 4 nach 8, 5 nach 12, 6 nach 17 Jahren); angerechnete Vorerfahrung kann eine höhere Stufe ergeben. Bitte mit der Personalabteilung prüfen.',
     empty: 'Noch keine Angaben.',
     visible: 'Vertragsangaben für die Leitung sichtbar',
+    visibleOn: 'Vertragsangaben für die Leitung sichtbar', visibleOff: 'Vertragsangaben für die Leitung verborgen',
     visibleHint: 'Nur der Träger kann die Vertragsangaben bearbeiten. Ist dieser Schalter an, sieht die Leitung sie zusätzlich (nur lesen).',
     rowLabel: 'Vertrag',
     levelUpTitle: 'Stufenaufstieg nach TVöD',
@@ -511,7 +539,8 @@ export const de = {
     roles: { provider: 'Träger', admin: 'Leitung', observer: 'Mitarbeiter', terminal: 'Stempel-Tablet' },
     rolesHint: 'Träger: alles, zusätzlich Vertragsangaben der Mitarbeiter und Träger-Konten. Leitung: Dienstplan, Mitarbeiter, Zeiterfassung und Einstellungen. Mitarbeiter: Dienstplan ansehen, eigener Plan, Stempeln und Urlaub (muss mit einem Mitarbeiter verknüpft sein); Kinder nur am Tablet. Stempel-Tablet: gemeinsames Gerät der Einrichtung zum Stempeln; nach dem Aufschließen mit Name und PIN zeigt es auch die Kinder, mit den Rechten der Person, die aufgeschlossen hat.',
     providerLocked: 'nur durch Träger änderbar',
-    rightsTitle: 'Rechte der Rollen', rightYes: 'erlaubt', rightNo: 'nicht erlaubt',
+    rightsTitle: 'Rechte der Rollen', showRights: 'Rechte der Rollen anzeigen', rightYes: 'erlaubt', rightNo: 'nicht erlaubt',
+    employeeAccessHint: 'Den Zugang für eine Mitarbeiterin oder einen Mitarbeiter richtest du am einfachsten bei der Person selbst ein (Mitarbeiter → Name → Reiter „Zugang“). Hier legst du vor allem Konten ohne Mitarbeiter an (Träger, Stempel-Tablet) und siehst alle Konten.',
     employee: 'Mitarbeiter', noEmployee: '– keiner –',
     active: 'aktiv', status: 'Status', create: 'Benutzer anlegen', resetPassword: 'Passwort zurücksetzen',
     newPassword: 'Neues Passwort (mindestens 8 Zeichen)', resetHint: 'Die Person muss das Passwort bei der nächsten Anmeldung ändern.',

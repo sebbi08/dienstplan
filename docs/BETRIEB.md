@@ -156,8 +156,8 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 | Mitarbeiter mit der Berechtigung „darf Kinderakten pflegen“ | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. |
 
-Die Berechtigung „darf Kinderakten pflegen“ vergibst du unter *Benutzer* pro Mitarbeiter. Sie gilt am Tablet
-der Einrichtung.
+Die Berechtigung „darf Kinderakten pflegen“ vergibst du unter *Benutzer* pro Mitarbeiter oder bei der Person selbst
+(*Mitarbeiter → Name → Zugang*). Sie gilt am Tablet der Einrichtung.
 
 Mitarbeiter **mit einer Gruppe** sehen am Tablet nur die Akten ihrer eigenen Gruppe (und der Gruppen, die für sie
 freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
@@ -680,14 +680,52 @@ Druck-Knöpfe.
 
 ## 15. Mitarbeiter
 
-Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht unter *Mitarbeiter* nicht mehr bei den
-aktiven Mitarbeitern, sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht
-wird dabei nichts, der Name führt weiter zu allen Daten der Person.
+### Die Liste
+
+- Unter *Mitarbeiter* steht **eine Zeile pro Person** (auf dem Handy eine kleine Karte): Name, Gruppe, Wochenstunden,
+  **Stundenkonto heute** (grün im Plus, rot im Minus) und **Resturlaub** (frei verfügbare Tage im Jahr des Monats, der
+  oben gewählt ist). Mit den Pfeilen neben dem Monat blätterst du zu einem anderen Monat bzw. Jahr.
+- Kleine Hinweise zeigen, was fehlt: **„PIN fehlt“**, **„PIN gesperrt“** (die PIN geht gerade nicht), **„Qualifikation
+  fehlt“** (für den Personalschlüssel), **„Pflichttermine offen“** (überfällig, noch kein Eintrag oder bald fällig) und
+  **„kein Zugang“** (die Person hat kein Benutzerkonto).
+- Die Hinweise oben (Pflichttermine, Stufenaufstieg) sind in einer Zeile **„‹n› Hinweise“** zusammengefasst; ein Tipp
+  darauf klappt sie auf. Beim Träger steht dort auch der Schalter „Vertragsangaben für die Leitung sichtbar“.
+- **„Mitarbeiter anlegen“** oben öffnet das Formular für eine neue Person.
+- **„Reihenfolge ändern“** blendet die Pfeile zum Verschieben ein; „Fertig“ blendet sie wieder aus.
+- Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht nicht mehr bei den aktiven Mitarbeitern,
+  sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht wird dabei nichts, der
+  Name führt weiter zu allen Daten der Person.
+
+### Die Seite einer Person
+
+Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in Reiter aufgeteilt: **Stammdaten** (Name, Kürzel,
+ausgeschieden am, Gruppe, Geburtstag; beim Träger auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
+(Stundenkonto heute und zum Monatsende, Wochenstunden, Stundenkonto-Buchungen, Vertragsangaben) · **Urlaub**
+(Urlaubskonto dieses und – sobald etwas eingetragen ist – des nächsten Jahres, Urlaubsanspruch) · **Zeiterfassung &
+PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** · **Zugang**. Die App merkt sich keinen Reiter; sie
+öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter (z. B. aus dem Hinweis auf Pflichttermine).
+
+### Zugang (Benutzerkonto der Person)
+
+- Im Reiter **Zugang** richtest du für eine Person ohne Konto mit **„Zugang einrichten“** ein Benutzerkonto ein: Der
+  Benutzername ist aus dem Namen vorgeschlagen (klein, ohne Leerzeichen, ä/ö/ü/ß als ae/oe/ue/ss) und lässt sich
+  ändern. Dazu ein Startpasswort (mindestens 8 Zeichen) und die Rolle **Mitarbeiter** oder **Leitung**. Das Konto ist
+  gleich mit der Person verknüpft; sie muss das Passwort bei der ersten Anmeldung ändern.
+- Hat die Person schon ein Konto, siehst du dort Benutzername, Rolle, „aktiv“ (und bei Mitarbeitern „darf Kinderakten
+  pflegen“) und kannst das **Passwort zurücksetzen**. Es gelten dieselben Rechte wie unter *Benutzer*: Ein Träger-Konto
+  kann nur ein Träger ändern.
+
+### Die Seite *Benutzer*
+
+Unter *Benutzer* stehen weiterhin **alle Konten**. Dort legst du vor allem Konten an, die zu keinem Mitarbeiter
+gehören (Träger, Stempel-Tablet), und kannst jedes Konto ändern. Die lange Übersicht, was jede Rolle darf, ist beim
+Träger zugeklappt: **„Rechte der Rollen anzeigen“** klappt sie auf. Auf dem Handy lässt sich die Tabelle der Konten
+seitlich wischen.
 
 ### Stempel-PIN
 
 - Mit der PIN stempelt jeder Mitarbeiter am Kita-Tablet und schließt dort die Kinder auf. Die PIN hat **genau
-  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Stempel-PIN* (nur für die Mitarbeiter der
+  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Zeiterfassung & PIN* (nur für die Mitarbeiter der
   Einrichtung, in der sie gerade arbeiten).
 - **Nach dem Update auf die 6-stellige PIN sind alle bisherigen 4-stelligen PINs gelöscht.** Bitte für jeden
   Mitarbeiter eine neue PIN setzen. In der Mitarbeiterliste steht bei allen ohne PIN **„PIN fehlt“**; wer keine PIN
@@ -905,7 +943,7 @@ auch im Reiter und in den Einstellungen.
 ### Was vorher eingetragen sein muss
 
 - **Bundesland** der Einrichtung (Einstellungen → Einrichtung → Einrichtungen, Träger). Danach richten sich alle Zahlen.
-- **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Stammdaten, Leitung oder Träger): Fachkraft,
+- **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Qualifikation, Leitung oder Träger): Fachkraft,
   Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Praktikant/in oder **keine pädagogische Kraft**. Küche,
   Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen sie mit.
   „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im

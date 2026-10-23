@@ -969,6 +969,8 @@ export interface EmployeeListItemDto {
   staffingShare: number | null
   /** Whether a stamp PIN is set (without one the person is not on the tablet; the list shows „PIN fehlt“). */
   hasPin: boolean
+  /** Whether the PIN cannot be used right now (a running timed lock or one lasting until „PIN freischalten“). */
+  pinLocked: boolean
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
 }

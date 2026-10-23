@@ -178,6 +178,22 @@ describe('six-digit PIN with escalating lock', () => {
     fiveWrong(minutesLater(45))
     expect(detail(minutesLater(46))).toMatchObject({ pinLockedUntil: null, pinLockedPermanently: true, pinLockLevel: 3 })
   })
+
+  it('flags a PIN in the list only while it cannot be used', () => {
+    addEmployee(db, 'Berta')
+    const today = '2026-10-06'
+    const locked = (now: Date) => listEmployees(db, 1, today, 'admin', now).map(employee => [employee.name, employee.pinLocked])
+    expect(locked(T0)).toEqual([['Anna', false], ['Berta', false]])
+    fiveWrong(T0)
+    expect(locked(minutesLater(1))).toEqual([['Anna', true], ['Berta', false]])
+    // The timed lock has run out: the PIN works again, although the level stays.
+    expect(locked(minutesLater(15))).toEqual([['Anna', false], ['Berta', false]])
+    fiveWrong(minutesLater(15))
+    fiveWrong(minutesLater(45))
+    expect(locked(minutesLater(500))).toEqual([['Anna', true], ['Berta', false]])
+    unlockPin(db, 1, anna)
+    expect(locked(minutesLater(501))).toEqual([['Anna', false], ['Berta', false]])
+  })
 })
 
 describe('terminal and stamping options', () => {

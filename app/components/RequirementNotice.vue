@@ -65,7 +65,7 @@ const collapsible = computed(() => groups.value.some(group => group.total > LIMI
           <p class="font-medium">{{ de.requirements.noticeCount(de.requirements.noticeGroups[group.state], group.total) }}</p>
           <ul class="space-y-0.5">
             <li v-for="person in group.shown" :key="person.employeeId">
-              <NuxtLink :to="`/admin/employees/${person.employeeId}#requirements`" class="font-medium underline hover:no-underline">{{ person.name }}</NuxtLink>:
+              <NuxtLink :to="`/admin/employees/${person.employeeId}?tab=requirements`" class="font-medium underline hover:no-underline">{{ person.name }}</NuxtLink>:
               {{ person.kinds.join(', ') }}
             </li>
             <li v-if="group.hidden > 0">{{ de.requirements.noticeMore(group.hidden) }}</li>
