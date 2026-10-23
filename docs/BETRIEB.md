@@ -921,7 +921,7 @@ den die Leitung ausdruckt und ihnen gibt, stehen sie mit drauf.
 Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,
 Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
 
-- **Hochladen**: Leitung und Träger öffnen im Menü **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt sind nur
+- **Hochladen**: Leitung und Träger öffnen im Menü unter **Mehr** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt sind nur
   **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
   **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist frei wählbar; die App
   schlägt die schon benutzten vor (und „Eltern“, „Gesundheit“, „Personal“). Ohne Kategorie landet die Vorlage unter
@@ -1054,3 +1054,18 @@ sehen keine Warnungen.
   etwas (z. B. andere Zahlen, andere fehlende Zeit, anderer Zeitraum), erscheint sie wieder. Die Zahl in der
   Überschrift zählt nur die nicht zur Kenntnis genommenen. **„zur Kenntnis genommene anzeigen (n)“** zeigt sie grau, mit
   **„Rückgängig“**. Welche Warnungen es gibt, ändert sich dadurch nicht (auch nicht die Markierungen im Plan).
+
+## 21. Menü
+
+- **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
+  offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder** und **Kalender** (Jahreskalender). Seltener Gebrauchtes liegt
+  unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Benutzer, Einstellungen und Passwort ändern. Wer als Leitung
+  oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“, „Mein Urlaub“ und
+  „Meine Termine“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
+  hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
+  rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
+- **Mitarbeiter** sehen wie bisher ihre fünf Einträge.
+- **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
+  ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
+  Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.
+- **Am Tablet** bleibt das Menü unverändert.

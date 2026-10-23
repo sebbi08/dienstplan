@@ -27,6 +27,7 @@ export const de = {
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
     templates: 'Vorlagen',
+    more: 'Mehr', mine: 'Meins', menu: 'Menü', signedInAs: 'Angemeldet als', calendarShort: 'Kalender',
   },
   leavePlanning: {
     title: 'Urlaubsplanung', countRow: 'im Urlaub',

@@ -5,6 +5,8 @@ import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { isChildPagePath } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
+import { isEntryActive, isGroupActive, navMenu, withCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
+import type { DropdownMenuItem } from '@nuxt/ui'
 
 const { user, loggedIn, clear } = useUserSession()
 const today = parseIsoDate(todayIso())
@@ -44,40 +46,35 @@ watch(() => route.fullPath, () => {
   if (isManager(user.value?.role)) refreshFacilities()
 })
 
-const links = computed(() => {
-  if (!user.value) return []
-  const plan = { label: de.nav.plan, to: `/plan/${today.year}/${today.month}` }
-  if (user.value.role === 'terminal') return [{ label: de.nav.stamp, to: '/terminal' }, plan]
-  const unread = notifications.unread.value.length
-  const myPlan = { label: unread ? `${de.nav.myPlan} (${unread})` : de.nav.myPlan, to: `/my/plan/${today.year}/${today.month}` }
-  const myLeave = { label: de.nav.myLeave, to: '/my/leave' }
-  const myRequirements = { label: de.nav.myRequirements, to: '/my/requirements' }
-  const open = leave.value?.openCount ?? 0
-  const planning = leave.value?.isPlanner
-    ? [{ label: open ? `${de.nav.leavePlanning} (${open})` : de.nav.leavePlanning, to: '/admin/leave-planning' }]
-    : []
-  if (isManager(user.value.role)) {
-    return [
-      plan,
-      // An admin linked to an employee stamps on "Mein Dienstplan", requests leave and sees their own appointments too.
-      ...(user.value.employeeId !== null ? [myPlan, myLeave, myRequirements] : []),
-      ...planning,
-      { label: de.nav.time, to: '/admin/time' },
-      // Includes the overtime balances and leave accounts of all employees.
-      { label: de.nav.employees, to: '/admin/employees' },
-      { label: de.nav.closures, to: '/admin/closures' },
-      { label: de.nav.sickDays, to: '/admin/sick-days' },
-      // Mitarbeiter see the children only at the tablet, so only the managers get the menu entry.
-      { label: de.nav.children, to: '/children' },
-      // Blank forms to print; the tablet reaches them from its start page, Mitarbeiter accounts not at all.
-      { label: de.nav.templates, to: '/templates' },
-      { label: de.nav.calendar, to: '/admin/calendar' },
-      { label: de.nav.users, to: '/admin/users' },
-      { label: de.nav.settings, to: '/admin/settings' },
-    ]
-  }
-  return [myPlan, plan, myLeave, myRequirements, { label: de.nav.calendar, to: '/my/calendar' }]
-})
+// The entries, grouped: Leitung/Träger see the everyday pages directly and the rest under "Mehr" (and their own pages
+// under "Meins" when linked to an employee); Mitarbeiter and the tablet keep their short list.
+const menu = computed<NavMenu>(() => navMenu({
+  role: user.value?.role ?? 'observer',
+  employeeId: user.value?.employeeId ?? null,
+  isPlanner: !!leave.value?.isPlanner,
+  openCount: leave.value?.openCount ?? 0,
+  unread: notifications.unread.value.length,
+  today,
+}))
+const isTerminal = computed(() => user.value?.role === 'terminal')
+// The Leitung/Träger header has many entries; on mid-size screens it gets tighter so it stays on one line.
+const tight = computed(() => menu.value.more.length > 0)
+const toItems = (entries: NavEntry[]): DropdownMenuItem[] =>
+  entries.map(entry => ({ label: entry.label, to: entry.to, active: isEntryActive(route.path, entry) }))
+// Passwort ändern sits under "Mehr" for Leitung/Träger, set apart from the pages.
+const moreItems = computed<DropdownMenuItem[][]>(() => [toItems(menu.value.more), [{ label: de.nav.password, to: '/account/password', icon: 'i-lucide-key-round' }]])
+const mineItems = computed(() => toItems(menu.value.mine))
+const linkClass = (entry: NavEntry) => (isEntryActive(route.path, entry) ? 'bg-gray-100 font-medium' : '')
+const groupClass = (entries: NavEntry[]) => (isGroupActive(route.path, entries) ? 'bg-gray-100 font-medium' : '')
+
+// Phones: one header line with a "Menü" button that opens a panel with every entry; it closes after a tap or page change.
+const menuOpen = ref(false)
+watch(() => route.fullPath, () => { menuOpen.value = false })
+const phoneGroups = computed(() => [
+  { title: '', entries: menu.value.main },
+  { title: withCount(de.nav.mine, menu.value.mineCount), entries: menu.value.mine },
+  { title: de.nav.more, entries: menu.value.more },
+].filter(group => group.entries.length))
 
 // At the tablet, a child page shows who unlocked it and the lock button instead of the menu; that bar never slides away,
 // so "Sperren" stays in reach on a narrow tablet.
@@ -99,28 +96,85 @@ async function logout() {
       :class="headerHidden && !tabletChildren ? 'max-md:-translate-y-full' : ''"
     >
       <TerminalTabletUnlockBar v-if="tabletChildren" />
-      <div v-else class="mx-auto flex max-w-[1800px] flex-wrap items-center gap-3 px-4 py-2">
-        <NuxtLink to="/" class="font-semibold">{{ de.appName }}</NuxtLink>
+      <div
+        v-else class="mx-auto flex max-w-[1800px] items-center gap-x-3 gap-y-2 px-4 py-2 md:max-xl:gap-x-2"
+        :class="isTerminal ? 'flex-wrap' : 'md:flex-wrap'"
+      >
+        <NuxtLink to="/" class="shrink-0 font-semibold">{{ de.appName }}</NuxtLink>
         <USelect
           v-if="isProvider && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"
-          size="sm" class="w-48" :aria-label="de.facilities.active" @update:model-value="switchFacility(Number($event))"
+          size="sm" class="min-w-0 max-md:max-w-48 max-md:flex-1 md:w-40 xl:w-48" :aria-label="de.facilities.active"
+          @update:model-value="switchFacility(Number($event))"
         />
-        <span v-else-if="activeName" class="rounded bg-gray-100 px-2 py-0.5 text-sm text-gray-700" :title="de.facilities.active">{{ activeName }}</span>
-        <nav class="flex flex-wrap gap-1">
+        <span
+          v-else-if="activeName" class="min-w-0 truncate rounded bg-gray-100 px-2 py-0.5 text-sm text-gray-700"
+          :title="`${de.facilities.active}: ${activeName}`"
+        >{{ activeName }}</span>
+        <!-- Wide screens (and always at the tablet): the entries in the header line. -->
+        <nav class="flex-wrap items-center gap-0.5" :class="isTerminal ? 'flex' : 'hidden md:flex'">
           <NuxtLink
-            v-for="link in links" :key="link.to" :to="link.to"
-            class="rounded px-2 py-1 text-sm hover:bg-gray-100" active-class="bg-gray-100 font-medium"
+            v-for="link in menu.main" :key="link.to" :to="link.to"
+            class="whitespace-nowrap rounded py-1 text-sm hover:bg-gray-100" :class="[linkClass(link), tight ? 'px-1.5 xl:px-2' : 'px-2']"
           >
             {{ link.label }}
           </NuxtLink>
+          <UDropdownMenu v-if="menu.more.length" :items="moreItems" :content="{ align: 'start' }">
+            <UButton
+              color="neutral" variant="ghost" size="sm" :label="de.nav.more" trailing-icon="i-lucide-chevron-down"
+              class="px-1.5 py-1 text-sm font-normal text-gray-900 xl:px-2" :class="groupClass(menu.more)"
+            />
+          </UDropdownMenu>
+          <UDropdownMenu v-if="menu.mine.length" :items="mineItems" :content="{ align: 'start' }">
+            <UButton
+              color="neutral" variant="ghost" size="sm" :label="withCount(de.nav.mine, menu.mineCount)" trailing-icon="i-lucide-chevron-down"
+              class="whitespace-nowrap px-1.5 py-1 text-sm font-normal text-gray-900 xl:px-2" :class="groupClass(menu.mine)"
+            />
+          </UDropdownMenu>
         </nav>
-        <div class="ml-auto flex items-center gap-2 text-sm">
-          <span class="text-gray-500">{{ user?.username }}</span>
-          <UButton v-if="user?.role !== 'terminal'" size="xs" color="neutral" variant="ghost" to="/account/password" :label="de.nav.password" />
-          <UButton size="xs" color="neutral" variant="outline" :label="de.nav.logout" @click="logout" />
+        <div class="ml-auto items-center gap-2 text-sm" :class="isTerminal ? 'flex' : 'hidden md:flex'">
+          <span class="text-gray-500" :class="tight ? 'hidden xl:inline' : ''">{{ user?.username }}</span>
+          <UButton v-if="!isTerminal && !tight" size="xs" color="neutral" variant="ghost" to="/account/password" :label="de.nav.password" />
+          <UButton
+            size="xs" color="neutral" variant="outline" :label="de.nav.logout" :title="`${de.nav.signedInAs} ${user?.username ?? ''}`"
+            :class="tight ? 'hidden xl:inline-flex' : ''" @click="logout"
+          />
+          <!-- Leitung/Träger below xl: only the icon, so the header of a laptop stays on one line. -->
+          <UButton
+            v-if="tight" size="xs" color="neutral" variant="outline" icon="i-lucide-log-out" class="xl:hidden"
+            :aria-label="de.nav.logout" :title="`${de.nav.logout} (${de.nav.signedInAs} ${user?.username ?? ''})`" @click="logout"
+          />
         </div>
+        <!-- Phones: one line, everything else in the panel behind "Menü". -->
+        <UButton
+          v-if="!isTerminal" color="neutral" variant="outline" size="sm" icon="i-lucide-menu"
+          :label="withCount(de.nav.menu, menu.totalCount)" class="ml-auto shrink-0 md:hidden" @click="menuOpen = true"
+        />
       </div>
     </header>
+    <USlideover
+      v-if="loggedIn && !isTerminal" v-model:open="menuOpen" :title="de.nav.menu"
+      :description="`${de.nav.signedInAs} ${user?.username ?? ''}`" class="print:hidden"
+    >
+      <template #body>
+        <nav class="flex flex-col gap-4">
+          <div v-for="group in phoneGroups" :key="group.title">
+            <p v-if="group.title" class="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ group.title }}</p>
+            <NuxtLink
+              v-for="link in group.entries" :key="link.to" :to="link.to"
+              class="block rounded px-2 py-2 hover:bg-gray-100" :class="linkClass(link)" @click="menuOpen = false"
+            >
+              {{ link.label }}
+            </NuxtLink>
+          </div>
+        </nav>
+      </template>
+      <template #footer>
+        <div class="flex w-full flex-col gap-2">
+          <UButton color="neutral" variant="ghost" icon="i-lucide-key-round" to="/account/password" :label="de.nav.password" @click="menuOpen = false" />
+          <UButton color="neutral" variant="outline" icon="i-lucide-log-out" :label="de.nav.logout" @click="logout" />
+        </div>
+      </template>
+    </USlideover>
     <main class="mx-auto max-w-[1800px] p-4">
       <slot />
     </main>
