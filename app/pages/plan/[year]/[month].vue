@@ -36,6 +36,12 @@ const editEntry = ref<EntryDto | null>(null)
 const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
 const breakOpen = ref(false)
 const releaseStatusKey = ref(0) // reloads the message status after a release
+/** A click on a warning: the day is selected, scrolled into view in the grid and briefly highlighted. */
+const jumpTarget = ref<{ date: string; at: number } | null>(null)
+function jumpToDate(date: string) {
+  selectedDate.value = date
+  jumpTarget.value = { date, at: Date.now() }
+}
 const weekTemplate = reactive<{ open: boolean; mode: 'save' | 'apply'; weekStart: string }>({ open: false, mode: 'save', weekStart: '' })
 
 watch([year, month], () => {
@@ -284,14 +290,14 @@ function navigate(nextYear: number, nextMonth: number) {
           </div>
           <PlanGrid
             :plan="plan" :group-filter="activeGroup"
-            :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
+            :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate" :jump-to="jumpTarget"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
             @remove-helper="onRemoveHelper" @sick-leave="openSickLeave"
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
-        <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" @select-date="selectedDate = $event" />
+        <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" @select-date="jumpToDate" @changed="refresh" />
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />

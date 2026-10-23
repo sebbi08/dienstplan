@@ -403,3 +403,10 @@ export const groupBookDaySchema = z.object({ groupId: z.number().int().positive(
 export const groupBookHistoryQuery = z.object({
   groupId: z.coerce.number().int().positive(), field: z.enum(['week', 'day']), date: isoDate,
 })
+
+/** „Zur Kenntnis genommen“ of plan warnings (a condensed line marks all its days); the key's format is checked by the service. */
+const warningAckKey = z.string().min(1).max(300)
+export const warningAcksSchema = z.object({
+  items: z.array(z.object({ key: warningAckKey, signature: z.string().max(100) })).min(1).max(1000),
+})
+export const warningAckKeysSchema = z.object({ keys: z.array(warningAckKey).min(1).max(1000) })

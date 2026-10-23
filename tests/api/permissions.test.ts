@@ -58,6 +58,8 @@ const ADMIN_ROUTES = [
   'staffing/[year]/[month].get.ts',
   // Stamp PINs of the facility's own staff: set, clear and unlock after too many wrong tries.
   'employees/[id]/pin.put.ts', 'employees/[id]/pin.delete.ts', 'employees/[id]/pin/unlock.post.ts',
+  // „Zur Kenntnis genommen“ of the plan's warnings and taking it back (staff never see warnings).
+  'plan/warning-acks.post.ts', 'plan/warning-acks.delete.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the

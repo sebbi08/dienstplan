@@ -20,6 +20,8 @@ const props = defineProps<{
   print?: boolean
   /** The group chosen above the plan: only its block is shown, plus the Springer and helpers (null = all). */
   groupFilter?: number | null
+  /** A day to scroll into view and highlight briefly (a click on a warning); `at` makes a repeated click jump again. */
+  jumpTo?: { date: string; at: number } | null
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -47,6 +49,20 @@ function onEntryClick(key: string, entry: EntryDto, event: MouseEvent) {
 // Own scroll area sized to end at the window bottom, so the page does not scroll as well.
 const scroller = ref<HTMLElement | null>(null)
 const gridMaxHeight = useFitToViewport(scroller)
+
+const flashDate = ref<string | null>(null)
+let flashTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => props.jumpTo, async (target) => {
+  if (!target) return
+  await nextTick()
+  scroller.value?.querySelector(`tr[data-date="${target.date}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  flashDate.value = target.date
+  clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    flashDate.value = null
+  }, 1800)
+})
+onBeforeUnmount(() => clearTimeout(flashTimer))
 
 const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
 const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
@@ -324,10 +340,10 @@ const rows = computed(() => props.plan.days.map((day) => {
       </thead>
       <tbody>
         <template v-for="(row, index) in rows" :key="row.day.date">
-          <tr :class="rowClass(row.day)">
+          <tr :class="flashDate === row.day.date ? 'bg-amber-100' : rowClass(row.day)" :data-date="row.day.date">
             <td
-              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top"
-              :class="[rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
+              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top transition-colors duration-500"
+              :class="[flashDate === row.day.date ? 'bg-amber-300' : rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
             >
               <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
                 {{ formatDayShort(row.day.date, row.day.weekday) }}

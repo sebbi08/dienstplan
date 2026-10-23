@@ -890,3 +890,22 @@ export const staffingOverrides = sqliteTable('staffing_overrides', {
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 })
+
+/**
+ * A plan warning the Leitung or the Träger marked „Zur Kenntnis genommen“, per facility: `key` is type, day and subject
+ * of the warning (see shared/domain/warningList.ts), `signature` its values when marked; a warning whose values changed
+ * shows again. `date` is the warning's day (to load a month). Old rows are harmless and stay.
+ */
+export const warningAcks = sqliteTable('warning_acks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  date: text('date').notNull(),
+  signature: text('signature').notNull(),
+  acknowledgedAt: text('acknowledged_at').notNull(),
+  acknowledgedBy: integer('acknowledged_by').references(() => users.id, { onDelete: 'set null' }),
+  acknowledgedByName: text('acknowledged_by_name').notNull().default(''),
+}, table => [
+  uniqueIndex('warning_acks_facility_key').on(table.facilityId, table.key),
+  index('warning_acks_facility_date').on(table.facilityId, table.date),
+])

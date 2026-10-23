@@ -974,3 +974,27 @@ dem Landesjugendamt klären und bei Bedarf als Träger anpassen.
 Die Codes für Abwesenheiten (Urlaub, Krank, Fortbildung …) gelten für **alle Einrichtungen**. Bezeichnung, Farbe und
 Anrechnung ändert deshalb **nur der Träger** unter *Einstellungen → Codes*. Die Leitung sieht die Codes dort nur zum
 Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).
+
+## 22. Warnungen im Dienstplan (die Liste rechts)
+
+Leitung und Träger sehen rechts neben dem Dienstplan (am Handy darunter) die **Warnungen** des Monats. Mitarbeiter
+sehen keine Warnungen.
+
+- **Drei Gruppen**, oben gezählt („Besetzung 6 · Lücken 40 · Zeiterfassung 27“), jede auf- und zuklappbar:
+  **Besetzung** (Pflichtdienste, Öffnung/Schließung, Personalschlüssel nach Uhrzeit), **Dienstplan-Lücken** (kein
+  Eintrag, Sollstunden nicht erreicht) und **Zeiterfassung** (Ausstempeln vergessen, keine Stempelzeit, Pause, gestempelt
+  ohne Dienst).
+- **Zusammengefasst:** Dieselbe Warnung an aufeinanderfolgenden Tagen steht in einer Zeile, z. B.
+  „Mo 05.–Fr 09.10. · Bären 7:00–8:00: 1 Fachkraft, nötig 2“ oder „Anna · 12 Tage ohne Eintrag (01.–16.10.)“.
+  Wochenenden, Feiertage und Schließtage dazwischen unterbrechen das nicht; andere Zahlen (z. B. 0 statt 1 Fachkraft)
+  beginnen eine neue Zeile. Bei den Sollstunden wird die fehlende Zeit zusammengezählt („7 Tage, zusammen 9:30 h zu
+  wenig“).
+- **Vergangene Tage** stehen bei Besetzung und Lücken zugeklappt unter „vergangene Tage (n)“; zuerst kommt ab heute.
+  Bei der Zeiterfassung zählt gerade die Vergangenheit, sie steht dort ganz normal.
+- **Klick auf eine Zeile** springt zum Tag im Plan (bei mehreren Tagen zum ersten) und hebt ihn kurz hervor.
+- **Filter** nach Gruppe und Mitarbeiter gelten für alle drei Gruppen; das Gerät merkt sich die Auswahl.
+- **„Zur Kenntnis genommen“** (Haken rechts an der Zeile) blendet die Warnung für die ganze Einrichtung aus, bei einer
+  zusammengefassten Zeile für alle ihre Tage. Gespeichert wird, wer es wann gemacht hat. Ändert sich an der Warnung
+  etwas (z. B. andere Zahlen, andere fehlende Zeit, anderer Zeitraum), erscheint sie wieder. Die Zahl in der
+  Überschrift zählt nur die nicht zur Kenntnis genommenen. **„zur Kenntnis genommene anzeigen (n)“** zeigt sie grau, mit
+  **„Rückgängig“**. Welche Warnungen es gibt, ändert sich dadurch nicht (auch nicht die Markierungen im Plan).

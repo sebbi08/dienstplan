@@ -34,6 +34,7 @@ import {
 import { buildSnapshot, loadReleases, type StoredRelease } from './release'
 import { staffingWarnings } from './staffingReport'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
+import { loadWarningAcks } from './warningAcks'
 import { weekTemplateNames } from './weekTemplates'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
@@ -154,6 +155,7 @@ function buildAdminData(
   warnings.sort((a, b) => a.date.localeCompare(b.date))
   return {
     warnings, weeks, balances: computeBalances(db, facilityId, staff, monthEnd, today), actuals, helpers, helperBusy, sickLeaves,
+    warningAcks: loadWarningAcks(db, facilityId, monthStart, monthEnd),
   }
 }
 

@@ -1260,6 +1260,30 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare(`SELECT pin_lock_level FROM employees WHERE name = 'Neu'`).get()).toEqual({ pin_lock_level: 0 })
   })
 
+  it('0052 only creates the empty table of acknowledged warnings, unique per facility and key', () => {
+    const { db, sqlite } = databaseAt('0051')
+    const tables = () => (sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as { name: string }[])
+      .map(row => row.name)
+    const before = tables()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(tables().filter(name => !before.includes(name))).toEqual(['warning_acks'])
+    expect(count(sqlite, 'warning_acks')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_list(warning_acks)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'users', from: 'acknowledged_by', on_delete: 'SET NULL' },
+      { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+    ])
+    const insert = `INSERT INTO warning_acks (facility_id, key, date, signature, acknowledged_at)
+      VALUES (1, 'missing_entry|2026-10-05|1', '2026-10-05', '', '2026-10-23T08:00:00.000Z')`
+    sqlite.exec(insert)
+    expect(() => sqlite.exec(insert)).toThrow(/UNIQUE/)
+    expect(sqlite.prepare(`SELECT acknowledged_by, acknowledged_by_name FROM warning_acks`).get())
+      .toEqual({ acknowledged_by: null, acknowledged_by_name: '' })
+  })
+
   it('print_templates keep their file when the uploader is deleted', () => {
     const db = createTestDb()
     const user = addUser(db, 'leitung', 'admin')

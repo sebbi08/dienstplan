@@ -878,6 +878,16 @@ export interface MonthPlanAdminDto {
   helperBusy: Record<number, IsoDate[]>
   /** "Im Dienst erkrankt" markers of the own staff's days in this month, keyed by cellKey (never part of a release). */
   sickLeaves: Record<string, SickLeaveMarkDto>
+  /** Warnings of this month marked „Zur Kenntnis genommen“ (see shared/domain/warningList.ts). */
+  warningAcks: WarningAckDto[]
+}
+
+/** A warning marked „Zur Kenntnis genommen“: its key and its values then, by whom and when (ISO timestamp). */
+export interface WarningAckDto {
+  key: string
+  signature: string
+  byName: string
+  at: string
 }
 
 export interface MonthPlanDto {

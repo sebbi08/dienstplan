@@ -283,6 +283,28 @@ export const de = {
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
+    /** The three groups of the list and their short names in the summary line „Besetzung 6 · Lücken 40 · Zeiterfassung 27“. */
+    categories: { staffing: 'Besetzung', gaps: 'Dienstplan-Lücken', time: 'Zeiterfassung' },
+    categoriesShort: { staffing: 'Besetzung', gaps: 'Lücken', time: 'Zeiterfassung' },
+    categoryNone: 'Nichts offen.',
+    past: (count: number) => `vergangene Tage (${count})`,
+    /** Several days of one person: „Anna · 12 Tage ohne Eintrag (01.–16.10.)“. */
+    missingEntryDays: (name: string, days: number, span: string) => `${name} · ${days} Tage ohne Eintrag (${span})`,
+    targetGapDays: (name: string, days: number, duration: string, span: string) =>
+      `${name} · Sollstunden: ${days} Tage, zusammen ${duration} h zu wenig (${span})`,
+    openRecordDays: (name: string, days: number, span: string) => `${name} · ${days} Tage Ausstempeln vergessen (${span})`,
+    missingRecordDays: (name: string, days: number, span: string) => `${name} · ${days} Tage ohne Stempelzeit (${span})`,
+    breakRuleDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gesetzliche Pause nicht eingehalten (${span})`,
+    recordWithoutPlanDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gestempelt ohne Dienst (${span})`,
+    filterGroup: 'Gruppe', filterEmployee: 'Mitarbeiter', filterAll: 'alle',
+    noneFiltered: 'Keine Warnungen für diese Auswahl.',
+    acknowledge: 'Zur Kenntnis genommen',
+    acknowledgeHint: 'Ausblenden, bis sich an der Warnung etwas ändert',
+    acknowledgedBy: (name: string, when: string) => `Zur Kenntnis genommen von ${name}, ${when}`,
+    showAcknowledged: (count: number) => `zur Kenntnis genommene anzeigen (${count})`,
+    hideAcknowledged: 'zur Kenntnis genommene ausblenden',
+    undo: 'Rückgängig',
+    jumpHint: 'Zum Tag im Plan springen',
   },
   balances: {
     title: 'Stundenkonten', account: 'Stundenkonto', name: 'Mitarbeiter', weekly: 'Wochenstunden',

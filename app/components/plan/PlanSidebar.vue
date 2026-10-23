@@ -3,28 +3,14 @@ import { formatSignedDuration } from '#shared/domain/time'
 import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
-import { formatDate } from '~/utils/format'
-import { warningText } from '~/utils/warnings'
 
-const props = defineProps<{ plan: MonthPlanDto }>()
-const emit = defineEmits<{ selectDate: [date: string] }>()
-const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
-const warnings = computed(() => props.plan.admin?.warnings ?? [])
+defineProps<{ plan: MonthPlanDto }>()
+const emit = defineEmits<{ selectDate: [date: string]; changed: [] }>()
 </script>
 
 <template>
   <aside class="space-y-3 print:hidden">
-    <section class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
-      <h2 class="mb-2 font-semibold">{{ de.warnings.title }} ({{ warnings.length }})</h2>
-      <p v-if="warnings.length === 0" class="text-sm text-gray-500">{{ de.warnings.none }}</p>
-      <ul v-else class="max-h-96 space-y-1 overflow-y-auto text-sm">
-        <li v-for="(warning, index) in warnings" :key="index">
-          <button type="button" class="text-left hover:underline" @click="emit('selectDate', warning.date)">
-            <span class="font-medium">{{ formatDate(warning.date) }}</span> {{ warningText(warning, names) }}
-          </button>
-        </li>
-      </ul>
-    </section>
+    <PlanWarnings :plan="plan" @select-date="emit('selectDate', $event)" @changed="emit('changed')" />
     <section class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
       <h2 class="mb-2 font-semibold">{{ de.balances.title }}</h2>
       <table class="w-full text-sm">
