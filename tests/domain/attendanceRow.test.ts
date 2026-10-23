@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AttendanceChildDto, AttendanceStatus, AttendanceStayDto } from '../../shared/types/api'
 import {
-  attendanceQuickAction, attendanceRowTone, closedGroupWarnings, compactStatusText, countedMealNames, readClosedAttendanceGroups,
-  visibleAttendanceRows, writeClosedAttendanceGroups,
+  attendanceQuickAction, attendanceRowTone, attendanceSummaryParts, closedGroupWarnings, compactStatusText, countedMealNames,
+  readAttendanceSummaryOpen, readClosedAttendanceGroups, visibleAttendanceRows, writeAttendanceSummaryOpen, writeClosedAttendanceGroups,
 } from '../../app/utils/attendanceRow'
 
 const stay = (arrived: number, left: number | null): AttendanceStayDto => ({
@@ -120,5 +120,52 @@ describe('closed groups of the day list', () => {
   it('counts the overdue children and notes a contact ban for the heading', () => {
     expect(closedGroupWarnings(rows, overdue)).toEqual({ overdue: 1, contactBan: true })
     expect(closedGroupWarnings([rows[0]!], overdue)).toEqual({ overdue: 0, contactBan: false })
+  })
+})
+
+describe('summary line of the day list', () => {
+  const counts = { present: 12, gone: 0, absent: 2, notYet: 3, meals: { 1: 10, 2: 8 } }
+  const meals = [{ mealId: 1, name: 'Mittagessen', time: 720 }, { mealId: 2, name: 'Snack', time: 570 }]
+
+  it('lists the children, then the meals by time', () => {
+    expect(attendanceSummaryParts(counts, meals)).toEqual(['Da 12', 'Noch nicht da 3', 'Abwesend 2', 'Snack 8', 'Mittagessen 10'])
+  })
+
+  it('names the picked up children once there are some, and a meal nobody eats with 0', () => {
+    expect(attendanceSummaryParts({ ...counts, gone: 4, meals: { 1: 10 } }, meals))
+      .toEqual(['Da 12', 'Abgeholt 4', 'Noch nicht da 3', 'Abwesend 2', 'Snack 0', 'Mittagessen 10'])
+  })
+
+  it('has no meals on a day without meals', () => {
+    expect(attendanceSummaryParts(counts, [])).toEqual(['Da 12', 'Noch nicht da 3', 'Abwesend 2'])
+  })
+})
+
+describe('summary opened on the device', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('is closed until opened, and remembered', () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+    })
+    expect(readAttendanceSummaryOpen()).toBe(false)
+    writeAttendanceSummaryOpen(true)
+    expect(readAttendanceSummaryOpen()).toBe(true)
+    writeAttendanceSummaryOpen(false)
+    expect(readAttendanceSummaryOpen()).toBe(false)
+    expect(store.size).toBe(0)
+  })
+
+  it('stays closed without storage', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('blocked') },
+      setItem: () => { throw new Error('blocked') },
+      removeItem: () => { throw new Error('blocked') },
+    })
+    expect(readAttendanceSummaryOpen()).toBe(false)
+    expect(() => writeAttendanceSummaryOpen(true)).not.toThrow()
   })
 })

@@ -8,8 +8,9 @@ import type { AttendanceChildDto, AttendanceDayDto, AttendanceDayInput } from '#
 import { de } from '~/locales/de'
 import { attendanceStatusText, confirmedWithText, parseClock, stayText } from '~/utils/attendance'
 import {
-  ATTENDANCE_ROW_CLASS, ATTENDANCE_STATUS_CLASS, attendanceQuickAction, attendanceRowTone, compactStatusText, countedMealNames,
-  closedGroupWarnings, readClosedAttendanceGroups, visibleAttendanceRows, writeClosedAttendanceGroups,
+  ATTENDANCE_ROW_CLASS, ATTENDANCE_STATUS_CLASS, attendanceQuickAction, attendanceRowTone, attendanceSummaryParts, compactStatusText,
+  countedMealNames, closedGroupWarnings, readAttendanceSummaryOpen, readClosedAttendanceGroups, visibleAttendanceRows,
+  writeAttendanceSummaryOpen, writeClosedAttendanceGroups,
 } from '~/utils/attendanceRow'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -25,6 +26,9 @@ import { formatDate } from '~/utils/format'
  * Every child is one compact row (status, planned pickup, the meals counted, small markers, the contact ban always in
  * red) with "Kommt" or "Geht" on its right; tapping the row opens everything else below it (several rows may be open,
  * for this page view only). The group headings close and open their children, remembered per device.
+ *
+ * On top only one compact bar (Tag/Monat, the day, and one summary line „Da 12 · Noch nicht da 3 · … · Mittagessen
+ * 10“); tapping the line opens the full counts and the meal box, remembered per device. The children follow at once.
  */
 const { rights, onTablet } = useChildRights()
 const canPrint = computed(() => !!rights.value?.isManager && !onTablet.value)
@@ -68,6 +72,16 @@ function toggleGroup(key: string) {
   writeClosedAttendanceGroups(closedGroups.value)
 }
 const isClosed = (key: string) => closedGroups.value.includes(key)
+
+// The summary line on top; the counts and the meal box below it open on a tap, remembered per device (read after
+// mounting, so the server's page, closed, matches).
+const summaryOpen = ref(false)
+onMounted(() => (summaryOpen.value = readAttendanceSummaryOpen()))
+function toggleSummary() {
+  summaryOpen.value = !summaryOpen.value
+  writeAttendanceSummaryOpen(summaryOpen.value)
+}
+const summaryParts = computed(() => (data.value ? attendanceSummaryParts(data.value.counts, data.value.meals) : []))
 /** The groups as listed: a closed one keeps its overdue children and warns on its heading (overdue count, contact ban). */
 const shownSections = computed(() => sections.value.map(section => ({
   ...section,
@@ -192,26 +206,43 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div class="flex flex-wrap items-center gap-2">
-      <div class="inline-flex rounded-lg bg-white p-0.5 ring-1 ring-gray-200" role="group">
-        <UButton
-          v-for="entry in (['day', 'month'] as const)" :key="entry" size="lg" :aria-pressed="view === entry"
-          :variant="view === entry ? 'solid' : 'ghost'" :color="view === entry ? 'primary' : 'neutral'"
-          :label="entry === 'day' ? s.dayView : s.monthView" @click="view = entry"
-        />
+  <div class="space-y-2">
+    <!-- One compact bar: Tag/Monat, the day and, on the day list, the summary line (tap it for the counts and meals). -->
+    <div class="space-y-1 rounded-lg bg-white p-1.5 ring-1 ring-gray-200">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <div class="inline-flex rounded-lg bg-gray-50 p-0.5 ring-1 ring-gray-200" role="group">
+          <UButton
+            v-for="entry in (['day', 'month'] as const)" :key="entry" size="lg" class="min-h-11" :aria-pressed="view === entry"
+            :variant="view === entry ? 'solid' : 'ghost'" :color="view === entry ? 'primary' : 'neutral'"
+            :label="entry === 'day' ? s.dayView : s.monthView" @click="view = entry"
+          />
+        </div>
+        <template v-if="view === 'day'">
+          <UButton
+            size="lg" class="min-h-11 min-w-11 justify-center" icon="i-lucide-chevron-left" color="neutral" variant="outline" :aria-label="s.previousDay"
+            @click="date = addDays(date, -1)"
+          />
+          <UInput v-model="pickDate" type="date" size="lg" :aria-label="s.dayView" :ui="{ base: 'min-h-11' }" />
+          <UButton
+            size="lg" class="min-h-11 min-w-11 justify-center" icon="i-lucide-chevron-right" color="neutral" variant="outline" :aria-label="s.nextDay"
+            @click="date = addDays(date, 1)"
+          />
+          <UButton size="lg" class="min-h-11" color="neutral" variant="outline" :label="s.today" :disabled="date === todayIso()" @click="date = todayIso()" />
+          <span class="px-1 text-base font-semibold">{{ dayText(date) }}</span>
+          <UButton
+            v-if="canPrint" class="ml-auto min-h-11" color="neutral" variant="outline" icon="i-lucide-printer" :label="s.print"
+            :to="`/print/children/attendance/${date}`" target="_blank"
+          />
+        </template>
       </div>
-      <template v-if="view === 'day'">
-        <UButton size="lg" icon="i-lucide-chevron-left" color="neutral" variant="outline" :aria-label="s.previousDay" @click="date = addDays(date, -1)" />
-        <UInput v-model="pickDate" type="date" size="lg" :aria-label="s.dayView" />
-        <UButton size="lg" icon="i-lucide-chevron-right" color="neutral" variant="outline" :aria-label="s.nextDay" @click="date = addDays(date, 1)" />
-        <UButton size="lg" color="neutral" variant="outline" :label="s.today" :disabled="date === todayIso()" @click="date = todayIso()" />
-        <span class="text-lg font-semibold">{{ dayText(date) }}</span>
-        <UButton
-          v-if="canPrint" class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="s.print"
-          :to="`/print/children/attendance/${date}`" target="_blank"
-        />
-      </template>
+      <button
+        v-if="view === 'day' && data && !error" type="button"
+        class="flex min-h-11 w-full items-center gap-2 rounded-md px-1.5 text-left text-base font-medium hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-primary"
+        :aria-expanded="summaryOpen" aria-controls="attendance-summary-details" @click="toggleSummary"
+      >
+        <UIcon :name="summaryOpen ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
+        <span class="min-w-0 flex-1">{{ summaryParts.join(' · ') }}</span>
+      </button>
     </div>
 
     <ChildrenAttendanceMonthTab v-if="view === 'month'" :initial="date" :can-print="canPrint" @open-day="openDay" />
@@ -219,18 +250,23 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
     <template v-else>
       <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
       <template v-else-if="data">
-        <div class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
-          <p class="text-base font-medium">{{ s.counts(data.counts) }}</p>
+        <!-- Opened from the summary line: everything of the former counts box and the meal box. -->
+        <div v-if="summaryOpen" id="attendance-summary-details" class="space-y-2">
+          <p class="rounded-lg bg-white px-3 py-2 text-sm font-medium ring-1 ring-gray-200">{{ s.counts(data.counts) }}</p>
+          <ChildrenAttendanceMealSummary :day="data" />
         </div>
-        <ChildrenAttendanceMealSummary :day="data" />
-        <p v-if="!data.isCareDay" class="rounded-lg bg-gray-100 p-3 text-sm text-gray-700">{{ s.noCareDay }}</p>
+        <p v-if="!data.isCareDay" class="rounded-md bg-gray-100 px-2 py-1 text-sm text-gray-700">{{ s.noCareDay }}</p>
+        <!-- Stays not closed on earlier days: one slim line each, still with „Zum Tag“. -->
         <div
           v-for="entry in openStayDays" :key="entry.date"
-          class="flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 p-3 text-amber-900 ring-1 ring-amber-300" role="status"
+          class="flex items-center gap-2 rounded-md bg-amber-50 pl-2 text-sm text-amber-900 ring-1 ring-amber-300" role="status"
         >
-          <UIcon name="i-lucide-clock-alert" class="size-5 shrink-0" />
-          <span class="flex-1">{{ entry.text }}</span>
-          <UButton size="lg" color="warning" variant="outline" icon="i-lucide-arrow-right" :label="s.goToDay" @click="date = entry.date" />
+          <UIcon name="i-lucide-clock-alert" class="size-4 shrink-0" aria-hidden="true" />
+          <span class="min-w-0 flex-1 py-1">{{ entry.text }}</span>
+          <UButton
+            size="md" class="min-h-11 shrink-0" color="warning" variant="ghost" trailing-icon="i-lucide-arrow-right" :label="s.goToDay"
+            @click="date = entry.date"
+          />
         </div>
 
         <p v-if="!sections.length" class="text-sm text-gray-500">{{ s.noChildren }}</p>

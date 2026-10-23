@@ -1,7 +1,7 @@
 // The compact row of the "Anwesenheit" day list. The texts are imported relative so a test can load this file.
 import type { DayMeal } from '#shared/domain/meals'
 import { formatTime } from '#shared/domain/time'
-import type { AttendanceChildDto } from '#shared/types/api'
+import type { AttendanceChildDto, AttendanceCountsDto } from '#shared/types/api'
 import { de } from '../locales/de'
 
 /**
@@ -98,6 +98,43 @@ export function writeClosedAttendanceGroups(keys: string[]): void {
   try {
     if (keys.length) localStorage.setItem(CLOSED_GROUPS_KEY, JSON.stringify(keys))
     else localStorage.removeItem(CLOSED_GROUPS_KEY)
+  }
+  catch {
+    // Not remembered; opening and closing still works on this page.
+  }
+}
+
+/**
+ * The parts of the one summary line on top of the day list: "Da 12 · Noch nicht da 3 · Abwesend 2", "Abgeholt 4" only
+ * once a child was picked up, then every meal of the day by time ("Snack 8 · Mittagessen 10").
+ */
+export function attendanceSummaryParts(counts: AttendanceCountsDto, meals: DayMeal[]): string[] {
+  const t = de.attendance.summaryLine
+  return [
+    t.present(counts.present),
+    ...(counts.gone ? [t.gone(counts.gone)] : []),
+    t.notYet(counts.notYet),
+    t.absent(counts.absent),
+    ...[...meals].sort((a, b) => a.time - b.time).map(meal => t.meal(meal.name, counts.meals[meal.mealId] ?? 0)),
+  ]
+}
+
+const SUMMARY_OPEN_KEY = 'dienstplan.attendanceSummaryOpen'
+
+/** Whether the counts and the meal box are opened on this device (closed when storage is unavailable). */
+export function readAttendanceSummaryOpen(): boolean {
+  try {
+    return localStorage.getItem(SUMMARY_OPEN_KEY) === '1'
+  }
+  catch {
+    return false
+  }
+}
+
+export function writeAttendanceSummaryOpen(open: boolean): void {
+  try {
+    if (open) localStorage.setItem(SUMMARY_OPEN_KEY, '1')
+    else localStorage.removeItem(SUMMARY_OPEN_KEY)
   }
   catch {
     // Not remembered; opening and closing still works on this page.

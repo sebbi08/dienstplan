@@ -193,6 +193,25 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 - Einstellungen und das Verschieben eines Kindes in eine andere Einrichtung gibt es am Tablet nicht – auch nicht
   für Leitung und Träger.
 
+### Aufbau der Seite *Kinder*
+
+Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter des gewählten Bereichs:
+
+| Bereich | Reiter | Wer |
+|---|---|---|
+| **Heute** | Anwesenheit, Wochenübersicht – oben im Bereich der Kasten „Erinnerungen“ | alle |
+| **Kinder** | Liste, Übersicht, Geburtstage, Dokumente, Offen | alle |
+| **Planung** | Vormerkungen & Verträge, Belegung, Personalschlüssel, Archiv | nur Leitung und Träger, im Büro und am Tablet |
+
+- Die Reiter haben ihre bisherigen Regeln: „Personalschlüssel“ gibt es nicht am Tablet, „Vormerkungen & Verträge“
+  nur, wenn Vormerkungen oder künftige Verträge gezeigt werden dürfen. Mitarbeiter sehen den Bereich „Planung“ nie;
+  die beiden Schalter „Vormerkungen am Tablet zeigen“ und „Künftige Kinder mit Vertrag am Tablet zeigen“ gelten für
+  sie weiter, z. B. für die Erinnerungen und beim Anlegen eines Kindes.
+- Die Seite öffnet mit **Heute → Anwesenheit**. Das Gerät merkt sich den zuletzt benutzten Reiter (auch je Bereich)
+  und öffnet beim nächsten Mal wieder dort – wenn die Person ihn sehen darf, sonst wieder mit „Anwesenheit“.
+- **„Kind anlegen“** steht oben rechts neben der Überschrift (für alle, die Kinder anlegen dürfen).
+- Mit der Tastatur wechselst du mit den Pfeiltasten zwischen den Bereichen bzw. Reitern.
+
 ### Elterngespräche
 
 - In der Kinderakte steht der Abschnitt **„Elterngespräche“**: alle Gespräche, das neueste oben, je Eintrag Datum,
@@ -302,7 +321,7 @@ nur, wenn jede Gruppe Plätze hat. Der Ausdruck der Belegung zeigt dasselbe.
 
 Einen Wechsel planst du mit Datum. Am Wechseltag stellt die App das Kind automatisch in die neue Gruppe.
 Bereiche, die du nicht übernommen hast (z. B. Gesundheit), bleiben sichtbar und sind als „nicht bestätigt“
-markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen im Reiter „Offen“.
+markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen im Reiter „Offen“ (*Kinder → Kinder*).
 
 ### Schulkinder
 
@@ -386,8 +405,12 @@ Bundesland und Stichtag: siehe Abschnitt 10.
 
 ## 11. Anwesenheit der Kinder
 
-Unter *Kinder* ist **„Anwesenheit“** der erste Reiter. Er öffnet die Tagesliste von heute; mit den Pfeilen,
-dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Monatsübersicht.
+Unter *Kinder → Heute* ist **„Anwesenheit“** der erste Reiter. Er öffnet die Tagesliste von heute. Oben steht nur
+eine schmale Leiste: mit **„Tag“**/**„Monat“** wechselst du zur Monatsübersicht, mit den Pfeilen, dem Datum und
+**„Heute“** den Tag. Darunter steht eine Zeile mit den Zahlen, z. B. „Da 12 · Noch nicht da 3 · Abwesend 2 ·
+Snack 8 · Mittagessen 10“ (die Essen nach Uhrzeit; „Abgeholt“, sobald ein Kind abgeholt ist). Ein Tipp auf die Zeile
+klappt die genauen Zahlen und den Kasten „Essen heute“ auf; das Gerät merkt sich, ob er auf- oder zugeklappt ist
+(anfangs zu). Direkt darunter beginnt die Liste der Kinder.
 
 ### Ein- und Ausstempeln am Tablet
 
@@ -396,8 +419,8 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
   Mitarbeiterkonto (Handy, privater PC) gibt es die Anwesenheit nicht.
 - Die Liste zeigt immer **alle** Kinder der Einrichtung. Bei Kindern einer **fremden Gruppe** geht für
   Mitarbeiter mit Gruppe nur Kommen, Gehen und Abholer ankündigen (siehe Abschnitt 12).
-- Oben steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind, darunter der Kasten **„Essen
-  heute“** (siehe „Essen“ unten). Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende); wie sie
+- Aufgeklappt (Tipp auf die Zahlenzeile) steht, wie viele Kinder da, abgeholt, abwesend und noch nicht da sind,
+  darunter der Kasten **„Essen heute“** (siehe „Essen“ unten). Die Liste ist nach Gruppen geordnet (Kinder ohne Gruppe am Ende); wie sie
   aussieht, steht unter „Die Liste am Bildschirm“.
 - **„Kommt“**: Uhrzeit (vorgeschlagen ist jetzt) und **geplante Abholzeit** (Pflicht). Vorgeschlagen wird das
   Ende der Betreuungszeit aus der Betreuungsform des Kindes. Ist unter *Einstellungen → Anwesenheit* „Bringperson
@@ -418,8 +441,8 @@ dem Datum und **„Heute“** wechselst du den Tag, mit **„Monat“** zur Mona
   rot – auch wenn die Liste die ganze Zeit offen ist (die Markierung folgt der Uhr des Geräts, jede Minute).
   Einträge anderer Geräte erscheinen erst nach dem nächsten eigenen Eintrag oder beim Öffnen der Liste; die Liste
   fragt nicht selbst beim Server nach, damit sich das Tablet nach der Sperrzeit sperrt.
-- **Nicht ausgestempelt**: Wurde ein Kind an einem der letzten 14 Tage nicht ausgestempelt, steht oben ein Hinweis
-  mit dem Knopf **„Zum Tag“**. Dort trägst du die Abholung über **„Zeiten korrigieren“** (Stift am Aufenthalt) nach.
+- **Nicht ausgestempelt**: Wurde ein Kind an einem der letzten 14 Tage nicht ausgestempelt, steht oben über der Liste
+  (immer sichtbar, auch bei zugeklappten Zahlen) eine schmale gelbe Zeile je Tag mit dem Knopf **„Zum Tag“**. Dort trägst du die Abholung über **„Zeiten korrigieren“** (Stift am Aufenthalt) nach.
 
 ### Angekündigte Abholer
 
@@ -456,7 +479,7 @@ steht (der erste Eintrag setzt ihn von selbst; Tage davor bleiben leer und zähl
   wird. Je Essen gibt es beim Kind ein Häkchen (nach Uhrzeit geordnet); ein Tipp ändert das für den Tag von Hand
   (z. B. „isst heute nicht mit“, dann steht „(von Hand)“ daneben), der Pfeil daneben stellt **„Wieder automatisch
   zählen“** ein.
-- **Kasten „Essen heute“** über der Liste (an einem anderen Tag „Essen am 14.10.2026“): je Essen die Zahl der
+- **Kasten „Essen heute“** über der Liste, aufgeklappt über die Zahlenzeile (an einem anderen Tag „Essen am 14.10.2026“): je Essen die Zahl der
   Kinder („Snack 9:30: 12 · Mittagessen 12:00: 15“), darunter eine kleine Tabelle je Gruppe: **Kinder da** (da
   oder heute schon abgeholt) und je Essen, wie viele mitessen und wie viele Kinder der Gruppe nicht (z. B. „10 · 2
   nicht“; mitgezählt sind alle Kinder der Liste, auch abwesende und noch nicht gekommene). Kinder ohne Gruppe
@@ -512,7 +535,7 @@ Geburtstage, Dokumente, „Offen“).
 
 ### Die Wochenübersicht
 
-- Unter *Kinder* ist **„Wochenübersicht“** der Reiter nach „Anwesenheit“: am Tablet nach dem Aufschließen, für
+- Unter *Kinder → Heute* ist **„Wochenübersicht“** der Reiter nach „Anwesenheit“: am Tablet nach dem Aufschließen, für
   Leitung und Träger auf jedem Gerät.
 - Oben stehen Kalenderwoche und Tage („KW 43 · 19.–23.10.2026“). Mit den Pfeilen und **„Diese Woche“** wechselst
   du die Woche, mit der Auswahl daneben die Gruppe (nur, wenn du mehr als eine Gruppe sehen darfst). Geöffnet wird
@@ -608,7 +631,7 @@ Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Ein
 
 ## 14. Übersicht der Kinder (wie die Excel-Liste)
 
-Unter *Kinder* ist **„Übersicht“** der Reiter nach „Liste“. Er zeigt die Angaben der Kinder als Tabellen, aufgebaut
+Unter *Kinder → Kinder* ist **„Übersicht“** der Reiter nach „Liste“. Er zeigt die Angaben der Kinder als Tabellen, aufgebaut
 wie die Blätter der bisherigen Excel-Liste. Erfasst wird hier nichts: alle Werte kommen aus den Kinderakten und werden
 dort geändert. Ein Kind steht je Zeile (Nachname, Vorname), nach Gruppen geordnet wie in der Liste, Kinder ohne Gruppe
 am Ende („ohne Gruppe“). Mit der Gruppenauswahl zeigst du nur eine Gruppe. Der Name führt zur Akte.
@@ -671,7 +694,8 @@ wird dabei nichts, der Name führt weiter zu allen Daten der Person.
 
 ## 16. Erinnerungen
 
-Oben auf der Seite **Kinder** (über den Reitern) steht der Kasten **„Erinnerungen“**: am Tablet, sobald es
+Auf der Seite **Kinder** steht oben im Bereich **„Heute“** (über den Reitern „Anwesenheit“ und „Wochenübersicht“)
+der Kasten **„Erinnerungen“**: am Tablet, sobald es
 aufgeschlossen ist, bei Leitung und Träger auf jedem Gerät. Mit dem eigenen Konto (Handy, privater PC) sehen
 Mitarbeiter keine Erinnerungen – auch nicht die Geburtstage der Kollegen (die stehen aber als automatisches
 Ereignis im Dienstplan und Jahreskalender, Abschnitt 17). Der Kasten lässt sich zuklappen; das
@@ -898,7 +922,7 @@ auch im Reiter und in den Einstellungen.
 
 ### Reiter „Personalschlüssel“
 
-Unter *Kinder* hat der Reiter **„Personalschlüssel“** für Leitung und Träger (nicht am Tablet) eine Monatsauswahl.
+Unter *Kinder → Planung* hat der Reiter **„Personalschlüssel“** für Leitung und Träger (nicht am Tablet) eine Monatsauswahl.
 Je Gruppe stehen Gruppe, Gruppenart, Kinder (davon unter 3), Soll, Ist und Differenz in Vollzeitkräften. **Rot**
 heißt: Ist liegt unter Soll („zu wenig“), **grün**: es reicht. Darunter stehen die Zuschläge und Quoten, als letzte
 Zeile „Einrichtung gesamt“. Die Hinweise darunter nennen Mitarbeiter ohne Qualifikation, Kinder ohne Betreuungsform,

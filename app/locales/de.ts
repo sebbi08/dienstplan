@@ -516,6 +516,8 @@ export const de = {
   },
   children: {
     nav: 'Kinder', title: 'Kinder', tabs: { list: 'Liste', overview: 'Übersicht', planned: 'Vormerkungen & Verträge', birthdays: 'Geburtstage', documents: 'Dokumente', archive: 'Archiv' },
+    // The areas of the page, each with its sub-tabs (app/utils/childrenAreas.ts).
+    areas: { label: 'Bereiche', today: 'Heute', children: 'Kinder', planning: 'Planung' },
     create: 'Kind anlegen',
     createdHiddenFuture: 'Kind angelegt. Es erscheint am Tablet ab dem Eintrittstag.',
     createdHiddenWaitlist: 'Kind angelegt. Vormerkungen sind am Tablet ausgeblendet.',
@@ -907,6 +909,11 @@ export const de = {
       allergy: 'Allergie', note: 'Notiz vorhanden', changed: 'geändert', contactBan: 'Kontaktverbot',
       meals: 'Essen', children: (n: number) => (n === 1 ? '1 Kind' : `${n} Kinder`),
       overdue: (n: number) => `${n} überfällig`,
+    },
+    // The one line on top of the day list ("Da 12 · Noch nicht da 3 · …"); tapping it opens the counts and the meal box.
+    summaryLine: {
+      present: (n: number) => `Da ${n}`, gone: (n: number) => `Abgeholt ${n}`, notYet: (n: number) => `Noch nicht da ${n}`,
+      absent: (n: number) => `Abwesend ${n}`, meal: (name: string, n: number) => `${name} ${n}`,
     },
     broughtByShort: (name: string) => `gebracht von ${name}`,
     plannedPickup: 'Abholung', plannedPickupLabel: 'Geplante Abholzeit',
