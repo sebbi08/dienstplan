@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  AREA_TABS, CHILDREN_TABS, areaOfTab, defaultChildrenTab, readChildrenTabMemory, requestedChildrenTab, tabForArea,
+  CHILDREN_AREAS, CHILDREN_TABS, areaOfTab, areaTabs, defaultChildrenTab, readChildrenTabMemory, requestedChildrenTab, tabForArea,
   visibleChildrenAreas, writeChildrenTabMemory, type ChildrenViewer,
 } from '../../app/utils/childrenAreas'
 
@@ -19,8 +19,11 @@ describe('visibleChildrenAreas', () => {
     ])
   })
 
-  it('never shows staff the Planung, even with the planned children switched on', () => {
-    expect(areas(staffAtTabletPlanned).map(([area]) => area)).toEqual(['today', 'children'])
+  it('shows staff the planned children after „Offen“ in Kinder when the tablet switch allows it, never the Planung', () => {
+    expect(areas(staffAtTabletPlanned)).toEqual([
+      ['today', ['attendance', 'week']],
+      ['children', ['list', 'overview', 'birthdays', 'documents', 'open', 'planned']],
+    ])
   })
 
   it('adds the Planung for the Leitung at the tablet, without the Personalschlüssel', () => {
@@ -45,30 +48,43 @@ describe('visibleChildrenAreas', () => {
     expect(areas(staffAtTablet).some(([area]) => area === 'planning')).toBe(false)
   })
 
-  it('puts every tab into exactly one area', () => {
-    const all = Object.values(AREA_TABS).flat()
-    expect([...all].sort()).toEqual([...CHILDREN_TABS].sort())
+  it('puts every tab into exactly one area, for managers and for everybody else', () => {
+    for (const isManager of [true, false]) {
+      const all = CHILDREN_AREAS.flatMap(area => areaTabs(area, { isManager }))
+      expect([...all].sort()).toEqual([...CHILDREN_TABS].sort())
+    }
   })
 })
 
 describe('old tab keys and the default', () => {
   it('maps the old tab keys to their area', () => {
-    expect(areaOfTab('attendance')).toBe('today')
-    expect(areaOfTab('week')).toBe('today')
-    expect(areaOfTab('list')).toBe('children')
-    expect(areaOfTab('overview')).toBe('children')
-    expect(areaOfTab('birthdays')).toBe('children')
-    expect(areaOfTab('documents')).toBe('children')
-    expect(areaOfTab('open')).toBe('children')
-    expect(areaOfTab('planned')).toBe('planning')
-    expect(areaOfTab('occupancy')).toBe('planning')
-    expect(areaOfTab('staffing')).toBe('planning')
-    expect(areaOfTab('archive')).toBe('planning')
+    for (const viewer of [providerInOffice, staffAtTabletPlanned]) {
+      expect(areaOfTab('attendance', viewer)).toBe('today')
+      expect(areaOfTab('week', viewer)).toBe('today')
+      expect(areaOfTab('list', viewer)).toBe('children')
+      expect(areaOfTab('overview', viewer)).toBe('children')
+      expect(areaOfTab('birthdays', viewer)).toBe('children')
+      expect(areaOfTab('documents', viewer)).toBe('children')
+      expect(areaOfTab('open', viewer)).toBe('children')
+      expect(areaOfTab('occupancy', viewer)).toBe('planning')
+      expect(areaOfTab('staffing', viewer)).toBe('planning')
+      expect(areaOfTab('archive', viewer)).toBe('planning')
+    }
+    // The planned children: Planung for Leitung and Träger, Kinder for everybody else.
+    expect(areaOfTab('planned', providerInOffice)).toBe('planning')
+    expect(areaOfTab('planned', leaderAtTablet)).toBe('planning')
+    expect(areaOfTab('planned', staffAtTabletPlanned)).toBe('children')
   })
 
   it('opens an old tab key as that sub-tab when it is visible', () => {
     expect(requestedChildrenTab('occupancy', providerInOffice)).toBe('occupancy')
     expect(requestedChildrenTab('birthdays', staffAtTablet)).toBe('birthdays')
+    expect(requestedChildrenTab('planned', staffAtTabletPlanned)).toBe('planned')
+    expect(requestedChildrenTab('planned', leaderAtTablet)).toBe('planned')
+  })
+
+  it('opens the planned children for staff only with the tablet switch on', () => {
+    expect(requestedChildrenTab('planned', staffAtTablet)).toBeNull()
   })
 
   it('opens an area key with its first visible sub-tab', () => {
@@ -95,6 +111,12 @@ describe('old tab keys and the default', () => {
     expect(tabForArea('children', staffAtTablet, { children: 'documents' })).toBe('documents')
     expect(tabForArea('planning', leaderAtTablet, { planning: 'staffing' })).toBe('planned')
     expect(tabForArea('planning', staffAtTablet, { planning: 'archive' })).toBeNull()
+    expect(tabForArea('planning', staffAtTabletPlanned, { planning: 'planned' })).toBeNull()
+    expect(tabForArea('children', staffAtTabletPlanned, { children: 'planned' })).toBe('planned')
+    // The switch went off since: the area's first sub-tab.
+    expect(tabForArea('children', staffAtTablet, { children: 'planned' })).toBe('list')
+    // The Leitung at the same tablet has the planned children under Planung, not under Kinder.
+    expect(tabForArea('children', leaderAtTablet, { children: 'planned' })).toBe('list')
     // A sub-tab of another area is no memory of this one.
     expect(tabForArea('today', staffAtTablet, { today: 'list' })).toBe('attendance')
   })

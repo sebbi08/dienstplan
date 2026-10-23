@@ -200,13 +200,14 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 | Bereich | Reiter | Wer |
 |---|---|---|
 | **Heute** | Anwesenheit, Wochenübersicht – oben im Bereich der Kasten „Erinnerungen“ | alle |
-| **Kinder** | Liste, Übersicht, Geburtstage, Dokumente, Offen | alle |
+| **Kinder** | Liste, Übersicht, Geburtstage, Dokumente, Offen – für Mitarbeiter am Tablet dahinter „Vormerkungen & Verträge“, wenn ein Schalter es erlaubt | alle |
 | **Planung** | Vormerkungen & Verträge, Belegung, Personalschlüssel, Archiv | nur Leitung und Träger, im Büro und am Tablet |
 
-- Die Reiter haben ihre bisherigen Regeln: „Personalschlüssel“ gibt es nicht am Tablet, „Vormerkungen & Verträge“
-  nur, wenn Vormerkungen oder künftige Verträge gezeigt werden dürfen. Mitarbeiter sehen den Bereich „Planung“ nie;
-  die beiden Schalter „Vormerkungen am Tablet zeigen“ und „Künftige Kinder mit Vertrag am Tablet zeigen“ gelten für
-  sie weiter, z. B. für die Erinnerungen und beim Anlegen eines Kindes.
+- Die Reiter haben ihre bisherigen Regeln: „Personalschlüssel“ gibt es nicht am Tablet. Mitarbeiter sehen den
+  Bereich „Planung“ nie. **„Vormerkungen & Verträge“** sehen sie am Tablet als letzten Reiter unter **„Kinder“** (nach
+  „Offen“) – aber nur, wenn unter *Einstellungen → Tablet* „Vormerkungen am Tablet zeigen“ oder „Künftige Kinder mit
+  Vertrag am Tablet zeigen“ an ist; sind beide aus, gibt es den Reiter für sie nicht. Leitung und Träger finden ihn
+  immer unter „Planung“.
 - Die Seite öffnet mit **Heute → Anwesenheit**. Das Gerät merkt sich den zuletzt benutzten Reiter (auch je Bereich)
   und öffnet beim nächsten Mal wieder dort – wenn die Person ihn sehen darf, sonst wieder mit „Anwesenheit“.
 - **„Kind anlegen“** steht oben rechts neben der Überschrift (für alle, die Kinder anlegen dürfen).

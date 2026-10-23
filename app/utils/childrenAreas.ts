@@ -1,8 +1,10 @@
 /**
  * The areas of the children page and their sub-tabs: „Heute“ (attendance, weekly overview), „Kinder“ (list, overview,
  * birthdays, documents, open confirmations) and „Planung“ (planned children, occupancy, Personalschlüssel, archive).
- * Each sub-tab keeps its own visibility; an area without a visible sub-tab is not shown. The page opens with
- * Heute → Anwesenheit unless the device remembers another visible sub-tab or the address asks for one (`?tab=`).
+ * Without manager rights the planned children are the last sub-tab of „Kinder“ instead (shown only as the tablet's
+ * switches allow), and „Planung“ is never there. Each sub-tab keeps its own visibility; an area without a visible
+ * sub-tab is not shown. The page opens with Heute → Anwesenheit unless the device remembers another visible sub-tab or
+ * the address asks for one (`?tab=`).
  */
 
 export const CHILDREN_TABS = [
@@ -13,11 +15,18 @@ export type ChildrenTab = typeof CHILDREN_TABS[number]
 export const CHILDREN_AREAS = ['today', 'children', 'planning'] as const
 export type ChildrenArea = typeof CHILDREN_AREAS[number]
 
-/** The sub-tabs of each area, in their order on the page. */
+/** The sub-tabs of each area for Leitung and Träger, in their order on the page. */
 export const AREA_TABS: Record<ChildrenArea, readonly ChildrenTab[]> = {
   today: ['attendance', 'week'],
   children: ['list', 'overview', 'birthdays', 'documents', 'open'],
   planning: ['planned', 'occupancy', 'staffing', 'archive'],
+}
+
+/** For everybody else the planned children follow „Offen“ in „Kinder“; „Planung“ keeps only manager tabs. */
+const STAFF_AREA_TABS: Record<ChildrenArea, readonly ChildrenTab[]> = {
+  today: AREA_TABS.today,
+  children: [...AREA_TABS.children, 'planned'],
+  planning: AREA_TABS.planning.filter(tab => tab !== 'planned'),
 }
 
 export const DEFAULT_CHILDREN_TAB: ChildrenTab = 'attendance'
@@ -31,14 +40,19 @@ export interface ChildrenViewer {
   showPlanned: boolean
 }
 
+/** The sub-tabs of an area for this viewer (visible or not), in their order on the page. */
+export function areaTabs(area: ChildrenArea, viewer: Pick<ChildrenViewer, 'isManager'>): readonly ChildrenTab[] {
+  return (viewer.isManager ? AREA_TABS : STAFF_AREA_TABS)[area]
+}
+
 /**
- * Whether a sub-tab is shown. The whole „Planung“ is for Leitung and Träger only (also at the tablet); the planned
- * children besides need one of the tablet's switches, and the Personalschlüssel is never at the tablet (its route is
- * for the signed-in managers). The server checks every request as well.
+ * Whether a sub-tab is shown. Occupancy and archive are for Leitung and Träger only (also at the tablet), the
+ * Personalschlüssel never at the tablet (its route is for the signed-in managers); the planned children need one of the
+ * tablet's switches (always on for the managers). The server checks every request as well.
  */
 export function childrenTabVisible(tab: ChildrenTab, viewer: ChildrenViewer): boolean {
   switch (tab) {
-    case 'planned': return viewer.isManager && viewer.showPlanned
+    case 'planned': return viewer.showPlanned
     case 'occupancy':
     case 'archive': return viewer.isManager
     case 'staffing': return viewer.isManager && !viewer.onTablet
@@ -49,12 +63,13 @@ export function childrenTabVisible(tab: ChildrenTab, viewer: ChildrenViewer): bo
 /** The areas shown with their visible sub-tabs; an area without one is left out. */
 export function visibleChildrenAreas(viewer: ChildrenViewer): { area: ChildrenArea; tabs: ChildrenTab[] }[] {
   return CHILDREN_AREAS
-    .map(area => ({ area, tabs: AREA_TABS[area].filter(tab => childrenTabVisible(tab, viewer)) }))
+    .map(area => ({ area, tabs: areaTabs(area, viewer).filter(tab => childrenTabVisible(tab, viewer)) }))
     .filter(entry => entry.tabs.length > 0)
 }
 
-export function areaOfTab(tab: ChildrenTab): ChildrenArea {
-  return CHILDREN_AREAS.find(area => AREA_TABS[area].includes(tab)) ?? 'today'
+/** The area a sub-tab (or an old tab key) belongs to for this viewer: the planned children differ by role. */
+export function areaOfTab(tab: ChildrenTab, viewer: Pick<ChildrenViewer, 'isManager'>): ChildrenArea {
+  return CHILDREN_AREAS.find(area => areaTabs(area, viewer).includes(tab)) ?? 'today'
 }
 
 const isTab = (value: unknown): value is ChildrenTab => typeof value === 'string' && (CHILDREN_TABS as readonly string[]).includes(value)
@@ -72,13 +87,14 @@ export function defaultChildrenTab(viewer: ChildrenViewer): ChildrenTab {
  */
 export function tabForArea(area: ChildrenArea, viewer: ChildrenViewer, last?: Partial<Record<ChildrenArea, ChildrenTab>>): ChildrenTab | null {
   const remembered = last?.[area]
-  if (remembered && AREA_TABS[area].includes(remembered) && childrenTabVisible(remembered, viewer)) return remembered
-  return AREA_TABS[area].find(tab => childrenTabVisible(tab, viewer)) ?? null
+  const tabs = areaTabs(area, viewer)
+  if (remembered && tabs.includes(remembered) && childrenTabVisible(remembered, viewer)) return remembered
+  return tabs.find(tab => childrenTabVisible(tab, viewer)) ?? null
 }
 
 /**
  * The sub-tab for a requested key: an old tab key (`?tab=occupancy`, the keys of the former single tab row) opens that
- * sub-tab in its area, an area key (`?tab=planning`) the area's first visible sub-tab. Null when the key is unknown or
+ * sub-tab in its area (`?tab=planned`: „Planung“ for the managers, „Kinder“ for everybody else), an area key (`?tab=planning`) the area's first visible sub-tab. Null when the key is unknown or
  * not visible to this viewer.
  */
 export function requestedChildrenTab(requested: unknown, viewer: ChildrenViewer): ChildrenTab | null {
@@ -105,7 +121,8 @@ export function readChildrenTabMemory(): ChildrenTabMemory {
     if (isTab(tab)) memory.tab = tab
     if (last && typeof last === 'object') {
       for (const [area, entry] of Object.entries(last)) {
-        if (isArea(area) && isTab(entry) && AREA_TABS[area].includes(entry)) memory.last[area] = entry
+        // One device serves both roles at the tablet: a tab of the area in either layout is kept (checked again on use).
+        if (isArea(area) && isTab(entry) && (AREA_TABS[area].includes(entry) || STAFF_AREA_TABS[area].includes(entry))) memory.last[area] = entry
       }
     }
   }

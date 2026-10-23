@@ -25,7 +25,8 @@ const { data: birthdayList } = await useFetch<BirthdayDto[]>('/api/children/birt
 await lookups.ready
 
 // The areas Heute, Kinder and Planung with their sub-tabs (app/utils/childrenAreas.ts): the Planung is for Leitung
-// and Träger only (the server answers 403 to everybody else), the Personalschlüssel never at the tablet.
+// and Träger only (the server answers 403 to everybody else), the Personalschlüssel never at the tablet; without manager
+// rights the planned children follow „Offen“ in Kinder, as far as the tablet's switches allow.
 const viewer = computed<ChildrenViewer>(() => ({ isManager: isLeader.value, onTablet: onTablet.value, showPlanned: showPlanned.value }))
 const areas = computed(() => visibleChildrenAreas(viewer.value))
 const shown = (key: ChildrenTab) => childrenTabVisible(key, viewer.value)
@@ -35,7 +36,7 @@ const shown = (key: ChildrenTab) => childrenTabVisible(key, viewer.value)
 const route = useRoute()
 const fromAddress = () => requestedChildrenTab(route.query.tab, viewer.value)
 const tab = ref<ChildrenTab>(fromAddress() ?? defaultChildrenTab(viewer.value))
-const area = computed(() => areaOfTab(tab.value))
+const area = computed(() => areaOfTab(tab.value, viewer.value))
 const areaTabs = computed(() => areas.value.find(entry => entry.area === area.value)?.tabs ?? [])
 let memory: ChildrenTabMemory = { tab: null, last: {} }
 function restore() {
@@ -50,7 +51,7 @@ else onMounted(restore)
 
 function selectTab(next: ChildrenTab) {
   tab.value = next
-  memory = { tab: next, last: { ...memory.last, [areaOfTab(next)]: next } }
+  memory = { tab: next, last: { ...memory.last, [areaOfTab(next, viewer.value)]: next } }
   writeChildrenTabMemory(memory)
 }
 function selectArea(next: ChildrenArea) {
