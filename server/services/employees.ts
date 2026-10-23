@@ -133,7 +133,7 @@ export function getEmployee(
         const { carriedOverDays, carriedAutomatically } = yearEntitlement(db, employee, year)!
         return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
       }),
-    ...pinLockState(pin, now),
+    ...pinLockState(pin, now), pinLockLevel: pin.pinLockLevel,
   }
 }
 

@@ -970,6 +970,8 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
   pinLockedUntil: string | null
   /** The PIN stays locked until the Leitung or the Träger unlocks it („PIN freischalten“). */
   pinLockedPermanently: boolean
+  /** Locks since the last right PIN (0 = none; stays after a timed lock has run out, until a right PIN or the unlock). */
+  pinLockLevel: number
 }
 
 export interface UserDto {

@@ -75,8 +75,10 @@ export function terminalStatus(db: Db, facilityId: number, now: Date = new Date(
  * Checks the employee's PIN: pin_missing without one, pin_invalid when wrong (details.remaining = tries left before the
  * lock). Every fifth wrong attempt in a row locks the PIN, longer each time: 15 minutes (pin_locked), 30 minutes
  * (pin_locked_long), then until the Leitung or the Träger unlocks it (pin_locked_permanent); while locked, the lock's
- * code is returned without looking at the PIN. A right PIN resets the attempts and the lock level. Stamping and
- * unlocking the child records count together. The caller has checked that the person belongs to this tablet.
+ * code is returned without looking at the PIN. details.lockedUntil is the end of a timed lock (null = lasting), and
+ * details.newLock tells whether this try locked it (the tablet names the lock time then, later its end). A right PIN
+ * resets the attempts and the lock level. Stamping and unlocking the child records count together. The caller has
+ * checked that the person belongs to this tablet.
  */
 export function verifyEmployeePin(db: Db, employeeId: number, pin: string, now: Date): void {
   const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
@@ -84,7 +86,7 @@ export function verifyEmployeePin(db: Db, employeeId: number, pin: string, now: 
   if (employee.pinHash === null) throw new ServiceError(400, 'pin_missing')
   const lock = pinLockState(employee, now)
   if (lock.pinLockedPermanently || lock.pinLockedUntil !== null) {
-    throw new ServiceError(423, pinLockCode(employee.pinLockLevel), { lockedUntil: lock.pinLockedUntil })
+    throw new ServiceError(423, pinLockCode(employee.pinLockLevel), { lockedUntil: lock.pinLockedUntil, newLock: false })
   }
   if (!verifyPassword(pin, employee.pinHash)) {
     const failed = employee.pinFailed + 1
@@ -93,7 +95,7 @@ export function verifyEmployeePin(db: Db, employeeId: number, pin: string, now: 
       const minutes = PIN_LOCK_MINUTES[level - 1]
       const pinLockedUntil = minutes === undefined ? null : new Date(now.getTime() + minutes * 60_000).toISOString()
       db.update(employees).set({ pinFailed: 0, pinLockedUntil, pinLockLevel: level }).where(eq(employees.id, employeeId)).run()
-      throw new ServiceError(423, pinLockCode(level), { lockedUntil: pinLockedUntil })
+      throw new ServiceError(423, pinLockCode(level), { lockedUntil: pinLockedUntil, newLock: true })
     }
     db.update(employees).set({ pinFailed: failed }).where(eq(employees.id, employeeId)).run()
     throw new ServiceError(401, 'pin_invalid', { remaining: MAX_PIN_ATTEMPTS - failed })

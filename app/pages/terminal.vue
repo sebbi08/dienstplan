@@ -4,6 +4,7 @@ import { formatTime } from '#shared/domain/time'
 import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
+import { pinFailureText } from '~/utils/pin'
 
 type Mode = 'start' | 'stamp' | 'children'
 
@@ -78,7 +79,7 @@ async function submit(action: StampAction) {
   }
   catch (caught) {
     if (isStale()) return
-    failure.value = errorMessage(caught)
+    failure.value = pinFailureText(caught)
     pin.value = ''
   }
   finally {
@@ -104,7 +105,7 @@ async function openChildren() {
   }
   catch (caught) {
     if (isStale()) return
-    failure.value = errorMessage(caught)
+    failure.value = pinFailureText(caught)
     pin.value = ''
   }
   finally {

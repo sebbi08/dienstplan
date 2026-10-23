@@ -1,4 +1,4 @@
-import { de } from '~/locales/de'
+import { de } from '../locales/de'
 
 /** The `code` of a failed API call ($fetch error), if any. */
 export function errorCode(error: unknown): string | undefined {

@@ -687,11 +687,18 @@ wird dabei nichts, der Name führt weiter zu allen Daten der Person.
   - Nach 5 falschen Eingaben ist die PIN **15 Minuten** gesperrt („PIN für 15 Minuten gesperrt.“).
   - Nach den nächsten 5 falschen Eingaben **30 Minuten** („PIN für 30 Minuten gesperrt.“).
   - Nach weiteren 5 falschen Eingaben bleibt sie gesperrt, bis die Leitung oder der Träger sie freischaltet („PIN
-    gesperrt. Bitte die Leitung um Freischaltung.“).
+    gesperrt. Bitte die Leitung oder den Träger um Freischaltung.“).
+  - Wer es während einer Sperre erneut versucht, sieht am Tablet, bis wann die PIN gesperrt ist („PIN gesperrt bis
+    14:35.“).
   - Eine **richtige Eingabe** setzt alles zurück: Die nächste Sperre dauert wieder 15 Minuten.
 - **Freischalten:** Auf der Seite des Mitarbeiters steht bei einer gesperrten PIN „PIN gesperrt bis 14:35.“ bzw.
-  „PIN dauerhaft gesperrt – Freischaltung durch die Leitung nötig.“ und der Knopf **„PIN freischalten“** (Leitung und
-  Träger). Danach geht die PIN sofort wieder. Eine neue PIN setzen schaltet ebenfalls frei.
+  „PIN dauerhaft gesperrt – Freischaltung durch die Leitung oder den Träger nötig.“. Auch wenn eine Sperre schon
+  abgelaufen ist, steht dort, wie viele Sperren es seit der letzten richtigen Eingabe gab und was die nächste bedeutet
+  (z. B. „2 Sperren seit der letzten richtigen Eingabe – die nächste ist dauerhaft.“). Solange es mindestens eine
+  Sperre gab, haben Leitung und Träger den Knopf **„PIN freischalten“**: Danach geht die PIN sofort wieder und die
+  nächste Sperre dauert wieder 15 Minuten. Eine neue PIN setzen schaltet ebenfalls frei.
+- **Aushilfen:** Wer sich als Aushilfe am Tablet einer anderen Einrichtung sperrt, wird von der **eigenen
+  (Stamm-)Einrichtung** freigeschaltet – dort wird auch die PIN vergeben.
 
 ## 16. Erinnerungen
 

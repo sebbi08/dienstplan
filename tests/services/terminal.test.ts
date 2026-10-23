@@ -8,6 +8,7 @@ import { getEmployee, listEmployees, setStampingOptions } from '../../server/ser
 import { applyToCells } from '../../server/services/entries'
 import { clearPin, setPin, terminalStamp, terminalStatus, unlockPin } from '../../server/services/terminal'
 import { actualTimeFor, loadTimeRecords } from '../../server/services/timeTracking'
+import type { ServiceError } from '../../server/lib/errors'
 import { addEmployee, addFacility, addHelpOut, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const at = (iso: string) => new Date(iso)
@@ -84,6 +85,28 @@ describe('six-digit PIN with escalating lock', () => {
     expect(stampWith('012345', T0)).toBeNull()
   })
 
+  it('says whether a try just locked the PIN, and until when it is locked', () => {
+    const detailsOf = (pin: string, when: Date) => {
+      try {
+        terminalStamp(db, 1, anna, pin, 'in', when)
+      }
+      catch (error) {
+        return { code: (error as ServiceError).code, details: (error as ServiceError).details }
+      }
+      throw new Error('no error')
+    }
+    for (let attempt = 1; attempt < 5; attempt++) {
+      expect(detailsOf('000000', T0)).toEqual({ code: 'pin_invalid', details: { remaining: 5 - attempt } })
+    }
+    const until = minutesLater(15).toISOString()
+    expect(detailsOf('000000', T0)).toEqual({ code: 'pin_locked', details: { lockedUntil: until, newLock: true } })
+    expect(detailsOf('123456', minutesLater(3))).toEqual({ code: 'pin_locked', details: { lockedUntil: until, newLock: false } })
+    fiveWrong(minutesLater(15))
+    fiveWrong(minutesLater(45))
+    expect(detailsOf('123456', minutesLater(46)))
+      .toEqual({ code: 'pin_locked_permanent', details: { lockedUntil: null, newLock: false } })
+  })
+
   it('locks for 15 minutes, then 30 minutes, then until a manager unlocks', () => {
     expect(fiveWrong(T0)).toBe('pin_locked')
     expect(row()).toMatchObject({ pinFailed: 0, pinLockLevel: 1, pinLockedUntil: minutesLater(15).toISOString() })
@@ -145,15 +168,15 @@ describe('six-digit PIN with escalating lock', () => {
     expect(listEmployees(db, 1, today, 'admin').map(employee => [employee.name, employee.hasPin]))
       .toEqual([['Anna', true], ['Berta', false]])
     const detail = (now: Date) => getEmployee(db, 1, anna, today, 'admin', now)
-    expect(detail(T0)).toMatchObject({ hasPin: true, pinLockedUntil: null, pinLockedPermanently: false })
+    expect(detail(T0)).toMatchObject({ hasPin: true, pinLockedUntil: null, pinLockedPermanently: false, pinLockLevel: 0 })
     expect(getEmployee(db, 1, berta, today, 'admin', T0)).toMatchObject({ hasPin: false, pinLockedUntil: null, pinLockedPermanently: false })
     fiveWrong(T0)
-    expect(detail(minutesLater(1))).toMatchObject({ pinLockedUntil: minutesLater(15).toISOString(), pinLockedPermanently: false })
-    // An expired lock is no longer shown.
-    expect(detail(minutesLater(15))).toMatchObject({ pinLockedUntil: null, pinLockedPermanently: false })
+    expect(detail(minutesLater(1))).toMatchObject({ pinLockedUntil: minutesLater(15).toISOString(), pinLockedPermanently: false, pinLockLevel: 1 })
+    // An expired lock is no longer shown as running, but its level stays visible.
+    expect(detail(minutesLater(15))).toMatchObject({ pinLockedUntil: null, pinLockedPermanently: false, pinLockLevel: 1 })
     fiveWrong(minutesLater(15))
     fiveWrong(minutesLater(45))
-    expect(detail(minutesLater(46))).toMatchObject({ pinLockedUntil: null, pinLockedPermanently: true })
+    expect(detail(minutesLater(46))).toMatchObject({ pinLockedUntil: null, pinLockedPermanently: true, pinLockLevel: 3 })
   })
 })
 
