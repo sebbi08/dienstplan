@@ -41,9 +41,9 @@ describe('group book weekly overview', () => {
     // Anna (group Bären, may also read Mäuse) unlocks the tablet; she has no account of her own.
     const tablet = addUser(db, 'tablet', 'terminal')
     const anna = addEmployee(db, 'Anna Beispiel', { groupId: a })
-    setPin(db, 1, anna, '1234')
+    setPin(db, 1, anna, '123456')
     setReadAccess(db, 1, a, [b])
-    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '1234', NOW).token
+    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '123456', NOW).token
     atTablet = resolveChildViewer(db, tablet, token, NOW)
   })
 

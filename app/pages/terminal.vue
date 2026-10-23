@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PIN_LENGTH } from '#shared/domain/pin'
 import { formatTime } from '#shared/domain/time'
 import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -62,7 +63,7 @@ function backToList() {
 
 async function submit(action: StampAction) {
   const person = chosen.value
-  if (busy.value || !person || pin.value.length !== 4) return
+  if (busy.value || !person || pin.value.length !== PIN_LENGTH) return
   const startedEpoch = epoch
   const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId
   busy.value = true
@@ -87,7 +88,7 @@ async function submit(action: StampAction) {
 
 async function openChildren() {
   const person = chosen.value
-  if (busy.value || !person || pin.value.length !== 4) return
+  if (busy.value || !person || pin.value.length !== PIN_LENGTH) return
   const startedEpoch = epoch
   const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId || mode.value !== 'children'
   busy.value = true
@@ -174,11 +175,11 @@ async function openChildren() {
             <p v-if="failure" class="text-sm text-red-600">{{ failure }}</p>
           </TerminalPinPad>
           <UButton
-            v-if="mode === 'children'" block size="xl" :disabled="pin.length !== 4 || busy" :loading="busy"
+            v-if="mode === 'children'" block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy"
             :label="de.terminal.unlock" @click="openChildren"
           />
           <UButton
-            v-else block size="xl" :disabled="pin.length !== 4 || busy" :loading="busy" :color="chosen.clockedIn ? 'warning' : 'success'"
+            v-else block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy" :color="chosen.clockedIn ? 'warning' : 'success'"
             :label="chosen.clockedIn ? de.time.clockOut : de.time.clockIn" @click="submit(chosen.clockedIn ? 'out' : 'in')"
           />
         </template>

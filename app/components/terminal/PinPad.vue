@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { PIN_LENGTH } from '#shared/domain/pin'
 import { de } from '~/locales/de'
 
 /**
- * The tablet's number pad for the four-digit PIN (stamping and unlocking the child records). The default slot sits
+ * The tablet's number pad for the six-digit PIN (stamping and unlocking the child records). The default slot sits
  * between the dots and the keys (e.g. for the error of the last try).
  */
 const pin = defineModel<string>({ required: true })
@@ -10,12 +11,12 @@ const props = defineProps<{ busy: boolean }>()
 defineEmits<{ back: [] }>()
 
 function press(digit: string) {
-  if (!props.busy && pin.value.length < 4) pin.value += digit
+  if (!props.busy && pin.value.length < PIN_LENGTH) pin.value += digit
 }
 </script>
 
 <template>
-  <div class="text-3xl tracking-[0.5em]" :aria-label="de.terminal.pin">{{ '•'.repeat(pin.length).padEnd(4, '–') }}</div>
+  <div class="text-3xl tracking-[0.5em]" :aria-label="de.terminal.pin">{{ '•'.repeat(pin.length).padEnd(PIN_LENGTH, '–') }}</div>
   <slot />
   <div class="grid grid-cols-3 gap-2">
     <UButton v-for="digit in ['1', '2', '3', '4', '5', '6', '7', '8', '9']" :key="digit" size="xl" color="neutral" variant="outline" class="justify-center" :disabled="busy" :label="digit" @click="press(digit)" />

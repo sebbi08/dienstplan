@@ -110,10 +110,12 @@ export const employees = sqliteTable('employees', {
   shortName: text('short_name').notNull().default(''),
   sortOrder: integer('sort_order').notNull().default(0),
   leftOn: text('left_on'),
-  /** Hash of the 4-digit stamp PIN for the shared tablet (null = no PIN). */
+  /** Hash of the 6-digit stamp PIN for the shared tablet (null = no PIN). */
   pinHash: text('pin_hash'),
   pinFailed: integer('pin_failed').notNull().default(0),
   pinLockedUntil: text('pin_locked_until'),
+  /** How often the PIN was locked since the last right entry: 1 = 15 minutes, 2 = 30 minutes, 3 = until a manager unlocks it. */
+  pinLockLevel: integer('pin_lock_level').notNull().default(0),
   /** Where the employee may clock in and out (set by the Leitung). */
   stampVia: text('stamp_via', { enum: ['both', 'tablet'] }).notNull().default('both'),
   /** 'stamp': breaks are clocked (gaps count); 'auto': the planned break is deducted in full from the clocked time. */

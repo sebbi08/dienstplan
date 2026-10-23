@@ -56,6 +56,8 @@ const ADMIN_ROUTES = [
   'staffing-settings.get.ts', 'groups/[id]/group-type.put.ts',
   // The monthly Personalschlüssel report of the active facility (Leitung and Träger).
   'staffing/[year]/[month].get.ts',
+  // Stamp PINs of the facility's own staff: set, clear and unlock after too many wrong tries.
+  'employees/[id]/pin.put.ts', 'employees/[id]/pin.delete.ts', 'employees/[id]/pin/unlock.post.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -205,6 +207,18 @@ describe('API route permissions', () => {
     expect(ADMIN_ROUTES).toContain('staffing-settings.get.ts')
     expect(read).toContain('requireAdmin(')
     expect(read).toContain('admin.facilityId')
+  })
+
+  it('lets managers of the active facility set, clear and unlock stamp PINs', () => {
+    const touching = routes.filter(route => /\b(setPin|clearPin|unlockPin)\(/.test(source(route)))
+    expect(touching).toEqual(['employees/[id]/pin.delete.ts', 'employees/[id]/pin.put.ts', 'employees/[id]/pin/unlock.post.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      expect(ADMIN_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireAdmin(')
+      expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code, route).toContain('admin.facilityId')
+    }
   })
 
   it('lets only the Träger change the absence codes', () => {

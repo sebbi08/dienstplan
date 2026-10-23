@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { MAX_PIN_ATTEMPTS, PIN_LOCK_MINUTES, PIN_PERMANENT_LOCK_LEVEL, isValidPin, pinLockCode, pinLockState } from '../../shared/domain/pin'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { StampAction, TerminalPersonDto, TimeRecordDto } from '../../shared/types/api'
@@ -10,8 +11,8 @@ import { activeTrackingFrom } from './appSettings'
 import { loadEmployee, loadEmployees } from './queries'
 import { stamp } from './timeTracking'
 
-export const MAX_PIN_ATTEMPTS = 5
-export const PIN_LOCK_MINUTES = 15
+/** Everything back to "no wrong try": a right PIN, a new PIN, a cleared PIN and the managers' unlock. */
+const PIN_RESET = { pinFailed: 0, pinLockedUntil: null, pinLockLevel: 0 }
 
 /**
  * The employee, if it belongs to the facility; otherwise employee_not_found (other facilities stay unconfirmed).
@@ -24,15 +25,22 @@ function findEmployee(db: Db, facilityId: number, employeeId: number) {
   return employee
 }
 
+/** Sets the PIN (exactly six digits, pin_format otherwise); a new PIN also ends every lock. */
 export function setPin(db: Db, facilityId: number, employeeId: number, pin: string): void {
   findEmployee(db, facilityId, employeeId)
-  if (!/^\d{4}$/.test(pin)) throw new ServiceError(400, 'pin_format')
-  db.update(employees).set({ pinHash: hashPassword(pin), pinFailed: 0, pinLockedUntil: null }).where(eq(employees.id, employeeId)).run()
+  if (!isValidPin(pin)) throw new ServiceError(400, 'pin_format')
+  db.update(employees).set({ pinHash: hashPassword(pin), ...PIN_RESET }).where(eq(employees.id, employeeId)).run()
 }
 
 export function clearPin(db: Db, facilityId: number, employeeId: number): void {
   findEmployee(db, facilityId, employeeId)
-  db.update(employees).set({ pinHash: null, pinFailed: 0, pinLockedUntil: null }).where(eq(employees.id, employeeId)).run()
+  db.update(employees).set({ pinHash: null, ...PIN_RESET }).where(eq(employees.id, employeeId)).run()
+}
+
+/** The managers' „PIN freischalten“: ends a lock (also the lasting one) and starts the escalation again at 15 minutes. */
+export function unlockPin(db: Db, facilityId: number, employeeId: number): void {
+  findEmployee(db, facilityId, employeeId)
+  db.update(employees).set(PIN_RESET).where(eq(employees.id, employeeId)).run()
 }
 
 /** Ids of the employees planned in the facility's helper column (help-out entry) on the date. */
@@ -64,30 +72,39 @@ export function terminalStatus(db: Db, facilityId: number, now: Date = new Date(
 }
 
 /**
- * Checks the employee's PIN: pin_missing without one, pin_locked while locked, pin_invalid when wrong. The fifth wrong
- * attempt in a row locks the person for 15 minutes (pin_locked); a right PIN resets the counter. Stamping and unlocking
- * the child records count together. The caller has checked that the person belongs to this tablet.
+ * Checks the employee's PIN: pin_missing without one, pin_invalid when wrong (details.remaining = tries left before the
+ * lock). Every fifth wrong attempt in a row locks the PIN, longer each time: 15 minutes (pin_locked), 30 minutes
+ * (pin_locked_long), then until the Leitung or the Träger unlocks it (pin_locked_permanent); while locked, the lock's
+ * code is returned without looking at the PIN. A right PIN resets the attempts and the lock level. Stamping and
+ * unlocking the child records count together. The caller has checked that the person belongs to this tablet.
  */
 export function verifyEmployeePin(db: Db, employeeId: number, pin: string, now: Date): void {
   const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get()
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   if (employee.pinHash === null) throw new ServiceError(400, 'pin_missing')
-  if (employee.pinLockedUntil && employee.pinLockedUntil > now.toISOString()) throw new ServiceError(423, 'pin_locked')
+  const lock = pinLockState(employee, now)
+  if (lock.pinLockedPermanently || lock.pinLockedUntil !== null) {
+    throw new ServiceError(423, pinLockCode(employee.pinLockLevel), { lockedUntil: lock.pinLockedUntil })
+  }
   if (!verifyPassword(pin, employee.pinHash)) {
     const failed = employee.pinFailed + 1
     if (failed >= MAX_PIN_ATTEMPTS) {
-      const pinLockedUntil = new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000).toISOString()
-      db.update(employees).set({ pinFailed: 0, pinLockedUntil }).where(eq(employees.id, employeeId)).run()
-      throw new ServiceError(423, 'pin_locked')
+      const level = Math.min(employee.pinLockLevel + 1, PIN_PERMANENT_LOCK_LEVEL)
+      const minutes = PIN_LOCK_MINUTES[level - 1]
+      const pinLockedUntil = minutes === undefined ? null : new Date(now.getTime() + minutes * 60_000).toISOString()
+      db.update(employees).set({ pinFailed: 0, pinLockedUntil, pinLockLevel: level }).where(eq(employees.id, employeeId)).run()
+      throw new ServiceError(423, pinLockCode(level), { lockedUntil: pinLockedUntil })
     }
     db.update(employees).set({ pinFailed: failed }).where(eq(employees.id, employeeId)).run()
-    throw new ServiceError(401, 'pin_invalid')
+    throw new ServiceError(401, 'pin_invalid', { remaining: MAX_PIN_ATTEMPTS - failed })
   }
-  db.update(employees).set({ pinFailed: 0, pinLockedUntil: null }).where(eq(employees.id, employeeId)).run()
+  if (employee.pinFailed !== 0 || employee.pinLockedUntil !== null || employee.pinLockLevel !== 0) {
+    db.update(employees).set(PIN_RESET).where(eq(employees.id, employeeId)).run()
+  }
 }
 
 /**
- * Checks the PIN (5 wrong attempts lock the person for 15 minutes) and stamps as "terminal". Only the facility's
+ * Checks the PIN (with the escalating lock of verifyEmployeePin) and stamps as "terminal". Only the facility's
  * employees, and helpers on the days they are planned here: anyone else is employee_not_found before the PIN is looked
  * at, so no attempt is counted. Employment is checked against the person's own record.
  */

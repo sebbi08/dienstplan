@@ -191,9 +191,9 @@ describe('the daily run', () => {
     const unlockAt = (now: Date) => {
       const employeeId = addEmployee(db, 'Anna')
       setTimeTrackingFrom(db, 1, '2026-10-01')
-      setPin(db, 1, employeeId, '1234')
+      setPin(db, 1, employeeId, '123456')
       const tablet = addUser(db, 'tablet', 'terminal')
-      unlockChildren(db, { id: tablet.id, facilityId: 1 }, employeeId, '1234', now)
+      unlockChildren(db, { id: tablet.id, facilityId: 1 }, employeeId, '123456', now)
     }
 
     it('deletes expired tablet unlocks and keeps the others', () => {

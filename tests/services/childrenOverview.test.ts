@@ -54,7 +54,7 @@ describe('children overview', () => {
     tablet = addUser(db, 'tablet', 'terminal')
     admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     const anna = addEmployee(db, 'Anna', { groupId: a })
-    setPin(db, 1, anna, '1234')
+    setPin(db, 1, anna, '123456')
     observer = addUser(db, 'anna', 'observer', anna)
     db.update(users).set({ canEditChildren: true }).where(eq(users.id, observer.id)).run()
     setReadAccess(db, 1, a, [b])
@@ -63,7 +63,7 @@ describe('children overview', () => {
     kidC = addChild(db, 1, { lastName: 'Chamäleon', groupId: c })
     kidB = addChild(db, 1, { lastName: 'Biber', groupId: b })
     kidA = addChild(db, 1, { lastName: 'Amsel', groupId: a })
-    token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '1234', NOW).token
+    token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '123456', NOW).token
   })
 
   it('lists the active children in the order of the child list, with their groups (no group last)', () => {

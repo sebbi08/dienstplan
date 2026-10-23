@@ -1,5 +1,6 @@
-import { and, asc, eq, inArray, isNull, max, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, max, ne } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
+import { pinLockState } from '../../shared/domain/pin'
 import { isValidMonthDay } from '../../shared/domain/reminders'
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
@@ -74,7 +75,7 @@ function contractOf(employee: EmployeeRecord): EmployeeContractDto {
   }
 }
 
-function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: boolean): EmployeeListItemDto {
+function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: boolean, hasPin: boolean): EmployeeListItemDto {
   return {
     id: employee.id, name: employee.name, shortName: employee.shortName,
     sortOrder: employee.sortOrder, leftOn: employee.leftOn,
@@ -83,7 +84,7 @@ function toListItem(employee: EmployeeRecord, today: IsoDate, withContract: bool
       ? workdaysOn(employee.info, today)
       : employee.info.hours[0]?.workdays ?? MONDAY_TO_FRIDAY,
     stampVia: employee.stampVia, breakMode: employee.breakMode, groupId: employee.groupId, birthday: employee.birthday,
-    qualification: employee.qualification, staffingShare: employee.staffingShare,
+    qualification: employee.qualification, staffingShare: employee.staffingShare, hasPin,
     ...(withContract ? { contract: contractOf(employee) } : {}),
   }
 }
@@ -101,16 +102,27 @@ export function assertEmployee(db: Db, facilityId: number, id: number): void {
   if (!row) throw new ServiceError(404, 'employee_not_found')
 }
 
-export function listEmployees(db: Db, facilityId: number, today: IsoDate, viewer: Role): EmployeeListItemDto[] {
-  const withContract = mayViewContract(db, viewer)
-  return loadEmployees(db, facilityId).map(employee => toListItem(employee, today, withContract))
+/** Ids of the facility's employees who have a stamp PIN (the list shows „PIN fehlt“ for the others). */
+function idsWithPin(db: Db, facilityId: number): Set<number> {
+  return new Set(db.select({ id: employees.id }).from(employees)
+    .where(and(eq(employees.facilityId, facilityId), isNotNull(employees.pinHash))).all().map(row => row.id))
 }
 
-export function getEmployee(db: Db, facilityId: number, id: number, today: IsoDate, viewer: Role): EmployeeDetailDto {
+export function listEmployees(db: Db, facilityId: number, today: IsoDate, viewer: Role): EmployeeListItemDto[] {
+  const withContract = mayViewContract(db, viewer)
+  const withPin = idsWithPin(db, facilityId)
+  return loadEmployees(db, facilityId).map(employee => toListItem(employee, today, withContract, withPin.has(employee.id)))
+}
+
+/** One employee with hours, adjustments and leave, and the state of the stamp PIN at `now` (set, locked until, lasting lock). */
+export function getEmployee(
+  db: Db, facilityId: number, id: number, today: IsoDate, viewer: Role, now: Date = new Date(),
+): EmployeeDetailDto {
   const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === id)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
+  const pin = db.select().from(employees).where(eq(employees.id, id)).get()!
   return {
-    ...toListItem(employee, today, mayViewContract(db, viewer)),
+    ...toListItem(employee, today, mayViewContract(db, viewer), pin.pinHash !== null),
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
@@ -121,7 +133,7 @@ export function getEmployee(db: Db, facilityId: number, id: number, today: IsoDa
         const { carriedOverDays, carriedAutomatically } = yearEntitlement(db, employee, year)!
         return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
       }),
-    hasPin: db.select().from(employees).where(eq(employees.id, id)).get()!.pinHash !== null,
+    ...pinLockState(pin, now),
   }
 }
 

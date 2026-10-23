@@ -31,6 +31,11 @@ export function formatDateTime(timestamp: string): string {
   }).format(new Date(timestamp))
 }
 
+/** The time of day of a timestamp in Berlin, e.g. "14:35" (for short locks that end the same day). */
+export function formatClockTime(timestamp: string): string {
+  return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(new Date(timestamp))
+}
+
 /** Two days as short as they stay clear: "19.–23.10.2026", "28.09.–02.10.2026", "28.12.2026–01.01.2027". */
 export function formatDateSpan(from: string, to: string): string {
   const start = parseIsoDate(from)

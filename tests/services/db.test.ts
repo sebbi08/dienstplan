@@ -116,10 +116,10 @@ describe('upgrading a filled database through migrateDb', () => {
   const NEW_CONSENT_COLUMNS = ['consent_signal_photos', 'consent_insect_repellent']
   const withoutOldConsent = (rows: unknown[]) =>
     (rows as Record<string, unknown>[]).map(({ consent_photos_whatsapp: _, ...rest }) => rest)
-  // Columns of `facilities`, `groups`, `employees` and `care_types` that 0044_reminders, 0045_doc_since and 0050_staffing
-  // add; the older tests compare rows without them.
+  // Columns of `facilities`, `groups`, `employees` and `care_types` that 0044_reminders, 0045_doc_since, 0050_staffing and
+  // 0051_pin_six_digits add; the older tests compare rows without them.
   const REMINDER_COLUMNS = ['doc_mode', 'doc_interval_months', 'doc_lead_weeks', 'birthday_lead_days', 'staff_birthday_lead_days',
-    'leaving_lead_weeks', 'birthday', 'doc_since', 'group_type', 'qualification', 'staffing_share', 'days_per_week']
+    'leaving_lead_weeks', 'birthday', 'doc_since', 'group_type', 'qualification', 'staffing_share', 'days_per_week', 'pin_lock_level']
   const withoutReminders = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !REMINDER_COLUMNS.includes(column))))
   // Columns of `facilities` that later migrations add (0046_facility_capacity: `capacity`, which `groups` has had long since;
@@ -1214,7 +1214,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     expect(rows('facilities')).toEqual(before.facilities)
     expect(rows('groups').map(({ group_type: _type, ...rest }) => rest)).toEqual(before.groups)
-    expect(rows('employees').map(({ qualification: _q, staffing_share: _s, ...rest }) => rest)).toEqual(before.employees)
+    expect(rows('employees').map(({ qualification: _q, staffing_share: _s, pin_lock_level: _l, ...rest }) => rest)).toEqual(before.employees)
     expect(rows('care_types').map(({ days_per_week: _d, ...rest }) => rest)).toEqual(before.careTypes)
     expect(sqlite.prepare('SELECT id, group_type FROM groups ORDER BY id').all()).toEqual([
       { id: 1, group_type: null }, { id: 2, group_type: null },
@@ -1233,6 +1233,31 @@ describe('upgrading a filled database through migrateDb', () => {
       { table: 'users', from: 'updated_by', on_delete: 'SET NULL' },
     ])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0051 clears every stamp PIN with its attempts and lock, and adds the lock level', () => {
+    const { db, sqlite } = databaseAt('0050')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO employees (id, facility_id, name, pin_hash, pin_failed, pin_locked_until) VALUES
+        (1, 1, 'Anna', 'scrypt:old-hash-1', 0, NULL),
+        (2, 1, 'Berta', 'scrypt:old-hash-2', 3, NULL),
+        (3, 2, 'Kim', 'scrypt:old-hash-3', 0, '2026-10-23T06:15:00.000Z'),
+        (4, 2, 'Zoe', NULL, 0, NULL);
+    `)
+    const rows = () => sqlite.prepare('SELECT * FROM employees ORDER BY id').all() as Record<string, unknown>[]
+    const pinColumns = ['pin_hash', 'pin_failed', 'pin_locked_until', 'pin_lock_level']
+    const withoutPin = (list: Record<string, unknown>[]) =>
+      list.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !pinColumns.includes(column))))
+    const before = rows()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(sqlite.prepare('SELECT id, pin_hash, pin_failed, pin_locked_until, pin_lock_level FROM employees ORDER BY id').all())
+      .toEqual([1, 2, 3, 4].map(id => ({ id, pin_hash: null, pin_failed: 0, pin_locked_until: null, pin_lock_level: 0 })))
+    expect(withoutPin(rows())).toEqual(withoutPin(before))
+    sqlite.exec(`INSERT INTO employees (facility_id, name) VALUES (1, 'Neu')`)
+    expect(sqlite.prepare(`SELECT pin_lock_level FROM employees WHERE name = 'Neu'`).get()).toEqual({ pin_lock_level: 0 })
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {

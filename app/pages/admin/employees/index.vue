@@ -140,6 +140,8 @@ const hint = 'text-xs text-gray-500'
               <span v-if="employee.leftOn" class="text-gray-600">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn) }}</span>
               <span v-if="employee.stampVia !== 'both'" class="text-gray-600">{{ de.employees.stampVia }}: {{ de.employees.stampChannels[employee.stampVia] }}</span>
               <span v-if="employee.breakMode === 'auto'" class="text-gray-600">{{ de.employees.breakMode }}: {{ de.employees.breakModes.auto }}</span>
+              <!-- Without a PIN the person is not on the tablet (nobody has one right after the update to six digits). -->
+              <span v-if="!employee.hasPin" class="font-medium text-amber-700">{{ de.employees.pinMissing }}</span>
               <span class="ml-auto">
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.employees.moveUp" :disabled="index === 0" @click="move(employee.id, 'up')" />
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.employees.moveDown" :disabled="index === split.active.length - 1" @click="move(employee.id, 'down')" />

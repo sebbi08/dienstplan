@@ -22,7 +22,8 @@ const nullableMinutes = minutes.nullable().optional()
 const label = z.string().max(100)
 
 export const idParams = z.object({ id: z.coerce.number().int().positive() })
-export const pinSchema = z.object({ pin: z.string().regex(/^\d{4}$/) })
+/** The format (exactly six digits) is checked by setPin, so the form shows „Die PIN muss aus 6 Ziffern bestehen.“. */
+export const pinSchema = z.object({ pin: z.string().max(20) })
 export const terminalStampSchema = z.object({ employeeId: z.number().int(), pin: z.string().max(10), action: z.enum(['in', 'out']) })
 /** Unlocking the child records at the tablet: the person and the PIN (checked by the service). */
 export const tabletUnlockSchema = z.object({ employeeId: z.number().int(), pin: z.string().max(10) })

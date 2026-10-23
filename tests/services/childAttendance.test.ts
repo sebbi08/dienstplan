@@ -683,9 +683,9 @@ describe('child attendance', () => {
   it('logs every change with the person, also for a tablet person without account', () => {
     const berta = addEmployee(db, 'Berta Beispiel')
     setTimeTrackingFrom(db, 1, '2026-10-01')
-    setPin(db, 1, berta, '4321')
+    setPin(db, 1, berta, '654321')
     const tablet = addUser(db, 'tablet', 'terminal')
-    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, berta, '4321', NOW).token
+    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, berta, '654321', NOW).token
     const atTablet = resolveChildViewer(db, tablet, token, NOW)
     expect(atTablet).toMatchObject({ id: null, employeeId: berta, name: 'Berta Beispiel' })
 
@@ -982,7 +982,7 @@ describe('child attendance by group rights', () => {
     setTabletSettings(db, 1, { lockMinutes: 10, showWaitlist: true, showFutureContracts: true })
     tablet = addUser(db, 'tablet', 'terminal')
     const anna = addEmployee(db, 'Anna', { groupId: a })
-    setPin(db, 1, anna, '1234')
+    setPin(db, 1, anna, '123456')
     setReadAccess(db, 1, a, [b])
     kidA = addChild(db, 1, { lastName: 'Amsel', groupId: a })
     kidB = addChild(db, 1, { lastName: 'Biber', groupId: b })
@@ -992,7 +992,7 @@ describe('child attendance by group rights', () => {
     planGroupChange(db, leitung, 1, mover, { groupId: a, date: '2026-10-19', keep: move }, TODAY, NOW)
     momOf = {}
     for (const id of [kidA, kidB, kidC, kidNone, mover]) momOf[id] = addContact(db, leitung, 1, id, contact(), TODAY, NOW)
-    token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '1234', NOW).token
+    token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, anna, '123456', NOW).token
   })
 
   it('lists every child and flags the own ones and the readable records', () => {

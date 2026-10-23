@@ -25,7 +25,7 @@ describe('the child viewer', () => {
   let anna: number
   let berta: number
   let tablet: SessionUser
-  const unlock = (employeeId = anna, pin = '1234') =>
+  const unlock = (employeeId = anna, pin = '123456') =>
     unlockChildren(db, { id: tablet.id, facilityId: tablet.facilityId! }, employeeId, pin, NOW).token
   const settings = (changes: { showWaitlist?: boolean; showFutureContracts?: boolean } = {}) =>
     setTabletSettings(db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, ...changes })
@@ -35,8 +35,8 @@ describe('the child viewer', () => {
     anna = addEmployee(db, 'Anna')
     berta = addEmployee(db, 'Berta')
     setTimeTrackingFrom(db, 1, '2026-10-01')
-    setPin(db, 1, anna, '1234')
-    setPin(db, 1, berta, '4321')
+    setPin(db, 1, anna, '123456')
+    setPin(db, 1, berta, '654321')
     tablet = addUser(db, 'tablet', 'terminal')
   })
 
@@ -93,14 +93,14 @@ describe('the child viewer', () => {
     expect(errorCode(() => asChildManager(editor))).toBe('forbidden')
 
     // Without an account (PIN only) only reading, even if the Leitung set nothing else.
-    const pinOnly = resolveChildViewer(db, tablet, unlock(berta, '4321'), NOW)
+    const pinOnly = resolveChildViewer(db, tablet, unlock(berta, '654321'), NOW)
     expect(pinOnly).toMatchObject({ id: null, onTablet: true })
     expect(errorCode(() => asChildEditor(pinOnly))).toBe('forbidden')
     expect(errorCode(() => asChildManager(pinOnly))).toBe('forbidden')
 
     // An unlocked Leitung passes both.
     const leitung = addUser(db, 'leitung', 'admin', berta)
-    const manager = resolveChildViewer(db, tablet, unlock(berta, '4321'), NOW)
+    const manager = resolveChildViewer(db, tablet, unlock(berta, '654321'), NOW)
     expect(asChildEditor(manager)).toMatchObject({ id: leitung.id, onTablet: true })
     expect(asChildManager(manager)).toMatchObject({ id: leitung.id, onTablet: true })
   })
@@ -154,7 +154,7 @@ describe('the child viewer', () => {
 
     it('shows every child to an unlocked Leitung', () => {
       addUser(db, 'leitung', 'admin', berta)
-      const viewer = resolveChildViewer(db, tablet, unlock(berta, '4321'), NOW)
+      const viewer = resolveChildViewer(db, tablet, unlock(berta, '654321'), NOW)
       expect(viewer).toMatchObject({ role: 'admin', visibility: null, onTablet: true })
       expect(ids(listPlanned(db, viewer, TODAY))).toEqual({ waitlist: [waitlist], contracted: [future, undated] })
       for (const id of [waitlist, future, undated, active]) expect(getChild(db, viewer, id, TODAY).id).toBe(id)

@@ -955,6 +955,8 @@ export interface EmployeeListItemDto {
   qualification: Qualification | null
   /** Counting share in percent, 0–100 (null = the state's default for the qualification). */
   staffingShare: number | null
+  /** Whether a stamp PIN is set (without one the person is not on the tablet; the list shows „PIN fehlt“). */
+  hasPin: boolean
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
 }
@@ -964,7 +966,10 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
   adjustments: { id: number; date: IsoDate; minutes: number; reason: string }[]
   /** carriedOverDays is the carry-over that counts; carriedAutomatically when it is the rest of the year before. */
   entitlements: { id: number; year: number; days: number; carriedOverDays: number; carriedAutomatically: boolean }[]
-  hasPin: boolean
+  /** End of a running timed PIN lock (15 or 30 minutes; null = none). */
+  pinLockedUntil: string | null
+  /** The PIN stays locked until the Leitung or the Träger unlocks it („PIN freischalten“). */
+  pinLockedPermanently: boolean
 }
 
 export interface UserDto {

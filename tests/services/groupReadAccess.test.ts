@@ -109,7 +109,7 @@ describe('group read access', () => {
   describe('on the child viewer', () => {
     let tablet: SessionUser
     let anna: number
-    const unlock = (employeeId: number, pin = '1234') =>
+    const unlock = (employeeId: number, pin = '123456') =>
       unlockChildren(db, { id: tablet.id, facilityId: 1 }, employeeId, pin, NOW).token
     const viewerOf = (employeeId: number) => resolveChildViewer(db, tablet, unlock(employeeId), NOW)
 
@@ -117,7 +117,7 @@ describe('group read access', () => {
       setTimeTrackingFrom(db, 1, '2026-10-01')
       tablet = addUser(db, 'tablet', 'terminal')
       anna = addEmployee(db, 'Anna', { groupId: a })
-      setPin(db, 1, anna, '1234')
+      setPin(db, 1, anna, '123456')
     })
 
     it('gives a person with a group the own group and the granted ones', () => {
@@ -142,7 +142,7 @@ describe('group read access', () => {
 
     it('gives a person without group every group', () => {
       const berta = addEmployee(db, 'Berta')
-      setPin(db, 1, berta, '1234')
+      setPin(db, 1, berta, '123456')
       expect(viewerOf(berta).groups).toBeNull()
     })
 
@@ -161,7 +161,7 @@ describe('group read access', () => {
       const helperTablet = addUser(db, 'tablet-krippe', 'terminal', null, krippe)
       addHelpOut(db, anna, krippe, 2026, 10)
       applyToCells(db, leitung, krippe, [{ employeeId: anna, date: TODAY }], 'replace', { kind: 'shift', templateId: templateId(db, 'M', krippe) })
-      const { token } = unlockChildren(db, { id: helperTablet.id, facilityId: krippe }, anna, '1234', NOW)
+      const { token } = unlockChildren(db, { id: helperTablet.id, facilityId: krippe }, anna, '123456', NOW)
       expect(resolveChildViewer(db, helperTablet, token, NOW)).toMatchObject({ facilityId: krippe, groups: null })
     })
 

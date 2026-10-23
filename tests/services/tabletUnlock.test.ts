@@ -20,7 +20,7 @@ describe('unlocking the tablet for child records', () => {
   let anna: number
   let berta: number
   let tablet: { id: number; facilityId: number }
-  const unlock = (employeeId = anna, pin = '1234', now = NOW) => unlockChildren(db, tablet, employeeId, pin, now)
+  const unlock = (employeeId = anna, pin = '123456', now = NOW) => unlockChildren(db, tablet, employeeId, pin, now)
   const viewer = (token: string | undefined, now = NOW, touch?: boolean) => tabletChildViewer(db, tablet, token, now, touch)
   const rows = () => db.select().from(terminalUnlocks).all()
   const settings = (changes: Partial<{ lockMinutes: number; showWaitlist: boolean; showFutureContracts: boolean }> = {}) => setTabletSettings(
@@ -32,8 +32,8 @@ describe('unlocking the tablet for child records', () => {
     anna = addEmployee(db, 'Anna')
     berta = addEmployee(db, 'Berta')
     setTimeTrackingFrom(db, 1, '2026-10-01')
-    setPin(db, 1, anna, '1234')
-    setPin(db, 1, berta, '4321')
+    setPin(db, 1, anna, '123456')
+    setPin(db, 1, berta, '654321')
     const account = addUser(db, 'tablet', 'terminal')
     tablet = { id: account.id, facilityId: account.facilityId! }
   })
@@ -50,26 +50,51 @@ describe('unlocking the tablet for child records', () => {
 
   it('counts wrong PINs together with stamping', () => {
     for (let attempt = 1; attempt <= 4; attempt++) {
-      expect(errorCode(() => unlock(anna, '0000'))).toBe('pin_invalid')
+      expect(errorCode(() => unlock(anna, '000000'))).toBe('pin_invalid')
     }
-    expect(errorCode(() => terminalStamp(db, 1, anna, '0000', 'in', NOW))).toBe('pin_locked')
-    expect(errorCode(() => unlock(anna, '1234', after(14 * 60)))).toBe('pin_locked')
-    expect(unlock(anna, '1234', after(16 * 60)).status.unlocked).toBe(true)
+    expect(errorCode(() => terminalStamp(db, 1, anna, '000000', 'in', NOW))).toBe('pin_locked')
+    expect(errorCode(() => unlock(anna, '123456', after(14 * 60)))).toBe('pin_locked')
+    expect(unlock(anna, '123456', after(16 * 60)).status.unlocked).toBe(true)
     expect(rows()).toHaveLength(1)
+  })
+
+  it('escalates the lock across unlocking and stamping, and the right PIN at the tablet resets it', () => {
+    const minutes = (value: number) => after(value * 60)
+    const wrongUnlocks = (when: Date) => {
+      for (let attempt = 1; attempt < 5; attempt++) expect(errorCode(() => unlock(anna, '000000', when))).toBe('pin_invalid')
+      return errorCode(() => unlock(anna, '000000', when))
+    }
+    const wrongStamps = (when: Date) => {
+      for (let attempt = 1; attempt < 5; attempt++) expect(errorCode(() => terminalStamp(db, 1, anna, '000000', 'in', when))).toBe('pin_invalid')
+      return errorCode(() => terminalStamp(db, 1, anna, '000000', 'in', when))
+    }
+    const level = () => db.select().from(employees).where(eq(employees.id, anna)).get()!.pinLockLevel
+
+    expect(wrongUnlocks(NOW)).toBe('pin_locked')
+    expect(wrongStamps(minutes(15))).toBe('pin_locked_long')
+    expect(errorCode(() => unlock(anna, '123456', minutes(44)))).toBe('pin_locked_long')
+    expect(unlock(anna, '123456', minutes(45)).status.unlocked).toBe(true)
+    expect(level()).toBe(0)
+
+    expect(wrongStamps(minutes(46))).toBe('pin_locked')
+    expect(wrongUnlocks(minutes(61))).toBe('pin_locked_long')
+    expect(wrongStamps(minutes(91))).toBe('pin_locked_permanent')
+    expect(errorCode(() => unlock(anna, '123456', minutes(600)))).toBe('pin_locked_permanent')
+    expect(level()).toBe(3)
   })
 
   it('refuses people who are not on the tablet list, without counting an attempt', () => {
     const carla = addEmployee(db, 'Carla')
     const dora = addEmployee(db, 'Dora', { leftOn: '2026-09-30' })
-    setPin(db, 1, dora, '1234')
+    setPin(db, 1, dora, '123456')
     const krippe = addFacility(db, 'Krippe')
     const kim = addEmployee(db, 'Kim', { facilityId: krippe })
     setTimeTrackingFrom(db, krippe, '2026-10-01')
-    setPin(db, krippe, kim, '1234')
+    setPin(db, krippe, kim, '123456')
     for (const id of [carla, dora, kim, 9999]) {
-      for (let attempt = 1; attempt <= 6; attempt++) expect(errorCode(() => unlock(id, '0000'))).toBe('employee_not_found')
+      for (let attempt = 1; attempt <= 6; attempt++) expect(errorCode(() => unlock(id, '000000'))).toBe('employee_not_found')
     }
-    expect(db.select().from(employees).where(eq(employees.id, kim)).get()).toMatchObject({ pinFailed: 0, pinLockedUntil: null })
+    expect(db.select().from(employees).where(eq(employees.id, kim)).get()).toMatchObject({ pinFailed: 0, pinLockedUntil: null, pinLockLevel: 0 })
     expect(rows()).toEqual([])
   })
 
@@ -114,7 +139,7 @@ describe('unlocking the tablet for child records', () => {
     expect(tabletUnlockStatus(db, tablet, first.token, NOW)).toEqual({ unlocked: false })
 
     const second = unlock(anna)
-    const third = unlock(berta, '4321')
+    const third = unlock(berta, '654321')
     expect(errorCode(() => viewer(second.token))).toBe('tablet_locked')
     expect(tabletUnlockStatus(db, tablet, third.token, NOW)).toMatchObject({ unlocked: true, employeeId: berta, name: 'Berta' })
     expect(rows()).toHaveLength(1)
@@ -123,7 +148,7 @@ describe('unlocking the tablet for child records', () => {
   it('leaves a newer unlock alone when a device locks with its replaced token', () => {
     // Device A unlocked, then device B with the same account; A notices, goes to its start page and locks there.
     const deviceA = unlock(anna)
-    const deviceB = unlock(berta, '4321')
+    const deviceB = unlock(berta, '654321')
     lockChildren(db, tablet.id, deviceA.token)
     lockChildren(db, tablet.id, undefined)
     expect(tabletUnlockStatus(db, tablet, deviceB.token, NOW)).toMatchObject({ unlocked: true, employeeId: berta })
@@ -210,7 +235,7 @@ describe('unlocking the tablet for child records', () => {
     it('lets a helper read only, and only on planned days', () => {
       const account = addUser(db, 'anna', 'observer', anna)
       db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
-      const { token } = unlockChildren(db, helperTablet, anna, '1234', NOW)
+      const { token } = unlockChildren(db, helperTablet, anna, '123456', NOW)
       expect(tabletChildViewer(db, helperTablet, token, NOW)).toMatchObject({
         id: null, role: 'observer', canEditChildren: false, facilityId: krippe, onTablet: true,
       })
@@ -221,7 +246,7 @@ describe('unlocking the tablet for child records', () => {
       expect(db.select().from(terminalUnlocks).all()).toEqual([])
     })
     it('does not let a helper unlock on other days', () => {
-      expect(errorCode(() => unlockChildren(db, helperTablet, anna, '1234', at('2026-10-05T06:00:00Z')))).toBe('employee_not_found')
+      expect(errorCode(() => unlockChildren(db, helperTablet, anna, '123456', at('2026-10-05T06:00:00Z')))).toBe('employee_not_found')
     })
   })
 
@@ -231,7 +256,7 @@ describe('unlocking the tablet for child records', () => {
     expect(errorCode(() => viewer(first.token))).toBe('tablet_locked')
     expect(rows()).toEqual([])
 
-    const second = unlock(berta, '4321')
+    const second = unlock(berta, '654321')
     db.update(employees).set({ leftOn: '2026-10-05' }).where(eq(employees.id, berta)).run()
     expect(errorCode(() => viewer(second.token))).toBe('tablet_locked')
     expect(rows()).toEqual([])
@@ -249,9 +274,9 @@ describe('unlocking the tablet for child records', () => {
       const krippe = addFacility(db, 'Krippe')
       const kim = addEmployee(db, 'Kim', { facilityId: krippe })
       setTimeTrackingFrom(db, krippe, '2026-10-01')
-      setPin(db, krippe, kim, '1111')
+      setPin(db, krippe, kim, '111111')
       const other = addUser(db, 'tablet-krippe', 'terminal', null, krippe)
-      unlockChildren(db, { id: other.id, facilityId: krippe }, kim, '1111', NOW)
+      unlockChildren(db, { id: other.id, facilityId: krippe }, kim, '111111', NOW)
       const mine = unlock()
 
       expect(deleteExpiredUnlocks(db, after(2 * 60 + 29))).toBe(0)

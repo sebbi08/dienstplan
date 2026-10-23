@@ -47,6 +47,8 @@ docker compose --profile https up -d --build
 ```
 
 Die Daten bleiben erhalten; die Datenbank wird beim Start automatisch auf die neue Version gebracht.
+Ausnahme: Mit dem Update auf die 6-stellige Stempel-PIN werden alle bisherigen PINs gelöscht und müssen neu gesetzt
+werden (siehe Abschnitt 15, „Stempel-PIN“).
 
 ## 5. Datensicherung
 
@@ -166,8 +168,9 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
   Unter „Kinder“ tippt die Person ihren Namen an und gibt ihre PIN ein; danach ist das Tablet für sie **aufgeschlossen**. Oben steht
   „Aufgeschlossen: ‹Name›“ mit dem Knopf **Sperren**.
 - Für den Zugang braucht jeder Mitarbeiter eine **PIN**. Die vergibt die Leitung wie fürs Stempeln (unter
-  *Mitarbeiter*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Nach 5
-  falschen PINs ist die Person 15 Minuten gesperrt – beim Stempeln und beim Aufschließen.
+  *Mitarbeiter*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Die PIN hat
+  6 Ziffern; nach falschen Eingaben wird sie gesperrt – beim Stempeln und beim Aufschließen gleich (siehe Abschnitt 15,
+  „Stempel-PIN“).
 - Das Tablet sperrt sich wieder, wenn die **Sperrzeit** ohne Bedienung abgelaufen ist, wenn jemand „Sperren“
   antippt, die Kinderseiten verlässt (zur Startseite, zum Stempeln oder zum Dienstplan) oder eine andere Person
   aufschließt. Das merkt das Tablet spätestens nach einer halben Minute auch von selbst, z. B. wenn die Sperrzeit
@@ -647,6 +650,24 @@ Druck-Knöpfe.
 Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht unter *Mitarbeiter* nicht mehr bei den
 aktiven Mitarbeitern, sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht
 wird dabei nichts, der Name führt weiter zu allen Daten der Person.
+
+### Stempel-PIN
+
+- Mit der PIN stempelt jeder Mitarbeiter am Kita-Tablet und schließt dort die Kinder auf. Die PIN hat **genau
+  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Stempel-PIN* (nur für die Mitarbeiter der
+  Einrichtung, in der sie gerade arbeiten).
+- **Nach dem Update auf die 6-stellige PIN sind alle bisherigen 4-stelligen PINs gelöscht.** Bitte für jeden
+  Mitarbeiter eine neue PIN setzen. In der Mitarbeiterliste steht bei allen ohne PIN **„PIN fehlt“**; wer keine PIN
+  hat, steht auch nicht auf dem Tablet.
+- **Sperre nach falschen Eingaben** (Stempeln und Aufschließen zählen zusammen):
+  - Nach 5 falschen Eingaben ist die PIN **15 Minuten** gesperrt („PIN für 15 Minuten gesperrt.“).
+  - Nach den nächsten 5 falschen Eingaben **30 Minuten** („PIN für 30 Minuten gesperrt.“).
+  - Nach weiteren 5 falschen Eingaben bleibt sie gesperrt, bis die Leitung oder der Träger sie freischaltet („PIN
+    gesperrt. Bitte die Leitung um Freischaltung.“).
+  - Eine **richtige Eingabe** setzt alles zurück: Die nächste Sperre dauert wieder 15 Minuten.
+- **Freischalten:** Auf der Seite des Mitarbeiters steht bei einer gesperrten PIN „PIN gesperrt bis 14:35.“ bzw.
+  „PIN dauerhaft gesperrt – Freischaltung durch die Leitung nötig.“ und der Knopf **„PIN freischalten“** (Leitung und
+  Träger). Danach geht die PIN sofort wieder. Eine neue PIN setzen schaltet ebenfalls frei.
 
 ## 16. Erinnerungen
 

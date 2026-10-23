@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { PIN_LENGTH, isValidPin } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
@@ -7,7 +8,7 @@ import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { EmployeeDetailDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
-import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
+import { formatClockTime, formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { inState } from '~/utils/states'
 import { workdaysText } from '~/utils/workdays'
 
@@ -94,9 +95,23 @@ function saveStamping() {
 
 const pin = ref('')
 async function savePin() {
+  if (!isValidPin(pin.value)) {
+    toast.add({ title: de.errors.pin_format, color: 'error' })
+    return
+  }
   const ok = await run(() => $fetch<unknown>(`/api/employees/${id}/pin`, { method: 'PUT', body: { pin: pin.value } }), de.common.saved)
   if (ok) pin.value = ''
 }
+/** „PIN freischalten“ after too many wrong tries (also the lasting lock); a new PIN does the same. */
+function unlockPin() {
+  run(() => $fetch<unknown>(`/api/employees/${id}/pin/unlock`, { method: 'POST' }), de.employees.pinUnlocked)
+}
+/** The lock as loaded; a timed lock that has run out meanwhile still shows until the next refresh. */
+const pinLockText = computed(() => {
+  if (!employee.value) return ''
+  if (employee.value.pinLockedPermanently) return de.employees.pinLockedPermanently
+  return employee.value.pinLockedUntil ? de.employees.pinLockedUntil(formatClockTime(employee.value.pinLockedUntil)) : ''
+})
 async function removePin() {
   if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employees/${id}/pin`, { method: 'DELETE' }), de.common.deleted)
 }
@@ -217,14 +232,18 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.pin }}</h2>
       <p class="text-sm text-gray-600">{{ employee.hasPin ? de.employees.pinSet : de.employees.pinNotSet }}</p>
+      <div v-if="employee.hasPin && pinLockText" class="flex flex-wrap items-center gap-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <span>{{ pinLockText }}</span>
+        <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.employees.unlockPin" @click="unlockPin" />
+      </div>
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="savePin">
         <UFormField :label="de.employees.pin">
-          <UInput v-model="pin" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off" required />
+          <UInput v-model="pin" inputmode="numeric" :maxlength="PIN_LENGTH" autocomplete="off" required />
         </UFormField>
         <UButton type="submit" :label="de.employees.savePin" />
         <UButton v-if="employee.hasPin" color="error" variant="ghost" :label="de.employees.removePin" @click="removePin" />
       </form>
-      <p class="text-xs text-gray-500">{{ de.employees.pinHint }}</p>
+      <p class="text-xs text-gray-500">{{ de.employees.pinHint }} {{ de.employees.pinLockHint }}</p>
     </section>
 
     <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveStamping">
