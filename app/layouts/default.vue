@@ -5,7 +5,7 @@ import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { isChildPagePath } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
-import { isEntryActive, isGroupActive, navMenu, withCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
+import { isEntryActive, isGroupActive, navMenu, navLabelWithCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -61,8 +61,13 @@ const isTerminal = computed(() => user.value?.role === 'terminal')
 const tight = computed(() => menu.value.more.length > 0)
 const toItems = (entries: NavEntry[]): DropdownMenuItem[] =>
   entries.map(entry => ({ label: entry.label, to: entry.to, active: isEntryActive(route.path, entry) }))
-// Passwort ändern sits under "Mehr" for Leitung/Träger, set apart from the pages.
-const moreItems = computed<DropdownMenuItem[][]>(() => [toItems(menu.value.more), [{ label: de.nav.password, to: '/account/password', icon: 'i-lucide-key-round' }]])
+// Passwort ändern sits under "Mehr" for Leitung/Träger, set apart from the pages ("Mehr" is active on it, too).
+const passwordEntry: NavEntry = { label: de.nav.password, to: '/account/password', match: '/account/password' }
+const moreItems = computed<DropdownMenuItem[][]>(() => [
+  toItems(menu.value.more),
+  toItems([passwordEntry]).map(item => ({ ...item, icon: 'i-lucide-key-round' })),
+])
+const moreEntries = computed(() => [...menu.value.more, passwordEntry])
 const mineItems = computed(() => toItems(menu.value.mine))
 const linkClass = (entry: NavEntry) => (isEntryActive(route.path, entry) ? 'bg-gray-100 font-medium' : '')
 const groupClass = (entries: NavEntry[]) => (isGroupActive(route.path, entries) ? 'bg-gray-100 font-medium' : '')
@@ -72,7 +77,7 @@ const menuOpen = ref(false)
 watch(() => route.fullPath, () => { menuOpen.value = false })
 const phoneGroups = computed(() => [
   { title: '', entries: menu.value.main },
-  { title: withCount(de.nav.mine, menu.value.mineCount), entries: menu.value.mine },
+  { title: navLabelWithCount(de.nav.mine, menu.value.mineCount), entries: menu.value.mine },
   { title: de.nav.more, entries: menu.value.more },
 ].filter(group => group.entries.length))
 
@@ -96,37 +101,39 @@ async function logout() {
       :class="headerHidden && !tabletChildren ? 'max-md:-translate-y-full' : ''"
     >
       <TerminalTabletUnlockBar v-if="tabletChildren" />
+      <!-- The tablet keeps its header exactly as before; the spacing below only applies to the other accounts. -->
       <div
-        v-else class="mx-auto flex max-w-[1800px] items-center gap-x-3 gap-y-2 px-4 py-2 md:max-xl:gap-x-2"
-        :class="isTerminal ? 'flex-wrap' : 'md:flex-wrap'"
+        v-else class="mx-auto flex max-w-[1800px] items-center px-4 py-2"
+        :class="isTerminal ? 'flex-wrap gap-3' : 'gap-x-3 gap-y-2 md:flex-wrap md:max-xl:gap-x-2'"
       >
-        <NuxtLink to="/" class="shrink-0 font-semibold">{{ de.appName }}</NuxtLink>
+        <NuxtLink to="/" class="font-semibold" :class="isTerminal ? '' : 'shrink-0'">{{ de.appName }}</NuxtLink>
         <USelect
           v-if="isProvider && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"
           size="sm" class="min-w-0 max-md:max-w-48 max-md:flex-1 md:w-40 xl:w-48" :aria-label="de.facilities.active"
           @update:model-value="switchFacility(Number($event))"
         />
         <span
-          v-else-if="activeName" class="min-w-0 truncate rounded bg-gray-100 px-2 py-0.5 text-sm text-gray-700"
-          :title="`${de.facilities.active}: ${activeName}`"
+          v-else-if="activeName" class="rounded bg-gray-100 px-2 py-0.5 text-sm text-gray-700"
+          :class="isTerminal ? '' : 'min-w-0 truncate'" :title="isTerminal ? de.facilities.active : `${de.facilities.active}: ${activeName}`"
         >{{ activeName }}</span>
         <!-- Wide screens (and always at the tablet): the entries in the header line. -->
-        <nav class="flex-wrap items-center gap-0.5" :class="isTerminal ? 'flex' : 'hidden md:flex'">
+        <nav :aria-label="de.nav.mainMenu" class="flex-wrap" :class="isTerminal ? 'flex gap-1' : 'hidden items-center gap-0.5 md:flex'">
           <NuxtLink
             v-for="link in menu.main" :key="link.to" :to="link.to"
-            class="whitespace-nowrap rounded py-1 text-sm hover:bg-gray-100" :class="[linkClass(link), tight ? 'px-1.5 xl:px-2' : 'px-2']"
+            class="rounded py-1 text-sm hover:bg-gray-100"
+            :class="[linkClass(link), isTerminal ? 'px-2' : tight ? 'whitespace-nowrap px-1.5 xl:px-2' : 'whitespace-nowrap px-2']"
           >
             {{ link.label }}
           </NuxtLink>
           <UDropdownMenu v-if="menu.more.length" :items="moreItems" :content="{ align: 'start' }">
             <UButton
               color="neutral" variant="ghost" size="sm" :label="de.nav.more" trailing-icon="i-lucide-chevron-down"
-              class="px-1.5 py-1 text-sm font-normal text-gray-900 xl:px-2" :class="groupClass(menu.more)"
+              class="px-1.5 py-1 text-sm font-normal text-gray-900 xl:px-2" :class="groupClass(moreEntries)"
             />
           </UDropdownMenu>
           <UDropdownMenu v-if="menu.mine.length" :items="mineItems" :content="{ align: 'start' }">
             <UButton
-              color="neutral" variant="ghost" size="sm" :label="withCount(de.nav.mine, menu.mineCount)" trailing-icon="i-lucide-chevron-down"
+              color="neutral" variant="ghost" size="sm" :label="navLabelWithCount(de.nav.mine, menu.mineCount)" trailing-icon="i-lucide-chevron-down"
               class="whitespace-nowrap px-1.5 py-1 text-sm font-normal text-gray-900 xl:px-2" :class="groupClass(menu.mine)"
             />
           </UDropdownMenu>
@@ -147,7 +154,7 @@ async function logout() {
         <!-- Phones: one line, everything else in the panel behind "Menü". -->
         <UButton
           v-if="!isTerminal" color="neutral" variant="outline" size="sm" icon="i-lucide-menu"
-          :label="withCount(de.nav.menu, menu.totalCount)" class="ml-auto shrink-0 md:hidden" @click="menuOpen = true"
+          :label="navLabelWithCount(de.nav.menu, menu.totalCount)" class="ml-auto shrink-0 md:hidden" @click="menuOpen = true"
         />
       </div>
     </header>
@@ -156,7 +163,7 @@ async function logout() {
       :description="`${de.nav.signedInAs} ${user?.username ?? ''}`" class="print:hidden"
     >
       <template #body>
-        <nav class="flex flex-col gap-4">
+        <nav :aria-label="de.nav.mainMenu" class="flex flex-col gap-4">
           <div v-for="group in phoneGroups" :key="group.title">
             <p v-if="group.title" class="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ group.title }}</p>
             <NuxtLink

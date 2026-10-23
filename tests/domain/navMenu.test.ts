@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isEntryActive, isGroupActive, navMenu, type NavViewer } from '../../app/utils/navMenu'
+import { isEntryActive, isGroupActive, navLabelWithCount, navMenu, type NavViewer } from '../../app/utils/navMenu'
 
 const base: NavViewer = { role: 'admin', employeeId: null, isPlanner: false, openCount: 0, unread: 0, today: { year: 2026, month: 10 } }
 const labels = (entries: { label: string }[]) => entries.map(entry => entry.label)
@@ -68,5 +68,12 @@ describe('isEntryActive / isGroupActive', () => {
     expect(isGroupActive('/admin/time', menu.more)).toBe(false)
     expect(isGroupActive('/my/plan/2026/1', menu.mine)).toBe(true)
     expect(isGroupActive('/plan/2026/1', menu.mine)).toBe(false)
+  })
+})
+
+describe('navLabelWithCount', () => {
+  it('adds the count in brackets only when there is one', () => {
+    expect(navLabelWithCount('Meins', 2)).toBe('Meins (2)')
+    expect(navLabelWithCount('Meins', 0)).toBe('Meins')
   })
 })

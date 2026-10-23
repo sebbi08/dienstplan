@@ -35,7 +35,7 @@ export interface NavViewer {
 }
 
 /** The label with the count in brackets, e.g. "Meins (2)"; without a count the plain label. */
-export const withCount = (label: string, count: number) => (count ? `${label} (${count})` : label)
+export const navLabelWithCount = (label: string, count: number) => (count ? `${label} (${count})` : label)
 const entry = (label: string, to: string, match = to): NavEntry => ({ label, to, match })
 
 export function navMenu(viewer: NavViewer): NavMenu {
@@ -43,11 +43,11 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const plan = entry(de.nav.plan, `/plan/${year}/${month}`, '/plan')
   if (viewer.role === 'terminal') return { main: [entry(de.nav.stamp, '/terminal'), plan], mine: [], more: [], mineCount: 0, totalCount: 0 }
 
-  const myPlan = entry(withCount(de.nav.myPlan, viewer.unread), `/my/plan/${year}/${month}`, '/my/plan')
+  const myPlan = entry(navLabelWithCount(de.nav.myPlan, viewer.unread), `/my/plan/${year}/${month}`, '/my/plan')
   const myLeave = entry(de.nav.myLeave, '/my/leave')
   const myRequirements = entry(de.nav.myRequirements, '/my/requirements')
   const open = viewer.isPlanner ? viewer.openCount : 0
-  const planning = viewer.isPlanner ? [entry(withCount(de.nav.leavePlanning, open), '/admin/leave-planning')] : []
+  const planning = viewer.isPlanner ? [entry(navLabelWithCount(de.nav.leavePlanning, open), '/admin/leave-planning')] : []
 
   if (viewer.role === 'provider' || viewer.role === 'admin') {
     // An admin linked to an employee stamps on "Mein Dienstplan", requests leave and sees their own appointments too.
