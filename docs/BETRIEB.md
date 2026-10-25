@@ -1069,3 +1069,16 @@ sehen keine Warnungen.
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
   Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.
 - **Am Tablet** bleibt das Menü unverändert.
+
+## 22. Zeiterfassung und Mein Dienstplan am Handy
+
+- Auf schmalen Bildschirmen zeigen **Zeiterfassung** (Leitung/Träger) und **Mein Dienstplan** statt der breiten Tabelle eine
+  **Karte je Tag**; am Computer bleibt die Tabelle.
+- **Zeiterfassung:** oben in der Karte Datum, geplanter Dienst und rechts die Abweichung (orange bei größerer Abweichung).
+  Darunter die gestempelten Zeiten zum Antippen und Ändern (zu spät rot, früher gegangen blau), „Zeitraum hinzufügen“ und
+  der Mülleimer, dann Hinweise, Krankmeldung und Protokoll, ganz unten **Abwesenheit** und das Feld **Begründung**.
+- **Mein Dienstplan:** Datum (mit Feiertag/Schließtag), die Dienste, die gestempelten Zeiten mit „Erfasst“, Info 1/Info 2
+  und die Ereignisse; geänderte Tage behalten den orangen Rand.
+- **Freie Tage** (Wochenende, Urlaub, Tage ohne Dienst) ohne Stempelzeit, Hinweis oder Begründung sind nur eine schmale
+  graue Zeile. In der Zeiterfassung kann man dort mit „+“ trotzdem eine Zeit eintragen und über den Pfeil eine Abwesenheit
+  setzen.

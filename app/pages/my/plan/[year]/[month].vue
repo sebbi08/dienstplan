@@ -8,6 +8,7 @@ import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { errorMessage } from '~/utils/errors'
 import { releasedChangeText } from '~/utils/changes'
+import { isCompactMyPlanDay } from '~/utils/dayCards'
 import { formatDayShort, formatSpan } from '~/utils/format'
 
 const route = useRoute()
@@ -59,7 +60,44 @@ function rowClass(day: MyPlanDayDto): string {
     <MyNotifications />
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <TimeMyTimeCard v-if="time?.enabled" :time="time" :refresh="refreshTime" />
-    <table v-if="data" class="w-full overflow-hidden rounded-lg text-sm ring-1 ring-gray-200">
+    <!-- Phones: one card per day instead of the table; days with nothing on them are one slim line. -->
+    <div v-if="data" class="space-y-1.5 md:hidden">
+      <template v-for="day in data.days" :key="day.date">
+        <div
+          v-if="isCompactMyPlanDay(day, recordsByDate.get(day.date)?.length ?? 0)"
+          class="flex items-center gap-2 rounded px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-200"
+          :class="day.holidayKey || day.closureLabel ? 'bg-blue-50' : 'bg-gray-50'"
+        >
+          <span class="whitespace-nowrap font-medium">{{ formatDayShort(day.date, day.weekday) }}</span>
+          <span v-if="day.holidayKey" class="truncate text-blue-700">{{ de.holidays[day.holidayKey] }}</span>
+          <span v-else-if="day.closureLabel" class="truncate text-blue-700">{{ day.closureLabel }}</span>
+        </div>
+        <div
+          v-else class="space-y-1 rounded-lg p-2 text-sm ring-1 ring-gray-200"
+          :class="[rowClass(day), day.changes.length ? 'border-l-4 border-orange-400' : '']" :title="changeTitle(day)"
+        >
+          <div class="flex flex-wrap items-baseline gap-x-2">
+            <span class="font-medium">{{ formatDayShort(day.date, day.weekday) }}</span>
+            <span v-if="day.holidayKey" class="text-xs text-blue-700">{{ de.holidays[day.holidayKey] }}</span>
+            <span v-else-if="day.closureLabel" class="text-xs text-blue-700">{{ day.closureLabel }}</span>
+          </div>
+          <div v-if="day.entries.length || helpFacilityNames(day).length" class="flex flex-wrap items-center gap-1 rounded px-1 py-0.5" :class="fillClass(day)">
+            <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
+            <span v-for="name in helpFacilityNames(day)" :key="name" class="text-xs text-gray-600">{{ de.myPlan.helpOutIn(name) }}</span>
+          </div>
+          <div v-if="time?.enabled && recordsByDate.get(day.date)?.length" class="text-xs">
+            <span v-for="record in recordsByDate.get(day.date)" :key="record.id" class="mr-2 inline-block">
+              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
+            </span>
+            <span class="font-semibold">{{ de.time.recorded }}: {{ formatDuration(recordedMinutes(recordsByDate.get(day.date)!)) }}</span>
+          </div>
+          <div v-if="day.info1" class="text-xs">{{ day.info1 }}</div>
+          <div v-if="day.info2" class="text-xs">{{ day.info2 }}</div>
+          <PlanAutoEvents :events="day.autoEvents" />
+        </div>
+      </template>
+    </div>
+    <table v-if="data" class="hidden w-full overflow-hidden rounded-lg text-sm ring-1 ring-gray-200 md:table">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-3 py-2">{{ de.plan.date }}</th>
@@ -75,8 +113,6 @@ function rowClass(day: MyPlanDayDto): string {
             {{ formatDayShort(day.date, day.weekday) }}
             <div v-if="day.holidayKey" class="text-xs font-normal text-blue-700">{{ de.holidays[day.holidayKey] }}</div>
             <div v-else-if="day.closureLabel" class="text-xs font-normal text-blue-700">{{ day.closureLabel }}</div>
-            <!-- On a phone the Info columns lie off to the right: the automatic events stand under the date instead. -->
-            <PlanAutoEvents :events="day.autoEvents" class="mt-0.5 font-normal sm:hidden" />
           </td>
           <td class="px-3 py-1.5" :class="fillClass(day)">
             <div class="flex flex-wrap items-center gap-1">
@@ -95,7 +131,7 @@ function rowClass(day: MyPlanDayDto): string {
           <td class="px-3 py-1.5 text-xs">{{ day.info1 }}</td>
           <td class="px-3 py-1.5 text-xs">
             {{ day.info2 }}
-            <PlanAutoEvents :events="day.autoEvents" class="hidden sm:block" :class="day.info2 ? 'mt-0.5' : ''" />
+            <PlanAutoEvents :events="day.autoEvents" :class="day.info2 ? 'mt-0.5' : ''" />
           </td>
         </tr>
       </tbody>

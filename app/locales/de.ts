@@ -79,7 +79,7 @@ export const de = {
     beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', removeAbsenceConfirm: 'Abwesenheit entfernen? Alle Einträge dieses Tages im Dienstplan werden gelöscht.', open: 'offen',
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),
     deleteConfirm: 'Diesen Zeitraum löschen?',
-    reason: 'Begründung', reasonPlaceholder: 'z. B. Arzttermin',
+    reason: 'Begründung', reasonPlaceholder: 'z. B. Arzttermin', free: 'frei',
     print: 'Drucken', printTitle: (name: string, month: string) => `Stempelzeiten ${name} – ${month}`,
     weeklyHours: (hours: string) => `Wochenstunden: ${hours}`, totalTarget: 'Soll', totalCounted: 'Angerechnet', totalDelta: 'Differenz im Monat',
     signEmployee: 'Unterschrift Mitarbeiter:in', signLead: 'Unterschrift Leitung', printedAt: (date: string) => `Gedruckt am ${date}`,

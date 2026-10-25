@@ -6,6 +6,7 @@ import type { CodeDto, EmployeeListItemDto, OpenRecordDto, TimeDayDto, TimeMonth
 import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort } from '~/utils/format'
+import { isCompactTimeDay } from '~/utils/dayCards'
 import { DEVIATION_MINUTES, markedRecords, recordedDifference as difference } from '~/utils/timeSheet'
 import { warningText } from '~/utils/warnings'
 
@@ -110,7 +111,10 @@ const scrollPending = ref(focusDate.value !== null)
 async function scrollToFocus() {
   if (!scrollPending.value || !focusDate.value) return
   await nextTick()
-  const row = document.getElementById(`day-${focusDate.value}`)
+  // The table row on wide screens, the day card on phones: whichever is shown.
+  const row = [`day-${focusDate.value}`, `card-${focusDate.value}`]
+    .map(id => document.getElementById(id))
+    .find(element => element && element.offsetParent !== null)
   if (!row) return
   scrollPending.value = false
   row.scrollIntoView({ block: 'center' })
@@ -139,7 +143,7 @@ function change(nextYear: number, nextMonth: number) {
     <div class="flex flex-wrap items-center gap-3">
       <span class="text-2xl font-semibold">{{ de.time.title }}</span>
       <MonthNav :year="year" :month="month" @change="change" />
-      <select v-model="employeeId" class="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm" :aria-label="de.time.employee">
+      <select v-model="employeeId" class="h-8 min-w-0 max-w-full rounded-md border border-gray-300 bg-white px-2 text-sm" :aria-label="de.time.employee">
         <option v-for="employee in employees ?? []" :key="employee.id" :value="employee.id">{{ employee.name }}</option>
       </select>
       <UButton
@@ -162,7 +166,76 @@ function change(nextYear: number, nextMonth: number) {
       </ul>
     </section>
 
-    <table v-if="data" class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
+    <!-- Phones: one card per day instead of the wide table; free days without anything stamped are one slim line. -->
+    <div v-if="data" class="space-y-2 md:hidden">
+      <template v-for="day in data.days" :key="day.date">
+        <div
+          v-if="isCompactTimeDay(day)" :id="`card-${day.date}`"
+          class="flex items-center gap-2 rounded bg-gray-50 px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-200"
+          :class="focusDate === day.date ? 'ring-2 ring-sky-500' : ''"
+        >
+          <span class="whitespace-nowrap font-medium">{{ formatDayShort(day.date, day.weekday) }}</span>
+          <span class="min-w-0 flex-1 truncate">{{ day.plan && day.plan !== '—' ? day.plan : de.time.free }}</span>
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :aria-label="de.time.addRecord" @click="addRecord(day)" />
+          <UDropdownMenu :items="absenceItems(day)">
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-chevron-down" :aria-label="de.time.absence" />
+          </UDropdownMenu>
+        </div>
+        <div
+          v-else :id="`card-${day.date}`" class="space-y-1.5 rounded-lg bg-white p-2 text-sm ring-1 ring-gray-200"
+          :class="[day.isWeekend ? 'bg-gray-50' : '', focusDate === day.date ? 'ring-2 ring-sky-500' : '']"
+        >
+          <div class="flex items-baseline gap-2">
+            <span class="whitespace-nowrap font-medium">{{ formatDayShort(day.date, day.weekday) }}</span>
+            <span class="min-w-0 flex-1 text-xs text-gray-600">{{ day.plan }}</span>
+            <span v-if="difference(day) !== null" class="whitespace-nowrap font-medium" :class="Math.abs(difference(day)!) > DEVIATION_MINUTES ? 'text-orange-600' : ''">
+              {{ formatSignedDuration(difference(day)!) }}
+            </span>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div v-for="record in day.records" :key="record.id" class="flex items-center gap-1">
+              <button type="button" class="hover:underline" @click="editRecord(day, record)">
+                <TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" />
+              </button>
+              <span v-if="record.edited" class="text-xs text-amber-700">({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</span>
+              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
+            </div>
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.time.addRecord" @click="addRecord(day)" />
+            <span v-if="day.usesRecords" class="ml-auto text-xs text-gray-500">{{ de.time.recorded }} {{ formatDuration(day.recordedMinutes) }}</span>
+          </div>
+          <div v-if="day.lateMinutes !== null" class="text-xs text-red-600">{{ de.time.lateBy(day.lateMinutes) }}</div>
+          <div v-if="day.earlyMinutes !== null" class="text-xs text-blue-600">{{ de.time.earlyBy(day.earlyMinutes) }}</div>
+          <div v-if="day.warnings.length" class="text-xs text-amber-700">
+            <div v-for="(warning, index) in day.warnings" :key="index">{{ warningText(warning, names) }}</div>
+          </div>
+          <button
+            v-if="day.sickLeave" type="button"
+            class="inline-flex items-start gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-left text-xs text-rose-800 ring-1 ring-rose-200"
+            @click="openSickLeave(day)"
+          >
+            <UIcon name="i-lucide-thermometer" class="mt-0.5 shrink-0" />
+            <span>{{ de.sickLeave.badge(day.sickLeave.leftAt === null ? null : formatTime(day.sickLeave.leftAt)) }}</span>
+          </button>
+          <button v-if="day.changes.length" type="button" class="block text-xs text-gray-500 hover:underline" @click="toggleProtocol(day.date)">{{ de.time.protocol }} ({{ day.changes.length }})</button>
+          <div v-if="expanded.has(day.date)" class="text-xs text-gray-600">
+            <div v-for="(entry, index) in day.changes" :key="index">{{ formatDateTime(entry.at) }} · {{ entry.actor ?? '?' }}: {{ entry.before }} → {{ entry.after }}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <UDropdownMenu :items="absenceItems(day)">
+              <UButton size="xs" color="neutral" variant="soft" :label="de.time.absence" trailing-icon="i-lucide-chevron-down" />
+            </UDropdownMenu>
+            <input
+              :key="`${data.employee.id}-${day.date}-${day.note}`" :value="day.note" maxlength="200" :aria-label="de.time.reason"
+              :placeholder="de.time.reasonPlaceholder"
+              class="min-w-0 flex-1 rounded border border-gray-200 bg-transparent px-1 py-0.5 text-xs focus:border-sky-500 focus:outline-none"
+              @change="saveNote(day, ($event.target as HTMLInputElement).value)"
+            >
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <table v-if="data" class="hidden w-full overflow-hidden rounded-lg md:table bg-white text-sm ring-1 ring-gray-200">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-2 py-2">{{ de.plan.date }}</th><th class="px-2 py-2">{{ de.time.planned }}</th>
