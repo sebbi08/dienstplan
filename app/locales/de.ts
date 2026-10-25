@@ -1079,12 +1079,12 @@ export const de = {
       modes: { off: 'aus', interval: 'alle X Monate', birthday: 'um den Geburtstag' },
     },
   },
-  /** The settings split into areas, the search above them and the page of one group. */
+  /** „Was noch fehlt“ on the settings overview and its line above the plan. */
   setupChecklist: {
     title: 'Was noch fehlt',
     allDone: 'Alles eingetragen.',
     loadFailed: 'Was noch fehlt, konnte nicht geladen werden.',
-    areas: { facility: 'Einrichtung', staff: 'Mitarbeiter', children: 'Kinder', time: 'Zeiterfassung' },
+    areas: { facility: 'Einrichtung', staff: 'Mitarbeiter', children: 'Kinder' },
     /** One line per item; `count` = how many are affected. */
     items: {
       opening_hours: () => 'Öffnungszeiten der Einrichtung fehlen',
@@ -1102,16 +1102,15 @@ export const de = {
         : `${count} Gruppen ohne Erinnerung an die Entwicklungsdoku`,
     },
     more: (count: number) => `und ${count} weitere`,
-    fix: 'Eintragen',
     hide: 'Brauchen wir nicht',
     hideLabel: (text: string) => `${text}: brauchen wir nicht`,
     show: 'Wieder einblenden',
     showLabel: (text: string) => `${text}: wieder einblenden`,
     hidden: (count: number) => `Ausgeblendet (${count})`,
     hiddenHint: 'Ausgeblendet für alle Leitungen und den Träger dieser Einrichtung.',
-    saveFailed: 'Das hat nicht geklappt. Versuche es noch einmal.',
     planLine: (count: number) => count === 1 ? 'Noch 1 Punkt offen' : `Noch ${count} Punkte offen`,
   },
+  /** The settings split into areas, the search above them and the page of one group. */
   settingsAreas: {
     areas: {
       facility: 'Einrichtung', groups: 'Gruppen', roster: 'Dienstplan', time: 'Zeiterfassung', children: 'Kinder', staff: 'Personal',
@@ -1236,6 +1235,7 @@ export const de = {
     pin_locked_permanent: 'PIN gesperrt. Bitte die Leitung oder den Träger um Freischaltung.',
     warning_ack_not_found: 'Diese Warnung ist nicht (mehr) als zur Kenntnis genommen markiert. Bitte lade die Seite neu.',
     invalid_warning_key: 'Diese Warnung lässt sich so nicht als zur Kenntnis genommen markieren. Bitte lade die Seite neu.',
+    invalid_setup_item: 'Diesen Punkt von „Was noch fehlt“ gibt es nicht (mehr). Bitte lade die Seite neu.',
     pin_missing: 'Für diese Person ist keine PIN hinterlegt.',
     pin_format: 'Die PIN muss aus 6 Ziffern bestehen.',
     employee_not_employed: 'Diese Person ist nicht mehr beschäftigt.',

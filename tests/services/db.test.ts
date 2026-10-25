@@ -1268,8 +1268,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    // Later migrations add further tables (0053 setup_hidden).
-    expect(tables().filter(name => !before.includes(name) && name !== 'setup_hidden')).toEqual(['warning_acks'])
+    // Later migrations add further tables: only check that this one is new.
+    expect(tables().filter(name => !before.includes(name))).toContain('warning_acks')
     expect(count(sqlite, 'warning_acks')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_list(warning_acks)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
@@ -1293,7 +1293,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(tables().filter(name => !before.includes(name))).toEqual(['setup_hidden'])
+    expect(tables().filter(name => !before.includes(name))).toContain('setup_hidden')
     expect(count(sqlite, 'setup_hidden')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_list(setup_hidden)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })

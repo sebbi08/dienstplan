@@ -34,7 +34,8 @@ export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date(
     id: children.id, firstName: children.firstName, lastName: children.lastName, careTypeId: children.careTypeId,
     admissionStatus: children.admissionStatus, entryDate: children.entryDate, leftOn: children.leftOn,
   }).from(children).where(eq(children.facilityId, facilityId)).orderBy(asc(children.lastName), asc(children.firstName)).all()
-    .filter(child => child.admissionStatus === 'contract' && childStatus(child, today) !== 'archived')
+    // Only children with a contract today (entered, not left): the ones the children list shows.
+    .filter(child => childStatus(child, today) === 'active')
   return {
     openingHoursEntered: loadHoursContext(db, facilityId).facility !== null,
     hasTerminalAccount: terminal !== undefined,
@@ -43,18 +44,15 @@ export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date(
     timeTrackingOn: facility.timeTrackingFrom !== null,
     groups: db.select().from(groups).where(eq(groups.facilityId, facilityId)).orderBy(asc(groups.sortOrder), asc(groups.id)).all()
       .map(group => ({ id: group.id, name: group.name, groupType: group.groupType, documentationOn: group.docMode !== 'off' })),
-    employees: staff.map((employee) => {
-      const lock = pinLockState(employee, now)
-      return {
-        id: employee.id,
-        name: employee.name,
-        hasPin: employee.pinHash !== null,
-        pinLocked: lock.pinLockedPermanently || lock.pinLockedUntil !== null,
-        hasQualification: employee.qualification !== null,
-        hasBirthday: employee.birthday !== null,
-        hasAccount: linked.has(employee.id),
-      }
-    }),
+    employees: staff.map(employee => ({
+      id: employee.id,
+      name: employee.name,
+      hasPin: employee.pinHash !== null,
+      pinLocked: pinLockState(employee, now).pinLockedPermanently,
+      hasQualification: employee.qualification !== null,
+      hasBirthday: employee.birthday !== null,
+      hasAccount: linked.has(employee.id),
+    })),
     children: kids.map(child => ({ id: child.id, name: `${child.firstName} ${child.lastName}`, hasCareType: child.careTypeId !== null })),
   }
 }
@@ -83,10 +81,9 @@ export function hideSetupItem(db: Db, user: SessionUser, facilityId: number, key
     .onConflictDoNothing({ target: [setupHidden.facilityId, setupHidden.key] }).run()
 }
 
-/** „Wieder einblenden“: shows the hidden item again; 404 when it is not hidden in this facility. */
+/** „Wieder einblenden“: shows the hidden item again (an item already shown stays as it is). */
 export function showSetupItem(db: Db, user: SessionUser, facilityId: number, key: string): void {
   assertManager(user)
   assertKey(user, key)
-  const removed = db.delete(setupHidden).where(and(eq(setupHidden.facilityId, facilityId), eq(setupHidden.key, key))).run()
-  if (removed.changes === 0) throw new ServiceError(404, 'setup_item_not_hidden')
+  db.delete(setupHidden).where(and(eq(setupHidden.facilityId, facilityId), eq(setupHidden.key, key))).run()
 }

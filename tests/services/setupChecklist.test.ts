@@ -51,12 +51,36 @@ describe('setup checklist service', () => {
     expect(openKeys(db, traeger)).toContain('facility_capacity')
     expect(openKeys(db, leitung)).not.toContain('facility_capacity')
     expect(errorCode(() => hideSetupItem(db, leitung, 1, 'facility_capacity', now))).toBe('forbidden')
+    hideSetupItem(db, traeger, 1, 'facility_capacity', now)
+    expect(errorCode(() => showSetupItem(db, leitung, 1, 'facility_capacity'))).toBe('forbidden')
+    expect(getSetupChecklist(db, leitung, 1, now).hidden).toEqual([])
+    expect(getSetupChecklist(db, traeger, 1, now).hidden.map(item => item.key)).toEqual(['facility_capacity'])
+  })
+
+  it('looks only at the staff, children, groups and tablet accounts of the facility', () => {
+    const krippe = addFacility(db, 'Krippe')
+    addEmployee(db, 'Kim', { facilityId: krippe })
+    addChild(db, krippe, { firstName: 'Ida', lastName: 'Fremd' })
+    addGroup(db, krippe, 'Igel')
+    addUser(db, 'tablet-krippe', 'terminal', null, krippe)
+    const list = getSetupChecklist(db, traeger, 1, now).open
+    const names = list.flatMap(item => item.names.map(entry => entry.name))
+    expect(names).not.toContain('Kim')
+    expect(names).not.toContain('Ida Fremd')
+    expect(names).not.toContain('Igel')
+    expect(list.map(item => item.key)).toContain('terminal_account')
+    expect(openKeys(db, traeger, krippe)).not.toContain('terminal_account')
   })
 
   it('asks for PINs only while time tracking is on and ignores staff who left', () => {
     addEmployee(db, 'Berta')
     addEmployee(db, 'Clara', { leftOn: '2026-09-30' })
     db.insert(employees).values({ name: 'Dora', facilityId: 1, sortOrder: 99, pinHash: 'x', pinLockLevel: 3 }).run()
+    // A 15-minute lock ends by itself: not listed.
+    const emil = db.insert(employees).values({
+      name: 'Emil', facilityId: 1, sortOrder: 100, pinHash: 'x', pinLockLevel: 1, pinLockedUntil: '2026-10-25T08:10:00.000Z',
+    }).returning().get().id
+    addUser(db, 'emil', 'observer', emil)
     expect(openKeys(db, leitung)).not.toContain('employee_pin')
     db.update(facilities).set({ timeTrackingFrom: '2026-10-01' }).where(eq(facilities.id, 1)).run()
     const list = getSetupChecklist(db, leitung, 1, now).open
@@ -70,6 +94,8 @@ describe('setup checklist service', () => {
     addChild(db, 1, { firstName: 'Mia', lastName: 'Muster' })
     addChild(db, 1, { firstName: 'Ole', lastName: 'Alt', leftOn: '2026-07-31' })
     addChild(db, 1, { firstName: 'Wim', lastName: 'Warte', admissionStatus: 'waitlist', entryDate: null })
+    // A contract that starts later: not yet in the children list, so not counted.
+    addChild(db, 1, { firstName: 'Zoe', lastName: 'Zukunft', entryDate: '2027-01-01' })
     const list = getSetupChecklist(db, leitung, 1, now).open
     expect(list.find(item => item.key === 'group_type')!.names).toEqual([{ name: 'Bären', to: `/admin/settings/groups/${baeren}` }])
     expect(list.find(item => item.key === 'group_documentation')!.count).toBe(1)
@@ -95,7 +121,9 @@ describe('setup checklist service', () => {
 
     showSetupItem(db, other, 1, 'employee_birthday')
     expect(openKeys(db, leitung)).toContain('employee_birthday')
-    expect(errorCode(() => showSetupItem(db, leitung, 1, 'employee_birthday'))).toBe('setup_item_not_hidden')
+    // Showing an item that is already shown changes nothing.
+    showSetupItem(db, leitung, 1, 'employee_birthday')
+    expect(openKeys(db, leitung)).toContain('employee_birthday')
     expect(errorCode(() => hideSetupItem(db, leitung, 1, 'unknown', now))).toBe('invalid_setup_item')
   })
 })

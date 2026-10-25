@@ -1088,8 +1088,8 @@ sehen keine Warnungen.
 - Ganz oben auf **Einstellungen** zeigt die Karte **Was noch fehlt** (nur Leitung und Träger), was in der gewählten
   Einrichtung noch nicht eingetragen ist, sortiert nach **Einrichtung**, **Mitarbeiter** und **Kinder**: z. B. fehlende
   Öffnungszeiten, kein Tablet-Konto, Gruppen ohne Gruppenart (nur wenn das Bundesland Gruppenarten kennt), Mitarbeiter
-  ohne PIN (nur mit Zeiterfassung), gesperrte PINs, ohne Qualifikation, ohne Geburtstag oder ohne Zugang, Kinder mit
-  Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Die Höchstzahl Kinder der Einrichtung
+  ohne PIN (nur mit Zeiterfassung), PINs, die erst entsperrt werden müssen, ohne Qualifikation, ohne Geburtstag oder ohne
+  Zugang, Kinder mit Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Die Höchstzahl Kinder der Einrichtung
   sieht nur der Träger, weil nur er sie einträgt.
 - Bei jedem Punkt stehen bis zu fünf Namen; ein Tipp auf den Punkt oder einen Namen führt dorthin, wo man es einträgt.
   Ist es eingetragen, verschwindet der Punkt von selbst. Ist alles da, steht dort nur „Alles eingetragen.“

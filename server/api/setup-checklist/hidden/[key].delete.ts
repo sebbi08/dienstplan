@@ -1,7 +1,7 @@
 import { setupItemParams } from '../../../schemas'
 import { showSetupItem } from '../../../services/setupChecklist'
 
-/** „Wieder einblenden“: shows a hidden item of „Was noch fehlt“ of the active facility again (not hidden: 404). */
+/** „Wieder einblenden“: shows a hidden item of „Was noch fehlt“ of the active facility again (already shown: no change). */
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { key } = await getValidatedRouterParams(event, setupItemParams.parse)

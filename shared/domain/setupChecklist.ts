@@ -4,7 +4,7 @@
  * The texts live in the app's locale; this file only decides which items are open.
  */
 
-export const SETUP_AREAS = ['facility', 'staff', 'children', 'time'] as const
+export const SETUP_AREAS = ['facility', 'staff', 'children'] as const
 export type SetupArea = typeof SETUP_AREAS[number]
 
 export const SETUP_ITEM_KEYS = [
@@ -32,12 +32,15 @@ export interface SetupFacts {
   /** Time tracking is on (a start day is set). */
   timeTrackingOn: boolean
   groups: { id: number; name: string; groupType: string | null; documentationOn: boolean }[]
-  /** The facility's employees who have not left. */
+  /**
+   * The facility's employees who have not left; `pinLocked` = locked until the Leitung or the Träger unlocks it (the
+   * 15- and 30-minute locks end by themselves and do not count).
+   */
   employees: {
     id: number; name: string; hasPin: boolean; pinLocked: boolean; hasQualification: boolean; hasBirthday: boolean
     hasAccount: boolean
   }[]
-  /** The facility's children with a contract who have not left. */
+  /** The facility's children with a contract today (entered and not left), as the children list shows them. */
   children: { id: number; name: string; hasCareType: boolean }[]
 }
 
@@ -69,7 +72,10 @@ function listItem<T extends { name: string }>(
 ): SetupItem | null {
   if (affected.length === 0) return null
   const names = affected.slice(0, SETUP_MAX_NAMES).map(entry => ({ name: entry.name, to: link(entry) }))
-  return { key, area, count: affected.length, names, to: affected.length === 1 ? names[0]!.to : listPath, providerOnly: false }
+  return {
+    key, area, count: affected.length, names, to: affected.length === 1 ? names[0]!.to : listPath,
+    providerOnly: SETUP_PROVIDER_ONLY_KEYS.includes(key),
+  }
 }
 
 const facilityItem = (key: SetupItemKey, area: SetupArea, to: string): SetupItem =>
