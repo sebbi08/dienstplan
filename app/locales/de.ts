@@ -1080,6 +1080,38 @@ export const de = {
     },
   },
   /** The settings split into areas, the search above them and the page of one group. */
+  setupChecklist: {
+    title: 'Was noch fehlt',
+    allDone: 'Alles eingetragen.',
+    loadFailed: 'Was noch fehlt, konnte nicht geladen werden.',
+    areas: { facility: 'Einrichtung', staff: 'Mitarbeiter', children: 'Kinder', time: 'Zeiterfassung' },
+    /** One line per item; `count` = how many are affected. */
+    items: {
+      opening_hours: () => 'Öffnungszeiten der Einrichtung fehlen',
+      terminal_account: () => 'Kein Tablet-Konto für die Einrichtung',
+      group_type: (count: number) => count === 1 ? '1 Gruppe ohne Gruppenart' : `${count} Gruppen ohne Gruppenart`,
+      facility_capacity: () => 'Höchstzahl Kinder der Einrichtung fehlt',
+      employee_pin: (count: number) => count === 1 ? '1 Mitarbeiter ohne PIN' : `${count} Mitarbeiter ohne PIN`,
+      employee_pin_locked: (count: number) => count === 1 ? '1 gesperrte PIN' : `${count} gesperrte PINs`,
+      employee_qualification: (count: number) => count === 1 ? '1 Mitarbeiter ohne Qualifikation' : `${count} Mitarbeiter ohne Qualifikation`,
+      employee_birthday: (count: number) => count === 1 ? '1 Mitarbeiter ohne Geburtstag' : `${count} Mitarbeiter ohne Geburtstag`,
+      employee_access: (count: number) => count === 1 ? '1 Mitarbeiter ohne Zugang' : `${count} Mitarbeiter ohne Zugang`,
+      child_care_type: (count: number) => count === 1 ? '1 Kind ohne Betreuungsart' : `${count} Kinder ohne Betreuungsart`,
+      group_documentation: (count: number) => count === 1
+        ? '1 Gruppe ohne Erinnerung an die Entwicklungsdoku'
+        : `${count} Gruppen ohne Erinnerung an die Entwicklungsdoku`,
+    },
+    more: (count: number) => `und ${count} weitere`,
+    fix: 'Eintragen',
+    hide: 'Brauchen wir nicht',
+    hideLabel: (text: string) => `${text}: brauchen wir nicht`,
+    show: 'Wieder einblenden',
+    showLabel: (text: string) => `${text}: wieder einblenden`,
+    hidden: (count: number) => `Ausgeblendet (${count})`,
+    hiddenHint: 'Ausgeblendet für alle Leitungen und den Träger dieser Einrichtung.',
+    saveFailed: 'Das hat nicht geklappt. Versuche es noch einmal.',
+    planLine: (count: number) => count === 1 ? 'Noch 1 Punkt offen' : `Noch ${count} Punkte offen`,
+  },
   settingsAreas: {
     areas: {
       facility: 'Einrichtung', groups: 'Gruppen', roster: 'Dienstplan', time: 'Zeiterfassung', children: 'Kinder', staff: 'Personal',

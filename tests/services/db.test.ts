@@ -1268,7 +1268,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(tables().filter(name => !before.includes(name))).toEqual(['warning_acks'])
+    // Later migrations add further tables (0053 setup_hidden).
+    expect(tables().filter(name => !before.includes(name) && name !== 'setup_hidden')).toEqual(['warning_acks'])
     expect(count(sqlite, 'warning_acks')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_list(warning_acks)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
@@ -1282,6 +1283,27 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(() => sqlite.exec(insert)).toThrow(/UNIQUE/)
     expect(sqlite.prepare(`SELECT acknowledged_by, acknowledged_by_name FROM warning_acks`).get())
       .toEqual({ acknowledged_by: null, acknowledged_by_name: '' })
+  })
+
+  it('0053 only creates the empty table of hidden checklist items, unique per facility and key', () => {
+    const { db, sqlite } = databaseAt('0052')
+    const tables = () => (sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as { name: string }[])
+      .map(row => row.name)
+    const before = tables()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(tables().filter(name => !before.includes(name))).toEqual(['setup_hidden'])
+    expect(count(sqlite, 'setup_hidden')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_list(setup_hidden)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { table: 'users', from: 'hidden_by', on_delete: 'SET NULL' },
+    ])
+    const insert = `INSERT INTO setup_hidden (facility_id, key, hidden_at) VALUES (1, 'employee_birthday', '2026-10-25T08:00:00.000Z')`
+    sqlite.exec(insert)
+    expect(() => sqlite.exec(insert)).toThrow(/UNIQUE/)
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {

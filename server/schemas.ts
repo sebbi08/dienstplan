@@ -410,3 +410,6 @@ export const warningAcksSchema = z.object({
   items: z.array(z.object({ key: warningAckKey, signature: z.string().max(100) })).min(1).max(1000),
 })
 export const warningAckKeysSchema = z.object({ keys: z.array(warningAckKey).min(1).max(1000) })
+
+/** The key of an item of „Was noch fehlt“ in the address; the service checks that it is known. */
+export const setupItemParams = z.object({ key: z.string().min(1).max(60) })

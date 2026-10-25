@@ -1082,3 +1082,18 @@ sehen keine Warnungen.
 - **Freie Tage** (Wochenende, Urlaub, Tage ohne Dienst) ohne Stempelzeit, Hinweis oder Begründung sind nur eine schmale
   graue Zeile. In der Zeiterfassung kann man dort mit „+“ trotzdem eine Zeit eintragen und über den Pfeil eine Abwesenheit
   setzen.
+
+## 23. Was noch fehlt
+
+- Ganz oben auf **Einstellungen** zeigt die Karte **Was noch fehlt** (nur Leitung und Träger), was in der gewählten
+  Einrichtung noch nicht eingetragen ist, sortiert nach **Einrichtung**, **Mitarbeiter** und **Kinder**: z. B. fehlende
+  Öffnungszeiten, kein Tablet-Konto, Gruppen ohne Gruppenart (nur wenn das Bundesland Gruppenarten kennt), Mitarbeiter
+  ohne PIN (nur mit Zeiterfassung), gesperrte PINs, ohne Qualifikation, ohne Geburtstag oder ohne Zugang, Kinder mit
+  Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Die Höchstzahl Kinder der Einrichtung
+  sieht nur der Träger, weil nur er sie einträgt.
+- Bei jedem Punkt stehen bis zu fünf Namen; ein Tipp auf den Punkt oder einen Namen führt dorthin, wo man es einträgt.
+  Ist es eingetragen, verschwindet der Punkt von selbst. Ist alles da, steht dort nur „Alles eingetragen.“
+- **Brauchen wir nicht** blendet einen Punkt für alle Leitungen und den Träger dieser Einrichtung aus. Ausgeblendete Punkte
+  zählen nicht und stehen zugeklappt unten unter **Ausgeblendet (n)**; dort holt **Wieder einblenden** sie zurück.
+- Im **Dienstplan** steht für Leitung und Träger eine kleine Zeile „Noch n Punkte offen“ mit Link zu den Einstellungen,
+  solange etwas offen ist.

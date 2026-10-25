@@ -909,3 +909,15 @@ export const warningAcks = sqliteTable('warning_acks', {
   uniqueIndex('warning_acks_facility_key').on(table.facilityId, table.key),
   index('warning_acks_facility_date').on(table.facilityId, table.date),
 ])
+
+/**
+ * „Brauchen wir nicht“: an item of „Was noch fehlt“ (see shared/domain/setupChecklist.ts) hidden for the facility, for
+ * every Leitung and the Träger alike, until someone shows it again.
+ */
+export const setupHidden = sqliteTable('setup_hidden', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  hiddenAt: text('hidden_at').notNull(),
+  hiddenBy: integer('hidden_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [uniqueIndex('setup_hidden_facility_key').on(table.facilityId, table.key)])
