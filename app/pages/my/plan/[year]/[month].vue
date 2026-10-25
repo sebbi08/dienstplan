@@ -64,7 +64,7 @@ function rowClass(day: MyPlanDayDto): string {
     <div v-if="data" class="space-y-1.5 md:hidden">
       <template v-for="day in data.days" :key="day.date">
         <div
-          v-if="isCompactMyPlanDay(day, recordsByDate.get(day.date)?.length ?? 0)"
+          v-if="isCompactMyPlanDay(day, time?.enabled ? recordsByDate.get(day.date)?.length ?? 0 : 0)"
           class="flex items-center gap-2 rounded px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-200"
           :class="day.holidayKey || day.closureLabel ? 'bg-blue-50' : 'bg-gray-50'"
         >

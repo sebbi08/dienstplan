@@ -175,15 +175,15 @@ function change(nextYear: number, nextMonth: number) {
           :class="focusDate === day.date ? 'ring-2 ring-sky-500' : ''"
         >
           <span class="whitespace-nowrap font-medium">{{ formatDayShort(day.date, day.weekday) }}</span>
-          <span class="min-w-0 flex-1 truncate">{{ day.plan && day.plan !== '—' ? day.plan : de.time.free }}</span>
+          <span class="min-w-0 flex-1">{{ day.plan && day.plan !== '—' ? day.plan : de.time.free }}</span>
           <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :aria-label="de.time.addRecord" @click="addRecord(day)" />
           <UDropdownMenu :items="absenceItems(day)">
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-chevron-down" :aria-label="de.time.absence" />
           </UDropdownMenu>
         </div>
         <div
-          v-else :id="`card-${day.date}`" class="space-y-1.5 rounded-lg bg-white p-2 text-sm ring-1 ring-gray-200"
-          :class="[day.isWeekend ? 'bg-gray-50' : '', focusDate === day.date ? 'ring-2 ring-sky-500' : '']"
+          v-else :id="`card-${day.date}`" class="space-y-1.5 rounded-lg p-2 text-sm ring-1 ring-gray-200"
+          :class="[day.isWeekend ? 'bg-gray-50' : 'bg-white', focusDate === day.date ? 'ring-2 ring-sky-500' : '']"
         >
           <div class="flex items-baseline gap-2">
             <span class="whitespace-nowrap font-medium">{{ formatDayShort(day.date, day.weekday) }}</span>
@@ -197,12 +197,16 @@ function change(nextYear: number, nextMonth: number) {
               <button type="button" class="hover:underline" @click="editRecord(day, record)">
                 <TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" />
               </button>
-              <span v-if="record.edited" class="text-xs text-amber-700">({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</span>
+              <!-- No hover on a phone: who changed the record and when stands in the text. -->
+              <span v-if="record.edited" class="text-xs text-amber-700">
+                ({{ record.source === 'admin' ? de.time.edited : de.time.changed }}{{ record.editedAt ? ` · ${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : '' }})
+              </span>
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
             </div>
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.time.addRecord" @click="addRecord(day)" />
             <span v-if="day.usesRecords" class="ml-auto text-xs text-gray-500">{{ de.time.recorded }} {{ formatDuration(day.recordedMinutes) }}</span>
           </div>
+          <div v-if="!day.usesRecords" class="text-xs text-gray-400">{{ day.date >= todayDate ? de.time.todayPlanned : de.time.beforeStart }}</div>
           <div v-if="day.lateMinutes !== null" class="text-xs text-red-600">{{ de.time.lateBy(day.lateMinutes) }}</div>
           <div v-if="day.earlyMinutes !== null" class="text-xs text-blue-600">{{ de.time.earlyBy(day.earlyMinutes) }}</div>
           <div v-if="day.warnings.length" class="text-xs text-amber-700">
