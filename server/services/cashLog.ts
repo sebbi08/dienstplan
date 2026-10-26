@@ -14,6 +14,7 @@ export type CashLogAction =
   | 'entry_created' | 'entry_updated' | 'entry_deleted'
   | 'transfer_created' | 'transfer_updated' | 'transfer_deleted'
   | 'month_closed' | 'month_reopened'
+  | 'receipt_added' | 'receipt_replaced' | 'receipt_removed'
 
 /** Lines about the box itself (month null); a box with only these may still be deleted. */
 export const BOX_LOG_ACTIONS: CashLogAction[] = ['box_created', 'box_updated', 'box_archived', 'box_activated']

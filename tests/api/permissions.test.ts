@@ -42,6 +42,8 @@ const PROVIDER_ROUTES = [
   'staffing-settings.put.ts', 'staffing-settings.delete.ts',
   // The absence codes (Urlaub, Krank …) apply to every facility: only the Träger changes them.
   'absence-codes/[id].put.ts',
+  // Reopening a closed month of a cash box (spec Kasse §6).
+  'cash/boxes/[id]/reopen.post.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = [
@@ -68,6 +70,9 @@ const ADMIN_ROUTES = [
   'cash/boxes.get.ts', 'cash/boxes.post.ts', 'cash/boxes/[id].put.ts', 'cash/boxes/[id].delete.ts',
   'cash/boxes/[id]/[year]/[month].get.ts', 'cash/entries.post.ts', 'cash/entries/[id].put.ts', 'cash/entries/[id].delete.ts',
   'cash/transfers.post.ts', 'cash/transfers/[id].put.ts', 'cash/transfers/[id].delete.ts', 'cash/purposes.get.ts',
+  // Closing a month, receipts and the CSV file.
+  'cash/boxes/[id]/close.post.ts', 'cash/boxes/[id]/csv.get.ts', 'cash/entries/[id]/receipt.put.ts',
+  'cash/entries/[id]/receipt.delete.ts', 'cash/receipts/[id].get.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the

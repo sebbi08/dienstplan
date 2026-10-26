@@ -70,3 +70,17 @@ export function documentResponseHeaders(file: { mimeType: string; fileName: stri
     'Cache-Control': 'no-store',
   }
 }
+
+/**
+ * Headers of a CSV download (UTF-8, saved as attachment, never cached). The name may hold umlauts: `filename` carries
+ * an ASCII fallback, `filename*` the UTF-8 name (RFC 6266).
+ */
+export function csvResponseHeaders(fileName: string): Record<string, string> {
+  const ascii = fileName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_')
+  return {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store',
+  }
+}

@@ -8,6 +8,7 @@ import { cashBoxes, cashClosedMonths, cashEntries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { assertActive, assertMonthOpen, boxInfo, loadBox, startKey, transferPurpose, type CashBoxRow } from './cashBoxes'
 import { type CashActor, describeCashEntry, describeChanges, germanDate, logCash, monthLog, monthOf } from './cashLog'
+import { dropUnusedReceipts } from './cashReceipts'
 
 /** At most 1.000.000,00 € per entry. */
 export const MAX_CASH_CENTS = 100_000_000
@@ -100,12 +101,13 @@ export function updateEntry(
   })
 }
 
-/** Deletes a plain entry of an open month; the others of its month move up in numbering. */
+/** Deletes a plain entry of an open month (and its receipt); the others of its month move up in numbering. */
 export function deleteEntry(db: Db, actor: CashActor, facilityId: number, id: number, now: Date = new Date()): void {
   const { entry, box } = loadPlainEntry(db, facilityId, id)
   assertWritable(db, box, entry.date)
   db.transaction((tx) => {
     tx.delete(cashEntries).where(eq(cashEntries.id, id)).run()
+    dropUnusedReceipts(tx, [entry.receiptId])
     logCash(tx, box.id, actor, 'entry_deleted', describeEntry(entry), monthOf(entry.date), now)
   })
 }
@@ -171,13 +173,14 @@ export function updateTransfer(
   })
 }
 
-/** Deletes both rows of a transfer; its month must be open in both boxes. */
+/** Deletes both rows of a transfer (and their receipt); its month must be open in both boxes. */
 export function deleteTransfer(db: Db, actor: CashActor, facilityId: number, id: number, now: Date = new Date()): void {
   const { out, income, text } = loadTransfer(db, facilityId, id)
   for (const side of [out, income]) assertWritable(db, side.box, side.entry.date)
   const facts = { date: out.entry.date, cents: out.entry.cents, purpose: text }
   db.transaction((tx) => {
     tx.delete(cashEntries).where(eq(cashEntries.transferId, id)).run()
+    dropUnusedReceipts(tx, [out.entry.receiptId, income.entry.receiptId])
     logCash(tx, out.box.id, actor, 'transfer_deleted', `an ${income.box.name}: ${describeCashEntry(facts)}`, monthOf(facts.date), now)
     logCash(tx, income.box.id, actor, 'transfer_deleted', `von ${out.box.name}: ${describeCashEntry(facts)}`, monthOf(facts.date), now)
   })

@@ -434,3 +434,9 @@ export const cashTransferSchema = z.object({
   fromBoxId: z.number().int().positive(), toBoxId: z.number().int().positive(), ...cashFacts,
 })
 export const cashPurposeQuery = z.object({ q: z.string().max(200).default('') })
+/** Closing a month; whether it may be closed is checked by the service (cash_close_not_over …). */
+export const cashCloseSchema = z.object({ year: z.number().int().min(2000).max(2100), month: z.number().int().min(1).max(12) })
+/** Reopening: the reason (1–200 chars) is checked by the service (cash_reopen_reason_invalid). */
+export const cashReopenSchema = cashCloseSchema.extend({ reason: z.string().max(1000) })
+/** The CSV file of a month or (without month) of the calendar year. */
+export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().min(1).max(12).optional() })
