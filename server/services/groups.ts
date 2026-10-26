@@ -8,7 +8,7 @@ import { isGroupColor } from '../../shared/types/api'
 import type { ChildGroupDto, GroupAccess, GroupColor, GroupDto, Role, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
+  cashBoxes, childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
 } from '../db/schema'
 import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
@@ -194,6 +194,10 @@ export function deleteGroup(db: Db, facilityId: number, id: number, today: IsoDa
   if (db.select({ id: childGroupChanges.id }).from(childGroupChanges)
     .where(and(eq(childGroupChanges.groupId, id), isNull(childGroupChanges.appliedAt))).get()) {
     throw new ServiceError(409, 'group_has_pending_changes')
+  }
+  // Cash books (also archived ones) keep their group: „Gruppe hat noch Kassen“.
+  if (db.select({ id: cashBoxes.id }).from(cashBoxes).where(eq(cashBoxes.groupId, id)).get()) {
+    throw new ServiceError(409, 'group_has_cash_boxes')
   }
   return db.transaction((tx) => {
     const wasForSchoolChildren = isForSchoolChildren(tx, id)

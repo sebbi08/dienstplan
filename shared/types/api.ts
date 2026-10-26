@@ -1,3 +1,4 @@
+import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
@@ -1826,4 +1827,67 @@ export interface StaffingMonthDto {
      */
     qualificationsMissing: boolean
   }
+}
+
+/** A cash book (Kasse) of the facility or one of its groups; amounts in cents. */
+export interface CashBoxInfoDto {
+  id: number
+  name: string
+  kind: CashKind
+  /** null = the whole facility („Einrichtung“). */
+  groupId: number | null
+  groupName: string | null
+  startYear: number
+  startMonth: number
+  startBalance: number
+  /** Stillgelegt: readable, but no new or changed entries. */
+  archived: boolean
+  sortOrder: number
+}
+
+/** A box in the overview, with its state today. */
+export interface CashBoxDto extends CashBoxInfoDto {
+  /** Start balance plus all entries up to today. */
+  balanceToday: number
+  /** The latest closed month („abgeschlossen bis …“), null while none is closed. */
+  closedThrough: YearMonth | null
+  /** An expense (not a transfer) without receipt dated after the closed months. */
+  missingReceipts: boolean
+  /** Whether the box has entries (then it can only be archived, not deleted). */
+  hasEntries: boolean
+}
+
+/** A box's audit log line; `action` is a key (box_created, entry_updated …), `detail` the German text. */
+export interface CashLogDto {
+  id: number
+  at: string
+  actor: string
+  action: string
+  detail: string
+}
+
+/** The other side of a transfer row, and the user's text without the „Umbuchung an/von …: “ prefix. */
+export interface CashTransferInfo {
+  otherBoxId: number
+  otherBoxName: string
+  text: string
+}
+
+export type CashMonthRowDto = CashSheetRow & { receiptId: number | null; transfer: CashTransferInfo | null }
+
+/** One month's sheet of a box (Kassenblatt). */
+export interface CashMonthDto {
+  box: CashBoxInfoDto
+  year: number
+  month: number
+  opening: number
+  income: number
+  expense: number
+  closing: number
+  /** Cash boxes only: a day of the month ended below 0. */
+  negative: boolean
+  rows: CashMonthRowDto[]
+  closed: { at: string; by: string } | null
+  /** The box's log lines written during this month, oldest first. */
+  log: CashLogDto[]
 }

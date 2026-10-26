@@ -64,6 +64,10 @@ const ADMIN_ROUTES = [
   'plan/warning-acks.post.ts', 'plan/warning-acks.delete.ts',
   // „Was noch fehlt“ of the active facility, and hiding / showing its items for all managers of the facility.
   'setup-checklist/index.get.ts', 'setup-checklist/hidden/[key].put.ts', 'setup-checklist/hidden/[key].delete.ts',
+  // Cash book (Kasse) of the active facility: boxes, month sheets, entries, transfers, purpose suggestions (spec Kasse §6).
+  'cash/boxes.get.ts', 'cash/boxes.post.ts', 'cash/boxes/[id].put.ts', 'cash/boxes/[id].delete.ts',
+  'cash/boxes/[id]/[year]/[month].get.ts', 'cash/entries.post.ts', 'cash/entries/[id].put.ts', 'cash/entries/[id].delete.ts',
+  'cash/transfers.post.ts', 'cash/transfers/[id].put.ts', 'cash/transfers/[id].delete.ts', 'cash/purposes.get.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -195,6 +199,23 @@ describe('API route permissions', () => {
       expect(ADMIN_ROUTES, route).toContain(route)
       expect(code, route).toContain('requireAdmin(')
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code, route).toContain('admin.facilityId')
+    }
+  })
+
+  it('opens the cash book to managers of the active facility only (staff and tablet 403)', () => {
+    const touching = routes.filter(route => /^cash\//.test(route) || /services\/cash\w*'/.test(source(route)))
+    expect(touching.length).toBeGreaterThanOrEqual(12)
+    for (const route of touching) {
+      const code = source(route)
+      // Only reopening a closed month is the Träger's (spec Kasse §6).
+      if (PROVIDER_ROUTES.includes(route)) {
+        expect(code, route).toContain('requireProvider(')
+        continue
+      }
+      expect(ADMIN_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireAdmin(')
+      expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
       expect(code, route).toContain('admin.facilityId')
     }
   })

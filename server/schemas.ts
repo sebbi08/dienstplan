@@ -413,3 +413,24 @@ export const warningAckKeysSchema = z.object({ keys: z.array(warningAckKey).min(
 
 /** The key of an item of „Was noch fehlt“ in the address; the service checks that it is known. */
 export const setupItemParams = z.object({ key: z.string().min(1).max(60) })
+
+// Cash book (Kasse): amounts are integer cents (the client parses „12,50“). Name, start balance, date, amount and
+// purpose are checked by the services (cash_box_name_required, cash_amount_invalid, cash_date_future …), so the answers
+// are in German.
+const cashFacts = { date: z.string().max(20), cents: z.number(), purpose: z.string().max(1000) }
+export const cashBoxSchema = z.object({
+  name: z.string().max(200),
+  kind: z.enum(['cash', 'account']),
+  groupId: z.number().int().positive().nullable(),
+  startYear: z.number().int().min(2000).max(2100),
+  startMonth: z.number().int().min(1).max(12),
+  startBalance: z.number(),
+})
+export const cashBoxUpdateSchema = cashBoxSchema.extend({ archived: z.boolean() })
+export const cashMonthParams = idParams.extend(monthParams.shape)
+export const cashEntrySchema = z.object({ boxId: z.number().int().positive(), direction: z.enum(['in', 'out']), ...cashFacts })
+export const cashFactsSchema = z.object(cashFacts)
+export const cashTransferSchema = z.object({
+  fromBoxId: z.number().int().positive(), toBoxId: z.number().int().positive(), ...cashFacts,
+})
+export const cashPurposeQuery = z.object({ q: z.string().max(200).default('') })

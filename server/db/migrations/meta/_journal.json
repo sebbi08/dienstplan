@@ -379,6 +379,13 @@
       "when": 1792941833172,
       "tag": "0053_setup_hidden",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1793010381754,
+      "tag": "0054_cashbook",
+      "breakpoints": true
     }
   ]
 }

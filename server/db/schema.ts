@@ -921,3 +921,77 @@ export const setupHidden = sqliteTable('setup_hidden', {
   hiddenAt: text('hidden_at').notNull(),
   hiddenBy: integer('hidden_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [uniqueIndex('setup_hidden_facility_key').on(table.facilityId, table.key)])
+
+/**
+ * A cash book (Kasse) of a facility: for the whole facility (`groupId` null) or one of its groups. `kind` „Bar“ (cash)
+ * or „EC/Konto“ (account). Amounts are integer cents; `startBalance` is the balance at the start of the start month.
+ * An archived box (stillgelegt) stays readable, but takes no new, changed or deleted entries.
+ */
+export const cashBoxes = sqliteTable('cash_boxes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  // Deleting a group with boxes is refused by the service (409 group_has_cash_boxes).
+  groupId: integer('group_id').references(() => groups.id),
+  name: text('name').notNull(),
+  kind: text('kind', { enum: ['cash', 'account'] }).notNull(),
+  startYear: integer('start_year').notNull(),
+  startMonth: integer('start_month').notNull(),
+  startBalance: integer('start_balance').notNull().default(0),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  /** Order within the box's scope (facility or group). */
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+}, table => [index('cash_boxes_facility').on(table.facilityId)])
+
+/** A receipt (Beleg) file of cash entries: JPG, PNG or PDF, kept in the database so backups include it. */
+export const cashReceipts = sqliteTable('cash_receipts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  name: text('name').notNull(),
+  createdAt: text('created_at').notNull(),
+}, table => [index('cash_receipts_facility').on(table.facilityId)])
+
+/**
+ * An income (`in`) or expense (`out`) of a box, in cents (> 0). Numbers are not stored (given per month when shown).
+ * A transfer (Umbuchung) is an expense in one box and an income in another; both rows carry the expense row's id as
+ * `transferId`.
+ */
+export const cashEntries = sqliteTable('cash_entries', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  boxId: integer('box_id').notNull().references(() => cashBoxes.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  direction: text('direction', { enum: ['in', 'out'] }).notNull(),
+  cents: integer('cents').notNull(),
+  purpose: text('purpose').notNull(),
+  receiptId: integer('receipt_id').references(() => cashReceipts.id, { onDelete: 'set null' }),
+  transferId: integer('transfer_id'),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [
+  index('cash_entries_box_date').on(table.boxId, table.date),
+  index('cash_entries_transfer').on(table.transferId),
+])
+
+/** A closed month of a box (no entry dated in it may change); `closedBy` is the user name at the time. */
+export const cashClosedMonths = sqliteTable('cash_closed_months', {
+  boxId: integer('box_id').notNull().references(() => cashBoxes.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  month: integer('month').notNull(),
+  closedAt: text('closed_at').notNull(),
+  closedBy: text('closed_by').notNull(),
+}, table => [primaryKey({ columns: [table.boxId, table.year, table.month] })])
+
+/**
+ * The audit log of a box (nobody changes or deletes it): `actor` is the user name at the time, `action` a key
+ * (box_created, entry_updated, transfer_deleted …), `detail` the German text shown (before → after for changes).
+ */
+export const cashLog = sqliteTable('cash_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  boxId: integer('box_id').notNull().references(() => cashBoxes.id, { onDelete: 'cascade' }),
+  at: text('at').notNull(),
+  actor: text('actor').notNull(),
+  action: text('action').notNull(),
+  detail: text('detail').notNull(),
+}, table => [index('cash_log_box_at').on(table.boxId, table.at)])
