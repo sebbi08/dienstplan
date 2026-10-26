@@ -60,7 +60,11 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
         </tbody>
       </table>
 
-      <section v-for="section in props.data.form.content.sections" :key="section.id" class="mb-4 space-y-2">
+      <!-- A rating section is a short table: kept on one page, so its heading never stays behind on the previous page. -->
+      <section
+        v-for="section in props.data.form.content.sections" :key="section.id" class="mb-4 space-y-2"
+        :class="sectionHasRating(section) ? 'break-inside-avoid' : ''"
+      >
         <h2 class="border-b border-gray-400 pb-0.5 text-base font-bold break-after-avoid print:text-[13px]">{{ section.title }}</h2>
         <p v-if="section.hint" class="whitespace-pre-line text-gray-700">{{ section.hint }}</p>
         <div v-if="sectionHasRating(section)" class="text-xs text-gray-700 print:text-[10px]">
