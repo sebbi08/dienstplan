@@ -154,6 +154,20 @@ describe('cash boxes', () => {
     const closed = box({ name: 'Geschlossen' })
     db.insert(cashLog).values({ boxId: closed, at: '2026-04-01T08:00:00.000Z', actor: 'leitung', action: 'month_closed', detail: '03/2026', month: '2026-03' }).run()
     expect(errorCode(() => deleteBox(db, 1, closed))).toBe('cash_box_has_history')
+    // The overview says so up front (the dialog offers „Löschen“ only then).
+    const fresh = box({ name: 'Frisch' })
+    updateBox(db, leitung, 1, fresh, { ...base, name: 'Frisch', archived: true })
+    const deletable = new Map(listBoxes(db, 1, today).map(row => [row.id, row.canDelete]))
+    expect(Object.fromEntries(deletable)).toEqual({ [id]: false, [closed]: false, [fresh]: true })
+  })
+
+  it('refuses a start month after the running month', () => {
+    const now = new Date('2026-10-26T10:00:00Z')
+    expect(errorCode(() => createBox(db, leitung, 1, { ...base, startYear: 2026, startMonth: 11 }, now))).toBe('cash_start_future')
+    expect(errorCode(() => createBox(db, leitung, 1, { ...base, startYear: 2027, startMonth: 1 }, now))).toBe('cash_start_future')
+    const id = createBox(db, leitung, 1, { ...base, startYear: 2026, startMonth: 10 }, now)
+    expect(errorCode(() => updateBox(db, leitung, 1, id, { ...base, startYear: 2026, startMonth: 12, archived: false }, now))).toBe('cash_start_future')
+    expect(loadBox(db, 1, id)).toMatchObject({ startYear: 2026, startMonth: 10 })
   })
 
   it('reports the closed months and missing receipts of the open period only', () => {

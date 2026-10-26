@@ -1409,6 +1409,7 @@ export const de = {
     cash_box_name_taken: 'Eine Kasse mit diesem Namen gibt es schon.',
     cash_box_kind_invalid: 'Bitte wähle „Bar“ oder „EC/Konto“.',
     cash_start_month_invalid: 'Bitte einen gültigen Startmonat angeben.',
+    cash_start_future: 'Der Startmonat darf nicht nach dem laufenden Monat liegen.',
     cash_start_balance_invalid: 'Der Anfangsbestand muss 0 oder mehr sein.',
     cash_entries_before_start: 'Es gibt Einträge vor diesem Startmonat. Wähle einen früheren Startmonat.',
     cash_box_has_entries: 'Die Kasse hat schon Einträge und kann nur stillgelegt werden.',

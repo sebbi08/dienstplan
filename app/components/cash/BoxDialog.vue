@@ -34,7 +34,14 @@ const scopeItems = computed(() => [
   { label: de.cash.facility, value: FACILITY },
   ...(groups.value ?? []).map(group => ({ label: group.name, value: String(group.id) })),
 ])
-const monthItems = de.months.map((label, index) => ({ label, value: index + 1 }))
+// The start month is at most the running month (the server refuses later ones with cash_start_future).
+const current = parseIsoDate(todayIso())
+const monthItems = computed(() => de.months.map((label, index) => ({
+  label, value: index + 1, disabled: Number(form.startYear) >= current.year && index + 1 > current.month,
+})))
+watch(() => form.startYear, (year) => {
+  if (Number(year) >= current.year && form.startMonth > current.month) form.startMonth = current.month
+})
 
 async function save() {
   const startBalance = parseStartBalance(form.startBalance)
@@ -96,15 +103,15 @@ async function remove() {
           <USelect v-model="form.startMonth" :items="monthItems" class="w-full" :disabled="startLocked" />
         </UFormField>
         <UFormField :label="de.cash.startYear">
-          <UInput v-model="form.startYear" type="number" min="2000" max="2100" class="w-full" :disabled="startLocked" required />
+          <UInput v-model="form.startYear" type="number" min="2000" :max="current.year" class="w-full" :disabled="startLocked" required />
         </UFormField>
         <UFormField :label="`${de.cash.startBalance} (€)`" class="col-span-2" :description="startLocked ? de.cash.startLocked : de.cash.startBalanceHint">
           <UInput v-model="form.startBalance" inputmode="decimal" class="w-full" :disabled="startLocked" />
         </UFormField>
-        <p v-if="box && !box.hasEntries" class="col-span-2 text-xs text-gray-500">{{ de.cash.deleteHint }}</p>
+        <p v-if="box && box.canDelete" class="col-span-2 text-xs text-gray-500">{{ de.cash.deleteHint }}</p>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex flex-wrap gap-2">
-          <UButton v-if="box && !box.hasEntries" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" @click="remove" />
+          <UButton v-if="box && box.canDelete" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" @click="remove" />
           <UButton
             v-if="box" color="neutral" variant="outline" :icon="box.archived ? 'i-lucide-archive-restore' : 'i-lucide-archive'"
             :label="box.archived ? de.cash.activate : de.cash.archive" @click="toggleArchived"

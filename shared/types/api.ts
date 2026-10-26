@@ -1855,6 +1855,8 @@ export interface CashBoxDto extends CashBoxInfoDto {
   missingReceipts: boolean
   /** Whether the box has entries (then it can only be archived, not deleted). */
   hasEntries: boolean
+  /** No entries and no log lines beyond the box's own (the rule of deleting a box); otherwise it can only be archived. */
+  canDelete: boolean
 }
 
 /** A box's audit log line; `action` is a key (box_created, entry_updated …), `detail` the German text. */

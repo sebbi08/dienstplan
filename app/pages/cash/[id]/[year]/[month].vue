@@ -87,8 +87,15 @@ function openRow(row: CashMonthRowDto) {
   dialogOpen.value = true
 }
 
-/** Red only on cash boxes whose sheet went below 0 (never on EC/Konto). */
-const negativeRow = (row: CashMonthRowDto) => !!data.value?.negative && row.balanceAfter < 0
+/**
+ * Red only on cash boxes whose sheet went below 0 (never on EC/Konto), and only the last row of a day that ended below 0
+ * (the rule of `negative`): a dip within a day that is made up the same day stays black.
+ */
+const negativeRows = computed(() => {
+  const rows = data.value?.negative ? data.value.rows : []
+  return new Set(rows.filter((row, index) => rows[index + 1]?.date !== row.date && row.balanceAfter < 0).map(row => row.id))
+})
+const negativeRow = (row: CashMonthRowDto) => negativeRows.value.has(row.id)
 const receiptUrl = (row: CashMonthRowDto) => `/api/cash/receipts/${row.receiptId}`
 const csvMonth = computed(() => `/api/cash/boxes/${boxId.value}/csv?year=${year.value}&month=${month.value}`)
 const csvYear = computed(() => `/api/cash/boxes/${boxId.value}/csv?year=${year.value}`)

@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, isNull, max, ne, notInArray, sql } from 'drizzle-orm'
 import { formatCents, monthKey, type CashDirection, type CashKind, type YearMonth } from '../../shared/domain/cash'
+import { todayIso } from '../../shared/domain/dates'
 import type { IsoDate } from '../../shared/domain/types'
 import type { CashBoxDto, CashBoxInfoDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -88,6 +89,9 @@ export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDt
     .groupBy(cashEntries.boxId).all().map(row => [row.boxId, Number(row.total)]))
   const withEntries = new Set(db.selectDistinct({ boxId: cashEntries.boxId }).from(cashEntries)
     .where(inArray(cashEntries.boxId, ids)).all().map(row => row.boxId))
+  // Same rule as deleteBox: log lines beyond the box's own (entries, closings …) keep a box.
+  const withHistory = new Set(db.selectDistinct({ boxId: cashLog.boxId }).from(cashLog)
+    .where(and(inArray(cashLog.boxId, ids), notInArray(cashLog.action, BOX_LOG_ACTIONS))).all().map(row => row.boxId))
   const closedThrough = new Map<number, YearMonth>()
   for (const row of db.select({ boxId: cashClosedMonths.boxId, year: cashClosedMonths.year, month: cashClosedMonths.month })
     .from(cashClosedMonths).where(inArray(cashClosedMonths.boxId, ids)).all()) {
@@ -116,11 +120,12 @@ export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDt
       closedThrough: closedThrough.get(box.id) ?? null,
       missingReceipts: missing.has(box.id),
       hasEntries: withEntries.has(box.id),
+      canDelete: !withEntries.has(box.id) && !withHistory.has(box.id),
     }))
 }
 
 /** Trimmed name (1–60 chars, unique in the facility regardless of case), checked group and start values. */
-function checkedInput(db: Db, facilityId: number, input: CashBoxInput, exceptId: number | null): CashBoxInput {
+function checkedInput(db: Db, facilityId: number, input: CashBoxInput, exceptId: number | null, now: Date): CashBoxInput {
   const existing = db.select({ id: cashBoxes.id, name: cashBoxes.name }).from(cashBoxes).where(eq(cashBoxes.facilityId, facilityId)).all()
   const name = uniqueName(existing, input.name, exceptId, { required: 'cash_box_name_required', taken: 'cash_box_name_taken' })
   if (name.length > CASH_BOX_NAME_MAX) throw new ServiceError(400, 'cash_box_name_too_long')
@@ -129,6 +134,8 @@ function checkedInput(db: Db, facilityId: number, input: CashBoxInput, exceptId:
   if (!Number.isInteger(input.startYear) || !Number.isInteger(input.startMonth) || input.startMonth < 1 || input.startMonth > 12) {
     throw new ServiceError(400, 'cash_start_month_invalid')
   }
+  // A start month after the running month would leave the box without a month to open (no future sheets).
+  if (monthKey(input.startYear, input.startMonth) > todayIso(now).slice(0, 7)) throw new ServiceError(400, 'cash_start_future')
   if (!Number.isSafeInteger(input.startBalance) || input.startBalance < 0) throw new ServiceError(400, 'cash_start_balance_invalid')
   return { ...input, name }
 }
@@ -164,7 +171,7 @@ export function moveBox(db: Db, facilityId: number, id: number, direction: 'up' 
 
 /** A new box at the end of its scope; returns its id. */
 export function createBox(db: Db, actor: CashActor, facilityId: number, input: CashBoxInput, now: Date = new Date()): number {
-  const values = checkedInput(db, facilityId, input, null)
+  const values = checkedInput(db, facilityId, input, null, now)
   return db.transaction((tx) => {
     const id = tx.insert(cashBoxes).values({
       facilityId, ...values, archived: false, sortOrder: nextSortOrder(tx, facilityId, values.groupId), createdAt: now.toISOString(),
@@ -183,7 +190,7 @@ export function updateBox(
   db: Db, actor: CashActor, facilityId: number, id: number, input: CashBoxInput & { archived: boolean }, now: Date = new Date(),
 ): void {
   const box = loadBox(db, facilityId, id)
-  const values = checkedInput(db, facilityId, input, id)
+  const values = checkedInput(db, facilityId, input, id, now)
   const startChanged = values.startYear !== box.startYear || values.startMonth !== box.startMonth
   if (startChanged || values.startBalance !== box.startBalance) {
     if (closedMonths(db, id).has(startKey(box))) throw new ServiceError(409, 'cash_month_closed')
