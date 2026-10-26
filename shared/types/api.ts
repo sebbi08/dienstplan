@@ -2010,6 +2010,80 @@ export interface ChildFormEditorDto {
   grantedBy: string
 }
 
+/** A team meeting is written while `draft`; once Leitung/Träger released it, it is locked until they reopen it. */
+export type TeamMeetingState = 'draft' | 'released'
+
+/** A team meeting (Teamsitzung) in the facility's list. Names (createdBy …) are the names at the time. */
+export interface TeamMeetingListItemDto {
+  id: number
+  /** The template it was made from (null once that template was deleted). */
+  templateId: number | null
+  /** The template's name when the meeting was made. */
+  title: string
+  date: IsoDate
+  start: Minutes | null
+  /** The group it was held for (null = the whole facility). */
+  groupId: number | null
+  groupName: string | null
+  participants: string
+  /** Protokollführung. */
+  recorder: string
+  state: TeamMeetingState
+  releasedAt: string | null
+  releasedBy: string | null
+  /** The last reopening („wieder geöffnet“) with its reason; null when never reopened. */
+  reopenReason: string | null
+  reopenedAt: string | null
+  reopenedBy: string | null
+  createdAt: string
+  createdBy: string
+  /** The minutes' last change („zuletzt geändert von … am …“); the next save sends it as expectedUpdatedAt. */
+  updatedAt: string
+  updatedBy: string
+}
+
+/**
+ * The facility's team meetings of a year, newest first; the active team templates and the groups to choose from (the
+ * tablet and staff cannot read the template list); `canManage`: Leitung/Träger, who release, reopen and delete.
+ */
+export interface TeamMeetingsDto {
+  meetings: TeamMeetingListItemDto[]
+  templates: { id: number; name: string }[]
+  groups: { id: number; name: string }[]
+  canManage: boolean
+}
+
+/** One team meeting with its own copy of the template content, the answers and the printout's facility name. */
+export interface TeamMeetingDto extends TeamMeetingListItemDto {
+  content: FormContent
+  answers: FormAnswers
+  facilityName: string
+  canManage: boolean
+}
+
+/** The header of a team meeting. */
+export interface TeamMeetingHeader {
+  date: string
+  start: number | null
+  groupId: number | null
+  participants: string
+  recorder: string
+}
+
+/** A new team meeting from an active team template of the facility. */
+export interface TeamMeetingInput extends TeamMeetingHeader {
+  templateId: number
+}
+
+/** Saving a team meeting: the header and all answers, with the `updatedAt` the saver had loaded. */
+export interface TeamMeetingSaveInput extends TeamMeetingHeader {
+  answers: unknown
+  expectedUpdatedAt: string
+}
+
+/** The answer to saving a team meeting: the new last change. */
+export type TeamMeetingSavedDto = Pick<TeamMeetingListItemDto, 'updatedAt' | 'updatedBy'>
+
 /** The answer to saving a form's answers: the new last change (the next save sends `updatedAt` as expectedUpdatedAt). */
 export type FormSavedDto = Pick<TalkFormDto, 'updatedAt' | 'updatedBy' | 'releasedAt' | 'submittedAt' | 'readReleasedAt'>
 

@@ -86,6 +86,15 @@ const ADMIN_ROUTES = [
   'staff-talks/[id]/forms.post.ts', 'staff-talks/forms/[formId].get.ts', 'staff-talks/forms/[formId].put.ts', 'staff-talks/forms/[formId].delete.ts',
   'staff-talks/forms/[formId]/release.post.ts', 'staff-talks/forms/[formId]/withdraw.post.ts',
   'staff-talks/forms/[formId]/reopen.post.ts', 'staff-talks/forms/[formId]/read-release.post.ts',
+  // Team meetings: releasing, reopening and deleting are for Leitung and Träger (spec Bögen §5).
+  'team-meetings/[id].delete.ts', 'team-meetings/[id]/release.post.ts', 'team-meetings/[id]/reopen.post.ts',
+]
+/**
+ * Routes for every member of the facility: Leitung/Träger, Mitarbeiter accounts and the facility's tablet (no unlock,
+ * no child data); they must check with requireUser( with allowTerminal, then requireFacility(.
+ */
+const MEMBER_ROUTES = [
+  'team-meetings/index.get.ts', 'team-meetings/index.post.ts', 'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts',
 ]
 /** The child observation forms (Beobachtungsbögen), among the child reader routes. */
 const CHILD_FORM_ROUTES = [
@@ -156,7 +165,7 @@ describe('API route permissions', () => {
     expect(routes.length).toBeGreaterThan(30)
     const others = [
       ...USER_ROUTES, ...TERMINAL_ROUTES, ...PROVIDER_ROUTES, ...CHILD_READER_ROUTES, ...CHILD_EDITOR_ROUTES,
-      ...CHILD_MANAGER_ROUTES, ...TEMPLATE_READER_ROUTES, ...PUBLIC_ROUTES,
+      ...CHILD_MANAGER_ROUTES, ...TEMPLATE_READER_ROUTES, ...PUBLIC_ROUTES, ...MEMBER_ROUTES,
     ]
     for (const route of others) expect(routes).toContain(route)
     for (const route of ADMIN_ROUTES) {
@@ -190,6 +199,9 @@ describe('API route permissions', () => {
     }
     else if (USER_ROUTES.includes(route)) {
       expect(code).toContain('requireUser(')
+    }
+    else if (MEMBER_ROUTES.includes(route)) {
+      expect(code).toContain('requireUser(event, { allowTerminal: true })')
     }
     else {
       expect(code, 'new routes must call requireAdmin( or be added to the allowlists').toContain('requireAdmin(')
@@ -277,6 +289,30 @@ describe('API route permissions', () => {
         expect(code, route).toContain('admin.facilityId')
         // Never the manager's own talks (ruling: those are held by the Träger or another Leitung).
         expect(code, route).toContain('ownEmployeeId: admin.employeeId')
+      }
+    }
+  })
+
+  it('opens the team meetings to every member of the facility; release, reopen and delete to managers only', () => {
+    const touching = routes.filter(route => /^team-meetings\//.test(route) || source(route).includes('services/teamMeetings\''))
+    expect(touching).toEqual(['team-meetings/[id].delete.ts', 'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts',
+      'team-meetings/[id]/release.post.ts', 'team-meetings/[id]/reopen.post.ts', 'team-meetings/index.get.ts',
+      'team-meetings/index.post.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      // Whose facility follows from the session alone; the service resolves the member (teamMember).
+      expect(code, route).toContain('teamMember(useDb(), ')
+      expect(code, route).not.toMatch(/getQuery\(|facilityId|require(Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
+      if (MEMBER_ROUTES.includes(route)) {
+        expect(code, route).toContain('requireUser(event, { allowTerminal: true })')
+        // The Träger's stale page (409 facility_changed) and accounts without a facility (403 no_facility).
+        expect(code, route).toContain('requireFacility(event, user)')
+        expect(code, route).not.toContain('requireAdmin(')
+      }
+      else {
+        expect(ADMIN_ROUTES, route).toContain(route)
+        expect(code, route).toContain('requireAdmin(')
+        expect(code, route).not.toContain('requireUser(')
       }
     }
   })
@@ -453,8 +489,8 @@ describe('API route permissions', () => {
     expect(auth).toContain('.secure?.childUnlock')
   })
 
-  it('lets the tablet into the general plan only', () => {
+  it('lets the tablet into the general plan and the team meetings only', () => {
     const allowing = routes.filter(route => source(route).includes('allowTerminal: true'))
-    expect(allowing).toEqual(['plan/[year]/[month].get.ts'])
+    expect(allowing).toEqual(['plan/[year]/[month].get.ts', ...[...MEMBER_ROUTES].sort()])
   })
 })

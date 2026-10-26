@@ -7,7 +7,7 @@ export { RATING_LEGEND } from '../forms'
  * The starter templates every facility gets once (see spec §7): texts taken word for word from the facility's paper
  * forms („&amp;“ as „&“). Header fields (name, date …) and signature lines are not part of a template.
  */
-export type StarterKey = 'staff_self_assessment' | 'staff_assessment' | 'child_development'
+export type StarterKey = 'staff_self_assessment' | 'staff_assessment' | 'child_development' | 'team_meeting'
 
 export interface StarterTemplate {
   key: StarterKey
@@ -299,14 +299,34 @@ const CHILD_DEVELOPMENT: StarterTemplate = {
   ],
 }
 
+/** Each section of the team meeting starter is one free text asking the section's title. */
+const minutes = (title: string) => section(title, [question(title)])
+
+const TEAM_MEETING: StarterTemplate = {
+  key: 'team_meeting',
+  kind: 'team',
+  name: 'Teamsitzung',
+  selfAssessment: false,
+  sections: [
+    minutes('Tagesordnung'),
+    minutes('Themen und Ergebnisse'),
+    minutes('Vereinbarungen und Aufgaben (wer, was, bis wann)'),
+    minutes('Termine'),
+    minutes('Sonstiges'),
+  ],
+}
+
 /** The staff talk starters, in the order they are listed: self-assessment first. */
 export const STAFF_STARTERS: readonly StarterTemplate[] = [SELF_ASSESSMENT, ASSESSMENT]
 
 /** The child form starters. */
 export const CHILD_STARTERS: readonly StarterTemplate[] = [CHILD_DEVELOPMENT]
 
+/** The team meeting starters. */
+export const TEAM_STARTERS: readonly StarterTemplate[] = [TEAM_MEETING]
+
 /** Every starter a facility is given (once per key, see the form_starter_seeds table), in the order they are created. */
-export const STARTERS: readonly StarterTemplate[] = [...STAFF_STARTERS, ...CHILD_STARTERS]
+export const STARTERS: readonly StarterTemplate[] = [...STAFF_STARTERS, ...CHILD_STARTERS, ...TEAM_STARTERS]
 
 /** The starter's content with fresh ids for every section, item and option. */
 export function starterContent(starter: StarterTemplate, newId: () => string): FormContent {

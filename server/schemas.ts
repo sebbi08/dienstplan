@@ -491,5 +491,26 @@ export const childFormSaveSchema = childFormHeaderSchema.extend({
   answers: z.unknown(),
   expectedUpdatedAt: z.string().max(40),
 })
+/** The header of a team meeting; the limits (date, start 0–1439, text lengths, the group) are checked by the service. */
+const teamMeetingHeaderSchema = z.object({
+  date: z.string().max(20),
+  start: z.number().int().nullable(),
+  groupId: z.number().int().nullable(),
+  participants: z.string().max(2000),
+  recorder: z.string().max(1000),
+})
+export const teamMeetingCreateSchema = teamMeetingHeaderSchema.extend({ templateId: z.number().int() })
+/** Saving a team meeting: header and all answers, with the form's updatedAt the client loaded. */
+export const teamMeetingSaveSchema = teamMeetingHeaderSchema.extend({
+  answers: z.unknown(),
+  expectedUpdatedAt: z.string().max(40),
+})
+/** The list: a year (default the current one) and `groupId` (absent = all, 0 = only the whole facility, else that group). */
+export const teamMeetingQuery = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  groupId: z.coerce.number().int().min(0).optional(),
+})
+/** „Wieder öffnen“: the reason (1–200 chars) is checked by the service (team_meeting_reason_invalid). */
+export const teamMeetingReopenSchema = z.object({ reason: z.string().max(1000) })
 /** „Mitarbeiter freischalten“: the employees unlocked for the form from now on (all others are revoked). */
 export const childFormEditorsSchema = z.object({ employeeIds: z.array(z.number().int()).max(500) })

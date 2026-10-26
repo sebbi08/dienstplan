@@ -1107,3 +1107,31 @@ export const staffTalkForms = sqliteTable('staff_talk_forms', {
   primaryKey({ columns: [table.talkId, table.formId] }),
   uniqueIndex('staff_talk_forms_form').on(table.formId),
 ])
+
+/**
+ * A team meeting (Teamsitzung) of the facility with its minutes in one form (kind `team`): optionally of one group (null
+ * = the whole facility; a deleted group leaves it to the facility). `start` in minutes after midnight (null = no time).
+ * Draft → released by Leitung/Träger; `reopen*` keeps the last reopening. Names are the names at the time.
+ */
+export const teamMeetings = sqliteTable('team_meetings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').references(() => groups.id, { onDelete: 'set null' }),
+  formId: integer('form_id').notNull().references(() => forms.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  start: integer('start'),
+  participants: text('participants').notNull().default(''),
+  /** Protokollführung. */
+  recorder: text('recorder').notNull().default(''),
+  state: text('state', { enum: ['draft', 'released'] }).notNull().default('draft'),
+  releasedAt: text('released_at'),
+  releasedBy: text('released_by'),
+  reopenReason: text('reopen_reason'),
+  reopenedAt: text('reopened_at'),
+  reopenedBy: text('reopened_by'),
+  createdAt: text('created_at').notNull(),
+  createdBy: text('created_by').notNull().default(''),
+}, table => [
+  index('team_meetings_facility_date').on(table.facilityId, table.date),
+  uniqueIndex('team_meetings_form').on(table.formId),
+])

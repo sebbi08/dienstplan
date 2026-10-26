@@ -12,6 +12,7 @@ import {
 } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
+import { STARTERS } from '../../shared/domain/forms/starters'
 import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
 
 describe('database setup', () => {
@@ -1320,12 +1321,10 @@ describe('upgrading a filled database through migrateDb', () => {
       .toEqual([{ id: 1, form_starters_seeded: 0 }, { id: 2, form_starters_seeded: 0 }])
     const starters = () => sqlite.prepare('SELECT facility_id, starter_key, name FROM form_templates ORDER BY id').all()
     seedDefaults(db)
-    // Later starters (0056_child_forms: the Entwicklungsgespräch) come along in the same step.
-    const seeded = [1, 2].flatMap(id => [
-      { facility_id: id, starter_key: 'staff_self_assessment', name: 'Selbstbeurteilung' },
-      { facility_id: id, starter_key: 'staff_assessment', name: 'Beurteilungsbogen pädagogische Fachkräfte' },
-      { facility_id: id, starter_key: 'child_development', name: 'Entwicklungsgespräch' },
-    ])
+    // Later starters (0056: the Entwicklungsgespräch, 0057: the Teamsitzung) come along in the same step.
+    const seeded = [1, 2].flatMap(id => STARTERS.map(starter => ({ facility_id: id, starter_key: starter.key, name: starter.name })))
+    expect(seeded.slice(0, 3).map(row => row.name))
+      .toEqual(['Selbstbeurteilung', 'Beurteilungsbogen pädagogische Fachkräfte', 'Entwicklungsgespräch'])
     expect(starters()).toEqual(seeded)
     seedDefaults(db)
     expect(starters()).toEqual(seeded)
@@ -1362,14 +1361,47 @@ describe('upgrading a filled database through migrateDb', () => {
       { table: 'forms', from: 'form_id', on_delete: 'CASCADE' },
     ])
 
-    // The startup step adds only the new starter to facility 1, and all three to the facility never seeded.
+    // The startup step adds only the newer starters to facility 1, and all of them to the facility never seeded.
     seedDefaults(db)
+    const keys = STARTERS.map(starter => starter.key)
     expect(sqlite.prepare('SELECT facility_id, starter_key FROM form_templates ORDER BY facility_id, id').all()).toEqual([
-      { facility_id: 1, starter_key: 'child_development' },
-      { facility_id: 2, starter_key: 'staff_self_assessment' },
-      { facility_id: 2, starter_key: 'staff_assessment' },
-      { facility_id: 2, starter_key: 'child_development' },
+      ...keys.filter(key => !key.startsWith('staff_')).map(key => ({ facility_id: 1, starter_key: key })),
+      ...keys.map(key => ({ facility_id: 2, starter_key: key })),
     ])
+    expect(keys).toContain('child_development')
+  })
+
+  it('0057 only adds the empty team meetings table; the startup step then gives seeded facilities the Teamsitzung', () => {
+    const { db, sqlite } = databaseAt('0056')
+    sqlite.exec(`INSERT INTO form_starter_seeds (facility_id, starter_key, seeded_at) VALUES
+      (1, 'staff_self_assessment', 'x'), (1, 'staff_assessment', 'x'), (1, 'child_development', 'x')`)
+    const tables = () => (sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as { name: string }[])
+      .map(row => row.name)
+    const before = tables()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(tables().filter(name => !before.includes(name))).toContain('team_meetings')
+    expect(count(sqlite, 'team_meetings')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_list(team_meetings)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { table: 'forms', from: 'form_id', on_delete: 'CASCADE' },
+      { table: 'groups', from: 'group_id', on_delete: 'SET NULL' },
+    ])
+    // One meeting per form.
+    sqlite.exec(`INSERT INTO forms (id, facility_id, kind, title, content, created_at, updated_at)
+      VALUES (1, 1, 'team', 'Teamsitzung', '{"sections":[]}', 'x', 'x')`)
+    const insert = `INSERT INTO team_meetings (facility_id, form_id, date, created_at) VALUES (1, 1, '2026-10-26', 'x')`
+    sqlite.exec(insert)
+    expect(() => sqlite.exec(insert)).toThrow(/UNIQUE/)
+    expect(sqlite.prepare('SELECT state, participants, recorder, created_by FROM team_meetings').all())
+      .toEqual([{ state: 'draft', participants: '', recorder: '', created_by: '' }])
+
+    seedDefaults(db)
+    expect(sqlite.prepare(`SELECT facility_id, name FROM form_templates WHERE starter_key = 'team_meeting'`).all())
+      .toEqual([{ facility_id: 1, name: 'Teamsitzung' }])
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {
