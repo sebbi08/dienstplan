@@ -1933,6 +1933,12 @@ export interface TalkFormDto {
   updatedAt: string
   /** Name at the last change of the answers. */
   updatedBy: string
+  /** Self form: when it was released to the employee (null while in draft). */
+  releasedAt: string | null
+  /** Self form: when the employee submitted it („abgegeben am“; null unless submitted). */
+  submittedAt: string | null
+  /** Assessment: when it was released to read („zum Lesen freigegeben am“; null unless released). */
+  readReleasedAt: string | null
 }
 
 /** A staff talk (Mitarbeitergespräch) with its forms in their order; `start` in minutes after midnight (null = no time). */

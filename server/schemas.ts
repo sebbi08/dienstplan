@@ -468,6 +468,6 @@ export const staffTalkSchema = staffTalkHeaderSchema.extend({
 export const staffTalkQuery = z.object({ employeeId: z.coerce.number().int().positive() })
 export const talkFormAddSchema = z.object({ templateId: z.number().int() })
 export const formIdParams = z.object({ formId: z.coerce.number().int().positive() })
-/** The answers are checked against the form's own content by the service. */
-export const formAnswersSchema = z.object({ answers: z.unknown() })
+/** The answers are checked against the form's own content; `expectedUpdatedAt` is the form's updatedAt the client loaded. */
+export const formAnswersSchema = z.object({ answers: z.unknown(), expectedUpdatedAt: z.string().max(40) })
 export const readReleaseSchema = z.object({ released: z.boolean() })

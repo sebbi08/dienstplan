@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employees, forms, staffTalkForms, users } from '../../server/db/schema'
+import { moveEmployeeToFacility } from '../../server/services/employees'
 import { createTemplate, listTemplates, updateTemplate } from '../../server/services/formTemplates'
 import {
   addTalkForm, createTalk, deleteTalk, deleteTalkForm, getMyTalkForm, listMyTalks, listTalks, releaseTalkForm,
@@ -42,6 +43,8 @@ const talkFor = (employeeId: number, templateIds = [selfTemplate, assessmentTemp
 const formsOf = (talkId: number, employeeId = annaId) => listTalks(db, 1, employeeId).find(talk => talk.id === talkId)!.forms
 const firstText = (content: FormContent) =>
   content.sections.flatMap(section => section.items).find(item => item.kind === 'text')!
+/** The form's last change as a client that just loaded it holds it (expectedUpdatedAt of a save). */
+const at = (formId: number) => db.select({ value: forms.updatedAt }).from(forms).where(eq(forms.id, formId)).get()?.value ?? ''
 
 describe('creating talks', () => {
   it('copies each template into a form: self-assessment templates make self forms, others assessments', () => {
@@ -92,8 +95,33 @@ describe('creating talks', () => {
     expect(listTalks(db, other, annaId)).toEqual([])
     expect(errorCode(() => updateTalk(db, other, id, header))).toBe('staff_talk_not_found')
     expect(errorCode(() => deleteTalk(db, other, id))).toBe('staff_talk_not_found')
-    expect(errorCode(() => saveTalkFormAnswers(db, leitung, other, formId, {}))).toBe('form_not_found')
+    expect(errorCode(() => saveTalkFormAnswers(db, leitung, other, formId, {}, at(formId)))).toBe('form_not_found')
     expect(errorCode(() => releaseTalkForm(db, other, formId, now))).toBe('form_not_found')
+    expect(errorCode(() => withdrawTalkForm(db, other, formId))).toBe('form_not_found')
+    expect(errorCode(() => reopenTalkForm(db, other, formId, now))).toBe('form_not_found')
+    expect(errorCode(() => setTalkFormReadRelease(db, other, formsOf(id)[1]!.id, true, now))).toBe('form_not_found')
+    expect(errorCode(() => deleteTalkForm(db, other, formId))).toBe('form_not_found')
+    const otherLeitung = addUser(db, 'leitung2', 'admin', null, other)
+    expect(errorCode(() => addTalkForm(db, otherLeitung, other, id, foreignTemplate, now))).toBe('staff_talk_not_found')
+    expect(formsOf(id)).toHaveLength(2)
+  })
+
+  it('moving the employee to another facility takes the talks and their forms along', () => {
+    const other = addFacility(db, 'Krippe')
+    const id = talkFor(annaId)
+    const [self] = formsOf(id)
+    const benTalk = talkFor(benId)
+    moveEmployeeToFacility(db, traeger, annaId, other, now)
+    expect(listTalks(db, 1, annaId)).toEqual([])
+    expect(errorCode(() => releaseTalkForm(db, 1, self!.id, now))).toBe('form_not_found')
+    expect(listTalks(db, other, annaId).map(talk => talk.id)).toEqual([id])
+    releaseTalkForm(db, other, self!.id, now)
+    expect(db.select({ facilityId: forms.facilityId }).from(forms).where(eq(forms.id, self!.id)).get()!.facilityId).toBe(other)
+    // Ben's talk and its forms stay.
+    expect(listTalks(db, 1, benId).map(talk => talk.id)).toEqual([benTalk])
+    expect(listTalks(db, 1, benId)[0]!.forms).toHaveLength(2)
+    expect(db.select({ facilityId: forms.facilityId }).from(forms).where(eq(forms.id, formsOf(benTalk, benId)[0]!.id)).get()!.facilityId)
+      .toBe(1)
   })
 
   it('lists the talks newest first; header changes, added and removed forms', () => {
@@ -124,7 +152,7 @@ describe('answers', () => {
     const id = talkFor(annaId)
     const self = formsOf(id)[0]!
     const item = firstText(self.content)
-    saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Gut angekommen' }, now)
+    saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Gut angekommen' }, at(self.id), now)
     const template = listTemplates(db, 1, 'staff').find(t => t.id === selfTemplate)!
     const content = {
       sections: template.content.sections.map(section => ({ ...section, items: section.items.filter(i => i.id !== item.id) })),
@@ -133,7 +161,7 @@ describe('answers', () => {
     const after = formsOf(id)[0]!
     expect(firstText(after.content).id).toBe(item.id)
     expect(after.answers).toEqual({ [item.id]: 'Gut angekommen' })
-    saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Noch besser' }, now)
+    saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Noch besser' }, at(self.id), now)
     expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'Noch besser' })
   })
 
@@ -145,11 +173,11 @@ describe('answers', () => {
     for (const step of ['draft', 'released', 'submitted'] as const) {
       if (step === 'released') releaseTalkForm(db, 1, self.id, now)
       if (step === 'submitted') submitMyTalkForm(db, anna, self.id)
-      saveTalkFormAnswers(db, traeger, 1, self.id, { [item.id]: step }, later)
+      saveTalkFormAnswers(db, traeger, 1, self.id, { [item.id]: step }, at(self.id), later)
       expect(formsOf(id)[0]).toMatchObject({ state: step, answers: { [item.id]: step }, updatedBy: 'traeger', updatedAt: later.toISOString() })
     }
-    expect(errorCode(() => saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'x'.repeat(4001) }))).toBe('form_answer_invalid')
-    expect(errorCode(() => saveTalkFormAnswers(db, leitung, 1, self.id, { unknown: 'x' }))).toBe('form_answer_invalid')
+    expect(errorCode(() => saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'x'.repeat(4001) }, at(self.id)))).toBe('form_answer_invalid')
+    expect(errorCode(() => saveTalkFormAnswers(db, leitung, 1, self.id, { unknown: 'x' }, at(self.id)))).toBe('form_answer_invalid')
     expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'submitted' })
   })
 })
@@ -180,19 +208,82 @@ describe('state machine', () => {
     expect(errorCode(() => setTalkFormReadRelease(db, 1, self!.id, true, now))).toBe('form_state_invalid')
   })
 
+  it('keeps when a form was released, submitted and released to read; taking back clears it', () => {
+    const id = talkFor(annaId)
+    const [self, assessment] = formsOf(id)
+    const t1 = new Date('2026-10-26T10:00:00.000Z')
+    const t2 = new Date('2026-10-26T11:00:00.000Z')
+    const stamps = (index: number) => {
+      const form = formsOf(id)[index]!
+      return [form.releasedAt, form.submittedAt, form.readReleasedAt]
+    }
+    expect(stamps(0)).toEqual([null, null, null])
+    releaseTalkForm(db, 1, self!.id, t1)
+    expect(stamps(0)).toEqual([t1.toISOString(), null, null])
+    withdrawTalkForm(db, 1, self!.id)
+    expect(stamps(0)).toEqual([null, null, null])
+    releaseTalkForm(db, 1, self!.id, t1)
+    submitMyTalkForm(db, anna, self!.id, t2)
+    expect(stamps(0)).toEqual([t1.toISOString(), t2.toISOString(), null])
+    expect(getMyTalkForm(db, anna, self!.id).form.submittedAt).toBe(t2.toISOString())
+    reopenTalkForm(db, 1, self!.id, t2)
+    expect(stamps(0)).toEqual([t1.toISOString(), null, null])
+    setTalkFormReadRelease(db, 1, assessment!.id, true, t2)
+    expect(stamps(1)).toEqual([null, null, t2.toISOString()])
+    setTalkFormReadRelease(db, 1, assessment!.id, false, t2)
+    expect(stamps(1)).toEqual([null, null, null])
+  })
+
+  it('a save over someone else’s newer save is refused (409 form_changed), in both directions', () => {
+    const id = talkFor(annaId)
+    const self = formsOf(id)[0]!
+    const item = firstText(self.content)
+    releaseTalkForm(db, 1, self.id, now)
+    // The employee and the Leitung both load the form …
+    const loaded = at(self.id)
+    // … the Leitung saves first; the employee's save on the old state is refused.
+    saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Leitung' }, loaded, new Date('2026-10-26T10:00:00.000Z'))
+    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Anna' }, loaded, now))).toBe('form_changed')
+    expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'Leitung' })
+    // The other way round: the employee saves first, the Leitung's save on the old state is refused.
+    const reloaded = at(self.id)
+    saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Anna' }, reloaded, new Date('2026-10-26T11:00:00.000Z'))
+    expect(errorCode(() => saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Leitung 2' }, reloaded, now)))
+      .toBe('form_changed')
+    expect(formsOf(id)[0]).toMatchObject({ answers: { [item.id]: 'Anna' }, updatedBy: 'Anna Muster' })
+    // With the fresh state the save goes through.
+    saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Leitung 2' }, at(self.id), new Date('2026-10-26T12:00:00.000Z'))
+    expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'Leitung 2' })
+  })
+
+  it('an employee who has left can no longer save or submit (409 employee_inactive), but still reads', () => {
+    const id = talkFor(annaId)
+    const self = formsOf(id)[0]!
+    const item = firstText(self.content)
+    releaseTalkForm(db, 1, self.id, now)
+    db.update(employees).set({ leftOn: '2026-10-25' }).where(eq(employees.id, annaId)).run()
+    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'x' }, at(self.id), now))).toBe('employee_inactive')
+    expect(errorCode(() => submitMyTalkForm(db, anna, self.id, now))).toBe('employee_inactive')
+    expect(getMyTalkForm(db, anna, self.id).form).toMatchObject({ state: 'released', answers: {} })
+    // Leaving today: still there today.
+    db.update(employees).set({ leftOn: '2026-10-26' }).where(eq(employees.id, annaId)).run()
+    submitMyTalkForm(db, anna, self.id, now)
+    expect(formsOf(id)[0]!.state).toBe('submitted')
+  })
+
   it('Review Focus 3: after submitting the employee cannot save; after reopening they save and submit again', () => {
     const id = talkFor(annaId)
     const self = formsOf(id)[0]!
     const item = firstText(self.content)
-    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'x' }))).toBe('form_not_found')
+    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'x' }, at(self.id)))).toBe('form_not_found')
     releaseTalkForm(db, 1, self.id, now)
-    saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Entwurf' }, now)
+    saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Entwurf' }, at(self.id), now)
     expect(formsOf(id)[0]).toMatchObject({ answers: { [item.id]: 'Entwurf' }, updatedBy: 'Anna Muster' })
     submitMyTalkForm(db, anna, self.id)
-    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Nachtrag' }))).toBe('form_not_editable')
+    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Nachtrag' }, at(self.id)))).toBe('form_not_editable')
     expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'Entwurf' })
     reopenTalkForm(db, 1, self.id, now)
-    saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Nachtrag' }, now)
+    saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Nachtrag' }, at(self.id), now)
     submitMyTalkForm(db, anna, self.id)
     expect(formsOf(id)[0]).toMatchObject({ state: 'submitted', answers: { [item.id]: 'Nachtrag' } })
   })
@@ -242,7 +333,7 @@ describe('the employee’s own talks', () => {
     expect(listMyTalks(db, anna)[0]!.forms.map(form => form.id)).toEqual([self!.id, assessment!.id])
     expect(getMyTalkForm(db, anna, assessment!.id).form.readReleased).toBe(true)
     // An assessment is only read, never written or submitted by the employee.
-    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, assessment!.id, {}))).toBe('form_not_editable')
+    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, assessment!.id, {}, at(assessment!.id)))).toBe('form_not_editable')
     expect(errorCode(() => submitMyTalkForm(db, anna, assessment!.id))).toBe('form_state_invalid')
     // Withdrawn again: gone (404).
     withdrawTalkForm(db, 1, self!.id)
@@ -259,7 +350,7 @@ describe('the employee’s own talks', () => {
     expect(listMyTalks(db, anna)).toEqual([])
     for (const formId of [self!.id, assessment!.id]) {
       expect(errorCode(() => getMyTalkForm(db, anna, formId))).toBe('form_not_found')
-      expect(errorCode(() => saveMyTalkFormAnswers(db, anna, formId, {}))).toBe('form_not_found')
+      expect(errorCode(() => saveMyTalkFormAnswers(db, anna, formId, {}, at(formId)))).toBe('form_not_found')
       expect(errorCode(() => submitMyTalkForm(db, anna, formId))).toBe('form_not_found')
     }
     expect(listMyTalks(db, ben)[0]!.forms).toHaveLength(2)
@@ -268,7 +359,7 @@ describe('the employee’s own talks', () => {
     for (const user of [traeger, tablet]) {
       expect(errorCode(() => listMyTalks(db, user))).toBe('no_employee')
       expect(errorCode(() => getMyTalkForm(db, user, self!.id))).toBe('form_not_found')
-      expect(errorCode(() => saveMyTalkFormAnswers(db, user, self!.id, {}))).toBe('form_not_found')
+      expect(errorCode(() => saveMyTalkFormAnswers(db, user, self!.id, {}, at(self!.id)))).toBe('form_not_found')
     }
     // The Leitung with an employee of her own sees only her own talks there.
     expect(listMyTalks(db, leitung)).toEqual([])

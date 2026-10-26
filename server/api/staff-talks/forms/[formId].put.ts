@@ -5,7 +5,7 @@ import { saveTalkFormAnswers } from '../../../services/staffTalks'
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
   const { formId } = await getValidatedRouterParams(event, formIdParams.parse)
-  const { answers } = await readValidatedBody(event, formAnswersSchema.parse)
-  saveTalkFormAnswers(useDb(), admin, admin.facilityId, formId, answers)
+  const { answers, expectedUpdatedAt } = await readValidatedBody(event, formAnswersSchema.parse)
+  saveTalkFormAnswers(useDb(), admin, admin.facilityId, formId, answers, expectedUpdatedAt)
   return { ok: true }
 })

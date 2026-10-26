@@ -17,6 +17,7 @@ import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { moveRequirementRecords } from './requirements'
+import { moveStaffTalks } from './staffTalks'
 
 export interface EmployeeInput {
   name: string
@@ -319,7 +320,8 @@ export function setStampingOptions(
  * by the old one (facilitySince), so the new facility never treats them as its own unreleased changes. Closures change
  * from today on: the old facility's are removed, the new facility's are booked (same rules as for a new employee).
  * The employee's Mitarbeiter account follows automatically; a linked Leitung or tablet account is moved along.
- * Records of mandatory appointments are re-pointed to the new facility's kinds; trainings stay with the employee.
+ * Records of mandatory appointments are re-pointed to the new facility's kinds; trainings stay with the employee. Staff
+ * talks and their forms move to the new facility.
  */
 export function moveEmployeeToFacility(
   db: Db, actor: SessionUser, employeeId: number, facilityId: number, now: Date = new Date(),
@@ -348,6 +350,7 @@ export function moveEmployeeToFacility(
     tx.update(entries).set({ helpFacilityId: null })
       .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
     moveRequirementRecords(tx, employeeId, facilityId)
+    moveStaffTalks(tx, employeeId, facilityId)
     // Bezugserzieher must belong to the child's facility: the children of the old facility lose this one.
     tx.update(children).set({ keyEducatorId: null }).where(eq(children.keyEducatorId, employeeId)).run()
     bookClosuresFor(tx, actor, employeeId, now, today)

@@ -1459,6 +1459,7 @@ export const de = {
     staff_talk_participants_too_long: 'Die Teilnehmer dürfen höchstens 300 Zeichen lang sein.',
     staff_talk_period_too_long: 'Der Zeitraum darf höchstens 60 Zeichen lang sein.',
     staff_talk_forms_required: 'Bitte wähle mindestens einen Bogen aus.',
+    form_changed: 'Der Bogen wurde inzwischen von jemand anderem gespeichert. Bitte lade ihn neu.',
     form_option_duplicate: 'Eine Möglichkeit ist doppelt vorhanden.',
     staffing_override_invalid: 'Dieser Wert kann nicht geändert werden.',
     staffing_rules_invalid: 'Mit diesen Werten lässt sich der Personalschlüssel nicht berechnen. Bitte prüfe die Eingaben.',

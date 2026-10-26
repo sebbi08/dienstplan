@@ -63,7 +63,8 @@ function toFormDto(row: TalkForm): TalkFormDto {
   return {
     id: row.id, role: row.role, title: row.title, content: JSON.parse(row.content) as FormContent,
     answers: JSON.parse(row.answers) as FormAnswers, state: row.state, readReleased: row.readReleased,
-    updatedAt: row.updatedAt, updatedBy: row.updatedBy,
+    updatedAt: row.updatedAt, updatedBy: row.updatedBy, releasedAt: row.releasedAt, submittedAt: row.submittedAt,
+    readReleasedAt: row.readReleasedAt,
   }
 }
 
@@ -170,57 +171,74 @@ export function deleteTalkForm(db: Db, facilityId: number, formId: number): void
   db.delete(forms).where(eq(forms.id, formId)).run()
 }
 
-/** Stores the answers, checked against the form's own copy of the content. */
-function writeAnswers(db: Db, actor: SessionUser, form: TalkForm, answers: unknown, now: Date): void {
+/**
+ * Stores the answers, checked against the form's own copy of the content. `expectedUpdatedAt` is the last change the
+ * saver had loaded; when someone saved in between, nothing is written (409 form_changed). `state` additionally
+ * requires the form to be in that state at the moment of writing.
+ */
+function writeAnswers(
+  db: Db, actor: SessionUser, form: TalkForm, answers: unknown, expectedUpdatedAt: string, now: Date,
+  state?: FormRow['state'],
+): void {
+  if (form.updatedAt !== expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
   const content = JSON.parse(form.content) as FormContent
   const checked = withFormErrors(() => checkAnswers(content, answers))
-  db.update(forms).set({ answers: JSON.stringify(checked), updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
-    .where(eq(forms.id, form.id)).run()
+  const result = db.update(forms)
+    .set({ answers: JSON.stringify(checked), updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
+    .where(and(eq(forms.id, form.id), eq(forms.updatedAt, expectedUpdatedAt), state && eq(forms.state, state))).run()
+  if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
 }
 
 /** Leitung and Träger save the answers of any form of the facility's talks, in any state. */
 export function saveTalkFormAnswers(
-  db: Db, actor: SessionUser, facilityId: number, formId: number, answers: unknown, now: Date = new Date(),
+  db: Db, actor: SessionUser, facilityId: number, formId: number, answers: unknown, expectedUpdatedAt: string,
+  now: Date = new Date(),
 ): void {
-  writeAnswers(db, actor, loadTalkForm(db, facilityId, formId), answers, now)
+  writeAnswers(db, actor, loadTalkForm(db, facilityId, formId), answers, expectedUpdatedAt, now)
 }
 
 const hasLeft = (leftOn: IsoDate | null, today: IsoDate) => leftOn !== null && leftOn < today
 
+/** 409 employee_inactive when the employee has left (before today). */
+function assertNotLeft(db: Db, employeeId: number, today: IsoDate): void {
+  const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, employeeId)).get()
+  if (!employee || hasLeft(employee.leftOn, today)) throw new ServiceError(409, 'employee_inactive')
+}
+
 /** 409 employee_inactive unless the talk's employee is still there and has an active account to sign in with. */
 function assertReachable(db: Db, talkId: number, today: IsoDate): void {
   const talk = db.select({ employeeId: staffTalks.employeeId }).from(staffTalks).where(eq(staffTalks.id, talkId)).get()!
-  const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, talk.employeeId)).get()
+  assertNotLeft(db, talk.employeeId, today)
   const account = db.select({ id: users.id }).from(users)
     .where(and(eq(users.employeeId, talk.employeeId), eq(users.active, true))).get()
-  if (!employee || hasLeft(employee.leftOn, today) || !account) throw new ServiceError(409, 'employee_inactive')
+  if (!account) throw new ServiceError(409, 'employee_inactive')
 }
 
-function setState(db: Db, formId: number, state: FormRow['state']): void {
-  db.update(forms).set({ state }).where(eq(forms.id, formId)).run()
+/** Moves a self form from one state to the next, only if it is still in `from` (409 form_state_invalid otherwise). */
+function transition(db: Db, form: TalkForm, from: FormRow['state'], values: Partial<typeof forms.$inferInsert>): void {
+  if (form.role !== 'self') throw new ServiceError(409, 'form_state_invalid')
+  const result = db.update(forms).set(values).where(and(eq(forms.id, form.id), eq(forms.state, from))).run()
+  if (result.changes !== 1) throw new ServiceError(409, 'form_state_invalid')
 }
 
 /** „Zum Ausfüllen freigeben“: a self form in draft goes to the employee (only an employee who can sign in). */
 export function releaseTalkForm(db: Db, facilityId: number, formId: number, now: Date = new Date()): void {
   const form = loadTalkForm(db, facilityId, formId)
-  if (form.role !== 'self' || form.state !== 'draft') throw new ServiceError(409, 'form_state_invalid')
   assertReachable(db, form.talkId, todayIso(now))
-  setState(db, formId, 'released')
+  transition(db, form, 'draft', { state: 'released', releasedAt: now.toISOString(), submittedAt: null })
 }
 
 /** Takes the release back while the employee has not submitted yet. */
 export function withdrawTalkForm(db: Db, facilityId: number, formId: number): void {
   const form = loadTalkForm(db, facilityId, formId)
-  if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_state_invalid')
-  setState(db, formId, 'draft')
+  transition(db, form, 'released', { state: 'draft', releasedAt: null })
 }
 
 /** „Wieder öffnen“: a submitted self form is open to the employee again (only an employee who can still sign in). */
 export function reopenTalkForm(db: Db, facilityId: number, formId: number, now: Date = new Date()): void {
   const form = loadTalkForm(db, facilityId, formId)
-  if (form.role !== 'self' || form.state !== 'submitted') throw new ServiceError(409, 'form_state_invalid')
   assertReachable(db, form.talkId, todayIso(now))
-  setState(db, formId, 'released')
+  transition(db, form, 'submitted', { state: 'released', submittedAt: null })
 }
 
 /** „Zum Lesen freigeben“ / zurücknehmen for an assessment (a new release only to an employee who can sign in). */
@@ -229,7 +247,8 @@ export function setTalkFormReadRelease(db: Db, facilityId: number, formId: numbe
   if (form.role !== 'assessment') throw new ServiceError(409, 'form_state_invalid')
   if (released === form.readReleased) return
   if (released) assertReachable(db, form.talkId, todayIso(now))
-  db.update(forms).set({ readReleased: released }).where(eq(forms.id, formId)).run()
+  db.update(forms).set({ readReleased: released, readReleasedAt: released ? now.toISOString() : null })
+    .where(and(eq(forms.id, formId), eq(forms.readReleased, !released))).run()
 }
 
 // ---- the employee's own view ---------------------------------------------
@@ -258,8 +277,9 @@ function loadMyForm(db: Db, user: SessionUser, formId: number): { talk: TalkRow;
     .innerJoin(staffTalkForms, eq(staffTalkForms.formId, forms.id))
     .innerJoin(staffTalks, eq(staffTalks.id, staffTalkForms.talkId))
     .where(and(eq(forms.id, formId), eq(staffTalks.employeeId, user.employeeId))).get()
-  const form = row && { ...row.form, role: row.role, talkId: row.talkId }
-  if (!row || !form || !visibleToEmployee(form)) throw new ServiceError(404, 'form_not_found')
+  if (!row) throw new ServiceError(404, 'form_not_found')
+  const form = { ...row.form, role: row.role, talkId: row.talkId }
+  if (!visibleToEmployee(form)) throw new ServiceError(404, 'form_not_found')
   return { talk: row.talk, form }
 }
 
@@ -268,16 +288,36 @@ export function getMyTalkForm(db: Db, user: SessionUser, formId: number): MyTalk
   return { talk: toHeader(talk), form: toFormDto(form) }
 }
 
-/** The employee saves their self form while it is released to them (409 form_not_editable otherwise). */
-export function saveMyTalkFormAnswers(db: Db, user: SessionUser, formId: number, answers: unknown, now: Date = new Date()): void {
-  const { form } = loadMyForm(db, user, formId)
+/**
+ * The employee saves their self form while it is released to them (409 form_not_editable otherwise, 409
+ * employee_inactive once they have left, 409 form_changed when the Leitung saved in between).
+ */
+export function saveMyTalkFormAnswers(
+  db: Db, user: SessionUser, formId: number, answers: unknown, expectedUpdatedAt: string, now: Date = new Date(),
+): void {
+  const { talk, form } = loadMyForm(db, user, formId)
   if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_not_editable')
-  writeAnswers(db, user, form, answers, now)
+  assertNotLeft(db, talk.employeeId, todayIso(now))
+  writeAnswers(db, user, form, answers, expectedUpdatedAt, now, 'released')
 }
 
-/** „Abgeben“: the released self form is submitted; the employee can no longer change it. */
-export function submitMyTalkForm(db: Db, user: SessionUser, formId: number): void {
-  const { form } = loadMyForm(db, user, formId)
-  if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_state_invalid')
-  setState(db, formId, 'submitted')
+/** „Abgeben“: the released self form is submitted; the employee can no longer change it (not after leaving). */
+export function submitMyTalkForm(db: Db, user: SessionUser, formId: number, now: Date = new Date()): void {
+  const { talk, form } = loadMyForm(db, user, formId)
+  assertNotLeft(db, talk.employeeId, todayIso(now))
+  transition(db, form, 'released', { state: 'submitted', submittedAt: now.toISOString() })
+}
+
+/**
+ * An employee moved to another facility: their talks and the talks' forms go along (the new Leitung sees them, the old
+ * one no longer). Call it inside the move's transaction.
+ */
+export function moveStaffTalks(db: Db, employeeId: number, facilityId: number): void {
+  const talkIds = db.select({ id: staffTalks.id }).from(staffTalks).where(eq(staffTalks.employeeId, employeeId)).all()
+    .map(row => row.id)
+  if (talkIds.length === 0) return
+  db.update(staffTalks).set({ facilityId }).where(inArray(staffTalks.id, talkIds)).run()
+  const formIds = db.select({ id: staffTalkForms.formId }).from(staffTalkForms).where(inArray(staffTalkForms.talkId, talkIds))
+    .all().map(row => row.id)
+  if (formIds.length > 0) db.update(forms).set({ facilityId }).where(inArray(forms.id, formIds)).run()
 }

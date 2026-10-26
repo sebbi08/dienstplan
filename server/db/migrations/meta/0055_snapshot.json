@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "591cad02-0ead-4d3a-a1a9-ca2b86b22539",
+  "id": "d5262aad-be1a-41e2-8055-856374e53149",
   "prevId": "3f294061-b47f-41c5-9b80-a83467af8755",
   "tables": {
     "absence_codes": {
@@ -4314,6 +4314,27 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "read_released_at": {
+          "name": "read_released_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",

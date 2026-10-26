@@ -1043,6 +1043,10 @@ export const forms = sqliteTable('forms', {
   answers: text('answers').notNull().default('{}'),
   state: text('state', { enum: ['draft', 'released', 'submitted'] }).notNull().default('draft'),
   readReleased: integer('read_released', { mode: 'boolean' }).notNull().default(false),
+  /** When the self form was last released to the employee / submitted / the assessment released to read (null = not now). */
+  releasedAt: text('released_at'),
+  submittedAt: text('submitted_at'),
+  readReleasedAt: text('read_released_at'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   updatedBy: text('updated_by').notNull().default(''),
