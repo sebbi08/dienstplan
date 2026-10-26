@@ -147,9 +147,10 @@ function joinLines(lines: (string | undefined)[]): string | undefined {
   return lines.filter(Boolean).join('\n') || undefined
 }
 
+/** Orange frames mark changes on screen only; the printout shows the plan without them. */
 function markClass(item: { pending: boolean; changed: boolean }): string {
   if (item.pending) return 'outline-2 -outline-offset-2 outline-dashed outline-orange-500 print:outline-none'
-  return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400' : ''
+  return item.changed ? 'outline-2 -outline-offset-2 outline-orange-400 print:outline-none' : ''
 }
 
 /** Admin-only, under each name: balance today and the balance at the end of the shown month with all its planned shifts. */
@@ -281,7 +282,7 @@ const rows = computed(() => props.plan.days.map((day) => {
     :style="{ '--grid-max-h': gridMaxHeight ?? 'calc(100dvh - 10rem)' }"
   >
     <table class="w-full border-collapse text-sm">
-      <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:shadow-none">
+      <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:table-header-group print:shadow-none">
         <!-- With groups: the block names above the names; date and info columns span both rows. -->
         <tr v-if="showBlocks">
           <th rowspan="2" class="sticky left-0 z-30 w-28 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ de.plan.date }}</th>
@@ -340,16 +341,17 @@ const rows = computed(() => props.plan.days.map((day) => {
       </thead>
       <tbody>
         <template v-for="(row, index) in rows" :key="row.day.date">
-          <tr :class="flashDate === row.day.date ? 'bg-amber-100' : rowClass(row.day)" :data-date="row.day.date">
+          <!-- Printed across pages, a day (and its KW row) is never cut in half; the name rows repeat on each page. -->
+          <tr :class="[flashDate === row.day.date ? 'bg-amber-100' : rowClass(row.day), 'break-inside-avoid']" :data-date="row.day.date">
             <td
-              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top transition-colors duration-500"
+              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top transition-colors duration-500 print:whitespace-nowrap"
               :class="[flashDate === row.day.date ? 'bg-amber-300' : rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
             >
               <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
                 {{ formatDayShort(row.day.date, row.day.weekday) }}
               </button>
-              <div v-if="row.day.holidayKey" class="text-xs text-blue-700">{{ de.holidays[row.day.holidayKey] }}</div>
-              <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700">{{ row.day.closureLabel }}</div>
+              <div v-if="row.day.holidayKey" class="text-xs text-blue-700 print:ml-1 print:inline-block print:max-w-48 print:truncate print:align-bottom">{{ de.holidays[row.day.holidayKey] }}</div>
+              <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700 print:ml-1 print:inline-block print:max-w-48 print:truncate print:align-bottom">{{ row.day.closureLabel }}</div>
               <div v-if="dayHoursText(row.day.opening)" class="text-xs font-normal text-gray-500">{{ dayHoursText(row.day.opening) }}</div>
             </td>
             <template v-for="cell in row.cells" :key="cell.key">
@@ -364,7 +366,7 @@ const rows = computed(() => props.plan.days.map((day) => {
               </td>
               <td
                 v-else
-                class="border border-gray-200 px-1 py-1 align-top"
+                class="border border-gray-200 px-1 py-1 align-top print:py-0!"
                 :class="[
                   editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
                   selected?.has(cell.key) ? 'bg-sky-100'
@@ -374,7 +376,7 @@ const rows = computed(() => props.plan.days.map((day) => {
                 :title="cell.title"
                 @click="onCellClick(cell, row.day.date, $event)"
               >
-                <div class="flex flex-col items-start gap-0.5">
+                <div class="flex flex-col items-start gap-0.5 print:gap-0">
                   <span v-if="cell.busy && !print" class="text-xs italic text-gray-600">{{ de.plan.helperBusy }}</span>
                   <span v-if="cell.marker && print" class="text-xs text-gray-600">
                     {{ de.myPlan.helpOutIn(cell.marker.facility) }} {{ cell.marker.lines.join(', ') }}
@@ -427,10 +429,10 @@ const rows = computed(() => props.plan.days.map((day) => {
               <UIcon v-if="row.hasWarnings" name="i-lucide-triangle-alert" class="text-red-600" />
             </td>
           </tr>
-          <tr v-if="row.week" class="bg-gray-50 text-xs">
-            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">
+          <tr v-if="row.week" class="break-inside-avoid bg-gray-50 text-xs">
+            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium print:whitespace-nowrap">
               {{ de.plan.week(row.week.number) }}
-              <div v-if="row.week.templateName" class="font-normal text-sky-700" :title="de.weekTemplates.markHint">
+              <div v-if="row.week.templateName" class="font-normal text-sky-700 print:ml-1 print:inline print:whitespace-nowrap" :title="de.weekTemplates.markHint">
                 {{ de.weekTemplates.mark(row.week.templateName) }}
               </div>
             </td>
@@ -465,16 +467,17 @@ const rows = computed(() => props.plan.days.map((day) => {
             </td>
           </tr>
           <tr v-if="endsWeek(row, index)" aria-hidden="true">
-            <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-2" />
+            <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-1" />
           </tr>
         </template>
       </tbody>
-      <tfoot v-if="totals.length" class="bg-gray-50 text-xs">
+      <!-- Printed only once at the end, not repeated at the foot of every page. -->
+      <tfoot v-if="totals.length" class="bg-gray-50 text-xs print:table-row-group">
         <tr aria-hidden="true">
-          <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-2" />
+          <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-1" />
         </tr>
         <tr v-for="(row, index) in totals" :key="row.label" :class="index === totals.length - 1 ? 'font-semibold' : ''">
-          <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1">{{ row.label }}</td>
+          <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 print:whitespace-nowrap">{{ row.label }}</td>
           <td
             v-for="(minutes, column) in row.values" :key="column"
             class="border border-gray-200 px-2 py-1 text-center" :class="minutes === null ? '' : balanceClass(minutes)"

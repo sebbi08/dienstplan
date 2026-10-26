@@ -30,8 +30,9 @@ const title = computed(() => {
     :class="[chipClasses[entry.color], editable ? 'cursor-pointer ring-1 ring-sky-400 hover:ring-2' : '']" :title="title"
   >
     <span class="flex flex-col">
-      <span>{{ text }}</span>
-      <span v-if="breakText" class="text-[11px] leading-tight text-red-700">{{ breakText }}</span>
+      <span class="print:leading-[1.1]!">{{ text }}</span>
+      <!-- Printed small and grey: the shift time stays the main information. -->
+      <span v-if="breakText" class="text-[11px] leading-tight text-red-700 print:text-[0.65rem] print:leading-none! print:text-gray-500">{{ breakText }}</span>
       <span v-if="groupName" class="text-[11px] font-medium leading-tight text-violet-800">{{ de.groups.tag(groupName) }}</span>
     </span>
     <button

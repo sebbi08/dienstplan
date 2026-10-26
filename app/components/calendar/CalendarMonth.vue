@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { daysInMonth, isWeekend, toIsoDate, weekday } from '#shared/domain/dates'
 import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
-import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { type CalendarLabelItem, calendarLanes } from '~/utils/calendarLanes'
+import { type CalendarLabelItem, LANE_HEIGHT, calendarEventText, calendarLanes, eventRowHeight } from '~/utils/calendarLanes'
 import { groupColorClasses } from '~/utils/groups'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
 /** `editable`: clicking emits dayClick (employee day), eventDayClick (day number in the header) or eventClick (appointment text). */
 /** With `counts` (leave planning) the last row shows people on leave per day instead of appointments; red above `limit`. */
+/** `rowHeight` (print): fixed height of the employee rows in px, with names and day numbers sized to fit. */
 const props = defineProps<{
   calendar: YearCalendarDto; month: number; editable?: boolean; counts?: Record<string, number>; limit?: number | null
+  rowHeight?: number
 }>()
 const emit = defineEmits<{
   dayClick: [employeeId: number, date: string]
@@ -27,18 +28,17 @@ const KIND_CLASSES: Record<CalendarKind, string> = {
 const dates = computed(() => Array.from({ length: daysInMonth(props.calendar.year, props.month) },
   (_, index) => toIsoDate(props.calendar.year, props.month, index + 1)))
 const events = computed(() => props.calendar.events.filter(event => event.date.slice(5, 7) === String(props.month).padStart(2, '0')))
-const eventText = (event: CalendarEventDto) => {
-  const time = event.start === null ? '' : ` ${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
-  return `${Number(event.date.slice(8))}.${time} ${event.title}`
-}
-
-const LANE_HEIGHT = 15
-
 /** Written appointments, then the day's automatic events (read-only), in lanes; see calendarLanes. */
 const eventLayout = computed(() => {
-  const { labels, laneCount } = calendarLanes(dates.value, events.value, eventText, props.calendar.autoEvents)
-  return { labels, height: Math.max(1, laneCount) * LANE_HEIGHT + 4 }
+  const { labels, laneCount } = calendarLanes(dates.value, events.value, calendarEventText, props.calendar.autoEvents)
+  return { labels, height: eventRowHeight(laneCount) }
 })
+
+/** Print: employee rows of `rowHeight` px; the names grow with it (11–14 px). */
+const nameStyle = computed(() => (props.rowHeight
+  ? { height: `${props.rowHeight}px`, fontSize: `${Math.min(14, Math.max(11, props.rowHeight - 3))}px`, lineHeight: 1 }
+  : undefined))
+const dayStyle = computed(() => (props.rowHeight ? { height: `${props.rowHeight}px` } : undefined))
 function onLabelClick(item: CalendarLabelItem) {
   if (props.editable && item.kind === 'event') emit('eventClick', item.event)
 }
@@ -92,8 +92,8 @@ function headerTitle(date: string): string | undefined {
           :title="headerTitle(date)"
           @click="editable && emit('eventDayClick', date)"
         >
-          <div class="text-[9px] leading-none opacity-75">{{ de.weekdaysShort[weekday(date)] }}</div>
-          <div>{{ Number(date.slice(8)) }}</div>
+          <div class="leading-none opacity-75" :class="rowHeight ? 'text-[10px]' : 'text-[9px]'">{{ de.weekdaysShort[weekday(date)] }}</div>
+          <div :class="rowHeight ? 'text-[13px] leading-tight' : ''">{{ Number(date.slice(8)) }}</div>
         </th>
         <th v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
@@ -101,14 +101,14 @@ function headerTitle(date: string): string | undefined {
     <tbody>
       <tr v-for="employee in calendar.employees" :key="employee.id">
         <td
-          class="truncate border border-gray-300 px-1 py-0.5" :class="employee.color ? groupColorClasses[employee.color] : ''"
-          :title="employee.name"
+          class="truncate border border-gray-300 px-1" :class="[employee.color ? groupColorClasses[employee.color] : '', rowHeight ? 'py-0' : 'py-0.5']"
+          :style="nameStyle" :title="employee.name"
         >
           {{ employee.name }}
         </td>
         <td
-          v-for="date in dates" :key="date" class="h-5 border border-gray-300 p-0"
-          :class="[cellClass(employee.id, date), editable ? 'cursor-pointer hover:outline-2 hover:-outline-offset-2 hover:outline-sky-500' : '']"
+          v-for="date in dates" :key="date" class="border border-gray-300 p-0" :style="dayStyle"
+          :class="[cellClass(employee.id, date), rowHeight ? '' : 'h-5', editable ? 'cursor-pointer hover:outline-2 hover:-outline-offset-2 hover:outline-sky-500' : '']"
           :title="cellTitle(employee.id, employee.name, date)"
           @click="editable && emit('dayClick', employee.id, date)"
         />

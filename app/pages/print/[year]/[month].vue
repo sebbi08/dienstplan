@@ -24,9 +24,9 @@ const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, 
 </script>
 
 <template>
-  <div class="bg-white p-4 text-gray-900">
-    <div class="mb-3 flex flex-wrap items-baseline gap-3">
-      <h1 class="text-2xl font-semibold">
+  <div class="bg-white p-4 text-gray-900 print:p-0">
+    <div class="mb-3 flex flex-wrap items-baseline gap-3 print:mb-1">
+      <h1 class="text-2xl font-semibold print:text-lg">
         {{ monthTitle(year, month) }}<template v-if="plan?.facilityName"> – {{ plan.facilityName }}</template><template v-if="groupName"> – {{ groupName }}</template>
       </h1>
       <span v-if="plan?.release.releasedAt" class="text-sm text-gray-600">
@@ -40,7 +40,7 @@ const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, 
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="plan">
       <PlanGrid :plan="plan" :group-filter="group" print />
-      <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs print:mt-1 print:break-inside-avoid">
         <span class="font-semibold">{{ de.plan.legend }}:</span>
         <span v-for="template in plan.templates" :key="template.id">
           {{ template.shortLabel }} = {{ template.label }} {{ formatTime(template.start) }}–{{ formatTime(template.end) }}
