@@ -124,6 +124,17 @@ describe('form templates', () => {
     expect(own().map(template => template.name)).toEqual(['Entwicklung', 'Probezeit-Gespräch'])
   })
 
+  it('refuses an editor save over a newer save of someone else (409 form_template_changed)', () => {
+    const id = create('Probezeit')
+    const loaded = own().find(template => template.id === id)!.updatedAt
+    updateTemplate(db, leitung, 1, id, { name: 'Erste', expectedUpdatedAt: loaded }, new Date('2026-10-27T10:00:00.000Z'))
+    expect(errorCode(() => updateTemplate(db, leitung, 1, id, { name: 'Zweite', expectedUpdatedAt: loaded }))).toBe('form_template_changed')
+    const fresh = own().find(template => template.id === id)!
+    expect(fresh.name).toBe('Erste')
+    updateTemplate(db, leitung, 1, id, { name: 'Zweite', expectedUpdatedAt: fresh.updatedAt })
+    expect(own().find(template => template.id === id)!.name).toBe('Zweite')
+  })
+
   it('self-assessment is only for staff templates', () => {
     const id = createTemplate(db, leitung, 1, { kind: 'team', name: 'Sitzung', selfAssessment: true }, now)
     expect(own().find(template => template.id === id)!.selfAssessment).toBe(false)

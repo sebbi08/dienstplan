@@ -4,7 +4,9 @@ import { saveTalkFormAnswers } from '../../../services/staffTalks'
 /** Saves the answers of a talk's form (Leitung and Träger, in any state); answers with the new last change. */
 export default defineServiceHandler(async (event) => {
   const admin = await requireAdmin(event)
+  // Never the manager's own talks: those are held by the Träger or another Leitung.
+  const scope = { facilityId: admin.facilityId, ownEmployeeId: admin.employeeId }
   const { formId } = await getValidatedRouterParams(event, formIdParams.parse)
   const { answers, expectedUpdatedAt } = await readValidatedBody(event, formAnswersSchema.parse)
-  return saveTalkFormAnswers(useDb(), admin, admin.facilityId, formId, answers, expectedUpdatedAt)
+  return saveTalkFormAnswers(useDb(), admin, scope, formId, answers, expectedUpdatedAt)
 })

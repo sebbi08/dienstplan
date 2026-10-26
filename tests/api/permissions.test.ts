@@ -254,6 +254,8 @@ describe('API route permissions', () => {
         expect(code, route).toContain('requireAdmin(')
         expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
         expect(code, route).toContain('admin.facilityId')
+        // Never the manager's own talks (ruling: those are held by the Träger or another Leitung).
+        expect(code, route).toContain('ownEmployeeId: admin.employeeId')
       }
     }
   })

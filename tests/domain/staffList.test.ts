@@ -55,6 +55,9 @@ describe('employee page tabs', () => {
     expect(employeeTabs('provider')).toEqual(all)
     expect(employeeTabs('observer')).not.toContain('access')
     expect(employeeTabs('observer')).not.toContain('talks')
+    // Nobody manages a talk about themselves: no „Gespräche“ on the own page.
+    expect(employeeTabs('admin', true)).toEqual(all.filter(tab => tab !== 'talks'))
+    expect(employeeTabs('provider', true)).not.toContain('talks')
     expect(employeeTabs(null)).not.toContain('access')
   })
 

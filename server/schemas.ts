@@ -452,6 +452,7 @@ export const formTemplateUpdateSchema = z.object({
   archived: z.boolean().optional(),
   selfAssessment: z.boolean().optional(),
   content: z.unknown().optional(),
+  expectedUpdatedAt: z.string().max(40).optional(),
 })
 
 /** The header of a staff talk; the limits (date, start 0–1439, text lengths) are checked by the service. */
@@ -471,3 +472,5 @@ export const formIdParams = z.object({ formId: z.coerce.number().int().positive(
 /** The answers are checked against the form's own content; `expectedUpdatedAt` is the form's updatedAt the client loaded. */
 export const formAnswersSchema = z.object({ answers: z.unknown(), expectedUpdatedAt: z.string().max(40) })
 export const readReleaseSchema = z.object({ released: z.boolean() })
+/** „Abgeben“ names the form's updatedAt the employee has seen (409 form_changed when the Leitung saved since). */
+export const formSubmitSchema = z.object({ expectedUpdatedAt: z.string().max(40) })

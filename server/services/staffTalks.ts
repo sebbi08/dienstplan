@@ -42,22 +42,36 @@ function checkedHeader(input: StaffTalkHeader): StaffTalkHeader {
   return { date: input.date, start: input.start, participants, period }
 }
 
-/** A talk of the facility; anything else is 404 staff_talk_not_found (no existence leak). */
-function loadTalk(db: Db, facilityId: number, id: number): TalkRow {
-  const row = db.select().from(staffTalks).where(and(eq(staffTalks.id, id), eq(staffTalks.facilityId, facilityId))).get()
-  if (!row) throw new ServiceError(404, 'staff_talk_not_found')
+/**
+ * Whose talks a manager handles: those of the active facility, but never their own. A Leitung's talks are held by the
+ * Träger or another Leitung; the Leitung sees them only under „Meine Gespräche“ like every employee. Routes pass
+ * `{ facilityId: admin.facilityId, ownEmployeeId: admin.employeeId }`.
+ */
+export interface TalkScope { facilityId: number; ownEmployeeId: number | null }
+
+const isOwn = (scope: TalkScope, employeeId: number) => scope.ownEmployeeId !== null && scope.ownEmployeeId === employeeId
+
+/** 403 staff_talk_own for the manager's own employee (list and create name the employee directly). */
+function assertNotOwn(scope: TalkScope, employeeId: number): void {
+  if (isOwn(scope, employeeId)) throw new ServiceError(403, 'staff_talk_own')
+}
+
+/** A talk of the facility, not about the manager; anything else is 404 staff_talk_not_found (no existence leak). */
+function loadTalk(db: Db, scope: TalkScope, id: number): TalkRow {
+  const row = db.select().from(staffTalks).where(and(eq(staffTalks.id, id), eq(staffTalks.facilityId, scope.facilityId))).get()
+  if (!row || isOwn(scope, row.employeeId)) throw new ServiceError(404, 'staff_talk_not_found')
   return row
 }
 
 const talkFormColumns = { form: forms, role: staffTalkForms.role, talkId: staffTalkForms.talkId }
 
-/** A form of one of the facility's talks; anything else is 404 form_not_found. */
-function loadTalkForm(db: Db, facilityId: number, formId: number): TalkForm {
-  const row = db.select(talkFormColumns).from(forms)
+/** A form of one of the facility's talks, not about the manager; anything else is 404 form_not_found. */
+function loadTalkForm(db: Db, scope: TalkScope, formId: number): TalkForm {
+  const row = db.select({ ...talkFormColumns, employeeId: staffTalks.employeeId }).from(forms)
     .innerJoin(staffTalkForms, eq(staffTalkForms.formId, forms.id))
     .innerJoin(staffTalks, eq(staffTalks.id, staffTalkForms.talkId))
-    .where(and(eq(forms.id, formId), eq(staffTalks.facilityId, facilityId))).get()
-  if (!row) throw new ServiceError(404, 'form_not_found')
+    .where(and(eq(forms.id, formId), eq(staffTalks.facilityId, scope.facilityId))).get()
+  if (!row || isOwn(scope, row.employeeId)) throw new ServiceError(404, 'form_not_found')
   return { ...row.form, role: row.role, talkId: row.talkId }
 }
 
@@ -88,10 +102,11 @@ function formsByTalk(db: Db, talkIds: number[]): Map<number, TalkForm[]> {
 
 const newestFirst = [desc(staffTalks.date), desc(staffTalks.start), desc(staffTalks.id)]
 
-/** The facility's talks with the employee, newest first, each with all its forms. */
-export function listTalks(db: Db, facilityId: number, employeeId: number): StaffTalkDto[] {
+/** The facility's talks with the employee, newest first, each with all its forms (403 staff_talk_own for oneself). */
+export function listTalks(db: Db, scope: TalkScope, employeeId: number): StaffTalkDto[] {
+  assertNotOwn(scope, employeeId)
   const talks = db.select().from(staffTalks)
-    .where(and(eq(staffTalks.facilityId, facilityId), eq(staffTalks.employeeId, employeeId)))
+    .where(and(eq(staffTalks.facilityId, scope.facilityId), eq(staffTalks.employeeId, employeeId)))
     .orderBy(...newestFirst).all()
   const byTalk = formsByTalk(db, talks.map(talk => talk.id))
   return talks.map(talk => ({
@@ -125,7 +140,9 @@ function insertForm(db: Db, actor: SessionUser, facilityId: number, talkId: numb
 }
 
 /** A new talk with the employee of the facility and one form per chosen template (in the given order); returns its id. */
-export function createTalk(db: Db, actor: SessionUser, facilityId: number, input: StaffTalkInput, now: Date = new Date()): number {
+export function createTalk(db: Db, actor: SessionUser, scope: TalkScope, input: StaffTalkInput, now: Date = new Date()): number {
+  const { facilityId } = scope
+  assertNotOwn(scope, input.employeeId)
   const header = checkedHeader(input)
   const employee = db.select({ id: employees.id }).from(employees)
     .where(and(eq(employees.id, input.employeeId), eq(employees.facilityId, facilityId))).get()
@@ -143,14 +160,14 @@ export function createTalk(db: Db, actor: SessionUser, facilityId: number, input
 }
 
 /** Changes the header fields of a talk. */
-export function updateTalk(db: Db, facilityId: number, id: number, input: StaffTalkHeader): void {
-  loadTalk(db, facilityId, id)
+export function updateTalk(db: Db, scope: TalkScope, id: number, input: StaffTalkHeader): void {
+  loadTalk(db, scope, id)
   db.update(staffTalks).set(checkedHeader(input)).where(eq(staffTalks.id, id)).run()
 }
 
 /** Deletes a talk with all its forms. */
-export function deleteTalk(db: Db, facilityId: number, id: number): void {
-  loadTalk(db, facilityId, id)
+export function deleteTalk(db: Db, scope: TalkScope, id: number): void {
+  loadTalk(db, scope, id)
   db.transaction((tx) => {
     const formIds = tx.select({ id: staffTalkForms.formId }).from(staffTalkForms).where(eq(staffTalkForms.talkId, id))
       .all().map(row => row.id)
@@ -161,15 +178,15 @@ export function deleteTalk(db: Db, facilityId: number, id: number): void {
 
 /** Adds one more form from a template to a talk; returns the form's id. */
 export function addTalkForm(
-  db: Db, actor: SessionUser, facilityId: number, talkId: number, templateId: number, now: Date = new Date(),
+  db: Db, actor: SessionUser, scope: TalkScope, talkId: number, templateId: number, now: Date = new Date(),
 ): number {
-  loadTalk(db, facilityId, talkId)
-  return db.transaction(tx => insertForm(tx, actor, facilityId, talkId, templateId, now.toISOString()))
+  loadTalk(db, scope, talkId)
+  return db.transaction(tx => insertForm(tx, actor, scope.facilityId, talkId, templateId, now.toISOString()))
 }
 
 /** Removes a form from its talk. */
-export function deleteTalkForm(db: Db, facilityId: number, formId: number): void {
-  loadTalkForm(db, facilityId, formId)
+export function deleteTalkForm(db: Db, scope: TalkScope, formId: number): void {
+  loadTalkForm(db, scope, formId)
   db.delete(forms).where(eq(forms.id, formId)).run()
 }
 
@@ -197,10 +214,10 @@ function writeAnswers(
 
 /** Leitung and Träger save the answers of any form of the facility's talks, in any state. */
 export function saveTalkFormAnswers(
-  db: Db, actor: SessionUser, facilityId: number, formId: number, answers: unknown, expectedUpdatedAt: string,
+  db: Db, actor: SessionUser, scope: TalkScope, formId: number, answers: unknown, expectedUpdatedAt: string,
   now: Date = new Date(),
 ): FormSavedDto {
-  return writeAnswers(db, actor, loadTalkForm(db, facilityId, formId), answers, expectedUpdatedAt, now)
+  return writeAnswers(db, actor, loadTalkForm(db, scope, formId), answers, expectedUpdatedAt, now)
 }
 
 const hasLeft = (leftOn: IsoDate | null, today: IsoDate) => leftOn !== null && leftOn < today
@@ -221,40 +238,45 @@ function assertReachable(db: Db, talkId: number, today: IsoDate): void {
 }
 
 /** Moves a self form from one state to the next, only if it is still in `from` (409 form_state_invalid otherwise). */
-function transition(db: Db, form: TalkForm, from: FormRow['state'], values: Partial<typeof forms.$inferInsert>): void {
+function transition(
+  db: Db, form: TalkForm, from: FormRow['state'], values: Partial<typeof forms.$inferInsert>, expectedUpdatedAt?: string,
+): void {
   if (form.role !== 'self') throw new ServiceError(409, 'form_state_invalid')
-  const result = db.update(forms).set(values).where(and(eq(forms.id, form.id), eq(forms.state, from))).run()
-  if (result.changes !== 1) throw new ServiceError(409, 'form_state_invalid')
+  const result = db.update(forms).set(values)
+    .where(and(eq(forms.id, form.id), eq(forms.state, from), expectedUpdatedAt === undefined ? undefined : eq(forms.updatedAt, expectedUpdatedAt))).run()
+  if (result.changes !== 1) throw new ServiceError(409, expectedUpdatedAt === undefined ? 'form_state_invalid' : 'form_changed')
 }
 
 /** „Zum Ausfüllen freigeben“: a self form in draft goes to the employee (only an employee who can sign in). */
-export function releaseTalkForm(db: Db, facilityId: number, formId: number, now: Date = new Date()): void {
-  const form = loadTalkForm(db, facilityId, formId)
+export function releaseTalkForm(db: Db, scope: TalkScope, formId: number, now: Date = new Date()): void {
+  const form = loadTalkForm(db, scope, formId)
   assertReachable(db, form.talkId, todayIso(now))
   transition(db, form, 'draft', { state: 'released', releasedAt: now.toISOString(), submittedAt: null })
 }
 
 /** Takes the release back while the employee has not submitted yet. */
-export function withdrawTalkForm(db: Db, facilityId: number, formId: number): void {
-  const form = loadTalkForm(db, facilityId, formId)
+export function withdrawTalkForm(db: Db, scope: TalkScope, formId: number): void {
+  const form = loadTalkForm(db, scope, formId)
   transition(db, form, 'released', { state: 'draft', releasedAt: null })
 }
 
 /** „Wieder öffnen“: a submitted self form is open to the employee again (only an employee who can still sign in). */
-export function reopenTalkForm(db: Db, facilityId: number, formId: number, now: Date = new Date()): void {
-  const form = loadTalkForm(db, facilityId, formId)
+export function reopenTalkForm(db: Db, scope: TalkScope, formId: number, now: Date = new Date()): void {
+  const form = loadTalkForm(db, scope, formId)
   assertReachable(db, form.talkId, todayIso(now))
   transition(db, form, 'submitted', { state: 'released', submittedAt: null })
 }
 
 /** „Zum Lesen freigeben“ / zurücknehmen for an assessment (a new release only to an employee who can sign in). */
-export function setTalkFormReadRelease(db: Db, facilityId: number, formId: number, released: boolean, now: Date = new Date()): void {
-  const form = loadTalkForm(db, facilityId, formId)
+export function setTalkFormReadRelease(db: Db, scope: TalkScope, formId: number, released: boolean, now: Date = new Date()): void {
+  const form = loadTalkForm(db, scope, formId)
   if (form.role !== 'assessment') throw new ServiceError(409, 'form_state_invalid')
   if (released === form.readReleased) return
   if (released) assertReachable(db, form.talkId, todayIso(now))
-  db.update(forms).set({ readReleased: released, readReleasedAt: released ? now.toISOString() : null })
+  const result = db.update(forms).set({ readReleased: released, readReleasedAt: released ? now.toISOString() : null })
     .where(and(eq(forms.id, formId), eq(forms.readReleased, !released))).run()
+  // Someone toggled it in between: say so instead of silently doing nothing.
+  if (result.changes !== 1) throw new ServiceError(409, 'form_state_invalid')
 }
 
 // ---- the employee's own view ---------------------------------------------
@@ -277,7 +299,11 @@ export function listMyTalks(db: Db, user: SessionUser): MyTalkDto[] {
 }
 
 /** A form of the user's own talk that is visible to them; anything else is 404 form_not_found. */
-function loadMyForm(db: Db, user: SessionUser, formId: number): { talk: TalkRow; form: TalkForm } {
+/**
+ * `writing`: the employee saves or submits. Their own self form that went back to draft (the Leitung took the release
+ * back while they were typing) then answers 409 form_release_withdrawn instead of 404, so they know why.
+ */
+function loadMyForm(db: Db, user: SessionUser, formId: number, writing = false): { talk: TalkRow; form: TalkForm } {
   if (user.employeeId === null) throw new ServiceError(404, 'form_not_found')
   const row = db.select({ ...talkFormColumns, talk: staffTalks }).from(forms)
     .innerJoin(staffTalkForms, eq(staffTalkForms.formId, forms.id))
@@ -285,7 +311,10 @@ function loadMyForm(db: Db, user: SessionUser, formId: number): { talk: TalkRow;
     .where(and(eq(forms.id, formId), eq(staffTalks.employeeId, user.employeeId))).get()
   if (!row) throw new ServiceError(404, 'form_not_found')
   const form = { ...row.form, role: row.role, talkId: row.talkId }
-  if (!visibleToEmployee(form)) throw new ServiceError(404, 'form_not_found')
+  if (!visibleToEmployee(form)) {
+    if (writing && form.role === 'self' && form.state === 'draft') throw new ServiceError(409, 'form_release_withdrawn')
+    throw new ServiceError(404, 'form_not_found')
+  }
   return { talk: row.talk, form }
 }
 
@@ -302,9 +331,9 @@ export function getMyTalkForm(db: Db, user: SessionUser, formId: number): MyTalk
 }
 
 /** Any form of the facility's talks with its talk (Leitung and Träger: the print page); 404 form_not_found otherwise. */
-export function getTalkForm(db: Db, facilityId: number, formId: number): MyTalkFormDto {
-  const form = loadTalkForm(db, facilityId, formId)
-  const talk = loadTalk(db, facilityId, form.talkId)
+export function getTalkForm(db: Db, scope: TalkScope, formId: number): MyTalkFormDto {
+  const form = loadTalkForm(db, scope, formId)
+  const talk = loadTalk(db, scope, form.talkId)
   return { talk: toHeader(talk), form: toFormDto(form), ...printNames(db, talk) }
 }
 
@@ -315,17 +344,22 @@ export function getTalkForm(db: Db, facilityId: number, formId: number): MyTalkF
 export function saveMyTalkFormAnswers(
   db: Db, user: SessionUser, formId: number, answers: unknown, expectedUpdatedAt: string, now: Date = new Date(),
 ): FormSavedDto {
-  const { talk, form } = loadMyForm(db, user, formId)
+  const { talk, form } = loadMyForm(db, user, formId, true)
   if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_not_editable')
   assertNotLeft(db, talk.employeeId, todayIso(now))
   return writeAnswers(db, user, form, answers, expectedUpdatedAt, now, 'released')
 }
 
 /** „Abgeben“: the released self form is submitted; the employee can no longer change it (not after leaving). */
-export function submitMyTalkForm(db: Db, user: SessionUser, formId: number, now: Date = new Date()): void {
-  const { talk, form } = loadMyForm(db, user, formId)
+export function submitMyTalkForm(
+  db: Db, user: SessionUser, formId: number, expectedUpdatedAt: string, now: Date = new Date(),
+): void {
+  const { talk, form } = loadMyForm(db, user, formId, true)
   assertNotLeft(db, talk.employeeId, todayIso(now))
-  transition(db, form, 'released', { state: 'submitted', submittedAt: now.toISOString() })
+  if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_state_invalid')
+  // The employee submits what they have seen: a newer save of the Leitung is shown first (409 form_changed).
+  if (form.updatedAt !== expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
+  transition(db, form, 'released', { state: 'submitted', submittedAt: now.toISOString() }, expectedUpdatedAt)
 }
 
 /**

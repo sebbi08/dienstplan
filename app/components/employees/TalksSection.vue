@@ -67,15 +67,24 @@ async function readRelease(form: TalkFormDto, released: boolean) {
   if (released && !await confirm(de.talks.readReleaseConfirm, { confirmLabel: de.talks.readRelease, danger: false })) return
   await post(form, 'read-release', { released })
 }
-async function removeForm(form: TalkFormDto) {
-  if (await confirm(de.talks.removeFormConfirm(form.title))) {
-    await run(() => $fetch<unknown>(`/api/staff-talks/forms/${form.id}`, { method: 'DELETE' }), de.common.deleted)
+/** The confirm text, plus a word about unsaved answers when the open form is among the ones that go. */
+const withUnsaved = (message: string, formIds: number[]) =>
+  (openDirty.value && openFormId.value !== null && formIds.includes(openFormId.value) ? `${message} ${de.talks.unsavedLost}` : message)
+/** The open form is gone: nothing is open (and nothing unsaved) any more. */
+function forgetOpen(formIds: number[]) {
+  if (openFormId.value !== null && formIds.includes(openFormId.value)) {
+    openFormId.value = null
+    openDirty.value = false
   }
 }
+async function removeForm(form: TalkFormDto) {
+  if (!await confirm(withUnsaved(de.talks.removeFormConfirm(form.title), [form.id]))) return
+  if (await run(() => $fetch<unknown>(`/api/staff-talks/forms/${form.id}`, { method: 'DELETE' }), de.common.deleted)) forgetOpen([form.id])
+}
 async function deleteTalk(talk: StaffTalkDto) {
-  if (await confirm(de.talks.deleteTalkConfirm(formatDate(talk.date)))) {
-    await run(() => $fetch<unknown>(`/api/staff-talks/${talk.id}`, { method: 'DELETE' }), de.common.deleted)
-  }
+  const formIds = talk.forms.map(form => form.id)
+  if (!await confirm(withUnsaved(de.talks.deleteTalkConfirm(formatDate(talk.date)), formIds))) return
+  if (await run(() => $fetch<unknown>(`/api/staff-talks/${talk.id}`, { method: 'DELETE' }), de.common.deleted)) forgetOpen(formIds)
 }
 
 const activeTemplates = computed(() => (templates.value ?? []).filter(template => !template.archived)

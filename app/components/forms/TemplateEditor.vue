@@ -5,7 +5,7 @@ import {
 } from '#shared/domain/forms'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
 
 /**
@@ -67,9 +67,20 @@ const dirty = useDirty(() => draft.value !== null && snapshot(draft.value) !== b
 /** Ids for new sections, items and options (the server keeps them); without a secure context a random fallback. */
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
 
+/** The template's last change the draft is based on: a save sends it, a newer save of someone else is refused. */
+const loadedAt = ref('')
+const conflict = ref(false)
 function loadDraft(template: FormTemplateDto) {
   draft.value = { name: template.name, selfAssessment: template.selfAssessment, content: JSON.parse(JSON.stringify(template.content)) }
   baseline.value = snapshot(draft.value)
+  loadedAt.value = template.updatedAt
+  conflict.value = false
+}
+/** „Neu laden“ after a conflict: the stored template replaces the draft (asked first, the own edits go). */
+async function reloadDraft() {
+  if (dirty.value && !await confirm(de.forms.reloadConfirm, { confirmLabel: de.forms.reload })) return
+  await refresh()
+  if (editing.value) loadDraft(editing.value)
 }
 function openEditor(id: number) {
   const template = (templates.value ?? []).find(entry => entry.id === id)
@@ -133,14 +144,21 @@ async function save() {
   try {
     const body = JSON.parse(sent) as Draft
     await $fetch<unknown>(`/api/form-templates/${editing.value.id}`, {
-      method: 'PUT', body: { name: body.name, selfAssessment: kind.value === 'staff' && body.selfAssessment, content: body.content },
+      method: 'PUT',
+      body: {
+        name: body.name, selfAssessment: kind.value === 'staff' && body.selfAssessment, content: body.content,
+        expectedUpdatedAt: loadedAt.value,
+      },
     })
     await refresh()
-    // The server trims texts: take its copy, keep edits typed while saving.
+    // The server trims texts: take its copy, keep edits typed while saving (the next save builds on this one).
     if (editing.value && draft.value && snapshot(draft.value) === sent) loadDraft(editing.value)
+    else if (editing.value) loadedAt.value = editing.value.updatedAt
     toast.add({ title: de.common.saved, color: 'success' })
   }
   catch (error) {
+    // A conflict also stays above the editor with „Neu laden“.
+    if (errorCode(error) === 'form_template_changed') conflict.value = true
     toast.add({ title: errorMessage(error), color: 'error' })
   }
   finally {
@@ -221,6 +239,11 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
         </UFormField>
         <UCheckbox v-if="kind === 'staff'" v-model="draft.selfAssessment" :label="de.forms.selfAssessment" :description="de.forms.selfAssessmentHint" />
       </div>
+      <UAlert v-if="conflict" color="warning" variant="soft" :title="de.errors.form_template_changed" :description="de.forms.reloadHint">
+        <template #actions>
+          <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :label="de.forms.reload" @click="reloadDraft" />
+        </template>
+      </UAlert>
       <p class="text-xs text-gray-500">{{ de.forms.kindFixedHint }}</p>
       <p v-if="!draft.content.sections.length" class="text-sm text-gray-500">{{ de.forms.noSections }}</p>
 

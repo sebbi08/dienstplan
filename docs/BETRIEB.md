@@ -1148,6 +1148,9 @@ sehen keine Warnungen.
 - **Gespräch anlegen:** Mitarbeiter → Person → Reiter **Gespräche** → **Gespräch anlegen**: Datum, Uhrzeit, Teilnehmer,
   Zeitraum und die Bögen (vorgeschlagen: Selbstbeurteilung und Beurteilungsbogen). **Öffnen** zeigt den Bogen zum
   Ausfüllen; **Speichern** nicht vergessen (ein Hinweis zeigt ungespeicherte Änderungen).
+- **Eigene Gespräche:** Niemand führt ein Gespräch über sich selbst. Ist dein Konto mit einem Mitarbeiter verknüpft,
+  fehlt auf deiner eigenen Seite der Reiter „Gespräche“ – deine Gespräche führt der Träger bzw. eine andere Leitung. Du
+  siehst sie wie alle Mitarbeiter unter **Meins → Meine Gespräche**, sobald sie für dich freigegeben sind.
 - **Selbstbeurteilung:** **Zum Ausfüllen freigeben** – dann sieht der Mitarbeiter den Bogen mit seinem eigenen Zugang
   unter **Meine Gespräche** (nicht am Tablet), kann zwischendurch speichern und am Ende **Abgeben**. Danach kann er nichts
   mehr ändern. Solange nicht abgegeben ist, kannst du die **Freigabe zurücknehmen**; eine Abgabe kannst du **wieder

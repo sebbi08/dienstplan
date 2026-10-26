@@ -22,6 +22,8 @@ export interface FormTemplateUpdate {
   archived?: boolean
   selfAssessment?: boolean
   content?: unknown
+  /** The template's updatedAt the editor loaded; when given, a newer save in between is 409 form_template_changed. */
+  expectedUpdatedAt?: string
 }
 
 const NOT_FOUND_CODES = new Set(['form_section_not_found', 'form_item_not_found'])
@@ -174,6 +176,8 @@ export function updateTemplate(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: FormTemplateUpdate, now: Date = new Date(),
 ): void {
   const row = loadTemplate(db, facilityId, id)
+  const expected = input.expectedUpdatedAt
+  if (expected !== undefined && expected !== row.updatedAt) throw new ServiceError(409, 'form_template_changed')
   const values: Partial<typeof formTemplates.$inferInsert> = {}
   if (input.name !== undefined) {
     const name = checkedName(db, facilityId, row.kind, input.name, id)
@@ -194,8 +198,9 @@ export function updateTemplate(
     if (content !== row.content) values.content = content
   }
   if (Object.keys(values).length === 0) return
-  db.update(formTemplates).set({ ...values, updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
-    .where(eq(formTemplates.id, id)).run()
+  const result = db.update(formTemplates).set({ ...values, updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
+    .where(and(eq(formTemplates.id, id), expected === undefined ? undefined : eq(formTemplates.updatedAt, expected))).run()
+  if (result.changes !== 1) throw new ServiceError(409, 'form_template_changed')
 }
 
 /** Deletes a template no form was made from (409 form_template_in_use otherwise: archive it instead). */

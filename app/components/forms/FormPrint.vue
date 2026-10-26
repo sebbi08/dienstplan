@@ -45,7 +45,7 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
   <div class="mx-auto max-w-3xl bg-white p-6 text-sm text-gray-900 print:max-w-none print:p-0 print:text-[11px]">
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-bold print:text-[18px]">{{ props.data?.form.title ?? '' }}</h1>
-      <PrintActions :file-name="fileName" />
+      <PrintActions v-if="props.data" :file-name="fileName" />
     </div>
     <p v-if="props.error" class="text-red-700">{{ errorMessage(props.error) }}</p>
     <template v-if="props.data">

@@ -48,10 +48,12 @@ export type EmployeeTab = typeof EMPLOYEE_TABS[number]
 
 /**
  * The tabs a role sees on the employee page (only Leitung and Träger reach it; „Zugang“ uses the users' routes, which
- * need the same roles; „Gespräche“ the staff talk routes, likewise). Every tab has content for them, the contract inside „Stunden & Vertrag“ follows its own switch.
+ * need the same roles; „Gespräche“ the staff talk routes, likewise). Every tab has content for them, the contract inside
+ * „Stunden & Vertrag“ follows its own switch. On their own page (`own`) managers get no „Gespräche“: their talks are
+ * held by the Träger or another Leitung, they see them under „Meine Gespräche“.
  */
-export function employeeTabs(role: Role | null): EmployeeTab[] {
-  return EMPLOYEE_TABS.filter(tab => (tab !== 'access' && tab !== 'talks') || isManager(role))
+export function employeeTabs(role: Role | null, own = false): EmployeeTab[] {
+  return EMPLOYEE_TABS.filter(tab => (tab !== 'access' && tab !== 'talks') || (isManager(role) && !(tab === 'talks' && own)))
 }
 
 /**

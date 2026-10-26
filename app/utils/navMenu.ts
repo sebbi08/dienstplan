@@ -84,7 +84,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   }
 
   return {
-    main: [myPlan, plan, myLeave, myRequirements, entry(de.nav.calendar, '/my/calendar'), myTalks],
+    // Six entries: the short calendar label keeps the header of a tablet (1024 px) on one line.
+    main: [myPlan, plan, myLeave, myRequirements, entry(de.nav.calendarShort, '/my/calendar'), myTalks],
     mine: [],
     more: [],
     mineCount: viewer.unread,

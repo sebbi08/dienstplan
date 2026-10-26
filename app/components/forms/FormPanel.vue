@@ -9,7 +9,7 @@ import { filledAnswers } from '~/utils/forms'
  * A form with its answers and an explicit „Speichern“ (with a hint while something is unsaved). Saving sends the
  * updatedAt the form was loaded with; when someone else saved in between (409 form_changed) it says so and offers
  * „Neu laden“, which discards the own edits (asked first). `refresh` reloads the form from the parent. The slot
- * `actions` gets `dirty` and `save` (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a parent can
+ * `actions` gets `dirty`, `save` and `base` (the updatedAt the answers on screen are based on, read after a save) (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a parent can
  * ask before it closes the panel.
  */
 const props = defineProps<{ form: TalkFormDto; saveUrl: string; editable: boolean; refresh: () => Promise<unknown> }>()
@@ -85,7 +85,7 @@ async function reload() {
         @click="save"
       />
       <span v-if="dirty" class="text-sm text-amber-700">{{ de.forms.unsaved }}</span>
-      <slot name="actions" :dirty="dirty" :save="save" />
+      <slot name="actions" :dirty="dirty" :save="save" :base="() => base" />
     </div>
   </div>
 </template>

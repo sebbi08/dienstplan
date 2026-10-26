@@ -2,7 +2,7 @@
 import { formatTime } from '#shared/domain/time'
 import type { MyTalkFormDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 
 /**
@@ -12,7 +12,7 @@ import { formatDate, formatDateTime } from '~/utils/format'
 const route = useRoute()
 const formId = Number(route.params.formId)
 const { data, error, refresh } = await useFetch<MyTalkFormDto>(`/api/my/talks/forms/${formId}`)
-const run = useAction(refresh)
+const toast = useToast()
 const confirm = useConfirm()
 useUnsavedGuard()
 
@@ -24,11 +24,22 @@ const talkLine = computed(() => {
   return talk.start === null ? day : `${day} ${de.talks.atTime(formatTime(talk.start))}`
 })
 
-/** Saves unsaved answers first, then asks and submits. */
-async function submit(dirty: boolean, save: () => Promise<boolean>) {
+/**
+ * Saves unsaved answers first, then asks and submits what is on screen (its updatedAt). When the Leitung saved in
+ * between (409 form_changed), the form is reloaded so the employee sees those answers before submitting.
+ */
+async function submit(dirty: boolean, save: () => Promise<boolean>, base: () => string) {
   if (!await confirm(de.talks.submitConfirm, { confirmLabel: de.talks.submit, danger: false })) return
   if (dirty && !await save()) return
-  await run(() => $fetch<unknown>(`/api/my/talks/forms/${formId}/submit`, { method: 'POST' }), de.talks.submitted)
+  try {
+    await $fetch<unknown>(`/api/my/talks/forms/${formId}/submit`, { method: 'POST', body: { expectedUpdatedAt: base() } })
+    await refresh()
+    toast.add({ title: de.talks.submitted, color: 'success' })
+  }
+  catch (failure) {
+    toast.add({ title: errorMessage(failure), color: 'error' })
+    if (errorCode(failure) === 'form_changed') await refresh()
+  }
 }
 </script>
 
@@ -52,8 +63,8 @@ async function submit(dirty: boolean, save: () => Promise<boolean>) {
       />
       <p v-else class="text-sm text-gray-600">{{ de.talks.myReadOnly }}</p>
       <FormsFormPanel :key="data.form.id" :form="data.form" :save-url="`/api/my/talks/forms/${formId}`" :editable="editable" :refresh="refresh">
-        <template v-if="editable" #actions="{ dirty, save }">
-          <UButton class="ml-auto" color="success" icon="i-lucide-check" :label="de.talks.submit" @click="submit(dirty, save)" />
+        <template v-if="editable" #actions="{ dirty, save, base }">
+          <UButton class="ml-auto" color="success" icon="i-lucide-check" :label="de.talks.submit" @click="submit(dirty, save, base)" />
         </template>
       </FormsFormPanel>
     </template>

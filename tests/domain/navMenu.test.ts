@@ -40,7 +40,7 @@ describe('navMenu', () => {
 
   it('keeps the entries of a Mitarbeiter, with „Meine Gespräche“ last', () => {
     const menu = navMenu({ ...base, role: 'observer', employeeId: 9, unread: 3 })
-    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Mein Urlaub', 'Meine Termine', 'Jahreskalender', 'Meine Gespräche'])
+    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Mein Urlaub', 'Meine Termine', 'Kalender', 'Meine Gespräche'])
     expect(menu.main[4]!.to).toBe('/my/calendar')
     expect(menu.main[5]!.to).toBe('/my/talks')
     expect(menu.mine).toEqual([])
