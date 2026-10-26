@@ -474,3 +474,22 @@ export const formAnswersSchema = z.object({ answers: z.unknown(), expectedUpdate
 export const readReleaseSchema = z.object({ released: z.boolean() })
 /** „Abgeben“ names the form's updatedAt the employee has seen (409 form_changed when the Leitung saved since). */
 export const formSubmitSchema = z.object({ expectedUpdatedAt: z.string().max(40) })
+
+/** The header of a child observation form; the limits (date, start 0–1439, text length) are checked by the service. */
+const childFormHeaderSchema = z.object({
+  date: z.string().max(20),
+  start: z.number().int().nullable(),
+  participants: z.string().max(2000),
+})
+/** A new child form: from a template with its header, or from a parent meeting of the child (its header is copied). */
+export const childFormCreateSchema = z.union([
+  z.object({ templateId: z.number().int(), parentMeetingId: z.number().int() }),
+  childFormHeaderSchema.extend({ templateId: z.number().int() }),
+])
+/** Saving a child form: header and all answers, with the form's updatedAt the client loaded. */
+export const childFormSaveSchema = childFormHeaderSchema.extend({
+  answers: z.unknown(),
+  expectedUpdatedAt: z.string().max(40),
+})
+/** „Mitarbeiter freischalten“: the employees unlocked for the form from now on (all others are revoked). */
+export const childFormEditorsSchema = z.object({ employeeIds: z.array(z.number().int()).max(500) })

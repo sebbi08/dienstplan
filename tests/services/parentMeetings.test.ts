@@ -73,7 +73,7 @@ describe('parent meetings', () => {
       const id = addMeeting(db, staff, kidA, input({ participants: '  Mutter, Anna  ' }), NOW)
       expect(meetingsOf(db, staff, kidA, NOW)).toEqual([{
         id, date: '2026-10-01', start: 600, end: 660, kind: 'development', participants: 'Mutter, Anna', planned: false,
-        createdByName: 'Anna', createdAt: NOW.toISOString(), updatedByName: null, updatedAt: null,
+        createdByName: 'Anna', createdAt: NOW.toISOString(), updatedByName: null, updatedAt: null, formId: null,
       }])
       expect(db.select({ userId: childParentMeetings.createdByUserId, employeeId: childParentMeetings.createdByEmployeeId })
         .from(childParentMeetings).where(eq(childParentMeetings.id, id)).get()).toEqual({ userId: annaUser, employeeId: anna })
@@ -232,7 +232,7 @@ describe('parent meetings', () => {
       updateMeeting(db, staff, id, input({ date: '2026-10-02', start: 615, end: null, kind: 'settling_in', participants: 'Vater' }), later)
       expect(meetingsOf(db, leitung, kidA, later)).toEqual([{
         id, date: '2026-10-02', start: 615, end: null, kind: 'settling_in', participants: 'Vater', note: '', planned: false,
-        createdByName: 'leitung', createdAt: NOW.toISOString(), updatedByName: 'Anna', updatedAt: later.toISOString(),
+        createdByName: 'leitung', createdAt: NOW.toISOString(), updatedByName: 'Anna', updatedAt: later.toISOString(), formId: null,
       }])
     })
 

@@ -60,8 +60,8 @@ function facilityHasNone(db: Db, table: typeof shiftTemplates | typeof coverageR
 }
 
 /**
- * Absence codes are global; shift templates and coverage rules are seeded for the first facility; every facility not
- * seeded yet gets the staff starter templates.
+ * Absence codes are global; shift templates and coverage rules are seeded for the first facility; every facility
+ * gets the starter templates it has not been given yet.
  */
 export function seedDefaults(db: Db): void {
   if (facilityHasNone(db, shiftTemplates, FIRST_FACILITY_ID)) {
@@ -71,7 +71,7 @@ export function seedDefaults(db: Db): void {
   if (facilityHasNone(db, coverageRules, FIRST_FACILITY_ID)) {
     db.insert(coverageRules).values(DEFAULT_COVERAGE_RULES.map(rule => ({ ...rule, facilityId: FIRST_FACILITY_ID }))).run()
   }
-  // Facilities from before the forms (migration 0055_forms) get the staff starter templates once.
+  // Every facility gets each starter template once (per key, form_starter_seeds), also a starter new in this version.
   seedPendingStarterTemplates(db)
 }
 

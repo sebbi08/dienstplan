@@ -7,7 +7,7 @@ import {
   MEETING_KINDS, type MeetingKind, type OverviewMeetingDto, type ParentMeetingDto, type ParentMeetingInput,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { childParentMeetings, children } from '../db/schema'
+import { childParentMeetings, children, forms } from '../db/schema'
 import { loadEditableChild } from '../lib/childRecord'
 import { asChildEditor, type ChildActor, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
@@ -24,23 +24,27 @@ function isPlanned(row: Pick<MeetingRow, 'date' | 'start'>, now: Date): boolean 
 }
 
 /** The meeting as the viewer sees it: the confidential note only for Leitung and Träger, for everyone else no field at all. */
-function toDto(row: MeetingRow, viewer: Pick<ChildViewer, 'role'>, now: Date): ParentMeetingDto {
+function toDto(row: MeetingRow, viewer: Pick<ChildViewer, 'role'>, now: Date, formId: number | null): ParentMeetingDto {
   return {
     id: row.id, date: row.date, start: row.start, end: row.end, kind: row.kind, participants: row.participants,
     ...(isManager(viewer.role) ? { note: row.note } : {}),
     planned: isPlanned(row, now),
     createdByName: row.createdByName, createdAt: row.createdAt, updatedByName: row.updatedByName, updatedAt: row.updatedAt,
+    formId,
   }
 }
 
 /**
- * The child's parent meetings, newest first (by date, then start). The caller has checked that the viewer may read the
- * record (see `getChild`); the note goes only to Leitung and Träger.
+ * The child's parent meetings, newest first (by date, then start), each with the observation form filled for it. The
+ * caller has checked that the viewer may read the record (see `getChild`); the note goes only to Leitung and Träger.
  */
 export function meetingsOf(db: Db, viewer: Pick<ChildViewer, 'role'>, childId: number, now: Date = new Date()): ParentMeetingDto[] {
-  return db.select().from(childParentMeetings).where(eq(childParentMeetings.childId, childId))
+  const rows = db.select().from(childParentMeetings).where(eq(childParentMeetings.childId, childId))
     .orderBy(desc(childParentMeetings.date), desc(childParentMeetings.start), desc(childParentMeetings.id)).all()
-    .map(row => toDto(row, viewer, now))
+  const formOf = new Map(rows.length === 0 ? [] : db.select({ id: forms.id, meetingId: forms.parentMeetingId }).from(forms)
+    .where(and(eq(forms.childId, childId), inArray(forms.parentMeetingId, rows.map(row => row.id)))).all()
+    .map(form => [form.meetingId!, form.id]))
+  return rows.map(row => toDto(row, viewer, now, formOf.get(row.id) ?? null))
 }
 
 /**

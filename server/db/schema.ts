@@ -67,8 +67,8 @@ export const facilities = sqliteTable('facilities', {
   /** Höchstzahl Kinder in der Einrichtung (e.g. from the Betriebserlaubnis; 1–999, null = not set); set by the Träger only. */
   capacity: integer('capacity'),
   /**
-   * The staff starter templates (shared/domain/forms/starters.ts) were created once: by createFacility, or for facilities
-   * from before the forms by the startup step (seedDefaults). A deleted or renamed starter is not created again.
+   * From 0055_forms: the staff starter templates were created once. No longer read: since 0056_child_forms the seeded
+   * starters are kept per key in `form_starter_seeds` (the migration carried this flag over).
    */
   formStartersSeeded: integer('form_starters_seeded', { mode: 'boolean' }).notNull().default(false),
 })
@@ -1050,10 +1050,39 @@ export const forms = sqliteTable('forms', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   updatedBy: text('updated_by').notNull().default(''),
+  /** Child forms (kind `child`): the child; the form goes with the child's record. */
+  childId: integer('child_id').references(() => children.id, { onDelete: 'cascade' }),
+  /** Child forms: the parent meeting the form was filled for (a meeting has at most one); deleting it keeps the form. */
+  parentMeetingId: integer('parent_meeting_id').references(() => childParentMeetings.id, { onDelete: 'set null' }),
+  /** Child forms: the header fields Datum, Uhrzeit (minutes after midnight, null = none) and Teilnehmer. */
+  formDate: text('form_date'),
+  formStart: integer('form_start'),
+  formParticipants: text('form_participants').notNull().default(''),
 }, table => [
   index('forms_facility').on(table.facilityId),
   index('forms_template').on(table.templateId),
+  index('forms_child').on(table.childId),
+  uniqueIndex('forms_parent_meeting').on(table.parentMeetingId).where(sql`parent_meeting_id IS NOT NULL`),
 ])
+
+/** Employees a manager unlocked to edit one child form at the tablet (besides the child's key educator). */
+export const formEditors = sqliteTable('form_editors', {
+  formId: integer('form_id').notNull().references(() => forms.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  grantedAt: text('granted_at').notNull(),
+  /** Name of the manager at the time. */
+  grantedBy: text('granted_by').notNull().default(''),
+}, table => [primaryKey({ columns: [table.formId, table.employeeId] })])
+
+/**
+ * The starter templates (shared/domain/forms/starters.ts) a facility has been given, one row per starter key: a starter
+ * is created once, a deleted or renamed one is not created again, and a new starter reaches existing facilities.
+ */
+export const formStarterSeeds = sqliteTable('form_starter_seeds', {
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  starterKey: text('starter_key').notNull(),
+  seededAt: text('seeded_at').notNull(),
+}, table => [primaryKey({ columns: [table.facilityId, table.starterKey] })])
 
 /** A staff talk (Mitarbeitergespräch) with its fixed header fields; `start` in minutes after midnight (null = no time). */
 export const staffTalks = sqliteTable('staff_talks', {

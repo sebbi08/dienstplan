@@ -1320,13 +1320,56 @@ describe('upgrading a filled database through migrateDb', () => {
       .toEqual([{ id: 1, form_starters_seeded: 0 }, { id: 2, form_starters_seeded: 0 }])
     const starters = () => sqlite.prepare('SELECT facility_id, starter_key, name FROM form_templates ORDER BY id').all()
     seedDefaults(db)
+    // Later starters (0056_child_forms: the Entwicklungsgespräch) come along in the same step.
     const seeded = [1, 2].flatMap(id => [
       { facility_id: id, starter_key: 'staff_self_assessment', name: 'Selbstbeurteilung' },
       { facility_id: id, starter_key: 'staff_assessment', name: 'Beurteilungsbogen pädagogische Fachkräfte' },
+      { facility_id: id, starter_key: 'child_development', name: 'Entwicklungsgespräch' },
     ])
     expect(starters()).toEqual(seeded)
     seedDefaults(db)
     expect(starters()).toEqual(seeded)
+  })
+
+  it('0056 adds the child form columns and tables and keeps the staff starters of seeded facilities as seeded', () => {
+    const { db, sqlite } = databaseAt('0055')
+    sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)
+    sqlite.exec(`UPDATE facilities SET form_starters_seeded = 1 WHERE id = 1`)
+    sqlite.exec(`INSERT INTO forms (facility_id, kind, title, content, created_at, updated_at)
+      VALUES (1, 'staff', 'Alt', '{"sections":[]}', '2026-10-01T08:00:00.000Z', '2026-10-01T08:00:00.000Z')`)
+    const tables = () => (sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as { name: string }[])
+      .map(row => row.name)
+    const before = tables()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(tables().filter(name => !before.includes(name))).toEqual(expect.arrayContaining(['form_editors', 'form_starter_seeds']))
+    expect(count(sqlite, 'form_editors')).toBe(0)
+    expect(sqlite.prepare('SELECT facility_id, starter_key FROM form_starter_seeds ORDER BY facility_id, starter_key').all())
+      .toEqual([{ facility_id: 1, starter_key: 'staff_assessment' }, { facility_id: 1, starter_key: 'staff_self_assessment' }])
+    // The existing form keeps everything and gets empty child fields.
+    expect(sqlite.prepare(`SELECT title, child_id, parent_meeting_id, form_date, form_start, form_participants FROM forms`).all())
+      .toEqual([{ title: 'Alt', child_id: null, parent_meeting_id: null, form_date: null, form_start: null, form_participants: '' }])
+    const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))
+    expect(fks('forms')).toEqual(expect.arrayContaining([
+      { table: 'children', from: 'child_id', on_delete: 'CASCADE' },
+      { table: 'child_parent_meetings', from: 'parent_meeting_id', on_delete: 'SET NULL' },
+    ]))
+    expect(fks('form_editors')).toEqual([
+      { table: 'employees', from: 'employee_id', on_delete: 'CASCADE' },
+      { table: 'forms', from: 'form_id', on_delete: 'CASCADE' },
+    ])
+
+    // The startup step adds only the new starter to facility 1, and all three to the facility never seeded.
+    seedDefaults(db)
+    expect(sqlite.prepare('SELECT facility_id, starter_key FROM form_templates ORDER BY facility_id, id').all()).toEqual([
+      { facility_id: 1, starter_key: 'child_development' },
+      { facility_id: 2, starter_key: 'staff_self_assessment' },
+      { facility_id: 2, starter_key: 'staff_assessment' },
+      { facility_id: 2, starter_key: 'child_development' },
+    ])
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {

@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { and, count, eq, max } from 'drizzle-orm'
 import { checkContent, FORM_KINDS, FORM_LIMITS, FormError, type FormContent, type FormKind } from '../../shared/domain/forms'
-import { STAFF_STARTERS, starterContent } from '../../shared/domain/forms/starters'
+import { STARTERS, starterContent } from '../../shared/domain/forms/starters'
 import type { FormTemplateDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, facilities, forms, formTemplates } from '../db/schema'
+import { employees, facilities, forms, formStarterSeeds, formTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 
@@ -234,32 +234,44 @@ export function copyTemplate(
   }).returning({ id: formTemplates.id }).get().id
 }
 
+/** The starter keys the facility has been given (form_starter_seeds). */
+function seededKeys(db: Db, facilityId: number): Set<string> {
+  return new Set(db.select({ key: formStarterSeeds.starterKey }).from(formStarterSeeds)
+    .where(eq(formStarterSeeds.facilityId, facilityId)).all().map(row => row.key))
+}
+
 /**
- * Creates the staff starter templates the facility does not have yet (by starter key) and marks the facility as
- * seeded, so a starter deleted later is not created again. Call it inside the caller's transaction.
+ * Creates every starter template the facility has not been given yet (by key, see form_starter_seeds) and records it
+ * as given, so a starter deleted or renamed later is not created again while a new starter still arrives. A template
+ * already carrying the key is only recorded. Call it inside the caller's transaction.
  */
 export function seedStarterTemplates(db: Db, facilityId: number, now: Date = new Date(), newId: () => string = randomUUID): void {
+  const seeded = seededKeys(db, facilityId)
   const present = new Set(db.select({ key: formTemplates.starterKey }).from(formTemplates)
     .where(eq(formTemplates.facilityId, facilityId)).all().map(row => row.key))
   const at = now.toISOString()
-  for (const starter of STAFF_STARTERS) {
-    if (present.has(starter.key)) continue
-    // A template of the facility's own may already use the name; the starter then gets a free one.
-    const taken = existingNames(db, facilityId, starter.kind)
-      .some(row => row.name.toLocaleLowerCase('de') === starter.name.toLocaleLowerCase('de'))
-    db.insert(formTemplates).values({
-      facilityId, kind: starter.kind, starterKey: starter.key, selfAssessment: starter.selfAssessment,
-      name: taken ? copyName(db, facilityId, starter.kind, starter.name) : starter.name,
-      sortOrder: nextSortOrder(db, facilityId, starter.kind),
-      content: JSON.stringify(checkContent(starterContent(starter, newId))), createdAt: at, updatedAt: at, updatedBy: '',
-    }).run()
+  for (const starter of STARTERS) {
+    if (seeded.has(starter.key)) continue
+    if (!present.has(starter.key)) {
+      // A template of the facility's own may already use the name; the starter then gets a free one.
+      const taken = existingNames(db, facilityId, starter.kind)
+        .some(row => row.name.toLocaleLowerCase('de') === starter.name.toLocaleLowerCase('de'))
+      db.insert(formTemplates).values({
+        facilityId, kind: starter.kind, starterKey: starter.key, selfAssessment: starter.selfAssessment,
+        name: taken ? copyName(db, facilityId, starter.kind, starter.name) : starter.name,
+        sortOrder: nextSortOrder(db, facilityId, starter.kind),
+        content: JSON.stringify(checkContent(starterContent(starter, newId))), createdAt: at, updatedAt: at, updatedBy: '',
+      }).run()
+    }
+    db.insert(formStarterSeeds).values({ facilityId, starterKey: starter.key, seededAt: at }).run()
   }
-  db.update(facilities).set({ formStartersSeeded: true }).where(eq(facilities.id, facilityId)).run()
 }
 
-/** Startup step: seeds the starters of every facility not seeded yet (those from before the forms); returns how many. */
+/** Startup step: seeds the missing starters of every facility that lacks one (e.g. a starter new in this version); returns how many facilities. */
 export function seedPendingStarterTemplates(db: Db, now: Date = new Date()): number {
-  const pending = db.select({ id: facilities.id }).from(facilities).where(eq(facilities.formStartersSeeded, false)).all()
+  const keys = STARTERS.map(starter => starter.key)
+  const pending = db.select({ id: facilities.id }).from(facilities).all()
+    .filter(facility => { const seeded = seededKeys(db, facility.id); return keys.some(key => !seeded.has(key)) })
   for (const facility of pending) db.transaction(tx => seedStarterTemplates(tx, facility.id, now))
   return pending.length
 }

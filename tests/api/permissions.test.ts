@@ -87,6 +87,12 @@ const ADMIN_ROUTES = [
   'staff-talks/forms/[formId]/release.post.ts', 'staff-talks/forms/[formId]/withdraw.post.ts',
   'staff-talks/forms/[formId]/reopen.post.ts', 'staff-talks/forms/[formId]/read-release.post.ts',
 ]
+/** The child observation forms (Beobachtungsbögen), among the child reader routes. */
+const CHILD_FORM_ROUTES = [
+  'children/[id]/forms/index.get.ts', 'children/[id]/forms/index.post.ts', 'child-forms/[formId].get.ts',
+  'child-forms/[formId].put.ts', 'child-forms/[formId].delete.ts', 'child-forms/[formId]/editors.get.ts',
+  'child-forms/[formId]/editors.put.ts',
+]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
  * tablet; never a Mitarbeiter account); they must check with requireChildReader(.
@@ -104,6 +110,8 @@ const CHILD_READER_ROUTES = [
   'group-book/week.get.ts', 'group-book/week.put.ts', 'group-book/day.put.ts', 'group-book/history.get.ts',
   // Reminders and the development documentation's done/undo: the service decides by the group rights (spec Erinnerungen §2.3).
   'children/reminders.get.ts', 'children/[id]/development-docs.post.ts', 'children/development-docs/[id].delete.ts',
+  // Observation forms: whoever sees the record reads them; the service decides per form who edits (spec Bögen §4).
+  ...CHILD_FORM_ROUTES,
 ]
 /**
  * Routes that maintain child records (managers, and at the tablet Mitarbeiter with the permission); they must check
@@ -235,6 +243,19 @@ describe('API route permissions', () => {
       expect(code, route).toContain('requireAdmin(')
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
       expect(code, route).toContain('admin.facilityId')
+    }
+  })
+
+  it('opens the child observation forms only through the child guard, the rights per form left to the service', () => {
+    const touching = routes.filter(route => /^child-forms\/|^children\/\[id\]\/forms\//.test(route)
+      || source(route).includes('services/childForms\''))
+    expect(touching).toEqual([...CHILD_FORM_ROUTES].sort())
+    for (const route of touching) {
+      const code = source(route)
+      // requireChildReader refuses a Mitarbeiter account outside the tablet (403 children_tablet_only).
+      expect(code, route).toContain('requireChildReader(event)')
+      expect(code, route).not.toMatch(/require(User|Admin|Provider|Terminal|ChildEditor|ChildManager|TemplateReader)\(/)
+      expect(code, route).toContain('(useDb(), viewer,')
     }
   })
 

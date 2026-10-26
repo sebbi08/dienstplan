@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { facilities, forms, formTemplates } from '../../server/db/schema'
+import { forms, formStarterSeeds, formTemplates } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { createFacility } from '../../server/services/facilities'
 import {
@@ -9,7 +9,7 @@ import {
 } from '../../server/services/formTemplates'
 import type { ServiceError } from '../../server/lib/errors'
 import { checkContent, FormError, type FormContent } from '../../shared/domain/forms'
-import { RATING_LEGEND, STAFF_STARTERS, starterContent } from '../../shared/domain/forms/starters'
+import { CHILD_STARTERS, RATING_LEGEND, STAFF_STARTERS, starterContent } from '../../shared/domain/forms/starters'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -22,6 +22,8 @@ beforeEach(() => {
   leitung = addUser(db, 'leitung', 'admin', addEmployee(db, 'Anna Leitung'))
 })
 
+const seeds = (facilityId: number) => db.select({ key: formStarterSeeds.starterKey }).from(formStarterSeeds)
+  .where(eq(formStarterSeeds.facilityId, facilityId)).all().map(row => row.key).sort()
 const own = (facilityId = 1) => listTemplates(db, facilityId).filter(template => template.starterKey === null)
 const create = (name: string, kind: 'staff' | 'child' | 'team' = 'staff', facilityId = 1) =>
   createTemplate(db, leitung, facilityId, { kind, name, selfAssessment: false }, now)
@@ -62,37 +64,110 @@ describe('starter templates', () => {
     expect(assessment!.sections[11]!.items.map(item => item.kind)).toEqual(['text', 'text', 'text', 'text'])
   })
 
-  it('a new facility gets both staff starters, with fresh ids each', () => {
+  it('the Entwicklungsgespräch has the sections of the paper form and its milestones in the age column of the table', () => {
+    let next = 0
+    const content = checkContent(starterContent(CHILD_STARTERS[0]!, () => `id${next++}`))
+    expect(content.sections.map(section => section.title)).toEqual([
+      'Stärken & Persönlichkeit', 'Soziales Verhalten', 'Spiel & Lernen & Freispiel', 'Emotionale Entwicklung',
+      'Selbstständigkeit', 'Entwicklungsschwerpunkte', 'Vorschule', 'Projekte', 'Essen', 'Motorik',
+      'Sprechen, Sehen, Hören', 'Kognitive Entwicklung',
+    ])
+    const items = (title: string) => content.sections.find(section => section.title === title)!.items
+    // The header box „Angaben zum Kind“ is the form's header, never an item.
+    expect(content.sections.flatMap(section => section.items).some(item => item.kind === 'note' || item.kind === 'date')).toBe(false)
+    expect(items('Stärken & Persönlichkeit').map(item => item.kind)).toEqual(['choices', 'text'])
+    expect(items('Stärken & Persönlichkeit')[1]).toMatchObject({ question: 'Besondere Stärken' })
+    expect(items('Spiel & Lernen & Freispiel').map(item => item.kind)).toEqual(['choices', 'choices', 'text'])
+    expect(items('Spiel & Lernen & Freispiel')[0]).toMatchObject({ question: 'Interessen' })
+    expect(items('Entwicklungsschwerpunkte')[1]).toMatchObject({ kind: 'text', question: 'Förderziel' })
+    expect(items('Essen').map(item => item.kind)).toEqual(['choices'])
+    const firstChoices = items('Stärken & Persönlichkeit')[0]!
+    expect(firstChoices.kind === 'choices' && firstChoices.options.map(option => option.label)).toEqual([
+      'selbstbewusst', 'neugierig', 'kreativ', 'ruhig', 'hilfsbereit', 'sensibel', 'kontaktfreudig', 'ausdauernd',
+      'humorvoll', 'vorsichtig', 'bewegungsfreudig',
+    ])
+
+    const ageOf = (title: string, start: string) => {
+      const item = items(title).find(entry => entry.kind === 'milestone' && entry.text.startsWith(start))
+      return item?.kind === 'milestone' ? item.ageLabel : null
+    }
+    // Checked against the shaded cell of each row in the docx table (word/document.xml).
+    expect(ageOf('Motorik', 'Beidbeiniges Abhüpfen')).toBe('3;0 Jahre')
+    expect(ageOf('Motorik', 'Treppen im Wechselschritt')).toBe('4;0 Jahre')
+    expect(ageOf('Motorik', 'Treppen werden beim Hoch- und Herabsteigen')).toBe('5;0 Jahre')
+    expect(ageOf('Motorik', 'Einzelne Buchstaben')).toBe('5;0 Jahre')
+    expect(ageOf('Motorik', 'Sicheres Stehen auf dem linken und dem rechten Bein')).toBe('6;0 Jahre')
+    expect(ageOf('Motorik', 'Stift ruht auf dem Mittelfinger')).toBe('6;0 Jahre')
+    expect(ageOf('Sprechen, Sehen, Hören', 'Singt einfache Melodien')).toBe('3;0 Jahre')
+    expect(ageOf('Sprechen, Sehen, Hören', 'In kleinen Sätzen')).toBe('5;0 Jahre')
+    expect(ageOf('Kognitive Entwicklung', 'Viele W-Fragen')).toBe('4;0 Jahre')
+    expect(ageOf('Kognitive Entwicklung', 'Kreis, Dreieck, Quadrat')).toBe('6;0 Jahre')
+    const count = (title: string) => {
+      const labels = items(title).map(item => (item.kind === 'milestone' ? item.ageLabel : ''))
+      return ['3;0 Jahre', '4;0 Jahre', '5;0 Jahre', '6;0 Jahre'].map(label => labels.filter(value => value === label).length)
+    }
+    expect(count('Motorik')).toEqual([4, 5, 4, 6])
+    expect(count('Sprechen, Sehen, Hören')).toEqual([5, 4, 2, 3])
+    expect(count('Kognitive Entwicklung')).toEqual([3, 2, 2, 3])
+  })
+
+  it('a new facility gets all three starters, with fresh ids each, and records each key as given', () => {
     const id = createFacility(db, 'Krippe').id
-    const list = listTemplates(db, id, 'staff')
-    expect(list.map(template => [template.name, template.starterKey, template.selfAssessment])).toEqual([
-      ['Selbstbeurteilung', 'staff_self_assessment', true],
-      ['Beurteilungsbogen pädagogische Fachkräfte', 'staff_assessment', false],
+    const list = listTemplates(db, id)
+    expect(list.map(template => [template.name, template.kind, template.starterKey, template.selfAssessment])).toEqual([
+      ['Selbstbeurteilung', 'staff', 'staff_self_assessment', true],
+      ['Beurteilungsbogen pädagogische Fachkräfte', 'staff', 'staff_assessment', false],
+      ['Entwicklungsgespräch', 'child', 'child_development', false],
     ])
     expect(new Set(allIds(list[0]!.content)).size).toBe(allIds(list[0]!.content).length)
     expect(allIds(listTemplates(db, 1, 'staff')[0]!.content)).not.toEqual(allIds(list[0]!.content))
-    expect(db.select().from(facilities).where(eq(facilities.id, id)).get()!.formStartersSeeded).toBe(true)
+    expect(seeds(id)).toEqual(['child_development', 'staff_assessment', 'staff_self_assessment'])
+  })
+
+  it('a facility seeded with the staff starters only gets the child starter added, once', () => {
+    const old = createFacility(db, 'Alt').id
+    // As 0056 leaves a facility that had the staff starters: the child starter is neither there nor recorded.
+    db.delete(formTemplates).where(and(eq(formTemplates.facilityId, old), eq(formTemplates.kind, 'child'))).run()
+    db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'child_development'))).run()
+    const [self] = listTemplates(db, old)
+    deleteTemplate(db, old, self!.id)
+
+    expect(seedPendingStarterTemplates(db, now)).toBe(1)
+    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(['staff_assessment', 'child_development'])
+    expect(seedPendingStarterTemplates(db, now)).toBe(0)
+    seedDefaults(db)
+    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(['staff_assessment', 'child_development'])
   })
 
   it('existing facilities are seeded once at startup; renamed or deleted starters are not created again', () => {
-    // A facility from before the forms: no templates, not yet seeded.
+    // A facility from before the forms: no templates, nothing recorded.
     const old = createFacility(db, 'Alt').id
     db.delete(formTemplates).where(eq(formTemplates.facilityId, old)).run()
-    db.update(facilities).set({ formStartersSeeded: false }).where(eq(facilities.id, old)).run()
+    db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, old)).run()
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
-    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(['staff_self_assessment', 'staff_assessment'])
+    expect(listTemplates(db, old).map(template => template.starterKey))
+      .toEqual(['staff_self_assessment', 'staff_assessment', 'child_development'])
 
-    const [self, assessment] = listTemplates(db, old)
+    const [self, assessment, child] = listTemplates(db, old)
     updateTemplate(db, leitung, old, self!.id, { name: 'Meine Selbstbeurteilung' }, now)
     deleteTemplate(db, old, assessment!.id)
+    deleteTemplate(db, old, child!.id)
     seedDefaults(db)
     expect(seedPendingStarterTemplates(db, now)).toBe(0)
     expect(listTemplates(db, old).map(template => template.name)).toEqual(['Meine Selbstbeurteilung'])
   })
 
+  it('a starter template already there is only recorded, not created twice', () => {
+    const old = createFacility(db, 'Alt').id
+    db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, old)).run()
+    expect(seedPendingStarterTemplates(db, now)).toBe(1)
+    expect(listTemplates(db, old)).toHaveLength(3)
+    expect(seeds(old)).toHaveLength(3)
+  })
+
   it('facility 1 of a fresh database is seeded by the startup step', () => {
     expect(listTemplates(db, 1, 'staff').map(template => template.starterKey)).toEqual(['staff_self_assessment', 'staff_assessment'])
-    expect(listTemplates(db, 1, 'child')).toEqual([])
+    expect(listTemplates(db, 1, 'child').map(template => template.starterKey)).toEqual(['child_development'])
   })
 })
 
@@ -101,7 +176,7 @@ describe('form templates', () => {
     const id = create(' Probezeit ')
     create('Entwicklung', 'child')
     expect(own().map(template => [template.name, template.kind])).toEqual([['Probezeit', 'staff'], ['Entwicklung', 'child']])
-    expect(listTemplates(db, 1, 'child').map(template => template.name)).toEqual(['Entwicklung'])
+    expect(listTemplates(db, 1, 'child').map(template => template.name)).toEqual(['Entwicklungsgespräch', 'Entwicklung'])
     expect(own()[0]).toMatchObject({ content: { sections: [] }, archived: false, inUse: false, updatedBy: 'Anna Leitung' })
 
     const later = new Date('2026-10-27T10:00:00.000Z')

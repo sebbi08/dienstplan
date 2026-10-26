@@ -219,6 +219,8 @@ export interface ParentMeetingDto {
   createdAt: string
   updatedByName: string | null
   updatedAt: string | null
+  /** The observation form filled for this meeting (at most one), null = none yet. */
+  formId: number | null
 }
 
 /** Who changed a section of the record last and when (ISO timestamp); both null while untouched. */
@@ -1939,6 +1941,69 @@ export interface TalkFormDto {
   submittedAt: string | null
   /** Assessment: when it was released to read („zum Lesen freigegeben am“; null unless released). */
   readReleasedAt: string | null
+}
+
+/** The viewer's right on a child observation form: fill it in, or only read it. */
+export type ChildFormAccess = 'read' | 'edit'
+
+/** A child observation form („Beobachtungsbogen“) in the child's list, with the viewer's right on it. */
+export interface ChildFormListItemDto {
+  id: number
+  childId: number
+  /** The template it was made from (null once that template was deleted or the child moved facility). */
+  templateId: number | null
+  /** The template's name when the form was made. */
+  title: string
+  date: IsoDate
+  start: Minutes | null
+  participants: string
+  /** The parent meeting it was filled for (null = none, or the meeting was deleted). */
+  parentMeetingId: number | null
+  updatedAt: string
+  /** Name at the last change. */
+  updatedBy: string
+  right: ChildFormAccess
+  /** Leitung/Träger: may unlock employees for the form and delete it. */
+  canManage: boolean
+}
+
+/** The child's forms, newest first, and whether the viewer may start a new one (managers, the key educator at the tablet). */
+export interface ChildFormsDto {
+  forms: ChildFormListItemDto[]
+  canCreate: boolean
+}
+
+/** One child form with its own copy of the template content, the answers and what the printout's header needs. */
+export interface ChildFormDto extends ChildFormListItemDto {
+  content: FormContent
+  answers: FormAnswers
+  child: { firstName: string; lastName: string; birthDate: IsoDate; groupName: string | null }
+  facilityName: string
+}
+
+/** A new child form: from a template with its header, or from a parent meeting (header copied from the meeting). */
+export type ChildFormInput =
+  | { templateId: number; date: string; start: number | null; participants: string; parentMeetingId?: undefined }
+  | { templateId: number; parentMeetingId: number }
+
+/** Saving a child form: the header fields and all answers, with the `updatedAt` the saver had loaded. */
+export interface ChildFormSaveInput {
+  date: string
+  start: number | null
+  participants: string
+  answers: unknown
+  expectedUpdatedAt: string
+}
+
+/** The answer to saving a child form: the new last change. */
+export type ChildFormSavedDto = Pick<ChildFormListItemDto, 'updatedAt' | 'updatedBy'>
+
+/** An employee unlocked to edit one child form at the tablet. */
+export interface ChildFormEditorDto {
+  employeeId: number
+  name: string
+  grantedAt: string
+  grantedBy: string
 }
 
 /** The answer to saving a form's answers: the new last change (the next save sends `updatedAt` as expectedUpdatedAt). */

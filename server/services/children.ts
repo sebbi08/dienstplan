@@ -31,6 +31,7 @@ import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
 import { meetingsOf, overviewMeetingsOf } from './parentMeetings'
+import { moveChildForms } from './childForms'
 import { developmentDocOf } from './reminders'
 import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
 
@@ -620,6 +621,7 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
       tx.update(childDocuments).set({ documentTypeId: match?.id ?? otherType() }).where(eq(childDocuments.id, document.id)).run()
     }
     endGroupHistory(tx, childId, today, now)
+    moveChildForms(tx, childId, targetFacilityId)
     tx.update(children)
       .set({ facilityId: targetFacilityId, facilitySince: today, groupId: null, careTypeId: null, keyEducatorId: null })
       .where(eq(children.id, childId)).run()

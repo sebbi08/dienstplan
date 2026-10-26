@@ -7,7 +7,7 @@ export { RATING_LEGEND } from '../forms'
  * The starter templates every facility gets once (see spec §7): texts taken word for word from the facility's paper
  * forms („&amp;“ as „&“). Header fields (name, date …) and signature lines are not part of a template.
  */
-export type StarterKey = 'staff_self_assessment' | 'staff_assessment'
+export type StarterKey = 'staff_self_assessment' | 'staff_assessment' | 'child_development'
 
 export interface StarterTemplate {
   key: StarterKey
@@ -151,8 +151,162 @@ const ASSESSMENT: StarterTemplate = {
   ],
 }
 
+const choices = (question: string, labels: string[]): ItemDraft => ({
+  kind: 'choices', question, options: labels.map(label => ({ label })),
+})
+/** Milestones of one age column of the paper form's table (the column header is the age label). */
+const milestones = (ageLabel: string, texts: string[]): ItemDraft[] => texts.map(text => ({ kind: 'milestone', text, ageLabel }))
+
+const AGE_3 = '3;0 Jahre'
+const AGE_4 = '4;0 Jahre'
+const AGE_5 = '5;0 Jahre'
+const AGE_6 = '6;0 Jahre'
+
+/**
+ * „Entwicklungsgespräche“ of the facility (spec §7): the box „Angaben zum Kind“ (Datum, Uhrzeit, Teilnehmer) is the
+ * form's header, not part of the template; every row of the checkbox table is a section with its ticks and its free
+ * text; the three tables by age are milestones labelled with their column header.
+ */
+const CHILD_DEVELOPMENT: StarterTemplate = {
+  key: 'child_development',
+  kind: 'child',
+  name: 'Entwicklungsgespräch',
+  selfAssessment: false,
+  sections: [
+    section('Stärken & Persönlichkeit', [
+      choices('', [
+        'selbstbewusst', 'neugierig', 'kreativ', 'ruhig', 'hilfsbereit', 'sensibel', 'kontaktfreudig', 'ausdauernd',
+        'humorvoll', 'vorsichtig', 'bewegungsfreudig',
+      ]),
+      question('Besondere Stärken'),
+    ]),
+    section('Soziales Verhalten', [
+      choices('', [
+        'sucht Kontakt', 'spielt allein', 'hat Freunde', 'konfliktfähig', 'empathisch', 'braucht Unterstützung',
+        'hält sich an Regeln', 'benutzt Höflichkeitsformen (Bitte/Danke)', 'achtet auf fremdes Eigentum',
+        'kann eigene Bedürfnisse und Wünsche zurückstellen', 'hilfsbereit', 'kompromissbereit',
+      ]),
+      question('Beobachtungen'),
+    ]),
+    section('Spiel & Lernen & Freispiel', [
+      choices('Interessen', ['Bauen', 'Malen', 'Rollenspiel', 'Bücher', 'Bewegung', 'Natur', 'Musik']),
+      choices('', [
+        'konzentriert', 'neugierig', 'leicht ablenkbar', 'motiviert', 'ausdauernd', 'wendet neu Erlerntes an',
+        'probiert vieles aus', 'konstruiert etwas nach eigenem Interesse', 'benutzt Materialien sachgemäß',
+        'Beobachterrolle', 'übernimmt Sprecherrolle', 'kennt die Spielregeln', 'hält sich an Spielregeln', 'kann verlieren',
+      ]),
+      question('Beobachtungen'),
+    ]),
+    section('Emotionale Entwicklung', [
+      choices('', [
+        'zeigt Gefühle', 'sucht Nähe', 'kann sich beruhigen', 'braucht Begleitung', 'trennt sich gut von der Bezugsperson',
+        'kann Gefühle und Emotionen sprachlich darstellen', 'angemessene Frustrationstoleranz', 'besitzt Einfühlungsvermögen',
+      ]),
+      question('Beobachtungen'),
+    ]),
+    section('Selbstständigkeit', [
+      choices('', [
+        'Kleidung Anziehen', 'Schuhe anziehen', 'Essen', 'Ordnung', 'Toilettengang', 'Aufräumen', 'Aufgaben',
+        'wäscht sich die Hände', 'räumt den Tisch ab', 'hilft beim Tischdecken', 'meldet sich in den Gruppen an und ab',
+      ]),
+      question('Beobachtungen'),
+    ]),
+    section('Entwicklungsschwerpunkte', [
+      choices('', ['Sprache', 'Motorik', 'Sozialverhalten', 'Konzentration', 'Selbstvertrauen']),
+      question('Förderziel'),
+    ]),
+    section('Vorschule', [choices('', ['konzentriert', 'leicht ablenkbar', 'wissbegierig'])]),
+    section('Projekte', [choices('', ['konzentriert', 'leicht ablenkbar', 'wissbegierig'])]),
+    section('Essen', [
+      choices('', [
+        'kennt die Regeln', 'hält sich an die Regeln', 'isst mit Besteck', 'nimmt sich selbstständig Essen nach',
+        'schenkt sich selbstständig Trinken ein',
+      ]),
+    ]),
+    section('Motorik', [
+      ...milestones(AGE_3, [
+        'Beidbeiniges Abhüpfen von einer untersten Treppenstufe mit sicherer Gleichgewichtskontrolle',
+        'Rennen mit deutlichem Armschwung, Umsteuern von Hindernissen; plötzliches, promptes Anhalten gelingt ohne Gefährdung des Gleichgewichts',
+        'Dünne Buchseiten werden sorgfältig einzeln umgeblättert',
+        'Benutzt sicheren 3-Finger-Spitzgriff (Daumen-, Zeige- und Mittelfinger) zur präzisen Manipulation kleiner Gegenstände',
+      ]),
+      ...milestones(AGE_4, [
+        'Treppen im Wechselschritt hochsteigen',
+        'Stift wird korrekt mit den Spitzen der ersten 3 Fringer gehalten',
+        '„Kopffüßler“ oder Männchen, auch Objekte wie Haus, Baum, Blume, Auto können gemalt werden, wenn auch oft noch etwas unbeholfen und unvollständig',
+        'Kann Perlen auffädeln',
+        'Kann seine Kraft im Spiel mit anderen einschätzen',
+      ]),
+      ...milestones(AGE_5, [
+        'Treppen werden beim Hoch- und Herabsteigen mit Beinwechsel sicher und freihändig bewältigt',
+        'Größere Bälle (Durchmesser 20 cm), zugeworfen aus etwa 2 Meter Entfernung, können mit Hilfe der Hände, Arme und des Körpers sicher aufgefangen werden',
+        'Weitgehend genaues Entlangschneiden mit einer Schere an einer Linie',
+        'Einzelne Buchstaben, Zahlen oder der Name können mit großen Buchstaben geschrieben werden (auch seitenverkehrt)',
+      ]),
+      ...milestones(AGE_6, [
+        'Sicheres Stehen auf dem linken und dem rechten Bein für etwa 10 Sekunden',
+        'Flüssiges und sicheres Hüpfen auf dem rechten und dem linken Bein (8-10 mal)',
+        'Fängt Ball sicher mit beiden Händen und wirft gezielt (etwa Fußballgröße)',
+        'Gegenstände, wie ein Haus, Baum, Männchen, Autos können erkennbar gemalt werden',
+        'Kind kommt beim Basteln mit Falten, Ausschneiden, Kleben (auch mit Klebeband) zurecht',
+        'Stift ruht auf dem Mittelfinger, Führung durch Daumen und Zeigefinger (Dreipunktgriff)',
+      ]),
+    ]),
+    section('Sprechen, Sehen, Hören', [
+      ...milestones(AGE_3, [
+        '3 – 5 Wort-Sätze (Kombination von Nomina, Hilfsverben, Präpositionen, Adjektiven)',
+        'Reagiert auf Ansprache von hinten',
+        'Erkennt Geräusche aus der Umwelt',
+        'Singt einfache Melodien',
+        'Unauffällige, flüssige Sprache',
+      ]),
+      ...milestones(AGE_4, [
+        'Kleine Ereignisse/Geschichten werden in weitgehend korrekter zeitlicher und logischer Reihenfolge berichtet, meist noch mit „… und dann … und dann“-Verbindungen',
+        'Nimmt mündliche Anweisungen an und setzt sie um',
+        'Unterscheidet ähnlich klingende Wörter',
+        'Unauffällige, flüssige Aussprache',
+      ]),
+      ...milestones(AGE_5, [
+        'In kleinen Sätzen mit korrekter Grammatik werden Ereignisse/Geschichten in richtiger zeitlicher und logischer Reihenfolge wiedergegeben',
+        'Unauffällige, flüssige Aussprache',
+      ]),
+      ...milestones(AGE_6, [
+        'Spricht korrekte Sätze mit grammatikalischen Strukturen, auch kleine Nebensätze werden sicher beherrscht',
+        'Erlebtes/Geschehnisse werden flüssig in richtiger zeitlicher und logischer Reihenfolge berichtet und oft spontan aus eigener Sicht kommentiert',
+        'Unauffällige, flüssige Aussprache aller Vokale und Konsonanten, auch r, s, sch',
+      ]),
+    ]),
+    section('Kognitive Entwicklung', [
+      ...milestones(AGE_3, [
+        'Malen und Kritzeln; auch wenn noch wenig gestaltend gemalt wird, kommentiert das Kind, wenn es gefragt wird, wen und/oder was es malt/ gemalt hat',
+        'Konzentriertes, anhaltendes Spielen für mindestens 30 Minuten mit Puppen, Autos, Bausteinen …',
+        'Kann Gelerntes auf neue Situationen übertragen',
+      ]),
+      ...milestones(AGE_4, [
+        'Viele W-Fragen',
+        'Gleiche Gegenstände verschiedener Größe können unterschieden und benannt werden (z.B. große und kleine Bauklötze)',
+      ]),
+      ...milestones(AGE_5, [
+        'Grundfarben werden erkannt und benannt (blau, grün, rot, gelb, schwarz, weiß)',
+        'Kennt Oberbegriffe: Tiere, Pflanzen, Nahrungsmittel, Kleidungsstücke, Fahrzeuge, Jahreszeiten',
+      ]),
+      ...milestones(AGE_6, [
+        'Kreis, Dreieck, Quadrat werden erkannt und benannt',
+        'Spielt mit Lego oder anderen Bauelementen konstruktiv, aber auch nach Vorlagen',
+        'Malt „Männchen“: Kopf und Rumpf getrennt, Kopf mit Augen, Nase, Mund; Rumpf mit Armen, Hände, Finger; Beine mit Zehen; wenn auch noch wenig differenziert oder nur angedeutet',
+      ]),
+    ]),
+  ],
+}
+
 /** The staff talk starters, in the order they are listed: self-assessment first. */
 export const STAFF_STARTERS: readonly StarterTemplate[] = [SELF_ASSESSMENT, ASSESSMENT]
+
+/** The child form starters. */
+export const CHILD_STARTERS: readonly StarterTemplate[] = [CHILD_DEVELOPMENT]
+
+/** Every starter a facility is given (once per key, see the form_starter_seeds table), in the order they are created. */
+export const STARTERS: readonly StarterTemplate[] = [...STAFF_STARTERS, ...CHILD_STARTERS]
 
 /** The starter's content with fresh ids for every section, item and option. */
 export function starterContent(starter: StarterTemplate, newId: () => string): FormContent {
