@@ -156,22 +156,44 @@ export function createTemplate(db: Db, actor: SessionUser, facilityId: number, i
   }).returning({ id: formTemplates.id }).get().id
 }
 
+/** 400 form_item_kind_fixed when an item keeps its id but not its kind (delete it and add a new one instead). */
+function assertKindsKept(before: FormContent, after: FormContent): void {
+  const kinds = new Map(before.sections.flatMap(section => section.items.map(item => [item.id, item.kind] as const)))
+  for (const item of after.sections.flatMap(section => section.items)) {
+    const kind = kinds.get(item.id)
+    if (kind !== undefined && kind !== item.kind) throw new FormError('form_item_kind_fixed')
+  }
+}
+
 /**
  * Renames, archives / reactivates, marks as self-assessment or replaces the content (checked with checkContent,
- * texts trimmed, missing ids added). Existing forms keep their own copy of the content.
+ * texts trimmed, missing ids added, kinds of kept items unchanged). Existing forms keep their own copy of the content.
+ * When nothing changes, nothing is written (the last change stays as it was).
  */
 export function updateTemplate(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: FormTemplateUpdate, now: Date = new Date(),
 ): void {
   const row = loadTemplate(db, facilityId, id)
   const values: Partial<typeof formTemplates.$inferInsert> = {}
-  if (input.name !== undefined) values.name = checkedName(db, facilityId, row.kind, input.name, id)
-  if (input.archived !== undefined) values.archived = input.archived
-  if (input.selfAssessment !== undefined) values.selfAssessment = row.kind === 'staff' && input.selfAssessment
-  if (input.content !== undefined) {
-    const content = input.content
-    values.content = JSON.stringify(withFormErrors(() => checkContent(withIds(content))))
+  if (input.name !== undefined) {
+    const name = checkedName(db, facilityId, row.kind, input.name, id)
+    if (name !== row.name) values.name = name
   }
+  if (input.archived !== undefined && input.archived !== row.archived) values.archived = input.archived
+  if (input.selfAssessment !== undefined) {
+    const selfAssessment = row.kind === 'staff' && input.selfAssessment
+    if (selfAssessment !== row.selfAssessment) values.selfAssessment = selfAssessment
+  }
+  if (input.content !== undefined) {
+    const raw = input.content
+    const content = withFormErrors(() => {
+      const checked = checkContent(withIds(raw))
+      assertKindsKept(templateContent(row), checked)
+      return JSON.stringify(checked)
+    })
+    if (content !== row.content) values.content = content
+  }
+  if (Object.keys(values).length === 0) return
   db.update(formTemplates).set({ ...values, updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
     .where(eq(formTemplates.id, id)).run()
 }

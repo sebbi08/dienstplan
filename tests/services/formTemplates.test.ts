@@ -9,7 +9,7 @@ import {
 } from '../../server/services/formTemplates'
 import type { ServiceError } from '../../server/lib/errors'
 import { checkContent, FormError, type FormContent } from '../../shared/domain/forms'
-import { STAFF_STARTERS, starterContent } from '../../shared/domain/forms/starters'
+import { RATING_LEGEND, STAFF_STARTERS, starterContent } from '../../shared/domain/forms/starters'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -54,7 +54,9 @@ describe('starter templates', () => {
     expect(self!.sections[5]!.items.slice(1, 4).map(item => item.kind === 'text' && item.question)).toEqual(['Ziel 1', 'Ziel 2', 'Ziel 3'])
     expect(self!.sections[6]!.items.at(-1)).toMatchObject({ kind: 'text', question: 'Anmerkungen' })
     expect(assessment!.sections).toHaveLength(12)
-    expect(assessment!.sections[0]!.items[0]).toMatchObject({ kind: 'note' })
+    // The legend is shown by the form above every section with ratings, not stored as a note.
+    expect(assessment!.sections.flatMap(section => section.items).some(item => item.kind === 'note')).toBe(false)
+    expect(RATING_LEGEND.entries.map(entry => entry.value)).toEqual(['+', '~', '-'])
     expect(assessment!.sections.slice(0, 11).flatMap(section => section.items).filter(item => item.kind === 'rating')).toHaveLength(47)
     expect(assessment!.sections[11]).toMatchObject({ title: 'Zusammenfassung und Vereinbarungen' })
     expect(assessment!.sections[11]!.items.map(item => item.kind)).toEqual(['text', 'text', 'text', 'text'])
@@ -149,6 +151,36 @@ describe('form templates', () => {
     const duplicate = { sections: [{ id: 'a', title: 'A', items: [{ id: 'a', kind: 'note', text: 'x' }] }] }
     expect(errorCode(() => updateTemplate(db, leitung, 1, id, { content: duplicate }, now))).toBe('form_content_invalid')
     expect(own()[0]!.content).toEqual({ sections: [] })
+  })
+
+  it('refuses a kept item id with another kind', () => {
+    const id = create('Probezeit')
+    updateTemplate(db, leitung, 1, id, { content: sample }, now)
+    const saved = own()[0]!.content
+    const changed = structuredClone(saved) as unknown as { sections: { items: Record<string, unknown>[] }[] }
+    const item = changed.sections[0]!.items[0]!
+    changed.sections[0]!.items[0] = { id: item.id, kind: 'note', text: 'Wie geht es dir?' }
+    expect(errorCode(() => updateTemplate(db, leitung, 1, id, { content: changed }, now))).toBe('form_item_kind_fixed')
+    expect(own()[0]!.content).toEqual(saved)
+    // Deleting the item and adding a new one of the other kind is fine.
+    changed.sections[0]!.items[0] = { kind: 'note', text: 'Wie geht es dir?' }
+    updateTemplate(db, leitung, 1, id, { content: changed }, now)
+    expect(own()[0]!.content.sections[0]!.items[0]).toMatchObject({ kind: 'note' })
+  })
+
+  it('writes nothing when no field changes', () => {
+    const id = create('Probezeit')
+    updateTemplate(db, leitung, 1, id, { content: sample }, now)
+    const before = own()[0]!
+    const other = addUser(db, 'traeger', 'provider')
+    const later = new Date('2026-10-28T10:00:00.000Z')
+    updateTemplate(db, other, 1, id, {}, later)
+    updateTemplate(db, other, 1, id, {
+      name: ' Probezeit ', archived: false, selfAssessment: false, content: structuredClone(before.content),
+    }, later)
+    expect(own()[0]).toEqual(before)
+    updateTemplate(db, other, 1, id, { archived: true }, later)
+    expect(own()[0]).toMatchObject({ archived: true, updatedAt: later.toISOString(), updatedBy: 'traeger' })
   })
 
   it('maps domain errors: unknown section or item 404, everything else 400', () => {

@@ -14,6 +14,19 @@ export interface StarterTemplate {
   sections: { title: string; hint: string; items: ItemDraft[] }[]
 }
 
+/**
+ * The legend the forms show above every section with ratings (spec §2), from the Beurteilungsbogen; not part of any
+ * template. `value` is the stored rating, `symbol` what the form shows.
+ */
+export const RATING_LEGEND = {
+  intro: 'Bewertung: Pro Kriterium bitte genau eine Spalte (+, ~ oder −) markieren.',
+  entries: [
+    { value: '+', symbol: '+', label: 'Stärke / entspricht den Erwartungen' },
+    { value: '~', symbol: '~', label: 'teilweise erfüllt / Entwicklung möglich' },
+    { value: '-', symbol: '−', label: 'Entwicklungsbedarf' },
+  ],
+} as const
+
 const note = (text: string): ItemDraft => ({ kind: 'note', text })
 const question = (text: string): ItemDraft => ({ kind: 'text', question: text })
 const rating = (criterion: string): ItemDraft => ({ kind: 'rating', criterion })
@@ -70,8 +83,6 @@ const ASSESSMENT: StarterTemplate = {
   selfAssessment: false,
   sections: [
     section('1. Teamarbeit', [
-      note('Bewertung: Pro Kriterium bitte genau eine Spalte (+, ~ oder −) markieren.\n'
-        + '+ = Stärke / entspricht den Erwartungen\n~ = teilweise erfüllt / Entwicklung möglich\n− = Entwicklungsbedarf'),
       rating('Arbeitet konstruktiv und wertschätzend mit Kolleginnen und Kollegen zusammen.'),
       rating('Bringt sich in Teamsitzungen ein und beteiligt sich an gemeinsamen Absprachen.'),
       rating('Geht offen und respektvoll mit unterschiedlichen Meinungen um.'),
