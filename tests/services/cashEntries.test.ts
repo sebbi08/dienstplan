@@ -4,7 +4,7 @@ import type { Db } from '../../server/db/client'
 import { cashClosedMonths, cashEntries, cashLog } from '../../server/db/schema'
 import { createBox, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
 import {
-  cashMonth, createEntry, createTransfer, deleteEntry, deleteTransfer, purposeSuggestions, transferText, updateEntry, updateTransfer,
+  cashMonth, createEntry, createTransfer, deleteEntry, deleteTransfer, purposeSuggestions, updateEntry, updateTransfer,
   type CashEntryInput,
 } from '../../server/services/cashEntries'
 import type { SessionUser } from '../../shared/types/api'
@@ -33,9 +33,9 @@ const close = (boxId: number, year: number, month: number) =>
   db.insert(cashClosedMonths).values({ boxId, year, month, closedAt: '2026-05-01T08:00:00.000Z', closedBy: 'leitung' }).run()
 const logOf = (boxId: number) => db.select().from(cashLog).where(eq(cashLog.boxId, boxId)).all().slice(1)
 const rowsOf = (boxId: number) => db.select().from(cashEntries).where(eq(cashEntries.boxId, boxId)).all()
-const transfer = (input: Partial<Parameters<typeof createTransfer>[3]> = {}) => createTransfer(db, leitung, 1, {
+const transfer = (input: Partial<Parameters<typeof createTransfer>[3]> = {}, now?: Date) => createTransfer(db, leitung, 1, {
   fromBoxId: main, toBoxId: konto, date: '2026-04-15', cents: 300, purpose: 'Einzahlung', ...input,
-}, today)
+}, today, now)
 
 describe('cash entries', () => {
   it('creates, changes and deletes an entry with log lines (before → after)', () => {
@@ -85,35 +85,54 @@ describe('cash entries', () => {
     const foreignEntry = createEntry(db, leitung, other, { boxId: foreign, date: '2026-03-10', direction: 'in', cents: 1, purpose: 'x' }, today)
     expect(errorCode(() => updateEntry(db, leitung, 1, foreignEntry, { date: '2026-03-10', cents: 2, purpose: 'x' }, today))).toBe('cash_entry_not_found')
     expect(errorCode(() => deleteEntry(db, leitung, 1, foreignEntry))).toBe('cash_entry_not_found')
-    expect(errorCode(() => cashMonth(db, 1, foreign, 2026, 3))).toBe('cash_box_not_found')
+    expect(errorCode(() => cashMonth(db, 1, foreign, 2026, 3, today))).toBe('cash_box_not_found')
   })
 
   it('numbers per direction, renumbers after a delete and carries the balance into the next month (Review Focus 2)', () => {
     const first = entry({ date: '2026-03-02', cents: 100, purpose: 'A' })
     entry({ date: '2026-03-05', cents: 200, purpose: 'B' })
     entry({ date: '2026-03-03', direction: 'out', cents: 50, purpose: 'C' })
-    const march = cashMonth(db, 1, main, 2026, 3)
+    const march = cashMonth(db, 1, main, 2026, 3, today)
     expect(march).toMatchObject({ opening: 1000, income: 300, expense: 50, closing: 1250, negative: false, closed: null })
     expect(march.rows.map(row => [row.purpose, row.number, row.balanceAfter])).toEqual([['A', 1, 1100], ['C', 1, 1050], ['B', 2, 1250]])
-    expect(cashMonth(db, 1, main, 2026, 4).opening).toBe(1250)
+    expect(cashMonth(db, 1, main, 2026, 4, today).opening).toBe(1250)
 
     deleteEntry(db, leitung, 1, first)
-    expect(cashMonth(db, 1, main, 2026, 3).rows.map(row => [row.purpose, row.number])).toEqual([['C', 1], ['B', 1]])
-    expect(cashMonth(db, 1, main, 2026, 4).opening).toBe(1150)
-    expect(errorCode(() => cashMonth(db, 1, main, 2026, 2))).toBe('cash_before_start')
+    expect(cashMonth(db, 1, main, 2026, 3, today).rows.map(row => [row.purpose, row.number])).toEqual([['C', 1], ['B', 1]])
+    expect(cashMonth(db, 1, main, 2026, 4, today).opening).toBe(1150)
+    expect(errorCode(() => cashMonth(db, 1, main, 2026, 2, today))).toBe('cash_before_start')
   })
 
   it('shows the closing and the month\'s log lines on the sheet', () => {
     close(main, 2026, 3)
-    expect(cashMonth(db, 1, main, 2026, 3).closed).toEqual({ at: '2026-05-01T08:00:00.000Z', by: 'leitung' })
+    expect(cashMonth(db, 1, main, 2026, 3, today).closed).toEqual({ at: '2026-05-01T08:00:00.000Z', by: 'leitung' })
     createEntry(db, leitung, 1, { boxId: main, date: '2026-04-02', direction: 'in', cents: 1, purpose: 'x' }, today, new Date('2026-04-02T10:00:00Z'))
-    expect(cashMonth(db, 1, main, 2026, 4).log.map(line => line.action)).toEqual(['entry_created'])
-    expect(cashMonth(db, 1, main, 2026, 4).box).toMatchObject({ id: main, name: 'Hauptkasse', groupName: null })
+    expect(cashMonth(db, 1, main, 2026, 4, today).log.map(line => line.action)).toEqual(['entry_created'])
+    expect(cashMonth(db, 1, main, 2026, 4, today).box).toMatchObject({ id: main, name: 'Hauptkasse', groupName: null })
+    expect(errorCode(() => cashMonth(db, 1, main, 2026, 11, today))).toBe('cash_month_future')
+    expect(cashMonth(db, 1, main, 2026, 10, today).rows).toEqual([])
+  })
+
+  it('puts log lines on the sheet of the month they concern, box lines on the month they were written', () => {
+    const late = new Date('2026-05-03T09:00:00Z')
+    const id = createEntry(db, leitung, 1, { boxId: main, date: '2026-04-28', direction: 'out', cents: 200, purpose: 'Kaffee' }, today, late)
+    const sheet = (month: number) => cashMonth(db, 1, main, 2026, month, today).log.map(line => [line.action, line.detail])
+    expect(sheet(4)).toEqual([['entry_created', 'Ausgabe 28.04.2026, 2,00 €, „Kaffee“']])
+    expect(sheet(5)).toEqual([])
+    // Moved into May: the line belongs to May and names the old date.
+    updateEntry(db, leitung, 1, id, { date: '2026-05-02', cents: 200, purpose: 'Kaffee' }, today, late)
+    expect(sheet(5)).toEqual([['entry_updated', 'Ausgabe: Datum 28.04.2026 → 02.05.2026']])
+    transfer({ date: '2026-04-15' }, late)
+    expect(sheet(4).map(([action]) => action)).toEqual(['entry_created', 'transfer_created'])
+    // A box line has no month: shown on the sheet of the month it was written in.
+    updateBox(db, leitung, 1, main, { ...boxInput, name: 'Barkasse', archived: false }, new Date('2026-06-10T09:00:00Z'))
+    expect(sheet(6)).toEqual([['box_updated', 'Name Hauptkasse → Barkasse']])
+    expect(sheet(5).map(([action]) => action)).toEqual(['entry_updated'])
   })
 
   it('flags a negative day in a cash box only', () => {
     entry({ direction: 'out', cents: 1500, purpose: 'Einkauf' })
-    expect(cashMonth(db, 1, main, 2026, 3)).toMatchObject({ closing: -500, negative: true })
+    expect(cashMonth(db, 1, main, 2026, 3, today)).toMatchObject({ closing: -500, negative: true })
   })
 })
 
@@ -126,9 +145,9 @@ describe('cash transfers', () => {
     expect(income).toMatchObject({ direction: 'in', cents: 300, transferId: id, purpose: 'Umbuchung von Hauptkasse: Einzahlung' })
     expect(logOf(main).map(line => line.detail)).toEqual(['an Konto: 15.04.2026, 3,00 €, „Einzahlung“'])
     expect(logOf(konto).map(line => line.detail)).toEqual(['von Hauptkasse: 15.04.2026, 3,00 €, „Einzahlung“'])
-    const row = cashMonth(db, 1, konto, 2026, 4).rows[0]!
+    const row = cashMonth(db, 1, konto, 2026, 4, today).rows[0]!
     expect(row.transfer).toEqual({ otherBoxId: main, otherBoxName: 'Hauptkasse', text: 'Einzahlung' })
-    expect(cashMonth(db, 1, main, 2026, 4).closing).toBe(700)
+    expect(cashMonth(db, 1, main, 2026, 4, today).closing).toBe(700)
   })
 
   it('changes and deletes both rows together', () => {
@@ -180,9 +199,25 @@ describe('cash transfers', () => {
     expect(errorCode(() => deleteTransfer(db, leitung, 1, id))).toBe('cash_box_archived')
   })
 
-  it('strips the prefix even after a rename', () => {
-    expect(transferText('Umbuchung an Konto: Bank', 'out', 'Konto')).toBe('Bank')
-    expect(transferText('Umbuchung von Alt: Bank: Teil 2', 'in', 'Neu')).toBe('Bank: Teil 2')
+  it('keeps the user\'s text and renames the other box in open months only', () => {
+    const april = transfer({ purpose: 'Bank: Teil 2' })
+    const may = transfer({ date: '2026-05-04', purpose: 'Mai' })
+    close(main, 2026, 3)
+    close(main, 2026, 4)
+    const kontoInput = { ...boxInput, kind: 'account' as const, startMonth: 4, startBalance: 0, archived: false }
+    updateBox(db, leitung, 1, konto, { ...kontoInput, name: 'Konto: Sparkasse' })
+    const purposes = (boxId: number) => rowsOf(boxId).map(row => row.purpose)
+    // April is closed in the source box: its row keeps the old name; May is open.
+    expect(purposes(main)).toEqual(['Umbuchung an Konto: Bank: Teil 2', 'Umbuchung an Konto: Sparkasse: Mai'])
+    updateBox(db, leitung, 1, main, { ...boxInput, name: 'Bar: Haupt', archived: false })
+    expect(purposes(konto)).toEqual(['Umbuchung von Bar: Haupt: Bank: Teil 2', 'Umbuchung von Bar: Haupt: Mai'])
+    // The text is stored, not cut out of the purpose.
+    const rows = cashMonth(db, 1, konto, 2026, 4, today).rows
+    expect(rows[0]!.transfer).toEqual({ otherBoxId: main, otherBoxName: 'Bar: Haupt', text: 'Bank: Teil 2' })
+    updateTransfer(db, leitung, 1, may, { date: '2026-05-04', cents: 300, purpose: 'Mai 2' }, today)
+    expect(purposes(main)[1]).toBe('Umbuchung an Konto: Sparkasse: Mai 2')
+    expect(logOf(main).at(-1)!.detail).toBe('an Konto: Sparkasse: Text „Mai“ → „Mai 2“')
+    expect(april).toBeLessThan(may)
   })
 })
 

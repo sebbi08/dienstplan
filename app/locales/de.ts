@@ -1349,6 +1349,8 @@ export const de = {
     cash_start_balance_invalid: 'Der Anfangsbestand muss 0 oder mehr sein.',
     cash_entries_before_start: 'Es gibt Einträge vor diesem Startmonat. Wähle einen früheren Startmonat.',
     cash_box_has_entries: 'Die Kasse hat schon Einträge und kann nur stillgelegt werden.',
+    cash_box_has_history: 'Im Protokoll der Kasse stehen schon Einträge oder Abschlüsse. Sie kann nur stillgelegt werden.',
+    cash_month_future: 'Dieser Monat hat noch nicht begonnen.',
     cash_box_archived: 'Die Kasse ist stillgelegt. Aktiviere sie zuerst wieder.',
     cash_month_closed: 'Dieser Monat ist abgeschlossen und kann nicht mehr geändert werden.',
     cash_before_start: 'Das Datum liegt vor dem Startmonat der Kasse.',

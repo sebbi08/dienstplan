@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ca99508a-46c5-4126-8350-73012d24f763",
+  "id": "3f294061-b47f-41c5-9b80-a83467af8755",
   "prevId": "5b2439a5-8ad3-4a4f-b74b-9c19a51b5205",
   "tables": {
     "absence_codes": {
@@ -575,6 +575,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "transfer_text": {
+          "name": "transfer_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -696,14 +703,21 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
-        "cash_log_box_at": {
-          "name": "cash_log_box_at",
+        "cash_log_box_month": {
+          "name": "cash_log_box_month",
           "columns": [
             "box_id",
-            "at"
+            "month"
           ],
           "isUnique": false
         }

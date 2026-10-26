@@ -34,6 +34,7 @@ CREATE TABLE `cash_entries` (
 	`purpose` text NOT NULL,
 	`receipt_id` integer,
 	`transfer_id` integer,
+	`transfer_text` text,
 	`created_at` text NOT NULL,
 	`created_by` integer,
 	FOREIGN KEY (`box_id`) REFERENCES `cash_boxes`(`id`) ON UPDATE no action ON DELETE cascade,
@@ -50,10 +51,11 @@ CREATE TABLE `cash_log` (
 	`actor` text NOT NULL,
 	`action` text NOT NULL,
 	`detail` text NOT NULL,
+	`month` text,
 	FOREIGN KEY (`box_id`) REFERENCES `cash_boxes`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `cash_log_box_at` ON `cash_log` (`box_id`,`at`);--> statement-breakpoint
+CREATE INDEX `cash_log_box_month` ON `cash_log` (`box_id`,`month`);--> statement-breakpoint
 CREATE TABLE `cash_receipts` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`facility_id` integer NOT NULL,

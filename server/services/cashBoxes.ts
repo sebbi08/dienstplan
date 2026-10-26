@@ -1,12 +1,12 @@
-import { and, asc, eq, inArray, isNull, max, sql } from 'drizzle-orm'
-import { formatCents, monthKey, type CashKind, type YearMonth } from '../../shared/domain/cash'
+import { and, asc, eq, inArray, isNotNull, isNull, max, ne, notInArray, sql } from 'drizzle-orm'
+import { formatCents, monthKey, type CashDirection, type CashKind, type YearMonth } from '../../shared/domain/cash'
 import type { IsoDate } from '../../shared/domain/types'
 import type { CashBoxDto, CashBoxInfoDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { cashBoxes, cashClosedMonths, cashEntries, groups } from '../db/schema'
+import { cashBoxes, cashClosedMonths, cashEntries, cashLog, groups } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
-import { type CashActor, describeChanges, logCash } from './cashLog'
+import { BOX_LOG_ACTIONS, type CashActor, describeChanges, logCash } from './cashLog'
 import { assertGroup } from './groups'
 
 export type CashBoxRow = typeof cashBoxes.$inferSelect
@@ -148,7 +148,7 @@ export function createBox(db: Db, actor: CashActor, facilityId: number, input: C
       facilityId, ...values, archived: false, sortOrder: nextSortOrder(tx, facilityId, values.groupId), createdAt: now.toISOString(),
     }).returning({ id: cashBoxes.id }).get().id
     logCash(tx, id, actor, 'box_created', `${values.name} (${KIND_LABELS[values.kind]}, ${scopeLabel(groupName(tx, values.groupId))}, `
-      + `ab ${monthLabel(values.startYear, values.startMonth)}, Anfangsbestand ${formatCents(values.startBalance)})`, now)
+      + `ab ${monthLabel(values.startYear, values.startMonth)}, Anfangsbestand ${formatCents(values.startBalance)})`, null, now)
     return id
   })
 }
@@ -183,16 +183,47 @@ export function updateBox(
       ['Startmonat', monthLabel(box.startYear, box.startMonth), monthLabel(values.startYear, values.startMonth)],
       ['Anfangsbestand', formatCents(box.startBalance), formatCents(values.startBalance)],
     ])
-    if (changes) logCash(tx, id, actor, 'box_updated', changes, now)
-    if (input.archived !== box.archived) logCash(tx, id, actor, input.archived ? 'box_archived' : 'box_activated', values.name, now)
+    if (changes) logCash(tx, id, actor, 'box_updated', changes, null, now)
+    if (input.archived !== box.archived) logCash(tx, id, actor, input.archived ? 'box_archived' : 'box_activated', values.name, null, now)
+    if (values.name !== box.name) renameInTransfers(tx, id, values.name)
   })
 }
 
-/** Deletes a box without entries (its log and closed months go along); otherwise 409 cash_box_has_entries. */
+/** „Umbuchung an ‹Kasse›: ‹text›“ (expense) or „Umbuchung von ‹Kasse›: ‹text›“ (income). */
+export const transferPurpose = (direction: CashDirection, otherName: string, text: string) =>
+  `Umbuchung ${direction === 'out' ? 'an' : 'von'} ${otherName}: ${text}`
+
+/**
+ * After a rename: the other boxes' transfer rows naming this box get the new name, in open months of active boxes only
+ * (closed months and archived boxes stay as they are).
+ */
+function renameInTransfers(tx: Db, boxId: number, name: string): void {
+  const ids = tx.select({ transferId: cashEntries.transferId }).from(cashEntries)
+    .where(and(eq(cashEntries.boxId, boxId), isNotNull(cashEntries.transferId))).all().map(row => row.transferId!)
+  if (ids.length === 0) return
+  const closed = new Map<number, Set<string>>()
+  for (const { entry, archived } of tx.select({ entry: cashEntries, archived: cashBoxes.archived }).from(cashEntries)
+    .innerJoin(cashBoxes, eq(cashBoxes.id, cashEntries.boxId))
+    .where(and(inArray(cashEntries.transferId, ids), ne(cashEntries.boxId, boxId))).all()) {
+    if (archived) continue
+    if (!closed.has(entry.boxId)) closed.set(entry.boxId, closedMonths(tx, entry.boxId))
+    if (closed.get(entry.boxId)!.has(entry.date.slice(0, 7))) continue
+    tx.update(cashEntries).set({ purpose: transferPurpose(entry.direction, name, entry.transferText ?? '') })
+      .where(eq(cashEntries.id, entry.id)).run()
+  }
+}
+
+/**
+ * Deletes a box that never had entries or closings (its few box lines and nothing else go along); one with entries
+ * is 409 cash_box_has_entries, one whose log has more than box lines 409 cash_box_has_history (only archive it).
+ */
 export function deleteBox(db: Db, facilityId: number, id: number): void {
   loadBox(db, facilityId, id)
   if (db.select({ id: cashEntries.id }).from(cashEntries).where(eq(cashEntries.boxId, id)).get()) {
     throw new ServiceError(409, 'cash_box_has_entries')
+  }
+  if (db.select({ id: cashLog.id }).from(cashLog).where(and(eq(cashLog.boxId, id), notInArray(cashLog.action, BOX_LOG_ACTIONS))).get()) {
+    throw new ServiceError(409, 'cash_box_has_history')
   }
   db.delete(cashBoxes).where(eq(cashBoxes.id, id)).run()
 }

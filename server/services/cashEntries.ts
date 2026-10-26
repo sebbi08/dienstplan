@@ -6,8 +6,8 @@ import type { CashMonthDto, CashTransferInfo } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { cashBoxes, cashClosedMonths, cashEntries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { assertActive, assertMonthOpen, boxInfo, loadBox, startKey, type CashBoxRow } from './cashBoxes'
-import { type CashActor, describeCashEntry, describeChanges, germanDate, logCash, monthLog } from './cashLog'
+import { assertActive, assertMonthOpen, boxInfo, loadBox, startKey, transferPurpose, type CashBoxRow } from './cashBoxes'
+import { type CashActor, describeCashEntry, describeChanges, germanDate, logCash, monthLog, monthOf } from './cashLog'
 
 /** At most 1.000.000,00 € per entry. */
 export const MAX_CASH_CENTS = 100_000_000
@@ -79,7 +79,7 @@ export function createEntry(
     const id = tx.insert(cashEntries).values({
       boxId: box.id, ...facts, direction: input.direction, createdAt: now.toISOString(), createdBy: actor.id,
     }).returning({ id: cashEntries.id }).get().id
-    logCash(tx, box.id, actor, 'entry_created', describeEntry({ ...facts, direction: input.direction }), now)
+    logCash(tx, box.id, actor, 'entry_created', describeEntry({ ...facts, direction: input.direction }), monthOf(facts.date), now)
     return id
   })
 }
@@ -96,7 +96,7 @@ export function updateEntry(
   if (!changes) return
   db.transaction((tx) => {
     tx.update(cashEntries).set(facts).where(eq(cashEntries.id, id)).run()
-    logCash(tx, box.id, actor, 'entry_updated', `${DIRECTION_LABELS[entry.direction]}: ${changes}`, now)
+    logCash(tx, box.id, actor, 'entry_updated', `${DIRECTION_LABELS[entry.direction]}: ${changes}`, monthOf(facts.date), now)
   })
 }
 
@@ -106,18 +106,8 @@ export function deleteEntry(db: Db, actor: CashActor, facilityId: number, id: nu
   assertWritable(db, box, entry.date)
   db.transaction((tx) => {
     tx.delete(cashEntries).where(eq(cashEntries.id, id)).run()
-    logCash(tx, box.id, actor, 'entry_deleted', describeEntry(entry), now)
+    logCash(tx, box.id, actor, 'entry_deleted', describeEntry(entry), monthOf(entry.date), now)
   })
-}
-
-const transferPurpose = (direction: CashDirection, otherName: string, text: string) =>
-  `Umbuchung ${direction === 'out' ? 'an' : 'von'} ${otherName}: ${text}`
-
-/** The user's text of a transfer row, without the „Umbuchung an/von ‹Kasse›: “ prefix (the name may have changed since). */
-export function transferText(purpose: string, direction: CashDirection, otherName: string): string {
-  const prefix = transferPurpose(direction, otherName, '')
-  if (purpose.startsWith(prefix)) return purpose.slice(prefix.length)
-  return purpose.replace(/^Umbuchung (?:an|von) [^:]*: /, '')
 }
 
 /** Expense and income row of a transfer of the facility, by the expense row's id; else 404 cash_transfer_not_found. */
@@ -128,7 +118,7 @@ function loadTransfer(db: Db, facilityId: number, id: number) {
   const out = rows.find(row => row.entry.direction === 'out' && row.entry.id === id)
   const income = rows.find(row => row.entry.direction === 'in')
   if (!out || !income) throw new ServiceError(404, 'cash_transfer_not_found')
-  return { out, income, text: transferText(out.entry.purpose, 'out', income.box.name) }
+  return { out, income, text: out.entry.transferText ?? '' }
 }
 
 /**
@@ -145,15 +135,15 @@ export function createTransfer(
   assertWritable(db, from, facts.date)
   assertWritable(db, to, facts.date)
   return db.transaction((tx) => {
-    const base = { date: facts.date, cents: facts.cents, createdAt: now.toISOString(), createdBy: actor.id }
+    const base = { date: facts.date, cents: facts.cents, transferText: facts.purpose, createdAt: now.toISOString(), createdBy: actor.id }
     const id = tx.insert(cashEntries).values({ ...base, boxId: from.id, direction: 'out', purpose: transferPurpose('out', to.name, facts.purpose) })
       .returning({ id: cashEntries.id }).get().id
     tx.update(cashEntries).set({ transferId: id }).where(eq(cashEntries.id, id)).run()
     tx.insert(cashEntries).values({
       ...base, boxId: to.id, direction: 'in', purpose: transferPurpose('in', from.name, facts.purpose), transferId: id,
     }).run()
-    logCash(tx, from.id, actor, 'transfer_created', `an ${to.name}: ${describeCashEntry(facts)}`, now)
-    logCash(tx, to.id, actor, 'transfer_created', `von ${from.name}: ${describeCashEntry(facts)}`, now)
+    logCash(tx, from.id, actor, 'transfer_created', `an ${to.name}: ${describeCashEntry(facts)}`, monthOf(facts.date), now)
+    logCash(tx, to.id, actor, 'transfer_created', `von ${from.name}: ${describeCashEntry(facts)}`, monthOf(facts.date), now)
     return id
   })
 }
@@ -171,12 +161,13 @@ export function updateTransfer(
   const changes = factChanges({ ...out.entry, purpose: text }, facts)
   if (!changes) return
   db.transaction((tx) => {
-    tx.update(cashEntries).set({ date: facts.date, cents: facts.cents, purpose: transferPurpose('out', income.box.name, facts.purpose) })
+    const base = { date: facts.date, cents: facts.cents, transferText: facts.purpose }
+    tx.update(cashEntries).set({ ...base, purpose: transferPurpose('out', income.box.name, facts.purpose) })
       .where(eq(cashEntries.id, out.entry.id)).run()
-    tx.update(cashEntries).set({ date: facts.date, cents: facts.cents, purpose: transferPurpose('in', out.box.name, facts.purpose) })
+    tx.update(cashEntries).set({ ...base, purpose: transferPurpose('in', out.box.name, facts.purpose) })
       .where(eq(cashEntries.id, income.entry.id)).run()
-    logCash(tx, out.box.id, actor, 'transfer_updated', `an ${income.box.name}: ${changes}`, now)
-    logCash(tx, income.box.id, actor, 'transfer_updated', `von ${out.box.name}: ${changes}`, now)
+    logCash(tx, out.box.id, actor, 'transfer_updated', `an ${income.box.name}: ${changes}`, monthOf(facts.date), now)
+    logCash(tx, income.box.id, actor, 'transfer_updated', `von ${out.box.name}: ${changes}`, monthOf(facts.date), now)
   })
 }
 
@@ -187,15 +178,19 @@ export function deleteTransfer(db: Db, actor: CashActor, facilityId: number, id:
   const facts = { date: out.entry.date, cents: out.entry.cents, purpose: text }
   db.transaction((tx) => {
     tx.delete(cashEntries).where(eq(cashEntries.transferId, id)).run()
-    logCash(tx, out.box.id, actor, 'transfer_deleted', `an ${income.box.name}: ${describeCashEntry(facts)}`, now)
-    logCash(tx, income.box.id, actor, 'transfer_deleted', `von ${out.box.name}: ${describeCashEntry(facts)}`, now)
+    logCash(tx, out.box.id, actor, 'transfer_deleted', `an ${income.box.name}: ${describeCashEntry(facts)}`, monthOf(facts.date), now)
+    logCash(tx, income.box.id, actor, 'transfer_deleted', `von ${out.box.name}: ${describeCashEntry(facts)}`, monthOf(facts.date), now)
   })
 }
 
-/** The month's sheet of a box of the facility (opening, rows with numbers and running balance), closing and log. */
-export function cashMonth(db: Db, facilityId: number, boxId: number, year: number, month: number): CashMonthDto {
+/**
+ * The month's sheet of a box of the facility (opening, rows with numbers and running balance), closing and log; not
+ * before the start month (400 cash_before_start), not after the running month (400 cash_month_future).
+ */
+export function cashMonth(db: Db, facilityId: number, boxId: number, year: number, month: number, today: IsoDate): CashMonthDto {
   const box = loadBox(db, facilityId, boxId)
   if (monthKey(year, month) < startKey(box)) throw new ServiceError(400, 'cash_before_start')
+  if (monthKey(year, month) > monthOf(today)) throw new ServiceError(400, 'cash_month_future')
   const last = toIsoDate(year, month, daysInMonth(year, month))
   const stored = db.select().from(cashEntries).where(and(eq(cashEntries.boxId, boxId), lte(cashEntries.date, last)))
     .orderBy(asc(cashEntries.date), asc(cashEntries.id)).all()
@@ -233,7 +228,7 @@ export function cashMonth(db: Db, facilityId: number, boxId: number, year: numbe
     rows: sheet.rows.map((row) => {
       const other = row.transferId === null ? undefined : others.get(row.transferId)
       const transfer: CashTransferInfo | null = other
-        ? { otherBoxId: other.boxId, otherBoxName: other.name, text: transferText(row.purpose, row.direction, other.name) }
+        ? { otherBoxId: other.boxId, otherBoxName: other.name, text: byId.get(row.id)?.transferText ?? '' }
         : null
       return { ...row, receiptId: byId.get(row.id)?.receiptId ?? null, transfer }
     }),

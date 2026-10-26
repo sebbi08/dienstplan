@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, isNull, or } from 'drizzle-orm'
 import { formatCents, monthKey } from '../../shared/domain/cash'
 import { todayIso } from '../../shared/domain/dates'
 import type { IsoDate } from '../../shared/domain/types'
@@ -15,9 +15,17 @@ export type CashLogAction =
   | 'transfer_created' | 'transfer_updated' | 'transfer_deleted'
   | 'month_closed' | 'month_reopened'
 
-/** Appends a line to the box's log (never changed or deleted afterwards). */
-export function logCash(tx: Db, boxId: number, actor: CashActor, action: CashLogAction, detail: string, now: Date = new Date()): void {
-  tx.insert(cashLog).values({ boxId, at: now.toISOString(), actor: actor.username, action, detail }).run()
+/** Lines about the box itself (month null); a box with only these may still be deleted. */
+export const BOX_LOG_ACTIONS: CashLogAction[] = ['box_created', 'box_updated', 'box_archived', 'box_activated']
+
+/**
+ * Appends a line to the box's log (never changed or deleted afterwards). `month` ('YYYY-MM') is the month the line
+ * concerns (the entry's month, the closed or reopened month), null for a line about the box itself.
+ */
+export function logCash(
+  tx: Db, boxId: number, actor: CashActor, action: CashLogAction, detail: string, month: string | null, now: Date = new Date(),
+): void {
+  tx.insert(cashLog).values({ boxId, at: now.toISOString(), actor: actor.username, action, detail, month }).run()
 }
 
 /** „03.03.2026“ */
@@ -37,10 +45,18 @@ export function describeChanges(changes: [label: string, before: string, after: 
     .map(([label, before, after]) => `${label} ${before} → ${after}`).join('; ')
 }
 
-/** The box's log lines written in the month (Berlin time), oldest first. */
+/** The month of an ISO date or month key: '2026-03'. */
+export const monthOf = (date: string) => date.slice(0, 7)
+
+/**
+ * The log lines of a month's sheet, oldest first: those concerning the month, and the box's own lines written in it
+ * (Berlin time).
+ */
 export function monthLog(db: Db, boxId: number, year: number, month: number): CashLogDto[] {
   const key = monthKey(year, month)
-  return db.select({ id: cashLog.id, at: cashLog.at, actor: cashLog.actor, action: cashLog.action, detail: cashLog.detail })
-    .from(cashLog).where(eq(cashLog.boxId, boxId)).orderBy(asc(cashLog.at), asc(cashLog.id)).all()
-    .filter(line => todayIso(new Date(line.at)).slice(0, 7) === key)
+  return db.select({ id: cashLog.id, at: cashLog.at, actor: cashLog.actor, action: cashLog.action, detail: cashLog.detail, month: cashLog.month })
+    .from(cashLog).where(and(eq(cashLog.boxId, boxId), or(eq(cashLog.month, key), isNull(cashLog.month))))
+    .orderBy(asc(cashLog.at), asc(cashLog.id)).all()
+    .filter(line => line.month !== null || monthOf(todayIso(new Date(line.at))) === key)
+    .map(({ month: _, ...line }) => line)
 }

@@ -967,6 +967,8 @@ export const cashEntries = sqliteTable('cash_entries', {
   purpose: text('purpose').notNull(),
   receiptId: integer('receipt_id').references(() => cashReceipts.id, { onDelete: 'set null' }),
   transferId: integer('transfer_id'),
+  /** A transfer row: the user's own text, `purpose` being „Umbuchung an/von ‹Kasse›: ‹text›“ (null for plain entries). */
+  transferText: text('transfer_text'),
   createdAt: text('created_at').notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [
@@ -986,6 +988,8 @@ export const cashClosedMonths = sqliteTable('cash_closed_months', {
 /**
  * The audit log of a box (nobody changes or deletes it): `actor` is the user name at the time, `action` a key
  * (box_created, entry_updated, transfer_deleted …), `detail` the German text shown (before → after for changes).
+ * `month` ('YYYY-MM') is the month the line concerns: the entry's month (after a date change the new one), the closed
+ * or reopened month; null for lines about the box itself.
  */
 export const cashLog = sqliteTable('cash_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -994,4 +998,5 @@ export const cashLog = sqliteTable('cash_log', {
   actor: text('actor').notNull(),
   action: text('action').notNull(),
   detail: text('detail').notNull(),
-}, table => [index('cash_log_box_at').on(table.boxId, table.at)])
+  month: text('month'),
+}, table => [index('cash_log_box_month').on(table.boxId, table.month)])

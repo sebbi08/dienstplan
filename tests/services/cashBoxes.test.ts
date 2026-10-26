@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { cashBoxes, cashClosedMonths, cashLog } from '../../server/db/schema'
 import { createBox, deleteBox, listBoxes, loadBox, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
-import { createEntry, createTransfer } from '../../server/services/cashEntries'
+import { createEntry, createTransfer, deleteEntry } from '../../server/services/cashEntries'
 import { deleteGroup } from '../../server/services/groups'
 import type { SessionUser } from '../../shared/types/api'
 import { addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
@@ -116,9 +116,23 @@ describe('cash boxes', () => {
     const empty = box({ name: 'Leer' })
     createEntry(db, leitung, 1, { boxId: id, date: '2026-03-02', direction: 'in', cents: 100, purpose: 'x' }, today)
     expect(errorCode(() => deleteBox(db, 1, id))).toBe('cash_box_has_entries')
+    // Box lines only (created, changed, archived): the box and these lines may go.
+    updateBox(db, leitung, 1, empty, { ...base, name: 'Leer', archived: true })
     deleteBox(db, 1, empty)
     expect(errorCode(() => loadBox(db, 1, empty))).toBe('cash_box_not_found')
     expect(logOf(empty)).toEqual([])
+  })
+
+  it('keeps a box whose log has more than box lines, even without entries now', () => {
+    const id = box()
+    const entry = createEntry(db, leitung, 1, { boxId: id, date: '2026-03-02', direction: 'in', cents: 100, purpose: 'x' }, today)
+    deleteEntry(db, leitung, 1, entry)
+    expect(errorCode(() => deleteBox(db, 1, id))).toBe('cash_box_has_history')
+    expect(logOf(id).map(line => line.action)).toEqual(['box_created', 'entry_created', 'entry_deleted'])
+    // A closing alone counts as history as well (Task 3 logs it).
+    const closed = box({ name: 'Geschlossen' })
+    db.insert(cashLog).values({ boxId: closed, at: '2026-04-01T08:00:00.000Z', actor: 'leitung', action: 'month_closed', detail: '03/2026', month: '2026-03' }).run()
+    expect(errorCode(() => deleteBox(db, 1, closed))).toBe('cash_box_has_history')
   })
 
   it('reports the closed months and missing receipts of the open period only', () => {
