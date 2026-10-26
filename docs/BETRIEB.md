@@ -212,6 +212,8 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
   und öffnet beim nächsten Mal wieder dort – wenn die Person ihn sehen darf, sonst wieder mit „Anwesenheit“.
 - **„Kind anlegen“** steht oben rechts neben der Überschrift (für alle, die Kinder anlegen dürfen).
 - Mit der Tastatur wechselst du mit den Pfeiltasten zwischen den Bereichen bzw. Reitern.
+- Die **Liste** und die **Übersicht** stehen nach Gruppen und darin nach Alter: das älteste Kind zuerst, bei gleichem
+  Geburtstag nach Nachname.
 - Daten in der Kinderakte tippst du als **TT.MM.JJJJ** (z. B. „03052021“ – die Punkte kommen von selbst); der
   Kalender-Knopf im Feld öffnet weiterhin den Kalender. Ein ungültiges Datum wird rot markiert und nicht gespeichert.
 
@@ -645,7 +647,8 @@ Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Ein
 
 Unter *Kinder → Kinder* ist **„Übersicht“** der Reiter nach „Liste“. Er zeigt die Angaben der Kinder als Tabellen, aufgebaut
 wie die Blätter der bisherigen Excel-Liste. Erfasst wird hier nichts: alle Werte kommen aus den Kinderakten und werden
-dort geändert. Ein Kind steht je Zeile (Nachname, Vorname), nach Gruppen geordnet wie in der Liste, Kinder ohne Gruppe
+dort geändert. Ein Kind steht je Zeile (Nachname, Vorname), nach Gruppen geordnet wie in der Liste und darin nach Alter
+(das älteste Kind zuerst, bei gleichem Geburtstag nach Nachname), Kinder ohne Gruppe
 am Ende („ohne Gruppe“). Mit der Gruppenauswahl zeigst du nur eine Gruppe. Der Name führt zur Akte.
 
 ### Die Unterreiter

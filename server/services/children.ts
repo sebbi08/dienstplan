@@ -52,15 +52,15 @@ export function listChildStaff(db: Db, facilityId: number, today: IsoDate): { id
   return staffOf(db, facilityId, today)
 }
 
-/** The order of the child list: the groups' order (no group last), then by name. */
+/** The order of the child list and the overview: the groups' order (no group last), then oldest first, then by name. */
 function listOrder(db: Db, facilityId: number): (a: ChildRow, b: ChildRow) => number {
   const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
   const rank = (row: ChildRow) => (row.groupId === null ? Infinity : groupRank.get(row.groupId) ?? Infinity)
-  return (a, b) => rank(a) - rank(b) || byName(a, b)
+  return (a, b) => rank(a) - rank(b) || a.birthDate.localeCompare(b.birthDate) || byName(a, b)
 }
 
 /**
- * Active children grouped in the groups' order (no group last), then by name; only those whose group the viewer's
+ * Active children grouped in the groups' order (no group last), then oldest first; only those whose group the viewer's
  * group access (`groups`, null = every group) lets them see.
  */
 export function listChildren(

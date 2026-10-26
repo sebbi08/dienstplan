@@ -49,6 +49,18 @@ describe('child records', () => {
       ])
     })
 
+    it('lists the oldest child of a group first, the same birthday by name', () => {
+      const bears = addGroup(db, 1, 'Bären')
+      const mice = addGroup(db, 1, 'Mäuse')
+      addChild(db, 1, { lastName: 'Adler', firstName: 'Ben', groupId: bears, birthDate: '2023-05-01' })
+      addChild(db, 1, { lastName: 'Zander', firstName: 'Zoe', groupId: bears, birthDate: '2021-02-10' })
+      addChild(db, 1, { lastName: 'Berg', firstName: 'Mia', groupId: bears, birthDate: '2021-02-10' })
+      addChild(db, 1, { lastName: 'Albers', firstName: 'Tom', groupId: mice, birthDate: '2020-01-01' })
+      expect(names(listChildren(db, 1, 'active', TODAY, null))).toEqual([
+        'Berg Mia', 'Zander Zoe', 'Adler Ben', 'Albers Tom',
+      ])
+    })
+
     it('keeps planned and archived children out of the active list and shows age, care type and entry', () => {
       const careType = createCareType(db, 1, { name: 'Ganztag', start: 420, end: 960, sortOrder: 0 })
       addChild(db, 1, { lastName: 'Aktiv', birthDate: '2022-03-15', careTypeId: careType.id })
