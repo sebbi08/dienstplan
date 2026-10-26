@@ -2,6 +2,7 @@ import { count, eq } from 'drizzle-orm'
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
+import { seedPendingStarterTemplates } from '../services/formTemplates'
 import type { Db } from './client'
 import { absenceCodes, coverageRules, documentTypes, shiftTemplates, users } from './schema'
 
@@ -58,7 +59,10 @@ function facilityHasNone(db: Db, table: typeof shiftTemplates | typeof coverageR
   return db.select({ value: count() }).from(table).where(eq(table.facilityId, facilityId)).get()!.value === 0
 }
 
-/** Absence codes are global; shift templates and coverage rules are seeded for the first facility. */
+/**
+ * Absence codes are global; shift templates and coverage rules are seeded for the first facility; every facility not
+ * seeded yet gets the staff starter templates.
+ */
 export function seedDefaults(db: Db): void {
   if (facilityHasNone(db, shiftTemplates, FIRST_FACILITY_ID)) {
     db.insert(shiftTemplates).values(DEFAULT_TEMPLATES.map(template => ({ ...template, facilityId: FIRST_FACILITY_ID }))).run()
@@ -67,6 +71,8 @@ export function seedDefaults(db: Db): void {
   if (facilityHasNone(db, coverageRules, FIRST_FACILITY_ID)) {
     db.insert(coverageRules).values(DEFAULT_COVERAGE_RULES.map(rule => ({ ...rule, facilityId: FIRST_FACILITY_ID }))).run()
   }
+  // Facilities from before the forms (migration 0055_forms) get the staff starter templates once.
+  seedPendingStarterTemplates(db)
 }
 
 /** Creates the first account (as Träger) from environment variables when no user exists yet. */

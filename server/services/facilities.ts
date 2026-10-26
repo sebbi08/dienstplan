@@ -6,6 +6,7 @@ import { coverageRules, documentTypes, employees, facilities, shiftTemplates, us
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { bookFreedClosureDays } from './closures'
+import { seedStarterTemplates } from './formTemplates'
 import { facilityHolidayRules } from './holidayRules'
 import { seedDefaultMeals } from './meals'
 import { seedBuiltinRequirementTypes } from './requirements'
@@ -84,7 +85,8 @@ function assertState(state: string): asserts state is GermanState {
 /**
  * A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules, the
  * built-in kinds of mandatory appointments (with their defaults, not the first facility's names and intervals),
- * the default document types and the default meals (Snack 9:30, Mittagessen 12:00 since always).
+ * the default document types, the default meals (Snack 9:30, Mittagessen 12:00 since always) and the staff starter
+ * form templates.
  */
 export function createFacility(db: Db, name: string, state: GermanState = 'BW'): FacilityDto {
   const checked = checkedName(db, name)
@@ -112,6 +114,7 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW'):
       }
     }
     tx.insert(documentTypes).values(DEFAULT_DOCUMENT_TYPES.map(type => ({ ...type, facilityId: facility.id }))).run()
+    seedStarterTemplates(tx, facility.id)
     return toDto(facility)
   })
 }

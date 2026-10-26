@@ -440,3 +440,16 @@ export const cashCloseSchema = z.object({ year: z.number().int().min(2000).max(2
 export const cashReopenSchema = cashCloseSchema.extend({ reason: z.string().max(1000) })
 /** The CSV file of a month or (without month) of the calendar year. */
 export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().min(1).max(12).optional() })
+
+// Form templates („Bögen“): name (1–80, unique per kind) and content are checked by the service
+// (form_template_name_too_long, form_content_invalid …), so the answers are in German.
+const formKind = z.enum(['staff', 'child', 'team'])
+export const formTemplateQuery = z.object({ kind: formKind.optional() })
+export const formTemplateSchema = z.object({ kind: formKind, name: z.string().max(200), selfAssessment: z.boolean().default(false) })
+/** Any subset; `content` is the whole content as the editor holds it (new sections, items and options without ids). */
+export const formTemplateUpdateSchema = z.object({
+  name: z.string().max(200).optional(),
+  archived: z.boolean().optional(),
+  selfAssessment: z.boolean().optional(),
+  content: z.unknown().optional(),
+})

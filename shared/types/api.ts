@@ -1,5 +1,6 @@
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
+import type { FormContent, FormKind } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
@@ -1892,4 +1893,24 @@ export interface CashMonthDto {
   closed: { at: string; by: string } | null
   /** The box's log lines about this month (entries dated in it, its closing/reopening), plus box-level lines written in it; oldest first. */
   log: CashLogDto[]
+}
+
+/** A form template („Bogen“-Vorlage) of the facility, with its content (sections and items with stable ids). */
+export interface FormTemplateDto {
+  id: number
+  kind: FormKind
+  name: string
+  /** Set for the app's starter templates (e.g. 'staff_self_assessment'), null for the facility's own and for copies. */
+  starterKey: string | null
+  /** Filled in by the employee (Selbstbeurteilung); only staff templates. */
+  selfAssessment: boolean
+  /** Stillgelegt: offered for no new forms, existing forms stay readable. */
+  archived: boolean
+  sortOrder: number
+  content: FormContent
+  updatedAt: string
+  /** Name at the last change ('' for a starter template nobody changed yet). */
+  updatedBy: string
+  /** Forms were made from it (then it can only be archived, not deleted). */
+  inUse: boolean
 }

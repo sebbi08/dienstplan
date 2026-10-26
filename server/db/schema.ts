@@ -66,6 +66,11 @@ export const facilities = sqliteTable('facilities', {
   leavingLeadWeeks: integer('leaving_lead_weeks').notNull().default(4),
   /** Höchstzahl Kinder in der Einrichtung (e.g. from the Betriebserlaubnis; 1–999, null = not set); set by the Träger only. */
   capacity: integer('capacity'),
+  /**
+   * The staff starter templates (shared/domain/forms/starters.ts) were created once: by createFacility, or for facilities
+   * from before the forms by the startup step (seedDefaults). A deleted or renamed starter is not created again.
+   */
+  formStartersSeeded: integer('form_starters_seeded', { mode: 'boolean' }).notNull().default(false),
 })
 
 /** The owning facility of a row (default 1 only until every insert passes it explicitly). */
@@ -1000,3 +1005,72 @@ export const cashLog = sqliteTable('cash_log', {
   detail: text('detail').notNull(),
   month: text('month'),
 }, table => [index('cash_log_box_month').on(table.boxId, table.month)])
+
+/**
+ * A form template („Bogen“-Vorlage) of a facility for one kind (staff talk, child, team meeting). `content` is JSON
+ * FormContent (sections and items with stable ids, see shared/domain/forms.ts). `starterKey` marks a starter template
+ * created by the app (null for the facility's own templates and for copies). `selfAssessment`: filled in by the
+ * employee. `updatedBy` is the name at the time ('' for the starters).
+ */
+export const formTemplates = sqliteTable('form_templates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['staff', 'child', 'team'] }).notNull(),
+  name: text('name').notNull(),
+  starterKey: text('starter_key'),
+  selfAssessment: integer('self_assessment', { mode: 'boolean' }).notNull().default(false),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  content: text('content').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: text('updated_by').notNull().default(''),
+}, table => [index('form_templates_facility_kind').on(table.facilityId, table.kind)])
+
+/**
+ * A filled form („Bogen“): `content` is the template's content copied when the form was made (later template changes
+ * never reach it), `answers` JSON keyed by item id. Self-assessments go draft → released → submitted; `readReleased`
+ * shows an assessment to the employee. `updatedBy` is the name at the time.
+ */
+export const forms = sqliteTable('forms', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  // Deleting a template with forms is refused by the service (409 form_template_in_use).
+  templateId: integer('template_id').references(() => formTemplates.id, { onDelete: 'set null' }),
+  kind: text('kind', { enum: ['staff', 'child', 'team'] }).notNull(),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  answers: text('answers').notNull().default('{}'),
+  state: text('state', { enum: ['draft', 'released', 'submitted'] }).notNull().default('draft'),
+  readReleased: integer('read_released', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: text('updated_by').notNull().default(''),
+}, table => [
+  index('forms_facility').on(table.facilityId),
+  index('forms_template').on(table.templateId),
+])
+
+/** A staff talk (Mitarbeitergespräch) with its fixed header fields; `start` in minutes after midnight (null = no time). */
+export const staffTalks = sqliteTable('staff_talks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  start: integer('start'),
+  participants: text('participants').notNull().default(''),
+  period: text('period').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [index('staff_talks_facility_employee').on(table.facilityId, table.employeeId)])
+
+/** The forms of a staff talk: the employee's self-assessment (`self`) or an assessment, in the order of `sort`. */
+export const staffTalkForms = sqliteTable('staff_talk_forms', {
+  talkId: integer('talk_id').notNull().references(() => staffTalks.id, { onDelete: 'cascade' }),
+  formId: integer('form_id').notNull().references(() => forms.id, { onDelete: 'cascade' }),
+  role: text('role', { enum: ['self', 'assessment'] }).notNull(),
+  sort: integer('sort').notNull().default(0),
+}, table => [
+  primaryKey({ columns: [table.talkId, table.formId] }),
+  uniqueIndex('staff_talk_forms_form').on(table.formId),
+])

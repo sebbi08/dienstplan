@@ -75,6 +75,9 @@ const ADMIN_ROUTES = [
   'cash/entries/[id]/receipt.delete.ts', 'cash/receipts/[id].get.ts',
   // The order of the boxes within the facility or a group.
   'cash/boxes/[id]/move.post.ts',
+  // Form templates („Bögen“) of the active facility (spec Bögen §2).
+  'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/[id].put.ts', 'form-templates/[id].delete.ts',
+  'form-templates/[id]/copy.post.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -220,6 +223,19 @@ describe('API route permissions', () => {
         expect(code, route).toContain('requireProvider(')
         continue
       }
+      expect(ADMIN_ROUTES, route).toContain(route)
+      expect(code, route).toContain('requireAdmin(')
+      expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
+      expect(code, route).toContain('admin.facilityId')
+    }
+  })
+
+  it('opens the form templates to managers of the active facility only (staff and tablet 403)', () => {
+    const touching = routes.filter(route => /^form-templates\//.test(route) || source(route).includes('services/formTemplates\''))
+    expect(touching).toEqual(['form-templates/[id].delete.ts', 'form-templates/[id].put.ts', 'form-templates/[id]/copy.post.ts',
+      'form-templates/index.get.ts', 'form-templates/index.post.ts'])
+    for (const route of touching) {
+      const code = source(route)
       expect(ADMIN_ROUTES, route).toContain(route)
       expect(code, route).toContain('requireAdmin(')
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)

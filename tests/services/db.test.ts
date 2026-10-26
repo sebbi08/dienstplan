@@ -123,8 +123,8 @@ describe('upgrading a filled database through migrateDb', () => {
   const withoutReminders = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !REMINDER_COLUMNS.includes(column))))
   // Columns of `facilities` that later migrations add (0046_facility_capacity: `capacity`, which `groups` has had long since;
-  // 0048_time_marks: the tolerance and the early-leave switch of the time tracking).
-  const LATER_FACILITY_COLUMNS = [...REMINDER_COLUMNS, 'capacity', 'mark_tolerance_minutes', 'mark_early_leave']
+  // 0048_time_marks: the tolerance and the early-leave switch of the time tracking; 0055_forms: the starter templates' flag).
+  const LATER_FACILITY_COLUMNS = [...REMINDER_COLUMNS, 'capacity', 'mark_tolerance_minutes', 'mark_early_leave', 'form_starters_seeded']
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
@@ -170,7 +170,7 @@ describe('upgrading a filled database through migrateDb', () => {
         tablet_lock_minutes: 2, tablet_show_waitlist: 0, tablet_show_future_contracts: 0, state: 'BW', assumption_day: 1,
         record_brought_by: 0, attendance_since: null, min_at_opening: 1, min_at_closing: 1,
         doc_mode: 'off', doc_interval_months: 12, doc_lead_weeks: 2, birthday_lead_days: 7, staff_birthday_lead_days: 7,
-        leaving_lead_weeks: 4, doc_since: null, capacity: null,
+        leaving_lead_weeks: 4, doc_since: null, capacity: null, form_starters_seeded: 0,
       },
     ])
     // The meal times of 0034 became meals in 0040 (0041 drops the columns).
@@ -1124,7 +1124,8 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, capacity FROM facilities ORDER BY id').all())
       .toEqual([{ id: 1, capacity: null }, { id: 2, capacity: null }])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ capacity: _, mark_tolerance_minutes: _tolerance, mark_early_leave: _early, ...rest }) => rest)).toEqual(before)
+      .map(({ capacity: _, mark_tolerance_minutes: _tolerance, mark_early_leave: _early, form_starters_seeded: _seeded, ...rest }) => rest))
+      .toEqual(before)
     expect(sqlite.prepare('SELECT id, capacity FROM groups ORDER BY id').all())
       .toEqual([{ id: 1, capacity: 20 }, { id: 2, capacity: null }])
     sqlite.exec(`INSERT INTO facilities (id, name) VALUES (3, 'Hort')`)
@@ -1171,7 +1172,8 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 1, mark_tolerance_minutes: 5, mark_early_leave: 1 }, { id: 2, mark_tolerance_minutes: 5, mark_early_leave: 1 },
     ])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ mark_tolerance_minutes: _tolerance, mark_early_leave: _early, ...rest }) => rest)).toEqual(before)
+      .map(({ mark_tolerance_minutes: _tolerance, mark_early_leave: _early, form_starters_seeded: _seeded, ...rest }) => rest))
+      .toEqual(before)
   })
 
   it('0049 adds the empty print templates with their index and references, and keeps the facilities', () => {
@@ -1181,7 +1183,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(sqlite.prepare('SELECT * FROM facilities ORDER BY id').all()).toEqual(before)
+    expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ form_starters_seeded: _seeded, ...rest }) => rest)).toEqual(before)
     expect(count(sqlite, 'print_templates')).toBe(0)
     expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
       .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
@@ -1212,7 +1215,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(rows('facilities')).toEqual(before.facilities)
+    expect(rows('facilities').map(({ form_starters_seeded: _seeded, ...rest }) => rest)).toEqual(before.facilities)
     expect(rows('groups').map(({ group_type: _type, ...rest }) => rest)).toEqual(before.groups)
     expect(rows('employees').map(({ qualification: _q, staffing_share: _s, pin_lock_level: _l, ...rest }) => rest)).toEqual(before.employees)
     expect(rows('care_types').map(({ days_per_week: _d, ...rest }) => rest)).toEqual(before.careTypes)
@@ -1304,6 +1307,26 @@ describe('upgrading a filled database through migrateDb', () => {
     const insert = `INSERT INTO setup_hidden (facility_id, key, hidden_at) VALUES (1, 'employee_birthday', '2026-10-25T08:00:00.000Z')`
     sqlite.exec(insert)
     expect(() => sqlite.exec(insert)).toThrow(/UNIQUE/)
+  })
+
+  it('0055 adds the empty form tables; the startup step then gives every existing facility the starters once', () => {
+    const { db, sqlite } = databaseAt('0054')
+    sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)
+
+    migrateDb(db, MIGRATIONS)
+
+    for (const table of ['form_templates', 'forms', 'staff_talks', 'staff_talk_forms']) expect(count(sqlite, table)).toBe(0)
+    expect(sqlite.prepare('SELECT id, form_starters_seeded FROM facilities ORDER BY id').all())
+      .toEqual([{ id: 1, form_starters_seeded: 0 }, { id: 2, form_starters_seeded: 0 }])
+    const starters = () => sqlite.prepare('SELECT facility_id, starter_key, name FROM form_templates ORDER BY id').all()
+    seedDefaults(db)
+    const seeded = [1, 2].flatMap(id => [
+      { facility_id: id, starter_key: 'staff_self_assessment', name: 'Selbstbeurteilung' },
+      { facility_id: id, starter_key: 'staff_assessment', name: 'Beurteilungsbogen pädagogische Fachkräfte' },
+    ])
+    expect(starters()).toEqual(seeded)
+    seedDefaults(db)
+    expect(starters()).toEqual(seeded)
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {
