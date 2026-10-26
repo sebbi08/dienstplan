@@ -257,6 +257,21 @@ describe('state machine', () => {
     expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'Leitung 2' })
   })
 
+  it('answers a save with the new last change, so the next save can use it as its base', () => {
+    const id = talkFor(annaId)
+    const self = formsOf(id)[0]!
+    const item = firstText(self.content)
+    releaseTalkForm(db, 1, self.id, now)
+    const first = saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Eins' }, at(self.id), new Date('2026-10-26T10:00:00.000Z'))
+    expect(first).toEqual({
+      updatedAt: '2026-10-26T10:00:00.000Z', updatedBy: 'Anna Muster', releasedAt: now.toISOString(), submittedAt: null, readReleasedAt: null,
+    })
+    const second = saveMyTalkFormAnswers(db, anna, self.id, { [item.id]: 'Zwei' }, first.updatedAt, new Date('2026-10-26T10:05:00.000Z'))
+    const third = saveTalkFormAnswers(db, leitung, 1, self.id, { [item.id]: 'Drei' }, second.updatedAt, new Date('2026-10-26T10:10:00.000Z'))
+    expect(third).toMatchObject({ updatedAt: '2026-10-26T10:10:00.000Z', updatedBy: 'Lea Leitung' })
+    expect(formsOf(id)[0]).toMatchObject({ answers: { [item.id]: 'Drei' }, updatedAt: third.updatedAt })
+  })
+
   it('an employee who has left can no longer save or submit (409 employee_inactive), but still reads', () => {
     const id = talkFor(annaId)
     const self = formsOf(id)[0]!

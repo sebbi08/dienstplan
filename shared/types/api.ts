@@ -1941,6 +1941,9 @@ export interface TalkFormDto {
   readReleasedAt: string | null
 }
 
+/** The answer to saving a form's answers: the new last change (the next save sends `updatedAt` as expectedUpdatedAt). */
+export type FormSavedDto = Pick<TalkFormDto, 'updatedAt' | 'updatedBy' | 'releasedAt' | 'submittedAt' | 'readReleasedAt'>
+
 /** A staff talk (Mitarbeitergespräch) with its forms in their order; `start` in minutes after midnight (null = no time). */
 export interface StaffTalkDto {
   id: number

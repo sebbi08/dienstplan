@@ -23,10 +23,15 @@ async function openDialog(talk: StaffTalkDto | null) {
   dialogOpen.value = true
 }
 
-const openForms = ref<number[]>([])
-const isOpen = (formId: number) => openForms.value.includes(formId)
-function toggleForm(formId: number) {
-  openForms.value = isOpen(formId) ? openForms.value.filter(id => id !== formId) : [...openForms.value, formId]
+// One form is open at a time. Closing it, or opening another one, asks first while it has unsaved answers.
+const openFormId = ref<number | null>(null)
+const openDirty = ref(false)
+const isOpen = (formId: number) => openFormId.value === formId
+async function toggleForm(formId: number) {
+  if (openFormId.value !== null && openDirty.value
+    && !await confirm(de.forms.closeConfirm, { confirmLabel: de.forms.closeDiscard })) return
+  openDirty.value = false
+  openFormId.value = isOpen(formId) ? null : formId
 }
 
 const talkTitle = (talk: StaffTalkDto) =>
@@ -136,6 +141,7 @@ async function addForm(talk: StaffTalkDto) {
           </div>
           <FormsFormPanel
             v-if="isOpen(form.id)" :form="form" :save-url="`/api/staff-talks/forms/${form.id}`" editable :refresh="refresh"
+            @dirty="openDirty = $event"
           />
         </li>
       </ul>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { FORM_LIMITS, type FormAnswer, type FormContent, type MilestoneAnswer, type RatingAnswer, type RatingValue } from '#shared/domain/forms'
-import { RATING_LEGEND } from '#shared/domain/forms/starters'
+import { FORM_LIMITS, RATING_LEGEND, type FormAnswer, type FormContent, type MilestoneAnswer, type RatingAnswer, type RatingValue } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 import { sectionBlocks, sectionHasRating } from '~/utils/forms'
@@ -69,8 +68,14 @@ const chip = (selected: boolean) => selected
           <p v-if="block.item.kind === 'note'" class="text-sm whitespace-pre-line text-gray-700">{{ block.item.text }}</p>
 
           <div v-else-if="block.item.kind === 'text'" class="space-y-1">
-            <label :for="fieldId(block.item.id)" class="block text-sm font-medium break-words">{{ block.item.question }}</label>
-            <p v-if="props.readonly" :id="fieldId(block.item.id)" class="text-sm whitespace-pre-line break-words text-gray-800">
+            <!-- Read-only: the question names the answer's text (a label only belongs to a field). -->
+            <component
+              :is="props.readonly ? 'p' : 'label'" :id="`${fieldId(block.item.id)}-q`" :for="props.readonly ? undefined : fieldId(block.item.id)"
+              class="block text-sm font-medium break-words"
+            >
+              {{ block.item.question }}
+            </component>
+            <p v-if="props.readonly" :aria-labelledby="`${fieldId(block.item.id)}-q`" class="text-sm whitespace-pre-line break-words text-gray-800">
               {{ textOf(block.item.id) || de.forms.noAnswer }}
             </p>
             <UTextarea
@@ -96,8 +101,13 @@ const chip = (selected: boolean) => selected
           </fieldset>
 
           <div v-else-if="block.item.kind === 'date'" class="space-y-1">
-            <label :for="fieldId(block.item.id)" class="block text-sm font-medium break-words">{{ block.item.question }}</label>
-            <p v-if="props.readonly" class="text-sm">{{ dateOf(block.item.id) ? formatDate(dateOf(block.item.id)) : de.forms.noAnswer }}</p>
+            <component
+              :is="props.readonly ? 'p' : 'label'" :id="`${fieldId(block.item.id)}-q`" :for="props.readonly ? undefined : fieldId(block.item.id)"
+              class="block text-sm font-medium break-words"
+            >
+              {{ block.item.question }}
+            </component>
+            <p v-if="props.readonly" :aria-labelledby="`${fieldId(block.item.id)}-q`" class="text-sm">{{ dateOf(block.item.id) ? formatDate(dateOf(block.item.id)) : de.forms.noAnswer }}</p>
             <DateTextInput
               v-else :id="fieldId(block.item.id)" :model-value="dateOf(block.item.id)" :label="block.item.question" class="w-48"
               @update:model-value="setAnswer(block.item.id, $event || null)"

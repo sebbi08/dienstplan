@@ -1,5 +1,8 @@
 import { addItem, addSection, type FormContent, type FormKind, type ItemDraft } from '../forms'
 
+// The legend lives in ../forms, so the client gets it without the starter texts; kept here for existing imports.
+export { RATING_LEGEND } from '../forms'
+
 /**
  * The starter templates every facility gets once (see spec §7): texts taken word for word from the facility's paper
  * forms („&amp;“ as „&“). Header fields (name, date …) and signature lines are not part of a template.
@@ -14,18 +17,6 @@ export interface StarterTemplate {
   sections: { title: string; hint: string; items: ItemDraft[] }[]
 }
 
-/**
- * The legend the forms show above every section with ratings (spec §2), from the Beurteilungsbogen; not part of any
- * template. `value` is the stored rating, `symbol` what the form shows.
- */
-export const RATING_LEGEND = {
-  intro: 'Bewertung: Pro Kriterium bitte genau eine Spalte (+, ~ oder −) markieren.',
-  entries: [
-    { value: '+', symbol: '+', label: 'Stärke / entspricht den Erwartungen' },
-    { value: '~', symbol: '~', label: 'teilweise erfüllt / Entwicklung möglich' },
-    { value: '-', symbol: '−', label: 'Entwicklungsbedarf' },
-  ],
-} as const
 
 const note = (text: string): ItemDraft => ({ kind: 'note', text })
 const question = (text: string): ItemDraft => ({ kind: 'text', question: text })

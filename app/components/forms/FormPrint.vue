@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import type { ChoicesAnswer, DateAnswer, FormAnswers, MilestoneAnswer, RatingAnswer } from '#shared/domain/forms'
-import { RATING_LEGEND } from '#shared/domain/forms/starters'
+import { RATING_LEGEND, type ChoicesAnswer, type DateAnswer, type FormAnswers, type MilestoneAnswer, type RatingAnswer } from '#shared/domain/forms'
 import { formatTime } from '#shared/domain/time'
 import type { MyTalkFormDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -142,7 +141,7 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
         <p v-if="props.data.form.submittedAt">{{ de.talks.submittedAt(formatDateTime(props.data.form.submittedAt)) }}</p>
         <p v-if="props.data.form.readReleasedAt">{{ de.talks.readReleasedAt(formatDateTime(props.data.form.readReleasedAt)) }}</p>
         <p>{{ de.forms.lastChanged(props.data.form.updatedBy, formatDateTime(props.data.form.updatedAt)) }}</p>
-        <p>{{ de.cash.printedBy(formatDate(todayIso()), user?.username ?? '') }}</p>
+        <p>{{ de.forms.printedBy(formatDate(todayIso()), user?.username ?? '') }}</p>
       </div>
     </template>
   </div>

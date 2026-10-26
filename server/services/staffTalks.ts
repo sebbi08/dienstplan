@@ -2,7 +2,9 @@ import { and, asc, desc, eq, inArray, max } from 'drizzle-orm'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
 import type { IsoDate } from '../../shared/domain/types'
-import type { MyTalkDto, MyTalkFormDto, MyTalkHeaderDto, SessionUser, StaffTalkDto, TalkFormDto, TalkFormRole } from '../../shared/types/api'
+import type {
+  FormSavedDto, MyTalkDto, MyTalkFormDto, MyTalkHeaderDto, SessionUser, StaffTalkDto, TalkFormDto, TalkFormRole,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities, forms, staffTalkForms, staffTalks, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -179,22 +181,26 @@ export function deleteTalkForm(db: Db, facilityId: number, formId: number): void
 function writeAnswers(
   db: Db, actor: SessionUser, form: TalkForm, answers: unknown, expectedUpdatedAt: string, now: Date,
   state?: FormRow['state'],
-): void {
+): FormSavedDto {
   if (form.updatedAt !== expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
   const content = JSON.parse(form.content) as FormContent
   const checked = withFormErrors(() => checkAnswers(content, answers))
+  const updatedAt = now.toISOString()
+  const updatedBy = actorName(db, actor)
   const result = db.update(forms)
-    .set({ answers: JSON.stringify(checked), updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
+    .set({ answers: JSON.stringify(checked), updatedAt, updatedBy })
     .where(and(eq(forms.id, form.id), eq(forms.updatedAt, expectedUpdatedAt), state && eq(forms.state, state))).run()
   if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
+  // A save changes no state, so the other timestamps stay as loaded.
+  return { updatedAt, updatedBy, releasedAt: form.releasedAt, submittedAt: form.submittedAt, readReleasedAt: form.readReleasedAt }
 }
 
 /** Leitung and Träger save the answers of any form of the facility's talks, in any state. */
 export function saveTalkFormAnswers(
   db: Db, actor: SessionUser, facilityId: number, formId: number, answers: unknown, expectedUpdatedAt: string,
   now: Date = new Date(),
-): void {
-  writeAnswers(db, actor, loadTalkForm(db, facilityId, formId), answers, expectedUpdatedAt, now)
+): FormSavedDto {
+  return writeAnswers(db, actor, loadTalkForm(db, facilityId, formId), answers, expectedUpdatedAt, now)
 }
 
 const hasLeft = (leftOn: IsoDate | null, today: IsoDate) => leftOn !== null && leftOn < today
@@ -308,11 +314,11 @@ export function getTalkForm(db: Db, facilityId: number, formId: number): MyTalkF
  */
 export function saveMyTalkFormAnswers(
   db: Db, user: SessionUser, formId: number, answers: unknown, expectedUpdatedAt: string, now: Date = new Date(),
-): void {
+): FormSavedDto {
   const { talk, form } = loadMyForm(db, user, formId)
   if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_not_editable')
   assertNotLeft(db, talk.employeeId, todayIso(now))
-  writeAnswers(db, user, form, answers, expectedUpdatedAt, now, 'released')
+  return writeAnswers(db, user, form, answers, expectedUpdatedAt, now, 'released')
 }
 
 /** „Abgeben“: the released self form is submitted; the employee can no longer change it (not after leaving). */

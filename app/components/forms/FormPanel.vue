@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TalkFormDto } from '#shared/types/api'
+import type { FormSavedDto, TalkFormDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
@@ -8,11 +8,14 @@ import { filledAnswers } from '~/utils/forms'
 /**
  * A form with its answers and an explicit „Speichern“ (with a hint while something is unsaved). Saving sends the
  * updatedAt the form was loaded with; when someone else saved in between (409 form_changed) it says so and offers
- * „Neu laden“, which discards the own edits. `refresh` reloads the form from the parent. The slot `actions` gets
- * `dirty` and `save` (e.g. for „Abgeben“, which saves first).
+ * „Neu laden“, which discards the own edits (asked first). `refresh` reloads the form from the parent. The slot
+ * `actions` gets `dirty` and `save` (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a parent can
+ * ask before it closes the panel.
  */
 const props = defineProps<{ form: TalkFormDto; saveUrl: string; editable: boolean; refresh: () => Promise<unknown> }>()
+const emit = defineEmits<{ dirty: [value: boolean] }>()
 const toast = useToast()
+const confirm = useConfirm()
 
 const answers = ref(filledAnswers(props.form.content, props.form.answers))
 const savedJson = ref(JSON.stringify(answers.value))
@@ -20,6 +23,7 @@ const base = ref(props.form.updatedAt)
 const conflict = ref(false)
 const saving = ref(false)
 const dirty = useDirty(() => props.editable && JSON.stringify(answers.value) !== savedJson.value)
+watch(dirty, value => emit('dirty', value), { immediate: true })
 
 function reset() {
   answers.value = filledAnswers(props.form.content, props.form.answers)
@@ -38,11 +42,11 @@ async function save(): Promise<boolean> {
   saving.value = true
   const sent = JSON.stringify(answers.value)
   try {
-    await $fetch<unknown>(props.saveUrl, { method: 'PUT', body: { answers: JSON.parse(sent), expectedUpdatedAt: base.value } })
+    const saved = await $fetch<FormSavedDto>(props.saveUrl, { method: 'PUT', body: { answers: JSON.parse(sent), expectedUpdatedAt: base.value } })
     savedJson.value = sent
+    // The next save is checked against the time of this very save (not against a reload that may lag behind).
+    base.value = saved.updatedAt
     await props.refresh()
-    // The reload carries the time of this very save: the next save is checked against it.
-    base.value = props.form.updatedAt
     toast.add({ title: de.common.saved, color: 'success' })
     return true
   }
@@ -57,6 +61,7 @@ async function save(): Promise<boolean> {
 }
 
 async function reload() {
+  if (dirty.value && !await confirm(de.forms.reloadConfirm, { confirmLabel: de.forms.reload })) return
   await props.refresh()
   reset()
 }
@@ -64,7 +69,7 @@ async function reload() {
 
 <template>
   <div class="space-y-3">
-    <UAlert v-if="conflict" color="warning" variant="soft" :title="de.errors.form_changed">
+    <UAlert v-if="conflict" color="warning" variant="soft" :title="de.errors.form_changed" :description="de.forms.reloadHint">
       <template #actions>
         <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :label="de.forms.reload" @click="reload" />
       </template>

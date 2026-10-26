@@ -57,6 +57,19 @@ export const FORM_LIMITS = {
   id: 100,
 } as const
 
+/**
+ * The legend the forms show above every section with ratings (spec §2), from the Beurteilungsbogen; not part of any
+ * template. `value` is the stored rating, `symbol` what the form shows.
+ */
+export const RATING_LEGEND = {
+  intro: 'Bewertung: Pro Kriterium bitte genau eine Spalte (+, ~ oder −) markieren.',
+  entries: [
+    { value: '+', symbol: '+', label: 'Stärke / entspricht den Erwartungen' },
+    { value: '~', symbol: '~', label: 'teilweise erfüllt / Entwicklung möglich' },
+    { value: '-', symbol: '−', label: 'Entwicklungsbedarf' },
+  ],
+} as const satisfies { intro: string; entries: readonly { value: RatingValue; symbol: string; label: string }[] }
+
 /** Domain error with a machine-readable code; services map it to a 400. */
 export class FormError extends Error {
   constructor(public readonly code: string) {

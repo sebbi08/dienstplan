@@ -1,7 +1,8 @@
 import { chromium, type Browser } from 'playwright-core'
 
 /**
- * Print views that may be turned into a PDF (plan print and the admin print pages); the plan may name one group, the
+ * Print views that may be turned into a PDF (plan print, the admin print pages and the employee's own forms under
+ * /print/my-forms); the plan may name one group, the
  * year calendar also "none" (the people without a group).
  */
 export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+(?:\?group=(?:\d+|none))?$/

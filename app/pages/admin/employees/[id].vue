@@ -204,20 +204,24 @@ const tab = ref<EmployeeTab>(requestedTab())
 watch(() => [route.query.tab, route.hash], () => (tab.value = requestedTab()))
 /** The attributes of a tab's panel (all panels stay mounted, only the open one shows). */
 const panel = (key: EmployeeTab) => ({ id: `employee-panel-${key}`, role: 'tabpanel', 'aria-labelledby': `employee-tab-${key}`, class: 'space-y-4' })
-function selectTab(next: EmployeeTab) {
+async function selectTab(next: EmployeeTab) {
+  // An open form in „Gespräche“ keeps its answers on another tab, but they are not saved yet: ask before leaving it.
+  if (tab.value === 'talks' && next !== 'talks' && hasUnsavedChanges()
+    && !await confirm(de.forms.tabSwitchConfirm, { confirmLabel: de.forms.tabSwitch, danger: false })) return
   tab.value = next
   router.replace({ query: { ...route.query, tab: next }, hash: '' })
 }
 /** Arrow keys, Home and End move between the tabs (and open the one reached), as in a tab list. */
-function onTabKey(event: KeyboardEvent) {
+async function onTabKey(event: KeyboardEvent) {
   const keys = visibleTabs.value
   const index = keys.indexOf(tab.value)
   const last = keys.length - 1
   const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index <= 0 ? last : index - 1, Home: 0, End: last }[event.key]
   if (next === undefined || !keys[next]) return
   event.preventDefault()
-  selectTab(keys[next])
-  nextTick(() => document.getElementById(`employee-tab-${keys[next]}`)?.focus())
+  const target = keys[next]
+  await selectTab(target)
+  if (tab.value === target) nextTick(() => document.getElementById(`employee-tab-${target}`)?.focus())
 }
 </script>
 
