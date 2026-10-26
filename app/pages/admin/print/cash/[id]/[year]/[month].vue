@@ -11,7 +11,8 @@ import { formatDate, formatDateTime, monthTitle } from '~/utils/format'
  * one line per entry with the columns Einnahmen (Nr., Datum, Betrag) | Ausgaben (Nr., Datum, Betrag) | Verwendungszweck.
  */
 definePageMeta({ layout: false })
-useHead({ title: de.cash.sheet, style: [{ innerHTML: '@page { size: A4; margin: 12mm; }' }] })
+// The app-wide print rule sets A4 landscape; this sheet is portrait like the template, so its rule must win.
+useHead({ title: de.cash.sheet, style: [{ innerHTML: '@page { size: A4 portrait !important; margin: 12mm !important; }' }] })
 
 const route = useRoute()
 const boxId = Number(route.params.id)
@@ -26,14 +27,14 @@ const cell = 'border border-gray-500 px-1.5 py-1'
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900">
+  <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900 print:max-w-none print:p-0 print:text-[12px]">
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
-      <h1 class="text-2xl font-bold">{{ de.cash.sheet }}</h1>
+      <h1 class="text-2xl font-bold print:text-[20px]">{{ de.cash.sheet }}</h1>
       <PrintActions :file-name="fileName" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="data">
-      <div class="mb-4 grid grid-cols-2 gap-x-8 text-sm">
+      <div class="mb-4 grid grid-cols-2 gap-x-8 text-sm print:text-[12px]">
         <div class="space-y-1">
           <div class="font-semibold">{{ de.cash.boxLabel(data.box.name) }}</div>
           <div>{{ de.cash.monthYear(title) }}</div>
@@ -50,7 +51,7 @@ const cell = 'border border-gray-500 px-1.5 py-1'
       </div>
       <p v-if="data.negative" class="mb-2 text-sm font-semibold">{{ de.cash.negative }}</p>
 
-      <table class="w-full border-collapse text-xs">
+      <table class="w-full border-collapse text-xs print:text-[11px]">
         <thead>
           <tr class="bg-gray-100">
             <th :class="cell" colspan="3">{{ de.cash.income }}</th>
@@ -91,7 +92,7 @@ const cell = 'border border-gray-500 px-1.5 py-1'
         </tfoot>
       </table>
 
-      <div class="mt-6 space-y-1 text-xs text-gray-600 break-inside-avoid">
+      <div class="mt-6 space-y-1 text-xs text-gray-600 break-inside-avoid print:text-[10px]">
         <p>{{ de.cash.printedBy(formatDate(todayIso()), user?.username ?? '') }}</p>
         <p>{{ data.closed ? de.cash.closedBy(formatDateTime(data.closed.at), data.closed.by) : de.cash.notClosed }}</p>
       </div>
