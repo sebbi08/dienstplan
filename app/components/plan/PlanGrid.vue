@@ -471,12 +471,12 @@ const rows = computed(() => props.plan.days.map((day) => {
           </tr>
         </template>
       </tbody>
-      <!-- Printed only once at the end, not repeated at the foot of every page. -->
-      <tfoot v-if="totals.length" class="bg-gray-50 text-xs print:table-row-group">
+      <!-- Printed only once at the end (not repeated at the foot of every page) and kept together. -->
+      <tfoot v-if="totals.length" class="break-inside-avoid bg-gray-50 text-xs print:table-row-group">
         <tr aria-hidden="true">
           <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-1" />
         </tr>
-        <tr v-for="(row, index) in totals" :key="row.label" :class="index === totals.length - 1 ? 'font-semibold' : ''">
+        <tr v-for="(row, index) in totals" :key="row.label" class="break-inside-avoid break-before-avoid" :class="index === totals.length - 1 ? 'font-semibold' : ''">
           <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 print:whitespace-nowrap">{{ row.label }}</td>
           <td
             v-for="(minutes, column) in row.values" :key="column"

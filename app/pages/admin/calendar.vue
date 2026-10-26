@@ -20,6 +20,13 @@ const toast = useToast()
 const eventTime = (event: CalendarEventDto) =>
   event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
+/** The group the print button opens ("all": every group one after another). */
+const printGroup = ref('all')
+const printGroupItems = computed(() => [
+  { label: de.calendar.printAllGroups, value: 'all' },
+  ...(calendar.value?.groups ?? []).map(group => ({ label: group.name, value: String(group.id) })),
+])
+
 // --- absences -------------------------------------------------------------------------------------------
 const absence = reactive({ open: false, employeeId: 0, date: '' })
 const absenceTitle = computed(() => {
@@ -103,9 +110,14 @@ async function removeEvent(event: CalendarEventDto) {
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.calendar.title }}</h1>
       <YearNav v-model="year" />
+      <!-- What the printout shows: all groups one after another (each on its own pages) or one group. -->
+      <USelect
+        v-if="calendar?.groups.length" v-model="printGroup" :items="printGroupItems" class="ml-auto w-56"
+        :aria-label="de.calendar.printGroupLabel"
+      />
       <UButton
-        class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print"
-        :to="`/admin/print/calendar/${year}`" target="_blank"
+        :class="calendar?.groups.length ? '' : 'ml-auto'" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.year.print"
+        :to="`/admin/print/calendar/${year}${printGroup === 'all' ? '' : `?group=${printGroup}`}`" target="_blank"
       />
     </div>
     <p class="text-sm text-gray-500">{{ de.year.adminOnly }} {{ de.calendar.clickHint }}</p>

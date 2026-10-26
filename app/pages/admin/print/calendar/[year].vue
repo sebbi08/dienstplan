@@ -1,74 +1,91 @@
 <script setup lang="ts">
-import { daysInMonth, todayIso, toIsoDate, weekday } from '#shared/domain/dates'
+import { todayIso, weekday } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { calendarEventText, calendarLanes, eventRowHeight } from '~/utils/calendarLanes'
+import { calendarPrintLayout, calendarPrintSections, monthEventHeights } from '~/utils/calendarPrint'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort } from '~/utils/format'
 
-/** Year calendar for printing: A4 landscape, January–June on one page, July–December on the next, then the appointment list. */
+/**
+ * Year calendar for printing, A4 landscape: per group (all groups one after another, or the one in "?group=3") its
+ * people on half-year pages (January–June, July–December; a quarter per page when a group is too large), then the
+ * appointment list once. The appointments row is the same in every group.
+ */
 definePageMeta({ layout: false })
 useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 8mm; }' }] })
 
-const year = Number(useRoute().params.year)
+const route = useRoute()
+const router = useRouter()
+const year = Number(route.params.year)
 const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/calendar', { query: { year } })
 const eventTime = (event: CalendarEventDto) =>
   event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
-const HALVES = [[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]
-const secondHalfLabel = `${de.months[6]}–${de.months[11]}`
+const ALL = 'all'
+const choice = computed({
+  get: () => (Number(route.query.group) ? String(route.query.group) : ALL),
+  set: value => router.replace({ query: value === ALL ? {} : { group: value } }),
+})
+const groupItems = computed(() => [
+  { label: de.calendar.printAllGroups, value: ALL },
+  ...(calendar.value?.groups ?? []).map(group => ({ label: group.name, value: String(group.id) })),
+])
+const groupId = computed(() => (choice.value === ALL ? null : Number(choice.value)))
 
-/**
- * Height of the employee rows so that six months fit one page (px at 96 dpi): the printable height of A4 landscape
- * with 8 mm margins, minus the page header and each month's day header, appointments row and gap. Kept between a
- * still readable minimum and a comfortable maximum; with many employees a month moves to the next page whole.
- */
-const PAGE_HEIGHT = 733 - 15 // safety margin
-const FIRST_HEADER = 44 // title, legend, groups (measured about 36)
-const SECOND_HEADER = 32 // title + "Juli–Dezember"
-const MONTH_FIXED = 30 // day header, borders and the gap below the month (measured about 28)
-const MIN_ROW = 12
-const MAX_ROW = 24
-const rowHeight = computed(() => {
+const eventHeights = computed(() => (calendar.value ? monthEventHeights(calendar.value) : []))
+/** Per section its pages: the months of each page and the row height that lets them fit. */
+const sections = computed(() => {
   const value = calendar.value
-  if (!value) return MAX_ROW
-  const rows = Math.max(1, value.employees.length)
-  const fits = HALVES.map((months, index) => {
-    const fixed = months.reduce((sum, month) => {
-      const dates = Array.from({ length: daysInMonth(year, month) }, (_, day) => toIsoDate(year, month, day + 1))
-      const events = value.events.filter(event => Number(event.date.slice(5, 7)) === month)
-      return sum + MONTH_FIXED + eventRowHeight(calendarLanes(dates, events, calendarEventText, value.autoEvents).laneCount)
-    }, 0)
-    const room = PAGE_HEIGHT - (index === 0 ? FIRST_HEADER : SECOND_HEADER) - fixed
-    return Math.floor(room / (months.length * rows)) - 1 // 1 px border per row
+  if (!value) return []
+  return calendarPrintSections(value, groupId.value, de.calendar.printNoGroup).map((section) => {
+    const { monthsPerPage, rowHeight } = calendarPrintLayout(section.employees.length, eventHeights.value)
+    const pages = Array.from({ length: 12 / monthsPerPage }, (_, index) =>
+      Array.from({ length: monthsPerPage }, (_, month) => index * monthsPerPage + month + 1))
+    return { ...section, rowHeight, pages, calendar: { ...value, employees: section.employees } }
   })
-  return Math.min(MAX_ROW, Math.max(MIN_ROW, Math.min(...fits)))
+})
+const pageTitle = (label: string | null, months: number[]) =>
+  [de.calendar.printTitle(year), label, `${de.months[months[0]! - 1]}–${de.months[months.at(-1)! - 1]}`].filter(Boolean).join(' – ')
+
+const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
+const fileName = computed(() => {
+  const name = calendar.value?.groups.find(group => group.id === groupId.value)?.name
+  return `Jahreskalender-${year}${name ? `-${name.replace(/[äöüÄÖÜß]/g, letter => UMLAUTS[letter]!)}` : ''}`
 })
 </script>
 
 <template>
   <div class="bg-white p-4 text-gray-900 print:p-0">
-    <div class="mb-2 flex flex-wrap items-center gap-3">
+    <div class="mb-3 flex flex-wrap items-center gap-3 print:hidden">
       <h1 class="text-xl font-semibold">{{ de.calendar.printTitle(year) }}</h1>
-      <CalendarLegend />
-      <PrintActions :file-name="`Jahreskalender-${year}`" />
+      <USelect
+        v-if="calendar?.groups.length" v-model="choice" :items="groupItems" class="w-56"
+        :aria-label="de.calendar.printGroupLabel"
+      />
+      <PrintActions :file-name="fileName" :search="groupId ? `?group=${groupId}` : ''" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="calendar">
-      <CalendarGroupLegend class="mb-2" :groups="calendar.groups" />
       <!-- Wide enough for 31 readable day columns; A4 landscape (about 1060 px) still fits. -->
       <div class="overflow-x-auto print:overflow-visible">
-        <section v-for="(months, half) in HALVES" :key="half" :class="half > 0 ? 'break-before-page' : ''">
-          <h2 v-if="half > 0" class="mb-2 mt-4 text-lg font-semibold print:mt-0">
-            {{ de.calendar.printTitle(year) }} – {{ secondHalfLabel }}
-          </h2>
-          <div v-for="month in months" :key="month" class="mb-3 min-w-[1000px] break-inside-avoid print:mb-1">
-            <CalendarMonth :calendar="calendar" :month="month" :row-height="rowHeight" />
-          </div>
-        </section>
+        <template v-for="(section, sectionIndex) in sections" :key="section.key">
+          <section
+            v-for="(months, pageIndex) in section.pages" :key="pageIndex"
+            :class="sectionIndex + pageIndex > 0 ? 'mt-6 break-before-page print:mt-0' : ''"
+          >
+            <!-- Every page says what it shows; the legend explains the colours on each sheet. -->
+            <div class="mb-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h2 class="text-lg font-semibold">{{ pageTitle(section.label, months) }}</h2>
+              <CalendarLegend />
+            </div>
+            <div v-for="month in months" :key="month" class="mb-3 min-w-[1000px] break-inside-avoid print:mb-1">
+              <CalendarMonth :calendar="section.calendar" :month="month" :row-height="section.rowHeight" />
+            </div>
+          </section>
+        </template>
       </div>
-      <section class="break-before-page">
+      <section class="mt-6 break-before-page print:mt-0">
         <h2 class="mb-2 text-lg font-semibold">{{ de.calendar.eventList }} {{ year }}</h2>
         <p v-if="!calendar.events.length" class="text-sm text-gray-600">{{ de.calendar.noEvents }}</p>
         <table v-else class="w-full border-collapse text-sm">

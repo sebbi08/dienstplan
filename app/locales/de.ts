@@ -133,6 +133,7 @@ export const de = {
   },
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
+    printAllGroups: 'Alle Gruppen nacheinander', printGroupLabel: 'Gruppe für den Ausdruck', printNoGroup: 'Ohne Gruppe',
     kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', vacation: 'Urlaub', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
     weekend: 'Wochenende / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     visibleToStaff: 'Auch für Mitarbeiter sichtbar?', visibleYes: 'Ja', visibleNo: 'Nein, nur Leitung',
