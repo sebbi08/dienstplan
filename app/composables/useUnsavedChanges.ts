@@ -1,4 +1,5 @@
 import { de } from '~/locales/de'
+import { isChildPagePath } from '~/utils/children'
 
 // The forms on screen with unsaved edits. Only filled on the client (onMounted), so the server never keeps any of it.
 const sources = shallowReactive(new Map<number, () => boolean>())
@@ -37,7 +38,8 @@ export function useUnsavedGuard() {
   const unlock = useTabletUnlock()
   const guard = async (to: { path: string }, from: { path: string }) => {
     if (to.path === from.path || !hasUnsavedChanges()) return true
-    if (user.value?.role === 'terminal' && !unlock.value?.unlocked) return true
+    // Only the child pages are locked; elsewhere at the tablet (e.g. a team meeting) it asks like everywhere.
+    if (user.value?.role === 'terminal' && isChildPagePath(from.path) && !unlock.value?.unlocked) return true
     return await confirm(de.settingsAreas.unsavedConfirm, { confirmLabel: de.settingsAreas.unsavedLeave, danger: true })
   }
   onBeforeRouteLeave(guard)

@@ -4,8 +4,9 @@ import type { Role } from '../../shared/types/api'
 
 /**
  * The entries of the main menu, grouped. Leitung and Träger see the everyday pages directly (`main`), the rarely used ones
- * under "Mehr" (`more`) and, when linked to an employee, their own pages under "Meins" (`mine`). Mitarbeiter and the
- * tablet only have `main`. Passwort ändern and Abmelden are added by the layout.
+ * under "Mehr" (`more`) and, when linked to an employee, their own pages under "Meins" (`mine`). Mitarbeiter have
+ * `main` and their own lists under "Meins"; the tablet only has `main`. Passwort ändern and Abmelden are added by the
+ * layout.
  */
 
 export interface NavEntry {
@@ -41,7 +42,11 @@ const entry = (label: string, to: string, match = to): NavEntry => ({ label, to,
 export function navMenu(viewer: NavViewer): NavMenu {
   const { year, month } = viewer.today
   const plan = entry(de.nav.plan, `/plan/${year}/${month}`, '/plan')
-  if (viewer.role === 'terminal') return { main: [entry(de.nav.stamp, '/terminal'), plan], mine: [], more: [], mineCount: 0, totalCount: 0 }
+  // The team meetings (Teamsitzungen) are for every member of the facility, the tablet included (no child data).
+  const teamMeetings = entry(de.nav.teamMeetings, '/team-meetings')
+  if (viewer.role === 'terminal') {
+    return { main: [entry(de.nav.stamp, '/terminal'), plan, teamMeetings], mine: [], more: [], mineCount: 0, totalCount: 0 }
+  }
 
   const myPlan = entry(navLabelWithCount(de.nav.myPlan, viewer.unread), `/my/plan/${year}/${month}`, '/my/plan')
   const myLeave = entry(de.nav.myLeave, '/my/leave')
@@ -73,6 +78,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
       more: [
         entry(de.nav.closures, '/admin/closures'),
         entry(de.nav.sickDays, '/admin/sick-days'),
+        teamMeetings,
         // Blank forms to print; the tablet reaches them from its start page, Mitarbeiter accounts not at all.
         entry(de.nav.templates, '/templates'),
         entry(de.nav.users, '/admin/users'),
@@ -84,11 +90,12 @@ export function navMenu(viewer: NavViewer): NavMenu {
   }
 
   return {
-    // Six entries: the short calendar label keeps the header of a tablet (1024 px) on one line.
-    main: [myPlan, plan, myLeave, myRequirements, entry(de.nav.calendarShort, '/my/calendar'), myTalks],
-    mine: [],
+    // Seven entries in a row no longer fit the header of a tablet (1024 px), so the own lists sit under "Meins" like the
+    // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
+    main: [myPlan, plan, entry(de.nav.calendarShort, '/my/calendar'), teamMeetings],
+    mine: [myLeave, myRequirements, myTalks],
     more: [],
-    mineCount: viewer.unread,
+    mineCount: 0,
     totalCount: viewer.unread,
   }
 }

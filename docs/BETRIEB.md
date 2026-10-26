@@ -1064,16 +1064,17 @@ sehen keine Warnungen.
 
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse** und **Kalender** (Jahreskalender). Seltener Gebrauchtes liegt
-  unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Benutzer, Einstellungen und Passwort ändern. Wer als Leitung
-  oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“, „Mein Urlaub“ und
-  „Meine Termine“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
+  unter **Mehr**: Schließzeiten, Krankheitstage, Teamsitzungen, Vorlagen, Benutzer, Einstellungen und Passwort ändern.
+  Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
+  „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
   hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
   rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
-- **Mitarbeiter** sehen wie bisher ihre fünf Einträge.
+- **Mitarbeiter** sehen oben **Mein Dienstplan** (mit der Zahl ungelesener Änderungen), **Dienstplan**, **Kalender** und
+  **Teamsitzungen**; unter **Meins** liegen „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“.
 - **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
   Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.
-- **Am Tablet** bleibt das Menü unverändert.
+- **Am Tablet** stehen **Stempeln**, **Dienstplan** und **Teamsitzungen**.
 
 ## 22. Zeiterfassung und Mein Dienstplan am Handy
 
@@ -1134,7 +1135,7 @@ sehen keine Warnungen.
   auch **PDF herunterladen**. **Excel-Datei (Monat)** und **Excel-Datei (Jahr)** laden eine Datei, die Excel direkt öffnet.
 - Kassen, Einträge und Belege sind in der normalen Datensicherung enthalten.
 
-## 25. Bögen, Mitarbeitergespräche und Beobachtungsbögen
+## 25. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
 
 - **Vorlagen:** unter **Einstellungen → Bögen** (Leitung und Träger). Oben wählst du die Art (Mitarbeitergespräch, Kind,
   Teamsitzung). Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
@@ -1184,3 +1185,26 @@ sehen keine Warnungen.
   Teilnehmer, die Meilensteine als Tabelle nach Altersstufe (3;0 / 4;0 / 5;0 / 6;0 Jahre) und die Unterschriftszeilen
   „Unterschrift Fachkraft / Datum“ und „Unterschrift Erziehungsberechtigte / Datum“. Am Tablet wird nicht gedruckt.
 - **Abmeldung:** die Bögen bleiben im Archiv für Leitung und Träger lesbar und werden mit der Akte gelöscht.
+
+### Teamsitzungen
+
+- **Wo:** Menüpunkt **Teamsitzungen** – bei Leitung und Träger unter **Mehr**, bei den Mitarbeitern oben im Menü und am
+  Tablet neben „Stempeln“ und „Dienstplan“ (ohne Aufschließen, es gibt dort keine Kinderdaten). Die Liste zeigt die
+  Sitzungen eines Jahres, neueste zuerst; mit **Gruppe** filterst du nach „Alle“, „Einrichtung“ (Sitzungen der ganzen
+  Einrichtung) oder einer Gruppe.
+- **Anlegen:** **Sitzung anlegen** – Vorlage (Startvorlage **Teamsitzung**, eigene unter Einstellungen → Bögen → Art
+  „Teamsitzung“), Datum, Uhrzeit (freiwillig), Gruppe oder ganze Einrichtung, Teilnehmer und Protokollführung. Das kann
+  jeder in der Einrichtung: Leitung, Träger, Mitarbeiter und das Tablet.
+- **Mitschreiben:** Solange die Sitzung ein **Entwurf** ist, können alle Kopffelder und Protokoll ändern; **Speichern**
+  nicht vergessen. Darunter steht „zuletzt geändert von … am …“ (am Tablet „Tablet“). Hat jemand anderes inzwischen
+  gespeichert, sagt die App das; **Neu laden** holt den aktuellen Stand.
+- **Freigeben:** Leitung oder Träger tippen auf **Freigeben** (Rückfrage, ungespeicherte Änderungen werden vorher
+  gespeichert). Danach ist das Protokoll für alle nur noch zu lesen, mit „freigegeben am … von …“. Hat jemand gerade noch
+  geschrieben, wird sein letztes Speichern abgelehnt; sein Text bleibt zum Lesen (und Abschreiben) stehen, **Neu laden**
+  zeigt das freigegebene Protokoll.
+- **Wieder öffnen:** nur Leitung und Träger, mit einer **Begründung** (1 bis 200 Zeichen). Die letzte Begründung steht
+  danach am Protokoll („zuletzt wieder geöffnet am … von …“); alle können wieder mitschreiben.
+- **Löschen:** nur Leitung und Träger, mit Rückfrage.
+- **Drucken:** **Drucken** an der Sitzung (A4 hoch, mit PDF) zeigt Einrichtung, Gruppe, Datum, Uhrzeit, Teilnehmer,
+  Protokollführung, das Protokoll und am Ende „freigegeben am … von …“ bzw. „Entwurf – noch nicht freigegeben“. Am
+  Tablet wird nicht gedruckt.

@@ -2,7 +2,7 @@ import {
   emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
 } from '#shared/domain/forms'
 import { formatTime } from '#shared/domain/time'
-import type { ChildFormDto, MyTalkFormDto } from '#shared/types/api'
+import type { ChildFormDto, MyTalkFormDto, TeamMeetingDto, TeamMeetingListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
@@ -129,7 +129,10 @@ export interface FormSheet {
   fileName: string
   /** Label and value per header field, laid out two per row. */
   header: [string, string][]
-  signatures: [string, string]
+  /** The signature lines under the form, side by side (none for a team meeting). */
+  signatures: string[]
+  /** Lines in normal print where the signatures would stand, e.g. „freigegeben am … von …“ (team meetings). */
+  closing: string[]
   /** Lines like „abgegeben am …“ above „zuletzt geändert …“. */
   stamps: string[]
 }
@@ -147,6 +150,7 @@ export function talkSheet(data: MyTalkFormDto): FormSheet {
       [h.participants, talk.participants], [h.period, talk.period],
     ],
     signatures: [de.talks.signatureAssessor, de.talks.signatureEmployee],
+    closing: [],
     stamps: [
       ...(form.submittedAt ? [de.talks.submittedAt(formatDateTime(form.submittedAt))] : []),
       ...(form.readReleasedAt ? [de.talks.readReleasedAt(formatDateTime(form.readReleasedAt))] : []),
@@ -168,6 +172,43 @@ export function childSheet(data: ChildFormDto): FormSheet {
       [h.start, data.start === null ? '' : formatTime(data.start)], [h.participants, data.participants],
     ],
     signatures: [de.childForms.signatureStaff, de.childForms.signatureGuardian],
+    closing: [],
+    stamps: [],
+  }
+}
+
+/** The group a team meeting was held for, or „ganze Einrichtung“. */
+export const teamMeetingGroup = (meeting: Pick<TeamMeetingListItemDto, 'groupName'>) => meeting.groupName ?? de.teamMeetings.wholeFacility
+
+/** „freigegeben am … von …“ or „Entwurf – noch nicht freigegeben“, and the last reopening with its reason. */
+export function teamMeetingStamps(meeting: TeamMeetingListItemDto): string[] {
+  const t = de.teamMeetings
+  return [
+    meeting.state === 'released' && meeting.releasedAt
+      ? t.releasedAt(formatDateTime(meeting.releasedAt), meeting.releasedBy ?? '')
+      : t.draftStamp,
+    ...(meeting.reopenReason && meeting.reopenedAt
+      ? [t.reopenedAt(formatDateTime(meeting.reopenedAt), meeting.reopenedBy ?? '', meeting.reopenReason)]
+      : []),
+  ]
+}
+
+/**
+ * The printout of a team meeting's minutes: facility, group, date, time, participants and Protokollführung as header,
+ * no signatures; instead „freigegeben am … von …“ (or „Entwurf – noch nicht freigegeben“) and the last reopening.
+ */
+export function teamSheet(data: TeamMeetingDto): FormSheet {
+  const h = de.teamMeetings.header
+  return {
+    title: data.title, content: data.content, answers: data.answers, updatedAt: data.updatedAt, updatedBy: data.updatedBy,
+    fileName: `${data.title}-${data.date}`,
+    header: [
+      [h.facility, data.facilityName], [h.group, teamMeetingGroup(data)],
+      [h.date, formatDate(data.date)], [h.start, data.start === null ? '' : formatTime(data.start)],
+      [h.participants, data.participants], [h.recorder, data.recorder],
+    ],
+    signatures: [],
+    closing: teamMeetingStamps(data),
     stamps: [],
   }
 }

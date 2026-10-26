@@ -10,7 +10,8 @@ describe('navMenu', () => {
     expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender'])
     expect(menu.main[0]!.to).toBe('/plan/2026/10')
     expect(menu.main[4]!.to).toBe('/cash')
-    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Benutzer', 'Einstellungen'])
+    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Teamsitzungen', 'Vorlagen', 'Benutzer', 'Einstellungen'])
+    expect(menu.more[2]!.to).toBe('/team-meetings')
     expect(menu.mine).toEqual([])
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(0)
@@ -38,19 +39,22 @@ describe('navMenu', () => {
     expect(menu.totalCount).toBe(0)
   })
 
-  it('keeps the entries of a Mitarbeiter, with „Meine Gespräche“ last', () => {
+  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar and „Teamsitzungen“, the own lists under „Meins“', () => {
     const menu = navMenu({ ...base, role: 'observer', employeeId: 9, unread: 3 })
-    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Mein Urlaub', 'Meine Termine', 'Kalender', 'Meine Gespräche'])
-    expect(menu.main[4]!.to).toBe('/my/calendar')
-    expect(menu.main[5]!.to).toBe('/my/talks')
-    expect(menu.mine).toEqual([])
+    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Kalender', 'Teamsitzungen'])
+    expect(menu.main.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/plan/2026/10', '/my/calendar', '/team-meetings'])
+    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche'])
+    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/leave', '/my/requirements', '/my/talks'])
     expect(menu.more).toEqual([])
+    // The unread count stands on „Mein Dienstplan“ in the row, not on „Meins“.
+    expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(3)
   })
 
-  it('gives the tablet only Stempeln and the plan', () => {
+  it('gives the tablet Stempeln, the plan and the team meetings', () => {
     const menu = navMenu({ ...base, role: 'terminal', unread: 5, isPlanner: true, openCount: 2 })
-    expect(menu.main.map(entry => entry.to)).toEqual(['/terminal', '/plan/2026/10'])
+    expect(menu.main.map(entry => entry.to)).toEqual(['/terminal', '/plan/2026/10', '/team-meetings'])
+    expect(labels(menu.main)).toEqual(['Stempeln', 'Dienstplan', 'Teamsitzungen'])
     expect(navMenu({ ...base, role: 'terminal', employeeId: 4 }).main.some(entry => entry.to === '/my/talks')).toBe(false)
     expect(menu.mine).toEqual([])
     expect(menu.more).toEqual([])
@@ -63,8 +67,9 @@ describe('isEntryActive / isGroupActive', () => {
   it('matches the entry and pages below it', () => {
     expect(isEntryActive('/plan/2025/3', menu.main[0]!)).toBe(true)
     expect(isEntryActive('/my/plan/2025/3', menu.main[0]!)).toBe(false)
-    expect(isEntryActive('/admin/settings/groups/4', menu.more[4]!)).toBe(true)
-    expect(isEntryActive('/admin/settingsx', menu.more[4]!)).toBe(false)
+    expect(isEntryActive('/admin/settings/groups/4', menu.more[5]!)).toBe(true)
+    expect(isEntryActive('/team-meetings/12', menu.more[2]!)).toBe(true)
+    expect(isEntryActive('/admin/settingsx', menu.more[5]!)).toBe(false)
   })
   it('marks "Mehr" and "Meins" active on their pages only', () => {
     expect(isGroupActive('/admin/closures', menu.more)).toBe(true)

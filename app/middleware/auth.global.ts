@@ -16,8 +16,10 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     // Leaving the child pages (e.g. for the plan) ends the unlock, so it does not stay alive behind the tablet's back;
     // the start page locks by itself.
     if (import.meta.client && isChildPagePath(from.path) && to.path !== '/terminal') useChildRights().lockOnLeave()
-    // Otherwise the shared tablet only stamps, shows the general plan and the print templates (no unlock: no child data).
-    return to.path === '/terminal' || to.path === '/templates' || to.path.startsWith('/plan/') ? undefined : navigateTo('/terminal')
+    // Otherwise the shared tablet only stamps, shows the general plan, the print templates and the team meetings (no
+    // unlock: no child data). Never /print: the team meetings' printout is for the staff's and the managers' own devices.
+    const teamMeetings = to.path === '/team-meetings' || to.path.startsWith('/team-meetings/')
+    return to.path === '/terminal' || to.path === '/templates' || to.path.startsWith('/plan/') || teamMeetings ? undefined : navigateTo('/terminal')
   }
   if (user.value?.mustChangePassword && to.path !== '/account/password') return navigateTo('/account/password')
   // Mitarbeiter see the children only at the facility's tablet (and printouts of them nowhere; the tablet never gets

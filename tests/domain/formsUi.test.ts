@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
-import type { ChildFormDto } from '../../shared/types/api'
+import type { ChildFormDto, TeamMeetingDto } from '../../shared/types/api'
 import {
-  childSheet, filledAnswers, isBlank, milestoneColumns, panelDirty, putAnswersTo, saveAnswers, sectionBlocks, sectionHasRating,
+  childSheet, teamSheet, filledAnswers, isBlank, milestoneColumns, panelDirty, putAnswersTo, saveAnswers, sectionBlocks, sectionHasRating,
 } from '../../app/utils/forms'
 
 const section: FormSection = {
@@ -82,6 +82,40 @@ describe('childSheet', () => {
     // The file name (and so the PDF request's query) never carries the child's name.
     expect(sheet.fileName).toBe('Beobachtung-7-2026-10-20')
     expect(sheet.fileName).not.toMatch(/Lena|Kurz/)
+    expect(sheet.closing).toEqual([])
+  })
+})
+
+describe('teamSheet', () => {
+  const meeting = {
+    id: 3, templateId: 1, title: 'Teamsitzung', date: '2026-10-21', start: 13 * 60 + 15, groupId: null, groupName: null,
+    participants: 'Anna, Ben', recorder: 'Ben', state: 'draft', releasedAt: null, releasedBy: null,
+    reopenReason: null, reopenedAt: null, reopenedBy: null, createdAt: '2026-10-21T11:00:00.000Z', createdBy: 'Anna',
+    updatedAt: '2026-10-21T12:00:00.000Z', updatedBy: 'Tablet', content: { sections: [] }, answers: {}, facilityName: 'Kita Sonne', canManage: false,
+  } as TeamMeetingDto
+
+  it('heads the printout with facility, group, date, time, participants and Protokollführung, without signatures', () => {
+    const sheet = teamSheet(meeting)
+    expect(sheet.header).toEqual([
+      ['Einrichtung', 'Kita Sonne'], ['Gruppe', 'ganze Einrichtung'], ['Datum', '21.10.2026'], ['Uhrzeit', '13:15'],
+      ['Teilnehmer', 'Anna, Ben'], ['Protokollführung', 'Ben'],
+    ])
+    expect(sheet.signatures).toEqual([])
+    expect(sheet.closing).toEqual(['Entwurf – noch nicht freigegeben'])
+    expect(sheet.fileName).toBe('Teamsitzung-2026-10-21')
+    expect(teamSheet({ ...meeting, groupId: 4, groupName: 'Bären', start: null }).header.slice(1, 4))
+      .toEqual([['Gruppe', 'Bären'], ['Datum', '21.10.2026'], ['Uhrzeit', '']])
+  })
+
+  it('names who released it and the last reopening with its reason', () => {
+    const released = {
+      ...meeting, state: 'released' as const, releasedAt: '2026-10-22T08:30:00.000Z', releasedBy: 'Frau Leitung',
+      reopenReason: 'Tippfehler', reopenedAt: '2026-10-21T15:00:00.000Z', reopenedBy: 'Frau Leitung',
+    }
+    expect(teamSheet(released).closing).toEqual([
+      'freigegeben am 22.10.2026, 10:30 von Frau Leitung',
+      'zuletzt wieder geöffnet am 21.10.2026, 17:00 von Frau Leitung: Tippfehler',
+    ])
   })
 })
 

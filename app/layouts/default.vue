@@ -47,7 +47,8 @@ watch(() => route.fullPath, () => {
 })
 
 // The entries, grouped: Leitung/Träger see the everyday pages directly and the rest under "Mehr" (and their own pages
-// under "Meins" when linked to an employee); Mitarbeiter and the tablet keep their short list.
+// under "Meins" when linked to an employee); Mitarbeiter have a short row and their own lists under "Meins", the tablet
+// its short list.
 const menu = computed<NavMenu>(() => navMenu({
   role: user.value?.role ?? 'observer',
   employeeId: user.value?.employeeId ?? null,

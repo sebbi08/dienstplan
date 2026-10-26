@@ -9,8 +9,9 @@ import { isBlank, milestoneColumns, sectionBlocks, sectionHasRating, type FormSh
 /**
  * The printout of a form, A4 portrait like the paper form: title, the header fields (two per row), the sections
  * (ratings as a table + / ~ / − / Anmerkungen, choices with ☐/☒, milestones as a table by age — one column per age
- * when the ages are like „3;0 Jahre“ —, empty free texts as writing lines) and the two signature lines. The sheet
- * (see talkSheet, childSheet) says what goes into the header and under the signature lines.
+ * when the ages are like „3;0 Jahre“ —, empty free texts as writing lines) and the signature lines (or, for a team
+ * meeting, „freigegeben am … von …“ in their place). The sheet (see talkSheet, childSheet, teamSheet) says what goes
+ * into the header and under the form.
  */
 const props = defineProps<{ sheet: FormSheet | null | undefined; error?: unknown }>()
 const { user } = useUserSession()
@@ -155,8 +156,11 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
         </template>
       </section>
 
-      <div class="mt-12 grid grid-cols-2 gap-10 break-inside-avoid">
+      <div v-if="props.sheet.signatures.length" class="mt-12 grid grid-cols-2 gap-10 break-inside-avoid">
         <div v-for="line in props.sheet.signatures" :key="line" class="border-t border-gray-700 pt-1 text-xs print:text-[10px]">{{ line }}</div>
+      </div>
+      <div v-if="props.sheet.closing.length" class="mt-8 space-y-0.5 border-t border-gray-700 pt-2 break-inside-avoid">
+        <p v-for="line in props.sheet.closing" :key="line" class="break-words first:font-semibold">{{ line }}</p>
       </div>
       <div class="mt-6 space-y-0.5 text-xs text-gray-600 print:text-[9px]">
         <p v-for="line in props.sheet.stamps" :key="line">{{ line }}</p>
