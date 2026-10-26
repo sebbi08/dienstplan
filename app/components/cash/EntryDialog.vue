@@ -70,16 +70,21 @@ watch(() => form.fromBoxId, () => {
 // Suggestions for the purpose from earlier entries of the facility, asked while typing (not for transfers).
 const suggestions = ref<string[]>([])
 let timer: ReturnType<typeof setTimeout> | undefined
+// Only the answer to the latest request counts; a slower older one must not overwrite it.
+let latestRequest = 0
 watch(() => form.purpose, (text) => {
   clearTimeout(timer)
   if (!open.value || isTransfer.value) return
   timer = setTimeout(async () => {
+    const request = ++latestRequest
+    let found: string[] = []
     try {
-      suggestions.value = await $fetch<string[]>('/api/cash/purposes', { query: { q: text.trim() } })
+      found = await $fetch<string[]>('/api/cash/purposes', { query: { q: text.trim() } })
     }
     catch {
-      suggestions.value = []
+      // No suggestions then.
     }
+    if (request === latestRequest) suggestions.value = found
   }, 250)
 })
 onBeforeUnmount(() => clearTimeout(timer))
@@ -197,7 +202,7 @@ async function askRemoveReceipt() {
             <UButton v-if="hasReceipt && !receiptFile" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.cash.receiptRemove" @click="askRemoveReceipt" />
             <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-camera" :label="de.cash.receiptPhoto" @click="cameraInput?.click()" />
             <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-paperclip" :label="de.cash.receiptFile" @click="fileInput?.click()" />
-            <input ref="cameraInput" type="file" accept="image/*" capture="environment" class="hidden" @change="pick">
+            <input ref="cameraInput" type="file" accept="image/jpeg,image/png" capture="environment" class="hidden" @change="pick">
             <input ref="fileInput" type="file" accept="image/jpeg,image/png,application/pdf" class="hidden" @change="pick">
           </div>
           <p v-if="receiptFile" class="break-all text-xs text-gray-600">{{ de.cash.receiptChosen(receiptFile.name) }}</p>

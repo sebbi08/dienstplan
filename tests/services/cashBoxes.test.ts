@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { cashBoxes, cashClosedMonths, cashLog } from '../../server/db/schema'
-import { createBox, deleteBox, listBoxes, loadBox, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
+import { createBox, deleteBox, listBoxes, loadBox, moveBox, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
 import { createEntry, createTransfer, deleteEntry } from '../../server/services/cashEntries'
 import { deleteGroup } from '../../server/services/groups'
 import type { SessionUser } from '../../shared/types/api'
@@ -82,6 +82,27 @@ describe('cash boxes', () => {
     updateBox(db, leitung, 1, f1, { ...base, name: 'Haupt', archived: true })
     expect(listBoxes(db, 1, today).map(row => row.id)).toEqual([f2, m1, m2, b1, f1])
     expect(listBoxes(db, 1, today).find(row => row.id === m2)).toMatchObject({ groupName: 'Mäuse', sortOrder: 1 })
+  })
+
+  it('moves a box up or down within its scope only', () => {
+    const mice = addGroup(db, 1, 'Mäuse')
+    const f1 = box({ name: 'Haupt' })
+    const f2 = box({ name: 'Konto', kind: 'account' })
+    const f3 = box({ name: 'Porto' })
+    const m1 = box({ name: 'Mäuse 1', groupId: mice })
+    const ids = () => listBoxes(db, 1, today).map(row => row.id)
+    moveBox(db, 1, f3, 'up')
+    expect(ids()).toEqual([f1, f3, f2, m1])
+    moveBox(db, 1, f1, 'down')
+    expect(ids()).toEqual([f3, f1, f2, m1])
+    // At the ends of a scope nothing moves, not even into the group's boxes.
+    moveBox(db, 1, f2, 'down')
+    moveBox(db, 1, m1, 'up')
+    moveBox(db, 1, f3, 'up')
+    expect(ids()).toEqual([f3, f1, f2, m1])
+    updateBox(db, leitung, 1, f2, { ...base, name: 'Konto', kind: 'account', archived: true })
+    expect(errorCode(() => moveBox(db, 1, f2, 'up'))).toBe('cash_box_archived')
+    expect(errorCode(() => moveBox(db, other, f1, 'up'))).toBe('cash_box_not_found')
   })
 
   it('logs changes with before → after, and archiving separately', () => {

@@ -140,6 +140,28 @@ function nextSortOrder(db: Db, facilityId: number, groupId: number | null): numb
   return (row?.value ?? -1) + 1
 }
 
+/**
+ * Moves an active box one place up or down among the active boxes of its scope (the facility or its group), like the
+ * groups' order; at either end nothing changes. An archived box keeps its place (409 cash_box_archived).
+ */
+export function moveBox(db: Db, facilityId: number, id: number, direction: 'up' | 'down'): void {
+  const box = loadBox(db, facilityId, id)
+  if (box.archived) throw new ServiceError(409, 'cash_box_archived')
+  const ordered = db.select({ id: cashBoxes.id }).from(cashBoxes).where(and(
+    eq(cashBoxes.facilityId, facilityId), eq(cashBoxes.archived, false),
+    box.groupId === null ? isNull(cashBoxes.groupId) : eq(cashBoxes.groupId, box.groupId),
+  )).orderBy(asc(cashBoxes.sortOrder), asc(cashBoxes.id)).all()
+  const index = ordered.findIndex(row => row.id === id)
+  const target = index + (direction === 'up' ? -1 : 1)
+  if (target < 0 || target >= ordered.length) return
+  ;[ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!]
+  db.transaction((tx) => {
+    ordered.forEach((row, position) => {
+      tx.update(cashBoxes).set({ sortOrder: position }).where(eq(cashBoxes.id, row.id)).run()
+    })
+  })
+}
+
 /** A new box at the end of its scope; returns its id. */
 export function createBox(db: Db, actor: CashActor, facilityId: number, input: CashBoxInput, now: Date = new Date()): number {
   const values = checkedInput(db, facilityId, input, null)

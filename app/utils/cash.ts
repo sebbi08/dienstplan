@@ -8,7 +8,8 @@ export function centsInput(cents: number): string {
 /** A start balance as typed: like an amount, but 0 (and an empty field) is allowed; null = not readable. */
 export function parseStartBalance(text: string): number | null {
   const trimmed = text.trim()
-  if (trimmed === '' || /^0*(?:[.,]0{0,2})?$/.test(trimmed)) return 0
+  // "0", "0,0", "0.00", ",00"; a lone "," or "." is not a number.
+  if (trimmed === '' || /^(?:0+(?:[.,]0{0,2})?|[.,]0{1,2})$/.test(trimmed)) return 0
   return parseCents(trimmed)
 }
 

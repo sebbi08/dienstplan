@@ -36,36 +36,37 @@ const scopeItems = computed(() => [
 ])
 const monthItems = de.months.map((label, index) => ({ label, value: index + 1 }))
 
-function body(archived: boolean) {
+async function save() {
   const startBalance = parseStartBalance(form.startBalance)
   if (startBalance === null) {
     error.value = de.cash.invalidAmount
-    return null
+    return
   }
-  return {
+  const values = {
     name: form.name.trim(), kind: form.kind, groupId: form.scope === FACILITY ? null : Number(form.scope),
-    startYear: Number(form.startYear), startMonth: Number(form.startMonth), startBalance, archived,
+    startYear: Number(form.startYear), startMonth: Number(form.startMonth), startBalance,
   }
-}
-
-async function save(archived = props.box?.archived ?? false) {
-  const values = body(archived)
-  if (!values) return
   const box = props.box
   const ok = box
-    ? await run(() => $fetch(`/api/cash/boxes/${box.id}`, { method: 'PUT', body: values }), de.common.saved)
-    : await run(() => $fetch('/api/cash/boxes', { method: 'POST', body: { ...values, archived: undefined } }), de.common.saved)
+    ? await run(() => $fetch(`/api/cash/boxes/${box.id}`, { method: 'PUT', body: { ...values, archived: box.archived } }), de.common.saved)
+    : await run(() => $fetch('/api/cash/boxes', { method: 'POST', body: values }), de.common.saved)
   if (ok) {
     open.value = false
     emit('saved')
   }
 }
 
+/** Archives or reactivates the box as it is stored; unsaved changes in the form are not sent along. */
 async function toggleArchived() {
   const box = props.box
   if (!box) return
   if (!box.archived && !(await confirm(de.cash.archiveConfirm(box.name), { confirmLabel: de.cash.archive }))) return
-  await save(!box.archived)
+  const { name, kind, groupId, startYear, startMonth, startBalance } = box
+  const body = { name, kind, groupId, startYear, startMonth, startBalance, archived: !box.archived }
+  if (await run(() => $fetch(`/api/cash/boxes/${box.id}`, { method: 'PUT', body }), de.common.saved)) {
+    open.value = false
+    emit('saved')
+  }
 }
 
 async function remove() {

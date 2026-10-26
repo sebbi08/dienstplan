@@ -1112,7 +1112,8 @@ sehen keine Warnungen.
   Monaten Ausgaben ohne Beleg stehen. **Kasse anlegen**: Name, Art, Zuordnung (Einrichtung oder Gruppe), Startmonat und
   Anfangsbestand. Über den Stift kannst du eine Kasse ändern, **stilllegen** (bleibt lesbar und druckbar, steht
   eingeklappt unten) oder – solange sie keine Einträge hat – löschen. Startmonat und Anfangsbestand sind fest, sobald der
-  Startmonat abgeschlossen ist.
+  Startmonat abgeschlossen ist. **Reihenfolge ändern** zeigt Pfeile, mit denen du die Kassen innerhalb der Einrichtung
+  bzw. einer Gruppe nach oben oder unten schiebst.
 - **Monatsblatt:** ein Tipp auf den Namen öffnet den laufenden Monat; mit den Pfeilen geht es zurück bis zum Startmonat.
   Oben stehen wie im bisherigen Kassenblatt Anfangsbestand, Einnahmen, Ausgaben und aktueller Kassenbestand; der
   Anfangsbestand ist immer der Endbestand des Vormonats. Darunter die Einträge nach Datum, die Nummern getrennt für

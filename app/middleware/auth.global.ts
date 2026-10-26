@@ -24,7 +24,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   // to /print above).
   if ((childPage || to.path.startsWith('/print/children/')) && user.value?.role === 'observer') return navigateTo('/')
   // The print templates are for the managers and the tablet, not for the staff's phones; the cash books only for managers.
-  if ((to.path.startsWith('/admin') || to.path === '/cash' || to.path.startsWith('/cash/') ||to.path === '/terminal' || to.path === '/templates') && !isManager(user.value?.role)) {
+  if ((to.path.startsWith('/admin') || to.path === '/cash' || to.path.startsWith('/cash/') || to.path === '/terminal' || to.path === '/templates') && !isManager(user.value?.role)) {
     return navigateTo('/')
   }
 })

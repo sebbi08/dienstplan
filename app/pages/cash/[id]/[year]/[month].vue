@@ -135,7 +135,7 @@ const csvYear = computed(() => `/api/cash/boxes/${boxId.value}/csv?year=${year.v
           <UButton icon="i-lucide-minus" :label="de.cash.addExpense" @click="openNew('out')" />
           <UButton color="neutral" variant="outline" icon="i-lucide-arrow-left-right" :label="de.cash.transfer" @click="openNew('transfer')" />
         </template>
-        <UButton v-if="!closedMonth" color="neutral" variant="outline" icon="i-lucide-lock" :label="de.cash.closeMonth" :disabled="closeCheck !== 'ok'" :title="closeHint" @click="closeMonth" />
+        <UButton v-if="!closedMonth" color="neutral" variant="outline" icon="i-lucide-lock" :label="de.cash.closeMonth" :disabled="closeCheck !== 'ok'" @click="closeMonth" />
         <UButton v-if="closedMonth && isProvider" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.cash.reopen" @click="openReopen" />
         <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.cash.print" :to="`/admin/print/cash/${boxId}/${year}/${month}`" target="_blank" />
         <UButton color="neutral" variant="outline" icon="i-lucide-file-spreadsheet" :label="de.cash.csvMonth" :to="csvMonth" external />
@@ -179,7 +179,7 @@ const csvYear = computed(() => `/api/cash/boxes/${boxId.value}/csv?year=${year.v
               </td>
               <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums">{{ formatCents(row.balanceAfter) }}</td>
               <td v-if="editable" class="px-2 py-2 text-right">
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openRow(row)" />
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.cash.editEntry(de.cash.directions[row.direction], row.number, formatDate(row.date))" @click="openRow(row)" />
               </td>
             </tr>
           </tbody>
@@ -209,7 +209,7 @@ const csvYear = computed(() => `/api/cash/boxes/${boxId.value}/csv?year=${year.v
                 <UIcon name="i-lucide-file-text" class="size-4" aria-hidden="true" />{{ de.cash.receiptView }}
               </a>
               <span v-else class="text-xs text-gray-400">{{ de.cash.receiptNone }}</span>
-              <UButton v-if="editable" class="ml-auto" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.common.edit" @click="openRow(row)" />
+              <UButton v-if="editable" class="ml-auto" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.common.edit" :aria-label="de.cash.editEntry(de.cash.directions[row.direction], row.number, formatDate(row.date))" @click="openRow(row)" />
             </div>
           </li>
         </ul>

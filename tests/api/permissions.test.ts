@@ -73,6 +73,8 @@ const ADMIN_ROUTES = [
   // Closing a month, receipts and the CSV file.
   'cash/boxes/[id]/close.post.ts', 'cash/boxes/[id]/csv.get.ts', 'cash/entries/[id]/receipt.put.ts',
   'cash/entries/[id]/receipt.delete.ts', 'cash/receipts/[id].get.ts',
+  // The order of the boxes within the facility or a group.
+  'cash/boxes/[id]/move.post.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
