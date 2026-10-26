@@ -23,8 +23,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   // Mitarbeiter see the children only at the facility's tablet (and printouts of them nowhere; the tablet never gets
   // to /print above).
   if ((childPage || to.path.startsWith('/print/children/')) && user.value?.role === 'observer') return navigateTo('/')
-  // The print templates are for the managers and the tablet, not for the staff's phones.
-  if ((to.path.startsWith('/admin') || to.path === '/terminal' || to.path === '/templates') && !isManager(user.value?.role)) {
+  // The print templates are for the managers and the tablet, not for the staff's phones; the cash books only for managers.
+  if ((to.path.startsWith('/admin') || to.path === '/cash' || to.path.startsWith('/cash/') ||to.path === '/terminal' || to.path === '/templates') && !isManager(user.value?.role)) {
     return navigateTo('/')
   }
 })

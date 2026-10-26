@@ -62,6 +62,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
         entry(de.nav.employees, '/admin/employees'),
         // Mitarbeiter see the children only at the tablet, so only the managers get the menu entry.
         entry(de.nav.children, '/children'),
+        // The cash books of the facility and its groups; Mitarbeiter and the tablet have no access.
+        entry(de.nav.cash, '/cash'),
         // The short label keeps the header of a laptop on one line.
         entry(de.nav.calendarShort, '/admin/calendar'),
       ],

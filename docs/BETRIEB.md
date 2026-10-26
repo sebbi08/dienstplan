@@ -1063,7 +1063,7 @@ sehen keine Warnungen.
 ## 21. Menü
 
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
-  offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder** und **Kalender** (Jahreskalender). Seltener Gebrauchtes liegt
+  offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse** und **Kalender** (Jahreskalender). Seltener Gebrauchtes liegt
   unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Benutzer, Einstellungen und Passwort ändern. Wer als Leitung
   oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“, „Mein Urlaub“ und
   „Meine Termine“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
@@ -1102,3 +1102,33 @@ sehen keine Warnungen.
   zählen nicht und stehen zugeklappt unten unter **Ausgeblendet (n)**; dort holt **Wieder einblenden** sie zurück.
 - Im **Dienstplan** steht für Leitung und Träger eine kleine Zeile „Noch n Punkte offen“ mit Link zu den Einstellungen,
   solange etwas offen ist.
+
+## 24. Kasse
+
+- **Wer:** nur **Leitung** (eigene Einrichtung) und **Träger** (die gewählte Einrichtung), über den Menüpunkt **Kasse**.
+  Mitarbeiter und das Tablet sehen die Kassen nicht.
+- **Übersicht:** alle Kassen der Einrichtung, geordnet nach **Einrichtung** und den Gruppen. Je Kasse die Art (**Bar** oder
+  **EC/Konto**), der **Bestand heute**, „abgeschlossen bis …“ und der Hinweis **Belege fehlen**, wenn in noch offenen
+  Monaten Ausgaben ohne Beleg stehen. **Kasse anlegen**: Name, Art, Zuordnung (Einrichtung oder Gruppe), Startmonat und
+  Anfangsbestand. Über den Stift kannst du eine Kasse ändern, **stilllegen** (bleibt lesbar und druckbar, steht
+  eingeklappt unten) oder – solange sie keine Einträge hat – löschen. Startmonat und Anfangsbestand sind fest, sobald der
+  Startmonat abgeschlossen ist.
+- **Monatsblatt:** ein Tipp auf den Namen öffnet den laufenden Monat; mit den Pfeilen geht es zurück bis zum Startmonat.
+  Oben stehen wie im bisherigen Kassenblatt Anfangsbestand, Einnahmen, Ausgaben und aktueller Kassenbestand; der
+  Anfangsbestand ist immer der Endbestand des Vormonats. Darunter die Einträge nach Datum, die Nummern getrennt für
+  Einnahmen und Ausgaben (nach dem Löschen rücken die übrigen nach). Am Handy steht jeder Eintrag als Karte da.
+- **Einnahme / Ausgabe:** Datum (im gezeigten Monat, nicht in der Zukunft), Betrag mit Komma oder Punkt (z. B. 12,50) und
+  Verwendungszweck; beim Tippen schlägt die App frühere Texte vor. **Beleg** freiwillig: **Foto aufnehmen** (Handy) oder
+  **Datei wählen** (JPG, PNG oder PDF, höchstens 10 MB). „Beleg ansehen“ öffnet ihn in einem neuen Fenster.
+- **Umbuchen:** von dieser Kasse an eine andere aktive Kasse der Einrichtung. Die App trägt die Ausgabe hier und die
+  Einnahme dort ein; Ändern und Löschen gilt immer für beide.
+- **Kassenbestand negativ:** rutscht eine **Barkasse** an einem Tag unter 0 €, erscheint ein roter Hinweis und die
+  betroffenen Einträge sind rot. Speichern geht trotzdem. Bei EC/Konto gibt es diesen Hinweis nicht.
+- **Monat abschließen:** geht, wenn der Monat vorbei ist (oder ab seinem letzten Tag) und der Vormonat schon
+  abgeschlossen ist; warum es noch nicht geht, steht unter dem Knopf. Danach ist der Monat gesperrt. **Wieder öffnen**
+  kann nur der Träger, mit Begründung; dabei öffnen sich auch alle späteren abgeschlossenen Monate.
+- **Protokoll:** unten aufklappbar; jede Änderung mit Name und Zeitpunkt, auch Abschluss und Wieder-Öffnen. Niemand kann
+  es ändern.
+- **Drucken** zeigt das Blatt im Aufbau der Vorlage (A4 hoch) mit „Gedruckt am … von …“ und dem Abschluss; dort gibt es
+  auch **PDF herunterladen**. **Excel-Datei (Monat)** und **Excel-Datei (Jahr)** laden eine Datei, die Excel direkt öffnet.
+- Kassen, Einträge und Belege sind in der normalen Datensicherung enthalten.

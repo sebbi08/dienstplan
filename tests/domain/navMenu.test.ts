@@ -7,8 +7,9 @@ const labels = (entries: { label: string }[]) => entries.map(entry => entry.labe
 describe('navMenu', () => {
   it('shows a manager without employee the main entries and "Mehr", no "Meins"', () => {
     const menu = navMenu(base)
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kalender'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender'])
     expect(menu.main[0]!.to).toBe('/plan/2026/10')
+    expect(menu.main[4]!.to).toBe('/cash')
     expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Benutzer', 'Einstellungen'])
     expect(menu.mine).toEqual([])
     expect(menu.mineCount).toBe(0)
@@ -26,7 +27,7 @@ describe('navMenu', () => {
 
   it('puts "Urlaubsplanung" with the open requests second for a planner and counts them in the total', () => {
     const menu = navMenu({ ...base, employeeId: 3, isPlanner: true, openCount: 4, unread: 1 })
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kalender'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender'])
     expect(menu.totalCount).toBe(5)
     expect(navMenu({ ...base, isPlanner: true }).main[1]!.label).toBe('Urlaubsplanung')
   })
