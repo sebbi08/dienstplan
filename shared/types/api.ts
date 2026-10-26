@@ -1888,6 +1888,6 @@ export interface CashMonthDto {
   negative: boolean
   rows: CashMonthRowDto[]
   closed: { at: string; by: string } | null
-  /** The box's log lines written during this month, oldest first. */
+  /** The box's log lines about this month (entries dated in it, its closing/reopening), plus box-level lines written in it; oldest first. */
   log: CashLogDto[]
 }
