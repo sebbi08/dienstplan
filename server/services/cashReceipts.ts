@@ -5,12 +5,11 @@ import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile, DOCUMENT_EXTENSIONS, type DocumentMime } from '../lib/fileSignature'
 import { assertActive, assertMonthOpen, type CashBoxRow } from './cashBoxes'
-import { type CashActor, type CashLogAction, describeCashEntry, logCash, monthOf } from './cashLog'
+import { type CashActor, type CashLogAction, describeCashEntry, DIRECTION_LABELS, logCash, monthOf } from './cashLog'
 
 type EntryRow = typeof cashEntries.$inferSelect
 
 const RECEIPT_NAME_MAX = 200
-const DIRECTION_LABELS = { in: 'Einnahme', out: 'Ausgabe' } as const
 
 /**
  * The rows a receipt belongs to: the entry of a box of the facility (else 404 cash_entry_not_found), for a transfer
@@ -42,14 +41,15 @@ function logReceipt(tx: Db, actor: CashActor, rows: { entry: EntryRow }[], actio
   }
 }
 
-/** Deletes those of the receipts no entry refers to any more. */
-export function dropUnusedReceipts(tx: Db, ids: (number | null)[]): void {
+/** Deletes those of the receipts no entry refers to any more; true when one was deleted (the WAL wants a checkpoint). */
+export function dropUnusedReceipts(tx: Db, ids: (number | null)[]): boolean {
   const candidates = [...new Set(ids.filter((id): id is number => id !== null))]
-  if (candidates.length === 0) return
+  if (candidates.length === 0) return false
   const used = new Set(tx.select({ id: cashEntries.receiptId }).from(cashEntries)
     .where(inArray(cashEntries.receiptId, candidates)).all().map(row => row.id))
   const unused = candidates.filter(id => !used.has(id))
   if (unused.length > 0) tx.delete(cashReceipts).where(inArray(cashReceipts.id, unused)).run()
+  return unused.length > 0
 }
 
 /**

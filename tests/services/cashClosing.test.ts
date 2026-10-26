@@ -5,7 +5,7 @@ import { cashClosedMonths, cashLog } from '../../server/db/schema'
 import { csvResponseHeaders } from '../../server/lib/documentHttp'
 import { createBox, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
 import { boxCsv, closeMonth, reopenMonth } from '../../server/services/cashClosing'
-import { createEntry, createTransfer, deleteEntry, updateEntry } from '../../server/services/cashEntries'
+import { cashMonth, createEntry, createTransfer, deleteEntry, updateEntry } from '../../server/services/cashEntries'
 import type { SessionUser } from '../../shared/types/api'
 import { addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -85,14 +85,17 @@ describe('reopening a month', () => {
     for (const month of [3, 4, 5]) close(month)
   })
 
-  it('reopens March, April and May at once with one log line naming the reason (Review Focus 3)', () => {
+  it('reopens March, April and May at once, each sheet with one log line naming the reason (Review Focus 3)', () => {
     expect(reopenMonth(db, traeger, 1, main, 2026, 3, '  Beleg vergessen ')).toEqual(['2026-03', '2026-04', '2026-05'])
     expect(closedOf(main)).toEqual([])
-    const lines = logOf(main, 'month_reopened')
-    expect(lines).toHaveLength(1)
-    expect(lines[0]).toMatchObject({
-      actor: 'traeger', month: '2026-03', detail: 'Monate 03/2026, 04/2026, 05/2026 – Begründung: „Beleg vergessen“',
-    })
+    const detail = 'Monate 03/2026, 04/2026, 05/2026 – Begründung: „Beleg vergessen“'
+    expect(logOf(main, 'month_reopened').map(line => [line.actor, line.month, line.detail])).toEqual([
+      ['traeger', '2026-03', detail], ['traeger', '2026-04', detail], ['traeger', '2026-05', detail],
+    ])
+    for (const month of [3, 4, 5]) {
+      const reopened = cashMonth(db, 1, main, 2026, month, today).log.filter(line => line.action === 'month_reopened')
+      expect(reopened.map(line => line.detail)).toEqual([detail])
+    }
     expect(entry('2026-04-03')).toBeGreaterThan(0)
   })
 
@@ -140,6 +143,18 @@ describe('CSV file', () => {
     expect(errorCode(() => boxCsv(db, 1, main, 2025, null, today))).toBe('cash_before_start')
     expect(errorCode(() => boxCsv(db, 1, main, 2027, null, today))).toBe('cash_month_future')
     expect(errorCode(() => boxCsv(db, 1, main, 2026, 11, today))).toBe('cash_month_future')
+  })
+
+  it('exports a year from January for a box started in an earlier year, with the carried-over opening', () => {
+    const old = createBox(db, leitung, 1, { ...boxInput, name: 'Alt', startYear: 2025, startMonth: 11, startBalance: 1000 })
+    const add = (date: string, cents: number) =>
+      createEntry(db, leitung, 1, { boxId: old, date, direction: 'in', cents, purpose: 'Spende' }, today)
+    add('2025-11-05', 200)
+    add('2025-12-05', 300)
+    add('2026-02-05', 400)
+    const lines = boxCsv(db, 1, old, 2026, null, today).body.replace(/^﻿/, '').split('\r\n')
+    expect(lines.slice(1, 4)).toEqual(['Zeitraum;01.01.2026 – 31.10.2026', 'Anfangsbestand;15,00', 'Endbestand;19,00'])
+    expect(lines.filter(line => /^\d\d\.\d\d\.\d{4};/.test(line))).toEqual(['05.02.2026;1;Einnahme;4,00;Spende;nein;19,00'])
   })
 
   it('names the file with umlauts kept and other characters replaced', () => {

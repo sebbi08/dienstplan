@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, or } from 'drizzle-orm'
-import { formatCents, monthKey } from '../../shared/domain/cash'
+import { formatCents, monthKey, type CashDirection } from '../../shared/domain/cash'
 import { todayIso } from '../../shared/domain/dates'
 import type { IsoDate } from '../../shared/domain/types'
 import type { CashLogDto, SessionUser } from '../../shared/types/api'
@@ -28,6 +28,9 @@ export function logCash(
 ): void {
   tx.insert(cashLog).values({ boxId, at: now.toISOString(), actor: actor.username, action, detail, month }).run()
 }
+
+/** How the log names the direction of an entry. */
+export const DIRECTION_LABELS: Record<CashDirection, string> = { in: 'Einnahme', out: 'Ausgabe' }
 
 /** „03.03.2026“ */
 export function germanDate(iso: IsoDate): string {

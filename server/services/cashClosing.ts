@@ -36,7 +36,7 @@ export function closeMonth(
 /**
  * Reopens a closed month of a box of the facility and every later closed month of it (only the Träger: 403 forbidden
  * otherwise), with a reason of 1–200 characters (400 cash_reopen_reason_invalid). A month that is not closed is 409
- * cash_month_not_closed. One log line on the given month names all reopened months and the reason.
+ * cash_month_not_closed. Each reopened month gets one log line naming all reopened months and the reason.
  */
 export function reopenMonth(
   db: Db, provider: CashActor & Pick<SessionUser, 'role'>, facilityId: number, boxId: number, year: number, month: number,
@@ -50,15 +50,17 @@ export function reopenMonth(
   const key = monthKey(year, month)
   if (!closed.has(key)) throw new ServiceError(409, 'cash_month_not_closed')
   const months = monthsToReopen(year, month, closed)
+  const label = months.length === 1 ? 'Monat' : 'Monate'
+  const detail = `${label} ${months.map(monthLabel).join(', ')} – Begründung: „${text}“`
   db.transaction((tx) => {
     for (const value of months) {
       const [y, m] = value.split('-').map(Number) as [number, number]
       tx.delete(cashClosedMonths).where(and(
         eq(cashClosedMonths.boxId, boxId), eq(cashClosedMonths.year, y), eq(cashClosedMonths.month, m),
       )).run()
+      // One line on each reopened month's sheet, all naming the whole range and the reason.
+      logCash(tx, boxId, provider, 'month_reopened', detail, value, now)
     }
-    const label = months.length === 1 ? 'Monat' : 'Monate'
-    logCash(tx, boxId, provider, 'month_reopened', `${label} ${months.map(monthLabel).join(', ')} – Begründung: „${text}“`, key, now)
   })
   return months
 }

@@ -79,15 +79,16 @@ describe('cash receipts', () => {
     expect([receiptOf(id), receiptOf(income)]).toEqual([receipt, receipt])
     expect(receiptLog(main)).toHaveLength(1)
     expect(receiptLog(konto)).toHaveLength(1)
-    deleteTransfer(db, leitung, 1, id)
+    expect(deleteTransfer(db, leitung, 1, id)).toBe(true)
     expect(receiptCount()).toBe(0)
   })
 
   it('deletes the receipt with its entry', () => {
     const id = entry()
     attach(id)
-    deleteEntry(db, leitung, 1, id)
+    expect(deleteEntry(db, leitung, 1, id)).toBe(true)
     expect(receiptCount()).toBe(0)
+    expect(deleteEntry(db, leitung, 1, entry())).toBe(false)
   })
 
   it('refuses changes in a closed month (also on the other side of a transfer) and in an archived box', () => {
