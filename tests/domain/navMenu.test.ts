@@ -18,8 +18,8 @@ describe('navMenu', () => {
 
   it('gives a manager linked to an employee "Meins" with the unread count', () => {
     const menu = navMenu({ ...base, role: 'provider', employeeId: 7, unread: 2 })
-    expect(labels(menu.mine)).toEqual(['Mein Dienstplan (2)', 'Mein Urlaub', 'Meine Termine'])
-    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/my/leave', '/my/requirements'])
+    expect(labels(menu.mine)).toEqual(['Mein Dienstplan (2)', 'Mein Urlaub', 'Meine Termine', 'Meine Gespräche'])
+    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/my/leave', '/my/requirements', '/my/talks'])
     expect(menu.mineCount).toBe(2)
     expect(menu.totalCount).toBe(2)
     expect(labels(menu.main)).not.toContain('Mein Dienstplan (2)')
@@ -38,10 +38,11 @@ describe('navMenu', () => {
     expect(menu.totalCount).toBe(0)
   })
 
-  it('keeps the five entries of a Mitarbeiter', () => {
+  it('keeps the entries of a Mitarbeiter, with „Meine Gespräche“ last', () => {
     const menu = navMenu({ ...base, role: 'observer', employeeId: 9, unread: 3 })
-    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Mein Urlaub', 'Meine Termine', 'Jahreskalender'])
+    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Mein Urlaub', 'Meine Termine', 'Jahreskalender', 'Meine Gespräche'])
     expect(menu.main[4]!.to).toBe('/my/calendar')
+    expect(menu.main[5]!.to).toBe('/my/talks')
     expect(menu.mine).toEqual([])
     expect(menu.more).toEqual([])
     expect(menu.totalCount).toBe(3)
@@ -50,6 +51,7 @@ describe('navMenu', () => {
   it('gives the tablet only Stempeln and the plan', () => {
     const menu = navMenu({ ...base, role: 'terminal', unread: 5, isPlanner: true, openCount: 2 })
     expect(menu.main.map(entry => entry.to)).toEqual(['/terminal', '/plan/2026/10'])
+    expect(navMenu({ ...base, role: 'terminal', employeeId: 4 }).main.some(entry => entry.to === '/my/talks')).toBe(false)
     expect(menu.mine).toEqual([])
     expect(menu.more).toEqual([])
     expect(menu.totalCount).toBe(0)

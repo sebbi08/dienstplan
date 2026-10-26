@@ -43,15 +43,15 @@ export function suggestUsername(name: string, taken: readonly string[] = []): st
 }
 
 /** The tabs of the employee page, in their order. */
-export const EMPLOYEE_TABS = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'access'] as const
+export const EMPLOYEE_TABS = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'talks', 'access'] as const
 export type EmployeeTab = typeof EMPLOYEE_TABS[number]
 
 /**
  * The tabs a role sees on the employee page (only Leitung and Träger reach it; „Zugang“ uses the users' routes, which
- * need the same roles). Every tab has content for them, the contract inside „Stunden & Vertrag“ follows its own switch.
+ * need the same roles; „Gespräche“ the staff talk routes, likewise). Every tab has content for them, the contract inside „Stunden & Vertrag“ follows its own switch.
  */
 export function employeeTabs(role: Role | null): EmployeeTab[] {
-  return EMPLOYEE_TABS.filter(tab => tab !== 'access' || isManager(role))
+  return EMPLOYEE_TABS.filter(tab => (tab !== 'access' && tab !== 'talks') || isManager(role))
 }
 
 /**

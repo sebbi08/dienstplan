@@ -10,6 +10,8 @@ describe('PDF_PATH (print views that may be rendered as PDF)', () => {
     '/admin/print/calendar/2026?group=4',
     '/admin/print/calendar/2026?group=none',
     '/admin/print/time/4/2026/10',
+    '/admin/print/forms/12',
+    '/print/my-forms/12',
   ])('accepts %s', (path) => {
     expect(PDF_PATH.test(path)).toBe(true)
   })

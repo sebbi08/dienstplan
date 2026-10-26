@@ -1133,3 +1133,30 @@ sehen keine Warnungen.
 - **Drucken** zeigt das Blatt im Aufbau der Vorlage (A4 hoch) mit „Gedruckt am … von …“ und dem Abschluss; dort gibt es
   auch **PDF herunterladen**. **Excel-Datei (Monat)** und **Excel-Datei (Jahr)** laden eine Datei, die Excel direkt öffnet.
 - Kassen, Einträge und Belege sind in der normalen Datensicherung enthalten.
+
+## 25. Bögen und Mitarbeitergespräche
+
+- **Vorlagen:** unter **Einstellungen → Bögen** (Leitung und Träger). Oben wählst du die Art (Mitarbeitergespräch, Kind,
+  Teamsitzung). Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
+  Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
+  Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
+- **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Vom Mitarbeiter auszufüllen“, dann **Bereiche** (Titel,
+  Hinweistext) und darin **Punkte**: Hinweis, Freitext, Ankreuzliste (mit Möglichkeiten), Bewertung (+ / ~ / −),
+  Meilenstein (mit Altersstufe) und Datum. Mit den Pfeilen verschiebst du Bereiche und Punkte (Punkte auch in den
+  nächsten Bereich). Die Art eines Punkts lässt sich nicht ändern – lösch ihn und leg ihn neu an. Erst **Vorlage
+  speichern** übernimmt alles. Änderungen gelten nur für neue Bögen; schon angelegte Bögen behalten ihren Inhalt.
+- **Gespräch anlegen:** Mitarbeiter → Person → Reiter **Gespräche** → **Gespräch anlegen**: Datum, Uhrzeit, Teilnehmer,
+  Zeitraum und die Bögen (vorgeschlagen: Selbstbeurteilung und Beurteilungsbogen). **Öffnen** zeigt den Bogen zum
+  Ausfüllen; **Speichern** nicht vergessen (ein Hinweis zeigt ungespeicherte Änderungen).
+- **Selbstbeurteilung:** **Zum Ausfüllen freigeben** – dann sieht der Mitarbeiter den Bogen mit seinem eigenen Zugang
+  unter **Meine Gespräche** (nicht am Tablet), kann zwischendurch speichern und am Ende **Abgeben**. Danach kann er nichts
+  mehr ändern. Solange nicht abgegeben ist, kannst du die **Freigabe zurücknehmen**; eine Abgabe kannst du **wieder
+  öffnen**.
+- **Beurteilung:** füllt nur die Leitung bzw. der Träger aus. **Zum Lesen freigeben** zeigt sie dem Mitarbeiter unter
+  „Meine Gespräche“ nur zum Lesen; **Lesefreigabe zurücknehmen** nimmt das zurück.
+- Unter jedem Bogen steht „zuletzt geändert von … am …“ und, wenn es zutrifft, „freigegeben am …“, „abgegeben am …“ oder
+  „zum Lesen freigegeben am …“. Hat jemand anderes den Bogen inzwischen gespeichert, sagt die App das beim Speichern;
+  **Neu laden** holt den aktuellen Stand.
+- **Drucken:** jeder Bogen hat eine Druckseite (A4 hoch) mit Kopffeldern, Bewertungstabelle, Ankreuzkästchen, leeren
+  Schreiblinien und den beiden Unterschriftszeilen; dort gibt es auch **PDF herunterladen**. Mitarbeiter drucken ihre
+  freigegebenen Bögen über „Meine Gespräche“.

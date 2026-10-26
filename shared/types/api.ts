@@ -1969,8 +1969,13 @@ export interface MyTalkDto extends MyTalkHeaderDto {
   forms: TalkFormDto[]
 }
 
-/** One form of the employee's own talk (the employee may edit it while `state` is 'released' and `role` 'self'). */
+/**
+ * One form of a talk with what its printout's header needs: the employee's own (they may edit it while `state` is
+ * 'released' and `role` 'self'), or for Leitung and Träger any form of the facility's talks.
+ */
 export interface MyTalkFormDto {
   talk: MyTalkHeaderDto
   form: TalkFormDto
+  employeeName: string
+  facilityName: string
 }

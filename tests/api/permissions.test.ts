@@ -83,7 +83,7 @@ const ADMIN_ROUTES = [
   'form-templates/[id]/copy.post.ts',
   // Staff talks of the active facility (spec Bögen §3).
   'staff-talks/index.get.ts', 'staff-talks/index.post.ts', 'staff-talks/[id].put.ts', 'staff-talks/[id].delete.ts',
-  'staff-talks/[id]/forms.post.ts', 'staff-talks/forms/[formId].put.ts', 'staff-talks/forms/[formId].delete.ts',
+  'staff-talks/[id]/forms.post.ts', 'staff-talks/forms/[formId].get.ts', 'staff-talks/forms/[formId].put.ts', 'staff-talks/forms/[formId].delete.ts',
   'staff-talks/forms/[formId]/release.post.ts', 'staff-talks/forms/[formId]/withdraw.post.ts',
   'staff-talks/forms/[formId]/reopen.post.ts', 'staff-talks/forms/[formId]/read-release.post.ts',
 ]
@@ -240,7 +240,7 @@ describe('API route permissions', () => {
 
   it('opens the staff talks to managers of the active facility, and only the own released forms to the employee', () => {
     const touching = routes.filter(route => /^(staff-talks|my\/talks)\//.test(route) || source(route).includes('services/staffTalks\''))
-    expect(touching).toHaveLength(15)
+    expect(touching).toHaveLength(16)
     for (const route of touching) {
       const code = source(route)
       if (route.startsWith('my/talks/')) {

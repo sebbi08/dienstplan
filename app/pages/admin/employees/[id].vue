@@ -197,6 +197,8 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
 // The page's tabs; `?tab=` opens one directly (nothing is remembered). The old anchor #requirements still leads to its tab.
 const router = useRouter()
 const visibleTabs = computed(() => employeeTabs(user.value?.role ?? null))
+// A form of a talk opened in „Gespräche“ may hold unsaved answers: leaving the page asks first.
+useUnsavedGuard()
 const requestedTab = () => requestedEmployeeTab(route.query.tab, route.hash, visibleTabs.value)
 const tab = ref<EmployeeTab>(requestedTab())
 watch(() => [route.query.tab, route.hash], () => (tab.value = requestedTab()))
@@ -434,6 +436,10 @@ function onTabKey(event: KeyboardEvent) {
 
     <div v-show="tab === 'requirements'" v-bind="panel('requirements')">
       <EmployeesRequirementsSection :employee-id="id" />
+    </div>
+
+    <div v-if="visibleTabs.includes('talks')" v-show="tab === 'talks'" v-bind="panel('talks')">
+      <EmployeesTalksSection :employee-id="id" />
     </div>
 
     <div v-if="visibleTabs.includes('access')" v-show="tab === 'access'" v-bind="panel('access')">

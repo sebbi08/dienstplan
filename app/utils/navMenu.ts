@@ -46,12 +46,14 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const myPlan = entry(navLabelWithCount(de.nav.myPlan, viewer.unread), `/my/plan/${year}/${month}`, '/my/plan')
   const myLeave = entry(de.nav.myLeave, '/my/leave')
   const myRequirements = entry(de.nav.myRequirements, '/my/requirements')
+  // The own staff talks: self-assessments to fill in and assessments released to read.
+  const myTalks = entry(de.nav.myTalks, '/my/talks')
   const open = viewer.isPlanner ? viewer.openCount : 0
   const planning = viewer.isPlanner ? [entry(navLabelWithCount(de.nav.leavePlanning, open), '/admin/leave-planning')] : []
 
   if (viewer.role === 'provider' || viewer.role === 'admin') {
     // An admin linked to an employee stamps on "Mein Dienstplan", requests leave and sees their own appointments too.
-    const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements] : []
+    const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements, myTalks] : []
     const mineCount = mine.length ? viewer.unread : 0
     return {
       main: [
@@ -82,7 +84,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   }
 
   return {
-    main: [myPlan, plan, myLeave, myRequirements, entry(de.nav.calendar, '/my/calendar')],
+    main: [myPlan, plan, myLeave, myRequirements, entry(de.nav.calendar, '/my/calendar'), myTalks],
     mine: [],
     more: [],
     mineCount: viewer.unread,

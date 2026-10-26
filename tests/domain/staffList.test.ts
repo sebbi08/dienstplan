@@ -48,12 +48,13 @@ describe('suggestUsername', () => {
 })
 
 describe('employee page tabs', () => {
-  const all = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'access']
+  const all = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'talks', 'access']
 
-  it('shows every tab to Leitung and Träger, „Zugang“ to nobody else', () => {
+  it('shows every tab to Leitung and Träger, „Zugang“ and „Gespräche“ to nobody else', () => {
     expect(employeeTabs('admin')).toEqual(all)
     expect(employeeTabs('provider')).toEqual(all)
     expect(employeeTabs('observer')).not.toContain('access')
+    expect(employeeTabs('observer')).not.toContain('talks')
     expect(employeeTabs(null)).not.toContain('access')
   })
 
@@ -61,6 +62,7 @@ describe('employee page tabs', () => {
     const visible = employeeTabs('admin')
     expect(requestedEmployeeTab('access', '', visible)).toBe('access')
     expect(requestedEmployeeTab(['leave'], '', visible)).toBe('leave')
+    expect(requestedEmployeeTab('talks', '', visible)).toBe('talks')
     expect(requestedEmployeeTab(undefined, '#requirements', visible)).toBe('requirements')
     expect(requestedEmployeeTab('nonsense', '', visible)).toBe('master')
     expect(requestedEmployeeTab('access', '', employeeTabs('observer'))).toBe('master')

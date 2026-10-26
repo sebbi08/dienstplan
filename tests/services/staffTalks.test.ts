@@ -5,7 +5,7 @@ import { employees, forms, staffTalkForms, users } from '../../server/db/schema'
 import { moveEmployeeToFacility } from '../../server/services/employees'
 import { createTemplate, listTemplates, updateTemplate } from '../../server/services/formTemplates'
 import {
-  addTalkForm, createTalk, deleteTalk, deleteTalkForm, getMyTalkForm, listMyTalks, listTalks, releaseTalkForm,
+  addTalkForm, createTalk, deleteTalk, deleteTalkForm, getMyTalkForm, getTalkForm, listMyTalks, listTalks, releaseTalkForm,
   reopenTalkForm, saveMyTalkFormAnswers, saveTalkFormAnswers, setTalkFormReadRelease, submitMyTalkForm, updateTalk,
   withdrawTalkForm,
 } from '../../server/services/staffTalks'
@@ -318,6 +318,18 @@ describe('state machine', () => {
   })
 })
 
+describe('one form for the print page', () => {
+  it('gives managers any form of their facility with the talk and the names, another facility 404', () => {
+    const id = talkFor(annaId)
+    const [self] = formsOf(id)
+    const facilityName = getTalkForm(db, 1, self!.id).facilityName
+    expect(getTalkForm(db, 1, self!.id)).toMatchObject({ talk: { id, ...header }, form: { id: self!.id, state: 'draft' }, employeeName: 'Anna Muster' })
+    expect(facilityName).not.toBe('')
+    const other = addFacility(db, 'Krippe')
+    expect(errorCode(() => getTalkForm(db, other, self!.id))).toBe('form_not_found')
+  })
+})
+
 describe('the employee’s own talks', () => {
   it('shows only released self forms and assessments released to read, without internal fields', () => {
     const id = talkFor(annaId)
@@ -329,6 +341,7 @@ describe('the employee’s own talks', () => {
     expect(talk!.forms.map(form => form.id)).toEqual([self!.id])
     expect(getMyTalkForm(db, anna, self!.id)).toMatchObject({ talk: { id, ...header }, form: { id: self!.id, role: 'self' } })
     expect(Object.keys(getMyTalkForm(db, anna, self!.id).talk).sort()).toEqual(['date', 'id', 'participants', 'period', 'start'])
+    expect(getMyTalkForm(db, anna, self!.id).employeeName).toBe('Anna Muster')
     expect(errorCode(() => getMyTalkForm(db, anna, assessment!.id))).toBe('form_not_found')
     setTalkFormReadRelease(db, 1, assessment!.id, true, now)
     expect(listMyTalks(db, anna)[0]!.forms.map(form => form.id)).toEqual([self!.id, assessment!.id])

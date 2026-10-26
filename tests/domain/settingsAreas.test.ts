@@ -18,6 +18,7 @@ describe('visibleSettingsAreas', () => {
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
       ['staff', ['staffing']],
+      ['forms', ['form-templates']],
     ])
   })
 
@@ -29,13 +30,14 @@ describe('visibleSettingsAreas', () => {
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
       ['staff', ['staffing']],
+      ['forms', ['form-templates']],
     ])
   })
 
   it('gives each area its own address', () => {
     expect(visibleSettingsAreas(provider).map(entry => entry.path)).toEqual([
       '/admin/settings/facility', '/admin/settings/groups', '/admin/settings/roster', '/admin/settings/time-tracking',
-      '/admin/settings/children', '/admin/settings/staff',
+      '/admin/settings/children', '/admin/settings/staff', '/admin/settings/forms',
     ])
     for (const area of SETTINGS_AREAS) expect(areaOfSlug(areaPath(area).split('/').pop())).toBe(area)
     expect(areaOfSlug('unknown')).toBeNull()
@@ -73,6 +75,11 @@ describe('searchSettings', () => {
   it('finds Anwesenheit & Essen by „Snack“ and „Essen“', () => {
     expect(firstHit('Snack')).toMatchObject({ key: 'attendance', where: 'Kinder', to: '/admin/settings/children#section-attendance' })
     expect(firstHit('essen')?.key).toBe('attendance')
+  })
+
+  it('finds the form templates („Bögen“) for Leitung and Träger', () => {
+    expect(firstHit('Selbstbeurteilung', leitung)).toMatchObject({ key: 'form-templates', where: 'Bögen', to: '/admin/settings/forms#section-form-templates' })
+    expect(firstHit('Mitarbeitergespräch')?.key).toBe('form-templates')
   })
 
   it('finds the Tablet by „PIN“', () => {

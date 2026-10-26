@@ -4,7 +4,7 @@ import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/d
 import type { IsoDate } from '../../shared/domain/types'
 import type { MyTalkDto, MyTalkFormDto, MyTalkHeaderDto, SessionUser, StaffTalkDto, TalkFormDto, TalkFormRole } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, forms, staffTalkForms, staffTalks, users } from '../db/schema'
+import { employees, facilities, forms, staffTalkForms, staffTalks, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { actorName, loadTemplate, withFormErrors } from './formTemplates'
 
@@ -283,9 +283,23 @@ function loadMyForm(db: Db, user: SessionUser, formId: number): { talk: TalkRow;
   return { talk: row.talk, form }
 }
 
+/** The talk's employee and facility by name, for the printout's header. */
+function printNames(db: Db, talk: TalkRow): { employeeName: string; facilityName: string } {
+  const employee = db.select({ name: employees.name }).from(employees).where(eq(employees.id, talk.employeeId)).get()
+  const facility = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, talk.facilityId)).get()
+  return { employeeName: employee?.name ?? '', facilityName: facility?.name ?? '' }
+}
+
 export function getMyTalkForm(db: Db, user: SessionUser, formId: number): MyTalkFormDto {
   const { talk, form } = loadMyForm(db, user, formId)
-  return { talk: toHeader(talk), form: toFormDto(form) }
+  return { talk: toHeader(talk), form: toFormDto(form), ...printNames(db, talk) }
+}
+
+/** Any form of the facility's talks with its talk (Leitung and Träger: the print page); 404 form_not_found otherwise. */
+export function getTalkForm(db: Db, facilityId: number, formId: number): MyTalkFormDto {
+  const form = loadTalkForm(db, facilityId, formId)
+  const talk = loadTalk(db, facilityId, form.talkId)
+  return { talk: toHeader(talk), form: toFormDto(form), ...printNames(db, talk) }
 }
 
 /**
