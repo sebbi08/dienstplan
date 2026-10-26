@@ -40,7 +40,8 @@ Bisher wird der Anfangsbestand jeden Monat von Hand übertragen; in der App ist 
 
 ## 4. Bildschirme
 
-- **Menü:** neuer Punkt „Kasse“ (Leitung/Träger) unter „Mehr“ bzw. im Handy-Menü in derselben Gruppe.
+- **Menü:** neuer eigener Punkt „Kasse“ (Leitung/Träger) in der immer sichtbaren Menüzeile, nach „Kinder“ und vor
+  „Kalender“; im Handy-Menü in der Hauptgruppe an derselben Stelle. Nicht unter „Mehr“.
 - **Übersicht** (`/cash`): alle Kassen der aktiven Einrichtung, gegliedert nach „Einrichtung“ und den Gruppen (Reihenfolge
   der Gruppen); je Kasse Name, Art, aktueller Bestand (heute), Stand des Abschlusses („abgeschlossen bis September
   2026“), Zeichen „Belege fehlen“ wenn im offenen Zeitraum Ausgaben ohne Beleg sind. Knopf „Kasse anlegen“.
