@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
 import type { ChildFormDto } from '../../shared/types/api'
-import { childSheet, filledAnswers, isBlank, milestoneColumns, sectionBlocks, sectionHasRating } from '../../app/utils/forms'
+import {
+  childSheet, filledAnswers, isBlank, milestoneColumns, panelDirty, putAnswersTo, saveAnswers, sectionBlocks, sectionHasRating,
+} from '../../app/utils/forms'
 
 const section: FormSection = {
   id: 's1', title: 'Motorik', hint: '',
@@ -67,7 +69,7 @@ describe('milestoneColumns', () => {
 describe('childSheet', () => {
   it('heads the printout with the child and the meeting data and signs by educator and parents', () => {
     const data = {
-      title: 'Entwicklungsgespräch', content: { sections: [] }, answers: {}, updatedAt: '2026-10-20T10:00:00.000Z', updatedBy: 'Anna',
+      id: 7, title: 'Entwicklungsgespräch', content: { sections: [] }, answers: {}, updatedAt: '2026-10-20T10:00:00.000Z', updatedBy: 'Anna',
       date: '2026-10-20', start: 14 * 60 + 30, participants: 'Mama, Anna',
       child: { firstName: 'Lena', lastName: 'Kurz', birthDate: '2021-05-03', groupName: 'Bären' }, facilityName: 'Kita',
     } as unknown as ChildFormDto
@@ -77,6 +79,35 @@ describe('childSheet', () => {
       ['Uhrzeit', '14:30'], ['Teilnehmer', 'Mama, Anna'],
     ])
     expect(sheet.signatures).toEqual(['Unterschrift Fachkraft / Datum', 'Unterschrift Erziehungsberechtigte / Datum'])
-    expect(sheet.fileName).toBe('Entwicklungsgespräch-Lena Kurz-2026-10-20')
+    // The file name (and so the PDF request's query) never carries the child's name.
+    expect(sheet.fileName).toBe('Beobachtung-7-2026-10-20')
+    expect(sheet.fileName).not.toMatch(/Lena|Kurz/)
+  })
+})
+
+describe('the form panel save contract', () => {
+  it('PUTs the answers with the updatedAt they are based on', async () => {
+    const calls: unknown[] = []
+    const save = putAnswersTo('/api/x/1', async (url, options) => {
+      calls.push([url, options])
+      return { updatedAt: 'T2' }
+    })
+    expect(await saveAnswers(save, { a: 'x' }, 'T1')).toEqual({ ok: true, base: 'T2' })
+    expect(calls).toEqual([['/api/x/1', { method: 'PUT', body: { answers: { a: 'x' }, expectedUpdatedAt: 'T1' } }]])
+  })
+
+  it('tells a 409 form_changed apart from other failures', async () => {
+    const failing = (code: string) => saveAnswers(async () => {
+      throw { data: { data: { code } } }
+    }, {}, 'T1')
+    expect(await failing('form_changed')).toMatchObject({ ok: false, conflict: true })
+    expect(await failing('forbidden')).toMatchObject({ ok: false, conflict: false })
+  })
+
+  it('counts the parent fields as unsaved, and nothing while read-only', () => {
+    expect(panelDirty(true, '{}', '{}', false)).toBe(false)
+    expect(panelDirty(true, '{"a":1}', '{}', false)).toBe(true)
+    expect(panelDirty(true, '{}', '{}', true)).toBe(true)
+    expect(panelDirty(false, '{"a":1}', '{}', true)).toBe(false)
   })
 })

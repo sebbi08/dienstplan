@@ -25,9 +25,14 @@ const forms = computed(() => data.value?.forms ?? [])
 const openFormId = ref<number | null>(null)
 const openDirty = ref(false)
 const isOpen = (formId: number) => openFormId.value === formId
-async function mayLeaveOpen(): Promise<boolean> {
+/** Asks before the open form's unsaved answers would go; changes nothing. */
+async function askLeaveOpen(): Promise<boolean> {
   if (openFormId.value === null || !openDirty.value) return true
-  if (!await confirm(de.forms.closeConfirm, { confirmLabel: de.forms.closeDiscard })) return false
+  return await confirm(de.forms.closeConfirm, { confirmLabel: de.forms.closeDiscard })
+}
+/** Asks, and once agreed the open form counts as given up (nothing unsaved any more). */
+async function mayLeaveOpen(): Promise<boolean> {
+  if (!await askLeaveOpen()) return false
   openDirty.value = false
   return true
 }
@@ -73,7 +78,8 @@ async function create() {
   if (!isValidIsoDate(draft.date)) createError.value = c.dateInvalid
   else if (draft.start.trim() && (start === null || start > 1439)) createError.value = de.common.invalidTimeAnyMinute
   if (createError.value || draft.templateId === undefined) return
-  if (!await mayLeaveOpen()) return
+  // Asked first, but the open form stays unsaved (and guarded) until the new one is really there.
+  if (!await askLeaveOpen()) return
   let createdId: number | null = null
   const body = { templateId: draft.templateId, date: draft.date, start, participants: draft.participants }
   const ok = await run(async () => {
@@ -171,7 +177,7 @@ async function remove(form: ChildFormListItemDto) {
             </template>
           </div>
         </div>
-        <ChildrenChildFormPanel v-if="isOpen(form.id)" :form-id="form.id" :refresh-list="refresh" @dirty="openDirty = $event" />
+        <ChildrenChildFormPanel v-if="isOpen(form.id)" :form-id="form.id" :archived="child.status === 'archived'" :refresh-list="refresh" @dirty="openDirty = $event" />
       </li>
     </ul>
 

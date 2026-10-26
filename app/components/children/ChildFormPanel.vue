@@ -13,7 +13,7 @@ import type { FormPanelSave } from '~/utils/forms'
  * together (with the updatedAt the form was loaded with); `dirty` tells the list whether anything is unsaved.
  * `refreshList` re-reads the list (for its „zuletzt geändert“) after a save.
  */
-const props = defineProps<{ formId: number; refreshList: () => Promise<unknown> }>()
+const props = defineProps<{ formId: number; archived?: boolean; refreshList: () => Promise<unknown> }>()
 const emit = defineEmits<{ dirty: [value: boolean] }>()
 const c = de.childForms
 
@@ -72,7 +72,7 @@ const headerLine = computed(() => {
     <template v-else>
       <p v-if="!editable" class="flex gap-1.5 text-sm text-gray-600">
         <UIcon name="i-lucide-lock" class="mt-0.5 size-4 shrink-0 text-gray-400" />
-        <span>{{ c.readOnly }}</span>
+        <span>{{ props.archived ? c.readOnlyArchived : c.readOnly }}</span>
       </p>
       <FormsFormPanel
         :key="form.id" :form="form" :save="save" :editable="editable" :refresh="refreshBoth" :extra-dirty="headerDirty"

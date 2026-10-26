@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { FormAnswers } from '#shared/domain/forms'
 import { de } from '~/locales/de'
-import { errorCode, errorMessage } from '~/utils/errors'
+import { errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
-import { filledAnswers, type FormPanelForm, type FormPanelSave } from '~/utils/forms'
+import {
+  filledAnswers, panelDirty, putAnswersTo, saveAnswers, type FormFetch, type FormPanelForm, type FormPanelSave,
+} from '~/utils/forms'
 
 /**
  * A form with its answers and an explicit „Speichern“ (with a hint while something is unsaved). Saving sends the
@@ -35,7 +37,7 @@ const savedJson = ref(JSON.stringify(answers.value))
 const base = ref(props.form.updatedAt)
 const conflict = ref(false)
 const saving = ref(false)
-const dirty = useDirty(() => props.editable && (JSON.stringify(answers.value) !== savedJson.value || !!props.extraDirty))
+const dirty = useDirty(() => panelDirty(props.editable, JSON.stringify(answers.value), savedJson.value, props.extraDirty))
 watch(dirty, value => emit('dirty', value), { immediate: true })
 
 function reset() {
@@ -50,8 +52,7 @@ watch(() => props.form.updatedAt, () => {
   if (!dirty.value && !saving.value) reset()
 })
 
-const putAnswers: FormPanelSave = (sent, expectedUpdatedAt) =>
-  $fetch<{ updatedAt: string }>(props.saveUrl!, { method: 'PUT', body: { answers: sent, expectedUpdatedAt } })
+const saveHandler = (): FormPanelSave => props.save ?? putAnswersTo(props.saveUrl!, $fetch as FormFetch)
 
 /** Saves the answers; true on success. */
 async function save(): Promise<boolean> {
@@ -64,18 +65,18 @@ async function save(): Promise<boolean> {
   saving.value = true
   const sent = JSON.stringify(answers.value)
   try {
-    const saved = await (props.save ?? putAnswers)(JSON.parse(sent) as FormAnswers, base.value)
+    const outcome = await saveAnswers(saveHandler(), JSON.parse(sent) as FormAnswers, base.value)
+    if (!outcome.ok) {
+      if (outcome.conflict) conflict.value = true
+      else toast.add({ title: errorMessage(outcome.error), color: 'error' })
+      return false
+    }
     savedJson.value = sent
     // The next save is checked against the time of this very save (not against a reload that may lag behind).
-    base.value = saved.updatedAt
+    base.value = outcome.base
     await props.refresh()
     toast.add({ title: de.common.saved, color: 'success' })
     return true
-  }
-  catch (error) {
-    if (errorCode(error) === 'form_changed') conflict.value = true
-    else toast.add({ title: errorMessage(error), color: 'error' })
-    return false
   }
   finally {
     saving.value = false

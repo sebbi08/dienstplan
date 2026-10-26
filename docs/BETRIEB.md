@@ -1134,7 +1134,7 @@ sehen keine Warnungen.
   auch **PDF herunterladen**. **Excel-Datei (Monat)** und **Excel-Datei (Jahr)** laden eine Datei, die Excel direkt öffnet.
 - Kassen, Einträge und Belege sind in der normalen Datensicherung enthalten.
 
-## 25. Bögen und Mitarbeitergespräche
+## 25. Bögen, Mitarbeitergespräche und Beobachtungsbögen
 
 - **Vorlagen:** unter **Einstellungen → Bögen** (Leitung und Träger). Oben wählst du die Art (Mitarbeitergespräch, Kind,
   Teamsitzung). Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische

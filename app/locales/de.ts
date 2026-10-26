@@ -1315,6 +1315,7 @@ export const de = {
     fromMeeting: 'zum Elterngespräch',
     open: 'Öffnen', close: 'Schließen', print: 'Drucken',
     readOnly: 'Du kannst diesen Bogen nur lesen. Ändern können Leitung, Träger, der Bezugserzieher und Mitarbeiter, die für diesen Bogen freigeschaltet sind.',
+    readOnlyArchived: 'Archiv – nur lesen',
     readOnlyBadge: 'nur lesen',
     editors: 'Mitarbeiter freischalten',
     editorsHint: 'Die ausgewählten Mitarbeiter können diesen Bogen am Tablet ändern. Der Bezugserzieher kann das immer.',

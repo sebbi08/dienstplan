@@ -4,6 +4,7 @@ import {
 import { formatTime } from '#shared/domain/time'
 import type { ChildFormDto, MyTalkFormDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { errorCode } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 
 export type MilestoneItem = Extract<FormItem, { kind: 'milestone' }>
@@ -73,6 +74,33 @@ export interface FormPanelForm {
 /** Stores the answers, sent with the updatedAt they are based on; answers the new updatedAt (throws 409 form_changed). */
 export type FormPanelSave = (answers: FormAnswers, expectedUpdatedAt: string) => Promise<{ updatedAt: string }>
 
+/** A request function like $fetch, as far as the form panel uses it. */
+export type FormFetch = (url: string, options: { method: 'PUT'; body: { answers: FormAnswers; expectedUpdatedAt: string } }) => Promise<{ updatedAt: string }>
+
+/** The default save of the form panel: a PUT of `{ answers, expectedUpdatedAt }` to the form's URL. */
+export const putAnswersTo = (url: string, request: FormFetch): FormPanelSave =>
+  (answers, expectedUpdatedAt) => request(url, { method: 'PUT', body: { answers, expectedUpdatedAt } })
+
+/** Whether the panel has unsaved edits: only when editable, the answers differ from the saved ones or the parent's own fields do. */
+export const panelDirty = (editable: boolean, answersJson: string, savedJson: string, extraDirty: boolean | undefined): boolean =>
+  editable && (answersJson !== savedJson || !!extraDirty)
+
+/** The outcome of one save: the new base (updatedAt of this save), or the error and whether it was a 409 form_changed. */
+export type FormSaveOutcome = { ok: true; base: string } | { ok: false; conflict: boolean; error: unknown }
+
+/**
+ * One save of the panel: sends the answers with the updatedAt they are based on (`base`); the next save is checked
+ * against the updatedAt of this very save.
+ */
+export async function saveAnswers(save: FormPanelSave, answers: FormAnswers, base: string): Promise<FormSaveOutcome> {
+  try {
+    return { ok: true, base: (await save(answers, base)).updatedAt }
+  }
+  catch (error) {
+    return { ok: false, conflict: errorCode(error) === 'form_changed', error }
+  }
+}
+
 /** Whether a text answer is empty (then print shows writing lines). */
 export const isBlank = (value: unknown) => typeof value !== 'string' || value.trim() === ''
 
@@ -132,7 +160,8 @@ export function childSheet(data: ChildFormDto): FormSheet {
   const name = `${data.child.firstName} ${data.child.lastName}`.trim()
   return {
     title: data.title, content: data.content, answers: data.answers, updatedAt: data.updatedAt, updatedBy: data.updatedBy,
-    fileName: `${data.title}-${name}-${data.date}`,
+    // No child's name in the file name: it travels in the PDF request's query (logs), like the other child printouts.
+    fileName: `Beobachtung-${data.id}-${data.date}`,
     header: [
       [h.name, name], [h.birthDate, formatDate(data.child.birthDate)],
       [h.group, data.child.groupName ?? ''], [h.date, data.date ? formatDate(data.date) : ''],
