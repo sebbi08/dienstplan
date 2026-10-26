@@ -8,7 +8,7 @@ import type {
   TeamMeetingSaveInput, TeamMeetingsDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { facilities, forms, groups, teamMeetings } from '../db/schema'
+import { employees, facilities, forms, groups, teamMeetings } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { actorName, listTemplates, loadTemplate, withFormErrors } from './formTemplates'
 
@@ -19,12 +19,14 @@ export const TABLET_NAME = 'Tablet'
 
 /**
  * Someone of the facility's team: Leitung/Träger in their (active) facility, a Mitarbeiter account whose employee
- * belongs to it, or the facility's tablet. `name` is kept with their changes; `manager` releases, reopens and deletes.
+ * belongs to it, or the facility's tablet. `name` is kept with their changes; `manager` releases, reopens and deletes;
+ * `left`: a Mitarbeiter whose employee has left (before today) still reads but no longer writes.
  */
 export interface TeamMember {
   facilityId: number
   name: string
   manager: boolean
+  left: boolean
 }
 
 /**
@@ -32,14 +34,23 @@ export interface TeamMember {
  * Träger's active one, a Mitarbeiter's that of the linked employee, the tablet's own): 403 no_facility without one,
  * 403 forbidden for any other kind of account.
  */
-export function teamMember(db: Db, user: SessionUser): TeamMember {
+export function teamMember(db: Db, user: SessionUser, now: Date = new Date()): TeamMember {
   const facilityId = user.facilityId
   if (facilityId === null) throw new ServiceError(403, 'no_facility')
-  if (user.role === 'terminal') return { facilityId, name: TABLET_NAME, manager: false }
-  if (isManager(user.role)) return { facilityId, name: actorName(db, user), manager: true }
+  if (user.role === 'terminal') return { facilityId, name: TABLET_NAME, manager: false, left: false }
+  if (isManager(user.role)) return { facilityId, name: actorName(db, user), manager: true, left: false }
   // A Mitarbeiter account belongs to the facility of its employee (an account without one has no facility).
-  if (user.role === 'observer' && user.employeeId !== null) return { facilityId, name: actorName(db, user), manager: false }
+  if (user.role === 'observer' && user.employeeId !== null) {
+    const leftOn = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, user.employeeId)).get()?.leftOn
+    const left = leftOn !== null && leftOn !== undefined && leftOn < nowInBerlin(now).date
+    return { facilityId, name: actorName(db, user), manager: false, left }
+  }
   throw new ServiceError(403, 'forbidden')
+}
+
+/** 409 employee_inactive: a Mitarbeiter who has left no longer writes the minutes. */
+function assertMayWrite(member: TeamMember): void {
+  if (member.left) throw new ServiceError(409, 'employee_inactive')
 }
 
 type MeetingRow = typeof teamMeetings.$inferSelect
@@ -138,6 +149,7 @@ function checkedHeader(db: Db, member: TeamMember, input: TeamMeetingHeader): Te
 
 /** A new draft meeting from an active team template of the facility (its content copied, titled like it); returns its id. */
 export function createTeamMeeting(db: Db, member: TeamMember, input: TeamMeetingInput, now: Date = new Date()): number {
+  assertMayWrite(member)
   const header = checkedHeader(db, member, input)
   const template = loadTemplate(db, member.facilityId, input.templateId)
   if (template.kind !== 'team') throw new ServiceError(404, 'form_template_not_found')
@@ -163,6 +175,7 @@ export function saveTeamMeeting(
   db: Db, member: TeamMember, id: number, input: TeamMeetingSaveInput, now: Date = new Date(),
 ): TeamMeetingSavedDto {
   const { meeting, form } = loadMeeting(db, member, id)
+  assertMayWrite(member)
   if (meeting.state !== 'draft') throw new ServiceError(409, 'team_meeting_released')
   if (form.updatedAt !== input.expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
   const header = checkedHeader(db, member, input)

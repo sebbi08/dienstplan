@@ -1364,8 +1364,9 @@ describe('upgrading a filled database through migrateDb', () => {
     // The startup step adds only the newer starters to facility 1, and all of them to the facility never seeded.
     seedDefaults(db)
     const keys = STARTERS.map(starter => starter.key)
+    const recorded: string[] = ['staff_self_assessment', 'staff_assessment']
     expect(sqlite.prepare('SELECT facility_id, starter_key FROM form_templates ORDER BY facility_id, id').all()).toEqual([
-      ...keys.filter(key => !key.startsWith('staff_')).map(key => ({ facility_id: 1, starter_key: key })),
+      ...keys.filter(key => !recorded.includes(key)).map(key => ({ facility_id: 1, starter_key: key })),
       ...keys.map(key => ({ facility_id: 2, starter_key: key })),
     ])
     expect(keys).toContain('child_development')
@@ -1381,7 +1382,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(tables().filter(name => !before.includes(name))).toContain('team_meetings')
+    expect(tables().filter(name => !before.includes(name))).toEqual(['team_meetings'])
     expect(count(sqlite, 'team_meetings')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_list(team_meetings)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })

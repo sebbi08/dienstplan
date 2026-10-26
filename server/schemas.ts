@@ -505,10 +505,13 @@ export const teamMeetingSaveSchema = teamMeetingHeaderSchema.extend({
   answers: z.unknown(),
   expectedUpdatedAt: z.string().max(40),
 })
-/** The list: a year (default the current one) and `groupId` (absent = all, 0 = only the whole facility, else that group). */
+/**
+ * The list: a year (default the current one) and `groupId` (absent or empty = all, 0 = only the whole facility, else
+ * that group).
+ */
 export const teamMeetingQuery = z.object({
   year: z.coerce.number().int().min(2000).max(2100).optional(),
-  groupId: z.coerce.number().int().min(0).optional(),
+  groupId: z.preprocess(value => (value === '' ? undefined : value), z.coerce.number().int().min(0).optional()),
 })
 /** „Wieder öffnen“: the reason (1–200 chars) is checked by the service (team_meeting_reason_invalid). */
 export const teamMeetingReopenSchema = z.object({ reason: z.string().max(1000) })

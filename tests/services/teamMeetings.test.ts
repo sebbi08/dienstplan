@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { forms, formTemplates, teamMeetings } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
+import { teamMeetingQuery } from '../../server/schemas'
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
 import { deleteGroup } from '../../server/services/groups'
 import {
@@ -65,13 +66,37 @@ describe('team meetings', () => {
   })
 
   it('resolves the members of a facility: managers, staff with an employee, the tablet as „Tablet“', () => {
-    expect(leitung).toEqual({ facilityId: 1, name: 'Lea Leitung', manager: true })
-    expect(anna).toEqual({ facilityId: 1, name: 'Anna', manager: false })
-    expect(tablet).toEqual({ facilityId: 1, name: 'Tablet', manager: false })
-    expect(staffB).toEqual({ facilityId: facilityB, name: 'Bea', manager: false })
+    expect(leitung).toEqual({ facilityId: 1, name: 'Lea Leitung', manager: true, left: false })
+    expect(anna).toEqual({ facilityId: 1, name: 'Anna', manager: false, left: false })
+    expect(tablet).toEqual({ facilityId: 1, name: 'Tablet', manager: false, left: false })
+    expect(staffB).toEqual({ facilityId: facilityB, name: 'Bea', manager: false, left: false })
     expect(tabletB.facilityId).toBe(facilityB)
     // A Mitarbeiter account without an employee has no facility.
     expect(failure(() => teamMember(db, addUser(db, 'ohne', 'observer')))).toBe('403 no_facility')
+  })
+
+  it('a Mitarbeiter whose employee has left still reads but no longer writes (409 employee_inactive)', () => {
+    const id = create(anna)
+    const loaded = getTeamMeeting(db, anna, id).updatedAt
+    const user = addUser(db, 'carla', 'observer', addEmployee(db, 'Carla', { leftOn: '2026-10-19' }))
+    const carla = teamMember(db, user, NOW)
+    expect(carla).toMatchObject({ facilityId: 1, left: true })
+    expect(getTeamMeeting(db, carla, id).id).toBe(id)
+    expect(listTeamMeetings(db, carla, { year: 2026 }, NOW).meetings.map(meeting => meeting.id)).toEqual([id])
+    expect(failure(() => create(carla))).toBe('409 employee_inactive')
+    expect(failure(() => save(carla, id, 'x', loaded))).toBe('409 employee_inactive')
+    // On the last day they still write.
+    const dana = teamMember(db, addUser(db, 'dana', 'observer', addEmployee(db, 'Dana', { leftOn: '2026-10-20' })), NOW)
+    expect(dana.left).toBe(false)
+    expect(save(dana, id, 'x', loaded).updatedBy).toBe('Dana')
+  })
+
+  it('the list query reads an empty groupId as all, 0 as the whole facility', () => {
+    expect(teamMeetingQuery.parse({ groupId: '' })).toEqual({})
+    expect(teamMeetingQuery.parse({})).toEqual({})
+    expect(teamMeetingQuery.parse({ groupId: '0', year: '2026' })).toEqual({ groupId: 0, year: 2026 })
+    expect(teamMeetingQuery.parse({ groupId: '7' })).toEqual({ groupId: 7 })
+    expect(() => teamMeetingQuery.parse({ groupId: '-1' })).toThrow()
   })
 
   it('staff write, the Leitung releases, the next save is refused, reopening lets them write again (Review Focus 1)', () => {
