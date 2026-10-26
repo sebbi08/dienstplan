@@ -212,6 +212,8 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
   und öffnet beim nächsten Mal wieder dort – wenn die Person ihn sehen darf, sonst wieder mit „Anwesenheit“.
 - **„Kind anlegen“** steht oben rechts neben der Überschrift (für alle, die Kinder anlegen dürfen).
 - Mit der Tastatur wechselst du mit den Pfeiltasten zwischen den Bereichen bzw. Reitern.
+- Daten in der Kinderakte tippst du als **TT.MM.JJJJ** (z. B. „03052021“ – die Punkte kommen von selbst); der
+  Kalender-Knopf im Feld öffnet weiterhin den Kalender. Ein ungültiges Datum wird rot markiert und nicht gespeichert.
 
 ### Elterngespräche
 

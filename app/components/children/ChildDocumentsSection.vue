@@ -149,7 +149,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
           <UFormField :label="de.childDocuments.type" required>
             <USelect :model-value="form.typeId" :items="typeItems" class="w-full" @update:model-value="onType(Number($event))" />
           </UFormField>
-          <UFormField :label="de.childDocuments.date" required><UInput v-model="form.documentDate" type="date" class="w-full" required /></UFormField>
+          <UFormField :label="de.childDocuments.date" required><DateTextInput v-model="form.documentDate" class="w-full" required /></UFormField>
           <UFormField :label="de.childDocuments.title" class="sm:col-span-2"><UInput v-model="form.title" maxlength="200" class="w-full" /></UFormField>
           <UFormField :label="de.childDocuments.visibility" class="sm:col-span-2">
             <USelect

@@ -55,7 +55,7 @@ async function save() {
           <UFormField :label="de.groupChange.group" required>
             <USelect v-model="form.groupId" :items="groupItems" :placeholder="de.groupChange.choose" class="w-full" />
           </UFormField>
-          <UFormField :label="de.groupChange.date" required><UInput v-model="form.date" type="date" class="w-full" required /></UFormField>
+          <UFormField :label="de.groupChange.date" required><DateTextInput v-model="form.date" class="w-full" required /></UFormField>
         </div>
         <UCheckbox v-if="forSchoolChildren" v-model="form.newContract" :label="de.schoolChildren.newContract" />
         <fieldset class="space-y-2">

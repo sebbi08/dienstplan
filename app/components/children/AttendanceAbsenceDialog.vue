@@ -58,7 +58,7 @@ function save() {
           </div>
         </fieldset>
         <UFormField :label="s.absent.until" :help="s.absent.hint">
-          <UInput v-model="form.until" type="date" size="xl" :min="date" :max="latest" required />
+          <DateTextInput v-model="form.until" size="xl" :min="date" :max="latest" required />
         </UFormField>
         <div class="flex flex-wrap gap-2">
           <UButton type="submit" size="xl" :label="de.common.save" :loading="busy" :disabled="busy || !valid" />

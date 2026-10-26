@@ -19,6 +19,11 @@ export const de = {
     invalidTime: 'Ungültige Uhrzeit – z. B. 8:45 oder 845 eingeben (5-Minuten-Schritte).',
     invalidTimeAnyMinute: 'Ungültige Uhrzeit – z. B. 7:42 oder 742 eingeben.',
     invalidTimeShort: 'Ungültige Uhrzeit',
+    datePlaceholder: 'TT.MM.JJJJ', datePick: 'Datum im Kalender wählen',
+    invalidDate: 'Bitte ein gültiges Datum eingeben (TT.MM.JJJJ)',
+    dateFrom: (min: string) => `Bitte ein Datum ab ${min} eingeben`,
+    dateUntil: (max: string) => `Bitte ein Datum bis ${max} eingeben`,
+    dateBetween: (min: string, max: string) => `Bitte ein Datum zwischen ${min} und ${max} eingeben`,
   },
   nav: {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', myRequirements: 'Meine Termine', employees: 'Mitarbeiter',

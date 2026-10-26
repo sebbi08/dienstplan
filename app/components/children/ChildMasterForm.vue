@@ -294,19 +294,19 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
       <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
         <UFormField :label="f.lastName" required><UInput v-model="form.lastName" maxlength="100" class="w-full" required /></UFormField>
         <UFormField :label="f.firstName" required><UInput v-model="form.firstName" maxlength="100" class="w-full" required /></UFormField>
-        <UFormField :label="f.birthDate" required><UInput v-model="form.birthDate" type="date" :max="today" class="w-full" required /></UFormField>
+        <UFormField :label="f.birthDate" required><DateTextInput v-model="form.birthDate" :max="today" class="w-full" required /></UFormField>
         <UFormField v-if="showGroup && canPickGroup" :label="f.group"><USelect v-model="form.groupId" :items="groupItems" class="w-full" /></UFormField>
         <UFormField :label="f.careType"><USelect v-model="form.careTypeId" :items="careTypeItems" class="w-full" /></UFormField>
         <UFormField :label="f.address" class="sm:col-span-2"><UTextarea v-model="form.address" :rows="3" maxlength="500" class="w-full" /></UFormField>
         <UFormField v-if="mayChooseStatus" :label="a.label"><USelect v-model="form.admissionStatus" :items="statusItems" class="w-full" /></UFormField>
         <UFormField v-else :label="a.label"><p class="py-1.5 text-sm">{{ form.admissionStatus === 'waitlist' ? a.waitlist : a.contract }}</p></UFormField>
-        <UFormField v-if="waitlisted" :label="a.waitlistedOn"><UInput v-model="form.waitlistedOn" type="date" class="w-full" /></UFormField>
-        <UFormField :label="f.entryDate"><UInput v-model="form.entryDate" type="date" :disabled="waitlisted" class="w-full" /></UFormField>
-        <UFormField :label="f.plannedEntryDate"><UInput v-model="form.plannedEntryDate" type="date" class="w-full" /></UFormField>
-        <UFormField :label="f.infoMeetingDate"><UInput v-model="form.infoMeetingDate" type="date" class="w-full" /></UFormField>
+        <UFormField v-if="waitlisted" :label="a.waitlistedOn"><DateTextInput v-model="form.waitlistedOn" class="w-full" /></UFormField>
+        <UFormField :label="f.entryDate"><DateTextInput v-model="form.entryDate" :disabled="waitlisted" class="w-full" /></UFormField>
+        <UFormField :label="f.plannedEntryDate"><DateTextInput v-model="form.plannedEntryDate" class="w-full" /></UFormField>
+        <UFormField :label="f.infoMeetingDate"><DateTextInput v-model="form.infoMeetingDate" class="w-full" /></UFormField>
         <UFormField :label="f.schoolStartDate" :help="schoolStartHelp || undefined">
           <div class="flex flex-wrap items-center gap-2">
-            <UInput v-if="schoolStartOpen" v-model="form.schoolStartDate" type="date" class="min-w-0 flex-1" />
+            <DateTextInput v-if="schoolStartOpen" v-model="form.schoolStartDate" class="min-w-0 flex-1" />
             <p v-else class="py-1.5 text-sm">
               {{ shownSchoolStart || de.children.noValue }}
               <span v-if="shownSchoolStart" class="text-xs text-gray-500">

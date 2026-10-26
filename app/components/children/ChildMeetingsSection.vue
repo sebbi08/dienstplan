@@ -124,7 +124,7 @@ function stamp(meeting: ParentMeetingDto): string {
     <UModal v-model:open="open" :title="editingId === null ? m.add : m.editTitle">
       <template #body>
         <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
-          <UFormField :label="m.date" required class="sm:col-span-2"><UInput v-model="form.date" type="date" size="lg" class="w-full" required /></UFormField>
+          <UFormField :label="m.date" required class="sm:col-span-2"><DateTextInput v-model="form.date" size="lg" class="w-full" required /></UFormField>
           <UFormField :label="m.start" required><TimeInput v-model="form.start" any-minute size="lg" /></UFormField>
           <UFormField :label="m.end" :hint="m.endHint"><TimeInput v-model="form.end" any-minute size="lg" /></UFormField>
           <UFormField :label="m.kind" required class="sm:col-span-2">
