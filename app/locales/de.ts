@@ -1565,7 +1565,7 @@ export const de = {
     form_not_found: 'Diesen Bogen gibt es nicht (mehr).',
     form_not_editable: 'Dieser Bogen kann gerade nicht geändert werden. Bitte lade die Seite neu.',
     form_state_invalid: 'Das geht beim aktuellen Stand des Bogens nicht. Bitte lade die Seite neu.',
-    employee_inactive: 'Der Mitarbeiter ist ausgeschieden oder hat keinen aktiven Zugang. Der Bogen kann ihm nicht freigegeben werden.',
+    employee_inactive: 'Diese Person ist ausgeschieden oder hat keinen aktiven Zugang mehr. Das ist deshalb nicht möglich.',
     staff_talk_not_found: 'Dieses Gespräch gibt es nicht (mehr).',
     staff_talk_date_invalid: 'Bitte gib ein gültiges Datum an.',
     staff_talk_start_invalid: 'Bitte gib eine gültige Uhrzeit an.',
