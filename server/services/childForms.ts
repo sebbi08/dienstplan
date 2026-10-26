@@ -75,11 +75,12 @@ function access(viewer: ChildViewer, child: VisibleChild, formId: number, editor
   return right
 }
 
-function toListItem(form: ChildForm, right: 'read' | 'edit', viewer: ChildViewer): ChildFormListItemDto {
+/** `canManage` is off on an archived record: unlocking and deleting are refused there (409 child_archived). */
+function toListItem(form: ChildForm, right: 'read' | 'edit', viewer: ChildViewer, child: VisibleChild): ChildFormListItemDto {
   return {
     id: form.id, childId: form.childId, templateId: form.templateId, title: form.title, date: form.formDate ?? '',
     start: form.formStart, participants: form.formParticipants, parentMeetingId: form.parentMeetingId,
-    updatedAt: form.updatedAt, updatedBy: form.updatedBy, right, canManage: canManageChildForms(viewer),
+    updatedAt: form.updatedAt, updatedBy: form.updatedBy, right, canManage: canManageChildForms(viewer) && !child.archived,
   }
 }
 
@@ -90,7 +91,7 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all() as ChildForm[]
   const editors = editorsOf(db, rows.map(row => row.id))
   return {
-    forms: rows.map(row => toListItem(row, access(viewer, child, row.id, editors.get(row.id)!), viewer)),
+    forms: rows.map(row => toListItem(row, access(viewer, child, row.id, editors.get(row.id)!), viewer, child)),
     canCreate: !child.archived
       && canCreateChildForm(asRightViewer(viewer), { keyEducatorId: child.row.keyEducatorId }),
   }
@@ -104,7 +105,7 @@ export function getChildForm(db: Db, viewer: ChildViewer, formId: number, now: D
     : db.select({ name: groups.name }).from(groups).where(eq(groups.id, child.row.groupId)).get()?.name ?? null
   const facilityName = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, form.facilityId)).get()?.name ?? ''
   return {
-    ...toListItem(form, right, viewer),
+    ...toListItem(form, right, viewer, child),
     content: JSON.parse(form.content) as FormContent,
     answers: JSON.parse(form.answers) as FormAnswers,
     child: { firstName: child.row.firstName, lastName: child.row.lastName, birthDate: child.row.birthDate, groupName },
@@ -246,12 +247,17 @@ export function setChildFormEditors(
   assertManager(viewer)
   assertNotArchived(child)
   const wanted = [...new Set(employeeIds)]
+  const current = editorsOf(db, [form.id]).get(form.id)!
   if (wanted.length > 0) {
-    const known = db.select({ id: employees.id }).from(employees)
+    const known = db.select({ id: employees.id, leftOn: employees.leftOn }).from(employees)
       .where(and(inArray(employees.id, wanted), eq(employees.facilityId, viewer.facilityId))).all()
     if (known.length !== wanted.length) throw new ServiceError(404, 'employee_not_found')
+    // Nobody who has left is unlocked anew (a grant they already have may stay until it is revoked).
+    const today = nowInBerlin(now).date
+    if (known.some(employee => !current.has(employee.id) && employee.leftOn !== null && employee.leftOn < today)) {
+      throw new ServiceError(409, 'employee_inactive')
+    }
   }
-  const current = editorsOf(db, [form.id]).get(form.id)!
   const at = now.toISOString()
   db.transaction((tx) => {
     const gone = [...current].filter(id => !wanted.includes(id))

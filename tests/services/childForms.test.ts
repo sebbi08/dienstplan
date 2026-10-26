@@ -142,6 +142,12 @@ describe('child observation forms', () => {
     expect(failure(() => deleteChildForm(db, annaTablet, formId, NOW))).toBe('403 forbidden')
     const other = addEmployee(db, 'Fremd', { facilityId: addFacility(db, 'Krippe') })
     expect(failure(() => setChildFormEditors(db, leitung, formId, [other], NOW))).toBe('404 employee_not_found')
+    const left = addEmployee(db, 'Carla', { groupId: groupA, leftOn: '2026-10-19' })
+    expect(failure(() => setChildFormEditors(db, leitung, formId, [left], NOW))).toBe('409 employee_inactive')
+    // Leaving today still counts as there.
+    const leavingToday = addEmployee(db, 'Dora', { groupId: groupA, leftOn: '2026-10-20' })
+    expect(setChildFormEditors(db, leitung, formId, [leavingToday], NOW).map(editor => editor.name)).toEqual(['Dora'])
+    expect(listChildFormEditors(db, leitung, formId, NOW).map(editor => editor.name)).toEqual(['Dora'])
 
     setChildFormEditors(db, leitung, formId, [berta], NOW)
     // A grant that stays keeps its date.
@@ -220,7 +226,12 @@ describe('child observation forms', () => {
   it('an archived record stays readable for managers only, and is not changed any more', () => {
     const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
     db.update(children).set({ leftOn: '2026-07-31' }).where(eq(children.id, kid)).run()
-    expect(listChildForms(db, leitung, kid, NOW)).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+    expect(listChildForms(db, leitung, kid, NOW)).toMatchObject({
+      canCreate: false, forms: [{ id: formId, right: 'read', canManage: false }],
+    })
+    expect(getChildForm(db, leitung, formId, NOW).canManage).toBe(false)
+    expect(failure(() => setChildFormEditors(db, leitung, formId, [berta], NOW))).toBe('409 child_archived')
+    expect(failure(() => deleteChildForm(db, leitung, formId, NOW))).toBe('409 child_archived')
     expect(failure(() => save(leitung, formId, {}))).toBe('409 child_archived')
     expect(failure(() => createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW))).toBe('409 child_archived')
     expect(failure(() => listChildForms(db, annaTablet, kid, NOW))).toBe('404 child_not_found')
