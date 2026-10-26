@@ -3,7 +3,7 @@ import { daysInMonth, isWeekend, toIsoDate, weekday } from '#shared/domain/dates
 import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
 import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { type CalendarLabelItem, LANE_HEIGHT, calendarEventText, calendarLanes, eventRowHeight } from '~/utils/calendarLanes'
+import { type CalendarLabelItem, LANE_HEIGHT, PRINT_LANE_HEIGHT, calendarEventText, calendarLanes, eventRowHeight } from '~/utils/calendarLanes'
 import { groupColorClasses } from '~/utils/groups'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
@@ -31,14 +31,26 @@ const events = computed(() => props.calendar.events.filter(event => event.date.s
 /** Written appointments, then the day's automatic events (read-only), in lanes; see calendarLanes. */
 const eventLayout = computed(() => {
   const { labels, laneCount } = calendarLanes(dates.value, events.value, calendarEventText, props.calendar.autoEvents)
-  return { labels, height: eventRowHeight(laneCount) }
+  return { labels, height: eventRowHeight(laneCount, !!props.rowHeight) }
 })
 
-/** Print: employee rows of `rowHeight` px; the names grow with it (11–14 px). */
+/**
+ * Print (`rowHeight` set): compact layout. Rows are `rowHeight` px as printed, i.e. the cell is 2 px lower because the
+ * global print styles add 1 px padding above and below; names grow with the row (9–14 px). Inline styles, since the
+ * print styles force line-height 1.25 on all table content. The screen keeps its classes.
+ */
 const nameStyle = computed(() => (props.rowHeight
-  ? { height: `${props.rowHeight}px`, fontSize: `${Math.min(14, Math.max(11, props.rowHeight - 3))}px`, lineHeight: 1 }
+  ? { height: `${props.rowHeight - 2}px`, fontSize: `${Math.min(14, Math.max(9, props.rowHeight - 3))}px`, lineHeight: 1 }
   : undefined))
-const dayStyle = computed(() => (props.rowHeight ? { height: `${props.rowHeight}px` } : undefined))
+const dayStyle = computed(() => (props.rowHeight ? { height: `${props.rowHeight - 2}px` } : undefined))
+const weekdayStyle = computed(() => (props.rowHeight ? { fontSize: '8px', lineHeight: 1 } : undefined))
+const dayNumberStyle = computed(() => (props.rowHeight ? { fontSize: '11px', lineHeight: 1 } : undefined))
+const eventsLabelStyle = computed(() => (props.rowHeight ? { fontSize: '10px', lineHeight: 1 } : undefined))
+const laneHeight = computed(() => (props.rowHeight ? PRINT_LANE_HEIGHT : LANE_HEIGHT))
+function labelStyle(label: { start: number; width: number; lane: number }) {
+  const place = { left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * laneHeight.value + (props.rowHeight ? 1 : 2)}px` }
+  return props.rowHeight ? { ...place, fontSize: '10px', lineHeight: `${PRINT_LANE_HEIGHT}px` } : place
+}
 function onLabelClick(item: CalendarLabelItem) {
   if (props.editable && item.kind === 'event') emit('eventClick', item.event)
 }
@@ -92,8 +104,8 @@ function headerTitle(date: string): string | undefined {
           :title="headerTitle(date)"
           @click="editable && emit('eventDayClick', date)"
         >
-          <div class="leading-none opacity-75" :class="rowHeight ? 'text-[10px]' : 'text-[9px]'">{{ de.weekdaysShort[weekday(date)] }}</div>
-          <div :class="rowHeight ? 'text-[13px] leading-tight' : ''">{{ Number(date.slice(8)) }}</div>
+          <div class="text-[9px] leading-none opacity-75" :style="weekdayStyle">{{ de.weekdaysShort[weekday(date)] }}</div>
+          <div :style="dayNumberStyle">{{ Number(date.slice(8)) }}</div>
         </th>
         <th v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
@@ -126,7 +138,7 @@ function headerTitle(date: string): string | undefined {
         <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
       <tr v-else>
-        <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium">{{ de.calendar.events }}</td>
+        <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium" :style="eventsLabelStyle">{{ de.calendar.events }}</td>
         <td :colspan="dates.length" class="relative border border-gray-300 p-0" :style="{ height: `${eventLayout.height}px` }">
           <!-- day grid behind the texts (same columns and shading as the rows above) -->
           <div
@@ -138,7 +150,7 @@ function headerTitle(date: string): string | undefined {
               v-if="label.item.kind === 'event'"
               class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :class="editable ? 'cursor-pointer hover:bg-yellow-400' : ''"
               :title="label.text"
-              :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
+              :style="labelStyle(label)"
               @click="onLabelClick(label.item)"
             >
               {{ label.text }}
@@ -148,7 +160,7 @@ function headerTitle(date: string): string | undefined {
               v-else
               class="absolute truncate rounded-sm bg-white px-0.5 italic leading-[14px] text-gray-600 ring-1 ring-inset ring-gray-300"
               :title="`${label.text}\n${de.plan.autoEventsHint}`"
-              :style="{ left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * LANE_HEIGHT + 2}px` }"
+              :style="labelStyle(label)"
             >
               <UIcon name="i-lucide-sparkles" class="mr-0.5 size-2.5 align-[-1px]" aria-hidden="true" />{{ label.text }}
             </div>

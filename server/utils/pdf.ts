@@ -1,7 +1,10 @@
 import { chromium, type Browser } from 'playwright-core'
 
-/** Print views that may be turned into a PDF (plan print and the admin print pages); the plan may name one group. */
-export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+(?:\?group=\d+)?$/
+/**
+ * Print views that may be turned into a PDF (plan print and the admin print pages); the plan may name one group, the
+ * year calendar also "none" (the people without a group).
+ */
+export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+(?:\?group=(?:\d+|none))?$/
 
 /** The app as the headless browser reaches it from inside the server (no detour over the public domain). */
 function internalOrigin(): string {

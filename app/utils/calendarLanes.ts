@@ -11,12 +11,13 @@ export function calendarEventText(event: CalendarEventDto): string {
 /** Rough number of characters that fit into one day column (11 px font, about 26–30 px per day). */
 export const CHARS_PER_DAY = 4
 
-/** Height of one line (lane) of the appointments row in px. */
+/** Height of one line (lane) of the appointments row in px; the compact print uses smaller lines. */
 export const LANE_HEIGHT = 15
+export const PRINT_LANE_HEIGHT = 12
 
-/** Height of the appointments row in px for that many lanes (at least one line). */
-export function eventRowHeight(laneCount: number): number {
-  return Math.max(1, laneCount) * LANE_HEIGHT + 4
+/** Height of the appointments row in px for that many lanes (at least one line); `print`: the compact print row. */
+export function eventRowHeight(laneCount: number, print = false): number {
+  return Math.max(1, laneCount) * (print ? PRINT_LANE_HEIGHT : LANE_HEIGHT) + (print ? 2 : 4)
 }
 
 /** An own appointment (clickable for managers) or an automatic event of the day (read-only). */

@@ -4,6 +4,7 @@ import { isHolidayIn } from '#shared/domain/holidays'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { calendarPrintItems } from '~/utils/calendarPrint'
 import { formatDate, formatDayShort } from '~/utils/format'
 
 /**
@@ -20,12 +21,16 @@ const toast = useToast()
 const eventTime = (event: CalendarEventDto) =>
   event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
-/** The group the print button opens ("all": every group one after another). */
-const printGroup = ref('all')
-const printGroupItems = computed(() => [
-  { label: de.calendar.printAllGroups, value: 'all' },
-  ...(calendar.value?.groups ?? []).map(group => ({ label: group.name, value: String(group.id) })),
-])
+/**
+ * The group the print button opens ("all": every group one after another, "none": the people without a group). A
+ * choice the shown year does not have (nobody in that group) falls back to "all", visibly in the select too.
+ */
+const printPick = ref('all')
+const printGroupItems = computed(() => (calendar.value ? calendarPrintItems(calendar.value, de.calendar.printAllGroups, de.calendar.printNoGroup) : []))
+const printGroup = computed({
+  get: () => (printGroupItems.value.some(item => item.value === printPick.value) ? printPick.value : 'all'),
+  set: (value) => { printPick.value = value },
+})
 
 // --- absences -------------------------------------------------------------------------------------------
 const absence = reactive({ open: false, employeeId: 0, date: '' })

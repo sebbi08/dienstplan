@@ -3,7 +3,7 @@ import { todayIso, weekday } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { calendarPrintLayout, calendarPrintSections, monthEventHeights } from '~/utils/calendarPrint'
+import { calendarPrintChoice, calendarPrintItems, calendarPrintLayout, calendarPrintSections, monthEventHeights } from '~/utils/calendarPrint'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort } from '~/utils/format'
 
@@ -13,7 +13,7 @@ import { formatDate, formatDayShort } from '~/utils/format'
  * appointment list once. The appointments row is the same in every group.
  */
 definePageMeta({ layout: false })
-useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 8mm; }' }] })
+useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 6mm; }' }] })
 
 const route = useRoute()
 const router = useRouter()
@@ -22,23 +22,21 @@ const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/calendar
 const eventTime = (event: CalendarEventDto) =>
   event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
-const ALL = 'all'
+// "?group=3" or "?group=none"; a group without people (or deleted) prints, and shows in the select, all groups.
+const printChoice = computed(() => (calendar.value ? calendarPrintChoice(calendar.value, route.query.group) : 'all'))
 const choice = computed({
-  get: () => (Number(route.query.group) ? String(route.query.group) : ALL),
-  set: value => router.replace({ query: value === ALL ? {} : { group: value } }),
+  get: () => String(printChoice.value),
+  set: value => router.replace({ query: value === 'all' ? {} : { group: value } }),
 })
-const groupItems = computed(() => [
-  { label: de.calendar.printAllGroups, value: ALL },
-  ...(calendar.value?.groups ?? []).map(group => ({ label: group.name, value: String(group.id) })),
-])
-const groupId = computed(() => (choice.value === ALL ? null : Number(choice.value)))
+const groupItems = computed(() => (calendar.value ? calendarPrintItems(calendar.value, de.calendar.printAllGroups, de.calendar.printNoGroup) : []))
+const search = computed(() => (printChoice.value === 'all' ? '' : `?group=${printChoice.value}`))
 
 const eventHeights = computed(() => (calendar.value ? monthEventHeights(calendar.value) : []))
 /** Per section its pages: the months of each page and the row height that lets them fit. */
 const sections = computed(() => {
   const value = calendar.value
   if (!value) return []
-  return calendarPrintSections(value, groupId.value, de.calendar.printNoGroup).map((section) => {
+  return calendarPrintSections(value, printChoice.value, de.calendar.printNoGroup).map((section) => {
     const { monthsPerPage, rowHeight } = calendarPrintLayout(section.employees.length, eventHeights.value)
     const pages = Array.from({ length: 12 / monthsPerPage }, (_, index) =>
       Array.from({ length: monthsPerPage }, (_, month) => index * monthsPerPage + month + 1))
@@ -50,7 +48,7 @@ const pageTitle = (label: string | null, months: number[]) =>
 
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
 const fileName = computed(() => {
-  const name = calendar.value?.groups.find(group => group.id === groupId.value)?.name
+  const name = printChoice.value === 'none' ? de.calendar.printNoGroup : calendar.value?.groups.find(group => group.id === printChoice.value)?.name
   return `Jahreskalender-${year}${name ? `-${name.replace(/[äöüÄÖÜß]/g, letter => UMLAUTS[letter]!)}` : ''}`
 })
 </script>
@@ -63,7 +61,7 @@ const fileName = computed(() => {
         v-if="calendar?.groups.length" v-model="choice" :items="groupItems" class="w-56"
         :aria-label="de.calendar.printGroupLabel"
       />
-      <PrintActions :file-name="fileName" :search="groupId ? `?group=${groupId}` : ''" />
+      <PrintActions :file-name="fileName" :search="search" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-if="calendar">
@@ -75,7 +73,7 @@ const fileName = computed(() => {
             :class="sectionIndex + pageIndex > 0 ? 'mt-6 break-before-page print:mt-0' : ''"
           >
             <!-- Every page says what it shows; the legend explains the colours on each sheet. -->
-            <div class="mb-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <div class="mb-1 flex flex-wrap items-baseline gap-x-4 gap-y-1" data-print-head>
               <h2 class="text-lg font-semibold">{{ pageTitle(section.label, months) }}</h2>
               <CalendarLegend />
             </div>
