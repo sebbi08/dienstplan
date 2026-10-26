@@ -70,7 +70,7 @@ async function move() {
       <ChildrenUnleaveButton :child-id="child.id" :disabled="busy" :refresh="reload" />
     </div>
     <form v-else class="flex flex-wrap items-end gap-3" @submit.prevent="leave">
-      <UFormField :label="de.childLifecycle.leftOn"><DateTextInput v-model="leftOn" required /></UFormField>
+      <UFormField :label="de.childLifecycle.leftOn"><DateTextInput :label="de.childLifecycle.leftOn" v-model="leftOn" required /></UFormField>
       <UButton type="submit" color="error" variant="outline" :label="de.childLifecycle.leave" :disabled="busy || !leftOn" />
     </form>
 

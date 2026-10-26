@@ -67,8 +67,8 @@ const permissions = [
     <template #edit>
       <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
         <UFormField :label="f.measlesProof"><ChildrenTriStateSelect v-model="form.measlesProof" :label="f.measlesProof" /></UFormField>
-        <UFormField :label="f.measlesProofDate"><DateTextInput v-model="form.measlesProofDate" class="w-full" /></UFormField>
-        <UFormField :label="f.infectionBriefingDate"><DateTextInput v-model="form.infectionBriefingDate" class="w-full" /></UFormField>
+        <UFormField :label="f.measlesProofDate"><DateTextInput :label="f.measlesProofDate" v-model="form.measlesProofDate" class="w-full" /></UFormField>
+        <UFormField :label="f.infectionBriefingDate"><DateTextInput :label="f.infectionBriefingDate" v-model="form.infectionBriefingDate" class="w-full" /></UFormField>
         <UFormField :label="f.allergiesText" class="sm:col-span-2"><UTextarea v-model="form.allergies" :rows="3" maxlength="2000" class="w-full" /></UFormField>
         <UFormField v-for="permission in permissions" :key="permission.key" :label="permission.label">
           <ChildrenTriStateSelect v-model="form[permission.key]" :label="permission.label" />

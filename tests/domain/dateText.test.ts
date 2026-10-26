@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { autoDots, formatDateText, parseDateText } from '../../app/utils/dateText'
+import { autoDots, formatDateText, parseDateText, stripDateText } from '../../app/utils/dateText'
 
 /** Types `text` key by key, like a user on the number keyboard. */
 function type(text: string, start = ''): string {
@@ -53,7 +53,7 @@ describe('dates typed as TT.MM.JJJJ', () => {
 
   it('accepts dots typed by hand', () => {
     expect(type('03.05.2021')).toBe('03.05.2021')
-    expect(type('3.5.2021')).toBe('3.5.2021')
+    expect(type('3.5.20')).toBe('3.5.20')
     expect(parseDateText(type('3.5.2021'))).toBe('2021-05-03')
     expect(type('..3')).toBe('3')
   })
@@ -63,6 +63,26 @@ describe('dates typed as TT.MM.JJJJ', () => {
     expect(autoDots('', '03/05/2021')).toBe('03.05.2021')
     // Pasted or typed over the whole old date at once: shorter, but no deletion.
     expect(autoDots('01.01.2030', '29022020')).toBe('29.02.2020')
+  })
+
+  it('turns pasted ISO dates into TT.MM.JJJJ, never into another valid date', () => {
+    expect(autoDots('', '2010-12-31')).toBe('31.12.2010')
+    expect(autoDots('', ' 1912-11-05 ')).toBe('05.11.1912')
+    expect(autoDots('03.05.2021', '2021-05-03')).toBe('03.05.2021')
+    expect(parseDateText(autoDots('', '2021-02-31'))).toBeNull()
+  })
+
+  it('writes a complete short date with leading zeros', () => {
+    expect(autoDots('', '3.5.2021')).toBe('03.05.2021')
+    expect(autoDots('3.5.202', '3.5.2021')).toBe('03.05.2021')
+    expect(type('3.5.2021')).toBe('03.05.2021')
+  })
+
+  it('does not re-arrange the text for an edit in the middle', () => {
+    // "1" typed after "03" in "03.05.20": stays where it was typed, caret behind it.
+    expect(autoDots('03.05.20', '031.05.20', 3)).toBe('031.05.20')
+    expect(autoDots('03.05.20', '03x.05.20', 3)).toBe('03.05.20')
+    expect(stripDateText('0a3.0-5')).toBe('03.05')
   })
 
   it('leaves the text alone while deleting', () => {

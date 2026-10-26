@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { autoDots, formatDateText, parseDateText } from '~/utils/dateText'
+import { autoDots, formatDateText, parseDateText, stripDateText } from '~/utils/dateText'
 import { de } from '~/locales/de'
 
 /**
  * A date typed as TT.MM.JJJJ (the dots come by themselves), with a calendar button for the native picker.
  * The model is the ISO date 'YYYY-MM-DD', or '' while the field is empty or holds no valid date.
+ * `label` names the field for the calendar button („Geburtsdatum im Kalender wählen“).
+ * Known limit: setting the model from outside to the value it already has ('' → '') does not reset an invalid text;
+ * all current forms unmount the field on cancel/close, so that cannot happen there.
  */
 defineOptions({ inheritAttrs: false })
-const props = defineProps<{ min?: string, max?: string, required?: boolean, disabled?: boolean }>()
+const props = defineProps<{ min?: string, max?: string, required?: boolean, disabled?: boolean, label?: string }>()
 const model = defineModel<string>({ required: true })
 // `class` sizes the wrapper; everything else (id, aria-label, size …) goes to the input.
 const attrs = useAttrs()
@@ -15,9 +18,14 @@ const inputAttrs = computed(() => {
   const { class: _class, ...rest } = attrs
   return rest
 })
+const pickLabel = computed(() => {
+  const name = props.label ?? (attrs['aria-label'] as string | undefined)
+  return name ? de.common.datePickFor(name) : de.common.datePick
+})
 
 const text = ref(formatDateText(model.value))
 const touched = ref(false)
+const hintId = useId()
 const input = useTemplateRef<{ inputRef: HTMLInputElement | null }>('input')
 const picker = useTemplateRef<HTMLInputElement>('picker')
 
@@ -37,10 +45,21 @@ const hint = computed(() => {
 })
 const invalid = computed(() => touched.value && hint.value !== '')
 
-// The browser refuses to submit the form while the text is no valid date (also for optional fields).
-watchEffect(() => input.value?.inputRef?.setCustomValidity(hint.value))
+// The browser refuses to submit the form while the text is no valid date (also for optional fields). aria-invalid and
+// aria-describedby go straight onto the input: inside a UFormField, UInput would overwrite them with its own.
+watchEffect(() => {
+  const el = input.value?.inputRef
+  if (!el) return
+  el.setCustomValidity(hint.value)
+  el.setAttribute('aria-invalid', invalid.value ? 'true' : 'false')
+  const described = (el.getAttribute('aria-describedby') ?? '').split(' ').filter(id => id && id !== hintId)
+  if (invalid.value) described.push(hintId)
+  if (described.length) el.setAttribute('aria-describedby', described.join(' '))
+  else el.removeAttribute('aria-describedby')
+}, { flush: 'post' })
 
-watch(value, (iso) => {
+// Also on text changes: a stored date outside min/max starts with value '' and must be cleared once the text is edited.
+watch([value, text], ([iso]) => {
   if (model.value !== iso) model.value = iso
 })
 watch(model, (iso) => {
@@ -48,11 +67,19 @@ watch(model, (iso) => {
 })
 
 function onType(next: string | number | null | undefined) {
-  const formatted = autoDots(text.value, String(next ?? ''))
-  text.value = formatted
-  // When autoDots drops a key the text stays the same, so Vue would leave the key in the field.
+  const raw = String(next ?? '')
   const el = input.value?.inputRef
-  if (el && el.value !== formatted) el.value = formatted
+  const caret = el?.selectionStart ?? raw.length
+  const formatted = autoDots(text.value, raw, caret)
+  text.value = formatted
+  if (!el || el.value === formatted) return
+  // When autoDots drops a key the text stays the same, so Vue would leave the key in the field.
+  el.value = formatted
+  // An edit in the middle only drops characters: keep the caret where it was, minus what was dropped before it.
+  if (caret < raw.length) {
+    const kept = stripDateText(raw.slice(0, caret)).length
+    el.setSelectionRange(kept, kept)
+  }
 }
 
 function onBlur() {
@@ -87,14 +114,14 @@ function onPick(event: Event) {
       <UInput
         ref="input" v-bind="inputAttrs" :model-value="text" type="text" inputmode="numeric" autocomplete="off" :maxlength="10"
         :placeholder="de.common.datePlaceholder" :required="required" :disabled="disabled" class="w-full"
-        :color="invalid ? 'error' : 'primary'" :highlight="invalid" :aria-invalid="invalid || undefined"
+        :color="invalid ? 'error' : 'primary'" :highlight="invalid"
         :ui="{ trailing: 'pe-1' }"
-        @update:model-value="onType" @blur="onBlur"
+        @update:model-value="onType" @blur="onBlur" @invalid="touched = true"
       >
         <template #trailing>
           <UButton
             icon="i-lucide-calendar" color="neutral" variant="ghost" size="sm" :disabled="disabled"
-            :aria-label="de.common.datePick" :title="de.common.datePick" @click="openPicker"
+            :aria-label="pickLabel" :title="pickLabel" @click="openPicker"
           />
         </template>
       </UInput>
@@ -103,6 +130,6 @@ function onPick(event: Event) {
         class="pointer-events-none absolute right-0 bottom-0 h-px w-px opacity-0" @change="onPick"
       >
     </div>
-    <p v-if="invalid" class="mt-0.5 text-xs text-red-600">{{ hint }}</p>
+    <p v-if="invalid" :id="hintId" role="alert" class="mt-0.5 text-xs text-red-600">{{ hint }}</p>
   </div>
 </template>

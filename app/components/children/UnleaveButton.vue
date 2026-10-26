@@ -57,7 +57,7 @@ const submit = () => {
         <form class="space-y-3" @submit.prevent="submit">
           <p class="text-sm">{{ de.errors.school_start_required }}</p>
           <UFormField :label="de.schoolChildren.newSchoolStart" required>
-            <DateTextInput v-model="schoolStartDate" :min="tomorrow" class="w-full" required />
+            <DateTextInput v-model="schoolStartDate" :label="de.schoolChildren.newSchoolStart" :min="tomorrow" class="w-full" required />
           </UFormField>
           <div class="flex gap-2">
             <UButton type="submit" :label="de.childLifecycle.unleave" :loading="busy" :disabled="busy || !schoolStartDate" />

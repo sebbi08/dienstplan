@@ -20,6 +20,7 @@ export const de = {
     invalidTimeAnyMinute: 'Ungültige Uhrzeit – z. B. 7:42 oder 742 eingeben.',
     invalidTimeShort: 'Ungültige Uhrzeit',
     datePlaceholder: 'TT.MM.JJJJ', datePick: 'Datum im Kalender wählen',
+    datePickFor: (label: string) => `${label} im Kalender wählen`,
     invalidDate: 'Bitte ein gültiges Datum eingeben (TT.MM.JJJJ)',
     dateFrom: (min: string) => `Bitte ein Datum ab ${min} eingeben`,
     dateUntil: (max: string) => `Bitte ein Datum bis ${max} eingeben`,

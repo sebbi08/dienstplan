@@ -40,12 +40,24 @@ function isDeletion(previous: string, next: string): boolean {
   return index === next.length
 }
 
+/** Only digits and dots, nothing re-arranged (for edits in the middle of the text). */
+export function stripDateText(text: string): string {
+  return text.replace(/[^\d.]/g, '')
+}
+
 /**
- * The text after a keystroke. Deleting keeps the text as it is; typing puts the digits into TT.MM.JJJJ and adds
- * the dots by itself (a dot typed by hand ends the day or month early, e.g. „3.5.2021“).
+ * The text after a keystroke. Deleting keeps the text as it is; typing at the end puts the digits into TT.MM.JJJJ and
+ * adds the dots by itself (a dot typed by hand ends the day or month early, e.g. „3.5.2021“). `caret` is where the
+ * cursor stands after the edit: an edit in the middle only drops characters other than digits and dots, so nothing
+ * moves. A pasted ISO date ('2010-12-31') and any complete valid date come out as TT.MM.JJJJ.
  */
-export function autoDots(previous: string, next: string): string {
+export function autoDots(previous: string, next: string, caret = next.length): string {
+  const iso = /^\s*(\d{4}-\d{2}-\d{2})\s*$/.exec(next)
+  if (iso) return formatDateText(iso[1]) || stripDateText(next)
   if (next.length < previous.length && isDeletion(previous, next)) return next
+  if (caret < next.length) return stripDateText(next)
+  const parsed = parseDateText(next)
+  if (parsed) return formatDateText(parsed)
   const parts = ['', '', '']
   let part = 0
   let out = ''
