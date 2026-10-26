@@ -116,7 +116,8 @@ describe('creating talks', () => {
     expect(errorCode(() => releaseTalkForm(db, 1, self!.id, now))).toBe('form_not_found')
     expect(listTalks(db, other, annaId).map(talk => talk.id)).toEqual([id])
     releaseTalkForm(db, other, self!.id, now)
-    expect(db.select({ facilityId: forms.facilityId }).from(forms).where(eq(forms.id, self!.id)).get()!.facilityId).toBe(other)
+    expect(db.select({ facilityId: forms.facilityId, templateId: forms.templateId }).from(forms).where(eq(forms.id, self!.id)).get())
+      .toEqual({ facilityId: other, templateId: null })
     // Ben's talk and its forms stay.
     expect(listTalks(db, 1, benId).map(talk => talk.id)).toEqual([benTalk])
     expect(listTalks(db, 1, benId)[0]!.forms).toHaveLength(2)

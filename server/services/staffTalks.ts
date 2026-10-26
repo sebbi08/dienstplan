@@ -319,5 +319,7 @@ export function moveStaffTalks(db: Db, employeeId: number, facilityId: number): 
   db.update(staffTalks).set({ facilityId }).where(inArray(staffTalks.id, talkIds)).run()
   const formIds = db.select({ id: staffTalkForms.formId }).from(staffTalkForms).where(inArray(staffTalkForms.talkId, talkIds))
     .all().map(row => row.id)
-  if (formIds.length > 0) db.update(forms).set({ facilityId }).where(inArray(forms.id, formIds)).run()
+  // The templates stay with the old facility; the forms keep their own copy of the content, so the link is dropped
+  // (otherwise the old facility could neither see the form nor delete the template).
+  if (formIds.length > 0) db.update(forms).set({ facilityId, templateId: null }).where(inArray(forms.id, formIds)).run()
 }
