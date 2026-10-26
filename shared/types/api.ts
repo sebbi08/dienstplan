@@ -1,6 +1,6 @@
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
-import type { FormContent, FormKind } from '../domain/forms'
+import type { FormAnswers, FormContent, FormKind } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
@@ -1913,4 +1913,58 @@ export interface FormTemplateDto {
   updatedBy: string
   /** Forms were made from it (then it can only be archived, not deleted). */
   inUse: boolean
+}
+
+export type TalkFormRole = 'self' | 'assessment'
+export type FormState = 'draft' | 'released' | 'submitted'
+
+/**
+ * A form of a staff talk: its own copy of the template content and the answers. `self` forms go draft → released
+ * (the employee fills it in) → submitted; `readReleased` shows an assessment to the employee (read-only).
+ */
+export interface TalkFormDto {
+  id: number
+  role: TalkFormRole
+  title: string
+  content: FormContent
+  answers: FormAnswers
+  state: FormState
+  readReleased: boolean
+  updatedAt: string
+  /** Name at the last change of the answers. */
+  updatedBy: string
+}
+
+/** A staff talk (Mitarbeitergespräch) with its forms in their order; `start` in minutes after midnight (null = no time). */
+export interface StaffTalkDto {
+  id: number
+  employeeId: number
+  date: IsoDate
+  start: Minutes | null
+  participants: string
+  period: string
+  forms: TalkFormDto[]
+}
+
+/** The talk header as the employee sees it. */
+export interface MyTalkHeaderDto {
+  id: number
+  date: IsoDate
+  start: Minutes | null
+  participants: string
+  period: string
+}
+
+/**
+ * A talk of the signed-in employee with only the forms visible to them: self forms released or submitted, assessments
+ * released to read.
+ */
+export interface MyTalkDto extends MyTalkHeaderDto {
+  forms: TalkFormDto[]
+}
+
+/** One form of the employee's own talk (the employee may edit it while `state` is 'released' and `role` 'self'). */
+export interface MyTalkFormDto {
+  talk: MyTalkHeaderDto
+  form: TalkFormDto
 }

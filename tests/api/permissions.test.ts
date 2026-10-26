@@ -22,6 +22,9 @@ const USER_ROUTES = [
   'pdf.get.ts',
   'my/calendar.get.ts',
   'my/requirements.get.ts',
+  // The employee's own staff talks (spec Bögen §3): only their own, only released forms.
+  'my/talks/index.get.ts', 'my/talks/forms/[formId].get.ts', 'my/talks/forms/[formId].put.ts',
+  'my/talks/forms/[formId]/submit.post.ts',
 ]
 /** Routes only the shared stamp tablet may call; they must check with requireTerminal(. */
 const TERMINAL_ROUTES = [
@@ -78,6 +81,11 @@ const ADMIN_ROUTES = [
   // Form templates („Bögen“) of the active facility (spec Bögen §2).
   'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/[id].put.ts', 'form-templates/[id].delete.ts',
   'form-templates/[id]/copy.post.ts',
+  // Staff talks of the active facility (spec Bögen §3).
+  'staff-talks/index.get.ts', 'staff-talks/index.post.ts', 'staff-talks/[id].put.ts', 'staff-talks/[id].delete.ts',
+  'staff-talks/[id]/forms.post.ts', 'staff-talks/forms/[formId].put.ts', 'staff-talks/forms/[formId].delete.ts',
+  'staff-talks/forms/[formId]/release.post.ts', 'staff-talks/forms/[formId]/withdraw.post.ts',
+  'staff-talks/forms/[formId]/reopen.post.ts', 'staff-talks/forms/[formId]/read-release.post.ts',
 ]
 /**
  * Routes anyone who looks at child records can call (Träger and Leitung with their account, the person who unlocked the
@@ -227,6 +235,26 @@ describe('API route permissions', () => {
       expect(code, route).toContain('requireAdmin(')
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
       expect(code, route).toContain('admin.facilityId')
+    }
+  })
+
+  it('opens the staff talks to managers of the active facility, and only the own released forms to the employee', () => {
+    const touching = routes.filter(route => /^(staff-talks|my\/talks)\//.test(route) || source(route).includes('services/staffTalks\''))
+    expect(touching).toHaveLength(15)
+    for (const route of touching) {
+      const code = source(route)
+      if (route.startsWith('my/talks/')) {
+        // Whose talks follows from the session alone; the tablet is refused by requireUser (no allowTerminal).
+        expect(USER_ROUTES, route).toContain(route)
+        expect(code, route).toContain('requireUser(event)')
+        expect(code, route).not.toMatch(/allowTerminal|employeeId|getQuery|require(Admin|Provider|Terminal)\(/)
+      }
+      else {
+        expect(ADMIN_ROUTES, route).toContain(route)
+        expect(code, route).toContain('requireAdmin(')
+        expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager|TemplateReader)\(/)
+        expect(code, route).toContain('admin.facilityId')
+      }
     }
   })
 

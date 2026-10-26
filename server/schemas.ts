@@ -453,3 +453,21 @@ export const formTemplateUpdateSchema = z.object({
   selfAssessment: z.boolean().optional(),
   content: z.unknown().optional(),
 })
+
+/** The header of a staff talk; the limits (date, start 0–1439, text lengths) are checked by the service. */
+export const staffTalkHeaderSchema = z.object({
+  date: z.string().max(20),
+  start: z.number().int().nullable(),
+  participants: z.string().max(2000),
+  period: z.string().max(500),
+})
+export const staffTalkSchema = staffTalkHeaderSchema.extend({
+  employeeId: z.number().int(),
+  templateIds: z.array(z.number().int()).max(50),
+})
+export const staffTalkQuery = z.object({ employeeId: z.coerce.number().int().positive() })
+export const talkFormAddSchema = z.object({ templateId: z.number().int() })
+export const formIdParams = z.object({ formId: z.coerce.number().int().positive() })
+/** The answers are checked against the form's own content by the service. */
+export const formAnswersSchema = z.object({ answers: z.unknown() })
+export const readReleaseSchema = z.object({ released: z.boolean() })
