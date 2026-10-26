@@ -124,6 +124,16 @@ describe('canClose', () => {
   it('rejects a month before the start month', () => {
     expect(canClose({ year: 2026, month: 7, today: '2026-10-26', startMonth, closed: new Set() })).toBe('before_start')
   })
+  it('checks before_start, then already_closed, then not_over, then previous_open', () => {
+    // before the start month wins even if (inconsistently) marked closed and not over
+    expect(canClose({ year: 2026, month: 7, today: '2026-07-01', startMonth, closed: new Set(['2026-07']) }))
+      .toBe('before_start')
+    // already closed wins over not over and previous open
+    expect(canClose({ year: 2026, month: 10, today: '2026-10-26', startMonth, closed: new Set(['2026-10']) }))
+      .toBe('already_closed')
+    // not over wins over previous open
+    expect(canClose({ year: 2026, month: 10, today: '2026-10-26', startMonth, closed: new Set() })).toBe('not_over')
+  })
   it('handles the year boundary', () => {
     const start = { year: 2026, month: 12 }
     expect(canClose({ year: 2027, month: 1, today: '2027-02-01', startMonth: start, closed: new Set() }))
@@ -138,6 +148,10 @@ describe('monthsToReopen', () => {
     const closed = new Set(['2026-05', '2026-03', '2026-04', '2026-02'])
     expect(monthsToReopen(2026, 3, closed)).toEqual(['2026-03', '2026-04', '2026-05'])
     expect(monthsToReopen(2026, 5, closed)).toEqual(['2026-05'])
+  })
+  it('omits the given month when it is not closed', () => {
+    expect(monthsToReopen(2026, 3, new Set(['2026-04', '2026-05', '2026-02']))).toEqual(['2026-04', '2026-05'])
+    expect(monthsToReopen(2026, 6, new Set(['2026-04', '2026-05']))).toEqual([])
   })
   it('builds month keys', () => {
     expect(monthKey(2026, 3)).toBe('2026-03')

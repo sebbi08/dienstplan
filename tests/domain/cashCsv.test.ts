@@ -21,7 +21,8 @@ function build() {
 describe('cashCsv', () => {
   it('starts with a BOM and uses CRLF line endings', () => {
     const csv = build()
-    expect(csv.startsWith('﻿')).toBe(true)
+    expect(csv.charCodeAt(0)).toBe(0xfeff)
+    expect(csv.charCodeAt(1)).toBe('K'.charCodeAt(0))
     expect(csv.endsWith('\r\n')).toBe(true)
     expect(csv.replace(/\r\n/g, '').includes('\n')).toBe(true) // only the quoted line break remains
     expect(csv.split('\r\n').some((line) => line.endsWith('\n'))).toBe(false)
@@ -44,6 +45,27 @@ describe('cashCsv', () => {
     ])
     expect(lines[9]).toBe('')
     expect(lines).toHaveLength(10)
+  })
+
+  it('guards free text against formulas but keeps amounts numeric', () => {
+    const row = (id: number, purpose: string) => ({
+      id, date: '2026-10-02', direction: 'out' as const, cents: 100, purpose, hasReceipt: false, transferId: null,
+      number: id, balanceAfter: -100 * id,
+    })
+    const csv = cashCsv({
+      boxName: '=Kasse', from: { year: 2026, month: 10 }, to: { year: 2026, month: 10 }, opening: 0, closing: -600,
+      rows: [
+        row(1, '+5 Kinder Ausflug'), row(2, '- Bastelmaterial'), row(3, '@Einkauf'),
+        row(4, '\tTab'), row(5, '=SUMME(A1)'), row(6, 'Obst - Gemüse'),
+      ],
+    })
+    const lines = csv.slice(1).split('\r\n')
+    expect(lines[0]).toBe("Kasse;'=Kasse")
+    expect(lines[3]).toBe('Endbestand;-6,00')
+    expect(lines.slice(6, 12).map((line) => line.split(';')[4])).toEqual([
+      "'+5 Kinder Ausflug", "'- Bastelmaterial", "'@Einkauf", "'\tTab", "'=SUMME(A1)", 'Obst - Gemüse',
+    ])
+    expect(lines[6]!.split(';')[6]).toBe('-1,00')
   })
 
   it('spans a range of months in the period line', () => {

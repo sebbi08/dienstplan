@@ -15,8 +15,15 @@ function csvAmount(cents: number): string {
   return `${cents < 0 ? '-' : ''}${Math.floor(abs / 100)},${pad(abs % 100)}`
 }
 
+const BOM = String.fromCharCode(0xfeff)
+
 function field(value: string): string {
   return /[;"\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+}
+
+/** Free text: a leading = + - @ tab or CR would make Excel read a formula, so prefix it with '. */
+function text(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
 }
 
 /**
@@ -34,7 +41,7 @@ export function cashCsv(input: {
   const first = toIsoDate(input.from.year, input.from.month, 1)
   const last = toIsoDate(input.to.year, input.to.month, daysInMonth(input.to.year, input.to.month))
   const lines: string[][] = [
-    ['Kasse', input.boxName],
+    ['Kasse', text(input.boxName)],
     ['Zeitraum', `${germanDate(first)} – ${germanDate(last)}`],
     ['Anfangsbestand', csvAmount(input.opening)],
     ['Endbestand', csvAmount(input.closing)],
@@ -45,10 +52,10 @@ export function cashCsv(input: {
       String(row.number),
       row.direction === 'in' ? 'Einnahme' : 'Ausgabe',
       csvAmount(row.cents),
-      row.purpose,
+      text(row.purpose),
       row.hasReceipt ? 'ja' : 'nein',
       csvAmount(row.balanceAfter),
     ]),
   ]
-  return `﻿${lines.map((line) => line.map(field).join(';')).join('\r\n')}\r\n`
+  return `${BOM}${lines.map((line) => line.map(field).join(';')).join('\r\n')}\r\n`
 }
