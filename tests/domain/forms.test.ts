@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addItem, addSection, checkAnswers, checkContent, emptyAnswer, FormError, moveItem, moveSection, removeItem,
-  removeSection, updateItem, updateSection, type FormContent, type FormItem,
+  removeSection, updateItem, updateSection, type AnswerableItem, type FormContent, type FormItem,
 } from '../../shared/domain/forms'
 
 const ids = () => {
@@ -202,15 +202,64 @@ describe('checkAnswers', () => {
 })
 
 describe('emptyAnswer', () => {
+  const answerable = (content: FormContent) =>
+    content.sections.flatMap((s) => s.items).filter((i): i is AnswerableItem => i.kind !== 'note')
+
   it('gives an empty answer per kind', () => {
-    const [n1, t1, c1] = sample().sections[0]!.items
-    const [r1, m1, d1] = sample().sections[1]!.items
-    expect(emptyAnswer(n1!)).toBeNull()
-    expect(emptyAnswer(t1!)).toBe('')
-    expect(emptyAnswer(c1!)).toEqual([])
-    expect(emptyAnswer(r1!)).toEqual({ value: null, remark: '' })
-    expect(emptyAnswer(m1!)).toEqual({ reached: false, remark: '' })
-    expect(emptyAnswer(d1!)).toBeNull()
+    const byId = new Map(answerable(sample()).map((item) => [item.id, emptyAnswer(item)]))
+    expect(Object.fromEntries(byId)).toEqual({
+      t1: '', c1: [], r1: { value: null, remark: '' }, m1: { reached: false, remark: '' }, d1: null, c2: [],
+    })
+  })
+
+  it('round-trips through checkAnswers for every answerable kind', () => {
+    const content = checkContent(sample())
+    const answers = Object.fromEntries(answerable(content).map((item) => [item.id, emptyAnswer(item)]))
+    expect(new Set(answerable(content).map((i) => i.kind))).toEqual(new Set(['text', 'choices', 'rating', 'milestone', 'date']))
+    expect(checkAnswers(content, answers)).toEqual(answers)
+  })
+})
+
+describe('checkContent trimming and odd ids', () => {
+  it('trims texts', () => {
+    const content = checkContent({
+      sections: [{
+        id: 's', title: '  Titel  ', hint: ' Hinweis\n', items: [
+          { id: 'i', kind: 'choices', question: ' Frage? ', options: [{ id: 'o', label: '  Ja ' }] },
+          { id: 'm', kind: 'milestone', text: ' Läuft ', ageLabel: ' 1;6 ' },
+        ],
+      }],
+    })
+    expect(content).toEqual({
+      sections: [{
+        id: 's', title: 'Titel', hint: 'Hinweis', items: [
+          { id: 'i', kind: 'choices', question: 'Frage?', options: [{ id: 'o', label: 'Ja' }] },
+          { id: 'm', kind: 'milestone', text: 'Läuft', ageLabel: '1;6' },
+        ],
+      }],
+    })
+  })
+
+  it.each(['__proto__', 'constructor', 'prototype'])('rejects the id %s', (bad) => {
+    expect(code(() => checkContent(withItem({ id: bad, kind: 'text', question: 'x' })))).toBe('form_content_invalid')
+    expect(code(() => checkContent({ sections: [{ id: bad, title: 'T', hint: '', items: [] }] })))
+      .toBe('form_content_invalid')
+    expect(code(() => checkContent(withItem({ id: 'i', kind: 'choices', question: '', options: [{ id: bad, label: 'x' }] }))))
+      .toBe('form_content_invalid')
+  })
+
+  it('rejects __proto__ and constructor as answer keys and returns a prototype-free object', () => {
+    const content = checkContent(sample())
+    expect(code(() => checkAnswers(content, JSON.parse('{"__proto__": "x"}')))).toBe('form_answer_invalid')
+    expect(code(() => checkAnswers(content, { constructor: 'x' }))).toBe('form_answer_invalid')
+    expect(Object.getPrototypeOf(checkAnswers(content, { t1: 'x' }))).toBeNull()
+  })
+})
+
+describe('checkAnswers ratings', () => {
+  it.each(['+', '~', '-'])('accepts rating %s', (value) => {
+    const content = checkContent(sample())
+    expect(checkAnswers(content, { r1: { value, remark: '' } })).toEqual({ r1: { value, remark: '' } })
   })
 })
 
@@ -272,6 +321,36 @@ describe('edit helpers', () => {
   it('moves an item into an empty neighbouring section', () => {
     const content = addSection(sample(), { title: 'Leer', hint: '' }, ids())
     expect(itemIds(moveItem(content, 'c2', 'down'))).toEqual([['n1', 't1', 'c1'], ['r1', 'm1', 'd1'], ['c2']])
+  })
+
+  const notes = (count: number, prefix: string): FormItem[] =>
+    Array.from({ length: count }, (_, i) => ({ id: `${prefix}${i}`, kind: 'note', text: 'x' }))
+
+  it('refuses a 61st section', () => {
+    const full: FormContent = {
+      sections: Array.from({ length: 60 }, (_, i) => ({ id: `s${i}`, title: 'T', hint: '', items: [] })),
+    }
+    expect(code(() => addSection(full, { title: 'Neu', hint: '' }, ids()))).toBe('form_too_many_sections')
+    expect(addSection({ sections: full.sections.slice(1) }, { title: 'Neu', hint: '' }, ids()).sections).toHaveLength(60)
+  })
+
+  it('refuses a 121st item, also when moved in from a neighbour', () => {
+    const content: FormContent = {
+      sections: [
+        { id: 'a', title: 'A', hint: '', items: notes(1, 'a') },
+        { id: 'b', title: 'B', hint: '', items: notes(120, 'b') },
+      ],
+    }
+    expect(code(() => addItem(content, 'b', { kind: 'note', text: 'x' }, ids()))).toBe('form_section_full')
+    expect(code(() => moveItem(content, 'a0', 'down'))).toBe('form_section_full')
+    expect(itemIds(moveItem(content, 'b0', 'up'))[0]).toEqual(['a0', 'b0'])
+    expect(addItem(content, 'a', { kind: 'note', text: 'x' }, ids()).sections[0]!.items).toHaveLength(2)
+  })
+
+  it('refuses duplicate option ids supplied by the client', () => {
+    const draft = { kind: 'choices' as const, question: '', options: [{ id: 'o1', label: 'A' }, { id: 'o1', label: 'B' }] }
+    expect(code(() => addItem(sample(), 's1', draft, ids()))).toBe('form_option_duplicate')
+    expect(code(() => updateItem(sample(), 'c1', draft, ids()))).toBe('form_option_duplicate')
   })
 
   it('removes items', () => {

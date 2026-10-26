@@ -23,6 +23,8 @@ type Draft<T> = T extends { kind: 'choices' }
   ? Omit<T, 'id' | 'options'> & { options: { id?: string; label: string }[] }
   : Omit<T, 'id'>
 export type ItemDraft = FormItem extends infer T ? (T extends FormItem ? Draft<T> : never) : never
+/** Items that take an answer (everything but notes). */
+export type AnswerableItem = Exclude<FormItem, { kind: 'note' }>
 
 export interface FormSection { id: string; title: string; hint: string; items: FormItem[] }
 export interface FormContent { sections: FormSection[] }
@@ -81,8 +83,14 @@ function text(value: unknown, min: number, max: number): string {
   return trimmed
 }
 
+/** Ids become answer keys; these would clash with object internals. */
+const RESERVED_IDS = new Set(['__proto__', 'constructor', 'prototype'])
+
 function id(value: unknown, seen: Set<string>): string {
-  if (typeof value !== 'string' || value.length === 0 || value.length > FORM_LIMITS.id || seen.has(value)) {
+  if (
+    typeof value !== 'string' || value.length === 0 || value.length > FORM_LIMITS.id
+    || RESERVED_IDS.has(value) || seen.has(value)
+  ) {
     invalidContent()
   }
   seen.add(value)
@@ -194,7 +202,7 @@ export function checkAnswers(content: FormContent, answers: unknown): FormAnswer
   if (!isObject(answers)) invalidAnswer()
   const items = new Map<string, FormItem>()
   for (const section of content.sections) for (const item of section.items) items.set(item.id, item)
-  const result: FormAnswers = {}
+  const result: FormAnswers = Object.create(null)
   for (const [key, value] of Object.entries(answers)) {
     const item = items.get(key)
     if (!item) invalidAnswer()
@@ -203,10 +211,9 @@ export function checkAnswers(content: FormContent, answers: unknown): FormAnswer
   return result
 }
 
-/** The answer an untouched item has; `null` for notes (they take no answer). */
-export function emptyAnswer(item: FormItem): FormAnswer | null {
+/** The answer an untouched item has. Notes take no answer, so callers skip them. */
+export function emptyAnswer(item: AnswerableItem): FormAnswer {
   switch (item.kind) {
-    case 'note': return null
     case 'text': return ''
     case 'choices': return []
     case 'rating': return { value: null, remark: '' }
@@ -243,6 +250,8 @@ function replaceSection(content: FormContent, index: number, section: FormSectio
 
 function buildItem(draft: ItemDraft, itemId: string, newId: () => string): FormItem {
   if (draft.kind === 'choices') {
+    const given = draft.options.flatMap((option) => (option.id === undefined ? [] : [option.id]))
+    if (new Set(given).size !== given.length) throw new FormError('form_option_duplicate')
     return {
       ...draft, id: itemId,
       options: draft.options.map((option) => ({ id: option.id ?? newId(), label: option.label })),
@@ -251,7 +260,12 @@ function buildItem(draft: ItemDraft, itemId: string, newId: () => string): FormI
   return { ...draft, id: itemId } as FormItem
 }
 
+function ensureRoom(section: FormSection): void {
+  if (section.items.length >= FORM_LIMITS.itemsPerSection) throw new FormError('form_section_full')
+}
+
 export function addSection(content: FormContent, draft: SectionDraft, newId: () => string): FormContent {
+  if (content.sections.length >= FORM_LIMITS.sections) throw new FormError('form_too_many_sections')
   return withSections(content, [...content.sections, { id: newId(), title: draft.title, hint: draft.hint, items: [] }])
 }
 
@@ -277,6 +291,7 @@ export function removeSection(content: FormContent, sectionId: string): FormCont
 export function addItem(content: FormContent, sectionId: string, draft: ItemDraft, newId: () => string): FormContent {
   const index = sectionIndex(content, sectionId)
   const section = content.sections[index]!
+  ensureRoom(section)
   const item = buildItem(draft, newId(), newId)
   return replaceSection(content, index, { ...section, items: [...section.items, item] })
 }
@@ -307,6 +322,7 @@ export function moveItem(content: FormContent, itemId: string, direction: Direct
   }
   const neighbour = direction === 'up' ? at.section - 1 : at.section + 1
   if (neighbour < 0 || neighbour >= sections.length) return content
+  ensureRoom(sections[neighbour]!)
   const [item] = items.splice(at.item, 1)
   if (direction === 'up') sections[neighbour]!.items.push(item!)
   else sections[neighbour]!.items.unshift(item!)
