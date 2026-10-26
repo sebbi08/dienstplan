@@ -1,19 +1,32 @@
 <script setup lang="ts">
-import type { FormSavedDto, TalkFormDto } from '#shared/types/api'
+import type { FormAnswers } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
-import { filledAnswers } from '~/utils/forms'
+import { filledAnswers, type FormPanelForm, type FormPanelSave } from '~/utils/forms'
 
 /**
  * A form with its answers and an explicit „Speichern“ (with a hint while something is unsaved). Saving sends the
  * updatedAt the form was loaded with; when someone else saved in between (409 form_changed) it says so and offers
- * „Neu laden“, which discards the own edits (asked first). `refresh` reloads the form from the parent. The slot
- * `actions` gets `dirty`, `save` and `base` (the updatedAt the answers on screen are based on, read after a save) (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a parent can
- * ask before it closes the panel.
+ * „Neu laden“, which discards the own edits (asked first). `refresh` reloads the form from the parent.
+ *
+ * Saving is a PUT of `{ answers, expectedUpdatedAt }` to `saveUrl`, or the `save` handler (e.g. one that sends header
+ * fields along). Fields of the parent's own (slot `before`, above the answers) count as unsaved through `extraDirty`;
+ * `check` may refuse a save with a message first; `reset` is emitted when the panel goes back to the stored form, so
+ * the parent can reset its fields too. The slot `actions` gets `dirty`, `save` and `base` (the updatedAt the answers on
+ * screen are based on, read after a save) (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a
+ * parent can ask before it closes the panel.
  */
-const props = defineProps<{ form: TalkFormDto; saveUrl: string; editable: boolean; refresh: () => Promise<unknown> }>()
-const emit = defineEmits<{ dirty: [value: boolean] }>()
+const props = defineProps<{
+  form: FormPanelForm
+  saveUrl?: string
+  save?: FormPanelSave
+  editable: boolean
+  refresh: () => Promise<unknown>
+  extraDirty?: boolean
+  check?: () => string | null
+}>()
+const emit = defineEmits<{ dirty: [value: boolean]; reset: [] }>()
 const toast = useToast()
 const confirm = useConfirm()
 
@@ -22,7 +35,7 @@ const savedJson = ref(JSON.stringify(answers.value))
 const base = ref(props.form.updatedAt)
 const conflict = ref(false)
 const saving = ref(false)
-const dirty = useDirty(() => props.editable && JSON.stringify(answers.value) !== savedJson.value)
+const dirty = useDirty(() => props.editable && (JSON.stringify(answers.value) !== savedJson.value || !!props.extraDirty))
 watch(dirty, value => emit('dirty', value), { immediate: true })
 
 function reset() {
@@ -30,19 +43,28 @@ function reset() {
   savedJson.value = JSON.stringify(answers.value)
   base.value = props.form.updatedAt
   conflict.value = false
+  emit('reset')
 }
 // Someone else's save (seen on a reload) is taken over while nothing is typed here.
 watch(() => props.form.updatedAt, () => {
   if (!dirty.value && !saving.value) reset()
 })
 
+const putAnswers: FormPanelSave = (sent, expectedUpdatedAt) =>
+  $fetch<{ updatedAt: string }>(props.saveUrl!, { method: 'PUT', body: { answers: sent, expectedUpdatedAt } })
+
 /** Saves the answers; true on success. */
 async function save(): Promise<boolean> {
   if (!dirty.value) return true
+  const refused = props.check?.()
+  if (refused) {
+    toast.add({ title: refused, color: 'error' })
+    return false
+  }
   saving.value = true
   const sent = JSON.stringify(answers.value)
   try {
-    const saved = await $fetch<FormSavedDto>(props.saveUrl, { method: 'PUT', body: { answers: JSON.parse(sent), expectedUpdatedAt: base.value } })
+    const saved = await (props.save ?? putAnswers)(JSON.parse(sent) as FormAnswers, base.value)
     savedJson.value = sent
     // The next save is checked against the time of this very save (not against a reload that may lag behind).
     base.value = saved.updatedAt
@@ -74,6 +96,7 @@ async function reload() {
         <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :label="de.forms.reload" @click="reload" />
       </template>
     </UAlert>
+    <slot name="before" />
     <FormsFormFiller v-model:answers="answers" :content="props.form.content" :readonly="!props.editable" />
     <p class="text-xs text-gray-500">{{ de.forms.lastChanged(props.form.updatedBy, formatDateTime(props.form.updatedAt)) }}</p>
     <div

@@ -1,22 +1,21 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
 import { RATING_LEGEND, type ChoicesAnswer, type DateAnswer, type FormAnswers, type MilestoneAnswer, type RatingAnswer } from '#shared/domain/forms'
-import { formatTime } from '#shared/domain/time'
-import type { MyTalkFormDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
-import { isBlank, sectionBlocks, sectionHasRating } from '~/utils/forms'
+import { isBlank, milestoneColumns, sectionBlocks, sectionHasRating, type FormSheet } from '~/utils/forms'
 
 /**
- * The printout of a staff talk's form, A4 portrait like the paper form: title, the talk's header fields, the sections
- * (ratings as a table + / ~ / − / Anmerkungen, choices with ☐/☒, milestones as a table by age, empty free texts as
- * writing lines) and the two signature lines. Used by the Leitung's print page and by the employee's own.
+ * The printout of a form, A4 portrait like the paper form: title, the header fields (two per row), the sections
+ * (ratings as a table + / ~ / − / Anmerkungen, choices with ☐/☒, milestones as a table by age — one column per age
+ * when the ages are like „3;0 Jahre“ —, empty free texts as writing lines) and the two signature lines. The sheet
+ * (see talkSheet, childSheet) says what goes into the header and under the signature lines.
  */
-const props = defineProps<{ data: MyTalkFormDto | null | undefined; error?: unknown }>()
+const props = defineProps<{ sheet: FormSheet | null | undefined; error?: unknown }>()
 const { user } = useUserSession()
 
-const answers = computed<FormAnswers>(() => props.data?.form.answers ?? {})
+const answers = computed<FormAnswers>(() => props.sheet?.answers ?? {})
 const textOf = (id: string) => (typeof answers.value[id] === 'string' ? answers.value[id] as string : '')
 const picked = (id: string, optionId: string) => ((answers.value[id] as ChoicesAnswer | undefined) ?? []).includes(optionId)
 const ratingOf = (id: string) => (answers.value[id] as RatingAnswer | undefined) ?? { value: null, remark: '' }
@@ -24,19 +23,13 @@ const milestoneOf = (id: string) => (answers.value[id] as MilestoneAnswer | unde
 const dateOf = (id: string) => (answers.value[id] as DateAnswer | undefined) ?? null
 const box = (on: boolean) => (on ? '☒' : '☐')
 
-const fileName = computed(() => {
-  const value = props.data
-  return value ? `${value.form.title}-${value.employeeName}-${value.talk.date}` : 'Bogen'
-})
+const fileName = computed(() => props.sheet?.fileName ?? 'Bogen')
+/** The header fields two per row: label, value, label, value. */
 const headerRows = computed(() => {
-  const value = props.data
-  if (!value) return []
-  const h = de.talks.header
-  return [
-    [h.name, value.employeeName, h.facility, value.facilityName],
-    [h.date, formatDate(value.talk.date), h.start, value.talk.start === null ? '' : formatTime(value.talk.start)],
-    [h.participants, value.talk.participants, h.period, value.talk.period],
-  ]
+  const fields = props.sheet?.header ?? []
+  const rows: string[][] = []
+  for (let index = 0; index < fields.length; index += 2) rows.push([...fields[index]!, ...(fields[index + 1] ?? ['', ''])])
+  return rows
 })
 const cell = 'border border-gray-500 px-1.5 py-1 align-top'
 </script>
@@ -44,11 +37,11 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
 <template>
   <div class="mx-auto max-w-3xl bg-white p-6 text-sm text-gray-900 print:max-w-none print:p-0 print:text-[11px]">
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
-      <h1 class="text-2xl font-bold print:text-[18px]">{{ props.data?.form.title ?? '' }}</h1>
-      <PrintActions v-if="props.data" :file-name="fileName" />
+      <h1 class="text-2xl font-bold print:text-[18px]">{{ props.sheet?.title ?? '' }}</h1>
+      <PrintActions v-if="props.sheet" :file-name="fileName" />
     </div>
     <p v-if="props.error" class="text-red-700">{{ errorMessage(props.error) }}</p>
-    <template v-if="props.data">
+    <template v-if="props.sheet">
       <table class="mb-4 w-full table-fixed border-collapse">
         <tbody>
           <tr v-for="row in headerRows" :key="row[0]">
@@ -62,7 +55,7 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
 
       <!-- A rating section is a short table: kept on one page, so its heading never stays behind on the previous page. -->
       <section
-        v-for="section in props.data.form.content.sections" :key="section.id" class="mb-4 space-y-2"
+        v-for="section in props.sheet.content.sections" :key="section.id" class="mb-4 space-y-2"
         :class="sectionHasRating(section) ? 'break-inside-avoid' : ''"
       >
         <h2 class="border-b border-gray-400 pb-0.5 text-base font-bold break-after-avoid print:text-[13px]">{{ section.title }}</h2>
@@ -114,6 +107,31 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
             </tbody>
           </table>
 
+          <!-- Ages like „3;0 Jahre“: one column per age as on the paper form, the sentence ticked in its own age's column. -->
+          <table v-else-if="block.type === 'milestones' && milestoneColumns(block.groups)" class="w-full table-fixed border-collapse">
+            <thead>
+              <tr class="bg-gray-100">
+                <th :class="[cell, 'text-left']">{{ de.forms.itemKinds.milestone }}</th>
+                <th v-for="group in block.groups" :key="group.ageLabel" :class="[cell, 'w-[9%] text-center']">{{ group.ageLabel }}</th>
+                <th :class="[cell, 'w-[24%] text-left']">{{ de.forms.remark }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="group in block.groups" :key="group.ageLabel">
+                <tr v-for="item in group.items" :key="item.id" class="break-inside-avoid">
+                  <td :class="[cell, 'break-words']">{{ item.text }}</td>
+                  <td
+                    v-for="column in block.groups" :key="column.ageLabel"
+                    :class="[cell, 'text-center text-base print:text-[13px]', column.ageLabel === group.ageLabel ? 'bg-green-50' : '']"
+                  >
+                    {{ column.ageLabel === group.ageLabel ? box(milestoneOf(item.id).reached) : '' }}
+                  </td>
+                  <td :class="[cell, 'break-words']">{{ milestoneOf(item.id).remark }}</td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+
           <table v-else-if="block.type === 'milestones'" class="w-full table-fixed border-collapse">
             <thead>
               <tr class="bg-gray-100">
@@ -138,13 +156,11 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
       </section>
 
       <div class="mt-12 grid grid-cols-2 gap-10 break-inside-avoid">
-        <div class="border-t border-gray-700 pt-1 text-xs print:text-[10px]">{{ de.talks.signatureAssessor }}</div>
-        <div class="border-t border-gray-700 pt-1 text-xs print:text-[10px]">{{ de.talks.signatureEmployee }}</div>
+        <div v-for="line in props.sheet.signatures" :key="line" class="border-t border-gray-700 pt-1 text-xs print:text-[10px]">{{ line }}</div>
       </div>
       <div class="mt-6 space-y-0.5 text-xs text-gray-600 print:text-[9px]">
-        <p v-if="props.data.form.submittedAt">{{ de.talks.submittedAt(formatDateTime(props.data.form.submittedAt)) }}</p>
-        <p v-if="props.data.form.readReleasedAt">{{ de.talks.readReleasedAt(formatDateTime(props.data.form.readReleasedAt)) }}</p>
-        <p>{{ de.forms.lastChanged(props.data.form.updatedBy, formatDateTime(props.data.form.updatedAt)) }}</p>
+        <p v-for="line in props.sheet.stamps" :key="line">{{ line }}</p>
+        <p>{{ de.forms.lastChanged(props.sheet.updatedBy, formatDateTime(props.sheet.updatedAt)) }}</p>
         <p>{{ de.forms.printedBy(formatDate(todayIso()), user?.username ?? '') }}</p>
       </div>
     </template>

@@ -1967,10 +1967,14 @@ export interface ChildFormListItemDto {
   canManage: boolean
 }
 
-/** The child's forms, newest first, and whether the viewer may start a new one (managers, the key educator at the tablet). */
+/**
+ * The child's forms, newest first, and whether the viewer may start a new one (managers, the key educator at the tablet);
+ * `templates` are the facility's active child templates to start one from (empty unless `canCreate`).
+ */
 export interface ChildFormsDto {
   forms: ChildFormListItemDto[]
   canCreate: boolean
+  templates: { id: number; name: string }[]
 }
 
 /** One child form with its own copy of the template content, the answers and what the printout's header needs. */

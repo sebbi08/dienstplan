@@ -7,6 +7,8 @@ import { errorMessage } from '~/utils/errors'
 
 const route = useRoute()
 const id = Number(route.params.id)
+// An observation form with unsaved answers asks before the record is left (see useUnsavedGuard for the tablet lock).
+useUnsavedGuard()
 const { data: child, error, refresh } = await useFetch<ChildRecordDto>(`/api/children/${id}`)
 /** The sections wait for this before they accept the next action. */
 const reload = () => refresh()
@@ -38,6 +40,7 @@ const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, to
       <ChildrenChildDocumentsSection :child="child" :reload="reload" />
       <ChildrenChildDevelopmentDocSection :child="child" :reload="reload" />
       <ChildrenChildMeetingsSection :child="child" :reload="reload" />
+      <ChildrenChildFormsSection :child="child" />
       <ChildrenChildLifecycleSection :child="child" :reload="reload" />
     </template>
   </div>

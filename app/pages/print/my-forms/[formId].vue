@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MyTalkFormDto } from '#shared/types/api'
+import { talkSheet } from '~/utils/forms'
 
 /**
  * The printout of one of the signed-in employee's own forms (only those released to them; the my-route answers 404
@@ -15,5 +16,5 @@ useHead({ title: () => data.value?.form.title ?? '' })
 </script>
 
 <template>
-  <FormsFormPrint :data="data" :error="error" />
+  <FormsFormPrint :sheet="data ? talkSheet(data) : null" :error="error" />
 </template>

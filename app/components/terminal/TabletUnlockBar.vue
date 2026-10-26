@@ -11,18 +11,49 @@ import { isChildPagePath } from '~/utils/children'
  * starts afresh (the server keeps its own time and refuses with 403 tablet_locked when that has run out).
  * Every STATUS_POLL_SECONDS it asks the server whether the unlock still holds, so a lock from elsewhere (shorter lock
  * time, another device unlocked, PIN or employment ended) shows at once, without waiting for the next touch.
+ * While something on the page is unsaved (e.g. an observation form), „Sperren“ asks first, and shortly before the lock
+ * time runs out a notice asks to tap and save (the lock itself never waits: the child data must go off the screen).
  */
 const { unlock, lock } = useChildRights()
 const router = useRouter()
+const toast = useToast()
+const confirm = useConfirm()
 const status = computed(() => (unlock.value?.unlocked ? unlock.value : null))
 
 let lastUse = 0
 let lastKeepAlive = 0
 let timer: ReturnType<typeof setTimeout> | undefined
+let warnTimer: ReturnType<typeof setTimeout> | undefined
+let warnedFor = -1
 let poll: ReturnType<typeof setInterval> | undefined
 let ending = false
 
-const deadline = () => lastUse + (status.value?.lockMinutes ?? 0) * 60_000
+const lockMs = () => (status.value?.lockMinutes ?? 0) * 60_000
+const deadline = () => lastUse + lockMs()
+/** How long before the lock the notice about unsaved changes comes: a minute, at most half the lock time. */
+const warnMs = () => Math.min(60_000, lockMs() / 2)
+
+/** Re-arms the notice for the current deadline; shows it once per period without use while something is unsaved. */
+function armWarning() {
+  clearTimeout(warnTimer)
+  if (ending) return
+  const remaining = deadline() - warnMs() - Date.now()
+  if (remaining > 0) {
+    warnTimer = setTimeout(armWarning, remaining)
+    return
+  }
+  if (warnedFor === lastUse || Date.now() >= deadline()) return
+  warnedFor = lastUse
+  if (hasUnsavedChanges()) toast.add({ title: de.terminal.idleUnsavedWarning, color: 'warning', icon: 'i-lucide-lock', duration: warnMs() })
+  // A touch moves the deadline: look again once this period would have ended.
+  warnTimer = setTimeout(armWarning, Math.max(1000, deadline() - Date.now()))
+}
+
+/** „Sperren“: asks first while something on the page is unsaved. */
+async function lockByHand() {
+  if (hasUnsavedChanges() && !await confirm(de.terminal.lockUnsavedConfirm, { confirmLabel: de.terminal.lockDiscard, danger: true })) return
+  end(true)
+}
 
 /**
  * Locks (unless already locked) and goes back to the tablet's start page; runs once. Locked while leaving the child
@@ -32,6 +63,7 @@ async function end(sendLock: boolean) {
   if (ending) return
   ending = true
   clearTimeout(timer)
+  clearTimeout(warnTimer)
   clearInterval(poll)
   if (sendLock) await lock()
   if (isChildPagePath(router.currentRoute.value.path)) await navigateTo('/terminal')
@@ -56,8 +88,12 @@ function check() {
   clearTimeout(timer)
   if (ending) return
   const remaining = deadline() - Date.now()
-  if (remaining <= 0) end(true)
-  else timer = setTimeout(check, remaining)
+  if (remaining <= 0) {
+    end(true)
+    return
+  }
+  timer = setTimeout(check, remaining)
+  armWarning()
 }
 
 async function keepAlive() {
@@ -121,6 +157,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   ending = true
   clearTimeout(timer)
+  clearTimeout(warnTimer)
   clearInterval(poll)
   window.removeEventListener('pointerdown', onUse, { capture: true })
   window.removeEventListener('keydown', onUse, { capture: true })
@@ -135,6 +172,6 @@ onBeforeUnmount(() => {
       <UIcon name="i-lucide-lock-open" class="size-5 text-amber-600" />
       {{ status ? de.terminal.unlockedAs(status.name) : '' }}
     </span>
-    <UButton class="ml-auto" size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="end(true)" />
+    <UButton class="ml-auto" size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="lockByHand" />
   </div>
 </template>

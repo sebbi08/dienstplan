@@ -1163,3 +1163,24 @@ sehen keine Warnungen.
 - **Drucken:** jeder Bogen hat eine Druckseite (A4 hoch) mit Kopffeldern, Bewertungstabelle, Ankreuzkästchen, leeren
   Schreiblinien und den beiden Unterschriftszeilen; dort gibt es auch **PDF herunterladen**. Mitarbeiter drucken ihre
   freigegebenen Bögen über „Meine Gespräche“.
+
+### Beobachtungsbögen
+
+- **Wo:** Kinderakte → Bereich **Beobachtungen** (im Büro und am aufgeschlossenen Tablet, nie auf den Handys der
+  Mitarbeiter). Die Liste zeigt die Bögen des Kindes, neueste zuerst, mit Datum, Vorlage und „zuletzt geändert“.
+  Jede Einrichtung hat die Startvorlage **Entwicklungsgespräch** (Einstellungen → Bögen → Art „Kind“).
+- **Anlegen:** **Bogen anlegen** – Vorlage, Datum, Uhrzeit (freiwillig) und Teilnehmer. Beim Elterngespräch gibt es
+  **Bogen ausfüllen**: Datum, Uhrzeit und Teilnehmer kommen aus dem Gespräch, danach steht dort **Bogen öffnen**. Ein
+  Elterngespräch hat höchstens einen Bogen; wird das Gespräch gelöscht, bleibt der Bogen.
+- **Wer darf was:** Lesen kann jeder, der die Akte sieht. **Anlegen und ändern** können Leitung und Träger und am
+  Tablet der **Bezugserzieher** des Kindes. Andere Mitarbeiter sehen den Bogen nur zum Lesen, bis Leitung oder Träger
+  sie über **Mitarbeiter freischalten** für genau diesen Bogen freischalten (zurücknehmbar). Wechselt der
+  Bezugserzieher, wechselt das Recht sofort mit. **Löschen** (mit Rückfrage) können nur Leitung und Träger.
+- **Speichern:** Kopffelder und Antworten werden zusammen mit **Speichern** übernommen. Mit ungespeicherten Änderungen
+  fragt die App, bevor der Bogen geschlossen oder die Akte verlassen wird; am Tablet fragt **Sperren** ebenfalls, und
+  kurz bevor sich das Tablet von selbst sperrt, erscheint ein Hinweis – tippen und speichern, sonst gehen die
+  Änderungen beim Sperren verloren.
+- **Drucken:** im Büro über **Drucken** am Bogen (A4 hoch, mit PDF): Name, Geburtsdatum, Gruppe, Datum, Uhrzeit,
+  Teilnehmer, die Meilensteine als Tabelle nach Altersstufe (3;0 / 4;0 / 5;0 / 6;0 Jahre) und die Unterschriftszeilen
+  „Unterschrift Fachkraft / Datum“ und „Unterschrift Erziehungsberechtigte / Datum“. Am Tablet wird nicht gedruckt.
+- **Abmeldung:** die Bögen bleiben im Archiv für Leitung und Träger lesbar und werden mit der Akte gelöscht.

@@ -16,7 +16,7 @@ import { childParentMeetings, employees, facilities, formEditors, forms, groups 
 import { assertGroupRight, loadChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
-import { loadTemplate, withFormErrors } from './formTemplates'
+import { listTemplates, loadTemplate, withFormErrors } from './formTemplates'
 
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
 
@@ -90,10 +90,16 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
   const rows = db.select().from(forms).where(and(eq(forms.childId, childId), eq(forms.kind, 'child')))
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all() as ChildForm[]
   const editors = editorsOf(db, rows.map(row => row.id))
+  const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer), { keyEducatorId: child.row.keyEducatorId })
+  // The tablet cannot read the template list itself (managers only), so whoever may start a form gets the choice here.
+  const templates = canCreate
+    ? listTemplates(db, viewer.facilityId, 'child').filter(template => !template.archived)
+        .map(template => ({ id: template.id, name: template.name }))
+    : []
   return {
     forms: rows.map(row => toListItem(row, access(viewer, child, row.id, editors.get(row.id)!), viewer, child)),
-    canCreate: !child.archived
-      && canCreateChildForm(asRightViewer(viewer), { keyEducatorId: child.row.keyEducatorId }),
+    canCreate,
+    templates,
   }
 }
 

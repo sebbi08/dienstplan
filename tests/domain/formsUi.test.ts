@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
-import { filledAnswers, isBlank, sectionBlocks, sectionHasRating } from '../../app/utils/forms'
+import type { ChildFormDto } from '../../shared/types/api'
+import { childSheet, filledAnswers, isBlank, milestoneColumns, sectionBlocks, sectionHasRating } from '../../app/utils/forms'
 
 const section: FormSection = {
   id: 's1', title: 'Motorik', hint: '',
@@ -46,5 +47,36 @@ describe('filledAnswers', () => {
   it('treats empty or whitespace text as blank', () => {
     expect(isBlank('  ')).toBe(true)
     expect(isBlank('x')).toBe(false)
+  })
+})
+
+describe('milestoneColumns', () => {
+  const groups = (...labels: string[]) => labels.map(ageLabel => ({ ageLabel }))
+  it('lays out ages like 3;0 … 6;0 as columns', () => {
+    expect(milestoneColumns(groups('3;0 Jahre', '4;0 Jahre', '5;0 Jahre', '6;0 Jahre')))
+      .toEqual(['3;0 Jahre', '4;0 Jahre', '5;0 Jahre', '6;0 Jahre'])
+    expect(milestoneColumns(groups('3;0', '4;6'))).toEqual(['3;0', '4;6'])
+  })
+  it('keeps other labels, a single age or too many ages as grouped rows', () => {
+    expect(milestoneColumns(groups('3;0 Jahre', 'ab 4 Jahren'))).toBeNull()
+    expect(milestoneColumns(groups('3;0 Jahre'))).toBeNull()
+    expect(milestoneColumns(groups('1;0', '2;0', '3;0', '4;0', '5;0', '6;0', '7;0'))).toBeNull()
+  })
+})
+
+describe('childSheet', () => {
+  it('heads the printout with the child and the meeting data and signs by educator and parents', () => {
+    const data = {
+      title: 'Entwicklungsgespräch', content: { sections: [] }, answers: {}, updatedAt: '2026-10-20T10:00:00.000Z', updatedBy: 'Anna',
+      date: '2026-10-20', start: 14 * 60 + 30, participants: 'Mama, Anna',
+      child: { firstName: 'Lena', lastName: 'Kurz', birthDate: '2021-05-03', groupName: 'Bären' }, facilityName: 'Kita',
+    } as unknown as ChildFormDto
+    const sheet = childSheet(data)
+    expect(sheet.header).toEqual([
+      ['Name', 'Lena Kurz'], ['Geburtsdatum', '03.05.2021'], ['Gruppe', 'Bären'], ['Datum', '20.10.2026'],
+      ['Uhrzeit', '14:30'], ['Teilnehmer', 'Mama, Anna'],
+    ])
+    expect(sheet.signatures).toEqual(['Unterschrift Fachkraft / Datum', 'Unterschrift Erziehungsberechtigte / Datum'])
+    expect(sheet.fileName).toBe('Entwicklungsgespräch-Lena Kurz-2026-10-20')
   })
 })

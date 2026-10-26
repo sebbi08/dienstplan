@@ -10,15 +10,49 @@ import { formatDate } from '~/utils/format'
  * „Gespräch eintragen“, „Ändern“ and delete. The confidential note is shown and sent only by Leitung and Träger: for
  * everyone else the form leaves the field out entirely, so the server keeps the stored note on a change.
  * `reload` re-reads the record; the busy flag stays on until it is done.
+ * Per meeting „Bogen ausfüllen“ (whoever may start an observation form: managers, the key educator at the tablet)
+ * starts its observation form with the meeting's date, time and participants; once there is one, „Bogen öffnen“
+ * opens it in „Beobachtungen“.
  */
 const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
+const childForms = useChildForms(props.child.id)
 const { busy, run } = useBusyAction(async () => {
-  await Promise.all([props.reload(), refreshNuxtData('children-reminders')])
+  await Promise.all([props.reload(), refreshNuxtData('children-reminders'), childForms.refresh()])
 })
 const confirm = useConfirm()
 const { rights } = useChildRights()
 const isManager = computed(() => !!rights.value?.isManager)
 const m = de.parentMeetings
+const c = de.childForms
+
+// „Bogen ausfüllen“: the template to fill (the first one preselected), the header comes from the meeting.
+const canFill = computed(() => !!childForms.data.value?.canCreate)
+const fillTemplates = computed(() => (childForms.data.value?.templates ?? []).map(template => ({ label: template.name, value: template.id })))
+const fillOpen = ref(false)
+const fillMeeting = ref<ParentMeetingDto | null>(null)
+const fillTemplateId = ref<number | undefined>(undefined)
+function openFill(meeting: ParentMeetingDto) {
+  fillMeeting.value = meeting
+  fillTemplateId.value = childForms.data.value?.templates[0]?.id
+  fillOpen.value = true
+}
+async function fill() {
+  const meeting = fillMeeting.value
+  const templateId = fillTemplateId.value
+  if (!meeting || templateId === undefined) return
+  let createdId: number | null = null
+  const ok = await run(async () => {
+    createdId = (await $fetch<{ id: number }>(`/api/children/${props.child.id}/forms`, {
+      method: 'POST', body: { templateId, parentMeetingId: meeting.id },
+    })).id
+  }, c.created)
+  if (!ok || createdId === null) return
+  fillOpen.value = false
+  childForms.openRequest.value = createdId
+}
+const openForm = (formId: number) => {
+  childForms.openRequest.value = formId
+}
 
 const kindItems = MEETING_KINDS.map(kind => ({ label: m.kinds[kind], value: kind }))
 
@@ -103,7 +137,7 @@ function stamp(meeting: ParentMeetingDto): string {
     <p v-if="!child.meetings.length" class="text-sm text-gray-500">{{ m.none }}</p>
     <ul v-else class="divide-y divide-gray-100">
       <li v-for="meeting in child.meetings" :key="meeting.id" class="flex flex-wrap items-start gap-3 py-3 text-sm">
-        <div class="min-w-0 flex-1 space-y-1">
+        <div class="min-w-0 flex-1 basis-56 space-y-1">
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span class="font-medium">{{ headline(meeting) }}</span>
             <span v-if="meeting.planned" class="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">{{ m.planned }}</span>
@@ -114,6 +148,14 @@ function stamp(meeting: ParentMeetingDto): string {
           </p>
           <p class="text-xs text-gray-500">{{ stamp(meeting) }}</p>
         </div>
+        <UButton
+          v-if="meeting.formId !== null" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-file-text"
+          :label="c.openForm" @click="openForm(meeting.formId)"
+        />
+        <UButton
+          v-else-if="canFill" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-file-pen-line"
+          :label="c.fill" :disabled="busy" @click="openFill(meeting)"
+        />
         <div v-if="child.canEditMeetings" class="flex items-center gap-1">
           <UButton class="min-h-11" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="m.edit" :disabled="busy" @click="openEdit(meeting)" />
           <UButton class="min-h-11 min-w-11 justify-center" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(meeting)" />
@@ -140,6 +182,22 @@ function stamp(meeting: ParentMeetingDto): string {
           <div class="flex gap-2 sm:col-span-2">
             <UButton type="submit" class="min-h-11" :label="de.common.save" :loading="busy" :disabled="busy" />
             <UButton type="button" class="min-h-11" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="fillOpen" :title="c.fill" :description="fillMeeting ? headline(fillMeeting) : undefined">
+      <template #body>
+        <p v-if="!fillTemplates.length" class="text-sm text-gray-600">{{ c.noTemplates }}</p>
+        <form v-else class="space-y-3" @submit.prevent="fill">
+          <UFormField :label="c.template" required>
+            <USelect v-model="fillTemplateId" :items="fillTemplates" size="lg" class="w-full" :placeholder="c.templatePick" />
+          </UFormField>
+          <p class="text-sm text-gray-600">{{ c.fillHint }}</p>
+          <div class="flex gap-2">
+            <UButton type="submit" class="min-h-11" :label="c.fill" :loading="busy" :disabled="busy || fillTemplateId === undefined" />
+            <UButton type="button" class="min-h-11" color="neutral" variant="ghost" :label="de.common.cancel" @click="fillOpen = false" />
           </div>
         </form>
       </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MyTalkFormDto } from '#shared/types/api'
+import { talkSheet } from '~/utils/forms'
 
 /** The printout of a staff talk's form for Leitung and Träger (A4 portrait). */
 definePageMeta({ layout: false })
@@ -12,5 +13,5 @@ useHead({ title: () => data.value?.form.title ?? '' })
 </script>
 
 <template>
-  <FormsFormPrint :data="data" :error="error" />
+  <FormsFormPrint :sheet="data ? talkSheet(data) : null" :error="error" />
 </template>

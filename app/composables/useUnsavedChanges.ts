@@ -27,11 +27,17 @@ export const hasUnsavedChanges = () => [...sources.values()].some(isDirty => isD
 /**
  * The guard of the settings pages: going to another area, a group's page or anywhere else while edits are unsaved asks
  * first (a jump within the same page, e.g. to a section, does not); closing or reloading the tab asks the browser.
+ * At the tablet a lock (lock time over, locked from elsewhere, „Sperren“ confirmed) always leaves the child pages at
+ * once: the child data must go off the screen and nothing could be saved any more (the lock bar warns before the lock
+ * time runs out, and „Sperren“ asks first).
  */
 export function useUnsavedGuard() {
   const confirm = useConfirm()
+  const { user } = useUserSession()
+  const unlock = useTabletUnlock()
   const guard = async (to: { path: string }, from: { path: string }) => {
     if (to.path === from.path || !hasUnsavedChanges()) return true
+    if (user.value?.role === 'terminal' && !unlock.value?.unlocked) return true
     return await confirm(de.settingsAreas.unsavedConfirm, { confirmLabel: de.settingsAreas.unsavedLeave, danger: true })
   }
   onBeforeRouteLeave(guard)

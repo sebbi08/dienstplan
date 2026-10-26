@@ -1,6 +1,10 @@
 import {
   emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
 } from '#shared/domain/forms'
+import { formatTime } from '#shared/domain/time'
+import type { ChildFormDto, MyTalkFormDto } from '#shared/types/api'
+import { de } from '~/locales/de'
+import { formatDate, formatDateTime } from '~/utils/format'
 
 export type MilestoneItem = Extract<FormItem, { kind: 'milestone' }>
 export type RatingItem = Extract<FormItem, { kind: 'rating' }>
@@ -59,5 +63,82 @@ export function filledAnswers(content: FormContent, answers: FormAnswers): Recor
   return result
 }
 
+/** What the form panel shows of a form: its content, the stored answers and the last change. */
+export interface FormPanelForm {
+  content: FormContent
+  answers: FormAnswers
+  updatedAt: string
+  updatedBy: string
+}
+/** Stores the answers, sent with the updatedAt they are based on; answers the new updatedAt (throws 409 form_changed). */
+export type FormPanelSave = (answers: FormAnswers, expectedUpdatedAt: string) => Promise<{ updatedAt: string }>
+
 /** Whether a text answer is empty (then print shows writing lines). */
 export const isBlank = (value: unknown) => typeof value !== 'string' || value.trim() === ''
+
+/** An age label like „3;0“ or „3;0 Jahre“ (years;months), as on the paper forms. */
+const AGE_LABEL = /^\d{1,2};\d{1,2}(?:\s+Jahre?)?$/
+
+/**
+ * The columns of a milestone block in print: its age labels when there are 2 to 6 of them and each is like „3;0 Jahre“
+ * (then the table has one column per age, as on the paper form, and each sentence is ticked in its own age's column);
+ * null otherwise (rows grouped by age).
+ */
+export function milestoneColumns(groups: { ageLabel: string }[]): string[] | null {
+  const labels = groups.map(group => group.ageLabel.trim())
+  if (labels.length < 2 || labels.length > 6 || !labels.every(label => AGE_LABEL.test(label))) return null
+  return groups.map(group => group.ageLabel)
+}
+
+/** What a form's printout shows besides the form itself: its header table, the signature lines and the stamps. */
+export interface FormSheet {
+  title: string
+  content: FormContent
+  answers: FormAnswers
+  updatedAt: string
+  updatedBy: string
+  /** The PDF's name without extension. */
+  fileName: string
+  /** Label and value per header field, laid out two per row. */
+  header: [string, string][]
+  signatures: [string, string]
+  /** Lines like „abgegeben am …“ above „zuletzt geändert …“. */
+  stamps: string[]
+}
+
+/** The printout of a staff talk's form: the employee and the talk as header, signatures of assessor and employee. */
+export function talkSheet(data: MyTalkFormDto): FormSheet {
+  const h = de.talks.header
+  const { form, talk } = data
+  return {
+    title: form.title, content: form.content, answers: form.answers, updatedAt: form.updatedAt, updatedBy: form.updatedBy,
+    fileName: `${form.title}-${data.employeeName}-${talk.date}`,
+    header: [
+      [h.name, data.employeeName], [h.facility, data.facilityName],
+      [h.date, formatDate(talk.date)], [h.start, talk.start === null ? '' : formatTime(talk.start)],
+      [h.participants, talk.participants], [h.period, talk.period],
+    ],
+    signatures: [de.talks.signatureAssessor, de.talks.signatureEmployee],
+    stamps: [
+      ...(form.submittedAt ? [de.talks.submittedAt(formatDateTime(form.submittedAt))] : []),
+      ...(form.readReleasedAt ? [de.talks.readReleasedAt(formatDateTime(form.readReleasedAt))] : []),
+    ],
+  }
+}
+
+/** The printout of a child's observation form: child and meeting data as header, signatures of educator and parents. */
+export function childSheet(data: ChildFormDto): FormSheet {
+  const h = de.childForms.header
+  const name = `${data.child.firstName} ${data.child.lastName}`.trim()
+  return {
+    title: data.title, content: data.content, answers: data.answers, updatedAt: data.updatedAt, updatedBy: data.updatedBy,
+    fileName: `${data.title}-${name}-${data.date}`,
+    header: [
+      [h.name, name], [h.birthDate, formatDate(data.child.birthDate)],
+      [h.group, data.child.groupName ?? ''], [h.date, data.date ? formatDate(data.date) : ''],
+      [h.start, data.start === null ? '' : formatTime(data.start)], [h.participants, data.participants],
+    ],
+    signatures: [de.childForms.signatureStaff, de.childForms.signatureGuardian],
+    stamps: [],
+  }
+}
