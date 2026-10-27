@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, like, ne, or, sql } from 'drizzle-orm'
 import { todayIso } from '../../shared/domain/dates'
 import { confirmsName } from '../../shared/domain/confirmName'
+import { mayDeleteEmployeeByHand } from '../../shared/domain/retention'
 import { isManager } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
@@ -13,6 +14,7 @@ import {
   weekTemplateEntries,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { getRetentionSettings } from './retentionSettings'
 
 /** Warning types whose acknowledgement key names an employee as subject (`<type>|<date>|<employeeId>`, warningList.ts). */
 const EMPLOYEE_WARNING_TYPES = new Set(['missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan'])
@@ -49,7 +51,8 @@ function dropWarningAcks(db: Db, employeeId: number): number {
  * keeps no Bezugserzieher; logs keep the name, without the id. A linked Leitung or Mitarbeiter account is deleted, a
  * Träger account only unlinked.
  *
- * Only Träger and Leitung (403 forbidden), for an employee of their facility (404 employee_not_found), never their own
+ * Only Träger and Leitung (403 forbidden), as far as the facility's Träger setting „Mitarbeiter endgültig löschen“
+ * allows (aus: nobody, nur Träger: no Leitung; 403 employee_delete_disabled, retentionSettings.ts), for an employee of their facility (404 employee_not_found), never their own
  * record (403 employee_delete_self); a Leitung cannot delete a Träger's employee (403 employee_delete_provider). 409
  * employee_not_left before the leaving day has passed, 400 employee_delete_confirm_mismatch unless `confirm` is the
  * name (compared as confirmsName does). Everything happens in one transaction; a reference left behind rolls it back
@@ -59,6 +62,9 @@ export function deleteLeftEmployee(
   db: Db, actor: SessionUser, facilityId: number, employeeId: number, confirm: string, today: IsoDate = todayIso(),
 ): void {
   if (!isManager(actor.role)) throw new ServiceError(403, 'forbidden')
+  if (!mayDeleteEmployeeByHand(getRetentionSettings(db, facilityId).employeeDelete, actor.role)) {
+    throw new ServiceError(403, 'employee_delete_disabled')
+  }
   const employee = db.select({ name: employees.name, leftOn: employees.leftOn }).from(employees)
     .where(and(eq(employees.id, employeeId), eq(employees.facilityId, facilityId))).get()
   if (!employee) throw new ServiceError(404, 'employee_not_found')

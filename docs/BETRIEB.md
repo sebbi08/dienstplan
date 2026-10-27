@@ -708,6 +708,10 @@ Druck-Knöpfe.
   Datum „ausgeschieden am“ **vor heute** liegt (wer heute ausscheidet, ist noch aktiv). Leitung und Träger dürfen das
   für die Mitarbeiter der Einrichtung, in der sie gerade arbeiten – nur nicht den **eigenen** Eintrag, und eine Person
   mit **Träger-Konto** löscht nur der Träger.
+- Ob der Knopf da ist, legt der Träger unter *Einstellungen → Personal → Löschfristen* fest („Mitarbeiter endgültig
+  löschen“): **aus** (niemand, nur noch die automatische Löschung nach den Fristen), **nur Träger** oder **Leitung und
+  Träger** (voreingestellt). Endgültig löschen beachtet die Aufbewahrungsfristen **nicht** – nur für Probe- und
+  Fehleinträge; der Dialog weist darauf hin.
 - Ein Dialog zählt auf, was gelöscht wird. Zum Bestätigen **tippst du den Namen genau so ein**, wie er dasteht; erst
   dann geht der Knopf. **Das lässt sich nicht rückgängig machen** – braucht ihr die Daten vielleicht noch, lädt der
   Träger vorher eine Sicherung herunter.
@@ -721,6 +725,32 @@ Druck-Knöpfe.
   nicht mehr). Ein **Träger-Konto** bleibt bestehen und ist danach nur mit keinem Mitarbeiter mehr verknüpft.
 - **Bleibt erhalten:** Teamsitzungen und alles, wo der Name nur als Bearbeiter steht (z. B. „eingetragen von …“ in der
   Kinderakte). Bei Kindern, deren Bezugserzieher die Person war, ist danach niemand eingetragen.
+
+### Löschfristen
+
+Die Daten ausgeschiedener Mitarbeiter löscht die App **automatisch im täglichen Lauf** (einmal am Tag), je
+nach Art zu einem anderen Tag. Jede Frist beginnt am **Ende des Jahres**, in dem die Person ausgeschieden ist; gelöscht
+wird am 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahre → gelöscht am 01.01.2029.
+
+| Wann | Was |
+|---|---|
+| am Tag nach „ausgeschieden am“ | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst), Qualifikation, Vertragsdaten, Wochenstunden-Verläufe, Pflichttermine, Urlaubsanträge, Aushilfen, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
+| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
+| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise |
+| „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung) |
+| „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
+| zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald keine Frist mehr läuft |
+
+- Die Fristen stellt der **Träger** je Einrichtung unter *Einstellungen → Personal → Löschfristen* ein (1 bis 40 Jahre;
+  „Einstellungen für“ geht auch hier). Die Leitung sieht sie dort nur. Dort stehen auch „Mitarbeiter endgültig
+  löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
+- Eine geänderte Frist gilt ab dem nächsten täglichen Lauf. Schon Gelöschtes kommt nicht zurück.
+- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, wann was gelöscht wird („Zeitdaten werden am …
+  gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“).
+- Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), löscht die App nichts weiter.
+- Das Server-Protokoll nennt nach jedem Lauf, wie viele Datensätze je Art gelöscht wurden (ohne Namen).
+- Die Fristen sind vorbelegt nach den Vorgaben des Trägers – bitte im Zweifel mit Steuerberatung bzw. Datenschutz
+  klären. Gelöschtes steckt noch in älteren Sicherungen (siehe Abschnitt 8, „Gelöschte Daten und Sicherungen“).
 
 ### Die Seite einer Person
 

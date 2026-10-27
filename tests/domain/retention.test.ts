@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  RETENTION_DEFAULTS, RetentionSettingsError, cashDeletableFrom, checkRetentionSettings, retentionDueDates,
+  RETENTION_DEFAULTS, RetentionSettingsError, cashDeletableFrom, checkRetentionSettings, mayDeleteEmployeeByHand,
+  retentionDueDates,
 } from '../../shared/domain/retention'
 
 describe('retentionDueDates', () => {
@@ -82,5 +83,19 @@ describe('checkRetentionSettings', () => {
     } catch (error) {
       expect((error as RetentionSettingsError).code).toBe('retention_settings_invalid')
     }
+  })
+})
+
+describe('mayDeleteEmployeeByHand', () => {
+  it('follows the Träger setting: aus nobody, nur Träger the Träger, Leitung und Träger both; Mitarbeiter never', () => {
+    expect(mayDeleteEmployeeByHand('off', 'provider')).toBe(false)
+    expect(mayDeleteEmployeeByHand('off', 'admin')).toBe(false)
+    expect(mayDeleteEmployeeByHand('provider', 'provider')).toBe(true)
+    expect(mayDeleteEmployeeByHand('provider', 'admin')).toBe(false)
+    expect(mayDeleteEmployeeByHand('managers', 'provider')).toBe(true)
+    expect(mayDeleteEmployeeByHand('managers', 'admin')).toBe(true)
+    expect(mayDeleteEmployeeByHand('managers', 'observer')).toBe(false)
+    expect(mayDeleteEmployeeByHand('managers', 'terminal')).toBe(false)
+    expect(mayDeleteEmployeeByHand('managers', null)).toBe(false)
   })
 })

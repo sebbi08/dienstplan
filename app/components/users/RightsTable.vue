@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
  * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
-type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14
+type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
 type Right = 'yes' | 'no' | Footnote
 const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
@@ -34,6 +34,8 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Ausgeschiedene Mitarbeiter endgültig löschen (mit allen ihren Daten und ihrem Zugang)', rights: [12, 12, 'no', 'no'] },
+    { label: 'Löschfristen der ausgeschiedenen Mitarbeiter und der Kasse einsehen (Einstellungen → Personal)', rights: ['yes', 15, 'no', 'no'] },
+    { label: 'Löschfristen ändern, festlegen wer Mitarbeiter endgültig löschen darf', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Pflichttermine (z. B. Betriebsarzt, Erste-Hilfe-Kurs) und Fortbildungen der Mitarbeiter eintragen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Hinweis auf fällige, überfällige und fehlende Pflichttermine sehen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Eigene Pflichttermine und Fortbildungen ansehen („Meine Termine“, ohne Hinweis)', rights: [1, 1, 'yes', 'no'] },
@@ -111,9 +113,10 @@ const FOOTNOTES: Record<Footnote, string> = {
   9: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN) und nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
   10: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person',
   11: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person; ohne Leitungsrechte nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
-  12: 'nur ausgeschiedene Mitarbeiter, mit Eingabe des Namens; nie das eigene Konto; eine Leitung nicht, wenn die Person mit einem Träger-Konto verknüpft ist',
+  12: 'nur, wenn die Träger-Einstellung „Mitarbeiter endgültig löschen“ (Löschfristen) es der Rolle erlaubt: aus / nur Träger / Leitung und Träger; nur ausgeschiedene Mitarbeiter, mit Eingabe des Namens; nie das eigene Konto; eine Leitung nicht, wenn die Person mit einem Träger-Konto verknüpft ist',
   13: 'nicht für das eigene Gespräch – das führt der Träger bzw. eine andere Leitung',
   14: 'nicht mit dem eigenen Konto, nur am Tablet (Name und PIN): als Bezugserzieher des Kindes oder wenn Leitung/Träger für den Bogen freigeschaltet hat',
+  15: 'nur lesen',
 }
 </script>
 

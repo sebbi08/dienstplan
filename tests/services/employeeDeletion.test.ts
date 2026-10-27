@@ -8,6 +8,8 @@ import {
 import { getActiveUser } from '../../server/services/auth'
 import { deleteLeftEmployee } from '../../server/services/employeeDeletion'
 import { applyToCells } from '../../server/services/entries'
+import { getRetentionSettings, setRetentionSettings } from '../../server/services/retentionSettings'
+import type { EmployeeDeleteMode } from '../../shared/domain/retention'
 import { getMonthPlan } from '../../server/services/plan'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import { employeeReferences, fillEmployeeData } from '../helpers/employeeData'
@@ -175,5 +177,55 @@ describe('deleting a left employee', () => {
     deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today)
     expect(db.select().from(employees).where(eq(employees.id, tina)).get()).toBeUndefined()
     expect(db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(1)
+  })
+})
+
+describe('the Träger setting „Mitarbeiter endgültig löschen“', () => {
+  const exists = (id: number) => db.select().from(employees).where(eq(employees.id, id)).get() !== undefined
+  const setMode = (facilityId: number, employeeDelete: EmployeeDeleteMode) =>
+    setRetentionSettings(db, facilityId, { ...getRetentionSettings(db, facilityId), employeeDelete })
+
+  it('aus: nobody deletes by hand, not even the Träger', () => {
+    setMode(1, 'off')
+    expect(errorCode(() => deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today))).toBe('employee_delete_disabled')
+    expect(errorCode(() => deleteLeftEmployee(db, traeger, 1, tina, 'Tina Test', today))).toBe('employee_delete_disabled')
+    expect(exists(tina)).toBe(true)
+  })
+
+  it('nur Träger: the Leitung is refused, the Träger deletes', () => {
+    setMode(1, 'provider')
+    expect(errorCode(() => deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today))).toBe('employee_delete_disabled')
+    expect(exists(tina)).toBe(true)
+    deleteLeftEmployee(db, traeger, 1, tina, 'Tina Test', today)
+    expect(exists(tina)).toBe(false)
+  })
+
+  it('Leitung und Träger (the default): both delete, the other guards still apply', () => {
+    expect(getRetentionSettings(db, 1).employeeDelete).toBe('managers')
+    deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today)
+    expect(exists(tina)).toBe(false)
+    const otto = addEmployee(db, 'Otto Ohne', { leftOn: '2026-09-30' })
+    deleteLeftEmployee(db, traeger, 1, otto, 'Otto Ohne', today)
+    expect(exists(otto)).toBe(false)
+    expect(errorCode(() => deleteLeftEmployee(db, leitung, 1, ben, 'Ben Beispiel', today))).toBe('employee_not_left')
+  })
+
+  it('counts the setting of the facility the person belongs to', () => {
+    setMode(hort, 'off')
+    deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today)
+    expect(exists(tina)).toBe(false)
+    const hanna = addEmployee(db, 'Hanna Hort', { leftOn: '2026-09-30', facilityId: hort })
+    expect(errorCode(() => deleteLeftEmployee(db, traeger, hort, hanna, 'Hanna Hort', today))).toBe('employee_delete_disabled')
+    setMode(hort, 'managers')
+    deleteLeftEmployee(db, traeger, hort, hanna, 'Hanna Hort', today)
+    expect(exists(hanna)).toBe(false)
+  })
+
+  it('refuses Mitarbeiter accounts as before, whatever the setting', () => {
+    const benAccount = addUser(db, 'ben', 'observer', ben)
+    for (const mode of ['off', 'provider', 'managers'] as const) {
+      setMode(1, mode)
+      expect(errorCode(() => deleteLeftEmployee(db, benAccount, 1, tina, 'Tina Test', today))).toBe('forbidden')
+    }
   })
 })

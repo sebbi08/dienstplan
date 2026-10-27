@@ -91,7 +91,7 @@ const groupItems = computed(() => [
 
 const confirm = useConfirm()
 const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso(), workdays: 31 })
-const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '' })
+const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '', paidOut: false })
 const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30, carriedOverDays: 0 })
 
 // Where the person clocks in and out, and whether breaks are clocked or deducted automatically (Leitung decides).
@@ -175,9 +175,9 @@ async function addAdjustment() {
   }
   const ok = await run(() => $fetch<unknown>(`/api/employees/${id}/adjustments`, {
     method: 'POST',
-    body: { date: adjustmentForm.date, minutes: minutes * adjustmentForm.sign, reason: adjustmentForm.reason },
+    body: { date: adjustmentForm.date, minutes: minutes * adjustmentForm.sign, reason: adjustmentForm.reason, paidOut: adjustmentForm.paidOut },
   }), de.common.saved)
-  if (ok) Object.assign(adjustmentForm, { amount: '', reason: '' })
+  if (ok) Object.assign(adjustmentForm, { amount: '', reason: '', paidOut: false })
 }
 
 async function deleteAdjustment(adjustmentId: number) {
@@ -371,7 +371,10 @@ async function onTabKey(event: KeyboardEvent) {
           <tr v-for="adjustment in employee.adjustments" :key="adjustment.id" class="border-t border-gray-100">
             <td class="py-1">{{ formatDate(adjustment.date) }}</td>
             <td class="py-1 font-medium" :class="balanceClass(adjustment.minutes)">{{ formatSignedDuration(adjustment.minutes) }}</td>
-            <td class="py-1">{{ adjustment.reason }}</td>
+            <td class="py-1">
+              {{ adjustment.reason }}
+              <UBadge v-if="adjustment.paidOut" size="sm" variant="soft" color="neutral" :label="de.employees.paidOut" class="ml-1" />
+            </td>
             <td class="py-1 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteAdjustment(adjustment.id)" /></td>
           </tr>
         </tbody>
@@ -386,8 +389,10 @@ async function onTabKey(event: KeyboardEvent) {
         </UFormField>
         <UFormField :label="de.employees.amount"><UInput v-model="adjustmentForm.amount" placeholder="12:30" required /></UFormField>
         <UFormField :label="de.employees.reason"><UInput v-model="adjustmentForm.reason" maxlength="200" required /></UFormField>
+        <UCheckbox v-model="adjustmentForm.paidOut" :label="de.employees.paidOut" class="pb-1.5" />
         <UButton type="submit" icon="i-lucide-plus" :label="de.employees.addAdjustment" />
       </form>
+      <p class="text-xs text-gray-500">{{ de.employees.paidOutHint }}</p>
     </section>
 
     <EmployeesContractSection

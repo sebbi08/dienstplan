@@ -17,7 +17,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
-      ['staff', ['staffing']],
+      ['staff', ['staffing', 'employee-retention']],
     ])
   })
 
@@ -28,7 +28,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
-      ['staff', ['staffing']],
+      ['staff', ['staffing', 'employee-retention']],
     ])
   })
 
@@ -104,6 +104,13 @@ describe('searchSettings', () => {
     expect(firstHit('oeffnung')).toBeUndefined()
     expect(firstHit('offnungszeiten')?.key).toBe('facility-hours')
     expect(firstHit('LÖSCHFRIST')?.key).toBe('retention')
+  })
+
+  it('finds the Löschfristen of the staff for the Träger and the Leitung (who only reads them)', () => {
+    for (const viewer of [provider, leitung]) {
+      expect(searchSettings('ausgezahlt', viewer)[0]).toMatchObject({ key: 'employee-retention', where: 'Personal', to: '/admin/settings/staff#section-employee-retention' })
+      expect(searchSettings('Löschfristen', viewer).map(hit => hit.key)).toContain('employee-retention')
+    }
   })
 
   it('does not offer Träger-only sections to the Leitung', () => {

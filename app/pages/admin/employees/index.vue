@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { confirmsName } from '#shared/domain/confirmName'
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { mayDeleteEmployeeByHand, type RetentionSettings } from '#shared/domain/retention'
 import { MONDAY_TO_FRIDAY } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type {
@@ -10,6 +11,7 @@ import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { splitLeavers } from '~/utils/leavers'
+import { archiveRetentionText } from '~/utils/retentionText'
 import { staffBadges, type StaffBadge } from '~/utils/staffList'
 import { workdaysText } from '~/utils/workdays'
 
@@ -114,14 +116,22 @@ async function create() {
   }
 }
 
+// The facility's Löschfristen: when the data of each person in the archive is deleted, and who may delete by hand.
+const { data: retention } = await useFetch<RetentionSettings>('/api/retention-settings', { key: 'employees-retention-settings' })
+const retentionLine = (employee: EmployeeListItemDto) =>
+  retention.value && employee.leftOn ? archiveRetentionText(employee.leftOn, retention.value, todayIso()) : null
+
 /**
- * „Endgültig löschen“ in the archive: the dialog lists what goes and asks for the exact name. Not for the own record,
- * and for a Leitung not for a person with a Träger account (the server refuses both as well).
+ * „Endgültig löschen“ in the archive: the dialog lists what goes, warns that the Löschfristen are not kept, and asks
+ * for the exact name. Only as far as the Träger setting allows it for the role, not for the own record, and for a
+ * Leitung not for a person with a Träger account (the server refuses all of these as well).
  */
 const deleting = ref<EmployeeListItemDto | null>(null)
 const deleteName = ref('')
 const accountOf = (employeeId: number) => users.value?.find(account => account.employeeId === employeeId) ?? null
-const mayDelete = (employee: EmployeeListItemDto) => employee.id !== user.value?.employeeId
+const mayDelete = (employee: EmployeeListItemDto) => !!retention.value
+  && mayDeleteEmployeeByHand(retention.value.employeeDelete, user.value?.role)
+  && employee.id !== user.value?.employeeId
   && (isProvider.value || accountOf(employee.id)?.role !== 'provider')
 const deleteAccount = computed(() => deleting.value ? accountOf(deleting.value.id) : null)
 const nameConfirmed = computed(() => deleting.value !== null && confirmsName(deleteName.value, deleting.value.name))
@@ -290,6 +300,7 @@ const td = 'px-3 py-2'
             v-if="mayDelete(employee)" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" class="sm:ml-auto"
             :label="de.employees.deleteForGood" @click="askDelete(employee)"
           />
+          <p v-if="retentionLine(employee)" class="basis-full text-xs text-gray-500">{{ retentionLine(employee) }}</p>
         </li>
       </ul>
     </details>
@@ -307,6 +318,7 @@ const td = 'px-3 py-2'
           </ul>
           <p v-if="deleteAccount?.role === 'provider'" class="text-gray-700">{{ de.employees.deleteProviderAccount(deleteAccount.username) }}</p>
           <p class="text-gray-600">{{ de.employees.deleteKept }}</p>
+          <p class="font-medium text-red-700">{{ de.employees.deleteRetentionWarning }}</p>
           <p class="font-medium text-amber-800">{{ de.employees.deleteBackupHint }}</p>
           <UFormField :label="de.employees.deleteTypeName(deleting.name)">
             <UInput v-model="deleteName" class="w-full" autocomplete="off" />

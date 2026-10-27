@@ -1,4 +1,5 @@
 import { addDays, parseIsoDate, toIsoDate } from './dates'
+import type { Role } from '../types/api'
 import type { IsoDate } from './types'
 
 export type EmployeeDeleteMode = 'off' | 'provider' | 'managers'
@@ -49,6 +50,16 @@ export function retentionDueDates(leftOn: IsoDate, settings: RetentionSettings):
     assessment: firstJanuaryAfter(leftOn, settings.assessmentYears),
     paidOvertime: firstJanuaryAfter(leftOn, settings.paidOvertimeYears),
   }
+}
+
+/**
+ * Whether the role may delete a left employee by hand („Endgültig löschen“) under the Träger setting: aus nobody, nur
+ * Träger the Träger, Leitung und Träger both. The other guards (own record, Träger account, not left yet) come on top.
+ */
+export function mayDeleteEmployeeByHand(mode: EmployeeDeleteMode, role: Role | null | undefined): boolean {
+  if (mode === 'off') return false
+  if (mode === 'provider') return role === 'provider'
+  return role === 'provider' || role === 'admin'
 }
 
 /** First day a cash box may be deleted; null = no entries, deletable any time. */
