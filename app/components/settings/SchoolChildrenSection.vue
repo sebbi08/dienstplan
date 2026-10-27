@@ -14,6 +14,8 @@ const { user } = useUserSession()
 const isProvider = computed(() => user.value?.role === 'provider')
 const toast = useToast()
 const { data: facilities } = useFacilities()
+// The facility the settings show (the Träger may have chosen another one than the active facility).
+const settingsFacilityId = useSettingsFacilityId()
 const notifySwitchedOff = useAutoLeaveNotice()
 const s = de.schoolChildren
 // Who left or is listed elsewhere changes with the switch; those lists follow.
@@ -52,7 +54,7 @@ const save = () => dirty.value && saveCutoff({ cutoffMonth: month.value, cutoffD
 // The cutoff the school law of the facility's state names, offered while the stored one differs (the hint on where
 // suggestions come from is always shown). Adopting is a normal cutoff change (it switches the automatic leaving off,
 // as the server tells).
-const activeState = computed(() => facilities.value?.facilities.find(facility => facility.id === facilities.value?.activeId)?.state ?? null)
+const activeState = computed(() => facilities.value?.facilities.find(facility => facility.id === settingsFacilityId.value)?.state ?? null)
 const stateCutoff = computed(() => {
   const law = data.value?.stateCutoff
   const same = law && law.cutoffMonth === data.value?.cutoffMonth && law.cutoffDay === data.value?.cutoffDay && law.ageYears === data.value?.ageYears

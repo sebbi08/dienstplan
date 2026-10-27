@@ -29,7 +29,7 @@ export function firstFacilityId(db: Db): number | null {
   return db.select({ id: facilities.id }).from(facilities).orderBy(...ordered).limit(1).get()?.id ?? null
 }
 
-function facilityExists(db: Db, id: number): boolean {
+export function facilityExists(db: Db, id: number): boolean {
   return db.select({ id: facilities.id }).from(facilities).where(eq(facilities.id, id)).get() !== undefined
 }
 

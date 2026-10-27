@@ -1,12 +1,13 @@
 import type { H3Event } from 'h3'
-import { PAGE_FACILITY_HEADER } from '../../shared/domain/pageFacility'
+import { PAGE_FACILITY_HEADER, SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { isManager } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
+import { facilityExists } from '../services/facilities'
 import { templateReaderFacility } from '../services/printTemplates'
 import { resolveChildViewer } from '../services/tabletUnlock'
 import { asChildEditor, asChildManager, type ChildActor, type ChildViewer } from '../lib/childViewer'
-import { assertPageFacility } from '../lib/pageFacility'
+import { assertPageFacility, requestFacility } from '../lib/pageFacility'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
 
 export { USER_SESSION_DAYS }
@@ -27,11 +28,27 @@ function checkPageFacility(event: H3Event, user: SessionUser): void {
   assertPageFacility(user, getHeader(event, PAGE_FACILITY_HEADER))
 }
 
-/** The facility the user works in; 403 `no_facility` without one, 409 `facility_changed` from a stale Träger page. */
+/**
+ * The user as this request works with them: checked against the stale-page rule with the active facility, and for the
+ * Träger on the settings pages with the facility they edit there instead (see pageFacility.ts). The session stays as it
+ * is; the request remembers the real active facility, so a second guard in the same route checks against it again.
+ */
+function withRequestFacility<T extends FacilityUser>(event: H3Event, user: T): T {
+  const active: number = event.context.activeFacilityId ?? user.facilityId
+  const facilityId = requestFacility({ ...user, facilityId: active }, {
+    page: getHeader(event, PAGE_FACILITY_HEADER), settings: getHeader(event, SETTINGS_FACILITY_HEADER),
+  }, id => facilityExists(useDb(), id))
+  if (facilityId !== active) event.context.activeFacilityId = active
+  return facilityId === user.facilityId ? user : { ...user, facilityId }
+}
+
+/**
+ * The facility the user works in (for the Träger on the settings pages: the one they edit there); 403 `no_facility`
+ * without one, 409 `facility_changed` from a stale Träger page.
+ */
 export function requireFacility(event: H3Event, user: SessionUser): number {
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
-  checkPageFacility(event, user)
-  return user.facilityId
+  return withRequestFacility(event, user).facilityId
 }
 
 /** Loads the current user fresh from the database, so role changes and deactivation apply immediately. */
@@ -59,13 +76,19 @@ export async function requireTerminal(event: H3Event): Promise<FacilityUser> {
   return user
 }
 
-/** Träger or Leitung (everything that runs the facility), working in their (active) facility. */
-export async function requireAdmin(event: H3Event): Promise<FacilityUser> {
+/**
+ * Träger or Leitung (everything that runs the facility), working in their (active) facility; the Träger on the settings
+ * pages in the facility they edit there. `activeFacility`: always the active one (the header's facility switcher).
+ */
+export async function requireAdmin(event: H3Event, options: { activeFacility?: boolean } = {}): Promise<FacilityUser> {
   const user = await requireUser(event)
   if (!isManager(user.role)) throw httpError(403, 'forbidden')
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
-  checkPageFacility(event, user)
-  return user
+  if (options.activeFacility) {
+    checkPageFacility(event, user)
+    return user
+  }
+  return withRequestFacility(event, user)
 }
 
 /**
@@ -96,10 +119,11 @@ export async function storeChildUnlockToken(event: H3Event, token: string): Prom
  */
 export async function requireChildReader(event: H3Event): Promise<ChildViewer> {
   const user = await requireUser(event, { allowTerminal: true })
-  const viewer = resolveChildViewer(useDb(), user, await childUnlockToken(event))
-  // The tablet has one facility; only a Träger's page can be stale.
-  if (!viewer.onTablet) checkPageFacility(event, user)
-  return viewer
+  const token = await childUnlockToken(event)
+  // The tablet has one facility; only a manager's page can be stale, and only the Träger's settings pages (care and
+  // document types) name another facility.
+  const reader = isManager(user.role) && hasFacility(user) ? withRequestFacility(event, user) : user
+  return resolveChildViewer(useDb(), reader, token)
 }
 
 /** Whoever may maintain child records: the managers, and Mitarbeiter with the permission at the tablet. */

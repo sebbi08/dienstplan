@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
-import { searchSettings, visibleSettingsAreas, type SettingsHit } from '~/utils/settingsAreas'
+import { areaPath, searchSettings, visibleSettingsAreas, type SettingsHit } from '~/utils/settingsAreas'
 
 /**
  * The frame of the settings: the search on top, on a wide screen the areas as a menu on the left, and the open area or
  * group page (child route) next to it. On a phone the overview lists the areas and each page has a link back. Leaving a
- * page with unsaved edits asks first.
+ * page with unsaved edits asks first. The Träger chooses on top whose settings are shown („Einstellungen für“); the
+ * header and every other page stay on the active facility.
  */
 const { user } = useUserSession()
 const viewer = computed(() => ({ isProvider: user.value?.role === 'provider' }))
@@ -25,6 +26,32 @@ const hits = computed(() => searchSettings(query.value, viewer.value, {
 }))
 const showHits = computed(() => query.value.trim().length >= 2)
 
+// „Einstellungen für“ (Träger only, with more than one facility): another facility's settings without switching.
+const { data: facilities } = useFacilities()
+const chosenFacility = useSettingsFacility()
+const shownFacility = useSettingsFacilityId()
+const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
+const showFacilityChoice = computed(() => viewer.value.isProvider && facilityItems.value.length > 1)
+const facilityName = (id: number | null | undefined) => facilities.value?.facilities.find(facility => facility.id === id)?.name ?? ''
+const otherFacilityHint = computed(() => chosenFacility.value === null ? null
+  : s.otherFacilityHint(facilityName(chosenFacility.value), facilityName(facilities.value?.activeId)))
+const confirm = useConfirm()
+// Each choice shows the open page anew, so no form keeps a draft or a list of the facility shown before.
+const shownVersion = ref(0)
+const pageKey = (target: { path: string }) => `${target.path}|${shownVersion.value}`
+
+async function chooseFacility(facilityId: number) {
+  if (!Number.isInteger(facilityId) || facilityId === shownFacility.value) return
+  // A group belongs to the facility shown so far: back to the list of groups (asks about unsaved edits itself).
+  if (route.path.startsWith('/admin/settings/groups/')) {
+    if (await navigateTo(areaPath('groups'))) return
+  }
+  else if (hasUnsavedChanges() && !await confirm(s.unsavedConfirm, { confirmLabel: s.unsavedSwitch, danger: true })) return
+  chosenFacility.value = facilityId === facilities.value?.activeId ? null : facilityId
+  await refreshNuxtData()
+  shownVersion.value++
+}
+
 async function open(hit: SettingsHit | undefined) {
   if (!hit) return
   // A refused navigation (unsaved edits kept) resolves with the failure and leaves the search as it is.
@@ -36,6 +63,17 @@ async function open(hit: SettingsHit | undefined) {
 <template>
   <div class="mx-auto max-w-6xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.settings.title }}</h1>
+
+    <div v-if="showFacilityChoice" class="space-y-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm font-medium">{{ s.settingsFor }}:</span>
+        <USelect
+          :model-value="shownFacility ?? undefined" :items="facilityItems" :aria-label="s.settingsFor" class="w-full sm:w-64"
+          @update:model-value="chooseFacility(Number($event))"
+        />
+      </div>
+      <UAlert v-if="otherFacilityHint" color="warning" variant="subtle" icon="i-lucide-building-2" :title="otherFacilityHint" />
+    </div>
 
     <div class="relative max-w-xl">
       <UInput
@@ -72,7 +110,7 @@ async function open(hit: SettingsHit | undefined) {
         <NuxtLink v-if="showBack" to="/admin/settings" class="inline-flex items-center gap-1 text-sm text-sky-700 hover:underline md:hidden">
           <UIcon name="i-lucide-chevron-left" class="size-4" aria-hidden="true" /> {{ s.back }}
         </NuxtLink>
-        <NuxtPage />
+        <NuxtPage :page-key="pageKey" />
       </div>
     </div>
   </div>

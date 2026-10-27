@@ -1065,6 +1065,14 @@ sehen keine Warnungen.
 - **Einrichtung wechseln (Träger):** Nach dem Wechsel bleibt die App auf derselben Seite, jetzt für die neue Einrichtung.
   Warst du auf einer einzelnen Person, einem Kind, einer Kasse, einer Teamsitzung oder einer Gruppe, landest du auf der
   Liste dieses Bereichs (die gibt es in der anderen Einrichtung nicht).
+- **Einstellungen einer anderen Einrichtung (Träger):** Oben in den *Einstellungen* wählst du bei **„Einstellungen für“**
+  eine andere Einrichtung, ohne oben in der App zu wechseln. Alle Bereiche der Einstellungen (Öffnungszeiten, Gruppen,
+  Dienste, Tablet, Kinder, Erinnerungen, Personal …) zeigen und ändern dann diese Einrichtung; ein gelber Hinweis sagt,
+  welche, und dass oben die bisherige Einrichtung eingestellt bleibt. Die Auswahl gilt, solange du in den Einstellungen
+  bleibst; verlässt du sie (oder lädst die Seite neu), gilt wieder die oben eingestellte Einrichtung. Was für alle
+  Einrichtungen gilt (Liste der Einrichtungen, Codes, Urlaubsanträge, Löschfrist, Datensicherung), bleibt davon unberührt.
+  Ungespeicherte Änderungen fragt die App vor dem Wechsel ab; auf der Seite einer Gruppe geht es zurück zur Gruppenliste.
+  Die Leitung hat diese Auswahl nicht.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
   unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Bögen, Benutzer, Einstellungen und Passwort ändern.

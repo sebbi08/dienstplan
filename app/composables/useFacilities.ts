@@ -11,6 +11,22 @@ export function usePageFacility() {
 }
 
 /**
+ * The facility whose settings the Träger edits on the settings pages when it is not the active one (null: the active
+ * one). Kept while moving between the settings pages and dropped on leaving them (see plugins/pageFacility.client.ts);
+ * the header and every other page stay on the active facility.
+ */
+export function useSettingsFacility() {
+  return useState<number | null>('settings-facility', () => null)
+}
+
+/** The facility the settings pages show: the one the Träger chose there, otherwise the active one. */
+export function useSettingsFacilityId() {
+  const chosen = useSettingsFacility()
+  const { data } = useFacilities()
+  return computed(() => chosen.value ?? data.value?.activeId ?? null)
+}
+
+/**
  * The facilities the signed-in manager may see and the one they work in (shared by key between the header,
  * the settings and the users page). Not fetched for employees and tablets, which have no facility switcher.
  */

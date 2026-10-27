@@ -8,13 +8,14 @@ import { de } from '~/locales/de'
 const props = defineProps<{ groupId: number }>()
 const { data: groups, refresh } = useGroups()
 const { data: facilities } = useFacilities()
+// The facility the settings show (the Träger may have chosen another one than the active facility).
+const settingsFacilityId = useSettingsFacilityId()
 // The places are shown in the Belegung and the child pages' group list too.
 const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshNuxtData(['child-groups', 'children-occupancy'])]))
 
 const group = computed(() => groups.value?.find(candidate => candidate.id === props.groupId) ?? null)
 const facilityCapacity = computed(() => {
-  const list = facilities.value
-  return list?.facilities.find(facility => facility.id === list.activeId)?.capacity ?? null
+  return facilities.value?.facilities.find(facility => facility.id === settingsFacilityId.value)?.capacity ?? null
 })
 
 const storedText = computed(() => (group.value?.capacity == null ? '' : String(group.value.capacity)))

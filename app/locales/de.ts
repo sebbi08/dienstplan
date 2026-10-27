@@ -1157,6 +1157,10 @@ export const de = {
     unsavedConfirm: 'Du hast Änderungen, die noch nicht gespeichert sind. Wenn du die Seite verlässt, gehen sie verloren.',
     unsavedLeave: 'Verwerfen und verlassen',
     openGroupSettings: (name: string) => `Einstellungen der Gruppe ${name}`,
+    settingsFor: 'Einstellungen für',
+    otherFacilityHint: (name: string, active: string) =>
+      `Du bearbeitest die Einstellungen von ${name}. Oben in der App bleibt ${active} eingestellt.`,
+    unsavedSwitch: 'Verwerfen und wechseln',
   },
   cash: {
     title: 'Kasse', facility: 'Einrichtung', create: 'Kasse anlegen', edit: 'Kasse bearbeiten',
