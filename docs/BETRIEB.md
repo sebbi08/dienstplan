@@ -1062,6 +1062,9 @@ sehen keine Warnungen.
 
 ## 21. Menü
 
+- **Einrichtung wechseln (Träger):** Nach dem Wechsel bleibt die App auf derselben Seite, jetzt für die neue Einrichtung.
+  Warst du auf einer einzelnen Person, einem Kind, einer Kasse, einer Teamsitzung oder einer Gruppe, landest du auf der
+  Liste dieses Bereichs (die gibt es in der anderen Einrichtung nicht).
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
   unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Bögen, Benutzer, Einstellungen und Passwort ändern.

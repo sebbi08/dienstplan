@@ -5,6 +5,7 @@ import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { isChildPagePath } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
+import { pathAfterFacilitySwitch } from '~/utils/facilitySwitch'
 import { isEntryActive, isGroupActive, navMenu, navLabelWithCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
@@ -34,9 +35,9 @@ async function switchFacility(facilityId: number) {
     toast.add({ title: errorMessage(error), color: 'error' })
     return
   }
-  // Every page shows data of the active facility, so start over with fresh data. The current page may belong to the old
-  // facility (e.g. an employee detail page would 404), so go to the plan start page.
-  await reloadNuxtApp({ path: `/plan/${today.year}/${today.month}`, ttl: 0 })
+  // Every page shows data of the active facility, so start over with fresh data on the same page; a page of one record of
+  // the old facility (e.g. an employee, which would 404) goes to the list of its area.
+  await reloadNuxtApp({ path: pathAfterFacilitySwitch(route.fullPath), ttl: 0 })
 }
 
 const route = useRoute()
