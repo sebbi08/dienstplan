@@ -1,7 +1,6 @@
 import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm'
 import { confirmsName } from '../../shared/domain/confirmName'
 import { todayIso } from '../../shared/domain/dates'
-import { isManager } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -15,7 +14,7 @@ import { foreignKeyViolations } from './employeeDeletion'
 /**
  * „Endgültig löschen“ of an archived box once its retention period has run (spec Löschfristen §4), see removeArchivedBox.
  *
- * Only Träger and Leitung (403 forbidden), a box of the facility (404 cash_box_not_found), archived (409
+ * Only the Träger (403 forbidden; deleting after a period is the Träger's, spec Löschübersicht §3), a box of the facility (404 cash_box_not_found), archived (409
  * cash_box_not_archived), from its deletableFrom on (409 cash_box_retention; a box with neither entries nor history at
  * any time), and `confirm` the box name as confirmsName compares it (400 cash_box_confirm_mismatch). True when the deletion took a
  * receipt along (the caller checkpoints the WAL anyway: entries and log are gone as well).
@@ -23,7 +22,7 @@ import { foreignKeyViolations } from './employeeDeletion'
 export function purgeBox(
   db: Db, actor: SessionUser, facilityId: number, id: number, confirm: string, today: IsoDate = todayIso(), now: Date = new Date(),
 ): boolean {
-  if (!isManager(actor.role)) throw new ServiceError(403, 'forbidden')
+  if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
   const box = loadBox(db, facilityId, id)
   if (!box.archived) throw new ServiceError(409, 'cash_box_not_archived')
   const deletableFrom = boxDeletableFrom(db, facilityId, id)

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { balanceAdjustments, cashBoxes, cashEntries, childContacts, children, employees, facilities } from '../../server/db/schema'
@@ -10,7 +10,9 @@ import {
   categoryHasData, deleteCategories, foreignKeyViolations, RETENTION_CATEGORIES,
 } from '../../server/services/employeeDeletion'
 import { deleteDueItems, deleteRetentionItem, retentionOverview } from '../../server/services/retentionOverview'
+import { setRetentionSettings } from '../../server/services/retentionSettings'
 import { purgeDate } from '../../shared/domain/children'
+import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import type { RetentionItemDto, SessionUser } from '../../shared/types/api'
 import { employeeReferences, fillEmployeeData } from '../helpers/employeeData'
 import { addChild, addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
@@ -120,6 +122,20 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
       .toEqual([['immediate', true], ['assessment', false], ['record', false]])
   })
 
+  it('refuses the assessments on 31.12.2029 and the paid overtime on 31.12.2036 (409), deletes them on 1 January', () => {
+    db.insert(balanceAdjustments).values({ employeeId: tina, date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true }).run()
+    expect(errorCode(() => remove(`employee:${tina}:assessment`, '2029-12-31'))).toBe('retention_not_due')
+    expect(statusOf(() => remove(`employee:${tina}:assessment`, '2029-12-31'))).toBe(409)
+    expect(categoryHasData(db, tina).assessment).toBe(true)
+    expect(remove(`employee:${tina}:assessment`, '2030-01-01')).toBeGreaterThan(0)
+    expect(categoryHasData(db, tina)).toEqual({ immediate: true, time: true, assessment: false, paidOvertime: true })
+    expect(errorCode(() => remove(`employee:${tina}:paidOvertime`, '2036-12-31'))).toBe('retention_not_due')
+    expect(statusOf(() => remove(`employee:${tina}:paidOvertime`, '2036-12-31'))).toBe(409)
+    expect(categoryHasData(db, tina).paidOvertime).toBe(true)
+    expect(remove(`employee:${tina}:paidOvertime`, '2037-01-01')).toBe(1)
+    expect(categoryHasData(db, tina)).toEqual({ immediate: true, time: true, assessment: false, paidOvertime: false })
+  })
+
   it('makes the record due only once every other category holds no data; then the employee row goes, others untouched', () => {
     const benBefore = employeeReferences(db, ben)
     const benRow = employeeRow(ben)
@@ -204,7 +220,10 @@ describe('child records and cash boxes in the overview', () => {
 describe('all facilities, order and guards (Review Focus 4)', () => {
   it('lists the items of every facility with id and name: due first, then by date, records without date last', () => {
     db.update(facilities).set({ name: 'Kita Sonnenschein' }).where(eq(facilities.id, 1)).run()
-    // Only weekly hours: time data (from 01.01.2029) and the record.
+    // Each facility its own period for the time data: 1 year here (01.01.2028), 5 years in the Hort (01.01.2032).
+    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, timeYears: 1 })
+    setRetentionSettings(db, hort, { ...RETENTION_DEFAULTS, timeYears: 5 })
+    // Only weekly hours: time data and the record.
     const hanna = addEmployee(db, 'Hanna Hort', { facilityId: hort, leftOn: '2026-05-31' })
     const ole = addChild(db, hort, { firstName: 'Ole', lastName: 'Hort', leftOn: '2010-07-31' })
     const box = createBox(db, leitung, 1, { ...cashBase, name: 'Alt' })
@@ -216,15 +235,20 @@ describe('all facilities, order and guards (Review Focus 4)', () => {
       ['Kita Sonnenschein', 'Alt', `cash:${box}`, null, true],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:immediate`, '2026-03-16', true],
       // Later, by date.
-      ['Hort', 'Hanna Hort', `employee:${hanna}:time`, '2029-01-01', false],
-      ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:time`, '2029-01-01', false],
+      ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:time`, '2028-01-01', false],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:assessment`, '2030-01-01', false],
+      ['Hort', 'Hanna Hort', `employee:${hanna}:time`, '2032-01-01', false],
       // Records without a date last.
       ['Hort', 'Hanna Hort', `employee:${hanna}:record`, null, false],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:record`, null, false],
     ])
     expect(items.filter(item => item.facilityId === hort).map(item => item.facilityName)).toEqual(Array(3).fill('Hort'))
     expect(items.filter(item => item.facilityId === 1).map(item => item.facilityName)).toEqual(Array(5).fill('Kita Sonnenschein'))
+    // Deleting goes by the person's own facility too.
+    expect(errorCode(() => remove(`employee:${hanna}:time`, '2031-12-31'))).toBe('retention_not_due')
+    expect(remove(`employee:${tina}:time`, '2028-01-01')).toBeGreaterThan(0)
+    expect(remove(`employee:${hanna}:time`, '2032-01-01')).toBeGreaterThan(0)
+    expect(categoryHasData(db, hanna).time).toBe(false)
   })
 
   it('refuses everyone but the Träger (403), and an invalid key (400)', () => {
@@ -261,5 +285,43 @@ describe('deleting all due items (Review Focus 3)', () => {
     expect(itemsOf(today, `employee:${tina}:`)).toMatchObject([{ category: 'record', due: true }])
     expect(deleteDueItems(db, traeger, [`employee:${tina}:record`], today)).toEqual({ deleted: 1, skipped: [] })
     expect(employeeRow(tina)).toBeUndefined()
+  })
+})
+
+describe('a blocked deletion', () => {
+  const blockedBox = () => {
+    const box = createBox(db, leitung, 1, { ...cashBase, name: 'Blockiert' })
+    db.update(cashBoxes).set({ archived: true }).where(eq(cashBoxes.id, box)).run()
+    db.run(sql.raw('CREATE TABLE extra_refs (id INTEGER PRIMARY KEY, box_id INTEGER REFERENCES cash_boxes(id))'))
+    db.run(sql.raw(`INSERT INTO extra_refs (box_id) VALUES (${box})`))
+    return box
+  }
+  const boxExists = (box: number) => db.select().from(cashBoxes).where(eq(cashBoxes.id, box)).get() !== undefined
+
+  it('answers 409 retention_delete_blocked for a cash box when SQLite refuses, and keeps the box', () => {
+    const box = blockedBox()
+    expect(errorCode(() => remove(`cash:${box}`, '2026-10-27'))).toBe('retention_delete_blocked')
+    expect(statusOf(() => remove(`cash:${box}`, '2026-10-27'))).toBe(409)
+    expect(boxExists(box)).toBe(true)
+  })
+
+  it('answers 409 retention_delete_blocked for a cash box when the foreign key check finds a reference left', () => {
+    const box = blockedBox()
+    db.run(sql`PRAGMA foreign_keys = OFF`)
+    try {
+      expect(errorCode(() => remove(`cash:${box}`, '2026-10-27'))).toBe('retention_delete_blocked')
+    }
+    finally {
+      db.run(sql`PRAGMA foreign_keys = ON`)
+    }
+    expect(boxExists(box)).toBe(true)
+  })
+
+  it('skips a blocked item in the bulk run and deletes the others', () => {
+    const box = blockedBox()
+    const child = addChild(db, 1, { firstName: 'Mia', lastName: 'Muster', leftOn: '2010-07-31' })
+    expect(deleteDueItems(db, traeger, [`cash:${box}`, `child:${child}`], '2026-10-27')).toEqual({ deleted: 1, skipped: [`cash:${box}`] })
+    expect(boxExists(box)).toBe(true)
+    expect(db.select().from(children).where(eq(children.id, child)).get()).toBeUndefined()
   })
 })

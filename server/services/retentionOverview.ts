@@ -197,7 +197,16 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
     })
   }
   const box = db.select().from(cashBoxes).where(eq(cashBoxes.id, key.id)).get()!
-  return removeArchivedBox(db, actor, box, now).rows
+  try {
+    return removeArchivedBox(db, actor, box, now).rows
+  }
+  catch (error) {
+    // Its own transaction and FK check (rolled back): the same answer as every other item.
+    if ((error instanceof ServiceError && error.code === 'cash_box_purge_blocked') || (!(error instanceof ServiceError) && isForeignKeyError(error))) {
+      throw new ServiceError(409, 'retention_delete_blocked')
+    }
+    throw error
+  }
 }
 
 function assertProvider(actor: SessionUser): void {
@@ -221,7 +230,8 @@ export function deleteRetentionItem(db: Db, actor: SessionUser, key: string, tod
  * „Alle fälligen löschen“: the given keys (as shown on the page), each in a transaction of its own. Due-ness is
  * decided once before anything is deleted, so an item that only becomes due on the way (a record whose other
  * categories went in the same request) stays until next time; employee records go after the categories. A key not
- * due, gone or invalid is skipped and reported (in the order given), the others are deleted. Answers how many items
+ * due, gone, invalid or failing in any other way (its transaction rolled back) is skipped and reported (in the order
+ * given), the others are deleted. Answers how many items
  * were deleted. 403 forbidden for everyone but the Träger.
  */
 export function deleteDueItems(
@@ -238,8 +248,7 @@ export function deleteDueItems(
       if (findItem(db, parsed, ctx).due) due.push({ key, parsed })
       else skipped.add(key)
     }
-    catch (error) {
-      if (!(error instanceof ServiceError)) throw error
+    catch {
       skipped.add(key)
     }
   }
@@ -250,8 +259,8 @@ export function deleteDueItems(
       removeItem(db, actor, parsed, ctx, now)
       deleted++
     }
-    catch (error) {
-      if (!(error instanceof ServiceError)) throw error
+    catch {
+      // Whatever went wrong, the item's own transaction was rolled back: skip it, go on with the others.
       skipped.add(key)
     }
   }
