@@ -13,6 +13,8 @@ export type CashLogAction =
   | 'box_created' | 'box_updated' | 'box_archived' | 'box_activated'
   | 'entry_created' | 'entry_updated' | 'entry_deleted'
   | 'transfer_created' | 'transfer_updated' | 'transfer_deleted'
+  /** The other box of a transfer was deleted for good; this row stays as a plain entry. */
+  | 'transfer_unlinked'
   | 'month_closed' | 'month_reopened'
   | 'receipt_added' | 'receipt_replaced' | 'receipt_removed'
 

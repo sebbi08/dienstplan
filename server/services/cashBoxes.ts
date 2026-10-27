@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull, max, ne, notInArray, sql } from 'drizzle-orm'
 import { formatCents, monthKey, type CashDirection, type CashKind, type YearMonth } from '../../shared/domain/cash'
 import { todayIso } from '../../shared/domain/dates'
+import { cashDeletableFrom } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
 import type { CashBoxDto, CashBoxInfoDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -9,6 +10,7 @@ import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 import { BOX_LOG_ACTIONS, type CashActor, describeChanges, logCash } from './cashLog'
 import { assertGroup } from './groups'
+import { getRetentionSettings } from './retentionSettings'
 
 export type CashBoxRow = typeof cashBoxes.$inferSelect
 
@@ -46,7 +48,7 @@ export function assertMonthOpen(db: Db, boxId: number, date: IsoDate): void {
   if (row) throw new ServiceError(409, 'cash_month_closed')
 }
 
-/** 409 cash_box_archived for a stillgelegte box. */
+/** 409 cash_box_archived for an archived box. */
 export function assertActive(box: CashBoxRow): void {
   if (box.archived) throw new ServiceError(409, 'cash_box_archived')
 }
@@ -72,9 +74,28 @@ export function boxInfo(db: Db, row: CashBoxRow): CashBoxInfoDto {
   return toInfo(row, groupName(db, row.groupId))
 }
 
+/** The last entry date of each of the boxes (boxes without entries are missing). */
+function lastEntryDates(db: Db, ids: number[]): Map<number, IsoDate> {
+  const result = new Map<number, IsoDate>()
+  for (const row of db.select({ boxId: cashEntries.boxId, last: max(cashEntries.date) }).from(cashEntries)
+    .where(inArray(cashEntries.boxId, ids)).groupBy(cashEntries.boxId).all()) {
+    if (row.last !== null) result.set(row.boxId, row.last)
+  }
+  return result
+}
+
+/**
+ * The first day the box may be deleted for good: 1 January after the facility's cash period following the year of
+ * its last entry (spec Löschfristen §4); null without entries (deletable at any time).
+ */
+export function boxDeletableFrom(db: Db, facilityId: number, boxId: number): IsoDate | null {
+  return cashDeletableFrom(lastEntryDates(db, [boxId]).get(boxId) ?? null, getRetentionSettings(db, facilityId).cashYears)
+}
+
 /**
  * The facility's boxes: active ones first, then the facility's own before the groups' (in the groups' order), within
- * a scope by their order. Each with today's balance, the latest closed month and whether receipts are missing.
+ * a scope by their order. Each with today's balance, the latest closed month, whether receipts are missing and from
+ * when it may be deleted for good.
  */
 export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDto[] {
   const rows = db.select({ box: cashBoxes, groupName: groups.name, groupOrder: groups.sortOrder }).from(cashBoxes)
@@ -87,8 +108,9 @@ export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDt
     total: sql<number>`coalesce(sum(case when ${cashEntries.direction} = 'in' then ${cashEntries.cents} else -${cashEntries.cents} end), 0)`,
   }).from(cashEntries).where(and(inArray(cashEntries.boxId, ids), sql`${cashEntries.date} <= ${today}`))
     .groupBy(cashEntries.boxId).all().map(row => [row.boxId, Number(row.total)]))
-  const withEntries = new Set(db.selectDistinct({ boxId: cashEntries.boxId }).from(cashEntries)
-    .where(inArray(cashEntries.boxId, ids)).all().map(row => row.boxId))
+  const lastEntries = lastEntryDates(db, ids)
+  const withEntries = new Set(lastEntries.keys())
+  const { cashYears } = getRetentionSettings(db, facilityId)
   // Same rule as deleteBox: log lines beyond the box's own (entries, closings …) keep a box.
   const withHistory = new Set(db.selectDistinct({ boxId: cashLog.boxId }).from(cashLog)
     .where(and(inArray(cashLog.boxId, ids), notInArray(cashLog.action, BOX_LOG_ACTIONS))).all().map(row => row.boxId))
@@ -121,6 +143,7 @@ export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDt
       missingReceipts: missing.has(box.id),
       hasEntries: withEntries.has(box.id),
       canDelete: !withEntries.has(box.id) && !withHistory.has(box.id),
+      deletableFrom: cashDeletableFrom(lastEntries.get(box.id) ?? null, cashYears),
     }))
 }
 

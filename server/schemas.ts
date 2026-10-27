@@ -433,6 +433,8 @@ export const cashBoxSchema = z.object({
   startBalance: z.number(),
 })
 export const cashBoxUpdateSchema = cashBoxSchema.extend({ archived: z.boolean() })
+/** „Endgültig löschen“ of an archived box: `confirm` is the box name typed by hand (anything else, or nothing, is 400 cash_box_confirm_mismatch). */
+export const cashBoxPurgeSchema = z.object({ confirm: z.string().max(200).catch('') }).catch({ confirm: '' })
 export const cashMonthParams = idParams.extend(monthParams.shape)
 export const cashEntrySchema = z.object({ boxId: z.number().int().positive(), direction: z.enum(['in', 'out']), ...cashFacts })
 export const cashFactsSchema = z.object(cashFacts)

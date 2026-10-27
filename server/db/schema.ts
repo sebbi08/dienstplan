@@ -932,7 +932,7 @@ export const setupHidden = sqliteTable('setup_hidden', {
 /**
  * A cash book (Kasse) of a facility: for the whole facility (`groupId` null) or one of its groups. `kind` „Bar“ (cash)
  * or „EC/Konto“ (account). Amounts are integer cents; `startBalance` is the balance at the start of the start month.
- * An archived box (stillgelegt) stays readable, but takes no new, changed or deleted entries.
+ * An archived box (archiviert) stays readable, but takes no new, changed or deleted entries.
  */
 export const cashBoxes = sqliteTable('cash_boxes', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -1176,10 +1176,17 @@ sehen keine Warnungen.
 - **Übersicht:** alle Kassen der Einrichtung, geordnet nach **Einrichtung** und den Gruppen. Je Kasse die Art (**Bar** oder
   **EC/Konto**), der **Bestand heute**, „abgeschlossen bis …“ und der Hinweis **Belege fehlen**, wenn in noch offenen
   Monaten Ausgaben ohne Beleg stehen. **Kasse anlegen**: Name, Art, Zuordnung (Einrichtung oder Gruppe), Startmonat und
-  Anfangsbestand. Über den Stift kannst du eine Kasse ändern, **stilllegen** (bleibt lesbar und druckbar, steht
-  eingeklappt unten) oder – solange sie keine Einträge hat – löschen. Startmonat und Anfangsbestand sind fest, sobald der
-  Startmonat abgeschlossen ist. **Reihenfolge ändern** zeigt Pfeile, mit denen du die Kassen innerhalb der Einrichtung
-  bzw. einer Gruppe nach oben oder unten schiebst.
+  Anfangsbestand. Über den Stift kannst du eine Kasse ändern, **archivieren** oder – solange sie keine Einträge hat –
+  löschen. Startmonat und Anfangsbestand sind fest, sobald der Startmonat abgeschlossen ist. **Reihenfolge ändern** zeigt
+  Pfeile, mit denen du die Kassen innerhalb der Einrichtung bzw. einer Gruppe nach oben oder unten schiebst.
+- **Archiv:** archivierte Kassen stehen eingeklappt unten im Bereich **Archiv**. Sie bleiben lesbar und druckbar, neue
+  Buchungen gehen nicht mehr; **Wieder aktivieren** (über den Stift) holt sie zurück. Je archivierter Kasse steht
+  **löschbar ab …**: der 1. Januar nach Ablauf der **Aufbewahrungsfrist Kasse** (*Einstellungen → Personal →
+  Löschfristen*, voreingestellt 10 Jahre), gerechnet ab dem Ende des Jahres der letzten Buchung (letzte Buchung am
+  10.03.2026 → löschbar ab 01.01.2037). Ab diesem Tag erscheint **Endgültig löschen** (Leitung und Träger): Du tippst zur Bestätigung den Namen der
+  Kasse ein; gelöscht werden die Kasse, alle Buchungen, Belege, abgeschlossenen Monate und das Protokoll. Umbuchungen mit
+  anderen Kassen bleiben dort als normale Buchung stehen, mit ihrem Text; in deren Protokoll steht „Andere Kasse
+  gelöscht“. Eine archivierte Kasse ohne jede Buchung lässt sich sofort löschen. Die App löscht Kassen nie von selbst.
 - **Monatsblatt:** ein Tipp auf den Namen öffnet den laufenden Monat; mit den Pfeilen geht es zurück bis zum Startmonat.
   Oben stehen wie im bisherigen Kassenblatt Anfangsbestand, Einnahmen, Ausgaben und aktueller Kassenbestand; der
   Anfangsbestand ist immer der Endbestand des Vormonats. Darunter die Einträge nach Datum, die Nummern getrennt für

@@ -2,14 +2,15 @@
 import { formatCents } from '#shared/domain/cash'
 import type { CashBoxDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { monthTitle } from '~/utils/format'
+import { formatDate, monthTitle } from '~/utils/format'
 
 /**
  * One box in the overview: name, kind, balance today, closing state, missing receipts. While reordering, arrows move it
- * within its scope (`first`/`last`: it is already at that end).
+ * within its scope (`first`/`last`: it is already at that end). An archived box shows from when it may be deleted for
+ * good and, once that day has come (`purgeable`), „Endgültig löschen“.
  */
-defineProps<{ box: CashBoxDto; to: string; reordering?: boolean; first?: boolean; last?: boolean }>()
-const emit = defineEmits<{ edit: []; move: [direction: 'up' | 'down'] }>()
+defineProps<{ box: CashBoxDto; to: string; reordering?: boolean; first?: boolean; last?: boolean; purgeable?: boolean }>()
+const emit = defineEmits<{ edit: []; move: [direction: 'up' | 'down']; purge: [] }>()
 </script>
 
 <template>
@@ -28,11 +29,15 @@ const emit = defineEmits<{ edit: []; move: [direction: 'up' | 'down'] }>()
       <div class="text-xs text-gray-500">
         {{ box.closedThrough ? de.cash.closedThrough(monthTitle(box.closedThrough.year, box.closedThrough.month)) : de.cash.noneClosed }}
       </div>
+      <div v-if="box.archived && box.deletableFrom" class="text-xs text-gray-500">{{ de.cash.deletableFrom(formatDate(box.deletableFrom)) }}</div>
     </div>
     <div class="text-right">
       <div class="text-xs text-gray-500">{{ de.cash.balanceToday }}</div>
       <div class="font-semibold tabular-nums" :class="box.kind === 'cash' && box.balanceToday < 0 ? 'text-red-600' : ''">{{ formatCents(box.balanceToday) }}</div>
     </div>
+    <UButton
+      v-if="purgeable" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.cash.purge" @click="emit('purge')"
+    />
     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.cash.editBox(box.name)" @click="emit('edit')" />
   </li>
 </template>

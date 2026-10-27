@@ -86,6 +86,8 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   ] },
   { title: 'Kasse', rows: [
     { label: 'Kassen anlegen, Einnahmen, Ausgaben und Umbuchungen buchen, Belege, Monat abschließen, Ausdruck und Excel-Datei', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Kassen archivieren und wieder aktivieren', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Archivierte Kasse nach Ablauf der Aufbewahrungsfrist endgültig löschen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Abgeschlossenen Monat wieder öffnen (mit Begründung)', rights: ['yes', 'no', 'no', 'no'] },
   ] },
   { title: 'Verwaltung', rows: [

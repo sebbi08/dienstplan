@@ -1844,7 +1844,7 @@ export interface CashBoxInfoDto {
   startYear: number
   startMonth: number
   startBalance: number
-  /** Stillgelegt: readable, but no new or changed entries. */
+  /** Archiviert: readable and printable, but no new or changed entries. */
   archived: boolean
   sortOrder: number
 }
@@ -1861,6 +1861,11 @@ export interface CashBoxDto extends CashBoxInfoDto {
   hasEntries: boolean
   /** No entries and no log lines beyond the box's own (the rule of deleting a box); otherwise it can only be archived. */
   canDelete: boolean
+  /**
+   * First day an archived box may be deleted for good („Endgültig löschen“): 1 January after the facility's cash
+   * period following the year of the last entry; null without entries (deletable at any time).
+   */
+  deletableFrom: IsoDate | null
 }
 
 /** A box's audit log line; `action` is a key (box_created, entry_updated …), `detail` the German text. */

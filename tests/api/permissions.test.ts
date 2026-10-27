@@ -84,6 +84,8 @@ const ADMIN_ROUTES = [
   'cash/entries/[id]/receipt.delete.ts', 'cash/receipts/[id].get.ts',
   // The order of the boxes within the facility or a group.
   'cash/boxes/[id]/move.post.ts',
+  // Deleting an archived box for good after its retention period (spec Löschfristen §4); staff the service refuses too.
+  'cash/boxes/[id]/purge.delete.ts',
   // Form templates („Bögen“) of the active facility (spec Bögen §2).
   'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/[id].put.ts', 'form-templates/[id].delete.ts',
   'form-templates/[id]/copy.post.ts',
