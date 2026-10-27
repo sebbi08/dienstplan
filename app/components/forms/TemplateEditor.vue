@@ -31,6 +31,11 @@ const archivedOf = (kind: FormKind) => (templates.value ?? []).filter(template =
 const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '' })
 const newSelf = ref(false)
 async function create(kind: FormKind) {
+  // The button is always active, so it is clear what is missing.
+  if (!newName[kind].trim()) {
+    toast.add({ title: de.forms.nameFirst, color: 'warning' })
+    return
+  }
   try {
     const { id } = await $fetch<{ id: number }>('/api/form-templates', {
       method: 'POST', body: { kind, name: newName[kind], selfAssessment: kind === 'staff' && newSelf.value },
@@ -218,11 +223,11 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
           </ul>
           <form class="flex flex-wrap items-center gap-2" @submit.prevent="create(listKind)">
             <UInput
-              v-model="newName[listKind]" required :maxlength="FORM_LIMITS.templateName" size="sm" class="w-full sm:w-72 xl:w-full"
+              v-model="newName[listKind]" :maxlength="FORM_LIMITS.templateName" size="sm" class="w-full sm:w-72 xl:w-full"
               :placeholder="de.forms.newTemplateName" :aria-label="`${de.forms.newTemplateName} (${de.forms.kindGroups[listKind]})`"
             />
             <UCheckbox v-if="listKind === 'staff'" v-model="newSelf" :label="de.forms.selfAssessment" />
-            <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.forms.createTemplate" :disabled="!newName[listKind].trim()" />
+            <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.forms.createTemplate" />
           </form>
 
           <details v-if="archivedOf(listKind).length" class="pt-1">

@@ -1254,7 +1254,7 @@ export const de = {
       team: 'Protokolle der Teamsitzungen – unter Teamsitzungen.',
     },
     noTemplates: 'Noch keine Vorlagen dieser Art.',
-    newTemplateName: 'Name der neuen Vorlage',
+    newTemplateName: 'Name der neuen Vorlage', nameFirst: 'Bitte zuerst oben einen Namen für die neue Vorlage eingeben.',
     createTemplate: 'Vorlage anlegen',
     name: 'Name',
     edit: 'Bearbeiten', printBlank: 'Leer drucken (zum Ausfüllen von Hand)', copy: 'Kopieren', archive: 'Stilllegen', unarchive: 'Wieder aktivieren',

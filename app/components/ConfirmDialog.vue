@@ -9,7 +9,8 @@ const open = computed({
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="de.common.confirmTitle">
+  <!-- Always above other dialogs: a question asked from inside a dialog (e.g. „Löschen“ in a booking) must not open behind it. -->
+  <UModal v-model:open="open" :title="de.common.confirmTitle" :ui="{ overlay: 'z-[100]', content: 'z-[101]' }">
     <template #body>
       <p class="text-sm">{{ request?.message }}</p>
     </template>
