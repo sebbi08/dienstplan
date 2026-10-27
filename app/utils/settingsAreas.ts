@@ -9,12 +9,12 @@ import { de } from '../locales/de'
  * every request as well.
  */
 
-export const SETTINGS_AREAS = ['facility', 'groups', 'roster', 'time', 'children', 'staff', 'forms'] as const
+export const SETTINGS_AREAS = ['facility', 'groups', 'roster', 'time', 'children', 'staff'] as const
 export type SettingsArea = typeof SETTINGS_AREAS[number]
 
 /** The address of each area below /admin/settings. */
 export const AREA_SLUGS: Record<SettingsArea, string> = {
-  facility: 'facility', groups: 'groups', roster: 'roster', time: 'time-tracking', children: 'children', staff: 'staff', forms: 'forms',
+  facility: 'facility', groups: 'groups', roster: 'roster', time: 'time-tracking', children: 'children', staff: 'staff',
 }
 
 /** The sections of the single settings page as they were before the split (two of them are now split in two). */
@@ -127,12 +127,6 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
     {
       key: 'staffing', title: de.staffing.tab, replaces: ['staffing'],
       keywords: ['Personal', 'Fachkraft', 'Betreuungsschlüssel', 'Schlüssel', 'Mindestpersonal', 'Bundesland'],
-    },
-  ],
-  forms: [
-    {
-      key: 'form-templates', title: de.forms.templatesTitle, replaces: [],
-      keywords: ['Bogen', 'Vorlage', 'Mitarbeitergespräch', 'Selbstbeurteilung', 'Beurteilungsbogen', 'Gespräch', 'Entwicklungsgespräch', 'Teamsitzung'],
     },
   ],
 }

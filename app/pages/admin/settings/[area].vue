@@ -52,7 +52,6 @@ watch(() => route.hash, scrollToTarget)
       <SettingsAttendanceSection v-else-if="section.key === 'attendance'" />
       <SettingsRemindersSection v-else-if="section.key === 'reminders'" />
       <SettingsStaffingSection v-else-if="section.key === 'staffing'" />
-      <FormsTemplateEditor v-else-if="section.key === 'form-templates'" />
     </div>
   </div>
 </template>

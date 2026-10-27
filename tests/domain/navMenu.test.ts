@@ -7,11 +7,12 @@ const labels = (entries: { label: string }[]) => entries.map(entry => entry.labe
 describe('navMenu', () => {
   it('shows a manager without employee the main entries and "Mehr", no "Meins"', () => {
     const menu = navMenu(base)
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen'])
     expect(menu.main[0]!.to).toBe('/plan/2026/10')
     expect(menu.main[4]!.to).toBe('/cash')
-    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Teamsitzungen', 'Vorlagen', 'Benutzer', 'Einstellungen'])
-    expect(menu.more[2]!.to).toBe('/team-meetings')
+    expect(menu.main[6]!.to).toBe('/team-meetings')
+    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Benutzer', 'Einstellungen'])
+    expect(menu.more[3]!.to).toBe('/admin/forms')
     expect(menu.mine).toEqual([])
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(0)
@@ -28,7 +29,7 @@ describe('navMenu', () => {
 
   it('puts "Urlaubsplanung" with the open requests second for a planner and counts them in the total', () => {
     const menu = navMenu({ ...base, employeeId: 3, isPlanner: true, openCount: 4, unread: 1 })
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen'])
     expect(menu.totalCount).toBe(5)
     expect(navMenu({ ...base, isPlanner: true }).main[1]!.label).toBe('Urlaubsplanung')
   })
@@ -70,7 +71,8 @@ describe('isEntryActive / isGroupActive', () => {
     expect(isEntryActive('/plan/2025/3', menu.main[0]!)).toBe(true)
     expect(isEntryActive('/my/plan/2025/3', menu.main[0]!)).toBe(false)
     expect(isEntryActive('/admin/settings/groups/4', menu.more[5]!)).toBe(true)
-    expect(isEntryActive('/team-meetings/12', menu.more[2]!)).toBe(true)
+    expect(isEntryActive('/team-meetings/12', menu.main.at(-1)!)).toBe(true)
+    expect(isEntryActive('/admin/forms', menu.more[3]!)).toBe(true)
     expect(isEntryActive('/admin/settingsx', menu.more[5]!)).toBe(false)
   })
   it('marks "Mehr" and "Meins" active on their pages only', () => {

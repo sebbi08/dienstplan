@@ -110,7 +110,7 @@ async function logout() {
         <NuxtLink to="/" class="font-semibold" :class="isTerminal ? '' : 'shrink-0'">{{ de.appName }}</NuxtLink>
         <USelect
           v-if="isProvider && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"
-          size="sm" class="min-w-0 max-md:max-w-48 max-md:flex-1 md:w-40 xl:w-48" :aria-label="de.facilities.active"
+          size="sm" class="min-w-0 max-md:max-w-48 max-md:flex-1 md:w-32 xl:w-48" :aria-label="de.facilities.active"
           @update:model-value="switchFacility(Number($event))"
         />
         <span

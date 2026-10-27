@@ -14,26 +14,25 @@ import { formatDateTime } from '~/utils/format'
  * on a local copy and sends the whole content with „Vorlage speichern“; the server checks it and answers in German.
  * An item's kind cannot change (delete it and add a new one).
  */
-const kind = ref<FormKind>('staff')
-const { data: templates, refresh } = await useFetch<FormTemplateDto[]>('/api/form-templates', { query: { kind }, default: () => [] })
+// All kinds at once, one block per kind (Mitarbeitergespräche, Kinder, Teamsitzungen), so none is hidden.
+const { data: templates, refresh } = await useFetch<FormTemplateDto[]>('/api/form-templates', { default: () => [] })
 const run = useAction(refresh)
 const confirm = useConfirm()
 const toast = useToast()
 
-const kindItems = FORM_KINDS.map(value => ({ label: de.forms.kinds[value], value }))
 const itemKindItems = ITEM_KINDS.map(value => ({ label: de.forms.itemKinds[value], value }))
-const active = computed(() => (templates.value ?? []).filter(template => !template.archived))
-const archived = computed(() => (templates.value ?? []).filter(template => template.archived))
+const activeOf = (kind: FormKind) => (templates.value ?? []).filter(template => template.kind === kind && !template.archived)
+const archivedOf = (kind: FormKind) => (templates.value ?? []).filter(template => template.kind === kind && template.archived)
 
 // ---- list ---------------------------------------------------------------
-const newName = ref('')
+const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '' })
 const newSelf = ref(false)
-async function create() {
+async function create(kind: FormKind) {
   try {
     const { id } = await $fetch<{ id: number }>('/api/form-templates', {
-      method: 'POST', body: { kind: kind.value, name: newName.value, selfAssessment: kind.value === 'staff' && newSelf.value },
+      method: 'POST', body: { kind, name: newName[kind], selfAssessment: kind === 'staff' && newSelf.value },
     })
-    newName.value = ''
+    newName[kind] = ''
     newSelf.value = false
     await refresh()
     toast.add({ title: de.forms.created, color: 'success' })
@@ -58,6 +57,8 @@ async function remove(template: FormTemplateDto) {
 interface Draft { name: string; selfAssessment: boolean; content: FormContent }
 const editingId = ref<number | null>(null)
 const editing = computed(() => (templates.value ?? []).find(template => template.id === editingId.value) ?? null)
+/** The kind of the template being edited (only a Mitarbeitergespräch has „vom Mitarbeiter auszufüllen“). */
+const kind = computed<FormKind>(() => editing.value?.kind ?? 'staff')
 const draft = ref<Draft | null>(null)
 const baseline = ref('')
 const saving = ref(false)
@@ -173,50 +174,25 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
   <section class="min-w-0 space-y-3 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4">
     <h2 class="font-semibold">{{ de.forms.templatesTitle }}</h2>
 
-    <!-- The list of one kind -->
+    <!-- The lists, one block per kind -->
     <template v-if="!draft">
       <p class="text-xs text-gray-500">{{ de.forms.templatesHint }}</p>
-      <USelect v-model="kind" :items="kindItems" size="sm" class="w-56" :aria-label="de.forms.kindLabel" />
-      <p v-if="!active.length && !archived.length" class="text-sm text-gray-500">{{ de.forms.noTemplates }}</p>
-      <ul class="divide-y divide-gray-100">
-        <li v-for="template in active" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-          <div class="min-w-0 flex-1 basis-48">
-            <div class="font-medium break-words">{{ template.name }}</div>
-            <div class="flex flex-wrap gap-1">
-              <UBadge v-if="template.starterKey" color="neutral" variant="soft" size="sm" :label="de.forms.starter" />
-              <UBadge v-if="template.selfAssessment" color="info" variant="soft" size="sm" :label="de.forms.selfAssessmentBadge" />
+      <div v-for="listKind in FORM_KINDS" :key="listKind" class="space-y-2 border-t border-gray-100 pt-3">
+        <h3 class="font-medium">{{ de.forms.kindGroups[listKind] }}</h3>
+        <p v-if="!activeOf(listKind).length && !archivedOf(listKind).length" class="text-sm text-gray-500">{{ de.forms.noTemplates }}</p>
+        <ul class="divide-y divide-gray-100">
+          <li v-for="template in activeOf(listKind)" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+            <div class="min-w-0 flex-1 basis-48">
+              <div class="font-medium break-words">{{ template.name }}</div>
+              <div class="flex flex-wrap gap-1">
+                <UBadge v-if="template.starterKey" color="neutral" variant="soft" size="sm" :label="de.forms.starter" />
+                <UBadge v-if="template.selfAssessment" color="info" variant="soft" size="sm" :label="de.forms.selfAssessmentBadge" />
+              </div>
             </div>
-          </div>
-          <div class="flex flex-wrap gap-1">
-            <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.forms.edit" @click="openEditor(template.id)" />
-            <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :label="de.forms.copy" @click="copy(template)" />
-            <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-archive" :label="de.forms.archive" @click="setArchived(template, true)" />
-            <UButton
-              size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete"
-              :disabled="template.inUse" :title="template.inUse ? de.forms.inUseHint : de.common.delete" @click="remove(template)"
-            />
-          </div>
-        </li>
-      </ul>
-      <p v-if="(templates ?? []).some(template => template.inUse)" class="text-xs text-gray-500">{{ de.forms.inUseHint }}</p>
-
-      <form class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3" @submit.prevent="create">
-        <UInput
-          v-model="newName" required :maxlength="FORM_LIMITS.templateName" size="sm" class="w-full sm:w-72"
-          :placeholder="de.forms.newTemplateName" :aria-label="de.forms.newTemplateName"
-        />
-        <UCheckbox v-if="kind === 'staff'" v-model="newSelf" :label="de.forms.selfAssessment" />
-        <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.forms.createTemplate" :disabled="!newName.trim()" />
-      </form>
-
-      <details v-if="archived.length" class="border-t border-gray-100 pt-2">
-        <summary class="cursor-pointer text-sm font-medium text-gray-700">{{ de.forms.archivedList(archived.length) }}</summary>
-        <ul class="mt-1 divide-y divide-gray-100">
-          <li v-for="template in archived" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-            <div class="min-w-0 flex-1 basis-48 break-words text-gray-600">{{ template.name }}</div>
             <div class="flex flex-wrap gap-1">
-              <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-archive-restore" :label="de.forms.unarchive" @click="setArchived(template, false)" />
+              <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.forms.edit" @click="openEditor(template.id)" />
               <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :label="de.forms.copy" @click="copy(template)" />
+              <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-archive" :label="de.forms.archive" @click="setArchived(template, true)" />
               <UButton
                 size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete"
                 :disabled="template.inUse" :title="template.inUse ? de.forms.inUseHint : de.common.delete" @click="remove(template)"
@@ -224,7 +200,33 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
             </div>
           </li>
         </ul>
-      </details>
+        <form class="flex flex-wrap items-center gap-2" @submit.prevent="create(listKind)">
+          <UInput
+            v-model="newName[listKind]" required :maxlength="FORM_LIMITS.templateName" size="sm" class="w-full sm:w-72"
+            :placeholder="de.forms.newTemplateName" :aria-label="`${de.forms.newTemplateName} (${de.forms.kindGroups[listKind]})`"
+          />
+          <UCheckbox v-if="listKind === 'staff'" v-model="newSelf" :label="de.forms.selfAssessment" />
+          <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.forms.createTemplate" :disabled="!newName[listKind].trim()" />
+        </form>
+
+        <details v-if="archivedOf(listKind).length" class="pt-1">
+          <summary class="cursor-pointer text-sm font-medium text-gray-700">{{ de.forms.archivedList(archivedOf(listKind).length) }}</summary>
+          <ul class="mt-1 divide-y divide-gray-100">
+            <li v-for="template in archivedOf(listKind)" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+              <div class="min-w-0 flex-1 basis-48 break-words text-gray-600">{{ template.name }}</div>
+              <div class="flex flex-wrap gap-1">
+                <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-archive-restore" :label="de.forms.unarchive" @click="setArchived(template, false)" />
+                <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :label="de.forms.copy" @click="copy(template)" />
+                <UButton
+                  size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete"
+                  :disabled="template.inUse" :title="template.inUse ? de.forms.inUseHint : de.common.delete" @click="remove(template)"
+                />
+              </div>
+            </li>
+          </ul>
+        </details>
+      </div>
+      <p v-if="(templates ?? []).some(template => template.inUse)" class="text-xs text-gray-500">{{ de.forms.inUseHint }}</p>
     </template>
 
     <!-- The editor of one template -->

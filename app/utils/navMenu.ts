@@ -73,14 +73,16 @@ export function navMenu(viewer: NavViewer): NavMenu {
         entry(de.nav.cash, '/cash'),
         // The short label keeps the header of a laptop on one line.
         entry(de.nav.calendarShort, '/admin/calendar'),
+        teamMeetings,
       ],
       mine,
       more: [
         entry(de.nav.closures, '/admin/closures'),
         entry(de.nav.sickDays, '/admin/sick-days'),
-        teamMeetings,
         // Blank forms to print; the tablet reaches them from its start page, Mitarbeiter accounts not at all.
         entry(de.nav.templates, '/templates'),
+        // The templates of staff talks, child observations and team meetings.
+        entry(de.nav.forms, '/admin/forms'),
         entry(de.nav.users, '/admin/users'),
         entry(de.nav.settings, '/admin/settings'),
       ],
