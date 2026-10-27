@@ -2,8 +2,10 @@ import { eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, children, earlySickLeaves, employees, employeeRequirements, employeeTrainings, forms, leaveEntitlements,
-  leaveRequests, notifications, releaseSnapshots, timeDayNotes, timeRecords, users, warningAcks,
+  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, children, earlySickLeaves, employeeHours,
+  employees, employeeRequirements, employeeTrainings, entries, formEditors, forms, groupBookChanges, leaveEntitlements, leavePlanners,
+  leaveRequests, notifications, releaseSnapshots, staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges,
+  timeRecords, users, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { getActiveUser } from '../../server/services/auth'
 import { deleteLeftEmployee } from '../../server/services/employeeDeletion'
@@ -15,7 +17,7 @@ import { listTemplates } from '../../server/services/formTemplates'
 import { setPin } from '../../server/services/terminal'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import {
-  addChild, addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, requirementTypeId, templateId,
+  addChild, addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, requirementTypeId, templateId,
 } from '../helpers/fixtures'
 
 const today = '2026-10-27'
@@ -57,6 +59,9 @@ beforeEach(() => {
 
 /** Tina (left) and Ben (active) with the same kinds of data; Tina also helped out in the Hort. */
 function fillData(): void {
+  const group = addGroup(db, 1, 'Bären')
+  const weekTemplate = db.insert(weekTemplates).values({ facilityId: 1, name: 'A-Woche', updatedAt: now.toISOString() })
+    .returning({ id: weekTemplates.id }).get().id
   for (const id of [tina, ben]) {
     shift(leitung, 1, id, '2026-10-06')
     shift(leitung, 1, id, '2026-09-15')
@@ -78,7 +83,28 @@ function fillData(): void {
     createTalk(db, leitung, { facilityId: 1, ownEmployeeId: null }, {
       employeeId: id, templateIds, date: '2026-06-01', start: 600, participants: '', period: '',
     }, now)
-    addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })
+    const childId = addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })
+    // The rest of the references: time corrections, a week template row, a form editor grant, a tablet unlock, and the
+    // person as the one who entered something in a child's record or a group book.
+    const at = now.toISOString()
+    db.insert(timeRecordChanges).values({ employeeId: id, date: '2026-10-06', before: '', after: '7:30–15:45', at }).run()
+    db.insert(weekTemplateEntries).values({ weekTemplateId: weekTemplate, employeeId: id, weekday: 0, kind: 'shift', start: 450, end: 945 }).run()
+    const formId = db.insert(forms).values({
+      facilityId: 1, kind: 'child', title: 'Beobachtung', content: '{"sections":[]}', createdAt: at, updatedAt: at, childId,
+    }).returning({ id: forms.id }).get().id
+    db.insert(formEditors).values({ formId, employeeId: id, grantedAt: at }).run()
+    const tablet = addUser(db, `tablet-${id}`, 'terminal')
+    db.insert(terminalUnlocks).values({ id: `unlock-${id}`, terminalUserId: tablet.id, facilityId: 1, employeeId: id, createdAt: at, lastActiveAt: at }).run()
+    db.insert(childDevelopmentDocs).values({ childId, doneOn: '2026-10-01', doneByEmployeeId: id, doneByName: 'am Tablet', createdAt: at }).run()
+    db.insert(childParentMeetings).values({
+      childId, date: '2026-10-02', start: 600, kind: 'development', createdAt: at, createdByEmployeeId: id, createdByName: 'am Tablet',
+    }).run()
+    db.insert(childAttendanceChanges).values({
+      childId, date: '2026-10-02', field: 'arrived', before: '', after: '8:00', changedAt: at, changedByEmployeeId: id, changedByName: 'am Tablet',
+    }).run()
+    db.insert(groupBookChanges).values({
+      groupId: group, field: 'day', date: '2026-10-02', before: '', after: 'Wald', changedAt: at, changedByEmployeeId: id, changedByName: 'am Tablet',
+    }).run()
   }
   // October released, then a draft change of both (change log).
   releaseMonth(db, leitung, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
@@ -101,14 +127,17 @@ describe('deleting a left employee', () => {
     fillData()
     const tinaAccount = addUser(db, 'tina', 'observer', tina)
     const benAccount = addUser(db, 'ben', 'observer', ben)
+    db.insert(leavePlanners).values({ userId: tinaAccount.id }).run()
     const tinaBefore = references(tina)
     const benBefore = references(ben)
-    for (const column of ['entries.employee_id', 'change_log.employee_id', 'time_records.employee_id', 'leave_requests.employee_id',
-      'early_sick_leaves.employee_id', 'employee_requirements.employee_id', 'staff_talks.employee_id', 'help_outs.employee_id',
-      'children.key_educator_id', 'users.employee_id', 'notifications.employee_id']) {
-      expect(tinaBefore[column], column).toBeGreaterThan(0)
-    }
+    // Every column that references employees has data, so a new reference without handling makes this test fail.
+    expect(Object.keys(tinaBefore).length).toBeGreaterThanOrEqual(21)
+    for (const [column, count] of Object.entries(tinaBefore)) expect(count, `seed a row for ${column}`).toBeGreaterThan(0)
     expect(snapshotIds().some(ids => ids.employees.includes(tina) && ids.entries.includes(tina))).toBe(true)
+    const talkFormsOf = (employeeId: number) => db.select({ id: staffTalkForms.formId }).from(staffTalkForms)
+      .innerJoin(staffTalks, eq(staffTalks.id, staffTalkForms.talkId)).where(eq(staffTalks.employeeId, employeeId)).all().map(row => row.id)
+    const tinaTalkForms = talkFormsOf(tina)
+    expect(tinaTalkForms.length).toBeGreaterThan(0)
     const formCount = db.select().from(forms).all().length
 
     deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today)
@@ -117,8 +146,13 @@ describe('deleting a left employee', () => {
     expect(Object.entries(references(tina)).filter(([, n]) => n > 0)).toEqual([])
     expect(references(ben)).toEqual(benBefore)
     expect(db.all(sql`PRAGMA foreign_key_check`)).toEqual([])
-    // The talk's forms went with it; Ben's stay.
-    expect(db.select().from(forms).all().length).toBe(formCount / 2)
+    // The talk's forms went with it; Ben's and the child forms stay.
+    expect(db.select().from(forms).all().length).toBe(formCount - tinaTalkForms.length)
+    expect(talkFormsOf(ben).length).toBe(tinaTalkForms.length)
+    expect(db.select().from(leavePlanners).all()).toEqual([])
+    // Who entered something keeps the name, without the id.
+    expect(db.select({ name: childDevelopmentDocs.doneByName, id: childDevelopmentDocs.doneByEmployeeId }).from(childDevelopmentDocs).all())
+      .toEqual(expect.arrayContaining([{ name: 'am Tablet', id: null }, { name: 'am Tablet', id: ben }]))
     // The child keeps no Bezugserzieher; Ben's child keeps him.
     expect(db.select({ key: children.keyEducatorId }).from(children).all().map(row => row.key).sort()).toEqual([ben, null].sort())
     // The account is gone (its session no longer works), Ben's stays.
@@ -185,5 +219,35 @@ describe('deleting a left employee', () => {
     // A name typed with spaces around still counts.
     deleteLeftEmployee(db, leitung, 1, tina, '  Tina Test ', today)
     expect(exists(tina)).toBe(false)
+  })
+
+  it('compares the name as the page shows it: inner spaces collapsed, Unicode normalised, case still counts', () => {
+    const anna = addEmployee(db, 'Anna  Maria', { leftOn: '2026-09-30' })
+    expect(errorCode(() => deleteLeftEmployee(db, leitung, 1, anna, 'anna maria', today))).toBe('employee_delete_confirm_mismatch')
+    deleteLeftEmployee(db, leitung, 1, anna, 'Anna Maria', today)
+    // „Jürgen“ stored composed (NFC), typed decomposed (NFD, as pasted from a Mac or a PDF).
+    const juergen = addEmployee(db, 'Jürgen', { leftOn: '2026-09-30' })
+    deleteLeftEmployee(db, leitung, 1, juergen, 'Jürgen', today)
+    expect(db.select().from(employees).where(eq(employees.id, juergen)).get()).toBeUndefined()
+  })
+
+  it('refuses with a German error and keeps everything when a reference without handling still points at the person', () => {
+    db.run(sql.raw('CREATE TABLE extra_refs (id INTEGER PRIMARY KEY, employee_id INTEGER REFERENCES employees(id))'))
+    db.run(sql.raw(`INSERT INTO extra_refs (employee_id) VALUES (${tina})`))
+    shift(leitung, 1, tina, '2026-10-06')
+    expect(errorCode(() => deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today))).toBe('employee_delete_blocked')
+    expect(db.select().from(employees).where(eq(employees.id, tina)).get()).toBeDefined()
+    expect(db.select().from(entries).where(eq(entries.employeeId, tina)).all()).toHaveLength(1)
+    expect(db.select().from(employeeHours).where(eq(employeeHours.employeeId, tina)).all()).toHaveLength(1)
+  })
+
+  it('is not blocked by an old broken reference that has nothing to do with the person', () => {
+    db.run(sql`PRAGMA foreign_keys = OFF`)
+    db.insert(timeRecords).values({ employeeId: 9999, date: '2026-10-06', start: 450, source: 'terminal', createdAt: now.toISOString() }).run()
+    db.run(sql`PRAGMA foreign_keys = ON`)
+    expect(db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(1)
+    deleteLeftEmployee(db, leitung, 1, tina, 'Tina Test', today)
+    expect(db.select().from(employees).where(eq(employees.id, tina)).get()).toBeUndefined()
+    expect(db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(1)
   })
 })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmsName } from '#shared/domain/confirmName'
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { MONDAY_TO_FRIDAY } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
@@ -123,16 +124,25 @@ const accountOf = (employeeId: number) => users.value?.find(account => account.e
 const mayDelete = (employee: EmployeeListItemDto) => employee.id !== user.value?.employeeId
   && (isProvider.value || accountOf(employee.id)?.role !== 'provider')
 const deleteAccount = computed(() => deleting.value ? accountOf(deleting.value.id) : null)
+const nameConfirmed = computed(() => deleting.value !== null && confirmsName(deleteName.value, deleting.value.name))
+/** While the request runs the button waits (a second click would only bring „nicht gefunden“). */
+const deletePending = ref(false)
 function askDelete(employee: EmployeeListItemDto) {
   deleting.value = employee
   deleteName.value = ''
 }
 async function confirmDelete() {
   const employee = deleting.value
-  if (!employee || deleteName.value.trim() !== employee.name) return
-  const ok = await run(() => $fetch<unknown>(`/api/employees/${employee.id}`, { method: 'DELETE', body: { confirm: deleteName.value } }),
-    de.employees.deleteDone(employee.name))
-  if (ok) deleting.value = null
+  if (!employee || !nameConfirmed.value || deletePending.value) return
+  deletePending.value = true
+  try {
+    const ok = await run(() => $fetch<unknown>(`/api/employees/${employee.id}`, { method: 'DELETE', body: { confirm: deleteName.value } }),
+      de.employees.deleteDone(employee.name))
+    if (ok) deleting.value = null
+  }
+  finally {
+    deletePending.value = false
+  }
 }
 
 /** The move arrows only show while „Reihenfolge ändern“ is on. */
@@ -286,7 +296,7 @@ const td = 'px-3 py-2'
 
     <UModal
       :open="deleting !== null" :title="deleting ? de.employees.deleteTitle(deleting.name) : ''"
-      @update:open="open => { if (!open) deleting = null }"
+      @update:open="open => { if (!open && !deletePending) deleting = null }"
     >
       <template #body>
         <form v-if="deleting" class="space-y-3 text-sm" @submit.prevent="confirmDelete">
@@ -297,6 +307,7 @@ const td = 'px-3 py-2'
           </ul>
           <p v-if="deleteAccount?.role === 'provider'" class="text-gray-700">{{ de.employees.deleteProviderAccount(deleteAccount.username) }}</p>
           <p class="text-gray-600">{{ de.employees.deleteKept }}</p>
+          <p class="font-medium text-amber-800">{{ de.employees.deleteBackupHint }}</p>
           <UFormField :label="de.employees.deleteTypeName(deleting.name)">
             <UInput v-model="deleteName" class="w-full" autocomplete="off" />
           </UFormField>
@@ -304,7 +315,7 @@ const td = 'px-3 py-2'
             <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="deleting = null" />
             <UButton
               type="submit" color="error" icon="i-lucide-trash-2" :label="de.employees.deleteForGood"
-              :disabled="deleteName.trim() !== deleting.name"
+              :loading="deletePending" :disabled="!nameConfirmed || deletePending"
             />
           </div>
         </form>

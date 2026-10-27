@@ -368,6 +368,8 @@ describe('API route permissions', () => {
     expect(code).toContain('requireAdmin(event)')
     expect(code).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
     expect(code).toContain('deleteLeftEmployee(useDb(), admin, admin.facilityId, id, confirm)')
+    // The name is personal data: only from the body, never the URL (logs).
+    expect(code).not.toContain('getQuery(')
   })
 
   it('lets only the Träger change the absence codes', () => {
