@@ -1161,6 +1161,7 @@ export const de = {
     otherFacilityHint: (name: string, active: string) =>
       `Du bearbeitest die Einstellungen von ${name}. Oben in der App bleibt ${active} eingestellt.`,
     unsavedSwitch: 'Verwerfen und wechseln',
+    switchToEdit: 'Wechsle oben die Einrichtung, um das zu bearbeiten.',
   },
   cash: {
     title: 'Kasse', facility: 'Einrichtung', create: 'Kasse anlegen', edit: 'Kasse bearbeiten',

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SETUP_AREAS, type SetupChecklist, type SetupItem } from '#shared/domain/setupChecklist'
 import { de } from '~/locales/de'
+import { leavesSettings } from '~/utils/settingsFacility'
 
 /**
  * „Was noch fehlt“ at the top of the settings: what is not entered yet in the active facility, by area, each with the
@@ -12,6 +13,12 @@ const { busy, guard } = useBusy()
 const act = useAction(refresh)
 
 const text = (item: SetupItem) => t.items[item.key](item.count)
+// While the Träger looks at another facility's settings, a link out of the settings would open the active facility's
+// page instead: such places are shown as plain text with a hint.
+const chosenFacility = useSettingsFacility()
+const linked = (to: string) => chosenFacility.value === null || !leavesSettings(to)
+const someUnlinked = computed(() => (data.value?.open ?? [])
+  .some(item => !linked(item.to) || item.names.some(named => !linked(named.to))))
 const byArea = computed(() => SETUP_AREAS
   .map(area => ({ area, items: (data.value?.open ?? []).filter(item => item.area === area) }))
   .filter(entry => entry.items.length > 0))
@@ -26,6 +33,7 @@ const show = (item: SetupItem) => guard(() => act(() => $fetch(path(item), { met
     <h2 id="setup-checklist-title" class="font-semibold">{{ t.title }}</h2>
     <p v-if="error" class="text-sm text-red-700">{{ t.loadFailed }}</p>
     <template v-else-if="data">
+      <p v-if="someUnlinked" class="text-xs text-amber-800">{{ de.settingsAreas.switchToEdit }}</p>
       <p v-if="data.open.length === 0" class="flex items-center gap-1.5 text-sm text-green-700">
         <UIcon name="i-lucide-circle-check" class="size-4 shrink-0" aria-hidden="true" />{{ t.allDone }}
       </p>
@@ -34,10 +42,13 @@ const show = (item: SetupItem) => guard(() => act(() => $fetch(path(item), { met
         <ul class="divide-y divide-gray-100 rounded-md ring-1 ring-gray-100">
           <li v-for="item in entry.items" :key="item.key" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
             <div class="min-w-0 flex-1 basis-56">
-              <NuxtLink :to="item.to" class="font-medium text-sky-800 hover:underline">{{ text(item) }}</NuxtLink>
+              <NuxtLink v-if="linked(item.to)" :to="item.to" class="font-medium text-sky-800 hover:underline">{{ text(item) }}</NuxtLink>
+              <span v-else class="font-medium">{{ text(item) }}</span>
               <p v-if="item.names.length > 0" class="break-words text-xs text-gray-600">
                 <template v-for="(named, index) in item.names" :key="named.to">
-                  <span v-if="index > 0">, </span><NuxtLink :to="named.to" class="hover:underline">{{ named.name }}</NuxtLink>
+                  <span v-if="index > 0">, </span>
+                  <NuxtLink v-if="linked(named.to)" :to="named.to" class="hover:underline">{{ named.name }}</NuxtLink>
+                  <span v-else>{{ named.name }}</span>
                 </template>
                 <span v-if="item.count > item.names.length"> {{ t.more(item.count - item.names.length) }}</span>
               </p>

@@ -1069,10 +1069,14 @@ sehen keine Warnungen.
   eine andere Einrichtung, ohne oben in der App zu wechseln. Alle Bereiche der Einstellungen (Öffnungszeiten, Gruppen,
   Dienste, Tablet, Kinder, Erinnerungen, Personal …) zeigen und ändern dann diese Einrichtung; ein gelber Hinweis sagt,
   welche, und dass oben die bisherige Einrichtung eingestellt bleibt. Die Auswahl gilt, solange du in den Einstellungen
-  bleibst; verlässt du sie (oder lädst die Seite neu), gilt wieder die oben eingestellte Einrichtung. Was für alle
-  Einrichtungen gilt (Liste der Einrichtungen, Codes, Urlaubsanträge, Löschfrist, Datensicherung), bleibt davon unberührt.
-  Ungespeicherte Änderungen fragt die App vor dem Wechsel ab; auf der Seite einer Gruppe geht es zurück zur Gruppenliste.
-  Die Leitung hat diese Auswahl nicht.
+  bleibst; verlässt du sie (oder lädst die Seite neu), gilt wieder die oben eingestellte Einrichtung. Bleibst du nach der
+  Frage zu ungespeicherten Änderungen auf der Seite, bleibt auch die Auswahl. Was für alle Einrichtungen gilt (Liste der
+  Einrichtungen, Codes, Urlaubsanträge an/aus, Löschfrist, Datensicherung), bleibt davon unberührt. Nur die Auswahl der
+  Zuständigen für die Urlaubsplanung zeigt die Leitungen der gewählten Einrichtung (bereits gewählte Zuständige anderer
+  Einrichtungen bleiben gespeichert). In „Was noch fehlt“ sind Einträge, die zu Seiten außerhalb der Einstellungen führen
+  (z. B. eine Person oder ein Kind), dann kein Link: Wechsle dafür oben die Einrichtung. Ungespeicherte Änderungen fragt
+  die App vor dem Wechsel ab; auf der Seite einer Gruppe geht es zurück zur Gruppenliste. Die Leitung hat diese Auswahl
+  nicht.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
   unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Bögen, Benutzer, Einstellungen und Passwort ändern.

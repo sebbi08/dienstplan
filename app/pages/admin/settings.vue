@@ -36,9 +36,9 @@ const facilityName = (id: number | null | undefined) => facilities.value?.facili
 const otherFacilityHint = computed(() => chosenFacility.value === null ? null
   : s.otherFacilityHint(facilityName(chosenFacility.value), facilityName(facilities.value?.activeId)))
 const confirm = useConfirm()
-// Each choice shows the open page anew, so no form keeps a draft or a list of the facility shown before.
-const shownVersion = ref(0)
-const pageKey = (target: { path: string }) => `${target.path}|${shownVersion.value}`
+// Whenever the choice changes (the select, or the session ended), the open page is shown anew with that facility's
+// data, so no form keeps a draft or a list of the facility shown before and saves it for another one.
+const pageKey = (target: { path: string }) => `${target.path}|${chosenFacility.value ?? 'active'}`
 
 async function chooseFacility(facilityId: number) {
   if (!Number.isInteger(facilityId) || facilityId === shownFacility.value) return
@@ -48,8 +48,8 @@ async function chooseFacility(facilityId: number) {
   }
   else if (hasUnsavedChanges() && !await confirm(s.unsavedConfirm, { confirmLabel: s.unsavedSwitch, danger: true })) return
   chosenFacility.value = facilityId === facilities.value?.activeId ? null : facilityId
+  // The frame's own data (groups and staffing for the search) and anything else still on screen.
   await refreshNuxtData()
-  shownVersion.value++
 }
 
 async function open(hit: SettingsHit | undefined) {

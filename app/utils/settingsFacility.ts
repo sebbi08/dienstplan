@@ -17,3 +17,21 @@ export function settingsFacilityHeader(path: string, chosen: number | null, acti
   if (chosen === null || chosen === active || !isSettingsPath(path)) return null
   return String(chosen)
 }
+
+/**
+ * What a finished navigation does to the chosen facility: `keep` it (none chosen, still in the settings, or the
+ * navigation failed or was refused, e.g. the Träger stays because of unsaved edits: the draft on screen still belongs to
+ * the chosen facility), `drop` it and fetch the data on screen afresh (the settings were really left), or drop it
+ * `quietly` (signed out: fetching afresh would only answer 401).
+ */
+export function afterSettingsNavigation(
+  navigation: { toPath: string; failed: boolean; chosen: number | null; signedIn: boolean },
+): 'keep' | 'drop' | 'quietly' {
+  if (navigation.chosen === null || navigation.failed || isSettingsPath(navigation.toPath)) return 'keep'
+  return navigation.signedIn ? 'drop' : 'quietly'
+}
+
+/** Whether a link of the settings (e.g. in „Was noch fehlt“) leads out of them, where the active facility applies. */
+export function leavesSettings(to: string): boolean {
+  return !isSettingsPath(to.split(/[?#]/)[0] ?? '')
+}

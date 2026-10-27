@@ -2,7 +2,7 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PAGE_FACILITY_HEADER, SETTINGS_FACILITY_HEADER } from '#shared/domain/pageFacility'
 import { de } from '~/locales/de'
 import { errorCode } from '~/utils/errors'
-import { isSettingsPath, settingsFacilityHeader } from '~/utils/settingsFacility'
+import { afterSettingsNavigation, settingsFacilityHeader } from '~/utils/settingsFacility'
 
 /**
  * Every API request of this page names the facility the page was loaded for (once known), so a Träger who switched
@@ -20,6 +20,7 @@ export default defineNuxtPlugin(() => {
   const pageFacility = usePageFacility()
   const settingsFacility = useSettingsFacility()
   const router = useRouter()
+  const { loggedIn } = useUserSession()
   const toast = useToast()
   const browserFetch = window.fetch.bind(window)
   let reloading = false
@@ -45,6 +46,8 @@ export default defineNuxtPlugin(() => {
     const settings = settingsFacilityHeader(router.currentRoute.value.path, settingsFacility.value, pageFacility.value)
     if (settings !== null) headers.set(SETTINGS_FACILITY_HEADER, settings)
     const response = await browserFetch(input, { ...init, headers })
+    // Signed out (session over): the choice ends with the session, without fetching anything again.
+    if (response.status === 401) settingsFacility.value = null
     if (response.status === 409) {
       const body: unknown = await response.clone().json().catch(() => null)
       if (errorCode({ data: body }) === 'facility_changed') startOver()
@@ -52,10 +55,15 @@ export default defineNuxtPlugin(() => {
     return response
   }
 
-  router.afterEach((to) => {
-    if (settingsFacility.value === null || isSettingsPath(to.path)) return
+  // The choice changes only by the select on the settings page (which shows the page anew) or by really leaving the
+  // settings: a refused navigation keeps it, so a draft still on screen is saved for the facility it was loaded from.
+  router.afterEach((to, _from, failure) => {
+    const next = afterSettingsNavigation({
+      toPath: to.path, failed: !!failure, chosen: settingsFacility.value, signedIn: loggedIn.value,
+    })
+    if (next === 'keep') return
     settingsFacility.value = null
     // Data shared with other pages (groups, settings …) may still hold the other facility's answer.
-    void refreshNuxtData()
+    if (next === 'drop') void refreshNuxtData()
   })
 })
