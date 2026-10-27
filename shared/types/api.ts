@@ -655,6 +655,34 @@ export interface ArchivedChildDto {
   purgeOn: IsoDate
 }
 
+/** What an item of the Träger's retention overview deletes of a left employee: a category, or the employee row itself. */
+export type RetentionItemCategory = 'immediate' | 'time' | 'assessment' | 'paidOvertime' | 'record'
+
+/**
+ * An item of the Träger's retention overview (spec Löschübersicht §2), across every facility. `key` names it for the
+ * delete routes: `employee:<id>:<category>`, `child:<id>`, `cash:<id>`. `deletableFrom` is null only for an employee
+ * `record` (due once the person's other categories hold no data) and for a cash box without entries or history (due).
+ */
+export interface RetentionItemDto {
+  key: string
+  kind: 'employee' | 'child' | 'cash'
+  /** Only for an employee; null for a child record and a cash box. */
+  category: RetentionItemCategory | null
+  facilityId: number
+  facilityName: string
+  /** The employee's name, the child's first and last name, the cash box's name. */
+  name: string
+  deletableFrom: IsoDate | null
+  /** May be deleted today. */
+  due: boolean
+}
+
+/** „Alle fälligen löschen“: how many of the items were deleted, and the keys skipped (not due, gone or invalid). */
+export interface RetentionDeleteResult {
+  deleted: number
+  skipped: string[]
+}
+
 /** Whole years (1-10) a child's record is kept after the leaving day; set by the Träger for all facilities. */
 export interface ChildRetentionDto {
   years: number

@@ -166,6 +166,10 @@ export const childFacilitySchema = z.object({ facilityId: z.number().int().posit
 export const childLeaveSchema = z.object({ leftOn: isoDate })
 /** The range (whole years 1-10) is checked by the service, which answers invalid_retention. */
 export const childRetentionSchema = z.object({ years: z.number() })
+/** An item of the Träger's retention overview by its key; the service checks the format (400 retention_key_invalid). */
+export const retentionItemSchema = z.object({ key: z.string().max(100) })
+/** „Alle fälligen löschen“: the keys shown on the page, at most 1000. */
+export const retentionDueSchema = z.object({ keys: z.array(z.string().max(100)).max(1000) })
 /**
  * The Träger's staffing overrides, path → number; the service checks the paths and the values (staffing_override_invalid)
  * and whether the rules stay usable (staffing_rules_invalid).

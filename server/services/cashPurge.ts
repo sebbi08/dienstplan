@@ -7,16 +7,13 @@ import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { cashBoxes, cashClosedMonths, cashEntries, cashLog } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { boxDeletableFrom, loadBox } from './cashBoxes'
-import { describeCashEntry, DIRECTION_LABELS, logCash, monthOf } from './cashLog'
+import { boxDeletableFrom, loadBox, type CashBoxRow } from './cashBoxes'
+import { type CashActor, describeCashEntry, DIRECTION_LABELS, logCash, monthOf } from './cashLog'
 import { dropUnusedReceipts } from './cashReceipts'
 import { foreignKeyViolations } from './employeeDeletion'
 
 /**
- * „Endgültig löschen“ of an archived box once its retention period has run (spec Löschfristen §4): the box, its
- * entries, their receipts (a transfer's receipt stays while the counterpart uses it), closed months and log, in one
- * transaction. The counterpart rows of its transfers in other boxes stay as plain entries (link and transfer text
- * cleared, the purpose as it was), with a line in their box's log, also in a closed month there.
+ * „Endgültig löschen“ of an archived box once its retention period has run (spec Löschfristen §4), see removeArchivedBox.
  *
  * Only Träger and Leitung (403 forbidden), a box of the facility (404 cash_box_not_found), archived (409
  * cash_box_not_archived), from its deletableFrom on (409 cash_box_retention; a box with neither entries nor history at
@@ -32,10 +29,25 @@ export function purgeBox(
   const deletableFrom = boxDeletableFrom(db, facilityId, id)
   if (deletableFrom !== null && today < deletableFrom) throw new ServiceError(409, 'cash_box_retention', { deletableFrom })
   if (!confirmsName(confirm, box.name)) throw new ServiceError(400, 'cash_box_confirm_mismatch')
+  return removeArchivedBox(db, actor, box, now).receiptDropped
+}
 
+/**
+ * Deletes the box for good, its checks done by the caller (purgeBox, the Träger's retention overview): the box, its
+ * entries, their receipts (a transfer's receipt stays while the counterpart uses it), closed months and log, in one
+ * transaction. The counterpart rows of its transfers in other boxes stay as plain entries (link and transfer text
+ * cleared, the purpose as it was), with a line in their box's log, also in a closed month there. A reference the
+ * deletion would leave behind rolls it back (409 cash_box_purge_blocked). Answers the rows changed and whether a
+ * receipt went along.
+ */
+export function removeArchivedBox(
+  db: Db, actor: CashActor, box: CashBoxRow, now: Date = new Date(),
+): { rows: number; receiptDropped: boolean } {
+  const id = box.id
   // Only violations the purge would add count: an old one elsewhere (say from a restored backup) blocks nothing.
   const before = new Set(foreignKeyViolations(db))
   return db.transaction((tx) => {
+    let rows = 0
     const own = tx.select({ receiptId: cashEntries.receiptId, transferId: cashEntries.transferId }).from(cashEntries)
       .where(eq(cashEntries.boxId, id)).all()
     const transferIds = [...new Set(own.map(row => row.transferId).filter((value): value is number => value !== null))]
@@ -43,18 +55,18 @@ export function purgeBox(
       for (const row of tx.select().from(cashEntries).where(and(
         inArray(cashEntries.transferId, transferIds), ne(cashEntries.boxId, id), isNotNull(cashEntries.transferId),
       )).all()) {
-        tx.update(cashEntries).set({ transferId: null, transferText: null }).where(eq(cashEntries.id, row.id)).run()
+        rows += tx.update(cashEntries).set({ transferId: null, transferText: null }).where(eq(cashEntries.id, row.id)).run().changes
         logCash(tx, row.boxId, actor, 'transfer_unlinked',
           `${DIRECTION_LABELS[row.direction]} ${describeCashEntry(row)}: Kasse ${box.name} endgültig gelöscht, bleibt als normaler Eintrag`,
           monthOf(row.date), now)
       }
     }
-    tx.delete(cashEntries).where(eq(cashEntries.boxId, id)).run()
-    const dropped = dropUnusedReceipts(tx, own.map(row => row.receiptId))
-    tx.delete(cashClosedMonths).where(eq(cashClosedMonths.boxId, id)).run()
-    tx.delete(cashLog).where(eq(cashLog.boxId, id)).run()
-    tx.delete(cashBoxes).where(eq(cashBoxes.id, id)).run()
+    rows += tx.delete(cashEntries).where(eq(cashEntries.boxId, id)).run().changes
+    const receiptDropped = dropUnusedReceipts(tx, own.map(row => row.receiptId))
+    rows += tx.delete(cashClosedMonths).where(eq(cashClosedMonths.boxId, id)).run().changes
+    rows += tx.delete(cashLog).where(eq(cashLog.boxId, id)).run().changes
+    rows += tx.delete(cashBoxes).where(eq(cashBoxes.id, id)).run().changes
     if (foreignKeyViolations(tx).some(violation => !before.has(violation))) throw new ServiceError(409, 'cash_box_purge_blocked')
-    return dropped
+    return { rows, receiptDropped }
   })
 }

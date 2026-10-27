@@ -49,6 +49,8 @@ const PROVIDER_ROUTES = [
   'cash/boxes/[id]/reopen.post.ts',
   // Retention periods of left employees and cash boxes, per facility (spec Löschfristen §3): only the Träger changes them.
   'retention-settings.put.ts',
+  // Deleting after a retention period, in every facility (spec Löschübersicht §2), and an archived cash box for good.
+  'retention/index.get.ts', 'retention/items.delete.ts', 'retention/due.post.ts', 'cash/boxes/[id]/purge.delete.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = [
@@ -86,8 +88,6 @@ const ADMIN_ROUTES = [
   'cash/entries/[id]/receipt.delete.ts', 'cash/receipts/[id].get.ts',
   // The order of the boxes within the facility or a group.
   'cash/boxes/[id]/move.post.ts',
-  // Deleting an archived box for good after its retention period (spec Löschfristen §4); staff the service refuses too.
-  'cash/boxes/[id]/purge.delete.ts',
   // Form templates („Bögen“) of the active facility (spec Bögen §2).
   'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/[id].put.ts', 'form-templates/[id].delete.ts',
   'form-templates/[id]/copy.post.ts',

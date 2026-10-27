@@ -1,4 +1,5 @@
-import { and, eq, inArray, isNotNull, like, ne, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, like, ne, or, sql, type SQL } from 'drizzle-orm'
+import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { todayIso } from '../../shared/domain/dates'
 import { confirmsName } from '../../shared/domain/confirmName'
 import { mayDeleteEmployeeByHand } from '../../shared/domain/retention'
@@ -33,15 +34,20 @@ function dropFromSnapshots(db: Db, employeeId: number): void {
   }
 }
 
-/** „Zur Kenntnis genommen“ of the warnings about the employee, in every facility (they may have helped out); answers how many. */
-function dropWarningAcks(db: Db, employeeId: number): number {
-  const ids = db.select({ id: warningAcks.id, key: warningAcks.key }).from(warningAcks)
+/** „Zur Kenntnis genommen“ of the warnings about the employee, in every facility (they may have helped out). */
+function warningAckIds(db: Db, employeeId: number): number[] {
+  return db.select({ id: warningAcks.id, key: warningAcks.key }).from(warningAcks)
     .where(like(warningAcks.key, `%|${employeeId}`)).all()
     .filter(({ key }) => {
       const [type, , subject, ...rest] = key.split('|')
       return rest.length === 0 && EMPLOYEE_WARNING_TYPES.has(type ?? '') && subject === String(employeeId)
     })
     .map(row => row.id)
+}
+
+/** Deletes the acknowledgements of warningAckIds; answers how many. */
+function dropWarningAcks(db: Db, employeeId: number): number {
+  const ids = warningAckIds(db, employeeId)
   return ids.length > 0 ? db.delete(warningAcks).where(inArray(warningAcks.id, ids)).run().changes : 0
 }
 
@@ -93,7 +99,7 @@ export function foreignKeyViolations(db: Db): string[] {
 }
 
 /** A row still pointing at the employee through a reference without ON DELETE, as SQLite reports it (also wrapped). */
-function isForeignKeyError(error: unknown): boolean {
+export function isForeignKeyError(error: unknown): boolean {
   for (let current: unknown = error; current instanceof Error; current = (current as Error & { cause?: unknown }).cause) {
     const code = (current as Error & { code?: unknown }).code
     if (code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || current.message.includes('FOREIGN KEY constraint failed')) return true
@@ -117,38 +123,70 @@ export const RETENTION_CATEGORIES = ['immediate', 'time', 'assessment', 'paidOve
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
 
 /**
+ * Rows of a table that belong to the employee (`column` = the employee id, narrowed by `also`). The same lists drive
+ * the deletion helpers and categoryHasData, so what a category deletes and what counts as its data cannot drift apart.
+ */
+interface EmployeeRows { table: SQLiteTable; column: SQLiteColumn; also?: SQL }
+
+const rowsOf = (employeeId: number, rows: EmployeeRows) =>
+  rows.also ? and(eq(rows.column, employeeId), rows.also) : eq(rows.column, employeeId)
+
+function deleteRows(tx: Db, employeeId: number, list: readonly EmployeeRows[]): number {
+  return list.reduce((changed, rows) => changed + tx.delete(rows.table).where(rowsOf(employeeId, rows)).run().changes, 0)
+}
+
+/** References that stay with their row: the column is set to null. */
+function clearRows(tx: Db, employeeId: number, list: readonly EmployeeRows[]): number {
+  return list.reduce((changed, rows) => changed
+    + tx.run(sql`UPDATE ${rows.table} SET ${sql.identifier(rows.column.name)} = NULL WHERE ${rowsOf(employeeId, rows)}`).changes, 0)
+}
+
+function anyRows(db: Db, employeeId: number, list: readonly EmployeeRows[]): boolean {
+  return list.some(rows => db.select({ one: sql`1` }).from(rows.table).where(rowsOf(employeeId, rows)).limit(1).get() !== undefined)
+}
+
+/** „Sofort“: the fields of the employee row that are cleared (the row keeps name, short name, group and leaving day). */
+const IMMEDIATE_FIELDS_CLEARED = {
+  birthday: null, pinHash: null, pinFailed: 0, pinLockedUntil: null, pinLockLevel: 0, qualification: null, staffingShare: null,
+  personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null,
+}
+/** The employee row while one of IMMEDIATE_FIELDS_CLEARED still holds something. */
+const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employeeId), or(
+  isNotNull(employees.birthday), isNotNull(employees.pinHash), ne(employees.pinFailed, 0), isNotNull(employees.pinLockedUntil),
+  ne(employees.pinLockLevel, 0), isNotNull(employees.qualification), isNotNull(employees.staffingShare),
+  isNotNull(employees.personnelNumber), isNotNull(employees.employedSince), isNotNull(employees.jobKey),
+  isNotNull(employees.jobOther), isNotNull(employees.payGroup), isNotNull(employees.payLevel),
+))
+const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
+  { table: employeeRequirements, column: employeeRequirements.employeeId },
+  { table: leaveRequests, column: leaveRequests.employeeId },
+  { table: notifications, column: notifications.employeeId },
+  { table: weekTemplateEntries, column: weekTemplateEntries.employeeId },
+  { table: formEditors, column: formEditors.employeeId },
+  { table: terminalUnlocks, column: terminalUnlocks.employeeId },
+]
+/** References that stay: the child loses its Bezugserzieher, the logs keep the name. */
+const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
+  { table: children, column: children.keyEducatorId },
+  { table: childDevelopmentDocs, column: childDevelopmentDocs.doneByEmployeeId },
+  { table: childParentMeetings, column: childParentMeetings.createdByEmployeeId },
+  { table: childAttendanceChanges, column: childAttendanceChanges.changedByEmployeeId },
+  { table: groupBookChanges, column: groupBookChanges.changedByEmployeeId },
+]
+/** The linked account: deleted, a Träger account only unlinked. */
+const ACCOUNT: EmployeeRows = { table: users, column: users.employeeId }
+
+/**
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields (the row keeps name, short name, group and
  * leaving day), mandatory appointments, leave requests, notifications, week template rows, form editor grants and the
  * tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
 export function deleteImmediateData(tx: Db, employeeId: number): number {
-  let changed = tx.update(employees).set({
-    birthday: null, pinHash: null, pinFailed: 0, pinLockedUntil: null, pinLockLevel: 0, qualification: null, staffingShare: null,
-    personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null,
-  }).where(and(eq(employees.id, employeeId), or(
-    isNotNull(employees.birthday), isNotNull(employees.pinHash), ne(employees.pinFailed, 0), isNotNull(employees.pinLockedUntil),
-    ne(employees.pinLockLevel, 0), isNotNull(employees.qualification), isNotNull(employees.staffingShare),
-    isNotNull(employees.personnelNumber), isNotNull(employees.employedSince), isNotNull(employees.jobKey),
-    isNotNull(employees.jobOther), isNotNull(employees.payGroup), isNotNull(employees.payLevel),
-  ))).run().changes
-  changed += tx.delete(employeeRequirements).where(eq(employeeRequirements.employeeId, employeeId)).run().changes
-  changed += tx.delete(leaveRequests).where(eq(leaveRequests.employeeId, employeeId)).run().changes
-  changed += tx.delete(notifications).where(eq(notifications.employeeId, employeeId)).run().changes
-  changed += tx.delete(weekTemplateEntries).where(eq(weekTemplateEntries.employeeId, employeeId)).run().changes
-  changed += tx.delete(formEditors).where(eq(formEditors.employeeId, employeeId)).run().changes
-  changed += tx.delete(terminalUnlocks).where(eq(terminalUnlocks.employeeId, employeeId)).run().changes
-  // References that stay: the child loses its Bezugserzieher, the logs keep the name.
-  changed += tx.update(children).set({ keyEducatorId: null }).where(eq(children.keyEducatorId, employeeId)).run().changes
-  changed += tx.update(childDevelopmentDocs).set({ doneByEmployeeId: null })
-    .where(eq(childDevelopmentDocs.doneByEmployeeId, employeeId)).run().changes
-  changed += tx.update(childParentMeetings).set({ createdByEmployeeId: null })
-    .where(eq(childParentMeetings.createdByEmployeeId, employeeId)).run().changes
-  changed += tx.update(childAttendanceChanges).set({ changedByEmployeeId: null })
-    .where(eq(childAttendanceChanges.changedByEmployeeId, employeeId)).run().changes
-  changed += tx.update(groupBookChanges).set({ changedByEmployeeId: null })
-    .where(eq(groupBookChanges.changedByEmployeeId, employeeId)).run().changes
-  const account = tx.select({ id: users.id, role: users.role }).from(users).where(eq(users.employeeId, employeeId)).get()
+  let changed = tx.update(employees).set(IMMEDIATE_FIELDS_CLEARED).where(immediateFieldsSet(employeeId)).run().changes
+  changed += deleteRows(tx, employeeId, IMMEDIATE_ROWS)
+  changed += clearRows(tx, employeeId, IMMEDIATE_CLEARED)
+  const account = tx.select({ id: users.id, role: users.role }).from(users).where(rowsOf(employeeId, ACCOUNT)).get()
   if (account?.role === 'provider') {
     changed += tx.update(users).set({ employeeId: null }).where(eq(users.id, account.id)).run().changes
   }
@@ -159,6 +197,20 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
   return changed
 }
 
+/** „Sonstige Überstunden-/Zeitdaten“ (deleteTimeData); the release snapshots and the warning acks come on top. */
+const TIME_ROWS: readonly EmployeeRows[] = [
+  { table: entries, column: entries.employeeId },
+  { table: employeeHours, column: employeeHours.employeeId },
+  { table: helpOuts, column: helpOuts.employeeId },
+  { table: changeLog, column: changeLog.employeeId },
+  { table: timeRecords, column: timeRecords.employeeId },
+  { table: timeRecordChanges, column: timeRecordChanges.employeeId },
+  { table: timeDayNotes, column: timeDayNotes.employeeId },
+  { table: earlySickLeaves, column: earlySickLeaves.employeeId },
+  { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, false) },
+  { table: leaveEntitlements, column: leaveEntitlements.employeeId },
+]
+
 /**
  * „Sonstige Überstunden-/Zeitdaten“: plan entries of every month (draft and released: they leave the release snapshots
  * too) with their change log, time records with corrections and notes, sick-leave markers, balance adjustments not
@@ -167,48 +219,55 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
  * hours (isEmployedInRange), and the help-out facility's plan shows them only through the help-out.
  */
 export function deleteTimeData(tx: Db, employeeId: number): number {
-  let changed = tx.delete(entries).where(eq(entries.employeeId, employeeId)).run().changes
-  changed += tx.delete(employeeHours).where(eq(employeeHours.employeeId, employeeId)).run().changes
-  changed += tx.delete(helpOuts).where(eq(helpOuts.employeeId, employeeId)).run().changes
   dropFromSnapshots(tx, employeeId)
-  changed += tx.delete(changeLog).where(eq(changeLog.employeeId, employeeId)).run().changes
-  changed += tx.delete(timeRecords).where(eq(timeRecords.employeeId, employeeId)).run().changes
-  changed += tx.delete(timeRecordChanges).where(eq(timeRecordChanges.employeeId, employeeId)).run().changes
-  changed += tx.delete(timeDayNotes).where(eq(timeDayNotes.employeeId, employeeId)).run().changes
-  changed += tx.delete(earlySickLeaves).where(eq(earlySickLeaves.employeeId, employeeId)).run().changes
-  changed += tx.delete(balanceAdjustments)
-    .where(and(eq(balanceAdjustments.employeeId, employeeId), eq(balanceAdjustments.paidOut, false))).run().changes
-  changed += tx.delete(leaveEntitlements).where(eq(leaveEntitlements.employeeId, employeeId)).run().changes
-  changed += dropWarningAcks(tx, employeeId)
-  return changed
+  return deleteRows(tx, employeeId, TIME_ROWS) + dropWarningAcks(tx, employeeId)
 }
+
+/** „Beurteilungen und Zeugnisse“: staff talks (their forms go along, deleteAssessmentData) and trainings. */
+const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
+  { table: staffTalks, column: staffTalks.employeeId },
+  { table: employeeTrainings, column: employeeTrainings.employeeId },
+]
 
 /** „Beurteilungen und Zeugnisse“: staff talks with all their forms, and the trainings. */
 export function deleteAssessmentData(tx: Db, employeeId: number): number {
-  let changed = 0
   // The forms are rows of their own (the link rows go with the talk).
-  const talkIds = tx.select({ id: staffTalks.id }).from(staffTalks).where(eq(staffTalks.employeeId, employeeId)).all()
+  const formIds = tx.select({ id: staffTalkForms.formId }).from(staffTalkForms)
+    .innerJoin(staffTalks, eq(staffTalks.id, staffTalkForms.talkId)).where(eq(staffTalks.employeeId, employeeId)).all()
     .map(row => row.id)
-  if (talkIds.length > 0) {
-    const formIds = tx.select({ id: staffTalkForms.formId }).from(staffTalkForms).where(inArray(staffTalkForms.talkId, talkIds))
-      .all().map(row => row.id)
-    changed += tx.delete(staffTalks).where(inArray(staffTalks.id, talkIds)).run().changes
-    if (formIds.length > 0) changed += tx.delete(forms).where(inArray(forms.id, formIds)).run().changes
-  }
-  changed += tx.delete(employeeTrainings).where(eq(employeeTrainings.employeeId, employeeId)).run().changes
+  let changed = deleteRows(tx, employeeId, ASSESSMENT_ROWS)
+  if (formIds.length > 0) changed += tx.delete(forms).where(inArray(forms.id, formIds)).run().changes
   return changed
 }
 
 /** „Ausgezahlte Überstunden“: the balance adjustments marked „ausgezahlt“. */
+const PAID_OVERTIME_ROWS: readonly EmployeeRows[] = [
+  { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, true) },
+]
+
+/** „Ausgezahlte Überstunden“: the balance adjustments marked „ausgezahlt“. */
 export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
-  return tx.delete(balanceAdjustments)
-    .where(and(eq(balanceAdjustments.employeeId, employeeId), eq(balanceAdjustments.paidOut, true))).run().changes
+  return deleteRows(tx, employeeId, PAID_OVERTIME_ROWS)
 }
 
 /** Whether the employee has balance adjustments marked „ausgezahlt“ (kept for the paid-overtime period). */
 export function hasPaidOut(db: Db, employeeId: number): boolean {
-  return db.select({ id: balanceAdjustments.id }).from(balanceAdjustments)
-    .where(and(eq(balanceAdjustments.employeeId, employeeId), eq(balanceAdjustments.paidOut, true))).limit(1).get() !== undefined
+  return anyRows(db, employeeId, PAID_OVERTIME_ROWS)
+}
+
+/**
+ * Per category whether its helper would still delete or clear something, from the same row lists (the release
+ * snapshots aside: deleteEmployeeRow takes the person out of them anyway). A category without data is no item of the
+ * retention overview; the employee row may go once every category says false.
+ */
+export function categoryHasData(db: Db, employeeId: number): Record<RetentionCategory, boolean> {
+  return {
+    immediate: db.select({ id: employees.id }).from(employees).where(immediateFieldsSet(employeeId)).get() !== undefined
+      || anyRows(db, employeeId, [...IMMEDIATE_ROWS, ...IMMEDIATE_CLEARED, ACCOUNT]),
+    time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
+    assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
+    paidOvertime: hasPaidOut(db, employeeId),
+  }
 }
 
 const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) => number> = {
