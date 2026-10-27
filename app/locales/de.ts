@@ -812,11 +812,11 @@ export const de = {
     },
     itemLabel: (name: string, category: string) => `${name} – ${category}`,
     delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
-    confirmOne: (what: string) => `${what} wird endgültig gelöscht. Lade vorher eine Datensicherung herunter.`,
+    confirmOne: (what: string) => `Das wird endgültig gelöscht: ${what}. Lade vorher eine Datensicherung herunter.`,
     confirmAll: (counts: string) => `Das wird endgültig gelöscht: ${counts}. Lade vorher eine Datensicherung herunter.`,
     countOf: (count: number, label: string) => `${count} × ${label}`,
     kinds: { employee: 'Mitarbeiterdaten', child: 'Kinderakte', cash: 'Kasse' },
-    deletedOne: (what: string) => `${what} wurde gelöscht.`,
+    deletedOne: (what: string) => `Gelöscht: ${what}.`,
     deletedAll: (count: number) => (count === 1 ? '1 Eintrag wurde gelöscht.' : `${count} Einträge wurden gelöscht.`),
     skipped: (count: number) => (count === 1
       ? '1 Eintrag wurde nicht gelöscht (schon gelöscht, nicht mehr fällig oder es verweist noch etwas darauf).'

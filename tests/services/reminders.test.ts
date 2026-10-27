@@ -553,9 +553,10 @@ describe('retention reminder', () => {
     }])
   })
 
-  it('never shows it to the Leitung or at the tablet, also with due entries', () => {
+  it('never shows it to the Leitung, a Mitarbeiter or at the tablet, also with due entries', () => {
     addChild(db, 1, { firstName: 'Alt', lastName: 'Kind', entryDate: '2005-08-01', leftOn: '2010-07-31' })
     expect(retentionOf(leitung)).toEqual([])
+    expect(retentionOf(asChildViewer(addUser(db, 'mitarbeiter', 'observer')))).toEqual([])
     expect(retentionOf({ ...traeger, onTablet: true })).toEqual([])
   })
 
