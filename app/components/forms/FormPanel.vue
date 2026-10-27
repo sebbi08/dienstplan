@@ -14,7 +14,8 @@ import {
  *
  * Saving is a PUT of `{ answers, expectedUpdatedAt }` to `saveUrl`, or the `save` handler (e.g. one that sends header
  * fields along). Fields of the parent's own (slot `before`, above the answers) count as unsaved through `extraDirty`;
- * `check` may refuse a save with a message first; `reset` is emitted when the panel goes back to the stored form, so
+ * `check` may refuse a save with a message first; `handlesError` marks failed saves the parent tells about itself (then
+ * the panel shows no message of its own); `reset` is emitted when the panel goes back to the stored form, so
  * the parent can reset its fields too. The slot `actions` gets `dirty`, `save` and `base` (the updatedAt the answers on
  * screen are based on, read after a save) (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a
  * parent can ask before it closes the panel.
@@ -27,6 +28,7 @@ const props = defineProps<{
   refresh: () => Promise<unknown>
   extraDirty?: boolean
   check?: () => string | null
+  handlesError?: (error: unknown) => boolean
 }>()
 const emit = defineEmits<{ dirty: [value: boolean]; reset: [] }>()
 const toast = useToast()
@@ -68,7 +70,7 @@ async function save(): Promise<boolean> {
     const outcome = await saveAnswers(saveHandler(), JSON.parse(sent) as FormAnswers, base.value)
     if (!outcome.ok) {
       if (outcome.conflict) conflict.value = true
-      else toast.add({ title: errorMessage(outcome.error), color: 'error' })
+      else if (!props.handlesError?.(outcome.error)) toast.add({ title: errorMessage(outcome.error), color: 'error' })
       return false
     }
     savedJson.value = sent

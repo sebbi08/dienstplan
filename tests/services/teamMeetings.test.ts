@@ -236,6 +236,8 @@ describe('team meetings', () => {
     const list = listTeamMeetings(db, tablet, { year: 2026 }, NOW)
     expect(list.groups).toEqual([{ id: groupA, name: 'Bären' }])
     expect(list.meetings[1]).toMatchObject({ groupName: 'Bären', createdBy: 'Anna', state: 'draft' })
+    // The meeting itself brings the groups for its header, so the page needs no list.
+    expect(getTeamMeeting(db, tablet, a).groups).toEqual([{ id: groupA, name: 'Bären' }])
   })
 
   it('deleting a meeting deletes its form; deleting its form deletes the meeting', () => {

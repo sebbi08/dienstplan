@@ -49,6 +49,8 @@ describe('navMenu', () => {
     // The unread count stands on „Mein Dienstplan“ in the row, not on „Meins“.
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(3)
+    // Without an employee the account belongs to no facility: no team meetings.
+    expect(labels(navMenu({ ...base, role: 'observer', employeeId: null }).main)).toEqual(['Mein Dienstplan', 'Dienstplan', 'Kalender'])
   })
 
   it('gives the tablet Stempeln, the plan and the team meetings', () => {

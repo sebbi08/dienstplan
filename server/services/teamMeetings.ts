@@ -106,13 +106,18 @@ export function listTeamMeetings(
     meetings: rows.map(row => toListItem(row.meeting, row.form, names)),
     templates: listTemplates(db, member.facilityId, 'team').filter(template => !template.archived)
       .map(template => ({ id: template.id, name: template.name })),
-    groups: db.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.facilityId, member.facilityId))
-      .orderBy(asc(groups.sortOrder), asc(groups.id)).all(),
+    groups: facilityGroups(db, member.facilityId),
     canManage: member.manager,
   }
 }
 
-/** One meeting with its content and answers (every member, in any state). */
+/** The facility's groups to choose from, in their order. */
+function facilityGroups(db: Db, facilityId: number): { id: number; name: string }[] {
+  return db.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.facilityId, facilityId))
+    .orderBy(asc(groups.sortOrder), asc(groups.id)).all()
+}
+
+/** One meeting with its content and answers and the groups to choose from (every member, in any state). */
 export function getTeamMeeting(db: Db, member: TeamMember, id: number): TeamMeetingDto {
   const { meeting, form } = loadMeeting(db, member, id)
   const facilityName = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, member.facilityId))
@@ -122,6 +127,7 @@ export function getTeamMeeting(db: Db, member: TeamMember, id: number): TeamMeet
     content: JSON.parse(form.content) as FormContent,
     answers: JSON.parse(form.answers) as FormAnswers,
     facilityName,
+    groups: facilityGroups(db, member.facilityId),
     canManage: member.manager,
   }
 }

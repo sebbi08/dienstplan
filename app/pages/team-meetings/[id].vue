@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatTime } from '#shared/domain/time'
-import type { TeamMeetingDto, TeamMeetingSavedDto, TeamMeetingsDto } from '#shared/types/api'
+import type { TeamMeetingDto, TeamMeetingSavedDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -19,8 +19,6 @@ const route = useRoute()
 const id = Number(route.params.id)
 const { user } = useUserSession()
 const { data, error, refresh } = await useFetch<TeamMeetingDto>(`/api/team-meetings/${id}`)
-// The groups to choose from (the list route has them; only the whole facility's meetings, to keep it short).
-const { data: lists } = useFetch<TeamMeetingsDto>('/api/team-meetings', { query: { groupId: 0 }, key: 'team-meeting-groups' })
 const toast = useToast()
 const confirm = useConfirm()
 useUnsavedGuard()
@@ -32,6 +30,10 @@ const panelKey = ref(0)
 // Once deleted nothing is left to save, so leaving the page does not ask.
 const deleted = ref(false)
 const editable = computed(() => data.value?.state === 'draft' && !releasedMeanwhile.value && !deleted.value)
+// The refused text is still unsaved: leaving the page asks first, so it can be copied out.
+useDirty(() => releasedMeanwhile.value && !deleted.value)
+/** The refused save is told by the page's alert (with „Neu laden“), not by a second message from the panel. */
+const handlesError = (failure: unknown) => errorCode(failure) === 'team_meeting_released'
 const canPrint = computed(() => user.value?.role !== 'terminal')
 // The badge knows of a release seen through a refused save, before the minutes are loaded again.
 const state = computed(() => (releasedMeanwhile.value ? 'released' : data.value?.state ?? 'draft'))
@@ -78,7 +80,7 @@ const shownHeader = computed(() => (releasedMeanwhile.value ? { ...data.value!, 
 // On screen the draft badge says „Entwurf“; the lines name the release and the last reopening.
 const stampLines = computed(() => (data.value ? teamMeetingStamps(data.value).filter(line => line !== t.draftStamp) : []))
 function groupName(group: string): string | null {
-  const found = (lists.value?.groups ?? []).find(entry => String(entry.id) === group)
+  const found = (data.value?.groups ?? []).find(entry => String(entry.id) === group)
   return found ? found.name : (group === String(data.value?.groupId) ? data.value?.groupName ?? null : null)
 }
 
@@ -172,11 +174,11 @@ async function remove(dirty: boolean) {
 
       <FormsFormPanel
         :key="`${data.id}-${panelKey}`" :form="data" :save="save" :editable="editable" :refresh="refresh"
-        :extra-dirty="headerDirty" :check="check" @reset="resetHeader"
+        :extra-dirty="headerDirty" :check="check" :handles-error="handlesError" @reset="resetHeader"
       >
         <template #before>
           <div v-if="editable" class="rounded-md bg-white p-3 ring-1 ring-gray-200">
-            <TeamMeetingsHeaderFields v-model="header" :groups="lists?.groups ?? []" />
+            <TeamMeetingsHeaderFields v-model="header" :groups="data.groups" />
           </div>
           <dl v-else class="grid gap-x-4 gap-y-1 rounded-md bg-white p-3 text-sm ring-1 ring-gray-200 sm:grid-cols-[auto_1fr]">
             <dt class="font-medium text-gray-600">{{ t.participants }}</dt>

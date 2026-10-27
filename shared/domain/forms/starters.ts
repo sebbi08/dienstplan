@@ -299,8 +299,8 @@ const CHILD_DEVELOPMENT: StarterTemplate = {
   ],
 }
 
-/** Each section of the team meeting starter is one free text asking the section's title. */
-const minutes = (title: string) => section(title, [question(title)])
+/** Each section of the team meeting starter is one free text with its own short question. */
+const minutes = (title: string, ask: string) => section(title, [question(ask)])
 
 const TEAM_MEETING: StarterTemplate = {
   key: 'team_meeting',
@@ -308,11 +308,11 @@ const TEAM_MEETING: StarterTemplate = {
   name: 'Teamsitzung',
   selfAssessment: false,
   sections: [
-    minutes('Tagesordnung'),
-    minutes('Themen und Ergebnisse'),
-    minutes('Vereinbarungen und Aufgaben (wer, was, bis wann)'),
-    minutes('Termine'),
-    minutes('Sonstiges'),
+    minutes('Tagesordnung', 'Welche Punkte stehen an?'),
+    minutes('Themen und Ergebnisse', 'Was wurde besprochen und entschieden?'),
+    minutes('Vereinbarungen und Aufgaben (wer, was, bis wann)', 'Wer erledigt was bis wann?'),
+    minutes('Termine', 'Welche Termine stehen an?'),
+    minutes('Sonstiges', 'Weitere Notizen'),
   ],
 }
 

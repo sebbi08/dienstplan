@@ -111,14 +111,17 @@ describe('starter templates', () => {
     expect(count('Kognitive Entwicklung')).toEqual([3, 2, 2, 3])
   })
 
-  it('the Teamsitzung has five sections, each one free text asking the section title', () => {
+  it('the Teamsitzung has five sections, each one free text with its own short question', () => {
     let next = 0
     const content = checkContent(starterContent(TEAM_STARTERS[0]!, () => `id${next++}`))
     expect(TEAM_STARTERS.map(starter => [starter.key, starter.kind, starter.name])).toEqual([['team_meeting', 'team', 'Teamsitzung']])
     const titles = ['Tagesordnung', 'Themen und Ergebnisse', 'Vereinbarungen und Aufgaben (wer, was, bis wann)', 'Termine', 'Sonstiges']
     expect(content.sections.map(section => section.title)).toEqual(titles)
     expect(content.sections.map(section => section.items.map(item => item.kind === 'text' && item.question)))
-      .toEqual(titles.map(title => [title]))
+      .toEqual([
+        ['Welche Punkte stehen an?'], ['Was wurde besprochen und entschieden?'], ['Wer erledigt was bis wann?'],
+        ['Welche Termine stehen an?'], ['Weitere Notizen'],
+      ])
   })
 
   it('a facility seeded before the team meetings gets only the Teamsitzung added, once', () => {

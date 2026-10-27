@@ -92,7 +92,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   return {
     // Seven entries in a row no longer fit the header of a tablet (1024 px), so the own lists sit under "Meins" like the
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
-    main: [myPlan, plan, entry(de.nav.calendarShort, '/my/calendar'), teamMeetings],
+    // A staff account without an employee belongs to no facility, so it has no team meetings.
+    main: [myPlan, plan, entry(de.nav.calendarShort, '/my/calendar'), ...(viewer.employeeId !== null ? [teamMeetings] : [])],
     mine: [myLeave, myRequirements, myTalks],
     more: [],
     mineCount: 0,

@@ -2053,11 +2053,15 @@ export interface TeamMeetingsDto {
   canManage: boolean
 }
 
-/** One team meeting with its own copy of the template content, the answers and the printout's facility name. */
+/**
+ * One team meeting with its own copy of the template content, the answers, the printout's facility name and the
+ * facility's groups to choose from in the header.
+ */
 export interface TeamMeetingDto extends TeamMeetingListItemDto {
   content: FormContent
   answers: FormAnswers
   facilityName: string
+  groups: { id: number; name: string }[]
   canManage: boolean
 }
 
