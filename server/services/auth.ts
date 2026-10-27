@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm'
+import { todayIso } from '../../shared/domain/dates'
+import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { users } from '../db/schema'
+import { employees, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
@@ -10,7 +12,7 @@ import { resolveFacilityId } from './facilities'
 export const MAX_FAILED_LOGINS = 5
 export const LOCK_MINUTES = 15
 
-export type LoginResult = { ok: true; user: SessionUser } | { ok: false; reason: 'invalid' | 'locked' }
+export type LoginResult = { ok: true; user: SessionUser } | { ok: false; reason: 'invalid' | 'locked' | 'left' }
 
 export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUser {
   return {
@@ -18,6 +20,18 @@ export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUs
     employeeId: row.employeeId, mustChangePassword: row.mustChangePassword,
     canEditChildren: row.canEditChildren, facilityId: resolveFacilityId(db, row),
   }
+}
+
+/**
+ * Whether the account belongs to a Leitung or Mitarbeiter whose employee has left (from the day after leaving, in
+ * Berlin). Such an account can no longer sign in or keep a session until the Träger deletes it with the employee's
+ * „Persönliche Daten“; taking the leaving back (or moving it to a later day) makes it work again. The Träger is never
+ * blocked.
+ */
+function hasLeft(db: Db, row: typeof users.$inferSelect, today: IsoDate): boolean {
+  if ((row.role !== 'admin' && row.role !== 'observer') || row.employeeId === null) return false
+  const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, row.employeeId)).get()
+  return employee?.leftOn != null && employee.leftOn < today
 }
 
 export function login(db: Db, username: string, password: string, now: Date = new Date()): LoginResult {
@@ -37,12 +51,15 @@ export function login(db: Db, username: string, password: string, now: Date = ne
   }
 
   db.update(users).set({ failedLogins: 0, lockedUntil: null }).where(eq(users.id, user.id)).run()
+  // Only after the right password, so the answer tells nothing to someone who does not know it.
+  if (hasLeft(db, user, todayIso(now))) return { ok: false, reason: 'left' }
   return { ok: true, user: toSessionUser(db, user) }
 }
 
-export function getActiveUser(db: Db, id: number): SessionUser | null {
+/** The account behind a session; null when it is gone, deactivated or belongs to someone who has left (see hasLeft). */
+export function getActiveUser(db: Db, id: number, today: IsoDate = todayIso()): SessionUser | null {
   const row = db.select().from(users).where(eq(users.id, id)).get()
-  return row && row.active ? toSessionUser(db, row) : null
+  return row && row.active && !hasLeft(db, row, today) ? toSessionUser(db, row) : null
 }
 
 export function assertPasswordStrength(password: string): void {

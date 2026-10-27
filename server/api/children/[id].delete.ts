@@ -1,11 +1,13 @@
+import { todayIso } from '../../../shared/domain/dates'
 import { checkpointWal } from '../../db/client'
 import { idParams } from '../../schemas'
-import { deleteChild } from '../../services/children'
+import { deleteChildRecord } from '../../services/children'
 
 export default defineServiceHandler(async (event) => {
   const manager = await requireChildManager(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  deleteChild(useDb(), manager.facilityId, id)
+  // An archived record only the Träger deletes (spec Löschübersicht §1).
+  deleteChildRecord(useDb(), manager, manager.facilityId, id, todayIso())
   checkpointWal(useSqlite())
   return { ok: true }
 })

@@ -737,7 +737,7 @@ export const de = {
     title: 'Abmeldung', leavesOn: (date: string) => `Austritt am ${date}`, moveTarget: 'Einrichtung', moveAction: 'Verschieben', moved: 'Akte verschoben',
     confirmLeave: (name: string, date: string) => `${name} zum ${date} abmelden? Einen Tag nach dem Austritt wird die Akte archiviert und kann nicht mehr geändert werden.`,
     confirmMove: (name: string) => `Die Akte nach „${name}“ verschieben? Gruppe und Betreuungsform werden zurückgesetzt, die Dokumentarten der Dokumente werden nach Namen zugeordnet (sonst „Sonstiges“). In der bisherigen Einrichtung ist die Akte danach nicht mehr zu sehen.`,
-    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden und darf nach der Löschfrist gelöscht werden.',
+    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden. Gelöscht wird sie vom Träger – nach der Löschfrist unter Mehr → Löschfristen.',
   },
   groupChange: {
     plan: 'Gruppenwechsel planen', pending: (date: string, group: string) => `wechselt am ${date} in ${group}`, group: 'Neue Gruppe', date: 'Wechseltag',
@@ -784,14 +784,14 @@ export const de = {
     employeeDeleteModes: { off: 'aus', provider: 'nur Träger', managers: 'Leitung und Träger' },
     cashYears: 'Aufbewahrungsfrist Kasse',
     cashYearsHelp: 'Eine archivierte Kasse darf erst danach endgültig gelöscht werden (vom Träger unter Mehr → Löschfristen). Die Frist beginnt am Ende des Jahres der letzten Buchung.',
-    /** The archive line: „Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
+    /** The archive line: „Persönliche Daten dürfen schon gelöscht werden (…). Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
-      labels: { time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden' },
+      labels: { immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden' },
       first: (label: string, date: string) => `${label} dürfen ab ${date} gelöscht werden`,
       next: (label: string, date: string) => `${label} ab ${date}`,
       last: '; danach der Eintrag.',
-      done: (labels: string) => `${labels} dürfen schon gelöscht werden.`,
-      allDone: 'Alle Fristen sind abgelaufen: Der Eintrag darf gelöscht werden.',
+      done: (labels: string) => `${labels} dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen).`,
+      allDone: 'Alle Fristen sind abgelaufen. Der Träger löscht die Daten unter Mehr → Löschfristen; sobald alles andere gelöscht ist, auch den Eintrag.',
     },
   },
   /** The Träger's page Mehr → Löschfristen (all facilities). */
@@ -1478,6 +1478,7 @@ export const de = {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',
     login_invalid: 'Benutzername oder Passwort ist falsch.',
     login_locked: 'Zu viele Fehlversuche. Das Konto ist für 15 Minuten gesperrt.',
+    account_left: 'Dieser Zugang ist gesperrt, weil die Person ausgeschieden ist.',
     session_expired: 'Deine Sitzung ist abgelaufen. Bitte melde dich neu an.',
     forbidden: 'Dafür fehlt dir die Berechtigung.',
     length_required: 'Die Datei konnte nicht übertragen werden. Bitte versuche es noch einmal.',
@@ -1626,6 +1627,7 @@ export const de = {
     left_on_too_early: 'Das Austrittsdatum darf höchstens ein Jahr zurückliegen.',
     child_not_found: 'Dieses Kind existiert nicht mehr.',
     child_archived: 'Die Akte dieses Kindes ist archiviert und kann nicht mehr geändert werden.',
+    archived_child_provider_only: 'Archivierte Akten löscht der Träger unter Mehr → Löschfristen.',
     waitlist_has_entry: 'Eine Vormerkung hat noch keinen Eintritt. Trage den gewünschten Termin unter „geplanter Eintritt“ ein oder stelle den Stand auf „Vertrag“.',
     waitlist_cannot_leave: 'Eine Vormerkung kann nicht abgemeldet, nur gelöscht werden.',
     waitlist_after_start: 'Ein Kind, das schon aufgenommen ist, kann nicht zur Vormerkung werden.',

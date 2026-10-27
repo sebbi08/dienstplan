@@ -7,7 +7,7 @@ import { getChildRetentionYears, setChildRetentionYears } from '../../server/ser
 import { createCareType } from '../../server/services/careTypes'
 import { addContact } from '../../server/services/childContacts'
 import {
-  deleteChild, getChild, leaveChild, listArchive, moveChildToFacility, unleaveChild,
+  deleteChild, deleteChildRecord, getChild, leaveChild, listArchive, moveChildToFacility, unleaveChild,
 } from '../../server/services/children'
 import { listDocumentTypes } from '../../server/services/documentTypes'
 import type { ChildActor } from '../../server/lib/childViewer'
@@ -130,6 +130,21 @@ describe('leaving, archive and automatic deletion of children', () => {
       expect(db.select().from(children).all().map(row => row.id)).toEqual([other])
       expect(db.select().from(childContacts).all()).toEqual([])
       expect(db.select().from(childDocuments).all().map(row => row.id)).toEqual([kept])
+    })
+
+    it('lets only the Träger delete an archived record; the Leitung deletes waitlist, planned and active children', () => {
+      const provider = asChildViewer(addUser(db, 'traeger', 'provider'))
+      const archived = addChild(db, 1, { leftOn: '2026-09-30' })
+      const leavingToday = addChild(db, 1, { leftOn: TODAY })
+      const waitlist = addChild(db, 1, { admissionStatus: 'waitlist', entryDate: null, waitlistedOn: '2026-05-01' })
+      const planned = addChild(db, 1, { entryDate: '2026-12-01' })
+      const active = addChild(db, 1)
+      expect(errorCode(() => deleteChildRecord(db, admin, 1, archived, TODAY))).toBe('archived_child_provider_only')
+      expect(leftOnOf(archived)).toBe('2026-09-30')
+      for (const id of [leavingToday, waitlist, planned, active]) deleteChildRecord(db, admin, 1, id, TODAY)
+      deleteChildRecord(db, provider, 1, archived, TODAY)
+      expect(db.select().from(children).all()).toEqual([])
+      expect(errorCode(() => deleteChildRecord(db, admin, 1, 999, TODAY))).toBe('child_not_found')
     })
   })
 

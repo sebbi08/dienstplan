@@ -17,7 +17,7 @@ werden dürfen – schon fällige und künftige – und löscht sie dort von Han
 | Einrichtungen | alle auf einer Seite, Spalte „Einrichtung“, Filter |
 | Feinheit | eine Zeile je Person/Akte/Kasse und je Datenart, je Zeile ein Knopf, dazu „Alle fälligen löschen“ |
 | Erinnerung | Kasten „Erinnerungen“ des Trägers: „‹n› Einträge dürfen gelöscht werden“ mit Link, bis gelöscht ist |
-| Bleibt | sofortiges „Endgültig löschen“ für Probe-/Fehleinträge (Einstellung aus / nur Träger / Leitung und Träger); Löschen einer Kasse ohne jede Buchung und Geschichte durch Leitung/Träger wie bisher |
+| Bleibt | sofortiges „Endgültig löschen“ für Probe-/Fehleinträge (Einstellung aus / nur Träger / Leitung und Träger); Löschen einer Kasse ohne jede Buchung und Geschichte durch Leitung/Träger wie bisher; Löschen einer Vormerkung (und eines noch nicht archivierten Kindes) durch Leitung/Träger; „Sofort löschen“ einer **archivierten** Kinderakte nur durch den Träger (Server: 403 `archived_child_provider_only` für die Leitung). Konto einer Leitung/eines Mitarbeiters ist ab dem Tag nach „ausgeschieden am“ gesperrt (Anmeldung `account_left`, laufende Sitzung 401), gelöscht wird es mit „Persönliche Daten“ (Final-Review-Ruling) |
 
 ## 2. Seite „Löschfristen“ (Mehr → Löschfristen, nur Träger)
 

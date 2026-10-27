@@ -157,7 +157,7 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 
 | Rolle | Kinderakten |
 |---|---|
-| Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und Akten löschen. Das gilt im Büro und am Tablet. |
+| Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und eine Vormerkung löschen. Eine **archivierte** Akte löscht nur der Träger (siehe „Löschen nach der Aufbewahrungsfrist“). Das gilt im Büro und am Tablet. |
 | Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. |
 | Mitarbeiter mit der Berechtigung „darf Kinderakten pflegen“ | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. |
@@ -253,6 +253,8 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
   werden darf („löschbar ab …“).
 - Die App löscht **nichts von selbst**. Ist die Frist abgelaufen, löscht der **Träger** die Akte samt Dokumenten
   unter **Mehr → Löschfristen** (siehe Abschnitt 15, „Löschfristen“). Er bekommt dazu eine Erinnerung.
+- Im Archiv hat nur der **Träger** den Knopf **„Sofort löschen“**. Er beachtet die Frist **nicht** – nur für
+  Fehleinträge. Die Leitung löscht keine archivierte Akte; sie kann die Abmeldung aber zurücknehmen.
 - Die Frist stellt der Träger unter *Einstellungen → Einrichtung* ein: „Löschfrist für abgemeldete Kinder“,
   1 bis 10 Jahre, voreingestellt sind **3 Jahre**.
 - Besprich die Frist mit dem/der Datenschutzbeauftragten, bevor du sie festlegst.
@@ -742,7 +744,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst), Qualifikation, Vertragsdaten, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise |
 | „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen) |
@@ -752,13 +754,22 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 Wochenstunden und Aushilfen bleiben mit den Zeitdaten, weil das Stundenkonto und der Dienstplan sie brauchen: So steht
 die Person nach dem Ausscheiden weiter im Dienstplan und Stundenkonto ihrer letzten Monate.
 
+**Zugang nach dem Ausscheiden:** Ab dem Tag nach „ausgeschieden am“ kann sich eine Leitung oder ein Mitarbeiter
+**nicht mehr anmelden** – die App sagt „Dieser Zugang ist gesperrt, weil die Person ausgeschieden ist.“, und wer gerade
+angemeldet ist, wird abgemeldet. Das gilt sofort, auch wenn noch nichts gelöscht ist. Gelöscht wird das Konto erst,
+wenn der Träger die Zeile „‹Name› – Persönliche Daten“ unter **Mehr → Löschfristen** löscht. Wird das Ausscheiden
+zurückgenommen (Datum entfernt oder in die Zukunft verschoben), geht die Anmeldung wieder. Ein **Träger-Konto** wird
+nie gesperrt.
+
 - Die Fristen stellt der **Träger** je Einrichtung unter *Einstellungen → Personal → Löschfristen* ein (1 bis 40 Jahre;
   „Einstellungen für“ geht auch hier). Die Leitung sieht sie dort nur. Dort stehen auch „Mitarbeiter endgültig
   löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
 - Eine geänderte Frist gilt sofort für die Seite „Löschfristen“. Schon Gelöschtes kommt nicht zurück.
-- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Zeitdaten
-  dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“). Hat die Person
-  keine Buchung mit „ausgezahlt“, fehlt dieses Datum.
+- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Persönliche
+  Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Zeitdaten dürfen ab … gelöscht werden,
+  Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“). Hat die Person keine Buchung mit
+  „ausgezahlt“, fehlt dieses Datum. Sind alle Fristen abgelaufen, steht dort, dass der Träger die Daten unter
+  Mehr → Löschfristen löscht und zuletzt den Eintrag.
 - Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), verschwindet die Person von der
   Seite „Löschfristen“.
 - Die Fristen sind vorbelegt nach den Vorgaben des Trägers – bitte im Zweifel mit Steuerberatung bzw. Datenschutz
@@ -770,6 +781,8 @@ die Person nach dem Ausscheiden weiter im Dienstplan und Stundenkonto ihrer letz
   **allen Einrichtungen** auf einer Seite: die Daten ausgeschiedener Mitarbeiter (je Art eine Zeile: Persönliche
   Daten, Zeitdaten, Beurteilungen, ausgezahlte Überstunden, zuletzt der Mitarbeiter-Eintrag), die Akten abgemeldeter
   Kinder und archivierte Kassen. Eine Zeile steht nur da, wenn es dazu noch Daten gibt. Die Leitung hat die Seite nicht.
+- „Persönliche Daten“ (Geburtstag, PIN, Benutzerkonto …) sind ab dem Tag nach dem Ausscheiden löschbar. Das Konto einer
+  Leitung oder eines Mitarbeiters ist ab diesem Tag schon gesperrt; mit dieser Zeile löschst du es.
 - Je Zeile: Einrichtung, was (Name und Art der Daten) und **löschbar ab**. Mit **„Einrichtung“** oben zeigst du nur
   eine Einrichtung.
 - **„Jetzt löschbar“** sind die Zeilen, deren Tag erreicht ist, je mit **„Löschen“**. Jedes Löschen fragt vorher nach;

@@ -9,7 +9,7 @@ import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
   type ChildMasterUpdateInput, type ChildRecordDto, type ChildrenOverviewDto, type ConsentKey, type GroupAccess, type OpenChildDto,
-  type OverviewContactDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection, type SectionStamp,
+  type OverviewContactDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection, type Role, type SectionStamp,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
@@ -535,6 +535,19 @@ export function unleaveChild(
 export function deleteChild(db: Db, facilityId: number, id: number): void {
   loadChild(db, facilityId, id)
   db.delete(children).where(eq(children.id, id)).run()
+}
+
+/**
+ * Deleting a record from the child pages (spec Löschübersicht §1): the Leitung deletes waitlist, planned and active
+ * children (e.g. wrong entries); an archived record only the Träger deletes (403 archived_child_provider_only), as he
+ * does after the retention period under Mehr → Löschfristen.
+ */
+export function deleteChildRecord(db: Db, actor: { role: Role }, facilityId: number, id: number, today: IsoDate): void {
+  const row = loadChild(db, facilityId, id)
+  if (childStatus(row, today) === 'archived' && actor.role !== 'provider') {
+    throw new ServiceError(403, 'archived_child_provider_only')
+  }
+  deleteChild(db, facilityId, id)
 }
 
 /** The facility's archived children, the latest leaving first, with the day from which their record may be deleted. */

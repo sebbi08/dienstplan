@@ -4,7 +4,12 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
-/** Managers only: the archived children with their deletion date; take the leaving back or delete the record right away. */
+/**
+ * Managers only: the archived children with their deletion date; take the leaving back, and for the Träger delete the
+ * record right away (the server refuses the Leitung, spec Löschübersicht §1).
+ */
+const { user } = useUserSession()
+const isProvider = computed(() => user.value?.role === 'provider')
 const { data, error, refresh } = useFetch<ArchivedChildDto[]>('/api/children/archive', { key: 'children-archive' })
 // A child that left the archive is back in (or gone from) the other lists.
 const reloadAll = async () => {
@@ -45,7 +50,7 @@ const td = 'px-3 py-2'
             <td :class="[td, 'text-gray-600']">{{ de.childLifecycle.purgeOn(formatDate(child.purgeOn)) }}</td>
             <td :class="[td, 'whitespace-nowrap text-right']">
               <ChildrenUnleaveButton :child-id="child.id" :aria-label="`${de.childLifecycle.unleave}: ${child.name}`" :disabled="busy" :refresh="reloadAll" />
-              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.childLifecycle.deleteNow" :aria-label="`${de.childLifecycle.deleteNow}: ${child.name}`" :disabled="busy" @click="deleteNow(child)" />
+              <UButton v-if="isProvider" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.childLifecycle.deleteNow" :aria-label="`${de.childLifecycle.deleteNow}: ${child.name}`" :disabled="busy" @click="deleteNow(child)" />
             </td>
           </tr>
         </tbody>

@@ -6,7 +6,7 @@ export default defineServiceHandler(async (event) => {
   const body = await readValidatedBody(event, loginSchema.parse)
   const result = login(useDb(), body.username, body.password)
   if (!result.ok) {
-    const code = result.reason === 'locked' ? 'login_locked' : 'login_invalid'
+    const code = { locked: 'login_locked', left: 'account_left', invalid: 'login_invalid' }[result.reason]
     throw createError({ statusCode: 401, statusMessage: code, data: { code } })
   }
   // The tablet keeps the long default cookie lifetime; everyone else expires after USER_SESSION_DAYS.
