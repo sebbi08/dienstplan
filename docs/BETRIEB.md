@@ -704,7 +704,7 @@ Druck-Knöpfe.
 
 ### Ausgeschiedene Mitarbeiter endgültig löschen
 
-- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person **„Endgültig löschen“**. Das geht nur, wenn das
+- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person **„Endgültig löschen“**, wenn die Einstellung es erlaubt (siehe unten). Das geht nur, wenn das
   Datum „ausgeschieden am“ **vor heute** liegt (wer heute ausscheidet, ist noch aktiv). Leitung und Träger dürfen das
   für die Mitarbeiter der Einrichtung, in der sie gerade arbeiten – nur nicht den **eigenen** Eintrag, und eine Person
   mit **Träger-Konto** löscht nur der Träger.

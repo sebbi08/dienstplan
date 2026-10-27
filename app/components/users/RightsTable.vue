@@ -35,7 +35,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Ausgeschiedene Mitarbeiter endgültig löschen (mit allen ihren Daten und ihrem Zugang)', rights: [12, 12, 'no', 'no'] },
     { label: 'Löschfristen der ausgeschiedenen Mitarbeiter und der Kasse einsehen (Einstellungen → Personal)', rights: ['yes', 15, 'no', 'no'] },
-    { label: 'Löschfristen ändern, festlegen wer Mitarbeiter endgültig löschen darf', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Löschfristen ändern, festlegen, wer Mitarbeiter endgültig löschen darf', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Pflichttermine (z. B. Betriebsarzt, Erste-Hilfe-Kurs) und Fortbildungen der Mitarbeiter eintragen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Hinweis auf fällige, überfällige und fehlende Pflichttermine sehen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Eigene Pflichttermine und Fortbildungen ansehen („Meine Termine“, ohne Hinweis)', rights: [1, 1, 'yes', 'no'] },
