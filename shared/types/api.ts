@@ -977,6 +977,11 @@ export interface EmployeeListItemDto {
   pinLocked: boolean
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
+  /**
+   * Only for someone with a leaving day: whether balance adjustments marked „ausgezahlt“ are left (the archive names
+   * their deletion date only then; without them the entry goes with the assessments).
+   */
+  hasPaidOut?: boolean
 }
 
 export interface EmployeeDetailDto extends EmployeeListItemDto {
@@ -1863,7 +1868,8 @@ export interface CashBoxDto extends CashBoxInfoDto {
   canDelete: boolean
   /**
    * First day an archived box may be deleted for good („Endgültig löschen“): 1 January after the facility's cash
-   * period following the year of the last entry (without entries: of the last log line or closed month); null
+   * period following the year of the last entry or a later log line, such as a correction (without entries: of the
+   * last log line or closed month); null
    * without entries and history (deletable at any time).
    */
   deletableFrom: IsoDate | null

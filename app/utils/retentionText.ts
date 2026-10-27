@@ -15,12 +15,14 @@ function listOf(labels: string[]): string {
 /**
  * The line in the staff page's archive for a person who left on `leftOn` (shared/domain/retention.ts): „Zeitdaten
  * werden am … gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“ The dates in their
- * order; a category due today or earlier counts as deleted (the daily run takes it) and is named before.
+ * order; a category due today or earlier counts as deleted (the daily run takes it) and is named before. Without
+ * paid-out adjustments (`hasPaidOut` false) that period is left out: the entry goes with the others.
  */
-export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSettings, today: IsoDate): string {
+export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSettings, today: IsoDate, hasPaidOut = true): string {
   const t = de.retention.archive
   const due = retentionDueDates(leftOn, settings)
-  const dated = CATEGORIES.map(category => ({ label: t.labels[category], date: due[category] }))
+  const dated = CATEGORIES.filter(category => hasPaidOut || category !== 'paidOvertime')
+    .map(category => ({ label: t.labels[category], date: due[category] }))
     .sort((a, b) => a.date.localeCompare(b.date))
   const done = dated.filter(entry => entry.date <= today)
   const open = dated.filter(entry => entry.date > today)

@@ -193,15 +193,15 @@ describe('the daily run', () => {
 
     const result = runDaily(db, '2026-03-16', log)
 
-    // Her weekly hours and her account.
-    expect(result.employeeDataDeleted).toBe(2)
+    // Her account (her weekly hours stay with the time data).
+    expect(result.employeeDataDeleted).toBe(1)
     expect(messages).toEqual([{
       level: 'info',
-      text: 'Deleted data of left employees after the retention periods: 2 immediately, 0 time data, 0 assessments, '
+      text: 'Deleted data of left employees after the retention periods: 1 immediately, 0 time data, 0 assessments, '
         + '0 paid overtime, 0 employee record(s).',
     }])
     // The hourly tries of the same day leave it alone; the next day runs again.
-    db.run(sql.raw(`INSERT INTO employee_hours (employee_id, weekly_minutes, valid_from) VALUES (${tina}, 600, '2026-01-01')`))
+    db.run(sql.raw(`UPDATE employees SET birthday = '04-12' WHERE id = ${tina}`))
     expect(runDaily(db, '2026-03-16', log).employeeDataDeleted).toBe(0)
     expect(runDaily(db, '2026-03-17', log).employeeDataDeleted).toBe(1)
     expect(messages.map(message => message.text).join(' ')).not.toContain('Tina')

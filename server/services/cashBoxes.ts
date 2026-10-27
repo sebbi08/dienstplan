@@ -85,9 +85,10 @@ function lastEntryDates(db: Db, ids: number[]): Map<number, IsoDate> {
 }
 
 /**
- * The day each box's retention period runs from: its last entry; for a box without entries but with history, the later
- * of its latest log line beyond the box's own (the rule of deleteBox; Berlin day) and the end of its latest closed
- * month. Boxes with neither are missing (deletable at any time, like the plain delete).
+ * The day each box's retention period runs from: the later of its last entry and its latest log line beyond the box's
+ * own (the rule of deleteBox; Berlin day), so a later correction counts too; for a box without entries also the end of
+ * its latest closed month. Boxes with neither entries nor history are missing (deletable at any time, like the plain
+ * delete).
  */
 function retentionStarts(db: Db, ids: number[]): Map<number, IsoDate> {
   const result = lastEntryDates(db, ids)
@@ -96,11 +97,11 @@ function retentionStarts(db: Db, ids: number[]): Map<number, IsoDate> {
     if (current === undefined || date > current) result.set(boxId, date)
   }
   const empty = ids.filter(id => !result.has(id))
-  if (empty.length === 0) return result
   for (const row of db.select({ boxId: cashLog.boxId, at: max(cashLog.at) }).from(cashLog)
-    .where(and(inArray(cashLog.boxId, empty), notInArray(cashLog.action, BOX_LOG_ACTIONS))).groupBy(cashLog.boxId).all()) {
+    .where(and(inArray(cashLog.boxId, ids), notInArray(cashLog.action, BOX_LOG_ACTIONS))).groupBy(cashLog.boxId).all()) {
     if (row.at !== null) later(row.boxId, todayIso(new Date(row.at)))
   }
+  if (empty.length === 0) return result
   for (const row of db.select({ boxId: cashClosedMonths.boxId, year: cashClosedMonths.year, month: cashClosedMonths.month })
     .from(cashClosedMonths).where(inArray(cashClosedMonths.boxId, empty)).all()) {
     later(row.boxId, toIsoDate(row.year, row.month, daysInMonth(row.year, row.month)))
@@ -110,8 +111,8 @@ function retentionStarts(db: Db, ids: number[]): Map<number, IsoDate> {
 
 /**
  * The first day the box may be deleted for good: 1 January after the facility's cash period following the year of
- * its last entry, without entries of its latest history (spec Löschfristen §4, see retentionStarts); null for a box
- * with neither entries nor history (deletable at any time).
+ * its last entry or a later log line, without entries of its latest history (spec Löschfristen §4, see
+ * retentionStarts); null for a box with neither entries nor history (deletable at any time).
  */
 export function boxDeletableFrom(db: Db, facilityId: number, boxId: number): IsoDate | null {
   return cashDeletableFrom(retentionStarts(db, [boxId]).get(boxId) ?? null, getRetentionSettings(db, facilityId).cashYears)

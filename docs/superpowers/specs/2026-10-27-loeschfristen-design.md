@@ -23,16 +23,18 @@ Ausgeschieden = `left_on` gesetzt und vergangen (wie im Archiv der Mitarbeiter-S
 
 | Zeitpunkt | Daten |
 |---|---|
-| **Sofort** (am Tag nach `left_on`, täglicher Lauf) | Geburtstag, PIN und Sperrstatus, verknüpfter Zugang (Leitung/Mitarbeiter-Konto gelöscht; ein Träger-Konto wird nur gelöst), Qualifikation und Anrechnung, Vertragsdaten (Personalnummer, Entgeltgruppe, Tätigkeit, Beschäftigt seit, Wochenstunden-Verläufe …), Pflichttermin-Zuordnungen, Urlaubsanträge, Aushilfen, Benachrichtigungen, Freischaltungen für Beobachtungsbögen; als Bezugserzieher wird die Person bei Kindern entfernt |
-| **„Sonstige Überstundendaten“** (vorbelegt 2 Jahre) | Dienstplan-Einträge und ihre Änderungsprotokolle, Stempelzeiten, Notizen/Markierungen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Daten, Ausgleiche ohne „ausgezahlt“, Krankheitstage, Urlaubskonten/-ansprüche |
+| **Sofort** (am Tag nach `left_on`, täglicher Lauf) | Geburtstag, PIN und Sperrstatus, verknüpfter Zugang (Leitung/Mitarbeiter-Konto gelöscht; ein Träger-Konto wird nur gelöst), Qualifikation und Anrechnung, Vertragsdaten (Personalnummer, Entgeltgruppe, Tätigkeit, Beschäftigt seit …), Pflichttermin-Zuordnungen, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Beobachtungsbögen; als Bezugserzieher wird die Person bei Kindern entfernt |
+| **„Sonstige Überstundendaten“** (vorbelegt 2 Jahre) | Dienstplan-Einträge und ihre Änderungsprotokolle, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen/Markierungen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Daten, Ausgleiche ohne „ausgezahlt“, Krankheitstage, Urlaubskonten/-ansprüche |
 | **„Beurteilungen und Zeugnisse“** (vorbelegt 3 Jahre) | Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise |
 | **„Ausgezahlte Überstunden“** (vorbelegt 10 Jahre) | Ausgleiche mit Häkchen **„ausgezahlt“** (neues Feld am Ausgleich, beim Anlegen/Ändern setzbar) |
 | **Altersvorsorge** (vorbelegt 30 Jahre) | keine Daten in der App; Einstellung nur zur Information |
-| **Zuletzt** | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe, Ausscheidedatum): sobald keine Daten mit laufender Frist mehr da sind |
+| **Zuletzt** | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe, Ausscheidedatum): sobald keine Daten mit laufender Frist mehr da sind (ohne Ausgleiche mit „ausgezahlt“ also mit den Beurteilungen) |
+
+Wochenstunden und Aushilfen bleiben mit den Zeitdaten, weil das Stundenkonto und der Dienstplan sie brauchen.
 
 - Was in freigegebenen Teamsitzungen oder Bögen anderer Personen nur als Text steht (z. B. „zuletzt geändert von …“), bleibt.
 - Im Archiv der Mitarbeiter-Seite steht je Person: „Zeitdaten werden am ‹Datum› gelöscht, Beurteilungen am ‹Datum›,
-  ausgezahlte Überstunden am ‹Datum›, danach der Eintrag.“
+  ausgezahlte Überstunden am ‹Datum›, danach der Eintrag.“ Ohne Ausgleich mit „ausgezahlt“ fehlt dessen Datum.
 - Ein zurückgenommenes Ausscheiden (Datum entfernt/verschoben) stoppt künftige Löschungen; schon gelöschte Daten bleiben weg.
 - Der tägliche Lauf schreibt in das Server-Protokoll, wie viele Datensätze je Art gelöscht wurden (keine Namen).
 

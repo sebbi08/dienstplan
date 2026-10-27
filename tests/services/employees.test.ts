@@ -3,10 +3,10 @@ import type { Db } from '../../server/db/client'
 import { getAppSettings, setContractVisibleToAdmins } from '../../server/services/appSettings'
 import {
   addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees, listLevelUps,
-  moveEmployee, setContract, setEntitlement, updateEmployee,
+  moveEmployee, setAdjustmentPaidOut, setContract, setEntitlement, updateEmployee,
 } from '../../server/services/employees'
 import type { SessionUser } from '../../shared/types/api'
-import { addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 const today = '2026-10-05'
 
@@ -81,6 +81,43 @@ describe('employees service', () => {
     ])
     expect(detail.entitlements).toMatchObject([{ year: 2026, days: 30, carriedOverDays: 3 }])
     expect(errorCode(() => getEmployee(db, 1, 999, today, 'admin'))).toBe('employee_not_found')
+  })
+  it('marks an existing adjustment „ausgezahlt“ and back, only for managers and the facility\'s own employees', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    addAdjustment(db, 1, id, { date: '2026-06-30', minutes: -600, reason: 'Ausgezahlt' })
+    const adjustmentId = getEmployee(db, 1, id, today, 'admin').adjustments[0]!.id
+    const paidOut = () => getEmployee(db, 1, id, today, 'admin').adjustments[0]!.paidOut
+    setAdjustmentPaidOut(db, admin, 1, id, adjustmentId, true)
+    expect(paidOut()).toBe(true)
+    expect(getEmployee(db, 1, id, today, 'admin').adjustments[0]).toMatchObject({ date: '2026-06-30', minutes: -600, reason: 'Ausgezahlt' })
+    setAdjustmentPaidOut(db, addUser(db, 'traeger', 'provider'), 1, id, adjustmentId, false)
+    expect(paidOut()).toBe(false)
+    // Staff: 403; another facility (or another employee's adjustment): 404, nothing changes.
+    const staff = addUser(db, 'mitarbeiter', 'observer', id)
+    expect(errorCode(() => setAdjustmentPaidOut(db, staff, 1, id, adjustmentId, true))).toBe('forbidden')
+    const hort = addFacility(db, 'Hort')
+    const hortLeitung = addUser(db, 'hortleitung', 'admin', null, hort)
+    expect(errorCode(() => setAdjustmentPaidOut(db, hortLeitung, hort, id, adjustmentId, true))).toBe('employee_not_found')
+    const ben = createEmployee(db, admin, 1, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    expect(errorCode(() => setAdjustmentPaidOut(db, admin, 1, ben, adjustmentId, true))).toBe('adjustment_not_found')
+    expect(errorCode(() => setAdjustmentPaidOut(db, admin, 1, id, 999, true))).toBe('adjustment_not_found')
+    expect(paidOut()).toBe(false)
+  })
+  it('tells for a left employee whether anything paid out is left', () => {
+    const anna = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const ben = createEmployee(db, admin, 1, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    const carla = createEmployee(db, admin, 1, { name: 'Carla', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    updateEmployee(db, 1, anna, { name: 'Anna', shortName: '', leftOn: '2026-03-15' })
+    updateEmployee(db, 1, ben, { name: 'Ben', shortName: '', leftOn: '2026-03-15' })
+    addAdjustment(db, 1, anna, { date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true })
+    addAdjustment(db, 1, ben, { date: '2026-02-28', minutes: 60, reason: 'Übertrag' })
+    addAdjustment(db, 1, carla, { date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true })
+    const list = new Map(listEmployees(db, 1, today, 'admin').map(employee => [employee.id, employee]))
+    expect(list.get(anna)!.hasPaidOut).toBe(true)
+    expect(list.get(ben)!.hasPaidOut).toBe(false)
+    expect(list.get(carla)).not.toHaveProperty('hasPaidOut')
+    expect(getEmployee(db, 1, ben, today, 'admin').hasPaidOut).toBe(false)
+    expect(getEmployee(db, 1, anna, today, 'admin').hasPaidOut).toBe(true)
   })
   it('stores a birthday as day and month, keeps it when left out and clears it with null', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })

@@ -50,6 +50,14 @@ Die Daten bleiben erhalten; die Datenbank wird beim Start automatisch auf die ne
 Ausnahme: Mit dem Update auf die 6-stellige Stempel-PIN werden alle bisherigen PINs gelöscht und müssen neu gesetzt
 werden (siehe Abschnitt 15, „Stempel-PIN“).
 
+Ausnahme Löschfristen: Nach dem Update auf die Version mit den **Löschfristen** löscht schon der erste tägliche Lauf
+(gleich beim Start) die Daten ausgeschiedener Mitarbeiter nach den voreingestellten Fristen – auch von Personen, die
+vor Jahren ausgeschieden sind (siehe „Löschfristen“ im Abschnitt Mitarbeiter). Stundenkonto-Buchungen über ausgezahlte
+Überstunden bleiben nur dann 10 Jahre, wenn sie das Häkchen **„ausgezahlt“** haben. Setz es bei ausgeschiedenen
+Personen deshalb, bevor ihre Zeitdaten-Frist abläuft (Seite der Person → Stunden & Vertrag → Stundenkonto-Buchungen).
+Mit den voreingestellten 2 Jahren gehen die Zeitdaten von Personen, die 2023 oder früher ausgeschieden sind, schon beim
+ersten Start (ab dem 01.01.2027: 2024 oder früher). Lade vor dem Update eine Datensicherung herunter.
+
 ## 5. Datensicherung
 
 - **Automatisch:** Die App legt jede Nacht eine Kopie der Datenbank im Datenbereich im Ordner `backups`
@@ -734,19 +742,23 @@ wird am 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahre �
 
 | Wann | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst), Qualifikation, Vertragsdaten, Wochenstunden-Verläufe, Pflichttermine, Urlaubsanträge, Aushilfen, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
-| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
+| am Tag nach „ausgeschieden am“ | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst), Qualifikation, Vertragsdaten, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
+| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise |
-| „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung) |
+| „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen) |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
-| zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald keine Frist mehr läuft |
+| zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald keine Daten mit laufender Frist mehr da sind: ohne ausgezahlte Überstunden also schon mit den Beurteilungen |
+
+Wochenstunden und Aushilfen bleiben mit den Zeitdaten, weil das Stundenkonto und der Dienstplan sie brauchen: So steht
+die Person nach dem Ausscheiden weiter im Dienstplan und Stundenkonto ihrer letzten Monate.
 
 - Die Fristen stellt der **Träger** je Einrichtung unter *Einstellungen → Personal → Löschfristen* ein (1 bis 40 Jahre;
   „Einstellungen für“ geht auch hier). Die Leitung sieht sie dort nur. Dort stehen auch „Mitarbeiter endgültig
   löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
 - Eine geänderte Frist gilt ab dem nächsten täglichen Lauf. Schon Gelöschtes kommt nicht zurück.
 - Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, wann was gelöscht wird („Zeitdaten werden am …
-  gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“).
+  gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“). Hat die Person keine Buchung mit
+  „ausgezahlt“, fehlt dieses Datum.
 - Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), löscht die App nichts weiter.
 - Das Server-Protokoll nennt nach jedem Lauf, wie viele Datensätze je Art gelöscht wurden (ohne Namen).
 - Die Fristen sind vorbelegt nach den Vorgaben des Trägers – bitte im Zweifel mit Steuerberatung bzw. Datenschutz
@@ -1183,7 +1195,8 @@ sehen keine Warnungen.
   Buchungen gehen nicht mehr; **Wieder aktivieren** (über den Stift) holt sie zurück. Je archivierter Kasse steht
   **löschbar ab …**: der 1. Januar nach Ablauf der **Aufbewahrungsfrist Kasse** (*Einstellungen → Personal →
   Löschfristen*, voreingestellt 10 Jahre), gerechnet ab dem Ende des Jahres der letzten Buchung (letzte Buchung am
-  10.03.2026 → löschbar ab 01.01.2037). Hat die Kasse keine Buchungen mehr, aber ein Protokoll (z. B. gelöschte
+  10.03.2026 → löschbar ab 01.01.2037). Steht im Protokoll eine spätere Korrektur (z. B. 2027 eine Buchung von 2026
+  geändert), zählt deren Tag. Hat die Kasse keine Buchungen mehr, aber ein Protokoll (z. B. gelöschte
   Einträge) oder abgeschlossene Monate, zählt der letzte Protokolleintrag bzw. das Ende des letzten abgeschlossenen
   Monats. Ab diesem Tag erscheint **Endgültig löschen** (Leitung und Träger): Du tippst zur Bestätigung den Namen der
   Kasse ein; gelöscht werden die Kasse, alle Buchungen, Belege, abgeschlossenen Monate und das Protokoll. Umbuchungen mit

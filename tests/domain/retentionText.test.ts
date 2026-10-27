@@ -25,6 +25,18 @@ describe('archiveRetentionText', () => {
     )
   })
 
+  it('leaves out the paid overtime when nothing was paid out (the entry goes after the assessments)', () => {
+    expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2026-10-27', false)).toBe(
+      'Zeitdaten werden am 01.01.2029 gelöscht, Beurteilungen am 01.01.2030, danach der Eintrag.',
+    )
+    expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2029-06-01', false)).toBe(
+      'Zeitdaten sind schon gelöscht. Beurteilungen werden am 01.01.2030 gelöscht, danach der Eintrag.',
+    )
+    expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2030-01-01', false)).toBe(
+      'Alle Fristen sind abgelaufen: Der Eintrag wird beim nächsten täglichen Lauf gelöscht.',
+    )
+  })
+
   it('tells when every period has run out (the entry goes with the next daily run)', () => {
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2037-01-01')).toBe(
       'Alle Fristen sind abgelaufen: Der Eintrag wird beim nächsten täglichen Lauf gelöscht.',

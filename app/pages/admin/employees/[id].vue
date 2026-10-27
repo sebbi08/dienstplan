@@ -180,6 +180,11 @@ async function addAdjustment() {
   if (ok) Object.assign(adjustmentForm, { amount: '', reason: '', paidOut: false })
 }
 
+/** „ausgezahlt“ on a booked adjustment, also afterwards (it keeps the booking for the longer period after leaving). */
+function setPaidOut(adjustmentId: number, paidOut: boolean) {
+  run(() => $fetch<unknown>(`/api/employees/${id}/adjustments/${adjustmentId}`, { method: 'PATCH', body: { paidOut } }), de.common.saved)
+}
+
 async function deleteAdjustment(adjustmentId: number) {
   if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/balance-adjustments/${adjustmentId}`, { method: 'DELETE' }))
 }
@@ -371,9 +376,12 @@ async function onTabKey(event: KeyboardEvent) {
           <tr v-for="adjustment in employee.adjustments" :key="adjustment.id" class="border-t border-gray-100">
             <td class="py-1">{{ formatDate(adjustment.date) }}</td>
             <td class="py-1 font-medium" :class="balanceClass(adjustment.minutes)">{{ formatSignedDuration(adjustment.minutes) }}</td>
+            <td class="py-1">{{ adjustment.reason }}</td>
             <td class="py-1">
-              {{ adjustment.reason }}
-              <UBadge v-if="adjustment.paidOut" size="sm" variant="soft" color="neutral" :label="de.employees.paidOut" class="ml-1" />
+              <UCheckbox
+                size="xs" :model-value="adjustment.paidOut" :label="de.employees.paidOut"
+                @update:model-value="setPaidOut(adjustment.id, $event === true)"
+              />
             </td>
             <td class="py-1 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteAdjustment(adjustment.id)" /></td>
           </tr>

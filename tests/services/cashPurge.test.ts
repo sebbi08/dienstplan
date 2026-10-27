@@ -4,7 +4,7 @@ import type { Db } from '../../server/db/client'
 import { cashBoxes, cashClosedMonths, cashEntries, cashLog, cashReceipts } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
 import { createBox, deleteBox, listBoxes, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
-import { cashMonth, createEntry, createTransfer, deleteEntry } from '../../server/services/cashEntries'
+import { cashMonth, createEntry, createTransfer, deleteEntry, updateEntry } from '../../server/services/cashEntries'
 import { purgeBox } from '../../server/services/cashPurge'
 import { setReceipt } from '../../server/services/cashReceipts'
 import { foreignKeyViolations } from '../../server/services/employeeDeletion'
@@ -35,8 +35,9 @@ beforeEach(() => {
 
 const archive = (id: number, name = 'Hauptkasse', archived = true) =>
   updateBox(db, leitung, 1, id, { ...base, name, archived })
+/** Booked (and logged) on its own date, so the log has nothing later than the entry. */
 const entry = (boxId: number, date: string, purpose = 'Bastelmaterial') =>
-  createEntry(db, leitung, 1, { boxId, date, direction: 'out', cents: 500, purpose }, today)
+  createEntry(db, leitung, 1, { boxId, date, direction: 'out', cents: 500, purpose }, today, new Date(`${date}T10:00:00.000Z`))
 const statusOf = (fn: () => unknown) => {
   try {
     fn()
@@ -60,6 +61,17 @@ describe('purging an archived cash box after the retention period', () => {
     purgeBox(db, leitung, 1, main, 'Hauptkasse', '2037-01-01')
     expect(db.select().from(cashBoxes).where(eq(cashBoxes.id, main)).get()).toBeUndefined()
     expect(rowsOf(main)).toEqual([])
+  })
+
+  it('counts a later correction in the log: an entry of 10.03.2026 changed in 2027 → from 01.01.2038', () => {
+    const id = entry(main, '2026-03-10')
+    updateEntry(db, leitung, 1, id, { date: '2026-03-10', cents: 900, purpose: 'Bastelmaterial' }, '2027-05-04',
+      new Date('2027-05-04T10:00:00.000Z'))
+    archive(main)
+    expect(listBoxes(db, 1, today).find(box => box.id === main)!.deletableFrom).toBe('2038-01-01')
+    expect(errorCode(() => purgeBox(db, leitung, 1, main, 'Hauptkasse', '2037-12-31'))).toBe('cash_box_retention')
+    purgeBox(db, leitung, 1, main, 'Hauptkasse', '2038-01-01')
+    expect(db.select().from(cashBoxes).where(eq(cashBoxes.id, main)).get()).toBeUndefined()
   })
 
   it('takes the facility period: 2 years → from 01.01.2029', () => {

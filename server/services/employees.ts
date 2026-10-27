@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull, max, ne } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { pinLockState } from '../../shared/domain/pin'
 import { isValidMonthDay } from '../../shared/domain/reminders'
+import { isManager } from '../../shared/domain/roles'
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -76,8 +77,18 @@ function contractOf(employee: EmployeeRecord): EmployeeContractDto {
   }
 }
 
+/** The facility's employees with balance adjustments marked „ausgezahlt“ (or only `employeeId` among them). */
+function paidOutIds(db: Db, facilityId: number, employeeId?: number): Set<number> {
+  return new Set(db.selectDistinct({ id: balanceAdjustments.employeeId }).from(balanceAdjustments)
+    .innerJoin(employees, eq(employees.id, balanceAdjustments.employeeId))
+    .where(and(
+      eq(employees.facilityId, facilityId), eq(balanceAdjustments.paidOut, true),
+      employeeId === undefined ? undefined : eq(employees.id, employeeId),
+    )).all().map(row => row.id))
+}
+
 function toListItem(
-  employee: EmployeeRecord, today: IsoDate, withContract: boolean, pin: { hasPin: boolean; pinLocked: boolean },
+  employee: EmployeeRecord, today: IsoDate, withContract: boolean, pin: { hasPin: boolean; pinLocked: boolean }, paidOut: Set<number>,
 ): EmployeeListItemDto {
   return {
     id: employee.id, name: employee.name, shortName: employee.shortName,
@@ -89,6 +100,7 @@ function toListItem(
     stampVia: employee.stampVia, breakMode: employee.breakMode, groupId: employee.groupId, birthday: employee.birthday,
     qualification: employee.qualification, staffingShare: employee.staffingShare, ...pin,
     ...(withContract ? { contract: contractOf(employee) } : {}),
+    ...(employee.leftOn !== null ? { hasPaidOut: paidOut.has(employee.id) } : {}),
   }
 }
 
@@ -124,8 +136,9 @@ function pinFlagsById(db: Db, facilityId: number, now: Date): Map<number, PinFla
 export function listEmployees(db: Db, facilityId: number, today: IsoDate, viewer: Role, now: Date = new Date()): EmployeeListItemDto[] {
   const withContract = mayViewContract(db, viewer)
   const pins = pinFlagsById(db, facilityId, now)
+  const paidOut = paidOutIds(db, facilityId)
   return loadEmployees(db, facilityId)
-    .map(employee => toListItem(employee, today, withContract, pins.get(employee.id) ?? { hasPin: false, pinLocked: false }))
+    .map(employee => toListItem(employee, today, withContract, pins.get(employee.id) ?? { hasPin: false, pinLocked: false }, paidOut))
 }
 
 /** One employee with hours, adjustments and leave, and the state of the stamp PIN at `now` (set, locked until, lasting lock). */
@@ -136,7 +149,7 @@ export function getEmployee(
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const pin = db.select().from(employees).where(eq(employees.id, id)).get()!
   return {
-    ...toListItem(employee, today, mayViewContract(db, viewer), pinFlags(pin, now)),
+    ...toListItem(employee, today, mayViewContract(db, viewer), pinFlags(pin, now), paidOutIds(db, facilityId, id)),
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
@@ -260,6 +273,21 @@ export function addAdjustment(
   db.insert(balanceAdjustments).values({
     employeeId, date: adjustment.date, minutes: adjustment.minutes, reason, paidOut: adjustment.paidOut ?? false,
   }).run()
+}
+
+/**
+ * Marks a booked balance adjustment „ausgezahlt“ or takes the mark back (spec Löschfristen §2: settable when booking
+ * or changing); nothing else of it changes. Only Träger and Leitung (403 forbidden), for an employee of the facility
+ * (404 employee_not_found) and one of that employee's adjustments (404 adjustment_not_found).
+ */
+export function setAdjustmentPaidOut(
+  db: Db, actor: SessionUser, facilityId: number, employeeId: number, adjustmentId: number, paidOut: boolean,
+): void {
+  if (!isManager(actor.role)) throw new ServiceError(403, 'forbidden')
+  assertEmployee(db, facilityId, employeeId)
+  const changed = db.update(balanceAdjustments).set({ paidOut })
+    .where(and(eq(balanceAdjustments.id, adjustmentId), eq(balanceAdjustments.employeeId, employeeId))).run().changes
+  if (changed === 0) throw new ServiceError(404, 'adjustment_not_found')
 }
 
 /** Deletes a balance booking of one of the facility's employees; other ids are ignored. */

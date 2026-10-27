@@ -119,7 +119,9 @@ async function create() {
 // The facility's Löschfristen: when the data of each person in the archive is deleted, and who may delete by hand.
 const { data: retention } = await useFetch<RetentionSettings>('/api/retention-settings', { key: 'employees-retention-settings' })
 const retentionLine = (employee: EmployeeListItemDto) =>
-  retention.value && employee.leftOn ? archiveRetentionText(employee.leftOn, retention.value, todayIso()) : null
+  retention.value && employee.leftOn
+    ? archiveRetentionText(employee.leftOn, retention.value, todayIso(), employee.hasPaidOut ?? true)
+    : null
 
 /**
  * „Endgültig löschen“ in the archive: the dialog lists what goes, warns that the Löschfristen are not kept, and asks

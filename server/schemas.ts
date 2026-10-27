@@ -84,6 +84,11 @@ export const adjustmentSchema = z.object({
   /** „ausgezahlt“ (default no): kept for the longer retention period after the employee left. */
   paidOut: z.boolean().optional(),
 })
+export const adjustmentParams = z.object({
+  id: z.coerce.number().int().positive(), adjustmentId: z.coerce.number().int().positive(),
+})
+/** Only the „ausgezahlt“ mark of a booked adjustment changes. */
+export const adjustmentPaidOutSchema = z.object({ paidOut: z.boolean() })
 export const entitlementSchema = z.object({ days: z.number().min(0).max(100), carriedOverDays: z.number().min(0).max(100) })
 
 export const closureSchema = z.object({ startDate: isoDate, endDate: isoDate, label, mode: z.enum(['vacation', 'closure_day']) })

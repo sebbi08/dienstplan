@@ -71,6 +71,8 @@ const ADMIN_ROUTES = [
   'employees/[id]/pin.put.ts', 'employees/[id]/pin.delete.ts', 'employees/[id]/pin/unlock.post.ts',
   // Deleting a left employee for good (the service refuses the own record and, for a Leitung, a Träger's employee).
   'employees/[id].delete.ts',
+  // „ausgezahlt“ on a booked adjustment, like booking one (spec Löschfristen §2).
+  'employees/[id]/adjustments/[adjustmentId].patch.ts',
   // „Zur Kenntnis genommen“ of the plan's warnings and taking it back (staff never see warnings).
   'plan/warning-acks.post.ts', 'plan/warning-acks.delete.ts',
   // „Was noch fehlt“ of the active facility, and hiding / showing its items for all managers of the facility.

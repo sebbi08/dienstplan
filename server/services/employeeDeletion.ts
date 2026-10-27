@@ -118,8 +118,8 @@ export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
 
 /**
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields (the row keeps name, short name, group and
- * leaving day), weekly hours, mandatory appointments, leave requests, help-outs, notifications, week template rows, form
- * editor grants and the tablet unlock. A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
+ * leaving day), mandatory appointments, leave requests, notifications, week template rows, form editor grants and the
+ * tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
 export function deleteImmediateData(tx: Db, employeeId: number): number {
@@ -132,10 +132,8 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
     isNotNull(employees.personnelNumber), isNotNull(employees.employedSince), isNotNull(employees.jobKey),
     isNotNull(employees.jobOther), isNotNull(employees.payGroup), isNotNull(employees.payLevel),
   ))).run().changes
-  changed += tx.delete(employeeHours).where(eq(employeeHours.employeeId, employeeId)).run().changes
   changed += tx.delete(employeeRequirements).where(eq(employeeRequirements.employeeId, employeeId)).run().changes
   changed += tx.delete(leaveRequests).where(eq(leaveRequests.employeeId, employeeId)).run().changes
-  changed += tx.delete(helpOuts).where(eq(helpOuts.employeeId, employeeId)).run().changes
   changed += tx.delete(notifications).where(eq(notifications.employeeId, employeeId)).run().changes
   changed += tx.delete(weekTemplateEntries).where(eq(weekTemplateEntries.employeeId, employeeId)).run().changes
   changed += tx.delete(formEditors).where(eq(formEditors.employeeId, employeeId)).run().changes
@@ -164,10 +162,14 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
 /**
  * „Sonstige Überstunden-/Zeitdaten“: plan entries of every month (draft and released: they leave the release snapshots
  * too) with their change log, time records with corrections and notes, sick-leave markers, balance adjustments not
- * paid out, leave entitlements and the acknowledged warnings about the person.
+ * paid out, leave entitlements and the acknowledged warnings about the person; and the weekly hours history and the
+ * help-outs, since a person is in a month's plan, Stundenkonto, release and leave overview only through their weekly
+ * hours (isEmployedInRange), and the help-out facility's plan shows them only through the help-out.
  */
 export function deleteTimeData(tx: Db, employeeId: number): number {
   let changed = tx.delete(entries).where(eq(entries.employeeId, employeeId)).run().changes
+  changed += tx.delete(employeeHours).where(eq(employeeHours.employeeId, employeeId)).run().changes
+  changed += tx.delete(helpOuts).where(eq(helpOuts.employeeId, employeeId)).run().changes
   dropFromSnapshots(tx, employeeId)
   changed += tx.delete(changeLog).where(eq(changeLog.employeeId, employeeId)).run().changes
   changed += tx.delete(timeRecords).where(eq(timeRecords.employeeId, employeeId)).run().changes

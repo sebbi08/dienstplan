@@ -5,7 +5,9 @@ import {
   balanceAdjustments, employees, forms, leavePlanners, releaseSnapshots, staffTalkForms, staffTalks, users, warningAcks,
 } from '../../server/db/schema'
 import { getActiveUser } from '../../server/services/auth'
+import { getBalanceOverview } from '../../server/services/balances'
 import { runEmployeeRetention } from '../../server/services/employeeRetention'
+import { getMonthPlan } from '../../server/services/plan'
 import { setRetentionSettings } from '../../server/services/retentionSettings'
 import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
@@ -16,13 +18,13 @@ const LEFT_ON = '2026-03-15'
 
 /** The columns referencing employees, by the category that clears them (spec Löschfristen §2). */
 const IMMEDIATE = [
-  'employee_hours.employee_id', 'employee_requirements.employee_id', 'leave_requests.employee_id', 'help_outs.employee_id',
-  'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
+  'employee_requirements.employee_id', 'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
   'children.key_educator_id', 'child_development_docs.done_by_employee_id', 'child_parent_meetings.created_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
 ]
+/** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [
-  'entries.employee_id', 'change_log.employee_id', 'time_records.employee_id', 'time_record_changes.employee_id',
+  'employee_hours.employee_id', 'help_outs.employee_id', 'entries.employee_id', 'change_log.employee_id', 'time_records.employee_id', 'time_record_changes.employee_id',
   'time_day_notes.employee_id', 'early_sick_leaves.employee_id', 'leave_entitlements.employee_id',
 ]
 const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
@@ -127,6 +129,10 @@ describe('the nightly deletion of left employees', () => {
     expect(db.select().from(leavePlanners).all()).toEqual([])
     expect(inSnapshots(tina)).toBe(true)
     expect(warningAcksOf(tina)).toBe(1)
+    // She is still in the plan and the Stundenkonto of her leaving month, and in the Hort's plan she helped out in.
+    expect(getBalanceOverview(db, 1, 2026, 3, '2026-03-16').map(balance => balance.employeeId)).toContain(tina)
+    expect(getMonthPlan(db, leitung, 1, 2026, 3, '2026-03-16').employees.map(employee => employee.id)).toContain(tina)
+    expect(getMonthPlan(db, traeger, hort, 2026, 9, '2026-03-16').employees.map(employee => employee.id)).toContain(tina)
     expectBenUntouched()
     // A second run the same day (and the next days) deletes nothing more.
     expect(run('2026-03-16')).toEqual(ZERO)
@@ -175,6 +181,22 @@ describe('the nightly deletion of left employees', () => {
     // Idempotent.
     expect(run('2037-01-01')).toEqual(ZERO)
     expect(run('2040-01-01')).toEqual(ZERO)
+  })
+
+  it('deletes the employee row with the assessments when nothing paid out is left (left on 15.03.2026)', () => {
+    db.delete(balanceAdjustments).where(and(eq(balanceAdjustments.employeeId, tina), eq(balanceAdjustments.paidOut, true))).run()
+    run('2026-03-16')
+    run('2029-01-01')
+    expect(run('2029-12-31')).toEqual(ZERO)
+    expect(row(tina)).toBeDefined()
+    const done = run('2030-01-01')
+    expect(done).toMatchObject({ immediate: 0, time: 0, paidOvertime: 0, employees: 1 })
+    expect(done.assessment).toBeGreaterThan(0)
+    expect(row(tina)).toBeUndefined()
+    expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])
+    expect(fkCheck()).toEqual([])
+    expectBenUntouched()
+    expect(run('2030-01-01')).toEqual(ZERO)
   })
 
   it('applies changed periods from the next run on, and restores nothing', () => {
