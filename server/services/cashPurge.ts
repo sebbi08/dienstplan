@@ -16,11 +16,11 @@ import { foreignKeyViolations } from './employeeDeletion'
  * „Endgültig löschen“ of an archived box once its retention period has run (spec Löschfristen §4): the box, its
  * entries, their receipts (a transfer's receipt stays while the counterpart uses it), closed months and log, in one
  * transaction. The counterpart rows of its transfers in other boxes stay as plain entries (link and transfer text
- * cleared, the purpose as it was), with a line in their box's log.
+ * cleared, the purpose as it was), with a line in their box's log, also in a closed month there.
  *
  * Only Träger and Leitung (403 forbidden), a box of the facility (404 cash_box_not_found), archived (409
- * cash_box_not_archived), from its deletableFrom on (409 cash_box_retention; a box without entries at any time), and
- * `confirm` the box name as confirmsName compares it (400 cash_box_confirm_mismatch). True when the deletion took a
+ * cash_box_not_archived), from its deletableFrom on (409 cash_box_retention; a box with neither entries nor history at
+ * any time), and `confirm` the box name as confirmsName compares it (400 cash_box_confirm_mismatch). True when the deletion took a
  * receipt along (the caller checkpoints the WAL anyway: entries and log are gone as well).
  */
 export function purgeBox(

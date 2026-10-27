@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { cashBoxes, cashClosedMonths, cashEntries, cashLog, cashReceipts } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
-import { createBox, listBoxes, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
-import { cashMonth, createEntry, createTransfer } from '../../server/services/cashEntries'
+import { createBox, deleteBox, listBoxes, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
+import { cashMonth, createEntry, createTransfer, deleteEntry } from '../../server/services/cashEntries'
 import { purgeBox } from '../../server/services/cashPurge'
 import { setReceipt } from '../../server/services/cashReceipts'
 import { foreignKeyViolations } from '../../server/services/employeeDeletion'
@@ -103,8 +103,47 @@ describe('purging an archived cash box after the retention period', () => {
     ])
     expect(db.select().from(cashLog).where(eq(cashLog.boxId, konto)).all().filter(line => line.action === 'transfer_unlinked'))
       .toHaveLength(2)
-    expect(back).toBeGreaterThan(0)
+    // The way back started in Konto: its expense row (the transfer's own id) is a plain expense now.
+    expect(kontoAfter.find(row => row.id === back)).toMatchObject({ direction: 'out', cents: 100, transferId: null })
     expect(foreignKeyViolations(db)).toEqual([])
+  })
+
+  it('unlinks a counterpart in a closed month of the other box as well; that month stays closed', () => {
+    createTransfer(db, leitung, 1, { fromBoxId: main, toBoxId: konto, date: '2026-03-05', cents: 300, purpose: 'Einzahlung' }, today)
+    db.insert(cashClosedMonths).values({ boxId: konto, year: 2026, month: 3, closedAt: '2026-04-01T08:00:00.000Z', closedBy: 'leitung' }).run()
+    archive(main)
+    purgeBox(db, leitung, 1, main, 'Hauptkasse', '2037-01-01')
+    expect(rowsOf(konto)).toEqual([expect.objectContaining({ purpose: 'Umbuchung von Hauptkasse: Einzahlung', transferId: null })])
+    expect(db.select().from(cashClosedMonths).where(eq(cashClosedMonths.boxId, konto)).all()).toHaveLength(1)
+    expect(db.select().from(cashLog).where(eq(cashLog.boxId, konto)).all().filter(line => line.action === 'transfer_unlinked'))
+      .toEqual([expect.objectContaining({ month: '2026-03' })])
+    expect(foreignKeyViolations(db)).toEqual([])
+  })
+
+  it('keeps an archived box without entries but with history until its period has run', () => {
+    // An entry made and deleted on 10.03.2026: the log keeps the box (the plain delete refuses it).
+    const at = new Date('2026-03-10T10:00:00.000Z')
+    deleteEntry(db, leitung, 1, createEntry(db, leitung, 1, { boxId: main, date: '2026-03-10', direction: 'in', cents: 500, purpose: 'Spende' }, today, at), at)
+    archive(main)
+    const listed = listBoxes(db, 1, today).find(box => box.id === main)!
+    expect(listed).toMatchObject({ hasEntries: false, canDelete: false, deletableFrom: '2037-01-01' })
+    expect(errorCode(() => deleteBox(db, 1, main))).toBe('cash_box_has_history')
+    expect(errorCode(() => purgeBox(db, leitung, 1, main, 'Hauptkasse', today))).toBe('cash_box_retention')
+    expect(errorCode(() => purgeBox(db, leitung, 1, main, 'Hauptkasse', '2036-12-31'))).toBe('cash_box_retention')
+    purgeBox(db, leitung, 1, main, 'Hauptkasse', '2037-01-01')
+    expect(db.select().from(cashBoxes).where(eq(cashBoxes.id, main)).get()).toBeUndefined()
+    expect(db.select().from(cashLog).where(eq(cashLog.boxId, main)).all()).toEqual([])
+  })
+
+  it('counts the end of the latest closed month when it is later than the log', () => {
+    const at = new Date('2026-03-10T10:00:00.000Z')
+    deleteEntry(db, leitung, 1, createEntry(db, leitung, 1, { boxId: main, date: '2026-03-10', direction: 'in', cents: 500, purpose: 'Spende' }, today, at), at)
+    db.insert(cashClosedMonths).values({ boxId: main, year: 2027, month: 2, closedAt: '2027-03-01T08:00:00.000Z', closedBy: 'leitung' }).run()
+    archive(main)
+    expect(listBoxes(db, 1, today).find(box => box.id === main)!.deletableFrom).toBe('2038-01-01')
+    expect(errorCode(() => purgeBox(db, leitung, 1, main, 'Hauptkasse', '2037-12-31'))).toBe('cash_box_retention')
+    purgeBox(db, leitung, 1, main, 'Hauptkasse', '2038-01-01')
+    expect(db.select().from(cashBoxes).where(eq(cashBoxes.id, main)).get()).toBeUndefined()
   })
 
   it('needs an archived box (409 cash_box_not_archived)', () => {
@@ -142,10 +181,10 @@ describe('purging an archived cash box after the retention period', () => {
     expect(rowsOf(foreign)).toHaveLength(1)
   })
 
-  it('lets an archived box without entries go at once; active boxes carry their date as well', () => {
+  it('lets an archived box with neither entries nor history go at once; active boxes carry their date as well', () => {
     entry(konto, '2026-04-01')
     const listed = listBoxes(db, 1, today)
-    expect(listed.find(box => box.id === main)!.deletableFrom).toBeNull()
+    expect(listed.find(box => box.id === main)).toMatchObject({ canDelete: true, deletableFrom: null })
     expect(listed.find(box => box.id === konto)!.deletableFrom).toBe('2037-01-01')
     archive(main)
     purgeBox(db, leitung, 1, main, 'Hauptkasse', today)

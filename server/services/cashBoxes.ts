@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, isNull, max, ne, notInArray, sql } from 'drizzle-orm'
 import { formatCents, monthKey, type CashDirection, type CashKind, type YearMonth } from '../../shared/domain/cash'
-import { todayIso } from '../../shared/domain/dates'
+import { daysInMonth, todayIso, toIsoDate } from '../../shared/domain/dates'
 import { cashDeletableFrom } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
 import type { CashBoxDto, CashBoxInfoDto } from '../../shared/types/api'
@@ -85,11 +85,36 @@ function lastEntryDates(db: Db, ids: number[]): Map<number, IsoDate> {
 }
 
 /**
+ * The day each box's retention period runs from: its last entry; for a box without entries but with history, the later
+ * of its latest log line beyond the box's own (the rule of deleteBox; Berlin day) and the end of its latest closed
+ * month. Boxes with neither are missing (deletable at any time, like the plain delete).
+ */
+function retentionStarts(db: Db, ids: number[]): Map<number, IsoDate> {
+  const result = lastEntryDates(db, ids)
+  const later = (boxId: number, date: IsoDate) => {
+    const current = result.get(boxId)
+    if (current === undefined || date > current) result.set(boxId, date)
+  }
+  const empty = ids.filter(id => !result.has(id))
+  if (empty.length === 0) return result
+  for (const row of db.select({ boxId: cashLog.boxId, at: max(cashLog.at) }).from(cashLog)
+    .where(and(inArray(cashLog.boxId, empty), notInArray(cashLog.action, BOX_LOG_ACTIONS))).groupBy(cashLog.boxId).all()) {
+    if (row.at !== null) later(row.boxId, todayIso(new Date(row.at)))
+  }
+  for (const row of db.select({ boxId: cashClosedMonths.boxId, year: cashClosedMonths.year, month: cashClosedMonths.month })
+    .from(cashClosedMonths).where(inArray(cashClosedMonths.boxId, empty)).all()) {
+    later(row.boxId, toIsoDate(row.year, row.month, daysInMonth(row.year, row.month)))
+  }
+  return result
+}
+
+/**
  * The first day the box may be deleted for good: 1 January after the facility's cash period following the year of
- * its last entry (spec Löschfristen §4); null without entries (deletable at any time).
+ * its last entry, without entries of its latest history (spec Löschfristen §4, see retentionStarts); null for a box
+ * with neither entries nor history (deletable at any time).
  */
 export function boxDeletableFrom(db: Db, facilityId: number, boxId: number): IsoDate | null {
-  return cashDeletableFrom(lastEntryDates(db, [boxId]).get(boxId) ?? null, getRetentionSettings(db, facilityId).cashYears)
+  return cashDeletableFrom(retentionStarts(db, [boxId]).get(boxId) ?? null, getRetentionSettings(db, facilityId).cashYears)
 }
 
 /**
@@ -108,8 +133,8 @@ export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDt
     total: sql<number>`coalesce(sum(case when ${cashEntries.direction} = 'in' then ${cashEntries.cents} else -${cashEntries.cents} end), 0)`,
   }).from(cashEntries).where(and(inArray(cashEntries.boxId, ids), sql`${cashEntries.date} <= ${today}`))
     .groupBy(cashEntries.boxId).all().map(row => [row.boxId, Number(row.total)]))
-  const lastEntries = lastEntryDates(db, ids)
-  const withEntries = new Set(lastEntries.keys())
+  const withEntries = new Set(lastEntryDates(db, ids).keys())
+  const starts = retentionStarts(db, ids)
   const { cashYears } = getRetentionSettings(db, facilityId)
   // Same rule as deleteBox: log lines beyond the box's own (entries, closings …) keep a box.
   const withHistory = new Set(db.selectDistinct({ boxId: cashLog.boxId }).from(cashLog)
@@ -143,7 +168,7 @@ export function listBoxes(db: Db, facilityId: number, today: IsoDate): CashBoxDt
       missingReceipts: missing.has(box.id),
       hasEntries: withEntries.has(box.id),
       canDelete: !withEntries.has(box.id) && !withHistory.has(box.id),
-      deletableFrom: cashDeletableFrom(lastEntries.get(box.id) ?? null, cashYears),
+      deletableFrom: cashDeletableFrom(starts.get(box.id) ?? null, cashYears),
     }))
 }
 

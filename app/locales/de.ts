@@ -1237,7 +1237,7 @@ export const de = {
     purge: 'Endgültig löschen', purgeTitle: (name: string) => `Kasse ${name} endgültig löschen`,
     purgeIntro: 'Das wird gelöscht und lässt sich nicht wiederherstellen:',
     purgeItems: ['die Kasse mit allen Buchungen', 'alle Belege', 'die abgeschlossenen Monate', 'das Protokoll'],
-    purgeTransfers: 'Umbuchungen mit anderen Kassen bleiben dort als normale Buchung stehen, mit ihrem Text.',
+    purgeTransfers: 'Umbuchungen mit anderen Kassen bleiben dort stehen, mit ihrem Text. Sie sind danach eine normale Buchung – eine Ausgabe ohne Beleg in einem noch offenen Monat zählt dann bei „Belege fehlen“ mit.',
     purgeBackupHint: 'Vorher eine Datensicherung herunterladen (nur Träger).',
     purgeTypeName: (name: string) => `Zum Bestätigen tippe den Namen der Kasse ein: ${name}`,
     purgeDone: (name: string) => `Kasse ${name} wurde gelöscht.`,

@@ -42,7 +42,7 @@ function move(box: CashBoxDto, direction: 'up' | 'down') {
   return run(() => $fetch(`/api/cash/boxes/${box.id}/move`, { method: 'POST', body: { direction } }))
 }
 
-/** From its deletableFrom on (a box without entries at once) an archived box may be deleted for good. */
+/** From its deletableFrom on (null: neither entries nor history, at once) an archived box may be deleted for good. */
 const purgeable = (box: CashBoxDto) => box.archived && (box.deletableFrom === null || todayIso() >= box.deletableFrom)
 const purging = ref<CashBoxDto | null>(null)
 const purgeName = ref('')
