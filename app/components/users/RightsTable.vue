@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
  * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
-type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
+type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14
 type Right = 'yes' | 'no' | Footnote
 const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
@@ -33,6 +33,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Vertragsangaben (TVöD) bearbeiten', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Ausgeschiedene Mitarbeiter endgültig löschen (mit allen ihren Daten und ihrem Zugang)', rights: [12, 12, 'no', 'no'] },
     { label: 'Pflichttermine (z. B. Betriebsarzt, Erste-Hilfe-Kurs) und Fortbildungen der Mitarbeiter eintragen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Hinweis auf fällige, überfällige und fehlende Pflichttermine sehen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Eigene Pflichttermine und Fortbildungen ansehen („Meine Termine“, ohne Hinweis)', rights: [1, 1, 'yes', 'no'] },
@@ -65,7 +66,28 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Betreuungsformen und Dokumentarten pflegen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Kind in andere Einrichtung verschieben', rights: ['yes', 'no', 'no', 'no'] },
   ] },
+  { title: 'Mitarbeitergespräche', rows: [
+    { label: 'Gespräche anlegen, Bögen ausfüllen, Selbstbeurteilung zum Ausfüllen und Beurteilung zum Lesen freigeben', rights: [13, 13, 'no', 'no'] },
+    { label: 'Eigene freigegebene Bögen ausfüllen und abgeben bzw. lesen („Meine Gespräche“)', rights: [1, 1, 'yes', 'no'] },
+  ] },
+  { title: 'Beobachtungsbögen der Kinder', rows: [
+    { label: 'Bögen in der Kinderakte lesen', rights: ['yes', 'yes', 8, 10] },
+    { label: 'Bögen anlegen und ausfüllen', rights: ['yes', 'yes', 14, 10] },
+    { label: 'Weitere Mitarbeiter für einen Bogen freischalten, Bögen löschen', rights: ['yes', 'yes', 'no', 10] },
+  ] },
+  { title: 'Teamsitzungen', rows: [
+    { label: 'Sitzungen anlegen und im Entwurf mitschreiben', rights: ['yes', 'yes', 'yes', 'yes'] },
+    { label: 'Protokoll freigeben, mit Begründung wieder öffnen, Sitzung löschen', rights: ['yes', 'yes', 'no', 'no'] },
+  ] },
+  { title: 'Bögen (Vorlagen)', rows: [
+    { label: 'Vorlagen anlegen, bearbeiten, kopieren, stilllegen, löschen und leer drucken (Mehr → Bögen)', rights: ['yes', 'yes', 'no', 'no'] },
+  ] },
+  { title: 'Kasse', rows: [
+    { label: 'Kassen anlegen, Einnahmen, Ausgaben und Umbuchungen buchen, Belege, Monat abschließen, Ausdruck und Excel-Datei', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Abgeschlossenen Monat wieder öffnen (mit Begründung)', rights: ['yes', 'no', 'no', 'no'] },
+  ] },
   { title: 'Verwaltung', rows: [
+    { label: 'Einstellungen einer anderen Einrichtung bearbeiten, ohne oben zu wechseln („Einstellungen für“)', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste (für die ganze Einrichtung oder eine Gruppe)', rights: ['yes', 'yes', 'no', 'no'] },
@@ -89,6 +111,9 @@ const FOOTNOTES: Record<Footnote, string> = {
   9: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN) und nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
   10: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person',
   11: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person; ohne Leitungsrechte nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
+  12: 'nur ausgeschiedene Mitarbeiter, mit Eingabe des Namens; nie das eigene Konto; eine Leitung nicht, wenn die Person mit einem Träger-Konto verknüpft ist',
+  13: 'nicht für das eigene Gespräch – das führt der Träger bzw. eine andere Leitung',
+  14: 'nicht mit dem eigenen Konto, nur am Tablet (Name und PIN): als Bezugserzieher des Kindes oder wenn Leitung/Träger für den Bogen freigeschaltet hat',
 }
 </script>
 
