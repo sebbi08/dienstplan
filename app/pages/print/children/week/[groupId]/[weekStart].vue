@@ -7,7 +7,7 @@ import { formatDate, formatDateSpan } from '~/utils/format'
 
 /** The weekly overview of a group for printing (Leitung and Träger): A4 landscape, the theme and Monday to Friday side by side. */
 definePageMeta({ layout: false })
-useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; }' }] })
+useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; } @media print { html { font-size: 13px !important; } }' }] })
 
 const route = useRoute()
 const groupId = Number(route.params.groupId)
@@ -31,7 +31,8 @@ function labelText(label: GroupDayLabel | null): string {
 </script>
 
 <template>
-  <div class="bg-white p-4 text-gray-900">
+  <!-- On paper the page is one column as high as the sheet (190 mm), so the day boxes fill what the head leaves: room to write. -->
+  <div class="bg-white p-4 text-gray-900 print:flex print:min-h-[188mm] print:flex-col print:p-0">
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
       <h1 class="text-xl font-semibold">
         <template v-if="data">{{ data.facilityName }} – {{ data.groupName }} – {{ period }}</template>
@@ -46,7 +47,7 @@ function labelText(label: GroupDayLabel | null): string {
         <p class="min-h-12 whitespace-pre-line break-words text-sm">{{ data.theme.text }}</p>
       </section>
       <h2 class="mb-1 text-sm font-semibold">{{ s.done }}</h2>
-      <div class="grid grid-cols-5 gap-0 text-sm">
+      <div class="grid grid-cols-5 gap-0 text-sm print:flex-1 print:pr-px">
         <section
           v-for="(day, index) in data.days"
           :key="day.date"

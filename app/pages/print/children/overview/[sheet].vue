@@ -12,7 +12,7 @@ import { formatDate } from '~/utils/format'
  * `?group=` as the group filter of the tab (0 = the children without group).
  */
 definePageMeta({ layout: false, validate: route => isOverviewSheet(route.params.sheet) })
-useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; }' }] })
+useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; } @media print { html { font-size: 14px !important; } }' }] })
 
 const route = useRoute()
 const sheet = route.params.sheet as OverviewSheet
@@ -35,7 +35,7 @@ const fileName = computed(() => `Kinder-${t.sheets[sheet]}-${groupText.value}`)
 </script>
 
 <template>
-  <div class="bg-white p-4 text-gray-900">
+  <div class="bg-white p-4 text-gray-900 print:p-0">
     <div class="mb-3 flex flex-wrap items-baseline gap-3">
       <h1 class="text-xl font-semibold">{{ t.printTitle(activeName, t.sheets[sheet], groupText) }}</h1>
       <span class="text-sm text-gray-700">{{ formatDate(todayIso()) }}</span>

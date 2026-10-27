@@ -6,6 +6,8 @@ import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 definePageMeta({ layout: false })
+// A short list: A4 portrait over the full page width, readable text (the shared print rule is landscape with 10px).
+useHead({ style: [{ innerHTML: '@page { size: A4 portrait !important; margin: 12mm !important; } @media print { html { font-size: 13.5px !important; } table td, table th { padding-top: 2px !important; padding-bottom: 2px !important; } }' }] })
 
 const { data, error } = await useFetch<BirthdayDto[]>('/api/children/birthdays', { key: 'print-children-birthdays' })
 const lookups = useChildLookups()
@@ -29,7 +31,7 @@ const td = 'px-3 py-1.5'
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900">
+  <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900 print:max-w-none print:p-0">
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.printBirthdays }}</h1>
       <PrintActions file-name="Geburtstage-Kinder" />
@@ -37,7 +39,7 @@ const td = 'px-3 py-1.5'
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <p v-else-if="!entries.length" class="text-sm text-gray-600">{{ de.children.empty }}</p>
     <table v-else class="w-full text-sm">
-      <thead class="border-b border-gray-400 text-left text-xs text-gray-600">
+      <thead class="border-b border-gray-400 text-left text-xs text-gray-600 print:text-gray-900">
         <tr>
           <th :class="th">{{ de.children.birthdayOn }}</th>
           <th :class="th">{{ de.children.fields.name }}</th>

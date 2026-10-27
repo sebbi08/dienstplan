@@ -25,6 +25,6 @@ const classes = computed(() => [
     :aria-label="print ? undefined : label" :aria-pressed="print ? undefined : !!selected" @click="$emit('select')"
   >
     <span class="whitespace-nowrap"><UIcon v-if="cell.red" name="i-lucide-triangle-alert" class="mr-0.5 size-3.5 align-text-bottom" aria-hidden="true" />{{ occupancyCellText(cell) }}</span>
-    <span v-if="cell.over > 0" class="block font-semibold leading-tight" :class="print ? 'text-[9px]' : 'text-[10px]'">{{ de.occupancy.over(cell.over) }}</span>
+    <span v-if="cell.over > 0" class="block text-[10px] font-semibold leading-tight">{{ de.occupancy.over(cell.over) }}</span>
   </component>
 </template>

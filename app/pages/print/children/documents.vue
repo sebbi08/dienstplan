@@ -6,6 +6,8 @@ import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 definePageMeta({ layout: false })
+// A wide table: stays A4 landscape (the shared print rule), over the full page width with readable text.
+useHead({ style: [{ innerHTML: '@media print { html { font-size: 12px !important; } }' }] })
 
 const { data, error } = await useFetch<DocumentOverviewDto>('/api/child-documents/overview', { key: 'print-children-documents' })
 const lookups = useChildLookups()
@@ -18,7 +20,7 @@ const td = 'px-2 py-1.5'
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl bg-white p-6 text-gray-900">
+  <div class="mx-auto max-w-5xl bg-white p-6 text-gray-900 print:max-w-none print:p-0">
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.children.printDocuments }}</h1>
       <PrintActions file-name="Dokumentenuebersicht-Kinder" />
@@ -26,7 +28,7 @@ const td = 'px-2 py-1.5'
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <p v-else-if="!data?.rows.length" class="text-sm text-gray-600">{{ de.children.empty }}</p>
     <table v-else class="w-full text-sm">
-      <thead class="border-b border-gray-400 text-left text-xs text-gray-600">
+      <thead class="border-b border-gray-400 text-left text-xs text-gray-600 print:text-sm print:font-bold print:text-gray-900">
         <tr>
           <th :class="th">{{ de.children.fields.name }}</th>
           <th v-if="showGroups" :class="th">{{ de.children.fields.group }}</th>

@@ -7,7 +7,7 @@ import { formatDate, monthTitle } from '~/utils/format'
 
 /** The Personalschlüssel of a month for printing (Leitung and Träger): A4 landscape, the same table as the tab. */
 definePageMeta({ layout: false })
-useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; }' }] })
+useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; } @media print { html { font-size: 14px !important; } }' }] })
 
 const route = useRoute()
 const year = Number(route.params.year)
@@ -16,7 +16,7 @@ const { data, error } = await useFetch<StaffingMonthDto>(`/api/staffing/${year}/
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl bg-white p-6 text-gray-900">
+  <div class="mx-auto max-w-6xl bg-white p-6 text-gray-900 print:max-w-none print:p-0">
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.staffing.printTitle(monthTitle(year, month)) }}</h1>
       <PrintActions :file-name="`Personalschluessel-${year}-${String(month).padStart(2, '0')}`" />

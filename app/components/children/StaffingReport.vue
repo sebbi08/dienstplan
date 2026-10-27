@@ -65,7 +65,7 @@ const sub = props.print ? 'px-1.5 py-0.5' : 'px-3 py-1'
     <!-- relative: the screen-reader texts in the cells stay inside the scrolling box (no sideways page scroll on a phone). -->
     <div v-else class="relative overflow-x-auto" :class="print ? '' : 'rounded-lg ring-1 ring-gray-200'">
       <table class="w-full bg-white" :class="print ? 'text-xs' : 'text-sm'">
-        <thead class="text-left text-xs text-gray-600" :class="print ? 'border-b border-gray-400' : 'bg-gray-100'">
+        <thead class="text-left text-xs" :class="print ? 'border-b border-gray-400 font-bold text-gray-900' : 'bg-gray-100 text-gray-600'">
           <tr>
             <th :class="th">{{ t.group }}</th>
             <th v-if="showGroupType" :class="th">{{ t.groupType }}</th>

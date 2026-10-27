@@ -8,6 +8,8 @@ import { formatDate, monthTitle } from '~/utils/format'
 import { occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
 
 definePageMeta({ layout: false })
+// A wide table: stays A4 landscape (the shared print rule), over the full page width with readable text.
+useHead({ style: [{ innerHTML: '@media print { html { font-size: 14px !important; } }' }] })
 
 const year = Number(useRoute().params.year)
 const { data, error } = await useFetch<OccupancyDto>('/api/children/occupancy', { query: { year }, key: 'print-children-occupancy' })
@@ -17,7 +19,7 @@ const td = 'px-1.5 py-1 text-center'
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl bg-white p-6 text-gray-900">
+  <div class="mx-auto max-w-5xl bg-white p-6 text-gray-900 print:max-w-none print:p-0">
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.occupancy.printTitle(kitaYearLabel(year)) }}</h1>
       <PrintActions :file-name="`Belegung-${year}-${String((year + 1) % 100).padStart(2, '0')}`" />
@@ -26,7 +28,7 @@ const td = 'px-1.5 py-1 text-center'
     <template v-else-if="data">
       <p v-if="!data.rows.length" class="text-sm text-gray-600">{{ de.occupancy.empty }}</p>
       <table v-else class="w-full text-xs">
-        <thead class="border-b border-gray-400 text-gray-600">
+        <thead class="border-b border-gray-400 text-gray-600 print:font-bold print:text-gray-900">
           <tr>
             <th :class="[th, 'text-left']">{{ de.occupancy.group }}</th>
             <th :class="th">{{ de.occupancy.capacity }}</th>

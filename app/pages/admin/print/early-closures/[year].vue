@@ -7,6 +7,8 @@ import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort } from '~/utils/format'
 
 definePageMeta({ layout: false })
+// A short list: A4 portrait over the full page width, readable text (the shared print rule is landscape with 10px).
+useHead({ style: [{ innerHTML: '@page { size: A4 portrait !important; margin: 12mm !important; } @media print { html { font-size: 13.5px !important; } table td, table th { padding-top: 2px !important; padding-bottom: 2px !important; } }' }] })
 
 const year = Number(useRoute().params.year)
 const { data: list, error } = await useFetch<EarlyClosureDto[]>('/api/early-closures', { query: { year } })
@@ -14,7 +16,7 @@ const { data: list, error } = await useFetch<EarlyClosureDto[]>('/api/early-clos
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900">
+  <div class="mx-auto max-w-3xl bg-white p-6 text-gray-900 print:max-w-none print:p-0">
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ de.earlyClosures.printTitle(year) }}</h1>
       <span v-if="list" class="text-sm text-gray-600">{{ de.earlyClosures.count(list.length) }}</span>
