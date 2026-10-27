@@ -1137,8 +1137,9 @@ sehen keine Warnungen.
 
 ## 25. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
 
-- **Vorlagen:** im Menü unter **Mehr → Bögen** (Leitung und Träger). Die Seite zeigt alle Vorlagen in drei Abschnitten:
-  Mitarbeitergespräche, Kinder (Beobachtungen, Entwicklungsgespräche) und Teamsitzungen, jeder mit eigenem „Vorlage anlegen“. Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
+- **Vorlagen:** im Menü unter **Mehr → Bögen** (Leitung und Träger). Die Seite zeigt die Vorlagen in drei Kästen:
+  **Kinder** (Beobachtungen, Entwicklungsgespräche), **Fachkräfte** (Mitarbeitergespräche) und **Team** (Teamsitzungen), jeder
+  mit eigenem „Vorlage anlegen“; auf großen Bildschirmen stehen die Kästen nebeneinander. Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
 - **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Vom Mitarbeiter auszufüllen“, dann **Bereiche** (Titel,
@@ -1169,7 +1170,7 @@ sehen keine Warnungen.
 
 - **Wo:** Kinderakte → Bereich **Beobachtungen** (im Büro und am aufgeschlossenen Tablet, nie auf den Handys der
   Mitarbeiter). Die Liste zeigt die Bögen des Kindes, neueste zuerst, mit Datum, Vorlage und „zuletzt geändert“.
-  Jede Einrichtung hat die Startvorlage **Entwicklungsgespräch** (Mehr → Bögen, Abschnitt „Kinder“).
+  Jede Einrichtung hat die Startvorlage **Entwicklungsgespräch** (Mehr → Bögen, Kasten „Kinder“).
 - **Anlegen:** **Bogen anlegen** – Vorlage, Datum, Uhrzeit (freiwillig) und Teilnehmer. Beim Elterngespräch gibt es
   **Bogen ausfüllen**: Datum, Uhrzeit und Teilnehmer kommen aus dem Gespräch, danach steht dort **Bogen öffnen**. Ein
   Elterngespräch hat höchstens einen Bogen; wird das Gespräch gelöscht, bleibt der Bogen.
@@ -1192,8 +1193,8 @@ sehen keine Warnungen.
   Tablet neben „Stempeln“ und „Dienstplan“ (ohne Aufschließen, es gibt dort keine Kinderdaten). Die Liste zeigt die
   Sitzungen eines Jahres, neueste zuerst; mit **Gruppe** filterst du nach „Alle“, „Einrichtung“ (Sitzungen der ganzen
   Einrichtung) oder einer Gruppe.
-- **Anlegen:** **Sitzung anlegen** – Vorlage (Startvorlage **Teamsitzung**, eigene unter Mehr → Bögen, Abschnitt
-  „Teamsitzungen“), Datum, Uhrzeit (freiwillig), Gruppe oder ganze Einrichtung, Teilnehmer und Protokollführung. Das kann
+- **Anlegen:** **Sitzung anlegen** – Vorlage (Startvorlage **Teamsitzung**, eigene unter Mehr → Bögen, Kasten
+  „Team“), Datum, Uhrzeit (freiwillig), Gruppe oder ganze Einrichtung, Teilnehmer und Protokollführung. Das kann
   jeder in der Einrichtung: Leitung, Träger, Mitarbeiter und das Tablet.
 - **Mitschreiben:** Solange die Sitzung ein **Entwurf** ist, können alle Kopffelder und Protokoll ändern; **Speichern**
   nicht vergessen. Darunter steht „zuletzt geändert von … am …“ (am Tablet „Tablet“). Hat jemand anderes inzwischen

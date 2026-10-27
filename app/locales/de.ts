@@ -1226,7 +1226,12 @@ export const de = {
     itemKinds: { note: 'Hinweis', text: 'Freitext', choices: 'Ankreuzliste', rating: 'Bewertung', milestone: 'Meilenstein', date: 'Datum' },
     templatesTitle: 'Vorlagen für Bögen',
     templatesHint: 'Aus diesen Vorlagen legst du Bögen an, für Mitarbeitergespräche, für die Beobachtungen der Kinder und für Teamsitzungen. Änderungen an einer Vorlage gelten nur für neue Bögen – schon angelegte Bögen bleiben, wie sie sind.',
-    kindGroups: { staff: 'Mitarbeitergespräche', child: 'Kinder (Beobachtungen, Entwicklungsgespräche)', team: 'Teamsitzungen' },
+    kindGroups: { staff: 'Fachkräfte', child: 'Kinder', team: 'Team' },
+    kindHints: {
+      child: 'Beobachtungen und Entwicklungsgespräche – ausgefüllt in der Kinderakte.',
+      staff: 'Mitarbeitergespräche: Selbstbeurteilung und Beurteilung – unter Mitarbeiter → Gespräche.',
+      team: 'Protokolle der Teamsitzungen – unter Teamsitzungen.',
+    },
     noTemplates: 'Noch keine Vorlagen dieser Art.',
     newTemplateName: 'Name der neuen Vorlage',
     createTemplate: 'Vorlage anlegen',
