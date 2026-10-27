@@ -113,6 +113,28 @@ async function create() {
   }
 }
 
+/**
+ * „Endgültig löschen“ in the archive: the dialog lists what goes and asks for the exact name. Not for the own record,
+ * and for a Leitung not for a person with a Träger account (the server refuses both as well).
+ */
+const deleting = ref<EmployeeListItemDto | null>(null)
+const deleteName = ref('')
+const accountOf = (employeeId: number) => users.value?.find(account => account.employeeId === employeeId) ?? null
+const mayDelete = (employee: EmployeeListItemDto) => employee.id !== user.value?.employeeId
+  && (isProvider.value || accountOf(employee.id)?.role !== 'provider')
+const deleteAccount = computed(() => deleting.value ? accountOf(deleting.value.id) : null)
+function askDelete(employee: EmployeeListItemDto) {
+  deleting.value = employee
+  deleteName.value = ''
+}
+async function confirmDelete() {
+  const employee = deleting.value
+  if (!employee || deleteName.value.trim() !== employee.name) return
+  const ok = await run(() => $fetch<unknown>(`/api/employees/${employee.id}`, { method: 'DELETE', body: { confirm: deleteName.value } }),
+    de.employees.deleteDone(employee.name))
+  if (ok) deleting.value = null
+}
+
 /** The move arrows only show while „Reihenfolge ändern“ is on. */
 const reordering = ref(false)
 function move(id: number, direction: 'up' | 'down') {
@@ -245,7 +267,7 @@ const td = 'px-3 py-2'
     </ul>
     <p :class="hint">{{ de.employees.listHint(isProvider || appSettings?.contractVisibleToAdmins === true) }}</p>
 
-    <!-- Who already left: closed by default; nothing is deleted, the detail page stays as it is. -->
+    <!-- Who already left: closed by default; the detail page stays as it is until someone deletes the person for good. -->
     <details v-if="split.archived.length" class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-200">
       <summary class="cursor-pointer font-semibold text-gray-700">{{ de.employees.archived(split.archived.length) }}</summary>
       <ul class="mt-2 divide-y divide-gray-100">
@@ -254,9 +276,40 @@ const td = 'px-3 py-2'
           <span v-if="employee.shortName" class="text-gray-600">{{ employee.shortName }}</span>
           <span v-if="hasGroups" class="text-gray-600">{{ de.groups.employeeGroup }}: {{ groupText(employee.groupId) }}</span>
           <span class="text-gray-600">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn!) }}</span>
+          <UButton
+            v-if="mayDelete(employee)" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" class="sm:ml-auto"
+            :label="de.employees.deleteForGood" @click="askDelete(employee)"
+          />
         </li>
       </ul>
     </details>
+
+    <UModal
+      :open="deleting !== null" :title="deleting ? de.employees.deleteTitle(deleting.name) : ''"
+      @update:open="open => { if (!open) deleting = null }"
+    >
+      <template #body>
+        <form v-if="deleting" class="space-y-3 text-sm" @submit.prevent="confirmDelete">
+          <p class="font-medium">{{ de.employees.deleteIntro }}</p>
+          <ul class="list-disc space-y-0.5 pl-5 text-gray-700">
+            <li v-for="item in de.employees.deleteItems" :key="item">{{ item }}</li>
+            <li v-if="deleteAccount && deleteAccount.role !== 'provider'">{{ de.employees.deleteAccount(deleteAccount.username) }}</li>
+          </ul>
+          <p v-if="deleteAccount?.role === 'provider'" class="text-gray-700">{{ de.employees.deleteProviderAccount(deleteAccount.username) }}</p>
+          <p class="text-gray-600">{{ de.employees.deleteKept }}</p>
+          <UFormField :label="de.employees.deleteTypeName(deleting.name)">
+            <UInput v-model="deleteName" class="w-full" autocomplete="off" />
+          </UFormField>
+          <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-3">
+            <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="deleting = null" />
+            <UButton
+              type="submit" color="error" icon="i-lucide-trash-2" :label="de.employees.deleteForGood"
+              :disabled="deleteName.trim() !== deleting.name"
+            />
+          </div>
+        </form>
+      </template>
+    </UModal>
 
     <UModal v-model:open="createOpen" :title="de.employees.create" :ui="{ content: 'sm:max-w-2xl' }">
       <template #body>

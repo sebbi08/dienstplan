@@ -702,6 +702,26 @@ Druck-Knöpfe.
   sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht wird dabei nichts, der
   Name führt weiter zu allen Daten der Person.
 
+### Ausgeschiedene Mitarbeiter endgültig löschen
+
+- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person **„Endgültig löschen“**. Das geht nur, wenn das
+  Datum „ausgeschieden am“ **vor heute** liegt (wer heute ausscheidet, ist noch aktiv). Leitung und Träger dürfen das
+  für die Mitarbeiter der Einrichtung, in der sie gerade arbeiten – nur nicht den **eigenen** Eintrag, und eine Person
+  mit **Träger-Konto** löscht nur der Träger.
+- Ein Dialog zählt auf, was gelöscht wird. Zum Bestätigen **tippst du den Namen genau so ein**, wie er dasteht; erst
+  dann geht der Knopf. **Das lässt sich nicht rückgängig machen** – braucht ihr die Daten vielleicht noch, lädt der
+  Träger vorher eine Sicherung herunter.
+- **Gelöscht werden:** Stammdaten, Wochenstunden, Vertragsdaten und Stempel-PIN; alle Dienstplan-Einträge aller Monate
+  (auch in freigegebenen Plänen – die Person verschwindet dort aus der Spalte, der Rest des Plans bleibt freigegeben –
+  und als Aushilfe in anderen Einrichtungen); das Änderungsprotokoll, die Benachrichtigungen und „Zur Kenntnis
+  genommen“ zu dieser Person; Zeiterfassung mit Korrekturen und Notizen, „Im Dienst erkrankt“ und Krankheitstage;
+  Stundenkonto-Buchungen, Urlaubsanspruch und Urlaubsanträge; Pflichttermine und Fortbildungen; Mitarbeitergespräche
+  mit allen Bögen; Einträge in Dienstplan-Vorlagen und freigegebene Bögen zum Bearbeiten am Tablet.
+- **Das Benutzerkonto** der Person wird mit gelöscht, wenn sie Mitarbeiter oder Leitung ist (die Anmeldung geht danach
+  nicht mehr). Ein **Träger-Konto** bleibt bestehen und ist danach nur mit keinem Mitarbeiter mehr verknüpft.
+- **Bleibt erhalten:** Teamsitzungen und alles, wo der Name nur als Bearbeiter steht (z. B. „eingetragen von …“ in der
+  Kinderakte). Bei Kindern, deren Bezugserzieher die Person war, ist danach niemand eingetragen.
+
 ### Die Seite einer Person
 
 Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in Reiter aufgeteilt: **Stammdaten** (Name, Kürzel,

@@ -65,6 +65,8 @@ const ADMIN_ROUTES = [
   'staffing/[year]/[month].get.ts',
   // Stamp PINs of the facility's own staff: set, clear and unlock after too many wrong tries.
   'employees/[id]/pin.put.ts', 'employees/[id]/pin.delete.ts', 'employees/[id]/pin/unlock.post.ts',
+  // Deleting a left employee for good (the service refuses the own record and, for a Leitung, a Träger's employee).
+  'employees/[id].delete.ts',
   // „Zur Kenntnis genommen“ of the plan's warnings and taking it back (staff never see warnings).
   'plan/warning-acks.post.ts', 'plan/warning-acks.delete.ts',
   // „Was noch fehlt“ of the active facility, and hiding / showing its items for all managers of the facility.
@@ -356,6 +358,16 @@ describe('API route permissions', () => {
       expect(code, route).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
       expect(code, route).toContain('admin.facilityId')
     }
+  })
+
+  it('lets managers of the active facility delete a left employee for good', () => {
+    const touching = routes.filter(route => source(route).includes('services/employeeDeletion\''))
+    expect(touching).toEqual(['employees/[id].delete.ts'])
+    const code = source('employees/[id].delete.ts')
+    expect(ADMIN_ROUTES).toContain('employees/[id].delete.ts')
+    expect(code).toContain('requireAdmin(event)')
+    expect(code).not.toMatch(/require(User|Provider|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+    expect(code).toContain('deleteLeftEmployee(useDb(), admin, admin.facilityId, id, confirm)')
   })
 
   it('lets only the Träger change the absence codes', () => {
