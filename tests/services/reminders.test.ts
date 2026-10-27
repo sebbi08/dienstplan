@@ -60,7 +60,7 @@ describe('reminders', () => {
       const id = docChild('Lena', baeren, '2026-10-25')
       expect(listReminders(db, staff, TODAY)).toEqual([{
         kind: 'doc', date: '2026-10-25', state: 'upcoming', name: 'Lena Kind', childId: id, age: null, ownChild: false,
-        canDone: true, time: null, meetingKind: null,
+        canDone: true, time: null, meetingKind: null, count: null,
       }])
     })
 
@@ -312,8 +312,8 @@ describe('reminders', () => {
       addChild(db, 1, { firstName: 'Spät', lastName: 'Kind', groupId: baeren, birthDate: '2021-10-28' })
       addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse, birthDate: '2021-10-22' })
       expect(listReminders(db, staff, TODAY)).toEqual([
-        { kind: 'birthday', date: TODAY, state: 'today', name: 'Tom Heute', childId: expect.any(Number), age: 4, ownChild: false, canDone: false, time: null, meetingKind: null },
-        { kind: 'birthday', date: '2026-10-23', state: 'upcoming', name: 'Lena Sommer', childId: lena, age: 5, ownChild: false, canDone: false, time: null, meetingKind: null },
+        { kind: 'birthday', date: TODAY, state: 'today', name: 'Tom Heute', childId: expect.any(Number), age: 4, ownChild: false, canDone: false, time: null, meetingKind: null, count: null },
+        { kind: 'birthday', date: '2026-10-23', state: 'upcoming', name: 'Lena Sommer', childId: lena, age: 5, ownChild: false, canDone: false, time: null, meetingKind: null, count: null },
       ])
       expect(kindsFor(leitung)).toEqual(['birthday:Tom Heute', 'birthday:Maus Kind', 'birthday:Lena Sommer'])
     })
@@ -331,8 +331,8 @@ describe('reminders', () => {
       db.update(employees).set({ birthday: '11-20' }).where(eq(employees.id, late)).run()
       addEmployee(db, 'Ohne')
       const expected = [
-        { kind: 'staffBirthday', date: TODAY, state: 'today', name: 'Anna', childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null },
-        { kind: 'staffBirthday', date: '2026-10-22', state: 'upcoming', name: 'Berta', childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null },
+        { kind: 'staffBirthday', date: TODAY, state: 'today', name: 'Anna', childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null, count: null },
+        { kind: 'staffBirthday', date: '2026-10-22', state: 'upcoming', name: 'Berta', childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null, count: null },
       ]
       expect(listReminders(db, staff, TODAY)).toEqual(expected)
       expect(listReminders(db, leitung, TODAY)).toEqual(expected)
@@ -359,7 +359,7 @@ describe('reminders', () => {
       addChild(db, 1, { firstName: 'Maus', lastName: 'Kind', groupId: maeuse, leftOn: '2026-11-10' })
       expect(listReminders(db, staff, TODAY)).toEqual([{
         kind: 'leaving', date: '2026-11-10', state: 'upcoming', name: 'Lena Sommer', childId: id, age: null, ownChild: false,
-        canDone: false, time: null, meetingKind: null,
+        canDone: false, time: null, meetingKind: null, count: null,
       }])
       expect(listReminders(db, staff, '2026-11-10').map(reminder => reminder.state)).toEqual(['today'])
       expect(listReminders(db, staff, '2026-10-12')).toEqual([])
@@ -375,7 +375,7 @@ describe('reminders', () => {
       db.update(facilities).set({ autoLeaveSchoolChildren: true }).where(eq(facilities.id, 1)).run()
       expect(listReminders(db, staff, TODAY)).toEqual([{
         kind: 'leaving', date: '2026-10-31', state: 'upcoming', name: 'Paul Schule', childId: id, age: null, ownChild: false,
-        canDone: false, time: null, meetingKind: null,
+        canDone: false, time: null, meetingKind: null, count: null,
       }])
       setReminderSettings(db, 1, { noGroupDoc: OFF, birthdayLeadDays: 7, staffBirthdayLeadDays: 7, leavingLeadWeeks: 1 })
       expect(listReminders(db, staff, TODAY)).toEqual([])
@@ -397,7 +397,7 @@ describe('reminders', () => {
       meetingOf(id, '2026-10-19', 600, 'other')
       const expected = [{
         kind: 'meeting', date: TODAY, state: 'today', name: 'Lena Sommer', childId: id, age: null, ownChild: true,
-        canDone: false, time: 840, meetingKind: 'development',
+        canDone: false, time: 840, meetingKind: 'development', count: null,
       }]
       expect(listReminders(db, staff, TODAY)).toEqual(expected)
       // Before the start and after it the same: the reminder holds for the whole day; the note never comes along.
@@ -445,7 +445,7 @@ describe('reminders', () => {
         meetingOf(id, TODAY, 840)
         const expected = [{
           kind: 'meeting', date: TODAY, state: 'today', name: 'Neu Kind', childId: id, age: null, ownChild: true,
-          canDone: false, time: 840, meetingKind: 'development',
+          canDone: false, time: 840, meetingKind: 'development', count: null,
         }]
         expect(listReminders(db, leitung, TODAY)).toEqual([{ ...expected[0], ownChild: false }])
         expect(listReminders(db, staffSeeing, TODAY)).toEqual(expected)
@@ -526,5 +526,43 @@ describe('reminders', () => {
     expect(kindsFor(staff)).toEqual([
       'doc:Alt Kind', 'staffBirthday:Berta', 'leaving:Weg Kind', 'doc:Bald Kind', 'birthday:Bald Kind',
     ])
+  })
+})
+
+// Review Focus 5: the reminder about the page „Löschfristen“ is for the Träger only, and only while something is due.
+describe('retention reminder', () => {
+  let db: Db
+  let traeger: ChildViewer
+  let leitung: ChildViewer
+  const retentionOf = (viewer: ChildViewer, today = TODAY) =>
+    listReminders(db, viewer, today).filter(reminder => reminder.kind === 'retention')
+
+  beforeEach(() => {
+    db = createTestDb()
+    traeger = asChildViewer(addUser(db, 'traeger', 'provider'))
+    leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
+  })
+
+  it('shows the Träger the number of due entries of all facilities', () => {
+    const hort = addFacility(db, 'Hort')
+    addChild(db, 1, { firstName: 'Alt', lastName: 'Kind', entryDate: '2005-08-01', leftOn: '2010-07-31' })
+    addChild(db, hort, { firstName: 'Hort', lastName: 'Kind', entryDate: '2005-08-01', leftOn: '2011-07-31' })
+    expect(retentionOf(traeger)).toEqual([{
+      kind: 'retention', date: TODAY, state: 'today', name: '', childId: null, age: null, ownChild: false, canDone: false,
+      time: null, meetingKind: null, count: 2,
+    }])
+  })
+
+  it('never shows it to the Leitung or at the tablet, also with due entries', () => {
+    addChild(db, 1, { firstName: 'Alt', lastName: 'Kind', entryDate: '2005-08-01', leftOn: '2010-07-31' })
+    expect(retentionOf(leitung)).toEqual([])
+    expect(retentionOf({ ...traeger, onTablet: true })).toEqual([])
+  })
+
+  it('leaves it out for the Träger while nothing is due yet', () => {
+    // Left recently: the record may only be deleted after the retention period.
+    addChild(db, 1, { firstName: 'Neu', lastName: 'Kind', entryDate: '2020-08-01', leftOn: '2026-07-31' })
+    expect(retentionOf(traeger)).toEqual([])
+    expect(retentionOf(traeger, '2045-01-01')).toHaveLength(1)
   })
 })

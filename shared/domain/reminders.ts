@@ -12,7 +12,8 @@ export interface DocSettings {
   leadWeeks: number
 }
 
-export type ReminderKind = 'doc' | 'meeting' | 'birthday' | 'staffBirthday' | 'leaving'
+/** `retention`: only for the Träger, while data may be deleted after its retention period (page „Löschfristen“). */
+export type ReminderKind = 'doc' | 'meeting' | 'birthday' | 'staffBirthday' | 'leaving' | 'retention'
 
 export type ReminderWindow = 'before' | 'upcoming' | 'today' | 'overdue'
 
@@ -91,11 +92,11 @@ export function inWindow(due: IsoDate, leadDays: number, today: IsoDate): Remind
 }
 
 const STATE_ORDER = { overdue: 0, today: 1, upcoming: 2 } as const
-const KIND_ORDER: Record<ReminderKind, number> = { doc: 0, meeting: 1, birthday: 2, staffBirthday: 3, leaving: 4 }
+const KIND_ORDER: Record<ReminderKind, number> = { doc: 0, meeting: 1, birthday: 2, staffBirthday: 3, leaving: 4, retention: 5 }
 
 /**
  * Overdue, then today, then upcoming; within a state by date, then kind (doc, parent meeting, birthday, staff birthday,
- * leaving), then time (the meetings of a day; no time first), then name.
+ * leaving, retention), then time (the meetings of a day; no time first), then name.
  */
 export function sortReminders<T extends {
   kind: ReminderKind; date: IsoDate; state: 'upcoming' | 'today' | 'overdue'; name: string; time?: Minutes | null

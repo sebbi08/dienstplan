@@ -331,13 +331,13 @@ export type ReminderSettingsInput = Omit<ReminderSettingsDto, 'groups' | 'noGrou
 /** An entry of the box „Erinnerungen“ on the children page. */
 export interface ReminderDto {
   kind: ReminderKind
-  /** The day it is about: the documentation's due day, the birthday, the last day before leaving. */
+  /** The day it is about: the documentation's due day, the birthday, the last day before leaving; retention: today. */
   date: IsoDate
   /** Overdue only for a documentation. */
   state: 'upcoming' | 'today' | 'overdue'
-  /** The child's first and last name, or the employee's name. */
+  /** The child's first and last name, or the employee's name; empty for retention. */
   name: string
-  /** null for a staff birthday. */
+  /** null for a staff birthday and for retention. */
   childId: number | null
   /** For a child's birthday: the age the child turns; null otherwise. */
   age: number | null
@@ -349,6 +349,8 @@ export interface ReminderDto {
   time: Minutes | null
   /** For a parent meeting: its kind; null otherwise. */
   meetingKind: MeetingKind | null
+  /** For retention (Träger only): how many entries of the page „Löschfristen“ may be deleted now, all facilities; null otherwise. */
+  count: number | null
 }
 
 /** The record's „Entwicklungsdokumentation“. */

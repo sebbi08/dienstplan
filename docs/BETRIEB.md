@@ -50,15 +50,11 @@ Die Daten bleiben erhalten; die Datenbank wird beim Start automatisch auf die ne
 Ausnahme: Mit dem Update auf die 6-stellige Stempel-PIN werden alle bisherigen PINs gelöscht und müssen neu gesetzt
 werden (siehe Abschnitt 15, „Stempel-PIN“).
 
-Ausnahme Löschfristen: Nach dem Update auf die Version mit den **Löschfristen** löscht schon der erste tägliche Lauf
-(gleich beim Start) die Daten ausgeschiedener Mitarbeiter nach den voreingestellten Fristen – auch von Personen, die
-vor Jahren ausgeschieden sind (siehe „Löschfristen“ in Abschnitt 15). Stundenkonto-Buchungen über ausgezahlte
-Überstunden bleiben nur dann 10 Jahre, wenn sie das Häkchen **„ausgezahlt“** haben (Seite der Person → Stunden &
-Vertrag → Stundenkonto-Buchungen). Das Häkchen gibt es erst nach dem Update – bei Personen, deren Frist dann schon
-abgelaufen ist, kommt es zu spät. Mit den voreingestellten Fristen gilt beim ersten Start: Wer 2023 oder früher
-ausgeschieden ist, verliert seine Zeitdaten (Dienstplan, Stempelzeiten, Stundenkonto-Buchungen …); wer 2022 oder
-früher ausgeschieden ist, verschwindet ganz aus dem Archiv (ab dem 01.01.2027 je ein Jahr später). Lade vor dem Update
-eine Datensicherung herunter.
+Löschfristen: Die App löscht nach einem Update **nichts von selbst** – auch nicht die Daten von Personen, die vor
+Jahren ausgeschieden sind, oder alte Kinderakten. Was nach Ablauf einer Frist gelöscht werden darf, steht für den
+Träger unter **Mehr → Löschfristen**; dort löscht er von Hand (siehe „Löschfristen“ in Abschnitt 15). Setz vorher bei
+Stundenkonto-Buchungen über ausgezahlte Überstunden das Häkchen **„ausgezahlt“** (Seite der Person → Stunden &
+Vertrag → Stundenkonto-Buchungen): Nur dann gilt für sie die längere Frist von 10 Jahren.
 
 ## 5. Datensicherung
 
@@ -251,11 +247,12 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
   Erinnerung weg, das Gespräch bleibt in der Akte (siehe Abschnitt 16). Das gilt auch für Kinder, die noch nicht
   angefangen haben (Vertragskinder vor dem Eintritt und Vormerkungen).
 
-### Automatische Löschung
+### Löschen nach der Aufbewahrungsfrist
 
-- Wird ein Kind abgemeldet, kommt die Akte ins Archiv.
-- Die App prüft **täglich**, ob die Aufbewahrungsfrist abgelaufen ist, und löscht dann die archivierten
-  Akten samt Dokumenten endgültig.
+- Wird ein Kind abgemeldet, kommt die Akte ins Archiv. Dort steht bei jedem Kind, ab wann seine Akte gelöscht
+  werden darf („löschbar ab …“).
+- Die App löscht **nichts von selbst**. Ist die Frist abgelaufen, löscht der **Träger** die Akte samt Dokumenten
+  unter **Mehr → Löschfristen** (siehe Abschnitt 15, „Löschfristen“). Er bekommt dazu eine Erinnerung.
 - Die Frist stellt der Träger unter *Einstellungen → Einrichtung* ein: „Löschfrist für abgemeldete Kinder“,
   1 bis 10 Jahre, voreingestellt sind **3 Jahre**.
 - Besprich die Frist mit dem/der Datenschutzbeauftragten, bevor du sie festlegst.
@@ -360,7 +357,7 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
 - Der Schalter „Schulkinder automatisch abmelden“ ist **voreingestellt aus**. Nur der Träger schaltet ihn pro
   Einrichtung ein.
 - Beim Einschalten zeigt die App, welche Kinder **sofort** abgemeldet werden (Schulstart schon erreicht), und
-  bei jedem Kind, **an welchem Tag seine Akte gelöscht wird**. Erst nach deiner Bestätigung wird eingeschaltet
+  bei jedem Kind, **ab welchem Tag seine Akte gelöscht werden darf**. Erst nach deiner Bestätigung wird eingeschaltet
   und abgemeldet.
 - Danach bekommen alle Schulkinder am 1. September den Austritt 31. August und kommen ins Archiv.
   Ab dann läuft die Löschfrist (siehe Abschnitt 8).
@@ -718,7 +715,8 @@ Druck-Knöpfe.
   für die Mitarbeiter der Einrichtung, in der sie gerade arbeiten – nur nicht den **eigenen** Eintrag, und eine Person
   mit **Träger-Konto** löscht nur der Träger.
 - Ob der Knopf da ist, legt der Träger unter *Einstellungen → Personal → Löschfristen* fest („Mitarbeiter endgültig
-  löschen“): **aus** (niemand, nur noch die automatische Löschung nach den Fristen), **nur Träger** oder **Leitung und
+  löschen“): **aus** (niemand; gelöscht wird nur nach Ablauf der Fristen, vom Träger unter Mehr → Löschfristen),
+  **nur Träger** oder **Leitung und
   Träger** (voreingestellt). Endgültig löschen beachtet die Aufbewahrungsfristen **nicht** – nur für Probe- und
   Fehleinträge; der Dialog weist darauf hin.
 - Ein Dialog zählt auf, was gelöscht wird. Zum Bestätigen **tippst du den Namen genau so ein**, wie er dasteht; erst
@@ -737,18 +735,19 @@ Druck-Knöpfe.
 
 ### Löschfristen
 
-Die Daten ausgeschiedener Mitarbeiter löscht die App **automatisch im täglichen Lauf** (einmal am Tag), je
-nach Art zu einem anderen Tag. Jede Frist beginnt am **Ende des Jahres**, in dem die Person ausgeschieden ist; gelöscht
-wird am 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahre → gelöscht am 01.01.2029.
+Die App löscht **nichts von selbst**. Die Fristen sagen, **ab wann** etwas gelöscht werden darf; gelöscht wird von
+Hand durch den **Träger** auf der Seite **Mehr → Löschfristen** (siehe unten). Bei ausgeschiedenen Mitarbeitern gilt
+je nach Art ein anderer Tag. Jede Frist beginnt am **Ende des Jahres**, in dem die Person ausgeschieden ist; löschbar
+ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahre → löschbar ab 01.01.2029.
 
-| Wann | Was |
+| Löschbar ab | Was |
 |---|---|
 | am Tag nach „ausgeschieden am“ | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst), Qualifikation, Vertragsdaten, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise |
 | „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen) |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
-| zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald keine Daten mit laufender Frist mehr da sind: ohne ausgezahlte Überstunden also schon mit den Beurteilungen |
+| zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald alle anderen Daten der Person gelöscht sind |
 
 Wochenstunden und Aushilfen bleiben mit den Zeitdaten, weil das Stundenkonto und der Dienstplan sie brauchen: So steht
 die Person nach dem Ausscheiden weiter im Dienstplan und Stundenkonto ihrer letzten Monate.
@@ -756,14 +755,33 @@ die Person nach dem Ausscheiden weiter im Dienstplan und Stundenkonto ihrer letz
 - Die Fristen stellt der **Träger** je Einrichtung unter *Einstellungen → Personal → Löschfristen* ein (1 bis 40 Jahre;
   „Einstellungen für“ geht auch hier). Die Leitung sieht sie dort nur. Dort stehen auch „Mitarbeiter endgültig
   löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
-- Eine geänderte Frist gilt ab dem nächsten täglichen Lauf. Schon Gelöschtes kommt nicht zurück.
-- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, wann was gelöscht wird („Zeitdaten werden am …
-  gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“). Hat die Person keine Buchung mit
-  „ausgezahlt“, fehlt dieses Datum.
-- Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), löscht die App nichts weiter.
-- Das Server-Protokoll nennt nach jedem Lauf, wie viele Datensätze je Art gelöscht wurden (ohne Namen).
+- Eine geänderte Frist gilt sofort für die Seite „Löschfristen“. Schon Gelöschtes kommt nicht zurück.
+- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Zeitdaten
+  dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“). Hat die Person
+  keine Buchung mit „ausgezahlt“, fehlt dieses Datum.
+- Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), verschwindet die Person von der
+  Seite „Löschfristen“.
 - Die Fristen sind vorbelegt nach den Vorgaben des Trägers – bitte im Zweifel mit Steuerberatung bzw. Datenschutz
   klären. Gelöschtes steckt noch in älteren Sicherungen (siehe Abschnitt 8, „Gelöschte Daten und Sicherungen“).
+
+### Die Seite „Löschfristen“ (nur Träger)
+
+- Unter **Mehr → Löschfristen** sieht der Träger alles, was nach Ablauf einer Frist gelöscht werden darf – aus
+  **allen Einrichtungen** auf einer Seite: die Daten ausgeschiedener Mitarbeiter (je Art eine Zeile: Persönliche
+  Daten, Zeitdaten, Beurteilungen, ausgezahlte Überstunden, zuletzt der Mitarbeiter-Eintrag), die Akten abgemeldeter
+  Kinder und archivierte Kassen. Eine Zeile steht nur da, wenn es dazu noch Daten gibt. Die Leitung hat die Seite nicht.
+- Je Zeile: Einrichtung, was (Name und Art der Daten) und **löschbar ab**. Mit **„Einrichtung“** oben zeigst du nur
+  eine Einrichtung.
+- **„Jetzt löschbar“** sind die Zeilen, deren Tag erreicht ist, je mit **„Löschen“**. Jedes Löschen fragt vorher nach;
+  bei einer Kasse tippst du wie früher ihren Namen ein. **Lade vorher eine Datensicherung herunter** – gelöscht ist
+  gelöscht.
+- **„Alle fälligen löschen“** löscht genau die Zeilen, die gerade unter „Jetzt löschbar“ stehen (mit dem Filter nur
+  die der gewählten Einrichtung). Die Rückfrage zählt auf, wie viele es je Art sind (z. B. „3 × Mitarbeiterdaten,
+  1 × Kinderakte“). Der Mitarbeiter-Eintrag einer Person wird erst löschbar, wenn alles andere von ihr gelöscht ist –
+  er steht dann beim nächsten Mal unter „Jetzt löschbar“.
+- **„Später löschbar“** zeigt die übrigen Zeilen nach Datum, ohne Knopf.
+- Solange etwas löschbar ist, steht beim Träger im Kasten **„Erinnerungen“** (Seite „Kinder“) „‹n› Einträge dürfen
+  gelöscht werden“ mit einem Link auf die Seite.
 
 ### Die Seite einer Person
 
@@ -845,6 +863,8 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
 - **Abschied**: „Lena Muster verlässt uns am 31.07.“ – für Kinder mit eingetragenem Austritt und, wenn die
   automatische Abmeldung der Schulkinder eingeschaltet ist, für die Kinder, die sie abmelden wird. Ein Wechsel in
   eine andere Einrichtung geschieht in der App sofort und gibt keine Erinnerung.
+- **Löschfristen** (nur der Träger, nicht am Tablet): „3 Einträge dürfen gelöscht werden“, solange auf der Seite
+  **Mehr → Löschfristen** etwas aus irgendeiner Einrichtung löschbar ist; der Text führt dorthin (Abschnitt 15).
 
 Ist die aufschließende Person als Bezugserzieher des Kindes eingetragen, steht beim Eintrag **„dein Kind“**. Der
 Name eines Kindes führt zu seiner Akte.
@@ -1199,8 +1219,9 @@ sehen keine Warnungen.
   10.03.2026 → löschbar ab 01.01.2037). Steht im Protokoll eine spätere Korrektur (z. B. 2027 eine Buchung von 2026
   geändert), zählt deren Tag. Hat die Kasse keine Buchungen mehr, aber ein Protokoll (z. B. gelöschte
   Einträge) oder abgeschlossene Monate, zählt der letzte Protokolleintrag bzw. das Ende des letzten abgeschlossenen
-  Monats. Ab diesem Tag erscheint **Endgültig löschen** (Leitung und Träger): Du tippst zur Bestätigung den Namen der
-  Kasse ein; gelöscht werden die Kasse, alle Buchungen, Belege, abgeschlossenen Monate und das Protokoll. Umbuchungen mit
+  Monats. Ab diesem Tag darf die Kasse gelöscht werden – das macht nur der **Träger** unter **Mehr → Löschfristen**
+  (siehe Abschnitt 15, „Löschfristen“): Er tippt zur Bestätigung den Namen der Kasse ein; gelöscht werden die Kasse,
+  alle Buchungen, Belege, abgeschlossenen Monate und das Protokoll. Umbuchungen mit
   anderen Kassen bleiben dort stehen, mit ihrem Text, auch in abgeschlossenen Monaten; in deren Protokoll steht „Andere
   Kasse gelöscht“. Sie sind danach eine normale Buchung: Eine Ausgabe ohne Beleg in einem noch offenen Monat zählt dann
   bei **Belege fehlen** mit. Eine archivierte Kasse ganz ohne Buchungen und Protokoll lässt sich sofort löschen (wie

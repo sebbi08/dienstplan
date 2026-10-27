@@ -14,8 +14,9 @@ function listOf(labels: string[]): string {
 
 /**
  * The line in the staff page's archive for a person who left on `leftOn` (shared/domain/retention.ts): „Zeitdaten
- * werden am … gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“ The dates in their
- * order; a category due today or earlier counts as done (it may be deleted from then on) and is named before. Without
+ * dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ The dates in their
+ * order; a category due today or earlier may be deleted already and is named before („… dürfen schon gelöscht
+ * werden.“; the Träger deletes on the page „Löschfristen“, nothing goes by itself). Without
  * paid-out adjustments (`hasPaidOut` false) that period is left out: the entry goes with the others.
  */
 export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSettings, today: IsoDate, hasPaidOut = true): string {
@@ -28,7 +29,7 @@ export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSetting
   const open = dated.filter(entry => entry.date > today)
   if (open.length === 0) return t.allDone
   const [first, ...rest] = open
-  const sentence = [t.first(first!.label, formatDate(first!.date)), ...rest.map(entry => t.next(entry.label, formatDate(entry.date))), t.last]
-    .join(', ')
+  const sentence = [t.first(first!.label, formatDate(first!.date)), ...rest.map(entry => t.next(entry.label, formatDate(entry.date)))]
+    .join(', ') + t.last
   return done.length === 0 ? capitalize(sentence) : `${capitalize(t.done(listOf(done.map(entry => entry.label))))} ${capitalize(sentence)}`
 }

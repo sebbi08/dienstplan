@@ -7,10 +7,10 @@ import { formatDate, monthTitle } from '~/utils/format'
 /**
  * One box in the overview: name, kind, balance today, closing state, missing receipts. While reordering, arrows move it
  * within its scope (`first`/`last`: it is already at that end). An archived box shows from when it may be deleted for
- * good and, once that day has come (`purgeable`), „Endgültig löschen“.
+ * good (the Träger deletes it on the page „Löschfristen“).
  */
-defineProps<{ box: CashBoxDto; to: string; reordering?: boolean; first?: boolean; last?: boolean; purgeable?: boolean }>()
-const emit = defineEmits<{ edit: []; move: [direction: 'up' | 'down']; purge: [] }>()
+defineProps<{ box: CashBoxDto; to: string; reordering?: boolean; first?: boolean; last?: boolean }>()
+const emit = defineEmits<{ edit: []; move: [direction: 'up' | 'down'] }>()
 </script>
 
 <template>
@@ -35,9 +35,6 @@ const emit = defineEmits<{ edit: []; move: [direction: 'up' | 'down']; purge: []
       <div class="text-xs text-gray-500">{{ de.cash.balanceToday }}</div>
       <div class="font-semibold tabular-nums" :class="box.kind === 'cash' && box.balanceToday < 0 ? 'text-red-600' : ''">{{ formatCents(box.balanceToday) }}</div>
     </div>
-    <UButton
-      v-if="purgeable" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.cash.purge" @click="emit('purge')"
-    />
     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.cash.editBox(box.name)" @click="emit('edit')" />
   </li>
 </template>

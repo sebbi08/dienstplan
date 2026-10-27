@@ -87,7 +87,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   { title: 'Kasse', rows: [
     { label: 'Kassen anlegen, Einnahmen, Ausgaben und Umbuchungen buchen, Belege, Monat abschließen, Ausdruck und Excel-Datei', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Kassen archivieren und wieder aktivieren', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Archivierte Kasse nach Ablauf der Aufbewahrungsfrist endgültig löschen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Archivierte Kasse nach Ablauf der Aufbewahrungsfrist endgültig löschen (Mehr → Löschfristen)', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Abgeschlossenen Monat wieder öffnen (mit Begründung)', rights: ['yes', 'no', 'no', 'no'] },
   ] },
   { title: 'Verwaltung', rows: [
@@ -98,6 +98,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Einstellungen: Arten der Pflichttermine und nach wie vielen Monaten sie wieder fällig sind', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Einrichtungen anlegen, umbenennen, zwischen ihnen wechseln, Mitarbeiter verschieben', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Gruppen einer Einrichtung anlegen, umbenennen und löschen', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Löschfristen: Übersicht aller Einrichtungen ansehen und nach Ablauf löschen – Mitarbeiterdaten, Kinderakten, Kassen (Mehr → Löschfristen)', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Datenbank herunterladen (Datensicherung)', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Eigenes Passwort ändern', rights: ['yes', 'yes', 'yes', 'no'] },
   ] },

@@ -14,6 +14,7 @@ import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
+import { retentionOverview } from './retentionOverview'
 import { getSchoolSettings, schoolLeavers } from './schoolChildren'
 
 type DocRow = typeof childDevelopmentDocs.$inferSelect
@@ -53,7 +54,8 @@ function dueOf(row: ChildRow, setting: DocSetting, lastDone: DocRow | undefined,
  * parent meeting only on its day, all day, with its start and kind (never the note); a
  * birthday from the facility's lead days before until the day; a leaving day (registered, or the day before the school
  * start the daily run deregisters on while the automatic leaving is switched on) from the lead weeks before until the
- * day. Staff birthdays of every employee of the facility who has not left, for everyone (no year, no age).
+ * day. Staff birthdays of every employee of the facility who has not left, for everyone (no year, no age). For the
+ * Träger one entry with the number of entries that may be deleted now (page „Löschfristen“, all facilities).
  */
 export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): ReminderDto[] {
   const { facilityId } = viewer
@@ -80,7 +82,7 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     items.push({
       kind, date, state, name: `${row.firstName} ${row.lastName}`, childId: row.id, age: null,
       ownChild: row.keyEducatorId !== null && row.keyEducatorId === viewer.employeeId, canDone: kind === 'doc',
-      time: null, meetingKind: null, ...extra,
+      time: null, meetingKind: null, count: null, ...extra,
     })
   }
 
@@ -119,8 +121,20 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     if (state === 'before') continue
     items.push({
       kind: 'staffBirthday', date, state, name: person.name, childId: null, age: null, ownChild: false, canDone: false,
-      time: null, meetingKind: null,
+      time: null, meetingKind: null, count: null,
     })
+  }
+
+  // The Träger (at the office, not at the shared tablet) is reminded while data of any facility may be deleted after
+  // its retention period; the entry links to the page „Löschfristen“ and goes once nothing is due any more.
+  if (viewer.role === 'provider' && !viewer.onTablet) {
+    const due = retentionOverview(db, today).filter(item => item.due).length
+    if (due > 0) {
+      items.push({
+        kind: 'retention', date: today, state: 'today', name: '', childId: null, age: null, ownChild: false,
+        canDone: false, time: null, meetingKind: null, count: due,
+      })
+    }
   }
   return sortReminders(items)
 }

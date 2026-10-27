@@ -85,6 +85,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
         entry(de.nav.forms, '/admin/forms'),
         entry(de.nav.users, '/admin/users'),
         entry(de.nav.settings, '/admin/settings'),
+        // Only the Träger deletes data after its retention period (all facilities on one page).
+        ...(viewer.role === 'provider' ? [entry(de.nav.retention, '/admin/retention')] : []),
       ],
       mineCount,
       totalCount: mineCount + open,

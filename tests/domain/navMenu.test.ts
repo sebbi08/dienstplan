@@ -27,6 +27,13 @@ describe('navMenu', () => {
     expect(labels(menu.main)).not.toContain('Mein Dienstplan (2)')
   })
 
+  it('adds "Löschfristen" under "Mehr" for the Träger only', () => {
+    const provider = navMenu({ ...base, role: 'provider' })
+    expect(labels(provider.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Benutzer', 'Einstellungen', 'Löschfristen'])
+    expect(provider.more[6]!.to).toBe('/admin/retention')
+    expect(labels(navMenu(base).more)).not.toContain('Löschfristen')
+  })
+
   it('puts "Urlaubsplanung" with the open requests second for a planner and counts them in the total', () => {
     const menu = navMenu({ ...base, employeeId: 3, isPlanner: true, openCount: 4, unread: 1 })
     expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen'])

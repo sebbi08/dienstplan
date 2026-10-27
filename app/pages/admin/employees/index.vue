@@ -116,7 +116,7 @@ async function create() {
   }
 }
 
-// The facility's Löschfristen: when the data of each person in the archive is deleted, and who may delete by hand.
+// The facility's Löschfristen: from when the data of each person in the archive may be deleted, and who may delete by hand.
 const { data: retention } = await useFetch<RetentionSettings>('/api/retention-settings', { key: 'employees-retention-settings' })
 const retentionLine = (employee: EmployeeListItemDto) =>
   retention.value && employee.leftOn

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { confirmsName } from '#shared/domain/confirmName'
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import type { CashBoxDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -7,7 +6,8 @@ import { cashMonthPath } from '~/utils/cash'
 
 /**
  * All cash boxes of the active facility, grouped by Einrichtung and the groups; archived ones collapsed in „Archiv“ at
- * the end (spec Kasse §4), each with „löschbar ab …“ and, from that day, „Endgültig löschen“ (spec Löschfristen §4).
+ * the end (spec Kasse §4), each with „löschbar ab …“. The Träger deletes them after the period on the page
+ * „Löschfristen“ (spec Löschübersicht §3).
  */
 useHead({ title: de.cash.title })
 
@@ -40,31 +40,6 @@ const canReorder = computed(() => sections.value.some(section => section.boxes.l
 const run = useAction(refresh)
 function move(box: CashBoxDto, direction: 'up' | 'down') {
   return run(() => $fetch(`/api/cash/boxes/${box.id}/move`, { method: 'POST', body: { direction } }))
-}
-
-/** From its deletableFrom on (null: neither entries nor history, at once) an archived box may be deleted for good. */
-const purgeable = (box: CashBoxDto) => box.archived && (box.deletableFrom === null || todayIso() >= box.deletableFrom)
-const purging = ref<CashBoxDto | null>(null)
-const purgeName = ref('')
-const purgeConfirmed = computed(() => purging.value !== null && confirmsName(purgeName.value, purging.value.name))
-/** While the request runs the button waits (a second click would only bring „nicht gefunden“). */
-const purgePending = ref(false)
-function askPurge(box: CashBoxDto) {
-  purging.value = box
-  purgeName.value = ''
-}
-async function confirmPurge() {
-  const box = purging.value
-  if (!box || !purgeConfirmed.value || purgePending.value) return
-  purgePending.value = true
-  try {
-    const ok = await run(() => $fetch<unknown>(`/api/cash/boxes/${box.id}/purge`, { method: 'DELETE', body: { confirm: purgeName.value } }),
-      de.cash.purgeDone(box.name))
-    if (ok) purging.value = null
-  }
-  finally {
-    purgePending.value = false
-  }
 }
 
 const dialogOpen = ref(false)
@@ -101,39 +76,11 @@ function openDialog(box: CashBoxDto | null) {
 
     <details v-if="archived.length" class="rounded-lg bg-white ring-1 ring-gray-200">
       <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-gray-700">{{ de.cash.archivedSection(archived.length) }}</summary>
+      <p class="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">{{ de.cash.archivePurgeHint }}</p>
       <ul class="divide-y divide-gray-100 border-t border-gray-100">
-        <CashBoxRow
-          v-for="box in archived" :key="box.id" :box="box" :to="monthLink(box)" :purgeable="purgeable(box)"
-          @edit="openDialog(box)" @purge="askPurge(box)"
-        />
+        <CashBoxRow v-for="box in archived" :key="box.id" :box="box" :to="monthLink(box)" @edit="openDialog(box)" />
       </ul>
     </details>
-
-    <UModal
-      :open="purging !== null" :title="purging ? de.cash.purgeTitle(purging.name) : ''"
-      @update:open="open => { if (!open && !purgePending) purging = null }"
-    >
-      <template #body>
-        <form v-if="purging" class="space-y-3 text-sm" @submit.prevent="confirmPurge">
-          <p class="font-medium">{{ de.cash.purgeIntro }}</p>
-          <ul class="list-disc space-y-0.5 pl-5 text-gray-700">
-            <li v-for="item in de.cash.purgeItems" :key="item">{{ item }}</li>
-          </ul>
-          <p class="text-gray-600">{{ de.cash.purgeTransfers }}</p>
-          <p class="font-medium text-amber-800">{{ de.cash.purgeBackupHint }}</p>
-          <UFormField :label="de.cash.purgeTypeName(purging.name)">
-            <UInput v-model="purgeName" class="w-full" autocomplete="off" />
-          </UFormField>
-          <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-3">
-            <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="purging = null" />
-            <UButton
-              type="submit" color="error" icon="i-lucide-trash-2" :label="de.cash.purge"
-              :loading="purgePending" :disabled="!purgeConfirmed || purgePending"
-            />
-          </div>
-        </form>
-      </template>
-    </UModal>
 
     <CashBoxDialog v-model:open="dialogOpen" :box="editing" @saved="refresh" />
   </div>

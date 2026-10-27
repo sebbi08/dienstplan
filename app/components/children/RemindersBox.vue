@@ -7,7 +7,8 @@ import { formatDayMonth, formatDayMonthNear } from '~/utils/format'
 
 /**
  * The box „Erinnerungen“ above the tabs of the children page: documentation, parent meetings of the day, birthdays and
- * leavings (already sorted by the server). Hidden without entries; closed or open is remembered on the device.
+ * leavings, for the Träger the entries that may be deleted (already sorted by the server). Hidden without entries; closed
+ * or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
 const { busy, run } = useBusyAction(refresh)
@@ -39,7 +40,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
-  leaving: 'i-lucide-door-open',
+  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -59,6 +60,9 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     // „Elterngespräch ‹Name› heute ‹h:mm› (‹Art›)“; the server always sends a meeting's time and kind.
     case 'meeting':
       return r.meeting(entry.time === null ? '' : formatTime(entry.time), entry.meetingKind ? de.parentMeetings.kinds[entry.meetingKind] : '')
+    // Rendered as one link instead (see the template); nothing around a name.
+    case 'retention':
+      return { before: '', after: '' }
   }
 }
 
@@ -98,7 +102,10 @@ async function markDone(entry: ReminderDto) {
         class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2" :class="rowClass(entry)"
       >
         <UIcon :name="icons[entry.kind]" class="size-5 shrink-0" :class="entry.state === 'overdue' ? 'text-red-600' : 'text-gray-500'" role="img" :aria-label="r.kinds[entry.kind]" />
-        <span class="min-w-0 flex-1">
+        <span v-if="entry.kind === 'retention'" class="min-w-0 flex-1">
+          <NuxtLink to="/admin/retention" class="font-medium text-sky-700 hover:underline">{{ r.retention(entry.count ?? 0) }}</NuxtLink>
+        </span>
+        <span v-else class="min-w-0 flex-1">
           {{ textOf(entry).before }}<NuxtLink
             v-if="entry.childId !== null" :to="`/children/${entry.childId}`" class="font-medium text-sky-700 hover:underline"
           >{{ entry.name }}</NuxtLink><span v-else class="font-medium">{{ entry.name }}</span>{{ textOf(entry).after }}

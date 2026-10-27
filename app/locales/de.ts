@@ -29,7 +29,7 @@ export const de = {
   nav: {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', myRequirements: 'Meine Termine', myTalks: 'Meine Gespräche', employees: 'Mitarbeiter',
     closures: 'Schließzeiten', users: 'Benutzer',
-    settings: 'Einstellungen', password: 'Passwort ändern', logout: 'Abmelden',
+    settings: 'Einstellungen', retention: 'Löschfristen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
     templates: 'Vorlagen', cash: 'Kasse', teamMeetings: 'Teamsitzungen', forms: 'Bögen',
@@ -731,7 +731,7 @@ export const de = {
   },
   childLifecycle: {
     leave: 'Kind abmelden', leftOn: 'Austrittsdatum', unleave: 'Abmeldung zurücknehmen', deleteNow: 'Sofort löschen',
-    confirmDelete: 'Akte mit allen Bezugspersonen und Dokumenten endgültig löschen?', purgeOn: (date: string) => `wird gelöscht am ${date}`,
+    confirmDelete: 'Akte mit allen Bezugspersonen und Dokumenten endgültig löschen?', purgeOn: (date: string) => `löschbar ab ${date}`,
     move: 'In andere Einrichtung verschieben', archived: 'Abgemeldet – die Akte kann nicht mehr geändert werden.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     title: 'Abmeldung', leavesOn: (date: string) => `Austritt am ${date}`, moveTarget: 'Einrichtung', moveAction: 'Verschieben', moved: 'Akte verschoben',
@@ -752,7 +752,7 @@ export const de = {
   childSettings: {
     careTypes: 'Betreuungsformen', documentTypes: 'Dokumentarten', important: 'wichtig', required: 'für jedes Kind nötig', confidentialDefault: 'vertraulich',
     retention: 'Löschfrist für abgemeldete Kinder', retentionYears: 'Jahre nach dem Austritt',
-    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden; die App löscht nichts automatisch. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen.',
+    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     careTypesHint: 'Die Zeiten geben das gebuchte Zeitfenster an. Betreuungsformen, die noch bei Kindern eingetragen sind, lassen sich nicht löschen.',
     documentTypesHint: 'Wichtige Dokumentarten erscheinen in der Dokumentenübersicht. „Für jedes Kind nötig“ markiert fehlende Dokumente dort rot. „Vertraulich“ ist die Voreinstellung beim Hochladen.',
@@ -763,7 +763,7 @@ export const de = {
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern wann gelöscht wird. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist; die App löscht nichts automatisch, gelöscht wird von Hand. Geburtstag, PIN, Zugang, Vertragsdaten, Urlaubsanträge und Ähnliches werden schon am Tag nach dem Ausscheiden gelöscht, der Mitarbeiter-Eintrag selbst zuletzt.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, PIN, Zugang, Vertragsdaten, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -780,19 +780,47 @@ export const de = {
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
     },
     employeeDelete: 'Mitarbeiter endgültig löschen',
-    employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ wird nur nach Ablauf der Fristen gelöscht, von Hand.',
+    employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ werden die Daten erst nach Ablauf der Fristen gelöscht – von Hand durch den Träger.',
     employeeDeleteModes: { off: 'aus', provider: 'nur Träger', managers: 'Leitung und Träger' },
     cashYears: 'Aufbewahrungsfrist Kasse',
-    cashYearsHelp: 'Eine archivierte Kasse lässt sich erst danach endgültig löschen. Die Frist beginnt am Ende des Jahres der letzten Buchung.',
-    /** The archive line: „Zeitdaten werden am … gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“ */
+    cashYearsHelp: 'Eine archivierte Kasse darf erst danach endgültig gelöscht werden (vom Träger unter Mehr → Löschfristen). Die Frist beginnt am Ende des Jahres der letzten Buchung.',
+    /** The archive line: „Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
       labels: { time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden' },
-      first: (label: string, date: string) => `${label} werden am ${date} gelöscht`,
-      next: (label: string, date: string) => `${label} am ${date}`,
-      last: 'danach der Eintrag.',
-      done: (labels: string) => `${labels} sind schon gelöscht.`,
+      first: (label: string, date: string) => `${label} dürfen ab ${date} gelöscht werden`,
+      next: (label: string, date: string) => `${label} ab ${date}`,
+      last: '; danach der Eintrag.',
+      done: (labels: string) => `${labels} dürfen schon gelöscht werden.`,
       allDone: 'Alle Fristen sind abgelaufen: Der Eintrag darf gelöscht werden.',
     },
+  },
+  /** The Träger's page Mehr → Löschfristen (all facilities). */
+  retentionPage: {
+    title: 'Löschfristen',
+    intro: 'Hier stehen alle Daten aller Einrichtungen, die nach Ablauf einer Frist gelöscht werden dürfen. Die App löscht nichts von selbst – du löschst hier von Hand. Lade vorher eine Datensicherung herunter.',
+    backupLink: 'Zur Datensicherung',
+    facility: 'Einrichtung', allFacilities: 'Alle Einrichtungen',
+    dueTitle: (count: number) => `Jetzt löschbar (${count})`,
+    laterTitle: 'Später löschbar',
+    empty: 'Zurzeit ist nichts löschbar.',
+    noneDue: 'Zurzeit ist nichts fällig.',
+    fromDate: (date: string) => `löschbar ab ${date}`, fromNow: 'sofort löschbar',
+    fromAfterRest: 'löschbar, sobald alles andere der Person gelöscht ist',
+    categories: {
+      immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden',
+      record: 'Mitarbeiter-Eintrag', child: 'Kinderakte', cash: 'Kasse',
+    },
+    itemLabel: (name: string, category: string) => `${name} – ${category}`,
+    delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
+    confirmOne: (what: string) => `${what} wird endgültig gelöscht. Lade vorher eine Datensicherung herunter.`,
+    confirmAll: (counts: string) => `Das wird endgültig gelöscht: ${counts}. Lade vorher eine Datensicherung herunter.`,
+    countOf: (count: number, label: string) => `${count} × ${label}`,
+    kinds: { employee: 'Mitarbeiterdaten', child: 'Kinderakte', cash: 'Kasse' },
+    deletedOne: (what: string) => `${what} wurde gelöscht.`,
+    deletedAll: (count: number) => (count === 1 ? '1 Eintrag wurde gelöscht.' : `${count} Einträge wurden gelöscht.`),
+    skipped: (count: number) => (count === 1
+      ? '1 Eintrag wurde nicht gelöscht (schon gelöscht, nicht mehr fällig oder es verweist noch etwas darauf).'
+      : `${count} Einträge wurden nicht gelöscht (schon gelöscht, nicht mehr fällig oder es verweist noch etwas darauf).`),
   },
   occupancy: {
     tab: 'Belegung', capacity: 'Plätze', total: 'Summe', noGroup: 'ohne Gruppe', over: (n: number) => `+${n} über Plätze`,
@@ -935,7 +963,7 @@ export const de = {
     preview: (n: number) => (n === 1
       ? 'Beim Einschalten wird dieses Kind sofort abgemeldet (sein Schulstart ist schon erreicht):'
       : `Beim Einschalten werden diese ${n} Kinder sofort abgemeldet (ihr Schulstart ist schon erreicht):`),
-    purgeOn: (date: string) => `Akte wird am ${date} gelöscht`,
+    purgeOn: (date: string) => `Akte löschbar ab ${date}`,
     leaveNow: 'zum 31.8. abmelden', forSchoolChildren: 'für Schulkinder', careContract: 'ist der Betreuungsvertrag',
     newContract: 'Weiterer Betreuungsvertrag abgeschlossen', newSchoolStart: 'Neuer voraussichtlicher Schulstart',
     switchedOff: 'Die automatische Abmeldung der Schulkinder wurde ausgeschaltet. Bitte unter Einstellungen → Kinder → Schulkinder prüfen und neu einschalten.',
@@ -1118,9 +1146,11 @@ export const de = {
     },
     leaving: (date: string) => ({ before: '', after: ` verlässt uns am ${date}` }),
     meeting: (time: string, kind: string) => ({ before: 'Elterngespräch ', after: ` heute ${time} (${kind})` }),
+    // Only for the Träger; the whole text links to the page „Löschfristen“.
+    retention: (count: number) => (count === 1 ? '1 Eintrag darf gelöscht werden' : `${count} Einträge dürfen gelöscht werden`),
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
-      leaving: 'Abschied',
+      leaving: 'Abschied', retention: 'Löschfristen',
     },
     // The record's section.
     section: 'Entwicklungsdokumentation',
@@ -1233,13 +1263,13 @@ export const de = {
     deleteConfirm: (name: string) => `Kasse „${name}“ löschen?`,
     deleteHint: 'Löschen geht nur, solange die Kasse keine Einträge hat. Sonst kannst du sie archivieren.',
     deletableFrom: (date: string) => `löschbar ab ${date}`,
+    archivePurgeHint: 'Nach Ablauf der Frist löscht der Träger archivierte Kassen unter Mehr → Löschfristen.',
     purge: 'Endgültig löschen', purgeTitle: (name: string) => `Kasse „${name}“ endgültig löschen`,
     purgeIntro: 'Das wird gelöscht und lässt sich nicht wiederherstellen:',
     purgeItems: ['die Kasse mit allen Buchungen', 'alle Belege', 'die abgeschlossenen Monate', 'das Protokoll'],
     purgeTransfers: 'Umbuchungen mit anderen Kassen bleiben dort stehen, mit ihrem Text. Sie sind danach eine normale Buchung – eine Ausgabe ohne Beleg in einem noch offenen Monat zählt dann bei „Belege fehlen“ mit.',
     purgeBackupHint: 'Vorher eine Datensicherung herunterladen (nur Träger).',
     purgeTypeName: (name: string) => `Zum Bestätigen tippe den Namen der Kasse ein: ${name}`,
-    purgeDone: (name: string) => `Kasse „${name}“ wurde gelöscht.`,
     balanceToday: 'Bestand heute', editBox: (name: string) => `Kasse ${name} bearbeiten`,
     reorder: 'Reihenfolge ändern', reorderDone: 'Fertig',
     moveUp: (name: string) => `${name} nach oben`, moveDown: (name: string) => `${name} nach unten`,
@@ -1464,7 +1494,7 @@ export const de = {
     employee_not_left: 'Löschen geht erst, wenn die Person ausgeschieden ist, also der Tag „ausgeschieden am“ vorbei ist.',
     employee_delete_confirm_mismatch: 'Der eingetippte Name stimmt nicht. Bitte tippe den Namen genau so ein, wie er dasteht.',
     employee_delete_blocked: 'Löschen hat nicht geklappt: Es gibt noch Daten, die auf diese Person verweisen. Es wurde nichts gelöscht. Bitte wende dich an den Träger.',
-    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Einstellungen → Personal → Löschfristen). Nach Ablauf der Löschfristen dürfen die Daten von Hand gelöscht werden.',
+    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Einstellungen → Personal → Löschfristen). Nach Ablauf der Löschfristen löscht der Träger die Daten (Mehr → Löschfristen).',
     retention_settings_invalid: 'Bitte ganze Jahre angeben: 1 bis 40, bei der Kasse 1 bis 30.',
     retention_item_not_found: 'Diese Zeile gibt es nicht mehr, sie wurde vielleicht schon gelöscht. Lade die Seite neu.',
     retention_not_due: 'Die Frist läuft noch: Das darf erst ab dem angezeigten Datum gelöscht werden.',
