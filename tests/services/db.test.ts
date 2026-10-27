@@ -1382,7 +1382,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(tables().filter(name => !before.includes(name))).toEqual(['team_meetings'])
+    // Later migrations add further tables: only check that this one is new.
+    expect(tables().filter(name => !before.includes(name))).toContain('team_meetings')
     expect(count(sqlite, 'team_meetings')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_list(team_meetings)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
@@ -1403,6 +1404,43 @@ describe('upgrading a filled database through migrateDb', () => {
     seedDefaults(db)
     expect(sqlite.prepare(`SELECT facility_id, name FROM form_templates WHERE starter_key = 'team_meeting'`).all())
       .toEqual([{ facility_id: 1, name: 'Teamsitzung' }])
+  })
+
+  it('0058 adds the empty retention settings per facility and marks every existing adjustment as not paid out', () => {
+    const { db, sqlite } = databaseAt('0057')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO employees (id, facility_id, name) VALUES (1, 1, 'Anna'), (2, 2, 'Kim');
+      INSERT INTO balance_adjustments (id, employee_id, date, minutes, reason) VALUES
+        (1, 1, '2026-01-01', 120, 'Übertrag'), (2, 2, '2026-06-30', -600, 'Auszahlung');
+    `)
+    const adjustments = () => sqlite.prepare('SELECT * FROM balance_adjustments ORDER BY id').all() as Record<string, unknown>[]
+    const before = adjustments()
+    const tables = () => (sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as { name: string }[])
+      .map(row => row.name)
+    const tablesBefore = tables()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(tables().filter(name => !tablesBefore.includes(name))).toContain('retention_settings')
+    expect(count(sqlite, 'retention_settings')).toBe(0)
+    expect(adjustments()).toEqual(before.map(row => ({ ...row, paid_out: 0 })))
+    expect(sqlite.prepare('PRAGMA foreign_key_list(retention_settings)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } }))
+      .toEqual([{ table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' }])
+    // A row gets the defaults; one per facility.
+    const insert = 'INSERT INTO retention_settings (facility_id) VALUES (2)'
+    sqlite.exec(insert)
+    expect(() => sqlite.exec(insert)).toThrow(/UNIQUE|PRIMARY/)
+    expect(sqlite.prepare('SELECT * FROM retention_settings').all()).toEqual([{
+      facility_id: 2, time_years: 2, assessment_years: 3, paid_overtime_years: 10, pension_years: 30, cash_years: 10,
+      employee_delete: 'managers',
+    }])
+    sqlite.exec(`INSERT INTO balance_adjustments (employee_id, date, minutes, reason) VALUES (1, '2026-10-01', 60, 'Neu')`)
+    expect(sqlite.prepare(`SELECT paid_out FROM balance_adjustments WHERE reason = 'Neu'`).get()).toEqual({ paid_out: 0 })
+    // The settings go with their facility.
+    sqlite.exec('DELETE FROM balance_adjustments WHERE employee_id = 2; DELETE FROM employees WHERE id = 2; DELETE FROM facilities WHERE id = 2')
+    expect(count(sqlite, 'retention_settings')).toBe(0)
   })
 
   it('print_templates keep their file when the uploader is deleted', () => {

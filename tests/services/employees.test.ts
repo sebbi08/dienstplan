@@ -70,11 +70,15 @@ describe('employees service', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     updateEmployee(db, 1, id, { name: 'Anna B.', shortName: 'AB', leftOn: '2026-12-31' })
     addAdjustment(db, 1, id, { date: '2026-01-01', minutes: 750, reason: 'Übertrag' })
+    addAdjustment(db, 1, id, { date: '2026-06-30', minutes: -600, reason: 'Ausgezahlt', paidOut: true })
     setEntitlement(db, 1, id, 2026, { days: 30, carriedOverDays: 2 })
     setEntitlement(db, 1, id, 2026, { days: 30, carriedOverDays: 3 })
     const detail = getEmployee(db, 1, id, today, 'admin')
     expect(detail).toMatchObject({ name: 'Anna B.', shortName: 'AB', leftOn: '2026-12-31' })
-    expect(detail.adjustments).toMatchObject([{ date: '2026-01-01', minutes: 750, reason: 'Übertrag' }])
+    expect(detail.adjustments).toMatchObject([
+      { date: '2026-01-01', minutes: 750, reason: 'Übertrag', paidOut: false },
+      { date: '2026-06-30', minutes: -600, reason: 'Ausgezahlt', paidOut: true },
+    ])
     expect(detail.entitlements).toMatchObject([{ year: 2026, days: 30, carriedOverDays: 3 }])
     expect(errorCode(() => getEmployee(db, 1, 999, today, 'admin'))).toBe('employee_not_found')
   })
@@ -146,7 +150,7 @@ describe('creating an employee with working days, leave and opening balance', ()
     expect(employee.hours).toEqual([{ id: expect.any(Number), weeklyMinutes: 1200, validFrom: '2026-10-01', workdays: 0b00111 }])
     expect(employee.currentWorkdays).toBe(0b00111)
     expect(employee.entitlements).toEqual([{ id: expect.any(Number), year: 2026, days: 18, carriedOverDays: 2.5, carriedAutomatically: false }])
-    expect(employee.adjustments).toEqual([{ id: expect.any(Number), date: '2026-10-01', minutes: -90, reason: 'Übertrag bei Anlage' }])
+    expect(employee.adjustments).toEqual([{ id: expect.any(Number), date: '2026-10-01', minutes: -90, reason: 'Übertrag bei Anlage', paidOut: false }])
   })
   it('creates nothing extra when no leave or balance is given and defaults to Monday–Friday', () => {
     const id = createEmployee(db, admin, 1, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-10-01' })

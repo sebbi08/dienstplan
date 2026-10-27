@@ -981,7 +981,8 @@ export interface EmployeeListItemDto {
 
 export interface EmployeeDetailDto extends EmployeeListItemDto {
   hours: { id: number; weeklyMinutes: number; validFrom: IsoDate; workdays: number }[]
-  adjustments: { id: number; date: IsoDate; minutes: number; reason: string }[]
+  /** `paidOut`: „ausgezahlt“, kept for the longer retention period after leaving. */
+  adjustments: { id: number; date: IsoDate; minutes: number; reason: string; paidOut: boolean }[]
   /** carriedOverDays is the carry-over that counts; carriedAutomatically when it is the rest of the year before. */
   entitlements: { id: number; year: number; days: number; carriedOverDays: number; carriedAutomatically: boolean }[]
   /** End of a running timed PIN lock (15 or 30 minutes; null = none). */

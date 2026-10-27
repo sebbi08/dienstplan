@@ -47,6 +47,8 @@ const PROVIDER_ROUTES = [
   'absence-codes/[id].put.ts',
   // Reopening a closed month of a cash box (spec Kasse §6).
   'cash/boxes/[id]/reopen.post.ts',
+  // Retention periods of left employees and cash boxes, per facility (spec Löschfristen §3): only the Träger changes them.
+  'retention-settings.put.ts',
 ]
 /** Some of the routes for the Leitung (and the Träger) of the active facility; every unlisted route must check with requireAdmin(. */
 const ADMIN_ROUTES = [
@@ -59,6 +61,8 @@ const ADMIN_ROUTES = [
   'meals/index.get.ts', 'meals/index.post.ts', 'meals/[id].put.ts', 'meals/[id].delete.ts', 'meals/versions/[id].delete.ts',
   'reminder-settings.get.ts', 'reminder-settings.put.ts', 'groups/[id]/documentation.put.ts',
   'time-mark-settings.get.ts', 'time-mark-settings.put.ts',
+  // The retention periods: Leitung and Träger read them (the archive shows the due dates).
+  'retention-settings.get.ts',
   // Staffing ratio: the Leitung reads the settings and sets the group type.
   'staffing-settings.get.ts', 'groups/[id]/group-type.put.ts',
   // The monthly Personalschlüssel report of the active facility (Leitung and Träger).

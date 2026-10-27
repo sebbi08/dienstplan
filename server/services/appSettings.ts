@@ -77,3 +77,14 @@ export function getChildrenPurgedOn(db: Db): IsoDate | null {
 export function setChildrenPurgedOn(db: Db, day: IsoDate): void {
   writeSetting(db, CHILDREN_PURGED_ON, day)
 }
+
+const EMPLOYEE_RETENTION_RAN_ON = 'employee_retention_ran_on'
+
+/** The day the automatic deletion of left employees' data ran last (null: never). */
+export function getEmployeeRetentionRanOn(db: Db): IsoDate | null {
+  return readSetting(db, EMPLOYEE_RETENTION_RAN_ON) ?? null
+}
+
+export function setEmployeeRetentionRanOn(db: Db, day: IsoDate): void {
+  writeSetting(db, EMPLOYEE_RETENTION_RAN_ON, day)
+}

@@ -79,7 +79,11 @@ export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
 /** Deleting a left employee: `confirm` in the body is the name typed by hand (anything else, or nothing, is 400 employee_delete_confirm_mismatch). */
 export const employeeDeleteSchema = z.object({ confirm: z.string().max(200).catch('') }).catch({ confirm: '' })
 export const hoursSchema = z.object({ weeklyMinutes, validFrom: isoDate, workdays: workdays.optional() })
-export const adjustmentSchema = z.object({ date: isoDate, minutes: z.number().int().min(-200_000).max(200_000), reason: z.string().max(200) })
+export const adjustmentSchema = z.object({
+  date: isoDate, minutes: z.number().int().min(-200_000).max(200_000), reason: z.string().max(200),
+  /** „ausgezahlt“ (default no): kept for the longer retention period after the employee left. */
+  paidOut: z.boolean().optional(),
+})
 export const entitlementSchema = z.object({ days: z.number().min(0).max(100), carriedOverDays: z.number().min(0).max(100) })
 
 export const closureSchema = z.object({ startDate: isoDate, endDate: isoDate, label, mode: z.enum(['vacation', 'closure_day']) })

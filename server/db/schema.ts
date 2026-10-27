@@ -155,6 +155,8 @@ export const balanceAdjustments = sqliteTable('balance_adjustments', {
   date: text('date').notNull(),
   minutes: integer('minutes').notNull(),
   reason: text('reason').notNull(),
+  /** „ausgezahlt“: paid-out overtime, kept for the longer retention period after leaving (shared/domain/retention.ts). */
+  paidOut: integer('paid_out', { mode: 'boolean' }).notNull().default(false),
 })
 
 export const leaveEntitlements = sqliteTable('leave_entitlements', {
@@ -1135,3 +1137,18 @@ export const teamMeetings = sqliteTable('team_meetings', {
   index('team_meetings_facility_date').on(table.facilityId, table.date),
   uniqueIndex('team_meetings_form').on(table.formId),
 ])
+
+/**
+ * The Träger's retention periods after an employee left, per facility (shared/domain/retention.ts; no row = the defaults,
+ * created on first read): years after the end of the leaving year for time data, assessments and paid-out overtime;
+ * pension only for information; the cash box period; who may delete a left employee at once („Endgültig löschen“).
+ */
+export const retentionSettings = sqliteTable('retention_settings', {
+  facilityId: integer('facility_id').primaryKey().references(() => facilities.id, { onDelete: 'cascade' }),
+  timeYears: integer('time_years').notNull().default(2),
+  assessmentYears: integer('assessment_years').notNull().default(3),
+  paidOvertimeYears: integer('paid_overtime_years').notNull().default(10),
+  pensionYears: integer('pension_years').notNull().default(30),
+  cashYears: integer('cash_years').notNull().default(10),
+  employeeDelete: text('employee_delete', { enum: ['off', 'provider', 'managers'] }).notNull().default('managers'),
+})

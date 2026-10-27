@@ -140,7 +140,7 @@ export function getEmployee(
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
-      .map(({ id: adjustmentId, date, minutes, reason }) => ({ id: adjustmentId, date, minutes, reason })),
+      .map(({ id: adjustmentId, date, minutes, reason, paidOut }) => ({ id: adjustmentId, date, minutes, reason, paidOut })),
     // The carry-over shown is the one that counts: after the first year, what was left of the year before.
     entitlements: db.select().from(leaveEntitlements).where(eq(leaveEntitlements.employeeId, id)).orderBy(asc(leaveEntitlements.year)).all()
       .map(({ id: entitlementId, year, days }) => {
@@ -249,13 +249,17 @@ export function deleteHours(db: Db, facilityId: number, id: number): void {
   db.delete(employeeHours).where(eq(employeeHours.id, id)).run()
 }
 
+/** Books a balance adjustment; `paidOut` („ausgezahlt“, default no) keeps it for the longer retention period after leaving. */
 export function addAdjustment(
-  db: Db, facilityId: number, employeeId: number, adjustment: { date: IsoDate; minutes: number; reason: string },
+  db: Db, facilityId: number, employeeId: number,
+  adjustment: { date: IsoDate; minutes: number; reason: string; paidOut?: boolean },
 ): void {
   assertEmployee(db, facilityId, employeeId)
   const reason = adjustment.reason.trim()
   if (!reason) throw new ServiceError(400, 'reason_required')
-  db.insert(balanceAdjustments).values({ employeeId, date: adjustment.date, minutes: adjustment.minutes, reason }).run()
+  db.insert(balanceAdjustments).values({
+    employeeId, date: adjustment.date, minutes: adjustment.minutes, reason, paidOut: adjustment.paidOut ?? false,
+  }).run()
 }
 
 /** Deletes a balance booking of one of the facility's employees; other ids are ignored. */

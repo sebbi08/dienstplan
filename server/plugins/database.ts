@@ -29,9 +29,9 @@ export default defineNitroPlugin(() => {
   // The daily run (see `runDaily`), tried every hour; it does not depend on the backups being configured.
   const dailyRun = () => {
     try {
-      const { deleted } = runDaily(db, todayIso())
+      const { deleted, employeeDataDeleted } = runDaily(db, todayIso())
       // Page images of the deleted records must not linger in the write-ahead log.
-      if (deleted > 0) checkpointWal(useSqlite())
+      if (deleted > 0 || employeeDataDeleted > 0) checkpointWal(useSqlite())
     }
     catch (error) {
       console.error('The daily run failed', error)
