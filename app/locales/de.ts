@@ -1236,7 +1236,7 @@ export const de = {
     newTemplateName: 'Name der neuen Vorlage',
     createTemplate: 'Vorlage anlegen',
     name: 'Name',
-    edit: 'Bearbeiten', copy: 'Kopieren', archive: 'Stilllegen', unarchive: 'Wieder aktivieren',
+    edit: 'Bearbeiten', printBlank: 'Leer drucken (zum Ausfüllen von Hand)', copy: 'Kopieren', archive: 'Stilllegen', unarchive: 'Wieder aktivieren',
     starter: 'Startvorlage', selfAssessmentBadge: 'vom Mitarbeiter auszufüllen',
     selfAssessment: 'Vom Mitarbeiter auszufüllen (Selbstbeurteilung)',
     selfAssessmentHint: 'Der Bogen kann dem Mitarbeiter zum Ausfüllen freigegeben werden.',
@@ -1372,6 +1372,7 @@ export const de = {
       facility: 'Einrichtung', group: 'Gruppe', date: 'Datum', start: 'Uhrzeit', participants: 'Teilnehmer', recorder: 'Protokollführung',
     },
     draftStamp: 'Entwurf – noch nicht freigegeben',
+    signatureRecorder: 'Unterschrift Protokollführung / Datum', signatureLead: 'Unterschrift Leitung / Datum',
   },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',

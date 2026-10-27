@@ -45,7 +45,8 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
     <template v-if="props.sheet">
       <table class="mb-4 w-full table-fixed border-collapse">
         <tbody>
-          <tr v-for="row in headerRows" :key="row[0]">
+          <!-- Blank: rows high enough to write in by hand -->
+          <tr v-for="row in headerRows" :key="row[0]" :class="props.sheet.blank ? 'h-9' : ''">
             <th :class="[cell, 'w-[16%] bg-gray-100 text-left font-semibold']">{{ row[0] }}</th>
             <td :class="[cell, 'w-[34%] break-words']">{{ row[1] }}</td>
             <th :class="[cell, 'w-[16%] bg-gray-100 text-left font-semibold']">{{ row[2] }}</th>
@@ -162,7 +163,7 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
       <div v-if="props.sheet.closing.length" class="mt-8 space-y-0.5 border-t border-gray-700 pt-2 break-inside-avoid">
         <p v-for="line in props.sheet.closing" :key="line" class="break-words first:font-semibold">{{ line }}</p>
       </div>
-      <div class="mt-6 space-y-0.5 text-xs text-gray-600 print:text-[9px]">
+      <div v-if="!props.sheet.blank" class="mt-6 space-y-0.5 text-xs text-gray-600 print:text-[9px]">
         <p v-for="line in props.sheet.stamps" :key="line">{{ line }}</p>
         <p>{{ de.forms.lastChanged(props.sheet.updatedBy, formatDateTime(props.sheet.updatedAt)) }}</p>
         <p>{{ de.forms.printedBy(formatDate(todayIso()), user?.username ?? '') }}</p>

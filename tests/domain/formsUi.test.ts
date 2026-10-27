@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
 import type { ChildFormDto, TeamMeetingDto } from '../../shared/types/api'
 import {
-  childSheet, teamSheet, filledAnswers, isBlank, milestoneColumns, panelDirty, putAnswersTo, saveAnswers, sectionBlocks, sectionHasRating,
+  blankSheet, childSheet, teamSheet, filledAnswers, isBlank, milestoneColumns, panelDirty, putAnswersTo, saveAnswers, sectionBlocks, sectionHasRating,
 } from '../../app/utils/forms'
 
 const section: FormSection = {
@@ -116,6 +116,31 @@ describe('teamSheet', () => {
       'freigegeben am 22.10.2026, 10:30 von Frau Leitung',
       'zuletzt wieder geöffnet am 21.10.2026, 17:00 von Frau Leitung: Tippfehler',
     ])
+  })
+})
+
+describe('blankSheet', () => {
+  const content: FormContent = { sections: [section] }
+
+  it('prints a staff template blank: empty header fields except the facility, no answers, both signatures, no footer', () => {
+    const sheet = blankSheet({ kind: 'staff', name: 'Selbstbeurteilung', content }, 'Kita Sonne')
+    expect(sheet.header).toEqual([
+      ['Name', ''], ['Einrichtung', 'Kita Sonne'], ['Datum', ''], ['Uhrzeit', ''], ['Teilnehmer', ''], ['Zeitraum', ''],
+    ])
+    expect(sheet.answers).toEqual({})
+    expect(sheet.content).toBe(content)
+    expect(sheet.signatures).toEqual(['Unterschrift beurteilende Person / Datum', 'Unterschrift Mitarbeiterin / Mitarbeiter / Datum'])
+    expect(sheet.blank).toBe(true)
+    expect(sheet.fileName).toBe('Vorlage-Selbstbeurteilung')
+  })
+
+  it('uses the header and signatures of a child form and of a team meeting', () => {
+    expect(blankSheet({ kind: 'child', name: 'Entwicklungsgespräch', content }, 'Kita Sonne').header.map(([label]) => label))
+      .toEqual(['Name', 'Geburtsdatum', 'Gruppe', 'Datum', 'Uhrzeit', 'Teilnehmer'])
+    const team = blankSheet({ kind: 'team', name: 'Teamsitzung', content }, 'Kita Sonne')
+    expect(team.header[0]).toEqual(['Einrichtung', 'Kita Sonne'])
+    expect(team.signatures).toEqual(['Unterschrift Protokollführung / Datum', 'Unterschrift Leitung / Datum'])
+    expect(team.closing).toEqual([])
   })
 })
 

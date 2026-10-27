@@ -1139,7 +1139,8 @@ sehen keine Warnungen.
 
 - **Vorlagen:** im Menü unter **Mehr → Bögen** (Leitung und Träger). Die Seite zeigt die Vorlagen in drei Kästen:
   **Kinder** (Beobachtungen, Entwicklungsgespräche), **Fachkräfte** (Mitarbeitergespräche) und **Team** (Teamsitzungen), jeder
-  mit eigenem „Vorlage anlegen“; auf großen Bildschirmen stehen die Kästen nebeneinander. Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
+  mit eigenem „Vorlage anlegen“; auf großen Bildschirmen stehen die Kästen nebeneinander. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
+  sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
 - **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Vom Mitarbeiter auszufüllen“, dann **Bereiche** (Titel,

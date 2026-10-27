@@ -2,7 +2,7 @@ import {
   emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
 } from '#shared/domain/forms'
 import { formatTime } from '#shared/domain/time'
-import type { ChildFormDto, MyTalkFormDto, TeamMeetingDto, TeamMeetingListItemDto } from '#shared/types/api'
+import type { ChildFormDto, FormTemplateDto, MyTalkFormDto, TeamMeetingDto, TeamMeetingListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
@@ -135,6 +135,8 @@ export interface FormSheet {
   closing: string[]
   /** Lines like „abgegeben am …“ above „zuletzt geändert …“. */
   stamps: string[]
+  /** A blank template to fill in by hand: no „zuletzt geändert“ / „gedruckt“ footer. */
+  blank?: boolean
 }
 
 /** The printout of a staff talk's form: the employee and the talk as header, signatures of assessor and employee. */
@@ -210,5 +212,34 @@ export function teamSheet(data: TeamMeetingDto): FormSheet {
     signatures: [],
     closing: teamMeetingStamps(data),
     stamps: [],
+  }
+}
+
+/**
+ * A template printed blank, to fill in by hand: the header fields of its kind with empty values (the facility filled in),
+ * every answer empty (writing lines, empty boxes) and the signature lines of the kind.
+ */
+export function blankSheet(template: Pick<FormTemplateDto, 'kind' | 'name' | 'content'>, facilityName: string): FormSheet {
+  const t = de.talks.header
+  const c = de.childForms.header
+  const m = de.teamMeetings.header
+  const byKind = {
+    staff: {
+      header: [[t.name, ''], [t.facility, facilityName], [t.date, ''], [t.start, ''], [t.participants, ''], [t.period, '']],
+      signatures: [de.talks.signatureAssessor, de.talks.signatureEmployee],
+    },
+    child: {
+      header: [[c.name, ''], [c.birthDate, ''], [c.group, ''], [c.date, ''], [c.start, ''], [c.participants, '']],
+      signatures: [de.childForms.signatureStaff, de.childForms.signatureGuardian],
+    },
+    team: {
+      header: [[m.facility, facilityName], [m.group, ''], [m.date, ''], [m.start, ''], [m.participants, ''], [m.recorder, '']],
+      signatures: [de.teamMeetings.signatureRecorder, de.teamMeetings.signatureLead],
+    },
+  } satisfies Record<FormTemplateDto['kind'], { header: [string, string][]; signatures: string[] }>
+  return {
+    title: template.name, content: template.content, answers: {}, updatedAt: '', updatedBy: '',
+    fileName: `Vorlage-${template.name}`,
+    header: byKind[template.kind].header, signatures: byKind[template.kind].signatures, closing: [], stamps: [], blank: true,
   }
 }

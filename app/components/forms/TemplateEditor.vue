@@ -202,6 +202,11 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
               </div>
               <div class="flex flex-wrap gap-1">
                 <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.forms.edit" @click="openEditor(template.id)" />
+                <!-- Blank, to fill in by hand -->
+                <UButton
+                  size="sm" color="neutral" variant="ghost" icon="i-lucide-printer" :to="`/admin/print/form-templates/${template.id}`"
+                  target="_blank" :aria-label="`${de.forms.printBlank}: ${template.name}`" :title="de.forms.printBlank"
+                />
                 <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :aria-label="`${de.forms.copy}: ${template.name}`" :title="de.forms.copy" @click="copy(template)" />
                 <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-archive" :aria-label="`${de.forms.archive}: ${template.name}`" :title="de.forms.archive" @click="setArchived(template, true)" />
                 <UButton
