@@ -1863,7 +1863,8 @@ export interface CashBoxDto extends CashBoxInfoDto {
   canDelete: boolean
   /**
    * First day an archived box may be deleted for good („Endgültig löschen“): 1 January after the facility's cash
-   * period following the year of the last entry; null without entries (deletable at any time).
+   * period following the year of the last entry (without entries: of the last log line or closed month); null
+   * without entries and history (deletable at any time).
    */
   deletableFrom: IsoDate | null
 }

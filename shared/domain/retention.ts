@@ -62,7 +62,7 @@ export function mayDeleteEmployeeByHand(mode: EmployeeDeleteMode, role: Role | n
   return role === 'provider' || role === 'admin'
 }
 
-/** First day a cash box may be deleted; null = no entries, deletable any time. */
+/** First day a cash box may be deleted, from the date its period starts at; null = nothing to keep, deletable any time. */
 export function cashDeletableFrom(lastEntryDate: IsoDate | null, cashYears: number): IsoDate | null {
   return lastEntryDate === null ? null : firstJanuaryAfter(lastEntryDate, cashYears)
 }
