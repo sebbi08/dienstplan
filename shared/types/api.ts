@@ -273,7 +273,7 @@ export interface SchoolSettingsDto {
   ageYears: number
   /**
    * The daily run deregisters the facility's school children to the day before their school start. Switched off again
-   * by the server when the cutoff, a group's flag "for school children" or the retention period changes.
+   * by the server when the cutoff or a group's flag "for school children" changes.
    */
   autoLeave: boolean
   /** The cutoff the school law of the facility's state names (a suggestion; the stored cutoff may differ). */
@@ -369,7 +369,7 @@ export interface SchoolLeaverDto {
   name: string
   schoolStart: IsoDate
   leftOn: IsoDate
-  /** The day the record is deleted once the child is deregistered: the leaving day plus the retention period. */
+  /** The day from which the record may be deleted once the child is deregistered: the leaving day plus the retention period. */
   purgeOn: IsoDate
 }
 
@@ -647,7 +647,7 @@ export interface ChildrenOverviewDto {
   children: ChildrenOverviewRowDto[]
 }
 
-/** An archived child in the archive list; the record is deleted on `purgeOn`. */
+/** An archived child in the archive list; the record may be deleted from `purgeOn` on (by the Träger, by hand). */
 export interface ArchivedChildDto {
   id: number
   name: string
@@ -658,11 +658,6 @@ export interface ArchivedChildDto {
 /** Whole years (1-10) a child's record is kept after the leaving day; set by the Träger for all facilities. */
 export interface ChildRetentionDto {
   years: number
-}
-
-/** How many archived children (all facilities) the next daily run would delete with the given retention. */
-export interface ChildRetentionPreviewDto {
-  count: number
 }
 
 export interface FacilitiesDto {

@@ -33,13 +33,13 @@ describe('archiveRetentionText', () => {
       'Zeitdaten sind schon gelöscht. Beurteilungen werden am 01.01.2030 gelöscht, danach der Eintrag.',
     )
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2030-01-01', false)).toBe(
-      'Alle Fristen sind abgelaufen: Der Eintrag wird beim nächsten täglichen Lauf gelöscht.',
+      'Alle Fristen sind abgelaufen: Der Eintrag darf gelöscht werden.',
     )
   })
 
   it('tells when every period has run out (the entry goes with the next daily run)', () => {
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2037-01-01')).toBe(
-      'Alle Fristen sind abgelaufen: Der Eintrag wird beim nächsten täglichen Lauf gelöscht.',
+      'Alle Fristen sind abgelaufen: Der Eintrag darf gelöscht werden.',
     )
   })
 })

@@ -1,14 +1,12 @@
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { checkpointWal, createDb, migrateDb } from '../../server/db/client'
-import { children } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { createBackup } from '../../server/services/backup'
 import { deleteDocument, uploadDocument } from '../../server/services/childDocuments'
-import { deleteChild, purgeExpiredChildren } from '../../server/services/children'
+import { deleteChild } from '../../server/services/children'
 import { deleteTemplate, replaceTemplateFile, uploadTemplate } from '../../server/services/printTemplates'
 import { addChild, addUser, asChildViewer, documentTypeId } from '../helpers/fixtures'
 
@@ -84,18 +82,6 @@ describe('deleting child records leaves no trace in the database file or in back
     const again = uploadTemplate(db, leitung, { title: 'Brief', category: '', scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
     checkpointWal(sqlite)
     deleteTemplate(db, leitung, again)
-    checkpointWal(sqlite)
-    expect(databaseFilesWithMarker(dataDir)).toEqual([])
-    expect(hasMarker(await backup())).toBe(false)
-    sqlite.close()
-  })
-
-  it('removes children purged after the retention period', async () => {
-    const { dataDir, db, sqlite, upload, backup } = open()
-    const childId = addChild(db, 1)
-    upload(childId)
-    db.update(children).set({ leftOn: '2020-06-30' }).where(eq(children.id, childId)).run()
-    expect(purgeExpiredChildren(db, TODAY)).toBe(1)
     checkpointWal(sqlite)
     expect(databaseFilesWithMarker(dataDir)).toEqual([])
     expect(hasMarker(await backup())).toBe(false)

@@ -1,5 +1,5 @@
 import { todayIso } from '../../shared/domain/dates'
-import { checkpointWal, migrateDb } from '../db/client'
+import { migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
 import { runDaily } from '../services/dailyRun'
@@ -26,12 +26,11 @@ export default defineNitroPlugin(() => {
     }
   }
 
-  // The daily run (see `runDaily`), tried every hour; it does not depend on the backups being configured.
+  // The daily run (see `runDaily`), tried every hour; it does not depend on the backups being configured. It deletes no
+  // records after a retention period (the Träger does that by hand), so no WAL checkpoint is needed after it.
   const dailyRun = () => {
     try {
-      const { deleted, employeeDataDeleted } = runDaily(db, todayIso())
-      // Page images of the deleted records must not linger in the write-ahead log.
-      if (deleted > 0 || employeeDataDeleted > 0) checkpointWal(useSqlite())
+      runDaily(db, todayIso())
     }
     catch (error) {
       console.error('The daily run failed', error)

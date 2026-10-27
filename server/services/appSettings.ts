@@ -3,7 +3,6 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { AppSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { appSettings, facilities } from '../db/schema'
-import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 
 /** The day time tracking starts in the facility (null: not yet). */
@@ -45,7 +44,6 @@ export function setContractVisibleToAdmins(db: Db, visible: boolean): void {
 }
 
 const CHILD_RETENTION_YEARS = 'child_retention_years'
-const CHILDREN_PURGED_ON = 'children_purged_on'
 const DEFAULT_CHILD_RETENTION_YEARS = 3
 
 /** Whole years a child's record is kept after the leaving day (one setting for all facilities; default 3). */
@@ -55,36 +53,11 @@ export function getChildRetentionYears(db: Db): number {
 }
 
 /**
- * The Träger sets the retention: whole years from 1 to 10, otherwise 400 invalid_retention. Another retention than
- * before switches the automatic leaving of school children off in every facility: it decides which children the
- * leaving passes over (those whose record would be deleted at once), so the lists the Träger confirmed no longer hold.
- * Returns whether that switched it off anywhere, so the caller can say so.
+ * The Träger sets the retention: whole years from 1 to 10, otherwise 400 invalid_retention. It only says from when a
+ * record may be deleted (by the Träger, by hand): the daily run deletes no record, so the automatic leaving of school
+ * children takes the same children whatever the period and stays switched on.
  */
-export function setChildRetentionYears(db: Db, years: number): { autoLeaveSwitchedOff: boolean } {
+export function setChildRetentionYears(db: Db, years: number): void {
   if (!Number.isInteger(years) || years < 1 || years > 10) throw new ServiceError(400, 'invalid_retention')
-  if (years === getChildRetentionYears(db)) return { autoLeaveSwitchedOff: false }
-  return db.transaction((tx) => {
-    writeSetting(tx, CHILD_RETENTION_YEARS, String(years))
-    return { autoLeaveSwitchedOff: switchAutoLeaveOff(tx, null) }
-  })
-}
-
-/** The day the automatic deletion of children ran last (null: never). */
-export function getChildrenPurgedOn(db: Db): IsoDate | null {
-  return readSetting(db, CHILDREN_PURGED_ON) ?? null
-}
-
-export function setChildrenPurgedOn(db: Db, day: IsoDate): void {
-  writeSetting(db, CHILDREN_PURGED_ON, day)
-}
-
-const EMPLOYEE_RETENTION_RAN_ON = 'employee_retention_ran_on'
-
-/** The day the automatic deletion of left employees' data ran last (null: never). */
-export function getEmployeeRetentionRanOn(db: Db): IsoDate | null {
-  return readSetting(db, EMPLOYEE_RETENTION_RAN_ON) ?? null
-}
-
-export function setEmployeeRetentionRanOn(db: Db, day: IsoDate): void {
-  writeSetting(db, EMPLOYEE_RETENTION_RAN_ON, day)
+  writeSetting(db, CHILD_RETENTION_YEARS, String(years))
 }

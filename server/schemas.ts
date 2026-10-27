@@ -175,8 +175,6 @@ export const staffingOverridesSchema = z.object({ overrides: z.record(z.string()
 export const staffingResetQuery = z.object({ path: z.string().max(200).optional() })
 /** A key of the state's group types (null = none); the service answers staffing_group_type_invalid for any other. */
 export const groupTypeSchema = z.object({ groupType: z.string().max(40).nullable() })
-/** Query of the retention preview; out-of-range values answer 400 as for any invalid query. */
-export const childRetentionPreviewQuery = z.object({ years: z.coerce.number().int().min(1).max(10) })
 export const helpOutSchema = z.object({
   employeeId: z.number().int().positive(),
   year: z.number().int().min(2000).max(2100),

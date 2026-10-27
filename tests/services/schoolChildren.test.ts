@@ -9,7 +9,7 @@ import {
   applyDueGroupChanges, deleteGroupChange, planGroupChange, updateGroupChange,
 } from '../../server/services/childGroupChanges'
 import {
-  createChild, getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild, updateChildMaster,
+  createChild, getChild, leaveChild, listArchive, moveChildToFacility, unleaveChild, updateChildMaster,
 } from '../../server/services/children'
 import { deleteGroup, listGroups, setGroupForSchoolChildren } from '../../server/services/groups'
 import {
@@ -279,7 +279,7 @@ describe('automatic leaving of school children', () => {
         expect(isOn(krippe)).toBe(false)
       })
 
-      it('shows with every child of the preview the day its record will be deleted: the leaving day plus the retention period', () => {
+      it('shows with every child of the preview the day from which its record may be deleted: the leaving day plus the retention period', () => {
         const id = schoolChild()
         const leapDay = schoolChild({ schoolStartDate: '2028-03-01' })
         // Sorted by name, then id.
@@ -490,27 +490,23 @@ describe('automatic leaving of school children', () => {
         expect(isOn()).toBe(true)
       })
 
-      it('by another retention period, in every facility', () => {
+      it('not by another retention period: it no longer decides whom the leaving takes', () => {
         const krippe = addFacility(db, 'Krippe')
-        // School start 1 September 2023: left out with three years of retention, taken with four.
-        const id = schoolChild({ birthDate: '2017-03-01', entryDate: '2022-09-01' })
+        const id = schoolChild()
         switchOn()
         switchOn(krippe)
+        const before = schoolLeavers(db, 1, SCHOOL_START).map(child => child.id)
 
-        expect(setChildRetentionYears(db, 3)).toEqual({ autoLeaveSwitchedOff: false })
+        for (const years of [1, 4, 10]) setChildRetentionYears(db, years)
         expect(errorCode(() => setChildRetentionYears(db, 11))).toBe('invalid_retention')
+
         expect([isOn(), isOn(krippe)]).toEqual([true, true])
-
-        expect(setChildRetentionYears(db, 4)).toEqual({ autoLeaveSwitchedOff: true })
-
-        expect([isOn(), isOn(krippe)]).toEqual([false, false])
-        expect(leaveSchoolChildren(db, TODAY)).toBe(0)
-        expect(leftOn(id)).toBeNull()
-        expect(schoolLeavers(db, 1, TODAY).map(child => child.id)).toEqual([id])
-        // Nothing was on any more: nothing to tell the Träger about.
-        expect(setChildRetentionYears(db, 5)).toEqual({ autoLeaveSwitchedOff: false })
+        expect(schoolLeavers(db, 1, SCHOOL_START).map(child => child.id)).toEqual(before)
+        expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
+        expect(leftOn(id)).toBe(DAY_BEFORE)
+        // Nothing to tell the Träger about any more.
         const route = readFileSync(join(process.cwd(), 'server', 'api', 'child-retention.put.ts'), 'utf8')
-        expect(route).toContain('autoLeaveSwitchedOff')
+        expect(route).not.toContain('autoLeaveSwitchedOff')
       })
     })
 
@@ -671,22 +667,21 @@ describe('automatic leaving of school children', () => {
       expect(occupancyChildren(db, 1).inconsistent).toEqual([{ id: sameDay, name: 'Ida Adler' }, { id: later, name: 'Max Zander' }])
     })
 
-    it('never deregisters a child whose record would be deleted at once', () => {
-      // School start 1 September 2023: with three years of retention a leaving day 31 August 2023 is already expired.
+    it('does not leave alone a child whose leaving day is past the retention period: it is deregistered and kept', () => {
+      // School start 1 September 2023: with three years of retention the record of a leaving day 31 August 2023 may
+      // be deleted from 31 August 2026 on, which has passed.
       const expired = schoolChild({ birthDate: '2017-03-01', entryDate: '2022-09-01' })
-      // School start 1 September 2024: the record stays until 31 August 2027.
+      // School start 1 September 2024: the record may be deleted from 31 August 2027 on.
       const kept = schoolChild({ birthDate: '2018-03-01', entryDate: '2022-09-01' })
 
-      expect(schoolLeavers(db, 1, TODAY).map(child => [child.id, child.leftOn])).toEqual([[kept, '2024-08-31']])
-      expect(leaveSchoolChildren(db, TODAY)).toBe(1)
-      expect(leftOn(expired)).toBeNull()
+      expect(schoolLeavers(db, 1, TODAY).map(child => [child.id, child.leftOn, child.purgeOn])).toEqual([
+        [expired, '2023-08-31', '2026-08-31'], [kept, '2024-08-31', '2027-08-31'],
+      ])
+      expect(leaveSchoolChildren(db, TODAY)).toBe(2)
+      expect(leftOn(expired)).toBe('2023-08-31')
       expect(leftOn(kept)).toBe('2024-08-31')
-      expect(purgeExpiredChildren(db, TODAY)).toBe(0)
-      expect(row(expired)).toBeDefined()
-
-      // The retention the Träger set decides, as for the deletion itself.
-      setChildRetentionYears(db, 4)
-      expect(schoolLeavers(db, 1, TODAY).map(child => [child.id, child.leftOn])).toEqual([[expired, '2023-08-31']])
+      // Archived, not deleted: only the Träger deletes a record, by hand.
+      expect(getChild(db, admin, expired, TODAY).status).toBe('archived')
     })
   })
 
@@ -1283,16 +1278,14 @@ describe('automatic leaving of school children', () => {
       const plannedOnly = reached({ entryDate: null, plannedEntryDate: '2026-01-01' })
       // Started after its school start: the leaving day would lie before its entry.
       const startedLate = reached({ entryDate: '2026-09-15' })
-      // School start 1 September 2023: its record would be deleted at once.
-      const longAgo = schoolChild({ birthDate: '2017-03-01', entryDate: '2022-09-01' })
       switchOn(krippe)
 
-      for (const id of [notStarted, plannedOnly, startedLate, longAgo]) move(id)
+      for (const id of [notStarted, plannedOnly, startedLate]) move(id)
 
-      expect([notStarted, plannedOnly, startedLate, longAgo].map(id => row(id).facilityId)).toEqual([krippe, krippe, krippe, krippe])
+      expect([notStarted, plannedOnly, startedLate].map(id => row(id).facilityId)).toEqual([krippe, krippe, krippe])
       expect(schoolLeavers(db, krippe, TODAY)).toEqual([])
       expect(leaveSchoolChildren(db, TODAY)).toBe(0)
-      expect([notStarted, plannedOnly, startedLate, longAgo].map(leftOn)).toEqual([null, null, null, null])
+      expect([notStarted, plannedOnly, startedLate].map(leftOn)).toEqual([null, null, null])
     })
 
     it('refuses exactly the children the next run there would deregister, and rolls the whole move back', () => {

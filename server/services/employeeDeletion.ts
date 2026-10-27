@@ -205,6 +205,12 @@ export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
     .where(and(eq(balanceAdjustments.employeeId, employeeId), eq(balanceAdjustments.paidOut, true))).run().changes
 }
 
+/** Whether the employee has balance adjustments marked „ausgezahlt“ (kept for the paid-overtime period). */
+export function hasPaidOut(db: Db, employeeId: number): boolean {
+  return db.select({ id: balanceAdjustments.id }).from(balanceAdjustments)
+    .where(and(eq(balanceAdjustments.employeeId, employeeId), eq(balanceAdjustments.paidOut, true))).limit(1).get() !== undefined
+}
+
 const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) => number> = {
   immediate: deleteImmediateData, time: deleteTimeData, assessment: deleteAssessmentData, paidOvertime: deletePaidOvertimeData,
 }

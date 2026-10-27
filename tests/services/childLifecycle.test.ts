@@ -1,13 +1,13 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { appSettings, childContacts, childDocuments, children, documentTypes } from '../../server/db/schema'
+import { childContacts, childDocuments, children, documentTypes } from '../../server/db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../../server/db/seed'
 import { getChildRetentionYears, setChildRetentionYears } from '../../server/services/appSettings'
 import { createCareType } from '../../server/services/careTypes'
 import { addContact } from '../../server/services/childContacts'
 import {
-  countChildrenToPurge, deleteChild, getChild, leaveChild, listArchive, moveChildToFacility, purgeExpiredChildren, unleaveChild,
+  deleteChild, getChild, leaveChild, listArchive, moveChildToFacility, unleaveChild,
 } from '../../server/services/children'
 import { listDocumentTypes } from '../../server/services/documentTypes'
 import type { ChildActor } from '../../server/lib/childViewer'
@@ -130,84 +130,6 @@ describe('leaving, archive and automatic deletion of children', () => {
       expect(db.select().from(children).all().map(row => row.id)).toEqual([other])
       expect(db.select().from(childContacts).all()).toEqual([])
       expect(db.select().from(childDocuments).all().map(row => row.id)).toEqual([kept])
-    })
-  })
-
-  describe('automatic deletion', () => {
-    it('deletes nothing the day before the purge date and the child with contacts and documents on it', () => {
-      const id = addChild(db, 1, { leftOn: '2023-10-09' })
-      const keep = addChild(db, 1, { leftOn: '2023-10-10' })
-      const active = addChild(db, 1)
-      const sonstiges = documentTypeId(db, 1, 'Sonstiges')
-      addRawContact(db, id)
-      addDocument(db, id, sonstiges)
-      const keepDoc = addDocument(db, keep, sonstiges)
-
-      expect(purgeExpiredChildren(db, '2026-10-08')).toBe(0)
-      expect(db.select().from(children).all()).toHaveLength(3)
-      expect(db.select().from(childDocuments).all()).toHaveLength(2)
-      expect(db.select().from(childContacts).all()).toHaveLength(1)
-
-      expect(purgeExpiredChildren(db, '2026-10-09')).toBe(1)
-      expect(db.select().from(children).all().map(row => row.id).sort()).toEqual([keep, active].sort())
-      expect(db.select().from(childContacts).all()).toEqual([])
-      expect(db.select().from(childDocuments).all().map(row => row.id)).toEqual([keepDoc])
-    })
-
-    it('purges the children of every facility and uses the retention setting', () => {
-      const krippe = addFacility(db, 'Krippe')
-      addChild(db, 1, { leftOn: '2025-10-09' })
-      addChild(db, krippe, { leftOn: '2025-10-01' })
-      const stays = addChild(db, krippe, { leftOn: '2025-10-10' })
-      setChildRetentionYears(db, 1)
-      expect(purgeExpiredChildren(db, '2026-10-09')).toBe(2)
-      expect(db.select().from(children).all().map(row => row.id)).toEqual([stays])
-    })
-
-    it('purges a 29 February leaving on 28 February of a non-leap purge year', () => {
-      const id = addChild(db, 1, { leftOn: '2024-02-29' })
-      setChildRetentionYears(db, 1)
-      expect(purgeExpiredChildren(db, '2025-02-27')).toBe(0)
-      expect(purgeExpiredChildren(db, '2025-02-28')).toBe(1)
-      expect(db.select().from(children).where(eq(children.id, id)).get()).toBeUndefined()
-    })
-
-    it('counts the children of every facility whose purge date has come, without deleting anything', () => {
-      const krippe = addFacility(db, 'Krippe')
-      addChild(db, 1, { leftOn: '2023-10-09' })
-      addChild(db, krippe, { leftOn: '2023-10-09' })
-      addChild(db, 1, { leftOn: '2023-10-10' })
-      addChild(db, 1)
-      addChild(db, krippe, { entryDate: null, plannedEntryDate: '2027-01-01' })
-      expect(countChildrenToPurge(db, 3, TODAY)).toBe(2)
-      expect(countChildrenToPurge(db, 2, TODAY)).toBe(3)
-      expect(countChildrenToPurge(db, 10, TODAY)).toBe(0)
-      expect(countChildrenToPurge(db, 3, '2026-10-10')).toBe(3)
-      expect(db.select().from(children).all()).toHaveLength(5)
-    })
-
-    it('counts a 29 February leaving from 28 February of a non-leap purge year', () => {
-      addChild(db, 1, { leftOn: '2024-02-29' })
-      expect(countChildrenToPurge(db, 1, '2025-02-27')).toBe(0)
-      expect(countChildrenToPurge(db, 1, '2025-02-28')).toBe(1)
-    })
-
-    it('does not touch children who have not left', () => {
-      addChild(db, 1)
-      addChild(db, 1, { plannedEntryDate: '2027-01-01', entryDate: null })
-      expect(purgeExpiredChildren(db, '2040-01-01')).toBe(0)
-      expect(db.select().from(children).all()).toHaveLength(2)
-    })
-
-    it('runs once per calendar day', () => {
-      addChild(db, 1, { leftOn: '2023-10-09' })
-      expect(purgeExpiredChildren(db, TODAY)).toBe(1)
-      expect(db.select().from(appSettings).where(eq(appSettings.key, 'children_purged_on')).get()!.value).toBe(TODAY)
-      addChild(db, 1, { leftOn: '2023-10-09' })
-      expect(purgeExpiredChildren(db, TODAY)).toBe(0)
-      expect(db.select().from(children).all()).toHaveLength(1)
-      expect(purgeExpiredChildren(db, '2026-10-10')).toBe(1)
-      expect(db.select().from(children).all()).toEqual([])
     })
   })
 

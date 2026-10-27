@@ -4,7 +4,7 @@ import type { Db } from '../../server/db/client'
 import { childParentMeetings, children, employees, users } from '../../server/db/schema'
 import type { ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
-import { getChild, purgeExpiredChildren } from '../../server/services/children'
+import { deleteChild, getChild } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import { addMeeting, deleteMeeting, meetingsOf, updateMeeting } from '../../server/services/parentMeetings'
 import type { ParentMeetingInput } from '../../shared/types/api'
@@ -276,11 +276,11 @@ describe('parent meetings', () => {
       expect(meetingsOf(db, leitung, kidA, NOW).map(meeting => meeting.id)).toEqual([keep])
     })
 
-    it('removes the meetings with the purged child (Review Focus 5)', () => {
+    it('removes the meetings with the deleted child (Review Focus 5)', () => {
       addMeeting(db, leitung, kidA, input(), NOW)
       addMeeting(db, leitung, kidB, input(), NOW)
       db.update(children).set({ leftOn: '2010-01-01' }).where(eq(children.id, kidA)).run()
-      expect(purgeExpiredChildren(db, TODAY)).toBe(1)
+      deleteChild(db, 1, kidA)
       expect(db.select({ childId: childParentMeetings.childId }).from(childParentMeetings).all()).toEqual([{ childId: kidB }])
     })
   })

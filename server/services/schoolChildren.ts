@@ -208,16 +208,15 @@ export function isSchoolStartDue(child: SchoolFacts, today: IsoDate): boolean {
 /**
  * The one selection of the automatic leaving: the facility's active contract children without a leaving day whose
  * school start is reached and whom no group for school children makes stay, each with the leaving day it gets (the day
- * before its school start, however long ago that is) and the day its record is deleted with that (the leaving day plus
- * the retention period, always after today). The daily run deregisters exactly these, switching on
- * deregisters exactly these and the preview shows exactly these, so they cannot differ. The switch plays no part
- * here: this is what happens once it is on.
+ * before its school start, however long ago that is) and the day from which its record may be deleted with that (the
+ * leaving day plus the retention period; it may already have passed, the record is still only deleted by hand). The
+ * daily run deregisters exactly these, switching on deregisters exactly these and the preview shows exactly these, so
+ * they cannot differ. The switch plays no part here: this is what happens once it is on.
  *
- * Three kinds of children are left out, because nobody could have expected what the leaving day would do to them: a
+ * Two kinds of children are left out, because nobody could have expected what the leaving day would do to them: a
  * child that only started on or after its school start (it would have left before it came; the occupancy lists it as
- * inconsistent), a child whose record would be deleted at once (its leaving day is already past the retention
- * period), and a child with a group change after the leaving day that carries a further care contract, planned or
- * applied (somebody concluded a contract for that time; its group may only have lost the flag "for school children"
+ * inconsistent), and a child with a group change after the leaving day that carries a further care contract, planned
+ * or applied (somebody concluded a contract for that time; its group may only have lost the flag "for school children"
  * by mistake, and a planned change would be deleted with the leaving). They stay active, and in the list of the
  * coming school children, until somebody decides about them by hand.
  */
@@ -231,12 +230,12 @@ export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): Schoo
     const leftOn = addDays(schoolStart, -1)
     // An active child has an entry day.
     const leftBeforeStart = leftOn < row.entryDate!
-    const purgeOn = purgeDate(leftOn, retentionYears)
-    const deletedAtOnce = purgeOn <= today
     const contractChange = contractChanges.get(row.id)
     const hasLaterContract = contractChange !== undefined && contractChange > leftOn
-    if (leftBeforeStart || deletedAtOnce || hasLaterContract) continue
-    leavers.push({ id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn, purgeOn })
+    if (leftBeforeStart || hasLaterContract) continue
+    leavers.push({
+      id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn, purgeOn: purgeDate(leftOn, retentionYears),
+    })
   }
   return leavers
 }

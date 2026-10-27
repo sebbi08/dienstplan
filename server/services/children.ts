@@ -20,7 +20,7 @@ import {
 } from '../lib/childRecord'
 import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
-import { getChildrenPurgedOn, getChildRetentionYears, setChildrenPurgedOn } from './appSettings'
+import { getChildRetentionYears } from './appSettings'
 import { assertCareType } from './careTypes'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
@@ -537,7 +537,7 @@ export function deleteChild(db: Db, facilityId: number, id: number): void {
   db.delete(children).where(eq(children.id, id)).run()
 }
 
-/** The facility's archived children, the latest leaving first, with the day their record is deleted. */
+/** The facility's archived children, the latest leaving first, with the day from which their record may be deleted. */
 export function listArchive(db: Db, facilityId: number, today: IsoDate): ArchivedChildDto[] {
   const years = getChildRetentionYears(db)
   return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
@@ -549,29 +549,6 @@ export function listArchive(db: Db, facilityId: number, today: IsoDate): Archive
       leftOn: row.leftOn!,
       purgeOn: purgeDate(row.leftOn!, years),
     }))
-}
-
-/** How many archived children (all facilities) would be deleted at the next daily run with a retention of `years`. */
-export function countChildrenToPurge(db: Db, years: number, today: IsoDate): number {
-  return db.select({ leftOn: children.leftOn }).from(children).all()
-    .filter(row => row.leftOn !== null && purgeDate(row.leftOn, years) <= today).length
-}
-
-/**
- * Deletes every child (all facilities) whose purge date has come, with contacts and documents, in one transaction.
- * Runs at most once per calendar day; returns how many records were deleted.
- */
-export function purgeExpiredChildren(db: Db, today: IsoDate): number {
-  if (getChildrenPurgedOn(db) === today) return 0
-  return db.transaction((tx) => {
-    const years = getChildRetentionYears(tx)
-    const expired = tx.select({ id: children.id, leftOn: children.leftOn }).from(children).all()
-      .filter(row => row.leftOn !== null && purgeDate(row.leftOn, years) <= today)
-      .map(row => row.id)
-    if (expired.length > 0) tx.delete(children).where(inArray(children.id, expired)).run()
-    setChildrenPurgedOn(tx, today)
-    return expired.length
-  })
 }
 
 const OTHER_DOCUMENT_TYPE = 'Sonstiges'

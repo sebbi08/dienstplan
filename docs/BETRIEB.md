@@ -365,15 +365,14 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
 - Danach bekommen alle Schulkinder am 1. September den Austritt 31. August und kommen ins Archiv.
   Ab dann läuft die Löschfrist (siehe Abschnitt 8).
 - **Nicht abgemeldet** werden Kinder mit späterem, von Hand eingetragenem Schulstart, Kinder, die erst am oder
-  nach ihrem Schulstart aufgenommen wurden, Kinder, deren Akte mit dem Austritt sofort gelöscht würde, und
-  Kinder, die in einer Gruppe „für Schulkinder“ sind oder dorthin wechseln. Diese meldest du bei Bedarf von
-  Hand ab.
+  nach ihrem Schulstart aufgenommen wurden, und Kinder, die in einer Gruppe „für Schulkinder“ sind oder dorthin
+  wechseln. Diese meldest du bei Bedarf von Hand ab.
 - **Schulkinder-Gruppen (z. B. Hort):** Der Träger kennzeichnet sie in der Gruppenverwaltung. Beim Wechsel in
   eine solche Gruppe musst du bestätigen, dass ein weiterer Betreuungsvertrag abgeschlossen wurde. Der
   Betreuungsvertrag ist danach „nicht bestätigt“, bis der neue Vertrag hochgeladen ist.
 - **Der Schalter schaltet sich von selbst aus**, wenn der Stichtag geändert wird, wenn einer Gruppe das
-  Kennzeichen „für Schulkinder“ genommen oder eine solche Gruppe gelöscht wird oder wenn die Löschfrist
-  geändert wird. Die App weist darauf hin. Prüfe dann die Liste und schalte wieder ein.
+  Kennzeichen „für Schulkinder“ genommen oder eine solche Gruppe gelöscht wird. Die App weist darauf hin. Prüfe
+  dann die Liste und schalte wieder ein.
 
 Solange der Schalter eingeschaltet ist, schützt die App davor, dass ein einzelnes Kind unbemerkt abgemeldet
 wird:

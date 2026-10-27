@@ -15,7 +15,7 @@ function listOf(labels: string[]): string {
 /**
  * The line in the staff page's archive for a person who left on `leftOn` (shared/domain/retention.ts): „Zeitdaten
  * werden am … gelöscht, Beurteilungen am …, ausgezahlte Überstunden am …, danach der Eintrag.“ The dates in their
- * order; a category due today or earlier counts as deleted (the daily run takes it) and is named before. Without
+ * order; a category due today or earlier counts as done (it may be deleted from then on) and is named before. Without
  * paid-out adjustments (`hasPaidOut` false) that period is left out: the entry goes with the others.
  */
 export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSettings, today: IsoDate, hasPaidOut = true): string {

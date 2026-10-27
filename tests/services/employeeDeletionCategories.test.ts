@@ -6,10 +6,10 @@ import {
 } from '../../server/db/schema'
 import { getActiveUser } from '../../server/services/auth'
 import { getBalanceOverview } from '../../server/services/balances'
-import { runEmployeeRetention } from '../../server/services/employeeRetention'
+import {
+  deleteCategories, deleteEmployeeRow, hasPaidOut, type RetentionCategory,
+} from '../../server/services/employeeDeletion'
 import { getMonthPlan } from '../../server/services/plan'
-import { setRetentionSettings } from '../../server/services/retentionSettings'
-import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import { employeeColumns, employeeReferences, fillEmployeeData } from '../helpers/employeeData'
 import { addEmployee, addFacility, addUser, createTestDb } from '../helpers/fixtures'
@@ -31,7 +31,7 @@ const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
 /** Normal adjustments go with the time data, paid-out ones with the paid overtime. */
 const ADJUSTMENTS = 'balance_adjustments.employee_id'
 
-const ZERO = { immediate: 0, time: 0, assessment: 0, paidOvertime: 0, employees: 0 }
+const ZERO = { immediate: 0, time: 0, assessment: 0, paidOvertime: 0 }
 
 let db: Db
 let leitung: SessionUser
@@ -61,8 +61,9 @@ const warningAcksOf = (employeeId: number) => db.select({ key: warningAcks.key }
 const talkForms = (employeeId: number) => db.select({ id: staffTalkForms.formId }).from(staffTalkForms)
   .innerJoin(staffTalks, eq(staffTalks.id, staffTalkForms.talkId)).where(eq(staffTalks.employeeId, employeeId)).all().length
 const fkCheck = () => db.all(sql`PRAGMA foreign_key_check`)
-const silent = { info: () => {}, error: () => {} }
-const run = (today: string) => runEmployeeRetention(db, today, silent)
+/** Deletes the categories of the employee in a transaction of their own; answers the changed rows per category. */
+const remove = (categories: RetentionCategory[], employeeId = tina) =>
+  db.transaction(tx => deleteCategories(tx, employeeId, categories))
 
 /** Ben (active) still has everything, unchanged. */
 function expectBenUntouched(): void {
@@ -96,7 +97,7 @@ beforeEach(() => {
   benRowBefore = row(ben)
 })
 
-describe('the nightly deletion of left employees', () => {
+describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
     expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS].sort())
@@ -105,15 +106,10 @@ describe('the nightly deletion of left employees', () => {
     expect(adjustments(tina, false)).toBe(1)
   })
 
-  it('deletes each category on its day with the defaults, the employee row last (left on 15.03.2026)', () => {
-    // Still the leaving day: nothing.
-    expect(run('2026-03-15')).toEqual(ZERO)
-    expect(nonZero(IMMEDIATE)).toEqual(IMMEDIATE)
-    expect(row(tina)!.birthday).toBe('04-12')
-
-    // The day after: the immediate data.
-    const immediate = run('2026-03-16')
-    expect(immediate).toMatchObject({ time: 0, assessment: 0, paidOvertime: 0, employees: 0 })
+  it('deletes exactly the data of each category, and the employee row last', () => {
+    // The immediate data.
+    const immediate = remove(['immediate'])
+    expect(immediate).toMatchObject({ time: 0, assessment: 0, paidOvertime: 0 })
     expect(immediate.immediate).toBeGreaterThan(0)
     expect(nonZero(IMMEDIATE)).toEqual([])
     expect(nonZero(TIME)).toEqual(TIME)
@@ -134,15 +130,12 @@ describe('the nightly deletion of left employees', () => {
     expect(getMonthPlan(db, leitung, 1, 2026, 3, '2026-03-16').employees.map(employee => employee.id)).toContain(tina)
     expect(getMonthPlan(db, traeger, hort, 2026, 9, '2026-03-16').employees.map(employee => employee.id)).toContain(tina)
     expectBenUntouched()
-    // A second run the same day (and the next days) deletes nothing more.
-    expect(run('2026-03-16')).toEqual(ZERO)
-    expect(run('2027-06-01')).toEqual(ZERO)
+    // Run again it changes nothing.
+    expect(remove(['immediate'])).toEqual(ZERO)
 
-    // Time data: still there on 31.12.2028, gone on 01.01.2029; paid-out adjustments stay.
-    expect(run('2028-12-31')).toEqual(ZERO)
-    expect(nonZero(TIME)).toEqual(TIME)
-    const time = run('2029-01-01')
-    expect(time).toMatchObject({ immediate: 0, assessment: 0, paidOvertime: 0, employees: 0 })
+    // The time data; the paid-out adjustments stay.
+    const time = remove(['time'])
+    expect(time).toMatchObject({ immediate: 0, assessment: 0, paidOvertime: 0 })
     expect(time.time).toBeGreaterThan(0)
     expect(nonZero(TIME)).toEqual([])
     expect(adjustments(tina, false)).toBe(0)
@@ -152,15 +145,14 @@ describe('the nightly deletion of left employees', () => {
     expect(warningAcksOf(ben)).toBe(1)
     expect(nonZero(ASSESSMENT)).toEqual(ASSESSMENT)
     expectBenUntouched()
-    expect(run('2029-01-01')).toEqual(ZERO)
+    expect(remove(['time'])).toEqual(ZERO)
 
-    // Staff talks with their forms and the trainings: still there on 31.12.2029, gone on 01.01.2030.
-    expect(run('2029-12-31')).toEqual(ZERO)
+    // Staff talks with their forms and the trainings.
     expect(talkForms(tina)).toBeGreaterThan(0)
     const formCount = db.select().from(forms).all().length
     const tinaForms = talkForms(tina)
-    const assessment = run('2030-01-01')
-    expect(assessment).toMatchObject({ immediate: 0, time: 0, paidOvertime: 0, employees: 0 })
+    const assessment = remove(['assessment'])
+    expect(assessment).toMatchObject({ immediate: 0, time: 0, paidOvertime: 0 })
     expect(assessment.assessment).toBeGreaterThan(0)
     expect(nonZero(ASSESSMENT)).toEqual([])
     expect(db.select().from(forms).all().length).toBe(formCount - tinaForms)
@@ -168,89 +160,17 @@ describe('the nightly deletion of left employees', () => {
     expect(adjustments(tina, true)).toBe(1)
     expectBenUntouched()
 
-    // The paid-out adjustment and then the employee row: still there on 31.12.2036, gone on 01.01.2037.
-    expect(run('2036-12-31')).toEqual(ZERO)
-    expect(adjustments(tina, true)).toBe(1)
+    // The paid-out adjustment, then the employee row.
+    expect(hasPaidOut(db, tina)).toBe(true)
+    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 1 })
+    expect(hasPaidOut(db, tina)).toBe(false)
     expect(row(tina)).toBeDefined()
-    const last = run('2037-01-01')
-    expect(last).toMatchObject({ immediate: 0, time: 0, assessment: 0, paidOvertime: 1, employees: 1 })
+    expect(db.transaction(tx => deleteEmployeeRow(tx, tina))).toBe(1)
     expect(row(tina)).toBeUndefined()
     expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])
     expect(fkCheck()).toEqual([])
     expectBenUntouched()
-    // Idempotent.
-    expect(run('2037-01-01')).toEqual(ZERO)
-    expect(run('2040-01-01')).toEqual(ZERO)
-  })
-
-  it('deletes the employee row with the assessments when nothing paid out is left (left on 15.03.2026)', () => {
-    db.delete(balanceAdjustments).where(and(eq(balanceAdjustments.employeeId, tina), eq(balanceAdjustments.paidOut, true))).run()
-    run('2026-03-16')
-    run('2029-01-01')
-    expect(run('2029-12-31')).toEqual(ZERO)
-    expect(row(tina)).toBeDefined()
-    const done = run('2030-01-01')
-    expect(done).toMatchObject({ immediate: 0, time: 0, paidOvertime: 0, employees: 1 })
-    expect(done.assessment).toBeGreaterThan(0)
-    expect(row(tina)).toBeUndefined()
-    expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])
-    expect(fkCheck()).toEqual([])
-    expectBenUntouched()
-    expect(run('2030-01-01')).toEqual(ZERO)
-  })
-
-  it('applies changed periods from the next run on, and restores nothing', () => {
-    run('2026-03-16')
-    expect(run('2028-06-01')).toEqual(ZERO)
-    expect(nonZero(TIME)).toEqual(TIME)
-    // One year for the time data: due on 01.01.2028, so this run deletes it.
-    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, timeYears: 1 })
-    expect(run('2028-06-01').time).toBeGreaterThan(0)
-    expect(nonZero(TIME)).toEqual([])
-    expect(adjustments(tina, true)).toBe(1)
-    // Back to two years: nothing comes back, nothing else goes.
-    setRetentionSettings(db, 1, RETENTION_DEFAULTS)
-    expect(run('2028-06-01')).toEqual(ZERO)
-    expect(nonZero(TIME)).toEqual([])
-    expect(nonZero(ASSESSMENT)).toEqual(ASSESSMENT)
-    // A longer assessment period keeps the talks longer.
-    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, assessmentYears: 5 })
-    expect(run('2030-01-01')).toEqual(ZERO)
-    expect(nonZero(ASSESSMENT)).toEqual(ASSESSMENT)
-    expect(run('2032-01-01').assessment).toBeGreaterThan(0)
-    // With shorter paid-overtime period than the assessments, the row goes once the last category is due.
-    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, assessmentYears: 5, paidOvertimeYears: 4 })
-    expect(run('2032-01-01')).toMatchObject({ paidOvertime: 1, employees: 1 })
-    expect(row(tina)).toBeUndefined()
-    expect(fkCheck()).toEqual([])
-    expectBenUntouched()
-  })
-
-  it('stops deleting when the leaving is taken back or moved into the future', () => {
-    run('2026-03-16')
-    expect(nonZero(IMMEDIATE)).toEqual([])
-    // Leaving taken back: nothing more goes, nothing comes back.
-    db.update(employees).set({ leftOn: null }).where(eq(employees.id, tina)).run()
-    for (const day of ['2029-01-01', '2030-01-01', '2037-01-01']) expect(run(day)).toEqual(ZERO)
-    expect(nonZero(TIME)).toEqual(TIME)
-    expect(nonZero(ASSESSMENT)).toEqual(ASSESSMENT)
-    expect(adjustments(tina, true)).toBe(1)
-    expect(row(tina)).toMatchObject({ name: 'Tina Test', birthday: null })
-    // Moved into the future (seen from the run's day): not left yet.
-    db.update(employees).set({ leftOn: '2037-06-30' }).where(eq(employees.id, tina)).run()
-    expect(run('2037-01-01')).toEqual(ZERO)
-    expect(run('2037-06-30')).toEqual(ZERO)
-    expect(nonZero(TIME)).toEqual(TIME)
-    expect(row(tina)).toBeDefined()
-  })
-
-  it('uses the settings of the employee\'s facility', () => {
-    const hanna = addEmployee(db, 'Hanna Hort', { facilityId: hort, leftOn: LEFT_ON })
-    db.insert(balanceAdjustments).values({ employeeId: hanna, date: '2026-01-01', minutes: 60, reason: 'Übertrag' }).run()
-    setRetentionSettings(db, hort, { ...RETENTION_DEFAULTS, timeYears: 1 })
-    run('2028-01-01')
-    expect(adjustments(hanna, false)).toBe(0)
-    expect(adjustments(tina, false)).toBe(1)
+    expect(remove(['immediate', 'time', 'assessment', 'paidOvertime'])).toEqual(ZERO)
   })
 
   it('deletes a linked Leitung account and only unlinks a Träger account', () => {
@@ -258,7 +178,8 @@ describe('the nightly deletion of left employees', () => {
     const lenaAccount = addUser(db, 'lena', 'admin', lena)
     const otto = addEmployee(db, 'Otto Träger', { leftOn: LEFT_ON })
     const provider = addUser(db, 'otto', 'provider', otto)
-    run('2026-03-16')
+    remove(['immediate'], lena)
+    remove(['immediate'], otto)
     expect(getActiveUser(db, lenaAccount.id)).toBeNull()
     expect(db.select({ employeeId: users.employeeId, active: users.active }).from(users).where(eq(users.id, provider.id)).get())
       .toEqual({ employeeId: null, active: true })
@@ -267,23 +188,11 @@ describe('the nightly deletion of left employees', () => {
     expect(fkCheck()).toEqual([])
   })
 
-  it('keeps the employee whose deletion would leave a reference behind, logs it without the name and goes on', () => {
-    const errors: string[] = []
-    const infoLog: string[] = []
-    const log = { info: (...parts: unknown[]) => infoLog.push(parts.map(String).join(' ')), error: (...parts: unknown[]) => errors.push(parts.map(String).join(' ')) }
-    db.run(sql.raw('CREATE TABLE extra_refs (id INTEGER PRIMARY KEY, employee_id INTEGER REFERENCES employees(id))'))
-    db.run(sql.raw(`INSERT INTO extra_refs (employee_id) VALUES (${tina})`))
-    const anna = addEmployee(db, 'Anna Alt', { leftOn: '2020-05-01' })
-    const result = runEmployeeRetention(db, '2037-01-01', log)
-    expect(result.employees).toBe(1)
-    expect(row(anna)).toBeUndefined()
-    // Tina's whole run of that day was rolled back: everything is still there.
-    expect(row(tina)).toBeDefined()
-    expect(nonZero(TIME)).toEqual(TIME)
-    expect(nonZero(IMMEDIATE)).toEqual(IMMEDIATE)
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toContain(String(tina))
-    expect(errors.join(' ')).not.toContain('Tina')
-    expect(infoLog.join(' ')).not.toMatch(/Tina|Anna/)
+  it('tells whether the employee has paid-out adjustments', () => {
+    const hanna = addEmployee(db, 'Hanna Hort', { facilityId: hort, leftOn: LEFT_ON })
+    expect(hasPaidOut(db, hanna)).toBe(false)
+    db.insert(balanceAdjustments).values({ employeeId: hanna, date: '2026-01-01', minutes: 60, reason: 'Übertrag' }).run()
+    expect(hasPaidOut(db, hanna)).toBe(false)
+    expect([hasPaidOut(db, tina), hasPaidOut(db, ben)]).toEqual([true, true])
   })
 })

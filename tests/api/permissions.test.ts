@@ -39,7 +39,7 @@ const PROVIDER_ROUTES = [
   // The order of the active facility's groups (the Träger, like renaming them).
   'groups/[id]/move.post.ts',
   'facilities/[id]/group-read-access.get.ts', 'children/[id]/facility.put.ts', 'child-retention.get.ts', 'child-retention.put.ts',
-  'child-retention/preview.get.ts', 'school-settings.put.ts', 'facilities/[id]/capacity.put.ts',
+  'school-settings.put.ts', 'facilities/[id]/capacity.put.ts',
   'school-settings/auto-leave.put.ts', 'school-settings/auto-leave-preview.get.ts', 'groups/[id]/school-children.put.ts',
   // Staffing ratio: only the Träger changes the state's values (spec Personalschlüssel §5, Review Focus 4).
   'staffing-settings.put.ts', 'staffing-settings.delete.ts',
@@ -445,9 +445,7 @@ describe('API route permissions', () => {
   })
 
   it('keeps the Träger move and the settings of child records away from the tablet', () => {
-    for (const route of ['children/[id]/facility.put.ts', 'child-retention/preview.get.ts']) {
-      expect(source(route), route).toContain('requireProvider(')
-    }
+    expect(source('children/[id]/facility.put.ts')).toContain('requireProvider(')
     for (const route of ['care-types/index.post.ts', 'care-types/[id].put.ts', 'care-types/[id].delete.ts',
       'document-types/index.post.ts', 'document-types/[id].put.ts', 'document-types/[id].delete.ts',
       'attendance-settings.get.ts', 'attendance-settings.put.ts']) {

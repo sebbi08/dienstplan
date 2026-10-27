@@ -540,8 +540,6 @@ describe('occupancy table', () => {
     })
 
     it('still lists the reached children the automatic leaving skips, so somebody decides about them', () => {
-      // School start 1 September 2023; the leaving day 31 August 2023 is past the three years of retention.
-      const expired = schoolChild({ firstName: 'Anna', birthDate: '2017-03-01', entryDate: '2022-09-01' })
       // School start 1 September 2026, but it only started afterwards.
       const startedLate = schoolChild({ firstName: 'Ben', birthDate: '2020-03-01', entryDate: '2026-10-01' })
       switchOn()
@@ -549,7 +547,6 @@ describe('occupancy table', () => {
       expect(schoolLeavers(db, 1, TODAY)).toEqual([])
       expect(leaveSchoolChildren(db, TODAY)).toBe(0)
       expect(upcomingSchoolChildren(db, 1, TODAY)).toEqual([
-        { id: expired, name: 'Anna Muster', groupId: bears, schoolStart: '2023-09-01', pendingSchoolGroup: null },
         { id: startedLate, name: 'Ben Muster', groupId: bears, schoolStart: '2026-09-01', pendingSchoolGroup: null },
       ])
     })

@@ -737,7 +737,7 @@ export const de = {
     title: 'Abmeldung', leavesOn: (date: string) => `Austritt am ${date}`, moveTarget: 'Einrichtung', moveAction: 'Verschieben', moved: 'Akte verschoben',
     confirmLeave: (name: string, date: string) => `${name} zum ${date} abmelden? Einen Tag nach dem Austritt wird die Akte archiviert und kann nicht mehr geändert werden.`,
     confirmMove: (name: string) => `Die Akte nach „${name}“ verschieben? Gruppe und Betreuungsform werden zurückgesetzt, die Dokumentarten der Dokumente werden nach Namen zugeordnet (sonst „Sonstiges“). In der bisherigen Einrichtung ist die Akte danach nicht mehr zu sehen.`,
-    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden und wird nach der Löschfrist automatisch gelöscht.',
+    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden und darf nach der Löschfrist gelöscht werden.',
   },
   groupChange: {
     plan: 'Gruppenwechsel planen', pending: (date: string, group: string) => `wechselt am ${date} in ${group}`, group: 'Neue Gruppe', date: 'Wechseltag',
@@ -752,19 +752,18 @@ export const de = {
   childSettings: {
     careTypes: 'Betreuungsformen', documentTypes: 'Dokumentarten', important: 'wichtig', required: 'für jedes Kind nötig', confidentialDefault: 'vertraulich',
     retention: 'Löschfrist für abgemeldete Kinder', retentionYears: 'Jahre nach dem Austritt',
-    retentionHint: 'Abgemeldete Kinder werden nach Ablauf dieser Frist mit allen Daten und Dokumenten automatisch gelöscht. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen.',
+    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden; die App löscht nichts automatisch. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     careTypesHint: 'Die Zeiten geben das gebuchte Zeitfenster an. Betreuungsformen, die noch bei Kindern eingetragen sind, lassen sich nicht löschen.',
     documentTypesHint: 'Wichtige Dokumentarten erscheinen in der Dokumentenübersicht. „Für jedes Kind nötig“ markiert fehlende Dokumente dort rot. „Vertraulich“ ist die Voreinstellung beim Hochladen.',
     confirmDeleteType: 'Wirklich löschen?',
-    confirmShorterRetention: (count: number) => `Mit der kürzeren Frist werden beim nächsten täglichen Lauf ${count} abgemeldete Kinderakten mit allen Dokumenten endgültig gelöscht. Trotzdem speichern?`,
     daysPerWeek: 'Tage pro Woche',
     daysPerWeekHint: '„Tage pro Woche“ zählt für den Personalschlüssel: Wochenstunden des Kindes = Zeitfenster × Tage.',
   },
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern wann gelöscht wird. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist; gelöscht wird automatisch im täglichen Lauf. Geburtstag, PIN, Zugang, Vertragsdaten, Urlaubsanträge und Ähnliches werden schon am Tag nach dem Ausscheiden gelöscht, der Mitarbeiter-Eintrag selbst zuletzt.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern wann gelöscht wird. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist; die App löscht nichts automatisch, gelöscht wird von Hand. Geburtstag, PIN, Zugang, Vertragsdaten, Urlaubsanträge und Ähnliches werden schon am Tag nach dem Ausscheiden gelöscht, der Mitarbeiter-Eintrag selbst zuletzt.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -781,7 +780,7 @@ export const de = {
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
     },
     employeeDelete: 'Mitarbeiter endgültig löschen',
-    employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ wird nur noch nach den Fristen automatisch gelöscht.',
+    employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ wird nur nach Ablauf der Fristen gelöscht, von Hand.',
     employeeDeleteModes: { off: 'aus', provider: 'nur Träger', managers: 'Leitung und Träger' },
     cashYears: 'Aufbewahrungsfrist Kasse',
     cashYearsHelp: 'Eine archivierte Kasse lässt sich erst danach endgültig löschen. Die Frist beginnt am Ende des Jahres der letzten Buchung.',
@@ -792,7 +791,7 @@ export const de = {
       next: (label: string, date: string) => `${label} am ${date}`,
       last: 'danach der Eintrag.',
       done: (labels: string) => `${labels} sind schon gelöscht.`,
-      allDone: 'Alle Fristen sind abgelaufen: Der Eintrag wird beim nächsten täglichen Lauf gelöscht.',
+      allDone: 'Alle Fristen sind abgelaufen: Der Eintrag darf gelöscht werden.',
     },
   },
   occupancy: {
@@ -1465,7 +1464,7 @@ export const de = {
     employee_not_left: 'Löschen geht erst, wenn die Person ausgeschieden ist, also der Tag „ausgeschieden am“ vorbei ist.',
     employee_delete_confirm_mismatch: 'Der eingetippte Name stimmt nicht. Bitte tippe den Namen genau so ein, wie er dasteht.',
     employee_delete_blocked: 'Löschen hat nicht geklappt: Es gibt noch Daten, die auf diese Person verweisen. Es wurde nichts gelöscht. Bitte wende dich an den Träger.',
-    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Einstellungen → Personal → Löschfristen). Die Daten werden nach den Löschfristen automatisch gelöscht.',
+    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Einstellungen → Personal → Löschfristen). Nach Ablauf der Löschfristen dürfen die Daten von Hand gelöscht werden.',
     retention_settings_invalid: 'Bitte ganze Jahre angeben: 1 bis 40, bei der Kasse 1 bis 30.',
     employee_birthday_invalid: 'Bitte einen gültigen Geburtstag (Tag und Monat) angeben.',
     reminder_setting_invalid: 'Bitte einen gültigen Zeitraum angeben.',

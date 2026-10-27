@@ -7,7 +7,7 @@ import { ServiceError } from '../../server/lib/errors'
 import {
   createChildForm, deleteChildForm, getChildForm, listChildFormEditors, listChildForms, saveChildForm, setChildFormEditors,
 } from '../../server/services/childForms'
-import { moveChildToFacility, purgeExpiredChildren } from '../../server/services/children'
+import { deleteChild, moveChildToFacility } from '../../server/services/children'
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
 import { addMeeting, deleteMeeting, meetingsOf } from '../../server/services/parentMeetings'
 import { resolveChildViewer } from '../../server/services/tabletUnlock'
@@ -209,7 +209,7 @@ describe('child observation forms', () => {
       .toBe('409 form_changed')
   })
 
-  it('deleting the meeting keeps the form; purging the child deletes its forms and grants (Review Focus 4)', () => {
+  it('deleting the meeting keeps the form; deleting the child deletes its forms and grants (Review Focus 4)', () => {
     const meeting = addMeeting(db, leitung, kid, {
       date: '2026-10-05', start: 840, end: null, kind: 'development', participants: '',
     }, NOW)
@@ -220,7 +220,7 @@ describe('child observation forms', () => {
 
     const otherForm = createChildForm(db, leitung, hiddenKid, { templateId: template, ...header }, NOW)
     db.update(children).set({ leftOn: '2010-01-01' }).where(eq(children.id, kid)).run()
-    expect(purgeExpiredChildren(db, '2026-10-20')).toBe(1)
+    deleteChild(db, 1, kid)
     expect(db.select({ id: forms.id }).from(forms).where(eq(forms.kind, 'child')).all()).toEqual([{ id: otherForm }])
     expect(db.select().from(formEditors).all()).toEqual([])
     expect(db.select().from(childParentMeetings).all()).toEqual([])
