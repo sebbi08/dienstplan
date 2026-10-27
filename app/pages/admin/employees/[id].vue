@@ -181,8 +181,10 @@ async function addAdjustment() {
 }
 
 /** „ausgezahlt“ on a booked adjustment, also afterwards (it keeps the booking for the longer period after leaving). */
-function setPaidOut(adjustmentId: number, paidOut: boolean) {
-  run(() => $fetch<unknown>(`/api/employees/${id}/adjustments/${adjustmentId}`, { method: 'PATCH', body: { paidOut } }), de.common.saved)
+async function setPaidOut(adjustmentId: number, paidOut: boolean) {
+  const ok = await run(() => $fetch<unknown>(`/api/employees/${id}/adjustments/${adjustmentId}`, { method: 'PATCH', body: { paidOut } }), de.common.saved)
+  // On failure the checkbox would still show the new state: reload what is saved.
+  if (!ok) await refresh()
 }
 
 async function deleteAdjustment(adjustmentId: number) {

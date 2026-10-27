@@ -52,11 +52,13 @@ werden (siehe Abschnitt 15, „Stempel-PIN“).
 
 Ausnahme Löschfristen: Nach dem Update auf die Version mit den **Löschfristen** löscht schon der erste tägliche Lauf
 (gleich beim Start) die Daten ausgeschiedener Mitarbeiter nach den voreingestellten Fristen – auch von Personen, die
-vor Jahren ausgeschieden sind (siehe „Löschfristen“ im Abschnitt Mitarbeiter). Stundenkonto-Buchungen über ausgezahlte
-Überstunden bleiben nur dann 10 Jahre, wenn sie das Häkchen **„ausgezahlt“** haben. Setz es bei ausgeschiedenen
-Personen deshalb, bevor ihre Zeitdaten-Frist abläuft (Seite der Person → Stunden & Vertrag → Stundenkonto-Buchungen).
-Mit den voreingestellten 2 Jahren gehen die Zeitdaten von Personen, die 2023 oder früher ausgeschieden sind, schon beim
-ersten Start (ab dem 01.01.2027: 2024 oder früher). Lade vor dem Update eine Datensicherung herunter.
+vor Jahren ausgeschieden sind (siehe „Löschfristen“ in Abschnitt 15). Stundenkonto-Buchungen über ausgezahlte
+Überstunden bleiben nur dann 10 Jahre, wenn sie das Häkchen **„ausgezahlt“** haben (Seite der Person → Stunden &
+Vertrag → Stundenkonto-Buchungen). Das Häkchen gibt es erst nach dem Update – bei Personen, deren Frist dann schon
+abgelaufen ist, kommt es zu spät. Mit den voreingestellten Fristen gilt beim ersten Start: Wer 2023 oder früher
+ausgeschieden ist, verliert seine Zeitdaten (Dienstplan, Stempelzeiten, Stundenkonto-Buchungen …); wer 2022 oder
+früher ausgeschieden ist, verschwindet ganz aus dem Archiv (ab dem 01.01.2027 je ein Jahr später). Lade vor dem Update
+eine Datensicherung herunter.
 
 ## 5. Datensicherung
 
