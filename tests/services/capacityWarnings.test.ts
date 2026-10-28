@@ -8,7 +8,7 @@ import { setFacilityCapacity } from '../../server/services/facilities'
 import { setGroupCapacity } from '../../server/services/groups'
 import { childGroupChanges } from '../../server/db/schema'
 import type { ChildMasterInput, KeepSection } from '../../shared/types/api'
-import { addChild, addUser, addGroup, asChildViewer, createTestDb } from '../helpers/fixtures'
+import { addChild, addUser, addGroup, asChildViewer, createTestDb, permissionsOf } from '../helpers/fixtures'
 
 const TODAY = '2026-10-20'
 const NOW = new Date('2026-10-20T08:30:00.000Z')
@@ -42,7 +42,7 @@ describe('capacity warnings', () => {
   const traeger = () => addUser(db, 'traeger', 'provider')
 
   /** What a route does: the cells before, the save, the warnings for what the save added. */
-  function saving(childId: number | null, save: () => number | void, viewer: { role: ChildActor['role'] } = admin) {
+  function saving(childId: number | null, save: () => number | void, viewer: { permissions: ChildActor['permissions'] } = admin) {
     const before = capacityCells(db, 1, childId, TODAY)
     const id = save() ?? childId!
     return capacityWarnings(db, viewer, 1, id, before, TODAY)
@@ -118,6 +118,6 @@ describe('capacity warnings', () => {
     // Bären has 3 of 2, but the child was there before.
     expect(saving(anna, () => updateChildMaster(db, admin, 1, anna, { ...master({ groupId: bears, firstName: 'Anna', entryDate: '2025-09-01', note: 'x' }), baseGroupId: bears }, TODAY, NOW)))
       .toEqual([])
-    expect(saving(null, () => createChild(db, admin, 1, master({ groupId: bears }), NOW), { role: 'observer' })).toEqual([])
+    expect(saving(null, () => createChild(db, admin, 1, master({ groupId: bears }), NOW), { permissions: permissionsOf('observer') })).toEqual([])
   })
 })

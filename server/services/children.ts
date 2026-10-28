@@ -2,14 +2,14 @@ import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
 import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { groupRight } from '../../shared/domain/groupAccess'
-import { isManager, mayEditChildren } from '../../shared/domain/roles'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { computedSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   CONSENT_KEYS,
   type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
   type ChildMasterUpdateInput, type ChildRecordDto, type ChildrenOverviewDto, type ConsentKey, type GroupAccess, type OpenChildDto,
-  type OverviewContactDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection, type Role, type SectionStamp,
+  type OverviewContactDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection, type SectionStamp,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
@@ -176,7 +176,7 @@ export function getChild(
 ): ChildRecordDto {
   const row = loadChild(db, viewer.facilityId, id)
   const status = childStatus(row, today)
-  if (status === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'child_not_found')
+  if (status === 'archived' && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   assertGroupRight(viewer, row.groupId, 'read')
   const stampUsers = [row.masterUpdatedBy, row.contactsUpdatedBy, row.healthUpdatedBy, row.consentsUpdatedBy]
@@ -187,7 +187,7 @@ export function getChild(
     ({ updatedAt, updatedBy: updatedBy === null ? null : usernames.get(updatedBy) ?? null })
   const keyEducatorName = row.keyEducatorId === null ? null
     : staffOf(db, viewer.facilityId, today).find(person => person.id === row.keyEducatorId)?.name ?? null
-  const canEdit = mayEditChildren(viewer) && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write'
+  const canEdit = can(viewer.permissions, 'children.edit') && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write'
   return {
     id: row.id,
     status,
@@ -206,7 +206,7 @@ export function getChild(
       consents: stampOf(row.consentsUpdatedAt, row.consentsUpdatedBy),
     },
     leftOn: row.leftOn,
-    purgeOn: row.leftOn !== null && isManager(viewer.role) ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
+    purgeOn: row.leftOn !== null && can(viewer.permissions, 'children.manage') ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
     canEdit,
     documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
     developmentDoc: developmentDocOf(db, viewer, row, status, today),
@@ -228,7 +228,7 @@ export function childSchoolCutoff(db: Db, viewer: ChildViewer): SchoolCutoff {
  * has to carry the stored value (`stored`; null for a new child, whose school start then stays the computed one).
  */
 function assertSchoolStartRight(actor: ChildActor, input: IsoDate | null, stored: IsoDate | null): void {
-  if (!isManager(actor.role) && input !== stored) throw new ServiceError(403, 'school_start_managers_only')
+  if (!can(actor.permissions, 'children.manage') && input !== stored) throw new ServiceError(403, 'school_start_managers_only')
 }
 
 function checkedDate(value: IsoDate | null): IsoDate | null {
@@ -542,9 +542,11 @@ export function deleteChild(db: Db, facilityId: number, id: number): void {
  * children (e.g. wrong entries); an archived record only the Träger deletes (403 archived_child_provider_only), as he
  * does after the retention period under Mehr → Löschfristen.
  */
-export function deleteChildRecord(db: Db, actor: { role: Role }, facilityId: number, id: number, today: IsoDate): void {
+export function deleteChildRecord(
+  db: Db, actor: { permissions: ReadonlySet<PermissionKey> }, facilityId: number, id: number, today: IsoDate,
+): void {
   const row = loadChild(db, facilityId, id)
-  if (childStatus(row, today) === 'archived' && actor.role !== 'provider') {
+  if (childStatus(row, today) === 'archived' && !can(actor.permissions, 'children.deleteArchived')) {
     throw new ServiceError(403, 'archived_child_provider_only')
   }
   deleteChild(db, facilityId, id)

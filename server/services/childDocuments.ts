@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
-import { isManager, mayEditChildren } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ChildDocumentDto, ChildDocumentMeta, DocumentOverviewDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -36,7 +36,7 @@ type MetaRow = {
 }
 
 /** Confidential documents may only be opened by those who maintain child records. */
-const mayOpen = (viewer: ChildViewer, row: { confidential: boolean }) => !row.confidential || mayEditChildren(viewer)
+const mayOpen = (viewer: ChildViewer, row: { confidential: boolean }) => !row.confidential || can(viewer.permissions, 'children.edit')
 
 /** The document day; every write requires one, the column is only nullable for historic rows. */
 const dayOf = (row: MetaRow): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
@@ -84,7 +84,7 @@ export function listDocuments(
   db: Db, viewer: ChildViewer, facilityId: number, childId: number, today: IsoDate = todayIso(),
 ): ChildDocumentDto[] {
   const child = loadChild(db, facilityId, childId)
-  if (childStatus(child, today) === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'child_not_found')
+  if (childStatus(child, today) === 'archived' && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(child, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   assertGroupRight(viewer, child.groupId, 'read')
   const rows: MetaRow[] = db.select(META_COLUMNS).from(childDocuments).where(eq(childDocuments.childId, childId))
@@ -128,7 +128,7 @@ export function readDocumentFile(
     .innerJoin(documentTypes, eq(documentTypes.id, childDocuments.documentTypeId))
     .where(eq(childDocuments.id, id)).get()
   if (!row || row.facilityId !== facilityId) throw new ServiceError(404, 'document_not_found')
-  if (childStatus(row, today) === 'archived' && !isManager(viewer.role)) throw new ServiceError(404, 'document_not_found')
+  if (childStatus(row, today) === 'archived' && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'document_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'document_not_found')
   assertGroupRight(viewer, row.groupId, 'read', 'document_not_found')
   if (!mayOpen(viewer, row)) throw new ServiceError(404, 'document_not_found')

@@ -9,7 +9,7 @@ import {
   deleteExpiredUnlocks, lockChildren, tabletChildViewer, tabletUnlockStatus, unlockChildren,
 } from '../../server/services/tabletUnlock'
 import { setTabletSettings } from '../../server/services/tabletSettings'
-import { addEmployee, addFacility, addHelpOut, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, createTestDb, errorCode, permissionsOf, templateId } from '../helpers/fixtures'
 
 const at = (iso: string) => new Date(iso)
 const NOW = at('2026-10-06T06:00:00Z')
@@ -182,7 +182,7 @@ describe('unlocking the tablet for child records', () => {
       const { token } = unlock()
       expect(viewer(token)).toEqual({
         id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
-        visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
+        permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
       })
     })
     it('gives a Mitarbeiter account its edit flag, as it is now', () => {

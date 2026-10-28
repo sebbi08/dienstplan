@@ -3,7 +3,7 @@ import { setAbsence } from '../../services/childAttendance'
 
 /** Enters (or with kind null clears) an absence for a day or a range; answers how many days changed. */
 export default defineServiceHandler(async (event) => {
-  const viewer = await requireChildReader(event)
+  const viewer = await requireChildPermission(event, 'children.attendance')
   const body = await readValidatedBody(event, attendanceAbsenceSchema.parse)
   return { changed: setAbsence(useDb(), viewer, body) }
 })

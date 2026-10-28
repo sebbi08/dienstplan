@@ -5,7 +5,7 @@ import { createChild } from '../../services/children'
 
 /** Creates a child; `capacityWarnings` names the groups and the facility it takes over their Höchstzahl Kinder. */
 export default defineServiceHandler(async (event) => {
-  const actor = await requireChildEditor(event)
+  const actor = await requireChildPermission(event, 'children.edit')
   const body = await readValidatedBody(event, childCreateSchema.parse)
   const db = useDb()
   const id = createChild(db, actor, actor.facilityId, body)

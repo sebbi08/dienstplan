@@ -3,7 +3,7 @@ import { getAttendanceMonth } from '../../services/childAttendance'
 
 /** The month table of the child attendance; every child viewer may read it. */
 export default defineServiceHandler(async (event) => {
-  const viewer = await requireChildReader(event)
+  const viewer = await requireChildPermission(event, 'children.view')
   const { year, month } = await getValidatedQuery(event, attendanceMonthQuery.parse)
   return getAttendanceMonth(useDb(), viewer, year, month)
 })

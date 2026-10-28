@@ -5,7 +5,7 @@ import {
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type {
   ChildFormDto, ChildFormEditorDto, ChildFormInput, ChildFormListItemDto, ChildFormSavedDto, ChildFormSaveInput,
@@ -34,7 +34,7 @@ function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Dat
   const today = nowInBerlin(now).date
   const row = loadChild(db, viewer.facilityId, childId)
   const archived = childStatus(row, today) === 'archived'
-  if (archived && !isManager(viewer.role)) throw new ServiceError(404, 'child_not_found')
+  if (archived && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   assertGroupRight(viewer, row.groupId, 'read')
   return { row, archived }
@@ -49,7 +49,7 @@ function loadForm(db: Db, viewer: ChildViewer, formId: number, now: Date): { for
 }
 
 const asRightViewer = (viewer: ChildViewer): ChildFormViewer =>
-  ({ role: viewer.role, onTablet: viewer.onTablet, employeeId: viewer.employeeId, canSeeChild: true })
+  ({ permissions: viewer.permissions, onTablet: viewer.onTablet, employeeId: viewer.employeeId, canSeeChild: true })
 
 /** The employees unlocked for each of these forms. */
 function editorsOf(db: Db, formIds: number[]): Map<number, Set<number>> {
@@ -214,7 +214,7 @@ export function saveChildForm(
   return { updatedAt, updatedBy: viewer.name }
 }
 
-/** 403 forbidden unless Leitung or Träger. */
+/** 403 forbidden without childForms.manage (Leitung, Träger). */
 function assertManager(viewer: ChildViewer): void {
   if (!canManageChildForms(viewer)) throw new ServiceError(403, 'forbidden')
 }

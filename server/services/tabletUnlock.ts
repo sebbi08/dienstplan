@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { and, eq, inArray } from 'drizzle-orm'
-import { isManager, mayEditChildren } from '../../shared/domain/roles'
+import { can, effectivePermissions } from '../../shared/domain/permissions'
 import { UNLOCK_GRACE_SECONDS } from '../../shared/domain/tablet'
 import type {
   ChildRightsDto, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
@@ -10,6 +10,7 @@ import { employees, facilities, terminalUnlocks, users } from '../db/schema'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { readableGroupIds } from './groupReadAccess'
+import { accountPermissions } from './permissions'
 import { getTabletSettings } from './tabletSettings'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -19,6 +20,11 @@ type Resolved =
   | { unlocked: false; dropped?: UnlockRow }
   | { unlocked: true; row: UnlockRow; person: TerminalPersonDto; settings: TabletSettingsDto; viewer: ChildViewer }
 
+/** A person without (active) account of the home facility at the tablet: the Mitarbeiter defaults, no flags. */
+const NO_ACCOUNT = effectivePermissions({
+  role: 'observer', canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false,
+})
+
 /** The moment after which the server no longer accepts an unlock that was last used at lastActiveAt. */
 function validUntil(lastActiveAt: string, lockMinutes: number): number {
   return Date.parse(lastActiveAt) + (lockMinutes * 60 + UNLOCK_GRACE_SECONDS) * 1000
@@ -26,9 +32,11 @@ function validUntil(lastActiveAt: string, lockMinutes: number): number {
 
 /**
  * The rights of the person who unlocked, as they are now (spec §4.1): home staff with an active linked account have the
- * rights of that account; everyone else (no or deactivated account, helpers) can only read. Home staff with a group and
- * without manager rights work with their own group and the groups it may read (group book spec §3.1); everyone else
- * with every group.
+ * permissions of that account (with its per-person flags); everyone else (no or deactivated account, helpers) has the
+ * Mitarbeiter defaults without any flag, so reads and keeps the attendance, but changes no record. Home staff with a
+ * group and without children.manage work with their own group and the groups it may read (group book spec §3.1);
+ * everyone else with every group (ruling: no home group = all groups). Without children.planned the tablet switches
+ * decide which planned children are shown.
  */
 function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): ChildViewer {
   const employee = db.select({ facilityId: employees.facilityId, name: employees.name, groupId: employees.groupId })
@@ -38,15 +46,18 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     ? db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
     : undefined
   const role = account?.role ?? 'observer'
-  const ownGroup = homeStaff && !isManager(role) ? employee.groupId : null
+  const permissions = account ? accountPermissions(db, account) : NO_ACCOUNT
+  const ownGroup = homeStaff && !can(permissions, 'children.manage') ? employee.groupId : null
   return {
     id: account?.id ?? null,
     employeeId,
     name: employee?.name ?? '',
     role,
     canEditChildren: account?.canEditChildren ?? false,
+    permissions,
     facilityId: terminal.facilityId,
-    visibility: isManager(role) ? null : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts },
+    visibility: can(permissions, 'children.planned') ? null
+      : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts },
     onTablet: true,
     // No facility check here: the employee's group is one of the home facility, and a stray one must not break the tablet.
     groups: ownGroup === null ? null : { own: ownGroup, readable: readableGroupIds(db, ownGroup) },
@@ -66,8 +77,8 @@ function resolveUnlock(db: Db, terminal: Terminal, token: string | undefined, no
 
 function rightsOf(viewer: ChildViewer): ChildRightsDto {
   return {
-    canEdit: mayEditChildren(viewer),
-    isManager: isManager(viewer.role),
+    canEdit: can(viewer.permissions, 'children.edit'),
+    isManager: can(viewer.permissions, 'children.manage'),
     canMoveFacility: false,
     showWaitlist: viewer.visibility?.waitlist ?? true,
     showFutureContracts: viewer.visibility?.futureContracts ?? true,
@@ -136,22 +147,23 @@ export function tabletChildViewer(
 
 /**
  * Who looks at child records with this request (spec §4, §8.2): the tablet only through a valid unlock (403
- * tablet_locked otherwise; the request counts as use), Leitung and Träger with their own account in their facility (403
- * no_facility without one). Every other account, Mitarbeiter with or without the edit flag, sees no child data at all:
- * 403 children_tablet_only.
+ * tablet_locked otherwise; the request counts as use), an account with children.ownAccount (Leitung and Träger) in its
+ * facility (403 no_facility without one). Every other account, Mitarbeiter with or without the edit flag, sees no child
+ * data at all: 403 children_tablet_only.
  */
 export function resolveChildViewer(db: Db, user: SessionUser, token: string | undefined, now: Date = new Date()): ChildViewer {
   if (user.role === 'terminal') {
     if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
     return tabletChildViewer(db, { id: user.id, facilityId: user.facilityId }, token, now, true)
   }
-  if (!isManager(user.role)) throw new ServiceError(403, 'children_tablet_only')
+  if (!can(user.permissions, 'children.ownAccount')) throw new ServiceError(403, 'children_tablet_only')
   if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
   const employee = user.employeeId === null ? undefined
     : db.select({ name: employees.name }).from(employees).where(eq(employees.id, user.employeeId)).get()
   return {
     id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
-    canEditChildren: user.canEditChildren, facilityId: user.facilityId, visibility: null, onTablet: false, groups: null,
+    canEditChildren: user.canEditChildren, permissions: user.permissions, facilityId: user.facilityId, visibility: null,
+    onTablet: false, groups: null,
   }
 }
 

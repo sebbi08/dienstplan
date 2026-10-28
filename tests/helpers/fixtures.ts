@@ -10,6 +10,7 @@ import { hashPassword } from '../../server/lib/password'
 import { toSessionUser } from '../../server/services/auth'
 import { createFacility } from '../../server/services/facilities'
 import { createGroup } from '../../server/services/groups'
+import { effectivePermissions, type PermissionKey } from '../../shared/domain/permissions'
 import type { Role, SessionUser } from '../../shared/types/api'
 
 export const TEST_PASSWORD = 'secret-password'
@@ -61,13 +62,20 @@ export function addUser(
   return toSessionUser(db, row)
 }
 
+/** The permissions of an account of the role with the child flag as given (no leave planner, no contract switch). */
+export function permissionsOf(role: Role, canEditChildren = false): ReadonlySet<PermissionKey> {
+  return effectivePermissions({ role, canEditChildren, isLeavePlanner: false, contractVisibleToAdmins: false })
+}
+
 /**
  * The account as the child guards see it at the office (no visibility switches, not on the tablet, every group), named
- * by its username. The user's own fields stay, so the same object still serves the services that take a session user.
+ * by its username, with the permissions of its role and child flag as passed (a test may pass the flag changed). The
+ * user's own fields stay, so the same object still serves the services that take a session user.
  */
 export function asChildViewer(user: SessionUser, facilityId = 1): ChildActor {
   return {
-    ...user, name: user.username, facilityId: user.facilityId ?? facilityId, visibility: null, onTablet: false, groups: null,
+    ...user, name: user.username, permissions: permissionsOf(user.role, user.canEditChildren),
+    facilityId: user.facilityId ?? facilityId, visibility: null, onTablet: false, groups: null,
   }
 }
 

@@ -1,13 +1,15 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { CHILD_ACTOR_KEYS } from '../../server/lib/childViewer'
 import { effectivePermissions, PERMISSION_KEYS, PERMISSIONS, type PermissionKey } from '../../shared/domain/permissions'
 
 const API_DIR = join(process.cwd(), 'server', 'api')
 
 /**
- * Every route checks one permission (`requirePermission(event, '<key>'`), or keeps one of the fixed guards below. Who
- * gets in under the role defaults must equal who got in before the switch (tests/fixtures/route-access-before.json,
+ * Every route checks one permission (`requirePermission(event, '<key>'`, on the child pages
+ * `requireChildPermission(event, '<key>')`), or keeps one of the fixed guards below. Who gets in under the role defaults
+ * (at the tablet: the unlocking person's) must equal who got in before the switch (tests/fixtures/route-access-before.json,
  * frozen from the old role guards; Rechte und Rollen Teil 1, review focus 1).
  */
 
@@ -45,34 +47,40 @@ const TERMINAL_ROUTES = [
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
 
-/** The child observation forms (Beobachtungsbögen), among the child reader routes. */
+/** The child observation forms (Beobachtungsbögen), among the child view routes. */
 const CHILD_FORM_ROUTES = [
   'children/[id]/forms/index.get.ts', 'children/[id]/forms/index.post.ts', 'child-forms/[formId].get.ts',
   'child-forms/[formId].put.ts', 'child-forms/[formId].delete.ts', 'child-forms/[formId]/editors.get.ts',
   'child-forms/[formId]/editors.put.ts',
 ]
 /**
- * Pending Task 3 (children and tablet): the routes behind the child guards keep requireChildReader(, until Task 3 moves
- * them to permissions. Whoever looks at child records: Träger and Leitung with their account, the person who unlocked
- * the tablet; never a Mitarbeiter account.
+ * The child pages check with requireChildPermission(: an account needs children.ownAccount besides the key (403
+ * children_tablet_only), the tablet an unlock (403 tablet_locked), and there the unlocking person's permissions count.
+ * children.view: whoever looks at child records (the services decide per group and per form who reads and who writes).
  */
-const CHILD_READER_ROUTES = [
+const CHILD_VIEW_ROUTES = [
   'care-types/index.get.ts', 'document-types/index.get.ts', 'children/index.get.ts', 'children/planned.get.ts', 'children/birthdays.get.ts', 'children/groups.get.ts',
   'children/open.get.ts', 'children/staff.get.ts', 'children/school-cutoff.get.ts', 'children/[id].get.ts', 'child-documents/[id]/file.get.ts', 'child-documents/overview.get.ts',
   // The Excel-like overview: the tablet lock for staff like the records (spec Übersicht §3).
   'children/overview.get.ts',
-  // Attendance: every child viewer reads and writes it (spec Anwesenheit §7).
-  'attendance/day.get.ts', 'attendance/arrive.post.ts', 'attendance/leave.post.ts', 'attendance/announcements/index.post.ts',
-  'attendance/announcements/[id].delete.ts', 'attendance/absence.put.ts', 'attendance/day.put.ts', 'attendance/stays/[id].put.ts',
-  'attendance/stays/[id].delete.ts', 'attendance/history.get.ts', 'attendance/month.get.ts', 'attendance/month-remark.put.ts',
-  // Weekly overview of the group books: the service decides per group who reads and who writes.
-  'group-book/week.get.ts', 'group-book/week.put.ts', 'group-book/day.put.ts', 'group-book/history.get.ts',
-  // Reminders and the development documentation's done/undo: the service decides by the group rights (spec Erinnerungen §2.3).
-  'children/reminders.get.ts', 'children/[id]/development-docs.post.ts', 'children/development-docs/[id].delete.ts',
+  'attendance/day.get.ts', 'attendance/history.get.ts', 'attendance/month.get.ts',
+  'group-book/week.get.ts', 'group-book/history.get.ts',
+  'children/reminders.get.ts',
   // Observation forms: whoever sees the record reads them; the service decides per form who edits (spec Bögen §4).
   ...CHILD_FORM_ROUTES,
 ]
-/** Pending Task 3: maintaining child records (managers, and at the tablet Mitarbeiter with the flag), requireChildEditor(. */
+/**
+ * children.attendance: attendance (every child viewer writes it, spec Anwesenheit §7), the group books and the
+ * development documentation's done/undo; the service decides by the group rights (spec Erinnerungen §2.3).
+ */
+const CHILD_ATTENDANCE_ROUTES = [
+  'attendance/arrive.post.ts', 'attendance/leave.post.ts', 'attendance/announcements/index.post.ts',
+  'attendance/announcements/[id].delete.ts', 'attendance/absence.put.ts', 'attendance/day.put.ts', 'attendance/stays/[id].put.ts',
+  'attendance/stays/[id].delete.ts', 'attendance/month-remark.put.ts',
+  'group-book/week.put.ts', 'group-book/day.put.ts',
+  'children/[id]/development-docs.post.ts', 'children/development-docs/[id].delete.ts',
+]
+/** children.edit: maintaining child records (Leitung, Träger; at the tablet Mitarbeiter with the flag). */
 const CHILD_EDITOR_ROUTES = [
   'children/index.post.ts', 'children/[id]/master.put.ts', 'children/[id]/health.put.ts',
   'children/[id]/consents.put.ts', 'children/[id]/confirm.post.ts', 'children/[id]/contacts.post.ts', 'children/[id]/contacts/order.post.ts',
@@ -81,13 +89,19 @@ const CHILD_EDITOR_ROUTES = [
   // Parent meetings: the record section's rights; the service keeps the note to Leitung and Träger (spec Elterngespräche §1).
   'children/[id]/meetings.post.ts', 'children/meetings/[id].put.ts', 'children/meetings/[id].delete.ts',
 ]
-/** Pending Task 3: the child pages for Träger and Leitung, at the office or at the unlocked tablet, requireChildManager(. */
+/** children.manage: the Leitung's child pages, at the office or at the unlocked tablet. */
 const CHILD_MANAGER_ROUTES = [
   'children/[id].delete.ts', 'children/archive.get.ts', 'children/occupancy.get.ts', 'children/school-children.get.ts',
   'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
   'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts',
 ]
-const PENDING_TASK_3 = [...CHILD_READER_ROUTES, ...CHILD_EDITOR_ROUTES, ...CHILD_MANAGER_ROUTES]
+/** Each child route with the one permission it checks. */
+const CHILD_ROUTES: Record<string, PermissionKey> = Object.fromEntries([
+  ...CHILD_VIEW_ROUTES.map(route => [route, 'children.view']),
+  ...CHILD_ATTENDANCE_ROUTES.map(route => [route, 'children.attendance']),
+  ...CHILD_EDITOR_ROUTES.map(route => [route, 'children.edit']),
+  ...CHILD_MANAGER_ROUTES.map(route => [route, 'children.manage']),
+])
 
 /**
  * Routes without a facility of their own (`facility: 'none'`) act on any facility, so their permission must stay with
@@ -106,10 +120,19 @@ const DEFAULTS = {
   admin: effectivePermissions({ role: 'admin', ...plain }),
   observer: effectivePermissions({ role: 'observer', ...plain }),
 }
+/** The unlocking person's permissions at the tablet; a person without account has the Mitarbeiter defaults. */
+const TABLET_PERMISSIONS: Record<string, ReadonlySet<PermissionKey>> = {
+  'tablet:provider': new Set(PERMISSION_KEYS),
+  'tablet:admin': DEFAULTS.admin,
+  'tablet:observerEditor': effectivePermissions({ role: 'observer', ...plain, canEditChildren: true }),
+  'tablet:observer': DEFAULTS.observer,
+  'tablet:noAccount': DEFAULTS.observer,
+}
 const PROVIDER_ONLY = new Set(PERMISSIONS.filter(permission => permission.providerOnly).map(permission => permission.key))
 
-const OLD_GUARDS = /require(Admin|Provider|TemplateReader)\(/
+const OLD_GUARDS = /require(Admin|Provider|TemplateReader|ChildReader|ChildEditor|ChildManager)\(/
 const PERMISSION_CALL = /requirePermission\(event, '([^']+)'(?:, (\{[^}]*\}))?\)/g
+const CHILD_PERMISSION_CALL = /requireChildPermission\(event, '([^']+)'\)/g
 
 const routes = (readdirSync(API_DIR, { recursive: true }) as string[])
   .map(file => relative(API_DIR, join(API_DIR, file)).split(sep).join('/'))
@@ -136,16 +159,23 @@ function permissionActors(key: PermissionKey, options: string): string[] {
   return actors
 }
 
-/** Who passes the fixed and the (pending) child guards. */
+/**
+ * Who passes `requireChildPermission(event, key)` under the role defaults: an account with children.ownAccount and
+ * the key, the tablet unlocked by a person with the key; the keys that change records also need an account.
+ */
+function childPermissionActors(key: PermissionKey): string[] {
+  const office = ['provider', ...(['admin', 'observer'] as const)
+    .filter(role => DEFAULTS[role].has('children.ownAccount') && DEFAULTS[role].has(key))]
+  const needsAccount = (CHILD_ACTOR_KEYS as readonly PermissionKey[]).includes(key)
+  return [...office, ...TABLET_PEOPLE.filter(actor => TABLET_PERMISSIONS[actor]!.has(key)
+    && !(needsAccount && actor === 'tablet:noAccount'))]
+}
+
+/** Who passes the fixed guards. */
 function guardActors(route: string): string[] {
   if (PUBLIC_ROUTES.includes(route)) return ['anonymous', 'provider', 'admin', 'observer', 'terminal']
   if (TERMINAL_ROUTES.includes(route)) return ['terminal']
   if (USER_ROUTES.includes(route)) return ['provider', 'admin', 'observer']
-  if (CHILD_MANAGER_ROUTES.includes(route)) return ['provider', 'admin', 'tablet:provider', 'tablet:admin']
-  if (CHILD_EDITOR_ROUTES.includes(route)) {
-    return ['provider', 'admin', 'tablet:provider', 'tablet:admin', 'tablet:observerEditor']
-  }
-  if (CHILD_READER_ROUTES.includes(route)) return ['provider', 'admin', ...TABLET_PEOPLE]
   throw new Error(`${route}: no fixed guard`)
 }
 
@@ -158,37 +188,42 @@ function expanded(actors: string[]): string[] {
 describe('API route permissions', () => {
   it('finds the API routes, and every listed route exists once', () => {
     expect(routes).toHaveLength(Object.keys(fixture).length)
-    const fixed = [...USER_ROUTES, ...TERMINAL_ROUTES, ...PUBLIC_ROUTES, ...PENDING_TASK_3]
+    const fixed = [...USER_ROUTES, ...TERMINAL_ROUTES, ...PUBLIC_ROUTES, ...Object.keys(CHILD_ROUTES)]
     expect(new Set(fixed).size).toBe(fixed.length)
     for (const route of fixed) expect(routes).toContain(route)
     for (const route of Object.keys(FACILITY_FREE_EXCEPTIONS)) expect(routes).toContain(route)
+    const childLists = [CHILD_VIEW_ROUTES, CHILD_ATTENDANCE_ROUTES, CHILD_EDITOR_ROUTES, CHILD_MANAGER_ROUTES].flat()
+    expect(childLists).toHaveLength(Object.keys(CHILD_ROUTES).length)
   })
 
   it.each(routes)('%s lets in exactly who got in before the switch', (route) => {
     const code = source(route)
     expect(code, 'the role guards are gone').not.toMatch(OLD_GUARDS)
     const calls = permissionCalls(route)
+    const childCalls = [...code.matchAll(CHILD_PERMISSION_CALL)].map(([, key]) => key!)
     if (PUBLIC_ROUTES.includes(route)) {
-      expect(code).not.toMatch(/require(User|Terminal|Permission|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code).not.toMatch(/require(User|Terminal|Permission|ChildPermission)\(/)
     }
     else if (TERMINAL_ROUTES.includes(route)) {
       expect(code).toContain('requireTerminal(')
-      expect(code).not.toMatch(/require(User|Permission|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code).not.toMatch(/require(User|Permission|ChildPermission)\(/)
     }
     else if (USER_ROUTES.includes(route)) {
       expect(code).toContain('requireUser(')
-      expect(code).not.toMatch(/allowTerminal|require(Terminal|Permission|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code).not.toMatch(/allowTerminal|require(Terminal|Permission|ChildPermission)\(/)
     }
-    else if (PENDING_TASK_3.includes(route)) {
-      const guard = CHILD_MANAGER_ROUTES.includes(route) ? 'requireChildManager('
-        : CHILD_EDITOR_ROUTES.includes(route) ? 'requireChildEditor(' : 'requireChildReader('
-      expect(code).toContain(guard)
+    else if (route in CHILD_ROUTES) {
+      expect(childCalls, `${route}: one child permission, the declared one`).toEqual([CHILD_ROUTES[route]])
+      expect(code.match(/requireChildPermission\(/g), 'one child permission check, written in one call').toHaveLength(1)
       expect(code).not.toMatch(/require(User|Terminal|Permission)\(/)
+      expect(calls).toHaveLength(0)
+      expect(expanded(childPermissionActors(CHILD_ROUTES[route]!)), route).toEqual(expanded(fixture[route]!))
+      return
     }
     else {
       expect(calls, 'new routes must check exactly one permission: requirePermission(event, \'<key>\'').toHaveLength(1)
       expect(code.match(/requirePermission\(/g), 'one permission check, written in one call').toHaveLength(1)
-      expect(code).not.toMatch(/require(User|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code).not.toMatch(/require(User|Terminal|ChildPermission)\(/)
       const [{ key, options }] = calls as [{ key: string; options: string }]
       expect(PERMISSION_KEYS as readonly string[], route).toContain(key)
       expect(expanded(permissionActors(key as PermissionKey, options)), route).toEqual(expanded(fixture[route]!))
@@ -198,13 +233,28 @@ describe('API route permissions', () => {
       return
     }
     expect(calls).toHaveLength(0)
+    expect(childCalls).toHaveLength(0)
     expect(expanded(guardActors(route)), route).toEqual(expanded(fixture[route]!))
   })
 
   it('keeps no role guard in server/utils/auth.ts', () => {
     const auth = readFileSync(join(process.cwd(), 'server', 'utils', 'auth.ts'), 'utf8')
-    expect(auth).not.toMatch(/export async function require(Admin|Provider|TemplateReader)\b/)
+    expect(auth).not.toMatch(/export async function require(Admin|Provider|TemplateReader|ChildReader|ChildEditor|ChildManager)\b/)
     expect(auth).toMatch(/export async function requirePermission\(/)
+    expect(auth).toMatch(/export async function requireChildPermission\(/)
+  })
+
+  it('decides on child records by the permissions of the person acting, never by the role', () => {
+    // At the tablet the viewer carries the unlocking person's permissions (tabletUnlock.ts viewerFor); the role stays
+    // only to name who they are.
+    const files = ['server/lib/childRecord.ts', 'server/lib/childViewer.ts', 'shared/domain/childForms.ts',
+      ...['capacityWarnings', 'childAttendance', 'childContacts', 'childDocuments', 'childForms', 'childGroupChanges',
+        'children', 'groupBook', 'groups', 'parentMeetings', 'reminders', 'tabletUnlock']
+        .map(name => `server/services/${name}.ts`)]
+    for (const file of files) {
+      const code = readFileSync(join(process.cwd(), file), 'utf8')
+      expect(code, file).not.toMatch(/\bisManager\(|\bmayEditChildren\(|\b(viewer|actor|reader|editor|manager)\.role\b|rolePermissions\(/)
+    }
   })
 
   it('checks the facility-free exceptions themselves', () => {
@@ -273,9 +323,9 @@ describe('API route permissions', () => {
     expect(touching).toEqual([...CHILD_FORM_ROUTES].sort())
     for (const route of touching) {
       const code = source(route)
-      // requireChildReader refuses a Mitarbeiter account outside the tablet (403 children_tablet_only).
-      expect(code, route).toContain('requireChildReader(event)')
-      expect(code, route).not.toMatch(/require(User|Permission|Terminal|ChildEditor|ChildManager)\(/)
+      // The child guard refuses a Mitarbeiter account outside the tablet (403 children_tablet_only).
+      expect(code, route).toContain("requireChildPermission(event, 'children.view')")
+      expect(code, route).not.toMatch(/require(User|Permission|Terminal)\(/)
       expect(code, route).toContain('(useDb(), viewer,')
     }
   })
@@ -311,7 +361,7 @@ describe('API route permissions', () => {
       const code = source(route)
       // Whose facility follows from the session alone; the service resolves the member (teamMember).
       expect(code, route).toContain('teamMember(useDb(), ')
-      expect(code, route).not.toMatch(/getQuery\(|facilityId|require(User|Terminal|ChildReader|ChildEditor|ChildManager)\(/)
+      expect(code, route).not.toMatch(/getQuery\(|facilityId|require(User|Terminal|ChildPermission)\(/)
       // The Träger's stale page (409 facility_changed) and accounts without a facility (403 no_facility); the members
       // always in the active facility (as requireFacility's result was not used before).
       expect(code, route).not.toContain("facility: 'none'")
@@ -405,14 +455,14 @@ describe('API route permissions', () => {
     for (const route of touching) {
       const code = source(route)
       expect(CHILD_MANAGER_ROUTES, route).toContain(route)
-      expect(code, route).toContain('requireChildManager(')
-      expect(code, route).not.toMatch(/require(User|Permission|Terminal|ChildReader|ChildEditor)\(/)
+      expect(code, route).toContain("requireChildPermission(event, 'children.manage')")
+      expect(code, route).not.toMatch(/require(User|Permission|Terminal)\(/)
       expect(code, route).toContain('manager.facilityId')
     }
   })
 
-  it('checks with requireChildManager( on exactly the child pages for managers', () => {
-    const managing = routes.filter(route => source(route).includes('requireChildManager('))
+  it('checks children.manage on exactly the child pages for managers', () => {
+    const managing = routes.filter(route => source(route).includes("requireChildPermission(event, 'children.manage')"))
     expect(managing).toEqual([...CHILD_MANAGER_ROUTES].sort())
   })
 
@@ -447,8 +497,8 @@ describe('API route permissions', () => {
 
   it('opens the list of the coming school children to managers of the active facility only', () => {
     const code = source('children/school-children.get.ts')
-    expect(code).toContain('requireChildManager(')
-    expect(code).not.toMatch(/require(User|Permission|Terminal|ChildReader|ChildEditor)\(/)
+    expect(code).toContain("requireChildPermission(event, 'children.manage')")
+    expect(code).not.toMatch(/require(User|Permission|Terminal)\(/)
     expect(code).toContain('manager.facilityId')
   })
 

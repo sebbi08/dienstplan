@@ -3,7 +3,7 @@ import { fileQuery, idParams } from '../../../schemas'
 import { readDocumentFile } from '../../../services/childDocuments'
 
 export default defineServiceHandler(async (event) => {
-  const viewer = await requireChildReader(event)
+  const viewer = await requireChildPermission(event, 'children.view')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const query = await getValidatedQuery(event, fileQuery.parse)
   // Decided before the file is read: at the tablet only the in-app viewer gets it, never as a download.

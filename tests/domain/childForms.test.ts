@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { canCreateChildForm, canManageChildForms, childFormRight } from '../../shared/domain/childForms'
+import { effectivePermissions } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
 
 const ANNA = 1
 const BERTA = 2
 const CARLA = 3
 
+/** The viewer with the permissions of an account of the role (no flags). */
 function viewer(over: Partial<{ role: Role; onTablet: boolean; employeeId: number | null; canSeeChild: boolean }> = {}) {
-  return { role: 'terminal' as Role, onTablet: true, employeeId: ANNA, canSeeChild: true, ...over }
+  const { role, ...rest } = { role: 'terminal' as Role, onTablet: true, employeeId: ANNA, canSeeChild: true, ...over }
+  const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
+  return { permissions, ...rest }
 }
 const child = { keyEducatorId: ANNA }
 const form = { id: 10 }

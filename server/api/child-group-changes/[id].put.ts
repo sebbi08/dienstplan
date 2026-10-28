@@ -5,7 +5,7 @@ import { childOfGroupChange, updateGroupChange } from '../../services/childGroup
 
 /** Changes a planned group change until the day before it takes effect, with the capacity hint as when planning. */
 export default defineServiceHandler(async (event) => {
-  const manager = await requireChildManager(event)
+  const manager = await requireChildPermission(event, 'children.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readValidatedBody(event, groupChangeSchema.parse)
   const db = useDb()

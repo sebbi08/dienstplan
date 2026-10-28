@@ -9,7 +9,8 @@ import { addMeeting } from '../../server/services/parentMeetings'
 import { listReminders, markDocDone, undoDocDone } from '../../server/services/reminders'
 import type { DocSettings } from '../../shared/domain/reminders'
 import type { MeetingKind } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf,
+} from '../helpers/fixtures'
 
 const TODAY = '2026-10-20'
 const NOW = new Date('2026-10-20T08:00:00Z')
@@ -38,7 +39,8 @@ describe('reminders', () => {
     fuechse = addGroup(db, 1, 'Füchse')
     berta = addEmployee(db, 'Berta', { groupId: baeren })
     staff = {
-      id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, facilityId: 1,
+      id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, permissions: permissionsOf('observer'),
+      facilityId: 1,
       visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: baeren, readable: [maeuse] },
     }
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))

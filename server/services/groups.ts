@@ -2,10 +2,10 @@ import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
 import { todayIso } from '../../shared/domain/dates'
 import { groupRight } from '../../shared/domain/groupAccess'
-import { can } from '../../shared/domain/permissions'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import { isGroupColor } from '../../shared/types/api'
-import type { ChildGroupDto, GroupAccess, GroupColor, GroupDto, Role, SnapshotData } from '../../shared/types/api'
+import type { ChildGroupDto, GroupAccess, GroupColor, GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   cashBoxes, childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
@@ -13,7 +13,6 @@ import {
 import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
-import { rolePermissions } from './permissions'
 import { isStaffingGroupType } from './staffing'
 
 /** A stored colour key, null for none or a key no longer in the palette. */
@@ -35,13 +34,12 @@ export function listGroups(db: Db, facilityId: number): GroupDto[] {
 /**
  * The facility's groups for the child pages, readable for everyone who sees child records, with the viewer's right in
  * each (`groupRight`): groups hidden from the viewer are left out, so a form offers only what the server accepts. The
- * places (capacity) belong to the occupancy (children.manage: Träger and Leitung; the viewer's role decides, see
- * rolePermissions): everybody else gets them as null.
+ * places (capacity) belong to the occupancy (children.manage: Träger and Leitung): everybody else gets them as null.
  */
 export function listChildGroups(
-  db: Db, viewer: { facilityId: number; role: Role | null; groups: GroupAccess | null },
+  db: Db, viewer: { facilityId: number; permissions: ReadonlySet<PermissionKey>; groups: GroupAccess | null },
 ): ChildGroupDto[] {
-  const manager = viewer.role !== null && can(rolePermissions(db, viewer.role), 'children.manage')
+  const manager = can(viewer.permissions, 'children.manage')
   return listGroups(db, viewer.facilityId).flatMap((group) => {
     const right = groupRight(group.id, viewer.groups)
     if (right === 'none') return []

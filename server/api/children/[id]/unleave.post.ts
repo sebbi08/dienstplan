@@ -9,7 +9,7 @@ import { unleaveChild } from '../../../services/children'
  * `capacityWarnings` names the group and the facility the child then takes over their Höchstzahl Kinder.
  */
 export default defineServiceHandler(async (event) => {
-  const manager = await requireChildManager(event)
+  const manager = await requireChildPermission(event, 'children.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { schoolStartDate } = await readValidatedBody(event, body => childUnleaveSchema.parse(body ?? {}))
   const db = useDb()

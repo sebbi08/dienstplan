@@ -3,7 +3,7 @@ import { listChildFormEditors } from '../../../services/childForms'
 
 /** The employees unlocked for the form (Leitung and Träger; checked by the service). */
 export default defineServiceHandler(async (event) => {
-  const viewer = await requireChildReader(event)
+  const viewer = await requireChildPermission(event, 'children.view')
   const { formId } = await getValidatedRouterParams(event, formIdParams.parse)
   return listChildFormEditors(useDb(), viewer, formId)
 })

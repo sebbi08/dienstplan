@@ -3,7 +3,7 @@ import { setChildFormEditors } from '../../../services/childForms'
 
 /** „Mitarbeiter freischalten“: sets the employees unlocked for the form (Leitung and Träger; checked by the service). */
 export default defineServiceHandler(async (event) => {
-  const viewer = await requireChildReader(event)
+  const viewer = await requireChildPermission(event, 'children.view')
   const { formId } = await getValidatedRouterParams(event, formIdParams.parse)
   const { employeeIds } = await readValidatedBody(event, childFormEditorsSchema.parse)
   return setChildFormEditors(useDb(), viewer, formId, employeeIds)

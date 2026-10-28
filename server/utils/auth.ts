@@ -1,12 +1,11 @@
 import type { H3Event } from 'h3'
 import { PAGE_FACILITY_HEADER, SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
-import { isManager } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
 import { facilityExists } from '../services/facilities'
 import { resolveChildViewer } from '../services/tabletUnlock'
-import { asChildEditor, asChildManager, type ChildActor, type ChildViewer } from '../lib/childViewer'
+import { asChildPermission, type ChildActor, type ChildActorKey, type ChildViewer } from '../lib/childViewer'
 import { assertPageFacility, requestFacility } from '../lib/pageFacility'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
 
@@ -131,25 +130,18 @@ export async function storeChildUnlockToken(event: H3Event, token: string): Prom
 }
 
 /**
- * Whoever looks at child records (see `resolveChildViewer`): Träger and Leitung with their own account, or the person
- * who unlocked the facility's tablet. A Mitarbeiter account gets 403 children_tablet_only, a locked tablet 403
- * tablet_locked.
+ * Whoever looks at child records (see `resolveChildViewer`) with the permission `key`: an account with
+ * children.ownAccount (Träger and Leitung), or the person who unlocked the facility's tablet, with that person's
+ * permissions. Any other account gets 403 children_tablet_only, a locked tablet 403 tablet_locked, a viewer without the
+ * key 403 forbidden; children.edit and children.manage also need an account (403 forbidden for a person without one).
  */
-export async function requireChildReader(event: H3Event): Promise<ChildViewer> {
+export async function requireChildPermission(event: H3Event, key: ChildActorKey): Promise<ChildActor>
+export async function requireChildPermission(event: H3Event, key: PermissionKey): Promise<ChildViewer>
+export async function requireChildPermission(event: H3Event, key: PermissionKey): Promise<ChildViewer> {
   const user = await requireUser(event, { allowTerminal: true })
   const token = await childUnlockToken(event)
-  // The tablet has one facility; only a manager's page can be stale, and only the Träger's settings pages (care and
-  // document types) name another facility.
-  const reader = isManager(user.role) && hasFacility(user) ? withRequestFacility(event, user) : user
-  return resolveChildViewer(useDb(), reader, token)
-}
-
-/** Whoever may maintain child records: the managers, and Mitarbeiter with the permission at the tablet. */
-export async function requireChildEditor(event: H3Event): Promise<ChildActor> {
-  return asChildEditor(await requireChildReader(event))
-}
-
-/** Träger or Leitung on the child pages, at the office or at the unlocked tablet (archive, occupancy, group changes …). */
-export async function requireChildManager(event: H3Event): Promise<ChildActor> {
-  return asChildManager(await requireChildReader(event))
+  // The tablet has one facility; only an office account's page can be stale, and only the Träger's settings pages (care
+  // and document types) name another facility.
+  const reader = can(user.permissions, 'children.ownAccount') && hasFacility(user) ? withRequestFacility(event, user) : user
+  return asChildPermission(resolveChildViewer(useDb(), reader, token), key)
 }

@@ -28,6 +28,9 @@ const DEFAULTS = {
   admin: effectivePermissions({ role: 'admin', ...NO_FLAGS }),
   observer: effectivePermissions({ role: 'observer', ...NO_FLAGS }),
 }
+// A Mitarbeiter account with „darf Kinderakten pflegen“, and the child keys that need an account (server/lib/childViewer.ts).
+const OBSERVER_EDITOR = effectivePermissions({ role: 'observer', ...NO_FLAGS, canEditChildren: true })
+const ACCOUNT_KEYS = ['children.edit', 'children.manage']
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = join(ROOT, 'server', 'api')
@@ -64,6 +67,22 @@ const GUARDS = {
     if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requirePermission(${args})`)
     return ['provider', 'admin', 'observer', 'terminal'].filter(actor => actor === 'provider'
       || (actor === 'terminal' ? /allowTerminal:\s*true/.test(args) : DEFAULTS[actor].has(key)))
+  },
+  // Since Teil 1 Task 3: the own account needs children.ownAccount besides the key; the tablet only unlocked, with the
+  // unlocking person's permissions (the Mitarbeiter defaults for a person without account, who never gets the keys
+  // that change records, children.edit and children.manage: no account to record as "changed by").
+  requireChildPermission: (args) => {
+    const key = /^\s*event,\s*'([^']+)'\s*$/.exec(args)?.[1]
+    if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requireChildPermission(${args})`)
+    const office = actor => actor === 'provider' || (DEFAULTS[actor].has('children.ownAccount') && DEFAULTS[actor].has(key))
+    const tablet = {
+      'tablet:provider': true,
+      'tablet:admin': DEFAULTS.admin.has(key),
+      'tablet:observerEditor': OBSERVER_EDITOR.has(key),
+      'tablet:observer': DEFAULTS.observer.has(key),
+      'tablet:noAccount': DEFAULTS.observer.has(key) && !ACCOUNT_KEYS.includes(key),
+    }
+    return [...['provider', 'admin', 'observer'].filter(office), ...TABLET_READERS.filter(actor => tablet[actor])]
   },
 }
 

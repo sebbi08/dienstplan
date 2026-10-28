@@ -8,7 +8,7 @@ import { childOfGroupChange, deleteGroupChange } from '../../services/childGroup
  * then stays in longer when that takes it over its Höchstzahl Kinder.
  */
 export default defineServiceHandler(async (event) => {
-  const manager = await requireChildManager(event)
+  const manager = await requireChildPermission(event, 'children.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const db = useDb()
   const today = todayIso()

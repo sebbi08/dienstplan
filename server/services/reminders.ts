@@ -3,7 +3,7 @@ import { ageOn, childStatus, hiddenFromViewer, type ChildStatus } from '../../sh
 import { addDays } from '../../shared/domain/dates'
 import { groupRight } from '../../shared/domain/groupAccess'
 import { docDue, inWindow, nextBirthday, sortReminders, type DocSettings, type ReminderKind } from '../../shared/domain/reminders'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
 import type { DevelopmentDocDto, ReminderDto, ReminderSettingsDto } from '../../shared/types/api'
@@ -125,9 +125,9 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     })
   }
 
-  // The Träger (at the office, not at the shared tablet) is reminded while data of any facility may be deleted after
+  // The Träger (retention.delete; at the office, not at the shared tablet) is reminded while data of any facility may be deleted after
   // its retention period; the entry links to the page „Löschfristen“ and goes once nothing is due any more.
-  if (viewer.role === 'provider' && !viewer.onTablet) {
+  if (can(viewer.permissions, 'retention.delete') && !viewer.onTablet) {
     const due = retentionOverview(db, today).filter(item => item.due).length
     if (due > 0) {
       items.push({
@@ -152,7 +152,7 @@ export function developmentDocOf(
   return {
     lastDone: last ? { id: last.id, date: last.doneOn, name: last.doneByName } : null,
     nextDue: active ? dueOf(row, docSettingsLookup(getReminderSettings(db, viewer.facilityId))(row.groupId), last, today) : null,
-    canUndo: last !== undefined && status !== 'archived' && writes && (isManager(viewer.role) || last.doneOn === today),
+    canUndo: last !== undefined && status !== 'archived' && writes && (can(viewer.permissions, 'children.manage') || last.doneOn === today),
     canDone: active && writes,
   }
 }
@@ -191,6 +191,6 @@ export function undoDocDone(db: Db, viewer: ChildViewer, docId: number, now: Dat
   if (!doc) throw new ServiceError(404, 'development_doc_not_found')
   loadEditableChild(db, viewer, viewer.facilityId, doc.childId, today, now)
   if (latestDone(db, [doc.childId]).get(doc.childId)?.id !== doc.id) throw new ServiceError(409, 'undo_not_latest')
-  if (!isManager(viewer.role) && doc.doneOn !== today) throw new ServiceError(403, 'undo_too_late')
+  if (!can(viewer.permissions, 'children.manage') && doc.doneOn !== today) throw new ServiceError(403, 'undo_too_late')
   db.delete(childDevelopmentDocs).where(eq(childDevelopmentDocs.id, docId)).run()
 }

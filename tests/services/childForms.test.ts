@@ -11,7 +11,9 @@ import { deleteChild, moveChildToFacility } from '../../server/services/children
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
 import { addMeeting, deleteMeeting, meetingsOf } from '../../server/services/parentMeetings'
 import { resolveChildViewer } from '../../server/services/tabletUnlock'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
+import {
+  addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf,
+} from '../helpers/fixtures'
 
 const NOW = new Date('2026-10-20T08:00:00Z')
 const LATER = new Date('2026-10-20T09:00:00Z')
@@ -65,7 +67,7 @@ describe('child observation forms', () => {
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
     const tablet = {
       visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: groupA, readable: [] },
-      role: 'observer' as const, canEditChildren: false, facilityId: 1,
+      role: 'observer' as const, canEditChildren: false, permissions: permissionsOf('observer'), facilityId: 1,
     }
     annaTablet = { id: annaUser, employeeId: anna, name: 'Anna', ...tablet }
     bertaTablet = { id: null, employeeId: berta, name: 'Berta', ...tablet }

@@ -10,7 +10,9 @@ import { resolveChildViewer, unlockChildren } from '../../server/services/tablet
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { setPin } from '../../server/services/terminal'
 import type { ChildHealthInput, SessionUser } from '../../shared/types/api'
-import { addChild, addEmployee, addUser, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
+import {
+  addChild, addEmployee, addUser, asChildViewer, createTestDb, documentTypeId, errorCode, permissionsOf,
+} from '../helpers/fixtures'
 
 const TODAY = '2026-10-06'
 const NOW = new Date('2026-10-06T06:00:00Z')
@@ -53,11 +55,11 @@ describe('the child viewer', () => {
     const traeger = addUser(db, 'traeger', 'provider')
     expect(resolveChildViewer(db, leitung, undefined, NOW)).toEqual({
       id: leitung.id, employeeId: null, name: 'leitung', role: 'admin', canEditChildren: leitung.canEditChildren, facilityId: 1,
-      visibility: null, onTablet: false, groups: null,
+      permissions: leitung.permissions, visibility: null, onTablet: false, groups: null,
     })
     expect(resolveChildViewer(db, traeger, undefined, NOW)).toEqual({
       id: traeger.id, employeeId: null, name: 'traeger', role: 'provider', canEditChildren: traeger.canEditChildren, facilityId: 1,
-      visibility: null, onTablet: false, groups: null,
+      permissions: traeger.permissions, visibility: null, onTablet: false, groups: null,
     })
     // An account linked with an employee is named like the employee.
     const linked = addUser(db, 'leitung-berta', 'admin', berta)
@@ -72,14 +74,14 @@ describe('the child viewer', () => {
     const later = new Date(NOW.getTime() + 60_000)
     expect(resolveChildViewer(db, tablet, token, later)).toEqual({
       id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
-      visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
+      permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
     })
     // Every request at the tablet counts as use and keeps it unlocked.
     expect(db.select().from(terminalUnlocks).get()!.lastActiveAt).toBe(later.toISOString())
   })
 
   it('the editor and manager checks refuse an unlocked Mitarbeiter by their rights', () => {
-    // These are the decisions requireChildEditor( and requireChildManager( apply to the viewer of the request.
+    // The decisions requireChildPermission( makes for children.edit and children.manage on the request's viewer.
     const account = addUser(db, 'anna', 'observer', anna)
     const reader = resolveChildViewer(db, tablet, unlock(), NOW)
     expect(reader).toMatchObject({ id: account.id, role: 'observer', canEditChildren: false, onTablet: true })

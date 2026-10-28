@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate, Minutes } from '../../shared/domain/types'
 import {
@@ -24,10 +24,10 @@ function isPlanned(row: Pick<MeetingRow, 'date' | 'start'>, now: Date): boolean 
 }
 
 /** The meeting as the viewer sees it: the confidential note only for Leitung and Träger, for everyone else no field at all. */
-function toDto(row: MeetingRow, viewer: Pick<ChildViewer, 'role'>, now: Date, formId: number | null): ParentMeetingDto {
+function toDto(row: MeetingRow, viewer: Pick<ChildViewer, 'permissions'>, now: Date, formId: number | null): ParentMeetingDto {
   return {
     id: row.id, date: row.date, start: row.start, end: row.end, kind: row.kind, participants: row.participants,
-    ...(isManager(viewer.role) ? { note: row.note } : {}),
+    ...(can(viewer.permissions, 'children.manage') ? { note: row.note } : {}),
     planned: isPlanned(row, now),
     createdByName: row.createdByName, createdAt: row.createdAt, updatedByName: row.updatedByName, updatedAt: row.updatedAt,
     formId,
@@ -38,7 +38,7 @@ function toDto(row: MeetingRow, viewer: Pick<ChildViewer, 'role'>, now: Date, fo
  * The child's parent meetings, newest first (by date, then start), each with the observation form filled for it. The
  * caller has checked that the viewer may read the record (see `getChild`); the note goes only to Leitung and Träger.
  */
-export function meetingsOf(db: Db, viewer: Pick<ChildViewer, 'role'>, childId: number, now: Date = new Date()): ParentMeetingDto[] {
+export function meetingsOf(db: Db, viewer: Pick<ChildViewer, 'permissions'>, childId: number, now: Date = new Date()): ParentMeetingDto[] {
   const rows = db.select().from(childParentMeetings).where(eq(childParentMeetings.childId, childId))
     .orderBy(desc(childParentMeetings.date), desc(childParentMeetings.start), desc(childParentMeetings.id)).all()
   const formOf = new Map(rows.length === 0 ? [] : db.select({ id: forms.id, meetingId: forms.parentMeetingId }).from(forms)
@@ -86,7 +86,7 @@ const isClockTime = (value: number) => Number.isInteger(value) && value >= 0 && 
  * note, an empty one included (403 meeting_note_managers_only); without one the note is `undefined`.
  */
 function checkedMeeting(actor: ChildActor, input: ParentMeetingInput): ParentMeetingInput {
-  if (input.note !== undefined && !isManager(actor.role)) throw new ServiceError(403, 'meeting_note_managers_only')
+  if (input.note !== undefined && !can(actor.permissions, 'children.manage')) throw new ServiceError(403, 'meeting_note_managers_only')
   if (!isValidIsoDate(input.date)) throw new ServiceError(400, 'invalid_date')
   if (!isClockTime(input.start) || (input.end !== null && !isClockTime(input.end))) throw new ServiceError(400, 'invalid_time')
   if (input.end !== null && input.end <= input.start) throw new ServiceError(400, 'meeting_end_invalid')

@@ -8,7 +8,7 @@ import { deleteChild, getChild } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import { addMeeting, deleteMeeting, meetingsOf, updateMeeting } from '../../server/services/parentMeetings'
 import type { ParentMeetingInput } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, permissionsOf } from '../helpers/fixtures'
 
 const TODAY = '2026-10-20'
 /** 13:59 in Berlin (summer time, UTC+2). */
@@ -61,8 +61,14 @@ describe('parent meetings', () => {
     const berta = addEmployee(db, 'Berta', { groupId: a })
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
     const tablet = { visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: a, readable: [b] } }
-    staff = { id: annaUser, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: true, facilityId: 1, ...tablet }
-    reader = { id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, facilityId: 1, ...tablet }
+    staff = {
+      id: annaUser, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: true, permissions: permissionsOf('observer', true),
+      facilityId: 1, ...tablet,
+    }
+    reader = {
+      id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, permissions: permissionsOf('observer'),
+      facilityId: 1, ...tablet,
+    }
     kidA = addChild(db, 1, { firstName: 'Lena', groupId: a })
     kidB = addChild(db, 1, { firstName: 'Max', groupId: b })
     kidC = addChild(db, 1, { firstName: 'Ida', groupId: c })

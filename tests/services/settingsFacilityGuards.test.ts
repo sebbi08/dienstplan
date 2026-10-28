@@ -74,14 +74,14 @@ describe('guards with the settings facility header', () => {
   it('keeps the active facility where the route asks for it (the header\'s facility switcher)', async () => {
     expect((await auth.requirePermission(event(provider, { page: 1, settings: other }), 'settings.facility', { facility: 'active' })).facilityId).toBe(1)
   })
-  it('follows the choice in requireFacility after a facility-free requirePermission and in requireChildReader', async () => {
+  it('follows the choice in requireFacility after a facility-free requirePermission and in requireChildPermission', async () => {
     const e = event(provider, { page: 1, settings: other })
     expect(auth.requireFacility(e, await auth.requirePermission(e, 'facilities.manage', { facility: 'none' }))).toBe(other)
-    expect((await auth.requireChildReader(event(provider, { page: 1, settings: other }))).facilityId).toBe(other)
+    expect((await auth.requireChildPermission(event(provider, { page: 1, settings: other }), 'children.view')).facilityId).toBe(other)
   })
   it('ignores the header of the Leitung everywhere', async () => {
     expect((await auth.requirePermission(event(leitung, { page: 1, settings: other }), 'settings.facility')).facilityId).toBe(1)
-    expect((await auth.requireChildReader(event(leitung, { page: 1, settings: other }))).facilityId).toBe(1)
+    expect((await auth.requireChildPermission(event(leitung, { page: 1, settings: other }), 'children.view')).facilityId).toBe(1)
     expect((await auth.requirePermission(event(leitung, { page: 1, settings: 'nonsense' }), 'settings.facility')).facilityId).toBe(1)
   })
   it('answers 404 for an unknown facility and 409 for a stale page, whatever the header says', async () => {

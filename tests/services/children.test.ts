@@ -210,8 +210,7 @@ describe('child records', () => {
     it('lets only editors edit: canEdit follows the permission', () => {
       const id = addChild(db, 1)
       const plain = asChildViewer(addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')))
-      const allowed = asChildViewer(addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed')))
-      allowed.canEditChildren = true
+      const allowed = asChildViewer({ ...addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed')), canEditChildren: true })
       expect(getChild(db, plain, id, TODAY).canEdit).toBe(false)
       expect(getChild(db, allowed, id, TODAY).canEdit).toBe(true)
       expect(getChild(db, admin, id, TODAY).canEdit).toBe(true)

@@ -12,7 +12,9 @@ import { applyToCells } from '../../server/services/entries'
 import {
   assertGroup, createGroup, deleteGroup, listChildGroups, listGroups, moveGroup, renameGroup, setGroupCapacity, setGroupColor,
 } from '../../server/services/groups'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import {
+  addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf, templateId,
+} from '../helpers/fixtures'
 
 const today = '2026-10-08'
 
@@ -327,7 +329,8 @@ describe('group capacity', () => {
     const bears = addGroup(db, 1, 'Bären')
     const mice = addGroup(db, 1, 'Mäuse')
     setGroupCapacity(db, 1, bears, 12)
-    const viewer = (role: 'provider' | 'admin' | 'observer' | 'terminal' | null) => ({ facilityId: 1, role, groups: null })
+    const viewer = (role: 'provider' | 'admin' | 'observer' | 'terminal' | null) =>
+      ({ facilityId: 1, permissions: role === null ? new Set<never>() : permissionsOf(role), groups: null })
     for (const role of ['provider', 'admin'] as const) {
       expect(listChildGroups(db, viewer(role)), role).toEqual(listGroups(db, 1).map(group => ({ ...group, right: 'write' })))
     }
@@ -343,7 +346,7 @@ describe('group capacity', () => {
     const bears = addGroup(db, 1, 'Bären')
     const mice = addGroup(db, 1, 'Mäuse')
     const owls = addGroup(db, 1, 'Eulen')
-    const anna = { facilityId: 1, role: 'terminal' as const, groups: { own: mice, readable: [owls] } }
+    const anna = { facilityId: 1, permissions: permissionsOf('terminal'), groups: { own: mice, readable: [owls] } }
     expect(listChildGroups(db, anna)).toEqual([
       { id: mice, name: 'Mäuse', sortOrder: 1, capacity: null, forSchoolChildren: false, color: null, groupType: null, right: 'write' },
       { id: owls, name: 'Eulen', sortOrder: 2, capacity: null, forSchoolChildren: false, color: null, groupType: null, right: 'read' },

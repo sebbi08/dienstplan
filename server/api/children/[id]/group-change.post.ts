@@ -8,7 +8,7 @@ import { planGroupChange } from '../../../services/childGroupChanges'
  * `capacityWarnings` names the group it takes over its Höchstzahl Kinder.
  */
 export default defineServiceHandler(async (event) => {
-  const manager = await requireChildManager(event)
+  const manager = await requireChildPermission(event, 'children.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readValidatedBody(event, groupChangeSchema.parse)
   const db = useDb()

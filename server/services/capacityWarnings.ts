@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm'
 import { parseIsoDate } from '../../shared/domain/dates'
 import { facilityCell, groupCell, groupStays, type OccupancyCell, type OccupancyChild } from '../../shared/domain/occupancy'
-import { isManager } from '../../shared/domain/roles'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
-import type { CapacityWarningDto, Role } from '../../shared/types/api'
+import type { CapacityWarningDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities } from '../db/schema'
 import { listGroups } from './groups'
@@ -54,13 +54,13 @@ export function capacityCells(db: Db, facilityId: number, childId: number | null
 
 /**
  * The warnings after the save, per group (in the groups' order) and then for the facility: the first month the child
- * was added to in which there are more children than places, and the most children in such a month. Only for Träger
- * and Leitung, who see the places; everybody else gets none.
+ * was added to in which there are more children than places, and the most children in such a month. Only for whoever
+ * sees the places (children.manage: Träger and Leitung); everybody else gets none.
  */
 export function capacityWarnings(
-  db: Db, viewer: { role: Role | null }, facilityId: number, childId: number, before: CapacityCells, today: IsoDate,
+  db: Db, viewer: { permissions: ReadonlySet<PermissionKey> }, facilityId: number, childId: number, before: CapacityCells, today: IsoDate,
 ): CapacityWarningDto[] {
-  if (!isManager(viewer.role)) return []
+  if (!can(viewer.permissions, 'children.manage')) return []
   const { children } = occupancyChildren(db, facilityId)
   const added = [...cellsOf(children.find(child => child.id === childId), today)].filter(cell => !before.has(cell))
   if (added.length === 0) return []

@@ -4,7 +4,7 @@ import { idParams } from '../../../schemas'
 import { uploadDocument } from '../../../services/childDocuments'
 
 export default defineServiceHandler(async (event) => {
-  const actor = await requireChildEditor(event)
+  const actor = await requireChildPermission(event, 'children.edit')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))
