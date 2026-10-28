@@ -49,28 +49,43 @@ export type PayrollKey = keyof EmployeePayrollDto
 export function payrollDisplay(payroll: EmployeePayrollDto, key: PayrollKey, revealed: boolean): string | null {
   const value = payroll[key]
   if (value === null || value === '') return null
-  if (key === 'taxClass') return String(value)
   const text = String(value)
   if (key === 'iban') return revealed ? formatIban(text) : maskIban(text)
   if (revealed) return text
   if (key === 'taxId' || key === 'svNumber') return maskTail(text, 3)
-  if (key === 'denomination') return FULL_MASK
+  // Steuerklasse (III/V, IV with factor) tells the marital status, Konfession is Art. 9 data: hidden completely.
+  if (key === 'taxClass' || key === 'denomination') return FULL_MASK
   return text
 }
 
 /** Whether a payroll value is hidden until „anzeigen“ (the others are shown as they are). */
-export const MASKED_PAYROLL: readonly PayrollKey[] = ['taxId', 'svNumber', 'iban', 'denomination']
+export const MASKED_PAYROLL: readonly PayrollKey[] = ['taxId', 'taxClass', 'svNumber', 'iban', 'denomination']
 
-/** The form field a personnel format error belongs to (the page shows the text there). */
-export const FIELD_OF_ERROR: Record<PersonnelError, string> = {
+/** The error codes shown at a form field: the format errors and an invalid „gültig bis“ of the disability. */
+export type FieldErrorCode = PersonnelError | 'invalid_date'
+
+/**
+ * The form field an error belongs to (the page shows the text there). invalid_date only comes from disabilityUntil in
+ * the employee update (leftOn is checked by the schema) and never from payroll.
+ */
+export const FIELD_OF_ERROR: Record<FieldErrorCode, string> = {
   iban_invalid: 'iban', tax_id_invalid: 'taxId', sv_number_invalid: 'svNumber', tax_class_invalid: 'taxClass',
   email_invalid: 'email', postal_code_invalid: 'postalCode', birth_year_invalid: 'birthYear',
-  disability_degree_invalid: 'disabilityDegree',
+  disability_degree_invalid: 'disabilityDegree', invalid_date: 'disabilityUntil',
 }
 
 /** `{ field: code }` for a server error code that belongs to a field; empty for any other code. */
-export function fieldErrorOf(code: string | undefined): Record<string, PersonnelError> {
-  return code && code in FIELD_OF_ERROR ? { [FIELD_OF_ERROR[code as PersonnelError]]: code as PersonnelError } : {}
+export function fieldErrorOf(code: string | undefined): Record<string, FieldErrorCode> {
+  return code && code in FIELD_OF_ERROR ? { [FIELD_OF_ERROR[code as FieldErrorCode]]: code as FieldErrorCode } : {}
+}
+
+/**
+ * Whether the payroll form holds something else than what is stored (the IBAN compared without its grouping, so the
+ * regrouping on leaving the field is no change).
+ */
+export function payrollFormChanged(fields: PayrollFields, saved: EmployeePayrollDto | null | undefined): boolean {
+  const normal = (value: PayrollFields) => JSON.stringify({ ...value, iban: formatIban(value.iban) })
+  return normal(fields) !== normal(payrollFieldsOf(saved))
 }
 
 // --- Persönliche Daten (employees.personal) ---------------------------------------------------------------------------

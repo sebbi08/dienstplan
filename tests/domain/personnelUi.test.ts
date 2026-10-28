@@ -3,7 +3,7 @@ import { effectivePermissions, type PermissionKey } from '../../shared/domain/pe
 import type { EmployeePayrollDto } from '../../shared/types/api'
 import {
   FULL_MASK, employeeDocumentUrl, fieldErrorOf, formatIban, fullBirthDate, maskIban, maskTail, payrollDisplay, payrollFieldsOf,
-  payrollInput, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput, visibleFolders,
+  payrollFormChanged, payrollInput, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput, visibleFolders,
 } from '../../app/utils/personnel'
 
 const payroll: EmployeePayrollDto = {
@@ -44,7 +44,8 @@ describe('masking with the last characters visible', () => {
     expect(payrollDisplay(payroll, 'svNumber', false)).toBe('•••••••••103')
     expect(payrollDisplay(payroll, 'denomination', false)).toBe(FULL_MASK)
     expect(payrollDisplay(payroll, 'denomination', true)).toBe('rk')
-    expect(payrollDisplay(payroll, 'taxClass', false)).toBe('1')
+    expect(payrollDisplay(payroll, 'taxClass', false)).toBe(FULL_MASK)
+    expect(payrollDisplay(payroll, 'taxClass', true)).toBe('1')
     expect(payrollDisplay(payroll, 'healthInsurer', false)).toBe('AOK')
     expect(payrollDisplay({ ...payroll, iban: null }, 'iban', false)).toBeNull()
   })
@@ -73,9 +74,18 @@ describe('payroll form', () => {
     expect(payrollInput(fields)).toEqual({ errors: { taxId: 'tax_id_invalid', svNumber: 'sv_number_invalid', iban: 'iban_invalid' } })
   })
 
+  it('tells whether the form differs from what is stored (IBAN grouping is no change)', () => {
+    expect(payrollFormChanged(payrollFieldsOf(payroll), payroll)).toBe(false)
+    expect(payrollFormChanged({ ...payrollFieldsOf(payroll), iban: 'DE89370400440532013000' }, payroll)).toBe(false)
+    expect(payrollFormChanged({ ...payrollFieldsOf(payroll), taxClass: 3 }, payroll)).toBe(true)
+    expect(payrollFormChanged(payrollFieldsOf(null), null)).toBe(false)
+    expect(payrollFormChanged({ ...payrollFieldsOf(null), healthInsurer: 'TK' }, null)).toBe(true)
+  })
+
   it('maps a server error code to its field', () => {
     expect(fieldErrorOf('iban_invalid')).toEqual({ iban: 'iban_invalid' })
     expect(fieldErrorOf('email_invalid')).toEqual({ email: 'email_invalid' })
+    expect(fieldErrorOf('invalid_date')).toEqual({ disabilityUntil: 'invalid_date' })
     expect(fieldErrorOf('forbidden')).toEqual({})
     expect(fieldErrorOf(undefined)).toEqual({})
   })

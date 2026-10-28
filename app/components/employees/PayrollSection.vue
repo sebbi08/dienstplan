@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { PersonnelError } from '#shared/domain/personnel'
 import type { EmployeePayrollDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import {
-  MASKED_PAYROLL, fieldErrorOf, formatIban, payrollDisplay, payrollFieldsOf, payrollInput, type PayrollFields, type PayrollKey,
+  MASKED_PAYROLL, fieldErrorOf, formatIban, payrollDisplay, payrollFieldsOf, payrollFormChanged, payrollInput,
+  type FieldErrorCode, type PayrollFields, type PayrollKey,
 } from '~/utils/personnel'
 
 /**
  * Tab „Lohn und Steuer“ (employees.payroll; the page mounts it only then). The values are fetched in the browser and
- * only once the tab is opened, so they never stand in the page source; Steuer-ID, SV-Nummer, IBAN and Konfession show
- * masked until „anzeigen“ (hidden again when the tab is left). „Bearbeiten“ opens the form; format errors (checked
+ * only once the tab is opened, so they never stand in the page source; Steuer-ID, Steuerklasse, SV-Nummer, IBAN and
+ * Konfession show masked until „anzeigen“ (hidden again when the tab is left). „Bearbeiten“ opens the form; format errors (checked
  * here and again by the server) stand at their field.
  */
 const props = defineProps<{ employeeId: number; active: boolean }>()
@@ -43,8 +43,10 @@ function toggleAll() {
 }
 
 const form = reactive<PayrollFields>(payrollFieldsOf(null))
-const fieldErrors = ref<Record<string, PersonnelError>>({})
-const fieldError = (key: string) => (fieldErrors.value[key] ? de.personnel.invalid[fieldErrors.value[key]] : undefined)
+const fieldErrors = ref<Record<string, FieldErrorCode>>({})
+const fieldError = (key: string) => (fieldErrors.value[key] ? de.errors[fieldErrors.value[key]] : undefined)
+// An open form with changes makes the page ask before another tab or page; after a confirmed switch the form closes.
+useDirty(() => editing.value && payrollFormChanged(form, payroll.value))
 const taxClassItems = [{ label: t.taxClassNone, value: 0 }, ...[1, 2, 3, 4, 5, 6].map(value => ({ label: String(value), value }))]
 
 function startEdit() {

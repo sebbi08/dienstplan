@@ -495,7 +495,7 @@ export const de = {
     // Tab „Lohn und Steuer“ (employees.payroll).
     payroll: {
       title: 'Lohn und Steuer',
-      hint: 'Nur für den Träger (oder wem er das Recht gibt). Steuer-ID, Sozialversicherungsnummer, IBAN und Konfession sind verdeckt, bis du „anzeigen“ wählst.',
+      hint: 'Nur für den Träger (oder wem er das Recht gibt). Steuer-ID, Steuerklasse, Sozialversicherungsnummer, IBAN und Konfession sind verdeckt, bis du „anzeigen“ wählst.',
       taxId: 'Steuer-ID', taxClass: 'Steuerklasse', svNumber: 'Sozialversicherungsnummer', healthInsurer: 'Krankenkasse',
       iban: 'IBAN', accountHolder: 'Kontoinhaber', denomination: 'Konfession (Kirchensteuer)',
       taxClassNone: '–', empty: '–', none: 'Noch keine Angaben.',

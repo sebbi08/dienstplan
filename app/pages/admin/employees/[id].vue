@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import type { PersonnelError } from '#shared/domain/personnel'
 import { PIN_LENGTH, isValidPin } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
@@ -17,7 +16,7 @@ import { formatDate, formatHours, formatNumber, hoursToMinutes, monthTitle, shif
 import { errorCode } from '~/utils/errors'
 import {
   DISABILITY_DEGREES, fieldErrorOf, fullBirthDate, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput,
-  type PersonalFields, type SensitiveFields,
+  type FieldErrorCode, type PersonalFields, type SensitiveFields,
 } from '~/utils/personnel'
 import { pinStateText } from '~/utils/pin'
 import { employeeTabs, requestedEmployeeTab, type EmployeeTab } from '~/utils/staffList'
@@ -88,8 +87,8 @@ watch(employee, (value) => {
   justSaved.master = justSaved.qualification = false
 }, { immediate: true })
 /** Format errors of the personal and sensitive fields, shown at the field (from here or from the server). */
-const masterErrors = ref<Record<string, PersonnelError>>({})
-const masterError = (field: string) => (masterErrors.value[field] ? de.personnel.invalid[masterErrors.value[field]] : undefined)
+const masterErrors = ref<Record<string, FieldErrorCode>>({})
+const masterError = (field: string) => (masterErrors.value[field] ? de.errors[masterErrors.value[field]] : undefined)
 /** The full birth date as TT.MM.JJJJ while day, month and year form one. */
 const birthDateText = computed(() => {
   const iso = fullBirthDate(master.birthdayDay, master.birthdayMonth, personal.birthYear)
@@ -367,7 +366,7 @@ async function onTabKey(event: KeyboardEvent) {
           <UFormField :label="de.personnel.disabilityDegree" :error="masterError('disabilityDegree')">
             <USelect v-model="sensitive.disabilityDegree" :items="disabilityDegreeItems" class="w-full" />
           </UFormField>
-          <UFormField :label="de.personnel.disabilityUntil">
+          <UFormField :label="de.personnel.disabilityUntil" :error="masterError('disabilityUntil')">
             <DateTextInput v-model="sensitive.disabilityUntil" :label="de.personnel.disabilityUntil" class="w-full" />
           </UFormField>
           <UCheckbox v-model="sensitive.disabilityEqual" :label="de.personnel.disabilityEqual" class="sm:col-span-2 sm:pb-2" />

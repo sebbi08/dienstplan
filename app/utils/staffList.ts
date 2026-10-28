@@ -52,8 +52,9 @@ export type EmployeeTab = typeof EMPLOYEE_TABS[number]
 /**
  * The tabs the viewer sees on the employee page (reached with employees.view; „Zugang“ uses the users' routes and needs
  * users.manage, „Gespräche“ the staff talk routes and talks.manage, „Lohn und Steuer“ employees.payroll, „Dokumente“ the
- * key of at least one folder). The contract inside „Stunden & Vertrag“ follows its own switch. On their own page (`own`) nobody gets „Gespräche“: a Leitung's talks are held by the Träger or another
- * Leitung, they see them under „Meine Gespräche“.
+ * key of at least one folder). The contract inside „Stunden & Vertrag“ follows its own switch. On their own page
+ * (`own`) nobody gets „Gespräche“: a Leitung's talks are held by the Träger or another Leitung, they see them under
+ * „Meine Gespräche“.
  */
 export function employeeTabs(can: (key: PermissionKey) => boolean, own = false): EmployeeTab[] {
   const shown: Record<EmployeeTab, boolean> = {

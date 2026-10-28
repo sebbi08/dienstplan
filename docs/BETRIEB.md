@@ -861,9 +861,10 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   (TT.MM.JJJJ). „Speichern“ speichert die persönlichen Daten zusammen mit den Stammdaten. PLZ (5 Ziffern) und E-Mail
   werden auf ihr Format geprüft; der Hinweis steht am Feld.
 - **Lohn und Steuer:** Steuer-ID und Sozialversicherungsnummer zeigen nur die letzten 3 Zeichen, die IBAN nur Länderkennung
-  und die letzten 4 (z. B. „DE•• •••• •••• •••• •• 3000“), die Konfession ist ganz verdeckt. **„anzeigen“** beim Wert
-  (oder **„Alle anzeigen“**) zeigt den vollen Wert; beim Verlassen des Reiters ist wieder alles verdeckt. **„Bearbeiten“**
-  öffnet das Formular. Geprüft werden die IBAN (Prüfziffer), die Steuer-ID (11 Ziffern mit Prüfziffer), die
+  und die letzten 4 (z. B. „DE•• •••• •••• •••• •• 3000“), Steuerklasse und Konfession sind ganz verdeckt.
+  **„anzeigen“** beim Wert (oder **„Alle anzeigen“**) zeigt den vollen Wert; beim Verlassen des Reiters ist wieder alles
+  verdeckt. **„Bearbeiten“** öffnet das Formular; hast du dort etwas geändert und willst in einen anderen Reiter, fragt
+  die App vorher (danach ist das Formular geschlossen und die Änderung verworfen). Geprüft werden die IBAN (Prüfziffer), die Steuer-ID (11 Ziffern mit Prüfziffer), die
   Sozialversicherungsnummer (12 Zeichen mit Prüfziffer) und die Steuerklasse (1–6); ein falscher Wert lässt sich nicht
   speichern, der Hinweis steht am Feld. Ein leeres Feld ist immer erlaubt. Die Werte werden erst geladen, wenn du den
   Reiter öffnest.
