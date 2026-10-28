@@ -150,7 +150,9 @@ const cell = 'px-2 py-1'
             <tbody>
               <template v-for="(block, blockIndex) in section.blocks" :key="blockIndex">
                 <tr v-if="block.title">
-                  <td colspan="3" class="px-2 pt-2 text-xs font-semibold text-gray-600">{{ block.title }}</td>
+                  <td colspan="3" class="px-2 pt-2 text-xs font-semibold text-gray-600">
+                    {{ block.title }} <InfoHint v-if="block.hint" :text="block.hint" />
+                  </td>
                 </tr>
                 <tr v-for="field in block.fields" :key="field.path" class="border-t border-gray-100" :class="values.get(field.path) && changed(values.get(field.path)!) ? 'bg-amber-50' : ''">
                   <td :class="cell" class="w-1/2">{{ field.label }}</td>

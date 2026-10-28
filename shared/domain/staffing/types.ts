@@ -183,7 +183,7 @@ export interface StaffingRuleSet {
   fachkraftQualifications?: Qualification[]
   quotas: Quota[]
   /** Group types the state calculates with (BW, NI, SL, NW). */
-  groupTypes?: { key: string; label: string }[]
+  groupTypes?: { key: string; label: string; /** Short explanation shown on hover (planning help, no legal advice). */ description?: string }[]
 }
 
 // --- engine inputs and outputs ---

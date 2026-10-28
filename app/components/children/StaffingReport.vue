@@ -21,6 +21,7 @@ const periodCheck = computed(() => meta.value.periodCheck)
 const groupTypes = computed(() => presetFor(meta.value.land, meta.value.validFrom).groupTypes ?? [])
 const showGroupType = computed(() => groupTypes.value.length > 0 || props.data.groups.some(row => row.groupType !== null))
 const groupTypeLabel = (key: string | null) => (key === null ? de.children.noValue : groupTypes.value.find(type => type.key === key)?.label ?? key)
+const groupTypeHint = (key: string | null) => groupTypes.value.find(type => type.key === key)?.description ?? null
 
 interface Row { key: string; name: string; groupType: string | null; figures: StaffingFiguresDto; total: boolean }
 const rows = computed<Row[]>(() => [
@@ -80,7 +81,10 @@ const sub = props.print ? 'px-1.5 py-0.5' : 'px-3 py-1'
         <tbody v-for="row in rows" :key="row.key" :class="row.total ? 'border-t-2 border-gray-400' : 'border-t border-gray-200'">
           <tr :class="[rowClass(row.figures.ok), row.total ? 'font-semibold' : '']">
             <th scope="row" :class="[td, 'text-left font-medium']">{{ row.name }}</th>
-            <td v-if="showGroupType" :class="td">{{ row.total ? '' : groupTypeLabel(row.groupType) }}</td>
+            <td v-if="showGroupType" :class="td">
+              {{ row.total ? '' : groupTypeLabel(row.groupType) }}
+              <InfoHint v-if="!print && !row.total && groupTypeHint(row.groupType)" class="print:hidden" :text="groupTypeHint(row.groupType)!" />
+            </td>
             <td :class="[td, 'text-right tabular-nums']">{{ t.childrenCount(row.figures.children.total, row.figures.children.u3) }}</td>
             <template v-if="periodCheck">
               <td :class="[td, 'text-right tabular-nums']">{{ formatFte(row.figures.required.fte) }}</td>

@@ -13,7 +13,7 @@ export const de = {
   weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
   common: {
     pdf: 'PDF herunterladen', pdfFailed: 'Das PDF konnte nicht erstellt werden. Bitte noch einmal versuchen.',
-    save: 'Speichern', delete: 'Löschen', cancel: 'Abbrechen', add: 'Hinzufügen', close: 'Schließen', edit: 'Bearbeiten',
+    save: 'Speichern', delete: 'Löschen', cancel: 'Abbrechen', add: 'Hinzufügen', close: 'Schließen', edit: 'Bearbeiten', explanation: 'Erklärung',
     saved: 'Gespeichert', deleted: 'Gelöscht', confirmDelete: 'Wirklich löschen?', confirmTitle: 'Bitte bestätigen',
     previousMonth: 'Vorheriger Monat', nextMonth: 'Nächster Monat', previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
     invalidTime: 'Ungültige Uhrzeit – z. B. 8:45 oder 845 eingeben (5-Minuten-Schritte).',
@@ -920,6 +920,8 @@ export const de = {
     hoursPerWeek: 'Std./Woche', hoursPerDay: 'Std./Tag',
     ageBands: { u3: 'unter 3 Jahre', ue3: '3 Jahre bis Schule', school: 'Schulkinder' } satisfies Record<'u3' | 'ue3' | 'school', string>,
     withAgeBand: { u3: 'mit Kindern unter 3', ue3: 'mit Kindern ab 3', school: 'mit Schulkindern' } satisfies Record<'u3' | 'ue3' | 'school', string>,
+    /** Hover explanation of „mit Kindern unter 3“ next to a group type. */
+    withU3Hint: 'Altersgemischte Gruppe, in der auch Kinder unter 3 Jahren sind. Dafür gilt ein höherer Personalschlüssel.',
     ageMonths: (range: string) => `Alter ${range} Monate`,
     fromChildren: (count: number) => `ab ${count} Kindern`,
     fromPresentChildren: (count: number) => `ab ${count} anwesenden Kindern`,

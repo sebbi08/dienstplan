@@ -22,6 +22,11 @@ const items = computed(() => {
   return list
 })
 
+/** The chosen type's explanation under the select; the ⓘ explains all types of the state (to compare before choosing). */
+const currentHint = computed(() => types.value.find(type => type.key === group.value?.groupType)?.description ?? null)
+const allHints = computed(() => types.value.filter(type => type.description)
+  .map(type => `${type.label}: ${type.description}`).join('\n') || null)
+
 function choose(value: string) {
   const current = group.value
   const groupType = value === NONE ? null : value
@@ -34,9 +39,13 @@ function choose(value: string) {
   <section v-if="group && types.length" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ t.groupTypesTitle }}</h2>
     <p class="text-xs text-gray-500">{{ t.groupTypesHint }}</p>
-    <USelect
-      :model-value="group.groupType ?? NONE" :items="items" class="w-full max-w-80" :aria-label="t.groupTypeOf(group.name)" :disabled="busy"
-      @update:model-value="choose($event as string)"
-    />
+    <div class="flex items-center gap-2">
+      <USelect
+        :model-value="group.groupType ?? NONE" :items="items" class="w-full max-w-80" :aria-label="t.groupTypeOf(group.name)" :disabled="busy"
+        @update:model-value="choose($event as string)"
+      />
+      <InfoHint v-if="allHints" :text="allHints" />
+    </div>
+    <p v-if="currentHint" class="text-xs text-gray-600">{{ currentHint }}</p>
   </section>
 </template>

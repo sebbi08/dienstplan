@@ -16,11 +16,25 @@ export const BW: StaffingRuleSet[] = [{
   method: 'group_fte',
   fteHoursPerWeek: 39,
   groupTypes: [
-    { key: 'halbtag', label: 'Halbtagsgruppe' },
-    { key: 'regel', label: 'Regelgruppe' },
-    { key: 'voe', label: 'Gruppe mit verlängerter Öffnungszeit (VÖ)' },
-    { key: 'ganztag', label: 'Ganztagsgruppe' },
-    { key: 'krippe', label: 'Kinderkrippe' },
+    {
+      key: 'halbtag', label: 'Halbtagsgruppe',
+      description: 'Betreuung nur vormittags oder nur nachmittags. Die App rechnet mit 4 Stunden Öffnungszeit am Tag.',
+    },
+    {
+      key: 'regel', label: 'Regelgruppe',
+      description: 'Betreuung vormittags und nachmittags, über Mittag unterbrochen (die Kinder gehen mittags nach Hause). '
+        + 'Die App rechnet mit 6 Stunden am Tag.',
+    },
+    {
+      key: 'voe', label: 'Gruppe mit verlängerter Öffnungszeit (VÖ)',
+      description: 'Durchgehende Betreuung ohne Unterbrechung, meist etwa 6 Stunden am Stück, in der Regel ohne '
+        + 'Mittagessen. Die App rechnet mit 6 Stunden am Tag.',
+    },
+    {
+      key: 'ganztag', label: 'Ganztagsgruppe',
+      description: 'Durchgehende Betreuung von mehr als 7 Stunden am Tag, mit Mittagessen. Die App rechnet mit 7 Stunden am Tag.',
+    },
+    { key: 'krippe', label: 'Kinderkrippe', description: 'Gruppe nur für Kinder unter 3 Jahren. Die App rechnet mit 7 Stunden am Tag.' },
   ],
   // reference = average daily opening (Hauptbetreuungszeit + 1 h Randzeit); "mit U3" rows first
   demand: [

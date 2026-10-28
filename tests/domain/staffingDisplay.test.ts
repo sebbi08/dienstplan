@@ -3,7 +3,8 @@ import { overridableValues } from '../../shared/domain/staffing/overrides'
 import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
 import { GERMAN_STATES } from '../../shared/domain/states'
 import {
-  demandTitle, formatDecimal, formatFte, formatSignedFte, parseDecimal, quotaLabel, staffingPathLabel, staffingSections,
+  demandTitle, formatDecimal, formatFte, formatSignedFte, groupTypeDescription, parseDecimal, quotaLabel, staffingPathLabel,
+  staffingSections,
 } from '../../app/utils/staffing'
 
 describe('staffing numbers', () => {
@@ -93,5 +94,25 @@ describe('quota labels', () => {
     expect(quotaLabel({ label: 'Fachkraftquote', kind: 'min_share', pct: 66.5 })).toBe('Fachkraftquote mind. 66,5 %')
     expect(quotaLabel({ label: 'Assistenzkräfte', kind: 'max_share', pct: 20 })).toBe('Assistenzkräfte höchstens 20 %')
     expect(quotaLabel({ label: 'Fachkraftstunden', kind: 'demand_minimum' })).toBe('Fachkraftstunden')
+  })
+})
+
+describe('group type explanations (BW)', () => {
+  const bw = presetFor('BW', '2026-10-28')
+
+  it('has a description per group type, none for unknown keys', () => {
+    expect(groupTypeDescription(bw, 'regel')).toContain('über Mittag unterbrochen')
+    expect(groupTypeDescription(bw, null)).toBeNull()
+    expect(groupTypeDescription(bw, 'unknown')).toBeNull()
+  })
+
+  it('explains the group types and „mit Kindern unter 3“ of a settings row', () => {
+    const demand = staffingSections(bw).find(section => section.key === 'demand')!.blocks
+    const regelU3 = demand.find(block => block.title === 'Regelgruppe, mit Kindern unter 3')!
+    expect(regelU3.hint).toContain('Regelgruppe: Betreuung vormittags')
+    expect(regelU3.hint).toContain('mit Kindern unter 3: Altersgemischte Gruppe')
+    const presence = staffingSections(bw).find(section => section.key === 'presence')!.blocks
+    expect(presence[0]!.hint).toBeNull()
+    expect(presence[1]!.hint?.split('\n')).toHaveLength(3)
   })
 })

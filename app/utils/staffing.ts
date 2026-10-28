@@ -22,6 +22,8 @@ export interface StaffingField {
 /** A row of the rule set (a demand row, an add-on, …) with its values; title null = the section has a single block. */
 export interface StaffingBlock {
   title: string | null
+  /** Explanation of the group types in the title (shown with an ⓘ); missing or null without one. */
+  hint?: string | null
   fields: StaffingField[]
 }
 
@@ -91,6 +93,21 @@ function monthsText(band: { atLeast?: number; below?: number }): string {
 
 function groupTypeLabel(rules: StaffingRuleSet, key: string): string {
   return rules.groupTypes?.find(type => type.key === key)?.label ?? key
+}
+
+/** The explanation of a group type of the state, if the preset has one. */
+export function groupTypeDescription(rules: Pick<StaffingRuleSet, 'groupTypes'>, key: string | null): string | null {
+  return rules.groupTypes?.find(type => type.key === key)?.description ?? null
+}
+
+/** The explanations of the group types (and of „mit Kindern unter 3“) a row is about, one per line. */
+function rowHint(rules: StaffingRuleSet, groupTypes: string[], withU3: boolean): string | null {
+  const lines = groupTypes.flatMap((key) => {
+    const description = groupTypeDescription(rules, key)
+    return description === null ? [] : [`${groupTypeLabel(rules, key)}: ${description}`]
+  })
+  if (withU3) lines.push(`${t.withAgeBand.u3}: ${t.withU3Hint}`)
+  return lines.length ? lines.join('\n') : null
 }
 
 /** The conditions of a demand row in words: „Regelgruppe, mit Kindern unter 3“, „unter 3 Jahre, bis 25 Std./Woche“. */
@@ -163,7 +180,8 @@ function demandBlocks(rules: StaffingRuleSet): StaffingBlock[] {
         ['leitung', f.groupHoursLeitung, t.hoursPerWeek],
       ]))
     }
-    return { title: demandTitle(rules, rule), fields }
+    const groupTypes = rule.groupType !== undefined ? [rule.groupType] : []
+    return { title: demandTitle(rules, rule), hint: rowHint(rules, groupTypes, rule.withAgeBand === 'u3'), fields }
   })
 }
 
@@ -186,7 +204,7 @@ function presenceBlocks(rules: StaffingRuleSet): StaffingBlock[] {
         ['maxChildren', f.relaxMaxChildren], ['minFachkraft', f.relaxMinFachkraft],
       ]))
     }
-    return { title: presenceTitle(rules, rule), fields }
+    return { title: presenceTitle(rules, rule), hint: rowHint(rules, rule.groupTypes ?? [], false), fields }
   })
 }
 
