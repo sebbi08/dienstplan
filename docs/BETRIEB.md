@@ -854,7 +854,8 @@ Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im A
 
 - **Urlaub** nimmt Urlaubstage; die Vorschau zeigt „danach noch … Tage Urlaub“.
 - **Überstundenfrei** nimmt **keine Urlaubstage**. Die Vorschau zeigt, wie viele Stunden der Antrag vom Stundenkonto
-  nimmt (die Sollstunden der Tage) und **„Stundenkonto danach: …“**: der Stand heute minus dieser Antrag, andere offene
+  nimmt (die Sollstunden der Tage; Tage, an denen schon Krank, Urlaub u. Ä. steht, kosten nichts) und
+  **„Stundenkonto danach: …“**: der Stand heute minus dieser Antrag, andere offene
   Überstundenfrei-Anträge und schon eingetragenes Überstundenfrei nach heute. Ein Minus ist erlaubt; die Leitung
   entscheidet.
 - In „Meine Anträge“ und in der Urlaubsplanung steht bei solchen Anträgen das Abzeichen **„Überstundenfrei“**.
@@ -1186,11 +1187,18 @@ Anrechnung ändert deshalb **nur der Träger** unter *Einstellungen → Dienstpl
 Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).
 
 **Überstundenfrei („ÜF“, violett)** steht direkt hinter Urlaub. Seine Anrechnung ist **„keine“**: ein ganzer Tag ÜF
-schreibt nichts gut, das Stundenkonto sinkt also um die Sollstunden des Tages; Urlaubstage werden nicht genommen. Für
-einen halben Tag ÜF klickt man im Dienstplan auf den Eintrag und gibt die Zeit ein (z. B. 12:00–16:00): dann gehen nur
-diese Stunden vom Stundenkonto ab, der Rest des Tages wird wie immer gearbeitet bzw. gutgeschrieben (Dienste in dieser
-Zeit zählen nicht). Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes ändern; der Code selbst
-bleibt Überstundenfrei (z. B. für Urlaubsanträge).
+schreibt nichts gut, das Stundenkonto sinkt also um die Sollstunden des Tages; Urlaubstage werden nicht genommen.
+
+Für einen **halben Tag ÜF** gehören **der Dienst und die ÜF-Zeit in dieselbe Zelle**, z. B. ein Dienst 7:00–12:00 und
+dazu ÜF 12:00–16:00 (ÜF mit „Zum bestehenden Eintrag hinzufügen“ eintragen, dann auf den ÜF-Eintrag klicken und
+die Zeit eingeben). Nur dann gehen **nur die ÜF-Stunden** vom Stundenkonto ab. Steht ÜF mit Uhrzeit allein in der
+Zelle, fehlt auch der Rest des Tages: dann sinkt das Stundenkonto um die ganzen Sollstunden. Dienstzeit, die in der
+ÜF-Zeit liegt, zählt nicht. In der Zeiterfassung gilt der Beginn bzw. das Ende der ÜF-Zeit als Dienstende bzw.
+Dienstbeginn: wer zu Beginn des ÜF geht (oder am Ende eines ÜF am Morgen kommt), gilt nicht als „früher gegangen“ bzw.
+„zu spät“. Urlaubsanträge für Überstundenfrei gibt es nur für ganze Tage.
+
+Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes ändern; der Code selbst bleibt
+Überstundenfrei (z. B. für Urlaubsanträge).
 
 ## 22. Warnungen im Dienstplan (die Liste rechts)
 

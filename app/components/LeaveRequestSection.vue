@@ -57,7 +57,7 @@ const STATUS_COLOR = { open: 'warning', approved: 'success', rejected: 'error', 
 <template>
   <section class="space-y-4 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <form class="space-y-3" @submit.prevent="send">
-      <h2 class="font-semibold">{{ de.leaveRequests.title }}</h2>
+      <h2 class="font-semibold">{{ de.leaveRequests.titles[form.kind] }}</h2>
       <UFormField :label="de.leaveRequests.kind" :hint="form.kind === 'overtime_off' ? de.leaveRequests.kindHint : undefined">
         <URadioGroup v-model="form.kind" orientation="horizontal" :items="kindItems" />
       </UFormField>

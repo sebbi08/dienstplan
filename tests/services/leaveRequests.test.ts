@@ -159,6 +159,13 @@ describe('leave requests', () => {
       expect(errorCode(() => request(carlaUser, '2026-11-03', '2026-11-04'))).toBe('leave_request_overlaps')
     })
 
+    it('costs nothing on days the approval keeps as another full-day absence', () => {
+      applyToCells(db, leitung, 1, [{ employeeId: carla, date: '2026-11-02' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+      applyToCells(db, leitung, 1, [{ employeeId: carla, date: '2026-11-09' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+      requestOff(carlaUser, '2026-11-09', '2026-11-10') // open: only 10.11. costs
+      expect(previewOff('2026-11-02', '2026-11-03')).toMatchObject({ minutesTaken: 468, balanceAfter: 1200 - 468 - 468 })
+    })
+
     it('writes Überstundenfrei into the plan on approval, keeps other absences and still counts it afterwards', () => {
       const id = requestOff(carlaUser, '2026-11-02', '2026-11-04')
       applyToCells(db, leitung, 1, [{ employeeId: carla, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })

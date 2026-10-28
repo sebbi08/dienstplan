@@ -30,7 +30,7 @@ export const OVERTIME_OFF = 'overtime_off'
  * Time off taken from the balance: an "Überstundenfrei" entry crediting nothing (its default). With a time range only
  * those minutes are not credited, like a break: working time planned in them does not count either.
  */
-export function isTimeOff(entry: WorkSpan): boolean {
+export function isTimeOff(entry: Pick<DomainEntry, 'kind'> & Partial<Pick<DomainEntry, 'codeKey' | 'creditMode'>>): boolean {
   return entry.kind === 'code' && entry.codeKey === OVERTIME_OFF && entry.creditMode === 'none'
 }
 

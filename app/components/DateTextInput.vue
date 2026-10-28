@@ -5,12 +5,15 @@ import { de } from '~/locales/de'
 /**
  * A date typed as TT.MM.JJJJ (the dots come by themselves), with a calendar button for the native picker.
  * The model is the ISO date 'YYYY-MM-DD', or '' while the field is empty or holds no valid date.
- * `label` names the field for the calendar button („Geburtsdatum im Kalender wählen“).
+ * `label` names the field for the calendar button („Geburtsdatum im Kalender wählen“). `ui` adds classes to the input's
+ * slots, merged with the field's own (e.g. { base: 'min-h-11' } for a touch-sized field).
  * Known limit: setting the model from outside to the value it already has ('' → '') does not reset an invalid text;
  * all current forms unmount the field on cancel/close, so that cannot happen there.
  */
 defineOptions({ inheritAttrs: false })
-const props = defineProps<{ min?: string, max?: string, required?: boolean, disabled?: boolean, label?: string }>()
+const props = defineProps<{
+  min?: string, max?: string, required?: boolean, disabled?: boolean, label?: string, ui?: Record<string, string>
+}>()
 const model = defineModel<string>({ required: true })
 // `class` sizes the wrapper; everything else (id, aria-label, size …) goes to the input.
 const attrs = useAttrs()
@@ -21,6 +24,13 @@ const inputAttrs = computed(() => {
 const pickLabel = computed(() => {
   const name = props.label ?? (attrs['aria-label'] as string | undefined)
   return name ? de.common.datePickFor(name) : de.common.datePick
+})
+
+/** The input's own slot classes plus the caller's: classes of the same slot are joined, never replaced. */
+const inputUi = computed(() => {
+  const merged: Record<string, string> = { trailing: 'pe-1' }
+  for (const [slot, classes] of Object.entries(props.ui ?? {})) merged[slot] = [merged[slot], classes].filter(Boolean).join(' ')
+  return merged
 })
 
 const text = ref(formatDateText(model.value))
@@ -115,7 +125,7 @@ function onPick(event: Event) {
         ref="input" v-bind="inputAttrs" :model-value="text" type="text" inputmode="numeric" autocomplete="off" :maxlength="10"
         :placeholder="de.common.datePlaceholder" :required="required" :disabled="disabled" class="w-full"
         :color="invalid ? 'error' : 'primary'" :highlight="invalid"
-        :ui="{ trailing: 'pe-1' }"
+        :ui="inputUi"
         @update:model-value="onType" @blur="onBlur" @invalid="touched = true"
       >
         <template #trailing>

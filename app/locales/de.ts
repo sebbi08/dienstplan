@@ -56,7 +56,8 @@ export const de = {
     overLimitLegend: 'mehr im Urlaub als erlaubt',
   },
   leaveRequests: {
-    title: 'Urlaub beantragen', from: 'Von', to: 'Bis', note: 'Bemerkung (optional)', send: 'Antrag stellen',
+    from: 'Von', to: 'Bis', note: 'Bemerkung (optional)', send: 'Antrag stellen',
+    titles: { vacation: 'Urlaub beantragen', overtime_off: 'Überstundenfrei beantragen' },
     kind: 'Was möchtest du beantragen?',
     kinds: { vacation: 'Urlaub', overtime_off: 'Überstundenfrei' },
     kindHint: 'Überstundenfrei nimmt keine Urlaubstage – die Stunden gehen von deinem Stundenkonto ab. Beantragt werden ganze Tage.',

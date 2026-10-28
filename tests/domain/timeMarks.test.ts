@@ -43,6 +43,18 @@ describe('late arrival and early leave of a day', () => {
     expect(dayMarks([M, pause], [{ start: 465, end: 960 }], options).lateMinutes).toBeNull()
   })
 
+  it('takes a timed Überstundenfrei at the end or the start of the shift as the end or start of the duty', () => {
+    const offAfter = code(1, D, 'overtime_off', 'none', 840, 960) // ÜF 14:00–16:00
+    expect(dayMarks([M, offAfter], [{ start: 465, end: 840 }], options)).toEqual({ lateMinutes: null, earlyMinutes: null })
+    expect(dayMarks([M, offAfter], [{ start: 465, end: 800 }], options).earlyMinutes).toBe(40)
+    const offBefore = code(1, D, 'overtime_off', 'none', 465, 600) // ÜF 7:45–10:00
+    expect(dayMarks([M, offBefore], [{ start: 600, end: 960 }], options)).toEqual({ lateMinutes: null, earlyMinutes: null })
+    expect(dayMarks([M, offBefore], [{ start: 620, end: 960 }], options).lateMinutes).toBe(20)
+    // Überstundenfrei over the whole shift leaves no planned work to compare with.
+    expect(dayMarks([M, code(1, D, 'overtime_off', 'none', 465, 960)], [{ start: 600, end: 700 }], options))
+      .toEqual({ lateMinutes: null, earlyMinutes: null })
+  })
+
   it('marks nothing without planned work or without stamps', () => {
     expect(dayMarks([], [{ start: 600, end: 700 }], options)).toEqual({ lateMinutes: null, earlyMinutes: null })
     expect(dayMarks([code(1, D, 'prep_time', 'none')], [{ start: 600, end: 700 }], options)).toEqual({ lateMinutes: null, earlyMinutes: null })

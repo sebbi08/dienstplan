@@ -1,4 +1,4 @@
-import { isWorkEntry } from './balance'
+import { isTimeOff, isWorkEntry } from './balance'
 import type { RecordSpan } from './timeRecords'
 import type { DomainEntry, Minutes } from './types'
 
@@ -44,13 +44,17 @@ const NONE: DayMarks = { lateMinutes: null, earlyMinutes: null }
  * An early closure of the facility moves the planned end forward to the closing time.
  */
 export function dayMarks(
-  entries: Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'>[], records: RecordSpan[], options: MarkOptions,
+  entries: (Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'> & Partial<Pick<DomainEntry, 'codeKey'>>)[],
+  records: RecordSpan[], options: MarkOptions,
 ): DayMarks {
   if (records.length === 0 || entries.some(entry => entry.creditMode === 'daily_target')) return NONE
-  const work = entries.filter(entry => isWorkEntry(entry) && entry.end !== null)
-  if (work.length === 0) return NONE
-  const plannedStart = Math.min(...work.map(entry => entry.start!))
-  const dutyEnd = Math.max(...work.map(entry => entry.end!))
+  // Planned work without the time ranges of "Überstundenfrei": an ÜF at the end of the shift is where the duty ends.
+  const planned = new Uint8Array(24 * 60)
+  for (const entry of entries) if (isWorkEntry(entry) && entry.end !== null) planned.fill(1, entry.start!, entry.end)
+  for (const entry of entries) if (isTimeOff(entry) && entry.start !== null && entry.end !== null) planned.fill(0, entry.start, entry.end)
+  const plannedStart = planned.indexOf(1)
+  if (plannedStart === -1) return NONE
+  const dutyEnd = planned.lastIndexOf(1) + 1
   const plannedEnd = options.closedFrom === undefined || options.closedFrom === null ? dutyEnd : Math.min(dutyEnd, options.closedFrom)
 
   const late = Math.min(...records.map(record => record.start)) - plannedStart

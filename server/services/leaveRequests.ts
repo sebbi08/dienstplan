@@ -219,19 +219,23 @@ function otherOpenDays(db: Db, employee: EmployeeRecord, kind: LeaveRequestKind,
 /**
  * Überstundenfrei: the balance as of today ("Stand heute", as the balance overview shows it) minus what is already
  * planned as Überstundenfrei after it, the person's other open Überstundenfrei requests and this request. A requested
- * day costs its daily target (nothing while the code is set to credit the daily target); a planned day costs what it
- * really takes (its time range only, when it has one).
+ * day costs its daily target (nothing while the code is set to credit the daily target, and nothing on a day that
+ * already holds another full-day absence, which the approval keeps); a planned day costs what it really takes (its time
+ * range only, when it has one).
  */
 function overtimeOffPreview(
   db: Db, facilityId: number, employee: EmployeeRecord, days: IsoDate[], closures: ReturnType<typeof loadClosures>, today: IsoDate,
 ): { minutesTaken: number; balanceAfter: number } {
-  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, OVERTIME_OFF)).get()
-  const dayCost = (date: IsoDate) => (code?.creditMode === 'daily_target' ? 0 : dailyTarget(employee.info, date))
   // "Stand heute" ends yesterday while the time tracking runs (today is not finished yet), see computeBalances.
   const until = activeTrackingFrom(db, facilityId, today) !== null ? addDays(today, -1) : today
-  const planned = new Map<IsoDate, ReturnType<typeof loadEntries>>()
-  for (const entry of loadEntries(db, { employeeId: employee.id, from: addDays(until, 1), codeKey: OVERTIME_OFF })) {
-    planned.set(entry.date, [...(planned.get(entry.date) ?? []), entry])
+  const later = loadEntries(db, { employeeId: employee.id, from: addDays(until, 1) })
+  const kept = new Set(later.filter(entry => entry.codeKey !== null && entry.codeKey !== OVERTIME_OFF
+    && entry.creditMode === 'daily_target').map(entry => entry.date))
+  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, OVERTIME_OFF)).get()
+  const dayCost = (date: IsoDate) => (code?.creditMode === 'daily_target' || kept.has(date) ? 0 : dailyTarget(employee.info, date))
+  const planned = new Map<IsoDate, typeof later>()
+  for (const entry of later) {
+    if (entry.codeKey === OVERTIME_OFF && !kept.has(entry.date)) planned.set(entry.date, [...(planned.get(entry.date) ?? []), entry])
   }
   const cost = new Map<IsoDate, number>()
   for (const [date, list] of planned) {
