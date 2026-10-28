@@ -9,7 +9,7 @@ import { formatDate, formatDateTime } from '~/utils/format'
 import { employeeDocumentUrl } from '~/utils/personnel'
 
 /**
- * Tab „Dokumente“ of the personnel file: one section per folder the viewer may use (the server answers with exactly
+ * „Dokumente“ of the personnel file (tab „Nachweise“): one section per folder the viewer may use (the server answers with exactly
  * those), each with its documents (open in a new tab, download, change, delete) and „Hochladen“. Like the child
  * documents: PDF, JPG or PNG up to 10 MB. Loaded in the browser once the tab is opened.
  */
@@ -85,14 +85,17 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
 </script>
 
 <template>
-  <p class="text-sm text-gray-500">{{ t.hint }}</p>
+  <div>
+    <h2 class="font-semibold">{{ t.heading }}</h2>
+    <p class="text-sm text-gray-500">{{ t.hint }}</p>
+  </div>
   <UAlert v-if="loadError" color="error" variant="soft" :title="loadError" />
   <p v-else-if="!documents" class="text-sm text-gray-500">{{ t.loading }}</p>
   <template v-else>
     <section v-for="folder in folders" :key="folder" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <div class="flex flex-wrap items-center gap-2">
         <div class="min-w-0">
-          <h2 class="font-semibold">{{ de.personnel.folders[folder] }}</h2>
+          <h3 class="font-semibold">{{ de.personnel.folders[folder] }}</h3>
           <p class="text-xs text-gray-500">{{ t.folderHints[folder] }}</p>
         </div>
         <UButton

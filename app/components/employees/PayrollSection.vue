@@ -8,8 +8,8 @@ import {
 } from '~/utils/personnel'
 
 /**
- * Tab „Lohn und Steuer“ (employees.payroll; the page mounts it only then). The values are fetched in the browser and
- * only once the tab is opened, so they never stand in the page source; Steuer-ID, Steuerklasse, SV-Nummer, IBAN and
+ * „Lohn und Steuer“ in the tab „Vertrag & Lohn“ (employees.payroll; the page mounts it only then). The values are
+ * fetched in the browser and only once the tab is opened, so they never stand in the page source; Steuer-ID, Steuerklasse, SV-Nummer, IBAN and
  * Konfession show masked until „anzeigen“ (hidden again when the tab is left). „Bearbeiten“ opens the form; format errors (checked
  * here and again by the server) stand at their field.
  */

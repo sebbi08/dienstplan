@@ -440,9 +440,8 @@ export const de = {
     /** The tabs of the employee page. */
     tabsLabel: 'Bereiche',
     tabs: {
-      master: 'Stammdaten', hours: 'Stunden & Vertrag', leave: 'Urlaub', stamping: 'Zeiterfassung & PIN',
-      qualification: 'Qualifikation', requirements: 'Pflichttermine', talks: 'Gespräche', access: 'Zugang',
-      payroll: 'Lohn und Steuer', documents: 'Dokumente',
+      master: 'Stammdaten', contract: 'Vertrag & Lohn', times: 'Urlaub & Zeiten', records: 'Nachweise',
+      talks: 'Gespräche', access: 'Zugang',
     },
     /** The tab „Zugang“: the account linked to the person. */
     access: {
@@ -492,7 +491,7 @@ export const de = {
     nationality: 'Staatsangehörigkeit', disability: 'Schwerbehinderung', disabilityDegree: 'Grad der Behinderung',
     disabilityYes: 'ja', disabilityNo: 'nein',
     disabilityDegreeNone: '–', disabilityEqual: 'gleichgestellt', disabilityUntil: 'gültig bis',
-    // Tab „Lohn und Steuer“ (employees.payroll).
+    // „Lohn und Steuer“ in the tab „Vertrag & Lohn“ (employees.payroll).
     payroll: {
       title: 'Lohn und Steuer',
       hint: 'Nur für den Träger (oder wem er das Recht gibt). Steuer-ID, Steuerklasse, Sozialversicherungsnummer, IBAN und Konfession sind verdeckt, bis du „anzeigen“ wählst.',
@@ -505,8 +504,9 @@ export const de = {
       ibanPlaceholder: 'DE00 0000 0000 0000 0000 00', taxIdPlaceholder: '11 Ziffern', svNumberPlaceholder: 'z. B. 15 070649 C 103',
       formatHint: 'Steuer-ID, Sozialversicherungsnummer und IBAN werden auf Tippfehler geprüft. Ein leeres Feld ist immer erlaubt.',
     },
-    // Tab „Dokumente“: only the folders the viewer may use.
+    // „Dokumente“ in the tab „Nachweise“: only the folders the viewer may use.
     documents: {
+      heading: 'Dokumente',
       hint: 'Du siehst nur die Fächer, für die du das Recht hast. Erlaubt sind PDF, JPG und PNG bis 10 MB.',
       upload: 'Hochladen', uploadTo: (folder: string) => `Dokument hochladen: ${folder}`, edit: 'Dokument bearbeiten',
       file: 'Datei (PDF, JPG oder PNG, höchstens 10 MB)', folder: 'Fach', title: 'Titel', date: 'Datum', note: 'Notiz (freiwillig)',

@@ -19,7 +19,9 @@ import {
   type FieldErrorCode, type PersonalFields, type SensitiveFields,
 } from '~/utils/personnel'
 import { pinStateText } from '~/utils/pin'
-import { employeeTabs, requestedEmployeeTab, type EmployeeTab } from '~/utils/staffList'
+import {
+  employeeSections, employeeTabs, requestedEmployeeSection, requestedEmployeeTab, type EmployeeSection, type EmployeeTab,
+} from '~/utils/staffList'
 import { inState } from '~/utils/states'
 import { workdaysText } from '~/utils/workdays'
 
@@ -56,8 +58,8 @@ const canEditContract = computed(() => can('employees.contractEdit'))
 const canMoveFacility = computed(() => can('employees.moveFacility'))
 
 /**
- * The forms of „Stammdaten“ and „Qualifikation“ (one route, but each tab saves only its own fields). A reload keeps
- * what is typed and not saved yet in a tab; the tab just saved shows the saved values.
+ * The forms „Stammdaten“ and „Qualifikation“ of the tab „Stammdaten“ (one route, but each form saves only its own
+ * fields). A reload keeps what is typed and not saved yet in a form; the form just saved shows the saved values.
  */
 const master = reactive<MasterFields>({ name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0 })
 const qualificationForm = reactive<QualificationFields>({ qualification: NO_QUALIFICATION, staffingShare: '' })
@@ -163,7 +165,7 @@ async function removePin() {
 }
 
 /**
- * Saves one tab's fields („Stammdaten“ or „Qualifikation“); a check that fails is shown right away, on that tab.
+ * Saves one form's fields („Stammdaten“ or „Qualifikation“); a check that fails is shown right away.
  * „Stammdaten“ adds the personal and sensitive blocks the viewer was sent (and only those).
  */
 async function saveEmployee(part: 'master' | 'qualification') {
@@ -258,14 +260,25 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
   Object.assign(entitlementForm, { year: entitlement.year, days: entitlement.days, carriedOverDays: entitlement.carriedOverDays })
 }
 
-// The page's tabs; `?tab=` opens one directly (nothing is remembered). The old anchor #requirements still leads to its tab.
+// The page's tabs; `?tab=` opens one directly (nothing is remembered). A former tab key (`?tab=stamping`) opens the tab
+// that holds its section now and scrolls to it; the old anchor #requirements still leads to its tab.
 const router = useRouter()
+const visibleSections = computed(() => employeeSections(can, user.value?.employeeId === id))
 const visibleTabs = computed(() => employeeTabs(can, user.value?.employeeId === id))
+const shows = (section: EmployeeSection) => visibleSections.value.includes(section)
 // A form of a talk opened in „Gespräche“ may hold unsaved answers: leaving the page asks first.
 useUnsavedGuard()
 const requestedTab = () => requestedEmployeeTab(route.query.tab, route.hash, visibleTabs.value)
 const tab = ref<EmployeeTab>(requestedTab())
-watch(() => [route.query.tab, route.hash], () => (tab.value = requestedTab()))
+function scrollToRequestedSection() {
+  const section = requestedEmployeeSection(route.query.tab, visibleSections.value)
+  if (section) nextTick(() => document.getElementById(`employee-section-${section}`)?.scrollIntoView({ block: 'start' }))
+}
+onMounted(scrollToRequestedSection)
+watch(() => [route.query.tab, route.hash], () => {
+  tab.value = requestedTab()
+  scrollToRequestedSection()
+})
 /** The attributes of a tab's panel (all panels stay mounted, only the open one shows). */
 const panel = (key: EmployeeTab) => ({ id: `employee-panel-${key}`, role: 'tabpanel', 'aria-labelledby': `employee-tab-${key}`, class: 'space-y-4' })
 async function selectTab(next: EmployeeTab) {
@@ -381,6 +394,21 @@ async function onTabKey(event: KeyboardEvent) {
 
     <EmployeesEmergencyContactsSection :employee-id="id" />
 
+    <!-- The same route as the master data, but only the qualification and the share are sent from here. -->
+    <form
+      id="employee-section-qualification" class="grid scroll-mt-32 gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end"
+      @submit.prevent="saveEmployee('qualification')"
+    >
+      <h2 class="font-semibold sm:col-span-4">{{ de.staffing.qualification }}</h2>
+      <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
+        <USelect v-model="qualificationForm.qualification" :items="qualificationItems" class="w-full" />
+      </UFormField>
+      <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
+        <UInput v-model="qualificationForm.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
+      </UFormField>
+      <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
+    </form>
+
     <form v-if="canMoveFacility && otherFacilities.length" class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="moveFacility">
       <h2 class="w-full font-semibold">{{ de.facilities.move }}</h2>
       <UFormField :label="de.facilities.active">
@@ -390,57 +418,7 @@ async function onTabKey(event: KeyboardEvent) {
     </form>
     </div>
 
-    <!-- The same route as the master data, but only the qualification and the share are sent from here. -->
-    <div v-show="tab === 'qualification'" v-bind="panel('qualification')">
-    <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="saveEmployee('qualification')">
-      <h2 class="font-semibold sm:col-span-4">{{ de.employees.tabs.qualification }}</h2>
-      <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
-        <USelect v-model="qualificationForm.qualification" :items="qualificationItems" class="w-full" />
-      </UFormField>
-      <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
-        <UInput v-model="qualificationForm.staffingShare" type="number" min="0" max="100" step="1" :placeholder="sharePlaceholder" class="w-full" />
-      </UFormField>
-      <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
-    </form>
-    </div>
-
-    <div v-show="tab === 'stamping'" v-bind="panel('stamping')">
-    <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-      <h2 class="font-semibold">{{ de.employees.pin }}</h2>
-      <p class="text-sm text-gray-600">{{ employee.hasPin ? de.employees.pinSet : de.employees.pinNotSet }}</p>
-      <div
-        v-if="pinLock" class="flex flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm"
-        :class="pinLock.locked ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'"
-      >
-        <span>{{ pinLock.text }}</span>
-        <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.employees.unlockPin" @click="unlockPin" />
-      </div>
-      <form class="flex flex-wrap items-end gap-3" @submit.prevent="savePin">
-        <UFormField :label="de.employees.pin">
-          <UInput v-model="pin" inputmode="numeric" :maxlength="PIN_LENGTH" autocomplete="off" required />
-        </UFormField>
-        <UButton type="submit" :label="de.employees.savePin" />
-        <UButton v-if="employee.hasPin" color="error" variant="ghost" :label="de.employees.removePin" @click="removePin" />
-      </form>
-      <p class="text-xs text-gray-500">{{ de.employees.pinHint }} {{ de.employees.pinLockHint }}</p>
-    </section>
-
-    <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveStamping">
-      <h2 class="font-semibold">{{ de.employees.stamping }}</h2>
-      <div class="grid gap-3 sm:grid-cols-2">
-        <UFormField :label="de.employees.stampVia">
-          <USelect v-model="stamping.stampVia" :items="stampViaItems" class="w-full" />
-        </UFormField>
-        <UFormField :label="de.employees.breakMode">
-          <USelect v-model="stamping.breakMode" :items="breakModeItems" class="w-full" />
-        </UFormField>
-      </div>
-      <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
-      <UButton type="submit" :label="de.common.save" />
-    </form>
-    </div>
-
-    <div v-show="tab === 'hours'" v-bind="panel('hours')">
+    <div v-show="tab === 'contract'" v-bind="panel('contract')">
     <section class="space-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.balances.account }}</h2>
       <p>
@@ -520,9 +498,14 @@ async function onTabKey(event: KeyboardEvent) {
     <EmployeesContractSection
       v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="canEditContract" @saved="refresh"
     />
+
+    <!-- Personalakte: mounted only with the right, loaded in the browser only once the tab is opened. -->
+    <div v-if="shows('payroll')" id="employee-section-payroll" class="scroll-mt-32">
+      <EmployeesPayrollSection :employee-id="id" :active="tab === 'contract'" />
+    </div>
     </div>
 
-    <div v-show="tab === 'leave'" v-bind="panel('leave')">
+    <div v-show="tab === 'times'" v-bind="panel('times')">
     <section class="space-y-1 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
       <div class="flex flex-wrap items-center gap-x-2">
         <h2 class="font-semibold">{{ de.leave.title }}</h2>
@@ -563,19 +546,48 @@ async function onTabKey(event: KeyboardEvent) {
         <UButton type="submit" :label="de.employees.saveEntitlement" />
       </form>
     </section>
+
+    <section id="employee-section-stamping" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ de.employees.pin }}</h2>
+      <p class="text-sm text-gray-600">{{ employee.hasPin ? de.employees.pinSet : de.employees.pinNotSet }}</p>
+      <div
+        v-if="pinLock" class="flex flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm"
+        :class="pinLock.locked ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'"
+      >
+        <span>{{ pinLock.text }}</span>
+        <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.employees.unlockPin" @click="unlockPin" />
+      </div>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="savePin">
+        <UFormField :label="de.employees.pin">
+          <UInput v-model="pin" inputmode="numeric" :maxlength="PIN_LENGTH" autocomplete="off" required />
+        </UFormField>
+        <UButton type="submit" :label="de.employees.savePin" />
+        <UButton v-if="employee.hasPin" color="error" variant="ghost" :label="de.employees.removePin" @click="removePin" />
+      </form>
+      <p class="text-xs text-gray-500">{{ de.employees.pinHint }} {{ de.employees.pinLockHint }}</p>
+    </section>
+
+    <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveStamping">
+      <h2 class="font-semibold">{{ de.employees.stamping }}</h2>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <UFormField :label="de.employees.stampVia">
+          <USelect v-model="stamping.stampVia" :items="stampViaItems" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.employees.breakMode">
+          <USelect v-model="stamping.breakMode" :items="breakModeItems" class="w-full" />
+        </UFormField>
+      </div>
+      <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
+      <UButton type="submit" :label="de.common.save" />
+    </form>
     </div>
 
-    <div v-show="tab === 'requirements'" v-bind="panel('requirements')">
+    <div v-show="tab === 'records'" v-bind="panel('records')">
       <EmployeesRequirementsSection :employee-id="id" />
-    </div>
-
-    <!-- Personalakte: mounted only with the rights, loaded in the browser only once the tab is opened. -->
-    <div v-if="visibleTabs.includes('documents')" v-show="tab === 'documents'" v-bind="panel('documents')">
-      <EmployeesDocumentsSection :employee-id="id" :active="tab === 'documents'" />
-    </div>
-
-    <div v-if="visibleTabs.includes('payroll')" v-show="tab === 'payroll'" v-bind="panel('payroll')">
-      <EmployeesPayrollSection :employee-id="id" :active="tab === 'payroll'" />
+      <!-- Personalakte: mounted only with the rights, loaded in the browser only once the tab is opened. -->
+      <div v-if="shows('documents')" id="employee-section-documents" class="scroll-mt-32 space-y-4">
+        <EmployeesDocumentsSection :employee-id="id" :active="tab === 'records'" />
+      </div>
     </div>
 
     <div v-if="visibleTabs.includes('talks')" v-show="tab === 'talks'" v-bind="panel('talks')">

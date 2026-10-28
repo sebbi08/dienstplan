@@ -814,17 +814,26 @@ nie gesperrt.
 
 ### Die Seite einer Person
 
-Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in Reiter aufgeteilt: **Stammdaten** (Name, Kürzel,
-ausgeschieden am, Gruppe, Geburtstag, Notfallkontakte; mit Recht auch die persönlichen Daten der Personalakte; beim Träger
-auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
-(Stundenkonto heute und am Ende eines wählbaren Monats, Wochenstunden, Stundenkonto-Buchungen, Vertragsangaben) ·
-**Urlaub** (Urlaubskonto eines wählbaren Jahres: Anspruch, Übertrag, genommen, verplant, frei verfügbar; dazu der
-Urlaubsanspruch) · **Zeiterfassung & PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** ·
-**Dokumente** und **Lohn und Steuer** (Personalakte, nur mit dem Recht dafür, siehe unten) · **Gespräche** · **Zugang**.
-Die App merkt sich keinen Reiter; sie öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter (z. B.
-aus dem Hinweis auf Pflichttermine). Was du in einem Reiter eingibst, bleibt beim Wechsel in einen anderen Reiter
-stehen. **Speichern speichert nur die Felder des Reiters, in dem du gerade bist** – Eingaben in einem anderen Reiter
-werden dabei nicht mitgespeichert und auch nicht gelöscht.
+Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in sechs Reiter aufgeteilt, jeder mit einem oder mehreren
+Abschnitten (auf dem Handy untereinander):
+
+- **Stammdaten:** die Stammdaten (Name, Kürzel, ausgeschieden am, Gruppe, Geburtstag; mit Recht auch die persönlichen
+  Daten der Personalakte), Notfallkontakte, Qualifikation (Personalschlüssel) und beim Träger „in andere Einrichtung
+  verschieben“.
+- **Vertrag & Lohn:** Stundenkonto heute und am Ende eines wählbaren Monats, Wochenstunden, Stundenkonto-Buchungen,
+  Vertragsangaben und **Lohn und Steuer** (Personalakte, nur mit dem Recht dafür, siehe unten).
+- **Urlaub & Zeiten:** Urlaubskonto eines wählbaren Jahres (Anspruch, Übertrag, genommen, verplant, frei verfügbar),
+  Urlaubsanspruch, PIN und Zeiterfassung.
+- **Nachweise:** Pflichttermine, Fortbildungen und **Dokumente** (Personalakte, nur die Fächer, für die du das Recht
+  hast, siehe unten).
+- **Gespräche** und **Zugang**.
+
+Einen Reiter, von dem du keinen Abschnitt sehen darfst, gibt es für dich nicht. Die App merkt sich keinen Reiter; sie
+öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter oder Abschnitt (z. B. aus dem Hinweis auf
+Pflichttermine oder aus „Was noch fehlt“). Was du in einem Reiter eingibst, bleibt beim Wechsel in einen anderen Reiter
+stehen. **Jeder Abschnitt hat sein eigenes Speichern, und das speichert nur seine Felder** – Eingaben in einem anderen
+Abschnitt oder Reiter werden dabei nicht mitgespeichert und auch nicht gelöscht. Gibt es noch nicht gespeicherte
+Änderungen, fragt die App vor dem Wechsel des Reiters nach.
 
 ### Notfallkontakte
 
@@ -849,10 +858,10 @@ Voreingestellt gilt:
 |---|---|---|---|---|
 | Geburtsjahr (mit dem Geburtstag das volle Geburtsdatum), Anschrift (Straße, PLZ, Ort), Telefon, E-Mail | Reiter **Stammdaten**, Abschnitt „Persönliche Daten“ | ja | ja | nein |
 | Staatsangehörigkeit, Schwerbehinderung (ja/nein, Grad der Behinderung 20–100, „gleichgestellt“, gültig bis) | Reiter **Stammdaten**, Abschnitt „Staatsangehörigkeit und Schwerbehinderung“ | ja | nein | nein |
-| „befristet bis“ | Reiter **Stunden & Vertrag**, Vertragsangaben | bearbeiten | nur lesen, wenn die Vertragsangaben freigegeben sind | nein |
-| Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Lohn und Steuer** | ja | nein | nein |
-| Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Dokumente** | ja | ja | nein |
-| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Dokumente** | ja | nein | nein |
+| „befristet bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | nur lesen, wenn die Vertragsangaben freigegeben sind | nein |
+| Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Vertrag & Lohn**, Abschnitt „Lohn und Steuer“ | ja | nein | nein |
+| Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | ja | nein |
+| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | nein | nein |
 
 Mitarbeiter sehen nichts davon – auch nicht ihre eigene Akte; am Tablet und auf den „Mein …“-Seiten steht nichts davon.
 Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
@@ -867,7 +876,7 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   die App vorher (danach ist das Formular geschlossen und die Änderung verworfen). Geprüft werden die IBAN (Prüfziffer), die Steuer-ID (11 Ziffern mit Prüfziffer), die
   Sozialversicherungsnummer (12 Zeichen mit Prüfziffer) und die Steuerklasse (1–6); ein falscher Wert lässt sich nicht
   speichern, der Hinweis steht am Feld. Ein leeres Feld ist immer erlaubt. Die Werte werden erst geladen, wenn du den
-  Reiter öffnest.
+  Reiter **Vertrag & Lohn** öffnest.
 - **Dokumente:** Je Fach ein Abschnitt mit **„Hochladen“**: PDF, JPG oder PNG bis 10 MB, dazu Titel, Datum und eine
   freiwillige Notiz. Je Dokument: Titel antippen oder ↗ öffnet es in einem neuen Tab, ⤓ lädt es herunter, der Stift
   ändert Titel, Datum, Notiz oder das Fach (zur Auswahl stehen nur Fächer, für die du das Recht hast), der Papierkorb
@@ -889,7 +898,7 @@ Unter **Einstellungen → Dienstplan → „Urlaub an Heiligabend und Silvester�
 ein Urlaubstag am 24.12. oder 31.12. als **ganzer Tag** (voreingestellt, wie bisher) oder als **halber Tag** zählt
 („Einstellungen für“ wählt die Einrichtung; die Leitung sieht die Einstellung nur). Mit „halber Tag“ zählt so ein Tag
 überall 0,5: im Urlaubskonto (genommen, verplant, frei verfügbar, Übertrag ins nächste Jahr), beim Resturlaub in der
-Mitarbeiterliste, im Reiter „Urlaub“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim Buchen von
+Mitarbeiterliste, im Reiter „Urlaub & Zeiten“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim Buchen von
 Schließzeiten für neu Eingestellte. Es gilt die Einstellung der **Stammeinrichtung** der Person, für alle Jahre (auch
 rückwirkend). Das Stundenkonto und die Sollstunden ändern sich nicht; in der Urlaubsplanung zählt die Person an dem Tag
 weiter als eine Person im Urlaub.
@@ -932,7 +941,7 @@ seitlich wischen.
 ### Stempel-PIN
 
 - Mit der PIN stempelt jeder Mitarbeiter am Kita-Tablet und schließt dort die Kinder auf. Die PIN hat **genau
-  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Zeiterfassung & PIN* (nur für die Mitarbeiter der
+  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Urlaub & Zeiten* (nur für die Mitarbeiter der
   Einrichtung, in der sie gerade arbeiten).
 - **Nach dem Update auf die 6-stellige PIN sind alle bisherigen 4-stelligen PINs gelöscht.** Bitte für jeden
   Mitarbeiter eine neue PIN setzen. In der Mitarbeiterliste steht bei allen ohne PIN **„PIN fehlt“**; wer keine PIN
@@ -1152,7 +1161,7 @@ auch im Reiter und in den Einstellungen.
 ### Was vorher eingetragen sein muss
 
 - **Bundesland** der Einrichtung (Einstellungen → Einrichtung → Einrichtungen, Träger). Danach richten sich alle Zahlen.
-- **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Qualifikation, Leitung oder Träger): Fachkraft,
+- **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Stammdaten, Leitung oder Träger): Fachkraft,
   Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Praktikant/in oder **keine pädagogische Kraft**. Küche,
   Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen sie mit.
   „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im

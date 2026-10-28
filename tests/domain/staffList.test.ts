@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { employeeTabs, requestedEmployeeTab, staffBadges, suggestUsername } from '../../app/utils/staffList'
+import {
+  employeeSections, employeeTabs, requestedEmployeeSection, requestedEmployeeTab, staffBadges, suggestUsername,
+} from '../../app/utils/staffList'
 import { effectivePermissions, type PermissionKey } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
 
@@ -55,36 +57,68 @@ describe('employee page tabs', () => {
     const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
     return (key: PermissionKey) => permissions.has(key)
   }
-  const all = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'documents', 'payroll', 'talks', 'access']
-  const withoutPayroll = all.filter(tab => tab !== 'payroll')
+  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'talks', 'access']
+  const allTabs = ['master', 'contract', 'times', 'records', 'talks', 'access']
 
-  it('shows the Träger every tab, the Leitung all but „Lohn und Steuer“, „Zugang“ and „Gespräche“ to nobody else', () => {
-    expect(employeeTabs(canOf('admin'))).toEqual(withoutPayroll)
-    expect(employeeTabs(canOf('provider'))).toEqual(all)
-    expect(employeeTabs(canOf('observer'))).not.toContain('access')
-    expect(employeeTabs(canOf('observer'))).not.toContain('talks')
+  it('shows the Träger every section, the Leitung all but „Lohn und Steuer“, „Zugang“ and „Gespräche“ to nobody else', () => {
+    expect(employeeSections(canOf('admin'))).toEqual(allSections.filter(section => section !== 'payroll'))
+    expect(employeeSections(canOf('provider'))).toEqual(allSections)
+    expect(employeeSections(canOf('observer'))).not.toContain('access')
+    expect(employeeSections(canOf('observer'))).not.toContain('talks')
     // Nobody manages a talk about themselves: no „Gespräche“ on the own page.
-    expect(employeeTabs(canOf('admin'), true)).toEqual(withoutPayroll.filter(tab => tab !== 'talks'))
-    expect(employeeTabs(canOf('provider'), true)).not.toContain('talks')
-    expect(employeeTabs(() => false)).not.toContain('access')
+    expect(employeeSections(canOf('admin'), true)).not.toContain('talks')
+    expect(employeeSections(canOf('provider'), true)).not.toContain('talks')
+    expect(employeeSections(() => false)).not.toContain('access')
   })
 
   it('shows „Dokumente“ with the key of any folder, „Lohn und Steuer“ only with employees.payroll', () => {
-    expect(employeeTabs(canOf('observer'))).not.toContain('documents')
-    expect(employeeTabs(canOf('observer'))).not.toContain('payroll')
-    expect(employeeTabs(key => key === 'employees.docs.salary')).toContain('documents')
-    expect(employeeTabs(key => key === 'employees.payroll')).toEqual(['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'payroll'])
+    expect(employeeSections(canOf('observer'))).not.toContain('documents')
+    expect(employeeSections(canOf('observer'))).not.toContain('payroll')
+    expect(employeeSections(key => key === 'employees.docs.salary')).toContain('documents')
+    expect(employeeSections(key => key === 'employees.payroll'))
+      .toEqual(['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements'])
   })
 
-  it('opens the tab of the address, the requirements for the old anchor, else the first', () => {
+  it('shows the six tabs, without a tab none of whose sections the viewer sees', () => {
+    expect(employeeTabs(canOf('provider'))).toEqual(allTabs)
+    expect(employeeTabs(canOf('admin'))).toEqual(allTabs)
+    // Without „Lohn und Steuer“ and „Dokumente“ their tabs stay for the other sections.
+    expect(employeeTabs(() => false)).toEqual(['master', 'contract', 'times', 'records'])
+    expect(employeeTabs(canOf('admin'), true)).toEqual(['master', 'contract', 'times', 'records', 'access'])
+    expect(employeeTabs(canOf('provider'), true)).not.toContain('talks')
+    expect(employeeTabs(canOf('observer'))).not.toContain('access')
+  })
+
+  it('opens the tab of the address, the tab of a former tab key, the requirements for the old anchor, else the first', () => {
     const visible = employeeTabs(canOf('admin'))
     expect(requestedEmployeeTab('access', '', visible)).toBe('access')
-    expect(requestedEmployeeTab(['leave'], '', visible)).toBe('leave')
+    expect(requestedEmployeeTab(['times'], '', visible)).toBe('times')
     expect(requestedEmployeeTab('talks', '', visible)).toBe('talks')
-    expect(requestedEmployeeTab(undefined, '#requirements', visible)).toBe('requirements')
+    expect(requestedEmployeeTab(undefined, '#requirements', visible)).toBe('records')
     expect(requestedEmployeeTab('nonsense', '', visible)).toBe('master')
+    expect(requestedEmployeeTab('toString', '', visible)).toBe('master')
     expect(requestedEmployeeTab('access', '', employeeTabs(canOf('observer')))).toBe('master')
-    expect(requestedEmployeeTab('payroll', '', visible)).toBe('master')
-    expect(requestedEmployeeTab('payroll', '', employeeTabs(canOf('provider')))).toBe('payroll')
+    // The former tab keys, e.g. from the setup checklist or the requirement notice.
+    expect(requestedEmployeeTab('qualification', '', visible)).toBe('master')
+    expect(requestedEmployeeTab(['hours'], '', visible)).toBe('contract')
+    expect(requestedEmployeeTab('payroll', '', employeeTabs(canOf('provider')))).toBe('contract')
+    expect(requestedEmployeeTab('leave', '', visible)).toBe('times')
+    expect(requestedEmployeeTab('stamping', '', visible)).toBe('times')
+    expect(requestedEmployeeTab('requirements', '', visible)).toBe('records')
+    expect(requestedEmployeeTab('documents', '', visible)).toBe('records')
+    expect(requestedEmployeeTab('talks', '', employeeTabs(canOf('admin'), true))).toBe('master')
+  })
+
+  it('scrolls to the section of a former tab key unless it is the first of its tab or not shown', () => {
+    const visible = employeeSections(canOf('provider'))
+    expect(requestedEmployeeSection('qualification', visible)).toBe('qualification')
+    expect(requestedEmployeeSection('stamping', visible)).toBe('stamping')
+    expect(requestedEmployeeSection(['payroll'], visible)).toBe('payroll')
+    expect(requestedEmployeeSection('documents', visible)).toBe('documents')
+    expect(requestedEmployeeSection('hours', visible)).toBeNull()
+    expect(requestedEmployeeSection('master', visible)).toBeNull()
+    expect(requestedEmployeeSection('contract', visible)).toBeNull()
+    expect(requestedEmployeeSection(undefined, visible)).toBeNull()
+    expect(requestedEmployeeSection('payroll', employeeSections(canOf('admin')))).toBeNull()
   })
 })
