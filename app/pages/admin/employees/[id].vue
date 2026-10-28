@@ -65,10 +65,11 @@ const qualificationForm = reactive<QualificationFields>({ qualification: NO_QUAL
 // „Stammdaten“ and saved with it, each only when the employee answer holds it (sending a block without its key is 403).
 const personal = reactive<PersonalFields>(personalFieldsOf(undefined))
 const sensitive = reactive<SensitiveFields>(sensitiveFieldsOf(undefined))
-let loadedMaster: MasterFields | null = null
+// The stored values as last loaded; the Stammdaten form compares against them (see useDirty below).
+const loadedMaster = shallowRef<MasterFields | null>(null)
 let loadedQualification: QualificationFields | null = null
-let loadedPersonal: PersonalFields | null = null
-let loadedSensitive: SensitiveFields | null = null
+const loadedPersonal = shallowRef<PersonalFields | null>(null)
+const loadedSensitive = shallowRef<SensitiveFields | null>(null)
 const justSaved = { master: false, qualification: false }
 watch(employee, (value) => {
   if (!value) return
@@ -76,16 +77,19 @@ watch(employee, (value) => {
   const nextQualification = qualificationFieldsOf(value)
   const nextPersonal = personalFieldsOf(value.personal)
   const nextSensitive = sensitiveFieldsOf(value.sensitive)
-  Object.assign(master, reloadedFields({ ...master }, loadedMaster, nextMaster, justSaved.master))
+  Object.assign(master, reloadedFields({ ...master }, loadedMaster.value, nextMaster, justSaved.master))
   Object.assign(qualificationForm, reloadedFields({ ...qualificationForm }, loadedQualification, nextQualification, justSaved.qualification))
-  Object.assign(personal, reloadedFields({ ...personal }, loadedPersonal, nextPersonal, justSaved.master))
-  Object.assign(sensitive, reloadedFields({ ...sensitive }, loadedSensitive, nextSensitive, justSaved.master))
-  loadedMaster = nextMaster
+  Object.assign(personal, reloadedFields({ ...personal }, loadedPersonal.value, nextPersonal, justSaved.master))
+  Object.assign(sensitive, reloadedFields({ ...sensitive }, loadedSensitive.value, nextSensitive, justSaved.master))
+  loadedMaster.value = nextMaster
   loadedQualification = nextQualification
-  loadedPersonal = nextPersonal
-  loadedSensitive = nextSensitive
+  loadedPersonal.value = nextPersonal
+  loadedSensitive.value = nextSensitive
   justSaved.master = justSaved.qualification = false
 }, { immediate: true })
+// Typed and not saved yet in „Stammdaten“ (master, personal and sensitive fields): leaving the page or the tab asks first.
+useDirty(() => !!loadedMaster.value
+  && !(sameValue({ ...master }, loadedMaster.value) && sameValue({ ...personal }, loadedPersonal.value) && sameValue({ ...sensitive }, loadedSensitive.value)))
 /** Format errors of the personal and sensitive fields, shown at the field (from here or from the server). */
 const masterErrors = ref<Record<string, FieldErrorCode>>({})
 const masterError = (field: string) => (masterErrors.value[field] ? de.errors[masterErrors.value[field]] : undefined)

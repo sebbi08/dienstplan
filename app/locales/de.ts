@@ -859,7 +859,7 @@ export const de = {
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, Lohn und Steuer, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -882,7 +882,7 @@ export const de = {
     cashYearsHelp: 'Eine archivierte Kasse darf erst danach endgültig gelöscht werden (vom Träger unter Mehr → Löschfristen). Die Frist beginnt am Ende des Jahres der letzten Buchung.',
     /** The archive line: „Persönliche Daten dürfen schon gelöscht werden (…). Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
-      labels: { immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden' },
+      labels: { immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden, Verträge, Gehalt' },
       first: (label: string, date: string) => `${label} dürfen ab ${date} gelöscht werden`,
       next: (label: string, date: string) => `${label} ab ${date}`,
       last: '; danach der Eintrag.',
