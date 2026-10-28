@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { confirmsName } from '#shared/domain/confirmName'
-import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { isValidIsoDate, parseIsoDate, todayIso } from '#shared/domain/dates'
 import { mayDeleteEmployeeByHand, type RetentionSettings } from '#shared/domain/retention'
-import { MONDAY_TO_FRIDAY } from '#shared/domain/targets'
+import { statutoryMinimumLeave } from '#shared/domain/statutoryLeave'
+import { MONDAY_TO_FRIDAY, workdayCount } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type {
   AppSettingsDto, BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, UserDto,
@@ -84,6 +85,14 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 const createOpen = ref(false)
+
+/** Gesetzlicher Mindesturlaub as a hint, once the working days and „gültig ab“ are known (nothing is filled in). */
+const statutoryLeaveHint = computed(() => {
+  if (form.workdays === 0 || !isValidIsoDate(form.validFrom)) return null
+  const year = parseIsoDate(form.validFrom).year
+  const leave = statutoryMinimumLeave({ workdaysPerWeek: workdayCount(form.workdays), year, employedFrom: form.validFrom })
+  return de.employees.statutoryLeave(formatNumber(leave.perYear), year, leave.inYear === leave.perYear ? null : formatNumber(leave.inYear))
+})
 
 /** "12:30" → 750, "-3:00" → -180, empty → null, invalid → undefined. */
 function signedDuration(text: string): number | null | undefined {
@@ -379,6 +388,7 @@ const td = 'px-3 py-2'
                 <UInput v-model="form.openingBalance" placeholder="0:00" class="w-full" />
               </UFormField>
             </div>
+            <p v-if="statutoryLeaveHint" class="text-sm text-gray-700">{{ statutoryLeaveHint }}</p>
             <p :class="hint">{{ de.employees.carryOverHint }}</p>
           </fieldset>
 

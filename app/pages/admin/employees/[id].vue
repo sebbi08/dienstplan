@@ -4,6 +4,7 @@ import { PIN_LENGTH, isValidPin } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
+import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -130,6 +131,25 @@ const confirm = useConfirm()
 const hoursForm = reactive({ weeklyHours: 39, validFrom: todayIso(), workdays: 31 })
 const adjustmentForm = reactive({ date: todayIso(), sign: 1, amount: '', reason: '', paidOut: false })
 const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30, carriedOverDays: 0 })
+/**
+ * Gesetzlicher Mindesturlaub of a year, only a hint (null outside the employment). The severe disability counts only
+ * from the personnel file block the viewer was sent (employees.sensitive), so nothing about it shows without the right.
+ */
+function statutoryLeaveIn(year: number): number | null {
+  if (!employee.value || !Number.isInteger(year) || year < 2000 || year > 2100) return null
+  const days = statutoryLeaveOf(employee.value, year, hasSevereDisabilityIn(employee.value.sensitive, year)).inYear
+  return days > 0 ? days : null
+}
+/** The minimum per year of the saved entitlements (missing outside the employment). */
+const statutoryMinimums = computed(() => {
+  const byYear: Record<number, number> = {}
+  for (const { year } of employee.value?.entitlements ?? []) {
+    const days = statutoryLeaveIn(year)
+    if (days !== null) byYear[year] = days
+  }
+  return byYear
+})
+const formStatutoryLeave = computed(() => statutoryLeaveIn(entitlementForm.year))
 
 // Where the person clocks in and out, and whether breaks are clocked or deducted automatically (Leitung decides).
 const stamping = reactive<{ stampVia: StampChannel; breakMode: BreakMode }>({ stampVia: 'both', breakMode: 'stamp' })
@@ -530,7 +550,13 @@ async function onTabKey(event: KeyboardEvent) {
         <tbody>
           <tr v-for="entitlement in employee.entitlements" :key="entitlement.id" class="border-t border-gray-100">
             <td class="py-1">{{ entitlement.year }}</td>
-            <td class="py-1">{{ formatNumber(entitlement.days) }}</td>
+            <td class="py-1">
+              {{ formatNumber(entitlement.days) }}
+              <template v-if="statutoryMinimums[entitlement.year] !== undefined">
+                <span class="ml-1 text-xs text-gray-500">{{ de.employees.statutoryLeaveAtLeast(formatNumber(statutoryMinimums[entitlement.year]!)) }}</span>
+                <span v-if="entitlement.days < statutoryMinimums[entitlement.year]!" class="mt-1 block rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ de.employees.statutoryLeaveBelow }}</span>
+              </template>
+            </td>
             <td class="py-1">
               {{ formatNumber(entitlement.carriedOverDays) }}
               <span v-if="entitlement.carriedAutomatically" class="text-xs text-gray-500">{{ de.employees.carriedAutomatically }}</span>
@@ -545,6 +571,10 @@ async function onTabKey(event: KeyboardEvent) {
         <UFormField :label="de.employees.carriedOver"><UInput v-model.number="entitlementForm.carriedOverDays" type="number" step="0.5" min="0" /></UFormField>
         <UButton type="submit" :label="de.employees.saveEntitlement" />
       </form>
+      <template v-if="formStatutoryLeave !== null">
+        <p class="text-xs text-gray-500">{{ de.employees.statutoryLeaveAtLeast(formatNumber(formStatutoryLeave)) }}</p>
+        <p v-if="entitlementForm.days < formStatutoryLeave" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.employees.statutoryLeaveBelow }}</p>
+      </template>
     </section>
 
     <section id="employee-section-stamping" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">

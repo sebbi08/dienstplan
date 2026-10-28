@@ -892,6 +892,19 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   (10 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
   wie immer von Hand durch den Träger unter **Mehr → Löschfristen** (siehe oben).
 
+### Gesetzlicher Mindesturlaub (nur ein Hinweis)
+
+Beim **Anlegen eines Mitarbeiters** und unter **„Urlaub & Zeiten“ → Urlaubsanspruch** (je Jahr, auch beim Eintragen)
+zeigt die App den **gesetzlichen Mindesturlaub** nach dem Bundesurlaubsgesetz an; liegt der eingetragene Anspruch (ohne
+Übertrag) darunter, erscheint ein gelber Hinweis. Eingetragen wird nichts. Rechnung: 24 Werktage bei einer 6-Tage-Woche,
+also **24 × Arbeitstage pro Woche ÷ 6** (5 Tage → 20, 4 → 16, 3 → 12); bei **Schwerbehinderung** (nur wer die
+Personalakte-Angaben sehen darf, nicht bei „gleichgestellt“) **5 Tage je 5-Tage-Woche** mehr. Die Arbeitstage stammen
+aus dem Wochenstunden-Eintrag, der am 1. Januar gilt (bei Eintritt im Jahr: am Eintrittstag). Bei Eintritt oder
+Ausscheiden im Jahr zählt **1/12 je vollem Kalendermonat** der Beschäftigung; ein Rest von mindestens einem halben Tag
+wird auf einen ganzen Tag aufgerundet, ein kleinerer bleibt stehen (Eintritt 1. August: 8,33 Tage). Vereinfacht: Wartezeit
+und Ausscheiden in der zweiten Jahreshälfte (dann oft voller Anspruch) berücksichtigt die App nicht. Das ist **keine
+Rechtsberatung**; Tarifvertrag oder Arbeitsvertrag geben meist mehr (TVöD: 30 Tage).
+
 ### Urlaub am 24.12. und 31.12.
 
 Unter **Einstellungen → Dienstplan → „Urlaub an Heiligabend und Silvester“** legt der **Träger je Einrichtung** fest, ob

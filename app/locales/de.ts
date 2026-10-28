@@ -406,6 +406,11 @@ export const de = {
     carriedOver: 'Übertrag', saveEntitlement: 'Anspruch speichern',
     entitlementsHint: 'Der Anspruch gilt auch für die folgenden Jahre, bis du für ein Jahr einen anderen speicherst. Der Resturlaub wird jedes Jahr automatisch übertragen, ein Minus ebenso. Den Übertrag trägst du nur für das erste Jahr selbst ein.',
     carriedAutomatically: '(Rest aus dem Vorjahr)',
+    // Gesetzlicher Mindesturlaub (BUrlG), only a hint; the numbers come formatted („8,33“).
+    statutoryLeave: (perYear: string, year: number, inYear: string | null) => `Gesetzlicher Mindesturlaub: ${perYear} ${perYear === '1' ? 'Tag' : 'Tage'} pro Jahr`
+      + (inYear === null ? '' : ` (${year}: ${inYear} ${inYear === '1' ? 'Tag' : 'Tage'})`),
+    statutoryLeaveAtLeast: (days: string) => `gesetzlich mindestens ${days} ${days === '1' ? 'Tag' : 'Tage'}`,
+    statutoryLeaveBelow: 'Der eingetragene Anspruch liegt unter dem gesetzlichen Mindesturlaub.',
     invalidDuration: 'Bitte die Stunden im Format h:mm angeben, z. B. 12:30.',
     back: 'Zurück zur Übersicht', noEntries: 'Noch keine Einträge.',
     stamping: 'Stempeln und Pausen', stampVia: 'Stempeln über', breakMode: 'Pausen',
