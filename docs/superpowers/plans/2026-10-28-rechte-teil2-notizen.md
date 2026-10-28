@@ -8,6 +8,8 @@ Rollen“) und Teil 3 (Gruppenleitung) berücksichtigen.
 - `rolePermissions(db, role)` statt der Rechte der Person: printTemplates (TemplateActor, listTemplates),
   employees (mayViewContract / Vertragsfelder), groupReadAccess (readAccessFacility), groups (Kapazität, listChildGroups).
   Diese Stellen müssen die Rechte der handelnden Person bekommen (Testaufrufe anpassen).
+- Mitarbeiter-Liste (`server/api/employees/index.get.ts`) übergibt noch `viewer.role`, die Detailseite schon
+  `viewer.permissions` – angleichen.
 - `getLeaveSettings` rechnet `accountPermissions` neu statt `viewer.permissions` zu nutzen (zwei Quellen).
 - Gespeicherte Rechte-Schlüssel aus der Datenbank vor `resolvePermissions` filtern (unbekannte Schlüssel werfen heute).
 - `can_edit_children` setzt heute die Leitung (Benutzer-Seite, Zugang); nach Spec setzt Rechte nur der Träger →
