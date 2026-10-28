@@ -1189,9 +1189,10 @@ Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).
 **Überstundenfrei („ÜF“, violett)** steht direkt hinter Urlaub. Seine Anrechnung ist **„keine“**: ein ganzer Tag ÜF
 schreibt nichts gut, das Stundenkonto sinkt also um die Sollstunden des Tages; Urlaubstage werden nicht genommen.
 
-Für einen **halben Tag ÜF** gehören **der Dienst und die ÜF-Zeit in dieselbe Zelle**, z. B. ein Dienst 7:00–12:00 und
-dazu ÜF 12:00–16:00 (ÜF mit „Zum bestehenden Eintrag hinzufügen“ eintragen, dann auf den ÜF-Eintrag klicken und
-die Zeit eingeben). Nur dann gehen **nur die ÜF-Stunden** vom Stundenkonto ab. Steht ÜF mit Uhrzeit allein in der
+Für einen **halben Tag ÜF** gehören **der Dienst und die ÜF-Zeit in dieselbe Zelle**, z. B. bei 8 Sollstunden ein
+Dienst 8:00–12:00 und dazu ÜF 12:00–16:00 (ÜF mit „Zum bestehenden Eintrag hinzufügen“ eintragen, dann auf den
+ÜF-Eintrag klicken und die Zeit eingeben). Das Stundenkonto sinkt um das, was vom Tagessoll nicht gearbeitet ist –
+im Beispiel genau die 4 ÜF-Stunden. Steht ÜF mit Uhrzeit allein in der
 Zelle, fehlt auch der Rest des Tages: dann sinkt das Stundenkonto um die ganzen Sollstunden. Dienstzeit, die in der
 ÜF-Zeit liegt, zählt nicht. In der Zeiterfassung gilt der Beginn bzw. das Ende der ÜF-Zeit als Dienstende bzw.
 Dienstbeginn: wer zu Beginn des ÜF geht (oder am Ende eines ÜF am Morgen kommt), gilt nicht als „früher gegangen“ bzw.
