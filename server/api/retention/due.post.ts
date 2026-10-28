@@ -9,7 +9,7 @@ import { deleteDueItems } from '../../services/retentionOverview'
  * gone or invalid are skipped and reported.
  */
 export default defineServiceHandler(async (event): Promise<RetentionDeleteResult> => {
-  const provider = await requireProvider(event)
+  const provider = await requirePermission(event, 'retention.delete', { facility: 'none' })
   const { keys } = await readValidatedBody(event, retentionDueSchema.parse)
   let result: RetentionDeleteResult | undefined
   try {

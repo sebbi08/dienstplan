@@ -6,7 +6,7 @@ import { suggestUsername } from '~/utils/staffList'
 
 /**
  * The tab „Zugang“ of an employee: the account linked to the person (role, active, password reset) or, without one,
- * „Zugang einrichten“. The same routes and rights as the users page (requireAdmin; only a Träger may touch Träger).
+ * „Zugang einrichten“. The same routes and rights as the users page (users.manage; only a Träger may touch Träger).
  */
 const props = defineProps<{ employeeId: number; employeeName: string }>()
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')

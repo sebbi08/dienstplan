@@ -3,7 +3,7 @@ import { yearQuery } from '../schemas'
 import { getLeaveOverview } from '../services/leave'
 
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'leave.overview')
   const { year } = await getValidatedQuery(event, yearQuery.parse)
   return getLeaveOverview(useDb(), admin.facilityId, year, todayIso())
 })

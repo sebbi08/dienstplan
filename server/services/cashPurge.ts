@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm'
 import { confirmsName } from '../../shared/domain/confirmName'
 import { todayIso } from '../../shared/domain/dates'
+import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -22,7 +23,7 @@ import { foreignKeyViolations } from './employeeDeletion'
 export function purgeBox(
   db: Db, actor: SessionUser, facilityId: number, id: number, confirm: string, today: IsoDate = todayIso(), now: Date = new Date(),
 ): boolean {
-  if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
+  if (!can(actor.permissions, 'cash.purge')) throw new ServiceError(403, 'forbidden')
   const box = loadBox(db, facilityId, id)
   if (!box.archived) throw new ServiceError(409, 'cash_box_not_archived')
   const deletableFrom = boxDeletableFrom(db, facilityId, id)

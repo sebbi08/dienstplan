@@ -3,7 +3,7 @@ import { deleteTemplate } from '../../services/formTemplates'
 
 /** Deletes a template no form was made from (409 form_template_in_use otherwise: archive it instead). */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'formTemplates.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   deleteTemplate(useDb(), admin.facilityId, id)
   return { ok: true }

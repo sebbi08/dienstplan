@@ -7,8 +7,7 @@ import { resetStaffingOverrides } from '../services/staffing'
  * one); answers the settings as they are afterwards.
  */
 export default defineServiceHandler(async (event): Promise<StaffingResetDto> => {
-  const provider = await requireProvider(event)
-  const facilityId = requireFacility(event, provider)
+  const provider = await requirePermission(event, 'settings.staffing')
   const { path } = await getValidatedQuery(event, staffingResetQuery.parse)
-  return resetStaffingOverrides(useDb(), provider, facilityId, path ?? null)
+  return resetStaffingOverrides(useDb(), provider, provider.facilityId, path ?? null)
 })

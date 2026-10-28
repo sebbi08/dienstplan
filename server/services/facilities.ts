@@ -1,4 +1,5 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
+import { can } from '../../shared/domain/permissions'
 import { isGermanState, schoolCutoffOf, type GermanState } from '../../shared/domain/states'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -56,10 +57,10 @@ export function resolveFacilityId(db: Db, user: typeof users.$inferSelect): numb
   }
 }
 
-/** The Träger sees every facility, everyone else only their own. */
+/** Whoever manages the facilities (the Träger) sees every facility, everyone else only their own. */
 export function listFacilities(db: Db, viewer: SessionUser): FacilitiesDto {
   const query = db.select(dtoColumns).from(facilities)
-  const rows = viewer.role === 'provider'
+  const rows = can(viewer.permissions, 'facilities.manage')
     ? query.orderBy(...ordered).all()
     : viewer.facilityId === null ? [] : query.where(eq(facilities.id, viewer.facilityId)).all()
   return { facilities: rows.map(toDto), activeId: viewer.facilityId }
@@ -146,7 +147,7 @@ export function updateFacility(
  * (403 forbidden); 404 facility_not_found.
  */
 export function setFacilityCapacity(db: Db, actor: SessionUser, id: number, capacity: number | null): void {
-  if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
+  if (!can(actor.permissions, 'facilities.manage')) throw new ServiceError(403, 'forbidden')
   assertFacility(db, id)
   if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_FACILITY_CAPACITY)) {
     throw new ServiceError(400, 'invalid_facility_capacity')
@@ -161,7 +162,7 @@ export function facilityCapacity(db: Db, id: number): number | null {
 
 /** Stores the facility the Träger works in (only the Träger switches; everyone else has a fixed facility). */
 export function setActiveFacility(db: Db, user: SessionUser, facilityId: number): void {
-  if (user.role !== 'provider') throw new ServiceError(403, 'forbidden')
+  if (!can(user.permissions, 'facilities.manage')) throw new ServiceError(403, 'forbidden')
   if (!facilityExists(db, facilityId)) throw new ServiceError(404, 'facility_not_found')
   db.update(users).set({ facilityId }).where(eq(users.id, user.id)).run()
 }

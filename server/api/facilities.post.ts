@@ -3,7 +3,7 @@ import { facilityCreateSchema } from '../schemas'
 import { createFacility } from '../services/facilities'
 
 export default defineServiceHandler(async (event) => {
-  await requireProvider(event)
+  await requirePermission(event, 'facilities.manage', { facility: 'none' })
   const { name, state } = await readValidatedBody(event, facilityCreateSchema.parse)
   // An unknown code is refused by the service (400 state_invalid); a missing one means Baden-Württemberg.
   return createFacility(useDb(), name, state as GermanState | undefined)

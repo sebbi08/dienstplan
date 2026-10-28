@@ -3,7 +3,7 @@ import { assertFacility } from '../../../services/facilities'
 import { createGroup } from '../../../services/groups'
 
 export default defineServiceHandler(async (event) => {
-  await requireProvider(event)
+  await requirePermission(event, 'settings.groups', { facility: 'none' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { name } = await readValidatedBody(event, groupNameSchema.parse)
   const db = useDb()

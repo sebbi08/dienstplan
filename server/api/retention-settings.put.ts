@@ -6,7 +6,6 @@ import { setRetentionSettings } from '../services/retentionSettings'
  * retention_settings_invalid for invalid input. Answers the settings as stored.
  */
 export default defineServiceHandler(async (event): Promise<RetentionSettings> => {
-  const provider = await requireProvider(event)
-  const facilityId = requireFacility(event, provider)
-  return setRetentionSettings(useDb(), facilityId, await readBody(event))
+  const provider = await requirePermission(event, 'settings.retention')
+  return setRetentionSettings(useDb(), provider.facilityId, await readBody(event))
 })

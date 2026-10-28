@@ -6,8 +6,7 @@ import { saveTeamMeeting, teamMember } from '../../services/teamMeetings'
  * form_changed when someone saved in between); answers with the new last change.
  */
 export default defineServiceHandler(async (event) => {
-  const user = await requireUser(event, { allowTerminal: true })
-  requireFacility(event, user)
+  const user = await requirePermission(event, 'teamMeetings.write', { allowTerminal: true, facility: 'active' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readValidatedBody(event, teamMeetingSaveSchema.parse)
   return saveTeamMeeting(useDb(), teamMember(useDb(), user), id, body)

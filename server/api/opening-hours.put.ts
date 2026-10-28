@@ -6,7 +6,7 @@ import { getOpeningHours, setFacilityOpeningHours } from '../services/openingHou
  * facility's hours and its groups' as they are afterwards.
  */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'closures.manage')
   const { hours } = await readValidatedBody(event, openingHoursBodySchema.parse)
   const db = useDb()
   setFacilityOpeningHours(db, admin.facilityId, hours)

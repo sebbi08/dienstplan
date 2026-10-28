@@ -1,21 +1,28 @@
 import { and, asc, eq, isNull, or } from 'drizzle-orm'
-import { isManager } from '../../shared/domain/roles'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import type { PrintTemplateDto, PrintTemplateMeta, PrintTemplateScope, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { printTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
+import { rolePermissions } from './permissions'
 
-/** Who uploads and maintains templates: Träger or Leitung, in the facility they work in. */
+/**
+ * Who uploads and maintains templates: Träger or Leitung, in the facility they work in. What they may change follows
+ * from the role (rolePermissions: printTemplates.edit, printTemplates.global).
+ */
 export type TemplateActor = Pick<SessionUser, 'id' | 'role'> & { facilityId: number }
 
 /** Category of a template without one. */
 export const OTHER_CATEGORY = 'Sonstiges'
 
-/** Templates are blank forms, no child data: whoever runs a facility and its tablet (no unlock) see them, staff accounts never. */
+/**
+ * Templates are blank forms, no child data: whoever may see them (printTemplates.view) and the facility's tablet (no
+ * unlock) see them, staff accounts never. The rule requirePermission applies on the print template routes.
+ */
 export function templateReaderFacility(user: SessionUser): number {
-  if (!isManager(user.role) && user.role !== 'terminal') throw new ServiceError(403, 'forbidden')
+  if (user.role !== 'terminal' && !can(user.permissions, 'printTemplates.view')) throw new ServiceError(403, 'forbidden')
   if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
   return user.facilityId
 }
@@ -28,16 +35,18 @@ const categoryOf = (category: string) => category.trim() || OTHER_CATEGORY
 /** The facility's own templates and those for all facilities. */
 const visibleIn = (facilityId: number) => or(eq(printTemplates.facilityId, facilityId), isNull(printTemplates.facilityId))
 
-/** Global templates belong to the Träger; the Leitung may only change those of its facility. */
-const mayEdit = (role: SessionUser['role'], row: { facilityId: number | null }) =>
-  role === 'provider' || (isManager(role) && row.facilityId !== null)
+/** Global templates belong to the Träger (printTemplates.global); the Leitung may only change those of its facility. */
+const mayEdit = (permissions: ReadonlySet<PermissionKey>, row: { facilityId: number | null }) =>
+  can(permissions, 'printTemplates.global') || (can(permissions, 'printTemplates.edit') && row.facilityId !== null)
 
 /** A new template of the uploader's facility, or for all facilities (Träger only); returns its id. */
 export function uploadTemplate(
   db: Db, actor: TemplateActor, input: PrintTemplateMeta & { scope: PrintTemplateScope },
   file: { data: Buffer; filename: string }, now: Date = new Date(),
 ): number {
-  if (input.scope === 'all' && actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
+  if (input.scope === 'all' && !can(rolePermissions(db, actor.role), 'printTemplates.global')) {
+    throw new ServiceError(403, 'forbidden')
+  }
   const mimeType = checkedPdf(file.data)
   // Prefilled from the file name in the form; an empty title falls back to it here as well.
   const title = input.title.trim() || file.filename.replace(/\.[^.]*$/, '').trim()
@@ -56,8 +65,9 @@ export function uploadTemplate(
   }).returning({ id: printTemplates.id }).get().id
 }
 
-/** The templates the facility sees, by category and title (alphabetical). */
+/** The templates the facility sees, by category and title (alphabetical); `canEdit` by the viewer's role. */
 export function listTemplates(db: Db, viewer: { role: SessionUser['role']; facilityId: number }): PrintTemplateDto[] {
+  const permissions = rolePermissions(db, viewer.role)
   const rows = db.select({
     id: printTemplates.id, facilityId: printTemplates.facilityId, title: printTemplates.title, category: printTemplates.category,
     size: printTemplates.size, uploadedAt: printTemplates.uploadedAt, updatedAt: printTemplates.updatedAt,
@@ -72,7 +82,7 @@ export function listTemplates(db: Db, viewer: { role: SessionUser['role']; facil
       size: row.size,
       uploadedAt: row.uploadedAt,
       updatedAt: row.updatedAt,
-      canEdit: mayEdit(viewer.role, row),
+      canEdit: mayEdit(permissions, row),
     }))
 }
 
@@ -88,7 +98,7 @@ export function readTemplateFile(db: Db, facilityId: number, id: number): { data
 function loadEditable(db: Db, actor: TemplateActor, id: number): void {
   const row = db.select({ facilityId: printTemplates.facilityId }).from(printTemplates).where(eq(printTemplates.id, id)).get()
   if (!row || (row.facilityId !== null && row.facilityId !== actor.facilityId)) throw new ServiceError(404, 'print_template_not_found')
-  if (!mayEdit(actor.role, row)) throw new ServiceError(403, 'forbidden')
+  if (!mayEdit(rolePermissions(db, actor.role), row)) throw new ServiceError(403, 'forbidden')
 }
 
 /** Renames the template and moves it to another category; the file stays. */

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type {
   SessionUser, TeamMeetingDto, TeamMeetingHeader, TeamMeetingInput, TeamMeetingListItemDto, TeamMeetingSavedDto,
@@ -38,9 +38,10 @@ export function teamMember(db: Db, user: SessionUser, now: Date = new Date()): T
   const facilityId = user.facilityId
   if (facilityId === null) throw new ServiceError(403, 'no_facility')
   if (user.role === 'terminal') return { facilityId, name: TABLET_NAME, manager: false, left: false }
-  if (isManager(user.role)) return { facilityId, name: actorName(db, user), manager: true, left: false }
-  // A Mitarbeiter account belongs to the facility of its employee (an account without one has no facility).
-  if (user.role === 'observer' && user.employeeId !== null) {
+  if (can(user.permissions, 'teamMeetings.manage')) return { facilityId, name: actorName(db, user), manager: true, left: false }
+  // Everyone else who writes the minutes belongs to the facility of their employee (a Mitarbeiter account without one
+  // has no facility).
+  if (can(user.permissions, 'teamMeetings.write') && user.employeeId !== null) {
     const leftOn = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, user.employeeId)).get()?.leftOn
     const left = leftOn !== null && leftOn !== undefined && leftOn < nowInBerlin(now).date
     return { facilityId, name: actorName(db, user), manager: false, left }

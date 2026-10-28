@@ -4,7 +4,7 @@ import { listGroups } from '../../../services/groups'
 
 /** The groups of any facility, for the Träger's facility settings. */
 export default defineServiceHandler(async (event) => {
-  await requireProvider(event)
+  await requirePermission(event, 'settings.groups', { facility: 'none' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const db = useDb()
   assertFacility(db, id)

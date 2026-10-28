@@ -6,7 +6,7 @@ import { createBackup } from '../services/backup'
 
 export default defineServiceHandler(async (event) => {
   // The file holds everything, including contract data and password hashes: Träger only.
-  await requireProvider(event)
+  await requirePermission(event, 'backup.download', { facility: 'none' })
   const file = join(tmpdir(), `dienstplan-${Date.now()}.db`)
   await createBackup(useSqlite(), file)
   const data = await readFile(file)

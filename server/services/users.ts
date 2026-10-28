@@ -1,4 +1,5 @@
 import { and, asc, count, eq, inArray, or } from 'drizzle-orm'
+import { can } from '../../shared/domain/permissions'
 import { MANAGER_ROLES } from '../../shared/domain/roles'
 import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -83,9 +84,11 @@ function activeManagers(db: Db, facilityId: number | null): number {
   return leitung + activeProviders(db)
 }
 
-/** Only a Träger may create, change, appoint or reset Träger accounts. */
+/** Only whoever manages Träger accounts (the Träger) may create, change, appoint or reset Träger accounts. */
 function assertMayManage(actor: SessionUser, ...roles: Role[]): void {
-  if (actor.role !== 'provider' && roles.includes('provider')) throw new ServiceError(403, 'provider_only')
+  if (roles.includes('provider') && !can(actor.permissions, 'users.providerAccounts')) {
+    throw new ServiceError(403, 'provider_only')
+  }
 }
 
 export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDto {

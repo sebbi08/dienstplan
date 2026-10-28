@@ -9,10 +9,9 @@ import { setAutoLeave } from '../../services/schoolChildren'
  * days, it would deregister them to.
  */
 export default defineServiceHandler(async (event) => {
-  const provider = await requireProvider(event)
-  const facilityId = requireFacility(event, provider)
+  const provider = await requirePermission(event, 'children.schoolSettings')
   const { value, confirmed } = await readValidatedBody(event, autoLeaveSchema.parse)
-  const deregistered = setAutoLeave(useDb(), facilityId, value, todayIso(), confirmed)
+  const deregistered = setAutoLeave(useDb(), provider.facilityId, value, todayIso(), confirmed)
   // Only the number goes into the log, never a name.
   if (deregistered > 0) console.info(`Deregistered ${deregistered} school child(ren).`)
   return { ok: true, deregistered }

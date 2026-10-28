@@ -3,8 +3,8 @@ import type { Role } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * Overview of what each role may do (shown to the Träger on the users page). Keep in step with requireAdmin /
- * requireProvider / requireUser / requireTerminal in server/api and the per-person stamping options.
+ * Overview of what each role may do (shown to the Träger on the users page). Keep in step with the role defaults
+ * (shared/domain/permissions.ts), requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
 type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15

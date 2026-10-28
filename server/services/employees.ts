@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull, max, ne } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { pinLockState } from '../../shared/domain/pin'
 import { isValidMonthDay } from '../../shared/domain/reminders'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
@@ -12,12 +12,12 @@ import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, Level
 import type { Db } from '../db/client'
 import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { contractVisibleToAdmins } from './appSettings'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
 import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { moveRequirementRecords } from './requirements'
+import { rolePermissions } from './permissions'
 import { moveStaffTalks } from './staffTalks'
 
 export interface EmployeeInput {
@@ -64,9 +64,12 @@ export interface EmployeeUpdate {
 
 const isQualification = (value: string): value is Qualification => (QUALIFICATIONS as readonly string[]).includes(value)
 
-/** Contract data for this viewer: always for the Träger, for the Leitung only when the Träger allows it. */
+/**
+ * Contract data for this viewer (employees.contractView): always for the Träger, for the Leitung only when the Träger
+ * allows it. The caller passes the role; the role and the global switch decide it (see rolePermissions).
+ */
 function mayViewContract(db: Db, viewer: Role): boolean {
-  return viewer === 'provider' || (viewer === 'admin' && contractVisibleToAdmins(db))
+  return can(rolePermissions(db, viewer), 'employees.contractView')
 }
 
 function contractOf(employee: EmployeeRecord): EmployeeContractDto {
@@ -283,7 +286,7 @@ export function addAdjustment(
 export function setAdjustmentPaidOut(
   db: Db, actor: SessionUser, facilityId: number, employeeId: number, adjustmentId: number, paidOut: boolean,
 ): void {
-  if (!isManager(actor.role)) throw new ServiceError(403, 'forbidden')
+  if (!can(actor.permissions, 'time.manage')) throw new ServiceError(403, 'forbidden')
   assertEmployee(db, facilityId, employeeId)
   const changed = db.update(balanceAdjustments).set({ paidOut })
     .where(and(eq(balanceAdjustments.id, adjustmentId), eq(balanceAdjustments.employeeId, employeeId))).run().changes

@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, lt } from 'drizzle-orm'
 import { childStatus, purgeDate } from '../../shared/domain/children'
+import { can } from '../../shared/domain/permissions'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
 import type { RetentionDeleteResult, RetentionItemCategory, RetentionItemDto, SessionUser } from '../../shared/types/api'
@@ -209,8 +210,8 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
   }
 }
 
-function assertProvider(actor: SessionUser): void {
-  if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
+function assertMayDelete(actor: SessionUser): void {
+  if (!can(actor.permissions, 'retention.delete')) throw new ServiceError(403, 'forbidden')
 }
 
 /**
@@ -222,7 +223,7 @@ function assertProvider(actor: SessionUser): void {
  * checkpoints the WAL when that is more than 0).
  */
 export function deleteRetentionItem(db: Db, actor: SessionUser, key: string, today: IsoDate, now: Date = new Date()): number {
-  assertProvider(actor)
+  assertMayDelete(actor)
   return removeItem(db, actor, parseKey(key), context(db, today), now)
 }
 
@@ -237,7 +238,7 @@ export function deleteRetentionItem(db: Db, actor: SessionUser, key: string, tod
 export function deleteDueItems(
   db: Db, actor: SessionUser, keys: readonly string[], today: IsoDate, now: Date = new Date(),
 ): RetentionDeleteResult {
-  assertProvider(actor)
+  assertMayDelete(actor)
   const ctx = context(db, today)
   const unique = [...new Set(keys)]
   const skipped = new Set<string>()

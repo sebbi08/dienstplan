@@ -1,5 +1,5 @@
 import { loginSchema } from '../../schemas'
-import { login } from '../../services/auth'
+import { login, sessionPayload } from '../../services/auth'
 import { USER_SESSION_SECONDS } from '../../lib/session'
 
 export default defineServiceHandler(async (event) => {
@@ -11,6 +11,7 @@ export default defineServiceHandler(async (event) => {
   }
   // The tablet keeps the long default cookie lifetime; everyone else expires after USER_SESSION_DAYS.
   const config = result.user.role === 'terminal' ? {} : { maxAge: USER_SESSION_SECONDS }
-  await replaceUserSession(event, { user: result.user, loggedInAt: new Date().toISOString() }, config)
-  return result.user
+  const user = sessionPayload(result.user)
+  await replaceUserSession(event, { user, loggedInAt: new Date().toISOString() }, config)
+  return user
 })

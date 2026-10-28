@@ -7,7 +7,7 @@ import { deleteGroup, facilityOfGroup } from '../../services/groups'
  * school children switched the automatic leaving of its facility off.
  */
 export default defineServiceHandler(async (event) => {
-  await requireProvider(event)
+  await requirePermission(event, 'settings.groups', { facility: 'none' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const db = useDb()
   const { autoLeaveSwitchedOff } = deleteGroup(db, facilityOfGroup(db, id), id, todayIso())

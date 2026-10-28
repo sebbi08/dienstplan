@@ -1,10 +1,10 @@
 import type { H3Event } from 'h3'
 import { PAGE_FACILITY_HEADER, SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { isManager } from '../../shared/domain/roles'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
 import { facilityExists } from '../services/facilities'
-import { templateReaderFacility } from '../services/printTemplates'
 import { resolveChildViewer } from '../services/tabletUnlock'
 import { asChildEditor, asChildManager, type ChildActor, type ChildViewer } from '../lib/childViewer'
 import { assertPageFacility, requestFacility } from '../lib/pageFacility'
@@ -51,7 +51,11 @@ export function requireFacility(event: H3Event, user: SessionUser): number {
   return withRequestFacility(event, user).facilityId
 }
 
-/** Loads the current user fresh from the database, so role changes and deactivation apply immediately. */
+/**
+ * Loads the current user fresh from the database with their permissions, so role, flag and permission changes and
+ * deactivation apply immediately. On its own only for the fixed routes: the own data (`my/*`, bound to the employee
+ * link), the password, the notifications, the leave module state and the print page.
+ */
 export async function requireUser(
   event: H3Event, options: { allowPasswordChange?: boolean; allowTerminal?: boolean } = {},
 ): Promise<SessionUser> {
@@ -68,38 +72,52 @@ export async function requireUser(
   return user
 }
 
-/** The shared tablet, which stamps for the employees of its own facility. */
-export async function requireTerminal(event: H3Event): Promise<FacilityUser> {
-  const user = await requireUser(event, { allowTerminal: true })
-  if (user.role !== 'terminal') throw httpError(403, 'forbidden')
-  if (!hasFacility(user)) throw httpError(403, 'no_facility')
-  return user
+export interface PermissionOptions {
+  /**
+   * The facility's tablet gets in as well, without a permission of its own (the tablet role is fixed, not in the
+   * catalog): the general plan, the team meetings, the print templates.
+   */
+  allowTerminal?: boolean
+  /**
+   * The facility the route works in. `request` (default): the active one, for the Träger on the settings pages the one
+   * they edit there (403 no_facility without one, 409 facility_changed from a stale page, 404 facility_not_found).
+   * `active`: always the active one (the header's facility switcher, the print templates). `none`: no facility at all
+   * (routes that name their facility or work across every facility; 403 no_facility never comes).
+   */
+  facility?: 'request' | 'active' | 'none'
 }
 
 /**
- * Träger or Leitung (everything that runs the facility), working in their (active) facility; the Träger on the settings
- * pages in the facility they edit there. `activeFacility`: always the active one (the header's facility switcher).
+ * The signed-in user with the permission `key` (403 forbidden otherwise; the tablet gets in only with `allowTerminal`,
+ * and then without a permission), working in the facility `options.facility` names.
  */
-export async function requireAdmin(event: H3Event, options: { activeFacility?: boolean } = {}): Promise<FacilityUser> {
-  const user = await requireUser(event)
-  if (!isManager(user.role)) throw httpError(403, 'forbidden')
+export async function requirePermission(
+  event: H3Event, key: PermissionKey, options: PermissionOptions & { facility: 'none' },
+): Promise<SessionUser>
+export async function requirePermission(
+  event: H3Event, key: PermissionKey, options?: PermissionOptions & { facility?: 'request' | 'active' },
+): Promise<FacilityUser>
+export async function requirePermission(
+  event: H3Event, key: PermissionKey, options: PermissionOptions = {},
+): Promise<SessionUser> {
+  const user = await requireUser(event, { allowTerminal: options.allowTerminal })
+  if (user.role !== 'terminal' && !can(user.permissions, key)) throw httpError(403, 'forbidden')
+  const facility = options.facility ?? 'request'
+  if (facility === 'none') return user
   if (!hasFacility(user)) throw httpError(403, 'no_facility')
-  if (options.activeFacility) {
+  if (facility === 'active') {
     checkPageFacility(event, user)
     return user
   }
   return withRequestFacility(event, user)
 }
 
-/**
- * Whoever opens the print templates (blank forms, no child data): Träger and Leitung in their (active) facility, and the
- * facility's tablet without unlocking it. A Mitarbeiter account gets 403 forbidden.
- */
-export async function requireTemplateReader(event: H3Event): Promise<FacilityUser> {
+/** The shared tablet, which stamps for the employees of its own facility. */
+export async function requireTerminal(event: H3Event): Promise<FacilityUser> {
   const user = await requireUser(event, { allowTerminal: true })
-  const facilityId = templateReaderFacility(user)
-  checkPageFacility(event, user)
-  return { ...user, facilityId }
+  if (user.role !== 'terminal') throw httpError(403, 'forbidden')
+  if (!hasFacility(user)) throw httpError(403, 'no_facility')
+  return user
 }
 
 /** The tablet's unlock token, kept in the server-only part of the session (never sent to the browser). */
@@ -134,11 +152,4 @@ export async function requireChildEditor(event: H3Event): Promise<ChildActor> {
 /** Träger or Leitung on the child pages, at the office or at the unlocked tablet (archive, occupancy, group changes …). */
 export async function requireChildManager(event: H3Event): Promise<ChildActor> {
   return asChildManager(await requireChildReader(event))
-}
-
-/** Only the Träger: contract data of employees, Träger accounts and the facilities. */
-export async function requireProvider(event: H3Event): Promise<SessionUser> {
-  const user = await requireUser(event)
-  if (user.role !== 'provider') throw httpError(403, 'forbidden')
-  return user
 }

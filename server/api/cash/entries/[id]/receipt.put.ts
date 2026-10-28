@@ -5,7 +5,7 @@ import { setReceipt } from '../../../../services/cashReceipts'
 
 /** Attaches or replaces the receipt (JPG, PNG, PDF) of an entry of the active facility (both rows of a transfer). */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'cash.book')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))

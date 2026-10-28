@@ -1,25 +1,34 @@
 import { eq } from 'drizzle-orm'
 import { todayIso } from '../../shared/domain/dates'
 import type { IsoDate } from '../../shared/domain/types'
-import type { SessionUser } from '../../shared/types/api'
+import type { SessionPayloadUser, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { resolveFacilityId } from './facilities'
+import { accountPermissions } from './permissions'
 
 export const MAX_FAILED_LOGINS = 5
 export const LOCK_MINUTES = 15
 
 export type LoginResult = { ok: true; user: SessionUser } | { ok: false; reason: 'invalid' | 'locked' | 'left' }
 
+/** The account as the server works with it: facility and permissions resolved fresh from the database. */
 export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUser {
-  return {
+  const user = {
     id: row.id, username: row.username, role: row.role,
     employeeId: row.employeeId, mustChangePassword: row.mustChangePassword,
     canEditChildren: row.canEditChildren, facilityId: resolveFacilityId(db, row),
   }
+  return { ...user, permissions: accountPermissions(db, user) }
+}
+
+/** The user as the session cookie stores it and the browser gets it: the permission set stays on the server. */
+export function sessionPayload(user: SessionUser): SessionPayloadUser {
+  const { permissions: _permissions, ...payload } = user
+  return payload
 }
 
 /**

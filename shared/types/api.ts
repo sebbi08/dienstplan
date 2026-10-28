@@ -5,6 +5,7 @@ import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
+import type { PermissionKey } from '../domain/permissions'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -56,7 +57,15 @@ export interface SessionUser {
    * active selection, a Mitarbeiter that of the linked employee (null without one).
    */
   facilityId: number | null
+  /**
+   * What the account may do (shared/domain/permissions.ts), resolved on the server on every request together with the
+   * facility. Server only: never stored in the session cookie nor sent to the browser (see `SessionPayloadUser`).
+   */
+  permissions: ReadonlySet<PermissionKey>
 }
+
+/** The session user as the session cookie stores it and the browser gets it: without the permission set. */
+export type SessionPayloadUser = Omit<SessionUser, 'permissions'>
 
 export interface FacilityDto {
   id: number

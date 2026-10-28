@@ -8,11 +8,11 @@ import { purgeBox } from '../../../../services/cashPurge'
  * URL, it would land in logs) must be the box name.
  */
 export default defineServiceHandler(async (event) => {
-  const provider = await requireProvider(event)
+  const provider = await requirePermission(event, 'cash.purge')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readBody<unknown>(event).catch(() => undefined)
   const { confirm } = cashBoxPurgeSchema.parse(body ?? {})
-  purgeBox(useDb(), provider, requireFacility(event, provider), id, confirm)
+  purgeBox(useDb(), provider, provider.facilityId, id, confirm)
   // The deleted rows and receipts must not linger in the write-ahead log.
   checkpointWal(useSqlite())
   return { ok: true }

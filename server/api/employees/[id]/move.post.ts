@@ -2,7 +2,7 @@ import { idParams, moveSchema } from '../../../schemas'
 import { moveEmployee } from '../../../services/employees'
 
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'employees.edit')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { direction } = await readValidatedBody(event, moveSchema.parse)
   moveEmployee(useDb(), admin.facilityId, id, direction)

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm'
 import { dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
+import { can } from '../../shared/domain/permissions'
 import { isManager } from '../../shared/domain/roles'
 import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
@@ -16,6 +17,7 @@ import { getYearCalendar } from './calendar'
 import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
 import { getLeaveAccount } from './leave'
+import { accountPermissions } from './permissions'
 import { closureOn, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 /** The module switch is installation-wide; the limit and the planning are per facility. */
@@ -49,12 +51,11 @@ function plannerIds(db: Db): number[] {
 }
 
 /**
- * A Träger may always plan, in every facility; a Leitung only in its own facility and only when the Träger made it
- * responsible.
+ * Plans leave in the facility (the permission leave.plan there, fresh from the database): a Träger always, in every
+ * facility; a Leitung only in its own facility and only when the Träger made it responsible (see accountPermissions).
  */
 export function isPlanner(db: Db, user: SessionUser, facilityId: number): boolean {
-  if (user.role === 'provider') return true
-  return user.role === 'admin' && user.facilityId === facilityId && plannerIds(db).includes(user.id)
+  return can(accountPermissions(db, user, facilityId), 'leave.plan')
 }
 
 function requireEnabled(db: Db): void {
@@ -131,15 +132,17 @@ function plannersOf(db: Db, facilityId: number, chosen: number[]): number[] {
 export function getLeaveSettings(db: Db, viewer: SessionUser): LeaveSettingsDto {
   const enabled = leaveRequestsEnabled(db)
   const facilityId = viewer.facilityId
-  const planner = enabled && facilityId !== null && isPlanner(db, viewer, facilityId)
+  const permissions = accountPermissions(db, viewer)
+  const planner = enabled && facilityId !== null && can(permissions, 'leave.plan')
   const chosen = plannerIds(db)
-  // The count (menu badge) goes to the chosen people; to the Träger only while nobody is chosen for the facility.
+  // The count (menu badge) goes to the chosen people; to whoever chooses them (the Träger) only while nobody is chosen
+  // for the facility.
   const notified = planner && (chosen.includes(viewer.id)
-    || (viewer.role === 'provider' && plannersOf(db, facilityId, chosen).length === 0))
+    || (can(permissions, 'leave.configure') && plannersOf(db, facilityId, chosen).length === 0))
   return {
     enabled,
     maxConcurrent: facilityId === null ? null : maxConcurrent(db, facilityId),
-    plannerIds: isManager(viewer.role) ? chosen : [],
+    plannerIds: can(permissions, 'leave.overview') ? chosen : [],
     isPlanner: planner,
     openCount: notified ? listOpenRequests(db, viewer, facilityId).length : 0,
   }

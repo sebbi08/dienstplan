@@ -3,7 +3,7 @@ import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { todayIso } from '../../shared/domain/dates'
 import { confirmsName } from '../../shared/domain/confirmName'
 import { mayDeleteEmployeeByHand } from '../../shared/domain/retention'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -67,7 +67,8 @@ function dropWarningAcks(db: Db, employeeId: number): number {
 export function deleteLeftEmployee(
   db: Db, actor: SessionUser, facilityId: number, employeeId: number, confirm: string, today: IsoDate = todayIso(),
 ): void {
-  if (!isManager(actor.role)) throw new ServiceError(403, 'forbidden')
+  if (!can(actor.permissions, 'employees.delete')) throw new ServiceError(403, 'forbidden')
+  // The Träger's per-facility setting („aus / nur Träger / Leitung und Träger“) stays a rule next to the permissions.
   if (!mayDeleteEmployeeByHand(getRetentionSettings(db, facilityId).employeeDelete, actor.role)) {
     throw new ServiceError(403, 'employee_delete_disabled')
   }
@@ -76,7 +77,10 @@ export function deleteLeftEmployee(
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   if (actor.employeeId === employeeId) throw new ServiceError(403, 'employee_delete_self')
   const account = db.select({ role: users.role }).from(users).where(eq(users.employeeId, employeeId)).get()
-  if (account?.role === 'provider' && actor.role !== 'provider') throw new ServiceError(403, 'employee_delete_provider')
+  // A Träger's employee (with the Träger account) only by whoever manages Träger accounts.
+  if (account?.role === 'provider' && !can(actor.permissions, 'users.providerAccounts')) {
+    throw new ServiceError(403, 'employee_delete_provider')
+  }
   if (employee.leftOn === null || employee.leftOn >= today) throw new ServiceError(409, 'employee_not_left')
   if (!confirmsName(confirm, employee.name)) throw new ServiceError(400, 'employee_delete_confirm_mismatch')
 

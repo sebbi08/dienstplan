@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, notInArray } from 'drizzle-orm'
 import { todayIso } from '../../shared/domain/dates'
+import { can } from '../../shared/domain/permissions'
 import { hasPeriodCheck, ruleSetProblems } from '../../shared/domain/staffing/calc'
 import { applyOverrides, overridableValues, type StaffingOverrides } from '../../shared/domain/staffing/overrides'
 import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
@@ -108,12 +109,12 @@ export function getStaffingSettings(
     ignored: ignored.map(stored),
     upcomingIgnored,
     versions: presetVersions(state).map(v => ({ validFrom: v.validFrom, source: v.source, confidence: v.confidence })),
-    canEdit: viewer.role === 'provider',
+    canEdit: can(viewer.permissions, 'settings.staffing'),
   }
 }
 
-function assertProvider(actor: SessionUser): void {
-  if (actor.role !== 'provider') throw new ServiceError(403, 'forbidden')
+function assertMayEdit(actor: SessionUser): void {
+  if (!can(actor.permissions, 'settings.staffing')) throw new ServiceError(403, 'forbidden')
 }
 
 /** The versions of the state's preset that start after the one valid today. */
@@ -154,7 +155,7 @@ export function setStaffingOverrides(
   db: Db, actor: SessionUser, facilityId: number, values: Record<string, unknown>, today: IsoDate = todayIso(),
   now: Date = new Date(),
 ): StaffingSettingsDto {
-  assertProvider(actor)
+  assertMayEdit(actor)
   const state = facilityState(db, facilityId)
   const presetValues = new Map(overridableValues(presetFor(state, today)).map(v => [v.path, v.value]))
   const stored = loadStaffingOverrides(db, facilityId)
@@ -182,7 +183,7 @@ export function setStaffingOverrides(
 export function resetStaffingOverrides(
   db: Db, actor: SessionUser, facilityId: number, path: string | null, today: IsoDate = todayIso(), now: Date = new Date(),
 ): StaffingResetDto {
-  assertProvider(actor)
+  assertMayEdit(actor)
   const state = facilityState(db, facilityId)
   let droppedOthers = false
   if (path === null) {

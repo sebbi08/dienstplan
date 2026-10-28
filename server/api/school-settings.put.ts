@@ -6,8 +6,7 @@ import { setSchoolCutoff } from '../services/schoolChildren'
  * switches the automatic leaving off (`autoLeaveSwitchedOff`: it was on and is off now).
  */
 export default defineServiceHandler(async (event) => {
-  const provider = await requireProvider(event)
-  const facilityId = requireFacility(event, provider)
-  const { settings, autoLeaveSwitchedOff } = setSchoolCutoff(useDb(), facilityId, await readValidatedBody(event, schoolSettingsSchema.parse))
+  const provider = await requirePermission(event, 'children.schoolSettings')
+  const { settings, autoLeaveSwitchedOff } = setSchoolCutoff(useDb(), provider.facilityId, await readValidatedBody(event, schoolSettingsSchema.parse))
   return { ...settings, autoLeaveSwitchedOff }
 })

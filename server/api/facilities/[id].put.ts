@@ -4,7 +4,7 @@ import { facilityHolidayRules } from '../../services/holidayRules'
 import { updateFacility } from '../../services/facilities'
 
 export default defineServiceHandler(async (event) => {
-  const user = await requireProvider(event)
+  const user = await requirePermission(event, 'facilities.manage', { facility: 'none' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readValidatedBody(event, facilityUpdateSchema.parse)
   const db = useDb()

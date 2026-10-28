@@ -6,7 +6,6 @@ import { schoolLeavers } from '../../services/schoolChildren'
  * selection the daily run itself uses, shown to the Träger before the switch is turned on.
  */
 export default defineServiceHandler(async (event) => {
-  const provider = await requireProvider(event)
-  const facilityId = requireFacility(event, provider)
-  return schoolLeavers(useDb(), facilityId, todayIso())
+  const provider = await requirePermission(event, 'children.schoolSettings')
+  return schoolLeavers(useDb(), provider.facilityId, todayIso())
 })

@@ -7,7 +7,7 @@ import { holidayIn, type HolidayRules } from '../../shared/domain/holidays'
 import {
   changeHistory, diffCells, ownEntries, snapshotCells, type CellState, type ReleasedChange, type ReleasedState,
 } from '../../shared/domain/releaseDiff'
-import { isManager } from '../../shared/domain/roles'
+import { can } from '../../shared/domain/permissions'
 import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
@@ -241,7 +241,8 @@ function dayRows(
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
 ): MonthPlanDto {
-  const isAdmin = isManager(viewer.role)
+  // The draft with its pending changes and warnings with plan.edit; everyone else the latest released plan.
+  const isAdmin = can(viewer.permissions, 'plan.edit')
   const releases = loadReleases(db, facilityId, year, month)
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')

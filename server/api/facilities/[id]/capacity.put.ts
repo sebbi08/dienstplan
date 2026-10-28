@@ -3,7 +3,7 @@ import { setFacilityCapacity } from '../../../services/facilities'
 
 /** The Träger sets the Höchstzahl Kinder of a facility (null = none). */
 export default defineServiceHandler(async (event) => {
-  const user = await requireProvider(event)
+  const user = await requirePermission(event, 'facilities.manage', { facility: 'none' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { capacity } = await readValidatedBody(event, facilityCapacitySchema.parse)
   setFacilityCapacity(useDb(), user, id, capacity)

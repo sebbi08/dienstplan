@@ -6,7 +6,7 @@ import { listMeals, removeMeal } from '../../services/meals'
  * Answers the meals as they are afterwards.
  */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'settings.facility')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { validFrom } = getQuery(event).validFrom !== undefined
     ? await getValidatedQuery(event, mealRemoveSchema.parse)

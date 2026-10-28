@@ -6,7 +6,7 @@ import { readAccessFacility, setReadAccess } from '../../../services/groupReadAc
  * sets it for a group of the active facility, the Träger for any group (see `readAccessFacility`).
  */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'settings.facility')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { readable } = await readValidatedBody(event, groupReadAccessSchema.parse)
   const db = useDb()

@@ -5,7 +5,7 @@ import { deleteRetentionItem } from '../../services/retentionOverview'
 
 /** The Träger deletes one due item of the retention overview, `key` in the body; answers the rows deleted. */
 export default defineServiceHandler(async (event): Promise<{ deleted: number }> => {
-  const provider = await requireProvider(event)
+  const provider = await requirePermission(event, 'retention.delete', { facility: 'none' })
   const { key } = await readValidatedBody(event, retentionItemSchema.parse)
   const deleted = deleteRetentionItem(useDb(), provider, key, todayIso())
   // The deleted rows must not linger in the write-ahead log.

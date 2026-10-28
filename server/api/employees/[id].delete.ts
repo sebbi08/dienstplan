@@ -4,7 +4,7 @@ import { deleteLeftEmployee } from '../../services/employeeDeletion'
 
 /** Deletes a left employee for good; `confirm` in the body (never the URL, it would land in logs) must be their name. */
 export default defineServiceHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  const admin = await requirePermission(event, 'employees.delete')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readBody<unknown>(event).catch(() => undefined)
   const { confirm } = employeeDeleteSchema.parse(body ?? {})

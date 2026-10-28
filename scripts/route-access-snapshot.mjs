@@ -18,6 +18,14 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// Node strips the types of the shared catalog (no build step).
+import { effectivePermissions, PERMISSION_KEYS } from '../shared/domain/permissions.ts'
+
+const NO_FLAGS = { canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false }
+const DEFAULTS = {
+  admin: effectivePermissions({ role: 'admin', ...NO_FLAGS }),
+  observer: effectivePermissions({ role: 'observer', ...NO_FLAGS }),
+}
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = join(ROOT, 'server', 'api')
@@ -47,6 +55,14 @@ const GUARDS = {
   requireChildManager: () => ['provider', 'admin', 'tablet:provider', 'tablet:admin'],
   // Only a facility (403 no_facility) and the page checks; always after one of the guards above.
   requireFacility: () => null,
+  // Since Teil 1 Task 2: the Träger (every key), Leitung and Mitarbeiter by their role defaults without per-person
+  // flags, the tablet only with allowTerminal. --check thereby proves the switch kept who gets in.
+  requirePermission: (args) => {
+    const key = /^\s*event,\s*'([^']+)'/.exec(args)?.[1]
+    if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requirePermission(${args})`)
+    return ['provider', 'admin', 'observer', 'terminal'].filter(actor => actor === 'provider'
+      || (actor === 'terminal' ? /allowTerminal:\s*true/.test(args) : DEFAULTS[actor].has(key)))
+  },
 }
 
 /** Routes without a session. */

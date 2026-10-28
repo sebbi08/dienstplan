@@ -4,7 +4,7 @@ import { listReadAccess } from '../../../services/groupReadAccess'
 
 /** The read access of the groups of any facility (by group id), for the Träger's facility settings. */
 export default defineServiceHandler(async (event) => {
-  await requireProvider(event)
+  await requirePermission(event, 'facilities.manage', { facility: 'none' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const db = useDb()
   assertFacility(db, id)

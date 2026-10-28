@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { canClose, monthKey, monthsToReopen, type CashSheetRow } from '../../shared/domain/cash'
 import { cashCsv } from '../../shared/domain/cashCsv'
+import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -39,10 +40,10 @@ export function closeMonth(
  * cash_month_not_closed. Each reopened month gets one log line naming all reopened months and the reason.
  */
 export function reopenMonth(
-  db: Db, provider: CashActor & Pick<SessionUser, 'role'>, facilityId: number, boxId: number, year: number, month: number,
+  db: Db, provider: CashActor & Pick<SessionUser, 'permissions'>, facilityId: number, boxId: number, year: number, month: number,
   reason: string, now: Date = new Date(),
 ): string[] {
-  if (provider.role !== 'provider') throw new ServiceError(403, 'forbidden')
+  if (!can(provider.permissions, 'cash.reopen')) throw new ServiceError(403, 'forbidden')
   const text = reason.trim()
   if (text === '' || text.length > CASH_REOPEN_REASON_MAX) throw new ServiceError(400, 'cash_reopen_reason_invalid')
   loadBox(db, facilityId, boxId)

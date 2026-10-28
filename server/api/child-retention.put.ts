@@ -3,7 +3,7 @@ import { setChildRetentionYears } from '../services/appSettings'
 
 /** The Träger sets the retention period of the child records (from when a record may be deleted, by hand). */
 export default defineServiceHandler(async (event) => {
-  await requireProvider(event)
+  await requirePermission(event, 'settings.retention', { facility: 'none' })
   const { years } = await readValidatedBody(event, childRetentionSchema.parse)
   setChildRetentionYears(useDb(), years)
   return { ok: true }
