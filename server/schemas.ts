@@ -96,7 +96,7 @@ export const closureSchema = z.object({ startDate: isoDate, endDate: isoDate, la
 export const templateSchema = z.object({
   shortLabel: z.string().max(10), label, start: minutes, end: minutes,
   breakStart: minutes.nullable(), breakEnd: minutes.nullable(), countsAsStaff: z.boolean(),
-  pairsWithPrepTime: z.boolean(), sortOrder: z.number().int(),
+  pairsWithPrepTime: z.boolean(), sortOrder: z.number().int().optional(),
 })
 export const codeUpdateSchema = z.object({ label, color: z.enum(COLOR_KEYS), creditMode: z.enum(['daily_target', 'timed', 'none']) })
 /** groupId: the group the rule applies to (null = the whole facility); left out = the whole facility, on update unchanged. */
@@ -239,7 +239,8 @@ export const careTypeSchema = z.object({
   name: z.string().max(80),
   start: z.number().int(),
   end: z.number().int(),
-  sortOrder: z.number().int().min(0).max(10000),
+  // Ignored (care types are listed by start, end and name); old clients may still send it.
+  sortOrder: z.number().int().min(0).max(10000).optional(),
   // 1–7, checked by the service (care_type_invalid_days); left out = 5 for a new care type, unchanged on update.
   daysPerWeek: z.number().optional(),
 })
@@ -248,7 +249,8 @@ export const documentTypeSchema = z.object({
   important: z.boolean(),
   required: z.boolean(),
   confidentialDefault: z.boolean(),
-  sortOrder: z.number().int().min(0).max(10000),
+  // Ignored (document types are listed alphabetically); old clients may still send it.
+  sortOrder: z.number().int().min(0).max(10000).optional(),
   // Left out = unchanged: a client that does not know the flag must not take it away.
   careContract: z.boolean().optional(),
 })

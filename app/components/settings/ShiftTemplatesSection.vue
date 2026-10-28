@@ -5,10 +5,10 @@ import type { SettingsDto, ShiftChangeResult, TemplateDto } from '#shared/types/
 import { de } from '~/locales/de'
 import { builtRows, mergeRows, optionalTime, timeKey, timeText } from '~/utils/settingsForms'
 
-/** Einstellungen → Dienstplan → Dienst-Buttons: the services with their times, breaks and order; a row saves on its own. */
+/** Einstellungen → Dienstplan → Dienst-Buttons: the services with their times and breaks (listed by start time); a row saves on its own. */
 interface TemplateForm {
   id: number | null; shortLabel: string; label: string; start: string; end: string
-  breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean; sortOrder: number
+  breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean
 }
 
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings', { key: 'settings' })
@@ -16,7 +16,7 @@ const run = useAction(refresh)
 const toast = useToast()
 const confirm = useConfirm()
 
-const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 99 })
+const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false })
 const templates = ref<TemplateForm[]>([])
 const newTemplate = ref(emptyTemplate())
 // Any save on the page reloads the shared settings: rows with unsaved edits keep them unless they were just saved.
@@ -26,7 +26,7 @@ watch(settings, (value) => {
   const fresh = (value?.templates ?? []).map((t: TemplateDto): TemplateForm => ({
     id: t.id, shortLabel: t.shortLabel, label: t.label, start: timeText(t.start), end: timeText(t.end),
     breakStart: timeText(t.breakStart), breakEnd: timeText(t.breakEnd), countsAsStaff: t.countsAsStaff,
-    pairsWithPrepTime: t.pairsWithPrepTime, sortOrder: t.sortOrder,
+    pairsWithPrepTime: t.pairsWithPrepTime,
   }))
   templates.value = mergeRows(templates.value, built, fresh, justSaved)
   built = builtRows(fresh)
@@ -39,8 +39,8 @@ function rowDirty(form: TemplateForm): boolean {
   const saved = settings.value?.templates.find(template => template.id === form.id)
   if (!saved) return false
   return !sameValue(
-    [form.shortLabel, form.label, timeKey(form.start), timeKey(form.end), timeKey(form.breakStart), timeKey(form.breakEnd), form.countsAsStaff, form.pairsWithPrepTime, Number(form.sortOrder)],
-    [saved.shortLabel, saved.label, saved.start, saved.end, saved.breakStart, saved.breakEnd, saved.countsAsStaff, saved.pairsWithPrepTime, saved.sortOrder],
+    [form.shortLabel, form.label, timeKey(form.start), timeKey(form.end), timeKey(form.breakStart), timeKey(form.breakEnd), form.countsAsStaff, form.pairsWithPrepTime],
+    [saved.shortLabel, saved.label, saved.start, saved.end, saved.breakStart, saved.breakEnd, saved.countsAsStaff, saved.pairsWithPrepTime],
   )
 }
 useDirty(() => [...templates.value, newTemplate.value].some(rowDirty))
@@ -69,7 +69,7 @@ async function saveTemplate(form: TemplateForm) {
   }
   const body = {
     shortLabel: form.shortLabel, label: form.label, start, end, breakStart, breakEnd,
-    countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime, sortOrder: form.sortOrder,
+    countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime,
   }
   if (!form.id) {
     if (await run(() => $fetch<unknown>('/api/shift-templates', { method: 'POST', body }), de.common.saved)) newTemplate.value = emptyTemplate()
@@ -132,7 +132,7 @@ const textInput = 'w-full min-w-24 rounded border border-gray-300 px-1 py-0.5'
             <th :class="cell" :title="de.settings.legalBreakHint">{{ de.settings.legalBreak }}</th>
             <th :class="cell">{{ de.settings.countsAsStaff }}</th>
             <th :class="cell" :title="de.settings.pairsWithPrepTimeHint">{{ de.settings.pairsWithPrepTime }}</th>
-            <th :class="cell">{{ de.settings.sortOrder }}</th><th />
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -149,7 +149,6 @@ const textInput = 'w-full min-w-24 rounded border border-gray-300 px-1 py-0.5'
             </td>
             <td :class="cell" class="text-center"><input v-model="form.countsAsStaff" type="checkbox" :aria-label="de.settings.countsAsStaff"></td>
             <td :class="cell" class="text-center"><input v-model="form.pairsWithPrepTime" type="checkbox" :title="de.settings.pairsWithPrepTimeHint" :aria-label="de.settings.pairsWithPrepTime"></td>
-            <td :class="cell"><input v-model.number="form.sortOrder" type="number" class="w-14 rounded border border-gray-300 px-1 py-0.5" :aria-label="de.settings.sortOrder"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
               <UButton v-if="!form.id" size="xs" :label="de.settings.addTemplate" :disabled="!rowDirty(form)" @click="saveTemplate(form)" />
               <UButton v-else-if="rowDirty(form)" size="xs" :label="de.common.save" @click="saveTemplate(form)" />

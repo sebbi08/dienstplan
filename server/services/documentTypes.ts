@@ -1,4 +1,4 @@
-import { and, asc, eq, max } from 'drizzle-orm'
+import { and, eq, max } from 'drizzle-orm'
 import type { DocumentTypeDto, DocumentTypeInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childDocuments, documentTypes } from '../db/schema'
@@ -12,10 +12,10 @@ function toDto(row: typeof documentTypes.$inferSelect): DocumentTypeDto {
   }
 }
 
-/** The facility's document types in their order. */
+/** The facility's document types, alphabetically by name. */
 export function listDocumentTypes(db: Db, facilityId: number): DocumentTypeDto[] {
-  return db.select().from(documentTypes).where(eq(documentTypes.facilityId, facilityId))
-    .orderBy(asc(documentTypes.sortOrder), asc(documentTypes.id)).all().map(toDto)
+  return db.select().from(documentTypes).where(eq(documentTypes.facilityId, facilityId)).all().map(toDto)
+    .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id - b.id)
 }
 
 /** The facility's document type; 404 document_type_not_found if it belongs to another facility or does not exist. */
@@ -48,7 +48,7 @@ function clearCareContract(db: Db, facilityId: number): void {
 }
 
 /**
- * A new document type at the end of the facility's order (the input's sortOrder is ignored). With `careContract` it
+ * A new document type (the input's sortOrder is ignored; the stored value is no longer used for ordering). With `careContract` it
  * becomes the facility's care contract type instead of the one that was.
  */
 export function createDocumentType(db: Db, facilityId: number, input: DocumentTypeInput): DocumentTypeDto {
@@ -75,7 +75,7 @@ export function updateDocumentType(db: Db, facilityId: number, id: number, input
     if (input.careContract === true) clearCareContract(tx, facilityId)
     return toDto(tx.update(documentTypes).set({
       name, important: input.important, required: input.required,
-      confidentialDefault: input.confidentialDefault, sortOrder: input.sortOrder,
+      confidentialDefault: input.confidentialDefault,
       ...(input.careContract === undefined ? {} : { careContract: input.careContract }),
     }).where(eq(documentTypes.id, id)).returning().get())
   })

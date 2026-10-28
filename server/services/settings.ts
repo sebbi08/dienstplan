@@ -20,7 +20,8 @@ export interface TemplateInput {
   breakEnd: Minutes | null
   countsAsStaff: boolean
   pairsWithPrepTime: boolean
-  sortOrder: number
+  /** Ignored: services are listed by start time, end time and label. */
+  sortOrder?: number
 }
 
 export interface CodeUpdate {
@@ -51,7 +52,8 @@ function normalizeTemplate(input: TemplateInput) {
   const label = requireLabel(input.label)
   const error = validateSpan(input)
   if (error) throw new ServiceError(400, `span_${error}`)
-  return { ...input, label, shortLabel: input.shortLabel.trim() }
+  const { sortOrder: _ignored, ...rest } = input
+  return { ...rest, label, shortLabel: input.shortLabel.trim() }
 }
 
 function normalizeRule(db: Db, facilityId: number, input: CoverageRuleInput) {

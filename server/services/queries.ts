@@ -159,7 +159,9 @@ export function closureOn(list: ClosureDto[], date: IsoDate): ClosureDto | null 
 }
 
 export function loadTemplates(db: Db, facilityId: number): TemplateDto[] {
-  return db.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, facilityId)).orderBy(asc(shiftTemplates.sortOrder), asc(shiftTemplates.start)).all()
+  // By start, then end, then label (German collation); the stored sortOrder is no longer used.
+  return db.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, facilityId)).all()
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.label.localeCompare(b.label, 'de') || a.id - b.id)
 }
 
 export function loadCodes(db: Db): CodeDto[] {

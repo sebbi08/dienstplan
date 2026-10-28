@@ -1,4 +1,4 @@
-import { and, asc, eq, max } from 'drizzle-orm'
+import { and, eq, max } from 'drizzle-orm'
 import type { CareTypeDto, CareTypeInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, children } from '../db/schema'
@@ -18,10 +18,10 @@ function checkedDays(days: number | undefined, fallback: number): number {
   return days
 }
 
-/** The facility's care types in their order. */
+/** The facility's care types by start, then end, then name. */
 export function listCareTypes(db: Db, facilityId: number): CareTypeDto[] {
-  return db.select().from(careTypes).where(eq(careTypes.facilityId, facilityId))
-    .orderBy(asc(careTypes.sortOrder), asc(careTypes.id)).all().map(toDto)
+  return db.select().from(careTypes).where(eq(careTypes.facilityId, facilityId)).all().map(toDto)
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.name.localeCompare(b.name, 'de') || a.id - b.id)
 }
 
 /** The care type must belong to the facility (null = none passes); otherwise 404 care_type_not_found. */
@@ -49,7 +49,7 @@ function checkedTimes(input: CareTypeInput): void {
   if (!onGrid(start) || !onGrid(end) || end <= start) throw new ServiceError(400, 'care_type_invalid_time')
 }
 
-/** A new care type at the end of the facility's order (the input's sortOrder is ignored). */
+/** A new care type (the input's sortOrder is ignored; the stored value is no longer used for ordering). */
 export function createCareType(db: Db, facilityId: number, input: CareTypeInput): CareTypeDto {
   const name = checkedName(db, facilityId, input.name)
   checkedTimes(input)
@@ -67,7 +67,7 @@ export function updateCareType(db: Db, facilityId: number, id: number, input: Ca
   checkedTimes(input)
   const days = input.daysPerWeek === undefined ? {} : { daysPerWeek: checkedDays(input.daysPerWeek, 5) }
   return toDto(db.update(careTypes)
-    .set({ name, start: input.start, end: input.end, sortOrder: input.sortOrder, ...days })
+    .set({ name, start: input.start, end: input.end, ...days })
     .where(eq(careTypes.id, id)).returning().get())
 }
 

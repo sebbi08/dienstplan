@@ -102,7 +102,8 @@ export interface CareTypeDto {
 }
 
 /** daysPerWeek left out: 5 for a new care type, unchanged on update. */
-export type CareTypeInput = Omit<CareTypeDto, 'id' | 'daysPerWeek'> & { daysPerWeek?: number }
+/** sortOrder is ignored (care types are listed by start, end and name). */
+export type CareTypeInput = Omit<CareTypeDto, 'id' | 'daysPerWeek' | 'sortOrder'> & { daysPerWeek?: number, sortOrder?: number }
 
 /** A document type (Dokumentart) of a facility; important/required drive the completeness view. */
 export interface DocumentTypeDto {
@@ -121,7 +122,8 @@ export interface DocumentTypeDto {
  * `careContract: true` makes the type the facility's care contract type (the flag leaves the type that had it), false
  * takes the flag away; left out = unchanged (a new type does not get it).
  */
-export type DocumentTypeInput = Omit<DocumentTypeDto, 'id' | 'careContract'> & { careContract?: boolean }
+/** sortOrder is ignored (document types are listed alphabetically). */
+export type DocumentTypeInput = Omit<DocumentTypeDto, 'id' | 'careContract' | 'sortOrder'> & { careContract?: boolean, sortOrder?: number }
 
 /** Master data (Stammdaten) of a child; the dates are optional except the birth date. */
 export interface ChildMasterInput {

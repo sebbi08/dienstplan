@@ -5,7 +5,7 @@ import {
 } from '../../server/services/careTypes'
 import { addChild, addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
-const input = (name: string, start = 7 * 60, end = 13 * 60, sortOrder = 0) => ({ name, start, end, sortOrder })
+const input = (name: string, start = 7 * 60, end = 13 * 60) => ({ name, start, end })
 
 describe('care types of a facility', () => {
   let db: Db
@@ -13,12 +13,27 @@ describe('care types of a facility', () => {
     db = createTestDb()
   })
 
-  it('creates care types at the end of the order and lists them', () => {
+  it('creates care types and lists them', () => {
     const first = createCareType(db, 1, input('Halbtag'))
     const second = createCareType(db, 1, input('Ganztag', 7 * 60, 16 * 60))
     expect(first).toEqual({ id: first.id, name: 'Halbtag', start: 420, end: 780, sortOrder: 0, daysPerWeek: 5 })
     expect(second.sortOrder).toBe(1)
     expect(listCareTypes(db, 1).map(type => type.name)).toEqual(['Halbtag', 'Ganztag'])
+  })
+
+  it('lists care types by start, then end, then name, whatever the stored sortOrder', () => {
+    const mk = (name: string, start: number, end: number) => createCareType(db, 1, { name, start, end })
+    mk('Ganztag', 7 * 60, 16 * 60)
+    mk('Spät', 12 * 60, 16 * 60)
+    mk('Ärmel', 7 * 60, 13 * 60)
+    mk('Zeta', 7 * 60, 13 * 60)
+    mk('Halbtag', 7 * 60, 13 * 60)
+    mk('Früh', 6 * 60, 14 * 60)
+    expect(listCareTypes(db, 1).map(type => type.name)).toEqual(['Früh', 'Ärmel', 'Halbtag', 'Zeta', 'Ganztag', 'Spät'])
+    // An old client may still send a sortOrder: it is ignored.
+    const sent = updateCareType(db, 1, listCareTypes(db, 1)[0]!.id, { name: 'Früh', start: 360, end: 840, sortOrder: 999 })
+    expect(sent.sortOrder).not.toBe(999)
+    expect(listCareTypes(db, 1)[0]!.name).toBe('Früh')
   })
 
   it('lists only the facility\'s own care types', () => {
@@ -56,11 +71,11 @@ describe('care types of a facility', () => {
     expect(listCareTypes(db, 1)).toEqual([])
   })
 
-  it('updates name, times and position; keeping its own name is no clash', () => {
+  it('updates name and times; keeping its own name is no clash', () => {
     const type = createCareType(db, 1, input('Halbtag'))
     const other = createCareType(db, 1, input('Ganztag'))
-    const updated = updateCareType(db, 1, type.id, input('HALBTAG', 480, 720, 5))
-    expect(updated).toEqual({ id: type.id, name: 'HALBTAG', start: 480, end: 720, sortOrder: 5, daysPerWeek: 5 })
+    const updated = updateCareType(db, 1, type.id, input('HALBTAG', 480, 720))
+    expect(updated).toEqual({ id: type.id, name: 'HALBTAG', start: 480, end: 720, sortOrder: 0, daysPerWeek: 5 })
     expect(listCareTypes(db, 1).map(entry => entry.id)).toEqual([other.id, type.id])
     expect(errorCode(() => updateCareType(db, 1, type.id, input('ganztag')))).toBe('care_type_name_taken')
     expect(errorCode(() => updateCareType(db, 1, type.id, input('X', 421, 720)))).toBe('care_type_invalid_time')
@@ -74,7 +89,7 @@ describe('care types of a facility', () => {
     expect(updateCareType(db, 1, type.id, { ...input('Halbtag'), daysPerWeek: 7 }).daysPerWeek).toBe(7)
     expect(updateCareType(db, 1, type.id, input('Halbtag')).daysPerWeek).toBe(7)
     expect(updateCareType(db, 1, type.id, { ...input('Halbtag'), daysPerWeek: 1 }).daysPerWeek).toBe(1)
-    expect(listCareTypes(db, 1).map(entry => entry.daysPerWeek)).toEqual([1, 3])
+    expect(listCareTypes(db, 1).map(entry => entry.daysPerWeek)).toEqual([3, 1])
   })
 
   it('refuses care days outside 1 to 7 or not whole, and changes nothing', () => {

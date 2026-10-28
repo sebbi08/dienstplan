@@ -19,21 +19,27 @@ describe('document types of a facility', () => {
     db = createTestDb()
   })
 
-  it('lists the seven default types in order', () => {
+  it('lists the seven default types alphabetically (German collation)', () => {
     const types = listDocumentTypes(db, 1)
     expect(types.map(type => type.name)).toEqual([
-      'Betreuungsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Datenschutz-Einwilligung',
-      'Sorgerechtsbeschluss', 'Ärztliches Attest', 'Sonstiges',
+      'Ärztliches Attest', 'Belehrung Infektionsschutz', 'Betreuungsvertrag', 'Datenschutz-Einwilligung',
+      'Masernnachweis', 'Sonstiges', 'Sorgerechtsbeschluss',
     ])
-    expect(types[0]).toMatchObject({ important: true, required: true, confidentialDefault: true })
+    expect(types[2]).toMatchObject({ important: true, required: true, confidentialDefault: true })
   })
 
-  it('creates a type at the end of the order', () => {
+  it('creates a type and lists it alphabetically, whatever the stored sortOrder', () => {
     const created = createDocumentType(db, 1, input('Fotoerlaubnis', { important: true }))
     expect(created).toMatchObject({ name: 'Fotoerlaubnis', important: true, required: false, confidentialDefault: false })
     const types = listDocumentTypes(db, 1)
-    expect(types.at(-1)!.id).toBe(created.id)
-    expect(created.sortOrder).toBeGreaterThan(types.at(-2)!.sortOrder)
+    expect(types.map(type => type.name).indexOf('Fotoerlaubnis')).toBe(4)
+    expect(types.find(type => type.id === created.id)).toEqual(created)
+    createDocumentType(db, 1, input('Zeugnis', { sortOrder: -1 }))
+    createDocumentType(db, 1, input('abc', { sortOrder: 500 }))
+    const names = listDocumentTypes(db, 1).map(type => type.name)
+    expect(names[0]).toBe('abc')
+    expect(names[1]).toBe('Ärztliches Attest')
+    expect(names.at(-1)).toBe('Zeugnis')
   })
 
   it('trims the name and rejects an empty one', () => {
@@ -59,10 +65,12 @@ describe('document types of a facility', () => {
   it('updates a type; keeping its own name is no clash', () => {
     const id = documentTypeId(db, 1, 'Sonstiges')
     const updated = updateDocumentType(db, 1, id, input('SONSTIGES', { important: true, confidentialDefault: true, sortOrder: 20 }))
-    expect(updated).toEqual({
-      id, name: 'SONSTIGES', important: true, required: false, confidentialDefault: true, sortOrder: 20, careContract: false,
+    // A sent sortOrder is ignored (the stored value stays the default type's own).
+    expect(updated).toMatchObject({
+      id, name: 'SONSTIGES', important: true, required: false, confidentialDefault: true, careContract: false,
     })
-    expect(listDocumentTypes(db, 1).at(-1)!.id).toBe(id)
+    expect(updated.sortOrder).not.toBe(20)
+    expect(listDocumentTypes(db, 1).map(type => type.id).indexOf(id)).toBe(5)
     expect(errorCode(() => updateDocumentType(db, 1, id, input('Masernnachweis')))).toBe('document_type_name_taken')
     expect(errorCode(() => updateDocumentType(db, 1, id, input('')))).toBe('document_type_name_required')
   })

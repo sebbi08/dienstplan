@@ -28,6 +28,20 @@ describe('settings service', () => {
     expect(settings.codes.map(c => c.key)).toEqual(['vacation', 'special_leave', 'sick', 'office', 'prep_time', 'training', 'school', 'other', 'holiday', 'closure_day'])
     expect(settings.coverageRules).toHaveLength(3)
   })
+  it('lists the services by start, then end, then label, whatever the stored sortOrder', () => {
+    const base = { breakStart: null, breakEnd: null, countsAsStaff: true, pairsWithPrepTime: false }
+    createTemplate(db, 1, { ...base, shortLabel: 'Z', label: 'Zeta', start: 420, end: 795, sortOrder: 0 })
+    createTemplate(db, 1, { ...base, shortLabel: 'A', label: 'Ärmel', start: 420, end: 795, sortOrder: 500 })
+    createTemplate(db, 1, { ...base, shortLabel: 'K', label: 'Kurz', start: 420, end: 600 })
+    createTemplate(db, 1, { ...base, shortLabel: 'E', label: 'Ganz früh', start: 360, end: 700, sortOrder: 99 })
+    const labels = getSettings(db, 1).templates.map(t => t.shortLabel)
+    expect(labels).toEqual(['E', 'K', 'A', 'F1', 'Z', 'F2', 'M', 'S', 'HK'])
+  })
+  it('ignores a sortOrder sent on update', () => {
+    const m = templateId(db, 'M')
+    const updated = updateTemplate(db, 1, m, { shortLabel: 'M', label: 'Mitteldienst', start: 465, end: 960, breakStart: 700, breakEnd: 730, countsAsStaff: true, pairsWithPrepTime: true, sortOrder: 777 })
+    expect(updated.sortOrder).toBe(3)
+  })
   it('does not change existing entries when a template changes or is deleted', () => {
     const m = templateId(db, 'M')
     applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'shift', templateId: m })

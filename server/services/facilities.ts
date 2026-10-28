@@ -102,7 +102,7 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW'):
     seedDefaultMeals(tx, facility.id)
     if (source !== null) {
       const templates = tx.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, source))
-        .orderBy(asc(shiftTemplates.sortOrder), asc(shiftTemplates.id)).all()
+        .orderBy(asc(shiftTemplates.id)).all()
       if (templates.length > 0) {
         tx.insert(shiftTemplates).values(templates.map(({ id: _id, ...template }) => ({ ...template, facilityId: facility.id }))).run()
       }

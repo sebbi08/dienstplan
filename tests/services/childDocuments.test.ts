@@ -204,10 +204,10 @@ describe('child documents', () => {
       return id
     }
 
-    it('lists the important types in order and marks missing required documents', () => {
+    it('lists the important types alphabetically and marks missing required documents', () => {
       const overview = documentOverview(db, admin, 1, TODAY)
       expect(overview.types.map(type => type.name)).toEqual([
-        'Betreuungsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Datenschutz-Einwilligung', 'Sorgerechtsbeschluss',
+        'Belehrung Infektionsschutz', 'Betreuungsvertrag', 'Datenschutz-Einwilligung', 'Masernnachweis', 'Sorgerechtsbeschluss',
       ])
       const row = rowOf()
       expect(row.missingRequired).toBe(true)

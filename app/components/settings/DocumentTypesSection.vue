@@ -3,7 +3,7 @@ import type { DocumentTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /** Document types (Dokumentarten) of the facility: which ones are important, which are needed for every child, and the default visibility. */
-interface Form { id: number | null; name: string; important: boolean; required: boolean; confidentialDefault: boolean; careContract: boolean; sortOrder: number }
+interface Form { id: number | null; name: string; important: boolean; required: boolean; confidentialDefault: boolean; careContract: boolean }
 
 const s = de.schoolChildren
 const { forms, newForm, busy, save, remove, isDirty } = await useTypeList<DocumentTypeDto, Form>({
@@ -11,9 +11,9 @@ const { forms, newForm, busy, save, remove, isDirty } = await useTypeList<Docume
   key: 'settings-document-types',
   // The child pages offer the same list; keep them in step.
   refreshKeys: ['document-types', 'child-documents-overview'],
-  empty: () => ({ id: null, name: '', important: false, required: false, confidentialDefault: false, careContract: false, sortOrder: 0 }),
-  toForm: type => ({ ...type }),
-  toBody: form => ({ name: form.name, important: form.important, required: form.required, confidentialDefault: form.confidentialDefault, careContract: form.careContract, sortOrder: form.sortOrder }),
+  empty: () => ({ id: null, name: '', important: false, required: false, confidentialDefault: false, careContract: false }),
+  toForm: ({ sortOrder: _ignored, ...type }) => type,
+  toBody: form => ({ name: form.name, important: form.important, required: form.required, confidentialDefault: form.confidentialDefault, careContract: form.careContract }),
 })
 
 /** A type needed for every child is important by definition (the server refuses the other combination). */
@@ -42,7 +42,7 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.childSettings.important }}</th>
             <th :class="cell">{{ de.childSettings.required }}</th><th :class="cell">{{ de.childSettings.confidentialDefault }}</th>
             <th :class="cell">{{ s.careContract }}</th>
-            <th :class="cell">{{ de.settings.sortOrder }}</th><th />
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -52,7 +52,6 @@ const textInput = 'w-full rounded border border-gray-300 px-1 py-0.5'
             <td :class="cell" class="text-center"><input :checked="form.required" type="checkbox" :aria-label="de.childSettings.required" @change="onRequired(form, ($event.target as HTMLInputElement).checked)"></td>
             <td :class="cell" class="text-center"><input v-model="form.confidentialDefault" type="checkbox" :aria-label="de.childSettings.confidentialDefault"></td>
             <td :class="cell" class="text-center"><input v-model="form.careContract" type="checkbox" :aria-label="s.careContract"></td>
-            <td :class="cell"><input v-model.number="form.sortOrder" type="number" min="0" max="10000" class="w-16 rounded border border-gray-300 px-1 py-0.5" :aria-label="de.settings.sortOrder" :disabled="!form.id"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
               <UButton v-if="!form.id" size="xs" :label="de.common.add" :disabled="busy || !isDirty(form)" @click="save(form)" />
               <UButton v-else-if="isDirty(form)" size="xs" :label="de.common.save" :disabled="busy" @click="save(form)" />
