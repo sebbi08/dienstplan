@@ -175,6 +175,23 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       expect(fresh(anna).permissions.has('plan.view')).toBe(false)
     })
 
+    it('give a pulled-in children switch the widest scope of the switches that pull it', () => {
+      saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: false }])
+      const both = saveRoleRights(db, 'observer', [
+        { id: 'childrenAttendance', enabled: true, scope: 'group' }, { id: 'childrenEdit', enabled: true, scope: 'facility' },
+      ])
+      expect(both.pulledIn).toEqual(['childrenView'])
+      expect(both.bundles.find(bundle => bundle.id === 'childrenView')).toMatchObject({ enabled: true, scope: 'facility' })
+      resetRoleRights(db, 'observer')
+      saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: false }])
+      saveUserRights(db, traeger, anna.id, [
+        { bundle: 'childrenAttendance', effect: 'grant', scope: 'facility' }, { bundle: 'childrenEdit', effect: 'grant', scope: 'group' },
+      ])
+      expect(overrides(anna)).toContainEqual(['childrenView', 'grant', 'facility'])
+      resetRoleRights(db, 'observer')
+      saveUserRights(db, traeger, anna.id, [])
+    })
+
     it('give a pulled-in children switch the scope of the switch that pulled it', () => {
       saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: false }])
       const role = saveRoleRights(db, 'observer', [{ id: 'childrenEdit', enabled: true, scope: 'facility' }])
@@ -237,17 +254,19 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       expect(saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenEdit', effect: 'revoke' }]).dropped).toEqual(['childrenManage'])
     })
 
-    it('never lets anyone but the Träger change the rights of the own account (403 own_account)', () => {
-      // A Mitarbeiter the Träger gave „Zugänge verwalten“ manages the others' edit switch, never its own.
+    it('is the only one besides the Träger: a Mitarbeiter with „Zugänge verwalten“ touches no rights (403)', () => {
       saveUserRights(db, traeger, anna.id, [{ bundle: 'usersManage', effect: 'grant' }])
       const manager = fresh(anna)
       expect(manager.permissions.has('users.manage')).toBe(true)
-      saveUserRights(db, manager, ben.id, [{ bundle: 'childrenEdit', effect: 'grant' }])
-      expect(fresh(ben).permissions.has('children.edit')).toBe(true)
-      expect(getUserRights(db, manager, anna.id).editable).toEqual([])
+      // Not the edit switch of a colleague (it does not hold that right itself), not the own rights.
+      expect(errorCode(() => saveUserRights(db, manager, ben.id, [{ bundle: 'childrenEdit', effect: 'grant' }]))).toBe('forbidden')
+      expect(errorCode(() => getUserRights(db, manager, ben.id))).toBe('forbidden')
       expect(errorCode(() => saveUserRights(db, manager, anna.id, [
         { bundle: 'usersManage', effect: 'grant' }, { bundle: 'childrenEdit', effect: 'grant' },
-      ]))).toBe('own_account')
+      ]))).toBe('forbidden')
+      expect(fresh(ben).permissions.has('children.edit')).toBe(false)
+      expect(fresh(anna).permissions.has('children.edit')).toBe(false)
+      // The Leitung never reaches its own account either.
       expect(errorCode(() => saveUserRights(db, leitung, leitung.id, []))).toBe('forbidden')
     })
 

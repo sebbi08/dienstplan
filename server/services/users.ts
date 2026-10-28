@@ -96,11 +96,12 @@ function activeManagers(db: Db, facilityId: number | null): number {
 /**
  * The roles whose accounts the actor creates, changes, deactivates and resets (users.manage): the Träger
  * (users.providerAccounts) every role; a Leitung, as before, Leitung, Mitarbeiter and tablet accounts; anyone else who
- * was given „Zugänge verwalten“ only Mitarbeiter and tablet accounts, never one above their own.
+ * was given „Zugänge verwalten“ only the tablet accounts: a Mitarbeiter account could otherwise be reset and signed in
+ * with, and so carry rights its manager does not hold.
  */
 function manageableRoles(actor: SessionUser): readonly Role[] {
   if (can(actor.permissions, 'users.providerAccounts')) return ['provider', 'admin', 'observer', 'terminal']
-  return actor.role === 'admin' ? ['admin', 'observer', 'terminal'] : ['observer', 'terminal']
+  return actor.role === 'admin' ? ['admin', 'observer', 'terminal'] : ['terminal']
 }
 
 /**

@@ -130,14 +130,25 @@ describe('who manages which accounts (no escalation through „Zugänge verwalte
     anna = addEmployee(db, 'Anna')
   })
 
-  it('lets a Mitarbeiter with „Zugänge verwalten“ manage Mitarbeiter and tablet accounts only, never the own one', () => {
+  it('lets a Mitarbeiter with „Zugänge verwalten“ manage the tablet accounts only, never the own one', () => {
     const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     saveUserRights(db, provider, own.id, [{ bundle: 'usersManage', effect: 'grant' }])
     const manager = getActiveUser(db, own.id)!
     expect(manager.permissions.has('users.manage')).toBe(true)
-    const ben = createUser(db, manager, { username: 'ben', password: 'start-1234', role: 'observer', employeeId: addEmployee(db, 'Ben') })
-    createUser(db, manager, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
-    expect(updateUser(db, manager, ben.id, { role: 'observer', employeeId: ben.employeeId, active: false }).active).toBe(false)
+    const tablet = createUser(db, manager, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    expect(updateUser(db, manager, tablet.id, { role: 'terminal', employeeId: null, active: false }).active).toBe(false)
+    resetPassword(db, manager, tablet.id, 'tablet-password-2')
+    // No Mitarbeiter account: it could reset a colleague's password and sign in with the colleague's rights.
+    const benEmployee = addEmployee(db, 'Ben')
+    const ben = createUser(db, leitung, { username: 'ben', password: 'start-1234', role: 'observer', employeeId: benEmployee })
+    expect(errorCode(() => resetPassword(db, manager, ben.id, 'takeover-1234'))).toBe('role_not_manageable')
+    expect(login(db, 'ben', 'takeover-1234').ok).toBe(false)
+    expect(errorCode(() => updateUser(db, manager, ben.id, { role: 'observer', employeeId: benEmployee, active: false })))
+      .toBe('role_not_manageable')
+    expect(errorCode(() => createUser(db, manager, { username: 'carla', password: 'start-1234', role: 'observer', employeeId: addEmployee(db, 'Carla') })))
+      .toBe('role_not_manageable')
+    expect(errorCode(() => updateUser(db, manager, tablet.id, { role: 'observer', employeeId: benEmployee, active: true })))
+      .toBe('role_not_manageable')
     // Never above the own role: no Leitung, no Träger, no promotion, no change of a Leitung account.
     expect(errorCode(() => createUser(db, manager, { username: 'neu', password: 'start-1234', role: 'admin', employeeId: null })))
       .toBe('role_not_manageable')

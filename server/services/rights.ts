@@ -77,16 +77,19 @@ export function getRights(db: Db): RightsDto {
 /**
  * Makes `next` consistent after the bundles in `on` were switched on and those in `off` switched off: what the new ones
  * need or include comes along (`pull`), what needs or includes a removed one goes (`drop`). A bundle switched on that
- * needs one switched off in the same request is 400 conflicting_bundles. A pulled-in bundle with scope takes the scope
- * of the switched-on bundle that pulls it (null: none of them has one; the role's default then applies).
+ * needs one switched off in the same request is 400 conflicting_bundles. A pulled-in bundle with scope takes the widest
+ * scope of the switched-on bundles that pull it ('facility' over 'group'; null: none of them has one, the role's default
+ * then applies).
  */
 function settle(
   next: BundleMap, on: ReadonlySet<BundleId>, off: ReadonlySet<BundleId>,
   pull: (id: BundleId, scope: BundleScope | null) => void, drop: (id: BundleId) => void,
 ): RightsChangeDto {
-  const pullerScope = (id: BundleId): BundleScope | null => BUNDLE_IDS
-    .filter(puller => on.has(puller) && next.get(puller) && bundlesPulledBy([puller]).includes(id))
-    .map(puller => next.get(puller)!)[0] ?? null
+  const pullerScope = (id: BundleId): BundleScope | null => {
+    const scopes = BUNDLE_IDS.filter(puller => on.has(puller) && bundlesPulledBy([puller]).includes(id))
+      .map(puller => next.get(puller) ?? null)
+    return scopes.includes('facility') ? 'facility' : scopes.includes('group') ? 'group' : null
+  }
   const pulledIn: BundleId[] = []
   for (const id of bundlesPulledBy(on)) {
     if (off.has(id)) throw new ServiceError(400, 'conflicting_bundles')
@@ -172,9 +175,10 @@ interface Target {
 
 /**
  * The account whose exceptions the actor reads or sets. The Träger (rights.manage): any Leitung or Mitarbeiter account
- * (400 no_rights_role for a Träger or tablet account, whose rights are fixed). Anyone else with users.manage (the
- * Leitung): only Mitarbeiter accounts of its facility; another account of its facility or a Träger account is 403
- * forbidden, an account of another facility 404 user_not_found.
+ * (400 no_rights_role for a Träger or tablet account, whose rights are fixed). The Leitung (role admin with
+ * users.manage): only Mitarbeiter accounts of its facility; another account of its facility or a Träger account is 403
+ * forbidden, an account of another facility 404 user_not_found. Anyone else who was given „Zugänge verwalten“ touches
+ * no rights at all: 403 forbidden.
  */
 function loadTarget(db: Db, actor: SessionUser, userId: number): Target {
   const row = db.select().from(users).where(eq(users.id, userId)).get()
@@ -185,6 +189,7 @@ function loadTarget(db: Db, actor: SessionUser, userId: number): Target {
     if (row.role !== 'admin' && row.role !== 'observer') throw new ServiceError(400, 'no_rights_role')
     return { ...target, role: row.role }
   }
+  if (actor.role !== 'admin') throw new ServiceError(403, 'forbidden')
   if (row.role !== 'provider' && (actor.facilityId === null || facilityId !== actor.facilityId)) {
     throw new ServiceError(404, 'user_not_found')
   }
