@@ -1458,6 +1458,28 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT christmas_eve_half_leave FROM facilities WHERE id = 3').get()).toEqual({ christmas_eve_half_leave: 0 })
   })
 
+  it('0060 only creates the empty table of emergency contacts, which go with their employee', () => {
+    const { db, sqlite } = databaseAt('0059')
+    sqlite.exec(`INSERT INTO employees (id, facility_id, name) VALUES (1, 1, 'Anna'), (2, 1, 'Ben')`)
+    const employeesBefore = sqlite.prepare('SELECT * FROM employees ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    expect(sqlite.prepare('SELECT * FROM employees ORDER BY id').all()).toEqual(employeesBefore)
+    expect(count(sqlite, 'employee_emergency_contacts')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_list(employee_emergency_contacts)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } }))
+      .toEqual([{ table: 'employees', from: 'employee_id', on_delete: 'CASCADE' }])
+    sqlite.exec(`INSERT INTO employee_emergency_contacts (employee_id, name, phone) VALUES (1, 'Max', '0171 1'), (2, 'Eva', '0171 2')`)
+    expect(sqlite.prepare(`SELECT sort_order, relation, phone2, note FROM employee_emergency_contacts WHERE name = 'Max'`).get())
+      .toEqual({ sort_order: 0, relation: '', phone2: '', note: '' })
+    expect(() => sqlite.exec(`INSERT INTO employee_emergency_contacts (employee_id, name, phone) VALUES (3, 'Nobody', '1')`))
+      .toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(sqlite.prepare('SELECT name FROM employee_emergency_contacts').all()).toEqual([{ name: 'Eva' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('print_templates keep their file when the uploader is deleted', () => {
     const db = createTestDb()
     const user = addUser(db, 'leitung', 'admin')

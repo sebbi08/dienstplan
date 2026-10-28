@@ -269,6 +269,8 @@ async function onTabKey(event: KeyboardEvent) {
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
 
+    <EmployeesEmergencyContactsSection :employee-id="id" />
+
     <form v-if="isProvider && otherFacilities.length" class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="moveFacility">
       <h2 class="w-full font-semibold">{{ de.facilities.move }}</h2>
       <UFormField :label="de.facilities.active">

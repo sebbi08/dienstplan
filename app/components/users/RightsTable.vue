@@ -30,6 +30,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   { title: 'Mitarbeiter', rows: [
     { label: 'Anlegen, Wochenstunden, Urlaub, Stundenkonto-Buchungen, PIN, Stempeln und Pausen', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Stammgruppe festlegen (oder Springer)', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Notfallkontakte der Mitarbeiter ansehen, eintragen und ordnen, Liste aller Notfallkontakte drucken', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Vertragsangaben (TVöD) bearbeiten', rights: ['yes', 'no', 'no', 'no'] },
     { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
     { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },

@@ -739,7 +739,7 @@ Druck-Knöpfe.
 - Ein Dialog zählt auf, was gelöscht wird. Zum Bestätigen **tippst du den Namen genau so ein**, wie er dasteht; erst
   dann geht der Knopf. **Das lässt sich nicht rückgängig machen** – braucht ihr die Daten vielleicht noch, lädt der
   Träger vorher eine Sicherung herunter.
-- **Gelöscht werden:** Stammdaten, Wochenstunden, Vertragsdaten und Stempel-PIN; alle Dienstplan-Einträge aller Monate
+- **Gelöscht werden:** Stammdaten mit Notfallkontakten, Wochenstunden, Vertragsdaten und Stempel-PIN; alle Dienstplan-Einträge aller Monate
   (auch in freigegebenen Plänen – die Person verschwindet dort aus der Spalte, der Rest des Plans bleibt freigegeben –
   und als Aushilfe in anderen Einrichtungen); das Änderungsprotokoll, die Benachrichtigungen und „Zur Kenntnis
   genommen“ zu dieser Person; Zeiterfassung mit Korrekturen und Notizen, „Im Dienst erkrankt“ und Krankheitstage;
@@ -759,7 +759,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten, Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise |
 | „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen) |
@@ -814,7 +814,7 @@ nie gesperrt.
 ### Die Seite einer Person
 
 Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in Reiter aufgeteilt: **Stammdaten** (Name, Kürzel,
-ausgeschieden am, Gruppe, Geburtstag; beim Träger auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
+ausgeschieden am, Gruppe, Geburtstag, Notfallkontakte; beim Träger auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
 (Stundenkonto heute und am Ende eines wählbaren Monats, Wochenstunden, Stundenkonto-Buchungen, Vertragsangaben) ·
 **Urlaub** (Urlaubskonto eines wählbaren Jahres: Anspruch, Übertrag, genommen, verplant, frei verfügbar; dazu der
 Urlaubsanspruch) · **Zeiterfassung & PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** · **Zugang**.
@@ -822,6 +822,19 @@ Die App merkt sich keinen Reiter; sie öffnet immer mit „Stammdaten“, außer
 aus dem Hinweis auf Pflichttermine). Was du in einem Reiter eingibst, bleibt beim Wechsel in einen anderen Reiter
 stehen. **Speichern speichert nur die Felder des Reiters, in dem du gerade bist** – Eingaben in einem anderen Reiter
 werden dabei nicht mitgespeichert und auch nicht gelöscht.
+
+### Notfallkontakte
+
+Im Reiter **Stammdaten** steht unter den Stammdaten der Abschnitt **„Notfallkontakte“**: wen ihr anruft, wenn der
+Person im Dienst etwas passiert. Je Kontakt: **Name** und **Telefon** (beides Pflicht), **Beziehung** (z. B. „Ehemann“,
+„Mutter“), **Telefon 2** und ein **Hinweis** (z. B. „nur abends erreichbar“). Mit den Pfeilen ↑↓ legst du die
+Reihenfolge fest – **der erste Kontakt wird zuerst angerufen**. Sehen und ändern können die Notfallkontakte nur
+**Leitung und Träger**; Mitarbeiter sehen sie nirgends (auch nicht die eigenen), das Tablet nie. **„Notfallkontakte
+drucken“** (oben auf der Seite *Mitarbeiter* und im Abschnitt selbst) öffnet die Liste **„Notfallkontakte aller
+Mitarbeiter“** (A4 hochkant): alle, die nicht ausgeschieden sind, in der Reihenfolge der Mitarbeiter-Liste, je mit
+ihren Kontakten in der Anruf-Reihenfolge – wer keinen hat, steht mit „keine Notfallkontakte erfasst“ darin. Nach dem
+Ausscheiden gehören die Notfallkontakte zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem Ausscheiden,
+siehe „Löschfristen“).
 
 ### Urlaub am 24.12. und 31.12.
 

@@ -185,6 +185,10 @@ const td = 'px-3 py-2'
           color="neutral" :variant="reordering ? 'solid' : 'outline'" :icon="reordering ? 'i-lucide-check' : 'i-lucide-arrow-up-down'"
           :label="reordering ? de.employees.reorderDone : de.employees.reorder" :aria-pressed="reordering" @click="reordering = !reordering"
         />
+        <UButton
+          color="neutral" variant="outline" icon="i-lucide-printer" :label="de.emergencyContacts.print"
+          to="/admin/print/emergency-contacts" target="_blank"
+        />
       </div>
     </div>
 

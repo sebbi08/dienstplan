@@ -359,7 +359,7 @@ export const de = {
     deleteForGood: 'Endgültig löschen', deleteTitle: (name: string) => `${name} endgültig löschen`,
     deleteIntro: 'Das wird gelöscht und lässt sich nicht wiederherstellen:',
     deleteItems: [
-      'Stammdaten, Wochenstunden, Vertragsdaten und Stempel-PIN',
+      'Stammdaten mit Notfallkontakten, Wochenstunden, Vertragsdaten und Stempel-PIN',
       'alle Dienstplan-Einträge aller Monate, auch in freigegebenen Plänen und als Aushilfe in anderen Einrichtungen',
       'Aushilfe-Einsätze in anderen Einrichtungen und Einträge in Dienstplan-Vorlagen',
       'Änderungsprotokoll, Benachrichtigungen und „Zur Kenntnis genommen“ zu dieser Person',
@@ -436,6 +436,24 @@ export const de = {
       inactiveHint: 'Nicht aktiv: Die Person kann sich nicht anmelden.',
       usersPage: 'Alle Benutzer ansehen',
     },
+  },
+  /** Emergency contacts of an employee (tab „Stammdaten“) and the print list; only Leitung and Träger. */
+  emergencyContacts: {
+    title: 'Notfallkontakte',
+    hint: 'Wen ihr anruft, wenn im Dienst etwas passiert. Der erste Kontakt wird zuerst angerufen. Sehen und ändern können das nur Leitung und Träger.',
+    none: 'Noch keine Notfallkontakte erfasst.',
+    add: 'Notfallkontakt hinzufügen', edit: 'Notfallkontakt bearbeiten', confirmDelete: 'Diesen Notfallkontakt löschen?',
+    moveUp: 'Nach oben', moveDown: 'Nach unten', callFirst: 'zuerst anrufen',
+    fields: { name: 'Name', relation: 'Beziehung', phone: 'Telefon', phone2: 'Telefon 2', note: 'Hinweis' },
+    notePlaceholder: 'z. B. nur abends erreichbar',
+    relations: ['Ehemann', 'Ehefrau', 'Partner', 'Partnerin', 'Mutter', 'Vater', 'Tochter', 'Sohn', 'Schwester', 'Bruder', 'Freundin', 'Freund'],
+    print: 'Notfallkontakte drucken',
+    printTitle: 'Notfallkontakte aller Mitarbeiter',
+    printFileName: 'Notfallkontakte',
+    printHint: 'Alle Mitarbeiter, die nicht ausgeschieden sind, in der Reihenfolge der Mitarbeiter-Liste; die Kontakte in der Reihenfolge, in der angerufen wird. Vertraulich: nur für Leitung und Träger.',
+    printNone: 'keine Notfallkontakte erfasst',
+    printEmpty: 'Keine Mitarbeiter.',
+    order: (n: number) => `${n}.`,
   },
   weekTemplates: {
     title: 'Dienstplanvorlagen',
@@ -773,7 +791,7 @@ export const de = {
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, PIN, Zugang, Vertragsdaten, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -1668,6 +1686,9 @@ export const de = {
     contact_ban_conflict: 'Eine Person mit Kontaktverbot darf weder abholen noch Notfallkontakt sein.',
     contact_ban_note_required: 'Bitte einen Hinweis zum Kontaktverbot angeben.',
     invalid_order: 'Die Reihenfolge stimmt nicht mehr. Bitte lade die Seite neu.',
+    emergency_contact_not_found: 'Dieser Notfallkontakt existiert nicht mehr.',
+    emergency_contact_name_required: 'Bitte einen Namen für den Notfallkontakt angeben.',
+    emergency_contact_phone_required: 'Bitte eine Telefonnummer für den Notfallkontakt angeben.',
     care_type_not_found: 'Diese Betreuungsform existiert nicht mehr.',
     key_educator_not_found: 'Diese Person gehört nicht (mehr) zu den Mitarbeitern dieser Einrichtung.',
     care_type_name_required: 'Bitte einen Namen für die Betreuungsform angeben.',

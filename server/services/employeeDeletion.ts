@@ -9,7 +9,8 @@ import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, children,
-  earlySickLeaves, employeeHours, employeeRequirements, employees, employeeTrainings, entries, formEditors, forms,
+  earlySickLeaves, employeeEmergencyContacts, employeeHours, employeeRequirements, employees, employeeTrainings, entries,
+  formEditors, forms,
   groupBookChanges, helpOuts, leaveEntitlements, leavePlanners, leaveRequests, notifications, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries,
@@ -162,6 +163,7 @@ const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employee
   isNotNull(employees.jobOther), isNotNull(employees.payGroup), isNotNull(employees.payLevel),
 ))
 const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
+  { table: employeeEmergencyContacts, column: employeeEmergencyContacts.employeeId },
   { table: employeeRequirements, column: employeeRequirements.employeeId },
   { table: leaveRequests, column: leaveRequests.employeeId },
   { table: notifications, column: notifications.employeeId },
@@ -182,8 +184,8 @@ const ACCOUNT: EmployeeRows = { table: users, column: users.employeeId }
 
 /**
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields (the row keeps name, short name, group and
- * leaving day), mandatory appointments, leave requests, notifications, week template rows, form editor grants and the
- * tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
+ * leaving day), emergency contacts, mandatory appointments, leave requests, notifications, week template rows, form editor
+ * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
 export function deleteImmediateData(tx: Db, employeeId: number): number {

@@ -18,7 +18,7 @@ const LEFT_ON = '2026-03-15'
 
 /** The columns referencing employees, by the category that clears them (spec Löschfristen §2). */
 const IMMEDIATE = [
-  'employee_requirements.employee_id', 'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
+  'employee_emergency_contacts.employee_id', 'employee_requirements.employee_id', 'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
   'children.key_educator_id', 'child_development_docs.done_by_employee_id', 'child_parent_meetings.created_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
 ]

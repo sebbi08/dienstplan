@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, earlySickLeaves, employeeRequirements,
+  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, earlySickLeaves, employeeEmergencyContacts,
+  employeeRequirements,
   employeeTrainings, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, terminalUnlocks,
   timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -54,6 +55,7 @@ export function fillEmployeeData(db: Db, leitung: SessionUser, employeeIds: numb
     db.insert(notifications).values({ employeeId: id, year: 2026, month: 10, createdAt: now.toISOString(), changes: '[]' }).run()
     db.insert(employeeRequirements).values({ employeeId: id, typeId: requirementTypeId(db, 'first_aid'), date: '2026-03-01' }).run()
     db.insert(employeeTrainings).values({ employeeId: id, date: '2026-04-01', title: 'Sprachförderung' }).run()
+    db.insert(employeeEmergencyContacts).values({ employeeId: id, name: 'Max Muster', relation: 'Ehemann', phone: '0171 1234567' }).run()
     db.insert(warningAcks).values({
       facilityId: 1, key: `missing_entry|2026-10-09|${id}`, date: '2026-10-09', signature: '', acknowledgedAt: now.toISOString(),
     }).run()

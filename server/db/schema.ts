@@ -497,6 +497,18 @@ export const employeeTrainings = sqliteTable('employee_trainings', {
   note: text('note'),
 }, table => [index('employee_trainings_employee').on(table.employeeId)])
 
+/** An employee's emergency contact (Notfallkontakt), only for Leitung and Träger; the first in the order is called first. */
+export const employeeEmergencyContacts = sqliteTable('employee_emergency_contacts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  name: text('name').notNull(),
+  relation: text('relation').notNull().default(''),
+  phone: text('phone').notNull(),
+  phone2: text('phone2').notNull().default(''),
+  note: text('note').notNull().default(''),
+}, table => [index('employee_emergency_contacts_employee').on(table.employeeId)])
+
 /**
  * "Im Dienst erkrankt": the employee fell ill during the duty of that day and left early. The day stays a working day
  * (no sick day), its planned time is credited in full, and the marker is only for Leitung and Träger. It belongs to the

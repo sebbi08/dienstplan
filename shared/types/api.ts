@@ -1433,6 +1433,24 @@ export interface TrainingDto {
   note: string | null
 }
 
+/** An employee's emergency contact as entered (Leitung and Träger only); name and phone are required. */
+export interface EmergencyContactInput {
+  name: string
+  relation: string
+  phone: string
+  phone2: string
+  note: string
+}
+
+export type EmergencyContactDto = EmergencyContactInput & { id: number }
+
+/** One active employee with their emergency contacts in call order (print list „Notfallkontakte aller Mitarbeiter“). */
+export interface EmergencyContactListRowDto {
+  employeeId: number
+  name: string
+  contacts: EmergencyContactDto[]
+}
+
 /** A kind as it stands for one employee: the newest record counts. */
 export interface EmployeeRequirementKindDto {
   type: RequirementTypeDto

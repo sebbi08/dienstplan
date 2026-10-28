@@ -235,6 +235,13 @@ export const requirementRecordSchema = z.object({
   typeId: z.number().int().positive(), date: isoDate, note: z.string().max(200).nullable().optional(),
 })
 export const trainingSchema = z.object({ date: isoDate, title: z.string().max(200), note: z.string().max(500).nullable().optional() })
+export const emergencyContactSchema = z.object({
+  name: z.string().max(100),
+  relation: z.string().max(100),
+  phone: z.string().max(50),
+  phone2: z.string().max(50),
+  note: z.string().max(500),
+})
 
 export const careTypeSchema = z.object({
   name: z.string().max(80),

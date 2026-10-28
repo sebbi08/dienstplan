@@ -421,6 +421,13 @@
       "when": 1793170466417,
       "tag": "0059_christmas_eve_half_leave",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1793178418335,
+      "tag": "0060_employee_emergency_contacts",
+      "breakpoints": true
     }
   ]
 }
