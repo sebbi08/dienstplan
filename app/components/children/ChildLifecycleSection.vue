@@ -44,7 +44,8 @@ async function deleteWaitlist() {
 const { data: facilities } = useFacilities()
 const targets = computed(() => (facilities.value?.facilities ?? []).filter(facility => facility.id !== facilities.value?.activeId))
 const targetItems = computed(() => targets.value.map(facility => ({ label: facility.name, value: facility.id })))
-const targetId = ref(0)
+// undefined (not 0) so the select shows its placeholder instead of „0“.
+const targetId = ref<number | undefined>(undefined)
 
 async function move() {
   const target = targets.value.find(facility => facility.id === targetId.value)
