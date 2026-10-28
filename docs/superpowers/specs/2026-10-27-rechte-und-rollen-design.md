@@ -38,8 +38,9 @@ Tablet). Künftig stellt der Träger die Rechte selbst ein, und es gibt die neue
 2. Sonst: Grundrechte der Rolle → plus die je Person zusätzlich gegebenen → minus die je Person weggenommenen.
 3. Danach werden „braucht“ und „schließt ein“ aufgelöst: was eingeschlossen ist, gilt mit; ein Recht, dessen
    Voraussetzung fehlt, gilt nicht.
-4. Umfang „nur eigene Gruppe“: gilt für die Gruppe der verknüpften Person (ohne Gruppe/Springer: für keine Gruppe – Hinweis
-   in der Oberfläche).
+4. Umfang „nur eigene Gruppe“: gilt für die Gruppe der verknüpften Person (dazu, wie heute, die für sie freigegebenen
+   Gruppen zum Lesen). Ohne feste Gruppe (Springer, Aushilfen) gilt es – wie heute am Tablet – für alle Gruppen der
+   Einrichtung; die Oberfläche weist darauf hin.
 - Rechte gelten immer nur in der Einrichtung der Person (Leitung/Gruppenleitung/Mitarbeiter wie heute).
 - Ausgeschiedene Personen bleiben gesperrt (wie heute).
 
