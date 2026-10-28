@@ -257,11 +257,16 @@ export function createEmployee(db: Db, actor: SessionUser, facilityId: number, i
  */
 export function updateEmployee(
   db: Db, facilityId: number, id: number, update: EmployeeUpdate, permissions: ReadonlySet<PermissionKey> = new Set(),
-  today: IsoDate = todayIso(),
+  today: IsoDate = todayIso(), actorEmployeeId: number | null = null,
 ): void {
   assertEmployee(db, facilityId, id)
   const name = requireName(update.name)
   if (update.groupId !== undefined) assertGroup(db, facilityId, update.groupId)
+  // The own home group decides what „nur eigene Gruppe“ reaches: only the Träger moves the own record to another group.
+  if (update.groupId !== undefined && id === actorEmployeeId && !can(permissions, 'users.providerAccounts')
+    && update.groupId !== db.select({ groupId: employees.groupId }).from(employees).where(eq(employees.id, id)).get()!.groupId) {
+    throw new ServiceError(403, 'own_account')
+  }
   if (update.birthday != null && !isValidMonthDay(update.birthday)) throw new ServiceError(400, 'employee_birthday_invalid')
   const { qualification, staffingShare } = update
   if (qualification != null && !isQualification(qualification)) throw new ServiceError(400, 'qualification_invalid')

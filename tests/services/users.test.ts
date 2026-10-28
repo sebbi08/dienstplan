@@ -4,11 +4,11 @@ import { users } from '../../server/db/schema'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { getActiveUser, login } from '../../server/services/auth'
-import { listEmployees, moveEmployeeToFacility } from '../../server/services/employees'
-import { createUser, listUsers, resetPassword, updateUser } from '../../server/services/users'
+import { listEmployees, moveEmployeeToFacility, updateEmployee } from '../../server/services/employees'
+import { assertPinManageable, createUser, listUsers, resetPassword, updateUser } from '../../server/services/users'
 import { saveUserRights } from '../../server/services/rights'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 describe('users service', () => {
   let db: Db
@@ -161,6 +161,54 @@ describe('who manages which accounts (no escalation through „Zugänge verwalte
     // And not the own account: no self-promotion.
     expect(errorCode(() => updateUser(db, manager, own.id, { role: 'admin', employeeId: null, active: true }))).toBe('own_account')
     expect(getActiveUser(db, own.id)!.role).toBe('observer')
+  })
+
+  it('sets, clears and unlocks a PIN only for employees whose account the actor manages (403 pin_not_manageable)', () => {
+    const benEmployee = addEmployee(db, 'Ben')
+    createUser(db, leitung, { username: 'ben', password: 'start-1234', role: 'observer', employeeId: benEmployee })
+    const leitungEmployee = addEmployee(db, 'Lea')
+    createUser(db, leitung, { username: 'lea', password: 'start-1234', role: 'admin', employeeId: leitungEmployee })
+    const traegerEmployee = addEmployee(db, 'Tom')
+    updateUser(db, provider, provider.id, { role: 'provider', employeeId: traegerEmployee, active: true })
+    const unlinked = addEmployee(db, 'Uwe')
+    // A Mitarbeiter the Träger gave „pflegen“: only employees without an account, and its own employee as today.
+    const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, provider, own.id, [{ bundle: 'employeesEdit', effect: 'grant' }])
+    const editor = getActiveUser(db, own.id)!
+    expect(editor.permissions.has('employees.edit')).toBe(true)
+    for (const employeeId of [benEmployee, leitungEmployee, traegerEmployee]) {
+      expect(errorCode(() => assertPinManageable(db, editor, employeeId)), String(employeeId)).toBe('pin_not_manageable')
+    }
+    expect(errorCode(() => assertPinManageable(db, editor, unlinked))).toBeNull()
+    expect(errorCode(() => assertPinManageable(db, editor, anna))).toBeNull()
+    // The Leitung keeps today's reach (Mitarbeiter and Leitung of its facility), but not a Träger's employee.
+    expect([benEmployee, leitungEmployee, unlinked].map(id => errorCode(() => assertPinManageable(db, leitung, id)))).toEqual([null, null, null])
+    expect(errorCode(() => assertPinManageable(db, leitung, traegerEmployee))).toBe('pin_not_manageable')
+    // The Träger every one.
+    expect([benEmployee, leitungEmployee, traegerEmployee].map(id => errorCode(() => assertPinManageable(db, provider, id)))).toEqual([null, null, null])
+  })
+
+  it('lets nobody but the Träger move the own employee record to another group (403 own_account)', () => {
+    const mice = addGroup(db, 1, 'Mäuse')
+    const bears = addGroup(db, 1, 'Bären')
+    const record = { name: 'Anna', shortName: 'An', leftOn: null }
+    updateEmployee(db, 1, anna, { ...record, groupId: mice })
+    const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, provider, own.id, [{ bundle: 'employeesEdit', effect: 'grant' }])
+    const editor = getActiveUser(db, own.id)!
+    const save = (actor: SessionUser, groupId: number) =>
+      () => updateEmployee(db, 1, anna, { ...record, groupId }, actor.permissions, undefined, actor.employeeId)
+    expect(errorCode(save(editor, bears))).toBe('own_account')
+    // The rest of the own record as today, the unchanged group included.
+    expect(errorCode(save(editor, mice))).toBeNull()
+    // Another employee's group, and the Träger's change of any group, as today.
+    const ben = addEmployee(db, 'Ben')
+    updateEmployee(db, 1, ben, { name: 'Ben', shortName: 'Be', leftOn: null, groupId: bears }, editor.permissions, undefined, editor.employeeId)
+    const traegerEmployee = addEmployee(db, 'Tom')
+    updateUser(db, provider, provider.id, { role: 'provider', employeeId: traegerEmployee, active: true })
+    const traeger = getActiveUser(db, provider.id)!
+    updateEmployee(db, 1, traegerEmployee, { name: 'Tom', shortName: 'To', leftOn: null, groupId: bears }, traeger.permissions, undefined, traeger.employeeId)
+    expect(errorCode(save(editor, bears))).toBe('own_account')
   })
 
   it('keeps the Leitung managing Leitung, Mitarbeiter and tablet accounts of its facility, but not its own', () => {

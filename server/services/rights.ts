@@ -231,7 +231,7 @@ function userRights(db: Db, actor: SessionUser, target: Target): UserRightsDto {
       override: overrides.get(id) ?? null,
       effective: { enabled: effective.has(id), scope: effective.get(id) ?? null },
     })),
-    editable: can(actor.permissions, 'rights.manage') ? [...BUNDLE_IDS] : target.id === actor.id ? [] : [...LEITUNG_EDITABLE],
+    editable: can(actor.permissions, 'rights.manage') ? [...BUNDLE_IDS] : [...LEITUNG_EDITABLE],
   }
 }
 
@@ -248,15 +248,14 @@ const sameOverride = (a: Override | undefined, b: Override | undefined) =>
  * person pulls in what it needs (an exception where the role lacks it), switching one off takes what needs it away
  * (a revoke where the role has it). The Leitung may change only the exception „eintragen und Akten ändern“ (own group)
  * of a Mitarbeiter of its facility; any other change is 403 forbidden, one the dependencies would cause (taking it
- * away drops a bundle the role gives) 403 rights_dependent_bundle. Nobody but the Träger changes the rights of the own
- * account: 403 own_account.
+ * away drops a bundle the role gives) 403 rights_dependent_bundle. The own account is never a target for anyone but
+ * the Träger (`loadTarget`: the Leitung's own account is no Mitarbeiter account, anyone else gets 403).
  */
 export function saveUserRights(
   db: Db, actor: SessionUser, userId: number, input: readonly { bundle: string; effect: string; scope?: string | null }[],
 ): UserRightsDto & RightsChangeDto {
   const target = loadTarget(db, actor, userId)
   const provider = can(actor.permissions, 'rights.manage')
-  if (!provider && target.id === actor.id) throw new ServiceError(403, 'own_account')
   const role = roleMap(db, target.role)
   // A grant stored without scope counts with the scope it applies with, so resending it is no change.
   const before = new Map<BundleId, Override>([...overrideMap(db, target.id)].map(([id, override]) => [id, override.effect === 'grant'

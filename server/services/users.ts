@@ -116,6 +116,18 @@ function assertMayManage(actor: SessionUser, ...roles: Role[]): void {
   if (roles.some(role => !allowed.includes(role))) throw new ServiceError(403, 'role_not_manageable')
 }
 
+/**
+ * Setting, clearing or unlocking an employee's PIN (the key to the tablet, where the person works with the rights of
+ * the account linked to the employee): only for an employee without account, the actor's own employee (as today), or
+ * one whose account the actor manages (`manageableRoles`: a Leitung Mitarbeiter and Leitung accounts, anyone else only
+ * tablet accounts, i.e. none linked to an employee). Otherwise 403 pin_not_manageable.
+ */
+export function assertPinManageable(db: Db, actor: SessionUser, employeeId: number): void {
+  const linked = db.select({ id: users.id, role: users.role }).from(users).where(eq(users.employeeId, employeeId)).get()
+  if (!linked || linked.id === actor.id) return
+  if (!manageableRoles(actor).includes(linked.role)) throw new ServiceError(403, 'pin_not_manageable')
+}
+
 export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDto {
   assertMayManage(actor, input.role)
   const username = normalizeUsername(input.username)

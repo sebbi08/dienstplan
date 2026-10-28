@@ -426,7 +426,11 @@ describe('API route permissions', () => {
     expect(source('employee-documents/[id].delete.ts')).toContain('checkpointWal(useSqlite())')
     // The detail and its update decide the personnel file blocks by the session user's permissions.
     expect(source('employees/[id].get.ts')).toContain('viewer.permissions)')
-    expect(source('employees/[id].put.ts')).toContain('admin.permissions)')
+    expect(source('employees/[id].put.ts')).toContain('admin.permissions, undefined, admin.employeeId)')
+    // A PIN opens the tablet with the rights of the linked account: only for accounts the actor manages.
+    for (const route of ['employees/[id]/pin.put.ts', 'employees/[id]/pin.delete.ts', 'employees/[id]/pin/unlock.post.ts']) {
+      expect(source(route), route).toContain('assertPinManageable(useDb(), admin, id)')
+    }
   })
 
   it('lets only the Träger change the absence codes', () => {
