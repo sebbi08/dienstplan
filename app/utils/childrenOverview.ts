@@ -89,9 +89,12 @@ const consent = (key: ConsentKey): OverviewColumn => ({
   key, label: t.short[key], title: de.children.consents[key], cell: row => tri(row.consents[key]),
 })
 
-/** The emergency contacts in their order (rank ascending; the record's order for equal ranks). */
+/** The sheet "Anruf-Reihenfolge": as the "Wichtig" box – parents first, then the others with a number, no bans. */
 const emergencyContacts = (row: ChildrenOverviewRowDto): OverviewContactDto[] =>
-  row.contacts.filter(contact => contact.emergencyRank !== null).sort((a, b) => a.emergencyRank! - b.emergencyRank!)
+  callOrder(row.contacts, { withUnnumbered: false })
+
+/** The phone sheet: everyone in call order, the contacts with a contact ban at the very end (marked red). */
+const phoneContacts = (row: ChildrenOverviewRowDto): OverviewContactDto[] => callOrder(row.contacts, { withBanned: true })
 
 /** As many columns as the most a child has, at least one (so the sheet still shows its rows). */
 const columnCount = (rows: ChildrenOverviewRowDto[], count: (row: ChildrenOverviewRowDto) => number): number =>
@@ -99,8 +102,8 @@ const columnCount = (rows: ChildrenOverviewRowDto[], count: (row: ChildrenOvervi
 
 /**
  * The columns of a sheet after the child's name, in the order of the spec. The emergency and phone sheets have one
- * column per contact, as many as the most of the given children have; the phone sheet in call order (parents first,
- * see `callOrder`), without the contacts with a contact ban.
+ * column per contact, as many as the most of the given children have, both in call order (parents first, see
+ * `callOrder`).
  */
 export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowDto[]): OverviewColumn[] {
   switch (sheet) {
@@ -145,10 +148,10 @@ export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowD
     case 'phones':
       return [
         { key: 'address', label: t.short.address, title: de.children.fields.address, cell: row => text(row.address), wide: true },
-        ...Array.from({ length: columnCount(rows, row => callOrder(row.contacts).length) }, (_, index) => ({
+        ...Array.from({ length: columnCount(rows, row => phoneContacts(row).length) }, (_, index) => ({
           key: `contact${index + 1}`, label: t.contactShort(index + 1), title: t.contactTitle(index + 1),
           cell: (row: ChildrenOverviewRowDto) => {
-            const contact = callOrder(row.contacts)[index]
+            const contact = phoneContacts(row)[index]
             return lines(contact ? [person(contact, phoneLines(contact))] : [])
           },
         })),

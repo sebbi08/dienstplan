@@ -628,7 +628,7 @@ export const de = {
     search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
     allKeyEducators: 'Alle Bezugserzieher', noKeyEducator: '– niemand –',
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',
-    allergies: 'Allergien', emergencyContacts: 'Notfallkontakte',
+    allergies: 'Allergien', emergencyContacts: 'Anruf-Reihenfolge',
     sections: { master: 'Stammdaten', contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente' },
     lastChanged: (by: string, at: string) => `zuletzt geändert von ${by} am ${at}`,
     triState: { yes: 'ja', no: 'nein', open: 'offen' },
@@ -666,7 +666,7 @@ export const de = {
     overview: {
       sheets: {
         privacy: 'Datenschutz', messenger: 'Messenger', health: 'Gesundheit', pickup: 'Abholberechtigte',
-        guardians: 'Sorgeberechtigte', emergency: 'Notfallkontakte', phones: 'Telefonnummern', meetings: 'Elterngespräche',
+        guardians: 'Sorgeberechtigte', emergency: 'Anruf-Reihenfolge', phones: 'Telefonnummern', meetings: 'Elterngespräche',
       },
       short: {
         artworkDisplay: 'Bastelarbeiten', photosDisplay: 'Fotos aufhängen', photosForeignPortfolios: 'Fremde Portfolios',
@@ -683,9 +683,9 @@ export const de = {
       measlesTitle: 'Masernnachweis (mit Datum)', infectionBriefingTitle: 'Belehrung Infektionsschutz (Datum)',
       pickUpTitle: 'Alle Bezugspersonen, die das Kind abholen dürfen (ohne Kontaktverbot)',
       guardiansTitle: 'Sorgeberechtigte Bezugspersonen', contactBanTitle: 'Bezugspersonen mit Kontaktverbot und Hinweis',
-      emergencyShort: (rank: number) => `${rank}.`, emergencyTitle: (rank: number) => `${rank}. Notfallkontakt`,
+      emergencyShort: (rank: number) => `${rank}.`, emergencyTitle: (rank: number) => `${rank}. in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“)`,
       contactShort: (n: number) => `Kontakt ${n}`,
-      contactTitle: (n: number) => `Kontakt ${n} in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“), mit Telefon privat / mobil / Arbeit`,
+      contactTitle: (n: number) => `Kontakt ${n} in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit`,
       phoneHome: 'privat', phoneMobile: 'mobil', phoneWork: 'Arbeit',
       child: 'Kind', hint: 'Alle Angaben kommen aus den Kinderakten und werden dort geändert. Tippe auf einen Spaltenkopf für den vollen Text.',
       printTitle: (facility: string | null, sheet: string, group: string) => [facility, sheet, group].filter(Boolean).join(' – '),

@@ -230,11 +230,13 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 - **„Anrufen als Nr.“** (1 = zuerst anrufen) sagt, wen ihr im Notfall in welcher Reihenfolge anruft. Das gilt für
   jede Bezugsperson: bei den Eltern (alle mit „sorgeberechtigt“), wer von ihnen zuerst angerufen wird, bei den anderen
   ihre Reihenfolge als Notfallkontakt. Wer ein Kontaktverbot hat, bekommt keine Nummer.
-- Der Kasten **„Wichtig“** oben in der Akte, die Übersicht **„Telefonnummern“** und ihr Ausdruck zeigen die
-  Bezugspersonen in dieser Reihenfolge: zuerst die Eltern nach „Anrufen als Nr.“ (Eltern ohne Nummer danach, in der
-  Reihenfolge der Akte), dann die anderen mit Nummer, nach Nummer. Nur in den Telefonnummern folgen danach die
-  übrigen Bezugspersonen ohne Nummer, in der Reihenfolge der Akte. Bei gleicher Nummer zählt die Reihenfolge der
-  Akte. Bezugspersonen mit Kontaktverbot stehen in diesen Listen nie.
+- Der Kasten **„Wichtig“** oben in der Akte („Anruf-Reihenfolge“), die Übersichten **„Anruf-Reihenfolge“** und
+  **„Telefonnummern“** und ihre Ausdrucke zeigen die Bezugspersonen in dieser Reihenfolge: zuerst die Eltern nach
+  „Anrufen als Nr.“ (Eltern ohne Nummer danach, in der Reihenfolge der Akte), dann die anderen mit Nummer, nach
+  Nummer. Bei gleicher Nummer zählt die Reihenfolge der Akte.
+- Nur in den **Telefonnummern** folgen danach die übrigen Bezugspersonen ohne Nummer (in der Reihenfolge der Akte)
+  und ganz am Ende die Bezugspersonen mit **Kontaktverbot** – rot und mit „– Kontaktverbot“ hinter dem Namen. Im
+  Kasten „Wichtig“ und in der Anruf-Reihenfolge stehen sie nie.
 
 ### Elterngespräche
 
@@ -681,8 +683,8 @@ am Ende („ohne Gruppe“). Mit der Gruppenauswahl zeigst du nur eine Gruppe. D
 | Gesundheit | Masernnachweis (mit Datum) · Belehrung Infektionsschutz (Datum) · Allergien · Fieber messen · Sonnenschutz · Pflaster kleben · Insektenschutz |
 | Abholberechtigte | alle Bezugspersonen mit „darf abholen“, z. B. „Erika Muster (Oma)“ – Bezugspersonen mit Kontaktverbot stehen hier nie |
 | Sorgeberechtigte | die sorgeberechtigten Bezugspersonen · **Kontaktverbot**: Name und Hinweis, rot |
-| Notfallkontakte | je Spalte ein Notfallkontakt in seiner Reihenfolge (1., 2., …) mit Beziehung und Telefonnummern |
-| Telefonnummern | Adresse · je Spalte eine Bezugsperson in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, siehe Abschnitt 8) mit Beziehung und Telefon privat / mobil / Arbeit – Bezugspersonen mit Kontaktverbot stehen hier nie |
+| Anruf-Reihenfolge | je Spalte eine Bezugsperson in der Anruf-Reihenfolge (1., 2., …: zuerst die Eltern, dann die anderen mit „Anrufen als Nr.“, siehe Abschnitt 8) mit Beziehung und Telefonnummern – ohne Bezugspersonen mit Kontaktverbot |
+| Telefonnummern | Adresse · je Spalte eine Bezugsperson in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, siehe Abschnitt 8) mit Beziehung und Telefon privat / mobil / Arbeit – Bezugspersonen mit Kontaktverbot ganz am Ende, rot mit „– Kontaktverbot“ |
 | Elterngespräche | Letztes Gespräch („20.10.2026 Entwicklungsgespräch“) · Nächstes geplant („12.11.2026 14:00 Eingewöhnung“) · Alle Gespräche („20.10.26 Entwicklungsgespräch“, neueste zuerst) · Anzahl – ohne die vertraulichen Notizen (Abschnitt 8) |
 
 - Einwilligungen und Ja/Nein-Angaben: **✓** ja (grün), **✗** nein (rot), **–** offen (grau). Leere Textfelder

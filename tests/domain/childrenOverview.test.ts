@@ -27,7 +27,7 @@ describe('children overview sheets', () => {
   it('has the seven sheets of the Excel list in their order, then the parent meetings, with their labels', () => {
     expect(OVERVIEW_SHEETS).toEqual(['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones', 'meetings'])
     expect(OVERVIEW_SHEETS.map(sheet => de.children.overview.sheets[sheet])).toEqual([
-      'Datenschutz', 'Messenger', 'Gesundheit', 'Abholberechtigte', 'Sorgeberechtigte', 'Notfallkontakte', 'Telefonnummern',
+      'Datenschutz', 'Messenger', 'Gesundheit', 'Abholberechtigte', 'Sorgeberechtigte', 'Anruf-Reihenfolge', 'Telefonnummern',
       'Elterngespräche',
     ])
     expect(isOverviewSheet('meetings')).toBe(true)
@@ -140,23 +140,26 @@ describe('children overview columns', () => {
     ])
   })
 
-  it('shows the emergency contacts sorted by their rank, one column each as many as the most a child has', () => {
+  it('shows the call order (parents first, then the others by number), one column each as many as the most a child has', () => {
     const first = child({
       contacts: [
-        contact('Opa Otto', { relation: 'Opa', emergencyRank: 2, phoneMobile: '0171 2' }),
-        contact('Anna Muster', { relation: 'Mutter', emergencyRank: 1, phoneHome: '0711 1', phoneWork: '0711 9' }),
+        contact('Opa Otto', { relation: 'Opa', emergencyRank: 1, phoneMobile: '0171 2' }),
+        contact('Max Muster', { relation: 'Vater', isGuardian: true }),
+        contact('Anna Muster', { relation: 'Mutter', isGuardian: true, emergencyRank: 1, phoneHome: '0711 1', phoneWork: '0711 9' }),
         contact('Erika Muster', { relation: 'Oma' }),
       ],
     })
     const second = child({ id: 2, contacts: [contact('Paul Paten', { emergencyRank: 3 })] })
     const columns = overviewColumns('emergency', [first, second])
-    expect(columns.map(column => column.label)).toEqual(['1.', '2.'])
+    expect(columns.map(column => column.label)).toEqual(['1.', '2.', '3.'])
     expect(columns.map(column => column.cell(first))).toEqual([
       { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1', 'Arbeit 0711 9'], danger: false }] },
+      { kind: 'lines', lines: [{ text: 'Max Muster (Vater)', details: [], danger: false }] },
       { kind: 'lines', lines: [{ text: 'Opa Otto (Opa)', details: ['mobil 0171 2'], danger: false }] },
     ])
     expect(columns.map(column => column.cell(second))).toEqual([
       { kind: 'lines', lines: [{ text: 'Paul Paten', details: [], danger: false }] },
+      { kind: 'lines', lines: [] },
       { kind: 'lines', lines: [] },
     ])
   })
@@ -193,7 +196,7 @@ describe('children overview columns', () => {
     )
   })
 
-  it('leaves a contact with a contact ban off the phone sheet, also in the column count', () => {
+  it('marks a contact with a contact ban on the phone sheet in words and in red, phone numbers included, at the end', () => {
     const row = child({
       contacts: [
         contact('Max Muster', { relation: 'Vater', isGuardian: true, contactBan: true, phoneMobile: '0171 5' }),
@@ -201,17 +204,24 @@ describe('children overview columns', () => {
       ],
     })
     const columns = overviewColumns('phones', [row])
-    expect(columns.map(column => column.key)).toEqual(['address', 'contact1'])
-    expect(columns[1]!.cell(row)).toEqual(
+    expect(columns.map(column => column.key)).toEqual(['address', 'contact1', 'contact2'])
+    expect(columns.map(column => column.cell(row)).slice(1)).toEqual([
       { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1'], danger: false }] },
-    )
+      { kind: 'lines', lines: [{ text: 'Max Muster (Vater) – Kontaktverbot', details: ['mobil 0171 5'], danger: true }] },
+    ])
   })
 
-  it('marks a contact with a contact ban in an emergency column too', () => {
-    const row = child({ contacts: [contact('Max Muster', { relation: 'Vater', contactBan: true, emergencyRank: 1 })] })
-    expect(overviewColumns('emergency', [row])[0]!.cell(row)).toEqual({
-      kind: 'lines', lines: [{ text: 'Max Muster (Vater) – Kontaktverbot', details: [], danger: true }],
+  it('leaves a contact with a contact ban off the call order sheet', () => {
+    const row = child({
+      contacts: [
+        contact('Max Muster', { relation: 'Vater', contactBan: true, emergencyRank: 1 }),
+        contact('Erika Muster', { relation: 'Oma', emergencyRank: 2 }),
+      ],
     })
+    const columns = overviewColumns('emergency', [row])
+    expect(columns.map(column => column.cell(row))).toEqual([
+      { kind: 'lines', lines: [{ text: 'Erika Muster (Oma)', details: [], danger: false }] },
+    ])
   })
 
   it('keeps one contact column when no child has contacts, so the sheet still shows its rows', () => {

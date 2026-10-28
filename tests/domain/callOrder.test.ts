@@ -48,6 +48,19 @@ describe('callOrder', () => {
     expect(names(callOrder(contacts, { withUnnumbered: false }))).toEqual(['Mutter'])
   })
 
+  it('puts the contacts with a contact ban at the very end, in the record order, only with withBanned', () => {
+    const contacts = [
+      contact('Onkel', { contactBan: true }),
+      contact('Tante'),
+      contact('Vater', { isGuardian: true, contactBan: true }),
+      contact('Oma', { emergencyRank: 1 }),
+      contact('Mutter', { isGuardian: true }),
+    ]
+    expect(names(callOrder(contacts, { withBanned: true }))).toEqual(['Mutter', 'Oma', 'Tante', 'Onkel', 'Vater'])
+    expect(names(callOrder(contacts, { withBanned: true, withUnnumbered: false })))
+      .toEqual(['Mutter', 'Oma', 'Onkel', 'Vater'])
+  })
+
   it('returns a new list and leaves the given one as it is', () => {
     const contacts = [contact('Oma', { emergencyRank: 1 }), contact('Mutter', { isGuardian: true })]
     expect(names(callOrder(contacts))).toEqual(['Mutter', 'Oma'])
