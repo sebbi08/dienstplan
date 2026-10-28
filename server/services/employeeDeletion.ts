@@ -4,12 +4,13 @@ import { todayIso } from '../../shared/domain/dates'
 import { confirmsName } from '../../shared/domain/confirmName'
 import { mayDeleteEmployeeByHand } from '../../shared/domain/retention'
 import { can } from '../../shared/domain/permissions'
+import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_RETENTION } from '../../shared/domain/personnel'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, children,
-  earlySickLeaves, employeeEmergencyContacts, employeeHours, employeeRequirements, employees, employeeTrainings, entries,
+  earlySickLeaves, employeeDocuments, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formEditors, forms,
   groupBookChanges, helpOuts, leaveEntitlements, leavePlanners, leaveRequests, notifications, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -154,6 +155,9 @@ function anyRows(db: Db, employeeId: number, list: readonly EmployeeRows[]): boo
 const IMMEDIATE_FIELDS_CLEARED = {
   birthday: null, pinHash: null, pinFailed: 0, pinLockedUntil: null, pinLockLevel: 0, qualification: null, staffingShare: null,
   personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null,
+  // The personnel file (spec Personalakte §7): personal and sensitive fields, „befristet bis“.
+  birthYear: null, street: null, postalCode: null, city: null, phone: null, email: null, nationality: null, disability: false,
+  disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null,
 }
 /** The employee row while one of IMMEDIATE_FIELDS_CLEARED still holds something. */
 const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employeeId), or(
@@ -161,8 +165,13 @@ const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employee
   ne(employees.pinLockLevel, 0), isNotNull(employees.qualification), isNotNull(employees.staffingShare),
   isNotNull(employees.personnelNumber), isNotNull(employees.employedSince), isNotNull(employees.jobKey),
   isNotNull(employees.jobOther), isNotNull(employees.payGroup), isNotNull(employees.payLevel),
+  isNotNull(employees.birthYear), isNotNull(employees.street), isNotNull(employees.postalCode), isNotNull(employees.city),
+  isNotNull(employees.phone), isNotNull(employees.email), isNotNull(employees.nationality), ne(employees.disability, false),
+  isNotNull(employees.disabilityDegree), ne(employees.disabilityEqual, false), isNotNull(employees.disabilityUntil),
+  isNotNull(employees.fixedTermUntil),
 ))
 const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
+  { table: employeePayroll, column: employeePayroll.employeeId },
   { table: employeeEmergencyContacts, column: employeeEmergencyContacts.employeeId },
   { table: employeeRequirements, column: employeeRequirements.employeeId },
   { table: leaveRequests, column: leaveRequests.employeeId },
@@ -183,8 +192,9 @@ const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
 const ACCOUNT: EmployeeRows = { table: users, column: users.employeeId }
 
 /**
- * „Sofort“: birthday, PIN and lock, qualification and share, contract fields (the row keeps name, short name, group and
- * leaving day), emergency contacts, mandatory appointments, leave requests, notifications, week template rows, form editor
+ * „Sofort“: birthday, PIN and lock, qualification and share, contract fields, the personnel file's personal and
+ * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), „Lohn und Steuer“,
+ * emergency contacts, mandatory appointments, leave requests, notifications, week template rows, form editor
  * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
@@ -229,13 +239,24 @@ export function deleteTimeData(tx: Db, employeeId: number): number {
   return deleteRows(tx, employeeId, TIME_ROWS) + dropWarningAcks(tx, employeeId)
 }
 
-/** „Beurteilungen und Zeugnisse“: staff talks (their forms go along, deleteAssessmentData) and trainings. */
+/** The personnel file's document folders of a retention category (shared/domain/personnel.ts FOLDER_RETENTION). */
+const documentsOf = (category: 'assessment' | 'paidOvertime'): EmployeeRows => ({
+  table: employeeDocuments,
+  column: employeeDocuments.employeeId,
+  also: inArray(employeeDocuments.folder, EMPLOYEE_DOCUMENT_FOLDERS.filter(folder => FOLDER_RETENTION[folder] === category)),
+})
+
+/**
+ * „Beurteilungen und Zeugnisse“: staff talks (their forms go along, deleteAssessmentData), trainings, and the documents
+ * in the folders application, qualifications, correspondence and measures.
+ */
 const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   { table: staffTalks, column: staffTalks.employeeId },
   { table: employeeTrainings, column: employeeTrainings.employeeId },
+  documentsOf('assessment'),
 ]
 
-/** „Beurteilungen und Zeugnisse“: staff talks with all their forms, and the trainings. */
+/** „Beurteilungen und Zeugnisse“: staff talks with all their forms, the trainings and their folders' documents. */
 export function deleteAssessmentData(tx: Db, employeeId: number): number {
   // The forms are rows of their own (the link rows go with the talk).
   const formIds = tx.select({ id: staffTalkForms.formId }).from(staffTalkForms)
@@ -246,17 +267,24 @@ export function deleteAssessmentData(tx: Db, employeeId: number): number {
   return changed
 }
 
-/** „Ausgezahlte Überstunden“: the balance adjustments marked „ausgezahlt“. */
+/**
+ * „Ausgezahlte Überstunden, Verträge, Gehalt“ (10 years): the balance adjustments marked „ausgezahlt“ and the
+ * documents in the folders contract and salary.
+ */
 const PAID_OVERTIME_ROWS: readonly EmployeeRows[] = [
   { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, true) },
+  documentsOf('paidOvertime'),
 ]
 
-/** „Ausgezahlte Überstunden“: the balance adjustments marked „ausgezahlt“. */
+/** „Ausgezahlte Überstunden, Verträge, Gehalt“: paid-out balance adjustments, contract and salary documents. */
 export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
   return deleteRows(tx, employeeId, PAID_OVERTIME_ROWS)
 }
 
-/** Whether the employee has balance adjustments marked „ausgezahlt“ (kept for the paid-overtime period). */
+/**
+ * Whether the employee still has data of the paid-overtime period: balance adjustments marked „ausgezahlt“ or
+ * contract and salary documents.
+ */
 export function hasPaidOut(db: Db, employeeId: number): boolean {
   return anyRows(db, employeeId, PAID_OVERTIME_ROWS)
 }

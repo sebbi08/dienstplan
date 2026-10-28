@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
 import type { GermanState } from '../../shared/domain/states'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import { MEETING_KINDS } from '../../shared/types/api'
@@ -140,6 +141,26 @@ export const employees = sqliteTable('employees', {
   qualification: text('qualification', { enum: QUALIFICATIONS }),
   /** Counting share for the staffing ratio in percent, 0–100 (null = the state's default for the qualification). */
   staffingShare: integer('staffing_share'),
+  // Personnel file (spec Personalakte §2): address, contact and birth year under employees.personal.
+  /** Year of birth; with `birthday` ('MM-DD') it forms the full date (null = not given). */
+  birthYear: integer('birth_year'),
+  street: text('street'),
+  postalCode: text('postal_code'),
+  city: text('city'),
+  phone: text('phone'),
+  email: text('email'),
+  // Under employees.sensitive.
+  nationality: text('nationality'),
+  /** Schwerbehinderung. */
+  disability: integer('disability', { mode: 'boolean' }).notNull().default(false),
+  /** Grad der Behinderung, 20–100 in steps of 10 (null = not given). */
+  disabilityDegree: integer('disability_degree'),
+  /** „gleichgestellt“ (equal status with a severe disability). */
+  disabilityEqual: integer('disability_equal', { mode: 'boolean' }).notNull().default(false),
+  /** Valid until (ISO date; null = unlimited or not given). */
+  disabilityUntil: text('disability_until'),
+  /** „befristet bis“: end of a fixed-term contract (ISO date), visible like the other contract fields. */
+  fixedTermUntil: text('fixed_term_until'),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
@@ -510,6 +531,41 @@ export const employeeEmergencyContacts = sqliteTable('employee_emergency_contact
   phone2: text('phone2').notNull().default(''),
   note: text('note').notNull().default(''),
 }, table => [index('employee_emergency_contacts_employee').on(table.employeeId)])
+
+/** „Lohn und Steuer“ of an employee (employees.payroll only); at most one row, every field optional. */
+export const employeePayroll = sqliteTable('employee_payroll', {
+  employeeId: integer('employee_id').primaryKey().references(() => employees.id, { onDelete: 'cascade' }),
+  /** Steuer-ID, 11 digits without spaces. */
+  taxId: text('tax_id'),
+  /** Steuerklasse 1–6. */
+  taxClass: integer('tax_class'),
+  /** Sozialversicherungsnummer, 12 characters without spaces. */
+  svNumber: text('sv_number'),
+  healthInsurer: text('health_insurer'),
+  /** Upper case, without spaces. */
+  iban: text('iban'),
+  accountHolder: text('account_holder'),
+  /** Konfession (Kirchensteuer). */
+  denomination: text('denomination'),
+})
+
+/**
+ * An uploaded document (PDF, JPEG or PNG) in an employee's personnel file, in one of the folders (each with its own
+ * permission and retention category, shared/domain/personnel.ts); the file itself lives in the database.
+ */
+export const employeeDocuments = sqliteTable('employee_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  folder: text('folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }).notNull(),
+  title: text('title').notNull().default(''),
+  documentDate: text('document_date'),
+  note: text('note').notNull().default(''),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  uploadedAt: text('uploaded_at').notNull(),
+}, table => [index('employee_documents_employee').on(table.employeeId)])
 
 /**
  * "Im Dienst erkrankt": the employee fell ill during the duty of that day and left early. The day stays a working day

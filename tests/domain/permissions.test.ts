@@ -14,10 +14,15 @@ function sorted(keys: Iterable<PermissionKey>): PermissionKey[] {
   return [...keys].sort()
 }
 const byKey = new Map(PERMISSIONS.map(def => [def.key, def]))
+/** The keys of the personnel file (spec Personalakte §6); the Leitung gets the first and the qualifications by default. */
+const PERSONNEL_KEYS: PermissionKey[] = ['employees.personal', 'employees.sensitive', 'employees.payroll',
+  'employees.docs.qualifications', 'employees.docs.contract', 'employees.docs.application', 'employees.docs.correspondence',
+  'employees.docs.measures', 'employees.docs.salary']
+const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => key !== 'employees.personal' && key !== 'employees.docs.qualifications')
 
 describe('permission catalog', () => {
-  it('has the 56 keys of the inventory, each once and in catalog order', () => {
-    expect(PERMISSIONS).toHaveLength(56)
+  it('has the 65 keys of the inventory and the personnel file, each once and in catalog order', () => {
+    expect(PERMISSIONS).toHaveLength(65)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)
   })
@@ -86,6 +91,18 @@ describe('permission catalog', () => {
     expect(byKey.get('employees.contractEdit')!.requires).toEqual(['employees.contractView'])
     expect(byKey.get('cash.reopen')!.requires).toEqual(['cash.close'])
   })
+
+  it('has the grantable keys of the personnel file in the area Mitarbeiter, each requiring employees.view', () => {
+    const keys = PERMISSION_KEYS.filter(key => PERSONNEL_KEYS.includes(key))
+    expect(keys).toEqual(PERSONNEL_KEYS)
+    for (const key of PERSONNEL_KEYS) {
+      expect(byKey.get(key), key).toMatchObject({ area: 'employees', requires: ['employees.view'], implies: [], scoped: false,
+        providerOnly: false })
+    }
+    expect(byKey.get('employees.personal')!.label).toBe('Anschrift, Kontakt und Geburtsdatum')
+    expect(byKey.get('employees.payroll')!.label).toBe('Lohn und Steuer')
+    expect(byKey.get('employees.docs.measures')!.label).toBe('Dokumente: Arbeitsrechtliche Maßnahmen')
+  })
 })
 
 describe('role defaults', () => {
@@ -97,10 +114,10 @@ describe('role defaults', () => {
 
   it('gives the Leitung every grantable key apart from the Träger\'s and the two per-person ones', () => {
     const notDefault: PermissionKey[] = ['employees.contractEdit', 'children.schoolSettings', 'cash.reopen',
-      'settings.staffing', 'employees.contractView', 'leave.plan']
+      'settings.staffing', 'employees.contractView', 'leave.plan', ...PERSONNEL_TRAEGER_ONLY]
     const expected = PERMISSIONS.filter(def => !def.providerOnly && !notDefault.includes(def.key)).map(def => def.key)
     expect(sorted(ROLE_DEFAULTS.admin)).toEqual(sorted(expected))
-    expect(ROLE_DEFAULTS.admin).toHaveLength(35)
+    expect(ROLE_DEFAULTS.admin).toHaveLength(37)
   })
 
   it('gives the Mitarbeiter the own data, the released plan, team meetings and the child keys of the tablet', () => {
@@ -139,7 +156,7 @@ describe('resolvePermissions', () => {
 describe('effectivePermissions', () => {
   it('gives the Träger every key, whatever the flags', () => {
     expect(sorted(effectivePermissions(input({ role: 'provider' })))).toEqual(sorted(PERMISSION_KEYS))
-    expect(effectivePermissions(input({ role: 'provider', canEditChildren: true, isLeavePlanner: true })).size).toBe(56)
+    expect(effectivePermissions(input({ role: 'provider', canEditChildren: true, isLeavePlanner: true })).size).toBe(65)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {
@@ -177,6 +194,14 @@ describe('effectivePermissions', () => {
       .toBe(false)
     expect(can(effectivePermissions(input({ role: 'observer', contractVisibleToAdmins: true })), 'employees.contractView'))
       .toBe(false)
+  })
+
+  it('gives the Leitung address, contact, birth date and the qualifications folder of the personnel file, nothing else of it', () => {
+    const leitung = effectivePermissions(input({ role: 'admin', contractVisibleToAdmins: true }))
+    expect(PERSONNEL_KEYS.filter(key => can(leitung, key))).toEqual(['employees.personal', 'employees.docs.qualifications'])
+    expect(PERSONNEL_KEYS.filter(key => can(effectivePermissions(input({ role: 'observer', canEditChildren: true })), key)))
+      .toEqual([])
+    expect(PERSONNEL_KEYS.filter(key => can(effectivePermissions(input({ role: 'provider' })), key))).toEqual(PERSONNEL_KEYS)
   })
 
   it('ignores the child flag for the Leitung, who edits children anyway', () => {

@@ -8,6 +8,17 @@ const workdays = (count: number) => (count === 1 ? '1 Arbeitstag' : `${count.toL
 /** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
 const notRegistered = (name: string) => `${name} (nicht hinterlegt)`
 const confirmedWith = (text: string) => `Rücksprache mit ${text}`
+/** Format errors of the personnel file (shared/domain/personnel.ts): `personnel.invalid` and, as API errors, `errors`. */
+const personnelInvalid = {
+  iban_invalid: 'Die IBAN stimmt nicht. Bitte prüfe sie noch einmal (z. B. DE89 3704 0044 0532 0130 00).',
+  tax_id_invalid: 'Die Steuer-ID stimmt nicht. Sie hat 11 Ziffern; bitte prüfe sie noch einmal.',
+  sv_number_invalid: 'Die Sozialversicherungsnummer stimmt nicht. Sie hat 12 Zeichen: 8 Ziffern, einen Buchstaben und 3 Ziffern (z. B. 15 070649 C 103).',
+  tax_class_invalid: 'Die Steuerklasse muss zwischen 1 und 6 liegen.',
+  email_invalid: 'Bitte gib eine gültige E-Mail-Adresse an (z. B. name@beispiel.de).',
+  postal_code_invalid: 'Die Postleitzahl hat 5 Ziffern.',
+  disability_degree_invalid: 'Der Grad der Behinderung liegt zwischen 20 und 100, in Zehnerschritten.',
+  birth_year_invalid: 'Bitte gib ein gültiges Geburtsjahr an, das zum Geburtstag passt.',
+}
 
 export const de = {
   appName: 'Dienstplan',
@@ -461,6 +472,14 @@ export const de = {
     printEmpty: 'Keine Mitarbeiter.',
     order: (n: number) => `${n}.`,
   },
+  /** The personnel file (Personalakte): document folders and format errors. */
+  personnel: {
+    folders: {
+      contract: 'Vertrag und Nachträge', application: 'Bewerbung', qualifications: 'Qualifikationen und Fortbildungen',
+      correspondence: 'Korrespondenz', measures: 'Arbeitsrechtliche Maßnahmen', salary: 'Gehalt',
+    },
+    invalid: personnelInvalid,
+  },
   weekTemplates: {
     title: 'Dienstplanvorlagen',
     hint: 'Eine Vorlage ist eine gespeicherte Woche (Montag bis Freitag, alle Mitarbeiter). Im Dienstplan kannst du bei jeder Woche „Als Vorlage speichern“ oder „Vorlage einsetzen“ wählen. Um eine Vorlage zu ändern, setze sie ein, passe die Woche an und speichere sie unter demselben Namen wieder.',
@@ -809,8 +828,8 @@ export const de = {
     },
     periodHelp: {
       timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
-      assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung) und Fortbildungsnachweise.',
-      paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“.',
+      assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
+      paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“ und die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt.',
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
     },
     employeeDelete: 'Mitarbeiter endgültig löschen',
@@ -841,8 +860,8 @@ export const de = {
     fromDate: (date: string) => `löschbar ab ${date}`, fromNow: 'sofort löschbar',
     fromAfterRest: 'löschbar, sobald alles andere der Person gelöscht ist',
     categories: {
-      immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden',
-      record: 'Mitarbeiter-Eintrag', child: 'Kinderakte', cash: 'Kasse',
+      immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen',
+      paidOvertime: 'ausgezahlte Überstunden, Verträge, Gehalt', record: 'Mitarbeiter-Eintrag', child: 'Kinderakte', cash: 'Kasse',
     },
     itemLabel: (name: string, category: string) => `${name} – ${category}`,
     delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
@@ -1512,6 +1531,7 @@ export const de = {
   },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',
+    ...personnelInvalid,
     login_invalid: 'Benutzername oder Passwort ist falsch.',
     login_locked: 'Zu viele Fehlversuche. Das Konto ist für 15 Minuten gesperrt.',
     account_left: 'Dieser Zugang ist gesperrt, weil die Person ausgeschieden ist.',

@@ -2,16 +2,18 @@ import { and, eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, employees, forms, leavePlanners, releaseSnapshots, staffTalkForms, staffTalks, users, warningAcks,
+  balanceAdjustments, employeePayroll, employees, forms, leavePlanners, releaseSnapshots, staffTalkForms, staffTalks, users, warningAcks,
 } from '../../server/db/schema'
 import { getActiveUser } from '../../server/services/auth'
 import { getBalanceOverview } from '../../server/services/balances'
 import {
-  deleteCategories, deleteEmployeeRow, hasPaidOut, type RetentionCategory,
+  categoryHasData, deleteCategories, deleteEmployeeRow, hasPaidOut, type RetentionCategory,
 } from '../../server/services/employeeDeletion'
 import { getMonthPlan } from '../../server/services/plan'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
-import { employeeColumns, employeeReferences, fillEmployeeData } from '../helpers/employeeData'
+import {
+  addEmployeeDocument, documentFolders, employeeColumns, employeeReferences, fillEmployeeData,
+} from '../helpers/employeeData'
 import { addEmployee, addFacility, addUser, createTestDb } from '../helpers/fixtures'
 
 const LEFT_ON = '2026-03-15'
@@ -21,6 +23,7 @@ const IMMEDIATE = [
   'employee_emergency_contacts.employee_id', 'employee_requirements.employee_id', 'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
   'children.key_educator_id', 'child_development_docs.done_by_employee_id', 'child_parent_meetings.created_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
+  'employee_payroll.employee_id',
 ]
 /** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [
@@ -30,6 +33,19 @@ const TIME = [
 const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
 /** Normal adjustments go with the time data, paid-out ones with the paid overtime. */
 const ADJUSTMENTS = 'balance_adjustments.employee_id'
+/** Documents by folder: application, qualifications, correspondence, measures with the assessments; contract, salary 10 years. */
+const DOCUMENTS = 'employee_documents.employee_id'
+const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'qualifications', 'salary']
+/** The personnel file fields of the employee row, all set (beforeEach) and cleared with the immediate data. */
+const PERSONNEL_FIELDS = {
+  birthYear: 1985, street: 'Hauptstraße 1', postalCode: '80331', city: 'München', phone: '089 123456', email: 'tina@example.de',
+  nationality: 'deutsch', disability: true, disabilityDegree: 50, disabilityEqual: true, disabilityUntil: '2028-12-31',
+  fixedTermUntil: '2027-07-31',
+}
+const PERSONNEL_CLEARED = {
+  birthYear: null, street: null, postalCode: null, city: null, phone: null, email: null, nationality: null, disability: false,
+  disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null,
+}
 
 const ZERO = { immediate: 0, time: 0, assessment: 0, paidOvertime: 0 }
 
@@ -86,8 +102,10 @@ beforeEach(() => {
     db.insert(balanceAdjustments).values({ employeeId: id, date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true }).run()
     db.update(employees).set({
       birthday: '04-12', qualification: 'fachkraft', staffingShare: 80, personnelNumber: `P-${id}`, employedSince: '2020-08-01',
-      jobKey: 'educator', jobOther: 'Sprachkita', payGroup: 'S8a', payLevel: 3,
+      jobKey: 'educator', jobOther: 'Sprachkita', payGroup: 'S8a', payLevel: 3, ...PERSONNEL_FIELDS,
     }).where(eq(employees.id, id)).run()
+    addEmployeeDocument(db, id, 'contract')
+    addEmployeeDocument(db, id, 'salary')
   }
   tinaAccount = addUser(db, 'tina', 'observer', tina)
   benAccount = addUser(db, 'ben', 'observer', ben)
@@ -100,10 +118,11 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS, DOCUMENTS].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
+    expect(documentFolders(db, tina)).toEqual(ALL_FOLDERS)
   })
 
   it('deletes exactly the data of each category, and the employee row last', () => {
@@ -117,8 +136,9 @@ describe('the deletion categories of a left employee', () => {
     expect(row(tina)).toMatchObject({
       name: 'Tina Test', leftOn: LEFT_ON, birthday: null, pinHash: null, pinFailed: 0, pinLockedUntil: null, pinLockLevel: 0,
       qualification: null, staffingShare: null, personnelNumber: null, employedSince: null, jobKey: null, jobOther: null,
-      payGroup: null, payLevel: null,
+      payGroup: null, payLevel: null, ...PERSONNEL_CLEARED,
     })
+    expect(documentFolders(db, tina)).toEqual(ALL_FOLDERS)
     // The Mitarbeiter account is gone; the child keeps the name in the logs, without the id.
     expect(getActiveUser(db, tinaAccount.id)).toBeNull()
     expect(db.select().from(users).where(eq(users.id, tinaAccount.id)).get()).toBeUndefined()
@@ -158,12 +178,16 @@ describe('the deletion categories of a left employee', () => {
     expect(db.select().from(forms).all().length).toBe(formCount - tinaForms)
     expect(talkForms(ben)).toBe(tinaForms)
     expect(adjustments(tina, true)).toBe(1)
+    // Contract and salary documents stay for the longer period.
+    expect(documentFolders(db, tina)).toEqual(['contract', 'salary'])
     expectBenUntouched()
 
-    // The paid-out adjustment, then the employee row.
+    // The paid-out adjustment with the contract and salary documents, then the employee row.
     expect(hasPaidOut(db, tina)).toBe(true)
-    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 1 })
+    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 3 })
     expect(hasPaidOut(db, tina)).toBe(false)
+    expect(documentFolders(db, tina)).toEqual([])
+    expect(documentFolders(db, ben)).toEqual(ALL_FOLDERS)
     expect(row(tina)).toBeDefined()
     expect(db.transaction(tx => deleteEmployeeRow(tx, tina))).toBe(1)
     expect(row(tina)).toBeUndefined()
@@ -186,6 +210,49 @@ describe('the deletion categories of a left employee', () => {
     expect(getActiveUser(db, provider.id)).not.toBeNull()
     expect(getActiveUser(db, traeger.id)).not.toBeNull()
     expect(fkCheck()).toEqual([])
+  })
+
+  it('puts the personnel file into the categories: fields and payroll immediate, documents by folder', () => {
+    const hanna = addEmployee(db, 'Hanna Hort', { leftOn: LEFT_ON })
+    // (Her weekly hours are time data; nothing else is there yet.)
+    const NONE = { immediate: false, time: true, assessment: false, paidOvertime: false }
+    expect(categoryHasData(db, hanna)).toEqual(NONE)
+    // Each field of the employee row on its own counts as immediate data, and the immediate helper clears it.
+    for (const [field, value] of Object.entries(PERSONNEL_FIELDS)) {
+      db.update(employees).set({ [field]: value }).where(eq(employees.id, hanna)).run()
+      expect(categoryHasData(db, hanna), field).toEqual({ ...NONE, immediate: true })
+      expect(remove(['immediate'], hanna).immediate, field).toBe(1)
+      expect(row(hanna), field).toMatchObject(PERSONNEL_CLEARED)
+      expect(categoryHasData(db, hanna), field).toEqual(NONE)
+    }
+    // The payroll row, even an empty one.
+    db.insert(employeePayroll).values({ employeeId: hanna }).run()
+    expect(categoryHasData(db, hanna)).toEqual({ ...NONE, immediate: true })
+    expect(remove(['immediate'], hanna).immediate).toBe(1)
+    expect(db.select().from(employeePayroll).where(eq(employeePayroll.employeeId, hanna)).all()).toEqual([])
+    expect(categoryHasData(db, hanna)).toEqual(NONE)
+    // Documents: application, qualifications, correspondence and measures with the assessments, contract and salary
+    // with the paid overtime.
+    for (const folder of ['application', 'qualifications', 'correspondence', 'measures'] as const) {
+      addEmployeeDocument(db, hanna, folder)
+      expect(categoryHasData(db, hanna), folder).toEqual({ ...NONE, assessment: true })
+      expect(remove(['paidOvertime'], hanna).paidOvertime, folder).toBe(0)
+      expect(remove(['immediate'], hanna), folder).toEqual(ZERO)
+      expect(remove(['assessment'], hanna).assessment, folder).toBe(1)
+      expect(categoryHasData(db, hanna), folder).toEqual(NONE)
+    }
+    for (const folder of ['contract', 'salary'] as const) {
+      addEmployeeDocument(db, hanna, folder)
+      expect(categoryHasData(db, hanna), folder).toEqual({ ...NONE, paidOvertime: true })
+      expect(hasPaidOut(db, hanna), folder).toBe(true)
+      expect(remove(['immediate', 'assessment'], hanna), folder).toEqual(ZERO)
+      expect(remove(['paidOvertime'], hanna).paidOvertime, folder).toBe(1)
+      expect(categoryHasData(db, hanna), folder).toEqual(NONE)
+    }
+    expect(documentFolders(db, tina)).toEqual(ALL_FOLDERS)
+    expect(db.transaction(tx => deleteEmployeeRow(tx, hanna))).toBe(1)
+    expect(fkCheck()).toEqual([])
+    expectBenUntouched()
   })
 
   it('tells whether the employee has paid-out adjustments', () => {

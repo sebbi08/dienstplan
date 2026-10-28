@@ -1,8 +1,8 @@
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, earlySickLeaves, employeeEmergencyContacts,
-  employeeRequirements,
+  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, earlySickLeaves, employeeDocuments,
+  employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, terminalUnlocks,
   timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -11,6 +11,7 @@ import { listTemplates } from '../../server/services/formTemplates'
 import { releaseMonth } from '../../server/services/release'
 import { createTalk } from '../../server/services/staffTalks'
 import { setPin } from '../../server/services/terminal'
+import type { EmployeeDocumentFolder } from '../../shared/domain/personnel'
 import type { SessionUser } from '../../shared/types/api'
 import { addChild, addGroup, addHelpOut, addUser, codeId, requirementTypeId, templateId } from './fixtures'
 
@@ -30,6 +31,23 @@ export function employeeReferences(db: Db, employeeId: number): Record<string, n
     db.get<{ n: number }>(sql.raw(`SELECT count(*) AS n FROM "${table}" WHERE "${column}" = ${employeeId}`))!.n,
   ]))
 }
+
+/** A document of `folder` in the employee's personnel file (a tiny PDF). */
+export function addEmployeeDocument(db: Db, employeeId: number, folder: EmployeeDocumentFolder, uploadedBy: number | null = null): number {
+  return db.insert(employeeDocuments).values({
+    employeeId, folder, title: `Dokument ${folder}`, mimeType: 'application/pdf', size: 4, data: Buffer.from('%PDF'), uploadedBy,
+    uploadedAt: now.toISOString(),
+  }).returning({ id: employeeDocuments.id }).get().id
+}
+
+/** The folder of each document of the employee, sorted. */
+export function documentFolders(db: Db, employeeId: number): string[] {
+  return db.select({ folder: employeeDocuments.folder }).from(employeeDocuments)
+    .where(eq(employeeDocuments.employeeId, employeeId)).all().map(row => row.folder).sort()
+}
+
+/** The documents of `fillEmployeeData`: one in each folder of the assessment category (3 years). */
+export const ASSESSMENT_FOLDERS: EmployeeDocumentFolder[] = ['application', 'correspondence', 'measures', 'qualifications']
 
 /**
  * The same kinds of data for each of `employeeIds` in facility 1, a row for every column that references employees;
@@ -56,6 +74,12 @@ export function fillEmployeeData(db: Db, leitung: SessionUser, employeeIds: numb
     db.insert(employeeRequirements).values({ employeeId: id, typeId: requirementTypeId(db, 'first_aid'), date: '2026-03-01' }).run()
     db.insert(employeeTrainings).values({ employeeId: id, date: '2026-04-01', title: 'Sprachförderung' }).run()
     db.insert(employeeEmergencyContacts).values({ employeeId: id, name: 'Max Muster', relation: 'Ehemann', phone: '0171 1234567' }).run()
+    // The personnel file: payroll (immediate) and a document in each folder of the assessment category.
+    db.insert(employeePayroll).values({
+      employeeId: id, taxId: '86095742719', taxClass: 1, svNumber: '15070649C103', healthInsurer: 'AOK', iban: 'DE89370400440532013000',
+      accountHolder: 'Tina Test', denomination: 'rk',
+    }).run()
+    for (const folder of ASSESSMENT_FOLDERS) addEmployeeDocument(db, id, folder, leitung.id)
     db.insert(warningAcks).values({
       facilityId: 1, key: `missing_entry|2026-10-09|${id}`, date: '2026-10-09', signature: '', acknowledgedAt: now.toISOString(),
     }).run()

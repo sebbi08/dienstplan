@@ -130,7 +130,12 @@ describe('upgrading a filled database through migrateDb', () => {
     'christmas_eve_half_leave']
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
-  const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
+  // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them.
+  const PERSONNEL_COLUMNS = ['birth_year', 'street', 'postal_code', 'city', 'phone', 'email', 'nationality', 'disability',
+    'disability_degree', 'disability_equal', 'disability_until', 'fixed_term_until']
+  const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
+    .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !PERSONNEL_COLUMNS.includes(column))))
+  const count =(sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
   it('keeps every row and moves settings, users and data into facility 1 "Kindergarten"', () => {
     const { db, sqlite } = databaseAt('0018')
@@ -243,7 +248,7 @@ describe('upgrading a filled database through migrateDb', () => {
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
       // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044.)
-      expect(withoutReminders(after.map(({ group_id: _, weekdays: __, ...rest }) => rest)), table).toEqual(before[table])
+      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, ...rest }) => rest))), table).toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }
     expect(sqlite.prepare('SELECT * FROM week_template_entries').all()).toEqual(before.week_template_entries)
@@ -1220,7 +1225,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     expect(rows('facilities').map(({ form_starters_seeded: _seeded, christmas_eve_half_leave: _half, ...rest }) => rest)).toEqual(before.facilities)
     expect(rows('groups').map(({ group_type: _type, ...rest }) => rest)).toEqual(before.groups)
-    expect(rows('employees').map(({ qualification: _q, staffing_share: _s, pin_lock_level: _l, ...rest }) => rest)).toEqual(before.employees)
+    expect(withoutPersonnel(rows('employees').map(({ qualification: _q, staffing_share: _s, pin_lock_level: _l, ...rest }) => rest)))
+      .toEqual(before.employees)
     expect(rows('care_types').map(({ days_per_week: _d, ...rest }) => rest)).toEqual(before.careTypes)
     expect(sqlite.prepare('SELECT id, group_type FROM groups ORDER BY id').all()).toEqual([
       { id: 1, group_type: null }, { id: 2, group_type: null },
@@ -1261,7 +1267,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     expect(sqlite.prepare('SELECT id, pin_hash, pin_failed, pin_locked_until, pin_lock_level FROM employees ORDER BY id').all())
       .toEqual([1, 2, 3, 4].map(id => ({ id, pin_hash: null, pin_failed: 0, pin_locked_until: null, pin_lock_level: 0 })))
-    expect(withoutPin(rows())).toEqual(withoutPin(before))
+    expect(withoutPersonnel(withoutPin(rows()))).toEqual(withoutPin(before))
     sqlite.exec(`INSERT INTO employees (facility_id, name) VALUES (1, 'Neu')`)
     expect(sqlite.prepare(`SELECT pin_lock_level FROM employees WHERE name = 'Neu'`).get()).toEqual({ pin_lock_level: 0 })
   })
@@ -1465,7 +1471,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(sqlite.prepare('SELECT * FROM employees ORDER BY id').all()).toEqual(employeesBefore)
+    expect(withoutPersonnel(sqlite.prepare('SELECT * FROM employees ORDER BY id').all())).toEqual(employeesBefore)
     expect(count(sqlite, 'employee_emergency_contacts')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_list(employee_emergency_contacts)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } }))
@@ -1574,6 +1580,54 @@ describe('upgrading a filled database through migrateDb', () => {
     seedDefaults(fresh.db)
     expect(fresh.db.select().from(absenceCodes).all().filter(code => code.key === 'overtime_off'))
       .toMatchObject([{ label: 'ÜF', color: 'violet', creditMode: 'none', requiresTimes: false, sortOrder: 2 }])
+  })
+
+  it('0062 adds the empty personnel file fields and tables, which go with their employee', () => {
+    const { db, sqlite } = databaseAt('0061')
+    sqlite.exec(`
+      INSERT INTO employees (id, facility_id, name, birthday) VALUES (1, 1, 'Anna', '04-12'), (2, 1, 'Ben', NULL);
+      INSERT INTO users (id, username, password_hash, role) VALUES (1, 'traeger', 'x', 'provider');
+    `)
+    const employeesBefore = sqlite.prepare('SELECT * FROM employees ORDER BY id').all()
+
+    migrateDb(db, MIGRATIONS)
+
+    const employeesAfter = sqlite.prepare('SELECT * FROM employees ORDER BY id').all() as Record<string, unknown>[]
+    expect(withoutPersonnel(employeesAfter)).toEqual(employeesBefore)
+    for (const row of employeesAfter) {
+      expect(Object.fromEntries(PERSONNEL_COLUMNS.map(column => [column, row[column]]))).toEqual({
+        birth_year: null, street: null, postal_code: null, city: null, phone: null, email: null, nationality: null,
+        disability: 0, disability_degree: null, disability_equal: 0, disability_until: null, fixed_term_until: null,
+      })
+    }
+    expect(count(sqlite, 'employee_payroll')).toBe(0)
+    expect(count(sqlite, 'employee_documents')).toBe(0)
+    const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
+      .map(fk => { const { table: parent, from, on_delete } = fk as Record<string, string>; return { parent, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))
+    expect(fks('employee_payroll')).toEqual([{ parent: 'employees', from: 'employee_id', on_delete: 'CASCADE' }])
+    expect(fks('employee_documents')).toEqual([
+      { parent: 'employees', from: 'employee_id', on_delete: 'CASCADE' },
+      { parent: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
+    ])
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'employee_documents' AND name NOT LIKE 'sqlite_%'`).all())
+      .toEqual([{ name: 'employee_documents_employee' }])
+
+    sqlite.exec(`
+      INSERT INTO employee_payroll (employee_id, tax_id, tax_class) VALUES (1, '86095742719', 1), (2, NULL, NULL);
+      INSERT INTO employee_documents (employee_id, folder, mime_type, size, data, uploaded_by, uploaded_at) VALUES
+        (1, 'contract', 'application/pdf', 3, x'255044', 1, 'now'), (2, 'salary', 'image/png', 1, x'00', 1, 'now');
+    `)
+    expect(() => sqlite.exec(`INSERT INTO employee_payroll (employee_id) VALUES (1)`)).toThrow(/UNIQUE|PRIMARY KEY/)
+    expect(() => sqlite.exec(`INSERT INTO employee_payroll (employee_id) VALUES (3)`)).toThrow(/FOREIGN KEY/)
+    expect(sqlite.prepare(`SELECT title, note, document_date FROM employee_documents WHERE employee_id = 1`).get())
+      .toEqual({ title: '', note: '', document_date: null })
+    sqlite.exec('DELETE FROM users WHERE id = 1')
+    expect(sqlite.prepare('SELECT uploaded_by FROM employee_documents').all()).toEqual([{ uploaded_by: null }, { uploaded_by: null }])
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(sqlite.prepare('SELECT employee_id FROM employee_payroll').all()).toEqual([{ employee_id: 2 }])
+    expect(sqlite.prepare('SELECT employee_id, folder FROM employee_documents').all()).toEqual([{ employee_id: 2, folder: 'salary' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
