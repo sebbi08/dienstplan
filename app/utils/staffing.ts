@@ -107,7 +107,7 @@ function rowHint(rules: StaffingRuleSet, groupTypes: string[], withU3: boolean):
     return description === null ? [] : [`${groupTypeLabel(rules, key)}: ${description}`]
   })
   if (withU3) lines.push(`${t.withAgeBand.u3}: ${t.withU3Hint}`)
-  return lines.length ? lines.join('\n') : null
+  return lines.length ? lines.join('\n\n') : null
 }
 
 /** The conditions of a demand row in words: „Regelgruppe, mit Kindern unter 3“, „unter 3 Jahre, bis 25 Std./Woche“. */

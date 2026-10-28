@@ -25,7 +25,7 @@ const items = computed(() => {
 /** The chosen type's explanation under the select; the ⓘ explains all types of the state (to compare before choosing). */
 const currentHint = computed(() => types.value.find(type => type.key === group.value?.groupType)?.description ?? null)
 const allHints = computed(() => types.value.filter(type => type.description)
-  .map(type => `${type.label}: ${type.description}`).join('\n') || null)
+  .map(type => `${type.label}: ${type.description}`).join('\n\n') || null)
 
 function choose(value: string) {
   const current = group.value

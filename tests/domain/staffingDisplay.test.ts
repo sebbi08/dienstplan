@@ -113,6 +113,6 @@ describe('group type explanations (BW)', () => {
     expect(regelU3.hint).toContain('mit Kindern unter 3: Altersgemischte Gruppe')
     const presence = staffingSections(bw).find(section => section.key === 'presence')!.blocks
     expect(presence[0]!.hint).toBeNull()
-    expect(presence[1]!.hint?.split('\n')).toHaveLength(3)
+    expect(presence[1]!.hint?.split('\n\n')).toHaveLength(3)
   })
 })
