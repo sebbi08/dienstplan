@@ -43,7 +43,10 @@ function save() {
     </div>
     <p class="text-xs text-gray-500">{{ de.leavePlanning.plannersHint }}</p>
     <p v-if="candidates.length === 0" class="text-sm text-amber-700">{{ de.leavePlanning.noProvider }}</p>
-    <p class="text-xs text-gray-500">{{ de.leavePlanning.moduleHint }}</p>
+    <p class="text-xs text-gray-500">
+      {{ de.leavePlanning.moduleHint }}
+      <NuxtLink to="/admin/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink>
+    </p>
     <UButton type="submit" :label="de.common.save" :disabled="!dirty" />
   </form>
 </template>

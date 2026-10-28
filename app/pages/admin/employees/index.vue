@@ -6,7 +6,7 @@ import { statutoryMinimumLeave } from '#shared/domain/statutoryLeave'
 import { MONDAY_TO_FRIDAY, workdayCount } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type {
-  AppSettingsDto, BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, UserDto,
+  BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, UserDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
@@ -23,13 +23,6 @@ import { workdaysText } from '~/utils/workdays'
 const today = parseIsoDate(todayIso())
 const { user } = useUserSession()
 const { can } = useCan()
-// The switch for the Leitung's view of the contract data is a right setting (rights.manage).
-const canManageRights = computed(() => can('rights.manage'))
-const { data: appSettings, refresh: refreshAppSettings } = await useFetch<AppSettingsDto>('/api/app-settings')
-const runVisibility = useAction(refreshAppSettings)
-function setContractVisible(visible: boolean) {
-  runVisibility(() => $fetch<unknown>('/api/contract-visibility', { method: 'PUT', body: { visible } }), de.common.saved)
-}
 const year = ref(today.year)
 const month = ref(today.month)
 
@@ -66,14 +59,11 @@ const BADGE_COLOR: Record<StaffBadge, 'warning' | 'error' | 'neutral'> = {
   pinMissing: 'warning', pinLocked: 'error', qualificationMissing: 'warning', requirementsOpen: 'warning', noAccess: 'neutral',
 }
 
-// The notices fold into one line; the Träger's switch for the contract data sits in there as well.
+// The notices fold into one line. (Whether the Leitung sees the contract data is its role setting on „Rechte und
+// Rollen“ now.)
 const noticesOpen = ref(false)
 const noticeCount = computed(() => (levelUps.value?.length ?? 0) + withDue.value.size)
-const noticeLine = computed(() => {
-  const line = de.employees.notices(noticeCount.value)
-  if (!canManageRights.value || !appSettings.value) return line
-  return `${line} · ${appSettings.value.contractVisibleToAdmins ? de.contract.visibleOn : de.contract.visibleOff}`
-})
+const noticeLine = computed(() => de.employees.notices(noticeCount.value))
 async function levelChanged() {
   await Promise.all([refresh(), refreshLevelUps()])
 }
@@ -204,7 +194,7 @@ const td = 'px-3 py-2'
     </div>
 
     <!-- The notices in one line; open on tap. Kept in the page (v-show), so they load with it. -->
-    <div v-if="noticeCount > 0 || canManageRights" class="rounded-lg bg-white text-sm ring-1 ring-gray-200">
+    <div v-if="noticeCount > 0" class="rounded-lg bg-white text-sm ring-1 ring-gray-200">
       <button
         type="button" class="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left" :aria-expanded="noticesOpen"
         aria-controls="employee-notices" @click="noticesOpen = !noticesOpen"
@@ -216,10 +206,6 @@ const td = 'px-3 py-2'
       <div v-show="noticesOpen" id="employee-notices" class="space-y-3 border-t border-gray-100 p-3">
         <LevelUpNotice @changed="levelChanged" />
         <RequirementNotice />
-        <div v-if="canManageRights && appSettings" class="flex flex-wrap items-center gap-2">
-          <USwitch :model-value="appSettings.contractVisibleToAdmins" :label="de.contract.visible" @update:model-value="setContractVisible" />
-          <span class="text-xs text-gray-500">{{ de.contract.visibleHint }}</span>
-        </div>
       </div>
     </div>
 

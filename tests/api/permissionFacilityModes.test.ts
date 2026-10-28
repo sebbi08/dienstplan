@@ -21,7 +21,7 @@ const ACTIVE = [
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */
 const NONE = [
   'absence-codes/[id].put.ts', 'backup.get.ts', 'child-retention.get.ts', 'child-retention.put.ts',
-  'children/[id]/facility.put.ts', 'contract-visibility.put.ts', 'employees/[id]/facility.put.ts', 'facilities.post.ts',
+  'children/[id]/facility.put.ts', 'employees/[id]/facility.put.ts', 'facilities.post.ts',
   'facilities/[id].put.ts', 'facilities/[id]/capacity.put.ts', 'facilities/[id]/group-read-access.get.ts',
   'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'facilities/active.put.ts', 'groups/[id].delete.ts',
   'groups/[id].put.ts', 'groups/[id]/school-children.put.ts', 'leave-settings/module.put.ts', 'retention/due.post.ts',

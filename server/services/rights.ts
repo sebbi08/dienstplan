@@ -153,7 +153,7 @@ export function saveRoleRights(db: Db, role: RightsRole, input: readonly { id: s
   return { ...roleRights(role, roleMap(db, role)), ...change }
 }
 
-/** Sets one switch of the role, with its dependencies (the old contract switch of the Leitung). */
+/** Sets one switch of the role, with its dependencies (as PUT /api/rights/roles/[role] with that one switch). */
 export function setRoleBundle(db: Db, role: RightsRole, id: BundleId, enabled: boolean): void {
   saveRoleRights(db, role, [{ id, enabled }])
 }

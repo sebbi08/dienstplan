@@ -100,7 +100,6 @@
   "closures/[id].delete.ts": ["provider","admin"],
   "closures/index.get.ts": ["provider","admin"],
   "closures/index.post.ts": ["provider","admin"],
-  "contract-visibility.put.ts": ["provider"],
   "coverage-rules/[id].delete.ts": ["provider","admin"],
   "coverage-rules/[id].put.ts": ["provider","admin"],
   "coverage-rules/index.post.ts": ["provider","admin"],

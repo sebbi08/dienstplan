@@ -1,12 +1,9 @@
 import { eq } from 'drizzle-orm'
-import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import type { AppSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { appSettings, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { rolePermissions } from './permissions'
-import { setRoleBundle } from './rights'
 
 /** The day time tracking starts in the facility (null: not yet). */
 export function getTimeTrackingFrom(db: Db, facilityId: number): IsoDate | null {
@@ -32,24 +29,7 @@ function writeSetting(db: Db, key: string, value: string): void {
 }
 
 export function getAppSettings(db: Db, facilityId: number): AppSettingsDto {
-  return { timeTrackingFrom: getTimeTrackingFrom(db, facilityId), contractVisibleToAdmins: contractVisibleToAdmins(db) }
-}
-
-/**
- * Whether the Leitung may see the employees' contract data (the Träger decides; default no). Since the rights page
- * this is the Leitung's role setting `contractView` (migration 0064 moved the old app setting
- * `contract_visible_to_admins` there, which is no longer read).
- */
-export function contractVisibleToAdmins(db: Db): boolean {
-  return can(rolePermissions(db, 'admin'), 'employees.contractView')
-}
-
-/**
- * The old switch on the employees page, kept until the rights page (Task 3) replaces it: sets the Leitung's role
- * setting `contractView` through the rights service (switching it off also drops „Vertragsangaben bearbeiten“).
- */
-export function setContractVisibleToAdmins(db: Db, visible: boolean): void {
-  setRoleBundle(db, 'admin', 'contractView', visible)
+  return { timeTrackingFrom: getTimeTrackingFrom(db, facilityId) }
 }
 
 const CHILD_RETENTION_YEARS = 'child_retention_years'

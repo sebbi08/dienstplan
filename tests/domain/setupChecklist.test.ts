@@ -24,7 +24,7 @@ const keys = (facts: SetupFacts) => setupItems(facts).map(item => item.key)
 describe('setup checklist', () => {
   it('has nothing open when everything is entered', () => {
     expect(setupItems(complete())).toEqual([])
-    expect(setupChecklist(complete(), { isProvider: true }, [])).toEqual({ open: [], hidden: [] })
+    expect(setupChecklist(complete(), { isProvider: true, managesPins: true }, [])).toEqual({ open: [], hidden: [] })
   })
 
   it('lists the facility items until they are entered', () => {
@@ -81,14 +81,21 @@ describe('setup checklist', () => {
 
   it('leaves the Träger items out for the Leitung', () => {
     const facts = complete({ capacitySet: false, hasTerminalAccount: false })
-    expect(setupChecklist(facts, { isProvider: true }, []).open.map(item => item.key)).toEqual(['terminal_account', 'facility_capacity'])
-    expect(setupChecklist(facts, { isProvider: false }, []).open.map(item => item.key)).toEqual(['terminal_account'])
-    expect(setupChecklist(facts, { isProvider: false }, ['facility_capacity']).hidden).toEqual([])
+    expect(setupChecklist(facts, { isProvider: true, managesPins: true }, []).open.map(item => item.key)).toEqual(['terminal_account', 'facility_capacity'])
+    expect(setupChecklist(facts, { isProvider: false, managesPins: true }, []).open.map(item => item.key)).toEqual(['terminal_account'])
+    expect(setupChecklist(facts, { isProvider: false, managesPins: true }, ['facility_capacity']).hidden).toEqual([])
+  })
+
+  it('leaves the PIN items out for whoever sets no PINs', () => {
+    const facts = complete({ employees: [employee(3, { hasPin: false }), employee(4, { pinLocked: true })] })
+    expect(setupChecklist(facts, { isProvider: false, managesPins: true }, []).open.map(item => item.key)).toEqual(['employee_pin', 'employee_pin_locked'])
+    expect(setupChecklist(facts, { isProvider: false, managesPins: false }, []).open).toEqual([])
+    expect(setupChecklist(facts, { isProvider: false, managesPins: false }, ['employee_pin']).hidden).toEqual([])
   })
 
   it('moves hidden items out of the open ones', () => {
     const facts = complete({ openingHoursEntered: false, hasTerminalAccount: false })
-    const list = setupChecklist(facts, { isProvider: false }, ['terminal_account', 'employee_birthday'])
+    const list = setupChecklist(facts, { isProvider: false, managesPins: true }, ['terminal_account', 'employee_birthday'])
     expect(list.open.map(item => item.key)).toEqual(['opening_hours'])
     expect(list.hidden.map(item => item.key)).toEqual(['terminal_account'])
   })

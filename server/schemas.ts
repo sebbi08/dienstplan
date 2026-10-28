@@ -168,7 +168,6 @@ export const payrollSchema = z.object({
   healthInsurer: z.string().max(100).nullable(), iban: z.string().max(50).nullable(), accountHolder: z.string().max(100).nullable(),
   denomination: z.string().max(50).nullable(),
 })
-export const contractVisibilitySchema = z.object({ visible: z.boolean() })
 
 /** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */
 export const rightsRoleParams = z.object({ role: z.string().max(40) })

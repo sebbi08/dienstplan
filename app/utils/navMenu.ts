@@ -87,6 +87,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // The templates of staff talks, child observations and team meetings.
     [can('formTemplates.manage'), entry(de.nav.forms, '/admin/forms')],
     [can('users.manage'), entry(de.nav.users, '/admin/users')],
+    // The rights of Leitung and Mitarbeiter: the Träger's.
+    [can('rights.manage'), entry(de.nav.rights, '/admin/rights')],
     [can('settings.facility'), entry(de.nav.settings, '/admin/settings')],
     // Deleting data after its retention period (all facilities on one page): the Träger's.
     [can('retention.delete'), entry(de.nav.retention, '/admin/retention')],

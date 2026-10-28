@@ -35,11 +35,15 @@ describe('navMenu', () => {
     expect(labels(menu.main)).not.toContain('Mein Dienstplan (2)')
   })
 
-  it('adds "Löschfristen" under "Mehr" for the Träger only', () => {
+  it('adds "Rechte und Rollen" and "Löschfristen" under "Mehr" for the Träger only', () => {
     const provider = navMenu({ ...base, ...as('provider') })
-    expect(labels(provider.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Benutzer', 'Einstellungen', 'Löschfristen'])
-    expect(provider.more[6]!.to).toBe('/admin/retention')
+    expect(labels(provider.more)).toEqual([
+      'Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Benutzer', 'Rechte und Rollen', 'Einstellungen', 'Löschfristen',
+    ])
+    expect(provider.more[5]!.to).toBe('/admin/rights')
+    expect(provider.more[7]!.to).toBe('/admin/retention')
     expect(labels(navMenu(base).more)).not.toContain('Löschfristen')
+    expect(labels(navMenu(base).more)).not.toContain('Rechte und Rollen')
   })
 
   it('puts "Urlaubsplanung" with the open requests second for a planner and counts them in the total', () => {
@@ -138,7 +142,9 @@ describe('navMenu per role (unchanged by the permissions)', () => {
     ['Schließzeiten', '/admin/closures'], ['Krankheitstage', '/admin/sick-days'], ['Vorlagen', '/templates'],
     ['Bögen', '/admin/forms'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
   ]
-  const providerMore: Pair[] = [...leitungMore, ['Löschfristen', '/admin/retention']]
+  const providerMore: Pair[] = [
+    ...leitungMore.slice(0, 5), ['Rechte und Rollen', '/admin/rights'], leitungMore[5]!, ['Löschfristen', '/admin/retention'],
+  ]
   const officeMine: Pair[] = [
     ['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'],
     ['Meine Gespräche', '/my/talks'],

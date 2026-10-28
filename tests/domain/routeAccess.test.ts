@@ -51,6 +51,8 @@ const TABLET_ONLY = '/terminal'
 const TEMPLATES = '/templates'
 /** The Träger's page for deleting after the retention periods. */
 const RETENTION = '/admin/retention'
+/** Rechte und Rollen: the Träger's page for the rights of the roles. */
+const RIGHTS = '/admin/rights'
 
 function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePassword?: boolean } = {}) {
   const permissions = flaggedPermissions(role, { canEditChildren: options.canEditChildren })
@@ -59,7 +61,7 @@ function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePa
 
 describe('route access per role (unchanged by the permissions)', () => {
   it('lists every page', () => {
-    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, RETENTION, TABLET_ONLY].sort())
+    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, RETENTION, RIGHTS, TABLET_ONLY].sort())
   })
 
   it('lets the Träger open every page but the tablet\'s start page', () => {
@@ -79,12 +81,14 @@ describe('route access per role (unchanged by the permissions)', () => {
     // Before the permissions the retention page sent the Leitung to the start page itself (retention.vue); now the
     // middleware does, with the same result.
     expect(accountRedirect(RETENTION, leitung)).toBe('/')
+    // Rechte und Rollen: only the Träger sets the rights.
+    expect(accountRedirect(RIGHTS, leitung)).toBe('/')
   })
 
   it('sends a Mitarbeiter from the child and office pages to the start page, with or without the child flag', () => {
     for (const viewer of [viewerOf('observer'), viewerOf('observer', { canEditChildren: true })]) {
       for (const path of OPEN) expect(accountRedirect(path, viewer), path).toBeUndefined()
-      for (const path of [...CHILDREN, ...OFFICE, RETENTION, TABLET_ONLY]) expect(accountRedirect(path, viewer), path).toBe('/')
+      for (const path of [...CHILDREN, ...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, viewer), path).toBe('/')
     }
   })
 
@@ -127,6 +131,7 @@ describe('pagePermission', () => {
       expect(ROLE_DEFAULTS.observer, path).not.toContain(key)
     }
     expect(pagePermission(RETENTION)).toBe('retention.delete')
+    expect(pagePermission(RIGHTS)).toBe('rights.manage')
     expect(pagePermission(TEMPLATES)).toBe('printTemplates.view')
     expect(ROLE_DEFAULTS.observer).toContain('printTemplates.view')
   })

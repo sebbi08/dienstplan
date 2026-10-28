@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
-import { getAppSettings, setContractVisibleToAdmins } from '../../server/services/appSettings'
+import { setRoleBundle } from '../../server/services/rights'
 import {
   addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees, listLevelUps,
   moveEmployee, setAdjustmentPaidOut, setContract, setEntitlement, updateEmployee,
@@ -218,10 +218,9 @@ describe('contract data (Träger only)', () => {
     expect(listEmployees(db, 1, today, rolePermissions(db, 'provider'))[0]!.contract).toEqual(saved)
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'provider')).contract).toEqual(saved)
     expect(listEmployees(db, 1, today, rolePermissions(db, 'admin'))[0]!.contract).toBeUndefined()
-    setContractVisibleToAdmins(db, true)
+    setRoleBundle(db, 'admin', 'contractView', true)
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin')).contract).toEqual(saved)
     expect(listEmployees(db, 1, today, rolePermissions(db, 'observer'))[0]!.contract).toBeUndefined()
-    expect(getAppSettings(db, 1).contractVisibleToAdmins).toBe(true)
   })
   it('keeps free text for other jobs and validates the level', () => {
     const db = createTestDb()
@@ -259,7 +258,7 @@ describe('level-up notices', () => {
     expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual(due)
     expect(listLevelUps(db, 1, '2026-10-01', rolePermissions(db, 'provider'))).toEqual([])
     expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'admin'))).toEqual([])
-    setContractVisibleToAdmins(db, true)
+    setRoleBundle(db, 'admin', 'contractView', true)
     expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'admin'))).toEqual(due)
     updateEmployee(db, 1, anna, { name: 'Anna', shortName: '', leftOn: '2026-10-04' })
     expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual([])

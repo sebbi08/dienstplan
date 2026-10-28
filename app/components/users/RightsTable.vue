@@ -1,149 +1,31 @@
 <script setup lang="ts">
-import type { Role } from '#shared/types/api'
+import type { BundleId, RightsRole } from '#shared/domain/permissionBundles'
+import type { RightsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * Overview of what each role may do (shown to the Träger on the users page). Keep in step with the role defaults
- * (shared/domain/permissions.ts), requireUser / requireTerminal in server/api and the per-person stamping options.
- * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
+ * „Rechte der Rollen“ on the users page (Träger): what Leitung and Mitarbeiter may do as the rights page has them set
+ * now (GET /api/rights), read only; the Träger has every right, the tablet its fixed pages. Changed on „Rechte und
+ * Rollen“.
  */
-type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
-type Right = 'yes' | 'no' | Footnote
-const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
+const t = de.rights
+const { data, error } = useFetch<RightsDto>('/api/rights', { key: 'rights-overview', lazy: true })
+const ROLES: readonly RightsRole[] = ['admin', 'observer']
 
-const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Right, Right] }[] }[] = [
-  { title: 'Dienstplan', rows: [
-    { label: 'Freigegebenen Dienstplan ansehen (mit den Gruppen und den Anwesenden je Gruppe)', rights: ['yes', 'yes', 'yes', 'yes'] },
-    { label: 'Entwurf ansehen, bearbeiten, freigeben, Änderungen verwerfen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Überstunden, Soll/Ist und Warnungen im Dienstplan sehen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Dienstplanvorlagen speichern, einsetzen und verwalten (für die ganze Einrichtung oder eine Gruppe)', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Einzelne Dienste einer anderen Gruppe zuordnen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Aushilfen aus anderen Einrichtungen einplanen', rights: ['yes', 'yes', 'no', 'no'] },
-  ] },
-  { title: 'Zeiterfassung', rows: [
-    { label: 'Am Kita-Tablet mit PIN stempeln (immer erlaubt, sobald eine PIN gesetzt ist)', rights: [1, 1, 'yes', 'no'] },
-    { label: 'Mit dem eigenen Handy stempeln', rights: [1, 1, 2, 'no'] },
-    { label: 'Eigene Stempelzeiten, Stundenkonto und Urlaub ansehen', rights: [1, 1, 'yes', 'no'] },
-    { label: 'Als gemeinsames Gerät: Stempeln für Mitarbeiter mit PIN', rights: ['no', 'no', 'no', 'yes'] },
-    { label: 'Alle Stempelzeiten ansehen, nachtragen und korrigieren, Begründungen', rights: ['yes', 'yes', 'no', 'no'] },
-  ] },
-  { title: 'Mitarbeiter', rows: [
-    { label: 'Anlegen, Wochenstunden, Urlaub, Stundenkonto-Buchungen, PIN, Stempeln und Pausen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Stammgruppe festlegen (oder Springer)', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Notfallkontakte der Mitarbeiter ansehen, eintragen und ordnen, Liste aller Notfallkontakte drucken', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Personalakte: Anschrift, Telefon, E-Mail und Geburtsdatum mit Jahr ansehen und pflegen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Personalakte: Staatsangehörigkeit und Schwerbehinderung ansehen und pflegen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Personalakte: Lohn und Steuer (Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession)', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Personalakte: Dokumente im Fach „Qualifikationen und Fortbildungen“ ansehen, hochladen, ändern und löschen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Personalakte: Dokumente in den Fächern Vertrag, Bewerbung, Korrespondenz, Arbeitsrechtliche Maßnahmen und Gehalt', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Vertragsangaben (TVöD, „befristet bis“) bearbeiten', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Vertragsangaben und Hinweise zum Stufenaufstieg ansehen', rights: ['yes', 3, 'no', 'no'] },
-    { label: 'Vertragsangaben für die Leitung freigeben', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Ausgeschiedene Mitarbeiter endgültig löschen (mit allen ihren Daten und ihrem Zugang)', rights: [12, 12, 'no', 'no'] },
-    { label: 'Löschfristen der ausgeschiedenen Mitarbeiter und der Kasse einsehen (Einstellungen → Personal)', rights: ['yes', 15, 'no', 'no'] },
-    { label: 'Löschfristen ändern, festlegen, wer Mitarbeiter endgültig löschen darf', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Pflichttermine (z. B. Betriebsarzt, Erste-Hilfe-Kurs) und Fortbildungen der Mitarbeiter eintragen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Hinweis auf fällige, überfällige und fehlende Pflichttermine sehen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Eigene Pflichttermine und Fortbildungen ansehen („Meine Termine“, ohne Hinweis)', rights: [1, 1, 'yes', 'no'] },
-  ] },
-  { title: 'Urlaubsanträge', rows: [
-    { label: 'Urlaub beantragen und eigene Anträge sehen', rights: [4, 4, 4, 'no'] },
-    { label: 'Urlaubsplanung: Anträge entscheiden, Kalender, Höchstzahl gleichzeitig im Urlaub', rights: [4, 5, 'no', 'no'] },
-    { label: 'Modul ein- und ausschalten, Zuständige festlegen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Festlegen, ob Urlaub am 24.12. und 31.12. als ganzer oder halber Tag zählt (Einstellungen → Dienstplan)', rights: ['yes', 15, 'no', 'no'] },
-  ] },
-  { title: 'Planung und Übersichten', rows: [
-    { label: 'Schließzeiten, Feiertage, frühere Schließungen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Krankheitstage, Jahreskalender bearbeiten (Termine, Abwesenheiten), Druckansichten', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: '„Im Dienst erkrankt“ eintragen (die geplante Zeit bleibt gutgeschrieben) und die Liste „Vorzeitig gegangen wegen Krankheit“ sehen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Jahreskalender ansehen', rights: ['yes', 'yes', 6, 'no'] },
-  ] },
-  { title: 'Kinder', rows: [
-    { label: 'Kinderliste und Akten ansehen', rights: ['yes', 'yes', 8, 10] },
-    { label: 'Vormerkungen & Verträge ansehen', rights: ['yes', 'yes', 9, 11] },
-    { label: 'Offene Bestätigungen ansehen', rights: ['yes', 'yes', 8, 10] },
-    { label: 'Kinder anlegen und Akten ändern', rights: ['yes', 'yes', 7, 10] },
-    { label: 'Vertrauliche Dokumente öffnen', rights: ['yes', 'yes', 7, 10] },
-    { label: 'Kinder abmelden, Archiv ansehen, Abmeldung zurücknehmen', rights: ['yes', 'yes', 'no', 10] },
-    { label: 'Archivierte Akten löschen („Sofort löschen“ im Archiv, nach Ablauf unter Mehr → Löschfristen)', rights: ['yes', 'no', 'no', 10] },
-    { label: 'Vormerkung löschen', rights: ['yes', 'yes', 'no', 10] },
-    { label: 'Belegung ansehen, Gruppenwechsel planen', rights: ['yes', 'yes', 'no', 10] },
-    { label: 'Plätze der Gruppen ändern (nur im Büro, nicht am Tablet)', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Stichtag, automatische Abmeldung der Schulkinder, Gruppe „für Schulkinder“', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Löschfrist einstellen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Tablet einstellen: Sperrzeit, Vormerkungen und künftige Vertragskinder am Tablet zeigen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Freischaltung „darf Kinderakten pflegen“ vergeben', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Betreuungsformen und Dokumentarten pflegen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Kind in andere Einrichtung verschieben', rights: ['yes', 'no', 'no', 'no'] },
-  ] },
-  { title: 'Mitarbeitergespräche', rows: [
-    { label: 'Gespräche anlegen, Bögen ausfüllen, Selbstbeurteilung zum Ausfüllen und Beurteilung zum Lesen freigeben', rights: [13, 13, 'no', 'no'] },
-    { label: 'Eigene freigegebene Bögen ausfüllen und abgeben bzw. lesen („Meine Gespräche“)', rights: [1, 1, 'yes', 'no'] },
-  ] },
-  { title: 'Beobachtungsbögen der Kinder', rows: [
-    { label: 'Bögen in der Kinderakte lesen', rights: ['yes', 'yes', 8, 10] },
-    { label: 'Bögen anlegen und ausfüllen', rights: ['yes', 'yes', 14, 10] },
-    { label: 'Weitere Mitarbeiter für einen Bogen freischalten, Bögen löschen', rights: ['yes', 'yes', 'no', 10] },
-  ] },
-  { title: 'Teamsitzungen', rows: [
-    { label: 'Sitzungen anlegen und im Entwurf mitschreiben', rights: ['yes', 'yes', 'yes', 'yes'] },
-    { label: 'Protokoll freigeben, mit Begründung wieder öffnen, Sitzung löschen', rights: ['yes', 'yes', 'no', 'no'] },
-  ] },
-  { title: 'Bögen (Vorlagen)', rows: [
-    { label: 'Vorlagen anlegen, bearbeiten, kopieren, stilllegen, löschen und leer drucken (Mehr → Bögen)', rights: ['yes', 'yes', 'no', 'no'] },
-  ] },
-  { title: 'Vorlagen zum Ausdrucken (Mehr → Vorlagen, bei Mitarbeitern Meins → Vorlagen)', rows: [
-    { label: 'Vorlagen in Kategorien für „Alle“ öffnen und drucken', rights: ['yes', 'yes', 'yes', 'yes'] },
-    { label: 'Vorlagen in Kategorien für „Nur Leitung und Träger“ öffnen und drucken', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Vorlagen in Kategorien für „Nur Träger“ öffnen und drucken', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Vorlagen der eigenen Einrichtung hochladen, ändern und löschen', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Vorlagen für alle Einrichtungen hochladen, ändern und löschen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Kategorien anlegen, umbenennen, sortieren, „Wer sieht sie?“ ändern und leere löschen', rights: ['yes', 16, 'no', 'no'] },
-  ] },
-  { title: 'Kasse', rows: [
-    { label: 'Kassen anlegen, Einnahmen, Ausgaben und Umbuchungen buchen, Belege, Monat abschließen, Ausdruck und Excel-Datei', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Kassen archivieren und wieder aktivieren', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Archivierte Kasse nach Ablauf der Aufbewahrungsfrist endgültig löschen (Mehr → Löschfristen)', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Abgeschlossenen Monat wieder öffnen (mit Begründung)', rights: ['yes', 'no', 'no', 'no'] },
-  ] },
-  { title: 'Verwaltung', rows: [
-    { label: 'Einstellungen einer anderen Einrichtung bearbeiten, ohne oben zu wechseln („Einstellungen für“)', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Benutzer der Rollen Leitung, Mitarbeiter und Stempel-Tablet verwalten', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Träger-Konten anlegen, ändern und weitere Träger ernennen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Einstellungen: Zeiterfassung ab, Dienste, Codes, Pflichtdienste (für die ganze Einrichtung oder eine Gruppe)', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Einstellungen: Arten der Pflichttermine und nach wie vielen Monaten sie wieder fällig sind', rights: ['yes', 'yes', 'no', 'no'] },
-    { label: 'Einrichtungen anlegen, umbenennen, zwischen ihnen wechseln, Mitarbeiter verschieben', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Gruppen einer Einrichtung anlegen, umbenennen und löschen', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Löschfristen: Übersicht aller Einrichtungen ansehen und nach Ablauf löschen – Mitarbeiterdaten, Kinderakten, Kassen (Mehr → Löschfristen)', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Datenbank herunterladen (Datensicherung)', rights: ['yes', 'no', 'no', 'no'] },
-    { label: 'Eigenes Passwort ändern', rights: ['yes', 'yes', 'yes', 'no'] },
-  ] },
-]
-
-const FOOTNOTES: Record<Footnote, string> = {
-  1: 'nur wenn das Konto mit einem Mitarbeiter verknüpft ist (beim Handy zusätzlich: „Stempeln über“ erlaubt das Handy)',
-  2: 'wenn die Leitung beim Mitarbeiter „Kita-Tablet und eigenes Handy“ eingestellt hat',
-  3: 'nur lesen und nur, wenn der Träger die Vertragsangaben für die Leitung freigegeben hat',
-  4: 'wenn der Träger das Modul Urlaubsanträge eingeschaltet hat (beim Beantragen: Konto mit einem Mitarbeiter verknüpft)',
-  5: 'wenn das Modul eingeschaltet ist und der Träger diese Leitung als zuständig für die Urlaubsplanung festgelegt hat',
-  6: 'nur lesen: Urlaub, Sonderurlaub, Fortbildung und Schule aller, Krankheitstage nur die eigenen, Termine nur die für Mitarbeiter freigegebenen',
-  7: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN) und nur mit Freischaltung „darf Kinderakten pflegen“',
-  8: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN)',
-  9: 'nicht mit dem eigenen Konto, nur am Tablet der Einrichtung (Name und PIN) und nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
-  10: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person',
-  11: 'nach dem Aufschließen mit Name und PIN, mit den Rechten der aufschließenden Person; ohne Leitungsrechte nur, wenn es in den Einstellungen (Tablet) freigegeben ist',
-  12: 'nur, wenn die Träger-Einstellung „Mitarbeiter endgültig löschen“ (Löschfristen) es der Rolle erlaubt: aus / nur Träger / Leitung und Träger; nur ausgeschiedene Mitarbeiter, mit Eingabe des Namens; nie das eigene Konto; eine Leitung nicht, wenn die Person mit einem Träger-Konto verknüpft ist',
-  13: 'nicht für das eigene Gespräch – das führt der Träger bzw. eine andere Leitung',
-  14: 'nicht mit dem eigenen Konto, nur am Tablet (Name und PIN): als Bezugserzieher des Kindes oder wenn Leitung/Träger für den Bogen freigeschaltet hat',
-  15: 'nur lesen',
-  16: 'ohne die Kategorien „Nur Träger“: die sieht und ändert nur der Träger',
-}
+const stateOf = (role: RightsRole, id: BundleId) => data.value?.roles.find(rights => rights.role === role)?.bundles.find(state => state.id === id)
+const areas = computed(() => (data.value?.areas ?? []).map(area => ({
+  ...area, bundles: (data.value?.bundles ?? []).filter(bundle => bundle.area === area.id),
+})))
 </script>
 
 <template>
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.users.rightsTitle }}</h2>
-    <div class="overflow-x-auto">
+    <p class="text-sm text-gray-500">
+      {{ t.overviewHint }} <NuxtLink to="/admin/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink>
+    </p>
+    <p v-if="error" class="text-sm text-red-700">{{ t.loadFailed }}</p>
+    <div v-else-if="data" class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-600">
           <tr>
@@ -152,22 +34,27 @@ const FOOTNOTES: Record<Footnote, string> = {
           </tr>
         </thead>
         <tbody>
-          <template v-for="group in GROUPS" :key="group.title">
-            <tr><td colspan="5" class="bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-600">{{ group.title }}</td></tr>
-            <tr v-for="row in group.rows" :key="row.label" class="border-t border-gray-100">
-              <td class="px-2 py-1">{{ row.label }}</td>
-              <td v-for="(right, index) in row.rights" :key="index" class="px-2 py-1 text-center">
-                <span v-if="right === 'yes'" class="font-semibold text-green-700" :aria-label="de.users.rightYes">✓</span>
-                <span v-else-if="right === 'no'" class="text-gray-300" :aria-label="de.users.rightNo">–</span>
-                <span v-else class="font-semibold text-amber-700" :title="FOOTNOTES[right]">✓<sup>{{ right }}</sup></span>
+          <template v-for="area in areas" :key="area.id">
+            <tr><th colspan="3" scope="colgroup" class="bg-gray-50 px-2 py-1 text-left text-xs font-semibold text-gray-600">{{ area.label }}</th></tr>
+            <tr v-for="bundle in area.bundles" :key="bundle.id" class="border-t border-gray-100">
+              <td class="px-2 py-1">{{ bundle.label }}</td>
+              <td v-for="role in ROLES" :key="role" class="whitespace-nowrap px-2 py-1 text-center">
+                <template v-if="stateOf(role, bundle.id)?.enabled">
+                  <span class="font-semibold text-green-700" :aria-label="de.users.rightYes">✓</span>
+                  <span v-if="stateOf(role, bundle.id)?.scope" class="ml-1 text-xs text-gray-500">{{ t.scopes[stateOf(role, bundle.id)!.scope!] }}</span>
+                </template>
+                <span v-else class="text-gray-300" :aria-label="de.users.rightNo">–</span>
               </td>
             </tr>
           </template>
         </tbody>
       </table>
     </div>
-    <ol class="space-y-0.5 text-xs text-gray-500">
-      <li v-for="(text, number) in FOOTNOTES" :key="number"><sup>{{ number }}</sup> {{ text }}</li>
-    </ol>
+    <ul class="space-y-0.5 text-xs text-gray-500">
+      <li>{{ t.overviewProvider }}</li>
+      <li>{{ t.overviewTablet }}</li>
+      <li>{{ t.ownData }}</li>
+      <li>{{ t.exceptionsWhere }}</li>
+    </ul>
   </section>
 </template>

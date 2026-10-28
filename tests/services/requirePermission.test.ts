@@ -3,8 +3,9 @@ import type { H3Event } from 'h3'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employees, users } from '../../server/db/schema'
-import { setContractVisibleToAdmins, setTimeTrackingFrom } from '../../server/services/appSettings'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { saveBundleOverride, saveRoleBundle } from '../../server/services/permissions'
+import { setRoleBundle } from '../../server/services/rights'
 import { unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import { SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
@@ -105,7 +106,7 @@ describe('requirePermission', () => {
     expect(await code(() => auth.requirePermission(event(loose), 'plan.edit'))).toBe('forbidden')
   })
 
-  it('takes a leave-planning exception and the contract switch into account on the next request', async () => {
+  it('takes a leave-planning exception and the contract setting of the Leitung into account on the next request', async () => {
     expect(await code(() => auth.requirePermission(event(leitung), 'leave.plan'))).toBe('forbidden')
     saveBundleOverride(db, leitung.id, 'leavePlan', 'grant')
     expect((await auth.requirePermission(event(leitung), 'leave.plan')).id).toBe(leitung.id)
@@ -113,9 +114,9 @@ describe('requirePermission', () => {
     expect(await code(() => auth.requirePermission(event(leitung), 'leave.plan'))).toBe('forbidden')
 
     expect(await code(() => auth.requirePermission(event(leitung), 'employees.contractView'))).toBe('forbidden')
-    setContractVisibleToAdmins(db, true)
+    setRoleBundle(db, 'admin', 'contractView', true)
     expect((await auth.requirePermission(event(leitung), 'employees.contractView')).id).toBe(leitung.id)
-    setContractVisibleToAdmins(db, false)
+    setRoleBundle(db, 'admin', 'contractView', false)
     expect(await code(() => auth.requirePermission(event(leitung), 'employees.contractView'))).toBe('forbidden')
   })
 

@@ -2,7 +2,7 @@
 import type { Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
-import { setChildEditing } from '~/utils/rights'
+import { personRightsMode } from '~/utils/rights'
 import { suggestUsername } from '~/utils/staffList'
 
 /**
@@ -35,13 +35,11 @@ function save() {
   }), de.common.saved)
 }
 
-/** „darf Kinderakten pflegen“ is a right of the person (rights API), saved at once. */
-function toggleChildEditing(allowed: boolean) {
-  const target = account.value
-  if (target) run(() => setChildEditing(target.id, allowed), de.common.saved)
-}
-/** The stored role: the switch belongs to a saved Mitarbeiter account. */
-const storedObserver = computed(() => (users.value ?? []).some(user => user.id === account.value?.id && user.role === 'observer'))
+/** The stored role: the rights belong to the saved account (a changed role is saved first). */
+const storedRole = computed(() => (users.value ?? []).find(user => user.id === account.value?.id)?.role)
+const { user: sessionUser } = useUserSession()
+/** The person's rights: the Träger every switch, the Leitung „eintragen und Akten ändern“ of a Mitarbeiter. */
+const rightsMode = computed(() => (storedRole.value ? personRightsMode({ role: sessionUser.value?.role, can }, storedRole.value) : null))
 
 const resetOpen = ref(false)
 const resetValue = ref('')
@@ -92,16 +90,11 @@ async function create() {
           <label class="flex items-center gap-2">
             <input v-model="account.active" type="checkbox" :disabled="locked"> {{ de.users.active }}
           </label>
-          <!-- Leitung and Träger always maintain child records: only a Mitarbeiter account needs the flag. -->
-          <label v-if="account.role === 'observer' && storedObserver" class="flex items-center gap-2">
-            <input :checked="account.canEditChildren" type="checkbox" :disabled="locked" @change="toggleChildEditing(($event.target as HTMLInputElement).checked)"> {{ de.users.canEditChildren }}
-          </label>
         </div>
         <div class="space-y-1 text-xs text-gray-500 sm:col-span-3">
           <p v-if="!account.active">{{ de.employees.access.inactiveHint }}</p>
           <p v-if="account.mustChangePassword">{{ de.users.mustChange }}</p>
           <p v-if="account.lockedUntil && account.lockedUntil > new Date().toISOString()">{{ de.users.locked(formatDateTime(account.lockedUntil)) }}</p>
-          <p v-if="account.role === 'observer'">„{{ de.users.canEditChildren }}“: {{ de.users.canEditChildrenHint }}</p>
         </div>
         <p v-if="locked" class="text-xs text-gray-500 sm:col-span-3">{{ de.users.providerLocked }}</p>
         <div v-else class="flex flex-wrap gap-2 sm:col-span-3">
@@ -109,6 +102,11 @@ async function create() {
           <UButton color="neutral" variant="outline" icon="i-lucide-key-round" :label="de.users.resetPassword" @click="openReset" />
         </div>
       </form>
+      <!-- The person's rights (exceptions from the role). -->
+      <template v-if="rightsMode">
+        <UsersRightsExceptions v-if="account.role === storedRole" :key="account.id" :user-id="account.id" :mode="rightsMode" />
+        <p v-else class="text-xs text-gray-500">{{ de.rights.roleChangedHint }}</p>
+      </template>
     </template>
 
     <template v-else>

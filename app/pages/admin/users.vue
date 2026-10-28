@@ -2,7 +2,7 @@
 import type { EmployeeListItemDto, Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
-import { setChildEditing } from '~/utils/rights'
+import { personRightsMode } from '~/utils/rights'
 
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
 const { data: employees } = await useFetch<EmployeeListItemDto[]>('/api/employees')
@@ -45,10 +45,19 @@ function save(user: UserDto) {
   }), de.common.saved)
 }
 
-/** „darf Kinderakten pflegen“ is a right of the person (rights API), saved at once. */
-function toggleChildEditing(user: UserDto, allowed: boolean) {
-  run(() => setChildEditing(user.id, allowed), de.common.saved)
+// The rights of a person (exceptions from the role): for the stored role of the account, in a dialog.
+const { user: sessionUser } = useUserSession()
+const storedRole = (user: UserDto) => users.value?.find(stored => stored.id === user.id)?.role
+const rightsModeOf = (user: UserDto) => {
+  const role = storedRole(user)
+  return role && role === user.role ? personRightsMode({ role: sessionUser.value?.role, can }, role) : null
 }
+const rightsTarget = ref<UserDto | null>(null)
+const rightsOpen = computed({
+  get: () => rightsTarget.value !== null,
+  set: (open) => { if (!open) rightsTarget.value = null },
+})
+const rightsTargetMode = computed(() => (rightsTarget.value ? rightsModeOf(rightsTarget.value) : null))
 
 function openReset(user: UserDto) {
   resetValue.value = ''
@@ -70,7 +79,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
     <h1 class="text-2xl font-semibold">{{ de.users.title }}</h1>
     <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint(canProviderAccounts) }}</p>
     <p class="text-sm text-gray-500">{{ de.users.rolesHint }}</p>
-    <p class="text-sm text-gray-500">„{{ de.users.canEditChildren }}“: {{ de.users.canEditChildrenHint }}</p>
+    <p v-if="canManageRights" class="text-sm"><NuxtLink to="/admin/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink></p>
     <p v-if="activeName" class="text-sm text-gray-500">{{ de.facilities.createdIn(activeName) }}</p>
     <!-- Wide on a phone: the table scrolls on its own, not the page. -->
     <div class="overflow-x-auto rounded-lg ring-1 ring-gray-200">
@@ -78,7 +87,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-3 py-2">{{ de.users.username }}</th><th class="px-3 py-2">{{ de.users.role }}</th>
-          <th class="px-3 py-2">{{ de.users.employee }}</th><th class="px-3 py-2">{{ de.users.canEditChildren }}</th><th class="px-3 py-2">{{ de.users.active }}</th>
+          <th class="px-3 py-2">{{ de.users.employee }}</th><th class="px-3 py-2">{{ de.users.rightsColumn }}</th><th class="px-3 py-2">{{ de.users.active }}</th>
           <th class="px-3 py-2">{{ de.users.status }}</th><th />
         </tr>
       </thead>
@@ -96,8 +105,8 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
             </select>
           </td>
           <td class="px-3 py-2 text-center">
-            <!-- Leitung and Träger always maintain child records, the tablet never sees them: only Mitarbeiter accounts need the flag. -->
-            <input v-if="user.role === 'observer' && users?.find(stored => stored.id === user.id)?.role === 'observer'" :checked="user.canEditChildren" type="checkbox" :aria-label="de.users.canEditChildren" :disabled="locked(user)" @change="toggleChildEditing(user, ($event.target as HTMLInputElement).checked)">
+            <!-- The Träger: every switch of Leitung and Mitarbeiter; the Leitung: „eintragen und Akten ändern“ of a Mitarbeiter. -->
+            <UButton v-if="rightsModeOf(user)" size="xs" color="neutral" variant="outline" icon="i-lucide-shield" :label="de.users.rightsButton" @click="rightsTarget = user" />
             <span v-else class="text-gray-300">–</span>
           </td>
           <td class="px-3 py-2 text-center"><input v-model="user.active" type="checkbox" :disabled="locked(user)"></td>
@@ -139,6 +148,12 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
             <UButton type="submit" :label="de.common.save" />
           </div>
         </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="rightsOpen" :title="de.rights.personFor(rightsTarget?.username ?? '')">
+      <template #body>
+        <UsersRightsExceptions v-if="rightsTarget && rightsTargetMode" :key="rightsTarget.id" :user-id="rightsTarget.id" :mode="rightsTargetMode" expanded />
       </template>
     </UModal>
 

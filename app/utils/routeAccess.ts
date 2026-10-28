@@ -44,6 +44,8 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/print/cash', 'cash.view'],
   ['/cash', 'cash.view'],
   ['/admin/users', 'users.manage'],
+  // Rechte und Rollen: the Träger sets the rights of the roles.
+  ['/admin/rights', 'rights.manage'],
   ['/admin/settings', 'settings.facility'],
   ['/admin/retention', 'retention.delete'],
   // The print templates: managers, the tablet and (read only, the categories visible to all) Mitarbeiter accounts.

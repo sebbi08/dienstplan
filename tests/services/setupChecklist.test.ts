@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { careTypes, children, employees, facilities, groups } from '../../server/db/schema'
 import { setFacilityOpeningHours } from '../../server/services/openingHours'
+import { saveBundleOverride } from '../../server/services/permissions'
 import { getSetupChecklist, hideSetupItem, showSetupItem } from '../../server/services/setupChecklist'
 import type { SessionUser } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, refreshPermissions } from '../helpers/fixtures'
 
 const now = new Date('2026-10-25T08:00:00.000Z')
 const openKeys = (db: Db, user: SessionUser, facilityId = 1) => getSetupChecklist(db, user, facilityId, now).open.map(item => item.key)
@@ -87,6 +88,17 @@ describe('setup checklist service', () => {
     expect(list.find(item => item.key === 'employee_pin')!.names.map(entry => entry.name)).toEqual(['Anna', 'Berta'])
     expect(list.find(item => item.key === 'employee_pin_locked')!.names.map(entry => entry.name)).toEqual(['Dora'])
     expect(list.find(item => item.key === 'employee_access')!.names.map(entry => entry.name)).toEqual(['Berta', 'Dora'])
+  })
+
+  it('leaves the PIN items out for an account that may run the settings but sets no PINs', () => {
+    db.update(facilities).set({ timeTrackingFrom: '2026-10-01' }).where(eq(facilities.id, 1)).run()
+    const staff = addUser(db, 'mitarbeiter', 'observer', addEmployee(db, 'Berta'))
+    saveBundleOverride(db, staff.id, 'settingsFacility', 'grant')
+    refreshPermissions(db, staff)
+    expect(openKeys(db, leitung)).toContain('employee_pin')
+    expect(openKeys(db, traeger)).toContain('employee_pin')
+    expect(openKeys(db, staff)).not.toContain('employee_pin')
+    expect(openKeys(db, staff)).toContain('employee_birthday')
   })
 
   it('lists groups without group type or documentation and children with a contract without care type', () => {

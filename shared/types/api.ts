@@ -1252,8 +1252,6 @@ export type EmployeeContractInput = Omit<EmployeeContractDto, 'fixedTermUntil'> 
 
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null
-  /** Set by the Träger: whether the Leitung sees the contract data of the employees. */
-  contractVisibleToAdmins: boolean
 }
 
 export interface TerminalPersonDto { employeeId: number; name: string; clockedIn: boolean }

@@ -159,11 +159,12 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 |---|---|
 | Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und eine Vormerkung löschen. Eine **archivierte** Akte löscht nur der Träger (siehe „Löschen nach der Aufbewahrungsfrist“). Das gilt im Büro und am Tablet. |
 | Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. |
-| Mitarbeiter mit der Berechtigung „darf Kinderakten pflegen“ | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
+| Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. |
 
-Die Berechtigung „darf Kinderakten pflegen“ vergibst du unter *Benutzer* pro Mitarbeiter oder bei der Person selbst
-(*Mitarbeiter → Name → Zugang*). Sie gilt am Tablet der Einrichtung.
+Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeiter → Name → Zugang*,
+oder *Benutzer* → „Rechte“). Es gilt am Tablet der Einrichtung. Was die Rollen sonst dürfen, stellt der Träger unter
+*Mehr → Rechte und Rollen* ein (Abschnitt 26); die Tabelle oben beschreibt die Grundeinstellung.
 
 Mitarbeiter **mit einer Gruppe** sehen am Tablet nur die Akten ihrer eigenen Gruppe (und der Gruppen, die für sie
 freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
@@ -718,7 +719,8 @@ Druck-Knöpfe.
   fehlt“** (für den Personalschlüssel), **„Pflichttermine offen“** (überfällig, noch kein Eintrag oder bald fällig) und
   **„kein Zugang“** (die Person hat kein Benutzerkonto).
 - Die Hinweise oben (Pflichttermine, Stufenaufstieg) sind in einer Zeile **„‹n› Hinweise“** zusammengefasst; ein Tipp
-  darauf klappt sie auf. Beim Träger steht dort auch der Schalter „Vertragsangaben für die Leitung sichtbar“.
+  darauf klappt sie auf. Ob die Leitung die Vertragsangaben sieht, stellt der Träger unter *Mehr → Rechte und Rollen*
+  ein (Mitarbeiter → „Vertragsangaben ansehen“ bei der Leitung).
 - **„Mitarbeiter anlegen“** oben öffnet das Formular für eine neue Person.
 - **„Reihenfolge ändern“** blendet die Pfeile zum Verschieben ein; „Fertig“ blendet sie wieder aus.
 - Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht nicht mehr bei den aktiven Mitarbeitern,
@@ -942,16 +944,18 @@ Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im A
   Benutzername ist aus dem Namen vorgeschlagen (klein, ohne Leerzeichen, ä/ö/ü/ß als ae/oe/ue/ss) und lässt sich
   ändern. Dazu ein Startpasswort (mindestens 8 Zeichen) und die Rolle **Mitarbeiter** oder **Leitung**. Das Konto ist
   gleich mit der Person verknüpft; sie muss das Passwort bei der ersten Anmeldung ändern.
-- Hat die Person schon ein Konto, siehst du dort Benutzername, Rolle, „aktiv“ (und bei Mitarbeitern „darf Kinderakten
-  pflegen“) und kannst das **Passwort zurücksetzen**. Es gelten dieselben Rechte wie unter *Benutzer*: Ein Träger-Konto
-  kann nur ein Träger ändern.
+- Hat die Person schon ein Konto, siehst du dort Benutzername, Rolle und „aktiv“ und kannst das **Passwort
+  zurücksetzen**. Es gelten dieselben Rechte wie unter *Benutzer*: Ein Träger-Konto kann nur ein Träger ändern.
+- Darunter stehen die **Rechte der Person** (Abschnitt 26): beim Träger alle Schalter mit Ausnahmen, bei der Leitung für
+  Mitarbeiter nur „Kinder: eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“).
 
 ### Die Seite *Benutzer*
 
 Unter *Benutzer* stehen weiterhin **alle Konten**. Dort legst du vor allem Konten an, die zu keinem Mitarbeiter
-gehören (Stempel-Tablet; der Träger auch Träger-Konten), und kannst die Konten ändern (Träger-Konten nur der Träger). Die lange Übersicht, was jede Rolle darf, ist beim
-Träger zugeklappt: **„Rechte der Rollen anzeigen“** klappt sie auf. Auf dem Handy lässt sich die Tabelle der Konten
-seitlich wischen.
+gehören (Stempel-Tablet; der Träger auch Träger-Konten), und kannst die Konten ändern (Träger-Konten nur der Träger).
+Die Spalte **Rechte** öffnet die Rechte der Person (wie im Reiter *Zugang*). Beim Träger führt oben ein Link zu
+*Rechte und Rollen*; die Übersicht, was die Rollen gerade dürfen, ist zugeklappt: **„Rechte der Rollen anzeigen“** klappt
+sie auf. Auf dem Handy lässt sich die Tabelle der Konten seitlich wischen.
 
 ### Stempel-PIN
 
@@ -1330,15 +1334,14 @@ sehen keine Warnungen.
   welche, und dass oben die bisherige Einrichtung eingestellt bleibt. Die Auswahl gilt, solange du in den Einstellungen
   bleibst; verlässt du sie (oder lädst die Seite neu), gilt wieder die oben eingestellte Einrichtung. Bleibst du nach der
   Frage zu ungespeicherten Änderungen auf der Seite, bleibt auch die Auswahl. Was für alle Einrichtungen gilt (Liste der
-  Einrichtungen, Codes, Urlaubsanträge an/aus, Löschfrist, Datensicherung), bleibt davon unberührt. Nur die Auswahl der
-  Zuständigen für die Urlaubsplanung zeigt die Leitungen der gewählten Einrichtung (bereits gewählte Zuständige anderer
-  Einrichtungen bleiben gespeichert). In „Was noch fehlt“ sind Einträge, die zu Seiten außerhalb der Einstellungen führen
+  Einrichtungen, Codes, Urlaubsanträge an/aus, Löschfrist, Datensicherung), bleibt davon unberührt. In „Was noch fehlt“ sind Einträge, die zu Seiten außerhalb der Einstellungen führen
   (z. B. eine Person oder ein Kind), dann kein Link: Wechsle dafür oben die Einrichtung. Ungespeicherte Änderungen fragt
   die App vor dem Wechsel ab; auf der Seite einer Gruppe geht es zurück zur Gruppenliste. Die Leitung hat diese Auswahl
   nicht.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
-  unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Bögen, Benutzer, Einstellungen und Passwort ändern.
+  unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Bögen, Benutzer, Einstellungen und Passwort ändern (der
+  Träger dazu **Rechte und Rollen** und Löschfristen).
   Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
   „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
   hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
@@ -1371,7 +1374,8 @@ sehen keine Warnungen.
   Öffnungszeiten, kein Tablet-Konto, Gruppen ohne Gruppenart (nur wenn das Bundesland Gruppenarten kennt), Mitarbeiter
   ohne PIN (nur mit Zeiterfassung), PINs, die erst entsperrt werden müssen, ohne Qualifikation, ohne Geburtstag oder ohne
   Zugang, Kinder mit Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Die Höchstzahl Kinder der Einrichtung
-  sieht nur der Träger, weil nur er sie einträgt.
+  sieht nur der Träger, weil nur er sie einträgt. „PIN fehlt“ und „PIN gesperrt“ sehen nur Leitung und Träger (nur sie
+  setzen PINs), nicht ein Mitarbeiter, dem der Träger „Einstellungen der Einrichtung“ gegeben hat.
 - Bei jedem Punkt stehen bis zu fünf Namen; ein Tipp auf den Punkt oder einen Namen führt dorthin, wo man es einträgt.
   Ist es eingetragen, verschwindet der Punkt von selbst. Ist alles da, steht dort nur „Alles eingetragen.“
 - **Brauchen wir nicht** blendet einen Punkt für alle Leitungen und den Träger dieser Einrichtung aus. Ausgeblendete Punkte
@@ -1416,7 +1420,7 @@ sehen keine Warnungen.
   betroffenen Einträge sind rot. Speichern geht trotzdem. Bei EC/Konto gibt es diesen Hinweis nicht.
 - **Monat abschließen:** geht, wenn der Monat vorbei ist (oder ab seinem letzten Tag) und der Vormonat schon
   abgeschlossen ist; warum es noch nicht geht, steht unter dem Knopf. Danach ist der Monat gesperrt. **Wieder öffnen**
-  kann nur der Träger, mit Begründung; dabei öffnen sich auch alle späteren abgeschlossenen Monate.
+  können Leitung und Träger (Schalter „Monate abschließen und wieder öffnen“), mit Begründung; dabei öffnen sich auch alle späteren abgeschlossenen Monate.
 - **Protokoll:** unten aufklappbar; jede Änderung mit Name und Zeitpunkt, auch Abschluss und Wieder-Öffnen. Niemand kann
   es ändern.
 - **Drucken** zeigt das Blatt im Aufbau der Vorlage (A4 hoch) mit „Gedruckt am … von …“ und dem Abschluss; dort gibt es
@@ -1498,3 +1502,70 @@ sehen keine Warnungen.
 - **Drucken:** **Drucken** an der Sitzung (A4 hoch, mit PDF) zeigt Einrichtung, Gruppe, Datum, Uhrzeit, Teilnehmer,
   Protokollführung, das Protokoll und am Ende „freigegeben am … von …“ bzw. „Entwurf – noch nicht freigegeben“. Am
   Tablet wird nicht gedruckt.
+
+## 26. Rechte und Rollen
+
+### Die Seite „Rechte und Rollen“ (nur Träger)
+
+- Unter **Mehr → Rechte und Rollen** (oder auf *Benutzer* über „Rechte und Rollen einstellen“) stellst du ein, was
+  **Leitung** und **Mitarbeiter** dürfen. Die Seite zeigt keine Einzelrechte, sondern **Schalter**, geordnet nach
+  Bereichen (Dienstplan, Urlaub, Zeiten, Mitarbeiter, Personalakte, Kinder, Bögen, Teamsitzungen, Kasse, Kalender,
+  Vorlagen, Verwaltung). Je Rolle gibt es eine Spalte mit einem Häkchen.
+- Bei den Kinder-Schaltern „ansehen“, „Anwesenheit und Gruppenbuch“ und „eintragen und Akten ändern“ wählst du neben dem
+  Häkchen den **Umfang**: „eigene Gruppe“ (wie bisher bei Mitarbeitern: nur die Stammgruppe; wer keine Gruppe hat, alle
+  Gruppen) oder „ganze Einrichtung“.
+- **Abhängigkeiten:** Unter einem Schalter steht grau „braucht: …“ bzw. „enthalten in: …“. Setzt du ein Häkchen, kommt
+  alles mit, was der Schalter braucht; ein Hinweis sagt, was mit freigegeben wurde. Nimmst du ein Häkchen weg, von dem
+  andere abhängen, fragt die App „Dann entfällt auch: …“.
+- Ein Punkt (•) zeigt einen Schalter, der von der Grundeinstellung abweicht. **Speichern** unten speichert beide Rollen;
+  verlässt du die Seite mit ungespeicherten Änderungen, fragt die App nach. **Verwerfen** holt den gespeicherten Stand
+  zurück.
+- **„Leitung: Grundeinstellung“** bzw. **„Mitarbeiter: Grundeinstellung“** setzt eine Rolle (nach Rückfrage) auf die
+  Grundeinstellung zurück. Die Grundeinstellung entspricht den bisherigen Rechten. Ausnahmen einzelner Personen bleiben
+  dabei erhalten.
+- Ganz unten stehen grau die Rechte, die **nur der Träger** hat (z. B. Rechte einstellen, Träger-Konten, Einrichtungen,
+  Löschen nach Fristen, Datensicherung, Personalschlüssel-Werte, Schulkinder-Einstellungen). Sie lassen sich nicht
+  vergeben.
+- Eine Änderung gilt für alle Konten der Rolle ab ihrer nächsten Aktion; das Menü passt sich nach dem nächsten Laden der
+  Seite an.
+- Auf dem Handy zeigt die Tabelle eine Rolle auf einmal; oben wählst du „Leitung“ oder „Mitarbeiter“.
+- Die zugeklappte Übersicht **„Rechte der Rollen“** auf *Benutzer* zeigt die tatsächlichen Einstellungen (nur lesen).
+
+### Geänderte Grundeinstellung
+
+- Die Leitung darf abgeschlossene **Kassenmonate wieder öffnen** (Schalter „Monate abschließen und wieder öffnen“).
+- Ob die Leitung die **Vertragsangaben** sieht, ist jetzt der Schalter „Vertragsangaben ansehen“ der Leitung (der
+  frühere Schalter auf der Seite *Mitarbeiter* ist weg; die bisherige Einstellung wurde übernommen).
+- Wer **Urlaub plant und genehmigt**, ist der Schalter „Urlaub: planen und genehmigen“ (je Rolle oder als Ausnahme je
+  Person). Bisherige Zuständige (Leitung) wurden als Ausnahme übernommen. In *Einstellungen → Urlaub* wählst du nur noch,
+  welche Träger-Konten bei neuen Anträgen benachrichtigt werden.
+
+### Ausnahmen je Person
+
+- Bei der Person (*Mitarbeiter → Name → Reiter „Zugang“*, aufklappbar **„Rechte dieser Person“**, oder *Benutzer* →
+  „Rechte“) siehst du als Träger jeden Schalter mit dem Stand der Rolle, der Ausnahme und dem, was gilt.
+- Je Schalter wählst du **„von der Rolle“** (keine Ausnahme), **„zusätzlich erlaubt“** oder **„weggenommen“**; bei den
+  Kinder-Schaltern mit Umfang. Jede Änderung wird sofort gespeichert. Auch hier kommt mit, was ein Schalter braucht, und
+  vor dem Wegnehmen fragt die App, was sonst noch entfällt.
+- Ändert sich die Rolle einer Person, bleiben ihre Ausnahmen bestehen. Träger- und Tablet-Konten haben feste Rechte.
+
+### Was die Leitung darf
+
+- Die Leitung sieht bei **Mitarbeitern ihrer Einrichtung** nur den Schalter **„Kinder: eintragen und Akten ändern
+  (eigene Gruppe)“** (früher „darf Kinderakten pflegen“) und kann ihn setzen oder wegnehmen. Alle anderen Ausnahmen und
+  die Seite *Rechte und Rollen* sind dem Träger vorbehalten. Bei anderen Leitungen sieht sie keine Rechte.
+
+### Sicherheitsregeln
+
+- **Eigenes Konto:** Den eigenen Zugang, die eigenen Rechte, die eigene Gruppe und die eigenen Stempel-Einstellungen
+  („Stempeln über“, Pausen) ändert nur der Träger. Neu: Auch die Leitung kann ihre eigenen Stempel-Einstellungen nicht
+  mehr ändern.
+- **PINs** setzen, löschen und entsperren nur **Leitung** und **Träger** – auch wer „Mitarbeiter pflegen“ hat, nicht.
+  Eine PIN für eine Person mit Träger-Konto setzt nur der Träger.
+- **Zugänge verwalten:** Der Träger verwaltet alle Konten. Die Leitung verwaltet Leitungs-, Mitarbeiter- und
+  Tablet-Konten ihrer Einrichtung. Wer sonst „Zugänge verwalten“ bekommt (z. B. ein Mitarbeiter), verwaltet nur
+  Tablet-Konten.
+- **Bekannte Grenze:** Eine Leitung kann weiterhin andere Leitungs-Konten ihrer Einrichtung anlegen, ändern und deren
+  Passwort zurücksetzen, und sie kann Passwort und PIN von Mitarbeitern ihrer Einrichtung setzen. Hat der Träger einer
+  Leitung Rechte weggenommen, könnte sie so mit einem anderen Konto arbeiten. Gib das Leitungs-Konto deshalb nur
+  Personen, denen du die ganze Einrichtung anvertraust.

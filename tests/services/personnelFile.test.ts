@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { employees } from '../../server/db/schema'
-import { setContractVisibleToAdmins } from '../../server/services/appSettings'
 import { getMyYearCalendar } from '../../server/services/calendar'
 import { addAdjustment, getEmployee, listEmployees, setContract, updateEmployee, type EmployeeUpdate } from '../../server/services/employees'
 import { getLeaveAccount } from '../../server/services/leave'
@@ -12,6 +11,7 @@ import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { loadEmployee, loadEmployees } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import { getMyRequirements } from '../../server/services/requirements'
+import { setRoleBundle } from '../../server/services/rights'
 import { terminalStatus } from '../../server/services/terminal'
 import { PERMISSION_KEYS } from '../../shared/domain/permissions'
 import type { EmployeePersonalInput, EmployeeSensitiveDto, SessionUser } from '../../shared/types/api'
@@ -147,7 +147,7 @@ describe('personnel file: „befristet bis“ with the contract data', () => {
     expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'provider')).contract).toMatchObject({ payLevel: 4, fixedTermUntil: '2027-07-31' })
     expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'admin'))).not.toHaveProperty('contract')
     expect(getEmployee(db, 1, anna, TODAY, LEITUNG)).not.toHaveProperty('contract')
-    setContractVisibleToAdmins(db, true)
+    setRoleBundle(db, 'admin', 'contractView', true)
     expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'admin')).contract!.fixedTermUntil).toBe('2027-07-31')
     expect(listEmployees(db, 1, TODAY, rolePermissions(db, 'admin'))[0]!.contract!.fixedTermUntil).toBe('2027-07-31')
     setContract(db, 1, anna, { ...contract, fixedTermUntil: null })

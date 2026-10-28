@@ -1,7 +1,7 @@
 import { and, asc, eq, isNotNull } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
 import { todayIso } from '../../shared/domain/dates'
-import { pinLockState } from '../../shared/domain/pin'
+import { mayManagePins, pinLockState } from '../../shared/domain/pin'
 import { can } from '../../shared/domain/permissions'
 import {
   isSetupItemKey, SETUP_PROVIDER_ONLY_KEYS, setupChecklist, type SetupChecklist, type SetupFacts, type SetupItemKey,
@@ -61,10 +61,17 @@ function hiddenKeys(db: Db, facilityId: number): string[] {
   return db.select({ key: setupHidden.key }).from(setupHidden).where(eq(setupHidden.facilityId, facilityId)).all().map(row => row.key)
 }
 
-/** „Was noch fehlt“ of the facility for this Leitung or Träger (items for the Träger only are left out for a Leitung). */
+/**
+ * „Was noch fehlt“ of the facility for this Leitung or Träger (items for the Träger only are left out for a Leitung, the
+ * PIN items for an account that sets no PINs).
+ */
 export function getSetupChecklist(db: Db, user: SessionUser, facilityId: number, now: Date = new Date()): SetupChecklist {
   assertManager(user)
-  return setupChecklist(loadSetupFacts(db, facilityId, now), { isProvider: can(user.permissions, 'facilities.manage') }, hiddenKeys(db, facilityId))
+  const viewer = {
+    isProvider: can(user.permissions, 'facilities.manage'),
+    managesPins: mayManagePins(user.role, key => can(user.permissions, key)),
+  }
+  return setupChecklist(loadSetupFacts(db, facilityId, now), viewer, hiddenKeys(db, facilityId))
 }
 
 /** A known item this viewer sees: a Leitung cannot hide or show the items for the Träger only. */
