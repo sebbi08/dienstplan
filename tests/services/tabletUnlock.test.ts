@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employees, entries, terminalUnlocks, users } from '../../server/db/schema'
+import { saveBundleOverride } from '../../server/services/permissions'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells } from '../../server/services/entries'
 import { clearPin, setPin, terminalStamp } from '../../server/services/terminal'
@@ -9,7 +10,7 @@ import {
   deleteExpiredUnlocks, lockChildren, tabletChildViewer, tabletUnlockStatus, unlockChildren,
 } from '../../server/services/tabletUnlock'
 import { setTabletSettings } from '../../server/services/tabletSettings'
-import { addEmployee, addFacility, addHelpOut, addUser, createTestDb, errorCode, permissionsOf, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, allowChildEditing, createTestDb, errorCode, permissionsOf, templateId } from '../helpers/fixtures'
 
 const at = (iso: string) => new Date(iso)
 const NOW = at('2026-10-06T06:00:00Z')
@@ -185,13 +186,14 @@ describe('unlocking the tablet for child records', () => {
         permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
       })
     })
-    it('gives a Mitarbeiter account its edit flag, as it is now', () => {
+    it('gives a Mitarbeiter account its child-edit exception, as it is now', () => {
       const account = addUser(db, 'anna', 'observer', anna)
-      db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+      allowChildEditing(db, account.id)
       const { token, status } = unlock()
       expect(viewer(token)).toMatchObject({ id: account.id, role: 'observer', canEditChildren: true })
       expect(status).toMatchObject({ rights: { canEdit: true, isManager: false } })
       db.update(users).set({ canEditChildren: false }).where(eq(users.id, account.id)).run()
+      saveBundleOverride(db, account.id, 'childrenEdit', null)
       expect(viewer(token)).toMatchObject({ id: account.id, canEditChildren: false })
       expect(tabletUnlockStatus(db, tablet, token, NOW)).toMatchObject({ rights: { canEdit: false } })
     })
@@ -234,7 +236,7 @@ describe('unlocking the tablet for child records', () => {
 
     it('lets a helper read only, and only on planned days', () => {
       const account = addUser(db, 'anna', 'observer', anna)
-      db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+      allowChildEditing(db, account.id)
       const { token } = unlockChildren(db, helperTablet, anna, '123456', NOW)
       expect(tabletChildViewer(db, helperTablet, token, NOW)).toMatchObject({
         id: null, role: 'observer', canEditChildren: false, facilityId: krippe, onTablet: true,

@@ -2,7 +2,8 @@ import { readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { accountRedirect, isChildPagePath, pagePermission, tabletMayOpen } from '../../app/utils/routeAccess'
-import { effectivePermissions, ROLE_DEFAULTS } from '../../shared/domain/permissions'
+import { ROLE_DEFAULTS } from '../../shared/domain/permissions'
+import { flaggedPermissions } from '../helpers/rights'
 import type { Role } from '../../shared/types/api'
 
 /**
@@ -51,9 +52,7 @@ const TEMPLATES = '/templates'
 const RETENTION = '/admin/retention'
 
 function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePassword?: boolean } = {}) {
-  const permissions = effectivePermissions({
-    role, canEditChildren: options.canEditChildren ?? false, isLeavePlanner: false, contractVisibleToAdmins: false,
-  })
+  const permissions = flaggedPermissions(role, { canEditChildren: options.canEditChildren })
   return { role, mustChangePassword: options.mustChangePassword ?? false, can: (key: Parameters<typeof permissions.has>[0]) => permissions.has(key) }
 }
 

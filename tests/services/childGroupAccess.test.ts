@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childContacts, childDocuments, childGroupChanges, children, users } from '../../server/db/schema'
+import { childContacts, childDocuments, childGroupChanges, children } from '../../server/db/schema'
 import type { ChildActor, ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
@@ -19,9 +19,7 @@ import { setTabletSettings } from '../../server/services/tabletSettings'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import type { ChildContactInput, ChildDocumentMeta, SessionUser } from '../../shared/types/api'
-import {
-  addChild, addEmployee, addGroup, addUser, asChildViewer, createTestDb, documentTypeId,
-} from '../helpers/fixtures'
+import { addChild, addEmployee, addGroup, addUser, allowChildEditing, asChildViewer, createTestDb, documentTypeId } from '../helpers/fixtures'
 
 const TODAY = '2026-10-06'
 const NOW = new Date('2026-10-06T06:00:00Z')
@@ -80,7 +78,7 @@ describe('child records by group rights', () => {
     const anna = addEmployee(db, 'Anna', { groupId: a })
     setPin(db, 1, anna, '123456')
     const account = addUser(db, 'anna', 'observer', anna)
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+    allowChildEditing(db, account.id)
     setReadAccess(db, 1, a, [b])
     kidA = addChild(db, 1, { lastName: 'Amsel', groupId: a })
     kidB = addChild(db, 1, { lastName: 'Biber', groupId: b })
@@ -221,7 +219,7 @@ describe('child records by group rights', () => {
     const berta = addEmployee(db, 'Berta')
     setPin(db, 1, berta, '123456')
     const account = addUser(db, 'berta', 'observer', berta)
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+    allowChildEditing(db, account.id)
     token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, berta, '123456', NOW).token
     expect(viewer().groups).toBeNull()
     expect(listsOf(viewer()).children.sort()).toEqual([kidA, kidB, kidC, kidNone].sort())

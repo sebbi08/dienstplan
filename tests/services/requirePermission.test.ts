@@ -2,8 +2,9 @@ import { eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees, leavePlanners, users } from '../../server/db/schema'
+import { employees, users } from '../../server/db/schema'
 import { setContractVisibleToAdmins } from '../../server/services/appSettings'
+import { saveBundleOverride, saveRoleBundle } from '../../server/services/permissions'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, createTestDb } from '../helpers/fixtures'
 
@@ -70,8 +71,10 @@ describe('requirePermission', () => {
 
   it('refuses the Leitung a key fixed at the Träger, whatever the facility mode', async () => {
     expect(await code(() => auth.requirePermission(event(leitung), 'facilities.manage', { facility: 'none' }))).toBe('forbidden')
-    expect(await code(() => auth.requirePermission(event(leitung), 'cash.reopen'))).toBe('forbidden')
     expect(await code(() => auth.requirePermission(event(leitung), 'settings.staffing'))).toBe('forbidden')
+    expect(await code(() => auth.requirePermission(event(leitung), 'children.schoolSettings'))).toBe('forbidden')
+    // Since Teil 2 the Leitung reopens cash months by default.
+    expect((await auth.requirePermission(event(leitung), 'cash.reopen')).id).toBe(leitung.id)
     expect((await auth.requirePermission(event(leitung), 'cash.book')).facilityId).toBe(1)
     expect((await auth.requirePermission(event(provider), 'facilities.manage', { facility: 'none' })).id).toBe(provider.id)
   })
@@ -97,11 +100,11 @@ describe('requirePermission', () => {
     expect(await code(() => auth.requirePermission(event(loose), 'plan.edit'))).toBe('forbidden')
   })
 
-  it('takes a leave planner and the contract switch into account on the next request', async () => {
+  it('takes a leave-planning exception and the contract switch into account on the next request', async () => {
     expect(await code(() => auth.requirePermission(event(leitung), 'leave.plan'))).toBe('forbidden')
-    db.insert(leavePlanners).values({ userId: leitung.id }).run()
+    saveBundleOverride(db, leitung.id, 'leavePlan', 'grant')
     expect((await auth.requirePermission(event(leitung), 'leave.plan')).id).toBe(leitung.id)
-    db.delete(leavePlanners).run()
+    saveBundleOverride(db, leitung.id, 'leavePlan', null)
     expect(await code(() => auth.requirePermission(event(leitung), 'leave.plan'))).toBe('forbidden')
 
     expect(await code(() => auth.requirePermission(event(leitung), 'employees.contractView'))).toBe('forbidden')
@@ -109,6 +112,23 @@ describe('requirePermission', () => {
     expect((await auth.requirePermission(event(leitung), 'employees.contractView')).id).toBe(leitung.id)
     setContractVisibleToAdmins(db, false)
     expect(await code(() => auth.requirePermission(event(leitung), 'employees.contractView'))).toBe('forbidden')
+  })
+
+  it('takes a role setting into account for every account of the role on the next request (RF2)', async () => {
+    const other = addUser(db, 'other', 'observer', addEmployee(db, 'Other'))
+    for (const person of [staff, other]) {
+      expect(await code(() => auth.requirePermission(event(person), 'printTemplates.edit'))).toBe('forbidden')
+    }
+    saveRoleBundle(db, 'observer', 'templatesEdit', true)
+    for (const person of [staff, other]) expect((await auth.requirePermission(event(person), 'printTemplates.edit')).id).toBe(person.id)
+    // An exception overrides the role both ways.
+    saveBundleOverride(db, other.id, 'templatesEdit', 'revoke')
+    expect(await code(() => auth.requirePermission(event(other), 'printTemplates.edit'))).toBe('forbidden')
+    expect((await auth.requirePermission(event(staff), 'printTemplates.edit')).id).toBe(staff.id)
+    saveRoleBundle(db, 'admin', 'cashBook', false)
+    expect(await code(() => auth.requirePermission(event(leitung), 'cash.view'))).toBe('forbidden')
+    saveBundleOverride(db, leitung.id, 'cashBook', 'grant')
+    expect((await auth.requirePermission(event(leitung), 'cash.view')).id).toBe(leitung.id)
   })
 
   it('takes a role change into account on the next request', async () => {

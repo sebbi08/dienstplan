@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { effectivePermissions, type PermissionKey } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import type { PermissionKey } from '../../shared/domain/permissions'
 import type { EmployeePayrollDto } from '../../shared/types/api'
 import {
   FULL_MASK, employeeDocumentUrl, fieldErrorOf, formatIban, fullBirthDate, maskIban, maskTail, payrollDisplay, payrollFieldsOf,
@@ -132,7 +133,7 @@ describe('personal and sensitive blocks', () => {
 
 describe('document folders', () => {
   const canOf = (role: 'provider' | 'admin' | 'observer') => {
-    const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
+    const permissions = effectivePermissions({ role })
     return (key: PermissionKey) => permissions.has(key)
   }
 

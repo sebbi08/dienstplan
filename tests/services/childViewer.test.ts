@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childDocuments, terminalUnlocks, users } from '../../server/db/schema'
+import { childDocuments, terminalUnlocks } from '../../server/db/schema'
 import { asChildEditor, asChildManager, type ChildActor } from '../../server/lib/childViewer'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { readDocumentFile, uploadDocument } from '../../server/services/childDocuments'
@@ -10,9 +10,7 @@ import { resolveChildViewer, unlockChildren } from '../../server/services/tablet
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { setPin } from '../../server/services/terminal'
 import type { ChildHealthInput, SessionUser } from '../../shared/types/api'
-import {
-  addChild, addEmployee, addUser, asChildViewer, createTestDb, documentTypeId, errorCode, permissionsOf,
-} from '../helpers/fixtures'
+import { addChild, addEmployee, addUser, allowChildEditing, asChildViewer, createTestDb, documentTypeId, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const TODAY = '2026-10-06'
 const NOW = new Date('2026-10-06T06:00:00Z')
@@ -89,7 +87,7 @@ describe('the child viewer', () => {
     expect(errorCode(() => asChildManager(reader))).toBe('forbidden')
 
     // With the permission: maintains records, but the manager pages stay closed.
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+    allowChildEditing(db, account.id)
     const editor = resolveChildViewer(db, tablet, unlock(), NOW)
     expect(asChildEditor(editor)).toMatchObject({ id: account.id })
     expect(errorCode(() => asChildManager(editor))).toBe('forbidden')
@@ -148,7 +146,7 @@ describe('the child viewer', () => {
 
     it('does not let an unlocked editor change a hidden child', () => {
       const account = addUser(db, 'anna', 'observer', anna)
-      db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+      allowChildEditing(db, account.id)
       const viewer = resolveChildViewer(db, tablet, unlock(), NOW) as ChildActor
       expect(errorCode(() => updateChildHealth(db, viewer, 1, waitlist, HEALTH, TODAY, NOW))).toBe('child_not_found')
       expect(errorCode(() => updateChildHealth(db, viewer, 1, active, HEALTH, TODAY, NOW))).toBeNull()
@@ -166,7 +164,7 @@ describe('the child viewer', () => {
 
   it('an unlocked editor\'s change is stored under the account', () => {
     const account = addUser(db, 'anna', 'observer', anna)
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+    allowChildEditing(db, account.id)
     const child = addChild(db, 1)
     const viewer = resolveChildViewer(db, tablet, unlock(), NOW)
     expect(viewer).toMatchObject({ id: account.id, canEditChildren: true, onTablet: true })

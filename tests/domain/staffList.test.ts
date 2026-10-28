@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   employeeSections, employeeTabs, requestedEmployeeSection, requestedEmployeeTab, staffBadges, suggestUsername,
 } from '../../app/utils/staffList'
-import { effectivePermissions, type PermissionKey } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import type { PermissionKey } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
 
 const person = (overrides: Partial<{ hasPin: boolean; pinLocked: boolean; qualification: 'fachkraft' | null }> = {}) => ({
@@ -54,7 +55,7 @@ describe('suggestUsername', () => {
 describe('employee page tabs', () => {
   /** The role's default permissions, as the session hands them over. */
   const canOf = (role: Role) => {
-    const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
+    const permissions = effectivePermissions({ role })
     return (key: PermissionKey) => permissions.has(key)
   }
   const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'talks', 'access']

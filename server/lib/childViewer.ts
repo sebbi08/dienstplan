@@ -15,7 +15,10 @@ export interface ChildViewer {
   name: string
   /** The role of the person's account ('observer' without one): who they are, not what they may (see `permissions`). */
   role: Role
-  /** The account's stored flag „darf Kinderakten pflegen“ as is; `permissions` holds what it grants. */
+  /**
+   * The account's old column „darf Kinderakten pflegen“ as stored; the right itself is the exception
+   * „eintragen und Akten ändern“, which `permissions` holds.
+   */
   canEditChildren: boolean
   /**
    * What the person acting may do: the own account's permissions at the office; at the tablet those of the unlocking

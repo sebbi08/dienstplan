@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childContacts, children, users } from '../../server/db/schema'
+import { childContacts, children } from '../../server/db/schema'
 import type { ChildActor, ChildViewer } from '../../server/lib/childViewer'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { addContact } from '../../server/services/childContacts'
@@ -12,7 +12,7 @@ import { setTabletSettings } from '../../server/services/tabletSettings'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import { CONSENT_KEYS, type ChildConsents, type ChildContactInput, type ParentMeetingInput, type SessionUser } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, allowChildEditing, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-19'
 const NOW = new Date('2026-10-19T06:00:00Z')
@@ -56,7 +56,7 @@ describe('children overview', () => {
     const anna = addEmployee(db, 'Anna', { groupId: a })
     setPin(db, 1, anna, '123456')
     observer = addUser(db, 'anna', 'observer', anna)
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, observer.id)).run()
+    allowChildEditing(db, observer.id)
     setReadAccess(db, 1, a, [b])
     kidNone = addChild(db, 1, { lastName: 'Dachs', groupId: null })
     kidA2 = addChild(db, 1, { lastName: 'Zebra', groupId: a })

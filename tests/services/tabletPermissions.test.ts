@@ -1,7 +1,5 @@
-import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { users } from '../../server/db/schema'
 import { asChildEditor, asChildManager, asChildPermission, type ChildViewer } from '../../server/lib/childViewer'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getActiveUser } from '../../server/services/auth'
@@ -11,7 +9,7 @@ import { listChildGroups } from '../../server/services/groups'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import type { SessionUser } from '../../shared/types/api'
-import { addChild, addEmployee, addGroup, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
+import { addChild, addEmployee, addGroup, addUser, allowChildEditing, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const TODAY = '2026-10-06'
 const NOW = new Date('2026-10-06T06:00:00Z')
@@ -39,7 +37,7 @@ describe('child permissions at the tablet', () => {
     Object.fromEntries(listChildGroups(db, viewer).map(group => [group.id, group.right]))
   const canEdit = (viewer: ChildViewer, childId: number) => getChild(db, viewer, childId, TODAY, NOW).canEdit
   const flagged = (account: SessionUser) =>
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, account.id)).run()
+    allowChildEditing(db, account.id)
 
   beforeEach(() => {
     db = createTestDb()

@@ -18,18 +18,23 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-// Node strips the types of the shared catalog (no build step, Node 22.18+ / 23.6+). This relies on permissions.ts
-// staying strippable: only `import type` from other modules (no extensionless runtime imports) and no TS-only syntax
-// that emits code (enum, namespace, parameter properties). tests/api/routeAccessSnapshot.test.ts fails when it breaks.
-import { effectivePermissions, PERMISSION_KEYS } from '../shared/domain/permissions.ts'
+// Node strips the types of the shared catalog and bundles (no build step, Node 22.18+ / 23.6+). This relies on
+// permissions.ts and permissionBundles.ts staying strippable: runtime imports between them with the `.ts` extension,
+// only `import type` from other modules, and no TS-only syntax that emits code (enum, namespace, parameter properties).
+// tests/api/routeAccessSnapshot.test.ts fails when it breaks.
+import { effectivePermissions } from '../shared/domain/permissionBundles.ts'
+import { PERMISSION_KEYS } from '../shared/domain/permissions.ts'
 
-const NO_FLAGS = { canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false }
+// The Grundeinstellung of the rights page (no role settings, no exceptions).
 const DEFAULTS = {
-  admin: effectivePermissions({ role: 'admin', ...NO_FLAGS }),
-  observer: effectivePermissions({ role: 'observer', ...NO_FLAGS }),
+  admin: effectivePermissions({ role: 'admin' }),
+  observer: effectivePermissions({ role: 'observer' }),
 }
-// A Mitarbeiter account with „darf Kinderakten pflegen“, and the child keys that need an account (server/lib/childViewer.ts).
-const OBSERVER_EDITOR = effectivePermissions({ role: 'observer', ...NO_FLAGS, canEditChildren: true })
+// A Mitarbeiter account with the exception „eintragen und Akten ändern“ (formerly „darf Kinderakten pflegen“), and the
+// child keys that need an account (server/lib/childViewer.ts).
+const OBSERVER_EDITOR = effectivePermissions({
+  role: 'observer', overrides: [{ bundle: 'childrenEdit', effect: 'grant', scope: 'group' }],
+})
 const ACCOUNT_KEYS = ['children.edit', 'children.manage']
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')

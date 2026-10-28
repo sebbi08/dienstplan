@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { isEntryActive, isGroupActive, navLabelWithCount, navMenu, type NavViewer } from '../../app/utils/navMenu'
-import { effectivePermissions } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import { flaggedPermissions } from '../helpers/rights'
 import type { Role } from '../../shared/types/api'
 
 /** The role with its default permissions (no per-person flags). */
 function as(role: Role): Pick<NavViewer, 'role' | 'can'> {
-  const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
+  const permissions = effectivePermissions({ role })
   return { role, can: key => permissions.has(key) }
 }
 const base: NavViewer = { ...as('admin'), employeeId: null, isPlanner: false, openCount: 0, unread: 0, today: { year: 2026, month: 10 } }
@@ -122,9 +123,7 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const pairs = (entries: { label: string, to: string }[]): Pair[] => entries.map(entry => [entry.label, entry.to])
   function viewerOf(role: Role, options: { employeeId?: number | null, isPlanner?: boolean, canEditChildren?: boolean } = {}): NavViewer {
     const isPlanner = options.isPlanner ?? false
-    const permissions = effectivePermissions({
-      role, canEditChildren: options.canEditChildren ?? false, isLeavePlanner: isPlanner, contractVisibleToAdmins: false,
-    })
+    const permissions = flaggedPermissions(role, { canEditChildren: options.canEditChildren, isLeavePlanner: isPlanner })
     return {
       role, can: key => permissions.has(key), employeeId: options.employeeId ?? null, isPlanner, openCount: 4, unread: 2,
       today: { year: 2026, month: 10 },

@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { and, eq, inArray } from 'drizzle-orm'
-import { can, effectivePermissions } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import { can } from '../../shared/domain/permissions'
 import { UNLOCK_GRACE_SECONDS } from '../../shared/domain/tablet'
 import type {
   ChildRightsDto, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
@@ -21,9 +22,7 @@ type Resolved =
   | { unlocked: true; row: UnlockRow; person: TerminalPersonDto; settings: TabletSettingsDto; viewer: ChildViewer }
 
 /** A person without (active) account of the home facility at the tablet: the Mitarbeiter defaults, no flags. */
-const NO_ACCOUNT = effectivePermissions({
-  role: 'observer', canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false,
-})
+const NO_ACCOUNT = effectivePermissions({ role: 'observer' })
 
 /** The moment after which the server no longer accepts an unlock that was last used at lastActiveAt. */
 function validUntil(lastActiveAt: string, lockMinutes: number): number {

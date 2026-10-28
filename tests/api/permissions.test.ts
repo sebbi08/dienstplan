@@ -2,7 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { CHILD_ACTOR_KEYS } from '../../server/lib/childViewer'
-import { effectivePermissions, PERMISSION_KEYS, PERMISSIONS, type PermissionKey } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import { PERMISSION_KEYS, PERMISSIONS, type PermissionKey } from '../../shared/domain/permissions'
+import { flaggedPermissions } from '../helpers/rights'
 
 const API_DIR = join(process.cwd(), 'server', 'api')
 
@@ -115,16 +117,15 @@ const ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal', 'table
   'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 const TABLET_PEOPLE = ACTORS.filter(actor => actor.startsWith('tablet:'))
 
-const plain = { canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false }
 const DEFAULTS = {
-  admin: effectivePermissions({ role: 'admin', ...plain }),
-  observer: effectivePermissions({ role: 'observer', ...plain }),
+  admin: effectivePermissions({ role: 'admin' }),
+  observer: effectivePermissions({ role: 'observer' }),
 }
 /** The unlocking person's permissions at the tablet; a person without account has the Mitarbeiter defaults. */
 const TABLET_PERMISSIONS: Record<string, ReadonlySet<PermissionKey>> = {
   'tablet:provider': new Set(PERMISSION_KEYS),
   'tablet:admin': DEFAULTS.admin,
-  'tablet:observerEditor': effectivePermissions({ role: 'observer', ...plain, canEditChildren: true }),
+  'tablet:observerEditor': flaggedPermissions('observer', { canEditChildren: true }),
   'tablet:observer': DEFAULTS.observer,
   'tablet:noAccount': DEFAULTS.observer,
 }

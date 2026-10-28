@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import type { RightsRole } from '../../shared/domain/permissionBundles'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
 import type { GermanState } from '../../shared/domain/states'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
@@ -203,7 +204,10 @@ export const users = sqliteTable('users', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   /** Leitung and tablet: their facility. Träger: the active facility selection. Mitarbeiter: null (follows the employee). */
   facilityId: integer('facility_id').references(() => facilities.id),
-  /** Besides the Träger and the Leitung: may this account edit child records? */
+  /**
+   * The old flag „darf Kinderakten pflegen“ (Mitarbeiter). Since the rights page the right itself is the exception
+   * `childrenEdit` in user_bundle_overrides (migration 0064 moved it there); the column is no longer read for rights.
+   */
   canEditChildren: integer('can_edit_children', { mode: 'boolean' }).notNull().default(false),
 })
 
@@ -476,10 +480,34 @@ export const leaveRequests = sqliteTable('leave_requests', {
   decisionNote: text('decision_note').notNull().default(''),
 }, table => [index('leave_requests_employee').on(table.employeeId), index('leave_requests_status').on(table.status)])
 
-/** Accounts (Träger/Leitung) the Träger made responsible for leave planning. */
+/**
+ * Accounts (Träger/Leitung) the Träger made responsible for leave planning: who gets the notifications. Since the
+ * rights page a Leitung's right to plan is the bundle `leavePlan` (role setting or exception), not this list.
+ */
 export const leavePlanners = sqliteTable('leave_planners', {
   userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
 })
+
+/**
+ * The Träger's role settings on the rights page: a bundle (shared/domain/permissionBundles.ts) on or off for every
+ * account of the role, with its scope for the children bundles (null = the role's default scope). A bundle without a
+ * row keeps its default; unknown bundles are ignored. `role` stays free text ('admin' | 'observer', Teil 3 adds the
+ * Gruppenleitung).
+ */
+export const roleBundles = sqliteTable('role_bundles', {
+  role: text('role').$type<RightsRole>().notNull(),
+  bundle: text('bundle').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+  scope: text('scope', { enum: ['group', 'facility'] }),
+}, table => [primaryKey({ columns: [table.role, table.bundle] })])
+
+/** Exceptions per account: a bundle granted or revoked for this one person, over the role setting. */
+export const userBundleOverrides = sqliteTable('user_bundle_overrides', {
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bundle: text('bundle').notNull(),
+  effect: text('effect', { enum: ['grant', 'revoke'] }).notNull(),
+  scope: text('scope', { enum: ['group', 'facility'] }),
+}, table => [primaryKey({ columns: [table.userId, table.bundle] })])
 
 /**
  * A kind of mandatory appointment or proof (Pflichttermin) of a facility. Its name is unique within the facility,

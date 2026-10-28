@@ -1,12 +1,11 @@
 // scripts/route-access-snapshot.mjs imports this file in plain Node (type stripping): keep other imports `import type`
 // only and avoid TS syntax that emits code (enum, namespace, parameter properties).
-import type { Role } from '../types/api'
 
 /**
  * The permission catalog (spec Rechte und Rollen §2, inventory §6): every check asks "may this person do X" instead of
- * looking at the role. Teil 1 keeps today's rights exactly: the role defaults below plus today's per-person flags give
- * the same answers as the role checks did. The Träger has every key; the tablet role is not part of the catalog (its
- * guards stay, and at the unlocked tablet the unlocking person's permissions apply).
+ * looking at the role. What a person holds comes from the bundles of the rights page (permissionBundles.ts,
+ * `effectivePermissions`). The Träger has every key; the tablet role is not part of the catalog (its guards stay, and
+ * at the unlocked tablet the unlocking person's permissions apply).
  */
 
 /** The areas of the catalog, in the order the rights page lists them. */
@@ -132,7 +131,7 @@ export const PERMISSIONS: readonly PermissionDef[] = [
     + 'Gesprächsnotiz, Plätze, Erledigt zurücknehmen)',
     { requires: ['children.view', 'children.edit'] }),
   def('children.schoolSettings', 'children', 'Stichtag, automatische Abmeldung, Gruppe „für Schulkinder“',
-    { requires: ['settings.facility'] }),
+    { requires: ['settings.facility'], ...fixed }),
   def('children.deleteArchived', 'children', 'Archivierte Akten löschen', { requires: ['children.manage'], ...fixed }),
   def('children.moveFacility', 'children', 'Kind in andere Einrichtung verschieben', fixed),
 
@@ -162,7 +161,7 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('closures.manage', 'calendar', 'Schließzeiten, frühere Schließungen, Öffnungszeiten'),
 
   def('settings.facility', 'settings', 'Einstellungen der Einrichtung'),
-  def('settings.staffing', 'settings', 'Personalschlüssel-Werte ändern', { requires: ['settings.facility'] }),
+  def('settings.staffing', 'settings', 'Personalschlüssel-Werte ändern', { requires: ['settings.facility'], ...fixed }),
   def('settings.absenceCodes', 'settings', 'Codes (Urlaub, Krank …) ändern', fixed),
   def('settings.groups', 'settings', 'Gruppen anlegen, umbenennen, löschen, sortieren',
     { requires: ['settings.facility'], ...fixed }),
@@ -180,10 +179,10 @@ export const PERMISSIONS: readonly PermissionDef[] = [
 ]
 
 /**
- * Today's rights of Leitung and Mitarbeiter (inventory §6 „Defaults“), plus `printTemplates.view` for Mitarbeiter
- * (added with the template categories, a deliberate change). Not in here because they come from today's
- * per-person flags (see `effectivePermissions`): `leave.plan`, `employees.contractView` (Leitung), `children.edit`
- * (Mitarbeiter).
+ * The rights of Leitung and Mitarbeiter in Teil 1 (inventory §6 „Defaults“, plus `printTemplates.view` for
+ * Mitarbeiter since the template categories), without the per-person flags of that time. Since Teil 2 the defaults are
+ * bundles (`BUNDLE_DEFAULTS` in permissionBundles.ts); this list stays as the reference they are tested against (they
+ * give exactly these keys, plus the approved `cash.reopen` for the Leitung).
  */
 export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
   admin: [
@@ -208,19 +207,6 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     // The print templates to read (the categories visible to all), since the template categories; not to change.
     'printTemplates.view',
   ],
-}
-
-export interface PermissionInput {
-  role: Role
-  /** `users.can_edit_children`: a Mitarbeiter maintains child records (at the unlocked tablet). */
-  canEditChildren: boolean
-  /**
-   * The account counts as leave planner **for the facility in question**: the caller applies `isPlanner`'s rule (a
-   * Leitung in `leave_planners` plans only in its own facility) and passes false for any other facility.
-   */
-  isLeavePlanner: boolean
-  /** The Träger's global switch `contract_visible_to_admins`: the Leitung sees the contract fields. */
-  contractVisibleToAdmins: boolean
 }
 
 const BY_KEY = new Map(PERMISSIONS.map(permission => [permission.key, permission]))
@@ -252,22 +238,6 @@ export function resolvePermissions(granted: Iterable<PermissionKey>): ReadonlySe
     }
   }
   return keys
-}
-
-/**
- * The permissions a person has, computed from the role and today's per-person flags (pure, no database): the Träger
- * has every key, the tablet role none (its own guards decide), Leitung and Mitarbeiter their role defaults plus the
- * flags, closed under requires and implies. Flags only count for the role they belong to today: the child flag for a
- * Mitarbeiter, leave planning and the contract switch for a Leitung.
- */
-export function effectivePermissions(input: PermissionInput): ReadonlySet<PermissionKey> {
-  if (input.role === 'provider') return new Set(PERMISSION_KEYS)
-  if (input.role === 'terminal') return new Set()
-  const granted = [...ROLE_DEFAULTS[input.role]]
-  if (input.role === 'observer' && input.canEditChildren) granted.push('children.edit')
-  if (input.role === 'admin' && input.isLeavePlanner) granted.push('leave.plan')
-  if (input.role === 'admin' && input.contractVisibleToAdmins) granted.push('employees.contractView')
-  return resolvePermissions(granted)
 }
 
 /** Whether the set holds the key. */

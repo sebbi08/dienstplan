@@ -9,7 +9,8 @@ import {
   updateEmergencyContact,
 } from '../../server/services/emergencyContacts'
 import { categoryHasData, deleteCategories, RETENTION_CATEGORIES } from '../../server/services/employeeDeletion'
-import { effectivePermissions } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import { flaggedPermissions } from '../helpers/rights'
 import type { EmergencyContactInput } from '../../shared/types/api'
 import { addEmployee, addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -144,10 +145,10 @@ describe('who gets the emergency contacts', () => {
 
   it('only Träger and Leitung, never a Mitarbeiter or the tablet', () => {
     for (const route of ROUTES) expect(fixture[route], route).toEqual(['provider', 'admin'])
-    const observer = effectivePermissions({ role: 'observer', canEditChildren: true, isLeavePlanner: false, contractVisibleToAdmins: false })
+    const observer = flaggedPermissions('observer', { canEditChildren: true })
     expect(observer.has('employees.view')).toBe(false)
     expect(observer.has('employees.edit')).toBe(false)
-    expect(effectivePermissions({ role: 'terminal', canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false }).size).toBe(0)
+    expect(effectivePermissions({ role: 'terminal' }).size).toBe(0)
   })
 
   it('is in no my/* or tablet route', () => {

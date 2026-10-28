@@ -35,15 +35,15 @@ export function closeMonth(
 }
 
 /**
- * Reopens a closed month of a box of the facility and every later closed month of it (only the Träger: 403 forbidden
- * otherwise), with a reason of 1–200 characters (400 cash_reopen_reason_invalid). A month that is not closed is 409
+ * Reopens a closed month of a box of the facility and every later closed month of it (cash.reopen: the Träger and, by
+ * default since the rights page, the Leitung; 403 forbidden otherwise), with a reason of 1–200 characters (400 cash_reopen_reason_invalid). A month that is not closed is 409
  * cash_month_not_closed. Each reopened month gets one log line naming all reopened months and the reason.
  */
 export function reopenMonth(
-  db: Db, provider: CashActor & Pick<SessionUser, 'permissions'>, facilityId: number, boxId: number, year: number, month: number,
+  db: Db, actor: CashActor & Pick<SessionUser, 'permissions'>, facilityId: number, boxId: number, year: number, month: number,
   reason: string, now: Date = new Date(),
 ): string[] {
-  if (!can(provider.permissions, 'cash.reopen')) throw new ServiceError(403, 'forbidden')
+  if (!can(actor.permissions, 'cash.reopen')) throw new ServiceError(403, 'forbidden')
   const text = reason.trim()
   if (text === '' || text.length > CASH_REOPEN_REASON_MAX) throw new ServiceError(400, 'cash_reopen_reason_invalid')
   loadBox(db, facilityId, boxId)
@@ -60,7 +60,7 @@ export function reopenMonth(
         eq(cashClosedMonths.boxId, boxId), eq(cashClosedMonths.year, y), eq(cashClosedMonths.month, m),
       )).run()
       // One line on each reopened month's sheet, all naming the whole range and the reason.
-      logCash(tx, boxId, provider, 'month_reopened', detail, value, now)
+      logCash(tx, boxId, actor, 'month_reopened', detail, value, now)
     }
   })
   return months

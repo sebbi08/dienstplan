@@ -3,11 +3,11 @@ import {
   AREA_SECTIONS, FORMER_SECTIONS, GROUP_SECTIONS, SETTINGS_AREAS, areaOfSlug, areaPath, normalizeSearch, searchSettings,
   visibleSettingsAreas, type SettingsViewer,
 } from '../../app/utils/settingsAreas'
-import { effectivePermissions } from '../../shared/domain/permissions'
+import { effectivePermissions } from '../../shared/domain/permissionBundles'
 
 /** The role's default permissions, as the session hands them over. */
 function viewerOf(role: 'provider' | 'admin'): SettingsViewer {
-  const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
+  const permissions = effectivePermissions({ role })
   return { can: key => permissions.has(key) }
 }
 const provider = viewerOf('provider')

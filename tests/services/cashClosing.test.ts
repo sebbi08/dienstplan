@@ -7,7 +7,8 @@ import { createBox, updateBox, type CashBoxInput } from '../../server/services/c
 import { boxCsv, closeMonth, reopenMonth } from '../../server/services/cashClosing'
 import { cashMonth, createEntry, createTransfer, deleteEntry, updateEntry } from '../../server/services/cashEntries'
 import type { SessionUser } from '../../shared/types/api'
-import { addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { accountPermissions, saveRoleBundle } from '../../server/services/permissions'
+import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
 const today = '2026-10-26'
 const boxInput: CashBoxInput = { name: 'Hauptkasse', kind: 'cash', groupId: null, startYear: 2026, startMonth: 3, startBalance: 1000 }
@@ -105,13 +106,22 @@ describe('reopening a month', () => {
     expect(logOf(main, 'month_reopened')[0]!.detail).toBe('Monat 05/2026 – Begründung: „Korrektur“')
   })
 
-  it('is the Träger\'s only, needs a reason and a closed month', () => {
-    expect(errorCode(() => reopenMonth(db, leitung, 1, main, 2026, 3, 'Fehler'))).toBe('forbidden')
+  it('needs cash.reopen (Träger, and the Leitung by default since Teil 2), a reason and a closed month', () => {
+    const staff = addUser(db, 'staff', 'observer', addEmployee(db, 'Staff'))
+    expect(errorCode(() => reopenMonth(db, staff, 1, main, 2026, 3, 'Fehler'))).toBe('forbidden')
+    saveRoleBundle(db, 'admin', 'cashClose', false)
+    expect(errorCode(() => reopenMonth(db, { ...leitung, permissions: accountPermissions(db, leitung) }, 1, main, 2026, 3, 'Fehler')))
+      .toBe('forbidden')
     expect(errorCode(() => reopenMonth(db, traeger, 1, main, 2026, 3, '   '))).toBe('cash_reopen_reason_invalid')
     expect(errorCode(() => reopenMonth(db, traeger, 1, main, 2026, 3, 'x'.repeat(201)))).toBe('cash_reopen_reason_invalid')
     expect(errorCode(() => reopenMonth(db, traeger, 1, main, 2026, 6, 'Fehler'))).toBe('cash_month_not_closed')
     expect(errorCode(() => reopenMonth(db, traeger, 1, konto, 2026, 3, 'Fehler'))).toBe('cash_month_not_closed')
     expect(closedOf(main)).toEqual(['2026-03', '2026-04', '2026-05'])
+  })
+
+  it('lets the Leitung reopen by default (the approved change of Teil 2)', () => {
+    expect(reopenMonth(db, leitung, 1, main, 2026, 4, 'Beleg fehlt')).toEqual(['2026-04', '2026-05'])
+    expect(logOf(main, 'month_reopened').map(line => line.actor)).toEqual(['leitung', 'leitung'])
   })
 })
 

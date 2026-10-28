@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childDocuments, children, users } from '../../server/db/schema'
+import { childDocuments, children } from '../../server/db/schema'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import { getActiveUser } from '../../server/services/auth'
 import {
@@ -11,7 +11,7 @@ import { getChild } from '../../server/services/children'
 import { deleteDocumentType, updateDocumentType } from '../../server/services/documentTypes'
 import type { ChildActor } from '../../server/lib/childViewer'
 import type { ChildDocumentMeta } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, allowChildEditing, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
 const NOW = new Date('2026-10-09T08:30:00.000Z')
@@ -43,7 +43,7 @@ describe('child documents', () => {
     admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     plain = asChildViewer(addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')))
     const allowedUser = addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed'))
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, allowedUser.id)).run()
+    allowChildEditing(db, allowedUser.id)
     allowed = asChildViewer(getActiveUser(db, allowedUser.id)!)
     childId = addChild(db, 1, { lastName: 'Müller-Ö' })
     contractType = documentTypeId(db, 1, 'Betreuungsvertrag')

@@ -38,7 +38,7 @@
   "cash/boxes/[id]/csv.get.ts": ["provider","admin"],
   "cash/boxes/[id]/move.post.ts": ["provider","admin"],
   "cash/boxes/[id]/purge.delete.ts": ["provider"],
-  "cash/boxes/[id]/reopen.post.ts": ["provider"],
+  "cash/boxes/[id]/reopen.post.ts": ["provider","admin"],
   "cash/entries.post.ts": ["provider","admin"],
   "cash/entries/[id].delete.ts": ["provider","admin"],
   "cash/entries/[id].put.ts": ["provider","admin"],

@@ -2,13 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  AREA_LABELS, PERMISSIONS, PERMISSION_AREAS, PERMISSION_KEYS, ROLE_DEFAULTS, can, effectivePermissions,
-  resolvePermissions, type PermissionInput, type PermissionKey,
+  AREA_LABELS, PERMISSIONS, PERMISSION_AREAS, PERMISSION_KEYS, ROLE_DEFAULTS, can, resolvePermissions,
+  type PermissionKey,
 } from '../../shared/domain/permissions'
+import type { Role } from '../../shared/types/api'
+import { flaggedPermissions, type LegacyFlags } from '../helpers/rights'
 
-const plain = { canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false }
-function input(over: Partial<PermissionInput> & Pick<PermissionInput, 'role'>): PermissionInput {
-  return { ...plain, ...over }
+/** The rights of the role with Teil 1's per-person flags, as migration 0064 moved them into bundles. */
+function rights(over: LegacyFlags & { role: Role }): ReadonlySet<PermissionKey> {
+  const { role, ...flags } = over
+  return flaggedPermissions(role, flags)
 }
 function sorted(keys: Iterable<PermissionKey>): PermissionKey[] {
   return [...keys].sort()
@@ -68,12 +71,14 @@ describe('permission catalog', () => {
     }
   })
 
-  it('fixes the P-fix keys and the three recommended ones at the Träger', () => {
+  it('fixes the P-fix keys, the three recommended ones and the two of the rights page at the Träger', () => {
     expect(sorted(PERMISSIONS.filter(def => def.providerOnly).map(def => def.key))).toEqual(sorted([
       'leave.configure', 'employees.moveFacility', 'children.deleteArchived', 'children.moveFacility', 'cash.purge',
       'settings.retention', 'settings.otherFacility', 'users.providerAccounts', 'rights.manage', 'facilities.manage',
       'retention.delete', 'backup.download',
       'printTemplates.global', 'settings.absenceCodes', 'settings.groups',
+      // Teil 2: „nur Träger“ on the rights page (spec §2); the Leitung never had them.
+      'settings.staffing', 'children.schoolSettings',
     ]))
   })
 
@@ -156,59 +161,60 @@ describe('resolvePermissions', () => {
   })
 })
 
-describe('effectivePermissions', () => {
+describe('effectivePermissions with the old flags moved into bundles', () => {
   it('gives the Träger every key, whatever the flags', () => {
-    expect(sorted(effectivePermissions(input({ role: 'provider' })))).toEqual(sorted(PERMISSION_KEYS))
-    expect(effectivePermissions(input({ role: 'provider', canEditChildren: true, isLeavePlanner: true })).size).toBe(65)
+    expect(sorted(rights({ role: 'provider' }))).toEqual(sorted(PERMISSION_KEYS))
+    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(65)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {
-    expect(effectivePermissions(input({ role: 'terminal' })).size).toBe(0)
-    expect(effectivePermissions({ role: 'terminal', canEditChildren: true, isLeavePlanner: true,
+    expect(rights({ role: 'terminal' }).size).toBe(0)
+    expect(rights({ role: 'terminal', canEditChildren: true, isLeavePlanner: true,
       contractVisibleToAdmins: true }).size).toBe(0)
   })
 
-  it('gives Leitung and Mitarbeiter their defaults without flags', () => {
-    expect(sorted(effectivePermissions(input({ role: 'admin' })))).toEqual(sorted(ROLE_DEFAULTS.admin))
-    expect(sorted(effectivePermissions(input({ role: 'observer' })))).toEqual(sorted(ROLE_DEFAULTS.observer))
+  it('gives Leitung and Mitarbeiter their defaults without flags; the Leitung now also reopens cash months', () => {
+    expect(sorted(rights({ role: 'admin' }))).toEqual(sorted([...ROLE_DEFAULTS.admin, 'cash.reopen']))
+    expect(sorted(rights({ role: 'observer' }))).toEqual(sorted(ROLE_DEFAULTS.observer))
   })
 
   it('lets a Mitarbeiter with „darf Kinderakten pflegen“ edit children, still only at the tablet', () => {
-    const flagged = effectivePermissions(input({ role: 'observer', canEditChildren: true }))
+    const flagged = rights({ role: 'observer', canEditChildren: true })
     expect(can(flagged, 'children.edit')).toBe(true)
     expect(can(flagged, 'children.ownAccount')).toBe(false)
     expect(can(flagged, 'children.manage')).toBe(false)
     expect(sorted(flagged)).toEqual(sorted([...ROLE_DEFAULTS.observer, 'children.edit']))
-    expect(can(effectivePermissions(input({ role: 'observer' })), 'children.edit')).toBe(false)
+    expect(can(rights({ role: 'observer' }), 'children.edit')).toBe(false)
   })
 
   it('lets a Leitung plan leave only as chosen planner of the facility', () => {
-    expect(can(effectivePermissions(input({ role: 'admin', isLeavePlanner: true })), 'leave.plan')).toBe(true)
-    expect(can(effectivePermissions(input({ role: 'admin' })), 'leave.plan')).toBe(false)
+    expect(can(rights({ role: 'admin', isLeavePlanner: true }), 'leave.plan')).toBe(true)
+    expect(can(rights({ role: 'admin' }), 'leave.plan')).toBe(false)
     // leave_planners only holds managers; a Mitarbeiter never plans.
-    expect(can(effectivePermissions(input({ role: 'observer', isLeavePlanner: true })), 'leave.plan')).toBe(false)
+    expect(can(rights({ role: 'observer', isLeavePlanner: true }), 'leave.plan')).toBe(false)
   })
 
   it('shows the Leitung the contract fields only while the Träger\'s switch is on', () => {
-    expect(can(effectivePermissions(input({ role: 'admin', contractVisibleToAdmins: true })), 'employees.contractView'))
+    expect(can(rights({ role: 'admin', contractVisibleToAdmins: true }), 'employees.contractView'))
       .toBe(true)
-    expect(can(effectivePermissions(input({ role: 'admin' })), 'employees.contractView')).toBe(false)
-    expect(can(effectivePermissions(input({ role: 'admin', contractVisibleToAdmins: true })), 'employees.contractEdit'))
+    expect(can(rights({ role: 'admin' }), 'employees.contractView')).toBe(false)
+    expect(can(rights({ role: 'admin', contractVisibleToAdmins: true }), 'employees.contractEdit'))
       .toBe(false)
-    expect(can(effectivePermissions(input({ role: 'observer', contractVisibleToAdmins: true })), 'employees.contractView'))
+    expect(can(rights({ role: 'observer', contractVisibleToAdmins: true }), 'employees.contractView'))
       .toBe(false)
   })
 
   it('gives the Leitung address, contact, birth date and the qualifications folder of the personnel file, nothing else of it', () => {
-    const leitung = effectivePermissions(input({ role: 'admin', contractVisibleToAdmins: true }))
+    const leitung = rights({ role: 'admin', contractVisibleToAdmins: true })
     expect(PERSONNEL_KEYS.filter(key => can(leitung, key))).toEqual(['employees.personal', 'employees.docs.qualifications'])
-    expect(PERSONNEL_KEYS.filter(key => can(effectivePermissions(input({ role: 'observer', canEditChildren: true })), key)))
+    expect(PERSONNEL_KEYS.filter(key => can(rights({ role: 'observer', canEditChildren: true }), key)))
       .toEqual([])
-    expect(PERSONNEL_KEYS.filter(key => can(effectivePermissions(input({ role: 'provider' })), key))).toEqual(PERSONNEL_KEYS)
+    expect(PERSONNEL_KEYS.filter(key => can(rights({ role: 'provider' }), key))).toEqual(PERSONNEL_KEYS)
   })
 
   it('ignores the child flag for the Leitung, who edits children anyway', () => {
-    expect(sorted(effectivePermissions(input({ role: 'admin', canEditChildren: true })))).toEqual(sorted(ROLE_DEFAULTS.admin))
+    expect(sorted(rights({ role: 'admin', canEditChildren: true })))
+      .toEqual(sorted([...ROLE_DEFAULTS.admin, 'cash.reopen']))
   })
 })
 
@@ -248,6 +254,8 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     expect(fixture['children/[id]/master.put.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin',
       'tablet:observerEditor'])
     expect(fixture['children/archive.get.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin'])
+    // The one approved change of Teil 2: the Leitung reopens closed cash months.
+    expect(fixture['cash/boxes/[id]/reopen.post.ts']).toEqual(['provider', 'admin'])
     // The tablet's unlock is only named where a child guard reads it; elsewhere 'terminal' stands for the tablet.
     expect(fixture['health.get.ts']).toEqual(['anonymous', 'provider', 'admin', 'observer', 'terminal'])
   })

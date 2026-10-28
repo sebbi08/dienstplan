@@ -8,6 +8,7 @@ import { ServiceError } from '../lib/errors'
 import { hashPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { assertPasswordStrength } from './auth'
+import { bundleOverrideRows, saveBundleOverride } from './permissions'
 
 export interface UserInput {
   username: string
@@ -130,7 +131,19 @@ export function updateUser(db: Db, actor: SessionUser, id: number, update: UserU
       ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
     })
     .where(eq(users.id, id)).run()
+  syncChildEditException(db, id, update.role === 'observer' && update.canEditChildren)
   return findUser(db, actor, id).dto
+}
+
+/**
+ * Until the rights page replaces the old switch „darf Kinderakten pflegen“: on, the account gets the exception
+ * `childrenEdit` (own group); off, a granted one is removed.
+ */
+function syncChildEditException(db: Db, userId: number, allowed: boolean): void {
+  if (allowed) saveBundleOverride(db, userId, 'childrenEdit', 'grant', 'group')
+  else if (bundleOverrideRows(db, userId).some(row => row.bundle === 'childrenEdit' && row.effect === 'grant')) {
+    saveBundleOverride(db, userId, 'childrenEdit', null)
+  }
 }
 
 export function resetPassword(db: Db, actor: SessionUser, id: number, password: string): void {

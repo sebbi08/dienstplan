@@ -21,7 +21,7 @@ import { getYearCalendar } from './calendar'
 import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
 import { getLeaveAccount } from './leave'
-import { accountPermissions } from './permissions'
+import { accountPermissions, bundleOverrideRows, saveBundleOverride } from './permissions'
 import { closureOn, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 /** The module switch is installation-wide; the limit and the planning are per facility. */
@@ -163,6 +163,19 @@ export function getLeaveSettings(db: Db, viewer: SessionUser): LeaveSettingsDto 
 }
 
 /**
+ * Until the rights page replaces the choice: a chosen Leitung gets the exception `leavePlan`, a Leitung no longer
+ * chosen loses a granted one (the list itself stays the notification recipients).
+ */
+function syncLeavePlanExceptions(db: Db, chosen: number[]): void {
+  for (const admin of db.select({ id: users.id }).from(users).where(eq(users.role, 'admin')).all()) {
+    if (chosen.includes(admin.id)) saveBundleOverride(db, admin.id, 'leavePlan', 'grant')
+    else if (bundleOverrideRows(db, admin.id).some(row => row.bundle === 'leavePlan' && row.effect === 'grant')) {
+      saveBundleOverride(db, admin.id, 'leavePlan', null)
+    }
+  }
+}
+
+/**
  * Träger only: switch the module and choose the responsible Träger/Leitung accounts (of any facility; a Leitung plans
  * only in its own).
  */
@@ -175,6 +188,7 @@ export function setLeaveModule(db: Db, input: { enabled: boolean; plannerIds: nu
     saveSetting(tx, ENABLED, String(input.enabled))
     tx.delete(leavePlanners).run()
     if (ids.length) tx.insert(leavePlanners).values(ids.map(userId => ({ userId }))).run()
+    syncLeavePlanExceptions(tx, ids)
   })
 }
 

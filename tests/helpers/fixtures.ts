@@ -10,8 +10,10 @@ import { hashPassword } from '../../server/lib/password'
 import { toSessionUser } from '../../server/services/auth'
 import { createFacility } from '../../server/services/facilities'
 import { createGroup } from '../../server/services/groups'
-import { effectivePermissions, type PermissionKey } from '../../shared/domain/permissions'
+import { saveBundleOverride } from '../../server/services/permissions'
+import type { PermissionKey } from '../../shared/domain/permissions'
 import type { Role, SessionUser } from '../../shared/types/api'
+import { flaggedPermissions } from './rights'
 
 export const TEST_PASSWORD = 'secret-password'
 
@@ -62,9 +64,18 @@ export function addUser(
   return toSessionUser(db, row)
 }
 
+/**
+ * The Mitarbeiter account maintains child records: the exception „eintragen und Akten ändern“ (own group), which
+ * replaced the flag „darf Kinderakten pflegen“; the old column is set as well, as the users page still shows it.
+ */
+export function allowChildEditing(db: Db, userId: number): void {
+  db.update(users).set({ canEditChildren: true }).where(eq(users.id, userId)).run()
+  saveBundleOverride(db, userId, 'childrenEdit', 'grant', 'group')
+}
+
 /** The permissions of an account of the role with the child flag as given (no leave planner, no contract switch). */
 export function permissionsOf(role: Role, canEditChildren = false): ReadonlySet<PermissionKey> {
-  return effectivePermissions({ role, canEditChildren, isLeavePlanner: false, contractVisibleToAdmins: false })
+  return flaggedPermissions(role, { canEditChildren })
 }
 
 /**

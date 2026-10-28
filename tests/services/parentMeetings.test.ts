@@ -8,7 +8,7 @@ import { deleteChild, getChild } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import { addMeeting, deleteMeeting, meetingsOf, updateMeeting } from '../../server/services/parentMeetings'
 import type { ParentMeetingInput } from '../../shared/types/api'
-import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, permissionsOf } from '../helpers/fixtures'
+import { addChild, addEmployee, addFacility, addGroup, addUser, allowChildEditing, asChildViewer, createTestDb, permissionsOf } from '../helpers/fixtures'
 
 const TODAY = '2026-10-20'
 /** 13:59 in Berlin (summer time, UTC+2). */
@@ -57,7 +57,7 @@ describe('parent meetings', () => {
     setReadAccess(db, 1, a, [b])
     anna = addEmployee(db, 'Anna', { groupId: a })
     annaUser = addUser(db, 'anna', 'observer', anna).id
-    db.update(users).set({ canEditChildren: true }).where(eq(users.id, annaUser)).run()
+    allowChildEditing(db, annaUser)
     const berta = addEmployee(db, 'Berta', { groupId: a })
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
     const tablet = { visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: a, readable: [b] } }

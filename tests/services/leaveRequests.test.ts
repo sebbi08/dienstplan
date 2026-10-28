@@ -42,6 +42,9 @@ describe('leave requests', () => {
     expect(getLeaveSettings(db, leitung)).toMatchObject({ enabled: true, isPlanner: true, plannerIds: [leitung.id] })
     expect(getLeaveSettings(db, annaUser)).toMatchObject({ isPlanner: false, plannerIds: [] })
     expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [annaUser.id] }))).toBe('invalid_leave_planner')
+    // Until the rights page replaces the choice, it grants and takes back the Leitung's exception „planen und genehmigen“.
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    expect(getLeaveSettings(db, leitung)).toMatchObject({ isPlanner: false, plannerIds: [] })
   })
 
   it('lets employees request leave, shows the days and the remaining leave, and withdraw open requests', () => {

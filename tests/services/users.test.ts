@@ -82,8 +82,11 @@ describe('permission to maintain child records', () => {
     expect(listUsers(db, leitung).find(candidate => candidate.id === user.id)!.canEditChildren).toBe(true)
     expect(getActiveUser(db, user.id)!.canEditChildren).toBe(true)
     expect(mayEditChildren(getActiveUser(db, user.id)!)).toBe(true)
+    // Until the rights page replaces the switch it writes the exception „eintragen und Akten ändern“, which grants the right.
+    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(true)
     set(user.id, 'observer', anna, false)
     expect(mayEditChildren(getActiveUser(db, user.id)!)).toBe(false)
+    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(false)
   })
   it('stores false for every other role', () => {
     const tablet = createUser(db, leitung, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
@@ -97,6 +100,7 @@ describe('permission to maintain child records', () => {
     set(user.id, 'observer', anna, true)
     expect(set(user.id, 'admin', null, true).canEditChildren).toBe(false)
     expect(set(user.id, 'observer', anna, false).canEditChildren).toBe(false)
+    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(false)
   })
 })
 
