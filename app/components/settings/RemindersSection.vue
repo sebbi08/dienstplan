@@ -148,7 +148,7 @@ async function saveRow(row: DocRow) {
           <USelect v-model="docRow.form.intervalMonths" :items="monthItems" class="w-24" :aria-label="`${s.intervalMonths} ${docRow.label}`" />
         </UFormField>
         <UFormField v-if="docRow.form.mode === 'interval'" :label="s.start">
-          <UInput v-model="docRow.form.docSince" type="date" class="w-40" :aria-label="`${s.start} ${docRow.label}`" />
+          <DateTextInput v-model="docRow.form.docSince" class="w-40" :aria-label="`${s.start} ${docRow.label}`" />
         </UFormField>
         <UFormField v-if="docRow.form.mode !== 'off'" :label="s.leadWeeks">
           <USelect v-model="docRow.form.leadWeeks" :items="weekItems" class="w-24" :aria-label="`${s.leadWeeks} ${docRow.label}`" />

@@ -51,7 +51,7 @@ function submit() {
   <UModal v-model:open="open" :title="event ? de.calendar.editEvent : de.calendar.addEvent">
     <template #body>
       <form class="grid grid-cols-2 gap-3" @submit.prevent="submit">
-        <UFormField :label="de.calendar.date" class="col-span-2"><UInput v-model="form.date" type="date" class="w-full" required /></UFormField>
+        <UFormField :label="de.calendar.date" class="col-span-2"><DateTextInput v-model="form.date" :label="de.calendar.date" class="w-full" required /></UFormField>
         <UFormField :label="de.calendar.from"><TimeInput v-model="form.start" /></UFormField>
         <UFormField :label="de.calendar.to"><TimeInput v-model="form.end" /></UFormField>
         <UFormField :label="de.calendar.title2" class="col-span-2">

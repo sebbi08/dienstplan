@@ -117,7 +117,7 @@ async function deleteTraining(item: TrainingDto) {
                 <form class="flex flex-wrap items-end gap-3 rounded-md bg-gray-50 p-3" @submit.prevent="saveEntry">
                   <p class="w-full text-sm font-medium">{{ de.requirements.enterFor(kind.type.name) }}</p>
                   <UFormField :label="de.requirements.date">
-                    <UInput v-model="entry.date" type="date" :min="EARLIEST_REQUIREMENT_DATE" :max="todayIso()" required />
+                    <DateTextInput v-model="entry.date" :label="de.requirements.date" :min="EARLIEST_REQUIREMENT_DATE" :max="todayIso()" required />
                   </UFormField>
                   <UFormField :label="de.requirements.note" class="min-w-48 flex-1">
                     <UInput v-model="entry.note" maxlength="200" class="w-full" />
@@ -163,7 +163,7 @@ async function deleteTraining(item: TrainingDto) {
     <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveTraining">
       <p v-if="training.id !== null" class="w-full text-sm font-medium">{{ de.requirements.editTraining }}</p>
       <UFormField :label="de.requirements.date">
-        <UInput v-model="training.date" type="date" :min="EARLIEST_REQUIREMENT_DATE" :max="LATEST_TRAINING_DATE" required />
+        <DateTextInput v-model="training.date" :label="de.requirements.date" :min="EARLIEST_REQUIREMENT_DATE" :max="LATEST_TRAINING_DATE" required />
       </UFormField>
       <UFormField :label="de.requirements.trainingTitle" class="min-w-48 flex-1">
         <UInput v-model="training.title" maxlength="200" :placeholder="de.requirements.trainingTitlePlaceholder" class="w-full" required />

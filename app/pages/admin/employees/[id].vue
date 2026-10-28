@@ -256,7 +256,7 @@ async function onTabKey(event: KeyboardEvent) {
       <h2 class="font-semibold sm:col-span-4">{{ de.employees.masterData }}</h2>
       <UFormField :label="de.employees.name" class="sm:col-span-2"><UInput v-model="master.name" class="w-full" required /></UFormField>
       <UFormField :label="de.employees.shortName"><UInput v-model="master.shortName" maxlength="10" class="w-full" /></UFormField>
-      <UFormField :label="de.employees.leftOn"><UInput v-model="master.leftOn" type="date" class="w-full" /></UFormField>
+      <UFormField :label="de.employees.leftOn"><DateTextInput v-model="master.leftOn" :label="de.employees.leftOn" class="w-full" /></UFormField>
       <UFormField v-if="hasGroups" :label="de.groups.employeeGroup" class="sm:col-span-2">
         <USelect v-model="master.groupId" :items="groupItems" class="w-full" />
       </UFormField>
@@ -362,7 +362,7 @@ async function onTabKey(event: KeyboardEvent) {
       </table>
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="addHours">
         <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="hoursForm.weeklyHours" type="number" step="0.25" min="0" /></UFormField>
-        <UFormField :label="de.employees.validFrom"><UInput v-model="hoursForm.validFrom" type="date" required /></UFormField>
+        <UFormField :label="de.employees.validFrom"><DateTextInput v-model="hoursForm.validFrom" :label="de.employees.validFrom" class="w-44" required /></UFormField>
         <UFormField :label="de.employees.workdays"><WorkdayPicker v-model="hoursForm.workdays" /></UFormField>
         <UButton type="submit" icon="i-lucide-plus" :label="de.employees.addHours" />
       </form>
@@ -390,7 +390,7 @@ async function onTabKey(event: KeyboardEvent) {
         </tbody>
       </table>
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="addAdjustment">
-        <UFormField :label="de.employees.date"><UInput v-model="adjustmentForm.date" type="date" required /></UFormField>
+        <UFormField :label="de.employees.date"><DateTextInput v-model="adjustmentForm.date" :label="de.employees.date" class="w-44" required /></UFormField>
         <UFormField :label="de.employees.sign">
           <select v-model.number="adjustmentForm.sign" class="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm">
             <option :value="1">{{ de.employees.plus }}</option>

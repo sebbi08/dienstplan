@@ -54,8 +54,8 @@ const STATUS_COLOR = { open: 'warning', approved: 'success', rejected: 'error', 
     <form class="space-y-3" @submit.prevent="send">
       <h2 class="font-semibold">{{ de.leaveRequests.title }}</h2>
       <div class="grid gap-3 sm:grid-cols-3">
-        <UFormField :label="de.leaveRequests.from"><UInput v-model="form.from" type="date" :min="today" class="w-full" required /></UFormField>
-        <UFormField :label="de.leaveRequests.to"><UInput v-model="form.to" type="date" :min="form.from || today" class="w-full" required /></UFormField>
+        <UFormField :label="de.leaveRequests.from"><DateTextInput v-model="form.from" :label="de.leaveRequests.from" :min="today" class="w-full" required /></UFormField>
+        <UFormField :label="de.leaveRequests.to"><DateTextInput v-model="form.to" :label="de.leaveRequests.to" :min="form.from || today" class="w-full" required /></UFormField>
         <UFormField :label="de.leaveRequests.note"><UInput v-model="form.note" maxlength="300" class="w-full" /></UFormField>
       </div>
       <p v-if="previewError" class="text-sm text-red-700">{{ previewError }}</p>

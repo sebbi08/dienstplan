@@ -84,7 +84,7 @@ async function remove(closure: EarlyClosureDto) {
 
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="save">
       <h2 class="font-semibold sm:col-span-4">{{ form.id ? de.earlyClosures.edit : de.earlyClosures.create }}</h2>
-      <UFormField :label="de.earlyClosures.date"><UInput v-model="form.date" type="date" class="w-full" required /></UFormField>
+      <UFormField :label="de.earlyClosures.date"><DateTextInput v-model="form.date" :label="de.earlyClosures.date" class="w-full" required /></UFormField>
       <UFormField :label="de.earlyClosures.closedFrom"><TimeInput v-model="form.closedFrom" any-minute /></UFormField>
       <UFormField :label="de.earlyClosures.reason" class="sm:col-span-2">
         <UInput v-model="form.reason" maxlength="200" :placeholder="de.earlyClosures.reasonPlaceholder" class="w-full" required />

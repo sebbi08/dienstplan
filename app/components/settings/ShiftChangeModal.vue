@@ -27,7 +27,7 @@ function choose(applyFrom: string | null) {
       <form class="space-y-3" @submit.prevent="from && choose(from)">
         <p class="text-sm">{{ de.settings.shiftChangeText }}</p>
         <UFormField :label="de.settings.shiftChangeFrom">
-          <UInput v-model="from" type="date" required />
+          <DateTextInput v-model="from" :label="de.settings.shiftChangeFrom" class="w-44" required />
         </UFormField>
         <p class="text-xs text-gray-500">{{ de.settings.shiftChangeHint }}</p>
         <div class="flex flex-wrap justify-end gap-2">

@@ -25,7 +25,7 @@ async function save() {
   <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.settings.timeTracking }}</h2>
     <form class="flex flex-wrap items-end gap-3" @submit.prevent="save">
-      <UFormField :label="de.settings.timeTrackingFrom"><UInput v-model="trackingFrom" type="date" /></UFormField>
+      <UFormField :label="de.settings.timeTrackingFrom"><DateTextInput v-model="trackingFrom" :label="de.settings.timeTrackingFrom" class="w-44" /></UFormField>
       <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
     <p class="text-xs text-gray-500">{{ de.settings.timeTrackingHint }}</p>

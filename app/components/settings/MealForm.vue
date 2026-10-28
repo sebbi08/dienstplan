@@ -22,7 +22,7 @@ const s = de.attendance
       </UFormField>
     </template>
     <UFormField :label="s.mealValidFrom">
-      <UInput v-model="validFrom" type="date" :min="min" class="w-44" />
+      <DateTextInput v-model="validFrom" :label="s.mealValidFrom" :min="min" class="w-44" />
     </UFormField>
     <UButton
       type="submit" :color="kind === 'remove' ? 'error' : 'primary'" :label="kind === 'remove' ? s.mealRemove : kind === 'add' ? de.common.add : de.common.save"

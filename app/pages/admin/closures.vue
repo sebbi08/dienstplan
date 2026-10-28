@@ -43,8 +43,8 @@ async function remove(closure: ClosureDto) {
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="create">
       <h2 class="font-semibold sm:col-span-4">{{ de.closures.create }}</h2>
       <p class="text-xs text-gray-500 sm:col-span-4">{{ de.closures.hint }}</p>
-      <UFormField :label="de.closures.from"><UInput v-model="form.startDate" type="date" class="w-full" required /></UFormField>
-      <UFormField :label="de.closures.to"><UInput v-model="form.endDate" type="date" class="w-full" required /></UFormField>
+      <UFormField :label="de.closures.from"><DateTextInput v-model="form.startDate" :label="de.closures.from" class="w-full" required /></UFormField>
+      <UFormField :label="de.closures.to"><DateTextInput v-model="form.endDate" :label="de.closures.to" class="w-full" required /></UFormField>
       <UFormField :label="de.closures.label"><UInput v-model="form.label" maxlength="100" class="w-full" required /></UFormField>
       <UFormField :label="de.closures.mode"><USelect v-model="form.mode" :items="modeItems" class="w-full" /></UFormField>
       <div class="sm:col-span-4"><UButton type="submit" icon="i-lucide-plus" :label="de.common.add" /></div>

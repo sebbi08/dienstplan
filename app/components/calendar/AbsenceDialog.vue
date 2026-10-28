@@ -22,7 +22,7 @@ function choose(code: CodeDto | null) {
     <template #body>
       <div class="space-y-4">
         <UFormField :label="de.calendar.until" :hint="de.calendar.untilHint">
-          <UInput v-model="until" type="date" :min="date" class="w-full" />
+          <DateTextInput v-model="until" :label="de.calendar.until" :min="date" class="w-full" />
         </UFormField>
         <div class="flex flex-wrap gap-2">
           <UButton v-for="code in codes" :key="code.id" color="neutral" variant="soft" :label="code.label" @click="choose(code)" />

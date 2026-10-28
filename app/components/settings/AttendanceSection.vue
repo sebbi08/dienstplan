@@ -33,7 +33,7 @@ const save = () => dirty.value && run(() => $fetch<unknown>('/api/attendance-set
       <USwitch v-model="recordBroughtBy" :label="s.recordBroughtBy" />
       <UFormField :label="s.attendanceSince" :help="s.attendanceSinceHint">
         <div class="flex flex-wrap items-center gap-2">
-          <UInput v-model="attendanceSince" type="date" class="w-44" />
+          <DateTextInput v-model="attendanceSince" :label="s.attendanceSince" class="w-44" />
           <span v-if="attendanceSince === ''" class="text-sm text-gray-500">{{ s.attendanceSinceEmpty }}</span>
         </div>
       </UFormField>

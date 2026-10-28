@@ -54,7 +54,7 @@ function save() {
         <UInput :model-value="form.personnelNumber ?? ''" maxlength="30" class="w-full" @update:model-value="form.personnelNumber = String($event) || null" />
       </UFormField>
       <UFormField :label="de.contract.employedSince">
-        <UInput :model-value="form.employedSince ?? ''" type="date" class="w-full" @update:model-value="form.employedSince = String($event) || null" />
+        <DateTextInput :model-value="form.employedSince ?? ''" :label="de.contract.employedSince" class="w-full" @update:model-value="form.employedSince = $event || null" />
       </UFormField>
       <UFormField :label="de.contract.job" class="sm:col-span-2">
         <USelect :model-value="form.jobKey" :items="jobItems" class="w-full" @update:model-value="onJob($event as JobKey | null)" />

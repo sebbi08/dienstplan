@@ -179,7 +179,7 @@ async function askRemoveReceipt() {
         </template>
         <p v-else-if="row?.transfer" class="col-span-2 text-sm text-gray-600">{{ row.direction === 'out' ? de.cash.transferTo(row.transfer.otherBoxName) : de.cash.transferFrom(row.transfer.otherBoxName) }} · {{ de.cash.transferEditHint }}</p>
         <UFormField :label="de.cash.date">
-          <UInput v-model="form.date" type="date" :min="minDate" :max="maxDate" class="w-full" required />
+          <DateTextInput v-model="form.date" :label="de.cash.date" :min="minDate" :max="maxDate" class="w-full" required />
         </UFormField>
         <UFormField :label="`${de.cash.amount} (€)`">
           <UInput v-model="form.amount" inputmode="decimal" :placeholder="de.cash.amountPlaceholder" class="w-full" required autofocus />

@@ -222,7 +222,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
             size="lg" class="min-h-11 min-w-11 justify-center" icon="i-lucide-chevron-left" color="neutral" variant="outline" :aria-label="s.previousDay"
             @click="date = addDays(date, -1)"
           />
-          <UInput v-model="pickDate" type="date" size="lg" :aria-label="s.dayView" :ui="{ base: 'min-h-11' }" />
+          <DateTextInput v-model="pickDate" size="lg" :label="s.dayView" :aria-label="s.dayView" class="w-44" />
           <UButton
             size="lg" class="min-h-11 min-w-11 justify-center" icon="i-lucide-chevron-right" color="neutral" variant="outline" :aria-label="s.nextDay"
             @click="date = addDays(date, 1)"

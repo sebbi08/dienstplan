@@ -354,7 +354,7 @@ const td = 'px-3 py-2'
             <legend :class="groupTitle">{{ de.employees.groupContract }}</legend>
             <div class="grid gap-3 sm:grid-cols-4 sm:items-end">
               <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="form.weeklyHours" type="number" step="0.25" min="0" class="w-full" /></UFormField>
-              <UFormField :label="de.employees.validFrom"><UInput v-model="form.validFrom" type="date" class="w-full" required /></UFormField>
+              <UFormField :label="de.employees.validFrom"><DateTextInput v-model="form.validFrom" :label="de.employees.validFrom" class="w-full" required /></UFormField>
               <UFormField :label="de.employees.workdays" class="sm:col-span-2"><WorkdayPicker v-model="form.workdays" /></UFormField>
             </div>
             <p :class="hint">{{ de.employees.contractHint }}</p>
