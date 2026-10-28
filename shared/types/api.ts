@@ -1137,11 +1137,6 @@ export interface UserDto {
   employeeName: string | null
   active: boolean
   mustChangePassword: boolean
-  /**
-   * A Mitarbeiter account holds „eintragen und Akten ändern“ (children.edit, from its role or an exception); false for
-   * every other role. Read only: the right is set through the rights API (`PUT /api/users/[id]/rights`).
-   */
-  canEditChildren: boolean
   lockedUntil: string | null
 }
 

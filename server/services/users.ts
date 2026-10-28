@@ -9,7 +9,6 @@ import { ServiceError } from '../lib/errors'
 import { hashPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { assertPasswordStrength } from './auth'
-import { accountsRights } from './permissions'
 
 export interface UserInput {
   username: string
@@ -32,7 +31,7 @@ export interface UserUpdate {
 /** The users a viewer manages: Leitung and tablet of the viewer's facility, Mitarbeiter of its employees, and all Träger. */
 function visibleUsers(db: Db, viewer: SessionUser) {
   const facilityId = viewer.facilityId
-  return db.select({ user: users, employeeName: employees.name, employeeFacility: employees.facilityId })
+  return db.select({ user: users, employeeName: employees.name })
     .from(users)
     .leftJoin(employees, eq(users.employeeId, employees.id))
     .where(or(
@@ -46,14 +45,10 @@ function visibleUsers(db: Db, viewer: SessionUser) {
 
 export function listUsers(db: Db, viewer: SessionUser): UserDto[] {
   const rows = visibleUsers(db, viewer)
-  // canEditChildren: a Mitarbeiter account holds „eintragen und Akten ändern“ (from its role or an exception); the
-  // rights of all listed Mitarbeiter in one read.
-  const rights = accountsRights(db, rows.filter(({ user }) => user.role === 'observer')
-    .map(({ user, employeeFacility }) => ({ id: user.id, role: user.role, facilityId: employeeFacility ?? null })))
   return rows.map(({ user, employeeName }) => ({
     id: user.id, username: user.username, role: user.role, employeeId: user.employeeId,
     employeeName: employeeName ?? null, active: user.active, mustChangePassword: user.mustChangePassword,
-    canEditChildren: rights.get(user.id)?.permissions.has('children.edit') ?? false, lockedUntil: user.lockedUntil,
+    lockedUntil: user.lockedUntil,
   }))
 }
 

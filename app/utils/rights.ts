@@ -27,9 +27,6 @@ export function bundleTitle(id: BundleId): string {
   return `${BUNDLE_AREA_LABELS[def.area]}: ${def.label}`
 }
 
-/** The names of the switches, joined for a sentence. */
-export const bundleTitles = (ids: readonly BundleId[]): string => ids.map(bundleTitle).join(', ')
-
 /** The switches that include this one (the page's „enthalten in: …“). */
 export function includedIn(id: BundleId): BundleId[] {
   return BUNDLES.filter(def => def.includes.includes(id)).map(def => def.id)
@@ -47,13 +44,15 @@ const scoped = (id: BundleId) => bundleDef(id).scoped
 
 /**
  * Switches the bundle on with what it needs and includes (spec §3 „Setzen zieht Voraussetzungen mit“). A switched-on
- * scoped bundle gets the role's default scope; one pulled in takes the scope of the bundle that pulls it (else the
- * default), as the server does. `pulledIn` = the bundles that were off and come along.
+ * scoped bundle gets the role's default scope, but no wider than a required scoped bundle that is already on (e.g. „Kinder
+ * eintragen“ stays at „eigene Gruppe“ while „Kinder ansehen“ is set so); one pulled in takes the scope of the bundle that
+ * pulls it (else the default), as the server does. `pulledIn` = the bundles that were off and come along.
  */
 export function switchOn(draft: RoleDraft, id: BundleId, role: RightsRole): { draft: RoleDraft; pulledIn: BundleId[] } {
   if (draft[id].enabled) return { draft, pulledIn: [] }
   const next = { ...draft }
-  const scope = scoped(id) ? DEFAULT_SCOPE[role] : null
+  const narrowRequired = bundlesPulledBy([id]).some(other => scoped(other) && draft[other].enabled && draft[other].scope === 'group')
+  const scope = scoped(id) ? (narrowRequired ? 'group' : DEFAULT_SCOPE[role]) : null
   next[id] = { enabled: true, scope }
   const pulledIn = bundlesPulledBy([id]).filter(other => !draft[other].enabled)
   for (const other of pulledIn) next[other] = { enabled: true, scope: scoped(other) ? (scope ?? DEFAULT_SCOPE[role]) : null }
@@ -74,10 +73,18 @@ export function switchOff(draft: RoleDraft, id: BundleId): { draft: RoleDraft; d
   return { draft: next, dropped }
 }
 
-/** Sets the scope of a scoped bundle that is on. */
-export function withScope(draft: RoleDraft, id: BundleId, scope: BundleScope): RoleDraft {
-  if (!draft[id].enabled || !scoped(id)) return draft
-  return { ...draft, [id]: { enabled: true, scope } }
+/**
+ * Sets the scope of a scoped bundle that is on, and keeps the children switches in line (the reach of „ansehen“ caps
+ * what the others reach): widening to 'facility' widens the scoped bundles it needs, narrowing to 'group' narrows the
+ * scoped bundles that need it. `alsoChanged` = the bundles whose scope changed along.
+ */
+export function withScope(draft: RoleDraft, id: BundleId, scope: BundleScope): { draft: RoleDraft; alsoChanged: BundleId[] } {
+  if (!draft[id].enabled || !scoped(id)) return { draft, alsoChanged: [] }
+  const related = scope === 'facility' ? bundlesPulledBy([id]) : bundlesDroppedWith([id])
+  const alsoChanged = related.filter(other => scoped(other) && draft[other].enabled && draft[other].scope !== scope)
+  const next = { ...draft, [id]: { enabled: true, scope } }
+  for (const other of alsoChanged) next[other] = { enabled: true, scope }
+  return { draft: next, alsoChanged }
 }
 
 /** The switches of the draft that differ from the stored state: the body of PUT /api/rights/roles/[role]. */
@@ -132,6 +139,25 @@ export function overridesWith(
 }
 
 /**
+ * A grant with the scope 'facility' for a scoped bundle widens the scoped bundles it needs that are in effect for the own
+ * group only (their grant gets 'facility', or a grant is added): the reach of „ansehen“ caps the others.
+ * `alsoChanged` = the bundles widened along.
+ */
+export function widenedAlong(
+  rights: UserRightsDto, id: BundleId, overrides: UserRightsInput['overrides'],
+): { overrides: UserRightsInput['overrides']; alsoChanged: BundleId[] } {
+  const own = overrides.find(override => override.bundle === id)
+  if (!scoped(id) || own?.effect !== 'grant' || own.scope !== 'facility') return { overrides, alsoChanged: [] }
+  const alsoChanged = bundlesPulledBy([id]).filter((other) => {
+    const state = rights.bundles.find(bundle => bundle.id === other)
+    return scoped(other) && state?.effective.enabled === true && state.effective.scope === 'group'
+  })
+  const next = overrides.filter(override => !alsoChanged.includes(override.bundle as BundleId))
+  for (const other of alsoChanged) next.push({ bundle: other, effect: 'grant', scope: 'facility' })
+  return { overrides: next, alsoChanged }
+}
+
+/**
  * The Leitung's one switch, „eintragen und Akten ändern“ for a Mitarbeiter (formerly „darf Kinderakten pflegen“): an
  * exception only where the role does not already give what is wanted, allowed for the own group.
  */
@@ -157,4 +183,24 @@ export function exceptionDropPreview(rights: UserRightsDto, id: BundleId, overri
   const after = effectiveWith(rights, overrides)
   if (after.has(id) || !now.has(id)) return []
   return bundlesDroppedWith([id]).filter(other => now.has(other))
+}
+
+/**
+ * Why the Leitung cannot change „eintragen und Akten ändern“ of this person (the server would refuse it): taking it away
+ * while a switch the Träger gave builds on it ('dependent'), or allowing it while a switch it needs is not in effect
+ * ('missing', e.g. „Kinder: ansehen“). Null when the change is possible.
+ */
+export function childEditingRefusal(rights: UserRightsDto): { reason: 'dependent' | 'missing'; bundles: BundleId[] } | null {
+  const effective = (id: BundleId) => rights.bundles.find(bundle => bundle.id === id)?.effective.enabled ?? false
+  if (effective('childrenEdit')) {
+    const dependents = exceptionDropPreview(rights, 'childrenEdit', childEditingOverrides(rights, false))
+    return dependents.length > 0 ? { reason: 'dependent', bundles: dependents } : null
+  }
+  const missing = bundlesPulledBy(['childrenEdit']).filter(id => !effective(id))
+  return missing.length > 0 ? { reason: 'missing', bundles: missing } : null
+}
+
+/** The bundles that are on only because a switched-on bundle includes them (the page greys them out). */
+export function includedOnly(draft: RoleDraft, id: BundleId): BundleId[] {
+  return draft[id].enabled ? includedIn(id).filter(other => draft[other].enabled) : []
 }

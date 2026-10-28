@@ -5,7 +5,7 @@ import {
 import type { Role, RoleRightsDto, UserRightsDto } from '../../shared/types/api'
 import {
   bundleTitle, changedBundles, childEditingOverrides, dropPreview, exceptionDropPreview, includedIn, overridesWith,
-  personRightsMode, roleDraft, switchOff, switchOn, withScope,
+  childEditingRefusal, includedOnly, personRightsMode, roleDraft, switchOff, switchOn, widenedAlong, withScope,
 } from '../../app/utils/rights'
 import { flaggedPermissions } from '../helpers/rights'
 
@@ -91,9 +91,9 @@ describe('rights page draft', () => {
   it('changes the scope of a scoped switch that is on, and sends only what differs from the stored state', () => {
     const stored = roleDraft(roleRights('observer'))
     expect(changedBundles(stored, stored)).toEqual([])
-    const wider = withScope(stored, 'childrenView', 'facility')
-    expect(withScope(stored, 'planView', 'facility')).toBe(stored)
-    expect(withScope(stored, 'childrenEdit', 'facility')).toBe(stored)
+    const wider = withScope(stored, 'childrenView', 'facility').draft
+    expect(withScope(stored, 'planView', 'facility')).toEqual({ draft: stored, alsoChanged: [] })
+    expect(withScope(stored, 'childrenEdit', 'facility')).toEqual({ draft: stored, alsoChanged: [] })
     const released = switchOn(wider, 'planRelease', 'observer').draft
     expect(changedBundles(released, stored)).toEqual([
       { id: 'planEdit', enabled: true }, { id: 'planRelease', enabled: true },
@@ -102,6 +102,30 @@ describe('rights page draft', () => {
     expect(changedBundles(switchOff(stored, 'childrenView').draft, stored)).toEqual([
       { id: 'childrenView', enabled: false }, { id: 'childrenAttendance', enabled: false },
     ])
+  })
+
+  it('keeps the children scopes in line: widening widens what is needed, narrowing narrows what needs it', () => {
+    const stored = roleDraft(roleRights('observer'))
+    // „Anwesenheit“ for the whole facility while „ansehen“ stays at the own group would be capped by „ansehen“.
+    const wider = withScope(stored, 'childrenAttendance', 'facility')
+    expect(wider.alsoChanged).toEqual(['childrenView'])
+    expect(wider.draft.childrenView).toEqual({ enabled: true, scope: 'facility' })
+    expect(withScope(wider.draft, 'childrenView', 'facility').alsoChanged).toEqual([])
+    const narrower = withScope(wider.draft, 'childrenView', 'group')
+    expect(narrower.alsoChanged).toEqual(['childrenAttendance'])
+    expect(narrower.draft.childrenAttendance).toEqual({ enabled: true, scope: 'group' })
+    // A Leitung with „ansehen“ narrowed to the own group: a new children switch starts at the own group as well.
+    const leitung = withScope(switchOff(roleDraft(roleRights('admin')), 'childrenEdit').draft, 'childrenView', 'group').draft
+    expect(switchOn(leitung, 'childrenEdit', 'admin').draft.childrenEdit).toEqual({ enabled: true, scope: 'group' })
+    expect(switchOn(roleDraft(roleRights('admin')), 'childrenEdit', 'admin').draft.childrenEdit.scope).toBe('facility')
+  })
+
+  it('names the switches that include a switch that is on (greyed on the page)', () => {
+    const leitung = roleDraft(roleRights('admin'))
+    expect(includedOnly(leitung, 'planEdit')).toEqual(['planRelease'])
+    expect(includedOnly(leitung, 'planView')).toEqual([])
+    expect(includedOnly(switchOff(leitung, 'planRelease').draft, 'planEdit')).toEqual([])
+    expect(includedOnly(roleDraft(roleRights('observer')), 'planEdit')).toEqual([])
   })
 
   it('keeps every relation of the catalog consistent: on pulls, off drops, both ways', () => {
@@ -155,6 +179,32 @@ describe('exceptions per person', () => {
     const roleHasIt = { ...berta, bundles: berta.bundles.map(bundle => (bundle.id === 'childrenEdit' ? { ...bundle, role: { enabled: true, scope: 'group' as const } } : bundle)) }
     expect(childEditingOverrides(roleHasIt, false)).toEqual([{ bundle: 'childrenEdit', effect: 'revoke', scope: null }])
     expect(childEditingOverrides(roleHasIt, true)).toEqual([])
+  })
+
+  it('widens what a facility-wide children grant needs along with it', () => {
+    const berta = userRights('observer')
+    const edit = widenedAlong(berta, 'childrenAttendance', overridesWith(berta, 'childrenAttendance', 'grant', 'facility'))
+    expect(edit.alsoChanged).toEqual(['childrenView'])
+    expect(edit.overrides).toEqual([
+      { bundle: 'childrenAttendance', effect: 'grant', scope: 'facility' }, { bundle: 'childrenView', effect: 'grant', scope: 'facility' },
+    ])
+    // The own group, or a switch without scope: nothing along.
+    expect(widenedAlong(berta, 'childrenAttendance', overridesWith(berta, 'childrenAttendance', 'grant', 'group')).alsoChanged).toEqual([])
+    expect(widenedAlong(berta, 'planEdit', overridesWith(berta, 'planEdit', 'grant')).alsoChanged).toEqual([])
+    // Already facility-wide: nothing to widen.
+    const wide = userRights('observer', [{ effect: 'grant', scope: 'facility' }], ['childrenView'])
+    expect(widenedAlong(wide, 'childrenEdit', overridesWith(wide, 'childrenEdit', 'grant', 'facility')).alsoChanged).toEqual([])
+  })
+
+  it('tells the Leitung beforehand when the server would refuse its children switch', () => {
+    expect(childEditingRefusal(userRights('observer'))).toBeNull()
+    expect(childEditingRefusal(userRights('observer', [{ effect: 'grant', scope: 'group' }], ['childrenEdit']))).toBeNull()
+    // The Träger gave „Kinder verwalten“, which builds on it: taking it away is the Träger's.
+    const manager = userRights('observer', [{ effect: 'grant', scope: 'group' }, { effect: 'grant', scope: null }], ['childrenEdit', 'childrenManage'])
+    expect(childEditingRefusal(manager)).toEqual({ reason: 'dependent', bundles: ['childrenManage'] })
+    // „Kinder ansehen“ taken away: allowing it would need that as well.
+    const noView = userRights('observer', [{ effect: 'revoke', scope: null }], ['childrenView'])
+    expect(childEditingRefusal(noView)).toEqual({ reason: 'missing', bundles: ['childrenView'] })
   })
 
   it('names what an exception would take away beyond the switch itself', () => {

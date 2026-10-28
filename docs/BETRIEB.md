@@ -589,7 +589,7 @@ Geburtstage, Dokumente, „Offen“).
 
 - Die eigene Gruppe ist die Gruppe aus dem Mitarbeiter-Eintrag in der Stammeinrichtung.
 - **Nur lesen** heißt: Wochenübersicht und Kinderakten ansehen, aber nichts eintragen oder ändern – auch nicht mit
-  „darf Kinderakten pflegen“. Vertrauliche Dokumente öffnet die Person dort nur, wenn sie das in der eigenen Gruppe
+  dem Recht „eintragen und Akten ändern“. Vertrauliche Dokumente öffnet die Person dort nur, wenn sie das in der eigenen Gruppe
   auch dürfte. Die Wochenübersicht zeigt dann oben „Nur lesen“.
 - Kinder ohne Gruppe sieht jeder.
 
@@ -860,7 +860,7 @@ Voreingestellt gilt:
 |---|---|---|---|---|
 | Geburtsjahr (mit dem Geburtstag das volle Geburtsdatum), Anschrift (Straße, PLZ, Ort), Telefon, E-Mail | Reiter **Stammdaten**, Abschnitt „Persönliche Daten“ | ja | ja | nein |
 | Staatsangehörigkeit, Schwerbehinderung (ja/nein, Grad der Behinderung 20–100, „gleichgestellt“, gültig bis) | Reiter **Stammdaten**, Abschnitt „Staatsangehörigkeit und Schwerbehinderung“ | ja | nein | nein |
-| „befristet bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | nur lesen, wenn die Vertragsangaben freigegeben sind | nein |
+| „befristet bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | wie unter *Rechte und Rollen* eingestellt (Grundeinstellung: nein; „Vertragsangaben ansehen“ = nur lesen, „Vertragsangaben bearbeiten“ = auch ändern) | nein |
 | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Vertrag & Lohn**, Abschnitt „Lohn und Steuer“ | ja | nein | nein |
 | Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | ja | nein |
 | Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | nein | nein |
@@ -1513,10 +1513,14 @@ sehen keine Warnungen.
   Vorlagen, Verwaltung). Je Rolle gibt es eine Spalte mit einem Häkchen.
 - Bei den Kinder-Schaltern „ansehen“, „Anwesenheit und Gruppenbuch“ und „eintragen und Akten ändern“ wählst du neben dem
   Häkchen den **Umfang**: „eigene Gruppe“ (wie bisher bei Mitarbeitern: nur die Stammgruppe; wer keine Gruppe hat, alle
-  Gruppen) oder „ganze Einrichtung“.
+  Gruppen) oder „ganze Einrichtung“. Was „ansehen“ erreicht, begrenzt die anderen beiden: Stellst du „Anwesenheit“ oder
+  „eintragen“ auf „ganze Einrichtung“, geht „ansehen“ mit; stellst du „ansehen“ auf „eigene Gruppe“, gehen die anderen
+  mit. Ein Hinweis sagt, was mitgeändert wurde. Bei den Ausnahmen einer Person geht „ansehen“ beim Erweitern ebenso mit.
 - **Abhängigkeiten:** Unter einem Schalter steht grau „braucht: …“ bzw. „enthalten in: …“. Setzt du ein Häkchen, kommt
   alles mit, was der Schalter braucht; ein Hinweis sagt, was mit freigegeben wurde. Nimmst du ein Häkchen weg, von dem
   andere abhängen, fragt die App „Dann entfällt auch: …“.
+- Ein Schalter, den ein anderer enthält (z. B. „Dienstplan: bearbeiten“ in „freigeben“), ist grau angehakt, solange der
+  andere an ist; zum Ausschalten erst den anderen wegnehmen.
 - Ein Punkt (•) zeigt einen Schalter, der von der Grundeinstellung abweicht. **Speichern** unten speichert beide Rollen;
   verlässt du die Seite mit ungespeicherten Änderungen, fragt die App nach. **Verwerfen** holt den gespeicherten Stand
   zurück.
@@ -1554,6 +1558,10 @@ sehen keine Warnungen.
 - Die Leitung sieht bei **Mitarbeitern ihrer Einrichtung** nur den Schalter **„Kinder: eintragen und Akten ändern
   (eigene Gruppe)“** (früher „darf Kinderakten pflegen“) und kann ihn setzen oder wegnehmen. Alle anderen Ausnahmen und
   die Seite *Rechte und Rollen* sind dem Träger vorbehalten. Bei anderen Leitungen sieht sie keine Rechte.
+- In zwei Fällen ist das Häkchen grau, mit einem Hinweis: Wegnehmen geht nicht, solange der Träger der Person ein Recht
+  gegeben hat, das darauf aufbaut (z. B. „Kinder: verwalten“); Setzen geht erst, wenn die Person „Kinder: ansehen“ hat.
+  Beides stellt der Träger ein. In Klammern steht, für welchen Bereich das Recht gilt (eigene Gruppe oder ganze
+  Einrichtung).
 
 ### Sicherheitsregeln
 

@@ -3,7 +3,7 @@ import type { BundleId, BundleScope, RightsRole } from '#shared/domain/permissio
 import type { RightsChangeDto, RightsDto, RoleRightsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import {
-  bundleTitle, changedBundles, dropPreview, includedIn, roleDraft, switchOff, switchOn, withScope, type RoleDraft,
+  bundleTitle, changedBundles, dropPreview, includedIn, includedOnly, roleDraft, switchOff, switchOn, withScope, type RoleDraft,
 } from '~/utils/rights'
 
 /**
@@ -88,8 +88,12 @@ async function toggle(role: RightsRole, id: BundleId, event: Event) {
   }
   drafts.value[role] = switchOff(drafts.value[role], id).draft
 }
+/** Sets the scope; the children switches that cap or are capped by it follow (a notice says which). */
 function setScope(role: RightsRole, id: BundleId, scope: BundleScope) {
-  if (drafts.value) drafts.value[role] = withScope(drafts.value[role], id, scope)
+  if (!drafts.value) return
+  const { draft, alsoChanged } = withScope(drafts.value[role], id, scope)
+  drafts.value[role] = draft
+  if (alsoChanged.length > 0) toast.add({ title: t.scopeAlong(alsoChanged.map(bundleTitle), t.scopes[scope]), color: 'info' })
 }
 
 const run = useAction()
@@ -170,10 +174,18 @@ const cellClass = (role: RightsRole) => (role === phoneRole.value ? 'table-cell'
                 </td>
                 <td v-for="role in ROLES" :key="role" class="px-3 py-2" :class="cellClass(role)">
                   <div class="flex flex-wrap items-center gap-2">
-                    <input
-                      type="checkbox" class="size-4" :checked="drafts[role][bundle.id].enabled"
-                      :aria-label="t.toggleLabel(bundleTitle(bundle.id), roleName(role))" @change="toggle(role, bundle.id, $event)"
+                    <!-- A finger-sized hit area on a phone; greyed while another switch of the role includes this one. -->
+                    <label
+                      class="-m-2 inline-flex min-h-11 min-w-11 items-center justify-center p-2 sm:m-0 sm:min-h-0 sm:min-w-0 sm:p-0"
+                      :class="includedOnly(drafts[role], bundle.id).length > 0 ? 'cursor-not-allowed' : 'cursor-pointer'"
+                      :title="includedOnly(drafts[role], bundle.id).length > 0 ? t.includedLocked(includedOnly(drafts[role], bundle.id).map(bundleTitle)) : undefined"
                     >
+                      <input
+                        type="checkbox" class="size-4 disabled:opacity-50" :checked="drafts[role][bundle.id].enabled"
+                        :disabled="includedOnly(drafts[role], bundle.id).length > 0"
+                        :aria-label="t.toggleLabel(bundleTitle(bundle.id), roleName(role))" @change="toggle(role, bundle.id, $event)"
+                      >
+                    </label>
                     <USelect
                       v-if="bundle.scoped && drafts[role][bundle.id].enabled" size="xs" class="w-40" :items="scopeItems"
                       :model-value="drafts[role][bundle.id].scope ?? undefined" :aria-label="t.scopeLabel(bundleTitle(bundle.id), roleName(role))"

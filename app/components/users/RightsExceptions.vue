@@ -3,7 +3,8 @@ import { BUNDLE_AREA_LABELS, BUNDLE_AREAS, BUNDLES, type BundleId, type BundleSc
 import type { RightsChangeDto, UserBundleStateDto, UserRightsDto, UserRightsInput } from '#shared/types/api'
 import { de } from '~/locales/de'
 import {
-  bundleTitle, childEditingOverrides, exceptionChoice, exceptionDropPreview, overridesWith, type ExceptionChoice,
+  bundleTitle, childEditingOverrides, childEditingRefusal, exceptionChoice, exceptionDropPreview, overridesWith, widenedAlong,
+  type ExceptionChoice,
 } from '~/utils/rights'
 
 /**
@@ -36,10 +37,11 @@ const confirm = useConfirm()
 const run = useAction()
 const busy = ref(false)
 
-async function save(overrides: UserRightsInput['overrides']) {
+/** Saves the complete list of exceptions; false when the server refused it (nothing changed then). */
+async function save(overrides: UserRightsInput['overrides']): Promise<boolean> {
   busy.value = true
   try {
-    await run(async () => {
+    return await run(async () => {
       const answer = await $fetch<UserRightsDto & RightsChangeDto>(`/api/users/${props.userId}/rights`, { method: 'PUT', body: { overrides } })
       rights.value = answer
       if (answer.pulledIn.length > 0) toast.add({ title: t.pulledIn(answer.pulledIn.map(bundleTitle)), color: 'info' })
@@ -55,24 +57,35 @@ async function save(overrides: UserRightsInput['overrides']) {
 async function choose(id: BundleId, choice: ExceptionChoice, scope: BundleScope | null = null) {
   const current = rights.value
   if (!current) return
-  const overrides = overridesWith(current, id, choice, scope)
+  // A facility-wide children grant widens what caps it (e.g. „ansehen“) along with it.
+  const { overrides, alsoChanged } = widenedAlong(current, id, overridesWith(current, id, choice, scope))
   const dropping = exceptionDropPreview(current, id, overrides)
   if (dropping.length > 0 && !(await confirm(t.dropConfirm(dropping.map(bundleTitle)), { confirmLabel: t.dropConfirmLabel, danger: true }))) return
-  await save(overrides)
+  if (await save(overrides) && alsoChanged.length > 0) {
+    toast.add({ title: t.scopeAlong(alsoChanged.map(bundleTitle), t.scopes.facility), color: 'info' })
+  }
 }
 
 const childEdit = computed(() => stateOf('childrenEdit'))
+/** The reach the checkbox stands for: what applies now, or the own group a tick gives. */
+const childEditScope = computed(() => t.scopes[(childEdit.value?.effective.enabled ? childEdit.value.effective.scope : null) ?? 'group'])
+/** What the server would refuse (a switch of the Träger builds on it, or one it needs is missing): no tick then. */
+const childEditRefusal = computed(() => (rights.value ? childEditingRefusal(rights.value) : null))
+const childEditRefusalText = computed(() => {
+  const refusal = childEditRefusal.value
+  if (!refusal) return null
+  const names = refusal.bundles.map(bundleTitle)
+  return refusal.reason === 'dependent' ? t.childEditDependent(names) : t.childEditMissing(names)
+})
 async function toggleChildEditing(event: Event) {
   const input = event.target as HTMLInputElement
   const current = rights.value
-  if (!current) return
-  const overrides = childEditingOverrides(current, input.checked)
-  const dropping = exceptionDropPreview(current, 'childrenEdit', overrides)
-  if (dropping.length > 0 && !(await confirm(t.dropConfirm(dropping.map(bundleTitle)), { confirmLabel: t.dropConfirmLabel, danger: true }))) {
+  if (!current || childEditRefusal.value) {
     input.checked = !input.checked
     return
   }
-  await save(overrides)
+  // A refused save keeps the stored state, so the box goes back to it.
+  if (!(await save(childEditingOverrides(current, input.checked)))) input.checked = !input.checked
 }
 </script>
 
@@ -82,12 +95,13 @@ async function toggleChildEditing(event: Event) {
 
     <!-- The Leitung: the one switch it may set for a Mitarbeiter. -->
     <div v-else-if="mode === 'childrenEdit'" class="space-y-1 text-sm">
-      <label v-if="childEdit" class="flex items-center gap-2">
+      <label v-if="childEdit" class="flex min-h-11 items-center gap-2" :class="childEditRefusal ? 'text-gray-500' : 'cursor-pointer'">
         <input
-          type="checkbox" :checked="childEdit.effective.enabled" :disabled="busy || !editable('childrenEdit')"
-          @change="toggleChildEditing"
-        > {{ t.childEdit }}
+          type="checkbox" class="size-4" :checked="childEdit.effective.enabled"
+          :disabled="busy || !editable('childrenEdit') || childEditRefusal !== null" @change="toggleChildEditing"
+        > {{ t.childEdit(childEditScope) }}
       </label>
+      <p v-if="childEditRefusalText" class="text-xs text-amber-700">{{ childEditRefusalText }}</p>
       <p class="text-xs text-gray-500">{{ t.childEditHint }}</p>
     </div>
 

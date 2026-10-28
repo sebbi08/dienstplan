@@ -79,7 +79,7 @@ describe('permission to maintain child records', () => {
   const set = (id: number, role: SessionUser['role'], employeeId: number | null) =>
     updateUser(db, leitung, id, { role, employeeId, active: true })
   const allow = (id: number) => saveUserRights(db, leitung, id, [{ bundle: 'childrenEdit', effect: 'grant' }])
-  const listed = (id: number) => listUsers(db, leitung).find(candidate => candidate.id === id)!
+  const canEdit = (id: number) => getActiveUser(db, id)!.permissions.has('children.edit')
 
   it('no longer takes the old switch: 400 use_rights_api, nothing changes', () => {
     const user = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
@@ -87,34 +87,27 @@ describe('permission to maintain child records', () => {
       expect(errorCode(() => updateUser(db, leitung, user.id, { role: 'admin', employeeId: null, active: true, canEditChildren: value })))
         .toBe('use_rights_api')
     }
-    expect(listed(user.id)).toMatchObject({ role: 'observer', canEditChildren: false })
+    expect(listUsers(db, leitung).find(candidate => candidate.id === user.id)).toMatchObject({ role: 'observer' })
+    expect(canEdit(user.id)).toBe(false)
   })
 
-  it('shows what the rights give a Mitarbeiter: the exception set through the rights API', () => {
+  it('takes the exception set through the rights API, and saving the account leaves it alone', () => {
     const user = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
-    expect(user.canEditChildren).toBe(false)
+    expect(user).not.toHaveProperty('canEditChildren')
     allow(user.id)
-    expect(listed(user.id).canEditChildren).toBe(true)
-    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(true)
-    // Saving the account leaves the right alone.
-    expect(set(user.id, 'observer', anna).canEditChildren).toBe(true)
+    expect(canEdit(user.id)).toBe(true)
+    set(user.id, 'observer', anna)
+    expect(canEdit(user.id)).toBe(true)
     saveUserRights(db, leitung, user.id, [])
-    expect(listed(user.id).canEditChildren).toBe(false)
-  })
-
-  it('says false for every other role', () => {
-    const tablet = createUser(db, leitung, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
-    expect(set(tablet.id, 'terminal', null).canEditChildren).toBe(false)
-    const second = createUser(db, leitung, { username: 'leitung2', password: 'start-1234', role: 'admin', employeeId: null })
-    expect(set(second.id, 'admin', null).canEditChildren).toBe(false)
+    expect(canEdit(user.id)).toBe(false)
   })
 
   it('keeps the exceptions when the account changes its role (they are the person\'s)', () => {
     const user = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     allow(user.id)
-    expect(set(user.id, 'admin', null).canEditChildren).toBe(false)
-    expect(set(user.id, 'observer', anna).canEditChildren).toBe(true)
-    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(true)
+    set(user.id, 'admin', null)
+    set(user.id, 'observer', anna)
+    expect(canEdit(user.id)).toBe(true)
   })
 })
 
