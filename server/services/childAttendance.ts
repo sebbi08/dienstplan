@@ -23,7 +23,7 @@ import {
   childPickupAnnouncements, children, facilities,
 } from '../db/schema'
 import { loadChild, type ChildRow } from '../lib/childRecord'
-import type { ChildViewer } from '../lib/childViewer'
+import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { groupHistories } from './childGroupChanges'
 import { listGroups } from './groups'
@@ -77,12 +77,12 @@ function historyOf(db: Db, facilityId: number, childId: number): GroupEntry[] {
  * Whether the day is the viewer's own to write (group book spec §3.4): the child's group on that day is the viewer's own
  * group, or the child has none, or the viewer has no group access. A group the viewer may only read is foreign here.
  */
-function ownOnDay(viewer: Pick<ChildViewer, 'groups'>, history: GroupEntry[], date: IsoDate): boolean {
-  return groupRight(groupOnDay(history, date), viewer.groups) === 'write'
+function ownOnDay(viewer: Pick<ChildViewer, 'groups' | 'writeGroups'>, history: GroupEntry[], date: IsoDate): boolean {
+  return groupRightOf(viewer, groupOnDay(history, date), 'children.attendance') === 'write'
 }
 
 /** Everything but stamping and announcing is closed on a foreign child's day: 403 group_read_only. */
-function assertOwnDay(viewer: Pick<ChildViewer, 'groups'>, history: GroupEntry[], date: IsoDate): void {
+function assertOwnDay(viewer: Pick<ChildViewer, 'groups' | 'writeGroups'>, history: GroupEntry[], date: IsoDate): void {
   if (!ownOnDay(viewer, history, date)) throw new ServiceError(403, 'group_read_only')
 }
 

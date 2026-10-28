@@ -1,4 +1,6 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { users } from '../../server/db/schema'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { getActiveUser, login } from '../../server/services/auth'
@@ -47,7 +49,8 @@ describe('users service', () => {
     const leitung = addUser(db, 'leitung', 'admin')
     const anna2 = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     expect(errorCode(() => createUser(db, leitung, { username: 'neu', password: 'start-1234', role: 'provider', employeeId: null }))).toBe('provider_only')
-    expect(errorCode(() => updateUser(db, leitung, leitung.id, { role: 'provider', employeeId: null, active: true }))).toBe('provider_only')
+    // Not even the own account: only the Träger changes that.
+    expect(errorCode(() => updateUser(db, leitung, leitung.id, { role: 'provider', employeeId: null, active: true }))).toBe('own_account')
     expect(errorCode(() => updateUser(db, leitung, provider.id, { role: 'provider', employeeId: null, active: false }))).toBe('provider_only')
     expect(errorCode(() => resetPassword(db, leitung, provider.id, 'reset-1234'))).toBe('provider_only')
     // The Leitung keeps managing everyone else.
@@ -106,12 +109,55 @@ describe('permission to maintain child records', () => {
     expect(set(second.id, 'admin', null).canEditChildren).toBe(false)
   })
 
-  it('clears the exceptions when the account changes its role', () => {
+  it('keeps the exceptions when the account changes its role (they are the person\'s)', () => {
     const user = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     allow(user.id)
     expect(set(user.id, 'admin', null).canEditChildren).toBe(false)
-    expect(set(user.id, 'observer', anna).canEditChildren).toBe(false)
-    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(false)
+    expect(set(user.id, 'observer', anna).canEditChildren).toBe(true)
+    expect(getActiveUser(db, user.id)!.permissions.has('children.edit')).toBe(true)
+  })
+})
+
+describe('who manages which accounts (no escalation through „Zugänge verwalten“)', () => {
+  let db: Db
+  let provider: SessionUser
+  let leitung: SessionUser
+  let anna: number
+  beforeEach(() => {
+    db = createTestDb()
+    provider = addUser(db, 'traeger', 'provider')
+    leitung = addUser(db, 'leitung', 'admin')
+    anna = addEmployee(db, 'Anna')
+  })
+
+  it('lets a Mitarbeiter with „Zugänge verwalten“ manage Mitarbeiter and tablet accounts only, never the own one', () => {
+    const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, provider, own.id, [{ bundle: 'usersManage', effect: 'grant' }])
+    const manager = getActiveUser(db, own.id)!
+    expect(manager.permissions.has('users.manage')).toBe(true)
+    const ben = createUser(db, manager, { username: 'ben', password: 'start-1234', role: 'observer', employeeId: addEmployee(db, 'Ben') })
+    createUser(db, manager, { username: 'tablet', password: 'tablet-password', role: 'terminal', employeeId: null })
+    expect(updateUser(db, manager, ben.id, { role: 'observer', employeeId: ben.employeeId, active: false }).active).toBe(false)
+    // Never above the own role: no Leitung, no Träger, no promotion, no change of a Leitung account.
+    expect(errorCode(() => createUser(db, manager, { username: 'neu', password: 'start-1234', role: 'admin', employeeId: null })))
+      .toBe('role_not_manageable')
+    expect(errorCode(() => updateUser(db, manager, ben.id, { role: 'admin', employeeId: null, active: true }))).toBe('role_not_manageable')
+    expect(errorCode(() => updateUser(db, manager, leitung.id, { role: 'admin', employeeId: null, active: false })))
+      .toBe('role_not_manageable')
+    expect(errorCode(() => resetPassword(db, manager, leitung.id, 'reset-1234'))).toBe('role_not_manageable')
+    expect(errorCode(() => createUser(db, manager, { username: 'boss', password: 'start-1234', role: 'provider', employeeId: null })))
+      .toBe('provider_only')
+    // And not the own account: no self-promotion.
+    expect(errorCode(() => updateUser(db, manager, own.id, { role: 'admin', employeeId: null, active: true }))).toBe('own_account')
+    expect(getActiveUser(db, own.id)!.role).toBe('observer')
+  })
+
+  it('keeps the Leitung managing Leitung, Mitarbeiter and tablet accounts of its facility, but not its own', () => {
+    const second = createUser(db, leitung, { username: 'leitung2', password: 'start-1234', role: 'admin', employeeId: null })
+    expect(updateUser(db, leitung, second.id, { role: 'admin', employeeId: null, active: false }).active).toBe(false)
+    expect(errorCode(() => updateUser(db, leitung, leitung.id, { role: 'admin', employeeId: anna, active: true }))).toBe('own_account')
+    // The Träger changes its own account as before.
+    expect(updateUser(db, provider, provider.id, { role: 'provider', employeeId: null, active: true }).role).toBe('provider')
   })
 })
 
@@ -200,8 +246,13 @@ describe('users per facility', () => {
   it('counts the last Leitung per facility', () => {
     const downgrade = (actor: SessionUser) =>
       () => updateUser(db, actor, leitungB.id, { role: 'observer', employeeId: kim, active: true })
-    expect(errorCode(downgrade(leitungB))).toBe('last_admin')
-    expect(errorCode(() => updateUser(db, leitungB, leitungB.id, { role: 'admin', employeeId: null, active: false }))).toBe('last_admin')
+    // The Leitung never changes its own account (it could only lock itself out or raise its rights).
+    expect(errorCode(downgrade(leitungB))).toBe('own_account')
+    expect(errorCode(() => updateUser(db, leitungB, leitungB.id, { role: 'admin', employeeId: null, active: false }))).toBe('own_account')
+    // Nor may anyone else take the last active Leitung away (here a deactivated second one of the facility).
+    const second = addUser(db, 'leitungB2', 'admin', null, facility2)
+    db.update(users).set({ active: false }).where(eq(users.id, second.id)).run()
+    expect(errorCode(downgrade(second))).toBe('last_admin')
     provider = addUser(db, 'traeger', 'provider', null, facility2)
     expect(errorCode(downgrade(provider))).toBeNull()
     expect(getActiveUser(db, leitungB.id)!.facilityId).toBe(facility2) // now a Mitarbeiter following Kim

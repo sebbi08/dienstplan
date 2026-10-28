@@ -77,7 +77,7 @@ describe('group book weekly overview', () => {
 
   it('opens the own group without a group given, otherwise the first one the viewer sees', () => {
     // Anna's own group comes first even when it is not the facility's first one.
-    const anna = { ...atTablet, groups: { own: c, readable: [a] } }
+    const anna = { ...atTablet, groups: { own: c, readable: [a] }, writeGroups: undefined }
     expect(getGroupWeek(db, anna, null, FRIDAY)).toMatchObject({ groupId: c, canWrite: true })
     expect(getGroupWeek(db, leitung, null, FRIDAY)).toMatchObject({ groupId: a, weekStart: MONDAY, canWrite: true })
     // A facility without groups has nothing to show.

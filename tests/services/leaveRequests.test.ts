@@ -11,6 +11,7 @@ import {
 } from '../../server/services/leaveRequests'
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
+import { saveUserRights } from '../../server/services/rights'
 import type { SessionUser } from '../../shared/types/api'
 import {
   addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, makePlanner, refreshPermissions, templateId,
@@ -222,5 +223,13 @@ describe('leave requests', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
     makePlanner(db, leitung)
     expect([getLeaveSettings(db, provider), getLeaveSettings(db, leitung)].map(s => [s.isPlanner, s.openCount])).toEqual([[true, 0], [true, 1]])
+    // A chosen Träger is told; another Träger then is not, even while nobody else plans in the facility.
+    const second = addUser(db, 'traeger2', 'provider')
+    setLeaveModule(db, { enabled: true, plannerIds: [second.id] })
+    expect([getLeaveSettings(db, second).openCount, getLeaveSettings(db, provider).openCount]).toEqual([1, 0])
+    saveUserRights(db, provider, leitung.id, [])
+    expect([getLeaveSettings(db, second).openCount, getLeaveSettings(db, provider).openCount]).toEqual([1, 0])
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    expect(getLeaveSettings(db, provider).openCount).toBe(1)
   })
 })

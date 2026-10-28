@@ -8,7 +8,7 @@ import type { Db } from '../db/client'
 import { children } from '../db/schema'
 // The group service reads the record helpers here as well; neither module calls the other while loading.
 import { settleDue } from '../services/childGroupChanges'
-import type { ChildViewer } from './childViewer'
+import { groupRightOf, type ChildViewer } from './childViewer'
 import { ServiceError } from './errors'
 
 export type ChildRow = typeof children.$inferSelect
@@ -27,9 +27,10 @@ export function loadChild(db: Db, facilityId: number, id: number): ChildRow {
  * the viewer may only read refuses a write with 403 group_read_only.
  */
 export function assertGroupRight(
-  viewer: Pick<ChildViewer, 'groups'>, groupId: number | null, need: 'read' | 'write', notFound = 'child_not_found',
+  viewer: Pick<ChildViewer, 'groups' | 'writeGroups'>, groupId: number | null, need: 'read' | 'write', notFound = 'child_not_found',
 ): void {
-  const right = groupRight(groupId, viewer.groups)
+  // Writing a record follows the scope of „eintragen und Akten ändern“, reading that of „ansehen“.
+  const right = groupRightOf(viewer, groupId, need === 'write' ? 'children.edit' : 'children.view')
   if (right === 'none') throw new ServiceError(404, notFound)
   if (need === 'write' && right === 'read') throw new ServiceError(403, 'group_read_only')
 }

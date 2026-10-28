@@ -1,3 +1,4 @@
+import { groupRight, type GroupRight } from '../../shared/domain/groupAccess'
 import { CHILD_ACTOR_KEYS, can, type ChildActorKey, type PermissionKey } from '../../shared/domain/permissions'
 import type { ChildVisibility, GroupAccess, Role } from '../../shared/types/api'
 import { ServiceError } from './errors'
@@ -25,11 +26,34 @@ export interface ChildViewer {
   visibility: ChildVisibility | null
   onTablet: boolean
   /**
-   * The groups the viewer works with (see `groupRight`): set for home staff of the facility with a group of their own
-   * whose child switches reach only the own group (scope 'group'); null = every group (scope 'facility', the Träger,
-   * staff without group, helpers).
+   * The groups the viewer sees (see `groupRight`; the scope of children.view): set for home staff of the facility with a
+   * group of their own whose „ansehen“ reaches only the own group (scope 'group': the own group and those it may read);
+   * null = every group (scope 'facility', the Träger, staff without group, helpers).
    */
   groups: GroupAccess | null
+  /**
+   * The groups the viewer writes in, per child key (spec Teil 2 §2: every child switch has its own scope): attendance and
+   * group book (children.attendance), records (children.edit). null = every group it sees. Left out (viewers built by
+   * hand), `groups` decides the writes as well.
+   */
+  writeGroups?: { attendance: GroupAccess | null; edit: GroupAccess | null }
+}
+
+/** The child keys with a group scope. */
+export type GroupKey = 'children.view' | 'children.attendance' | 'children.edit'
+
+/**
+ * The viewer's right in a group for the key: hidden when the viewer does not see the group (`groups`, the scope of
+ * children.view), else for children.attendance and children.edit 'write' where that key's scope reaches the group
+ * (`writeGroups`) and 'read' elsewhere. With the defaults (all scopes the same) this is `groupRight(groupId, groups)`.
+ */
+export function groupRightOf(
+  viewer: Pick<ChildViewer, 'groups' | 'writeGroups'>, groupId: number | null, key: GroupKey,
+): GroupRight {
+  const seen = groupRight(groupId, viewer.groups)
+  if (key === 'children.view' || seen === 'none' || !viewer.writeGroups) return seen
+  const access = key === 'children.edit' ? viewer.writeGroups.edit : viewer.writeGroups.attendance
+  return groupRight(groupId, access) === 'write' ? 'write' : 'read'
 }
 
 /** A viewer who may change records: it has an account to record as "changed by". */

@@ -8,26 +8,27 @@ import { ServiceError } from '../lib/errors'
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { resolveFacilityId } from './facilities'
-import { accountPermissions } from './permissions'
+import { accountRights } from './permissions'
 
 export const MAX_FAILED_LOGINS = 5
 export const LOCK_MINUTES = 15
 
 export type LoginResult = { ok: true; user: SessionUser } | { ok: false; reason: 'invalid' | 'locked' | 'left' }
 
-/** The account as the server works with it: facility and permissions resolved fresh from the database. */
+/** The account as the server works with it: facility, permissions and their scopes resolved fresh from the database. */
 export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUser {
   const user = {
     id: row.id, username: row.username, role: row.role,
     employeeId: row.employeeId, mustChangePassword: row.mustChangePassword,
     facilityId: resolveFacilityId(db, row),
   }
-  return { ...user, permissions: accountPermissions(db, user) }
+  const rights = accountRights(db, user)
+  return { ...user, permissions: rights.permissions, scopes: rights.scopes }
 }
 
-/** The user as the session cookie stores it and the browser gets it: the permission set stays on the server. */
+/** The user as the session cookie stores it and the browser gets it: the permission set and scopes stay on the server. */
 export function sessionPayload(user: SessionUser): SessionPayloadUser {
-  const { permissions: _permissions, ...payload } = user
+  const { permissions: _permissions, scopes: _scopes, ...payload } = user
   return payload
 }
 

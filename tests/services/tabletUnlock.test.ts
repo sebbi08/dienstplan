@@ -184,6 +184,7 @@ describe('unlocking the tablet for child records', () => {
       expect(viewer(token)).toEqual({
         id: null, employeeId: anna, name: 'Anna', role: 'observer', facilityId: 1,
         permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
+        writeGroups: { attendance: null, edit: null },
       })
     })
     it('gives a Mitarbeiter account its child-edit exception, as it is now', () => {

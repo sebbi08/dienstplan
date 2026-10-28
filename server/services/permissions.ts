@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import {
   effectiveRights, type BundleId, type BundleOverride, type BundleScope, type EffectiveRights, type RightsRole,
   type RoleBundleSetting,
@@ -48,6 +48,33 @@ export function accountRights(
   const overrides = bundleOverrideRows(db, account.id)
   if (facilityId === null || facilityId !== account.facilityId) overrides.push(OUTSIDE_OWN_FACILITY)
   return effectiveRights({ role: account.role, roleBundles: roleBundleRows(db, account.role), overrides })
+}
+
+/**
+ * `accountRights` of several accounts at once, each in its own facility: the role settings read once per role and the
+ * exceptions of all of them in one query (for lists: the users page, who plans leave in a facility).
+ */
+export function accountsRights(db: Db, accounts: readonly PermissionSubject[]): Map<number, EffectiveRights> {
+  const ids = accounts.filter(account => isRightsRole(account.role)).map(account => account.id)
+  const overrides = new Map<number, BundleOverride[]>()
+  if (ids.length > 0) {
+    for (const row of db.select().from(userBundleOverrides).where(inArray(userBundleOverrides.userId, ids)).all()) {
+      overrides.set(row.userId, [...overrides.get(row.userId) ?? [], { bundle: row.bundle, effect: row.effect, scope: row.scope }])
+    }
+  }
+  const roleRows = new Map<RightsRole, RoleBundleSetting[]>()
+  const result = new Map<number, EffectiveRights>()
+  for (const account of accounts) {
+    if (!isRightsRole(account.role)) {
+      result.set(account.id, effectiveRights({ role: account.role }))
+      continue
+    }
+    if (!roleRows.has(account.role)) roleRows.set(account.role, roleBundleRows(db, account.role))
+    const own = [...overrides.get(account.id) ?? []]
+    if (account.facilityId === null) own.push(OUTSIDE_OWN_FACILITY)
+    result.set(account.id, effectiveRights({ role: account.role, roleBundles: roleRows.get(account.role), overrides: own }))
+  }
+  return result
 }
 
 /** The permission set of `accountRights`. */

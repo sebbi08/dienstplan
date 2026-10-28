@@ -24,16 +24,29 @@ type Resolved =
 /** A person without (active) account of the home facility at the tablet: the Mitarbeiter defaults, no exceptions. */
 const NO_ACCOUNT = effectiveRights({ role: 'observer' })
 
+type GroupScopes = Pick<ChildViewer, 'groups' | 'writeGroups'>
+
 /**
- * The groups a person works with (see `groupRight`): with the scope „nur eigene Gruppe“ on any child switch they hold,
- * their own group and the groups it may read; with „ganze Einrichtung“ on all of them, or without a home group, every
- * group (null).
+ * The groups a person of the facility works with, per child switch (see `groupRightOf`): „ansehen“ decides which groups
+ * they see, „Anwesenheit und Gruppenbuch“ and „eintragen und Akten ändern“ where they write. Scope „nur eigene Gruppe“:
+ * the own group (and, to see, the groups it may read); „ganze Einrichtung“, or no home group: every group. A switch
+ * they do not hold follows „ansehen“ (its key is refused anyway).
  */
-function groupAccessFor(db: Db, scopes: ReadonlyMap<PermissionKey, BundleScope>, groupId: number | null): GroupAccess | null {
-  if (groupId === null || ![...scopes.values()].includes('group')) return null
+function groupAccessFor(db: Db, scopes: ReadonlyMap<PermissionKey, BundleScope> | undefined, groupId: number | null): GroupScopes {
+  if (groupId === null) return { groups: null, writeGroups: { attendance: null, edit: null } }
+  let own: GroupAccess | undefined
   // No facility check here: the employee's group is one of the home facility, and a stray one must not break the tablet.
-  return { own: groupId, readable: readableGroupIds(db, groupId) }
+  const restricted = () => (own ??= { own: groupId, readable: readableGroupIds(db, groupId) })
+  const view = scopes?.get('children.view') === 'group' ? restricted() : null
+  const of = (key: PermissionKey) => {
+    const scope = scopes?.get(key)
+    return scope === undefined ? view : scope === 'group' ? restricted() : null
+  }
+  return { groups: view, writeGroups: { attendance: of('children.attendance'), edit: of('children.edit') } }
 }
+
+/** Every group, for a viewer without a home group of the facility (helpers, the Träger, staff without group). */
+const ALL_GROUPS: GroupScopes = { groups: null, writeGroups: { attendance: null, edit: null } }
 
 /** The moment after which the server no longer accepts an unlock that was last used at lastActiveAt. */
 function validUntil(lastActiveAt: string, lockMinutes: number): number {
@@ -69,7 +82,7 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     visibility: can(permissions, 'children.planned') ? null
       : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts },
     onTablet: true,
-    groups: homeStaff ? groupAccessFor(db, rights.scopes, employee.groupId) : null,
+    ...homeStaff ? groupAccessFor(db, rights.scopes, employee.groupId) : ALL_GROUPS,
   }
 }
 
@@ -175,7 +188,8 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
   return {
     id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
     permissions: user.permissions, facilityId: user.facilityId, visibility: null, onTablet: false,
-    groups: homeStaff ? groupAccessFor(db, accountRights(db, user).scopes, employee.groupId) : null,
+    // The scopes come with the permissions of this request (one read of the rights).
+    ...homeStaff ? groupAccessFor(db, user.scopes, employee.groupId) : ALL_GROUPS,
   }
 }
 

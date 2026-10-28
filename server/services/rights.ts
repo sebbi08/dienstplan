@@ -35,10 +35,10 @@ export function rightsRole(value: string): RightsRole {
   return value as RightsRole
 }
 
-/** A bundle id from a request: 400 provider_only for a Träger-only right, 400 unknown_bundle for anything else unknown. */
+/** A bundle id from a request: 400 provider_only_right for a Träger-only right, 400 unknown_bundle for anything else unknown. */
 function checkedBundle(value: string): BundleId {
   if (isBundleId(value)) return value
-  if (PROVIDER_ONLY_KEYS.has(value)) throw new ServiceError(400, 'provider_only')
+  if (PROVIDER_ONLY_KEYS.has(value)) throw new ServiceError(400, 'provider_only_right')
   throw new ServiceError(400, 'unknown_bundle')
 }
 
@@ -77,17 +77,21 @@ export function getRights(db: Db): RightsDto {
 /**
  * Makes `next` consistent after the bundles in `on` were switched on and those in `off` switched off: what the new ones
  * need or include comes along (`pull`), what needs or includes a removed one goes (`drop`). A bundle switched on that
- * needs one switched off in the same request is 400 conflicting_bundles.
+ * needs one switched off in the same request is 400 conflicting_bundles. A pulled-in bundle with scope takes the scope
+ * of the switched-on bundle that pulls it (null: none of them has one; the role's default then applies).
  */
 function settle(
   next: BundleMap, on: ReadonlySet<BundleId>, off: ReadonlySet<BundleId>,
-  pull: (id: BundleId) => void, drop: (id: BundleId) => void,
+  pull: (id: BundleId, scope: BundleScope | null) => void, drop: (id: BundleId) => void,
 ): RightsChangeDto {
+  const pullerScope = (id: BundleId): BundleScope | null => BUNDLE_IDS
+    .filter(puller => on.has(puller) && next.get(puller) && bundlesPulledBy([puller]).includes(id))
+    .map(puller => next.get(puller)!)[0] ?? null
   const pulledIn: BundleId[] = []
   for (const id of bundlesPulledBy(on)) {
     if (off.has(id)) throw new ServiceError(400, 'conflicting_bundles')
     if (!next.has(id)) {
-      pull(id)
+      pull(id, pullerScope(id))
       pulledIn.push(id)
     }
   }
@@ -141,7 +145,7 @@ export function saveRoleRights(db: Db, role: RightsRole, input: readonly { id: s
       if (current.has(id)) off.add(id)
     }
   }
-  const change = settle(next, on, off, id => next.set(id, scopeFor(id, null, role)), id => next.delete(id))
+  const change = settle(next, on, off, (id, scope) => next.set(id, scopeFor(id, scope, role)), id => next.delete(id))
   storeRole(db, role, next)
   return { ...roleRights(role, roleMap(db, role)), ...change }
 }
@@ -222,7 +226,7 @@ function userRights(db: Db, actor: SessionUser, target: Target): UserRightsDto {
       override: overrides.get(id) ?? null,
       effective: { enabled: effective.has(id), scope: effective.get(id) ?? null },
     })),
-    editable: can(actor.permissions, 'rights.manage') ? [...BUNDLE_IDS] : [...LEITUNG_EDITABLE],
+    editable: can(actor.permissions, 'rights.manage') ? [...BUNDLE_IDS] : target.id === actor.id ? [] : [...LEITUNG_EDITABLE],
   }
 }
 
@@ -238,12 +242,16 @@ const sameOverride = (a: Override | undefined, b: Override | undefined) =>
  * PUT /api/users/[id]/rights: replaces the person's exceptions (one left out is removed). Switching a bundle on for the
  * person pulls in what it needs (an exception where the role lacks it), switching one off takes what needs it away
  * (a revoke where the role has it). The Leitung may change only the exception „eintragen und Akten ändern“ (own group)
- * of a Mitarbeiter of its facility; any other change, also one the dependencies would cause, is 403 forbidden.
+ * of a Mitarbeiter of its facility; any other change is 403 forbidden, one the dependencies would cause (taking it
+ * away drops a bundle the role gives) 403 rights_dependent_bundle. Nobody but the Träger changes the rights of the own
+ * account: 403 own_account.
  */
 export function saveUserRights(
   db: Db, actor: SessionUser, userId: number, input: readonly { bundle: string; effect: string; scope?: string | null }[],
 ): UserRightsDto & RightsChangeDto {
   const target = loadTarget(db, actor, userId)
+  const provider = can(actor.permissions, 'rights.manage')
+  if (!provider && target.id === actor.id) throw new ServiceError(403, 'own_account')
   const role = roleMap(db, target.role)
   // A grant stored without scope counts with the scope it applies with, so resending it is no change.
   const before = new Map<BundleId, Override>([...overrideMap(db, target.id)].map(([id, override]) => [id, override.effect === 'grant'
@@ -261,20 +269,29 @@ export function saveUserRights(
   const has = withOverrides(role, next)
   const on = new Set([...has.keys()].filter(id => !had.has(id)))
   const off = new Set([...had.keys()].filter(id => !has.has(id)))
-  const change = settle(has, on, off, (id) => {
-    if (role.has(id)) next.delete(id)
-    else next.set(id, { effect: 'grant', scope: scopeFor(id, null, target.role) })
-    has.set(id, null)
+  const change = settle(has, on, off, (id, scope) => {
+    const granted = scopeFor(id, scope, target.role)
+    if (role.has(id) && role.get(id) === granted) next.delete(id)
+    else next.set(id, { effect: 'grant', scope: granted })
+    has.set(id, granted)
   }, (id) => {
     if (role.has(id)) next.set(id, { effect: 'revoke', scope: null })
     else next.delete(id)
     has.delete(id)
   })
-  if (!can(actor.permissions, 'rights.manage')) {
+  if (!provider) {
     const changed = BUNDLE_IDS.filter(id => !sameOverride(before.get(id), next.get(id)))
-    if (changed.some(id => !LEITUNG_EDITABLE.includes(id))) throw new ServiceError(403, 'forbidden')
+    const others = changed.filter(id => !LEITUNG_EDITABLE.includes(id))
+    if (others.length > 0) {
+      // Taking „eintragen und Akten ändern“ away would also take a bundle the Träger gave (role or exception).
+      if (others.every(id => change.dropped.includes(id))) throw new ServiceError(403, 'rights_dependent_bundle')
+      throw new ServiceError(403, 'forbidden')
+    }
+    // Only a change of the switch itself is checked: an unchanged exception the Träger set stays as it is.
     const childEdit = next.get('childrenEdit')
-    if (childEdit?.effect === 'grant' && childEdit.scope !== 'group') throw new ServiceError(403, 'forbidden')
+    if (changed.includes('childrenEdit') && childEdit?.effect === 'grant' && childEdit.scope !== 'group') {
+      throw new ServiceError(403, 'forbidden')
+    }
   }
   db.transaction((tx) => {
     tx.delete(userBundleOverrides).where(eq(userBundleOverrides.userId, target.id)).run()
@@ -282,10 +299,5 @@ export function saveUserRights(
     if (rows.length > 0) tx.insert(userBundleOverrides).values(rows).run()
   })
   return { ...userRights(db, actor, target), ...change }
-}
-
-/** The account's exceptions go when its role changes: they were set against the old role's rights. */
-export function clearUserRights(db: Db, userId: number): void {
-  db.delete(userBundleOverrides).where(eq(userBundleOverrides.userId, userId)).run()
 }
 

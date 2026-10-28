@@ -6,7 +6,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { GroupBookChangeDto, GroupDayLabel, GroupWeekDto, NoteDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, groupBookChanges, groupDayNotes, groups, groupWeekNotes } from '../db/schema'
-import type { ChildViewer } from '../lib/childViewer'
+import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
@@ -26,7 +26,7 @@ const NO_NOTE: NoteDto = { text: '', updatedAt: null, updatedByName: null }
 function visibleGroup(db: Db, viewer: ChildViewer, groupId: number): { id: number; name: string; write: boolean } {
   const row = db.select({ id: groups.id, name: groups.name }).from(groups)
     .where(and(eq(groups.id, groupId), eq(groups.facilityId, viewer.facilityId))).get()
-  const right = row ? groupRight(row.id, viewer.groups) : 'none'
+  const right = row ? groupRightOf(viewer, row.id, 'children.attendance') : 'none'
   if (!row || right === 'none') throw new ServiceError(404, 'group_not_found')
   return { ...row, write: right === 'write' }
 }
@@ -100,7 +100,7 @@ export function getGroupWeek(db: Db, viewer: ChildViewer, groupId: number | null
     }),
     canWrite: group.write,
     groups: listGroups(db, viewer.facilityId).flatMap((candidate) => {
-      const right = groupRight(candidate.id, viewer.groups)
+      const right = groupRightOf(viewer, candidate.id, 'children.attendance')
       return right === 'none' ? [] : [{ id: candidate.id, name: candidate.name, right }]
     }),
   }

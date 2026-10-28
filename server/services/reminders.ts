@@ -1,7 +1,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, isNull, or } from 'drizzle-orm'
 import { ageOn, childStatus, hiddenFromViewer, type ChildStatus } from '../../shared/domain/children'
 import { addDays } from '../../shared/domain/dates'
-import { groupRight } from '../../shared/domain/groupAccess'
 import { docDue, inWindow, nextBirthday, sortReminders, type DocSettings, type ReminderKind } from '../../shared/domain/reminders'
 import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
@@ -10,7 +9,7 @@ import type { DevelopmentDocDto, ReminderDto, ReminderSettingsDto } from '../../
 import type { Db } from '../db/client'
 import { childDevelopmentDocs, children, employees } from '../db/schema'
 import { loadEditableChild, type ChildRow } from '../lib/childRecord'
-import type { ChildViewer } from '../lib/childViewer'
+import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
@@ -62,7 +61,7 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   const settings = getReminderSettings(db, facilityId)
   const docSettingsOf = docSettingsLookup(settings)
   const writable = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => groupRight(row.groupId, viewer.groups) === 'write')
+    .filter(row => groupRightOf(viewer, row.groupId, 'children.attendance') === 'write')
   const rows = writable.filter(row => childStatus(row, today) === 'active')
   // Children who have not started yet (contract before the entry, Vormerkung) and are still to come, unless the
   // tablet's switches hide them from the viewer: only their parent meetings are reminded.
@@ -147,7 +146,7 @@ export function developmentDocOf(
   db: Db, viewer: ChildViewer, row: ChildRow, status: ChildStatus, today: IsoDate,
 ): DevelopmentDocDto {
   const last = latestDone(db, [row.id]).get(row.id)
-  const writes = groupRight(row.groupId, viewer.groups) === 'write'
+  const writes = groupRightOf(viewer, row.groupId, 'children.attendance') === 'write'
   const active = status === 'active'
   return {
     lastDone: last ? { id: last.id, date: last.doneOn, name: last.doneByName } : null,

@@ -9,6 +9,7 @@ import {
   getRights, getUserRights, resetRoleRights, rightsRole, saveRoleRights, saveUserRights,
 } from '../../server/services/rights'
 import { tabletChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
+import { groupRightOf } from '../../server/lib/childViewer'
 import { setPin } from '../../server/services/terminal'
 import { updateUser } from '../../server/services/users'
 import { BUNDLE_IDS, BUNDLES } from '../../shared/domain/permissionBundles'
@@ -107,8 +108,8 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
     })
 
     it('never stores a Träger-only right, an unknown bundle or a bad scope (400, nothing stored)', () => {
-      expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'rights.manage', enabled: true }]))).toBe('provider_only')
-      expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'settings.staffing', enabled: true }]))).toBe('provider_only')
+      expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'rights.manage', enabled: true }]))).toBe('provider_only_right')
+      expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'settings.staffing', enabled: true }]))).toBe('provider_only_right')
       expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'everything', enabled: true }]))).toBe('unknown_bundle')
       expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'childrenView', enabled: true, scope: 'world' }]))).toBe('invalid_scope')
       expect(errorCode(() => saveRoleRights(db, 'admin', [{ id: 'planView', enabled: true }, { id: 'planView', enabled: false }])))
@@ -160,19 +161,29 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
     })
 
     it('never store a Träger-only right, an unknown bundle or effect (400)', () => {
-      expect(errorCode(() => saveUserRights(db, traeger, anna.id, [{ bundle: 'backup.download', effect: 'grant' }]))).toBe('provider_only')
+      expect(errorCode(() => saveUserRights(db, traeger, anna.id, [{ bundle: 'backup.download', effect: 'grant' }]))).toBe('provider_only_right')
       expect(errorCode(() => saveUserRights(db, traeger, anna.id, [{ bundle: 'nonsense', effect: 'grant' }]))).toBe('unknown_bundle')
       expect(errorCode(() => saveUserRights(db, traeger, anna.id, [{ bundle: 'planView', effect: 'maybe' }]))).toBe('invalid_effect')
       expect(errorCode(() => saveUserRights(db, traeger, traeger.id, []))).toBe('no_rights_role')
       expect(overrides(anna)).toEqual([])
     })
 
-    it('go when the account changes its role', () => {
-      saveUserRights(db, traeger, anna.id, [{ bundle: 'templatesEdit', effect: 'grant' }])
-      updateUser(db, traeger, anna.id, { role: 'observer', employeeId: annaEmployee, active: true })
-      expect(overrides(anna)).toHaveLength(1)
+    it('stay with the account when its role changes (they are the person\'s)', () => {
+      saveUserRights(db, traeger, anna.id, [{ bundle: 'templatesEdit', effect: 'grant' }, { bundle: 'planView', effect: 'revoke' }])
       updateUser(db, traeger, anna.id, { role: 'admin', employeeId: annaEmployee, active: true })
-      expect(overrides(anna)).toEqual([])
+      expect(overrides(anna)).toEqual([['planView', 'revoke', null], ['templatesEdit', 'grant', null]])
+      expect(fresh(anna).permissions.has('plan.view')).toBe(false)
+    })
+
+    it('give a pulled-in children switch the scope of the switch that pulled it', () => {
+      saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: false }])
+      const role = saveRoleRights(db, 'observer', [{ id: 'childrenEdit', enabled: true, scope: 'facility' }])
+      expect(role.pulledIn).toEqual(['childrenView'])
+      expect(role.bundles.find(bundle => bundle.id === 'childrenView')).toMatchObject({ enabled: true, scope: 'facility' })
+      resetRoleRights(db, 'observer')
+      saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: false }])
+      saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenAttendance', effect: 'grant', scope: 'facility' }])
+      expect(overrides(anna)).toEqual([['childrenAttendance', 'grant', 'facility'], ['childrenView', 'grant', 'facility']])
     })
   })
 
@@ -204,6 +215,40 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
         expect(errorCode(() => saveUserRights(db, leitung, anna.id, change)), JSON.stringify(change)).toBe('forbidden')
       }
       expect(overrides(anna)).toEqual([['childrenEdit', 'grant', 'group'], ['templatesEdit', 'grant', null]])
+    })
+
+    it('leaves an unchanged exception of the Träger alone and checks only a change of the edit switch', () => {
+      // The Träger gave „eintragen und Akten ändern“ for the whole facility; the Leitung saves the list unchanged.
+      saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'facility' }])
+      saveUserRights(db, leitung, anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'facility' }])
+      expect(overrides(anna)).toEqual([['childrenEdit', 'grant', 'facility']])
+      // Taking it away is hers; giving the whole facility again is not.
+      saveUserRights(db, leitung, anna.id, [])
+      expect(errorCode(() => saveUserRights(db, leitung, anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'facility' }])))
+        .toBe('forbidden')
+    })
+
+    it('cannot take the edit switch away where the role builds on it: 403 rights_dependent_bundle', () => {
+      saveRoleRights(db, 'observer', [{ id: 'childrenManage', enabled: true }])
+      expect(errorCode(() => saveUserRights(db, leitung, anna.id, [{ bundle: 'childrenEdit', effect: 'revoke' }])))
+        .toBe('rights_dependent_bundle')
+      expect(overrides(anna)).toEqual([])
+      // The Träger may, and the dependent switch goes with it.
+      expect(saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenEdit', effect: 'revoke' }]).dropped).toEqual(['childrenManage'])
+    })
+
+    it('never lets anyone but the Träger change the rights of the own account (403 own_account)', () => {
+      // A Mitarbeiter the Träger gave „Zugänge verwalten“ manages the others' edit switch, never its own.
+      saveUserRights(db, traeger, anna.id, [{ bundle: 'usersManage', effect: 'grant' }])
+      const manager = fresh(anna)
+      expect(manager.permissions.has('users.manage')).toBe(true)
+      saveUserRights(db, manager, ben.id, [{ bundle: 'childrenEdit', effect: 'grant' }])
+      expect(fresh(ben).permissions.has('children.edit')).toBe(true)
+      expect(getUserRights(db, manager, anna.id).editable).toEqual([])
+      expect(errorCode(() => saveUserRights(db, manager, anna.id, [
+        { bundle: 'usersManage', effect: 'grant' }, { bundle: 'childrenEdit', effect: 'grant' },
+      ]))).toBe('own_account')
+      expect(errorCode(() => saveUserRights(db, leitung, leitung.id, []))).toBe('forbidden')
     })
 
     it('may not touch other accounts of its facility or Träger accounts (403), nor accounts of another facility (404)', () => {
@@ -258,9 +303,21 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       expect(bears).toBeGreaterThan(0)
     })
 
-    it('stays with the own group while any child switch reaches only the own group', () => {
+    it('takes the scope of every children switch on its own', () => {
+      // „ansehen: ganze Einrichtung“, attendance own group: sees every group, writes attendance only in the own one.
       saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenView', effect: 'grant', scope: 'facility' }])
-      expect(tabletViewer().groups).toEqual({ own: mice, readable: [] })
+      const viewer = tabletViewer()
+      expect(viewer.groups).toBeNull()
+      // (She holds no edit switch: that key follows „ansehen“ and is refused anyway.)
+      expect(viewer.writeGroups).toEqual({ attendance: { own: mice, readable: [] }, edit: null })
+      expect([groupRightOf(viewer, bears, 'children.view'), groupRightOf(viewer, bears, 'children.attendance')]).toEqual(['write', 'read'])
+      expect(groupRightOf(viewer, mice, 'children.attendance')).toBe('write')
+      // Editing for the whole facility, seeing only the own group: writes where it sees.
+      saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'facility' }])
+      const editor = tabletViewer()
+      expect(editor.groups).toEqual({ own: mice, readable: [] })
+      expect(editor.writeGroups).toEqual({ attendance: { own: mice, readable: [] }, edit: null })
+      expect([groupRightOf(editor, bears, 'children.edit'), groupRightOf(editor, mice, 'children.edit')]).toEqual(['none', 'write'])
     })
   })
 })

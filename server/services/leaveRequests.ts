@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm'
 import { isTimeOff, OVERTIME_OFF, timeOffMinutes } from '../../shared/domain/balance'
 import { addDays, dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { countLeaveDays } from '../../shared/domain/leave'
@@ -20,7 +20,7 @@ import { getYearCalendar } from './calendar'
 import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
 import { getLeaveAccount } from './leave'
-import { accountPermissions } from './permissions'
+import { accountPermissions, accountsRights } from './permissions'
 import { closureOn, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 /** The module switch is installation-wide; the limit and the planning are per facility. */
@@ -139,13 +139,15 @@ function userNames(db: Db): Map<number, string> {
  * leave.plan (the bundle „planen und genehmigen“).
  */
 function facilityHasPlanner(db: Db, facilityId: number): boolean {
-  const candidates = db.select({ user: users, employeeFacility: employees.facilityId }).from(users)
+  // Only the facility's accounts (a Leitung by its own facility, a Mitarbeiter by its employee's), their rights in one read.
+  const candidates = db.select({ id: users.id, role: users.role }).from(users)
     .leftJoin(employees, eq(users.employeeId, employees.id))
-    .where(and(eq(users.active, true), inArray(users.role, ['admin', 'observer']))).all()
-  return candidates.some(({ user, employeeFacility }) => {
-    const own = user.role === 'admin' ? user.facilityId : employeeFacility
-    return own === facilityId && can(accountPermissions(db, { id: user.id, role: user.role, facilityId: own }), 'leave.plan')
-  })
+    .where(and(eq(users.active, true), or(
+      and(eq(users.role, 'admin'), eq(users.facilityId, facilityId)),
+      and(eq(users.role, 'observer'), eq(employees.facilityId, facilityId)),
+    ))).all()
+  const rights = accountsRights(db, candidates.map(user => ({ ...user, facilityId })))
+  return [...rights.values()].some(account => account.permissions.has('leave.plan'))
 }
 
 /** The chosen Träger accounts (the list may still hold Leitung accounts from before the rights page; they count no more). */
@@ -166,10 +168,10 @@ export function getLeaveSettings(db: Db, viewer: SessionUser): LeaveSettingsDto 
   const permissions = viewer.permissions
   const planner = enabled && facilityId !== null && can(permissions, 'leave.plan')
   const chosen = chosenProviders(db)
-  // The count (menu badge) goes to every planner of the facility; to a Träger only when chosen for the notification,
-  // or while nobody else plans in the facility.
+  // The count (menu badge) goes to every planner of the facility; to a Träger when chosen for the notification, or while
+  // nobody at all is chosen or plans there (no Träger chosen, no Leitung or Mitarbeiter of the facility planning).
   const notified = planner && (!can(permissions, 'leave.configure') || chosen.includes(viewer.id)
-    || !facilityHasPlanner(db, facilityId))
+    || (chosen.length === 0 && !facilityHasPlanner(db, facilityId)))
   return {
     enabled,
     maxConcurrent: facilityId === null ? null : maxConcurrent(db, facilityId),

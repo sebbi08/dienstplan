@@ -8,9 +8,7 @@ import { ServiceError } from '../lib/errors'
 import { hashPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { assertPasswordStrength } from './auth'
-import { resolveFacilityId } from './facilities'
-import { accountPermissions } from './permissions'
-import { clearUserRights } from './rights'
+import { accountsRights } from './permissions'
 
 export interface UserInput {
   username: string
@@ -33,7 +31,7 @@ export interface UserUpdate {
 /** The users a viewer manages: Leitung and tablet of the viewer's facility, Mitarbeiter of its employees, and all Träger. */
 function visibleUsers(db: Db, viewer: SessionUser) {
   const facilityId = viewer.facilityId
-  return db.select({ user: users, employeeName: employees.name })
+  return db.select({ user: users, employeeName: employees.name, employeeFacility: employees.facilityId })
     .from(users)
     .leftJoin(employees, eq(users.employeeId, employees.id))
     .where(or(
@@ -46,17 +44,16 @@ function visibleUsers(db: Db, viewer: SessionUser) {
 }
 
 export function listUsers(db: Db, viewer: SessionUser): UserDto[] {
-  return visibleUsers(db, viewer).map(({ user, employeeName }) => ({
+  const rows = visibleUsers(db, viewer)
+  // canEditChildren: a Mitarbeiter account holds „eintragen und Akten ändern“ (from its role or an exception); the
+  // rights of all listed Mitarbeiter in one read.
+  const rights = accountsRights(db, rows.filter(({ user }) => user.role === 'observer')
+    .map(({ user, employeeFacility }) => ({ id: user.id, role: user.role, facilityId: employeeFacility ?? null })))
+  return rows.map(({ user, employeeName }) => ({
     id: user.id, username: user.username, role: user.role, employeeId: user.employeeId,
-    employeeName: employeeName ?? null, active: user.active,
-    mustChangePassword: user.mustChangePassword, canEditChildren: mayEditChildRecords(db, user), lockedUntil: user.lockedUntil,
+    employeeName: employeeName ?? null, active: user.active, mustChangePassword: user.mustChangePassword,
+    canEditChildren: rights.get(user.id)?.permissions.has('children.edit') ?? false, lockedUntil: user.lockedUntil,
   }))
-}
-
-/** A Mitarbeiter account holds „eintragen und Akten ändern“ (from its role or an exception); shown on the users page. */
-function mayEditChildRecords(db: Db, user: typeof users.$inferSelect): boolean {
-  if (user.role !== 'observer') return false
-  return can(accountPermissions(db, { id: user.id, role: user.role, facilityId: resolveFacilityId(db, user) }), 'children.edit')
 }
 
 function findUser(db: Db, viewer: SessionUser, id: number): { dto: UserDto; facilityId: number | null } {
@@ -96,11 +93,26 @@ function activeManagers(db: Db, facilityId: number | null): number {
   return leitung + activeProviders(db)
 }
 
-/** Only whoever manages Träger accounts (the Träger) may create, change, appoint or reset Träger accounts. */
+/**
+ * The roles whose accounts the actor creates, changes, deactivates and resets (users.manage): the Träger
+ * (users.providerAccounts) every role; a Leitung, as before, Leitung, Mitarbeiter and tablet accounts; anyone else who
+ * was given „Zugänge verwalten“ only Mitarbeiter and tablet accounts, never one above their own.
+ */
+function manageableRoles(actor: SessionUser): readonly Role[] {
+  if (can(actor.permissions, 'users.providerAccounts')) return ['provider', 'admin', 'observer', 'terminal']
+  return actor.role === 'admin' ? ['admin', 'observer', 'terminal'] : ['observer', 'terminal']
+}
+
+/**
+ * Only whoever manages Träger accounts (the Träger) may create, change, appoint or reset Träger accounts (403
+ * provider_only); a role outside `manageableRoles` is 403 role_not_manageable.
+ */
 function assertMayManage(actor: SessionUser, ...roles: Role[]): void {
   if (roles.includes('provider') && !can(actor.permissions, 'users.providerAccounts')) {
     throw new ServiceError(403, 'provider_only')
   }
+  const allowed = manageableRoles(actor)
+  if (roles.some(role => !allowed.includes(role))) throw new ServiceError(403, 'role_not_manageable')
 }
 
 export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDto {
@@ -124,26 +136,30 @@ export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDt
 export function updateUser(db: Db, actor: SessionUser, id: number, update: UserUpdate): UserDto {
   if (update.canEditChildren !== undefined) throw new ServiceError(400, 'use_rights_api')
   const { dto: user, facilityId: userFacilityId } = findUser(db, actor, id)
+  // Nobody but the Träger changes the own account (role, link, active): no way to raise the own rights.
+  if (id === actor.id && !can(actor.permissions, 'users.providerAccounts')) throw new ServiceError(403, 'own_account')
   assertMayManage(actor, user.role, update.role)
   assertEmployeeLink(db, actor, update.role, update.employeeId, id)
   const loses = (roles: Role[]) => roles.includes(user.role) && user.active && (!roles.includes(update.role) || !update.active)
-  if (loses(['provider']) && activeProviders(db) <= 1) throw new ServiceError(409, 'last_provider')
-  if (loses([...MANAGER_ROLES]) && activeManagers(db, user.role === 'admin' ? userFacilityId : actor.facilityId) <= 1) {
-    throw new ServiceError(409, 'last_admin')
-  }
   // Leitung and tablet belong to a facility, a Mitarbeiter follows its employee; whoever newly becomes Leitung or tablet joins the acting user's facility.
   const facilityId = update.role === 'observer' ? null
     : update.role === 'provider' ? userFacilityId
       : user.role === update.role ? userFacilityId : actorFacility(actor)
-  db.update(users)
-    .set({
-      role: update.role, employeeId: update.employeeId, active: update.active, facilityId,
-      // The tablet cannot reach the password page, so a terminal must never be forced to change it.
-      ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
-    })
-    .where(eq(users.id, id)).run()
-  // The exceptions were set against the old role's rights; with another role the account starts from its defaults.
-  if (update.role !== user.role) clearUserRights(db, id)
+  // The checks and the change in one transaction. The account's exceptions stay with it (they are the person's); under
+  // another role they apply against that role's settings.
+  db.transaction((tx) => {
+    if (loses(['provider']) && activeProviders(tx) <= 1) throw new ServiceError(409, 'last_provider')
+    if (loses([...MANAGER_ROLES]) && activeManagers(tx, user.role === 'admin' ? userFacilityId : actor.facilityId) <= 1) {
+      throw new ServiceError(409, 'last_admin')
+    }
+    tx.update(users)
+      .set({
+        role: update.role, employeeId: update.employeeId, active: update.active, facilityId,
+        // The tablet cannot reach the password page, so a terminal must never be forced to change it.
+        ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
+      })
+      .where(eq(users.id, id)).run()
+  })
   return findUser(db, actor, id).dto
 }
 

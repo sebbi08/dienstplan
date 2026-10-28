@@ -54,11 +54,11 @@ describe('the child viewer', () => {
     const traeger = addUser(db, 'traeger', 'provider')
     expect(resolveChildViewer(db, leitung, undefined, NOW)).toEqual({
       id: leitung.id, employeeId: null, name: 'leitung', role: 'admin', facilityId: 1,
-      permissions: leitung.permissions, visibility: null, onTablet: false, groups: null,
+      permissions: leitung.permissions, visibility: null, onTablet: false, groups: null, writeGroups: { attendance: null, edit: null },
     })
     expect(resolveChildViewer(db, traeger, undefined, NOW)).toEqual({
       id: traeger.id, employeeId: null, name: 'traeger', role: 'provider', facilityId: 1,
-      permissions: traeger.permissions, visibility: null, onTablet: false, groups: null,
+      permissions: traeger.permissions, visibility: null, onTablet: false, groups: null, writeGroups: { attendance: null, edit: null },
     })
     // An account linked with an employee is named like the employee.
     const linked = addUser(db, 'leitung-berta', 'admin', berta)
@@ -74,6 +74,7 @@ describe('the child viewer', () => {
     expect(resolveChildViewer(db, tablet, token, later)).toEqual({
       id: null, employeeId: anna, name: 'Anna', role: 'observer', facilityId: 1,
       permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
+      writeGroups: { attendance: null, edit: null },
     })
     // Every request at the tablet counts as use and keeps it unlocked.
     expect(db.select().from(terminalUnlocks).get()!.lastActiveAt).toBe(later.toISOString())

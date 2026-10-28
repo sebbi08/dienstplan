@@ -1,7 +1,6 @@
 import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
 import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
-import { groupRight } from '../../shared/domain/groupAccess'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { computedSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
@@ -18,7 +17,7 @@ import {
   assertGroupRight, clearedReviews, loadChild, loadEditableChild, openReviews, REVIEW_COLUMN, REVIEW_STAMP_SECTION, seesGroup,
   sectionStamp, type ChildRow,
 } from '../lib/childRecord'
-import type { ChildActor, ChildViewer } from '../lib/childViewer'
+import { groupRightOf, type ChildActor, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { assertCareType } from './careTypes'
@@ -187,7 +186,7 @@ export function getChild(
     ({ updatedAt, updatedBy: updatedBy === null ? null : usernames.get(updatedBy) ?? null })
   const keyEducatorName = row.keyEducatorId === null ? null
     : staffOf(db, viewer.facilityId, today).find(person => person.id === row.keyEducatorId)?.name ?? null
-  const canEdit = can(viewer.permissions, 'children.edit') && status !== 'archived' && groupRight(row.groupId, viewer.groups) === 'write'
+  const canEdit = can(viewer.permissions, 'children.edit') && status !== 'archived' && groupRightOf(viewer, row.groupId, 'children.edit') === 'write'
   return {
     id: row.id,
     status,

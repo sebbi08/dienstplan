@@ -1,16 +1,16 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { childStatus } from '../../shared/domain/children'
 import { todayIso } from '../../shared/domain/dates'
-import { groupRight } from '../../shared/domain/groupAccess'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import { isGroupColor } from '../../shared/types/api'
-import type { ChildGroupDto, GroupAccess, GroupColor, GroupDto, SnapshotData } from '../../shared/types/api'
+import type { ChildGroupDto, GroupColor, GroupDto, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   cashBoxes, childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateMarks, weekTemplates,
 } from '../db/schema'
 import { switchAutoLeaveOff } from '../lib/autoLeave'
+import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
 import { isStaffingGroupType } from './staffing'
@@ -33,15 +33,16 @@ export function listGroups(db: Db, facilityId: number): GroupDto[] {
 
 /**
  * The facility's groups for the child pages, readable for everyone who sees child records, with the viewer's right in
- * each (`groupRight`): groups hidden from the viewer are left out, so a form offers only what the server accepts. The
+ * each (`groupRightOf`, by the scope of „eintragen und Akten ändern“): groups hidden from the viewer are left out, so a form offers only what the server accepts. The
  * places (capacity) belong to the occupancy (children.manage: Träger and Leitung): everybody else gets them as null.
  */
 export function listChildGroups(
-  db: Db, viewer: { facilityId: number; permissions: ReadonlySet<PermissionKey>; groups: GroupAccess | null },
+  db: Db, viewer: { facilityId: number; permissions: ReadonlySet<PermissionKey> } & Pick<ChildViewer, 'groups' | 'writeGroups'>,
 ): ChildGroupDto[] {
   const manager = can(viewer.permissions, 'children.manage')
   return listGroups(db, viewer.facilityId).flatMap((group) => {
-    const right = groupRight(group.id, viewer.groups)
+    // The right to file a child there: the scope of „eintragen und Akten ändern“ (seen groups by „ansehen“).
+    const right = groupRightOf(viewer, group.id, 'children.edit')
     if (right === 'none') return []
     return [{ ...group, capacity: manager ? group.capacity : null, right }]
   })

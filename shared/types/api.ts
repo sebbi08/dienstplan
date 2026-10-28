@@ -64,10 +64,15 @@ export interface SessionUser {
    * user in the session answer only (`UserSession.permissions`, server/plugins/sessionCheck.ts).
    */
   permissions: ReadonlySet<PermissionKey>
+  /**
+   * The scope of every held child key of a scoped bundle ('group' = own group, 'facility'), resolved with `permissions`
+   * from the same read of the rights; server only, like the permission set.
+   */
+  scopes: ReadonlyMap<PermissionKey, BundleScope>
 }
 
-/** The session user as the session cookie stores it and the browser gets it: without the permission set. */
-export type SessionPayloadUser = Omit<SessionUser, 'permissions'>
+/** The session user as the session cookie stores it and the browser gets it: without the permission set and scopes. */
+export type SessionPayloadUser = Omit<SessionUser, 'permissions' | 'scopes'>
 
 export interface FacilityDto {
   id: number
