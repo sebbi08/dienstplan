@@ -18,7 +18,9 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-// Node strips the types of the shared catalog (no build step).
+// Node strips the types of the shared catalog (no build step, Node 22.18+ / 23.6+). This relies on permissions.ts
+// staying strippable: only `import type` from other modules (no extensionless runtime imports) and no TS-only syntax
+// that emits code (enum, namespace, parameter properties). tests/api/routeAccessSnapshot.test.ts fails when it breaks.
 import { effectivePermissions, PERMISSION_KEYS } from '../shared/domain/permissions.ts'
 
 const NO_FLAGS = { canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false }

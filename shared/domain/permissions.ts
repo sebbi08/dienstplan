@@ -1,3 +1,5 @@
+// scripts/route-access-snapshot.mjs imports this file in plain Node (type stripping): keep other imports `import type`
+// only and avoid TS syntax that emits code (enum, namespace, parameter properties).
 import type { Role } from '../types/api'
 
 /**
