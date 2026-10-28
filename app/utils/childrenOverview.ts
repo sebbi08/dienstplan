@@ -1,5 +1,6 @@
 // The columns of the Excel-like overview tables ("Übersicht" under "Kinder"). The texts are imported relative so a
 // test can load this file.
+import { callOrder } from '#shared/domain/callOrder'
 import { parseIsoDate } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type {
@@ -98,7 +99,8 @@ const columnCount = (rows: ChildrenOverviewRowDto[], count: (row: ChildrenOvervi
 
 /**
  * The columns of a sheet after the child's name, in the order of the spec. The emergency and phone sheets have one
- * column per contact, as many as the most of the given children have.
+ * column per contact, as many as the most of the given children have; the phone sheet in call order (parents first,
+ * see `callOrder`), without the contacts with a contact ban.
  */
 export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowDto[]): OverviewColumn[] {
   switch (sheet) {
@@ -143,10 +145,10 @@ export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowD
     case 'phones':
       return [
         { key: 'address', label: t.short.address, title: de.children.fields.address, cell: row => text(row.address), wide: true },
-        ...Array.from({ length: columnCount(rows, row => row.contacts.length) }, (_, index) => ({
+        ...Array.from({ length: columnCount(rows, row => callOrder(row.contacts).length) }, (_, index) => ({
           key: `contact${index + 1}`, label: t.contactShort(index + 1), title: t.contactTitle(index + 1),
           cell: (row: ChildrenOverviewRowDto) => {
-            const contact = row.contacts[index]
+            const contact = callOrder(row.contacts)[index]
             return lines(contact ? [person(contact, phoneLines(contact))] : [])
           },
         })),

@@ -116,7 +116,7 @@ const f = de.children.fields
           <UFormField :label="f.phoneMobile"><UInput v-model="form.phoneMobile" type="tel" maxlength="50" class="w-full" /></UFormField>
           <UFormField :label="f.phoneHome"><UInput v-model="form.phoneHome" type="tel" maxlength="50" class="w-full" /></UFormField>
           <UFormField :label="f.phoneWork"><UInput v-model="form.phoneWork" type="tel" maxlength="50" class="w-full" /></UFormField>
-          <UFormField :label="f.emergencyRank">
+          <UFormField :label="f.emergencyRank" :help="de.children.emergencyRankHelp">
             <UInput v-model="form.emergencyRank" type="number" min="1" max="20" step="1" :disabled="form.contactBan" class="w-full" />
           </UFormField>
           <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">

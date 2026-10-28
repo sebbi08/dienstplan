@@ -178,18 +178,33 @@ describe('children overview columns', () => {
     ])
   })
 
-  it('marks a contact with a contact ban on the phone sheet in words and in red, phone numbers included', () => {
+  it('lists the contacts on the phone sheet in call order: parents first, then by number, then the record order', () => {
     const row = child({
       contacts: [
-        contact('Max Muster', { relation: 'Vater', contactBan: true, phoneMobile: '0171 5' }),
+        contact('Nora Nachbar'),
+        contact('Erika Muster', { relation: 'Oma', emergencyRank: 1 }),
+        contact('Max Muster', { relation: 'Vater', isGuardian: true }),
+        contact('Anna Muster', { relation: 'Mutter', isGuardian: true, emergencyRank: 1 }),
+      ],
+    })
+    expect(overviewColumns('phones', [row]).slice(1).map(column => column.cell(row))).toEqual(
+      ['Anna Muster (Mutter)', 'Max Muster (Vater)', 'Erika Muster (Oma)', 'Nora Nachbar']
+        .map(text => ({ kind: 'lines', lines: [{ text, details: [], danger: false }] })),
+    )
+  })
+
+  it('leaves a contact with a contact ban off the phone sheet, also in the column count', () => {
+    const row = child({
+      contacts: [
+        contact('Max Muster', { relation: 'Vater', isGuardian: true, contactBan: true, phoneMobile: '0171 5' }),
         contact('Anna Muster', { relation: 'Mutter', phoneHome: '0711 1' }),
       ],
     })
     const columns = overviewColumns('phones', [row])
-    expect(columns.map(column => column.cell(row)).slice(1)).toEqual([
-      { kind: 'lines', lines: [{ text: 'Max Muster (Vater) – Kontaktverbot', details: ['mobil 0171 5'], danger: true }] },
+    expect(columns.map(column => column.key)).toEqual(['address', 'contact1'])
+    expect(columns[1]!.cell(row)).toEqual(
       { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1'], danger: false }] },
-    ])
+    )
   })
 
   it('marks a contact with a contact ban in an emergency column too', () => {

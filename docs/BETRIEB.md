@@ -223,6 +223,19 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 - Daten in der Kinderakte tippst du als **TT.MM.JJJJ** (z. B. „03052021“ – die Punkte kommen von selbst); der
   Kalender-Knopf im Feld öffnet weiterhin den Kalender. Ein ungültiges Datum wird rot markiert und nicht gespeichert.
 
+### Bezugspersonen und Anruf-Reihenfolge
+
+- In der Akte stehen die Bezugspersonen in der Reihenfolge, die du mit den Pfeilen **nach oben / nach unten**
+  festlegst.
+- **„Anrufen als Nr.“** (1 = zuerst anrufen) sagt, wen ihr im Notfall in welcher Reihenfolge anruft. Das gilt für
+  jede Bezugsperson: bei den Eltern (alle mit „sorgeberechtigt“), wer von ihnen zuerst angerufen wird, bei den anderen
+  ihre Reihenfolge als Notfallkontakt. Wer ein Kontaktverbot hat, bekommt keine Nummer.
+- Der Kasten **„Wichtig“** oben in der Akte, die Übersicht **„Telefonnummern“** und ihr Ausdruck zeigen die
+  Bezugspersonen in dieser Reihenfolge: zuerst die Eltern nach „Anrufen als Nr.“ (Eltern ohne Nummer danach, in der
+  Reihenfolge der Akte), dann die anderen mit Nummer, nach Nummer. Nur in den Telefonnummern folgen danach die
+  übrigen Bezugspersonen ohne Nummer, in der Reihenfolge der Akte. Bei gleicher Nummer zählt die Reihenfolge der
+  Akte. Bezugspersonen mit Kontaktverbot stehen in diesen Listen nie.
+
 ### Elterngespräche
 
 - In der Kinderakte steht der Abschnitt **„Elterngespräche“**: alle Gespräche, das neueste oben, je Eintrag Datum,
@@ -669,7 +682,7 @@ am Ende („ohne Gruppe“). Mit der Gruppenauswahl zeigst du nur eine Gruppe. D
 | Abholberechtigte | alle Bezugspersonen mit „darf abholen“, z. B. „Erika Muster (Oma)“ – Bezugspersonen mit Kontaktverbot stehen hier nie |
 | Sorgeberechtigte | die sorgeberechtigten Bezugspersonen · **Kontaktverbot**: Name und Hinweis, rot |
 | Notfallkontakte | je Spalte ein Notfallkontakt in seiner Reihenfolge (1., 2., …) mit Beziehung und Telefonnummern |
-| Telefonnummern | Adresse · je Spalte eine Bezugsperson (in der Reihenfolge der Akte) mit Beziehung und Telefon privat / mobil / Arbeit |
+| Telefonnummern | Adresse · je Spalte eine Bezugsperson in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, siehe Abschnitt 8) mit Beziehung und Telefon privat / mobil / Arbeit – Bezugspersonen mit Kontaktverbot stehen hier nie |
 | Elterngespräche | Letztes Gespräch („20.10.2026 Entwicklungsgespräch“) · Nächstes geplant („12.11.2026 14:00 Eingewöhnung“) · Alle Gespräche („20.10.26 Entwicklungsgespräch“, neueste zuerst) · Anzahl – ohne die vertraulichen Notizen (Abschnitt 8) |
 
 - Einwilligungen und Ja/Nein-Angaben: **✓** ja (grün), **✗** nein (rot), **–** offen (grau). Leere Textfelder

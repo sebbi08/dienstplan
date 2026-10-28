@@ -1,16 +1,18 @@
 <script setup lang="ts">
+import { callOrder } from '#shared/domain/callOrder'
 import type { ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { phonesOf, telHref } from '~/utils/children'
 
-/** "Wichtig" at the top of the record: contact bans (red), allergies and the emergency contacts by rank. */
+/**
+ * "Wichtig" at the top of the record: contact bans (red), allergies and whom to call, in call order (parents first,
+ * then the others with "Anrufen als Nr."; see `callOrder`), numbered by their place in that order.
+ */
 const props = defineProps<{ child: ChildRecordDto }>()
 
 const bans = computed(() => props.child.contacts.filter(contact => contact.contactBan))
 const allergies = computed(() => props.child.health.allergies.trim())
-const emergency = computed(() => props.child.contacts
-  .filter(contact => contact.emergencyRank !== null && !contact.contactBan)
-  .sort((a, b) => a.emergencyRank! - b.emergencyRank! || a.id - b.id))
+const emergency = computed(() => callOrder(props.child.contacts, { withUnnumbered: false }))
 const empty = computed(() => !bans.value.length && !allergies.value && !emergency.value.length)
 </script>
 
@@ -34,8 +36,8 @@ const empty = computed(() => !bans.value.length && !allergies.value && !emergenc
     <div v-if="emergency.length" class="text-sm">
       <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-600">{{ de.children.emergencyContacts }}</h3>
       <ol class="space-y-1">
-        <li v-for="contact in emergency" :key="contact.id" class="flex flex-wrap items-baseline gap-x-3">
-          <span class="font-medium">{{ contact.emergencyRank }}. {{ contact.name }}<template v-if="contact.relation"> ({{ contact.relation }})</template></span>
+        <li v-for="(contact, index) in emergency" :key="contact.id" class="flex flex-wrap items-baseline gap-x-3">
+          <span class="font-medium">{{ index + 1 }}. {{ contact.name }}<template v-if="contact.relation"> ({{ contact.relation }})</template></span>
           <a v-for="phone in phonesOf(contact)" :key="phone.label" :href="telHref(phone.number)" class="text-sky-700 hover:underline" :title="phone.label">{{ phone.number }}</a>
         </li>
       </ol>
