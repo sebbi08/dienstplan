@@ -93,14 +93,16 @@ describe('24 and 31 December as half a leave day', () => {
     expect(groupLeaveRanges(['2026-12-24'], bwLeaveDay, true)).toEqual([{ from: '2026-12-24', to: '2026-12-24', days: 0.5 }])
   })
 
-  it('fits as many days, in their order, as the leave left allows', () => {
+  it('fits the days, in their order, into the leave left, skipping a whole day so a later half day still fits', () => {
     const dates = ['2026-12-23', '2026-12-24', '2026-12-28', '2026-12-31']
-    expect(leaveDaysThatFit(dates, 2.5, true)).toBe(3)
-    expect(leaveDaysThatFit(dates, 2.5, false)).toBe(2)
-    expect(leaveDaysThatFit(dates, 2, true)).toBe(2)
-    expect(leaveDaysThatFit(dates, 10, true)).toBe(4)
-    expect(leaveDaysThatFit(dates, 0.5, true)).toBe(0)
-    expect(leaveDaysThatFit(['2026-12-24', '2026-12-28'], 0.5, true)).toBe(1)
-    expect(leaveDaysThatFit(dates, -3, true)).toBe(0)
+    expect(leaveDaysThatFit(dates, 2.5, true)).toEqual(['2026-12-23', '2026-12-24', '2026-12-28'])
+    expect(leaveDaysThatFit(dates, 2.5, false)).toEqual(['2026-12-23', '2026-12-24'])
+    // 28 December no longer fits, 31 December takes the half day left.
+    expect(leaveDaysThatFit(dates, 2, true)).toEqual(['2026-12-23', '2026-12-24', '2026-12-31'])
+    expect(leaveDaysThatFit(dates, 2, false)).toEqual(['2026-12-23', '2026-12-24'])
+    expect(leaveDaysThatFit(dates, 10, true)).toEqual(dates)
+    expect(leaveDaysThatFit(dates, 0.5, true)).toEqual(['2026-12-24'])
+    expect(leaveDaysThatFit(dates, 0.5, false)).toEqual([])
+    expect(leaveDaysThatFit(dates, -3, true)).toEqual([])
   })
 })

@@ -46,16 +46,21 @@ export function countLeaveDays(dates: IsoDate[], halfOnEves: boolean): number {
   return dates.reduce((sum, date) => sum + leaveDayWeight(date, halfOnEves), 0)
 }
 
-/** How many of the dates, in their order, fit into the leave that is left (none when nothing or less is left). */
-export function leaveDaysThatFit(dates: IsoDate[], available: number, halfOnEves: boolean): number {
+/**
+ * The dates that fit into the leave that is left, taken in their order: a day that no longer fits is skipped, so a
+ * later half day (31 December) can still use the half day left. None when nothing or less than half a day is left.
+ * With whole days only this is the first floor(available) dates, as before.
+ */
+export function leaveDaysThatFit(dates: IsoDate[], available: number, halfOnEves: boolean): IsoDate[] {
   let used = 0
-  let count = 0
+  const fitting: IsoDate[] = []
   for (const date of dates) {
-    used += leaveDayWeight(date, halfOnEves)
-    if (used > available) break
-    count++
+    const weight = leaveDayWeight(date, halfOnEves)
+    if (used + weight > available) continue
+    used += weight
+    fitting.push(date)
   }
-  return count
+  return fitting
 }
 
 export function leaveAccount(

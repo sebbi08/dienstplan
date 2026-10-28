@@ -85,7 +85,8 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('leave.request', 'leave', 'Urlaub beantragen, eigene Anträge'),
   def('leave.overview', 'leave', 'Urlaubsübersicht aller', { requires: ['employees.view'] }),
   def('leave.plan', 'leave', 'Urlaubsplanung: entscheiden, Kalender, Höchstzahl', { requires: ['leave.overview'] }),
-  def('leave.configure', 'leave', 'Urlaubsanträge ein- und ausschalten, Zuständige festlegen', fixed),
+  def('leave.configure', 'leave',
+    'Urlaubsanträge ein- und ausschalten, Zuständige festlegen, Urlaub an Heiligabend/Silvester', fixed),
 
   def('time.own', 'time', 'Eigene Zeiten sehen, mit dem Handy stempeln'),
   def('time.manage', 'time', 'Alle Stempelzeiten ansehen, nachtragen, korrigieren; Stundenkonten',

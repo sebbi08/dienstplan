@@ -28,8 +28,9 @@ function joinedDuring(employee: EmployeeRecord, year: number): boolean {
 
 /**
  * Splits one employee's closure days into leave days and closure days. Normally all are leave (staff may go
- * below zero). Someone who joined during that year only gets as many leave days as they have left; the rest
- * become closure days (credited like leave, no leave used). Without a recorded entitlement nothing is limited.
+ * below zero). Someone who joined during that year only gets as many leave days as they have left (in date order,
+ * skipping a day that no longer fits); the rest become closure days (credited like leave, no leave used). Without a
+ * recorded entitlement nothing is limited.
  */
 export function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacation: IsoDate[]; closureDays: IsoDate[] } {
   const vacation: IsoDate[] = []
@@ -49,10 +50,10 @@ export function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): 
     const available = leaveAccount(
       entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(employee.info, date), employee.halfLeaveOnEves,
     ).available
-    // 24 and 31 December may use only half a day each (facility setting).
-    const left = leaveDaysThatFit(yearDates, available, employee.halfLeaveOnEves)
-    vacation.push(...yearDates.slice(0, left))
-    closureDays.push(...yearDates.slice(left))
+    // 24 and 31 December may use only half a day each (facility setting): a whole day that no longer fits becomes a
+    // closure day, and a later half day still takes the half day left (as rebookHomeClosure does day by day).
+    const fitting = new Set(leaveDaysThatFit(yearDates, available, employee.halfLeaveOnEves))
+    for (const date of yearDates) (fitting.has(date) ? vacation : closureDays).push(date)
   }
   return { vacation, closureDays }
 }
