@@ -1,3 +1,4 @@
+import { addDays, daysInMonth, parseIsoDate, toIsoDate } from './dates'
 import { MONDAY_TO_FRIDAY, workdayCount, type HoursPeriod } from './targets'
 import type { IsoDate } from './types'
 
@@ -7,11 +8,17 @@ import type { IsoDate } from './types'
  *
  * - Full year: 24 Werktage per 6-day week (§ 3 BUrlG), so `24 * workdaysPerWeek / 6` days (5 → 20, 4 → 16, 3 → 12).
  * - Severe disability: + 5 days per 5-day week (§ 208 SGB IX), so `5 * workdaysPerWeek / 5` days more.
- * - Joining or leaving during the year: 1/12 of each part per full calendar month of employment in that year
- *   (§ 5 (1) BUrlG, § 208 (2) SGB IX). Simplified: every year that is not employed in full counts this way (the waiting
- *   period and leaving in the second half of the year are not looked at).
- * - Rounding (§ 5 (2) BUrlG, § 208 (2) SGB IX), only for such parts: a fraction of at least half a day becomes a full
- *   day, a smaller fraction stays (8,33 stays 8,33; 8,5 becomes 9). Both parts are rounded on their own.
+ * - Waiting period (§ 4 BUrlG): the full entitlement once the employment has lasted six months.
+ * - 1/12 per full month of employment in the year (§ 5 (1) BUrlG), otherwise the full yearly minimum:
+ *   a) joining year when the waiting period does not end in it (start after 1 July);
+ *   b) leaving before the waiting period is over;
+ *   c) leaving after the waiting period in the first half of the year (last day on or before 30 June).
+ *   Joining and leaving in the same year follow the same rules: the full year only with the waiting period over and
+ *   a last day after 30 June.
+ * - Full months are counted from the start date (15 July → 15.7.–14.8. …: five by 31 December), in a later year from
+ *   1 January (§§ 187 (2), 188 (2), (3) BGB).
+ * - Rounding (§ 5 (2) BUrlG), only for such parts: a fraction of at least half a day becomes a full day, a smaller
+ *   fraction stays (8,33 stays 8,33; 8,5 becomes 9). Base leave and the additional leave are rounded on their own.
  */
 export interface StatutoryLeaveInput {
   /** Working days per week; fractions are allowed. */
@@ -31,18 +38,20 @@ export interface StatutoryLeave {
   inYear: number
 }
 
-const pad = (value: number) => String(value).padStart(2, '0')
-
-function lastDayOfMonth(year: number, month: number): IsoDate {
-  return `${year}-${pad(month)}-${pad(new Date(Date.UTC(year, month, 0)).getUTCDate())}`
+/** Last day of the `count`-th month counted from `from` (31 January + 1 month → 28/29 February, 15 July → 14 August). */
+export function monthEnd(from: IsoDate, count: number): IsoDate {
+  const { year, month, day } = parseIsoDate(from)
+  const index = year * 12 + (month - 1) + count
+  const targetYear = Math.floor(index / 12)
+  const targetMonth = (index % 12) + 1
+  if (day > daysInMonth(targetYear, targetMonth)) return toIsoDate(targetYear, targetMonth, daysInMonth(targetYear, targetMonth))
+  return addDays(toIsoDate(targetYear, targetMonth, day), -1)
 }
 
-/** Calendar months of the year in which the person is employed from the first to the last day. */
-export function fullEmploymentMonths(year: number, employedFrom: IsoDate, employedUntil: IsoDate | null = null): number {
+/** Full months of employment from `from` up to and including `to` (at most 12). */
+export function fullEmploymentMonths(from: IsoDate, to: IsoDate): number {
   let months = 0
-  for (let month = 1; month <= 12; month++) {
-    if (employedFrom <= `${year}-${pad(month)}-01` && (employedUntil === null || employedUntil >= lastDayOfMonth(year, month))) months++
-  }
+  while (months < 12 && monthEnd(from, months + 1) <= to) months++
   return months
 }
 
@@ -56,6 +65,22 @@ function roundPart(days: number): number {
 /** Shown with at most two decimals, so it is also compared that way (8,33, not 8,333…). */
 const hundredths = (days: number) => Math.round(days * 100) / 100
 
+/** Months that count in the year: 12 for the full yearly minimum, otherwise the full months of § 5 (1). */
+function countingMonths(year: number, employedFrom: IsoDate, employedUntil: IsoDate | null): number {
+  const yearStart = toIsoDate(year, 1, 1)
+  const yearEnd = toIsoDate(year, 12, 31)
+  if (employedFrom > yearEnd || (employedUntil !== null && employedUntil < yearStart)) return 0
+  const waitingOver = monthEnd(employedFrom, 6)
+  const leavesThisYear = employedUntil !== null && employedUntil <= yearEnd
+  const joinsThisYear = employedFrom >= yearStart
+  const partial
+    = (joinsThisYear && waitingOver > yearEnd) // a)
+      || (leavesThisYear && employedUntil! < waitingOver) // b)
+      || (leavesThisYear && employedUntil! <= toIsoDate(year, 6, 30)) // c)
+  if (!partial) return 12
+  return fullEmploymentMonths(joinsThisYear ? employedFrom : yearStart, leavesThisYear ? employedUntil! : yearEnd)
+}
+
 function part(perYear: number, months: number): number {
   return months >= 12 ? perYear : roundPart((perYear * months) / 12)
 }
@@ -63,7 +88,7 @@ function part(perYear: number, months: number): number {
 export function statutoryMinimumLeave(input: StatutoryLeaveInput): StatutoryLeave {
   const base = (24 * input.workdaysPerWeek) / 6
   const extra = input.severeDisability ? (5 * input.workdaysPerWeek) / 5 : 0
-  const months = input.employedFrom === null ? 0 : fullEmploymentMonths(input.year, input.employedFrom, input.employedUntil ?? null)
+  const months = input.employedFrom === null ? 0 : countingMonths(input.year, input.employedFrom, input.employedUntil ?? null)
   return { perYear: hundredths(base + extra), inYear: hundredths(part(base, months) + part(extra, months)) }
 }
 

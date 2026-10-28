@@ -899,11 +899,13 @@ zeigt die App den **gesetzlichen Mindesturlaub** nach dem Bundesurlaubsgesetz an
 Übertrag) darunter, erscheint ein gelber Hinweis. Eingetragen wird nichts. Rechnung: 24 Werktage bei einer 6-Tage-Woche,
 also **24 × Arbeitstage pro Woche ÷ 6** (5 Tage → 20, 4 → 16, 3 → 12); bei **Schwerbehinderung** (nur wer die
 Personalakte-Angaben sehen darf, nicht bei „gleichgestellt“) **5 Tage je 5-Tage-Woche** mehr. Die Arbeitstage stammen
-aus dem Wochenstunden-Eintrag, der am 1. Januar gilt (bei Eintritt im Jahr: am Eintrittstag). Bei Eintritt oder
-Ausscheiden im Jahr zählt **1/12 je vollem Kalendermonat** der Beschäftigung; ein Rest von mindestens einem halben Tag
-wird auf einen ganzen Tag aufgerundet, ein kleinerer bleibt stehen (Eintritt 1. August: 8,33 Tage). Vereinfacht: Wartezeit
-und Ausscheiden in der zweiten Jahreshälfte (dann oft voller Anspruch) berücksichtigt die App nicht. Das ist **keine
-Rechtsberatung**; Tarifvertrag oder Arbeitsvertrag geben meist mehr (TVöD: 30 Tage).
+aus dem Wochenstunden-Eintrag, der am 1. Januar gilt (bei Eintritt im Jahr: am Eintrittstag). Nach sechs Monaten
+Beschäftigung (Wartezeit) gilt der volle Jahresurlaub, also auch bei Eintritt bis zum 1. Juli und bei Ausscheiden nach
+erfüllter Wartezeit ab dem 1. Juli. **1/12 je vollem Beschäftigungsmonat** (gezählt ab dem Eintrittstag, z. B.
+15.7.–14.8.) gibt es nur bei Eintritt nach dem 1. Juli, bei Ausscheiden vor Ende der Wartezeit und bei Ausscheiden bis
+zum 30. Juni. Ein Rest von mindestens einem halben Tag wird auf einen ganzen Tag aufgerundet, ein kleinerer bleibt
+stehen (Eintritt 1. August: 8,33 Tage). Das ist **keine Rechtsberatung**; Tarifvertrag oder Arbeitsvertrag geben meist
+mehr (TVöD: 30 Tage).
 
 ### Urlaub am 24.12. und 31.12.
 
