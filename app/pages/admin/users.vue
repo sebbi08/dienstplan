@@ -3,6 +3,7 @@ import type { EmployeeListItemDto, Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 import { personRightsMode } from '~/utils/rights'
+import { accountLock, manageableRoles } from '#shared/domain/roles'
 
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
 const { data: employees } = await useFetch<EmployeeListItemDto[]>('/api/employees')
@@ -13,16 +14,29 @@ const rows = ref<UserDto[]>([])
 watch(users, value => (rows.value = (value ?? []).map(user => ({ ...user }))), { immediate: true })
 
 const { can } = useCan()
+const { user: sessionUser } = useUserSession()
 // Only who may manage Träger accounts appoints Träger or changes their accounts; the server checks this as well.
 const canProviderAccounts = computed(() => can('users.providerAccounts'))
 // The rights of the roles: for who sets them.
 const canManageRights = computed(() => can('rights.manage'))
-const roleItems = computed(() => ((canProviderAccounts.value ? ['provider'] : []) as Role[]).concat(['admin', 'observer', 'terminal'])
-  .map(role => ({ label: de.users.roles[role], value: role })))
-const locked = (user: UserDto) => user.role === 'provider' && !canProviderAccounts.value
+// The roles the server lets this person manage (a Mitarbeiter with „Zugänge verwalten“: tablets only).
+const manageable = computed(() => manageableRoles(sessionUser.value?.role, can))
+const roleItems = computed(() => manageable.value.map(role => ({ label: de.users.roles[role], value: role })))
+/** Why an account cannot be changed here (by its stored role), null when it can (see `accountLock`). */
+const lockOf = (user: UserDto) => accountLock(
+  { id: sessionUser.value?.id, role: sessionUser.value?.role }, can, { id: user.id, role: storedRole(user) ?? user.role },
+)
+const locked = (user: UserDto) => lockOf(user) !== null
+const lockText = (user: UserDto) => {
+  const lock = lockOf(user)
+  return lock === 'own' ? de.users.ownLocked : lock === 'role' ? de.users.roleLocked : de.users.providerLocked
+}
 const form = reactive<{ username: string; password: string; role: Role; employeeId: number | null }>({
   username: '', password: '', role: 'observer', employeeId: null,
 })
+watch(manageable, (roles) => {
+  if (!roles.includes(form.role)) form.role = roles.includes('observer') ? 'observer' : roles[0] ?? 'terminal'
+}, { immediate: true })
 watch(() => form.role, (role) => {
   if (role === 'terminal') form.employeeId = null
 })
@@ -46,7 +60,6 @@ function save(user: UserDto) {
 }
 
 // The rights of a person (exceptions from the role): for the stored role of the account, in a dialog.
-const { user: sessionUser } = useUserSession()
 const storedRole = (user: UserDto) => users.value?.find(stored => stored.id === user.id)?.role
 const rightsModeOf = (user: UserDto) => {
   const role = storedRole(user)
@@ -95,7 +108,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
         <tr v-for="user in rows" :key="user.id" class="border-t border-gray-100">
           <td class="px-3 py-2 font-medium">{{ user.username }}</td>
           <td class="px-3 py-2">
-            <span v-if="locked(user)">{{ de.users.roles.provider }}</span>
+            <span v-if="locked(user)">{{ de.users.roles[user.role] }}</span>
             <USelect v-else v-model="user.role" :items="roleItems" class="w-40" />
           </td>
           <td class="px-3 py-2">
@@ -114,7 +127,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
             <div v-if="user.mustChangePassword">{{ de.users.mustChange }}</div>
             <div v-if="user.lockedUntil && user.lockedUntil > new Date().toISOString()">{{ de.users.locked(formatDateTime(user.lockedUntil)) }}</div>
           </td>
-          <td v-if="locked(user)" class="px-3 py-2 text-right text-xs text-gray-500">{{ de.users.providerLocked }}</td>
+          <td v-if="locked(user)" class="px-3 py-2 text-right text-xs text-gray-500">{{ lockText(user) }}</td>
           <td v-else class="whitespace-nowrap px-3 py-2 text-right">
             <UButton size="xs" :label="de.common.save" @click="save(user)" />
             <UButton size="xs" color="neutral" variant="ghost" :label="de.users.resetPassword" @click="openReset(user)" />

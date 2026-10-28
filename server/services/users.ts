@@ -1,7 +1,7 @@
 import { and, asc, count, eq, inArray, or } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { mayManagePins } from '../../shared/domain/pin'
-import { MANAGER_ROLES } from '../../shared/domain/roles'
+import { MANAGER_ROLES, manageableRoles as sharedManageableRoles } from '../../shared/domain/roles'
 import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, users } from '../db/schema'
@@ -89,15 +89,9 @@ function activeManagers(db: Db, facilityId: number | null): number {
   return leitung + activeProviders(db)
 }
 
-/**
- * The roles whose accounts the actor creates, changes, deactivates and resets (users.manage): the Träger
- * (users.providerAccounts) every role; a Leitung, as before, Leitung, Mitarbeiter and tablet accounts; anyone else who
- * was given „Zugänge verwalten“ only the tablet accounts: a Mitarbeiter account could otherwise be reset and signed in
- * with, and so carry rights its manager does not hold.
- */
+/** The roles whose accounts the actor manages (see the shared `manageableRoles`). */
 function manageableRoles(actor: SessionUser): readonly Role[] {
-  if (can(actor.permissions, 'users.providerAccounts')) return ['provider', 'admin', 'observer', 'terminal']
-  return actor.role === 'admin' ? ['admin', 'observer', 'terminal'] : ['terminal']
+  return sharedManageableRoles(actor.role, key => can(actor.permissions, key))
 }
 
 /**

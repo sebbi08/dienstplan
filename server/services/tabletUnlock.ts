@@ -11,7 +11,7 @@ import { employees, facilities, terminalUnlocks, users } from '../db/schema'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { readableGroupIds } from './groupReadAccess'
-import { accountRights } from './permissions'
+import { accountRights, roleBundleRows } from './permissions'
 import { getTabletSettings } from './tabletSettings'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -21,8 +21,13 @@ type Resolved =
   | { unlocked: false; dropped?: UnlockRow }
   | { unlocked: true; row: UnlockRow; person: TerminalPersonDto; settings: TabletSettingsDto; viewer: ChildViewer }
 
-/** A person without (active) account of the home facility at the tablet: the Mitarbeiter defaults, no exceptions. */
-const NO_ACCOUNT = effectiveRights({ role: 'observer' })
+/**
+ * A person without (active) account of the home facility at the tablet: the current Mitarbeiter role settings (else the
+ * defaults), no exceptions. Read per request, so a change of the role reaches them at once (spec §6).
+ */
+function noAccountRights(db: Db) {
+  return effectiveRights({ role: 'observer', roleBundles: roleBundleRows(db, 'observer') })
+}
 
 type GroupScopes = Pick<ChildViewer, 'groups' | 'writeGroups'>
 
@@ -56,7 +61,7 @@ function validUntil(lastActiveAt: string, lockMinutes: number): number {
 /**
  * The rights of the person who unlocked, as they are now (spec §4.1): home staff with an active linked account have the
  * permissions of that account (role settings and exceptions); everyone else (no or deactivated account, helpers) has
- * the Mitarbeiter defaults without exceptions, so reads and keeps the attendance, but changes no record. Home staff
+ * the current Mitarbeiter role settings without exceptions, so reads and keeps the attendance, but changes no record. Home staff
  * whose child switches have the scope „nur eigene Gruppe“ work with their own group and the groups it may read (group
  * book spec §3.1); with „ganze Einrichtung“, helpers and staff without a home group with every group (ruling: no home
  * group = all groups). Without children.planned the tablet switches decide which planned children are shown.
@@ -70,7 +75,7 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     : undefined
   const role = account?.role ?? 'observer'
   // One read of the rights gives both the permissions and the scope.
-  const rights = account ? accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId }) : NO_ACCOUNT
+  const rights = account ? accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId }) : noAccountRights(db)
   const permissions = rights.permissions
   return {
     id: account?.id ?? null,

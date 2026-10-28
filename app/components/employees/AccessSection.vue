@@ -4,6 +4,7 @@ import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 import { personRightsMode } from '~/utils/rights'
 import { suggestUsername } from '~/utils/staffList'
+import { accountLock, manageableRoles } from '#shared/domain/roles'
 
 /**
  * The tab „Zugang“ of an employee: the account linked to the person (role, active, password reset) or, without one,
@@ -21,8 +22,16 @@ watch([users, () => props.employeeId], () => {
   const linked = (users.value ?? []).find(candidate => candidate.employeeId === props.employeeId)
   account.value = linked ? { ...linked } : null
 }, { immediate: true })
-// A Leitung cannot change a Träger account (users.providerAccounts; the server checks this as well).
-const locked = computed(() => account.value?.role === 'provider' && !canProviderAccounts.value)
+const { user: sessionUser } = useUserSession()
+/** The stored role: the rights belong to the saved account (a changed role is saved first). */
+const storedRole = computed(() => (users.value ?? []).find(user => user.id === account.value?.id)?.role)
+// As the server: the own account only the Träger changes, a Träger account only a Träger, and a Mitarbeiter with
+// „Zugänge verwalten“ only tablet accounts (`accountLock`).
+const lock = computed(() => (account.value
+  ? accountLock({ id: sessionUser.value?.id, role: sessionUser.value?.role }, can, { id: account.value.id, role: storedRole.value ?? account.value.role })
+  : null))
+const locked = computed(() => lock.value !== null)
+const lockText = computed(() => (lock.value === 'own' ? de.users.ownLocked : lock.value === 'role' ? de.users.roleLocked : de.users.providerLocked))
 /** A linked account can be Mitarbeiter or Leitung (a Träger account stays Träger for a Träger); never the tablet. */
 const roleItems = computed(() => ((canProviderAccounts.value && account.value?.role === 'provider' ? ['provider'] : []) as Role[])
   .concat(['admin', 'observer']).map(role => ({ label: de.users.roles[role], value: role })))
@@ -35,9 +44,6 @@ function save() {
   }), de.common.saved)
 }
 
-/** The stored role: the rights belong to the saved account (a changed role is saved first). */
-const storedRole = computed(() => (users.value ?? []).find(user => user.id === account.value?.id)?.role)
-const { user: sessionUser } = useUserSession()
 /** The person's rights: the Träger every switch, the Leitung „eintragen und Akten ändern“ of a Mitarbeiter. */
 const rightsMode = computed(() => (storedRole.value ? personRightsMode({ role: sessionUser.value?.role, can }, storedRole.value) : null))
 
@@ -54,8 +60,11 @@ async function submitReset() {
   if (ok) resetOpen.value = false
 }
 
-// „Zugang einrichten“: the username proposed from the name until it is changed by hand.
-const createRoleItems = (['observer', 'admin'] as Role[]).map(role => ({ label: de.users.roles[role], value: role }))
+// „Zugang einrichten“: the username proposed from the name until it is changed by hand. Only the roles the actor manages
+// (none for a Mitarbeiter with „Zugänge verwalten“: tablets have no person).
+const createRoleItems = computed(() => (['observer', 'admin'] as Role[])
+  .filter(role => manageableRoles(sessionUser.value?.role, can).includes(role))
+  .map(role => ({ label: de.users.roles[role], value: role })))
 const form = reactive<{ username: string; password: string; role: Role }>({ username: '', password: '', role: 'observer' })
 const usernameEdited = ref(false)
 watch([users, () => props.employeeName], () => {
@@ -83,7 +92,7 @@ async function create() {
           <p class="py-1.5 text-sm font-medium">{{ account.username }}</p>
         </UFormField>
         <UFormField :label="de.users.role">
-          <p v-if="locked" class="py-1.5 text-sm">{{ de.users.roles.provider }}</p>
+          <p v-if="locked" class="py-1.5 text-sm">{{ de.users.roles[account.role] }}</p>
           <USelect v-else v-model="account.role" :items="roleItems" class="w-full" />
         </UFormField>
         <div class="space-y-1.5 text-sm">
@@ -96,7 +105,7 @@ async function create() {
           <p v-if="account.mustChangePassword">{{ de.users.mustChange }}</p>
           <p v-if="account.lockedUntil && account.lockedUntil > new Date().toISOString()">{{ de.users.locked(formatDateTime(account.lockedUntil)) }}</p>
         </div>
-        <p v-if="locked" class="text-xs text-gray-500 sm:col-span-3">{{ de.users.providerLocked }}</p>
+        <p v-if="locked" class="text-xs text-gray-500 sm:col-span-3">{{ lockText }}</p>
         <div v-else class="flex flex-wrap gap-2 sm:col-span-3">
           <UButton type="submit" :label="de.common.save" />
           <UButton color="neutral" variant="outline" icon="i-lucide-key-round" :label="de.users.resetPassword" @click="openReset" />
@@ -111,7 +120,8 @@ async function create() {
 
     <template v-else>
       <p class="text-sm text-gray-600">{{ de.employees.access.none }}</p>
-      <form class="grid gap-3 sm:grid-cols-3 sm:items-start" @submit.prevent="create">
+      <p v-if="createRoleItems.length === 0" class="text-xs text-gray-500">{{ de.users.roleLocked }}</p>
+      <form v-else class="grid gap-3 sm:grid-cols-3 sm:items-start" @submit.prevent="create">
         <UFormField :label="de.users.username" :help="de.employees.access.usernameHint">
           <UInput
             v-model="form.username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="50"

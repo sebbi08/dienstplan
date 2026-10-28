@@ -1,10 +1,13 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { employees, users } from '../../server/db/schema'
+import { balanceAdjustments, employeeHours, employees, leaveEntitlements, users } from '../../server/db/schema'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { getActiveUser, login } from '../../server/services/auth'
-import { listEmployees, moveEmployeeToFacility, setStampingOptions, updateEmployee } from '../../server/services/employees'
+import {
+  addAdjustment, addHours, deleteAdjustment, deleteHours, listEmployees, moveEmployeeToFacility, setAdjustmentPaidOut,
+  setEntitlement, setStampingOptions, updateEmployee,
+} from '../../server/services/employees'
 import { assertPinManageable, createUser, listUsers, resetPassword, updateUser } from '../../server/services/users'
 import { saveUserRights } from '../../server/services/rights'
 import type { SessionUser } from '../../shared/types/api'
@@ -240,6 +243,45 @@ describe('who manages which accounts (no escalation through „Zugänge verwalte
     const traeger = getActiveUser(db, provider.id)!
     updateEmployee(db, 1, traegerEmployee, { name: 'Tom', shortName: 'To', leftOn: null, groupId: bears }, traeger.permissions, undefined, traeger.employeeId)
     expect(errorCode(save(editor, bears))).toBe('own_account')
+  })
+
+  it('keeps a Mitarbeiter with employee and time rights off the own balance figures (403 own_account), not the Leitung', () => {
+    const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, provider, own.id, [{ bundle: 'employeesEdit', effect: 'grant' }, { bundle: 'timeManage', effect: 'grant' }])
+    const editor = getActiveUser(db, own.id)!
+    const ben = addEmployee(db, 'Ben')
+    const hours = { weeklyMinutes: 1200, validFrom: '2026-01-01' }
+    const booking = { date: '2026-10-01', minutes: 60, reason: 'Ausgleich' }
+    const entitlement = { days: 30, carriedOverDays: 0 }
+    const bookingOf = (employeeId: number) => db.select().from(balanceAdjustments).all().find(row => row.employeeId === employeeId)!.id
+    const hoursOf = (employeeId: number) => db.select().from(employeeHours).all().find(row => row.employeeId === employeeId)!.id
+    // The Leitung books on Anna's record (as today); Anna does not on her own.
+    addHours(db, 1, anna, { weeklyMinutes: 1000, validFrom: '2025-01-01' }, leitung)
+    addHours(db, 1, anna, hours, leitung)
+    addAdjustment(db, 1, anna, booking, leitung)
+    expect(errorCode(() => addHours(db, 1, anna, hours, editor))).toBe('own_account')
+    expect(errorCode(() => deleteHours(db, 1, hoursOf(anna), editor))).toBe('own_account')
+    expect(errorCode(() => addAdjustment(db, 1, anna, booking, editor))).toBe('own_account')
+    expect(errorCode(() => setAdjustmentPaidOut(db, editor, 1, anna, bookingOf(anna), true))).toBe('own_account')
+    expect(errorCode(() => deleteAdjustment(db, 1, bookingOf(anna), editor))).toBe('own_account')
+    expect(errorCode(() => setEntitlement(db, 1, anna, 2026, entitlement, editor))).toBe('own_account')
+    expect(db.select().from(balanceAdjustments).all()).toHaveLength(1)
+    expect(db.select().from(leaveEntitlements).all().filter(row => row.employeeId === anna)).toHaveLength(0)
+    // A colleague's figures as today.
+    addHours(db, 1, ben, hours, editor)
+    addAdjustment(db, 1, ben, booking, editor)
+    setAdjustmentPaidOut(db, editor, 1, ben, bookingOf(ben), true)
+    deleteAdjustment(db, 1, bookingOf(ben), editor)
+    setEntitlement(db, 1, ben, 2026, entitlement, editor)
+    // The Leitung keeps today's behaviour on its own record.
+    const leaEmployee = addEmployee(db, 'Lea')
+    const lea = getActiveUser(db, createUser(db, leitung, { username: 'lea', password: 'start-1234', role: 'admin', employeeId: leaEmployee }).id)!
+    addHours(db, 1, leaEmployee, hours, lea)
+    addAdjustment(db, 1, leaEmployee, booking, lea)
+    setAdjustmentPaidOut(db, lea, 1, leaEmployee, bookingOf(leaEmployee), true)
+    deleteAdjustment(db, 1, bookingOf(leaEmployee), lea)
+    setEntitlement(db, 1, leaEmployee, 2026, entitlement, lea)
+    expect(db.select().from(leaveEntitlements).all().filter(row => row.employeeId === leaEmployee)).toHaveLength(1)
   })
 
   it('keeps the Leitung managing Leitung, Mitarbeiter and tablet accounts of its facility, but not its own', () => {

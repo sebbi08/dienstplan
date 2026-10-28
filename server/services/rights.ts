@@ -296,6 +296,10 @@ export function saveUserRights(
     if (changed.includes('childrenEdit') && childEdit?.effect === 'grant' && childEdit.scope !== 'group') {
       throw new ServiceError(403, 'forbidden')
     }
+    // Only a Leitung that may edit records itself gives that right on (the Träger can take it from the Leitung).
+    if (changed.includes('childrenEdit') && has.has('childrenEdit') && !can(actor.permissions, 'children.edit')) {
+      throw new ServiceError(403, 'rights_not_held')
+    }
   }
   db.transaction((tx) => {
     tx.delete(userBundleOverrides).where(eq(userBundleOverrides.userId, target.id)).run()

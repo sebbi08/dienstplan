@@ -673,6 +673,8 @@ export const de = {
     roles: { provider: 'Träger', admin: 'Leitung', observer: 'Mitarbeiter', terminal: 'Stempel-Tablet' },
     rolesHint: 'Träger: alles. Leitung und Mitarbeiter: was unter „Rechte und Rollen“ eingestellt ist, bei einzelnen Personen mit Ausnahmen. In der Grundeinstellung führt die Leitung die Einrichtung (Dienstplan, Mitarbeiter, Zeiterfassung, Kinder, Einstellungen); Mitarbeiter sehen den Dienstplan und ihren eigenen Plan, stempeln und beantragen Urlaub (das Konto muss mit einem Mitarbeiter verknüpft sein), Kinder nur am Tablet. Stempel-Tablet: gemeinsames Gerät der Einrichtung zum Stempeln; nach dem Aufschließen mit Name und PIN zeigt es auch die Kinder, mit den Rechten der Person, die aufgeschlossen hat.',
     providerLocked: 'nur durch Träger änderbar',
+    ownLocked: 'Das eigene Konto ändert der Träger.',
+    roleLocked: 'Du verwaltest nur Stempel-Tablet-Zugänge.',
     rightsTitle: 'Rechte der Rollen', showRights: 'Rechte der Rollen anzeigen', rightYes: 'erlaubt', rightNo: 'nicht erlaubt',
     rightsPage: 'Rechte und Rollen einstellen',
     employeeAccessHint: (isProvider: boolean) => 'Den Zugang für eine Mitarbeiterin oder einen Mitarbeiter richtest du am einfachsten bei der Person selbst ein (Mitarbeiter → Name → Reiter „Zugang“). '
@@ -1683,6 +1685,7 @@ export const de = {
     use_rights_api: '„Darf Kinderakten pflegen“ wird jetzt bei den Rechten eingestellt. Lade die Seite neu.',
     rights_dependent_bundle: '„Eintragen und Akten ändern“ kann hier nicht weggenommen werden: Die Person hat vom Träger ein Recht, das darauf aufbaut (z. B. „Kinder verwalten“). Das kann nur der Träger ändern.',
     provider_only_right: 'Dieses Recht hat nur der Träger, es kann nicht vergeben werden.',
+    rights_not_held: '„Eintragen und Akten ändern“ kannst du nur vergeben, wenn du es selbst hast. Frag den Träger.',
     unknown_bundle: 'Dieses Recht gibt es nicht. Lade die Seite neu.',
     conflicting_bundles: 'Diese Änderung widerspricht sich: Ein Recht, das du setzt, braucht ein Recht, das du gleichzeitig wegnimmst.',
     invalid_scope: 'Bitte als Umfang „nur eigene Gruppe“ oder „ganze Einrichtung“ wählen.',

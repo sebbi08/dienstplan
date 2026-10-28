@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { isManager } from '../../shared/domain/roles'
+import type { PermissionKey } from '../../shared/domain/permissions'
+import { accountLock, isManager, manageableRoles } from '../../shared/domain/roles'
+
+const holding = (...keys: PermissionKey[]) => (key: PermissionKey) => keys.includes(key)
+
+describe('manageableRoles and accountLock (the users page offers what the server allows)', () => {
+  it('gives the Träger every role, the Leitung Leitung, Mitarbeiter and tablet, anyone else the tablet only', () => {
+    expect(manageableRoles('provider', holding('users.manage', 'users.providerAccounts'))).toEqual(['provider', 'admin', 'observer', 'terminal'])
+    expect(manageableRoles('admin', holding('users.manage'))).toEqual(['admin', 'observer', 'terminal'])
+    expect(manageableRoles('observer', holding('users.manage'))).toEqual(['terminal'])
+  })
+
+  it('locks the own account for everyone but the Träger, Träger accounts for non-Träger, other roles by manageableRoles', () => {
+    const traeger = { id: 1, role: 'provider' as const }
+    const leitung = { id: 2, role: 'admin' as const }
+    const anna = { id: 3, role: 'observer' as const }
+    const tablet = { id: 4, role: 'terminal' as const }
+    const all = holding('users.manage', 'users.providerAccounts')
+    const manage = holding('users.manage')
+    expect([traeger, leitung, anna, tablet].map(account => accountLock(traeger, all, account))).toEqual([null, null, null, null])
+    expect([traeger, leitung, anna, tablet].map(account => accountLock(leitung, manage, account))).toEqual(['provider', 'own', null, null])
+    expect([traeger, leitung, anna, tablet].map(account => accountLock(anna, manage, account))).toEqual(['provider', 'role', 'own', null])
+  })
+})
 
 // Who may edit child records is a right now (the bundle „eintragen und Akten ändern“, see permissionBundles.test.ts);
 // the role only says who someone is.

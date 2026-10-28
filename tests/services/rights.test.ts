@@ -338,5 +338,46 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       expect(editor.writeGroups).toEqual({ attendance: { own: mice, readable: [] }, edit: null })
       expect([groupRightOf(editor, bears, 'children.edit'), groupRightOf(editor, mice, 'children.edit')]).toEqual(['none', 'write'])
     })
+
+    it('gives a person with only a PIN the current Mitarbeiter role settings, not the defaults', () => {
+      const carla = addEmployee(db, 'Carla', { groupId: mice })
+      setPin(db, 1, carla, '654321')
+      const tablet = addUser(db, 'tabletCarla', 'terminal')
+      const terminal = { id: tablet.id, facilityId: 1 }
+      const viewer = () => {
+        const { token } = unlockChildren(db, terminal, carla, '654321', NOW)
+        return tabletChildViewer(db, terminal, token, NOW)
+      }
+      expect(viewer()).toMatchObject({ id: null, groups: { own: mice, readable: [] } })
+      expect(viewer().permissions.has('children.view')).toBe(true)
+      saveRoleRights(db, 'observer', [
+        { id: 'childrenView', enabled: true, scope: 'facility' }, { id: 'childrenAttendance', enabled: true, scope: 'facility' },
+      ])
+      expect(viewer().groups).toBeNull()
+      saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: false }])
+      const without = viewer()
+      expect(without.permissions.has('children.view')).toBe(false)
+      expect(without.permissions.has('children.attendance')).toBe(false)
+      // Back to the Grundeinstellung at once.
+      resetRoleRights(db, 'observer')
+      expect(viewer().permissions.has('children.view')).toBe(true)
+    })
+  })
+
+  it('the Leitung gives „eintragen und Akten ändern“ only while it holds it itself (403 rights_not_held)', () => {
+    saveRoleRights(db, 'admin', [{ id: 'childrenEdit', enabled: false }])
+    const weak = fresh(leitung)
+    expect(weak.permissions.has('children.edit')).toBe(false)
+    expect(errorCode(() => saveUserRights(db, weak, anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'group' }])))
+      .toBe('rights_not_held')
+    expect(overrides(anna)).toEqual([])
+    // Taking it away stays hers.
+    saveUserRights(db, traeger, anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'group' }])
+    saveUserRights(db, weak, anna.id, [])
+    expect(overrides(anna)).toEqual([])
+    // With the right back the grant works again.
+    resetRoleRights(db, 'admin')
+    saveUserRights(db, fresh(leitung), anna.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'group' }])
+    expect(fresh(anna).permissions.has('children.edit')).toBe(true)
   })
 })

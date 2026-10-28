@@ -4,6 +4,6 @@ import { deleteAdjustment } from '../../services/employees'
 export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'time.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  deleteAdjustment(useDb(), admin.facilityId, id)
+  deleteAdjustment(useDb(), admin.facilityId, id, admin)
   return { ok: true }
 })

@@ -355,21 +355,36 @@ export function moveEmployee(db: Db, facilityId: number, id: number, direction: 
   })
 }
 
+/** Who changes a figure of an employee's balance: role and linked employee (see `assertNotOwnBalance`). */
+export type BalanceActor = Pick<SessionUser, 'role' | 'employeeId'>
+
+/**
+ * The own weekly hours, balance adjustments and leave entitlement feed the own balance: a Mitarbeiter who was given
+ * employee or time rights changes them only for others (403 own_account). The Leitung and the Träger as before.
+ */
+export function assertNotOwnBalance(actor: BalanceActor | undefined, employeeId: number): void {
+  if (!actor || actor.role === 'admin' || actor.role === 'provider') return
+  if (actor.employeeId !== null && actor.employeeId === employeeId) throw new ServiceError(403, 'own_account')
+}
+
 export function addHours(
   db: Db, facilityId: number, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate; workdays?: number },
+  actor?: BalanceActor,
 ): void {
   assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
   const workdays = requireWorkdays(period.workdays ?? MONDAY_TO_FRIDAY)
   db.insert(employeeHours).values({ employeeId, weeklyMinutes: period.weeklyMinutes, validFrom: period.validFrom, workdays })
     .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes, workdays } })
     .run()
 }
 
-export function deleteHours(db: Db, facilityId: number, id: number): void {
+export function deleteHours(db: Db, facilityId: number, id: number, actor?: BalanceActor): void {
   const period = db.select({ employeeId: employeeHours.employeeId }).from(employeeHours)
     .innerJoin(employees, eq(employeeHours.employeeId, employees.id))
     .where(and(eq(employeeHours.id, id), eq(employees.facilityId, facilityId))).get()
   if (!period) throw new ServiceError(404, 'hours_not_found')
+  assertNotOwnBalance(actor, period.employeeId)
   const count = db.select().from(employeeHours).where(eq(employeeHours.employeeId, period.employeeId)).all().length
   if (count <= 1) throw new ServiceError(409, 'last_hours')
   db.delete(employeeHours).where(eq(employeeHours.id, id)).run()
@@ -378,9 +393,10 @@ export function deleteHours(db: Db, facilityId: number, id: number): void {
 /** Books a balance adjustment; `paidOut` („ausgezahlt“, default no) keeps it for the longer retention period after leaving. */
 export function addAdjustment(
   db: Db, facilityId: number, employeeId: number,
-  adjustment: { date: IsoDate; minutes: number; reason: string; paidOut?: boolean },
+  adjustment: { date: IsoDate; minutes: number; reason: string; paidOut?: boolean }, actor?: BalanceActor,
 ): void {
   assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
   const reason = adjustment.reason.trim()
   if (!reason) throw new ServiceError(400, 'reason_required')
   db.insert(balanceAdjustments).values({
@@ -398,13 +414,17 @@ export function setAdjustmentPaidOut(
 ): void {
   if (!can(actor.permissions, 'time.manage')) throw new ServiceError(403, 'forbidden')
   assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
   const changed = db.update(balanceAdjustments).set({ paidOut })
     .where(and(eq(balanceAdjustments.id, adjustmentId), eq(balanceAdjustments.employeeId, employeeId))).run().changes
   if (changed === 0) throw new ServiceError(404, 'adjustment_not_found')
 }
 
 /** Deletes a balance booking of one of the facility's employees; other ids are ignored. */
-export function deleteAdjustment(db: Db, facilityId: number, id: number): void {
+export function deleteAdjustment(db: Db, facilityId: number, id: number, actor?: BalanceActor): void {
+  const booking = db.select({ employeeId: balanceAdjustments.employeeId }).from(balanceAdjustments)
+    .where(eq(balanceAdjustments.id, id)).get()
+  if (booking) assertNotOwnBalance(actor, booking.employeeId)
   db.delete(balanceAdjustments).where(and(
     eq(balanceAdjustments.id, id),
     inArray(balanceAdjustments.employeeId, db.select({ id: employees.id }).from(employees).where(eq(employees.facilityId, facilityId))),
@@ -413,8 +433,10 @@ export function deleteAdjustment(db: Db, facilityId: number, id: number): void {
 
 export function setEntitlement(
   db: Db, facilityId: number, employeeId: number, year: number, value: { days: number; carriedOverDays: number },
+  actor?: BalanceActor,
 ): void {
   assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
   const existing = db.select().from(leaveEntitlements)
     .where(and(eq(leaveEntitlements.employeeId, employeeId), eq(leaveEntitlements.year, year))).get()
   if (existing) {
