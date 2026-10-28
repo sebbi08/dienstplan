@@ -60,6 +60,12 @@ describe('dayWarnings', () => {
       { type: 'target_gap', date, employeeId: 5, missingMinutes: 348 },
     ])
   })
+  it('does not count the hours of Überstundenfrei as missing (VZ 7:00–8:00, 8:00–11:00, ÜF 11:00–15:00)', () => {
+    const lists = [...fullCoverage(), [
+      code(5, date, 'prep_time', 'timed', 420, 480), special(5, date, 480, 660), code(5, date, 'overtime_off', 'none', 660, 900),
+    ]]
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([])
+  })
   it('ignores a remaining time below 15 minutes (VZ + F2 after it = 7:45 h of 7:48 h)', () => {
     const lists = [...fullCoverage(), [code(5, date, 'prep_time', 'timed', 450, 570), shift(5, date, 570, 945, 700, 730)]]
     expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([])

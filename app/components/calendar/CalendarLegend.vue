@@ -7,6 +7,7 @@ const props = defineProps<{ planning?: boolean }>()
 const COMMON = [
   { class: 'bg-red-500', label: de.calendar.kinds.sick },
   { class: 'bg-green-500', label: de.calendar.kinds.vacation },
+  { class: 'bg-teal-500', label: de.calendar.kinds.overtime_off },
   { class: 'bg-lime-300', label: de.calendar.kinds.special_leave },
   { class: 'bg-sky-500', label: de.calendar.kinds.training },
   { class: 'bg-gray-400', label: de.calendar.kinds.closed },

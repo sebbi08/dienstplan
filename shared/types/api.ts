@@ -1251,7 +1251,7 @@ export interface EarlySickLeaveInput {
 }
 
 /** Colour group of a day in the year calendar. */
-export type CalendarKind = 'sick' | 'vacation' | 'special_leave' | 'training' | 'closed' | 'requested'
+export type CalendarKind = 'sick' | 'vacation' | 'overtime_off' | 'special_leave' | 'training' | 'closed' | 'requested'
 
 /** Admin's own appointment in the year calendar. */
 export interface CalendarEventDto {
@@ -1351,6 +1351,8 @@ export interface ReleaseNotificationStatusDto {
 }
 
 export type LeaveRequestStatus = 'open' | 'approved' | 'rejected' | 'withdrawn'
+/** 'vacation' = Urlaub (uses leave days), 'overtime_off' = Überstundenfrei (taken from the balance). */
+export type LeaveRequestKind = 'vacation' | 'overtime_off'
 
 export interface LeaveRequestDto {
   id: number
@@ -1360,13 +1362,14 @@ export interface LeaveRequestDto {
   endDate: IsoDate
   note: string
   status: LeaveRequestStatus
+  kind: LeaveRequestKind
   createdAt: string
   decidedAt: string | null
   decidedBy: string | null
   decisionNote: string
   /**
    * Leave days the range uses: the employee's working days in it (without holidays, closures and days off), 24 and 31
-   * December as half a day where the home facility counts them so (can be x.5).
+   * December as half a day where the home facility counts them so (can be x.5). Überstundenfrei: the working days.
    */
   workdays: number
   /** Days of the range on which more people than allowed would be on leave (open requests only). */
@@ -1395,9 +1398,16 @@ export interface LeaveSettingsDto {
 export interface LeaveRequestPreviewDto {
   /** Leave days the request uses (as LeaveRequestDto.workdays). */
   workdays: number
-  /** Leave days left in the start year after this request (null: no entitlement recorded). */
+  /** Leave days left in the start year after this request (null: no entitlement recorded, or Überstundenfrei). */
   availableAfter: number | null
   overLimitDates: IsoDate[]
+  /** Überstundenfrei only: the minutes the request takes from the balance (the daily targets of its days). */
+  minutesTaken?: number
+  /**
+   * Überstundenfrei only: the balance as of today minus this request, the person's other open Überstundenfrei requests
+   * and Überstundenfrei already planned after today.
+   */
+  balanceAfter?: number
 }
 
 /** The planning page: year calendar of leave and open requests, people per day and the open requests. */

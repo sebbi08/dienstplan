@@ -39,12 +39,12 @@ async function approve(request: LeaveRequestDto) {
       toast.add({ title: errorMessage(failure), color: 'error' })
       return
     }
-    if (!await confirm(de.leavePlanning.overwriteConfirm(data.details?.days ?? 0), { confirmLabel: de.leavePlanning.overwrite, danger: false })) return
+    if (!await confirm(de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveRequests.kinds[request.kind]), { confirmLabel: de.leavePlanning.overwrite, danger: false })) return
     if (!await run(async () => { result = await send(true) })) return
   }
   await Promise.all([refresh(), refreshNuxtData('leave-settings')])
   const kept = result?.keptAbsences ?? 0
-  toast.add({ title: kept ? de.leavePlanning.approvedKept(kept) : de.leavePlanning.approved, color: 'success' })
+  toast.add({ title: kept ? de.leavePlanning.approvedKept(kept, de.leaveRequests.kinds[request.kind]) : de.leavePlanning.approved, color: 'success' })
 }
 
 const rejecting = reactive<{ request: LeaveRequestDto | null; note: string }>({ request: null, note: '' })
@@ -77,6 +77,7 @@ async function reject() {
         <div v-for="request in planning.openRequests" :key="request.id" class="space-y-1 border-t border-gray-100 pt-2 text-sm first:border-0 first:pt-0">
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span class="font-semibold">{{ request.name }}</span>
+            <UBadge v-if="request.kind === 'overtime_off'" color="secondary" variant="soft" :label="de.leaveRequests.kinds.overtime_off" />
             <span>{{ de.leavePlanning.range(formatDate(request.startDate), formatDate(request.endDate), request.workdays) }}</span>
             <span class="ml-auto flex gap-1">
               <UButton size="xs" icon="i-lucide-check" :label="de.leavePlanning.approve" @click="approve(request)" />

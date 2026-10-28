@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { todayIso, weekday } from '#shared/domain/dates'
-import type { LeaveRequestDto, LeaveRequestPreviewDto } from '#shared/types/api'
+import { formatDuration, formatSignedDuration } from '#shared/domain/time'
+import type { LeaveRequestDto, LeaveRequestKind, LeaveRequestPreviewDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort, formatNumber } from '~/utils/format'
 
-/** "Urlaub beantragen" and the own requests with their status (only shown while the module is active). */
+/**
+ * "Urlaub beantragen" (Urlaub or Überstundenfrei, whole days) and the own requests with their status (only shown while
+ * the module is active).
+ */
 const emit = defineEmits<{ changed: [] }>()
 const { data: requests, refresh } = await useFetch<LeaveRequestDto[]>('/api/my/leave-requests')
 const run = useAction(async () => {
@@ -15,18 +19,19 @@ const run = useAction(async () => {
 const confirm = useConfirm()
 
 const today = todayIso()
-const form = reactive({ from: '', to: '', note: '' })
+const form = reactive<{ from: string; to: string; note: string; kind: LeaveRequestKind }>({ from: '', to: '', note: '', kind: 'vacation' })
+const kindItems = (['vacation', 'overtime_off'] as const).map(kind => ({ label: de.leaveRequests.kinds[kind], value: kind }))
 const preview = ref<LeaveRequestPreviewDto | null>(null)
 const previewError = ref('')
 // Only the answer to the latest date choice is shown (quick changes may answer out of order).
 let latest = 0
-watch(() => [form.from, form.to], async ([from, to]) => {
+watch(() => [form.from, form.to, form.kind], async ([from, to, kind]) => {
   const call = ++latest
   preview.value = null
   previewError.value = ''
   if (!from || !to) return
   try {
-    const answer = await $fetch<LeaveRequestPreviewDto>('/api/my/leave-requests/preview', { query: { from, to } })
+    const answer = await $fetch<LeaveRequestPreviewDto>('/api/my/leave-requests/preview', { query: { from, to, kind } })
     if (call === latest) preview.value = answer
   }
   catch (failure) {
@@ -38,7 +43,7 @@ const daysText = (dates: string[]) => dates.map(date => formatDayShort(date, wee
 
 async function send() {
   const ok = await run(() => $fetch<unknown>('/api/my/leave-requests', { method: 'POST', body: { ...form } }), de.leaveRequests.sent)
-  if (ok) Object.assign(form, { from: '', to: '', note: '' })
+  if (ok) Object.assign(form, { from: '', to: '', note: '', kind: 'vacation' })
 }
 
 async function withdraw(request: LeaveRequestDto) {
@@ -53,6 +58,9 @@ const STATUS_COLOR = { open: 'warning', approved: 'success', rejected: 'error', 
   <section class="space-y-4 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <form class="space-y-3" @submit.prevent="send">
       <h2 class="font-semibold">{{ de.leaveRequests.title }}</h2>
+      <UFormField :label="de.leaveRequests.kind" :hint="form.kind === 'overtime_off' ? de.leaveRequests.kindHint : undefined">
+        <URadioGroup v-model="form.kind" orientation="horizontal" :items="kindItems" />
+      </UFormField>
       <div class="grid gap-3 sm:grid-cols-3">
         <UFormField :label="de.leaveRequests.from"><DateTextInput v-model="form.from" :label="de.leaveRequests.from" :min="today" class="w-full" required /></UFormField>
         <UFormField :label="de.leaveRequests.to"><DateTextInput v-model="form.to" :label="de.leaveRequests.to" :min="form.from || today" class="w-full" required /></UFormField>
@@ -60,7 +68,8 @@ const STATUS_COLOR = { open: 'warning', approved: 'success', rejected: 'error', 
       </div>
       <p v-if="previewError" class="text-sm text-red-700">{{ previewError }}</p>
       <p v-else-if="preview" class="text-sm">
-        {{ de.leaveRequests.preview(preview.workdays) }}<template v-if="preview.availableAfter !== null">, {{ de.leaveRequests.availableAfter(formatNumber(preview.availableAfter)) }}</template>
+        {{ de.leaveRequests.preview(preview.workdays) }}<template v-if="preview.minutesTaken !== undefined">, {{ de.leaveRequests.minutesTaken(formatDuration(preview.minutesTaken)) }}</template><template v-if="preview.availableAfter !== null">, {{ de.leaveRequests.availableAfter(formatNumber(preview.availableAfter)) }}</template>
+        <template v-if="preview.balanceAfter !== undefined"><br>{{ de.leaveRequests.balanceAfter(formatSignedDuration(preview.balanceAfter)) }}</template>
       </p>
       <p v-if="preview?.overLimitDates.length" class="text-sm font-medium text-amber-700">
         {{ de.leaveRequests.overLimitHint(daysText(preview.overLimitDates)) }}
@@ -75,6 +84,7 @@ const STATUS_COLOR = { open: 'warning', approved: 'success', rejected: 'error', 
         <li v-for="request in requests" :key="request.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
           <span>{{ formatDate(request.startDate) }} – {{ formatDate(request.endDate) }}</span>
           <span class="text-gray-500">{{ de.leaveRequests.preview(request.workdays) }}</span>
+          <UBadge v-if="request.kind === 'overtime_off'" color="secondary" variant="soft" :label="de.leaveRequests.kinds.overtime_off" />
           <UBadge :color="STATUS_COLOR[request.status]" variant="soft" :label="de.leaveRequests.status[request.status]" />
           <span v-if="request.decidedBy && request.status !== 'withdrawn'" class="text-xs text-gray-500">{{ de.leaveRequests.decidedBy(request.decidedBy) }}</span>
           <span v-if="request.decisionNote" class="text-xs text-gray-600">„{{ request.decisionNote }}“</span>

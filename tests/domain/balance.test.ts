@@ -40,6 +40,25 @@ describe('dayCredit', () => {
   })
 })
 
+describe('Überstundenfrei (ÜF)', () => {
+  it('credits nothing for a whole day, so the balance drops by the daily target', () => {
+    expect(computeDay(info, day, [code(1, day, 'overtime_off', 'none')])).toEqual({ date: day, target: 468, credit: 0, delta: -468 })
+  })
+  it('with a time range takes exactly those hours: the rest of the target is worked as usual', () => {
+    // ÜF 12:00–16:00 (4 h) and 3:48 h worked in the morning: the day ends 4 h below the target.
+    const entries = [special(1, day, 420, 648), code(1, day, 'overtime_off', 'none', 720, 960)]
+    expect(computeDay(info, day, entries)).toEqual({ date: day, target: 468, credit: 228, delta: -240 })
+  })
+  it('a range over a planned shift takes the overlapping working time', () => {
+    // M 7:45–16:00 with break 11:40–12:10; ÜF from 12:00: worked 7:45–11:40.
+    expect(dayCredit([shift(1, day, ...M), code(1, day, 'overtime_off', 'none', 720, 960)], 468)).toBe(235)
+  })
+  it('follows a changed credit mode like every other code', () => {
+    expect(dayCredit([code(1, day, 'overtime_off', 'timed', 720, 960)], 468)).toBe(240)
+    expect(dayCredit([code(1, day, 'overtime_off', 'daily_target')], 468)).toBe(468)
+  })
+})
+
 describe('computeDay / computeRange', () => {
   it('counts weekend work fully as plus', () => {
     const saturday = '2026-10-10'

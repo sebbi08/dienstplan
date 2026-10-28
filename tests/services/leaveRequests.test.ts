@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog } from '../../server/db/schema'
+import { balanceAdjustments, changeLog } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
@@ -129,6 +129,63 @@ describe('leave requests', () => {
     expect(loadEntries(db, { employeeId: anna }).map(e => [e.date, e.codeKey])).toEqual([
       ['2026-11-02', 'vacation'], ['2026-11-03', 'sick'], ['2026-11-04', 'vacation'],
     ])
+  })
+
+  describe('Überstundenfrei', () => {
+    let carla: number
+    let carlaUser: SessionUser
+    beforeEach(() => {
+      setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+      // Employed from tomorrow with a carried-over balance of +20 h: "Stand heute" is exactly that.
+      carla = addEmployee(db, 'Carla', { validFrom: '2026-10-08' })
+      carlaUser = addUser(db, 'carla', 'observer', carla)
+      setEntitlement(db, 1, carla, 2026, { days: 30, carriedOverDays: 0 })
+      db.insert(balanceAdjustments).values({ employeeId: carla, date: '2026-10-07', minutes: 1200, reason: 'Übertrag' }).run()
+    })
+    const requestOff = (user: SessionUser, from: string, to: string) =>
+      createLeaveRequest(db, user, { from, to, note: '', kind: 'overtime_off' }, today)
+    const previewOff = (from: string, to: string) => previewLeaveRequest(db, carlaUser, from, to, today, 'overtime_off')
+
+    it('uses no leave days but shows the hours taken from the balance and the balance afterwards', () => {
+      // Mo 2.11. – Di 3.11.: two working days of 7:48 h
+      expect(previewOff('2026-11-02', '2026-11-03')).toEqual({
+        workdays: 2, availableAfter: null, overLimitDates: [], minutesTaken: 936, balanceAfter: 1200 - 936,
+      })
+      const id = requestOff(carlaUser, '2026-11-02', '2026-11-03')
+      expect(listMyLeaveRequests(db, carlaUser)).toMatchObject([{ id, kind: 'overtime_off', status: 'open', workdays: 2 }])
+      // Another open Überstundenfrei request is taken off the balance afterwards, not off the leave.
+      expect(previewOff('2026-11-09', '2026-11-09')).toMatchObject({ minutesTaken: 468, balanceAfter: 1200 - 936 - 468 })
+      expect(previewLeaveRequest(db, carlaUser, '2026-11-09', '2026-11-09', today)).toEqual({ workdays: 1, availableAfter: 29, overLimitDates: [] })
+      expect(errorCode(() => request(carlaUser, '2026-11-03', '2026-11-04'))).toBe('leave_request_overlaps')
+    })
+
+    it('writes Überstundenfrei into the plan on approval, keeps other absences and still counts it afterwards', () => {
+      const id = requestOff(carlaUser, '2026-11-02', '2026-11-04')
+      applyToCells(db, leitung, 1, [{ employeeId: carla, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
+      applyToCells(db, leitung, 1, [{ employeeId: carla, date: '2026-11-04' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+      expect(errorCode(() => decideLeaveRequest(db, leitung, 1, id, { approve: true, note: '', overwrite: false }))).toBe('cells_occupied')
+      expect(decideLeaveRequest(db, leitung, 1, id, { approve: true, note: '', overwrite: true })).toEqual({ keptAbsences: 1 })
+      expect(loadEntries(db, { employeeId: carla }).map(e => [e.date, e.codeKey])).toEqual([
+        ['2026-11-02', 'overtime_off'], ['2026-11-03', 'overtime_off'], ['2026-11-04', 'vacation'],
+      ])
+      expect(listMyLeaveRequests(db, carlaUser)[0]).toMatchObject({ kind: 'overtime_off', status: 'approved' })
+      // The approved days are planned now: they still come off the balance of the next request's preview.
+      expect(previewOff('2026-11-09', '2026-11-09')).toMatchObject({ minutesTaken: 468, balanceAfter: 1200 - 936 - 468 })
+      // Leave stays untouched (only the Urlaub day of 4.11. counts).
+      expect(previewLeaveRequest(db, carlaUser, '2026-11-09', '2026-11-09', today).availableAfter).toBe(28)
+    })
+
+    it('counts open and approved Überstundenfrei like leave for the people away per day', () => {
+      setMaxConcurrent(db, leitung, 1, 1)
+      applyToCells(db, leitung, 1, [{ employeeId: berta, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'overtime_off') })
+      expect(previewOff('2026-11-02', '2026-11-04').overLimitDates).toEqual(['2026-11-03'])
+      requestOff(carlaUser, '2026-11-02', '2026-11-04')
+      expect(listOpenRequests(db, leitung, 1)).toMatchObject([{ kind: 'overtime_off', overLimitDates: ['2026-11-03'] }])
+      const planning = getLeavePlanning(db, leitung, 1, 2026)
+      expect([planning.counts['2026-11-02'], planning.counts['2026-11-03']]).toEqual([1, 2])
+      expect(planning.calendar.days[carla]!['2026-11-02']).toBe('requested')
+      expect(planning.calendar.days[berta]!['2026-11-03']).toBe('overtime_off')
+    })
   })
 
   it('subtracts other open requests from the remaining leave and counts the menu badge for the chosen people only', () => {

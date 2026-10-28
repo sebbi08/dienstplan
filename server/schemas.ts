@@ -154,8 +154,9 @@ export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().
 export const leaveModuleSchema = z.object({ enabled: z.boolean(), plannerIds: z.array(z.number().int().positive()).max(50) })
 export const leaveMaxSchema = z.object({ value: z.number().int().min(1).max(100).nullable() })
 export const leaveCountingSchema = z.object({ christmasEveHalfLeave: z.boolean() })
-export const leaveRangeQuery = z.object({ from: isoDate, to: isoDate })
-export const leaveRequestSchema = z.object({ from: isoDate, to: isoDate, note: z.string().max(300) })
+const leaveRequestKind = z.enum(['vacation', 'overtime_off']).default('vacation')
+export const leaveRangeQuery = z.object({ from: isoDate, to: isoDate, kind: leaveRequestKind })
+export const leaveRequestSchema = z.object({ from: isoDate, to: isoDate, note: z.string().max(300), kind: leaveRequestKind })
 export const leaveDecisionSchema = z.object({ approve: z.boolean(), note: z.string().max(300), overwrite: z.boolean() })
 export const pdfQuery = z.object({ path: z.string().max(200), name: z.string().regex(/^[\w.-]{1,80}$/) })
 /** The state code is checked only by the service, so every unknown value answers 400 state_invalid. */

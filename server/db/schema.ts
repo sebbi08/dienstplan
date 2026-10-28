@@ -445,6 +445,8 @@ export const leaveRequests = sqliteTable('leave_requests', {
   endDate: text('end_date').notNull(),
   note: text('note').notNull().default(''),
   status: text('status', { enum: ['open', 'approved', 'rejected', 'withdrawn'] }).notNull().default('open'),
+  /** 'vacation' = Urlaub (uses leave days), 'overtime_off' = Überstundenfrei (taken from the balance). */
+  kind: text('kind', { enum: ['vacation', 'overtime_off'] }).notNull().default('vacation'),
   createdAt: text('created_at').notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   decidedAt: text('decided_at'),

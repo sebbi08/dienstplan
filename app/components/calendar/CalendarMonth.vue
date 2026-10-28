@@ -21,7 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const KIND_CLASSES: Record<CalendarKind, string> = {
-  sick: 'bg-red-500', vacation: 'bg-green-500', special_leave: 'bg-lime-300', training: 'bg-sky-500', closed: 'bg-gray-400',
+  sick: 'bg-red-500', vacation: 'bg-green-500', overtime_off: 'bg-teal-500', special_leave: 'bg-lime-300', training: 'bg-sky-500', closed: 'bg-gray-400',
   requested: 'bg-[repeating-linear-gradient(45deg,var(--color-green-200)_0_3px,var(--color-green-400)_3px_6px)]',
 }
 

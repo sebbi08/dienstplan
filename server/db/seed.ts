@@ -16,15 +16,17 @@ export const DEFAULT_TEMPLATES: (typeof shiftTemplates.$inferInsert)[] = [
 
 export const DEFAULT_CODES: (typeof absenceCodes.$inferInsert)[] = [
   { key: 'vacation', label: 'Urlaub', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 1 },
-  { key: 'special_leave', label: 'Sonderurlaub', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 2 },
-  { key: 'sick', label: 'Krank', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 3 },
-  { key: 'office', label: 'Büro', color: 'yellow', creditMode: 'timed', requiresTimes: true, sortOrder: 4 },
-  { key: 'prep_time', label: 'VZ', color: 'green', creditMode: 'timed', requiresTimes: true, sortOrder: 5 },
-  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 6 },
-  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 7 },
-  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 8 },
-  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 9 },
-  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 10 },
+  // Überstundenfrei: credits nothing, so it is taken from the balance (existing databases: migration 0061_overtime_off).
+  { key: 'overtime_off', label: 'ÜF', color: 'violet', creditMode: 'none', requiresTimes: false, sortOrder: 2 },
+  { key: 'special_leave', label: 'Sonderurlaub', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 3 },
+  { key: 'sick', label: 'Krank', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 4 },
+  { key: 'office', label: 'Büro', color: 'yellow', creditMode: 'timed', requiresTimes: true, sortOrder: 5 },
+  { key: 'prep_time', label: 'VZ', color: 'green', creditMode: 'timed', requiresTimes: true, sortOrder: 6 },
+  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 7 },
+  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 8 },
+  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 9 },
+  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 10 },
+  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 11 },
 ]
 
 export const DEFAULT_COVERAGE_RULES: (typeof coverageRules.$inferInsert)[] = [

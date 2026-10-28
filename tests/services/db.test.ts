@@ -20,7 +20,7 @@ describe('database setup', () => {
     const db = createTestDb()
     seedDefaults(db)
     expect(db.select().from(shiftTemplates).all().map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(db.select().from(absenceCodes).all()).toHaveLength(10)
+    expect(db.select().from(absenceCodes).all()).toHaveLength(11)
     expect(db.select().from(coverageRules).all()).toHaveLength(3)
   })
   it('enforces foreign keys again after migrating', () => {
@@ -1545,6 +1545,35 @@ describe('upgrading a filled database through migrateDb', () => {
     db.delete(users).where(eq(users.id, terminal.id)).run()
 
     expect(db.select({ id: terminalUnlocks.id }).from(terminalUnlocks).all()).toEqual([{ id: 'b' }])
+  })
+
+  it('0061 adds the code Überstundenfrei after Urlaub and makes every existing request a leave request', () => {
+    const { db, sqlite } = databaseAt('0060')
+    sqlite.exec(`
+      INSERT INTO absence_codes (key, label, color, credit_mode, requires_times, sort_order) VALUES
+        ('vacation', 'Urlaub', 'gray', 'daily_target', 0, 1), ('special_leave', 'Sonderurlaub', 'gray', 'daily_target', 0, 2),
+        ('sick', 'Krank', 'red', 'daily_target', 0, 3), ('other', 'sonstiges', 'neutral', 'none', 0, 4);
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1);
+      INSERT INTO leave_requests (employee_id, start_date, end_date, created_at) VALUES (1, '2026-11-02', '2026-11-06', 'now');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT key, label, color, credit_mode, requires_times, sort_order FROM absence_codes ORDER BY sort_order').all())
+      .toEqual([
+        { key: 'vacation', label: 'Urlaub', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 1 },
+        { key: 'overtime_off', label: 'ÜF', color: 'violet', credit_mode: 'none', requires_times: 0, sort_order: 2 },
+        { key: 'special_leave', label: 'Sonderurlaub', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 3 },
+        { key: 'sick', label: 'Krank', color: 'red', credit_mode: 'daily_target', requires_times: 0, sort_order: 4 },
+        { key: 'other', label: 'sonstiges', color: 'neutral', credit_mode: 'none', requires_times: 0, sort_order: 5 },
+      ])
+    expect(sqlite.prepare('SELECT kind FROM leave_requests').all()).toEqual([{ kind: 'vacation' }])
+
+    // A new database gets no codes from the migration (seedDefaults adds them all, Überstundenfrei included).
+    const fresh = databaseAt('0060')
+    migrateDb(fresh.db, MIGRATIONS)
+    expect(count(fresh.sqlite, 'absence_codes')).toBe(0)
+    seedDefaults(fresh.db)
+    expect(fresh.db.select().from(absenceCodes).all().filter(code => code.key === 'overtime_off'))
+      .toMatchObject([{ label: 'ÜF', color: 'violet', creditMode: 'none', requiresTimes: false, sortOrder: 2 }])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

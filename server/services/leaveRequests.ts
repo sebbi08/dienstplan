@@ -1,19 +1,22 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm'
-import { dateRange, parseIsoDate } from '../../shared/domain/dates'
+import { isTimeOff, OVERTIME_OFF, timeOffMinutes } from '../../shared/domain/balance'
+import { addDays, dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { countLeaveDays } from '../../shared/domain/leave'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
 import { can } from '../../shared/domain/permissions'
 import { isManager } from '../../shared/domain/roles'
-import { isWorkday } from '../../shared/domain/targets'
+import { dailyTarget, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  LeavePlanningDto, LeaveRequestDto, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
+  LeavePlanningDto, LeaveRequestDto, LeaveRequestKind, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   absenceCodes, appSettings, employees, entries, facilities, leavePlanners, leaveRequests, users,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { activeTrackingFrom } from './appSettings'
+import { computeBalances } from './balances'
 import { getYearCalendar } from './calendar'
 import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
@@ -77,13 +80,13 @@ function requestDays(employee: EmployeeRecord, from: IsoDate, to: IsoDate, closu
 
 /**
  * People of the staff (one facility's employees) on leave per day between from and to: "Urlaub" entries not belonging
- * to a closure, plus open requests.
+ * to a closure and "Überstundenfrei" entries, plus open requests (of both kinds).
  */
 function loadInRange(db: Db, from: IsoDate, to: IsoDate, staff: EmployeeRecord[], closures: ReturnType<typeof loadClosures>): LeaveDay[] {
   const byId = new Map(staff.map(employee => [employee.id, employee]))
   const vacation = db.select({ employeeId: entries.employeeId, date: entries.date })
     .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
-    .where(and(eq(absenceCodes.key, 'vacation'), isNull(entries.closureId), gte(entries.date, from), lte(entries.date, to)))
+    .where(and(inArray(absenceCodes.key, ['vacation', OVERTIME_OFF]), isNull(entries.closureId), gte(entries.date, from), lte(entries.date, to)))
     .all()
     .filter(day => byId.has(day.employeeId))
   const requested = db.select().from(leaveRequests)
@@ -98,6 +101,16 @@ function loadInRange(db: Db, from: IsoDate, to: IsoDate, staff: EmployeeRecord[]
   return [...vacation, ...requested]
 }
 
+/** The days a request counts: leave days for Urlaub (24/31 December maybe half), plain working days for Überstundenfrei. */
+function requestedDays(kind: LeaveRequestKind, days: IsoDate[], employee: EmployeeRecord): number {
+  return kind === 'overtime_off' ? days.length : countLeaveDays(days, employee.halfLeaveOnEves)
+}
+
+/** The code a request of this kind writes into the plan when approved. */
+function codeKeyOf(kind: LeaveRequestKind): 'vacation' | typeof OVERTIME_OFF {
+  return kind === 'overtime_off' ? OVERTIME_OFF : 'vacation'
+}
+
 function toDto(
   db: Db, request: typeof leaveRequests.$inferSelect, staff: EmployeeRecord[], closures: ReturnType<typeof loadClosures>,
   limit: number | null, deciders: Map<number, string>,
@@ -109,9 +122,9 @@ function toDto(
     : []
   return {
     id: request.id, employeeId: request.employeeId, name: employee?.name ?? '', startDate: request.startDate,
-    endDate: request.endDate, note: request.note, status: request.status, createdAt: request.createdAt,
+    endDate: request.endDate, note: request.note, status: request.status, kind: request.kind, createdAt: request.createdAt,
     decidedAt: request.decidedAt, decidedBy: request.decidedBy === null ? null : deciders.get(request.decidedBy) ?? null,
-    decisionNote: request.decisionNote, workdays: employee ? countLeaveDays(days, employee.halfLeaveOnEves) : 0, overLimitDates,
+    decisionNote: request.decisionNote, workdays: employee ? requestedDays(request.kind, days, employee) : 0, overLimitDates,
   }
 }
 
@@ -196,7 +209,46 @@ function validateRange(db: Db, employeeId: number, from: IsoDate, to: IsoDate, t
   return { ...home, days }
 }
 
-export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to: IsoDate, today: IsoDate): LeaveRequestPreviewDto {
+/** The days of the person's other open requests of this kind. */
+function otherOpenDays(db: Db, employee: EmployeeRecord, kind: LeaveRequestKind, closures: ReturnType<typeof loadClosures>): IsoDate[] {
+  return db.select().from(leaveRequests)
+    .where(and(eq(leaveRequests.employeeId, employee.id), eq(leaveRequests.status, 'open'), eq(leaveRequests.kind, kind))).all()
+    .flatMap(request => requestDays(employee, request.startDate, request.endDate, closures))
+}
+
+/**
+ * Überstundenfrei: the balance as of today ("Stand heute", as the balance overview shows it) minus what is already
+ * planned as Überstundenfrei after it, the person's other open Überstundenfrei requests and this request. A requested
+ * day costs its daily target (nothing while the code is set to credit the daily target); a planned day costs what it
+ * really takes (its time range only, when it has one).
+ */
+function overtimeOffPreview(
+  db: Db, facilityId: number, employee: EmployeeRecord, days: IsoDate[], closures: ReturnType<typeof loadClosures>, today: IsoDate,
+): { minutesTaken: number; balanceAfter: number } {
+  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, OVERTIME_OFF)).get()
+  const dayCost = (date: IsoDate) => (code?.creditMode === 'daily_target' ? 0 : dailyTarget(employee.info, date))
+  // "Stand heute" ends yesterday while the time tracking runs (today is not finished yet), see computeBalances.
+  const until = activeTrackingFrom(db, facilityId, today) !== null ? addDays(today, -1) : today
+  const planned = new Map<IsoDate, ReturnType<typeof loadEntries>>()
+  for (const entry of loadEntries(db, { employeeId: employee.id, from: addDays(until, 1), codeKey: OVERTIME_OFF })) {
+    planned.set(entry.date, [...(planned.get(entry.date) ?? []), entry])
+  }
+  const cost = new Map<IsoDate, number>()
+  for (const [date, list] of planned) {
+    const wholeDay = list.some(entry => entry.start === null && entry.creditMode !== 'daily_target')
+    cost.set(date, wholeDay ? dailyTarget(employee.info, date) : timeOffMinutes(list.filter(isTimeOff)))
+  }
+  for (const date of [...otherOpenDays(db, employee, 'overtime_off', closures), ...days]) {
+    if (!cost.has(date)) cost.set(date, dayCost(date))
+  }
+  const [balance] = computeBalances(db, facilityId, [employee], until, today)
+  const taken = [...cost.values()].reduce((sum, minutes) => sum + minutes, 0)
+  return { minutesTaken: days.reduce((sum, date) => sum + dayCost(date), 0), balanceAfter: balance!.today - taken }
+}
+
+export function previewLeaveRequest(
+  db: Db, user: SessionUser, from: IsoDate, to: IsoDate, today: IsoDate, kind: LeaveRequestKind = 'vacation',
+): LeaveRequestPreviewDto {
   requireEnabled(db)
   const employeeId = requireEmployee(user)
   const { facilityId, staff, employee, closures, days } = validateRange(db, employeeId, from, to, today)
@@ -204,27 +256,31 @@ export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to
     ...loadInRange(db, days[0]!, days.at(-1)!, staff, closures),
     ...days.map(date => ({ employeeId, date })),
   ])
+  const overLimitDates = daysOverLimit(load, days, maxConcurrent(db, facilityId))
+  if (kind === 'overtime_off') {
+    const balance = overtimeOffPreview(db, facilityId, employee, days, closures, today)
+    return { workdays: days.length, availableAfter: null, overLimitDates, ...balance }
+  }
   // Remaining leave of the start year: what the leave account has left (planned leave already counted), minus this
-  // request and the person's other open requests, each without days that are already "Urlaub".
+  // request and the person's other open leave requests, each without days that are already "Urlaub".
   const year = parseIsoDate(from).year
   const hasEntitlement = entitlementFor(db, employeeId, year) !== null
   const alreadyLeave = new Set(loadEntries(db, { employeeId, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
     .map(entry => entry.date))
-  const otherOpen = db.select().from(leaveRequests)
-    .where(and(eq(leaveRequests.employeeId, employeeId), eq(leaveRequests.status, 'open'))).all()
-    .flatMap(request => requestDays(employee, request.startDate, request.endDate, closures))
+  const otherOpen = otherOpenDays(db, employee, 'vacation', closures)
   const newDays = new Set([...days, ...otherOpen].filter(date => date.startsWith(`${year}-`) && !alreadyLeave.has(date)))
   return {
     workdays: countLeaveDays(days, employee.halfLeaveOnEves),
     availableAfter: hasEntitlement
       ? getLeaveAccount(db, employeeId, year, today).account.available - countLeaveDays([...newDays], employee.halfLeaveOnEves)
       : null,
-    overLimitDates: daysOverLimit(load, days, maxConcurrent(db, facilityId)),
+    overLimitDates,
   }
 }
 
 export function createLeaveRequest(
-  db: Db, user: SessionUser, input: { from: IsoDate; to: IsoDate; note: string }, today: IsoDate, now: Date = new Date(),
+  db: Db, user: SessionUser, input: { from: IsoDate; to: IsoDate; note: string; kind?: LeaveRequestKind }, today: IsoDate,
+  now: Date = new Date(),
 ): number {
   requireEnabled(db)
   const employeeId = requireEmployee(user)
@@ -235,7 +291,7 @@ export function createLeaveRequest(
   )).get()
   if (overlapping) throw new ServiceError(409, 'leave_request_overlaps')
   return db.insert(leaveRequests).values({
-    employeeId, startDate: input.from, endDate: input.to, note: input.note.trim(),
+    employeeId, startDate: input.from, endDate: input.to, note: input.note.trim(), kind: input.kind ?? 'vacation',
     createdAt: now.toISOString(), createdBy: user.id,
   }).returning().get().id
 }
@@ -282,7 +338,7 @@ export function listOpenRequests(db: Db, user: SessionUser, facilityId: number):
 }
 
 /**
- * Approves (writes "Urlaub" on the request's days) or rejects an open request of one of the facility's employees.
+ * Approves (writes "Urlaub", for an Überstundenfrei request "Überstundenfrei", on the request's days) or rejects an open request of one of the facility's employees.
  * Approving over planned duties needs `overwrite`; otherwise the server answers cells_occupied so the UI can ask first.
  */
 export function decideLeaveRequest(
@@ -307,21 +363,23 @@ export function decideLeaveRequest(
   const dayEntries = loadEntries(db, { employeeId: employee.id, from: request.startDate, to: request.endDate })
     .filter(entry => requested.includes(entry.date))
   // Days with another full-day absence (Krank, Fortbildung, Sonderurlaub …) stay as they are: e.g. a sick day must
-  // never become leave. Only planned duties (shifts, VZ, Büro …) may be replaced, after asking.
-  const absent = new Set(dayEntries.filter(entry => entry.codeKey !== null && entry.codeKey !== 'vacation'
+  // never become leave (and planned leave never Überstundenfrei). Only planned duties (shifts, VZ, Büro …) may be
+  // replaced, after asking.
+  const codeKey = codeKeyOf(request.kind)
+  const absent = new Set(dayEntries.filter(entry => entry.codeKey !== null && entry.codeKey !== codeKey
     && entry.creditMode === 'daily_target').map(entry => entry.date))
   const days = requested.filter(date => !absent.has(date))
-  const occupiedDays = new Set(dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== 'vacation')
+  const occupiedDays = new Set(dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== codeKey)
     .map(entry => entry.date)).size
   if (occupiedDays > 0 && !decision.overwrite) {
     throw new ServiceError(409, 'cells_occupied', { days: occupiedDays })
   }
-  const vacation = db.select().from(absenceCodes).where(eq(absenceCodes.key, 'vacation')).get()
-  if (!vacation) throw new ServiceError(500, 'code_not_found')
+  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, codeKey)).get()
+  if (!code) throw new ServiceError(500, 'code_not_found')
   db.transaction((tx) => {
     if (days.length) {
       const cells = days.map(date => ({ employeeId: employee.id, date }))
-      applyToCells(tx, user, facilityId, cells, 'replace', { kind: 'code', codeId: vacation.id }, { now })
+      applyToCells(tx, user, facilityId, cells, 'replace', { kind: 'code', codeId: code.id }, { now })
     }
     tx.update(leaveRequests).set({ status: 'approved', ...decided }).where(eq(leaveRequests.id, id)).run()
   })

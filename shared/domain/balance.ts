@@ -21,18 +21,38 @@ export interface Adjustment {
 }
 
 export type WorkSpan = Pick<DomainEntry, 'kind' | 'start' | 'end' | 'breakStart' | 'breakEnd'>
+  & Partial<Pick<DomainEntry, 'codeKey' | 'creditMode'>>
+
+/** The code "Überstundenfrei": a day (or a time range) off that is taken from the balance. */
+export const OVERTIME_OFF = 'overtime_off'
+
+/**
+ * Time off taken from the balance: an "Überstundenfrei" entry crediting nothing (its default). With a time range only
+ * those minutes are not credited, like a break: working time planned in them does not count either.
+ */
+export function isTimeOff(entry: WorkSpan): boolean {
+  return entry.kind === 'code' && entry.codeKey === OVERTIME_OFF && entry.creditMode === 'none'
+}
+
+/** Minutes of the time ranges of time-off entries (overlaps once). */
+export function timeOffMinutes(entries: WorkSpan[]): number {
+  const off = new Uint8Array(24 * 60)
+  for (const entry of entries) if (isTimeOff(entry) && entry.start !== null && entry.end !== null) off.fill(1, entry.start, entry.end)
+  return off.reduce((sum, minute) => sum + minute, 0)
+}
 
 /**
  * Working minutes of one day: overlapping entries (e.g. VZ inside a full shift) count once,
- * break times (breaks of entries and additional breaks) never count.
+ * break times (breaks of entries and additional breaks) and time off ("Überstundenfrei") never count.
  */
 export function workedMinutes(entries: WorkSpan[]): number {
   const worked = new Uint8Array(24 * 60)
   for (const entry of entries) {
-    if (entry.kind !== 'break' && entry.start !== null && entry.end !== null) worked.fill(1, entry.start, entry.end)
+    if (entry.kind !== 'break' && !isTimeOff(entry) && entry.start !== null && entry.end !== null) worked.fill(1, entry.start, entry.end)
   }
   for (const entry of entries) {
-    if (entry.kind === 'break' && entry.start !== null && entry.end !== null) worked.fill(0, entry.start, entry.end)
+    const blank = entry.kind === 'break' || isTimeOff(entry)
+    if (blank && entry.start !== null && entry.end !== null) worked.fill(0, entry.start, entry.end)
     else if (entry.breakStart !== null && entry.breakEnd !== null) worked.fill(0, entry.breakStart, entry.breakEnd)
   }
   return worked.reduce((sum, minute) => sum + minute, 0)

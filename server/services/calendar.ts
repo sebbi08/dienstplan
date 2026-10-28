@@ -15,10 +15,11 @@ import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './qu
 
 /** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. */
 const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
-  sick: 'sick', vacation: 'vacation', special_leave: 'special_leave', training: 'training', school: 'training', holiday: 'closed', closure_day: 'closed',
+  sick: 'sick', vacation: 'vacation', overtime_off: 'overtime_off', special_leave: 'special_leave', training: 'training',
+  school: 'training', holiday: 'closed', closure_day: 'closed',
 }
 /** When a day has several codes, the first kind in this list wins. */
-const KIND_PRIORITY: CalendarKind[] = ['sick', 'vacation', 'special_leave', 'training', 'closed']
+const KIND_PRIORITY: CalendarKind[] = ['sick', 'vacation', 'overtime_off', 'special_leave', 'training', 'closed']
 /** Absences the admin enters by clicking a calendar day (written to the plan). */
 const ABSENCE_KEYS: CodeKey[] = ['vacation', 'special_leave', 'sick', 'training', 'school']
 

@@ -25,7 +25,7 @@ describe('settings service', () => {
   it('returns the seeded settings', () => {
     const settings = getSettings(db, 1)
     expect(settings.templates.map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(settings.codes.map(c => c.key)).toEqual(['vacation', 'special_leave', 'sick', 'office', 'prep_time', 'training', 'school', 'other', 'holiday', 'closure_day'])
+    expect(settings.codes.map(c => c.key)).toEqual(['vacation', 'overtime_off', 'special_leave', 'sick', 'office', 'prep_time', 'training', 'school', 'other', 'holiday', 'closure_day'])
     expect(settings.coverageRules).toHaveLength(3)
   })
   it('lists the services by start, then end, then label, whatever the stored sortOrder', () => {

@@ -6,7 +6,7 @@ export type EntryKind = 'shift' | 'special' | 'code' | 'break'
 export type CreditMode = 'daily_target' | 'timed' | 'none'
 export type CodeKey =
   | 'vacation' | 'special_leave' | 'sick' | 'training' | 'school' | 'other'
-  | 'prep_time' | 'office' | 'holiday' | 'closure_day'
+  | 'prep_time' | 'office' | 'holiday' | 'closure_day' | 'overtime_off'
 
 /** Minimal entry shape used by all domain calculations. */
 export interface DomainEntry {

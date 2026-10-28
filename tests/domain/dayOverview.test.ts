@@ -45,6 +45,14 @@ describe('buildDayOverview', () => {
     expect(new Set(overview.rows[1]!.states)).toEqual(new Set(['holiday']))
     expect(overview.present.every(count => count === 0)).toBe(true)
   })
+  it('shows Überstundenfrei as absent, also for its time range only', () => {
+    const overview = buildDayOverview([
+      { employeeId: 1, entries: [code(1, date, 'overtime_off', 'none')] },
+      { employeeId: 2, entries: [special(2, date, 420, 720), code(2, date, 'overtime_off', 'none', 720, 960)] },
+    ], false)
+    expect(new Set(overview.rows[0]!.states)).toEqual(new Set(['absent']))
+    expect(overview.rows[1]!.states[overview.slotStarts.indexOf(780)]).toBe('absent')
+  })
   it('extends the range to entries outside 7:00–17:00', () => {
     const overview = buildDayOverview([{ employeeId: 1, entries: [special(1, date, 840, 1110)] }], false)
     expect(overview.slotStarts.at(-1)).toBe(1125)

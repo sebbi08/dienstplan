@@ -4,6 +4,6 @@ import { previewLeaveRequest } from '../../../services/leaveRequests'
 
 export default defineServiceHandler(async (event) => {
   const user = await requireUser(event)
-  const { from, to } = await getValidatedQuery(event, leaveRangeQuery.parse)
-  return previewLeaveRequest(useDb(), user, from, to, todayIso())
+  const { from, to, kind } = await getValidatedQuery(event, leaveRangeQuery.parse)
+  return previewLeaveRequest(useDb(), user, from, to, todayIso(), kind)
 })

@@ -847,6 +847,23 @@ Schließzeiten für neu Eingestellte. Es gilt die Einstellung der **Stammeinrich
 rückwirkend). Das Stundenkonto und die Sollstunden ändern sich nicht; in der Urlaubsplanung zählt die Person an dem Tag
 weiter als eine Person im Urlaub.
 
+### Urlaubsanträge: Urlaub oder Überstundenfrei
+
+Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im Antrag oben **„Urlaub“** (voreingestellt) oder
+**„Überstundenfrei“**. Beantragt werden immer **ganze Tage** (Arbeitstage ohne Feiertage, freie Tage und Schließzeiten).
+
+- **Urlaub** nimmt Urlaubstage; die Vorschau zeigt „danach noch … Tage Urlaub“.
+- **Überstundenfrei** nimmt **keine Urlaubstage**. Die Vorschau zeigt, wie viele Stunden der Antrag vom Stundenkonto
+  nimmt (die Sollstunden der Tage) und **„Stundenkonto danach: …“**: der Stand heute minus dieser Antrag, andere offene
+  Überstundenfrei-Anträge und schon eingetragenes Überstundenfrei nach heute. Ein Minus ist erlaubt; die Leitung
+  entscheidet.
+- In „Meine Anträge“ und in der Urlaubsplanung steht bei solchen Anträgen das Abzeichen **„Überstundenfrei“**.
+  Genehmigen und Ablehnen gehen genau wie beim Urlaub (dieselben Zuständigen, dieselbe Zahl am Menü). Beim Genehmigen
+  trägt das Programm **„ÜF“** statt „Urlaub“ in den Dienstplan ein; Tage mit Krank, Urlaub, Fortbildung u. Ä. bleiben
+  unverändert.
+- Für die **Höchstzahl gleichzeitig im Urlaub** zählt Überstundenfrei (eingetragen oder beantragt) wie Urlaub. Im
+  Jahreskalender und in der Urlaubsplanung erscheint es türkis als „Überstundenfrei“.
+
 ### Zugang (Benutzerkonto der Person)
 
 - Im Reiter **Zugang** richtest du für eine Person ohne Konto mit **„Zugang einrichten“** ein Benutzerkonto ein: Der
@@ -1167,6 +1184,13 @@ dem Landesjugendamt klären und bei Bedarf als Träger anpassen.
 Die Codes für Abwesenheiten (Urlaub, Krank, Fortbildung …) gelten für **alle Einrichtungen**. Bezeichnung, Farbe und
 Anrechnung ändert deshalb **nur der Träger** unter *Einstellungen → Dienstplan → Codes*. Die Leitung sieht die Codes dort nur zum
 Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).
+
+**Überstundenfrei („ÜF“, violett)** steht direkt hinter Urlaub. Seine Anrechnung ist **„keine“**: ein ganzer Tag ÜF
+schreibt nichts gut, das Stundenkonto sinkt also um die Sollstunden des Tages; Urlaubstage werden nicht genommen. Für
+einen halben Tag ÜF klickt man im Dienstplan auf den Eintrag und gibt die Zeit ein (z. B. 12:00–16:00): dann gehen nur
+diese Stunden vom Stundenkonto ab, der Rest des Tages wird wie immer gearbeitet bzw. gutgeschrieben (Dienste in dieser
+Zeit zählen nicht). Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes ändern; der Code selbst
+bleibt Überstundenfrei (z. B. für Urlaubsanträge).
 
 ## 22. Warnungen im Dienstplan (die Liste rechts)
 

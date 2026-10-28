@@ -1,4 +1,4 @@
-import { dayCredit, isWorkEntry } from './balance'
+import { dayCredit, isWorkEntry, timeOffMinutes } from './balance'
 import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
@@ -165,8 +165,9 @@ export function dayWarnings(
     const hasGapCode = entries.some(entry => isTargetGapCode(entry.codeKey))
     if (!hasGapCode) continue
     const target = dailyTarget(info, date)
-    const credit = dayCredit(entries, target)
-    if (target - credit >= TARGET_GAP_TOLERANCE_MINUTES) warnings.push({ type: 'target_gap', date, employeeId, missingMinutes: target - credit })
+    // Hours taken off as "Überstundenfrei" are not missing: the balance pays for them.
+    const missing = target - dayCredit(entries, target) - timeOffMinutes(entries)
+    if (missing >= TARGET_GAP_TOLERANCE_MINUTES) warnings.push({ type: 'target_gap', date, employeeId, missingMinutes: missing })
   }
 
   return warnings
