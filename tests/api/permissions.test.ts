@@ -427,10 +427,13 @@ describe('API route permissions', () => {
     // The detail and its update decide the personnel file blocks by the session user's permissions.
     expect(source('employees/[id].get.ts')).toContain('viewer.permissions)')
     expect(source('employees/[id].put.ts')).toContain('admin.permissions, undefined, admin.employeeId)')
-    // A PIN opens the tablet with the rights of the linked account: only for accounts the actor manages.
+    // A PIN opens the tablet with the rights of the linked account: only the Leitung and the Träger, in the facility of
+    // the request (checked first), and only for accounts they manage.
     for (const route of ['employees/[id]/pin.put.ts', 'employees/[id]/pin.delete.ts', 'employees/[id]/pin/unlock.post.ts']) {
-      expect(source(route), route).toContain('assertPinManageable(useDb(), admin, id)')
+      expect(source(route), route).toContain('assertPinManageable(useDb(), admin, admin.facilityId, id)')
     }
+    // Nobody but the Träger changes the own stamping settings (they feed the credited time).
+    expect(source('employees/[id]/stamping.put.ts')).toContain('admin.permissions, admin.employeeId)')
   })
 
   it('lets only the Träger change the absence codes', () => {

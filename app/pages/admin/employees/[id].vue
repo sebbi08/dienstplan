@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import { PIN_LENGTH, isValidPin } from '#shared/domain/pin'
+import { PIN_LENGTH, isValidPin, mayManagePins } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
@@ -57,6 +57,10 @@ const { can } = useCan()
 // Contract data is only sent to the Träger (editable: employees.contractEdit) or, when allowed, to the Leitung (read-only).
 const canEditContract = computed(() => can('employees.contractEdit'))
 const canMoveFacility = computed(() => can('employees.moveFacility'))
+// PINs are set, cleared and unlocked only by the Leitung and the Träger (the server checks this as well).
+const canManagePins = computed(() => mayManagePins(user.value?.role, can))
+// The own stamping settings feed the own credited time: only the Träger changes them (server: own_account).
+const canEditStamping = computed(() => user.value?.employeeId !== id || can('users.providerAccounts'))
 
 /**
  * The forms „Stammdaten“ and „Qualifikation“ of the tab „Stammdaten“ (one route, but each form saves only its own
@@ -585,30 +589,32 @@ async function onTabKey(event: KeyboardEvent) {
         :class="pinLock.locked ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'"
       >
         <span>{{ pinLock.text }}</span>
-        <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.employees.unlockPin" @click="unlockPin" />
+        <UButton v-if="canManagePins" size="sm" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.employees.unlockPin" @click="unlockPin" />
       </div>
-      <form class="flex flex-wrap items-end gap-3" @submit.prevent="savePin">
+      <form v-if="canManagePins" class="flex flex-wrap items-end gap-3" @submit.prevent="savePin">
         <UFormField :label="de.employees.pin">
           <UInput v-model="pin" inputmode="numeric" :maxlength="PIN_LENGTH" autocomplete="off" required />
         </UFormField>
         <UButton type="submit" :label="de.employees.savePin" />
         <UButton v-if="employee.hasPin" color="error" variant="ghost" :label="de.employees.removePin" @click="removePin" />
       </form>
-      <p class="text-xs text-gray-500">{{ de.employees.pinHint }} {{ de.employees.pinLockHint }}</p>
+      <p v-if="canManagePins" class="text-xs text-gray-500">{{ de.employees.pinHint }} {{ de.employees.pinLockHint }}</p>
+      <p v-else class="text-xs text-gray-500">{{ de.errors.pin_managers_only }}</p>
     </section>
 
     <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveStamping">
       <h2 class="font-semibold">{{ de.employees.stamping }}</h2>
       <div class="grid gap-3 sm:grid-cols-2">
         <UFormField :label="de.employees.stampVia">
-          <USelect v-model="stamping.stampVia" :items="stampViaItems" class="w-full" />
+          <USelect v-model="stamping.stampVia" :items="stampViaItems" :disabled="!canEditStamping" class="w-full" />
         </UFormField>
         <UFormField :label="de.employees.breakMode">
-          <USelect v-model="stamping.breakMode" :items="breakModeItems" class="w-full" />
+          <USelect v-model="stamping.breakMode" :items="breakModeItems" :disabled="!canEditStamping" class="w-full" />
         </UFormField>
       </div>
       <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
-      <UButton type="submit" :label="de.common.save" />
+      <UButton v-if="canEditStamping" type="submit" :label="de.common.save" />
+      <p v-else class="text-xs text-gray-500">{{ de.errors.own_account }}</p>
     </form>
     </div>
 

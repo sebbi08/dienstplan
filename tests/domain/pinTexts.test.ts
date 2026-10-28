@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { pinFailureText, pinStateText } from '../../app/utils/pin'
+import { mayManagePins } from '../../shared/domain/pin'
+import type { PermissionKey } from '../../shared/domain/permissions'
 
 /** A $fetch error as the service handler sends it. */
 const failure = (code: string, details?: Record<string, unknown>) => ({ data: { data: { code, details } } })
@@ -45,5 +47,17 @@ describe('PIN state on the employee page', () => {
   })
   it('shows the lasting lock', () => {
     expect(state(3)).toEqual({ locked: true, text: 'PIN dauerhaft gesperrt – Freischaltung durch die Leitung oder den Träger nötig.' })
+  })
+})
+
+describe('who sees the PIN controls on the employee page', () => {
+  const none = () => false
+  const all = (key: PermissionKey) => key === 'users.providerAccounts' || key === 'employees.edit'
+  it('shows them to the Leitung and the Träger only, never to a Mitarbeiter with „pflegen“', () => {
+    expect(mayManagePins('admin', none)).toBe(true)
+    expect(mayManagePins('provider', all)).toBe(true)
+    expect(mayManagePins('observer', key => key === 'employees.edit')).toBe(false)
+    expect(mayManagePins('terminal', none)).toBe(false)
+    expect(mayManagePins(undefined, none)).toBe(false)
   })
 })

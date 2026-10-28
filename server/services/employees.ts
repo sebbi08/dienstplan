@@ -458,8 +458,11 @@ export function listLevelUps(db: Db, facilityId: number, today: IsoDate, viewer:
 /** Time tracking options of an employee, set by the Leitung: where to clock in and out, and how breaks count. */
 export function setStampingOptions(
   db: Db, facilityId: number, id: number, options: { stampVia: StampChannel; breakMode: BreakMode },
+  permissions: ReadonlySet<PermissionKey> = new Set(), actorEmployeeId: number | null = null,
 ): void {
   assertEmployee(db, facilityId, id)
+  // Stamping channel and break mode feed the credited time: only the Träger changes them on the own record.
+  if (id === actorEmployeeId && !can(permissions, 'users.providerAccounts')) throw new ServiceError(403, 'own_account')
   db.update(employees).set(options).where(eq(employees.id, id)).run()
 }
 

@@ -1,5 +1,6 @@
 import { and, asc, count, eq, inArray, or } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
+import { mayManagePins } from '../../shared/domain/pin'
 import { MANAGER_ROLES } from '../../shared/domain/roles'
 import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -118,11 +119,18 @@ function assertMayManage(actor: SessionUser, ...roles: Role[]): void {
 
 /**
  * Setting, clearing or unlocking an employee's PIN (the key to the tablet, where the person works with the rights of
- * the account linked to the employee): only for an employee without account, the actor's own employee (as today), or
- * one whose account the actor manages (`manageableRoles`: a Leitung Mitarbeiter and Leitung accounts, anyone else only
- * tablet accounts, i.e. none linked to an employee). Otherwise 403 pin_not_manageable.
+ * the account linked to the employee). First the facility: an employee of another facility is 404 employee_not_found
+ * for everyone (nothing about it is confirmed). Then only the Leitung and the Träger (`mayManagePins`, 403
+ * pin_managers_only), and of them only for an employee without account, the actor's own employee, or one whose account
+ * the actor manages (`manageableRoles`: a Leitung Mitarbeiter and Leitung accounts, not Träger accounts). Otherwise 403
+ * pin_not_manageable.
  */
-export function assertPinManageable(db: Db, actor: SessionUser, employeeId: number): void {
+export function assertPinManageable(db: Db, actor: SessionUser, facilityId: number, employeeId: number): void {
+  if (!db.select({ id: employees.id }).from(employees)
+    .where(and(eq(employees.id, employeeId), eq(employees.facilityId, facilityId))).get()) {
+    throw new ServiceError(404, 'employee_not_found')
+  }
+  if (!mayManagePins(actor.role, key => can(actor.permissions, key))) throw new ServiceError(403, 'pin_managers_only')
   const linked = db.select({ id: users.id, role: users.role }).from(users).where(eq(users.employeeId, employeeId)).get()
   if (!linked || linked.id === actor.id) return
   if (!manageableRoles(actor).includes(linked.role)) throw new ServiceError(403, 'pin_not_manageable')

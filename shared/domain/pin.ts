@@ -1,3 +1,6 @@
+import type { Role } from '../types/api'
+import type { PermissionKey } from './permissions'
+
 /** The stamp PIN for the shared tablet (stamping and unlocking the child records): exactly this many digits. */
 export const PIN_LENGTH = 6
 /** Wrong tries in a row that lock the PIN. */
@@ -26,4 +29,13 @@ export function pinLockState(
   const permanent = lock.pinLockLevel >= PIN_PERMANENT_LOCK_LEVEL
   const running = !permanent && lock.pinLockedUntil !== null && lock.pinLockedUntil > now.toISOString()
   return { pinLockedUntil: running ? lock.pinLockedUntil : null, pinLockedPermanently: permanent }
+}
+
+/**
+ * Who sets, clears and unlocks tablet PINs: only the Leitung (role admin, in its facility) and the Träger
+ * (users.providerAccounts). A PIN opens the tablet with the rights of the person, so nobody else hands one out, not even
+ * with „Mitarbeitende pflegen“. The server checks this in assertPinManageable; the employee page hides the PIN controls.
+ */
+export function mayManagePins(role: Role | undefined, has: (key: PermissionKey) => boolean): boolean {
+  return role === 'admin' || has('users.providerAccounts')
 }

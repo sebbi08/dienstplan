@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { users } from '../../server/db/schema'
+import { employees, users } from '../../server/db/schema'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { getActiveUser, login } from '../../server/services/auth'
-import { listEmployees, moveEmployeeToFacility, updateEmployee } from '../../server/services/employees'
+import { listEmployees, moveEmployeeToFacility, setStampingOptions, updateEmployee } from '../../server/services/employees'
 import { assertPinManageable, createUser, listUsers, resetPassword, updateUser } from '../../server/services/users'
 import { saveUserRights } from '../../server/services/rights'
 import type { SessionUser } from '../../shared/types/api'
@@ -163,7 +163,7 @@ describe('who manages which accounts (no escalation through „Zugänge verwalte
     expect(getActiveUser(db, own.id)!.role).toBe('observer')
   })
 
-  it('sets, clears and unlocks a PIN only for employees whose account the actor manages (403 pin_not_manageable)', () => {
+  it('sets, clears and unlocks PINs only as the Leitung or the Träger, for accounts they manage', () => {
     const benEmployee = addEmployee(db, 'Ben')
     createUser(db, leitung, { username: 'ben', password: 'start-1234', role: 'observer', employeeId: benEmployee })
     const leitungEmployee = addEmployee(db, 'Lea')
@@ -171,21 +171,59 @@ describe('who manages which accounts (no escalation through „Zugänge verwalte
     const traegerEmployee = addEmployee(db, 'Tom')
     updateUser(db, provider, provider.id, { role: 'provider', employeeId: traegerEmployee, active: true })
     const unlinked = addEmployee(db, 'Uwe')
-    // A Mitarbeiter the Träger gave „pflegen“: only employees without an account, and its own employee as today.
+    // A Mitarbeiter the Träger gave „pflegen“: no PIN at all, not even for an employee without account or its own.
     const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
     saveUserRights(db, provider, own.id, [{ bundle: 'employeesEdit', effect: 'grant' }])
     const editor = getActiveUser(db, own.id)!
     expect(editor.permissions.has('employees.edit')).toBe(true)
-    for (const employeeId of [benEmployee, leitungEmployee, traegerEmployee]) {
-      expect(errorCode(() => assertPinManageable(db, editor, employeeId)), String(employeeId)).toBe('pin_not_manageable')
+    for (const employeeId of [benEmployee, leitungEmployee, traegerEmployee, unlinked, anna]) {
+      expect(errorCode(() => assertPinManageable(db, editor, 1, employeeId)), String(employeeId)).toBe('pin_managers_only')
     }
-    expect(errorCode(() => assertPinManageable(db, editor, unlinked))).toBeNull()
-    expect(errorCode(() => assertPinManageable(db, editor, anna))).toBeNull()
-    // The Leitung keeps today's reach (Mitarbeiter and Leitung of its facility), but not a Träger's employee.
-    expect([benEmployee, leitungEmployee, unlinked].map(id => errorCode(() => assertPinManageable(db, leitung, id)))).toEqual([null, null, null])
-    expect(errorCode(() => assertPinManageable(db, leitung, traegerEmployee))).toBe('pin_not_manageable')
+    // The Leitung keeps today's reach (Mitarbeiter, Leitung and unlinked of its facility), but not a Träger's employee.
+    expect([benEmployee, leitungEmployee, unlinked].map(id => errorCode(() => assertPinManageable(db, leitung, 1, id)))).toEqual([null, null, null])
+    expect(errorCode(() => assertPinManageable(db, leitung, 1, traegerEmployee))).toBe('pin_not_manageable')
     // The Träger every one.
-    expect([benEmployee, leitungEmployee, traegerEmployee].map(id => errorCode(() => assertPinManageable(db, provider, id)))).toEqual([null, null, null])
+    expect([benEmployee, leitungEmployee, traegerEmployee, unlinked].map(id => errorCode(() => assertPinManageable(db, provider, 1, id))))
+      .toEqual([null, null, null, null])
+  })
+
+  it('checks the facility first: an employee of another facility is 404 for everyone, nothing is probed', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const kim = addEmployee(db, 'Kim', { facilityId: krippe })
+    const kimLeitung = addUser(db, 'kimleitung', 'admin', null, krippe)
+    db.update(users).set({ employeeId: kim }).where(eq(users.id, kimLeitung.id)).run()
+    const zoe = addEmployee(db, 'Zoe', { facilityId: krippe })
+    const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, provider, own.id, [{ bundle: 'employeesEdit', effect: 'grant' }])
+    const editor = getActiveUser(db, own.id)!
+    for (const actor of [editor, leitung, provider]) {
+      for (const employeeId of [kim, zoe]) {
+        expect(errorCode(() => assertPinManageable(db, actor, 1, employeeId)), `${actor.username} ${employeeId}`).toBe('employee_not_found')
+      }
+    }
+    // The Träger reaches them in the facility it has selected.
+    expect([kim, zoe].map(id => errorCode(() => assertPinManageable(db, provider, krippe, id)))).toEqual([null, null])
+  })
+
+  it('lets nobody but the Träger change the own stamping settings (403 own_account)', () => {
+    const options = { stampVia: 'tablet', breakMode: 'auto' } as const
+    const own = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, provider, own.id, [{ bundle: 'employeesEdit', effect: 'grant' }])
+    const editor = getActiveUser(db, own.id)!
+    expect(errorCode(() => setStampingOptions(db, 1, anna, options, editor.permissions, editor.employeeId))).toBe('own_account')
+    // A Leitung on its own record as well.
+    const leaEmployee = addEmployee(db, 'Lea')
+    const lea = createUser(db, leitung, { username: 'lea', password: 'start-1234', role: 'admin', employeeId: leaEmployee })
+    const leaSession = getActiveUser(db, lea.id)!
+    expect(errorCode(() => setStampingOptions(db, 1, leaEmployee, options, leaSession.permissions, leaSession.employeeId))).toBe('own_account')
+    // Another employee's settings as today, and the Träger its own.
+    expect(errorCode(() => setStampingOptions(db, 1, leaEmployee, options, editor.permissions, editor.employeeId))).toBeNull()
+    expect(errorCode(() => setStampingOptions(db, 1, anna, options, leaSession.permissions, leaSession.employeeId))).toBeNull()
+    const traegerEmployee = addEmployee(db, 'Tom')
+    updateUser(db, provider, provider.id, { role: 'provider', employeeId: traegerEmployee, active: true })
+    const traeger = getActiveUser(db, provider.id)!
+    expect(errorCode(() => setStampingOptions(db, 1, traegerEmployee, options, traeger.permissions, traeger.employeeId))).toBeNull()
+    expect(db.select().from(employees).where(eq(employees.id, anna)).get()).toMatchObject({ stampVia: 'tablet', breakMode: 'auto' })
   })
 
   it('lets nobody but the Träger move the own employee record to another group (403 own_account)', () => {
