@@ -83,7 +83,7 @@ describe('requirePermission', () => {
     expect((await auth.requirePermission(event(tablet), 'printTemplates.view', { allowTerminal: true, facility: 'active' }))
       .facilityId).toBe(1)
     // allowTerminal admits the tablet only; everybody else still needs the key.
-    expect(await code(() => auth.requirePermission(event(staff), 'printTemplates.view', { allowTerminal: true })))
+    expect(await code(() => auth.requirePermission(event(staff), 'printTemplates.edit', { allowTerminal: true })))
       .toBe('forbidden')
   })
 

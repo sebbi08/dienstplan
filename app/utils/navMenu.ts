@@ -6,7 +6,8 @@ import type { Role } from '../../shared/types/api'
 /**
  * The entries of the main menu, grouped, by the account's permissions. Whoever has office pages (Leitung and Träger)
  * sees the everyday ones directly (`main`), the rarely used ones under "Mehr" (`more`) and, when linked to an employee,
- * their own pages under "Meins" (`mine`). Mitarbeiter have `main` and their own lists under "Meins"; the tablet only has
+ * their own pages under "Meins" (`mine`). Mitarbeiter have `main` and their own lists and the print templates under
+ * "Meins"; the tablet only has
  * `main`. Passwort ändern and Abmelden are added by the layout.
  */
 
@@ -75,11 +76,14 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // The cash books of the facility and its groups.
     [can('cash.view'), entry(de.nav.cash, '/cash')],
   ])
-  const more = shown([
+  // Blank forms to print: under "Mehr" for the managers, under "Meins" for Mitarbeiter (read only); the tablet reaches
+  // them from its start page.
+  const templates = shown([[can('printTemplates.view'), entry(de.nav.templates, '/templates')]])
+  const officeMore = shown([
     [can('closures.manage'), entry(de.nav.closures, '/admin/closures')],
     [can('employees.sickness'), entry(de.nav.sickDays, '/admin/sick-days')],
-    // Blank forms to print; the tablet reaches them from its start page, Mitarbeiter accounts not at all.
-    [can('printTemplates.view'), entry(de.nav.templates, '/templates')],
+  ])
+  const adminMore = shown([
     // The templates of staff talks, child observations and team meetings.
     [can('formTemplates.manage'), entry(de.nav.forms, '/admin/forms')],
     [can('users.manage'), entry(de.nav.users, '/admin/users')],
@@ -88,7 +92,9 @@ export function navMenu(viewer: NavViewer): NavMenu {
     [can('retention.delete'), entry(de.nav.retention, '/admin/retention')],
   ])
 
-  if (office.length > 0 || more.length > 0 || can('calendar.edit')) {
+  // The print templates alone make no office account: Mitarbeiter read them as well.
+  if (office.length > 0 || officeMore.length > 0 || adminMore.length > 0 || can('calendar.edit')) {
+    const more = [...officeMore, ...templates, ...adminMore]
     // With office pages (Leitung, Träger): the everyday ones in the row, the rest under "Mehr"; linked to an employee
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
     const open = viewer.isPlanner ? viewer.openCount : 0
@@ -108,7 +114,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // Seven entries in a row no longer fit the header of a tablet (1024 px), so the own lists sit under "Meins" like the
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
     main: [myPlan, ...plans, calendar, ...meetings],
-    mine: [myLeave, myRequirements, myTalks],
+    // The templates are the facility's: a staff account without an employee belongs to none.
+    mine: [myLeave, myRequirements, myTalks, ...(viewer.employeeId !== null ? templates : [])],
     more: [],
     mineCount: 0,
     totalCount: viewer.unread,

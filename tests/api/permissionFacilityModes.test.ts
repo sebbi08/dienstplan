@@ -15,7 +15,7 @@ import { addUser, createTestDb, TEST_PASSWORD } from '../helpers/fixtures'
  * team meeting members (the result of requireFacility was not used). */
 const ACTIVE = [
   'facilities.get.ts',
-  'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
+  'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts', 'template-categories/index.get.ts',
   'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/index.get.ts', 'team-meetings/index.post.ts',
 ]
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */

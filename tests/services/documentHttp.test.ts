@@ -108,15 +108,18 @@ describe('parseUploadParts for print templates', () => {
   const parse = (parts: UploadPart[]) => parseUploadParts(parts, printTemplateFields)
 
   it('reads title, category and scope, the facility being the default scope', () => {
-    expect(parse([file, text('title', 'Brief'), text('category', 'Eltern'), text('scope', 'all')]).fields)
-      .toEqual({ title: 'Brief', category: 'Eltern', scope: 'all' })
-    expect(parse([file, text('title', 'Brief'), text('category', '')]).fields.scope).toBe('facility')
+    expect(parse([file, text('title', 'Brief'), text('categoryId', '3'), text('scope', 'all')]).fields)
+      .toEqual({ title: 'Brief', categoryId: 3, scope: 'all' })
+    expect(parse([file, text('title', 'Brief'), text('categoryId', '3')]).fields.scope).toBe('facility')
   })
 
-  it('needs the file and well-formed fields', () => {
-    expect(errorCode(() => parse([text('title', 'Brief'), text('category', '')]))).toBe('file_required')
-    expect(errorCode(() => parse([file, text('title', 'Brief'), text('category', ''), text('scope', 'mine')]))).toBe('invalid_input')
-    expect(errorCode(() => parse([file, text('title', 'x'.repeat(201)), text('category', '')]))).toBe('invalid_input')
+  it('needs the file and well-formed fields, among them a category', () => {
+    expect(errorCode(() => parse([text('title', 'Brief'), text('categoryId', '3')]))).toBe('file_required')
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', '3'), text('scope', 'mine')]))).toBe('invalid_input')
+    expect(errorCode(() => parse([file, text('title', 'x'.repeat(201)), text('categoryId', '3')]))).toBe('invalid_input')
+    expect(errorCode(() => parse([file, text('title', 'Brief')]))).toBe('invalid_input')
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', '')]))).toBe('invalid_input')
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', 'Eltern')]))).toBe('invalid_input')
     expect(parseUploadParts([file], noFields).file.filename).toBe('Elternbrief.pdf')
   })
 })

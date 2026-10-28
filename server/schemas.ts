@@ -3,6 +3,7 @@ import { isValidIsoDate } from '../shared/domain/dates'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
+import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
 import { COLOR_KEYS, CONSENT_KEYS, REVIEW_SECTIONS, type ConsentKey, type MeetingKind } from '../shared/types/api'
 
@@ -380,9 +381,15 @@ export const employeeDocumentSchema = z.object({
   documentDate: isoDate,
   note: z.string().max(1000).default(''),
 })
-// Print templates: the form fields of the upload (multipart, so all text) and the change of title and category.
-export const printTemplateSchema = z.object({ title: z.string().max(200), category: z.string().max(60) })
-export const printTemplateFields = printTemplateSchema.extend({ scope: z.enum(['facility', 'all']).default('facility') })
+// Print templates: the change of title and category, and the form fields of the upload (multipart, so all text).
+export const printTemplateSchema = z.object({ title: z.string().max(200), categoryId: z.number().int().positive() })
+export const printTemplateFields = z.object({
+  title: z.string().max(200),
+  categoryId: z.coerce.number().int().positive(),
+  scope: z.enum(['facility', 'all']).default('facility'),
+})
+// Their categories (the same for every facility).
+export const templateCategorySchema = z.object({ name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES) })
 /** Replacing the file sends the file alone. */
 export const noFields = z.object({})
 

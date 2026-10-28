@@ -9,6 +9,7 @@ import { deleteDocument, uploadDocument } from '../../server/services/childDocum
 import { deleteChild } from '../../server/services/children'
 import { deleteEmployeeDocument, uploadEmployeeDocument } from '../../server/services/employeeDocuments'
 import { deleteTemplate, replaceTemplateFile, uploadTemplate } from '../../server/services/printTemplates'
+import { createCategory } from '../../server/services/templateCategories'
 import { addChild, addEmployee, addUser, asChildViewer, documentTypeId } from '../helpers/fixtures'
 
 const MARKER = 'KINDERAKTE-GEHEIM-MARKER-7f3a9c'
@@ -75,12 +76,13 @@ describe('deleting child records leaves no trace in the database file or in back
   it('removes a deleted print template and the file a replacement superseded', async () => {
     const { dataDir, db, sqlite, admin, backup } = open()
     const leitung = { id: admin.id, role: admin.role, facilityId: 1 }
-    const id = uploadTemplate(db, leitung, { title: 'Brief', category: '', scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
+    const categoryId = createCategory(db, leitung, { name: 'Eltern', visibility: 'all' })
+    const id = uploadTemplate(db, leitung, { title: 'Brief', categoryId, scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
     checkpointWal(sqlite)
     replaceTemplateFile(db, leitung, id, { data: Buffer.from('%PDF-1.7\nneu'), filename: 'b.pdf' })
     checkpointWal(sqlite)
     expect(databaseFilesWithMarker(dataDir)).toEqual([])
-    const again = uploadTemplate(db, leitung, { title: 'Brief', category: '', scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
+    const again = uploadTemplate(db, leitung, { title: 'Brief', categoryId, scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
     checkpointWal(sqlite)
     deleteTemplate(db, leitung, again)
     checkpointWal(sqlite)

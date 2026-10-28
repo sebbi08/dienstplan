@@ -525,17 +525,22 @@ describe('API route permissions', () => {
     expect(code).toContain('manager.facilityId')
   })
 
-  it('lets the tablet open the print templates, but only managers of the active facility change them', () => {
-    const touching = routes.filter(route => /^print-templates\//.test(route) || source(route).includes('services/printTemplates\''))
+  it('lets the tablet and Mitarbeiter open the print templates and their categories, but only managers change them', () => {
+    const touching = routes.filter(route => /^(print-templates|template-categories)\//.test(route)
+      || /services\/(printTemplates|templateCategories)'/.test(source(route)))
     expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
-      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts'])
-    const readers = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts']
+      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts',
+      'template-categories/[id].delete.ts', 'template-categories/[id].patch.ts', 'template-categories/[id].put.ts',
+      'template-categories/index.get.ts', 'template-categories/index.post.ts'])
+    const readers = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts', 'template-categories/index.get.ts']
     for (const route of touching) {
       // The tablet without an unlock (blank forms, no child data), always in the active facility (no settings choice).
       expect(source(route), route).toContain(readers.includes(route)
         ? "requirePermission(event, 'printTemplates.view', { allowTerminal: true, facility: 'active' })"
         : "requirePermission(event, 'printTemplates.edit')")
     }
+    // Since the template categories (a deliberate change): Mitarbeiter accounts read, never change.
+    for (const route of touching) expect(fixture[route]!.includes('observer'), route).toBe(readers.includes(route))
   })
 
   it('keeps the tablet\'s unlock token in the server-only part of the session', () => {
@@ -562,9 +567,10 @@ describe('API route permissions', () => {
     }
   })
 
-  it('lets the tablet into the general plan, the team meetings and the print templates only', () => {
+  it('lets the tablet into the general plan, the team meetings and the print templates (with their categories) only', () => {
     const allowing = routes.filter(route => source(route).includes('allowTerminal: true'))
     expect(allowing).toEqual(['plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
-      'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/index.get.ts', 'team-meetings/index.post.ts'])
+      'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/index.get.ts', 'team-meetings/index.post.ts',
+      'template-categories/index.get.ts'])
   })
 })

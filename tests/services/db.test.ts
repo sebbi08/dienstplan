@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
 import {
   absenceCodes, childDevelopmentDocs, childParentMeetings, children, coverageRules, employees, printTemplates, shiftTemplates,
-  terminalUnlocks, users,
+  templateCategories, terminalUnlocks, users,
 } from '../../server/db/schema'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
@@ -1196,14 +1196,16 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(count(sqlite, 'print_templates')).toBe(0)
     expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
       .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
+      // 0063_template_categories adds the category reference (and its index, see there).
       .toEqual([
-        ['id', 1], ['facility_id', 0], ['title', 1], ['category', 1], ['mime_type', 1], ['size', 1], ['data', 1],
-        ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1],
+        ['id', 1], ['facility_id', 0], ['title', 1], ['category', 1], ['category_id', 1], ['mime_type', 1], ['size', 1],
+        ['data', 1], ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1],
       ])
-    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates'`).all())
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates' AND name = 'print_templates_facility'`).all())
       .toEqual([{ name: 'print_templates_facility' }])
     expect(sqlite.prepare('PRAGMA foreign_key_list(print_templates)').all()
       .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .filter(fk => fk.from !== 'category_id')
       .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
       { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
       { table: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
@@ -1489,8 +1491,9 @@ describe('upgrading a filled database through migrateDb', () => {
   it('print_templates keep their file when the uploader is deleted', () => {
     const db = createTestDb()
     const user = addUser(db, 'leitung', 'admin')
+    const categoryId = db.insert(templateCategories).values({ name: 'Eltern' }).returning().get().id
     db.insert(printTemplates).values({
-      facilityId: 1, title: 'Elternbrief', category: 'Eltern', mimeType: 'application/pdf', size: 5, data: Buffer.from('%PDF-'),
+      facilityId: 1, title: 'Elternbrief', categoryId, mimeType: 'application/pdf', size: 5, data: Buffer.from('%PDF-'),
       uploadedBy: user.id, uploadedAt: '2026-10-21T08:00:00.000Z', updatedAt: '2026-10-21T08:00:00.000Z',
     }).run()
     db.delete(users).where(eq(users.id, user.id)).run()
@@ -1628,6 +1631,63 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT employee_id FROM employee_payroll').all()).toEqual([{ employee_id: 2 }])
     expect(sqlite.prepare('SELECT employee_id, folder FROM employee_documents').all()).toEqual([{ employee_id: 2, folder: 'salary' }])
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0063 makes a category of each free-text category (visible to all, by name) and files every template in it', () => {
+    const { db, sqlite } = databaseAt('0062')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO users (id, username, password_hash, role) VALUES (1, 'traeger', 'x', 'provider');
+      INSERT INTO print_templates (id, facility_id, title, category, mime_type, size, data, uploaded_by, uploaded_at, updated_at) VALUES
+        (1, 1, 'Zahnarzt', 'Gesundheit', 'application/pdf', 3, x'255044', 1, 'a', 'b'),
+        (2, 2, 'Ausflug', 'Eltern', 'application/pdf', 3, x'255044', NULL, 'a', 'b'),
+        (3, NULL, 'Urlaubsantrag', 'Personal', 'application/pdf', 3, x'255044', 1, 'a', 'b'),
+        (4, 1, 'Allergien', 'gesundheit', 'application/pdf', 3, x'255044', 1, 'a', 'b'),
+        (5, 2, 'Brief', 'Eltern', 'application/pdf', 3, x'255044', 1, 'a', 'b');
+    `)
+    const before = sqlite.prepare('SELECT * FROM print_templates ORDER BY id').all() as Record<string, unknown>[]
+
+    migrateDb(db, MIGRATIONS)
+
+    // „Gesundheit“ and „gesundheit“ are one category (names are unique regardless of case).
+    expect(sqlite.prepare('SELECT name, sort_order, visibility FROM template_categories ORDER BY sort_order').all()).toEqual([
+      { name: 'Eltern', sort_order: 0, visibility: 'all' },
+      { name: 'Gesundheit', sort_order: 1, visibility: 'all' },
+      { name: 'Personal', sort_order: 2, visibility: 'all' },
+    ])
+    const after = sqlite.prepare(`
+      SELECT p.*, c.name AS category_name FROM print_templates p JOIN template_categories c ON c.id = p.category_id ORDER BY p.id
+    `).all() as Record<string, unknown>[]
+    expect(after.map(({ category_id: _id, category_name: _name, ...rest }) => rest)).toEqual(before)
+    expect(after.map(row => [row.id, row.category_name])).toEqual([
+      [1, 'Gesundheit'], [2, 'Eltern'], [3, 'Personal'], [4, 'Gesundheit'], [5, 'Eltern'],
+    ])
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates' ORDER BY name`).all())
+      .toEqual([{ name: 'print_templates_category' }, { name: 'print_templates_facility' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_list(print_templates)').all()
+      .map(fk => { const { table, from, on_delete } = fk as Record<string, string>; return { table, from, on_delete } })
+      .sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { table: 'template_categories', from: 'category_id', on_delete: 'NO ACTION' },
+      { table: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { table: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
+    ])
+    expect(() => sqlite.exec(`INSERT INTO template_categories (name) VALUES ('ELTERN')`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec('DELETE FROM template_categories WHERE id = 1')).toThrow(/FOREIGN KEY/)
+    expect(() => sqlite.exec(`
+      INSERT INTO print_templates (title, category_id, mime_type, size, data, uploaded_at, updated_at) VALUES ('X', 99, 'a', 1, x'00', 'a', 'b')
+    `)).toThrow(/FOREIGN KEY/)
+    sqlite.exec(`INSERT INTO template_categories (name) VALUES ('Küche')`)
+    expect(sqlite.prepare(`SELECT sort_order, visibility FROM template_categories WHERE name = 'Küche'`).get())
+      .toEqual({ sort_order: 0, visibility: 'all' })
+    sqlite.exec(`INSERT INTO print_templates (title, category_id, mime_type, size, data, uploaded_at, updated_at) VALUES ('Neu', 1, 'a', 1, x'00', 'a', 'b')`)
+    expect(sqlite.prepare(`SELECT category FROM print_templates WHERE title = 'Neu'`).get()).toEqual({ category: '' })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0063 creates no category on a database without templates', () => {
+    const { db, sqlite } = databaseAt('0062')
+    migrateDb(db, MIGRATIONS)
+    expect(count(sqlite, 'template_categories')).toBe(0)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

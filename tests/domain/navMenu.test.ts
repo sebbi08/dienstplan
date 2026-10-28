@@ -54,18 +54,27 @@ describe('navMenu', () => {
     expect(menu.totalCount).toBe(0)
   })
 
-  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar and „Teamsitzungen“, the own lists under „Meins“', () => {
+  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar and „Teamsitzungen“, the own lists and „Vorlagen“ under „Meins“', () => {
     const menu = navMenu({ ...base, ...as('observer'), employeeId: 9, unread: 3 })
     expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Kalender', 'Teamsitzungen'])
     expect(menu.main.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/plan/2026/10', '/my/calendar', '/team-meetings'])
-    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche'])
-    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/leave', '/my/requirements', '/my/talks'])
+    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Vorlagen'])
+    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/leave', '/my/requirements', '/my/talks', '/templates'])
     expect(menu.more).toEqual([])
     // The unread count stands on „Mein Dienstplan“ in the row, not on „Meins“.
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(3)
-    // Without an employee the account belongs to no facility: no team meetings.
-    expect(labels(navMenu({ ...base, ...as('observer'), employeeId: null }).main)).toEqual(['Mein Dienstplan', 'Dienstplan', 'Kalender'])
+    // Without an employee the account belongs to no facility: no team meetings, no templates.
+    const loose = navMenu({ ...base, ...as('observer'), employeeId: null })
+    expect(labels(loose.main)).toEqual(['Mein Dienstplan', 'Dienstplan', 'Kalender'])
+    expect(labels(loose.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche'])
+  })
+
+  it('keeps a Mitarbeiter who may read the templates out of the office menu', () => {
+    const menu = navMenu({ ...base, role: 'observer', can: key => key === 'printTemplates.view', employeeId: 9 })
+    expect(menu.more).toEqual([])
+    expect(labels(menu.main)).toEqual(['Mein Dienstplan', 'Kalender'])
+    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Vorlagen'])
   })
 
   it('gives the tablet Stempeln, the plan and the team meetings', () => {
@@ -138,6 +147,8 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const staffMain: Pair[] = [['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Dienstplan', '/plan/2026/10'], ['Kalender', '/my/calendar']]
   const staffMainWithMeetings: Pair[] = [...staffMain, ['Teamsitzungen', '/team-meetings']]
   const staffMine: Pair[] = [['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'], ['Meine Gespräche', '/my/talks']]
+  // The print templates need a facility, which a staff account only has through its employee.
+  const staffMineWithTemplates: Pair[] = [...staffMine, ['Vorlagen', '/templates']]
 
   const cases: { name: string, viewer: NavViewer, main: Pair[], mine: Pair[], more: Pair[], mineCount: number, totalCount: number }[] = [
     { name: 'Träger', viewer: viewerOf('provider'), main: officeMain, mine: [], more: providerMore, mineCount: 0, totalCount: 0 },
@@ -161,17 +172,17 @@ describe('navMenu per role (unchanged by the permissions)', () => {
     { name: 'Mitarbeiter', viewer: viewerOf('observer'), main: staffMain, mine: staffMine, more: [], mineCount: 0, totalCount: 2 },
     {
       name: 'Mitarbeiter with employee', viewer: viewerOf('observer', { employeeId: 9 }),
-      main: staffMainWithMeetings, mine: staffMine, more: [], mineCount: 0, totalCount: 2,
+      main: staffMainWithMeetings, mine: staffMineWithTemplates, more: [], mineCount: 0, totalCount: 2,
     },
     {
       name: 'Mitarbeiter with employee who maintains child records',
       viewer: viewerOf('observer', { employeeId: 9, canEditChildren: true }),
-      main: staffMainWithMeetings, mine: staffMine, more: [], mineCount: 0, totalCount: 2,
+      main: staffMainWithMeetings, mine: staffMineWithTemplates, more: [], mineCount: 0, totalCount: 2,
     },
     {
       // The leave settings never name a Mitarbeiter as planner; the menu does not show the planning to one anyway.
       name: 'Mitarbeiter reported as planner', viewer: viewerOf('observer', { employeeId: 9, isPlanner: true }),
-      main: staffMainWithMeetings, mine: staffMine, more: [], mineCount: 0, totalCount: 2,
+      main: staffMainWithMeetings, mine: staffMineWithTemplates, more: [], mineCount: 0, totalCount: 2,
     },
     {
       name: 'tablet', viewer: viewerOf('terminal', { employeeId: 4, isPlanner: true }),

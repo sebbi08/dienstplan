@@ -14,6 +14,7 @@ import type {
   Confidence, Qualification, QuotaLine, RequirementLine, StaffingMethod, StaffingRuleSet,
 } from '../domain/staffing/types'
 import type { GermanState } from '../domain/states'
+import type { TemplateVisibility } from '../domain/templateCategories'
 import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
@@ -561,16 +562,33 @@ export interface ChildDocumentMeta {
 /** Where a new print template applies: the facility the uploader works in, or every facility (Träger only). */
 export type PrintTemplateScope = 'facility' | 'all'
 
-/** What the user enters about a print template (the file comes with the upload). Empty category = „Sonstiges“. */
+/** What the user enters about a print template (the file comes with the upload): one of the categories they see. */
 export interface PrintTemplateMeta {
   title: string
-  category: string
+  categoryId: number
+}
+
+/** A category of print templates as the viewer sees it (only those of their visibility level), in its order. */
+export interface TemplateCategoryDto {
+  id: number
+  name: string
+  visibility: TemplateVisibility
+  /** Holds templates (of any facility): then it cannot be deleted. */
+  inUse: boolean
+}
+
+/** What Leitung or Träger enter about a category. */
+export interface TemplateCategoryInput {
+  name: string
+  visibility: TemplateVisibility
 }
 
 /** A blank PDF form to open and print (the file itself is served separately). */
 export interface PrintTemplateDto {
   id: number
   title: string
+  categoryId: number
+  /** The category's name. */
   category: string
   /** For all facilities (maintained by the Träger). */
   global: boolean

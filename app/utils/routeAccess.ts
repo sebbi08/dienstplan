@@ -45,7 +45,7 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/users', 'users.manage'],
   ['/admin/settings', 'settings.facility'],
   ['/admin/retention', 'retention.delete'],
-  // The print templates are for the managers and the tablet, not for the staff's phones.
+  // The print templates: managers, the tablet and (read only, the categories visible to all) Mitarbeiter accounts.
   ['=/templates', 'printTemplates.view'],
   // The tablet's start page; another account only gets its error there (the terminal routes are the tablet's).
   ['=/terminal', 'settings.facility'],

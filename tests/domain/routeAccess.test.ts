@@ -42,9 +42,11 @@ const OFFICE = [
   '/admin/leave-planning', '/admin/print/calendar/2026', '/admin/print/cash/1/2026/10', '/admin/print/early-closures/2026',
   '/admin/print/emergency-contacts', '/admin/print/form-templates/1', '/admin/print/forms/1',
   '/admin/print/sick-days/2026', '/admin/print/time/1/2026/10', '/admin/settings', '/admin/settings/groups/1',
-  '/admin/settings/roster', '/admin/sick-days', '/admin/time', '/admin/users', '/cash', '/cash/1/2026/10', '/templates',
+  '/admin/settings/roster', '/admin/sick-days', '/admin/time', '/admin/users', '/cash', '/cash/1/2026/10',
   '/terminal',
 ]
+/** The print templates: everyone who may read them (Leitung, Träger, Mitarbeiter read only) and the tablet. */
+const TEMPLATES = '/templates'
 /** The Träger's page for deleting after the retention periods. */
 const RETENTION = '/admin/retention'
 
@@ -57,7 +59,7 @@ function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePa
 
 describe('route access per role (unchanged by the permissions)', () => {
   it('lists every page', () => {
-    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, RETENTION].sort())
+    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, RETENTION].sort())
   })
 
   it('lets the Träger open every page', () => {
@@ -67,7 +69,7 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('lets the Leitung open every page but the Träger\'s retention page', () => {
     const leitung = viewerOf('admin')
-    for (const path of [...OPEN, ...CHILDREN, ...OFFICE]) expect(accountRedirect(path, leitung), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES]) expect(accountRedirect(path, leitung), path).toBeUndefined()
     // Before the permissions the retention page sent the Leitung to the start page itself (retention.vue); now the
     // middleware does, with the same result.
     expect(accountRedirect(RETENTION, leitung)).toBe('/')
@@ -78,6 +80,11 @@ describe('route access per role (unchanged by the permissions)', () => {
       for (const path of OPEN) expect(accountRedirect(path, viewer), path).toBeUndefined()
       for (const path of [...CHILDREN, ...OFFICE, RETENTION]) expect(accountRedirect(path, viewer), path).toBe('/')
     }
+  })
+
+  it('lets a Mitarbeiter open the print templates (read only), but no account without the key', () => {
+    expect(accountRedirect(TEMPLATES, viewerOf('observer'))).toBeUndefined()
+    expect(accountRedirect(TEMPLATES, { mustChangePassword: false, can: () => false })).toBe('/')
   })
 
   it('sends everyone who must change the password to that page first', () => {
@@ -113,5 +120,7 @@ describe('pagePermission', () => {
       expect(ROLE_DEFAULTS.observer, path).not.toContain(key)
     }
     expect(pagePermission(RETENTION)).toBe('retention.delete')
+    expect(pagePermission(TEMPLATES)).toBe('printTemplates.view')
+    expect(ROLE_DEFAULTS.observer).toContain('printTemplates.view')
   })
 })

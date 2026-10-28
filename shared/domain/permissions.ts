@@ -180,7 +180,8 @@ export const PERMISSIONS: readonly PermissionDef[] = [
 ]
 
 /**
- * Today's rights of Leitung and Mitarbeiter (inventory §6 „Defaults“). Not in here because they come from today's
+ * Today's rights of Leitung and Mitarbeiter (inventory §6 „Defaults“), plus `printTemplates.view` for Mitarbeiter
+ * (added with the template categories, a deliberate change). Not in here because they come from today's
  * per-person flags (see `effectivePermissions`): `leave.plan`, `employees.contractView` (Leitung), `children.edit`
  * (Mitarbeiter).
  */
@@ -204,6 +205,8 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
   observer: [
     'plan.view', 'leave.request', 'time.own', 'talks.own', 'teamMeetings.write', 'calendar.own', 'children.view',
     'children.attendance',
+    // The print templates to read (the categories visible to all), since the template categories; not to change.
+    'printTemplates.view',
   ],
 }
 

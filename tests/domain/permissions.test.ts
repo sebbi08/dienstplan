@@ -121,9 +121,11 @@ describe('role defaults', () => {
     expect(ROLE_DEFAULTS.admin).toHaveLength(37)
   })
 
-  it('gives the Mitarbeiter the own data, the released plan, team meetings and the child keys of the tablet', () => {
+  it('gives the Mitarbeiter the own data, the released plan, team meetings, the child keys of the tablet and the print templates to read', () => {
     expect(sorted(ROLE_DEFAULTS.observer)).toEqual(sorted(['plan.view', 'leave.request', 'time.own', 'talks.own',
-      'teamMeetings.write', 'calendar.own', 'children.view', 'children.attendance']))
+      'teamMeetings.write', 'calendar.own', 'children.view', 'children.attendance', 'printTemplates.view']))
+    // Reading only: changing the templates and their categories stays with Leitung and Träger.
+    expect(ROLE_DEFAULTS.observer).not.toContain('printTemplates.edit')
   })
 
   it('lists each default once and keeps them closed under requires and implies', () => {
@@ -222,7 +224,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(307)
+    expect(routes).toHaveLength(312)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 
@@ -240,7 +242,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     expect(fixture['my/time.get.ts']).toEqual(['provider', 'admin', 'observer'])
     expect(fixture['plan/[year]/[month].get.ts']).toEqual(['provider', 'admin', 'observer', 'terminal'])
     expect(fixture['terminal/stamp.post.ts']).toEqual(['terminal'])
-    expect(fixture['print-templates/index.get.ts']).toEqual(['provider', 'admin', 'terminal'])
+    expect(fixture['print-templates/index.get.ts']).toEqual(['provider', 'admin', 'observer', 'terminal'])
     expect(fixture['children/index.get.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin',
       'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount'])
     expect(fixture['children/[id]/master.put.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin',

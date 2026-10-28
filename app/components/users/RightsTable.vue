@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
  * (shared/domain/permissions.ts), requireUser / requireTerminal in server/api and the per-person stamping options.
  * 'yes' = allowed, 'no' = not allowed, a number = allowed under footnote n.
  */
-type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
+type Footnote = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
 type Right = 'yes' | 'no' | Footnote
 const ROLES: Role[] = ['provider', 'admin', 'observer', 'terminal']
 
@@ -92,6 +92,14 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
   { title: 'Bögen (Vorlagen)', rows: [
     { label: 'Vorlagen anlegen, bearbeiten, kopieren, stilllegen, löschen und leer drucken (Mehr → Bögen)', rights: ['yes', 'yes', 'no', 'no'] },
   ] },
+  { title: 'Vorlagen zum Ausdrucken (Mehr → Vorlagen, bei Mitarbeitern Meins → Vorlagen)', rows: [
+    { label: 'Vorlagen in Kategorien für „Alle“ öffnen und drucken', rights: ['yes', 'yes', 'yes', 'yes'] },
+    { label: 'Vorlagen in Kategorien für „Nur Leitung und Träger“ öffnen und drucken', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Vorlagen in Kategorien für „Nur Träger“ öffnen und drucken', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Vorlagen der eigenen Einrichtung hochladen, ändern und löschen', rights: ['yes', 'yes', 'no', 'no'] },
+    { label: 'Vorlagen für alle Einrichtungen hochladen, ändern und löschen', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Kategorien anlegen, umbenennen, sortieren, „Wer sieht sie?“ ändern und leere löschen', rights: ['yes', 16, 'no', 'no'] },
+  ] },
   { title: 'Kasse', rows: [
     { label: 'Kassen anlegen, Einnahmen, Ausgaben und Umbuchungen buchen, Belege, Monat abschließen, Ausdruck und Excel-Datei', rights: ['yes', 'yes', 'no', 'no'] },
     { label: 'Kassen archivieren und wieder aktivieren', rights: ['yes', 'yes', 'no', 'no'] },
@@ -128,6 +136,7 @@ const FOOTNOTES: Record<Footnote, string> = {
   13: 'nicht für das eigene Gespräch – das führt der Träger bzw. eine andere Leitung',
   14: 'nicht mit dem eigenen Konto, nur am Tablet (Name und PIN): als Bezugserzieher des Kindes oder wenn Leitung/Träger für den Bogen freigeschaltet hat',
   15: 'nur lesen',
+  16: 'ohne die Kategorien „Nur Träger“: die sieht und ändert nur der Träger',
 }
 </script>
 

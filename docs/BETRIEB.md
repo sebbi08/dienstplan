@@ -1135,21 +1135,36 @@ den die Leitung ausdruckt und ihnen gibt, stehen sie mit drauf.
 Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,
 Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
 
+- **Kategorien**: Die Vorlagen stehen nach **Kategorien** geordnet, in der Reihenfolge der Kategorien. Die Kategorien
+  gelten für **alle Einrichtungen**. Leitung und Träger pflegen sie mit **Kategorien verwalten**: anlegen, umbenennen,
+  mit den Pfeilen **nach oben / nach unten** schieben, **„Wer sieht sie?“** ändern und löschen. Löschen geht nur bei
+  einer **leeren** Kategorie – liegen noch Vorlagen darin (auch in einer anderen Einrichtung), verschieb oder lösch sie
+  zuerst. Jeder Name kommt nur einmal vor (Groß- und Kleinschreibung zählt nicht).
+- **Wer sieht sie?** Jede Kategorie hat eine von drei Stufen:
+  - **Alle (auch Mitarbeiter und Tablet)**: Leitung, Träger, das Tablet und die Mitarbeiter mit ihrem eigenen Konto.
+  - **Nur Leitung und Träger**: z. B. für Formulare der Verwaltung.
+  - **Nur Träger**: diese Kategorien sieht nur der Träger; nur er kann sie anlegen, ändern oder löschen. Die Leitung
+    sieht sie gar nicht und kann auch keine Kategorie auf „Nur Träger“ stellen.
+
+  Die Vorlagen in einer Kategorie sieht nur, wer die Kategorie sieht. Kategorien, die nicht alle sehen, sind auf der
+  Seite markiert („nur Leitung und Träger“ bzw. „nur Träger“).
 - **Hochladen**: Leitung und Träger öffnen im Menü unter **Mehr** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt sind nur
   **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
-  **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist frei wählbar; die App
-  schlägt die schon benutzten vor (und „Eltern“, „Gesundheit“, „Personal“). Ohne Kategorie landet die Vorlage unter
-  „Sonstiges“.
+  **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** wählst du aus der Liste;
+  gibt es noch keine, leg zuerst unter **Kategorien verwalten** eine an.
 - **Für wen**: Die **Leitung** lädt Vorlagen für die **eigene Einrichtung** hoch. Der **Träger** wählt beim Hochladen
   „nur ‹Einrichtung›“ (die oben gewählte) oder **„alle Einrichtungen“**. Jede Einrichtung sieht ihre eigenen Vorlagen und
   die für alle Einrichtungen; diese sind mit **„alle Einrichtungen“** markiert.
 - **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
   **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
 - **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
-- **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**. Dort lassen sich alle Vorlagen der
-  Einrichtung öffnen und drucken – **ohne PIN**, weil darin keine Daten von Kindern stehen. Hochladen und ändern geht am
-  Tablet nicht.
-- **Nicht auf dem Handy**: Mitarbeiter sehen die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) nicht.
+- **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**. Dort lassen sich die Vorlagen der
+  Kategorien für **Alle** öffnen und drucken – **ohne PIN**, weil darin keine Daten von Kindern stehen. Hochladen und
+  ändern geht am Tablet nicht.
+- **Mitarbeiter** finden die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) unter **Meins** → **Vorlagen**: nur die
+  Kategorien für **Alle**, nur zum Öffnen und Drucken – hochladen, ändern und die Kategorien verwalten können sie nicht.
+- **Beim Update** auf diese Version macht die App aus jeder bisher eingetippten Kategorie eine Kategorie (für **Alle**,
+  nach Namen sortiert) und ordnet jede Vorlage ihr zu; „eltern“ und „Eltern“ werden dabei eine Kategorie.
 
 ## 20. Personalschlüssel
 
@@ -1309,7 +1324,8 @@ sehen keine Warnungen.
   hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
   rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
 - **Mitarbeiter** sehen oben **Mein Dienstplan** (mit der Zahl ungelesener Änderungen), **Dienstplan**, **Kalender** und
-  **Teamsitzungen**; unter **Meins** liegen „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“.
+  **Teamsitzungen**; unter **Meins** liegen „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und „Vorlagen“ (nur lesen,
+  siehe Abschnitt 19).
 - **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
   Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.

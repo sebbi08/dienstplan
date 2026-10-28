@@ -1,25 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { berlinDay, categorySuggestions, groupByCategory, titleFromFileName } from '../../app/utils/printTemplates'
-import type { PrintTemplateDto } from '../../shared/types/api'
+import { berlinDay, groupByCategory, titleFromFileName } from '../../app/utils/printTemplates'
+import type { PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/api'
 
-const template = (id: number, category: string, title: string): PrintTemplateDto => ({
-  id, title, category, global: false, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
+const template = (id: number, categoryId: number, title: string): PrintTemplateDto => ({
+  id, title, categoryId, category: '', global: false, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
 })
+const category = (id: number, name: string): TemplateCategoryDto => ({ id, name, visibility: 'all', inUse: true })
 
 describe('print template page helpers', () => {
-  it('groups by category, both alphabetical', () => {
-    const groups = groupByCategory([
-      template(1, 'Sonstiges', 'Zettel'), template(2, 'Eltern', 'Übernachtung'), template(3, 'Eltern', 'Ausflug'),
-      template(4, 'Ärztliches', 'Attest'),
+  it('groups by category in the categories\' order, titles alphabetical, and leaves out empty categories', () => {
+    const groups = groupByCategory([category(3, 'Sonstiges'), category(1, 'Eltern'), category(2, 'Leer')], [
+      template(1, 3, 'Zettel'), template(2, 1, 'Übernachtung'), template(3, 1, 'Ausflug'), template(4, 3, 'Attest'),
+      // A category the viewer does not see (not in the list) shows nothing.
+      template(5, 9, 'Versteckt'),
     ])
-    expect(groups.map(group => [group.category, group.templates.map(t => t.title)])).toEqual([
-      ['Ärztliches', ['Attest']], ['Eltern', ['Ausflug', 'Übernachtung']], ['Sonstiges', ['Zettel']],
+    expect(groups.map(group => [group.category.name, group.templates.map(t => t.title)])).toEqual([
+      ['Sonstiges', ['Attest', 'Zettel']], ['Eltern', ['Ausflug', 'Übernachtung']],
     ])
-  })
-
-  it('suggests the default categories and those in use, each once', () => {
-    expect(categorySuggestions([template(1, 'Küche', 'Plan'), template(2, 'Eltern', 'Brief')]))
-      .toEqual(['Eltern', 'Gesundheit', 'Küche', 'Personal'])
   })
 
   it('shows the Berlin day of a timestamp', () => {
