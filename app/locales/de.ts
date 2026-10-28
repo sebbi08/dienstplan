@@ -377,6 +377,7 @@ export const de = {
     deleteIntro: 'Das wird gelöscht und lässt sich nicht wiederherstellen:',
     deleteItems: [
       'Stammdaten mit Notfallkontakten, Wochenstunden, Vertragsdaten und Stempel-PIN',
+      'die Personalakte: persönliche Daten, Lohn und Steuer und alle Dokumente',
       'alle Dienstplan-Einträge aller Monate, auch in freigegebenen Plänen und als Aushilfe in anderen Einrichtungen',
       'Aushilfe-Einsätze in anderen Einrichtungen und Einträge in Dienstplan-Vorlagen',
       'Änderungsprotokoll, Benachrichtigungen und „Zur Kenntnis genommen“ zu dieser Person',
@@ -441,6 +442,7 @@ export const de = {
     tabs: {
       master: 'Stammdaten', hours: 'Stunden & Vertrag', leave: 'Urlaub', stamping: 'Zeiterfassung & PIN',
       qualification: 'Qualifikation', requirements: 'Pflichttermine', talks: 'Gespräche', access: 'Zugang',
+      payroll: 'Lohn und Steuer', documents: 'Dokumente',
     },
     /** The tab „Zugang“: the account linked to the person. */
     access: {
@@ -479,6 +481,45 @@ export const de = {
       correspondence: 'Korrespondenz', measures: 'Arbeitsrechtliche Maßnahmen', salary: 'Gehalt',
     },
     invalid: personnelInvalid,
+    // Tab „Stammdaten“: personal data (employees.personal) and the sensitive block (employees.sensitive).
+    personalTitle: 'Persönliche Daten',
+    personalHint: 'Sehen und ändern können das nur Berechtigte (voreingestellt Leitung und Träger). Mitarbeiter sehen es nirgends, auch nicht die eigenen Daten.',
+    birthYear: 'Geburtsjahr', birthDate: (date: string) => `Geburtsdatum: ${date}`,
+    birthYearHint: 'Mit Tag und Monat ergibt das Jahr das volle Geburtsdatum. Am Tablet steht weiter nur der Geburtstag ohne Jahr.',
+    street: 'Straße und Hausnummer', postalCode: 'PLZ', city: 'Ort', phone: 'Telefon', email: 'E-Mail',
+    sensitiveTitle: 'Staatsangehörigkeit und Schwerbehinderung',
+    sensitiveHint: 'Besonders schützenswert: Sehen und ändern kann das nur der Träger (oder wem er das Recht gibt).',
+    nationality: 'Staatsangehörigkeit', disability: 'Schwerbehinderung', disabilityDegree: 'Grad der Behinderung',
+    disabilityYes: 'ja', disabilityNo: 'nein',
+    disabilityDegreeNone: '–', disabilityEqual: 'gleichgestellt', disabilityUntil: 'gültig bis',
+    // Tab „Lohn und Steuer“ (employees.payroll).
+    payroll: {
+      title: 'Lohn und Steuer',
+      hint: 'Nur für den Träger (oder wem er das Recht gibt). Steuer-ID, Sozialversicherungsnummer, IBAN und Konfession sind verdeckt, bis du „anzeigen“ wählst.',
+      taxId: 'Steuer-ID', taxClass: 'Steuerklasse', svNumber: 'Sozialversicherungsnummer', healthInsurer: 'Krankenkasse',
+      iban: 'IBAN', accountHolder: 'Kontoinhaber', denomination: 'Konfession (Kirchensteuer)',
+      taxClassNone: '–', empty: '–', none: 'Noch keine Angaben.',
+      show: 'anzeigen', hide: 'verbergen', showAll: 'Alle anzeigen', hideAll: 'Alle verbergen',
+      showValue: (label: string) => `${label} anzeigen`, hideValue: (label: string) => `${label} verbergen`,
+      loading: 'Wird geladen …',
+      ibanPlaceholder: 'DE00 0000 0000 0000 0000 00', taxIdPlaceholder: '11 Ziffern', svNumberPlaceholder: 'z. B. 15 070649 C 103',
+      formatHint: 'Steuer-ID, Sozialversicherungsnummer und IBAN werden auf Tippfehler geprüft. Ein leeres Feld ist immer erlaubt.',
+    },
+    // Tab „Dokumente“: only the folders the viewer may use.
+    documents: {
+      hint: 'Du siehst nur die Fächer, für die du das Recht hast. Erlaubt sind PDF, JPG und PNG bis 10 MB.',
+      upload: 'Hochladen', uploadTo: (folder: string) => `Dokument hochladen: ${folder}`, edit: 'Dokument bearbeiten',
+      file: 'Datei (PDF, JPG oder PNG, höchstens 10 MB)', folder: 'Fach', title: 'Titel', date: 'Datum', note: 'Notiz (freiwillig)',
+      none: 'Noch keine Dokumente in diesem Fach.', untitled: 'Dokument',
+      open: 'Ansehen', download: 'Herunterladen', confirmDelete: (title: string) => `Dokument „${title}“ wirklich löschen?`,
+      uploadedBy: (by: string, at: string) => `hochgeladen von ${by} am ${at}`, unknownUploader: 'gelöschtes Konto',
+      loading: 'Wird geladen …',
+      folderHints: {
+        contract: 'Arbeitsvertrag, Nachträge, Stellenbeschreibung', application: 'Lebenslauf, Zeugnisse, Führungszeugnis',
+        qualifications: 'Abschlüsse, Fortbildungsnachweise', correspondence: 'z. B. Elternzeit, Teilzeit',
+        measures: 'Abmahnung, Ermahnung', salary: 'Gehaltsentwicklung, Vorschüsse',
+      },
+    },
   },
   weekTemplates: {
     title: 'Dienstplanvorlagen',
@@ -523,6 +564,8 @@ export const de = {
     visibleOn: 'Vertragsangaben für die Leitung sichtbar', visibleOff: 'Vertragsangaben für die Leitung verborgen',
     visibleHint: 'Nur der Träger kann die Vertragsangaben bearbeiten. Ist dieser Schalter an, sieht die Leitung sie zusätzlich (nur lesen).',
     rowLabel: 'Vertrag',
+    fixedTermUntil: 'befristet bis', fixedTermUntilHint: 'Leer bei einem unbefristeten Vertrag.',
+    fixedTermShort: (date: string) => `befristet bis ${date}`,
     levelUpTitle: 'Stufenaufstieg nach TVöD',
     levelUp: (name: string, from: number, to: number, date: string) => `${name}: Stufe ${from} → Stufe ${to} ab ${date}`,
     enterLevel: (level: number) => `Stufe ${level} eintragen`,

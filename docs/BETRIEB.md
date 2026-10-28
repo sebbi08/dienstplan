@@ -739,7 +739,8 @@ Druck-Knöpfe.
 - Ein Dialog zählt auf, was gelöscht wird. Zum Bestätigen **tippst du den Namen genau so ein**, wie er dasteht; erst
   dann geht der Knopf. **Das lässt sich nicht rückgängig machen** – braucht ihr die Daten vielleicht noch, lädt der
   Träger vorher eine Sicherung herunter.
-- **Gelöscht werden:** Stammdaten mit Notfallkontakten, Wochenstunden, Vertragsdaten und Stempel-PIN; alle Dienstplan-Einträge aller Monate
+- **Gelöscht werden:** Stammdaten mit Notfallkontakten, Wochenstunden, Vertragsdaten und Stempel-PIN; die Personalakte
+  (persönliche Daten, Lohn und Steuer, alle Dokumente); alle Dienstplan-Einträge aller Monate
   (auch in freigegebenen Plänen – die Person verschwindet dort aus der Spalte, der Rest des Plans bleibt freigegeben –
   und als Aushilfe in anderen Einrichtungen); das Änderungsprotokoll, die Benachrichtigungen und „Zur Kenntnis
   genommen“ zu dieser Person; Zeiterfassung mit Korrekturen und Notizen, „Im Dienst erkrankt“ und Krankheitstage;
@@ -759,10 +760,10 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten, Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und alles aus „Lohn und Steuer“; als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
-| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise |
-| „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen) |
+| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
+| „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
 | zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald alle anderen Daten der Person gelöscht sind |
 
@@ -814,10 +815,12 @@ nie gesperrt.
 ### Die Seite einer Person
 
 Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in Reiter aufgeteilt: **Stammdaten** (Name, Kürzel,
-ausgeschieden am, Gruppe, Geburtstag, Notfallkontakte; beim Träger auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
+ausgeschieden am, Gruppe, Geburtstag, Notfallkontakte; mit Recht auch die persönlichen Daten der Personalakte; beim Träger
+auch „in andere Einrichtung verschieben“) · **Stunden & Vertrag**
 (Stundenkonto heute und am Ende eines wählbaren Monats, Wochenstunden, Stundenkonto-Buchungen, Vertragsangaben) ·
 **Urlaub** (Urlaubskonto eines wählbaren Jahres: Anspruch, Übertrag, genommen, verplant, frei verfügbar; dazu der
-Urlaubsanspruch) · **Zeiterfassung & PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** · **Zugang**.
+Urlaubsanspruch) · **Zeiterfassung & PIN** · **Qualifikation** (Personalschlüssel) · **Pflichttermine** ·
+**Dokumente** und **Lohn und Steuer** (Personalakte, nur mit dem Recht dafür, siehe unten) · **Gespräche** · **Zugang**.
 Die App merkt sich keinen Reiter; sie öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter (z. B.
 aus dem Hinweis auf Pflichttermine). Was du in einem Reiter eingibst, bleibt beim Wechsel in einen anderen Reiter
 stehen. **Speichern speichert nur die Felder des Reiters, in dem du gerade bist** – Eingaben in einem anderen Reiter
@@ -835,6 +838,49 @@ Mitarbeiter“** (A4 hochkant): alle, die nicht ausgeschieden sind, in der Reihe
 ihren Kontakten in der Anruf-Reihenfolge – wer keinen hat, steht mit „keine Notfallkontakte erfasst“ darin. Nach dem
 Ausscheiden gehören die Notfallkontakte zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem Ausscheiden,
 siehe „Löschfristen“).
+
+### Personalakte
+
+Die Seite einer Person ist zugleich ihre **digitale Personalakte**. Was jemand davon sieht, hängt an eigenen Rechten;
+fehlt das Recht, schickt der Server die Daten gar nicht erst (sie sind also auch nicht im Seitenquelltext).
+Voreingestellt gilt:
+
+| Teil | Wo | Träger | Leitung | Mitarbeiter, Tablet |
+|---|---|---|---|---|
+| Geburtsjahr (mit dem Geburtstag das volle Geburtsdatum), Anschrift (Straße, PLZ, Ort), Telefon, E-Mail | Reiter **Stammdaten**, Abschnitt „Persönliche Daten“ | ja | ja | nein |
+| Staatsangehörigkeit, Schwerbehinderung (ja/nein, Grad der Behinderung 20–100, „gleichgestellt“, gültig bis) | Reiter **Stammdaten**, Abschnitt „Staatsangehörigkeit und Schwerbehinderung“ | ja | nein | nein |
+| „befristet bis“ | Reiter **Stunden & Vertrag**, Vertragsangaben | bearbeiten | nur lesen, wenn die Vertragsangaben freigegeben sind | nein |
+| Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Lohn und Steuer** | ja | nein | nein |
+| Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Dokumente** | ja | ja | nein |
+| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Dokumente** | ja | nein | nein |
+
+Mitarbeiter sehen nichts davon – auch nicht ihre eigene Akte; am Tablet und auf den „Mein …“-Seiten steht nichts davon.
+Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
+
+- **Stammdaten:** Das Geburtsjahr steht neben Tag und Monat des Geburtstags; daneben erscheint das volle Geburtsdatum
+  (TT.MM.JJJJ). „Speichern“ speichert die persönlichen Daten zusammen mit den Stammdaten. PLZ (5 Ziffern) und E-Mail
+  werden auf ihr Format geprüft; der Hinweis steht am Feld.
+- **Lohn und Steuer:** Steuer-ID und Sozialversicherungsnummer zeigen nur die letzten 3 Zeichen, die IBAN nur Länderkennung
+  und die letzten 4 (z. B. „DE•• •••• •••• •••• •• 3000“), die Konfession ist ganz verdeckt. **„anzeigen“** beim Wert
+  (oder **„Alle anzeigen“**) zeigt den vollen Wert; beim Verlassen des Reiters ist wieder alles verdeckt. **„Bearbeiten“**
+  öffnet das Formular. Geprüft werden die IBAN (Prüfziffer), die Steuer-ID (11 Ziffern mit Prüfziffer), die
+  Sozialversicherungsnummer (12 Zeichen mit Prüfziffer) und die Steuerklasse (1–6); ein falscher Wert lässt sich nicht
+  speichern, der Hinweis steht am Feld. Ein leeres Feld ist immer erlaubt. Die Werte werden erst geladen, wenn du den
+  Reiter öffnest.
+- **Dokumente:** Je Fach ein Abschnitt mit **„Hochladen“**: PDF, JPG oder PNG bis 10 MB, dazu Titel, Datum und eine
+  freiwillige Notiz. Je Dokument: Titel antippen oder ↗ öffnet es in einem neuen Tab, ⤓ lädt es herunter, der Stift
+  ändert Titel, Datum, Notiz oder das Fach (zur Auswahl stehen nur Fächer, für die du das Recht hast), der Papierkorb
+  löscht es nach einer Rückfrage. Gelöschte Dateien sind sofort aus der Datenbank entfernt (ältere Sicherungen enthalten
+  sie noch, siehe Abschnitt 8).
+- **Rechte:** Jeder Teil hat ein eigenes Recht („Anschrift, Kontakt und Geburtsdatum“, „Staatsangehörigkeit und
+  Schwerbehinderung“, „Lohn und Steuer“ und je Fach „Dokumente: …“). Die Übersicht der Rechte unter *Benutzer* zeigt,
+  wer was voreingestellt darf.
+- **Löschfristen:** Nach dem Ausscheiden gehören Geburtsjahr, Anschrift, Kontakt, Staatsangehörigkeit,
+  Schwerbehinderung, „befristet bis“ und alles aus „Lohn und Steuer“ zu den **„Persönlichen Daten“** (löschbar ab dem
+  Tag nach dem Ausscheiden). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
+  mit den **„Beurteilungen“** (3 Jahre), die in den Fächern Vertrag und Gehalt mit den **„ausgezahlten Überstunden“**
+  (10 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
+  wie immer von Hand durch den Träger unter **Mehr → Löschfristen** (siehe oben).
 
 ### Urlaub am 24.12. und 31.12.
 

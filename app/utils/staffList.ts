@@ -1,5 +1,6 @@
 import type { PermissionKey } from '#shared/domain/permissions'
 import type { EmployeeListItemDto } from '#shared/types/api'
+import { visibleFolders } from './personnel'
 
 /** What the compact staff list flags at a person, in this order. */
 export type StaffBadge = 'pinMissing' | 'pinLocked' | 'qualificationMissing' | 'requirementsOpen' | 'noAccess'
@@ -43,17 +44,24 @@ export function suggestUsername(name: string, taken: readonly string[] = []): st
 }
 
 /** The tabs of the employee page, in their order. */
-export const EMPLOYEE_TABS = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'talks', 'access'] as const
+export const EMPLOYEE_TABS = [
+  'master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'documents', 'payroll', 'talks', 'access',
+] as const
 export type EmployeeTab = typeof EMPLOYEE_TABS[number]
 
 /**
  * The tabs the viewer sees on the employee page (reached with employees.view; „Zugang“ uses the users' routes and needs
- * users.manage, „Gespräche“ the staff talk routes and talks.manage). The contract inside „Stunden & Vertrag“ follows its
- * own switch. On their own page (`own`) nobody gets „Gespräche“: a Leitung's talks are held by the Träger or another
+ * users.manage, „Gespräche“ the staff talk routes and talks.manage, „Lohn und Steuer“ employees.payroll, „Dokumente“ the
+ * key of at least one folder). The contract inside „Stunden & Vertrag“ follows its own switch. On their own page (`own`) nobody gets „Gespräche“: a Leitung's talks are held by the Träger or another
  * Leitung, they see them under „Meine Gespräche“.
  */
 export function employeeTabs(can: (key: PermissionKey) => boolean, own = false): EmployeeTab[] {
-  return EMPLOYEE_TABS.filter(tab => (tab !== 'access' || can('users.manage')) && (tab !== 'talks' || (can('talks.manage') && !own)))
+  const shown: Record<EmployeeTab, boolean> = {
+    master: true, hours: true, leave: true, stamping: true, qualification: true, requirements: true,
+    documents: visibleFolders(can).length > 0, payroll: can('employees.payroll'),
+    talks: can('talks.manage') && !own, access: can('users.manage'),
+  }
+  return EMPLOYEE_TABS.filter(tab => shown[tab])
 }
 
 /**

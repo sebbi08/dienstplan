@@ -55,17 +55,25 @@ describe('employee page tabs', () => {
     const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
     return (key: PermissionKey) => permissions.has(key)
   }
-  const all =['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'talks', 'access']
+  const all = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'documents', 'payroll', 'talks', 'access']
+  const withoutPayroll = all.filter(tab => tab !== 'payroll')
 
-  it('shows every tab to Leitung and Träger, „Zugang“ and „Gespräche“ to nobody else', () => {
-    expect(employeeTabs(canOf('admin'))).toEqual(all)
+  it('shows the Träger every tab, the Leitung all but „Lohn und Steuer“, „Zugang“ and „Gespräche“ to nobody else', () => {
+    expect(employeeTabs(canOf('admin'))).toEqual(withoutPayroll)
     expect(employeeTabs(canOf('provider'))).toEqual(all)
     expect(employeeTabs(canOf('observer'))).not.toContain('access')
     expect(employeeTabs(canOf('observer'))).not.toContain('talks')
     // Nobody manages a talk about themselves: no „Gespräche“ on the own page.
-    expect(employeeTabs(canOf('admin'), true)).toEqual(all.filter(tab => tab !== 'talks'))
+    expect(employeeTabs(canOf('admin'), true)).toEqual(withoutPayroll.filter(tab => tab !== 'talks'))
     expect(employeeTabs(canOf('provider'), true)).not.toContain('talks')
     expect(employeeTabs(() => false)).not.toContain('access')
+  })
+
+  it('shows „Dokumente“ with the key of any folder, „Lohn und Steuer“ only with employees.payroll', () => {
+    expect(employeeTabs(canOf('observer'))).not.toContain('documents')
+    expect(employeeTabs(canOf('observer'))).not.toContain('payroll')
+    expect(employeeTabs(key => key === 'employees.docs.salary')).toContain('documents')
+    expect(employeeTabs(key => key === 'employees.payroll')).toEqual(['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'payroll'])
   })
 
   it('opens the tab of the address, the requirements for the old anchor, else the first', () => {
@@ -76,5 +84,7 @@ describe('employee page tabs', () => {
     expect(requestedEmployeeTab(undefined, '#requirements', visible)).toBe('requirements')
     expect(requestedEmployeeTab('nonsense', '', visible)).toBe('master')
     expect(requestedEmployeeTab('access', '', employeeTabs(canOf('observer')))).toBe('master')
+    expect(requestedEmployeeTab('payroll', '', visible)).toBe('master')
+    expect(requestedEmployeeTab('payroll', '', employeeTabs(canOf('provider')))).toBe('payroll')
   })
 })

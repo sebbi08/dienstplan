@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import type { PersonnelError } from '#shared/domain/personnel'
 import { PIN_LENGTH, isValidPin } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
@@ -13,6 +14,11 @@ import {
   type MasterFields, type QualificationFields,
 } from '~/utils/employeeForms'
 import { formatDate, formatHours, formatNumber, hoursToMinutes, monthTitle, shiftMonth } from '~/utils/format'
+import { errorCode } from '~/utils/errors'
+import {
+  DISABILITY_DEGREES, fieldErrorOf, fullBirthDate, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput,
+  type PersonalFields, type SensitiveFields,
+} from '~/utils/personnel'
 import { pinStateText } from '~/utils/pin'
 import { employeeTabs, requestedEmployeeTab, type EmployeeTab } from '~/utils/staffList'
 import { inState } from '~/utils/states'
@@ -56,19 +62,43 @@ const canMoveFacility = computed(() => can('employees.moveFacility'))
  */
 const master = reactive<MasterFields>({ name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0 })
 const qualificationForm = reactive<QualificationFields>({ qualification: NO_QUALIFICATION, staffingShare: '' })
+// Personalakte: the personal block (employees.personal) and the sensitive one (employees.sensitive) are part of
+// „Stammdaten“ and saved with it, each only when the employee answer holds it (sending a block without its key is 403).
+const personal = reactive<PersonalFields>(personalFieldsOf(undefined))
+const sensitive = reactive<SensitiveFields>(sensitiveFieldsOf(undefined))
 let loadedMaster: MasterFields | null = null
 let loadedQualification: QualificationFields | null = null
+let loadedPersonal: PersonalFields | null = null
+let loadedSensitive: SensitiveFields | null = null
 const justSaved = { master: false, qualification: false }
 watch(employee, (value) => {
   if (!value) return
   const nextMaster = masterFieldsOf(value)
   const nextQualification = qualificationFieldsOf(value)
+  const nextPersonal = personalFieldsOf(value.personal)
+  const nextSensitive = sensitiveFieldsOf(value.sensitive)
   Object.assign(master, reloadedFields({ ...master }, loadedMaster, nextMaster, justSaved.master))
   Object.assign(qualificationForm, reloadedFields({ ...qualificationForm }, loadedQualification, nextQualification, justSaved.qualification))
+  Object.assign(personal, reloadedFields({ ...personal }, loadedPersonal, nextPersonal, justSaved.master))
+  Object.assign(sensitive, reloadedFields({ ...sensitive }, loadedSensitive, nextSensitive, justSaved.master))
   loadedMaster = nextMaster
   loadedQualification = nextQualification
+  loadedPersonal = nextPersonal
+  loadedSensitive = nextSensitive
   justSaved.master = justSaved.qualification = false
 }, { immediate: true })
+/** Format errors of the personal and sensitive fields, shown at the field (from here or from the server). */
+const masterErrors = ref<Record<string, PersonnelError>>({})
+const masterError = (field: string) => (masterErrors.value[field] ? de.personnel.invalid[masterErrors.value[field]] : undefined)
+/** The full birth date as TT.MM.JJJJ while day, month and year form one. */
+const birthDateText = computed(() => {
+  const iso = fullBirthDate(master.birthdayDay, master.birthdayMonth, personal.birthYear)
+  return iso ? formatDate(iso) : null
+})
+const disabilityDegreeItems = [
+  { label: de.personnel.disabilityDegreeNone, value: 0 },
+  ...DISABILITY_DEGREES.map(degree => ({ label: String(degree), value: degree })),
+]
 
 // Personalschlüssel: the qualification and the counting share (empty = the state's default, shown as placeholder).
 const { data: staffingSettings } = useStaffingSettings()
@@ -129,13 +159,35 @@ async function removePin() {
   if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employees/${id}/pin`, { method: 'DELETE' }), de.common.deleted)
 }
 
-/** Saves one tab's fields („Stammdaten“ or „Qualifikation“); a check that fails is shown right away, on that tab. */
+/**
+ * Saves one tab's fields („Stammdaten“ or „Qualifikation“); a check that fails is shown right away, on that tab.
+ * „Stammdaten“ adds the personal and sensitive blocks the viewer was sent (and only those).
+ */
 async function saveEmployee(part: 'master' | 'qualification') {
   if (!employee.value) return
   const update = part === 'master' ? masterUpdate(master, hasGroups.value) : qualificationUpdate(employee.value, qualificationForm)
   if ('error' in update) return void toast.add({ title: de.errors[update.error], color: 'error' })
+  let body: object = update.body
+  if (part === 'master') {
+    masterErrors.value = {}
+    const personalBlock = employee.value.personal ? personalInput(personal) : null
+    if (personalBlock && 'error' in personalBlock) return void (masterErrors.value = { birthYear: personalBlock.error })
+    body = {
+      ...update.body,
+      ...(personalBlock ? { personal: personalBlock.value } : {}),
+      ...(employee.value.sensitive ? { sensitive: sensitiveInput(sensitive) } : {}),
+    }
+  }
   justSaved[part] = true
-  const ok = await run(() => $fetch<unknown>(`/api/employees/${id}`, { method: 'PUT', body: update.body }), de.common.saved)
+  const ok = await run(async () => {
+    try {
+      await $fetch<unknown>(`/api/employees/${id}`, { method: 'PUT', body })
+    }
+    catch (failure) {
+      if (part === 'master') masterErrors.value = fieldErrorOf(errorCode(failure))
+      throw failure
+    }
+  }, de.common.saved)
   if (!ok) justSaved[part] = false
 }
 
@@ -262,12 +314,65 @@ async function onTabKey(event: KeyboardEvent) {
       <UFormField v-if="hasGroups" :label="de.groups.employeeGroup" class="sm:col-span-2">
         <USelect v-model="master.groupId" :items="groupItems" class="w-full" />
       </UFormField>
-      <UFormField :label="de.employees.birthday" :help="de.employees.birthdayHint" class="sm:col-span-2">
-        <span class="flex gap-2">
+      <UFormField
+        :label="de.employees.birthday" :help="employee.personal ? de.personnel.birthYearHint : de.employees.birthdayHint"
+        :error="masterError('birthYear')" class="sm:col-span-2"
+      >
+        <span class="flex flex-wrap items-center gap-2">
           <USelect v-model="master.birthdayDay" :items="birthdayDayItems" class="w-20" :aria-label="de.employees.birthdayDay" />
           <USelect v-model="master.birthdayMonth" :items="birthdayMonthItems" class="w-36" :aria-label="de.employees.birthdayMonth" />
+          <UInput
+            v-if="employee.personal" v-model="personal.birthYear" inputmode="numeric" maxlength="4" class="w-24"
+            :placeholder="de.personnel.birthYear" :aria-label="de.personnel.birthYear"
+          />
+          <span v-if="employee.personal && birthDateText" class="text-sm text-gray-600">{{ de.personnel.birthDate(birthDateText) }}</span>
         </span>
       </UFormField>
+
+      <!-- Personalakte §2: only when the answer holds the block (employees.personal / employees.sensitive). -->
+      <template v-if="employee.personal">
+        <div class="border-t border-gray-100 pt-3 sm:col-span-4">
+          <h3 class="font-semibold">{{ de.personnel.personalTitle }}</h3>
+          <p class="text-xs text-gray-500">{{ de.personnel.personalHint }}</p>
+        </div>
+        <UFormField :label="de.personnel.street" class="sm:col-span-2">
+          <UInput v-model="personal.street" maxlength="200" autocomplete="off" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.personnel.postalCode" :error="masterError('postalCode')">
+          <UInput v-model="personal.postalCode" inputmode="numeric" maxlength="5" autocomplete="off" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.personnel.city">
+          <UInput v-model="personal.city" maxlength="100" autocomplete="off" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.personnel.phone" class="sm:col-span-2">
+          <UInput v-model="personal.phone" type="tel" maxlength="50" autocomplete="off" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.personnel.email" :error="masterError('email')" class="sm:col-span-2">
+          <UInput v-model="personal.email" type="email" maxlength="200" autocomplete="off" class="w-full" />
+        </UFormField>
+      </template>
+
+      <template v-if="employee.sensitive">
+        <div class="border-t border-gray-100 pt-3 sm:col-span-4">
+          <h3 class="font-semibold">{{ de.personnel.sensitiveTitle }}</h3>
+          <p class="text-xs text-gray-500">{{ de.personnel.sensitiveHint }}</p>
+        </div>
+        <UFormField :label="de.personnel.nationality" class="sm:col-span-2">
+          <UInput v-model="sensitive.nationality" maxlength="100" autocomplete="off" class="w-full" />
+        </UFormField>
+        <UFormField :label="de.personnel.disability" class="sm:col-span-2">
+          <USwitch v-model="sensitive.disability" :label="sensitive.disability ? de.personnel.disabilityYes : de.personnel.disabilityNo" class="pt-1.5" />
+        </UFormField>
+        <template v-if="sensitive.disability">
+          <UFormField :label="de.personnel.disabilityDegree" :error="masterError('disabilityDegree')">
+            <USelect v-model="sensitive.disabilityDegree" :items="disabilityDegreeItems" class="w-full" />
+          </UFormField>
+          <UFormField :label="de.personnel.disabilityUntil">
+            <DateTextInput v-model="sensitive.disabilityUntil" :label="de.personnel.disabilityUntil" class="w-full" />
+          </UFormField>
+          <UCheckbox v-model="sensitive.disabilityEqual" :label="de.personnel.disabilityEqual" class="sm:col-span-2 sm:pb-2" />
+        </template>
+      </template>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
 
@@ -459,6 +564,15 @@ async function onTabKey(event: KeyboardEvent) {
 
     <div v-show="tab === 'requirements'" v-bind="panel('requirements')">
       <EmployeesRequirementsSection :employee-id="id" />
+    </div>
+
+    <!-- Personalakte: mounted only with the rights, loaded in the browser only once the tab is opened. -->
+    <div v-if="visibleTabs.includes('documents')" v-show="tab === 'documents'" v-bind="panel('documents')">
+      <EmployeesDocumentsSection :employee-id="id" :active="tab === 'documents'" />
+    </div>
+
+    <div v-if="visibleTabs.includes('payroll')" v-show="tab === 'payroll'" v-bind="panel('payroll')">
+      <EmployeesPayrollSection :employee-id="id" :active="tab === 'payroll'" />
     </div>
 
     <div v-if="visibleTabs.includes('talks')" v-show="tab === 'talks'" v-bind="panel('talks')">

@@ -40,7 +40,8 @@ function useSuggestedLevel() {
 
 function save() {
   run(() => $fetch<unknown>(`/api/employees/${props.employeeId}/contract`, {
-    method: 'PUT', body: { ...form, employedSince: form.employedSince || null, payGroup: form.payGroup as PayGroup | null },
+    method: 'PUT',
+    body: { ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null, payGroup: form.payGroup as PayGroup | null },
   }), de.common.saved)
 }
 </script>
@@ -72,6 +73,9 @@ function save() {
         <p>{{ levelHint }}</p>
         <UButton size="xs" color="neutral" variant="outline" :label="de.contract.useLevel" @click="useSuggestedLevel" />
       </div>
+      <UFormField :label="de.contract.fixedTermUntil" :help="de.contract.fixedTermUntilHint" class="sm:col-span-2 sm:col-start-1">
+        <DateTextInput :model-value="form.fixedTermUntil ?? ''" :label="de.contract.fixedTermUntil" class="w-full sm:w-44" @update:model-value="form.fixedTermUntil = $event || null" />
+      </UFormField>
       <p class="text-xs text-gray-500 sm:col-span-4">{{ de.contract.hint }}</p>
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
