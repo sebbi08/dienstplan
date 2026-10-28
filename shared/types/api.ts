@@ -59,7 +59,8 @@ export interface SessionUser {
   facilityId: number | null
   /**
    * What the account may do (shared/domain/permissions.ts), resolved on the server on every request together with the
-   * facility. Server only: never stored in the session cookie nor sent to the browser (see `SessionPayloadUser`).
+   * facility. Never stored in the session cookie (see `SessionPayloadUser`); the browser gets it as an array beside the
+   * user in the session answer only (`UserSession.permissions`, server/plugins/sessionCheck.ts).
    */
   permissions: ReadonlySet<PermissionKey>
 }

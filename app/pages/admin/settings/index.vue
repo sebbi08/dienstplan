@@ -3,8 +3,8 @@ import { de } from '~/locales/de'
 import { visibleSettingsAreas } from '~/utils/settingsAreas'
 
 /** The overview of the settings: „Was noch fehlt“, then each area with what is in it (on a phone the way into the areas). */
-const { user } = useUserSession()
-const areas = computed(() => visibleSettingsAreas({ isProvider: user.value?.role === 'provider' }))
+const { can } = useCan()
+const areas = computed(() => visibleSettingsAreas({ can }))
 </script>
 
 <template>

@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import { isManager } from '#shared/domain/roles'
 import type { LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { isChildPagePath } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import { pathAfterFacilitySwitch } from '~/utils/facilitySwitch'
 import { isEntryActive, isGroupActive, navMenu, navLabelWithCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
+import { isChildPagePath } from '~/utils/routeAccess'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -23,7 +22,9 @@ const { data: leave, refresh: refreshLeave } = useFetch<LeaveSettingsDto>('/api/
 })
 // Facility switcher: the Träger picks the facility they work in, the Leitung only sees theirs.
 const { data: facilities, refresh: refreshFacilities, activeName } = useFacilities()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+// Switching the facility is the Träger's (PUT /api/facilities/active needs facilities.manage).
+const canSwitchFacility = computed(() => can('facilities.manage'))
 const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
 const toast = useToast()
 async function switchFacility(facilityId: number) {
@@ -44,7 +45,7 @@ const route = useRoute()
 watch(() => route.fullPath, () => {
   if (notifications.enabled.value) notifications.refresh()
   if (signedIn.value) refreshLeave()
-  if (isManager(user.value?.role)) refreshFacilities()
+  if (can('settings.facility')) refreshFacilities()
 })
 
 // The entries, grouped: Leitung/Träger see the everyday pages directly and the rest under "Mehr" (and their own pages
@@ -52,6 +53,7 @@ watch(() => route.fullPath, () => {
 // its short list.
 const menu = computed<NavMenu>(() => navMenu({
   role: user.value?.role ?? 'observer',
+  can,
   employeeId: user.value?.employeeId ?? null,
   isPlanner: !!leave.value?.isPlanner,
   openCount: leave.value?.openCount ?? 0,
@@ -110,7 +112,7 @@ async function logout() {
       >
         <NuxtLink to="/" class="font-semibold" :class="isTerminal ? '' : 'shrink-0'">{{ de.appName }}</NuxtLink>
         <USelect
-          v-if="isProvider && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"
+          v-if="canSwitchFacility && facilityItems.length" :model-value="facilities?.activeId ?? undefined" :items="facilityItems"
           size="sm" class="min-w-0 max-md:max-w-48 max-md:flex-1 md:w-32 xl:w-48" :aria-label="de.facilities.active"
           @update:model-value="switchFacility(Number($event))"
         />

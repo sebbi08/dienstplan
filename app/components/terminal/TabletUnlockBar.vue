@@ -2,7 +2,7 @@
 import { KEEP_ALIVE_MIN_SECONDS, STATUS_POLL_SECONDS } from '#shared/domain/tablet'
 import type { TabletUnlockStatusDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { isChildPagePath } from '~/utils/children'
+import { isChildPagePath } from '~/utils/routeAccess'
 
 /**
  * Shown at the tablet instead of the menu while a child page is open: who unlocked it and "Sperren". Tapping, typing

@@ -1,5 +1,5 @@
-import { isManager } from '#shared/domain/roles'
-import type { EmployeeListItemDto, Role } from '#shared/types/api'
+import type { PermissionKey } from '#shared/domain/permissions'
+import type { EmployeeListItemDto } from '#shared/types/api'
 
 /** What the compact staff list flags at a person, in this order. */
 export type StaffBadge = 'pinMissing' | 'pinLocked' | 'qualificationMissing' | 'requirementsOpen' | 'noAccess'
@@ -47,13 +47,13 @@ export const EMPLOYEE_TABS = ['master', 'hours', 'leave', 'stamping', 'qualifica
 export type EmployeeTab = typeof EMPLOYEE_TABS[number]
 
 /**
- * The tabs a role sees on the employee page (only Leitung and Träger reach it; „Zugang“ uses the users' routes, which
- * need the same roles; „Gespräche“ the staff talk routes, likewise). Every tab has content for them, the contract inside
- * „Stunden & Vertrag“ follows its own switch. On their own page (`own`) managers get no „Gespräche“: their talks are
- * held by the Träger or another Leitung, they see them under „Meine Gespräche“.
+ * The tabs the viewer sees on the employee page (reached with employees.view; „Zugang“ uses the users' routes and needs
+ * users.manage, „Gespräche“ the staff talk routes and talks.manage). The contract inside „Stunden & Vertrag“ follows its
+ * own switch. On their own page (`own`) nobody gets „Gespräche“: a Leitung's talks are held by the Träger or another
+ * Leitung, they see them under „Meine Gespräche“.
  */
-export function employeeTabs(role: Role | null, own = false): EmployeeTab[] {
-  return EMPLOYEE_TABS.filter(tab => (tab !== 'access' && tab !== 'talks') || (isManager(role) && !(tab === 'talks' && own)))
+export function employeeTabs(can: (key: PermissionKey) => boolean, own = false): EmployeeTab[] {
+  return EMPLOYEE_TABS.filter(tab => (tab !== 'access' || can('users.manage')) && (tab !== 'talks' || (can('talks.manage') && !own)))
 }
 
 /**

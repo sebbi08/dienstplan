@@ -6,8 +6,8 @@ import { de } from '~/locales/de'
  * changes them; the Leitung sees them. The order of the groups is changed in the group list.
  */
 const props = defineProps<{ groupId: number }>()
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const canManageGroups = computed(() => can('settings.groups'))
 const { data: groups, refresh } = useGroups()
 // The names appear in the opening hours, the reminders and the automatic leaving too.
 const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshNuxtData(['school-settings', 'opening-hours', 'reminder-settings'])]))
@@ -21,7 +21,7 @@ watch(storedName, (next, previous) => {
   if (name.value.trim() === previous) name.value = next
 })
 // Spaces around the name do not count as a change (the server trims them).
-const dirty = useDirty(() => isProvider.value && !!group.value && name.value.trim() !== storedName.value)
+const dirty = useDirty(() => canManageGroups.value && !!group.value && name.value.trim() !== storedName.value)
 
 async function rename() {
   const current = group.value
@@ -44,7 +44,7 @@ async function setForSchoolChildren(value: boolean) {
 <template>
   <section v-if="group" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.settingsAreas.groupName }}</h2>
-    <template v-if="isProvider">
+    <template v-if="canManageGroups">
       <form class="flex flex-wrap items-center gap-2" @submit.prevent="rename">
         <UInput v-model="name" maxlength="80" required size="sm" :aria-label="de.groups.name" />
         <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy || !dirty || !name.trim()" />

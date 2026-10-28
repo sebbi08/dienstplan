@@ -3,7 +3,6 @@ import type { ApplyMode, CodeDto, EntryDto, EntryInput, MonthPlanDto, NoteField,
 import { hasPlannedDuty } from '#shared/domain/balance'
 import { cellKey } from '#shared/domain/cells'
 import { todayIso } from '#shared/domain/dates'
-import { isManager } from '#shared/domain/roles'
 import { fullShiftOptions } from '#shared/domain/suggest'
 import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
@@ -17,8 +16,9 @@ import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpO
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
 const month = computed(() => Number(route.params.month))
-const { user } = useUserSession()
-const isAdmin = computed(() => isManager(user.value?.role))
+const { can } = useCan()
+// The editor (draft, templates, help-outs, warnings: plan.edit, as the server sends the draft); otherwise read-only.
+const isAdmin = computed(() => can('plan.edit'))
 const toast = useToast()
 const confirm = useConfirm()
 

@@ -21,7 +21,9 @@ import { workdaysText } from '~/utils/workdays'
  */
 const today = parseIsoDate(todayIso())
 const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+// The switch for the Leitung's view of the contract data is a right setting (rights.manage).
+const canManageRights = computed(() => can('rights.manage'))
 const { data: appSettings, refresh: refreshAppSettings } = await useFetch<AppSettingsDto>('/api/app-settings')
 const runVisibility = useAction(refreshAppSettings)
 function setContractVisible(visible: boolean) {
@@ -68,7 +70,7 @@ const noticesOpen = ref(false)
 const noticeCount = computed(() => (levelUps.value?.length ?? 0) + withDue.value.size)
 const noticeLine = computed(() => {
   const line = de.employees.notices(noticeCount.value)
-  if (!isProvider.value || !appSettings.value) return line
+  if (!canManageRights.value || !appSettings.value) return line
   return `${line} · ${appSettings.value.contractVisibleToAdmins ? de.contract.visibleOn : de.contract.visibleOff}`
 })
 async function levelChanged() {
@@ -134,7 +136,7 @@ const accountOf = (employeeId: number) => users.value?.find(account => account.e
 const mayDelete = (employee: EmployeeListItemDto) => !!retention.value
   && mayDeleteEmployeeByHand(retention.value.employeeDelete, user.value?.role)
   && employee.id !== user.value?.employeeId
-  && (isProvider.value || accountOf(employee.id)?.role !== 'provider')
+  && (can('users.providerAccounts') || accountOf(employee.id)?.role !== 'provider')
 const deleteAccount = computed(() => deleting.value ? accountOf(deleting.value.id) : null)
 const nameConfirmed = computed(() => deleting.value !== null && confirmsName(deleteName.value, deleting.value.name))
 /** While the request runs the button waits (a second click would only bring „nicht gefunden“). */
@@ -193,7 +195,7 @@ const td = 'px-3 py-2'
     </div>
 
     <!-- The notices in one line; open on tap. Kept in the page (v-show), so they load with it. -->
-    <div v-if="noticeCount > 0 || isProvider" class="rounded-lg bg-white text-sm ring-1 ring-gray-200">
+    <div v-if="noticeCount > 0 || canManageRights" class="rounded-lg bg-white text-sm ring-1 ring-gray-200">
       <button
         type="button" class="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left" :aria-expanded="noticesOpen"
         aria-controls="employee-notices" @click="noticesOpen = !noticesOpen"
@@ -205,7 +207,7 @@ const td = 'px-3 py-2'
       <div v-show="noticesOpen" id="employee-notices" class="space-y-3 border-t border-gray-100 p-3">
         <LevelUpNotice @changed="levelChanged" />
         <RequirementNotice />
-        <div v-if="isProvider && appSettings" class="flex flex-wrap items-center gap-2">
+        <div v-if="canManageRights && appSettings" class="flex flex-wrap items-center gap-2">
           <USwitch :model-value="appSettings.contractVisibleToAdmins" :label="de.contract.visible" @update:model-value="setContractVisible" />
           <span class="text-xs text-gray-500">{{ de.contract.visibleHint }}</span>
         </div>
@@ -291,7 +293,7 @@ const td = 'px-3 py-2'
         </div>
       </li>
     </ul>
-    <p :class="hint">{{ de.employees.listHint(isProvider || appSettings?.contractVisibleToAdmins === true) }}</p>
+    <p :class="hint">{{ de.employees.listHint(canManageRights || appSettings?.contractVisibleToAdmins === true) }}</p>
 
     <!-- Who already left: closed by default; the detail page stays as it is until someone deletes the person for good. -->
     <details v-if="split.archived.length" class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-200">

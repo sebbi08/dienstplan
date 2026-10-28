@@ -11,12 +11,14 @@ const { activeName } = useFacilities()
 const rows = ref<UserDto[]>([])
 watch(users, value => (rows.value = (value ?? []).map(user => ({ ...user }))), { immediate: true })
 
-const { user: me } = useUserSession()
-// Only a Träger may appoint Träger or change their accounts; the server checks this as well.
-const isProvider = computed(() => me.value?.role === 'provider')
-const roleItems = computed(() => ((isProvider.value ? ['provider'] : []) as Role[]).concat(['admin', 'observer', 'terminal'])
+const { can } = useCan()
+// Only who may manage Träger accounts appoints Träger or changes their accounts; the server checks this as well.
+const canProviderAccounts = computed(() => can('users.providerAccounts'))
+// The rights of the roles: for who sets them.
+const canManageRights = computed(() => can('rights.manage'))
+const roleItems = computed(() => ((canProviderAccounts.value ? ['provider'] : []) as Role[]).concat(['admin', 'observer', 'terminal'])
   .map(role => ({ label: de.users.roles[role], value: role })))
-const locked = (user: UserDto) => user.role === 'provider' && !isProvider.value
+const locked = (user: UserDto) => user.role === 'provider' && !canProviderAccounts.value
 const form = reactive<{ username: string; password: string; role: Role; employeeId: number | null }>({
   username: '', password: '', role: 'observer', employeeId: null,
 })
@@ -60,7 +62,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
 <template>
   <div class="max-w-5xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.users.title }}</h1>
-    <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint(isProvider) }}</p>
+    <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint(canProviderAccounts) }}</p>
     <p class="text-sm text-gray-500">{{ de.users.rolesHint }}</p>
     <p class="text-sm text-gray-500">„{{ de.users.canEditChildren }}“: {{ de.users.canEditChildrenHint }}</p>
     <p v-if="activeName" class="text-sm text-gray-500">{{ de.facilities.createdIn(activeName) }}</p>
@@ -135,7 +137,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
     </UModal>
 
     <!-- Long: closed until asked for. -->
-    <details v-if="isProvider" class="group">
+    <details v-if="canManageRights" class="group">
       <summary class="cursor-pointer rounded-lg bg-white px-4 py-3 text-sm font-semibold text-gray-700 ring-1 ring-gray-200 group-open:mb-3">
         {{ de.users.showRights }}
       </summary>

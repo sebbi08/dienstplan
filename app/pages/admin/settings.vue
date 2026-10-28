@@ -8,9 +8,9 @@ import { areaPath, searchSettings, visibleSettingsAreas, type SettingsHit } from
  * page with unsaved edits asks first. The Träger chooses on top whose settings are shown („Einstellungen für“); the
  * header and every other page stay on the active facility.
  */
-const { user } = useUserSession()
-const viewer = computed(() => ({ isProvider: user.value?.role === 'provider' }))
-const areas = computed(() => visibleSettingsAreas(viewer.value))
+const { can } = useCan()
+const viewer = { can }
+const areas = computed(() => visibleSettingsAreas(viewer))
 const route = useRoute()
 // A group's page has its own link back to the groups.
 const showBack = computed(() => route.path.replace(/\/$/, '') !== '/admin/settings' && !route.path.startsWith('/admin/settings/groups/'))
@@ -21,17 +21,18 @@ useUnsavedGuard()
 const s = de.settingsAreas
 const query = ref('')
 const { data: staffing } = useStaffingSettings()
-const hits = computed(() => searchSettings(query.value, viewer.value, {
+const hits = computed(() => searchSettings(query.value, viewer, {
   groups: groups.value ?? [], hasGroupTypes: (staffing.value?.effective.groupTypes?.length ?? 0) > 0,
 }))
 const showHits = computed(() => query.value.trim().length >= 2)
 
-// „Einstellungen für“ (Träger only, with more than one facility): another facility's settings without switching.
+// „Einstellungen für“ (settings.otherFacility: the Träger, with more than one facility): another facility's settings
+// without switching.
 const { data: facilities } = useFacilities()
 const chosenFacility = useSettingsFacility()
 const shownFacility = useSettingsFacilityId()
 const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
-const showFacilityChoice = computed(() => viewer.value.isProvider && facilityItems.value.length > 1)
+const showFacilityChoice = computed(() => can('settings.otherFacility') && facilityItems.value.length > 1)
 const facilityName = (id: number | null | undefined) => facilities.value?.facilities.find(facility => facility.id === id)?.name ?? ''
 const otherFacilityHint = computed(() => chosenFacility.value === null ? null
   : s.otherFacilityHint(facilityName(chosenFacility.value), facilityName(facilities.value?.activeId)))

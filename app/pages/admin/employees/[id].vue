@@ -45,8 +45,10 @@ function changeBalanceMonth(delta: number) {
 const leaveRow = computed(() => leave.value?.find(row => row.employeeId === id) ?? null)
 const toast = useToast()
 const { user } = useUserSession()
-// Contract data is only sent to the Träger (editable) or, when allowed, to the Leitung (read-only).
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+// Contract data is only sent to the Träger (editable: employees.contractEdit) or, when allowed, to the Leitung (read-only).
+const canEditContract = computed(() => can('employees.contractEdit'))
+const canMoveFacility = computed(() => can('employees.moveFacility'))
 
 /**
  * The forms of „Stammdaten“ and „Qualifikation“ (one route, but each tab saves only its own fields). A reload keeps
@@ -203,7 +205,7 @@ function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number])
 
 // The page's tabs; `?tab=` opens one directly (nothing is remembered). The old anchor #requirements still leads to its tab.
 const router = useRouter()
-const visibleTabs = computed(() => employeeTabs(user.value?.role ?? null, user.value?.employeeId === id))
+const visibleTabs = computed(() => employeeTabs(can, user.value?.employeeId === id))
 // A form of a talk opened in „Gespräche“ may hold unsaved answers: leaving the page asks first.
 useUnsavedGuard()
 const requestedTab = () => requestedEmployeeTab(route.query.tab, route.hash, visibleTabs.value)
@@ -271,7 +273,7 @@ async function onTabKey(event: KeyboardEvent) {
 
     <EmployeesEmergencyContactsSection :employee-id="id" />
 
-    <form v-if="isProvider && otherFacilities.length" class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="moveFacility">
+    <form v-if="canMoveFacility && otherFacilities.length" class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="moveFacility">
       <h2 class="w-full font-semibold">{{ de.facilities.move }}</h2>
       <UFormField :label="de.facilities.active">
         <USelect v-model="targetFacilityId" :items="otherFacilities" class="w-56" />
@@ -408,7 +410,7 @@ async function onTabKey(event: KeyboardEvent) {
     </section>
 
     <EmployeesContractSection
-      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="isProvider" @saved="refresh"
+      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="canEditContract" @saved="refresh"
     />
     </div>
 

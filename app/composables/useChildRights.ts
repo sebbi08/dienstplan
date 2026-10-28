@@ -1,4 +1,3 @@
-import { isManager, mayEditChildren } from '#shared/domain/roles'
 import type { ChildRightsDto, TabletUnlockStatusDto } from '#shared/types/api'
 
 /** The tablet's unlock as last reported by the server (null until asked); shared by the pages, the lock bar and the plugin. */
@@ -18,14 +17,17 @@ export function useChildRights() {
   const router = useRouter()
   const onTablet = computed(() => user.value?.role === 'terminal')
 
+  const { can } = useCan()
   const rights = computed<ChildRightsDto | null>(() => {
     const current = user.value
     if (!current) return null
+    // At the tablet the server's answer for the unlocking person (tabletUnlock.ts rightsOf, from their permissions).
     if (current.role === 'terminal') return unlock.value?.unlocked ? unlock.value.rights : null
+    // In the office the account's own permissions, as the tablet's rights are built from the unlocking person's.
     return {
-      canEdit: mayEditChildren(current),
-      isManager: isManager(current.role),
-      canMoveFacility: current.role === 'provider',
+      canEdit: can('children.edit'),
+      isManager: can('children.manage'),
+      canMoveFacility: can('children.moveFacility'),
       showWaitlist: true,
       showFutureContracts: true,
     }

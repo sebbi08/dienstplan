@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { employeeTabs, requestedEmployeeTab, staffBadges, suggestUsername } from '../../app/utils/staffList'
+import { effectivePermissions, type PermissionKey } from '../../shared/domain/permissions'
+import type { Role } from '../../shared/types/api'
 
 const person = (overrides: Partial<{ hasPin: boolean; pinLocked: boolean; qualification: 'fachkraft' | null }> = {}) => ({
   hasPin: true, pinLocked: false, qualification: 'fachkraft' as const, ...overrides,
@@ -48,26 +50,31 @@ describe('suggestUsername', () => {
 })
 
 describe('employee page tabs', () => {
-  const all = ['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'talks', 'access']
+  /** The role's default permissions, as the session hands them over. */
+  const canOf = (role: Role) => {
+    const permissions = effectivePermissions({ role, canEditChildren: false, isLeavePlanner: false, contractVisibleToAdmins: false })
+    return (key: PermissionKey) => permissions.has(key)
+  }
+  const all =['master', 'hours', 'leave', 'stamping', 'qualification', 'requirements', 'talks', 'access']
 
   it('shows every tab to Leitung and Träger, „Zugang“ and „Gespräche“ to nobody else', () => {
-    expect(employeeTabs('admin')).toEqual(all)
-    expect(employeeTabs('provider')).toEqual(all)
-    expect(employeeTabs('observer')).not.toContain('access')
-    expect(employeeTabs('observer')).not.toContain('talks')
+    expect(employeeTabs(canOf('admin'))).toEqual(all)
+    expect(employeeTabs(canOf('provider'))).toEqual(all)
+    expect(employeeTabs(canOf('observer'))).not.toContain('access')
+    expect(employeeTabs(canOf('observer'))).not.toContain('talks')
     // Nobody manages a talk about themselves: no „Gespräche“ on the own page.
-    expect(employeeTabs('admin', true)).toEqual(all.filter(tab => tab !== 'talks'))
-    expect(employeeTabs('provider', true)).not.toContain('talks')
-    expect(employeeTabs(null)).not.toContain('access')
+    expect(employeeTabs(canOf('admin'), true)).toEqual(all.filter(tab => tab !== 'talks'))
+    expect(employeeTabs(canOf('provider'), true)).not.toContain('talks')
+    expect(employeeTabs(() => false)).not.toContain('access')
   })
 
   it('opens the tab of the address, the requirements for the old anchor, else the first', () => {
-    const visible = employeeTabs('admin')
+    const visible = employeeTabs(canOf('admin'))
     expect(requestedEmployeeTab('access', '', visible)).toBe('access')
     expect(requestedEmployeeTab(['leave'], '', visible)).toBe('leave')
     expect(requestedEmployeeTab('talks', '', visible)).toBe('talks')
     expect(requestedEmployeeTab(undefined, '#requirements', visible)).toBe('requirements')
     expect(requestedEmployeeTab('nonsense', '', visible)).toBe('master')
-    expect(requestedEmployeeTab('access', '', employeeTabs('observer'))).toBe('master')
+    expect(requestedEmployeeTab('access', '', employeeTabs(canOf('observer')))).toBe('master')
   })
 })

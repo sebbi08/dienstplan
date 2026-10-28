@@ -12,8 +12,8 @@ const route = useRoute()
 const boxId = computed(() => Number(route.params.id))
 const year = computed(() => Number(route.params.year))
 const month = computed(() => Number(route.params.month))
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const canReopen = computed(() => can('cash.reopen'))
 
 const { data, error, refresh } = await useFetch<CashMonthDto>(() => `/api/cash/boxes/${boxId.value}/${year.value}/${month.value}`)
 const { data: boxes, refresh: refreshBoxes } = await useFetch<CashBoxDto[]>('/api/cash/boxes', { default: () => [] })
@@ -143,7 +143,7 @@ const csvYear = computed(() => `/api/cash/boxes/${boxId.value}/csv?year=${year.v
           <UButton color="neutral" variant="outline" icon="i-lucide-arrow-left-right" :label="de.cash.transfer" @click="openNew('transfer')" />
         </template>
         <UButton v-if="!closedMonth" color="neutral" variant="outline" icon="i-lucide-lock" :label="de.cash.closeMonth" :disabled="closeCheck !== 'ok'" @click="closeMonth" />
-        <UButton v-if="closedMonth && isProvider" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.cash.reopen" @click="openReopen" />
+        <UButton v-if="closedMonth && canReopen" color="neutral" variant="outline" icon="i-lucide-lock-open" :label="de.cash.reopen" @click="openReopen" />
         <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="de.cash.print" :to="`/admin/print/cash/${boxId}/${year}/${month}`" target="_blank" />
         <UButton color="neutral" variant="outline" icon="i-lucide-file-spreadsheet" :label="de.cash.csvMonth" :to="csvMonth" external />
         <UButton color="neutral" variant="outline" icon="i-lucide-file-spreadsheet" :label="de.cash.csvYear" :to="csvYear" external />

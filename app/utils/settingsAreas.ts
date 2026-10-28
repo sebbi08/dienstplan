@@ -1,12 +1,13 @@
 // The label texts are imported relative so a test can load this file.
 import { de } from '../locales/de'
+import type { PermissionKey } from '../../shared/domain/permissions'
 
 /**
  * The settings, split into areas with their own pages (/admin/settings/<area>), plus the page of one group
  * (/admin/settings/groups/<id>). Every former section of the single settings page lives in exactly one place here;
- * the opening hours and the reminders were split into the facility's part and each group's part. Only Leitung and Träger
- * reach the settings at all; sections marked `providerOnly` are for the Träger alone (as before). The server checks
- * every request as well.
+ * the opening hours and the reminders were split into the facility's part and each group's part. The settings need
+ * settings.facility (Leitung and Träger); a section with a `permission` shows only with that key as well (today all of
+ * them are the Träger's). The server checks every request as well.
  */
 
 export const SETTINGS_AREAS = ['facility', 'groups', 'roster', 'time', 'children', 'staff'] as const
@@ -31,8 +32,8 @@ export interface SettingsSection {
   title: string
   /** Further words the search finds the section by (lower or upper case does not matter). */
   keywords: readonly string[]
-  /** Only the Träger sees it. */
-  providerOnly?: boolean
+  /** Shown only with this key (the one its routes need). */
+  permission?: PermissionKey
   /** The parts of the former single page shown here. */
   replaces: readonly FormerSection[]
 }
@@ -43,7 +44,7 @@ const s = de.settingsAreas
 export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
   facility: [
     {
-      key: 'facilities', title: de.facilities.title, providerOnly: true, replaces: ['facilities'],
+      key: 'facilities', title: de.facilities.title, permission: 'facilities.manage', replaces: ['facilities'],
       keywords: ['Träger', 'Bundesland', 'Feiertage', 'Höchstzahl Einrichtung', 'Betriebserlaubnis', 'Gruppe anlegen', 'Gruppe umbenennen', 'Gruppe löschen', 'Hort', 'Mariä Himmelfahrt'],
     },
     {
@@ -55,11 +56,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['PIN', 'Sperrzeit', 'sperren', 'Vormerkungen', 'Warteliste', 'künftige Kinder', 'Terminal'],
     },
     {
-      key: 'retention', title: de.childSettings.retention, providerOnly: true, replaces: ['retention'],
+      key: 'retention', title: de.childSettings.retention, permission: 'settings.retention', replaces: ['retention'],
       keywords: ['Löschfrist', 'löschen', 'Datenschutz', 'Aufbewahrung', 'abgemeldete Kinder', 'Archiv'],
     },
     {
-      key: 'backup', title: de.settings.backup, providerOnly: true, replaces: ['backup'],
+      key: 'backup', title: de.settings.backup, permission: 'backup.download', replaces: ['backup'],
       keywords: ['Backup', 'Datenbank', 'herunterladen', 'Sicherung', 'Kopie'],
     },
   ],
@@ -91,7 +92,7 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Fortbildung', 'Erste Hilfe', 'Belehrung', 'Termin', 'Pflichttermin'],
     },
     {
-      key: 'leave-module', title: de.leavePlanning.module, providerOnly: true, replaces: ['leave-module'],
+      key: 'leave-module', title: de.leavePlanning.module, permission: 'leave.configure', replaces: ['leave-module'],
       keywords: ['Urlaub', 'Urlaubsantrag', 'Urlaubsplanung', 'Antrag', 'Urlaub beantragen'],
     },
     {
@@ -164,10 +165,10 @@ export const GROUP_SECTIONS: readonly SettingsSection[] = [
   },
 ]
 
-/** Who looks at the settings: the Träger or the Leitung. */
-export interface SettingsViewer { isProvider: boolean }
+/** Who looks at the settings: their permissions (useCan). */
+export interface SettingsViewer { can: (key: PermissionKey) => boolean }
 
-const sectionVisible = (section: SettingsSection, viewer: SettingsViewer) => !section.providerOnly || viewer.isProvider
+const sectionVisible = (section: SettingsSection, viewer: SettingsViewer) => !section.permission || viewer.can(section.permission)
 
 export interface VisibleArea {
   area: SettingsArea; title: string; path: string; sections: SettingsSection[]

@@ -1,5 +1,5 @@
 import { de } from '~/locales/de'
-import { isChildPagePath } from '~/utils/children'
+import { isChildPagePath } from '~/utils/routeAccess'
 
 // The forms on screen with unsaved edits. Only filled on the client (onMounted), so the server never keeps any of it.
 const sources = shallowReactive(new Map<number, () => boolean>())

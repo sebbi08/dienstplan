@@ -1,5 +1,5 @@
 import { errorCode } from '~/utils/errors'
-import { isChildPagePath } from '~/utils/children'
+import { isChildPagePath } from '~/utils/routeAccess'
 
 /**
  * At the tablet, any answer 403 `tablet_locked` (the lock time ran out on the server, or another person unlocked)

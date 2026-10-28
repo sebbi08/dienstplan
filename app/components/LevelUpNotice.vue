@@ -5,8 +5,8 @@ import { formatDate } from '~/utils/format'
 
 /** Yellow notice of TVöD level steps due within a month (or overdue); the Träger enters the new level with one click. */
 const { data: levelUps, refresh } = await useFetch<LevelUpDto[]>('/api/level-ups')
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const canEnterLevel = computed(() => can('employees.contractEdit'))
 const emit = defineEmits<{ changed: [] }>()
 const run = useAction(async () => {
   await refresh()
@@ -28,7 +28,7 @@ function enterLevel(item: LevelUpDto) {
         <li v-for="item in levelUps" :key="item.employeeId" class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>{{ de.contract.levelUp(item.name, item.fromLevel, item.level, formatDate(item.on)) }}</span>
           <UButton
-            v-if="isProvider" size="xs" color="warning" variant="outline"
+            v-if="canEnterLevel" size="xs" color="warning" variant="outline"
             :label="de.contract.enterLevel(item.level)" @click="enterLevel(item)"
           />
         </li>

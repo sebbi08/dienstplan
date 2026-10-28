@@ -523,11 +523,20 @@ describe('API route permissions', () => {
     expect(auth).toContain('.secure?.childUnlock')
   })
 
-  it('keeps the permission set out of the session cookie and the session the browser gets', () => {
+  it('keeps the permission set out of the session cookie and hands it to the browser only with the session answer', () => {
     expect(source('auth/login.post.ts')).toContain('sessionPayload(result.user)')
     expect(source('auth/password.post.ts')).toContain('sessionPayload(user)')
     const plugin = readFileSync(join(process.cwd(), 'server', 'plugins', 'sessionCheck.ts'), 'utf8')
     expect(plugin).toContain('Object.assign(session.user, sessionPayload(user))')
+    // The client's copy (useCan): fresh on every GET /api/_auth/session, beside the user, never sealed (the hook only
+    // changes the unsealed copy of that answer).
+    expect(plugin).toContain('session.permissions = [...user.permissions]')
+    expect(plugin).not.toMatch(/setUserSession|replaceUserSession/)
+    // No route writes the permissions into the session.
+    for (const route of routes) {
+      const code = source(route)
+      if (/setUserSession|replaceUserSession/.test(code)) expect(code, route).not.toContain('permissions')
+    }
   })
 
   it('lets the tablet into the general plan, the team meetings and the print templates only', () => {

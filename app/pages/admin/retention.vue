@@ -14,12 +14,12 @@ import { sectionAnchor } from '~/utils/settingsAreas'
 const t = de.retentionPage
 useHead({ title: t.title })
 
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
-if (!isProvider.value) await navigateTo('/', { replace: true })
+const { can } = useCan()
+const canDeleteDue = computed(() => can('retention.delete'))
+if (!canDeleteDue.value) await navigateTo('/', { replace: true })
 
 const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retention', {
-  key: 'retention-overview', default: () => [], immediate: isProvider.value,
+  key: 'retention-overview', default: () => [], immediate: canDeleteDue.value,
 })
 
 const ALL = 'all'
@@ -133,7 +133,7 @@ async function deleteAll() {
 </script>
 
 <template>
-  <div v-if="isProvider" class="max-w-4xl space-y-6">
+  <div v-if="canDeleteDue" class="max-w-4xl space-y-6">
     <div class="space-y-2">
       <h1 class="text-2xl font-semibold">{{ t.title }}</h1>
       <p class="text-sm text-gray-600">

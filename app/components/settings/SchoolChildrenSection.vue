@@ -10,8 +10,8 @@ import { inState } from '~/utils/states'
  * children: switching it on shows the children it deregisters at once and needs the Träger's confirmation of exactly that list.
  */
 const { data, refresh } = await useFetch<SchoolSettingsDto>('/api/school-settings', { key: 'school-settings' })
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const canEditSchool = computed(() => can('children.schoolSettings'))
 const toast = useToast()
 const { data: facilities } = useFacilities()
 // The facility the settings show (the Träger may have chosen another one than the active facility).
@@ -47,7 +47,7 @@ async function saveCutoff(cutoff: SchoolCutoffInput) {
   if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
 
-const dirty = useDirty(() => isProvider.value && !!data.value
+const dirty = useDirty(() => canEditSchool.value && !!data.value
   && !sameValue([Number(day.value), month.value, age.value], [data.value.cutoffDay, data.value.cutoffMonth, data.value.ageYears]))
 const save = () => dirty.value && saveCutoff({ cutoffMonth: month.value, cutoffDay: day.value, ageYears: age.value })
 
@@ -114,7 +114,7 @@ async function confirmSwitchOn() {
 <template>
   <section v-if="data" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ s.title }}</h2>
-    <form v-if="isProvider" class="flex flex-wrap items-end gap-3" @submit.prevent="save">
+    <form v-if="canEditSchool" class="flex flex-wrap items-end gap-3" @submit.prevent="save">
       <UFormField :label="s.cutoff">
         <span class="flex items-center gap-2">
           <UInput v-model.number="day" type="number" min="1" max="31" step="1" class="w-20" :aria-label="s.day" required />
@@ -134,13 +134,13 @@ async function confirmSwitchOn() {
     <p class="text-xs text-gray-500">{{ s.stateCutoffHint }}</p>
     <p v-if="stateCutoff && activeState" class="flex flex-wrap items-center gap-2 rounded bg-sky-50 p-2 text-sm">
       <span>{{ s.stateCutoff(inState(activeState), stateCutoffDate, stateCutoff.ageYears) }}</span>
-      <UButton v-if="isProvider" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />
+      <UButton v-if="canEditSchool" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />
     </p>
     <p class="text-xs text-gray-500">{{ s.hint }}</p>
     <p class="text-xs text-gray-500">{{ s.hintBirthday }}</p>
 
     <div class="space-y-1 border-t border-gray-100 pt-3">
-      <USwitch v-if="isProvider" :model-value="data.autoLeave" :label="s.autoLeave" :disabled="busy" @update:model-value="toggle" />
+      <USwitch v-if="canEditSchool" :model-value="data.autoLeave" :label="s.autoLeave" :disabled="busy" @update:model-value="toggle" />
       <template v-else>
         <h3 class="text-sm font-medium">{{ s.autoLeave }}</h3>
         <p class="text-sm">{{ data.autoLeave ? s.autoLeaveOn : s.autoLeaveOff }}</p>

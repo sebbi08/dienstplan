@@ -9,8 +9,8 @@ import { groupPath } from '~/utils/settingsAreas'
  * calendars follow it); the Leitung sees the order.
  */
 const { data: groups, refresh } = useGroups()
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const canManageGroups = computed(() => can('settings.groups'))
 // Lists with the groups in their order follow at once.
 const { busy, run } = useBusyAction(() => Promise.all([
   refresh(), refreshNuxtData(['child-groups', 'children-occupancy', 'opening-hours', 'reminder-settings']),
@@ -38,7 +38,7 @@ function move(id: number, direction: 'up' | 'down') {
             <span v-if="group.capacity !== null" class="shrink-0 text-xs text-gray-500">{{ de.capacity.groupLabel }}: {{ group.capacity }}</span>
             <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
           </NuxtLink>
-          <span v-if="isProvider" class="flex shrink-0 gap-0.5 pr-2">
+          <span v-if="canManageGroups" class="flex shrink-0 gap-0.5 pr-2">
             <UButton
               size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="s.moveUp(group.name)"
               :disabled="busy || index === 0" @click="move(group.id, 'up')"
@@ -50,11 +50,11 @@ function move(id: number, direction: 'up' | 'down') {
           </span>
         </li>
       </ul>
-      <p v-if="isProvider" class="text-xs text-gray-500">{{ s.groupOrderHintList }}</p>
+      <p v-if="canManageGroups" class="text-xs text-gray-500">{{ s.groupOrderHintList }}</p>
     </template>
     <template v-else>
       <p class="text-sm text-gray-600">{{ s.groupListNone }}</p>
-      <p class="text-xs text-gray-500">{{ isProvider ? s.groupListNoneProvider : s.groupListNoneLeitung }}</p>
+      <p class="text-xs text-gray-500">{{ canManageGroups ? s.groupListNoneProvider : s.groupListNoneLeitung }}</p>
     </template>
   </section>
 </template>

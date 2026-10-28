@@ -8,8 +8,8 @@ import { builtRows, mergeRows } from '~/utils/settingsForms'
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings', { key: 'settings' })
 const run = useAction(refresh)
 const confirm = useConfirm()
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const canEditCodes = computed(() => can('settings.absenceCodes'))
 
 const codes = ref<CodeDto[]>([])
 // Any save on the page reloads the shared settings: rows with unsaved edits keep them unless they were just saved.
@@ -29,7 +29,7 @@ function rowDirty(code: CodeDto): boolean {
   const saved = settings.value?.codes.find(candidate => candidate.id === code.id)
   return !!saved && !sameValue([code.label, code.color, code.creditMode], [saved.label, saved.color, saved.creditMode])
 }
-useDirty(() => isProvider.value && codes.value.some(rowDirty))
+useDirty(() => canEditCodes.value && codes.value.some(rowDirty))
 
 async function saveCode(code: CodeDto) {
   if (!rowDirty(code)) return
@@ -51,15 +51,15 @@ const textInput = 'w-full min-w-24 rounded border border-gray-300 px-1 py-0.5'
 <template>
   <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.settings.codes }}</h2>
-    <p v-if="!isProvider" class="text-xs text-gray-500">{{ de.settings.codesProviderOnly }}</p>
+    <p v-if="!canEditCodes" class="text-xs text-gray-500">{{ de.settings.codesProviderOnly }}</p>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-500">
-          <tr><th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.color }}</th><th :class="cell">{{ de.settings.creditMode }}</th><th v-if="isProvider" /></tr>
+          <tr><th :class="cell">{{ de.settings.label }}</th><th :class="cell">{{ de.settings.color }}</th><th :class="cell">{{ de.settings.creditMode }}</th><th v-if="canEditCodes" /></tr>
         </thead>
         <tbody>
           <tr v-for="code in codes" :key="code.id" class="border-t border-gray-100">
-            <template v-if="isProvider">
+            <template v-if="canEditCodes">
               <td :class="cell"><input v-model="code.label" maxlength="50" :class="textInput" :aria-label="de.settings.label"></td>
               <td :class="cell"><USelect v-model="code.color" :items="colorItems" class="w-32" :aria-label="de.settings.color" /></td>
               <td :class="cell"><USelect v-model="code.creditMode" :items="creditItems" class="w-44" :aria-label="de.settings.creditMode" /></td>

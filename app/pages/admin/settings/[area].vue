@@ -3,10 +3,10 @@ import { areaOfSlug, sectionAnchor, visibleSettingsAreas } from '~/utils/setting
 
 /** One area of the settings (/admin/settings/<area>) with its sections; an unknown area or one the role may not see leads to the overview. */
 const route = useRoute()
-const { user } = useUserSession()
+const { can } = useCan()
 const entry = computed(() => {
   const area = areaOfSlug(route.params.area)
-  return visibleSettingsAreas({ isProvider: user.value?.role === 'provider' }).find(candidate => candidate.area === area) ?? null
+  return visibleSettingsAreas({ can }).find(candidate => candidate.area === area) ?? null
 })
 if (!entry.value) await navigateTo('/admin/settings', { replace: true })
 

@@ -18,5 +18,8 @@ export default defineNitroPlugin(() => {
     // of the ones stored in the cookie at login; the server checks rights against the database anyway, this only
     // keeps the menus and pages in step.
     Object.assign(session.user, sessionPayload(user))
+    // The permissions, resolved for this request, for what the pages show (useCan). Only in this answer: the hook
+    // changes the unsealed copy, the cookie is never written here.
+    session.permissions = [...user.permissions]
   })
 })

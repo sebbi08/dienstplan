@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isManager } from '#shared/domain/roles'
 import type { PrintTemplateDto, PrintTemplateScope } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
@@ -12,8 +11,10 @@ import { berlinDay, categorySuggestions, groupByCategory, templateFileUrl, title
  * are no child data). Mitarbeiter accounts do not get here (middleware) and the server refuses them.
  */
 const { user } = useUserSession()
-const manager = computed(() => isManager(user.value?.role))
-const isProvider = computed(() => user.value?.role === 'provider')
+const { can } = useCan()
+const manager = computed(() => can('printTemplates.edit'))
+// „für alle Einrichtungen“ (printTemplates.global, the Träger's).
+const isProvider = computed(() => can('printTemplates.global'))
 const onTablet = computed(() => user.value?.role === 'terminal')
 const { activeName } = useFacilities()
 

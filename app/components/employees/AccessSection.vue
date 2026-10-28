@@ -11,8 +11,8 @@ import { suggestUsername } from '~/utils/staffList'
 const props = defineProps<{ employeeId: number; employeeName: string }>()
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
 const run = useAction(refresh)
-const { user: me } = useUserSession()
-const isProvider = computed(() => me.value?.role === 'provider')
+const { can } = useCan()
+const canProviderAccounts = computed(() => can('users.providerAccounts'))
 
 /** The account linked to this person, as an editable copy. */
 const account = ref<UserDto | null>(null)
@@ -20,10 +20,10 @@ watch([users, () => props.employeeId], () => {
   const linked = (users.value ?? []).find(candidate => candidate.employeeId === props.employeeId)
   account.value = linked ? { ...linked } : null
 }, { immediate: true })
-// A Leitung cannot change a Träger account (the server checks this as well).
-const locked = computed(() => account.value?.role === 'provider' && !isProvider.value)
+// A Leitung cannot change a Träger account (users.providerAccounts; the server checks this as well).
+const locked = computed(() => account.value?.role === 'provider' && !canProviderAccounts.value)
 /** A linked account can be Mitarbeiter or Leitung (a Träger account stays Träger for a Träger); never the tablet. */
-const roleItems = computed(() => ((isProvider.value && account.value?.role === 'provider' ? ['provider'] : []) as Role[])
+const roleItems = computed(() => ((canProviderAccounts.value && account.value?.role === 'provider' ? ['provider'] : []) as Role[])
   .concat(['admin', 'observer']).map(role => ({ label: de.users.roles[role], value: role })))
 
 function save() {

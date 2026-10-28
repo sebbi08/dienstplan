@@ -25,9 +25,6 @@ export function stampText(stamp: SectionStamp): string | null {
   return de.children.lastChanged(stamp.updatedBy ?? de.children.unknownUser, formatDateTime(stamp.updatedAt))
 }
 
-/** The child pages (list, record, new child …); the tablet shows them only while a person has unlocked it. */
-export const isChildPagePath = (path: string): boolean => path === '/children' || path.startsWith('/children/')
-
 /** An empty date field means "no date". */
 export const orNull = (value: string): string | null => (value === '' ? null : value)
 
