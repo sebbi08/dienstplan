@@ -38,29 +38,25 @@ Jeder Schalter steht für feste Einzelrechte des Katalogs. „Umfang“: bei Kin
 | | eintragen und Akten ändern | children.edit |
 | | verwalten (Abmelden, Belegung, Archiv, Vormerkungen) | children.manage, children.planned |
 | | auch mit eigenem Zugang (nicht nur am Tablet) | children.ownAccount |
-| | Schulkinder-Einstellungen | children.schoolSettings |
 | Bögen | ausfüllen | childForms.edit |
 | | verwalten (Vorlagen, Freigaben) | childForms.manage, formTemplates.manage |
 | Teamsitzungen | mitschreiben | teamMeetings.write |
 | | freigeben | teamMeetings.manage |
 | Kasse | ansehen und führen | cash.view, cash.book |
-| | Monate abschließen | cash.close |
-| | abgeschlossene Monate wieder öffnen | cash.reopen |
+| | Monate abschließen und wieder öffnen | cash.close, cash.reopen |
 | Kalender | ansehen | calendar.own |
 | | Termine und Schließzeiten bearbeiten | calendar.edit, closures.manage |
 | Vorlagen | ansehen | printTemplates.view |
 | | bearbeiten | printTemplates.edit |
 | Verwaltung | Einstellungen der Einrichtung | settings.facility |
-| | Personalschlüssel-Werte ändern | settings.staffing |
 | | Zugänge verwalten | users.manage |
 
-- Gegenüber dem Gespräch aufgeteilt, damit die heutigen Grundeinstellungen exakt erhalten bleiben: „Kasse abschließen“ /
-  „wieder öffnen“ (die Leitung darf heute nur abschließen), „Urlaubsübersicht“ wandert zu „Mitarbeiter ansehen“ (die
-  Leitung sieht sie heute auch ohne Urlaubsplanung), „Personalschlüssel-Werte ändern“ und „Schulkinder-Einstellungen“
-  eigene Schalter (heute nur Träger).
-- Ausgegraut mit „nur Träger“: die festen Träger-Rechte (Rechte einstellen, Träger-Zugänge, Einrichtungen, Löschen nach
+- „Urlaubsübersicht“ steckt in „Mitarbeiter ansehen“ (die Leitung sieht sie heute auch ohne Urlaubsplanung).
+- **Geänderte Grundeinstellung:** Die Leitung darf künftig abgeschlossene Kassenmonate auch **wieder öffnen**.
+- Ausgegraut mit „nur Träger“ (fest, nicht vergebbar): Rechte einstellen, Träger-Zugänge, Einrichtungen, Löschen nach
   Fristen, Datensicherung, „Einstellungen für“, Codes, Gruppen anlegen, Mitarbeiter/Kinder verschieben, Druckvorlagen für
-  alle Einrichtungen, Urlaubs-Grundeinstellungen).
+  alle Einrichtungen, Urlaubs-Grundeinstellungen, **Personalschlüssel-Werte ändern**, **Schulkinder-Einstellungen**
+  (Stichtag, automatische Abmeldung, Gruppe „für Schulkinder“).
 - Eigene Daten (eigener Dienstplan, eigene Gespräche, Passwort) hat jede Person mit Zugang; kein Schalter.
 
 ## 3. Seite „Rechte und Rollen“ (Mehr → Benutzer, nur Träger)
@@ -80,7 +76,9 @@ Jeder Schalter steht für feste Einzelrechte des Katalogs. „Umfang“: bei Kin
   „planen und genehmigen“; Schalter „Vertragsangaben für die Leitung sichtbar“ → Rollen-Einstellung der Leitung.
   Die alten Schalter verschwinden aus Benutzer-Seite und Einstellungen und verweisen auf die Rechte-Seite; die Liste
   „Zuständig für die Urlaubsplanung“ bleibt nur für die Benachrichtigung des Trägers.
-- Nur der Träger setzt Ausnahmen (heute darf die Leitung „darf Kinderakten pflegen“ setzen – das entfällt).
+- Ausnahmen setzt der Träger. **Ausnahme:** Die Leitung darf wie heute bei Mitarbeitern ihrer Einrichtung
+  „eintragen und Akten ändern“ erlauben oder wegnehmen (bisher „darf Kinderakten pflegen“); alle anderen Ausnahmen nur
+  der Träger.
 
 ## 5. Technik (Überblick)
 
