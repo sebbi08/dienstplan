@@ -8,6 +8,7 @@ import { addAdjustment, getEmployee, listEmployees, setContract, updateEmployee,
 import { getLeaveAccount } from '../../server/services/leave'
 import { getMyTime } from '../../server/services/myTime'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
+import { loadEmployee, loadEmployees } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import { getMyRequirements } from '../../server/services/requirements'
 import { terminalStatus } from '../../server/services/terminal'
@@ -102,6 +103,14 @@ describe('personnel file: master data in the employee DTO and update', () => {
     })
   })
 
+  it('keeps no disability details for a „nein“', () => {
+    update({ sensitive })
+    update({ sensitive: { ...sensitive, disability: false, disabilityDegree: 45, disabilityEqual: true, disabilityUntil: '2028-12-31' } })
+    expect(getEmployee(db, 1, anna, TODAY, ALL).sensitive).toEqual({
+      nationality: 'deutsch', disability: false, disabilityDegree: null, disabilityEqual: false, disabilityUntil: null,
+    })
+  })
+
   it('checks the formats with the German error codes (400), and on an error nothing changes', () => {
     update({ personal, sensitive })
     const before = row()
@@ -162,6 +171,18 @@ describe('personnel file: the archive flag of the 10-year category', () => {
 })
 
 describe('personnel file: never in the own pages or at the tablet', () => {
+  it('keeps the PIN hash and the personal and sensitive columns out of the employee records (which get spread)', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    db.update(employees).set({ street: 'GEHEIM', nationality: 'GEHEIM', pinHash: 'GEHEIM' }).where(eq(employees.id, anna)).run()
+    for (const record of [loadEmployee(db, anna)!, loadEmployees(db, 1)[0]!]) {
+      expect(JSON.stringify(record)).not.toContain('GEHEIM')
+      for (const key of ['pinHash', 'birthYear', 'street', 'postalCode', 'city', 'phone', 'email', 'nationality', 'disability',
+        'disabilityDegree', 'disabilityEqual', 'disabilityUntil']) expect(record, key).not.toHaveProperty(key)
+      expect(record).toHaveProperty('fixedTermUntil')
+    }
+  })
+
   it('sends none of the new fields in the my/* answers, the tablet status or the tablet plan', () => {
     const db = createTestDb()
     const anna = addEmployee(db, 'Anna')

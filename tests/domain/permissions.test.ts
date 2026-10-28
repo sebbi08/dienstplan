@@ -102,6 +102,7 @@ describe('permission catalog', () => {
     expect(byKey.get('employees.personal')!.label).toBe('Anschrift, Kontakt und Geburtsdatum')
     expect(byKey.get('employees.payroll')!.label).toBe('Lohn und Steuer')
     expect(byKey.get('employees.docs.measures')!.label).toBe('Dokumente: Arbeitsrechtliche Maßnahmen')
+    expect(byKey.get('employees.docs.contract')!.label).toBe('Dokumente: Vertrag und Nachträge, Stellenbeschreibung')
   })
 })
 

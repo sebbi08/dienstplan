@@ -17,7 +17,7 @@ import type { Db } from '../db/client'
 import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
-import { hasPaidOvertimeData } from './employeeDeletion'
+import { employeesWithPaidOvertimeData } from './employeeDeletion'
 import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
@@ -124,15 +124,16 @@ function sensitiveOf(row: EmployeeRow): EmployeeSensitiveDto {
 
 /**
  * The facility's employees who left (or only `employeeId`, if they left) and still have data of the 10-year category
- * (paid-out balance adjustments, contract and salary documents; employeeDeletion.ts hasPaidOvertimeData), for the
- * archive's deletion line.
+ * (paid-out balance adjustments, contract and salary documents; employeeDeletion.ts employeesWithPaidOvertimeData), for
+ * the archive's deletion line. A fixed number of queries, however many have left.
  */
 function paidOutIds(db: Db, facilityId: number, employeeId?: number): Set<number> {
-  return new Set(db.select({ id: employees.id }).from(employees)
+  const left = db.select({ id: employees.id }).from(employees)
     .where(and(
       eq(employees.facilityId, facilityId), isNotNull(employees.leftOn),
       employeeId === undefined ? undefined : eq(employees.id, employeeId),
-    )).all().map(row => row.id).filter(id => hasPaidOvertimeData(db, id)))
+    )).all().map(row => row.id)
+  return employeesWithPaidOvertimeData(db, left)
 }
 
 function toListItem(
@@ -318,12 +319,20 @@ function checkedPersonal(
   return checked
 }
 
+/**
+ * The sensitive block checked and trimmed. Without „Schwerbehinderung“ its details go (degree, „gleichgestellt“,
+ * valid until): no special-category data is kept for a „nein“.
+ */
 function checkedSensitive(input: EmployeeSensitiveDto): EmployeeSensitiveDto {
+  const nationality = textOrNull(input.nationality)
+  if (!input.disability) {
+    return { nationality, disability: false, disabilityDegree: null, disabilityEqual: false, disabilityUntil: null }
+  }
   fail(disabilityDegreeError(input.disabilityDegree))
   if (input.disabilityUntil !== null && !isValidIsoDate(input.disabilityUntil)) throw new ServiceError(400, 'invalid_date')
   return {
-    nationality: textOrNull(input.nationality), disability: input.disability, disabilityDegree: input.disabilityDegree,
-    disabilityEqual: input.disabilityEqual, disabilityUntil: input.disabilityUntil,
+    nationality, disability: true, disabilityDegree: input.disabilityDegree, disabilityEqual: input.disabilityEqual,
+    disabilityUntil: input.disabilityUntil,
   }
 }
 

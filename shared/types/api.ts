@@ -1016,8 +1016,9 @@ export interface EmployeeListItemDto {
   /** Contract data; only sent to the Träger, and to the Leitung when the Träger allows it. */
   contract?: EmployeeContractDto
   /**
-   * Only for someone with a leaving day: whether balance adjustments marked „ausgezahlt“ are left (the archive names
-   * their deletion date only then; without them the entry goes with the assessments).
+   * Only for someone with a leaving day: whether data of the 10-year category is left — balance adjustments marked
+   * „ausgezahlt“ or personnel file documents in the folders contract and salary (the archive names its deletion date only
+   * then; without it the entry goes with the assessments).
    */
   hasPaidOut?: boolean
 }

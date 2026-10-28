@@ -290,6 +290,16 @@ export function hasPaidOvertimeData(db: Db, employeeId: number): boolean {
 }
 
 /**
+ * The employees among `employeeIds` with data of the paid-overtime period, from the same row lists as
+ * hasPaidOvertimeData: one query per list, however many employees.
+ */
+export function employeesWithPaidOvertimeData(db: Db, employeeIds: readonly number[]): Set<number> {
+  if (employeeIds.length === 0) return new Set()
+  return new Set(PAID_OVERTIME_ROWS.flatMap(rows => db.selectDistinct({ id: rows.column }).from(rows.table)
+    .where(and(inArray(rows.column, [...employeeIds]), rows.also)).all().map(row => row.id as number)))
+}
+
+/**
  * Per category whether its helper would still delete or clear something, from the same row lists (the release
  * snapshots aside: deleteEmployeeRow takes the person out of them anyway). A category without data is no item of the
  * retention overview; the employee row may go once every category says false.

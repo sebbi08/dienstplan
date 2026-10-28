@@ -110,7 +110,7 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('employees.payroll', 'employees', 'Lohn und Steuer', { requires: ['employees.view'] }),
   def('employees.docs.qualifications', 'employees', 'Dokumente: Qualifikationen und Fortbildungen',
     { requires: ['employees.view'] }),
-  def('employees.docs.contract', 'employees', 'Dokumente: Vertrag und Nachträge', { requires: ['employees.view'] }),
+  def('employees.docs.contract', 'employees', 'Dokumente: Vertrag und Nachträge, Stellenbeschreibung', { requires: ['employees.view'] }),
   def('employees.docs.application', 'employees', 'Dokumente: Bewerbung', { requires: ['employees.view'] }),
   def('employees.docs.correspondence', 'employees', 'Dokumente: Korrespondenz', { requires: ['employees.view'] }),
   def('employees.docs.measures', 'employees', 'Dokumente: Arbeitsrechtliche Maßnahmen', { requires: ['employees.view'] }),

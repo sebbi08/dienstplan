@@ -17,8 +17,8 @@ function listOf(labels: string[]): string {
  * Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Zeitdaten dürfen ab … gelöscht werden,
  * Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ The dates in their order (the personal data
  * the day after leaving); a category due today or earlier may be deleted already and is named before (the Träger
- * deletes on the page „Löschfristen“, nothing goes by itself). Without paid-out adjustments (`hasPaidOut` false) that
- * period is left out: the entry goes with the others.
+ * deletes on the page „Löschfristen“, nothing goes by itself). Without data of the 10-year category (`hasPaidOut` false:
+ * no paid-out adjustments, no contract or salary documents) that period is left out: the entry goes with the others.
  */
 export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSettings, today: IsoDate, hasPaidOut = true): string {
   const t = de.retention.archive

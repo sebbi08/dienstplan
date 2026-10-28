@@ -121,11 +121,25 @@ export function groupByEmployee(list: EntryDto[]): Map<number, EntryDto[]> {
   return map
 }
 
+/**
+ * The employee columns an EmployeeRecord carries, named one by one: the record is spread into answers, so the PIN
+ * hash and the personnel file's personal, sensitive and payroll data must never ride along (getEmployee reads those
+ * itself, behind their keys).
+ */
+const RECORD_COLUMNS = {
+  id: employees.id, facilityId: employees.facilityId, name: employees.name, shortName: employees.shortName,
+  sortOrder: employees.sortOrder, leftOn: employees.leftOn, groupId: employees.groupId,
+  personnelNumber: employees.personnelNumber, employedSince: employees.employedSince, jobKey: employees.jobKey,
+  jobOther: employees.jobOther, payGroup: employees.payGroup, payLevel: employees.payLevel,
+  fixedTermUntil: employees.fixedTermUntil, stampVia: employees.stampVia, breakMode: employees.breakMode,
+  birthday: employees.birthday, qualification: employees.qualification, staffingShare: employees.staffingShare,
+}
+
 /** Employees with their contract hours and the public-holiday rules of their home facility. */
 function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
   return db.select({
-    row: employees, state: facilities.state, assumptionDay: facilities.assumptionDay,
+    row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay,
     halfLeaveOnEves: facilities.christmasEveHalfLeave,
   })
     .from(employees)
