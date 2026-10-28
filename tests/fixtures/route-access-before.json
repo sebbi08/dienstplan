@@ -176,6 +176,8 @@
   "help-outs/[id].delete.ts": ["provider","admin"],
   "help-outs/candidates.get.ts": ["provider","admin"],
   "help-outs/index.post.ts": ["provider","admin"],
+  "leave-counting.get.ts": ["provider","admin"],
+  "leave-counting.put.ts": ["provider"],
   "leave-planning.get.ts": ["provider","admin"],
   "leave-requests/[id]/decide.post.ts": ["provider","admin"],
   "leave-settings.get.ts": ["provider","admin","observer"],

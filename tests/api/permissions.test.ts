@@ -233,6 +233,16 @@ describe('API route permissions', () => {
     }
   })
 
+  it('lets the Leitung read how 24 and 31 December count as leave; only the Träger changes it (Leitung 403)', () => {
+    expect(permissionCalls('leave-counting.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
+    expect(permissionCalls('leave-counting.put.ts')).toEqual([{ key: 'leave.configure', options: '' }])
+    expect(PROVIDER_ONLY.has('leave.configure')).toBe(true)
+    expect(fixture['leave-counting.get.ts']).toEqual(['provider', 'admin'])
+    expect(fixture['leave-counting.put.ts']).toEqual(['provider'])
+    // The facility of the request: for the Träger on the settings pages the one „Einstellungen für“ names.
+    expect(source('leave-counting.put.ts')).toContain('provider.facilityId')
+  })
+
   it('opens the meal settings to managers of the active facility only', () => {
     const touching = routes.filter(route => /^meals\//.test(route) || source(route).includes('services/meals\''))
     expect(touching).toEqual(['meals/[id].delete.ts', 'meals/[id].put.ts', 'meals/index.get.ts', 'meals/index.post.ts',

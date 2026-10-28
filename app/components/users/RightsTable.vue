@@ -44,6 +44,7 @@ const GROUPS: { title: string; rows: { label: string; rights: [Right, Right, Rig
     { label: 'Urlaub beantragen und eigene Anträge sehen', rights: [4, 4, 4, 'no'] },
     { label: 'Urlaubsplanung: Anträge entscheiden, Kalender, Höchstzahl gleichzeitig im Urlaub', rights: [4, 5, 'no', 'no'] },
     { label: 'Modul ein- und ausschalten, Zuständige festlegen', rights: ['yes', 'no', 'no', 'no'] },
+    { label: 'Festlegen, ob Urlaub am 24.12. und 31.12. als ganzer oder halber Tag zählt (Einstellungen → Dienstplan)', rights: ['yes', 15, 'no', 'no'] },
   ] },
   { title: 'Planung und Übersichten', rows: [
     { label: 'Schließzeiten, Feiertage, frühere Schließungen', rights: ['yes', 'yes', 'no', 'no'] },

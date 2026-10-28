@@ -14,7 +14,7 @@ describe('visibleSettingsAreas', () => {
     expect(keysOf(provider)).toEqual([
       ['facility', ['facilities', 'facility-hours', 'tablet', 'retention', 'backup']],
       ['groups', ['group-list']],
-      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module']],
+      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
       ['staff', ['staffing', 'employee-retention']],
@@ -25,7 +25,7 @@ describe('visibleSettingsAreas', () => {
     expect(keysOf(leitung)).toEqual([
       ['facility', ['facility-hours', 'tablet']],
       ['groups', ['group-list']],
-      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types']],
+      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
       ['staff', ['staffing', 'employee-retention']],

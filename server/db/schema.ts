@@ -32,6 +32,8 @@ export const facilities = sqliteTable('facilities', {
   markEarlyLeave: integer('mark_early_leave', { mode: 'boolean' }).notNull().default(true),
   /** At most this many employees of the facility on leave at the same time (null = no limit). */
   leaveMaxConcurrent: integer('leave_max_concurrent'),
+  /** A leave day on 24 or 31 December counts as half a day (leave account, requests, closures); only the Träger sets it. */
+  christmasEveHalfLeave: integer('christmas_eve_half_leave', { mode: 'boolean' }).notNull().default(false),
   /** School cutoff (Stichtag): a child is of school age when it reaches `schoolAgeYears` on or before this day of the year. */
   schoolCutoffMonth: integer('school_cutoff_month').notNull().default(6),
   schoolCutoffDay: integer('school_cutoff_day').notNull().default(30),

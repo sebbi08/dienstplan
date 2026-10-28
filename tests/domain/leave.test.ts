@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { BW_RULES } from '../../shared/domain/holidays'
-import { countsAsLeaveDay, groupLeaveRanges, leaveAccount } from '../../shared/domain/leave'
+import {
+  countLeaveDays, countsAsLeaveDay, groupLeaveRanges, leaveAccount, leaveDaysThatFit, leaveDayWeight,
+} from '../../shared/domain/leave'
 
 /** Monday to Friday without the holidays of Baden-Württemberg. */
 const bwLeaveDay = (date: string) => countsAsLeaveDay(date, BW_RULES)
@@ -50,5 +52,55 @@ describe('leave on part-time working days', () => {
     expect(groupLeaveRanges(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12'], monToWed)).toEqual([
       { from: '2026-10-05', to: '2026-10-12', days: 4 },
     ])
+  })
+})
+
+describe('24 and 31 December as half a leave day', () => {
+  // Tuesday 22 December 2026 to Saturday 2 January 2027: 25/26 December and 1 January are holidays in BW, 26/27
+  // December and 2 January weekend days. Leave days: 22, 23, 24, 28, 29, 30, 31 December.
+  const christmas = ['2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-26', '2026-12-27', '2026-12-28',
+    '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02']
+
+  it('weighs 24 and 31 December with half a day only when the facility says so', () => {
+    expect(leaveDayWeight('2026-12-24', true)).toBe(0.5)
+    expect(leaveDayWeight('2025-12-31', true)).toBe(0.5)
+    expect(leaveDayWeight('2026-12-23', true)).toBe(1)
+    expect(leaveDayWeight('2027-01-01', true)).toBe(1)
+    expect(leaveDayWeight('2026-12-24', false)).toBe(1)
+    expect(leaveDayWeight('2026-12-31', false)).toBe(1)
+  })
+
+  it('counts the days with their weight', () => {
+    expect(countLeaveDays(['2026-12-23', '2026-12-24', '2026-12-31'], true)).toBe(2)
+    expect(countLeaveDays(['2026-12-23', '2026-12-24', '2026-12-31'], false)).toBe(3)
+    expect(countLeaveDays([], true)).toBe(0)
+  })
+
+  it('counts the Christmas holidays as 6 instead of 7 days in the leave account', () => {
+    expect(leaveAccount({ days: 30, carriedOverDays: 0 }, christmas, 2026, '2026-12-24', bwLeaveDay, true)).toEqual({
+      entitlement: 30, carriedOver: 0, taken: 2, planned: 4, available: 24,
+    })
+    expect(leaveAccount({ days: 30, carriedOverDays: 0 }, christmas, 2026, '2026-12-24', bwLeaveDay, false)).toEqual({
+      entitlement: 30, carriedOver: 0, taken: 2, planned: 5, available: 23,
+    })
+    // Without the setting the old call counts whole days.
+    expect(leaveAccount({ days: 30, carriedOverDays: 0 }, christmas, 2026, '2026-12-24', bwLeaveDay).available).toBe(23)
+  })
+
+  it('gives the range over Christmas 6 days, and half a day for 24 December alone', () => {
+    expect(groupLeaveRanges(christmas, bwLeaveDay, true)).toEqual([{ from: '2026-12-22', to: '2026-12-31', days: 6 }])
+    expect(groupLeaveRanges(christmas, bwLeaveDay, false)).toEqual([{ from: '2026-12-22', to: '2026-12-31', days: 7 }])
+    expect(groupLeaveRanges(['2026-12-24'], bwLeaveDay, true)).toEqual([{ from: '2026-12-24', to: '2026-12-24', days: 0.5 }])
+  })
+
+  it('fits as many days, in their order, as the leave left allows', () => {
+    const dates = ['2026-12-23', '2026-12-24', '2026-12-28', '2026-12-31']
+    expect(leaveDaysThatFit(dates, 2.5, true)).toBe(3)
+    expect(leaveDaysThatFit(dates, 2.5, false)).toBe(2)
+    expect(leaveDaysThatFit(dates, 2, true)).toBe(2)
+    expect(leaveDaysThatFit(dates, 10, true)).toBe(4)
+    expect(leaveDaysThatFit(dates, 0.5, true)).toBe(0)
+    expect(leaveDaysThatFit(['2026-12-24', '2026-12-28'], 0.5, true)).toBe(1)
+    expect(leaveDaysThatFit(dates, -3, true)).toBe(0)
   })
 })

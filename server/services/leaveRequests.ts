@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm'
 import { dateRange, parseIsoDate } from '../../shared/domain/dates'
+import { countLeaveDays } from '../../shared/domain/leave'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
 import { can } from '../../shared/domain/permissions'
 import { isManager } from '../../shared/domain/roles'
@@ -110,7 +111,7 @@ function toDto(
     id: request.id, employeeId: request.employeeId, name: employee?.name ?? '', startDate: request.startDate,
     endDate: request.endDate, note: request.note, status: request.status, createdAt: request.createdAt,
     decidedAt: request.decidedAt, decidedBy: request.decidedBy === null ? null : deciders.get(request.decidedBy) ?? null,
-    decisionNote: request.decisionNote, workdays: days.length, overLimitDates,
+    decisionNote: request.decisionNote, workdays: employee ? countLeaveDays(days, employee.halfLeaveOnEves) : 0, overLimitDates,
   }
 }
 
@@ -214,8 +215,10 @@ export function previewLeaveRequest(db: Db, user: SessionUser, from: IsoDate, to
     .flatMap(request => requestDays(employee, request.startDate, request.endDate, closures))
   const newDays = new Set([...days, ...otherOpen].filter(date => date.startsWith(`${year}-`) && !alreadyLeave.has(date)))
   return {
-    workdays: days.length,
-    availableAfter: hasEntitlement ? getLeaveAccount(db, employeeId, year, today).account.available - newDays.size : null,
+    workdays: countLeaveDays(days, employee.halfLeaveOnEves),
+    availableAfter: hasEntitlement
+      ? getLeaveAccount(db, employeeId, year, today).account.available - countLeaveDays([...newDays], employee.halfLeaveOnEves)
+      : null,
     overLimitDates: daysOverLimit(load, days, maxConcurrent(db, facilityId)),
   }
 }

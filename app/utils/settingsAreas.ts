@@ -94,6 +94,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       key: 'leave-module', title: de.leavePlanning.module, providerOnly: true, replaces: ['leave-module'],
       keywords: ['Urlaub', 'Urlaubsantrag', 'Urlaubsplanung', 'Antrag', 'Urlaub beantragen'],
     },
+    {
+      // The Leitung sees it read-only; only the Träger changes it.
+      key: 'leave-counting', title: de.leaveCounting.title, replaces: [],
+      keywords: ['Urlaub', 'Heiligabend', 'Silvester', '24.12.', '31.12.', 'halber Tag', 'Urlaubstag', 'Weihnachten'],
+    },
   ],
   time: [
     {

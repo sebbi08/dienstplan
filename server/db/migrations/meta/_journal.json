@@ -414,6 +414,13 @@
       "when": 1793098705915,
       "tag": "0058_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1793170466417,
+      "tag": "0059_christmas_eve_half_leave",
+      "breakpoints": true
     }
   ]
 }

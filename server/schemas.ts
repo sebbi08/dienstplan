@@ -153,6 +153,7 @@ export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), break
 export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().positive()).max(500) })
 export const leaveModuleSchema = z.object({ enabled: z.boolean(), plannerIds: z.array(z.number().int().positive()).max(50) })
 export const leaveMaxSchema = z.object({ value: z.number().int().min(1).max(100).nullable() })
+export const leaveCountingSchema = z.object({ christmasEveHalfLeave: z.boolean() })
 export const leaveRangeQuery = z.object({ from: isoDate, to: isoDate })
 export const leaveRequestSchema = z.object({ from: isoDate, to: isoDate, note: z.string().max(300) })
 export const leaveDecisionSchema = z.object({ approve: z.boolean(), note: z.string().max(300), overwrite: z.boolean() })

@@ -53,6 +53,8 @@ export interface EmployeeRecord {
   /** Staffing ratio: qualification (null = not entered) and counting share in percent (null = the state's default). */
   qualification: Qualification | null
   staffingShare: number | null
+  /** The home facility counts a leave day on 24 or 31 December as half a day (see leaveDayWeight). */
+  halfLeaveOnEves: boolean
 }
 
 /** Entries in the plan of facilityId (see `EntryFilter.planFacilityId`); needs `employees` joined on the entry's employee. */
@@ -120,13 +122,17 @@ export function groupByEmployee(list: EntryDto[]): Map<number, EntryDto[]> {
 /** Employees with their contract hours and the public-holiday rules of their home facility. */
 function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
-  return db.select({ row: employees, state: facilities.state, assumptionDay: facilities.assumptionDay })
+  return db.select({
+    row: employees, state: facilities.state, assumptionDay: facilities.assumptionDay,
+    halfLeaveOnEves: facilities.christmasEveHalfLeave,
+  })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
     .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-    .map(({ row, state, assumptionDay }) => ({
+    .map(({ row, state, assumptionDay, halfLeaveOnEves }) => ({
       ...row,
+      halfLeaveOnEves,
       info: {
         hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
         leftOn: row.leftOn,

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { parseIsoDate } from '../../shared/domain/dates'
-import { leaveAccount } from '../../shared/domain/leave'
+import { leaveAccount, leaveDaysThatFit } from '../../shared/domain/leave'
 import { employmentStart, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
@@ -46,7 +46,11 @@ export function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): 
     const booking = new Set(yearDates)
     const otherLeave = loadEntries(db, { employeeId: employee.id, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
       .map(entry => entry.date).filter(date => !booking.has(date))
-    const left = Math.max(0, Math.floor(leaveAccount(entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(employee.info, date)).available))
+    const available = leaveAccount(
+      entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(employee.info, date), employee.halfLeaveOnEves,
+    ).available
+    // 24 and 31 December may use only half a day each (facility setting).
+    const left = leaveDaysThatFit(yearDates, available, employee.halfLeaveOnEves)
     vacation.push(...yearDates.slice(0, left))
     closureDays.push(...yearDates.slice(left))
   }

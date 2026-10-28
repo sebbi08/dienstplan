@@ -1363,10 +1363,19 @@ export interface LeaveRequestDto {
   decidedAt: string | null
   decidedBy: string | null
   decisionNote: string
-  /** Working days of the employee in the range (without holidays, closures and days off). */
+  /**
+   * Leave days the range uses: the employee's working days in it (without holidays, closures and days off), 24 and 31
+   * December as half a day where the home facility counts them so (can be x.5).
+   */
   workdays: number
   /** Days of the range on which more people than allowed would be on leave (open requests only). */
   overLimitDates: IsoDate[]
+}
+
+/** How the facility counts leave (Einstellungen → Dienstplan; the Träger changes it, the Leitung reads it). */
+export interface LeaveCountingDto {
+  /** A leave day on 24 or 31 December counts as half a day instead of a whole one. */
+  christmasEveHalfLeave: boolean
 }
 
 /** Module state as far as the viewer may know it. */
@@ -1383,6 +1392,7 @@ export interface LeaveSettingsDto {
 
 /** What a request would mean, shown before sending. */
 export interface LeaveRequestPreviewDto {
+  /** Leave days the request uses (as LeaveRequestDto.workdays). */
   workdays: number
   /** Leave days left in the start year after this request (null: no entitlement recorded). */
   availableAfter: number | null

@@ -808,6 +808,17 @@ aus dem Hinweis auf Pflichttermine). Was du in einem Reiter eingibst, bleibt bei
 stehen. **Speichern speichert nur die Felder des Reiters, in dem du gerade bist** – Eingaben in einem anderen Reiter
 werden dabei nicht mitgespeichert und auch nicht gelöscht.
 
+### Urlaub am 24.12. und 31.12.
+
+Unter **Einstellungen → Dienstplan → „Urlaub an Heiligabend und Silvester“** legt der **Träger je Einrichtung** fest, ob
+ein Urlaubstag am 24.12. oder 31.12. als **ganzer Tag** (voreingestellt, wie bisher) oder als **halber Tag** zählt
+(„Einstellungen für“ wählt die Einrichtung; die Leitung sieht die Einstellung nur). Mit „halber Tag“ zählt so ein Tag
+überall 0,5: im Urlaubskonto (genommen, verplant, frei verfügbar, Übertrag ins nächste Jahr), beim Resturlaub in der
+Mitarbeiterliste, im Reiter „Urlaub“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim Buchen von
+Schließzeiten für neu Eingestellte. Es gilt die Einstellung der **Stammeinrichtung** der Person, für alle Jahre (auch
+rückwirkend). Das Stundenkonto und die Sollstunden ändern sich nicht; in der Urlaubsplanung zählt die Person an dem Tag
+weiter als eine Person im Urlaub.
+
 ### Zugang (Benutzerkonto der Person)
 
 - Im Reiter **Zugang** richtest du für eine Person ohne Konto mit **„Zugang einrichten“** ein Benutzerkonto ein: Der

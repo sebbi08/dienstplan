@@ -3,6 +3,8 @@ import type { Qualification, StaffingMethod } from '#shared/domain/staffing/type
 import type { GroupColor, MeetingKind } from '#shared/types/api'
 
 const days = (count: number) => (count === 1 ? '1 Tag' : `${count.toLocaleString('de-DE')} Tage`)
+/** Leave days of a request; 24 and 31 December may count half, so „7,5 Arbeitstage“. */
+const workdays = (count: number) => (count === 1 ? '1 Arbeitstag' : `${count.toLocaleString('de-DE')} Arbeitstage`)
 /** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
 const notRegistered = (name: string) => `${name} (nicht hinterlegt)`
 const confirmedWith = (text: string) => `Rücksprache mit ${text}`
@@ -40,7 +42,7 @@ export const de = {
     overLimit: (count: number, limit: number) => `${count} Personen im Urlaub – erlaubt sind ${limit}`,
     limit: 'Höchstzahl gleichzeitig im Urlaub', limitHint: 'Leer = keine Grenze. Gezählt werden genehmigter Urlaub und offene Anträge, Schließzeiten nicht.',
     openRequests: 'Offene Anträge', noOpenRequests: 'Keine offenen Anträge.',
-    range: (from: string, to: string, days: number) => `${from} – ${to} (${days} ${days === 1 ? 'Arbeitstag' : 'Arbeitstage'})`,
+    range: (from: string, to: string, days: number) => `${from} – ${to} (${workdays(days)})`,
     overLimitDays: (days: string) => `Über der Höchstzahl am: ${days}`,
     approve: 'Genehmigen', reject: 'Ablehnen', rejectTitle: 'Antrag ablehnen', reason: 'Grund (optional)',
     approved: 'Genehmigt und in den Dienstplan eingetragen', rejected: 'Abgelehnt',
@@ -55,13 +57,20 @@ export const de = {
   },
   leaveRequests: {
     title: 'Urlaub beantragen', from: 'Von', to: 'Bis', note: 'Bemerkung (optional)', send: 'Antrag stellen',
-    preview: (days: number) => `${days} ${days === 1 ? 'Arbeitstag' : 'Arbeitstage'}`,
+    preview: workdays,
     availableAfter: (days: string) => `danach noch ${days} Tage Urlaub`,
     overLimitHint: (days: string) => `Hinweis: An diesen Tagen sind schon viele im Urlaub (${days}). Du kannst den Antrag trotzdem stellen.`,
     sent: 'Antrag gestellt', mine: 'Meine Anträge', none: 'Noch keine Anträge.',
     status: { open: 'offen', approved: 'genehmigt', rejected: 'abgelehnt', withdrawn: 'zurückgezogen' },
     withdraw: 'Zurückziehen', withdrawConfirm: 'Antrag zurückziehen?', withdrawn: 'Antrag zurückgezogen',
     decidedBy: (name: string) => `von ${name}`,
+  },
+  leaveCounting: {
+    title: 'Urlaub an Heiligabend und Silvester',
+    label: 'Urlaub am 24.12. und 31.12. zählt als',
+    whole: 'ganzer Tag', half: 'halber Tag',
+    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen) und für alle Jahre: Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen dann mit einem halben Tag. Das Stundenkonto ändert sich nicht.',
+    providerOnly: 'Nur der Träger kann das ändern.',
   },
   notifications: {
     title: (count: number) => count === 1 ? 'Eine Änderung an deinem Dienstplan' : `Änderungen an deinem Dienstplan (${count})`,

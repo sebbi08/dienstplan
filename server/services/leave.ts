@@ -34,7 +34,9 @@ export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number):
   for (let current = first; current < year; current++) {
     const days = entitlementFor(db, employee.id, current)!.days
     // "available" does not depend on the day it is looked at, so any date will do.
-    carriedOverDays = leaveAccount({ days, carriedOverDays }, vacationDates, current, `${current}-01-01`, isLeaveDay).available
+    carriedOverDays = leaveAccount(
+      { days, carriedOverDays }, vacationDates, current, `${current}-01-01`, isLeaveDay, employee.halfLeaveOnEves,
+    ).available
   }
   const recorded = entitlementFor(db, employee.id, year)!
   return { days: recorded.days, carriedOverDays, fromYear: recorded.fromYear, carriedAutomatically: year > first }
@@ -50,9 +52,9 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
   const entitlement = yearEntitlement(db, employee, year)
   return {
     employeeId, name: employee.name, year,
-    account: leaveAccount(entitlement, vacationDates, year, today, isLeaveDay),
+    account: leaveAccount(entitlement, vacationDates, year, today, isLeaveDay, employee.halfLeaveOnEves),
     inheritedFrom: entitlement && entitlement.fromYear !== year ? entitlement.fromYear : null,
-    ranges: groupLeaveRanges(vacationDates, isLeaveDay),
+    ranges: groupLeaveRanges(vacationDates, isLeaveDay, employee.halfLeaveOnEves),
   }
 }
 

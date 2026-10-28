@@ -1,0 +1,1 @@
+ALTER TABLE `facilities` ADD `christmas_eve_half_leave` integer DEFAULT false NOT NULL;
