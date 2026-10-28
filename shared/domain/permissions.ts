@@ -214,9 +214,10 @@ const BY_KEY = new Map(PERMISSIONS.map(permission => [permission.key, permission
 /**
  * Closes a set of granted keys (spec §3.3): what a key implies is added, then every key whose requirement is missing
  * is dropped – also a key whose implied key had to be dropped, since it cannot come without it – until nothing changes.
+ * A key the catalog does not know (say, from an older database) is ignored.
  */
 export function resolvePermissions(granted: Iterable<PermissionKey>): ReadonlySet<PermissionKey> {
-  const keys = new Set(granted)
+  const keys = new Set([...granted].filter(key => BY_KEY.has(key)))
   const pending = [...keys]
   while (pending.length > 0) {
     for (const implied of BY_KEY.get(pending.pop()!)!.implies) {
@@ -239,6 +240,14 @@ export function resolvePermissions(granted: Iterable<PermissionKey>): ReadonlySe
   }
   return keys
 }
+
+/**
+ * The child keys that change records and so need an account to record as "changed by": a person without one at the
+ * tablet never passes them (server/lib/childViewer.ts; the route snapshot script and the permission test use the same
+ * list).
+ */
+export type ChildActorKey = 'children.edit' | 'children.manage'
+export const CHILD_ACTOR_KEYS: readonly ChildActorKey[] = ['children.edit', 'children.manage']
 
 /** Whether the set holds the key. */
 export function can(permissions: ReadonlySet<PermissionKey>, key: PermissionKey): boolean {

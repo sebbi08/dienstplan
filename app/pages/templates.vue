@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { visibleTemplateLevels } from '#shared/domain/templateCategories'
 import type { PrintTemplateDto, PrintTemplateScope, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
@@ -7,15 +8,18 @@ import { formatDate } from '~/utils/format'
 import { berlinDay, groupByCategory, templateFileUrl, titleFromFileName } from '~/utils/printTemplates'
 
 /**
- * Blank PDF forms to open and print, by category: Träger and Leitung upload and maintain them and their categories,
- * the tablet (no unlock, they are no child data) and Mitarbeiter accounts only open them. Each sees the categories of
- * their level (the server filters).
+ * Blank PDF forms to open and print, by category: whoever may edit templates (printTemplates.edit: Träger and Leitung by
+ * default, a Mitarbeiter with „Vorlagen bearbeiten“) uploads and maintains them and their categories, everyone else and
+ * the tablet (no unlock, they are no child data) only open them. Each sees the categories of their level (the server
+ * filters).
  */
 const { user } = useUserSession()
 const { can } = useCan()
-const manager = computed(() => can('printTemplates.edit'))
-// „für alle Einrichtungen“ and the categories for the Träger alone (printTemplates.global, the Träger's).
-const isProvider = computed(() => can('printTemplates.global'))
+const canEdit = computed(() => can('printTemplates.edit'))
+// „für alle Einrichtungen“ (printTemplates.global, the Träger's).
+const canEditGlobal = computed(() => can('printTemplates.global'))
+// The visibilities the editor may give a category: those of the own role.
+const categoryLevels = computed(() => (user.value ? visibleTemplateLevels(user.value.role) : []))
 const onTablet = computed(() => user.value?.role === 'terminal')
 const { activeName } = useFacilities()
 
@@ -101,7 +105,7 @@ async function save() {
     const body = fileBody(chosen)
     body.append('title', form.title)
     body.append('categoryId', String(categoryId))
-    body.append('scope', isProvider.value ? form.scope : 'facility')
+    body.append('scope', canEditGlobal.value ? form.scope : 'facility')
     if (await run(() => $fetch<unknown>('/api/print-templates', { method: 'POST', body }), de.common.saved)) open.value = false
     return
   }
@@ -126,8 +130,8 @@ async function remove(template: PrintTemplateDto) {
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.printTemplates.title }}</h1>
       <div class="ml-auto flex flex-wrap gap-2">
-        <UButton v-if="manager" color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
-        <UButton v-if="manager" icon="i-lucide-upload" :label="de.printTemplates.upload" @click="openNew" />
+        <UButton v-if="canEdit" color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
+        <UButton v-if="canEdit" icon="i-lucide-upload" :label="de.printTemplates.upload" @click="openNew" />
         <UButton v-if="onTablet" size="lg" color="neutral" variant="outline" icon="i-lucide-arrow-left" :label="de.terminal.toStart" to="/terminal" />
       </div>
     </div>
@@ -162,7 +166,7 @@ async function remove(template: PrintTemplateDto) {
               :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
               icon="i-lucide-printer" :label="de.printTemplates.open"
             />
-            <template v-if="manager && template.canEdit">
+            <template v-if="canEdit && template.canEdit">
               <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
               <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(template)" />
             </template>
@@ -171,7 +175,7 @@ async function remove(template: PrintTemplateDto) {
       </ul>
     </section>
 
-    <UModal v-if="manager" v-model:open="open" :title="editingId === null ? de.printTemplates.upload : de.printTemplates.edit">
+    <UModal v-if="canEdit" v-model:open="open" :title="editingId === null ? de.printTemplates.upload : de.printTemplates.edit">
       <template #body>
         <UAlert v-if="!categories.length" color="warning" variant="soft" :title="de.printTemplates.noCategory" />
         <form v-else class="grid gap-3" @submit.prevent="save">
@@ -188,7 +192,7 @@ async function remove(template: PrintTemplateDto) {
           <UFormField :label="de.printTemplates.category" required>
             <USelect v-model="form.categoryId" :items="categoryItems" :placeholder="de.printTemplates.categoryPlaceholder" class="w-full" />
           </UFormField>
-          <UFormField v-if="isProvider && editingId === null" :label="de.printTemplates.scope">
+          <UFormField v-if="canEditGlobal && editingId === null" :label="de.printTemplates.scope">
             <USelect v-model="form.scope" :items="scopeItems" class="w-full" />
           </UFormField>
           <div class="flex gap-2">
@@ -199,6 +203,6 @@ async function remove(template: PrintTemplateDto) {
       </template>
     </UModal>
 
-    <TemplatesCategoryManager v-if="manager" v-model:open="managing" :categories="categories" :is-provider="isProvider" :refresh="refresh" />
+    <TemplatesCategoryManager v-if="canEdit" v-model:open="managing" :categories="categories" :levels="categoryLevels" :refresh="refresh" />
   </div>
 </template>

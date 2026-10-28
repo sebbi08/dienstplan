@@ -4,7 +4,6 @@ import { addDays, dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { countLeaveDays } from '../../shared/domain/leave'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
 import { can } from '../../shared/domain/permissions'
-import { isManager } from '../../shared/domain/roles'
 import { dailyTarget, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -21,7 +20,7 @@ import { getYearCalendar } from './calendar'
 import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
 import { getLeaveAccount } from './leave'
-import { accountPermissions, bundleOverrideRows, saveBundleOverride } from './permissions'
+import { accountPermissions } from './permissions'
 import { closureOn, loadClosures, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 /** The module switch is installation-wide; the limit and the planning are per facility. */
@@ -56,7 +55,8 @@ function plannerIds(db: Db): number[] {
 
 /**
  * Plans leave in the facility (the permission leave.plan there, fresh from the database): a Träger always, in every
- * facility; a Leitung only in its own facility and only when the Träger made it responsible (see accountPermissions).
+ * facility; a Leitung or Mitarbeiter only in its own facility and only with the bundle „planen und genehmigen“ (see
+ * accountPermissions).
  */
 export function isPlanner(db: Db, user: SessionUser, facilityId: number): boolean {
   return can(accountPermissions(db, user, facilityId), 'leave.plan')
@@ -134,61 +134,64 @@ function userNames(db: Db): Map<number, string> {
 
 // --- settings ----------------------------------------------------------------------------------------------
 
-/** The chosen planners who plan in the facility: Träger accounts and the facility's Leitung accounts. */
-function plannersOf(db: Db, facilityId: number, chosen: number[]): number[] {
-  if (chosen.length === 0) return []
-  return db.select().from(users).where(inArray(users.id, chosen)).all()
-    .filter(user => user.role === 'provider' || (user.role === 'admin' && user.facilityId === facilityId))
-    .map(user => user.id)
+/**
+ * Whether anyone besides the Träger plans leave in the facility: an active Leitung or Mitarbeiter account of it with
+ * leave.plan (the bundle „planen und genehmigen“).
+ */
+function facilityHasPlanner(db: Db, facilityId: number): boolean {
+  const candidates = db.select({ user: users, employeeFacility: employees.facilityId }).from(users)
+    .leftJoin(employees, eq(users.employeeId, employees.id))
+    .where(and(eq(users.active, true), inArray(users.role, ['admin', 'observer']))).all()
+  return candidates.some(({ user, employeeFacility }) => {
+    const own = user.role === 'admin' ? user.facilityId : employeeFacility
+    return own === facilityId && can(accountPermissions(db, { id: user.id, role: user.role, facilityId: own }), 'leave.plan')
+  })
 }
 
-/** The module state for the viewer, in the viewer's facility (for an employee: the employee's home facility). */
+/** The chosen Träger accounts (the list may still hold Leitung accounts from before the rights page; they count no more). */
+function chosenProviders(db: Db): number[] {
+  const chosen = plannerIds(db)
+  if (chosen.length === 0) return []
+  return db.select({ id: users.id, role: users.role }).from(users).where(inArray(users.id, chosen)).all()
+    .filter(user => user.role === 'provider').map(user => user.id).sort((a, b) => a - b)
+}
+
+/**
+ * The module state for the viewer, in the viewer's facility (for an employee: the employee's home facility). Who plans
+ * follows from the viewer's permissions (leave.plan, the bundle „planen und genehmigen“).
+ */
 export function getLeaveSettings(db: Db, viewer: SessionUser): LeaveSettingsDto {
   const enabled = leaveRequestsEnabled(db)
   const facilityId = viewer.facilityId
-  const permissions = accountPermissions(db, viewer)
+  const permissions = viewer.permissions
   const planner = enabled && facilityId !== null && can(permissions, 'leave.plan')
-  const chosen = plannerIds(db)
-  // The count (menu badge) goes to the chosen people; to whoever chooses them (the Träger) only while nobody is chosen
-  // for the facility.
-  const notified = planner && (chosen.includes(viewer.id)
-    || (can(permissions, 'leave.configure') && plannersOf(db, facilityId, chosen).length === 0))
+  const chosen = chosenProviders(db)
+  // The count (menu badge) goes to every planner of the facility; to a Träger only when chosen for the notification,
+  // or while nobody else plans in the facility.
+  const notified = planner && (!can(permissions, 'leave.configure') || chosen.includes(viewer.id)
+    || !facilityHasPlanner(db, facilityId))
   return {
     enabled,
     maxConcurrent: facilityId === null ? null : maxConcurrent(db, facilityId),
-    plannerIds: can(permissions, 'leave.overview') ? chosen : [],
+    plannerIds: can(permissions, 'leave.configure') ? chosen : [],
     isPlanner: planner,
     openCount: notified ? listOpenRequests(db, viewer, facilityId).length : 0,
   }
 }
 
 /**
- * Until the rights page replaces the choice: a chosen Leitung gets the exception `leavePlan`, a Leitung no longer
- * chosen loses a granted one (the list itself stays the notification recipients).
- */
-function syncLeavePlanExceptions(db: Db, chosen: number[]): void {
-  for (const admin of db.select({ id: users.id }).from(users).where(eq(users.role, 'admin')).all()) {
-    if (chosen.includes(admin.id)) saveBundleOverride(db, admin.id, 'leavePlan', 'grant')
-    else if (bundleOverrideRows(db, admin.id).some(row => row.bundle === 'leavePlan' && row.effect === 'grant')) {
-      saveBundleOverride(db, admin.id, 'leavePlan', null)
-    }
-  }
-}
-
-/**
- * Träger only: switch the module and choose the responsible Träger/Leitung accounts (of any facility; a Leitung plans
- * only in its own).
+ * Träger only: switch the module and choose the Träger accounts told about new requests (`plannerIds`; any other
+ * account is 400 invalid_leave_planner). Who plans and decides is a right (the bundle „planen und genehmigen“).
  */
 export function setLeaveModule(db: Db, input: { enabled: boolean; plannerIds: number[] }): void {
   const ids = [...new Set(input.plannerIds)]
   const valid = ids.length === 0 ? [] : db.select().from(users)
-    .where(and(inArray(users.id, ids), eq(users.active, true))).all().filter(user => isManager(user.role))
+    .where(and(inArray(users.id, ids), eq(users.active, true), eq(users.role, 'provider'))).all()
   if (valid.length !== ids.length) throw new ServiceError(400, 'invalid_leave_planner')
   db.transaction((tx) => {
     saveSetting(tx, ENABLED, String(input.enabled))
     tx.delete(leavePlanners).run()
     if (ids.length) tx.insert(leavePlanners).values(ids.map(userId => ({ userId }))).run()
-    syncLeavePlanExceptions(tx, ids)
   })
 }
 

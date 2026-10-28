@@ -58,8 +58,8 @@ export function accountPermissions(
 }
 
 /**
- * The permissions every account of the role has (its role settings, no exceptions): for the services that only get
- * the viewer's role (contract fields, print template edit flags, group read access).
+ * The permissions every account of the role has (its role settings, no exceptions): what the role as such may (the
+ * Leitung's contract switch on the employees page). Checks on a request use the acting person's own permissions.
  */
 export function rolePermissions(db: Db, role: Role): ReadonlySet<PermissionKey> {
   return effectiveRights({ role, roleBundles: roleBundleRows(db, role) }).permissions

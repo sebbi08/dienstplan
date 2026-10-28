@@ -67,7 +67,7 @@ describe('child observation forms', () => {
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
     const tablet = {
       visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: groupA, readable: [] },
-      role: 'observer' as const, canEditChildren: false, permissions: permissionsOf('observer'), facilityId: 1,
+      role: 'observer' as const, permissions: permissionsOf('observer'), facilityId: 1,
     }
     annaTablet = { id: annaUser, employeeId: anna, name: 'Anna', ...tablet }
     bertaTablet = { id: null, employeeId: berta, name: 'Berta', ...tablet }

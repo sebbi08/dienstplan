@@ -61,9 +61,10 @@ export const de = {
     overwriteConfirm: (days: number, kind = 'Urlaub') => `An ${days} ${days === 1 ? 'Tag' : 'Tagen'} sind schon Dienste eingetragen. Durch „${kind}“ ersetzen? (Krank, Fortbildung u. Ä. bleiben immer erhalten.)`,
     overwrite: 'Ersetzen und genehmigen',
     module: 'Urlaubsanträge', moduleEnabled: 'Urlaubsanträge aktiv',
-    moduleHint: 'Ist das Modul aktiv, können Mitarbeiter (und Leitungskräfte mit eigenem Mitarbeiter-Eintrag) unter „Mein Urlaub“ Urlaub beantragen. Die Zuständigen entscheiden auf der Seite „Urlaubsplanung“. Der Träger darf immer entscheiden.',
-    planners: 'Zuständig für die Urlaubsplanung',
-    noLeitung: 'Es gibt noch kein Konto mit der Rolle Leitung. Lege es unter „Benutzer“ an (Rolle „Leitung“), dann erscheint es hier zum Ankreuzen.',
+    moduleHint: 'Ist das Modul aktiv, können Mitarbeiter (und Leitungskräfte mit eigenem Mitarbeiter-Eintrag) unter „Mein Urlaub“ Urlaub beantragen. Wer das Recht „Urlaub planen und genehmigen“ hat, entscheidet auf der Seite „Urlaubsplanung“; das stellst du unter „Rechte und Rollen“ ein. Der Träger darf immer entscheiden.',
+    planners: 'Träger-Konten, die bei neuen Anträgen benachrichtigt werden',
+    plannersHint: 'Plant in einer Einrichtung sonst niemand, wird jedes Träger-Konto benachrichtigt.',
+    noProvider: 'Es gibt kein aktives Träger-Konto.',
     overLimitLegend: 'mehr im Urlaub als erlaubt',
   },
   leaveRequests: {
@@ -683,7 +684,7 @@ export const de = {
     newPassword: 'Neues Passwort (mindestens 8 Zeichen)', resetHint: 'Die Person muss das Passwort bei der nächsten Anmeldung ändern.',
     locked: (until: string) => `gesperrt bis ${until}`, mustChange: 'muss Passwort ändern',
     canEditChildren: 'darf Kinderakten pflegen',
-    canEditChildrenHint: 'Gilt am Tablet der Einrichtung. Mit dem eigenen Konto sehen Mitarbeiter keine Kinder.',
+    canEditChildrenHint: 'Gilt am Tablet der Einrichtung. Mit dem eigenen Konto sehen Mitarbeiter keine Kinder. Das Häkchen wird sofort gespeichert.',
   },
   facilities: {
     title: 'Einrichtungen',

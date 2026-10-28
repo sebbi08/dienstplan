@@ -12,7 +12,9 @@ import {
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import {
+  addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, makePlanner, refreshPermissions, templateId,
+} from '../helpers/fixtures'
 
 const today = '2026-10-07'
 
@@ -38,13 +40,19 @@ describe('leave requests', () => {
   it('stays invisible and closed until the Träger switches it on', () => {
     expect(getLeaveSettings(db, annaUser)).toMatchObject({ enabled: false, isPlanner: false, plannerIds: [] })
     expect(errorCode(() => request(annaUser, '2026-11-02', '2026-11-06'))).toBe('leave_requests_off')
-    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
-    expect(getLeaveSettings(db, leitung)).toMatchObject({ enabled: true, isPlanner: true, plannerIds: [leitung.id] })
+    setLeaveModule(db, { enabled: true, plannerIds: [provider.id] })
+    expect(getLeaveSettings(db, leitung)).toMatchObject({ enabled: true, isPlanner: false, plannerIds: [] })
+    // Who plans is the right „planen und genehmigen“; the list only names the Träger accounts told about new requests.
+    makePlanner(db, leitung)
+    expect(getLeaveSettings(db, leitung)).toMatchObject({ enabled: true, isPlanner: true, plannerIds: [] })
+    expect(getLeaveSettings(db, provider)).toMatchObject({ isPlanner: true, plannerIds: [provider.id] })
     expect(getLeaveSettings(db, annaUser)).toMatchObject({ isPlanner: false, plannerIds: [] })
-    expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [annaUser.id] }))).toBe('invalid_leave_planner')
-    // Until the rights page replaces the choice, it grants and takes back the Leitung's exception „planen und genehmigen“.
+    for (const account of [annaUser, leitung]) {
+      expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [account.id] })), account.username).toBe('invalid_leave_planner')
+    }
+    // The module switch leaves the right alone.
     setLeaveModule(db, { enabled: true, plannerIds: [] })
-    expect(getLeaveSettings(db, leitung)).toMatchObject({ isPlanner: false, plannerIds: [] })
+    expect(getLeaveSettings(db, refreshPermissions(db, leitung))).toMatchObject({ isPlanner: true, plannerIds: [] })
   })
 
   it('lets employees request leave, shows the days and the remaining leave, and withdraw open requests', () => {
@@ -63,7 +71,8 @@ describe('leave requests', () => {
   })
 
   it('lets planners approve into the plan, but never their own request, and asks before overwriting duties', () => {
-    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitung)
     const id = request(annaUser, '2026-11-02', '2026-11-04')
     applyToCells(db, leitung, 1, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     expect(errorCode(() => decideLeaveRequest(db, annaUser, 1, id, { approve: true, note: '', overwrite: false }))).toBe('not_leave_planner')
@@ -77,7 +86,8 @@ describe('leave requests', () => {
 
     // A planner's own request goes to someone else; the Träger may always decide.
     const leitungWithEmployee = addUser(db, 'leitung2', 'admin', addEmployee(db, 'Carla'))
-    setLeaveModule(db, { enabled: true, plannerIds: [leitungWithEmployee.id] })
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitungWithEmployee)
     const own = request(leitungWithEmployee, '2026-11-09', '2026-11-09')
     expect(listOpenRequests(db, leitungWithEmployee, 1)).toEqual([])
     expect(errorCode(() => decideLeaveRequest(db, leitungWithEmployee, 1, own, { approve: true, note: '', overwrite: false }))).toBe('own_leave_request')
@@ -86,7 +96,8 @@ describe('leave requests', () => {
   })
 
   it('counts planned leave and open requests per day, without closures, and warns above the limit', () => {
-    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitung)
     setMaxConcurrent(db, leitung, 1, 1)
     expect(errorCode(() => setMaxConcurrent(db, annaUser, 1, 3))).toBe('not_leave_planner')
     createClosure(db, provider, 1, { startDate: '2026-12-24', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' })
@@ -107,7 +118,8 @@ describe('leave requests', () => {
   })
 
   it('asks before approving over a help-out day and then replaces the help-out, logged in the other facility', () => {
-    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitung)
     const krippe = addFacility(db, 'Krippe')
     const leitungB = addUser(db, 'leitung-b', 'admin', null, krippe)
     addHelpOut(db, anna, krippe, 2026, 11)
@@ -125,7 +137,8 @@ describe('leave requests', () => {
   })
 
   it('never turns a sick day into leave when approving', () => {
-    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitung)
     const id = request(annaUser, '2026-11-02', '2026-11-04')
     applyToCells(db, leitung, 1, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
     expect(decideLeaveRequest(db, leitung, 1, id, { approve: true, note: '', overwrite: false })).toEqual({ keptAbsences: 1 })
@@ -138,7 +151,8 @@ describe('leave requests', () => {
     let carla: number
     let carlaUser: SessionUser
     beforeEach(() => {
-      setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+      setLeaveModule(db, { enabled: true, plannerIds: [] })
+      makePlanner(db, leitung)
       // Employed from tomorrow with a carried-over balance of +20 h: "Stand heute" is exactly that.
       carla = addEmployee(db, 'Carla', { validFrom: '2026-10-08' })
       carlaUser = addUser(db, 'carla', 'observer', carla)
@@ -198,14 +212,15 @@ describe('leave requests', () => {
     })
   })
 
-  it('subtracts other open requests from the remaining leave and counts the menu badge for the chosen people only', () => {
+  it('subtracts other open requests from the remaining leave and counts the menu badge for the planners', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
     expect(previewLeaveRequest(db, annaUser, '2026-11-02', '2026-11-03', today).availableAfter).toBeNull() // no entitlement
     setEntitlement(db, 1, anna, 2026, { days: 10, carriedOverDays: 0 })
     request(annaUser, '2026-11-02', '2026-11-06') // 5 days
     expect(previewLeaveRequest(db, annaUser, '2026-11-09', '2026-11-10', today).availableAfter).toBe(3)
-    expect(getLeaveSettings(db, provider).openCount).toBe(1) // nobody chosen: the Träger is told
-    setLeaveModule(db, { enabled: true, plannerIds: [leitung.id] })
+    expect(getLeaveSettings(db, provider).openCount).toBe(1) // nobody else plans: the Träger is told
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitung)
     expect([getLeaveSettings(db, provider), getLeaveSettings(db, leitung)].map(s => [s.isPlanner, s.openCount])).toEqual([[true, 0], [true, 1]])
   })
 })

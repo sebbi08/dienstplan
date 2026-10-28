@@ -2,6 +2,7 @@
 import type { EmployeeListItemDto, Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
+import { setChildEditing } from '~/utils/rights'
 
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
 const { data: employees } = await useFetch<EmployeeListItemDto[]>('/api/employees')
@@ -40,8 +41,13 @@ async function create() {
 
 function save(user: UserDto) {
   run(() => $fetch<unknown>(`/api/users/${user.id}`, {
-    method: 'PUT', body: { role: user.role, employeeId: user.role === 'terminal' ? null : user.employeeId, active: user.active, canEditChildren: user.canEditChildren },
+    method: 'PUT', body: { role: user.role, employeeId: user.role === 'terminal' ? null : user.employeeId, active: user.active },
   }), de.common.saved)
+}
+
+/** „darf Kinderakten pflegen“ is a right of the person (rights API), saved at once. */
+function toggleChildEditing(user: UserDto, allowed: boolean) {
+  run(() => setChildEditing(user.id, allowed), de.common.saved)
 }
 
 function openReset(user: UserDto) {
@@ -91,7 +97,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
           </td>
           <td class="px-3 py-2 text-center">
             <!-- Leitung and Träger always maintain child records, the tablet never sees them: only Mitarbeiter accounts need the flag. -->
-            <input v-if="user.role === 'observer'" v-model="user.canEditChildren" type="checkbox" :aria-label="de.users.canEditChildren" :disabled="locked(user)">
+            <input v-if="user.role === 'observer' && users?.find(stored => stored.id === user.id)?.role === 'observer'" :checked="user.canEditChildren" type="checkbox" :aria-label="de.users.canEditChildren" :disabled="locked(user)" @change="toggleChildEditing(user, ($event.target as HTMLInputElement).checked)">
             <span v-else class="text-gray-300">–</span>
           </td>
           <td class="px-3 py-2 text-center"><input v-model="user.active" type="checkbox" :disabled="locked(user)"></td>

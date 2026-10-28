@@ -2,6 +2,7 @@
 import type { Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
+import { setChildEditing } from '~/utils/rights'
 import { suggestUsername } from '~/utils/staffList'
 
 /**
@@ -30,9 +31,17 @@ function save() {
   const target = account.value
   if (!target) return
   run(() => $fetch<unknown>(`/api/users/${target.id}`, {
-    method: 'PUT', body: { role: target.role, employeeId: props.employeeId, active: target.active, canEditChildren: target.canEditChildren },
+    method: 'PUT', body: { role: target.role, employeeId: props.employeeId, active: target.active },
   }), de.common.saved)
 }
+
+/** „darf Kinderakten pflegen“ is a right of the person (rights API), saved at once. */
+function toggleChildEditing(allowed: boolean) {
+  const target = account.value
+  if (target) run(() => setChildEditing(target.id, allowed), de.common.saved)
+}
+/** The stored role: the switch belongs to a saved Mitarbeiter account. */
+const storedObserver = computed(() => (users.value ?? []).some(user => user.id === account.value?.id && user.role === 'observer'))
 
 const resetOpen = ref(false)
 const resetValue = ref('')
@@ -84,8 +93,8 @@ async function create() {
             <input v-model="account.active" type="checkbox" :disabled="locked"> {{ de.users.active }}
           </label>
           <!-- Leitung and Träger always maintain child records: only a Mitarbeiter account needs the flag. -->
-          <label v-if="account.role === 'observer'" class="flex items-center gap-2">
-            <input v-model="account.canEditChildren" type="checkbox" :disabled="locked"> {{ de.users.canEditChildren }}
+          <label v-if="account.role === 'observer' && storedObserver" class="flex items-center gap-2">
+            <input :checked="account.canEditChildren" type="checkbox" :disabled="locked" @change="toggleChildEditing(($event.target as HTMLInputElement).checked)"> {{ de.users.canEditChildren }}
           </label>
         </div>
         <div class="space-y-1 text-xs text-gray-500 sm:col-span-3">

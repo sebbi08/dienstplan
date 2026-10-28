@@ -1,23 +1,25 @@
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { visibleTemplateLevels } from '../../shared/domain/templateCategories'
-import type { PrintTemplateDto, PrintTemplateMeta, PrintTemplateScope, Role, SessionUser } from '../../shared/types/api'
+import type { PrintTemplateDto, PrintTemplateMeta, PrintTemplateScope, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { printTemplates, templateCategories } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
-import { rolePermissions } from './permissions'
 import { chosenCategory } from './templateCategories'
 
 /**
- * Who uploads and maintains templates: Träger or Leitung, in the facility they work in. What they may change follows
- * from the role (rolePermissions: printTemplates.edit, printTemplates.global).
+ * Who uploads and maintains templates, in the facility they work in. What they may change follows from their own
+ * permissions (printTemplates.edit, printTemplates.global); which categories they see from the role.
  */
-export type TemplateActor = Pick<SessionUser, 'id' | 'role'> & { facilityId: number }
+export type TemplateActor = Pick<SessionUser, 'id' | 'role' | 'permissions'> & { facilityId: number }
 
-/** Who looks at templates: the role decides which categories they see (shared/domain/templateCategories.ts). */
-export type TemplateViewer = { role: Role; facilityId: number }
+/**
+ * Who looks at templates: the role decides which categories they see (shared/domain/templateCategories.ts), the
+ * permissions whether they may change a template.
+ */
+export type TemplateViewer = Pick<SessionUser, 'role' | 'permissions'> & { facilityId: number }
 
 /**
  * Templates are blank forms, no child data: whoever may see them (printTemplates.view: Leitung, Träger and, read only,
@@ -48,7 +50,7 @@ export function uploadTemplate(
   db: Db, actor: TemplateActor, input: PrintTemplateMeta & { scope: PrintTemplateScope },
   file: { data: Buffer; filename: string }, now: Date = new Date(),
 ): number {
-  const permissions = rolePermissions(db, actor.role)
+  const permissions = actor.permissions
   if (!can(permissions, 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
   if (input.scope === 'all' && !can(permissions, 'printTemplates.global')) throw new ServiceError(403, 'forbidden')
   const category = chosenCategory(db, actor.role, input.categoryId)
@@ -72,10 +74,10 @@ export function uploadTemplate(
 
 /**
  * The templates the viewer sees in the facility, in the order of their categories and by title; `canEdit` by the
- * viewer's role.
+ * viewer's permissions.
  */
 export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[] {
-  const permissions = rolePermissions(db, viewer.role)
+  const permissions = viewer.permissions
   const rows = db.select({
     id: printTemplates.id, facilityId: printTemplates.facilityId, title: printTemplates.title, categoryId: printTemplates.categoryId,
     category: templateCategories.name, sortOrder: templateCategories.sortOrder, size: printTemplates.size,
@@ -118,7 +120,7 @@ function loadEditable(db: Db, actor: TemplateActor, id: number): void {
     .innerJoin(templateCategories, eq(templateCategories.id, printTemplates.categoryId))
     .where(and(eq(printTemplates.id, id), visibleTo(actor))).get()
   if (!row) throw new ServiceError(404, 'print_template_not_found')
-  if (!mayEdit(rolePermissions(db, actor.role), row)) throw new ServiceError(403, 'forbidden')
+  if (!mayEdit(actor.permissions, row)) throw new ServiceError(403, 'forbidden')
 }
 
 /** Renames the template and moves it to another category the actor sees; the file stays. */

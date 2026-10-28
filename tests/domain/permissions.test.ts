@@ -159,6 +159,40 @@ describe('resolvePermissions', () => {
     // plan.release implies plan.edit, which needs plan.view.
     expect(sorted(resolvePermissions(['plan.release']))).toEqual([])
   })
+
+  it('ignores a key the catalog does not know (say, from an older database)', () => {
+    expect(sorted(resolvePermissions(['plan.view', 'plan.unknown' as PermissionKey]))).toEqual(['plan.view'])
+  })
+})
+
+describe('catalog edges', () => {
+  it('are exactly these requires and implies (a change here changes the bundles\' „braucht“ and „enthalten in“)', () => {
+    const edges = PERMISSIONS.flatMap(permission => [
+      ...permission.requires.map(other => `${permission.key} requires ${other}`),
+      ...permission.implies.map(other => `${permission.key} implies ${other}`),
+    ])
+    expect(edges).toEqual([
+      'plan.edit requires plan.view', 'plan.release implies plan.edit',
+      'leave.overview requires employees.view', 'leave.plan requires leave.overview',
+      'time.manage requires employees.view',
+      'employees.edit requires employees.view', 'employees.sickness requires employees.view',
+      'employees.contractView requires employees.view', 'employees.contractEdit requires employees.contractView',
+      'employees.delete requires employees.edit', 'employees.personal requires employees.view',
+      'employees.sensitive requires employees.view', 'employees.payroll requires employees.view',
+      'employees.docs.qualifications requires employees.view', 'employees.docs.contract requires employees.view',
+      'employees.docs.application requires employees.view', 'employees.docs.correspondence requires employees.view',
+      'employees.docs.measures requires employees.view', 'employees.docs.salary requires employees.view',
+      'children.ownAccount requires children.view', 'children.planned requires children.view',
+      'children.attendance requires children.view', 'children.edit requires children.view',
+      'children.manage requires children.view', 'children.manage requires children.edit',
+      'children.schoolSettings requires settings.facility', 'children.deleteArchived requires children.manage',
+      'childForms.edit requires children.view', 'childForms.manage requires childForms.edit',
+      'printTemplates.edit requires printTemplates.view', 'printTemplates.global requires printTemplates.edit',
+      'talks.manage requires employees.view', 'teamMeetings.manage implies teamMeetings.write',
+      'cash.book requires cash.view', 'cash.close requires cash.view', 'cash.reopen requires cash.close',
+      'settings.staffing requires settings.facility', 'settings.groups requires settings.facility',
+    ])
+  })
 })
 
 describe('effectivePermissions with the old flags moved into bundles', () => {
@@ -230,7 +264,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(312)
+    expect(routes).toHaveLength(317)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 

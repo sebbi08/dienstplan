@@ -1,10 +1,8 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CHILD_ACTOR_KEYS } from '../../server/lib/childViewer'
-import { effectivePermissions } from '../../shared/domain/permissionBundles'
+import { DEFAULTS as SCRIPT_DEFAULTS, routeFiles, tabletPasses } from '../../scripts/route-access-snapshot.mjs'
 import { PERMISSION_KEYS, PERMISSIONS, type PermissionKey } from '../../shared/domain/permissions'
-import { flaggedPermissions } from '../helpers/rights'
 
 const API_DIR = join(process.cwd(), 'server', 'api')
 
@@ -35,6 +33,8 @@ const USER_ROUTES = [
   'my/leave-requests/[id]/withdraw.post.ts',
   // Renders a print page with the caller's cookie; that page's API calls check the permissions.
   'pdf.get.ts',
+  // The facility name in the header (the own facility; the Träger's switcher lists all of them).
+  'facilities.get.ts',
   'my/calendar.get.ts',
   'my/requirements.get.ts',
   // The employee's own staff talks (spec Bögen §3): only their own, only released forms.
@@ -117,28 +117,16 @@ const ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal', 'table
   'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 const TABLET_PEOPLE = ACTORS.filter(actor => actor.startsWith('tablet:'))
 
-const DEFAULTS = {
-  admin: effectivePermissions({ role: 'admin' }),
-  observer: effectivePermissions({ role: 'observer' }),
-}
-/** The unlocking person's permissions at the tablet; a person without account has the Mitarbeiter defaults. */
-const TABLET_PERMISSIONS: Record<string, ReadonlySet<PermissionKey>> = {
-  'tablet:provider': new Set(PERMISSION_KEYS),
-  'tablet:admin': DEFAULTS.admin,
-  'tablet:observerEditor': flaggedPermissions('observer', { canEditChildren: true }),
-  'tablet:observer': DEFAULTS.observer,
-  'tablet:noAccount': DEFAULTS.observer,
-}
+/** The role defaults and the tablet model of scripts/route-access-snapshot.mjs (one copy of it). */
+const DEFAULTS = SCRIPT_DEFAULTS as Record<'admin' | 'observer', ReadonlySet<PermissionKey>>
+const tabletPassesChild = tabletPasses as (actor: string, key: PermissionKey) => boolean
 const PROVIDER_ONLY = new Set(PERMISSIONS.filter(permission => permission.providerOnly).map(permission => permission.key))
 
 const OLD_GUARDS = /require(Admin|Provider|TemplateReader|ChildReader|ChildEditor|ChildManager)\(/
 const PERMISSION_CALL = /requirePermission\(event, '([^']+)'(?:, (\{[^}]*\}))?\)/g
 const CHILD_PERMISSION_CALL = /requireChildPermission\(event, '([^']+)'\)/g
 
-const routes = (readdirSync(API_DIR, { recursive: true }) as string[])
-  .map(file => relative(API_DIR, join(API_DIR, file)).split(sep).join('/'))
-  .filter(file => file.endsWith('.ts'))
-  .sort()
+const routes = routeFiles() as string[]
 const fixture = JSON.parse(readFileSync(join(process.cwd(), 'tests', 'fixtures', 'route-access-before.json'), 'utf8')) as
   Record<string, string[]>
 
@@ -167,9 +155,7 @@ function permissionActors(key: PermissionKey, options: string): string[] {
 function childPermissionActors(key: PermissionKey): string[] {
   const office = ['provider', ...(['admin', 'observer'] as const)
     .filter(role => DEFAULTS[role].has('children.ownAccount') && DEFAULTS[role].has(key))]
-  const needsAccount = (CHILD_ACTOR_KEYS as readonly PermissionKey[]).includes(key)
-  return [...office, ...TABLET_PEOPLE.filter(actor => TABLET_PERMISSIONS[actor]!.has(key)
-    && !(needsAccount && actor === 'tablet:noAccount'))]
+  return [...office, ...TABLET_PEOPLE.filter(actor => tabletPassesChild(actor, key))]
 }
 
 /** Who passes the fixed guards. */
@@ -255,6 +241,8 @@ describe('API route permissions', () => {
     for (const file of files) {
       const code = readFileSync(join(process.cwd(), file), 'utf8')
       expect(code, file).not.toMatch(/\bisManager\(|\bmayEditChildren\(|\b(viewer|actor|reader|editor|manager)\.role\b|rolePermissions\(/)
+      // Neither the account's role compared nor the old column „darf Kinderakten pflegen“ read.
+      expect(code, file).not.toMatch(/\baccount\??\.role\s*[!=]==|\.canEditChildren\b|can_edit_children/)
     }
   })
 
@@ -313,8 +301,10 @@ describe('API route permissions', () => {
       const [call] = permissionCalls(route)
       expect(call?.key, route).toMatch(/^cash\./)
       expect(call?.options, route).toBe('')
-      // Reopening a closed month and purging an archived box are the Träger's (spec Kasse §6, Löschfristen §4).
-      expect(code, route).toContain(['cash.reopen', 'cash.purge'].includes(call!.key) ? 'provider.facilityId' : 'admin.facilityId')
+      // Purging an archived box is the Träger's (Löschfristen §4); reopening a closed month since the rights page also
+      // the Leitung's (cash.reopen).
+      const actorName = call!.key === 'cash.purge' ? 'provider' : call!.key === 'cash.reopen' ? 'actor' : 'admin'
+      expect(code, route).toContain(`${actorName}.facilityId`)
     }
   })
 

@@ -65,13 +65,18 @@ export interface BundleDef {
   /** Has a scope ('group' | 'facility'): the children bundles view, attendance and edit. */
   scoped: boolean
   /**
-   * The bundles without which this one does not hold, computed from the catalog: every key a bundle key requires or
-   * implies and that lies in another bundle makes that bundle required.
+   * The bundles without which this one does not hold (the page's „braucht: …“), computed from the catalog: every key a
+   * bundle key requires and that lies in another bundle makes that bundle required.
    */
   requires: readonly BundleId[]
+  /**
+   * The bundles that come with this one (the page shows them as „enthalten in: …“ beside the included switch), computed
+   * from the catalog's `implies`: plan release includes plan editing, releasing team meetings includes writing them.
+   */
+  includes: readonly BundleId[]
 }
 
-type Spec = Omit<BundleDef, 'requires'>
+type Spec = Omit<BundleDef, 'requires' | 'includes'>
 
 function bundle(id: BundleId, area: BundleArea, label: string, keys: PermissionKey[], scoped = false): Spec {
   return { id, area, label, keys, scoped }
@@ -139,24 +144,69 @@ export const BASELINE_KEYS: readonly PermissionKey[] = ['talks.own']
 const CATALOG = new Map(PERMISSIONS.map(permission => [permission.key, permission]))
 const BUNDLE_OF_KEY = new Map<PermissionKey, BundleId>(SPECS.flatMap(spec => spec.keys.map(key => [key, spec.id] as const)))
 
-function requiredBundles(spec: Spec): BundleId[] {
-  const required = new Set<BundleId>()
+/** The other bundles holding the keys the spec's keys require (or imply), in bundle order. */
+function relatedBundles(spec: Spec, relation: 'requires' | 'implies'): BundleId[] {
+  const related = new Set<BundleId>()
   for (const key of spec.keys) {
-    const permission = CATALOG.get(key)!
-    for (const other of [...permission.requires, ...permission.implies]) {
+    for (const other of CATALOG.get(key)![relation]) {
       const owner = BUNDLE_OF_KEY.get(other)
-      if (owner !== undefined && owner !== spec.id) required.add(owner)
+      if (owner !== undefined && owner !== spec.id) related.add(owner)
     }
   }
-  return BUNDLE_IDS.filter(id => required.has(id))
+  return BUNDLE_IDS.filter(id => related.has(id))
 }
 
-export const BUNDLES: readonly BundleDef[] = SPECS.map(spec => ({ ...spec, requires: requiredBundles(spec) }))
+export const BUNDLES: readonly BundleDef[] = SPECS.map(spec => ({
+  ...spec, requires: relatedBundles(spec, 'requires'), includes: relatedBundles(spec, 'implies'),
+}))
 
 const BY_ID = new Map(BUNDLES.map(def => [def.id, def]))
 
 export function isBundleId(value: string): value is BundleId {
   return BY_ID.has(value as BundleId)
+}
+
+/** The switch's definition. */
+export function bundleDef(id: BundleId): BundleDef {
+  return BY_ID.get(id)!
+}
+
+/** The bundles one step away: what the bundle needs or includes. */
+const needsOf = (id: BundleId): readonly BundleId[] => [...BY_ID.get(id)!.requires, ...BY_ID.get(id)!.includes]
+
+const DEPENDENTS = new Map<BundleId, BundleId[]>(
+  BUNDLE_IDS.map(id => [id, BUNDLES.filter(def => needsOf(def.id).includes(id)).map(def => def.id)]),
+)
+
+/** Follows `step` from the start bundles; every bundle reached, without the start ones, in bundle order. */
+function reach(start: Iterable<BundleId>, step: (id: BundleId) => readonly BundleId[]): BundleId[] {
+  const first = new Set(start)
+  const seen = new Set<BundleId>()
+  const pending = [...first]
+  while (pending.length > 0) {
+    for (const next of step(pending.pop()!)) {
+      if (seen.has(next) || first.has(next)) continue
+      seen.add(next)
+      pending.push(next)
+    }
+  }
+  return BUNDLE_IDS.filter(id => seen.has(id))
+}
+
+/**
+ * What switching the bundles on brings along (spec §3 „Setzen zieht Voraussetzungen mit“): every bundle they need or
+ * include, transitively, without the bundles themselves.
+ */
+export function bundlesPulledBy(ids: Iterable<BundleId>): BundleId[] {
+  return reach(ids, needsOf)
+}
+
+/**
+ * What switching the bundles off takes away (spec §3 „Dann entfällt auch: …“): every bundle that needs or includes
+ * them, transitively, without the bundles themselves.
+ */
+export function bundlesDroppedWith(ids: Iterable<BundleId>): BundleId[] {
+  return reach(ids, id => DEPENDENTS.get(id)!)
 }
 
 /** The bundle holding the key (undefined for baseline and Träger-only keys). */
@@ -231,23 +281,40 @@ function isScope(value: unknown): value is BundleScope {
 
 /** The bundles of the role after its stored settings (no exceptions), with their scope. */
 export function roleBundleMap(role: RightsRole, rows: readonly RoleBundleSetting[] = []): Map<BundleId, BundleScope | null> {
-  const scopeOf = (id: BundleId, scope: BundleScope | null) => BY_ID.get(id)!.scoped ? (isScope(scope) ? scope : DEFAULT_SCOPE[role]) : null
-  const bundles = new Map<BundleId, BundleScope | null>(BUNDLE_DEFAULTS[role].map(id => [id, scopeOf(id, null)]))
+  const bundles = new Map<BundleId, BundleScope | null>(BUNDLE_DEFAULTS[role].map(id => [id, scopeFor(id, null, role)]))
   for (const row of rows) {
     if (!isBundleId(row.bundle)) continue
-    if (row.enabled) bundles.set(row.bundle, scopeOf(row.bundle, row.scope))
+    if (row.enabled) bundles.set(row.bundle, scopeFor(row.bundle, row.scope, role))
     else bundles.delete(row.bundle)
   }
   return bundles
 }
 
-/** Drops every bundle whose required bundles are missing, until nothing changes (the bundle level of §3.3). */
-function closeBundles(bundles: Map<BundleId, BundleScope | null>): void {
+/** The scope a bundle of the role gets: none without scope, else the given one when valid, else the role's default. */
+export function scopeFor(id: BundleId, scope: BundleScope | null | undefined, role: RightsRole): BundleScope | null {
+  if (!BY_ID.get(id)!.scoped) return null
+  return isScope(scope) ? scope : DEFAULT_SCOPE[role]
+}
+
+/**
+ * The bundle level of §3.3: every bundle brings the bundles it includes (not one an exception took away, `blocked`),
+ * then every bundle whose required or included bundles are missing is dropped, until nothing changes.
+ */
+function closeBundles(bundles: Map<BundleId, BundleScope | null>, blocked: ReadonlySet<BundleId>, role: RightsRole): void {
+  const pending = [...bundles.keys()]
+  while (pending.length > 0) {
+    const id = pending.pop()!
+    for (const included of BY_ID.get(id)!.includes) {
+      if (bundles.has(included) || blocked.has(included)) continue
+      bundles.set(included, scopeFor(included, bundles.get(id), role))
+      pending.push(included)
+    }
+  }
   let changed = true
   while (changed) {
     changed = false
     for (const id of bundles.keys()) {
-      if (BY_ID.get(id)!.requires.some(required => !bundles.has(required))) {
+      if (needsOf(id).some(other => !bundles.has(other))) {
         bundles.delete(id)
         changed = true
       }
@@ -261,8 +328,9 @@ const SCOPED_KEYS = BUNDLES.filter(def => def.scoped).flatMap(def => def.keys)
 /**
  * What an account may do (spec Teil 2 §5): the Träger everything, the tablet role nothing (its own guards decide),
  * Leitung and Mitarbeiter: the role's settings (else the defaults) → the person's exceptions (grant adds, revoke
- * removes) → bundles without their required bundles dropped → expanded to keys with the baseline → closed under
- * requires/implies (`resolvePermissions`) → Träger-only keys removed.
+ * removes) → included bundles added (not one an exception revoked) and bundles without their required or included
+ * bundles dropped → expanded to keys with the baseline → closed under requires/implies (`resolvePermissions`) →
+ * Träger-only keys removed.
  */
 export function effectiveRights(input: PermissionInput): EffectiveRights {
   if (input.role === 'provider') {
@@ -275,17 +343,20 @@ export function effectiveRights(input: PermissionInput): EffectiveRights {
   if (input.role === 'terminal') return { bundles: new Map(), permissions: new Set(), scopes: new Map() }
   const role = input.role
   const bundles = roleBundleMap(role, input.roleBundles)
+  const revoked = new Set<BundleId>()
   for (const override of input.overrides ?? []) {
     if (!isBundleId(override.bundle)) continue
-    if (override.effect === 'revoke') bundles.delete(override.bundle)
+    if (override.effect === 'revoke') {
+      bundles.delete(override.bundle)
+      revoked.add(override.bundle)
+    }
     else if (override.effect === 'grant') {
-      const def = BY_ID.get(override.bundle)!
-      const scope = !def.scoped ? null
-        : isScope(override.scope) ? override.scope : bundles.get(override.bundle) ?? DEFAULT_SCOPE[role]
-      bundles.set(override.bundle, scope)
+      const scope = isScope(override.scope) ? override.scope : bundles.get(override.bundle)
+      bundles.set(override.bundle, scopeFor(override.bundle, scope, role))
+      revoked.delete(override.bundle)
     }
   }
-  closeBundles(bundles)
+  closeBundles(bundles, revoked, role)
   const granted = [...BASELINE_KEYS, ...[...bundles.keys()].flatMap(id => BY_ID.get(id)!.keys)]
   const permissions = new Set([...resolvePermissions(granted)].filter(key => !PROVIDER_ONLY.has(key)))
   const scopes = new Map<PermissionKey, BundleScope>()

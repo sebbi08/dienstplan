@@ -12,7 +12,7 @@ import { resolveChildViewer, unlockChildren } from '../../server/services/tablet
 import { setPin } from '../../server/services/terminal'
 import type { SessionUser } from '../../shared/types/api'
 import {
-  addEmployee, addFacility, addGroup, addHelpOut, addUser, asChildViewer, createTestDb, errorCode, templateId,
+  addEmployee, addFacility, addGroup, addHelpOut, addUser, asChildViewer, createTestDb, errorCode, permissionsOf, templateId,
 } from '../helpers/fixtures'
 
 const TODAY = '2026-10-06'
@@ -80,8 +80,8 @@ describe('group read access', () => {
     const krippe = addFacility(db, 'Krippe')
     const igel = addGroup(db, krippe, 'Igel')
     const hasen = addGroup(db, krippe, 'Hasen')
-    const leitung = { role: 'admin' as const, facilityId: 1 }
-    const traeger = { role: 'provider' as const, facilityId: 1 }
+    const leitung = { permissions: permissionsOf('admin'), facilityId: 1 }
+    const traeger = { permissions: permissionsOf('provider'), facilityId: 1 }
     // The Leitung of facility 1 names a Krippe group: refused, nothing stored.
     expect(errorCode(() => setReadAccess(db, readAccessFacility(db, leitung, igel), igel, [hasen]))).toBe('group_not_found')
     expect(errorCode(() => getReadAccess(db, readAccessFacility(db, leitung, igel), igel))).toBe('group_not_found')

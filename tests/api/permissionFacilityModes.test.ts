@@ -13,8 +13,8 @@ import { addUser, createTestDb, TEST_PASSWORD } from '../helpers/fixtures'
 
 /** Always the active facility, no settings choice: was requireAdmin({ activeFacility }) / requireTemplateReader, and the
  * team meeting members (the result of requireFacility was not used). */
+// facilities.get.ts checks the active facility itself (requireUser + assertPageFacility: every signed-in account).
 const ACTIVE = [
-  'facilities.get.ts',
   'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts', 'template-categories/index.get.ts',
   'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/index.get.ts', 'team-meetings/index.post.ts',
 ]
@@ -26,6 +26,8 @@ const NONE = [
   'facilities/[id]/groups.get.ts', 'facilities/[id]/groups.post.ts', 'facilities/active.put.ts', 'groups/[id].delete.ts',
   'groups/[id].put.ts', 'groups/[id]/school-children.put.ts', 'leave-settings/module.put.ts', 'retention/due.post.ts',
   'retention/index.get.ts', 'retention/items.delete.ts',
+  // The rights page (Rechte und Rollen Teil 2): installation-wide, the Träger's.
+  'rights.get.ts', 'rights/roles/[role].put.ts', 'rights/roles/[role]/reset.post.ts',
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')
@@ -69,7 +71,7 @@ describe('the session payload', () => {
     expect(payload).not.toHaveProperty('permissions')
     expect(payload).toEqual({
       id: leitung.id, username: 'leitung', role: 'admin', employeeId: null, mustChangePassword: false,
-      canEditChildren: false, facilityId: 1,
+      facilityId: 1,
     })
     expect(JSON.parse(JSON.stringify(payload))).toEqual(payload)
     // The user object itself keeps its set.

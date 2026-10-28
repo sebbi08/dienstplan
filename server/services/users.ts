@@ -8,7 +8,9 @@ import { ServiceError } from '../lib/errors'
 import { hashPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { assertPasswordStrength } from './auth'
-import { bundleOverrideRows, saveBundleOverride } from './permissions'
+import { resolveFacilityId } from './facilities'
+import { accountPermissions } from './permissions'
+import { clearUserRights } from './rights'
 
 export interface UserInput {
   username: string
@@ -21,8 +23,11 @@ export interface UserUpdate {
   role: Role
   employeeId: number | null
   active: boolean
-  /** Stored only for a Mitarbeiter; any other role stores false. */
-  canEditChildren: boolean
+  /**
+   * The old switch „darf Kinderakten pflegen“: no longer taken here (400 use_rights_api); it is the exception
+   * „eintragen und Akten ändern“ of the rights API.
+   */
+  canEditChildren?: unknown
 }
 
 /** The users a viewer manages: Leitung and tablet of the viewer's facility, Mitarbeiter of its employees, and all Träger. */
@@ -44,8 +49,14 @@ export function listUsers(db: Db, viewer: SessionUser): UserDto[] {
   return visibleUsers(db, viewer).map(({ user, employeeName }) => ({
     id: user.id, username: user.username, role: user.role, employeeId: user.employeeId,
     employeeName: employeeName ?? null, active: user.active,
-    mustChangePassword: user.mustChangePassword, canEditChildren: user.canEditChildren, lockedUntil: user.lockedUntil,
+    mustChangePassword: user.mustChangePassword, canEditChildren: mayEditChildRecords(db, user), lockedUntil: user.lockedUntil,
   }))
+}
+
+/** A Mitarbeiter account holds „eintragen und Akten ändern“ (from its role or an exception); shown on the users page. */
+function mayEditChildRecords(db: Db, user: typeof users.$inferSelect): boolean {
+  if (user.role !== 'observer') return false
+  return can(accountPermissions(db, { id: user.id, role: user.role, facilityId: resolveFacilityId(db, user) }), 'children.edit')
 }
 
 function findUser(db: Db, viewer: SessionUser, id: number): { dto: UserDto; facilityId: number | null } {
@@ -111,6 +122,7 @@ export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDt
 }
 
 export function updateUser(db: Db, actor: SessionUser, id: number, update: UserUpdate): UserDto {
+  if (update.canEditChildren !== undefined) throw new ServiceError(400, 'use_rights_api')
   const { dto: user, facilityId: userFacilityId } = findUser(db, actor, id)
   assertMayManage(actor, user.role, update.role)
   assertEmployeeLink(db, actor, update.role, update.employeeId, id)
@@ -126,24 +138,13 @@ export function updateUser(db: Db, actor: SessionUser, id: number, update: UserU
   db.update(users)
     .set({
       role: update.role, employeeId: update.employeeId, active: update.active, facilityId,
-      canEditChildren: update.role === 'observer' && update.canEditChildren,
       // The tablet cannot reach the password page, so a terminal must never be forced to change it.
       ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
     })
     .where(eq(users.id, id)).run()
-  syncChildEditException(db, id, update.role === 'observer' && update.canEditChildren)
+  // The exceptions were set against the old role's rights; with another role the account starts from its defaults.
+  if (update.role !== user.role) clearUserRights(db, id)
   return findUser(db, actor, id).dto
-}
-
-/**
- * Until the rights page replaces the old switch „darf Kinderakten pflegen“: on, the account gets the exception
- * `childrenEdit` (own group); off, a granted one is removed.
- */
-function syncChildEditException(db: Db, userId: number, allowed: boolean): void {
-  if (allowed) saveBundleOverride(db, userId, 'childrenEdit', 'grant', 'group')
-  else if (bundleOverrideRows(db, userId).some(row => row.bundle === 'childrenEdit' && row.effect === 'grant')) {
-    saveBundleOverride(db, userId, 'childrenEdit', null)
-  }
 }
 
 export function resetPassword(db: Db, actor: SessionUser, id: number, password: string): void {

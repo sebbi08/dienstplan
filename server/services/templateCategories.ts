@@ -1,18 +1,18 @@
 import { asc, count, eq, inArray } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { seesTemplateCategory, visibleTemplateLevels, type TemplateVisibility } from '../../shared/domain/templateCategories'
-import type { Role, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
+import type { Role, SessionUser, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { printTemplates, templateCategories } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { rolePermissions } from './permissions'
 
 /**
- * The categories of the print templates, one list for every facility. Leitung and Träger maintain them
- * (printTemplates.edit), each only those they see: a category for the Träger alone is the Träger's to create, change and
- * delete, and a Leitung can neither see it (404) nor give a category that visibility (403).
+ * The categories of the print templates, one list for every facility. Whoever holds printTemplates.edit (Leitung and
+ * Träger by default, a Mitarbeiter with the bundle „Vorlagen bearbeiten“) maintains them, each only those they see (by
+ * role): a category for the Träger alone is the Träger's to create, change and delete, and a Leitung can neither see it
+ * (404) nor give a category that visibility (403); a Mitarbeiter only those visible to all.
  */
-export type CategoryActor = { role: Role }
+export type CategoryActor = Pick<SessionUser, 'role' | 'permissions'>
 
 type CategoryRow = typeof templateCategories.$inferSelect
 
@@ -24,7 +24,7 @@ const ordered = (db: Db): CategoryRow[] =>
 export const comparableCategoryName = (name: string) => name.trim().toLocaleLowerCase('de').replace(/ß/g, 'ss')
 
 /** The categories the viewer sees, in their order, with how many templates (of any facility) are filed in them. */
-export function listCategories(db: Db, viewer: CategoryActor): TemplateCategoryDto[] {
+export function listCategories(db: Db, viewer: Pick<SessionUser, 'role'>): TemplateCategoryDto[] {
   const rows = ordered(db).filter(row => seesTemplateCategory(viewer.role, row.visibility))
   const counts = new Map(rows.length === 0 ? [] : db.select({ id: printTemplates.categoryId, n: count() }).from(printTemplates)
     .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).groupBy(printTemplates.categoryId).all()
@@ -40,7 +40,7 @@ export function chosenCategory(db: Db, role: Role, id: number): CategoryRow {
 }
 
 function assertEditor(db: Db, actor: CategoryActor): void {
-  if (!can(rolePermissions(db, actor.role), 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
+  if (!can(actor.permissions, 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
 }
 
 /** A category the actor maintains: one they see (else 404 template_category_not_found). */

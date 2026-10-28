@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { TEMPLATE_VISIBILITIES, type TemplateVisibility } from '#shared/domain/templateCategories'
+import type { TemplateVisibility } from '#shared/domain/templateCategories'
 import type { TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { hiddenByVisibility } from '~/utils/printTemplates'
 
 /**
- * „Kategorien verwalten“ on the templates page (Leitung and Träger): create, rename, reorder, change who sees a
- * category, delete an empty one. The list holds only the categories the editor sees; a category for the Träger alone
- * is offered to the Träger only (the server refuses it to the Leitung as well).
+ * „Kategorien verwalten“ on the templates page (whoever may edit templates): create, rename, reorder, change who sees a
+ * category, delete an empty one. The list holds only the categories the editor sees, and only the visibilities the
+ * editor sees are offered (`levels`: a Mitarbeiter only „alle“, the Leitung not „nur Träger“; the server refuses them
+ * as well).
  */
-const props = defineProps<{ categories: TemplateCategoryDto[]; isProvider: boolean; refresh: () => Promise<unknown> }>()
+const props = defineProps<{ categories: TemplateCategoryDto[]; levels: TemplateVisibility[]; refresh: () => Promise<unknown> }>()
 const open = defineModel<boolean>('open', { required: true })
 
 const { busy, run } = useBusyAction(props.refresh)
 const confirm = useConfirm()
 const t = de.printTemplates.categories
 
-const visibilityItems = computed(() => TEMPLATE_VISIBILITIES
-  .filter(visibility => visibility !== 'provider' || props.isProvider)
+const visibilityItems = computed(() => props.levels
   .map(visibility => ({ label: t.visibilities[visibility], value: visibility })))
 
 /** null = a new category, otherwise the one being changed. */

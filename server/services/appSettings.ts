@@ -5,7 +5,8 @@ import type { AppSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { appSettings, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { rolePermissions, saveRoleBundle } from './permissions'
+import { rolePermissions } from './permissions'
+import { setRoleBundle } from './rights'
 
 /** The day time tracking starts in the facility (null: not yet). */
 export function getTimeTrackingFrom(db: Db, facilityId: number): IsoDate | null {
@@ -43,9 +44,12 @@ export function contractVisibleToAdmins(db: Db): boolean {
   return can(rolePermissions(db, 'admin'), 'employees.contractView')
 }
 
-/** The old switch, kept until the rights page replaces it: writes the Leitung's role setting `contractView`. */
+/**
+ * The old switch on the employees page, kept until the rights page (Task 3) replaces it: sets the Leitung's role
+ * setting `contractView` through the rights service (switching it off also drops „Vertragsangaben bearbeiten“).
+ */
 export function setContractVisibleToAdmins(db: Db, visible: boolean): void {
-  saveRoleBundle(db, 'admin', 'contractView', visible)
+  setRoleBundle(db, 'admin', 'contractView', visible)
 }
 
 const CHILD_RETENTION_YEARS = 'child_retention_years'

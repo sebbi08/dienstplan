@@ -43,7 +43,8 @@ describe('the child viewer', () => {
   it('a Mitarbeiter account gets no child data', () => {
     const observer = addUser(db, 'anna', 'observer', anna)
     expect(errorCode(() => resolveChildViewer(db, observer, undefined, NOW))).toBe('children_tablet_only')
-    expect(errorCode(() => resolveChildViewer(db, { ...observer, canEditChildren: true }, undefined, NOW))).toBe('children_tablet_only')
+    expect(errorCode(() => resolveChildViewer(db, { ...observer, permissions: permissionsOf('observer', true) }, undefined, NOW)))
+      .toBe('children_tablet_only')
     // Not even with the token of a valid unlock of the tablet.
     expect(errorCode(() => resolveChildViewer(db, observer, unlock(), NOW))).toBe('children_tablet_only')
   })
@@ -52,11 +53,11 @@ describe('the child viewer', () => {
     const leitung = addUser(db, 'leitung', 'admin')
     const traeger = addUser(db, 'traeger', 'provider')
     expect(resolveChildViewer(db, leitung, undefined, NOW)).toEqual({
-      id: leitung.id, employeeId: null, name: 'leitung', role: 'admin', canEditChildren: leitung.canEditChildren, facilityId: 1,
+      id: leitung.id, employeeId: null, name: 'leitung', role: 'admin', facilityId: 1,
       permissions: leitung.permissions, visibility: null, onTablet: false, groups: null,
     })
     expect(resolveChildViewer(db, traeger, undefined, NOW)).toEqual({
-      id: traeger.id, employeeId: null, name: 'traeger', role: 'provider', canEditChildren: traeger.canEditChildren, facilityId: 1,
+      id: traeger.id, employeeId: null, name: 'traeger', role: 'provider', facilityId: 1,
       permissions: traeger.permissions, visibility: null, onTablet: false, groups: null,
     })
     // An account linked with an employee is named like the employee.
@@ -71,7 +72,7 @@ describe('the child viewer', () => {
     const token = unlock()
     const later = new Date(NOW.getTime() + 60_000)
     expect(resolveChildViewer(db, tablet, token, later)).toEqual({
-      id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
+      id: null, employeeId: anna, name: 'Anna', role: 'observer', facilityId: 1,
       permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
     })
     // Every request at the tablet counts as use and keeps it unlocked.
@@ -82,7 +83,8 @@ describe('the child viewer', () => {
     // The decisions requireChildPermission( makes for children.edit and children.manage on the request's viewer.
     const account = addUser(db, 'anna', 'observer', anna)
     const reader = resolveChildViewer(db, tablet, unlock(), NOW)
-    expect(reader).toMatchObject({ id: account.id, role: 'observer', canEditChildren: false, onTablet: true })
+    expect(reader).toMatchObject({ id: account.id, role: 'observer', onTablet: true })
+    expect(reader.permissions.has('children.edit')).toBe(false)
     expect(errorCode(() => asChildEditor(reader))).toBe('forbidden')
     expect(errorCode(() => asChildManager(reader))).toBe('forbidden')
 
@@ -167,7 +169,8 @@ describe('the child viewer', () => {
     allowChildEditing(db, account.id)
     const child = addChild(db, 1)
     const viewer = resolveChildViewer(db, tablet, unlock(), NOW)
-    expect(viewer).toMatchObject({ id: account.id, canEditChildren: true, onTablet: true })
+    expect(viewer).toMatchObject({ id: account.id, onTablet: true })
+    expect(viewer.permissions.has('children.edit')).toBe(true)
     const id = uploadDocument(db, viewer as ChildActor, 1, child, {
       typeId: documentTypeId(db, 1, 'Sonstiges'), title: 'Foto', documentDate: TODAY, confidential: false,
     }, { data: pdf(), filename: 'foto.pdf' }, TODAY, NOW)

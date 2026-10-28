@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { employees } from '../../server/db/schema'
 import { setContractVisibleToAdmins } from '../../server/services/appSettings'
@@ -59,15 +60,15 @@ describe('personnel file: master data in the employee DTO and update', () => {
     expect(JSON.stringify(detail)).not.toContain('deutsch')
   })
 
-  it('leaves both out without the keys (role name as viewer works like before), and never in the list', () => {
+  it('leaves both out without the keys, and never in the list', () => {
     update({ personal, sensitive })
-    for (const viewer of [MITARBEITER, 'observer' as const]) {
+    for (const viewer of [MITARBEITER, rolePermissions(db, 'observer')]) {
       const detail = getEmployee(db, 1, anna, TODAY, viewer)
       expect(detail).not.toHaveProperty('personal')
       expect(detail).not.toHaveProperty('sensitive')
     }
-    expect(getEmployee(db, 1, anna, TODAY, 'provider').sensitive).toEqual(sensitive)
-    const listed = JSON.stringify(listEmployees(db, 1, TODAY, 'provider'))
+    expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'provider')).sensitive).toEqual(sensitive)
+    const listed = JSON.stringify(listEmployees(db, 1, TODAY, rolePermissions(db, 'provider')))
     expect(listed).not.toContain('Lindenweg')
     expect(listed).not.toContain('deutsch')
   })
@@ -141,16 +142,16 @@ describe('personnel file: „befristet bis“ with the contract data', () => {
 
   it('stores it with the contract, keeps it when left out and shows it like the other contract fields', () => {
     setContract(db, 1, anna, { ...contract, fixedTermUntil: '2027-07-31' })
-    expect(getEmployee(db, 1, anna, TODAY, 'provider').contract).toMatchObject({ fixedTermUntil: '2027-07-31' })
+    expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'provider')).contract).toMatchObject({ fixedTermUntil: '2027-07-31' })
     setContract(db, 1, anna, { ...contract, payLevel: 4 })
-    expect(getEmployee(db, 1, anna, TODAY, 'provider').contract).toMatchObject({ payLevel: 4, fixedTermUntil: '2027-07-31' })
-    expect(getEmployee(db, 1, anna, TODAY, 'admin')).not.toHaveProperty('contract')
+    expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'provider')).contract).toMatchObject({ payLevel: 4, fixedTermUntil: '2027-07-31' })
+    expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'admin'))).not.toHaveProperty('contract')
     expect(getEmployee(db, 1, anna, TODAY, LEITUNG)).not.toHaveProperty('contract')
     setContractVisibleToAdmins(db, true)
-    expect(getEmployee(db, 1, anna, TODAY, 'admin').contract!.fixedTermUntil).toBe('2027-07-31')
-    expect(listEmployees(db, 1, TODAY, 'admin')[0]!.contract!.fixedTermUntil).toBe('2027-07-31')
+    expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'admin')).contract!.fixedTermUntil).toBe('2027-07-31')
+    expect(listEmployees(db, 1, TODAY, rolePermissions(db, 'admin'))[0]!.contract!.fixedTermUntil).toBe('2027-07-31')
     setContract(db, 1, anna, { ...contract, fixedTermUntil: null })
-    expect(getEmployee(db, 1, anna, TODAY, 'provider').contract!.fixedTermUntil).toBeNull()
+    expect(getEmployee(db, 1, anna, TODAY, rolePermissions(db, 'provider')).contract!.fixedTermUntil).toBeNull()
     expect(errorCode(() => setContract(db, 1, anna, { ...contract, fixedTermUntil: '2027-02-30' }))).toBe('invalid_date')
   })
 })
@@ -163,10 +164,10 @@ describe('personnel file: the archive flag of the 10-year category', () => {
     addEmployeeDocument(db, ben!, 'salary')
     addEmployeeDocument(db, carla!, 'qualifications')
     addAdjustment(db, 1, dora!, { date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true })
-    const flags = new Map(listEmployees(db, 1, TODAY, 'admin').map(employee => [employee.id, employee.hasPaidOut]))
+    const flags = new Map(listEmployees(db, 1, TODAY, rolePermissions(db, 'admin')).map(employee => [employee.id, employee.hasPaidOut]))
     expect([anna, ben, carla, dora].map(id => flags.get(id!))).toEqual([true, true, false, true])
-    expect(getEmployee(db, 1, ben!, TODAY, 'admin').hasPaidOut).toBe(true)
-    expect(getEmployee(db, 1, carla!, TODAY, 'admin').hasPaidOut).toBe(false)
+    expect(getEmployee(db, 1, ben!, TODAY, rolePermissions(db, 'admin')).hasPaidOut).toBe(true)
+    expect(getEmployee(db, 1, carla!, TODAY, rolePermissions(db, 'admin')).hasPaidOut).toBe(false)
   })
 })
 

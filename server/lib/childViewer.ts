@@ -1,4 +1,4 @@
-import { can, type PermissionKey } from '../../shared/domain/permissions'
+import { CHILD_ACTOR_KEYS, can, type ChildActorKey, type PermissionKey } from '../../shared/domain/permissions'
 import type { ChildVisibility, GroupAccess, Role } from '../../shared/types/api'
 import { ServiceError } from './errors'
 
@@ -16,11 +16,6 @@ export interface ChildViewer {
   /** The role of the person's account ('observer' without one): who they are, not what they may (see `permissions`). */
   role: Role
   /**
-   * The account's old column „darf Kinderakten pflegen“ as stored; the right itself is the exception
-   * „eintragen und Akten ändern“, which `permissions` holds.
-   */
-  canEditChildren: boolean
-  /**
    * What the person acting may do: the own account's permissions at the office; at the tablet those of the unlocking
    * person's account, the Mitarbeiter defaults for a person without one. Every check on child records asks this set.
    */
@@ -30,8 +25,9 @@ export interface ChildViewer {
   visibility: ChildVisibility | null
   onTablet: boolean
   /**
-   * The groups the viewer works with (see `groupRight`): set at the tablet for home staff of the facility with a group
-   * of their own and without children.manage; null = every group (Leitung, Träger, staff without group, helpers, office).
+   * The groups the viewer works with (see `groupRight`): set for home staff of the facility with a group of their own
+   * whose child switches reach only the own group (scope 'group'); null = every group (scope 'facility', the Träger,
+   * staff without group, helpers).
    */
   groups: GroupAccess | null
 }
@@ -39,9 +35,7 @@ export interface ChildViewer {
 /** A viewer who may change records: it has an account to record as "changed by". */
 export type ChildActor = ChildViewer & { id: number }
 
-/** The child permissions that change records and so need an account ("changed by"): their guard gives a ChildActor. */
-export type ChildActorKey = 'children.edit' | 'children.manage'
-export const CHILD_ACTOR_KEYS: readonly ChildActorKey[] = ['children.edit', 'children.manage']
+export { CHILD_ACTOR_KEYS, type ChildActorKey }
 const ACTOR_KEYS: ReadonlySet<PermissionKey> = new Set(CHILD_ACTOR_KEYS)
 
 /** A viewer who may change records always has an account (the tablet's readers without one may not). */

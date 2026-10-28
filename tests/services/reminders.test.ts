@@ -39,7 +39,7 @@ describe('reminders', () => {
     fuechse = addGroup(db, 1, 'Füchse')
     berta = addEmployee(db, 'Berta', { groupId: baeren })
     staff = {
-      id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, permissions: permissionsOf('observer'),
+      id: null, employeeId: berta, name: 'Berta', role: 'observer', permissions: permissionsOf('observer'),
       facilityId: 1,
       visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: baeren, readable: [maeuse] },
     }

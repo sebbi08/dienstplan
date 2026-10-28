@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { rolePermissions } from '../../server/services/permissions'
 import { createEmployee, getEmployee, setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
@@ -62,7 +63,7 @@ describe('leave entitlement and remaining leave carried into later years', () =>
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 3 })
     setEntitlement(db, 1, anna, 2027, { days: 30, carriedOverDays: 0 })
     vacation(['2026-11-02'])
-    expect(getEmployee(db, 1, anna, today, 'admin').entitlements).toEqual([
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).entitlements).toEqual([
       expect.objectContaining({ year: 2026, days: 30, carriedOverDays: 3, carriedAutomatically: false }),
       expect.objectContaining({ year: 2027, days: 30, carriedOverDays: 32, carriedAutomatically: true }),
     ])

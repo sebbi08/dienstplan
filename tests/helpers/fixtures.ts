@@ -66,11 +66,30 @@ export function addUser(
 
 /**
  * The Mitarbeiter account maintains child records: the exception „eintragen und Akten ändern“ (own group), which
- * replaced the flag „darf Kinderakten pflegen“; the old column is set as well, as the users page still shows it.
+ * replaced the flag „darf Kinderakten pflegen“ (the old column is no longer read).
  */
 export function allowChildEditing(db: Db, userId: number): void {
-  db.update(users).set({ canEditChildren: true }).where(eq(users.id, userId)).run()
   saveBundleOverride(db, userId, 'childrenEdit', 'grant', 'group')
+}
+
+/** The account plans and decides leave (the exception „planen und genehmigen“), as a chosen planner did before. */
+export function allowLeavePlanning(db: Db, userId: number): void {
+  saveBundleOverride(db, userId, 'leavePlan', 'grant')
+}
+
+/**
+ * Makes the session user a leave planner (`allowLeavePlanning`) and refreshes its permissions in place, as its next
+ * request would load them; returns it.
+ */
+export function makePlanner(db: Db, user: SessionUser): SessionUser {
+  allowLeavePlanning(db, user.id)
+  return refreshPermissions(db, user)
+}
+
+/** The session user with its permissions as its next request would load them (changed in place). */
+export function refreshPermissions(db: Db, user: SessionUser): SessionUser {
+  const row = db.select().from(users).where(eq(users.id, user.id)).get()!
+  return Object.assign(user, { permissions: toSessionUser(db, row).permissions })
 }
 
 /** The permissions of an account of the role with the child flag as given (no leave planner, no contract switch). */
@@ -80,12 +99,14 @@ export function permissionsOf(role: Role, canEditChildren = false): ReadonlySet<
 
 /**
  * The account as the child guards see it at the office (no visibility switches, not on the tablet, every group), named
- * by its username, with the permissions of its role and child flag as passed (a test may pass the flag changed). The
- * user's own fields stay, so the same object still serves the services that take a session user.
+ * by its username, with the permissions of its role, plus „eintragen und Akten ändern“ when the test passes
+ * `canEditChildren: true`. The user's own fields stay, so the same object still serves the services that take a session
+ * user.
  */
-export function asChildViewer(user: SessionUser, facilityId = 1): ChildActor {
+export function asChildViewer(user: SessionUser & { canEditChildren?: boolean }, facilityId = 1): ChildActor {
+  const { canEditChildren, ...account } = user
   return {
-    ...user, name: user.username, permissions: permissionsOf(user.role, user.canEditChildren),
+    ...account, name: user.username, permissions: permissionsOf(user.role, canEditChildren ?? false),
     facilityId: user.facilityId ?? facilityId, visibility: null, onTablet: false, groups: null,
   }
 }

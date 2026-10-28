@@ -11,7 +11,7 @@ import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoe
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   EmployeeContractDto, EmployeeContractInput, EmployeeDetailDto, EmployeeListItemDto, EmployeePersonalDto, EmployeePersonalInput,
-  EmployeeSensitiveDto, LevelUpDto, Role, SessionUser,
+  EmployeeSensitiveDto, LevelUpDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
@@ -22,7 +22,6 @@ import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { moveRequirementRecords } from './requirements'
-import { rolePermissions } from './permissions'
 import { moveStaffTalks } from './staffTalks'
 
 export interface EmployeeInput {
@@ -71,24 +70,17 @@ export interface EmployeeUpdate {
   sensitive?: EmployeeSensitiveDto
 }
 
-/**
- * Who looks at an employee: a role (its defaults with the global contract switch, see rolePermissions) or the
- * session user's own permission set (the routes; per-person rights count there).
- */
-export type EmployeeViewer = Role | ReadonlySet<PermissionKey>
-
-function viewerPermissions(db: Db, viewer: EmployeeViewer): ReadonlySet<PermissionKey> {
-  return typeof viewer === 'string' ? rolePermissions(db, viewer) : viewer
-}
+/** Who looks at an employee: the permission set of the person acting (role settings and exceptions). */
+export type EmployeeViewer = ReadonlySet<PermissionKey>
 
 const isQualification = (value: string): value is Qualification => (QUALIFICATIONS as readonly string[]).includes(value)
 
 /**
- * Contract data for this viewer (employees.contractView): always for the Träger, for the Leitung only when the Träger
- * allows it. The caller passes the role; the role and the global switch decide it (see rolePermissions).
+ * Contract data for this viewer (employees.contractView): always for the Träger, for anyone else with the bundle
+ * „Vertragsangaben ansehen“ (the Leitung's role setting or an exception).
  */
-function mayViewContract(db: Db, viewer: EmployeeViewer): boolean {
-  return can(viewerPermissions(db, viewer), 'employees.contractView')
+function mayViewContract(viewer: EmployeeViewer): boolean {
+  return can(viewer, 'employees.contractView')
 }
 
 function contractOf(employee: EmployeeRecord): EmployeeContractDto {
@@ -185,7 +177,7 @@ function pinFlagsById(db: Db, facilityId: number, now: Date): Map<number, PinFla
 export function listEmployees(
   db: Db, facilityId: number, today: IsoDate, viewer: EmployeeViewer, now: Date = new Date(),
 ): EmployeeListItemDto[] {
-  const withContract = mayViewContract(db, viewer)
+  const withContract = mayViewContract(viewer)
   const pins = pinFlagsById(db, facilityId, now)
   const paidOut = paidOutIds(db, facilityId)
   return loadEmployees(db, facilityId)
@@ -203,9 +195,9 @@ export function getEmployee(
   const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === id)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const pin = db.select().from(employees).where(eq(employees.id, id)).get()!
-  const permissions = viewerPermissions(db, viewer)
+  const permissions = viewer
   return {
-    ...toListItem(employee, today, mayViewContract(db, permissions), pinFlags(pin, now), paidOutIds(db, facilityId, id)),
+    ...toListItem(employee, today, mayViewContract(permissions), pinFlags(pin, now), paidOutIds(db, facilityId, id)),
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
@@ -449,8 +441,8 @@ export function setContract(db: Db, facilityId: number, id: number, contract: Em
  * Level steps of the facility's staff due within the notice period or overdue, for viewers who may see contract data;
  * staff who left are skipped.
  */
-export function listLevelUps(db: Db, facilityId: number, today: IsoDate, viewer: Role): LevelUpDto[] {
-  if (!mayViewContract(db, viewer)) return []
+export function listLevelUps(db: Db, facilityId: number, today: IsoDate, viewer: EmployeeViewer): LevelUpDto[] {
+  if (!mayViewContract(viewer)) return []
   return loadEmployees(db, facilityId).flatMap((employee) => {
     if (!employee.employedSince || (employee.leftOn !== null && employee.leftOn < today)) return []
     const due = dueLevelUp(employee.employedSince, employee.payLevel, today)

@@ -20,7 +20,7 @@ export function toSessionUser(db: Db, row: typeof users.$inferSelect): SessionUs
   const user = {
     id: row.id, username: row.username, role: row.role,
     employeeId: row.employeeId, mustChangePassword: row.mustChangePassword,
-    canEditChildren: row.canEditChildren, facilityId: resolveFacilityId(db, row),
+    facilityId: resolveFacilityId(db, row),
   }
   return { ...user, permissions: accountPermissions(db, user) }
 }

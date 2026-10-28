@@ -3,10 +3,13 @@ import type { H3Event } from 'h3'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employees, users } from '../../server/db/schema'
-import { setContractVisibleToAdmins } from '../../server/services/appSettings'
+import { setContractVisibleToAdmins, setTimeTrackingFrom } from '../../server/services/appSettings'
 import { saveBundleOverride, saveRoleBundle } from '../../server/services/permissions'
+import { unlockChildren } from '../../server/services/tabletUnlock'
+import { setPin } from '../../server/services/terminal'
+import { SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, createTestDb } from '../helpers/fixtures'
+import { addEmployee, addFacility, addUser, createTestDb } from '../helpers/fixtures'
 
 /**
  * requirePermission of server/utils/auth.ts at runtime (Rechte und Rollen Teil 1): who is refused, the tablet, the
@@ -46,7 +49,9 @@ async function code(run: () => Promise<unknown>): Promise<string | null> {
     return null
   }
   catch (error) {
-    return (error as { data?: { code?: string } }).data?.code ?? 'unknown'
+    // An HTTP error of the guard, or a ServiceError of the child viewer (the route's handler turns it into one).
+    const failure = error as { data?: { code?: string }; code?: string }
+    return failure.data?.code ?? failure.code ?? 'unknown'
   }
 }
 
@@ -142,5 +147,73 @@ describe('requirePermission', () => {
     expect(await code(() => auth.requirePermission(event(leitung), 'plan.view'))).toBe('session_expired')
     db.update(employees).set({ leftOn: '2020-01-31' }).where(eq(employees.id, staff.employeeId!)).run()
     expect(await code(() => auth.requirePermission(event(staff), 'plan.view'))).toBe('session_expired')
+  })
+})
+
+describe('requirePermission facility modes at runtime', () => {
+  it('works in the facility the Träger edits on the settings pages under request, in the active one under active', async () => {
+    db = createTestDb()
+    const provider = addUser(db, 'traeger', 'provider')
+    const krippe = addFacility(db, 'Krippe')
+    const onSettings = (user: SessionUser): H3Event => {
+      const fake = event(user) as unknown as FakeEvent
+      fake.headers[SETTINGS_FACILITY_HEADER.toLowerCase()] = String(krippe)
+      return fake as unknown as H3Event
+    }
+    expect((await auth.requirePermission(onSettings(provider), 'settings.facility')).facilityId).toBe(krippe)
+    expect((await auth.requirePermission(onSettings(provider), 'settings.facility', { facility: 'active' })).facilityId).toBe(1)
+    expect((await auth.requirePermission(onSettings(provider), 'settings.facility', { facility: 'none' })).facilityId).toBe(1)
+    // A Leitung's header is ignored: she only ever works in her own facility.
+    const leitung = addUser(db, 'leitung', 'admin')
+    expect((await auth.requirePermission(onSettings(leitung), 'settings.facility')).facilityId).toBe(1)
+  })
+})
+
+describe('requireChildPermission at runtime', () => {
+  const NOW = new Date()
+  let leitung: SessionUser
+  let staff: SessionUser
+  let tablet: SessionUser
+  let annaEmployee: number
+  /** The tablet's request, unlocked by the employee (or locked without one). */
+  const tabletEvent = (employeeId?: number): H3Event => {
+    const fake = event(tablet) as unknown as FakeEvent & { session: { secure?: { childUnlock: string } } }
+    if (employeeId !== undefined) {
+      fake.session.secure = { childUnlock: unlockChildren(db, { id: tablet.id, facilityId: 1 }, employeeId, '123456', NOW).token }
+    }
+    return fake as unknown as H3Event
+  }
+  beforeEach(() => {
+    db = createTestDb()
+    leitung = addUser(db, 'leitung', 'admin')
+    annaEmployee = addEmployee(db, 'Anna')
+    staff = addUser(db, 'anna', 'observer', annaEmployee)
+    tablet = addUser(db, 'tablet', 'terminal')
+    setTimeTrackingFrom(db, 1, '2026-01-01')
+    setPin(db, 1, annaEmployee, '123456')
+  })
+
+  it('refuses a Mitarbeiter account at the office, a locked tablet, and a viewer without the key', async () => {
+    expect(await code(() => auth.requireChildPermission(event(staff), 'children.view'))).toBe('children_tablet_only')
+    expect(await code(() => auth.requireChildPermission(tabletEvent(), 'children.view'))).toBe('tablet_locked')
+    expect(await code(() => auth.requireChildPermission(tabletEvent(annaEmployee), 'children.edit'))).toBe('forbidden')
+    expect(await code(() => auth.requireChildPermission(tabletEvent(annaEmployee), 'children.manage'))).toBe('forbidden')
+    expect((await auth.requireChildPermission(tabletEvent(annaEmployee), 'children.attendance')).id).toBe(staff.id)
+    expect((await auth.requireChildPermission(event(leitung), 'children.manage')).id).toBe(leitung.id)
+  })
+
+  it('refuses the keys that change records to a person without account at the tablet', async () => {
+    const ben = addEmployee(db, 'Ben')
+    setPin(db, 1, ben, '123456')
+    expect((await auth.requireChildPermission(tabletEvent(ben), 'children.view')).id).toBeNull()
+    expect(await code(() => auth.requireChildPermission(tabletEvent(ben), 'children.edit'))).toBe('forbidden')
+  })
+
+  it('follows the rights page: an exception opens the office and the edit key on the next request', async () => {
+    saveBundleOverride(db, staff.id, 'childrenOwnAccount', 'grant')
+    saveBundleOverride(db, staff.id, 'childrenEdit', 'grant', 'group')
+    expect((await auth.requireChildPermission(event(staff), 'children.edit')).id).toBe(staff.id)
+    saveBundleOverride(db, leitung.id, 'childrenView', 'revoke')
+    expect(await code(() => auth.requireChildPermission(event(leitung), 'children.view'))).toBe('children_tablet_only')
   })
 })

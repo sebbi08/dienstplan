@@ -8,6 +8,8 @@ import { de } from '~/locales/de'
 const props = defineProps<{ groupId: number }>()
 const { can } = useCan()
 const canManageGroups = computed(() => can('settings.groups'))
+// The flag „für Schulkinder“ is a school children setting (children.schoolSettings, as its route checks).
+const canSetSchoolChildren = computed(() => can('children.schoolSettings'))
 const { data: groups, refresh } = useGroups()
 // The names appear in the opening hours, the reminders and the automatic leaving too.
 const { busy, run } = useBusyAction(() => Promise.all([refresh(), refreshNuxtData(['school-settings', 'opening-hours', 'reminder-settings'])]))
@@ -49,11 +51,14 @@ async function setForSchoolChildren(value: boolean) {
         <UInput v-model="name" maxlength="80" required size="sm" :aria-label="de.groups.name" />
         <UButton type="submit" size="sm" color="neutral" variant="outline" :label="de.groups.rename" :disabled="busy || !dirty || !name.trim()" />
       </form>
-      <UCheckbox
-        :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :disabled="busy"
-        @update:model-value="setForSchoolChildren($event === true)"
-      />
-      <p class="text-xs text-gray-500">{{ de.schoolChildren.forSchoolChildrenHint }}</p>
+      <template v-if="canSetSchoolChildren">
+        <UCheckbox
+          :model-value="group.forSchoolChildren" :label="de.schoolChildren.forSchoolChildren" :disabled="busy"
+          @update:model-value="setForSchoolChildren($event === true)"
+        />
+        <p class="text-xs text-gray-500">{{ de.schoolChildren.forSchoolChildrenHint }}</p>
+      </template>
+      <p v-else-if="group.forSchoolChildren" class="text-sm">{{ de.schoolChildren.forSchoolChildren }}</p>
       <p class="text-xs text-gray-500">{{ de.settingsAreas.groupOrderHint }}</p>
     </template>
     <template v-else>

@@ -5,6 +5,7 @@ import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
+import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/permissionBundles'
 import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
@@ -52,8 +53,6 @@ export interface SessionUser {
   role: Role
   employeeId: number | null
   mustChangePassword: boolean
-  /** The stored flag as is (only meaningful for a Mitarbeiter); `mayEditChildren` decides who may edit child records. */
-  canEditChildren: boolean
   /**
    * The facility the user works in, resolved fresh on every request: Leitung and tablet their own, the Träger the
    * active selection, a Mitarbeiter that of the linked employee (null without one).
@@ -1133,8 +1132,88 @@ export interface UserDto {
   employeeName: string | null
   active: boolean
   mustChangePassword: boolean
+  /**
+   * A Mitarbeiter account holds „eintragen und Akten ändern“ (children.edit, from its role or an exception); false for
+   * every other role. Read only: the right is set through the rights API (`PUT /api/users/[id]/rights`).
+   */
   canEditChildren: boolean
   lockedUntil: string | null
+}
+
+// --- rights and roles (Rechte und Rollen Teil 2) ----------------------------------------------------------------
+
+/** A switch of the rights page with its relations (spec Teil 2 §2, §3). */
+export interface RightsBundleDto {
+  id: BundleId
+  area: BundleArea
+  label: string
+  /** Children bundles: with a scope 'group' (own group) or 'facility'. */
+  scoped: boolean
+  /** „braucht: …“: switching on brings these (and what they need) along. */
+  requires: BundleId[]
+  /** Included bundles: switching on brings them along; the page shows them as „enthalten in: …“. */
+  includes: BundleId[]
+}
+
+/** One switch of a role: as set, and as the Grundeinstellung has it. */
+export interface RoleBundleStateDto {
+  id: BundleId
+  enabled: boolean
+  /** Only for a scoped bundle that is on; null otherwise. */
+  scope: BundleScope | null
+  defaultEnabled: boolean
+  defaultScope: BundleScope | null
+}
+
+export interface RoleRightsDto {
+  role: RightsRole
+  /** Every bundle, in page order. */
+  bundles: RoleBundleStateDto[]
+  /** Nothing differs from the Grundeinstellung. */
+  isDefault: boolean
+}
+
+/** The answer of saving rights: what the server pulled in as requirement and what it dropped as dependent. */
+export interface RightsChangeDto {
+  pulledIn: BundleId[]
+  dropped: BundleId[]
+}
+
+/** GET /api/rights: the catalog of switches, the Träger-only rights and the settings of Leitung and Mitarbeiter. */
+export interface RightsDto {
+  areas: { id: BundleArea; label: string }[]
+  bundles: RightsBundleDto[]
+  /** Fixed at the Träger, never grantable (shown greyed out „nur Träger“). */
+  providerOnly: { key: PermissionKey; label: string }[]
+  roles: RoleRightsDto[]
+}
+
+/** PUT /api/rights/roles/[role]: the switches of the role (a bundle left out keeps its state). */
+export interface RoleRightsInput {
+  bundles: { id: string; enabled: boolean; scope?: BundleScope | null }[]
+}
+
+/** One switch of a person: the role's state, the exception and what applies. */
+export interface UserBundleStateDto {
+  id: BundleId
+  role: { enabled: boolean; scope: BundleScope | null }
+  override: { effect: 'grant' | 'revoke'; scope: BundleScope | null } | null
+  effective: { enabled: boolean; scope: BundleScope | null }
+}
+
+/** GET /api/users/[id]/rights. */
+export interface UserRightsDto {
+  userId: number
+  username: string
+  role: RightsRole
+  bundles: UserBundleStateDto[]
+  /** The bundles whose exception the viewer may change: all for the Träger, only childrenEdit for the Leitung. */
+  editable: BundleId[]
+}
+
+/** PUT /api/users/[id]/rights: the person's exceptions, all of them (an exception left out is removed). */
+export interface UserRightsInput {
+  overrides: { bundle: string; effect: 'grant' | 'revoke'; scope?: BundleScope | null }[]
 }
 
 export interface ClosureDto {

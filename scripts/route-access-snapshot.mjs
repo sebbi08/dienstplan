@@ -23,19 +23,35 @@ import { fileURLToPath } from 'node:url'
 // only `import type` from other modules, and no TS-only syntax that emits code (enum, namespace, parameter properties).
 // tests/api/routeAccessSnapshot.test.ts fails when it breaks.
 import { effectivePermissions } from '../shared/domain/permissionBundles.ts'
-import { PERMISSION_KEYS } from '../shared/domain/permissions.ts'
+import { CHILD_ACTOR_KEYS, PERMISSION_KEYS } from '../shared/domain/permissions.ts'
 
 // The Grundeinstellung of the rights page (no role settings, no exceptions).
-const DEFAULTS = {
+export const DEFAULTS = {
   admin: effectivePermissions({ role: 'admin' }),
   observer: effectivePermissions({ role: 'observer' }),
 }
-// A Mitarbeiter account with the exception „eintragen und Akten ändern“ (formerly „darf Kinderakten pflegen“), and the
-// child keys that need an account (server/lib/childViewer.ts).
+// A Mitarbeiter account with the exception „eintragen und Akten ändern“ (formerly „darf Kinderakten pflegen“).
 const OBSERVER_EDITOR = effectivePermissions({
   role: 'observer', overrides: [{ bundle: 'childrenEdit', effect: 'grant', scope: 'group' }],
 })
-const ACCOUNT_KEYS = ['children.edit', 'children.manage']
+
+/**
+ * The tablet model, the one copy (tests/api/permissions.test.ts uses it too): the unlocking person's permissions at the
+ * tablet; a person without account has the Mitarbeiter defaults and never the keys that need an account
+ * (CHILD_ACTOR_KEYS, server/lib/childViewer.ts).
+ */
+export const TABLET_PERMISSIONS = {
+  'tablet:provider': new Set(PERMISSION_KEYS),
+  'tablet:admin': DEFAULTS.admin,
+  'tablet:observerEditor': OBSERVER_EDITOR,
+  'tablet:observer': DEFAULTS.observer,
+  'tablet:noAccount': DEFAULTS.observer,
+}
+
+/** Whether the person who unlocked the tablet passes a child guard for the key. */
+export function tabletPasses(actor, key) {
+  return TABLET_PERMISSIONS[actor].has(key) && !(actor === 'tablet:noAccount' && CHILD_ACTOR_KEYS.includes(key))
+}
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = join(ROOT, 'server', 'api')
@@ -80,14 +96,7 @@ const GUARDS = {
     const key = /^\s*event,\s*'([^']+)'\s*$/.exec(args)?.[1]
     if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requireChildPermission(${args})`)
     const office = actor => actor === 'provider' || (DEFAULTS[actor].has('children.ownAccount') && DEFAULTS[actor].has(key))
-    const tablet = {
-      'tablet:provider': true,
-      'tablet:admin': DEFAULTS.admin.has(key),
-      'tablet:observerEditor': OBSERVER_EDITOR.has(key),
-      'tablet:observer': DEFAULTS.observer.has(key),
-      'tablet:noAccount': DEFAULTS.observer.has(key) && !ACCOUNT_KEYS.includes(key),
-    }
-    return [...['provider', 'admin', 'observer'].filter(office), ...TABLET_READERS.filter(actor => tablet[actor])]
+    return [...['provider', 'admin', 'observer'].filter(office), ...TABLET_READERS.filter(actor => tabletPasses(actor, key))]
   },
 }
 
@@ -104,8 +113,6 @@ const PUBLIC_ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal']
  */
 const ROLE_USES = {
   'auth/login.post.ts': 'session lifetime: the tablet stays logged in (no access check)',
-  'employees/index.get.ts': 'passes the role to the service, which strips the contract fields (data, no 403)',
-  'level-ups.get.ts': 'passes the role to the service, which returns an empty list without contract right (no 403)',
 }
 const ROLE_USE = /\.role\b|\bisManager\(|\bisProvider\b|\bmayEditChildren\(|\bassert(Provider|Manager)\(|'(provider|admin|observer|terminal)'/
 

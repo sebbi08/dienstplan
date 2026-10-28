@@ -7,16 +7,19 @@ import {
   createCategory, deleteCategory, listCategories, moveCategory, updateCategory,
 } from '../../server/services/templateCategories'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
+import type { PermissionKey } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
-import { addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addFacility, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const pdf = Buffer.from('%PDF-1.7\ncontent')
 
 describe('template categories', () => {
   let db: Db
-  const provider = { role: 'provider' as Role }
-  const leitung = { role: 'admin' as Role }
-  const create = (by: { role: Role }, name: string, visibility: TemplateVisibility = 'all') =>
+  /** An actor of the role with the role's default permissions. */
+  const as = (role: Role) => ({ role, permissions: permissionsOf(role) })
+  const provider = as('provider')
+  const leitung = as('admin')
+  const create = (by: { role: Role; permissions: ReadonlySet<PermissionKey> }, name: string, visibility: TemplateVisibility = 'all') =>
     createCategory(db, by, { name, visibility })
   const names = (role: Role) => listCategories(db, { role }).map(category => category.name)
 
@@ -81,7 +84,7 @@ describe('template categories', () => {
       create(leitung, 'Leer')
       const other = addFacility(db, 'Krippe')
       const otherLeitung = addUser(db, 'leitung2', 'admin', null, other)
-      uploadTemplate(db, { id: otherLeitung.id, role: 'admin', facilityId: other },
+      uploadTemplate(db, { ...otherLeitung, facilityId: other },
         { title: 'Brief', categoryId: used, scope: 'facility' }, { data: pdf, filename: 'brief.pdf' })
       expect(listCategories(db, leitung).map(category => [category.name, category.templateCount])).toEqual([['Eltern', 1], ['Leer', 0]])
     })
@@ -94,8 +97,8 @@ describe('template categories', () => {
     })
 
     it('refuses Mitarbeiter and the tablet', () => {
-      expect(errorCode(() => create({ role: 'observer' }, 'X'))).toBe('forbidden')
-      expect(errorCode(() => create({ role: 'terminal' }, 'X'))).toBe('forbidden')
+      expect(errorCode(() => create(as('observer'), 'X'))).toBe('forbidden')
+      expect(errorCode(() => create(as('terminal'), 'X'))).toBe('forbidden')
     })
   })
 
@@ -157,7 +160,7 @@ describe('template categories', () => {
       const used = create(leitung, 'Eltern')
       const empty = create(leitung, 'Leer')
       const user = addUser(db, 'leitung', 'admin')
-      uploadTemplate(db, { id: user.id, role: 'admin', facilityId: 1 }, { title: 'Brief', categoryId: used, scope: 'facility' },
+      uploadTemplate(db, { ...user, facilityId: 1 }, { title: 'Brief', categoryId: used, scope: 'facility' },
         { data: pdf, filename: 'brief.pdf' })
       expect(errorCode(() => deleteCategory(db, leitung, used))).toBe('template_category_not_empty')
       deleteCategory(db, leitung, empty)

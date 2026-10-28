@@ -1,5 +1,6 @@
 import { asc, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import {
   childGroupChanges, children, coverageRules, employees, entries, groups, weekTemplateEntries, weekTemplateMarks, weekTemplates,
@@ -234,17 +235,17 @@ describe('home group of employees', () => {
     const actor = addUser(db, 'leitung', 'admin')
     const anna = createEmployee(db, actor, 1, { ...input, groupId: bears })
     const ben = createEmployee(db, actor, 1, { ...input, name: 'Ben' })
-    expect(getEmployee(db, 1, anna, today, 'admin').groupId).toBe(bears)
-    expect(listEmployees(db, 1, today, 'admin').map(employee => [employee.id, employee.groupId]))
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).groupId).toBe(bears)
+    expect(listEmployees(db, 1, today, rolePermissions(db, 'admin')).map(employee => [employee.id, employee.groupId]))
       .toEqual([[anna, bears], [ben, null]])
 
     updateEmployee(db, 1, anna, { name: 'Anna', shortName: 'An', leftOn: null, groupId: mice })
-    expect(getEmployee(db, 1, anna, today, 'admin').groupId).toBe(mice)
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).groupId).toBe(mice)
     // Leaving groupId out keeps the group.
     updateEmployee(db, 1, anna, { name: 'Anna B.', shortName: 'An', leftOn: null })
-    expect(getEmployee(db, 1, anna, today, 'admin').groupId).toBe(mice)
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).groupId).toBe(mice)
     updateEmployee(db, 1, anna, { name: 'Anna B.', shortName: 'An', leftOn: null, groupId: null })
-    expect(getEmployee(db, 1, anna, today, 'admin').groupId).toBeNull()
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).groupId).toBeNull()
   })
 
   it('refuses a group of another facility', () => {

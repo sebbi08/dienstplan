@@ -1,18 +1,18 @@
 import { asc, eq } from 'drizzle-orm'
-import { can } from '../../shared/domain/permissions'
-import type { Role } from '../../shared/types/api'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import type { Db } from '../db/client'
 import { groupReadAccess, groups } from '../db/schema'
 import { assertGroup, facilityOfGroup } from './groups'
-import { rolePermissions } from './permissions'
 
 /**
  * The facility a manager sets a group's read access in: the Leitung only in her active facility (a group of another
  * one is then 404 group_not_found); the Träger, whose facility settings list every facility, in the group's own (the
- * permission to edit other facilities, settings.otherFacility; the caller passes the role, see rolePermissions).
+ * permission to edit other facilities, settings.otherFacility, of the acting person).
  */
-export function readAccessFacility(db: Db, user: { role: Role; facilityId: number }, groupId: number): number {
-  return can(rolePermissions(db, user.role), 'settings.otherFacility') ? facilityOfGroup(db, groupId) : user.facilityId
+export function readAccessFacility(
+  db: Db, user: { permissions: ReadonlySet<PermissionKey>; facilityId: number }, groupId: number,
+): number {
+  return can(user.permissions, 'settings.otherFacility') ? facilityOfGroup(db, groupId) : user.facilityId
 }
 
 /** Every group of the facility with the groups its staff may also read (empty = none), by group id. */

@@ -130,7 +130,8 @@ export const userCreateSchema = z.object({
 })
 export const userUpdateSchema = z.object({
   role: z.enum(['provider', 'admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
-  canEditChildren: z.boolean(),
+  // Gone: „darf Kinderakten pflegen“ is an exception of the rights API now; a stale client sending it gets 400 use_rights_api.
+  canEditChildren: z.unknown().optional(),
 })
 export const passwordResetSchema = z.object({ password: z.string().max(200) })
 export const appSettingsSchema = z.object({ timeTrackingFrom: isoDate.nullable() })
@@ -168,6 +169,17 @@ export const payrollSchema = z.object({
   denomination: z.string().max(50).nullable(),
 })
 export const contractVisibilitySchema = z.object({ visible: z.boolean() })
+
+/** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */
+export const rightsRoleParams = z.object({ role: z.string().max(40) })
+export const roleRightsSchema = z.object({
+  bundles: z.array(z.object({ id: z.string().max(60), enabled: z.boolean(), scope: z.string().max(20).nullable().optional() })).max(100),
+})
+export const userRightsSchema = z.object({
+  overrides: z.array(z.object({
+    bundle: z.string().max(60), effect: z.string().max(20), scope: z.string().max(20).nullable().optional(),
+  })).max(100),
+})
 export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), breakMode: z.enum(BREAK_MODES) })
 export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().positive()).max(500) })
 export const leaveModuleSchema = z.object({ enabled: z.boolean(), plannerIds: z.array(z.number().int().positive()).max(50) })

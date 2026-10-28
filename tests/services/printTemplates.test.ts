@@ -9,7 +9,7 @@ import {
 import { createCategory } from '../../server/services/templateCategories'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { Role, SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { addEmployee, addFacility, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const NOW = new Date('2026-10-21T08:30:00.000Z')
 const LATER = new Date('2026-10-22T09:00:00.000Z')
@@ -17,7 +17,11 @@ const LATER = new Date('2026-10-22T09:00:00.000Z')
 const pdf = (extra = 'content') => Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from(extra)])
 const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Buffer.from('png')])
 
-const actor = (user: SessionUser): TemplateActor => ({ id: user.id, role: user.role, facilityId: user.facilityId! })
+const actor = (user: SessionUser): TemplateActor => ({
+  id: user.id, role: user.role, permissions: user.permissions, facilityId: user.facilityId!,
+})
+/** A viewer of the role with the role's default permissions. */
+const seer = (role: Role, facilityId: number) => ({ role, permissions: permissionsOf(role), facilityId })
 
 describe('print templates', () => {
   let db: Db
@@ -29,7 +33,7 @@ describe('print templates', () => {
   let cat: Record<string, number>
 
   const category = (name: string, visibility: TemplateVisibility = 'all') => {
-    cat[name] = createCategory(db, { role: 'provider' }, { name, visibility })
+    cat[name] = createCategory(db, { role: 'provider', permissions: permissionsOf('provider') }, { name, visibility })
     return cat[name]
   }
 
@@ -54,12 +58,12 @@ describe('print templates', () => {
     title: fields.title ?? 'Elternbrief', categoryId: cat[fields.category ?? 'Eltern']!, scope: fields.scope ?? 'facility',
   }, { data, filename }, NOW)
   const titles = (facilityId: number, role: Role = 'admin') =>
-    listTemplates(db, { role, facilityId }).map(template => template.title)
+    listTemplates(db, seer(role, facilityId)).map(template => template.title)
 
   describe('upload', () => {
     it('stores a PDF for the own facility with its title, category, size and upload time', () => {
       const id = upload(leitung, { title: '  Elternbrief  ' })
-      expect(listTemplates(db, { role: 'admin', facilityId: 1 })).toEqual([{
+      expect(listTemplates(db, seer('admin', 1))).toEqual([{
         id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', global: false, size: pdf().length,
         uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
       }])
@@ -70,7 +74,7 @@ describe('print templates', () => {
 
     it('takes the file name for an empty title', () => {
       upload(leitung, { title: ' ' }, pdf(), 'Anmeldung Ausflug.pdf')
-      expect(listTemplates(db, { role: 'admin', facilityId: 1 })[0]).toMatchObject({ title: 'Anmeldung Ausflug', category: 'Eltern' })
+      expect(listTemplates(db, seer('admin', 1))[0]).toMatchObject({ title: 'Anmeldung Ausflug', category: 'Eltern' })
     })
 
     it('needs a category the uploader sees', () => {
@@ -120,7 +124,7 @@ describe('print templates', () => {
       upload(otherLeitung, { title: 'Krippenbrief', category: 'Eltern' })
       upload(provider, { title: 'Urlaubsantrag', category: 'Personal', scope: 'all' })
       upload(leitung, { title: 'Allergien', category: 'Gesundheit' })
-      expect(listTemplates(db, { role: 'admin', facilityId: 1 }).map(template => [template.category, template.title, template.global]))
+      expect(listTemplates(db, seer('admin', 1)).map(template => [template.category, template.title, template.global]))
         .toEqual([
           ['Eltern', 'Ausflug', false], ['Gesundheit', 'Allergien', false], ['Gesundheit', 'Zahnarzt', false],
           ['Personal', 'Urlaubsantrag', true],
@@ -132,7 +136,7 @@ describe('print templates', () => {
       upload(leitung, { title: 'Eigene' })
       upload(provider, { title: 'Global', scope: 'all' })
       const editable = (role: Role) =>
-        listTemplates(db, { role, facilityId: 1 }).map(template => [template.title, template.canEdit])
+        listTemplates(db, seer(role, 1)).map(template => [template.title, template.canEdit])
       expect(editable('admin')).toEqual([['Eigene', true], ['Global', false]])
       expect(editable('provider')).toEqual([['Eigene', true], ['Global', true]])
       expect(editable('terminal')).toEqual([['Eigene', false], ['Global', false]])
@@ -167,7 +171,7 @@ describe('print templates', () => {
   })
 
   describe('file', () => {
-    const viewer = (facilityId: number, role: Role = 'admin') => ({ role, facilityId })
+    const viewer = (facilityId: number, role: Role = 'admin') => seer(role, facilityId)
 
     it('serves the own and the global templates as PDF named after the title', () => {
       const own = upload(leitung, { title: 'Einverständnis Ausflug' })
@@ -202,7 +206,7 @@ describe('print templates', () => {
     it('renames and moves to another category', () => {
       const id = upload(leitung)
       updateTemplate(db, leitung, id, { title: ' Elternbrief Herbst ', categoryId: cat.Personal! }, LATER)
-      expect(listTemplates(db, { role: 'admin', facilityId: 1 })[0]).toMatchObject({
+      expect(listTemplates(db, seer('admin', 1))[0]).toMatchObject({
         id, title: 'Elternbrief Herbst', category: 'Personal', categoryId: cat.Personal, uploadedAt: NOW.toISOString(),
         updatedAt: LATER.toISOString(),
       })
@@ -223,9 +227,9 @@ describe('print templates', () => {
     it('replaces the file and keeps the id', () => {
       const id = upload(leitung)
       replaceTemplateFile(db, leitung, id, { data: pdf('version 2'), filename: 'neu.pdf' }, LATER)
-      expect(listTemplates(db, { role: 'admin', facilityId: 1 }).map(template => [template.id, template.size, template.updatedAt]))
+      expect(listTemplates(db, seer('admin', 1)).map(template => [template.id, template.size, template.updatedAt]))
         .toEqual([[id, pdf('version 2').length, LATER.toISOString()]])
-      expect(readTemplateFile(db, { role: 'admin', facilityId: 1 }, id).data.equals(pdf('version 2'))).toBe(true)
+      expect(readTemplateFile(db, seer('admin', 1), id).data.equals(pdf('version 2'))).toBe(true)
       expect(errorCode(() => replaceTemplateFile(db, leitung, id, { data: png(), filename: 'x.pdf' }))).toBe('print_template_type_invalid')
       expect(errorCode(() => replaceTemplateFile(db, leitung, id, {
         data: Buffer.concat([pdf(), Buffer.alloc(MAX_DOCUMENT_BYTES)]), filename: 'x.pdf',
@@ -237,8 +241,8 @@ describe('print templates', () => {
       const kept = upload(leitung, { title: 'Bleibt' })
       deleteTemplate(db, leitung, id)
       expect(titles(1)).toEqual(['Bleibt'])
-      expect(errorCode(() => readTemplateFile(db, { role: 'admin', facilityId: 1 }, id))).toBe('print_template_not_found')
-      expect(readTemplateFile(db, { role: 'admin', facilityId: 1 }, kept).data.length).toBeGreaterThan(0)
+      expect(errorCode(() => readTemplateFile(db, seer('admin', 1), id))).toBe('print_template_not_found')
+      expect(readTemplateFile(db, seer('admin', 1), kept).data.length).toBeGreaterThan(0)
     })
 
     it('keeps the Träger\'s global templates away from the Leitung (403), but lets the Träger change them', () => {

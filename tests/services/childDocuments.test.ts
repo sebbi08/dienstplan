@@ -44,7 +44,7 @@ describe('child documents', () => {
     plain = asChildViewer(addUser(db, 'plain', 'observer', addEmployee(db, 'Plain')))
     const allowedUser = addUser(db, 'allowed', 'observer', addEmployee(db, 'Allowed'))
     allowChildEditing(db, allowedUser.id)
-    allowed = asChildViewer(getActiveUser(db, allowedUser.id)!)
+    allowed = asChildViewer({ ...getActiveUser(db, allowedUser.id)!, canEditChildren: true })
     childId = addChild(db, 1, { lastName: 'Müller-Ö' })
     contractType = documentTypeId(db, 1, 'Betreuungsvertrag')
     attestType = documentTypeId(db, 1, 'Ärztliches Attest')

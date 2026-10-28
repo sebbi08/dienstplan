@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BASELINE_KEYS, BUNDLE_AREA_LABELS, BUNDLE_AREAS, BUNDLE_DEFAULTS, BUNDLE_IDS, BUNDLES, DEFAULT_SCOPE, bundleOfKey,
-  effectivePermissions, effectiveRights, expandBundles, isBundleId, roleBundleMap, type BundleId,
+  bundlesDroppedWith, bundlesPulledBy, effectivePermissions, effectiveRights, expandBundles, isBundleId, roleBundleMap, type BundleId,
 } from '../../shared/domain/permissionBundles'
 import { PERMISSIONS, ROLE_DEFAULTS, resolvePermissions, type PermissionKey } from '../../shared/domain/permissions'
 import { flaggedPermissions, teil1Permissions } from '../helpers/rights'
@@ -49,12 +49,13 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   usersManage: ['users.manage'],
 }
 
-/** The bundles and every bundle they need, transitively. */
+/** The bundles and every bundle they need or include, transitively. */
 function withRequired(ids: BundleId[]): BundleId[] {
   const all = new Set(ids)
   const pending = [...ids]
   while (pending.length > 0) {
-    for (const required of byId.get(pending.pop()!)!.requires) {
+    const def = byId.get(pending.pop()!)!
+    for (const required of [...def.requires, ...def.includes]) {
       if (!all.has(required)) {
         all.add(required)
         pending.push(required)
@@ -114,18 +115,23 @@ describe('bundles', () => {
 })
 
 describe('bundle requirements', () => {
-  it('are computed from the catalog requires and implies', () => {
+  it('are computed from the catalog: requires from requires, includes from implies', () => {
     for (const def of BUNDLES) {
-      const expected = new Set<BundleId>()
-      for (const key of def.keys) {
-        for (const other of [...catalog.get(key)!.requires, ...catalog.get(key)!.implies]) {
-          const owner = bundleOfKey(other)
-          if (owner && owner !== def.id) expected.add(owner)
+      for (const [field, relation] of [['requires', 'requires'], ['includes', 'implies']] as const) {
+        const expected = new Set<BundleId>()
+        for (const key of def.keys) {
+          for (const other of catalog.get(key)![relation]) {
+            const owner = bundleOfKey(other)
+            if (owner && owner !== def.id) expected.add(owner)
+          }
         }
+        expect(sorted(def[field]), `${def.id} ${field}`).toEqual(sorted(expected))
       }
-      expect(sorted(def.requires), def.id).toEqual(sorted(expected))
     }
-    expect(byId.get('planRelease')!.requires).toEqual(['planEdit'])
+    expect(BUNDLES.filter(def => def.includes.length > 0).map(def => [def.id, def.includes]))
+      .toEqual([['planRelease', ['planEdit']], ['teamMeetingsRelease', ['teamMeetingsWrite']]])
+    expect(byId.get('planRelease')!.requires).toEqual([])
+    expect(byId.get('planEdit')!.requires).toEqual(['planView'])
     expect(byId.get('leavePlan')!.requires).toEqual(['employeesView'])
     expect(sorted(byId.get('childrenManage')!.requires)).toEqual(['childrenEdit', 'childrenView'])
     expect(byId.get('cashClose')!.requires).toEqual(['cashBook'])
@@ -138,9 +144,23 @@ describe('bundle requirements', () => {
     }
   })
 
+  it('tell what switching on pulls in and what switching off takes away', () => {
+    expect(bundlesPulledBy(['planRelease'])).toEqual(['planView', 'planEdit'])
+    expect(bundlesPulledBy(['childrenManage'])).toEqual(['childrenView', 'childrenEdit'])
+    expect(bundlesPulledBy(['contractEdit'])).toEqual(['employeesView', 'contractView'])
+    expect(bundlesPulledBy(['planView'])).toEqual([])
+    expect(bundlesDroppedWith(['planView'])).toEqual(['planEdit', 'planRelease'])
+    expect(bundlesDroppedWith(['planEdit'])).toEqual(['planRelease'])
+    expect(bundlesDroppedWith(['childrenEdit'])).toEqual(['childrenManage'])
+    expect(bundlesDroppedWith(['cashBook'])).toEqual(['cashClose'])
+    for (const def of BUNDLES) {
+      for (const pulled of bundlesPulledBy([def.id])) expect(bundlesDroppedWith([pulled]), `${def.id} <- ${pulled}`).toContain(def.id)
+    }
+  })
+
   it('never need a Träger-only key, and no bundle needs itself', () => {
     for (const def of BUNDLES) {
-      expect(def.requires, def.id).not.toContain(def.id)
+      expect([...def.requires, ...def.includes], def.id).not.toContain(def.id)
       for (const key of def.keys) {
         for (const other of catalog.get(key)!.requires) expect(catalog.get(other)!.providerOnly, `${key} → ${other}`).toBe(false)
       }
@@ -157,7 +177,7 @@ describe('defaults (RF1, domain level)', () => {
   it('are closed: every default bundle has its required bundles', () => {
     for (const role of ['admin', 'observer'] as const) {
       for (const id of BUNDLE_DEFAULTS[role]) {
-        for (const required of byId.get(id)!.requires) expect(BUNDLE_DEFAULTS[role], `${role}: ${id}`).toContain(required)
+        for (const required of bundlesPulledBy([id])) expect(BUNDLE_DEFAULTS[role], `${role}: ${id}`).toContain(required)
       }
       expect(new Set(BUNDLE_DEFAULTS[role]).size).toBe(BUNDLE_DEFAULTS[role].length)
     }
@@ -216,10 +236,31 @@ describe('resolver (RF2, domain level)', () => {
     const rights = effectiveRights({ role: 'admin', overrides: [{ bundle: 'cashBook', effect: 'revoke', scope: null }] })
     expect(rights.bundles.has('cashClose')).toBe(false)
     expect(rights.permissions.has('cash.reopen')).toBe(false)
-    const lonely = effectiveRights({ role: 'observer', overrides: [{ bundle: 'planRelease', effect: 'grant', scope: null }] })
-    expect(lonely.bundles.has('planRelease')).toBe(false)
-    expect(lonely.permissions.has('plan.release')).toBe(false)
-    expect(lonely.permissions.has('plan.edit')).toBe(false)
+    const noView = effectiveRights({
+      role: 'observer',
+      overrides: [{ bundle: 'planView', effect: 'revoke', scope: null }, { bundle: 'planEdit', effect: 'grant', scope: null }],
+    })
+    expect(noView.bundles.has('planEdit')).toBe(false)
+    expect(noView.permissions.has('plan.edit')).toBe(false)
+  })
+
+  it('brings the included bundles with a bundle, unless an exception took one away', () => {
+    const release = effectiveRights({ role: 'observer', overrides: [{ bundle: 'planRelease', effect: 'grant', scope: null }] })
+    expect(release.bundles.has('planEdit')).toBe(true)
+    for (const key of ['plan.release', 'plan.edit', 'plan.staffing'] as const) expect(release.permissions.has(key), key).toBe(true)
+    const meetings = effectiveRights({ role: 'observer', roleBundles: [{ bundle: 'teamMeetingsRelease', enabled: true, scope: null }] })
+    expect(meetings.permissions.has('teamMeetings.manage')).toBe(true)
+    // Revoking the included bundle takes the including one with it.
+    const revoked = effectiveRights({ role: 'admin', overrides: [{ bundle: 'planEdit', effect: 'revoke', scope: null }] })
+    expect(revoked.bundles.has('planEdit')).toBe(false)
+    expect(revoked.bundles.has('planRelease')).toBe(false)
+    expect(revoked.permissions.has('plan.release')).toBe(false)
+    // Without plan.view the included planEdit cannot hold, so neither does planRelease.
+    const noView = effectiveRights({
+      role: 'observer',
+      overrides: [{ bundle: 'planView', effect: 'revoke', scope: null }, { bundle: 'planRelease', effect: 'grant', scope: null }],
+    })
+    expect(noView.permissions.has('plan.release')).toBe(false)
   })
 
   it('keeps the scope: stored on the role, on the exception, else the role default', () => {

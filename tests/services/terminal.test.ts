@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { employees } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
@@ -165,11 +166,11 @@ describe('six-digit PIN with escalating lock', () => {
   it('shows managers who has no PIN and whose PIN is locked', () => {
     const berta = addEmployee(db, 'Berta')
     const today = '2026-10-06'
-    expect(listEmployees(db, 1, today, 'admin').map(employee => [employee.name, employee.hasPin]))
+    expect(listEmployees(db, 1, today, rolePermissions(db, 'admin')).map(employee => [employee.name, employee.hasPin]))
       .toEqual([['Anna', true], ['Berta', false]])
-    const detail = (now: Date) => getEmployee(db, 1, anna, today, 'admin', now)
+    const detail = (now: Date) => getEmployee(db, 1, anna, today, rolePermissions(db, 'admin'), now)
     expect(detail(T0)).toMatchObject({ hasPin: true, pinLockedUntil: null, pinLockedPermanently: false, pinLockLevel: 0 })
-    expect(getEmployee(db, 1, berta, today, 'admin', T0)).toMatchObject({ hasPin: false, pinLockedUntil: null, pinLockedPermanently: false })
+    expect(getEmployee(db, 1, berta, today, rolePermissions(db, 'admin'), T0)).toMatchObject({ hasPin: false, pinLockedUntil: null, pinLockedPermanently: false })
     fiveWrong(T0)
     expect(detail(minutesLater(1))).toMatchObject({ pinLockedUntil: minutesLater(15).toISOString(), pinLockedPermanently: false, pinLockLevel: 1 })
     // An expired lock is no longer shown as running, but its level stays visible.
@@ -182,7 +183,7 @@ describe('six-digit PIN with escalating lock', () => {
   it('flags a PIN in the list only while it cannot be used', () => {
     addEmployee(db, 'Berta')
     const today = '2026-10-06'
-    const locked = (now: Date) => listEmployees(db, 1, today, 'admin', now).map(employee => [employee.name, employee.pinLocked])
+    const locked = (now: Date) => listEmployees(db, 1, today, rolePermissions(db, 'admin'), now).map(employee => [employee.name, employee.pinLocked])
     expect(locked(T0)).toEqual([['Anna', false], ['Berta', false]])
     fiveWrong(T0)
     expect(locked(minutesLater(1))).toEqual([['Anna', true], ['Berta', false]])

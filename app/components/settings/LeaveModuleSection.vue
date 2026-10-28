@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { isManager } from '#shared/domain/roles'
 import type { LeaveSettingsDto, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
-/** Träger only: switch leave requests on and choose who is responsible for leave planning. */
+/**
+ * Träger only: switch leave requests on and choose the Träger accounts told about new requests. Who plans and decides
+ * is the right „planen und genehmigen“ (rights page).
+ */
 const { data: settings, refresh } = await useFetch<LeaveSettingsDto>('/api/leave-settings', { key: 'leave-settings' })
 const { data: users } = await useFetch<UserDto[]>('/api/users')
 const run = useAction(refresh)
 
 const form = reactive({ enabled: false, plannerIds: [] as number[] })
 watch(settings, (value) => {
-  if (value) Object.assign(form, { enabled: value.enabled, plannerIds: [...value.plannerIds] })
+  if (value) Object.assign(form, { enabled: value.enabled, plannerIds: [...value.plannerIds].sort((a, b) => a - b) })
 }, { immediate: true })
 
-const candidates = computed(() => (users.value ?? []).filter(user => user.active && isManager(user.role)))
+const candidates = computed(() => (users.value ?? []).filter(user => user.active && user.role === 'provider'))
 
 function toggle(id: number, on: boolean) {
   form.plannerIds = on ? [...form.plannerIds, id] : form.plannerIds.filter(other => other !== id)
@@ -39,7 +41,8 @@ function save() {
         {{ user.username }} <span class="text-gray-500">({{ de.users.roles[user.role] }})</span>
       </label>
     </div>
-    <p v-if="!candidates.some(user => user.role === 'admin')" class="text-sm text-amber-700">{{ de.leavePlanning.noLeitung }}</p>
+    <p class="text-xs text-gray-500">{{ de.leavePlanning.plannersHint }}</p>
+    <p v-if="candidates.length === 0" class="text-sm text-amber-700">{{ de.leavePlanning.noProvider }}</p>
     <p class="text-xs text-gray-500">{{ de.leavePlanning.moduleHint }}</p>
     <UButton type="submit" :label="de.common.save" :disabled="!dirty" />
   </form>

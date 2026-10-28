@@ -182,7 +182,7 @@ describe('unlocking the tablet for child records', () => {
     it('gives a person without account read rights only', () => {
       const { token } = unlock()
       expect(viewer(token)).toEqual({
-        id: null, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: false, facilityId: 1,
+        id: null, employeeId: anna, name: 'Anna', role: 'observer', facilityId: 1,
         permissions: permissionsOf('observer'), visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
       })
     })
@@ -190,18 +190,21 @@ describe('unlocking the tablet for child records', () => {
       const account = addUser(db, 'anna', 'observer', anna)
       allowChildEditing(db, account.id)
       const { token, status } = unlock()
-      expect(viewer(token)).toMatchObject({ id: account.id, role: 'observer', canEditChildren: true })
+      expect(viewer(token)).toMatchObject({ id: account.id, role: 'observer' })
+      expect(viewer(token).permissions.has('children.edit')).toBe(true)
       expect(status).toMatchObject({ rights: { canEdit: true, isManager: false } })
-      db.update(users).set({ canEditChildren: false }).where(eq(users.id, account.id)).run()
       saveBundleOverride(db, account.id, 'childrenEdit', null)
-      expect(viewer(token)).toMatchObject({ id: account.id, canEditChildren: false })
+      expect(viewer(token)).toMatchObject({ id: account.id })
+      expect(viewer(token).permissions.has('children.edit')).toBe(false)
       expect(tabletUnlockStatus(db, tablet, token, NOW)).toMatchObject({ rights: { canEdit: false } })
     })
     it('treats a deactivated account as read only', () => {
       const account = addUser(db, 'anna', 'observer', anna)
-      db.update(users).set({ canEditChildren: true, active: false }).where(eq(users.id, account.id)).run()
+      allowChildEditing(db, account.id)
+      db.update(users).set({ active: false }).where(eq(users.id, account.id)).run()
       const { token } = unlock()
-      expect(viewer(token)).toMatchObject({ id: null, role: 'observer', canEditChildren: false })
+      expect(viewer(token)).toMatchObject({ id: null, role: 'observer' })
+      expect(viewer(token).permissions.has('children.edit')).toBe(false)
     })
     it('gives the Leitung every right and every child', () => {
       const account = addUser(db, 'leitung', 'admin', anna)
@@ -239,7 +242,7 @@ describe('unlocking the tablet for child records', () => {
       allowChildEditing(db, account.id)
       const { token } = unlockChildren(db, helperTablet, anna, '123456', NOW)
       expect(tabletChildViewer(db, helperTablet, token, NOW)).toMatchObject({
-        id: null, role: 'observer', canEditChildren: false, facilityId: krippe, onTablet: true,
+        id: null, role: 'observer', facilityId: krippe, onTablet: true,
       })
       expect(tabletUnlockStatus(db, helperTablet, token, NOW)).toMatchObject({ unlocked: true, employeeId: anna, rights: { canEdit: false } })
 

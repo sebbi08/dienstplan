@@ -62,11 +62,11 @@ describe('parent meetings', () => {
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
     const tablet = { visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: a, readable: [b] } }
     staff = {
-      id: annaUser, employeeId: anna, name: 'Anna', role: 'observer', canEditChildren: true, permissions: permissionsOf('observer', true),
+      id: annaUser, employeeId: anna, name: 'Anna', role: 'observer', permissions: permissionsOf('observer', true),
       facilityId: 1, ...tablet,
     }
     reader = {
-      id: null, employeeId: berta, name: 'Berta', role: 'observer', canEditChildren: false, permissions: permissionsOf('observer'),
+      id: null, employeeId: berta, name: 'Berta', role: 'observer', permissions: permissionsOf('observer'),
       facilityId: 1, ...tablet,
     }
     kidA = addChild(db, 1, { firstName: 'Lena', groupId: a })

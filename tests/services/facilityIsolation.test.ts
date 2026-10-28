@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import {
   calendarEvents, changeLog, closures, coverageRules, dayNotes, earlyClosures, employees, entries, monthPlans, notifications,
@@ -43,7 +44,7 @@ import {
 } from '../../server/services/weekTemplates'
 import { cellKey, noteKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId, makePlanner } from '../helpers/fixtures'
 
 const today = '2026-10-05'
 const date = '2026-10-06'
@@ -66,11 +67,11 @@ describe('facility isolation', () => {
 
   describe('employees, plan entries, day notes and closures (Task 3)', () => {
     it('lists only the facility\'s employees', () => {
-      expect(listEmployees(db, 1, today, 'admin').map(e => e.name)).toEqual(['Anna'])
-      expect(listEmployees(db, facility2, today, 'admin').map(e => e.name)).toEqual(['Kim'])
+      expect(listEmployees(db, 1, today, rolePermissions(db, 'admin')).map(e => e.name)).toEqual(['Anna'])
+      expect(listEmployees(db, facility2, today, rolePermissions(db, 'admin')).map(e => e.name)).toEqual(['Kim'])
       expect(loadEmployees(db, 1).map(e => e.name)).toEqual(['Anna'])
-      expect(errorCode(() => getEmployee(db, 1, kim, today, 'admin'))).toBe('employee_not_found')
-      expect(getEmployee(db, facility2, kim, today, 'admin').name).toBe('Kim')
+      expect(errorCode(() => getEmployee(db, 1, kim, today, rolePermissions(db, 'admin')))).toBe('employee_not_found')
+      expect(getEmployee(db, facility2, kim, today, rolePermissions(db, 'admin')).name).toBe('Kim')
     })
 
     it('refuses changes to another facility\'s employee', () => {
@@ -82,16 +83,16 @@ describe('facility isolation', () => {
       const contract = { personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null }
       expect(errorCode(() => setContract(db, 1, kim, contract))).toBe('employee_not_found')
       addHours(db, facility2, kim, { weeklyMinutes: 600, validFrom: '2026-10-01' })
-      const hoursId = getEmployee(db, facility2, kim, today, 'admin').hours[1]!.id
+      const hoursId = getEmployee(db, facility2, kim, today, rolePermissions(db, 'admin')).hours[1]!.id
       expect(errorCode(() => deleteHours(db, 1, hoursId))).toBe('hours_not_found')
       expect(errorCode(() => moveEmployee(db, 1, kim, 'up'))).toBe('employee_not_found')
       expect(errorCode(() => setEntitlement(db, 1, kim, 2026, { days: 30, carriedOverDays: 0 }))).toBe('employee_not_found')
       addAdjustment(db, facility2, kim, { date, minutes: 60, reason: 'Übertrag' })
-      const adjustmentId = getEmployee(db, facility2, kim, today, 'admin').adjustments[0]!.id
+      const adjustmentId = getEmployee(db, facility2, kim, today, rolePermissions(db, 'admin')).adjustments[0]!.id
       deleteAdjustment(db, 1, adjustmentId)
-      expect(getEmployee(db, facility2, kim, today, 'admin').adjustments).toHaveLength(1)
+      expect(getEmployee(db, facility2, kim, today, rolePermissions(db, 'admin')).adjustments).toHaveLength(1)
       deleteAdjustment(db, facility2, adjustmentId)
-      expect(getEmployee(db, facility2, kim, today, 'admin').adjustments).toHaveLength(0)
+      expect(getEmployee(db, facility2, kim, today, rolePermissions(db, 'admin')).adjustments).toHaveLength(0)
     })
 
     it('refuses plan entries for another facility\'s employee', () => {
@@ -164,7 +165,7 @@ describe('facility isolation', () => {
       const lea = createEmployee(db, leitungB, facility2, { name: 'Lea', shortName: 'LE', weeklyMinutes: 2340, validFrom: '2026-01-01' })
       const ben = createEmployee(db, leitungA, 1, { name: 'Ben', shortName: 'BE', weeklyMinutes: 2340, validFrom: '2026-01-01' })
       expect(loadEmployees(db, facility2).map(e => [e.name, e.sortOrder])).toEqual([['Kim', 2], ['Lea', 3]])
-      expect(listEmployees(db, 1, today, 'admin').map(e => e.id)).toEqual([anna, ben])
+      expect(listEmployees(db, 1, today, rolePermissions(db, 'admin')).map(e => e.id)).toEqual([anna, ben])
       const newFacility = addFacility(db, 'Hort')
       const first = createEmployee(db, leitungA, newFacility, { name: 'Tom', shortName: 'TO', weeklyMinutes: 2340, validFrom: '2026-01-01' })
       expect(loadEmployees(db, newFacility).map(e => [e.id, e.sortOrder])).toEqual([[first, 1]])
@@ -288,8 +289,8 @@ describe('facility isolation', () => {
       }
       setContract(db, 1, anna, contract)
       setContract(db, facility2, kim, contract)
-      expect(listLevelUps(db, 1, today, 'provider').map(due => due.name)).toEqual(['Anna'])
-      expect(listLevelUps(db, facility2, today, 'provider').map(due => due.name)).toEqual(['Kim'])
+      expect(listLevelUps(db, 1, today, rolePermissions(db, 'provider')).map(due => due.name)).toEqual(['Anna'])
+      expect(listLevelUps(db, facility2, today, rolePermissions(db, 'provider')).map(due => due.name)).toEqual(['Kim'])
     })
 
     it('calendar events stay in their facility', () => {
@@ -378,7 +379,9 @@ describe('facility isolation', () => {
 
     it('leave planning, limit and counting are per facility', () => {
       const traeger = addUser(db, 'traeger', 'provider')
-      setLeaveModule(db, { enabled: true, plannerIds: [leitungA.id, leitungB.id] })
+      setLeaveModule(db, { enabled: true, plannerIds: [] })
+      makePlanner(db, leitungA)
+      makePlanner(db, leitungB)
       const lea = addEmployee(db, 'Lea', { facilityId: facility2 })
       const annaAccount = addUser(db, 'anna', 'observer', anna)
       const kimAccount = addUser(db, 'kim', 'observer', kim)
@@ -424,11 +427,15 @@ describe('facility isolation', () => {
       expect(listMyLeaveRequests(db, kimAccount)[0]!.status).toBe('rejected')
     })
 
-    it('only Träger and Leitung accounts can be leave planners', () => {
+    it('only Träger accounts are told about new requests by the list', () => {
       const tablet = addUser(db, 'tablet', 'terminal')
-      expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [tablet.id] }))).toBe('invalid_leave_planner')
-      setLeaveModule(db, { enabled: true, plannerIds: [leitungB.id] })
-      expect(getLeaveSettings(db, leitungB).plannerIds).toEqual([leitungB.id])
+      const traeger = addUser(db, 'traeger', 'provider')
+      for (const account of [tablet, leitungB]) {
+        expect(errorCode(() => setLeaveModule(db, { enabled: true, plannerIds: [account.id] }))).toBe('invalid_leave_planner')
+      }
+      setLeaveModule(db, { enabled: true, plannerIds: [traeger.id] })
+      expect(getLeaveSettings(db, traeger).plannerIds).toEqual([traeger.id])
+      expect(getLeaveSettings(db, leitungB).plannerIds).toEqual([])
     })
   })
 
@@ -456,7 +463,7 @@ describe('facility isolation', () => {
       expect(listOpenRecords(db, 1, '2026-10-08').map(r => r.name)).toEqual(['Anna'])
 
       const fresh = addFacility(db, 'Hort')
-      expect(listEmployees(db, fresh, today, 'admin')).toEqual([])
+      expect(listEmployees(db, fresh, today, rolePermissions(db, 'admin'))).toEqual([])
       expect(loadEmployees(db, fresh)).toEqual([])
       expect(listClosures(db, fresh)).toEqual([])
       expect(listEarlyClosures(db, fresh, 2026)).toEqual([])
@@ -467,7 +474,7 @@ describe('facility isolation', () => {
       expect(getSickYear(db, fresh, 2026)).toEqual([])
       expect(getBalanceOverview(db, fresh, 2026, 10, today)).toEqual([])
       expect(getLeaveOverview(db, fresh, 2026, today)).toEqual([])
-      expect(listLevelUps(db, fresh, today, 'provider')).toEqual([])
+      expect(listLevelUps(db, fresh, today, rolePermissions(db, 'provider'))).toEqual([])
       expect(getStaffYearCalendar(db, fresh, 2026, null).employees).toEqual([])
       expect(getYearCalendar(db, fresh, 2026).employees).toEqual([])
       expect(getYearCalendar(db, fresh, 2026).events).toEqual([])
@@ -825,7 +832,7 @@ describe('facility isolation', () => {
       // Nothing changed.
       expect(listGroups(db, facility2).map(group => group.name)).toEqual(names)
       expect(listGroups(db, 1).map(group => group.name)).toEqual(['Mäuse'])
-      expect(getEmployee(db, 1, anna, today, 'admin').groupId).toBe(mäuse)
+      expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).groupId).toBe(mäuse)
       expect(loadEntries(db, { employeeId: anna }).map(entry => [entry.id, entry.groupId])).toEqual([[annaEntryId, null]])
       expect(loadEntries(db, { employeeId: kim }).map(entry => [entry.id, entry.groupId])).toEqual([[expect.any(Number), null], [kimEntryId, eulen]])
       expect(getSettings(db, 1).coverageRules.map(rule => rule.groupId)).toContain(mäuse)
@@ -842,7 +849,7 @@ describe('facility isolation', () => {
       for (const name of names) {
         for (const value of [
           listGroups(db, 1),
-          listEmployees(db, 1, today, 'admin'),
+          listEmployees(db, 1, today, rolePermissions(db, 'admin')),
           getSettings(db, 1),
           listWeekTemplates(db, 1),
           getMonthPlan(db, leitungA, 1, 2026, 10, today),

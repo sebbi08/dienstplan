@@ -1,17 +1,17 @@
 import { randomBytes } from 'node:crypto'
 import { and, eq, inArray } from 'drizzle-orm'
-import { effectivePermissions } from '../../shared/domain/permissionBundles'
-import { can } from '../../shared/domain/permissions'
+import { effectiveRights, type BundleScope } from '../../shared/domain/permissionBundles'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { UNLOCK_GRACE_SECONDS } from '../../shared/domain/tablet'
 import type {
-  ChildRightsDto, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
+  ChildRightsDto, GroupAccess, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities, terminalUnlocks, users } from '../db/schema'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { readableGroupIds } from './groupReadAccess'
-import { accountPermissions } from './permissions'
+import { accountRights } from './permissions'
 import { getTabletSettings } from './tabletSettings'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -21,8 +21,19 @@ type Resolved =
   | { unlocked: false; dropped?: UnlockRow }
   | { unlocked: true; row: UnlockRow; person: TerminalPersonDto; settings: TabletSettingsDto; viewer: ChildViewer }
 
-/** A person without (active) account of the home facility at the tablet: the Mitarbeiter defaults, no flags. */
-const NO_ACCOUNT = effectivePermissions({ role: 'observer' })
+/** A person without (active) account of the home facility at the tablet: the Mitarbeiter defaults, no exceptions. */
+const NO_ACCOUNT = effectiveRights({ role: 'observer' })
+
+/**
+ * The groups a person works with (see `groupRight`): with the scope „nur eigene Gruppe“ on any child switch they hold,
+ * their own group and the groups it may read; with „ganze Einrichtung“ on all of them, or without a home group, every
+ * group (null).
+ */
+function groupAccessFor(db: Db, scopes: ReadonlyMap<PermissionKey, BundleScope>, groupId: number | null): GroupAccess | null {
+  if (groupId === null || ![...scopes.values()].includes('group')) return null
+  // No facility check here: the employee's group is one of the home facility, and a stray one must not break the tablet.
+  return { own: groupId, readable: readableGroupIds(db, groupId) }
+}
 
 /** The moment after which the server no longer accepts an unlock that was last used at lastActiveAt. */
 function validUntil(lastActiveAt: string, lockMinutes: number): number {
@@ -31,11 +42,11 @@ function validUntil(lastActiveAt: string, lockMinutes: number): number {
 
 /**
  * The rights of the person who unlocked, as they are now (spec §4.1): home staff with an active linked account have the
- * permissions of that account (with its per-person flags); everyone else (no or deactivated account, helpers) has the
- * Mitarbeiter defaults without any flag, so reads and keeps the attendance, but changes no record. Home staff with a
- * group and without children.manage work with their own group and the groups it may read (group book spec §3.1);
- * everyone else with every group (ruling: no home group = all groups). Without children.planned the tablet switches
- * decide which planned children are shown.
+ * permissions of that account (role settings and exceptions); everyone else (no or deactivated account, helpers) has
+ * the Mitarbeiter defaults without exceptions, so reads and keeps the attendance, but changes no record. Home staff
+ * whose child switches have the scope „nur eigene Gruppe“ work with their own group and the groups it may read (group
+ * book spec §3.1); with „ganze Einrichtung“, helpers and staff without a home group with every group (ruling: no home
+ * group = all groups). Without children.planned the tablet switches decide which planned children are shown.
  */
 function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): ChildViewer {
   const employee = db.select({ facilityId: employees.facilityId, name: employees.name, groupId: employees.groupId })
@@ -45,21 +56,20 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     ? db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
     : undefined
   const role = account?.role ?? 'observer'
-  const permissions = account ? accountPermissions(db, account) : NO_ACCOUNT
-  const ownGroup = homeStaff && !can(permissions, 'children.manage') ? employee.groupId : null
+  // One read of the rights gives both the permissions and the scope.
+  const rights = account ? accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId }) : NO_ACCOUNT
+  const permissions = rights.permissions
   return {
     id: account?.id ?? null,
     employeeId,
     name: employee?.name ?? '',
     role,
-    canEditChildren: account?.canEditChildren ?? false,
     permissions,
     facilityId: terminal.facilityId,
     visibility: can(permissions, 'children.planned') ? null
       : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts },
     onTablet: true,
-    // No facility check here: the employee's group is one of the home facility, and a stray one must not break the tablet.
-    groups: ownGroup === null ? null : { own: ownGroup, readable: readableGroupIds(db, ownGroup) },
+    groups: homeStaff ? groupAccessFor(db, rights.scopes, employee.groupId) : null,
   }
 }
 
@@ -158,11 +168,14 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
   if (!can(user.permissions, 'children.ownAccount')) throw new ServiceError(403, 'children_tablet_only')
   if (user.facilityId === null) throw new ServiceError(403, 'no_facility')
   const employee = user.employeeId === null ? undefined
-    : db.select({ name: employees.name }).from(employees).where(eq(employees.id, user.employeeId)).get()
+    : db.select({ name: employees.name, facilityId: employees.facilityId, groupId: employees.groupId })
+      .from(employees).where(eq(employees.id, user.employeeId)).get()
+  // As at the tablet: whose child switches reach only the own group sees that group (and those it may read).
+  const homeStaff = employee !== undefined && employee.facilityId === user.facilityId
   return {
     id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
-    canEditChildren: user.canEditChildren, permissions: user.permissions, facilityId: user.facilityId, visibility: null,
-    onTablet: false, groups: null,
+    permissions: user.permissions, facilityId: user.facilityId, visibility: null, onTablet: false,
+    groups: homeStaff ? groupAccessFor(db, accountRights(db, user).scopes, employee.groupId) : null,
   }
 }
 

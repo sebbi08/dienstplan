@@ -26,13 +26,14 @@ export function useSettingsFacilityId() {
 }
 
 /**
- * The facilities the signed-in manager may see and the one they work in (shared by key between the header,
- * the settings and the users page). Not fetched for employees and tablets, which have no facility switcher.
+ * The facilities the signed-in account may see (the own one; the Träger all of them) and the one they work in (shared
+ * by key between the header, the settings and the users page). Not fetched for the tablet, which has no header name.
  */
 export function useFacilities() {
-  const { can } = useCan()
-  // GET /api/facilities needs the facility's settings (settings.facility).
-  const facilities = useFetch<FacilitiesDto>('/api/facilities', { key: 'facilities', immediate: can('settings.facility'), watch: false })
+  const { user } = useUserSession()
+  // GET /api/facilities answers every signed-in account but the tablet.
+  const signedIn = !!user.value && user.value.role !== 'terminal'
+  const facilities = useFetch<FacilitiesDto>('/api/facilities', { key: 'facilities', immediate: signedIn, watch: false })
   const activeName = computed(() => facilities.data.value?.facilities.find(f => f.id === facilities.data.value?.activeId)?.name ?? null)
   const pageFacility = usePageFacility()
   watch(() => facilities.data.value?.activeId, (activeId) => {

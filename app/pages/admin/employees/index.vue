@@ -302,7 +302,7 @@ const td = 'px-3 py-2'
         </div>
       </li>
     </ul>
-    <p :class="hint">{{ de.employees.listHint(canManageRights || appSettings?.contractVisibleToAdmins === true) }}</p>
+    <p :class="hint">{{ de.employees.listHint(can('employees.contractView')) }}</p>
 
     <!-- Who already left: closed by default; the detail page stays as it is until someone deletes the person for good. -->
     <details v-if="split.archived.length" class="rounded-lg bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-gray-200">
