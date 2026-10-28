@@ -10,7 +10,7 @@ import {
   absenceCodes, childDevelopmentDocs, childParentMeetings, children, coverageRules, employees, printTemplates, shiftTemplates,
   templateCategories, terminalUnlocks, users,
 } from '../../server/db/schema'
-import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
+import { DEFAULT_TEMPLATE_CATEGORIES, ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
 import { STARTERS } from '../../shared/domain/forms/starters'
 import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
@@ -1491,7 +1491,7 @@ describe('upgrading a filled database through migrateDb', () => {
   it('print_templates keep their file when the uploader is deleted', () => {
     const db = createTestDb()
     const user = addUser(db, 'leitung', 'admin')
-    const categoryId = db.insert(templateCategories).values({ name: 'Eltern' }).returning().get().id
+    const categoryId = db.insert(templateCategories).values({ name: 'Briefe' }).returning().get().id
     db.insert(printTemplates).values({
       facilityId: 1, title: 'Elternbrief', categoryId, mimeType: 'application/pdf', size: 5, data: Buffer.from('%PDF-'),
       uploadedBy: user.id, uploadedAt: '2026-10-21T08:00:00.000Z', updatedAt: '2026-10-21T08:00:00.000Z',
@@ -1684,10 +1684,49 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
-  it('0063 creates no category on a database without templates', () => {
+  it('0063 folds German case variants into one category, sorts umlauts as their base letter and files empty ones under „Sonstiges“', () => {
+    const { db, sqlite } = databaseAt('0062')
+    sqlite.exec(`
+      INSERT INTO print_templates (id, facility_id, title, category, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (1, 1, 'A', 'übungen', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (2, 1, 'B', 'Übungen', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (3, 1, 'C', 'Zahnarzt', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (4, 1, 'D', 'Ärztliches', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (5, 1, 'E', 'ÄRZTLICHES', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (6, 1, 'F', 'Straße', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (7, 1, 'G', 'STRASSE', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (8, 1, 'H', '', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (9, 1, 'I', '   ', 'application/pdf', 3, x'255044', 'a', 'b'),
+        (10, 1, 'J', 'Eltern', 'application/pdf', 3, x'255044', 'a', 'b');
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    // No default categories beside those from the templates.
+    expect(sqlite.prepare('SELECT name, sort_order FROM template_categories ORDER BY sort_order').all()).toEqual([
+      { name: 'ÄRZTLICHES', sort_order: 0 }, { name: 'Eltern', sort_order: 1 }, { name: 'Sonstiges', sort_order: 2 },
+      { name: 'STRASSE', sort_order: 3 }, { name: 'Übungen', sort_order: 4 }, { name: 'Zahnarzt', sort_order: 5 },
+    ])
+    expect(sqlite.prepare(`
+      SELECT p.id, c.name FROM print_templates p JOIN template_categories c ON c.id = p.category_id ORDER BY p.id
+    `).all().map(row => Object.values(row as Record<string, unknown>))).toEqual([
+      [1, 'Übungen'], [2, 'Übungen'], [3, 'Zahnarzt'], [4, 'ÄRZTLICHES'], [5, 'ÄRZTLICHES'], [6, 'STRASSE'], [7, 'STRASSE'],
+      [8, 'Sonstiges'], [9, 'Sonstiges'], [10, 'Eltern'],
+    ])
+    // The old text stays as it was.
+    expect(sqlite.prepare('SELECT category FROM print_templates WHERE id IN (8, 9) ORDER BY id').all())
+      .toEqual([{ category: '' }, { category: '   ' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0063 gives a database without templates (and a new one) the default categories, visible to all', () => {
     const { db, sqlite } = databaseAt('0062')
     migrateDb(db, MIGRATIONS)
-    expect(count(sqlite, 'template_categories')).toBe(0)
+    const defaults = DEFAULT_TEMPLATE_CATEGORIES.map((name, index) => ({ name, sort_order: index, visibility: 'all' }))
+    expect(sqlite.prepare('SELECT name, sort_order, visibility FROM template_categories ORDER BY sort_order').all()).toEqual(defaults)
+    const { db: fresh, sqlite: freshSqlite } = createDb(':memory:')
+    migrateDb(fresh, MIGRATIONS)
+    expect(freshSqlite.prepare('SELECT name, sort_order, visibility FROM template_categories ORDER BY sort_order').all()).toEqual(defaults)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

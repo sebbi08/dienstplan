@@ -573,8 +573,8 @@ export interface TemplateCategoryDto {
   id: number
   name: string
   visibility: TemplateVisibility
-  /** Holds templates (of any facility): then it cannot be deleted. */
-  inUse: boolean
+  /** The templates filed in it (of any facility); while there are any it cannot be deleted. */
+  templateCount: number
 }
 
 /** What Leitung or Träger enter about a category. */

@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from 'drizzle-orm'
+import { asc, count, eq, inArray } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { seesTemplateCategory, visibleTemplateLevels, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { Role, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
@@ -20,14 +20,16 @@ type CategoryRow = typeof templateCategories.$inferSelect
 const ordered = (db: Db): CategoryRow[] =>
   db.select().from(templateCategories).orderBy(asc(templateCategories.sortOrder), asc(templateCategories.id)).all()
 
-const comparable = (name: string) => name.trim().toLocaleLowerCase('de')
+/** Names that differ only in case (umlauts included) or in ß/ss count as the same; as in 0063_template_categories. */
+export const comparableCategoryName = (name: string) => name.trim().toLocaleLowerCase('de').replace(/ß/g, 'ss')
 
-/** The categories the viewer sees, in their order, with whether templates (of any facility) are filed in them. */
+/** The categories the viewer sees, in their order, with how many templates (of any facility) are filed in them. */
 export function listCategories(db: Db, viewer: CategoryActor): TemplateCategoryDto[] {
   const rows = ordered(db).filter(row => seesTemplateCategory(viewer.role, row.visibility))
-  const used = new Set(rows.length === 0 ? [] : db.selectDistinct({ id: printTemplates.categoryId }).from(printTemplates)
-    .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).all().map(row => row.id))
-  return rows.map(row => ({ id: row.id, name: row.name, visibility: row.visibility, inUse: used.has(row.id) }))
+  const counts = new Map(rows.length === 0 ? [] : db.select({ id: printTemplates.categoryId, n: count() }).from(printTemplates)
+    .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).groupBy(printTemplates.categoryId).all()
+    .map(row => [row.id, row.n]))
+  return rows.map(row => ({ id: row.id, name: row.name, visibility: row.visibility, templateCount: counts.get(row.id) ?? 0 }))
 }
 
 /** The category of a template as the viewer chooses it: one they see, else 400 template_category_invalid. */
@@ -49,14 +51,21 @@ function loadEditable(db: Db, actor: CategoryActor, id: number): CategoryRow {
   return row
 }
 
-/** The trimmed name, unique regardless of case among all categories (also those the actor does not see). */
-function checkedInput(db: Db, actor: CategoryActor, input: TemplateCategoryInput, id: number | null): { name: string; visibility: TemplateVisibility } {
+/**
+ * The trimmed name, unique regardless of case among all categories (also those the actor does not see). A category
+ * keeping its own name is never a clash, even beside a twin from before the categories.
+ */
+function checkedInput(
+  db: Db, actor: CategoryActor, input: TemplateCategoryInput, current: CategoryRow | null,
+): { name: string; visibility: TemplateVisibility } {
   const name = input.name.trim()
   if (name === '') throw new ServiceError(400, 'template_category_name_required')
   if (!visibleTemplateLevels(actor.role).includes(input.visibility)) throw new ServiceError(403, 'forbidden')
-  const clash = db.select({ id: templateCategories.id, name: templateCategories.name }).from(templateCategories).all()
-    .some(row => row.id !== id && comparable(row.name) === comparable(name))
-  if (clash) throw new ServiceError(409, 'template_category_name_taken')
+  if (name !== current?.name) {
+    const clash = db.select({ id: templateCategories.id, name: templateCategories.name }).from(templateCategories).all()
+      .some(row => row.id !== current?.id && comparableCategoryName(row.name) === comparableCategoryName(name))
+    if (clash) throw new ServiceError(409, 'template_category_name_taken')
+  }
   return { name: name.slice(0, 60), visibility: input.visibility }
 }
 
@@ -71,8 +80,8 @@ export function createCategory(db: Db, actor: CategoryActor, input: TemplateCate
 
 /** Renames the category and changes who sees it (and its templates). */
 export function updateCategory(db: Db, actor: CategoryActor, id: number, input: TemplateCategoryInput): void {
-  loadEditable(db, actor, id)
-  db.update(templateCategories).set(checkedInput(db, actor, input, id)).where(eq(templateCategories.id, id)).run()
+  const current = loadEditable(db, actor, id)
+  db.update(templateCategories).set(checkedInput(db, actor, input, current)).where(eq(templateCategories.id, id)).run()
 }
 
 /**

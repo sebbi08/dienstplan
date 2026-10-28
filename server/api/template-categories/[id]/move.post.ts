@@ -1,10 +1,7 @@
-import { idParams, moveSchema } from '../../schemas'
-import { moveCategory } from '../../services/templateCategories'
+import { idParams, moveSchema } from '../../../schemas'
+import { moveCategory } from '../../../services/templateCategories'
 
-/**
- * Moves the category one place up or down among those the editor sees. On the category's own address (not
- * …/move): one more API path pushes Nuxt's typed fetch over TypeScript's instantiation depth (TS2589).
- */
+/** One place up or down among the categories the editor sees. */
 export default defineServiceHandler(async (event) => {
   const editor = await requirePermission(event, 'printTemplates.edit')
   const { id } = await getValidatedRouterParams(event, idParams.parse)

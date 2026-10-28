@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { printTemplates } from '../../server/db/schema'
+import { printTemplates, templateCategories } from '../../server/db/schema'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import {
   deleteTemplate, listTemplates, readTemplateFile, replaceTemplateFile, templateReaderFacility, updateTemplate, uploadTemplate,
@@ -39,6 +39,8 @@ describe('print templates', () => {
     leitung = actor(addUser(db, 'leitung', 'admin'))
     otherLeitung = actor(addUser(db, 'leitung2', 'admin', null, other))
     provider = actor(addUser(db, 'traeger', 'provider'))
+    // Without the default categories, so the tests name their own.
+    db.delete(templateCategories).run()
     cat = {}
     category('Eltern')
     category('Gesundheit')

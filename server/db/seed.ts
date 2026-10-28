@@ -54,6 +54,13 @@ export const DEFAULT_DOCUMENT_TYPES: Omit<typeof documentTypes.$inferInsert, 'fa
   { name: 'Sonstiges', important: false, required: false, confidentialDefault: false, sortOrder: 6 },
 ]
 
+/**
+ * The print template categories a database starts with (visible to all, in this order): the former suggestions of the
+ * free-text category. Created by the migration 0063_template_categories – on a new installation, and on an existing one
+ * without templates – and deliberately not here: categories deleted by hand must not come back at the next start.
+ */
+export const DEFAULT_TEMPLATE_CATEGORIES = ['Eltern', 'Gesundheit', 'Personal']
+
 /** The facility the existing data moved into (created by the migration 0019_facilities). */
 export const FIRST_FACILITY_ID = 1
 

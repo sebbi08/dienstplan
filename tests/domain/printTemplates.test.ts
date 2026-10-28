@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { berlinDay, groupByCategory, titleFromFileName } from '../../app/utils/printTemplates'
+import { berlinDay, groupByCategory, hiddenByVisibility, titleFromFileName } from '../../app/utils/printTemplates'
+import type { TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/api'
 
 const template = (id: number, categoryId: number, title: string): PrintTemplateDto => ({
   id, title, categoryId, category: '', global: false, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
 })
-const category = (id: number, name: string): TemplateCategoryDto => ({ id, name, visibility: 'all', inUse: true })
+const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2): TemplateCategoryDto =>
+  ({ id, name, visibility, templateCount })
 
 describe('print template page helpers', () => {
   it('groups by category in the categories\' order, titles alphabetical, and leaves out empty categories', () => {
@@ -17,6 +19,14 @@ describe('print template page helpers', () => {
     expect(groups.map(group => [group.category.name, group.templates.map(t => t.title)])).toEqual([
       ['Sonstiges', ['Attest', 'Zettel']], ['Eltern', ['Ausflug', 'Übernachtung']],
     ])
+  })
+
+  it('counts the templates hidden from Leitung, Mitarbeiter and tablet when a category becomes the Träger\'s alone', () => {
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'provider')).toBe(3)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'managers', 2), 'provider')).toBe(2)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 0), 'provider')).toBe(0)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'provider', 3), 'provider')).toBe(0)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'managers')).toBe(0)
   })
 
   it('shows the Berlin day of a timestamp', () => {

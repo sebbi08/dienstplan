@@ -1157,10 +1157,13 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   - **Alle (auch Mitarbeiter und Tablet)**: Leitung, Träger, das Tablet und die Mitarbeiter mit ihrem eigenen Konto.
   - **Nur Leitung und Träger**: z. B. für Formulare der Verwaltung.
   - **Nur Träger**: diese Kategorien sieht nur der Träger; nur er kann sie anlegen, ändern oder löschen. Die Leitung
-    sieht sie gar nicht und kann auch keine Kategorie auf „Nur Träger“ stellen.
+    sieht sie gar nicht und kann auch keine Kategorie auf „Nur Träger“ stellen. Stellt der Träger eine Kategorie mit
+    Vorlagen auf „Nur Träger“, fragt die App vorher nach und nennt, wie viele Vorlagen Leitung, Mitarbeiter und Tablet
+    dann nicht mehr sehen.
 
   Die Vorlagen in einer Kategorie sieht nur, wer die Kategorie sieht. Kategorien, die nicht alle sehen, sind auf der
-  Seite markiert („nur Leitung und Träger“ bzw. „nur Träger“).
+  Seite markiert („nur Leitung und Träger“ bzw. „nur Träger“). Eine neu eingerichtete App beginnt mit den Kategorien
+  „Eltern“, „Gesundheit“ und „Personal“ (für **Alle**).
 - **Hochladen**: Leitung und Träger öffnen im Menü unter **Mehr** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt sind nur
   **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
   **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** wählst du aus der Liste;
@@ -1177,7 +1180,9 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
 - **Mitarbeiter** finden die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) unter **Meins** → **Vorlagen**: nur die
   Kategorien für **Alle**, nur zum Öffnen und Drucken – hochladen, ändern und die Kategorien verwalten können sie nicht.
 - **Beim Update** auf diese Version macht die App aus jeder bisher eingetippten Kategorie eine Kategorie (für **Alle**,
-  nach Namen sortiert) und ordnet jede Vorlage ihr zu; „eltern“ und „Eltern“ werden dabei eine Kategorie.
+  nach Namen sortiert, Umlaute wie ihr Grundbuchstabe) und ordnet jede Vorlage ihr zu; „eltern“ und „Eltern“ (ebenso
+  „übungen“ und „Übungen“, „Straße“ und „STRASSE“) werden dabei eine Kategorie, Vorlagen ohne Kategorie kommen unter
+  „Sonstiges“. Gab es noch keine Vorlagen, beginnt die App mit „Eltern“, „Gesundheit“ und „Personal“.
 
 ## 20. Personalschlüssel
 

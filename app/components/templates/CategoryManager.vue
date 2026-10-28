@@ -2,6 +2,7 @@
 import { TEMPLATE_VISIBILITIES, type TemplateVisibility } from '#shared/domain/templateCategories'
 import type { TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { hiddenByVisibility } from '~/utils/printTemplates'
 
 /**
  * „Kategorien verwalten“ on the templates page (Leitung and Träger): create, rename, reorder, change who sees a
@@ -40,6 +41,10 @@ watch(open, (isOpen) => {
 async function save() {
   const id = editingId.value
   const body = { name: form.name, visibility: form.visibility }
+  // Making a category with templates the Träger's alone hides them from Leitung, Mitarbeiter and the tablet: ask first.
+  const current = props.categories.find(category => category.id === id)
+  const hidden = current ? hiddenByVisibility(current, form.visibility) : 0
+  if (hidden > 0 && !(await confirm(t.confirmProviderOnly(current!.name, hidden)))) return
   const saved = await run(() => (id === null
     ? $fetch<unknown>('/api/template-categories', { method: 'POST', body })
     : $fetch<unknown>(`/api/template-categories/${id}`, { method: 'PUT', body })), de.common.saved)
@@ -47,7 +52,7 @@ async function save() {
 }
 
 function move(category: TemplateCategoryDto, direction: 'up' | 'down') {
-  run(() => $fetch<unknown>(`/api/template-categories/${category.id}`, { method: 'PATCH', body: { direction } }))
+  run(() => $fetch<unknown>(`/api/template-categories/${category.id}/move`, { method: 'POST', body: { direction } }))
 }
 
 async function remove(category: TemplateCategoryDto) {
@@ -69,7 +74,7 @@ async function remove(category: TemplateCategoryDto) {
             <div class="min-w-40 flex-1">
               <span class="font-medium">{{ category.name }}</span>
               <span class="block text-xs text-gray-500">
-                {{ t.visibilities[category.visibility] }}<template v-if="category.inUse"> · {{ t.inUse }}</template>
+                {{ t.visibilities[category.visibility] }}<template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template>
               </span>
             </div>
             <div class="flex items-center gap-1">
@@ -78,7 +83,8 @@ async function remove(category: TemplateCategoryDto) {
               <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :title="de.common.edit" :disabled="busy" @click="startEdit(category)" />
               <UButton
                 size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete"
-                :title="category.inUse ? de.errors.template_category_not_empty : de.common.delete" :disabled="busy || category.inUse"
+                :title="category.templateCount > 0 ? de.errors.template_category_not_empty : de.common.delete"
+                :disabled="busy || category.templateCount > 0"
                 @click="remove(category)"
               />
             </div>

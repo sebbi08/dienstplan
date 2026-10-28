@@ -1,4 +1,5 @@
 import { nowInBerlin } from '#shared/domain/timeRecords'
+import type { TemplateVisibility } from '#shared/domain/templateCategories'
 import type { IsoDate } from '#shared/domain/types'
 import type { PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 
@@ -19,6 +20,14 @@ export function groupByCategory(
         .sort((a, b) => a.title.localeCompare(b.title, 'de')),
     }))
     .filter(group => group.templates.length > 0)
+}
+
+/**
+ * How many templates of the category Leitung, Mitarbeiter and the tablet would no longer see with the new visibility:
+ * all of them when it becomes the Träger's alone, else none (to ask before saving).
+ */
+export function hiddenByVisibility(category: TemplateCategoryDto, visibility: TemplateVisibility): number {
+  return visibility === 'provider' && category.visibility !== 'provider' ? category.templateCount : 0
 }
 
 /** The title a chosen file suggests: its name without the extension. */

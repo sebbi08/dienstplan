@@ -819,7 +819,9 @@ export const de = {
       add: 'Kategorie anlegen', edit: 'Kategorie ändern', name: 'Name', visibility: 'Wer sieht sie?',
       visibilities: { all: 'Alle (auch Mitarbeiter und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' },
       moveUp: 'Nach oben', moveDown: 'Nach unten',
-      inUse: 'enthält Vorlagen',
+      templateCount: (n: number) => (n === 1 ? '1 Vorlage' : `${n} Vorlagen`),
+      confirmProviderOnly: (name: string, n: number) => `${n === 1 ? 'Die 1 Vorlage' : `Die ${n} Vorlagen`} in „${name}“ `
+        + 'sehen Leitung, Mitarbeiter und Tablet dann nicht mehr. Trotzdem auf „Nur Träger“ stellen?',
       confirmDelete: (name: string) => `Die Kategorie „${name}“ löschen?`,
     },
     scope: 'Gilt für', scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'alle Einrichtungen',

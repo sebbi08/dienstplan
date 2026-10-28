@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { templateCategories } from '../../server/db/schema'
+import { DEFAULT_TEMPLATE_CATEGORIES } from '../../server/db/seed'
 import { uploadTemplate } from '../../server/services/printTemplates'
 import {
   createCategory, deleteCategory, listCategories, moveCategory, updateCategory,
@@ -19,8 +20,16 @@ describe('template categories', () => {
     createCategory(db, by, { name, visibility })
   const names = (role: Role) => listCategories(db, { role }).map(category => category.name)
 
+  it('starts a new database with the default categories, visible to all', () => {
+    expect(listCategories(createTestDb(), leitung).map(category => [category.name, category.visibility, category.templateCount]))
+      .toEqual(DEFAULT_TEMPLATE_CATEGORIES.map(name => [name, 'all', 0]))
+    expect(DEFAULT_TEMPLATE_CATEGORIES).toEqual(['Eltern', 'Gesundheit', 'Personal'])
+  })
+
   beforeEach(() => {
     db = createTestDb()
+    // The tests below start without the default categories.
+    db.delete(templateCategories).run()
   })
 
   describe('create and list', () => {
@@ -28,19 +37,33 @@ describe('template categories', () => {
       const eltern = create(leitung, '  Eltern ')
       create(provider, 'Personal', 'managers')
       expect(listCategories(db, provider)).toEqual([
-        { id: eltern, name: 'Eltern', visibility: 'all', inUse: false },
-        { id: expect.any(Number), name: 'Personal', visibility: 'managers', inUse: false },
+        { id: eltern, name: 'Eltern', visibility: 'all', templateCount: 0 },
+        { id: expect.any(Number), name: 'Personal', visibility: 'managers', templateCount: 0 },
       ])
     })
 
-    it('needs a name and keeps names unique regardless of case', () => {
+    it('needs a name and keeps names unique regardless of case, umlauts and ß/ss included', () => {
       expect(errorCode(() => create(leitung, '   '))).toBe('template_category_name_required')
       create(leitung, 'Eltern')
       expect(errorCode(() => create(leitung, 'eltern'))).toBe('template_category_name_taken')
       expect(errorCode(() => create(provider, ' ELTERN '))).toBe('template_category_name_taken')
       create(leitung, 'Ärztliches')
       expect(errorCode(() => create(leitung, 'ärztliches'))).toBe('template_category_name_taken')
-      expect(names('provider')).toEqual(['Eltern', 'Ärztliches'])
+      create(leitung, 'Straße')
+      expect(errorCode(() => create(leitung, 'STRASSE'))).toBe('template_category_name_taken')
+      expect(names('provider')).toEqual(['Eltern', 'Ärztliches', 'Straße'])
+    })
+
+    it('lets a category keep its own name, also beside a case twin from before the categories', () => {
+      const id = create(leitung, 'Übungen')
+      // A twin the free-text categories could leave behind (the database index folds ASCII letters only).
+      const twin = db.insert(templateCategories).values({ name: 'übungen', sortOrder: 9 }).returning().get().id
+      updateCategory(db, leitung, id, { name: 'Übungen', visibility: 'managers' })
+      updateCategory(db, leitung, twin, { name: 'übungen', visibility: 'all' })
+      expect(listCategories(db, leitung).map(category => [category.name, category.visibility]))
+        .toEqual([['Übungen', 'managers'], ['übungen', 'all']])
+      // Renaming one into the other's name is a clash.
+      expect(errorCode(() => updateCategory(db, leitung, twin, { name: 'ÜBUNGEN', visibility: 'all' }))).toBe('template_category_name_taken')
     })
 
     it('shows each viewer only the categories of their level', () => {
@@ -60,7 +83,7 @@ describe('template categories', () => {
       const otherLeitung = addUser(db, 'leitung2', 'admin', null, other)
       uploadTemplate(db, { id: otherLeitung.id, role: 'admin', facilityId: other },
         { title: 'Brief', categoryId: used, scope: 'facility' }, { data: pdf, filename: 'brief.pdf' })
-      expect(listCategories(db, leitung).map(category => [category.name, category.inUse])).toEqual([['Eltern', true], ['Leer', false]])
+      expect(listCategories(db, leitung).map(category => [category.name, category.templateCount])).toEqual([['Eltern', 1], ['Leer', 0]])
     })
 
     it('lets only the Träger create a category for the Träger alone', () => {

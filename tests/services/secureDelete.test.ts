@@ -76,7 +76,7 @@ describe('deleting child records leaves no trace in the database file or in back
   it('removes a deleted print template and the file a replacement superseded', async () => {
     const { dataDir, db, sqlite, admin, backup } = open()
     const leitung = { id: admin.id, role: admin.role, facilityId: 1 }
-    const categoryId = createCategory(db, leitung, { name: 'Eltern', visibility: 'all' })
+    const categoryId = createCategory(db, leitung, { name: 'Briefe', visibility: 'all' })
     const id = uploadTemplate(db, leitung, { title: 'Brief', categoryId, scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
     checkpointWal(sqlite)
     replaceTemplateFile(db, leitung, id, { data: Buffer.from('%PDF-1.7\nneu'), filename: 'b.pdf' })

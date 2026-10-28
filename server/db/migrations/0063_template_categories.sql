@@ -6,7 +6,17 @@ CREATE TABLE `template_categories` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `template_categories_name` ON `template_categories` (lower("name"));--> statement-breakpoint
-INSERT INTO `template_categories`("name", "sort_order", "visibility") SELECT min("name"), row_number() OVER (ORDER BY lower(min("name"))) - 1, 'all' FROM (SELECT coalesce(nullif(trim("category"), ''), 'Sonstiges') AS "name" FROM `print_templates`) GROUP BY lower("name");--> statement-breakpoint
+WITH "old" AS (
+	SELECT coalesce(nullif(trim("category"), ''), 'Sonstiges') AS "name" FROM `print_templates`
+), "grouped" AS (
+	SELECT min("name") AS "name", replace(replace(replace(replace(replace(lower("name"), 'Ä', 'ä'), 'Ö', 'ö'), 'Ü', 'ü'), 'ẞ', 'ß'), 'ß', 'ss') AS "fold"
+	FROM "old" GROUP BY "fold"
+)
+INSERT INTO `template_categories`("name", "sort_order", "visibility")
+SELECT "name", row_number() OVER (ORDER BY replace(replace(replace("fold", 'ä', 'a'), 'ö', 'o'), 'ü', 'u'), "fold") - 1, 'all' FROM "grouped";--> statement-breakpoint
+INSERT INTO `template_categories`("name", "sort_order", "visibility")
+SELECT "column1", "column2", 'all' FROM (VALUES ('Eltern', 0), ('Gesundheit', 1), ('Personal', 2))
+WHERE NOT EXISTS (SELECT 1 FROM `template_categories`);--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_print_templates` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -25,7 +35,7 @@ CREATE TABLE `__new_print_templates` (
 	FOREIGN KEY (`uploaded_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
-INSERT INTO `__new_print_templates`("id", "facility_id", "title", "category", "category_id", "mime_type", "size", "data", "uploaded_by", "uploaded_at", "updated_at") SELECT "id", "facility_id", "title", "category", (SELECT `template_categories`."id" FROM `template_categories` WHERE lower(`template_categories`."name") = lower(coalesce(nullif(trim(`print_templates`."category"), ''), 'Sonstiges'))), "mime_type", "size", "data", "uploaded_by", "uploaded_at", "updated_at" FROM `print_templates`;--> statement-breakpoint
+INSERT INTO `__new_print_templates`("id", "facility_id", "title", "category", "category_id", "mime_type", "size", "data", "uploaded_by", "uploaded_at", "updated_at") SELECT "id", "facility_id", "title", "category", (SELECT `template_categories`."id" FROM `template_categories` WHERE replace(replace(replace(replace(replace(lower(`template_categories`."name"), 'Ä', 'ä'), 'Ö', 'ö'), 'Ü', 'ü'), 'ẞ', 'ß'), 'ß', 'ss') = replace(replace(replace(replace(replace(lower(coalesce(nullif(trim(`print_templates`."category"), ''), 'Sonstiges')), 'Ä', 'ä'), 'Ö', 'ö'), 'Ü', 'ü'), 'ẞ', 'ß'), 'ß', 'ss')), "mime_type", "size", "data", "uploaded_by", "uploaded_at", "updated_at" FROM `print_templates`;--> statement-breakpoint
 DROP TABLE `print_templates`;--> statement-breakpoint
 ALTER TABLE `__new_print_templates` RENAME TO `print_templates`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
