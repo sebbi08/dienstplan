@@ -12,7 +12,7 @@ const emit = defineEmits<{ saved: [] }>()
 const run = useAction(async () => emit('saved'))
 
 const form = reactive<EmployeeContractDto>({
-  personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null,
+  personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null, fixedTermUntil: null,
 })
 watch(() => props.contract, value => Object.assign(form, value), { immediate: true })
 

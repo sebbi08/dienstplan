@@ -7,7 +7,7 @@ import {
 import { getActiveUser } from '../../server/services/auth'
 import { getBalanceOverview } from '../../server/services/balances'
 import {
-  categoryHasData, deleteCategories, deleteEmployeeRow, hasPaidOut, type RetentionCategory,
+  categoryHasData, deleteCategories, deleteEmployeeRow, hasPaidOvertimeData, type RetentionCategory,
 } from '../../server/services/employeeDeletion'
 import { getMonthPlan } from '../../server/services/plan'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
@@ -183,9 +183,9 @@ describe('the deletion categories of a left employee', () => {
     expectBenUntouched()
 
     // The paid-out adjustment with the contract and salary documents, then the employee row.
-    expect(hasPaidOut(db, tina)).toBe(true)
+    expect(hasPaidOvertimeData(db, tina)).toBe(true)
     expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 3 })
-    expect(hasPaidOut(db, tina)).toBe(false)
+    expect(hasPaidOvertimeData(db, tina)).toBe(false)
     expect(documentFolders(db, tina)).toEqual([])
     expect(documentFolders(db, ben)).toEqual(ALL_FOLDERS)
     expect(row(tina)).toBeDefined()
@@ -244,7 +244,7 @@ describe('the deletion categories of a left employee', () => {
     for (const folder of ['contract', 'salary'] as const) {
       addEmployeeDocument(db, hanna, folder)
       expect(categoryHasData(db, hanna), folder).toEqual({ ...NONE, paidOvertime: true })
-      expect(hasPaidOut(db, hanna), folder).toBe(true)
+      expect(hasPaidOvertimeData(db, hanna), folder).toBe(true)
       expect(remove(['immediate', 'assessment'], hanna), folder).toEqual(ZERO)
       expect(remove(['paidOvertime'], hanna).paidOvertime, folder).toBe(1)
       expect(categoryHasData(db, hanna), folder).toEqual(NONE)
@@ -257,9 +257,9 @@ describe('the deletion categories of a left employee', () => {
 
   it('tells whether the employee has paid-out adjustments', () => {
     const hanna = addEmployee(db, 'Hanna Hort', { facilityId: hort, leftOn: LEFT_ON })
-    expect(hasPaidOut(db, hanna)).toBe(false)
+    expect(hasPaidOvertimeData(db, hanna)).toBe(false)
     db.insert(balanceAdjustments).values({ employeeId: hanna, date: '2026-01-01', minutes: 60, reason: 'Übertrag' }).run()
-    expect(hasPaidOut(db, hanna)).toBe(false)
-    expect([hasPaidOut(db, tina), hasPaidOut(db, ben)]).toEqual([true, true])
+    expect(hasPaidOvertimeData(db, hanna)).toBe(false)
+    expect([hasPaidOvertimeData(db, tina), hasPaidOvertimeData(db, ben)]).toEqual([true, true])
   })
 })

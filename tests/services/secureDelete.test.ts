@@ -7,8 +7,9 @@ import { seedDefaults } from '../../server/db/seed'
 import { createBackup } from '../../server/services/backup'
 import { deleteDocument, uploadDocument } from '../../server/services/childDocuments'
 import { deleteChild } from '../../server/services/children'
+import { deleteEmployeeDocument, uploadEmployeeDocument } from '../../server/services/employeeDocuments'
 import { deleteTemplate, replaceTemplateFile, uploadTemplate } from '../../server/services/printTemplates'
-import { addChild, addUser, asChildViewer, documentTypeId } from '../helpers/fixtures'
+import { addChild, addEmployee, addUser, asChildViewer, documentTypeId } from '../helpers/fixtures'
 
 const MARKER = 'KINDERAKTE-GEHEIM-MARKER-7f3a9c'
 const TODAY = '2026-10-09'
@@ -82,6 +83,21 @@ describe('deleting child records leaves no trace in the database file or in back
     const again = uploadTemplate(db, leitung, { title: 'Brief', category: '', scope: 'facility' }, { data: markedPdf(), filename: 'b.pdf' })
     checkpointWal(sqlite)
     deleteTemplate(db, leitung, again)
+    checkpointWal(sqlite)
+    expect(databaseFilesWithMarker(dataDir)).toEqual([])
+    expect(hasMarker(await backup())).toBe(false)
+    sqlite.close()
+  })
+
+  it('removes a deleted personnel file document from the file and from a later backup', async () => {
+    const { dataDir, db, sqlite, backup } = open()
+    const traeger = addUser(db, 'traeger', 'provider')
+    const id = uploadEmployeeDocument(db, traeger, 1, addEmployee(db, 'Anna'), {
+      folder: 'measures', title: 'Abmahnung', documentDate: '2026-09-01', note: '',
+    }, { data: markedPdf(), filename: 'a.pdf' })
+    checkpointWal(sqlite)
+    expect(databaseFilesWithMarker(dataDir)).toHaveLength(1)
+    deleteEmployeeDocument(db, traeger, 1, id)
     checkpointWal(sqlite)
     expect(databaseFilesWithMarker(dataDir)).toEqual([])
     expect(hasMarker(await backup())).toBe(false)

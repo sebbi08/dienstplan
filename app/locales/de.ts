@@ -475,7 +475,7 @@ export const de = {
   /** The personnel file (Personalakte): document folders and format errors. */
   personnel: {
     folders: {
-      contract: 'Vertrag und Nachträge', application: 'Bewerbung', qualifications: 'Qualifikationen und Fortbildungen',
+      contract: 'Vertrag und Nachträge, Stellenbeschreibung', application: 'Bewerbung', qualifications: 'Qualifikationen und Fortbildungen',
       correspondence: 'Korrespondenz', measures: 'Arbeitsrechtliche Maßnahmen', salary: 'Gehalt',
     },
     invalid: personnelInvalid,

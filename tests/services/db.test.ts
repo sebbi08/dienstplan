@@ -135,7 +135,7 @@ describe('upgrading a filled database through migrateDb', () => {
     'disability_degree', 'disability_equal', 'disability_until', 'fixed_term_until']
   const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !PERSONNEL_COLUMNS.includes(column))))
-  const count =(sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
+  const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
   it('keeps every row and moves settings, users and data into facility 1 "Kindergarten"', () => {
     const { db, sqlite } = databaseAt('0018')

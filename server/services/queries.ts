@@ -45,6 +45,8 @@ export interface EmployeeRecord {
   jobOther: string | null
   payGroup: string | null
   payLevel: number | null
+  /** „befristet bis“ (null = unbefristet). */
+  fixedTermUntil: IsoDate | null
   // Time tracking options set by the Leitung (see shared/domain/stamping.ts).
   stampVia: StampChannel
   breakMode: BreakMode

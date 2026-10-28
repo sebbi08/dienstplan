@@ -6,6 +6,7 @@ import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { PermissionKey } from '../domain/permissions'
+import type { EmployeeDocumentFolder } from '../domain/personnel'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -1033,7 +1034,77 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
   pinLockedPermanently: boolean
   /** Locks since the last right PIN (0 = none; stays after a timed lock has run out, until a right PIN or the unlock). */
   pinLockLevel: number
+  /** Anschrift, Kontakt, Geburtsjahr; only with employees.personal (otherwise the key is absent). */
+  personal?: EmployeePersonalDto
+  /** Staatsangehörigkeit, Schwerbehinderung; only with employees.sensitive (otherwise the key is absent). */
+  sensitive?: EmployeeSensitiveDto
 }
+
+/** What employees.personal maintains (Personalakte §2); empty texts are null. */
+export interface EmployeePersonalInput {
+  /** With the birthday (MM-DD) it forms the full birth date. */
+  birthYear: number | null
+  street: string | null
+  postalCode: string | null
+  city: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface EmployeePersonalDto extends EmployeePersonalInput {
+  /** The full birth date from birthYear and birthday; null unless both are set (and form a real date). */
+  birthDate: IsoDate | null
+}
+
+/** What employees.sensitive sees and maintains (Personalakte §2). */
+export interface EmployeeSensitiveDto {
+  nationality: string | null
+  /** Schwerbehinderung ja/nein, Grad der Behinderung (20–100 in steps of 10), „gleichgestellt“, gültig bis. */
+  disability: boolean
+  disabilityDegree: number | null
+  disabilityEqual: boolean
+  disabilityUntil: IsoDate | null
+}
+
+/** Lohn und Steuer (employees.payroll only), full values; the page masks them until „anzeigen“. Empty = null. */
+export interface EmployeePayrollDto {
+  /** Steuer-ID, 11 digits. */
+  taxId: string | null
+  /** Steuerklasse 1–6. */
+  taxClass: number | null
+  /** Sozialversicherungsnummer, 12 characters. */
+  svNumber: string | null
+  healthInsurer: string | null
+  iban: string | null
+  accountHolder: string | null
+  /** Konfession (Kirchensteuer). */
+  denomination: string | null
+}
+
+/** What the user enters about a personnel file document (the file comes with the upload). */
+export interface EmployeeDocumentMeta {
+  folder: EmployeeDocumentFolder
+  title: string
+  documentDate: IsoDate
+  /** Free note, may be empty. */
+  note: string
+}
+
+/** A document of the personnel file; the file itself is fetched separately. */
+export interface EmployeeDocumentDto extends EmployeeDocumentMeta {
+  id: number
+  mimeType: string
+  size: number
+  /** Username of the uploader; null if the account is gone. */
+  uploadedBy: string | null
+  uploadedAt: string
+}
+
+/**
+ * The documents per folder, newest document date first: only the folders the viewer may use (see, upload, delete),
+ * in the page's order; a folder without the right is absent.
+ */
+export type EmployeeDocumentsDto = Partial<Record<EmployeeDocumentFolder, EmployeeDocumentDto[]>>
 
 export interface UserDto {
   id: number
@@ -1069,7 +1140,12 @@ export interface EmployeeContractDto {
   jobOther: string | null
   payGroup: PayGroup | null
   payLevel: number | null
+  /** „befristet bis“: last day of a fixed-term contract (null = unbefristet). */
+  fixedTermUntil: IsoDate | null
 }
+
+/** A contract change; fixedTermUntil left out = unchanged. */
+export type EmployeeContractInput = Omit<EmployeeContractDto, 'fixedTermUntil'> & { fixedTermUntil?: IsoDate | null }
 
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null

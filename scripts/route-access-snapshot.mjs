@@ -100,7 +100,6 @@ const PUBLIC_ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal']
 const ROLE_USES = {
   'auth/login.post.ts': 'session lifetime: the tablet stays logged in (no access check)',
   'employees/index.get.ts': 'passes the role to the service, which strips the contract fields (data, no 403)',
-  'employees/[id].get.ts': 'passes the role to the service, which strips the contract fields (data, no 403)',
   'level-ups.get.ts': 'passes the role to the service, which returns an empty list without contract right (no 403)',
 }
 const ROLE_USE = /\.role\b|\bisManager\(|\bisProvider\b|\bmayEditChildren\(|\bassert(Provider|Manager)\(|'(provider|admin|observer|terminal)'/

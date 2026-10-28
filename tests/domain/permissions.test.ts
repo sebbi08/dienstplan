@@ -221,7 +221,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(300)
+    expect(routes).toHaveLength(307)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 

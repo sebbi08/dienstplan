@@ -1,18 +1,23 @@
-import { and, asc, eq, inArray, isNull, max, ne } from 'drizzle-orm'
-import { parseIsoDate, todayIso } from '../../shared/domain/dates'
+import { and, asc, eq, inArray, isNotNull, isNull, max, ne } from 'drizzle-orm'
+import { isValidIsoDate, parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { pinLockState } from '../../shared/domain/pin'
 import { isValidMonthDay } from '../../shared/domain/reminders'
-import { can } from '../../shared/domain/permissions'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
+import { birthYearError, disabilityDegreeError, emailError, postalCodeError } from '../../shared/domain/personnel'
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
 import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
-import type { EmployeeContractDto, EmployeeDetailDto, EmployeeListItemDto, LevelUpDto, Role, SessionUser } from '../../shared/types/api'
+import type {
+  EmployeeContractDto, EmployeeContractInput, EmployeeDetailDto, EmployeeListItemDto, EmployeePersonalDto, EmployeePersonalInput,
+  EmployeeSensitiveDto, LevelUpDto, Role, SessionUser,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { bookClosuresFor, unbookClosuresFrom } from './closures'
+import { hasPaidOvertimeData } from './employeeDeletion'
 import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
@@ -60,6 +65,20 @@ export interface EmployeeUpdate {
   qualification?: string | null
   /** Counting share in percent, a whole number 0–100 (null = the state's default); left out = unchanged. */
   staffingShare?: number | null
+  /** Anschrift, Kontakt, Geburtsjahr, all at once; needs employees.personal (403 forbidden); left out = unchanged. */
+  personal?: EmployeePersonalInput
+  /** Staatsangehörigkeit, Schwerbehinderung, all at once; needs employees.sensitive (403 forbidden); left out = unchanged. */
+  sensitive?: EmployeeSensitiveDto
+}
+
+/**
+ * Who looks at an employee: a role (its defaults with the global contract switch, see rolePermissions) or the
+ * session user's own permission set (the routes; per-person rights count there).
+ */
+export type EmployeeViewer = Role | ReadonlySet<PermissionKey>
+
+function viewerPermissions(db: Db, viewer: EmployeeViewer): ReadonlySet<PermissionKey> {
+  return typeof viewer === 'string' ? rolePermissions(db, viewer) : viewer
 }
 
 const isQualification = (value: string): value is Qualification => (QUALIFICATIONS as readonly string[]).includes(value)
@@ -68,26 +87,52 @@ const isQualification = (value: string): value is Qualification => (QUALIFICATIO
  * Contract data for this viewer (employees.contractView): always for the Träger, for the Leitung only when the Träger
  * allows it. The caller passes the role; the role and the global switch decide it (see rolePermissions).
  */
-function mayViewContract(db: Db, viewer: Role): boolean {
-  return can(rolePermissions(db, viewer), 'employees.contractView')
+function mayViewContract(db: Db, viewer: EmployeeViewer): boolean {
+  return can(viewerPermissions(db, viewer), 'employees.contractView')
 }
 
 function contractOf(employee: EmployeeRecord): EmployeeContractDto {
   return {
     personnelNumber: employee.personnelNumber,
     employedSince: employee.employedSince, jobKey: employee.jobKey as JobKey | null, jobOther: employee.jobOther,
-    payGroup: employee.payGroup as PayGroup | null, payLevel: employee.payLevel,
+    payGroup: employee.payGroup as PayGroup | null, payLevel: employee.payLevel, fixedTermUntil: employee.fixedTermUntil,
   }
 }
 
-/** The facility's employees with balance adjustments marked „ausgezahlt“ (or only `employeeId` among them). */
+type EmployeeRow = typeof employees.$inferSelect
+
+/** The full birth date, when year and birthday are both set and form a real date. */
+function birthDateOf(row: EmployeeRow): IsoDate | null {
+  if (row.birthYear === null || row.birthday === null) return null
+  const date = `${row.birthYear}-${row.birthday}`
+  return isValidIsoDate(date) ? date : null
+}
+
+function personalOf(row: EmployeeRow): EmployeePersonalDto {
+  return {
+    birthYear: row.birthYear, birthDate: birthDateOf(row), street: row.street, postalCode: row.postalCode, city: row.city,
+    phone: row.phone, email: row.email,
+  }
+}
+
+function sensitiveOf(row: EmployeeRow): EmployeeSensitiveDto {
+  return {
+    nationality: row.nationality, disability: row.disability, disabilityDegree: row.disabilityDegree,
+    disabilityEqual: row.disabilityEqual, disabilityUntil: row.disabilityUntil,
+  }
+}
+
+/**
+ * The facility's employees who left (or only `employeeId`, if they left) and still have data of the 10-year category
+ * (paid-out balance adjustments, contract and salary documents; employeeDeletion.ts hasPaidOvertimeData), for the
+ * archive's deletion line.
+ */
 function paidOutIds(db: Db, facilityId: number, employeeId?: number): Set<number> {
-  return new Set(db.selectDistinct({ id: balanceAdjustments.employeeId }).from(balanceAdjustments)
-    .innerJoin(employees, eq(employees.id, balanceAdjustments.employeeId))
+  return new Set(db.select({ id: employees.id }).from(employees)
     .where(and(
-      eq(employees.facilityId, facilityId), eq(balanceAdjustments.paidOut, true),
+      eq(employees.facilityId, facilityId), isNotNull(employees.leftOn),
       employeeId === undefined ? undefined : eq(employees.id, employeeId),
-    )).all().map(row => row.id))
+    )).all().map(row => row.id).filter(id => hasPaidOvertimeData(db, id)))
 }
 
 function toListItem(
@@ -136,7 +181,9 @@ function pinFlagsById(db: Db, facilityId: number, now: Date): Map<number, PinFla
   }).from(employees).where(eq(employees.facilityId, facilityId)).all().map(row => [row.id, pinFlags(row, now)]))
 }
 
-export function listEmployees(db: Db, facilityId: number, today: IsoDate, viewer: Role, now: Date = new Date()): EmployeeListItemDto[] {
+export function listEmployees(
+  db: Db, facilityId: number, today: IsoDate, viewer: EmployeeViewer, now: Date = new Date(),
+): EmployeeListItemDto[] {
   const withContract = mayViewContract(db, viewer)
   const pins = pinFlagsById(db, facilityId, now)
   const paidOut = paidOutIds(db, facilityId)
@@ -144,15 +191,20 @@ export function listEmployees(db: Db, facilityId: number, today: IsoDate, viewer
     .map(employee => toListItem(employee, today, withContract, pins.get(employee.id) ?? { hasPin: false, pinLocked: false }, paidOut))
 }
 
-/** One employee with hours, adjustments and leave, and the state of the stamp PIN at `now` (set, locked until, lasting lock). */
+/**
+ * One employee with hours, adjustments and leave, and the state of the stamp PIN at `now` (set, locked until, lasting
+ * lock). The personnel file's master data only for viewers with the key: `personal` with employees.personal,
+ * `sensitive` with employees.sensitive; without it the key is absent from the answer (contract data likewise).
+ */
 export function getEmployee(
-  db: Db, facilityId: number, id: number, today: IsoDate, viewer: Role, now: Date = new Date(),
+  db: Db, facilityId: number, id: number, today: IsoDate, viewer: EmployeeViewer, now: Date = new Date(),
 ): EmployeeDetailDto {
   const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === id)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const pin = db.select().from(employees).where(eq(employees.id, id)).get()!
+  const permissions = viewerPermissions(db, viewer)
   return {
-    ...toListItem(employee, today, mayViewContract(db, viewer), pinFlags(pin, now), paidOutIds(db, facilityId, id)),
+    ...toListItem(employee, today, mayViewContract(db, permissions), pinFlags(pin, now), paidOutIds(db, facilityId, id)),
     hours: db.select().from(employeeHours).where(eq(employeeHours.employeeId, id)).orderBy(asc(employeeHours.validFrom)).all()
       .map(({ id: hoursId, weeklyMinutes, validFrom, workdays }) => ({ id: hoursId, weeklyMinutes, validFrom, workdays })),
     adjustments: db.select().from(balanceAdjustments).where(eq(balanceAdjustments.employeeId, id)).orderBy(asc(balanceAdjustments.date)).all()
@@ -164,6 +216,8 @@ export function getEmployee(
         return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
       }),
     ...pinLockState(pin, now), pinLockLevel: pin.pinLockLevel,
+    ...(can(permissions, 'employees.personal') ? { personal: personalOf(pin) } : {}),
+    ...(can(permissions, 'employees.sensitive') ? { sensitive: sensitiveOf(pin) } : {}),
   }
 }
 
@@ -201,8 +255,17 @@ export function createEmployee(db: Db, actor: SessionUser, facilityId: number, i
  * Updates the master data; a birthday must be a valid `MM-DD` (29 February allowed), else 400 employee_birthday_invalid,
  * a qualification one of QUALIFICATIONS (400 qualification_invalid), a share a whole number 0–100 (400
  * staffing_share_invalid); on any error nothing changes.
+ *
+ * The personnel file's master data come as whole blocks: `personal` needs employees.personal, `sensitive`
+ * employees.sensitive in `permissions` (the editor's), else 403 forbidden — whatever the values, even unchanged ones,
+ * so a refusal never tells what is stored. Checked like the forms (400 email_invalid, postal_code_invalid,
+ * birth_year_invalid — the year with the birthday must form a real date —, disability_degree_invalid, invalid_date);
+ * texts are trimmed, empty ones stored as null.
  */
-export function updateEmployee(db: Db, facilityId: number, id: number, update: EmployeeUpdate): void {
+export function updateEmployee(
+  db: Db, facilityId: number, id: number, update: EmployeeUpdate, permissions: ReadonlySet<PermissionKey> = new Set(),
+  today: IsoDate = todayIso(),
+): void {
   assertEmployee(db, facilityId, id)
   const name = requireName(update.name)
   if (update.groupId !== undefined) assertGroup(db, facilityId, update.groupId)
@@ -212,6 +275,10 @@ export function updateEmployee(db: Db, facilityId: number, id: number, update: E
   if (staffingShare != null && !(Number.isInteger(staffingShare) && staffingShare >= 0 && staffingShare <= 100)) {
     throw new ServiceError(400, 'staffing_share_invalid')
   }
+  if (update.personal !== undefined && !can(permissions, 'employees.personal')) throw new ServiceError(403, 'forbidden')
+  if (update.sensitive !== undefined && !can(permissions, 'employees.sensitive')) throw new ServiceError(403, 'forbidden')
+  const personal = update.personal === undefined ? undefined : checkedPersonal(db, id, update.personal, update.birthday, today)
+  const sensitive = update.sensitive === undefined ? undefined : checkedSensitive(update.sensitive)
   db.update(employees)
     .set({
       name, shortName: update.shortName.trim(), leftOn: update.leftOn,
@@ -219,8 +286,45 @@ export function updateEmployee(db: Db, facilityId: number, id: number, update: E
       ...(update.birthday !== undefined ? { birthday: update.birthday } : {}),
       ...(qualification !== undefined ? { qualification: qualification as Qualification | null } : {}),
       ...(staffingShare !== undefined ? { staffingShare } : {}),
+      ...personal, ...sensitive,
     })
     .where(eq(employees.id, id)).run()
+}
+
+/** Trimmed text, null when empty. */
+const textOrNull = (value: string | null): string | null => value?.trim() || null
+
+function fail(code: string | null): void {
+  if (code !== null) throw new ServiceError(400, code)
+}
+
+/**
+ * The personal block checked and trimmed. The birth year must form a real date with the birthday this update sets
+ * (`birthday`, left out = the stored one).
+ */
+function checkedPersonal(
+  db: Db, id: number, input: EmployeePersonalInput, birthday: string | null | undefined, today: IsoDate,
+): EmployeePersonalInput {
+  const checked = {
+    birthYear: input.birthYear, street: textOrNull(input.street), postalCode: textOrNull(input.postalCode),
+    city: textOrNull(input.city), phone: textOrNull(input.phone), email: textOrNull(input.email),
+  }
+  const day = birthday !== undefined
+    ? birthday
+    : db.select({ birthday: employees.birthday }).from(employees).where(eq(employees.id, id)).get()!.birthday
+  fail(birthYearError(checked.birthYear, day, parseIsoDate(today).year))
+  fail(postalCodeError(checked.postalCode))
+  fail(emailError(checked.email))
+  return checked
+}
+
+function checkedSensitive(input: EmployeeSensitiveDto): EmployeeSensitiveDto {
+  fail(disabilityDegreeError(input.disabilityDegree))
+  if (input.disabilityUntil !== null && !isValidIsoDate(input.disabilityUntil)) throw new ServiceError(400, 'invalid_date')
+  return {
+    nationality: textOrNull(input.nationality), disability: input.disability, disabilityDegree: input.disabilityDegree,
+    disabilityEqual: input.disabilityEqual, disabilityUntil: input.disabilityUntil,
+  }
 }
 
 /**
@@ -315,11 +419,15 @@ export function setEntitlement(
   }
 }
 
-/** Contract data of an employee; only the Träger may change it (checked by the route). */
-export function setContract(db: Db, facilityId: number, id: number, contract: EmployeeContractDto): void {
+/**
+ * Contract data of an employee; only the Träger may change it (checked by the route). „befristet bis“ left out stays,
+ * a given one must be a real date (400 invalid_date).
+ */
+export function setContract(db: Db, facilityId: number, id: number, contract: EmployeeContractInput): void {
   assertEmployee(db, facilityId, id)
   const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
   if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
+  if (contract.fixedTermUntil != null && !isValidIsoDate(contract.fixedTermUntil)) throw new ServiceError(400, 'invalid_date')
   const personnelNumber = contract.personnelNumber?.trim() || null
   if (personnelNumber !== null && db.select().from(employees)
     .where(and(eq(employees.personnelNumber, personnelNumber), ne(employees.id, id))).get()) {

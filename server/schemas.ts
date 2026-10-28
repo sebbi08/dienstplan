@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
@@ -74,6 +75,15 @@ export const employeeUpdateSchema = z.object({
   // Staffing ratio; left out = unchanged, checked by the service (qualification_invalid, staffing_share_invalid).
   qualification: z.string().max(20).nullable().optional(),
   staffingShare: z.number().nullable().optional(),
+  // Personnel file blocks: left out = unchanged; the service checks the keys (403) and the formats (400 with the code).
+  personal: z.object({
+    birthYear: z.number().nullable(), street: z.string().max(200).nullable(), postalCode: z.string().max(20).nullable(),
+    city: z.string().max(100).nullable(), phone: z.string().max(50).nullable(), email: z.string().max(200).nullable(),
+  }).optional(),
+  sensitive: z.object({
+    nationality: z.string().max(100).nullable(), disability: z.boolean(), disabilityDegree: z.number().nullable(),
+    disabilityEqual: z.boolean(), disabilityUntil: z.string().max(10).nullable(),
+  }).optional(),
 })
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) })
 /** Deleting a left employee: `confirm` in the body is the name typed by hand (anything else, or nothing, is 400 employee_delete_confirm_mismatch). */
@@ -147,6 +157,14 @@ export const contractSchema = z.object({
   personnelNumber: z.string().max(30).nullable(),
   employedSince: isoDate.nullable(), jobKey: z.enum(JOB_KEYS).nullable(), jobOther: z.string().max(100).nullable(),
   payGroup: z.enum(PAY_GROUPS).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
+  /** „befristet bis“; left out = unchanged. */
+  fixedTermUntil: isoDate.nullable().optional(),
+})
+/** Lohn und Steuer; the formats are the service's (400 iban_invalid, tax_id_invalid, sv_number_invalid, tax_class_invalid). */
+export const payrollSchema = z.object({
+  taxId: z.string().max(30).nullable(), taxClass: z.number().nullable(), svNumber: z.string().max(30).nullable(),
+  healthInsurer: z.string().max(100).nullable(), iban: z.string().max(50).nullable(), accountHolder: z.string().max(100).nullable(),
+  denomination: z.string().max(50).nullable(),
 })
 export const contractVisibilitySchema = z.object({ visible: z.boolean() })
 export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), breakMode: z.enum(BREAK_MODES) })
@@ -355,6 +373,13 @@ export const childDocumentSchema = z.object({
   confidential: z.boolean(),
 })
 export const fileQuery = z.object({ download: z.enum(['1']).optional() })
+// Personnel file documents: the form fields of the upload (multipart, all text) and the change of folder and details alike.
+export const employeeDocumentSchema = z.object({
+  folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS),
+  title: z.string().max(200),
+  documentDate: isoDate,
+  note: z.string().max(1000).default(''),
+})
 // Print templates: the form fields of the upload (multipart, so all text) and the change of title and category.
 export const printTemplateSchema = z.object({ title: z.string().max(200), category: z.string().max(60) })
 export const printTemplateFields = printTemplateSchema.extend({ scope: z.enum(['facility', 'all']).default('facility') })

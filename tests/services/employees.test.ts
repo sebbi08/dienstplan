@@ -213,7 +213,7 @@ describe('contract data (Träger only)', () => {
     const admin = addUser(db, 'traeger', 'provider')
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     setContract(db, 1, id, contract)
-    const saved = { ...contract, jobOther: null } // free text only with 'other'
+    const saved = { ...contract, jobOther: null, fixedTermUntil: null } // free text only with 'other'
     expect(listEmployees(db, 1, today, 'provider')[0]!.contract).toEqual(saved)
     expect(getEmployee(db, 1, id, today, 'provider').contract).toEqual(saved)
     expect(listEmployees(db, 1, today, 'admin')[0]!.contract).toBeUndefined()

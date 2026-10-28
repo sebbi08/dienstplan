@@ -415,6 +415,29 @@ describe('API route permissions', () => {
     expect(code).not.toContain('getQuery(')
   })
 
+  it('keeps the personnel file to its keys: payroll for employees.payroll, documents by folder in the service', () => {
+    const touching = routes.filter(route => /services\/employee(Payroll|Documents)'/.test(source(route)))
+    expect(touching).toEqual(['employee-documents/[id].delete.ts', 'employee-documents/[id].get.ts', 'employee-documents/[id].put.ts',
+      'employees/[id]/documents.get.ts', 'employees/[id]/documents.post.ts', 'employees/[id]/payroll.get.ts',
+      'employees/[id]/payroll.put.ts'])
+    for (const route of touching) {
+      const code = source(route)
+      const payroll = route.includes('payroll')
+      expect(permissionCalls(route), route).toEqual([{ key: payroll ? 'employees.payroll' : 'employees.view', options: '' }])
+      // The facility of the request; the documents service gets the actor for the folder keys (employees.docs.*).
+      expect(code, route).toContain(payroll ? '(useDb(), actor.facilityId, id' : '(useDb(), actor, actor.facilityId, id')
+    }
+    // Neither the Leitung nor a Mitarbeiter by default, nor the tablet (no allowTerminal).
+    expect(DEFAULTS.admin.has('employees.payroll')).toBe(false)
+    expect(DEFAULTS.observer.has('employees.view')).toBe(false)
+    expect(DEFAULTS.admin.has('employees.docs.qualifications')).toBe(true)
+    expect(source('employees/[id]/documents.post.ts')).toContain("assertUploadLength(getRequestHeader(event, 'content-length'))")
+    expect(source('employee-documents/[id].delete.ts')).toContain('checkpointWal(useSqlite())')
+    // The detail and its update decide the personnel file blocks by the session user's permissions.
+    expect(source('employees/[id].get.ts')).toContain('viewer.permissions)')
+    expect(source('employees/[id].put.ts')).toContain('admin.permissions)')
+  })
+
   it('lets only the Träger change the absence codes', () => {
     const touching = routes.filter(route => /^absence-codes\//.test(route) || /\bupdateCode\b/.test(source(route)))
     expect(touching).toEqual(['absence-codes/[id].put.ts'])

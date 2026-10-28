@@ -285,7 +285,7 @@ export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
  * Whether the employee still has data of the paid-overtime period: balance adjustments marked „ausgezahlt“ or
  * contract and salary documents.
  */
-export function hasPaidOut(db: Db, employeeId: number): boolean {
+export function hasPaidOvertimeData(db: Db, employeeId: number): boolean {
   return anyRows(db, employeeId, PAID_OVERTIME_ROWS)
 }
 
@@ -300,7 +300,7 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
       || anyRows(db, employeeId, [...IMMEDIATE_ROWS, ...IMMEDIATE_CLEARED, ACCOUNT]),
     time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
     assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
-    paidOvertime: hasPaidOut(db, employeeId),
+    paidOvertime: hasPaidOvertimeData(db, employeeId),
   }
 }
 
