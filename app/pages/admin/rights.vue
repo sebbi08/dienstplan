@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BundleId, BundleScope, RightsRole } from '#shared/domain/permissionBundles'
+import { RIGHTS_ROLES, type BundleId, type BundleScope, type RightsRole } from '#shared/domain/permissionBundles'
 import type { RightsChangeDto, RightsDto, RoleRightsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import {
@@ -7,9 +7,9 @@ import {
 } from '~/utils/rights'
 
 /**
- * Mehr → Rechte und Rollen, only for the Träger (spec Rechte und Rollen Teil 2 §3): the switches of Leitung and
- * Mitarbeiter by area, with the scope of the children switches. Switching one on brings what it needs along (a notice),
- * switching one off asks when others depend on it. The edits of both roles are saved together; each role can go back to
+ * Mehr → Rechte und Rollen, only for the Träger (spec Rechte und Rollen Teil 2 §3): the switches of Leitung,
+ * Gruppenleitung and Mitarbeiter by area (Teil 3), with the scope of the children switches. Switching one on brings what
+ * it needs along (a notice), switching one off asks when others depend on it. The edits of all roles are saved together; each role can go back to
  * the Grundeinstellung on its own. The server applies the same relations again when saving.
  */
 const t = de.rights
@@ -21,7 +21,7 @@ const allowed = computed(() => can('rights.manage'))
 if (!allowed.value) await navigateTo('/', { replace: true })
 
 const { data, error } = await useFetch<RightsDto>('/api/rights', { key: 'rights', immediate: allowed.value })
-const ROLES: readonly RightsRole[] = ['admin', 'observer']
+const ROLES = RIGHTS_ROLES
 const roleName = (role: RightsRole) => de.users.roles[role]
 
 // The stored state and the edits per role; replaced role by role from the answers of saving (no reload, so the edits of
@@ -127,13 +127,13 @@ async function reset(role: RightsRole) {
   await run(async () => take(await $fetch<RoleRightsDto>(`/api/rights/roles/${role}/reset`, { method: 'POST' })), t.resetDone(roleName(role)))
 }
 
-// On a phone one role at a time (two columns with the scope selects do not fit next to the labels).
+// On a phone or a narrow tablet one role at a time (three columns with the scope selects do not fit next to the labels).
 const phoneRole = ref<RightsRole>('admin')
-const cellClass = (role: RightsRole) => (role === phoneRole.value ? 'table-cell' : 'hidden sm:table-cell')
+const cellClass = (role: RightsRole) => (role === phoneRole.value ? 'table-cell' : 'hidden md:table-cell')
 </script>
 
 <template>
-  <div class="max-w-4xl space-y-4">
+  <div class="max-w-5xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ t.title }}</h1>
     <p class="text-sm text-gray-600">{{ t.intro }}</p>
     <p class="text-sm text-gray-500">{{ t.exceptionsWhere }}</p>
@@ -148,7 +148,7 @@ const cellClass = (role: RightsRole) => (role === phoneRole.value ? 'table-cell'
       </div>
 
       <!-- On a phone: choose the role shown in the table. -->
-      <div class="flex items-center gap-2 sm:hidden" role="radiogroup" :aria-label="t.phoneRole">
+      <div class="flex items-center gap-2 md:hidden" role="radiogroup" :aria-label="t.phoneRole">
         <span class="text-sm text-gray-600">{{ t.phoneRole }}:</span>
         <UButton
           v-for="role in ROLES" :key="role" size="sm" :color="phoneRole === role ? 'primary' : 'neutral'"
@@ -167,7 +167,7 @@ const cellClass = (role: RightsRole) => (role === phoneRole.value ? 'table-cell'
           </thead>
           <tbody>
             <template v-for="area in areas" :key="area.id">
-              <tr><th colspan="3" scope="colgroup" class="bg-gray-50 px-3 py-1.5 text-left text-xs font-semibold text-gray-600">{{ area.label }}</th></tr>
+              <tr><th :colspan="ROLES.length + 1" scope="colgroup" class="bg-gray-50 px-3 py-1.5 text-left text-xs font-semibold text-gray-600">{{ area.label }}</th></tr>
               <tr v-for="bundle in area.bundles" :key="bundle.id" class="border-t border-gray-100 align-top">
                 <td class="px-3 py-2">
                   <div>{{ bundle.label }}</div>

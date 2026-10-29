@@ -190,6 +190,13 @@ describe('navMenu per role (unchanged by the permissions)', () => {
       main: staffMainWithMeetings, mine: staffMineWithTemplates, more: [], mineCount: 0, totalCount: 2,
     },
     {
+      // Rechte Teil 3: „Kinder“ with the own account is an office key, so the office layout (own pages under „Meins“,
+      // the templates under „Mehr“) with the own calendar view.
+      name: 'Gruppenleitung with employee', viewer: viewerOf('group_lead', { employeeId: 9 }),
+      main: [['Dienstplan', '/plan/2026/10'], ['Kinder', '/children'], ['Kalender', '/my/calendar'], ['Teamsitzungen', '/team-meetings']],
+      mine: officeMine, more: [['Vorlagen', '/templates']], mineCount: 2, totalCount: 2,
+    },
+    {
       name: 'tablet', viewer: viewerOf('terminal', { employeeId: 4, isPlanner: true }),
       main: [['Stempeln', '/terminal'], ['Dienstplan', '/plan/2026/10'], ['Teamsitzungen', '/team-meetings']],
       mine: [], more: [], mineCount: 0, totalCount: 0,

@@ -2,7 +2,7 @@
 import type { EmployeeListItemDto, Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
-import { personRightsMode } from '~/utils/rights'
+import { personRightsMode, providerSetsRights } from '~/utils/rights'
 import { accountLock, manageableRoles } from '#shared/domain/roles'
 
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
@@ -65,6 +65,11 @@ const rightsModeOf = (user: UserDto) => {
   const role = storedRole(user)
   return role && role === user.role ? personRightsMode({ role: sessionUser.value?.role, can }, role) : null
 }
+/** A Gruppenleitung for whom does not set rights: only the Träger reads and sets them (a short hint, no request). */
+const byProvider = (user: UserDto) => {
+  const role = storedRole(user)
+  return !!role && role === user.role && providerSetsRights({ can }, role)
+}
 const rightsTarget = ref<UserDto | null>(null)
 const rightsOpen = computed({
   get: () => rightsTarget.value !== null,
@@ -118,8 +123,9 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
             </select>
           </td>
           <td class="px-3 py-2 text-center">
-            <!-- The Träger: every switch of Leitung and Mitarbeiter; the Leitung: „eintragen und Akten ändern“ of a Mitarbeiter. -->
+            <!-- The Träger: every switch of Leitung, Gruppenleitung and Mitarbeiter; the Leitung: „eintragen und Akten ändern“ of a Mitarbeiter. -->
             <UButton v-if="rightsModeOf(user)" size="xs" color="neutral" variant="outline" icon="i-lucide-shield" :label="de.users.rightsButton" @click="rightsTarget = user" />
+            <span v-else-if="byProvider(user)" class="text-xs text-gray-500">{{ de.users.rightsByProvider }}</span>
             <span v-else class="text-gray-300">–</span>
           </td>
           <td class="px-3 py-2 text-center"><input v-model="user.active" type="checkbox" :disabled="locked(user)"></td>

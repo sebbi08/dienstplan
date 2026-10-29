@@ -70,7 +70,7 @@ describe('route access per role (unchanged by the permissions)', () => {
   })
 
   it('sends every account from the tablet\'s start page to the start page (its routes answer only the tablet)', () => {
-    for (const role of ['provider', 'admin', 'observer'] as const) expect(accountRedirect(TABLET_ONLY, viewerOf(role)), role).toBe('/')
+    for (const role of ['provider', 'admin', 'group_lead', 'observer'] as const) expect(accountRedirect(TABLET_ONLY, viewerOf(role)), role).toBe('/')
     expect(tabletOnlyPage(TABLET_ONLY)).toBe(true)
     expect(pagePaths.filter(tabletOnlyPage)).toEqual([TABLET_ONLY])
   })
@@ -92,13 +92,19 @@ describe('route access per role (unchanged by the permissions)', () => {
     }
   })
 
+  it('lets a Gruppenleitung open the child pages with its own account, but no office page', () => {
+    const lead = viewerOf('group_lead')
+    for (const path of [...OPEN, ...CHILDREN, TEMPLATES]) expect(accountRedirect(path, lead), path).toBeUndefined()
+    for (const path of [...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, lead), path).toBe('/')
+  })
+
   it('lets a Mitarbeiter open the print templates (read only), but no account without the key', () => {
     expect(accountRedirect(TEMPLATES, viewerOf('observer'))).toBeUndefined()
     expect(accountRedirect(TEMPLATES, { mustChangePassword: false, can: () => false })).toBe('/')
   })
 
   it('sends everyone who must change the password to that page first', () => {
-    for (const role of ['provider', 'admin', 'observer'] as const) {
+    for (const role of ['provider', 'admin', 'group_lead', 'observer'] as const) {
       const viewer = viewerOf(role, { mustChangePassword: true })
       expect(accountRedirect('/account/password', viewer)).toBeUndefined()
       for (const path of pagePaths.filter(path => path !== '/account/password')) {

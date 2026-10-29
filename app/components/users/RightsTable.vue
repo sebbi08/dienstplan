@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { BundleId, RightsRole } from '#shared/domain/permissionBundles'
+import { RIGHTS_ROLES, type BundleId, type RightsRole } from '#shared/domain/permissionBundles'
 import type { RightsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * „Rechte der Rollen“ on the users page (Träger): what Leitung and Mitarbeiter may do as the rights page has them set
- * now (GET /api/rights), read only; the Träger has every right, the tablet its fixed pages. Changed on „Rechte und
+ * „Rechte der Rollen“ on the users page (Träger): what Leitung, Gruppenleitung and Mitarbeiter may do as the rights page
+ * has them set now (GET /api/rights), read only; the Träger has every right, the tablet its fixed pages. Changed on „Rechte und
  * Rollen“.
  */
 const t = de.rights
 const { data, error } = useFetch<RightsDto>('/api/rights', { key: 'rights-overview', lazy: true })
-const ROLES: readonly RightsRole[] = ['admin', 'observer']
+const ROLES = RIGHTS_ROLES
 
 const stateOf = (role: RightsRole, id: BundleId) => data.value?.roles.find(rights => rights.role === role)?.bundles.find(state => state.id === id)
 const areas = computed(() => (data.value?.areas ?? []).map(area => ({
@@ -35,7 +35,7 @@ const areas = computed(() => (data.value?.areas ?? []).map(area => ({
         </thead>
         <tbody>
           <template v-for="area in areas" :key="area.id">
-            <tr><th colspan="3" scope="colgroup" class="bg-gray-50 px-2 py-1 text-left text-xs font-semibold text-gray-600">{{ area.label }}</th></tr>
+            <tr><th :colspan="ROLES.length + 1" scope="colgroup" class="bg-gray-50 px-2 py-1 text-left text-xs font-semibold text-gray-600">{{ area.label }}</th></tr>
             <tr v-for="bundle in area.bundles" :key="bundle.id" class="border-t border-gray-100">
               <td class="px-2 py-1">{{ bundle.label }}</td>
               <td v-for="role in ROLES" :key="role" class="whitespace-nowrap px-2 py-1 text-center">

@@ -5,7 +5,7 @@ import {
 import type { Role, RoleRightsDto, UserRightsDto } from '../../shared/types/api'
 import {
   bundleTitle, changedBundles, childEditingOverrides, dropPreview, exceptionDropPreview, includedIn, overridesWith,
-  childEditingRefusal, includedOnly, personRightsMode, roleDraft, switchOff, switchOn, widenedAlong, withScope,
+  childEditingRefusal, includedOnly, personRightsMode, providerSetsRights, roleDraft, switchOff, switchOn, widenedAlong, withScope,
 } from '../../app/utils/rights'
 import { flaggedPermissions } from '../helpers/rights'
 
@@ -153,6 +153,30 @@ describe('exceptions per person', () => {
     expect(personRightsMode({ role: 'admin', can: () => false }, 'observer')).toBeNull()
     expect(personRightsMode({ role: 'observer', can: key => key === 'users.manage' }, 'observer')).toBeNull()
     expect(personRightsMode(viewer('observer', { canEditChildren: true }), 'observer')).toBeNull()
+  })
+
+  it('lets only the Träger open the rights of a Gruppenleitung; the Leitung gets the hint instead (no request)', () => {
+    const viewer = (role: Role) => {
+      const permissions = flaggedPermissions(role)
+      return { role, can: (key: Parameters<typeof permissions.has>[0]) => permissions.has(key) }
+    }
+    expect(personRightsMode(viewer('provider'), 'group_lead')).toBe('all')
+    expect(providerSetsRights(viewer('provider'), 'group_lead')).toBe(false)
+    expect(personRightsMode(viewer('admin'), 'group_lead')).toBeNull()
+    expect(providerSetsRights(viewer('admin'), 'group_lead')).toBe(true)
+    // A Gruppenleitung never sets rights, of no account; the hint is only for Gruppenleitung accounts.
+    expect(personRightsMode({ role: 'group_lead', can: key => key === 'users.manage' }, 'observer')).toBeNull()
+    expect(personRightsMode(viewer('group_lead'), 'group_lead')).toBeNull()
+    for (const role of ['provider', 'admin', 'observer', 'terminal'] as const) expect(providerSetsRights(viewer('admin'), role), role).toBe(false)
+  })
+
+  it('previews the switches of the Gruppenleitung column like the others', () => {
+    const draft = roleDraft(roleRights('group_lead'))
+    expect(draft.childrenEdit).toEqual({ enabled: true, scope: 'group' })
+    expect(dropPreview(draft, 'childrenView')).toEqual(expect.arrayContaining(['childrenEdit']))
+    const { draft: next, pulledIn } = switchOn(roleDraft(roleRights('observer')), 'childrenEdit', 'group_lead')
+    expect(next.childrenEdit).toEqual({ enabled: true, scope: 'group' })
+    expect(pulledIn).not.toContain('childrenEdit')
   })
 
   it('replaces the one exception and keeps the others', () => {

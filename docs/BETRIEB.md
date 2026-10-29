@@ -160,6 +160,7 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 | Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und eine Vormerkung löschen. Eine **archivierte** Akte löscht nur der Träger (siehe „Löschen nach der Aufbewahrungsfrist“). Das gilt im Büro und am Tablet. |
 | Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. |
 | Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
+| Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 26. |
 | Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. |
 
 Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeiter → Name → Zugang*,
@@ -942,18 +943,22 @@ Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im A
 
 - Im Reiter **Zugang** richtest du für eine Person ohne Konto mit **„Zugang einrichten“** ein Benutzerkonto ein: Der
   Benutzername ist aus dem Namen vorgeschlagen (klein, ohne Leerzeichen, ä/ö/ü/ß als ae/oe/ue/ss) und lässt sich
-  ändern. Dazu ein Startpasswort (mindestens 8 Zeichen) und die Rolle **Mitarbeiter** oder **Leitung**. Das Konto ist
+  ändern. Dazu ein Startpasswort (mindestens 8 Zeichen) und die Rolle **Mitarbeiter**, **Gruppenleitung** oder
+  **Leitung**. Das Konto ist
   gleich mit der Person verknüpft; sie muss das Passwort bei der ersten Anmeldung ändern.
 - Hat die Person schon ein Konto, siehst du dort Benutzername, Rolle und „aktiv“ und kannst das **Passwort
   zurücksetzen**. Es gelten dieselben Rechte wie unter *Benutzer*: Ein Träger-Konto kann nur ein Träger ändern.
 - Darunter stehen die **Rechte der Person** (Abschnitt 26): beim Träger alle Schalter mit Ausnahmen, bei der Leitung für
-  Mitarbeiter nur „Kinder: eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“).
+  Mitarbeiter nur „Kinder: eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“). Bei einer Gruppenleitung
+  sieht die Leitung statt der Rechte den Hinweis „Die Rechte der Gruppenleitung stellt der Träger ein.“
 
 ### Die Seite *Benutzer*
 
 Unter *Benutzer* stehen weiterhin **alle Konten**. Dort legst du vor allem Konten an, die zu keinem Mitarbeiter
 gehören (Stempel-Tablet; der Träger auch Träger-Konten), und kannst die Konten ändern (Träger-Konten nur der Träger).
-Die Spalte **Rechte** öffnet die Rechte der Person (wie im Reiter *Zugang*). Beim Träger führt oben ein Link zu
+Die Rollen sind **Träger**, **Leitung**, **Gruppenleitung**, **Mitarbeiter** und **Stempel-Tablet**; Gruppenleitung und
+Mitarbeiter brauchen einen verknüpften Mitarbeiter und arbeiten in dessen Einrichtung. Die Spalte **Rechte** öffnet die Rechte der
+Person (wie im Reiter *Zugang*); bei einer Gruppenleitung steht dort für die Leitung „stellt der Träger ein“. Beim Träger führt oben ein Link zu
 *Rechte und Rollen*; die Übersicht, was die Rollen gerade dürfen, ist zugeklappt: **„Rechte der Rollen anzeigen“** klappt
 sie auf. Auf dem Handy lässt sich die Tabelle der Konten seitlich wischen.
 
@@ -1508,7 +1513,7 @@ sehen keine Warnungen.
 ### Die Seite „Rechte und Rollen“ (nur Träger)
 
 - Unter **Mehr → Rechte und Rollen** (oder auf *Benutzer* über „Rechte und Rollen einstellen“) stellst du ein, was
-  **Leitung** und **Mitarbeiter** dürfen. Die Seite zeigt keine Einzelrechte, sondern **Schalter**, geordnet nach
+  **Leitung**, **Gruppenleitung** und **Mitarbeiter** dürfen. Die Seite zeigt keine Einzelrechte, sondern **Schalter**, geordnet nach
   Bereichen (Dienstplan, Urlaub, Zeiten, Mitarbeiter, Personalakte, Kinder, Bögen, Teamsitzungen, Kasse, Kalender,
   Vorlagen, Verwaltung). Je Rolle gibt es eine Spalte mit einem Häkchen.
 - Bei den Kinder-Schaltern „ansehen“, „Anwesenheit und Gruppenbuch“ und „eintragen und Akten ändern“ wählst du neben dem
@@ -1521,19 +1526,42 @@ sehen keine Warnungen.
   andere abhängen, fragt die App „Dann entfällt auch: …“.
 - Ein Schalter, den ein anderer enthält (z. B. „Dienstplan: bearbeiten“ in „freigeben“), ist grau angehakt, solange der
   andere an ist; zum Ausschalten erst den anderen wegnehmen.
-- Ein Punkt (•) zeigt einen Schalter, der von der Grundeinstellung abweicht. **Speichern** unten speichert beide Rollen;
+- Ein Punkt (•) zeigt einen Schalter, der von der Grundeinstellung abweicht. **Speichern** unten speichert alle drei Rollen;
   verlässt du die Seite mit ungespeicherten Änderungen, fragt die App nach. **Verwerfen** holt den gespeicherten Stand
   zurück.
-- **„Leitung: Grundeinstellung“** bzw. **„Mitarbeiter: Grundeinstellung“** setzt eine Rolle (nach Rückfrage) auf die
-  Grundeinstellung zurück. Die Grundeinstellung entspricht den bisherigen Rechten. Ausnahmen einzelner Personen bleiben
+- **„Leitung: Grundeinstellung“**, **„Gruppenleitung: Grundeinstellung“** bzw. **„Mitarbeiter: Grundeinstellung“**
+  setzt eine Rolle (nach Rückfrage) auf die Grundeinstellung zurück. Bei Leitung und Mitarbeiter entspricht die
+  Grundeinstellung den bisherigen Rechten, bei der Gruppenleitung siehe unten. Ausnahmen einzelner Personen bleiben
   dabei erhalten.
 - Ganz unten stehen grau die Rechte, die **nur der Träger** hat (z. B. Rechte einstellen, Träger-Konten, Einrichtungen,
   Löschen nach Fristen, Datensicherung, Personalschlüssel-Werte, Schulkinder-Einstellungen). Sie lassen sich nicht
   vergeben.
 - Eine Änderung gilt für alle Konten der Rolle ab ihrer nächsten Aktion; das Menü passt sich nach dem nächsten Laden der
   Seite an.
-- Auf dem Handy zeigt die Tabelle eine Rolle auf einmal; oben wählst du „Leitung“ oder „Mitarbeiter“.
+- Auf dem Handy (und auf einem schmalen Tablet im Hochformat) zeigt die Tabelle eine Rolle auf einmal; oben wählst du
+  „Leitung“, „Gruppenleitung“ oder „Mitarbeiter“.
 - Die zugeklappte Übersicht **„Rechte der Rollen“** auf *Benutzer* zeigt die tatsächlichen Einstellungen (nur lesen).
+
+### Die Gruppenleitung
+
+- **Gruppenleitung** ist eine eigene Rolle zwischen Leitung und Mitarbeiter. Wie ein Mitarbeiter-Konto ist das Konto
+  immer mit einem Mitarbeiter verknüpft und gehört zu dessen Einrichtung.
+- **Grundeinstellung:** alles, was ein Mitarbeiter darf, und dazu „Kinder: eintragen und Akten ändern“ (eigene Gruppe)
+  und „Kinder: auch mit eigenem Zugang (nicht nur am Tablet)“. Die Gruppenleitung sieht also im Menü **Kinder** und
+  pflegt die Kinder ihrer Gruppe auch im Büro, nicht nur am Tablet. Andere Gruppen sieht sie nur, wenn sie für sie
+  freigeschaltet sind (nur lesend); hat sie keine Stammgruppe, gilt das für alle Gruppen. Weil sie „Kinder“ mit dem
+  eigenen Konto hat, zeigt das Menü die Büro-Anordnung: die eigenen Seiten unter „Meins“, die Vorlagen unter „Mehr“.
+- **Vormerkungen und künftige Vertragskinder** sieht sie auch im Büro nur, wenn die Tablet-Schalter (*Einstellungen →
+  Einrichtung → Tablet*) an sind – außer der Träger gibt ihr „Kinder: verwalten“.
+- Am **Tablet** gelten nach dem Aufschließen mit Name und PIN die Rechte ihres Gruppenleitungs-Kontos.
+- Wird ein Mitarbeiter-Konto zur Gruppenleitung, entfällt seine Ausnahme „eintragen und Akten ändern“ für die eigene
+  Gruppe (die Rolle hat es schon); eine Ausnahme für die ganze Einrichtung oder ein „weggenommen“ bleibt.
+- Alles andere stellst du als Träger in der Spalte **Gruppenleitung** ein; eine Änderung gilt für alle Gruppenleitungen.
+- **Wer was verwaltet:** Gruppenleitungs-Konten legt die Leitung ihrer Einrichtung an, ändert sie, setzt das Passwort
+  zurück, deaktiviert sie und setzt die PIN – wie bei Mitarbeitern. Die **Rechte** einer Gruppenleitung (Spalte und
+  Ausnahmen je Person) stellt aber **nur der Träger** ein; die Leitung sieht dort nur einen Hinweis. Eine Gruppenleitung
+  verwaltet selbst keine Leitungs-, Gruppenleitungs- oder Mitarbeiter-Konten; bekommt sie „Zugänge verwalten“, nur
+  Tablet-Konten.
 
 ### Geänderte Grundeinstellung
 
@@ -1557,7 +1585,8 @@ sehen keine Warnungen.
 
 - Die Leitung sieht bei **Mitarbeitern ihrer Einrichtung** nur den Schalter **„Kinder: eintragen und Akten ändern
   (eigene Gruppe)“** (früher „darf Kinderakten pflegen“) und kann ihn setzen oder wegnehmen. Alle anderen Ausnahmen und
-  die Seite *Rechte und Rollen* sind dem Träger vorbehalten. Bei anderen Leitungen sieht sie keine Rechte.
+  die Seite *Rechte und Rollen* sind dem Träger vorbehalten. Bei anderen Leitungen sieht sie keine Rechte, bei einer
+  **Gruppenleitung** nur den Hinweis „Die Rechte der Gruppenleitung stellt der Träger ein.“
 - In zwei Fällen ist das Häkchen grau, mit einem Hinweis: Wegnehmen geht nicht, solange der Träger der Person ein Recht
   gegeben hat, das darauf aufbaut (z. B. „Kinder: verwalten“); Setzen geht erst, wenn die Person „Kinder: ansehen“ hat.
   Beides stellt der Träger ein. In Klammern steht, für welchen Bereich das Recht gilt (eigene Gruppe oder ganze
@@ -1570,10 +1599,10 @@ sehen keine Warnungen.
   mehr ändern.
 - **PINs** setzen, löschen und entsperren nur **Leitung** und **Träger** – auch wer „Mitarbeiter pflegen“ hat, nicht.
   Eine PIN für eine Person mit Träger-Konto setzt nur der Träger.
-- **Zugänge verwalten:** Der Träger verwaltet alle Konten. Die Leitung verwaltet Leitungs-, Mitarbeiter- und
-  Tablet-Konten ihrer Einrichtung. Wer sonst „Zugänge verwalten“ bekommt (z. B. ein Mitarbeiter), verwaltet nur
-  Tablet-Konten.
+- **Zugänge verwalten:** Der Träger verwaltet alle Konten. Die Leitung verwaltet Leitungs-, Gruppenleitungs-,
+  Mitarbeiter- und Tablet-Konten ihrer Einrichtung (die Rechte einer Gruppenleitung aber nicht). Wer sonst „Zugänge
+  verwalten“ bekommt (z. B. eine Gruppenleitung oder ein Mitarbeiter), verwaltet nur Tablet-Konten.
 - **Bekannte Grenze:** Eine Leitung kann weiterhin andere Leitungs-Konten ihrer Einrichtung anlegen, ändern und deren
-  Passwort zurücksetzen, und sie kann Passwort und PIN von Mitarbeitern ihrer Einrichtung setzen. Hat der Träger einer
+  Passwort zurücksetzen, und sie kann Passwort und PIN von Gruppenleitungen und Mitarbeitern ihrer Einrichtung setzen. Hat der Träger einer
   Leitung Rechte weggenommen, könnte sie so mit einem anderen Konto arbeiten. Gib das Leitungs-Konto deshalb nur
   Personen, denen du die ganze Einrichtung anvertraust.

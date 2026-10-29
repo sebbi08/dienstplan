@@ -1,6 +1,6 @@
 import {
   BUNDLE_AREA_LABELS, BUNDLE_IDS, BUNDLES, DEFAULT_SCOPE, bundleDef, bundlesDroppedWith, bundlesPulledBy, effectiveRights,
-  type BundleId, type BundleScope, type RightsRole,
+  isRightsRole, type BundleId, type BundleScope, type RightsRole,
 } from '#shared/domain/permissionBundles'
 import type { PermissionKey } from '#shared/domain/permissions'
 import type {
@@ -96,18 +96,26 @@ export function changedBundles(draft: RoleDraft, stored: RoleDraft): RoleRightsI
 // --- exceptions per person --------------------------------------------------------------------------------------
 
 /**
- * Which rights of an account the viewer sees and changes (spec §4): the Träger every switch of a Leitung or Mitarbeiter
- * account; the Leitung only „eintragen und Akten ändern“ of a Mitarbeiter account (the server limits it to the
- * Mitarbeiter of its facility); nobody else, and nobody the rights of a Träger or tablet account. `targetRole` is the
- * stored role of the account.
+ * Which rights of an account the viewer sees and changes (spec §4): the Träger every switch of a Leitung,
+ * Gruppenleitung or Mitarbeiter account; the Leitung only „eintragen und Akten ändern“ of a Mitarbeiter account (the
+ * server limits it to the Mitarbeiter of its facility; the rights of a Gruppenleitung only the Träger reads and sets);
+ * nobody else, and nobody the rights of a Träger or tablet account. `targetRole` is the stored role of the account.
  */
 export function personRightsMode(
   viewer: { role: Role | undefined; can: (key: PermissionKey) => boolean }, targetRole: Role,
 ): 'all' | 'childrenEdit' | null {
-  if (targetRole !== 'admin' && targetRole !== 'observer') return null
+  if (!isRightsRole(targetRole)) return null
   if (viewer.can('rights.manage')) return 'all'
   if (viewer.role === 'admin' && targetRole === 'observer' && viewer.can('users.manage')) return 'childrenEdit'
   return null
+}
+
+/**
+ * Whether the viewer gets the hint „Die Rechte der Gruppenleitung stellt der Träger ein.“ in place of a rights block: a
+ * Gruppenleitung account for anyone who does not set rights (the server answers 403 to the Leitung's GET of its rights).
+ */
+export function providerSetsRights(viewer: { can: (key: PermissionKey) => boolean }, targetRole: Role): boolean {
+  return targetRole === 'group_lead' && !viewer.can('rights.manage')
 }
 
 /** How a person's switch stands: as the role has it, granted on top of it, or taken away. */

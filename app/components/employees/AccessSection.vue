@@ -2,7 +2,7 @@
 import type { Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
-import { personRightsMode } from '~/utils/rights'
+import { personRightsMode, providerSetsRights } from '~/utils/rights'
 import { suggestUsername } from '~/utils/staffList'
 import { accountLock, manageableRoles } from '#shared/domain/roles'
 
@@ -11,6 +11,7 @@ import { accountLock, manageableRoles } from '#shared/domain/roles'
  * „Zugang einrichten“. The same routes and rights as the users page (users.manage; only a Träger may touch Träger).
  */
 const props = defineProps<{ employeeId: number; employeeName: string }>()
+const LINKED_ROLES: Role[] = ['admin', 'group_lead', 'observer']
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
 const run = useAction(refresh)
 const { can } = useCan()
@@ -32,9 +33,12 @@ const lock = computed(() => (account.value
   : null))
 const locked = computed(() => lock.value !== null)
 const lockText = computed(() => (lock.value === 'own' ? de.users.ownLocked : lock.value === 'role' ? de.users.roleLocked : de.users.providerLocked))
-/** A linked account can be Mitarbeiter or Leitung (a Träger account stays Träger for a Träger); never the tablet. */
+/**
+ * A linked account can be Leitung, Gruppenleitung or Mitarbeiter (a Träger account stays Träger for a Träger); never
+ * the tablet.
+ */
 const roleItems = computed(() => ((canProviderAccounts.value && account.value?.role === 'provider' ? ['provider'] : []) as Role[])
-  .concat(['admin', 'observer']).map(role => ({ label: de.users.roles[role], value: role })))
+  .concat(LINKED_ROLES).map(role => ({ label: de.users.roles[role], value: role })))
 
 function save() {
   const target = account.value
@@ -44,8 +48,12 @@ function save() {
   }), de.common.saved)
 }
 
-/** The person's rights: the Träger every switch, the Leitung „eintragen und Akten ändern“ of a Mitarbeiter. */
+/**
+ * The person's rights: the Träger every switch, the Leitung „eintragen und Akten ändern“ of a Mitarbeiter; for a
+ * Gruppenleitung the Leitung only gets the hint that the Träger sets them (no request, the server answers 403).
+ */
 const rightsMode = computed(() => (storedRole.value ? personRightsMode({ role: sessionUser.value?.role, can }, storedRole.value) : null))
+const rightsByProvider = computed(() => !!storedRole.value && providerSetsRights({ can }, storedRole.value))
 
 const resetOpen = ref(false)
 const resetValue = ref('')
@@ -62,7 +70,7 @@ async function submitReset() {
 
 // „Zugang einrichten“: the username proposed from the name until it is changed by hand. Only the roles the actor manages
 // (none for a Mitarbeiter with „Zugänge verwalten“: tablets have no person).
-const createRoleItems = computed(() => (['observer', 'admin'] as Role[])
+const createRoleItems = computed(() => (['observer', 'group_lead', 'admin'] as Role[])
   .filter(role => manageableRoles(sessionUser.value?.role, can).includes(role))
   .map(role => ({ label: de.users.roles[role], value: role })))
 const form = reactive<{ username: string; password: string; role: Role }>({ username: '', password: '', role: 'observer' })
@@ -116,6 +124,7 @@ async function create() {
         <UsersRightsExceptions v-if="account.role === storedRole" :key="account.id" :user-id="account.id" :mode="rightsMode" />
         <p v-else class="text-xs text-gray-500">{{ de.rights.roleChangedHint }}</p>
       </template>
+      <p v-else-if="rightsByProvider && account.role === storedRole" class="text-xs text-gray-500">{{ de.rights.groupLeadByProvider }}</p>
     </template>
 
     <template v-else>
