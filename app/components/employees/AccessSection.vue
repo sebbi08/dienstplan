@@ -34,11 +34,12 @@ const lock = computed(() => (account.value
 const locked = computed(() => lock.value !== null)
 const lockText = computed(() => (lock.value === 'own' ? de.users.ownLocked : lock.value === 'role' ? de.users.roleLocked : de.users.providerLocked))
 /**
- * A linked account can be Leitung, Gruppenleitung or Mitarbeiter (a Träger account stays Träger for a Träger); never
- * the tablet.
+ * A linked account can be Leitung, Gruppenleitung or Mitarbeiter, as far as the actor manages the role (a Träger
+ * account stays Träger for a Träger); never the tablet.
  */
 const roleItems = computed(() => ((canProviderAccounts.value && account.value?.role === 'provider' ? ['provider'] : []) as Role[])
-  .concat(LINKED_ROLES).map(role => ({ label: de.users.roles[role], value: role })))
+  .concat(LINKED_ROLES.filter(role => manageableRoles(sessionUser.value?.role, can).includes(role)))
+  .map(role => ({ label: de.users.roles[role], value: role })))
 
 function save() {
   const target = account.value
@@ -124,7 +125,9 @@ async function create() {
         <UsersRightsExceptions v-if="account.role === storedRole" :key="account.id" :user-id="account.id" :mode="rightsMode" />
         <p v-else class="text-xs text-gray-500">{{ de.rights.roleChangedHint }}</p>
       </template>
-      <p v-else-if="rightsByProvider && account.role === storedRole" class="text-xs text-gray-500">{{ de.rights.groupLeadByProvider }}</p>
+      <p v-else-if="rightsByProvider" class="text-xs text-gray-500">
+        {{ account.role === storedRole ? de.rights.groupLeadByProvider : de.rights.roleChangedHint }}
+      </p>
     </template>
 
     <template v-else>

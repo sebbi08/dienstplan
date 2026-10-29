@@ -1549,7 +1549,7 @@ sehen keine Warnungen.
 - **Grundeinstellung:** alles, was ein Mitarbeiter darf, und dazu „Kinder: eintragen und Akten ändern“ (eigene Gruppe)
   und „Kinder: auch mit eigenem Zugang (nicht nur am Tablet)“. Die Gruppenleitung sieht also im Menü **Kinder** und
   pflegt die Kinder ihrer Gruppe auch im Büro, nicht nur am Tablet. Andere Gruppen sieht sie nur, wenn sie für sie
-  freigeschaltet sind (nur lesend); hat sie keine Stammgruppe, gilt das für alle Gruppen. Weil sie „Kinder“ mit dem
+  freigeschaltet sind (nur lesend); hat sie keine Stammgruppe, pflegt sie die Kinder aller Gruppen. Weil sie „Kinder“ mit dem
   eigenen Konto hat, zeigt das Menü die Büro-Anordnung: die eigenen Seiten unter „Meins“, die Vorlagen unter „Mehr“.
 - **Vormerkungen und künftige Vertragskinder** sieht sie auch im Büro nur, wenn die Tablet-Schalter (*Einstellungen →
   Einrichtung → Tablet*) an sind – außer der Träger gibt ihr „Kinder: verwalten“.
@@ -1579,7 +1579,9 @@ sehen keine Warnungen.
 - Je Schalter wählst du **„von der Rolle“** (keine Ausnahme), **„zusätzlich erlaubt“** oder **„weggenommen“**; bei den
   Kinder-Schaltern mit Umfang. Jede Änderung wird sofort gespeichert. Auch hier kommt mit, was ein Schalter braucht, und
   vor dem Wegnehmen fragt die App, was sonst noch entfällt.
-- Ändert sich die Rolle einer Person, bleiben ihre Ausnahmen bestehen. Träger- und Tablet-Konten haben feste Rechte.
+- Ändert sich die Rolle einer Person, bleiben ihre Ausnahmen bestehen – außer beim Wechsel zur Gruppenleitung: Dann
+  entfällt die Ausnahme „eintragen und Akten ändern“ für die eigene Gruppe (siehe „Die Gruppenleitung“). Träger- und
+  Tablet-Konten haben feste Rechte.
 
 ### Was die Leitung darf
 

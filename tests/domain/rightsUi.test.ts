@@ -174,9 +174,18 @@ describe('exceptions per person', () => {
     const draft = roleDraft(roleRights('group_lead'))
     expect(draft.childrenEdit).toEqual({ enabled: true, scope: 'group' })
     expect(dropPreview(draft, 'childrenView')).toEqual(expect.arrayContaining(['childrenEdit']))
-    const { draft: next, pulledIn } = switchOn(roleDraft(roleRights('observer')), 'childrenEdit', 'group_lead')
-    expect(next.childrenEdit).toEqual({ enabled: true, scope: 'group' })
-    expect(pulledIn).not.toContain('childrenEdit')
+    // With „ansehen“ off, switching on „eintragen“ brings it along with the role's default scope: the own group for
+    // the Gruppenleitung, the whole facility for the Leitung.
+    const off = switchOff(draft, 'childrenView').draft
+    expect(off.childrenView.enabled).toBe(false)
+    expect(off.childrenEdit.enabled).toBe(false)
+    const lead = switchOn(off, 'childrenEdit', 'group_lead')
+    expect(lead.draft.childrenEdit).toEqual({ enabled: true, scope: 'group' })
+    expect(lead.draft.childrenView).toEqual({ enabled: true, scope: 'group' })
+    expect(lead.pulledIn).toContain('childrenView')
+    const leitung = switchOn(off, 'childrenEdit', 'admin')
+    expect(leitung.draft.childrenEdit).toEqual({ enabled: true, scope: 'facility' })
+    expect(leitung.draft.childrenView).toEqual({ enabled: true, scope: 'facility' })
   })
 
   it('replaces the one exception and keeps the others', () => {

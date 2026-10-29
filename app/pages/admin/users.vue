@@ -65,7 +65,10 @@ const rightsModeOf = (user: UserDto) => {
   const role = storedRole(user)
   return role && role === user.role ? personRightsMode({ role: sessionUser.value?.role, can }, role) : null
 }
-/** A Gruppenleitung for whom does not set rights: only the Träger reads and sets them (a short hint, no request). */
+/**
+ * A Gruppenleitung account, for a viewer who does not set rights: only the Träger reads and sets them (a short hint, no
+ * request).
+ */
 const byProvider = (user: UserDto) => {
   const role = storedRole(user)
   return !!role && role === user.role && providerSetsRights({ can }, role)
@@ -126,6 +129,7 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
             <!-- The Träger: every switch of Leitung, Gruppenleitung and Mitarbeiter; the Leitung: „eintragen und Akten ändern“ of a Mitarbeiter. -->
             <UButton v-if="rightsModeOf(user)" size="xs" color="neutral" variant="outline" icon="i-lucide-shield" :label="de.users.rightsButton" @click="rightsTarget = user" />
             <span v-else-if="byProvider(user)" class="text-xs text-gray-500">{{ de.users.rightsByProvider }}</span>
+            <span v-else-if="storedRole(user) && storedRole(user) !== user.role" class="text-xs text-gray-500">{{ de.rights.roleChangedHint }}</span>
             <span v-else class="text-gray-300">–</span>
           </td>
           <td class="px-3 py-2 text-center"><input v-model="user.active" type="checkbox" :disabled="locked(user)"></td>

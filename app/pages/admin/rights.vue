@@ -9,8 +9,8 @@ import {
 /**
  * Mehr → Rechte und Rollen, only for the Träger (spec Rechte und Rollen Teil 2 §3): the switches of Leitung,
  * Gruppenleitung and Mitarbeiter by area (Teil 3), with the scope of the children switches. Switching one on brings what
- * it needs along (a notice), switching one off asks when others depend on it. The edits of all roles are saved together; each role can go back to
- * the Grundeinstellung on its own. The server applies the same relations again when saving.
+ * it needs along (a notice), switching one off asks when others depend on it. The edits of all roles are saved together;
+ * each role can go back to the Grundeinstellung on its own. The server applies the same relations again when saving.
  */
 const t = de.rights
 useHead({ title: t.title })
