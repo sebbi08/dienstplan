@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { accountRedirect } from '../../app/utils/routeAccess'
 import { navMenu } from '../../app/utils/navMenu'
 import type { Db } from '../../server/db/client'
-import { children, users } from '../../server/db/schema'
+import { children, userBundleOverrides, users } from '../../server/db/schema'
 import { asChildEditor, type ChildActor, type ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getActiveUser, login } from '../../server/services/auth'
-import { createChild, getChild, updateChildMaster } from '../../server/services/children'
+import { createChild, getChild, listPlanned, updateChildMaster } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import { saveBundleOverride } from '../../server/services/permissions'
 import {
@@ -159,6 +159,21 @@ describe('RF1: a Gruppenleitung works with the children of the own group', () =>
     save(again, kidB)
   })
 
+  it('sees the planned children with the own account only as the tablet switches allow, unless given „verwalten“', () => {
+    const wish = addChild(db, 1, { lastName: 'Gans', groupId: a, entryDate: null, admissionStatus: 'waitlist', waitlistedOn: '2026-09-01' })
+    const office = () => resolveChildViewer(db, fresh(), undefined, NOW)
+    expect(office().visibility).toEqual({ waitlist: true, futureContracts: true })
+    expect(listPlanned(db, office(), TODAY).waitlist.map(item => item.id)).toEqual([wish])
+    setTabletSettings(db, 1, { lockMinutes: 10, showWaitlist: false, showFutureContracts: true })
+    expect(listPlanned(db, office(), TODAY).waitlist).toEqual([])
+    expect(failure(() => getChild(db, office(), wish, TODAY))).toBe('404 child_not_found')
+    // The Leitung (children.planned) as before.
+    expect(resolveChildViewer(db, addUser(db, 'leitung2', 'admin'), undefined, NOW).visibility).toBeNull()
+    saveBundleOverride(db, lead.id, 'childrenManage', 'grant')
+    expect(office().visibility).toBeNull()
+    expect(getChild(db, office(), wish, TODAY).id).toBe(wish)
+  })
+
   it('keeps a Mitarbeiter of the same group to the tablet (unchanged)', () => {
     const anna = addUser(db, 'anna', 'observer', addEmployee(db, 'Anna', { groupId: a }))
     expect(failure(() => resolveChildViewer(db, anna, undefined, NOW))).toBe('403 children_tablet_only')
@@ -204,6 +219,29 @@ describe('RF3: who manages Gruppenleitung accounts', () => {
     expect(updateUser(db, leitung, account.id, { role: 'group_lead', employeeId: anna, active: true }).role).toBe('group_lead')
     expect(db.select({ facilityId: users.facilityId }).from(users).where(eq(users.id, account.id)).get()!.facilityId).toBeNull()
     expect(updateUser(db, leitung, account.id, { role: 'observer', employeeId: anna, active: true }).role).toBe('observer')
+  })
+
+  it('drops the Mitarbeiter grant of „eintragen“ for the own group on becoming Gruppenleitung, keeps the rest', () => {
+    const overrides = (userId: number) => db.select({ bundle: userBundleOverrides.bundle, effect: userBundleOverrides.effect, scope: userBundleOverrides.scope })
+      .from(userBundleOverrides).where(eq(userBundleOverrides.userId, userId)).all()
+      .sort((x, y) => x.bundle.localeCompare(y.bundle))
+    const account = createUser(db, leitung, { username: 'anna', password: 'start-1234', role: 'observer', employeeId: anna })
+    saveUserRights(db, leitung, account.id, [{ bundle: 'childrenEdit', effect: 'grant', scope: 'group' }])
+    saveBundleOverride(db, account.id, 'calendarView', 'revoke')
+    updateUser(db, leitung, account.id, { role: 'group_lead', employeeId: anna, active: true })
+    expect(overrides(account.id)).toEqual([{ bundle: 'calendarView', effect: 'revoke', scope: null }])
+    // Once the Träger turns the column's switch off, nothing unseen gives it back.
+    saveRoleRights(db, 'group_lead', [{ id: 'childrenEdit', enabled: false }])
+    expect(getActiveUser(db, account.id)!.permissions.has('children.edit')).toBe(false)
+    // A revoke and a grant for the whole facility (the Träger's, visible to it) stay.
+    const other = createUser(db, provider, { username: 'gabi', password: 'start-1234', role: 'observer', employeeId: gabi })
+    saveBundleOverride(db, other.id, 'childrenEdit', 'grant', 'facility')
+    updateUser(db, provider, other.id, { role: 'group_lead', employeeId: gabi, active: true })
+    expect(overrides(other.id)).toEqual([{ bundle: 'childrenEdit', effect: 'grant', scope: 'facility' }])
+    saveBundleOverride(db, other.id, 'childrenEdit', 'revoke')
+    updateUser(db, provider, other.id, { role: 'observer', employeeId: gabi, active: true })
+    updateUser(db, provider, other.id, { role: 'group_lead', employeeId: gabi, active: true })
+    expect(overrides(other.id)).toEqual([{ bundle: 'childrenEdit', effect: 'revoke', scope: null }])
   })
 
   it('hides a Gruppenleitung of another facility from the Leitung', () => {

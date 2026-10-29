@@ -56,8 +56,10 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       })
     })
 
-    it('knows only Leitung and Mitarbeiter as roles of the page', () => {
+    it('knows only Leitung, Gruppenleitung and Mitarbeiter as roles of the page', () => {
       expect(rightsRole('admin')).toBe('admin')
+      expect(rightsRole('group_lead')).toBe('group_lead')
+      expect(rightsRole('observer')).toBe('observer')
       expect(errorCode(() => rightsRole('provider'))).toBe('role_not_found')
       expect(errorCode(() => rightsRole('terminal'))).toBe('role_not_found')
     })

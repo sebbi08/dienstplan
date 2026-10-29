@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BASELINE_KEYS, BUNDLE_AREA_LABELS, BUNDLE_AREAS, BUNDLE_DEFAULTS, BUNDLE_IDS, BUNDLES, DEFAULT_SCOPE, bundleOfKey,
+  BASELINE_KEYS, BUNDLE_AREA_LABELS, BUNDLE_AREAS, BUNDLE_DEFAULTS, BUNDLE_IDS, BUNDLES, DEFAULT_SCOPE, RIGHTS_ROLES, bundleOfKey,
   bundlesDroppedWith, bundlesPulledBy, effectivePermissions, effectiveRights, expandBundles, isBundleId, roleBundleMap, type BundleId,
 } from '../../shared/domain/permissionBundles'
 import { PERMISSIONS, ROLE_DEFAULTS, resolvePermissions, type PermissionKey } from '../../shared/domain/permissions'
@@ -175,7 +175,7 @@ describe('defaults (RF1, domain level)', () => {
   })
 
   it('are closed: every default bundle has its required bundles', () => {
-    for (const role of ['admin', 'observer'] as const) {
+    for (const role of RIGHTS_ROLES) {
       for (const id of BUNDLE_DEFAULTS[role]) {
         for (const required of bundlesPulledBy([id])) expect(BUNDLE_DEFAULTS[role], `${role}: ${id}`).toContain(required)
       }

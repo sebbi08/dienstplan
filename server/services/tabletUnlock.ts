@@ -50,6 +50,15 @@ function groupAccessFor(db: Db, scopes: ReadonlyMap<PermissionKey, BundleScope> 
   return { groups: view, writeGroups: { attendance: of('children.attendance'), edit: of('children.edit') } }
 }
 
+/**
+ * Which planned children the viewer sees, at the tablet and with the own account alike: whoever holds children.planned
+ * (in „Kinder: verwalten“) every one; everyone else as the facility's tablet switches say (Vormerkungen, future contracts).
+ */
+function visibilityFor(permissions: ReadonlySet<PermissionKey>, settings: TabletSettingsDto): ChildViewer['visibility'] {
+  return can(permissions, 'children.planned') ? null
+    : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts }
+}
+
 /** Every group, for a viewer without a home group of the facility (helpers, the Träger, staff without group). */
 const ALL_GROUPS: GroupScopes = { groups: null, writeGroups: { attendance: null, edit: null } }
 
@@ -84,8 +93,7 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     role,
     permissions,
     facilityId: terminal.facilityId,
-    visibility: can(permissions, 'children.planned') ? null
-      : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts },
+    visibility: visibilityFor(permissions, settings),
     onTablet: true,
     ...homeStaff ? groupAccessFor(db, rights.scopes, employee.groupId) : ALL_GROUPS,
   }
@@ -175,8 +183,8 @@ export function tabletChildViewer(
 /**
  * Who looks at child records with this request (spec §4, §8.2): the tablet only through a valid unlock (403
  * tablet_locked otherwise; the request counts as use), an account with children.ownAccount (Leitung, Träger,
- * Gruppenleitung) in its facility (403 no_facility without one). Every other account, Mitarbeiter with or without the edit flag, sees no child
- * data at all: 403 children_tablet_only.
+ * Gruppenleitung) in its facility (403 no_facility without one), the planned children as `visibilityFor` says. Every
+ * other account, Mitarbeiter with or without the edit flag, sees no child data at all: 403 children_tablet_only.
  */
 export function resolveChildViewer(db: Db, user: SessionUser, token: string | undefined, now: Date = new Date()): ChildViewer {
   if (user.role === 'terminal') {
@@ -192,7 +200,9 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
   const homeStaff = employee !== undefined && employee.facilityId === user.facilityId
   return {
     id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
-    permissions: user.permissions, facilityId: user.facilityId, visibility: null, onTablet: false,
+    permissions: user.permissions, facilityId: user.facilityId, onTablet: false,
+    // Without children.planned (a Gruppenleitung) the tablet switches apply here too: no more than at the tablet.
+    visibility: visibilityFor(user.permissions, getTabletSettings(db, user.facilityId)),
     // The scopes come with the permissions of this request (one read of the rights).
     ...homeStaff ? groupAccessFor(db, user.scopes, employee.groupId) : ALL_GROUPS,
   }

@@ -22,7 +22,10 @@ export interface ChildViewer {
    */
   permissions: ReadonlySet<PermissionKey>
   facilityId: number
-  /** null = sees every child (children.planned); set at the tablet for everyone else. */
+  /**
+   * null = sees every child (children.planned); for everyone else, at the tablet and with the own account, the
+   * facility's tablet switches (Vormerkungen, future contracts).
+   */
   visibility: ChildVisibility | null
   onTablet: boolean
   /**

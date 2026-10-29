@@ -1,10 +1,10 @@
-import { and, asc, count, eq, inArray, or } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, ne, or } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { mayManagePins } from '../../shared/domain/pin'
 import { MANAGER_ROLES, STAFF_ROLES, isStaffRole, manageableRoles as sharedManageableRoles } from '../../shared/domain/roles'
 import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, users } from '../db/schema'
+import { employees, userBundleOverrides, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
@@ -164,7 +164,10 @@ export function updateUser(db: Db, actor: SessionUser, id: number, update: UserU
     : update.role === 'provider' ? userFacilityId
       : user.role === update.role ? userFacilityId : actorFacility(actor)
   // The checks and the change in one transaction. The account's exceptions stay with it (they are the person's); under
-  // another role they apply against that role's settings.
+  // another role they apply against that role's settings. One goes: becoming Gruppenleitung, a grant of „eintragen und
+  // Akten ändern“ for the own group (the Leitung's exception for a Mitarbeiter) – the role has it, and the Leitung sees
+  // no rights of a Gruppenleitung, so it would stick unseen once the Träger turns the role's switch off. A revoke, or a
+  // grant for the whole facility (only the Träger sets that, and sees it), stays.
   db.transaction((tx) => {
     if (loses(['provider']) && activeProviders(tx) <= 1) throw new ServiceError(409, 'last_provider')
     if (loses([...MANAGER_ROLES]) && activeManagers(tx, user.role === 'admin' ? userFacilityId : actor.facilityId) <= 1) {
@@ -177,6 +180,13 @@ export function updateUser(db: Db, actor: SessionUser, id: number, update: UserU
         ...(update.role === 'terminal' ? { mustChangePassword: false } : {}),
       })
       .where(eq(users.id, id)).run()
+    if (update.role === 'group_lead' && user.role !== 'group_lead') {
+      tx.delete(userBundleOverrides).where(and(
+        eq(userBundleOverrides.userId, id), eq(userBundleOverrides.bundle, 'childrenEdit'),
+        eq(userBundleOverrides.effect, 'grant'),
+        or(isNull(userBundleOverrides.scope), ne(userBundleOverrides.scope, 'facility')),
+      )).run()
+    }
   })
   return findUser(db, actor, id).dto
 }
