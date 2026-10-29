@@ -34,6 +34,8 @@ export function flaggedPermissions(role: Role, flags: LegacyFlags = {}): Readonl
 export function teil1Permissions(role: Role, flags: LegacyFlags = {}): ReadonlySet<PermissionKey> {
   if (role === 'provider') return new Set(PERMISSION_KEYS)
   if (role === 'terminal') return new Set()
+  // The Gruppenleitung came with Teil 3: there is no Teil 1 reference to reproduce.
+  if (role === 'group_lead') throw new Error('no Teil 1 rights for the Gruppenleitung')
   const granted = [...ROLE_DEFAULTS[role]]
   if (role === 'observer' && flags.canEditChildren) granted.push('children.edit')
   if (role === 'admin' && flags.isLeavePlanner) granted.push('leave.plan')

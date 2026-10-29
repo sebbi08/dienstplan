@@ -7,12 +7,14 @@
 //
 // Actors (fixed order):
 //   anonymous            no session
-//   provider/admin/observer  the own account (Träger / Leitung / Mitarbeiter), with a facility
+//   provider/admin/group_lead/observer  the own account (Träger / Leitung / Gruppenleitung / Mitarbeiter), with a
+//                        facility; group_lead added with Teil 3 (its Grundeinstellung)
 //   terminal             the tablet session, locked or unlocked (the guard does not look at the unlock)
 //   tablet:<person>      the tablet session unlocked by that person; only named where a child guard reads the unlock:
-//                        tablet:provider / tablet:admin (account of that role), tablet:observerEditor (Mitarbeiter
-//                        account with „darf Kinderakten pflegen“), tablet:observer (Mitarbeiter account without it),
-//                        tablet:noAccount (person without an account, or a helper from another facility)
+//                        tablet:provider / tablet:admin / tablet:group_lead (account of that role),
+//                        tablet:observerEditor (Mitarbeiter account with „darf Kinderakten pflegen“), tablet:observer
+//                        (Mitarbeiter account without it), tablet:noAccount (person without an account, or a helper
+//                        from another facility)
 // Guard-level only: rules inside the services (planner, own employee, group rights, contract fields …) are not part of
 // it. A route with several guards gets the intersection (the strictest combination).
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -28,6 +30,7 @@ import { CHILD_ACTOR_KEYS, PERMISSION_KEYS } from '../shared/domain/permissions.
 // The Grundeinstellung of the rights page (no role settings, no exceptions).
 export const DEFAULTS = {
   admin: effectivePermissions({ role: 'admin' }),
+  group_lead: effectivePermissions({ role: 'group_lead' }),
   observer: effectivePermissions({ role: 'observer' }),
 }
 // A Mitarbeiter account with the exception „eintragen und Akten ändern“ (formerly „darf Kinderakten pflegen“).
@@ -43,6 +46,7 @@ const OBSERVER_EDITOR = effectivePermissions({
 export const TABLET_PERMISSIONS = {
   'tablet:provider': new Set(PERMISSION_KEYS),
   'tablet:admin': DEFAULTS.admin,
+  'tablet:group_lead': DEFAULTS.group_lead,
   'tablet:observerEditor': OBSERVER_EDITOR,
   'tablet:observer': DEFAULTS.observer,
   'tablet:noAccount': DEFAULTS.observer,
@@ -57,18 +61,21 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = join(ROOT, 'server', 'api')
 const OUT = join(ROOT, 'tests', 'fixtures', 'route-access-before.json')
 
-export const ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
-  'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+export const ACTORS = ['anonymous', 'provider', 'admin', 'group_lead', 'observer', 'terminal', 'tablet:provider',
+  'tablet:admin', 'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 
-const TABLET_READERS = ['tablet:provider', 'tablet:admin', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+/** The accounts whose rights come from the rights page (the Träger has every key). */
+const RIGHTS_ACTORS = ['admin', 'group_lead', 'observer']
+const TABLET_READERS = ['tablet:provider', 'tablet:admin', 'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer',
+  'tablet:noAccount']
 
 /** Who passes each guard of server/utils/auth.ts (inventory §1); null = no role restriction of its own. */
 const GUARDS = {
   requireProvider: () => ['provider'],
   requireAdmin: () => ['provider', 'admin'],
   requireUser: args => /allowTerminal:\s*true/.test(args)
-    ? ['provider', 'admin', 'observer', 'terminal']
-    : ['provider', 'admin', 'observer'],
+    ? ['provider', ...RIGHTS_ACTORS, 'terminal']
+    : ['provider', ...RIGHTS_ACTORS],
   requireTerminal: () => ['terminal'],
   // templateReaderFacility: managers and the tablet without unlock; a Mitarbeiter account gets 403.
   requireTemplateReader: () => ['provider', 'admin', 'terminal'],
@@ -86,7 +93,7 @@ const GUARDS = {
   requirePermission: (args) => {
     const key = /^\s*event,\s*'([^']+)'/.exec(args)?.[1]
     if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requirePermission(${args})`)
-    return ['provider', 'admin', 'observer', 'terminal'].filter(actor => actor === 'provider'
+    return ['provider', ...RIGHTS_ACTORS, 'terminal'].filter(actor => actor === 'provider'
       || (actor === 'terminal' ? /allowTerminal:\s*true/.test(args) : DEFAULTS[actor].has(key)))
   },
   // Since Teil 1 Task 3: the own account needs children.ownAccount besides the key; the tablet only unlocked, with the
@@ -96,7 +103,7 @@ const GUARDS = {
     const key = /^\s*event,\s*'([^']+)'\s*$/.exec(args)?.[1]
     if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requireChildPermission(${args})`)
     const office = actor => actor === 'provider' || (DEFAULTS[actor].has('children.ownAccount') && DEFAULTS[actor].has(key))
-    return [...['provider', 'admin', 'observer'].filter(office), ...TABLET_READERS.filter(actor => tabletPasses(actor, key))]
+    return [...['provider', ...RIGHTS_ACTORS].filter(office), ...TABLET_READERS.filter(actor => tabletPasses(actor, key))]
   },
 }
 
@@ -105,7 +112,7 @@ const PUBLIC_ROUTES = {
   'health.get.ts': 'health check',
   'auth/login.post.ts': 'the login itself',
 }
-const PUBLIC_ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal']
+const PUBLIC_ACTORS = ['anonymous', 'provider', ...RIGHTS_ACTORS, 'terminal']
 
 /**
  * Route files that look at the role themselves, and why that is no access check. Any other route file that does
@@ -114,7 +121,7 @@ const PUBLIC_ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal']
 const ROLE_USES = {
   'auth/login.post.ts': 'session lifetime: the tablet stays logged in (no access check)',
 }
-const ROLE_USE = /\.role\b|\bisManager\(|\bisProvider\b|\bmayEditChildren\(|\bassert(Provider|Manager)\(|'(provider|admin|observer|terminal)'/
+const ROLE_USE = /\.role\b|\bisManager\(|\bisProvider\b|\bmayEditChildren\(|\bassert(Provider|Manager)\(|'(provider|admin|group_lead|observer|terminal)'/
 
 function stripComments(code) {
   return code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')

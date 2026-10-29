@@ -670,7 +670,7 @@ export const de = {
   colors: { neutral: 'neutral', gray: 'grau', green: 'grün', yellow: 'gelb', blue: 'blau', red: 'rot', violet: 'violett', orange: 'orange' },
   users: {
     title: 'Benutzer', username: 'Benutzername', password: 'Startpasswort (mindestens 8 Zeichen)', role: 'Rolle',
-    roles: { provider: 'Träger', admin: 'Leitung', observer: 'Mitarbeiter', terminal: 'Stempel-Tablet' },
+    roles: { provider: 'Träger', admin: 'Leitung', group_lead: 'Gruppenleitung', observer: 'Mitarbeiter', terminal: 'Stempel-Tablet' },
     rolesHint: 'Träger: alles. Leitung und Mitarbeiter: was unter „Rechte und Rollen“ eingestellt ist, bei einzelnen Personen mit Ausnahmen. In der Grundeinstellung führt die Leitung die Einrichtung (Dienstplan, Mitarbeiter, Zeiterfassung, Kinder, Einstellungen); Mitarbeiter sehen den Dienstplan und ihren eigenen Plan, stempeln und beantragen Urlaub (das Konto muss mit einem Mitarbeiter verknüpft sein), Kinder nur am Tablet. Stempel-Tablet: gemeinsames Gerät der Einrichtung zum Stempeln; nach dem Aufschließen mit Name und PIN zeigt es auch die Kinder, mit den Rechten der Person, die aufgeschlossen hat.',
     providerLocked: 'nur durch Träger änderbar',
     ownLocked: 'Das eigene Konto ändert der Träger.',

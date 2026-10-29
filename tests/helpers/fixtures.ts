@@ -12,6 +12,7 @@ import { createFacility } from '../../server/services/facilities'
 import { createGroup } from '../../server/services/groups'
 import { saveBundleOverride } from '../../server/services/permissions'
 import type { PermissionKey } from '../../shared/domain/permissions'
+import { isStaffRole } from '../../shared/domain/roles'
 import type { Role, SessionUser } from '../../shared/types/api'
 import { flaggedPermissions } from './rights'
 
@@ -51,13 +52,13 @@ export function addEmployee(
 }
 
 /**
- * Leitung, tablet and Träger accounts work in facility 1 unless facilityId says otherwise; a Mitarbeiter account
- * follows its employee. Returns the session user as the server builds it.
+ * Leitung, tablet and Träger accounts work in facility 1 unless facilityId says otherwise; a Gruppenleitung or
+ * Mitarbeiter account follows its employee. Returns the session user as the server builds it.
  */
 export function addUser(
   db: Db, username: string, role: Role, employeeId: number | null = null, facilityId?: number,
 ): SessionUser {
-  const stored = facilityId ?? (role === 'observer' ? null : 1)
+  const stored = facilityId ?? (isStaffRole(role) ? null : 1)
   const row = db.insert(users)
     .values({ username, passwordHash: hashPassword(TEST_PASSWORD), role, employeeId, facilityId: stored })
     .returning().get()

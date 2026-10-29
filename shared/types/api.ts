@@ -41,7 +41,8 @@ export type ConsentKey = typeof CONSENT_KEYS[number]
 /** An answer that may still be open: yes, no or not answered (null). */
 export type TriState = boolean | null
 
-export type Role = 'provider' | 'admin' | 'observer' | 'terminal'
+/** The account roles: Träger, Leitung, Gruppenleitung, Mitarbeiter and the stamp tablet. */
+export type Role = 'provider' | 'admin' | 'group_lead' | 'observer' | 'terminal'
 export type ClosureMode = 'vacation' | 'closure_day'
 export type NoteField = 'info1' | 'info2'
 export type ChangeField = 'entry' | NoteField

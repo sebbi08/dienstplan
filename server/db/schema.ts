@@ -196,7 +196,8 @@ export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: text('role', { enum: ['provider', 'admin', 'observer', 'terminal'] }).notNull(),
+  // TypeScript only: the column has no CHECK constraint, so the Gruppenleitung ('group_lead') needed no migration.
+  role: text('role', { enum: ['provider', 'admin', 'group_lead', 'observer', 'terminal'] }).notNull(),
   employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'set null' }).unique(),
   mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),
   failedLogins: integer('failed_logins').notNull().default(0),
@@ -491,8 +492,8 @@ export const leavePlanners = sqliteTable('leave_planners', {
 /**
  * The Träger's role settings on the rights page: a bundle (shared/domain/permissionBundles.ts) on or off for every
  * account of the role, with its scope for the children bundles (null = the role's default scope). A bundle without a
- * row keeps its default; unknown bundles are ignored. `role` stays free text ('admin' | 'observer', Teil 3 adds the
- * Gruppenleitung).
+ * row keeps its default; unknown bundles are ignored. `role` stays free text ('admin' | 'group_lead' |
+ * 'observer').
  */
 export const roleBundles = sqliteTable('role_bundles', {
   role: text('role').$type<RightsRole>().notNull(),

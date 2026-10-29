@@ -31,8 +31,8 @@ const drafts = ref<Record<RightsRole, RoleDraft> | null>(null)
 watch(data, (value) => {
   if (!value || stored.value) return
   const byRole = (role: RightsRole) => roleDraft(value.roles.find(rights => rights.role === role)!)
-  stored.value = { admin: byRole('admin'), observer: byRole('observer') }
-  drafts.value = { admin: byRole('admin'), observer: byRole('observer') }
+  stored.value = { admin: byRole('admin'), group_lead: byRole('group_lead'), observer: byRole('observer') }
+  drafts.value = { admin: byRole('admin'), group_lead: byRole('group_lead'), observer: byRole('observer') }
 }, { immediate: true })
 function take(answer: RoleRightsDto) {
   if (!stored.value || !drafts.value) return
@@ -118,7 +118,9 @@ async function save() {
 }
 function discard() {
   if (!stored.value) return
-  drafts.value = { admin: { ...stored.value.admin }, observer: { ...stored.value.observer } }
+  drafts.value = {
+    admin: { ...stored.value.admin }, group_lead: { ...stored.value.group_lead }, observer: { ...stored.value.observer },
+  }
 }
 async function reset(role: RightsRole) {
   if (!(await confirm(t.resetConfirm(roleName(role)), { confirmLabel: t.resetLabel, danger: true }))) return

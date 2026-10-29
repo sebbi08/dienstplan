@@ -4,6 +4,7 @@ import { addDays, dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { countLeaveDays } from '../../shared/domain/leave'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
 import { can } from '../../shared/domain/permissions'
+import { STAFF_ROLES } from '../../shared/domain/roles'
 import { dailyTarget, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -135,16 +136,18 @@ function userNames(db: Db): Map<number, string> {
 // --- settings ----------------------------------------------------------------------------------------------
 
 /**
- * Whether anyone besides the Träger plans leave in the facility: an active Leitung or Mitarbeiter account of it with
+ * Whether anyone besides the Träger plans leave in the facility: an active Leitung, Gruppenleitung or Mitarbeiter
+ * account of it with
  * leave.plan (the bundle „planen und genehmigen“).
  */
 function facilityHasPlanner(db: Db, facilityId: number): boolean {
-  // Only the facility's accounts (a Leitung by its own facility, a Mitarbeiter by its employee's), their rights in one read.
+  // Only the facility's accounts (a Leitung by its own facility, Gruppenleitung and Mitarbeiter by their employee's),
+  // their rights in one read.
   const candidates = db.select({ id: users.id, role: users.role }).from(users)
     .leftJoin(employees, eq(users.employeeId, employees.id))
     .where(and(eq(users.active, true), or(
       and(eq(users.role, 'admin'), eq(users.facilityId, facilityId)),
-      and(eq(users.role, 'observer'), eq(employees.facilityId, facilityId)),
+      and(inArray(users.role, [...STAFF_ROLES]), eq(employees.facilityId, facilityId)),
     ))).all()
   const rights = accountsRights(db, candidates.map(user => ({ ...user, facilityId })))
   return [...rights.values()].some(account => account.permissions.has('leave.plan'))

@@ -260,8 +260,9 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     .sort()
   const fixture = JSON.parse(readFileSync(join(process.cwd(), 'tests', 'fixtures', 'route-access-before.json'), 'utf8')) as
     Record<string, string[]>
-  const actors = ['anonymous', 'provider', 'admin', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
-    'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+  // group_lead and tablet:group_lead since Teil 3 (the Gruppenleitung's Grundeinstellung).
+  const actors = ['anonymous', 'provider', 'admin', 'group_lead', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
+    'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
 
   it('covers every file under server/api, and nothing else', () => {
     expect(routes).toHaveLength(316)
@@ -279,18 +280,20 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   it('records the guards of a few known routes', () => {
     expect(fixture['backup.get.ts']).toEqual(['provider'])
     expect(fixture['entries/index.post.ts']).toEqual(['provider', 'admin'])
-    expect(fixture['my/time.get.ts']).toEqual(['provider', 'admin', 'observer'])
-    expect(fixture['plan/[year]/[month].get.ts']).toEqual(['provider', 'admin', 'observer', 'terminal'])
+    expect(fixture['my/time.get.ts']).toEqual(['provider', 'admin', 'group_lead', 'observer'])
+    expect(fixture['plan/[year]/[month].get.ts']).toEqual(['provider', 'admin', 'group_lead', 'observer', 'terminal'])
     expect(fixture['terminal/stamp.post.ts']).toEqual(['terminal'])
-    expect(fixture['print-templates/index.get.ts']).toEqual(['provider', 'admin', 'observer', 'terminal'])
-    expect(fixture['children/index.get.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin',
-      'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount'])
-    expect(fixture['children/[id]/master.put.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin',
-      'tablet:observerEditor'])
+    expect(fixture['print-templates/index.get.ts']).toEqual(['provider', 'admin', 'group_lead', 'observer', 'terminal'])
+    // The Gruppenleitung reads and edits records with the own account too (Teil 3), the Mitarbeiter only at the tablet.
+    expect(fixture['children/index.get.ts']).toEqual(['provider', 'admin', 'group_lead', 'tablet:provider', 'tablet:admin',
+      'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount'])
+    expect(fixture['children/[id]/master.put.ts']).toEqual(['provider', 'admin', 'group_lead', 'tablet:provider',
+      'tablet:admin', 'tablet:group_lead', 'tablet:observerEditor'])
     expect(fixture['children/archive.get.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin'])
+    expect(fixture['employees/index.get.ts']).toEqual(['provider', 'admin'])
     // The one approved change of Teil 2: the Leitung reopens closed cash months.
     expect(fixture['cash/boxes/[id]/reopen.post.ts']).toEqual(['provider', 'admin'])
     // The tablet's unlock is only named where a child guard reads it; elsewhere 'terminal' stands for the tablet.
-    expect(fixture['health.get.ts']).toEqual(['anonymous', 'provider', 'admin', 'observer', 'terminal'])
+    expect(fixture['health.get.ts']).toEqual(['anonymous', 'provider', 'admin', 'group_lead', 'observer', 'terminal'])
   })
 })

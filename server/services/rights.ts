@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import {
   BUNDLE_AREA_LABELS, BUNDLE_AREAS, BUNDLE_IDS, BUNDLES, RIGHTS_ROLES, bundlesDroppedWith,
-  bundlesPulledBy, isBundleId, roleBundleMap, scopeFor, type BundleId, type BundleScope, type RightsRole,
+  bundlesPulledBy, isBundleId, isRightsRole, roleBundleMap, scopeFor, type BundleId, type BundleScope, type RightsRole,
 } from '../../shared/domain/permissionBundles'
 import { PERMISSIONS, can } from '../../shared/domain/permissions'
 import type {
@@ -14,9 +14,10 @@ import { resolveFacilityId } from './facilities'
 import { accountRights, bundleOverrideRows, roleBundleRows } from './permissions'
 
 /**
- * The rights page (spec Rechte und Rollen Teil 2 §3, §4): the Träger sets the bundles of Leitung and Mitarbeiter per
- * role and as exceptions per person; the Leitung may only allow or take away „eintragen und Akten ändern“ for the
- * Mitarbeiter of its facility. Saving keeps the stored state consistent: switching a bundle on pulls in what it needs
+ * The rights page (spec Rechte und Rollen Teil 2 §3, §4; Teil 3): the Träger sets the bundles of Leitung,
+ * Gruppenleitung and Mitarbeiter per role and as exceptions per person; the Leitung may only allow or take away
+ * „eintragen und Akten ändern“ for the Mitarbeiter of its facility (a Gruppenleitung has it from its role; only the
+ * Träger takes it away). Saving keeps the stored state consistent: switching a bundle on pulls in what it needs
  * and includes, switching one off drops what needs or includes it.
  */
 
@@ -62,7 +63,7 @@ function roleRights(role: RightsRole, bundles: BundleMap): RoleRightsDto {
   }
 }
 
-/** GET /api/rights: every switch with its relations, the Träger-only rights, and the settings of both roles. */
+/** GET /api/rights: every switch with its relations, the Träger-only rights, and the settings of the three roles. */
 export function getRights(db: Db): RightsDto {
   return {
     areas: BUNDLE_AREAS.map(id => ({ id, label: BUNDLE_AREA_LABELS[id] })),
@@ -174,9 +175,10 @@ interface Target {
 }
 
 /**
- * The account whose exceptions the actor reads or sets. The Träger (rights.manage): any Leitung or Mitarbeiter account
- * (400 no_rights_role for a Träger or tablet account, whose rights are fixed). The Leitung (role admin with
- * users.manage): only Mitarbeiter accounts of its facility; another account of its facility or a Träger account is 403
+ * The account whose exceptions the actor reads or sets. The Träger (rights.manage): any Leitung, Gruppenleitung or
+ * Mitarbeiter account (400 no_rights_role for a Träger or tablet account, whose rights are fixed). The Leitung (role
+ * admin with users.manage): only Mitarbeiter accounts of its facility; another account of its facility (a Leitung, a
+ * Gruppenleitung, whose one switch the Leitung could change comes with its role) or a Träger account is 403
  * forbidden, an account of another facility 404 user_not_found. Anyone else who was given „Zugänge verwalten“ touches
  * no rights at all: 403 forbidden.
  */
@@ -186,7 +188,7 @@ function loadTarget(db: Db, actor: SessionUser, userId: number): Target {
   const facilityId = resolveFacilityId(db, row)
   const target = { id: row.id, username: row.username, facilityId }
   if (can(actor.permissions, 'rights.manage')) {
-    if (row.role !== 'admin' && row.role !== 'observer') throw new ServiceError(400, 'no_rights_role')
+    if (!isRightsRole(row.role)) throw new ServiceError(400, 'no_rights_role')
     return { ...target, role: row.role }
   }
   if (actor.role !== 'admin') throw new ServiceError(403, 'forbidden')

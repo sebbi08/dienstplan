@@ -126,10 +126,10 @@ export const openingHoursBodySchema = z.object({ hours: openingHoursSchema.nulla
 
 export const userCreateSchema = z.object({
   username: z.string().max(50), password: z.string().max(200),
-  role: z.enum(['provider', 'admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(),
+  role: z.enum(['provider', 'admin', 'group_lead', 'observer', 'terminal']), employeeId: z.number().int().nullable(),
 })
 export const userUpdateSchema = z.object({
-  role: z.enum(['provider', 'admin', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
+  role: z.enum(['provider', 'admin', 'group_lead', 'observer', 'terminal']), employeeId: z.number().int().nullable(), active: z.boolean(),
   // Gone: „darf Kinderakten pflegen“ is an exception of the rights API now; a stale client sending it gets 400 use_rights_api.
   canEditChildren: z.unknown().optional(),
 })

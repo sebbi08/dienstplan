@@ -113,12 +113,14 @@ const FACILITY_FREE_EXCEPTIONS: Record<string, string> = {
   'groups/[id]/school-children.put.ts': 'refuses a group of another facility unless the user may edit other facilities',
 }
 
-const ACTORS = ['anonymous', 'provider', 'admin', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
-  'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+const ACTORS = ['anonymous', 'provider', 'admin', 'group_lead', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
+  'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+/** The roles of the rights page (Teil 3 added the Gruppenleitung). */
+const RIGHTS_ROLES = ['admin', 'group_lead', 'observer'] as const
 const TABLET_PEOPLE = ACTORS.filter(actor => actor.startsWith('tablet:'))
 
 /** The role defaults and the tablet model of scripts/route-access-snapshot.mjs (one copy of it). */
-const DEFAULTS = SCRIPT_DEFAULTS as Record<'admin' | 'observer', ReadonlySet<PermissionKey>>
+const DEFAULTS = SCRIPT_DEFAULTS as Record<typeof RIGHTS_ROLES[number], ReadonlySet<PermissionKey>>
 const tabletPassesChild = tabletPasses as (actor: string, key: PermissionKey) => boolean
 const PROVIDER_ONLY = new Set(PERMISSIONS.filter(permission => permission.providerOnly).map(permission => permission.key))
 
@@ -141,9 +143,7 @@ function permissionCalls(route: string): { key: string; options: string }[] {
 
 /** Who passes `requirePermission(event, key, options)` under the role defaults (the Träger has every key). */
 function permissionActors(key: PermissionKey, options: string): string[] {
-  const actors = ['provider']
-  if (DEFAULTS.admin.has(key)) actors.push('admin')
-  if (DEFAULTS.observer.has(key)) actors.push('observer')
+  const actors = ['provider', ...RIGHTS_ROLES.filter(role => DEFAULTS[role].has(key))]
   if (/allowTerminal: true/.test(options)) actors.push('terminal')
   return actors
 }
@@ -153,16 +153,16 @@ function permissionActors(key: PermissionKey, options: string): string[] {
  * the key, the tablet unlocked by a person with the key; the keys that change records also need an account.
  */
 function childPermissionActors(key: PermissionKey): string[] {
-  const office = ['provider', ...(['admin', 'observer'] as const)
+  const office = ['provider', ...RIGHTS_ROLES
     .filter(role => DEFAULTS[role].has('children.ownAccount') && DEFAULTS[role].has(key))]
   return [...office, ...TABLET_PEOPLE.filter(actor => tabletPassesChild(actor, key))]
 }
 
 /** Who passes the fixed guards. */
 function guardActors(route: string): string[] {
-  if (PUBLIC_ROUTES.includes(route)) return ['anonymous', 'provider', 'admin', 'observer', 'terminal']
+  if (PUBLIC_ROUTES.includes(route)) return ['anonymous', 'provider', ...RIGHTS_ROLES, 'terminal']
   if (TERMINAL_ROUTES.includes(route)) return ['terminal']
-  if (USER_ROUTES.includes(route)) return ['provider', 'admin', 'observer']
+  if (USER_ROUTES.includes(route)) return ['provider', ...RIGHTS_ROLES]
   throw new Error(`${route}: no fixed guard`)
 }
 

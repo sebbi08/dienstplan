@@ -42,15 +42,15 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
   })
 
   describe('catalog', () => {
-    it('lists every switch with requires and includes, the Träger-only rights, and both roles at the Grundeinstellung', () => {
+    it('lists every switch with requires and includes, the Träger-only rights, and the three roles at the Grundeinstellung', () => {
       const rights = getRights(db)
       expect(rights.bundles.map(bundle => bundle.id)).toEqual([...BUNDLE_IDS])
       expect(rights.bundles.find(bundle => bundle.id === 'planRelease')).toMatchObject({ requires: [], includes: ['planEdit'] })
       expect(rights.bundles.find(bundle => bundle.id === 'childrenEdit')).toMatchObject({ scoped: true, requires: ['childrenView'] })
       expect(rights.areas[0]).toEqual({ id: 'plan', label: 'Dienstplan' })
       expect(rights.providerOnly.map(entry => entry.key)).toEqual(PERMISSIONS.filter(p => p.providerOnly).map(p => p.key))
-      expect(rights.roles.map(role => [role.role, role.isDefault])).toEqual([['admin', true], ['observer', true]])
-      const observer = rights.roles[1]!
+      expect(rights.roles.map(role => [role.role, role.isDefault])).toEqual([['admin', true], ['group_lead', true], ['observer', true]])
+      const observer = rights.roles.find(role => role.role === 'observer')!
       expect(observer.bundles.find(bundle => bundle.id === 'childrenView')).toEqual({
         id: 'childrenView', enabled: true, scope: 'group', defaultEnabled: true, defaultScope: 'group',
       })
@@ -125,7 +125,7 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       expect(roleBundleRows(db, 'observer')).toEqual([])
       saveRoleRights(db, 'observer', [{ id: 'childrenView', enabled: true, scope: 'facility' }])
       expect(roleBundleRows(db, 'observer')).toEqual([{ bundle: 'childrenView', enabled: true, scope: 'facility' }])
-      expect(getRights(db).roles[1]!.isDefault).toBe(false)
+      expect(getRights(db).roles.find(role => role.role === 'observer')!.isDefault).toBe(false)
     })
   })
 

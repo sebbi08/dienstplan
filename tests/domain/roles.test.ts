@@ -5,9 +5,11 @@ import { accountLock, isManager, manageableRoles } from '../../shared/domain/rol
 const holding = (...keys: PermissionKey[]) => (key: PermissionKey) => keys.includes(key)
 
 describe('manageableRoles and accountLock (the users page offers what the server allows)', () => {
-  it('gives the Träger every role, the Leitung Leitung, Mitarbeiter and tablet, anyone else the tablet only', () => {
-    expect(manageableRoles('provider', holding('users.manage', 'users.providerAccounts'))).toEqual(['provider', 'admin', 'observer', 'terminal'])
-    expect(manageableRoles('admin', holding('users.manage'))).toEqual(['admin', 'observer', 'terminal'])
+  it('gives the Träger every role, the Leitung Leitung, Gruppenleitung, Mitarbeiter and tablet, anyone else the tablet only', () => {
+    expect(manageableRoles('provider', holding('users.manage', 'users.providerAccounts')))
+      .toEqual(['provider', 'admin', 'group_lead', 'observer', 'terminal'])
+    expect(manageableRoles('admin', holding('users.manage'))).toEqual(['admin', 'group_lead', 'observer', 'terminal'])
+    expect(manageableRoles('group_lead', holding('users.manage'))).toEqual(['terminal'])
     expect(manageableRoles('observer', holding('users.manage'))).toEqual(['terminal'])
   })
 

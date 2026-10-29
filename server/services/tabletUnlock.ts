@@ -174,8 +174,8 @@ export function tabletChildViewer(
 
 /**
  * Who looks at child records with this request (spec §4, §8.2): the tablet only through a valid unlock (403
- * tablet_locked otherwise; the request counts as use), an account with children.ownAccount (Leitung and Träger) in its
- * facility (403 no_facility without one). Every other account, Mitarbeiter with or without the edit flag, sees no child
+ * tablet_locked otherwise; the request counts as use), an account with children.ownAccount (Leitung, Träger,
+ * Gruppenleitung) in its facility (403 no_facility without one). Every other account, Mitarbeiter with or without the edit flag, sees no child
  * data at all: 403 children_tablet_only.
  */
 export function resolveChildViewer(db: Db, user: SessionUser, token: string | undefined, now: Date = new Date()): ChildViewer {

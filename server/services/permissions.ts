@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import {
-  effectiveRights, type BundleId, type BundleOverride, type BundleScope, type EffectiveRights, type RightsRole,
-  type RoleBundleSetting,
+  effectiveRights, isRightsRole, type BundleId, type BundleOverride, type BundleScope, type EffectiveRights,
+  type RightsRole, type RoleBundleSetting,
 } from '../../shared/domain/permissionBundles'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
@@ -13,10 +13,6 @@ export interface PermissionSubject {
   id: number
   role: Role
   facilityId: number | null
-}
-
-function isRightsRole(role: Role): role is RightsRole {
-  return role === 'admin' || role === 'observer'
 }
 
 /** The Träger's stored settings for the role (role_bundles); empty for the Träger and the tablet. */

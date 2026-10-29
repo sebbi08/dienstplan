@@ -51,9 +51,14 @@ export type BundleId = typeof BUNDLE_IDS[number]
 
 /** The reach of a children bundle: 'group' = the own group (today's `groupRight`, no home group = all groups). */
 export type BundleScope = 'group' | 'facility'
-/** The roles whose rights the Träger sets (Teil 3 adds the Gruppenleitung). */
-export type RightsRole = 'admin' | 'observer'
-export const RIGHTS_ROLES: readonly RightsRole[] = ['admin', 'observer']
+/** The roles whose rights the Träger sets: Leitung, Gruppenleitung (Teil 3) and Mitarbeiter, in the page's order. */
+export type RightsRole = 'admin' | 'group_lead' | 'observer'
+export const RIGHTS_ROLES: readonly RightsRole[] = ['admin', 'group_lead', 'observer']
+
+/** Whether the role's rights come from the rights page (not the fixed Träger or tablet). */
+export function isRightsRole(role: Role): role is RightsRole {
+  return (RIGHTS_ROLES as readonly Role[]).includes(role)
+}
 
 export interface BundleDef {
   id: BundleId
@@ -237,13 +242,19 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'planView', 'leaveRequest', 'timeOwn', 'teamMeetingsWrite', 'calendarView', 'childrenView', 'childrenAttendance',
     'templatesView',
   ],
+  // Teil 3: the Mitarbeiter's switches plus „eintragen und Akten ändern“ (own group, `DEFAULT_SCOPE`) and „auch mit
+  // eigenem Zugang“, so the Gruppenleitung works with the own group's records at the office too („Kinder“ in the menu).
+  group_lead: [
+    'planView', 'leaveRequest', 'timeOwn', 'teamMeetingsWrite', 'calendarView', 'childrenView', 'childrenAttendance',
+    'childrenEdit', 'childrenOwnAccount', 'templatesView',
+  ],
 }
 
 /**
- * The scope of a role's scoped bundles when no row says otherwise: the Leitung works with the whole facility, a
- * Mitarbeiter with the own group (today's semantics).
+ * The scope of a role's scoped bundles when no row says otherwise: the Leitung works with the whole facility,
+ * Gruppenleitung and Mitarbeiter with the own group (today's semantics).
  */
-export const DEFAULT_SCOPE: Record<RightsRole, BundleScope> = { admin: 'facility', observer: 'group' }
+export const DEFAULT_SCOPE: Record<RightsRole, BundleScope> = { admin: 'facility', group_lead: 'group', observer: 'group' }
 
 /** A stored role setting (`role_bundles`): the switch on or off for every account of the role. */
 export interface RoleBundleSetting {
@@ -327,10 +338,10 @@ const SCOPED_KEYS = BUNDLES.filter(def => def.scoped).flatMap(def => def.keys)
 
 /**
  * What an account may do (spec Teil 2 §5): the Träger everything, the tablet role nothing (its own guards decide),
- * Leitung and Mitarbeiter: the role's settings (else the defaults) → the person's exceptions (grant adds, revoke
- * removes) → included bundles added (not one an exception revoked) and bundles without their required or included
- * bundles dropped → expanded to keys with the baseline → closed under requires/implies (`resolvePermissions`) →
- * Träger-only keys removed.
+ * Leitung, Gruppenleitung and Mitarbeiter: the role's settings (else the defaults) → the person's exceptions (grant
+ * adds, revoke removes) → included bundles added (not one an exception revoked) and bundles without their required or
+ * included bundles dropped → expanded to keys with the baseline → closed under requires/implies
+ * (`resolvePermissions`) → Träger-only keys removed.
  */
 export function effectiveRights(input: PermissionInput): EffectiveRights {
   if (input.role === 'provider') {

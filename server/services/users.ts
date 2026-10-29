@@ -1,7 +1,7 @@
 import { and, asc, count, eq, inArray, or } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { mayManagePins } from '../../shared/domain/pin'
-import { MANAGER_ROLES, manageableRoles as sharedManageableRoles } from '../../shared/domain/roles'
+import { MANAGER_ROLES, STAFF_ROLES, isStaffRole, manageableRoles as sharedManageableRoles } from '../../shared/domain/roles'
 import type { Role, SessionUser, UserDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, users } from '../db/schema'
@@ -28,7 +28,10 @@ export interface UserUpdate {
   canEditChildren?: unknown
 }
 
-/** The users a viewer manages: Leitung and tablet of the viewer's facility, Mitarbeiter of its employees, and all Träger. */
+/**
+ * The users a viewer manages: Leitung and tablet of the viewer's facility, Gruppenleitung and Mitarbeiter of its
+ * employees, and all Träger.
+ */
 function visibleUsers(db: Db, viewer: SessionUser) {
   const facilityId = viewer.facilityId
   return db.select({ user: users, employeeName: employees.name })
@@ -37,7 +40,7 @@ function visibleUsers(db: Db, viewer: SessionUser) {
     .where(or(
       eq(users.role, 'provider'),
       facilityId === null ? undefined : and(inArray(users.role, ['admin', 'terminal']), eq(users.facilityId, facilityId)),
-      facilityId === null ? undefined : and(eq(users.role, 'observer'), eq(employees.facilityId, facilityId)),
+      facilityId === null ? undefined : and(inArray(users.role, [...STAFF_ROLES]), eq(employees.facilityId, facilityId)),
     ))
     .orderBy(asc(users.username))
     .all()
@@ -64,10 +67,13 @@ function actorFacility(actor: SessionUser): number {
   return actor.facilityId
 }
 
-/** A Mitarbeiter account may only be linked to an employee of the acting user's facility. */
+/**
+ * An account may only be linked to an employee of the acting user's facility; a Gruppenleitung or Mitarbeiter account
+ * needs one (400 employee_required), a tablet has none.
+ */
 function assertEmployeeLink(db: Db, actor: SessionUser, role: Role, employeeId: number | null, userId: number | null): void {
   if (role === 'terminal' && employeeId !== null) throw new ServiceError(400, 'terminal_no_employee')
-  if (role === 'observer' && employeeId === null) throw new ServiceError(400, 'employee_required')
+  if (isStaffRole(role) && employeeId === null) throw new ServiceError(400, 'employee_required')
   if (employeeId === null) return
   if (!db.select().from(employees)
     .where(and(eq(employees.id, employeeId), actor.facilityId === null ? undefined : eq(employees.facilityId, actor.facilityId))).get()) {
@@ -111,8 +117,8 @@ function assertMayManage(actor: SessionUser, ...roles: Role[]): void {
  * the account linked to the employee). First the facility: an employee of another facility is 404 employee_not_found
  * for everyone (nothing about it is confirmed). Then only the Leitung and the Träger (`mayManagePins`, 403
  * pin_managers_only), and of them only for an employee without account, the actor's own employee, or one whose account
- * the actor manages (`manageableRoles`: a Leitung Mitarbeiter and Leitung accounts, not Träger accounts). Otherwise 403
- * pin_not_manageable.
+ * the actor manages (`manageableRoles`: a Leitung Gruppenleitung, Mitarbeiter and Leitung accounts, not Träger
+ * accounts). Otherwise 403 pin_not_manageable.
  */
 export function assertPinManageable(db: Db, actor: SessionUser, facilityId: number, employeeId: number): void {
   if (!db.select({ id: employees.id }).from(employees)
@@ -134,8 +140,9 @@ export function createUser(db: Db, actor: SessionUser, input: UserInput): UserDt
   }
   assertPasswordStrength(input.password)
   assertEmployeeLink(db, actor, input.role, input.employeeId, null)
-  // Leitung and tablet belong to the creating user's facility, a Mitarbeiter follows its employee, a new Träger starts in the creator's facility.
-  const facilityId = input.role === 'observer' ? null : input.role === 'provider' ? actor.facilityId : actorFacility(actor)
+  // Leitung and tablet belong to the creating user's facility, Gruppenleitung and Mitarbeiter follow their employee, a
+  // new Träger starts in the creator's facility.
+  const facilityId = isStaffRole(input.role) ? null : input.role === 'provider' ? actor.facilityId : actorFacility(actor)
   const row = db.insert(users).values({
     username, passwordHash: hashPassword(input.password), role: input.role,
     employeeId: input.employeeId, facilityId, mustChangePassword: input.role !== 'terminal',
@@ -151,8 +158,9 @@ export function updateUser(db: Db, actor: SessionUser, id: number, update: UserU
   assertMayManage(actor, user.role, update.role)
   assertEmployeeLink(db, actor, update.role, update.employeeId, id)
   const loses = (roles: Role[]) => roles.includes(user.role) && user.active && (!roles.includes(update.role) || !update.active)
-  // Leitung and tablet belong to a facility, a Mitarbeiter follows its employee; whoever newly becomes Leitung or tablet joins the acting user's facility.
-  const facilityId = update.role === 'observer' ? null
+  // Leitung and tablet belong to a facility, Gruppenleitung and Mitarbeiter follow their employee; whoever newly
+  // becomes Leitung or tablet joins the acting user's facility.
+  const facilityId = isStaffRole(update.role) ? null
     : update.role === 'provider' ? userFacilityId
       : user.role === update.role ? userFacilityId : actorFacility(actor)
   // The checks and the change in one transaction. The account's exceptions stay with it (they are the person's); under

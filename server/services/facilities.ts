@@ -41,7 +41,8 @@ export function assertFacility(db: Db, id: number): void {
 
 /**
  * The facility a user works in, fresh from the database:
- * Leitung and tablet their own, the Träger the active selection (or the first facility), a Mitarbeiter that of the employee.
+ * Leitung and tablet their own, the Träger the active selection (or the first facility), Gruppenleitung and Mitarbeiter
+ * that of the employee.
  */
 export function resolveFacilityId(db: Db, user: typeof users.$inferSelect): number | null {
   switch (user.role) {
@@ -50,6 +51,7 @@ export function resolveFacilityId(db: Db, user: typeof users.$inferSelect): numb
       return user.facilityId
     case 'provider':
       return user.facilityId !== null && facilityExists(db, user.facilityId) ? user.facilityId : firstFacilityId(db)
+    case 'group_lead':
     case 'observer':
       if (user.employeeId === null) return null
       return db.select({ facilityId: employees.facilityId }).from(employees)

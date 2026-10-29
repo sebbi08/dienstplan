@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { todayIso } from '../../shared/domain/dates'
+import { isStaffRole } from '../../shared/domain/roles'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionPayloadUser, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -33,13 +34,13 @@ export function sessionPayload(user: SessionUser): SessionPayloadUser {
 }
 
 /**
- * Whether the account belongs to a Leitung or Mitarbeiter whose employee has left (from the day after leaving, in
+ * Whether the account belongs to a Leitung, Gruppenleitung or Mitarbeiter whose employee has left (from the day after leaving, in
  * Berlin). Such an account can no longer sign in or keep a session until the Träger deletes it with the employee's
  * „Persönliche Daten“; taking the leaving back (or moving it to a later day) makes it work again. The Träger is never
  * blocked.
  */
 function hasLeft(db: Db, row: typeof users.$inferSelect, today: IsoDate): boolean {
-  if ((row.role !== 'admin' && row.role !== 'observer') || row.employeeId === null) return false
+  if ((row.role !== 'admin' && !isStaffRole(row.role)) || row.employeeId === null) return false
   const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, row.employeeId)).get()
   return employee?.leftOn != null && employee.leftOn < today
 }

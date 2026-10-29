@@ -10,14 +10,26 @@ export function isManager(role: Role | null | undefined): boolean {
 }
 
 /**
+ * The staff roles below the Leitung, Gruppenleitung and Mitarbeiter: the account is always linked to an employee and
+ * works in that employee's facility (users.facility_id stays null, the account follows the employee when it moves).
+ */
+export const STAFF_ROLES: readonly Role[] = ['group_lead', 'observer']
+
+/** Gruppenleitung or Mitarbeiter (see `STAFF_ROLES`). */
+export function isStaffRole(role: Role | null | undefined): boolean {
+  return role !== null && role !== undefined && STAFF_ROLES.includes(role)
+}
+
+/**
  * The roles whose accounts the actor creates, changes, deactivates and resets (users.manage): the Träger
- * (users.providerAccounts) every role; a Leitung, as before, Leitung, Mitarbeiter and tablet accounts; anyone else who
- * was given „Zugänge verwalten“ only the tablet accounts: a Mitarbeiter account could otherwise be reset and signed in
- * with, and so carry rights its manager does not hold. The server checks this; the users page offers only these.
+ * (users.providerAccounts) every role; a Leitung, as before, Leitung, Gruppenleitung, Mitarbeiter and tablet accounts;
+ * anyone else who was given „Zugänge verwalten“ (a Gruppenleitung or Mitarbeiter) only the tablet accounts: a staff
+ * account could otherwise be reset and signed in with, and so carry rights its manager does not hold. The server checks
+ * this; the users page offers only these.
  */
 export function manageableRoles(role: Role | undefined, has: (key: PermissionKey) => boolean): readonly Role[] {
-  if (has('users.providerAccounts')) return ['provider', 'admin', 'observer', 'terminal']
-  return role === 'admin' ? ['admin', 'observer', 'terminal'] : ['terminal']
+  if (has('users.providerAccounts')) return ['provider', 'admin', 'group_lead', 'observer', 'terminal']
+  return role === 'admin' ? ['admin', 'group_lead', 'observer', 'terminal'] : ['terminal']
 }
 
 /**

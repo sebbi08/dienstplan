@@ -183,8 +183,8 @@ describe('defaults (RF1, domain level)', () => {
     }
   })
 
-  it('scope the children bundles to the facility for the Leitung and to the own group for a Mitarbeiter', () => {
-    expect(DEFAULT_SCOPE).toEqual({ admin: 'facility', observer: 'group' })
+  it('scope the children bundles to the facility for the Leitung and to the own group for Gruppenleitung and Mitarbeiter', () => {
+    expect(DEFAULT_SCOPE).toEqual({ admin: 'facility', group_lead: 'group', observer: 'group' })
     expect(effectiveRights({ role: 'observer' }).scopes.get('children.view')).toBe('group')
     expect(effectiveRights({ role: 'observer' }).scopes.get('children.attendance')).toBe('group')
     expect(effectiveRights({ role: 'admin' }).scopes.get('children.edit')).toBe('facility')
