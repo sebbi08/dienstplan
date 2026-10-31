@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "dependencyDashboard": true,
+  "automerge": false,
+  "lockFileMaintenance": { "enabled": false },
+  "packageRules": [
+    { "description": "Nie automatisch mergen", "matchPackageNames": ["*"], "automerge": false }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "playwright-core im Dockerfile (npx) im Gleichschritt mit package.json",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": ["npx -y playwright-core@(?<currentValue>\\S+)"],
+      "depNameTemplate": "playwright-core",
+      "datasourceTemplate": "npm"
+    }
+  ]
+}
