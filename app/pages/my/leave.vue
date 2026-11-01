@@ -42,6 +42,9 @@ const cards = computed(() => {
           <div class="text-2xl font-semibold">{{ formatNumber(card.value) }}</div>
         </div>
       </div>
+      <section v-if="data.closures.length" class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+        <LeaveClosureList :closures="data.closures" />
+      </section>
       <section class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
         <h2 class="mb-2 font-semibold">{{ de.leave.ranges }}</h2>
         <p v-if="data.ranges.length === 0" class="text-sm text-gray-500">{{ de.leave.noRanges }}</p>

@@ -51,7 +51,6 @@ function changeBalanceMonth(delta: number) {
   Object.assign(balanceMonth, shiftMonth(balanceMonth.year, balanceMonth.month, delta))
 }
 const leaveRow = computed(() => leave.value?.find(row => row.employeeId === id) ?? null)
-const closureLeaveTotal = computed(() => (leaveRow.value?.closures ?? []).reduce((sum, closure) => sum + closure.days, 0))
 const toast = useToast()
 const { user } = useUserSession()
 const { can } = useCan()
@@ -546,17 +545,7 @@ async function onTabKey(event: KeyboardEvent) {
         <span class="font-semibold" :class="leaveRow.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(leaveRow.account.available) }}</span>
       </p>
       <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
-      <div v-if="leaveRow?.closures.length" class="pt-1 text-gray-700">
-        <p class="text-xs font-medium text-gray-500">{{ de.leave.closuresTitle }}</p>
-        <ul>
-          <li v-for="closure in leaveRow.closures" :key="closure.closureId">
-            {{ closure.label }} <span class="text-gray-500">({{ formatDate(closure.startDate) }}–{{ formatDate(closure.endDate) }})</span>:
-            {{ de.leave.days(closure.days) }}
-            <span v-if="closure.closureDays" class="text-xs text-gray-500">({{ de.leave.closureDays(closure.closureDays) }})</span>
-          </li>
-          <li v-if="leaveRow.closures.length > 1" class="font-semibold">{{ de.leave.closuresTotal }}: {{ de.leave.days(closureLeaveTotal) }}</li>
-        </ul>
-      </div>
+      <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
     </section>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>
