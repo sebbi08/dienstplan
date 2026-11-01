@@ -8,7 +8,7 @@ import { calendarPrintItems } from '~/utils/calendarPrint'
 import { formatDate, formatDayShort } from '~/utils/format'
 
 /**
- * Admin-only year calendar. Entries are made by clicking: an employee day enters Urlaub/Krank/Fortbildung/Schule
+ * Admin-only year calendar. Entries are made by clicking: an employee day enters Urlaub/ÜF/Krank/Fortbildung/Schule
  * into the plan (workdays only, up to a chosen date); the appointments row adds or edits the admin's appointments.
  */
 const route = useRoute()
@@ -39,7 +39,7 @@ const absenceTitle = computed(() => {
   return absence.date ? `${name} · ${formatDayShort(absence.date, weekday(absence.date))}${absence.date.slice(0, 4)}` : name
 })
 /** Kinds the calendar can remove again (Feiertag/Schließtag stay; they come from holidays and closures). */
-const REMOVABLE = ['sick', 'vacation', 'special_leave', 'training']
+const REMOVABLE = ['sick', 'vacation', 'overtime_off', 'special_leave', 'training']
 const hasAbsence = computed(() => REMOVABLE.includes(calendar.value?.days[absence.employeeId]?.[absence.date] ?? ''))
 
 function openAbsence(employeeId: number, date: string) {
@@ -68,7 +68,10 @@ async function applyAbsence(codeId: number | null, until: string) {
   if (codeId === null) {
     const removable = dates.filter(date => REMOVABLE.includes(data.days[employeeId]?.[date] ?? ''))
     if (!removable.length) return
-    body = { cells: removable.map(date => ({ employeeId, date })), mode: 'clear', entry: null }
+    // E.g. half a day ÜF next to a duty: removing clears the whole day, so ask first.
+    const withOthers = removable.filter(date => data.otherEntries[employeeId]?.includes(date)).length
+    if (withOthers && !await confirm(de.calendar.removeConfirm(withOthers))) return
+    body ={ cells: removable.map(date => ({ employeeId, date })), mode: 'clear', entry: null }
   }
   else {
     if (!dates.length) {

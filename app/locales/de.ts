@@ -173,6 +173,7 @@ export const de = {
     until: 'bis einschließlich', untilHint: 'Nur Arbeitstage werden eingetragen.', removeAbsence: 'Eintrag entfernen',
     untilBeforeStart: 'Das Bis-Datum liegt vor dem angeklickten Tag.', noWorkdays: 'Im gewählten Zeitraum liegt kein Arbeitstag.',
     replaceConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} stehen schon Einträge im Dienstplan. Sie werden durch die Abwesenheit ersetzt. Fortfahren?`,
+    removeConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} steht noch mehr im Dienstplan (z. B. ein Dienst neben ÜF mit Uhrzeit). Beim Entfernen werden alle Einträge dieser Tage gelöscht. Fortfahren?`,
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',

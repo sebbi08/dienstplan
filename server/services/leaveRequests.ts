@@ -81,13 +81,17 @@ function requestDays(employee: EmployeeRecord, from: IsoDate, to: IsoDate, closu
 
 /**
  * People of the staff (one facility's employees) on leave per day between from and to: "Urlaub" entries not belonging
- * to a closure and "Überstundenfrei" entries, plus open requests (of both kinds).
+ * to a closure and whole-day "Überstundenfrei" entries (one with a time range is only part of the day: the person is
+ * there), plus open requests (of both kinds, always whole days).
  */
 function loadInRange(db: Db, from: IsoDate, to: IsoDate, staff: EmployeeRecord[], closures: ReturnType<typeof loadClosures>): LeaveDay[] {
   const byId = new Map(staff.map(employee => [employee.id, employee]))
   const vacation = db.select({ employeeId: entries.employeeId, date: entries.date })
     .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
-    .where(and(inArray(absenceCodes.key, ['vacation', OVERTIME_OFF]), isNull(entries.closureId), gte(entries.date, from), lte(entries.date, to)))
+    .where(and(
+      or(eq(absenceCodes.key, 'vacation'), and(eq(absenceCodes.key, OVERTIME_OFF), isNull(entries.start))),
+      isNull(entries.closureId), gte(entries.date, from), lte(entries.date, to),
+    ))
     .all()
     .filter(day => byId.has(day.employeeId))
   const requested = db.select().from(leaveRequests)

@@ -211,6 +211,20 @@ describe('leave requests', () => {
       expect(planning.calendar.days[carla]!['2026-11-02']).toBe('requested')
       expect(planning.calendar.days[berta]!['2026-11-03']).toBe('overtime_off')
     })
+
+    it('does not count Überstundenfrei with a time range (part of the day) as a person away', () => {
+      setMaxConcurrent(db, leitung, 1, 1)
+      const code = codeId(db, 'overtime_off')
+      // Berta: 14:00–16:00 off on 3.11. (partial), the whole 4.11. off.
+      applyToCells(db, leitung, 1, [{ employeeId: berta, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: code, start: 840, end: 960 })
+      applyToCells(db, leitung, 1, [{ employeeId: berta, date: '2026-11-04' }], 'replace', { kind: 'code', codeId: code })
+      expect(previewOff('2026-11-02', '2026-11-04').overLimitDates).toEqual(['2026-11-04'])
+      requestOff(carlaUser, '2026-11-02', '2026-11-04')
+      expect(listOpenRequests(db, leitung, 1)).toMatchObject([{ overLimitDates: ['2026-11-04'] }])
+      const planning = getLeavePlanning(db, leitung, 1, 2026)
+      expect(['2026-11-02', '2026-11-03', '2026-11-04'].map(date => planning.counts[date])).toEqual([1, 1, 2])
+      expect(planning.calendar.days[berta]!['2026-11-03']).toBe('overtime_off')
+    })
   })
 
   it('subtracts other open requests from the remaining leave and counts the menu badge for the planners', () => {

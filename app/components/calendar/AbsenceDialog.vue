@@ -2,7 +2,7 @@
 import type { CodeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
-/** Clicked employee day in the year calendar: enter Urlaub/Krank/Fortbildung/Schule up to a date, or remove it. */
+/** Clicked employee day in the year calendar: enter Urlaub/ÜF/Krank/Fortbildung/Schule up to a date, or remove it. */
 const props = defineProps<{ title: string; date: string; codes: CodeDto[]; hasAbsence: boolean }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ apply: [codeId: number | null, until: string] }>()
