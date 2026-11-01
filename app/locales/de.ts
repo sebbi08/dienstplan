@@ -370,6 +370,8 @@ export const de = {
     entitlement: 'Anspruch', carriedOver: 'Übertrag Vorjahr', taken: 'genommen', planned: 'verplant', available: 'frei verfügbar',
     inheritedFrom: (year: number) => `(aus ${year} übernommen)`,
     days, ranges: 'Urlaubstage', noRanges: 'Keine Urlaubstage eingetragen.', rangeTaken: 'genommen', rangePlanned: 'geplant',
+    closuresTitle: 'Davon durch Schließzeiten:', closuresTotal: 'Zusammen',
+    closureDays: (count: number) => `davon ${count === 1 ? '1 Schließtag' : `${count} Schließtage`} ohne Urlaub`,
   },
   employees: {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',
@@ -616,6 +618,8 @@ export const de = {
   closures: {
     title: 'Schließzeiten', from: 'Von', to: 'Bis', label: 'Bezeichnung', mode: 'Eintragen als',
     modes: { vacation: 'Urlaub', closure_day: 'Schließtag' },
+    leaveDays: 'Urlaubstage', noLeave: 'kein Urlaub',
+    leaveDaysHint: 'Urlaubstage: was die Schließzeit eine Vollzeitkraft mit 5-Tage-Woche kostet (ohne Wochenenden und Feiertage). Die Tage jeder einzelnen Person, auch bei Teilzeit, stehen beim Mitarbeiter im Reiter „Urlaub & Zeiten“.',
     create: 'Schließzeit anlegen',
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',
