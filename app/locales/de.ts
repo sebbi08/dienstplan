@@ -438,7 +438,10 @@ export const de = {
     notices: (count: number) => (count === 0 ? 'Keine Hinweise' : count === 1 ? '1 Hinweis' : `${count} Hinweise`),
     reorder: 'Reihenfolge ändern', reorderDone: 'Fertig',
     group: 'Gruppe', balanceToday: 'Stundenkonto heute', leaveLeft: (year: number) => `Resturlaub ${year}`,
-    leaveLeftShort: 'Resturlaub', badgesLabel: 'Was fehlt', hoursShort: 'Std.', balanceShort: 'Konto',
+    leaveLeftShort: 'Resturlaub', badgesLabel: 'Was fehlt',
+    specialRights: 'Sonderrechte', specialRightGranted: 'zusätzlich erlaubt (einstellen im Reiter „Zugang“)',
+    specialRightRevoked: 'weggenommen (einstellen im Reiter „Zugang“)', specialRightRevokedShort: 'weggenommen',
+    hoursShort: 'Std.', balanceShort: 'Konto',
     badges: {
       pinMissing: 'PIN fehlt', pinLocked: 'PIN gesperrt', qualificationMissing: 'Qualifikation fehlt',
       requirementsOpen: 'Pflichttermine offen', noAccess: 'kein Zugang',

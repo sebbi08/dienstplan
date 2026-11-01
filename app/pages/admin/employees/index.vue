@@ -6,7 +6,7 @@ import { statutoryMinimumLeave } from '#shared/domain/statutoryLeave'
 import { MONDAY_TO_FRIDAY, workdayCount } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type {
-  BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, UserDto,
+  BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, RightsExceptionsDto, UserDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
@@ -48,6 +48,10 @@ const run = useAction(async () => {
   await Promise.all([refresh(), refreshBalances(), refreshLeave(), refreshUsers(), refreshDue()])
 })
 
+// Column „Sonderrechte“: who was given or lost single switches beyond the role; only the Träger and the Leitung see it.
+const seesSpecialRights = computed(() => can('rights.manage') || user.value?.role === 'admin')
+const { data: specialRights } = await useFetch<RightsExceptionsDto[]>('/api/employees/rights-exceptions', { immediate: seesSpecialRights.value })
+const specialRightsOf = computed(() => new Map((specialRights.value ?? []).map(row => [row.employeeId, row.overrides])))
 const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [balance.employeeId, balance])))
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row.account])))
 const linked = computed(() => new Set((users.value ?? []).map(account => account.employeeId).filter(id => id !== null)))
@@ -219,6 +223,7 @@ const td = 'px-3 py-2'
           <th :class="[th, 'text-right']">{{ de.employees.balanceToday }}</th>
           <th :class="[th, 'text-right']">{{ de.employees.leaveLeft(year) }}</th>
           <th :class="th"><span class="sr-only">{{ de.employees.badgesLabel }}</span></th>
+          <th v-if="seesSpecialRights" :class="th">{{ de.employees.specialRights }}</th>
           <th v-if="reordering" :class="th"><span class="sr-only">{{ de.employees.order }}</span></th>
         </tr>
       </thead>
@@ -247,6 +252,10 @@ const td = 'px-3 py-2'
             <span class="flex flex-wrap gap-1">
               <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />
             </span>
+          </td>
+          <td v-if="seesSpecialRights" :class="td">
+            <EmployeesSpecialRights v-if="specialRightsOf.get(employee.id)" :employee-id="employee.id" :overrides="specialRightsOf.get(employee.id)!" />
+            <span v-else class="text-gray-400">–</span>
           </td>
           <td v-if="reordering" :class="[td, 'whitespace-nowrap py-1']">
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.employees.moveUp" :disabled="index === 0" @click="move(employee.id, 'up')" />
@@ -285,6 +294,10 @@ const td = 'px-3 py-2'
         </div>
         <div v-if="badgesOf.get(employee.id)?.length" class="mt-1.5 flex flex-wrap gap-1">
           <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />
+        </div>
+        <div v-if="seesSpecialRights && specialRightsOf.get(employee.id)" class="mt-1.5">
+          <span class="text-xs text-gray-500">{{ de.employees.specialRights }}:</span>
+          <EmployeesSpecialRights :employee-id="employee.id" :overrides="specialRightsOf.get(employee.id)!" class="mt-0.5" />
         </div>
       </li>
     </ul>

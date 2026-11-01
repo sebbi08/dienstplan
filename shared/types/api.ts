@@ -1226,6 +1226,13 @@ export interface UserRightsDto {
   editable: BundleId[]
 }
 
+/** GET /api/employees/rights-exceptions: one employee's exceptions from the role (column „Sonderrechte“). */
+export interface RightsExceptionsDto {
+  employeeId: number
+  /** In the order of the switches; a grant with the scope it applies with (null: the switch has none). */
+  overrides: { bundle: BundleId; effect: 'grant' | 'revoke'; scope: BundleScope | null }[]
+}
+
 /** PUT /api/users/[id]/rights: the person's exceptions, all of them (an exception left out is removed). */
 export interface UserRightsInput {
   overrides: { bundle: string; effect: 'grant' | 'revoke'; scope?: BundleScope | null }[]

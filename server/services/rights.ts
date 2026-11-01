@@ -1,14 +1,14 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import {
   BUNDLE_AREA_LABELS, BUNDLE_AREAS, BUNDLE_IDS, BUNDLES, RIGHTS_ROLES, bundlesDroppedWith,
   bundlesPulledBy, isBundleId, isRightsRole, roleBundleMap, scopeFor, type BundleId, type BundleScope, type RightsRole,
 } from '../../shared/domain/permissionBundles'
 import { PERMISSIONS, can } from '../../shared/domain/permissions'
 import type {
-  RightsChangeDto, RightsDto, RoleRightsDto, SessionUser, UserRightsDto,
+  RightsChangeDto, RightsDto, RightsExceptionsDto, RoleRightsDto, SessionUser, UserRightsDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { roleBundles, userBundleOverrides, users } from '../db/schema'
+import { employees, roleBundles, userBundleOverrides, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { resolveFacilityId } from './facilities'
 import { accountRights, bundleOverrideRows, roleBundleRows } from './permissions'
@@ -235,6 +235,35 @@ function userRights(db: Db, actor: SessionUser, target: Target): UserRightsDto {
     })),
     editable: can(actor.permissions, 'rights.manage') ? [...BUNDLE_IDS] : [...LEITUNG_EDITABLE],
   }
+}
+
+/**
+ * GET /api/employees/rights-exceptions: the exceptions of the accounts of the facility's employees (Leitung,
+ * Gruppenleitung, Mitarbeiter), read-only for the column „Sonderrechte“ on the staff list. For the Träger
+ * (rights.manage) and the Leitung (role admin; the route passes its own facility); anyone else 403 forbidden. Only
+ * employees with exceptions are listed.
+ */
+export function listRightsExceptions(db: Db, actor: SessionUser, facilityId: number): RightsExceptionsDto[] {
+  if (!can(actor.permissions, 'rights.manage') && actor.role !== 'admin') throw new ServiceError(403, 'forbidden')
+  const accounts = db.select({ id: users.id, role: users.role, employeeId: employees.id }).from(users)
+    .innerJoin(employees, eq(users.employeeId, employees.id))
+    .where(eq(employees.facilityId, facilityId)).orderBy(asc(employees.sortOrder), asc(users.id)).all()
+  const result: RightsExceptionsDto[] = []
+  for (const account of accounts) {
+    const accountRole = account.role
+    if (!isRightsRole(accountRole)) continue
+    const overrides = overrideMap(db, account.id)
+    if (!overrides.size) continue
+    const role = roleMap(db, accountRole)
+    result.push({
+      employeeId: account.employeeId,
+      overrides: BUNDLE_IDS.filter(id => overrides.has(id)).map((id) => {
+        const { effect, scope } = overrides.get(id)!
+        return { bundle: id, effect, scope: effect === 'grant' ? scopeFor(id, scope ?? role.get(id), accountRole) : null }
+      }),
+    })
+  }
+  return result
 }
 
 /** GET /api/users/[id]/rights: the person's switches from the role, their exceptions and what applies. */
