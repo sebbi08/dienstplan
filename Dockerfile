@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 # Toolchain only as a fallback: better-sqlite3 ships prebuilt binaries for
 # linux x64/arm64 (glibc), so normally nothing is compiled.
@@ -19,7 +19,7 @@ RUN node -e "new (require('better-sqlite3'))(':memory:').prepare('select 1').get
 COPY . .
 RUN npm run build
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     TZ=Europe/Berlin \
     HOST=0.0.0.0 \
