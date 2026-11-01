@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { ACTORS, routeFiles } from '../../scripts/route-access-snapshot.mjs'
 import {
   AREA_LABELS, PERMISSIONS, PERMISSION_AREAS, PERMISSION_KEYS, ROLE_DEFAULTS, can, resolvePermissions,
   type PermissionKey,
@@ -95,6 +96,53 @@ describe('permission catalog', () => {
     expect(byKey.get('leave.plan')!.requires).toEqual(['leave.overview'])
     expect(byKey.get('employees.contractEdit')!.requires).toEqual(['employees.contractView'])
     expect(byKey.get('cash.reopen')!.requires).toEqual(['cash.close'])
+  })
+
+  it('pins every requires and implies edge of the catalog (a change here is a decision, not a side effect)', () => {
+    const edges = PERMISSIONS.flatMap(def => [
+      ...def.requires.map(other => `${def.key} requires ${other}`),
+      ...def.implies.map(other => `${def.key} implies ${other}`),
+    ])
+    expect(edges).toEqual([
+      'plan.edit requires plan.view',
+      'plan.release implies plan.edit',
+      'leave.overview requires employees.view',
+      'leave.plan requires leave.overview',
+      'time.manage requires employees.view',
+      'employees.edit requires employees.view',
+      'employees.sickness requires employees.view',
+      'employees.contractView requires employees.view',
+      'employees.contractEdit requires employees.contractView',
+      'employees.delete requires employees.edit',
+      'employees.personal requires employees.view',
+      'employees.sensitive requires employees.view',
+      'employees.payroll requires employees.view',
+      'employees.docs.qualifications requires employees.view',
+      'employees.docs.contract requires employees.view',
+      'employees.docs.application requires employees.view',
+      'employees.docs.correspondence requires employees.view',
+      'employees.docs.measures requires employees.view',
+      'employees.docs.salary requires employees.view',
+      'children.ownAccount requires children.view',
+      'children.planned requires children.view',
+      'children.attendance requires children.view',
+      'children.edit requires children.view',
+      'children.manage requires children.view',
+      'children.manage requires children.edit',
+      'children.schoolSettings requires settings.facility',
+      'children.deleteArchived requires children.manage',
+      'childForms.edit requires children.view',
+      'childForms.manage requires childForms.edit',
+      'printTemplates.edit requires printTemplates.view',
+      'printTemplates.global requires printTemplates.edit',
+      'talks.manage requires employees.view',
+      'teamMeetings.manage implies teamMeetings.write',
+      'cash.book requires cash.view',
+      'cash.close requires cash.view',
+      'cash.reopen requires cash.close',
+      'settings.staffing requires settings.facility',
+      'settings.groups requires settings.facility',
+    ])
   })
 
   it('has the grantable keys of the personnel file in the area Mitarbeiter, each requiring employees.view', () => {
@@ -253,16 +301,10 @@ describe('effectivePermissions with the old flags moved into bundles', () => {
 })
 
 describe('route access before the switch (tests/fixtures/route-access-before.json)', () => {
-  const apiDir = join(process.cwd(), 'server', 'api')
-  const routes = (readdirSync(apiDir, { recursive: true }) as string[])
-    .map(file => relative(apiDir, join(apiDir, file)).split(sep).join('/'))
-    .filter(file => file.endsWith('.ts'))
-    .sort()
+  const routes = routeFiles() as string[]
   const fixture = JSON.parse(readFileSync(join(process.cwd(), 'tests', 'fixtures', 'route-access-before.json'), 'utf8')) as
     Record<string, string[]>
-  // group_lead and tablet:group_lead since Teil 3 (the Gruppenleitung's Grundeinstellung).
-  const actors = ['anonymous', 'provider', 'admin', 'group_lead', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
-    'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+  const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
     expect(routes).toHaveLength(316)

@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { routeFiles } from '../../scripts/route-access-snapshot.mjs'
 import { login, sessionPayload } from '../../server/services/auth'
 import type { SessionUser } from '../../shared/types/api'
 import { addUser, createTestDb, TEST_PASSWORD } from '../helpers/fixtures'
@@ -31,10 +32,7 @@ const NONE = [
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')
-const routes = (readdirSync(API_DIR, { recursive: true }) as string[])
-  .map(file => relative(API_DIR, join(API_DIR, file)).split(sep).join('/'))
-  .filter(file => file.endsWith('.ts'))
-  .sort()
+const routes = routeFiles() as string[]
 
 /** The facility option of the route's requirePermission ('request' when none is given), null without one. */
 function facilityMode(route: string): string | null {

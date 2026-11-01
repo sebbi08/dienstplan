@@ -27,13 +27,9 @@ Rollen“) und Teil 3 (Gruppenleitung) berücksichtigen.
 
 ## Aufräumen / Tests
 
-- Tablet-Modell dreifach vorhanden: `ACCOUNT_KEYS` (scripts/route-access-snapshot.mjs), `CHILD_ACTOR_KEYS`
-  (server/lib/childViewer.ts), Tablet-Modell in tests/api/permissions.test.ts → zusammenführen.
-- Statischer Test „keine Rollenprüfung in Kinder-Services“ erkennt `account.role` / `.canEditChildren` nicht.
-- `requireChildPermission`-Ablehnungen über ein Event direkt testen; `request` vs. `active` Facility-Modus zur Laufzeit.
-- childViewer.test „flagged Mitarbeiter“ nutzt ungeflaggte Rechte.
-- tabletUnlock: `accountPermissions` je Tablet-Request (2 Abfragen).
-- Kleinkram: Katalog-Kanten nur teilweise per Test fixiert; Route-Walk in Test dupliziert; `stripComments` im Script.
+Alles Interne aus diesem Abschnitt ist erledigt (Tablet-Modell einmal in `shared/domain/permissions.ts` und dem Script,
+Route-Walk und Akteurliste aus dem Script importiert, `stripComments` als kleiner Tokenizer, alle Katalog-Kanten per Test
+festgehalten, Rollenprüfungs-Test, `requireChildPermission`-/Facility-Modus-Tests, tabletUnlock mit einer Rechte-Abfrage).
 
 ## Andere offene Punkte (nicht Rechte)
 

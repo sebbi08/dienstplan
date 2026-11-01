@@ -123,8 +123,46 @@ const ROLE_USES = {
 }
 const ROLE_USE = /\.role\b|\bisManager\(|\bisProvider\b|\bmayEditChildren\(|\bassert(Provider|Manager)\(|'(provider|admin|group_lead|observer|terminal)'/
 
-function stripComments(code) {
-  return code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+// The code without its comments (line and block, trailing ones too). A small tokenizer instead of a regex: quotes,
+// template literals and regex literals are copied as they are, so a block-comment opener or a double slash inside
+// them is no comment. Not a full parser: `${ }` inside a template literal is not looked into.
+export function stripComments(code) {
+  let out = ''
+  let i = 0
+  // Whether a slash here starts a regex literal: after an operator or opening bracket, not after a value.
+  const regexAllowed = () => {
+    const previous = out.trimEnd().slice(-1)
+    return previous === '' || '(,=:[!&|?{};+-*%<>~^'.includes(previous)
+  }
+  while (i < code.length) {
+    const char = code[i]
+    const next = code[i + 1]
+    if (char === '/' && next === '/') {
+      while (i < code.length && code[i] !== '\n') i++
+    }
+    else if (char === '/' && next === '*') {
+      const end = code.indexOf('*/', i + 2)
+      i = end === -1 ? code.length : end + 2
+      out += ' '
+    }
+    else if (char === '\'' || char === '"' || char === '`' || (char === '/' && regexAllowed())) {
+      let end = i + 1
+      let inClass = false
+      while (end < code.length && (char === '/' ? inClass || code[end] !== '/' : code[end] !== char)) {
+        if (code[end] === '\\') end++
+        else if (char === '/' && code[end] === '[') inClass = true
+        else if (char === '/' && code[end] === ']') inClass = false
+        end++
+      }
+      out += code.slice(i, end + 1)
+      i = end + 1
+    }
+    else {
+      out += char
+      i++
+    }
+  }
+  return out
 }
 
 export function routeFiles() {
