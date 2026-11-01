@@ -936,9 +936,10 @@ Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im A
   Genehmigen und Ablehnen gehen genau wie beim Urlaub (dieselben Zuständigen, dieselbe Zahl am Menü). Beim Genehmigen
   trägt das Programm **„ÜF“** statt „Urlaub“ in den Dienstplan ein; Tage mit Krank, Urlaub, Fortbildung u. Ä. bleiben
   unverändert.
-- Für die **Höchstzahl gleichzeitig im Urlaub** zählt Überstundenfrei (eingetragen oder beantragt) wie Urlaub – aber
-  nur für **ganze Tage**: ein eingetragenes ÜF **mit Uhrzeit** (nur ein Teil des Tages) zählt dort nicht mit, die
-  Person ist an dem Tag ja da. Anträge sind immer ganze Tage und zählen. Im Jahreskalender und in der Urlaubsplanung
+- Für die **Höchstzahl gleichzeitig im Urlaub** zählt Überstundenfrei (eingetragen oder beantragt) wie Urlaub. Nur
+  ein **halber Tag ÜF** zählt dort nicht mit: ÜF **mit Uhrzeit**, wenn am selben Tag auch ein Dienst der Person
+  eingetragen ist – die Person ist an dem Tag ja da. Steht ÜF mit Uhrzeit allein in der Zelle, fehlt die Person den
+  ganzen Tag und zählt mit. Anträge sind immer ganze Tage und zählen. Im Jahreskalender und in der Urlaubsplanung
   erscheint ÜF türkis als „Überstundenfrei“ (auch ÜF mit Uhrzeit).
 
 ### Zugang (Benutzerkonto der Person)
