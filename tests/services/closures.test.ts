@@ -35,7 +35,7 @@ describe('closures service', () => {
     expect(rows).toHaveLength(14)
     expect(rows.every(entry => entry.codeKey === 'vacation')).toBe(true)
     expect(rows.some(entry => entry.date === '2026-08-08')).toBe(false)
-    expect(listClosures(db, 1)).toEqual([closure])
+    expect(listClosures(db, 1)).toEqual([{ ...closure, leaveDays: 7 }])
     expect(getLeaveAccount(db, anna, 2026, '2026-08-01').account.planned).toBe(7)
   })
   it('uses the closure-day code in closure-day mode', () => {

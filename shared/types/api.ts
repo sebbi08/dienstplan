@@ -1010,6 +1010,20 @@ export interface LeaveAccountDto {
   /** The year whose entitlement was carried into this one (null: recorded for this year, or none). */
   inheritedFrom: number | null
   ranges: LeaveRange[]
+  /** The closures (as leave) with what each took from the person's leave in the year, by start date. */
+  closures: ClosureLeaveDto[]
+}
+
+/** What one closure took from a person's leave in a year. */
+export interface ClosureLeaveDto {
+  closureId: number
+  label: string
+  startDate: IsoDate
+  endDate: IsoDate
+  /** Leave days it used in the year (weighted like the leave account); days changed in the plan are not counted. */
+  days: number
+  /** Working days it covered in the year without using leave (a joiner without leave left). */
+  closureDays: number
 }
 
 export interface EmployeeListItemDto {
@@ -1212,6 +1226,13 @@ export interface UserRightsDto {
   editable: BundleId[]
 }
 
+/** GET /api/employees/rights-exceptions: one employee's exceptions from the role (column „Sonderrechte“). */
+export interface RightsExceptionsDto {
+  employeeId: number
+  /** In the order of the switches; a grant with the scope it applies with (null: the switch has none). */
+  overrides: { bundle: BundleId; effect: 'grant' | 'revoke'; scope: BundleScope | null }[]
+}
+
 /** PUT /api/users/[id]/rights: the person's exceptions, all of them (an exception left out is removed). */
 export interface UserRightsInput {
   overrides: { bundle: string; effect: 'grant' | 'revoke'; scope?: BundleScope | null }[]
@@ -1223,6 +1244,12 @@ export interface ClosureDto {
   endDate: IsoDate
   label: string
   mode: ClosureMode
+}
+
+/** A closure in the closures list, with the leave days it uses for staff working Monday to Friday. */
+export interface ClosureListItemDto extends ClosureDto {
+  /** Without weekends and public holidays, 24 and 31 December by the facility setting; null in closure-day mode. */
+  leaveDays: number | null
 }
 
 export interface SettingsDto {

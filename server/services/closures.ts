@@ -1,9 +1,10 @@
 import { and, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { dateRange, daysBetween } from '../../shared/domain/dates'
 import { isHolidayIn, type HolidayRules } from '../../shared/domain/holidays'
+import { countLeaveDays, countsAsLeaveDay } from '../../shared/domain/leave'
 import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ClosureDto, ClosureMode, SessionUser } from '../../shared/types/api'
+import type { ClosureDto, ClosureListItemDto, ClosureMode, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { closures, employees, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -12,6 +13,7 @@ import { closureCodeId, splitLeave } from './closureBooking'
 import { applyToCells, cellOwner, describeCellAt } from './entries'
 import { groupNames } from './groups'
 import { facilityHolidayRules } from './holidayRules'
+import { getLeaveCounting } from './leaveCounting'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface ClosureInput {
@@ -21,8 +23,16 @@ export interface ClosureInput {
   mode: ClosureMode
 }
 
-export function listClosures(db: Db, facilityId: number): ClosureDto[] {
-  return loadClosures(db, facilityId)
+/** The facility's closures, each with the leave days it uses for staff working Monday to Friday. */
+export function listClosures(db: Db, facilityId: number): ClosureListItemDto[] {
+  const rules = facilityHolidayRules(db, facilityId)
+  const { christmasEveHalfLeave } = getLeaveCounting(db, facilityId)
+  return loadClosures(db, facilityId).map(closure => ({
+    ...closure,
+    leaveDays: closure.mode === 'vacation'
+      ? countLeaveDays(dateRange(closure.startDate, closure.endDate).filter(date => countsAsLeaveDay(date, rules)), christmasEveHalfLeave)
+      : null,
+  }))
 }
 
 interface BookingScope {

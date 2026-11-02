@@ -21,7 +21,7 @@ const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
 /** When a day has several codes, the first kind in this list wins. */
 const KIND_PRIORITY: CalendarKind[] = ['sick', 'vacation', 'overtime_off', 'special_leave', 'training', 'closed']
 /** Absences the admin enters by clicking a calendar day (written to the plan). */
-const ABSENCE_KEYS: CodeKey[] = ['vacation', 'special_leave', 'sick', 'training', 'school']
+const ABSENCE_KEYS: CodeKey[] = ['vacation', 'overtime_off', 'special_leave', 'sick', 'training', 'school']
 
 export interface CalendarEventInput {
   date: IsoDate

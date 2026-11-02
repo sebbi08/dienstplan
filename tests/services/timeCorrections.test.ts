@@ -61,7 +61,7 @@ describe('admin corrections', () => {
     createRecord(db, admin, 1, { employeeId: anna, date: '2026-10-06', start: 730, end: 965 }, NOW)
     const month = getTimeMonth(db, 1, anna, 2026, 10, '2026-10-08')
     expect(month.trackingFrom).toBe('2026-10-01')
-    expect(month.absenceCodes.map(c => c.key)).toEqual(['vacation', 'special_leave', 'sick', 'training', 'school'])
+    expect(month.absenceCodes.map(c => c.key)).toEqual(['vacation', 'overtime_off', 'special_leave', 'sick', 'training', 'school'])
     const oct6 = month.days.find(d => d.date === '2026-10-06')!
     expect(oct6).toMatchObject({ plannedMinutes: 465, recordedMinutes: 470, counted: 470, usesRecords: true, absence: false, warnings: [] })
     expect(oct6.plan).toContain('7:45–16:00')
@@ -73,6 +73,7 @@ describe('admin corrections', () => {
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-07' }], 'replace', { kind: 'code', codeId: codeId(db, 'closure_day') })
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-09' }], 'replace', { kind: 'code', codeId: codeId(db, 'holiday') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-13' }], 'replace', { kind: 'code', codeId: codeId(db, 'overtime_off') })
     const flags = (date: string) => {
       const day = getTimeMonth(db, 1, anna, 2026, 10, '2026-10-08').days.find(d => d.date === date)!
       return { absence: day.absence, otherEntries: day.otherEntries, targetCredit: day.targetCredit }
@@ -82,6 +83,8 @@ describe('admin corrections', () => {
     expect(flags('2026-10-07')).toEqual({ absence: false, otherEntries: true, targetCredit: true })
     expect(flags('2026-10-09')).toEqual({ absence: false, otherEntries: true, targetCredit: true })
     expect(flags('2026-10-12')).toEqual({ absence: false, otherEntries: false, targetCredit: false })
+    // Überstundenfrei is an absence here too (can be removed), it credits nothing.
+    expect(flags('2026-10-13')).toEqual({ absence: true, otherEntries: false, targetCredit: false })
     // The balance still credits the daily target on the closure day.
     expect(getTimeMonth(db, 1, anna, 2026, 10, '2026-10-08').days.find(d => d.date === '2026-10-07')!.counted).toBe(468)
   })

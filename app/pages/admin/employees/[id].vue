@@ -545,6 +545,7 @@ async function onTabKey(event: KeyboardEvent) {
         <span class="font-semibold" :class="leaveRow.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(leaveRow.account.available) }}</span>
       </p>
       <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
+      <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
     </section>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>

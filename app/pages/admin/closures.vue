@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import type { ClosureDto, ClosureMode } from '#shared/types/api'
+import type { ClosureDto, ClosureListItemDto, ClosureMode } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { formatDate } from '~/utils/format'
+import { formatDate, formatNumber } from '~/utils/format'
 
-const { data: list, refresh } = await useFetch<ClosureDto[]>('/api/closures')
+const { data: list, refresh } = await useFetch<ClosureListItemDto[]>('/api/closures')
 const run = useAction(refresh)
 const confirm = useConfirm()
 const form = reactive<{ startDate: string; endDate: string; label: string; mode: ClosureMode }>({
@@ -28,7 +28,7 @@ async function remove(closure: ClosureDto) {
     <p v-if="!list?.length" class="text-sm text-gray-500">{{ de.closures.empty }}</p>
     <table v-else class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
-        <tr><th class="px-3 py-2">{{ de.closures.from }}</th><th class="px-3 py-2">{{ de.closures.to }}</th><th class="px-3 py-2">{{ de.closures.label }}</th><th class="px-3 py-2">{{ de.closures.mode }}</th><th /></tr>
+        <tr><th class="px-3 py-2">{{ de.closures.from }}</th><th class="px-3 py-2">{{ de.closures.to }}</th><th class="px-3 py-2">{{ de.closures.label }}</th><th class="px-3 py-2">{{ de.closures.mode }}</th><th class="px-3 py-2 text-right">{{ de.closures.leaveDays }}</th><th /></tr>
       </thead>
       <tbody>
         <tr v-for="closure in list" :key="closure.id" class="border-t border-gray-100">
@@ -36,10 +36,14 @@ async function remove(closure: ClosureDto) {
           <td class="px-3 py-2">{{ formatDate(closure.endDate) }}</td>
           <td class="px-3 py-2">{{ closure.label }}</td>
           <td class="px-3 py-2">{{ de.closures.modes[closure.mode] }}</td>
+          <td class="px-3 py-2 text-right" :class="{ 'text-gray-500': closure.leaveDays === null }">
+            {{ closure.leaveDays === null ? de.closures.noLeave : formatNumber(closure.leaveDays) }}
+          </td>
           <td class="px-3 py-2 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="remove(closure)" /></td>
         </tr>
       </tbody>
     </table>
+    <p v-if="list?.length" class="text-xs text-gray-500">{{ de.closures.leaveDaysHint }}</p>
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="create">
       <h2 class="font-semibold sm:col-span-4">{{ de.closures.create }}</h2>
       <p class="text-xs text-gray-500 sm:col-span-4">{{ de.closures.hint }}</p>

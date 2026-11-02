@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm'
-import { isTimeOff, OVERTIME_OFF, timeOffMinutes } from '../../shared/domain/balance'
+import { isTimeOff, isWorkEntry, OVERTIME_OFF, timeOffMinutes } from '../../shared/domain/balance'
 import { addDays, dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { countLeaveDays } from '../../shared/domain/leave'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
@@ -81,15 +81,25 @@ function requestDays(employee: EmployeeRecord, from: IsoDate, to: IsoDate, closu
 
 /**
  * People of the staff (one facility's employees) on leave per day between from and to: "Urlaub" entries not belonging
- * to a closure and "Überstundenfrei" entries, plus open requests (of both kinds).
+ * to a closure and "Überstundenfrei" entries, plus open requests (of both kinds, always whole days). Überstundenfrei
+ * with a time range next to a work entry of the day (e.g. half a day off after a duty) does not count: the person is
+ * there. Alone in the cell it still counts, the rest of the day is missing too.
  */
 function loadInRange(db: Db, from: IsoDate, to: IsoDate, staff: EmployeeRecord[], closures: ReturnType<typeof loadClosures>): LeaveDay[] {
   const byId = new Map(staff.map(employee => [employee.id, employee]))
-  const vacation = db.select({ employeeId: entries.employeeId, date: entries.date })
+  const leave = db.select({ employeeId: entries.employeeId, date: entries.date, key: absenceCodes.key, start: entries.start })
     .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
     .where(and(inArray(absenceCodes.key, ['vacation', OVERTIME_OFF]), isNull(entries.closureId), gte(entries.date, from), lte(entries.date, to)))
     .all()
     .filter(day => byId.has(day.employeeId))
+  const timedOff = leave.filter(day => day.key === OVERTIME_OFF && day.start !== null)
+  const working = new Set(timedOff.length === 0
+    ? []
+    : loadEntries(db, { from, to, employeeIds: [...new Set(timedOff.map(day => day.employeeId))] })
+        .filter(isWorkEntry).map(entry => `${entry.employeeId}:${entry.date}`))
+  const vacation = leave
+    .filter(day => !(day.key === OVERTIME_OFF && day.start !== null && working.has(`${day.employeeId}:${day.date}`)))
+    .map(({ employeeId, date }) => ({ employeeId, date }))
   const requested = db.select().from(leaveRequests)
     .where(and(eq(leaveRequests.status, 'open'), lte(leaveRequests.startDate, to), gte(leaveRequests.endDate, from))).all()
     .flatMap((request) => {

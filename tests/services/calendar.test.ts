@@ -47,14 +47,18 @@ describe('year calendar and sick days', () => {
     enter(berta, ['2026-10-13'], 'school')
     enter(berta, ['2026-10-14'], 'closure_day')
     enter(berta, ['2026-10-16'], 'special_leave')
+    enter(berta, ['2026-10-19'], 'overtime_off')
     applyToCells(db, admin, 1, [{ employeeId: berta, date: '2026-10-15' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
     const calendar = getYearCalendar(db, 1, 2026)
     expect(calendar.employees.map(e => e.name)).toEqual(['Anna', 'Berta'])
     expect(calendar.days[anna]).toEqual({ '2026-10-08': 'sick', '2026-10-09': 'vacation', '2026-10-12': 'training' })
-    expect(calendar.days[berta]).toEqual({ '2026-10-13': 'training', '2026-10-14': 'closed', '2026-10-16': 'special_leave' })
+    expect(calendar.days[berta]).toEqual({
+      '2026-10-13': 'training', '2026-10-14': 'closed', '2026-10-16': 'special_leave', '2026-10-19': 'overtime_off',
+    })
+    // Überstundenfrei is entered like Urlaub/Krank: no "replace?" question for it.
     expect(calendar.otherEntries[berta]).toEqual(['2026-10-14', '2026-10-15'])
     expect(calendar.otherEntries[anna]).toEqual([])
-    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'special_leave', 'sick', 'training', 'school'])
+    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'overtime_off', 'special_leave', 'sick', 'training', 'school'])
   })
   it('manages appointments of the year', () => {
     const elternabend = createCalendarEvent(db, 1, { date: '2026-10-14', start: 1140, end: 1260, title: '  Elternabend ', visibleToStaff: true })

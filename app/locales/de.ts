@@ -173,6 +173,7 @@ export const de = {
     until: 'bis einschließlich', untilHint: 'Nur Arbeitstage werden eingetragen.', removeAbsence: 'Eintrag entfernen',
     untilBeforeStart: 'Das Bis-Datum liegt vor dem angeklickten Tag.', noWorkdays: 'Im gewählten Zeitraum liegt kein Arbeitstag.',
     replaceConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} stehen schon Einträge im Dienstplan. Sie werden durch die Abwesenheit ersetzt. Fortfahren?`,
+    removeConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} steht noch mehr im Dienstplan (z. B. ein Dienst neben ÜF mit Uhrzeit). Beim Entfernen werden alle Einträge dieser Tage gelöscht. Fortfahren?`,
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
@@ -369,6 +370,8 @@ export const de = {
     entitlement: 'Anspruch', carriedOver: 'Übertrag Vorjahr', taken: 'genommen', planned: 'verplant', available: 'frei verfügbar',
     inheritedFrom: (year: number) => `(aus ${year} übernommen)`,
     days, ranges: 'Urlaubstage', noRanges: 'Keine Urlaubstage eingetragen.', rangeTaken: 'genommen', rangePlanned: 'geplant',
+    closuresTitle: 'Davon durch Schließzeiten:', closuresTotal: 'Zusammen',
+    closureDays: (count: number) => `davon ${count === 1 ? '1 Schließtag' : `${count} Schließtage`} ohne Urlaub`,
   },
   employees: {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',
@@ -435,7 +438,10 @@ export const de = {
     notices: (count: number) => (count === 0 ? 'Keine Hinweise' : count === 1 ? '1 Hinweis' : `${count} Hinweise`),
     reorder: 'Reihenfolge ändern', reorderDone: 'Fertig',
     group: 'Gruppe', balanceToday: 'Stundenkonto heute', leaveLeft: (year: number) => `Resturlaub ${year}`,
-    leaveLeftShort: 'Resturlaub', badgesLabel: 'Was fehlt', hoursShort: 'Std.', balanceShort: 'Konto',
+    leaveLeftShort: 'Resturlaub', badgesLabel: 'Was fehlt',
+    specialRights: 'Sonderrechte', specialRightGranted: 'zusätzlich erlaubt (einstellen im Reiter „Zugang“)',
+    specialRightRevoked: 'weggenommen (einstellen im Reiter „Zugang“)', specialRightRevokedShort: 'weggenommen',
+    hoursShort: 'Std.', balanceShort: 'Konto',
     badges: {
       pinMissing: 'PIN fehlt', pinLocked: 'PIN gesperrt', qualificationMissing: 'Qualifikation fehlt',
       requirementsOpen: 'Pflichttermine offen', noAccess: 'kein Zugang',
@@ -615,6 +621,8 @@ export const de = {
   closures: {
     title: 'Schließzeiten', from: 'Von', to: 'Bis', label: 'Bezeichnung', mode: 'Eintragen als',
     modes: { vacation: 'Urlaub', closure_day: 'Schließtag' },
+    leaveDays: 'Urlaubstage', noLeave: 'kein Urlaub',
+    leaveDaysHint: 'Urlaubstage: was die Schließzeit eine Vollzeitkraft mit 5-Tage-Woche kostet (ohne Wochenenden und Feiertage). Die Tage jeder einzelnen Person, auch bei Teilzeit, stehen beim Mitarbeiter im Reiter „Urlaub & Zeiten“.',
     create: 'Schließzeit anlegen',
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',

@@ -936,8 +936,11 @@ Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im A
   Genehmigen und Ablehnen gehen genau wie beim Urlaub (dieselben Zuständigen, dieselbe Zahl am Menü). Beim Genehmigen
   trägt das Programm **„ÜF“** statt „Urlaub“ in den Dienstplan ein; Tage mit Krank, Urlaub, Fortbildung u. Ä. bleiben
   unverändert.
-- Für die **Höchstzahl gleichzeitig im Urlaub** zählt Überstundenfrei (eingetragen oder beantragt) wie Urlaub. Im
-  Jahreskalender und in der Urlaubsplanung erscheint es türkis als „Überstundenfrei“.
+- Für die **Höchstzahl gleichzeitig im Urlaub** zählt Überstundenfrei (eingetragen oder beantragt) wie Urlaub. Nur
+  ein **halber Tag ÜF** zählt dort nicht mit: ÜF **mit Uhrzeit**, wenn am selben Tag auch ein Dienst der Person
+  eingetragen ist – die Person ist an dem Tag ja da. Steht ÜF mit Uhrzeit allein in der Zelle, fehlt die Person den
+  ganzen Tag und zählt mit. Anträge sind immer ganze Tage und zählen. Im Jahreskalender und in der Urlaubsplanung
+  erscheint ÜF türkis als „Überstundenfrei“ (auch ÜF mit Uhrzeit).
 
 ### Zugang (Benutzerkonto der Person)
 
@@ -1288,6 +1291,9 @@ Lesen (mit dem Hinweis „Codes kann nur der Träger ändern.“).
 
 **Überstundenfrei („ÜF“, violett)** steht direkt hinter Urlaub. Seine Anrechnung ist **„keine“**: ein ganzer Tag ÜF
 schreibt nichts gut, das Stundenkonto sinkt also um die Sollstunden des Tages; Urlaubstage werden nicht genommen.
+Ganze Tage ÜF trägst du wie Urlaub oder Krank ein: im **Dienstplan**, im **Jahreskalender** (Tag der Person anklicken,
+„ÜF“ wählen; dort lässt es sich auch wieder entfernen) und in der **Zeiterfassung** (Menü des Tages). Es ersetzt dabei
+wie Urlaub die übrigen Einträge des Tages. Eine Uhrzeit für ÜF gibst du nur im Dienstplan ein.
 
 Für einen **halben Tag ÜF** gehören **der Dienst und die ÜF-Zeit in dieselbe Zelle**, z. B. bei 8 Sollstunden ein
 Dienst 8:00–12:00 und dazu ÜF 12:00–16:00 (ÜF mit „Zum bestehenden Eintrag hinzufügen“ eintragen, dann auf den

@@ -47,6 +47,7 @@ describe('balances and leave', () => {
       employeeId: anna, name: 'Anna', year: 2026, inheritedFrom: null,
       account: { entitlement: 30, carriedOver: 3, taken: 2, planned: 3, available: 28 },
       ranges: [{ from: '2026-10-05', to: '2026-10-09', days: 5 }],
+      closures: [],
     })
     expect(getLeaveOverview(db, 1, 2026, '2026-10-07')).toHaveLength(1)
   })

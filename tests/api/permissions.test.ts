@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { DEFAULTS as SCRIPT_DEFAULTS, routeFiles, tabletPasses } from '../../scripts/route-access-snapshot.mjs'
+import { ACTORS as SCRIPT_ACTORS, DEFAULTS as SCRIPT_DEFAULTS, routeFiles, tabletPasses } from '../../scripts/route-access-snapshot.mjs'
 import { PERMISSION_KEYS, PERMISSIONS, type PermissionKey } from '../../shared/domain/permissions'
 
 const API_DIR = join(process.cwd(), 'server', 'api')
@@ -113,8 +113,7 @@ const FACILITY_FREE_EXCEPTIONS: Record<string, string> = {
   'groups/[id]/school-children.put.ts': 'refuses a group of another facility unless the user may edit other facilities',
 }
 
-const ACTORS = ['anonymous', 'provider', 'admin', 'group_lead', 'observer', 'terminal', 'tablet:provider', 'tablet:admin',
-  'tablet:group_lead', 'tablet:observerEditor', 'tablet:observer', 'tablet:noAccount']
+const ACTORS = SCRIPT_ACTORS as string[]
 /** The roles of the rights page (Teil 3 added the Gruppenleitung). */
 const RIGHTS_ROLES = ['admin', 'group_lead', 'observer'] as const
 const TABLET_PEOPLE = ACTORS.filter(actor => actor.startsWith('tablet:'))
