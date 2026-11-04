@@ -58,5 +58,7 @@ export function headerBody(form: TeamMeetingHeaderForm): TeamMeetingHeader {
     groupId: form.group === FACILITY_GROUP ? null : Number(form.group),
     participants: form.participants,
     recorder: form.recorder,
+    // Choosing participants from the staff comes with the header's checkboxes; until then none are chosen.
+    participantIds: [],
   }
 }

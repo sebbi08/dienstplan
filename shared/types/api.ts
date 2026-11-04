@@ -2301,6 +2301,17 @@ export interface ChildFormEditorDto {
 /** A team meeting is written while `draft`; once Leitung/Träger released it, it is locked until they reopen it. */
 export type TeamMeetingState = 'draft' | 'released'
 
+/**
+ * A participant chosen from the staff, with the name at the time of choosing (`employeeId` null once the employee was
+ * deleted for good) and their confirmation of the released minutes (null = not yet signed).
+ */
+export interface TeamMeetingSignerDto {
+  employeeId: number | null
+  name: string
+  signedAt: string | null
+  signedVia: 'account' | 'tablet' | null
+}
+
 /** A team meeting (Teamsitzung) in the facility's list. Names (createdBy …) are the names at the time. */
 export interface TeamMeetingListItemDto {
   id: number
@@ -2313,7 +2324,12 @@ export interface TeamMeetingListItemDto {
   /** The group it was held for (null = the whole facility). */
   groupId: number | null
   groupName: string | null
+  /** Further participants as typed (they do not sign). */
   participants: string
+  /** The participants chosen from the staff, in their order. */
+  signers: TeamMeetingSignerDto[]
+  /** The meeting is released and the member's own employee is a participant who has not signed yet. */
+  mineOpen: boolean
   /** Protokollführung. */
   recorder: string
   state: TeamMeetingState
@@ -2331,35 +2347,41 @@ export interface TeamMeetingListItemDto {
 }
 
 /**
- * The facility's team meetings of a year, newest first; the active team templates and the groups to choose from (the
- * tablet and staff cannot read the template list); `canManage`: Leitung/Träger, who release, reopen and delete.
+ * The facility's team meetings of a year, newest first; the active team templates, the groups and the staff (not left,
+ * in the staff list's order) to choose from (the tablet and staff cannot read the template list); `canManage`:
+ * Leitung/Träger, who release, reopen and delete. `toSign`: the released meetings of any year the member still has to
+ * sign, with the oldest (none at the tablet or without an employee).
  */
 export interface TeamMeetingsDto {
   meetings: TeamMeetingListItemDto[]
   templates: { id: number; name: string }[]
   groups: { id: number; name: string }[]
+  staff: { id: number; name: string; shortName: string }[]
+  toSign: { count: number; firstId: number | null }
   canManage: boolean
 }
 
 /**
  * One team meeting with its own copy of the template content, the answers, the printout's facility name and the
- * facility's groups to choose from in the header.
+ * facility's groups and staff to choose from in the header (the staff with those already chosen, even if they left).
  */
 export interface TeamMeetingDto extends TeamMeetingListItemDto {
   content: FormContent
   answers: FormAnswers
   facilityName: string
   groups: { id: number; name: string }[]
+  staff: { id: number; name: string; shortName: string }[]
   canManage: boolean
 }
 
-/** The header of a team meeting. */
+/** The header of a team meeting; `participantIds`: the employees chosen as participants, in the order shown. */
 export interface TeamMeetingHeader {
   date: string
   start: number | null
   groupId: number | null
   participants: string
   recorder: string
+  participantIds: number[]
 }
 
 /** A new team meeting from an active team template of the facility. */

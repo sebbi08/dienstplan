@@ -23,7 +23,7 @@ describe('the header of a team meeting', () => {
   it('fills the fields from the meeting and sends them back unchanged', () => {
     const form = headerForm(meeting)
     expect(form).toEqual({ date: '2026-10-21', start: '13:05', group: '4', participants: 'Anna', recorder: 'Ben' })
-    expect(headerBody(form)).toEqual(meeting)
+    expect(headerBody(form)).toEqual({ ...meeting, participantIds: [] })
   })
 
   it('starts a new meeting for the whole facility without time', () => {

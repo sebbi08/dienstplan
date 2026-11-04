@@ -560,13 +560,17 @@ export const childFormSaveSchema = childFormHeaderSchema.extend({
   answers: z.unknown(),
   expectedUpdatedAt: z.string().max(40),
 })
-/** The header of a team meeting; the limits (date, start 0–1439, text lengths, the group) are checked by the service. */
+/**
+ * The header of a team meeting; the limits (date, start 0–1439, text lengths, the group, the chosen participants) are
+ * checked by the service.
+ */
 const teamMeetingHeaderSchema = z.object({
   date: z.string().max(20),
   start: z.number().int().nullable(),
   groupId: z.number().int().nullable(),
   participants: z.string().max(2000),
   recorder: z.string().max(1000),
+  participantIds: z.array(z.number().int()).max(200),
 })
 export const teamMeetingCreateSchema = teamMeetingHeaderSchema.extend({ templateId: z.number().int() })
 /** Saving a team meeting: header and all answers, with the form's updatedAt the client loaded. */

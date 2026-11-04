@@ -3,13 +3,14 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, earlySickLeaves, employeeDocuments,
   employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, terminalUnlocks,
-  timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
+  employeeTrainings, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, teamMeetingParticipants,
+  terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { applyToCells } from '../../server/services/entries'
 import { listTemplates } from '../../server/services/formTemplates'
 import { releaseMonth } from '../../server/services/release'
 import { createTalk } from '../../server/services/staffTalks'
+import { createTeamMeeting, teamMember } from '../../server/services/teamMeetings'
 import { setPin } from '../../server/services/terminal'
 import type { EmployeeDocumentFolder } from '../../shared/domain/personnel'
 import type { SessionUser } from '../../shared/types/api'
@@ -50,7 +51,8 @@ export function documentFolders(db: Db, employeeId: number): string[] {
 export const ASSESSMENT_FOLDERS: EmployeeDocumentFolder[] = ['application', 'correspondence', 'measures', 'qualifications']
 
 /**
- * The same kinds of data for each of `employeeIds` in facility 1, a row for every column that references employees;
+ * The same kinds of data for each of `employeeIds` in facility 1 (all of them participants of one team meeting), a row
+ * for every column that references employees;
  * October 2026 released, then a draft change of each (change log). `helper` also helped out in `hort` in September,
  * which was released with their column.
  */
@@ -111,6 +113,14 @@ export function fillEmployeeData(db: Db, leitung: SessionUser, employeeIds: numb
       groupId: group, field: 'day', date: '2026-10-02', before: '', after: 'Wald', changedAt: at, changedByEmployeeId: id, changedByName: 'am Tablet',
     }).run()
   }
+  // Everyone took part in a team meeting (stored directly: some may have left already).
+  const meetingId = createTeamMeeting(db, teamMember(db, leitung), {
+    templateId: listTemplates(db, 1, 'team')[0]!.id, date: '2026-10-01', start: 840, groupId: null, participants: '', recorder: '',
+    participantIds: [],
+  }, now)
+  employeeIds.forEach((employeeId, sortOrder) => {
+    db.insert(teamMeetingParticipants).values({ meetingId, employeeId, name: `Teilnehmer ${employeeId}`, sortOrder }).run()
+  })
   // October released, then a draft change of each (change log).
   releaseMonth(db, leitung, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
   for (const id of employeeIds) shift(leitung, 1, id, '2026-10-07', 'S')

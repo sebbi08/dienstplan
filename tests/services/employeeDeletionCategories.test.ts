@@ -35,6 +35,8 @@ const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
 const ADJUSTMENTS = 'balance_adjustments.employee_id'
 /** Documents by folder: application, qualifications, correspondence, measures with the assessments; contract, salary 10 years. */
 const DOCUMENTS = 'employee_documents.employee_id'
+/** In no category: the team meeting keeps its participant until the employee row goes (then null, the name stays). */
+const PARTICIPANTS = 'team_meeting_participants.employee_id'
 const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'qualifications', 'salary']
 /** The personnel file fields of the employee row, all set (beforeEach) and cleared with the immediate data. */
 const PERSONNEL_FIELDS = {
@@ -118,7 +120,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS, DOCUMENTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS, DOCUMENTS, PARTICIPANTS].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -189,6 +191,7 @@ describe('the deletion categories of a left employee', () => {
     expect(documentFolders(db, tina)).toEqual([])
     expect(documentFolders(db, ben)).toEqual(ALL_FOLDERS)
     expect(row(tina)).toBeDefined()
+    expect(nonZero([PARTICIPANTS])).toEqual([PARTICIPANTS])
     expect(db.transaction(tx => deleteEmployeeRow(tx, tina))).toBe(1)
     expect(row(tina)).toBeUndefined()
     expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])

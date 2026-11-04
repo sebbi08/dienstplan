@@ -1255,6 +1255,21 @@ export const teamMeetings = sqliteTable('team_meetings', {
 ])
 
 /**
+ * The employees chosen as participants of a team meeting, in `sortOrder`, with their name at the time of choosing (it
+ * stays when the employee is deleted for good: `employeeId` becomes null). `signedAt`/`signedVia`: the confirmation that
+ * they read the released minutes, with their own account or at the tablet (null = not yet).
+ */
+export const teamMeetingParticipants = sqliteTable('team_meeting_participants', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  meetingId: integer('meeting_id').notNull().references(() => teamMeetings.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull(),
+  signedAt: text('signed_at'),
+  signedVia: text('signed_via', { enum: ['account', 'tablet'] }),
+}, table => [uniqueIndex('team_meeting_participants_meeting_employee').on(table.meetingId, table.employeeId)])
+
+/**
  * The Träger's retention periods after an employee left, per facility (shared/domain/retention.ts; no row = the defaults,
  * created on first read): years after the end of the leaving year for time data, assessments and paid-out overtime;
  * pension only for information; the cash box period; who may delete a left employee at once („Endgültig löschen“).

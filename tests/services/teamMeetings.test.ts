@@ -42,7 +42,7 @@ describe('team meetings', () => {
   let tabletB: TeamMember
   let leitungUser: SessionUser
 
-  const header: TeamMeetingHeader = { date: '2026-10-15', start: 840, groupId: null, participants: 'Anna, Berta', recorder: 'Anna' }
+  const header: TeamMeetingHeader = { date: '2026-10-15', start: 840, groupId: null, participants: 'Anna, Berta', recorder: 'Anna', participantIds: [] }
   /** The id of the first free text of the meeting (Tagesordnung in the starter). */
   const firstItem = (id: number) => getTeamMeeting(db, leitung, id).content.sections[0]!.items[0]!.id
   const save = (member: TeamMember, id: number, text: string, expectedUpdatedAt: string, now = LATER, more: Partial<TeamMeetingHeader> = {}) =>
@@ -66,10 +66,10 @@ describe('team meetings', () => {
   })
 
   it('resolves the members of a facility: managers, staff with an employee, the tablet as „Tablet“', () => {
-    expect(leitung).toEqual({ facilityId: 1, name: 'Lea Leitung', manager: true, left: false })
-    expect(anna).toEqual({ facilityId: 1, name: 'Anna', manager: false, left: false })
-    expect(tablet).toEqual({ facilityId: 1, name: 'Tablet', manager: false, left: false })
-    expect(staffB).toEqual({ facilityId: facilityB, name: 'Bea', manager: false, left: false })
+    expect(leitung).toEqual({ facilityId: 1, name: 'Lea Leitung', manager: true, left: false, employeeId: leitungUser.employeeId })
+    expect(anna).toEqual({ facilityId: 1, name: 'Anna', manager: false, left: false, employeeId: expect.any(Number) })
+    expect(tablet).toEqual({ facilityId: 1, name: 'Tablet', manager: false, left: false, employeeId: null })
+    expect(staffB).toEqual({ facilityId: facilityB, name: 'Bea', manager: false, left: false, employeeId: expect.any(Number) })
     expect(tabletB.facilityId).toBe(facilityB)
     // A Mitarbeiter account without an employee has no facility.
     expect(failure(() => teamMember(db, addUser(db, 'ohne', 'observer')))).toBe('403 no_facility')
