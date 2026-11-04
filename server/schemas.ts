@@ -588,5 +588,7 @@ export const teamMeetingQuery = z.object({
 })
 /** „Wieder öffnen“: the reason (1–200 chars) is checked by the service (team_meeting_reason_invalid). */
 export const teamMeetingReopenSchema = z.object({ reason: z.string().max(1000) })
+/** „Unterzeichnen“: at the tablet the person and their PIN (checked by the service); an account sends nothing. */
+export const teamMeetingSignSchema = z.object({ employeeId: z.number().int().optional(), pin: z.string().max(20).optional() })
 /** „Mitarbeiter freischalten“: the employees unlocked for the form from now on (all others are revoked). */
 export const childFormEditorsSchema = z.object({ employeeIds: z.array(z.number().int()).max(500) })

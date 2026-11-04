@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, notInArray, or } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, or } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
 import { can } from '../../shared/domain/permissions'
@@ -11,6 +11,7 @@ import type { Db } from '../db/client'
 import { employees, facilities, forms, groups, teamMeetingParticipants, teamMeetings } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { actorName, listTemplates, loadTemplate, withFormErrors } from './formTemplates'
+import { verifyEmployeePin } from './terminal'
 
 export const TEAM_MEETING_LIMITS = { participants: 300, recorder: 80, reason: 200 } as const
 
@@ -239,18 +240,25 @@ function checkedHeader(
 }
 
 /**
- * Makes the meeting's participants exactly `participants`, in that order: the others go (also those deleted for good),
- * new ones are stored with their current name, those who stay keep their stored name and signature.
+ * Makes the meeting's chosen employees exactly `participants`, in that order: the others go, new ones are stored with
+ * their current name, those who stay keep their stored name and signature. Those deleted for good (no employee any
+ * more, so the client cannot send them again) stay, after the chosen ones in their previous order.
  */
 function writeParticipants(tx: Db, meetingId: number, participants: CheckedHeader['participants']): void {
   const ids = participants.map(participant => participant.id)
   tx.delete(teamMeetingParticipants).where(and(
     eq(teamMeetingParticipants.meetingId, meetingId),
-    ids.length === 0 ? undefined : or(isNull(teamMeetingParticipants.employeeId), notInArray(teamMeetingParticipants.employeeId, ids)),
+    ids.length === 0 ? isNotNull(teamMeetingParticipants.employeeId) : notInArray(teamMeetingParticipants.employeeId, ids),
   )).run()
   participants.forEach(({ id, name }, sortOrder) => {
     tx.insert(teamMeetingParticipants).values({ meetingId, employeeId: id, name, sortOrder })
       .onConflictDoUpdate({ target: [teamMeetingParticipants.meetingId, teamMeetingParticipants.employeeId], set: { sortOrder } }).run()
+  })
+  const deleted = tx.select({ id: teamMeetingParticipants.id }).from(teamMeetingParticipants)
+    .where(and(eq(teamMeetingParticipants.meetingId, meetingId), isNull(teamMeetingParticipants.employeeId)))
+    .orderBy(asc(teamMeetingParticipants.sortOrder), asc(teamMeetingParticipants.id)).all()
+  deleted.forEach(({ id }, index) => {
+    tx.update(teamMeetingParticipants).set({ sortOrder: ids.length + index }).where(eq(teamMeetingParticipants.id, id)).run()
   })
 }
 
@@ -331,17 +339,64 @@ export function releaseTeamMeeting(db: Db, member: TeamMember, id: number, now: 
 
 /**
  * „Wieder öffnen“ (Leitung/Träger) with a reason of 1–200 characters (400 team_meeting_reason_invalid): the released
- * meeting is a draft again; the reason stays with it (the last one). 409 team_meeting_state_invalid unless released.
+ * meeting is a draft again; the reason stays with it (the last one). Every signature goes, the participants stay: after
+ * the new release all sign again. 409 team_meeting_state_invalid unless released.
  */
 export function reopenTeamMeeting(db: Db, member: TeamMember, id: number, reason: string, now: Date = new Date()): TeamMeetingDto {
   assertManager(member)
   const { meeting } = loadMeeting(db, member, id)
   const text = reason.trim()
   if (text.length === 0 || text.length > TEAM_MEETING_LIMITS.reason) throw new ServiceError(400, 'team_meeting_reason_invalid')
-  const result = db.update(teamMeetings).set({
-    state: 'draft', releasedAt: null, releasedBy: null, reopenReason: text, reopenedAt: now.toISOString(), reopenedBy: member.name,
-  }).where(and(eq(teamMeetings.id, meeting.id), eq(teamMeetings.state, 'released'))).run()
-  if (result.changes !== 1) throw new ServiceError(409, 'team_meeting_state_invalid')
+  db.transaction((tx) => {
+    const result = tx.update(teamMeetings).set({
+      state: 'draft', releasedAt: null, releasedBy: null, reopenReason: text, reopenedAt: now.toISOString(), reopenedBy: member.name,
+    }).where(and(eq(teamMeetings.id, meeting.id), eq(teamMeetings.state, 'released'))).run()
+    if (result.changes !== 1) throw new ServiceError(409, 'team_meeting_state_invalid')
+    tx.update(teamMeetingParticipants).set({ signedAt: null, signedVia: null })
+      .where(eq(teamMeetingParticipants.meetingId, meeting.id)).run()
+  })
+  return getTeamMeeting(db, member, meeting.id, now)
+}
+
+/**
+ * „Gelesen und unterzeichnen“: a participant signs the released minutes (409 team_meeting_not_released before), once
+ * (409 team_meeting_already_signed), unless they left before today (409 employee_inactive). An account signs for its
+ * own employee only (any `input` is ignored; 403 team_meeting_not_participant without one or when not chosen). The
+ * tablet signs for the chosen `employeeId` with that person's `pin` (400 team_meeting_sign_input_invalid without both):
+ * a person not of the facility is 404 employee_not_found and one not chosen 403, before the PIN is looked at, so no
+ * attempt is counted; the PIN then counts towards the same lock as stamping (pin_missing, pin_invalid, the lock codes).
+ */
+export function signTeamMeeting(
+  db: Db, member: TeamMember, id: number, input: { employeeId?: number; pin?: string }, now: Date = new Date(),
+): TeamMeetingDto {
+  const { meeting } = loadMeeting(db, member, id)
+  if (meeting.state !== 'released') throw new ServiceError(409, 'team_meeting_not_released')
+  // Only the tablet has neither an own employee nor the right to manage (a Mitarbeiter account always has an employee).
+  const atTablet = member.employeeId === null && !member.manager
+  let employeeId: number
+  if (atTablet) {
+    if (input.employeeId === undefined || !input.pin) throw new ServiceError(400, 'team_meeting_sign_input_invalid')
+    employeeId = input.employeeId
+    const employee = db.select({ id: employees.id }).from(employees)
+      .where(and(eq(employees.id, employeeId), eq(employees.facilityId, member.facilityId))).get()
+    if (!employee) throw new ServiceError(404, 'employee_not_found')
+  }
+  else {
+    if (member.employeeId === null) throw new ServiceError(403, 'team_meeting_not_participant')
+    employeeId = member.employeeId
+  }
+  const row = db.select({ id: teamMeetingParticipants.id, signedAt: teamMeetingParticipants.signedAt, leftOn: employees.leftOn })
+    .from(teamMeetingParticipants)
+    .innerJoin(employees, eq(employees.id, teamMeetingParticipants.employeeId))
+    .where(and(eq(teamMeetingParticipants.meetingId, meeting.id), eq(teamMeetingParticipants.employeeId, employeeId))).get()
+  if (!row) throw new ServiceError(403, 'team_meeting_not_participant')
+  if (row.signedAt !== null) throw new ServiceError(409, 'team_meeting_already_signed')
+  if (row.leftOn !== null && row.leftOn < nowInBerlin(now).date) throw new ServiceError(409, 'employee_inactive')
+  if (atTablet) verifyEmployeePin(db, employeeId, input.pin!, now)
+  // Only while unsigned: of two signatures at once, the first one stays.
+  const result = db.update(teamMeetingParticipants).set({ signedAt: now.toISOString(), signedVia: atTablet ? 'tablet' : 'account' })
+    .where(and(eq(teamMeetingParticipants.id, row.id), isNull(teamMeetingParticipants.signedAt))).run()
+  if (result.changes !== 1) throw new ServiceError(409, 'team_meeting_already_signed')
   return getTeamMeeting(db, member, meeting.id, now)
 }
 

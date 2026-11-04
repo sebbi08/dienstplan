@@ -284,6 +284,7 @@
   "team-meetings/[id].put.ts": ["provider","admin","group_lead","observer","terminal"],
   "team-meetings/[id]/release.post.ts": ["provider","admin"],
   "team-meetings/[id]/reopen.post.ts": ["provider","admin"],
+  "team-meetings/[id]/sign.post.ts": ["provider","admin","group_lead","observer","terminal"],
   "team-meetings/index.get.ts": ["provider","admin","group_lead","observer","terminal"],
   "team-meetings/index.post.ts": ["provider","admin","group_lead","observer","terminal"],
   "template-categories/[id].delete.ts": ["provider","admin"],

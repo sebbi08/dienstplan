@@ -343,10 +343,10 @@ describe('API route permissions', () => {
   it('opens the team meetings to every member of the facility; release, reopen and delete to managers only', () => {
     const touching = routes.filter(route => /^team-meetings\//.test(route) || source(route).includes('services/teamMeetings\''))
     expect(touching).toEqual(['team-meetings/[id].delete.ts', 'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts',
-      'team-meetings/[id]/release.post.ts', 'team-meetings/[id]/reopen.post.ts', 'team-meetings/index.get.ts',
-      'team-meetings/index.post.ts'])
+      'team-meetings/[id]/release.post.ts', 'team-meetings/[id]/reopen.post.ts', 'team-meetings/[id]/sign.post.ts',
+      'team-meetings/index.get.ts', 'team-meetings/index.post.ts'])
     const members = ['team-meetings/index.get.ts', 'team-meetings/index.post.ts', 'team-meetings/[id].get.ts',
-      'team-meetings/[id].put.ts']
+      'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts']
     for (const route of touching) {
       const code = source(route)
       // Whose facility follows from the session alone; the service resolves the member (teamMember).
@@ -567,7 +567,7 @@ describe('API route permissions', () => {
   it('lets the tablet into the general plan, the team meetings and the print templates (with their categories) only', () => {
     const allowing = routes.filter(route => source(route).includes('allowTerminal: true'))
     expect(allowing).toEqual(['plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
-      'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/index.get.ts', 'team-meetings/index.post.ts',
-      'template-categories/index.get.ts'])
+      'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
+      'team-meetings/index.post.ts', 'template-categories/index.get.ts'])
   })
 })

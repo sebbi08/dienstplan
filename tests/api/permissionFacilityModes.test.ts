@@ -17,7 +17,8 @@ import { addUser, createTestDb, TEST_PASSWORD } from '../helpers/fixtures'
 // facilities.get.ts checks the active facility itself (requireUser + assertPageFacility: every signed-in account).
 const ACTIVE = [
   'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts', 'template-categories/index.get.ts',
-  'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/index.get.ts', 'team-meetings/index.post.ts',
+  'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
+  'team-meetings/index.post.ts',
 ]
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */
 const NONE = [
