@@ -16,5 +16,7 @@
       "depNameTemplate": "playwright-core",
       "datasourceTemplate": "npm"
     }
-  ]
+  ],
+  "npmrc": "allow-remote=all",
+  "npmrcMerge": true
 }
