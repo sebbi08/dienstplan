@@ -198,8 +198,8 @@ export function teamMeetingStamps(meeting: TeamMeetingListItemDto): string[] {
 
 /**
  * Who signed the minutes, one line each with the time, then (only once released, as signing starts with the release)
- * one line naming those who still can and have not. A participant whose employee was deleted for good before signing
- * never can, so they are not named as open.
+ * one line naming those who still can and have not. A participant whose employee left or was deleted for good before
+ * signing never can, so they are not named as open.
  */
 export function teamMeetingSignatureLines(meeting: Pick<TeamMeetingDto, 'state' | 'signers'>): string[] {
   const t = de.teamMeetings

@@ -120,8 +120,8 @@ describe('teamSheet', () => {
   })
 
   describe('signatures', () => {
-    const signer = (employeeId: number | null, name: string, signedAt: string | null) =>
-      ({ employeeId, name, signedAt, signedVia: signedAt ? 'login' : null })
+    const signer = (employeeId: number | null, name: string, signedAt: string | null, left = false) =>
+      ({ employeeId, name, signedAt, signedVia: signedAt ? 'account' : null, left })
     const released = { ...meeting, state: 'released' as const, releasedAt: '2026-10-22T08:30:00.000Z', releasedBy: 'Frau Leitung' }
 
     it('lists the chosen names, then the typed text, as the participants', () => {
@@ -168,6 +168,18 @@ describe('teamSheet', () => {
         'freigegeben am 22.10.2026, 10:30 von Frau Leitung',
         'Unterzeichnet: Dora – 22.10.2026, 11:15',
         'Noch nicht unterzeichnet: Ben',
+      ])
+    })
+
+    it('does not list a participant who left and never signed as open, but does list a signed one', () => {
+      const sheet = teamSheet({
+        ...released,
+        signers: [signer(1, 'Anna', '2026-10-22T09:15:00.000Z', true), signer(2, 'Ben', null, true), signer(3, 'Clara', null)],
+      } as TeamMeetingDto)
+      expect(sheet.closing).toEqual([
+        'freigegeben am 22.10.2026, 10:30 von Frau Leitung',
+        'Unterzeichnet: Anna – 22.10.2026, 11:15',
+        'Noch nicht unterzeichnet: Clara',
       ])
     })
   })

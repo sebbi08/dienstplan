@@ -68,17 +68,37 @@ export function participantsLine(names: string[], typed: string): string {
   return [...names, typed.trim()].filter(Boolean).join(', ')
 }
 
+type CountedSigner = Pick<TeamMeetingSignerDto, 'employeeId' | 'signedAt' | 'left'>
+
 /**
  * Whether a participant counts for „N von M unterzeichnet“: everyone who signed and everyone who still can. One whose
- * employee was deleted for good before signing never can, so they are only named.
+ * employee left or was deleted for good before signing never can, so they are only named.
  */
-export const countsAsSigner = (signer: Pick<TeamMeetingSignerDto, 'employeeId' | 'signedAt'>): boolean =>
-  signer.signedAt !== null || signer.employeeId !== null
+export const countsAsSigner = (signer: CountedSigner): boolean =>
+  signer.signedAt !== null || (signer.employeeId !== null && !signer.left)
 
 /** „N von M unterzeichnet“ over the participants who count (see countsAsSigner). */
-export function signingProgress(signers: Pick<TeamMeetingSignerDto, 'employeeId' | 'signedAt'>[]): { signed: number; total: number } {
+export function signingProgress(signers: CountedSigner[]): { signed: number; total: number } {
   const counted = signers.filter(countsAsSigner)
   return { signed: counted.filter(signer => signer.signedAt !== null).length, total: counted.length }
+}
+
+const PIN_FAILURES = new Set(['pin_invalid', 'pin_missing', 'pin_locked', 'pin_locked_long', 'pin_locked_permanent'])
+// Reopened, already signed (e.g. at the tablet), left, no longer chosen or deleted for good meanwhile.
+const STALE_FAILURES = new Set([
+  'team_meeting_not_released', 'team_meeting_already_signed', 'employee_inactive', 'team_meeting_not_participant',
+  'employee_not_found',
+])
+
+/**
+ * What to do after a refused signature (by its error code), besides telling it: `pin` – a wrong, missing or locked PIN,
+ * the tablet's dialog stays open to try again; `stale` – what is shown is out of date, so the meeting is loaded again
+ * (and the dialog closes); `other` – nothing more.
+ */
+export function signFailure(code: string | undefined): 'pin' | 'stale' | 'other' {
+  if (code === undefined) return 'other'
+  if (PIN_FAILURES.has(code)) return 'pin'
+  return STALE_FAILURES.has(code) ? 'stale' : 'other'
 }
 
 /** A valid date and, if given, a valid time; else the message to show instead of saving. */

@@ -48,11 +48,11 @@ const filterValue = computed({
 
 const when = (meeting: TeamMeetingListItemDto) =>
   meeting.start === null ? formatDate(meeting.date) : `${formatDate(meeting.date)} ${t.atTime(formatTime(meeting.start))}`
-// „N von M unterzeichnet“ of a released meeting with participants chosen from the staff.
+// „N von M unterzeichnet“ of a released meeting with participants who count (see countsAsSigner); none without.
 function signing(meeting: TeamMeetingListItemDto) {
-  if (meeting.state !== 'released' || !meeting.signers.length) return null
+  if (meeting.state !== 'released') return null
   const { signed, total } = signingProgress(meeting.signers)
-  return { text: t.signedCount(signed, total), done: signed === total }
+  return total === 0 ? null : { text: t.signedCount(signed, total), done: signed === total }
 }
 const rows = computed(() => (data.value?.meetings ?? []).map(meeting => ({
   meeting,

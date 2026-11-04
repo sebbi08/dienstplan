@@ -94,6 +94,11 @@ const anySigned = computed(() => (data.value?.signers ?? []).some(signer => sign
 function onSigned(meeting: TeamMeetingDto) {
   data.value = meeting
 }
+// Signing was refused because the shown minutes are out of date (e.g. reopened meanwhile): load them again.
+async function onSignStale() {
+  await refresh()
+  resetHeader()
+}
 function groupName(group: string): string | null {
   const found = (data.value?.groups ?? []).find(entry => String(entry.id) === group)
   return found ? found.name : (group === String(data.value?.groupId) ? data.value?.groupName ?? null : null)
@@ -216,7 +221,7 @@ async function remove(dirty: boolean) {
         </template>
       </FormsFormPanel>
 
-      <TeamMeetingsSigners v-if="!releasedMeanwhile" :meeting="data" :tablet="tablet" @signed="onSigned" />
+      <TeamMeetingsSigners v-if="!releasedMeanwhile" :meeting="data" :tablet="tablet" @signed="onSigned" @stale="onSignStale" />
     </template>
 
     <UModal v-model:open="reopenOpen" :title="t.reopenTitle">

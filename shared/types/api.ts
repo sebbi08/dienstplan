@@ -2310,6 +2310,8 @@ export interface TeamMeetingSignerDto {
   name: string
   signedAt: string | null
   signedVia: 'account' | 'tablet' | null
+  /** The employee left before today, so they can no longer sign (false once deleted for good: `employeeId` null). */
+  left: boolean
 }
 
 /** A team meeting (Teamsitzung) in the facility's list. Names (createdBy …) are the names at the time. */

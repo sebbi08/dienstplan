@@ -2,35 +2,50 @@
 import { PIN_LENGTH } from '#shared/domain/pin'
 import type { TeamMeetingDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { errorCode } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
-import { countsAsSigner, signingProgress } from '~/utils/teamMeetings'
+import { pinFailureText } from '~/utils/pin'
+import { countsAsSigner, signFailure, signingProgress } from '~/utils/teamMeetings'
 
 /**
  * „Unterzeichnet“ under the minutes: every participant chosen from the staff, signed (with the time) or still open
  * (in the draft: after the release), and „N von M unterzeichnet“. With an own account the member signs for themselves
  * („Gelesen und unterzeichnen“, asked first); at the tablet one picks their name among the open participants and types
- * their PIN. Not shown when no participant was chosen.
+ * their PIN. Not shown when no participant was chosen. A refusal because the shown minutes are out of date (reopened,
+ * signed elsewhere, left …) is told and emits `stale`, so the page loads the meeting again.
  */
 const props = defineProps<{ meeting: TeamMeetingDto; tablet: boolean }>()
-const emit = defineEmits<{ signed: [meeting: TeamMeetingDto] }>()
+const emit = defineEmits<{ signed: [meeting: TeamMeetingDto]; stale: [] }>()
 const t = de.teamMeetings
 const confirm = useConfirm()
-const run = useAction()
+const toast = useToast()
 
 const released = computed(() => props.meeting.state === 'released')
 const progress = computed(() => signingProgress(props.meeting.signers))
-// Only those still employees can sign (one deleted for good never can).
+// Only those still employees who have not left can sign (one deleted for good or left never can).
 const openItems = computed(() => props.meeting.signers.flatMap(signer =>
-  signer.signedAt === null && signer.employeeId !== null ? [{ label: signer.name, value: signer.employeeId }] : []))
+  signer.signedAt === null && signer.employeeId !== null && !signer.left ? [{ label: signer.name, value: signer.employeeId }] : []))
 
 const busy = ref(false)
-async function sign(body: { employeeId?: number; pin?: string }): Promise<boolean> {
+/** Signs; on a refusal tells why and says what to do next (see signFailure), `signed` on success. */
+async function sign(body: { employeeId?: number; pin?: string }): Promise<'signed' | ReturnType<typeof signFailure>> {
   busy.value = true
-  const ok = await run(async () => {
+  try {
     emit('signed', await $fetch<TeamMeetingDto>(`/api/team-meetings/${props.meeting.id}/sign`, { method: 'POST', body }))
-  }, t.signed)
-  busy.value = false
-  return ok
+    toast.add({ title: t.signed, color: 'success' })
+    return 'signed'
+  }
+  catch (failure) {
+    const code = errorCode(failure)
+    // The page reloads and says so itself (plugins/pageFacility.client.ts).
+    if (code !== 'facility_changed') toast.add({ title: pinFailureText(failure), color: 'error' })
+    const next = signFailure(code)
+    if (next === 'stale') emit('stale')
+    return next
+  }
+  finally {
+    busy.value = false
+  }
 }
 async function signOwn() {
   if (!await confirm(t.signConfirm, { confirmLabel: t.sign, danger: false })) return
@@ -47,9 +62,10 @@ function openDialog() {
 }
 async function signAtTablet() {
   if (employeeId.value === undefined || pin.value.length !== PIN_LENGTH) return
-  const ok = await sign({ employeeId: employeeId.value, pin: pin.value })
+  const result = await sign({ employeeId: employeeId.value, pin: pin.value })
   pin.value = ''
-  if (ok) dialogOpen.value = false
+  // Only a wrong, missing or locked PIN keeps the dialog open to try again.
+  if (result !== 'pin') dialogOpen.value = false
 }
 </script>
 
@@ -57,7 +73,7 @@ async function signAtTablet() {
   <section v-if="meeting.signers.length" class="space-y-3 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4">
     <div class="flex flex-wrap items-center gap-2">
       <h2 class="font-semibold">{{ t.signersTitle }}</h2>
-      <span class="text-sm text-gray-600">{{ t.signedCount(progress.signed, progress.total) }}</span>
+      <span v-if="progress.total" class="text-sm text-gray-600">{{ t.signedCount(progress.signed, progress.total) }}</span>
     </div>
     <ul class="space-y-1 text-sm">
       <li v-for="(signer, index) in meeting.signers" :key="signer.employeeId ?? `deleted-${index}`" class="flex flex-wrap items-baseline gap-x-2">

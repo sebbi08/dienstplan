@@ -9,6 +9,7 @@ import {
   signTeamMeeting, teamMember, type TeamMember,
 } from '../../server/services/teamMeetings'
 import { setPin } from '../../server/services/terminal'
+import { MAX_PIN_ATTEMPTS } from '../../shared/domain/pin'
 import type { SessionUser, TeamMeetingHeader } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, createTestDb } from '../helpers/fixtures'
 
@@ -27,7 +28,8 @@ function failure(fn: () => unknown): string | null {
   }
 }
 
-const open = (employeeId: number | null, name: string) => ({ employeeId, name, signedAt: null, signedVia: null })
+const open = (employeeId: number | null, name: string, left = false) =>
+  ({ employeeId, name, signedAt: null, signedVia: null, left })
 
 describe('team meeting participants', () => {
   let db: Db
@@ -120,7 +122,7 @@ describe('team meeting participants', () => {
     leave(berta)
     expect(failure(() => save(id, [anna, berta, carla]))).toBe('409 employee_inactive')
     save(id, [anna, berta])
-    expect(signers(id)).toEqual([open(anna, 'Anna'), open(berta, 'Berta')])
+    expect(signers(id)).toEqual([open(anna, 'Anna'), open(berta, 'Berta', true)])
   })
 
   it('lists the choosable staff', () => {
@@ -155,6 +157,36 @@ describe('team meeting participants', () => {
     expect(listTeamMeetings(db, tablet, { year: 2025 }, LATER).meetings[0]!.mineOpen).toBe(false)
     const provider = teamMember(db, addUser(db, 'traeger', 'provider'))
     expect(listTeamMeetings(db, provider, { year: 2026 }, LATER).toSign).toEqual({ count: 0, firstId: null })
+  })
+
+  it('counts nothing to sign for a participant who left (a Träger linked to them still signs in)', () => {
+    const carla = addEmployee(db, 'Carla')
+    const id = create([carla, anna])
+    releaseTeamMeeting(db, leitung, id, LATER)
+    const provider = teamMember(db, addUser(db, 'traeger', 'provider', carla))
+    expect(listTeamMeetings(db, provider, { year: 2026 }, LATER).toSign).toEqual({ count: 1, firstId: id })
+    // On the leaving day itself still open.
+    leave(carla, '2026-10-20')
+    expect(listTeamMeetings(db, provider, { year: 2026 }, LATER).toSign).toEqual({ count: 1, firstId: id })
+    expect(getTeamMeeting(db, provider, id, LATER).mineOpen).toBe(true)
+    leave(carla)
+    expect(listTeamMeetings(db, provider, { year: 2026 }, LATER).toSign).toEqual({ count: 0, firstId: null })
+    expect(listTeamMeetings(db, provider, { year: 2026 }, LATER).meetings[0]!.mineOpen).toBe(false)
+    expect(getTeamMeeting(db, provider, id, LATER).mineOpen).toBe(false)
+    // The others still count theirs.
+    expect(listTeamMeetings(db, annaMember, { year: 2026 }, LATER).toSign).toEqual({ count: 1, firstId: id })
+  })
+
+  it('marks the participants who left before today', () => {
+    const id = create([anna, berta, lea])
+    leave(anna)
+    leave(berta, '2026-10-20')
+    expect(signers(id)).toEqual([open(anna, 'Anna', true), open(berta, 'Berta'), open(lea, 'Lea Leitung')])
+    expect(listTeamMeetings(db, tablet, { year: 2026 }, LATER).meetings[0]!.signers.map(signer => signer.left))
+      .toEqual([true, false, false])
+    // One deleted for good is no employee any more and only named (employeeId null).
+    deleteLeftEmployee(db, leitungUser, 1, anna, 'Anna', '2026-10-20')
+    expect(signers(id)[0]).toEqual(open(null, 'Anna'))
   })
 
   it('keeps the name when the employee is deleted for good', () => {
@@ -202,7 +234,7 @@ describe('signing team meeting minutes', () => {
   const pinFailed = (employeeId: number) =>
     db.select({ pinFailed: employees.pinFailed }).from(employees).where(eq(employees.id, employeeId)).get()!.pinFailed
   const signed = (employeeId: number, name: string, signedVia: 'account' | 'tablet') =>
-    ({ employeeId, name, signedAt: NOW.toISOString(), signedVia })
+    ({ employeeId, name, signedAt: NOW.toISOString(), signedVia, left: false })
 
   beforeEach(() => {
     db = createTestDb()
@@ -260,7 +292,7 @@ describe('signing team meeting minutes', () => {
     setPin(db, 1, berta, '123456')
     leave(berta)
     expect(failure(() => sign(tablet, id, { employeeId: berta, pin: '123456' }))).toBe('409 employee_inactive')
-    expect(signers(id)).toEqual([open(anna, 'Anna'), open(berta, 'Berta')])
+    expect(signers(id)).toEqual([open(anna, 'Anna', true), open(berta, 'Berta', true)])
     // On the leaving day itself still possible.
     leave(anna, '2026-10-20')
     expect(sign(annaMember, id).signers[0]).toEqual(signed(anna, 'Anna', 'account'))
@@ -293,6 +325,18 @@ describe('signing team meeting minutes', () => {
     expect(failure(() => sign(tablet, id, { employeeId: berta }))).toBe('400 team_meeting_sign_input_invalid')
     expect(failure(() => sign(tablet, id, { pin: '123456' }))).toBe('400 team_meeting_sign_input_invalid')
     expect(signers(id)).toEqual([signed(anna, 'Anna', 'tablet'), open(berta, 'Berta')])
+  })
+
+  it('refuses a locked PIN at the tablet, even the right one, and stores nothing', () => {
+    const id = released([anna])
+    setPin(db, 1, anna, '123456')
+    for (let attempt = 1; attempt < MAX_PIN_ATTEMPTS; attempt++) {
+      expect(failure(() => sign(tablet, id, { employeeId: anna, pin: '000000' }))).toBe('401 pin_invalid')
+    }
+    expect(failure(() => sign(tablet, id, { employeeId: anna, pin: '000000' }))).toBe('423 pin_locked')
+    expect(failure(() => sign(tablet, id, { employeeId: anna, pin: '123456' }))).toBe('423 pin_locked')
+    expect(signers(id)).toEqual([open(anna, 'Anna')])
+    expect(listTeamMeetings(db, annaMember, { year: 2026 }, NOW).toSign).toEqual({ count: 1, firstId: id })
   })
 
   it('an account ignores employeeId and signs only for itself', () => {

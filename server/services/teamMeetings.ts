@@ -48,7 +48,7 @@ export function teamMember(db: Db, user: SessionUser, now: Date = new Date()): T
   // has no facility).
   if (can(user.permissions, 'teamMeetings.write') && user.employeeId !== null) {
     const leftOn = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, user.employeeId)).get()?.leftOn
-    const left = leftOn !== null && leftOn !== undefined && leftOn < nowInBerlin(now).date
+    const left = leftBefore(leftOn, nowInBerlin(now).date)
     return { facilityId, name: actorName(db, user), manager: false, left, employeeId: user.employeeId }
   }
   throw new ServiceError(403, 'forbidden')
@@ -76,14 +76,28 @@ function groupNames(db: Db, facilityId: number): Map<number, string> {
     .map(group => [group.id, group.name]))
 }
 
-/** The chosen participants of each of the meetings, in their order (one query for all). */
-function signersOf(db: Db, meetingIds: number[]): Map<number, TeamMeetingSignerDto[]> {
+/** Whether an employee who leaves on `leftOn` has left before `today` (on the leaving day itself not yet). */
+const leftBefore = (leftOn: string | null | undefined, today: string): boolean =>
+  leftOn !== null && leftOn !== undefined && leftOn < today
+
+/** The employee has not left before `today` (the SQL form of !leftBefore). */
+const notLeftBefore = (today: string) => or(isNull(employees.leftOn), gte(employees.leftOn, today))
+
+/**
+ * The chosen participants of each of the meetings, in their order (one query for all); `left` for those whose
+ * employee left before `today` (the same rule as signing's employee_inactive).
+ */
+function signersOf(db: Db, meetingIds: number[], today: string): Map<number, TeamMeetingSignerDto[]> {
   const byMeeting = new Map(meetingIds.map(id => [id, [] as TeamMeetingSignerDto[]]))
   if (meetingIds.length === 0) return byMeeting
-  const rows = db.select().from(teamMeetingParticipants).where(inArray(teamMeetingParticipants.meetingId, meetingIds))
+  const rows = db.select({ participant: teamMeetingParticipants, leftOn: employees.leftOn }).from(teamMeetingParticipants)
+    .leftJoin(employees, eq(employees.id, teamMeetingParticipants.employeeId))
+    .where(inArray(teamMeetingParticipants.meetingId, meetingIds))
     .orderBy(asc(teamMeetingParticipants.sortOrder), asc(teamMeetingParticipants.id)).all()
-  for (const row of rows) {
-    byMeeting.get(row.meetingId)!.push({ employeeId: row.employeeId, name: row.name, signedAt: row.signedAt, signedVia: row.signedVia })
+  for (const { participant: row, leftOn } of rows) {
+    byMeeting.get(row.meetingId)!.push({
+      employeeId: row.employeeId, name: row.name, signedAt: row.signedAt, signedVia: row.signedVia, left: leftBefore(leftOn, today),
+    })
   }
   return byMeeting
 }
@@ -96,22 +110,25 @@ function choosableStaff(db: Db, facilityId: number, today: string, chosen: numbe
   return db.select({ id: employees.id, name: employees.name, shortName: employees.shortName }).from(employees)
     .where(and(
       eq(employees.facilityId, facilityId),
-      or(isNull(employees.leftOn), gte(employees.leftOn, today), chosen.length > 0 ? inArray(employees.id, chosen) : undefined),
+      or(notLeftBefore(today), chosen.length > 0 ? inArray(employees.id, chosen) : undefined),
     ))
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
 }
 
 /**
  * The released meetings of the facility (any year) in which the member's own employee is a participant who has not
- * signed yet, with the oldest by date; none at the tablet or for a member without an employee.
+ * signed yet, with the oldest by date; none at the tablet, for a member without an employee, or once that employee
+ * left before `today` (they can no longer sign; a Träger linked to them still signs in).
  */
-function toSign(db: Db, member: TeamMember): TeamMeetingsDto['toSign'] {
+function toSign(db: Db, member: TeamMember, today: string): TeamMeetingsDto['toSign'] {
   if (member.employeeId === null) return { count: 0, firstId: null }
   const rows = db.select({ id: teamMeetings.id }).from(teamMeetingParticipants)
     .innerJoin(teamMeetings, eq(teamMeetings.id, teamMeetingParticipants.meetingId))
+    .innerJoin(employees, eq(employees.id, teamMeetingParticipants.employeeId))
     .where(and(
       eq(teamMeetings.facilityId, member.facilityId), eq(teamMeetings.state, 'released'),
       eq(teamMeetingParticipants.employeeId, member.employeeId), isNull(teamMeetingParticipants.signedAt),
+      notLeftBefore(today),
     ))
     .orderBy(asc(teamMeetings.date), asc(teamMeetings.start), asc(teamMeetings.id)).all()
   return { count: rows.length, firstId: rows[0]?.id ?? null }
@@ -121,7 +138,7 @@ function toListItem(
   meeting: MeetingRow, form: FormRow, names: Map<number, string>, signers: TeamMeetingSignerDto[], member: TeamMember,
 ): TeamMeetingListItemDto {
   const mineOpen = meeting.state === 'released' && member.employeeId !== null
-    && signers.some(signer => signer.employeeId === member.employeeId && signer.signedAt === null)
+    && signers.some(signer => signer.employeeId === member.employeeId && signer.signedAt === null && !signer.left)
   return {
     id: meeting.id, templateId: form.templateId, title: form.title, date: meeting.date, start: meeting.start,
     groupId: meeting.groupId, groupName: meeting.groupId === null ? null : names.get(meeting.groupId) ?? null,
@@ -155,14 +172,14 @@ export function listTeamMeetings(
     ))
     .orderBy(desc(teamMeetings.date), desc(teamMeetings.start), desc(teamMeetings.id)).all()
   const names = groupNames(db, member.facilityId)
-  const signers = signersOf(db, rows.map(row => row.meeting.id))
+  const signers = signersOf(db, rows.map(row => row.meeting.id), today)
   return {
     meetings: rows.map(row => toListItem(row.meeting, row.form, names, signers.get(row.meeting.id)!, member)),
     templates: listTemplates(db, member.facilityId, 'team').filter(template => !template.archived)
       .map(template => ({ id: template.id, name: template.name })),
     groups: facilityGroups(db, member.facilityId),
     staff: choosableStaff(db, member.facilityId, today),
-    toSign: toSign(db, member),
+    toSign: toSign(db, member, today),
     canManage: member.manager,
   }
 }
@@ -181,7 +198,8 @@ export function getTeamMeeting(db: Db, member: TeamMember, id: number, now: Date
   const { meeting, form } = loadMeeting(db, member, id)
   const facilityName = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, member.facilityId))
     .get()?.name ?? ''
-  const signers = signersOf(db, [meeting.id]).get(meeting.id)!
+  const today = nowInBerlin(now).date
+  const signers = signersOf(db, [meeting.id], today).get(meeting.id)!
   const chosen = signers.flatMap(signer => (signer.employeeId === null ? [] : [signer.employeeId]))
   return {
     ...toListItem(meeting, form, groupNames(db, member.facilityId), signers, member),
@@ -189,7 +207,7 @@ export function getTeamMeeting(db: Db, member: TeamMember, id: number, now: Date
     answers: JSON.parse(form.answers) as FormAnswers,
     facilityName,
     groups: facilityGroups(db, member.facilityId),
-    staff: choosableStaff(db, member.facilityId, nowInBerlin(now).date, chosen),
+    staff: choosableStaff(db, member.facilityId, today, chosen),
     canManage: member.manager,
   }
 }
@@ -295,9 +313,8 @@ export function createTeamMeeting(db: Db, member: TeamMember, input: TeamMeeting
 
 /**
  * Stores the header with the chosen participants and the answers (checked against the meeting's own content) while the
- * meeting is a draft (409
- * team_meeting_released otherwise). `expectedUpdatedAt` is the last change the saver had loaded; when someone saved in
- * between, nothing is written (409 form_changed). Returns the new last change.
+ * meeting is a draft (409 team_meeting_released otherwise). `expectedUpdatedAt` is the last change the saver had
+ * loaded; when someone saved in between, nothing is written (409 form_changed). Returns the new last change.
  */
 export function saveTeamMeeting(
   db: Db, member: TeamMember, id: number, input: TeamMeetingSaveInput, now: Date = new Date(),
@@ -391,7 +408,7 @@ export function signTeamMeeting(
     .where(and(eq(teamMeetingParticipants.meetingId, meeting.id), eq(teamMeetingParticipants.employeeId, employeeId))).get()
   if (!row) throw new ServiceError(403, 'team_meeting_not_participant')
   if (row.signedAt !== null) throw new ServiceError(409, 'team_meeting_already_signed')
-  if (row.leftOn !== null && row.leftOn < nowInBerlin(now).date) throw new ServiceError(409, 'employee_inactive')
+  if (leftBefore(row.leftOn, nowInBerlin(now).date)) throw new ServiceError(409, 'employee_inactive')
   if (atTablet) verifyEmployeePin(db, employeeId, input.pin!, now)
   // Only while unsigned: of two signatures at once, the first one stays.
   const result = db.update(teamMeetingParticipants).set({ signedAt: now.toISOString(), signedVia: atTablet ? 'tablet' : 'account' })

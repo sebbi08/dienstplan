@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  checkHeader, countsAsSigner, filterFromQuery, filterGroupId, headerBody, headerForm, participantsLine, signingProgress,
-  toggleParticipant,
+  checkHeader, countsAsSigner, filterFromQuery, filterGroupId, headerBody, headerForm, participantsLine, signFailure,
+  signingProgress, toggleParticipant,
 } from '../../app/utils/teamMeetings'
 
 describe('the group filter of the team meetings list', () => {
@@ -21,7 +21,7 @@ describe('the group filter of the team meetings list', () => {
 })
 
 describe('the header of a team meeting', () => {
-  const signer = (employeeId: number | null, name: string) => ({ employeeId, name, signedAt: null, signedVia: null })
+  const signer = (employeeId: number | null, name: string) => ({ employeeId, name, signedAt: null, signedVia: null, left: false })
   const header = { date: '2026-10-21', start: 13 * 60 + 5, groupId: 4, participants: 'Anna', recorder: 'Ben' }
   const meeting = { ...header, signers: [signer(7, 'Clara'), signer(null, 'Dora'), signer(3, 'Emil')] }
 
@@ -63,17 +63,49 @@ describe('the header of a team meeting', () => {
   })
 })
 
+describe('a refused signature', () => {
+  it('keeps the PIN dialog open only for a wrong, missing or locked PIN', () => {
+    for (const code of ['pin_invalid', 'pin_missing', 'pin_locked', 'pin_locked_long', 'pin_locked_permanent']) {
+      expect(signFailure(code)).toBe('pin')
+    }
+  })
+  it('reloads the meeting when what is shown is out of date', () => {
+    for (const code of [
+      'team_meeting_not_released', 'team_meeting_already_signed', 'employee_inactive', 'team_meeting_not_participant',
+      'employee_not_found',
+    ]) {
+      expect(signFailure(code)).toBe('stale')
+    }
+  })
+  it('only tells of anything else', () => {
+    expect(signFailure(undefined)).toBe('other')
+    expect(signFailure('facility_changed')).toBe('other')
+    expect(signFailure('team_meeting_sign_input_invalid')).toBe('other')
+  })
+})
+
 describe('counting the signatures of a team meeting', () => {
   const at = '2026-11-04T13:20:00.000Z'
   it('counts who signed and who still can, not one deleted for good before signing', () => {
     const signers = [
-      { employeeId: 1, signedAt: at },
-      { employeeId: 2, signedAt: null },
-      { employeeId: null, signedAt: at },
-      { employeeId: null, signedAt: null },
+      { employeeId: 1, signedAt: at, left: false },
+      { employeeId: 2, signedAt: null, left: false },
+      { employeeId: null, signedAt: at, left: false },
+      { employeeId: null, signedAt: null, left: false },
     ]
     expect(signers.map(countsAsSigner)).toEqual([true, true, true, false])
     expect(signingProgress(signers)).toEqual({ signed: 2, total: 3 })
     expect(signingProgress([])).toEqual({ signed: 0, total: 0 })
+  })
+
+  it('does not count one who left before signing, but always one who signed', () => {
+    const signers = [
+      { employeeId: 1, signedAt: at, left: true },
+      { employeeId: 2, signedAt: null, left: true },
+      { employeeId: 3, signedAt: null, left: false },
+    ]
+    expect(signers.map(countsAsSigner)).toEqual([true, false, true])
+    expect(signingProgress(signers)).toEqual({ signed: 1, total: 2 })
+    expect(signingProgress([{ employeeId: 2, signedAt: null, left: true }])).toEqual({ signed: 0, total: 0 })
   })
 })
