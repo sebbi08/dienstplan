@@ -5,14 +5,15 @@ import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import { teamMeetingGroup, teamMeetingStamps, type FormPanelSave } from '~/utils/forms'
-import { checkHeader, headerBody, headerForm } from '~/utils/teamMeetings'
+import { checkHeader, headerBody, headerForm, participantsLine } from '~/utils/teamMeetings'
 
 /**
  * The minutes of one team meeting. While a draft every member of the facility (also at the tablet) changes the header
- * and writes the minutes, saved together with the updatedAt they were loaded with. Leitung and Träger release it
- * (saving unsaved edits first), reopen it with a reason and delete it. Released minutes are only shown. When the
- * meeting was released while someone typed, their save is refused (409 team_meeting_released): what they typed stays
- * on screen to read, with „Neu laden“ for the stored minutes.
+ * (with the participants ticked from the staff) and writes the minutes, saved together with the updatedAt they were
+ * loaded with. Leitung and Träger release it (saving unsaved edits first), reopen it with a reason (the signatures
+ * so far are void) and delete it. Released minutes are only shown; under them the participants sign
+ * („Unterzeichnet“). When the meeting was released while someone typed, their save is refused
+ * (409 team_meeting_released): what they typed stays on screen to read, with „Neu laden“ for the stored minutes.
  */
 const t = de.teamMeetings
 const route = useRoute()
@@ -34,7 +35,8 @@ const editable = computed(() => data.value?.state === 'draft' && !releasedMeanwh
 useDirty(() => releasedMeanwhile.value && !deleted.value)
 /** The refused save is told by the page's alert (with „Neu laden“), not by a second message from the panel. */
 const handlesError = (failure: unknown) => errorCode(failure) === 'team_meeting_released'
-const canPrint = computed(() => user.value?.role !== 'terminal')
+const tablet = computed(() => user.value?.role === 'terminal')
+const canPrint = computed(() => !tablet.value)
 // The badge knows of a release seen through a refused save, before the minutes are loaded again.
 const state = computed(() => (releasedMeanwhile.value ? 'released' : data.value?.state ?? 'draft'))
 
@@ -77,8 +79,21 @@ const headerLine = computed(() => {
 })
 // While read-only after a refused save the header shows what was typed (not the stored one).
 const shownHeader = computed(() => (releasedMeanwhile.value ? { ...data.value!, ...headerBody(header.value), groupName: groupName(header.value.group) } : data.value))
+// The chosen participants, then the typed ones (while read-only after a refused save: those ticked there).
+const participantsShown = computed(() => {
+  if (!data.value || !shownHeader.value) return ''
+  const names = releasedMeanwhile.value
+    ? header.value.participantIds.map(employeeId => data.value!.staff.find(person => person.id === employeeId)?.name ?? '')
+    : data.value.signers.map(signer => signer.name)
+  return participantsLine(names, shownHeader.value.participants)
+})
 // On screen the draft badge says „Entwurf“; the lines name the release and the last reopening.
 const stampLines = computed(() => (data.value ? teamMeetingStamps(data.value).filter(line => line !== t.draftStamp) : []))
+const signaturesVoid = computed(() => !!data.value?.reopenedAt && data.value.signers.length > 0)
+const anySigned = computed(() => (data.value?.signers ?? []).some(signer => signer.signedAt !== null))
+function onSigned(meeting: TeamMeetingDto) {
+  data.value = meeting
+}
 function groupName(group: string): string | null {
   const found = (data.value?.groups ?? []).find(entry => String(entry.id) === group)
   return found ? found.name : (group === String(data.value?.groupId) ? data.value?.groupName ?? null : null)
@@ -154,6 +169,7 @@ async function remove(dirty: boolean) {
           </div>
           <p class="text-sm text-gray-600">{{ headerLine }}</p>
           <p v-for="line in stampLines" :key="line" class="text-sm break-words text-gray-600">{{ line }}</p>
+          <p v-if="signaturesVoid" class="text-sm break-words text-gray-600">{{ t.signaturesVoid }}</p>
         </div>
         <UButton
           v-if="canPrint" size="sm" color="neutral" variant="outline" icon="i-lucide-printer" :label="t.print"
@@ -178,11 +194,11 @@ async function remove(dirty: boolean) {
       >
         <template #before>
           <div v-if="editable" class="rounded-md bg-white p-3 ring-1 ring-gray-200">
-            <TeamMeetingsHeaderFields v-model="header" :groups="data.groups" />
+            <TeamMeetingsHeaderFields v-model="header" :groups="data.groups" :staff="data.staff" />
           </div>
           <dl v-else class="grid gap-x-4 gap-y-1 rounded-md bg-white p-3 text-sm ring-1 ring-gray-200 sm:grid-cols-[auto_1fr]">
             <dt class="font-medium text-gray-600">{{ t.participants }}</dt>
-            <dd class="break-words">{{ shownHeader.participants || '–' }}</dd>
+            <dd class="break-words">{{ participantsShown || '–' }}</dd>
             <dt class="font-medium text-gray-600">{{ t.recorder }}</dt>
             <dd class="break-words">{{ shownHeader.recorder || '–' }}</dd>
           </dl>
@@ -199,6 +215,8 @@ async function remove(dirty: boolean) {
           <UButton color="error" variant="ghost" icon="i-lucide-trash-2" :label="t.delete" :class="releasedMeanwhile ? 'ml-auto' : ''" @click="remove(dirty)" />
         </template>
       </FormsFormPanel>
+
+      <TeamMeetingsSigners v-if="!releasedMeanwhile" :meeting="data" :tablet="tablet" @signed="onSigned" />
     </template>
 
     <UModal v-model:open="reopenOpen" :title="t.reopenTitle">
@@ -207,6 +225,7 @@ async function remove(dirty: boolean) {
           <UFormField :label="t.reopenReason" :hint="`${reopenReason.trim().length}/200`" :description="t.reopenHint" required>
             <UTextarea v-model="reopenReason" :rows="3" maxlength="200" autoresize class="w-full" />
           </UFormField>
+          <p v-if="anySigned" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ t.reopenVoidsSignatures }}</p>
           <div class="flex flex-wrap justify-end gap-2">
             <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="reopenOpen = false" />
             <UButton type="submit" :label="t.reopen" :loading="reopening" :disabled="!reopenReason.trim()" />

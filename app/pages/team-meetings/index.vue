@@ -6,13 +6,16 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 import { teamMeetingGroup } from '~/utils/forms'
-import { checkHeader, filterFromQuery, filterGroupId, headerBody, headerForm, type TeamMeetingFilter } from '~/utils/teamMeetings'
+import {
+  checkHeader, filterFromQuery, filterGroupId, headerBody, headerForm, participantsLine, signingProgress, type TeamMeetingFilter,
+} from '~/utils/teamMeetings'
 
 /**
  * „Teamsitzungen“ for every member of the facility (Leitung/Träger, staff accounts, the tablet): the meetings of a year,
- * newest first, filtered by group (Alle / Einrichtung / one group), each with its state; „Sitzung anlegen“ (template,
- * date, time, group, participants, Protokollführung) opens the new minutes. Year and filter stay in the address, so
- * coming back from a meeting shows the same list.
+ * newest first, filtered by group (Alle / Einrichtung / one group), each with its state and, once released, how many
+ * participants signed; „Sitzung anlegen“ (template, date, time, group, participants, Protokollführung) opens the new
+ * minutes. Above the list a member is told how many minutes (of any year) they still have to sign. Year and filter
+ * stay in the address, so coming back from a meeting shows the same list.
  */
 const t = de.teamMeetings
 const route = useRoute()
@@ -45,6 +48,20 @@ const filterValue = computed({
 
 const when = (meeting: TeamMeetingListItemDto) =>
   meeting.start === null ? formatDate(meeting.date) : `${formatDate(meeting.date)} ${t.atTime(formatTime(meeting.start))}`
+// „N von M unterzeichnet“ of a released meeting with participants chosen from the staff.
+function signing(meeting: TeamMeetingListItemDto) {
+  if (meeting.state !== 'released' || !meeting.signers.length) return null
+  const { signed, total } = signingProgress(meeting.signers)
+  return { text: t.signedCount(signed, total), done: signed === total }
+}
+const rows = computed(() => (data.value?.meetings ?? []).map(meeting => ({
+  meeting,
+  participants: participantsLine(meeting.signers.map(signer => signer.name), meeting.participants),
+  signed: signing(meeting),
+})))
+const { user } = useUserSession()
+// The tablet is used by all, so it gets no personal notice.
+const toSign = computed(() => (user.value?.role !== 'terminal' && data.value && data.value.toSign.count > 0 ? data.value.toSign : null))
 
 // „Sitzung anlegen“
 const dialogOpen = ref(false)
@@ -95,6 +112,14 @@ async function create() {
       <UButton class="ml-auto" icon="i-lucide-plus" :label="t.create" @click="openDialog" />
     </div>
     <p class="text-sm text-gray-600">{{ t.intro }}</p>
+    <UAlert v-if="toSign" color="warning" variant="soft" icon="i-lucide-pen-line" :title="t.toSign(toSign.count)">
+      <template v-if="toSign.firstId !== null" #actions>
+        <UButton
+          size="sm" color="neutral" variant="outline" icon="i-lucide-arrow-right" :label="t.toSignOpen"
+          :to="`/team-meetings/${toSign.firstId}`"
+        />
+      </template>
+    </UAlert>
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-sm font-medium">{{ t.filter }}</span>
       <USelect v-model="filterValue" :items="filterItems" class="w-full sm:w-56" :aria-label="t.filter" />
@@ -103,7 +128,7 @@ async function create() {
     <p v-else-if="!(data?.meetings ?? []).length" class="text-sm text-gray-500">{{ t.none }}</p>
 
     <ul class="space-y-2">
-      <li v-for="meeting in data?.meetings ?? []" :key="meeting.id">
+      <li v-for="{ meeting, participants, signed } in rows" :key="meeting.id">
         <NuxtLink
           :to="`/team-meetings/${meeting.id}`"
           class="block min-w-0 space-y-1 rounded-lg bg-white p-3 ring-1 ring-gray-200 hover:ring-gray-400 sm:p-4"
@@ -117,12 +142,16 @@ async function create() {
               :label="t.states[meeting.state]" class="ml-auto"
             />
           </div>
-          <p v-if="meeting.participants" class="text-sm break-words text-gray-600">{{ t.participants }}: {{ meeting.participants }}</p>
+          <p v-if="participants" class="text-sm break-words text-gray-600">{{ t.participants }}: {{ participants }}</p>
           <p v-if="meeting.recorder" class="text-sm break-words text-gray-600">{{ t.recorder }}: {{ meeting.recorder }}</p>
           <p class="text-xs text-gray-500">
             {{ meeting.state === 'released' && meeting.releasedAt
               ? t.releasedAt(formatDateTime(meeting.releasedAt), meeting.releasedBy ?? '')
               : de.forms.lastChanged(meeting.updatedBy, formatDateTime(meeting.updatedAt)) }}
+          </p>
+          <p v-if="signed" class="flex flex-wrap gap-x-3 text-sm">
+            <span :class="signed.done ? 'font-medium text-green-700' : 'text-gray-600'">{{ signed.text }}</span>
+            <span v-if="meeting.mineOpen" class="font-medium text-amber-700">{{ t.mineOpen }}</span>
           </p>
         </NuxtLink>
       </li>
@@ -136,7 +165,7 @@ async function create() {
             <UFormField :label="t.template" required>
               <USelect v-model="templateId" :items="templateItems" size="lg" class="w-full" :placeholder="t.templatePick" :aria-label="t.template" />
             </UFormField>
-            <TeamMeetingsHeaderFields v-model="form" :groups="data?.groups ?? []" />
+            <TeamMeetingsHeaderFields v-model="form" :groups="data?.groups ?? []" :staff="data?.staff ?? []" />
           </template>
           <div class="flex flex-wrap justify-end gap-2">
             <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="dialogOpen = false" />
