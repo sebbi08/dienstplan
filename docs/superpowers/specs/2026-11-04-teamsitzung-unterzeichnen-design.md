@@ -12,7 +12,7 @@ haben („unterzeichnet“). Am Protokoll, in der Liste und auf dem Ausdruck sie
 | Entschieden | |
 |---|---|
 | Art | Bestätigen per Knopf mit dem eigenen Zugang oder am Kita-Tablet mit Name und PIN; keine gezeichnete Unterschrift |
-| Wer | alle ausgewählten Teilnehmer (Mitarbeiter der Einrichtung); Gäste unterzeichnen nicht |
+| Wer | alle angehakten Teilnehmer (Mitarbeiter der Einrichtung); eingetippte weitere Teilnehmer unterzeichnen nicht |
 | Wann | erst nach der Freigabe durch die Leitung |
 | Wieder geöffnet | alle Unterzeichnungen verfallen; nach der neuen Freigabe unterzeichnen alle neu |
 | Für andere | niemand unterzeichnet für eine andere Person, auch die Leitung nicht |
@@ -23,9 +23,10 @@ haben („unterzeichnet“). Am Protokoll, in der Liste und auf dem Ausdruck sie
   (nicht ausgeschiedene, nach der Reihenfolge der Mitarbeiter-Liste). Wer schon ausgewählt ist, bleibt auswählbar, auch wenn
   die Person inzwischen ausgeschieden ist. Wer die Teamsitzungen schreibt, darf die Teilnehmer ändern (wie die übrigen
   Kopfdaten).
-- Das bisherige Freitextfeld „Teilnehmer“ heißt künftig **„Gäste“** (z. B. „Frau Weber, Fachberatung“), höchstens 300 Zeichen
-  wie bisher. Gäste unterzeichnen nicht.
-- Bestehende Sitzungen: der bisherige Text bleibt als „Gäste“ stehen; sie haben keine ausgewählten Teilnehmer und brauchen
+- Der Abschnitt heißt weiter **„Teilnehmer“**: oben die Mitarbeiter zum Anhaken, darunter wie bisher das Feld zum
+  Eintippen für weitere Teilnehmer ohne Zugang (Platzhalter z. B. „weitere, z. B. Frau Weber (Fachberatung)“), höchstens
+  300 Zeichen wie bisher. Eingetippte Teilnehmer unterzeichnen nicht.
+- Bestehende Sitzungen: der bisherige Text bleibt im Eintipp-Feld „Teilnehmer“ stehen; sie haben keine ausgewählten Teilnehmer und brauchen
   keine Unterzeichnung (keine Datenumwandlung von Namen in Personen).
 - Gespeichert wird je Teilnehmer der Name zum Zeitpunkt der Auswahl, damit das Protokoll lesbar bleibt, wenn die Person
   später endgültig gelöscht wird (dann bleibt der Name als Text, wie bei „freigegeben von …“).
@@ -63,14 +64,14 @@ Die Rückfrage beim Wieder-Öffnen nennt das ebenfalls, wenn schon jemand unterz
   Seite ein Hinweis „Du musst noch N Protokolle unterzeichnen“ (alle Jahre, nicht nur das gewählte), mit Sprung zur ersten.
   Am Tablet gibt es diesen persönlichen Hinweis nicht.
 - **Ausdruck:** unter dem Protokoll statt der Freigabe-Zeile allein zusätzlich die Liste „Unterzeichnet: Name – Datum, Uhrzeit“
-  und „noch nicht unterzeichnet: …“. Gäste stehen im Kopf unter „Gäste“.
+  und „noch nicht unterzeichnet: …“. Im Kopf steht unter „Teilnehmer“ wie bisher eine Zeile: die angehakten Namen, dann der eingetippte Text.
 
 ## 6. Daten
 
 - Neue Tabelle `team_meeting_participants`: `meeting_id` (→ team_meetings, beim Löschen der Sitzung mit gelöscht),
   `employee_id` (→ employees, beim endgültigen Löschen der Person auf leer), `name` (Text), `sort_order`, `signed_at`
   (ISO-Zeit oder leer), `signed_via` (`account` | `tablet` | leer). Eindeutig je Sitzung und Person.
-- Die Spalte `team_meetings.participants` bleibt und ist künftig das Feld „Gäste“.
+- Die Spalte `team_meetings.participants` bleibt und bleibt das Eintipp-Feld für weitere Teilnehmer.
 - Die Löschfristen ändern sich nicht: Teamsitzungen bleiben beim Ausscheiden einer Person erhalten (wie bisher), der
   Teilnehmer-Eintrag behält den Namen.
 
