@@ -92,8 +92,8 @@ describe('teamSheet', () => {
     participants: 'Anna, Ben', recorder: 'Ben', state: 'draft', releasedAt: null, releasedBy: null,
     reopenReason: null, reopenedAt: null, reopenedBy: null, createdAt: '2026-10-21T11:00:00.000Z', createdBy: 'Anna',
     updatedAt: '2026-10-21T12:00:00.000Z', updatedBy: 'Tablet', content: { sections: [] }, answers: {}, facilityName: 'Kita Sonne', canManage: false,
-    signers: [],
-  } as unknown as TeamMeetingDto
+    signers: [] as TeamMeetingDto['signers'],
+  } as TeamMeetingDto
 
   it('heads the printout with facility, group, date, time, participants and Protokollführung, without signatures', () => {
     const sheet = teamSheet(meeting)
@@ -152,6 +152,11 @@ describe('teamSheet', () => {
       expect(all.closing).toEqual(['freigegeben am 22.10.2026, 10:30 von Frau Leitung', 'Unterzeichnet: Anna – 22.10.2026, 11:15'])
       const none = teamSheet({ ...released, signers: [signer(1, 'Anna', null)] } as TeamMeetingDto)
       expect(none.closing).toEqual(['freigegeben am 22.10.2026, 10:30 von Frau Leitung', 'Noch nicht unterzeichnet: Anna'])
+    })
+
+    it('does not name anyone as open on a draft, since signing only starts with the release', () => {
+      const sheet = teamSheet({ ...meeting, signers: [signer(1, 'Anna', null), signer(2, 'Ben', null)] } as TeamMeetingDto)
+      expect(sheet.closing).toEqual(['Entwurf – noch nicht freigegeben'])
     })
 
     it('does not list a participant who was deleted for good and never signed as open, but does list a signed one', () => {

@@ -197,13 +197,16 @@ export function teamMeetingStamps(meeting: TeamMeetingListItemDto): string[] {
 }
 
 /**
- * Who signed the minutes, one line each with the time, then one line naming those who still can and have not. A
- * participant whose employee was deleted for good before signing never can, so they are not named as open.
+ * Who signed the minutes, one line each with the time, then (only once released, as signing starts with the release)
+ * one line naming those who still can and have not. A participant whose employee was deleted for good before signing
+ * never can, so they are not named as open.
  */
-export function teamMeetingSignatureLines(signers: TeamMeetingDto['signers']): string[] {
+export function teamMeetingSignatureLines(meeting: Pick<TeamMeetingDto, 'state' | 'signers'>): string[] {
   const t = de.teamMeetings
-  const signed = signers.flatMap(signer => (signer.signedAt ? [t.printSigned(signer.name, formatDateTime(signer.signedAt))] : []))
-  const open = signers.filter(signer => countsAsSigner(signer) && signer.signedAt === null).map(signer => signer.name)
+  const signed = meeting.signers.flatMap(signer => (signer.signedAt ? [t.printSigned(signer.name, formatDateTime(signer.signedAt))] : []))
+  const open = meeting.state === 'released'
+    ? meeting.signers.filter(signer => countsAsSigner(signer) && signer.signedAt === null).map(signer => signer.name)
+    : []
   return [...signed, ...(open.length ? [t.printUnsigned(open)] : [])]
 }
 
@@ -223,7 +226,7 @@ export function teamSheet(data: TeamMeetingDto): FormSheet {
       [h.participants, participantsLine(data.signers.map(signer => signer.name), data.participants)], [h.recorder, data.recorder],
     ],
     signatures: [],
-    closing: [...teamMeetingStamps(data), ...teamMeetingSignatureLines(data.signers)],
+    closing: [...teamMeetingStamps(data), ...teamMeetingSignatureLines(data)],
     stamps: [],
   }
 }
