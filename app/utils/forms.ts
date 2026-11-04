@@ -6,6 +6,7 @@ import type { ChildFormDto, FormTemplateDto, MyTalkFormDto, TeamMeetingDto, Team
 import { de } from '~/locales/de'
 import { errorCode } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
+import { countsAsSigner, participantsLine } from '~/utils/teamMeetings'
 
 export type MilestoneItem = Extract<FormItem, { kind: 'milestone' }>
 export type RatingItem = Extract<FormItem, { kind: 'rating' }>
@@ -196,8 +197,20 @@ export function teamMeetingStamps(meeting: TeamMeetingListItemDto): string[] {
 }
 
 /**
+ * Who signed the minutes, one line each with the time, then one line naming those who still can and have not. A
+ * participant whose employee was deleted for good before signing never can, so they are not named as open.
+ */
+export function teamMeetingSignatureLines(signers: TeamMeetingDto['signers']): string[] {
+  const t = de.teamMeetings
+  const signed = signers.flatMap(signer => (signer.signedAt ? [t.printSigned(signer.name, formatDateTime(signer.signedAt))] : []))
+  const open = signers.filter(signer => countsAsSigner(signer) && signer.signedAt === null).map(signer => signer.name)
+  return [...signed, ...(open.length ? [t.printUnsigned(open)] : [])]
+}
+
+/**
  * The printout of a team meeting's minutes: facility, group, date, time, participants and Protokollführung as header,
- * no signatures; instead „freigegeben am … von …“ (or „Entwurf – noch nicht freigegeben“) and the last reopening.
+ * no signature lines; instead „freigegeben am … von …“ (or „Entwurf – noch nicht freigegeben“), the last reopening and
+ * who signed the minutes and who has not yet.
  */
 export function teamSheet(data: TeamMeetingDto): FormSheet {
   const h = de.teamMeetings.header
@@ -207,10 +220,10 @@ export function teamSheet(data: TeamMeetingDto): FormSheet {
     header: [
       [h.facility, data.facilityName], [h.group, teamMeetingGroup(data)],
       [h.date, formatDate(data.date)], [h.start, data.start === null ? '' : formatTime(data.start)],
-      [h.participants, data.participants], [h.recorder, data.recorder],
+      [h.participants, participantsLine(data.signers.map(signer => signer.name), data.participants)], [h.recorder, data.recorder],
     ],
     signatures: [],
-    closing: teamMeetingStamps(data),
+    closing: [...teamMeetingStamps(data), ...teamMeetingSignatureLines(data.signers)],
     stamps: [],
   }
 }

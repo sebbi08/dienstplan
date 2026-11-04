@@ -1653,6 +1653,8 @@ export const de = {
     signersTitle: 'Unterzeichnet',
     signedCount: (signed: number, total: number) => `${signed} von ${total} unterzeichnet`,
     signedAt: (at: string) => `unterzeichnet am ${at}`,
+    printSigned: (name: string, at: string) => `Unterzeichnet: ${name} – ${at}`,
+    printUnsigned: (names: string[]) => `Noch nicht unterzeichnet: ${names.join(', ')}`,
     signOpen: 'noch offen',
     signAfterRelease: 'Unterzeichnen nach der Freigabe',
     sign: 'Gelesen und unterzeichnen',
