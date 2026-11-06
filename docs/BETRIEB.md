@@ -11,7 +11,7 @@ Kopiere den kompletten Projektordner auf den Server, z. B. nach `/opt/dienstplan
 
 1. Kopiere `deploy/.env.example` nach `/opt/dienstplan/.env`.
 2. Trage ein:
-   - `NUXT_SESSION_PASSWORD`: mindestens 32 zufällige Zeichen (z. B. aus einem Passwort-Manager).
+   - `NUXT_APP_SECRET`: mindestens 32 zufällige Zeichen (z. B. mit `openssl rand -base64 32` oder aus einem Passwort-Manager).
    - `ADMIN_USERNAME` und `ADMIN_PASSWORD`: Zugang für die erste Anmeldung. Das Passwort muss beim ersten Login geändert werden.
    - `DOMAIN`: die Internetadresse, unter der der Dienstplan erreichbar sein soll.
 
