@@ -1,0 +1,188 @@
+import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
+import { isValidIsoDate } from '../../shared/domain/dates'
+import { can } from '../../shared/domain/permissions'
+import { nowInBerlin } from '../../shared/domain/timeRecords'
+import type { IsoDate } from '../../shared/domain/types'
+import { isGroupColor, type NoteDto, type NoteInput, type NotesDto, type SessionUser } from '../../shared/types/api'
+import type { Db } from '../db/client'
+import { employees, facilityNotes, groups } from '../db/schema'
+import { ServiceError } from '../lib/errors'
+import { actorName } from './formTemplates'
+
+export const NOTE_TEXT_MAX = 1000
+
+/** The signed-in user (or the tablet) in the facility the route works in (the route's `FacilityUser`). */
+export type NotesActor = SessionUser & { facilityId: number }
+
+/** The list filter: every note, only those of the whole facility, or those of one group and of the whole facility. */
+export type NoteGroupFilter = 'all' | 'facility' | number
+
+type NoteRow = typeof facilityNotes.$inferSelect
+
+/**
+ * What the actor may write: null without notes.write (the tablet never); `facility` with the scope „ganze
+ * Einrichtung“, else only for the own group `groupId` (the group of the linked employee, if it is one of the facility;
+ * null: none).
+ */
+function writeAccess(db: Db, actor: NotesActor): NotesDto['write'] {
+  if (actor.role === 'terminal' || !can(actor.permissions, 'notes.write')) return null
+  if (actor.scopes.get('notes.write') === 'facility') return { facility: true, groupId: null }
+  if (actor.employeeId === null) return { facility: false, groupId: null }
+  const own = db.select({ id: groups.id }).from(employees)
+    .innerJoin(groups, eq(groups.id, employees.groupId))
+    .where(and(eq(employees.id, actor.employeeId), eq(groups.facilityId, actor.facilityId))).get()
+  return { facility: false, groupId: own?.id ?? null }
+}
+
+/** Whether `write` covers a note of the group (null = the whole facility). */
+function mayWrite(write: NotesDto['write'], groupId: number | null): boolean {
+  if (write === null) return false
+  return write.facility || (write.groupId !== null && groupId === write.groupId)
+}
+
+/** 403 forbidden without notes.write, 403 notes_no_group with the own-group scope but no own group. */
+function requireWriter(db: Db, actor: NotesActor): NonNullable<NotesDto['write']> {
+  const write = writeAccess(db, actor)
+  if (write === null) throw new ServiceError(403, 'forbidden')
+  if (!write.facility && write.groupId === null) throw new ServiceError(403, 'notes_no_group')
+  return write
+}
+
+/** 404 group_not_found unless the group belongs to the facility. */
+function assertFacilityGroup(db: Db, facilityId: number, groupId: number): void {
+  const found = db.select({ id: groups.id }).from(groups).where(and(eq(groups.id, groupId), eq(groups.facilityId, facilityId))).get()
+  if (!found) throw new ServiceError(404, 'group_not_found')
+}
+
+/** The facility's groups in their order, with their colour. */
+function facilityGroups(db: Db, facilityId: number): NotesDto['groups'] {
+  return db.select({ id: groups.id, name: groups.name, color: groups.color }).from(groups)
+    .where(eq(groups.facilityId, facilityId)).orderBy(asc(groups.sortOrder), asc(groups.id)).all()
+    .map(group => ({ id: group.id, name: group.name, color: group.color !== null && isGroupColor(group.color) ? group.color : null }))
+}
+
+function toDto(row: NoteRow, names: ReadonlyMap<number, string>, write: NotesDto['write']): NoteDto {
+  return {
+    id: row.id, kind: row.kind, groupId: row.groupId, groupName: row.groupId === null ? null : names.get(row.groupId) ?? null,
+    date: row.date, validUntil: row.validUntil, text: row.text, createdAt: row.createdAt, createdBy: row.createdBy,
+    updatedAt: row.updatedAt, updatedBy: row.updatedBy, canEdit: mayWrite(write, row.groupId),
+  }
+}
+
+/** The same day a year before (a 29 February compares as the 29th, which sorts right after the 28th). */
+const yearBefore = (today: IsoDate): IsoDate => `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`
+
+/**
+ * The notes of the actor's facility for the page „Notizen“ (every person of the facility and the tablet), split into
+ * the board that applies, the expired board, the day notes from `today` on and the earlier ones (the last 12 months
+ * unless `olderPast`); with the groups and what the actor may write. A group of another facility as filter is 404
+ * group_not_found.
+ */
+export function listNotes(
+  db: Db, actor: NotesActor, filter: { group: NoteGroupFilter; olderPast?: boolean }, today: IsoDate,
+): NotesDto {
+  if (typeof filter.group === 'number') assertFacilityGroup(db, actor.facilityId, filter.group)
+  const ofGroup = filter.group === 'all'
+    ? undefined
+    : filter.group === 'facility'
+      ? isNull(facilityNotes.groupId)
+      : or(isNull(facilityNotes.groupId), eq(facilityNotes.groupId, filter.group))
+  const rows = db.select().from(facilityNotes).where(and(eq(facilityNotes.facilityId, actor.facilityId), ofGroup))
+    .orderBy(desc(facilityNotes.createdAt), desc(facilityNotes.id)).all()
+  const groupList = facilityGroups(db, actor.facilityId)
+  const names = new Map(groupList.map(group => [group.id, group.name]))
+  const write = writeAccess(db, actor)
+  const dto = (row: NoteRow) => toDto(row, names, write)
+  const boards = rows.filter(row => row.kind === 'board')
+  const days = rows.filter(row => row.kind === 'day' && row.date !== null)
+  const byDay = (a: NoteRow, b: NoteRow) => a.date!.localeCompare(b.date!) || a.createdAt.localeCompare(b.createdAt) || a.id - b.id
+  const cut = yearBefore(today)
+  const earlier = days.filter(row => row.date! < today)
+  const shownEarlier = filter.olderPast ? earlier : earlier.filter(row => row.date! >= cut)
+  return {
+    board: boards.filter(row => row.validUntil === null || row.validUntil >= today).map(dto),
+    expired: boards.filter(row => row.validUntil !== null && row.validUntil < today).map(dto),
+    upcoming: days.filter(row => row.date! >= today).sort(byDay).map(dto),
+    past: shownEarlier.sort((a, b) => b.date!.localeCompare(a.date!) || byDay(a, b)).map(dto),
+    pastHasOlder: shownEarlier.length < earlier.length,
+    groups: groupList,
+    write,
+  }
+}
+
+/** A checked note: the trimmed text, the date only for a day note, „gilt bis“ only for a board note. */
+type CheckedNote = Pick<NoteRow, 'groupId' | 'date' | 'validUntil' | 'text'>
+
+/**
+ * Text 1–1000 chars after trimming (400 note_text_invalid); a day note a valid date (400 note_date_invalid), a board
+ * note none; „gilt bis“ only for a board note, empty or a valid date, on create not before `today` (400
+ * note_valid_until_invalid); the group one the writer may write for (403 forbidden) and of the facility (404
+ * group_not_found).
+ */
+function checkedNote(
+  db: Db, actor: NotesActor, write: NonNullable<NotesDto['write']>, input: NoteInput, today: IsoDate, creating: boolean,
+): CheckedNote {
+  const text = input.text.trim()
+  if (text.length < 1 || text.length > NOTE_TEXT_MAX) throw new ServiceError(400, 'note_text_invalid')
+  let date: string | null = null
+  let validUntil: string | null = null
+  if (input.kind === 'day') {
+    if (input.date === null || !isValidIsoDate(input.date)) throw new ServiceError(400, 'note_date_invalid')
+    date = input.date
+  }
+  else if (input.validUntil !== null && input.validUntil !== '') {
+    if (!isValidIsoDate(input.validUntil) || (creating && input.validUntil < today)) {
+      throw new ServiceError(400, 'note_valid_until_invalid')
+    }
+    validUntil = input.validUntil
+  }
+  if (!mayWrite(write, input.groupId)) throw new ServiceError(403, 'forbidden')
+  if (input.groupId !== null) assertFacilityGroup(db, actor.facilityId, input.groupId)
+  return { groupId: input.groupId, date, validUntil, text }
+}
+
+/** A note of the actor's facility; another facility's note is 404 note_not_found (no existence leak). */
+function loadNote(db: Db, actor: NotesActor, id: number): NoteRow {
+  const row = db.select().from(facilityNotes).where(and(eq(facilityNotes.id, id), eq(facilityNotes.facilityId, actor.facilityId))).get()
+  if (!row) throw new ServiceError(404, 'note_not_found')
+  return row
+}
+
+/** The note as the writer sees it after a change. */
+function savedDto(db: Db, actor: NotesActor, write: NotesDto['write'], row: NoteRow): NoteDto {
+  const names = new Map(facilityGroups(db, actor.facilityId).map(group => [group.id, group.name]))
+  return toDto(row, names, write)
+}
+
+/** A new note of the actor's facility with the writer's name (notes.write; see checkedNote). */
+export function createNote(db: Db, actor: NotesActor, input: NoteInput, now: Date = new Date()): NoteDto {
+  const write = requireWriter(db, actor)
+  const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, true)
+  const row = db.insert(facilityNotes).values({
+    facilityId: actor.facilityId, kind: input.kind, ...note, createdAt: now.toISOString(), createdBy: actorName(db, actor),
+  }).returning().get()
+  return savedDto(db, actor, write, row)
+}
+
+/**
+ * Changes a note the actor may write for (403 forbidden for another group's or the facility's note with the own-group
+ * scope); the kind stays (400 note_kind_fixed). Keeps the name and time of the change.
+ */
+export function updateNote(db: Db, actor: NotesActor, id: number, input: NoteInput, now: Date = new Date()): NoteDto {
+  const write = requireWriter(db, actor)
+  const current = loadNote(db, actor, id)
+  if (!mayWrite(write, current.groupId)) throw new ServiceError(403, 'forbidden')
+  if (input.kind !== current.kind) throw new ServiceError(400, 'note_kind_fixed')
+  const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, false)
+  const row = db.update(facilityNotes).set({ ...note, updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
+    .where(eq(facilityNotes.id, current.id)).returning().get()!
+  return savedDto(db, actor, write, row)
+}
+
+/** Deletes a note the actor may write for (see updateNote). */
+export function deleteNote(db: Db, actor: NotesActor, id: number): void {
+  const write = requireWriter(db, actor)
+  const current = loadNote(db, actor, id)
+  if (!mayWrite(write, current.groupId)) throw new ServiceError(403, 'forbidden')
+  db.delete(facilityNotes).where(eq(facilityNotes.id, current.id)).run()
+}

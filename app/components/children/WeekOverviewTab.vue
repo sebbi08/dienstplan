@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { addDays, todayIso, weekStart } from '#shared/domain/dates'
 import type { IsoDate } from '#shared/domain/types'
-import type { GroupDayLabel, GroupWeekDto, NoteDto } from '#shared/types/api'
+import type { GroupBookNoteDto, GroupDayLabel, GroupWeekDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate, formatDateSpan, formatDateTime } from '~/utils/format'
@@ -86,7 +86,7 @@ interface Field {
   date: IsoDate
   title: string
   label: GroupDayLabel | null
-  note: NoteDto
+  note: GroupBookNoteDto
 }
 const fieldsOf = (week: GroupWeekDto): Field[] => [
   { key: `${week.groupId}|${week.weekStart}|week`, field: 'week', date: week.weekStart, title: s.theme, label: null, note: week.theme },

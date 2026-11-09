@@ -13,12 +13,13 @@ import { addUser, createTestDb, TEST_PASSWORD } from '../helpers/fixtures'
  */
 
 /** Always the active facility, no settings choice: was requireAdmin({ activeFacility }) / requireTemplateReader, and the
- * team meeting members (the result of requireFacility was not used). */
+ * team meeting members (the result of requireFacility was not used); the notes (like the team meetings). */
 // facilities.get.ts checks the active facility itself (requireUser + assertPageFacility: every signed-in account).
 const ACTIVE = [
   'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts', 'template-categories/index.get.ts',
   'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
   'team-meetings/index.post.ts',
+  'notes/[id].delete.ts', 'notes/[id].put.ts', 'notes/index.get.ts', 'notes/index.post.ts',
 ]
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */
 const NONE = [

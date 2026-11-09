@@ -1961,7 +1961,7 @@ export interface MealSettingsDto {
 // ---- Group book: weekly overview (Wochenübersicht) ----
 
 /** A free text of the weekly overview with who changed it last; empty and without a person while nothing was entered. */
-export interface NoteDto {
+export interface GroupBookNoteDto {
   text: string
   updatedAt: string | null
   updatedByName: string | null
@@ -1982,9 +1982,9 @@ export interface GroupWeekDto {
   weekStart: IsoDate
   weekNumber: number
   /** "Wochenthema / geplant". */
-  theme: NoteDto
+  theme: GroupBookNoteDto
   /** Monday to Friday: the day's label (holiday or closure, null on an ordinary day) and the "Was haben wir gemacht" text. */
-  days: { date: IsoDate; label: GroupDayLabel | null; note: NoteDto }[]
+  days: { date: IsoDate; label: GroupDayLabel | null; note: GroupBookNoteDto }[]
   canWrite: boolean
   /** The groups the viewer may see, in the facility's order. */
   groups: GroupBookGroupDto[]
@@ -2361,6 +2361,52 @@ export interface TeamMeetingsDto {
   staff: { id: number; name: string; shortName: string }[]
   toSign: { count: number; firstId: number | null }
   canManage: boolean
+}
+
+/**
+ * A note of the facility (Notizen): on the board (`validUntil` optional) or for a day (`date`), for the whole facility
+ * (`groupId` null) or a group; `canEdit`: the reader may change and delete it (notes.write for the facility, or for
+ * the note's group as the own group).
+ */
+export interface NoteDto {
+  id: number
+  kind: 'board' | 'day'
+  groupId: number | null
+  groupName: string | null
+  date: IsoDate | null
+  validUntil: IsoDate | null
+  text: string
+  createdAt: string
+  createdBy: string
+  updatedAt: string | null
+  updatedBy: string | null
+  canEdit: boolean
+}
+
+/**
+ * The page „Notizen“: `board` the board notes that apply (no „gilt bis“ or from today on), newest first; `expired`
+ * those with „gilt bis“ before today, newest first; `upcoming` the day notes from today on by date; `past` the earlier
+ * ones, newest day first (the last 12 months unless the older ones were asked for; `pastHasOlder`: there are older
+ * ones not listed). `groups`: the facility's groups for the filter and the form. `write`: null without notes.write
+ * (and at the tablet); `facility` for every note of the facility, else only for the own group `groupId` (null: none).
+ */
+export interface NotesDto {
+  board: NoteDto[]
+  expired: NoteDto[]
+  upcoming: NoteDto[]
+  past: NoteDto[]
+  pastHasOlder: boolean
+  groups: { id: number; name: string; color: GroupColor | null }[]
+  write: { facility: boolean; groupId: number | null } | null
+}
+
+/** A new or changed note; checked by the service (text, date, „gilt bis“, group). */
+export interface NoteInput {
+  kind: 'board' | 'day'
+  groupId: number | null
+  date: string | null
+  validUntil: string | null
+  text: string
 }
 
 /**

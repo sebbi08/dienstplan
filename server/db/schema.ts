@@ -1270,6 +1270,26 @@ export const teamMeetingParticipants = sqliteTable('team_meeting_participants', 
 }, table => [uniqueIndex('team_meeting_participants_meeting_employee').on(table.meetingId, table.employeeId)])
 
 /**
+ * A note of the facility (Notizen): on the board (`kind` board, optionally until `validUntil`) or for one day (`kind`
+ * day, `date`), for the whole facility (`groupId` null) or one of its groups (null again once the group is deleted).
+ * `createdBy`/`updatedBy`: the names at the time (`updatedAt`/`updatedBy` null until the first change). Deleted only by
+ * hand.
+ */
+export const facilityNotes = sqliteTable('facility_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').references(() => groups.id, { onDelete: 'set null' }),
+  kind: text('kind', { enum: ['board', 'day'] }).notNull(),
+  date: text('date'),
+  validUntil: text('valid_until'),
+  text: text('text').notNull(),
+  createdAt: text('created_at').notNull(),
+  createdBy: text('created_by').notNull(),
+  updatedAt: text('updated_at'),
+  updatedBy: text('updated_by'),
+}, table => [index('facility_notes_facility_kind_date').on(table.facilityId, table.kind, table.date)])
+
+/**
  * The Träger's retention periods after an employee left, per facility (shared/domain/retention.ts; no row = the defaults,
  * created on first read): years after the end of the leaving year for time data, assessments and paid-out overtime;
  * pension only for information; the cash box period; who may delete a left employee at once („Endgültig löschen“).

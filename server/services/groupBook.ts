@@ -3,7 +3,7 @@ import { addDays, isoWeekNumber, isValidIsoDate, isWeekend, weekStart } from '..
 import { groupRight } from '../../shared/domain/groupAccess'
 import { holidayIn } from '../../shared/domain/holidays'
 import type { IsoDate } from '../../shared/domain/types'
-import type { GroupBookChangeDto, GroupDayLabel, GroupWeekDto, NoteDto } from '../../shared/types/api'
+import type { GroupBookChangeDto, GroupBookNoteDto, GroupDayLabel, GroupWeekDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, groupBookChanges, groupDayNotes, groups, groupWeekNotes } from '../db/schema'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
@@ -20,7 +20,7 @@ import { closureOn, loadClosures } from './queries'
 /** The field of the change log: the week's theme or a day's text. */
 export type GroupBookField = 'week' | 'day'
 
-const NO_NOTE: NoteDto = { text: '', updatedAt: null, updatedByName: null }
+const NO_NOTE: GroupBookNoteDto = { text: '', updatedAt: null, updatedByName: null }
 
 /** The viewer's group: another facility's, a missing one and one hidden from the viewer are 404 group_not_found. */
 function visibleGroup(db: Db, viewer: ChildViewer, groupId: number): { id: number; name: string; write: boolean } {
@@ -50,7 +50,7 @@ function mondayOf(date: IsoDate): IsoDate {
   return weekStart(date)
 }
 
-const toNote = (row: { text: string; updatedAt: string; updatedByName: string } | undefined): NoteDto =>
+const toNote = (row: { text: string; updatedAt: string; updatedByName: string } | undefined): GroupBookNoteDto =>
   row ? { text: row.text, updatedAt: row.updatedAt, updatedByName: row.updatedByName } : NO_NOTE
 
 /**
