@@ -4,7 +4,7 @@ services:
     image: dienstplan:latest
     restart: unless-stopped
     environment:
-      NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD:?NUXT_SESSION_PASSWORD fehlt in .env}
+      NUXT_APP_SECRET: ${NUXT_APP_SECRET:?NUXT_APP_SECRET fehlt in .env}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD fehlt in .env}
       ADMIN_RESET_PASSWORD: ${ADMIN_RESET_PASSWORD:-}

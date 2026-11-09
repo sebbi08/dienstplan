@@ -25,10 +25,8 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    // The session cookie is sealed with a secret derived from Nuxt's appSecret, set at runtime via NUXT_APP_SECRET.
     session: {
-      // Set at runtime via NUXT_SESSION_PASSWORD. '' is the module's own default; since Nuxt 4.6 the
-      // nuxt-auth-utils 0.5 types for runtimeConfig.session apply here and require the key.
-      password: '',
       // About the browser cookie cap, so the shared tablet stays logged in; normal accounts get 30 days
       // at login and are checked server-side in requireUser (USER_SESSION_DAYS).
       maxAge: 60 * 60 * 24 * 400,
