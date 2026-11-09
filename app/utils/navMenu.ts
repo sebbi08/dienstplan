@@ -1,7 +1,6 @@
 // The label texts are imported relative so a test can load this file.
 import { de } from '../locales/de'
 import type { PermissionKey } from '../../shared/domain/permissions'
-import { isManager } from '../../shared/domain/roles'
 import type { Role } from '../../shared/types/api'
 
 /**
@@ -74,7 +73,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const teamPages = shown([
     [can('teamMeetings.manage') || (can('teamMeetings.write') && viewer.employeeId !== null), teamMeetings],
     // The notes are a facility's too: Leitung and Träger always have one, everyone else through the linked employee.
-    [can('notes.view') && (isManager(viewer.role) || viewer.employeeId !== null), notes],
+    // (The roles are compared here: a value import of shared/domain through the relative path breaks the server build.)
+    [can('notes.view') && (viewer.role === 'admin' || viewer.role === 'provider' || viewer.employeeId !== null), notes],
   ])
   // Every office entry shows with the key its page needs (utils/routeAccess.ts).
   const office = shown([
