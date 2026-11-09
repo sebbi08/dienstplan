@@ -51,13 +51,13 @@ function failure(fn: () => unknown): string | null {
 describe('RF1: the Grundeinstellung of the Gruppenleitung', () => {
   it('is the Mitarbeiter defaults plus „eintragen und Akten ändern“ (own group) and the own account', () => {
     expect(RIGHTS_ROLES).toEqual(['admin', 'group_lead', 'observer'])
-    expect(sorted(BUNDLE_DEFAULTS.group_lead)).toEqual(sorted([...BUNDLE_DEFAULTS.observer, 'childrenEdit', 'childrenOwnAccount']))
+    expect(sorted(BUNDLE_DEFAULTS.group_lead)).toEqual(sorted([...BUNDLE_DEFAULTS.observer, 'childrenEdit', 'childrenOwnAccount', 'notesWrite']))
     expect(DEFAULT_SCOPE.group_lead).toBe('group')
     expect(sorted(effectivePermissions({ role: 'group_lead' })))
-      .toEqual(sorted([...ROLE_DEFAULTS.observer, 'children.edit', 'children.ownAccount']))
+      .toEqual(sorted([...ROLE_DEFAULTS.observer, 'children.edit', 'children.ownAccount', 'notes.write']))
     const rights = effectiveRights({ role: 'group_lead' })
     expect(Object.fromEntries(rights.scopes)).toEqual({
-      'children.view': 'group', 'children.attendance': 'group', 'children.edit': 'group',
+      'children.view': 'group', 'children.attendance': 'group', 'children.edit': 'group', 'notes.write': 'group',
     })
   })
 

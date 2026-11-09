@@ -13,7 +13,7 @@ import { PERMISSIONS, resolvePermissions, type PermissionKey } from './permissio
 
 /** The areas of the rights page, in the order it lists them. */
 export const BUNDLE_AREAS = [
-  'plan', 'leave', 'time', 'employees', 'personnelFile', 'children', 'forms', 'teamMeetings', 'cash', 'calendar',
+  'plan', 'leave', 'time', 'employees', 'personnelFile', 'children', 'forms', 'teamMeetings', 'notes', 'cash', 'calendar',
   'templates', 'administration',
 ] as const
 export type BundleArea = typeof BUNDLE_AREAS[number]
@@ -27,6 +27,7 @@ export const BUNDLE_AREA_LABELS: Record<BundleArea, string> = {
   children: 'Kinder',
   forms: 'Bögen',
   teamMeetings: 'Teamsitzungen',
+  notes: 'Notizen',
   cash: 'Kasse',
   calendar: 'Kalender',
   templates: 'Vorlagen',
@@ -42,6 +43,7 @@ export const BUNDLE_IDS = [
   'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
   'formsFill', 'formsManage',
   'teamMeetingsWrite', 'teamMeetingsRelease',
+  'notesWrite',
   'cashBook', 'cashClose',
   'calendarView', 'calendarEdit',
   'templatesView', 'templatesEdit',
@@ -67,7 +69,7 @@ export interface BundleDef {
   label: string
   /** The catalog keys the switch stands for (spec §2 „Einzelrechte“, verbatim). */
   keys: readonly PermissionKey[]
-  /** Has a scope ('group' | 'facility'): the children bundles view, attendance and edit. */
+  /** Has a scope ('group' | 'facility'): the children bundles view, attendance and edit, and notes writing. */
   scoped: boolean
   /**
    * The bundles without which this one does not hold (the page's „braucht: …“), computed from the catalog: every key a
@@ -127,6 +129,8 @@ const SPECS: readonly Spec[] = [
   bundle('teamMeetingsWrite', 'teamMeetings', 'mitschreiben', ['teamMeetings.write']),
   bundle('teamMeetingsRelease', 'teamMeetings', 'freigeben', ['teamMeetings.manage']),
 
+  bundle('notesWrite', 'notes', 'schreiben', ['notes.write'], true),
+
   bundle('cashBook', 'cash', 'ansehen und führen', ['cash.view', 'cash.book']),
   bundle('cashClose', 'cash', 'Monate abschließen und wieder öffnen', ['cash.close', 'cash.reopen']),
 
@@ -142,9 +146,9 @@ const SPECS: readonly Spec[] = [
 
 /**
  * Keys every Leitung and Mitarbeiter account has, without a switch (spec §2 „Eigene Daten … kein Schalter“): the own
- * staff talk forms. (The own plan and the password need no key.)
+ * staff talk forms and reading the facility's notes. (The own plan and the password need no key.)
  */
-export const BASELINE_KEYS: readonly PermissionKey[] = ['talks.own']
+export const BASELINE_KEYS: readonly PermissionKey[] = ['talks.own', 'notes.view']
 
 const CATALOG = new Map(PERMISSIONS.map(permission => [permission.key, permission]))
 const BUNDLE_OF_KEY = new Map<PermissionKey, BundleId>(SPECS.flatMap(spec => spec.keys.map(key => [key, spec.id] as const)))
@@ -232,7 +236,7 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'personal', 'docsQualifications',
     'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
     'formsFill', 'formsManage',
-    'teamMeetingsWrite', 'teamMeetingsRelease',
+    'teamMeetingsWrite', 'teamMeetingsRelease', 'notesWrite',
     'cashBook', 'cashClose',
     'calendarView', 'calendarEdit',
     'templatesView', 'templatesEdit',
@@ -246,7 +250,7 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
   // eigenem Zugang“, so the Gruppenleitung works with the own group's records at the office too („Kinder“ in the menu).
   group_lead: [
     'planView', 'leaveRequest', 'timeOwn', 'teamMeetingsWrite', 'calendarView', 'childrenView', 'childrenAttendance',
-    'childrenEdit', 'childrenOwnAccount', 'templatesView',
+    'childrenEdit', 'childrenOwnAccount', 'templatesView', 'notesWrite',
   ],
 }
 

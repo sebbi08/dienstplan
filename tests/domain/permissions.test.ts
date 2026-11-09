@@ -7,6 +7,7 @@ import {
   type PermissionKey,
 } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
+import { effectiveRights } from '../../shared/domain/permissionBundles'
 import { flaggedPermissions, type LegacyFlags } from '../helpers/rights'
 
 /** The rights of the role with Teil 1's per-person flags, as migration 0064 moved them into bundles. */
@@ -25,8 +26,8 @@ const PERSONNEL_KEYS: PermissionKey[] = ['employees.personal', 'employees.sensit
 const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => key !== 'employees.personal' && key !== 'employees.docs.qualifications')
 
 describe('permission catalog', () => {
-  it('has the 65 keys of the inventory and the personnel file, each once and in catalog order', () => {
-    expect(PERMISSIONS).toHaveLength(65)
+  it('has the 67 keys of the inventory, the personnel file and the notes, each once and in catalog order', () => {
+    expect(PERMISSIONS).toHaveLength(67)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)
   })
@@ -85,7 +86,7 @@ describe('permission catalog', () => {
 
   it('marks the group-scoped child keys', () => {
     expect(sorted(PERMISSIONS.filter(def => def.scoped).map(def => def.key)))
-      .toEqual(sorted(['children.view', 'children.attendance', 'children.edit', 'childForms.edit']))
+      .toEqual(sorted(['children.view', 'children.attendance', 'children.edit', 'childForms.edit', 'notes.write']))
   })
 
   it('records the requires and implies of the inventory', () => {
@@ -137,6 +138,7 @@ describe('permission catalog', () => {
       'printTemplates.global requires printTemplates.edit',
       'talks.manage requires employees.view',
       'teamMeetings.manage implies teamMeetings.write',
+      'notes.write requires notes.view',
       'cash.book requires cash.view',
       'cash.close requires cash.view',
       'cash.reopen requires cash.close',
@@ -171,12 +173,12 @@ describe('role defaults', () => {
       'settings.staffing', 'employees.contractView', 'leave.plan', ...PERSONNEL_TRAEGER_ONLY]
     const expected = PERMISSIONS.filter(def => !def.providerOnly && !notDefault.includes(def.key)).map(def => def.key)
     expect(sorted(ROLE_DEFAULTS.admin)).toEqual(sorted(expected))
-    expect(ROLE_DEFAULTS.admin).toHaveLength(37)
+    expect(ROLE_DEFAULTS.admin).toHaveLength(39)
   })
 
   it('gives the Mitarbeiter the own data, the released plan, team meetings, the child keys of the tablet and the print templates to read', () => {
     expect(sorted(ROLE_DEFAULTS.observer)).toEqual(sorted(['plan.view', 'leave.request', 'time.own', 'talks.own',
-      'teamMeetings.write', 'calendar.own', 'children.view', 'children.attendance', 'printTemplates.view']))
+      'teamMeetings.write', 'calendar.own', 'children.view', 'children.attendance', 'printTemplates.view', 'notes.view']))
     // Reading only: changing the templates and their categories stays with Leitung and Träger.
     expect(ROLE_DEFAULTS.observer).not.toContain('printTemplates.edit')
   })
@@ -237,16 +239,48 @@ describe('catalog edges', () => {
       'childForms.edit requires children.view', 'childForms.manage requires childForms.edit',
       'printTemplates.edit requires printTemplates.view', 'printTemplates.global requires printTemplates.edit',
       'talks.manage requires employees.view', 'teamMeetings.manage implies teamMeetings.write',
+      'notes.write requires notes.view',
       'cash.book requires cash.view', 'cash.close requires cash.view', 'cash.reopen requires cash.close',
       'settings.staffing requires settings.facility', 'settings.groups requires settings.facility',
     ])
   })
 })
 
+describe('notes rights', () => {
+  it('has notes.view for every account and notes.write with a group scope, needing notes.view', () => {
+    expect(byKey.get('notes.view')).toMatchObject({ area: 'notes', scoped: false, providerOnly: false })
+    expect(byKey.get('notes.write')).toMatchObject({ area: 'notes', scoped: true, providerOnly: false, requires: ['notes.view'] })
+  })
+
+  it('gives the Leitung notes.write for the facility, the Gruppenleitung for the group, the Mitarbeiter only notes.view', () => {
+    const admin = effectiveRights({ role: 'admin' })
+    expect(admin.permissions.has('notes.write')).toBe(true)
+    expect(admin.scopes.get('notes.write')).toBe('facility')
+    const lead = effectiveRights({ role: 'group_lead' })
+    expect(lead.permissions.has('notes.write')).toBe(true)
+    expect(lead.scopes.get('notes.write')).toBe('group')
+    const staff = effectiveRights({ role: 'observer' })
+    expect(staff.permissions.has('notes.view')).toBe(true)
+    expect(staff.permissions.has('notes.write')).toBe(false)
+  })
+
+  it('lets an exception grant notesWrite to a Mitarbeiter, with the group scope', () => {
+    const granted = effectiveRights({ role: 'observer', overrides: [{ bundle: 'notesWrite', effect: 'grant', scope: null }] })
+    expect(granted.permissions.has('notes.write')).toBe(true)
+    expect(granted.scopes.get('notes.write')).toBe('group')
+  })
+
+  it('gives the Träger both keys', () => {
+    const provider = effectiveRights({ role: 'provider' })
+    expect(provider.permissions.has('notes.view') && provider.permissions.has('notes.write')).toBe(true)
+    expect(provider.scopes.get('notes.write')).toBe('facility')
+  })
+})
+
 describe('effectivePermissions with the old flags moved into bundles', () => {
   it('gives the Träger every key, whatever the flags', () => {
     expect(sorted(rights({ role: 'provider' }))).toEqual(sorted(PERMISSION_KEYS))
-    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(65)
+    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(67)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {

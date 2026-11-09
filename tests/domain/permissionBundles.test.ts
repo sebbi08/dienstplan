@@ -39,6 +39,7 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   formsManage: ['childForms.manage', 'formTemplates.manage'],
   teamMeetingsWrite: ['teamMeetings.write'],
   teamMeetingsRelease: ['teamMeetings.manage'],
+  notesWrite: ['notes.write'],
   cashBook: ['cash.view', 'cash.book'],
   cashClose: ['cash.close', 'cash.reopen'],
   calendarView: ['calendar.own'],
@@ -82,8 +83,8 @@ describe('bundles', () => {
     expect(byId.get('cashClose')!.label).toBe('Monate abschließen und wieder öffnen')
   })
 
-  it('scope only the children bundles view, attendance and edit, whose keys are scoped in the catalog', () => {
-    expect(BUNDLES.filter(def => def.scoped).map(def => def.id)).toEqual(['childrenView', 'childrenAttendance', 'childrenEdit'])
+  it('scope only the children bundles view, attendance and edit and the notes bundle, whose keys are scoped in the catalog', () => {
+    expect(BUNDLES.filter(def => def.scoped).map(def => def.id)).toEqual(['childrenView', 'childrenAttendance', 'childrenEdit', 'notesWrite'])
     for (const def of BUNDLES.filter(bundle => bundle.scoped)) {
       for (const key of def.keys) expect(catalog.get(key)!.scoped, key).toBe(true)
     }
@@ -96,7 +97,7 @@ describe('bundles', () => {
       const expected = permission.providerOnly || BASELINE_KEYS.includes(permission.key) ? 0 : 1
       expect(counts.get(permission.key) ?? 0, permission.key).toBe(expected)
     }
-    expect(BASELINE_KEYS).toEqual(['talks.own'])
+    expect(BASELINE_KEYS).toEqual(['talks.own', 'notes.view'])
     for (const key of BASELINE_KEYS) expect(catalog.get(key)!.providerOnly).toBe(false)
   })
 
@@ -108,6 +109,8 @@ describe('bundles', () => {
   it('know the bundle of a key', () => {
     expect(bundleOfKey('leave.overview')).toBe('employeesView')
     expect(bundleOfKey('talks.own')).toBeUndefined()
+    expect(bundleOfKey('notes.view')).toBeUndefined()
+    expect(bundleOfKey('notes.write')).toBe('notesWrite')
     expect(bundleOfKey('rights.manage')).toBeUndefined()
     expect(isBundleId('childrenEdit')).toBe(true)
     expect(isBundleId('children.edit')).toBe(false)
@@ -172,6 +175,9 @@ describe('defaults (RF1, domain level)', () => {
   it('give exactly the Teil-1 rights, plus cash.reopen for the Leitung', () => {
     expect(sorted(effectivePermissions({ role: 'admin' }))).toEqual(sorted([...ROLE_DEFAULTS.admin, 'cash.reopen']))
     expect(sorted(effectivePermissions({ role: 'observer' }))).toEqual(sorted(ROLE_DEFAULTS.observer))
+    expect(BUNDLE_DEFAULTS.admin).toContain('notesWrite')
+    expect(BUNDLE_DEFAULTS.group_lead).toContain('notesWrite')
+    expect(BUNDLE_DEFAULTS.observer).not.toContain('notesWrite')
   })
 
   it('are closed: every default bundle has its required bundles', () => {
