@@ -2,7 +2,7 @@
 import { todayIso } from '#shared/domain/dates'
 import type { GroupColor, NoteDto, NotesDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import { canCreateNote, noteDayHeading, notesByDay } from '~/utils/notes'
 import { filterFromQuery, type TeamMeetingFilter } from '~/utils/teamMeetings'
 
@@ -23,6 +23,9 @@ const filter = computed<TeamMeetingFilter>({
 const older = ref(false)
 const query = computed(() => ({ group: String(filter.value), older: older.value ? '1' : undefined }))
 const { data, error, refresh } = await useFetch<NotesDto>('/api/notes', { query })
+
+// A group in the address that no longer exists: back to „Alle“, so the page loads.
+watch(error, (value) => { if (value && errorCode(value) === 'group_not_found') filter.value = 'all' }, { immediate: true })
 
 const filterItems = computed(() => [
   { label: t.filterAll, value: 'all' },

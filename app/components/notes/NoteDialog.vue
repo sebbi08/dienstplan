@@ -93,7 +93,7 @@ async function save() {
         <UFormField v-else :label="t.validUntil" :description="t.validUntilHint">
           <DateTextInput v-model="form.validUntil" :min="note ? undefined : today" :aria-label="t.validUntil" class="w-full sm:w-56" />
         </UFormField>
-        <UFormField :label="t.text" required :help="`${form.text.length} / ${TEXT_MAX}`">
+        <UFormField :label="t.text" required :help="`${form.text.trim().length} /${TEXT_MAX}`">
           <UTextarea v-model="form.text" :rows="5" :maxlength="TEXT_MAX" autoresize required class="w-full" />
         </UFormField>
         <div class="flex flex-wrap justify-end gap-2">

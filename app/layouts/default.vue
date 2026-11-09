@@ -143,15 +143,15 @@ async function logout() {
           </UDropdownMenu>
         </nav>
         <div class="ml-auto items-center gap-2 text-sm" :class="isTerminal ? 'flex' : 'hidden md:flex'">
-          <span class="text-gray-500" :class="tight ? 'hidden xl:inline' : ''">{{ user?.username }}</span>
+          <span class="text-gray-500" :class="tight ? 'hidden 2xl:inline' : ''">{{ user?.username }}</span>
           <UButton v-if="!isTerminal && !tight" size="xs" color="neutral" variant="ghost" to="/account/password" :label="de.nav.password" />
           <UButton
             size="xs" color="neutral" variant="outline" :label="de.nav.logout" :title="`${de.nav.signedInAs} ${user?.username ?? ''}`"
-            :class="tight ? 'hidden xl:inline-flex' : ''" @click="logout"
+            :class="tight ? 'hidden 2xl:inline-flex' : ''" @click="logout"
           />
-          <!-- Leitung/Träger below xl: only the icon, so the header of a laptop stays on one line. -->
+          <!-- Leitung/Träger below 2xl: only the icon, so the header of a laptop stays on one line. -->
           <UButton
-            v-if="tight" size="xs" color="neutral" variant="outline" icon="i-lucide-log-out" class="xl:hidden"
+            v-if="tight" size="xs" color="neutral" variant="outline" icon="i-lucide-log-out" class="2xl:hidden"
             :aria-label="de.nav.logout" :title="`${de.nav.logout} (${de.nav.signedInAs} ${user?.username ?? ''})`" @click="logout"
           />
         </div>
