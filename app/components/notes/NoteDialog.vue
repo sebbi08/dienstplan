@@ -4,9 +4,9 @@ import type { NoteDto, NoteInput, NotesDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * Create a note (note = null) or change one. The kind is chosen only on create (the server keeps it). „Für“: whoever
- * writes for the whole facility picks the facility or a group; a group writer writes for the own group only, so it is
- * shown, not picked. „Gilt bis“ is from today on for a new note; a stored one keeps any date.
+ * Create a note (note = null) or change one. „Für“: whoever writes for the whole facility picks the facility or a
+ * group; a group writer writes for the own group only, so it is shown, not picked. „Gilt bis“ is optional, from today
+ * on for a new note; a stored one keeps any date.
  */
 const props = defineProps<{
   note: NoteDto | null
@@ -23,7 +23,7 @@ const TEXT_MAX = 1000
 const FACILITY = 'facility'
 const { busy, run } = useBusyAction()
 
-const form = reactive({ kind: 'board' as NoteInput['kind'], group: FACILITY, date: '', validUntil: '', text: '' })
+const form = reactive({ group: FACILITY, validUntil: '', text: '' })
 const today = ref(todayIso())
 
 const groupValue = (groupId: number | null) => (groupId === null ? FACILITY : String(groupId))
@@ -32,17 +32,14 @@ watch(open, (isOpen) => {
   today.value = todayIso()
   const note = props.note
   if (note) {
-    Object.assign(form, {
-      kind: note.kind, group: groupValue(note.groupId), date: note.date ?? '', validUntil: note.validUntil ?? '', text: note.text,
-    })
+    Object.assign(form, { group: groupValue(note.groupId), validUntil: note.validUntil ?? '', text: note.text })
     return
   }
   const writable = props.initialGroupId !== null && props.groups.some(group => group.id === props.initialGroupId)
   const group = props.write.facility ? (writable ? groupValue(props.initialGroupId) : FACILITY) : groupValue(props.write.groupId)
-  Object.assign(form, { kind: 'board', group, date: today.value, validUntil: '', text: '' })
+  Object.assign(form, { group, validUntil: '', text: '' })
 }, { immediate: true })
 
-const kindItems = [{ label: t.kinds.board, value: 'board' }, { label: t.kinds.day, value: 'day' }]
 const groupItems = computed(() => [
   { label: t.wholeFacility, value: FACILITY },
   ...props.groups.map(group => ({ label: group.name, value: String(group.id) })),
@@ -56,10 +53,8 @@ const fixedGroupName = computed(() => {
 
 async function save() {
   const body: NoteInput = {
-    kind: form.kind,
     groupId: form.group === FACILITY ? null : Number(form.group),
-    date: form.kind === 'day' ? form.date : null,
-    validUntil: form.kind === 'board' && form.validUntil ? form.validUntil : null,
+    validUntil: form.validUntil || null,
     text: form.text,
   }
   const note = props.note
@@ -80,17 +75,11 @@ async function save() {
   <UModal v-model:open="open" :title="note ? t.edit : t.create">
     <template #body>
       <form class="space-y-3" @submit.prevent="save()">
-        <UFormField v-if="!note" :label="t.kind">
-          <URadioGroup v-model="form.kind" orientation="horizontal" :items="kindItems" />
-        </UFormField>
         <UFormField :label="t.for">
           <USelect v-if="write.facility" v-model="form.group" :items="groupItems" class="w-full" :aria-label="t.for" />
           <p v-else class="text-sm">{{ fixedGroupName }}</p>
         </UFormField>
-        <UFormField v-if="form.kind === 'day'" :label="t.date" required>
-          <DateTextInput v-model="form.date" required :aria-label="t.date" class="w-full sm:w-56" />
-        </UFormField>
-        <UFormField v-else :label="t.validUntil" :description="t.validUntilHint">
+        <UFormField :label="t.validUntil" :description="t.validUntilHint">
           <DateTextInput v-model="form.validUntil" :min="note ? undefined : today" :aria-label="t.validUntil" class="w-full sm:w-56" />
         </UFormField>
         <UFormField :label="t.text" required :help="`${form.text.trim().length} /${TEXT_MAX}`">
@@ -98,7 +87,7 @@ async function save() {
         </UFormField>
         <div class="flex flex-wrap justify-end gap-2">
           <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
-          <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="form.kind === 'day' && !form.date" />
+          <UButton type="submit" :label="de.common.save" :loading="busy" />
         </div>
       </form>
     </template>

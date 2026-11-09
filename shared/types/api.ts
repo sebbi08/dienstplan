@@ -2364,16 +2364,14 @@ export interface TeamMeetingsDto {
 }
 
 /**
- * A note of the facility (Notizen): on the board (`validUntil` optional) or for a day (`date`), for the whole facility
- * (`groupId` null) or a group; `canEdit`: the reader may change and delete it (notes.write for the facility, or for
- * the note's group as the own group).
+ * A note of the facility (Notizen), optionally until `validUntil`, for the whole facility (`groupId` null) or a group;
+ * `canEdit`: the reader may change and delete it (notes.write for the facility, or for the note's group as the own
+ * group).
  */
 export interface NoteDto {
   id: number
-  kind: 'board' | 'day'
   groupId: number | null
   groupName: string | null
-  date: IsoDate | null
   validUntil: IsoDate | null
   text: string
   createdAt: string
@@ -2384,27 +2382,21 @@ export interface NoteDto {
 }
 
 /**
- * The page „Notizen“: `board` the board notes that apply (no „gilt bis“ or from today on), newest first; `expired`
- * those with „gilt bis“ before today, newest first; `upcoming` the day notes from today on by date; `past` the earlier
- * ones, newest day first (the last 12 months unless the older ones were asked for; `pastHasOlder`: there are older
- * ones not listed). `groups`: the facility's groups for the filter and the form. `write`: null without notes.write
- * (and at the tablet); `facility` for every note of the facility, else only for the own group `groupId` (null: none).
+ * The page „Notizen“ (filtered by group and search): `current` the notes that apply (no „gilt bis“ or from today on),
+ * `expired` those with „gilt bis“ before today, each newest first. `groups`: the facility's groups for the filter and
+ * the form. `write`: null without notes.write (and at the tablet); `facility` for every note of the facility, else
+ * only for the own group `groupId` (null: none).
  */
 export interface NotesDto {
-  board: NoteDto[]
+  current: NoteDto[]
   expired: NoteDto[]
-  upcoming: NoteDto[]
-  past: NoteDto[]
-  pastHasOlder: boolean
   groups: { id: number; name: string; color: GroupColor | null }[]
   write: { facility: boolean; groupId: number | null } | null
 }
 
-/** A new or changed note; checked by the service (text, date, „gilt bis“, group). */
+/** A new or changed note; checked by the service (text, „gilt bis“, group). */
 export interface NoteInput {
-  kind: 'board' | 'day'
   groupId: number | null
-  date: string | null
   validUntil: string | null
   text: string
 }

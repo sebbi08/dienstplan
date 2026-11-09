@@ -586,27 +586,22 @@ export const teamMeetingQuery = z.object({
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   groupId: z.preprocess(value => (value === '' ? undefined : value), z.coerce.number().int().min(0).optional()),
 })
-/** A note of the facility; text (1–1000 after trimming), dates and the group are checked by the service. */
+/** A note of the facility; text (1–1000 after trimming), „gilt bis“ and the group are checked by the service. */
 export const noteInputSchema = z.object({
-  kind: z.enum(['board', 'day']),
   groupId: z.number().int().nullable(),
-  date: z.string().max(20).nullable(),
   validUntil: z.string().max(20).nullable(),
   text: z.string().max(5000),
 })
 /**
  * The notes page: `group` (absent or empty = all, `facility` = only the whole facility, else a group id; that group's
- * notes and the facility's), `older` (`1`/`true`: the past day notes before the last 12 months as well).
+ * notes and the facility's), `q` the search (trimmed, at most 100 chars; empty = no search).
  */
 export const notesQuery = z.object({
   group: z.preprocess(
     value => (value === undefined || value === '' ? 'all' : value),
     z.union([z.enum(['all', 'facility']), z.coerce.number().int().positive()]),
   ),
-  older: z.preprocess(
-    value => (value === undefined || value === '' ? 'false' : value),
-    z.enum(['1', '0', 'true', 'false']).transform(value => value === '1' || value === 'true'),
-  ),
+  q: z.string().trim().max(100).default(''),
 })
 /** „Wieder öffnen“: the reason (1–200 chars) is checked by the service (team_meeting_reason_invalid). */
 export const teamMeetingReopenSchema = z.object({ reason: z.string().max(1000) })

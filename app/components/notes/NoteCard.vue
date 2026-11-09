@@ -6,7 +6,7 @@ import { groupColorClasses } from '~/utils/groups'
 
 /**
  * One note of the page „Notizen“: the text (line breaks kept), „Einrichtung“ or the group in its colour, who wrote and
- * changed it and, on the board, until when it applies; edit and delete for whoever may change it (`note.canEdit`).
+ * changed it and, if set, until when it applies; edit and delete for whoever may change it (`note.canEdit`).
  */
 const props = defineProps<{ note: NoteDto; groupColor: GroupColor | null }>()
 defineEmits<{ edit: []; remove: [] }>()
@@ -21,7 +21,7 @@ const badgeClass = computed(() => (props.groupColor ? groupColorClasses[props.gr
     <div class="flex flex-wrap items-start gap-2">
       <UBadge v-if="note.groupId === null" color="neutral" variant="outline" size="sm" :label="t.wholeFacility" />
       <span v-else class="rounded-md px-1.5 py-0.5 text-xs font-medium" :class="badgeClass">{{ note.groupName }}</span>
-      <span v-if="note.kind === 'board' && note.validUntil" class="text-xs text-gray-600">{{ t.until(formatDate(note.validUntil)) }}</span>
+      <span v-if="note.validUntil" class="text-xs text-gray-600">{{ t.until(formatDate(note.validUntil)) }}</span>
       <div v-if="note.canEdit" class="ml-auto flex gap-1">
         <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="t.edit" :title="t.edit" @click="$emit('edit')" />
         <UButton

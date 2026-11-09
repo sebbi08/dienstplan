@@ -10,6 +10,8 @@ import { ServiceError } from '../lib/errors'
 import { actorName } from './formTemplates'
 
 export const NOTE_TEXT_MAX = 1000
+/** The longest search (chars after trimming); the list query refuses a longer one. */
+export const NOTE_SEARCH_MAX = 100
 
 /** The signed-in user (or the tablet) in the facility the route works in (the route's `FacilityUser`). */
 export type NotesActor = SessionUser & { facilityId: number }
@@ -63,23 +65,36 @@ function facilityGroups(db: Db, facilityId: number): NotesDto['groups'] {
 
 function toDto(row: NoteRow, names: ReadonlyMap<number, string>, write: NotesDto['write']): NoteDto {
   return {
-    id: row.id, kind: row.kind, groupId: row.groupId, groupName: row.groupId === null ? null : names.get(row.groupId) ?? null,
-    date: row.date, validUntil: row.validUntil, text: row.text, createdAt: row.createdAt, createdBy: row.createdBy,
+    id: row.id, groupId: row.groupId, groupName: row.groupId === null ? null : names.get(row.groupId) ?? null,
+    validUntil: row.validUntil, text: row.text, createdAt: row.createdAt, createdBy: row.createdBy,
     updatedAt: row.updatedAt, updatedBy: row.updatedBy, canEdit: mayWrite(write, row.groupId),
   }
 }
 
-/** The same day a year before (a 29 February compares as the 29th, which sorts right after the 28th). */
-const yearBefore = (today: IsoDate): IsoDate => `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`
+/** German lower case in one Unicode form, so „BÄREN“ and a typed „bären“ both find „Bären“. */
+const folded = (value: string): string => value.normalize('NFC').toLocaleLowerCase('de-DE')
+
+/** The search words of `q` (trimmed, at most NOTE_SEARCH_MAX chars), folded; none for an empty search. */
+function searchWords(q: string): string[] {
+  return folded(q.trim().slice(0, NOTE_SEARCH_MAX)).split(/\s+/).filter(word => word !== '')
+}
+
+/** Whether every word is in the note's text or in the name of who wrote or changed it. */
+function matches(row: NoteRow, words: readonly string[]): boolean {
+  if (words.length === 0) return true
+  // One line per field: a word has no whitespace, so it never matches across two fields.
+  const haystack = folded([row.text, row.createdBy, row.updatedBy ?? ''].join('\n'))
+  return words.every(word => haystack.includes(word))
+}
 
 /**
  * The notes of the actor's facility for the page „Notizen“ (every person of the facility and the tablet), split into
- * the board that applies, the expired board, the day notes from `today` on and the earlier ones (the last 12 months
- * unless `olderPast`); with the groups and what the actor may write. A group of another facility as filter is 404
- * group_not_found.
+ * those that apply (no „gilt bis“ or from `today` on) and the expired ones, each newest first; with the groups and what
+ * the actor may write. `q`: only the notes whose text or names hold every word of it (case-insensitive, the expired
+ * ones too); the group filter applies as well. A group of another facility as filter is 404 group_not_found.
  */
 export function listNotes(
-  db: Db, actor: NotesActor, filter: { group: NoteGroupFilter; olderPast?: boolean }, today: IsoDate,
+  db: Db, actor: NotesActor, filter: { group: NoteGroupFilter; q?: string }, today: IsoDate,
 ): NotesDto {
   if (typeof filter.group === 'number') assertFacilityGroup(db, actor.facilityId, filter.group)
   const ofGroup = filter.group === 'all'
@@ -93,44 +108,31 @@ export function listNotes(
   const names = new Map(groupList.map(group => [group.id, group.name]))
   const write = writeAccess(db, actor)
   const dto = (row: NoteRow) => toDto(row, names, write)
-  const boards = rows.filter(row => row.kind === 'board')
-  const days = rows.filter(row => row.kind === 'day' && row.date !== null)
-  const byDay = (a: NoteRow, b: NoteRow) => a.date!.localeCompare(b.date!) || a.createdAt.localeCompare(b.createdAt) || a.id - b.id
-  const cut = yearBefore(today)
-  const earlier = days.filter(row => row.date! < today)
-  const shownEarlier = filter.olderPast ? earlier : earlier.filter(row => row.date! >= cut)
+  const words = searchWords(filter.q ?? '')
+  const found = rows.filter(row => matches(row, words))
   return {
-    board: boards.filter(row => row.validUntil === null || row.validUntil >= today).map(dto),
-    expired: boards.filter(row => row.validUntil !== null && row.validUntil < today).map(dto),
-    upcoming: days.filter(row => row.date! >= today).sort(byDay).map(dto),
-    past: shownEarlier.sort((a, b) => b.date!.localeCompare(a.date!) || byDay(a, b)).map(dto),
-    pastHasOlder: shownEarlier.length < earlier.length,
+    current: found.filter(row => row.validUntil === null || row.validUntil >= today).map(dto),
+    expired: found.filter(row => row.validUntil !== null && row.validUntil < today).map(dto),
     groups: groupList,
     write,
   }
 }
 
-/** A checked note: the trimmed text, the date only for a day note, „gilt bis“ only for a board note. */
-type CheckedNote = Pick<NoteRow, 'groupId' | 'date' | 'validUntil' | 'text'>
+/** A checked note: the trimmed text, „gilt bis“ (null for none) and the group. */
+type CheckedNote = Pick<NoteRow, 'groupId' | 'validUntil' | 'text'>
 
 /**
- * Text 1–1000 chars after trimming (400 note_text_invalid); a day note a valid date (400 note_date_invalid), a board
- * note none; „gilt bis“ only for a board note, empty or a valid date, on create not before `today` (400
- * note_valid_until_invalid); the group one the writer may write for (403 forbidden) and of the facility (404
- * group_not_found).
+ * Text 1–1000 chars after trimming (400 note_text_invalid); „gilt bis“ empty or a valid date, on create not before
+ * `today` (400 note_valid_until_invalid); the group one the writer may write for (403 forbidden) and of the facility
+ * (404 group_not_found).
  */
 function checkedNote(
   db: Db, actor: NotesActor, write: NonNullable<NotesDto['write']>, input: NoteInput, today: IsoDate, creating: boolean,
 ): CheckedNote {
   const text = input.text.trim()
   if (text.length < 1 || text.length > NOTE_TEXT_MAX) throw new ServiceError(400, 'note_text_invalid')
-  let date: string | null = null
   let validUntil: string | null = null
-  if (input.kind === 'day') {
-    if (input.date === null || !isValidIsoDate(input.date)) throw new ServiceError(400, 'note_date_invalid')
-    date = input.date
-  }
-  else if (input.validUntil !== null && input.validUntil !== '') {
+  if (input.validUntil !== null && input.validUntil !== '') {
     if (!isValidIsoDate(input.validUntil) || (creating && input.validUntil < today)) {
       throw new ServiceError(400, 'note_valid_until_invalid')
     }
@@ -138,7 +140,7 @@ function checkedNote(
   }
   if (!mayWrite(write, input.groupId)) throw new ServiceError(403, 'forbidden')
   if (input.groupId !== null) assertFacilityGroup(db, actor.facilityId, input.groupId)
-  return { groupId: input.groupId, date, validUntil, text }
+  return { groupId: input.groupId, validUntil, text }
 }
 
 /** A note of the actor's facility; another facility's note is 404 note_not_found (no existence leak). */
@@ -159,20 +161,19 @@ export function createNote(db: Db, actor: NotesActor, input: NoteInput, now: Dat
   const write = requireWriter(db, actor)
   const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, true)
   const row = db.insert(facilityNotes).values({
-    facilityId: actor.facilityId, kind: input.kind, ...note, createdAt: now.toISOString(), createdBy: actorName(db, actor),
+    facilityId: actor.facilityId, ...note, createdAt: now.toISOString(), createdBy: actorName(db, actor),
   }).returning().get()
   return savedDto(db, actor, write, row)
 }
 
 /**
  * Changes a note the actor may write for (403 forbidden for another group's or the facility's note with the own-group
- * scope); the kind stays (400 note_kind_fixed). Keeps the name and time of the change.
+ * scope; see checkedNote). Keeps the name and time of the change.
  */
 export function updateNote(db: Db, actor: NotesActor, id: number, input: NoteInput, now: Date = new Date()): NoteDto {
   const write = requireWriter(db, actor)
   const current = loadNote(db, actor, id)
   if (!mayWrite(write, current.groupId)) throw new ServiceError(403, 'forbidden')
-  if (input.kind !== current.kind) throw new ServiceError(400, 'note_kind_fixed')
   const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, false)
   const row = db.update(facilityNotes).set({ ...note, updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
     .where(eq(facilityNotes.id, current.id)).returning().get()!

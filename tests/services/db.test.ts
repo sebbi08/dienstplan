@@ -1729,6 +1729,38 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(freshSqlite.prepare('SELECT name, sort_order, visibility FROM template_categories ORDER BY sort_order').all()).toEqual(defaults)
   })
 
+  it('0067 makes every day note a general note with its date in front and drops the kind and the date', () => {
+    const { db, sqlite } = databaseAt('0066')
+    sqlite.exec(`
+      INSERT INTO groups (id, facility_id, name) VALUES (1, 1, 'Bären');
+      INSERT INTO facility_notes (id, facility_id, group_id, kind, date, valid_until, text, created_at, created_by, updated_at, updated_by) VALUES
+        (1, 1, NULL, 'board', NULL, '2026-12-31', 'Elternabend am Freitag', '2026-11-01T08:00:00.000Z', 'Lea', NULL, NULL),
+        (2, 1, 1, 'day', '2026-11-12', NULL, 'Ausflug in den Wald, Abfahrt 9 Uhr.', '2026-11-02T08:00:00.000Z', 'Gina',
+          '2026-11-03T08:00:00.000Z', 'Lea'),
+        (3, 1, NULL, 'board', '2026-11-20', NULL, 'Pinnwand ohne Ablauf', '2026-11-04T08:00:00.000Z', 'Lea', NULL, NULL),
+        (4, 1, NULL, 'day', '2026-01-05', NULL, 'Zeile 1
+Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT * FROM facility_notes ORDER BY id').all()).toEqual([
+      { id: 1, facility_id: 1, group_id: null, valid_until: '2026-12-31', text: 'Elternabend am Freitag',
+        created_at: '2026-11-01T08:00:00.000Z', created_by: 'Lea', updated_at: null, updated_by: null },
+      { id: 2, facility_id: 1, group_id: 1, valid_until: null, text: '12.11.2026: Ausflug in den Wald, Abfahrt 9 Uhr.',
+        created_at: '2026-11-02T08:00:00.000Z', created_by: 'Gina', updated_at: '2026-11-03T08:00:00.000Z', updated_by: 'Lea' },
+      { id: 3, facility_id: 1, group_id: null, valid_until: null, text: 'Pinnwand ohne Ablauf',
+        created_at: '2026-11-04T08:00:00.000Z', created_by: 'Lea', updated_at: null, updated_by: null },
+      { id: 4, facility_id: 1, group_id: null, valid_until: null, text: '05.01.2026: Zeile 1\nZeile 2',
+        created_at: '2026-01-01T08:00:00.000Z', created_by: 'Lea', updated_at: null, updated_by: null },
+    ])
+    // A deleted group still makes its notes the facility's; new notes get the next id.
+    sqlite.exec('DELETE FROM groups WHERE id = 1')
+    expect(sqlite.prepare('SELECT group_id FROM facility_notes WHERE id = 2').get()).toEqual({ group_id: null })
+    sqlite.exec('INSERT INTO facility_notes (facility_id, text, created_at, created_by) VALUES (1, \'neu\', \'now\', \'Lea\')')
+    expect(sqlite.prepare('SELECT max(id) AS id FROM facility_notes').get()).toEqual({ id: 5 })
+    expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'index\' AND tbl_name = \'facility_notes\' AND sql IS NOT NULL').all())
+      .toEqual([{ name: 'facility_notes_facility' }])
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')
