@@ -53,6 +53,8 @@ const TEMPLATES = '/templates'
 const RETENTION = '/admin/retention'
 /** Rechte und Rollen: the Träger's page for the rights of the roles. */
 const RIGHTS = '/admin/rights'
+/** The facility's notes: every account (the key is in every role's defaults) and the tablet. */
+const NOTES = '/notes'
 
 function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePassword?: boolean } = {}) {
   const permissions = flaggedPermissions(role, { canEditChildren: options.canEditChildren })
@@ -61,7 +63,7 @@ function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePa
 
 describe('route access per role (unchanged by the permissions)', () => {
   it('lists every page', () => {
-    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, RETENTION, RIGHTS, TABLET_ONLY].sort())
+    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, NOTES, RETENTION, RIGHTS, TABLET_ONLY].sort())
   })
 
   it('lets the Träger open every page but the tablet\'s start page', () => {
@@ -77,7 +79,7 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('lets the Leitung open every page but the Träger\'s retention page', () => {
     const leitung = viewerOf('admin')
-    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES]) expect(accountRedirect(path, leitung), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, NOTES]) expect(accountRedirect(path, leitung), path).toBeUndefined()
     // Before the permissions the retention page sent the Leitung to the start page itself (retention.vue); now the
     // middleware does, with the same result.
     expect(accountRedirect(RETENTION, leitung)).toBe('/')
@@ -87,20 +89,21 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('sends a Mitarbeiter from the child and office pages to the start page, with or without the child flag', () => {
     for (const viewer of [viewerOf('observer'), viewerOf('observer', { canEditChildren: true })]) {
-      for (const path of OPEN) expect(accountRedirect(path, viewer), path).toBeUndefined()
+      for (const path of [...OPEN, NOTES]) expect(accountRedirect(path, viewer), path).toBeUndefined()
       for (const path of [...CHILDREN, ...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, viewer), path).toBe('/')
     }
   })
 
   it('lets a Gruppenleitung open the child pages with its own account, but no office page', () => {
     const lead = viewerOf('group_lead')
-    for (const path of [...OPEN, ...CHILDREN, TEMPLATES]) expect(accountRedirect(path, lead), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, TEMPLATES, NOTES]) expect(accountRedirect(path, lead), path).toBeUndefined()
     for (const path of [...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, lead), path).toBe('/')
   })
 
-  it('lets a Mitarbeiter open the print templates (read only), but no account without the key', () => {
+  it('lets a Mitarbeiter open the print templates (read only) and the notes, but no account without the key', () => {
     expect(accountRedirect(TEMPLATES, viewerOf('observer'))).toBeUndefined()
     expect(accountRedirect(TEMPLATES, { mustChangePassword: false, can: () => false })).toBe('/')
+    expect(accountRedirect(NOTES, { mustChangePassword: false, can: () => false })).toBe('/')
   })
 
   it('sends everyone who must change the password to that page first', () => {
@@ -121,8 +124,8 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect('/cash/9', viewerOf('observer'))).toBe('/')
   })
 
-  it('lets the tablet open stamping, the plan, the print templates and the team meetings, the child pages by unlock', () => {
-    const tablet = ['/plan/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
+  it('lets the tablet open stamping, the plan, the print templates, the team meetings and the notes, the child pages by unlock', () => {
+    const tablet = ['/notes', '/plan/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
     expect(pagePaths.filter(tabletMayOpen)).toEqual(tablet)
     expect(pagePaths.filter(isChildPagePath)).toEqual(['/children', '/children/1', '/children/new'])
   })
@@ -140,5 +143,7 @@ describe('pagePermission', () => {
     expect(pagePermission(RIGHTS)).toBe('rights.manage')
     expect(pagePermission(TEMPLATES)).toBe('printTemplates.view')
     expect(ROLE_DEFAULTS.observer).toContain('printTemplates.view')
+    expect(pagePermission(NOTES)).toBe('notes.view')
+    for (const role of ['admin', 'observer'] as const) expect(ROLE_DEFAULTS[role], role).toContain('notes.view')
   })
 })

@@ -1,6 +1,7 @@
 // The label texts are imported relative so a test can load this file.
 import { de } from '../locales/de'
 import type { PermissionKey } from '../../shared/domain/permissions'
+import { isManager } from '../../shared/domain/roles'
 import type { Role } from '../../shared/types/api'
 
 /**
@@ -29,7 +30,10 @@ export interface NavMenu {
 }
 
 export interface NavViewer {
-  /** Only to tell the tablet apart: its menu is fixed (the tablet role is not part of the permission catalog). */
+  /**
+   * To tell the tablet apart (its menu is fixed: the tablet role is not part of the permission catalog) and whether the
+   * account has a facility without a linked employee (Leitung and Träger always have one).
+   */
   role: Role
   /** The account's permissions (useCan). */
   can: (key: PermissionKey) => boolean
@@ -52,8 +56,10 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const plan = entry(de.nav.plan, `/plan/${year}/${month}`, '/plan')
   // The team meetings (Teamsitzungen) are for every member of the facility, the tablet included (no child data).
   const teamMeetings = entry(de.nav.teamMeetings, '/team-meetings')
+  // The facility's notes (Notizen): read by every member of the facility and the tablet.
+  const notes = entry(de.nav.notes, '/notes')
   if (viewer.role === 'terminal') {
-    return { main: [entry(de.nav.stamp, '/terminal'), plan, teamMeetings], mine: [], more: [], mineCount: 0, totalCount: 0 }
+    return { main: [entry(de.nav.stamp, '/terminal'), plan, teamMeetings, notes], mine: [], more: [], mineCount: 0, totalCount: 0 }
   }
 
   const myPlan = entry(navLabelWithCount(de.nav.myPlan, viewer.unread), `/my/plan/${year}/${month}`, '/my/plan')
@@ -65,7 +71,11 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // The calendar to edit, or the own view of it (the short label keeps the header of a laptop on one line).
   const calendar = can('calendar.edit') ? entry(de.nav.calendarShort, '/admin/calendar') : entry(de.nav.calendarShort, '/my/calendar')
   // Writing in the team meetings needs a facility: a staff account without an employee belongs to none.
-  const meetings = shown([[can('teamMeetings.manage') || (can('teamMeetings.write') && viewer.employeeId !== null), teamMeetings]])
+  const teamPages = shown([
+    [can('teamMeetings.manage') || (can('teamMeetings.write') && viewer.employeeId !== null), teamMeetings],
+    // The notes are a facility's too: Leitung and Träger always have one, everyone else through the linked employee.
+    [can('notes.view') && (isManager(viewer.role) || viewer.employeeId !== null), notes],
+  ])
   // Every office entry shows with the key its page needs (utils/routeAccess.ts).
   const office = shown([
     [can('time.manage'), entry(de.nav.time, '/admin/time')],
@@ -104,7 +114,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements, myTalks] : []
     const mineCount = mine.length ? viewer.unread : 0
     return {
-      main: [...plans, ...planning, ...office, calendar, ...meetings],
+      main: [...plans, ...planning, ...office, calendar, ...teamPages],
       mine,
       more,
       mineCount,
@@ -115,7 +125,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   return {
     // Seven entries in a row no longer fit the header of a tablet (1024 px), so the own lists sit under "Meins" like the
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
-    main: [myPlan, ...plans, calendar, ...meetings],
+    main: [myPlan, ...plans, calendar, ...teamPages],
     // The templates are the facility's: a staff account without an employee belongs to none.
     mine: [myLeave, myRequirements, myTalks, ...(viewer.employeeId !== null ? templates : [])],
     more: [],

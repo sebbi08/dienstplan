@@ -5,13 +5,13 @@ import type { PermissionKey } from '../../shared/domain/permissions'
 export const isChildPagePath = (path: string): boolean => path === '/children' || path.startsWith('/children/')
 
 /**
- * The pages the shared tablet opens without an unlock: stamping, the general plan, the print templates and the team
- * meetings (no child data). Never /print: the team meetings' printout is for the staff's and the managers' own devices.
- * The tablet role is not part of the permission catalog, so this stays a rule of its own.
+ * The pages the shared tablet opens without an unlock: stamping, the general plan, the print templates, the team
+ * meetings and the notes (no child data). Never /print: the team meetings' printout is for the staff's and the
+ * managers' own devices. The tablet role is not part of the permission catalog, so this stays a rule of its own.
  */
 export function tabletMayOpen(path: string): boolean {
   const teamMeetings = path === '/team-meetings' || path.startsWith('/team-meetings/')
-  return path === '/terminal' || path === '/templates' || path.startsWith('/plan/') || teamMeetings
+  return path === '/terminal' || path === '/templates' || path === '/notes' || path.startsWith('/plan/') || teamMeetings
 }
 
 /** A prefix starting with "=" matches only that address, any other one the address and the pages below it. */
@@ -50,6 +50,8 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/retention', 'retention.delete'],
   // The print templates: managers, the tablet and (read only, the categories visible to all) Mitarbeiter accounts.
   ['=/templates', 'printTemplates.view'],
+  // The facility's notes: every account has the key (the tablet reads them by tabletMayOpen).
+  ['=/notes', 'notes.view'],
 ]
 
 /** The tablet's pages that no signed-in account opens: the terminal routes answer only the tablet. */

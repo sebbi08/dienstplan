@@ -15,7 +15,7 @@ const labels = (entries: { label: string }[]) => entries.map(entry => entry.labe
 describe('navMenu', () => {
   it('shows a manager without employee the main entries and "Mehr", no "Meins"', () => {
     const menu = navMenu(base)
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen', 'Notizen'])
     expect(menu.main[0]!.to).toBe('/plan/2026/10')
     expect(menu.main[4]!.to).toBe('/cash')
     expect(menu.main[6]!.to).toBe('/team-meetings')
@@ -48,7 +48,7 @@ describe('navMenu', () => {
 
   it('puts "Urlaubsplanung" with the open requests second for a planner and counts them in the total', () => {
     const menu = navMenu({ ...base, employeeId: 3, isPlanner: true, openCount: 4, unread: 1 })
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen', 'Notizen'])
     expect(menu.totalCount).toBe(5)
     expect(navMenu({ ...base, isPlanner: true }).main[1]!.label).toBe('Urlaubsplanung')
   })
@@ -59,17 +59,17 @@ describe('navMenu', () => {
     expect(menu.totalCount).toBe(0)
   })
 
-  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar and „Teamsitzungen“, the own lists and „Vorlagen“ under „Meins“', () => {
+  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar, „Teamsitzungen“ and „Notizen“, the own lists and „Vorlagen“ under „Meins“', () => {
     const menu = navMenu({ ...base, ...as('observer'), employeeId: 9, unread: 3 })
-    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Kalender', 'Teamsitzungen'])
-    expect(menu.main.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/plan/2026/10', '/my/calendar', '/team-meetings'])
+    expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Kalender', 'Teamsitzungen', 'Notizen'])
+    expect(menu.main.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/plan/2026/10', '/my/calendar', '/team-meetings', '/notes'])
     expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Vorlagen'])
     expect(menu.mine.map(entry => entry.to)).toEqual(['/my/leave', '/my/requirements', '/my/talks', '/templates'])
     expect(menu.more).toEqual([])
     // The unread count stands on „Mein Dienstplan“ in the row, not on „Meins“.
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(3)
-    // Without an employee the account belongs to no facility: no team meetings, no templates.
+    // Without an employee the account belongs to no facility: no team meetings, no notes, no templates.
     const loose = navMenu({ ...base, ...as('observer'), employeeId: null })
     expect(labels(loose.main)).toEqual(['Mein Dienstplan', 'Dienstplan', 'Kalender'])
     expect(labels(loose.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche'])
@@ -82,10 +82,22 @@ describe('navMenu', () => {
     expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Vorlagen'])
   })
 
-  it('gives the tablet Stempeln, the plan and the team meetings', () => {
+  it('shows „Notizen“ to Leitung and Träger without an employee, to everyone else only with one', () => {
+    for (const role of ['admin', 'provider'] as const) {
+      expect(navMenu({ ...base, ...as(role) }).main.some(entry => entry.to === '/notes'), role).toBe(true)
+    }
+    for (const role of ['group_lead', 'observer'] as const) {
+      expect(navMenu({ ...base, ...as(role) }).main.some(entry => entry.to === '/notes'), role).toBe(false)
+      expect(navMenu({ ...base, ...as(role), employeeId: 5 }).main.some(entry => entry.to === '/notes'), role).toBe(true)
+    }
+    // Without the key (every role has it by default) there is no entry.
+    expect(navMenu({ ...base, can: key => key !== 'notes.view' }).main.some(entry => entry.to === '/notes')).toBe(false)
+  })
+
+  it('gives the tablet Stempeln, the plan, the team meetings and the notes', () => {
     const menu = navMenu({ ...base, ...as('terminal'), unread: 5, isPlanner: true, openCount: 2 })
-    expect(menu.main.map(entry => entry.to)).toEqual(['/terminal', '/plan/2026/10', '/team-meetings'])
-    expect(labels(menu.main)).toEqual(['Stempeln', 'Dienstplan', 'Teamsitzungen'])
+    expect(menu.main.map(entry => entry.to)).toEqual(['/terminal', '/plan/2026/10', '/team-meetings', '/notes'])
+    expect(labels(menu.main)).toEqual(['Stempeln', 'Dienstplan', 'Teamsitzungen', 'Notizen'])
     expect(navMenu({ ...base, ...as('terminal'), employeeId: 4 }).main.some(entry => entry.to === '/my/talks')).toBe(false)
     expect(menu.mine).toEqual([])
     expect(menu.more).toEqual([])
@@ -99,7 +111,7 @@ describe('isEntryActive / isGroupActive', () => {
     expect(isEntryActive('/plan/2025/3', menu.main[0]!)).toBe(true)
     expect(isEntryActive('/my/plan/2025/3', menu.main[0]!)).toBe(false)
     expect(isEntryActive('/admin/settings/groups/4', menu.more[5]!)).toBe(true)
-    expect(isEntryActive('/team-meetings/12', menu.main.at(-1)!)).toBe(true)
+    expect(isEntryActive('/team-meetings/12', menu.main.at(-2)!)).toBe(true)
     expect(isEntryActive('/admin/forms', menu.more[3]!)).toBe(true)
     expect(isEntryActive('/admin/settingsx', menu.more[5]!)).toBe(false)
   })
@@ -136,6 +148,7 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const officeMain: Pair[] = [
     ['Dienstplan', '/plan/2026/10'], ['Zeiterfassung', '/admin/time'], ['Mitarbeiter', '/admin/employees'],
     ['Kinder', '/children'], ['Kasse', '/cash'], ['Kalender', '/admin/calendar'], ['Teamsitzungen', '/team-meetings'],
+    ['Notizen', '/notes'],
   ]
   const withPlanning: Pair[] = [officeMain[0]!, ['Urlaubsplanung (4)', '/admin/leave-planning'], ...officeMain.slice(1)]
   const leitungMore: Pair[] = [
@@ -150,7 +163,7 @@ describe('navMenu per role (unchanged by the permissions)', () => {
     ['Meine Gespräche', '/my/talks'],
   ]
   const staffMain: Pair[] = [['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Dienstplan', '/plan/2026/10'], ['Kalender', '/my/calendar']]
-  const staffMainWithMeetings: Pair[] = [...staffMain, ['Teamsitzungen', '/team-meetings']]
+  const staffMainWithMeetings: Pair[] = [...staffMain, ['Teamsitzungen', '/team-meetings'], ['Notizen', '/notes']]
   const staffMine: Pair[] = [['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'], ['Meine Gespräche', '/my/talks']]
   // The print templates need a facility, which a staff account only has through its employee.
   const staffMineWithTemplates: Pair[] = [...staffMine, ['Vorlagen', '/templates']]
@@ -193,12 +206,15 @@ describe('navMenu per role (unchanged by the permissions)', () => {
       // Rechte Teil 3: „Kinder“ with the own account is an office key, so the office layout (own pages under „Meins“,
       // the templates under „Mehr“) with the own calendar view.
       name: 'Gruppenleitung with employee', viewer: viewerOf('group_lead', { employeeId: 9 }),
-      main: [['Dienstplan', '/plan/2026/10'], ['Kinder', '/children'], ['Kalender', '/my/calendar'], ['Teamsitzungen', '/team-meetings']],
+      main: [
+        ['Dienstplan', '/plan/2026/10'], ['Kinder', '/children'], ['Kalender', '/my/calendar'], ['Teamsitzungen', '/team-meetings'],
+        ['Notizen', '/notes'],
+      ],
       mine: officeMine, more: [['Vorlagen', '/templates']], mineCount: 2, totalCount: 2,
     },
     {
       name: 'tablet', viewer: viewerOf('terminal', { employeeId: 4, isPlanner: true }),
-      main: [['Stempeln', '/terminal'], ['Dienstplan', '/plan/2026/10'], ['Teamsitzungen', '/team-meetings']],
+      main: [['Stempeln', '/terminal'], ['Dienstplan', '/plan/2026/10'], ['Teamsitzungen', '/team-meetings'], ['Notizen', '/notes']],
       mine: [], more: [], mineCount: 0, totalCount: 0,
     },
   ]
