@@ -1,11 +1,12 @@
 # Runs typecheck, tests and the Nuxt build on every pull request (e.g. Renovate updates)
-# and on pushes to main.
+# and on pushes to main and to renovate/** (Renovate only opens a PR once its
+# branch has checks, see prCreation: not-pending).
 name: ci
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "renovate/**"]
 
 permissions:
   contents: read
