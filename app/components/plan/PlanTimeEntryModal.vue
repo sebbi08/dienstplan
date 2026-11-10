@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { parseTime, validateSpan } from '#shared/domain/time'
+import { formatDuration, parseTime, validateSpan } from '#shared/domain/time'
 import type { CodeDto, EntryInput } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { workTime } from '~/utils/workTime'
 
 const props = defineProps<{ code: CodeDto | null }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -9,6 +10,7 @@ const emit = defineEmits<{ submit: [entry: EntryInput] }>()
 
 const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', note: '' })
 const error = ref('')
+const hint = computed(() => workTime(form))
 const title = computed(() => (props.code ? de.modal.codeTitle(props.code.label) : de.modal.specialTitle))
 
 watch(open, (isOpen) => {
@@ -51,6 +53,10 @@ function submit() {
         <UFormField :label="de.modal.end"><TimeInput v-model="form.end" /></UFormField>
         <UFormField :label="de.modal.breakStart"><TimeInput v-model="form.breakStart" /></UFormField>
         <UFormField :label="de.modal.breakEnd"><TimeInput v-model="form.breakEnd" /></UFormField>
+        <p v-if="hint" class="col-span-2 text-sm text-gray-700" aria-live="polite">
+          {{ de.modal.workTime(formatDuration(hint.present), formatDuration(hint.worked)) }} ·
+          <span :class="hint.ok ? 'text-green-700' : 'text-amber-700'">{{ de.modal.legalBreak(hint.required, hint.ok) }}</span>
+        </p>
         <UFormField :label="de.modal.note" class="col-span-2"><UInput v-model="form.note" maxlength="200" class="w-full" /></UFormField>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex justify-end gap-2">

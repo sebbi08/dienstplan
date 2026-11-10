@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatTime } from '#shared/domain/time'
+import { formatDuration, formatTime } from '#shared/domain/time'
+import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { buttonCodes, codeButtonLabel } from '~/utils/codes'
@@ -16,6 +17,11 @@ const props = withDefaults(defineProps<{
 }>(), { scope: 'normal', severalFacilities: false })
 const codeButtons = computed(() => buttonCodes(props.codes))
 const allowedCodes = computed(() => new Set(codesForScope(codeButtons.value, props.scope).map(code => code.id)))
+/** Tooltip of a shift button: its name plus the working time of its fixed times and whether its break meets the law. */
+function templateTitle(template: TemplateDto) {
+  const { worked, required, ok } = shiftBreakCheck(template)
+  return `${template.shortLabel} · ${template.label} – ${de.modal.templateWorkTime(formatDuration(worked), required, ok)}`
+}
 const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
 const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
@@ -29,7 +35,7 @@ const emit = defineEmits<{
       <span class="mr-2 text-xs text-gray-500">{{ selectedCount ? de.plan.selected(selectedCount) : de.plan.selectHint }}</span>
       <UButton
         v-for="template in templates" :key="template.id" size="xs" color="neutral" variant="outline"
-        :title="`${template.shortLabel} · ${template.label}`" :disabled="!withShifts"
+        :title="templateTitle(template)" :disabled="!withShifts"
         :label="`${formatTime(template.start)}–${formatTime(template.end)}`"
         @click="emit('template', template)"
       />

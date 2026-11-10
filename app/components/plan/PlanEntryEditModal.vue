@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { formatTime, parseTime, validateSpan } from '#shared/domain/time'
+import { formatDuration, formatTime, parseTime, validateSpan } from '#shared/domain/time'
 import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type { EntryDto, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { workTime } from '~/utils/workTime'
 
 /**
  * Changes the times of one clicked entry; a fixed shift with other start/end becomes a special shift. With groups, a
@@ -26,6 +27,8 @@ const emit = defineEmits<{
 const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', groupId: 0 })
 const error = ref('')
 const isBreak = computed(() => props.entry?.kind === 'break')
+/** Working time and legal break of the typed times (not for a break entry, which is no working time). */
+const hint = computed(() => (isBreak.value ? null : workTime(form)))
 const title = computed(() => {
   const entry = props.entry
   if (!entry) return ''
@@ -113,6 +116,10 @@ function markSick() {
           <UFormField :label="de.modal.breakEnd"><TimeInput v-model="form.breakEnd" /></UFormField>
           <p class="col-span-2 text-xs text-gray-500">{{ de.modal.editBreakHint }}</p>
         </template>
+        <p v-if="hint" class="col-span-2 text-sm text-gray-700" aria-live="polite">
+          {{ de.modal.workTime(formatDuration(hint.present), formatDuration(hint.worked)) }} ·
+          <span :class="hint.ok ? 'text-green-700' : 'text-amber-700'">{{ de.modal.legalBreak(hint.required, hint.ok) }}</span>
+        </p>
         <UFormField v-if="groupable" :label="de.groups.countsFor" class="col-span-2">
           <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
         </UFormField>
