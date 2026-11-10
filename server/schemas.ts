@@ -588,13 +588,14 @@ export const teamMeetingQuery = z.object({
 })
 /**
  * A note of the facility; text (1–1000 after trimming), „gilt bis“, the group and whether the writer may choose the
- * visibility „Sichtbar für“ (absent: visible to all) are checked by the service.
+ * visibility „Sichtbar für“ are checked by the service. No default for the visibility: absent, a new note is for all
+ * and a change keeps the stored level (a page from before the field must not widen a restricted note).
  */
 export const noteInputSchema = z.object({
   groupId: z.number().int().nullable(),
   validUntil: z.string().max(20).nullable(),
   text: z.string().max(5000),
-  visibility: z.enum(TEMPLATE_VISIBILITIES).default('all'),
+  visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
 })
 /**
  * The notes page: `group` (absent or empty = all, `facility` = only the whole facility, else a group id; that group's

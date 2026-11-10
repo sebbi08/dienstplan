@@ -414,6 +414,34 @@ describe('facility notes', () => {
       expect(db.select().from(facilityNotes).all()).toEqual([])
     })
 
+    it('a Gruppenleitung with the exception „schreiben“ for the whole facility still writes only \'all\'', () => {
+      saveBundleOverride(db, gruppenleitung.id, 'notesWrite', 'grant', 'facility')
+      const gina = asActor(getActiveUser(db, gruppenleitung.id, TODAY)!)
+      expect(listNotes(db, gina, { group: 'all' }, TODAY).write).toEqual({ facility: true, groupId: null, visibilities: ['all'] })
+      expect(failure(() => createNote(db, gina, note({ visibility: 'managers' }), NOW))).toBe('403 forbidden')
+      expect(failure(() => createNote(db, gina, note({ groupId: fuechse, visibility: 'managers' }), NOW))).toBe('403 forbidden')
+      const id = createNote(db, gina, note(), NOW).id
+      expect(failure(() => updateNote(db, gina, id, note({ visibility: 'managers' }), LATER))).toBe('403 forbidden')
+      expect(db.select().from(facilityNotes).all().map(row => row.visibility)).toEqual(['all'])
+    })
+
+    it('without the field a new note is for all and a change keeps the stored level (an older page sends none)', () => {
+      const { visibility: _, ...withoutVisibility } = note({ text: 'ohne Feld' })
+      expect(createNote(db, leitung, withoutVisibility, NOW).visibility).toBe('all')
+      expect(createNote(db, gruppenleitung, { ...withoutVisibility, groupId: baeren }, NOW).visibility).toBe('all')
+      const managersNote = createNote(db, leitung, note({ visibility: 'managers' }), NOW).id
+      const providerNote = createNote(db, traeger, note({ visibility: 'provider' }), NOW).id
+      expect(updateNote(db, leitung, managersNote, { ...withoutVisibility, text: 'neu' }, LATER))
+        .toMatchObject({ text: 'neu', visibility: 'managers' })
+      expect(updateNote(db, traeger, providerNote, { ...withoutVisibility, text: 'neu' }, LATER))
+        .toMatchObject({ text: 'neu', visibility: 'provider' })
+      expect(db.select().from(facilityNotes).where(eq(facilityNotes.id, managersNote)).get()!.visibility).toBe('managers')
+      expect(db.select().from(facilityNotes).where(eq(facilityNotes.id, providerNote)).get()!.visibility).toBe('provider')
+      // The kept level is still checked: the Leitung cannot change the Träger's note (she does not see it).
+      expect(failure(() => updateNote(db, leitung, providerNote, withoutVisibility, LATER))).toBe('404 note_not_found')
+      expect(ids(listNotes(db, gruppenleitung, { group: 'all' }, TODAY).current)).not.toContain(managersNote)
+    })
+
     it('write.visibilities: the levels the writer may choose; null without notes.write', () => {
       saveBundleOverride(db, mitarbeiter.id, 'notesWrite', 'grant', 'group')
       const mia = asActor(getActiveUser(db, mitarbeiter.id, TODAY)!)
@@ -444,9 +472,10 @@ describe('facility notes', () => {
       expect(() => notesQuery.parse({ group: 'x' })).toThrow()
     })
 
-    it('„Sichtbar für“ is one of the three levels, \'all\' when absent', () => {
-      expect(noteInputSchema.parse({ groupId: null, validUntil: null, text: 'x' }))
-        .toEqual({ groupId: null, validUntil: null, text: 'x', visibility: 'all' })
+    it('„Sichtbar für“ is one of the three levels, or absent (the service decides: new \'all\', a change keeps it)', () => {
+      const parsed = noteInputSchema.parse({ groupId: null, validUntil: null, text: 'x' })
+      expect(parsed).toEqual({ groupId: null, validUntil: null, text: 'x' })
+      expect('visibility' in parsed).toBe(false)
       expect(noteInputSchema.parse(note({ visibility: 'managers' })).visibility).toBe('managers')
       expect(noteInputSchema.parse(note({ visibility: 'provider' })).visibility).toBe('provider')
       expect(() => noteInputSchema.parse({ ...note(), visibility: 'secret' })).toThrow()

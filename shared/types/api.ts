@@ -2402,12 +2402,15 @@ export interface NotesDto {
   write: { facility: boolean; groupId: number | null; visibilities: NoteVisibility[] } | null
 }
 
-/** A new or changed note; checked by the service (text, „gilt bis“, group, „Sichtbar für“). */
+/**
+ * A new or changed note; checked by the service (text, „gilt bis“, group, „Sichtbar für“). Without `visibility` a new
+ * note is for all and a change keeps the stored level.
+ */
 export interface NoteInput {
   groupId: number | null
   validUntil: string | null
   text: string
-  visibility: NoteVisibility
+  visibility?: NoteVisibility
 }
 
 /**

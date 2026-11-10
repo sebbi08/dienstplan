@@ -139,11 +139,15 @@ type CheckedNote = Pick<NoteRow, 'groupId' | 'validUntil' | 'text' | 'visibility
 /**
  * Text 1–1000 chars after trimming (400 note_text_invalid); „gilt bis“ empty or a valid date, on create not before
  * `today` (400 note_valid_until_invalid); the group one the writer may write for (403 forbidden) and of the facility
- * (404 group_not_found); „Sichtbar für“ one of `write.visibilities` (403 forbidden).
+ * (404 group_not_found); „Sichtbar für“ (absent: 'all' for a new note, the stored level of the changed note `current`)
+ * one of `write.visibilities` (403 forbidden).
  */
 function checkedNote(
-  db: Db, actor: NotesActor, write: NonNullable<NotesDto['write']>, input: NoteInput, today: IsoDate, creating: boolean,
+  db: Db, actor: NotesActor, write: NonNullable<NotesDto['write']>, input: NoteInput, today: IsoDate,
+  current: NoteRow | null,
 ): CheckedNote {
+  const creating = current === null
+  const visibility = input.visibility ?? current?.visibility ?? 'all'
   const text = input.text.trim()
   if (text.length < 1 || text.length > NOTE_TEXT_MAX) throw new ServiceError(400, 'note_text_invalid')
   let validUntil: string | null = null
@@ -154,9 +158,9 @@ function checkedNote(
     validUntil = input.validUntil
   }
   if (!mayWrite(write, input.groupId)) throw new ServiceError(403, 'forbidden')
-  if (!write.visibilities.includes(input.visibility)) throw new ServiceError(403, 'forbidden')
+  if (!write.visibilities.includes(visibility)) throw new ServiceError(403, 'forbidden')
   if (input.groupId !== null) assertFacilityGroup(db, actor.facilityId, input.groupId)
-  return { groupId: input.groupId, validUntil, text, visibility: input.visibility }
+  return { groupId: input.groupId, validUntil, text, visibility }
 }
 
 /**
@@ -179,7 +183,7 @@ function savedDto(db: Db, actor: NotesActor, write: NotesDto['write'], row: Note
 /** A new note of the actor's facility with the writer's name (notes.write; see checkedNote). */
 export function createNote(db: Db, actor: NotesActor, input: NoteInput, now: Date = new Date()): NoteDto {
   const write = requireWriter(db, actor)
-  const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, true)
+  const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, null)
   const row = db.insert(facilityNotes).values({
     facilityId: actor.facilityId, ...note, createdAt: now.toISOString(), createdBy: actorName(db, actor),
   }).returning().get()
@@ -194,7 +198,7 @@ export function updateNote(db: Db, actor: NotesActor, id: number, input: NoteInp
   const write = requireWriter(db, actor)
   const current = loadNote(db, actor, id)
   if (!mayWrite(write, current.groupId)) throw new ServiceError(403, 'forbidden')
-  const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, false)
+  const note = checkedNote(db, actor, write, input, nowInBerlin(now).date, current)
   const row = db.update(facilityNotes).set({ ...note, updatedAt: now.toISOString(), updatedBy: actorName(db, actor) })
     .where(eq(facilityNotes.id, current.id)).returning().get()!
   return savedDto(db, actor, write, row)
