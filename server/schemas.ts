@@ -586,11 +586,15 @@ export const teamMeetingQuery = z.object({
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   groupId: z.preprocess(value => (value === '' ? undefined : value), z.coerce.number().int().min(0).optional()),
 })
-/** A note of the facility; text (1–1000 after trimming), „gilt bis“ and the group are checked by the service. */
+/**
+ * A note of the facility; text (1–1000 after trimming), „gilt bis“, the group and whether the writer may choose the
+ * visibility „Sichtbar für“ (absent: visible to all) are checked by the service.
+ */
 export const noteInputSchema = z.object({
   groupId: z.number().int().nullable(),
   validUntil: z.string().max(20).nullable(),
   text: z.string().max(5000),
+  visibility: z.enum(TEMPLATE_VISIBILITIES).default('all'),
 })
 /**
  * The notes page: `group` (absent or empty = all, `facility` = only the whole facility, else a group id; that group's

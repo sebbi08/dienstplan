@@ -1742,7 +1742,10 @@ describe('upgrading a filled database through migrateDb', () => {
 Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     `)
     migrateDb(db, MIGRATIONS)
-    expect(sqlite.prepare('SELECT * FROM facility_notes ORDER BY id').all()).toEqual([
+    // Without `visibility`, which 0068_note_visibility adds (its own test below).
+    const rows = (sqlite.prepare('SELECT * FROM facility_notes ORDER BY id').all() as Record<string, unknown>[])
+      .map(({ visibility: _, ...rest }) => rest)
+    expect(rows).toEqual([
       { id: 1, facility_id: 1, group_id: null, valid_until: '2026-12-31', text: 'Elternabend am Freitag',
         created_at: '2026-11-01T08:00:00.000Z', created_by: 'Lea', updated_at: null, updated_by: null },
       { id: 2, facility_id: 1, group_id: 1, valid_until: null, text: '12.11.2026: Ausflug in den Wald, Abfahrt 9 Uhr.',
@@ -1757,6 +1760,29 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT group_id FROM facility_notes WHERE id = 2').get()).toEqual({ group_id: null })
     sqlite.exec('INSERT INTO facility_notes (facility_id, text, created_at, created_by) VALUES (1, \'neu\', \'now\', \'Lea\')')
     expect(sqlite.prepare('SELECT max(id) AS id FROM facility_notes').get()).toEqual({ id: 5 })
+    expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'index\' AND tbl_name = \'facility_notes\' AND sql IS NOT NULL').all())
+      .toEqual([{ name: 'facility_notes_facility' }])
+  })
+
+  it('0068 makes every existing note visible to all and gives new ones \'all\' by default', () => {
+    const { db, sqlite } = databaseAt('0067')
+    sqlite.exec(`
+      INSERT INTO groups (id, facility_id, name) VALUES (1, 1, 'Bären');
+      INSERT INTO facility_notes (id, facility_id, group_id, valid_until, text, created_at, created_by, updated_at, updated_by) VALUES
+        (1, 1, NULL, '2026-12-31', 'Elternabend am Freitag', '2026-11-01T08:00:00.000Z', 'Lea', NULL, NULL),
+        (2, 1, 1, NULL, 'Ausflug', '2026-11-02T08:00:00.000Z', 'Gina', '2026-11-03T08:00:00.000Z', 'Lea');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT * FROM facility_notes ORDER BY id').all()).toEqual([
+      { id: 1, facility_id: 1, group_id: null, valid_until: '2026-12-31', text: 'Elternabend am Freitag',
+        created_at: '2026-11-01T08:00:00.000Z', created_by: 'Lea', updated_at: null, updated_by: null, visibility: 'all' },
+      { id: 2, facility_id: 1, group_id: 1, valid_until: null, text: 'Ausflug',
+        created_at: '2026-11-02T08:00:00.000Z', created_by: 'Gina', updated_at: '2026-11-03T08:00:00.000Z', updated_by: 'Lea',
+        visibility: 'all' },
+    ])
+    sqlite.exec('INSERT INTO facility_notes (facility_id, text, created_at, created_by) VALUES (1, \'neu\', \'now\', \'Lea\')')
+    expect(sqlite.prepare('SELECT id, visibility FROM facility_notes WHERE text = \'neu\'').get()).toEqual({ id: 3, visibility: 'all' })
+    expect(() => sqlite.exec('UPDATE facility_notes SET visibility = NULL WHERE id = 1')).toThrow(/NOT NULL/)
     expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'index\' AND tbl_name = \'facility_notes\' AND sql IS NOT NULL').all())
       .toEqual([{ name: 'facility_notes_facility' }])
   })

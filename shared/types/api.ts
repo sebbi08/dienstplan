@@ -2364,9 +2364,16 @@ export interface TeamMeetingsDto {
 }
 
 /**
+ * Who reads a note („Sichtbar für“): the levels and viewer rule of the print-template categories
+ * (shared/domain/templateCategories.ts) — everyone of the facility and the tablet, only Leitung and Träger, or only the
+ * Träger. A writer chooses only a level they see.
+ */
+export type NoteVisibility = TemplateVisibility
+
+/**
  * A note of the facility (Notizen), optionally until `validUntil`, for the whole facility (`groupId` null) or a group;
  * `canEdit`: the reader may change and delete it (notes.write for the facility, or for the note's group as the own
- * group).
+ * group). `visibility` („Sichtbar für“): who reads it (NoteVisibility).
  */
 export interface NoteDto {
   id: number
@@ -2374,6 +2381,7 @@ export interface NoteDto {
   groupName: string | null
   validUntil: IsoDate | null
   text: string
+  visibility: NoteVisibility
   createdAt: string
   createdBy: string
   updatedAt: string | null
@@ -2385,20 +2393,21 @@ export interface NoteDto {
  * The page „Notizen“ (filtered by group and search): `current` the notes that apply (no „gilt bis“ or from today on),
  * `expired` those with „gilt bis“ before today, each newest first. `groups`: the facility's groups for the filter and
  * the form. `write`: null without notes.write (and at the tablet); `facility` for every note of the facility, else
- * only for the own group `groupId` (null: none).
+ * only for the own group `groupId` (null: none); `visibilities` the levels „Sichtbar für“ the writer may choose.
  */
 export interface NotesDto {
   current: NoteDto[]
   expired: NoteDto[]
   groups: { id: number; name: string; color: GroupColor | null }[]
-  write: { facility: boolean; groupId: number | null } | null
+  write: { facility: boolean; groupId: number | null; visibilities: NoteVisibility[] } | null
 }
 
-/** A new or changed note; checked by the service (text, „gilt bis“, group). */
+/** A new or changed note; checked by the service (text, „gilt bis“, group, „Sichtbar für“). */
 export interface NoteInput {
   groupId: number | null
   validUntil: string | null
   text: string
+  visibility: NoteVisibility
 }
 
 /**

@@ -1,0 +1,1 @@
+ALTER TABLE `facility_notes` ADD `visibility` text DEFAULT 'all' NOT NULL;

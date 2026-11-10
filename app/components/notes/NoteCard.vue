@@ -3,10 +3,11 @@ import type { GroupColor, NoteDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime } from '~/utils/format'
 import { groupColorClasses } from '~/utils/groups'
+import { noteVisibilityBadge } from '~/utils/notes'
 
 /**
  * One note of the page „Notizen“: the text (line breaks kept), „Einrichtung“ or the group in its colour, who wrote and
- * changed it and, if set, until when it applies; edit and delete for whoever may change it (`note.canEdit`).
+ * changed it and, if set, until when it applies; a lock badge for a note only for Leitung and Träger or only the Träger; edit and delete for whoever may change it (`note.canEdit`).
  */
 const props = defineProps<{ note: NoteDto; groupColor: GroupColor | null }>()
 defineEmits<{ edit: []; remove: [] }>()
@@ -14,6 +15,8 @@ defineEmits<{ edit: []; remove: [] }>()
 const t = de.notes
 // A group without a colour (or deleted meanwhile, then the note is the facility's) gets a neutral badge.
 const badgeClass = computed(() => (props.groupColor ? groupColorClasses[props.groupColor] : 'bg-gray-100 text-gray-700'))
+// „Leitung und Träger“ / „Nur Träger“ for a restricted note; nothing for one visible to all.
+const visibilityLabel = computed(() => noteVisibilityBadge(props.note.visibility))
 </script>
 
 <template>
@@ -21,6 +24,7 @@ const badgeClass = computed(() => (props.groupColor ? groupColorClasses[props.gr
     <div class="flex flex-wrap items-start gap-2">
       <UBadge v-if="note.groupId === null" color="neutral" variant="outline" size="sm" :label="t.wholeFacility" />
       <span v-else class="rounded-md px-1.5 py-0.5 text-xs font-medium" :class="badgeClass">{{ note.groupName }}</span>
+      <UBadge v-if="visibilityLabel" color="neutral" variant="soft" size="sm" icon="i-lucide-lock" :label="visibilityLabel" />
       <span v-if="note.validUntil" class="text-xs text-gray-600">{{ t.until(formatDate(note.validUntil)) }}</span>
       <div v-if="note.canEdit" class="ml-auto flex gap-1">
         <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="t.edit" :title="t.edit" @click="$emit('edit')" />

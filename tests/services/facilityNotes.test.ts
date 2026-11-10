@@ -34,7 +34,7 @@ const asActor = (user: SessionUser): NotesActor => {
   return user as NotesActor
 }
 
-const note = (more: Partial<NoteInput> = {}): NoteInput => ({ groupId: null, validUntil: null, text: 'Notiz', ...more })
+const note = (more: Partial<NoteInput> = {}): NoteInput => ({ groupId: null, validUntil: null, text: 'Notiz', visibility: 'all', ...more })
 
 describe('facility notes', () => {
   let db: Db
@@ -82,11 +82,11 @@ describe('facility notes', () => {
       expect(list.current).toEqual([
         {
           id: groupNote.id, groupId: fuechse, groupName: 'Füchse', validUntil: null, text: 'Ausflug',
-          createdAt: LATER.toISOString(), createdBy: 'traeger', updatedAt: null, updatedBy: null, canEdit: true,
+          visibility: 'all', createdAt: LATER.toISOString(), createdBy: 'traeger', updatedAt: null, updatedBy: null, canEdit: true,
         },
         {
           id: facilityNote.id, groupId: null, groupName: null, validUntil: null, text: 'Elternabend am Freitag',
-          createdAt: NOW.toISOString(), createdBy: 'Lea Leitung', updatedAt: null, updatedBy: null, canEdit: true,
+          visibility: 'all', createdAt: NOW.toISOString(), createdBy: 'Lea Leitung', updatedAt: null, updatedBy: null, canEdit: true,
         },
       ])
       expect(createNote(db, leitung, note({ groupId: baeren }), NOW).groupId).toBe(baeren)
@@ -122,7 +122,7 @@ describe('facility notes', () => {
       expect(failure(() => createNote(db, springer, note(), NOW))).toBe('403 notes_no_group')
       expect(failure(() => updateNote(db, springer, id, note(), LATER))).toBe('403 notes_no_group')
       expect(failure(() => deleteNote(db, springer, id))).toBe('403 notes_no_group')
-      expect(listNotes(db, springer, { group: 'all' }, TODAY).write).toEqual({ facility: false, groupId: null })
+      expect(listNotes(db, springer, { group: 'all' }, TODAY).write).toEqual({ facility: false, groupId: null, visibilities: ['all'] })
     })
 
     it('without notes.write (Mitarbeiter, tablet) the service refuses (403 forbidden)', () => {
@@ -138,7 +138,7 @@ describe('facility notes', () => {
       saveBundleOverride(db, mitarbeiter.id, 'notesWrite', 'grant', 'group')
       // The rights are read when the session user is loaded (the next request).
       const mia = asActor(getActiveUser(db, mitarbeiter.id, TODAY)!)
-      expect(listNotes(db, mia, { group: 'all' }, TODAY).write).toEqual({ facility: false, groupId: baeren })
+      expect(listNotes(db, mia, { group: 'all' }, TODAY).write).toEqual({ facility: false, groupId: baeren, visibilities: ['all'] })
       expect(createNote(db, mia, note({ groupId: baeren }), NOW).createdBy).toBe('Mia')
       expect(failure(() => createNote(db, mia, note(), NOW))).toBe('403 forbidden')
     })
@@ -198,9 +198,12 @@ describe('facility notes', () => {
       for (const actor of [leitung, traeger, gruppenleitung, springer, mitarbeiter, tablet]) {
         expect(ids(listNotes(db, actor, { group: 'all' }, TODAY).current).sort()).toEqual([facilityNote, groupNote].sort())
       }
-      expect(listNotes(db, leitung, { group: 'all' }, TODAY).write).toEqual({ facility: true, groupId: null })
-      expect(listNotes(db, traeger, { group: 'all' }, TODAY).write).toEqual({ facility: true, groupId: null })
-      expect(listNotes(db, gruppenleitung, { group: 'all' }, TODAY).write).toEqual({ facility: false, groupId: baeren })
+      expect(listNotes(db, leitung, { group: 'all' }, TODAY).write)
+        .toEqual({ facility: true, groupId: null, visibilities: ['all', 'managers'] })
+      expect(listNotes(db, traeger, { group: 'all' }, TODAY).write)
+        .toEqual({ facility: true, groupId: null, visibilities: ['all', 'managers', 'provider'] })
+      expect(listNotes(db, gruppenleitung, { group: 'all' }, TODAY).write)
+        .toEqual({ facility: false, groupId: baeren, visibilities: ['all'] })
       expect(listNotes(db, mitarbeiter, { group: 'all' }, TODAY).write).toBeNull()
       expect(listNotes(db, tablet, { group: 'all' }, TODAY).write).toBeNull()
     })
@@ -313,6 +316,119 @@ describe('facility notes', () => {
     })
   })
 
+  describe('visibility „Sichtbar für“', () => {
+    /** One note per level and one expired per level, all of the whole facility. */
+    const levels = () => ({
+      all: insert({ text: 'Elternabend', visibility: 'all', createdAt: '2026-11-01T08:00:00.000Z' }),
+      managers: insert({ text: 'Personalgespräch', createdBy: 'Gina', visibility: 'managers', createdAt: '2026-11-02T08:00:00.000Z' }),
+      provider: insert({ text: 'Budget', visibility: 'provider', createdAt: '2026-11-03T08:00:00.000Z' }),
+      allExpired: insert({ text: 'alt', visibility: 'all', validUntil: '2026-11-01', createdAt: '2026-10-01T08:00:00.000Z' }),
+      managersExpired: insert({ text: 'alt Leitung', visibility: 'managers', validUntil: '2026-11-01', createdAt: '2026-10-02T08:00:00.000Z' }),
+      providerExpired: insert({ text: 'alt Budget', visibility: 'provider', validUntil: '2026-11-01', createdAt: '2026-10-03T08:00:00.000Z' }),
+    })
+    const read = (actor: NotesActor, q = '') => {
+      const list = listNotes(db, actor, { group: 'all', q }, TODAY)
+      return { current: ids(list.current), expired: ids(list.expired) }
+    }
+
+    it('a new row without a level is visible to all (schema default)', () => {
+      const id = insert()
+      expect(db.select({ visibility: facilityNotes.visibility }).from(facilityNotes).where(eq(facilityNotes.id, id)).get())
+        .toEqual({ visibility: 'all' })
+    })
+
+    it('the Träger reads all three levels, the Leitung all but the Träger\'s, everyone else and the tablet only \'all\'', () => {
+      const n = levels()
+      expect(read(traeger)).toEqual({
+        current: [n.provider, n.managers, n.all], expired: [n.providerExpired, n.managersExpired, n.allExpired],
+      })
+      expect(read(leitung)).toEqual({ current: [n.managers, n.all], expired: [n.managersExpired, n.allExpired] })
+      for (const actor of [gruppenleitung, springer, mitarbeiter, tablet]) {
+        expect(read(actor)).toEqual({ current: [n.all], expired: [n.allExpired] })
+      }
+      // The same with every group filter.
+      expect(ids(listNotes(db, mitarbeiter, { group: 'facility' }, TODAY).current)).toEqual([n.all])
+      expect(ids(listNotes(db, tablet, { group: baeren }, TODAY).current)).toEqual([n.all])
+      expect(listNotes(db, traeger, { group: 'all' }, TODAY).current.map(entry => entry.visibility))
+        .toEqual(['provider', 'managers', 'all'])
+    })
+
+    it('hides a group\'s note above the reader\'s level as well', () => {
+      const managersOfBaeren = insert({ groupId: baeren, visibility: 'managers', createdAt: '2026-11-02T08:00:00.000Z' })
+      const allOfBaeren = insert({ groupId: baeren, createdAt: '2026-11-01T08:00:00.000Z' })
+      expect(ids(listNotes(db, gruppenleitung, { group: baeren }, TODAY).current)).toEqual([allOfBaeren])
+      expect(ids(listNotes(db, leitung, { group: baeren }, TODAY).current)).toEqual([managersOfBaeren, allOfBaeren])
+    })
+
+    it('the search never finds a note above the reader\'s level (by text or name)', () => {
+      const n = levels()
+      expect(read(leitung, 'budget')).toEqual({ current: [], expired: [] })
+      expect(read(traeger, 'budget')).toEqual({ current: [n.provider], expired: [n.providerExpired] })
+      expect(read(gruppenleitung, 'gina')).toEqual({ current: [], expired: [] })
+      expect(read(gruppenleitung, 'personalgespräch')).toEqual({ current: [], expired: [] })
+      expect(read(leitung, 'gina')).toEqual({ current: [n.managers], expired: [] })
+      expect(read(tablet, 'alt')).toEqual({ current: [], expired: [n.allExpired] })
+    })
+
+    it('the Träger writes every level, the Leitung \'all\' and \'managers\' (403 forbidden for \'provider\')', () => {
+      for (const visibility of ['all', 'managers', 'provider'] as const) {
+        expect(createNote(db, traeger, note({ visibility }), NOW).visibility).toBe(visibility)
+      }
+      expect(createNote(db, leitung, note({ visibility: 'all' }), NOW).visibility).toBe('all')
+      expect(createNote(db, leitung, note({ visibility: 'managers', groupId: baeren }), NOW).visibility).toBe('managers')
+      expect(failure(() => createNote(db, leitung, note({ visibility: 'provider' }), NOW))).toBe('403 forbidden')
+      // Nor may she change a note to the Träger's level.
+      const id = createNote(db, leitung, note(), NOW).id
+      expect(failure(() => updateNote(db, leitung, id, note({ visibility: 'provider' }), LATER))).toBe('403 forbidden')
+      expect(updateNote(db, leitung, id, note({ visibility: 'managers' }), LATER).visibility).toBe('managers')
+      expect(db.select().from(facilityNotes).where(eq(facilityNotes.id, id)).get()!.visibility).toBe('managers')
+      expect(db.select().from(facilityNotes).all().filter(row => row.visibility === 'provider')).toHaveLength(1)
+    })
+
+    it('a group writer (Gruppenleitung, Mitarbeiter with the exception) writes only \'all\' (403 forbidden)', () => {
+      saveBundleOverride(db, mitarbeiter.id, 'notesWrite', 'grant', 'group')
+      const mia = asActor(getActiveUser(db, mitarbeiter.id, TODAY)!)
+      for (const actor of [gruppenleitung, mia]) {
+        expect(failure(() => createNote(db, actor, note({ groupId: baeren, visibility: 'managers' }), NOW))).toBe('403 forbidden')
+        expect(failure(() => createNote(db, actor, note({ groupId: baeren, visibility: 'provider' }), NOW))).toBe('403 forbidden')
+        const id = createNote(db, actor, note({ groupId: baeren }), NOW).id
+        expect(failure(() => updateNote(db, actor, id, note({ groupId: baeren, visibility: 'managers' }), LATER))).toBe('403 forbidden')
+      }
+      expect(db.select().from(facilityNotes).all().map(row => row.visibility)).toEqual(['all', 'all'])
+    })
+
+    it('changing or deleting a note the actor cannot see is 404 note_not_found, and it stays as it was', () => {
+      const providerNote = createNote(db, traeger, note({ visibility: 'provider' }), NOW).id
+      const managersOfBaeren = createNote(db, leitung, note({ groupId: baeren, visibility: 'managers' }), NOW).id
+      expect(failure(() => updateNote(db, leitung, providerNote, note(), LATER))).toBe('404 note_not_found')
+      expect(failure(() => deleteNote(db, leitung, providerNote))).toBe('404 note_not_found')
+      expect(failure(() => updateNote(db, gruppenleitung, managersOfBaeren, note({ groupId: baeren }), LATER))).toBe('404 note_not_found')
+      expect(failure(() => deleteNote(db, gruppenleitung, managersOfBaeren))).toBe('404 note_not_found')
+      expect(db.select().from(facilityNotes).all().map(row => [row.id, row.visibility, row.text, row.updatedAt])).toEqual([
+        [providerNote, 'provider', 'Notiz', null], [managersOfBaeren, 'managers', 'Notiz', null],
+      ])
+      // Whoever sees them still changes and deletes them.
+      expect(updateNote(db, traeger, providerNote, note({ visibility: 'provider', text: 'neu' }), LATER).text).toBe('neu')
+      deleteNote(db, leitung, managersOfBaeren)
+      deleteNote(db, traeger, providerNote)
+      expect(db.select().from(facilityNotes).all()).toEqual([])
+    })
+
+    it('write.visibilities: the levels the writer may choose; null without notes.write', () => {
+      saveBundleOverride(db, mitarbeiter.id, 'notesWrite', 'grant', 'group')
+      const mia = asActor(getActiveUser(db, mitarbeiter.id, TODAY)!)
+      const olaf = asActor(addUser(db, 'olaf', 'observer', addEmployee(db, 'Olaf', { groupId: baeren })))
+      const visibilities = (actor: NotesActor) => listNotes(db, actor, { group: 'all' }, TODAY).write?.visibilities ?? null
+      expect(visibilities(traeger)).toEqual(['all', 'managers', 'provider'])
+      expect(visibilities(leitung)).toEqual(['all', 'managers'])
+      expect(visibilities(gruppenleitung)).toEqual(['all'])
+      expect(visibilities(springer)).toEqual(['all'])
+      expect(visibilities(mia)).toEqual(['all'])
+      expect(listNotes(db, olaf, { group: 'all' }, TODAY).write).toBeNull()
+      expect(listNotes(db, tablet, { group: 'all' }, TODAY).write).toBeNull()
+    })
+  })
+
   describe('schemas', () => {
     it('parses the note input and the list query', () => {
       expect(noteInputSchema.parse(note())).toEqual(note())
@@ -326,6 +442,15 @@ describe('facility notes', () => {
       expect(notesQuery.parse({ q: `  ${'x'.repeat(100)}  ` })).toEqual({ group: 'all', q: 'x'.repeat(100) })
       expect(() => notesQuery.parse({ q: 'x'.repeat(101) })).toThrow()
       expect(() => notesQuery.parse({ group: 'x' })).toThrow()
+    })
+
+    it('„Sichtbar für“ is one of the three levels, \'all\' when absent', () => {
+      expect(noteInputSchema.parse({ groupId: null, validUntil: null, text: 'x' }))
+        .toEqual({ groupId: null, validUntil: null, text: 'x', visibility: 'all' })
+      expect(noteInputSchema.parse(note({ visibility: 'managers' })).visibility).toBe('managers')
+      expect(noteInputSchema.parse(note({ visibility: 'provider' })).visibility).toBe('provider')
+      expect(() => noteInputSchema.parse({ ...note(), visibility: 'secret' })).toThrow()
+      expect(() => noteInputSchema.parse({ ...note(), visibility: null })).toThrow()
     })
   })
 })

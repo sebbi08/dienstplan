@@ -477,6 +477,13 @@
       "when": 1794223310065,
       "tag": "0067_general_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1794228840018,
+      "tag": "0068_note_visibility",
+      "breakpoints": true
     }
   ]
 }

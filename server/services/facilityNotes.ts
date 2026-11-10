@@ -1,9 +1,12 @@
-import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { can } from '../../shared/domain/permissions'
+import { visibleTemplateLevels } from '../../shared/domain/templateCategories'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
-import { isGroupColor, type NoteDto, type NoteInput, type NotesDto, type SessionUser } from '../../shared/types/api'
+import {
+  isGroupColor, type NoteDto, type NoteInput, type NotesDto, type NoteVisibility, type SessionUser,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilityNotes, groups } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -22,18 +25,29 @@ export type NoteGroupFilter = 'all' | 'facility' | number
 type NoteRow = typeof facilityNotes.$inferSelect
 
 /**
+ * The visibilities „Sichtbar für“ the actor reads, and so also may choose when writing — the rule of the print-template
+ * categories: the Träger all three, the Leitung 'all' and 'managers', everyone else (Gruppenleitung, Mitarbeiter, also
+ * with a write exception) and the tablet only 'all'.
+ */
+const noteLevels = (actor: NotesActor): NoteVisibility[] => visibleTemplateLevels(actor.role)
+
+/** The query condition: only notes of a level the actor reads (applied before any search or count). */
+const readable = (actor: NotesActor) => inArray(facilityNotes.visibility, noteLevels(actor))
+
+/**
  * What the actor may write: null without notes.write (the tablet never); `facility` with the scope „ganze
  * Einrichtung“, else only for the own group `groupId` (the group of the linked employee, if it is one of the facility;
- * null: none).
+ * null: none); `visibilities` the levels the actor may choose (noteLevels).
  */
 function writeAccess(db: Db, actor: NotesActor): NotesDto['write'] {
   if (actor.role === 'terminal' || !can(actor.permissions, 'notes.write')) return null
-  if (actor.scopes.get('notes.write') === 'facility') return { facility: true, groupId: null }
-  if (actor.employeeId === null) return { facility: false, groupId: null }
+  const visibilities = noteLevels(actor)
+  if (actor.scopes.get('notes.write') === 'facility') return { facility: true, groupId: null, visibilities }
+  if (actor.employeeId === null) return { facility: false, groupId: null, visibilities }
   const own = db.select({ id: groups.id }).from(employees)
     .innerJoin(groups, eq(groups.id, employees.groupId))
     .where(and(eq(employees.id, actor.employeeId), eq(groups.facilityId, actor.facilityId))).get()
-  return { facility: false, groupId: own?.id ?? null }
+  return { facility: false, groupId: own?.id ?? null, visibilities }
 }
 
 /** Whether `write` covers a note of the group (null = the whole facility). */
@@ -66,7 +80,7 @@ function facilityGroups(db: Db, facilityId: number): NotesDto['groups'] {
 function toDto(row: NoteRow, names: ReadonlyMap<number, string>, write: NotesDto['write']): NoteDto {
   return {
     id: row.id, groupId: row.groupId, groupName: row.groupId === null ? null : names.get(row.groupId) ?? null,
-    validUntil: row.validUntil, text: row.text, createdAt: row.createdAt, createdBy: row.createdBy,
+    validUntil: row.validUntil, text: row.text, visibility: row.visibility, createdAt: row.createdAt, createdBy: row.createdBy,
     updatedAt: row.updatedAt, updatedBy: row.updatedBy, canEdit: mayWrite(write, row.groupId),
   }
 }
@@ -91,7 +105,8 @@ function matches(row: NoteRow, words: readonly string[]): boolean {
  * The notes of the actor's facility for the page „Notizen“ (every person of the facility and the tablet), split into
  * those that apply (no „gilt bis“ or from `today` on) and the expired ones, each newest first; with the groups and what
  * the actor may write. `q`: only the notes whose text or names hold every word of it (case-insensitive, the expired
- * ones too); the group filter applies as well. A group of another facility as filter is 404 group_not_found.
+ * ones too); the group filter applies as well. Only notes of a level the actor reads (noteLevels), filtered in the
+ * query, so the search never finds the others. A group of another facility as filter is 404 group_not_found.
  */
 export function listNotes(
   db: Db, actor: NotesActor, filter: { group: NoteGroupFilter; q?: string }, today: IsoDate,
@@ -102,7 +117,7 @@ export function listNotes(
     : filter.group === 'facility'
       ? isNull(facilityNotes.groupId)
       : or(isNull(facilityNotes.groupId), eq(facilityNotes.groupId, filter.group))
-  const rows = db.select().from(facilityNotes).where(and(eq(facilityNotes.facilityId, actor.facilityId), ofGroup))
+  const rows = db.select().from(facilityNotes).where(and(eq(facilityNotes.facilityId, actor.facilityId), readable(actor), ofGroup))
     .orderBy(desc(facilityNotes.createdAt), desc(facilityNotes.id)).all()
   const groupList = facilityGroups(db, actor.facilityId)
   const names = new Map(groupList.map(group => [group.id, group.name]))
@@ -118,13 +133,13 @@ export function listNotes(
   }
 }
 
-/** A checked note: the trimmed text, „gilt bis“ (null for none) and the group. */
-type CheckedNote = Pick<NoteRow, 'groupId' | 'validUntil' | 'text'>
+/** A checked note: the trimmed text, „gilt bis“ (null for none), the group and „Sichtbar für“. */
+type CheckedNote = Pick<NoteRow, 'groupId' | 'validUntil' | 'text' | 'visibility'>
 
 /**
  * Text 1–1000 chars after trimming (400 note_text_invalid); „gilt bis“ empty or a valid date, on create not before
  * `today` (400 note_valid_until_invalid); the group one the writer may write for (403 forbidden) and of the facility
- * (404 group_not_found).
+ * (404 group_not_found); „Sichtbar für“ one of `write.visibilities` (403 forbidden).
  */
 function checkedNote(
   db: Db, actor: NotesActor, write: NonNullable<NotesDto['write']>, input: NoteInput, today: IsoDate, creating: boolean,
@@ -139,13 +154,18 @@ function checkedNote(
     validUntil = input.validUntil
   }
   if (!mayWrite(write, input.groupId)) throw new ServiceError(403, 'forbidden')
+  if (!write.visibilities.includes(input.visibility)) throw new ServiceError(403, 'forbidden')
   if (input.groupId !== null) assertFacilityGroup(db, actor.facilityId, input.groupId)
-  return { groupId: input.groupId, validUntil, text }
+  return { groupId: input.groupId, validUntil, text, visibility: input.visibility }
 }
 
-/** A note of the actor's facility; another facility's note is 404 note_not_found (no existence leak). */
+/**
+ * A note of the actor's facility of a level the actor reads; another facility's note and one the actor does not see
+ * are 404 note_not_found (no existence leak).
+ */
 function loadNote(db: Db, actor: NotesActor, id: number): NoteRow {
-  const row = db.select().from(facilityNotes).where(and(eq(facilityNotes.id, id), eq(facilityNotes.facilityId, actor.facilityId))).get()
+  const row = db.select().from(facilityNotes)
+    .where(and(eq(facilityNotes.id, id), eq(facilityNotes.facilityId, actor.facilityId), readable(actor))).get()
   if (!row) throw new ServiceError(404, 'note_not_found')
   return row
 }
@@ -168,7 +188,7 @@ export function createNote(db: Db, actor: NotesActor, input: NoteInput, now: Dat
 
 /**
  * Changes a note the actor may write for (403 forbidden for another group's or the facility's note with the own-group
- * scope; see checkedNote). Keeps the name and time of the change.
+ * scope; 404 note_not_found for one the actor does not see; see checkedNote). Keeps the name and time of the change.
  */
 export function updateNote(db: Db, actor: NotesActor, id: number, input: NoteInput, now: Date = new Date()): NoteDto {
   const write = requireWriter(db, actor)

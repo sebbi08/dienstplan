@@ -1683,6 +1683,8 @@ export const de = {
     create: 'Notiz anlegen', edit: 'Notiz ändern',
     for: 'Für',
     validUntil: 'Gilt bis', validUntilHint: 'freiwillig – danach steht die Notiz unter „Abgelaufen“',
+    visibility: 'Sichtbar für',
+    visibilities: { all: 'Alle', managers: 'Leitung und Träger', provider: 'Nur Träger' },
     text: 'Text',
     by: (name: string, at: string) => `von ${name} am ${at}`,
     changedBy: (name: string, at: string) => `geändert von ${name} am ${at}`,

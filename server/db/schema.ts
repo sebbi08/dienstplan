@@ -1273,7 +1273,9 @@ export const teamMeetingParticipants = sqliteTable('team_meeting_participants', 
  * A note of the facility (Notizen), optionally until `validUntil` (afterwards under „Abgelaufen“), for the whole
  * facility (`groupId` null) or one of its groups (null again once the group is deleted). `createdBy`/`updatedBy`: the
  * names at the time (`updatedAt`/`updatedBy` null until the first change). Deleted only by hand. (The former day notes
- * became general notes with their date in front of the text, migration 0067.)
+ * became general notes with their date in front of the text, migration 0067.) `visibility` („Sichtbar für“) says who
+ * reads it, with the levels and viewer rule of the print-template categories (shared/domain/templateCategories.ts;
+ * the notes before migration 0068 are visible to all).
  */
 export const facilityNotes = sqliteTable('facility_notes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -1285,6 +1287,7 @@ export const facilityNotes = sqliteTable('facility_notes', {
   createdBy: text('created_by').notNull(),
   updatedAt: text('updated_at'),
   updatedBy: text('updated_by'),
+  visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
 }, table => [index('facility_notes_facility').on(table.facilityId)])
 
 /**
