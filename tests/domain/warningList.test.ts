@@ -25,7 +25,7 @@ describe('warningCategory', () => {
     expect(warningCategory({ type: 'edge', date: '2026-10-05', edge: 'opening', time: 420, found: 0, required: 1 })).toBe('staffing')
     expect(warningCategory(missing('2026-10-05'))).toBe('gaps')
     expect(warningCategory(gap('2026-10-05', 30))).toBe('gaps')
-    for (const type of ['open_record', 'missing_record', 'break_rule', 'record_without_plan'] as const) {
+    for (const type of ['open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence'] as const) {
       expect(warningCategory({ type, date: '2026-10-05', employeeId: 1 })).toBe('time')
     }
   })

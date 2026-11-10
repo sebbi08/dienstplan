@@ -32,6 +32,8 @@ export type Warning =
   | { type: 'missing_record'; date: IsoDate; employeeId: number }
   | { type: 'break_rule'; date: IsoDate; employeeId: number }
   | { type: 'record_without_plan'; date: IsoDate; employeeId: number }
+  /** Stamped on a day whose plan is a full-day absence (Urlaub, Schließtag): the stamped time does not count. */
+  | { type: 'record_on_absence'; date: IsoDate; employeeId: number }
   /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.
@@ -177,7 +179,9 @@ export function dayWarnings(
 export function timeWarnings(
   date: IsoDate, employeeId: number, entries: DomainEntry[], records: RecordSpan[], breakMode: BreakMode = 'stamp',
 ): Warning[] {
-  if (entries.some(entry => entry.creditMode === 'daily_target')) return []
+  if (entries.some(entry => entry.creditMode === 'daily_target')) {
+    return records.length > 0 ? [{ type: 'record_on_absence', date, employeeId }] : []
+  }
   const warnings: Warning[] = []
   if (records.some(record => record.end === null)) warnings.push({ type: 'open_record', date, employeeId })
   const plannedWork = entries.some(isWorkEntry)

@@ -167,6 +167,13 @@ describe('timeWarnings', () => {
     expect(timeWarnings(date, 1, [shift(1, date, ...M)], records([465, 960])).map(w => w.type)).toEqual(['break_rule'])
     expect(timeWarnings(date, 1, [], records([465, 700])).map(w => w.type)).toEqual(['record_without_plan'])
   })
+  it('warns once when someone stamps on a day with a full-day absence', () => {
+    const urlaub = code(1, date, 'vacation', 'daily_target')
+    expect(timeWarnings(date, 1, [urlaub], records([465, 700], [730, 960]))).toEqual([{ type: 'record_on_absence', date, employeeId: 1 }])
+    expect(timeWarnings(date, 1, [urlaub], [])).toEqual([])
+    const closure = code(1, date, 'closure_day', 'daily_target')
+    expect(timeWarnings(date, 1, [closure], records([465, null])).map(w => w.type)).toEqual(['record_on_absence'])
+  })
   it('stays quiet for absences from the plan and for correct days', () => {
     expect(timeWarnings(date, 1, [code(1, date, 'sick', 'daily_target')], [])).toEqual([])
     expect(timeWarnings(date, 1, [shift(1, date, ...M)], records([465, 700], [730, 960]))).toEqual([])

@@ -37,6 +37,14 @@ describe('warning line texts', () => {
     expect(warningLineText(line(gaps), names)).toBe('Anna · Sollstunden: 2 Tage, zusammen 2:30 h zu wenig (05.–06.10.)')
   })
 
+  it('words a stamp on a day with a full-day absence', () => {
+    expect(warningLineText(line([{ type: 'record_on_absence', date: '2026-10-05', employeeId: 1 }]), names)).toBe(
+      'Mo 05.10. · Anna: gestempelt trotz ganztägiger Abwesenheit (z. B. Urlaub, Schließtag) – die Zeit zählt erst, wenn der Tag im Dienstplan geändert wird',
+    )
+    const days: Warning[] = ['2026-10-05', '2026-10-06'].map(date => ({ type: 'record_on_absence', date, employeeId: 1 }))
+    expect(warningLineText(line(days), names)).toBe('Anna · 2 Tage gestempelt trotz ganztägiger Abwesenheit (05.–06.10.)')
+  })
+
   it('keeps the single day as before, with its date first', () => {
     expect(warningLineText(line([{ type: 'missing_entry', date: '2026-10-05', employeeId: 1 }]), names)).toBe('Mo 05.10. · Anna: kein Eintrag')
   })

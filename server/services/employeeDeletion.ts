@@ -20,7 +20,7 @@ import { ServiceError } from '../lib/errors'
 import { getRetentionSettings } from './retentionSettings'
 
 /** Warning types whose acknowledgement key names an employee as subject (`<type>|<date>|<employeeId>`, warningList.ts). */
-const EMPLOYEE_WARNING_TYPES = new Set(['missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan'])
+const EMPLOYEE_WARNING_TYPES = new Set(['missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence'])
 
 /** Release snapshots of every facility (home, former home, help-out plans) without the employee's column and cells. */
 function dropFromSnapshots(db: Db, employeeId: number): void {

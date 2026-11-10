@@ -320,6 +320,7 @@ export const de = {
     missingRecord: (name: string) => `${name}: keine Stempelzeit`,
     breakRule: (name: string) => `${name}: gesetzliche Pause nicht eingehalten`,
     recordWithoutPlan: (name: string) => `${name}: gestempelt ohne Dienst`,
+    recordOnAbsence: (name: string) => `${name}: gestempelt trotz ganztägiger Abwesenheit (z. B. Urlaub, Schließtag) – die Zeit zählt erst, wenn der Tag im Dienstplan geändert wird`,
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
@@ -336,6 +337,7 @@ export const de = {
     missingRecordDays: (name: string, days: number, span: string) => `${name} · ${days} Tage ohne Stempelzeit (${span})`,
     breakRuleDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gesetzliche Pause nicht eingehalten (${span})`,
     recordWithoutPlanDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gestempelt ohne Dienst (${span})`,
+    recordOnAbsenceDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gestempelt trotz ganztägiger Abwesenheit (${span})`,
     filterGroup: 'Gruppe', filterEmployee: 'Mitarbeiter', filterAll: 'alle',
     noneFiltered: 'Keine Warnungen für diese Auswahl.',
     acknowledge: 'Zur Kenntnis genommen',

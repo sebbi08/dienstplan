@@ -6,7 +6,7 @@ import { applyToCells } from '../../server/services/entries'
 import { getMonthPlan } from '../../server/services/plan'
 import { actualTimeFor, loadTimeRecords, stamp } from '../../server/services/timeTracking'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const at = (iso: string) => new Date(iso) // UTC; October 2026 is CEST (UTC+2)
 
@@ -91,5 +91,14 @@ describe('stamping options per employee', () => {
     expect([minutes(), breakWarning()]).toEqual([495, true])
     setStampingOptions(db, 1, anna, { stampVia: 'both', breakMode: 'auto' })
     expect([minutes(), breakWarning()]).toEqual([465, false]) // M's break 11:40–12:10 deducted
+  })
+  it('hints in the plan when someone stamps on a day entered as Urlaub', () => {
+    const hint = () => getMonthPlan(db, admin, 1, 2026, 10, '2026-10-08').admin!.warnings
+      .filter(w => w.date === '2026-10-06' && 'employeeId' in w && w.employeeId === anna).map(w => w.type)
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+    expect(hint()).toEqual([])
+    stamp(db, anna, 'in', 'self', at('2026-10-06T05:45:00Z'))
+    stamp(db, anna, 'out', 'self', at('2026-10-06T09:45:00Z'))
+    expect(hint()).toEqual(['record_on_absence'])
   })
 })

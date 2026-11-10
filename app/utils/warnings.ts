@@ -43,6 +43,8 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return de.warnings.missingRecord(names.get(warning.employeeId) ?? '?')
     case 'break_rule':
       return de.warnings.breakRule(names.get(warning.employeeId) ?? '?')
+    case 'record_on_absence':
+      return de.warnings.recordOnAbsence(names.get(warning.employeeId) ?? '?')
     case 'record_without_plan':
       return de.warnings.recordWithoutPlan(names.get(warning.employeeId) ?? '?')
     case 'staffing':
@@ -93,6 +95,8 @@ export function warningLineText(line: WarningLine, names: Map<number, string>): 
         return de.warnings.missingRecordDays(name, line.days, span)
       case 'break_rule':
         return de.warnings.breakRuleDays(name, line.days, span)
+      case 'record_on_absence':
+        return de.warnings.recordOnAbsenceDays(name, line.days, span)
       case 'record_without_plan':
         return de.warnings.recordWithoutPlanDays(name, line.days, span)
     }
