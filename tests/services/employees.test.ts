@@ -133,6 +133,11 @@ describe('employees service', () => {
     updateEmployee(db, 1, id, { name: 'Anna B.', shortName: '', leftOn: null, birthday: null })
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin')).birthday).toBeNull()
   })
+  it('accepts the qualification Haushaltskraft', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, qualification: 'haushalt' })
+    expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin'))).toMatchObject({ qualification: 'haushalt', staffingShare: null })
+  })
   it('stores qualification and counting share for the staffing ratio, keeps them when left out and clears them with null', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin'))).toMatchObject({ qualification: null, staffingShare: null })

@@ -8,7 +8,7 @@ import type { IsoDate, Minutes } from '../types'
  */
 
 export const QUALIFICATIONS = [
-  'fachkraft', 'ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'praktikant', 'none',
+  'fachkraft', 'ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'praktikant', 'haushalt', 'none',
 ] as const
 
 /** An employee's qualification; null in inputs = not entered yet. */

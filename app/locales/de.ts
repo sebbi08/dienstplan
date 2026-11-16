@@ -1061,7 +1061,7 @@ export const de = {
     qualifications: {
       fachkraft: 'Fachkraft', ergaenzung: 'Ergänzungs-/Zusatzkraft', azubi_1: 'Auszubildende/r (1. Jahr)',
       azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)', praktikant: 'Praktikant/in',
-      none: 'keine pädagogische Kraft',
+      haushalt: 'Haushaltskraft', none: 'keine pädagogische Kraft',
     } satisfies Record<Qualification, string>,
     share: 'Anrechnung in %',
     sharePlaceholder: (pct: number) => `${pct} (Vorgabe)`,
