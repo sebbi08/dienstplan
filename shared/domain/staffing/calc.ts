@@ -176,6 +176,17 @@ export function facilityAddOns(rules: StaffingRuleSet, ctx: AddOnContext): Requi
   return hasPeriodCheck(rules) ? addOnLines(rules, 'facility', ctx) : []
 }
 
+/** Lines of the same key summed (the groups' lines, then the facility's), in the order of first appearance. */
+export function mergeLines(lines: RequirementLine[]): RequirementLine[] {
+  const merged = new Map<string, RequirementLine>()
+  for (const line of lines) {
+    const known = merged.get(line.key)
+    if (known === undefined) merged.set(line.key, { ...line })
+    else known.fte += line.fte
+  }
+  return [...merged.values()]
+}
+
 const fachkraftSet = (rules: StaffingRuleSet) => rules.fachkraftQualifications ?? DEFAULT_FACHKRAFT
 
 /** Counting share in percent: the employee's own, else the state's default; 100 without qualification. */

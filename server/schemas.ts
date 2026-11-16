@@ -209,6 +209,15 @@ export const retentionDueSchema = z.object({ keys: z.array(z.string().max(100)).
 export const staffingOverridesSchema = z.object({ overrides: z.record(z.string().max(200), z.unknown()) })
 /** „Auf Vorgabe zurücksetzen“: without `path` every override goes, with it only that one. */
 export const staffingResetQuery = z.object({ path: z.string().max(200).optional() })
+/**
+ * The live estimate while a group is created or edited: the group type ('' or left out = none; an unknown key gives the
+ * reason unknown_group_type), the places (left out = none) and the group being edited (left out = a new group).
+ */
+export const staffingEstimatePreviewQuery = z.object({
+  groupType: z.string().max(40).optional().transform(value => (value ? value : null)),
+  capacity: z.coerce.number().int().min(1).max(200).optional().transform(value => value ?? null),
+  groupId: z.coerce.number().int().positive().optional().transform(value => value ?? null),
+})
 /** A key of the state's group types (null = none); the service answers staffing_group_type_invalid for any other. */
 export const groupTypeSchema = z.object({ groupType: z.string().max(40).nullable() })
 export const helpOutSchema = z.object({

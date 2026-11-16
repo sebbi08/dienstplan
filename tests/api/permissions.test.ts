@@ -449,6 +449,17 @@ describe('API route permissions', () => {
     expect(code).toContain('admin.facilityId')
   })
 
+  it('opens the staffing estimate of the group settings to managers, in the facility of the request like the groups', () => {
+    const touching = routes.filter(route => source(route).includes('services/staffingEstimate\''))
+    expect(touching).toEqual(['staffing/estimate.get.ts', 'staffing/estimate/preview.get.ts'])
+    for (const route of touching) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'settings.facility', options: '' }])
+      expect(source(route), route).toContain('(useDb(), admin.facilityId')
+    }
+    expect(DEFAULTS.observer.has('settings.facility')).toBe(false)
+    expect(DEFAULTS.group_lead.has('settings.facility')).toBe(false)
+  })
+
   it('opens the reminder settings to managers of the active facility only', () => {
     const touching = routes.filter(route => source(route).includes('services/reminderSettings\''))
     expect(touching).toEqual(['groups/[id]/documentation.put.ts', 'reminder-settings.get.ts', 'reminder-settings.put.ts'])

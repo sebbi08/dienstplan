@@ -1,5 +1,7 @@
 import { ageOn } from '../children'
+import { hoursOn, isEntered } from '../openingHours'
 import type { DomainEntry, IsoDate, Minutes } from '../types'
+import type { DayHoursContext } from '../warnings'
 import { SLOT_MINUTES } from './presence'
 import type { AgeBand, Phase, StaffingRuleSet } from './types'
 
@@ -75,6 +77,27 @@ export function weeklyHours(careType: { start: Minutes; end: Minutes; daysPerWee
 /** A child's care time on a day overlaps the slot starting at `minute`. */
 export function presentInSlot(care: { start: Minutes; end: Minutes }, minute: Minutes): boolean {
   return care.start < minute + SLOT_MINUTES && care.end > minute
+}
+
+/** The entered opening of a group on a date: its own day if it set one, else the facility's; null = not entered. */
+export function openingOn(hours: DayHoursContext, groupId: number | null, date: IsoDate): { open: Minutes; close: Minutes } | null {
+  const own = groupId === null ? undefined : hours.groups.find(group => group.groupId === groupId)?.hours
+  const groupDay = hoursOn(own ?? null, date)
+  const hasOwnDay = groupDay !== null && (groupDay.closed || groupDay.open !== null || groupDay.close !== null)
+  const day = hasOwnDay ? groupDay : hoursOn(hours.facility, date)
+  return isEntered(day) ? { open: day.open, close: day.close } : null
+}
+
+/**
+ * Average daily opening of a group (null = the group of no group: the facility's) on the given care days with entered
+ * hours; null = none entered. The monthly report and the estimate in the group settings both use it.
+ */
+export function averageOpening(hours: DayHoursContext, careDays: IsoDate[], groupId: number | null): Minutes | null {
+  const spans = careDays.flatMap((date) => {
+    const day = openingOn(hours, groupId, date)
+    return day === null ? [] : [day.close - day.open]
+  })
+  return spans.length === 0 ? null : spans.reduce((a, b) => a + b, 0) / spans.length
 }
 
 /** Whether the state splits the day into Hauptbetreuungszeit and Randzeit (BW, NI). */

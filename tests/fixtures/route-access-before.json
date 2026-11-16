@@ -281,6 +281,8 @@
   "staffing-settings.get.ts": ["provider","admin"],
   "staffing-settings.put.ts": ["provider"],
   "staffing/[year]/[month].get.ts": ["provider","admin"],
+  "staffing/estimate.get.ts": ["provider","admin"],
+  "staffing/estimate/preview.get.ts": ["provider","admin"],
   "tablet-settings.get.ts": ["provider","admin"],
   "tablet-settings.put.ts": ["provider","admin"],
   "team-meetings/[id].delete.ts": ["provider","admin"],

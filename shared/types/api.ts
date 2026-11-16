@@ -2113,6 +2113,108 @@ export interface StaffingMonthDto {
   }
 }
 
+/** Why no staffing estimate can be computed for a group (see server/services/staffingEstimate.ts). */
+export type StaffingEstimateReason = 'no_group_type' | 'unknown_group_type' | 'no_capacity' | 'no_opening_hours'
+
+/** A presence rule of the state that applies to the group type, as plain data for the sentence in the settings. */
+export interface StaffingEstimatePresenceDto {
+  window: 'haupt' | 'rand' | 'always'
+  minStaff: number | null
+  minFachkraft: number | null
+  /** Only from this many children present (null = from the first child). */
+  minChildren: number | null
+  /** Per started block of `children` children: `staff` staff, of them `fachkraft` Fachkräfte. */
+  perChildren: { children: number; staff: number; fachkraft: number | null } | null
+}
+
+/** What the estimate at full occupancy assumed (to state it under the figures). */
+export interface StaffingEstimateAssumptionsDto {
+  /** Assumed children = the places. */
+  children: number
+  /** Of them under 3 (all in a group type for under-3s; one when the group has children under 3 now). */
+  u3: number
+  /** Of them school children (a group for school children or a Hort group type). */
+  school: number
+  /** Weekly hours per place: average opening per day × 5 (null = not needed and not known). */
+  weeklyHoursPerChild: number | null
+  /** Where the hours come from: the entered opening hours, the state's reference hours of the group type, or none. */
+  hoursSource: 'opening' | 'reference' | 'none'
+}
+
+/** The Personalschlüssel of one group if all its places were taken (planning help). */
+export interface StaffingEstimateDto {
+  groupType: string | null
+  /** The state's name of the group type (null without one, or a type the state does not know). */
+  groupTypeLabel: string | null
+  capacity: number | null
+  /** Why nothing could be computed; null = computed (or a presence-only state, see periodCheck). */
+  reason: StaffingEstimateReason | null
+  /** false = the state has presence rules only (HB): no FTE, only the presence rules. */
+  periodCheck: boolean
+  /** Required full-time positions (counting lines); null when not computed. */
+  fte: number | null
+  /** fte × the state's weekly hours of a full-time position. */
+  hoursPerWeek: number | null
+  /** Fachkraft FTE demanded by the state's rows (NW); 0 if none. */
+  fachkraftFte: number
+  /** Every line (Grundbedarf, surcharges; shown-only ones such as Leitungszeit with counts false). */
+  lines: RequirementLine[]
+  /** FTE if one of the children were under 3, when that changes the result and none was assumed (BW „mit U3“). */
+  withU3Fte: number | null
+  /** Assumed children no row of the state matched (e.g. school children where the state has no values). */
+  unmatchedChildren: number
+  assumptions: StaffingEstimateAssumptionsDto | null
+  presence: StaffingEstimatePresenceDto[]
+}
+
+/** The figures of the current month's Personalschlüssel tab (Soll from the enrolled children). */
+export interface StaffingEstimateCurrentDto {
+  children: number
+  u3: number
+  fte: number
+}
+
+export interface StaffingEstimateGroupDto extends StaffingEstimateDto {
+  /** null = a group not created yet (the preview). */
+  groupId: number | null
+  name: string
+  /** This month's Soll of the group; null in a presence-only state or for a group not created yet. */
+  current: StaffingEstimateCurrentDto | null
+}
+
+/** The facility at full occupancy: the groups with an estimate plus the facility's surcharges (Leitung). */
+export interface StaffingEstimateFacilityDto {
+  periodCheck: boolean
+  /** Groups with an estimate (counted for the facility surcharges) and groups without one. */
+  groupCount: number
+  groupsWithout: number
+  /** null = no group with an estimate (or a presence-only state). */
+  fte: number | null
+  hoursPerWeek: number | null
+  /** The groups' lines summed by key, then the facility lines; shown-only lines (Leitung) have counts false. */
+  lines: RequirementLine[]
+  /** This month's Soll of the facility (Personalschlüssel tab); null in a presence-only state. */
+  current: StaffingEstimateCurrentDto | null
+}
+
+/** GET /api/staffing/estimate: every group of the facility and the facility at full occupancy. */
+export interface StaffingEstimatesDto {
+  land: GermanState
+  fteHoursPerWeek: number
+  confidence: Confidence
+  groups: StaffingEstimateGroupDto[]
+  facility: StaffingEstimateFacilityDto
+}
+
+/** GET /api/staffing/estimate/preview: one group with the given type and places, and the facility with it. */
+export interface StaffingEstimatePreviewDto {
+  land: GermanState
+  fteHoursPerWeek: number
+  confidence: Confidence
+  group: StaffingEstimateGroupDto
+  facility: StaffingEstimateFacilityDto
+}
+
 /** A cash book (Kasse) of the facility or one of its groups; amounts in cents. */
 export interface CashBoxInfoDto {
   id: number

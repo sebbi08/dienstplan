@@ -1,17 +1,16 @@
 import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { daysInMonth, monthDates, toIsoDate } from '../../shared/domain/dates'
 import { facilityCell, groupCell, groupStays, type GroupStay, type OccupancyChild } from '../../shared/domain/occupancy'
-import { hoursOn, isEntered } from '../../shared/domain/openingHours'
 import {
-  facilityAddOns, hasPeriodCheck, meets, plannedFte, quotaLines, requiredFte,
+  facilityAddOns, hasPeriodCheck, meets, mergeLines, plannedFte, quotaLines, requiredFte,
 } from '../../shared/domain/staffing/calc'
 import {
-  ageBandOn, isTimedCode, minuteGroups, minutesByGroup, NO_GROUP, phaseOf, presentInSlot, weeklyHours, worksWholeSlot,
-  type GroupedEntry,
+  ageBandOn, averageOpening, isTimedCode, minuteGroups, minutesByGroup, NO_GROUP, openingOn, phaseOf, presentInSlot,
+  weeklyHours, worksWholeSlot, type GroupedEntry,
 } from '../../shared/domain/staffing/day'
 import { presenceShortfalls, SLOT_MINUTES } from '../../shared/domain/staffing/presence'
 import type {
-  AgeBand, DemandChild, PlannedStaff, PresenceSlot, Qualification, Requirement, RequirementLine, StaffingRuleSet,
+  AgeBand, DemandChild, PlannedStaff, PresenceSlot, Qualification, Requirement, StaffingRuleSet,
 } from '../../shared/domain/staffing/types'
 import type { IsoDate, Minutes } from '../../shared/domain/types'
 import { isCheckedDay, type DayHoursContext, type Warning } from '../../shared/domain/warnings'
@@ -107,13 +106,17 @@ function loadMonth(db: Db, facilityId: number, year: number, month: number): Mon
     byDate.set(entry.date, [...(byDate.get(entry.date) ?? []), grouped(entry, homeGroup.get(entry.employeeId) ?? null)])
   }
 
-  const closures = loadClosures(db, facilityId)
-  const holidays = facilityHolidayRules(db, facilityId)
-  const careDays = monthDates(year, month).filter(date => isCheckedDay(date, closureOn(closures, date) !== null, holidays))
   return {
     facilityId, groups: listGroups(db, facilityId), occupancy: occupancyChildren(db, facilityId).children, facts, staff, days,
-    careDays, hours: loadHoursContext(db, facilityId),
+    careDays: monthCareDays(db, facilityId, year, month), hours: loadHoursContext(db, facilityId),
   }
+}
+
+/** The care days of a month: weekdays without public holidays and closures (weeks of the month = care days ÷ 5). */
+export function monthCareDays(db: Db, facilityId: number, year: number, month: number): IsoDate[] {
+  const closures = loadClosures(db, facilityId)
+  const holidays = facilityHolidayRules(db, facilityId)
+  return monthDates(year, month).filter(date => isCheckedDay(date, closureOn(closures, date) !== null, holidays))
 }
 
 function grouped(entry: EntryDto, homeGroup: number | null): GroupedEntry & { countsAsStaff: boolean } {
@@ -122,24 +125,6 @@ function grouped(entry: EntryDto, homeGroup: number | null): GroupedEntry & { co
     breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff,
     group: entry.groupId ?? homeGroup,
   }
-}
-
-/** The entered opening of a group on a date: its own day if it set one, else the facility's; null = not entered. */
-function openingOn(hours: DayHoursContext, groupId: number | null, date: IsoDate): { open: Minutes; close: Minutes } | null {
-  const own = groupId === null ? undefined : hours.groups.find(group => group.groupId === groupId)?.hours
-  const groupDay = hoursOn(own ?? null, date)
-  const hasOwnDay = groupDay !== null && (groupDay.closed || groupDay.open !== null || groupDay.close !== null)
-  const day = hasOwnDay ? groupDay : hoursOn(hours.facility, date)
-  return isEntered(day) ? { open: day.open, close: day.close } : null
-}
-
-/** Average daily opening of the group on the care days with entered hours (null = none entered). */
-function averageOpening(data: MonthData, groupId: number | null): Minutes | null {
-  const spans = data.careDays.flatMap((date) => {
-    const day = openingOn(data.hours, groupId, date)
-    return day === null ? [] : [day.close - day.open]
-  })
-  return spans.length === 0 ? null : spans.reduce((a, b) => a + b, 0) / spans.length
 }
 
 /**
@@ -219,17 +204,6 @@ function figures(
   }
 }
 
-/** Lines of the same key summed (the groups' lines, then the facility's), in the order of first appearance. */
-function mergeLines(lines: RequirementLine[]): RequirementLine[] {
-  const merged = new Map<string, RequirementLine>()
-  for (const line of lines) {
-    const known = merged.get(line.key)
-    if (known === undefined) merged.set(line.key, { ...line })
-    else known.fte += line.fte
-  }
-  return [...merged.values()]
-}
-
 /**
  * The Personalschlüssel tab of a month (400 invalid_month): per group the contract children of the month as the
  * Belegung counts them (a child changing group counts in both), Soll by the state's rules valid on the month's first
@@ -251,7 +225,7 @@ export function staffingMonth(db: Db, facilityId: number, year: number, month: n
     const cell = groupCell(data.occupancy, groupId, year, month)
     const ids = [...cell.present, ...cell.fresh].map(entry => entry.childId)
     const counted = countChildren(data, ids, monthStart)
-    const required = requiredFte(rules, { groupType, openingMinutesPerDay: averageOpening(data, groupId), children: counted.demand })
+    const required = requiredFte(rules, { groupType, openingMinutesPerDay: averageOpening(data.hours, data.careDays, groupId), children: counted.demand })
     const staff = staffOf(data, minutesFor(groupId ?? NO_GROUP))
     return { groupId, name, groupType, ...figures(rules, required, staff, { total: ids.length, ...counted }, weeks) }
   }
