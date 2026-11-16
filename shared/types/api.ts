@@ -2131,7 +2131,10 @@ export interface StaffingEstimatePresenceDto {
 export interface StaffingEstimateAssumptionsDto {
   /** Assumed children = the places. */
   children: number
-  /** Of them under 3 (all in a group type for under-3s; one when the group has children under 3 now). */
+  /**
+   * Of them under 3: all in a group type for under-3s; in a group with children under 3 now one (group methods) or as many
+   * as now (per-child methods, at most the places).
+   */
   u3: number
   /** Of them school children (a group for school children or a Hort group type). */
   school: number
@@ -2178,7 +2181,7 @@ export interface StaffingEstimateGroupDto extends StaffingEstimateDto {
   /** null = a group not created yet (the preview). */
   groupId: number | null
   name: string
-  /** This month's Soll of the group; null in a presence-only state or for a group not created yet. */
+  /** This month's Soll of the group; null in a presence-only state, for a group not created yet, or for a viewer without plan.staffing. */
   current: StaffingEstimateCurrentDto | null
 }
 
@@ -2193,7 +2196,7 @@ export interface StaffingEstimateFacilityDto {
   hoursPerWeek: number | null
   /** The groups' lines summed by key, then the facility lines; shown-only lines (Leitung) have counts false. */
   lines: RequirementLine[]
-  /** This month's Soll of the facility (Personalschlüssel tab); null in a presence-only state. */
+  /** This month's Soll of the facility (Personalschlüssel tab); null in a presence-only state or for a viewer without plan.staffing. */
   current: StaffingEstimateCurrentDto | null
 }
 

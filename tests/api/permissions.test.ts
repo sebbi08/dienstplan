@@ -455,6 +455,8 @@ describe('API route permissions', () => {
     for (const route of touching) {
       expect(permissionCalls(route), route).toEqual([{ key: 'settings.facility', options: '' }])
       expect(source(route), route).toContain('(useDb(), admin.facilityId')
+      // „Aktuell“ (this month's Soll and the enrolled children) only with the key of the monthly tab.
+      expect(source(route), route).toContain("{ withCurrent: can(admin.permissions, 'plan.staffing') }")
     }
     expect(DEFAULTS.observer.has('settings.facility')).toBe(false)
     expect(DEFAULTS.group_lead.has('settings.facility')).toBe(false)

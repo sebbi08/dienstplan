@@ -3,9 +3,10 @@ import type { OpeningHoursDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * Leitung and Träger, on the group's page: how much staff the state's rules demand for the group at full occupancy and
- * now. It follows the group type, the places and the opening hours: their sections refresh the shared estimate after a
- * change, and a changed type or number of places (in this or another window's refresh) fetches it again here as well.
+ * Leitung and Träger, on the group's page: how much staff the state's rules demand for the group at full occupancy (and
+ * now, with plan.staffing). The watchers below fetch it again when the group's type, places or school flag change in
+ * the shared group list, or when saved opening hours refresh the shared opening-hours data; the other sections do not
+ * touch the estimate themselves.
  */
 const props = defineProps<{ groupId: number }>()
 const t = de.staffing

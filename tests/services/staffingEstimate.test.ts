@@ -21,7 +21,7 @@ const BY = presetFor('BY', TODAY)
 const HB = presetFor('HB', TODAY)
 
 const input = (over: Partial<EstimateGroupInput> = {}): EstimateGroupInput => ({
-  groupType: 'regel', capacity: 25, forSchoolChildren: false, openingMinutesPerDay: 360, hasU3Now: false, ...over,
+  groupType: 'regel', capacity: 25, forSchoolChildren: false, openingMinutesPerDay: 360, openWeekdays: 5, u3Now: 0, ...over,
 })
 
 describe('estimateGroup – BW (group_fte)', () => {
@@ -48,7 +48,7 @@ describe('estimateGroup – BW (group_fte)', () => {
   })
 
   it('a group with children under 3 now counts as „mit U3“: exactly one place under 3', () => {
-    const result = estimateGroup(BW, input({ hasU3Now: true }))
+    const result = estimateGroup(BW, input({ u3Now: 3 }))
     expect(result.fte).toBeCloseTo(2.0, 9)
     expect(result.assumptions).toMatchObject({ children: 25, u3: 1 })
     expect(result.withU3Fte).toBeNull()
@@ -99,6 +99,26 @@ describe('estimateGroup – per-child states', () => {
     const result = estimateGroup(BY, input({ groupType: null, capacity: 11, openingMinutesPerDay: 480 }))
     expect(result.fte).toBeCloseTo(40 / 39, 9)
     expect(result.hoursPerWeek).toBeCloseTo(40, 9)
+  })
+
+  it('a mixed group in a per-child state assumes as many places under 3 as it has children under 3 now (at least 1, at most the places)', () => {
+    const result = estimateGroup(MV, input({ groupType: null, capacity: 14, openingMinutesPerDay: 600, u3Now: 3 }))
+    expect(result.assumptions).toMatchObject({ children: 14, u3: 3 })
+    expect(result.fte).toBeCloseTo(11 / 14 + 3 / 6, 9)
+    expect(result.withU3Fte).toBeNull()
+    expect(estimateGroup(MV, input({ groupType: null, capacity: 2, openingMinutesPerDay: 600, u3Now: 5 })).assumptions).toMatchObject({ u3: 2 })
+    // The group method needs only one: its „mit U3“ row does not count them.
+    expect(estimateGroup(BW, input({ u3Now: 3 })).assumptions).toMatchObject({ u3: 1 })
+  })
+
+  it('weekly hours per place = average opening × open weekdays (5 without opening hours)', () => {
+    const fourDays = estimateGroup(MV, input({ groupType: null, capacity: 14, openingMinutesPerDay: 600, openWeekdays: 4 }))
+    expect(fourDays.assumptions).toMatchObject({ weeklyHoursPerChild: 40 })
+    expect(fourDays.fte).toBeCloseTo(40 / 50, 9)
+    expect(estimateGroup(MV, input({ groupType: null, capacity: 14, openingMinutesPerDay: 600, openWeekdays: null })).assumptions)
+      .toMatchObject({ weeklyHoursPerChild: 50 })
+    expect(estimateGroup(BW, input({ groupType: 'ganztag', openingMinutesPerDay: null, openWeekdays: null })).assumptions)
+      .toMatchObject({ weeklyHoursPerChild: 35 })
   })
 
   it('without any opening hours a per-child state cannot estimate', () => {
@@ -155,6 +175,7 @@ describe('staffingEstimate (database)', () => {
   let db: Db
   let bears: number
   let mice: number
+  const none = { open: null, close: null, closed: false }
   const allWeek = (open: number, close: number): OpeningHours => ({
     days: [0, 1, 2, 3, 4].map(() => ({ open, close, closed: false })), minAtOpening: 1, minAtClosing: 1,
   })
@@ -176,7 +197,7 @@ describe('staffingEstimate (database)', () => {
   })
 
   it('lists every group with its estimate, and the facility with Leitung', () => {
-    const result = staffingEstimate(db, 1, TODAY)
+    const result = staffingEstimate(db, 1, { withCurrent: true, today: TODAY })
     expect(result).toMatchObject({ land: 'BW', fteHoursPerWeek: 39, confidence: 'high' })
     expect(result.groups.map(group => [group.groupId, group.name])).toEqual([[bears, 'Bären'], [mice, 'Mäuse']])
     expect(result.groups[0]!.fte).toBeCloseTo(1.8, 9)
@@ -188,15 +209,15 @@ describe('staffingEstimate (database)', () => {
 
   it('takes the group\'s own opening hours (the same average as the monthly report)', () => {
     setGroupOpeningHours(db, 1, bears, allWeek(420, 960)) // 9 h
-    expect(staffingEstimate(db, 1, TODAY).groups[0]!.fte).toBeCloseTo(1.8 * 9 / 6, 9)
-    expect(staffingEstimate(db, 1, TODAY).groups[0]!.assumptions!.weeklyHoursPerChild).toBeCloseTo(45, 9)
+    expect(staffingEstimate(db, 1, { withCurrent: true, today: TODAY }).groups[0]!.fte).toBeCloseTo(1.8 * 9 / 6, 9)
+    expect(staffingEstimate(db, 1, { withCurrent: true, today: TODAY }).groups[0]!.assumptions!.weeklyHoursPerChild).toBeCloseTo(45, 9)
   })
 
   it('„Aktuell“ is the Soll of this month\'s Personalschlüssel tab, with the counted children', () => {
     const ganztag = careType()
     kids(20, bears, ganztag)
     kids(4, mice, ganztag, '2025-01-10')
-    const result = staffingEstimate(db, 1, TODAY)
+    const result = staffingEstimate(db, 1, { withCurrent: true, today: TODAY })
     const month = staffingMonth(db, 1, 2026, 10)
     for (const group of result.groups) {
       const row = month.groups.find(candidate => candidate.groupId === group.groupId)!
@@ -208,21 +229,46 @@ describe('staffingEstimate (database)', () => {
 
   it('assumes one child under 3 in a group that has children under 3 now', () => {
     kids(1, bears, careType(), '2025-01-10')
-    const bearsEstimate = staffingEstimate(db, 1, TODAY).groups[0]!
+    const bearsEstimate = staffingEstimate(db, 1, { withCurrent: true, today: TODAY }).groups[0]!
     expect(bearsEstimate.assumptions!.u3).toBe(1)
     expect(bearsEstimate.fte).toBeCloseTo(2.0, 9)
+  })
+
+  it('without plan.staffing: no „Aktuell“, and the enrolled children are not used at all', () => {
+    kids(3, bears, careType(), '2025-01-10')
+    const result = staffingEstimate(db, 1, { withCurrent: false, today: TODAY })
+    expect(result.groups.map(group => group.current)).toEqual([null, null])
+    expect(result.facility.current).toBeNull()
+    expect(result.groups[0]!.assumptions!.u3).toBe(0)
+    expect(result.groups[0]!.fte).toBeCloseTo(1.8, 9)
+    const preview = staffingEstimatePreview(db, 1, { groupType: 'regel', capacity: 25, groupId: bears }, { withCurrent: false, today: TODAY })
+    expect(preview.group).toMatchObject({ current: null, assumptions: expect.objectContaining({ u3: 0 }) })
+    expect(preview.facility.current).toBeNull()
+  })
+
+  it('a per-child state counts the open weekdays of the opening hours: closed on Fridays = 4 days', () => {
+    setState('MV')
+    setGroup(bears, { groupType: null, capacity: 14 })
+    const closedFriday: OpeningHours = { ...allWeek(420, 1020), days: [...allWeek(420, 1020).days.slice(0, 4), { open: null, close: null, closed: true }] }
+    setFacilityOpeningHours(db, 1, closedFriday) // 10 h Monday to Thursday
+    const bearsEstimate = staffingEstimate(db, 1, { withCurrent: true, today: TODAY }).groups[0]!
+    expect(bearsEstimate.assumptions).toMatchObject({ weeklyHoursPerChild: 40, hoursSource: 'opening' })
+    expect(bearsEstimate.fte).toBeCloseTo(40 / 50, 9)
+    // The group's own Friday wins over the facility's closed one.
+    setGroupOpeningHours(db, 1, bears, { ...allWeek(420, 1020), days: [none, none, none, none, { open: 420, close: 1020, closed: false }] })
+    expect(staffingEstimate(db, 1, { withCurrent: true, today: TODAY }).groups[0]!.assumptions).toMatchObject({ weeklyHoursPerChild: 50 })
   })
 
   it('a presence-only state has no „Aktuell“', () => {
     setState('HB')
     setGroup(bears, { groupType: 'krippe' })
-    const result = staffingEstimate(db, 1, TODAY)
+    const result = staffingEstimate(db, 1, { withCurrent: true, today: TODAY })
     expect(result.groups[0]).toMatchObject({ periodCheck: false, current: null })
     expect(result.facility.current).toBeNull()
   })
 
   it('previews a new group with the facility\'s hours, and the facility with it', () => {
-    const preview = staffingEstimatePreview(db, 1, { groupType: 'regel', capacity: 20, groupId: null }, TODAY)
+    const preview = staffingEstimatePreview(db, 1, { groupType: 'regel', capacity: 20, groupId: null }, { withCurrent: true, today: TODAY })
     expect(preview.group).toMatchObject({ groupId: null, name: '', current: null, capacity: 20 })
     expect(preview.group.fte).toBeCloseTo(1.8, 9)
     expect(preview.facility.groupCount).toBe(3)
@@ -231,7 +277,7 @@ describe('staffingEstimate (database)', () => {
 
   it('previews an existing group with other values, using its own hours', () => {
     setGroupOpeningHours(db, 1, bears, allWeek(420, 960))
-    const preview = staffingEstimatePreview(db, 1, { groupType: 'ganztag', capacity: 22, groupId: bears }, TODAY)
+    const preview = staffingEstimatePreview(db, 1, { groupType: 'ganztag', capacity: 22, groupId: bears }, { withCurrent: true, today: TODAY })
     expect(preview.group).toMatchObject({ groupId: bears, name: 'Bären', groupType: 'ganztag', capacity: 22 })
     expect(preview.group.fte).toBeCloseTo(2.3 * 9 / 7, 9)
     expect(preview.facility.groupCount).toBe(2)
@@ -240,7 +286,7 @@ describe('staffingEstimate (database)', () => {
 
   it('refuses a group of another facility in the preview', () => {
     const other = addGroup(db, addFacility(db, 'Zweite'), 'Fremd')
-    expect(() => staffingEstimatePreview(db, 1, { groupType: 'regel', capacity: 20, groupId: other }, TODAY))
+    expect(() => staffingEstimatePreview(db, 1, { groupType: 'regel', capacity: 20, groupId: other }, { withCurrent: true, today: TODAY }))
       .toThrow(expect.objectContaining({ statusCode: 404, code: 'group_not_found' }))
   })
 })

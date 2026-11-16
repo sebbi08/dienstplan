@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assumptionText, estimateLines, presenceSentence } from '../../app/utils/staffingEstimate'
 import type { StaffingEstimatePresenceDto } from '../../shared/types/api'
+import { de } from '../../app/locales/de'
 
 const rule = (over: Partial<StaffingEstimatePresenceDto>): StaffingEstimatePresenceDto => ({
   window: 'always', minStaff: null, minFachkraft: null, minChildren: null, perChildren: null, ...over,
@@ -36,6 +37,15 @@ describe('assumptionText', () => {
       .toBe('angenommen: alle Plätze belegt; alle Kinder unter 3')
     expect(assumptionText({ children: 10, u3: 0, school: 0, weeklyHoursPerChild: 35, hoursSource: 'reference' }))
       .toContain('Öffnungszeit laut Gruppenart')
+    expect(assumptionText({ children: 14, u3: 3, school: 0, weeklyHoursPerChild: 50, hoursSource: 'opening' }))
+      .toBe('angenommen: alle Plätze ganztags belegt, 50 Std./Woche je Kind; 3 Kinder unter 3 (so viele wie zurzeit in der Gruppe)')
+  })
+})
+
+describe('the headline at full occupancy', () => {
+  it('says „1 Platz“ but „2 Plätze“', () => {
+    expect(de.staffing.estimate.full(1, null)).toBe('Bei voller Belegung (1 Platz):')
+    expect(de.staffing.estimate.full(2, 'Regelgruppe')).toBe('Bei voller Belegung (2 Plätze, Regelgruppe):')
   })
 })
 

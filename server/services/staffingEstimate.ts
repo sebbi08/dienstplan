@@ -2,7 +2,7 @@ import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import {
   FTE_EPSILON, facilityAddOns, hasPeriodCheck, mergeLines, requiredFte,
 } from '../../shared/domain/staffing/calc'
-import { averageOpening } from '../../shared/domain/staffing/day'
+import { averageOpening, openWeekdays } from '../../shared/domain/staffing/day'
 import type { AgeBand, DemandChild, Requirement, StaffingRuleSet } from '../../shared/domain/staffing/types'
 import type { IsoDate, Minutes } from '../../shared/domain/types'
 import type {
@@ -20,12 +20,15 @@ import { monthCareDays, staffingMonth } from './staffingReport'
  * The Personalschlüssel of a group if all its places were taken („volle Belegung“), shown in the group settings while
  * a group is set up and afterwards (planning help, no legal check). The state's engine counts (calc.ts); this module
  * only decides which children to assume:
- * - as many children as places, all full-time: weekly hours = the group's average opening per day × 5, from the same
- *   source as the monthly report (the group's own hours, else the facility's, on this month's care days); without any
- *   entered hours the reference hours of the group type (group_fte), else nothing can be computed (per-child states);
+ * - as many children as places, all full-time: weekly hours = the group's average opening per day (the same source as
+ *   the monthly report: the group's own hours, else the facility's, on this month's care days) × its open weekdays (5
+ *   without opening hours); without any entered hours the reference hours of the group type (group_fte), else nothing
+ *   can be computed (per-child states);
  * - their age band from the group type (see the maps below), else 3 years to school; a group that has children under 3
- *   now counts as „mit U3“: exactly one place under 3.
- * „Aktuell“ is the Soll of this month's Personalschlüssel tab (staffingMonth), never computed differently.
+ *   now counts as mixed „mit U3“: one place under 3 for the group methods (their „mit U3“ row needs one), as many as it
+ *   has now for the per-child methods (at most the places), so full occupancy never needs less than now.
+ * „Aktuell“ is the Soll of this month's Personalschlüssel tab (staffingMonth), never computed differently. It and the
+ * enrolled children are used only for a viewer who may see that tab (plan.staffing): `withCurrent`.
  */
 
 /**
@@ -43,8 +46,10 @@ export interface EstimateGroupInput {
   forSchoolChildren: boolean
   /** Average opening per day of the group (own hours, else the facility's); null = none entered. */
   openingMinutesPerDay: Minutes | null
-  /** The group has children under 3 now: it counts as mixed „mit U3“. */
-  hasU3Now: boolean
+  /** Weekdays the group is open by its opening hours (not marked closed); null = no opening hours (5 assumed). */
+  openWeekdays: number | null
+  /** Children under 3 in the group now (0 = none, or not known to the viewer); > 0 = mixed „mit U3“. */
+  u3Now: number
 }
 
 interface Computed {
@@ -109,9 +114,12 @@ function compute(rules: StaffingRuleSet, input: EstimateGroupInput): Computed {
     // Only the group methods can do without hours (their FTE do not depend on the children's hours).
     if (minutes === null && rules.method !== 'group_fte') return empty('no_opening_hours')
   }
-  const weeklyHours = minutes === null ? null : minutes * 5 / 60
+  // Reference hours are per day of a full week; entered hours count the weekdays they open.
+  const weekdays = hoursSource === 'opening' ? input.openWeekdays ?? 5 : 5
+  const weeklyHours = minutes === null ? null : minutes * weekdays / 60
   const band = ageBandOf(input)
-  const u3 = band === 'ue3' && input.hasU3Now ? 1 : 0
+  const mixed = band === 'ue3' && input.u3Now > 0
+  const u3 = !mixed ? 0 : rules.method === 'group_fte' ? 1 : Math.min(input.capacity, input.u3Now)
   const child = (ageBand: AgeBand): DemandChild => ({ ageBand, weeklyHours: weeklyHours ?? 0 })
   const children = Array.from({ length: input.capacity }, (_, i) => child(i < u3 ? 'u3' : band))
   const required = (list: DemandChild[]): Requirement =>
@@ -184,44 +192,57 @@ const currentOf = (figures: StaffingFiguresDto | undefined): StaffingEstimateCur
 
 interface EstimateGroup { group: Pick<GroupDto, 'id' | 'name' | 'groupType' | 'capacity' | 'forSchoolChildren'>; isNew: boolean }
 
+/** Who asks and for which day (today by default). */
+export interface EstimateOptions {
+  /**
+   * The viewer may see this month's Personalschlüssel tab (plan.staffing): „Aktuell“ is filled and the enrolled children
+   * under 3 count for the assumptions. Without it neither is used (nor is the month computed).
+   */
+  withCurrent: boolean
+  today?: IsoDate
+}
+
 /** Everything both routes need: the rules of today, this month's tab, the groups' opening and the estimates. */
-function build(db: Db, facilityId: number, today: IsoDate, adjust: (groups: EstimateGroup[]) => EstimateGroup[]) {
+function build(db: Db, facilityId: number, options: EstimateOptions, adjust: (groups: EstimateGroup[]) => EstimateGroup[]) {
+  const today = options.today ?? todayIso()
   const { rules, preset } = staffingRulesFor(db, facilityId, today)
   const { year, month } = parseIsoDate(today)
-  const report = staffingMonth(db, facilityId, year, month)
-  const periodCheck = hasPeriodCheck(rules)
+  const report = options.withCurrent ? staffingMonth(db, facilityId, year, month) : null
+  const showCurrent = hasPeriodCheck(rules)
   const hours = loadHoursContext(db, facilityId)
   const careDays = monthCareDays(db, facilityId, year, month)
-  const rows = new Map(report.groups.map(row => [row.groupId, row]))
+  const rows = new Map((report?.groups ?? []).map(row => [row.groupId, row]))
 
   const entries = adjust(listGroups(db, facilityId).map(group => ({ group, isNew: false }))).map(({ group, isNew }) => {
     const row = isNew ? undefined : rows.get(group.id)
+    const groupId = isNew ? null : group.id
     const input: EstimateGroupInput = {
       groupType: group.groupType,
       capacity: group.capacity,
       forSchoolChildren: group.forSchoolChildren,
-      openingMinutesPerDay: averageOpening(hours, careDays, isNew ? null : group.id),
-      hasU3Now: (row?.children.u3 ?? 0) > 0,
+      openingMinutesPerDay: averageOpening(hours, careDays, groupId),
+      openWeekdays: openWeekdays(hours, groupId),
+      u3Now: row?.children.u3 ?? 0,
     }
     const estimate: StaffingEstimateGroupDto = {
       ...estimateGroup(rules, input),
-      groupId: isNew ? null : group.id,
+      groupId,
       name: group.name,
-      current: periodCheck && !isNew ? currentOf(row) ?? { children: 0, u3: 0, fte: 0 } : null,
+      current: showCurrent ? currentOf(row) : null,
     }
     return { input, estimate }
   })
   const facility: StaffingEstimateFacilityDto = {
     ...estimateFacility(rules, entries.map(entry => entry.input)),
-    current: periodCheck ? currentOf(report.total) : null,
+    current: showCurrent ? currentOf(report?.total) : null,
   }
   const meta = { land: rules.land, fteHoursPerWeek: rules.fteHoursPerWeek, confidence: preset.confidence }
   return { meta, groups: entries.map(entry => entry.estimate), facility }
 }
 
 /** GET /api/staffing/estimate: every group of the facility and the facility at full occupancy, with „Aktuell“. */
-export function staffingEstimate(db: Db, facilityId: number, today: IsoDate = todayIso()): StaffingEstimatesDto {
-  const { meta, groups, facility } = build(db, facilityId, today, list => list)
+export function staffingEstimate(db: Db, facilityId: number, options: EstimateOptions): StaffingEstimatesDto {
+  const { meta, groups, facility } = build(db, facilityId, options, list => list)
   return { ...meta, groups, facility }
 }
 
@@ -238,11 +259,11 @@ export interface EstimatePreviewInput {
  * another facility.
  */
 export function staffingEstimatePreview(
-  db: Db, facilityId: number, input: EstimatePreviewInput, today: IsoDate = todayIso(),
+  db: Db, facilityId: number, input: EstimatePreviewInput, options: EstimateOptions,
 ): StaffingEstimatePreviewDto {
   assertGroup(db, facilityId, input.groupId)
   const values = { groupType: input.groupType, capacity: input.capacity }
-  const { meta, groups, facility } = build(db, facilityId, today, (list) => {
+  const { meta, groups, facility } = build(db, facilityId, options, (list) => {
     if (input.groupId !== null) {
       return list.map(entry => (entry.group.id === input.groupId ? { ...entry, group: { ...entry.group, ...values } } : entry))
     }

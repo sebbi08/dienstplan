@@ -100,6 +100,25 @@ export function averageOpening(hours: DayHoursContext, careDays: IsoDate[], grou
   return spans.length === 0 ? null : spans.reduce((a, b) => a + b, 0) / spans.length
 }
 
+/**
+ * Weekdays (Monday to Friday) the group is open by the opening hours that apply (its own day if it set one, else the
+ * facility's): those not marked closed. null = no opening hours apply to any weekday.
+ */
+export function openWeekdays(hours: DayHoursContext, groupId: number | null): number | null {
+  const own = groupId === null ? undefined : hours.groups.find(group => group.groupId === groupId)?.hours
+  let known = 0
+  let open = 0
+  for (let index = 0; index < 5; index++) {
+    const ownDay = own?.days[index]
+    const hasOwnDay = ownDay !== undefined && (ownDay.closed || ownDay.open !== null || ownDay.close !== null)
+    const day = hasOwnDay ? ownDay : hours.facility?.days[index]
+    if (day === undefined) continue
+    known++
+    if (!day.closed) open++
+  }
+  return known === 0 ? null : open
+}
+
 /** Whether the state splits the day into Hauptbetreuungszeit and Randzeit (BW, NI). */
 export function hasPhases(rules: StaffingRuleSet): boolean {
   return rules.presence.some(rule => rule.window !== 'always')

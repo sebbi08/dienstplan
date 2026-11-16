@@ -17,6 +17,7 @@ const { busy, run } = useBusyAction(() => Promise.all([
   refresh(), refreshActive(), refreshNuxtData(['school-settings', 'opening-hours', 'staffing-estimate']),
 ]))
 const confirm = useConfirm()
+const toast = useToast()
 const notifySwitchedOff = useAutoLeaveNotice()
 
 // One draft per group; a refresh keeps drafts with an unsaved edit (as for the facility names).
@@ -93,16 +94,23 @@ async function create() {
   if (capacityInvalid.value) return
   const groupType = withEstimate.value ? typeValue.value : null
   const capacity = withEstimate.value ? capacityValue.value : null
-  const ok = await run(async () => {
+  const outcome = { detailsNotSaved: false }
+  // Once the group exists the form is cleared and the lists refresh (run's success path), even if Gruppenart or Plätze
+  // then fail: those are only reported, so a second click cannot create the group twice.
+  await run(async () => {
     const group = await $fetch<GroupDto>(`/api/facilities/${props.facilityId}/groups`, { method: 'POST', body: { name: newName.value } })
-    if (groupType !== null) await $fetch<unknown>(`/api/groups/${group.id}/group-type`, { method: 'PUT', body: { groupType } })
-    if (capacity !== null) await $fetch<unknown>(`/api/groups/${group.id}/capacity`, { method: 'PUT', body: { capacity } })
-  }, de.common.saved)
-  if (ok) {
     newName.value = ''
     newType.value = NONE
     newCapacity.value = ''
-  }
+    try {
+      if (groupType !== null) await $fetch<unknown>(`/api/groups/${group.id}/group-type`, { method: 'PUT', body: { groupType } })
+      if (capacity !== null) await $fetch<unknown>(`/api/groups/${group.id}/capacity`, { method: 'PUT', body: { capacity } })
+    }
+    catch {
+      outcome.detailsNotSaved = true
+    }
+  }, de.common.saved)
+  if (outcome.detailsNotSaved) toast.add({ title: e.detailsNotSaved, color: 'warning' })
 }
 
 async function remove(group: GroupDto) {

@@ -1073,7 +1073,8 @@ export const de = {
     estimate: {
       sectionTitle: 'Personalschlüssel der Gruppe',
       heading: (land: string) => `Personalschlüssel laut Verordnung (${land})`,
-      full: (places: number, groupType: string | null) => `Bei voller Belegung (${places} Plätze${groupType ? `, ${groupType}` : ''}):`,
+      full: (places: number, groupType: string | null) =>
+        `Bei voller Belegung (${places === 1 ? '1 Platz' : `${places} Plätze`}${groupType ? `, ${groupType}` : ''}):`,
       fte: (fte: string) => `${fte} Vollzeitkräfte`,
       perFte: (hours: string) => `(je ${hours} Std.)`,
       hoursPerWeek: (hours: string) => `${hours} Std./Woche`,
@@ -1088,7 +1089,9 @@ export const de = {
       assumedReference: (hours: string) => `angenommen: alle Plätze belegt, ${hours} Std./Woche je Kind (Öffnungszeit laut Gruppenart, weil keine Öffnungszeiten eingetragen sind)`,
       assumedNone: 'angenommen: alle Plätze belegt',
       assumedAllU3: 'alle Kinder unter 3',
-      assumedOneU3: '1 Kind unter 3 (in der Gruppe sind zurzeit Kinder unter 3)',
+      assumedSomeU3: (count: number) => (count === 1
+        ? '1 Kind unter 3 (in der Gruppe sind zurzeit Kinder unter 3)'
+        : `${count} Kinder unter 3 (so viele wie zurzeit in der Gruppe)`),
       assumedSchool: 'alle Kinder Schulkinder',
       reasons: {
         no_group_type: 'Für die Berechnung fehlt die Gruppenart.',
@@ -1113,6 +1116,7 @@ export const de = {
       facilityNone: 'Für keine Gruppe lässt sich der Personalschlüssel berechnen: Bitte bei den Gruppen Gruppenart und Höchstzahl Kinder eintragen.',
       preview: 'So viel Personal braucht die neue Gruppe',
       previewHint: 'Gruppenart und Plätze sind freiwillig; du kannst sie auch später auf der Seite der Gruppe eintragen.',
+      detailsNotSaved: 'Gruppe angelegt – Gruppenart bzw. Plätze konnten nicht gespeichert werden. Bitte in den Einstellungen der Gruppe nachtragen.',
       newCapacity: 'Plätze',
     },
     // settings

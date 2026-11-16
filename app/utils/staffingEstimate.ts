@@ -40,7 +40,7 @@ export function assumptionText(assumptions: StaffingEstimateAssumptionsDto): str
     : assumptions.hoursSource === 'reference' ? t.assumedReference(formatNumber(hours)) : t.assumedOpening(formatNumber(hours))
   const ages = assumptions.u3 > 0 && assumptions.u3 === assumptions.children
     ? t.assumedAllU3
-    : assumptions.u3 > 0 ? t.assumedOneU3 : assumptions.school > 0 ? t.assumedSchool : null
+    : assumptions.u3 > 0 ? t.assumedSomeU3(assumptions.u3) : assumptions.school > 0 ? t.assumedSchool : null
   return ages === null ? base : `${base}; ${ages}`
 }
 
