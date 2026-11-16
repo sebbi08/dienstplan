@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
 import { groupColorClasses } from '~/utils/groups'
+import { formatFte } from '~/utils/staffing'
 import { groupPath } from '~/utils/settingsAreas'
 
 /**
@@ -9,6 +10,13 @@ import { groupPath } from '~/utils/settingsAreas'
  * calendars follow it); the Leitung sees the order.
  */
 const { data: groups, refresh } = useGroups()
+const { data: estimate, refresh: refreshEstimate } = useStaffingEstimate()
+// A group added, deleted or moved (the shared list): the estimate follows.
+watch(() => (groups.value ?? []).map(group => group.id).join(','), () => refreshEstimate())
+const sollOf = (groupId: number) => {
+  const fte = estimate.value?.groups.find(entry => entry.groupId === groupId)?.fte
+  return fte === null || fte === undefined ? null : de.staffing.estimate.listSoll(formatFte(fte))
+}
 const { can } = useCan()
 const canManageGroups = computed(() => can('settings.groups'))
 // Lists with the groups in their order follow at once.
@@ -26,6 +34,7 @@ function move(id: number, direction: 'up' | 'down') {
   <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ s.groupList }}</h2>
     <template v-if="groups?.length">
+      <SettingsStaffingFacilityEstimate v-if="estimate" :data="estimate" />
       <p class="text-xs text-gray-500">{{ s.groupListHint }}</p>
       <ul class="divide-y divide-gray-100 rounded-md ring-1 ring-gray-200">
         <li v-for="(group, index) in groups" :key="group.id" class="flex items-center">
@@ -35,7 +44,10 @@ function move(id: number, direction: 'up' | 'down') {
               aria-hidden="true"
             />
             <span class="min-w-0 flex-1 truncate font-medium">{{ group.name }}</span>
-            <span v-if="group.capacity !== null" class="shrink-0 text-xs text-gray-500">{{ de.capacity.groupLabel }}: {{ group.capacity }}</span>
+            <span class="flex shrink-0 flex-col items-end text-xs text-gray-500 sm:flex-row sm:gap-3">
+              <span v-if="group.capacity !== null">{{ de.capacity.groupLabel }}: {{ group.capacity }}</span>
+              <span v-if="sollOf(group.id)">{{ sollOf(group.id) }}</span>
+            </span>
             <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
           </NuxtLink>
           <span v-if="canManageGroups" class="flex shrink-0 gap-0.5 pr-2">

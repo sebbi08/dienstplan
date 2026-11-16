@@ -1,6 +1,6 @@
 import type { SlotState } from '#shared/domain/dayOverview'
 import type { Qualification, StaffingMethod } from '#shared/domain/staffing/types'
-import type { GroupColor, MeetingKind } from '#shared/types/api'
+import type { GroupColor, MeetingKind, StaffingEstimateReason } from '#shared/types/api'
 
 const days = (count: number) => (count === 1 ? '1 Tag' : `${count.toLocaleString('de-DE')} Tage`)
 /** Leave days of a request; 24 and 31 December may count half, so „7,5 Arbeitstage“. */
@@ -1069,6 +1069,52 @@ export const de = {
     groupTypesTitle: 'Gruppenart (Personalschlüssel)',
     groupTypesHint: 'Das Bundesland rechnet den Personalschlüssel nach der Gruppenart. Ohne Gruppenart zählen die Kinder der Gruppe nicht für das Soll.',
     groupTypeNone: 'nicht eingetragen', groupTypeOf: (group: string) => `Gruppenart von ${group}`,
+    // the estimate at full occupancy in the group settings (app/utils/staffingEstimate.ts)
+    estimate: {
+      sectionTitle: 'Personalschlüssel der Gruppe',
+      heading: (land: string) => `Personalschlüssel laut Verordnung (${land})`,
+      full: (places: number, groupType: string | null) => `Bei voller Belegung (${places} Plätze${groupType ? `, ${groupType}` : ''}):`,
+      fte: (fte: string) => `${fte} Vollzeitkräfte`,
+      perFte: (hours: string) => `(je ${hours} Std.)`,
+      hoursPerWeek: (hours: string) => `${hours} Std./Woche`,
+      included: (label: string, hours: string) => `darin ${label}: ${hours} Std./Woche`,
+      fachkraft: (fte: string) => `davon mindestens ${fte} Vollzeitkräfte als Fachkraft`,
+      withU3: (fte: string) => `Mit einem Kind unter 3 Jahren in der Gruppe wären es ${fte} Vollzeitkräfte.`,
+      leitung: (label: string, hours: string) => `${label}: ${hours} Std./Woche (kommt dazu, wird nicht geprüft)`,
+      current: (children: number, fte: string) => `Aktuell (${children === 1 ? '1 angemeldetes Kind' : `${children} angemeldete Kinder`}): ${fte} Vollzeitkräfte`,
+      unmatched: (count: number) => `${count === 1 ? '1 Platz passt' : `${count} Plätze passen`} zu keiner Vorgabe des Landes und ${count === 1 ? 'zählt' : 'zählen'} nicht mit.`,
+      // the assumptions, in one grey line
+      assumedOpening: (hours: string) => `angenommen: alle Plätze ganztags belegt, ${hours} Std./Woche je Kind`,
+      assumedReference: (hours: string) => `angenommen: alle Plätze belegt, ${hours} Std./Woche je Kind (Öffnungszeit laut Gruppenart, weil keine Öffnungszeiten eingetragen sind)`,
+      assumedNone: 'angenommen: alle Plätze belegt',
+      assumedAllU3: 'alle Kinder unter 3',
+      assumedOneU3: '1 Kind unter 3 (in der Gruppe sind zurzeit Kinder unter 3)',
+      assumedSchool: 'alle Kinder Schulkinder',
+      reasons: {
+        no_group_type: 'Für die Berechnung fehlt die Gruppenart.',
+        unknown_group_type: 'Diese Gruppenart kennt das Land nicht. Bitte die Gruppenart neu wählen.',
+        no_capacity: 'Für die Berechnung fehlt die Zahl der Plätze (Höchstzahl Kinder).',
+        no_opening_hours: 'Für die Berechnung fehlen die Öffnungszeiten (der Einrichtung oder der Gruppe).',
+      } satisfies Record<StaffingEstimateReason, string>,
+      presenceOnly: 'Das Land schreibt keine Zahl an Vollzeitkräften vor, nur die Mindestbesetzung nach Uhrzeit.',
+      // presence rules as a sentence: „Mindestens 1 Fachkraft während der ganzen Öffnungszeit, 2 Fachkräfte in der Hauptbetreuungszeit.“
+      presenceStart: 'Mindestens',
+      windows: { always: 'während der ganzen Öffnungszeit', haupt: 'in der Hauptbetreuungszeit', rand: 'in der Randzeit' } satisfies Record<'haupt' | 'rand' | 'always', string>,
+      staff: (count: number) => (count === 1 ? '1 Kraft' : `${count} Kräfte`),
+      fachkraefte: (count: number) => (count === 1 ? '1 Fachkraft' : `${count} Fachkräfte`),
+      ofThem: (fachkraefte: string) => `davon ${fachkraefte}`,
+      perChildren: (children: number) => `je angefangene ${children} Kinder`,
+      fromChildren: (children: number) => `ab ${children} anwesenden Kindern`,
+      // the group list and the facility box
+      listSoll: (fte: string) => `Soll: ${fte} VK`,
+      facilityTitle: 'Personalschlüssel der Einrichtung',
+      facilityFull: (groups: number) => `Bei voller Belegung (${groups === 1 ? '1 Gruppe' : `${groups} Gruppen`}):`,
+      facilityWithout: (groups: number) => `${groups === 1 ? '1 Gruppe ist' : `${groups} Gruppen sind`} nicht mitgerechnet (es fehlen Gruppenart, Plätze oder Öffnungszeiten).`,
+      facilityNone: 'Für keine Gruppe lässt sich der Personalschlüssel berechnen: Bitte bei den Gruppen Gruppenart und Höchstzahl Kinder eintragen.',
+      preview: 'So viel Personal braucht die neue Gruppe',
+      previewHint: 'Gruppenart und Plätze sind freiwillig; du kannst sie auch später auf der Seite der Gruppe eintragen.',
+      newCapacity: 'Plätze',
+    },
     // settings
     settingsHint: (inLand: string) => `Die Zahlen sind die Vorgabe des Landes ${inLand}. Die App nimmt für jeden Monat die Fassung, die am Monatsersten gilt.`,
     readOnly: 'Ändern kann die Werte nur der Träger.',

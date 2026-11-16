@@ -152,6 +152,10 @@ export const GROUP_SECTIONS: readonly SettingsSection[] = [
   },
   { key: 'group-type', title: de.staffing.groupTypesTitle, replaces: ['group-types'], keywords: ['Gruppenart', 'Gruppentyp', 'Krippe', 'Personalschlüssel'] },
   {
+    key: 'group-staffing', title: de.staffing.estimate.sectionTitle, replaces: [],
+    keywords: ['Personalschlüssel', 'Vollzeitkräfte', 'Personalbedarf', 'Soll', 'Leitungszeit'],
+  },
+  {
     key: 'group-hours', title: de.openingHours.groupOwn, replaces: ['opening-hours-groups'],
     keywords: ['Öffnungszeiten', 'Öffnung', 'Schließung', 'eigene Zeiten'],
   },
