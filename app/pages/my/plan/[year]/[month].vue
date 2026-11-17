@@ -10,6 +10,7 @@ import { errorMessage } from '~/utils/errors'
 import { releasedChangeText } from '~/utils/changes'
 import { isCompactMyPlanDay } from '~/utils/dayCards'
 import { formatDayShort, formatSpan } from '~/utils/format'
+import { homeOfficeLines } from '~/utils/homeOffice'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -85,6 +86,11 @@ function rowClass(day: MyPlanDayDto): string {
             <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
             <span v-for="name in helpFacilityNames(day)" :key="name" class="text-xs text-gray-600">{{ de.myPlan.helpOutIn(name) }}</span>
           </div>
+          <div v-if="time?.enabled && homeOfficeLines(day.entries).length" class="text-xs text-gray-600">
+            <span v-for="line in homeOfficeLines(day.entries)" :key="line" class="mr-2 inline-flex items-center gap-1">
+              <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
+            </span>
+          </div>
           <div v-if="time?.enabled && recordsByDate.get(day.date)?.length" class="text-xs">
             <span v-for="record in recordsByDate.get(day.date)" :key="record.id" class="mr-2 inline-block">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
@@ -121,6 +127,9 @@ function rowClass(day: MyPlanDayDto): string {
             </div>
           </td>
           <td v-if="time?.enabled" class="px-3 py-1.5 text-xs">
+            <div v-for="line in homeOfficeLines(day.entries)" :key="line" class="flex items-center gap-1 text-gray-600">
+              <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
+            </div>
             <div v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
             </div>

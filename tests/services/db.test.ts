@@ -249,12 +249,13 @@ describe('upgrading a filled database through migrateDb', () => {
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
       // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044,
-      // home_office of entries with 0069.)
+      // home_office of entries with 0069, of week template entries with 0070.)
       expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, home_office: ___, ...rest }) => rest))), table)
         .toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }
-    expect(sqlite.prepare('SELECT * FROM week_template_entries').all()).toEqual(before.week_template_entries)
+    expect((sqlite.prepare('SELECT * FROM week_template_entries').all() as Record<string, unknown>[])
+      .map(({ home_office: _, ...rest }) => rest)).toEqual(before.week_template_entries)
     expect(sqlite.prepare(
       'SELECT facility_id, week_start, week_template_id, group_id FROM week_template_marks ORDER BY facility_id, week_start',
     ).all()).toEqual([
@@ -1802,6 +1803,20 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec('INSERT INTO entries (employee_id, date, kind, start, end, updated_at) VALUES (1, \'2026-10-07\', \'special\', 600, 660, \'now\')')
     expect(sqlite.prepare('SELECT home_office FROM entries WHERE id = 2').get()).toEqual({ home_office: 0 })
     expect(() => sqlite.exec('UPDATE entries SET home_office = NULL WHERE id = 1')).toThrow(/NOT NULL/)
+  })
+
+  it('0070 marks every existing week template entry as not home office and new ones too by default', () => {
+    const { db, sqlite } = databaseAt('0069')
+    sqlite.exec(`
+      INSERT INTO employees (id, facility_id, name, short_name) VALUES (1, 1, 'Anna', 'AN');
+      INSERT INTO week_templates (id, facility_id, name, updated_at) VALUES (1, 1, 'Normalwoche', 'now');
+      INSERT INTO week_template_entries (id, week_template_id, employee_id, weekday, kind, start, end) VALUES (1, 1, 1, 0, 'special', 480, 720);
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, home_office FROM week_template_entries').all()).toEqual([{ id: 1, home_office: 0 }])
+    sqlite.exec('INSERT INTO week_template_entries (week_template_id, employee_id, weekday, kind) VALUES (1, 1, 1, \'shift\')')
+    expect(sqlite.prepare('SELECT home_office FROM week_template_entries WHERE id = 2').get()).toEqual({ home_office: 0 })
+    expect(() => sqlite.exec('UPDATE week_template_entries SET home_office = NULL WHERE id = 1')).toThrow(/NOT NULL/)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

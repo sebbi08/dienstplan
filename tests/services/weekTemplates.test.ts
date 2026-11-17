@@ -91,6 +91,24 @@ describe('week templates', () => {
     expect(db.select().from(changeLog).all().length).toBe(before + 1)
   })
 
+  it('keeps the home-office mark when saving and filling a week', () => {
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-05' }], 'add', { kind: 'special', start: 480, end: 720, homeOffice: true })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'add',
+      { kind: 'shift', templateId: templateId(db, 'F1'), homeOffice: true })
+    shift(berta, '2026-10-05', 'S')
+    const template = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })
+    expect(template.rows).toEqual([
+      { employeeId: anna, name: 'Anna', days: ['8:00–12:00 (Homeoffice)', 'F1 (Homeoffice)', '', '', ''] },
+      { employeeId: berta, name: 'Berta', days: ['S', '', '', '', ''] },
+    ])
+    applyWeekTemplate(db, admin, 1, template.id, next)
+    const homeOffice = (employeeId: number, date: string) =>
+      loadEntries(db, { employeeId, from: date, to: date }).map(e => [e.kind, e.homeOffice])
+    expect(homeOffice(anna, next)).toEqual([['special', true]])
+    expect(homeOffice(anna, '2026-10-13')).toEqual([['shift', true]])
+    expect(homeOffice(berta, next)).toEqual([['shift', false]])
+  })
+
   it('replaces a template saved again under the same name, renames and deletes', () => {
     shift(anna, '2026-10-05', 'F1')
     const first = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })

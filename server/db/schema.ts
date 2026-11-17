@@ -445,6 +445,8 @@ export const weekTemplateEntries = sqliteTable('week_template_entries', {
   breakEnd: integer('break_end'),
   countsAsStaff: integer('counts_as_staff', { mode: 'boolean' }).notNull().default(true),
   note: text('note'),
+  /** „Homeoffice – zählt ohne Stempeln“ of the saved entry; filling a week writes it into the plan again. */
+  homeOffice: integer('home_office', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('week_template_entries_template').on(table.weekTemplateId)])
 
 /** Which template a plan week came from or was saved as (latest wins); its name is shown in the plan's week row. */

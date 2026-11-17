@@ -1,0 +1,1 @@
+ALTER TABLE `week_template_entries` ADD `home_office` integer DEFAULT false NOT NULL;

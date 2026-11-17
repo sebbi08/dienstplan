@@ -55,7 +55,8 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
     const own = rows.filter(row => row.entry.employeeId === employee.id)
     if (own.length === 0) return []
     const days = Array.from({ length: WEEKDAYS }, (_, day) => own.filter(row => row.entry.weekday === day)
-      .map(({ entry, code, shift }) => (entry.kind === 'shift' && isCurrent(entry, shift) && shift?.shortLabel) || describeEntry(entry, code?.label ?? null))
+      .map(({ entry, code, shift }) => ((entry.kind === 'shift' && isCurrent(entry, shift) && shift?.shortLabel) || describeEntry(entry, code?.label ?? null))
+        + (entry.homeOffice ? ' (Homeoffice)' : ''))
       .join(' + '))
     return [{ employeeId: employee.id, name: employee.name, days }]
   })
@@ -69,7 +70,8 @@ export function listWeekTemplates(db: Db, facilityId: number): WeekTemplateDto[]
 }
 
 /**
- * Saves Monday–Friday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro.
+ * Saves Monday–Friday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro,
+ * with their home-office mark (filling a week writes it again).
  * One-off entries (Urlaub, Krank, Fortbildung …) are left out. Only the facility's staff count (not its helpers, and not
  * their help-out days elsewhere). A group template (groupId set) keeps only the duties of the group's current members
  * that count for the group, so duties moved to another group stay out; they are stored without group, being home-group
@@ -105,6 +107,7 @@ export function saveWeekTemplate(
       weekTemplateId: template.id, employeeId: entry.employeeId, weekday: weekday(entry.date), kind: entry.kind,
       shiftTemplateId: entry.templateId, absenceCodeId: entry.codeId, start: entry.start, end: entry.end,
       breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, note: entry.note,
+      homeOffice: entry.homeOffice,
     }))).run()
     markWeek(tx, template, input.weekStart)
     return toDto(tx, template)
