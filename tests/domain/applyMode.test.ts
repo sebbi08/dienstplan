@@ -47,6 +47,9 @@ describe('how a duty is entered into a cell', () => {
     expect(entryApplyMode({ kind: 'code', codeId: 6 }, codes)).toBe('replace')
     expect(entryApplyMode({ kind: 'code', codeId: 7 }, codes)).toBe('replace')
   })
+  it('replaces the cell with a whole home-office day (a timed code without times, home office ticked)', () => {
+    expect(entryApplyMode({ kind: 'code', codeId: 6, homeOffice: true }, codes)).toBe('replace')
+  })
   it('replaces with an unknown code', () => {
     expect(entryApplyMode({ kind: 'code', codeId: 99, start: 480, end: 540 }, codes)).toBe('replace')
   })

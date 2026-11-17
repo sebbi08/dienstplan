@@ -121,6 +121,9 @@ export const de = {
     replaceConfirm: 'Die Einträge dieses Tages im Dienstplan werden durch die Abwesenheit ersetzt. Fortfahren?',
     /** A home-office entry of the day on the time page: counted as if stamped, changed only in the plan. */
     homeOffice: (span: string) => `Homeoffice (laut Plan) ${span}`,
+    /** A whole Büro/VZ day without times with what it credits: „Büro (ganzer Tag): 7:48 (Tagessoll)“. */
+    fullDay: (what: string, duration: string) => `${what}: ${duration} (Tagessoll)`,
+    fullDayHomeOffice: 'Homeoffice (ganzer Tag)',
     lateBy: (minutes: number) => `${minutes} Min. zu spät`, earlyBy: (minutes: number) => `${minutes} Min. früher gegangen`,
     lateSummary: (count: number, minutes: number) => `${count}× zu spät, zusammen ${minutes} Min.`,
     earlySummary: (count: number, minutes: number) => `${count}× früher gegangen, zusammen ${minutes} Min.`,
@@ -298,6 +301,9 @@ export const de = {
     start: 'Von', end: 'Bis', breakStart: 'Pause von', breakEnd: 'Pause bis', note: 'Notiz (optional)', save: 'Eintragen',
     homeOffice: 'Homeoffice – zählt ohne Stempeln',
     homeOfficeHint: 'Die Zeit zählt im Stundenkonto, als wäre sie gestempelt. Hat es nicht stattgefunden: Eintrag löschen oder ändern.',
+    /** A timed code (Büro, VZ) may stay without times: the whole day. */
+    fullDayHint: 'Ohne „Von“ und „Bis“ gilt der ganze Tag – er zählt das volle Tagessoll.',
+    fullDayNoBreak: 'Eine Pause geht nur mit „Von“ und „Bis“.',
   },
   spanErrors: {
     not_on_grid: 'Bitte Uhrzeiten im 5-Minuten-Raster angeben.',

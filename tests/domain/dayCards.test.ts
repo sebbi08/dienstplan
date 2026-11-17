@@ -5,7 +5,8 @@ import { isCompactMyPlanDay, isCompactTimeDay } from '../../app/utils/dayCards'
 const timeDay = (patch: Partial<TimeDayDto> = {}): TimeDayDto => ({
   date: '2026-10-24', weekday: 6, isWeekend: true, holidayKey: null, plan: '', plannedMinutes: 0, target: 0, records: [],
   recordedMinutes: 0, counted: 0, usesRecords: false, absence: false, otherEntries: false, targetCredit: false, warnings: [],
-  note: '', changes: [], plannedDuty: false, sickLeave: null, lateMinutes: null, earlyMinutes: null, ...patch,
+  note: '', changes: [], plannedDuty: false, sickLeave: null, lateMinutes: null, earlyMinutes: null,
+  homeOffice: [], fullDay: null, ...patch,
 })
 
 const planDay = (patch: Partial<MyPlanDayDto> = {}): MyPlanDayDto => ({
@@ -27,6 +28,13 @@ describe('isCompactTimeDay', () => {
     expect(isCompactTimeDay(timeDay({ sickLeave: { leftAt: null, note: null } as unknown as TimeDayDto['sickLeave'] }))).toBe(false)
     expect(isCompactTimeDay(timeDay({ note: 'Arzttermin' }))).toBe(false)
     expect(isCompactTimeDay(timeDay({ changes: [{} as TimeDayDto['changes'][number]] }))).toBe(false)
+  })
+
+  it('keeps the card for a whole Büro or home-office day, so its credited target shows', () => {
+    expect(isCompactTimeDay(timeDay({
+      isWeekend: false, plan: 'Büro (ganzer Tag)', targetCredit: true,
+      fullDay: { label: 'Büro (ganzer Tag)', homeOffice: true, minutes: 468 },
+    }))).toBe(false)
   })
 })
 

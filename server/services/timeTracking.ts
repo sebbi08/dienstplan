@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, isNull, lt, lte } from 'drizzle-orm'
 import type { ActualTime } from '../../shared/domain/balance'
-import { computeDay, hasPlannedDuty, isWorkEntry, usesRecords } from '../../shared/domain/balance'
+import { computeDay, creditsDailyTarget, hasPlannedDuty, isFullDayTimed, isWorkEntry, usesRecords } from '../../shared/domain/balance'
 import { cellKey } from '../../shared/domain/cells'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
@@ -12,7 +12,7 @@ import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { timeWarnings } from '../../shared/domain/warnings'
-import type { EntryDto, OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
+import type { EntryDto, FullDayDto, OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { earlyClosures, employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -191,6 +191,16 @@ export function listOpenRecords(db: Db, facilityId: number, today: IsoDate): Ope
 }
 
 /**
+ * The day's whole Büro/VZ day without times, shown on the time page with what it credits (the target) instead of a time
+ * range; null when there is none or a full-day absence decides the day.
+ */
+function fullDayOf(dayEntries: EntryDto[], credited: Minutes): FullDayDto | null {
+  if (dayEntries.some(entry => entry.creditMode === 'daily_target')) return null
+  const entry = dayEntries.find(isFullDayTimed)
+  return entry ? { label: entry.label, homeOffice: entry.homeOffice, minutes: credited } : null
+}
+
+/**
  * The time sheet of one employee and month for Leitung and Träger, with late arrivals and early leaving marked under
  * the facility's settings. `nowMinutes` is the current minute of `today` (early leaving today waits for the planned end).
  */
@@ -254,7 +264,8 @@ export function getTimeMonth(
       ...recordedDay(records, dayEntries, usesRecords(actual, date)),
       counted: counted.credit,
       usesRecords: usesRecords(actual, date), absence, otherEntries,
-      targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
+      targetCredit: creditsDailyTarget(dayEntries),
+      fullDay: fullDayOf(dayEntries, counted.credit),
       warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
       note: notes.get(date) ?? '',
       changes: changes.filter(({ change }) => change.date === date)

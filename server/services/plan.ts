@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { groupAttendance } from '../../shared/domain/attendance'
-import { computeDay, computeRange, summarize } from '../../shared/domain/balance'
+import { computeDay, computeRange, isFullDayTimed, summarize } from '../../shared/domain/balance'
 import { cellKey, parseCellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isoWeekNumber, isWeekend, monthDates, toIsoDate, weekday, weekStart } from '../../shared/domain/dates'
 import { holidayIn, type HolidayRules } from '../../shared/domain/holidays'
@@ -128,9 +128,9 @@ function buildAdminData(
         // Home-office minutes count as stamped, so a stamped day with home office does not show as deviating.
         const minutes = dayCreditedMinutes(records, dayEntries, employee.breakMode)
         const planned = computeDay(employee.info, date, dayEntries).credit
-        actuals[key] = {
-          minutes, open: records.some(record => record.end === null), deviates: !marked && Math.abs(minutes - planned) > 15,
-        }
+        // A whole Büro/home-office day counts its target whatever was stamped: its stamps never deviate.
+        const deviates = !marked && !dayEntries.some(isFullDayTimed) && Math.abs(minutes - planned) > 15
+        actuals[key] = { minutes, open: records.some(record => record.end === null), deviates }
       }
     }
   }

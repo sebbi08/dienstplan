@@ -750,7 +750,8 @@ export interface EntryInput {
   groupId?: number | null
   /**
    * „Homeoffice – zählt ohne Stempeln“ (missing = false): only on entries with working time (shift, special shift, timed
-   * code such as Büro or VZ); otherwise 400 home_office_not_allowed.
+   * code such as Büro or VZ), also on a timed code without times (the whole day, „Homeoffice (ganzer Tag)“); otherwise
+   * 400 home_office_not_allowed.
    */
   homeOffice?: boolean
 }
@@ -1370,8 +1371,13 @@ export interface TimeDayDto {
   absence: boolean
   /** The plan has entries other than those absences (shifts, Feiertag, Schließtag …) that an absence would replace. */
   otherEntries: boolean
-  /** A daily-target code (Urlaub … Feiertag, Schließtag) is planned: the day counts its target, records do not count. */
+  /**
+   * A daily-target code (Urlaub … Feiertag, Schließtag) or a whole Büro/VZ day without times is planned: the day counts
+   * its target, records do not count.
+   */
   targetCredit: boolean
+  /** A whole Büro/VZ day without times (as home office: „Homeoffice (ganzer Tag)“), shown with its credited target. */
+  fullDay: FullDayDto | null
   warnings: Warning[]
   /** Admin's free-text reason for this day (not shown to the employee). */
   note: string
@@ -1387,6 +1393,16 @@ export interface TimeDayDto {
   lateMinutes: number | null
   /** Minutes the last departure lay before the last planned work end, when more than the tolerance and switched on. */
   earlyMinutes: number | null
+}
+
+/** A whole working day without times on the time page: „Büro (ganzer Tag): 7:48 (Tagessoll)“. */
+export interface FullDayDto {
+  /** The entry's label, e.g. „Büro (ganzer Tag)“. */
+  label: string
+  /** Worked from home: shown as „Homeoffice (ganzer Tag)“. */
+  homeOffice: boolean
+  /** The credited minutes: the day's target. */
+  minutes: Minutes
 }
 
 export interface MyTimeDto {

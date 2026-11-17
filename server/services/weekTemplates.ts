@@ -55,7 +55,7 @@ function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplat
     const own = rows.filter(row => row.entry.employeeId === employee.id)
     if (own.length === 0) return []
     const days = Array.from({ length: WEEKDAYS }, (_, day) => own.filter(row => row.entry.weekday === day)
-      .map(({ entry, code, shift }) => ((entry.kind === 'shift' && isCurrent(entry, shift) && shift?.shortLabel) || describeEntry(entry, code?.label ?? null))
+      .map(({ entry, code, shift }) => ((entry.kind === 'shift' && isCurrent(entry, shift) && shift?.shortLabel) || describeEntry(entry, code?.label ?? null, code?.creditMode ?? null))
         + (entry.homeOffice ? ' (Homeoffice)' : ''))
       .join(' + '))
     return [{ employeeId: employee.id, name: employee.name, days }]

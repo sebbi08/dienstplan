@@ -58,8 +58,22 @@ export function workedMinutes(entries: WorkSpan[]): number {
   return worked.reduce((sum, minute) => sum + minute, 0)
 }
 
+/**
+ * A whole working day without times: a timed code (Büro, VZ) entered without start and end („Büro (ganzer Tag)“, as
+ * home office „Homeoffice (ganzer Tag)“). It credits the full daily target like a full-day absence, whatever was
+ * stamped, needs no stamp and has no time window (so it never counts in coverage or presence windows).
+ */
+export function isFullDayTimed(entry: Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'>): boolean {
+  return entry.kind === 'code' && entry.creditMode === 'timed' && entry.start === null && entry.end === null
+}
+
+/** The day is credited with its daily target: a full-day absence (Urlaub, Krank …) or a full-day timed entry is planned. */
+export function creditsDailyTarget(entries: Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'>[]): boolean {
+  return entries.some(entry => entry.creditMode === 'daily_target' || isFullDayTimed(entry))
+}
+
 export function dayCredit(entries: DomainEntry[], target: number): number {
-  if (entries.some(entry => entry.creditMode === 'daily_target')) return target
+  if (creditsDailyTarget(entries)) return target
   return workedMinutes(entries)
 }
 
@@ -115,7 +129,8 @@ export function computeDay(info: EmploymentInfo, date: IsoDate, entries: DomainE
   let credit = 0
   if (isEmployedOn(info, date)) {
     const planned = dayCredit(entries, target)
-    if (entries.some(entry => entry.creditMode === 'daily_target') || !usesRecords(actual, date)) {
+    // A full-day absence or a whole Büro/home-office day counts its target, also on days of the records.
+    if (creditsDailyTarget(entries) || !usesRecords(actual, date)) {
       credit = planned
     }
     else {

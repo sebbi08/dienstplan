@@ -47,7 +47,8 @@ describe('entries service', () => {
     expect(cellEntries()).toEqual([])
   })
   it('rejects invalid input', () => {
-    expect(errorCode(() => applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'code', codeId: codeId(db, 'prep_time') }))).toBe('times_required')
+    // A timed code (VZ, Büro) without times is a whole day (tests/services/fullDayOffice.test.ts), half a time is not.
+    expect(errorCode(() => applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'code', codeId: codeId(db, 'prep_time'), start: 450 }))).toBe('span_incomplete')
     expect(errorCode(() => applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'special', start: 465, end: 960, breakStart: 700 }))).toBe('span_incomplete_break')
     expect(errorCode(() => applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'special', start: 465, end: 960, breakStart: 450, breakEnd: 480 }))).toBe('span_break_outside')
     expect(errorCode(() => applyToCells(db, admin, 1, [annaCell()], 'replace', { kind: 'special', start: 600 }))).toBe('span_incomplete')

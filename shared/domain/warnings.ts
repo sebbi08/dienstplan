@@ -1,4 +1,4 @@
-import { dayCredit, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
+import { dayCredit, isFullDayTimed, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
 import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
@@ -182,6 +182,8 @@ export function timeWarnings(
   if (entries.some(entry => entry.creditMode === 'daily_target')) {
     return records.length > 0 ? [{ type: 'record_on_absence', date, employeeId }] : []
   }
+  // A whole Büro or home-office day counts its target: it needs no stamp, and a stamp on it is no stamp on an absence.
+  if (entries.some(isFullDayTimed)) return []
   const warnings: Warning[] = []
   if (records.some(record => record.end === null)) warnings.push({ type: 'open_record', date, employeeId })
   // Home-office entries count without stamping: only other planned work needs records.

@@ -30,7 +30,7 @@ function assertMonth(year: number, month: number): void {
 export function withPlainMarkers(facilityId: number, list: EntryDto[]): EntryDto[] {
   return list.map(entry => entry.helpFacilityId === null || entry.helpFacilityId === facilityId
     ? entry
-    : { ...entry, templateId: null, note: null, label: describeEntry(entry, null), shortLabel: null, color: 'neutral', groupId: null })
+    : { ...entry, templateId: null, note: null, label: describeEntry(entry, null, entry.creditMode), shortLabel: null, color: 'neutral', groupId: null })
 }
 
 /**

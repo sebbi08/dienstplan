@@ -61,9 +61,10 @@ export function buildDayOverview(inputs: OverviewInput[], isHolidayDay: boolean)
   for (let time = earliest; time < latest; time += SLOT_MINUTES) slotStarts.push(time)
 
   const rows = inputs.map(({ employeeId, entries }): OverviewRow => {
+    // An entry without times fills the day: a whole home-office day („Homeoffice (ganzer Tag)“) is not in the house.
     const fullDay = entries.find(entry => entry.start === null)
     const fill: SlotState | null = fullDay
-      ? codeState(fullDay.codeKey)
+      ? isOnSite(fullDay) ? codeState(fullDay.codeKey) : 'home_office'
       : entries.length === 0 && isHolidayDay ? 'holiday' : null
     const states = slotStarts.map((time) => {
       const state = stateAt(entries, time)

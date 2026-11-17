@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { formatDuration, parseTime, validateSpan } from '#shared/domain/time'
+import { formatDuration } from '#shared/domain/time'
 import type { CodeDto, EntryInput } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { allowsFullDay, allowsHomeOffice, timeEntryInput } from '~/utils/timeEntry'
 import { workTime } from '~/utils/workTime'
 
 const props = defineProps<{ code: CodeDto | null }>()
@@ -12,8 +13,10 @@ const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', note: 
 const error = ref('')
 const hint = computed(() => workTime(form))
 const title = computed(() => (props.code ? de.modal.codeTitle(props.code.label) : de.modal.specialTitle))
-/** „Homeoffice – zählt ohne Stempeln“ fits working time only: a special shift or a timed code (Büro, VZ). */
-const homeOfficeAllowed = computed(() => !props.code || props.code.creditMode === 'timed')
+/** „Homeoffice – zählt ohne Stempeln“ fits working time only: a special shift or a timed code (Büro, VZ), with or without times. */
+const homeOfficeAllowed = computed(() => allowsHomeOffice(props.code))
+/** A timed code (Büro, VZ) may stay without times: the whole day. */
+const fullDayAllowed = computed(() => allowsFullDay(props.code))
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -22,28 +25,12 @@ watch(open, (isOpen) => {
 })
 
 function submit() {
-  if ([form.start, form.end, form.breakStart, form.breakEnd].some(value => value.trim() && parseTime(value) === null)) {
-    error.value = de.common.invalidTime
+  const result = timeEntryInput(form, props.code)
+  if ('error' in result) {
+    error.value = result.error
     return
   }
-  const start = parseTime(form.start)
-  const end = parseTime(form.end)
-  if (start === null || end === null) {
-    error.value = de.spanErrors.missing_times
-    return
-  }
-  const breakStart = form.breakStart.trim() ? parseTime(form.breakStart) : null
-  const breakEnd = form.breakEnd.trim() ? parseTime(form.breakEnd) : null
-  const spanError = validateSpan({ start, end, breakStart, breakEnd })
-  if (spanError) {
-    error.value = de.spanErrors[spanError]
-    return
-  }
-  const note = form.note.trim() || null
-  const homeOffice = homeOfficeAllowed.value && form.homeOffice
-  emit('submit', props.code
-    ? { kind: 'code', codeId: props.code.id, start, end, breakStart, breakEnd, note, homeOffice }
-    : { kind: 'special', start, end, breakStart, breakEnd, note, homeOffice })
+  emit('submit', result.entry)
   open.value = false
 }
 </script>
@@ -54,6 +41,7 @@ function submit() {
       <form class="grid grid-cols-2 gap-3" @submit.prevent="submit">
         <UFormField :label="de.modal.start"><TimeInput v-model="form.start" autofocus /></UFormField>
         <UFormField :label="de.modal.end"><TimeInput v-model="form.end" /></UFormField>
+        <p v-if="fullDayAllowed" class="col-span-2 text-sm text-gray-600">{{ de.modal.fullDayHint }}</p>
         <UFormField :label="de.modal.breakStart"><TimeInput v-model="form.breakStart" /></UFormField>
         <UFormField :label="de.modal.breakEnd"><TimeInput v-model="form.breakEnd" /></UFormField>
         <p v-if="hint" class="col-span-2 text-sm text-gray-700" aria-live="polite">

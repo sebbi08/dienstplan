@@ -104,7 +104,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
     helpFacilityId: entry.helpFacilityId,
     groupId: entry.groupId,
     homeOffice: entry.homeOffice,
-    label: describeEntry(entry, code?.label ?? null),
+    label: describeEntry(entry, code?.label ?? null, code?.creditMode ?? null),
     shortLabel: template?.shortLabel || null,
     color: entry.kind === 'code'
       ? (code?.color ?? 'neutral') as ColorKey

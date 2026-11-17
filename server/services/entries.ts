@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray } from 'drizzle-orm'
-import { hasPlannedDuty, isWorkEntry } from '../../shared/domain/balance'
+import { hasPlannedDuty, isFullDayTimed, isWorkEntry } from '../../shared/domain/balance'
 import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
@@ -24,10 +24,11 @@ const NO_TIMES = { start: null, end: null, breakStart: null, breakEnd: null }
 
 /**
  * „Homeoffice – zählt ohne Stempeln“ only fits an entry with working time (shift, special shift, timed code such as
- * Büro or VZ); anything else gives home_office_not_allowed.
+ * Büro or VZ) or a whole Büro/VZ day without times („Homeoffice (ganzer Tag)“); anything else gives
+ * home_office_not_allowed.
  */
-function assertHomeOffice(entry: { kind: EntryKind; creditMode: CreditMode; start: Minutes | null }): void {
-  if (!isWorkEntry(entry)) throw new ServiceError(400, 'home_office_not_allowed')
+function assertHomeOffice(entry: { kind: EntryKind; creditMode: CreditMode; start: Minutes | null; end: Minutes | null }): void {
+  if (!isWorkEntry(entry) && !isFullDayTimed(entry)) throw new ServiceError(400, 'home_office_not_allowed')
 }
 
 /** The entry to write for the input; homeOffice false unless the input asks for it (see assertHomeOffice). */
@@ -36,7 +37,7 @@ export function resolveEntry(db: Db, facilityId: number, input: EntryInput): Res
   const homeOffice = input.homeOffice ?? false
   if (homeOffice) {
     const creditMode = values.kind === 'code' ? codeCreditMode(db, values.absenceCodeId) ?? 'none' : 'timed'
-    assertHomeOffice({ kind: values.kind, creditMode, start: values.start ?? null })
+    assertHomeOffice({ kind: values.kind, creditMode, start: values.start ?? null, end: values.end ?? null })
   }
   return { ...values, homeOffice }
 }
@@ -74,7 +75,8 @@ function resolveTimes(db: Db, facilityId: number, input: EntryInput): ResolvedEn
 
   const code = db.select().from(absenceCodes).where(eq(absenceCodes.id, input.codeId ?? -1)).get()
   if (!code) throw new ServiceError(400, 'code_not_found')
-  if (code.requiresTimes && !hasTimes) throw new ServiceError(400, 'times_required')
+  // A timed code (Büro, VZ) without times is a whole working day (isFullDayTimed): no times, no break.
+  if (code.requiresTimes && !hasTimes && code.creditMode !== 'timed') throw new ServiceError(400, 'times_required')
   return {
     kind: 'code', shiftTemplateId: null, absenceCodeId: code.id,
     ...(hasTimes ? span : NO_TIMES), countsAsStaff: true, note,
@@ -205,7 +207,8 @@ export function dropStaleSickLeave(db: Db, cell: CellRef): void {
  * erkrankt" marker (see dropStaleSickLeave).
  * Modes: 'replace' empties the cell first (a shift or special shift keeps timed VZ/Büro), 'clear' only empties it, 'add'
  * keeps its entries, except that a working duty (shift, special shift, timed code) replaces a full-day absence
- * (daily_target code such as Urlaub or Krank). Working entries may not overlap each other (VZ/Büro may overlap a shift).
+ * (daily_target code such as Urlaub or Krank) and a whole Büro/VZ day without times (isFullDayTimed). Working entries
+ * may not overlap each other (VZ/Büro may overlap a shift).
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
@@ -230,7 +233,8 @@ export function applyToCells(
   const names = groupNames(db, facilityId)
   // An absence is any code other than the timed VZ/Büro (Urlaub, Krank, Fortbildung, Schließtag …, with or without times).
   const isAbsence = values?.kind === 'code' && !isGapCode
-  // A working duty added to a cell replaces its full-day absence (Urlaub, Krank …): a duty next to them makes no sense.
+  // A working duty added to a cell replaces its full-day absence (Urlaub, Krank …) or its whole Büro/VZ day without
+  // times: a duty next to them makes no sense.
   const addsWork = mode === 'add' && values !== null && values.start != null && (values.kind === 'shift'
     || values.kind === 'special' || (values.kind === 'code' && codeCreditMode(db, values.absenceCodeId) === 'timed'))
   if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
@@ -274,7 +278,7 @@ export function applyToCells(
       }
       else if (addsWork) {
         for (const existing of loadEntries(tx, cellFilter)) {
-          if (existing.creditMode === 'daily_target') tx.delete(entries).where(eq(entries.id, existing.id)).run()
+          if (existing.creditMode === 'daily_target' || isFullDayTimed(existing)) tx.delete(entries).where(eq(entries.id, existing.id)).run()
         }
       }
       if (values?.kind === 'break') {
@@ -398,7 +402,7 @@ export function updateEntryTimes(
   const span = { ...times, breakStart: isBreak ? null : times.breakStart, breakEnd: isBreak ? null : times.breakEnd }
   if (homeOffice) {
     const creditMode = entry.kind === 'code' ? codeCreditMode(db, entry.absenceCodeId) ?? 'none' : 'timed'
-    assertHomeOffice({ kind: entry.kind, creditMode, start: span.start })
+    assertHomeOffice({ kind: entry.kind, creditMode, start: span.start, end: span.end })
   }
   const spanError = validateSpan(span)
   if (spanError) throw new ServiceError(400, `span_${spanError}`)

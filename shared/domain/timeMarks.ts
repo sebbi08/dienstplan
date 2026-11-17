@@ -1,4 +1,4 @@
-import { isTimeOff, isWorkEntry } from './balance'
+import { creditsDailyTarget, isTimeOff, isWorkEntry } from './balance'
 import type { RecordSpan } from './timeRecords'
 import type { DomainEntry, Minutes } from './types'
 
@@ -39,7 +39,7 @@ const NONE: DayMarks = { lateMinutes: null, earlyMinutes: null }
 /**
  * Compares the stamped times of a day with its planned work (shifts, special shifts, timed codes such as VZ): the first
  * arrival with the first planned start, the last departure with the last planned end. Days without planned work or with
- * an entry crediting the daily target (Urlaub, Krank, Feiertag …) get no marks. While a stay is open nobody has left, and
+ * an entry crediting the daily target (Urlaub, Krank, Feiertag …, a whole Büro day) get no marks. While a stay is open nobody has left, and
  * today early leaving counts only once the planned end has passed, so a stamped break is not taken for a departure.
  * An early closure of the facility moves the planned end forward to the closing time.
  */
@@ -47,7 +47,7 @@ export function dayMarks(
   entries: (Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'> & Partial<Pick<DomainEntry, 'codeKey' | 'homeOffice'>>)[],
   records: RecordSpan[], options: MarkOptions,
 ): DayMarks {
-  if (records.length === 0 || entries.some(entry => entry.creditMode === 'daily_target')) return NONE
+  if (records.length === 0 || creditsDailyTarget(entries)) return NONE
   // Planned work without the time ranges of "Überstundenfrei": an ÜF at the end of the shift is where the duty ends.
   // Home-office entries are worked away from the facility: no arrival or departure is compared with them.
   const planned = new Uint8Array(24 * 60)

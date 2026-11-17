@@ -7,6 +7,7 @@ import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort } from '~/utils/format'
 import { isCompactTimeDay } from '~/utils/dayCards'
+import { fullDayLine } from '~/utils/homeOffice'
 import { DEVIATION_MINUTES, markedRecords, recordedDifference as difference } from '~/utils/timeSheet'
 import { warningText } from '~/utils/warnings'
 
@@ -209,6 +210,9 @@ function change(nextYear: number, nextMonth: number) {
             <span v-for="(span, index) in day.homeOffice" :key="`ho-${index}`" class="inline-flex items-center gap-1 text-xs text-gray-600">
               <UIcon name="i-lucide-house" class="shrink-0" />{{ de.time.homeOffice(homeOfficeSpan(span)) }}
             </span>
+            <span v-if="day.fullDay" class="inline-flex items-center gap-1 text-xs text-gray-600">
+              <UIcon v-if="day.fullDay.homeOffice" name="i-lucide-house" class="shrink-0" />{{ fullDayLine(day.fullDay) }}
+            </span>
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.time.addRecord" @click="addRecord(day)" />
             <span v-if="day.usesRecords" class="ml-auto text-xs text-gray-500">{{ de.time.recorded }} {{ formatDuration(day.recordedMinutes) }}</span>
           </div>
@@ -277,6 +281,10 @@ function change(nextYear: number, nextMonth: number) {
               <!-- Home office counts as stamped; it is changed in the plan, not here. -->
               <div v-for="(span, index) in day.homeOffice" :key="`ho-${index}`" class="flex items-center gap-1 text-xs text-gray-600">
                 <UIcon name="i-lucide-house" class="shrink-0" />{{ de.time.homeOffice(homeOfficeSpan(span)) }}
+              </div>
+              <!-- A whole Büro/home-office day counts its target instead of stamped times. -->
+              <div v-if="day.fullDay" class="flex items-center gap-1 text-xs text-gray-600">
+                <UIcon v-if="day.fullDay.homeOffice" name="i-lucide-house" class="shrink-0" />{{ fullDayLine(day.fullDay) }}
               </div>
               <div v-if="day.lateMinutes !== null" class="text-xs text-red-600">{{ de.time.lateBy(day.lateMinutes) }}</div>
               <div v-if="day.earlyMinutes !== null" class="text-xs text-blue-600">{{ de.time.earlyBy(day.earlyMinutes) }}</div>
