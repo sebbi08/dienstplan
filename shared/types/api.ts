@@ -748,6 +748,20 @@ export interface EntryInput {
   note?: string | null
   /** The group this duty counts for when it is not the home group (null or missing = the home group). */
   groupId?: number | null
+  /**
+   * „Homeoffice – zählt ohne Stempeln“ (missing = false): only on entries with working time (shift, special shift, timed
+   * code such as Büro or VZ); otherwise 400 home_office_not_allowed.
+   */
+  homeOffice?: boolean
+}
+
+/** New times of one entry clicked in the plan; homeOffice only when it changes (missing = kept). */
+export interface EntryTimesInput {
+  start: Minutes
+  end: Minutes
+  breakStart: Minutes | null
+  breakEnd: Minutes | null
+  homeOffice?: boolean
 }
 
 export interface EntryDto extends DomainEntry {
@@ -762,6 +776,8 @@ export interface EntryDto extends DomainEntry {
   helpFacilityId: number | null
   /** The group of the plan's facility this single duty counts for; null = the employee's home group. */
   groupId: number | null
+  /** „Homeoffice – zählt ohne Stempeln“: the time counts in the time tracking as if stamped. */
+  homeOffice: boolean
 }
 
 /** An employee of another facility helping out in this facility's plan for a month (a helper column). */
@@ -1340,6 +1356,9 @@ export interface TimeDayDto {
   plannedMinutes: number
   target: number
   records: TimeRecordDto[]
+  /** The day's home-office entries („Homeoffice (laut Plan)“): counted as if stamped, not editable as records. */
+  homeOffice: { start: Minutes; end: Minutes }[]
+  /** „Ist“: the closed records plus the home-office minutes outside them (without their planned breaks). */
   recordedMinutes: number
   /** What the balance counts for this day. */
   counted: number

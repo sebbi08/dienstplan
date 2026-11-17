@@ -19,7 +19,10 @@ const breakText = computed(() => {
   return breakStart !== null && breakEnd !== null ? de.plan.breakEntry(`${formatTime(breakStart)}–${formatTime(breakEnd)}`) : null
 })
 const title = computed(() => {
-  const own = [props.entry.shortLabel, props.entry.note, props.groupName ? de.groups.tagHint(props.groupName) : ''].filter(Boolean).join(' · ')
+  const own = [
+    props.entry.shortLabel, props.entry.homeOffice ? de.plan.homeOffice : '', props.entry.note,
+    props.groupName ? de.groups.tagHint(props.groupName) : '',
+  ].filter(Boolean).join(' · ')
   return [own, props.editable ? de.plan.editEntryHint : '', props.cellTitle].filter(Boolean).join('\n') || undefined
 })
 </script>
@@ -30,7 +33,14 @@ const title = computed(() => {
     :class="[chipClasses[entry.color], editable ? 'cursor-pointer ring-1 ring-sky-400 hover:ring-2' : '']" :title="title"
   >
     <span class="flex flex-col">
-      <span class="print:leading-[1.1]!">{{ text }}</span>
+      <span class="inline-flex items-center gap-0.5 print:leading-[1.1]!">
+        {{ text }}
+        <!-- „Homeoffice – zählt ohne Stempeln“: the time counts as if stamped. -->
+        <UIcon
+          v-if="entry.homeOffice" name="i-lucide-house" class="size-3 shrink-0" role="img"
+          :title="de.plan.homeOffice" :aria-label="de.plan.homeOffice"
+        />
+      </span>
       <!-- Printed small and grey: the shift time stays the main information. -->
       <span v-if="breakText" class="text-[11px] leading-tight text-red-700 print:text-[0.65rem] print:leading-none! print:text-gray-500">{{ breakText }}</span>
       <span v-if="groupName" class="text-[11px] font-medium leading-tight text-violet-800">{{ de.groups.tag(groupName) }}</span>

@@ -5,7 +5,7 @@ import { cellKey } from '../../shared/domain/cells'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayIn } from '../../shared/domain/holidays'
-import { creditedMinutes, mayStampVia, plannedBreakMinutes } from '../../shared/domain/stamping'
+import { dayCreditedMinutes, homeOfficeMinutes, isHomeOffice, mayStampVia } from '../../shared/domain/stamping'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { dayMarks, summarizeMarks } from '../../shared/domain/timeMarks'
 import { formatTime } from '../../shared/domain/time'
@@ -54,7 +54,8 @@ export function loadTimeRecords(db: Db, filter: TimeRecordFilter = {}): TimeReco
 }
 
 /**
- * Per employee of the facility: recorded minutes for the balance, or undefined while time tracking is not active. Days
+ * Per employee of the facility: recorded minutes for the balance, or undefined while time tracking is not active. The
+ * minutes of home-office entries („Homeoffice – zählt ohne Stempeln“) count as recorded, minutes also clocked once. Days
  * marked "Im Dienst erkrankt" are credited from the plan instead (plannedDates), so balances, week totals and the
  * time page all count the planned working time of such a day.
  */
@@ -67,19 +68,24 @@ export function actualTimeFor(db: Db, facilityId: number, today: IsoDate): (empl
     days.set(record.date, [...(days.get(record.date) ?? []), record])
     byEmployee.set(record.employeeId, days)
   }
-  // With automatic breaks the planned break of the day is deducted from the clocked time.
+  // With automatic breaks the planned break of the day is deducted from the clocked time; home-office entries count
+  // as if stamped (dayCreditedMinutes), so their days count even without records.
   const breakModes = new Map(loadEmployees(db, facilityId).map(employee => [employee.id, employee.breakMode]))
-  const plannedBreaks = new Map<string, number>()
+  const dayEntries = new Map<number, Map<IsoDate, EntryDto[]>>()
+  const homeOfficeDates = new Map<number, Set<IsoDate>>()
   for (const entry of loadEntries(db, { from, to: today, homeFacilityId: facilityId })) {
-    const key = `${entry.employeeId}:${entry.date}`
-    plannedBreaks.set(key, (plannedBreaks.get(key) ?? 0) + plannedBreakMinutes([entry]))
+    const days = dayEntries.get(entry.employeeId) ?? new Map<IsoDate, EntryDto[]>()
+    days.set(entry.date, [...(days.get(entry.date) ?? []), entry])
+    dayEntries.set(entry.employeeId, days)
+    if (isHomeOffice(entry)) homeOfficeDates.set(entry.employeeId, (homeOfficeDates.get(entry.employeeId) ?? new Set()).add(entry.date))
   }
   const sickDates = sickLeaveDates(db, facilityId, from)
   return (employeeId) => {
     const mode = breakModes.get(employeeId) ?? 'stamp'
+    const records = byEmployee.get(employeeId) ?? new Map<IsoDate, TimeRecordDto[]>()
     const minutesByDate = new Map<IsoDate, number>()
-    for (const [date, list] of byEmployee.get(employeeId) ?? []) {
-      minutesByDate.set(date, creditedMinutes(list, mode, plannedBreaks.get(`${employeeId}:${date}`) ?? 0))
+    for (const date of new Set([...records.keys(), ...homeOfficeDates.get(employeeId) ?? []])) {
+      minutesByDate.set(date, dayCreditedMinutes(records.get(date) ?? [], dayEntries.get(employeeId)?.get(date) ?? [], mode))
     }
     return { from, today, minutesByDate, plannedDates: sickDates.get(employeeId) ?? new Set() }
   }
@@ -243,7 +249,9 @@ export function getTimeMonth(
       date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayIn(date, employee.info.holidays),
       plan: describeCellDetailed(dayEntries),
       plannedMinutes: planned.credit, target: planned.target,
-      records, recordedMinutes: recordedMinutes(records), counted: counted.credit,
+      records,
+      homeOffice: dayEntries.filter(isHomeOffice).map(entry => ({ start: entry.start!, end: entry.end! })),
+      recordedMinutes: recordedMinutes(records) + homeOfficeMinutes(dayEntries, records), counted: counted.credit,
       usesRecords: usesRecords(actual, date), absence, otherEntries,
       targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
       warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],

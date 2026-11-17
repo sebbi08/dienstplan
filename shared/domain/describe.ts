@@ -22,11 +22,13 @@ export interface DetailedEntryLike {
   note: string | null
   /** The group a single duty counts for (null or missing = the home group). */
   groupId?: number | null
+  /** „Homeoffice – zählt ohne Stempeln“ (missing = false): the text ends in „ (Homeoffice)“. */
+  homeOffice?: boolean
 }
 
 /**
  * Full cell text used to detect and show changes (includes short label, break, the group of a duty counting for another
- * group — "→ Mäuse", only when the plan passes its group names — and note).
+ * group — "→ Mäuse", only when the plan passes its group names —, „ (Homeoffice)“ and note).
  */
 export function describeCellDetailed(entries: DetailedEntryLike[], groupNames: Record<number, string> = {}): string {
   if (entries.length === 0) return '—'
@@ -38,6 +40,7 @@ export function describeCellDetailed(entries: DetailedEntryLike[], groupNames: R
         ? ` [${formatTime(entry.breakStart)}–${formatTime(entry.breakEnd)}]`
         : '')
       + (group ? ` → ${group}` : '')
+      + (entry.homeOffice ? ' (Homeoffice)' : '')
       + (entry.note ? ` · ${entry.note}` : '')
   }).join(' + ')
 }

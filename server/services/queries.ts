@@ -103,6 +103,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
     note: entry.note,
     helpFacilityId: entry.helpFacilityId,
     groupId: entry.groupId,
+    homeOffice: entry.homeOffice,
     label: describeEntry(entry, code?.label ?? null),
     shortLabel: template?.shortLabel || null,
     color: entry.kind === 'code'

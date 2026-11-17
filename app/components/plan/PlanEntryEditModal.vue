@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { formatDuration, formatTime, parseTime, validateSpan } from '#shared/domain/time'
-import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
-import type { EntryDto, MonthPlanDto } from '#shared/types/api'
+import { isWorkEntry } from '#shared/domain/balance'
+import type { EntryDto, EntryTimesInput, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { workTime } from '~/utils/workTime'
 
 /**
  * Changes the times of one clicked entry; a fixed shift with other start/end becomes a special shift. With groups, a
  * working duty (shift, special shift, VZ, Büro) can also count for another group than the person's home group.
- * Emits the new times only when they changed and the group only when it changed (null = the home group again).
+ * Emits the new times only when they changed and the group only when it changed (null = the home group again). An
+ * entry with working time can be marked „Homeoffice – zählt ohne Stempeln“; a changed mark goes with the times.
  */
 const props = defineProps<{
   entry: EntryDto | null
@@ -19,14 +20,16 @@ const props = defineProps<{
 }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{
-  submit: [id: number, times: TimeSpan | null, groupId: number | null | undefined]
+  submit: [id: number, times: EntryTimesInput | null, groupId: number | null | undefined]
   sickLeave: [entry: EntryDto]
 }>()
 
 /** groupId 0 = the home group (the select needs a non-null value). */
-const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', groupId: 0 })
+const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', groupId: 0, homeOffice: false })
 const error = ref('')
 const isBreak = computed(() => props.entry?.kind === 'break')
+/** Shifts, special shifts and timed codes (Büro, VZ) can be home office; breaks cannot. */
+const homeOfficeAllowed = computed(() => props.entry !== null && isWorkEntry(props.entry))
 /** Working time and legal break of the typed times (not for a break entry, which is no working time). */
 const hint = computed(() => (isBreak.value ? null : workTime(form)))
 const title = computed(() => {
@@ -64,7 +67,7 @@ watch(open, (isOpen) => {
   Object.assign(form, {
     start: timeText(entry.start), end: timeText(entry.end),
     breakStart: timeText(entry.breakStart), breakEnd: timeText(entry.breakEnd),
-    groupId: selectValue(entry.groupId),
+    groupId: selectValue(entry.groupId), homeOffice: entry.homeOffice,
   })
   error.value = ''
 })
@@ -92,8 +95,12 @@ function submit() {
   const timesChanged = start !== entry.start || end !== entry.end
     || (!isBreak.value && (breakStart !== entry.breakStart || breakEnd !== entry.breakEnd))
   const groupId = groupable.value && form.groupId !== selectValue(entry.groupId) ? form.groupId || null : undefined
+  const homeOffice = homeOfficeAllowed.value && form.homeOffice !== entry.homeOffice ? form.homeOffice : undefined
+  const times: EntryTimesInput = homeOffice === undefined
+    ? { start, end, breakStart, breakEnd }
+    : { start, end, breakStart, breakEnd, homeOffice }
   // Nothing changed: save the times as before (the dialog has always done so).
-  emit('submit', entry.id, timesChanged || groupId === undefined ? { start, end, breakStart, breakEnd } : null, groupId)
+  emit('submit', entry.id, timesChanged || homeOffice !== undefined || groupId === undefined ? times : null, groupId)
   open.value = false
 }
 
@@ -123,6 +130,10 @@ function markSick() {
         <UFormField v-if="groupable" :label="de.groups.countsFor" class="col-span-2">
           <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
         </UFormField>
+        <UCheckbox
+          v-if="homeOfficeAllowed" v-model="form.homeOffice" class="col-span-2" :label="de.modal.homeOffice"
+          :description="de.modal.homeOfficeHint"
+        />
         <p v-if="becomesSpecial" class="col-span-2 text-sm text-amber-700">{{ de.modal.becomesSpecial }}</p>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex flex-wrap justify-end gap-2">

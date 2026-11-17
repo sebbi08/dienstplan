@@ -47,6 +47,7 @@ export const entryInputSchema = z.object({
   breakEnd: nullableMinutes,
   note: z.string().max(200).nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
+  homeOffice: z.boolean().optional(),
 })
 export const applyEntriesSchema = z.object({
   cells: z.array(z.object({ employeeId: z.number().int(), date: isoDate })).min(1).max(1000),
@@ -55,7 +56,9 @@ export const applyEntriesSchema = z.object({
 })
 export const dayNoteSchema = z.object({ field: z.enum(['info1', 'info2']), value: z.string().max(200) })
 export const revertSchema = z.object({ keys: z.array(z.string().max(40)).min(1).max(2000) })
-export const entryTimesSchema = z.object({ start: minutes, end: minutes, breakStart: minutes.nullable(), breakEnd: minutes.nullable() })
+export const entryTimesSchema = z.object({
+  start: minutes, end: minutes, breakStart: minutes.nullable(), breakEnd: minutes.nullable(), homeOffice: z.boolean().optional(),
+})
 export const entryGroupSchema = z.object({ groupId: z.number().int().positive().nullable() })
 
 const weeklyMinutes = z.number().int().min(0).max(80 * 60)

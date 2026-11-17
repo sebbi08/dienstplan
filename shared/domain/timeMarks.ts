@@ -44,13 +44,14 @@ const NONE: DayMarks = { lateMinutes: null, earlyMinutes: null }
  * An early closure of the facility moves the planned end forward to the closing time.
  */
 export function dayMarks(
-  entries: (Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'> & Partial<Pick<DomainEntry, 'codeKey'>>)[],
+  entries: (Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'> & Partial<Pick<DomainEntry, 'codeKey' | 'homeOffice'>>)[],
   records: RecordSpan[], options: MarkOptions,
 ): DayMarks {
   if (records.length === 0 || entries.some(entry => entry.creditMode === 'daily_target')) return NONE
   // Planned work without the time ranges of "Überstundenfrei": an ÜF at the end of the shift is where the duty ends.
+  // Home-office entries are worked away from the facility: no arrival or departure is compared with them.
   const planned = new Uint8Array(24 * 60)
-  for (const entry of entries) if (isWorkEntry(entry) && entry.end !== null) planned.fill(1, entry.start!, entry.end)
+  for (const entry of entries) if (isWorkEntry(entry) && !entry.homeOffice && entry.end !== null) planned.fill(1, entry.start!, entry.end)
   for (const entry of entries) if (isTimeOff(entry) && entry.start !== null && entry.end !== null) planned.fill(0, entry.start, entry.end)
   const plannedStart = planned.indexOf(1)
   if (plannedStart === -1) return NONE

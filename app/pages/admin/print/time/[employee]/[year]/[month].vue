@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { todayIso, toIsoDate, daysInMonth } from '#shared/domain/dates'
-import { formatDuration, formatSignedDuration } from '#shared/domain/time'
+import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
 import type { EmployeeDetailDto, TimeMonthDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
@@ -59,10 +59,11 @@ const totals = computed(() => {
               <span v-for="(record, index) in day.records" :key="record.id">
                 {{ index > 0 ? ' · ' : '' }}<TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" /><template v-if="record.edited"> ({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</template>
               </span>
+              <div v-for="(span, index) in day.homeOffice" :key="`ho-${index}`">{{ de.time.homeOffice(`${formatTime(span.start)}–${formatTime(span.end)}`) }}</div>
               <div v-if="day.lateMinutes !== null" class="text-red-600">{{ de.time.lateBy(day.lateMinutes) }}</div>
               <div v-if="day.earlyMinutes !== null" class="text-blue-600">{{ de.time.earlyBy(day.earlyMinutes) }}</div>
             </td>
-            <td class="whitespace-nowrap border border-gray-400 px-1.5 py-0.5 text-right">{{ day.records.length ? formatDuration(day.recordedMinutes) : '' }}</td>
+            <td class="whitespace-nowrap border border-gray-400 px-1.5 py-0.5 text-right">{{ day.records.length || day.homeOffice.length ? formatDuration(day.recordedMinutes) : '' }}</td>
             <td class="whitespace-nowrap border border-gray-400 px-1.5 py-0.5 text-right" :class="Math.abs(recordedDifference(day) ?? 0) > DEVIATION_MINUTES ? 'font-semibold' : ''">
               {{ recordedDifference(day) === null ? '' : formatSignedDuration(recordedDifference(day)!) }}
             </td>

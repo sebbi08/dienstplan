@@ -214,7 +214,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     const after = sqlite.prepare('SELECT * FROM entries ORDER BY id').all() as Record<string, unknown>[]
     // group_id comes with the later migration 0022.
-    expect(after.map(({ help_facility_id: _, group_id: __, ...rest }) => rest)).toEqual(before)
+    // (group_id comes with the later 0022_groups, home_office with 0069.)
+    expect(after.map(({ help_facility_id: _, group_id: __, home_office: ___, ...rest }) => rest)).toEqual(before)
     expect(after.map(row => row.help_facility_id)).toEqual([null, null])
     expect(count(sqlite, 'help_outs')).toBe(0)
     sqlite.exec('INSERT INTO facilities (id, name) VALUES (2, \'Krippe\')')
@@ -247,8 +248,10 @@ describe('upgrading a filled database through migrateDb', () => {
 
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
-      // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044.)
-      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, ...rest }) => rest))), table).toEqual(before[table])
+      // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044,
+      // home_office of entries with 0069.)
+      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, home_office: ___, ...rest }) => rest))), table)
+        .toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }
     expect(sqlite.prepare('SELECT * FROM week_template_entries').all()).toEqual(before.week_template_entries)
@@ -1785,6 +1788,20 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(() => sqlite.exec('UPDATE facility_notes SET visibility = NULL WHERE id = 1')).toThrow(/NOT NULL/)
     expect(sqlite.prepare('SELECT name FROM sqlite_master WHERE type = \'index\' AND tbl_name = \'facility_notes\' AND sql IS NOT NULL').all())
       .toEqual([{ name: 'facility_notes_facility' }])
+  })
+
+  it('0069 marks every existing entry as not home office and new ones too by default', () => {
+    const { db, sqlite } = databaseAt('0068')
+    sqlite.exec(`
+      INSERT INTO employees (id, facility_id, name, short_name) VALUES (1, 1, 'Anna', 'AN');
+      INSERT INTO entries (id, employee_id, date, kind, start, end, updated_at) VALUES
+        (1, 1, '2026-10-06', 'special', 1200, 1230, '2026-10-01T08:00:00.000Z');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, home_office FROM entries').all()).toEqual([{ id: 1, home_office: 0 }])
+    sqlite.exec('INSERT INTO entries (employee_id, date, kind, start, end, updated_at) VALUES (1, \'2026-10-07\', \'special\', 600, 660, \'now\')')
+    expect(sqlite.prepare('SELECT home_office FROM entries WHERE id = 2').get()).toEqual({ home_office: 0 })
+    expect(() => sqlite.exec('UPDATE entries SET home_office = NULL WHERE id = 1')).toThrow(/NOT NULL/)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

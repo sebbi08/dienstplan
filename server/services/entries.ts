@@ -1,13 +1,13 @@
 import { and, eq, gte, inArray } from 'drizzle-orm'
-import { hasPlannedDuty } from '../../shared/domain/balance'
+import { hasPlannedDuty, isWorkEntry } from '../../shared/domain/balance'
 import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import type { CreditMode, DomainEntry, IsoDate, Minutes } from '../../shared/domain/types'
-import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
+import type { CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../../shared/domain/types'
+import type { ApplyMode, CellRef, EntryDto, EntryInput, EntryTimesInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, earlySickLeaves, employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -22,7 +22,26 @@ type ResolvedEntry = Omit<typeof entries.$inferInsert, 'employeeId' | 'date' | '
 
 const NO_TIMES = { start: null, end: null, breakStart: null, breakEnd: null }
 
+/**
+ * „Homeoffice – zählt ohne Stempeln“ only fits an entry with working time (shift, special shift, timed code such as
+ * Büro or VZ); anything else gives home_office_not_allowed.
+ */
+function assertHomeOffice(entry: { kind: EntryKind; creditMode: CreditMode; start: Minutes | null }): void {
+  if (!isWorkEntry(entry)) throw new ServiceError(400, 'home_office_not_allowed')
+}
+
+/** The entry to write for the input; homeOffice false unless the input asks for it (see assertHomeOffice). */
 export function resolveEntry(db: Db, facilityId: number, input: EntryInput): ResolvedEntry {
+  const values = resolveTimes(db, facilityId, input)
+  const homeOffice = input.homeOffice ?? false
+  if (homeOffice) {
+    const creditMode = values.kind === 'code' ? codeCreditMode(db, values.absenceCodeId) ?? 'none' : 'timed'
+    assertHomeOffice({ kind: values.kind, creditMode, start: values.start ?? null })
+  }
+  return { ...values, homeOffice }
+}
+
+function resolveTimes(db: Db, facilityId: number, input: EntryInput): ResolvedEntry {
   const note = input.note?.trim() || null
 
   if (input.kind === 'shift') {
@@ -308,12 +327,8 @@ export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: 
   })
 }
 
-export interface EntryTimesChange {
-  start: Minutes
-  end: Minutes
-  breakStart: Minutes | null
-  breakEnd: Minutes | null
-}
+/** New times of one entry; homeOffice changes the flag (missing = kept). */
+export type EntryTimesChange = EntryTimesInput
 
 /**
  * Lets one entry of the facility's plan count for another group of the facility (null = the home group again). The
@@ -364,6 +379,8 @@ export function dayConflict(day: DomainEntry[], changed: DomainEntry): string | 
 /**
  * Changes the times of one timed entry (clicked in the plan). A fixed shift whose start or end changes
  * becomes a special shift; a fixed shift with only a changed break stays a fixed shift. The entry keeps its group.
+ * `homeOffice` sets „Homeoffice – zählt ohne Stempeln“ (only on working time, else home_office_not_allowed); missing
+ * keeps it.
  */
 export function updateEntryTimes(
   db: Db, actor: SessionUser, facilityId: number, id: number, change: EntryTimesChange, now: Date = new Date(),
@@ -371,7 +388,12 @@ export function updateEntryTimes(
   const entry = requireOwnEntry(db, facilityId, id)
   if (entry.start === null || entry.end === null) throw new ServiceError(400, 'not_a_timed_entry')
   const isBreak = entry.kind === 'break'
-  const span = { ...change, breakStart: isBreak ? null : change.breakStart, breakEnd: isBreak ? null : change.breakEnd }
+  const { homeOffice, ...times } = change
+  const span = { ...times, breakStart: isBreak ? null : times.breakStart, breakEnd: isBreak ? null : times.breakEnd }
+  if (homeOffice) {
+    const creditMode = entry.kind === 'code' ? codeCreditMode(db, entry.absenceCodeId) ?? 'none' : 'timed'
+    assertHomeOffice({ kind: entry.kind, creditMode, start: span.start })
+  }
   const spanError = validateSpan(span)
   if (spanError) throw new ServiceError(400, `span_${spanError}`)
   const becomesSpecial = entry.kind === 'shift' && (span.start !== entry.start || span.end !== entry.end)
@@ -381,12 +403,13 @@ export function updateEntryTimes(
   db.transaction((tx) => {
     const dayEntries = loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
     const self = dayEntries.find(candidate => candidate.id === id)!
-    const changed: EntryDto = { ...self, ...span, kind: becomesSpecial ? 'special' : self.kind }
+    const changed: EntryDto = { ...self, ...span, kind: becomesSpecial ? 'special' : self.kind, homeOffice: homeOffice ?? self.homeOffice }
     const conflict = dayConflict(dayEntries.map(candidate => (candidate === self ? changed : candidate)), changed)
     if (conflict) throw new ServiceError(400, conflict)
 
     tx.update(entries).set({
       ...span, ...(becomesSpecial ? { kind: 'special' as const, shiftTemplateId: null } : {}),
+      ...(homeOffice === undefined ? {} : { homeOffice }),
       updatedAt: now.toISOString(), updatedBy: actor.id,
     }).where(eq(entries.id, id)).run()
     logChange(tx, {

@@ -118,7 +118,8 @@ export function loadReleases(db: Db, facilityId: number, year: number, month: nu
 
 /**
  * Parses stored snapshot JSON; snapshots from before help-outs have no helpFrom / helpFacilityId, and snapshots from
- * before groups no groups (read as none) and no employee or entry groupId (read as null). Markers are shown plain even if a stored snapshot has more of the
+ * before groups no groups (read as none) and no employee or entry groupId (read as null), and entries from before home
+ * office no homeOffice (read as false). Markers are shown plain even if a stored snapshot has more of the
  * other plan.
  */
 function readSnapshot(facilityId: number, json: string): SnapshotData {
@@ -127,7 +128,7 @@ function readSnapshot(facilityId: number, json: string): SnapshotData {
     ...data,
     employees: data.employees.map(employee => ({ ...employee, helpFrom: employee.helpFrom ?? null, groupId: employee.groupId ?? null })),
     entries: withPlainMarkers(facilityId, data.entries.map(entry => ({
-      ...entry, helpFacilityId: entry.helpFacilityId ?? null, groupId: entry.groupId ?? null,
+      ...entry, helpFacilityId: entry.helpFacilityId ?? null, groupId: entry.groupId ?? null, homeOffice: entry.homeOffice ?? false,
     }))),
     groups: data.groups ?? [],
   }

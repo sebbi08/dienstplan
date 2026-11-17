@@ -8,7 +8,7 @@ import {
   changeHistory, diffCells, ownEntries, snapshotCells, type CellState, type ReleasedChange, type ReleasedState,
 } from '../../shared/domain/releaseDiff'
 import { can } from '../../shared/domain/permissions'
-import { creditedMinutes, plannedBreakMinutes } from '../../shared/domain/stamping'
+import { dayCreditedMinutes } from '../../shared/domain/stamping'
 import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
@@ -125,7 +125,8 @@ function buildAdminData(
         const marked = key in sickLeaves
         if (!marked) warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
         if (records.length === 0) continue
-        const minutes = creditedMinutes(records, employee.breakMode, plannedBreakMinutes(dayEntries))
+        // Home-office minutes count as stamped, so a stamped day with home office does not show as deviating.
+        const minutes = dayCreditedMinutes(records, dayEntries, employee.breakMode)
         const planned = computeDay(employee.info, date, dayEntries).credit
         actuals[key] = {
           minutes, open: records.some(record => record.end === null), deviates: !marked && Math.abs(minutes - planned) > 15,

@@ -184,7 +184,8 @@ export function timeWarnings(
   }
   const warnings: Warning[] = []
   if (records.some(record => record.end === null)) warnings.push({ type: 'open_record', date, employeeId })
-  const plannedWork = entries.some(isWorkEntry)
+  // Home-office entries count without stamping: only other planned work needs records.
+  const plannedWork = entries.some(entry => isWorkEntry(entry) && !entry.homeOffice)
   if (records.length === 0 && plannedWork) warnings.push({ type: 'missing_record', date, employeeId })
   if (records.length > 0 && entries.length === 0) warnings.push({ type: 'record_without_plan', date, employeeId })
   // With automatic breaks the break is deducted anyway, so there is nothing to clock.

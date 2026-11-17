@@ -8,14 +8,16 @@ const props = defineProps<{ code: CodeDto | null }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ submit: [entry: EntryInput] }>()
 
-const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', note: '' })
+const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', note: '', homeOffice: false })
 const error = ref('')
 const hint = computed(() => workTime(form))
 const title = computed(() => (props.code ? de.modal.codeTitle(props.code.label) : de.modal.specialTitle))
+/** „Homeoffice – zählt ohne Stempeln“ fits working time only: a special shift or a timed code (Büro, VZ). */
+const homeOfficeAllowed = computed(() => !props.code || props.code.creditMode === 'timed')
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  Object.assign(form, { start: '', end: '', breakStart: '', breakEnd: '', note: '' })
+  Object.assign(form, { start: '', end: '', breakStart: '', breakEnd: '', note: '', homeOffice: false })
   error.value = ''
 })
 
@@ -38,9 +40,10 @@ function submit() {
     return
   }
   const note = form.note.trim() || null
+  const homeOffice = homeOfficeAllowed.value && form.homeOffice
   emit('submit', props.code
-    ? { kind: 'code', codeId: props.code.id, start, end, breakStart, breakEnd, note }
-    : { kind: 'special', start, end, breakStart, breakEnd, note })
+    ? { kind: 'code', codeId: props.code.id, start, end, breakStart, breakEnd, note, homeOffice }
+    : { kind: 'special', start, end, breakStart, breakEnd, note, homeOffice })
   open.value = false
 }
 </script>
@@ -58,6 +61,10 @@ function submit() {
           <span :class="hint.ok ? 'text-green-700' : 'text-amber-700'">{{ de.modal.legalBreak(hint.required, hint.ok) }}</span>
         </p>
         <UFormField :label="de.modal.note" class="col-span-2"><UInput v-model="form.note" maxlength="200" class="w-full" /></UFormField>
+        <UCheckbox
+          v-if="homeOfficeAllowed" v-model="form.homeOffice" class="col-span-2" :label="de.modal.homeOffice"
+          :description="de.modal.homeOfficeHint"
+        />
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex justify-end gap-2">
           <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />

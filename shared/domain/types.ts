@@ -23,4 +23,6 @@ export interface DomainEntry {
   countsAsStaff: boolean
   /** The group this single duty counts for (null or missing = the employee's home group). */
   groupId?: number | null
+  /** „Homeoffice – zählt ohne Stempeln“: the time counts as if stamped (missing = false). */
+  homeOffice?: boolean
 }

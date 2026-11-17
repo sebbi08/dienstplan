@@ -1,3 +1,4 @@
+import { isTimeOff, isWorkEntry } from './balance'
 import { breakMinutes, recordedMinutes, requiredBreakMinutes, type RecordSpan } from './timeRecords'
 import type { DomainEntry } from './types'
 
@@ -32,4 +33,42 @@ export function creditedMinutes(records: RecordSpan[], mode: BreakMode, plannedB
   if (mode === 'stamp' || recorded === 0) return recorded
   const due = plannedBreak > 0 ? plannedBreak : requiredBreakMinutes(recorded)
   return Math.max(0, recorded - Math.max(0, due - breakMinutes(records)))
+}
+
+type DayEntry = Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end' | 'breakStart' | 'breakEnd'>
+  & Partial<Pick<DomainEntry, 'codeKey' | 'homeOffice'>>
+
+/** „Homeoffice – zählt ohne Stempeln“: an entry with working time whose time counts as if it had been stamped. */
+export function isHomeOffice(entry: DayEntry): boolean {
+  return entry.homeOffice === true && isWorkEntry(entry) && entry.end !== null
+}
+
+/**
+ * Minutes of the day's home-office entries that count on top of the clocked records: planned breaks (of the entries,
+ * additional breaks, time off) are not counted, as in workedMinutes; minutes also covered by a closed record count
+ * there only (once).
+ */
+export function homeOfficeMinutes(entries: DayEntry[], records: RecordSpan[]): number {
+  const home = new Uint8Array(24 * 60)
+  for (const entry of entries) if (isHomeOffice(entry)) home.fill(1, entry.start!, entry.end!)
+  for (const entry of entries) {
+    const blank = entry.kind === 'break' || isTimeOff(entry)
+    if (blank && entry.start !== null && entry.end !== null) home.fill(0, entry.start, entry.end)
+    else if (entry.breakStart !== null && entry.breakEnd !== null) home.fill(0, entry.breakStart, entry.breakEnd)
+  }
+  for (const record of records) if (record.end !== null) home.fill(0, record.start, record.end)
+  return home.reduce((sum, minute) => sum + minute, 0)
+}
+
+/**
+ * What one day of the time tracking credits: the clocked records (creditedMinutes, with the planned breaks outside the
+ * home office) plus the home-office minutes outside them. Without home-office entries it is creditedMinutes as before.
+ */
+export function dayCreditedMinutes(records: RecordSpan[], entries: DayEntry[], mode: BreakMode): number {
+  const home = entries.filter(isHomeOffice)
+  // A break entry inside a home-office entry is deducted from the home office, not a second time from the clocked part.
+  const insideHome = (entry: DayEntry) => entry.kind === 'break' && entry.start !== null && entry.end !== null
+    && home.some(other => other.start! <= entry.start! && entry.end! <= other.end!)
+  const plannedBreak = plannedBreakMinutes(entries.filter(entry => !isHomeOffice(entry) && !insideHome(entry)))
+  return creditedMinutes(records, mode, plannedBreak) + homeOfficeMinutes(entries, records)
 }

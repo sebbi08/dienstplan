@@ -267,6 +267,11 @@ export const entries = sqliteTable('entries', {
   helpFacilityId: integer('help_facility_id').references(() => facilities.id),
   /** The group this single duty counts for (null = the employee's home group); a group of the plan's facility. */
   groupId: groupId(),
+  /**
+   * „Homeoffice – zählt ohne Stempeln“: the entry's time counts in the time tracking as if stamped (only on entries
+   * with working time: shifts, special shifts, timed codes such as Büro or VZ).
+   */
+  homeOffice: integer('home_office', { mode: 'boolean' }).notNull().default(false),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [

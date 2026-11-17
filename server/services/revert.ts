@@ -88,7 +88,7 @@ export function revertToRelease(
           shiftTemplateId: entry.templateId !== null && templateIds.has(entry.templateId) ? entry.templateId : null,
           absenceCodeId: entry.codeId, start: entry.start, end: entry.end,
           breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff,
-          note: entry.note, groupId: entry.groupId != null && entry.groupId in names ? entry.groupId : null,
+          homeOffice: entry.homeOffice ?? false, note: entry.note, groupId: entry.groupId != null && entry.groupId in names ? entry.groupId : null,
           closureId: null, updatedAt: timestamp, updatedBy: actor.id,
         }).run()
       }

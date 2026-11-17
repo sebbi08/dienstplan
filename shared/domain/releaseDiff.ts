@@ -49,11 +49,12 @@ export function ownEntries<T extends { helpFacilityId?: number | null }>(facilit
 /**
  * Identity of a cell's entries that does not depend on code or template settings (labels), so renaming them is no change.
  * An entry's group (a single duty counting for another group) is part of it as a prefix before the kind; no group and a
- * missing group (snapshots from before groups) both give no prefix, so old snapshots compare as before.
+ * missing group (snapshots from before groups) both give no prefix, so old snapshots compare as before. A home-office
+ * entry ends in "|ho"; false and missing (snapshots from before home office) add nothing.
  */
 export function cellIdentity(entries: SnapshotContent['entries']): string {
   return entries
-    .map(entry => `${entry.groupId != null ? `@${entry.groupId}|` : ''}${entry.kind}|${entry.codeId ?? ''}|${entry.start ?? ''}|${entry.end ?? ''}|${entry.breakStart ?? ''}|${entry.breakEnd ?? ''}|${entry.countsAsStaff ? 1 : 0}|${entry.note ?? ''}`)
+    .map(entry => `${entry.groupId != null ? `@${entry.groupId}|` : ''}${entry.kind}|${entry.codeId ?? ''}|${entry.start ?? ''}|${entry.end ?? ''}|${entry.breakStart ?? ''}|${entry.breakEnd ?? ''}|${entry.countsAsStaff ? 1 : 0}|${entry.note ?? ''}${entry.homeOffice ? '|ho' : ''}`)
     .join(';')
 }
 

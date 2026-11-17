@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { ApplyMode, CodeDto, EntryDto, EntryInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import type { ApplyMode, CodeDto, EntryDto, EntryInput, EntryTimesInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
 import { hasPlannedDuty } from '#shared/domain/balance'
 import { cellKey } from '#shared/domain/cells'
 import { todayIso } from '#shared/domain/dates'
 import { fullShiftOptions } from '#shared/domain/suggest'
-import type { TimeSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
 import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
@@ -228,8 +227,8 @@ function onEditEntry(entry: EntryDto) {
   editOpen.value = true
 }
 
-/** New times (when changed) and the group the duty counts for (when changed; null = the home group). */
-function onEditSubmit(id: number, times: TimeSpan | null, groupId: number | null | undefined) {
+/** New times (when changed, or with a changed home-office mark) and the group the duty counts for (when changed; null = the home group). */
+function onEditSubmit(id: number, times: EntryTimesInput | null, groupId: number | null | undefined) {
   run(async () => {
     if (times) await $fetch<unknown>(`/api/entries/${id}`, { method: 'PUT', body: times })
     if (groupId !== undefined) await $fetch<unknown>(`/api/entries/${id}/group`, { method: 'PUT', body: { groupId } })

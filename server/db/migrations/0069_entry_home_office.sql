@@ -1,0 +1,1 @@
+ALTER TABLE `entries` ADD `home_office` integer DEFAULT false NOT NULL;

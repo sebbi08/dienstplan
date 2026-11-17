@@ -119,6 +119,8 @@ export const de = {
     signEmployee: 'Unterschrift Mitarbeiter:in', signLead: 'Unterschrift Leitung', printedAt: (date: string) => `Gedruckt am ${date}`,
     todayPlanned: 'heute und später – zählt nach Plan', absence: 'Abwesenheit',
     replaceConfirm: 'Die Einträge dieses Tages im Dienstplan werden durch die Abwesenheit ersetzt. Fortfahren?',
+    /** A home-office entry of the day on the time page: counted as if stamped, changed only in the plan. */
+    homeOffice: (span: string) => `Homeoffice (laut Plan) ${span}`,
     lateBy: (minutes: number) => `${minutes} Min. zu spät`, earlyBy: (minutes: number) => `${minutes} Min. früher gegangen`,
     lateSummary: (count: number, minutes: number) => `${count}× zu spät, zusammen ${minutes} Min.`,
     earlySummary: (count: number, minutes: number) => `${count}× früher gegangen, zusammen ${minutes} Min.`,
@@ -224,6 +226,7 @@ export const de = {
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',
     editEntryHint: 'Klicken zum Bearbeiten',
+    homeOffice: 'Homeoffice',
     menuShifts: 'Dienste', menuCodes: 'Codes', menuMore: 'Weiteres',
     helperFrom: (facility: string) => `Aushilfe aus ${facility}`, helperPrint: '(Aushilfe)',
     helperBusy: 'belegt', helperBusyHint: 'An diesem Tag ist die Person in einem anderen Plan eingetragen.',
@@ -293,6 +296,8 @@ export const de = {
     becomesSpecial: 'Die Zeiten weichen vom festen Dienst ab – er wird als Sonderdienst gespeichert.',
     specialTitle: 'Sonderdienst eintragen', codeTitle: (label: string) => `${label} eintragen`,
     start: 'Von', end: 'Bis', breakStart: 'Pause von', breakEnd: 'Pause bis', note: 'Notiz (optional)', save: 'Eintragen',
+    homeOffice: 'Homeoffice – zählt ohne Stempeln',
+    homeOfficeHint: 'Die Zeit zählt im Stundenkonto, als wäre sie gestempelt. Hat es nicht stattgefunden: Eintrag löschen oder ändern.',
   },
   spanErrors: {
     not_on_grid: 'Bitte Uhrzeiten im 5-Minuten-Raster angeben.',
@@ -1834,6 +1839,7 @@ export const de = {
     break_outside_work: 'Die Pause muss innerhalb der Arbeitszeit dieses Tages liegen.',
     break_overlap: 'Die Pause überschneidet sich mit einer anderen Pause.',
     not_a_timed_entry: 'Dieser Eintrag hat keine Uhrzeiten.',
+    home_office_not_allowed: 'Homeoffice geht nur bei Diensten mit Uhrzeit.',
     invalid_rule: 'Bitte gültige Uhrzeiten (5-Minuten-Raster, Ende nach Beginn) und eine Mindestanzahl ab 1 angeben.',
     opening_hours_invalid: 'Die Schließzeit muss nach der Öffnungszeit liegen.',
     opening_hours_incomplete: 'Bitte trag Öffnung und Schließung ein oder hake „geschlossen“ an.',
