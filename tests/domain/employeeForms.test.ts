@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  NO_QUALIFICATION, masterFieldsOf, masterUpdate, qualificationFieldsOf, qualificationUpdate, reloadedFields,
+  NO_QUALIFICATION, birthYearOnlyUpdate, masterFieldsOf, masterUpdate, qualificationFieldsOf, qualificationUpdate, reloadedFields,
 } from '../../app/utils/employeeForms'
 
 const saved = {
@@ -9,18 +9,28 @@ const saved = {
 
 describe('employee page forms', () => {
   it('fills the two tabs from the saved employee', () => {
-    expect(masterFieldsOf(saved)).toEqual({ name: 'Anna', shortName: 'AN', leftOn: '', groupId: 3, birthdayDay: 9, birthdayMonth: 4 })
+    expect(masterFieldsOf(saved)).toEqual({ name: 'Anna', shortName: 'AN', leftOn: '', groupId: 3, birthday: '09.04.' })
+    expect(masterFieldsOf({ ...saved, personal: { birthYear: 1985 } as never }).birthday).toBe('09.04.1985')
+    expect(masterFieldsOf({ ...saved, birthday: null }).birthday).toBe('')
     expect(qualificationFieldsOf(saved)).toEqual({ qualification: 'fachkraft', staffingShare: '80' })
     expect(qualificationFieldsOf({ ...saved, qualification: null, staffingShare: null })).toEqual({ qualification: NO_QUALIFICATION, staffingShare: '' })
   })
 
   it('„Stammdaten“ sends only its own fields, never the qualification', () => {
     const fields = { ...masterFieldsOf(saved), leftOn: '2026-10-31', groupId: 0 }
-    expect(masterUpdate(fields, true)).toEqual({
-      body: { name: 'Anna', shortName: 'AN', leftOn: '2026-10-31', birthday: '04-09', groupId: null },
+    expect(masterUpdate(fields, true, false)).toEqual({
+      body: { name: 'Anna', shortName: 'AN', leftOn: '2026-10-31', birthday: '04-09', groupId: null }, birthYear: undefined,
     })
-    expect(masterUpdate({ ...fields, birthdayMonth: 0 }, true)).toEqual({ error: 'employee_birthday_invalid' })
-    expect(masterUpdate(masterFieldsOf(saved), false)).toEqual({ body: { name: 'Anna', shortName: 'AN', leftOn: null, birthday: '04-09' } })
+    expect(masterUpdate({ ...fields, birthday: '31.02.' }, true, false)).toEqual({ error: 'employee_birthday_invalid' })
+    expect(masterUpdate({ ...fields, birthday: '' }, true, false)).toMatchObject({ body: { birthday: null } })
+    // With the personnel file the year goes along (to personal.birthYear), not into the master body.
+    expect(masterUpdate({ ...fields, birthday: '4.3.1985' }, true, true)).toEqual({
+      body: { name: 'Anna', shortName: 'AN', leftOn: '2026-10-31', birthday: '03-04', groupId: null }, birthYear: 1985,
+    })
+    expect(masterUpdate({ ...fields, birthday: '4.3.' }, true, true)).toMatchObject({ birthYear: null })
+    expect(masterUpdate({ ...fields, birthday: '4.3.1985' }, true, false)).toEqual({ error: 'employee_birthday_invalid' })
+    expect(masterUpdate(masterFieldsOf(saved), false, false))
+      .toEqual({ body: { name: 'Anna', shortName: 'AN', leftOn: null, birthday: '04-09' }, birthYear: undefined })
   })
 
   it('„Qualifikation“ sends the saved name and „ausgeschieden am“, not what is typed in „Stammdaten“', () => {
@@ -46,5 +56,12 @@ describe('employee page forms', () => {
     // This tab was just saved, or the first load: the loaded values.
     expect(reloadedFields(typed, before, now, true)).toEqual(now)
     expect(reloadedFields(typed, null, now, false)).toEqual(now)
+  })
+
+  it('a new employee gets the birth year with a follow-up update of the personal block only', () => {
+    expect(birthYearOnlyUpdate('Anna', 'AN', 1985)).toEqual({
+      name: 'Anna', shortName: 'AN', leftOn: null,
+      personal: { birthYear: 1985, street: null, postalCode: null, city: null, phone: null, email: null },
+    })
   })
 })

@@ -3,7 +3,7 @@ import { effectivePermissions } from '../../shared/domain/permissionBundles'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { EmployeePayrollDto } from '../../shared/types/api'
 import {
-  FULL_MASK, employeeDocumentUrl, fieldErrorOf, formatIban, fullBirthDate, maskIban, maskTail, payrollDisplay, payrollFieldsOf,
+  FULL_MASK, employeeDocumentUrl, fieldErrorOf, formatIban, maskIban, maskTail, payrollDisplay, payrollFieldsOf,
   payrollFormChanged, payrollInput, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput, visibleFolders,
 } from '../../app/utils/personnel'
 
@@ -107,14 +107,6 @@ describe('personal and sensitive blocks', () => {
     expect(personalFieldsOf({
       birthYear: 1985, birthDate: '1985-03-12', street: 'A', postalCode: '1', city: 'B', phone: 'C', email: 'D',
     })).toEqual({ birthYear: '1985', street: 'A', postalCode: '1', city: 'B', phone: 'C', email: 'D' })
-  })
-
-  it('forms the full birth date only from a real day, month and year', () => {
-    expect(fullBirthDate(12, 3, '1985')).toBe('1985-03-12')
-    expect(fullBirthDate(29, 2, '1984')).toBe('1984-02-29')
-    expect(fullBirthDate(29, 2, '1985')).toBeNull()
-    expect(fullBirthDate(0, 3, '1985')).toBeNull()
-    expect(fullBirthDate(12, 3, '')).toBeNull()
   })
 
   it('sends the disability details only with „Schwerbehinderung“', () => {

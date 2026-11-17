@@ -133,6 +133,15 @@ describe('employees service', () => {
     updateEmployee(db, 1, id, { name: 'Anna B.', shortName: '', leftOn: null, birthday: null })
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin')).birthday).toBeNull()
   })
+  it('saves the birthday with a new employee and refuses an invalid one without creating anyone', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01', birthday: '03-04' })
+    expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin')).birthday).toBe('03-04')
+    const none = createEmployee(db, admin, 1, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01', birthday: null })
+    expect(getEmployee(db, 1, none, today, rolePermissions(db, 'admin')).birthday).toBeNull()
+    expect(errorCode(() => createEmployee(db, admin, 1, { name: 'Cem', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01', birthday: '02-31' })))
+      .toBe('employee_birthday_invalid')
+    expect(listEmployees(db, 1, today, rolePermissions(db, 'admin'))).toHaveLength(2)
+  })
   it('accepts the qualification Haushaltskraft', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, qualification: 'haushalt' })

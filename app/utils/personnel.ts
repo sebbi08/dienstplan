@@ -1,4 +1,3 @@
-import { isValidIsoDate } from '#shared/domain/dates'
 import type { PermissionKey } from '#shared/domain/permissions'
 import {
   EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, ibanError, normalizeIban, svNumberError, taxClassError, taxIdError,
@@ -121,14 +120,6 @@ export function personalInput(fields: PersonalFields): { value: EmployeePersonal
       phone: textOrNull(fields.phone), email: textOrNull(fields.email),
     },
   }
-}
-
-/** The full birth date (ISO) from the birthday selects (0 = none) and the typed year; null unless it is a real date. */
-export function fullBirthDate(day: number, month: number, yearText: string): string | null {
-  const year = String(yearText).trim()
-  if (!day || !month || !/^\d{4}$/.test(year)) return null
-  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  return isValidIsoDate(iso) ? iso : null
 }
 
 // --- Staatsangehörigkeit und Schwerbehinderung (employees.sensitive) ----------------------------------------------------

@@ -9,6 +9,8 @@ import type {
   BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, RightsExceptionsDto, UserDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { parseBirthday } from '~/utils/birthday'
+import { birthYearOnlyUpdate } from '~/utils/employeeForms'
 import { balanceClass } from '~/utils/colors'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { splitLeavers } from '~/utils/leavers'
@@ -75,10 +77,17 @@ async function levelChanged() {
 const toast = useToast()
 const emptyForm = () => ({
   name: '', shortName: '', weeklyHours: 39, validFrom: todayIso(), workdays: MONDAY_TO_FRIDAY,
-  vacationDays: null as number | null, carriedOverDays: null as number | null, openingBalance: '', groupId: 0,
+  vacationDays: null as number | null, carriedOverDays: null as number | null, openingBalance: '', groupId: 0, birthday: '',
 })
 const form = reactive(emptyForm())
 const createOpen = ref(false)
+/**
+ * The birthday field of the dialog: „TT.MM.JJJJ“ for who may edit the personal data (employees.personal; the year then
+ * goes with a follow-up update, the create route has no personnel file block), else „TT.MM.“ only.
+ */
+const withBirthYear = computed(() => can('employees.personal'))
+const birthdayInvalid = ref(false)
+watch(() => form.birthday, () => { birthdayInvalid.value = false })
 
 /** Gesetzlicher Mindesturlaub as a hint, once the working days and „gültig ab“ are known (nothing is filled in). */
 const statutoryLeaveHint = computed(() => {
@@ -107,14 +116,30 @@ async function create() {
     toast.add({ title: de.employees.invalidDuration, color: 'error' })
     return
   }
-  const ok = await run(() => $fetch<unknown>('/api/employees', {
-    method: 'POST',
-    body: {
-      name: form.name, shortName: form.shortName, weeklyMinutes: hoursToMinutes(form.weeklyHours), validFrom: form.validFrom,
-      workdays: form.workdays, vacationDays: form.vacationDays, carriedOverDays: form.carriedOverDays, openingBalanceMinutes,
-      ...(hasGroups.value ? { groupId: form.groupId || null } : {}),
-    },
-  }), de.common.saved)
+  const birthday = parseBirthday(form.birthday, withBirthYear.value, today.year)
+  if (!birthday.ok) {
+    birthdayInvalid.value = true
+    return
+  }
+  const ok = await run(async () => {
+    const created = await $fetch<{ id: number }>('/api/employees', {
+      method: 'POST',
+      body: {
+        name: form.name, shortName: form.shortName, weeklyMinutes: hoursToMinutes(form.weeklyHours), validFrom: form.validFrom,
+        workdays: form.workdays, vacationDays: form.vacationDays, carriedOverDays: form.carriedOverDays, openingBalanceMinutes,
+        ...(hasGroups.value ? { groupId: form.groupId || null } : {}), birthday: birthday.birthday,
+      },
+    })
+    if (birthday.year !== null) {
+      // The employee exists now: a failing year is reported, it does not undo (or repeat) the creation.
+      try {
+        await $fetch<unknown>(`/api/employees/${created.id}`, { method: 'PUT', body: birthYearOnlyUpdate(form.name, form.shortName, birthday.year) })
+      }
+      catch {
+        toast.add({ title: de.employees.birthYearNotSaved, color: 'warning' })
+      }
+    }
+  }, de.common.saved)
   if (ok) {
     Object.assign(form, emptyForm())
     createOpen.value = false
@@ -360,6 +385,16 @@ const td = 'px-3 py-2'
               <UFormField :label="de.employees.shortName"><UInput v-model="form.shortName" maxlength="10" class="w-full" /></UFormField>
               <UFormField v-if="hasGroups" :label="de.groups.employeeGroup" class="sm:col-span-2">
                 <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
+              </UFormField>
+              <UFormField
+                :label="de.employees.birthday" class="sm:col-span-2"
+                :help="withBirthYear ? de.employees.birthdayHintWithYear : de.employees.birthdayHint"
+                :error="birthdayInvalid ? (withBirthYear ? de.employees.birthdayInvalidWithYear : de.employees.birthdayInvalid) : undefined"
+              >
+                <UInput
+                  v-model="form.birthday" inputmode="numeric" maxlength="10" class="w-full"
+                  :placeholder="withBirthYear ? de.employees.birthdayPlaceholderWithYear : de.employees.birthdayPlaceholder"
+                />
               </UFormField>
             </div>
           </fieldset>

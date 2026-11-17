@@ -16,7 +16,7 @@ import {
 import { formatDate, formatHours, formatNumber, hoursToMinutes, monthTitle, shiftMonth } from '~/utils/format'
 import { errorCode } from '~/utils/errors'
 import {
-  DISABILITY_DEGREES, fieldErrorOf, fullBirthDate, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput,
+  DISABILITY_DEGREES, fieldErrorOf, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput,
   type FieldErrorCode, type PersonalFields, type SensitiveFields,
 } from '~/utils/personnel'
 import { pinStateText } from '~/utils/pin'
@@ -66,7 +66,7 @@ const canEditStamping = computed(() => user.value?.employeeId !== id || can('use
  * The forms „Stammdaten“ and „Qualifikation“ of the tab „Stammdaten“ (one route, but each form saves only its own
  * fields). A reload keeps what is typed and not saved yet in a form; the form just saved shows the saved values.
  */
-const master = reactive<MasterFields>({ name: '', shortName: '', leftOn: '', groupId: 0, birthdayDay: 0, birthdayMonth: 0 })
+const master = reactive<MasterFields>({ name: '', shortName: '', leftOn: '', groupId: 0, birthday: '' })
 const qualificationForm = reactive<QualificationFields>({ qualification: NO_QUALIFICATION, staffingShare: '' })
 // Personalakte: the personal block (employees.personal) and the sensitive one (employees.sensitive) are part of
 // „Stammdaten“ and saved with it, each only when the employee answer holds it (sending a block without its key is 403).
@@ -100,11 +100,12 @@ useDirty(() => !!loadedMaster.value
 /** Format errors of the personal and sensitive fields, shown at the field (from here or from the server). */
 const masterErrors = ref<Record<string, FieldErrorCode>>({})
 const masterError = (field: string) => (masterErrors.value[field] ? de.errors[masterErrors.value[field]] : undefined)
-/** The full birth date as TT.MM.JJJJ while day, month and year form one. */
-const birthDateText = computed(() => {
-  const iso = fullBirthDate(master.birthdayDay, master.birthdayMonth, personal.birthYear)
-  return iso ? formatDate(iso) : null
-})
+/** The birthday field: „TT.MM.JJJJ“ with the personal block, else „TT.MM.“; the error shows under it. */
+const birthdayInvalid = ref(false)
+const birthdayError = computed(() => birthdayInvalid.value
+  ? (employee.value?.personal ? de.employees.birthdayInvalidWithYear : de.employees.birthdayInvalid)
+  : masterError('birthYear'))
+watch(() => master.birthday, () => { birthdayInvalid.value = false })
 const disabilityDegreeItems = [
   { label: de.personnel.disabilityDegreeNone, value: 0 },
   ...DISABILITY_DEGREES.map(degree => ({ label: String(degree), value: degree })),
@@ -120,11 +121,6 @@ const sharePlaceholder = computed(() => {
   const rules = staffingSettings.value?.effective
   return rules ? de.staffing.sharePlaceholder(shareOf(rules, qualificationValue(qualificationForm), null)) : ''
 })
-const birthdayDayItems = [
-  { label: de.employees.birthdayNone, value: 0 },
-  ...Array.from({ length: 31 }, (_, index) => ({ label: String(index + 1), value: index + 1 })),
-]
-const birthdayMonthItems = [{ label: de.employees.birthdayNone, value: 0 }, ...de.months.map((label, index) => ({ label, value: index + 1 }))]
 const { data: groups, hasGroups } = useGroups()
 const groupItems = computed(() => [
   ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id })),
@@ -194,12 +190,18 @@ async function removePin() {
  */
 async function saveEmployee(part: 'master' | 'qualification') {
   if (!employee.value) return
-  const update = part === 'master' ? masterUpdate(master, hasGroups.value) : qualificationUpdate(employee.value, qualificationForm)
-  if ('error' in update) return void toast.add({ title: de.errors[update.error], color: 'error' })
+  const update = part === 'master' ? masterUpdate(master, hasGroups.value, !!employee.value.personal) : qualificationUpdate(employee.value, qualificationForm)
+  if ('error' in update) {
+    if (update.error === 'employee_birthday_invalid') return void (birthdayInvalid.value = true)
+    return void toast.add({ title: de.errors[update.error], color: 'error' })
+  }
   let body: object = update.body
-  if (part === 'master') {
+  if (part === 'master' && 'birthYear' in update) {
     masterErrors.value = {}
-    const personalBlock = employee.value.personal ? personalInput(personal) : null
+    // The year is part of the birthday field; it goes to the personal block like before.
+    const personalBlock = employee.value.personal
+      ? personalInput({ ...personal, birthYear: update.birthYear == null ? '' : String(update.birthYear) })
+      : null
     if (personalBlock && 'error' in personalBlock) return void (masterErrors.value = { birthYear: personalBlock.error })
     body = {
       ...update.body,
@@ -355,18 +357,13 @@ async function onTabKey(event: KeyboardEvent) {
         <USelect v-model="master.groupId" :items="groupItems" class="w-full" />
       </UFormField>
       <UFormField
-        :label="de.employees.birthday" :help="employee.personal ? de.personnel.birthYearHint : de.employees.birthdayHint"
-        :error="masterError('birthYear')" class="sm:col-span-2"
+        :label="de.employees.birthday" :help="employee.personal ? de.employees.birthdayHintWithYear : de.employees.birthdayHint"
+        :error="birthdayError" class="sm:col-span-2"
       >
-        <span class="flex flex-wrap items-center gap-2">
-          <USelect v-model="master.birthdayDay" :items="birthdayDayItems" class="w-20" :aria-label="de.employees.birthdayDay" />
-          <USelect v-model="master.birthdayMonth" :items="birthdayMonthItems" class="w-36" :aria-label="de.employees.birthdayMonth" />
-          <UInput
-            v-if="employee.personal" v-model="personal.birthYear" inputmode="numeric" maxlength="4" class="w-24"
-            :placeholder="de.personnel.birthYear" :aria-label="de.personnel.birthYear"
-          />
-          <span v-if="employee.personal && birthDateText" class="text-sm text-gray-600">{{ de.personnel.birthDate(birthDateText) }}</span>
-        </span>
+        <UInput
+          v-model="master.birthday" inputmode="numeric" maxlength="10" class="w-full"
+          :placeholder="employee.personal ? de.employees.birthdayPlaceholderWithYear : de.employees.birthdayPlaceholder"
+        />
       </UFormField>
 
       <!-- Personalakte §2: only when the answer holds the block (employees.personal / employees.sensitive). -->

@@ -71,6 +71,8 @@ export const employeeCreateSchema = z.object({
   openingBalanceMinutes: z.number().int().min(-200_000).max(200_000).nullable().optional(),
   stampVia: z.enum(STAMP_CHANNELS).optional(), breakMode: z.enum(BREAK_MODES).optional(),
   groupId: groupIdSchema.optional(),
+  /** MM-DD, checked by the service (employee_birthday_invalid); left out = none. */
+  birthday: z.string().max(10).nullable().optional(),
 })
 /** groupId and birthday left out keep them; the birthday (MM-DD) is checked by the service (employee_birthday_invalid). */
 export const employeeUpdateSchema = z.object({

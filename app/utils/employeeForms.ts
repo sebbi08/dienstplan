@@ -1,20 +1,20 @@
 import type { Qualification } from '#shared/domain/staffing/types'
 import type { EmployeeDetailDto } from '#shared/types/api'
+import { formatBirthday, parseBirthday } from './birthday'
 
 /** The select's value for "qualification not entered" ('none' is a qualification of its own). */
 export const NO_QUALIFICATION = 'unset'
 
 /**
- * The fields of the tab „Stammdaten“. groupId 0 = Springer (the select needs a non-null value); birthdayDay /
- * birthdayMonth 0 = no birthday.
+ * The fields of the tab „Stammdaten“. groupId 0 = Springer (the select needs a non-null value); birthday is the typed
+ * text „TT.MM.“ or „TT.MM.JJJJ“ (empty = no birthday).
  */
 export interface MasterFields {
   name: string
   shortName: string
   leftOn: string
   groupId: number
-  birthdayDay: number
-  birthdayMonth: number
+  birthday: string
 }
 
 /** The fields of the tab „Qualifikation“; an empty share means the state's default. */
@@ -24,12 +24,13 @@ export interface QualificationFields {
 }
 
 type Saved = Pick<EmployeeDetailDto, 'name' | 'shortName' | 'leftOn' | 'groupId' | 'birthday' | 'qualification' | 'staffingShare'>
+  & { personal?: Pick<NonNullable<EmployeeDetailDto['personal']>, 'birthYear'> }
 
+/** The birthday text shows the year when the viewer has the personal block (`personal` present). */
 export function masterFieldsOf(saved: Saved): MasterFields {
-  const [month = 0, day = 0] = saved.birthday ? saved.birthday.split('-').map(Number) : []
   return {
     name: saved.name, shortName: saved.shortName, leftOn: saved.leftOn ?? '', groupId: saved.groupId ?? 0,
-    birthdayDay: day, birthdayMonth: month,
+    birthday: formatBirthday(saved.birthday, saved.personal?.birthYear ?? null, saved.personal !== undefined),
   }
 }
 
@@ -37,13 +38,6 @@ export function qualificationFieldsOf(saved: Saved): QualificationFields {
   return { qualification: saved.qualification ?? NO_QUALIFICATION, staffingShare: saved.staffingShare === null ? '' : String(saved.staffingShare) }
 }
 
-/** MM-DD, null without a birthday, undefined when only the day or only the month is chosen. */
-export function birthdayValue(fields: Pick<MasterFields, 'birthdayDay' | 'birthdayMonth'>): string | null | undefined {
-  const { birthdayDay: day, birthdayMonth: month } = fields
-  if (!day && !month) return null
-  if (!day || !month) return undefined
-  return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
 
 /** null = empty field (the state's default), undefined = not a whole number from 0 to 100. */
 export function shareValue(text: string): number | null | undefined {
@@ -68,19 +62,33 @@ export interface EmployeeUpdateBody {
 }
 
 type Update = { body: EmployeeUpdateBody } | { error: 'employee_birthday_invalid' | 'staffing_share_invalid' }
+/** birthYear: the typed year (null = none), undefined where the viewer has no personal block. */
+type MasterUpdate = { body: EmployeeUpdateBody, birthYear: number | null | undefined } | { error: 'employee_birthday_invalid' }
 
 /**
  * Saving „Stammdaten“: only that tab's fields; the qualification and share are left out, so whatever is typed (and not
  * saved) in the tab „Qualifikation“ is never sent. The group only when the facility has groups.
  */
-export function masterUpdate(fields: MasterFields, hasGroups: boolean): Update {
-  const birthday = birthdayValue(fields)
-  if (birthday === undefined) return { error: 'employee_birthday_invalid' }
+export function masterUpdate(fields: MasterFields, hasGroups: boolean, withYear: boolean, now: Date = new Date()): MasterUpdate {
+  const parsed = parseBirthday(fields.birthday, withYear, now.getFullYear())
+  if (!parsed.ok) return { error: 'employee_birthday_invalid' }
   return {
     body: {
-      name: fields.name, shortName: fields.shortName, leftOn: fields.leftOn || null, birthday,
+      name: fields.name, shortName: fields.shortName, leftOn: fields.leftOn || null, birthday: parsed.birthday,
       ...(hasGroups ? { groupId: fields.groupId || null } : {}),
     },
+    birthYear: withYear ? parsed.year : undefined,
+  }
+}
+
+/**
+ * The follow-up update that gives a just created employee the birth year (the create route has no personnel file
+ * block): only the personal block, everything else of the master data as just created.
+ */
+export function birthYearOnlyUpdate(name: string, shortName: string, birthYear: number) {
+  return {
+    name, shortName, leftOn: null,
+    personal: { birthYear, street: null, postalCode: null, city: null, phone: null, email: null },
   }
 }
 

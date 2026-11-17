@@ -42,6 +42,8 @@ export interface EmployeeInput {
   openingBalanceMinutes?: number | null
   /** Home group, one of the facility's (default null: Springer). */
   groupId?: number | null
+  /** Birthday as `MM-DD` without a year (null/left out = none), else 400 employee_birthday_invalid. */
+  birthday?: string | null
 }
 
 /** Reason of the balance booking created together with a new employee. */
@@ -220,12 +222,14 @@ export function createEmployee(db: Db, actor: SessionUser, facilityId: number, i
   const workdays = requireWorkdays(input.workdays ?? MONDAY_TO_FRIDAY)
   const groupId = input.groupId ?? null
   assertGroup(db, facilityId, groupId)
+  const birthday = input.birthday ?? null
+  if (birthday !== null && !isValidMonthDay(birthday)) throw new ServiceError(400, 'employee_birthday_invalid')
   return db.transaction((tx) => {
     const sortOrder = Math.max(0, ...tx.select({ sortOrder: employees.sortOrder }).from(employees)
       .where(eq(employees.facilityId, facilityId)).all().map(e => e.sortOrder)) + 1
     const employee = tx.insert(employees).values({
       facilityId, name, shortName: input.shortName.trim(), sortOrder, stampVia: input.stampVia ?? 'both', breakMode: input.breakMode ?? 'stamp',
-      groupId,
+      groupId, birthday,
     }).returning().get()
     tx.insert(employeeHours).values({ employeeId: employee.id, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom, workdays }).run()
     if (input.vacationDays != null || input.carriedOverDays != null) {
