@@ -172,6 +172,12 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
   return rows.find(row => row.helpFacilityId !== null)?.helpFacilityId ?? 'home'
 }
 
+/** The details of an entries_overlap refusal in a range: which cell (employee, day and name for the message). */
+function overlapCell(db: Db, cell: CellRef): { employeeId: number; date: IsoDate; name: string } {
+  const row = db.select({ name: employees.name }).from(employees).where(eq(employees.id, cell.employeeId)).get()
+  return { employeeId: cell.employeeId, date: cell.date, name: row?.name ?? '' }
+}
+
 /**
  * "Im Dienst erkrankt" needs a duty: once a cell was written and its day has no planned working time any more (it is
  * empty or carries a full-day absence), the day's marker goes. Called inside the transaction that wrote the cell.
@@ -281,7 +287,7 @@ export function applyToCells(
         const overlapping = loadEntries(tx, cellFilter).some(other => other.kind !== 'break'
           && other.start !== null && other.end !== null && start < other.end && other.start < end
           && isTargetGapCode(other.codeKey) === isGapCode)
-        if (overlapping) throw new ServiceError(400, 'entries_overlap')
+        if (overlapping) throw new ServiceError(400, 'entries_overlap', overlapCell(tx, cell))
       }
       if (values) {
         tx.insert(entries).values({

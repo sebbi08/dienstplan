@@ -80,6 +80,26 @@ describe('adding a duty to a cell', () => {
     expect(day()).toEqual([['office', 480, 540], ['office', 600, 660]])
   })
 
+  it('names the refused cell and rolls back the whole range', () => {
+    const next = '2026-10-07'
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: next }], 'add', { kind: 'shift', templateId: templateId(db, 'F1') })
+    let caught: unknown = null
+    try {
+      applyToCells(db, admin, 1, [{ employeeId: anna, date }, { employeeId: anna, date: next }], 'add',
+        { kind: 'shift', templateId: templateId(db, 'S') })
+    }
+    catch (error) {
+      caught = error
+    }
+    expect(caught).toBeInstanceOf(ServiceError)
+    const error = caught as ServiceError
+    expect([error.statusCode, error.code, error.details]).toEqual([400, 'entries_overlap', { employeeId: anna, date: next, name: 'Anna' }])
+    // Cell 1 would have taken the shift instead of its Urlaub: rolled back with the range.
+    expect(day()).toEqual([['vacation', null, null]])
+    expect(loadEntries(db, { employeeId: anna, from: next, to: next }).map(entry => entry.shortLabel)).toEqual(['F1'])
+  })
+
   it('adds Büro inside a shift and keeps the shift', () => {
     apply('add', { kind: 'shift', templateId: templateId(db, 'M') })
     apply('add', office(480, 540))

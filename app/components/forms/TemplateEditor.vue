@@ -5,7 +5,7 @@ import {
 } from '#shared/domain/forms'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorCode, errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage, errorTextOf } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
 
 /**
@@ -114,7 +114,7 @@ function edit(change: (content: FormContent) => FormContent) {
   }
   catch (error) {
     const code = (error as { code?: string }).code
-    toast.add({ title: code && code in de.errors ? de.errors[code as keyof typeof de.errors] : de.errors.generic, color: 'error' })
+    toast.add({ title: errorTextOf(code), color: 'error' })
   }
 }
 const newKind = reactive<Record<string, ItemKind>>({})

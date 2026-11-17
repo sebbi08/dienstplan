@@ -1835,6 +1835,8 @@ export const de = {
     rule_not_found: 'Dieser Pflichtdienst existiert nicht mehr.',
     invalid_key: 'Diese Änderung gehört nicht zu diesem Monat.',
     entries_overlap: 'Dieser Dienst überschneidet sich mit einem anderen Dienst des Tages. Nur VZ oder Büro dürfen innerhalb eines Dienstes liegen.',
+    /** entries_overlap of a range: the refused cell, e.g. „Anna, Do 03.12.: …“. */
+    entries_overlap_cell: (name: string, date: string) => `${name}, ${date}: überschneidet sich mit einem vorhandenen Dienst – erst „Leeren“ oder den vorhandenen Eintrag ändern.`,
     break_requires_add: 'Eine zusätzliche Pause wird immer zum bestehenden Dienst hinzugefügt.',
     break_outside_work: 'Die Pause muss innerhalb der Arbeitszeit dieses Tages liegen.',
     break_overlap: 'Die Pause überschneidet sich mit einer anderen Pause.',

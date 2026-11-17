@@ -242,7 +242,8 @@ describe('help-out cells (one day, one facility)', () => {
       // Clearing in B never touches A's closure day: the cell is left alone.
       write(leitungB, krippe, anna, tuesday, null, 'clear')
       expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([[codeId(db, 'closure_day'), null]])
-      // "sonstiges" is no working duty, so it is added next to the closure day (a VZ would replace it).
+      // "sonstiges" has creditMode none, so it is no working duty and is added next to the closure day (the server
+      // decides by the code's creditMode, not by its label; a timed code such as VZ with times would replace it).
       write(leitungA, 1, anna, tuesday, codeInput('other', 450, 570), 'add')
       expect(errorCode(() => helpOutTuesday())).toBe('cell_taken')
       expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([

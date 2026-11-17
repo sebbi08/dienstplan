@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { CodeDto } from '../../shared/types/api'
 import { entryApplyMode } from '../../app/utils/applyMode'
 
-const code = (id: number, key: CodeDto['key'], creditMode: CodeDto['creditMode'], requiresTimes: boolean): CodeDto => ({
-  id, key, label: key, color: 'gray', creditMode, requiresTimes, sortOrder: id,
+const code = (id: number, key: CodeDto['key'], creditMode: CodeDto['creditMode'], requiresTimes: boolean, label: string = key): CodeDto => ({
+  id, key, label, color: 'gray', creditMode, requiresTimes, sortOrder: id,
 })
 const codes: CodeDto[] = [
   code(1, 'vacation', 'daily_target', false),
@@ -14,7 +14,8 @@ const codes: CodeDto[] = [
   code(6, 'office', 'timed', true),
   code(7, 'prep_time', 'timed', true),
   code(8, 'overtime_off', 'none', false),
-  code(9, 'other', 'timed', false),
+  // As in the seed: „sonstiges“ credits nothing.
+  code(9, 'other', 'none', false, 'sonstiges'),
 ]
 
 describe('how a duty is entered into a cell', () => {
@@ -37,9 +38,14 @@ describe('how a duty is entered into a cell', () => {
   it('replaces the cell with a full-day code even when it carries times', () => {
     expect(entryApplyMode({ kind: 'code', codeId: 4, start: 480, end: 900 }, codes)).toBe('replace')
   })
-  it('replaces the cell with a code without times (ÜF, a timed code entered without times)', () => {
+  it('replaces the cell with a code that credits nothing (ÜF, sonstiges), with or without times', () => {
     expect(entryApplyMode({ kind: 'code', codeId: 8 }, codes)).toBe('replace')
     expect(entryApplyMode({ kind: 'code', codeId: 9 }, codes)).toBe('replace')
+    expect(entryApplyMode({ kind: 'code', codeId: 9, start: 480, end: 540 }, codes)).toBe('replace')
+  })
+  it('replaces the cell with a timed code entered without times', () => {
+    expect(entryApplyMode({ kind: 'code', codeId: 6 }, codes)).toBe('replace')
+    expect(entryApplyMode({ kind: 'code', codeId: 7 }, codes)).toBe('replace')
   })
   it('replaces with an unknown code', () => {
     expect(entryApplyMode({ kind: 'code', codeId: 99, start: 480, end: 540 }, codes)).toBe('replace')
