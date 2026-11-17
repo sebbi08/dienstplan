@@ -32,6 +32,7 @@ export const slotClasses: Record<SlotState, string> = {
   absent: 'bg-gray-300',
   prep_time: 'bg-green-400',
   office: 'bg-yellow-300',
+  home_office: 'bg-sky-100',
   holiday: 'bg-blue-300',
   other: 'bg-orange-200',
 }

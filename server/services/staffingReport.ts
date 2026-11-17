@@ -14,7 +14,7 @@ import type {
 } from '../../shared/domain/staffing/types'
 import type { IsoDate, Minutes } from '../../shared/domain/types'
 import { isCheckedDay, type DayHoursContext, type Warning } from '../../shared/domain/warnings'
-import { isWorkEntry } from '../../shared/domain/balance'
+import { isOnSite, isWorkEntry } from '../../shared/domain/balance'
 import type { EntryDto, GroupDto, StaffingFiguresDto, StaffingMonthDto, StaffingRowDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { children, employees } from '../db/schema'
@@ -34,6 +34,9 @@ interface ChildFacts {
   care: { start: Minutes; end: Minutes; daysPerWeek: number } | null
 }
 
+/** A plan entry with the group it counts for. */
+type PlanEntry = GroupedEntry & { countsAsStaff: boolean; homeOffice: boolean }
+
 interface StaffFacts {
   name: string
   qualification: Qualification | null
@@ -48,7 +51,7 @@ interface MonthData {
   facts: Map<number, ChildFacts>
   staff: Map<number, StaffFacts>
   /** Per employee and date: the plan's entries with the group they count for. */
-  days: Map<number, Map<IsoDate, (GroupedEntry & { countsAsStaff: boolean })[]>>
+  days: Map<number, Map<IsoDate, PlanEntry[]>>
   /** Weekdays without public holidays and closures. */
   careDays: IsoDate[]
   hours: DayHoursContext
@@ -101,7 +104,7 @@ function loadMonth(db: Db, facilityId: number, year: number, month: number): Mon
   const homeGroup = new Map(people.map(p => [p.id, p.facilityId === facilityId ? p.groupId : null]))
   const days: MonthData['days'] = new Map()
   for (const entry of planEntries) {
-    const byDate = days.get(entry.employeeId) ?? new Map<IsoDate, (GroupedEntry & { countsAsStaff: boolean })[]>()
+    const byDate = days.get(entry.employeeId) ?? new Map<IsoDate, PlanEntry[]>()
     days.set(entry.employeeId, byDate)
     byDate.set(entry.date, [...(byDate.get(entry.date) ?? []), grouped(entry, homeGroup.get(entry.employeeId) ?? null)])
   }
@@ -119,17 +122,20 @@ export function monthCareDays(db: Db, facilityId: number, year: number, month: n
   return monthDates(year, month).filter(date => isCheckedDay(date, closureOn(closures, date) !== null, holidays))
 }
 
-function grouped(entry: EntryDto, homeGroup: number | null): GroupedEntry & { countsAsStaff: boolean } {
+function grouped(entry: EntryDto, homeGroup: number | null): PlanEntry {
   return {
     kind: entry.kind, creditMode: entry.creditMode, start: entry.start, end: entry.end,
-    breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff,
+    breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, homeOffice: entry.homeOffice,
     group: entry.groupId ?? homeGroup,
   }
 }
 
+/** Planned working time in the house: home office is working time, but no childcare (it is no Ist of the report). */
+const isOnSiteWork = (entry: PlanEntry) => isWorkEntry(entry) && isOnSite(entry)
+
 /**
- * Planned working minutes of the month's care days per employee and group mark (group id or NO_GROUP); time on other
- * days (a Saturday event) does not count, as the weeks count care days only.
+ * Planned working minutes in the house of the month's care days per employee and group mark (group id or NO_GROUP);
+ * time on other days (a Saturday event) does not count, as the weeks count care days only.
  */
 function plannedMinutes(data: MonthData): Map<number, Map<number, number>> {
   const careDays = new Set(data.careDays)
@@ -138,7 +144,7 @@ function plannedMinutes(data: MonthData): Map<number, Map<number, number>> {
     const perGroup = new Map<number, number>()
     for (const [date, dayEntries] of byDate) {
       if (!careDays.has(date)) continue
-      for (const [mark, minutes] of minutesByGroup(minuteGroups(dayEntries, isWorkEntry))) {
+      for (const [mark, minutes] of minutesByGroup(minuteGroups(dayEntries, isOnSiteWork))) {
         perGroup.set(mark, (perGroup.get(mark) ?? 0) + minutes)
       }
     }
@@ -277,9 +283,9 @@ export function staffingMonth(db: Db, facilityId: number, year: number, month: n
   }
 }
 
-/** A duty with children: a shift or special shift counting as staff (never a code, a break or an absence). */
-const isPresenceDuty = (entry: GroupedEntry & { countsAsStaff: boolean }) =>
-  (entry.kind === 'shift' || entry.kind === 'special') && entry.countsAsStaff
+/** A duty with children: a shift or special shift counting as staff in the house (never a code, a break, an absence or home office). */
+const isPresenceDuty = (entry: PlanEntry) =>
+  (entry.kind === 'shift' || entry.kind === 'special') && entry.countsAsStaff && isOnSite(entry)
 
 /** The group a child is in on a date by its group stays (undefined = not in the facility that day). */
 function groupOfDay(stays: GroupStay[], date: IsoDate): number | null | undefined {
@@ -290,7 +296,7 @@ function groupOfDay(stays: GroupStay[], date: IsoDate): number | null | undefine
  * The presence check of the state's rules (spec Personalschlüssel §3) for every care day of the month with entered
  * opening hours: per group and 15-minute slot of its opening, the contract children of the group that day whose care
  * time touches the slot vs. the staff on duty for the group during the whole slot (shift or special shift counting as
- * staff, breaks and absences not). Hauptbetreuungszeit = more than half of the group's children with a care type are
+ * staff, breaks, absences and home office not). Hauptbetreuungszeit = more than half of the group's children with a care type are
  * there. Consecutive slots with the same gap make one warning (400 invalid_month).
  */
 export function staffingWarnings(db: Db, facilityId: number, year: number, month: number): Warning[] {

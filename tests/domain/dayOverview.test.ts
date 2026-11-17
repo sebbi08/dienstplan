@@ -36,6 +36,18 @@ describe('buildDayOverview', () => {
     expect(overview.present[slot(465)]).toBe(3)
     expect(overview.present[slot(705)]).toBe(1)
   })
+  it('shows home office apart and never counts it as present in the house', () => {
+    const atHome = { ...code(2, date, 'office', 'timed', 450, 570), homeOffice: true }
+    const overview = buildDayOverview([
+      { employeeId: 1, entries: [shift(1, date, ...M)] },
+      { employeeId: 2, entries: [atHome] },
+      { employeeId: 3, entries: [shift(3, date, ...F1, { homeOffice: true })] },
+    ], false)
+    expect(overview.rows[1]!.states[slot(450)]).toBe('home_office')
+    expect(overview.rows[2]!.states[slot(420)]).toBe('home_office')
+    expect(overview.present[slot(420)]).toBe(0)
+    expect(overview.present[slot(465)]).toBe(1)
+  })
   it('fills full-day codes and holidays across the row', () => {
     const overview = buildDayOverview([
       { employeeId: 1, entries: [code(1, date, 'sick', 'daily_target')] },

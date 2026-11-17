@@ -264,6 +264,18 @@ describe('staffingMonth – children, staff and the facility total', () => {
     expect(row(bears).planned.fte).toBeCloseTo((21 * 468 + 42) / (39 * 60 * 22 / 5), 9)
   })
 
+  it('home office is no planned childcare: it does not count for the Ist', () => {
+    setType(bears, 'regel')
+    children(5, bears, careType('Ganztag', 420, 900))
+    const anna = staff('Anna', 'fachkraft', { groupId: bears })
+    everyWeekday(anna)
+    expect(row(bears).planned.fte).toBeCloseTo(1, 9)
+    // Tuesday from home: the day drops out of the Ist (the hours still count in her balance).
+    db.update(entries).set({ homeOffice: true }).where(eq(entries.date, TUESDAY)).run()
+    expect(row(bears).planned.fte).toBeCloseTo(21 / 22, 9)
+    expect(row(bears).planned.fachkraftFte).toBeCloseTo(21 / 22, 9)
+  })
+
   it('passes the age in months (BE: under-2 row) and the fte per child', () => {
     setState('BE')
     // 7:00–16:00 × 5 = 45 h: Ganztag (> 35 h, not above 45 h).
@@ -413,6 +425,12 @@ describe('plan warnings – Review Focus 5 (BW presence)', () => {
     // The monthly Ist still counts the whole shift once.
     const bertaMinutes = 960 - 420
     expect(row(bears).planned.fachkraftFte).toBeCloseTo((480 + 480 + bertaMinutes) / 60 / (39 * 22 / 5), 9)
+  })
+
+  it('a home-office duty is no time with the children', () => {
+    db.update(entries).set({ homeOffice: true }).where(eq(entries.employeeId, berta)).run()
+    // Berta (8:00–16:00) works from home: only Anna until Dora comes at 9:00, Dora alone from 15:00.
+    expect(gaps(TUESDAY)).toEqual([[420, 540, 1, 2, true]])
   })
 
   it('no warnings while nobody of the facility has a qualification entered', () => {

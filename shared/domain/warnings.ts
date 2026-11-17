@@ -1,4 +1,4 @@
-import { dayCredit, isWorkEntry, timeOffMinutes } from './balance'
+import { dayCredit, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
 import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
@@ -70,9 +70,9 @@ export function isCheckedDay(date: IsoDate, isClosureDay: boolean, rules: Holida
   return !isWeekend(date) && !isHolidayIn(date, rules) && !isClosureDay
 }
 
-/** A duty that counts as staff for coverage: a shift or special shift (codes and breaks never do). */
+/** A duty that counts as staff for coverage: a shift or special shift in the house (codes, breaks, home office never do). */
 function isDuty(entry: DomainEntry): boolean {
-  return entry.kind === 'shift' || entry.kind === 'special'
+  return (entry.kind === 'shift' || entry.kind === 'special') && isOnSite(entry)
 }
 
 function matchesRule(entry: DomainEntry, rule: CoverageRule): boolean {

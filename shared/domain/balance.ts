@@ -69,6 +69,15 @@ export function isWorkEntry(entry: Pick<DomainEntry, 'kind' | 'creditMode' | 'st
 }
 
 /**
+ * Whether a planned entry puts its person in the house, there for the children: a home-office entry never does. The one
+ * place deciding it for the coverage rules and opening/closing minimums, the Personalschlüssel presence check and the
+ * monthly Ist, the day overview and the group attendance; home office still counts as working time for the balance.
+ */
+export function isOnSite(entry: Pick<DomainEntry, 'homeOffice'>): boolean {
+  return entry.homeOffice !== true
+}
+
+/**
  * The day has planned working time and no full-day absence (an entry crediting the daily target, e.g. Krank or
  * Urlaub): only on such a day someone can fall ill during duty ("Im Dienst erkrankt").
  */

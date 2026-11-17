@@ -1,8 +1,13 @@
+import { isOnSite } from './balance'
 import type { DomainEntry, IsoDate } from './types'
 import { isTargetGapCode } from './warnings'
 
-/** A duty with working time: a shift or special shift counting as staff, or a timed VZ / Büro; never a break or absence. */
+/**
+ * A duty with working time in the house: a shift or special shift counting as staff, or a timed VZ / Büro; never a
+ * break, an absence or home office.
+ */
 export function hasWorkingTime(entry: DomainEntry): boolean {
+  if (!isOnSite(entry)) return false
   if (entry.kind === 'shift' || entry.kind === 'special') return entry.countsAsStaff
   return entry.kind === 'code' && entry.countsAsStaff && isTargetGapCode(entry.codeKey) && entry.start !== null && entry.end !== null
 }

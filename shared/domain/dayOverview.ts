@@ -1,8 +1,10 @@
+import { isOnSite } from './balance'
 import type { CodeKey, DomainEntry, Minutes } from './types'
 
+/** 'home_office': working from home, so not present in the house. */
 export type SlotState =
   | 'off' | 'work' | 'support' | 'break'
-  | 'absent' | 'prep_time' | 'office' | 'holiday' | 'other'
+  | 'absent' | 'prep_time' | 'office' | 'home_office' | 'holiday' | 'other'
 
 export const SLOT_MINUTES = 15
 const DEFAULT_START = 7 * 60
@@ -43,9 +45,9 @@ function stateAt(entries: DomainEntry[], time: Minutes): SlotState {
     if (entry.breakStart !== null && entry.breakEnd !== null && time >= entry.breakStart && time < entry.breakEnd) {
       return 'break'
     }
-    const entryState: SlotState = entry.kind === 'code'
-      ? codeState(entry.codeKey)
-      : entry.countsAsStaff ? 'work' : 'support'
+    const entryState: SlotState = !isOnSite(entry)
+      ? 'home_office'
+      : entry.kind === 'code' ? codeState(entry.codeKey) : entry.countsAsStaff ? 'work' : 'support'
     if (state === 'off' || state === 'work') state = entryState
   }
   return state

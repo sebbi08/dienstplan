@@ -42,6 +42,15 @@ describe('dayWarnings', () => {
       { type: 'target_gap', date, employeeId: 1, missingMinutes: 348 },
     ])
   })
+  it('does not count a home-office shift for coverage (Mindestbesetzung)', () => {
+    const lists = fullCoverage()
+    lists[3] = [shift(4, date, ...S, { homeOffice: true })]
+    lists[0] = [{ ...special(1, date, 420, 888), homeOffice: true }]
+    expect(dayWarnings(date, team(...lists), rules, false, BW_RULES)).toEqual([
+      { type: 'coverage', date, ruleId: 1, label: 'Spätdienst 8:45–17:00', found: 1, required: 2 },
+      { type: 'coverage', date, ruleId: 2, label: 'Frühdienst ab 7:00', found: 0, required: 1 },
+    ])
+  })
   it('reports employees without any entry, but not those who left', () => {
     const lists = [...fullCoverage(), []]
     const employees = team(...lists)
@@ -293,6 +302,11 @@ describe('dayWarnings with weekdays and opening hours', () => {
     })
     it('counts a shift with a break inside', () => {
       expect(run([person(1, null, [shift(1, date, 420, 990, 700, 730)])])).toEqual([])
+    })
+    it('does not count a home-office duty (nobody in the house)', () => {
+      const atHome = shift(1, date, 420, 720, null, null, { homeOffice: true })
+      expect(run([person(1, null, [atHome]), lateDuty])).toEqual([openingWarning])
+      expect(run([earlyDuty, person(2, null, [{ ...special(2, date, 600, 990), homeOffice: true }])])).toEqual([closingWarning])
     })
     it('does not count a shift that does not count as staff', () => {
       const kitchen = (start: number, end: number) => shift(1, date, start, end, null, null, { countsAsStaff: false })
