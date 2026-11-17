@@ -69,16 +69,20 @@ type MasterUpdate = { body: EmployeeUpdateBody, birthYear: number | null | undef
  * Saving „Stammdaten“: only that tab's fields; the qualification and share are left out, so whatever is typed (and not
  * saved) in the tab „Qualifikation“ is never sent. The group only when the facility has groups.
  */
-export function masterUpdate(fields: MasterFields, hasGroups: boolean, withYear: boolean, now: Date = new Date()): MasterUpdate {
+export function masterUpdate(
+  fields: MasterFields, hasGroups: boolean, withYear: boolean, loadedBirthday: string, now: Date = new Date(),
+): MasterUpdate {
+  const base = {
+    name: fields.name, shortName: fields.shortName, leftOn: fields.leftOn || null,
+    ...(hasGroups ? { groupId: fields.groupId || null } : {}),
+  }
+  // The birthday field untouched: day, month and the stored year stay exactly as they are.
+  if (fields.birthday === loadedBirthday) return { body: base, birthYear: undefined }
   const parsed = parseBirthday(fields.birthday, withYear, now.getFullYear())
   if (!parsed.ok) return { error: 'employee_birthday_invalid' }
-  return {
-    body: {
-      name: fields.name, shortName: fields.shortName, leftOn: fields.leftOn || null, birthday: parsed.birthday,
-      ...(hasGroups ? { groupId: fields.groupId || null } : {}),
-    },
-    birthYear: withYear ? parsed.year : undefined,
-  }
+  // A year stored without day and month (empty field) is kept; a year shown in the field and removed is cleared.
+  const keepStoredYear = parsed.year === null && loadedBirthday.trim() === ''
+  return { body: { ...base, birthday: parsed.birthday }, birthYear: withYear && !keepStoredYear ? parsed.year : undefined }
 }
 
 /**

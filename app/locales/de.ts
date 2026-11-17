@@ -404,6 +404,7 @@ export const de = {
     birthdayHintWithYear: 'Freiwillig, als TT.MM.JJJJ oder ohne Jahr als TT.MM. Am Tablet steht weiter nur der Geburtstag ohne Jahr.',
     birthdayInvalid: 'Bitte als TT.MM. eingeben, z. B. 14.03.',
     birthdayInvalidWithYear: 'Bitte als TT.MM.JJJJ eingeben, z. B. 14.03.1985 – das Jahr ist freiwillig.',
+    birthYearOnly: (year: number) => `Gespeichertes Geburtsjahr: ${year} – bitte Tag und Monat ergänzen`,
     birthYearNotSaved: 'Der Mitarbeiter wurde angelegt, das Geburtsjahr konnte aber nicht gespeichert werden. Bitte auf der Seite des Mitarbeiters nachtragen.',
     masterData: 'Stammdaten', hoursHistory: 'Wochenstunden', addHours: 'Wochenstunden hinzufügen',
     adjustments: 'Stundenkonto-Buchungen', adjustmentsHint: 'Startsaldo, Übertrag, Auszahlung oder Korrektur.',

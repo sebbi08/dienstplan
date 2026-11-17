@@ -190,7 +190,7 @@ async function removePin() {
  */
 async function saveEmployee(part: 'master' | 'qualification') {
   if (!employee.value) return
-  const update = part === 'master' ? masterUpdate(master, hasGroups.value, !!employee.value.personal) : qualificationUpdate(employee.value, qualificationForm)
+  const update = part === 'master' ? masterUpdate(master, hasGroups.value, !!employee.value.personal, loadedMaster.value?.birthday ?? master.birthday) : qualificationUpdate(employee.value, qualificationForm)
   if ('error' in update) {
     if (update.error === 'employee_birthday_invalid') return void (birthdayInvalid.value = true)
     return void toast.add({ title: de.errors[update.error], color: 'error' })
@@ -200,7 +200,7 @@ async function saveEmployee(part: 'master' | 'qualification') {
     masterErrors.value = {}
     // The year is part of the birthday field; it goes to the personal block like before.
     const personalBlock = employee.value.personal
-      ? personalInput({ ...personal, birthYear: update.birthYear == null ? '' : String(update.birthYear) })
+      ? personalInput(update.birthYear === undefined ? personal : { ...personal, birthYear: update.birthYear === null ? '' : String(update.birthYear) })
       : null
     if (personalBlock && 'error' in personalBlock) return void (masterErrors.value = { birthYear: personalBlock.error })
     body = {
@@ -364,6 +364,9 @@ async function onTabKey(event: KeyboardEvent) {
           v-model="master.birthday" inputmode="numeric" maxlength="10" class="w-full"
           :placeholder="employee.personal ? de.employees.birthdayPlaceholderWithYear : de.employees.birthdayPlaceholder"
         />
+        <p v-if="employee.personal?.birthYear != null && !employee.birthday" class="mt-1 text-xs text-gray-500">
+          {{ de.employees.birthYearOnly(employee.personal.birthYear) }}
+        </p>
       </UFormField>
 
       <!-- Personalakte §2: only when the answer holds the block (employees.personal / employees.sensitive). -->
