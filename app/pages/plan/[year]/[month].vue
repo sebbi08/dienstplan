@@ -295,7 +295,6 @@ function navigate(nextYear: number, nextMonth: number) {
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
-        <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" />
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="onEntry" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />

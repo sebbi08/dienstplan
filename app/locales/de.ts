@@ -341,9 +341,8 @@ export const de = {
     undo: 'zurücknehmen',
   },
   balances: {
-    title: 'Stundenkonten', account: 'Stundenkonto', name: 'Mitarbeiter', weekly: 'Wochenstunden',
+    account: 'Stundenkonto', weekly: 'Wochenstunden',
     today: 'Stand heute', monthEnd: 'Voraussichtlich Monatsende',
-    hint: '„Stand heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Voraussichtlich Monatsende“: zusätzlich der Plan bis Monatsende.',
   },
   holidays: {
     new_year: 'Neujahr', epiphany: 'Heilige Drei Könige', good_friday: 'Karfreitag', easter_monday: 'Ostermontag',
