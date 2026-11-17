@@ -5,12 +5,10 @@ import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 
 defineProps<{ plan: MonthPlanDto }>()
-const emit = defineEmits<{ selectDate: [date: string]; changed: [] }>()
 </script>
 
 <template>
   <aside class="space-y-3 print:hidden">
-    <PlanWarnings :plan="plan" @select-date="emit('selectDate', $event)" @changed="emit('changed')" />
     <section class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
       <h2 class="mb-2 font-semibold">{{ de.balances.title }}</h2>
       <table class="w-full text-sm">

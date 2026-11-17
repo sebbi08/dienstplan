@@ -24,6 +24,7 @@ export const de = {
   appName: 'Dienstplan',
   months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
   weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+  weekdaysLong: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
   common: {
     pdf: 'PDF herunterladen', pdfFailed: 'Das PDF konnte nicht erstellt werden. Bitte noch einmal versuchen.',
     save: 'Speichern', delete: 'Löschen', cancel: 'Abbrechen', add: 'Hinzufügen', close: 'Schließen', edit: 'Bearbeiten', explanation: 'Erklärung',
@@ -310,7 +311,6 @@ export const de = {
     } satisfies Record<SlotState, string>,
   },
   warnings: {
-    title: 'Warnungen', none: 'Keine Warnungen in diesem Monat.',
     missingEntry: (name: string) => `${name}: kein Eintrag`,
     /** A group rule names its group first: „Mäuse – Frühdienst ab 7:00: 1× eingetragen (2 benötigt)“. */
     coverage: (label: string, found: number, required: number, group?: string) =>
@@ -327,29 +327,13 @@ export const de = {
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
-    /** The three groups of the list and their short names in the summary line „Besetzung 6 · Lücken 40 · Zeiterfassung 27“. */
-    categories: { staffing: 'Besetzung', gaps: 'Dienstplan-Lücken', time: 'Zeiterfassung' },
-    categoriesShort: { staffing: 'Besetzung', gaps: 'Lücken', time: 'Zeiterfassung' },
-    categoryNone: 'Nichts offen.',
-    past: (count: number) => `vergangene Tage (${count})`,
-    /** Several days of one person: „Anna · 12 Tage ohne Eintrag (01.–16.10.)“. */
-    missingEntryDays: (name: string, days: number, span: string) => `${name} · ${days} Tage ohne Eintrag (${span})`,
-    targetGapDays: (name: string, days: number, duration: string, span: string) =>
-      `${name} · Sollstunden: ${days} Tage, zusammen ${duration} h zu wenig (${span})`,
-    openRecordDays: (name: string, days: number, span: string) => `${name} · ${days} Tage Ausstempeln vergessen (${span})`,
-    missingRecordDays: (name: string, days: number, span: string) => `${name} · ${days} Tage ohne Stempelzeit (${span})`,
-    breakRuleDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gesetzliche Pause nicht eingehalten (${span})`,
-    recordWithoutPlanDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gestempelt ohne Dienst (${span})`,
-    recordOnAbsenceDays: (name: string, days: number, span: string) => `${name} · ${days} Tage gestempelt trotz ganztägiger Abwesenheit (${span})`,
-    filterGroup: 'Gruppe', filterEmployee: 'Mitarbeiter', filterAll: 'alle',
-    noneFiltered: 'Keine Warnungen für diese Auswahl.',
+    /** The warning icon at the end of a day row and its popover: „Hinweise zum Montag, 05.10.“. */
+    dayButton: (day: string) => `Hinweise zum ${day}`,
+    dayTitle: (day: string) => `Hinweise am ${day}`,
     acknowledge: 'Zur Kenntnis genommen',
-    acknowledgeHint: 'Ausblenden, bis sich an der Warnung etwas ändert',
+    acknowledgeHint: 'Die Warnung wird grau, bis sich an ihr etwas ändert',
     acknowledgedBy: (name: string, when: string) => `Zur Kenntnis genommen von ${name}, ${when}`,
-    showAcknowledged: (count: number) => `zur Kenntnis genommene anzeigen (${count})`,
-    hideAcknowledged: 'zur Kenntnis genommene ausblenden',
-    undo: 'Rückgängig',
-    jumpHint: 'Zum Tag im Plan springen',
+    undo: 'zurücknehmen',
   },
   balances: {
     title: 'Stundenkonten', account: 'Stundenkonto', name: 'Mitarbeiter', weekly: 'Wochenstunden',

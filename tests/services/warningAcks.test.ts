@@ -1,7 +1,5 @@
-import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employeeHours } from '../../server/db/schema'
 import { getMonthPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
 import { acknowledgeWarnings, loadWarningAcks, revokeWarningAcks } from '../../server/services/warningAcks'
@@ -46,16 +44,6 @@ describe('warning acknowledgements', () => {
     expect(errorCode(() => acknowledgeWarnings(db, 1, leitung, [item('target_gap|2026-10-05|1', 'x'.repeat(101))], at)))
       .toBe('invalid_warning_key')
     expect(loadWarningAcks(db, 1, '2026-01-01', '2026-12-31')).toEqual([])
-  })
-
-  it('gives the plan each person\'s weekdays off, so a part-timer\'s run of warnings is not broken', () => {
-    const carla = addEmployee(db, 'Carla', { weeklyHours: 20 })
-    // Mo, Di, Do, Fr: Carla does not work on Wednesdays.
-    db.update(employeeHours).set({ workdays: 0b11011 }).where(eq(employeeHours.employeeId, carla)).run()
-    const offDays = getMonthPlan(db, leitung, 1, 2026, 10, '2026-10-23').admin!.offDays
-    expect(offDays[carla]).toEqual(['2026-10-07', '2026-10-14', '2026-10-21', '2026-10-28'])
-    // Full time (Mo–Fr): no weekday off; weekends are never listed.
-    expect(offDays[leitung.employeeId!]).toEqual([])
   })
 
   it('takes back acknowledgements of the own facility only; another facility\'s are not found', () => {

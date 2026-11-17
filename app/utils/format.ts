@@ -25,6 +25,11 @@ export function formatDayShort(iso: string, weekdayIndex: number): string {
   return `${de.weekdaysShort[weekdayIndex]} ${pad(day)}.${pad(month)}.`
 }
 
+/** A day with its full weekday, without the year: "Montag, 05.10.". */
+export function formatDayLong(iso: string, weekdayIndex: number): string {
+  return `${de.weekdaysLong[weekdayIndex]}, ${formatDayMonth(iso)}`
+}
+
 export function formatDateTime(timestamp: string): string {
   return new Intl.DateTimeFormat('de-DE', {
     timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',

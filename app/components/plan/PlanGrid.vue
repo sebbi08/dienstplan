@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { cellFillColor, cellKey, noteKey } from '#shared/domain/cells'
 import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
+import { dayWarnings, type DayWarning } from '#shared/domain/warningList'
 import type { DayRowDto, EmployeeColumnDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass, cellFillClasses } from '~/utils/colors'
 import { pendingChangeText, releasedChangeText } from '~/utils/changes'
-import { formatDayShort } from '~/utils/format'
+import { formatDateTime, formatDayLong, formatDayShort } from '~/utils/format'
 import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { dayHoursText } from '~/utils/openingHours'
@@ -20,8 +21,6 @@ const props = defineProps<{
   print?: boolean
   /** The group chosen above the plan: only its block is shown, plus the Springer and helpers (null = all). */
   groupFilter?: number | null
-  /** A day to scroll into view and highlight briefly (a click on a warning); `at` makes a repeated click jump again. */
-  jumpTo?: { date: string; at: number } | null
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -33,6 +32,8 @@ const emit = defineEmits<{
   applyWeek: [weekStart: string]
   removeHelper: [helpOutId: number, name: string]
   sickLeave: [employeeId: number, date: string]
+  /** A warning was acknowledged or taken back: the plan reloads. */
+  warningsChanged: []
 }>()
 
 /** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
@@ -49,20 +50,6 @@ function onEntryClick(key: string, entry: EntryDto, event: MouseEvent) {
 // Own scroll area sized to end at the window bottom, so the page does not scroll as well.
 const scroller = ref<HTMLElement | null>(null)
 const gridMaxHeight = useFitToViewport(scroller)
-
-const flashDate = ref<string | null>(null)
-let flashTimer: ReturnType<typeof setTimeout> | undefined
-watch(() => props.jumpTo, async (target) => {
-  if (!target) return
-  await nextTick()
-  scroller.value?.querySelector(`tr[data-date="${target.date}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  flashDate.value = target.date
-  clearTimeout(flashTimer)
-  flashTimer = setTimeout(() => {
-    flashDate.value = null
-  }, 1800)
-})
-onBeforeUnmount(() => clearTimeout(flashTimer))
 
 const NOTE_FIELDS: NoteField[] = ['info1', 'info2']
 const employeeNames = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
@@ -89,6 +76,26 @@ function groupTag(entry: EntryDto): string | null {
   return groupNames.value.get(entry.groupId) ?? null
 }
 const warnings = computed(() => indexWarnings(props.plan.admin?.warnings ?? []))
+
+/**
+ * „Zur Kenntnis genommen“ in the popover of a day's warning icon (Leitung and Träger: plan.admin). An acknowledged warning
+ * stays in the popover, greyed, until its values change; the icon turns grey when all of the day's are acknowledged.
+ */
+const warningAcks = computed(() => new Map((props.plan.admin?.warningAcks ?? []).map(ack => [ack.key, ack])))
+const ackSignatures = computed(() => new Map([...warningAcks.value].map(([key, ack]) => [key, ack.signature])))
+const { busy: ackBusy, run: runAck } = useBusyAction()
+
+async function changeAck(item: DayWarning) {
+  const done = await runAck(() => (item.acknowledged
+    ? $fetch<{ ok: boolean }>('/api/plan/warning-acks', { method: 'DELETE', body: { keys: [item.key] } })
+    : $fetch<{ ok: boolean }>('/api/plan/warning-acks', { method: 'POST', body: { items: [{ key: item.key, signature: item.signature }] } })))
+  if (done) emit('warningsChanged')
+}
+
+function acknowledgedTitle(item: DayWarning): string | undefined {
+  const ack = item.acknowledged ? warningAcks.value.get(item.key) : undefined
+  return ack ? de.warnings.acknowledgedBy(ack.byName, formatDateTime(ack.at)) : undefined
+}
 
 /** Helper columns ("Aushilfe aus …"): no overtime rows; removable while they hold no entries. */
 const helperColumns = computed(() => new Set(props.plan.employees.filter(employee => employee.helpFrom).map(employee => employee.id)))
@@ -244,14 +251,14 @@ const rows = computed(() => props.plan.days.map((day) => {
       title: joinLines([pendingChangeText(notePending), releasedChangeText(props.plan.changes[key])]),
     }
   })
-  const dayWarnings = warnings.value.byDate.get(day.date) ?? []
+  const dayWarningList = warnings.value.byDate.get(day.date) ?? []
   const week = weekByLastDay.value.get(day.date)
   return {
     day,
     cells,
     notes,
-    hasWarnings: dayWarnings.length > 0,
-    warningTitle: joinLines(dayWarnings.map(warning => warningText(warning, employeeNames.value))),
+    warnings: dayWarnings(dayWarningList, ackSignatures.value),
+    warningTitle: joinLines(dayWarningList.map(warning => warningText(warning, employeeNames.value))),
     week: week
       ? {
           number: week.weekNumber,
@@ -342,10 +349,10 @@ const rows = computed(() => props.plan.days.map((day) => {
       <tbody>
         <template v-for="(row, index) in rows" :key="row.day.date">
           <!-- Printed across pages, a day (and its KW row) is never cut in half; the name rows repeat on each page. -->
-          <tr :class="[flashDate === row.day.date ? 'bg-amber-100' : rowClass(row.day), 'break-inside-avoid']" :data-date="row.day.date">
+          <tr :class="[rowClass(row.day), 'break-inside-avoid']" :data-date="row.day.date">
             <td
-              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top transition-colors duration-500 print:whitespace-nowrap"
-              :class="[flashDate === row.day.date ? 'bg-amber-300' : rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
+              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top print:whitespace-nowrap"
+              :class="[rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
             >
               <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
                 {{ formatDayShort(row.day.date, row.day.weekday) }}
@@ -425,8 +432,48 @@ const rows = computed(() => props.plan.days.map((day) => {
               <!-- After the own Info texts, outside the input: the day's automatic events, read-only. -->
               <PlanAutoEvents v-if="note.field === 'info2'" :events="row.day.autoEvents" class="mt-0.5 px-1" />
             </td>
-            <td v-if="plan.admin" class="border border-gray-200 px-1 py-1 text-center align-top print:hidden" :title="row.warningTitle">
-              <UIcon v-if="row.hasWarnings" name="i-lucide-triangle-alert" class="text-red-600" />
+            <td v-if="plan.admin" class="border border-gray-200 px-1 py-1 text-center align-top print:hidden">
+              <template v-if="row.warnings.state !== 'none'">
+                <!-- The print view only shows the icon; on the plan a click (or tap) opens the day's warnings. -->
+                <UIcon
+                  v-if="print" name="i-lucide-triangle-alert" :title="row.warningTitle"
+                  :class="row.warnings.state === 'open' ? 'text-red-600' : 'text-gray-400'"
+                />
+                <UPopover v-else :content="{ side: 'left', align: 'start' }">
+                  <button
+                    type="button" class="inline-flex rounded hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-sky-500"
+                    :class="row.warnings.state === 'open' ? 'text-red-600' : 'text-gray-400'"
+                    :title="row.warningTitle" :aria-label="de.warnings.dayButton(formatDayLong(row.day.date, row.day.weekday))"
+                  >
+                    <UIcon name="i-lucide-triangle-alert" />
+                  </button>
+                  <template #content>
+                    <div class="w-80 max-w-[calc(100vw-2rem)] p-3 text-left text-sm">
+                      <h3 class="mb-2 font-semibold">{{ de.warnings.dayTitle(formatDayLong(row.day.date, row.day.weekday)) }}</h3>
+                      <ul class="space-y-2">
+                        <li
+                          v-for="item in row.warnings.items" :key="item.key" class="flex items-start gap-2"
+                          :class="item.acknowledged ? 'text-gray-400' : 'text-gray-800'" :title="acknowledgedTitle(item)"
+                        >
+                          <span class="flex-1">{{ warningText(item.warning, employeeNames) }}</span>
+                          <UButton
+                            v-if="item.acknowledged" size="xs" color="neutral" variant="link" class="shrink-0" :disabled="ackBusy"
+                            @click="changeAck(item)"
+                          >
+                            {{ de.warnings.undo }}
+                          </UButton>
+                          <UButton
+                            v-else size="xs" color="neutral" variant="outline" icon="i-lucide-check" class="shrink-0" :disabled="ackBusy"
+                            :title="de.warnings.acknowledgeHint" @click="changeAck(item)"
+                          >
+                            {{ de.warnings.acknowledge }}
+                          </UButton>
+                        </li>
+                      </ul>
+                    </div>
+                  </template>
+                </UPopover>
+              </template>
             </td>
           </tr>
           <tr v-if="row.week" class="break-inside-avoid bg-gray-50 text-xs">
