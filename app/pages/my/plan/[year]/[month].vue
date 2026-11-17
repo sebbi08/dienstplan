@@ -2,8 +2,7 @@
 import { cellFillColor } from '#shared/domain/cells'
 import { weekday } from '#shared/domain/dates'
 import { formatDuration } from '#shared/domain/time'
-import { recordedMinutes } from '#shared/domain/timeRecords'
-import type { MyPlanDayDto, MyPlanDto, MyTimeDto, TimeRecordDto } from '#shared/types/api'
+import type { MyPlanDayDto, MyPlanDto, MyTimeDto, RecordedDayDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { errorMessage } from '~/utils/errors'
@@ -22,6 +21,12 @@ const recordsByDate = computed(() => {
   for (const record of time.value?.records ?? []) map.set(record.date, [...(map.get(record.date) ?? []), record])
   return map
 })
+/** „Erfasst“ of a day as on the admin time page (records plus home office of the tracking range); none = nothing recorded. */
+const recordedOf = (date: string): RecordedDayDto | undefined => time.value?.recordedDays[date]
+/** The days with something recorded, in order (records, or home office of the tracking range). */
+const recordedDates = computed(() => Object.keys(time.value?.recordedDays ?? {}).sort())
+/** How many lines the day's time tracking shows (records and home office). */
+const recordedLines = (date: string) => (recordsByDate.value.get(date)?.length ?? 0) + (recordedOf(date)?.homeOffice.length ?? 0)
 
 /** admin-created records are "nachgetragen", other admin-changed ones "geändert". */
 const recordMarker = (record: TimeRecordDto) => (record.source === 'admin' ? de.time.edited : record.edited ? de.time.changed : null)
@@ -65,7 +70,7 @@ function rowClass(day: MyPlanDayDto): string {
     <div v-if="data" class="space-y-1.5 md:hidden">
       <template v-for="day in data.days" :key="day.date">
         <div
-          v-if="isCompactMyPlanDay(day, time?.enabled ? recordsByDate.get(day.date)?.length ?? 0 : 0)"
+          v-if="isCompactMyPlanDay(day, time?.enabled ? recordedLines(day.date) : 0)"
           class="flex items-center gap-2 rounded px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-200"
           :class="day.holidayKey || day.closureLabel ? 'bg-blue-50' : 'bg-gray-50'"
         >
@@ -86,16 +91,14 @@ function rowClass(day: MyPlanDayDto): string {
             <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
             <span v-for="name in helpFacilityNames(day)" :key="name" class="text-xs text-gray-600">{{ de.myPlan.helpOutIn(name) }}</span>
           </div>
-          <div v-if="time?.enabled && homeOfficeLines(day.entries).length" class="text-xs text-gray-600">
-            <span v-for="line in homeOfficeLines(day.entries)" :key="line" class="mr-2 inline-flex items-center gap-1">
+          <div v-if="time?.enabled && recordedOf(day.date)" class="text-xs">
+            <span v-for="line in homeOfficeLines(recordedOf(day.date)?.homeOffice)" :key="line" class="mr-2 inline-flex items-center gap-1 text-gray-600">
               <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
             </span>
-          </div>
-          <div v-if="time?.enabled && recordsByDate.get(day.date)?.length" class="text-xs">
-            <span v-for="record in recordsByDate.get(day.date)" :key="record.id" class="mr-2 inline-block">
+            <span v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id" class="mr-2 inline-block">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
             </span>
-            <span class="font-semibold">{{ de.time.recorded }}: {{ formatDuration(recordedMinutes(recordsByDate.get(day.date)!)) }}</span>
+            <span class="font-semibold">{{ de.time.recorded }}: {{ formatDuration(recordedOf(day.date)!.recordedMinutes) }}</span>
           </div>
           <div v-if="day.info1" class="text-xs">{{ day.info1 }}</div>
           <div v-if="day.info2" class="text-xs">{{ day.info2 }}</div>
@@ -127,14 +130,14 @@ function rowClass(day: MyPlanDayDto): string {
             </div>
           </td>
           <td v-if="time?.enabled" class="px-3 py-1.5 text-xs">
-            <div v-for="line in homeOfficeLines(day.entries)" :key="line" class="flex items-center gap-1 text-gray-600">
+            <div v-for="line in homeOfficeLines(recordedOf(day.date)?.homeOffice)" :key="line" class="flex items-center gap-1 text-gray-600">
               <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
             </div>
             <div v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
             </div>
-            <div v-if="recordsByDate.get(day.date)?.length" class="font-semibold">
-              {{ de.time.recorded }}: {{ formatDuration(recordedMinutes(recordsByDate.get(day.date)!)) }}
+            <div v-if="recordedOf(day.date)" class="font-semibold">
+              {{ de.time.recorded }}: {{ formatDuration(recordedOf(day.date)!.recordedMinutes) }}
             </div>
           </td>
           <td class="px-3 py-1.5 text-xs">{{ day.info1 }}</td>
@@ -146,7 +149,7 @@ function rowClass(day: MyPlanDayDto): string {
       </tbody>
     </table>
     <!-- Stamped times are live: shown even while the month's plan is not released. -->
-    <table v-else-if="time?.enabled && recordsByDate.size" class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
+    <table v-else-if="time?.enabled && recordedDates.length" class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
       <thead class="bg-gray-100 text-left text-xs text-gray-600">
         <tr>
           <th class="px-3 py-2">{{ de.plan.date }}</th>
@@ -155,14 +158,17 @@ function rowClass(day: MyPlanDayDto): string {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="[date, records] in recordsByDate" :key="date" class="border-t border-gray-200 align-top">
+        <tr v-for="date in recordedDates" :key="date" class="border-t border-gray-200 align-top">
           <td class="whitespace-nowrap px-3 py-1.5 font-medium">{{ formatDayShort(date, weekday(date)) }}</td>
           <td class="px-3 py-1.5 text-xs">
-            <div v-for="record in records" :key="record.id">
+            <div v-for="line in homeOfficeLines(recordedOf(date)?.homeOffice)" :key="line" class="flex items-center gap-1 text-gray-600">
+              <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
+            </div>
+            <div v-for="record in recordsByDate.get(date) ?? []" :key="record.id">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
             </div>
           </td>
-          <td class="px-3 py-1.5 text-right font-semibold">{{ formatDuration(recordedMinutes(records)) }}</td>
+          <td class="px-3 py-1.5 text-right font-semibold">{{ formatDuration(recordedOf(date)!.recordedMinutes) }}</td>
         </tr>
       </tbody>
     </table>

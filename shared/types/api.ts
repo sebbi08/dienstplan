@@ -1356,9 +1356,12 @@ export interface TimeDayDto {
   plannedMinutes: number
   target: number
   records: TimeRecordDto[]
-  /** The day's home-office entries („Homeoffice (laut Plan)“): counted as if stamped, not editable as records. */
+  /**
+   * The day's home-office entries („Homeoffice (laut Plan)“): counted as if stamped, not editable as records. Only on
+   * days of the tracking range (usesRecords); empty on other days, which show the plan.
+   */
   homeOffice: { start: Minutes; end: Minutes }[]
-  /** „Ist“: the closed records plus the home-office minutes outside them (without their planned breaks). */
+  /** „Ist“: the closed records plus, on days of the tracking range, the home-office minutes outside them (without their planned breaks). */
   recordedMinutes: number
   /** What the balance counts for this day. */
   counted: number
@@ -1401,6 +1404,17 @@ export interface MyTimeDto {
   balanceMonthEnd: number
   /** All own records of the requested month. */
   records: TimeRecordDto[]
+  /**
+   * „Erfasst“ per day of the month with records or with home office counting as recorded (days of the tracking range
+   * only), computed as on the admin time page.
+   */
+  recordedDays: Record<IsoDate, RecordedDayDto>
+}
+
+/** „Erfasst“ of one day: the home-office spans counting as stamped and the clocked minutes plus those. */
+export interface RecordedDayDto {
+  homeOffice: { start: Minutes; end: Minutes }[]
+  recordedMinutes: Minutes
 }
 
 export interface TimeMonthDto {

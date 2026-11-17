@@ -3,8 +3,8 @@ import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
 import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
-import type { BreakMode } from './stamping'
-import { breakRuleViolated, type RecordSpan } from './timeRecords'
+import { dayBreakRuleViolated, type BreakMode } from './stamping'
+import type { RecordSpan } from './timeRecords'
 import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
 
 export interface CoverageRule {
@@ -188,7 +188,7 @@ export function timeWarnings(
   const plannedWork = entries.some(entry => isWorkEntry(entry) && !entry.homeOffice)
   if (records.length === 0 && plannedWork) warnings.push({ type: 'missing_record', date, employeeId })
   if (records.length > 0 && entries.length === 0) warnings.push({ type: 'record_without_plan', date, employeeId })
-  // With automatic breaks the break is deducted anyway, so there is nothing to clock.
-  if (breakMode === 'stamp' && breakRuleViolated(records)) warnings.push({ type: 'break_rule', date, employeeId })
+  // With automatic breaks the break is deducted anyway, so there is nothing to clock. Home office counts as working time.
+  if (breakMode === 'stamp' && dayBreakRuleViolated(records, entries)) warnings.push({ type: 'break_rule', date, employeeId })
   return warnings
 }

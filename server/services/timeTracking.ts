@@ -5,11 +5,11 @@ import { cellKey } from '../../shared/domain/cells'
 import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayIn } from '../../shared/domain/holidays'
-import { dayCreditedMinutes, homeOfficeMinutes, isHomeOffice, mayStampVia } from '../../shared/domain/stamping'
+import { dayCreditedMinutes, isHomeOffice, mayStampVia, recordedDay } from '../../shared/domain/stamping'
 import { isEmployedOn } from '../../shared/domain/targets'
 import { dayMarks, summarizeMarks } from '../../shared/domain/timeMarks'
 import { formatTime } from '../../shared/domain/time'
-import { nowInBerlin, recordedMinutes } from '../../shared/domain/timeRecords'
+import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { timeWarnings } from '../../shared/domain/warnings'
 import type { EntryDto, OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
@@ -250,8 +250,9 @@ export function getTimeMonth(
       plan: describeCellDetailed(dayEntries),
       plannedMinutes: planned.credit, target: planned.target,
       records,
-      homeOffice: dayEntries.filter(isHomeOffice).map(entry => ({ start: entry.start!, end: entry.end! })),
-      recordedMinutes: recordedMinutes(records) + homeOfficeMinutes(dayEntries, records), counted: counted.credit,
+      // Home office counts as recorded on days of the tracking range only (as the balance); outside, the plan shows.
+      ...recordedDay(records, dayEntries, usesRecords(actual, date)),
+      counted: counted.credit,
       usesRecords: usesRecords(actual, date), absence, otherEntries,
       targetCredit: dayEntries.some(entry => entry.creditMode === 'daily_target'),
       warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],

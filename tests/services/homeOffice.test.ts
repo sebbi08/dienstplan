@@ -8,6 +8,7 @@ import { getMonthPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import { revertToRelease } from '../../server/services/revert'
+import { getMyTime } from '../../server/services/myTime'
 import { actualTimeFor, getTimeMonth, stamp } from '../../server/services/timeTracking'
 import { computeDay } from '../../shared/domain/balance'
 import type { EntryInput, SessionUser } from '../../shared/types/api'
@@ -130,6 +131,33 @@ describe('home-office entries', () => {
         homeOffice: [{ start: 1200, end: 1230 }], recordedMinutes: 30, counted: 30, plannedMinutes: 30, warnings: [],
       })
       expect(day.plan).toBe('20:00–20:30 (Homeoffice)')
+    })
+    it('counts home office as recorded only on days of the tracking range (not today, not later, not before it)', () => {
+      setTimeTrackingFrom(db, 1, '2026-10-05')
+      for (const day of ['2026-10-02', date, '2026-10-08', '2026-10-12']) add({ kind: 'special', start: 1200, end: 1230, homeOffice: true }, day)
+      const days = getTimeMonth(db, 1, anna, 2026, 10, '2026-10-08', 600).days
+      const recorded = (day: string) => {
+        const row = days.find(candidate => candidate.date === day)!
+        return [row.usesRecords, row.homeOffice, row.recordedMinutes]
+      }
+      expect(recorded(date)).toEqual([true, [{ start: 1200, end: 1230 }], 30])
+      for (const day of ['2026-10-02', '2026-10-08', '2026-10-12']) expect(recorded(day), day).toEqual([false, [], 0])
+    })
+    it('gives „Mein Dienstplan“ the same „Erfasst“ per day as the time page, home office included', () => {
+      setTimeTrackingFrom(db, 1, '2026-10-05')
+      add({ kind: 'special', start: 1200, end: 1230, homeOffice: true })
+      add({ kind: 'special', start: 1200, end: 1230, homeOffice: true }, '2026-10-12')
+      stamp(db, anna, 'in', 'self', at('2026-10-07T05:00:00Z'))
+      stamp(db, anna, 'out', 'self', at('2026-10-07T11:00:00Z'))
+      const mine = getMyTime(db, addUser(db, 'anna', 'observer', anna), 2026, 10, at('2026-10-08T08:00:00Z'))
+      expect(mine.recordedDays).toEqual({
+        [date]: { homeOffice: [{ start: 1200, end: 1230 }], recordedMinutes: 30 },
+        '2026-10-07': { homeOffice: [], recordedMinutes: 360 },
+      })
+      const page = getTimeMonth(db, 1, anna, 2026, 10, '2026-10-08', 600).days
+      for (const [day, recorded] of Object.entries(mine.recordedDays)) {
+        expect(page.find(candidate => candidate.date === day)!.recordedMinutes, day).toBe(recorded.recordedMinutes)
+      }
     })
   })
 })

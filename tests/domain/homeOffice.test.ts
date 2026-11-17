@@ -45,6 +45,32 @@ describe('home-office entries', () => {
     expect(dayCreditedMinutes(records([465, 960]), [shift(1, D, 465, 960, 700, 730)], 'auto')).toBe(465)
   })
 
+  it('count for the legal break with automatic breaks: the whole working time of the day decides', () => {
+    // 6 h stamped + 1 h at home right after = 7 h: 30 minutes are deducted.
+    expect(dayCreditedMinutes(records([480, 840]), [home(840, 900)], 'auto')).toBe(420 - 30)
+    // Breaks already taken count: 20 minutes between the stamp and the home office, 10 are still missing.
+    expect(dayCreditedMinutes(records([480, 840]), [home(860, 920)], 'auto')).toBe(420 - 10)
+    // A clocked break of 15 minutes counts as well.
+    expect(dayCreditedMinutes(records([480, 600], [615, 855]), [home(855, 915)], 'auto')).toBe(420 - 15)
+    // More than 9 h in total: 45 minutes.
+    expect(dayCreditedMinutes(records([420, 840]), [home(840, 990)], 'auto')).toBe(570 - 45)
+    // Not more than 6 h in total: nothing; with stamped breaks nothing is ever deducted.
+    expect(dayCreditedMinutes(records([480, 780]), [home(780, 840)], 'auto')).toBe(360)
+    expect(dayCreditedMinutes(records([480, 840]), [home(840, 900)], 'stamp')).toBe(420)
+    // Without home office it stays as before.
+    expect(dayCreditedMinutes(records([480, 870]), [], 'auto')).toBe(390 - 30)
+  })
+
+  it('count for the break hint with stamped breaks', () => {
+    const breakHint = (spans: [number, number | null][], entries: ReturnType<typeof home>[]) =>
+      timeWarnings(D, 1, [special(1, D, 480, 840), ...entries], records(...spans)).filter(w => w.type === 'break_rule')
+    expect(breakHint([[480, 840]], [])).toEqual([])
+    expect(breakHint([[480, 840]], [home(840, 900)])).toEqual([{ type: 'break_rule', date: D, employeeId: 1 }])
+    expect(breakHint([[480, 840]], [home(870, 930)])).toEqual([])
+    // Automatic breaks: no hint, the break is deducted.
+    expect(timeWarnings(D, 1, [special(1, D, 480, 840), home(840, 900)], records([480, 840]), 'auto')).toEqual([])
+  })
+
   it('need no records: no missing_record for a day with only home office', () => {
     expect(timeWarnings(D, 1, [home(1200, 1230)], [])).toEqual([])
     expect(timeWarnings(D, 1, [shift(1, D, 465, 960, 700, 730), home(1200, 1230)], []).map(w => w.type)).toEqual(['missing_record'])

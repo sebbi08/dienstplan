@@ -49,6 +49,13 @@ export function isHomeOffice(entry: DayEntry): boolean {
  * there only (once).
  */
 export function homeOfficeMinutes(entries: DayEntry[], records: RecordSpan[]): number {
+  const home = homeOfficeMask(entries)
+  for (const record of records) if (record.end !== null) home.fill(0, record.start, record.end)
+  return home.reduce((sum, minute) => sum + minute, 0)
+}
+
+/** Per minute of the day: 1 where a home-office entry counts (its planned breaks and time off left out). */
+function homeOfficeMask(entries: DayEntry[]): Uint8Array {
   const home = new Uint8Array(24 * 60)
   for (const entry of entries) if (isHomeOffice(entry)) home.fill(1, entry.start!, entry.end!)
   for (const entry of entries) {
@@ -56,13 +63,31 @@ export function homeOfficeMinutes(entries: DayEntry[], records: RecordSpan[]): n
     if (blank && entry.start !== null && entry.end !== null) home.fill(0, entry.start, entry.end)
     else if (entry.breakStart !== null && entry.breakEnd !== null) home.fill(0, entry.breakStart, entry.breakEnd)
   }
-  for (const record of records) if (record.end !== null) home.fill(0, record.start, record.end)
-  return home.reduce((sum, minute) => sum + minute, 0)
+  return home
+}
+
+/**
+ * The day's working time as spans: the closed records together with the home-office minutes (union). Its gaps are the
+ * breaks taken (breakMinutes counts those of at least 15 minutes); without home office it is the closed records.
+ */
+function workSpans(records: RecordSpan[], entries: DayEntry[]): RecordSpan[] {
+  const work = homeOfficeMask(entries)
+  for (const record of records) if (record.end !== null) work.fill(1, record.start, record.end)
+  const spans: RecordSpan[] = []
+  for (let minute = 0; minute < work.length; minute++) {
+    if (work[minute] !== 1) continue
+    const start = minute
+    while (minute < work.length && work[minute] === 1) minute++
+    spans.push({ start, end: minute })
+  }
+  return spans
 }
 
 /**
  * What one day of the time tracking credits: the clocked records (creditedMinutes, with the planned breaks outside the
- * home office) plus the home-office minutes outside them. Without home-office entries it is creditedMinutes as before.
+ * home office) plus the home-office minutes outside them. With automatic breaks the legal minimum break (§ 4 ArbZG)
+ * follows the whole working time of the day (clocked + home office): what the breaks taken (gaps of the union, the
+ * deducted break) leave missing is deducted as well. Without home-office entries it is creditedMinutes as before.
  */
 export function dayCreditedMinutes(records: RecordSpan[], entries: DayEntry[], mode: BreakMode): number {
   const home = entries.filter(isHomeOffice)
@@ -70,5 +95,30 @@ export function dayCreditedMinutes(records: RecordSpan[], entries: DayEntry[], m
   const insideHome = (entry: DayEntry) => entry.kind === 'break' && entry.start !== null && entry.end !== null
     && home.some(other => other.start! <= entry.start! && entry.end! <= other.end!)
   const plannedBreak = plannedBreakMinutes(entries.filter(entry => !isHomeOffice(entry) && !insideHome(entry)))
-  return creditedMinutes(records, mode, plannedBreak) + homeOfficeMinutes(entries, records)
+  const clocked = creditedMinutes(records, mode, plannedBreak)
+  const homeMinutes = homeOfficeMinutes(entries, records)
+  if (mode === 'stamp' || homeMinutes === 0) return clocked + homeMinutes
+  const recorded = recordedMinutes(records)
+  const taken = breakMinutes(workSpans(records, entries)) + (recorded - clocked)
+  const missing = requiredBreakMinutes(recorded + homeMinutes) - taken
+  return clocked + homeMinutes - Math.max(0, missing)
+}
+
+/** The legal break hint (stamped breaks): the breaks taken against the whole working time, clocked + home office. */
+export function dayBreakRuleViolated(records: RecordSpan[], entries: DayEntry[]): boolean {
+  return breakMinutes(workSpans(records, entries)) < requiredBreakMinutes(recordedMinutes(records) + homeOfficeMinutes(entries, records))
+}
+
+/**
+ * „Erfasst“ of a day on the time pages: the clocked minutes, plus the home office counting as stamped – only on days of
+ * the tracking range (`inRange` = usesRecords); outside it the day shows the plan as before.
+ */
+export function recordedDay(
+  records: RecordSpan[], entries: DayEntry[], inRange: boolean,
+): { homeOffice: { start: number; end: number }[]; recordedMinutes: number } {
+  if (!inRange) return { homeOffice: [], recordedMinutes: recordedMinutes(records) }
+  return {
+    homeOffice: entries.filter(isHomeOffice).map(entry => ({ start: entry.start!, end: entry.end! })),
+    recordedMinutes: recordedMinutes(records) + homeOfficeMinutes(entries, records),
+  }
 }
