@@ -564,7 +564,7 @@ export const de = {
     levelHint: (level: number, next: number | null, nextOn: string | null) =>
       `Nach Beschäftigungsdauer: Stufe ${level}` + (next !== null && nextOn ? `, Stufe ${next} ab ${nextOn}` : ' (Endstufe)'),
     useLevel: 'Diese Stufe übernehmen',
-    hint: 'Die Entgeltgruppe wird zur Tätigkeit nur vorgeschlagen; bei der Leitung hängt sie von der Größe der Einrichtung ab. Die Stufe richtet sich nach den Jahren in der Einrichtung (Stufe 2 nach 1 Jahr, 3 nach 4, 4 nach 8, 5 nach 12, 6 nach 17 Jahren); angerechnete Vorerfahrung kann eine höhere Stufe ergeben. Bitte mit der Personalabteilung prüfen.',
+    hint: 'Die Entgeltgruppe wird zur Tätigkeit nur vorgeschlagen; bei der Leitung hängt sie von der Größe der Einrichtung ab. Die Stufe richtet sich nach den Jahren in der Einrichtung (seit 01.10.2024: Stufe 2 nach 1 Jahr, 3 nach 3, 4 nach 6, 5 nach 10, 6 nach 15 Jahren); angerechnete Vorerfahrung kann eine höhere Stufe ergeben. Bitte mit der Personalabteilung prüfen.',
     empty: 'Noch keine Angaben.',
     rowLabel: 'Vertrag',
     fixedTermUntil: 'befristet bis', fixedTermUntilHint: 'Leer bei einem unbefristeten Vertrag.',

@@ -257,8 +257,8 @@ describe('level-up notices', () => {
     const anna = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     const ben = createEmployee(db, admin, 1, { name: 'Ben', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     const base = { personnelNumber: null, jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const }
-    setContract(db, 1, anna, { ...base, employedSince: '2022-11-01', payLevel: 2 }) // level 3 due on 2026-11-01
-    setContract(db, 1, ben, { ...base, employedSince: '2022-11-01', payLevel: 3 }) // already entered
+    setContract(db, 1, anna, { ...base, employedSince: '2023-11-01', payLevel: 2 }) // level 3 due on 2026-11-01
+    setContract(db, 1, ben, { ...base, employedSince: '2023-11-01', payLevel: 3 }) // already entered
     const due = [{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-11-01' }]
     expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual(due)
     expect(listLevelUps(db, 1, '2026-10-01', rolePermissions(db, 'provider'))).toEqual([])

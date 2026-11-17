@@ -5,9 +5,12 @@ describe('TVöD SuE helpers', () => {
   it('suggests the level from the years of service and the date of the next level', () => {
     const since = '2019-03-01'
     expect(levelBySeniority(since, '2019-03-01')).toEqual({ level: 1, nextLevel: 2, nextOn: '2020-03-01' })
-    expect(levelBySeniority(since, '2020-03-01')).toEqual({ level: 2, nextLevel: 3, nextOn: '2023-03-01' })
-    expect(levelBySeniority(since, '2026-10-05')).toEqual({ level: 3, nextLevel: 4, nextOn: '2027-03-01' })
-    expect(levelBySeniority(since, '2031-03-01')).toEqual({ level: 5, nextLevel: 6, nextOn: '2036-03-01' })
+    // Since 01.10.2024: 1 year in level 1, 2 in level 2, 3 in level 3, 4 in level 4, 5 in level 5.
+    expect(levelBySeniority(since, '2020-03-01')).toEqual({ level: 2, nextLevel: 3, nextOn: '2022-03-01' })
+    expect(levelBySeniority(since, '2022-02-28').level).toBe(2)
+    expect(levelBySeniority(since, '2026-10-05')).toEqual({ level: 4, nextLevel: 5, nextOn: '2029-03-01' })
+    expect(levelBySeniority(since, '2031-03-01')).toEqual({ level: 5, nextLevel: 6, nextOn: '2034-03-01' })
+    expect(levelBySeniority(since, '2034-03-01').level).toBe(6)
     expect(levelBySeniority(since, '2040-01-01')).toEqual({ level: 6, nextLevel: null, nextOn: null })
     expect(levelBySeniority('2024-02-29', '2025-02-28').level).toBe(1)
     expect(levelBySeniority('2024-02-29', '2025-03-01').level).toBe(2)
@@ -24,7 +27,7 @@ describe('TVöD SuE helpers', () => {
 
 describe('level-up notices', () => {
   it('announces the next level from 30 days before until it is entered', () => {
-    const since = '2019-03-01' // level 4 is due on 2027-03-01
+    const since = '2021-03-01' // level 4 is due on 2027-03-01 (after 1 + 2 + 3 years)
     expect(dueLevelUp(since, 3, '2027-01-29')).toBeNull()
     expect(dueLevelUp(since, 3, '2027-01-30')).toEqual({ level: 4, on: '2027-03-01' })
     expect(dueLevelUp(since, 3, '2027-06-01')).toEqual({ level: 4, on: '2027-03-01' }) // overdue, still shown

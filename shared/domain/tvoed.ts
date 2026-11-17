@@ -23,8 +23,11 @@ export const SUGGESTED_PAY_GROUP: Record<JobKey, PayGroup | null> = {
   curative_educator: 'S 8a', social_pedagogue: 'S 11b', deputy_head: null, head: null, other: null,
 }
 
-/** Years of service after which levels 2 to 6 are reached (TVöD SuE: 1, +3, +4, +4, +5 years). */
-const LEVEL_AFTER_YEARS = [1, 4, 8, 12, 17]
+/**
+ * Years of service after which levels 2 to 6 are reached: TVöD SuE since 01.10.2024 (all S pay groups, as the general
+ * TVöD-VKA): 1, +2, +3, +4, +5 years. Until 30.09.2024 it was 1, +3, +4, +4, +5.
+ */
+const LEVEL_AFTER_YEARS = [1, 3, 6, 10, 15]
 
 function addYears(date: IsoDate, years: number): IsoDate {
   const { year, month, day } = parseIsoDate(date)
