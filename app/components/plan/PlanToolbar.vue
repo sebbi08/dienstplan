@@ -23,7 +23,6 @@ function templateTitle(template: TemplateDto) {
   return `${template.shortLabel} · ${template.label} – ${de.modal.templateWorkTime(formatDuration(worked), required, ok)}`
 }
 const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
-const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
   template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; addHelper: []
 }>()
@@ -54,7 +53,6 @@ const emit = defineEmits<{
         size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :disabled="!withShifts"
         :label="de.plan.clear" @click="emit('clear')"
       />
-      <UCheckbox v-model="addMode" :label="de.plan.addMode" class="ml-auto" />
     </div>
   </div>
 </template>

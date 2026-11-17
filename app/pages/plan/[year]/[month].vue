@@ -9,6 +9,7 @@ import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
 import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
+import { entryApplyMode } from '~/utils/applyMode'
 import { errorMessage } from '~/utils/errors'
 import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
 import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpOuts'
@@ -25,7 +26,6 @@ const confirm = useConfirm()
 const { data: plan, error, refresh } = await useFetch<MonthPlanDto>(() => `/api/plan/${year.value}/${month.value}`)
 const run = useAction(refresh)
 const selection = usePlanSelection()
-const addMode = ref(false)
 const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
 const modalCode = ref<CodeDto | null>(null)
@@ -69,7 +69,6 @@ const groupSelect = computed({
 })
 
 const dates = computed(() => plan.value?.days.map(day => day.date) ?? [])
-const insertMode = (): ApplyMode => (addMode.value ? 'add' : 'replace')
 /** What fits the selection: helper cells take no absences, help-out days elsewhere only absences. */
 const scope = computed((): CellScope => (plan.value ? cellScope(plan.value, selection.cells.value) : 'normal'))
 const busy = computed(() => (plan.value ? busyCellKeys(plan.value) : new Set<string>()))
@@ -157,8 +156,13 @@ async function onClear() {
   if (hasSelection() && await confirm(de.plan.clearConfirm, { confirmLabel: de.plan.clear })) apply('clear', null)
 }
 
+/** A duty is added to what the cells hold; a full-day code or a code without times replaces it (see entryApplyMode). */
+function onEntry(entry: EntryInput) {
+  apply(entryApplyMode(entry, plan.value?.codes ?? []), entry)
+}
+
 function onTemplate(template: TemplateDto) {
-  apply(insertMode(), { kind: 'shift', templateId: template.id })
+  onEntry({ kind: 'shift', templateId: template.id })
 }
 
 function openModal(code: CodeDto | null) {
@@ -169,7 +173,7 @@ function openModal(code: CodeDto | null) {
 
 function onCode(code: CodeDto) {
   if (code.requiresTimes) openModal(code)
-  else apply(insertMode(), { kind: 'code', codeId: code.id })
+  else onEntry({ kind: 'code', codeId: code.id })
 }
 
 function onAddBreak() {
@@ -271,7 +275,7 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanReleaseNotifications v-if="isAdmin && plan.release.releasedAt" :key="`${year}-${month}-${releaseStatusKey}`" :year="year" :month="month" />
       <PlanDiscardModal v-if="isAdmin" v-model:open="discardOpen" :plan="plan" @submit="onDiscard" />
       <PlanToolbar
-        v-if="isAdmin" v-model:add-mode="addMode"
+        v-if="isAdmin"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :scope="scope" :several-facilities="plan.facilityName !== null"
         @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-helper="helperOpen = true"
@@ -294,7 +298,7 @@ function navigate(nextYear: number, nextMonth: number) {
         </div>
         <PlanSidebar v-if="plan.admin" :plan="plan" class="xl:sticky xl:top-2 xl:w-80" />
       </div>
-      <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="apply(insertMode(), $event)" />
+      <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="onEntry" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
       <PlanEntryEditModal
         v-model:open="editOpen" :entry="editEntry" :plan="plan"
@@ -307,7 +311,7 @@ function navigate(nextYear: number, nextMonth: number) {
         :groups="plan.groups" @done="refresh"
       />
       <PlanCellMenu
-        v-if="isAdmin" v-model:open="cellMenu.open" v-model:add-mode="addMode" :reference="cellMenu.reference"
+        v-if="isAdmin" v-model:open="cellMenu.open" :reference="cellMenu.reference"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions" :scope="scope"
         :can-mark-sick="sickLeaveCell !== null" @sick-leave="menuActions.sickLeave"

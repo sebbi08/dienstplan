@@ -6,7 +6,7 @@ import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import type { DomainEntry, IsoDate, Minutes } from '../../shared/domain/types'
+import type { CreditMode, DomainEntry, IsoDate, Minutes } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, earlySickLeaves, employees, entries, shiftTemplates } from '../db/schema'
@@ -123,6 +123,11 @@ function gapCodeIdsOf(db: Db): Set<number> {
     .where(inArray(absenceCodes.key, TARGET_GAP_CODES)).all().map(row => row.id))
 }
 
+function codeCreditMode(db: Db, codeId: number | null | undefined): CreditMode | null {
+  if (codeId == null) return null
+  return db.select({ creditMode: absenceCodes.creditMode }).from(absenceCodes).where(eq(absenceCodes.id, codeId)).get()?.creditMode ?? null
+}
+
 /** Only working duties (shifts, special shifts, VZ, Büro) count for a group; absences and breaks belong to none. */
 function mayHaveGroup(entry: { kind: string; absenceCodeId: number | null }, gapCodeIds: Set<number>): boolean {
   if (entry.kind === 'break') return false
@@ -173,6 +178,9 @@ export function dropStaleSickLeave(db: Db, cell: CellRef): void {
  * facility's groups, also in a helper cell (group_not_found otherwise). It is stored as none for absences and breaks
  * and for the own staff's home group (see storedGroup). A written cell without working time loses its "Im Dienst
  * erkrankt" marker (see dropStaleSickLeave).
+ * Modes: 'replace' empties the cell first (a shift or special shift keeps timed VZ/Büro), 'clear' only empties it, 'add'
+ * keeps its entries, except that a working duty (shift, special shift, timed code) replaces a full-day absence
+ * (daily_target code such as Urlaub or Krank). Working entries may not overlap each other (VZ/Büro may overlap a shift).
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
@@ -197,6 +205,9 @@ export function applyToCells(
   const names = groupNames(db, facilityId)
   // An absence is any code other than the timed VZ/Büro (Urlaub, Krank, Fortbildung, Schließtag …, with or without times).
   const isAbsence = values?.kind === 'code' && !isGapCode
+  // A working duty added to a cell replaces its full-day absence (Urlaub, Krank …): a duty next to them makes no sense.
+  const addsWork = mode === 'add' && values !== null && values.start != null && (values.kind === 'shift'
+    || values.kind === 'special' || (values.kind === 'code' && codeCreditMode(db, values.absenceCodeId) === 'timed'))
   if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
   const unique = [...new Map(cells.map(cell => [cellKey(cell.employeeId, cell.date), cell])).values()]
 
@@ -234,6 +245,11 @@ export function applyToCells(
         for (const existing of loadEntries(tx, cellFilter)) {
           const kept = keepTimedCodes && existing.start !== null && isTargetGapCode(existing.codeKey)
           if (!kept) tx.delete(entries).where(eq(entries.id, existing.id)).run()
+        }
+      }
+      else if (addsWork) {
+        for (const existing of loadEntries(tx, cellFilter)) {
+          if (existing.creditMode === 'daily_target') tx.delete(entries).where(eq(entries.id, existing.id)).run()
         }
       }
       if (values?.kind === 'break') {

@@ -219,7 +219,7 @@ export const de = {
     discard: 'Änderungen verwerfen…', discarded: 'Änderungen verworfen',
     addBreak: 'Zusätzliche Pause…',
     breakEntry: (times: string) => `Pause ${times}`,
-    special: 'Sonderdienst…', clear: 'Leeren', clearConfirm: 'Alle Einträge in den ausgewählten Zellen löschen?', addMode: 'Zum bestehenden Eintrag hinzufügen',
+    special: 'Sonderdienst…', clear: 'Leeren', clearConfirm: 'Alle Einträge in den ausgewählten Zellen löschen?',
     fillGap: 'Ergänzen:',
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',

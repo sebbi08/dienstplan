@@ -242,10 +242,11 @@ describe('help-out cells (one day, one facility)', () => {
       // Clearing in B never touches A's closure day: the cell is left alone.
       write(leitungB, krippe, anna, tuesday, null, 'clear')
       expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([[codeId(db, 'closure_day'), null]])
-      write(leitungA, 1, anna, tuesday, codeInput('prep_time', 450, 570), 'add')
+      // "sonstiges" is no working duty, so it is added next to the closure day (a VZ would replace it).
+      write(leitungA, 1, anna, tuesday, codeInput('other', 450, 570), 'add')
       expect(errorCode(() => helpOutTuesday())).toBe('cell_taken')
       expect(day(anna, tuesday).map(entry => [entry.absenceCodeId, entry.helpFacilityId])).toEqual([
-        [codeId(db, 'closure_day'), null], [codeId(db, 'prep_time'), null],
+        [codeId(db, 'closure_day'), null], [codeId(db, 'other'), null],
       ])
     })
 

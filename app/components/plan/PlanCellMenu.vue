@@ -30,7 +30,6 @@ const props = withDefaults(defineProps<{
   canMarkSick?: boolean
 }>(), { scope: 'normal', canMarkSick: false })
 const open = defineModel<boolean>('open', { required: true })
-const addMode = defineModel<boolean>('addMode', { default: false })
 const emit = defineEmits<{
   template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
   fillGap: [suggestion: GapSuggestion]; addBreak: []; sickLeave: []
@@ -106,8 +105,6 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
             @click="emit('sickLeave')"
           />
         </section>
-
-        <UCheckbox v-if="withShifts" v-model="addMode" :label="de.plan.addMode" />
       </div>
     </template>
   </UPopover>
