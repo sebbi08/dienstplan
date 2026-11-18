@@ -12,8 +12,9 @@ const { can } = useCan()
 const viewer = { can }
 const areas = computed(() => visibleSettingsAreas(viewer))
 const route = useRoute()
-// A group's page has its own link back to the groups.
-const showBack = computed(() => route.path.replace(/\/$/, '') !== '/admin/settings' && !route.path.startsWith('/admin/settings/groups/'))
+// A group's page and the week template editor have their own link back.
+const showBack = computed(() => route.path.replace(/\/$/, '') !== '/admin/settings' && !route.path.startsWith('/admin/settings/groups/')
+  && !route.path.startsWith('/admin/settings/roster/week-templates/'))
 const isActive = (path: string) => route.path === path || route.path.startsWith(`${path}/`)
 const { data: groups } = useGroups()
 useUnsavedGuard()

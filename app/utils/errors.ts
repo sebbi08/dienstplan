@@ -31,14 +31,22 @@ function refusedTemplateCell(error: unknown): { name: string; weekday: number } 
   return typeof details?.name === 'string' && typeof details.weekday === 'number' ? { name: details.name, weekday: details.weekday } : null
 }
 
+/**
+ * A refusal of a week template's cell, which has a weekday (0 = Monday) instead of a date: „Anna, Mittwoch: …“ (the
+ * editor's own checks and the server's).
+ */
+export function templateCellMessage(code: string, name: string, weekdayIndex: number): string {
+  const day = de.weekdaysLong[weekdayIndex] ?? ''
+  const cellText = CELL_TEXTS[code]
+  return cellText ? cellText(name, day) : `${name}, ${day}: ${errorTextOf(code)}`
+}
+
 export function errorMessage(error: unknown): string {
   const code = errorCode(error)
   const cellText = code ? CELL_TEXTS[code] : undefined
   const cell = cellText ? refusedCell(error) : null
   if (cellText && cell) return cellText(cell.name, formatDayShort(cell.date, weekday(cell.date)))
-  // A week template has weekdays instead of dates: „Anna, Mittwoch: …“.
   const templateCell = refusedTemplateCell(error)
-  const day = templateCell ? de.weekdaysLong[templateCell.weekday] : undefined
-  if (templateCell && day) return cellText ? cellText(templateCell.name, day) : `${templateCell.name}, ${day}: ${errorTextOf(code)}`
+  if (code && templateCell && de.weekdaysLong[templateCell.weekday]) return templateCellMessage(code, templateCell.name, templateCell.weekday)
   return errorTextOf(code)
 }

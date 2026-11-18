@@ -2,8 +2,13 @@
 import type { WeekTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
+import { areaPath } from '~/utils/settingsAreas'
 
-/** Settings section of the saved plan weeks: preview, rename and delete (saving and inserting happen in the plan's week rows). */
+/**
+ * Settings section of the week templates: preview, create and edit (own page), rename and delete (saving a plan week
+ * and inserting a template happen in the plan's week rows).
+ */
+const editorPath = (id: number | 'new') => `${areaPath('roster')}/week-templates/${id}`
 const { data: templates, refresh } = await useFetch<WeekTemplateDto[]>('/api/week-templates')
 const run = useAction(refresh)
 const confirm = useConfirm()
@@ -39,7 +44,10 @@ async function remove(template: WeekTemplateDto) {
 
 <template>
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ de.weekTemplates.title }}</h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="font-semibold">{{ de.weekTemplates.title }}</h2>
+      <UButton size="sm" icon="i-lucide-plus" class="ml-auto" :label="de.weekTemplates.create" :to="editorPath('new')" />
+    </div>
     <p class="text-xs text-gray-500">{{ de.weekTemplates.hint }}</p>
     <p v-if="!templates?.length" class="text-sm text-gray-500">{{ de.weekTemplates.none }}</p>
     <div
@@ -55,7 +63,11 @@ async function remove(template: WeekTemplateDto) {
         <h3 v-else class="font-semibold">{{ template.name }}</h3>
         <UBadge v-if="hasGroups" color="neutral" variant="soft" :label="scopeText(template)" />
         <span class="text-xs text-gray-500">{{ de.weekTemplates.updated }} {{ formatDateTime(template.updatedAt) }}</span>
-        <div class="ml-auto flex gap-1">
+        <div class="ml-auto flex flex-wrap gap-1">
+          <UButton
+            size="xs" color="neutral" variant="ghost" icon="i-lucide-table-2" :label="de.weekTemplates.edit"
+            :to="editorPath(template.id)"
+          />
           <UButton
             v-if="renaming.id !== template.id" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil"
             :label="de.weekTemplates.rename" @click="startRename(template)"

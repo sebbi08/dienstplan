@@ -1,0 +1,140 @@
+import { describe, expect, it } from 'vitest'
+import type { CodeDto, TemplateDto, WeekTemplateEntryDto, WeekTemplateStaffDto } from '../../shared/types/api'
+import {
+  clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, removeTemplateEntry, staffInScope, templateEntryInputs,
+  templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell, type TemplateEditorContext,
+} from '../../app/utils/weekTemplateEditor'
+
+const code = (id: number, key: CodeDto['key'], label: string, creditMode: CodeDto['creditMode'], color: CodeDto['color']): CodeDto =>
+  ({ id, key, label, color, creditMode, requiresTimes: creditMode === 'timed', sortOrder: id })
+const shift = (id: number, shortLabel: string, start: number, end: number, breakStart: number | null = null, breakEnd: number | null = null,
+  countsAsStaff = true): TemplateDto =>
+  ({ id, shortLabel, label: shortLabel, start, end, breakStart, breakEnd, countsAsStaff, pairsWithPrepTime: false, sortOrder: id })
+const context: TemplateEditorContext = {
+  templates: [shift(1, 'F1', 420, 795), shift(2, 'M', 465, 960, 700, 730), shift(3, 'HK', 660, 960, null, null, false)],
+  codes: [code(10, 'vacation', 'Urlaub', 'daily_target', 'gray'), code(11, 'office', 'Büro', 'timed', 'yellow'), code(12, 'prep_time', 'VZ', 'timed', 'green')],
+}
+const person = (id: number, name: string, weeklyMinutes: number | null, workdays = 0b0011111, groupId: number | null = null): WeekTemplateStaffDto =>
+  ({ id, name, shortName: name.slice(0, 2), groupId, weeklyMinutes, workdays })
+const anna = person(1, 'Anna', 39 * 60)
+const berta = person(2, 'Berta', 30 * 60, 0b0001111) // Monday to Thursday
+const names = new Map([[1, 'Anna'], [2, 'Berta']])
+
+/** Enters into the cells and returns the new entries (fails the test on a refusal). */
+function enter(entries: WeekTemplateEntryDto[], cells: TemplateCell[], input: Parameters<typeof enterIntoTemplateCells>[2]) {
+  const result = enterIntoTemplateCells(entries, cells, input, context, names)
+  if ('error' in result) throw new Error(result.error)
+  return result.entries
+}
+const labels = (entries: WeekTemplateEntryDto[], employeeId: number, weekday: number) =>
+  entries.filter(e => e.employeeId === employeeId && e.weekday === weekday).map(e => e.shortLabel ?? e.label)
+
+describe('an entry of the week template editor', () => {
+  it('is shown like a plan chip: shift, special shift, break, VZ and a whole Büro day', () => {
+    const cell = { employeeId: 1, weekday: 2 }
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 2, homeOffice: true }, cell, context, -1)).toMatchObject({
+      id: -1, employeeId: 1, weekday: 2, date: '', kind: 'shift', templateId: 2, start: 465, end: 960, breakStart: 700, breakEnd: 730,
+      label: '7:45–16:00', shortLabel: 'M', color: 'neutral', countsAsStaff: true, homeOffice: true, creditMode: 'timed', codeKey: null,
+      groupId: null, helpFacilityId: null,
+    })
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 3 }, cell, context, -2)).toMatchObject({ color: 'violet', countsAsStaff: false })
+    expect(draftTemplateEntry({ kind: 'special', start: 480, end: 720, note: ' Ausflug ' }, cell, context, -3))
+      .toMatchObject({ kind: 'special', label: '8:00–12:00', shortLabel: null, note: 'Ausflug', color: 'neutral' })
+    expect(draftTemplateEntry({ kind: 'break', start: 900, end: 915 }, cell, context, -4))
+      .toMatchObject({ kind: 'break', label: '[15:00–15:15]', color: 'red', countsAsStaff: false, breakStart: null })
+    expect(draftTemplateEntry({ kind: 'code', codeId: 12, start: 480, end: 540 }, cell, context, -5))
+      .toMatchObject({ kind: 'code', codeId: 12, codeKey: 'prep_time', creditMode: 'timed', label: 'VZ 8:00–9:00', color: 'green' })
+    expect(draftTemplateEntry({ kind: 'code', codeId: 11, homeOffice: true }, cell, context, -6))
+      .toMatchObject({ start: null, end: null, label: 'Büro (ganzer Tag)', color: 'yellow', homeOffice: true })
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 99 }, cell, context, -7)).toBeNull()
+  })
+})
+
+describe('entering into template cells (the plan\'s always-add rule)', () => {
+  const monday = { employeeId: 1, weekday: 0 }
+  it('adds a second duty next to the first and refuses an overlap naming the cell, changing nothing', () => {
+    const entries = enter([], [monday, { employeeId: 2, weekday: 0 }], { kind: 'shift', templateId: 1 })
+    expect(labels(enter(entries, [monday], { kind: 'special', start: 840, end: 900 }), 1, 0)).toEqual(['F1', '14:00–15:00'])
+    // 13:00–15:00 overlaps F1 (until 13:15) on Monday: refused as a whole, Berta's Tuesday stays empty too.
+    const refused = enterIntoTemplateCells(entries, [{ employeeId: 2, weekday: 1 }, monday], { kind: 'special', start: 780, end: 900 }, context, names)
+    expect(refused).toEqual({ error: 'entries_overlap', message: expect.stringContaining('Anna, Montag: überschneidet sich') })
+  })
+
+  it('keeps both of two duties that do not overlap, and VZ inside a duty', () => {
+    let entries = enter([], [monday], { kind: 'shift', templateId: 1 })
+    entries = enter(entries, [monday], { kind: 'special', start: 840, end: 960 })
+    entries = enter(entries, [monday], { kind: 'code', codeId: 12, start: 450, end: 510 })
+    expect(labels(entries, 1, 0)).toEqual(['F1', 'VZ 7:30–8:30', '14:00–16:00'])
+  })
+
+  it('lets a whole Büro day replace the cell and a duty replace the whole day', () => {
+    let entries = enter([], [monday], { kind: 'shift', templateId: 2 })
+    entries = enter(entries, [monday], { kind: 'break', start: 900, end: 915 })
+    entries = enter(entries, [monday], { kind: 'code', codeId: 11 })
+    expect(labels(entries, 1, 0)).toEqual(['Büro (ganzer Tag)'])
+    entries = enter(entries, [monday], { kind: 'shift', templateId: 1 })
+    expect(labels(entries, 1, 0)).toEqual(['F1'])
+  })
+
+  it('needs a duty for a break', () => {
+    const refused = enterIntoTemplateCells([], [monday], { kind: 'break', start: 600, end: 615 }, context, names)
+    expect(refused).toMatchObject({ error: 'break_outside_work', message: expect.stringMatching(/^Anna, Montag: /) })
+    const entries = enter([], [monday], { kind: 'shift', templateId: 2 })
+    expect(enterIntoTemplateCells(entries, [monday], { kind: 'break', start: 720, end: 750 }, context, names))
+      .toMatchObject({ error: 'break_overlap' })
+  })
+
+  it('clears cells and removes single entries unless a break would be left without its duty', () => {
+    let entries = enter([], [monday, { employeeId: 1, weekday: 1 }], { kind: 'shift', templateId: 2 })
+    entries = enter(entries, [monday], { kind: 'break', start: 900, end: 915 })
+    const duty = entries.find(e => e.weekday === 0 && e.kind === 'shift')!
+    expect(removeTemplateEntry(entries, duty.id, names)).toMatchObject({ error: 'break_outside_work' })
+    const pause = entries.find(e => e.kind === 'break')!
+    const removed = removeTemplateEntry(entries, pause.id, names)
+    expect('entries' in removed && labels(removed.entries, 1, 0)).toEqual(['M'])
+    expect(clearTemplateCells(entries, [monday]).map(e => e.weekday)).toEqual([1])
+  })
+})
+
+describe('what the editor saves', () => {
+  it('sends each entry as the plan input of its weekday and employee', () => {
+    let entries = enter([], [{ employeeId: 1, weekday: 0 }], { kind: 'shift', templateId: 2, homeOffice: true })
+    entries = enter(entries, [{ employeeId: 1, weekday: 0 }], { kind: 'break', start: 900, end: 915 })
+    entries = enter(entries, [{ employeeId: 2, weekday: 3 }], { kind: 'code', codeId: 11 })
+    entries = enter(entries, [{ employeeId: 2, weekday: 4 }], { kind: 'special', start: 480, end: 720, breakStart: 600, breakEnd: 615, note: 'x' })
+    expect(templateEntryInputs(entries, new Set([1, 2]))).toEqual([
+      { employeeId: 1, weekday: 0, kind: 'shift', templateId: 2, note: null, homeOffice: true },
+      { employeeId: 1, weekday: 0, kind: 'break', start: 900, end: 915 },
+      { employeeId: 2, weekday: 3, kind: 'code', codeId: 11, start: null, end: null, breakStart: null, breakEnd: null, note: null, homeOffice: false },
+      { employeeId: 2, weekday: 4, kind: 'special', start: 480, end: 720, breakStart: 600, breakEnd: 615, note: 'x', homeOffice: false },
+    ])
+    // Only the employees shown (the template's scope).
+    expect(templateEntryInputs(entries, new Set([2])).map(e => e.employeeId)).toEqual([2, 2])
+  })
+
+  it('offers the facility\'s staff or the group\'s members', () => {
+    const staff = [person(1, 'Anna', 2340, 31, 7), person(2, 'Berta', 1800, 31, 8), person(3, 'Sven', 1800)]
+    expect(staffInScope(staff, null).map(s => s.name)).toEqual(['Anna', 'Berta', 'Sven'])
+    expect(staffInScope(staff, 7).map(s => s.name)).toEqual(['Anna'])
+  })
+})
+
+describe('the weekly hours of a template per employee', () => {
+  it('adds the working time of each day: breaks off, VZ inside a duty once', () => {
+    let entries = enter([], [0, 1, 2, 3, 4].map(weekday => ({ employeeId: 1, weekday })), { kind: 'shift', templateId: 2 }) // 7:45 each
+    entries = enter(entries, [{ employeeId: 1, weekday: 0 }], { kind: 'code', codeId: 12, start: 480, end: 540 })
+    entries = enter(entries, [{ employeeId: 1, weekday: 0 }], { kind: 'break', start: 900, end: 915 })
+    expect(templateWeeklyMinutes(entries, anna)).toBe(5 * 465 - 15)
+    expect(templateWeeklyMinutes(entries, berta)).toBe(0)
+  })
+
+  it('counts a whole Büro day with the daily target of the contract, none on a day off', () => {
+    expect(templateWeekdayTarget(berta, 0)).toBe(450)
+    expect(templateWeekdayTarget(berta, 4)).toBe(0)
+    expect(templateWeekdayTarget(person(5, 'Ohne', null), 0)).toBe(0)
+    let entries = enter([], [0, 1, 2, 3].map(weekday => ({ employeeId: 2, weekday })), { kind: 'code', codeId: 11 })
+    expect(templateWeeklyMinutes(entries, berta)).toBe(30 * 60)
+    entries = enter(entries, [{ employeeId: 2, weekday: 4 }], { kind: 'code', codeId: 11 })
+    expect(templateWeeklyMinutes(entries, berta)).toBe(30 * 60)
+  })
+})

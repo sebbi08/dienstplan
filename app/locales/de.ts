@@ -539,7 +539,26 @@ export const de = {
   },
   weekTemplates: {
     title: 'Dienstplanvorlagen',
-    hint: 'Eine Vorlage ist eine gespeicherte Woche (Montag bis Freitag, alle Mitarbeiter). Im Dienstplan kannst du bei jeder Woche „Als Vorlage speichern“ oder „Vorlage einsetzen“ wählen. Um eine Vorlage zu ändern, setze sie ein, passe die Woche an und speichere sie unter demselben Namen wieder.',
+    hint: 'Eine Vorlage ist eine Woche (Montag bis Freitag) mit den Diensten der Mitarbeiter. Lege sie hier mit „Vorlage anlegen“ an oder ändere sie mit „Bearbeiten“ – oder speichere im Dienstplan eine Woche mit „Als Vorlage speichern“. Mit „Vorlage einsetzen“ füllst du im Dienstplan eine Woche aus der Vorlage.',
+    create: 'Vorlage anlegen', edit: 'Bearbeiten',
+    editor: {
+      newTitle: 'Neue Dienstplanvorlage',
+      editTitle: (name: string) => `Vorlage „${name}“ bearbeiten`,
+      back: 'Zurück zu den Dienstplanvorlagen',
+      hint: 'Felder anklicken (Umschalt+Klick: mehrere Tage, Strg+Klick oder am Handy antippen: einzelne Felder dazu), dann oben einen Dienst, VZ, Büro, Sonderdienst oder eine Pause wählen. Ein weiterer Dienst kommt dazu; Überschneidungen werden abgelehnt. Büro oder VZ ohne Uhrzeit gilt als ganzer Tag. Urlaub, Krank und Schließtage gehören nicht in eine Vorlage.',
+      weekday: 'Tag',
+      addBreak: 'Pause…',
+      hours: 'Wochenstunden laut Vorlage',
+      hoursLine: (name: string, planned: string) => `${name}: ${planned} h`,
+      contract: (hours: string) => `von ${hours} h`,
+      contractHint: 'Rot: weicht von den Vertragsstunden ab.',
+      dayOff: 'Laut Vertrag kein Arbeitstag – beim Einsetzen wird dieser Tag übersprungen.',
+      noStaff: 'Für diese Auswahl gibt es keine Mitarbeiter.',
+      hiddenEntries: (count: number) => (count === 1
+        ? '1 Eintrag gehört zu jemandem, der nicht (mehr) zu dieser Auswahl gehört. Er wird beim Speichern entfernt.'
+        : `${count} Einträge gehören zu Mitarbeitern, die nicht (mehr) zu dieser Auswahl gehören. Sie werden beim Speichern entfernt.`),
+      empty: 'Noch nichts eingetragen.',
+    },
     saveWeek: 'Als Vorlage speichern', applyWeek: 'Vorlage einsetzen',
     saveTitle: (from: string, to: string) => `Woche ${from} – ${to} als Vorlage speichern`,
     applyTitle: (from: string, to: string) => `Vorlage einsetzen: Woche ${from} – ${to}`,

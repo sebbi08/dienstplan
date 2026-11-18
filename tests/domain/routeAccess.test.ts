@@ -43,7 +43,7 @@ const OFFICE = [
   '/admin/leave-planning', '/admin/print/calendar/2026', '/admin/print/cash/1/2026/10', '/admin/print/early-closures/2026',
   '/admin/print/emergency-contacts', '/admin/print/form-templates/1', '/admin/print/forms/1',
   '/admin/print/sick-days/2026', '/admin/print/time/1/2026/10', '/admin/settings', '/admin/settings/groups/1',
-  '/admin/settings/roster', '/admin/sick-days', '/admin/time', '/admin/users', '/cash', '/cash/1/2026/10',
+  '/admin/settings/roster', '/admin/settings/roster/week-templates/1', '/admin/sick-days', '/admin/time', '/admin/users', '/cash', '/cash/1/2026/10',
 ]
 /** The tablet's start page: the terminal routes answer only the tablet, so every account goes to the start page. */
 const TABLET_ONLY = '/terminal'
