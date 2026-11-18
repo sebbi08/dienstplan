@@ -1,10 +1,13 @@
-import { isOnSite } from './balance'
+import { isFullDayTimed, isOnSite } from './balance'
 import type { CodeKey, DomainEntry, Minutes } from './types'
 
-/** 'home_office': working from home, so not present in the house. */
+/**
+ * 'home_office': working from home, so not present in the house. 'office_day': a whole Büro/VZ day without times — it
+ * has no time window, so it is never counted as present (like the group attendance, which counts timed entries only).
+ */
 export type SlotState =
   | 'off' | 'work' | 'support' | 'break'
-  | 'absent' | 'prep_time' | 'office' | 'home_office' | 'holiday' | 'other'
+  | 'absent' | 'prep_time' | 'office' | 'office_day' | 'home_office' | 'holiday' | 'other'
 
 export const SLOT_MINUTES = 15
 const DEFAULT_START = 7 * 60
@@ -64,7 +67,7 @@ export function buildDayOverview(inputs: OverviewInput[], isHolidayDay: boolean)
     // An entry without times fills the day: a whole home-office day („Homeoffice (ganzer Tag)“) is not in the house.
     const fullDay = entries.find(entry => entry.start === null)
     const fill: SlotState | null = fullDay
-      ? isOnSite(fullDay) ? codeState(fullDay.codeKey) : 'home_office'
+      ? !isOnSite(fullDay) ? 'home_office' : isFullDayTimed(fullDay) ? 'office_day' : codeState(fullDay.codeKey)
       : entries.length === 0 && isHolidayDay ? 'holiday' : null
     const states = slotStarts.map((time) => {
       const state = stateAt(entries, time)

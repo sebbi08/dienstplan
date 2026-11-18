@@ -317,7 +317,8 @@ export const de = {
     present: 'Anwesend',
     legend: {
       off: 'frei', work: 'Dienst', support: 'Haushaltskraft', break: 'Pause',
-      absent: 'Urlaub / Krank / Fortbildung / Schule', prep_time: 'VZ', office: 'Büro', home_office: 'Homeoffice (nicht im Haus)',
+      absent: 'Urlaub / Krank / Fortbildung / Schule', prep_time: 'VZ', office: 'Büro',
+      office_day: 'Büro / VZ (ganzer Tag)', home_office: 'Homeoffice (nicht im Haus)',
       holiday: 'Feiertag / Schließtag', other: 'sonstiges',
     } satisfies Record<SlotState, string>,
   },
@@ -1845,6 +1846,9 @@ export const de = {
     entries_overlap: 'Dieser Dienst überschneidet sich mit einem anderen Dienst des Tages. Nur VZ oder Büro dürfen innerhalb eines Dienstes liegen.',
     /** entries_overlap of a range: the refused cell, e.g. „Anna, Do 03.12.: …“. */
     entries_overlap_cell: (name: string, date: string) => `${name}, ${date}: überschneidet sich mit einem vorhandenen Dienst – erst „Leeren“ oder den vorhandenen Eintrag ändern.`,
+    full_day_needs_target: 'An einem freien Tag bitte Büro bzw. VZ mit Uhrzeit eintragen.',
+    /** full_day_needs_target of a range: the refused cell, e.g. „Anna, Sa 10.10.: …“. */
+    full_day_needs_target_cell: (name: string, date: string) => `${name}, ${date}: An einem freien Tag bitte Büro bzw. VZ mit Uhrzeit eintragen.`,
     break_requires_add: 'Eine zusätzliche Pause wird immer zum bestehenden Dienst hinzugefügt.',
     break_outside_work: 'Die Pause muss innerhalb der Arbeitszeit dieses Tages liegen.',
     break_overlap: 'Die Pause überschneidet sich mit einer anderen Pause.',

@@ -5,18 +5,24 @@ import type { CreditMode, EntryKind, Minutes } from './types'
 /** Ends the label of a whole Büro/VZ day (a timed code without times): „Büro (ganzer Tag)“. */
 export const FULL_DAY_SUFFIX = ' (ganzer Tag)'
 
+/** Names a whole day where the code label is hidden (a help-out marker shows times only): „Dienst (ganzer Tag)“. */
+const HIDDEN_CODE_LABEL = 'Dienst'
+
 /**
- * The entry's label: the times; for a code its label before them. `codeCreditMode` (the code's credit mode, missing for
- * a plain marker) tells a timed code without times, the whole day: „Büro (ganzer Tag)“.
+ * The entry's label: the times; for a code its label before them. `codeCreditMode` (the code's credit mode; null when
+ * there is no code) tells a timed code without times, the whole day: „Büro (ganzer Tag)“; with the code label hidden
+ * (codeLabel null) „Dienst (ganzer Tag)“. Required, so no caller can forget it.
  */
 export function describeEntry(
   entry: { kind: EntryKind; start: Minutes | null; end: Minutes | null }, codeLabel: string | null,
-  codeCreditMode: CreditMode | null = null,
+  codeCreditMode: CreditMode | null,
 ): string {
   const times = entry.start !== null && entry.end !== null ? `${formatTime(entry.start)}–${formatTime(entry.end)}` : ''
   if (entry.kind === 'break') return `[${times}]`
   if (entry.kind !== 'code') return times
-  if (codeCreditMode !== null && isFullDayTimed({ ...entry, creditMode: codeCreditMode })) return `${codeLabel ?? ''}${FULL_DAY_SUFFIX}`.trim()
+  if (codeCreditMode !== null && isFullDayTimed({ ...entry, creditMode: codeCreditMode })) {
+    return `${codeLabel ?? HIDDEN_CODE_LABEL}${FULL_DAY_SUFFIX}`
+  }
   return times ? `${codeLabel ?? ''} ${times}`.trim() : (codeLabel ?? '')
 }
 

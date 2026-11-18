@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { changeLog } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { createEmployee } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
+import type { ServiceError } from '../../server/lib/errors'
 import { getMonthPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import { actualTimeFor, getTimeMonth, stamp } from '../../server/services/timeTracking'
 import { computeDay } from '../../shared/domain/balance'
 import type { ApplyMode, EntryInput, SessionUser } from '../../shared/types/api'
-import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const date = '2026-10-06' // a Tuesday
 const at = (iso: string) => new Date(iso) // UTC; October 2026 is CEST (UTC+2)
@@ -63,6 +65,52 @@ describe('Büro and Homeoffice for the whole day without times', () => {
       write(office({ homeOffice: true }), 'replace', ben)
       write({ kind: 'code', codeId: codeId(db, 'office'), start: 480, end: 600 }, 'add', ben)
       expect(cellEntries(ben).map(entry => entry.label)).toEqual(['Büro 8:00–10:00'])
+    })
+    describe('on a day without daily target', () => {
+      const refusal = (fn: () => unknown) => {
+        try {
+          fn()
+        }
+        catch (error) {
+          const refused = error as ServiceError
+          return [refused.statusCode, refused.code, refused.details]
+        }
+        return null
+      }
+      it('refuses a whole day on a weekend, a public holiday and a part-timer\'s day off, naming the cell', () => {
+        const clara = createEmployee(db, admin, 1, { name: 'Clara', shortName: '', weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 })
+        const saturday = '2026-10-10'
+        const christmas = '2026-12-25' // a Friday
+        const thursday = '2026-10-08' // Clara works Monday to Wednesday
+        expect(refusal(() => write(office(), 'replace', anna, saturday)))
+          .toEqual([400, 'full_day_needs_target', { employeeId: anna, date: saturday, name: 'Anna' }])
+        expect(refusal(() => write(office({ homeOffice: true }), 'replace', anna, christmas)))
+          .toEqual([400, 'full_day_needs_target', { employeeId: anna, date: christmas, name: 'Anna' }])
+        expect(refusal(() => write({ kind: 'code', codeId: codeId(db, 'prep_time') }, 'replace', clara, thursday)))
+          .toEqual([400, 'full_day_needs_target', { employeeId: clara, date: thursday, name: 'Clara' }])
+        expect(cellEntries(anna, saturday)).toEqual([])
+        expect(cellEntries(anna, christmas)).toEqual([])
+        expect(cellEntries(clara, thursday)).toEqual([])
+      })
+      it('still takes Büro with times on such a day', () => {
+        write(office({ start: 480, end: 600 }), 'add', anna, '2026-10-10')
+        expect(cellEntries(anna, '2026-10-10').map(entry => entry.label)).toEqual(['Büro 8:00–10:00'])
+      })
+      it('refuses the whole range and writes none of its cells', () => {
+        write({ kind: 'shift', templateId: templateId(db, 'F1') }, 'add', anna, '2026-10-09')
+        const cells = [{ employeeId: anna, date: '2026-10-09' }, { employeeId: anna, date: '2026-10-10' }]
+        expect(refusal(() => applyToCells(db, admin, 1, cells, 'replace', office())))
+          .toEqual([400, 'full_day_needs_target', { employeeId: anna, date: '2026-10-10', name: 'Anna' }])
+        expect(cellEntries(anna, '2026-10-09').map(entry => entry.kind)).toEqual(['shift'])
+      })
+    })
+    it('shows a whole day helping out elsewhere as „Dienst (ganzer Tag)“ in the home plan', () => {
+      const other = addFacility(db, 'Sonnenschein')
+      addHelpOut(db, anna, other, 2026, 10)
+      applyToCells(db, addUser(db, 'leitung2', 'admin', null, other), other, [{ employeeId: anna, date }], 'replace', office())
+      const home = getMonthPlan(db, admin, 1, 2026, 10, '2026-10-08').entries
+        .filter(entry => entry.employeeId === anna && entry.date === date)
+      expect(home.map(entry => entry.label)).toEqual(['Dienst (ganzer Tag)'])
     })
     it('names the whole day in the change log of a released month', () => {
       releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))

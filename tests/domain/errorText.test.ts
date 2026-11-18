@@ -14,6 +14,13 @@ describe('the text of a failed API call', () => {
     expect(errorMessage(failed('entries_overlap'))).toBe(de.errors.entries_overlap)
     expect(errorMessage(failed('entries_overlap', { employeeId: 3 }))).toBe(de.errors.entries_overlap)
   })
+  it('names the cell of a whole Büro/VZ day on a day off', () => {
+    // 2026-10-10 is a Saturday.
+    expect(errorMessage(failed('full_day_needs_target', { employeeId: 3, date: '2026-10-10', name: 'Anna' })))
+      .toBe('Anna, Sa 10.10.: An einem freien Tag bitte Büro bzw. VZ mit Uhrzeit eintragen.')
+    expect(errorMessage(failed('full_day_needs_target'))).toBe('An einem freien Tag bitte Büro bzw. VZ mit Uhrzeit eintragen.')
+    expect(errorTextOf('full_day_needs_target_cell')).toBe(de.errors.generic)
+  })
   it('keeps the plain texts and the generic one', () => {
     expect(errorMessage(failed('login_invalid'))).toBe(de.errors.login_invalid)
     expect(errorMessage(failed('no_such_code'))).toBe(de.errors.generic)

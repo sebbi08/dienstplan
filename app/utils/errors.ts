@@ -13,15 +13,22 @@ export function errorTextOf(code: string | undefined): string {
   return typeof text === 'string' ? text : de.errors.generic
 }
 
-/** The cell a refused range names (entries_overlap of a range: employee name and day), if the details carry it. */
-function overlapCell(error: unknown): { name: string; date: string } | null {
+/** Refusals of a range that name the refused cell (employee and day), with their text for it. */
+const CELL_TEXTS: Record<string, (name: string, date: string) => string> = {
+  entries_overlap: de.errors.entries_overlap_cell,
+  full_day_needs_target: de.errors.full_day_needs_target_cell,
+}
+
+/** The cell a refused range names (employee name and day), if the details carry it. */
+function refusedCell(error: unknown): { name: string; date: string } | null {
   const details = (error as { data?: { data?: { details?: { name?: unknown; date?: unknown } } } } | null)?.data?.data?.details
   return typeof details?.name === 'string' && typeof details.date === 'string' ? { name: details.name, date: details.date } : null
 }
 
 export function errorMessage(error: unknown): string {
   const code = errorCode(error)
-  const cell = code === 'entries_overlap' ? overlapCell(error) : null
-  if (cell) return de.errors.entries_overlap_cell(cell.name, formatDayShort(cell.date, weekday(cell.date)))
+  const cellText = code ? CELL_TEXTS[code] : undefined
+  const cell = cellText ? refusedCell(error) : null
+  if (cellText && cell) return cellText(cell.name, formatDayShort(cell.date, weekday(cell.date)))
   return errorTextOf(code)
 }

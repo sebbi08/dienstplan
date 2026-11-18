@@ -4,6 +4,7 @@ import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
+import { dailyTarget } from '../../shared/domain/targets'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import type { CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../../shared/domain/types'
@@ -15,7 +16,7 @@ import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
 import { assertGroup, groupNames } from './groups'
 import { isHelperOn } from './helpOuts'
-import { inPlanOf, loadEntries } from './queries'
+import { inPlanOf, loadEmployee, loadEntries } from './queries'
 import { withPlainMarkers } from './release'
 
 type ResolvedEntry = Omit<typeof entries.$inferInsert, 'employeeId' | 'date' | 'updatedAt' | 'updatedBy' | 'closureId'>
@@ -174,8 +175,11 @@ export function cellOwner(db: Db, employeeId: number, date: IsoDate): number | n
   return rows.find(row => row.helpFacilityId !== null)?.helpFacilityId ?? 'home'
 }
 
-/** The details of an entries_overlap refusal in a range: which cell (employee, day and name for the message). */
-function overlapCell(db: Db, cell: CellRef): { employeeId: number; date: IsoDate; name: string } {
+/**
+ * The details of a refused cell in a range (entries_overlap, full_day_needs_target): which cell (employee, day and name
+ * for the message).
+ */
+function refusedCell(db: Db, cell: CellRef): { employeeId: number; date: IsoDate; name: string } {
   const row = db.select({ name: employees.name }).from(employees).where(eq(employees.id, cell.employeeId)).get()
   return { employeeId: cell.employeeId, date: cell.date, name: row?.name ?? '' }
 }
@@ -204,7 +208,8 @@ export function dropStaleSickLeave(db: Db, cell: CellRef): void {
  * Anyone else gives employee_not_found. The entry's group (input.groupId; none = the home group) must be one of the
  * facility's groups, also in a helper cell (group_not_found otherwise). It is stored as none for absences and breaks
  * and for the own staff's home group (see storedGroup). A written cell without working time loses its "Im Dienst
- * erkrankt" marker (see dropStaleSickLeave).
+ * erkrankt" marker (see dropStaleSickLeave). A whole Büro/VZ day without times needs a day with a daily target
+ * (full_day_needs_target otherwise, naming the cell).
  * Modes: 'replace' empties the cell first (a shift or special shift keeps timed VZ/Büro), 'clear' only empties it, 'add'
  * keeps its entries, except that a working duty (shift, special shift, timed code) replaces a full-day absence
  * (daily_target code such as Urlaub or Krank) and a whole Büro/VZ day without times (isFullDayTimed). Working entries
@@ -239,10 +244,19 @@ export function applyToCells(
     || values.kind === 'special' || (values.kind === 'code' && codeCreditMode(db, values.absenceCodeId) === 'timed'))
   if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
   const unique = [...new Map(cells.map(cell => [cellKey(cell.employeeId, cell.date), cell])).values()]
+  // A whole Büro/VZ day credits the day's target: on a day without one (weekend, public holiday, a part-timer's day off)
+  // it would credit nothing and hide what was stamped, so it needs times there.
+  const isFullDay = values !== null && isFullDayTimed({
+    kind: values.kind, creditMode: codeCreditMode(db, values.absenceCodeId) ?? 'none', start: values.start ?? null, end: values.end ?? null,
+  })
 
   db.transaction((tx) => {
     for (const cell of unique) {
       if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
+      if (isFullDay) {
+        const info = loadEmployee(tx, cell.employeeId)?.info
+        if (!info || dailyTarget(info, cell.date) === 0) throw new ServiceError(400, 'full_day_needs_target', refusedCell(tx, cell))
+      }
       const cellFilter = { employeeId: cell.employeeId, from: cell.date, to: cell.date }
       const helper = isHelperCell(cell)
       const owner = cellOwner(tx, cell.employeeId, cell.date)
@@ -291,7 +305,7 @@ export function applyToCells(
         const overlapping = loadEntries(tx, cellFilter).some(other => other.kind !== 'break'
           && other.start !== null && other.end !== null && start < other.end && other.start < end
           && isTargetGapCode(other.codeKey) === isGapCode)
-        if (overlapping) throw new ServiceError(400, 'entries_overlap', overlapCell(tx, cell))
+        if (overlapping) throw new ServiceError(400, 'entries_overlap', refusedCell(tx, cell))
       }
       if (values) {
         tx.insert(entries).values({

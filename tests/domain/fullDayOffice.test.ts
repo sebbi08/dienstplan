@@ -63,9 +63,19 @@ describe('the day overview of a full-day timed entry', () => {
     expect(new Set(overview.rows[0]!.states)).toEqual(new Set(['home_office']))
     expect(overview.present.every(count => count === 0)).toBe(true)
   })
-  it('shows a full-day Büro as office the whole day', () => {
-    const overview = buildDayOverview([{ employeeId: 1, entries: [office()] }], false)
-    expect(new Set(overview.rows[0]!.states)).toEqual(new Set(['office']))
+  it('shows a full-day Büro or VZ as a whole office day, not present (it has no time window)', () => {
+    const overview = buildDayOverview([
+      { employeeId: 1, entries: [office()] },
+      { employeeId: 2, entries: [code(2, day, 'prep_time', 'timed')] },
+    ], false)
+    expect(new Set(overview.rows[0]!.states)).toEqual(new Set(['office_day']))
+    expect(new Set(overview.rows[1]!.states)).toEqual(new Set(['office_day']))
+    expect(overview.present.every(count => count === 0)).toBe(true)
+  })
+  it('still counts timed Büro as present in its time window', () => {
+    const overview = buildDayOverview([{ employeeId: 1, entries: [code(1, day, 'office', 'timed', 480, 720)] }], false)
+    expect(overview.rows[0]!.states[(480 - 420) / 15]).toBe('office')
+    expect(overview.present[(480 - 420) / 15]).toBe(1)
   })
 })
 
@@ -74,7 +84,11 @@ describe('the text of a full-day timed entry', () => {
     expect(describeEntry({ kind: 'code', start: null, end: null }, 'Büro', 'timed')).toBe('Büro (ganzer Tag)')
     expect(describeEntry({ kind: 'code', start: 480, end: 720 }, 'Büro', 'timed')).toBe('Büro 8:00–12:00')
     expect(describeEntry({ kind: 'code', start: null, end: null }, 'Krank', 'daily_target')).toBe('Krank')
-    expect(describeEntry({ kind: 'code', start: null, end: null }, 'Krank')).toBe('Krank')
+    expect(describeEntry({ kind: 'code', start: null, end: null }, 'Krank', null)).toBe('Krank')
+  })
+  it('names a whole day „Dienst (ganzer Tag)“ where the code label is hidden (a help-out marker)', () => {
+    expect(describeEntry({ kind: 'code', start: null, end: null }, null, 'timed')).toBe('Dienst (ganzer Tag)')
+    expect(describeEntry({ kind: 'code', start: 480, end: 720 }, null, 'timed')).toBe('8:00–12:00')
   })
   it('ends in „(Homeoffice)“ in the cell description when worked from home', () => {
     const entry = { shortLabel: null, label: 'Büro (ganzer Tag)', breakStart: null, breakEnd: null, note: null, homeOffice: true }

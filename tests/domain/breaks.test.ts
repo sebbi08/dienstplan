@@ -24,7 +24,7 @@ describe('additional breaks', () => {
     expect(overview.rows[0]!.states[slot + 1]).toBe('work')
   })
   it('are described in brackets', () => {
-    expect(describeEntry({ kind: 'break', start: 900, end: 915 }, null)).toBe('[15:00–15:15]')
+    expect(describeEntry({ kind: 'break', start: 900, end: 915 }, null, null)).toBe('[15:00–15:15]')
   })
 })
 
