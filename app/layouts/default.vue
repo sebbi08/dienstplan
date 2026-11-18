@@ -162,9 +162,12 @@ async function logout() {
         />
       </div>
     </header>
+    <!-- From the left and narrower than the screen: the close button never lies outside a phone's screen (no sideways
+         scrolling), and a tap on the visible page beside the panel closes it too. -->
     <USlideover
-      v-if="loggedIn && !isTerminal" v-model:open="menuOpen" :title="de.nav.menu"
+      v-if="loggedIn && !isTerminal" v-model:open="menuOpen" :title="de.nav.menu" side="left"
       :description="`${de.nav.signedInAs} ${user?.username ?? ''}`" class="print:hidden"
+      :ui="{ content: 'w-[85vw] max-w-xs overflow-x-hidden', close: 'size-11 justify-center' }"
     >
       <template #body>
         <nav :aria-label="de.nav.mainMenu" class="flex flex-col gap-4">
