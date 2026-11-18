@@ -39,6 +39,6 @@ export function cellScope(plan: MonthPlanDto, cells: CellRef[]): CellScope {
 /** The codes that may be entered for the scope (the button codes are filtered further by the caller). */
 export function codesForScope(codes: CodeDto[], scope: CellScope): CodeDto[] {
   if (scope === 'helper') return codes.filter(code => isTargetGapCode(code.key))
-  if (scope === 'marker') return codes.filter(code => !isTargetGapCode(code.key))
+  if (scope === 'marker') return codes.filter(code => !isTargetGapCode(code.key) && code.creditMode !== 'timed')
   return scope === 'mixed' ? [] : codes
 }

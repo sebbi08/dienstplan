@@ -1,4 +1,4 @@
-import { isFullDayTimed, isOnSite } from './balance'
+import { isFullDayTimed } from './balance'
 import type { CodeKey, DomainEntry, Minutes } from './types'
 
 /**
@@ -49,7 +49,7 @@ function stateAt(entries: DomainEntry[], time: Minutes): SlotState {
     if (entry.breakStart !== null && entry.breakEnd !== null && time >= entry.breakStart && time < entry.breakEnd) {
       return 'break'
     }
-    const entryState: SlotState = !isOnSite(entry)
+    const entryState: SlotState = entry.homeOffice === true
       ? 'home_office'
       : entry.kind === 'code' ? codeState(entry.codeKey) : entry.countsAsStaff ? 'work' : 'support'
     if (state === 'off' || state === 'work') state = entryState
@@ -68,7 +68,7 @@ export function buildDayOverview(inputs: OverviewInput[], isHolidayDay: boolean)
     // An entry without times fills the day: a whole home-office day („Homeoffice (ganzer Tag)“) is not in the house.
     const fullDay = entries.find(entry => entry.start === null)
     const fill: SlotState | null = fullDay
-      ? !isOnSite(fullDay) ? 'home_office' : isFullDayTimed(fullDay) ? 'office_day' : codeState(fullDay.codeKey)
+      ? fullDay.homeOffice === true ? 'home_office' : isFullDayTimed(fullDay) ? 'office_day' : codeState(fullDay.codeKey)
       : entries.length === 0 && isHolidayDay ? 'holiday' : null
     const states = slotStarts.map((time) => {
       const state = stateAt(entries, time)

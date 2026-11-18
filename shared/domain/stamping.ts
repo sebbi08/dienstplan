@@ -1,4 +1,4 @@
-import { isTimeOff, isWorkEntry } from './balance'
+import { creditedWithoutStamping, isTimeOff } from './balance'
 import { breakMinutes, recordedMinutes, requiredBreakMinutes, type RecordSpan } from './timeRecords'
 import type { DomainEntry } from './types'
 
@@ -38,9 +38,9 @@ export function creditedMinutes(records: RecordSpan[], mode: BreakMode, plannedB
 type DayEntry = Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end' | 'breakStart' | 'breakEnd'>
   & Partial<Pick<DomainEntry, 'codeKey' | 'homeOffice'>>
 
-/** „Homeoffice – zählt ohne Stempeln“: an entry with working time whose time counts as if it had been stamped. */
+/** „Homeoffice – zählt ohne Stempeln“ and Arzt: an entry with working time whose time counts as if it had been stamped. */
 export function isHomeOffice(entry: DayEntry): boolean {
-  return entry.homeOffice === true && isWorkEntry(entry) && entry.end !== null
+  return creditedWithoutStamping(entry)
 }
 
 /**
@@ -118,7 +118,7 @@ export function recordedDay(
 ): { homeOffice: { start: number; end: number }[]; recordedMinutes: number } {
   if (!inRange) return { homeOffice: [], recordedMinutes: recordedMinutes(records) }
   return {
-    homeOffice: entries.filter(isHomeOffice).map(entry => ({ start: entry.start!, end: entry.end! })),
+    homeOffice: entries.filter(entry => entry.homeOffice === true && isHomeOffice(entry)).map(entry => ({ start: entry.start!, end: entry.end! })),
     recordedMinutes: recordedMinutes(records) + homeOfficeMinutes(entries, records),
   }
 }

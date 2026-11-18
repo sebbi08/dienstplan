@@ -1,4 +1,4 @@
-import { dayCredit, isFullDayTimed, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
+import { creditedWithoutStamping, dayCredit, isAwayCode, isFullDayTimed, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
 import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
@@ -164,7 +164,7 @@ export function dayWarnings(
       warnings.push({ type: 'missing_entry', date, employeeId })
       continue
     }
-    const hasGapCode = entries.some(entry => isTargetGapCode(entry.codeKey))
+    const hasGapCode = entries.some(entry => isTargetGapCode(entry.codeKey) || isAwayCode(entry.codeKey))
     if (!hasGapCode) continue
     const target = dailyTarget(info, date)
     // Hours taken off as "Überstundenfrei" are not missing: the balance pays for them.
@@ -187,7 +187,7 @@ export function timeWarnings(
   const warnings: Warning[] = []
   if (records.some(record => record.end === null)) warnings.push({ type: 'open_record', date, employeeId })
   // Home-office entries count without stamping: only other planned work needs records.
-  const plannedWork = entries.some(entry => isWorkEntry(entry) && !entry.homeOffice)
+  const plannedWork = entries.some(entry => isWorkEntry(entry) && !creditedWithoutStamping(entry))
   if (records.length === 0 && plannedWork) warnings.push({ type: 'missing_record', date, employeeId })
   if (records.length > 0 && entries.length === 0) warnings.push({ type: 'record_without_plan', date, employeeId })
   // With automatic breaks the break is deducted anyway, so there is nothing to clock. Home office counts as working time.

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { absenceCodes } from '../../server/db/schema'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells, updateEntryTimes } from '../../server/services/entries'
-import { loadEmployee, loadEntries } from '../../server/services/queries'
+import { getMonthPlan } from '../../server/services/plan'
+import { actualTimeFor } from '../../server/services/timeTracking'
+import { loadEmployee, loadEmployees, loadEntries } from '../../server/services/queries'
 import { hasWorkingTime } from '../../shared/domain/attendance'
 import { computeDay } from '../../shared/domain/balance'
 import { buildDayOverview } from '../../shared/domain/dayOverview'
@@ -82,6 +85,43 @@ describe('Arzt (doctor appointment as working time, away from the house)', () =>
     write(doctor({ start: 1100, end: 1130 }), 'add')
     expect(errorCode(() => write({ kind: 'special', start: 1120, end: 1200 }, 'add'))).toBe('entries_overlap')
     expect(day()).toHaveLength(3)
+  })
+
+  it('is refused when it overlaps Büro or VZ, adjacent is fine', () => {
+    write({ kind: 'code', codeId: codeId(db, 'office'), start: 480, end: 720 }, 'add')
+    expect(errorCode(() => write(doctor({ start: 540, end: 600 }), 'add'))).toBe('entries_overlap')
+    write(doctor({ start: 720, end: 780 }), 'add')
+    expect(errorCode(() => write({ kind: 'code', codeId: codeId(db, 'prep_time'), start: 700, end: 740 }, 'add'))).toBe('entries_overlap')
+    expect(day()).toHaveLength(2)
+  })
+
+  it('a partial Arzt day prompts the target-gap hint', () => {
+    write(doctor({ start: 480, end: 570 }))
+    const warnings = getMonthPlan(db, admin, 1, 2026, 10, '2026-10-01').admin!.warnings
+    expect(warnings.some(w => w.type === 'target_gap' && w.date === date)).toBe(true)
+  })
+
+  describe('with time tracking', () => {
+    beforeEach(() => setTimeTrackingFrom(db, 1, '2026-10-01'))
+    const actual = () => actualTimeFor(db, 1, '2026-10-08')(anna)
+    const warningTypes = () => getMonthPlan(db, admin, 1, 2026, 10, '2026-10-08').admin!.warnings
+      .filter(w => w.date === date && 'employeeId' in w && w.employeeId === anna).map(w => w.type)
+
+    it('credits a planned Arzt without stamping and without a missing-record warning', () => {
+      write(doctor({ start: 480, end: 570 }))
+      expect(actual()!.minutesByDate.get(date)).toBe(90)
+      const employee = loadEmployees(db, 1).find(candidate => candidate.id === anna)!
+      expect(computeDay(employee.info, date, day(), actual()).credit).toBe(90)
+      expect(warningTypes()).not.toContain('missing_record')
+    })
+
+    it('with a duty the duty still needs stamping, the Arzt part counts as planned', () => {
+      write(doctor({ start: 480, end: 570 }), 'add')
+      write({ kind: 'special', start: 570, end: 900 }, 'add')
+      expect(warningTypes()).toContain('missing_record')
+      const employee = loadEmployees(db, 1).find(candidate => candidate.id === anna)!
+      expect(computeDay(employee.info, date, day(), actual()).credit).toBe(90)
+    })
   })
 
   it('is never home office', () => {

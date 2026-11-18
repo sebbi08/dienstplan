@@ -276,6 +276,16 @@ describe('staffingMonth – children, staff and the facility total', () => {
     expect(row(bears).planned.fachkraftFte).toBeCloseTo(21 / 22, 9)
   })
 
+  it('an Arzt appointment is no planned childcare: it does not count for the Ist', () => {
+    setType(bears, 'regel')
+    children(5, bears, careType('Ganztag', 420, 900))
+    const anna = staff('Anna', 'fachkraft', { groupId: bears })
+    everyWeekday(anna)
+    expect(row(bears).planned.fte).toBeCloseTo(1, 9)
+    db.update(entries).set({ kind: 'code', shiftTemplateId: null, absenceCodeId: codeId(db, 'doctor') }).where(eq(entries.date, TUESDAY)).run()
+    expect(row(bears).planned.fte).toBeCloseTo(21 / 22, 9)
+  })
+
   it('passes the age in months (BE: under-2 row) and the fte per child', () => {
     setState('BE')
     // 7:00–16:00 × 5 = 45 h: Ganztag (> 35 h, not above 45 h).

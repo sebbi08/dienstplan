@@ -82,20 +82,35 @@ export function isWorkEntry(entry: Pick<DomainEntry, 'kind' | 'creditMode' | 'st
   return entry.start !== null && entry.kind !== 'break' && (entry.kind !== 'code' || entry.creditMode === 'timed')
 }
 
-/**
- * Whether a planned entry puts its person in the house, there for the children: a home-office entry never does. The one
- * place deciding it for the coverage rules and opening/closing minimums, the Personalschlüssel presence check and the
- * monthly Ist, the day overview and the group attendance; home office still counts as working time for the balance.
- */
-/** Codes that are working time but never home office: a doctor's appointment is away from the house and from home. */
-export const NEVER_HOME_OFFICE_CODES: CodeKey[] = ['doctor']
+/** Codes that are working time but away from the house and never home office: a doctor's appointment. */
+export const AWAY_CODES: CodeKey[] = ['doctor']
 
-export function canBeHomeOffice(codeKey: CodeKey | null | undefined): boolean {
-  return !codeKey || !NEVER_HOME_OFFICE_CODES.includes(codeKey)
+export function isAwayCode(codeKey: CodeKey | null | undefined): boolean {
+  return !!codeKey && AWAY_CODES.includes(codeKey)
 }
 
-export function isOnSite(entry: Pick<DomainEntry, 'homeOffice'>): boolean {
-  return entry.homeOffice !== true
+export function canBeHomeOffice(codeKey: CodeKey | null | undefined): boolean {
+  return !isAwayCode(codeKey)
+}
+
+/**
+ * Whether a planned entry puts its person in the house, there for the children: a home-office entry or an away code
+ * (Arzt) never does. The one place deciding it for the coverage rules and opening/closing minimums, the
+ * Personalschlüssel presence check and the monthly Ist, the day overview and the group attendance; both still count as
+ * working time for the balance.
+ */
+export function isOnSite(entry: Pick<DomainEntry, 'homeOffice'> & Partial<Pick<DomainEntry, 'codeKey'>>): boolean {
+  return entry.homeOffice !== true && !isAwayCode(entry.codeKey)
+}
+
+/**
+ * Working time that counts as if it had been stamped, because the person is not at the workplace to stamp: home office
+ * and away codes (Arzt). With time tracking these days are credited from the plan and need no record.
+ */
+export function creditedWithoutStamping(
+  entry: Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end'> & Partial<Pick<DomainEntry, 'codeKey' | 'homeOffice'>>,
+): boolean {
+  return (entry.homeOffice === true || isAwayCode(entry.codeKey)) && isWorkEntry(entry) && entry.end !== null
 }
 
 /**

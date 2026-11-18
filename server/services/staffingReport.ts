@@ -12,7 +12,7 @@ import { presenceShortfalls, SLOT_MINUTES } from '../../shared/domain/staffing/p
 import type {
   AgeBand, DemandChild, PlannedStaff, PresenceSlot, Qualification, Requirement, StaffingRuleSet,
 } from '../../shared/domain/staffing/types'
-import type { IsoDate, Minutes } from '../../shared/domain/types'
+import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { isCheckedDay, type DayHoursContext, type Warning } from '../../shared/domain/warnings'
 import { isOnSite, isWorkEntry } from '../../shared/domain/balance'
 import type { EntryDto, GroupDto, StaffingFiguresDto, StaffingMonthDto, StaffingRowDto } from '../../shared/types/api'
@@ -35,7 +35,7 @@ interface ChildFacts {
 }
 
 /** A plan entry with the group it counts for. */
-type PlanEntry = GroupedEntry & { countsAsStaff: boolean; homeOffice: boolean }
+type PlanEntry = GroupedEntry & { countsAsStaff: boolean; homeOffice: boolean; codeKey: CodeKey | null }
 
 interface StaffFacts {
   name: string
@@ -125,7 +125,7 @@ export function monthCareDays(db: Db, facilityId: number, year: number, month: n
 function grouped(entry: EntryDto, homeGroup: number | null): PlanEntry {
   return {
     kind: entry.kind, creditMode: entry.creditMode, start: entry.start, end: entry.end,
-    breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, homeOffice: entry.homeOffice,
+    breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, homeOffice: entry.homeOffice, codeKey: entry.codeKey,
     group: entry.groupId ?? homeGroup,
   }
 }

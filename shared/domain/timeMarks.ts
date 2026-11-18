@@ -1,4 +1,4 @@
-import { creditsDailyTarget, isTimeOff, isWorkEntry } from './balance'
+import { creditedWithoutStamping, creditsDailyTarget, isTimeOff, isWorkEntry } from './balance'
 import type { RecordSpan } from './timeRecords'
 import type { DomainEntry, Minutes } from './types'
 
@@ -51,7 +51,7 @@ export function dayMarks(
   // Planned work without the time ranges of "Überstundenfrei": an ÜF at the end of the shift is where the duty ends.
   // Home-office entries are worked away from the facility: no arrival or departure is compared with them.
   const planned = new Uint8Array(24 * 60)
-  for (const entry of entries) if (isWorkEntry(entry) && !entry.homeOffice && entry.end !== null) planned.fill(1, entry.start!, entry.end)
+  for (const entry of entries) if (isWorkEntry(entry) && !creditedWithoutStamping(entry) && entry.end !== null) planned.fill(1, entry.start!, entry.end)
   for (const entry of entries) if (isTimeOff(entry) && entry.start !== null && entry.end !== null) planned.fill(0, entry.start, entry.end)
   const plannedStart = planned.indexOf(1)
   if (plannedStart === -1) return NONE

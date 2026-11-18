@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray } from 'drizzle-orm'
-import { canBeHomeOffice, hasPlannedDuty, isFullDayTimed, isWorkEntry } from '../../shared/domain/balance'
+import { canBeHomeOffice, isAwayCode, hasPlannedDuty, isFullDayTimed, isWorkEntry } from '../../shared/domain/balance'
 import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
@@ -313,7 +313,7 @@ export function applyToCells(
         const { start, end } = values
         const overlapping = loadEntries(tx, cellFilter).some(other => other.kind !== 'break'
           && other.start !== null && other.end !== null && start < other.end && other.start < end
-          && isTargetGapCode(other.codeKey) === isGapCode)
+          && (isTargetGapCode(other.codeKey) === isGapCode || isAwayCode(other.codeKey) || isAwayCode(codeKeyOf(tx, values.absenceCodeId))))
         if (overlapping) throw new ServiceError(400, 'entries_overlap', refusedCell(tx, cell))
       }
       if (values) {
@@ -395,7 +395,7 @@ export function dayConflict(day: DomainEntry[], changed: DomainEntry): string | 
   if (changed.kind !== 'break') {
     const overlapping = day.some(other => other !== changed && other.kind !== 'break' && other.start !== null && other.end !== null
       && changed.start! < other.end && other.start < changed.end!
-      && isTargetGapCode(other.codeKey) === isTargetGapCode(changed.codeKey))
+      && (isTargetGapCode(other.codeKey) === isTargetGapCode(changed.codeKey) || isAwayCode(other.codeKey) || isAwayCode(changed.codeKey)))
     if (overlapping) return 'entries_overlap'
   }
   for (const entry of day) {
