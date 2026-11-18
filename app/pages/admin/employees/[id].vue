@@ -9,6 +9,7 @@ import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
+import { showsComingYear } from '~/utils/comingYear'
 import {
   NO_QUALIFICATION, masterFieldsOf, masterUpdate, qualificationFieldsOf, qualificationUpdate, qualificationValue, reloadedFields,
   type MasterFields, type QualificationFields,
@@ -39,8 +40,14 @@ const { data: monthBalances, refresh: refreshMonthBalances } = await useFetch<Ba
   query: { year: computed(() => balanceMonth.year), month: computed(() => balanceMonth.month) },
 })
 const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: leaveYear } })
+// From 1 October the coming year's account is shown below the current one (a second request, same route).
+const showComing = computed(() => showsComingYear(todayIso(), leaveYear.value))
+const { data: comingLeave, refresh: refreshComingLeave, execute: loadComingLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', {
+  query: { year: computed(() => leaveYear.value + 1) }, immediate: showComing.value,
+})
+watch(showComing, (shown) => { if (shown) void loadComingLeave() })
 async function refresh() {
-  await Promise.all([refreshEmployee(), refreshTodayBalances(), refreshMonthBalances(), refreshLeave()])
+  await Promise.all([refreshEmployee(), refreshTodayBalances(), refreshMonthBalances(), refreshLeave(), showComing.value ? refreshComingLeave() : Promise.resolve()])
 }
 const run = useAction(refresh)
 const todayBalance = computed(() => todayBalances.value?.find(row => row.employeeId === id) ?? null)
@@ -51,6 +58,16 @@ function changeBalanceMonth(delta: number) {
   Object.assign(balanceMonth, shiftMonth(balanceMonth.year, balanceMonth.month, delta))
 }
 const leaveRow = computed(() => leave.value?.find(row => row.employeeId === id) ?? null)
+const comingLeaveRow = computed(() => {
+  const row = comingLeave.value?.find(entry => entry.employeeId === id) ?? null
+  // No entitlement recorded for the year or before: the account is all zero, so show the "no leave year" text.
+  return row && row.account.entitlement === 0 && row.account.carriedOver === 0 && row.inheritedFrom === null ? null : row
+})
+/** The account lines shown: the viewed year, and from 1 October the coming one below it. */
+const leaveBlocks = computed(() => [
+  { year: leaveYear.value, row: leaveRow.value, coming: false },
+  ...(showComing.value ? [{ year: leaveYear.value + 1, row: comingLeaveRow.value, coming: true }] : []),
+])
 const toast = useToast()
 const { user } = useUserSession()
 const { can } = useCan()
@@ -580,16 +597,20 @@ async function onTabKey(event: KeyboardEvent) {
         <h2 class="font-semibold">{{ de.leave.title }}</h2>
         <YearNav v-model="leaveYear" />
       </div>
-      <p v-if="leaveRow">
-        {{ de.leave.entitlement }} {{ formatNumber(leaveRow.account.entitlement) }}
-        <span v-if="leaveRow.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(leaveRow.inheritedFrom) }}</span>
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(leaveRow.account.carriedOver) }}
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(leaveRow.account.taken) }}
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(leaveRow.account.planned) }}
-        <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.available }}
-        <span class="font-semibold" :class="leaveRow.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(leaveRow.account.available) }}</span>
-      </p>
-      <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
+      <template v-for="block in leaveBlocks" :key="block.year">
+        <h3 v-if="leaveBlocks.length > 1" class="pt-1 font-semibold">{{ block.year }}</h3>
+        <p v-if="block.row">
+          {{ de.leave.entitlement }} {{ formatNumber(block.row.account.entitlement) }}
+          <span v-if="block.row.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(block.row.inheritedFrom) }}</span>
+          <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(block.row.account.carriedOver) }}
+          <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(block.row.account.taken) }}
+          <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(block.row.account.planned) }}
+          <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.available }}
+          <span class="font-semibold" :class="block.row.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(block.row.account.available) }}</span>
+        </p>
+        <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
+        <p v-if="block.coming && block.row" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
+      </template>
       <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
       <div v-if="canManageTime && employee.closuresFrom" class="pt-2">
         <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-calendar-plus" :label="de.employees.bookClosures" @click="bookClosures" />

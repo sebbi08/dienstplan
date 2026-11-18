@@ -376,6 +376,8 @@ export const de = {
     days, ranges: 'Urlaubstage', noRanges: 'Keine Urlaubstage eingetragen.', rangeTaken: 'genommen', rangePlanned: 'geplant',
     closuresTitle: 'Davon durch Schließzeiten:', closuresTotal: 'Zusammen',
     closureDays: (count: number) => `davon ${count === 1 ? '1 Schließtag' : `${count} Schließtage`} ohne Urlaub`,
+    carryForecast: (year: number) => `Übertrag aus ${year} voraussichtlich – ändert sich noch, wenn ${year} Urlaub dazukommt`,
+    noComingYear: (year: number) => `Für ${year} gibt es noch keinen Urlaubsanspruch.`,
   },
   employees: {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',
