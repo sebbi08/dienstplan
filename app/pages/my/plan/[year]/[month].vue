@@ -9,7 +9,7 @@ import { errorMessage } from '~/utils/errors'
 import { releasedChangeText } from '~/utils/changes'
 import { isCompactMyPlanDay } from '~/utils/dayCards'
 import { formatDayShort, formatSpan } from '~/utils/format'
-import { homeOfficeLines } from '~/utils/homeOffice'
+import { plannedSpanLine } from '~/utils/homeOffice'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -92,8 +92,8 @@ function rowClass(day: MyPlanDayDto): string {
             <span v-for="name in helpFacilityNames(day)" :key="name" class="text-xs text-gray-600">{{ de.myPlan.helpOutIn(name) }}</span>
           </div>
           <div v-if="time?.enabled && recordedOf(day.date)" class="text-xs">
-            <span v-for="line in homeOfficeLines(recordedOf(day.date)?.homeOffice)" :key="line" class="mr-2 inline-flex items-center gap-1 text-gray-600">
-              <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
+            <span v-for="span in recordedOf(day.date)?.homeOffice ?? []" :key="`${span.start}-${span.end}`" class="mr-2 inline-flex items-center gap-1 text-gray-600">
+              <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </span>
             <span v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id" class="mr-2 inline-block">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
@@ -130,8 +130,8 @@ function rowClass(day: MyPlanDayDto): string {
             </div>
           </td>
           <td v-if="time?.enabled" class="px-3 py-1.5 text-xs">
-            <div v-for="line in homeOfficeLines(recordedOf(day.date)?.homeOffice)" :key="line" class="flex items-center gap-1 text-gray-600">
-              <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
+            <div v-for="span in recordedOf(day.date)?.homeOffice ?? []" :key="`${span.start}-${span.end}`" class="flex items-center gap-1 text-gray-600">
+              <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </div>
             <div v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
@@ -161,8 +161,8 @@ function rowClass(day: MyPlanDayDto): string {
         <tr v-for="date in recordedDates" :key="date" class="border-t border-gray-200 align-top">
           <td class="whitespace-nowrap px-3 py-1.5 font-medium">{{ formatDayShort(date, weekday(date)) }}</td>
           <td class="px-3 py-1.5 text-xs">
-            <div v-for="line in homeOfficeLines(recordedOf(date)?.homeOffice)" :key="line" class="flex items-center gap-1 text-gray-600">
-              <UIcon name="i-lucide-house" class="shrink-0" />{{ line }}
+            <div v-for="span in recordedOf(date)?.homeOffice ?? []" :key="`${span.start}-${span.end}`" class="flex items-center gap-1 text-gray-600">
+              <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </div>
             <div v-for="record in recordsByDate.get(date) ?? []" :key="record.id">
               {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
