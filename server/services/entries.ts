@@ -225,11 +225,7 @@ export function dropStaleSickLeave(db: Db, cell: CellRef): void {
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
-  options: {
-    now?: Date; closureId?: number | null
-    /** The caller logs the written cells itself (updateClosure compares with the day before it rebooked). */
-    skipLog?: boolean
-  } = {},
+  options: { now?: Date; closureId?: number | null } = {},
 ): void {
   if (mode !== 'clear' && !input) throw new ServiceError(400, 'entry_required')
   const own = facilityEmployeeGroups(db, facilityId)
@@ -327,12 +323,10 @@ export function applyToCells(
           closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id,
         }).run()
       }
-      if (!options.skipLog) {
-        logChange(tx, {
-          facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
-          before, after: describeCellIn(tx, facilityId, cell, helper, names), actorId: actor.id, now,
-        })
-      }
+      logChange(tx, {
+        facilityId, date: cell.date, employeeId: cell.employeeId, field: 'entry',
+        before, after: describeCellIn(tx, facilityId, cell, helper, names), actorId: actor.id, now,
+      })
       if (replacedHome) logReplacedClosureDay(tx, actor, cell, replacedHome, now)
       if (helper && owner === facilityId) rebookHomeClosure(tx, actor, cell.employeeId, cell.date, now)
       dropStaleSickLeave(tx, cell)

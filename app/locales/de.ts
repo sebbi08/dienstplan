@@ -662,7 +662,7 @@ export const de = {
     leaveDays: 'Urlaubstage', noLeave: 'kein Urlaub',
     leaveDaysHint: 'Urlaubstage: was die Schließzeit eine Vollzeitkraft mit 5-Tage-Woche kostet (ohne Wochenenden und Feiertage). Die Tage jeder einzelnen Person, auch bei Teilzeit, stehen beim Mitarbeiter im Reiter „Urlaub & Zeiten“.',
     create: 'Schließzeit anlegen', edit: 'Schließzeit ändern',
-    confirmReplan: 'Der Dienstplan wird für die geänderten Tage angepasst. Von Hand geänderte Tage bleiben.',
+    confirmReplan: 'Der Dienstplan wird für die geänderten Tage angepasst. Von Hand geänderte Tage bleiben. Bereits eingetragene Dienste bleiben.',
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',
     emptyYear: (year: number) => `Keine Schließzeiten in ${year}.`,

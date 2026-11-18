@@ -1,6 +1,5 @@
-import { and, eq, gt, gte, inArray, isNull, lt, or } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { dateRange, daysBetween } from '../../shared/domain/dates'
-import { describeCellDetailed } from '../../shared/domain/describe'
 import { isHolidayIn, type HolidayRules } from '../../shared/domain/holidays'
 import { countLeaveDays, countsAsLeaveDay } from '../../shared/domain/leave'
 import { isWorkday } from '../../shared/domain/targets'
@@ -41,8 +40,6 @@ interface BookingScope {
   from?: IsoDate
   /** Only the days this accepts, and only cells that are still empty (nothing is overwritten). */
   onlyEmpty?: (employeeId: number, date: IsoDate) => boolean
-  /** The caller logs the booked cells itself. */
-  skipLog?: boolean
 }
 
 type Cell = { employeeId: number; date: IsoDate }
@@ -51,25 +48,29 @@ type Cell = { employeeId: number; date: IsoDate }
  * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
  * (a closure never uses leave on a day off) and, with `from`, only on days from then on. Days on which someone helps
  * out in another facility are skipped (and booked when that help-out day becomes empty again, see rebookHomeClosure).
- * Returns the cells booked.
+ * Someone who moved into the facility (facilitySince set) gets it only from that day on: the days before belong to the
+ * other facility, so nothing there is booked or replaced. Returns the cells booked.
  */
 function bookClosure(
   db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
-  { from, onlyEmpty, skipLog }: BookingScope = {},
+  { from, onlyEmpty }: BookingScope = {},
 ): Cell[] {
   const vacationCells: Cell[] = []
   const closureCells: Cell[] = []
+  const movedIn = new Map(db.select({ id: employees.id, since: employees.facilitySince }).from(employees)
+    .where(inArray(employees.id, staff.map(employee => employee.id))).all().map(row => [row.id, row.since]))
   for (const employee of staff) {
+    const since = movedIn.get(employee.id) ?? null
     const free = (date: IsoDate) => onlyEmpty
       ? onlyEmpty(employee.id, date) && cellOwner(db, employee.id, date) === null
       : typeof cellOwner(db, employee.id, date) !== 'number'
     const dates = dateRange(closure.startDate, closure.endDate)
-      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from) && free(date))
+      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from) && (since === null || date >= since) && free(date))
     const split = closure.mode === 'vacation' ? splitLeave(db, employee, dates) : { vacation: [], closureDays: dates }
     vacationCells.push(...split.vacation.map(date => ({ employeeId: employee.id, date })))
     closureCells.push(...split.closureDays.map(date => ({ employeeId: employee.id, date })))
   }
-  const options = { now, closureId: closure.id, skipLog }
+  const options = { now, closureId: closure.id }
   if (vacationCells.length) applyToCells(db, actor, facilityId, vacationCells, 'replace', { kind: 'code', codeId: closureCodeId(db, 'vacation') }, options)
   if (closureCells.length) applyToCells(db, actor, facilityId, closureCells, 'replace', { kind: 'code', codeId: closureCodeId(db, 'closure_day') }, options)
   return [...vacationCells, ...closureCells]
@@ -178,12 +179,15 @@ export function unbookClosuresFrom(db: Db, actor: SessionUser, employeeId: numbe
 }
 
 /**
- * Changes a closure of the facility. A new label alone changes nothing in the plan. New dates or a new mode replan it
- * in one transaction: the closure's still-linked entries (unchanged since booking, the ones deleteClosure removes) are
- * taken out and the closure is booked again as creating it would (working days only, help-out days skipped, the leave
- * limit of a joiner), but only into empty cells that were linked or lie outside the old range, so a day changed by
- * hand stays as it is, even a cleared one. Someone who moved away keeps the closure days from their time here, except
- * those the closure no longer covers. Only the cells that really changed are logged.
+ * Changes a closure of the facility. A new label alone changes nothing in the plan. New dates or a new mode change it
+ * in one transaction, touching only the closure's still-linked entries (unchanged since booking, the ones deleteClosure
+ * removes, also of people who moved away since) and the newly covered days:
+ * - linked entries on days the closure no longer covers are removed;
+ * - with a new mode, the linked entries on days it still covers get the new code in place (in vacation mode within a
+ *   joiner's leave limit), so whatever was added next to them stays; with the same mode they stay untouched;
+ * - newly covered days are booked as creating the closure would (working days from facilitySince on, help-out days
+ *   skipped, a joiner's limit after the days already booked), but only into empty cells: entries there stay.
+ * A day changed by hand is no longer linked and stays as it is, even a cleared one. Each changed cell is logged.
  */
 export function updateClosure(
   db: Db, actor: SessionUser, facilityId: number, id: number, input: ClosureInput, now: Date = new Date(),
@@ -197,28 +201,37 @@ export function updateClosure(
     const closure = tx.update(closures).set({ startDate: input.startDate, endDate: input.endDate, label, mode: input.mode })
       .where(eq(closures.id, id)).returning(closureColumns).get()!
     if (!replan) return closure
-    const key = (cell: Cell) => `${cell.employeeId}|${cell.date}`
     const names = groupNames(tx, facilityId)
-    const staff = loadEmployees(tx, facilityId)
-    // Closure days are home entries; a help-out is never removed with them.
-    const removable = and(eq(entries.closureId, id), isNull(entries.helpFacilityId), or(
-      inArray(entries.employeeId, staff.map(employee => employee.id)), lt(entries.date, closure.startDate), gt(entries.date, closure.endDate),
-    ))
-    const removed = tx.select({ employeeId: entries.employeeId, date: entries.date }).from(entries).where(removable).all()
-    const before = new Map(removed.map(cell => [key(cell), describeCellAt(tx, cell, names)]))
-    tx.delete(entries).where(removable).run()
-    const booked = bookClosure(tx, actor, facilityId, closure, staff, now, {
-      onlyEmpty: (employeeId, date) => before.has(key({ employeeId, date })) || date < current.startDate || date > current.endDate,
-      skipLog: true,
-    })
-    // A booked cell that was not linked was empty (only empty cells are booked).
-    const empty = describeCellDetailed([], names)
-    for (const cell of new Map([...removed, ...booked].map(cell => [key(cell), cell])).values()) {
-      logChange(tx, {
-        facilityId, ...cell, field: 'entry', before: before.get(key(cell)) ?? empty, after: describeCellAt(tx, cell, names),
-        actorId: actor.id, now: now.toISOString(),
-      })
+    const stamp = now.toISOString()
+    /** Writes the cell of one linked entry and logs the change. */
+    const change = (entry: { employeeId: number; date: IsoDate }, write: () => void) => {
+      const cell = { employeeId: entry.employeeId, date: entry.date }
+      const before = describeCellAt(tx, cell, names)
+      write()
+      logChange(tx, { facilityId, ...cell, field: 'entry', before, after: describeCellAt(tx, cell, names), actorId: actor.id, now: stamp })
     }
+    const covered = (date: IsoDate) => date >= closure.startDate && date <= closure.endDate
+    // Closure days are home entries; a help-out is never touched with them.
+    const linked = loadEntries(tx, { closureId: id }).filter(entry => entry.helpFacilityId === null)
+    for (const entry of linked.filter(entry => !covered(entry.date))) {
+      change(entry, () => tx.delete(entries).where(eq(entries.id, entry.id)).run())
+    }
+    if (closure.mode !== current.mode) {
+      const codeIds = { vacation: closureCodeId(tx, 'vacation'), closure_day: closureCodeId(tx, 'closure_day') }
+      const kept = linked.filter(entry => covered(entry.date)).sort((a, b) => a.date.localeCompare(b.date))
+      for (const [employeeId, list] of Map.groupBy(kept, entry => entry.employeeId)) {
+        const employee = loadEmployee(tx, employeeId)
+        const leave = new Set(closure.mode === 'vacation' && employee ? splitLeave(tx, employee, list.map(entry => entry.date)).vacation : [])
+        for (const entry of list) {
+          const absenceCodeId = leave.has(entry.date) ? codeIds.vacation : codeIds.closure_day
+          change(entry, () => tx.update(entries).set({ absenceCodeId, updatedAt: stamp, updatedBy: actor.id }).where(eq(entries.id, entry.id)).run())
+        }
+      }
+    }
+    // Newly covered days (applyToCells logs them).
+    bookClosure(tx, actor, facilityId, closure, loadEmployees(tx, facilityId), now, {
+      onlyEmpty: (_employeeId, date) => date < current.startDate || date > current.endDate,
+    })
     return closure
   })
 }
