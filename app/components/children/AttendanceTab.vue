@@ -12,7 +12,7 @@ import {
   countedMealNames, closedGroupWarnings, readAttendanceSummaryOpen, readClosedAttendanceGroups, visibleAttendanceRows,
   writeAttendanceSummaryOpen, writeClosedAttendanceGroups,
 } from '~/utils/attendanceRow'
-import { attendanceListSections } from '~/utils/attendanceMerge'
+import { attendanceListSections, reloadAfterFailure } from '~/utils/attendanceMerge'
 import { attendanceSearchKey } from '~/utils/attendanceSearch'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -37,9 +37,11 @@ import { formatDate } from '~/utils/format'
  *
  * „Gruppen zusammenlegen“ (today only, every tablet of the facility sees it): each merge is one section on top
  * („Bären + Mäuse“) with only the children of those groups here now (arrived, not picked up), in the facility's child
- * order; a child marked „Geht“ leaves it once the action is done. The merged groups' own sections are hidden meanwhile;
- * a child of them not here (yet) is found with the search field, which then lists it under its group (chosen over a
- * link „Alle Kinder dieser Gruppen anzeigen“: one way to find a child, nothing more to tap). Every row keeps its rights.
+ * order; a child marked „Geht“ leaves it once the action is done. The merged groups' own sections are hidden meanwhile.
+ * Below each merge a collapsed line „Noch nicht da (n)“ (closed by default) opens its groups' children not arrived yet,
+ * each with its normal row and „Kommt“; once one arrives it moves into the merge. Picked-up and absent children of the
+ * merged groups are found with the search field, which then lists them under their group. Every row keeps its rights.
+ * Merging and ending are offered only to whoever may write attendance.
  */
 const { rights, onTablet } = useChildRights()
 const canPrint = computed(() => !!rights.value?.isManager && !onTablet.value)
@@ -99,8 +101,10 @@ const summaryParts = computed(() => (data.value ? attendanceSummaryParts(data.va
 const search = ref('')
 const searching = computed(() => attendanceSearchKey(search.value) !== '')
 
+/** The merges, only while the shown day is today (a page left open past midnight drops yesterday's at once). */
+const activeMerges = computed(() => (isToday.value ? data.value?.merges ?? [] : []))
 /** The merged sections on top and the groups (see `attendanceListSections`), for the search typed. */
-const listSections = computed(() => attendanceListSections(sections.value, data.value?.merges ?? [], data.value?.children ?? [], search.value))
+const listSections = computed(() => attendanceListSections(sections.value, activeMerges.value, data.value?.children ?? [], search.value))
 
 const groupName = (id: number) => data.value?.facilityGroups.find(group => group.id === id)?.name ?? ''
 /** One section per merge („Bären + Mäuse“) with its children here now; always open. */
@@ -128,23 +132,51 @@ const shownSections = computed(() => listSections.value.groups.map((section) => 
   }
 }))
 
-/** Everything listed, in order: the merges, then the groups (one loop in the template shares the child rows). */
+// The line „Noch nicht da (n)“ below a merge, closed by default (opened for this page view only, per merge).
+const openWaiting = reactive(new Set<number>())
+function toggleWaiting(mergeId: number) {
+  if (openWaiting.has(mergeId)) openWaiting.delete(mergeId)
+  else openWaiting.add(mergeId)
+}
+
+const NO_WARNINGS = { overdue: 0, contactBan: false }
+/**
+ * Everything listed, in order: each merge, below it its line „Noch nicht da“ (when a child of its groups has not
+ * arrived yet; opened, those children with their normal row and „Kommt“, and an arriving child moves up into the merge
+ * at the reload after „Kommt“), then the groups. One loop in the template shares the child rows.
+ */
 const listedSections = computed(() => [
-  ...mergedSections.value.map(section => ({
-    key: section.key, name: section.name, shown: section.shown, rows: section.rows, closed: false,
-    warnings: { overdue: 0, contactBan: false }, merge: { id: section.id, by: section.by, here: section.rows.length },
-  })),
-  ...shownSections.value.map(section => ({ ...section, merge: null })),
+  ...mergedSections.value.flatMap(section => [
+    {
+      key: section.key, name: section.name, shown: section.shown, rows: section.rows, closed: false, warnings: NO_WARNINGS,
+      merge: { id: section.id, by: section.by, here: section.rows.length }, waiting: null,
+    },
+    ...(section.waiting.length
+      ? [{
+          key: `${section.key}-waiting`, name: '', shown: openWaiting.has(section.id) ? section.waiting : [], rows: section.waiting,
+          closed: !openWaiting.has(section.id), warnings: NO_WARNINGS, merge: null, waiting: { mergeId: section.id },
+        }]
+      : []),
+  ]),
+  ...shownSections.value.map(section => ({ ...section, merge: null, waiting: null })),
 ])
 
-// „Gruppen zusammenlegen“ (today only): the merges come with the day's data, so every load and every action shows the
-// current state of all tablets; nothing asks on a timer.
+// „Gruppen zusammenlegen“ (today only): the merges come with the day's data, so every load, every action and every
+// tap on „Gruppen zusammenlegen“ shows the current state of all tablets; nothing asks on a timer. A refused merge or
+// end reloads too (another tablet merged or ended meanwhile). Only for whoever may write attendance.
 const mergeOpen = ref(false)
 watch(date, () => (mergeOpen.value = false))
-const takenGroups = computed(() => (data.value?.merges ?? []).flatMap(merge => merge.groupIds))
+function openMerge() {
+  mergeOpen.value = true
+  refresh()
+}
+const takenGroups = computed(() => activeMerges.value.flatMap(merge => merge.groupIds))
 // One tap ends it (a double tap is not sent twice); merging again is quick, so there is no question first.
 const { busy: endingMerge, run: runEndMerge } = useBusyAction(refresh)
-const endMerge = (id: number) => runEndMerge(() => $fetch<{ ok: boolean }>(`/api/attendance/merges/${id}`, { method: 'DELETE' }), s.merge.ended)
+const endMerge = (id: number) => reloadAfterFailure(
+  () => runEndMerge(() => $fetch<{ ok: boolean }>(`/api/attendance/merges/${id}`, { method: 'DELETE' }), s.merge.ended),
+  refresh,
+)
 
 /** The stays never closed on earlier days, one line per day ("Gestern nicht ausgestempelt: …"). */
 const openStayDays = computed(() => {
@@ -299,8 +331,8 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
             </template>
           </UInput>
           <UButton
-            v-if="isToday && !error && (data?.facilityGroups.length ?? 0) >= 2" size="lg" class="min-h-11" color="neutral" variant="outline"
-            icon="i-lucide-merge" :label="s.merge.open" @click="mergeOpen = true"
+            v-if="isToday && !error && data?.canAttend && data.facilityGroups.length >= 2" size="lg" class="min-h-11" color="neutral"
+            variant="outline" icon="i-lucide-merge" :label="s.merge.open" @click="openMerge"
           />
           <UButton
             v-if="canPrint" class="ml-auto min-h-11" color="neutral" variant="outline" icon="i-lucide-printer" :label="s.print"
@@ -356,7 +388,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                 <span class="font-normal normal-case tracking-normal text-sky-800">· {{ s.merge.here(section.merge.here) }}</span>
               </h2>
               <UButton
-                size="lg" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-split" :label="s.merge.end"
+                v-if="data.canAttend" size="lg" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-split" :label="s.merge.end"
                 :loading="endingMerge" :disabled="endingMerge" @click="endMerge(section.merge.id)"
               />
             </div>
@@ -364,6 +396,17 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
             <!-- The merged groups' own sections are hidden meanwhile; the search still finds every child of them. -->
             <p class="text-xs text-sky-900">{{ section.merge.by }}<template v-if="!searching"> · {{ s.merge.searchHint }}</template></p>
           </div>
+          <!-- Below a merge: its children not arrived yet, closed by default; opened, each with its row and „Kommt“. -->
+          <h3 v-else-if="section.waiting">
+            <button
+              type="button"
+              class="flex min-h-11 w-full items-center gap-2 rounded-lg bg-white px-2 text-left text-base font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-primary"
+              :aria-expanded="!section.closed" :aria-controls="`attendance-group-${section.key}`" @click="toggleWaiting(section.waiting.mergeId)"
+            >
+              <UIcon :name="section.closed ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
+              <span>{{ s.merge.waiting(section.rows.length) }}</span>
+            </button>
+          </h3>
           <h2 v-else>
             <!-- While searching every group with a hit stays open; its remembered state is not touched. -->
             <button
@@ -573,7 +616,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
           <ChildrenAttendanceHistoryDialog v-model:open="historyOpen" :child-id="dialogChild.childId" :name="dialogChild.name" :date="data.date" />
         </template>
         <ChildrenAttendanceMergeDialog
-          v-if="isToday" v-model:open="mergeOpen" :groups="data.facilityGroups" :taken="takenGroups" :date="data.date" :reload="refresh"
+          v-if="isToday && data.canAttend" v-model:open="mergeOpen" :groups="data.facilityGroups" :taken="takenGroups" :date="data.date" :reload="refresh"
         />
       </template>
     </template>

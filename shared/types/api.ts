@@ -2010,6 +2010,8 @@ export interface AttendanceDayDto {
   facilityGroups: { id: number; name: string }[]
   /** The groups merged right now; only for today (Berlin), empty for any other day. */
   merges: GroupMergeDto[]
+  /** The viewer may write attendance (children.attendance): stamp, merge groups and end a merge. */
+  canAttend: boolean
 }
 
 /** Groups merged at the edge times („Gruppen zusammenlegen“): the list shows one section of their children here now. */

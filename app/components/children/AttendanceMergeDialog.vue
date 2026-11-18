@@ -2,10 +2,13 @@
 import type { IsoDate } from '#shared/domain/types'
 import type { GroupMergeInput } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { reloadAfterFailure } from '~/utils/attendanceMerge'
 
 /**
  * „Gruppen zusammenlegen“: the facility's groups as large toggle buttons (a group already in a merge of today cannot be
- * chosen); at least two, then „Zusammenlegen“. The server checks the same and answers in German.
+ * chosen); at least two, then „Zusammenlegen“. The server checks the same and answers in German. A refused request
+ * reloads the day data too (another tablet may have merged meanwhile), so the taken groups and the list are current;
+ * the same groups merged again simply succeed (the server finds that merge).
  */
 const props = defineProps<{
   groups: { id: number; name: string }[]
@@ -22,6 +25,8 @@ const chosen = ref<number[]>([])
 watch(open, (value) => {
   if (value) chosen.value = []
 }, { immediate: true })
+// A group merged meanwhile (seen after a reload) cannot stay chosen.
+watch(() => props.taken, taken => (chosen.value = chosen.value.filter(id => !taken.includes(id))))
 
 const isChosen = (id: number) => chosen.value.includes(id)
 function toggle(id: number) {
@@ -31,7 +36,8 @@ function toggle(id: number) {
 async function save() {
   if (chosen.value.length < 2) return
   const body: GroupMergeInput = { date: props.date, groupIds: chosen.value }
-  if (await run(() => $fetch<{ id: number }>('/api/attendance/merges', { method: 'POST', body }), s.saved)) open.value = false
+  const request = () => run(() => $fetch<{ id: number }>('/api/attendance/merges', { method: 'POST', body }), s.saved)
+  if (await reloadAfterFailure(request, props.reload)) open.value = false
 }
 </script>
 

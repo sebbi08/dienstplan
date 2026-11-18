@@ -28,3 +28,12 @@ export function groupAlreadyMerged(active: readonly (readonly number[])[], wante
   const taken = new Set(active.flat())
   return wanted.find(groupId => taken.has(groupId)) ?? null
 }
+
+/**
+ * The active merge with exactly the wanted groups (in any order), or null: merging the same groups again (a second
+ * tablet that had not reloaded yet) simply finds the merge that is there.
+ */
+export function identicalMerge<T extends { groupIds: readonly number[] }>(active: readonly T[], wanted: readonly number[]): T | null {
+  const set = new Set(wanted)
+  return active.find(merge => merge.groupIds.length === set.size && merge.groupIds.every(id => set.has(id))) ?? null
+}

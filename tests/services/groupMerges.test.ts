@@ -67,8 +67,20 @@ describe('merging groups at the edge times', () => {
     merge([foxes, hedgehogs])
     expect(active()).toEqual([[bears, mice], [foxes, hedgehogs]])
     expect(errorCode(() => merge([mice, foxes]))).toBe('group_merge_taken')
-    expect(errorCode(() => merge([bears, mice]))).toBe('group_merge_taken')
+    expect(errorCode(() => merge([bears, mice, foxes]))).toBe('group_merge_taken')
+    expect(errorCode(() => merge([bears, foxes, hedgehogs]))).toBe('group_merge_taken')
     expect(active()).toEqual([[bears, mice], [foxes, hedgehogs]])
+  })
+
+  it('merging the same groups again (a second tablet not reloaded yet) finds the merge that is there', () => {
+    const id = merge([bears, mice])
+    const other = asChildViewer(addUser(db, 'zweite', 'admin'))
+    expect(merge([mice, bears, mice], { viewer: other })).toBe(id)
+    expect(db.select().from(groupMerges).all()).toHaveLength(1)
+    expect(activeGroupMerges(db, 1, TODAY)).toEqual([{ id, groupIds: [bears, mice], createdByName: 'leitung', createdAt: NOW.toISOString() }])
+    // Once ended, the same groups make a new merge.
+    endGroupMerge(db, leitung, id, NOW)
+    expect(merge([bears, mice], { viewer: other })).not.toBe(id)
   })
 
   it('needs at least two different groups', () => {
@@ -158,6 +170,10 @@ describe('merging groups at the edge times', () => {
       ])
       // Across both groups by first name; who is here now the list decides (see shared/domain/groupMerges).
       expect(day.merges).toEqual([{ id, groupIds: [bears, mice], childIds: [anna, mia, zoe], createdByName: 'leitung', createdAt: NOW.toISOString() }])
+      // The merge and end buttons are for whoever may write attendance; a view-only person sees the merge only.
+      expect(day.canAttend).toBe(true)
+      const viewOnly: ChildActor = { ...leitung, permissions: new Set(['children.view'] as const) }
+      expect(getAttendanceDay(db, viewOnly, TODAY, NOW)).toMatchObject({ canAttend: false, merges: [{ id }] })
       // Another day shows no merge.
       expect(getAttendanceDay(db, leitung, YESTERDAY, NOW).merges).toEqual([])
       // Ended: gone from the list at the next load.

@@ -4,6 +4,7 @@ import {
 } from '../../shared/domain/childAttendance'
 import { childStatus } from '../../shared/domain/children'
 import { groupRight } from '../../shared/domain/groupAccess'
+import { can } from '../../shared/domain/permissions'
 import { addDays, dateRange, daysBetween, isValidIsoDate, isWeekend, monthDates } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
 import { mealsOn } from '../../shared/domain/meals'
@@ -361,6 +362,7 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
       childIds: list.filter(item => item.groupId !== null && merge.groupIds.includes(item.groupId))
         .sort((a, b) => inGroup(a.row, b.row)).map(item => item.row.id),
     })),
+    canAttend: can(viewer.permissions, 'children.attendance'),
   }
 }
 

@@ -1,13 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { attendanceListSections } from '../../app/utils/attendanceMerge'
+import { describe, expect, it, vi } from 'vitest'
+import { attendanceListSections, reloadAfterFailure } from '../../app/utils/attendanceMerge'
 
 const BEARS = 1
 const MICE = 2
 const FOXES = 3
 
-const kid = (childId: number, firstName: string, groupId: number | null, here: 'here' | 'gone' | 'not_yet') => ({
-  childId, firstName, lastName: 'Kind', name: `Kind, ${firstName}`, groupId,
-  stays: here === 'not_yet' ? [] : [{ arrived: 450, left: here === 'here' ? null : 600 }],
+type Here = 'here' | 'gone' | 'not_yet' | 'sick'
+const STATUS = { here: 'present', gone: 'gone', not_yet: 'not_yet', sick: 'sick' } as const
+const kid = (childId: number, firstName: string, groupId: number | null, here: Here) => ({
+  childId, firstName, lastName: 'Kind', name: `Kind, ${firstName}`, groupId, status: STATUS[here] as (typeof STATUS)[Here],
+  stays: here === 'not_yet' || here === 'sick' ? [] : [{ arrived: 450, left: here === 'here' ? null : 600 }],
 })
 
 const ben = kid(1, 'Ben', BEARS, 'here')
@@ -37,20 +39,37 @@ describe('the day list while groups are merged', () => {
 
   it('shows one section of the merged groups\' children here now on top, and hides those groups\' own sections', () => {
     const result = attendanceListSections(groups, [merge], children, '')
-    expect(result.merged).toEqual([{ id: 7, groupIds: [BEARS, MICE], rows: [mo, ben], shown: [mo, ben] }])
+    expect(result.merged).toEqual([{ id: 7, groupIds: [BEARS, MICE], rows: [mo, ben], shown: [mo, ben], waiting: [bea] }])
     expect(result.groups.map(group => [group.key, ids(group.hits)])).toEqual([['3', [5]], ['none', [6]]])
   })
 
   it('keeps an empty merged section (nobody here yet)', () => {
-    const early = children.map(child => ({ ...child, stays: [] }))
-    expect(attendanceListSections(groups, [merge], early, '').merged[0]!.rows).toEqual([])
+    const early = children.map(child => ({ ...child, status: 'not_yet' as const, stays: [] }))
+    const section = attendanceListSections(groups, [merge], early, '').merged[0]!
+    expect(section.rows).toEqual([])
+    expect(ids(section.waiting)).toEqual([3, 1, 2, 4])
+  })
+
+  it('offers below the merge its children not arrived yet, in the same order; not the picked up or absent ones', () => {
+    const sina = kid(8, 'Sina', MICE, 'sick')
+    const all = [...children, sina]
+    const order = { ...merge, childIds: [8, 3, 1, 2, 4] }
+    expect(ids(attendanceListSections(groups, [order], all, '').merged[0]!.waiting)).toEqual([2])
+    // Bea arrives: she moves from „Noch nicht da“ into the merged list.
+    const arrived = all.map(child => (child.childId === bea.childId
+      ? { ...child, status: 'present' as const, stays: [{ arrived: 500, left: null }] }
+      : child))
+    const after = attendanceListSections(groups, [order], arrived, '').merged[0]!
+    expect([ids(after.rows), ids(after.waiting)]).toEqual([[3, 1, 2], []])
   })
 
   it('finds while searching also the merged groups\' children not here, in their own section, never twice', () => {
     // "B": Ben (here, in the merge) and Bea (not yet, Bären); "M": Mo (merge) and Mia (picked up, Mäuse).
     const b = attendanceListSections(groups, [merge], children, 'b')
-    expect(b.merged.map(section => ids(section.shown))).toEqual([[1]])
+    expect(b.merged.map(section => [ids(section.shown), section.waiting])).toEqual([[[1], []]])
     expect(b.groups.map(group => [group.key, ids(group.hits)])).toEqual([['1', [2]]])
+    // The heading counts only the group's children not in the merge above (Bea, not Ben).
+    expect(b.groups.map(group => ids(group.rows))).toEqual([[2]])
     const m = attendanceListSections(groups, [merge], children, 'm')
     expect(m.merged.map(section => ids(section.shown))).toEqual([[3]])
     expect(m.groups.map(group => [group.key, ids(group.hits)])).toEqual([['2', [4]]])
@@ -66,7 +85,17 @@ describe('the day list while groups are merged', () => {
   it('handles several merges at once', () => {
     const other = { id: 8, groupIds: [FOXES], childIds: [5] }
     const result = attendanceListSections(groups, [merge, other], children, '')
-    expect(result.merged.map(section => [section.id, ids(section.rows)])).toEqual([[7, [3, 1]], [8, []]])
+    expect(result.merged.map(section => [section.id, ids(section.rows), ids(section.waiting)])).toEqual([[7, [3, 1], [2]], [8, [], [5]]])
     expect(result.groups.map(group => group.key)).toEqual(['none'])
+  })
+})
+
+describe('a merge or end request', () => {
+  it('reloads the day data on success (by run) and when it failed', async () => {
+    const reload = vi.fn(async () => {})
+    expect(await reloadAfterFailure(async () => true, reload)).toBe(true)
+    expect(reload).not.toHaveBeenCalled()
+    expect(await reloadAfterFailure(async () => false, reload)).toBe(false)
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 })

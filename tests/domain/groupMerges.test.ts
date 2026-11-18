@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { distinctGroups, groupAlreadyMerged, mergedPresent, presentNow } from '../../shared/domain/groupMerges'
+import { distinctGroups, groupAlreadyMerged, identicalMerge, mergedPresent, presentNow } from '../../shared/domain/groupMerges'
 
 const stay = (arrived: number, left: number | null) => ({ arrived, left })
 const row = (childId: number, ...stays: { arrived: number; left: number | null }[]) => ({ childId, stays })
@@ -46,5 +46,21 @@ describe('choosing the groups of a merge', () => {
     expect(groupAlreadyMerged([[1, 2]], [3, 4])).toBeNull()
     expect(groupAlreadyMerged([[1, 2], [5, 6]], [3, 6])).toBe(6)
     expect(groupAlreadyMerged([], [1, 2])).toBeNull()
+  })
+})
+
+describe('merging the same groups again', () => {
+  const active = [{ id: 7, groupIds: [1, 2] }, { id: 8, groupIds: [3, 4, 5] }]
+
+  it('finds the active merge with exactly these groups, in any order', () => {
+    expect(identicalMerge(active, [2, 1])?.id).toBe(7)
+    expect(identicalMerge(active, [5, 3, 4])?.id).toBe(8)
+  })
+
+  it('is no merge with only some or more of the groups', () => {
+    expect(identicalMerge(active, [1])).toBeNull()
+    expect(identicalMerge(active, [1, 2, 3])).toBeNull()
+    expect(identicalMerge(active, [3, 4])).toBeNull()
+    expect(identicalMerge([], [1, 2])).toBeNull()
   })
 })

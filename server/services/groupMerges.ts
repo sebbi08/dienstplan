@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
-import { distinctGroups, groupAlreadyMerged } from '../../shared/domain/groupMerges'
+import { distinctGroups, groupAlreadyMerged, identicalMerge } from '../../shared/domain/groupMerges'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
 import type { GroupMergeInput } from '../../shared/types/api'
@@ -49,7 +49,8 @@ export function activeGroupMerges(db: Db, facilityId: number, date: IsoDate): Ac
 /**
  * Merges two or more groups of the facility for today: another day 400 group_merge_not_today, fewer than two different
  * groups 400 group_merge_too_few, a group of another facility or an unknown one 404 group_not_found, a group already in
- * an active merge of today 409 group_merge_taken. Returns the merge's id.
+ * an active merge of today 409 group_merge_taken; exactly the groups of an active merge again: that merge (no error).
+ * Returns the merge's id.
  */
 export function createGroupMerge(db: Db, viewer: ChildViewer, input: GroupMergeInput, now: Date = new Date()): number {
   if (input.date !== nowInBerlin(now).date) throw new ServiceError(400, 'group_merge_not_today')
@@ -58,8 +59,11 @@ export function createGroupMerge(db: Db, viewer: ChildViewer, input: GroupMergeI
   const known = new Set(listGroups(db, viewer.facilityId).map(group => group.id))
   if (wanted.some(id => !known.has(id))) throw new ServiceError(404, 'group_not_found')
   return db.transaction((tx) => {
-    const active = activeGroupMerges(tx, viewer.facilityId, input.date).map(merge => merge.groupIds)
-    if (groupAlreadyMerged(active, wanted) !== null) throw new ServiceError(409, 'group_merge_taken')
+    const merges = activeGroupMerges(tx, viewer.facilityId, input.date)
+    // The same groups again (another tablet merged them meanwhile): that merge, no error.
+    const same = identicalMerge(merges, wanted)
+    if (same) return same.id
+    if (groupAlreadyMerged(merges.map(merge => merge.groupIds), wanted) !== null) throw new ServiceError(409, 'group_merge_taken')
     return tx.insert(groupMerges).values({
       facilityId: viewer.facilityId, date: input.date, groupIds: JSON.stringify(wanted),
       createdAt: now.toISOString(), createdByName: viewer.name,
