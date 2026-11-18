@@ -23,7 +23,7 @@ useHead({ title: o.printTitle(year) })
     <div class="mb-4 flex flex-wrap items-baseline gap-3">
       <h1 class="text-2xl font-semibold">{{ o.printTitle(year) }}</h1>
       <span class="text-sm text-gray-600">{{ o.filterLabel }}: {{ o.filter[filter] }}</span>
-      <PrintActions :file-name="`Unfaelle-${year}`" />
+      <PrintActions :file-name="`Unfaelle-${year}`" :search="filter === 'all' ? '' : `?filter=${filter}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <p v-else-if="!rows.length" class="text-sm text-gray-500">{{ o.none }}</p>

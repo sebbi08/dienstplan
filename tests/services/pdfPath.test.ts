@@ -13,6 +13,9 @@ describe('PDF_PATH (print views that may be rendered as PDF)', () => {
     '/admin/print/forms/12',
     '/print/my-forms/12',
     '/print/team-meetings/12',
+    '/admin/print/accidents/2026?filter=child',
+    '/admin/print/accidents/2026?filter=employee',
+    '/print/accidents/12',
   ])('accepts %s', (path) => {
     expect(PDF_PATH.test(path)).toBe(true)
   })
@@ -26,6 +29,8 @@ describe('PDF_PATH (print views that may be rendered as PDF)', () => {
     '/admin/print/calendar/2026?group=none3',
     '/print/2026/10?x=1',
     '/print/2026/10?Group=3',
+    '/admin/print/accidents/2026?filter=all',
+    '/admin/print/accidents/2026?filter=child&group=3',
     '/print/2026/10#a',
     '/print/2026/10\n',
     '/print/2026/10?group=3\n',

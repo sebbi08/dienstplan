@@ -5,9 +5,9 @@ import { chromium, type Browser } from 'playwright-core'
  * /print/children incl. the observation forms /print/children/forms/<id>, the employee's own forms under
  * /print/my-forms, the team meetings /print/team-meetings/<id>) and under /admin/print (calendar, cash book, early closures, sick days, time, staff talk forms, emergency contacts).
  * Who may see a page is still checked when it renders with the requester's cookies. The plan may name one group, the
- * year calendar also "none" (the people without a group).
+ * year calendar also "none" (the people without a group); the list of accidents its filter (children or employees).
  */
-export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+(?:\?group=(?:\d+|none))?$/
+export const PDF_PATH = /^\/(?:admin\/)?print\/[\w\-/]+(?:\?(?:group=(?:\d+|none)|filter=(?:child|employee)))?$/
 
 /** The app as the headless browser reaches it from inside the server (no detour over the public domain). */
 function internalOrigin(): string {
