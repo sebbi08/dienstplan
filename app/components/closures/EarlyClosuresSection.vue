@@ -5,8 +5,11 @@ import type { EarlyClosureDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDayShort } from '~/utils/format'
 
-/** Admin-only year list of days the facility closed earlier (part of the closures page); no effect on working hours. */
-const year = ref(parseIsoDate(todayIso()).year)
+/**
+ * Admin-only year list of days the facility closed earlier (part of the closures page, whose year switcher sets the
+ * year; saving a day of another year switches it there); no effect on working hours.
+ */
+const year = defineModel<number>('year', { required: true })
 const { data: list, refresh } = await useFetch<EarlyClosureDto[]>('/api/early-closures', { query: { year } })
 const run = useAction(refresh)
 const confirm = useConfirm()
@@ -48,12 +51,7 @@ async function remove(closure: EarlyClosureDto) {
 <template>
   <section class="space-y-4">
     <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold">{{ de.earlyClosures.title }}</h2>
-      <div class="flex items-center gap-1">
-        <UButton icon="i-lucide-chevron-left" color="neutral" variant="ghost" :aria-label="de.earlyClosures.previousYear" @click="year--" />
-        <span class="min-w-16 text-center text-xl font-semibold">{{ year }}</span>
-        <UButton icon="i-lucide-chevron-right" color="neutral" variant="ghost" :aria-label="de.earlyClosures.nextYear" @click="year++" />
-      </div>
+      <h2 class="text-xl font-semibold">{{ de.earlyClosures.title }} {{ year }}</h2>
       <UButton
         class="ml-auto" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.earlyClosures.print"
         :to="`/admin/print/early-closures/${year}`" target="_blank"

@@ -138,7 +138,7 @@ export const de = {
     reasonPlaceholder: 'z. B. Personalausfall durch Krankheit', hint: 'Nur für die Leitung sichtbar. Die Einträge ändern keine Arbeitszeiten.',
     create: 'Frühere Schließung eintragen', edit: 'Eintrag ändern', empty: 'In diesem Jahr ist keine frühere Schließung eingetragen.',
     confirmDelete: 'Diesen Eintrag löschen?', print: 'Drucken', printTitle: (year: number) => `Frühere Schließungen ${year}`,
-    count: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`), previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
+    count: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`),
   },
   year: { previous: 'Vorheriges Jahr', next: 'Nächstes Jahr', print: 'Drucken', adminOnly: 'Nur für die Leitung sichtbar.' },
   sickDays: {
@@ -662,7 +662,7 @@ export const de = {
     create: 'Schließzeit anlegen',
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem Werktag im Zeitraum einen Eintrag. Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
     confirmDelete: 'Schließzeit löschen? Die unveränderten Einträge werden aus dem Dienstplan entfernt.',
-    empty: 'Keine Schließzeiten angelegt.',
+    emptyYear: (year: number) => `Keine Schließzeiten in ${year}.`,
     holidaysTitle: (inState: string) => `Feiertage ${inState}`, holidayDate: 'Datum', holidayName: 'Feiertag',
     holidaysHint: 'Gesetzliche Feiertage der Einrichtung. Die App berücksichtigt sie automatisch: kein Soll, kein Hinweis „kein Eintrag“, im Dienstplan blau markiert. Örtliche Feiertage (z. B. Fronleichnam in einzelnen Gemeinden) und einmalige Sonderfeiertage bitte als Schließzeit eintragen.',
   },
