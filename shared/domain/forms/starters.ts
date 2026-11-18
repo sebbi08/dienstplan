@@ -10,8 +10,6 @@ export { RATING_LEGEND } from '../forms'
 export type StarterKey =
   | 'staff_self_assessment' | 'staff_assessment' | 'child_development' | 'team_meeting' | 'accident_child' | 'accident_u1000'
 
-/** The starter of the official accident report („Unfallanzeige“ U 1000): its forms print in the official layout. */
-export const U1000_STARTER_KEY: StarterKey = 'accident_u1000'
 
 export interface StarterTemplate {
   key: StarterKey

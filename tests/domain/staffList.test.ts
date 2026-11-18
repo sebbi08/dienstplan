@@ -58,7 +58,7 @@ describe('employee page tabs', () => {
     const permissions = effectivePermissions({ role })
     return (key: PermissionKey) => permissions.has(key)
   }
-  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'talks', 'access']
+  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'accidents', 'talks', 'access']
   const allTabs = ['master', 'contract', 'times', 'records', 'talks', 'access']
 
   it('shows the Träger every section, the Leitung all but „Lohn und Steuer“, „Zugang“ and „Gespräche“ to nobody else', () => {
@@ -76,6 +76,9 @@ describe('employee page tabs', () => {
     expect(employeeSections(canOf('observer'))).not.toContain('documents')
     expect(employeeSections(canOf('observer'))).not.toContain('payroll')
     expect(employeeSections(key => key === 'employees.docs.salary')).toContain('documents')
+    // „Unfälle“ with accidents.manage (the Leitung by default), not for staff.
+    expect(employeeSections(key => key === 'accidents.manage')).toContain('accidents')
+    expect(employeeSections(canOf('observer'))).not.toContain('accidents')
     expect(employeeSections(key => key === 'employees.payroll'))
       .toEqual(['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements'])
   })

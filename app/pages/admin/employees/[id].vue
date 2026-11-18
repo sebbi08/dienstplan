@@ -694,6 +694,10 @@ async function onTabKey(event: KeyboardEvent) {
       <div v-if="shows('documents')" id="employee-section-documents" class="scroll-mt-32 space-y-4">
         <EmployeesDocumentsSection :employee-id="id" :active="tab === 'records'" />
       </div>
+      <!-- Unfallanzeigen: mounted only with accidents.manage, loaded once the tab is opened. -->
+      <div v-if="shows('accidents')" id="employee-section-accidents" class="scroll-mt-32 space-y-4">
+        <EmployeesAccidentsSection :employee-id="id" :active="tab === 'records'" />
+      </div>
     </div>
 
     <div v-if="visibleTabs.includes('talks')" v-show="tab === 'talks'" v-bind="panel('talks')">

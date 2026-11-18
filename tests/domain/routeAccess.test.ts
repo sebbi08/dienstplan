@@ -26,8 +26,8 @@ const pagePaths = (readdirSync(PAGES_DIR, { recursive: true }) as string[])
 
 /** Pages every signed-in account opens (the login page is handled before the account rules). */
 const OPEN = [
-  '/', '/account/password', '/login', '/my/calendar', '/my/leave', '/my/plan/2026/10', '/my/requirements', '/my/talks',
-  '/my/talks/1', '/plan/2026/10', '/print/2026/10', '/print/my-forms/1', '/print/team-meetings/1', '/team-meetings',
+  '/', '/account/password', '/login', '/my/accidents', '/my/calendar', '/my/leave', '/my/plan/2026/10', '/my/requirements', '/my/talks',
+  '/my/talks/1', '/plan/2026/10', '/print/2026/10', '/print/accidents/1', '/print/my-forms/1', '/print/team-meetings/1', '/team-meetings',
   '/team-meetings/1',
 ]
 /** The child pages and their printouts: Leitung and Träger with their own account, a Mitarbeiter only at the tablet. */

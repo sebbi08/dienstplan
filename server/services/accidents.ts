@@ -1,11 +1,10 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm'
 import {
-  JOB_TITLES, MAX_ACCIDENT_ATTACHMENTS, QUALIFICATION_TITLES, reportDue, reportState,
+  JOB_TITLES, MAX_ACCIDENT_ATTACHMENTS, QUALIFICATION_TITLES, U1000_STARTER_KEY, reportDue, reportState,
 } from '../../shared/domain/accidents'
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { checkAnswers, type FormAnswers, type FormContent, type FormSubject, type PrefillKey } from '../../shared/domain/forms'
-import { U1000_STARTER_KEY } from '../../shared/domain/forms/starters'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin } from '../../shared/domain/timeRecords'

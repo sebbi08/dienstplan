@@ -41,7 +41,7 @@ export const de = {
     dateBetween: (min: string, max: string) => `Bitte ein Datum zwischen ${min} und ${max} eingeben`,
   },
   nav: {
-    plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', myRequirements: 'Meine Termine', myTalks: 'Meine Gespräche', employees: 'Mitarbeiter',
+    plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', myRequirements: 'Meine Termine', myTalks: 'Meine Gespräche', myAccidents: 'Meine Unfälle', employees: 'Mitarbeiter',
     closures: 'Schließzeiten', users: 'Benutzer', rights: 'Rechte und Rollen',
     settings: 'Einstellungen', retention: 'Löschfristen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
@@ -1775,6 +1775,7 @@ export const de = {
   /** Unfallberichte and Unfallanzeigen (child record, Personalakte, „Meine Unfälle“, overview „Unfälle“, print). */
   accidents: {
     section: 'Unfälle',
+    employeeHint: 'Unfallanzeigen für die Unfallkasse (Arbeits- und Wegeunfälle). Vorausgefüllt wird nur, was du in der Personalakte sehen darfst.',
     none: 'Noch keine Unfälle eingetragen.', loading: 'Bogen wird geladen …',
     createChild: 'Unfallbericht ausfüllen', createEmployee: 'Unfallanzeige ausfüllen', created: 'Bogen angelegt',
     template: 'Vorlage', templatePick: 'Vorlage wählen',

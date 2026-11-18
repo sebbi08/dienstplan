@@ -66,6 +66,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const myRequirements = entry(de.nav.myRequirements, '/my/requirements')
   // The own staff talks: self-assessments to fill in and assessments released to read.
   const myTalks = entry(de.nav.myTalks, '/my/talks')
+  // The accident reports about oneself (and filling one in): only with a linked employee.
+  const myAccidents = viewer.employeeId !== null ? [entry(de.nav.myAccidents, '/my/accidents')] : []
   const plans = shown([[can('plan.view'), plan]])
   // The calendar to edit, or the own view of it (the short label keeps the header of a laptop on one line).
   const calendar = can('calendar.edit') ? entry(de.nav.calendarShort, '/admin/calendar') : entry(de.nav.calendarShort, '/my/calendar')
@@ -111,7 +113,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
     const open = viewer.isPlanner ? viewer.openCount : 0
     const planning = viewer.isPlanner ? [entry(navLabelWithCount(de.nav.leavePlanning, open), '/admin/leave-planning')] : []
-    const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements, myTalks] : []
+    const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements, myTalks, ...myAccidents] : []
     const mineCount = mine.length ? viewer.unread : 0
     return {
       main: [...plans, ...planning, ...office, calendar, ...teamPages],
@@ -127,7 +129,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
     main: [myPlan, ...plans, calendar, ...teamPages],
     // The templates are the facility's: a staff account without an employee belongs to none.
-    mine: [myLeave, myRequirements, myTalks, ...(viewer.employeeId !== null ? templates : [])],
+    mine: [myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? templates : [])],
     more: [],
     mineCount: 0,
     totalCount: viewer.unread,

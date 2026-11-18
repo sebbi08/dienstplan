@@ -55,7 +55,7 @@ export const EMPLOYEE_SECTIONS = {
   master: 'master', qualification: 'master',
   hours: 'contract', payroll: 'contract',
   leave: 'times', stamping: 'times',
-  requirements: 'records', documents: 'records',
+  requirements: 'records', documents: 'records', accidents: 'records',
   talks: 'talks', access: 'access',
 } as const satisfies Record<string, EmployeeTab>
 export type EmployeeSection = keyof typeof EMPLOYEE_SECTIONS
@@ -63,14 +63,14 @@ export type EmployeeSection = keyof typeof EMPLOYEE_SECTIONS
 /**
  * The sections the viewer sees on the employee page (reached with employees.view; „Zugang“ uses the users' routes and
  * needs users.manage, „Gespräche“ the staff talk routes and talks.manage, „Lohn und Steuer“ employees.payroll,
- * „Dokumente“ the key of at least one folder). The contract inside „Vertrag & Lohn“ follows its own switch. On their
+ * „Dokumente“ the key of at least one folder, „Unfälle“ accidents.manage). The contract inside „Vertrag & Lohn“ follows its own switch. On their
  * own page (`own`) nobody gets „Gespräche“: a Leitung's talks are held by the Träger or another Leitung, they see them
  * under „Meine Gespräche“.
  */
 export function employeeSections(can: (key: PermissionKey) => boolean, own = false): EmployeeSection[] {
   const shown: Record<EmployeeSection, boolean> = {
     master: true, qualification: true, hours: true, payroll: can('employees.payroll'), leave: true, stamping: true,
-    requirements: true, documents: visibleFolders(can).length > 0,
+    requirements: true, documents: visibleFolders(can).length > 0, accidents: can('accidents.manage'),
     talks: can('talks.manage') && !own, access: can('users.manage'),
   }
   return (Object.keys(EMPLOYEE_SECTIONS) as EmployeeSection[]).filter(section => shown[section])

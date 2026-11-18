@@ -1,0 +1,101 @@
+<script setup lang="ts">
+import { fieldNumber, itemLabel, u1000Fields } from '#shared/domain/accidents'
+import { todayIso } from '#shared/domain/dates'
+import type { ChoicesAnswer, DateAnswer, FormItem } from '#shared/domain/forms'
+import { de } from '~/locales/de'
+import { errorMessage } from '~/utils/errors'
+import { formatDate, formatDateTime } from '~/utils/format'
+import { U1000_LAYOUT, type U1000Sheet } from '~/utils/u1000'
+
+/**
+ * An Unfallanzeige printed like page 1 of the official form U 1000 (A4 portrait, see app/utils/u1000.ts): numbered
+ * boxes, ☒/☐ for the choices, empty boxes to fill in by hand, the signature row with field 29's phone number, then the
+ * header ticks, the attachments and the legal hint in small print. Signed and sent to the Unfallkasse.
+ */
+const props = defineProps<{ sheet: U1000Sheet | null | undefined; error?: unknown }>()
+const { user } = useUserSession()
+const a = de.accidents
+
+const grouped = computed(() => (props.sheet ? u1000Fields(props.sheet.content) : { fields: new Map<number, FormItem[]>(), other: [] }))
+const itemsOf = (field: number) => grouped.value.fields.get(field) ?? []
+const textOf = (id: string) => {
+  const value = props.sheet?.answers[id]
+  return typeof value === 'string' ? value : ''
+}
+const picked = (id: string, optionId: string) => ((props.sheet?.answers[id] as ChoicesAnswer | undefined) ?? []).includes(optionId)
+const dateOf = (id: string) => (props.sheet?.answers[id] as DateAnswer | undefined) ?? null
+const box = (on: boolean) => (on ? '☒' : '☐')
+/** The label without the leading number (the box shows its number itself). */
+const labelWithoutNumber = (item: FormItem) => (fieldNumber(item) === null ? itemLabel(item) : itemLabel(item).replace(/^\d{1,2}\s+/, ''))
+/** Field 29: the phone number for questions (the text answers of its items). */
+const phone = computed(() => itemsOf(29).filter(item => item.kind === 'text').map(item => textOf(item.id)).filter(Boolean).join(', '))
+const cell = 'border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
+</script>
+
+<template>
+  <div class="u1000 mx-auto max-w-3xl bg-white p-6 text-[12px] text-gray-900 print:max-w-none print:p-0 print:text-[9px]">
+    <div class="mb-2 flex flex-wrap items-baseline gap-3 print:hidden">
+      <PrintActions v-if="props.sheet" :file-name="props.sheet.fileName" />
+    </div>
+    <p v-if="props.error" class="text-red-700">{{ errorMessage(props.error) }}</p>
+    <template v-if="props.sheet">
+      <div class="mb-1 flex items-end justify-between gap-3">
+        <span class="text-[10px] text-gray-600 print:text-[8px]">{{ props.sheet.title }}</span>
+        <h1 class="text-xl font-bold tracking-wide print:text-[16px]">{{ a.u1000Title }}</h1>
+      </div>
+      <div class="grid grid-cols-12 border-t border-l border-gray-700">
+        <div
+          v-for="entry in U1000_LAYOUT" :key="entry.field" :class="[cell, entry.tall ? 'min-h-24 print:min-h-20' : 'min-h-11 print:min-h-9']"
+          :style="{ gridColumn: `span ${entry.span} / span ${entry.span}` }"
+        >
+          <!-- Field 15 is the form's header: Datum and Uhrzeit. -->
+          <template v-if="entry.field === 15">
+            <p class="text-[10px] print:text-[8px]"><span class="font-bold">15</span> {{ de.accidents.header.date }} / {{ de.accidents.header.start }}</p>
+            <p class="font-medium">{{ props.sheet.accidentTime }}</p>
+          </template>
+          <template v-else>
+            <p v-if="!itemsOf(entry.field).length" class="text-[10px] font-bold print:text-[8px]">{{ entry.field }}</p>
+            <div v-for="(item, index) in itemsOf(entry.field)" :key="item.id" :class="index > 0 ? 'mt-0.5' : ''">
+              <p v-if="item.kind !== 'note' || index > 0" class="text-[10px] leading-tight text-gray-700 print:text-[8px]">
+                <span v-if="index === 0" class="font-bold text-gray-900">{{ entry.field }}</span> {{ labelWithoutNumber(item) }}
+              </p>
+              <p v-if="item.kind === 'text' && textOf(item.id)" class="whitespace-pre-line break-words">{{ textOf(item.id) }}</p>
+              <p v-else-if="item.kind === 'date' && dateOf(item.id)">{{ formatDate(dateOf(item.id)!) }}</p>
+              <p v-else-if="item.kind === 'choices'" class="flex flex-wrap gap-x-3">
+                <span v-for="option in item.options" :key="option.id" class="whitespace-nowrap">{{ box(picked(item.id, option.id)) }} {{ option.label }}</span>
+              </p>
+            </div>
+          </template>
+        </div>
+        <!-- Items without a box of their own (a changed copy of the starter). -->
+        <div v-if="grouped.other.length" :class="[cell, 'col-span-12']">
+          <p class="text-[10px] font-bold print:text-[8px]">{{ a.u1000Other }}</p>
+          <div v-for="item in grouped.other" :key="item.id">
+            <p v-if="item.kind === 'note'" class="whitespace-pre-line text-gray-700">{{ item.text }}</p>
+            <template v-else>
+              <p class="text-[10px] text-gray-700 print:text-[8px]">{{ itemLabel(item) }}</p>
+              <p v-if="item.kind === 'text'" class="whitespace-pre-line break-words">{{ textOf(item.id) }}</p>
+              <p v-else-if="item.kind === 'date' && dateOf(item.id)">{{ formatDate(dateOf(item.id)!) }}</p>
+              <p v-else-if="item.kind === 'choices'" class="flex flex-wrap gap-x-3">
+                <span v-for="option in item.options" :key="option.id">{{ box(picked(item.id, option.id)) }} {{ option.label }}</span>
+              </p>
+            </template>
+          </div>
+        </div>
+        <!-- 29: the signature row. -->
+        <div v-for="(label, index) in a.u1000Signature" :key="label" :class="[cell, 'col-span-3 min-h-14 print:min-h-12']">
+          <p class="text-[10px] text-gray-700 print:text-[8px]"><span v-if="index === 0" class="font-bold text-gray-900">29</span> {{ label }}</p>
+          <p v-if="index === 3 && phone" class="break-words">{{ phone }}</p>
+        </div>
+      </div>
+      <p class="mt-1 text-[9px] text-gray-500 print:text-[7px]">U 1000</p>
+      <div class="mt-3 space-y-0.5 text-[11px] text-gray-700 print:text-[8px]">
+        <p v-for="line in props.sheet.notes" :key="line" class="break-words">{{ line }}</p>
+        <template v-if="!props.sheet.blank">
+          <p>{{ de.forms.lastChanged(props.sheet.updatedBy, formatDateTime(props.sheet.updatedAt)) }}</p>
+          <p>{{ de.forms.printedBy(formatDate(todayIso()), user?.username ?? '') }}</p>
+        </template>
+      </div>
+    </template>
+  </div>
+</template>
