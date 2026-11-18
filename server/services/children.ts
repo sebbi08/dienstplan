@@ -26,6 +26,7 @@ import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
 } from './childGroupChanges'
+import { defaultNoteEducator, notesOf } from './childNotes'
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
@@ -211,6 +212,9 @@ export function getChild(
     developmentDoc: developmentDocOf(db, viewer, row, status, today),
     meetings: meetingsOf(db, viewer, row.id, now),
     canEditMeetings: canEdit,
+    notes: notesOf(db, viewer, row.id, today),
+    canAddNotes: status !== 'archived',
+    noteEducatorId: defaultNoteEducator(db, viewer, today),
   }
 }
 

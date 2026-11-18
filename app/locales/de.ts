@@ -941,6 +941,16 @@ export const de = {
     updatedBy: (name: string, date: string) => `geändert von ${name} am ${date}`,
     confirmDelete: (date: string) => `Das Elterngespräch vom ${date} löschen?`,
   },
+  childNotes: {
+    // The record's section „Notizen“ (agreed wording).
+    title: 'Notizen', date: 'Datum', text: 'Information', educator: 'Erzieher', add: 'Notiz anlegen', editTitle: 'Notiz ändern',
+    confirmDelete: 'Notiz löschen?', none: 'Noch keine Notizen.',
+    // Small helper texts of the section (beyond the agreed wording list above).
+    edit: 'Ändern', actions: 'Aktionen', noEducator: 'Keine Angabe', textRequired: 'Bitte die Information eingeben.',
+    counter: (length: number, max: number) => `${length} / ${max} Zeichen`,
+    createdBy: (name: string, date: string) => `angelegt von ${name} am ${date}`,
+    updatedBy: (name: string, date: string) => `geändert von ${name} am ${date}`,
+  },
   childLifecycle: {
     leave: 'Kind abmelden', leftOn: 'Austrittsdatum', unleave: 'Abmeldung zurücknehmen', deleteNow: 'Sofort löschen',
     confirmDelete: 'Akte mit allen Bezugspersonen und Dokumenten endgültig löschen?', purgeOn: (date: string) => `löschbar ab ${date}`,
@@ -1985,6 +1995,10 @@ export const de = {
     meeting_kind_invalid: 'Bitte eine Art des Gesprächs aus der Liste wählen.',
     meeting_text_too_long: 'Der Text ist zu lang.',
     meeting_note_managers_only: 'Notizen zu Elterngesprächen können nur Leitung und Träger eintragen.',
+    child_note_not_found: 'Diese Notiz gibt es nicht (mehr).',
+    child_note_text_invalid: 'Bitte gib eine Information mit 1 bis 2000 Zeichen ein.',
+    child_note_educator_invalid: 'Bitte wähle einen Erzieher aus der Liste.',
+    child_note_author_only: 'Diese Notiz können nur die Person, die sie angelegt hat, die Leitung und der Träger ändern oder löschen.',
     contact_name_required: 'Bitte einen Namen für die Bezugsperson angeben.',
     contact_ban_conflict: 'Eine Person mit Kontaktverbot darf weder abholen noch Notfallkontakt sein.',
     contact_ban_note_required: 'Bitte einen Hinweis zum Kontaktverbot angeben.',

@@ -70,6 +70,9 @@ const CHILD_VIEW_ROUTES = [
   'children/reminders.get.ts',
   // Observation forms: whoever sees the record reads them; the service decides per form who edits (spec Bögen §4).
   ...CHILD_FORM_ROUTES,
+  // Notes: every staff member who sees the record adds them; the service lets only the author, Leitung and Träger
+  // change and delete one.
+  'children/[id]/notes.post.ts', 'children/notes/[id].put.ts', 'children/notes/[id].delete.ts',
 ]
 /**
  * children.attendance: attendance (every child viewer writes it, spec Anwesenheit §7), the group books and the

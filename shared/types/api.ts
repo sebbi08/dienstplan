@@ -242,6 +242,30 @@ export interface ParentMeetingDto {
   formId: number | null
 }
 
+/** A note in a child's record as entered or changed (the text is trimmed by the server, 1–2000 characters). */
+export interface ChildNoteInput {
+  date: IsoDate
+  text: string
+  /** The educator (an active employee of the facility); null = none. */
+  educatorEmployeeId: number | null
+}
+
+/** A note in a child's record (section „Notizen“). */
+export interface ChildNoteDto {
+  id: number
+  date: IsoDate
+  text: string
+  educatorEmployeeId: number | null
+  /** The educator's name: the employee's current one, the name saved with the note once the employee is deleted. */
+  educatorName: string
+  createdByName: string
+  createdAt: string
+  updatedByName: string | null
+  updatedAt: string | null
+  /** Whether the viewer may change and delete it: its author, Leitung and Träger (not in an archived record). */
+  canEdit: boolean
+}
+
 /** Who changed a section of the record last and when (ISO timestamp); both null while untouched. */
 export interface SectionStamp {
   updatedAt: string | null
@@ -537,6 +561,12 @@ export interface ChildRecordDto {
   meetings: ParentMeetingDto[]
   /** Whether the viewer may enter, change and delete parent meetings (the record's write rules). */
   canEditMeetings: boolean
+  /** The notes, newest date first (then the newest entered). */
+  notes: ChildNoteDto[]
+  /** Whether the viewer may add a note: everyone who sees the record, while the child has not left. */
+  canAddNotes: boolean
+  /** The educator a new note starts with: the acting person's employee when among the facility's staff, else null. */
+  noteEducatorId: number | null
 }
 
 /** A document in a child's record; the file itself is fetched separately. */

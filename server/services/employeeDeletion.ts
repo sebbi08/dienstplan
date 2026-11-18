@@ -9,7 +9,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, children,
+  balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeDocuments, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formEditors, forms,
   groupBookChanges, helpOuts, leaveEntitlements, leavePlanners, leaveRequests, notifications, releaseSnapshots,
@@ -187,6 +187,8 @@ const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
   { table: children, column: children.keyEducatorId },
   { table: childDevelopmentDocs, column: childDevelopmentDocs.doneByEmployeeId },
   { table: childParentMeetings, column: childParentMeetings.createdByEmployeeId },
+  { table: childNotes, column: childNotes.educatorEmployeeId },
+  { table: childNotes, column: childNotes.createdByEmployeeId },
   { table: childAttendanceChanges, column: childAttendanceChanges.changedByEmployeeId },
   { table: groupBookChanges, column: groupBookChanges.changedByEmployeeId },
 ]

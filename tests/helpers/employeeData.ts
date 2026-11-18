@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childParentMeetings, earlySickLeaves, employeeDocuments,
+  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeDocuments,
   employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
@@ -105,6 +105,10 @@ export function fillEmployeeData(db: Db, leitung: SessionUser, employeeIds: numb
     db.insert(childDevelopmentDocs).values({ childId, doneOn: '2026-10-01', doneByEmployeeId: id, doneByName: 'am Tablet', createdAt: at }).run()
     db.insert(childParentMeetings).values({
       childId, date: '2026-10-02', start: 600, kind: 'development', createdAt: at, createdByEmployeeId: id, createdByName: 'am Tablet',
+    }).run()
+    db.insert(childNotes).values({
+      childId, date: '2026-10-02', text: 'Notiz', educatorEmployeeId: id, educatorName: 'am Tablet', createdAt: at,
+      createdByEmployeeId: id, createdByName: 'am Tablet',
     }).run()
     db.insert(childAttendanceChanges).values({
       childId, date: '2026-10-02', field: 'arrived', before: '', after: '8:00', changedAt: at, changedByEmployeeId: id, changedByName: 'am Tablet',

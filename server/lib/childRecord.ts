@@ -46,11 +46,12 @@ export function seesGroup(groups: GroupAccess | null, groupId: number | null): b
  * facility's tablet hides from the actor or whose group the actor does not see (404 child_not_found), and one of a
  * group the actor may only read is not changed either (403 group_read_only). Every write of a record goes through here.
  * The group is judged after the child's due group changes are applied (`settleDue`), so a change whose day has come
- * counts even before the daily run; the returned row is the settled one.
+ * counts even before the daily run; the returned row is the settled one. With `need` 'read' a group the actor
+ * may read is enough: for the sections everyone who sees the record writes in (the notes).
  */
 export function loadEditableChild(
   db: Db, actor: Pick<ChildViewer, 'permissions' | 'visibility' | 'groups'>, facilityId: number, id: number, today: IsoDate,
-  now: Date,
+  now: Date, need: 'read' | 'write' = 'write',
 ): ChildRow {
   const row = loadChild(db, facilityId, id)
   if (childStatus(row, today) === 'archived') {
@@ -59,7 +60,7 @@ export function loadEditableChild(
   if (hiddenFromViewer(row, actor.visibility, today)) throw new ServiceError(404, 'child_not_found')
   settleDue(db, id, today, now)
   const settled = loadChild(db, facilityId, id)
-  assertGroupRight(actor, settled.groupId, 'write')
+  assertGroupRight(actor, settled.groupId, need)
   return settled
 }
 

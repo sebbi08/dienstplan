@@ -454,6 +454,12 @@ export const parentMeetingSchema = z.object({
   participants: z.string().max(1000),
   note: z.string().max(10_000).optional(),
 })
+/** A note in a child's record; the text's length and the educator are checked by the service, so a stale client gets its hint. */
+export const childNoteSchema = z.object({
+  date: isoDate,
+  text: z.string().max(10_000),
+  educatorEmployeeId: z.number().int().positive().nullable(),
+})
 export const attendanceDayQuery = z.object({ date: isoDate })
 export const attendanceHistoryQuery = z.object({ childId: z.coerce.number().int().positive(), date: isoDate })
 export const attendanceArriveSchema = z.object({

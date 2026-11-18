@@ -843,6 +843,27 @@ export const childParentMeetings = sqliteTable('child_parent_meetings', {
 }, table => [index('child_parent_meetings_child').on(table.childId)])
 
 /**
+ * A note (Notiz) in a child's record: the day, the text (1–2000 characters) and the educator it is about or by
+ * (Erzieher). `educatorName` is the educator's name when the note was saved, shown once the employee is deleted. Who
+ * entered it is kept as account, employee and name (the author may change and delete it); who changed it last by name.
+ * Goes with the child (archived and deleted with the record).
+ */
+export const childNotes = sqliteTable('child_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  text: text('text').notNull(),
+  educatorEmployeeId: integer('educator_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  educatorName: text('educator_name').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdByEmployeeId: integer('created_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  createdByName: text('created_by_name').notNull().default(''),
+  updatedAt: text('updated_at'),
+  updatedByName: text('updated_by_name'),
+}, table => [index('child_notes_child').on(table.childId)])
+
+/**
  * A child on a date (Anwesenheitstag), created by the first entry of that day. `groupId` is the child's group on the
  * day, stored when the row was created. The meals ticked by hand are in `childAttendanceMeals`.
  */

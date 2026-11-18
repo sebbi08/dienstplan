@@ -2,12 +2,12 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
-import { eq, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
 import {
-  absenceCodes, childDevelopmentDocs, childParentMeetings, children, coverageRules, employees, printTemplates, shiftTemplates,
+  absenceCodes, childDevelopmentDocs, childNotes, childParentMeetings, children, coverageRules, employees, printTemplates, shiftTemplates,
   templateCategories, terminalUnlocks, users,
 } from '../../server/db/schema'
 import { DEFAULT_TEMPLATE_CATEGORIES, ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
@@ -1525,6 +1525,29 @@ describe('upgrading a filled database through migrateDb', () => {
       .toEqual([1, 2].map(() => ({ userId: null, employeeId: null, name: 'Anna' })))
     db.delete(children).where(eq(children.id, lena)).run()
     expect(db.select({ childId: childParentMeetings.childId }).from(childParentMeetings).all()).toEqual([{ childId: max }])
+  })
+
+  it('child_notes rows go with their child and keep the names when the people are deleted', () => {
+    const db = createTestDb()
+    const anna = addEmployee(db, 'Anna')
+    const berta = addEmployee(db, 'Berta')
+    const user = addUser(db, 'anna', 'observer', anna)
+    const lena = addChild(db, 1, { firstName: 'Lena' })
+    const max = addChild(db, 1, { firstName: 'Max' })
+    const row = (childId: number) => ({
+      childId, date: '2026-10-20', text: 'Notiz', educatorEmployeeId: berta, educatorName: 'Berta', createdAt: '2026-10-20T08:00:00.000Z',
+      createdByUserId: user.id, createdByEmployeeId: anna, createdByName: 'Anna',
+    })
+    db.insert(childNotes).values([row(lena), row(max)]).run()
+    db.delete(users).where(eq(users.id, user.id)).run()
+    db.delete(employees).where(inArray(employees.id, [anna, berta])).run()
+    expect(db.select({
+      userId: childNotes.createdByUserId, employeeId: childNotes.createdByEmployeeId, name: childNotes.createdByName,
+      educatorId: childNotes.educatorEmployeeId, educatorName: childNotes.educatorName,
+    }).from(childNotes).all())
+      .toEqual([1, 2].map(() => ({ userId: null, employeeId: null, name: 'Anna', educatorId: null, educatorName: 'Berta' })))
+    db.delete(children).where(eq(children.id, lena)).run()
+    expect(db.select({ childId: childNotes.childId }).from(childNotes).all()).toEqual([{ childId: max }])
   })
 
   it('child_development_docs rows go with their child and keep the name when the person is deleted', () => {
