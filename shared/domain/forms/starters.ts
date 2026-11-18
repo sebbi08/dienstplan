@@ -18,6 +18,8 @@ export interface StarterTemplate {
   selfAssessment: boolean
   /** For an accident starter: whom its forms are about. */
   subject?: FormSubject
+  /** The printout's layout of its forms ('u1000': the official Unfallanzeige); kept by copies of the template. */
+  printLayout?: 'u1000'
   sections: { title: string; hint: string; items: ItemDraft[] }[]
 }
 
@@ -361,6 +363,7 @@ const ACCIDENT_U1000: StarterTemplate = {
   key: 'accident_u1000',
   kind: 'accident',
   subject: 'employee',
+  printLayout: 'u1000',
   name: 'Unfallanzeige (U 1000)',
   selfAssessment: false,
   sections: [
@@ -390,7 +393,7 @@ const ACCIDENT_U1000: StarterTemplate = {
         choices('10 Auszubildende/-r', NO_YES),
         choices('11 Die versicherte Person ist', [
           'Unternehmer/-in', 'Gesellschafter/-in Geschäftsführer/-in', 'mit der Unternehmerin/dem Unternehmer verheiratet',
-          'mit der Unternehmerin/dem Unternehmer in eingetragener Lebenspartnerschaft',
+          'mit der Unternehmerin/dem Unternehmer in eingetragener Lebenspartnerschaft lebend',
           'mit der Unternehmerin/dem Unternehmer verwandt',
         ]),
         question('12 Anspruch auf Entgeltfortzahlung besteht für … Wochen'),

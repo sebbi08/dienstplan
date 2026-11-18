@@ -16,6 +16,7 @@ import { childParentMeetings, employees, facilities, formEditors, forms, groups 
 import { assertGroupRight, loadChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
+import { detachAccidentAuthors } from './accidents'
 import { listTemplates, loadTemplate, withFormErrors } from './formTemplates'
 
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
@@ -289,4 +290,6 @@ export function moveChildForms(db: Db, childId: number, facilityId: number): voi
   if (formIds.length === 0) return
   db.update(forms).set({ facilityId, templateId: null }).where(inArray(forms.id, formIds)).run()
   db.delete(formEditors).where(inArray(formEditors.formId, formIds)).run()
+  // Accident reports keep no author or uploader link to the old facility's people (as the child notes).
+  detachAccidentAuthors(db, formIds)
 }

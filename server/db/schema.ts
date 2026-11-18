@@ -1219,6 +1219,8 @@ export const formTemplates = sqliteTable('form_templates', {
   subject: text('subject', { enum: ['child', 'employee'] }),
   name: text('name').notNull(),
   starterKey: text('starter_key'),
+  /** 'u1000': forms made from it print in the layout of the official Unfallanzeige (set on the starter, kept by copies). */
+  printLayout: text('print_layout', { enum: ['u1000'] }),
   selfAssessment: integer('self_assessment', { mode: 'boolean' }).notNull().default(false),
   archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -1295,6 +1297,9 @@ export const formAttachments = sqliteTable('form_attachments', {
   data: blob('data', { mode: 'buffer' }).notNull(),
   uploadedAt: text('uploaded_at').notNull(),
   uploadedByName: text('uploaded_by_name').notNull().default(''),
+  /** Who uploaded it (account and/or the tablet's person): besides Leitung/Träger only they may remove it. */
+  uploadedByUserId: integer('uploaded_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  uploadedByEmployeeId: integer('uploaded_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
 }, table => [index('form_attachments_form').on(table.formId)])
 
 /** Employees a manager unlocked to edit one child form at the tablet (besides the child's key educator). */

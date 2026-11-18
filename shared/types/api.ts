@@ -2515,6 +2515,8 @@ export interface FormTemplateDto {
   kind: FormKind
   /** Whom an accident template's forms are about; null for the other kinds. */
   subject: FormSubject | null
+  /** 'u1000': its forms print in the layout of the official Unfallanzeige (the starter and its copies). */
+  printLayout: 'u1000' | null
   name: string
   /** Set for the app's starter templates (e.g. 'staff_self_assessment'), null for the facility's own and for copies. */
   starterKey: string | null
@@ -2645,9 +2647,12 @@ export interface AccidentListItemDto {
   updatedAt: string
   /** Name at the last change. */
   updatedBy: string
+  /** 'edit' also needs: for anybody but Leitung/Träger the report is not yet reported to the Unfallkasse. */
   right: 'read' | 'edit'
   /** Leitung/Träger (accidents.manage) delete reports; nobody deletes one of an archived child record. */
   canDelete: boolean
+  /** Leitung/Träger (accidents.manage) set „an Unfallkasse gemeldet am“; for everybody else the field is read-only. */
+  canReport: boolean
 }
 
 /** The accident reports of one person, newest first; whether the viewer may fill in a new one and from which templates. */
@@ -2665,6 +2670,8 @@ export interface AccidentAttachmentDto {
   size: number
   uploadedAt: string
   uploadedByName: string
+  /** The uploader and Leitung/Träger remove it (where the report may be changed). */
+  canDelete: boolean
 }
 
 /** One accident report with its own copy of the template content, the answers, the attachments and the printout's header. */

@@ -7,12 +7,6 @@ import type { IsoDate } from './types'
  * `accident` (shared/domain/forms.ts) with a fixed header (Datum, Uhrzeit, Arztbesuch, arbeitsunfähig, gemeldet am).
  */
 
-/**
- * The starter key of the official accident report („Unfallanzeige“ U 1000, shared/domain/forms/starters.ts): its forms
- * print in the official layout. Here, so the app gets it without the starter texts.
- */
-export const U1000_STARTER_KEY = 'accident_u1000'
-
 /** Days after the accident within which the Unfallkasse must have the report (§ 193 SGB VII: within 3 days). */
 export const REPORT_DAYS = 3
 

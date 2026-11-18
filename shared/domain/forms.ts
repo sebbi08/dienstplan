@@ -76,7 +76,8 @@ export const FORM_LIMITS = {
   note: 1000,
   question: 300,
   options: 40,
-  optionLabel: 80,
+  // 100: the official option „mit der Unternehmerin/dem Unternehmer in eingetragener Lebenspartnerschaft lebend“ (U 1000).
+  optionLabel: 100,
   ageLabel: 20,
   textAnswer: 4000,
   ratingRemark: 500,

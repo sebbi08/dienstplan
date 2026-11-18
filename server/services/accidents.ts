@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or, type SQL } from 'drizzle-orm'
 import {
-  JOB_TITLES, MAX_ACCIDENT_ATTACHMENTS, QUALIFICATION_TITLES, U1000_STARTER_KEY, reportDue, reportState,
+  JOB_TITLES, MAX_ACCIDENT_ATTACHMENTS, QUALIFICATION_TITLES, reportDue, reportState,
 } from '../../shared/domain/accidents'
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate } from '../../shared/domain/dates'
@@ -65,6 +65,11 @@ interface Access {
   subject: FormSubject
   right: 'read' | 'edit'
   canDelete: boolean
+  /** Leitung/Träger: set „gemeldet am“, change a reported report, remove anybody's attachment. */
+  canReport: boolean
+  /** The viewer's account and person, for the attachments they uploaded. */
+  actorUserId: number | null
+  actorEmployeeId: number | null
   /** The viewer's name for „zuletzt geändert von“. */
   actorName: string
   /** The person's data for the header and the list. */
@@ -79,10 +84,13 @@ interface Header { date: IsoDate; start: number | null; doctor: boolean; unfit: 
 
 /**
  * The checked header: a valid date not after today (400 accident_date_invalid), a start of 0–1439 minutes or none (400
- * accident_start_invalid), „arbeitsunfähig“ only for an employee (400 accident_unfit_employee_only), „gemeldet am“ a
- * valid date or none (400 accident_reported_invalid).
+ * accident_start_invalid), „arbeitsunfähig“ only for an employee (400 accident_unfit_employee_only). „gemeldet am“ only
+ * from Leitung/Träger (`canReport`): a date from the accident day to today, or none (400 accident_reported_invalid);
+ * for anybody else the stored value stays, whatever they send (only who reports to the Unfallkasse may end the reminder).
  */
-function checkedHeader(input: AccidentHeaderInput, subject: FormSubject, today: IsoDate): Header {
+function checkedHeader(
+  input: AccidentHeaderInput, subject: FormSubject, today: IsoDate, report: { canReport: boolean; stored: IsoDate | null },
+): Header {
   if (typeof input.date !== 'string' || !isValidIsoDate(input.date) || input.date > today) {
     throw new ServiceError(400, 'accident_date_invalid')
   }
@@ -90,8 +98,11 @@ function checkedHeader(input: AccidentHeaderInput, subject: FormSubject, today: 
     throw new ServiceError(400, 'accident_start_invalid')
   }
   if (subject === 'child' && input.unfit) throw new ServiceError(400, 'accident_unfit_employee_only')
-  const reportedOn = input.reportedOn === null || input.reportedOn === '' ? null : input.reportedOn
-  if (reportedOn !== null && !isValidIsoDate(reportedOn)) throw new ServiceError(400, 'accident_reported_invalid')
+  const sent = input.reportedOn === null || input.reportedOn === '' ? null : input.reportedOn
+  const reportedOn = report.canReport ? sent : report.stored
+  if (report.canReport && reportedOn !== null && (!isValidIsoDate(reportedOn) || reportedOn < input.date || reportedOn > today)) {
+    throw new ServiceError(400, 'accident_reported_invalid')
+  }
   return {
     date: input.date, start: input.start, doctor: input.doctor === true, unfit: subject === 'employee' ? input.unfit === true : null,
     reportedOn,
@@ -203,11 +214,25 @@ function prefilledAnswers(db: Db, content: FormContent, facilityId: number, valu
 
 // ---- shared parts ---------------------------------------------------------
 
-function attachmentsOf(db: Db, formId: number): AccidentAttachmentDto[] {
+/** Whether the viewer uploaded the attachment: the same account, or the same person (at the tablet the one who unlocked). */
+function uploadedBy(row: Pick<AttachmentRow, 'uploadedByUserId' | 'uploadedByEmployeeId'>, access: Access): boolean {
+  return (row.uploadedByUserId !== null && row.uploadedByUserId === access.actorUserId)
+    || (row.uploadedByEmployeeId !== null && row.uploadedByEmployeeId === access.actorEmployeeId)
+}
+
+/** Who removes an attachment: where the report may be changed, Leitung/Träger any, everybody else only their own uploads. */
+const mayRemove = (row: Pick<AttachmentRow, 'uploadedByUserId' | 'uploadedByEmployeeId'>, access: Access) =>
+  access.right === 'edit' && (access.canReport || uploadedBy(row, access))
+
+function attachmentsOf(db: Db, formId: number, access: Access | null): AccidentAttachmentDto[] {
   return db.select({
     id: formAttachments.id, fileName: formAttachments.fileName, mimeType: formAttachments.mimeType, size: formAttachments.size,
     uploadedAt: formAttachments.uploadedAt, uploadedByName: formAttachments.uploadedByName,
+    uploadedByUserId: formAttachments.uploadedByUserId, uploadedByEmployeeId: formAttachments.uploadedByEmployeeId,
   }).from(formAttachments).where(eq(formAttachments.formId, formId)).orderBy(asc(formAttachments.id)).all()
+    .map(({ uploadedByUserId, uploadedByEmployeeId, ...file }) => ({
+      ...file, canDelete: access !== null && mayRemove({ uploadedByUserId, uploadedByEmployeeId }, access),
+    }))
 }
 
 function toListItem(access: Access): AccidentListItemDto {
@@ -217,7 +242,7 @@ function toListItem(access: Access): AccidentListItemDto {
     templateId: form.templateId, title: form.title, date: form.formDate ?? '', start: form.formStart,
     doctor: form.accidentDoctor === true, unfit: form.accidentUnfit === true, reportedOn: form.accidentReportedOn,
     printLayout: form.printLayout, updatedAt: form.updatedAt, updatedBy: form.updatedBy, right: access.right,
-    canDelete: access.canDelete,
+    canDelete: access.canDelete, canReport: access.canReport,
   }
 }
 
@@ -227,7 +252,7 @@ function toFormDto(db: Db, access: Access): AccidentFormDto {
     ...toListItem(access),
     content: JSON.parse(access.form.content) as FormContent,
     answers: JSON.parse(access.form.answers) as FormAnswers,
-    attachments: attachmentsOf(db, access.form.id),
+    attachments: attachmentsOf(db, access.form.id, access),
     person: access.person,
     facilityName,
   }
@@ -237,6 +262,14 @@ function toFormDto(db: Db, access: Access): AccidentFormDto {
 function isAuthor(form: Pick<FormRow, 'createdByUserId' | 'createdByEmployeeId'>, userId: number | null, employeeId: number | null): boolean {
   return (form.createdByUserId !== null && form.createdByUserId === userId)
     || (form.createdByEmployeeId !== null && form.createdByEmployeeId === employeeId)
+}
+
+/**
+ * The right on a report: Leitung/Träger (`manager`) edit wherever they may write; its author only until it is reported
+ * to the Unfallkasse (afterwards only Leitung/Träger change answers and attachments).
+ */
+function rightOf(form: FormRow, writes: boolean, manager: boolean, author: boolean): 'read' | 'edit' {
+  return writes && (manager || (author && form.accidentReportedOn === null)) ? 'edit' : 'read'
 }
 
 /** The active accident template of the facility for the subject (404 form_template_not_found, 409 form_template_archived). */
@@ -263,6 +296,7 @@ interface NewForm {
   author: { userId: number | null; employeeId: number | null; name: string }
 }
 
+/** A new report from the template (its content copied, its print layout taken over, e.g. 'u1000' of the starter and its copies). */
 function insertForm(db: Db, input: NewForm, now: Date): number {
   const template = accidentTemplate(db, input.facilityId, input.templateId, input.subject)
   const content = JSON.parse(template.content) as FormContent
@@ -273,7 +307,7 @@ function insertForm(db: Db, input: NewForm, now: Date): number {
     answers: JSON.stringify(answers), createdAt: at, updatedAt: at, updatedBy: input.author.name,
     childId: input.childId ?? null, employeeId: input.employeeId ?? null, ...headerColumns(input.header),
     createdByUserId: input.author.userId, createdByEmployeeId: input.author.employeeId,
-    printLayout: template.starterKey === U1000_STARTER_KEY ? 'u1000' : null,
+    printLayout: template.printLayout,
   }).returning({ id: forms.id }).get().id
 }
 
@@ -286,7 +320,7 @@ function saveForm(db: Db, access: Access, input: AccidentSaveInput, today: IsoDa
   assertEdit(access)
   const { form } = access
   if (form.updatedAt !== input.expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
-  const header = checkedHeader(input, access.subject, today)
+  const header = checkedHeader(input, access.subject, today, { canReport: access.canReport, stored: form.accidentReportedOn })
   const answers = withFormErrors(() => checkAnswers(JSON.parse(form.content) as FormContent, input.answers))
   const updatedAt = now.toISOString()
   const result = db.update(forms).set({
@@ -311,11 +345,18 @@ function attachmentName(original: string, mime: DocumentMime): string {
 function addAttachment(db: Db, access: Access, file: { data: Buffer; filename: string }, now: Date): number {
   assertEdit(access)
   const mimeType = checkedDocumentFile(file.data)
-  if (attachmentsOf(db, access.form.id).length >= MAX_ACCIDENT_ATTACHMENTS) throw new ServiceError(409, 'accident_attachments_full')
+  if (attachmentsOf(db, access.form.id, null).length >= MAX_ACCIDENT_ATTACHMENTS) throw new ServiceError(409, 'accident_attachments_full')
   return db.insert(formAttachments).values({
     formId: access.form.id, fileName: attachmentName(file.filename, mimeType), mimeType, size: file.data.length,
     data: file.data, uploadedAt: now.toISOString(), uploadedByName: access.actorName,
+    uploadedByUserId: access.actorUserId, uploadedByEmployeeId: access.actorEmployeeId,
   }).returning({ id: formAttachments.id }).get().id
+}
+
+/** Removes an attachment: Leitung/Träger, or whoever uploaded it, where the report may be changed (403 forbidden). */
+function removeAttachment(db: Db, row: AttachmentRow, access: Access): void {
+  if (!mayRemove(row, access)) throw new ServiceError(403, 'forbidden')
+  db.delete(formAttachments).where(eq(formAttachments.id, row.id)).run()
 }
 
 type AttachmentRow = typeof formAttachments.$inferSelect
@@ -350,6 +391,16 @@ function attachmentFile(row: AttachmentRow): { data: Buffer; mimeType: string; f
 
 interface VisibleChild { row: ChildRow; archived: boolean }
 
+/**
+ * Whether the viewer sees the child's record at all (the rules of `getChild`): an archived record only with
+ * children.manage, nothing the tablet's switches hide from the viewer, no group outside the viewer's „ansehen“ scope.
+ */
+function seesChild(viewer: ChildViewer, row: ChildRow, today: IsoDate): boolean {
+  if (childStatus(row, today) === 'archived' && !can(viewer.permissions, 'children.manage')) return false
+  if (hiddenFromViewer(row, viewer.visibility, today)) return false
+  return groupRightOf(viewer, row.groupId, 'children.view') !== 'none'
+}
+
 /** The child as the viewer sees its record (404 child_not_found otherwise, as `getChild`). */
 function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, today: IsoDate): VisibleChild {
   const row = loadChild(db, viewer.facilityId, childId)
@@ -367,13 +418,13 @@ function writesFor(viewer: ChildViewer, child: VisibleChild): boolean {
 }
 
 function childAccessOf(viewer: ChildViewer, form: FormRow, child: VisibleChild): Access {
-  const writes = writesFor(viewer, child)
   const manager = can(viewer.permissions, 'accidents.manage')
   return {
     form, subject: 'child',
-    right: writes && (manager || isAuthor(form, viewer.id, viewer.employeeId)) ? 'edit' : 'read',
+    right: rightOf(form, writesFor(viewer, child), manager, isAuthor(form, viewer.id, viewer.employeeId)),
     canDelete: manager && !child.archived,
-    actorName: viewer.name,
+    canReport: manager && !child.archived,
+    actorUserId: viewer.id, actorEmployeeId: viewer.employeeId, actorName: viewer.name,
     person: { name: `${child.row.firstName} ${child.row.lastName}`.trim(), birthDate: child.row.birthDate, groupName: null },
   }
 }
@@ -412,7 +463,8 @@ export function listChildAccidents(db: Db, viewer: ChildViewer, childId: number,
 /**
  * „Unfallbericht ausfüllen“ in the child's record: whoever keeps the child's attendance (403 forbidden without the
  * attendance permission, 403 group_read_only in a group the viewer only reads, 409 child_archived / 404 for a child that
- * has left, see `loadEditableChild`). The viewer is the author (at the tablet the unlocked person). Returns the id.
+ * has left, see `loadEditableChild`). The viewer is the author (at the tablet the unlocked person); „gemeldet am“ only
+ * from Leitung/Träger. Returns the id.
  */
 export function createChildAccident(
   db: Db, viewer: ChildViewer, childId: number, input: AccidentCreateInput, now: Date = new Date(),
@@ -420,7 +472,7 @@ export function createChildAccident(
   if (!can(viewer.permissions, 'children.attendance')) throw new ServiceError(403, 'forbidden')
   const today = nowInBerlin(now).date
   const child = loadEditableChild(db, viewer, viewer.facilityId, childId, today, now, 'children.attendance')
-  const header = checkedHeader(input, 'child', today)
+  const header = checkedHeader(input, 'child', today, { canReport: can(viewer.permissions, 'accidents.manage'), stored: null })
   return insertForm(db, {
     facilityId: viewer.facilityId, subject: 'child', templateId: input.templateId, header, childId,
     prefill: childPrefill(db, child), author: { userId: viewer.id, employeeId: viewer.employeeId, name: viewer.name },
@@ -450,10 +502,19 @@ export function readChildAccidentAttachment(db: Db, viewer: ChildViewer, attachm
 }
 
 export function deleteChildAccidentAttachment(db: Db, viewer: ChildViewer, attachmentId: number, now: Date = new Date()): void {
-  withAttachment(db, attachmentId, formId => childAccess(db, viewer, formId, now), (row, access) => {
-    assertEdit(access)
-    db.delete(formAttachments).where(eq(formAttachments.id, row.id)).run()
-  })
+  withAttachment(db, attachmentId, formId => childAccess(db, viewer, formId, now), (row, access) => removeAttachment(db, row, access))
+}
+
+/**
+ * The child record moved to another facility (its forms go along, see `moveChildForms`): its accident reports keep no
+ * author or uploader link to the old facility's accounts and employees (the names stay). Call it inside the move.
+ */
+export function detachAccidentAuthors(db: Db, formIds: number[]): void {
+  if (formIds.length === 0) return
+  db.update(forms).set({ createdByUserId: null, createdByEmployeeId: null })
+    .where(and(inArray(forms.id, formIds), eq(forms.kind, 'accident'))).run()
+  db.update(formAttachments).set({ uploadedByUserId: null, uploadedByEmployeeId: null })
+    .where(inArray(formAttachments.formId, formIds)).run()
 }
 
 // ---- employee reports -----------------------------------------------------
@@ -467,9 +528,10 @@ function employeeAccessOf(db: Db, actor: AccidentActor, form: FormRow, employee:
   const readable = readableFor(actor.user.permissions, self)
   return {
     form, subject: 'employee',
-    right: manager || (self && isAuthor(form, actor.user.id, actor.user.employeeId)) ? 'edit' : 'read',
+    right: rightOf(form, true, manager, self && isAuthor(form, actor.user.id, actor.user.employeeId)),
     canDelete: manager,
-    actorName: actorName(db, actor.user),
+    canReport: manager,
+    actorUserId: actor.user.id, actorEmployeeId: actor.user.employeeId, actorName: actorName(db, actor.user),
     person: { name: employee.name, birthDate: readable.personal ? birthDateOf(employee) : null, groupName: groupName(db, employee.groupId) },
   }
 }
@@ -516,7 +578,7 @@ function employeeList(db: Db, actor: AccidentActor, employee: EmployeeRow, canCr
 
 function createEmployeeForm(db: Db, actor: AccidentActor, employee: EmployeeRow, input: AccidentCreateInput, now: Date): number {
   const today = nowInBerlin(now).date
-  const header = checkedHeader(input, 'employee', today)
+  const header = checkedHeader(input, 'employee', today, { canReport: isManagerOf(actor, employee.facilityId), stored: null })
   const self = actor.user.employeeId === employee.id
   return insertForm(db, {
     facilityId: employee.facilityId, subject: 'employee', templateId: input.templateId, header, employeeId: employee.id,
@@ -534,13 +596,16 @@ export function createEmployeeAccident(db: Db, actor: AccidentActor, employeeId:
   return createEmployeeForm(db, actor, managedEmployee(db, actor, employeeId), input, now)
 }
 
-/** „Meine Unfälle“: the reports about the signed-in employee; they may fill in one about themselves. */
-export function listMyAccidents(db: Db, user: SessionUser): AccidentsDto {
-  return employeeList(db, { user, facilityId: null }, ownEmployee(db, user), true)
+/**
+ * „Meine Unfälle“: the reports about the signed-in employee; they may fill in one about themselves. With accidents.manage
+ * in the employee's facility (a Leitung's own reports) the rights are the managers', as on the report itself.
+ */
+export function listMyAccidents(db: Db, actor: AccidentActor): AccidentsDto {
+  return employeeList(db, actor, ownEmployee(db, actor.user), true)
 }
 
-export function createMyAccident(db: Db, user: SessionUser, input: AccidentCreateInput, now: Date = new Date()): number {
-  return createEmployeeForm(db, { user, facilityId: null }, ownEmployee(db, user), input, now)
+export function createMyAccident(db: Db, actor: AccidentActor, input: AccidentCreateInput, now: Date = new Date()): number {
+  return createEmployeeForm(db, actor, ownEmployee(db, actor.user), input, now)
 }
 
 export function getEmployeeAccident(db: Db, actor: AccidentActor, formId: number): AccidentFormDto {
@@ -566,10 +631,7 @@ export function readEmployeeAccidentAttachment(db: Db, actor: AccidentActor, att
 }
 
 export function deleteEmployeeAccidentAttachment(db: Db, actor: AccidentActor, attachmentId: number): void {
-  withAttachment(db, attachmentId, formId => employeeAccess(db, actor, formId), (row, access) => {
-    assertEdit(access)
-    db.delete(formAttachments).where(eq(formAttachments.id, row.id)).run()
-  })
+  withAttachment(db, attachmentId, formId => employeeAccess(db, actor, formId), (row, access) => removeAttachment(db, row, access))
 }
 
 /**
@@ -583,67 +645,60 @@ export function moveEmployeeAccidents(db: Db, employeeId: number, facilityId: nu
 
 // ---- overview and reminder ------------------------------------------------
 
-/** Every accident report of the facility with the person's name (child or employee), optionally within some days. */
-function facilityReports(db: Db, facilityId: number, from?: IsoDate, to?: IsoDate) {
-  return db.select({ form: forms, firstName: children.firstName, lastName: children.lastName, employeeName: employees.name })
+/**
+ * Every accident report of the facility (optionally within some days) with the person's name, as the viewer may see it:
+ * employees' reports for accidents.manage, children's only of children whose record the viewer sees (`seesChild`: group
+ * scope, the tablet's switches, archived records only with children.manage).
+ */
+function visibleReports(db: Db, viewer: ChildViewer, today: IsoDate, where: SQL | undefined) {
+  return db.select({ form: forms, child: children, employeeName: employees.name })
     .from(forms)
     .leftJoin(children, eq(children.id, forms.childId))
     .leftJoin(employees, eq(employees.id, forms.employeeId))
-    .where(and(
-      eq(forms.facilityId, facilityId), eq(forms.kind, 'accident'),
-      from === undefined ? undefined : gte(forms.formDate, from), to === undefined ? undefined : lte(forms.formDate, to),
-    ))
+    .where(and(eq(forms.facilityId, viewer.facilityId), eq(forms.kind, 'accident'), where))
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all()
-    .map(({ form, firstName, lastName, employeeName }) => ({
-      form,
-      subject: (form.childId !== null ? 'child' : 'employee') as FormSubject,
-      name: form.childId !== null ? `${firstName ?? ''} ${lastName ?? ''}`.trim() : employeeName ?? '',
-    }))
+    .filter(({ form, child }) => (form.childId === null ? form.employeeId !== null : child !== null && seesChild(viewer, child, today)))
 }
 
 /**
- * „Unfälle“ (Mehr, accidents.manage): every accident report of the facility dated in the year, newest first, children's
- * and employees' (the page filters). Leitung/Träger may change and delete each (a report of an archived child record
- * only read).
+ * „Unfälle“ (Mehr, accidents.manage, at the office): the facility's accident reports dated in the year that the viewer
+ * may see (see `visibleReports`), newest first; the page filters children/employees. Each with the viewer's real right
+ * (as on the report itself).
  */
-export function listAccidentOverview(db: Db, user: SessionUser, facilityId: number, year: number, now: Date = new Date()): AccidentListItemDto[] {
-  if (!can(user.permissions, 'accidents.manage')) throw new ServiceError(403, 'forbidden')
+export function listAccidentOverview(db: Db, viewer: ChildViewer, year: number, now: Date = new Date()): AccidentListItemDto[] {
+  if (!can(viewer.permissions, 'accidents.manage') || viewer.onTablet) throw new ServiceError(403, 'forbidden')
   const today = nowInBerlin(now).date
-  const childIds = new Set<number>()
-  const reports = facilityReports(db, facilityId, `${year}-01-01`, `${year}-12-31`)
-  for (const report of reports) if (report.form.childId !== null) childIds.add(report.form.childId)
-  const archived = new Set(childIds.size === 0 ? [] : db.select().from(children).where(inArray(children.id, [...childIds])).all()
-    .filter(row => childStatus(row, today) === 'archived').map(row => row.id))
-  return reports.map(({ form, subject, name }) => {
-    const readOnly = form.childId !== null && archived.has(form.childId)
-    return toListItem({
-      form, subject, right: readOnly ? 'read' : 'edit', canDelete: !readOnly, actorName: '',
-      person: { name, birthDate: null, groupName: null },
+  return visibleReports(db, viewer, today, and(gte(forms.formDate, `${year}-01-01`), lte(forms.formDate, `${year}-12-31`)))
+    .map(({ form, child, employeeName }) => {
+      if (child) {
+        const access = childAccessOf(viewer, form, { row: child, archived: childStatus(child, today) === 'archived' })
+        return toListItem(access)
+      }
+      // The viewer manages the facility's employee reports (accidents.manage, the facility of the request).
+      return toListItem({
+        form, subject: 'employee', right: 'edit',
+        canDelete: true, canReport: true, actorUserId: viewer.id, actorEmployeeId: viewer.employeeId, actorName: viewer.name,
+        person: { name: employeeName ?? '', birthDate: null, groupName: null },
+      })
     })
-  })
 }
 
 /**
  * The reminders „Unfallanzeige an die Unfallkasse“ for Leitung/Träger (accidents.manage, not at the tablet): every report
- * of the facility with Arztbesuch (child or employee) or arbeitsunfähig (employee) that has no „gemeldet am“ yet, from the
- * accident day on; overdue after 3 days, gone once the day of the report is entered. `childId` is null for an employee
- * (the box words it „falls länger als 3 Kalendertage arbeitsunfähig“).
+ * the viewer may see (`visibleReports`) with Arztbesuch (child or employee) or arbeitsunfähig (employee) that has no
+ * „gemeldet am“ yet, from the accident day on; overdue after 3 days, gone once the day of the report is entered.
+ * `childId` is null for an employee (the box words it „falls länger als 3 Kalendertage arbeitsunfähig“).
  */
-export function accidentReminders(db: Db, viewer: Pick<ChildViewer, 'permissions' | 'onTablet' | 'facilityId'>, today: IsoDate): ReminderDto[] {
+export function accidentReminders(db: Db, viewer: ChildViewer, today: IsoDate): ReminderDto[] {
   if (!can(viewer.permissions, 'accidents.manage') || viewer.onTablet) return []
-  const open = db.select({ form: forms, firstName: children.firstName, lastName: children.lastName, employeeName: employees.name })
-    .from(forms)
-    .leftJoin(children, eq(children.id, forms.childId))
-    .leftJoin(employees, eq(employees.id, forms.employeeId))
-    .where(and(
-      eq(forms.facilityId, viewer.facilityId), eq(forms.kind, 'accident'), isNull(forms.accidentReportedOn),
-      or(eq(forms.accidentDoctor, true), eq(forms.accidentUnfit, true)), isNotNull(forms.formDate), lte(forms.formDate, today),
-    )).all()
-  return open
+  return visibleReports(db, viewer, today, and(
+    isNull(forms.accidentReportedOn), or(eq(forms.accidentDoctor, true), eq(forms.accidentUnfit, true)),
+    isNotNull(forms.formDate), lte(forms.formDate, today),
+  ))
     .filter(({ form }) => reportDue({ doctor: form.accidentDoctor === true, unfit: form.accidentUnfit === true, reportedOn: form.accidentReportedOn }))
-    .map(({ form, firstName, lastName, employeeName }) => ({
+    .map(({ form, child, employeeName }) => ({
       kind: 'accident' as const, date: form.formDate!, state: reportState(form.formDate!, today),
-      name: form.childId !== null ? `${firstName ?? ''} ${lastName ?? ''}`.trim() : employeeName ?? '',
+      name: child ? `${child.firstName} ${child.lastName}`.trim() : employeeName ?? '',
       childId: form.childId, age: null, ownChild: false, canDone: false, time: null, meetingKind: null, count: null,
     }))
 }

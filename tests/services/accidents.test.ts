@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employeePayroll, employees, entries, formAttachments, formTemplates, timeRecords } from '../../server/db/schema'
+import { children, employeePayroll, employees, entries, formAttachments, forms, formTemplates, timeRecords } from '../../server/db/schema'
 import type { ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
@@ -12,6 +12,8 @@ import {
   moveEmployeeAccidents, readChildAccidentAttachment, readEmployeeAccidentAttachment, saveChildAccident,
   saveEmployeeAccident, type AccidentActor,
 } from '../../server/services/accidents'
+import { moveChildForms } from '../../server/services/childForms'
+import { copyTemplate } from '../../server/services/formTemplates'
 import { listReminders } from '../../server/services/reminders'
 import { u1000Fields } from '../../shared/domain/accidents'
 import type { FormContent } from '../../shared/domain/forms'
@@ -94,21 +96,29 @@ describe('accident reports about a child', () => {
     const byBerta = createChildAccident(db, bertaTablet, kid, { templateId: childTemplate, ...header, doctor: true }, NOW)
     expect(getChildAccident(db, bertaTablet, byBerta, NOW)).toMatchObject({
       subject: 'child', childId: kid, employeeId: null, personName: 'Lena Kurz', title: 'Unfallbericht Kind', date: '2026-11-17',
-      start: 600, doctor: true, unfit: false, reportedOn: null, printLayout: null, right: 'edit', canDelete: false, updatedBy: 'Berta',
+      start: 600, doctor: true, unfit: false, reportedOn: null, printLayout: null, right: 'edit', canDelete: false, canReport: false,
+      updatedBy: 'Berta',
     })
     // Anna writes reports of her own, but Berta's she only reads.
     expect(getChildAccident(db, annaTablet, byBerta, NOW).right).toBe('read')
     const loaded = getChildAccident(db, leitung, byBerta, NOW)
-    expect(loaded).toMatchObject({ right: 'edit', canDelete: true })
+    expect(loaded).toMatchObject({ right: 'edit', canDelete: true, canReport: true })
     const input = { ...header, doctor: true, reportedOn: '2026-11-18', answers: {}, expectedUpdatedAt: loaded.updatedAt }
     expect(failure(() => saveChildAccident(db, annaTablet, byBerta, input, LATER))).toBe('403 forbidden')
+    // The author's „gemeldet am“ is ignored: only Leitung/Träger report to the Unfallkasse (the reminder stays).
     expect(saveChildAccident(db, bertaTablet, byBerta, input, LATER)).toEqual({ updatedAt: LATER.toISOString(), updatedBy: 'Berta' })
+    expect(getChildAccident(db, leitung, byBerta, LATER)).toMatchObject({ reportedOn: null, doctor: true })
+    expect(createChildAccident(db, bertaTablet, kid, { templateId: childTemplate, ...header, reportedOn: '2026-11-17' }, NOW)).toBeGreaterThan(0)
+    expect(listChildAccidents(db, leitung, kid, LATER).forms.every(form => form.reportedOn === null)).toBe(true)
+    // Leitung/Träger set it; once reported, the author only reads.
+    saveChildAccident(db, leitung, byBerta, { ...input, expectedUpdatedAt: getChildAccident(db, leitung, byBerta, LATER).updatedAt }, LATER)
     expect(getChildAccident(db, leitung, byBerta, LATER).reportedOn).toBe('2026-11-18')
+    expect(getChildAccident(db, bertaTablet, byBerta, LATER).right).toBe('read')
 
     expect(failure(() => deleteChildAccident(db, bertaTablet, byBerta, LATER))).toBe('403 forbidden')
     expect(failure(() => deleteChildAccident(db, annaTablet, byBerta, LATER))).toBe('403 forbidden')
     deleteChildAccident(db, leitung, byBerta, LATER)
-    expect(listChildAccidents(db, leitung, kid, LATER).forms).toEqual([])
+    expect(listChildAccidents(db, leitung, kid, LATER).forms.map(form => form.id)).not.toContain(byBerta)
   })
 
   it('lists newest first with the active child templates for whoever may fill one in', () => {
@@ -129,6 +139,10 @@ describe('accident reports about a child', () => {
     expect(create({ start: 1440 })).toBe('400 accident_start_invalid')
     expect(create({ unfit: true })).toBe('400 accident_unfit_employee_only')
     expect(create({ reportedOn: 'gestern' })).toBe('400 accident_reported_invalid')
+    // Not before the accident day, not after today.
+    expect(create({ reportedOn: '2026-11-16' })).toBe('400 accident_reported_invalid')
+    expect(create({ reportedOn: '2026-11-19' })).toBe('400 accident_reported_invalid')
+    expect(create({ reportedOn: '2026-11-17' })).toBeNull()
     // An employee template is no choice for a child, nor an archived one.
     expect(create({ templateId: u1000Template })).toBe('404 form_template_not_found')
     db.update(formTemplates).set({ archived: true }).where(eq(formTemplates.id, childTemplate)).run()
@@ -187,6 +201,19 @@ describe('accident reports about a child', () => {
     const leitung2 = asChildViewer(addUser(db, 'leitung2', 'admin', null, addFacility(db, 'Zweite')))
     const pdf = getChildAccident(db, leitung, id, NOW).attachments[0]!.id
     expect(failure(() => readChildAccidentAttachment(db, leitung2, pdf, NOW))).toBe('404 attachment_not_found')
+    // The author removes only the files they uploaded; Leitung/Träger any (L4).
+    const byLeitung = getChildAccident(db, leitung, id, NOW).attachments[0]!
+    expect(getChildAccident(db, annaTablet, id, NOW).attachments[0]!.canDelete).toBe(false)
+    expect(failure(() => deleteChildAccidentAttachment(db, annaTablet, byLeitung.id, NOW))).toBe('403 forbidden')
+    const mine = addChildAccidentAttachment(db, annaTablet, id, { data: PNG, filename: 'zweites.png' }, NOW)
+    expect(getChildAccident(db, annaTablet, id, NOW).attachments.find(file => file.id === mine)!.canDelete).toBe(true)
+    // Once reported, the author changes nothing any more: no upload, no removal, no save.
+    const loaded = getChildAccident(db, leitung, id, NOW)
+    saveChildAccident(db, leitung, id, { ...header, doctor: true, reportedOn: '2026-11-18', answers: {}, expectedUpdatedAt: loaded.updatedAt }, LATER)
+    expect(getChildAccident(db, annaTablet, id, LATER).attachments.every(file => !file.canDelete)).toBe(true)
+    expect(failure(() => deleteChildAccidentAttachment(db, annaTablet, mine, LATER))).toBe('403 forbidden')
+    expect(failure(() => addChildAccidentAttachment(db, annaTablet, id, { data: PNG, filename: 'x.png' }, LATER))).toBe('403 forbidden')
+    expect(getChildAccident(db, leitung, id, LATER).attachments.every(file => file.canDelete)).toBe(true)
     // Deleting the report takes its attachments along.
     deleteChildAccident(db, leitung, id, NOW)
     expect(db.select().from(formAttachments).all()).toEqual([])
@@ -230,14 +257,14 @@ describe('accident reports about an employee', () => {
 
   it('the stamped time beats the plan; the facility\'s name, address and phone are filled in', () => {
     db.insert(timeRecords).values({ employeeId: anna, date: '2026-11-17', start: 460, end: 900, source: 'terminal', createdAt: NOW.toISOString() }).run()
-    const id = createMyAccident(db, annaUser, { templateId: u1000Template, ...header }, NOW)
+    const id = createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header }, NOW)
     const form = getEmployeeAccident(db, self(annaUser), id)
     expect(fieldAnswer(form, 23)).toBe('Beginn 07:40 Uhr, Ende 15:00 Uhr')
     expect(String(fieldAnswer(form, 1)).split('\n')[0]).toBe(form.facilityName)
   })
 
   it('the employee fills in one about themselves (all own data prefilled), edits it, never deletes; reads the Leitung\'s', () => {
-    const own = createMyAccident(db, annaUser, { templateId: u1000Template, ...header, doctor: true }, NOW)
+    const own = createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header, doctor: true }, NOW)
     const form = getEmployeeAccident(db, self(annaUser), own)
     expect(form).toMatchObject({ right: 'edit', canDelete: false })
     expect(fieldAnswer(form, 13)).toBe('AOK Musterstadt')
@@ -248,15 +275,44 @@ describe('accident reports about an employee', () => {
 
     const byLeitung = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header }, NOW)
     expect(getEmployeeAccident(db, self(annaUser), byLeitung).right).toBe('read')
-    expect(listMyAccidents(db, annaUser).forms.map(item => [item.id, item.right])).toEqual([[byLeitung, 'read'], [own, 'edit']].sort((a, b) => Number(b[0]) - Number(a[0])))
+    expect(listMyAccidents(db, self(annaUser)).forms.map(item => [item.id, item.right])).toEqual([[byLeitung, 'read'], [own, 'edit']].sort((a, b) => Number(b[0]) - Number(a[0])))
     // The Leitung changes and deletes the employee's own report as well.
     expect(getEmployeeAccident(db, manager(leitungUser), own)).toMatchObject({ right: 'edit', canDelete: true })
     deleteEmployeeAccident(db, manager(leitungUser), own)
     expect(listEmployeeAccidents(db, manager(leitungUser), anna).forms.map(item => item.id)).toEqual([byLeitung])
   })
 
+  it('the employee cannot set „gemeldet am“ on their own report; the Leitung can, and then the employee only reads (M2, L4)', () => {
+    const own = createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header, unfit: true, reportedOn: '2026-11-17' }, NOW)
+    expect(getEmployeeAccident(db, self(annaUser), own)).toMatchObject({ reportedOn: null, canReport: false, right: 'edit' })
+    const form = getEmployeeAccident(db, self(annaUser), own)
+    saveEmployeeAccident(db, self(annaUser), own, { ...header, unfit: true, reportedOn: '2026-11-18', answers: {}, expectedUpdatedAt: form.updatedAt }, LATER)
+    expect(getEmployeeAccident(db, manager(leitungUser), own)).toMatchObject({ reportedOn: null, canReport: true })
+    const loaded = getEmployeeAccident(db, manager(leitungUser), own)
+    expect(failure(() => saveEmployeeAccident(db, manager(leitungUser), own, { ...header, unfit: true, reportedOn: '2026-11-16', answers: {}, expectedUpdatedAt: loaded.updatedAt }, LATER)))
+      .toBe('400 accident_reported_invalid')
+    saveEmployeeAccident(db, manager(leitungUser), own, { ...header, unfit: true, reportedOn: '2026-11-18', answers: {}, expectedUpdatedAt: loaded.updatedAt }, LATER)
+    expect(getEmployeeAccident(db, self(annaUser), own)).toMatchObject({ reportedOn: '2026-11-18', right: 'read' })
+    expect(failure(() => addEmployeeAccidentAttachment(db, self(annaUser), own, { data: PNG, filename: 'x.png' }, LATER))).toBe('403 forbidden')
+  })
+
+  it('„Meine Unfälle“ of a Leitung shows the rights of the report itself', () => {
+    const leaderEmployee = addEmployee(db, 'Lea Leitung')
+    const lead = addUser(db, 'lea', 'admin', leaderEmployee)
+    const id = createMyAccident(db, manager(lead), { templateId: u1000Template, ...header }, NOW)
+    expect(listMyAccidents(db, manager(lead)).forms.map(item => [item.id, item.right, item.canDelete, item.canReport]))
+      .toEqual([[id, 'edit', true, true]])
+    expect(getEmployeeAccident(db, manager(lead), id)).toMatchObject({ right: 'edit', canDelete: true, canReport: true })
+  })
+
+  it('copies of the U 1000 starter keep the official print layout (L2)', () => {
+    const copy = copyTemplate(db, leitungUser, 1, u1000Template, NOW)
+    const id = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: copy, ...header }, NOW)
+    expect(getEmployeeAccident(db, manager(leitungUser), id).printLayout).toBe('u1000')
+  })
+
   it('another employee, a Mitarbeiter without the right and another facility get nothing', () => {
-    const id = createMyAccident(db, annaUser, { templateId: u1000Template, ...header }, NOW)
+    const id = createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header }, NOW)
     expect(failure(() => getEmployeeAccident(db, self(bertaUser), id))).toBe('404 form_not_found')
     expect(failure(() => saveEmployeeAccident(db, self(bertaUser), id, { ...header, answers: {}, expectedUpdatedAt: '' }))).toBe('404 form_not_found')
     expect(failure(() => listEmployeeAccidents(db, manager(bertaUser), anna))).toBe('403 forbidden')
@@ -270,11 +326,11 @@ describe('accident reports about an employee', () => {
     expect(failure(() => readEmployeeAccidentAttachment(db, manager(leitung2), file))).toBe('404 attachment_not_found')
     expect(failure(() => readEmployeeAccidentAttachment(db, self(bertaUser), file))).toBe('404 attachment_not_found')
     // A child template is no choice for an employee.
-    expect(failure(() => createMyAccident(db, annaUser, { templateId: childTemplate, ...header }, NOW))).toBe('404 form_template_not_found')
+    expect(failure(() => createMyAccident(db, self(annaUser), { templateId: childTemplate, ...header }, NOW))).toBe('404 form_template_not_found')
   })
 
   it('goes along when the employee moves to another facility', () => {
-    const id = createMyAccident(db, annaUser, { templateId: u1000Template, ...header }, NOW)
+    const id = createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header }, NOW)
     const other = addFacility(db, 'Zweite')
     moveEmployeeAccidents(db, anna, other)
     db.update(employees).set({ facilityId: other }).where(eq(employees.id, anna)).run()
@@ -287,23 +343,51 @@ describe('overview and reminder', () => {
   it('lists the facility\'s reports of the year, children and employees, for Leitung/Träger only', () => {
     createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header, date: '2025-12-31' }, NOW)
     const childReport = createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header, doctor: true }, NOW)
-    const staffReport = createMyAccident(db, annaUser, { templateId: u1000Template, ...header, date: '2026-01-02', unfit: true, reportedOn: '2026-01-03' }, NOW)
-    const list = listAccidentOverview(db, leitungUser, 1, 2026, NOW)
+    const staffReport = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header, date: '2026-01-02', unfit: true, reportedOn: '2026-01-03' }, NOW)
+    const list = listAccidentOverview(db, leitung, 2026, NOW)
     expect(list.map(item => [item.id, item.subject, item.personName, item.doctor, item.unfit, item.reportedOn])).toEqual([
       [childReport, 'child', 'Lena Kurz', true, false, null],
       [staffReport, 'employee', 'Anna Muster', false, true, '2026-01-03'],
     ])
-    expect(listAccidentOverview(db, leitungUser, 1, 2025, NOW)).toHaveLength(1)
-    expect(failure(() => listAccidentOverview(db, annaUser, 1, 2026, NOW))).toBe('403 forbidden')
-    expect(listAccidentOverview(db, addUser(db, 'l2', 'admin', null, addFacility(db, 'Zweite')), 2, 2026, NOW)).toEqual([])
+    expect(list.map(item => [item.right, item.canDelete, item.canReport])).toEqual([['edit', true, true], ['edit', true, true]])
+    expect(listAccidentOverview(db, leitung, 2025, NOW)).toHaveLength(1)
+    expect(failure(() => listAccidentOverview(db, annaTablet, 2026, NOW))).toBe('403 forbidden')
+    // Not at the tablet, even unlocked by the Leitung.
+    expect(failure(() => listAccidentOverview(db, { ...leitung, onTablet: true }, 2026, NOW))).toBe('403 forbidden')
+    expect(listAccidentOverview(db, asChildViewer(addUser(db, 'l2', 'admin', null, addFacility(db, 'Zweite'))), 2026, NOW)).toEqual([])
+  })
+
+  it('shows children only as far as the viewer sees their records: group scope, tablet switches, archive (M1)', () => {
+    const own = createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header, doctor: true }, NOW)
+    createChildAccident(db, leitung, otherGroupKid, { templateId: childTemplate, ...header, doctor: true }, NOW)
+    const staff = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header, unfit: true }, NOW)
+    // A Gruppenleitung of group A with „Unfälle verwalten“ by exception: group B stays hidden.
+    const scoped: ChildViewer = { ...leitung, groups: { own: groupA, readable: [] } }
+    expect(listAccidentOverview(db, scoped, 2026, NOW).map(item => item.id).sort()).toEqual([own, staff].sort())
+    expect(accidentReminders(db, scoped, '2026-11-18').map(item => item.name).sort()).toEqual(['Anna Muster', 'Lena Kurz'])
+    // A Vormerkung the switches hide, and an archived record without children.manage, are not listed either.
+    const planned = addChild(db, 1, { firstName: 'Mia', groupId: groupA, admissionStatus: 'waitlist', entryDate: null, plannedEntryDate: '2027-01-01' })
+    db.insert(forms).values({
+      facilityId: 1, kind: 'accident', title: 'x', content: '{"sections":[]}', createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+      childId: planned, formDate: '2026-11-17', accidentDoctor: true,
+    }).run()
+    const hiding: ChildViewer = { ...scoped, visibility: { waitlist: false, futureContracts: false } }
+    expect(listAccidentOverview(db, hiding, 2026, NOW).map(item => item.childId)).not.toContain(planned)
+    expect(listAccidentOverview(db, scoped, 2026, NOW)).toHaveLength(3)
+    db.update(children).set({ leftOn: '2026-11-17' }).where(eq(children.id, kid)).run()
+    const noManage: ChildViewer = { ...scoped, permissions: new Set([...scoped.permissions].filter(key => key !== 'children.manage')) }
+    expect(listAccidentOverview(db, noManage, 2026, NOW).map(item => item.id)).not.toContain(own)
+    expect(accidentReminders(db, noManage, '2026-11-18').map(item => item.name)).not.toContain('Lena Kurz')
+    // With children.manage the archived record's report is listed, read only.
+    expect(listAccidentOverview(db, scoped, 2026, NOW).find(item => item.id === own)).toMatchObject({ right: 'read', canDelete: false })
   })
 
   it('reminds Leitung/Träger of a report with Arztbesuch or arbeitsunfähig until „gemeldet am“ is set; overdue after 3 days', () => {
     const quiet = createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header }, NOW)
     const doctor = createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header, date: '2026-11-14', doctor: true }, NOW)
-    createMyAccident(db, annaUser, { templateId: u1000Template, ...header, unfit: true }, NOW)
+    createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header, unfit: true }, NOW)
     expect(quiet).toBeGreaterThan(0)
-    const office = { permissions: leitung.permissions, onTablet: false, facilityId: 1 }
+    const office = leitung
     expect(accidentReminders(db, office, '2026-11-18').map(item => [item.name, item.date, item.state, item.childId]).sort()).toEqual([
       ['Anna Muster', '2026-11-17', 'upcoming', null],
       ['Lena Kurz', '2026-11-14', 'overdue', kid],
@@ -317,6 +401,18 @@ describe('overview and reminder', () => {
     const loaded = getChildAccident(db, leitung, doctor, NOW)
     saveChildAccident(db, leitung, doctor, { ...header, date: '2026-11-14', doctor: true, reportedOn: '2026-11-18', answers: {}, expectedUpdatedAt: loaded.updatedAt }, LATER)
     expect(accidentReminders(db, office, '2026-11-18').map(item => item.name)).toEqual(['Anna Muster'])
+  })
+})
+
+describe('child record moved to another facility', () => {
+  it('its accident reports keep no author or uploader link to the old facility', () => {
+    const id = createChildAccident(db, annaTablet, kid, { templateId: childTemplate, ...header }, NOW)
+    addChildAccidentAttachment(db, annaTablet, id, { data: PNG, filename: 'knie.png' }, NOW)
+    moveChildForms(db, kid, addFacility(db, 'Zweite'))
+    expect(db.select({ user: forms.createdByUserId, employee: forms.createdByEmployeeId }).from(forms).where(eq(forms.id, id)).get())
+      .toEqual({ user: null, employee: null })
+    expect(db.select({ user: formAttachments.uploadedByUserId, employee: formAttachments.uploadedByEmployeeId }).from(formAttachments).all())
+      .toEqual([{ user: null, employee: null }])
   })
 })
 

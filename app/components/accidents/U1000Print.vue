@@ -29,7 +29,13 @@ const box = (on: boolean) => (on ? '☒' : '☐')
 const labelWithoutNumber = (item: FormItem) => (fieldNumber(item) === null ? itemLabel(item) : itemLabel(item).replace(/^\d{1,2}\s+/, ''))
 /** Field 29: the phone number for questions (the text answers of its items). */
 const phone = computed(() => itemsOf(29).filter(item => item.kind === 'text').map(item => textOf(item.id)).filter(Boolean).join(', '))
-const cell = 'border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
+// A box never splits across pages; the last boxes (27, 28) stay together with the signature row.
+const cell = 'break-inside-avoid border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
+const LAST_BOXES = new Set([27, 28])
+const parts = [
+  { end: false, boxes: U1000_LAYOUT.filter(entry => !LAST_BOXES.has(entry.field)) },
+  { end: true, boxes: U1000_LAYOUT.filter(entry => LAST_BOXES.has(entry.field)) },
+]
 </script>
 
 <template>
@@ -43,14 +49,15 @@ const cell = 'border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
         <span class="text-[10px] text-gray-600 print:text-[8px]">{{ props.sheet.title }}</span>
         <h1 class="text-xl font-bold tracking-wide print:text-[16px]">{{ a.u1000Title }}</h1>
       </div>
-      <div class="grid grid-cols-12 border-t border-l border-gray-700">
+      <div class="border-t border-l border-gray-700">
+      <div v-for="part in parts" :key="String(part.end)" class="grid grid-cols-12" :class="part.end ? 'break-inside-avoid' : ''">
         <div
-          v-for="entry in U1000_LAYOUT" :key="entry.field" :class="[cell, entry.tall ? 'min-h-24 print:min-h-20' : 'min-h-11 print:min-h-9']"
+          v-for="entry in part.boxes" :key="entry.field" :class="[cell, entry.tall ? 'min-h-24 print:min-h-20' : 'min-h-11 print:min-h-9']"
           :style="{ gridColumn: `span ${entry.span} / span ${entry.span}` }"
         >
           <!-- Field 15 is the form's header: Datum and Uhrzeit. -->
           <template v-if="entry.field === 15">
-            <p class="text-[10px] print:text-[8px]"><span class="font-bold">15</span> {{ de.accidents.header.date }} / {{ de.accidents.header.start }}</p>
+            <p class="text-[10px] print:text-[8px]"><span class="font-bold">15</span> {{ a.u1000Field15 }}</p>
             <p class="font-medium">{{ props.sheet.accidentTime }}</p>
           </template>
           <template v-else>
@@ -68,7 +75,7 @@ const cell = 'border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
           </template>
         </div>
         <!-- Items without a box of their own (a changed copy of the starter). -->
-        <div v-if="grouped.other.length" :class="[cell, 'col-span-12']">
+        <div v-if="!part.end && grouped.other.length" :class="[cell, 'col-span-12']">
           <p class="text-[10px] font-bold print:text-[8px]">{{ a.u1000Other }}</p>
           <div v-for="item in grouped.other" :key="item.id">
             <p v-if="item.kind === 'note'" class="whitespace-pre-line text-gray-700">{{ item.text }}</p>
@@ -83,10 +90,13 @@ const cell = 'border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
           </div>
         </div>
         <!-- 29: the signature row. -->
-        <div v-for="(label, index) in a.u1000Signature" :key="label" :class="[cell, 'col-span-3 min-h-14 print:min-h-12']">
-          <p class="text-[10px] text-gray-700 print:text-[8px]"><span v-if="index === 0" class="font-bold text-gray-900">29</span> {{ label }}</p>
-          <p v-if="index === 3 && phone" class="break-words">{{ phone }}</p>
-        </div>
+        <template v-if="part.end">
+          <div v-for="(label, index) in a.u1000Signature" :key="label" :class="[cell, 'col-span-3 min-h-14 print:min-h-12']">
+            <p class="text-[10px] text-gray-700 print:text-[8px]"><span v-if="index === 0" class="font-bold text-gray-900">29</span> {{ label }}</p>
+            <p v-if="index === 3 && phone" class="break-words">{{ phone }}</p>
+          </div>
+        </template>
+      </div>
       </div>
       <p class="mt-1 text-[9px] text-gray-500 print:text-[7px]">U 1000</p>
       <div class="mt-3 space-y-0.5 text-[11px] text-gray-700 print:text-[8px]">

@@ -11,7 +11,7 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeDocuments, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formEditors, forms,
+  formAttachments, formEditors, forms,
   groupBookChanges, helpOuts, leaveEntitlements, leavePlanners, leaveRequests, notifications, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries,
@@ -191,6 +191,8 @@ const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
   { table: childNotes, column: childNotes.createdByEmployeeId },
   // The author of an accident report (e.g. about a child at the tablet): the report stays, „zuletzt geändert von“ keeps the name.
   { table: forms, column: forms.createdByEmployeeId },
+  // Who uploaded an accident report's attachment: the file stays with its uploader's name.
+  { table: formAttachments, column: formAttachments.uploadedByEmployeeId },
   { table: childAttendanceChanges, column: childAttendanceChanges.changedByEmployeeId },
   { table: groupBookChanges, column: groupBookChanges.changedByEmployeeId },
 ]

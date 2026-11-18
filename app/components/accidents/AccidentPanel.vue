@@ -9,8 +9,9 @@ import type { FormPanelSave } from '~/utils/forms'
 
 /**
  * One open accident report: its fixed header (Datum, Uhrzeit, Arztbesuch, for an employee „arbeitsunfähig“, „an
- * Unfallkasse gemeldet am“) and the answers in the shared form panel, editable when the API grants `edit`, else to read;
- * header and answers are saved together. Below: the attachments and, for an employee, the legal hint on the report.
+ * Unfallkasse gemeldet am“, which only Leitung/Träger set: `canReport`) and the answers in the shared form panel, editable
+ * when the API grants `edit` (for anybody but Leitung/Träger only until the report is reported), else to read; header and
+ * answers are saved together. Below: the attachments and, for an employee, the legal hint on the report.
  * `dirty` tells the list whether anything is unsaved; `refreshList` re-reads the list after a save.
  */
 const props = defineProps<{
@@ -53,7 +54,8 @@ const headerDirty = computed(() => JSON.stringify(header) !== savedHeader.value)
 function check(): string | null {
   if (!isValidIsoDate(header.date) || header.date > todayIso()) return a.dateInvalid
   if (header.start.trim() && (parseTime(header.start) === null || parseTime(header.start)! > 1439)) return de.common.invalidTimeAnyMinute
-  if (header.reportedOn && !isValidIsoDate(header.reportedOn)) return a.reportedInvalid
+  if (form.value?.canReport && header.reportedOn
+    && (!isValidIsoDate(header.reportedOn) || header.reportedOn < header.date || header.reportedOn > todayIso())) return a.reportedInvalid
   return null
 }
 
@@ -63,7 +65,9 @@ const save: FormPanelSave = async (answers, expectedUpdatedAt) => {
     method: 'PUT',
     body: {
       date: header.date, start: header.start.trim() ? parseTime(header.start) : null, doctor: header.doctor,
-      unfit: employee.value && header.unfit, reportedOn: header.reportedOn || null, answers, expectedUpdatedAt,
+      // Only Leitung/Träger set „gemeldet am“ (the server keeps the stored day for everybody else).
+      unfit: employee.value && header.unfit, reportedOn: form.value?.canReport ? header.reportedOn || null : form.value?.reportedOn ?? null,
+      answers, expectedUpdatedAt,
     },
   })
   savedHeader.value = sent
@@ -106,9 +110,12 @@ const headerLine = computed(() => {
             <UFormField :label="a.start" :hint="a.startHint">
               <TimeInput v-model="header.start" any-minute size="lg" />
             </UFormField>
-            <UFormField :label="a.reportedOn" :hint="a.reportedOnHint">
-              <DateTextInput v-model="header.reportedOn" :label="a.reportedOn" size="lg" class="w-full" />
+            <UFormField v-if="form.canReport" :label="a.reportedOn" :hint="a.reportedOnHint">
+              <DateTextInput v-model="header.reportedOn" :label="a.reportedOn" :min="header.date || undefined" :max="todayIso()" size="lg" class="w-full" />
             </UFormField>
+            <p v-else class="self-end text-sm text-gray-600">
+              {{ form.reportedOn ? a.reported(formatDate(form.reportedOn)) : a.notReported }} · {{ a.reportedByManagers }}
+            </p>
             <div class="flex flex-wrap items-center gap-x-6 gap-y-2 sm:col-span-2 lg:col-span-3">
               <UCheckbox v-model="header.doctor" class="min-h-11 items-center" :label="a.doctor" />
               <UCheckbox v-if="employee" v-model="header.unfit" class="min-h-11 items-center" :label="a.unfit" />

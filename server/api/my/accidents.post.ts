@@ -5,5 +5,5 @@ import { createMyAccident } from '../../services/accidents'
 export default defineServiceHandler(async (event) => {
   const user = await requireUser(event)
   const body = await readValidatedBody(event, accidentCreateSchema.parse)
-  return { id: createMyAccident(useDb(), user, body) }
+  return { id: createMyAccident(useDb(), accidentActor(event, user), body) }
 })

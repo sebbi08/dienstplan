@@ -138,7 +138,7 @@ function nextSortOrder(db: Db, facilityId: number, kind: FormKind): number {
 
 function toDto(row: FormTemplateRow, inUse: boolean): FormTemplateDto {
   return {
-    id: row.id, kind: row.kind, subject: row.subject, name: row.name, starterKey: row.starterKey, selfAssessment: row.selfAssessment,
+    id: row.id, kind: row.kind, subject: row.subject, printLayout: row.printLayout, name: row.name, starterKey: row.starterKey, selfAssessment: row.selfAssessment,
     archived: row.archived, sortOrder: row.sortOrder, content: templateContent(row), updatedAt: row.updatedAt,
     updatedBy: row.updatedBy, inUse,
   }
@@ -236,14 +236,14 @@ function copyName(db: Db, facilityId: number, kind: FormKind, name: string): str
   }
 }
 
-/** A copy at the end of its kind: same texts and settings, new ids, active, no starter key; returns its id. */
+/** A copy at the end of its kind: same texts and settings (print layout included), new ids, active, no starter key; returns its id. */
 export function copyTemplate(
   db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date(), newId: () => string = randomUUID,
 ): number {
   const row = loadTemplate(db, facilityId, id)
   const at = now.toISOString()
   return db.insert(formTemplates).values({
-    facilityId, kind: row.kind, subject: row.subject, name: copyName(db, facilityId, row.kind, row.name), selfAssessment: row.selfAssessment,
+    facilityId, kind: row.kind, subject: row.subject, printLayout: row.printLayout, name: copyName(db, facilityId, row.kind, row.name), selfAssessment: row.selfAssessment,
     sortOrder: nextSortOrder(db, facilityId, row.kind), content: JSON.stringify(freshIds(templateContent(row), newId)),
     createdAt: at, updatedAt: at, updatedBy: actorName(db, actor),
   }).returning({ id: formTemplates.id }).get().id
@@ -272,7 +272,7 @@ export function seedStarterTemplates(db: Db, facilityId: number, now: Date = new
       const taken = existingNames(db, facilityId, starter.kind)
         .some(row => row.name.toLocaleLowerCase('de') === starter.name.toLocaleLowerCase('de'))
       db.insert(formTemplates).values({
-        facilityId, kind: starter.kind, subject: starter.subject ?? null, starterKey: starter.key, selfAssessment: starter.selfAssessment,
+        facilityId, kind: starter.kind, subject: starter.subject ?? null, printLayout: starter.printLayout ?? null, starterKey: starter.key, selfAssessment: starter.selfAssessment,
         name: taken ? copyName(db, facilityId, starter.kind, starter.name) : starter.name,
         sortOrder: nextSortOrder(db, facilityId, starter.kind),
         content: JSON.stringify(checkContent(starterContent(starter, newId))), createdAt: at, updatedAt: at, updatedBy: '',

@@ -93,9 +93,9 @@ describe('checkContent', () => {
     ['note 1000', { id: 'i', kind: 'note', text: 'x'.repeat(1000) }],
     ['text 300', { id: 'i', kind: 'text', question: 'x'.repeat(300) }],
     ['choices without question', { id: 'i', kind: 'choices', question: '', options: [{ id: 'o', label: 'x' }] }],
-    ['choices 40 options of 80', {
+    ['choices 40 options of 100', {
       id: 'i', kind: 'choices', question: 'x'.repeat(300),
-      options: Array.from({ length: 40 }, (_, n) => ({ id: `o${n}`, label: 'x'.repeat(80) })),
+      options: Array.from({ length: 40 }, (_, n) => ({ id: `o${n}`, label: 'x'.repeat(100) })),
     }],
     ['rating 300', { id: 'i', kind: 'rating', criterion: 'x'.repeat(300) }],
     ['milestone at limits', { id: 'i', kind: 'milestone', text: 'x'.repeat(300), ageLabel: 'x'.repeat(20) }],
@@ -119,7 +119,7 @@ describe('checkContent', () => {
       id: 'i', kind: 'choices', question: '',
       options: Array.from({ length: 41 }, (_, n) => ({ id: `o${n}`, label: 'x' })),
     }],
-    ['choices option 81', { id: 'i', kind: 'choices', question: '', options: [{ id: 'o', label: 'x'.repeat(81) }] }],
+    ['choices option 101', { id: 'i', kind: 'choices', question: '', options: [{ id: 'o', label: 'x'.repeat(101) }] }],
     ['choices option empty', { id: 'i', kind: 'choices', question: '', options: [{ id: 'o', label: '' }] }],
     ['choices option without id', { id: 'i', kind: 'choices', question: '', options: [{ id: '', label: 'x' }] }],
     ['rating empty', { id: 'i', kind: 'rating', criterion: '' }],

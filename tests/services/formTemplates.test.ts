@@ -242,6 +242,7 @@ describe('accident starters', () => {
     expect(byNumber(7)).toMatchObject({ kind: 'choices', options: [{ label: 'Männlich' }, { label: 'Weiblich' }, { label: 'Divers' }, { label: 'Keine Angabe' }] })
     expect(byNumber(15).kind).toBe('note')
     expect(byNumber(17)).toMatchObject({ kind: 'choices', prefill: 'homeOffice', options: [{ label: 'Nein' }, { label: 'Ja' }] })
+    expect(byNumber(11)).toMatchObject({ options: expect.arrayContaining([{ id: expect.any(String), label: 'mit der Unternehmerin/dem Unternehmer in eingetragener Lebenspartnerschaft lebend' }]) })
     expect(byNumber(27)).toMatchObject({ kind: 'choices', options: [{ label: 'Nein' }, { label: 'Sofort' }, { label: 'Später' }] })
     expect(Object.fromEntries(items.flatMap(item => ('prefill' in item && item.prefill ? [[item.prefill, Number(labelOf(item).split(' ')[0])]] : []))))
       .toEqual({
@@ -260,6 +261,8 @@ describe('accident starters', () => {
     const copyId = copyTemplate(db, leitung, 1, u1000.id, now)
     const copy = listTemplates(db, 1, 'accident').find(template => template.id === copyId)!
     expect(copy.subject).toBe('employee')
+    // The copy keeps the official print layout.
+    expect([u1000.printLayout, copy.printLayout]).toEqual(['u1000', 'u1000'])
     expect(copy.content.sections.flatMap(section => section.items).filter(item => 'prefill' in item && item.prefill)).toHaveLength(11)
   })
 })

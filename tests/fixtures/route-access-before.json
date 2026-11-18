@@ -1,6 +1,6 @@
 {
   "absence-codes/[id].put.ts": ["provider"],
-  "accidents/index.get.ts": ["provider","admin"],
+  "accidents/index.get.ts": ["provider","admin","tablet:provider","tablet:admin"],
   "app-settings.get.ts": ["provider","admin"],
   "app-settings.put.ts": ["provider","admin"],
   "attendance-settings.get.ts": ["provider","admin"],

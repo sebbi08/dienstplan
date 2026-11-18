@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeDocuments,
   employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, teamMeetingParticipants,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { applyToCells } from '../../server/services/entries'
@@ -105,9 +105,13 @@ export function fillEmployeeData(
     db.insert(formEditors).values({ formId, employeeId: id, grantedAt: at }).run()
     // An accident report about the person, filled in by themselves (Unfallanzeige).
     if (options.accidents) {
-      db.insert(forms).values({
+      const accidentId = db.insert(forms).values({
         facilityId: 1, kind: 'accident', title: 'Unfallanzeige', content: '{"sections":[]}', createdAt: at, updatedAt: at,
         employeeId: id, createdByEmployeeId: id, formDate: '2026-10-05',
+      }).returning({ id: forms.id }).get().id
+      db.insert(formAttachments).values({
+        formId: accidentId, fileName: 'Foto.png', mimeType: 'image/png', size: 4, data: Buffer.from('%PNG'), uploadedAt: at,
+        uploadedByName: 'am Tablet', uploadedByEmployeeId: id,
       }).run()
     }
     const tablet = addUser(db, `tablet-${id}`, 'terminal')

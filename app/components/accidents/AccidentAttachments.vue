@@ -7,7 +7,7 @@ import { formatDateTime } from '~/utils/format'
 
 /**
  * The files attached to an accident report (photos, PDF): upload where the report may be changed (at the tablet also a
- * photo with the camera, as for the child documents), open, delete. At the tablet a file opens in the app's viewer only
+ * photo with the camera, as for the child documents), open, delete (the uploader and Leitung/Träger: `canDelete`). At the tablet a file opens in the app's viewer only
  * (no download, no link to the file); in the office it opens in a new tab or downloads.
  */
 const props = defineProps<{
@@ -71,7 +71,7 @@ const iconLink = 'inline-flex size-9 items-center justify-center rounded-md text
           :title="a.attachmentDownload"
         ><UIcon name="i-lucide-download" class="size-4" /></a>
         <UButton
-          v-if="editable" class="min-h-9" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :disabled="busy"
+          v-if="editable && file.canDelete" class="min-h-9" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :disabled="busy"
           :aria-label="`${a.attachmentDelete}: ${file.fileName}`" @click="remove(file)"
         />
       </li>
