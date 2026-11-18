@@ -1341,6 +1341,8 @@ export const de = {
     // The "Anwesenheit" tab (tablet and office).
     tab: 'Anwesenheit', dayView: 'Tag', monthView: 'Monat', print: 'Drucken',
     previousDay: 'Vorheriger Tag', nextDay: 'Nächster Tag', today: 'Heute',
+    // The search field of the day list (not remembered).
+    search: 'Kind suchen', clearSearch: 'Suche leeren', noSearchHit: 'Kein Kind gefunden.',
     noCareDay: 'Kein Betreuungstag (Wochenende, Feiertag oder Schließtag). Einstempeln geht trotzdem, z. B. bei einer Notbetreuung.',
     counts: (c: { present: number; gone: number; absent: number; notYet: number }) =>
       `Da: ${c.present} · Abgeholt: ${c.gone} · Abwesend: ${c.absent} · Noch nicht da: ${c.notYet}`,

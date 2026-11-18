@@ -1926,6 +1926,9 @@ export interface AttendanceChildDto {
   childId: number
   /** "Nachname, Vorname". */
   name: string
+  /** The name parts, for the search field of the day list. */
+  firstName: string
+  lastName: string
   /** The child's group on the day (null = none). */
   groupId: number | null
   /**

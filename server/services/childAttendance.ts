@@ -268,6 +268,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
     return {
       childId: row.id,
       name: nameOf(row),
+      firstName: row.firstName,
+      lastName: row.lastName,
       groupId,
       own: ownDay,
       // The record follows the child's current group, not the one of the day.

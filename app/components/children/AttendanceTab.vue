@@ -12,6 +12,7 @@ import {
   countedMealNames, closedGroupWarnings, readAttendanceSummaryOpen, readClosedAttendanceGroups, visibleAttendanceRows,
   writeAttendanceSummaryOpen, writeClosedAttendanceGroups,
 } from '~/utils/attendanceRow'
+import { attendanceSearchKey, filterAttendanceChildren } from '~/utils/attendanceSearch'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
@@ -27,8 +28,11 @@ import { formatDate } from '~/utils/format'
  * red) with "Kommt" or "Geht" on its right; tapping the row opens everything else below it (several rows may be open,
  * for this page view only). The group headings close and open their children, remembered per device.
  *
- * On top only one compact bar (Tag/Monat, the day, and one summary line „Da 12 · Noch nicht da 3 · … · Mittagessen
- * 10“); tapping the line opens the full counts and the meal box, remembered per device. The children follow at once.
+ * On top only one compact bar (Tag/Monat, the day, the search field „Kind suchen“ and one summary line „Da 12 · Noch
+ * nicht da 3 · … · Mittagessen 10“); tapping the line opens the full counts and the meal box, remembered per device. The
+ * children follow at once. While a search is typed, only the hits are listed: every group with a hit open (its
+ * remembered closed state stays as it is, its heading does not toggle meanwhile), groups without a hit hidden. The
+ * search is kept for this page view only.
  */
 const { rights, onTablet } = useChildRights()
 const canPrint = computed(() => !!rights.value?.isManager && !onTablet.value)
@@ -82,13 +86,24 @@ function toggleSummary() {
   writeAttendanceSummaryOpen(summaryOpen.value)
 }
 const summaryParts = computed(() => (data.value ? attendanceSummaryParts(data.value.counts, data.value.meals) : []))
-/** The groups as listed: a closed one keeps its overdue children and warns on its heading (overdue count, contact ban). */
-const shownSections = computed(() => sections.value.map(section => ({
-  ...section,
-  closed: isClosed(section.key),
-  shown: visibleAttendanceRows(section.rows, isClosed(section.key), isOverdue),
-  warnings: closedGroupWarnings(section.rows, isOverdue),
-})))
+
+// The search field: filters as you type, for this page view only (never remembered).
+const search = ref('')
+const searching = computed(() => attendanceSearchKey(search.value) !== '')
+
+/**
+ * The groups as listed: a closed one keeps its overdue children and warns on its heading (overdue count, contact ban).
+ * While searching only the hits, each group with a hit open, the others left out.
+ */
+const shownSections = computed(() => sections.value.map((section) => {
+  const closed = !searching.value && isClosed(section.key)
+  return {
+    ...section,
+    closed,
+    shown: visibleAttendanceRows(filterAttendanceChildren(section.rows, search.value), closed, isOverdue),
+    warnings: closedGroupWarnings(section.rows, isOverdue),
+  }
+}).filter(section => !searching.value || section.shown.length > 0))
 
 /** The stays never closed on earlier days, one line per day ("Gestern nicht ausgestempelt: …"). */
 const openStayDays = computed(() => {
@@ -229,6 +244,17 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
           />
           <UButton size="lg" class="min-h-11" color="neutral" variant="outline" :label="s.today" :disabled="date === todayIso()" @click="date = todayIso()" />
           <span class="px-1 text-base font-semibold">{{ dayText(date) }}</span>
+          <UInput
+            v-model="search" size="lg" icon="i-lucide-search" autocomplete="off" :placeholder="s.search" :aria-label="s.search"
+            class="w-full sm:w-64" :ui="{ base: 'min-h-11', trailing: 'pe-0' }"
+          >
+            <template v-if="search" #trailing>
+              <UButton
+                size="lg" class="min-h-11 min-w-11 justify-center" color="neutral" variant="link" icon="i-lucide-x"
+                :aria-label="s.clearSearch" :title="s.clearSearch" @click="search = ''"
+              />
+            </template>
+          </UInput>
           <UButton
             v-if="canPrint" class="ml-auto min-h-11" color="neutral" variant="outline" icon="i-lucide-printer" :label="s.print"
             :to="`/print/children/attendance/${date}`" target="_blank"
@@ -270,11 +296,15 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
         </div>
 
         <p v-if="!sections.length" class="text-sm text-gray-500">{{ s.noChildren }}</p>
+        <p v-else-if="searching && !shownSections.length" class="rounded-lg bg-white p-4 text-base ring-1 ring-gray-200" role="status">
+          {{ s.noSearchHit }}
+        </p>
         <section v-for="section in shownSections" :key="section.key" class="space-y-1">
           <h2>
+            <!-- While searching every group with a hit stays open; its remembered state is not touched. -->
             <button
-              type="button"
-              class="flex min-h-11 w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-1 text-left text-sm font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary"
+              type="button" :disabled="searching"
+              class="flex min-h-11 w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-1 text-left text-sm font-semibold uppercase tracking-wide text-gray-600 enabled:hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary"
               :aria-expanded="!section.closed" :aria-controls="`attendance-group-${section.key}`" @click="toggleGroup(section.key)"
             >
               <UIcon :name="section.closed ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'" class="size-5 shrink-0" aria-hidden="true" />

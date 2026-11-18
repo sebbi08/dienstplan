@@ -548,6 +548,8 @@ describe('child attendance', () => {
       expect(errorCode(() => attendanceHistory(db, leitung, childId, TODAY))).toBe('child_not_found')
     }
     expect(dayOf().children.map(child => child.childId)).toEqual([lena])
+    // The name parts for the search field come along.
+    expect(rowOf()).toMatchObject({ name: 'Meier, Lena', firstName: 'Lena', lastName: 'Meier' })
     // Before leaving the child was active.
     // Same birth date: by first name (the facility's default sort is oldest first).
     arriveAt('08:00', { childId: gone, date: '2026-09-30' })
