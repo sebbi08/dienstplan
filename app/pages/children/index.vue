@@ -31,7 +31,8 @@ async function loadSort() {
   if (!canSort.value || sort.value) return
   try { sort.value = (await $fetch<{ sort: ChildSort }>('/api/children/sort')).sort } catch { /* the select stays hidden */ }
 }
-onMounted(loadSort)
+// Also when the rights arrive or change after mounting (the select would otherwise stay hidden until a reload).
+onMounted(() => watch(canSort, loadSort, { immediate: true }))
 async function changeSort(next: ChildSort) {
   const previous = sort.value
   sort.value = next
