@@ -62,6 +62,25 @@ describe('month plan', () => {
     expect(plan.admin).toBeNull()
     expect(plan.entries).toHaveLength(1)
   })
+  it('gives the facility tablet the very plan an observer sees: released only, no draft, no admin data, no edit right', () => {
+    const tablet = addUser(db, 'tablet', 'terminal')
+    expect(tablet.permissions).not.toContain('plan.edit')
+    // Not released yet: nothing to print.
+    expect(errorCode(() => getMonthPlan(db, tablet, 1, 2026, 10, today))).toBe('month_not_released')
+    shift(anna, '2026-10-05', 'F2')
+    shift(ben, '2026-10-05', 'M')
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
+    releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    // A later draft edit stays invisible.
+    shift(anna, '2026-10-05', 'S')
+    setDayNote(db, admin, 1, '2026-10-07', 'info1', 'Entwurf')
+    const plan = getMonthPlan(db, tablet, 1, 2026, 10, today)
+    expect(plan).toEqual(getMonthPlan(db, observer, 1, 2026, 10, today))
+    expect(plan.admin).toBeNull()
+    expect(plan.release.pendingCount).toBe(0)
+    expect(plan.entries.find(e => e.employeeId === anna && e.date === '2026-10-05')?.shortLabel).toBe('F2')
+    expect(plan.days[6]!.info1).toBe('')
+  })
   it('shows observers only the released state, not later draft edits', () => {
     shift(anna, '2026-10-06', 'F2')
     releaseMonth(db, admin, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))

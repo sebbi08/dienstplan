@@ -7,6 +7,8 @@ import { de } from '~/locales/de'
  */
 const props = defineProps<{ fileName: string; search?: string }>()
 const route = useRoute()
+// The facility's tablet only prints: the PDF download is for personal accounts.
+const { user } = useUserSession()
 const downloading = ref(false)
 const toast = useToast()
 
@@ -40,7 +42,7 @@ async function download() {
 
 <template>
   <div class="ml-auto flex gap-2 print:hidden">
-    <UButton color="neutral" variant="outline" icon="i-lucide-file-down" :loading="downloading" :label="de.common.pdf" @click="download" />
+    <UButton v-if="user?.role !== 'terminal'" color="neutral" variant="outline" icon="i-lucide-file-down" :loading="downloading" :label="de.common.pdf" @click="download" />
     <UButton icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
   </div>
 </template>

@@ -4,6 +4,7 @@ import { formatTime } from '#shared/domain/time'
 import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
+import { shiftMonth } from '~/utils/format'
 import { pinFailureText } from '~/utils/pin'
 
 type Mode = 'start' | 'stamp' | 'children'
@@ -15,6 +16,18 @@ const { data: people, refresh, error } = await useFetch<TerminalPersonDto[]>('/a
 const chosenId = ref<number | null>(null)
 // Derived from the refreshed list so a poll updates the clock-in/out state of the button.
 const chosen = computed(() => people.value?.find(person => person.employeeId === chosenId.value) ?? null)
+const printMenuOpen = ref(false)
+/** This month's and next month's plan printout (the server shows the released plan only). */
+const printHref = (target: { year: number; month: number }) => `/print/${target.year}/${target.month}`
+const printMonths = computed(() => {
+  const now = new Date()
+  const current = { year: now.getFullYear(), month: now.getMonth() + 1 }
+  const next = shiftMonth(current.year, current.month, 1)
+  return [
+    { label: de.terminal.printPlanThisMonth, ...current, href: printHref(current) },
+    { label: de.terminal.printPlanNextMonth, ...next, href: printHref(next) },
+  ]
+})
 const pin = ref('')
 const message = ref('')
 const failure = ref('')
@@ -140,6 +153,22 @@ async function openChildren() {
           <UIcon name="i-lucide-printer" class="size-12 text-sky-700" />
           {{ de.terminal.templatesTitle }}
         </NuxtLink>
+        <!-- The released plan to print: nothing personal beyond what every employee sees, so no PIN. -->
+        <button
+          type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+          @click="printMenuOpen = !printMenuOpen"
+        >
+          <UIcon name="i-lucide-calendar-days" class="size-12 text-sky-700" />
+          {{ de.terminal.printPlan }}
+        </button>
+        <div v-if="printMenuOpen" class="flex gap-3 sm:col-span-2">
+          <a
+            v-for="entry in printMonths" :key="entry.month" :href="entry.href" target="_blank"
+            class="flex-1 rounded-xl bg-white p-6 text-center text-xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+          >
+            {{ entry.label }}
+          </a>
+        </div>
         <!-- The facility's notes, to read: no child data, so no PIN is needed either. -->
         <NuxtLink
           to="/notes" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"

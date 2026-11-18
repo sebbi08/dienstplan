@@ -124,8 +124,8 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect('/cash/9', viewerOf('observer'))).toBe('/')
   })
 
-  it('lets the tablet open stamping, the plan, the print templates, the team meetings and the notes, the child pages by unlock', () => {
-    const tablet = ['/notes', '/plan/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
+  it('lets the tablet open stamping, the plan and its printout, the print templates, the team meetings and the notes, the child pages by unlock', () => {
+    const tablet = ['/notes', '/plan/2026/10', '/print/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
     expect(pagePaths.filter(tabletMayOpen)).toEqual(tablet)
     expect(pagePaths.filter(isChildPagePath)).toEqual(['/children', '/children/1', '/children/new'])
   })

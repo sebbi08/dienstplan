@@ -189,6 +189,7 @@ export const de = {
     pinLockedUntil: (time: string) => `PIN gesperrt bis ${time}.`,
     startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Vorlagen', notesTitle: 'Notizen',
     toStart: 'Startseite',
+    printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
     chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
     unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
     lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
@@ -203,6 +204,7 @@ export const de = {
     mismatch: 'Die beiden neuen Passwörter stimmen nicht überein.', submit: 'Passwort speichern', saved: 'Passwort geändert',
   },
   plan: {
+    notReleasedMonth: (month: string) => `Der Dienstplan für ${month} ist noch nicht freigegeben.`,
     date: 'Datum', info1: 'Info 1', info2: 'Info 2', draft: 'Entwurf',
     autoEventsHint: 'Automatisch aus den Kinder- und Mitarbeiterdaten – hier nicht bearbeitbar.',
     releasedAt: (date: string, by: string) => `Freigegeben am ${date} von ${by}`,
@@ -1353,7 +1355,9 @@ export const de = {
       here: (n: number) => (n === 1 ? '1 Kind da' : `${n} Kinder da`),
       by: (name: string, time: string) => `zusammengelegt von ${name} um ${time} Uhr`,
       empty: 'Gerade ist kein Kind dieser Gruppen da.',
-      searchHint: 'Kinder dieser Gruppen, die noch nicht da sind, findest du über „Kind suchen“.',
+      searchHint: 'Abgeholte und abwesende Kinder dieser Gruppen findest du über „Kind suchen“.',
+      /** The collapsed line below a merge: its children not arrived yet, with „Kommt“. */
+      waiting: (n: number) => `Noch nicht da (${n})`,
     },
     noCareDay: 'Kein Betreuungstag (Wochenende, Feiertag oder Schließtag). Einstempeln geht trotzdem, z. B. bei einer Notbetreuung.',
     counts: (c: { present: number; gone: number; absent: number; notYet: number }) =>
@@ -2194,7 +2198,7 @@ export const de = {
     stays_overlap: 'Die Zeiten überschneiden sich mit einem anderen Aufenthalt an diesem Tag.',
     group_merge_not_today: 'Gruppen kannst du nur für heute zusammenlegen.',
     group_merge_too_few: 'Bitte wähle mindestens zwei Gruppen.',
-    group_merge_taken: 'Eine dieser Gruppen ist heute schon mit einer anderen Gruppe zusammengelegt. Beende zuerst diese Zusammenlegung.',
-    group_merge_not_found: 'Diese Zusammenlegung gibt es nicht mehr. Bitte lade die Seite neu.',
+    group_merge_taken: 'Eine dieser Gruppen ist inzwischen schon mit einer anderen Gruppe zusammengelegt (oben in der Liste). Beende zuerst diese Zusammenlegung.',
+    group_merge_not_found: 'Diese Zusammenlegung wurde inzwischen beendet.',
   },
 }

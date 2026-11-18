@@ -5,13 +5,15 @@ import type { PermissionKey } from '../../shared/domain/permissions'
 export const isChildPagePath = (path: string): boolean => path === '/children' || path.startsWith('/children/')
 
 /**
- * The pages the shared tablet opens without an unlock: stamping, the general plan, the print templates, the team
- * meetings and the notes (no child data). Never /print: the team meetings' printout is for the staff's and the
- * managers' own devices. The tablet role is not part of the permission catalog, so this stays a rule of its own.
+ * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout
+ * (/print/<year>/<month>), the print templates, the team meetings and the notes (no child data). No other /print page:
+ * the team meetings' printout is for the staff's and the managers' own devices. The tablet role is not part of the
+ * permission catalog, so this stays a rule of its own.
  */
 export function tabletMayOpen(path: string): boolean {
   const teamMeetings = path === '/team-meetings' || path.startsWith('/team-meetings/')
-  return path === '/terminal' || path === '/templates' || path === '/notes' || path.startsWith('/plan/') || teamMeetings
+  const planPrintout = /^\/print\/\d+\/\d+$/.test(path)
+  return path === '/terminal' || path === '/templates' || path === '/notes' || path.startsWith('/plan/') || planPrintout || teamMeetings
 }
 
 /** A prefix starting with "=" matches only that address, any other one the address and the pages below it. */

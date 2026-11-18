@@ -3,7 +3,7 @@ import { formatTime } from '#shared/domain/time'
 import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { chipClasses } from '~/utils/colors'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDateTime, monthTitle } from '~/utils/format'
 import { shownGroup } from '~/utils/groups'
 
@@ -15,6 +15,7 @@ const month = Number(route.params.month)
 const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${month}`)
 
 // "?group=3": only that group's block, plus the Springer and helpers (as chosen above the plan; the PDF passes it on).
+const errorText = computed(() => (errorCode(error.value) === 'month_not_released' ? de.plan.notReleasedMonth(monthTitle(year, month)) : errorMessage(error.value)))
 const group = computed(() => (plan.value ? shownGroup(plan.value, Number(route.query.group) || null) : null))
 const groupName = computed(() => plan.value?.groups.find(candidate => candidate.id === group.value)?.name ?? null)
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
@@ -37,7 +38,7 @@ const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, 
       </span>
       <PrintActions :file-name="fileName" :search="group ? `?group=${group}` : ''" />
     </div>
-    <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
+    <p v-if="error" class="text-red-700">{{ errorText }}</p>
     <template v-if="plan">
       <PlanGrid :plan="plan" :group-filter="group" print />
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs print:mt-1 print:break-inside-avoid">
