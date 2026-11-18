@@ -597,7 +597,14 @@ export const de = {
     levelHint: (level: number, next: number | null, nextOn: string | null) =>
       `Nach Beschäftigungsdauer: Stufe ${level}` + (next !== null && nextOn ? `, Stufe ${next} ab ${nextOn}` : ' (Endstufe)'),
     useLevel: 'Diese Stufe übernehmen',
-    hint: 'Die Entgeltgruppe wird zur Tätigkeit nur vorgeschlagen; bei der Leitung hängt sie von der Größe der Einrichtung ab. Die Stufe richtet sich nach den Jahren in der Einrichtung (seit 01.10.2024: Stufe 2 nach 1 Jahr, 3 nach 3, 4 nach 6, 5 nach 10, 6 nach 15 Jahren); angerechnete Vorerfahrung kann eine höhere Stufe ergeben. Bitte mit der Personalabteilung prüfen.',
+    hint: 'Die Entgeltgruppe wird zur Tätigkeit nur vorgeschlagen; bei der Leitung hängt sie von der Größe der Einrichtung ab. Die Stufe richtet sich nach den Jahren in der Einrichtung (seit 01.10.2024: Stufe 2 nach 1 Jahr, 3 nach 3, 4 nach 6, 5 nach 10, 6 nach 15 Jahren); angerechnete Vorerfahrung kann eine höhere Stufe ergeben. Eine Ausbildung oder ein Studium hier zählt nicht mit: Die Stufenjahre beginnen am Tag nach dem Ende. Zählt das Anerkennungsjahr als Stufe 1, ist das erste Jahr nach der Ausbildung schon Stufe 2. Bitte mit der Personalabteilung prüfen.',
+    trainingUntil: 'Ausbildung/Studium hier bis',
+    trainingUntilHint: 'Leer, wenn keine Ausbildung oder kein Studium in der Einrichtung war.',
+    recognitionYearCounts: 'Anerkennungsjahr zählt als Stufe 1',
+    recognitionQuestion: 'Zählt das Anerkennungsjahr als Stufe 1? Dann ist das erste Jahr nach der Ausbildung Stufe 2.',
+    recognitionYes: 'Ja, Anerkennungsjahr zählt', recognitionNo: 'Nein',
+    levelYearsFrom: (date: string, reason: 'training' | 'recognition') =>
+      `Stufenjahre ab ${date} ` + (reason === 'training' ? '(nach Ausbildung)' : '(Anerkennungsjahr als Stufe 1)'),
     empty: 'Noch keine Angaben.',
     rowLabel: 'Vertrag',
     fixedTermUntil: 'befristet bis', fixedTermUntilHint: 'Leer bei einem unbefristeten Vertrag.',
@@ -1825,6 +1832,7 @@ export const de = {
     stamp_tablet_only: 'Du stempelst laut Einstellung der Leitung nur am Kita-Tablet.',
     invalid_pay_level: 'Die Stufe muss zwischen 1 und 6 liegen.',
     personnel_number_taken: 'Diese Personalnummer ist schon einem anderen Mitarbeiter zugeordnet.',
+    training_until_invalid: 'Bitte bei „Ausbildung/Studium hier bis“ ein gültiges Datum zwischen dem 01.01.1970 und einem Jahr ab heute eingeben.',
     leave_requests_off: 'Urlaubsanträge sind nicht aktiv.',
     not_leave_planner: 'Du bist nicht für die Urlaubsplanung zuständig.',
     invalid_leave_planner: 'Benachrichtigt werden können nur aktive Träger-Konten.',

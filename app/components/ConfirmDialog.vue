@@ -16,7 +16,7 @@ const open = computed({
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="settle(false)" />
+        <UButton color="neutral" variant="ghost" :label="request?.cancelLabel ?? de.common.cancel" @click="settle(false)" />
         <UButton :color="request?.danger ? 'error' : 'primary'" :label="request?.confirmLabel" @click="settle(true)" />
       </div>
     </template>

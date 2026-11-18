@@ -158,6 +158,8 @@ const IMMEDIATE_FIELDS_CLEARED = {
   // The personnel file (spec Personalakte §7): personal and sensitive fields, „befristet bis“.
   birthYear: null, street: null, postalCode: null, city: null, phone: null, email: null, nationality: null, disability: false,
   disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null,
+  // „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als Stufe 1“ with the contract data.
+  trainingUntil: null, recognitionYearCounts: false,
 }
 /** The employee row while one of IMMEDIATE_FIELDS_CLEARED still holds something. */
 const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employeeId), or(
@@ -168,7 +170,7 @@ const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employee
   isNotNull(employees.birthYear), isNotNull(employees.street), isNotNull(employees.postalCode), isNotNull(employees.city),
   isNotNull(employees.phone), isNotNull(employees.email), isNotNull(employees.nationality), ne(employees.disability, false),
   isNotNull(employees.disabilityDegree), ne(employees.disabilityEqual, false), isNotNull(employees.disabilityUntil),
-  isNotNull(employees.fixedTermUntil),
+  isNotNull(employees.fixedTermUntil), isNotNull(employees.trainingUntil), ne(employees.recognitionYearCounts, false),
 ))
 const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   { table: employeePayroll, column: employeePayroll.employeeId },

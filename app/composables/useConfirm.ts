@@ -3,6 +3,8 @@ import { de } from '~/locales/de'
 interface ConfirmRequest {
   message: string
   confirmLabel: string
+  /** The other button: „Abbrechen“, or „Nein“ for a yes/no question. */
+  cancelLabel: string
   danger: boolean
   resolve: (confirmed: boolean) => void
 }
@@ -15,12 +17,13 @@ const pending = shallowRef<ConfirmRequest | null>(null)
  * Resolves to true only when the user clicks the confirm button.
  */
 export function useConfirm() {
-  return function confirm(message: string, options: { confirmLabel?: string; danger?: boolean } = {}): Promise<boolean> {
+  return function confirm(message: string, options: { confirmLabel?: string; cancelLabel?: string; danger?: boolean } = {}): Promise<boolean> {
     pending.value?.resolve(false)
     return new Promise((resolve) => {
       pending.value = {
         message,
         confirmLabel: options.confirmLabel ?? de.common.delete,
+        cancelLabel: options.cancelLabel ?? de.common.cancel,
         danger: options.danger ?? true,
         resolve,
       }

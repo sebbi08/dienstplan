@@ -48,6 +48,9 @@ export interface EmployeeRecord {
   payLevel: number | null
   /** „befristet bis“ (null = unbefristet). */
   fixedTermUntil: IsoDate | null
+  /** „Ausbildung/Studium hier bis“ and whether the recognition year counts as level 1 (see levelStart). */
+  trainingUntil: IsoDate | null
+  recognitionYearCounts: boolean
   // Time tracking options set by the Leitung (see shared/domain/stamping.ts).
   stampVia: StampChannel
   breakMode: BreakMode
@@ -131,7 +134,8 @@ const RECORD_COLUMNS = {
   sortOrder: employees.sortOrder, leftOn: employees.leftOn, groupId: employees.groupId,
   personnelNumber: employees.personnelNumber, employedSince: employees.employedSince, jobKey: employees.jobKey,
   jobOther: employees.jobOther, payGroup: employees.payGroup, payLevel: employees.payLevel,
-  fixedTermUntil: employees.fixedTermUntil, stampVia: employees.stampVia, breakMode: employees.breakMode,
+  fixedTermUntil: employees.fixedTermUntil, trainingUntil: employees.trainingUntil,
+  recognitionYearCounts: employees.recognitionYearCounts, stampVia: employees.stampVia, breakMode: employees.breakMode,
   birthday: employees.birthday, qualification: employees.qualification, staffingShare: employees.staffingShare,
 }
 

@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { contractSchema, employeeUpdateSchema } from '../../server/schemas'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { setRoleBundle } from '../../server/services/rights'
@@ -228,7 +231,7 @@ describe('contract data (Träger only)', () => {
     const admin = addUser(db, 'traeger', 'provider')
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     setContract(db, 1, id, contract)
-    const saved = { ...contract, jobOther: null, fixedTermUntil: null } // free text only with 'other'
+    const saved = { ...contract, jobOther: null, fixedTermUntil: null, trainingUntil: null, recognitionYearCounts: false } // free text only with 'other'
     expect(listEmployees(db, 1, today, rolePermissions(db, 'provider'))[0]!.contract).toEqual(saved)
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'provider')).contract).toEqual(saved)
     expect(listEmployees(db, 1, today, rolePermissions(db, 'admin'))[0]!.contract).toBeUndefined()
@@ -256,6 +259,82 @@ describe('contract data (Träger only)', () => {
     expect(errorCode(() => setContract(db, 1, ben, { ...contract, personnelNumber: '1042' }))).toBe('personnel_number_taken')
     setContract(db, 1, ben, { ...contract, personnelNumber: ' ' })
     expect(getEmployee(db, 1, ben, today, rolePermissions(db, 'provider')).contract!.personnelNumber).toBeNull()
+  })
+})
+
+describe('contract data: training or studies in the facility', () => {
+  const today = '2026-11-18'
+  const contract = { personnelNumber: null, employedSince: '2021-09-01', jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const, payLevel: 2 }
+  let db: Db
+  let anna: number
+  beforeEach(() => {
+    db = createTestDb()
+    anna = createEmployee(db, addUser(db, 'traeger', 'provider'), 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+  })
+  const read = () => getEmployee(db, 1, anna, today, rolePermissions(db, 'provider')).contract!
+
+  it('starts empty, round-trips both fields and keeps them when left out', () => {
+    setContract(db, 1, anna, contract, today)
+    expect(read()).toMatchObject({ trainingUntil: null, recognitionYearCounts: false })
+    setContract(db, 1, anna, { ...contract, trainingUntil: '2024-07-31', recognitionYearCounts: true }, today)
+    expect(read()).toMatchObject({ trainingUntil: '2024-07-31', recognitionYearCounts: true })
+    setContract(db, 1, anna, { ...contract, payLevel: 3 }, today)
+    expect(read()).toMatchObject({ payLevel: 3, trainingUntil: '2024-07-31', recognitionYearCounts: true })
+    // The DTO goes back unchanged (as the level-up notice does it).
+    setContract(db, 1, anna, read(), today)
+    expect(read()).toMatchObject({ trainingUntil: '2024-07-31', recognitionYearCounts: true })
+    setContract(db, 1, anna, { ...contract, recognitionYearCounts: false }, today)
+    expect(read()).toMatchObject({ trainingUntil: '2024-07-31', recognitionYearCounts: false })
+    // Without a training end the recognition year has no meaning.
+    setContract(db, 1, anna, { ...contract, trainingUntil: null, recognitionYearCounts: true }, today)
+    expect(read()).toMatchObject({ trainingUntil: null, recognitionYearCounts: false })
+  })
+
+  it('shows them like the other contract fields: to the Leitung only with „Vertragsangaben ansehen“', () => {
+    setContract(db, 1, anna, { ...contract, trainingUntil: '2024-07-31', recognitionYearCounts: true }, today)
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin'))).not.toHaveProperty('contract')
+    setRoleBundle(db, 'admin', 'contractView', true)
+    expect(listEmployees(db, 1, today, rolePermissions(db, 'admin'))[0]!.contract).toMatchObject({ trainingUntil: '2024-07-31', recognitionYearCounts: true })
+  })
+
+  it('checks the training end: a real date, from 1970, at most a year after today', () => {
+    for (const value of ['2024-02-30', '1969-12-31', '2027-11-19']) {
+      expect(errorCode(() => setContract(db, 1, anna, { ...contract, trainingUntil: value }, today)), value).toBe('training_until_invalid')
+    }
+    setContract(db, 1, anna, { ...contract, trainingUntil: '2027-11-18' }, today)
+    setContract(db, 1, anna, { ...contract, trainingUntil: '1970-01-01' }, today)
+    expect(read().trainingUntil).toBe('1970-01-01')
+  })
+
+  it('counts the level steps from the day after the training, or with the recognition year one year earlier', () => {
+    // Employed during the training until 31.07.2024: level 2 from 01.08.2025, level 3 from 01.08.2027.
+    setContract(db, 1, anna, { ...contract, trainingUntil: '2024-07-31' }, today)
+    expect(listLevelUps(db, 1, '2025-07-02', rolePermissions(db, 'provider'))).toEqual([]) // by employedSince level 3 was due 2024-09-01
+    setContract(db, 1, anna, { ...contract, payLevel: 1, trainingUntil: '2024-07-31' }, today)
+    expect(listLevelUps(db, 1, '2025-07-02', rolePermissions(db, 'provider')))
+      .toEqual([{ employeeId: anna, name: 'Anna', fromLevel: 1, level: 2, on: '2025-08-01' }])
+    // The recognition year as level 1: level 2 right after the training, level 3 on 01.08.2026 (without it 01.08.2027).
+    setContract(db, 1, anna, { ...contract, trainingUntil: '2024-07-31', recognitionYearCounts: true }, today)
+    expect(listLevelUps(db, 1, '2026-07-02', rolePermissions(db, 'provider')))
+      .toEqual([{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-08-01' }])
+  })
+})
+
+describe('contract data: only with „Vertragsangaben ändern“', () => {
+  it('takes the training fields only on the contract route, which a Leitung without contractEdit cannot use', () => {
+    const db = createTestDb()
+    expect(rolePermissions(db, 'admin').has('employees.contractEdit')).toBe(false)
+    setRoleBundle(db, 'admin', 'contractView', true)
+    expect(rolePermissions(db, 'admin').has('employees.contractEdit')).toBe(false)
+    expect(rolePermissions(db, 'provider').has('employees.contractEdit')).toBe(true)
+    const route = readFileSync(join(process.cwd(), 'server', 'api', 'employees', '[id]', 'contract.put.ts'), 'utf8')
+    expect(route).toContain('requirePermission(event, \'employees.contractEdit\')')
+    // The employee form of the Leitung drops them.
+    const update = employeeUpdateSchema.parse({ name: 'Anna', shortName: '', leftOn: null, trainingUntil: '2024-07-31', recognitionYearCounts: true })
+    expect(update).not.toHaveProperty('trainingUntil')
+    expect(update).not.toHaveProperty('recognitionYearCounts')
+    expect(contractSchema.parse({ personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null, trainingUntil: '2024-07-31', recognitionYearCounts: true }))
+      .toMatchObject({ trainingUntil: '2024-07-31', recognitionYearCounts: true })
   })
 })
 

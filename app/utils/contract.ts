@@ -1,7 +1,25 @@
-import { seniority } from '#shared/domain/tvoed'
+import { levelStart, seniority } from '#shared/domain/tvoed'
 import type { EmployeeContractDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
+
+type LevelYearsFields = Pick<EmployeeContractDto, 'employedSince' | 'trainingUntil' | 'recognitionYearCounts'>
+
+/**
+ * „Stufenjahre ab 01.08.2024 (nach Ausbildung)“ or „… (Anerkennungsjahr als Stufe 1)“ when the level years start
+ * later than „In der Einrichtung seit“ (see levelStart); null when they start with the employment.
+ */
+export function levelYearsNote(contract: LevelYearsFields): string | null {
+  if (!contract.employedSince) return null
+  const since = levelStart(contract.employedSince, contract.trainingUntil, contract.recognitionYearCounts)
+  if (since === contract.employedSince) return null
+  return de.contract.levelYearsFrom(formatDate(since), contract.recognitionYearCounts ? 'recognition' : 'training')
+}
+
+/** Saving asks whether the recognition year counts as level 1 when a training end was entered or changed. */
+export function askRecognitionYear(savedTrainingUntil: string | null, trainingUntil: string | null): boolean {
+  return trainingUntil !== null && trainingUntil !== savedTrainingUntil
+}
 
 /**
  * One line such as "Pers.-Nr. 1234 · Erzieher/in · S 8a, Stufe 3 · seit 01.03.2019 (7 J. 7 Mon.) · befristet bis
@@ -15,5 +33,5 @@ export function contractSummary(contract: EmployeeContractDto, today: string): s
     : null
   const number = contract.personnelNumber ? de.contract.personnelNumberShort(contract.personnelNumber) : null
   const fixedTerm = contract.fixedTermUntil ? de.contract.fixedTermShort(formatDate(contract.fixedTermUntil)) : null
-  return [number, job, pay, since, fixedTerm].filter(Boolean).join(' · ')
+  return [number, job, pay, since, levelYearsNote(contract), fixedTerm].filter(Boolean).join(' · ')
 }

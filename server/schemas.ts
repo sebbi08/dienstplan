@@ -176,6 +176,10 @@ export const contractSchema = z.object({
   payGroup: z.enum(PAY_GROUPS).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
   /** „befristet bis“; left out = unchanged. */
   fixedTermUntil: isoDate.nullable().optional(),
+  /** „Ausbildung/Studium hier bis“; left out = unchanged, checked by the service (training_until_invalid). */
+  trainingUntil: z.string().max(10).nullable().optional(),
+  /** „Anerkennungsjahr zählt als Stufe 1“; left out = unchanged. */
+  recognitionYearCounts: z.boolean().optional(),
 })
 /** Lohn und Steuer; the formats are the service's (400 iban_invalid, tax_id_invalid, sv_number_invalid, tax_class_invalid). */
 export const payrollSchema = z.object({

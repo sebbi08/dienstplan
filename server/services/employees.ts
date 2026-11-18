@@ -7,7 +7,7 @@ import { birthYearError, disabilityDegreeError, emailError, postalCodeError } fr
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
-import { dueLevelUp, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
+import { dueLevelUp, levelStart, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   EmployeeContractDto, EmployeeContractInput, EmployeeDetailDto, EmployeeListItemDto, EmployeePersonalDto, EmployeePersonalInput,
@@ -90,6 +90,7 @@ function contractOf(employee: EmployeeRecord): EmployeeContractDto {
     personnelNumber: employee.personnelNumber,
     employedSince: employee.employedSince, jobKey: employee.jobKey as JobKey | null, jobOther: employee.jobOther,
     payGroup: employee.payGroup as PayGroup | null, payLevel: employee.payLevel, fixedTermUntil: employee.fixedTermUntil,
+    trainingUntil: employee.trainingUntil, recognitionYearCounts: employee.recognitionYearCounts,
   }
 }
 
@@ -520,12 +521,25 @@ export function setEntitlement(
   }
 }
 
+/** Earliest „Ausbildung/Studium hier bis“ accepted. */
+const TRAINING_UNTIL_MIN = '1970-01-01'
+
 /**
  * Contract data of an employee; only the Träger may change it (checked by the route). „befristet bis“ left out stays,
- * a given one must be a real date (400 invalid_date).
+ * a given one must be a real date (400 invalid_date). „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als
+ * Stufe 1“ left out stay; the training end is a real date from 1970 up to a year after today (400
+ * training_until_invalid), and without one the recognition year is stored as not counting.
  */
-export function setContract(db: Db, facilityId: number, id: number, contract: EmployeeContractInput): void {
+export function setContract(db: Db, facilityId: number, id: number, contract: EmployeeContractInput, today: IsoDate = todayIso()): void {
   assertEmployee(db, facilityId, id)
+  if (contract.trainingUntil != null) {
+    // A year ahead by the calendar; for 29 February the string compare still ends on 28 February of the next year.
+    const latest = `${parseIsoDate(today).year + 1}${today.slice(4)}`
+    const date = contract.trainingUntil
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidIsoDate(date) || date < TRAINING_UNTIL_MIN || date > latest) {
+      throw new ServiceError(400, 'training_until_invalid')
+    }
+  }
   const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
   if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
   if (contract.fixedTermUntil != null && !isValidIsoDate(contract.fixedTermUntil)) throw new ServiceError(400, 'invalid_date')
@@ -534,18 +548,23 @@ export function setContract(db: Db, facilityId: number, id: number, contract: Em
     .where(and(eq(employees.personnelNumber, personnelNumber), ne(employees.id, id))).get()) {
     throw new ServiceError(409, 'personnel_number_taken')
   }
-  db.update(employees).set({ ...contract, personnelNumber, jobOther }).where(eq(employees.id, id)).run()
+  const current = db.select({ trainingUntil: employees.trainingUntil, recognitionYearCounts: employees.recognitionYearCounts })
+    .from(employees).where(eq(employees.id, id)).get()!
+  const trainingUntil = contract.trainingUntil === undefined ? current.trainingUntil : contract.trainingUntil
+  const recognitionYearCounts = trainingUntil !== null && (contract.recognitionYearCounts ?? current.recognitionYearCounts)
+  db.update(employees).set({ ...contract, personnelNumber, jobOther, trainingUntil, recognitionYearCounts }).where(eq(employees.id, id)).run()
 }
 
 /**
- * Level steps of the facility's staff due within the notice period or overdue, for viewers who may see contract data;
- * staff who left are skipped.
+ * Level steps of the facility's staff due within the notice period or overdue (level years from levelStart, so after a
+ * training in the facility), for viewers who may see contract data; staff who left are skipped.
  */
 export function listLevelUps(db: Db, facilityId: number, today: IsoDate, viewer: EmployeeViewer): LevelUpDto[] {
   if (!mayViewContract(viewer)) return []
   return loadEmployees(db, facilityId).flatMap((employee) => {
     if (!employee.employedSince || (employee.leftOn !== null && employee.leftOn < today)) return []
-    const due = dueLevelUp(employee.employedSince, employee.payLevel, today)
+    const since = levelStart(employee.employedSince, employee.trainingUntil, employee.recognitionYearCounts)
+    const due = dueLevelUp(since, employee.payLevel, today)
     return due ? [{ employeeId: employee.id, name: employee.name, fromLevel: employee.payLevel!, ...due }] : []
   })
 }

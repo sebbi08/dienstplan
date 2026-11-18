@@ -190,7 +190,7 @@ describe('personnel file: never in the own pages or at the tablet', () => {
     db.update(employees).set({
       birthday: '03-14', birthYear: 1988, street: 'GEHEIM-Strasse', postalCode: '79098', city: 'GEHEIM-Ort', phone: 'GEHEIM-Tel',
       email: 'geheim@example.org', nationality: 'GEHEIM-Land', disability: true, disabilityDegree: 50, disabilityEqual: true,
-      disabilityUntil: '2028-12-31', fixedTermUntil: '2027-07-31',
+      disabilityUntil: '2028-12-31', fixedTermUntil: '2027-07-31', trainingUntil: '2024-07-31', recognitionYearCounts: true,
     }).where(eq(employees.id, anna)).run()
     const own: SessionUser = addUser(db, 'anna', 'observer', anna)
     const tablet = addUser(db, 'tablet', 'terminal')
@@ -206,7 +206,7 @@ describe('personnel file: never in the own pages or at the tablet', () => {
     ].map(answer => JSON.stringify(answer))
     for (const text of answers) {
       for (const word of ['GEHEIM', 'geheim', '1988', '2028-12-31', '2027-07-31', 'birthYear', 'street', 'postalCode', 'nationality',
-        'disability', 'fixedTermUntil', 'personal', 'sensitive', 'payroll', 'iban']) {
+        'disability', 'fixedTermUntil', '2024-07-31', 'trainingUntil', 'recognitionYearCounts', 'personal', 'sensitive', 'payroll', 'iban']) {
         expect(text, word).not.toContain(word)
       }
     }

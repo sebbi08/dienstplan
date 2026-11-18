@@ -1295,10 +1295,15 @@ export interface EmployeeContractDto {
   payLevel: number | null
   /** „befristet bis“: last day of a fixed-term contract (null = unbefristet). */
   fixedTermUntil: IsoDate | null
+  /** „Ausbildung/Studium hier bis“ (null = none): the level years start after it (see levelStart). */
+  trainingUntil: IsoDate | null
+  /** „Anerkennungsjahr zählt als Stufe 1“ (always false without trainingUntil). */
+  recognitionYearCounts: boolean
 }
 
-/** A contract change; fixedTermUntil left out = unchanged. */
-export type EmployeeContractInput = Omit<EmployeeContractDto, 'fixedTermUntil'> & { fixedTermUntil?: IsoDate | null }
+/** A contract change; fixedTermUntil, trainingUntil and recognitionYearCounts left out = unchanged. */
+export type EmployeeContractInput = Omit<EmployeeContractDto, 'fixedTermUntil' | 'trainingUntil' | 'recognitionYearCounts'>
+  & { fixedTermUntil?: IsoDate | null; trainingUntil?: IsoDate | null; recognitionYearCounts?: boolean }
 
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null

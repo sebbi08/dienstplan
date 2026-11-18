@@ -519,6 +519,13 @@
       "when": 1795006930642,
       "tag": "0073_doctor_code",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1795008298508,
+      "tag": "0074_employee_training_until",
+      "breakpoints": true
     }
   ]
 }

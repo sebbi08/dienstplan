@@ -131,10 +131,10 @@ describe('upgrading a filled database through migrateDb', () => {
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
   // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them (and
-  // without `balance_from` of 0072_employee_balance_from).
+  // without `balance_from` of 0072_employee_balance_from and the training columns of 0074_employee_training_until).
   const PERSONNEL_COLUMNS = ['birth_year', 'street', 'postal_code', 'city', 'phone', 'email', 'nationality', 'disability',
     'disability_degree', 'disability_equal', 'disability_until', 'fixed_term_until']
-  const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from']
+  const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from', 'training_until', 'recognition_year_counts']
   const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_EMPLOYEE_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
@@ -1837,6 +1837,17 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec('INSERT INTO employees (id, name, facility_id) VALUES (1, \'Anna\', 1)')
     migrateDb(db, MIGRATIONS)
     expect(sqlite.prepare('SELECT id, name, balance_from FROM employees').all()).toEqual([{ id: 1, name: 'Anna', balance_from: null }])
+  })
+
+  it('0074 adds no training end and „Anerkennungsjahr zählt nicht“ to every employee (level years from the employment, as before)', () => {
+    const { db, sqlite } = databaseAt('0073')
+    sqlite.exec('INSERT INTO employees (id, name, facility_id, employed_since) VALUES (1, \'Anna\', 1, \'2021-09-01\')')
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, employed_since, training_until, recognition_year_counts FROM employees').all())
+      .toEqual([{ id: 1, employed_since: '2021-09-01', training_until: null, recognition_year_counts: 0 }])
+    sqlite.exec('INSERT INTO employees (id, name, facility_id) VALUES (2, \'Ben\', 1)')
+    expect(sqlite.prepare('SELECT recognition_year_counts FROM employees WHERE id = 2').get()).toEqual({ recognition_year_counts: 0 })
+    expect(() => sqlite.exec('UPDATE employees SET recognition_year_counts = NULL WHERE id = 1')).toThrow(/NOT NULL/)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

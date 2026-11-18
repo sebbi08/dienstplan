@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { JOB_KEYS, levelBySeniority, PAY_GROUPS, SUGGESTED_PAY_GROUP, type JobKey, type PayGroup } from '#shared/domain/tvoed'
+import { JOB_KEYS, levelBySeniority, levelStart, PAY_GROUPS, SUGGESTED_PAY_GROUP, type JobKey, type PayGroup } from '#shared/domain/tvoed'
 import type { EmployeeContractDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
-import { contractSummary } from '~/utils/contract'
+import { askRecognitionYear, contractSummary, levelYearsNote } from '~/utils/contract'
 
 /** Contract data of one employee (TVöD SuE): editable by the Träger, read-only for the Leitung when shared. */
 const props = defineProps<{ employeeId: number; contract: EmployeeContractDto; editable: boolean }>()
 const emit = defineEmits<{ saved: [] }>()
 const run = useAction(async () => emit('saved'))
+const confirm = useConfirm()
 
 const form = reactive<EmployeeContractDto>({
   personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null, fixedTermUntil: null,
+  trainingUntil: null, recognitionYearCounts: false,
 })
 watch(() => props.contract, value => Object.assign(form, value), { immediate: true })
 
@@ -28,20 +30,35 @@ function onJob(key: JobKey | null) {
   if (suggested && (form.payGroup === null || form.payGroup === previous)) form.payGroup = suggested
 }
 
+/** The suggested level, by the level years (after a training in the facility, see levelStart). */
+const suggestedLevel = computed(() => form.employedSince
+  ? levelBySeniority(levelStart(form.employedSince, form.trainingUntil, form.recognitionYearCounts), todayIso())
+  : null)
+
 const levelHint = computed(() => {
-  if (!form.employedSince) return null
-  const { level, nextLevel, nextOn } = levelBySeniority(form.employedSince, todayIso())
+  if (!suggestedLevel.value) return null
+  const { level, nextLevel, nextOn } = suggestedLevel.value
   return de.contract.levelHint(level, nextLevel, nextOn ? formatDate(nextOn) : null)
 })
 
 function useSuggestedLevel() {
-  if (form.employedSince) form.payLevel = levelBySeniority(form.employedSince, todayIso()).level
+  if (suggestedLevel.value) form.payLevel = suggestedLevel.value.level
 }
 
-function save() {
+/** A training end entered or changed: ask whether the recognition year counts as level 1, then save the answer too. */
+async function save() {
+  const trainingUntil = form.trainingUntil || null
+  if (askRecognitionYear(props.contract.trainingUntil, trainingUntil)) {
+    form.recognitionYearCounts = await confirm(de.contract.recognitionQuestion, {
+      confirmLabel: de.contract.recognitionYes, cancelLabel: de.contract.recognitionNo, danger: false,
+    })
+  }
   run(() => $fetch<unknown>(`/api/employees/${props.employeeId}/contract`, {
     method: 'PUT',
-    body: { ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null, payGroup: form.payGroup as PayGroup | null },
+    body: {
+      ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null, payGroup: form.payGroup as PayGroup | null,
+      trainingUntil, recognitionYearCounts: trainingUntil !== null && form.recognitionYearCounts,
+    },
   }), de.common.saved)
 }
 </script>
@@ -57,7 +74,13 @@ function save() {
       <UFormField :label="de.contract.employedSince">
         <DateTextInput :model-value="form.employedSince ?? ''" :label="de.contract.employedSince" class="w-full" @update:model-value="form.employedSince = $event || null" />
       </UFormField>
-      <UFormField :label="de.contract.job" class="sm:col-span-2">
+      <UFormField :label="de.contract.trainingUntil" :help="de.contract.trainingUntilHint">
+        <DateTextInput :model-value="form.trainingUntil ?? ''" :label="de.contract.trainingUntil" class="w-full" @update:model-value="form.trainingUntil = $event || null" />
+      </UFormField>
+      <div v-if="form.trainingUntil" class="sm:pt-7">
+        <UCheckbox v-model="form.recognitionYearCounts" :label="de.contract.recognitionYearCounts" />
+      </div>
+      <UFormField :label="de.contract.job" class="sm:col-span-2 sm:col-start-1">
         <USelect :model-value="form.jobKey" :items="jobItems" class="w-full" @update:model-value="onJob($event as JobKey | null)" />
       </UFormField>
       <UFormField v-if="form.jobKey === 'other'" :label="de.contract.jobOther">
@@ -71,6 +94,7 @@ function save() {
       </UFormField>
       <div v-if="levelHint" class="space-y-1 text-xs text-gray-600 sm:col-span-2 sm:pt-6">
         <p>{{ levelHint }}</p>
+        <p v-if="levelYearsNote(form)">{{ levelYearsNote(form) }}</p>
         <UButton size="xs" color="neutral" variant="outline" :label="de.contract.useLevel" @click="useSuggestedLevel" />
       </div>
       <UFormField :label="de.contract.fixedTermUntil" :help="de.contract.fixedTermUntilHint" class="sm:col-span-2 sm:col-start-1">

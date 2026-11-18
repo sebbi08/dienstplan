@@ -44,6 +44,22 @@ export function levelBySeniority(since: IsoDate, today: IsoDate): { level: numbe
   return next === undefined ? { level, nextLevel: null, nextOn: null } : { level, nextLevel: level + 1, nextOn: addYears(since, next) }
 }
 
+/**
+ * The day the level years start (the `since` of levelBySeniority and dueLevelUp). Training or studies in the facility
+ * (until `trainingUntil`) give no level years: they start the day after. When the recognition year counts as level 1,
+ * they start one year earlier (the first year after the training is then level 2), but never before the employment.
+ * Without a training end, or with one before the employment start, they start with the employment.
+ */
+export function levelStart(employedSince: IsoDate, trainingUntil: IsoDate | null, recognitionYearCounts: boolean): IsoDate {
+  if (trainingUntil === null || trainingUntil < employedSince) return employedSince
+  const after = addDays(trainingUntil, 1)
+  if (!recognitionYearCounts) return after
+  const { year, month, day } = parseIsoDate(after)
+  // A year back from 29 February is 28 February, so that day already reaches level 2.
+  const yearBefore = toIsoDate(year - 1, month, month === 2 && day === 29 ? 28 : day)
+  return yearBefore < employedSince ? employedSince : yearBefore
+}
+
 /** Completed years and months between `since` and `today` (0 when `since` lies in the future). */
 export function seniority(since: IsoDate, today: IsoDate): { years: number; months: number } {
   if (since > today) return { years: 0, months: 0 }

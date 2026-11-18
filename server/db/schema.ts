@@ -169,6 +169,13 @@ export const employees = sqliteTable('employees', {
   disabilityUntil: text('disability_until'),
   /** „befristet bis“: end of a fixed-term contract (ISO date), visible like the other contract fields. */
   fixedTermUntil: text('fixed_term_until'),
+  /**
+   * „Ausbildung/Studium hier bis“ (ISO date; null = none): the level years start the day after (see levelStart in
+   * shared/domain/tvoed.ts). Contract data like the fields above.
+   */
+  trainingUntil: text('training_until'),
+  /** „Anerkennungsjahr zählt als Stufe 1“: the level years start one year before the day after trainingUntil. */
+  recognitionYearCounts: integer('recognition_year_counts', { mode: 'boolean' }).notNull().default(false),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
