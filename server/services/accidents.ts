@@ -650,34 +650,40 @@ export function moveEmployeeAccidents(db: Db, employeeId: number, facilityId: nu
  * employees' reports for accidents.manage, children's only of children whose record the viewer sees (`seesChild`: group
  * scope, the tablet's switches, archived records only with children.manage).
  */
-function visibleReports(db: Db, viewer: ChildViewer, today: IsoDate, where: SQL | undefined) {
+function visibleReports(db: Db, facilityId: number, viewer: ChildViewer | null, today: IsoDate, where: SQL | undefined) {
   return db.select({ form: forms, child: children, employeeName: employees.name })
     .from(forms)
     .leftJoin(children, eq(children.id, forms.childId))
     .leftJoin(employees, eq(employees.id, forms.employeeId))
-    .where(and(eq(forms.facilityId, viewer.facilityId), eq(forms.kind, 'accident'), where))
+    .where(and(eq(forms.facilityId, facilityId), eq(forms.kind, 'accident'), where))
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all()
-    .filter(({ form, child }) => (form.childId === null ? form.employeeId !== null : child !== null && seesChild(viewer, child, today)))
+    .filter(({ form, child }) => (form.childId === null
+      ? form.employeeId !== null
+      : viewer !== null && child !== null && seesChild(viewer, child, today)))
 }
 
 /**
  * „Unfälle“ (Mehr, accidents.manage, at the office): the facility's accident reports dated in the year that the viewer
- * may see (see `visibleReports`), newest first; the page filters children/employees. Each with the viewer's real right
- * (as on the report itself).
+ * may see (see `visibleReports`), newest first; the page filters children/employees. Children's reports only with a view
+ * of the child records (`viewer`, null for an account without children.ownAccount: then only the employees'). Each with the
+ * viewer's real right (as on the report itself).
  */
-export function listAccidentOverview(db: Db, viewer: ChildViewer, year: number, now: Date = new Date()): AccidentListItemDto[] {
-  if (!can(viewer.permissions, 'accidents.manage') || viewer.onTablet) throw new ServiceError(403, 'forbidden')
+export function listAccidentOverview(
+  db: Db, user: SessionUser, facilityId: number, viewer: ChildViewer | null, year: number, now: Date = new Date(),
+): AccidentListItemDto[] {
+  if (!can(user.permissions, 'accidents.manage')) throw new ServiceError(403, 'forbidden')
   const today = nowInBerlin(now).date
-  return visibleReports(db, viewer, today, and(gte(forms.formDate, `${year}-01-01`), lte(forms.formDate, `${year}-12-31`)))
+  const name = actorName(db, user)
+  return visibleReports(db, facilityId, viewer, today, and(gte(forms.formDate, `${year}-01-01`), lte(forms.formDate, `${year}-12-31`)))
     .map(({ form, child, employeeName }) => {
-      if (child) {
+      if (child && viewer) {
         const access = childAccessOf(viewer, form, { row: child, archived: childStatus(child, today) === 'archived' })
         return toListItem(access)
       }
       // The viewer manages the facility's employee reports (accidents.manage, the facility of the request).
       return toListItem({
         form, subject: 'employee', right: 'edit',
-        canDelete: true, canReport: true, actorUserId: viewer.id, actorEmployeeId: viewer.employeeId, actorName: viewer.name,
+        canDelete: true, canReport: true, actorUserId: user.id, actorEmployeeId: user.employeeId, actorName: name,
         person: { name: employeeName ?? '', birthDate: null, groupName: null },
       })
     })
@@ -691,7 +697,7 @@ export function listAccidentOverview(db: Db, viewer: ChildViewer, year: number, 
  */
 export function accidentReminders(db: Db, viewer: ChildViewer, today: IsoDate): ReminderDto[] {
   if (!can(viewer.permissions, 'accidents.manage') || viewer.onTablet) return []
-  return visibleReports(db, viewer, today, and(
+  return visibleReports(db, viewer.facilityId, viewer, today, and(
     isNull(forms.accidentReportedOn), or(eq(forms.accidentDoctor, true), eq(forms.accidentUnfit, true)),
     isNotNull(forms.formDate), lte(forms.formDate, today),
   ))

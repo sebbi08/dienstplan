@@ -344,17 +344,18 @@ describe('overview and reminder', () => {
     createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header, date: '2025-12-31' }, NOW)
     const childReport = createChildAccident(db, leitung, kid, { templateId: childTemplate, ...header, doctor: true }, NOW)
     const staffReport = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header, date: '2026-01-02', unfit: true, reportedOn: '2026-01-03' }, NOW)
-    const list = listAccidentOverview(db, leitung, 2026, NOW)
+    const list = listAccidentOverview(db, leitungUser, 1, leitung, 2026, NOW)
     expect(list.map(item => [item.id, item.subject, item.personName, item.doctor, item.unfit, item.reportedOn])).toEqual([
       [childReport, 'child', 'Lena Kurz', true, false, null],
       [staffReport, 'employee', 'Anna Muster', false, true, '2026-01-03'],
     ])
     expect(list.map(item => [item.right, item.canDelete, item.canReport])).toEqual([['edit', true, true], ['edit', true, true]])
-    expect(listAccidentOverview(db, leitung, 2025, NOW)).toHaveLength(1)
-    expect(failure(() => listAccidentOverview(db, annaTablet, 2026, NOW))).toBe('403 forbidden')
-    // Not at the tablet, even unlocked by the Leitung.
-    expect(failure(() => listAccidentOverview(db, { ...leitung, onTablet: true }, 2026, NOW))).toBe('403 forbidden')
-    expect(listAccidentOverview(db, asChildViewer(addUser(db, 'l2', 'admin', null, addFacility(db, 'Zweite'))), 2026, NOW)).toEqual([])
+    expect(listAccidentOverview(db, leitungUser, 1, leitung, 2025, NOW)).toHaveLength(1)
+    expect(failure(() => listAccidentOverview(db, annaUser, 1, annaTablet, 2026, NOW))).toBe('403 forbidden')
+    // Without children.ownAccount (no view of the child records) only the employees' reports, no failure (N1).
+    expect(listAccidentOverview(db, leitungUser, 1, null, 2026, NOW).map(item => item.id)).toEqual([staffReport])
+    const l2 = addUser(db, 'l2', 'admin', null, addFacility(db, 'Zweite'))
+    expect(listAccidentOverview(db, l2, 2, asChildViewer(l2), 2026, NOW)).toEqual([])
   })
 
   it('shows children only as far as the viewer sees their records: group scope, tablet switches, archive (M1)', () => {
@@ -363,7 +364,7 @@ describe('overview and reminder', () => {
     const staff = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header, unfit: true }, NOW)
     // A Gruppenleitung of group A with „Unfälle verwalten“ by exception: group B stays hidden.
     const scoped: ChildViewer = { ...leitung, groups: { own: groupA, readable: [] } }
-    expect(listAccidentOverview(db, scoped, 2026, NOW).map(item => item.id).sort()).toEqual([own, staff].sort())
+    expect(listAccidentOverview(db, leitungUser, 1, scoped, 2026, NOW).map(item => item.id).sort()).toEqual([own, staff].sort())
     expect(accidentReminders(db, scoped, '2026-11-18').map(item => item.name).sort()).toEqual(['Anna Muster', 'Lena Kurz'])
     // A Vormerkung the switches hide, and an archived record without children.manage, are not listed either.
     const planned = addChild(db, 1, { firstName: 'Mia', groupId: groupA, admissionStatus: 'waitlist', entryDate: null, plannedEntryDate: '2027-01-01' })
@@ -372,14 +373,14 @@ describe('overview and reminder', () => {
       childId: planned, formDate: '2026-11-17', accidentDoctor: true,
     }).run()
     const hiding: ChildViewer = { ...scoped, visibility: { waitlist: false, futureContracts: false } }
-    expect(listAccidentOverview(db, hiding, 2026, NOW).map(item => item.childId)).not.toContain(planned)
-    expect(listAccidentOverview(db, scoped, 2026, NOW)).toHaveLength(3)
+    expect(listAccidentOverview(db, leitungUser, 1, hiding, 2026, NOW).map(item => item.childId)).not.toContain(planned)
+    expect(listAccidentOverview(db, leitungUser, 1, scoped, 2026, NOW)).toHaveLength(3)
     db.update(children).set({ leftOn: '2026-11-17' }).where(eq(children.id, kid)).run()
     const noManage: ChildViewer = { ...scoped, permissions: new Set([...scoped.permissions].filter(key => key !== 'children.manage')) }
-    expect(listAccidentOverview(db, noManage, 2026, NOW).map(item => item.id)).not.toContain(own)
+    expect(listAccidentOverview(db, leitungUser, 1, noManage, 2026, NOW).map(item => item.id)).not.toContain(own)
     expect(accidentReminders(db, noManage, '2026-11-18').map(item => item.name)).not.toContain('Lena Kurz')
     // With children.manage the archived record's report is listed, read only.
-    expect(listAccidentOverview(db, scoped, 2026, NOW).find(item => item.id === own)).toMatchObject({ right: 'read', canDelete: false })
+    expect(listAccidentOverview(db, leitungUser, 1, scoped, 2026, NOW).find(item => item.id === own)).toMatchObject({ right: 'read', canDelete: false })
   })
 
   it('reminds Leitung/Träger of a report with Arztbesuch or arbeitsunfähig until „gemeldet am“ is set; overdue after 3 days', () => {

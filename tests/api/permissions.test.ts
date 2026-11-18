@@ -117,7 +117,7 @@ const CHILD_MANAGER_ROUTES = [
   'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts', 'children/age-limit-warnings.get.ts',
 ]
 /** accidents.manage: deleting an accident report about a child (Leitung, Träger; at the office or the unlocked tablet). */
-const CHILD_ACCIDENT_MANAGER_ROUTES = ['child-accidents/[formId].delete.ts', 'accidents/index.get.ts']
+const CHILD_ACCIDENT_MANAGER_ROUTES = ['child-accidents/[formId].delete.ts']
 /** Each child route with the one permission it checks. */
 const CHILD_ROUTES: Record<string, PermissionKey> = Object.fromEntries([
   ...CHILD_ACCIDENT_MANAGER_ROUTES.map(route => [route, 'accidents.manage']),
