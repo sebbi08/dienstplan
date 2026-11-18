@@ -29,6 +29,7 @@ import {
 import { defaultNoteEducator, detachNoteEmployees, mayWriteNotes, notesOf } from './childNotes'
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
+import { childOrder } from './childSort'
 import { assertGroup, listGroups } from './groups'
 import { meetingsOf, overviewMeetingsOf } from './parentMeetings'
 import { moveChildForms } from './childForms'
@@ -53,11 +54,12 @@ export function listChildStaff(db: Db, facilityId: number, today: IsoDate): { id
   return staffOf(db, facilityId, today)
 }
 
-/** The order of the child list and the overview: the groups' order (no group last), then oldest first, then by name. */
+/** The order of the child list and the overview: the groups' order (no group last), then the facility's sort setting. */
 function listOrder(db: Db, facilityId: number): (a: ChildRow, b: ChildRow) => number {
   const groupRank = new Map(listGroups(db, facilityId).map((group, index) => [group.id, index]))
   const rank = (row: ChildRow) => (row.groupId === null ? Infinity : groupRank.get(row.groupId) ?? Infinity)
-  return (a, b) => rank(a) - rank(b) || a.birthDate.localeCompare(b.birthDate) || byName(a, b)
+  const inGroup = childOrder(db, facilityId)
+  return (a, b) => rank(a) - rank(b) || inGroup(a, b)
 }
 
 /**

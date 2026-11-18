@@ -26,6 +26,7 @@ import { loadChild, type ChildRow } from '../lib/childRecord'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { groupHistories } from './childGroupChanges'
+import { childOrder } from './childSort'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { mealVersionsOf } from './meals'
@@ -200,13 +201,11 @@ const personChanges = (before: PickupPerson, after: PickupPerson): AttendanceCha
 
 // ---- reading ----
 
-const byName = (a: ChildRow, b: ChildRow) =>
-  a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de')
 const nameOf = (row: { lastName: string; firstName: string }) => `${row.lastName}, ${row.firstName}`
 
 /**
  * The day list (spec §3): the facility's children active on the date (the tablet's visibility switches do not apply,
- * planned children are never listed), ordered by the group of the day (no group last), then by name; with status,
+ * planned children are never listed), ordered by the group of the day (no group last), then by the facility's sort setting; with status,
  * stays, meals, the pickup and brought-by persons on offer, the care type's end (suggested planned pickup) and the open
  * stays of the 14 days before. The meals are those valid on the date, with the name and time of then (spec Essen §3):
  * each counted at its time or by its tick; totals per meal and per group of the list (children here, each meal).
@@ -244,11 +243,12 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
   const groups = listGroups(db, facilityId)
   const groupRank = new Map(groups.map((group, index) => [group.id, index]))
   const rank = (groupId: number | null) => (groupId === null ? Infinity : groupRank.get(groupId) ?? Infinity)
+  const inGroup = childOrder(db, facilityId)
 
   const list = rows.map((row) => {
     const groupId = groupOnDay(histories.get(row.id) ?? [], date)
     return { row, groupId: groupId !== null && groupRank.has(groupId) ? groupId : null, own: ownOnDay(viewer, histories.get(row.id) ?? [], date) }
-  }).sort((a, b) => rank(a.groupId) - rank(b.groupId) || byName(a.row, b.row))
+  }).sort((a, b) => rank(a.groupId) - rank(b.groupId) || inGroup(a.row, b.row))
 
   const entries: AttendanceChildDto[] = list.map(({ row, groupId, own: ownDay }) => {
     const day = days.find(candidate => candidate.childId === row.id)
@@ -612,7 +612,7 @@ export function getAttendanceMonth(db: Db, viewer: ChildViewer, year: number, mo
   const today = nowInBerlin(now).date
   const recordedFrom = getAttendanceSettings(db, facilityId).attendanceSince
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => dates.some(date => activeOn(row, date))).sort(byName)
+    .filter(row => dates.some(date => activeOn(row, date))).sort(childOrder(db, facilityId))
   const ids = rows.map(row => row.id)
 
   const days = ids.length === 0 ? [] : db.select().from(childAttendanceDays)

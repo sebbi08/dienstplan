@@ -99,6 +99,8 @@
   "children/reminders.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "children/school-children.get.ts": ["provider","admin","tablet:provider","tablet:admin"],
   "children/school-cutoff.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
+  "children/sort.get.ts": ["provider","admin"],
+  "children/sort.put.ts": ["provider","admin"],
   "children/staff.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "closures/[id].delete.ts": ["provider","admin"],
   "closures/[id].put.ts": ["provider","admin"],

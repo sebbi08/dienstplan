@@ -506,7 +506,7 @@ describe('API route permissions', () => {
     expect(source('children/[id]/facility.put.ts')).toContain("requirePermission(event, 'children.moveFacility', { facility: 'none' })")
     for (const route of ['care-types/index.post.ts', 'care-types/[id].put.ts', 'care-types/[id].delete.ts',
       'document-types/index.post.ts', 'document-types/[id].put.ts', 'document-types/[id].delete.ts',
-      'attendance-settings.get.ts', 'attendance-settings.put.ts']) {
+      'attendance-settings.get.ts', 'attendance-settings.put.ts', 'children/sort.get.ts', 'children/sort.put.ts']) {
       expect(source(route), route).toContain("requirePermission(event, 'settings.facility')")
     }
   })

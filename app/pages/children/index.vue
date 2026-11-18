@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CHILD_SORTS, type ChildSort } from '#shared/domain/childSort'
 import { addDays, todayIso } from '#shared/domain/dates'
 import type { BirthdayDto, ChildListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -17,6 +18,26 @@ const canCreate = computed(() => !!rights.value?.canEdit)
 const isLeader = computed(() => !!rights.value?.isManager)
 // Without both switches the tablet shows no planned children for people without manager rights.
 const showPlanned = computed(() => !!rights.value && (rights.value.showWaitlist || rights.value.showFutureContracts))
+// The facility's order of the children inside each group: only Leitung and Träger (settings.facility, as the server
+// checks) see the select, never the tablet; everyone else just sees the lists in that order.
+const { can } = useCan()
+const canSort = computed(() => !onTablet.value && can('settings.facility'))
+const SORT_TABS: ChildrenTab[] = ['attendance', 'list', 'overview']
+const sortItems = CHILD_SORTS.map(value => ({ label: de.children.sort.options[value], value }))
+const sort = ref<ChildSort | null>(null)
+const SORT_KEYS = ['children-active', 'children-overview', 'children-open', 'attendance-day', 'attendance-month']
+const { busy: sorting, run: runSort } = useBusyAction(() => refreshNuxtData(SORT_KEYS))
+async function loadSort() {
+  if (!canSort.value || sort.value) return
+  try { sort.value = (await $fetch<{ sort: ChildSort }>('/api/children/sort')).sort } catch { /* the select stays hidden */ }
+}
+onMounted(loadSort)
+async function changeSort(next: ChildSort) {
+  const previous = sort.value
+  sort.value = next
+  const ok = await runSort(() => $fetch<{ sort: ChildSort }>('/api/children/sort', { method: 'PUT', body: { sort: next } }), de.common.saved)
+  if (!ok) sort.value = previous
+}
 const lookups = useChildLookups()
 const { groupName, staff } = lookups
 
@@ -160,6 +181,14 @@ const td = 'px-3 py-2'
       <div id="children-area-panel" role="tabpanel" :aria-labelledby="`children-area-${area}`" class="space-y-3">
         <!-- The reminders belong to the day: on top of Heute only. -->
         <ChildrenRemindersBox v-if="area === 'today'" />
+
+        <div v-if="canSort && sort && SORT_TABS.includes(tab)" class="flex items-center gap-2">
+          <label for="children-sort" class="text-sm text-gray-600">{{ de.children.sort.label }}</label>
+          <USelect
+            id="children-sort" :model-value="sort" :items="sortItems" class="w-72" :disabled="sorting"
+            :aria-label="de.children.sort.label" @update:model-value="changeSort($event as ChildSort)"
+          />
+        </div>
         <div v-if="areaTabs.length > 1" role="tablist" :aria-label="de.children.areas[area]" class="flex flex-wrap gap-1.5">
           <button
             v-for="key in areaTabs" :id="`children-tab-${key}`" :key="key" type="button" role="tab"

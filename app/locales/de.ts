@@ -837,6 +837,14 @@ export const de = {
     savedHiddenNoEntry: 'Gespeichert. Das Kind erscheint am Tablet, sobald ein Eintrittsdatum eingetragen ist.',
     search: 'Suchen', allGroups: 'Alle Gruppen', noGroup: 'ohne Gruppe',
     allKeyEducators: 'Alle Bezugserzieher', noKeyEducator: '– niemand –',
+    // The facility's order of the children inside each group (Leitung and Träger only; shared/domain/childSort.ts).
+    sort: {
+      label: 'Sortierung',
+      options: {
+        first_asc: 'Vorname A–Z', first_desc: 'Vorname Z–A', last_asc: 'Nachname A–Z', last_desc: 'Nachname Z–A',
+        age_asc: 'Alter aufsteigend (jüngste zuerst)', age_desc: 'Alter absteigend (älteste zuerst)',
+      },
+    },
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',
     allergies: 'Allergien', emergencyContacts: 'Anruf-Reihenfolge',
     sections: { master: 'Stammdaten', contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente' },

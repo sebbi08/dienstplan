@@ -60,6 +60,8 @@ export const facilities = sqliteTable('facilities', {
    * entry is unexcused. Set by the first attendance entry, changed only in the settings.
    */
   attendanceSince: text('attendance_since'),
+  /** How the child lists order the children inside a group (shared/domain/childSort.ts); default = oldest first. */
+  childSort: text('child_sort').notNull().default('age_desc'),
   /** Opening hours: the minimum number of staff at opening and until closing (1–20). */
   minAtOpening: integer('min_at_opening').notNull().default(1),
   minAtClosing: integer('min_at_closing').notNull().default(1),

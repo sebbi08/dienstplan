@@ -529,7 +529,7 @@ describe('child attendance', () => {
     arriveAt('08:00', { childId: ben, date: '2026-10-21', now: berlin('2026-10-21', '08:00') })
     expect(db.select().from(childAttendanceDays).where(eq(childAttendanceDays.date, '2026-10-21')).get()!.groupId).toBe(mice)
 
-    // The groups in their order, children without a group last; within them by name.
+    // The groups in their order, children without a group last; within them as the facility sorts (here: same birth date, by first name).
     const day = dayOf('2026-10-19')
     expect(day.groups).toEqual([{ id: bears, name: 'Bären' }, { id: mice, name: 'Mäuse' }, { id: null, name: '' }])
     expect(day.children.map(child => child.name)).toEqual(['Bauer, Ben', 'Zorn, Zoe', 'Meier, Lena'])
@@ -549,8 +549,9 @@ describe('child attendance', () => {
     }
     expect(dayOf().children.map(child => child.childId)).toEqual([lena])
     // Before leaving the child was active.
+    // Same birth date: by first name (the facility's default sort is oldest first).
     arriveAt('08:00', { childId: gone, date: '2026-09-30' })
-    expect(dayOf('2026-09-30').children.map(child => child.name)).toEqual(['Meier, Lena', 'Weg, Kind'])
+    expect(dayOf('2026-09-30').children.map(child => child.name)).toEqual(['Weg, Kind', 'Meier, Lena'])
   })
 
   it('corrects and deletes stays, with the same rules', () => {

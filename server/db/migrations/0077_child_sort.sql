@@ -1,0 +1,1 @@
+ALTER TABLE `facilities` ADD `child_sort` text DEFAULT 'age_desc' NOT NULL;

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CHILD_SORTS } from '../shared/domain/childSort'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
@@ -490,6 +491,8 @@ export const attendanceMonthQuery = monthParams
 export const attendanceMonthRemarkSchema = z.object({
   childId: z.number().int().positive(), month: z.string().regex(/^\d{4}-\d{2}$/), remark: z.string().max(500),
 })
+/** The sort order of the child lists of a facility. */
+export const childSortSchema = z.object({ sort: z.enum(CHILD_SORTS) })
 /** The attendance settings of a facility. The recording start is checked by the service, which answers invalid_date. */
 export const attendanceSettingsSchema = z.object({ recordBroughtBy: z.boolean(), attendanceSince: z.string().nullable() })
 /**
