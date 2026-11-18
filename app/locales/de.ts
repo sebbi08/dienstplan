@@ -46,7 +46,7 @@ export const de = {
     settings: 'Einstellungen', retention: 'Löschfristen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
-    templates: 'Vorlagen', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', forms: 'Bögen',
+    templates: 'Vorlagen', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', forms: 'Bögen', accidents: 'Unfälle',
     more: 'Mehr', mine: 'Meins', menu: 'Menü', signedInAs: 'Angemeldet als', calendarShort: 'Kalender', mainMenu: 'Hauptmenü',
   },
   leavePlanning: {

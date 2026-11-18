@@ -98,6 +98,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const adminMore = shown([
     // The templates of staff talks, child observations and team meetings.
     [can('formTemplates.manage'), entry(de.nav.forms, '/admin/forms')],
+    // All accident reports of the facility (children and employees) with the year's list.
+    [can('accidents.manage'), entry(de.nav.accidents, '/admin/accidents')],
     [can('users.manage'), entry(de.nav.users, '/admin/users')],
     // The rights of Leitung and Mitarbeiter: the Träger's.
     [can('rights.manage'), entry(de.nav.rights, '/admin/rights')],

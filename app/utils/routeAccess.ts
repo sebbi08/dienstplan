@@ -43,6 +43,8 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/forms', 'formTemplates.manage'],
   ['/admin/print/form-templates', 'formTemplates.manage'],
   ['/admin/print/forms', 'talks.manage'],
+  ['/admin/accidents', 'accidents.manage'],
+  ['/admin/print/accidents', 'accidents.manage'],
   ['/admin/print/cash', 'cash.view'],
   ['/cash', 'cash.view'],
   ['/admin/users', 'users.manage'],

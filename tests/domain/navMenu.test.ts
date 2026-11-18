@@ -19,8 +19,9 @@ describe('navMenu', () => {
     expect(menu.main[0]!.to).toBe('/plan/2026/10')
     expect(menu.main[4]!.to).toBe('/cash')
     expect(menu.main[6]!.to).toBe('/team-meetings')
-    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Benutzer', 'Einstellungen'])
+    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Unfälle', 'Benutzer', 'Einstellungen'])
     expect(menu.more[3]!.to).toBe('/admin/forms')
+    expect(menu.more[4]!.to).toBe('/admin/accidents')
     expect(menu.mine).toEqual([])
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(0)
@@ -38,10 +39,10 @@ describe('navMenu', () => {
   it('adds "Rechte und Rollen" and "Löschfristen" under "Mehr" for the Träger only', () => {
     const provider = navMenu({ ...base, ...as('provider') })
     expect(labels(provider.more)).toEqual([
-      'Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Benutzer', 'Rechte und Rollen', 'Einstellungen', 'Löschfristen',
+      'Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Unfälle', 'Benutzer', 'Rechte und Rollen', 'Einstellungen', 'Löschfristen',
     ])
-    expect(provider.more[5]!.to).toBe('/admin/rights')
-    expect(provider.more[7]!.to).toBe('/admin/retention')
+    expect(provider.more[6]!.to).toBe('/admin/rights')
+    expect(provider.more[8]!.to).toBe('/admin/retention')
     expect(labels(navMenu(base).more)).not.toContain('Löschfristen')
     expect(labels(navMenu(base).more)).not.toContain('Rechte und Rollen')
   })
@@ -110,10 +111,10 @@ describe('isEntryActive / isGroupActive', () => {
   it('matches the entry and pages below it', () => {
     expect(isEntryActive('/plan/2025/3', menu.main[0]!)).toBe(true)
     expect(isEntryActive('/my/plan/2025/3', menu.main[0]!)).toBe(false)
-    expect(isEntryActive('/admin/settings/groups/4', menu.more[5]!)).toBe(true)
+    expect(isEntryActive('/admin/settings/groups/4', menu.more[6]!)).toBe(true)
     expect(isEntryActive('/team-meetings/12', menu.main.at(-2)!)).toBe(true)
     expect(isEntryActive('/admin/forms', menu.more[3]!)).toBe(true)
-    expect(isEntryActive('/admin/settingsx', menu.more[5]!)).toBe(false)
+    expect(isEntryActive('/admin/settingsx', menu.more[6]!)).toBe(false)
   })
   it('marks "Mehr" and "Meins" active on their pages only', () => {
     expect(isGroupActive('/admin/closures', menu.more)).toBe(true)
@@ -153,10 +154,10 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const withPlanning: Pair[] = [officeMain[0]!, ['Urlaubsplanung (4)', '/admin/leave-planning'], ...officeMain.slice(1)]
   const leitungMore: Pair[] = [
     ['Schließzeiten', '/admin/closures'], ['Krankheitstage', '/admin/sick-days'], ['Vorlagen', '/templates'],
-    ['Bögen', '/admin/forms'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
+    ['Bögen', '/admin/forms'], ['Unfälle', '/admin/accidents'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
   ]
   const providerMore: Pair[] = [
-    ...leitungMore.slice(0, 5), ['Rechte und Rollen', '/admin/rights'], leitungMore[5]!, ['Löschfristen', '/admin/retention'],
+    ...leitungMore.slice(0, 6), ['Rechte und Rollen', '/admin/rights'], leitungMore[6]!, ['Löschfristen', '/admin/retention'],
   ]
   const officeMine: Pair[] = [
     ['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'],
