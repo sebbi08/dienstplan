@@ -454,6 +454,31 @@ export interface OccupancyCellDto {
   red: boolean
   /** Number of children above the capacity (0 = at or below it). */
   over: number
+  /** The group's age limits exceeded in the month, in the rules' order (always empty for the total and „ohne Gruppe“). */
+  ageViolations: AgeLimitCountDto[]
+}
+
+/** An age limit of a group: „von `fromYears` bis unter `toYears` Jahren: höchstens `maxChildren` Kinder“. */
+export interface AgeLimitRuleDto {
+  fromYears: number
+  toYears: number
+  maxChildren: number
+}
+
+/** An age limit with the children of its range in a month (`count`, more than `maxChildren` when exceeded). */
+export interface AgeLimitCountDto extends AgeLimitRuleDto {
+  count: number
+}
+
+/**
+ * An age limit of a group exceeded from `year`/`month` on (the first such month of the coming twelve), with the
+ * children in its range then: the hint on the Kinder page and after a save (the save happened anyway).
+ */
+export interface AgeLimitWarningDto extends AgeLimitCountDto {
+  groupId: number
+  groupName: string
+  year: number
+  month: number
 }
 
 export interface OccupancyRowDto {

@@ -3,6 +3,7 @@ import { addDays, todayIso } from '#shared/domain/dates'
 import { kitaYearLabel, kitaYearOf } from '#shared/domain/kitaYear'
 import type { OccupancyCellDto, OccupancyDto, OccupancyRowDto, SchoolSettingsDto, UpcomingSchoolChildDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { ageLimitCountText } from '~/utils/ageLimits'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
 import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
@@ -165,6 +166,14 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
 
       <section v-if="detail" class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200" aria-live="polite">
         <h2 class="font-semibold">{{ detail.title }}</h2>
+        <!-- Which of the group's age limits the month exceeds: „unter 3 Jahren: 6 von 5“. -->
+        <ul v-if="detail.cell.ageViolations.length" class="space-y-0.5 rounded bg-amber-50 p-2 text-amber-900 ring-1 ring-amber-300">
+          <li v-for="(violation, index) in detail.cell.ageViolations" :key="index" class="flex flex-wrap items-center gap-x-1">
+            <UIcon name="i-lucide-baby" class="size-4 shrink-0" aria-hidden="true" />
+            <span class="font-semibold">{{ de.ageLimits.exceeded }}:</span>
+            <span>{{ ageLimitCountText(violation) }}</span>
+          </li>
+        </ul>
         <p v-if="!detail.cell.present.length && !detail.cell.fresh.length" class="text-gray-500">{{ de.occupancy.none }}</p>
         <div v-for="list in [
           { key: 'present', title: de.occupancy.present, names: detail.cell.present },

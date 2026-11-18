@@ -1,10 +1,12 @@
+import { ageLimitViolations } from '../../shared/domain/ageLimits'
 import { toIsoDate } from '../../shared/domain/dates'
 import { kitaYearLabel, kitaYearMonths, kitaYearOf } from '../../shared/domain/kitaYear'
 import { cellState, facilityCell, groupCell, type OccupancyCell } from '../../shared/domain/occupancy'
 import type { IsoDate } from '../../shared/domain/types'
-import type { OccupancyCellDto, OccupancyDto, OccupancyNameDto, UpcomingSchoolChildDto } from '../../shared/types/api'
+import type { AgeLimitCountDto, OccupancyCellDto, OccupancyDto, OccupancyNameDto, UpcomingSchoolChildDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { ServiceError } from '../lib/errors'
+import { ageLimitChildren, facilityAgeRules } from './ageLimits'
 import { facilityCapacity } from './facilities'
 import { listGroups } from './groups'
 import { activeSchoolChildren, isSchoolStartDue, occupancyChildren } from './schoolChildren'
@@ -28,17 +30,29 @@ export function occupancyTable(db: Db, facilityId: number, startYear: number): O
 
   const nameOf = (entry: { childId: number; from: string; to: string | null }): OccupancyNameDto =>
     ({ id: entry.childId, name: names[entry.childId] ?? '', from: entry.from, to: entry.to })
-  const toDto = (cell: OccupancyCell, capacity: number | null): OccupancyCellDto => ({
+  const toDto = (cell: OccupancyCell, capacity: number | null, ageViolations: AgeLimitCountDto[] = []): OccupancyCellDto => ({
     present: cell.present.map(nameOf),
     fresh: cell.fresh.map(nameOf),
     ...cellState(cell.present.length + cell.fresh.length, capacity),
+    ageViolations,
   })
+
+  // The groups' age limits exceeded, by group and month (`<groupId>:<year>-<month>`), in the rules' order.
+  const rules = facilityAgeRules(db, facilityId)
+  const exceeded = new Map<string, AgeLimitCountDto[]>()
+  if (rules.length > 0) {
+    for (const { groupId, rule, year, month, count } of ageLimitViolations(ageLimitChildren(db, facilityId, children), rules, months)) {
+      const key = `${groupId}:${year}-${month}`
+      exceeded.set(key, [...exceeded.get(key) ?? [], { fromYears: rule.fromYears, toYears: rule.toYears, maxChildren: rule.maxChildren, count }])
+    }
+  }
 
   const rows: OccupancyDto['rows'] = groups.map(group => ({
     groupId: group.id,
     name: group.name,
     capacity: group.capacity,
-    cells: months.map(({ year, month }) => toDto(groupCell(children, group.id, year, month), group.capacity)),
+    cells: months.map(({ year, month }) =>
+      toDto(groupCell(children, group.id, year, month), group.capacity, exceeded.get(`${group.id}:${year}-${month}`))),
   }))
   const ungrouped = months.map(({ year, month }) => toDto(groupCell(children, null, year, month), null))
   if (ungrouped.some(cell => cell.present.length > 0 || cell.fresh.length > 0)) {

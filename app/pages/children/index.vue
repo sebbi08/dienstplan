@@ -165,6 +165,8 @@ const td = 'px-3 py-2'
 
     <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorCode(error) === 'no_facility' ? de.errors.no_facility : errorMessage(error) }}</p>
     <template v-else>
+      <!-- The groups' age limits exceeded in the coming twelve months: Leitung and Träger, never at the tablet. -->
+      <ChildrenAgeLimitHints v-if="isLeader && !onTablet" />
       <!-- The areas as big buttons, the sub-tabs of the open one below them. -->
       <div role="tablist" :aria-label="de.children.areas.label" class="grid gap-2" :class="areas.length === 3 ? 'grid-cols-3' : 'grid-cols-2'">
         <button

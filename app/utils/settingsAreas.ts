@@ -155,6 +155,11 @@ export const GROUP_SECTIONS: readonly SettingsSection[] = [
     key: 'group-capacity', title: de.capacity.groupsTitle, replaces: ['group-capacity'],
     keywords: ['Höchstzahl', 'Plätze', 'Kinderzahl', 'Belegung', 'Kapazität'],
   },
+  {
+    // Whoever edits the groups (the Träger by default) changes them; the Leitung sees them.
+    key: 'group-age-limits', title: de.ageLimits.title, replaces: [],
+    keywords: ['Altersgrenze', 'Alter', 'Jahre', 'unter 3', 'Krippenkinder', 'Höchstzahl', 'Belegung'],
+  },
   { key: 'group-type', title: de.staffing.groupTypesTitle, replaces: ['group-types'], keywords: ['Gruppenart', 'Gruppentyp', 'Krippe', 'Personalschlüssel'] },
   {
     key: 'group-staffing', title: de.staffing.estimate.sectionTitle, replaces: [],

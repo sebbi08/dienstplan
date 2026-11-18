@@ -100,7 +100,7 @@ const CHILD_EDITOR_ROUTES = [
 const CHILD_MANAGER_ROUTES = [
   'children/[id].delete.ts', 'children/archive.get.ts', 'children/occupancy.get.ts', 'children/school-children.get.ts',
   'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
-  'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts',
+  'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts', 'children/age-limit-warnings.get.ts',
 ]
 /** Each child route with the one permission it checks. */
 const CHILD_ROUTES: Record<string, PermissionKey> = Object.fromEntries([
@@ -239,7 +239,7 @@ describe('API route permissions', () => {
     // At the tablet the viewer carries the unlocking person's permissions (tabletUnlock.ts viewerFor); the role stays
     // only to name who they are.
     const files = ['server/lib/childRecord.ts', 'server/lib/childViewer.ts', 'shared/domain/childForms.ts',
-      ...['capacityWarnings', 'childAttendance', 'childContacts', 'childDocuments', 'childForms', 'childGroupChanges',
+      ...['ageLimits', 'capacityWarnings', 'childAttendance', 'childContacts', 'childDocuments', 'childForms', 'childGroupChanges',
         'children', 'groupBook', 'groups', 'parentMeetings', 'reminders', 'tabletUnlock']
         .map(name => `server/services/${name}.ts`)]
     for (const file of files) {
@@ -531,6 +531,17 @@ describe('API route permissions', () => {
     const code = source('groups/[id]/move.post.ts')
     expect(code).toContain("requirePermission(event, 'settings.groups')")
     expect(code).toContain('provider.facilityId')
+  })
+
+  it('leaves the age limits of a group to whoever edits the groups, shown to whoever sees the group settings', () => {
+    const edit = source('groups/[id]/age-limits.put.ts')
+    expect(edit).toContain("requirePermission(event, 'settings.groups')")
+    expect(edit).toContain('provider.facilityId')
+    const read = source('groups/[id]/age-limits.get.ts')
+    expect(read).toContain("requirePermission(event, 'settings.facility')")
+    expect(read).toContain('admin.facilityId')
+    expect(fixture['groups/[id]/age-limits.put.ts']).toEqual(['provider'])
+    expect(fixture['groups/[id]/age-limits.get.ts']).toEqual(['provider', 'admin'])
   })
 
   it('opens the list of the coming school children to managers of the active facility only', () => {

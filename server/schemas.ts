@@ -248,6 +248,10 @@ export const helpOutSchema = z.object({
 export const groupNameSchema = z.object({ name: z.string().max(80) })
 /** The range (whole number 1-200 or null) is checked by the service, which answers invalid_capacity. */
 export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
+/** A group's age limits as a whole list; the ranges and the number of rules are checked by the service (German codes). */
+export const groupAgeLimitsSchema = z.object({
+  rules: z.array(z.object({ fromYears: z.number(), toYears: z.number(), maxChildren: z.number() })).max(100),
+})
 /** The range (whole number 1-999 or null) is checked by the service, which answers invalid_facility_capacity. */
 export const facilityCapacitySchema = z.object({ capacity: z.number().nullable() })
 /** The facility's contact data; the formats and lengths are checked by the service, which answers the German codes. */

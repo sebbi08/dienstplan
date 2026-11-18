@@ -2,7 +2,7 @@
 import { isValidIsoDate, todayIso } from '#shared/domain/dates'
 import type { AdmissionStatus } from '#shared/domain/children'
 import { computedSchoolStart } from '#shared/domain/schoolStart'
-import type { CapacityWarningDto, ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
+import type { AgeLimitWarningDto, CapacityWarningDto, ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
@@ -179,7 +179,7 @@ const HIDDEN_SAVED: Record<HiddenReason, string> = {
 async function create(): Promise<boolean> {
   try {
     const input = payload()
-    const answer = await $fetch<{ id: number; capacityWarnings: CapacityWarningDto[] }>('/api/children', { method: 'POST', body: input })
+    const answer = await $fetch<{ id: number; capacityWarnings: CapacityWarningDto[]; ageLimitWarnings: AgeLimitWarningDto[] }>('/api/children', { method: 'POST', body: input })
     const { id } = answer
     showCapacityWarnings(answer)
     // The guard in save() holds until the navigation is done, so the child cannot be created twice.

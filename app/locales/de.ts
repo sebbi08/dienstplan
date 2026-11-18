@@ -1105,6 +1105,30 @@ export const de = {
     group: (name: string, count: number, capacity: number, from: string) => `${name} hat dann ${count} von ${capacity} Plätzen (ab ${from}).`,
     facility: (count: number, capacity: number, from: string) => `Die Einrichtung hat dann ${count} von ${capacity} Plätzen (ab ${from}).`,
   },
+  /** Altersgrenzen je Gruppe: the group's settings, the Belegung, the hint on the Kinder page and after a save. */
+  ageLimits: {
+    title: 'Altersgrenzen',
+    hint: 'Höchstens so viele Kinder eines Alters dürfen in der Gruppe sein. Als Alter in einem Monat zählt das Alter am 1. des Monats. '
+      + 'Gezählt werden dieselben Kinder wie in der Belegung, auch künftige Verträge. Die Regeln dürfen sich überschneiden.',
+    none: 'Keine Altersgrenzen festgelegt.',
+    readOnly: 'Die Altersgrenzen legt der Träger fest.',
+    rule: (from: number, to: number, max: number) => `von ${from} bis unter ${to} Jahren: höchstens ${max} Kinder`,
+    from: 'von', to: 'bis unter', years: 'Jahren:', max: 'höchstens', children: 'Kinder',
+    fromLabel: 'Alter von (Jahre)', toLabel: 'bis unter (Jahre)', maxLabel: 'höchstens Kinder',
+    add: 'Regel hinzufügen', remove: 'Regel entfernen',
+    exceeded: 'Altersgrenze überschritten',
+    /** The rule's range, short: „unter 3 Jahren“ or „2–3 Jahre“. */
+    range: (from: number, to: number) => (from === 0 ? `unter ${to} Jahren` : `${from}–${to} Jahre`),
+    /** In the Belegung's child list: „unter 3 Jahren: 6 von 5“. */
+    count: (range: string, count: number, max: number) => `${range}: ${count} von ${max}`,
+    /** The rule's range in a sentence: „unter 3 Jahren“ or „von 2 bis unter 3 Jahren“. */
+    rangeInText: (from: number, to: number) => (from === 0 ? `unter ${to} Jahren` : `von ${from} bis unter ${to} Jahren`),
+    warning: (group: string, month: string, range: string, count: number, max: number) =>
+      `In ${group} sind ab ${month} zu viele Kinder ${range} (${count} von ${max}).`,
+    hintTitle: 'Altersgrenzen der Gruppen',
+    attention: (text: string) => `Achtung: ${text}`,
+    saveTitle: 'Gespeichert – Altersgrenze überschritten',
+  },
   /** Personalschlüssel: the tab under Kinder, its printout, the settings and the employee and group fields. */
   staffing: {
     tab: 'Personalschlüssel', print: 'Personalschlüssel drucken', printTitle: (month: string) => `Personalschlüssel ${month}`,
@@ -2010,6 +2034,10 @@ export const de = {
     invalid_retention: 'Die Löschfrist muss eine ganze Zahl von 1 bis 10 Jahren sein.',
     invalid_capacity: 'Bitte eine ganze Zahl von 1 bis 200 eingeben oder das Feld leer lassen.',
     invalid_facility_capacity: 'Bitte eine ganze Zahl von 1 bis 999 eingeben oder das Feld leer lassen.',
+    age_limit_years_invalid: 'Bitte das Alter in ganzen Jahren von 0 bis 18 eingeben.',
+    age_limit_range_invalid: 'Bei einer Altersgrenze muss „von“ kleiner sein als „bis unter“.',
+    age_limit_max_invalid: 'Bitte als Höchstzahl eine ganze Zahl von 0 bis 200 eingeben.',
+    age_limits_too_many: 'Es sind höchstens 20 Altersgrenzen pro Gruppe möglich.',
     facility_postal_code_invalid: 'Die PLZ muss aus genau 5 Ziffern bestehen.',
     facility_website_invalid: 'Bitte eine gültige Website angeben, z. B. www.beispiel-kita.de.',
     facility_contact_email_invalid: 'Bitte eine gültige E-Mail-Adresse angeben, z. B. name@beispiel.de.',

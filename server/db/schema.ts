@@ -1003,6 +1003,18 @@ export const groupReadAccess = sqliteTable('group_read_access', {
   readableGroupId: integer('readable_group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
 }, table => [primaryKey({ columns: [table.groupId, table.readableGroupId] })])
 
+/**
+ * The age limits of a group: „von `fromYears` bis unter `toYears` Jahren: höchstens `maxChildren` Kinder“ (whole years
+ * 0 to 18, from < to, max >= 0). Several per group, they may overlap. A child's age in a month is its age on the 1st.
+ */
+export const groupAgeLimits = sqliteTable('group_age_limits', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  fromYears: integer('from_years').notNull(),
+  toYears: integer('to_years').notNull(),
+  maxChildren: integer('max_children').notNull(),
+}, table => [index('group_age_limits_group').on(table.groupId)])
+
 /** The weekly overview's theme of a group for a week; `weekStart` is the week's Monday (ISO date). */
 export const groupWeekNotes = sqliteTable('group_week_notes', {
   id: integer('id').primaryKey({ autoIncrement: true }),

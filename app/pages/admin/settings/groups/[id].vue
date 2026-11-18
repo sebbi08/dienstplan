@@ -34,6 +34,7 @@ if (!group.value) throw createError({ statusCode: 404, statusMessage: s.groupNot
         <SettingsGroupNameSection v-if="section.key === 'group-name'" :group-id="group.id" />
         <SettingsGroupColorsSection v-else-if="section.key === 'group-color'" :group-id="group.id" />
         <SettingsGroupCapacitySection v-else-if="section.key === 'group-capacity'" :group-id="group.id" />
+        <SettingsGroupAgeLimitsSection v-else-if="section.key === 'group-age-limits'" :group-id="group.id" />
         <SettingsGroupTypesSection v-else-if="section.key === 'group-type'" :group-id="group.id" />
         <SettingsGroupStaffingSection v-else-if="section.key === 'group-staffing'" :group-id="group.id" />
         <SettingsOpeningHoursSection v-else-if="section.key === 'group-hours'" :group-id="group.id" />

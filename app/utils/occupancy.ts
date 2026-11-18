@@ -18,6 +18,7 @@ export function occupancyCellLabel(group: string, month: { year: number; month: 
   const parts = [`${group}, ${monthTitle(month.year, month.month)}: ${de.occupancy.count(cell.present.length, cell.fresh.length)}`]
   if (cell.red) parts.push(de.occupancy.overFull)
   if (cell.over > 0) parts.push(de.occupancy.over(cell.over))
+  if (cell.ageViolations.length > 0) parts.push(de.ageLimits.exceeded)
   return parts.join(', ')
 }
 

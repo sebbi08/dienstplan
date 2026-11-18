@@ -1,11 +1,13 @@
 import { todayIso } from '../../../shared/domain/dates'
 import { idParams } from '../../schemas'
+import { ageLimitCells, ageLimitWarnings } from '../../services/ageLimits'
 import { capacityCells, capacityWarnings } from '../../services/capacityWarnings'
 import { childOfGroupChange, deleteGroupChange } from '../../services/childGroupChanges'
 
 /**
  * Deletes a planned group change until the day before it takes effect; `capacityWarnings` names the group the child
- * then stays in longer when that takes it over its Höchstzahl Kinder.
+ * then stays in longer when that takes it over its Höchstzahl Kinder, `ageLimitWarnings` that group's age limits it
+ * takes over in the coming twelve months.
  */
 export default defineServiceHandler(async (event) => {
   const manager = await requireChildPermission(event, 'children.manage')
@@ -14,7 +16,12 @@ export default defineServiceHandler(async (event) => {
   const today = todayIso()
   const childId = childOfGroupChange(db, manager.facilityId, id)
   const before = capacityCells(db, manager.facilityId, childId, today)
+  const ageBefore = ageLimitCells(db, manager.facilityId, childId, today)
   deleteGroupChange(db, manager.facilityId, id, today)
   // The delete found the change, so its child is known.
-  return { ok: true, capacityWarnings: capacityWarnings(db, manager, manager.facilityId, childId!, before, today) }
+  return {
+    ok: true,
+    capacityWarnings: capacityWarnings(db, manager, manager.facilityId, childId!, before, today),
+    ageLimitWarnings: ageLimitWarnings(db, manager, manager.facilityId, childId!, ageBefore, today),
+  }
 })
