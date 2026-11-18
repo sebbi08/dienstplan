@@ -46,11 +46,12 @@ interface BookingScope {
  * Books a closure of the facility for the given staff (all of that facility), only on each one's working days
  * (a closure never uses leave on a day off) and, with `from`, only on days from then on. Days on which someone helps
  * out in another facility are skipped (and booked when that help-out day becomes empty again, see rebookHomeClosure).
+ * Returns the number of cells booked.
  */
 function bookClosure(
   db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
   { from, onlyEmpty }: BookingScope = {},
-): void {
+): number {
   const vacationCells: { employeeId: number; date: IsoDate }[] = []
   const closureCells: { employeeId: number; date: IsoDate }[] = []
   for (const employee of staff) {
@@ -66,6 +67,7 @@ function bookClosure(
   const options = { now, closureId: closure.id }
   if (vacationCells.length) applyToCells(db, actor, facilityId, vacationCells, 'replace', { kind: 'code', codeId: closureCodeId(db, 'vacation') }, options)
   if (closureCells.length) applyToCells(db, actor, facilityId, closureCells, 'replace', { kind: 'code', codeId: closureCodeId(db, 'closure_day') }, options)
+  return vacationCells.length + closureCells.length
 }
 
 /** Creates a closure of the facility and books it for the facility's staff. */
@@ -97,6 +99,30 @@ export function bookClosuresFor(db: Db, actor: SessionUser, employeeId: number, 
     if (from !== undefined && closure.endDate < from) continue
     bookClosure(db, actor, employee.facilityId, closure, [employee], now, { from })
   }
+}
+
+/**
+ * Books the closures of the employee's facility for them on the days from `from` (before `until` when given, exclusive),
+ * as creating the closure would have (working days only, leave in vacation mode with the joiner limit, help-out days
+ * skipped), but only in cells that are still empty: nothing is overwritten, so running it again books nothing new.
+ * Someone who moved into the facility (facilitySince set, see moveEmployeeToFacility) gets them only from that day on:
+ * the days before belong to the other facility. A facilitySince of null means the person belongs to the facility from
+ * the start, so all their days are its own and nothing has to be moved. Returns the number of days booked.
+ */
+export function bookClosuresBetween(
+  db: Db, actor: SessionUser, employeeId: number, from: IsoDate, until: IsoDate | null, now: Date = new Date(),
+): number {
+  const employee = loadEmployee(db, employeeId)
+  if (!employee) throw new ServiceError(404, 'employee_not_found')
+  const since = db.select({ since: employees.facilitySince }).from(employees).where(eq(employees.id, employeeId)).get()?.since
+  const start = since != null && since > from ? since : from
+  const onlyEmpty = (_employeeId: number, date: IsoDate) => date >= start && (until === null || date < until)
+  let booked = 0
+  for (const closure of loadClosures(db, employee.facilityId)) {
+    if (closure.endDate < start || (until !== null && closure.startDate >= until)) continue
+    booked += bookClosure(db, actor, employee.facilityId, closure, [employee], now, { onlyEmpty })
+  }
+  return booked
 }
 
 /**

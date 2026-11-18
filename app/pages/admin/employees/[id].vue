@@ -248,6 +248,31 @@ function addHours() {
   }), de.common.saved)
 }
 
+// „Stundenkonto ab“ and „Schließzeiten nachtragen“ need the right of the weekly hours (the server checks it too).
+const canManageTime = computed(() => can('time.manage'))
+/** „Stundenkonto ab“ as typed ('' = empty: the account starts with the weekly hours); follows the saved value. */
+const balanceFrom = ref('')
+watch(employee, (value) => {
+  if (value) balanceFrom.value = value.balanceFrom ?? ''
+}, { immediate: true })
+function saveBalanceFrom() {
+  run(() => $fetch<unknown>(`/api/employees/${id}/balance-from`, {
+    method: 'PUT', body: { balanceFrom: balanceFrom.value || null },
+  }), de.common.saved)
+}
+
+/** „Schließzeiten nachtragen“: all closures from the first weekly hours on, in empty days only. */
+async function bookClosures() {
+  const first = employee.value?.hours[0]?.validFrom
+  if (!employee.value || !first) return
+  if (!await confirm(de.employees.bookClosuresConfirm(formatDate(first), employee.value.name), { confirmLabel: de.employees.bookClosures, danger: false })) return
+  let booked = 0
+  const ok = await run(async () => {
+    booked = (await $fetch<{ booked: number }>(`/api/employees/${id}/book-closures`, { method: 'POST' })).booked
+  })
+  if (ok) toast.add({ title: de.employees.bookClosuresDone(booked), color: 'success' })
+}
+
 async function deleteHours(hoursId: number) {
   if (await confirm(de.common.confirmDelete)) run(() => $fetch<unknown>(`/api/employee-hours/${hoursId}`, { method: 'DELETE' }))
 }
@@ -460,6 +485,14 @@ async function onTabKey(event: KeyboardEvent) {
         <span v-if="monthBalance" class="font-semibold" :class="balanceClass(monthBalance.monthEnd)">{{ formatSignedDuration(monthBalance.monthEnd) }}</span>
         <span v-else class="text-gray-400">–</span>
       </div>
+      <form v-if="canManageTime" class="flex flex-wrap items-end gap-3 pt-1" @submit.prevent="saveBalanceFrom">
+        <UFormField :label="de.employees.balanceFrom">
+          <DateTextInput v-model="balanceFrom" :label="de.employees.balanceFrom" class="w-44" />
+        </UFormField>
+        <UButton type="submit" color="neutral" variant="outline" :label="de.common.save" />
+      </form>
+      <p v-else-if="employee.balanceFrom">{{ de.employees.balanceFrom }}: {{ formatDate(employee.balanceFrom) }}</p>
+      <p class="text-xs text-gray-500">{{ de.employees.balanceFromHint }}</p>
     </section>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
@@ -546,6 +579,9 @@ async function onTabKey(event: KeyboardEvent) {
       </p>
       <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
       <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
+      <div v-if="canManageTime && employee.hours.length > 0" class="pt-2">
+        <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-calendar-plus" :label="de.employees.bookClosures" @click="bookClosures" />
+      </div>
     </section>
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.entitlements }}</h2>

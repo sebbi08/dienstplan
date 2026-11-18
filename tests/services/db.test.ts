@@ -130,11 +130,13 @@ describe('upgrading a filled database through migrateDb', () => {
     'christmas_eve_half_leave']
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
-  // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them.
+  // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them (and
+  // without `balance_from` of 0072_employee_balance_from).
   const PERSONNEL_COLUMNS = ['birth_year', 'street', 'postal_code', 'city', 'phone', 'email', 'nationality', 'disability',
     'disability_degree', 'disability_equal', 'disability_until', 'fixed_term_until']
+  const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from']
   const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
-    .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !PERSONNEL_COLUMNS.includes(column))))
+    .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_EMPLOYEE_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
   it('keeps every row and moves settings, users and data into facility 1 "Kindergarten"', () => {
@@ -1827,6 +1829,13 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec('INSERT INTO shift_templates (short_label, label, start, end, facility_id) VALUES (\'M\', \'Mittel\', 465, 960, 1)')
     expect(sqlite.prepare('SELECT home_office FROM shift_templates WHERE id = 2').get()).toEqual({ home_office: 0 })
     expect(() => sqlite.exec('UPDATE shift_templates SET home_office = NULL WHERE id = 1')).toThrow(/NOT NULL/)
+  })
+
+  it('0072 adds an empty „Stundenkonto ab“ to every employee (the account starts with the weekly hours, as before)', () => {
+    const { db, sqlite } = databaseAt('0071')
+    sqlite.exec('INSERT INTO employees (id, name, facility_id) VALUES (1, \'Anna\', 1)')
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, name, balance_from FROM employees').all()).toEqual([{ id: 1, name: 'Anna', balance_from: null }])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

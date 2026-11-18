@@ -17,6 +17,11 @@ export interface EmploymentInfo {
   leftOn: IsoDate | null
   /** Public-holiday rules of the home facility: they decide the working days everywhere, help-outs included. */
   holidays: HolidayRules
+  /**
+   * „Stundenkonto ab“: the hours account starts no earlier than this day (null/missing = with the first weekly hours).
+   * Only the balance reads it (see balanceStart); working days, targets and leave do not.
+   */
+  balanceFrom?: IsoDate | null
 }
 
 function periodOn(info: EmploymentInfo, date: IsoDate): HoursPeriod | null {
@@ -49,6 +54,16 @@ export function workdayCount(workdays: number): number {
 export function employmentStart(info: EmploymentInfo): IsoDate | null {
   if (info.hours.length === 0) return null
   return info.hours.reduce((min, period) => (period.validFrom < min ? period.validFrom : min), info.hours[0]!.validFrom)
+}
+
+/**
+ * First day the hours account counts target and worked time: the first weekly hours, or „Stundenkonto ab“ when that is
+ * later (null without weekly hours).
+ */
+export function balanceStart(info: EmploymentInfo): IsoDate | null {
+  const start = employmentStart(info)
+  if (start === null) return null
+  return info.balanceFrom != null && info.balanceFrom > start ? info.balanceFrom : start
 }
 
 export function isEmployedOn(info: EmploymentInfo, date: IsoDate): boolean {

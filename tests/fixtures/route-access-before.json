@@ -130,6 +130,8 @@
   "employees/[id].put.ts": ["provider","admin"],
   "employees/[id]/adjustments.post.ts": ["provider","admin"],
   "employees/[id]/adjustments/[adjustmentId].patch.ts": ["provider","admin"],
+  "employees/[id]/balance-from.put.ts": ["provider","admin"],
+  "employees/[id]/book-closures.post.ts": ["provider","admin"],
   "employees/[id]/contract.put.ts": ["provider"],
   "employees/[id]/documents.get.ts": ["provider","admin"],
   "employees/[id]/documents.post.ts": ["provider","admin"],

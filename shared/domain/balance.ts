@@ -1,5 +1,5 @@
 import { dateRange } from './dates'
-import { dailyTarget, employmentStart, isEmployedOn, type EmploymentInfo } from './targets'
+import { balanceStart, dailyTarget, isEmployedOn, type EmploymentInfo } from './targets'
 import type { DomainEntry, IsoDate } from './types'
 
 export interface DayResult {
@@ -166,12 +166,17 @@ export function summarize(days: DayResult[]): Totals {
   )
 }
 
+/**
+ * The hours account at the end of `until`: every adjustment dated until then (also one dated before „Stundenkonto ab“:
+ * it is a deliberate manual booking) plus the day deltas from balanceStart on (the first weekly hours, or „Stundenkonto
+ * ab“ when later).
+ */
 export function balanceUntil(
   info: EmploymentInfo, entries: DomainEntry[], adjustments: Adjustment[], until: IsoDate,
   actual?: ActualTime,
 ): number {
   const adjusted = adjustments.filter(a => a.date <= until).reduce((sum, a) => sum + a.minutes, 0)
-  const start = employmentStart(info)
+  const start = balanceStart(info)
   if (start === null || start > until) return adjusted
   return adjusted + summarize(computeRange(info, entries, start, until, actual)).delta
 }

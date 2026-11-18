@@ -114,6 +114,12 @@ export const employees = sqliteTable('employees', {
    * by another facility: they never count as that facility's unreleased changes and a discard never touches them.
    */
   facilitySince: text('facility_since'),
+  /**
+   * „Stundenkonto ab“ (ISO date): the hours account counts target and worked time only from the later of this day and
+   * the first weekly hours (null = from the first weekly hours). Balance adjustments count by their own date; the leave
+   * account is not affected.
+   */
+  balanceFrom: text('balance_from'),
   /** The home group in the home facility (null = Springer, or the facility has no groups). */
   groupId: groupId(),
   name: text('name').notNull(),

@@ -1083,6 +1083,11 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
   adjustments: { id: number; date: IsoDate; minutes: number; reason: string; paidOut: boolean }[]
   /** carriedOverDays is the carry-over that counts; carriedAutomatically when it is the rest of the year before. */
   entitlements: { id: number; year: number; days: number; carriedOverDays: number; carriedAutomatically: boolean }[]
+  /**
+   * „Stundenkonto ab“ (ISO date): the hours account counts only from the later of this day and the first weekly hours
+   * (null = from the first weekly hours).
+   */
+  balanceFrom: IsoDate | null
   /** End of a running timed PIN lock (15 or 30 minutes; null = none). */
   pinLockedUntil: string | null
   /** The PIN stays locked until the Leitung or the Träger unlocks it („PIN freischalten“). */

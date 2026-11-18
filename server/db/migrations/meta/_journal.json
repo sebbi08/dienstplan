@@ -505,6 +505,13 @@
       "when": 1794987866161,
       "tag": "0071_shift_template_home_office",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1795006101347,
+      "tag": "0072_employee_balance_from",
+      "breakpoints": true
     }
   ]
 }

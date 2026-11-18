@@ -1,0 +1,1 @@
+ALTER TABLE `employees` ADD `balance_from` text;

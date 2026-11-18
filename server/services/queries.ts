@@ -140,19 +140,21 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
   return db.select({
     row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay,
-    halfLeaveOnEves: facilities.christmasEveHalfLeave,
+    halfLeaveOnEves: facilities.christmasEveHalfLeave, balanceFrom: employees.balanceFrom,
   })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
     .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-    .map(({ row, state, assumptionDay, halfLeaveOnEves }) => ({
+    .map(({ row, state, assumptionDay, halfLeaveOnEves, balanceFrom }) => ({
       ...row,
       halfLeaveOnEves,
       info: {
         hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
         leftOn: row.leftOn,
         holidays: { state, assumptionDay },
+        // „Stundenkonto ab“: only the balance reads it (balanceStart), so every balance follows it.
+        balanceFrom,
       },
     }))
 }

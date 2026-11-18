@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull, max, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, max, min, ne } from 'drizzle-orm'
 import { isValidIsoDate, parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { pinLockState } from '../../shared/domain/pin'
 import { isValidMonthDay } from '../../shared/domain/reminders'
@@ -16,7 +16,7 @@ import type {
 import type { Db } from '../db/client'
 import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { bookClosuresFor, unbookClosuresFrom } from './closures'
+import { bookClosuresBetween, bookClosuresFor, unbookClosuresFrom } from './closures'
 import { employeesWithPaidOvertimeData } from './employeeDeletion'
 import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
@@ -210,6 +210,7 @@ export function getEmployee(
         const { carriedOverDays, carriedAutomatically } = yearEntitlement(db, employee, year)!
         return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
       }),
+    balanceFrom: pin.balanceFrom,
     ...pinLockState(pin, now), pinLockLevel: pin.pinLockLevel,
     ...(can(permissions, 'employees.personal') ? { personal: personalOf(pin) } : {}),
     ...(can(permissions, 'employees.sensitive') ? { sensitive: sensitiveOf(pin) } : {}),
@@ -371,16 +372,73 @@ export function assertNotOwnBalance(actor: BalanceActor | undefined, employeeId:
   if (actor.employeeId !== null && actor.employeeId === employeeId) throw new ServiceError(403, 'own_account')
 }
 
+/** The earliest validFrom of the employee's weekly hours (null without any). */
+function firstHoursStart(db: Db, employeeId: number): IsoDate | null {
+  return db.select({ validFrom: min(employeeHours.validFrom) }).from(employeeHours)
+    .where(eq(employeeHours.employeeId, employeeId)).get()?.validFrom ?? null
+}
+
+/**
+ * Adds weekly hours from validFrom on (or changes the period starting that day). When this moves the first weekly hours
+ * earlier, the facility's closures are booked for the newly covered days (new start up to the old one), as for a new
+ * employee: closures apply to everyone, and before there were no working days to book them on. Only empty cells, in the
+ * same transaction (bookClosuresBetween). Booking needs the acting session user for the change log; without an actor
+ * (only internal callers) nothing is booked.
+ */
 export function addHours(
   db: Db, facilityId: number, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate; workdays?: number },
-  actor?: BalanceActor,
+  actor?: SessionUser | BalanceActor, now: Date = new Date(),
 ): void {
   assertEmployee(db, facilityId, employeeId)
   assertNotOwnBalance(actor, employeeId)
   const workdays = requireWorkdays(period.workdays ?? MONDAY_TO_FRIDAY)
-  db.insert(employeeHours).values({ employeeId, weeklyMinutes: period.weeklyMinutes, validFrom: period.validFrom, workdays })
-    .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes, workdays } })
-    .run()
+  db.transaction((tx) => {
+    const before = firstHoursStart(tx, employeeId)
+    tx.insert(employeeHours).values({ employeeId, weeklyMinutes: period.weeklyMinutes, validFrom: period.validFrom, workdays })
+      .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes, workdays } })
+      .run()
+    if (before !== null && period.validFrom < before && actor && 'id' in actor) {
+      bookClosuresBetween(tx, actor, employeeId, period.validFrom, before, now)
+    }
+  })
+}
+
+/**
+ * „Schließzeiten nachtragen“: books all closures of the facility for the employee from the first weekly hours on, in
+ * empty cells only (bookClosuresBetween: days with entries stay as they are, someone who moved in only from that day).
+ * For records whose hours were moved earlier before closures followed such a change. Same rights as the weekly hours
+ * (the route checks time.manage; nobody changes the own account, 403 own_account). Returns the number of days booked.
+ */
+export function bookMissingClosures(db: Db, actor: SessionUser, facilityId: number, employeeId: number, now: Date = new Date()): number {
+  assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
+  return db.transaction((tx) => {
+    const start = firstHoursStart(tx, employeeId)
+    return start === null ? 0 : bookClosuresBetween(tx, actor, employeeId, start, null, now)
+  })
+}
+
+/** Earliest „Stundenkonto ab“ accepted. */
+const BALANCE_FROM_MIN = '1970-01-01'
+
+/**
+ * „Stundenkonto ab“: the hours account counts target and worked time only from the later of this day and the first
+ * weekly hours (null = from the first weekly hours; see balanceStart). A real date from 1970 up to a year after today
+ * (400 balance_from_invalid / balance_from_out_of_range). Same rights as balance adjustments: nobody changes the own
+ * account (403 own_account).
+ */
+export function setBalanceFrom(
+  db: Db, facilityId: number, employeeId: number, balanceFrom: string | null, actor?: BalanceActor, today: IsoDate = todayIso(),
+): void {
+  assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
+  if (balanceFrom !== null) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(balanceFrom) || !isValidIsoDate(balanceFrom)) throw new ServiceError(400, 'balance_from_invalid')
+    // A year ahead by the calendar; for 29 February the string compare still ends on 28 February of the next year.
+    const latest = `${parseIsoDate(today).year + 1}${today.slice(4)}`
+    if (balanceFrom < BALANCE_FROM_MIN || balanceFrom > latest) throw new ServiceError(400, 'balance_from_out_of_range')
+  }
+  db.update(employees).set({ balanceFrom }).where(eq(employees.id, employeeId)).run()
 }
 
 export function deleteHours(db: Db, facilityId: number, id: number, actor?: BalanceActor): void {
