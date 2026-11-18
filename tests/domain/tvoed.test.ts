@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { dueLevelUp, levelBySeniority, levelStart, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
+import { dueLevelUp, isPlausibleTrainingUntil, levelBySeniority, levelStart, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
+
+describe('the training end check (server and form)', () => {
+  it('takes a real ISO date from 1970 up to a year after today', () => {
+    const today = '2026-11-18'
+    for (const valid of ['1970-01-01', '2024-07-31', '2027-11-18']) expect(isPlausibleTrainingUntil(valid, today), valid).toBe(true)
+    for (const invalid of ['1969-12-31', '2027-11-19', '2024-02-30', '2024-7-31', '31.07.2024', '']) {
+      expect(isPlausibleTrainingUntil(invalid, today), invalid).toBe(false)
+    }
+    // From 29 February the latest day is 28 February of the next year.
+    expect(isPlausibleTrainingUntil('2029-02-28', '2028-02-29')).toBe(true)
+    expect(isPlausibleTrainingUntil('2029-03-01', '2028-02-29')).toBe(false)
+  })
+})
 
 describe('level start after training or studies in the facility', () => {
   it('starts with the employment when no training end is set', () => {

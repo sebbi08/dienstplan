@@ -1,4 +1,5 @@
-import { levelStart, seniority } from '#shared/domain/tvoed'
+import { isPlausibleTrainingUntil, levelStart, seniority } from '#shared/domain/tvoed'
+import type { IsoDate } from '#shared/domain/types'
 import type { EmployeeContractDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
@@ -16,9 +17,12 @@ export function levelYearsNote(contract: LevelYearsFields): string | null {
   return de.contract.levelYearsFrom(formatDate(since), contract.recognitionYearCounts ? 'recognition' : 'training')
 }
 
-/** Saving asks whether the recognition year counts as level 1 when a training end was entered or changed. */
-export function askRecognitionYear(savedTrainingUntil: string | null, trainingUntil: string | null): boolean {
-  return trainingUntil !== null && trainingUntil !== savedTrainingUntil
+/**
+ * Saving asks whether the recognition year counts as level 1 when a training end was entered or changed, and only for
+ * a date the server takes (an invalid one goes on and comes back with the German error instead).
+ */
+export function askRecognitionYear(savedTrainingUntil: string | null, trainingUntil: string | null, today: IsoDate): boolean {
+  return trainingUntil !== null && trainingUntil !== savedTrainingUntil && isPlausibleTrainingUntil(trainingUntil, today)
 }
 
 /**

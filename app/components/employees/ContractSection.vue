@@ -10,7 +10,9 @@ import { askRecognitionYear, contractSummary, levelYearsNote } from '~/utils/con
 const props = defineProps<{ employeeId: number; contract: EmployeeContractDto; editable: boolean }>()
 const emit = defineEmits<{ saved: [] }>()
 const run = useAction(async () => emit('saved'))
-const confirm = useConfirm()
+const ask = useQuestion()
+/** While the question is open or the save runs: „Speichern“ is disabled (no double save). */
+const { busy, guard } = useBusy()
 
 const form = reactive<EmployeeContractDto>({
   personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null, fixedTermUntil: null,
@@ -45,21 +47,28 @@ function useSuggestedLevel() {
   if (suggestedLevel.value) form.payLevel = suggestedLevel.value.level
 }
 
-/** A training end entered or changed: ask whether the recognition year counts as level 1, then save the answer too. */
-async function save() {
-  const trainingUntil = form.trainingUntil || null
-  if (askRecognitionYear(props.contract.trainingUntil, trainingUntil)) {
-    form.recognitionYearCounts = await confirm(de.contract.recognitionQuestion, {
-      confirmLabel: de.contract.recognitionYes, cancelLabel: de.contract.recognitionNo, danger: false,
-    })
-  }
-  run(() => $fetch<unknown>(`/api/employees/${props.employeeId}/contract`, {
-    method: 'PUT',
-    body: {
-      ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null, payGroup: form.payGroup as PayGroup | null,
-      trainingUntil, recognitionYearCounts: trainingUntil !== null && form.recognitionYearCounts,
-    },
-  }), de.common.saved)
+/**
+ * A valid training end entered or changed: ask whether the recognition year counts as level 1, then save the answer
+ * too. Closing the question without an answer saves nothing (the form keeps what was typed).
+ */
+function save() {
+  return guard(async () => {
+    const trainingUntil = form.trainingUntil || null
+    if (askRecognitionYear(props.contract.trainingUntil, trainingUntil, todayIso())) {
+      const answer = await ask(de.contract.recognitionQuestion, {
+        confirmLabel: de.contract.recognitionYes, cancelLabel: de.contract.recognitionNo, danger: false,
+      })
+      if (answer === null) return false
+      form.recognitionYearCounts = answer
+    }
+    return run(() => $fetch<unknown>(`/api/employees/${props.employeeId}/contract`, {
+      method: 'PUT',
+      body: {
+        ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null, payGroup: form.payGroup as PayGroup | null,
+        trainingUntil, recognitionYearCounts: trainingUntil !== null && form.recognitionYearCounts,
+      },
+    }), de.common.saved)
+  })
 }
 </script>
 
@@ -101,7 +110,7 @@ async function save() {
         <DateTextInput :model-value="form.fixedTermUntil ?? ''" :label="de.contract.fixedTermUntil" class="w-full sm:w-44" @update:model-value="form.fixedTermUntil = $event || null" />
       </UFormField>
       <p class="text-xs text-gray-500 sm:col-span-4">{{ de.contract.hint }}</p>
-      <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
+      <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" /></div>
     </form>
   </section>
 </template>

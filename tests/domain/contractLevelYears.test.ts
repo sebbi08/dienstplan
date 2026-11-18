@@ -23,12 +23,22 @@ describe('contract: level years after a training in the facility', () => {
     expect(contractSummary({ ...contract, trainingUntil: '2024-07-31' }, '2026-11-18'))
       .toBe('S 8a, Stufe 2 · seit 01.09.2021 (5 J. 2 Mon.) · Stufenjahre ab 01.08.2024 (nach Ausbildung)')
   })
-  it('asks about the recognition year when a training end is entered or changed', () => {
-    expect(askRecognitionYear(null, '2024-07-31')).toBe(true)
-    expect(askRecognitionYear('2024-06-30', '2024-07-31')).toBe(true)
-    expect(askRecognitionYear('2024-07-31', '2024-07-31')).toBe(false)
-    expect(askRecognitionYear('2024-07-31', null)).toBe(false)
-    expect(askRecognitionYear(null, null)).toBe(false)
+  it('asks about the recognition year when a valid training end is entered or changed', () => {
+    const today = '2026-11-18'
+    expect(askRecognitionYear(null, '2024-07-31', today)).toBe(true)
+    expect(askRecognitionYear('2024-06-30', '2024-07-31', today)).toBe(true)
+    expect(askRecognitionYear('2024-07-31', '2024-07-31', today)).toBe(false)
+    expect(askRecognitionYear('2024-07-31', null, today)).toBe(false)
+    expect(askRecognitionYear(null, null, today)).toBe(false)
+    // A date the server refuses is not asked about (the save then shows the German error).
+    expect(askRecognitionYear(null, '2027-11-18', today)).toBe(true)
+    for (const invalid of ['2027-11-19', '1969-12-31', '2024-02-30', '31.07.2024', '']) {
+      expect(askRecognitionYear(null, invalid, today), invalid).toBe(false)
+    }
+  })
+  it('names the suggested level by the level years', () => {
+    expect(de.contract.levelHint(2, 3, '01.08.2026')).toBe('Nach Stufenjahren: Stufe 2, Stufe 3 ab 01.08.2026')
+    expect(de.contract.levelHint(6, null, null)).toBe('Nach Stufenjahren: Stufe 6 (Endstufe)')
   })
   it('has the German texts of the question and the date check', () => {
     expect(de.contract.recognitionQuestion).toBe('Zählt das Anerkennungsjahr als Stufe 1? Dann ist das erste Jahr nach der Ausbildung Stufe 2.')

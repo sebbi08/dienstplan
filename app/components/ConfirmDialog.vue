@@ -4,7 +4,8 @@ import { de } from '~/locales/de'
 const { request, settle } = useConfirmRequest()
 const open = computed({
   get: () => request.value !== null,
-  set: (value: boolean) => { if (!value) settle(false) },
+  // Closed with X, Escape or a click outside: no answer (useConfirm counts it as „Abbrechen“).
+  set: (value: boolean) => { if (!value) settle(null) },
 })
 </script>
 

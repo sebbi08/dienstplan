@@ -1,4 +1,4 @@
-import { addDays, parseIsoDate, toIsoDate } from './dates'
+import { addDays, isValidIsoDate, parseIsoDate, toIsoDate } from './dates'
 import type { IsoDate } from './types'
 
 /** Job titles of the social and educational service (TVöD SuE) used in a Kita; 'other' = free text. */
@@ -58,6 +58,17 @@ export function levelStart(employedSince: IsoDate, trainingUntil: IsoDate | null
   // A year back from 29 February is 28 February, so that day already reaches level 2.
   const yearBefore = toIsoDate(year - 1, month, month === 2 && day === 29 ? 28 : day)
   return yearBefore < employedSince ? employedSince : yearBefore
+}
+
+/**
+ * „Ausbildung/Studium hier bis“ is plausible: a real ISO date from 01.01.1970 up to a year after `today` (checked by the
+ * server, and by the contract form before it asks about the recognition year).
+ */
+export function isPlausibleTrainingUntil(date: string, today: IsoDate): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidIsoDate(date)) return false
+  // A year ahead by the calendar; for 29 February the string compare still ends on 28 February of the next year.
+  const latest = `${parseIsoDate(today).year + 1}${today.slice(4)}`
+  return date >= '1970-01-01' && date <= latest
 }
 
 /** Completed years and months between `since` and `today` (0 when `since` lies in the future). */

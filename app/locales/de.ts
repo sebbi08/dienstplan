@@ -597,7 +597,7 @@ export const de = {
     level: (level: number) => `Stufe ${level}`,
     since: (date: string, span: { years: number; months: number }) => `seit ${date} (${span.years} J. ${span.months} Mon.)`,
     levelHint: (level: number, next: number | null, nextOn: string | null) =>
-      `Nach Beschäftigungsdauer: Stufe ${level}` + (next !== null && nextOn ? `, Stufe ${next} ab ${nextOn}` : ' (Endstufe)'),
+      `Nach Stufenjahren: Stufe ${level}` + (next !== null && nextOn ? `, Stufe ${next} ab ${nextOn}` : ' (Endstufe)'),
     useLevel: 'Diese Stufe übernehmen',
     hint: 'Die Entgeltgruppe wird zur Tätigkeit nur vorgeschlagen; bei der Leitung hängt sie von der Größe der Einrichtung ab. Die Stufe richtet sich nach den Jahren in der Einrichtung (seit 01.10.2024: Stufe 2 nach 1 Jahr, 3 nach 3, 4 nach 6, 5 nach 10, 6 nach 15 Jahren); angerechnete Vorerfahrung kann eine höhere Stufe ergeben. Eine Ausbildung oder ein Studium hier zählt nicht mit: Die Stufenjahre beginnen am Tag nach dem Ende. Zählt das Anerkennungsjahr als Stufe 1, ist das erste Jahr nach der Ausbildung schon Stufe 2. Bitte mit der Personalabteilung prüfen.',
     trainingUntil: 'Ausbildung/Studium hier bis',
