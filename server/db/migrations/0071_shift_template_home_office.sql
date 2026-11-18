@@ -1,0 +1,1 @@
+ALTER TABLE `shift_templates` ADD `home_office` integer DEFAULT false NOT NULL;

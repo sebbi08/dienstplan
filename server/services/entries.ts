@@ -35,7 +35,8 @@ function assertHomeOffice(entry: { kind: EntryKind; creditMode: CreditMode; star
 /** The entry to write for the input; homeOffice false unless the input asks for it (see assertHomeOffice). */
 export function resolveEntry(db: Db, facilityId: number, input: EntryInput): ResolvedEntry {
   const values = resolveTimes(db, facilityId, input)
-  const homeOffice = input.homeOffice ?? false
+  // A shift button that is home office gives home-office entries, unless the input names the flag itself.
+  const homeOffice = input.homeOffice ?? values.homeOffice ?? false
   if (homeOffice) {
     const creditMode = values.kind === 'code' ? codeCreditMode(db, values.absenceCodeId) ?? 'none' : 'timed'
     assertHomeOffice({ kind: values.kind, creditMode, start: values.start ?? null, end: values.end ?? null })
@@ -53,7 +54,7 @@ function resolveTimes(db: Db, facilityId: number, input: EntryInput): ResolvedEn
     return {
       kind: 'shift', shiftTemplateId: template.id, absenceCodeId: null,
       start: template.start, end: template.end, breakStart: template.breakStart, breakEnd: template.breakEnd,
-      countsAsStaff: template.countsAsStaff, note,
+      countsAsStaff: template.countsAsStaff, homeOffice: template.homeOffice, note,
     }
   }
 

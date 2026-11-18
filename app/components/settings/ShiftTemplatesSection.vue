@@ -8,7 +8,7 @@ import { builtRows, mergeRows, optionalTime, timeKey, timeText } from '~/utils/s
 /** Einstellungen → Dienstplan → Dienst-Buttons: the services with their times and breaks (listed by start time); a row saves on its own. */
 interface TemplateForm {
   id: number | null; shortLabel: string; label: string; start: string; end: string
-  breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean
+  breakStart: string; breakEnd: string; countsAsStaff: boolean; pairsWithPrepTime: boolean; homeOffice: boolean
 }
 
 const { data: settings, refresh } = await useFetch<SettingsDto>('/api/settings', { key: 'settings' })
@@ -16,7 +16,7 @@ const run = useAction(refresh)
 const toast = useToast()
 const confirm = useConfirm()
 
-const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false })
+const emptyTemplate = (): TemplateForm => ({ id: null, shortLabel: '', label: '', start: '', end: '', breakStart: '', breakEnd: '', countsAsStaff: true, pairsWithPrepTime: false, homeOffice: false })
 const templates = ref<TemplateForm[]>([])
 const newTemplate = ref(emptyTemplate())
 // Any save on the page reloads the shared settings: rows with unsaved edits keep them unless they were just saved.
@@ -26,7 +26,7 @@ watch(settings, (value) => {
   const fresh = (value?.templates ?? []).map((t: TemplateDto): TemplateForm => ({
     id: t.id, shortLabel: t.shortLabel, label: t.label, start: timeText(t.start), end: timeText(t.end),
     breakStart: timeText(t.breakStart), breakEnd: timeText(t.breakEnd), countsAsStaff: t.countsAsStaff,
-    pairsWithPrepTime: t.pairsWithPrepTime,
+    pairsWithPrepTime: t.pairsWithPrepTime, homeOffice: t.homeOffice,
   }))
   templates.value = mergeRows(templates.value, built, fresh, justSaved)
   built = builtRows(fresh)
@@ -39,8 +39,8 @@ function rowDirty(form: TemplateForm): boolean {
   const saved = settings.value?.templates.find(template => template.id === form.id)
   if (!saved) return false
   return !sameValue(
-    [form.shortLabel, form.label, timeKey(form.start), timeKey(form.end), timeKey(form.breakStart), timeKey(form.breakEnd), form.countsAsStaff, form.pairsWithPrepTime],
-    [saved.shortLabel, saved.label, saved.start, saved.end, saved.breakStart, saved.breakEnd, saved.countsAsStaff, saved.pairsWithPrepTime],
+    [form.shortLabel, form.label, timeKey(form.start), timeKey(form.end), timeKey(form.breakStart), timeKey(form.breakEnd), form.countsAsStaff, form.pairsWithPrepTime, form.homeOffice],
+    [saved.shortLabel, saved.label, saved.start, saved.end, saved.breakStart, saved.breakEnd, saved.countsAsStaff, saved.pairsWithPrepTime, saved.homeOffice],
   )
 }
 useDirty(() => [...templates.value, newTemplate.value].some(rowDirty))
@@ -69,7 +69,7 @@ async function saveTemplate(form: TemplateForm) {
   }
   const body = {
     shortLabel: form.shortLabel, label: form.label, start, end, breakStart, breakEnd,
-    countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime,
+    countsAsStaff: form.countsAsStaff, pairsWithPrepTime: form.pairsWithPrepTime, homeOffice: form.homeOffice,
   }
   if (!form.id) {
     if (await run(() => $fetch<unknown>('/api/shift-templates', { method: 'POST', body }), de.common.saved)) newTemplate.value = emptyTemplate()
@@ -132,6 +132,7 @@ const textInput = 'w-full min-w-24 rounded border border-gray-300 px-1 py-0.5'
             <th :class="cell" :title="de.settings.legalBreakHint">{{ de.settings.legalBreak }}</th>
             <th :class="cell">{{ de.settings.countsAsStaff }}</th>
             <th :class="cell" :title="de.settings.pairsWithPrepTimeHint">{{ de.settings.pairsWithPrepTime }}</th>
+            <th :class="cell" :title="de.settings.homeOfficeHint">{{ de.settings.homeOffice }}</th>
             <th />
           </tr>
         </thead>
@@ -149,6 +150,7 @@ const textInput = 'w-full min-w-24 rounded border border-gray-300 px-1 py-0.5'
             </td>
             <td :class="cell" class="text-center"><input v-model="form.countsAsStaff" type="checkbox" :aria-label="de.settings.countsAsStaff"></td>
             <td :class="cell" class="text-center"><input v-model="form.pairsWithPrepTime" type="checkbox" :title="de.settings.pairsWithPrepTimeHint" :aria-label="de.settings.pairsWithPrepTime"></td>
+            <td :class="cell" class="text-center"><input v-model="form.homeOffice" type="checkbox" :title="de.settings.homeOfficeHint" :aria-label="de.settings.homeOffice"></td>
             <td :class="cell" class="whitespace-nowrap text-right">
               <UButton v-if="!form.id" size="xs" :label="de.settings.addTemplate" :disabled="!rowDirty(form)" @click="saveTemplate(form)" />
               <UButton v-else-if="rowDirty(form)" size="xs" :label="de.common.save" @click="saveTemplate(form)" />
@@ -159,6 +161,7 @@ const textInput = 'w-full min-w-24 rounded border border-gray-300 px-1 py-0.5'
       </table>
     </div>
     <p class="text-xs text-gray-500">{{ de.settings.legalBreakHint }}</p>
+    <p class="text-xs text-gray-500">{{ de.settings.homeOfficeHint }}</p>
     <SettingsShiftChangeModal v-model:open="shiftChange.open" :name="shiftChange.name" @choose="settleShiftChange" />
   </section>
 </template>

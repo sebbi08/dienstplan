@@ -112,7 +112,7 @@ export const closureSchema = z.object({ startDate: isoDate, endDate: isoDate, la
 export const templateSchema = z.object({
   shortLabel: z.string().max(10), label, start: minutes, end: minutes,
   breakStart: minutes.nullable(), breakEnd: minutes.nullable(), countsAsStaff: z.boolean(),
-  pairsWithPrepTime: z.boolean(), sortOrder: z.number().int().optional(),
+  pairsWithPrepTime: z.boolean(), homeOffice: z.boolean().optional(), sortOrder: z.number().int().optional(),
 })
 export const codeUpdateSchema = z.object({ label, color: z.enum(COLOR_KEYS), creditMode: z.enum(['daily_target', 'timed', 'none']) })
 /** groupId: the group the rule applies to (null = the whole facility); left out = the whole facility, on update unchanged. */

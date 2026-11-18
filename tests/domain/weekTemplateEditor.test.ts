@@ -9,7 +9,7 @@ const code = (id: number, key: CodeDto['key'], label: string, creditMode: CodeDt
   ({ id, key, label, color, creditMode, requiresTimes: creditMode === 'timed', sortOrder: id })
 const shift = (id: number, shortLabel: string, start: number, end: number, breakStart: number | null = null, breakEnd: number | null = null,
   countsAsStaff = true): TemplateDto =>
-  ({ id, shortLabel, label: shortLabel, start, end, breakStart, breakEnd, countsAsStaff, pairsWithPrepTime: false, sortOrder: id })
+  ({ id, shortLabel, label: shortLabel, start, end, breakStart, breakEnd, countsAsStaff, pairsWithPrepTime: false, homeOffice: false, sortOrder: id })
 const context: TemplateEditorContext = {
   templates: [shift(1, 'F1', 420, 795), shift(2, 'M', 465, 960, 700, 730), shift(3, 'HK', 660, 960, null, null, false)],
   codes: [code(10, 'vacation', 'Urlaub', 'daily_target', 'gray'), code(11, 'office', 'Büro', 'timed', 'yellow'), code(12, 'prep_time', 'VZ', 'timed', 'green')],
@@ -47,6 +47,10 @@ describe('an entry of the week template editor', () => {
     expect(draftTemplateEntry({ kind: 'code', codeId: 11, homeOffice: true }, cell, context, -6))
       .toMatchObject({ start: null, end: null, label: 'Büro (ganzer Tag)', color: 'yellow', homeOffice: true })
     expect(draftTemplateEntry({ kind: 'shift', templateId: 99 }, cell, context, -7)).toBeNull()
+    // A home-office button carries its flag into the draft, as the server resolves it.
+    const homeOfficeContext = { ...context, templates: [{ ...shift(4, 'HO', 480, 720), homeOffice: true }] }
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 4 }, cell, homeOfficeContext, -8)).toMatchObject({ homeOffice: true })
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 4, homeOffice: false }, cell, homeOfficeContext, -9)).toMatchObject({ homeOffice: false })
   })
 })
 

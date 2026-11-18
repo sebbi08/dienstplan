@@ -224,6 +224,8 @@ export const shiftTemplates = sqliteTable('shift_templates', {
   countsAsStaff: integer('counts_as_staff', { mode: 'boolean' }).notNull().default(true),
   /** Offered as the full shift around VZ/Büro (F2, M, S). */
   pairsWithPrepTime: integer('pairs_with_prep_time', { mode: 'boolean' }).notNull().default(false),
+  /** Entries made with this button are home office (counts without stamping, not on site); only new entries get it. */
+  homeOffice: integer('home_office', { mode: 'boolean' }).notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 

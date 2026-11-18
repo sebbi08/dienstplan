@@ -60,6 +60,7 @@ export function draftTemplateEntry(
     const countsAsStaff = input.countsAsStaff ?? shift.countsAsStaff
     return {
       ...base, kind: 'shift', templateId: shift.id, start, end, breakStart, breakEnd, countsAsStaff,
+      homeOffice: input.homeOffice ?? shift.homeOffice,
       label: describeEntry({ kind: 'shift', start, end }, null, null), shortLabel: shift.shortLabel || null,
       color: planEntryColor({ kind: 'shift', countsAsStaff }, null),
     }

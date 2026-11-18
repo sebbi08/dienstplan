@@ -20,6 +20,8 @@ export interface TemplateInput {
   breakEnd: Minutes | null
   countsAsStaff: boolean
   pairsWithPrepTime: boolean
+  /** Entries made with the button are home office; left out: false on create, kept on update. */
+  homeOffice?: boolean
   /** Ignored: services are listed by start time, end time and label. */
   sortOrder?: number
 }

@@ -1819,6 +1819,16 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(() => sqlite.exec('UPDATE week_template_entries SET home_office = NULL WHERE id = 1')).toThrow(/NOT NULL/)
   })
 
+  it('0071 marks every existing shift button as not home office and new ones too by default', () => {
+    const { db, sqlite } = databaseAt('0070')
+    sqlite.exec('INSERT INTO shift_templates (id, short_label, label, start, end, facility_id) VALUES (1, \'F1\', \'Frühdienst\', 420, 795, 1)')
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, home_office FROM shift_templates').all()).toEqual([{ id: 1, home_office: 0 }])
+    sqlite.exec('INSERT INTO shift_templates (short_label, label, start, end, facility_id) VALUES (\'M\', \'Mittel\', 465, 960, 1)')
+    expect(sqlite.prepare('SELECT home_office FROM shift_templates WHERE id = 2').get()).toEqual({ home_office: 0 })
+    expect(() => sqlite.exec('UPDATE shift_templates SET home_office = NULL WHERE id = 1')).toThrow(/NOT NULL/)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

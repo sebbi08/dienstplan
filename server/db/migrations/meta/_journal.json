@@ -498,6 +498,13 @@
       "when": 1794917075519,
       "tag": "0070_week_template_home_office",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1794987866161,
+      "tag": "0071_shift_template_home_office",
+      "breakpoints": true
     }
   ]
 }

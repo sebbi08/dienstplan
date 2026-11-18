@@ -50,6 +50,16 @@ describe('settings service', () => {
     deleteTemplate(db, 1, m)
     expect(loadEntries(db)[0]).toMatchObject({ start: 465, end: 960, templateId: null })
   })
+  it('stores the home-office flag of a button on create and update (false when not given)', () => {
+    const base = { shortLabel: 'HO', label: 'Homeoffice', start: 480, end: 720, breakStart: null, breakEnd: null, countsAsStaff: true, pairsWithPrepTime: false }
+    expect(createTemplate(db, 1, base).homeOffice).toBe(false)
+    const made = createTemplate(db, 1, { ...base, label: 'HO 2', homeOffice: true })
+    expect(made.homeOffice).toBe(true)
+    expect(getSettings(db, 1).templates.find(t => t.id === made.id)!.homeOffice).toBe(true)
+    expect(updateTemplate(db, 1, made.id, { ...base, homeOffice: false }).homeOffice).toBe(false)
+    expect(updateTemplate(db, 1, made.id, { ...base, homeOffice: true }).homeOffice).toBe(true)
+    expect(updateTemplate(db, 1, made.id, base).homeOffice).toBe(true)
+  })
   it('validates templates', () => {
     const input = { shortLabel: 'X', label: 'Test', start: 465, end: 960, breakStart: 450, breakEnd: 480, countsAsStaff: true, pairsWithPrepTime: false, sortOrder: 9 }
     expect(errorCode(() => createTemplate(db, 1, input))).toBe('span_break_outside')

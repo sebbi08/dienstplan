@@ -3,15 +3,17 @@ import type { Db } from '../../server/db/client'
 import { changeLog } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { setStampingOptions } from '../../server/services/employees'
-import { applyToCells, updateEntryTimes } from '../../server/services/entries'
+import { adoptShiftTimes, applyToCells, updateEntryTimes } from '../../server/services/entries'
+import { createTemplate, saveTemplateChange, updateTemplate, type TemplateInput } from '../../server/services/settings'
+import { applyWeekTemplate, createWeekTemplate, getWeekTemplate } from '../../server/services/weekTemplates'
 import { getMonthPlan } from '../../server/services/plan'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import { revertToRelease } from '../../server/services/revert'
 import { getMyTime } from '../../server/services/myTime'
 import { actualTimeFor, getTimeMonth, stamp } from '../../server/services/timeTracking'
-import { computeDay } from '../../shared/domain/balance'
-import type { EntryInput, SessionUser } from '../../shared/types/api'
+import { computeDay, isOnSite } from '../../shared/domain/balance'
+import type { EntryInput, SessionUser, TemplateDto } from '../../shared/types/api'
 import { addEmployee, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const date = '2026-10-06'
@@ -159,5 +161,74 @@ describe('home-office entries', () => {
         expect(page.find(candidate => candidate.date === day)!.recordedMinutes, day).toBe(recorded.recordedMinutes)
       }
     })
+  })
+})
+
+describe('home-office shift buttons', () => {
+  let db: Db
+  let admin: SessionUser
+  let anna: number
+  beforeEach(() => {
+    db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
+    anna = addEmployee(db, 'Anna')
+  })
+  const cellEntries = (day = date) => loadEntries(db, { employeeId: anna, from: day, to: day })
+  const enter = (id: number, day = date) => applyToCells(db, admin, 1, [{ employeeId: anna, date: day }], 'add', { kind: 'shift', templateId: id })
+  const homeOfficeButton = () => createTemplate(db, 1, {
+    shortLabel: 'HO', label: 'Homeoffice', start: 480, end: 720, breakStart: null, breakEnd: null,
+    countsAsStaff: true, pairsWithPrepTime: false, homeOffice: true,
+  })
+  const asInput = (template: TemplateDto): TemplateInput => ({
+    shortLabel: template.shortLabel, label: template.label, start: template.start, end: template.end,
+    breakStart: template.breakStart, breakEnd: template.breakEnd, countsAsStaff: template.countsAsStaff,
+    pairsWithPrepTime: template.pairsWithPrepTime, homeOffice: template.homeOffice,
+  })
+
+  it('creates a home-office entry that counts without stamping and is not on site', () => {
+    setTimeTrackingFrom(db, 1, '2026-10-01')
+    const button = homeOfficeButton()
+    enter(button.id)
+    const [entry] = cellEntries()
+    expect(entry).toMatchObject({ kind: 'shift', homeOffice: true, start: 480, end: 720 })
+    expect(isOnSite(entry!)).toBe(false)
+    expect(actualTimeFor(db, 1, '2026-10-08')(anna)!.minutesByDate.get(date)).toBe(240)
+  })
+  it('lets an input that names the flag decide, and leaves normal buttons at false', () => {
+    const button = homeOfficeButton()
+    applyToCells(db, admin, 1, [{ employeeId: anna, date }], 'add', { kind: 'shift', templateId: button.id, homeOffice: false })
+    enter(templateId(db, 'F1'), '2026-10-07')
+    expect(cellEntries()[0]!.homeOffice).toBe(false)
+    expect(cellEntries('2026-10-07')[0]!.homeOffice).toBe(false)
+  })
+  it('changing the flag on the button leaves existing entries alone', () => {
+    const button = homeOfficeButton()
+    enter(button.id)
+    updateTemplate(db, 1, button.id, { ...asInput(button), homeOffice: false })
+    expect(cellEntries()[0]!.homeOffice).toBe(true)
+    enter(button.id, '2026-10-07')
+    expect(cellEntries('2026-10-07')[0]!.homeOffice).toBe(false)
+    updateTemplate(db, 1, button.id, { ...asInput(button), homeOffice: true })
+    expect(cellEntries('2026-10-07')[0]!.homeOffice).toBe(false)
+  })
+  it('adopting new times keeps the home-office flag of the entries', () => {
+    const button = homeOfficeButton()
+    enter(button.id)
+    const oldTimes = { start: 480, end: 720, breakStart: null, breakEnd: null }
+    expect(adoptShiftTimes(db, admin, 1, button.id, oldTimes, { ...oldTimes, end: 750 }, '2026-10-01')).toEqual({ updated: 1, skipped: 0 })
+    expect(cellEntries()[0]).toMatchObject({ end: 750, homeOffice: true })
+  })
+  it('saving a changed button with the adoption flow keeps the flag of the entries', () => {
+    const button = homeOfficeButton()
+    enter(button.id)
+    saveTemplateChange(db, admin, 1, button.id, { ...asInput(button), end: 750, homeOffice: false }, '2026-10-01')
+    expect(cellEntries()[0]).toMatchObject({ end: 750, homeOffice: true })
+  })
+  it('gives week template entries the flag, into the template and into the plan', () => {
+    const button = homeOfficeButton()
+    const made = createWeekTemplate(db, 1, { name: 'Woche', entries: [{ employeeId: anna, weekday: 0, kind: 'shift', templateId: button.id }] })
+    expect(getWeekTemplate(db, 1, made.id).entries[0]).toMatchObject({ homeOffice: true })
+    applyWeekTemplate(db, admin, 1, made.id, '2026-10-05')
+    expect(cellEntries('2026-10-05')[0]).toMatchObject({ kind: 'shift', homeOffice: true })
   })
 })

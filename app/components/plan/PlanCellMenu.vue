@@ -76,6 +76,7 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
             >
               <span class="w-7 font-semibold">{{ template.shortLabel }}</span>
               <span class="tabular-nums">{{ range(template.start, template.end) }}</span>
+              <UIcon v-if="template.homeOffice" name="i-lucide-house" class="size-3 shrink-0" role="img" :title="de.plan.homeOffice" :aria-label="de.plan.homeOffice" />
             </UButton>
           </div>
         </section>

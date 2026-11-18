@@ -666,6 +666,8 @@ export const de = {
     title: 'Einstellungen', templates: 'Dienst-Buttons', shortLabel: 'Kürzel', label: 'Bezeichnung',
     start: 'Von', end: 'Bis', breakStart: 'Pause von', breakEnd: 'Pause bis', countsAsStaff: 'zählt als Betreuungskraft',
     pairsWithPrepTime: 'Vorschlag bei VZ/Büro',
+    homeOffice: 'Homeoffice',
+    homeOfficeHint: 'Dienste mit diesem Button zählen ohne Stempeln und nicht als anwesend (Homeoffice).',
     workingTime: 'Arbeitszeit', legalBreak: 'Pause laut ArbZG',
     shiftChangeTitle: (name: string) => `Zeiten von „${name}“ geändert`,
     shiftChangeText: 'Sollen auch die bereits eingetragenen Dienste und die Vorlagen die neuen Zeiten bekommen?',

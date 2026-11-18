@@ -20,7 +20,8 @@ const allowedCodes = computed(() => new Set(codesForScope(codeButtons.value, pro
 /** Tooltip of a shift button: its name plus the working time of its fixed times and whether its break meets the law. */
 function templateTitle(template: TemplateDto) {
   const { worked, required, ok } = shiftBreakCheck(template)
-  return `${template.shortLabel} · ${template.label} – ${de.modal.templateWorkTime(formatDuration(worked), required, ok)}`
+  const home = template.homeOffice ? ` · ${de.plan.homeOffice}` : ''
+  return `${template.shortLabel} · ${template.label}${home} – ${de.modal.templateWorkTime(formatDuration(worked), required, ok)}`
 }
 const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
 const emit = defineEmits<{
@@ -36,6 +37,7 @@ const emit = defineEmits<{
         v-for="template in templates" :key="template.id" size="xs" color="neutral" variant="outline"
         :title="templateTitle(template)" :disabled="!withShifts"
         :label="`${formatTime(template.start)}–${formatTime(template.end)}`"
+        :icon="template.homeOffice ? 'i-lucide-house' : undefined"
         @click="emit('template', template)"
       />
       <UButton

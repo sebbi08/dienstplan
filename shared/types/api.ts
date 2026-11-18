@@ -809,6 +809,8 @@ export interface TemplateDto {
   breakEnd: Minutes | null
   countsAsStaff: boolean
   pairsWithPrepTime: boolean
+  /** Entries made with this button are home office (only new entries; existing ones keep theirs). */
+  homeOffice: boolean
   sortOrder: number
 }
 
