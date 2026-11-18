@@ -38,6 +38,18 @@ async function create() {
   if (closuresInYear([created], year.value).length === 0) year.value = parseIsoDate(created.startDate).year
 }
 
+const editing = ref<ClosureDto | null>(null)
+const editOpen = ref(false)
+function edit(closure: ClosureDto) {
+  editing.value = closure
+  editOpen.value = true
+}
+/** Reloads the list (with its leave days); a closure moved out of the shown year takes the page to its year. */
+async function edited(closure: ClosureDto) {
+  await refresh()
+  if (closuresInYear([closure], year.value).length === 0) year.value = parseIsoDate(closure.startDate).year
+}
+
 async function remove(closure: ClosureDto) {
   if (await confirm(de.closures.confirmDelete)) run(() => $fetch<unknown>(`/api/closures/${closure.id}`, { method: 'DELETE' }), de.common.deleted)
 }
@@ -63,11 +75,15 @@ async function remove(closure: ClosureDto) {
           <td class="px-3 py-2 text-right" :class="{ 'text-gray-500': closure.leaveDays === null }">
             {{ closure.leaveDays === null ? de.closures.noLeave : formatNumber(closure.leaveDays) }}
           </td>
-          <td class="px-3 py-2 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="remove(closure)" /></td>
+          <td class="whitespace-nowrap px-3 py-2 text-right">
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="edit(closure)" />
+            <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="remove(closure)" />
+          </td>
         </tr>
       </tbody>
     </table>
     <p v-if="shown.length" class="text-xs text-gray-500">{{ de.closures.leaveDaysHint }}</p>
+    <ClosuresEditDialog v-model:open="editOpen" :closure="editing" @saved="edited" />
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="create">
       <h2 class="font-semibold sm:col-span-4">{{ de.closures.create }}</h2>
       <p class="text-xs text-gray-500 sm:col-span-4">{{ de.closures.hint }}</p>

@@ -101,6 +101,7 @@
   "children/school-cutoff.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "children/staff.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "closures/[id].delete.ts": ["provider","admin"],
+  "closures/[id].put.ts": ["provider","admin"],
   "closures/index.get.ts": ["provider","admin"],
   "closures/index.post.ts": ["provider","admin"],
   "coverage-rules/[id].delete.ts": ["provider","admin"],
