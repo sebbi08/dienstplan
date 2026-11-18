@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { todayIso, toIsoDate, daysInMonth } from '#shared/domain/dates'
-import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
+import { formatDuration, formatSignedDuration } from '#shared/domain/time'
 import type { EmployeeDetailDto, TimeMonthDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort, formatHours, monthTitle } from '~/utils/format'
-import { fullDayLine } from '~/utils/homeOffice'
+import { fullDayLine, plannedSpanLine } from '~/utils/homeOffice'
 import { DEVIATION_MINUTES, markedRecords, recordedDifference } from '~/utils/timeSheet'
 
 /** Monthly time sheet of one employee for printing (admin only): plan, records, Ist, difference, reason, totals. */
@@ -63,7 +63,7 @@ const leftOut = computed(() => (data.value?.days ?? []).some(day => !day.inBalan
               <span v-for="(record, index) in day.records" :key="record.id">
                 {{ index > 0 ? ' · ' : '' }}<TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" /><template v-if="record.edited"> ({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</template>
               </span>
-              <div v-for="(span, index) in day.homeOffice" :key="`ho-${index}`">{{ de.time.homeOffice(`${formatTime(span.start)}–${formatTime(span.end)}`) }}</div>
+              <div v-for="(span, index) in day.homeOffice" :key="`ho-${index}`">{{ plannedSpanLine(span) }}</div>
               <div v-if="day.fullDay">{{ fullDayLine(day.fullDay) }}</div>
               <div v-if="day.lateMinutes !== null" class="text-red-600">{{ de.time.lateBy(day.lateMinutes) }}</div>
               <div v-if="day.earlyMinutes !== null" class="text-blue-600">{{ de.time.earlyBy(day.earlyMinutes) }}</div>

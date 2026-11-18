@@ -115,10 +115,13 @@ export function dayBreakRuleViolated(records: RecordSpan[], entries: DayEntry[])
  */
 export function recordedDay(
   records: RecordSpan[], entries: DayEntry[], inRange: boolean,
-): { homeOffice: { start: number; end: number }[]; recordedMinutes: number } {
+): { homeOffice: { start: number; end: number; away?: true }[]; recordedMinutes: number } {
   if (!inRange) return { homeOffice: [], recordedMinutes: recordedMinutes(records) }
   return {
-    homeOffice: entries.filter(entry => entry.homeOffice === true && isHomeOffice(entry)).map(entry => ({ start: entry.start!, end: entry.end! })),
+    // Home office and away codes (Arzt, marked `away`) counting as stamped: one line each.
+    homeOffice: entries.filter(isHomeOffice).map(entry => ({
+      start: entry.start!, end: entry.end!, ...(entry.homeOffice === true ? {} : { away: true as const }),
+    })),
     recordedMinutes: recordedMinutes(records) + homeOfficeMinutes(entries, records),
   }
 }

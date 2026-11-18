@@ -1378,7 +1378,7 @@ export interface TimeDayDto {
    * The day's home-office entries („Homeoffice (laut Plan)“): counted as if stamped, not editable as records. Only on
    * days of the tracking range (usesRecords); empty on other days, which show the plan.
    */
-  homeOffice: { start: Minutes; end: Minutes }[]
+  homeOffice: { start: Minutes; end: Minutes; away?: true }[]
   /** „Ist“: the closed records plus, on days of the tracking range, the home-office minutes outside them (without their planned breaks). */
   recordedMinutes: number
   /** What the balance counts for this day. */
@@ -1451,7 +1451,8 @@ export interface MyTimeDto {
 
 /** „Erfasst“ of one day: the home-office spans counting as stamped and the clocked minutes plus those. */
 export interface RecordedDayDto {
-  homeOffice: { start: Minutes; end: Minutes }[]
+  /** Home-office spans, and Arzt spans (`away`): both count as stamped. */
+  homeOffice: { start: Minutes; end: Minutes; away?: true }[]
   recordedMinutes: Minutes
 }
 

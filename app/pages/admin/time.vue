@@ -7,7 +7,7 @@ import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort } from '~/utils/format'
 import { isCompactTimeDay } from '~/utils/dayCards'
-import { fullDayLine } from '~/utils/homeOffice'
+import { fullDayLine, plannedSpanLine } from '~/utils/homeOffice'
 import { DEVIATION_MINUTES, markedRecords, recordedDifference as difference } from '~/utils/timeSheet'
 import { warningText } from '~/utils/warnings'
 
@@ -35,7 +35,6 @@ const confirm = useConfirm()
 watch([employeeId, year, month], () => router.replace({ query: { employee: employeeId.value ?? undefined, year: year.value, month: month.value } }))
 
 /** „20:00–20:30“ of a home-office entry (read-only on this page). */
-const homeOfficeSpan = (span: { start: number; end: number }) => `${formatTime(span.start)}–${formatTime(span.end)}`
 
 const names = computed(() => new Map((employees.value ?? []).map(employee => [employee.id, employee.name])))
 const expanded = ref(new Set<string>())
@@ -208,7 +207,7 @@ function change(nextYear: number, nextMonth: number) {
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
             </div>
             <span v-for="(span, index) in day.homeOffice" :key="`ho-${index}`" class="inline-flex items-center gap-1 text-xs text-gray-600">
-              <UIcon name="i-lucide-house" class="shrink-0" />{{ de.time.homeOffice(homeOfficeSpan(span)) }}
+              <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </span>
             <span v-if="day.fullDay" class="inline-flex items-center gap-1 text-xs text-gray-600">
               <UIcon v-if="day.fullDay.homeOffice" name="i-lucide-house" class="shrink-0" />{{ fullDayLine(day.fullDay) }}
@@ -280,7 +279,7 @@ function change(nextYear: number, nextMonth: number) {
               </div>
               <!-- Home office counts as stamped; it is changed in the plan, not here. -->
               <div v-for="(span, index) in day.homeOffice" :key="`ho-${index}`" class="flex items-center gap-1 text-xs text-gray-600">
-                <UIcon name="i-lucide-house" class="shrink-0" />{{ de.time.homeOffice(homeOfficeSpan(span)) }}
+                <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
               </div>
               <!-- A whole Büro/home-office day counts its target instead of stamped times. -->
               <div v-if="day.fullDay" class="flex items-center gap-1 text-xs text-gray-600">

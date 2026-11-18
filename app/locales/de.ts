@@ -122,6 +122,8 @@ export const de = {
     replaceConfirm: 'Die Einträge dieses Tages im Dienstplan werden durch die Abwesenheit ersetzt. Fortfahren?',
     /** A home-office entry of the day on the time page: counted as if stamped, changed only in the plan. */
     homeOffice: (span: string) => `Homeoffice (laut Plan) ${span}`,
+    /** An Arzt entry of the day: counted as if stamped, changed only in the plan. */
+    doctor: (span: string) => `Arzt (laut Plan) ${span}`,
     /** A whole Büro/VZ day without times with what it credits: „Büro (ganzer Tag): 7:48 (Tagessoll)“. */
     fullDay: (what: string, duration: string) => `${what}: ${duration} (Tagessoll)`,
     fullDayHomeOffice: 'Homeoffice (ganzer Tag)',

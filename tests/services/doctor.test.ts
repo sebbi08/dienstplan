@@ -4,7 +4,7 @@ import { absenceCodes } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells, updateEntryTimes } from '../../server/services/entries'
 import { getMonthPlan } from '../../server/services/plan'
-import { actualTimeFor } from '../../server/services/timeTracking'
+import { actualTimeFor, getTimeMonth } from '../../server/services/timeTracking'
 import { loadEmployee, loadEmployees, loadEntries } from '../../server/services/queries'
 import { hasWorkingTime } from '../../shared/domain/attendance'
 import { computeDay } from '../../shared/domain/balance'
@@ -113,6 +113,14 @@ describe('Arzt (doctor appointment as working time, away from the house)', () =>
       const employee = loadEmployees(db, 1).find(candidate => candidate.id === anna)!
       expect(computeDay(employee.info, date, day(), actual()).credit).toBe(90)
       expect(warningTypes()).not.toContain('missing_record')
+    })
+
+    it('lists the Arzt span as an „Erfasst“ line on the time page, whole day as a full-day line', () => {
+      write(doctor({ start: 480, end: 570 }))
+      const month = () => getTimeMonth(db, 1, anna, 2026, 10, '2026-10-08', 600).days.find(candidate => candidate.date === date)!
+      expect(month()).toMatchObject({ homeOffice: [{ start: 480, end: 570, away: true }], recordedMinutes: 90 })
+      write(doctor())
+      expect(month()).toMatchObject({ homeOffice: [], fullDay: { label: 'Arzt (ganzer Tag)', homeOffice: false } })
     })
 
     it('with a duty the duty still needs stamping, the Arzt part counts as planned', () => {
