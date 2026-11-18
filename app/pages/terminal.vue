@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PIN_LENGTH } from '#shared/domain/pin'
 import { formatTime } from '#shared/domain/time'
 import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
@@ -18,16 +19,14 @@ const chosenId = ref<number | null>(null)
 const chosen = computed(() => people.value?.find(person => person.employeeId === chosenId.value) ?? null)
 const printMenuOpen = ref(false)
 /** This month's and next month's plan printout (the server shows the released plan only). */
-const printHref = (target: { year: number; month: number }) => `/print/${target.year}/${target.month}`
-const printMonths = computed(() => {
-  const now = new Date()
-  const current = { year: now.getFullYear(), month: now.getMonth() + 1 }
-  const next = shiftMonth(current.year, current.month, 1)
-  return [
-    { label: de.terminal.printPlanThisMonth, ...current, href: printHref(current) },
-    { label: de.terminal.printPlanNextMonth, ...next, href: printHref(next) },
-  ]
-})
+/** The plan printout of this month (offset 0) or the next (1), by today's Berlin date at the moment of the tap. */
+async function printPlan(offset: 0 | 1) {
+  const today = parseIsoDate(todayIso())
+  const target = shiftMonth(today.year, today.month, offset)
+  printMenuOpen.value = false
+  // The same tab, so a kiosk browser has no second window to get lost in; the printout leads back to the start page.
+  await navigateTo(`/print/${target.year}/${target.month}`)
+}
 const pin = ref('')
 const message = ref('')
 const failure = ref('')
@@ -153,22 +152,6 @@ async function openChildren() {
           <UIcon name="i-lucide-printer" class="size-12 text-sky-700" />
           {{ de.terminal.templatesTitle }}
         </NuxtLink>
-        <!-- The released plan to print: nothing personal beyond what every employee sees, so no PIN. -->
-        <button
-          type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-          @click="printMenuOpen = !printMenuOpen"
-        >
-          <UIcon name="i-lucide-calendar-days" class="size-12 text-sky-700" />
-          {{ de.terminal.printPlan }}
-        </button>
-        <div v-if="printMenuOpen" class="flex gap-3 sm:col-span-2">
-          <a
-            v-for="entry in printMonths" :key="entry.month" :href="entry.href" target="_blank"
-            class="flex-1 rounded-xl bg-white p-6 text-center text-xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-          >
-            {{ entry.label }}
-          </a>
-        </div>
         <!-- The facility's notes, to read: no child data, so no PIN is needed either. -->
         <NuxtLink
           to="/notes" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
@@ -176,6 +159,28 @@ async function openChildren() {
           <UIcon name="i-lucide-sticky-note" class="size-12 text-sky-700" />
           {{ de.terminal.notesTitle }}
         </NuxtLink>
+        <!-- The released plan to print: nothing personal beyond what every employee sees, so no PIN. -->
+        <div v-if="printMenuOpen" class="flex gap-3 sm:col-span-2">
+          <button
+            type="button" class="flex-1 rounded-xl bg-white p-6 text-center text-xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+            @click="printPlan(0)"
+          >
+            {{ de.terminal.printPlanThisMonth }}
+          </button>
+          <button
+            type="button" class="flex-1 rounded-xl bg-white p-6 text-center text-xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+            @click="printPlan(1)"
+          >
+            {{ de.terminal.printPlanNextMonth }}
+          </button>
+        </div>
+        <button
+          v-else type="button" class="flex items-center justify-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50 sm:col-span-2"
+          @click="printMenuOpen = true"
+        >
+          <UIcon name="i-lucide-calendar-days" class="size-12 text-sky-700" />
+          {{ de.terminal.printPlan }}
+        </button>
       </div>
     </template>
 

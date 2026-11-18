@@ -42,6 +42,7 @@ async function download() {
 
 <template>
   <div class="ml-auto flex gap-2 print:hidden">
+    <UButton v-if="user?.role === 'terminal'" size="xl" color="neutral" variant="outline" icon="i-lucide-arrow-left" :label="de.terminal.backToStart" @click="navigateTo('/terminal')" />
     <UButton v-if="user?.role !== 'terminal'" color="neutral" variant="outline" icon="i-lucide-file-down" :loading="downloading" :label="de.common.pdf" @click="download" />
     <UButton icon="i-lucide-printer" :label="de.plan.printNow" @click="print" />
   </div>

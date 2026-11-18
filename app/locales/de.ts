@@ -189,7 +189,7 @@ export const de = {
     pinLockedUntil: (time: string) => `PIN gesperrt bis ${time}.`,
     startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Vorlagen', notesTitle: 'Notizen',
     toStart: 'Startseite',
-    printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
+    backToStart: 'Zurück zum Start', printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
     chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
     unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
     lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
