@@ -4,7 +4,7 @@ import { isCompactMyPlanDay, isCompactTimeDay } from '../../app/utils/dayCards'
 
 const timeDay = (patch: Partial<TimeDayDto> = {}): TimeDayDto => ({
   date: '2026-10-24', weekday: 6, isWeekend: true, holidayKey: null, plan: '', plannedMinutes: 0, target: 0, records: [],
-  recordedMinutes: 0, counted: 0, usesRecords: false, absence: false, otherEntries: false, targetCredit: false, warnings: [],
+  recordedMinutes: 0, counted: 0, inBalance: true, usesRecords: false, absence: false, otherEntries: false, targetCredit: false, warnings: [],
   note: '', changes: [], plannedDuty: false, sickLeave: null, lateMinutes: null, earlyMinutes: null,
   homeOffice: [], fullDay: null, ...patch,
 })

@@ -77,12 +77,12 @@ describe('facility isolation', () => {
     it('refuses changes to another facility\'s employee', () => {
       const update = { name: 'Kim', shortName: 'KI', leftOn: null }
       expect(errorCode(() => updateEmployee(db, 1, kim, update))).toBe('employee_not_found')
-      expect(errorCode(() => addHours(db, 1, kim, { weeklyMinutes: 600, validFrom: '2026-10-01' }))).toBe('employee_not_found')
+      expect(errorCode(() => addHours(db, 1, kim, { weeklyMinutes: 600, validFrom: '2026-10-01' }, leitungA))).toBe('employee_not_found')
       expect(errorCode(() => addAdjustment(db, 1, kim, { date, minutes: 60, reason: 'x' }))).toBe('employee_not_found')
       expect(errorCode(() => setStampingOptions(db, 1, kim, { stampVia: 'tablet', breakMode: 'auto' }))).toBe('employee_not_found')
       const contract = { personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null }
       expect(errorCode(() => setContract(db, 1, kim, contract))).toBe('employee_not_found')
-      addHours(db, facility2, kim, { weeklyMinutes: 600, validFrom: '2026-10-01' })
+      addHours(db, facility2, kim, { weeklyMinutes: 600, validFrom: '2026-10-01' }, leitungB)
       const hoursId = getEmployee(db, facility2, kim, today, rolePermissions(db, 'admin')).hours[1]!.id
       expect(errorCode(() => deleteHours(db, 1, hoursId))).toBe('hours_not_found')
       expect(errorCode(() => moveEmployee(db, 1, kim, 'up'))).toBe('employee_not_found')

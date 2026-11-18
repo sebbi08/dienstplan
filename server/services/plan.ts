@@ -9,7 +9,7 @@ import {
 } from '../../shared/domain/releaseDiff'
 import { can } from '../../shared/domain/permissions'
 import { dayCreditedMinutes } from '../../shared/domain/stamping'
-import { isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
+import { countsForBalance, isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import type {
@@ -147,7 +147,9 @@ function buildAdminData(
       templateNames: templateNames.get(start) ?? {},
       totals: staff.map(employee => ({
         employeeId: employee.id,
-        ...summarize(computeRange(employee.info, byEmployee.get(employee.id) ?? [], start, end, actualOf(employee.id))),
+        // Only the days the hours account counts (countsForBalance): weeks before „Stundenkonto ab“ show no difference.
+        ...summarize(computeRange(employee.info, byEmployee.get(employee.id) ?? [], start, end, actualOf(employee.id))
+          .filter(day => countsForBalance(employee.info, day.date))),
       })),
     })
   }

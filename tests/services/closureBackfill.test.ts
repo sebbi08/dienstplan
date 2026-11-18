@@ -4,7 +4,7 @@ import type { Db } from '../../server/db/client'
 import { changeLog, employees } from '../../server/db/schema'
 import { getActiveUser } from '../../server/services/auth'
 import { createClosure } from '../../server/services/closures'
-import { addHours, bookMissingClosures, createEmployee } from '../../server/services/employees'
+import { addHours, bookMissingClosures, createEmployee, getEmployee } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { loadEntries } from '../../server/services/queries'
@@ -135,7 +135,10 @@ describe('„Schließzeiten nachtragen“', () => {
 
   it('books only from the day someone moved in', () => {
     const nora = addEmployee(db, 'Nora', { validFrom: '2026-01-01' })
+    // The confirm text names the day booking really starts at.
+    expect(getEmployee(db, 1, nora, today, admin.permissions).closuresFrom).toBe('2026-01-01')
     db.update(employees).set({ facilitySince: '2026-07-01' }).where(eq(employees.id, nora)).run()
+    expect(getEmployee(db, 1, nora, today, admin.permissions).closuresFrom).toBe('2026-07-01')
     expect(bookMissingClosures(db, admin, 1, nora, now)).toBe(5)
   })
 

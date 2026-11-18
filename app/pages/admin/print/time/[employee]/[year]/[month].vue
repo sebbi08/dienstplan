@@ -23,12 +23,15 @@ const weeklyMinutes = computed(() => {
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
   return employee.value?.hours.filter(period => period.validFrom <= monthEnd).at(-1)?.weeklyMinutes ?? null
 })
+/** Soll, Angerechnet and Differenz of the days the hours account counts (none before „Stundenkonto ab“). */
 const totals = computed(() => {
-  const days = data.value?.days ?? []
+  const days = (data.value?.days ?? []).filter(day => day.inBalance)
   const target = days.reduce((sum, day) => sum + day.target, 0)
   const counted = days.reduce((sum, day) => sum + day.counted, 0)
   return { target, counted, delta: counted - target }
 })
+/** Working days of the month before „Stundenkonto ab“, left out of the totals (a note says so). */
+const leftOut = computed(() => (data.value?.days ?? []).some(day => !day.inBalance && day.target > 0))
 
 </script>
 
@@ -81,6 +84,7 @@ const totals = computed(() => {
           <tr><td class="pr-4">{{ de.time.totalDelta }}</td><td class="text-right font-semibold">{{ formatSignedDuration(totals.delta) }}</td></tr>
         </tbody>
       </table>
+      <p v-if="leftOut" class="mt-1 text-xs text-gray-600">{{ de.time.notInBalance }}</p>
 
       <TimeMarksSummary v-if="data.trackingFrom" class="mt-3 break-inside-avoid" :marks="data.marks" print />
 

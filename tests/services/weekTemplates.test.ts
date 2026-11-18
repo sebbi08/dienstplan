@@ -63,7 +63,7 @@ describe('week templates', () => {
 
     code(anna, '2026-10-12', 'sick') // already filled: stays
     createClosure(db, admin, 1, { startDate: '2026-10-13', endDate: '2026-10-13', label: 'Konzeptionstag', mode: 'closure_day' })
-    addHours(db, 1, berta, { weeklyMinutes: 1200, validFrom: '2026-10-12', workdays: 0b00111 }) // Berta: Mo–Mi from now on
+    addHours(db, 1, berta, { weeklyMinutes: 1200, validFrom: '2026-10-12', workdays: 0b00111 }, admin) // Berta: Mo–Mi from now on
     const result = applyWeekTemplate(db, admin, 1, template.id, next)
 
     expect(cell(anna, '2026-10-12')).toEqual(['Krank'])

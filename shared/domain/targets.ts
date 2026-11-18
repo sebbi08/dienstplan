@@ -66,6 +66,15 @@ export function balanceStart(info: EmploymentInfo): IsoDate | null {
   return info.balanceFrom != null && info.balanceFrom > start ? info.balanceFrom : start
 }
 
+/**
+ * The day counts in the hours account (from balanceStart on). The one rule for everything that adds up targets against
+ * credited time: the balance, the plan's week differences and the time sheet's month totals.
+ */
+export function countsForBalance(info: EmploymentInfo, date: IsoDate): boolean {
+  const start = balanceStart(info)
+  return start !== null && date >= start
+}
+
 export function isEmployedOn(info: EmploymentInfo, date: IsoDate): boolean {
   return weeklyMinutesOn(info, date) !== null && (info.leftOn === null || date <= info.leftOn)
 }

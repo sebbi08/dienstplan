@@ -250,22 +250,34 @@ function addHours() {
 
 // „Stundenkonto ab“ and „Schließzeiten nachtragen“ need the right of the weekly hours (the server checks it too).
 const canManageTime = computed(() => can('time.manage'))
-/** „Stundenkonto ab“ as typed ('' = empty: the account starts with the weekly hours); follows the saved value. */
+/**
+ * „Stundenkonto ab“ as typed ('' = empty: the account starts with the weekly hours). A reload (after any other save on
+ * the page) keeps a date typed and not saved yet; the field follows the saved value only while it still shows the
+ * value last loaded, or right after its own save.
+ */
 const balanceFrom = ref('')
+let loadedBalanceFrom: string | null = null
+let balanceFromJustSaved = false
 watch(employee, (value) => {
-  if (value) balanceFrom.value = value.balanceFrom ?? ''
+  if (!value) return
+  const saved = value.balanceFrom ?? ''
+  if (balanceFromJustSaved || loadedBalanceFrom === null || balanceFrom.value === loadedBalanceFrom) balanceFrom.value = saved
+  loadedBalanceFrom = saved
+  balanceFromJustSaved = false
 }, { immediate: true })
-function saveBalanceFrom() {
-  run(() => $fetch<unknown>(`/api/employees/${id}/balance-from`, {
+async function saveBalanceFrom() {
+  balanceFromJustSaved = true
+  const ok = await run(() => $fetch<unknown>(`/api/employees/${id}/balance-from`, {
     method: 'PUT', body: { balanceFrom: balanceFrom.value || null },
   }), de.common.saved)
+  if (!ok) balanceFromJustSaved = false
 }
 
-/** „Schließzeiten nachtragen“: all closures from the first weekly hours on, in empty days only. */
+/** „Schließzeiten nachtragen“: all closures from closuresFrom on (first weekly hours or move-in day), in empty days only. */
 async function bookClosures() {
-  const first = employee.value?.hours[0]?.validFrom
-  if (!employee.value || !first) return
-  if (!await confirm(de.employees.bookClosuresConfirm(formatDate(first), employee.value.name), { confirmLabel: de.employees.bookClosures, danger: false })) return
+  const from = employee.value?.closuresFrom
+  if (!employee.value || !from) return
+  if (!await confirm(de.employees.bookClosuresConfirm(formatDate(from), employee.value.name), { confirmLabel: de.employees.bookClosures, danger: false })) return
   let booked = 0
   const ok = await run(async () => {
     booked = (await $fetch<{ booked: number }>(`/api/employees/${id}/book-closures`, { method: 'POST' })).booked
@@ -579,7 +591,7 @@ async function onTabKey(event: KeyboardEvent) {
       </p>
       <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
       <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
-      <div v-if="canManageTime && employee.hours.length > 0" class="pt-2">
+      <div v-if="canManageTime && employee.closuresFrom" class="pt-2">
         <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-calendar-plus" :label="de.employees.bookClosures" @click="bookClosures" />
       </div>
     </section>

@@ -1088,6 +1088,11 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
    * (null = from the first weekly hours).
    */
   balanceFrom: IsoDate | null
+  /**
+   * First day „Schließzeiten nachtragen“ books: the first weekly hours, or the day the person moved into the facility
+   * when later (null without weekly hours).
+   */
+  closuresFrom: IsoDate | null
   /** End of a running timed PIN lock (15 or 30 minutes; null = none). */
   pinLockedUntil: string | null
   /** The PIN stays locked until the Leitung or the Träger unlocks it („PIN freischalten“). */
@@ -1373,6 +1378,11 @@ export interface TimeDayDto {
   recordedMinutes: number
   /** What the balance counts for this day. */
   counted: number
+  /**
+   * The day counts in the hours account (from the first weekly hours, or „Stundenkonto ab“ when later): only these
+   * days add up to the sheet's Soll, Angerechnet and Differenz.
+   */
+  inBalance: boolean
   usesRecords: boolean
   /** One of the four absences of the time page (Urlaub, Krank, Fortbildung, Schule) is planned. */
   absence: boolean

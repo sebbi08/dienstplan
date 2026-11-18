@@ -211,6 +211,7 @@ export function getEmployee(
         return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
       }),
     balanceFrom: pin.balanceFrom,
+    closuresFrom: closureBookingStart(db, id),
     ...pinLockState(pin, now), pinLockLevel: pin.pinLockLevel,
     ...(can(permissions, 'employees.personal') ? { personal: personalOf(pin) } : {}),
     ...(can(permissions, 'employees.sensitive') ? { sensitive: sensitiveOf(pin) } : {}),
@@ -382,12 +383,11 @@ function firstHoursStart(db: Db, employeeId: number): IsoDate | null {
  * Adds weekly hours from validFrom on (or changes the period starting that day). When this moves the first weekly hours
  * earlier, the facility's closures are booked for the newly covered days (new start up to the old one), as for a new
  * employee: closures apply to everyone, and before there were no working days to book them on. Only empty cells, in the
- * same transaction (bookClosuresBetween). Booking needs the acting session user for the change log; without an actor
- * (only internal callers) nothing is booked.
+ * same transaction (bookClosuresBetween); the acting session user is logged as their author.
  */
 export function addHours(
   db: Db, facilityId: number, employeeId: number, period: { weeklyMinutes: number; validFrom: IsoDate; workdays?: number },
-  actor?: SessionUser | BalanceActor, now: Date = new Date(),
+  actor: SessionUser, now: Date = new Date(),
 ): void {
   assertEmployee(db, facilityId, employeeId)
   assertNotOwnBalance(actor, employeeId)
@@ -397,7 +397,7 @@ export function addHours(
     tx.insert(employeeHours).values({ employeeId, weeklyMinutes: period.weeklyMinutes, validFrom: period.validFrom, workdays })
       .onConflictDoUpdate({ target: [employeeHours.employeeId, employeeHours.validFrom], set: { weeklyMinutes: period.weeklyMinutes, workdays } })
       .run()
-    if (before !== null && period.validFrom < before && actor && 'id' in actor) {
+    if (before !== null && period.validFrom < before) {
       bookClosuresBetween(tx, actor, employeeId, period.validFrom, before, now)
     }
   })
@@ -413,9 +413,20 @@ export function bookMissingClosures(db: Db, actor: SessionUser, facilityId: numb
   assertEmployee(db, facilityId, employeeId)
   assertNotOwnBalance(actor, employeeId)
   return db.transaction((tx) => {
-    const start = firstHoursStart(tx, employeeId)
+    const start = closureBookingStart(tx, employeeId)
     return start === null ? 0 : bookClosuresBetween(tx, actor, employeeId, start, null, now)
   })
+}
+
+/**
+ * The first day „Schließzeiten nachtragen“ books (shown in its confirm text): the first weekly hours, or the day the
+ * person moved into the facility when later (bookClosuresBetween); null without weekly hours.
+ */
+function closureBookingStart(db: Db, employeeId: number): IsoDate | null {
+  const start = firstHoursStart(db, employeeId)
+  if (start === null) return null
+  const since = db.select({ since: employees.facilitySince }).from(employees).where(eq(employees.id, employeeId)).get()?.since
+  return since != null && since > start ? since : start
 }
 
 /** Earliest „Stundenkonto ab“ accepted. */

@@ -6,7 +6,7 @@ import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../sh
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayIn } from '../../shared/domain/holidays'
 import { dayCreditedMinutes, isHomeOffice, mayStampVia, recordedDay } from '../../shared/domain/stamping'
-import { isEmployedOn } from '../../shared/domain/targets'
+import { countsForBalance, isEmployedOn } from '../../shared/domain/targets'
 import { dayMarks, summarizeMarks } from '../../shared/domain/timeMarks'
 import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
@@ -263,6 +263,8 @@ export function getTimeMonth(
       // Home office counts as recorded on days of the tracking range only (as the balance); outside, the plan shows.
       ...recordedDay(records, dayEntries, usesRecords(actual, date)),
       counted: counted.credit,
+      // Only these days add up to the sheet's Soll and Differenz (the hours account starts at balanceStart).
+      inBalance: countsForBalance(employee.info, date),
       usesRecords: usesRecords(actual, date), absence, otherEntries,
       targetCredit: creditsDailyTarget(dayEntries),
       fullDay: fullDayOf(dayEntries, counted.credit),
