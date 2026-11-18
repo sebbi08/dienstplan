@@ -54,9 +54,12 @@ export const ASSESSMENT_FOLDERS: EmployeeDocumentFolder[] = ['application', 'cor
  * The same kinds of data for each of `employeeIds` in facility 1 (all of them participants of one team meeting), a row
  * for every column that references employees;
  * October 2026 released, then a draft change of each (change log). `helper` also helped out in `hort` in September,
- * which was released with their column.
+ * which was released with their column. With `accidents` each also has an accident report about themselves, filled in by
+ * themselves (the reports belong to the paid-overtime period, which the retention overview tests count without them).
  */
-export function fillEmployeeData(db: Db, leitung: SessionUser, employeeIds: number[], helper: number, hort: number): void {
+export function fillEmployeeData(
+  db: Db, leitung: SessionUser, employeeIds: number[], helper: number, hort: number, options: { accidents?: boolean } = {},
+): void {
   const shift = (actor: SessionUser, facilityId: number, employeeId: number, date: string, label = 'F2') =>
     applyToCells(db, actor, facilityId, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label, facilityId) })
   const group = addGroup(db, 1, 'Bären')
@@ -100,6 +103,13 @@ export function fillEmployeeData(db: Db, leitung: SessionUser, employeeIds: numb
       facilityId: 1, kind: 'child', title: 'Beobachtung', content: '{"sections":[]}', createdAt: at, updatedAt: at, childId,
     }).returning({ id: forms.id }).get().id
     db.insert(formEditors).values({ formId, employeeId: id, grantedAt: at }).run()
+    // An accident report about the person, filled in by themselves (Unfallanzeige).
+    if (options.accidents) {
+      db.insert(forms).values({
+        facilityId: 1, kind: 'accident', title: 'Unfallanzeige', content: '{"sections":[]}', createdAt: at, updatedAt: at,
+        employeeId: id, createdByEmployeeId: id, formDate: '2026-10-05',
+      }).run()
+    }
     const tablet = addUser(db, `tablet-${id}`, 'terminal')
     db.insert(terminalUnlocks).values({ id: `unlock-${id}`, terminalUserId: tablet.id, facilityId: 1, employeeId: id, createdAt: at, lastActiveAt: at }).run()
     db.insert(childDevelopmentDocs).values({ childId, doneOn: '2026-10-01', doneByEmployeeId: id, doneByName: 'am Tablet', createdAt: at }).run()

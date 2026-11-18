@@ -93,7 +93,7 @@ describe('rights API (Rechte und Rollen Teil 2)', () => {
       const saved = saveRoleRights(db, 'admin', [{ id: 'employeesView', enabled: false }])
       expect(saved.dropped).toEqual([
         'leavePlan', 'timeManage', 'employeesEdit', 'contractView', 'contractEdit', 'employeesDelete', 'talksManage',
-        'personal', 'payrollSensitive', 'docsQualifications', 'docsOther',
+        'personal', 'payrollSensitive', 'docsQualifications', 'docsOther', 'accidentsManage',
       ].filter(id => saved.bundles.find(bundle => bundle.id === id)!.defaultEnabled))
       const stored = roleBundleRows(db, 'admin')
       expect(stored.every(row => !row.enabled)).toBe(true)

@@ -13,6 +13,12 @@ const API_DIR = join(process.cwd(), 'server', 'api')
  * frozen from the old role guards; Rechte und Rollen Teil 1, review focus 1).
  */
 
+/** The accident reports about employees that go through requireUser( (the service checks accidents.manage or the own employee). */
+const EMPLOYEE_ACCIDENT_ROUTES = [
+  'my/accidents.get.ts', 'my/accidents.post.ts', 'employee-accidents/[formId].get.ts', 'employee-accidents/[formId].put.ts',
+  'employee-accidents/[formId].delete.ts', 'employee-accidents/[formId]/attachments.post.ts',
+  'employee-accident-attachments/[id]/file.get.ts', 'employee-accident-attachments/[id].delete.ts',
+]
 /**
  * Fixed: any signed-in account (Träger, Leitung, Mitarbeiter; never the tablet), checked with requireUser(. The own
  * data follows from the session alone (`user.employeeId`), so these need no permission.
@@ -40,6 +46,9 @@ const USER_ROUTES = [
   // The employee's own staff talks (spec Bögen §3): only their own, only released forms.
   'my/talks/index.get.ts', 'my/talks/forms/[formId].get.ts', 'my/talks/forms/[formId].put.ts',
   'my/talks/forms/[formId]/submit.post.ts',
+  // Accident reports about employees: the own ones („Meine Unfälle“), and for accidents.manage the facility's; the
+  // service decides per report (another employee's is 404). Never the tablet.
+  ...EMPLOYEE_ACCIDENT_ROUTES,
 ]
 /** Fixed: only the shared stamp tablet, checked with requireTerminal(. */
 const TERMINAL_ROUTES = [
@@ -70,6 +79,8 @@ const CHILD_VIEW_ROUTES = [
   'children/reminders.get.ts',
   // Observation forms: whoever sees the record reads them; the service decides per form who edits (spec Bögen §4).
   ...CHILD_FORM_ROUTES,
+  // Accident reports about a child: whoever sees the record reads them and their attachments.
+  'children/[id]/accidents/index.get.ts', 'child-accidents/[formId].get.ts', 'child-accident-attachments/[id]/file.get.ts',
 ]
 /**
  * children.attendance: attendance (every child viewer writes it, spec Anwesenheit §7), the group books and the
@@ -86,6 +97,9 @@ const CHILD_ATTENDANCE_ROUTES = [
   // Notes: written by whoever keeps the attendance, with its group scope; the service lets only the author, Leitung
   // and Träger change and delete one.
   'children/[id]/notes.post.ts', 'children/notes/[id].put.ts', 'children/notes/[id].delete.ts',
+  // Accident reports about a child: written like the notes; the service lets only the author, Leitung and Träger change one.
+  'children/[id]/accidents/index.post.ts', 'child-accidents/[formId].put.ts', 'child-accidents/[formId]/attachments.post.ts',
+  'child-accident-attachments/[id].delete.ts',
 ]
 /** children.edit: maintaining child records (Leitung, Träger; at the tablet Mitarbeiter with the flag). */
 const CHILD_EDITOR_ROUTES = [
@@ -102,8 +116,11 @@ const CHILD_MANAGER_ROUTES = [
   'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
   'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts', 'children/age-limit-warnings.get.ts',
 ]
+/** accidents.manage: deleting an accident report about a child (Leitung, Träger; at the office or the unlocked tablet). */
+const CHILD_ACCIDENT_MANAGER_ROUTES = ['child-accidents/[formId].delete.ts']
 /** Each child route with the one permission it checks. */
 const CHILD_ROUTES: Record<string, PermissionKey> = Object.fromEntries([
+  ...CHILD_ACCIDENT_MANAGER_ROUTES.map(route => [route, 'accidents.manage']),
   ...CHILD_VIEW_ROUTES.map(route => [route, 'children.view']),
   ...CHILD_ATTENDANCE_ROUTES.map(route => [route, 'children.attendance']),
   ...CHILD_EDITOR_ROUTES.map(route => [route, 'children.edit']),
@@ -183,7 +200,7 @@ describe('API route permissions', () => {
     expect(new Set(fixed).size).toBe(fixed.length)
     for (const route of fixed) expect(routes).toContain(route)
     for (const route of Object.keys(FACILITY_FREE_EXCEPTIONS)) expect(routes).toContain(route)
-    const childLists = [CHILD_VIEW_ROUTES, CHILD_ATTENDANCE_ROUTES, CHILD_EDITOR_ROUTES, CHILD_MANAGER_ROUTES].flat()
+    const childLists = [CHILD_VIEW_ROUTES, CHILD_ATTENDANCE_ROUTES, CHILD_EDITOR_ROUTES, CHILD_MANAGER_ROUTES, CHILD_ACCIDENT_MANAGER_ROUTES].flat()
     expect(childLists).toHaveLength(Object.keys(CHILD_ROUTES).length)
   })
 

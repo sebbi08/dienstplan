@@ -22,7 +22,7 @@ const LEFT_ON = '2026-03-15'
 const IMMEDIATE = [
   'employee_emergency_contacts.employee_id', 'employee_requirements.employee_id', 'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
   'children.key_educator_id', 'child_development_docs.done_by_employee_id', 'child_parent_meetings.created_by_employee_id',
-  'child_notes.educator_employee_id', 'child_notes.created_by_employee_id',
+  'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
   'employee_payroll.employee_id',
 ]
@@ -36,6 +36,8 @@ const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
 const ADJUSTMENTS = 'balance_adjustments.employee_id'
 /** Documents by folder: application, qualifications, correspondence, measures with the assessments; contract, salary 10 years. */
 const DOCUMENTS = 'employee_documents.employee_id'
+/** Accident reports about the employee: with the paid overtime (the longest period). */
+const ACCIDENTS = 'forms.employee_id'
 /** In no category: the team meeting keeps its participant until the employee row goes (then null, the name stays). */
 const PARTICIPANTS = 'team_meeting_participants.employee_id'
 const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'qualifications', 'salary']
@@ -100,7 +102,7 @@ beforeEach(() => {
   ben = addEmployee(db, 'Ben Beispiel')
   hort = addFacility(db, 'Hort')
   // The data is entered while Tina still works there; she leaves afterwards.
-  fillEmployeeData(db, leitung, [tina, ben], tina, hort)
+  fillEmployeeData(db, leitung, [tina, ben], tina, hort, { accidents: true })
   for (const id of [tina, ben]) {
     db.insert(balanceAdjustments).values({ employeeId: id, date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true }).run()
     db.update(employees).set({
@@ -121,7 +123,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS, DOCUMENTS, PARTICIPANTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -187,7 +189,9 @@ describe('the deletion categories of a left employee', () => {
 
     // The paid-out adjustment with the contract and salary documents, then the employee row.
     expect(hasPaidOvertimeData(db, tina)).toBe(true)
-    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 3 })
+    expect(nonZero([ACCIDENTS])).toEqual([ACCIDENTS])
+    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 4 })
+    expect(nonZero([ACCIDENTS])).toEqual([])
     expect(hasPaidOvertimeData(db, tina)).toBe(false)
     expect(documentFolders(db, tina)).toEqual([])
     expect(documentFolders(db, ben)).toEqual(ALL_FOLDERS)

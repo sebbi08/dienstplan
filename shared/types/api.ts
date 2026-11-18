@@ -2616,6 +2616,90 @@ export interface ChildFormSaveInput {
 /** The answer to saving a child form: the new last change. */
 export type ChildFormSavedDto = Pick<ChildFormListItemDto, 'updatedAt' | 'updatedBy'>
 
+/**
+ * An accident report („Unfallbericht“ about a child, „Unfallanzeige“ about an employee) in a list, with its fixed header
+ * and what the viewer may do with it.
+ */
+export interface AccidentListItemDto {
+  id: number
+  subject: FormSubject
+  /** The child (subject child) or the employee (subject employee); the other one is null. */
+  childId: number | null
+  employeeId: number | null
+  /** The child's first and last name, or the employee's name. */
+  personName: string
+  /** The template it was made from (null once that template is gone or the person moved facility). */
+  templateId: number | null
+  /** The template's name when the form was made. */
+  title: string
+  date: IsoDate
+  start: Minutes | null
+  /** „Arztbesuch“. */
+  doctor: boolean
+  /** „arbeitsunfähig“ (employees only; always false for a child). */
+  unfit: boolean
+  /** „an Unfallkasse gemeldet am“ (null = not yet). */
+  reportedOn: IsoDate | null
+  /** 'u1000': printed in the layout of the official Unfallanzeige. */
+  printLayout: 'u1000' | null
+  updatedAt: string
+  /** Name at the last change. */
+  updatedBy: string
+  right: 'read' | 'edit'
+  /** Leitung/Träger (accidents.manage) delete reports; nobody deletes one of an archived child record. */
+  canDelete: boolean
+}
+
+/** The accident reports of one person, newest first; whether the viewer may fill in a new one and from which templates. */
+export interface AccidentsDto {
+  forms: AccidentListItemDto[]
+  canCreate: boolean
+  templates: { id: number; name: string }[]
+}
+
+/** A file attached to an accident report (photo, PDF). */
+export interface AccidentAttachmentDto {
+  id: number
+  fileName: string
+  mimeType: string
+  size: number
+  uploadedAt: string
+  uploadedByName: string
+}
+
+/** One accident report with its own copy of the template content, the answers, the attachments and the printout's header. */
+export interface AccidentFormDto extends AccidentListItemDto {
+  content: FormContent
+  answers: FormAnswers
+  attachments: AccidentAttachmentDto[]
+  /** The person for the header; the birth date only where the viewer may read it (null otherwise or not stored). */
+  person: { name: string; birthDate: IsoDate | null; groupName: string | null }
+  facilityName: string
+}
+
+/** The fixed header of an accident report; the service checks it (date valid and not in the future …). */
+export interface AccidentHeaderInput {
+  date: string
+  start: number | null
+  doctor: boolean
+  unfit: boolean
+  reportedOn: string | null
+}
+
+/** A new accident report from an active accident template of the person's subject, with its header. */
+export interface AccidentCreateInput extends AccidentHeaderInput {
+  templateId: number
+}
+
+/** Saving an accident report: the header and all answers, with the `updatedAt` the saver had loaded. */
+export interface AccidentSaveInput extends AccidentHeaderInput {
+  answers: unknown
+  expectedUpdatedAt: string
+}
+
+/** The answer to saving an accident report: the new last change. */
+export type AccidentSavedDto = Pick<AccidentListItemDto, 'updatedAt' | 'updatedBy'>
+
 /** An employee unlocked to edit one child form at the tablet. */
 export interface ChildFormEditorDto {
   employeeId: number

@@ -42,7 +42,7 @@ beforeEach(() => {
 
 /** Tina (left) and Ben (active) with the same kinds of data; Tina also helped out in the Hort. */
 function fillData(): void {
-  fillEmployeeData(db, leitung, [tina, ben], tina, hort)
+  fillEmployeeData(db, leitung, [tina, ben], tina, hort, { accidents: true })
 }
 
 const snapshotIds = () => db.select({ data: releaseSnapshots.data }).from(releaseSnapshots).all().map((row) => {
@@ -74,8 +74,8 @@ describe('deleting a left employee', () => {
     expect(Object.entries(references(tina)).filter(([, n]) => n > 0)).toEqual([])
     expect(references(ben)).toEqual(benBefore)
     expect(db.all(sql`PRAGMA foreign_key_check`)).toEqual([])
-    // The talk's forms went with it; Ben's and the child forms stay.
-    expect(db.select().from(forms).all().length).toBe(formCount - tinaTalkForms.length)
+    // The talk's forms and the accident report about her went with it; Ben's and the child forms stay.
+    expect(db.select().from(forms).all().length).toBe(formCount - tinaTalkForms.length - 1)
     expect(talkFormsOf(ben).length).toBe(tinaTalkForms.length)
     expect(db.select().from(leavePlanners).all()).toEqual([])
     // Who entered something keeps the name, without the id.

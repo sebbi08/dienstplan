@@ -3,11 +3,12 @@ import { todayIso } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type { ReminderDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { formatDayMonth, formatDayMonthNear } from '~/utils/format'
+import { formatDate, formatDayMonth, formatDayMonthNear } from '~/utils/format'
 
 /**
  * The box „Erinnerungen“ above the tabs of the children page: documentation, parent meetings of the day, birthdays and
- * leavings, for the Träger the entries that may be deleted (already sorted by the server). Hidden without entries; closed
+ * leavings, for the Träger the entries that may be deleted, for Leitung/Träger the accident reports still to be sent to
+ * the Unfallkasse (an employee's has no child: `childId` null; already sorted by the server). Hidden without entries; closed
  * or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
@@ -40,7 +41,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
-  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2',
+  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -63,6 +64,9 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     // Rendered as one link instead (see the template); nothing around a name.
     case 'retention':
       return { before: '', after: '' }
+    // An employee's report has no child; its wording names the 3 days of incapacity.
+    case 'accident':
+      return r.accident(formatDate(entry.date), entry.childId === null)
   }
 }
 
@@ -110,6 +114,9 @@ async function markDone(entry: ReminderDto) {
             v-if="entry.childId !== null" :to="`/children/${entry.childId}`" class="font-medium text-sky-700 hover:underline"
           >{{ entry.name }}</NuxtLink><span v-else class="font-medium">{{ entry.name }}</span>{{ textOf(entry).after }}
           <span v-if="entry.ownChild" class="ml-2 rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{{ r.ownChild }}</span>
+          <NuxtLink
+            v-if="entry.kind === 'accident'" :to="`/admin/accidents?year=${entry.date.slice(0, 4)}`" class="ml-2 text-xs text-sky-700 hover:underline"
+          >{{ r.accidentLink }}</NuxtLink>
         </span>
         <UButton
           v-if="entry.canDone && entry.childId !== null" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-check"

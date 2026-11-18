@@ -426,6 +426,8 @@ export const childDocumentSchema = z.object({
   confidential: z.boolean(),
 })
 export const fileQuery = z.object({ download: z.enum(['1']).optional() })
+/** An attachment of an accident report: only the file (its name is kept as shown), no further fields. */
+export const attachmentFields = z.object({})
 // Personnel file documents: the form fields of the upload (multipart, all text) and the change of folder and details alike.
 export const employeeDocumentSchema = z.object({
   folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS),
@@ -608,6 +610,18 @@ export const childFormCreateSchema = z.union([
   z.object({ templateId: z.number().int(), parentMeetingId: z.number().int() }),
   childFormHeaderSchema.extend({ templateId: z.number().int() }),
 ])
+/** The header of an accident report; the service checks it (date valid and not in the future, start 0–1439 …). */
+const accidentHeaderSchema = z.object({
+  date: z.string().max(20),
+  start: z.number().int().nullable(),
+  doctor: z.boolean(),
+  unfit: z.boolean(),
+  reportedOn: z.string().max(20).nullable(),
+})
+/** A new accident report from a template of the person's subject. */
+export const accidentCreateSchema = accidentHeaderSchema.extend({ templateId: z.number().int() })
+/** Saving an accident report: header and all answers, with the form's updatedAt the client loaded. */
+export const accidentSaveSchema = accidentHeaderSchema.extend({ answers: z.unknown(), expectedUpdatedAt: z.string().max(40) })
 /** Saving a child form: header and all answers, with the form's updatedAt the client loaded. */
 export const childFormSaveSchema = childFormHeaderSchema.extend({
   answers: z.unknown(),

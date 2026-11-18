@@ -32,7 +32,7 @@ const OPEN = [
 ]
 /** The child pages and their printouts: Leitung and Träger with their own account, a Mitarbeiter only at the tablet. */
 const CHILDREN = [
-  '/children', '/children/1', '/children/new', '/print/children/attendance-month/2026/10',
+  '/children', '/children/1', '/children/new', '/print/children/accidents/1', '/print/children/attendance-month/2026/10',
   '/print/children/attendance/2026-10-28', '/print/children/birthdays', '/print/children/documents',
   '/print/children/forms/1', '/print/children/occupancy/2026', '/print/children/overview/1', '/print/children/planned',
   '/print/children/staffing/2026/10', '/print/children/week/1/1',

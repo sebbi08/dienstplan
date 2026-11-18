@@ -160,6 +160,9 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
       <div v-if="props.sheet.signatures.length" class="mt-12 grid grid-cols-2 gap-10 break-inside-avoid">
         <div v-for="line in props.sheet.signatures" :key="line" class="border-t border-gray-700 pt-1 text-xs print:text-[10px]">{{ line }}</div>
       </div>
+      <div v-if="props.sheet.hints?.length" class="mt-6 space-y-1 text-xs text-gray-700 break-inside-avoid print:text-[10px]">
+        <p v-for="line in props.sheet.hints" :key="line" class="break-words">{{ line }}</p>
+      </div>
       <div v-if="props.sheet.closing.length" class="mt-8 space-y-0.5 border-t border-gray-700 pt-2 break-inside-avoid">
         <p v-for="line in props.sheet.closing" :key="line" class="break-words first:font-semibold">{{ line }}</p>
       </div>

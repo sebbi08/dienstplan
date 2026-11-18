@@ -2,7 +2,9 @@ import {
   emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
 } from '#shared/domain/forms'
 import { formatTime } from '#shared/domain/time'
-import type { ChildFormDto, FormTemplateDto, MyTalkFormDto, TeamMeetingDto, TeamMeetingListItemDto } from '#shared/types/api'
+import type {
+  AccidentFormDto, ChildFormDto, FormTemplateDto, MyTalkFormDto, TeamMeetingDto, TeamMeetingListItemDto,
+} from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
@@ -136,6 +138,8 @@ export interface FormSheet {
   closing: string[]
   /** Lines like „abgegeben am …“ above „zuletzt geändert …“. */
   stamps: string[]
+  /** Small print under the signatures (e.g. the attachments by name, the legal hint of an Unfallanzeige). */
+  hints?: string[]
   /** A blank template to fill in by hand: no „zuletzt geändert“ / „gedruckt“ footer. */
   blank?: boolean
 }
@@ -177,6 +181,36 @@ export function childSheet(data: ChildFormDto): FormSheet {
     signatures: [de.childForms.signatureStaff, de.childForms.signatureGuardian],
     closing: [],
     stamps: [],
+  }
+}
+
+/**
+ * The printout of an accident report (not in the U 1000 layout): the person, Datum, Uhrzeit and the header ticks, the
+ * signature lines of the subject, the attachments by name and, for an employee, the legal hint on the report.
+ */
+export function accidentSheet(data: AccidentFormDto): FormSheet {
+  const h = de.accidents.header
+  const a = de.accidents
+  const yesNo = (value: boolean) => (value ? a.yes : a.no)
+  const employee = data.subject === 'employee'
+  return {
+    title: data.title, content: data.content, answers: data.answers, updatedAt: data.updatedAt, updatedBy: data.updatedBy,
+    // No name in the file name: it travels in the PDF request's query (logs), like the other child printouts.
+    fileName: `Unfall-${data.id}-${data.date}`,
+    header: [
+      [h.person, data.personName], [employee ? h.facility : h.birthDate, employee ? data.facilityName : data.person.birthDate ? formatDate(data.person.birthDate) : ''],
+      [h.group, data.person.groupName ?? ''], [h.date, data.date ? formatDate(data.date) : ''],
+      [h.start, data.start === null ? '' : formatTime(data.start)], [h.doctor, yesNo(data.doctor)],
+      ...(employee ? [[h.unfit, yesNo(data.unfit)] as [string, string]] : []),
+      [h.reportedOn, data.reportedOn ? formatDate(data.reportedOn) : ''],
+    ],
+    signatures: [employee ? a.signatureEmployee : a.signatureStaff, a.signatureLead],
+    closing: [],
+    stamps: [],
+    hints: [
+      ...(data.attachments.length ? [a.attachmentsList(data.attachments.map(file => file.fileName).join(', '))] : []),
+      ...(employee ? [a.legalHint] : []),
+    ],
   }
 }
 

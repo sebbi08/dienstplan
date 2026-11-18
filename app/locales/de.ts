@@ -1031,7 +1031,7 @@ export const de = {
     periodHelp: {
       timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
       assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
-      paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“ und die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt.',
+      paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen.',
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
     },
     employeeDelete: 'Mitarbeiter endgültig löschen',
@@ -1501,9 +1501,15 @@ export const de = {
     meeting: (time: string, kind: string) => ({ before: 'Elterngespräch ', after: ` heute ${time} (${kind})` }),
     // Only for the Träger; the whole text links to the page „Löschfristen“.
     retention: (count: number) => (count === 1 ? '1 Eintrag darf gelöscht werden' : `${count} Einträge dürfen gelöscht werden`),
+    // Leitung/Träger: an accident report with Arztbesuch or arbeitsunfähig that is not reported yet (overdue after 3 days).
+    accident: (date: string, employee: boolean) => ({
+      before: 'Unfallanzeige an die Unfallkasse: ',
+      after: `, Unfall am ${date} – Meldung innerhalb von 3 Tagen${employee ? ', falls länger als 3 Kalendertage arbeitsunfähig' : ''}`,
+    }),
+    accidentLink: 'zu den Unfällen',
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
-      leaving: 'Abschied', retention: 'Löschfristen',
+      leaving: 'Abschied', retention: 'Löschfristen', accident: 'Unfallanzeige',
     },
     // The record's section.
     section: 'Entwicklungsdokumentation',
@@ -2234,6 +2240,12 @@ export const de = {
     form_section_full: 'Ein Bereich kann höchstens 120 Punkte haben.',
     form_template_archived: 'Diese Vorlage ist stillgelegt. Bitte wähle eine aktive Vorlage.',
     form_not_found: 'Diesen Bogen gibt es nicht (mehr).',
+    accident_date_invalid: 'Bitte das Datum des Unfalls angeben – ein gültiges Datum, das nicht in der Zukunft liegt.',
+    accident_start_invalid: 'Bitte eine gültige Uhrzeit angeben oder das Feld leer lassen.',
+    accident_unfit_employee_only: '„arbeitsunfähig“ gibt es nur bei Unfällen von Mitarbeitern.',
+    accident_reported_invalid: 'Bitte für „an Unfallkasse gemeldet am“ ein gültiges Datum angeben oder das Feld leer lassen.',
+    accident_attachments_full: 'Mehr als 20 Anhänge gehen nicht. Bitte lösche zuerst einen.',
+    attachment_not_found: 'Diesen Anhang gibt es nicht (mehr).',
     form_not_editable: 'Dieser Bogen kann gerade nicht geändert werden. Bitte lade die Seite neu.',
     form_state_invalid: 'Das geht beim aktuellen Stand des Bogens nicht. Bitte lade die Seite neu.',
     employee_inactive: 'Diese Person ist ausgeschieden oder hat keinen aktiven Zugang mehr. Das ist deshalb nicht möglich.',

@@ -10,7 +10,8 @@ import { documentFileUrl } from '~/utils/children'
  * an image, offers no "save image" on a long press; the context menu and the touch callout are suppressed as well.
  * `mimeType` may be empty (the completeness view does not know it); the answer's content type is used then.
  */
-const props = defineProps<{ documentId: number; title: string; mimeType: string }>()
+// `url` fetches another file than a child document (e.g. an accident report's attachment), with the same rules.
+const props = defineProps<{ documentId: number; title: string; mimeType: string; url?: string }>()
 const open = defineModel<boolean>('open', { default: false })
 
 const status = ref<'loading' | 'ready' | 'failed'>('loading')
@@ -105,7 +106,7 @@ async function load() {
   const current = generation
   status.value = 'loading'
   try {
-    const response = await $fetch.raw<ArrayBuffer>(documentFileUrl(props.documentId), { responseType: 'arrayBuffer' })
+    const response = await $fetch.raw<ArrayBuffer>(props.url ?? documentFileUrl(props.documentId), { responseType: 'arrayBuffer' })
     if (current !== generation) return
     const data = response._data
     if (!data) throw new Error('empty')

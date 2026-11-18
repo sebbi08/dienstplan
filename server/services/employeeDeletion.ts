@@ -189,6 +189,8 @@ const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
   { table: childParentMeetings, column: childParentMeetings.createdByEmployeeId },
   { table: childNotes, column: childNotes.educatorEmployeeId },
   { table: childNotes, column: childNotes.createdByEmployeeId },
+  // The author of an accident report (e.g. about a child at the tablet): the report stays, „zuletzt geändert von“ keeps the name.
+  { table: forms, column: forms.createdByEmployeeId },
   { table: childAttendanceChanges, column: childAttendanceChanges.changedByEmployeeId },
   { table: groupBookChanges, column: groupBookChanges.changedByEmployeeId },
 ]
@@ -272,15 +274,17 @@ export function deleteAssessmentData(tx: Db, employeeId: number): number {
 }
 
 /**
- * „Ausgezahlte Überstunden, Verträge, Gehalt“ (10 years): the balance adjustments marked „ausgezahlt“ and the
- * documents in the folders contract and salary.
+ * „Ausgezahlte Überstunden, Verträge, Gehalt“ (10 years): the balance adjustments marked „ausgezahlt“, the documents in
+ * the folders contract and salary, and the accident reports about the employee (Unfallanzeigen, kept for the longest
+ * period as a claim may follow years later; their attachments go along).
  */
 const PAID_OVERTIME_ROWS: readonly EmployeeRows[] = [
   { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, true) },
   documentsOf('paidOvertime'),
+  { table: forms, column: forms.employeeId },
 ]
 
-/** „Ausgezahlte Überstunden, Verträge, Gehalt“: paid-out balance adjustments, contract and salary documents. */
+/** „Ausgezahlte Überstunden, Verträge, Gehalt“: paid-out balance adjustments, contract and salary documents, accident reports. */
 export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
   return deleteRows(tx, employeeId, PAID_OVERTIME_ROWS)
 }
