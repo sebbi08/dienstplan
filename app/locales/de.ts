@@ -1112,17 +1112,23 @@ export const de = {
       + 'Gezählt werden dieselben Kinder wie in der Belegung, auch künftige Verträge. Die Regeln dürfen sich überschneiden.',
     none: 'Keine Altersgrenzen festgelegt.',
     readOnly: 'Die Altersgrenzen legt der Träger fest.',
-    rule: (from: number, to: number, max: number) => `von ${from} bis unter ${to} Jahren: höchstens ${max} Kinder`,
-    from: 'von', to: 'bis unter', years: 'Jahren:', max: 'höchstens', children: 'Kinder',
+    /** „von 0 bis unter 3 Jahren: höchstens 5 Kinder“ („unter 1 Jahr“, „1 Kind“). */
+    rule: (from: number, to: number, max: number) =>
+      `von ${from} bis unter ${to === 1 ? '1 Jahr' : `${to} Jahren`}: höchstens ${max === 1 ? '1 Kind' : `${max} Kinder`}`,
+    from: 'von', to: 'bis unter', max: 'höchstens',
+    /** The words after the fields of a rule, by the number typed („1 Jahr:“, „1 Kind“). */
+    years: (to: string) => (to.trim() === '1' ? 'Jahr:' : 'Jahren:'),
+    children: (max: string) => (max.trim() === '1' ? 'Kind' : 'Kinder'),
     fromLabel: 'Alter von (Jahre)', toLabel: 'bis unter (Jahre)', maxLabel: 'höchstens Kinder',
     add: 'Regel hinzufügen', remove: 'Regel entfernen',
+    /** A wrong rule of the list, with its row: „Regel 2: …“. */
+    rowError: (row: number, text: string) => `Regel ${row}: ${text}`,
     exceeded: 'Altersgrenze überschritten',
-    /** The rule's range, short: „unter 3 Jahren“ or „2–3 Jahre“. */
-    range: (from: number, to: number) => (from === 0 ? `unter ${to} Jahren` : `${from}–${to} Jahre`),
+    /** The rule's range: „unter 3 Jahren“ („unter 1 Jahr“) or „von 2 bis unter 3 Jahren“. */
+    range: (from: number, to: number) =>
+      (from === 0 ? `unter ${to === 1 ? '1 Jahr' : `${to} Jahren`}` : `von ${from} bis unter ${to} Jahren`),
     /** In the Belegung's child list: „unter 3 Jahren: 6 von 5“. */
     count: (range: string, count: number, max: number) => `${range}: ${count} von ${max}`,
-    /** The rule's range in a sentence: „unter 3 Jahren“ or „von 2 bis unter 3 Jahren“. */
-    rangeInText: (from: number, to: number) => (from === 0 ? `unter ${to} Jahren` : `von ${from} bis unter ${to} Jahren`),
     warning: (group: string, month: string, range: string, count: number, max: number) =>
       `In ${group} sind ab ${month} zu viele Kinder ${range} (${count} von ${max}).`,
     hintTitle: 'Altersgrenzen der Gruppen',
@@ -2038,6 +2044,7 @@ export const de = {
     age_limit_range_invalid: 'Bei einer Altersgrenze muss „von“ kleiner sein als „bis unter“.',
     age_limit_max_invalid: 'Bitte als Höchstzahl eine ganze Zahl von 0 bis 200 eingeben.',
     age_limits_too_many: 'Es sind höchstens 20 Altersgrenzen pro Gruppe möglich.',
+    age_limit_duplicate: 'Diese Altersgrenze steht schon weiter oben. Bitte eine der beiden entfernen.',
     facility_postal_code_invalid: 'Die PLZ muss aus genau 5 Ziffern bestehen.',
     facility_website_invalid: 'Bitte eine gültige Website angeben, z. B. www.beispiel-kita.de.',
     facility_contact_email_invalid: 'Bitte eine gültige E-Mail-Adresse angeben, z. B. name@beispiel.de.',

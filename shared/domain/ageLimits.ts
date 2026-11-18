@@ -56,6 +56,27 @@ export function ageLimitRuleError(rule: AgeLimitRule): AgeLimitRuleError | null 
   return null
 }
 
+export const MAX_AGE_LIMITS_PER_GROUP = 20
+
+export type AgeLimitListError = AgeLimitRuleError | 'age_limit_duplicate' | 'age_limits_too_many'
+
+/**
+ * The first error of a group's whole list, with the rule's row (1-based; null for too many rules): more than 20
+ * rules, a rule `ageLimitRuleError` refuses, or a rule identical to an earlier one (the later row is named).
+ */
+export function ageLimitListError(rules: AgeLimitRule[]): { code: AgeLimitListError; row: number | null } | null {
+  if (rules.length > MAX_AGE_LIMITS_PER_GROUP) return { code: 'age_limits_too_many', row: null }
+  const seen = new Set<string>()
+  for (const [index, rule] of rules.entries()) {
+    const error = ageLimitRuleError(rule)
+    if (error) return { code: error, row: index + 1 }
+    const key = `${rule.fromYears}:${rule.toYears}:${rule.maxChildren}`
+    if (seen.has(key)) return { code: 'age_limit_duplicate', row: index + 1 }
+    seen.add(key)
+  }
+  return null
+}
+
 /** `count` months from the month of `day` on. */
 export function monthsFrom(day: IsoDate, count: number): { year: number; month: number }[] {
   const { year, month } = parseIsoDate(day)

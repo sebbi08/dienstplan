@@ -18,6 +18,7 @@ const isProvider = computed(() => !!rights.value?.canMoveFacility)
 const { busy, run } = useBusyAction(() => props.reload())
 const confirm = useConfirm()
 const toast = useToast()
+const showCapacityWarnings = useCapacityWarnings()
 
 const name = computed(() => `${props.child.master.firstName} ${props.child.master.lastName}`)
 const leftOn = ref(todayIso())
@@ -25,7 +26,8 @@ const leftOn = ref(todayIso())
 async function leave() {
   if (!leftOn.value) return
   if (await confirm(de.childLifecycle.confirmLeave(name.value, formatDate(leftOn.value)), { confirmLabel: de.childLifecycle.leave })) {
-    run(() => $fetch<unknown>(`/api/children/${props.child.id}/leave`, { method: 'POST', body: { leftOn: leftOn.value } }), de.common.saved)
+    // A later leaving day lengthens the stay: the server names places and age limits it then takes over.
+    run(() => $fetch<unknown>(`/api/children/${props.child.id}/leave`, { method: 'POST', body: { leftOn: leftOn.value } }).then(showCapacityWarnings), de.common.saved)
   }
 }
 // A waitlist entry cannot leave (the server says 400 waitlist_cannot_leave); it is deleted with everything on it.

@@ -13,7 +13,7 @@ const canDeleteNow = computed(() => can('children.deleteArchived'))
 const { data, error, refresh } = useFetch<ArchivedChildDto[]>('/api/children/archive', { key: 'children-archive' })
 // A child that left the archive is back in (or gone from) the other lists.
 const reloadAll = async () => {
-  await Promise.all([refresh(), refreshNuxtData(['children-active', 'children-planned', 'children-birthdays', 'child-documents-overview', 'children-school-children', 'children-occupancy'])])
+  await Promise.all([refresh(), refreshNuxtData(['children-active', 'children-planned', 'children-birthdays', 'child-documents-overview', 'children-school-children', 'children-occupancy', 'children-age-limit-warnings'])])
 }
 const { busy, run } = useBusyAction(reloadAll)
 const confirm = useConfirm()

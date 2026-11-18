@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ageLimitRuleError, ageLimitViolations, ageOnFirstOfMonth, firstAgeLimitViolations, monthsFrom,
+  ageLimitListError, ageLimitRuleError, ageLimitViolations, ageOnFirstOfMonth, firstAgeLimitViolations, monthsFrom,
   type AgeLimitChild, type GroupAgeRule,
 } from '../../shared/domain/ageLimits'
 import type { GroupEntry } from '../../shared/domain/occupancy'
@@ -27,6 +27,12 @@ describe('ageOnFirstOfMonth', () => {
   it('counts a birthday on the 2nd only from the next month on', () => {
     expect(ageOnFirstOfMonth('2024-03-02', 2027, 3)).toBe(2)
   })
+
+  it('makes a 29 February child a year older in March', () => {
+    expect(ageOnFirstOfMonth('2024-02-29', 2027, 2)).toBe(2)
+    expect(ageOnFirstOfMonth('2024-02-29', 2027, 3)).toBe(3)
+    expect(ageOnFirstOfMonth('2024-02-29', 2028, 3)).toBe(4)
+  })
 })
 
 describe('ageLimitRuleError', () => {
@@ -50,6 +56,30 @@ describe('ageLimitRuleError', () => {
     expect(ageLimitRuleError({ fromYears: 0, toYears: 3, maxChildren: -1 })).toBe('age_limit_max_invalid')
     expect(ageLimitRuleError({ fromYears: 0, toYears: 3, maxChildren: 1.5 })).toBe('age_limit_max_invalid')
     expect(ageLimitRuleError({ fromYears: 0, toYears: 3, maxChildren: 201 })).toBe('age_limit_max_invalid')
+  })
+})
+
+describe('ageLimitListError', () => {
+  const ok = { fromYears: 0, toYears: 3, maxChildren: 5 }
+
+  it('accepts an empty list and different (also overlapping) rules', () => {
+    expect(ageLimitListError([])).toBeNull()
+    expect(ageLimitListError([ok, { fromYears: 2, toYears: 3, maxChildren: 3 }, { fromYears: 0, toYears: 3, maxChildren: 4 }])).toBeNull()
+  })
+
+  it('names the row of the first wrong rule', () => {
+    expect(ageLimitListError([ok, { fromYears: 3, toYears: 2, maxChildren: 1 }])).toEqual({ code: 'age_limit_range_invalid', row: 2 })
+    expect(ageLimitListError([{ fromYears: 0, toYears: 3, maxChildren: -1 }, ok])).toEqual({ code: 'age_limit_max_invalid', row: 1 })
+  })
+
+  it('refuses an identical rule twice, naming the later row', () => {
+    expect(ageLimitListError([ok, { fromYears: 2, toYears: 3, maxChildren: 3 }, { ...ok }])).toEqual({ code: 'age_limit_duplicate', row: 3 })
+  })
+
+  it('refuses more than 20 rules', () => {
+    const rules = Array.from({ length: 21 }, (_, index) => ({ fromYears: 0, toYears: 3, maxChildren: index }))
+    expect(ageLimitListError(rules)).toEqual({ code: 'age_limits_too_many', row: null })
+    expect(ageLimitListError(rules.slice(0, 20))).toBeNull()
   })
 })
 

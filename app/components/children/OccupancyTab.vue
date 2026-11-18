@@ -81,7 +81,11 @@ const { data: schoolSettings } = useFetch<SchoolSettingsDto>('/api/school-settin
 const { groupName } = useChildLookups()
 const confirm = useConfirm()
 const { busy: leaving, run: runLeave } = useBusyAction(async () => {
-  await Promise.all([refreshNuxtData(['children-school-children', 'children-occupancy', 'children-active', 'children-archive', 'children-open', 'child-documents-overview'])])
+  await Promise.all([refreshNuxtData([
+    'children-school-children', 'children-occupancy', 'children-active', 'children-archive', 'children-open', 'child-documents-overview',
+    // The age limit hint on top of the page may change with a leaving.
+    'children-age-limit-warnings',
+  ])])
 })
 const today = todayIso()
 const manualLeave = computed(() => !onTablet.value && schoolSettings.value?.autoLeave === false)

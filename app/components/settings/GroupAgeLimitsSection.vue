@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AgeLimitRuleDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { ageLimitRuleText } from '~/utils/ageLimits'
+import { ageLimitListMessage, ageLimitRuleText } from '~/utils/ageLimits'
 
 /**
  * On the group's page: its age limits („von 0 bis unter 3 Jahren: höchstens 5 Kinder“, several, may overlap). Whoever
@@ -35,6 +35,10 @@ watch(stored, (next, previous) => {
 })
 const dirty = useDirty(() => canEdit.value && !same(drafts.value, stored.value))
 
+// The wrong rule of the last save attempt, named and marked (cleared by the next edit).
+const problem = ref<{ row: number | null; text: string } | null>(null)
+watch(drafts, () => (problem.value = null), { deep: true })
+
 function add() {
   drafts.value.push({ fromYears: '0', toYears: '3', maxChildren: '' })
 }
@@ -42,7 +46,7 @@ function remove(index: number) {
   drafts.value.splice(index, 1)
 }
 
-/** An empty or non-numeric field goes to the server as -1, so it answers the German error for that field. */
+/** An empty or non-numeric field counts as -1, so the check answers the German error for that field. */
 const numberOf = (value: unknown) => {
   const number = Number(text(value))
   return text(value) === '' || !Number.isFinite(number) ? -1 : number
@@ -53,6 +57,12 @@ async function save() {
   const rules = drafts.value.map(rule => ({
     fromYears: numberOf(rule.fromYears), toYears: numberOf(rule.toYears), maxChildren: numberOf(rule.maxChildren),
   }))
+  // The server's check, here first, so the wrong rule can be named and marked.
+  const refused = ageLimitListMessage(rules)
+  if (refused) {
+    problem.value = refused
+    return
+  }
   const ok = await run(() => $fetch<AgeLimitRuleDto[]>(`/api/groups/${props.groupId}/age-limits`, { method: 'PUT', body: { rules } }), de.common.saved)
   if (ok) drafts.value = toDraft(data.value ?? [])
 }
@@ -67,20 +77,27 @@ const field = 'w-20'
     <form v-if="canEdit" class="space-y-2" @submit.prevent="save">
       <p v-if="!drafts.length" class="text-sm text-gray-500">{{ a.none }}</p>
       <ul class="space-y-2">
-        <li v-for="(rule, index) in drafts" :key="index" class="flex flex-wrap items-center gap-2 text-sm">
+        <li
+          v-for="(rule, index) in drafts" :key="index" class="flex flex-wrap items-center gap-2 rounded text-sm"
+          :class="problem?.row === index + 1 ? 'bg-red-50 p-1 ring-1 ring-red-400' : ''"
+          :aria-invalid="problem?.row === index + 1 ? true : undefined"
+        >
           <span>{{ a.from }}</span>
           <UInput v-model="rule.fromYears" type="number" min="0" max="18" step="1" size="sm" :class="field" :aria-label="a.fromLabel" />
           <span>{{ a.to }}</span>
           <UInput v-model="rule.toYears" type="number" min="1" max="18" step="1" size="sm" :class="field" :aria-label="a.toLabel" />
-          <span>{{ a.years }} {{ a.max }}</span>
+          <span>{{ a.years(String(rule.toYears ?? '')) }} {{ a.max }}</span>
           <UInput v-model="rule.maxChildren" type="number" min="0" max="200" step="1" size="sm" :class="field" :aria-label="a.maxLabel" />
-          <span>{{ a.children }}</span>
+          <span>{{ a.children(String(rule.maxChildren ?? '')) }}</span>
           <UButton
             size="sm" color="neutral" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${a.remove}: ${index + 1}`" :title="a.remove"
             :disabled="busy" @click="remove(index)"
           />
         </li>
       </ul>
+      <p v-if="problem" class="flex items-center gap-1 text-sm text-red-700" role="alert">
+        <UIcon name="i-lucide-circle-alert" class="size-4 shrink-0" aria-hidden="true" /> {{ problem.text }}
+      </p>
       <div class="flex flex-wrap items-center gap-2">
         <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-plus" :label="a.add" :disabled="busy" @click="add" />
         <UButton type="submit" size="sm" :label="de.common.save" :disabled="busy || !dirty" />

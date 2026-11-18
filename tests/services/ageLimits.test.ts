@@ -6,7 +6,7 @@ import {
   ageLimitCells, ageLimitWarnings, listGroupAgeLimits, setGroupAgeLimits, upcomingAgeLimitWarnings,
 } from '../../server/services/ageLimits'
 import { planGroupChange } from '../../server/services/childGroupChanges'
-import { createChild, updateChildMaster } from '../../server/services/children'
+import { createChild, leaveChild, updateChildMaster } from '../../server/services/children'
 import { createFacility } from '../../server/services/facilities'
 import { deleteGroup } from '../../server/services/groups'
 import { occupancyTable } from '../../server/services/occupancy'
@@ -56,6 +56,16 @@ describe('group age limits', () => {
       expect(() => setGroupAgeLimits(db, 1, bears, [{ fromYears: 0, toYears: 3, maxChildren: -1 }])).toThrow('age_limit_max_invalid')
       const many = Array.from({ length: 21 }, () => ({ fromYears: 0, toYears: 3, maxChildren: 1 }))
       expect(() => setGroupAgeLimits(db, 1, bears, many)).toThrow('age_limits_too_many')
+      const twice = [{ fromYears: 0, toYears: 3, maxChildren: 4 }, { fromYears: 0, toYears: 3, maxChildren: 4 }]
+      expect(() => setGroupAgeLimits(db, 1, bears, twice)).toThrow('age_limit_duplicate')
+      let refused: unknown = null
+      try {
+        setGroupAgeLimits(db, 1, bears, [{ fromYears: 0, toYears: 3, maxChildren: 4 }, { fromYears: 5, toYears: 4, maxChildren: 1 }])
+      }
+      catch (error) {
+        refused = error
+      }
+      expect(refused).toMatchObject({ statusCode: 400, code: 'age_limit_range_invalid', details: { row: 2 } })
       expect(listGroupAgeLimits(db, 1, bears)).toEqual([{ fromYears: 0, toYears: 3, maxChildren: 5 }])
     })
 
@@ -155,6 +165,15 @@ describe('group age limits', () => {
       }, TODAY, NOW))).toEqual([])
       expect(saving(null, () => createChild(db, admin, 1, master({ groupId: bears, firstName: 'Ole' }), NOW), { permissions: permissionsOf('observer') }))
         .toEqual([])
+    })
+
+    it('warns when a later leaving day lengthens the stay into months over a rule', () => {
+      const anna = addChild(db, 1, { groupId: bears, entryDate: '2026-01-01', birthDate: '2025-03-10', leftOn: '2026-11-30' })
+      expect(saving(anna, () => leaveChild(db, 1, anna, '2027-02-28', TODAY))).toEqual([
+        { groupId: bears, groupName: 'Bären', fromYears: 0, toYears: 3, maxChildren: 1, count: 2, year: 2026, month: 12 },
+      ])
+      // An earlier day again takes months away: nothing to warn.
+      expect(saving(anna, () => leaveChild(db, 1, anna, '2026-12-31', TODAY))).toEqual([])
     })
 
     it('only looks at the coming twelve months', () => {

@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import {
-  ageLimitCounts, ageLimitRuleError, ageLimitViolations, firstAgeLimitViolations, monthsFrom,
+  ageLimitCounts, ageLimitListError, ageLimitViolations, firstAgeLimitViolations, monthsFrom,
   type AgeLimitChild, type AgeLimitRule, type AgeLimitViolation, type GroupAgeRule,
 } from '../../shared/domain/ageLimits'
 import type { OccupancyChild } from '../../shared/domain/occupancy'
@@ -20,7 +20,6 @@ import { occupancyChildren } from './schoolChildren'
  */
 
 export const AGE_LIMIT_HORIZON_MONTHS = 12
-export const MAX_AGE_LIMITS_PER_GROUP = 20
 
 const ruleOrder = [asc(groupAgeLimits.fromYears), asc(groupAgeLimits.toYears), asc(groupAgeLimits.id)]
 
@@ -33,16 +32,13 @@ export function listGroupAgeLimits(db: Db, facilityId: number, groupId: number):
 
 /**
  * Replaces the age limits of a group of the facility. Each rule needs whole years 0 to 18 with „von“ below „bis
- * unter“ and a number of children from 0 to 200 (400 with the German error's code); at most 20 rules
- * (400 age_limits_too_many). 404 group_not_found for another facility's group.
+ * unter“ and a number of children from 0 to 200, no rule twice, at most 20 rules (`ageLimitListError`: 400 with the
+ * German error's code and the rule's `row` in the details). 404 group_not_found for another facility's group.
  */
 export function setGroupAgeLimits(db: Db, facilityId: number, groupId: number, rules: AgeLimitRule[]): void {
   assertGroup(db, facilityId, groupId)
-  if (rules.length > MAX_AGE_LIMITS_PER_GROUP) throw new ServiceError(400, 'age_limits_too_many')
-  for (const rule of rules) {
-    const error = ageLimitRuleError(rule)
-    if (error) throw new ServiceError(400, error)
-  }
+  const error = ageLimitListError(rules)
+  if (error) throw new ServiceError(400, error.code, error.row === null ? undefined : { row: error.row })
   db.transaction((tx) => {
     tx.delete(groupAgeLimits).where(eq(groupAgeLimits.groupId, groupId)).run()
     for (const { fromYears, toYears, maxChildren } of rules) {
