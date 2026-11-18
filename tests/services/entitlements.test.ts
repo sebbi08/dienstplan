@@ -77,3 +77,15 @@ describe('leave entitlement and remaining leave carried into later years', () =>
     expect(previewLeaveRequest(db, user, '2027-03-01', '2027-03-05', today).availableAfter).toBe(55)
   })
 })
+
+describe('leave account flags', () => {
+  it('says whether an entitlement applies and whether the carry-over is computed (forecast)', () => {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const anna = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 3 })
+    expect(getLeaveAccount(db, anna, 2025, today)).toMatchObject({ hasEntitlement: false, carriedAutomatically: false })
+    expect(getLeaveAccount(db, anna, 2026, today)).toMatchObject({ hasEntitlement: true, carriedAutomatically: false })
+    expect(getLeaveAccount(db, anna, 2027, today)).toMatchObject({ hasEntitlement: true, carriedAutomatically: true })
+  })
+})

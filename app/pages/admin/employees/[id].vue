@@ -15,7 +15,7 @@ import {
   type MasterFields, type QualificationFields,
 } from '~/utils/employeeForms'
 import { formatDate, formatHours, formatNumber, hoursToMinutes, monthTitle, shiftMonth } from '~/utils/format'
-import { errorCode } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import {
   DISABILITY_DEGREES, fieldErrorOf, personalFieldsOf, personalInput, sensitiveFieldsOf, sensitiveInput,
   type FieldErrorCode, type PersonalFields, type SensitiveFields,
@@ -42,10 +42,9 @@ const { data: monthBalances, refresh: refreshMonthBalances } = await useFetch<Ba
 const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year: leaveYear } })
 // From 1 October the coming year's account is shown below the current one (a second request, same route).
 const showComing = computed(() => showsComingYear(todayIso(), leaveYear.value))
-const { data: comingLeave, refresh: refreshComingLeave, execute: loadComingLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', {
-  query: { year: computed(() => leaveYear.value + 1) }, immediate: showComing.value,
+const { data: comingLeave, error: comingLeaveError, refresh: refreshComingLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', {
+  query: { year: computed(() => leaveYear.value + 1) }, enabled: showComing,
 })
-watch(showComing, (shown) => { if (shown) void loadComingLeave() })
 async function refresh() {
   await Promise.all([refreshEmployee(), refreshTodayBalances(), refreshMonthBalances(), refreshLeave(), showComing.value ? refreshComingLeave() : Promise.resolve()])
 }
@@ -60,8 +59,8 @@ function changeBalanceMonth(delta: number) {
 const leaveRow = computed(() => leave.value?.find(row => row.employeeId === id) ?? null)
 const comingLeaveRow = computed(() => {
   const row = comingLeave.value?.find(entry => entry.employeeId === id) ?? null
-  // No entitlement recorded for the year or before: the account is all zero, so show the "no leave year" text.
-  return row && row.account.entitlement === 0 && row.account.carriedOver === 0 && row.inheritedFrom === null ? null : row
+  // No entitlement recorded for the year or before: show the "no leave year" text.
+  return row?.hasEntitlement ? row : null
 })
 /** The account lines shown: the viewed year, and from 1 October the coming one below it. */
 const leaveBlocks = computed(() => [
@@ -608,8 +607,9 @@ async function onTabKey(event: KeyboardEvent) {
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.available }}
           <span class="font-semibold" :class="block.row.account.available < 0 ? 'text-red-700' : ''">{{ formatNumber(block.row.account.available) }}</span>
         </p>
+        <p v-else-if="block.coming && comingLeaveError" class="text-red-700">{{ errorMessage(comingLeaveError) }}</p>
         <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
-        <p v-if="block.coming && block.row" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
+        <p v-if="block.coming && block.row?.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
       </template>
       <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
       <div v-if="canManageTime && employee.closuresFrom" class="pt-2">

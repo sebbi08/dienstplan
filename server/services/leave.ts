@@ -56,6 +56,8 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
     employeeId, name: employee.name, year,
     account: leaveAccount(entitlement, vacationDates, year, today, isLeaveDay, employee.halfLeaveOnEves),
     inheritedFrom: entitlement && entitlement.fromYear !== year ? entitlement.fromYear : null,
+    hasEntitlement: entitlement !== null,
+    carriedAutomatically: entitlement?.carriedAutomatically ?? false,
     ranges: groupLeaveRanges(vacationDates, isLeaveDay, employee.halfLeaveOnEves),
     closures: closureLeave(db, employee, year),
   }

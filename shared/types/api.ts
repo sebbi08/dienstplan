@@ -1065,6 +1065,10 @@ export interface LeaveAccountDto {
   account: LeaveAccount
   /** The year whose entitlement was carried into this one (null: recorded for this year, or none). */
   inheritedFrom: number | null
+  /** Whether an entitlement is recorded for this year or before (false: the account is all zero). */
+  hasEntitlement: boolean
+  /** Whether the carry-over is computed from the year before (false: entered by hand for the first year, or none). */
+  carriedAutomatically: boolean
   ranges: LeaveRange[]
   /** The closures (as leave) with what each took from the person's leave in the year, by start date. */
   closures: ClosureLeaveDto[]

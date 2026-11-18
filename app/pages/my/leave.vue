@@ -14,10 +14,9 @@ const { data: leaveSettings } = await useFetch<LeaveSettingsDto>('/api/leave-set
 
 // From 1 October the coming year is shown below the current one (a second request, same route).
 const showComing = computed(() => showsComingYear(today, year.value))
-const { data: comingData, refresh: refreshComing, execute: loadComing } = await useFetch<LeaveAccountDto>('/api/my/leave', {
-  query: { year: computed(() => year.value + 1) }, immediate: showComing.value,
+const { data: comingData, error: comingError, refresh: refreshComing } = await useFetch<LeaveAccountDto>('/api/my/leave', {
+  query: { year: computed(() => year.value + 1) }, enabled: showComing,
 })
-watch(showComing, (shown) => { if (shown) void loadComing() })
 function refreshAll() {
   return Promise.all([refresh(), showComing.value ? refreshComing() : Promise.resolve()])
 }
@@ -38,9 +37,7 @@ const blocks = computed(() => {
   if (data.value) list.push({ dto: data.value, coming: false, cards: cardsOf(data.value), empty: false })
   // Without any entitlement (recorded for the year or before) the account is all zero: say so instead.
   if (showComing.value && comingData.value) {
-    const account = comingData.value.account
-    const empty = account.entitlement === 0 && account.carriedOver === 0 && comingData.value.ranges.length === 0
-    list.push({ dto: comingData.value, coming: true, cards: cardsOf(comingData.value), empty })
+    list.push({ dto: comingData.value, coming: true, cards: cardsOf(comingData.value), empty: !comingData.value.hasEntitlement })
   }
   return list
 })
@@ -53,6 +50,7 @@ const blocks = computed(() => {
       <YearNav v-model="year" />
     </div>
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
+    <UAlert v-if="showComing && comingError" color="warning" variant="soft" :title="errorMessage(comingError)" />
     <LeaveRequestSection v-if="leaveSettings?.enabled" @changed="refreshAll" />
     <template v-for="block in blocks" :key="block.dto.year">
       <h2 v-if="blocks.length > 1" class="pt-2 text-xl font-semibold">{{ block.dto.year }}</h2>
@@ -67,7 +65,7 @@ const blocks = computed(() => {
             <div class="text-2xl font-semibold">{{ formatNumber(card.value) }}</div>
           </div>
         </div>
-        <p v-if="block.coming" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.dto.year - 1) }}</p>
+        <p v-if="block.coming && block.dto.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.dto.year - 1) }}</p>
         <section v-if="block.dto.closures.length" class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
           <LeaveClosureList :closures="block.dto.closures" />
         </section>
