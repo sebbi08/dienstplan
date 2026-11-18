@@ -26,7 +26,7 @@ import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
 } from './childGroupChanges'
-import { defaultNoteEducator, notesOf } from './childNotes'
+import { defaultNoteEducator, detachNoteEmployees, mayWriteNotes, notesOf } from './childNotes'
 import { staleRequiredTypes } from './documentReview'
 import { assertFacility } from './facilities'
 import { assertGroup, listGroups } from './groups'
@@ -213,7 +213,7 @@ export function getChild(
     meetings: meetingsOf(db, viewer, row.id, now),
     canEditMeetings: canEdit,
     notes: notesOf(db, viewer, row.id, today),
-    canAddNotes: status !== 'archived',
+    canAddNotes: mayWriteNotes(viewer, row, today),
     noteEducatorId: defaultNoteEducator(db, viewer, today),
   }
 }
@@ -574,7 +574,8 @@ const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivit
 
 /**
  * The Träger moves a record to another facility with its contacts and documents. Group and care type belong to the old
- * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility); every document gets the
+ * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility), and the notes' educator and
+ * author links to employees (their names stay, `detachNoteEmployees`); every document gets the
  * like-named document type of the new facility, otherwise its "Sonstiges" (created with the default flags when missing).
  * The group history ends with "no group from today"; a planned group change is deleted. The day of the move is stored
  * with the record (`facilitySince`): the occupancy of the new facility counts the child from that day on, and the old
@@ -617,6 +618,7 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
     }
     endGroupHistory(tx, childId, today, now)
     moveChildForms(tx, childId, targetFacilityId)
+    detachNoteEmployees(tx, childId)
     tx.update(children)
       .set({ facilityId: targetFacilityId, facilitySince: today, groupId: null, careTypeId: null, keyEducatorId: null })
       .where(eq(children.id, childId)).run()

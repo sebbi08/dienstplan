@@ -5,9 +5,9 @@ import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 
 /**
- * „Notizen“ in the record: a table Datum | Information | Erzieher, newest first. Everyone who sees the record adds a
- * note (not only who may change it); the author, Leitung and Träger change and delete it (`canEdit` per note, the
- * server checks again). A new note starts with today and the acting person as educator (at the tablet the one who
+ * „Notizen“ in the record: a table Datum | Information | Erzieher, newest first. Whoever keeps the child's attendance
+ * adds a note (`canAddNotes`: not only who may change the record, never with read access only); the author, Leitung
+ * and Träger change and delete it (`canEdit` per note, the server checks again). A new note starts with today and the acting person as educator (at the tablet the one who
  * unlocked it). `reload` re-reads the record; the busy flag stays on until it is done.
  */
 const props = defineProps<{ child: ChildRecordDto; lookups: ReturnType<typeof useChildLookups>; reload: () => Promise<unknown> }>()
@@ -19,19 +19,27 @@ const MAX_TEXT = 2000
 const open = ref(false)
 const editing = ref<ChildNoteDto | null>(null)
 const error = ref('')
-// 0 = no educator (USelect needs a value).
+// USelect needs a value: 0 = no educator, KEEP = the stored educator whose employee was deleted (only the saved name is left).
+const KEEP = -1
 const emptyForm = () => ({ date: todayIso(), text: '', educatorId: props.child.noteEducatorId ?? 0 })
 const form = reactive(emptyForm())
 watch(() => form.text, () => {
   error.value = ''
 })
+const textLength = computed(() => form.text.trim().length)
 
-/** The facility's staff; a note's educator who has left (or was deleted) since stays selectable under the saved name. */
+/**
+ * The facility's staff; a note's educator who has left since stays selectable, and one whose employee was deleted
+ * stays as „keep“ under the saved name, so changing the text does not lose it.
+ */
 const educatorItems = computed(() => {
   const items = [{ label: n.noEducator, value: 0 }, ...props.lookups.staff.value.map(person => ({ label: person.name, value: person.id }))]
   const current = editing.value
   if (current?.educatorEmployeeId && !items.some(item => item.value === current.educatorEmployeeId)) {
     items.push({ label: current.educatorName, value: current.educatorEmployeeId })
+  }
+  else if (current && current.educatorEmployeeId === null && current.educatorName) {
+    items.push({ label: current.educatorName, value: KEEP })
   }
   return items
 })
@@ -44,7 +52,7 @@ function openNew() {
 }
 function openEdit(note: ChildNoteDto) {
   editing.value = note
-  Object.assign(form, { date: note.date, text: note.text, educatorId: note.educatorEmployeeId ?? 0 })
+  Object.assign(form, { date: note.date, text: note.text, educatorId: note.educatorEmployeeId ?? (note.educatorName ? KEEP : 0) })
   error.value = ''
   open.value = true
 }
@@ -54,7 +62,8 @@ async function save() {
     error.value = n.textRequired
     return
   }
-  const body: ChildNoteInput = { date: form.date, text: form.text, educatorEmployeeId: form.educatorId || null }
+  const educatorEmployeeId = form.educatorId === KEEP ? 'keep' : form.educatorId || null
+  const body: ChildNoteInput = { date: form.date, text: form.text, educatorEmployeeId }
   const id = editing.value?.id
   const request = id === undefined
     ? () => $fetch<{ id: number }>(`/api/children/${props.child.id}/notes`, { method: 'POST', body })
@@ -121,7 +130,7 @@ const anyEditable = computed(() => props.child.notes.some(note => note.canEdit))
       <template #body>
         <form class="space-y-3" @submit.prevent="save">
           <UFormField :label="n.date" required><DateTextInput v-model="form.date" :label="n.date" size="lg" class="w-full" required /></UFormField>
-          <UFormField :label="n.text" required :hint="n.counter(form.text.length, MAX_TEXT)">
+          <UFormField :label="n.text" required :hint="n.counter(textLength, MAX_TEXT)">
             <UTextarea v-model="form.text" :rows="4" :maxlength="MAX_TEXT" autoresize class="w-full" />
           </UFormField>
           <UFormField :label="n.educator">

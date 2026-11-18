@@ -458,7 +458,7 @@ export const parentMeetingSchema = z.object({
 export const childNoteSchema = z.object({
   date: isoDate,
   text: z.string().max(10_000),
-  educatorEmployeeId: z.number().int().positive().nullable(),
+  educatorEmployeeId: z.union([z.number().int().positive(), z.literal('keep')]).nullable(),
 })
 export const attendanceDayQuery = z.object({ date: isoDate })
 export const attendanceHistoryQuery = z.object({ childId: z.coerce.number().int().positive(), date: isoDate })

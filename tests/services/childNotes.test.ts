@@ -5,7 +5,7 @@ import { childNotes, children, employees, users } from '../../server/db/schema'
 import type { ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import { addNote, deleteNote, notesOf, updateNote } from '../../server/services/childNotes'
-import { deleteChild, getChild } from '../../server/services/children'
+import { deleteChild, getChild, moveChildToFacility } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import type { ChildNoteInput } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, permissionsOf } from '../helpers/fixtures'
@@ -113,12 +113,63 @@ describe('child notes', () => {
   })
 
   describe('rights', () => {
-    it('lets every staff member who sees the child add a note, without „Akten ändern“: own and readable group', () => {
+    it('lets staff add notes where they keep the attendance, without „Akten ändern“: own group and without group', () => {
+      const kidNone = addChild(db, 1, { firstName: 'Ohne', groupId: null })
       addNote(db, staff, kidA, input(), NOW)
-      addNote(db, staff, kidB, input(), NOW)
-      expect(getChild(db, staff, kidA, TODAY, NOW).canAddNotes).toBe(true)
-      expect(getChild(db, staff, kidB, TODAY, NOW).canAddNotes).toBe(true)
-      expect(getChild(db, staff, kidB, TODAY, NOW).canEdit).toBe(false)
+      addNote(db, staff, kidNone, input(), NOW)
+      const record = getChild(db, staff, kidA, TODAY, NOW)
+      expect(record.canAddNotes).toBe(true)
+      expect(record.canEdit).toBe(false)
+      expect(getChild(db, staff, kidNone, TODAY, NOW).canAddNotes).toBe(true)
+    })
+
+    it('keeps a read-only group read-only: notes are shown, but nobody adds, changes or deletes one there (403)', () => {
+      const id = addNote(db, leitung, kidB, input(), NOW)
+      const record = getChild(db, staff, kidB, TODAY, NOW)
+      expect(record.notes.map(note => [note.id, note.canEdit])).toEqual([[id, false]])
+      expect(record.canAddNotes).toBe(false)
+      expect(failure(() => addNote(db, staff, kidB, input(), NOW))).toBe('403 group_read_only')
+      // Even the own note, once the child's group is only readable for the author.
+      const own = addNote(db, staff, kidA, input(), NOW)
+      const annaElsewhere: ChildViewer = { ...staff, groups: { own: b, readable: [a] } }
+      expect(notesOf(db, annaElsewhere, kidA, TODAY).find(note => note.id === own)!.canEdit).toBe(false)
+      expect(failure(() => updateNote(db, annaElsewhere, own, input({ text: 'Neu' }), NOW))).toBe('403 group_read_only')
+      expect(failure(() => deleteNote(db, annaElsewhere, own, NOW))).toBe('403 group_read_only')
+      expect(db.select().from(childNotes).all()).toHaveLength(2)
+    })
+
+    it('follows the attendance\'s own scope where it differs from the record\'s', () => {
+      // „ansehen“ for the whole facility, the attendance only in the own group.
+      const scoped: ChildViewer = { ...staff, groups: null, writeGroups: { attendance: { own: a, readable: [] }, edit: { own: a, readable: [] } } }
+      addNote(db, scoped, kidA, input(), NOW)
+      expect(failure(() => addNote(db, scoped, kidC, input(), NOW))).toBe('403 group_read_only')
+      expect(getChild(db, scoped, kidC, TODAY, NOW).canAddNotes).toBe(false)
+    })
+
+    it('refuses everyone whose role settings take the attendance away (403 forbidden)', () => {
+      const id = addNote(db, staff, kidA, input(), NOW)
+      const permissions = new Set([...permissionsOf('observer')].filter(key => key !== 'children.attendance'))
+      const noAttendance: ChildViewer = { ...staff, permissions }
+      expect(getChild(db, noAttendance, kidA, TODAY, NOW).canAddNotes).toBe(false)
+      expect(notesOf(db, noAttendance, kidA, TODAY)[0]!.canEdit).toBe(false)
+      expect(failure(() => addNote(db, noAttendance, kidA, input(), NOW))).toBe('403 forbidden')
+      expect(failure(() => updateNote(db, noAttendance, id, input(), NOW))).toBe('403 forbidden')
+      expect(failure(() => deleteNote(db, noAttendance, id, NOW))).toBe('403 forbidden')
+    })
+
+    it('lets a helper from another facility at the tablet write notes as far as the attendance: every group', () => {
+      // As tabletUnlock.ts builds them: no account, the Mitarbeiter role settings, every group.
+      const helperId = addEmployee(db, 'Hilfe', { facilityId: addFacility(db, 'Krippe') })
+      const helper: ChildViewer = {
+        id: null, employeeId: helperId, name: 'Hilfe', role: 'observer', permissions: permissionsOf('observer'), facilityId: 1,
+        visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: null,
+        writeGroups: { attendance: null, edit: null },
+      }
+      const id = addNote(db, helper, kidC, input({ educatorEmployeeId: null }), NOW)
+      expect(getChild(db, helper, kidC, TODAY, NOW).canAddNotes).toBe(true)
+      updateNote(db, helper, id, input({ text: 'Von der Hilfe', educatorEmployeeId: anna }), LATER)
+      expect(notesOf(db, helper, kidC, TODAY)[0]).toMatchObject({ text: 'Von der Hilfe', createdByName: 'Hilfe', canEdit: true })
+      expect(failure(() => updateNote(db, reader, id, input(), LATER))).toBe('404 child_note_not_found')
     })
 
     it('hides the child of a group the person does not see (404) and its notes', () => {
@@ -212,6 +263,20 @@ describe('child notes', () => {
       expect(notesOf(db, leitung, kidA, TODAY)[0]).toMatchObject({ educatorEmployeeId: null, educatorName: 'Berta' })
     })
 
+    it('keeps the saved name of a deleted educator when the note is changed with „keep“; none clears it', () => {
+      const id = addNote(db, leitung, kidA, input({ educatorEmployeeId: berta }), NOW)
+      db.delete(employees).where(eq(employees.id, berta)).run()
+      updateNote(db, leitung, id, input({ text: 'Tippfehler korrigiert', educatorEmployeeId: 'keep' }), LATER)
+      expect(notesOf(db, leitung, kidA, TODAY)[0]).toMatchObject({ text: 'Tippfehler korrigiert', educatorEmployeeId: null, educatorName: 'Berta' })
+      updateNote(db, leitung, id, input({ educatorEmployeeId: null }), LATER)
+      expect(notesOf(db, leitung, kidA, TODAY)[0]).toMatchObject({ educatorEmployeeId: null, educatorName: '' })
+      // „keep“ for a living educator keeps the link as well; a new note has nothing to keep.
+      const other = addNote(db, leitung, kidA, input({ educatorEmployeeId: anna }), NOW)
+      updateNote(db, leitung, other, input({ educatorEmployeeId: 'keep' }), LATER)
+      expect(notesOf(db, leitung, kidA, TODAY).find(note => note.id === other)).toMatchObject({ educatorEmployeeId: anna, educatorName: 'Anna' })
+      expect(failure(() => addNote(db, leitung, kidA, input({ educatorEmployeeId: 'keep' }), NOW))).toBe('400 child_note_educator_invalid')
+    })
+
     it('starts a new note with the acting person: the unlocking employee, the account\'s employee, else none', () => {
       expect(getChild(db, staff, kidA, TODAY, NOW).noteEducatorId).toBe(anna)
       expect(getChild(db, reader, kidA, TODAY, NOW).noteEducatorId).toBe(berta)
@@ -225,6 +290,25 @@ describe('child notes', () => {
     })
   })
 
+  it('keeps no link to the old facility\'s employees when the record moves; the names stay', () => {
+    const id = addNote(db, staff, kidA, input({ educatorEmployeeId: berta }), NOW)
+    const kept = addNote(db, staff, addChild(db, 1, { firstName: 'Mia', groupId: a }), input({ educatorEmployeeId: berta }), NOW)
+    // Renamed after the note was saved: the move saves the name as it is now.
+    db.update(employees).set({ name: 'Berta Weber' }).where(eq(employees.id, berta)).run()
+    const krippe = addFacility(db, 'Krippe')
+    moveChildToFacility(db, kidA, krippe, NOW)
+    expect(db.select({
+      educatorId: childNotes.educatorEmployeeId, educatorName: childNotes.educatorName, userId: childNotes.createdByUserId,
+      employeeId: childNotes.createdByEmployeeId, name: childNotes.createdByName,
+    }).from(childNotes).where(eq(childNotes.id, id)).get())
+      .toEqual({ educatorId: null, educatorName: 'Berta Weber', userId: annaUser, employeeId: null, name: 'Anna' })
+    const krippeLeitung = asChildViewer(addUser(db, 'leitung-krippe', 'admin', null, krippe), krippe)
+    expect(notesOf(db, krippeLeitung, kidA, TODAY)[0]).toMatchObject({ educatorEmployeeId: null, educatorName: 'Berta Weber' })
+    // The other child's notes are untouched.
+    expect(db.select({ educatorId: childNotes.educatorEmployeeId, employeeId: childNotes.createdByEmployeeId })
+      .from(childNotes).where(eq(childNotes.id, kept)).get()).toEqual({ educatorId: berta, employeeId: anna })
+  })
+
   it('goes with the child when the record is deleted', () => {
     addNote(db, leitung, kidA, input(), NOW)
     const kept = addNote(db, leitung, kidB, input(), NOW)
@@ -233,7 +317,8 @@ describe('child notes', () => {
   })
 
   it('is part of the record for everyone who reads it', () => {
-    const id = addNote(db, staff, kidB, input(), NOW)
+    const id = addNote(db, leitung, kidB, input(), NOW)
+    expect(getChild(db, staff, kidB, TODAY, NOW).notes.map(note => note.id)).toEqual([id])
     expect(getChild(db, reader, kidB, TODAY, NOW).notes.map(note => note.id)).toEqual([id])
     expect(getChild(db, leitung, kidB, TODAY, NOW).notes.map(note => note.id)).toEqual([id])
   })

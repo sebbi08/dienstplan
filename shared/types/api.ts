@@ -246,8 +246,11 @@ export interface ParentMeetingDto {
 export interface ChildNoteInput {
   date: IsoDate
   text: string
-  /** The educator (an active employee of the facility); null = none. */
-  educatorEmployeeId: number | null
+  /**
+   * The educator (an active employee of the facility); null = none; 'keep' (on a change only) = the stored educator as
+   * it is, with the saved name: for a note whose educator was deleted, so a change of the text keeps the name.
+   */
+  educatorEmployeeId: number | 'keep' | null
 }
 
 /** A note in a child's record (section „Notizen“). */
@@ -262,7 +265,10 @@ export interface ChildNoteDto {
   createdAt: string
   updatedByName: string | null
   updatedAt: string | null
-  /** Whether the viewer may change and delete it: its author, Leitung and Träger (not in an archived record). */
+  /**
+   * Whether the viewer may change and delete it: its author, Leitung and Träger, where they write notes (as the
+   * attendance: not in a group they only read, not in an archived record).
+   */
   canEdit: boolean
 }
 
@@ -563,7 +569,10 @@ export interface ChildRecordDto {
   canEditMeetings: boolean
   /** The notes, newest date first (then the newest entered). */
   notes: ChildNoteDto[]
-  /** Whether the viewer may add a note: everyone who sees the record, while the child has not left. */
+  /**
+   * Whether the viewer may add a note: whoever writes the child's attendance (children.attendance in its group, not
+   * only read access), while the child has not left.
+   */
   canAddNotes: boolean
   /** The educator a new note starts with: the acting person's employee when among the facility's staff, else null. */
   noteEducatorId: number | null
