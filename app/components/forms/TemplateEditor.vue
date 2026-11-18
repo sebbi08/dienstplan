@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   FORM_LIMITS, ITEM_KINDS, addItem, addSection, moveItem, moveSection, removeItem, removeSection,
-  type FormContent, type FormItem, type FormKind, type ItemDraft, type ItemKind,
+  type FormContent, type FormItem, type FormKind, type FormSubject, type ItemDraft, type ItemKind,
 } from '#shared/domain/forms'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -21,15 +21,20 @@ const confirm = useConfirm()
 const toast = useToast()
 
 /** The boxes of the list, in this order; each with an icon. */
-const LIST_ORDER: readonly FormKind[] = ['child', 'staff', 'team']
-const KIND_ICONS: Record<FormKind, string> = { child: 'i-lucide-baby', staff: 'i-lucide-user-round', team: 'i-lucide-users-round' }
+const LIST_ORDER: readonly FormKind[] = ['child', 'staff', 'team', 'accident']
+const KIND_ICONS: Record<FormKind, string> = {
+  child: 'i-lucide-baby', staff: 'i-lucide-user-round', team: 'i-lucide-users-round', accident: 'i-lucide-bandage',
+}
+/** „Neue Vorlage“ in the box „Unfälle“ asks whom the reports are about. */
+const subjectItems = (['child', 'employee'] as const).map(value => ({ label: de.forms.subjects[value], value }))
 const itemKindItems = ITEM_KINDS.map(value => ({ label: de.forms.itemKinds[value], value }))
 const activeOf = (kind: FormKind) => (templates.value ?? []).filter(template => template.kind === kind && !template.archived)
 const archivedOf = (kind: FormKind) => (templates.value ?? []).filter(template => template.kind === kind && template.archived)
 
 // ---- list ---------------------------------------------------------------
-const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '' })
+const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '', accident: '' })
 const newSelf = ref(false)
+const newSubject = ref<FormSubject>('child')
 async function create(kind: FormKind) {
   // The button is always active, so it is clear what is missing.
   if (!newName[kind].trim()) {
@@ -38,7 +43,11 @@ async function create(kind: FormKind) {
   }
   try {
     const { id } = await $fetch<{ id: number }>('/api/form-templates', {
-      method: 'POST', body: { kind, name: newName[kind], selfAssessment: kind === 'staff' && newSelf.value },
+      method: 'POST',
+      body: {
+        kind, name: newName[kind], selfAssessment: kind === 'staff' && newSelf.value,
+        subject: kind === 'accident' ? newSubject.value : null,
+      },
     })
     newName[kind] = ''
     newSelf.value = false
@@ -203,6 +212,7 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
                 <div class="flex flex-wrap gap-1">
                   <UBadge v-if="template.starterKey" color="neutral" variant="soft" size="sm" :label="de.forms.starter" />
                   <UBadge v-if="template.selfAssessment" color="info" variant="soft" size="sm" :label="de.forms.selfAssessmentBadge" />
+                  <UBadge v-if="template.subject" color="neutral" variant="outline" size="sm" :label="de.forms.subjectBadge(de.forms.subjects[template.subject])" />
                 </div>
               </div>
               <div class="flex flex-wrap gap-1">
@@ -227,6 +237,10 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
               :placeholder="de.forms.newTemplateName" :aria-label="`${de.forms.newTemplateName} (${de.forms.kindGroups[listKind]})`"
             />
             <UCheckbox v-if="listKind === 'staff'" v-model="newSelf" :label="de.forms.selfAssessment" />
+            <USelect
+              v-if="listKind === 'accident'" v-model="newSubject" :items="subjectItems" size="sm" class="w-40"
+              :aria-label="de.forms.subjectPick"
+            />
             <UButton type="submit" size="sm" icon="i-lucide-plus" :label="de.forms.createTemplate" />
           </form>
 
@@ -255,7 +269,7 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
     <form v-else class="space-y-3 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4" @submit.prevent="save">
       <div class="flex flex-wrap items-center gap-2">
         <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-arrow-left" :label="de.forms.back" @click="closeEditor" />
-        <span class="text-sm text-gray-500">{{ de.forms.kinds[kind] }}</span>
+        <span class="text-sm text-gray-500">{{ de.forms.kinds[kind] }}<template v-if="editing?.subject"> · {{ de.forms.subjectBadge(de.forms.subjects[editing.subject]) }}</template></span>
       </div>
       <div class="flex flex-wrap items-end gap-3">
         <UFormField :label="de.forms.name" class="w-full sm:w-96">
@@ -299,6 +313,8 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
           <li v-for="item in section.items" :key="item.id" class="min-w-0 space-y-1.5 rounded-md bg-white p-2 ring-1 ring-gray-200">
             <div class="flex items-center gap-1">
               <UBadge color="neutral" variant="soft" size="sm" :label="de.forms.itemKinds[item.kind]" />
+              <!-- Filled from the app's data when a form is made (the key stays with the item). -->
+              <UBadge v-if="'prefill' in item && item.prefill" color="info" variant="soft" size="sm" :label="de.forms.prefillBadge" :title="de.forms.prefillHint" />
               <span class="flex-1" />
               <UButton
                 v-bind="iconButton" icon="i-lucide-arrow-up" :aria-label="de.forms.itemUp" :disabled="item.id === firstItemId"

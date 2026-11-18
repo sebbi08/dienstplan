@@ -37,6 +37,7 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   childrenOwnAccount: ['children.ownAccount'],
   formsFill: ['childForms.edit'],
   formsManage: ['childForms.manage', 'formTemplates.manage'],
+  accidentsManage: ['accidents.manage'],
   teamMeetingsWrite: ['teamMeetings.write'],
   teamMeetingsRelease: ['teamMeetings.manage'],
   notesWrite: ['notes.write'],

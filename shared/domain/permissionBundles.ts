@@ -41,7 +41,7 @@ export const BUNDLE_IDS = [
   'employeesView', 'employeesEdit', 'contractView', 'contractEdit', 'employeesDelete', 'talksManage',
   'personal', 'payrollSensitive', 'docsQualifications', 'docsOther',
   'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
-  'formsFill', 'formsManage',
+  'formsFill', 'formsManage', 'accidentsManage',
   'teamMeetingsWrite', 'teamMeetingsRelease',
   'notesWrite',
   'cashBook', 'cashClose',
@@ -125,6 +125,7 @@ const SPECS: readonly Spec[] = [
 
   bundle('formsFill', 'forms', 'ausfüllen', ['childForms.edit']),
   bundle('formsManage', 'forms', 'verwalten (Vorlagen, Freigaben)', ['childForms.manage', 'formTemplates.manage']),
+  bundle('accidentsManage', 'forms', 'Unfälle verwalten (Übersicht, Unfallanzeigen der Mitarbeiter)', ['accidents.manage']),
 
   bundle('teamMeetingsWrite', 'teamMeetings', 'mitschreiben', ['teamMeetings.write']),
   bundle('teamMeetingsRelease', 'teamMeetings', 'freigeben', ['teamMeetings.manage']),
@@ -235,7 +236,7 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'employeesView', 'employeesEdit', 'employeesDelete', 'talksManage',
     'personal', 'docsQualifications',
     'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
-    'formsFill', 'formsManage',
+    'formsFill', 'formsManage', 'accidentsManage',
     'teamMeetingsWrite', 'teamMeetingsRelease', 'notesWrite',
     'cashBook', 'cashClose',
     'calendarView', 'calendarEdit',

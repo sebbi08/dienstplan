@@ -235,10 +235,15 @@ export function teamSheet(data: TeamMeetingDto): FormSheet {
  * A template printed blank, to fill in by hand: the header fields of its kind with empty values (the facility filled in),
  * every answer empty (writing lines, empty boxes) and the signature lines of the kind.
  */
-export function blankSheet(template: Pick<FormTemplateDto, 'kind' | 'name' | 'content'>, facilityName: string): FormSheet {
+export function blankSheet(
+  template: Pick<FormTemplateDto, 'kind' | 'name' | 'content'> & Partial<Pick<FormTemplateDto, 'subject'>>, facilityName: string,
+): FormSheet {
   const t = de.talks.header
   const c = de.childForms.header
   const m = de.teamMeetings.header
+  const a = de.accidents.header
+  const employee = template.subject === 'employee'
+  const box = `☐ ${de.accidents.yes}   ☐ ${de.accidents.no}`
   const byKind = {
     staff: {
       header: [[t.name, ''], [t.facility, facilityName], [t.date, ''], [t.start, ''], [t.participants, ''], [t.period, '']],
@@ -251,6 +256,13 @@ export function blankSheet(template: Pick<FormTemplateDto, 'kind' | 'name' | 'co
     team: {
       header: [[m.facility, facilityName], [m.group, ''], [m.date, ''], [m.start, ''], [m.participants, ''], [m.recorder, '']],
       signatures: [de.teamMeetings.signatureRecorder, de.teamMeetings.signatureLead],
+    },
+    accident: {
+      header: [
+        [a.person, ''], [a.facility, facilityName], [a.date, ''], [a.start, ''], [a.doctor, box],
+        ...(employee ? [[a.unfit, box] as [string, string]] : []), [a.reportedOn, ''],
+      ],
+      signatures: [employee ? de.accidents.signatureEmployee : de.accidents.signatureStaff, de.accidents.signatureLead],
     },
   } satisfies Record<FormTemplateDto['kind'], { header: [string, string][]; signatures: string[] }>
   return {

@@ -1,6 +1,6 @@
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
-import type { FormAnswers, FormContent, FormKind } from '../domain/forms'
+import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
@@ -2513,6 +2513,8 @@ export interface CashMonthDto {
 export interface FormTemplateDto {
   id: number
   kind: FormKind
+  /** Whom an accident template's forms are about; null for the other kinds. */
+  subject: FormSubject | null
   name: string
   /** Set for the app's starter templates (e.g. 'staff_self_assessment'), null for the facility's own and for copies. */
   starterKey: string | null

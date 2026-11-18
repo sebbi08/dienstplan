@@ -562,9 +562,12 @@ export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().mi
 
 // Form templates („Bögen“): name (1–80, unique per kind) and content are checked by the service
 // (form_template_name_too_long, form_content_invalid …), so the answers are in German.
-const formKind = z.enum(['staff', 'child', 'team'])
+const formKind = z.enum(['staff', 'child', 'team', 'accident'])
 export const formTemplateQuery = z.object({ kind: formKind.optional() })
-export const formTemplateSchema = z.object({ kind: formKind, name: z.string().max(200), selfAssessment: z.boolean().default(false) })
+/** `subject` is required for an accident template; the service checks it (form_subject_invalid). */
+export const formTemplateSchema = z.object({
+  kind: formKind, name: z.string().max(200), selfAssessment: z.boolean().default(false), subject: z.string().max(20).nullish(),
+})
 /** Any subset; `content` is the whole content as the editor holds it (new sections, items and options without ids). */
 export const formTemplateUpdateSchema = z.object({
   name: z.string().max(200).optional(),

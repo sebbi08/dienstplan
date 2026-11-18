@@ -1,4 +1,4 @@
-import { addItem, addSection, type FormContent, type FormKind, type ItemDraft } from '../forms'
+import { addItem, addSection, type FormContent, type FormKind, type FormSubject, type ItemDraft } from '../forms'
 
 // The legend lives in ../forms, so the client gets it without the starter texts; kept here for existing imports.
 export { RATING_LEGEND } from '../forms'
@@ -7,13 +7,19 @@ export { RATING_LEGEND } from '../forms'
  * The starter templates every facility gets once (see spec §7): texts taken word for word from the facility's paper
  * forms („&amp;“ as „&“). Header fields (name, date …) and signature lines are not part of a template.
  */
-export type StarterKey = 'staff_self_assessment' | 'staff_assessment' | 'child_development' | 'team_meeting'
+export type StarterKey =
+  | 'staff_self_assessment' | 'staff_assessment' | 'child_development' | 'team_meeting' | 'accident_child' | 'accident_u1000'
+
+/** The starter of the official accident report („Unfallanzeige“ U 1000): its forms print in the official layout. */
+export const U1000_STARTER_KEY: StarterKey = 'accident_u1000'
 
 export interface StarterTemplate {
   key: StarterKey
   kind: FormKind
   name: string
   selfAssessment: boolean
+  /** For an accident starter: whom its forms are about. */
+  subject?: FormSubject
   sections: { title: string; hint: string; items: ItemDraft[] }[]
 }
 
@@ -316,6 +322,134 @@ const TEAM_MEETING: StarterTemplate = {
   ],
 }
 
+/** A text item filled from the app's data when the form is made (see PREFILL_KINDS in ../forms). */
+const prefilled = (text: string, prefill: 'facility' | 'personName' | 'address' | 'healthInsurer' | 'workingTime' | 'jobTitle' | 'group' | 'facilityPhone'): ItemDraft =>
+  ({ kind: 'text', question: text, prefill })
+const dateItem = (text: string, prefill?: 'birthDate' | 'employedSince'): ItemDraft =>
+  (prefill ? { kind: 'date', question: text, prefill } : { kind: 'date', question: text })
+const NO_YES = ['Nein', 'Ja']
+
+const ACCIDENT_CHILD: StarterTemplate = {
+  key: 'accident_child',
+  kind: 'accident',
+  subject: 'child',
+  name: 'Unfallbericht Kind',
+  selfAssessment: false,
+  sections: [
+    section('Unfall', [
+      question('Unfallort'),
+      question('Hergang – Was ist passiert?'),
+      question('Verletzung (Art und Körperteil)'),
+    ]),
+    section('Erste Hilfe', [
+      question('Erste Hilfe – durch wen?'),
+      question('Erste Hilfe – welche Maßnahmen?'),
+      question('Zeugen'),
+    ]),
+    section('Eltern', [
+      question('Eltern informiert – wann und durch wen?'),
+      question('Bemerkungen'),
+    ]),
+  ],
+}
+
+/**
+ * The official „Unfallanzeige“ (DGUV form U 1000, page 1): one item per numbered field 1–29 with its official number and
+ * label (field 15 „Unfallzeitpunkt“ is the form's fixed header, Datum and Uhrzeit), the short explanations of pages 2–3
+ * as section hints in own words. An item without a number of its own belongs to the numbered field before it (the
+ * printout lays the fields out like the official page, see app/utils/u1000.ts).
+ */
+const ACCIDENT_U1000: StarterTemplate = {
+  key: 'accident_u1000',
+  kind: 'accident',
+  subject: 'employee',
+  name: 'Unfallanzeige (U 1000)',
+  selfAssessment: false,
+  sections: [
+    {
+      title: 'Unternehmen',
+      hint: 'Die Unfallanzeige erstattet der Träger als Unternehmer oder eine bevollmächtigte Person. Zu 2: die '
+        + 'Mitgliedsnummer beim Unfallversicherungsträger (steht z. B. im Beitragsbescheid).',
+      items: [
+        prefilled('1 Name und Anschrift des Unternehmens', 'facility'),
+        question('2 Unternehmensnummer des Unfallversicherungsträgers'),
+        question('3 Empfänger/-in'),
+      ],
+    },
+    {
+      title: 'Versicherte Person',
+      hint: 'Zu 9: Leiharbeitnehmer/-innen sind Beschäftigte einer Zeitarbeitsfirma, die hier eingesetzt sind. Zu 11: nur '
+        + 'wenn der Unternehmer eine natürliche Person ist (z. B. Einzelunternehmen); „verwandt“ gilt auch bis zum dritten '
+        + 'Grad verwandt, bis zum zweiten Grad verschwägert oder als Pflegekind. Zu 13: bei gesetzlicher Versicherung '
+        + 'Name, PLZ und Ort der Kasse, sonst die Art der Versicherung (z. B. privat, Familienversicherung).',
+      items: [
+        prefilled('4 Name, Vorname der versicherten Person', 'personName'),
+        dateItem('5 Geburtsdatum', 'birthDate'),
+        prefilled('6 Straße, Hausnummer, Postleitzahl, Ort', 'address'),
+        choices('7 Geschlecht', ['Männlich', 'Weiblich', 'Divers', 'Keine Angabe']),
+        question('8 Staatsangehörigkeit'),
+        choices('9 Leiharbeitnehmer/-in', NO_YES),
+        choices('10 Auszubildende/-r', NO_YES),
+        choices('11 Die versicherte Person ist', [
+          'Unternehmer/-in', 'Gesellschafter/-in Geschäftsführer/-in', 'mit der Unternehmerin/dem Unternehmer verheiratet',
+          'mit der Unternehmerin/dem Unternehmer in eingetragener Lebenspartnerschaft',
+          'mit der Unternehmerin/dem Unternehmer verwandt',
+        ]),
+        question('12 Anspruch auf Entgeltfortzahlung besteht für … Wochen'),
+        prefilled('13 Krankenkasse (Name, PLZ, Ort)', 'healthInsurer'),
+      ],
+    },
+    {
+      title: 'Unfall',
+      hint: 'Zu 18: Wo, wie und warum ist es passiert? In welchem Bereich (z. B. Gruppenraum, Garten, Küche), bei welcher '
+        + 'Tätigkeit, was hat den Unfall ausgelöst, welche Geräte, Fahrzeuge oder Stoffe waren beteiligt? Skizzen oder '
+        + 'Fotos können als Anhang beigefügt werden.',
+      items: [
+        choices('14 Tödlicher Unfall?', NO_YES),
+        note('15 Unfallzeitpunkt: Datum und Uhrzeit stehen oben im Kopf des Bogens.'),
+        question('16 Unfallort (genaue Orts- und Straßenangabe mit PLZ)'),
+        { kind: 'choices', question: '17 Unfall im Homeoffice?', options: NO_YES.map(label => ({ label })), prefill: 'homeOffice' },
+        question('18 Ausführliche Schilderung des Unfallhergangs (Verlauf, Bezeichnung des Betriebsteils, ggf. Beteiligung von Maschinen, Anlagen, Gefahrstoffen)'),
+        choices('Die Angaben beruhen auf der Schilderung', ['der versicherten Person', 'anderer Personen']),
+      ],
+    },
+    {
+      title: 'Verletzung und Erstbehandlung',
+      hint: 'Zu 19: z. B. rechter Unterarm, linker Zeigefinger. Zu 20: z. B. Prellung, Knochenbruch, Verstauchung, '
+        + 'Verbrennung, Platzwunde, Schnittverletzung.',
+      items: [
+        question('19 Verletzte Körperteile'),
+        question('20 Art der Verletzung'),
+        question('21 Wer hat von dem Unfall zuerst Kenntnis genommen? (Name, Anschrift)'),
+        choices('War diese Person Augenzeugin/Augenzeuge des Unfalls?', NO_YES),
+        question('22 Erstbehandlung: Name und Anschrift der Ärztin/des Arztes oder des Krankenhauses'),
+      ],
+    },
+    {
+      title: 'Tätigkeit',
+      hint: 'Zu 24: die genaue Tätigkeit, z. B. Erzieherin, Kinderpfleger, Hauswirtschaftskraft – nicht „Angestellte“. '
+        + 'Zu 26: z. B. Gruppe, Küche, Büro.',
+      items: [
+        prefilled('23 Beginn und Ende der Arbeitszeit der versicherten Person', 'workingTime'),
+        prefilled('24 Zum Unfallzeitpunkt beschäftigt/tätig als', 'jobTitle'),
+        dateItem('25 Seit wann bei dieser Tätigkeit?', 'employedSince'),
+        prefilled('26 In welchem Teil des Unternehmens ist die versicherte Person ständig tätig?', 'group'),
+      ],
+    },
+    section('Arbeit eingestellt und wieder aufgenommen', [
+      choices('27 Hat die versicherte Person die Arbeit eingestellt?', ['Nein', 'Sofort', 'Später']),
+      question('Später, am … um … Uhr'),
+      choices('28 Hat die versicherte Person die Arbeit wieder aufgenommen?', NO_YES),
+      dateItem('Ja, am'),
+    ]),
+    {
+      title: 'Rückfragen',
+      hint: 'Der Ausdruck wird unterschrieben: Datum, Unternehmer/-in (Bevollmächtigte/-r), Betriebsrat (Personalrat).',
+      items: [prefilled('29 Datum / Telefon-Nr. für Rückfragen', 'facilityPhone')],
+    },
+  ],
+}
+
 /** The staff talk starters, in the order they are listed: self-assessment first. */
 export const STAFF_STARTERS: readonly StarterTemplate[] = [SELF_ASSESSMENT, ASSESSMENT]
 
@@ -325,8 +459,11 @@ export const CHILD_STARTERS: readonly StarterTemplate[] = [CHILD_DEVELOPMENT]
 /** The team meeting starters. */
 export const TEAM_STARTERS: readonly StarterTemplate[] = [TEAM_MEETING]
 
+/** The accident report starters: the child's report and the official Unfallanzeige for employees. */
+export const ACCIDENT_STARTERS: readonly StarterTemplate[] = [ACCIDENT_CHILD, ACCIDENT_U1000]
+
 /** Every starter a facility is given (once per key, see the form_starter_seeds table), in the order they are created. */
-export const STARTERS: readonly StarterTemplate[] = [...STAFF_STARTERS, ...CHILD_STARTERS, ...TEAM_STARTERS]
+export const STARTERS: readonly StarterTemplate[] = [...STAFF_STARTERS, ...CHILD_STARTERS, ...TEAM_STARTERS, ...ACCIDENT_STARTERS]
 
 /** The starter's content with fresh ids for every section, item and option. */
 export function starterContent(starter: StarterTemplate, newId: () => string): FormContent {

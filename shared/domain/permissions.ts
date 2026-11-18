@@ -43,7 +43,7 @@ export const PERMISSION_KEYS = [
   'children.view', 'children.ownAccount', 'children.planned', 'children.attendance', 'children.edit', 'children.manage',
   'children.schoolSettings', 'children.deleteArchived', 'children.moveFacility',
   'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view', 'printTemplates.edit',
-  'printTemplates.global', 'talks.manage', 'talks.own',
+  'printTemplates.global', 'talks.manage', 'talks.own', 'accidents.manage',
   'teamMeetings.write', 'teamMeetings.manage',
   'notes.view', 'notes.write',
   'cash.view', 'cash.book', 'cash.close', 'cash.reopen', 'cash.purge',
@@ -147,6 +147,10 @@ export const PERMISSIONS: readonly PermissionDef[] = [
     { requires: ['printTemplates.edit'], ...fixed }),
   def('talks.manage', 'forms', 'Mitarbeitergespräche führen', { requires: ['employees.view'] }),
   def('talks.own', 'forms', 'Eigene Gesprächsbögen'),
+  // Unfallberichte (accident reports): writing one about a child follows the attendance, about oneself needs no key.
+  def('accidents.manage', 'forms',
+    'Unfälle: Übersicht, Unfallanzeigen der Mitarbeiter, Unfallberichte der Kinder ändern und löschen, Erinnerung zur Meldung',
+    { requires: ['employees.view', 'children.view'] }),
 
   def('teamMeetings.write', 'teamMeetings', 'Sitzungen anlegen und mitschreiben'),
   def('teamMeetings.manage', 'teamMeetings', 'Protokoll freigeben, wieder öffnen, löschen',
@@ -199,7 +203,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'children.view', 'children.ownAccount', 'children.planned', 'children.attendance', 'children.edit',
     'children.manage',
     'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view', 'printTemplates.edit',
-    'talks.manage', 'talks.own',
+    'talks.manage', 'talks.own', 'accidents.manage',
     'teamMeetings.write', 'teamMeetings.manage',
     'notes.view', 'notes.write',
     'cash.view', 'cash.book', 'cash.close',

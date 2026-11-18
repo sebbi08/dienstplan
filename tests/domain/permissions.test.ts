@@ -26,8 +26,8 @@ const PERSONNEL_KEYS: PermissionKey[] = ['employees.personal', 'employees.sensit
 const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => key !== 'employees.personal' && key !== 'employees.docs.qualifications')
 
 describe('permission catalog', () => {
-  it('has the 67 keys of the inventory, the personnel file and the notes, each once and in catalog order', () => {
-    expect(PERMISSIONS).toHaveLength(67)
+  it('has the 68 keys of the inventory, the personnel file, the notes and the accidents, each once and in catalog order', () => {
+    expect(PERMISSIONS).toHaveLength(68)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)
   })
@@ -137,6 +137,8 @@ describe('permission catalog', () => {
       'printTemplates.edit requires printTemplates.view',
       'printTemplates.global requires printTemplates.edit',
       'talks.manage requires employees.view',
+      'accidents.manage requires employees.view',
+      'accidents.manage requires children.view',
       'teamMeetings.manage implies teamMeetings.write',
       'notes.write requires notes.view',
       'cash.book requires cash.view',
@@ -173,7 +175,7 @@ describe('role defaults', () => {
       'settings.staffing', 'employees.contractView', 'leave.plan', ...PERSONNEL_TRAEGER_ONLY]
     const expected = PERMISSIONS.filter(def => !def.providerOnly && !notDefault.includes(def.key)).map(def => def.key)
     expect(sorted(ROLE_DEFAULTS.admin)).toEqual(sorted(expected))
-    expect(ROLE_DEFAULTS.admin).toHaveLength(39)
+    expect(ROLE_DEFAULTS.admin).toHaveLength(40)
   })
 
   it('gives the Mitarbeiter the own data, the released plan, team meetings, the child keys of the tablet and the print templates to read', () => {
@@ -238,7 +240,8 @@ describe('catalog edges', () => {
       'children.schoolSettings requires settings.facility', 'children.deleteArchived requires children.manage',
       'childForms.edit requires children.view', 'childForms.manage requires childForms.edit',
       'printTemplates.edit requires printTemplates.view', 'printTemplates.global requires printTemplates.edit',
-      'talks.manage requires employees.view', 'teamMeetings.manage implies teamMeetings.write',
+      'talks.manage requires employees.view', 'accidents.manage requires employees.view',
+      'accidents.manage requires children.view', 'teamMeetings.manage implies teamMeetings.write',
       'notes.write requires notes.view',
       'cash.book requires cash.view', 'cash.close requires cash.view', 'cash.reopen requires cash.close',
       'settings.staffing requires settings.facility', 'settings.groups requires settings.facility',
@@ -280,7 +283,7 @@ describe('notes rights', () => {
 describe('effectivePermissions with the old flags moved into bundles', () => {
   it('gives the Träger every key, whatever the flags', () => {
     expect(sorted(rights({ role: 'provider' }))).toEqual(sorted(PERMISSION_KEYS))
-    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(67)
+    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(68)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {

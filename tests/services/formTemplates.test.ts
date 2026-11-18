@@ -9,7 +9,9 @@ import {
 } from '../../server/services/formTemplates'
 import type { ServiceError } from '../../server/lib/errors'
 import { checkContent, FormError, type FormContent } from '../../shared/domain/forms'
-import { CHILD_STARTERS, RATING_LEGEND, STAFF_STARTERS, starterContent, TEAM_STARTERS } from '../../shared/domain/forms/starters'
+import {
+  ACCIDENT_STARTERS, CHILD_STARTERS, RATING_LEGEND, STAFF_STARTERS, starterContent, TEAM_STARTERS,
+} from '../../shared/domain/forms/starters'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -131,22 +133,24 @@ describe('starter templates', () => {
 
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
     expect(listTemplates(db, old, 'team').map(template => [template.name, template.starterKey])).toEqual([['Teamsitzung', 'team_meeting']])
-    expect(listTemplates(db, old)).toHaveLength(4)
+    expect(listTemplates(db, old)).toHaveLength(6)
     expect(seedPendingStarterTemplates(db, now)).toBe(0)
   })
 
-  it('a new facility gets all four starters, with fresh ids each, and records each key as given', () => {
+  it('a new facility gets all six starters, with fresh ids each, and records each key as given', () => {
     const id = createFacility(db, 'Krippe').id
     const list = listTemplates(db, id)
-    expect(list.map(template => [template.name, template.kind, template.starterKey, template.selfAssessment])).toEqual([
-      ['Selbstbeurteilung', 'staff', 'staff_self_assessment', true],
-      ['Beurteilungsbogen pädagogische Fachkräfte', 'staff', 'staff_assessment', false],
-      ['Entwicklungsgespräch', 'child', 'child_development', false],
-      ['Teamsitzung', 'team', 'team_meeting', false],
+    expect(list.map(template => [template.name, template.kind, template.starterKey, template.selfAssessment, template.subject])).toEqual([
+      ['Selbstbeurteilung', 'staff', 'staff_self_assessment', true, null],
+      ['Beurteilungsbogen pädagogische Fachkräfte', 'staff', 'staff_assessment', false, null],
+      ['Entwicklungsgespräch', 'child', 'child_development', false, null],
+      ['Teamsitzung', 'team', 'team_meeting', false, null],
+      ['Unfallbericht Kind', 'accident', 'accident_child', false, 'child'],
+      ['Unfallanzeige (U 1000)', 'accident', 'accident_u1000', false, 'employee'],
     ])
     expect(new Set(allIds(list[0]!.content)).size).toBe(allIds(list[0]!.content).length)
     expect(allIds(listTemplates(db, 1, 'staff')[0]!.content)).not.toEqual(allIds(list[0]!.content))
-    expect(seeds(id)).toEqual(['child_development', 'staff_assessment', 'staff_self_assessment', 'team_meeting'])
+    expect(seeds(id)).toEqual(['accident_child', 'accident_u1000', 'child_development', 'staff_assessment', 'staff_self_assessment', 'team_meeting'])
   })
 
   it('a facility seeded with the staff starters only gets the child starter added, once', () => {
@@ -158,10 +162,11 @@ describe('starter templates', () => {
     deleteTemplate(db, old, self!.id)
 
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
-    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(['staff_assessment', 'child_development', 'team_meeting'])
+    const kept = ['staff_assessment', 'child_development', 'team_meeting', 'accident_child', 'accident_u1000']
+    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(kept)
     expect(seedPendingStarterTemplates(db, now)).toBe(0)
     seedDefaults(db)
-    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(['staff_assessment', 'child_development', 'team_meeting'])
+    expect(listTemplates(db, old).map(template => template.starterKey)).toEqual(kept)
   })
 
   it('existing facilities are seeded once at startup; renamed or deleted starters are not created again', () => {
@@ -171,13 +176,11 @@ describe('starter templates', () => {
     db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, old)).run()
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
     expect(listTemplates(db, old).map(template => template.starterKey))
-      .toEqual(['staff_self_assessment', 'staff_assessment', 'child_development', 'team_meeting'])
+      .toEqual(['staff_self_assessment', 'staff_assessment', 'child_development', 'team_meeting', 'accident_child', 'accident_u1000'])
 
-    const [self, assessment, child, team] = listTemplates(db, old)
+    const [self, ...others] = listTemplates(db, old)
     updateTemplate(db, leitung, old, self!.id, { name: 'Meine Selbstbeurteilung' }, now)
-    deleteTemplate(db, old, assessment!.id)
-    deleteTemplate(db, old, child!.id)
-    deleteTemplate(db, old, team!.id)
+    for (const other of others) deleteTemplate(db, old, other.id)
     seedDefaults(db)
     expect(seedPendingStarterTemplates(db, now)).toBe(0)
     expect(listTemplates(db, old).map(template => template.name)).toEqual(['Meine Selbstbeurteilung'])
@@ -187,13 +190,77 @@ describe('starter templates', () => {
     const old = createFacility(db, 'Alt').id
     db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, old)).run()
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
-    expect(listTemplates(db, old)).toHaveLength(4)
-    expect(seeds(old)).toHaveLength(4)
+    expect(listTemplates(db, old)).toHaveLength(6)
+    expect(seeds(old)).toHaveLength(6)
   })
 
   it('facility 1 of a fresh database is seeded by the startup step', () => {
     expect(listTemplates(db, 1, 'staff').map(template => template.starterKey)).toEqual(['staff_self_assessment', 'staff_assessment'])
     expect(listTemplates(db, 1, 'child').map(template => template.starterKey)).toEqual(['child_development'])
+    expect(listTemplates(db, 1, 'accident').map(template => template.starterKey)).toEqual(['accident_child', 'accident_u1000'])
+  })
+
+  it('a facility seeded before the accident reports gets both accident starters added, once (idempotent)', () => {
+    const old = createFacility(db, 'Alt').id
+    db.delete(formTemplates).where(and(eq(formTemplates.facilityId, old), eq(formTemplates.kind, 'accident'))).run()
+    db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'accident_child'))).run()
+    db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'accident_u1000'))).run()
+
+    expect(seedPendingStarterTemplates(db, now)).toBe(1)
+    expect(listTemplates(db, old, 'accident').map(template => [template.name, template.subject]))
+      .toEqual([['Unfallbericht Kind', 'child'], ['Unfallanzeige (U 1000)', 'employee']])
+    expect(seedPendingStarterTemplates(db, now)).toBe(0)
+    seedDefaults(db)
+    expect(listTemplates(db, old, 'accident')).toHaveLength(2)
+  })
+})
+
+describe('accident starters', () => {
+  const contentOf = (index: number) => {
+    let next = 0
+    return checkContent(starterContent(ACCIDENT_STARTERS[index]!, () => `id${next++}`))
+  }
+  const labelOf = (item: FormContent['sections'][number]['items'][number]) =>
+    item.kind === 'note' ? item.text : item.kind === 'rating' ? item.criterion : item.kind === 'milestone' ? item.text : item.question
+
+  it('the child report asks the brief\'s questions as free texts', () => {
+    const items = contentOf(0).sections.flatMap(section => section.items)
+    expect(items.map(item => [item.kind, labelOf(item)])).toEqual([
+      ['text', 'Unfallort'], ['text', 'Hergang – Was ist passiert?'], ['text', 'Verletzung (Art und Körperteil)'],
+      ['text', 'Erste Hilfe – durch wen?'], ['text', 'Erste Hilfe – welche Maßnahmen?'], ['text', 'Zeugen'],
+      ['text', 'Eltern informiert – wann und durch wen?'], ['text', 'Bemerkungen'],
+    ])
+  })
+
+  it('the U 1000 has one item per numbered field 1–29 with the official labels and its prefill keys', () => {
+    const items = contentOf(1).sections.flatMap(section => section.items)
+    const numbered = items.map(labelOf).map(label => /^(\d+) /.exec(label)?.[1]).filter(Boolean).map(Number)
+    expect(numbered).toEqual(Array.from({ length: 29 }, (_, index) => index + 1))
+    const byNumber = (n: number) => items.find(item => labelOf(item).startsWith(`${n} `))!
+    expect(labelOf(byNumber(1))).toBe('1 Name und Anschrift des Unternehmens')
+    expect(byNumber(5)).toMatchObject({ kind: 'date', question: '5 Geburtsdatum', prefill: 'birthDate' })
+    expect(byNumber(7)).toMatchObject({ kind: 'choices', options: [{ label: 'Männlich' }, { label: 'Weiblich' }, { label: 'Divers' }, { label: 'Keine Angabe' }] })
+    expect(byNumber(15).kind).toBe('note')
+    expect(byNumber(17)).toMatchObject({ kind: 'choices', prefill: 'homeOffice', options: [{ label: 'Nein' }, { label: 'Ja' }] })
+    expect(byNumber(27)).toMatchObject({ kind: 'choices', options: [{ label: 'Nein' }, { label: 'Sofort' }, { label: 'Später' }] })
+    expect(Object.fromEntries(items.flatMap(item => ('prefill' in item && item.prefill ? [[item.prefill, Number(labelOf(item).split(' ')[0])]] : []))))
+      .toEqual({
+        facility: 1, personName: 4, birthDate: 5, address: 6, healthInsurer: 13, homeOffice: 17, workingTime: 23, jobTitle: 24,
+        employedSince: 25, group: 26, facilityPhone: 29,
+      })
+  })
+
+  it('prefill keys are checked: known, on an item of their kind; copies keep them', () => {
+    const bad = (item: object) => () => checkContent({ sections: [{ id: 's', title: 'A', hint: '', items: [{ id: 'i', ...item }] }] })
+    expect(bad({ kind: 'text', question: 'Name', prefill: 'nope' })).toThrow(FormError)
+    expect(bad({ kind: 'date', question: 'Name', prefill: 'personName' })).toThrow(FormError)
+    expect(bad({ kind: 'note', text: 'x', prefill: 'personName' })).not.toThrow()
+    expect(bad({ kind: 'text', question: 'Name', prefill: 'personName' })().sections[0]!.items[0]).toEqual({ id: 'i', kind: 'text', question: 'Name', prefill: 'personName' })
+    const u1000 = listTemplates(db, 1, 'accident').find(template => template.starterKey === 'accident_u1000')!
+    const copyId = copyTemplate(db, leitung, 1, u1000.id, now)
+    const copy = listTemplates(db, 1, 'accident').find(template => template.id === copyId)!
+    expect(copy.subject).toBe('employee')
+    expect(copy.content.sections.flatMap(section => section.items).filter(item => 'prefill' in item && item.prefill)).toHaveLength(11)
   })
 })
 
@@ -234,6 +301,16 @@ describe('form templates', () => {
     expect(fresh.name).toBe('Erste')
     updateTemplate(db, leitung, 1, id, { name: 'Zweite', expectedUpdatedAt: fresh.updatedAt })
     expect(own().find(template => template.id === id)!.name).toBe('Zweite')
+  })
+
+  it('an accident template names its subject (child or employee); the other kinds have none', () => {
+    expect(errorCode(() => createTemplate(db, leitung, 1, { kind: 'accident', name: 'Unfall', selfAssessment: false }, now))).toBe('form_subject_invalid')
+    expect(errorCode(() => createTemplate(db, leitung, 1, { kind: 'accident', name: 'Unfall', selfAssessment: false, subject: 'parent' }, now)))
+      .toBe('form_subject_invalid')
+    const id = createTemplate(db, leitung, 1, { kind: 'accident', name: 'Unfall', selfAssessment: true, subject: 'employee' }, now)
+    expect(own().find(template => template.id === id)).toMatchObject({ kind: 'accident', subject: 'employee', selfAssessment: false })
+    const team = createTemplate(db, leitung, 1, { kind: 'team', name: 'Sitzung', selfAssessment: false, subject: 'child' }, now)
+    expect(own().find(template => template.id === team)!.subject).toBeNull()
   })
 
   it('self-assessment is only for staff templates', () => {

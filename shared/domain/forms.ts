@@ -1,9 +1,37 @@
 import { isValidIsoDate } from './dates'
 import type { IsoDate } from './types'
 
-/** Form kinds: „Mitarbeitergespräch“, „Kind“, „Teamsitzung“. */
-export type FormKind = 'staff' | 'child' | 'team'
-export const FORM_KINDS: readonly FormKind[] = ['staff', 'child', 'team']
+/** Form kinds: „Mitarbeitergespräch“, „Kind“, „Teamsitzung“, „Unfall“ (an accident report about a child or an employee). */
+export type FormKind = 'staff' | 'child' | 'team' | 'accident'
+export const FORM_KINDS: readonly FormKind[] = ['staff', 'child', 'team', 'accident']
+
+/** Whom an accident template (and the forms made from it) is about; null on the templates of the other kinds. */
+export type FormSubject = 'child' | 'employee'
+export const FORM_SUBJECTS: readonly FormSubject[] = ['child', 'employee']
+
+/**
+ * Prefill keys (optional `prefill` on text, date and choices items): when an accident form is made, such an item's
+ * answer is filled from the app's data where it exists; afterwards it is an ordinary answer (editable, never filled
+ * again). The key belongs to the item, so copies and edits of the starter keep it. Each key fits one item kind:
+ * - facility (text): the facility's name and address („1 Name und Anschrift des Unternehmens“)
+ * - personName (text): the person's name („4 Name, Vorname“; a child's first and last name)
+ * - birthDate (date): the birth date („5“)
+ * - address (text): the employee's street, postal code and city („6“)
+ * - healthInsurer (text): the employee's health insurer („13“)
+ * - homeOffice (choices): ticks the option „Ja“ when the employee had a home-office entry on the accident day („17“)
+ * - workingTime (text): begin and end of the employee's stamped (else planned) working time on the accident day („23“)
+ * - jobTitle (text): the employee's job title, else the qualification („24“)
+ * - employedSince (date): „In der Einrichtung seit“ („25“)
+ * - group (text): the person's group („26“)
+ * - facilityPhone (text): the facility's phone number („29“)
+ * What is filled also depends on what the acting person may read (see server/services/accidents.ts).
+ */
+export const PREFILL_KINDS = {
+  facility: 'text', personName: 'text', birthDate: 'date', address: 'text', healthInsurer: 'text', homeOffice: 'choices',
+  workingTime: 'text', jobTitle: 'text', employedSince: 'date', group: 'text', facilityPhone: 'text',
+} as const satisfies Record<string, 'text' | 'date' | 'choices'>
+export type PrefillKey = keyof typeof PREFILL_KINDS
+export const PREFILL_KEYS = Object.keys(PREFILL_KINDS) as PrefillKey[]
 
 export type ItemKind = 'note' | 'text' | 'choices' | 'rating' | 'milestone' | 'date'
 export const ITEM_KINDS: readonly ItemKind[] = ['note', 'text', 'choices', 'rating', 'milestone', 'date']
@@ -12,11 +40,11 @@ export interface ChoiceOption { id: string; label: string }
 
 export type FormItem =
   | { id: string; kind: 'note'; text: string }
-  | { id: string; kind: 'text'; question: string }
-  | { id: string; kind: 'choices'; question: string; options: ChoiceOption[] }
+  | { id: string; kind: 'text'; question: string; prefill?: PrefillKey }
+  | { id: string; kind: 'choices'; question: string; options: ChoiceOption[]; prefill?: PrefillKey }
   | { id: string; kind: 'rating'; criterion: string }
   | { id: string; kind: 'milestone'; text: string; ageLabel: string }
-  | { id: string; kind: 'date'; question: string }
+  | { id: string; kind: 'date'; question: string; prefill?: PrefillKey }
 
 /** An item as typed in the editor: no item id yet, options may lack ids. */
 type Draft<T> = T extends { kind: 'choices' }
@@ -110,13 +138,23 @@ function id(value: unknown, seen: Set<string>): string {
   return value
 }
 
+/** The item's prefill key as `{ prefill }` to spread (nothing without one); a key unknown or for another kind is invalid. */
+function prefillOf(raw: Raw, kind: 'text' | 'date' | 'choices'): { prefill?: PrefillKey } {
+  if (raw.prefill === undefined || raw.prefill === null) return {}
+  const key = raw.prefill
+  if (typeof key !== 'string' || !Object.hasOwn(PREFILL_KINDS, key) || PREFILL_KINDS[key as PrefillKey] !== kind) {
+    invalidContent()
+  }
+  return { prefill: key as PrefillKey }
+}
+
 function checkItem(raw: unknown, seen: Set<string>): FormItem {
   if (!isObject(raw)) invalidContent()
   const itemId = id(raw.id, seen)
   const L = FORM_LIMITS
   switch (raw.kind) {
     case 'note': return { id: itemId, kind: 'note', text: text(raw.text, 1, L.note) }
-    case 'text': return { id: itemId, kind: 'text', question: text(raw.question, 1, L.question) }
+    case 'text': return { id: itemId, kind: 'text', question: text(raw.question, 1, L.question), ...prefillOf(raw, 'text') }
     case 'choices': {
       const question = text(raw.question ?? '', 0, L.question)
       const options = raw.options
@@ -127,13 +165,14 @@ function checkItem(raw: unknown, seen: Set<string>): FormItem {
           if (!isObject(option)) invalidContent()
           return { id: id(option.id, seen), label: text(option.label, 1, L.optionLabel) }
         }),
+        ...prefillOf(raw, 'choices'),
       }
     }
     case 'rating': return { id: itemId, kind: 'rating', criterion: text(raw.criterion, 1, L.question) }
     case 'milestone': return {
       id: itemId, kind: 'milestone', text: text(raw.text, 1, L.question), ageLabel: text(raw.ageLabel, 1, L.ageLabel),
     }
-    case 'date': return { id: itemId, kind: 'date', question: text(raw.question, 1, L.question) }
+    case 'date': return { id: itemId, kind: 'date', question: text(raw.question, 1, L.question), ...prefillOf(raw, 'date') }
     default: return invalidContent()
   }
 }

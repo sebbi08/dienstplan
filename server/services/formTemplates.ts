@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { and, count, eq, max } from 'drizzle-orm'
-import { checkContent, FORM_KINDS, FORM_LIMITS, FormError, type FormContent, type FormKind } from '../../shared/domain/forms'
+import {
+  checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormKind, type FormSubject,
+} from '../../shared/domain/forms'
 import { STARTERS, starterContent } from '../../shared/domain/forms/starters'
 import type { FormTemplateDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -14,6 +16,8 @@ export interface FormTemplateInput {
   kind: FormKind
   name: string
   selfAssessment: boolean
+  /** Required for an accident template (whom its forms are about), ignored for the other kinds. */
+  subject?: string | null
 }
 
 /** Any subset of the template's fields; `content` is the whole content as the editor holds it (new parts without ids). */
@@ -119,6 +123,13 @@ function assertKind(kind: string): asserts kind is FormKind {
   if (!(FORM_KINDS as readonly string[]).includes(kind)) throw new ServiceError(400, 'form_kind_invalid')
 }
 
+/** The subject an accident template needs (400 form_subject_invalid without a valid one); null for the other kinds. */
+function checkedSubject(kind: FormKind, subject: unknown): FormSubject | null {
+  if (kind !== 'accident') return null
+  if (!(FORM_SUBJECTS as readonly unknown[]).includes(subject)) throw new ServiceError(400, 'form_subject_invalid')
+  return subject as FormSubject
+}
+
 function nextSortOrder(db: Db, facilityId: number, kind: FormKind): number {
   const row = db.select({ value: max(formTemplates.sortOrder) }).from(formTemplates)
     .where(and(eq(formTemplates.facilityId, facilityId), eq(formTemplates.kind, kind))).get()
@@ -127,7 +138,7 @@ function nextSortOrder(db: Db, facilityId: number, kind: FormKind): number {
 
 function toDto(row: FormTemplateRow, inUse: boolean): FormTemplateDto {
   return {
-    id: row.id, kind: row.kind, name: row.name, starterKey: row.starterKey, selfAssessment: row.selfAssessment,
+    id: row.id, kind: row.kind, subject: row.subject, name: row.name, starterKey: row.starterKey, selfAssessment: row.selfAssessment,
     archived: row.archived, sortOrder: row.sortOrder, content: templateContent(row), updatedAt: row.updatedAt,
     updatedBy: row.updatedBy, inUse,
   }
@@ -146,13 +157,17 @@ export function listTemplates(db: Db, facilityId: number, kind?: FormKind): Form
     .map(row => toDto(row, used.has(row.id)))
 }
 
-/** A new, empty template at the end of its kind; returns its id. Only staff templates can be self-assessments. */
+/**
+ * A new, empty template at the end of its kind; returns its id. Only staff templates can be self-assessments; an accident
+ * template names its subject (child or employee, 400 form_subject_invalid otherwise).
+ */
 export function createTemplate(db: Db, actor: SessionUser, facilityId: number, input: FormTemplateInput, now: Date = new Date()): number {
   assertKind(input.kind)
+  const subject = checkedSubject(input.kind, input.subject)
   const name = checkedName(db, facilityId, input.kind, input.name, null)
   const at = now.toISOString()
   return db.insert(formTemplates).values({
-    facilityId, kind: input.kind, name, selfAssessment: input.kind === 'staff' && input.selfAssessment,
+    facilityId, kind: input.kind, subject, name, selfAssessment: input.kind === 'staff' && input.selfAssessment,
     sortOrder: nextSortOrder(db, facilityId, input.kind), content: JSON.stringify({ sections: [] }),
     createdAt: at, updatedAt: at, updatedBy: actorName(db, actor),
   }).returning({ id: formTemplates.id }).get().id
@@ -228,7 +243,7 @@ export function copyTemplate(
   const row = loadTemplate(db, facilityId, id)
   const at = now.toISOString()
   return db.insert(formTemplates).values({
-    facilityId, kind: row.kind, name: copyName(db, facilityId, row.kind, row.name), selfAssessment: row.selfAssessment,
+    facilityId, kind: row.kind, subject: row.subject, name: copyName(db, facilityId, row.kind, row.name), selfAssessment: row.selfAssessment,
     sortOrder: nextSortOrder(db, facilityId, row.kind), content: JSON.stringify(freshIds(templateContent(row), newId)),
     createdAt: at, updatedAt: at, updatedBy: actorName(db, actor),
   }).returning({ id: formTemplates.id }).get().id
@@ -257,7 +272,7 @@ export function seedStarterTemplates(db: Db, facilityId: number, now: Date = new
       const taken = existingNames(db, facilityId, starter.kind)
         .some(row => row.name.toLocaleLowerCase('de') === starter.name.toLocaleLowerCase('de'))
       db.insert(formTemplates).values({
-        facilityId, kind: starter.kind, starterKey: starter.key, selfAssessment: starter.selfAssessment,
+        facilityId, kind: starter.kind, subject: starter.subject ?? null, starterKey: starter.key, selfAssessment: starter.selfAssessment,
         name: taken ? copyName(db, facilityId, starter.kind, starter.name) : starter.name,
         sortOrder: nextSortOrder(db, facilityId, starter.kind),
         content: JSON.stringify(checkContent(starterContent(starter, newId))), createdAt: at, updatedAt: at, updatedBy: '',

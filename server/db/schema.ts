@@ -1206,15 +1206,17 @@ export const cashLog = sqliteTable('cash_log', {
 }, table => [index('cash_log_box_month').on(table.boxId, table.month)])
 
 /**
- * A form template („Bogen“-Vorlage) of a facility for one kind (staff talk, child, team meeting). `content` is JSON
- * FormContent (sections and items with stable ids, see shared/domain/forms.ts). `starterKey` marks a starter template
- * created by the app (null for the facility's own templates and for copies). `selfAssessment`: filled in by the
- * employee. `updatedBy` is the name at the time ('' for the starters).
+ * A form template („Bogen“-Vorlage) of a facility for one kind (staff talk, child, team meeting, accident report).
+ * `content` is JSON FormContent (sections and items with stable ids, see shared/domain/forms.ts). `starterKey` marks a
+ * starter template created by the app (null for the facility's own templates and for copies). `selfAssessment`: filled
+ * in by the employee. `subject`: whom an accident template's forms are about (null for the other kinds). `updatedBy` is
+ * the name at the time ('' for the starters).
  */
 export const formTemplates = sqliteTable('form_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
-  kind: text('kind', { enum: ['staff', 'child', 'team'] }).notNull(),
+  kind: text('kind', { enum: ['staff', 'child', 'team', 'accident'] }).notNull(),
+  subject: text('subject', { enum: ['child', 'employee'] }),
   name: text('name').notNull(),
   starterKey: text('starter_key'),
   selfAssessment: integer('self_assessment', { mode: 'boolean' }).notNull().default(false),
@@ -1236,7 +1238,7 @@ export const forms = sqliteTable('forms', {
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
   // Deleting a template with forms is refused by the service (409 form_template_in_use).
   templateId: integer('template_id').references(() => formTemplates.id, { onDelete: 'set null' }),
-  kind: text('kind', { enum: ['staff', 'child', 'team'] }).notNull(),
+  kind: text('kind', { enum: ['staff', 'child', 'team', 'accident'] }).notNull(),
   title: text('title').notNull(),
   content: text('content').notNull(),
   answers: text('answers').notNull().default('{}'),
@@ -1249,7 +1251,7 @@ export const forms = sqliteTable('forms', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   updatedBy: text('updated_by').notNull().default(''),
-  /** Child forms (kind `child`): the child; the form goes with the child's record. */
+  /** Child forms (kind `child`) and accident reports about a child: the child; the form goes with the child's record. */
   childId: integer('child_id').references(() => children.id, { onDelete: 'cascade' }),
   /** Child forms: the parent meeting the form was filled for (a meeting has at most one); deleting it keeps the form. */
   parentMeetingId: integer('parent_meeting_id').references(() => childParentMeetings.id, { onDelete: 'set null' }),
@@ -1257,12 +1259,43 @@ export const forms = sqliteTable('forms', {
   formDate: text('form_date'),
   formStart: integer('form_start'),
   formParticipants: text('form_participants').notNull().default(''),
+  /** Accident reports about an employee: the employee (an accident report has exactly one of childId and employeeId). */
+  employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
+  /**
+   * Accident reports: the fixed header besides Datum and Uhrzeit (formDate, formStart): „Arztbesuch“, „arbeitsunfähig“
+   * (employees only) and „an Unfallkasse gemeldet am“ (ISO date, null = not yet).
+   */
+  accidentDoctor: integer('accident_doctor', { mode: 'boolean' }),
+  accidentUnfit: integer('accident_unfit', { mode: 'boolean' }),
+  accidentReportedOn: text('accident_reported_on'),
+  /** Accident reports: who filled it in, as account and/or employee (the tablet's person), so the author may change it. */
+  createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdByEmployeeId: integer('created_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  /** 'u1000': made from the official Unfallanzeige starter and printed in its layout; null: printed like every Bogen. */
+  printLayout: text('print_layout', { enum: ['u1000'] }),
 }, table => [
   index('forms_facility').on(table.facilityId),
   index('forms_template').on(table.templateId),
   index('forms_child').on(table.childId),
+  index('forms_employee').on(table.employeeId),
   uniqueIndex('forms_parent_meeting').on(table.parentMeetingId).where(sql`parent_meeting_id IS NOT NULL`),
 ])
+
+/**
+ * A file (PDF, JPEG or PNG) attached to an accident report, e.g. a photo of the injury or a doctor's note; stored like
+ * the child documents (in the database, the type judged by the first bytes, the same size limit). Goes with the form.
+ */
+export const formAttachments = sqliteTable('form_attachments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  formId: integer('form_id').notNull().references(() => forms.id, { onDelete: 'cascade' }),
+  /** The name shown in the list and the printout (the uploaded file's name, cleaned). */
+  fileName: text('file_name').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  uploadedAt: text('uploaded_at').notNull(),
+  uploadedByName: text('uploaded_by_name').notNull().default(''),
+}, table => [index('form_attachments_form').on(table.formId)])
 
 /** Employees a manager unlocked to edit one child form at the tablet (besides the child's key educator). */
 export const formEditors = sqliteTable('form_editors', {
