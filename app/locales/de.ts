@@ -317,7 +317,7 @@ export const de = {
     present: 'Anwesend',
     legend: {
       off: 'frei', work: 'Dienst', support: 'Haushaltskraft', break: 'Pause',
-      absent: 'Urlaub / Krank / Fortbildung / Schule', prep_time: 'VZ', office: 'Büro',
+      absent: 'Urlaub / Krank / Fortbildung / Schule', prep_time: 'VZ', office: 'Büro', doctor: 'Arzt (nicht im Haus)',
       office_day: 'Büro / VZ (ganzer Tag)', home_office: 'Homeoffice (nicht im Haus)',
       holiday: 'Feiertag / Schließtag', other: 'sonstiges',
     } satisfies Record<SlotState, string>,

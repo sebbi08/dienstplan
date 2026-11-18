@@ -1,3 +1,4 @@
+import { canBeHomeOffice } from '#shared/domain/balance'
 import { parseTime, validateSpan } from '#shared/domain/time'
 import type { CodeDto, EntryInput } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -19,7 +20,7 @@ export function allowsFullDay(code: CodeDto | null): boolean {
 
 /** „Homeoffice – zählt ohne Stempeln“ fits working time only: a special shift or a timed code (Büro, VZ), with or without times. */
 export function allowsHomeOffice(code: CodeDto | null): boolean {
-  return !code || code.creditMode === 'timed'
+  return !code || (code.creditMode === 'timed' && canBeHomeOffice(code.key))
 }
 
 /**

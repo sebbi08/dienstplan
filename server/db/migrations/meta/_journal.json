@@ -512,6 +512,13 @@
       "when": 1795006101347,
       "tag": "0072_employee_balance_from",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1795006930642,
+      "tag": "0073_doctor_code",
+      "breakpoints": true
     }
   ]
 }

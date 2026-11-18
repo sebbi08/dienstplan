@@ -15,7 +15,7 @@ import { isMarker } from '~/utils/helpOuts'
 const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null }>()
 const emit = defineEmits<{ close: [] }>()
 
-const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'office_day', 'home_office', 'holiday', 'other']
+const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'doctor', 'office_day', 'home_office', 'holiday', 'other']
 const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const day = computed(() => props.plan.days.find(candidate => candidate.date === props.date))
 // Helpers count with their duties here; a help-out elsewhere counts in the other facility, not here.

@@ -22,11 +22,13 @@ export const DEFAULT_CODES: (typeof absenceCodes.$inferInsert)[] = [
   { key: 'sick', label: 'Krank', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 4 },
   { key: 'office', label: 'Büro', color: 'yellow', creditMode: 'timed', requiresTimes: true, sortOrder: 5 },
   { key: 'prep_time', label: 'VZ', color: 'green', creditMode: 'timed', requiresTimes: true, sortOrder: 6 },
-  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 7 },
-  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 8 },
-  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 9 },
-  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 10 },
-  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 11 },
+  // Arzttermin: working time like Büro, but away from the house (existing databases: migration 0073_doctor_code).
+  { key: 'doctor', label: 'Arzt', color: 'red', creditMode: 'timed', requiresTimes: true, sortOrder: 7 },
+  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 8 },
+  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 9 },
+  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 10 },
+  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 11 },
+  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 12 },
 ]
 
 export const DEFAULT_COVERAGE_RULES: (typeof coverageRules.$inferInsert)[] = [

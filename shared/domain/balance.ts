@@ -1,6 +1,6 @@
 import { dateRange } from './dates'
 import { balanceStart, dailyTarget, isEmployedOn, type EmploymentInfo } from './targets'
-import type { DomainEntry, IsoDate } from './types'
+import type { CodeKey, DomainEntry, IsoDate } from './types'
 
 export interface DayResult {
   date: IsoDate
@@ -87,6 +87,13 @@ export function isWorkEntry(entry: Pick<DomainEntry, 'kind' | 'creditMode' | 'st
  * place deciding it for the coverage rules and opening/closing minimums, the Personalschlüssel presence check and the
  * monthly Ist, the day overview and the group attendance; home office still counts as working time for the balance.
  */
+/** Codes that are working time but never home office: a doctor's appointment is away from the house and from home. */
+export const NEVER_HOME_OFFICE_CODES: CodeKey[] = ['doctor']
+
+export function canBeHomeOffice(codeKey: CodeKey | null | undefined): boolean {
+  return !codeKey || !NEVER_HOME_OFFICE_CODES.includes(codeKey)
+}
+
 export function isOnSite(entry: Pick<DomainEntry, 'homeOffice'>): boolean {
   return entry.homeOffice !== true
 }

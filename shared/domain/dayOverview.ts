@@ -7,7 +7,7 @@ import type { CodeKey, DomainEntry, Minutes } from './types'
  */
 export type SlotState =
   | 'off' | 'work' | 'support' | 'break'
-  | 'absent' | 'prep_time' | 'office' | 'office_day' | 'home_office' | 'holiday' | 'other'
+  | 'absent' | 'prep_time' | 'office' | 'doctor' | 'office_day' | 'home_office' | 'holiday' | 'other'
 
 export const SLOT_MINUTES = 15
 const DEFAULT_START = 7 * 60
@@ -35,6 +35,7 @@ function codeState(codeKey: CodeKey | null): SlotState {
     case 'vacation': case 'special_leave': case 'sick': case 'training': case 'school': case 'overtime_off': return 'absent'
     case 'prep_time': return 'prep_time'
     case 'office': return 'office'
+    case 'doctor': return 'doctor'
     case 'holiday': case 'closure_day': return 'holiday'
     default: return 'other'
   }

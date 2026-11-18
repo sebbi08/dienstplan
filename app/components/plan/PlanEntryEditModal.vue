@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatDuration, formatTime, parseTime, validateSpan } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
-import { isWorkEntry } from '#shared/domain/balance'
+import { canBeHomeOffice, isWorkEntry } from '#shared/domain/balance'
 import type { EntryDto, EntryTimesInput, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { workTime } from '~/utils/workTime'
@@ -29,7 +29,7 @@ const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', groupI
 const error = ref('')
 const isBreak = computed(() => props.entry?.kind === 'break')
 /** Shifts, special shifts and timed codes (Büro, VZ) can be home office; breaks cannot. */
-const homeOfficeAllowed = computed(() => props.entry !== null && isWorkEntry(props.entry))
+const homeOfficeAllowed = computed(() => props.entry !== null && isWorkEntry(props.entry) && canBeHomeOffice(props.entry.codeKey))
 /** Working time and legal break of the typed times (not for a break entry, which is no working time). */
 const hint = computed(() => (isBreak.value ? null : workTime(form)))
 const title = computed(() => {

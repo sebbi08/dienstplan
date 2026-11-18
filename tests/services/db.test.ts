@@ -20,7 +20,7 @@ describe('database setup', () => {
     const db = createTestDb()
     seedDefaults(db)
     expect(db.select().from(shiftTemplates).all().map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(db.select().from(absenceCodes).all()).toHaveLength(11)
+    expect(db.select().from(absenceCodes).all()).toHaveLength(12)
     expect(db.select().from(coverageRules).all()).toHaveLength(3)
   })
   it('enforces foreign keys again after migrating', () => {
@@ -1579,6 +1579,7 @@ describe('upgrading a filled database through migrateDb', () => {
         { key: 'special_leave', label: 'Sonderurlaub', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 3 },
         { key: 'sick', label: 'Krank', color: 'red', credit_mode: 'daily_target', requires_times: 0, sort_order: 4 },
         { key: 'other', label: 'sonstiges', color: 'neutral', credit_mode: 'none', requires_times: 0, sort_order: 5 },
+        { key: 'doctor', label: 'Arzt', color: 'red', credit_mode: 'timed', requires_times: 1, sort_order: 7 },
       ])
     expect(sqlite.prepare('SELECT kind FROM leave_requests').all()).toEqual([{ kind: 'vacation' }])
 

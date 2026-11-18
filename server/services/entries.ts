@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray } from 'drizzle-orm'
-import { hasPlannedDuty, isFullDayTimed, isWorkEntry } from '../../shared/domain/balance'
+import { canBeHomeOffice, hasPlannedDuty, isFullDayTimed, isWorkEntry } from '../../shared/domain/balance'
 import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
@@ -7,7 +7,7 @@ import { isValidIsoDate } from '../../shared/domain/dates'
 import { dailyTarget } from '../../shared/domain/targets'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import type { CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../../shared/domain/types'
+import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../../shared/domain/types'
 import type { ApplyMode, CellRef, EntryDto, EntryInput, EntryTimesInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, earlySickLeaves, employees, entries, shiftTemplates } from '../db/schema'
@@ -28,8 +28,10 @@ const NO_TIMES = { start: null, end: null, breakStart: null, breakEnd: null }
  * Büro or VZ) or a whole Büro/VZ day without times („Homeoffice (ganzer Tag)“); anything else gives
  * home_office_not_allowed.
  */
-function assertHomeOffice(entry: { kind: EntryKind; creditMode: CreditMode; start: Minutes | null; end: Minutes | null }): void {
-  if (!isWorkEntry(entry) && !isFullDayTimed(entry)) throw new ServiceError(400, 'home_office_not_allowed')
+function assertHomeOffice(
+  entry: { kind: EntryKind; creditMode: CreditMode; start: Minutes | null; end: Minutes | null }, codeKey: CodeKey | null = null,
+): void {
+  if (!canBeHomeOffice(codeKey) || (!isWorkEntry(entry) && !isFullDayTimed(entry))) throw new ServiceError(400, 'home_office_not_allowed')
 }
 
 /** The entry to write for the input; homeOffice false unless the input asks for it (see assertHomeOffice). */
@@ -39,7 +41,7 @@ export function resolveEntry(db: Db, facilityId: number, input: EntryInput): Res
   const homeOffice = input.homeOffice ?? values.homeOffice ?? false
   if (homeOffice) {
     const creditMode = values.kind === 'code' ? codeCreditMode(db, values.absenceCodeId) ?? 'none' : 'timed'
-    assertHomeOffice({ kind: values.kind, creditMode, start: values.start ?? null, end: values.end ?? null })
+    assertHomeOffice({ kind: values.kind, creditMode, start: values.start ?? null, end: values.end ?? null }, codeKeyOf(db, values.absenceCodeId))
   }
   return { ...values, homeOffice }
 }
@@ -146,6 +148,11 @@ function gapCodeIdsOf(db: Db): Set<number> {
     .where(inArray(absenceCodes.key, TARGET_GAP_CODES)).all().map(row => row.id))
 }
 
+function codeKeyOf(db: Db, codeId: number | null | undefined): CodeKey | null {
+  if (codeId == null) return null
+  return (db.select({ key: absenceCodes.key }).from(absenceCodes).where(eq(absenceCodes.id, codeId)).get()?.key as CodeKey | undefined) ?? null
+}
+
 function codeCreditMode(db: Db, codeId: number | null | undefined): CreditMode | null {
   if (codeId == null) return null
   return db.select({ creditMode: absenceCodes.creditMode }).from(absenceCodes).where(eq(absenceCodes.id, codeId)).get()?.creditMode ?? null
@@ -243,6 +250,7 @@ export function applyToCells(
   // times: a duty next to them makes no sense.
   const addsWork = mode === 'add' && values !== null && values.start != null && (values.kind === 'shift'
     || values.kind === 'special' || (values.kind === 'code' && codeCreditMode(db, values.absenceCodeId) === 'timed'))
+  const isTimedCode = values?.kind === 'code' && codeCreditMode(db, values.absenceCodeId) === 'timed'
   if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
   const unique = [...new Map(cells.map(cell => [cellKey(cell.employeeId, cell.date), cell])).values()]
   // A whole Büro/VZ day credits the day's target: on a day without one (weekend, public holiday, a part-timer's day off)
@@ -273,7 +281,7 @@ export function applyToCells(
       }
       else if (helper && owner !== null && owner !== facilityId) throw new ServiceError(409, 'cell_taken')
       if (!helper && typeof owner === 'number') {
-        if (!isAbsence) throw new ServiceError(409, 'cell_helps_elsewhere')
+        if (!isAbsence || isTimedCode) throw new ServiceError(409, 'cell_helps_elsewhere')
         // The absence replaces the help-out; the other plan sees its cell emptied (and keeps its full text in its log).
         const ownerNames = groupNames(tx, owner)
         const helpBefore = describeCellIn(tx, owner, cell, true, ownerNames)
@@ -417,7 +425,7 @@ export function updateEntryTimes(
   const span = { ...times, breakStart: isBreak ? null : times.breakStart, breakEnd: isBreak ? null : times.breakEnd }
   if (homeOffice) {
     const creditMode = entry.kind === 'code' ? codeCreditMode(db, entry.absenceCodeId) ?? 'none' : 'timed'
-    assertHomeOffice({ kind: entry.kind, creditMode, start: span.start, end: span.end })
+    assertHomeOffice({ kind: entry.kind, creditMode, start: span.start, end: span.end }, codeKeyOf(db, entry.absenceCodeId))
   }
   const spanError = validateSpan(span)
   if (spanError) throw new ServiceError(400, `span_${spanError}`)
