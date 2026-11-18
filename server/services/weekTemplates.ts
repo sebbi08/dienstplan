@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte, ne } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
 import { isWorkday, MONDAY_TO_FRIDAY } from '../../shared/domain/targets'
@@ -11,7 +11,7 @@ import type {
   WeekTemplateInput, WeekTemplateStaffDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
+import { absenceCodes, employees, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { dayConflict, describeCellAt, resolveEntry } from './entries'
@@ -99,7 +99,10 @@ function detailOf(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemp
       helpFacilityId: null, groupId: null, homeOffice: entry.homeOffice,
     }
   })
-  return { id: template.id, name: template.name, groupId: template.groupId, updatedAt: template.updatedAt, entries }
+  const ids = [...new Set(entries.map(entry => entry.employeeId))]
+  const people = ids.length === 0 ? [] : db.select({ id: employees.id, name: employees.name }).from(employees)
+    .where(inArray(employees.id, ids)).orderBy(asc(employees.sortOrder), asc(employees.name)).all()
+  return { id: template.id, name: template.name, groupId: template.groupId, updatedAt: template.updatedAt, entries, people }
 }
 
 /** One template of the facility with its entries (another facility's id gives week_template_not_found). */
@@ -131,7 +134,8 @@ export function weekTemplateStaff(db: Db, facilityId: number, today: IsoDate): W
  * mark only on working time) and only of the kinds a saved week keeps: shifts, special shifts, breaks, VZ and Büro
  * (template_entry_not_allowed for Urlaub, Krank, Schließtag …). A whole Büro/VZ day without times is allowed: filling
  * a week only writes working days of the employee, where it has a daily target. Each cell (employee and weekday) must
- * keep the plan's rules (templateCellConflict); a refusal names it ({ employeeId, weekday, name }).
+ * keep the plan's rules (templateCellConflict); a refusal names it ({ employeeId, weekday, name }). A shift or special
+ * shift keeps the countsAsStaff the editor sends (what it opened); missing, it is resolved like in the plan.
  */
 function resolveTemplate(db: Db, facilityId: number, input: WeekTemplateInput) {
   const name = requireName(input.name)
@@ -142,16 +146,19 @@ function resolveTemplate(db: Db, facilityId: number, input: WeekTemplateInput) {
     .filter(employee => groupId === null || employee.groupId === groupId)
     .map(employee => [employee.id, employee]))
   const codes = new Map(loadCodes(db).map(code => [code.id, code]))
-  const rows = input.entries.map(({ employeeId, weekday: day, ...entryInput }) => {
+  const rows = input.entries.map(({ employeeId, weekday: day, countsAsStaff: givenCounts, ...entryInput }) => {
     if (!Number.isInteger(day) || day < 0 || day >= WEEKDAYS) throw new ServiceError(400, 'invalid_weekday')
     if (!staff.has(employeeId)) throw new ServiceError(400, 'employee_not_found')
     const values = resolveEntry(db, facilityId, entryInput)
     const code = values.absenceCodeId == null ? undefined : codes.get(values.absenceCodeId)
     if (values.kind === 'code' && !isTargetGapCode(code?.key ?? null)) throw new ServiceError(400, 'template_entry_not_allowed')
+    // The editor keeps a duty's mark as opened (e.g. a changed HK shift, now a special shift, still not counting).
+    const isDuty = values.kind === 'shift' || values.kind === 'special'
+    const countsAsStaff = isDuty && givenCounts !== undefined ? givenCounts : (values.countsAsStaff ?? true)
     return {
       employeeId, weekday: day, kind: values.kind, shiftTemplateId: values.shiftTemplateId ?? null,
       absenceCodeId: values.absenceCodeId ?? null, start: values.start ?? null, end: values.end ?? null,
-      breakStart: values.breakStart ?? null, breakEnd: values.breakEnd ?? null, countsAsStaff: values.countsAsStaff ?? true,
+      breakStart: values.breakStart ?? null, breakEnd: values.breakEnd ?? null, countsAsStaff,
       note: values.note ?? null, homeOffice: values.homeOffice ?? false, code,
     }
   })

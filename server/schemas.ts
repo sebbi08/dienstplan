@@ -162,7 +162,9 @@ export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
 export const weekTemplateInputSchema = z.object({
   name: label,
   groupId: groupIdSchema,
-  entries: z.array(entryInputSchema.omit({ groupId: true }).extend({ employeeId: z.number().int(), weekday: z.number().int() })).max(2000),
+  entries: z.array(entryInputSchema.omit({ groupId: true }).extend({
+    employeeId: z.number().int(), weekday: z.number().int(), countsAsStaff: z.boolean().optional(),
+  })).max(2000),
 })
 /** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */
 export const templateChangeSchema = templateSchema.extend({ applyFrom: isoDate.nullable().optional() })

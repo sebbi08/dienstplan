@@ -554,10 +554,8 @@ export const de = {
       contractHint: 'Rot: weicht von den Vertragsstunden ab.',
       dayOff: 'Laut Vertrag kein Arbeitstag – beim Einsetzen wird dieser Tag übersprungen.',
       noStaff: 'Für diese Auswahl gibt es keine Mitarbeiter.',
-      hiddenEntries: (count: number) => (count === 1
-        ? '1 Eintrag gehört zu jemandem, der nicht (mehr) zu dieser Auswahl gehört. Er wird beim Speichern entfernt.'
-        : `${count} Einträge gehören zu Mitarbeitern, die nicht (mehr) zu dieser Auswahl gehören. Sie werden beim Speichern entfernt.`),
-      empty: 'Noch nichts eingetragen.',
+      /** Entries of people not (or no longer) in the chosen „Für“, e.g. „Clara, Ben: 3 Einträge werden beim Speichern entfernt …“. */
+      hiddenEntries: (names: string, count: number) => `${names}: ${count === 1 ? '1 Eintrag wird' : `${count} Einträge werden`} beim Speichern entfernt (nicht in dieser Auswahl bzw. nicht mehr in der Einrichtung).`,
     },
     saveWeek: 'Als Vorlage speichern', applyWeek: 'Vorlage einsetzen',
     saveTitle: (from: string, to: string) => `Woche ${from} – ${to} als Vorlage speichern`,

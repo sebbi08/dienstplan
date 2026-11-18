@@ -46,7 +46,7 @@ function sorted(entries: WeekTemplateEntryDto[]): WeekTemplateEntryDto[] {
  * times). `id` is the editor's own (negative for entries not saved yet). Null for a service that does not exist.
  */
 export function draftTemplateEntry(
-  input: EntryInput, cell: TemplateCell, context: TemplateEditorContext, id: number,
+  input: EntryInput & { countsAsStaff?: boolean }, cell: TemplateCell, context: TemplateEditorContext, id: number,
 ): WeekTemplateEntryDto | null {
   const base = {
     id, employeeId: cell.employeeId, weekday: cell.weekday, date: '', groupId: null, helpFacilityId: null,
@@ -56,7 +56,8 @@ export function draftTemplateEntry(
   if (input.kind === 'shift') {
     const shift = context.templates.find(candidate => candidate.id === input.templateId)
     if (!shift) return null
-    const { start, end, breakStart, breakEnd, countsAsStaff } = shift
+    const { start, end, breakStart, breakEnd } = shift
+    const countsAsStaff = input.countsAsStaff ?? shift.countsAsStaff
     return {
       ...base, kind: 'shift', templateId: shift.id, start, end, breakStart, breakEnd, countsAsStaff,
       label: describeEntry({ kind: 'shift', start, end }, null, null), shortLabel: shift.shortLabel || null,
@@ -73,7 +74,11 @@ export function draftTemplateEntry(
   }
   const span = { start, end, breakStart: input.breakStart ?? null, breakEnd: input.breakEnd ?? null }
   if (input.kind === 'special') {
-    return { ...base, kind: 'special', ...span, countsAsStaff: true, label: describeEntry({ kind: 'special', start, end }, null, null), color: 'neutral' }
+    const countsAsStaff = input.countsAsStaff ?? true
+    return {
+      ...base, kind: 'special', ...span, countsAsStaff, label: describeEntry({ kind: 'special', start, end }, null, null),
+      color: planEntryColor({ kind: 'special', countsAsStaff }, null),
+    }
   }
   const code = context.codes.find(candidate => candidate.id === input.codeId)
   if (!code) return null
@@ -131,16 +136,31 @@ export function removeTemplateEntry(
   return refusalOf(next, [removed], names) ?? { entries: next }
 }
 
-/** What „Speichern“ sends: each entry of the employees shown as the plan input of its weekday. */
+/**
+ * What „Speichern“ sends: each entry of the employees shown as the plan input of its weekday. Shifts and special
+ * shifts carry their countsAsStaff, so an entry is saved exactly as it was opened (a changed HK shift, opened as a
+ * special shift, keeps not counting as staff).
+ */
 export function templateEntryInputs(entries: WeekTemplateEntryDto[], shown: ReadonlySet<number>): WeekTemplateEntryInput[] {
   return entries.filter(entry => shown.has(entry.employeeId)).map((entry): WeekTemplateEntryInput => {
     const cell = { employeeId: entry.employeeId, weekday: entry.weekday }
     if (entry.kind === 'break') return { ...cell, kind: 'break', start: entry.start, end: entry.end }
     const extra = { note: entry.note, homeOffice: entry.homeOffice }
-    if (entry.kind === 'shift') return { ...cell, kind: 'shift', templateId: entry.templateId, ...extra }
+    if (entry.kind === 'shift') return { ...cell, kind: 'shift', templateId: entry.templateId, countsAsStaff: entry.countsAsStaff, ...extra }
     const span = { start: entry.start, end: entry.end, breakStart: entry.breakStart, breakEnd: entry.breakEnd }
-    return entry.kind === 'code' ? { ...cell, kind: 'code', codeId: entry.codeId, ...span, ...extra } : { ...cell, kind: 'special', ...span, ...extra }
+    return entry.kind === 'code'
+      ? { ...cell, kind: 'code', codeId: entry.codeId, ...span, ...extra }
+      : { ...cell, kind: 'special', ...span, countsAsStaff: entry.countsAsStaff, ...extra }
   })
+}
+
+/** The entries not shown (another group, or no longer in the facility) that „Speichern“ leaves out: whose and how many. */
+export function hiddenTemplateEntries(
+  entries: WeekTemplateEntryDto[], shown: ReadonlySet<number>, names: Map<number, string>,
+): { names: string[]; count: number } {
+  const hidden = entries.filter(entry => !shown.has(entry.employeeId))
+  const people = [...new Set(hidden.map(entry => entry.employeeId))].map(id => names.get(id) ?? '').filter(Boolean)
+  return { names: people, count: hidden.length }
 }
 
 /** The columns of the editor: the facility's staff, or the group's members for a group template (as saving a week). */
@@ -156,13 +176,15 @@ export function templateWeekdayTarget(person: WeekTemplateStaffDto, weekday: num
 
 /**
  * The working time the template plans for the person in a week, as the balance counts a day (dayCredit): breaks off,
- * overlapping entries once, a whole Büro/VZ day with the daily target of that weekday.
+ * overlapping entries once, a whole Büro/VZ day with the daily target of that weekday. Days that are no working day of
+ * the contract (target 0) are left out, as filling a week skips them.
  */
 export function templateWeeklyMinutes(entries: WeekTemplateEntryDto[], person: WeekTemplateStaffDto): number {
   let total = 0
   for (let weekday = 0; weekday < TEMPLATE_WEEKDAYS; weekday++) {
+    const target = templateWeekdayTarget(person, weekday)
     const day = entries.filter(inCell({ employeeId: person.id, weekday }))
-    if (day.length > 0) total += dayCredit(day, templateWeekdayTarget(person, weekday))
+    if (target > 0 && day.length > 0) total += dayCredit(day, target)
   }
   return total
 }

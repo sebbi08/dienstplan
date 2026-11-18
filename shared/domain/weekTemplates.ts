@@ -18,12 +18,11 @@ const overlaps = (a: DomainEntry, b: DomainEntry) => a.start! < b.end! && b.star
 const isTimedWork = (entry: DomainEntry) => entry.kind !== 'break' && entry.start !== null && entry.end !== null
 
 /**
- * The first rule one template cell (an employee's weekday) breaks, with the plan's rules: a whole Büro/VZ day stands
- * alone; working entries do not overlap each other, only VZ/Büro may lie inside a duty; every break (additional or a
- * duty's own) lies inside a duty and overlaps no other break. Null when the cell is fine.
+ * The first rule one template cell (an employee's weekday) breaks, with the plan's rules: working entries do not
+ * overlap each other, only VZ/Büro may lie inside a duty; every break (additional or a duty's own) lies inside a duty
+ * and overlaps no other break; a whole Büro/VZ day stands alone. Null when the cell is fine.
  */
 export function templateCellConflict(day: DomainEntry[]): 'entries_overlap' | BreakConflict | null {
-  if (day.length > 1 && day.some(isFullDayTimed)) return 'entries_overlap'
   const timed = day.filter(isTimedWork)
   const clash = timed.some((entry, index) => timed.some((other, otherIndex) => otherIndex > index && overlaps(entry, other)
     && isTargetGapCode(entry.codeKey) === isTargetGapCode(other.codeKey)))
@@ -36,5 +35,7 @@ export function templateCellConflict(day: DomainEntry[]): 'entries_overlap' | Br
         : null
     if (conflict) return conflict
   }
+  // Checked last, so a break next to a whole day gets the break's text (it has no duty to lie in).
+  if (day.length > 1 && day.some(isFullDayTimed)) return 'entries_overlap'
   return null
 }

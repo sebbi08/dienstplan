@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CodeDto, TemplateDto, WeekTemplateEntryDto, WeekTemplateStaffDto } from '../../shared/types/api'
 import {
-  clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, removeTemplateEntry, staffInScope, templateEntryInputs,
+  clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateEntryInputs,
   templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell, type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
@@ -76,6 +76,12 @@ describe('entering into template cells (the plan\'s always-add rule)', () => {
     expect(labels(entries, 1, 0)).toEqual(['F1'])
   })
 
+  it('gives the break text for a break next to a whole Büro day', () => {
+    const entries = enter([], [monday], { kind: 'code', codeId: 11 })
+    expect(enterIntoTemplateCells(entries, [monday], { kind: 'break', start: 600, end: 615 }, context, names))
+      .toMatchObject({ error: 'break_outside_work', message: expect.stringMatching(/^Anna, Montag: Die Pause/) })
+  })
+
   it('needs a duty for a break', () => {
     const refused = enterIntoTemplateCells([], [monday], { kind: 'break', start: 600, end: 615 }, context, names)
     expect(refused).toMatchObject({ error: 'break_outside_work', message: expect.stringMatching(/^Anna, Montag: /) })
@@ -96,6 +102,35 @@ describe('entering into template cells (the plan\'s always-add rule)', () => {
   })
 })
 
+describe('the counts-as-staff mark of an entry', () => {
+  const cell = { employeeId: 1, weekday: 0 }
+  it('follows the input, else the service; the chip color follows it', () => {
+    expect(draftTemplateEntry({ kind: 'special', start: 480, end: 600, countsAsStaff: false }, cell, context, -1))
+      .toMatchObject({ countsAsStaff: false, color: 'violet' })
+    expect(draftTemplateEntry({ kind: 'special', start: 480, end: 600 }, cell, context, -1)).toMatchObject({ countsAsStaff: true, color: 'neutral' })
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 3, countsAsStaff: true }, cell, context, -1))
+      .toMatchObject({ countsAsStaff: true, color: 'neutral' })
+    expect(draftTemplateEntry({ kind: 'shift', templateId: 1, countsAsStaff: false }, cell, context, -1))
+      .toMatchObject({ countsAsStaff: false, color: 'violet' })
+  })
+  it('is saved as it was opened: a special shift that does not count stays so', () => {
+    const opened = draftTemplateEntry({ kind: 'special', start: 660, end: 960, countsAsStaff: false }, cell, context, 7)!
+    expect(templateEntryInputs([opened], new Set([1]))).toEqual([
+      { employeeId: 1, weekday: 0, kind: 'special', start: 660, end: 960, breakStart: null, breakEnd: null, countsAsStaff: false, note: null, homeOffice: false },
+    ])
+  })
+})
+
+describe('entries the editor does not show', () => {
+  it('names the people whose entries are not saved and counts their entries', () => {
+    const entries = enter([], [{ employeeId: 1, weekday: 0 }, { employeeId: 1, weekday: 1 }, { employeeId: 2, weekday: 0 }, { employeeId: 3, weekday: 0 }],
+      { kind: 'shift', templateId: 1 })
+    const people = new Map([[1, 'Anna'], [2, 'Berta'], [3, 'Clara']])
+    expect(hiddenTemplateEntries(entries, new Set([2]), people)).toEqual({ names: ['Anna', 'Clara'], count: 3 })
+    expect(hiddenTemplateEntries(entries, new Set([1, 2, 3]), people)).toEqual({ names: [], count: 0 })
+  })
+})
+
 describe('what the editor saves', () => {
   it('sends each entry as the plan input of its weekday and employee', () => {
     let entries = enter([], [{ employeeId: 1, weekday: 0 }], { kind: 'shift', templateId: 2, homeOffice: true })
@@ -103,10 +138,10 @@ describe('what the editor saves', () => {
     entries = enter(entries, [{ employeeId: 2, weekday: 3 }], { kind: 'code', codeId: 11 })
     entries = enter(entries, [{ employeeId: 2, weekday: 4 }], { kind: 'special', start: 480, end: 720, breakStart: 600, breakEnd: 615, note: 'x' })
     expect(templateEntryInputs(entries, new Set([1, 2]))).toEqual([
-      { employeeId: 1, weekday: 0, kind: 'shift', templateId: 2, note: null, homeOffice: true },
+      { employeeId: 1, weekday: 0, kind: 'shift', templateId: 2, countsAsStaff: true, note: null, homeOffice: true },
       { employeeId: 1, weekday: 0, kind: 'break', start: 900, end: 915 },
       { employeeId: 2, weekday: 3, kind: 'code', codeId: 11, start: null, end: null, breakStart: null, breakEnd: null, note: null, homeOffice: false },
-      { employeeId: 2, weekday: 4, kind: 'special', start: 480, end: 720, breakStart: 600, breakEnd: 615, note: 'x', homeOffice: false },
+      { employeeId: 2, weekday: 4, kind: 'special', start: 480, end: 720, breakStart: 600, breakEnd: 615, countsAsStaff: true, note: 'x', homeOffice: false },
     ])
     // Only the employees shown (the template's scope).
     expect(templateEntryInputs(entries, new Set([2])).map(e => e.employeeId)).toEqual([2, 2])
@@ -136,5 +171,12 @@ describe('the weekly hours of a template per employee', () => {
     expect(templateWeeklyMinutes(entries, berta)).toBe(30 * 60)
     entries = enter(entries, [{ employeeId: 2, weekday: 4 }], { kind: 'code', codeId: 11 })
     expect(templateWeeklyMinutes(entries, berta)).toBe(30 * 60)
+  })
+
+  it('leaves out days that are no working day of the contract, as filling a week skips them', () => {
+    // Berta works Monday to Thursday: a duty on Friday is never written into the plan.
+    const entries = enter([], [{ employeeId: 2, weekday: 0 }, { employeeId: 2, weekday: 4 }], { kind: 'shift', templateId: 1 })
+    expect(templateWeeklyMinutes(entries, berta)).toBe(375)
+    expect(templateWeeklyMinutes(entries, person(2, 'Berta', null))).toBe(0)
   })
 })

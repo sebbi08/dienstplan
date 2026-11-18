@@ -9,7 +9,7 @@ import type {
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import {
-  clearTemplateCells, enterIntoTemplateCells, removeTemplateEntry, staffInScope, templateCellOf, templateEntryInputs,
+  clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateEntryInputs,
   templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
 } from '~/utils/weekTemplateEditor'
 
@@ -37,13 +37,14 @@ const entries = ref<WeekTemplateEntryDto[]>(props.template?.entries ?? [])
 const context = computed(() => ({ templates: props.templates, codes: props.codes }))
 /** Only VZ and Büro: one-off absences (Urlaub, Krank, Schließtag …) never go into a template. */
 const templateCodes = computed(() => props.codes.filter(code => isTargetGapCode(code.key)))
-const names = computed(() => new Map(props.staff.map(person => [person.id, person.name])))
+/** Everyone's name: the staff, and people with entries who left meanwhile. */
+const names = computed(() => new Map([...(props.template?.people ?? []), ...props.staff].map(person => [person.id, person.name])))
 
 const selection = usePlanSelection()
 const columns = computed(() => staffInScope(props.staff, form.groupId))
 const shown = computed(() => new Set(columns.value.map(person => person.id)))
 /** Entries of people not shown (another group, or no longer in the facility): not saved. */
-const hiddenCount = computed(() => entries.value.filter(entry => !shown.value.has(entry.employeeId)).length)
+const hidden = computed(() => hiddenTemplateEntries(entries.value, shown.value, names.value))
 const scopeItems = computed(() => [
   { label: t.wholeFacility, value: 0 },
   ...props.groups.map(group => ({ label: group.name, value: group.id })),
@@ -188,7 +189,6 @@ async function save() {
           </tbody>
         </table>
       </div>
-      <UAlert v-if="hiddenCount" color="warning" variant="subtle" icon="i-lucide-user-x" :title="e.hiddenEntries(hiddenCount)" />
 
       <section v-if="hours.length" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
         <h3 class="text-sm font-semibold">{{ e.hours }}</h3>
@@ -203,6 +203,11 @@ async function save() {
         <p class="text-xs text-gray-500">{{ e.contractHint }}</p>
       </section>
 
+      <!-- Right above „Speichern“, so it is seen before saving, also on a phone below the wide grid. -->
+      <UAlert
+        v-if="hidden.count" color="warning" variant="subtle" icon="i-lucide-user-x"
+        :title="e.hiddenEntries(hidden.names.join(', '), hidden.count)"
+      />
       <div class="flex flex-wrap justify-end gap-2">
         <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="emit('done')" />
         <UButton type="submit" :label="de.common.save" :disabled="!dirty" />

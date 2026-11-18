@@ -9,6 +9,7 @@ import {
   weekTemplateNames, weekTemplateStaff,
 } from '../../server/services/weekTemplates'
 import type { SessionUser, WeekTemplateEntryInput } from '../../shared/types/api'
+import { templateEntryInputs } from '../../app/utils/weekTemplateEditor'
 import {
   addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId,
 } from '../helpers/fixtures'
@@ -148,6 +149,8 @@ describe('week templates written in the editor', () => {
     expect(refusal(() => create([code(anna, 1, 'office'), shift(anna, 1, 'F1')])))
       .toEqual({ code: 'entries_overlap', details: { employeeId: anna, weekday: 1, name: 'Anna' } })
     expect(refusal(() => create([code(anna, 1, 'office'), code(anna, 1, 'prep_time', 480, 540)]))?.code).toBe('entries_overlap')
+    // A break next to a whole Büro day has no duty to lie in.
+    expect(refusal(() => create([code(anna, 1, 'office'), pause(anna, 1, 600, 615)]))?.code).toBe('break_outside_work')
     expect(refusal(() => create([shift(anna, 3, 'F1'), pause(anna, 3, 800, 830)])))
       .toEqual({ code: 'break_outside_work', details: { employeeId: anna, weekday: 3, name: 'Anna' } })
     expect(refusal(() => create([pause(anna, 0, 600, 615)]))?.code).toBe('break_outside_work')
@@ -192,6 +195,46 @@ describe('week templates written in the editor', () => {
       ['special', null, null, '7:00–13:15'],
       ['shift', templateId(db, 'S'), 'S', '8:45–17:00'],
     ])
+  })
+
+  it('keeps whether each entry counts as staff when the editor opens and saves the template', () => {
+    const template = create([shift(anna, 0, 'HK'), shift(anna, 1, 'F1'), { employeeId: berta, weekday: 0, kind: 'special', start: 480, end: 720 }])
+    // HK (not counting as staff) got other times: it opens as a special shift that still does not count.
+    db.update(shiftTemplates).set({ start: 690 }).where(eq(shiftTemplates.shortLabel, 'HK')).run()
+    // F1 keeps its times but no longer counts as staff: the saved F1 duty still does.
+    db.update(shiftTemplates).set({ countsAsStaff: false }).where(eq(shiftTemplates.shortLabel, 'F1')).run()
+    const opened = getWeekTemplate(db, 1, template.id)
+    expect(opened.entries.map(e => [e.kind, e.countsAsStaff, e.color])).toEqual([
+      ['special', true, 'neutral'], ['special', false, 'violet'], ['shift', true, 'neutral'],
+    ])
+    // Edit something else (a duty for Berta on Friday) and save what the editor sends.
+    const inputs = [...templateEntryInputs(opened.entries, new Set([anna, berta])), shift(berta, 4, 'S')]
+    replaceWeekTemplate(db, 1, template.id, { name: opened.name, groupId: null, entries: inputs })
+    const stored = rowsOf(template.id).map(row => [row.employeeId, row.weekday, row.kind, row.start, row.countsAsStaff])
+    expect(stored).toEqual([
+      [berta, 0, 'special', 480, true],
+      [anna, 0, 'special', 660, false],
+      [anna, 1, 'shift', 420, true],
+      [berta, 4, 'shift', 525, true],
+    ])
+  })
+
+  it('takes the counts-as-staff mark only for shifts and special shifts', () => {
+    const template = create([
+      { employeeId: anna, weekday: 0, kind: 'special', start: 480, end: 720, countsAsStaff: false },
+      shift(anna, 1, 'HK', { countsAsStaff: true }),
+      shift(anna, 2, 'F1'), { ...pause(anna, 2, 600, 615), countsAsStaff: true },
+      code(anna, 3, 'office', 480, 600, { countsAsStaff: false }),
+    ])
+    expect(rowsOf(template.id).map(row => [row.kind, row.countsAsStaff])).toEqual([
+      ['special', false], ['shift', true], ['shift', true], ['break', false], ['code', true],
+    ])
+  })
+
+  it('names everyone who has entries in the template, also people who left or belong elsewhere', () => {
+    const clara = addEmployee(db, 'Clara', { leftOn: '2026-10-31' })
+    const template = create([shift(anna, 0, 'F1'), shift(clara, 1, 'F1')])
+    expect(getWeekTemplate(db, 1, template.id).people).toEqual([{ id: anna, name: 'Anna' }, { id: clara, name: 'Clara' }])
   })
 
   it('lists the staff that can be planned: the facility\'s own employees who have not left, with their contract', () => {

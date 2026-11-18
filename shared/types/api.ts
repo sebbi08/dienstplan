@@ -1548,7 +1548,15 @@ export interface WeekTemplateDto {
  * One entry of a week template written in its editor: what the plan takes for a cell (without a group: a template's
  * duties count for the home group) on a weekday, 0 = Monday … 4 = Friday.
  */
-export type WeekTemplateEntryInput = Omit<EntryInput, 'groupId'> & { employeeId: number; weekday: number }
+export type WeekTemplateEntryInput = Omit<EntryInput, 'groupId'> & {
+  employeeId: number
+  weekday: number
+  /**
+   * Whether a shift or special shift counts as staff (missing = as the plan resolves it: the service's mark, a special
+   * shift counts); ignored for breaks and codes. The editor sends what it opened, so saving keeps every entry's mark.
+   */
+  countsAsStaff?: boolean
+}
 
 /** A whole week template from its editor (create, or replace name, scope and entries). */
 export interface WeekTemplateInput {
@@ -1574,6 +1582,8 @@ export interface WeekTemplateDetailDto {
   groupId: number | null
   updatedAt: string
   entries: WeekTemplateEntryDto[]
+  /** Everyone with entries in it, also people who left or are no longer in its scope (to name them in the editor). */
+  people: { id: number; name: string }[]
 }
 
 /** Someone a week template can plan: the facility's own staff who have not left, with their current contract. */
