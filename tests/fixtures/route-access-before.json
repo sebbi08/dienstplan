@@ -12,6 +12,8 @@
   "attendance/day.put.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "attendance/history.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "attendance/leave.post.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
+  "attendance/merges/[id].delete.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
+  "attendance/merges/index.post.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "attendance/month-remark.put.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "attendance/month.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],
   "attendance/stays/[id].delete.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor","tablet:observer","tablet:noAccount"],

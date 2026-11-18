@@ -965,6 +965,23 @@ export const childAttendanceChanges = sqliteTable('child_attendance_changes', {
 }, table => [index('child_attendance_changes_child_date').on(table.childId, table.date)])
 
 /**
+ * Groups merged at the edge times („Gruppen zusammenlegen“, Anwesenheit) for one day of the facility; `groupIds` is a
+ * JSON array of two or more of its group ids. Ended by „Zusammenlegung beenden“ (`endedAt`) or by the end of the day
+ * (a row of an earlier date is ignored). A group is in one active merge at a time (checked by the service). The log
+ * keeps who merged and who ended by name only, as the other logs do after a person is deleted.
+ */
+export const groupMerges = sqliteTable('group_merges', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  groupIds: text('group_ids').notNull(),
+  createdAt: text('created_at').notNull(),
+  createdByName: text('created_by_name').notNull(),
+  endedAt: text('ended_at'),
+  endedByName: text('ended_by_name'),
+}, table => [index('group_merges_facility_date').on(table.facilityId, table.date)])
+
+/**
  * The child records are unlocked at a facility's tablet by one person (name + PIN): at most one row per tablet account.
  * Locking deletes the row; the tablet's session holds its id. Valid until `lastActiveAt` plus the facility's lock time.
  */

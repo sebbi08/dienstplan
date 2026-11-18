@@ -1343,6 +1343,18 @@ export const de = {
     previousDay: 'Vorheriger Tag', nextDay: 'Nächster Tag', today: 'Heute',
     // The search field of the day list (not remembered).
     search: 'Kind suchen', clearSearch: 'Suche leeren', noSearchHit: 'Kein Kind gefunden.',
+    // Merging groups at the edge times (today only, for every tablet of the facility).
+    merge: {
+      open: 'Gruppen zusammenlegen', title: 'Gruppen zusammenlegen', save: 'Zusammenlegen', end: 'Zusammenlegung beenden',
+      hint: 'Wähle mindestens zwei Gruppen. Oben in der Liste stehen dann alle Kinder dieser Gruppen, die gerade da sind. Die Zusammenlegung gilt für alle Tablets, bis du sie beendest, längstens bis zum Ende des Tages.',
+      taken: 'schon zusammengelegt',
+      saved: 'Gruppen zusammengelegt', ended: 'Zusammenlegung beendet',
+      sectionTitle: (names: string[]) => names.join(' + '),
+      here: (n: number) => (n === 1 ? '1 Kind da' : `${n} Kinder da`),
+      by: (name: string, time: string) => `zusammengelegt von ${name} um ${time} Uhr`,
+      empty: 'Gerade ist kein Kind dieser Gruppen da.',
+      searchHint: 'Kinder dieser Gruppen, die noch nicht da sind, findest du über „Kind suchen“.',
+    },
     noCareDay: 'Kein Betreuungstag (Wochenende, Feiertag oder Schließtag). Einstempeln geht trotzdem, z. B. bei einer Notbetreuung.',
     counts: (c: { present: number; gone: number; absent: number; notYet: number }) =>
       `Da: ${c.present} · Abgeholt: ${c.gone} · Abwesend: ${c.absent} · Noch nicht da: ${c.notYet}`,
@@ -2180,5 +2192,9 @@ export const de = {
     meal_not_on_day: 'Dieses Essen gibt es an dem Tag nicht.',
     attendance_future: 'Für einen späteren Tag kannst du noch nicht ein- oder ausstempeln.',
     stays_overlap: 'Die Zeiten überschneiden sich mit einem anderen Aufenthalt an diesem Tag.',
+    group_merge_not_today: 'Gruppen kannst du nur für heute zusammenlegen.',
+    group_merge_too_few: 'Bitte wähle mindestens zwei Gruppen.',
+    group_merge_taken: 'Eine dieser Gruppen ist heute schon mit einer anderen Gruppe zusammengelegt. Beende zuerst diese Zusammenlegung.',
+    group_merge_not_found: 'Diese Zusammenlegung gibt es nicht mehr. Bitte lade die Seite neu.',
   },
 }

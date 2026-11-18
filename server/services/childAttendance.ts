@@ -27,6 +27,7 @@ import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { groupHistories } from './childGroupChanges'
 import { childOrder } from './childSort'
+import { activeGroupMerges } from './groupMerges'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { mealVersionsOf } from './meals'
@@ -209,6 +210,7 @@ const nameOf = (row: { lastName: string; firstName: string }) => `${row.lastName
  * stays, meals, the pickup and brought-by persons on offer, the care type's end (suggested planned pickup) and the open
  * stays of the 14 days before. The meals are those valid on the date, with the name and time of then (spec Essen §3):
  * each counted at its time or by its tick; totals per meal and per group of the list (children here, each meal).
+ * For today also the groups merged right now („Gruppen zusammenlegen“, see groupMerges.ts), so every load shows them.
  */
 export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now: Date = new Date()): AttendanceDayDto {
   const { facilityId } = viewer
@@ -351,6 +353,14 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
     }),
     children: entries,
     openStays,
+    facilityGroups: groups.map(group => ({ id: group.id, name: group.name })),
+    // A merge holds for its day only; the list of another day shows none. Its children across the groups in the
+    // facility's order (the list keeps those here now, shared/domain/groupMerges.ts).
+    merges: date !== clock.date ? [] : activeGroupMerges(db, facilityId, date).map(merge => ({
+      ...merge,
+      childIds: list.filter(item => item.groupId !== null && merge.groupIds.includes(item.groupId))
+        .sort((a, b) => inGroup(a.row, b.row)).map(item => item.row.id),
+    })),
   }
 }
 

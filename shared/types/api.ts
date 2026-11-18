@@ -2006,6 +2006,27 @@ export interface AttendanceDayDto {
   children: AttendanceChildDto[]
   /** Stays of the 14 days before that were never closed ("nicht ausgestempelt"). */
   openStays: { date: IsoDate; childId: number; name: string }[]
+  /** Every group of the facility in the groups' order (to choose from for „Gruppen zusammenlegen“). */
+  facilityGroups: { id: number; name: string }[]
+  /** The groups merged right now; only for today (Berlin), empty for any other day. */
+  merges: GroupMergeDto[]
+}
+
+/** Groups merged at the edge times („Gruppen zusammenlegen“): the list shows one section of their children here now. */
+export interface GroupMergeDto {
+  id: number
+  /** Two or more groups of the facility, in the groups' order. */
+  groupIds: number[]
+  /** Every listed child whose group of the day is one of them, in the facility's child order (see `mergedPresent`). */
+  childIds: number[]
+  createdByName: string
+  createdAt: string
+}
+
+export interface GroupMergeInput {
+  /** Today (Berlin); any other day is refused. */
+  date: IsoDate
+  groupIds: number[]
 }
 
 /** One entry of a day's history: one field, its value before and after (text, '' = empty), who and when. */

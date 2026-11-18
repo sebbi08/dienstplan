@@ -79,6 +79,8 @@ const CHILD_ATTENDANCE_ROUTES = [
   'attendance/arrive.post.ts', 'attendance/leave.post.ts', 'attendance/announcements/index.post.ts',
   'attendance/announcements/[id].delete.ts', 'attendance/absence.put.ts', 'attendance/day.put.ts', 'attendance/stays/[id].put.ts',
   'attendance/stays/[id].delete.ts', 'attendance/month-remark.put.ts',
+  // „Gruppen zusammenlegen“ and „Zusammenlegung beenden“: whoever stamps in the day list, any groups of the facility.
+  'attendance/merges/index.post.ts', 'attendance/merges/[id].delete.ts',
   'group-book/week.put.ts', 'group-book/day.put.ts',
   'children/[id]/development-docs.post.ts', 'children/development-docs/[id].delete.ts',
   // Notes: written by whoever keeps the attendance, with its group scope; the service lets only the author, Leitung

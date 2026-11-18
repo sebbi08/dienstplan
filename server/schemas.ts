@@ -475,6 +475,7 @@ export const attendanceLeaveSchema = z.object({ ...attendanceChild, time: clockT
 export const attendanceAnnouncementSchema = z.object({
   ...attendanceChild, name: z.string().max(100), announcedBy: z.string().max(100).default(''),
 })
+export const groupMergeSchema = z.object({ date: isoDate, groupIds: z.array(z.number().int().positive()).max(50) })
 export const attendanceAbsenceSchema = z.object({
   childId: z.number().int().positive(), from: isoDate, to: isoDate, kind: z.enum(['sick', 'vacation', 'excused']).nullable(),
 })
