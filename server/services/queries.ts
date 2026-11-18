@@ -4,6 +4,7 @@ import type { Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import type { EmploymentInfo } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate } from '../../shared/domain/types'
+import { planEntryColor } from '../../shared/domain/weekTemplates'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, shiftTemplates } from '../db/schema'
@@ -106,9 +107,7 @@ export function loadEntries(db: Db, filter: EntryFilter = {}): EntryDto[] {
     homeOffice: entry.homeOffice,
     label: describeEntry(entry, code?.label ?? null, code?.creditMode ?? null),
     shortLabel: template?.shortLabel || null,
-    color: entry.kind === 'code'
-      ? (code?.color ?? 'neutral') as ColorKey
-      : entry.kind === 'break' ? 'red' : entry.countsAsStaff ? 'neutral' : 'violet',
+    color: planEntryColor(entry, (code?.color ?? null) as ColorKey | null),
   }))
 }
 

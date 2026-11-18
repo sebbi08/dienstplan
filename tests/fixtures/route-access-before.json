@@ -319,8 +319,12 @@
   "users/index.get.ts": ["provider","admin"],
   "users/index.post.ts": ["provider","admin"],
   "week-templates/[id].delete.ts": ["provider","admin"],
+  "week-templates/[id].get.ts": ["provider","admin"],
   "week-templates/[id].put.ts": ["provider","admin"],
   "week-templates/[id]/apply.post.ts": ["provider","admin"],
+  "week-templates/[id]/entries.put.ts": ["provider","admin"],
+  "week-templates/entries.post.ts": ["provider","admin"],
   "week-templates/index.get.ts": ["provider","admin"],
-  "week-templates/index.post.ts": ["provider","admin"]
+  "week-templates/index.post.ts": ["provider","admin"],
+  "week-templates/staff.get.ts": ["provider","admin"]
 }

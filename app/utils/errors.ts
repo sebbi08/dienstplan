@@ -25,10 +25,20 @@ function refusedCell(error: unknown): { name: string; date: string } | null {
   return typeof details?.name === 'string' && typeof details.date === 'string' ? { name: details.name, date: details.date } : null
 }
 
+/** The cell of a week template a refusal names (employee name and weekday, 0 = Monday), if the details carry it. */
+function refusedTemplateCell(error: unknown): { name: string; weekday: number } | null {
+  const details = (error as { data?: { data?: { details?: { name?: unknown; weekday?: unknown } } } } | null)?.data?.data?.details
+  return typeof details?.name === 'string' && typeof details.weekday === 'number' ? { name: details.name, weekday: details.weekday } : null
+}
+
 export function errorMessage(error: unknown): string {
   const code = errorCode(error)
   const cellText = code ? CELL_TEXTS[code] : undefined
   const cell = cellText ? refusedCell(error) : null
   if (cellText && cell) return cellText(cell.name, formatDayShort(cell.date, weekday(cell.date)))
+  // A week template has weekdays instead of dates: „Anna, Mittwoch: …“.
+  const templateCell = refusedTemplateCell(error)
+  const day = templateCell ? de.weekdaysLong[templateCell.weekday] : undefined
+  if (templateCell && day) return cellText ? cellText(templateCell.name, day) : `${templateCell.name}, ${day}: ${errorTextOf(code)}`
   return errorTextOf(code)
 }

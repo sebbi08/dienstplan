@@ -1,21 +1,25 @@
 import { and, asc, eq, gte, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
-import { isWorkday } from '../../shared/domain/targets'
+import { isWorkday, MONDAY_TO_FRIDAY } from '../../shared/domain/targets'
 import type { TimeSpan } from '../../shared/domain/time'
 import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
-import { TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import type { SessionUser, WeekTemplateApplyResult, WeekTemplateDto } from '../../shared/types/api'
+import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
+import { planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '../../shared/domain/weekTemplates'
+import type {
+  ColorKey, SessionUser, WeekTemplateApplyResult, WeekTemplateDetailDto, WeekTemplateDto, WeekTemplateEntryDto,
+  WeekTemplateInput, WeekTemplateStaffDto,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { dayConflict, describeCellAt } from './entries'
+import { dayConflict, describeCellAt, resolveEntry } from './entries'
 import { assertGroup, groupNames } from './groups'
-import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
+import { closureOn, loadClosures, loadCodes, loadEmployees, loadEntries } from './queries'
 
 /** A template covers Monday to Friday. */
-const WEEKDAYS = 5
+const WEEKDAYS = TEMPLATE_WEEKDAYS
 
 function requireName(name: string): string {
   const trimmed = name.trim()
@@ -43,14 +47,19 @@ function isCurrent(entry: SavedTimes, shift: typeof shiftTemplates.$inferSelect 
     && shift.breakStart === entry.breakStart && shift.breakEnd === entry.breakEnd
 }
 
-function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplateDto {
-  const rows = db.select({ entry: weekTemplateEntries, code: absenceCodes, shift: shiftTemplates })
+/** The template's entries with their code and service (Dienst), by weekday and start. */
+function templateRows(db: Db, templateId: number) {
+  return db.select({ entry: weekTemplateEntries, code: absenceCodes, shift: shiftTemplates })
     .from(weekTemplateEntries)
     .leftJoin(absenceCodes, eq(weekTemplateEntries.absenceCodeId, absenceCodes.id))
     .leftJoin(shiftTemplates, eq(weekTemplateEntries.shiftTemplateId, shiftTemplates.id))
-    .where(eq(weekTemplateEntries.weekTemplateId, template.id))
+    .where(eq(weekTemplateEntries.weekTemplateId, templateId))
     .orderBy(asc(weekTemplateEntries.weekday), asc(weekTemplateEntries.start), asc(weekTemplateEntries.id))
     .all()
+}
+
+function toDto(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplateDto {
+  const rows = templateRows(db, template.id)
   const preview = loadEmployees(db, template.facilityId).flatMap((employee) => {
     const own = rows.filter(row => row.entry.employeeId === employee.id)
     if (own.length === 0) return []
@@ -67,6 +76,140 @@ export function listWeekTemplates(db: Db, facilityId: number): WeekTemplateDto[]
   return db.select().from(weekTemplates).where(eq(weekTemplates.facilityId, facilityId)).all()
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))
     .map(template => toDto(db, template))
+}
+
+/**
+ * The template with its entries for its editor, shown like plan entries. A shift whose service (Dienst) has other
+ * times by now comes as a special shift with the saved times (as applyWeekTemplate writes it), so saving the editor
+ * keeps exactly those times.
+ */
+function detailOf(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemplateDetailDto {
+  const entries = templateRows(db, template.id).map(({ entry, code, shift }): WeekTemplateEntryDto => {
+    const current = entry.kind !== 'shift' || isCurrent(entry, shift)
+    const kind = current ? entry.kind : 'special'
+    const span = { start: entry.start, end: entry.end, breakStart: entry.breakStart, breakEnd: entry.breakEnd }
+    return {
+      id: entry.id, employeeId: entry.employeeId, date: '', weekday: entry.weekday, kind,
+      codeKey: (code?.key ?? null) as CodeKey | null, creditMode: kind === 'code' ? (code?.creditMode ?? 'none') : 'timed',
+      ...span, countsAsStaff: entry.countsAsStaff, templateId: current ? entry.shiftTemplateId : null,
+      codeId: entry.absenceCodeId, note: entry.note,
+      label: describeEntry({ kind, start: entry.start, end: entry.end }, code?.label ?? null, code?.creditMode ?? null),
+      shortLabel: kind === 'shift' ? (shift?.shortLabel || null) : null,
+      color: planEntryColor({ kind, countsAsStaff: entry.countsAsStaff }, (code?.color ?? null) as ColorKey | null),
+      helpFacilityId: null, groupId: null, homeOffice: entry.homeOffice,
+    }
+  })
+  return { id: template.id, name: template.name, groupId: template.groupId, updatedAt: template.updatedAt, entries }
+}
+
+/** One template of the facility with its entries (another facility's id gives week_template_not_found). */
+export function getWeekTemplate(db: Db, facilityId: number, id: number): WeekTemplateDetailDto {
+  return detailOf(db, requireTemplate(db, facilityId, id))
+}
+
+/**
+ * The staff a template can plan: the facility's own employees who have not left by today (no helpers), with the
+ * contract valid today (the first one when it starts later).
+ */
+export function weekTemplateStaff(db: Db, facilityId: number, today: IsoDate): WeekTemplateStaffDto[] {
+  return loadEmployees(db, facilityId)
+    .filter(employee => employee.leftOn === null || employee.leftOn >= today)
+    .map((employee) => {
+      const { hours } = employee.info
+      const period = hours.filter(candidate => candidate.validFrom <= today).at(-1) ?? hours[0]
+      return {
+        id: employee.id, name: employee.name, shortName: employee.shortName, groupId: employee.groupId,
+        weeklyMinutes: period?.weeklyMinutes ?? null, workdays: period?.workdays ?? MONDAY_TO_FRIDAY,
+      }
+    })
+}
+
+/**
+ * Checks a template from the editor with the rules of saving a week: a name, a group of the facility, at least one
+ * entry; each entry on Monday–Friday (invalid_weekday), for the facility's own staff (a group template: the group's
+ * members; employee_not_found otherwise), resolved like a plan entry (service of the facility, valid times, home-office
+ * mark only on working time) and only of the kinds a saved week keeps: shifts, special shifts, breaks, VZ and Büro
+ * (template_entry_not_allowed for Urlaub, Krank, Schließtag …). A whole Büro/VZ day without times is allowed: filling
+ * a week only writes working days of the employee, where it has a daily target. Each cell (employee and weekday) must
+ * keep the plan's rules (templateCellConflict); a refusal names it ({ employeeId, weekday, name }).
+ */
+function resolveTemplate(db: Db, facilityId: number, input: WeekTemplateInput) {
+  const name = requireName(input.name)
+  const groupId = input.groupId ?? null
+  assertGroup(db, facilityId, groupId)
+  if (input.entries.length === 0) throw new ServiceError(400, 'template_empty')
+  const staff = new Map(loadEmployees(db, facilityId)
+    .filter(employee => groupId === null || employee.groupId === groupId)
+    .map(employee => [employee.id, employee]))
+  const codes = new Map(loadCodes(db).map(code => [code.id, code]))
+  const rows = input.entries.map(({ employeeId, weekday: day, ...entryInput }) => {
+    if (!Number.isInteger(day) || day < 0 || day >= WEEKDAYS) throw new ServiceError(400, 'invalid_weekday')
+    if (!staff.has(employeeId)) throw new ServiceError(400, 'employee_not_found')
+    const values = resolveEntry(db, facilityId, entryInput)
+    const code = values.absenceCodeId == null ? undefined : codes.get(values.absenceCodeId)
+    if (values.kind === 'code' && !isTargetGapCode(code?.key ?? null)) throw new ServiceError(400, 'template_entry_not_allowed')
+    return {
+      employeeId, weekday: day, kind: values.kind, shiftTemplateId: values.shiftTemplateId ?? null,
+      absenceCodeId: values.absenceCodeId ?? null, start: values.start ?? null, end: values.end ?? null,
+      breakStart: values.breakStart ?? null, breakEnd: values.breakEnd ?? null, countsAsStaff: values.countsAsStaff ?? true,
+      note: values.note ?? null, homeOffice: values.homeOffice ?? false, code,
+    }
+  })
+  for (const cell of Map.groupBy(rows, row => `${row.employeeId}:${row.weekday}`).values()) {
+    const day = cell.map((row): DomainEntry => ({
+      employeeId: row.employeeId, date: '', kind: row.kind, codeKey: row.code?.key ?? null,
+      creditMode: row.kind === 'code' ? (row.code?.creditMode ?? 'none') : 'timed',
+      start: row.start, end: row.end, breakStart: row.breakStart, breakEnd: row.breakEnd, countsAsStaff: row.countsAsStaff,
+    }))
+    const conflict = templateCellConflict(day)
+    if (conflict) {
+      const { employeeId, weekday: refusedDay } = cell[0]!
+      throw new ServiceError(400, conflict, { employeeId, weekday: refusedDay, name: staff.get(employeeId)!.name })
+    }
+  }
+  return { name, groupId, rows: rows.map(({ code: _code, ...row }) => row) }
+}
+
+/** A name another template of the facility uses (other than `exceptId`) gives name_taken. */
+function assertNameFree(db: Db, facilityId: number, name: string, exceptId: number | null): void {
+  const taken = db.select({ id: weekTemplates.id }).from(weekTemplates)
+    .where(and(eq(weekTemplates.facilityId, facilityId), eq(weekTemplates.name, name))).get()
+  if (taken && taken.id !== exceptId) throw new ServiceError(409, 'name_taken')
+}
+
+/**
+ * Creates a template from the editor's entries (checked like resolveTemplate); unlike saving a week, an existing name
+ * is never replaced (name_taken).
+ */
+export function createWeekTemplate(db: Db, facilityId: number, input: WeekTemplateInput, now: Date = new Date()): WeekTemplateDetailDto {
+  const { name, groupId, rows } = resolveTemplate(db, facilityId, input)
+  return db.transaction((tx) => {
+    assertNameFree(tx, facilityId, name, null)
+    const template = tx.insert(weekTemplates).values({ facilityId, name, groupId, updatedAt: now.toISOString() }).returning().get()
+    tx.insert(weekTemplateEntries).values(rows.map(row => ({ ...row, weekTemplateId: template.id }))).run()
+    return detailOf(tx, template)
+  })
+}
+
+/**
+ * Replaces name, scope and all entries of a template with the editor's (checked like resolveTemplate); nothing changes
+ * when anything is refused. The plan weeks marked with it keep their mark, unless its scope changed: they were filled
+ * for another group (or the whole facility), so their marks go.
+ */
+export function replaceWeekTemplate(
+  db: Db, facilityId: number, id: number, input: WeekTemplateInput, now: Date = new Date(),
+): WeekTemplateDetailDto {
+  const before = requireTemplate(db, facilityId, id)
+  const { name, groupId, rows } = resolveTemplate(db, facilityId, input)
+  return db.transaction((tx) => {
+    assertNameFree(tx, facilityId, name, id)
+    const template = tx.update(weekTemplates).set({ name, groupId, updatedAt: now.toISOString() })
+      .where(eq(weekTemplates.id, id)).returning().get()
+    tx.delete(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, id)).run()
+    tx.insert(weekTemplateEntries).values(rows.map(row => ({ ...row, weekTemplateId: id }))).run()
+    if (before.groupId !== groupId) tx.delete(weekTemplateMarks).where(eq(weekTemplateMarks.weekTemplateId, id)).run()
+    return detailOf(tx, template)
+  })
 }
 
 /**

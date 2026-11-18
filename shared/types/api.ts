@@ -1544,6 +1544,51 @@ export interface WeekTemplateDto {
   rows: { employeeId: number; name: string; days: string[] }[]
 }
 
+/**
+ * One entry of a week template written in its editor: what the plan takes for a cell (without a group: a template's
+ * duties count for the home group) on a weekday, 0 = Monday … 4 = Friday.
+ */
+export type WeekTemplateEntryInput = Omit<EntryInput, 'groupId'> & { employeeId: number; weekday: number }
+
+/** A whole week template from its editor (create, or replace name, scope and entries). */
+export interface WeekTemplateInput {
+  name: string
+  /** The group the template is for (null = the whole facility). */
+  groupId: number | null
+  entries: WeekTemplateEntryInput[]
+}
+
+/**
+ * An entry of a week template as its editor shows it, like a plan entry: no date (''), no group, no help-out. A shift
+ * whose service (Dienst) has other times by now comes as a special shift with its saved times, as filling a week writes it.
+ */
+export interface WeekTemplateEntryDto extends EntryDto {
+  /** 0 = Monday … 4 = Friday. */
+  weekday: number
+}
+
+/** A week template with its entries, for its editor. */
+export interface WeekTemplateDetailDto {
+  id: number
+  name: string
+  groupId: number | null
+  updatedAt: string
+  entries: WeekTemplateEntryDto[]
+}
+
+/** Someone a week template can plan: the facility's own staff who have not left, with their current contract. */
+export interface WeekTemplateStaffDto {
+  id: number
+  name: string
+  shortName: string
+  /** Home group (null = Springer or no groups). */
+  groupId: number | null
+  /** Contract hours per week in minutes (the first contract when it starts later); null without any. */
+  weeklyMinutes: number | null
+  /** Working days of that contract (bitmask, bit 0 = Monday). */
+  workdays: number
+}
+
 export interface WeekTemplateApplyResult {
   /** Employee days filled from the template. */
   filled: number
