@@ -71,6 +71,13 @@ export const facilities = sqliteTable('facilities', {
   leavingLeadWeeks: integer('leaving_lead_weeks').notNull().default(4),
   /** Höchstzahl Kinder in der Einrichtung (e.g. from the Betriebserlaubnis; 1–999, null = not set); set by the Träger only. */
   capacity: integer('capacity'),
+  /** Contact data (Kontakt): address, website, operator (Träger) and manager (Leitung) as free text; the phone numbers and e-mails are in facilityContacts. */
+  street: text('street').notNull().default(''),
+  postalCode: text('postal_code').notNull().default(''),
+  city: text('city').notNull().default(''),
+  website: text('website').notNull().default(''),
+  operatorName: text('operator_name').notNull().default(''),
+  managerName: text('manager_name').notNull().default(''),
   /**
    * From 0055_forms: the staff starter templates were created once. No longer read: since 0056_child_forms the seeded
    * starters are kept per key in `form_starter_seeds` (the migration carried this flag over).
@@ -1347,3 +1354,18 @@ export const retentionSettings = sqliteTable('retention_settings', {
   cashYears: integer('cash_years').notNull().default(10),
   employeeDelete: text('employee_delete', { enum: ['off', 'provider', 'managers'] }).notNull().default('managers'),
 })
+
+/**
+ * The phone numbers and e-mail addresses of a facility (Kontakt), each belonging to the facility itself, its Leitung or
+ * its Träger, with an optional label (Büro, Handy …). A table rather than a JSON column: every entry is validated on its
+ * own and later features can select by kind. `sortOrder` is the order the Träger arranged them in.
+ */
+export const facilityContacts = sqliteTable('facility_contacts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['phone', 'email'] }).notNull(),
+  value: text('value').notNull(),
+  belongsTo: text('belongs_to', { enum: ['facility', 'leitung', 'traeger'] }).notNull(),
+  label: text('label').notNull().default(''),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, table => [index('facility_contacts_facility').on(table.facilityId)])

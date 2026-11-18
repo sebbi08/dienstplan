@@ -48,6 +48,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Träger', 'Bundesland', 'Feiertage', 'Höchstzahl Einrichtung', 'Betriebserlaubnis', 'Gruppe anlegen', 'Gruppe umbenennen', 'Gruppe löschen', 'Hort', 'Mariä Himmelfahrt'],
     },
     {
+      // The Träger edits it, the Leitung reads it (settings.facility).
+      key: 'facility-contact', title: de.facilityContact.title, replaces: [],
+      keywords: ['Anschrift', 'Adresse', 'Straße', 'PLZ', 'Ort', 'Telefon', 'Telefonnummer', 'E-Mail', 'Website', 'Träger', 'Leitung', 'Kontakt'],
+    },
+    {
       key: 'facility-hours', title: s.facilityHours, replaces: ['opening-hours'],
       keywords: ['Öffnungszeiten', 'Öffnung', 'Schließung', 'geöffnet', 'geschlossen', 'Mindestens zur Öffnung', 'Frühdienst', 'Spätdienst'],
     },

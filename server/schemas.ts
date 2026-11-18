@@ -249,6 +249,11 @@ export const groupNameSchema = z.object({ name: z.string().max(80) })
 export const groupCapacitySchema = z.object({ capacity: z.number().nullable() })
 /** The range (whole number 1-999 or null) is checked by the service, which answers invalid_facility_capacity. */
 export const facilityCapacitySchema = z.object({ capacity: z.number().nullable() })
+/** The facility's contact data; the formats and lengths are checked by the service, which answers the German codes. */
+export const facilityContactSchema = z.object({
+  street: z.string(), postalCode: z.string(), city: z.string(), website: z.string(), operator: z.string(), manager: z.string(),
+  contacts: z.array(z.object({ kind: z.string(), value: z.string(), belongsTo: z.string(), label: z.string() })),
+})
 /** A palette key of GROUP_COLORS (null = no colour); the service answers invalid_group_color for any other. */
 export const groupColorSchema = z.object({ color: z.string().max(20).nullable() })
 /** Whether the group is for school children (after-school care). */

@@ -18,7 +18,7 @@ const keysOf = (viewer: SettingsViewer) => visibleSettingsAreas(viewer).map(entr
 describe('visibleSettingsAreas', () => {
   it('shows the Träger every area and section', () => {
     expect(keysOf(provider)).toEqual([
-      ['facility', ['facilities', 'facility-hours', 'tablet', 'retention', 'backup']],
+      ['facility', ['facilities', 'facility-contact', 'facility-hours', 'tablet', 'retention', 'backup']],
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting']],
       ['time', ['time-tracking']],
@@ -29,7 +29,7 @@ describe('visibleSettingsAreas', () => {
 
   it('hides the Träger-only sections from the Leitung (Einrichtungen, Löschfrist, Datensicherung, Urlaubsanträge)', () => {
     expect(keysOf(leitung)).toEqual([
-      ['facility', ['facility-hours', 'tablet']],
+      ['facility', ['facility-contact', 'facility-hours', 'tablet']],
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting']],
       ['time', ['time-tracking']],

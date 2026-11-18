@@ -34,6 +34,7 @@ watch(() => route.hash, scrollToTarget)
       class="scroll-mt-20 rounded-lg transition-shadow empty:hidden" :class="target === sectionAnchor(section.key) ? 'ring-2 ring-sky-400' : ''"
     >
       <SettingsFacilitiesSection v-if="section.key === 'facilities'" />
+      <SettingsFacilityContactSection v-else-if="section.key === 'facility-contact'" />
       <SettingsOpeningHoursSection v-else-if="section.key === 'facility-hours'" />
       <SettingsTabletSection v-else-if="section.key === 'tablet'" />
       <SettingsChildRetentionSection v-else-if="section.key === 'retention'" />

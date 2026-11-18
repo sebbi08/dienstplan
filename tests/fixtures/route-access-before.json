@@ -170,6 +170,8 @@
   "facilities/[id]/groups.get.ts": ["provider"],
   "facilities/[id]/groups.post.ts": ["provider"],
   "facilities/active.put.ts": ["provider"],
+  "facility-contact.get.ts": ["provider","admin"],
+  "facility-contact.put.ts": ["provider"],
   "form-templates/[id].delete.ts": ["provider","admin"],
   "form-templates/[id].put.ts": ["provider","admin"],
   "form-templates/[id]/copy.post.ts": ["provider","admin"],
