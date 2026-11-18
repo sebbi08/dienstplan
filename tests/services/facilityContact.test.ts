@@ -82,6 +82,9 @@ describe('facility contact data', () => {
     expect(bad(contact('kein-email', 'email'))).toBe('facility_contact_email_invalid')
     expect(bad(contact('a@b', 'email'))).toBe('facility_contact_email_invalid')
     expect(bad(contact('a b@kita.de', 'email'))).toBe('facility_contact_email_invalid')
+    expect(bad(contact('a@b.de?bcc=x', 'email'))).toBe('facility_contact_email_invalid')
+    expect(bad(contact('a@b.de&x', 'email'))).toBe('facility_contact_email_invalid')
+    expect(bad(contact('a?b@kita.de', 'email'))).toBe('facility_contact_email_invalid')
     expect(bad(contact('abc', 'phone'))).toBe('facility_contact_phone_invalid')
     expect(bad(contact('12', 'phone'))).toBe('facility_contact_phone_invalid')
     expect(bad(contact('+ / - ()', 'phone'))).toBe('facility_contact_phone_invalid')
@@ -90,6 +93,26 @@ describe('facility contact data', () => {
     expect(bad({ contacts: [{ kind: 'fax' as never, value: '123', belongsTo: 'facility', label: '' }] })).toBe('facility_contact_invalid')
     expect(bad({ contacts: [{ kind: 'phone', value: '123', belongsTo: 'chef' as never, label: '' }] })).toBe('facility_contact_invalid')
     expect(getFacilityContact(db, traeger, 1)).toEqual(full())
+  })
+
+  it('accepts an entry without a label field (API clients) and umlaut addresses', () => {
+    const entry = { kind: 'email', value: 'büro@kita-süd.de', belongsTo: 'facility' } as never
+    setFacilityContact(db, traeger, 1, full({ contacts: [entry] }))
+    expect(getFacilityContact(db, traeger, 1).contacts).toEqual([{ kind: 'email', value: 'büro@kita-süd.de', belongsTo: 'facility', label: '' }])
+  })
+
+  it('limits the entries (30) and every text (120 characters)', () => {
+    const entries = (count: number) => Array.from({ length: count }, (_, index) => (
+      { kind: 'phone' as const, value: `0711 ${100 + index}`, belongsTo: 'facility' as const, label: '' }))
+    expect(errorCode(() => setFacilityContact(db, traeger, 1, full({ contacts: entries(31) })))).toBe('facility_contact_too_many')
+    setFacilityContact(db, traeger, 1, full({ contacts: entries(30) }))
+    expect(getFacilityContact(db, traeger, 1).contacts).toHaveLength(30)
+    expect(errorCode(() => setFacilityContact(db, traeger, 1, full({ street: 'x'.repeat(121) })))).toBe('facility_contact_text_too_long')
+    expect(errorCode(() => setFacilityContact(db, traeger, 1, full({
+      contacts: [{ kind: 'phone', value: '0711 123', belongsTo: 'facility', label: 'y'.repeat(121) }],
+    })))).toBe('facility_contact_text_too_long')
+    setFacilityContact(db, traeger, 1, full({ street: 'x'.repeat(120) }))
+    expect(getFacilityContact(db, traeger, 1).street).toHaveLength(120)
   })
 
   it('accepts plausible phone numbers and an empty address', () => {
@@ -134,20 +157,21 @@ describe('facility contact data', () => {
       expect(facilityContactData(db, 1)).toEqual({
         name: 'Kindergarten', street: 'Sonnenweg 4', postalCode: '70173', city: 'Stuttgart',
         address: 'Sonnenweg 4, 70173 Stuttgart', phone: '0711 / 123 45-0', phones: ['0711 / 123 45-0', '+49 170 1234567'],
-        website: 'www.kita-sonnenschein.de',
+        website: 'www.kita-sonnenschein.de', operator: 'Kita gGmbH', operatorPhones: [], operatorEmails: ['info@traeger.de'],
+        manager: 'Anna Beispiel', managerPhones: ['+49 170 1234567'], managerEmails: ['leitung@kita.de'],
       })
     })
 
     it('falls back to the first phone, and is empty without data', () => {
       expect(facilityContactData(db, 1)).toEqual({
         name: 'Kindergarten', street: '', postalCode: '', city: '', address: '', phone: '', phones: [], website: '',
+        operator: '', operatorPhones: [], operatorEmails: [], manager: '', managerPhones: [], managerEmails: [],
       })
       setFacilityContact(db, traeger, 1, full({
         street: '', contacts: [{ kind: 'phone', value: '0171 99', belongsTo: 'leitung', label: '' }],
       }))
       const data = facilityContactData(db, 1)
-      expect(data.phone).toBe('0171 99')
-      expect(data.address).toBe('70173 Stuttgart')
+      expect(data).toMatchObject({ phone: '0171 99', address: '70173 Stuttgart' })
     })
 
     it('is null for an unknown facility', () => {

@@ -52,7 +52,7 @@ const href = (entry: FacilityContactEntry) => entry.kind === 'phone' ? telHref(e
 <template>
   <section v-if="data" class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ s.title }}</h2>
-    <form v-if="canEdit" class="space-y-3" @submit.prevent="save">
+    <form v-if="canEdit" class="space-y-3" novalidate @submit.prevent="save">
       <div class="flex flex-wrap items-end gap-3">
         <UFormField :label="s.street"><UInput v-model="draft.street" maxlength="120" class="w-64" /></UFormField>
         <UFormField :label="s.postalCode"><UInput v-model="draft.postalCode" inputmode="numeric" maxlength="5" class="w-24" /></UFormField>
@@ -68,7 +68,7 @@ const href = (entry: FacilityContactEntry) => entry.kind === 'phone' ? telHref(e
         <p v-if="!draft.contacts.length" class="text-sm text-gray-500">{{ s.none }}</p>
         <div v-for="(entry, index) in draft.contacts" :key="index" class="flex flex-wrap items-end gap-2">
           <UFormField :label="s.kind"><USelect v-model="entry.kind" :items="kindItems" class="w-32" /></UFormField>
-          <UFormField :label="s.value"><UInput v-model="entry.value" maxlength="120" class="w-56" required /></UFormField>
+          <UFormField :label="s.value"><UInput v-model="entry.value" maxlength="120" class="w-56" /></UFormField>
           <UFormField :label="s.belongsTo"><USelect v-model="entry.belongsTo" :items="ownerItems" class="w-36" /></UFormField>
           <UFormField :label="s.label"><UInput v-model="entry.label" maxlength="120" :placeholder="s.labelPlaceholder" class="w-40" /></UFormField>
           <UButton icon="i-lucide-arrow-up" color="neutral" variant="ghost" :aria-label="s.moveUp" :disabled="index === 0" @click="move(index, -1)" />

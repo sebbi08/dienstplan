@@ -109,6 +109,14 @@ export interface FacilityContactSummary {
   /** Every phone number, in the stored order. */
   phones: string[]
   website: string
+  /** The Träger's name and the phone numbers and e-mail addresses that belong to the Träger. */
+  operator: string
+  operatorPhones: string[]
+  operatorEmails: string[]
+  /** The Leitung's name(s) and the phone numbers and e-mail addresses that belong to the Leitung. */
+  manager: string
+  managerPhones: string[]
+  managerEmails: string[]
 }
 
 /**
@@ -118,9 +126,14 @@ export interface FacilityContactSummary {
 export function facilityContactData(db: Db, facilityId: number): FacilityContactSummary | null {
   const row = db.select().from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) return null
-  const phoneEntries = entriesOf(db, facilityId).filter(entry => entry.kind === 'phone')
+  const entries = entriesOf(db, facilityId)
+  const phoneEntries = entries.filter(entry => entry.kind === 'phone')
   const preferred = phoneEntries.find(entry => entry.belongsTo === 'facility') ?? phoneEntries[0]
+  const of = (kind: 'phone' | 'email', owner: 'leitung' | 'traeger') => entries
+    .filter(entry => entry.kind === kind && entry.belongsTo === owner).map(entry => entry.value)
   return {
+    operator: row.operatorName, operatorPhones: of('phone', 'traeger'), operatorEmails: of('email', 'traeger'),
+    manager: row.managerName, managerPhones: of('phone', 'leitung'), managerEmails: of('email', 'leitung'),
     name: row.name, street: row.street, postalCode: row.postalCode, city: row.city,
     address: addressLine(row.street, row.postalCode, row.city), phone: preferred?.value ?? '',
     phones: phoneEntries.map(entry => entry.value), website: row.website,

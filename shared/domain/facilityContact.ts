@@ -40,8 +40,8 @@ export const MAX_CONTACT_TEXT = 120
 
 export const isPostalCode = (value: string): boolean => /^\d{5}$/.test(value)
 
-/** Plausible, not exhaustive: something@domain.tld without blanks. */
-export const isEmailAddress = (value: string): boolean => /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(value)
+/** Plausible, not exhaustive: something@domain.tld from letters, digits and . _ % + - only (no ? & = or blanks, so a mailto: link cannot carry headers). */
+export const isEmailAddress = (value: string): boolean => /^[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(\.[\p{L}\p{N}-]+)+$/u.test(value)
 
 /** Digits, blanks and + / - ( ) only, with at least three digits. */
 export function isPhoneNumber(value: string): boolean {
