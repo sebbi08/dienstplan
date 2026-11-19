@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
 import { presetVersions } from '#shared/domain/staffing/presets'
-import type { StaffingResetDto, StaffingSettingsDto, StaffingValueDto } from '#shared/types/api'
+import type { StaffingResetDto, StaffingSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
-import { formatDecimal, parseDecimal, staffingPathLabel, staffingSections, type StaffingSection } from '~/utils/staffing'
+import {
+  formatDecimal, monthYear, parseDecimal, staffingPathLabel, staffingRowMark, staffingSections, type StaffingSection,
+} from '~/utils/staffing'
 import { inState } from '~/utils/states'
 
 /**
@@ -53,8 +55,12 @@ const draftValue = (path: string) => parseDecimal(drafts[path] ?? '')
 // A number typed differently from the value in force (an unreadable one counts as a change, saving then says why).
 const dirty = useDirty(() => canEdit.value
   && (data.value?.values ?? []).some(entry => drafts[entry.path] !== undefined && draftValue(entry.path) !== entry.value))
-/** The draft differs from the state's value (shown as „geändert“). */
-const changed = (entry: StaffingValueDto) => (canEdit.value ? draftValue(entry.path) !== entry.preset : entry.overridden)
+/** „geändert“ (amber, „Vorgabe X“), „Eigener Wert gilt für Monate vor …“ or nothing (see staffingRowMark). */
+const markOf = (path: string) => {
+  const entry = values.value.get(path)
+  return entry ? staffingRowMark(entry, draftValue(path), canEdit.value) : null
+}
+const earlierMonth = computed(() => (data.value ? monthYear(data.value.validFrom) : ''))
 const labelOf = (path: string) => (data.value ? staffingPathLabel(path, [data.value.preset, ...presetVersions(data.value.land)]) : path)
 
 async function request<T extends StaffingSettingsDto>(action: () => Promise<T>, success?: string): Promise<T | null> {
@@ -154,7 +160,7 @@ const cell = 'px-2 py-1'
                     {{ block.title }} <InfoHint v-if="block.hint" :text="block.hint" />
                   </td>
                 </tr>
-                <tr v-for="field in block.fields" :key="field.path" class="border-t border-gray-100" :class="values.get(field.path) && changed(values.get(field.path)!) ? 'bg-amber-50' : ''">
+                <tr v-for="field in block.fields" :key="field.path" class="border-t border-gray-100" :class="markOf(field.path) === 'changed' ? 'bg-amber-50' : ''">
                   <td :class="cell" class="w-1/2">{{ field.label }}</td>
                   <td :class="cell" class="whitespace-nowrap">
                     <input
@@ -165,9 +171,12 @@ const cell = 'px-2 py-1'
                     <span v-if="field.unit" class="ml-1 text-gray-500">{{ field.unit }}</span>
                   </td>
                   <td :class="cell" class="text-xs">
-                    <span v-if="values.get(field.path) && changed(values.get(field.path)!)" class="inline-flex flex-wrap items-center gap-2">
-                      <span class="rounded bg-amber-200 px-1.5 py-0.5 font-medium text-amber-900">{{ t.changed }}</span>
-                      <span class="text-gray-600">{{ t.presetValue(formatDecimal(values.get(field.path)!.preset)) }}</span>
+                    <span v-if="markOf(field.path)" class="inline-flex flex-wrap items-center gap-2">
+                      <template v-if="markOf(field.path) === 'changed'">
+                        <span class="rounded bg-amber-200 px-1.5 py-0.5 font-medium text-amber-900">{{ t.changed }}</span>
+                        <span class="text-gray-600">{{ t.presetValue(formatDecimal(values.get(field.path)!.preset)) }}</span>
+                      </template>
+                      <span v-else class="text-gray-600">{{ t.earlierOnly(earlierMonth) }}</span>
                       <UButton
                         v-if="canEdit" size="xs" color="neutral" variant="ghost" icon="i-lucide-rotate-ccw" :label="t.reset"
                         :aria-label="t.resetOf(labelOf(field.path))" :disabled="busy" @click="reset(field.path)"

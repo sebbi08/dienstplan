@@ -195,6 +195,9 @@ describe('staffing settings – overrides', () => {
     setStaffingOverrides(db, traeger, 1, { 'staffShares.ergaenzung': 90 }, NOVEMBER)
     expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.praktikant).toBe(0)
     expect(staffingRulesFor(db, 1, '2026-12-01').rules.staffShares.ergaenzung).toBe(90)
+    // the settings still report it as overridden (the page shows „Eigener Wert gilt für Monate vor 11/2026“)
+    expect(getStaffingSettings(db, traeger, 1, NOVEMBER).values.find(v => v.path === praktikant))
+      .toEqual({ path: praktikant, preset: 0, value: 0, overridden: true })
     // sending today's preset value for it does not remove it either; only the reset does
     setStaffingOverrides(db, traeger, 1, { [praktikant]: 0 }, NOVEMBER)
     expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.praktikant).toBe(0)

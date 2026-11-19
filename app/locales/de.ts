@@ -1301,6 +1301,7 @@ export const de = {
     },
     presenceNone: 'Dieses Land schreibt keine Mindestbesetzung nach Uhrzeit vor.',
     changed: 'geändert', presetValue: (value: string) => `Vorgabe des Landes: ${value}`,
+    earlierOnly: (month: string) => `Eigener Wert gilt für Monate vor ${month}`,
     reset: 'zurücksetzen', resetOf: (label: string) => `${label} zurücksetzen`,
     resetAll: 'Alles auf Vorgabe des Landes zurücksetzen',
     resetAllConfirm: 'Alle Änderungen am Personalschlüssel löschen und wieder die Vorgabe des Landes verwenden?',

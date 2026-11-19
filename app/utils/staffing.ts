@@ -52,6 +52,26 @@ export function formatSignedFte(value: number): string {
   return `${value > 0 ? '+' : '−'}${formatFte(Math.abs(value))}`
 }
 
+/**
+ * How a value row of the settings is marked. 'earlierOnly': a stored override with today's preset value (a correction
+ * version made the preset equal to it) – it changes nothing now but still counts for the months before this version, so
+ * it stays visible with its own reset instead of an amber „Vorgabe X“ next to the same X. 'changed': the value differs
+ * from the state's (for the Träger the typed draft, for the Leitung the stored override). null: nothing to mark.
+ */
+export function staffingRowMark(
+  entry: { value: number; preset: number; overridden: boolean }, draft: number | null, canEdit: boolean,
+): 'changed' | 'earlierOnly' | null {
+  if (entry.overridden && entry.value === entry.preset && (!canEdit || draft === entry.preset)) return 'earlierOnly'
+  if (canEdit ? draft !== entry.preset : entry.overridden) return 'changed'
+  return null
+}
+
+/** Month and year of an ISO date as in „vor 11/2026“. */
+export function monthYear(date: string): string {
+  const [year, month] = date.split('-')
+  return `${Number(month)}/${year}`
+}
+
 /** A quota line's name with its effective percentage (the Träger may have changed it): Fachkraftquote mind. 50 %. */
 export function quotaLabel(line: { label: string; kind: 'min_share' | 'max_share' | 'demand_minimum'; pct?: number }): string {
   if (line.kind === 'demand_minimum' || line.pct === undefined) return line.label

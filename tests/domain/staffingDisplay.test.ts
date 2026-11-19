@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { de } from '../../app/locales/de'
 import { overridableValues } from '../../shared/domain/staffing/overrides'
 import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
 import { GERMAN_STATES } from '../../shared/domain/states'
 import {
-  demandTitle, formatDecimal, formatFte, formatSignedFte, groupTypeDescription, parseDecimal, quotaLabel, staffingPathLabel,
-  staffingSections,
+  demandTitle, formatDecimal, formatFte, formatSignedFte, groupTypeDescription, monthYear, parseDecimal, quotaLabel,
+  staffingPathLabel, staffingRowMark, staffingSections,
 } from '../../app/utils/staffing'
 
 describe('staffing numbers', () => {
@@ -94,6 +95,29 @@ describe('quota labels', () => {
     expect(quotaLabel({ label: 'Fachkraftquote', kind: 'min_share', pct: 66.5 })).toBe('Fachkraftquote mind. 66,5 %')
     expect(quotaLabel({ label: 'Assistenzkräfte', kind: 'max_share', pct: 20 })).toBe('Assistenzkräfte höchstens 20 %')
     expect(quotaLabel({ label: 'Fachkraftstunden', kind: 'demand_minimum' })).toBe('Fachkraftstunden')
+  })
+})
+
+describe('marking a value row in the settings', () => {
+  const kept = { value: 0, preset: 0, overridden: true } // SN Berufspraktikum: the Träger's 0 equals the corrected 0
+  const overridden = { value: 30, preset: 0, overridden: true }
+  const plain = { value: 0, preset: 0, overridden: false }
+
+  it('keeps an override with today\'s preset value visible as „only for earlier months“ (Träger and Leitung)', () => {
+    expect(staffingRowMark(kept, 0, true)).toBe('earlierOnly')
+    expect(staffingRowMark(kept, null, false)).toBe('earlierOnly')
+    // the Träger types another number: an ordinary change
+    expect(staffingRowMark(kept, 20, true)).toBe('changed')
+    expect(de.staffing.earlierOnly(monthYear('2026-11-01'))).toBe('Eigener Wert gilt für Monate vor 11/2026')
+  })
+
+  it('marks a change as before, and nothing without one', () => {
+    expect(staffingRowMark(overridden, 30, true)).toBe('changed')
+    expect(staffingRowMark(overridden, null, false)).toBe('changed')
+    expect(staffingRowMark(plain, 5, true)).toBe('changed')
+    expect(staffingRowMark(plain, null, true)).toBe('changed') // unreadable draft
+    expect(staffingRowMark(plain, 0, true)).toBeNull()
+    expect(staffingRowMark(plain, null, false)).toBeNull()
   })
 })
 
