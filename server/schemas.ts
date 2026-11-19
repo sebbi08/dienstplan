@@ -201,9 +201,12 @@ export const weekTemplateInputSchema = z.object({
   entries: z.array(entryInputSchema.omit({ groupId: true }).extend({
     employeeId: z.number().int(), weekday: z.number().int(), countsAsStaff: z.boolean().optional(),
   })).max(2000),
-  /** Info 1 / Info 2 per weekday, as long as the plan's info fields (dayNoteSchema). */
+  /**
+   * Info 1 / Info 2 per weekday. The service checks the trimmed text against TEMPLATE_INFO_MAX (as long as the plan's
+   * info fields) and answers info_too_long; here only a bound for the request size.
+   */
   infos: z.array(z.object({
-    weekday: z.number().int(), info1: z.string().max(TEMPLATE_INFO_MAX), info2: z.string().max(TEMPLATE_INFO_MAX),
+    weekday: z.number().int(), info1: z.string().max(TEMPLATE_INFO_MAX * 5), info2: z.string().max(TEMPLATE_INFO_MAX * 5),
   })).max(20).optional(),
 })
 /** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */

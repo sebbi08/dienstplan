@@ -3,7 +3,7 @@ import type { CodeDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateEntryDt
 import { TEMPLATE_WEEKDAYS } from '../../shared/domain/weekTemplates'
 import {
   clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, previewDayCount, removeTemplateEntry, staffInScope,
-  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, editTemplateEntry, infosKeptText, readTemplateCompare, templateInfoDraft, templateInfoInputs, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, editTemplateEntry, infosKeptText, readTemplateCompare, takeFieldOnEnter, templateInfoDraft, templateInfoInputs, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
   type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
@@ -266,6 +266,14 @@ describe('„Tag übernehmen“ from a compared template', () => {
     const urlaub = [draftTemplateEntry({ kind: 'code', codeId: 10 }, { employeeId: 1, weekday: 2 }, context, 5)!]
     expect(copyTemplateDay([], urlaub, 2, shown, context, names)).toMatchObject({ error: 'template_entry_not_allowed' })
   })
+
+  it('refuses a compared day without entries for the people shown instead of emptying the draft\'s day', () => {
+    const draft = enter([], [{ employeeId: 1, weekday: 4 }], { kind: 'shift', templateId: 1 })
+    expect(copyTemplateDay(draft, source(), 4, shown, context, names))
+      .toEqual({ error: 'template_day_empty', message: 'An diesem Tag hat die andere Vorlage keine Einträge.' })
+    // Only Clara (not shown) has something on Wednesday in a source without the others: empty for the editor too.
+    expect(copyTemplateDay(draft, source().filter(e => e.employeeId === 3), 2, shown, context, names)).toMatchObject({ error: 'template_day_empty' })
+  })
 })
 
 describe('changing the times of an entry (its chip clicked), as in the plan', () => {
@@ -345,6 +353,18 @@ describe('Info 1 / Info 2 per weekday in the editor', () => {
     draft[0]!.info1 = ' Elternabend '
     draft[1]!.info1 = '  '
     expect(templateInfoInputs(draft)).toEqual([{ weekday: 0, info1: 'Elternabend', info2: '' }, { weekday: 6, info1: '', info2: 'So' }])
+  })
+
+  it('takes a field on Enter (leaving it) instead of submitting the form; other keys pass', () => {
+    const press = (key: string, isComposing = false) => {
+      const calls: string[] = []
+      takeFieldOnEnter({ key, isComposing, preventDefault: () => calls.push('prevent'), target: { blur: () => calls.push('blur') } as unknown as EventTarget })
+      return calls
+    }
+    expect(press('Enter')).toEqual(['prevent', 'blur'])
+    expect(press('a')).toEqual([])
+    // Still choosing a character with an input method: Enter belongs to it.
+    expect(press('Enter', true)).toEqual([])
   })
 
   it('names the days whose info was kept when a template was applied', () => {

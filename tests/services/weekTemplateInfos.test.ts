@@ -1,6 +1,8 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, weekTemplateInfos } from '../../server/db/schema'
+import { changeLog, employees, weekTemplateInfos } from '../../server/db/schema'
+import { weekTemplateInputSchema } from '../../server/schemas'
 import { applyToCells, setDayNote } from '../../server/services/entries'
 import { getMonthPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
@@ -8,7 +10,7 @@ import {
   applyWeekTemplate, createWeekTemplate, deleteWeekTemplate, getWeekTemplate, replaceWeekTemplate, saveWeekTemplate,
 } from '../../server/services/weekTemplates'
 import type { SessionUser, WeekTemplateEntryInput } from '../../shared/types/api'
-import { addEmployee, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addGroup, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 // 2026-10-05 is a Monday; 2026-10-12 the next one.
 const week = '2026-10-05'
@@ -47,6 +49,32 @@ describe('Info 1 / Info 2 per weekday of a week template', () => {
     expect(create([{ weekday: 1, info1: 'x', info2: '' }, { weekday: 1, info1: 'y', info2: '' }])).toBe('invalid_input')
     expect(create([{ weekday: 1, info1: 'x'.repeat(201), info2: '' }])).toBe('info_too_long')
     expect(create([{ weekday: 1, info1: 'x'.repeat(200), info2: '' }])).toBeNull()
+    // Trimmed first: 200 characters with spaces around are fine, also through the request schema.
+    const padded = `  ${'y'.repeat(200)}  `
+    expect(weekTemplateInputSchema.safeParse({ name: 'Y', groupId: null, entries: [], infos: [{ weekday: 2, info1: padded, info2: '' }] }).success).toBe(true)
+    expect(createWeekTemplate(db, 1, { name: 'Y', groupId: null, entries: [duty()], infos: [{ weekday: 2, info1: padded, info2: '' }] }).infos)
+      .toEqual([{ weekday: 2, info1: 'y'.repeat(200), info2: '' }])
+    // A text too long after trimming passes the request schema and gets info_too_long from the service.
+    const long = 'z'.repeat(201)
+    expect(weekTemplateInputSchema.safeParse({ name: 'Z', groupId: null, entries: [], infos: [{ weekday: 2, info1: long, info2: '' }] }).success).toBe(true)
+  })
+
+  it('keeps no infos in a group template: not from the editor, not from a saved week, none written when applied', () => {
+    const baeren = addGroup(db, 1, 'Bären')
+    db.update(employees).set({ groupId: baeren }).where(eq(employees.id, anna)).run()
+    const group = createWeekTemplate(db, 1, { name: 'Bären', groupId: baeren, entries: [duty()], infos: [{ weekday: 0, info1: 'Ausflug', info2: '' }] })
+    expect(group.infos).toEqual([])
+    // A facility template that becomes a group template loses its infos.
+    const facility = createWeekTemplate(db, 1, { name: 'Haus', groupId: null, entries: [duty()], infos: [{ weekday: 1, info1: 'x', info2: '' }] })
+    expect(replaceWeekTemplate(db, 1, facility.id, { name: 'Haus', groupId: baeren, entries: [duty()] }).infos).toEqual([])
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: week }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1') })
+    setDayNote(db, admin, 1, week, 'info1', 'Elternabend')
+    const saved = saveWeekTemplate(db, 1, { name: 'Bären-Woche', weekStart: week, groupId: baeren })
+    expect(getWeekTemplate(db, 1, saved.id).infos).toEqual([])
+    // An old group template with infos (from before this rule) writes none either.
+    db.insert(weekTemplateInfos).values({ weekTemplateId: group.id, weekday: 1, info1: 'alt', info2: '' }).run()
+    expect(applyWeekTemplate(db, admin, 1, group.id, next)).toEqual({ filled: 1, skipped: 0, infosKept: [] })
+    expect(days('2026-10-13').info1).toBe('')
   })
 
   it('takes the week\'s Info 1 / Info 2 per weekday when a week is saved as a template', () => {

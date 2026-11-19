@@ -286,8 +286,10 @@ const rows = computed(() => props.plan.days.map((day) => {
       ? {
           number: week.weekNumber,
           start: week.weekStart,
-          // The use hint names the template already when it filled the week last (the mark stays for a saved week).
-          templateName: templateUse && week.templateUses[0]?.templateName === week.templateName ? null : week.templateName,
+          templateName: week.templateName,
+          // On screen the use hint names the template already when it filled the week last (the mark stays for a saved
+          // week); the hint is not printed, so the printout keeps the mark.
+          templateMarkPrintOnly: Boolean(templateUse) && week.templateUses[0]?.templateName === week.templateName,
           templateUse,
           // Helpers' hours count in their home facility: their column stays empty. A group's template name stands
           // in its attendance column (the facility's template name in the KW column).
@@ -519,7 +521,10 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
           <tr v-if="row.week" class="break-inside-avoid bg-gray-50 text-xs">
             <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium print:whitespace-nowrap">
               {{ de.plan.week(row.week.number) }}
-              <div v-if="row.week.templateName" class="font-normal text-sky-700 print:ml-1 print:inline print:whitespace-nowrap" :title="de.weekTemplates.markHint">
+              <div
+                v-if="row.week.templateName" class="font-normal text-sky-700 print:ml-1 print:inline print:whitespace-nowrap"
+                :class="{ 'hidden': row.week.templateMarkPrintOnly }" :title="de.weekTemplates.markHint"
+              >
                 {{ de.weekTemplates.mark(row.week.templateName) }}
               </div>
             </td>
@@ -541,7 +546,7 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
             </template>
             <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span v-if="row.week.templateUse" class="text-gray-500" :title="row.week.templateUse.title">{{ row.week.templateUse.text }}</span>
+                <span v-if="row.week.templateUse" class="text-gray-500 print:hidden" :title="row.week.templateUse.title">{{ row.week.templateUse.text }}</span>
                 <span>{{ de.plan.weekHint }}</span>
                 <template v-if="editable">
                   <button type="button" class="text-sky-700 hover:underline print:hidden" @click="emit('saveWeek', row.week.start)">

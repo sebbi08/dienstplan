@@ -668,6 +668,23 @@ Leitung und Träger stellen beides unter Einstellungen ein, jeweils für die Ein
 - **Rückwirkend:** Änderungen an Öffnungszeiten und Pflichtdiensten gelten für alle Tage, auch für vergangene Monate.
   Wer nichts einträgt, bekommt keine neuen Warnungen.
 
+### Dienstplanvorlagen
+
+- **Warnungen im Vorlagen-Editor:** Der Editor prüft jeden Wochentag der Vorlage mit denselben Regeln wie der
+  Dienstplan (Öffnung, Schließung, Pflichtdienste; ohne Feiertage und Schließzeiten). Eine Vorlage für eine Gruppe
+  bekommt nur die Warnungen ihrer Gruppe. Speichern geht immer.
+- **Info 1 / Info 2:** Nur eine Vorlage für die ganze Einrichtung hat Info-Texte (es sind die Tagesnotizen der
+  Einrichtung). Beim Einsetzen kommen sie nur in leere Info-Felder, auch an Feiertagen und Schließtagen.
+- **„Vorlage: … (eingesetzt am …)“ in der Wochenzeile** (nur Leitung/Bearbeiter, nicht gedruckt): Jedes Einsetzen
+  einer Vorlage, das etwas einträgt, wird mit dem Namen der Vorlage, Zeitpunkt und dem **Benutzernamen** dessen, der
+  sie eingesetzt hat, gespeichert (wie „Freigegeben von“). Diese Zeilen bleiben, auch wenn die Vorlage oder das Konto
+  gelöscht wird, und gehen erst mit der Einrichtung. Sie enthalten sonst keine personenbezogenen Daten.
+- **„– danach angepasst“** vergleicht die Einträge der Woche mit dem Stand direkt nach dem Einsetzen. Es erscheint
+  also auch ohne Eingriff in die Woche, wenn ein Mitarbeiter die Einrichtung wechselt oder neu dazukommt, ein Dienst
+  gelöscht wird, Dienste neue Zeiten bekommen („auch bestehende Dienste ändern“) oder der Plan auf die Freigabe
+  zurückgesetzt wird. Wird etwas geändert und wieder genau zurückgeändert, verschwindet der Hinweis. Er ist ein
+  Hinweis, kein Änderungsprotokoll.
+
 ## 14. Übersicht der Kinder (wie die Excel-Liste)
 
 Unter *Kinder → Kinder* ist **„Übersicht“** der Reiter nach „Liste“. Er zeigt die Angaben der Kinder als Tabellen, aufgebaut

@@ -193,13 +193,15 @@ export function dayHasEntries(entries: WeekTemplateEntryDto[], weekday: number, 
  * replaced; other days, and people not shown, stay). The copies get new draft ids and are checked like a manual entry:
  * a service that no longer exists (template_not_found), anything but VZ/Büro among the codes
  * (template_entry_not_allowed) and every cell against the rules (templateCellConflict) refuse the whole day, naming
- * the first such cell.
+ * the first such cell. A compared day without entries for the people shown is refused too (template_day_empty).
  */
 export function copyTemplateDay(
   entries: WeekTemplateEntryDto[], source: WeekTemplateEntryDto[], weekday: number, shown: ReadonlySet<number>,
   context: TemplateEditorContext, names: Map<number, string>,
 ): { entries: WeekTemplateEntryDto[] } | TemplateRefusal {
   const copied = source.filter(entry => entry.weekday === weekday && shown.has(entry.employeeId))
+  // Nothing there for the people shown: refused rather than emptying the draft's day.
+  if (copied.length === 0) return { error: 'template_day_empty', message: de.weekTemplates.editor.compareDayEmpty }
   const refuse = (error: string, entry: TemplateCell): TemplateRefusal =>
     ({ error, message: templateCellMessage(error, names.get(entry.employeeId) ?? '', entry.weekday) })
   for (const entry of copied) {
@@ -219,6 +221,16 @@ export function templateInfoDraft(infos: WeekTemplateInfo[]): { info1: string; i
     const info = infos.find(candidate => candidate.weekday === weekday)
     return { info1: info?.info1 ?? '', info2: info?.info2 ?? '' }
   })
+}
+
+/**
+ * Enter in an Info field takes the text (leaving the field fires its change) instead of submitting the editor's form,
+ * which would save the whole template and leave the editor.
+ */
+export function takeFieldOnEnter(event: Pick<KeyboardEvent, 'key' | 'isComposing' | 'preventDefault' | 'target'>): void {
+  if (event.key !== 'Enter' || event.isComposing) return
+  event.preventDefault()
+  ;(event.target as { blur?: () => void } | null)?.blur?.()
 }
 
 /** What „Speichern“ sends of the infos: the weekdays with any text, trimmed (as the server stores them). */

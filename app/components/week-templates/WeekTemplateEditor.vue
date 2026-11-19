@@ -14,7 +14,7 @@ import { gridStep, quickEntryHandlers, rovingStop, touchTapAsToggle } from '~/ut
 import {
   clearTemplateCells, copyTemplateDay, dayHasEntries, editTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, readTemplateCompare,
   removeTemplateEntry, staffInScope, templateCellOf, templateCoverage, templateDayKind, templateEntryInputs, templateInfoDraft,
-  templateInfoInputs, templateWeekdays,
+  takeFieldOnEnter, templateInfoInputs, templateWeekdays,
   templateWeeklyMinutes, writeTemplateCompare, type TemplateCell, type TemplateEntryTimes,
 } from '~/utils/weekTemplateEditor'
 
@@ -44,6 +44,8 @@ const entries = ref<WeekTemplateEntryDto[]>(props.template?.entries ?? [])
 /** Info 1 / Info 2 per weekday, sent with „Speichern“ like the entries. */
 const infos = ref(templateInfoDraft(props.template?.infos ?? []))
 const INFO_FIELDS = ['info1', 'info2'] as const
+/** Info 1 / Info 2 are the facility's day notes: only a template for the whole facility has them (none for a group). */
+const infoFields = computed(() => (form.groupId === null ? INFO_FIELDS : []))
 const context = computed(() => ({ templates: props.templates, codes: props.codes }))
 /** Only VZ and Büro: one-off absences (Urlaub, Krank, Schließtag …) never go into a template. */
 const templateCodes = computed(() => props.codes.filter(code => isTargetGapCode(code.key)))
@@ -70,7 +72,7 @@ const scope = computed({
 
 const payloadOf = () => ({
   name: form.name.trim(), groupId: form.groupId, entries: templateEntryInputs(entries.value, shown.value),
-  infos: templateInfoInputs(infos.value),
+  infos: form.groupId === null ? templateInfoInputs(infos.value) : [],
 })
 const loaded = payloadOf()
 const saved = ref(false)
@@ -176,7 +178,7 @@ function onEdit(id: number, times: TemplateEntryTimes) {
 
 /** What the template leaves uncovered (Pflichtdienste, opening/closing), live from the draft; saving is never blocked. */
 const coverageWarnings = computed(() => templateCoverage(entries.value, columns.value, form.groupId, props.coverage ?? null))
-const coverageOf = (weekday: number) => coverageWarnings.value.filter(item => item.weekday === weekday).map(item => item.text).join('\n')
+const coverageOf = (weekday: number) => coverageWarnings.value.filter(item => item.weekday === weekday).map(item => item.text)
 
 /**
  * „Andere Vorlagen anzeigen“ (remembered on the device): another template of the facility, read-only below the grid
@@ -217,13 +219,14 @@ async function pickCompare(id: number | undefined) {
 async function takeDay(weekday: number) {
   const source = compare.template
   if (!source) return
-  if (dayHasEntries(entries.value, weekday, shown.value)
-    && !(await confirm(e.takeDayConfirm(weekdays[weekday]!), { confirmLabel: e.replace }))) return
+  // Checked first, so the question comes only for a day that can be taken (an empty one is refused, not emptied).
   const result = copyTemplateDay(entries.value, source.entries, weekday, shown.value, context.value, names.value)
   if ('error' in result) {
-    toast.add({ title: result.message, color: 'error' })
+    toast.add({ title: result.message, color: result.error === 'template_day_empty' ? 'warning' : 'error' })
     return
   }
+  if (dayHasEntries(entries.value, weekday, shown.value)
+    && !(await confirm(e.takeDayConfirm(weekdays[weekday]!), { confirmLabel: e.replace }))) return
   entries.value = result.entries
   toast.add({ title: e.takenDay(weekdays[weekday]!), color: 'success' })
 }
@@ -278,7 +281,7 @@ async function save() {
             <tr>
               <th class="sticky left-0 z-10 w-24 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ e.weekday }}</th>
               <th v-for="person in columns" :key="person.id" class="min-w-28 border border-gray-200 px-2 py-1">{{ person.name }}</th>
-              <th v-for="field in INFO_FIELDS" :key="field" class="border border-gray-200 px-2 py-1">{{ de.plan[field] }}</th>
+              <th v-for="field in infoFields" :key="field" class="border border-gray-200 px-2 py-1">{{ de.plan[field] }}</th>
             </tr>
           </thead>
           <tbody>
@@ -286,11 +289,17 @@ async function save() {
               <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">
                 <span class="inline-flex items-center gap-1">
                   {{ day }}
-                  <UTooltip v-if="coverageOf(weekday)" :text="coverageOf(weekday)">
+                  <!-- One warning per line: UTooltip's text is a single line (its content is h-6), so a list in the slot. -->
+                  <UTooltip v-if="coverageOf(weekday).length" :ui="{ content: 'h-auto' }">
                     <UIcon
                       name="i-lucide-triangle-alert" class="size-3.5 shrink-0 text-amber-600" role="img"
-                      :aria-label="coverageOf(weekday)"
+                      :aria-label="coverageOf(weekday).join('\n')"
                     />
+                    <template #content>
+                      <ul class="space-y-0.5 py-0.5">
+                        <li v-for="(line, index) in coverageOf(weekday)" :key="index">{{ line }}</li>
+                      </ul>
+                    </template>
                   </UTooltip>
                 </span>
               </td>
@@ -318,11 +327,11 @@ async function save() {
                 </div>
               </td>
               <!-- Info 1 / Info 2 of the weekday: taken like the plan's info fields (on leaving the field or Enter). -->
-              <td v-for="field in INFO_FIELDS" :key="field" class="min-w-32 border border-gray-200 px-1 py-1 align-top">
+              <td v-for="field in infoFields" :key="field" class="min-w-32 border border-gray-200 px-1 py-1 align-top">
                 <input
                   :value="infos[weekday]![field]" :maxlength="TEMPLATE_INFO_MAX" :aria-label="`${de.plan[field]} ${day}`"
                   class="w-full rounded border border-transparent bg-transparent px-1 text-xs hover:border-gray-300 focus:border-sky-500 focus:outline-none"
-                  @change="infos[weekday]![field] = ($event.target as HTMLInputElement).value.trim()"
+                  @change="infos[weekday]![field] = ($event.target as HTMLInputElement).value.trim()" @keydown="takeFieldOnEnter"
                 >
               </td>
             </tr>

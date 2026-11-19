@@ -214,7 +214,9 @@ function resolveTemplate(db: Db, facilityId: number, input: WeekTemplateInput) {
       throw new ServiceError(400, conflict, { employeeId, weekday: refusedDay, name: staff.get(employeeId)!.name })
     }
   }
-  const infos = input.infos === undefined ? undefined : resolveInfos(input.infos)
+  // Info 1 / Info 2 are the facility's day notes: only a template for the whole facility keeps them (a group template
+  // none, also when it becomes one).
+  const infos = groupId !== null ? [] : input.infos === undefined ? undefined : resolveInfos(input.infos)
   return { name, groupId, rows: rows.map(({ code: _code, ...row }) => row), infos }
 }
 
@@ -335,8 +337,8 @@ export function saveWeekTemplate(
       breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, note: entry.note,
       homeOffice: entry.homeOffice,
     }))).run()
-    // The week's Info 1 / Info 2 per weekday (the facility's day notes, also for a group template).
-    const notes = tx.select().from(dayNotes).where(and(
+    // The week's Info 1 / Info 2 per weekday: the facility's day notes, so only for a template of the whole facility.
+    const notes = groupId !== null ? [] : tx.select().from(dayNotes).where(and(
       eq(dayNotes.facilityId, facilityId), gte(dayNotes.date, input.weekStart), lte(dayNotes.date, addDays(input.weekStart, WEEKDAYS - 1)),
     )).all()
     writeInfos(tx, template.id, resolveInfos(notes.map(note => ({ weekday: weekday(note.date), info1: note.info1, info2: note.info2 }))))
@@ -422,10 +424,11 @@ export function applyWeekTemplate(
     }
     // Info 1 / Info 2: an empty field of the day gets the template's text; a field with another text keeps it and its
     // day is reported. Public holidays and closures get them too (they are notes, not duties). Written like a manual
-    // edit (setDayNote: change log in a released month, a pending change until the next release).
+    // edit (setDayNote: change log in a released month, a pending change until the next release). Only a template of the
+    // whole facility has infos (an old group template's rows are not written either: the notes are the facility's).
     const kept = new Set<IsoDate>()
     let infosWritten = 0
-    for (const info of infosOf(tx, id)) {
+    for (const info of template.groupId === null ? infosOf(tx, id) : []) {
       const date = addDays(weekStart, info.weekday)
       const current = tx.select().from(dayNotes).where(and(eq(dayNotes.facilityId, facilityId), eq(dayNotes.date, date))).get()
       for (const field of ['info1', 'info2'] as const) {
@@ -452,7 +455,9 @@ export function applyWeekTemplate(
 /**
  * A fingerprint of the facility's plan of the week (its own staff's and its helpers' entries there, with what they
  * hold): any entry entered, changed or deleted gives another one. Robust where the change log is not: that one only
- * records released months, and entries' own timestamps tell nothing about deleted entries.
+ * records released months, and entries' own timestamps tell nothing about deleted entries. It also changes without
+ * anybody editing the week: someone moves in or out, a service is deleted, adoptShiftTimes, a reset to the release
+ * (new ids); an edit changed back counts as unchanged (docs/BETRIEB.md, „Dienstplanvorlagen“).
  */
 function weekFingerprint(db: Db, facilityId: number, weekStart: IsoDate): string {
   const week = loadEntries(db, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1), planFacilityId: facilityId })
