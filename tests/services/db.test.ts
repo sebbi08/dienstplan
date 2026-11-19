@@ -1900,6 +1900,36 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
+  it('0084 adds the empty § 34 IfSG cases, gone with their child, and the attest setting off', () => {
+    const { db, sqlite } = databaseAt('0083')
+    sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, ifsg_require_attest FROM facilities ORDER BY id').all())
+      .toEqual([1, 2].map(id => ({ id, ...IFSG_DEFAULT })))
+    expect(count(sqlite, 'child_ifsg_cases')).toBe(0)
+    sqlite.exec(`INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES (1, 1, 'Meier', 'Lena', '2022-01-01', '2026-01-01')`)
+    sqlite.exec(`INSERT INTO child_ifsg_cases (child_id, disease, kind, reported_on, onset_date, created_at) VALUES (1, 'masern', 'sick', '2026-11-18', '2026-11-17', '2026-11-18')`)
+    expect(sqlite.prepare('SELECT facility_id, physician_reported, ended, readmitted_on FROM child_ifsg_cases').get())
+      .toEqual({ facility_id: 1, physician_reported: 0, ended: 0, readmitted_on: null })
+    sqlite.exec('DELETE FROM children WHERE id = 1')
+    expect(count(sqlite, 'child_ifsg_cases')).toBe(0)
+  })
+
+  it('0085 adds the consent tables for the emergency contacts at the tablet, empty: nobody has consented', () => {
+    const { db, sqlite } = databaseAt('0084')
+    sqlite.exec(`INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1)`)
+    migrateDb(db, MIGRATIONS)
+    expect(count(sqlite, 'employee_emergency_consent')).toBe(0)
+    expect(count(sqlite, 'employee_emergency_consent_log')).toBe(0)
+    // The consent and its log go with the employee row.
+    sqlite.exec(`INSERT INTO employee_emergency_consent (employee_id, consent_at, consent_date, consent_by, source) VALUES (1, '2026-10-06T06:00:00.000Z', '2026-10-06', 'self', 'self')`)
+    sqlite.exec(`INSERT INTO employee_emergency_consent_log (employee_id, granted, source, by, at, date) VALUES (1, 1, 'self', 'self', '2026-10-06T06:00:00.000Z', '2026-10-06')`)
+    expect(sqlite.prepare('SELECT consent FROM employee_emergency_consent').get()).toEqual({ consent: 0 })
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'employee_emergency_consent')).toBe(0)
+    expect(count(sqlite, 'employee_emergency_consent_log')).toBe(0)
+  })
+
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')
     migrateDb(current, MIGRATIONS)

@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeDocuments,
-  employeeEmergencyContacts, employeePayroll, employeeRequirements,
+  employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -80,6 +80,12 @@ export function fillEmployeeData(
     db.insert(employeeTrainings).values({ employeeId: id, date: '2026-04-01', title: 'Sprachförderung' }).run()
     db.insert(employeeEmergencyContacts).values({ employeeId: id, name: 'Max Muster', relation: 'Ehemann', phone: '0171 1234567' }).run()
     // The personnel file: payroll (immediate) and a document in each folder of the assessment category.
+    db.insert(employeeEmergencyConsent).values({
+      employeeId: id, consent: true, consentAt: now.toISOString(), consentDate: '2026-10-06', consentBy: 'self', source: 'self',
+    }).run()
+    db.insert(employeeEmergencyConsentLog).values({
+      employeeId: id, granted: true, source: 'self', by: 'self', at: now.toISOString(), date: '2026-10-06',
+    }).run()
     db.insert(employeePayroll).values({
       employeeId: id, taxId: '86095742719', taxClass: 1, svNumber: '15070649C103', healthInsurer: 'AOK', iban: 'DE89370400440532013000',
       accountHolder: 'Tina Test', denomination: 'rk',

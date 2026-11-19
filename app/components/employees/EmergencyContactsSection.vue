@@ -71,6 +71,7 @@ const phones = (contact: EmergencyContactDto) => [
       </div>
     </div>
     <p class="text-sm text-gray-500">{{ t.hint }}</p>
+    <EmployeesEmergencyConsentBox :employee-id="employeeId" />
 
     <p v-if="!contacts?.length" class="text-sm text-gray-500">{{ t.none }}</p>
     <ol v-else class="divide-y divide-gray-100">

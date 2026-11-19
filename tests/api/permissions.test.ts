@@ -46,6 +46,8 @@ const USER_ROUTES = [
   // The employee's own staff talks (spec Bögen §3): only their own, only released forms.
   'my/talks/index.get.ts', 'my/talks/forms/[formId].get.ts', 'my/talks/forms/[formId].put.ts',
   'my/talks/forms/[formId]/submit.post.ts',
+  // The consent that colleagues see the own emergency contacts at the tablet: only the employee themselves, from the session.
+  'my/emergency-consent.get.ts', 'my/emergency-consent.put.ts',
   // Accident reports about employees: the own ones („Meine Unfälle“), and for accidents.manage the facility's; the
   // service decides per report (another employee's is 404). Never the tablet.
   ...EMPLOYEE_ACCIDENT_ROUTES,
@@ -57,6 +59,8 @@ const TERMINAL_ROUTES = [
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
+  // The consenting colleagues' emergency contacts: the service asks for the unlock like the child data.
+  'terminal/staff-emergency-contacts.get.ts',
 
 /** The child observation forms (Beobachtungsbögen), among the child view routes. */
 const CHILD_FORM_ROUTES = [
@@ -313,6 +317,25 @@ describe('API route permissions', () => {
       expect(code, route).toContain('admin.facilityId')
     }
   })
+  it('keeps the consent to show emergency contacts at the tablet to the employee, the written record to Leitung, the list to the unlocked tablet', () => {
+    // The employee follows from the session alone: nothing from the request names them.
+    for (const route of ['my/emergency-consent.get.ts', 'my/emergency-consent.put.ts']) {
+      expect(source(route), route).toContain('requireUser(event)')
+      expect(source(route), route).not.toMatch(/getRouterParam|getValidatedRouterParams|employeeId/)
+    }
+    expect(permissionCalls('employees/[id]/emergency-consent.get.ts')).toEqual([{ key: 'employees.view', options: '' }])
+    expect(permissionCalls('employees/[id]/emergency-consent.put.ts')).toEqual([{ key: 'employees.edit', options: '' }])
+    for (const route of ['employees/[id]/emergency-consent.get.ts', 'employees/[id]/emergency-consent.put.ts']) {
+      expect(source(route), route).toContain('.facilityId')
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
+    // Only the tablet, and only through the same unlock check as the child data.
+    const list = source('terminal/staff-emergency-contacts.get.ts')
+    expect(list).toContain('requireTerminal(event)')
+    expect(list).toContain('childUnlockToken(event)')
+    expect(readFileSync(join(process.cwd(), 'server', 'services', 'staffEmergencyConsent.ts'), 'utf8')).toContain('tabletChildViewer(')
+  })
+
 
   it('opens the cash book to managers of the active facility only (staff and tablet 403)', () => {
     const touching = routes.filter(route => /^cash\//.test(route) || /services\/cash\w*'/.test(source(route)))

@@ -619,6 +619,37 @@ export const employeeEmergencyContacts = sqliteTable('employee_emergency_contact
   note: text('note').notNull().default(''),
 }, table => [index('employee_emergency_contacts_employee').on(table.employeeId)])
 
+/**
+ * Whether an employee agreed that colleagues see their emergency contacts at the facility tablet (after unlocking with
+ * name and PIN); at most one row, none means no consent. The consent is the employee's own (switch in „Meins“,
+ * source 'self') or a written one the Leitung recorded (source 'written'); a withdrawal by the employee always wins.
+ */
+export const employeeEmergencyConsent = sqliteTable('employee_emergency_consent', {
+  employeeId: integer('employee_id').primaryKey().references(() => employees.id, { onDelete: 'cascade' }),
+  consent: integer('consent', { mode: 'boolean' }).notNull().default(false),
+  /** When this state was recorded (ISO timestamp). */
+  consentAt: text('consent_at').notNull(),
+  /** The day of the consent: the day it was given in the app, or the day of the written declaration. */
+  consentDate: text('consent_date').notNull(),
+  /** 'self' or the user name of the Leitung/Träger who recorded it. */
+  consentBy: text('consent_by').notNull(),
+  source: text('source', { enum: ['self', 'written'] }).notNull(),
+})
+
+/** Every grant and withdrawal of that consent, never changed afterwards (who, when). */
+export const employeeEmergencyConsentLog = sqliteTable('employee_emergency_consent_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  granted: integer('granted', { mode: 'boolean' }).notNull(),
+  source: text('source', { enum: ['self', 'written'] }).notNull(),
+  /** 'self' or the user name of who recorded it. */
+  by: text('by').notNull(),
+  /** ISO timestamp of the entry. */
+  at: text('at').notNull(),
+  /** The day it concerns: the written declaration's day, otherwise the Berlin day of `at`. */
+  date: text('date').notNull(),
+}, table => [index('employee_emergency_consent_log_employee').on(table.employeeId)])
+
 /** „Lohn und Steuer“ of an employee (employees.payroll only); at most one row, every field optional. */
 export const employeePayroll = sqliteTable('employee_payroll', {
   employeeId: integer('employee_id').primaryKey().references(() => employees.id, { onDelete: 'cascade' }),

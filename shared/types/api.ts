@@ -1964,6 +1964,34 @@ export type AbsenceKind = 'sick' | 'vacation' | 'excused'
 /** A child's status on a day: not here yet, here, picked up, away with a kind, or unexcused (past care day, nothing entered). */
 export type AttendanceStatus = 'not_yet' | 'present' | 'gone' | AbsenceKind | 'unexcused'
 
+/**
+ * Whether an employee agreed that colleagues see their emergency contacts at the facility tablet. `source` says who
+ * gave it ('self': in the app, 'written': the Leitung recorded a written declaration); `date` is its day. `selfOnly`:
+ * the employee gave it themselves, so only they withdraw it. `earliestWrittenDate`: after a withdrawal by the employee a
+ * written consent counts only with a later date (null without such a withdrawal).
+ */
+export interface EmergencyConsentDto {
+  consent: boolean
+  source: 'self' | 'written' | null
+  date: IsoDate | null
+  hasAccount: boolean
+  selfOnly: boolean
+  earliestWrittenDate: IsoDate | null
+}
+
+/** Recording a written consent needs its day (not in the future); withdrawing needs none. */
+export interface EmergencyConsentInput {
+  consent: boolean
+  date?: IsoDate
+}
+
+/** An employee with consent and their contacts for the tablet: no note, nothing else. */
+export interface TabletStaffEmergencyDto {
+  employeeId: number
+  name: string
+  contacts: Array<{ name: string; relation: string; phone: string; phone2: string }>
+}
+
 /** One cell of the month table: present (here or picked up), an absence kind, unexcused, or empty. */
 export type MonthCell = 'present' | AbsenceKind | 'unexcused' | 'none'
 

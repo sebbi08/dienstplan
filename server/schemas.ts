@@ -335,6 +335,8 @@ export const careTypeSchema = z.object({
   start: z.number().int(),
   end: z.number().int(),
   // Ignored (care types are listed by start, end and name); old clients may still send it.
+export const emergencyConsentSchema = z.object({ consent: z.boolean(), date: isoDate.optional() })
+export const myEmergencyConsentSchema = z.object({ consent: z.boolean() })
   sortOrder: z.number().int().min(0).max(10000).optional(),
   // 1–7, checked by the service (care_type_invalid_days); left out = 5 for a new care type, unchanged on update.
   daysPerWeek: z.number().optional(),

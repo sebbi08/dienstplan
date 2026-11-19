@@ -51,5 +51,7 @@ const { data, error } = await useFetch<MyRequirementsDto>('/api/my/requirements'
         </ul>
       </section>
     </template>
+    <!-- The own consent that colleagues see the emergency contacts at the tablet (shown for an employee with a linked account). -->
+    <EmployeesMyEmergencyConsent v-if="data" />
   </div>
 </template>
