@@ -9,6 +9,7 @@ import { cashBoxes, children, employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { bemDeletableDates, deleteDueBemProcesses, employeesWithBem } from './bem'
+import { deleteDueMaternityCases, employeesWithMaternity, maternityDeletableDates } from './maternity'
 import { boxDeletableFrom } from './cashBoxes'
 import { removeArchivedBox } from './cashPurge'
 import { deleteChild } from './children'
@@ -82,6 +83,10 @@ function employeeItems(db: Db, employee: EmployeeRow, ctx: Context): RetentionIt
         const bem = bemItem(db, employee, ctx)
         return bem ? [bem] : []
       }
+      if (category === 'maternity') {
+        const maternity = maternityItem(db, employee, ctx)
+        return maternity ? [maternity] : []
+      }
       return [item(category, dueDates[category], left && dueDates[category] <= ctx.today)]
     }),
     item('record', null, left && RETENTION_CATEGORIES.every(category => !hasData[category])),
@@ -102,6 +107,31 @@ function bemItem(db: Db, employee: { id: number; name: string; facilityId: numbe
     facilityName: ctx.facilityName(employee.facilityId), name: employee.name, deletableFrom: first.from,
     bem: { endedOn: first.endedOn, employed: employee.leftOn === null || employee.leftOn >= ctx.today }, due: first.from <= ctx.today,
   }
+}
+
+/**
+ * „Mutterschutz-Unterlagen“ of an employee, whether still there or left: each case may be deleted the Mutterschutz years
+ * (default 2, § 27 Abs. 5 MuSchG) after it ended (maternityLastDay; a running one of someone who left: after the leaving
+ * day). Like the BEM item: the earliest such day, due once one case may go; deleting removes only the cases due.
+ */
+function maternityItem(db: Db, employee: { id: number; name: string; facilityId: number; leftOn: IsoDate | null }, ctx: Context): RetentionItemDto | null {
+  const [first] = maternityDeletableDates(db, employee.id, employee.leftOn, ctx.today, ctx.settings(employee.facilityId).maternityYears)
+  if (first === undefined) return null
+  return {
+    key: `employee:${employee.id}:maternity`, kind: 'employee', category: 'maternity', facilityId: employee.facilityId,
+    facilityName: ctx.facilityName(employee.facilityId), name: employee.name, deletableFrom: first.from,
+    maternity: { endedOn: first.endedOn, employed: employee.leftOn === null || employee.leftOn >= ctx.today }, due: first.from <= ctx.today,
+  }
+}
+
+/** The Mutterschutz items of employees who have not left (before today): those of the others come with employeeItems. */
+function activeMaternityItems(db: Db, ctx: Context): RetentionItemDto[] {
+  const ids = employeesWithMaternity(db)
+  if (ids.length === 0) return []
+  return db.select({ id: employees.id, name: employees.name, facilityId: employees.facilityId, leftOn: employees.leftOn })
+    .from(employees).where(inArray(employees.id, ids)).all()
+    .filter(employee => employee.leftOn === null || employee.leftOn >= ctx.today)
+    .flatMap(employee => maternityItem(db, employee, ctx) ?? [])
 }
 
 /** The BEM items of employees who have not left (before today): those of the others come with employeeItems. */
@@ -154,7 +184,7 @@ function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
  * What may be deleted after a retention period, in every facility (spec Löschübersicht §2): employees whose leaving
  * day has passed, an item per category with data and the record (employeeItems); archived child records from
  * purgeDate with the Träger's child retention; archived cash boxes from their deletableFrom; „BEM-Unterlagen“ also of
- * employees still there (bemItem: from the end of each process). Each item says whether it
+ * employees still there (bemItem: from the end of each process), „Mutterschutz-Unterlagen“ the same (maternityItem). Each item says whether it
  * is due today (deletableFrom <= today). The app deletes nothing by itself; the Träger deletes from this list. The
  * route lets only the Träger read it.
  */
@@ -171,6 +201,7 @@ export function retentionOverview(db: Db, today: IsoDate): RetentionItemDto[] {
   return [
     ...left.flatMap(employee => employeeItems(db, employee, ctx)),
     ...activeBemItems(db, ctx),
+    ...activeMaternityItems(db, ctx),
     ...archivedChildren.map(child => childItem(child, ctx)),
     ...boxes.map(box => cashItem(db, box, ctx)),
   ].sort(compareItems)
@@ -186,6 +217,12 @@ function findItem(db: Db, key: ItemKey, ctx: Context): RetentionItemDto {
     // BEM records count from each process's end, also for someone still employed.
     if (key.category === 'bem') {
       const item = bemItem(db, employee, ctx)
+      if (!item) throw missing()
+      return item
+    }
+    // The same for the Mutterschutz records.
+    if (key.category === 'maternity') {
+      const item = maternityItem(db, employee, ctx)
       if (!item) throw missing()
       return item
     }
@@ -234,6 +271,11 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
       const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, key.id)).get()!
       const years = ctx.settings(item.facilityId).bemYears
       return checkedTransaction(db, tx => deleteDueBemProcesses(tx, key.id, employee.leftOn, ctx.today, years))
+    }
+    if (category === 'maternity') {
+      const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, key.id)).get()!
+      const years = ctx.settings(item.facilityId).maternityYears
+      return checkedTransaction(db, tx => deleteDueMaternityCases(tx, key.id, employee.leftOn, ctx.today, years))
     }
     return checkedTransaction(db, tx => deleteCategories(tx, key.id, [category as RetentionCategory])[category as RetentionCategory])
   }

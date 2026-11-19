@@ -13,6 +13,7 @@ const COMMON = [
   { class: 'bg-lime-300', label: de.calendar.kinds.special_leave },
   { class: 'bg-sky-500', label: de.calendar.kinds.training },
   { class: 'bg-pink-400', label: de.calendar.kinds.maternity },
+  { class: 'bg-stone-400', label: de.calendar.kinds.absent },
   { class: 'bg-gray-400', label: de.calendar.kinds.closed },
   { class: 'bg-gray-100 ring-1 ring-gray-300', label: de.calendar.weekend },
 ]

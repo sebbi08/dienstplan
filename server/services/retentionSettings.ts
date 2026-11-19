@@ -14,8 +14,8 @@ import { facilityExists } from './facilities'
 export function getRetentionSettings(db: Db, facilityId: number): RetentionSettings {
   const row = db.select().from(retentionSettings).where(eq(retentionSettings.facilityId, facilityId)).get()
   if (row) {
-    const { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, employeeDelete } = row
-    return { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, employeeDelete }
+    const { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, maternityYears, employeeDelete } = row
+    return { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, maternityYears, employeeDelete }
   }
   if (!facilityExists(db, facilityId)) throw new ServiceError(404, 'facility_not_found')
   db.insert(retentionSettings).values({ facilityId, ...RETENTION_DEFAULTS }).onConflictDoNothing().run()
@@ -26,12 +26,19 @@ export function getRetentionSettings(db: Db, facilityId: number): RetentionSetti
  * The Träger stores the facility's retention periods: whole years 1–40 (cash 1–30) and the delete mode, otherwise 400
  * retention_settings_invalid and nothing changes (404 facility_not_found). They say from when data may be deleted (by
  * hand); data deleted under the old periods stays deleted. Answers the settings as stored. A body without `bemYears`
- * (a settings page loaded before the BEM existed) keeps the stored BEM years.
+ * (a settings page loaded before the BEM existed) keeps the stored BEM years, one without `maternityYears` the stored
+ * Mutterschutz years.
  */
 export function setRetentionSettings(db: Db, facilityId: number, input: unknown): RetentionSettings {
   const stored = getRetentionSettings(db, facilityId)
-  const body = typeof input === 'object' && input !== null && !Array.isArray(input) && (input as { bemYears?: unknown }).bemYears === undefined
-    ? { ...input, bemYears: stored.bemYears }
+  const isObject = typeof input === 'object' && input !== null && !Array.isArray(input)
+  const raw = isObject ? input as { bemYears?: unknown; maternityYears?: unknown } : null
+  const body = raw
+    ? {
+        ...raw,
+        bemYears: raw.bemYears === undefined ? stored.bemYears : raw.bemYears,
+        maternityYears: raw.maternityYears === undefined ? stored.maternityYears : raw.maternityYears,
+      }
     : input
   let settings: RetentionSettings
   try {

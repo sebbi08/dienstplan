@@ -20,6 +20,7 @@ import type {
 import type { Db } from '../db/client'
 import { employees, entries, facilities, helpOuts } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { maskSnapshot, seesProtectedCodes, withoutProtectedCodes } from '../lib/protectedCodes'
 import { activeTrackingFrom } from './appSettings'
 import { autoEventsFor } from './autoEvents'
 import { computeBalances } from './balances'
@@ -140,7 +141,7 @@ function buildAdminData(
   warnings.push(...childSickWarnings(db, staff, year, month, showsChildSickEntitlement))
   // Mutterschutz (§§ 4–6 MuSchG): the hints of a case with their reason only for viewers of the case (employees.sickness),
   // everybody else „Arbeitszeitgrenze überschritten“ (pregnancy is health data).
-  warnings.push(...maternityPlanWarnings(db, staff, dayEntriesOf, year, month, showsMaternity))
+  warnings.push(...maternityPlanWarnings(db, staff, year, month, showsMaternity))
 
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
@@ -281,14 +282,19 @@ export function getMonthPlan(
 ): MonthPlanDto {
   // The draft with its pending changes and warnings with plan.edit; everyone else the latest released plan.
   const isAdmin = can(viewer.permissions, 'plan.edit')
+  // Mutterschutz and Beschäftigungsverbot show as „abwesend“ to whoever may not see the case, also in the releases and
+  // their changes (the hours and hints below use the real entries).
+  const showsProtected = seesProtectedCodes(viewer)
   const releases = loadReleases(db, facilityId, year, month)
+    .map(release => (showsProtected ? release : { ...release, data: maskSnapshot(release.data) }))
   const latest = releases.at(-1) ?? null
   if (!isAdmin && !latest) throw new ServiceError(403, 'month_not_released')
 
   const ownCells = ownCellsOf(db, facilityId)
   const states = releasedStates(db, facilityId, releases)
   const changes = toChangeDtos(changeHistory(states))
-  const shown: SnapshotData = isAdmin ? buildSnapshot(db, facilityId, year, month) : latest!.data
+  const draft = isAdmin ? buildSnapshot(db, facilityId, year, month) : null
+  const shown: SnapshotData = draft ? (showsProtected ? draft : maskSnapshot(draft)) : latest!.data
 
   const pendingChanges: Record<string, PendingChangeDto> = {}
   if (isAdmin && states.length > 0) {
@@ -313,7 +319,7 @@ export function getMonthPlan(
     admin = {
       ...buildAdminData(
         db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours,
-        can(viewer.permissions, 'employees.personal'), can(viewer.permissions, 'employees.sickness'),
+        can(viewer.permissions, 'employees.personal'), showsProtected,
       ),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],
@@ -339,8 +345,11 @@ export function getMonthPlan(
     attendance: attendanceOf(facilityId, shown, year, month),
     changes,
     templates: loadTemplates(db, facilityId),
-    codes: loadCodes(db),
-    admin,
+    codes: showsProtected ? loadCodes(db) : withoutProtectedCodes(loadCodes(db)),
+    admin: admin && !showsProtected
+      // The acknowledgements of the Mutterschutz hints name the rule: not for whoever sees only „Arbeitszeitgrenze überschritten“.
+      ? { ...admin, warningAcks: admin.warningAcks.filter(ack => !ack.key.startsWith('maternity|')) }
+      : admin,
   }
 }
 

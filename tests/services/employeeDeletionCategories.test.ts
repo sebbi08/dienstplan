@@ -26,7 +26,7 @@ const IMMEDIATE = [
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
-  'employee_payroll.employee_id', 'employee_children.employee_id', 'maternity_cases.employee_id',
+  'employee_payroll.employee_id', 'employee_children.employee_id',
 ]
 /** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [
@@ -38,6 +38,8 @@ const TIME = [
 const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
 /** BEM-Unterlagen: the processes (their steps go along). */
 const BEM = 'bem_processes.employee_id'
+/** Mutterschutz-Unterlagen: the cases. */
+const MATERNITY = 'maternity_cases.employee_id'
 /** Normal adjustments go with the time data, paid-out ones with the paid overtime. */
 const ADJUSTMENTS = 'balance_adjustments.employee_id'
 /** Documents by folder: application, qualifications, correspondence, measures with the assessments; contract, salary 10 years. */
@@ -59,7 +61,7 @@ const PERSONNEL_CLEARED = {
   singleParent: false,
 }
 
-const ZERO = { immediate: 0, time: 0, assessment: 0, bem: 0, paidOvertime: 0 }
+const ZERO = { immediate: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0 }
 
 let db: Db
 let leitung: SessionUser
@@ -130,7 +132,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, BEM, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -202,6 +204,12 @@ describe('the deletion categories of a left employee', () => {
     expectBenUntouched()
     expect(remove(['bem'])).toEqual(ZERO)
 
+    // The Mutterschutz records (one case each).
+    expect(remove(['maternity'])).toEqual({ ...ZERO, maternity: 1 })
+    expect(nonZero([MATERNITY])).toEqual([])
+    expect(nonZero([MATERNITY], ben)).toEqual([MATERNITY])
+    expectBenUntouched()
+
     // The paid-out adjustment with the contract and salary documents, then the employee row.
     expect(hasPaidOvertimeData(db, tina)).toBe(true)
     expect(nonZero([ACCIDENTS])).toEqual([ACCIDENTS])
@@ -217,7 +225,7 @@ describe('the deletion categories of a left employee', () => {
     expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])
     expect(fkCheck()).toEqual([])
     expectBenUntouched()
-    expect(remove(['immediate', 'time', 'assessment', 'bem', 'paidOvertime'])).toEqual(ZERO)
+    expect(remove(['immediate', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'])).toEqual(ZERO)
   })
 
   it('deletes a linked Leitung account and only unlinks a Träger account', () => {
@@ -238,7 +246,7 @@ describe('the deletion categories of a left employee', () => {
   it('puts the personnel file into the categories: fields and payroll immediate, documents by folder', () => {
     const hanna = addEmployee(db, 'Hanna Hort', { leftOn: LEFT_ON })
     // (Her weekly hours are time data; nothing else is there yet.)
-    const NONE = { immediate: false, time: true, assessment: false, bem: false, paidOvertime: false }
+    const NONE = { immediate: false, time: true, assessment: false, bem: false, maternity: false, paidOvertime: false }
     expect(categoryHasData(db, hanna)).toEqual(NONE)
     // Each field of the employee row on its own counts as immediate data, and the immediate helper clears it.
     for (const [field, value] of Object.entries(PERSONNEL_FIELDS)) {

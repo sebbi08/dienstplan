@@ -243,9 +243,14 @@ export const maternityCaseSchema = z.object({
   breastfeedingUntil: isoDate.nullable(), authorityNotifiedOn: isoDate.nullable(), riskAssessmentOn: isoDate.nullable(),
   employmentBan: z.enum(EMPLOYMENT_BAN_KINDS), banFrom: isoDate.nullable(), banTo: isoDate.nullable(),
   banNote: z.string().max(MATERNITY_NOTE_MAX + 100), endedOn: isoDate.nullable(),
+  miscarriageOn: isoDate.nullable().optional(), miscarriageWeek: z.number().int().nullable().optional(), miscarriageWaived: z.boolean().optional(),
 })
-/** „Schutzfristen eintragen“ / „Beschäftigungsverbot eintragen“; `overwrite` replaces planned duties. */
-export const maternityBookingSchema = z.object({ kind: z.enum(['protection', 'ban']), overwrite: z.boolean() })
+/** „Schutzfristen eintragen“ / „Beschäftigungsverbot eintragen“; `overwrite` replaces planned duties and leave. */
+export const maternityBookingSchema = z.object({
+  kind: z.enum(['protection', 'ban']), overwrite: z.boolean(), afterBirthOnly: z.boolean().optional(),
+})
+/** Deleting a case: also remove the days it booked in the plan. */
+export const maternityDeleteQuery = z.object({ removeEntries: z.enum(['0', '1']).optional() })
 
 /** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */
 export const rightsRoleParams = z.object({ role: z.string().max(40) })

@@ -50,9 +50,9 @@ export type Warning =
   | MaternityWarning
   /**
    * The same for a plan viewer who may not see the case: „Arbeitszeitgrenze überschritten“, one per person and day,
-   * telling neither the rule nor the reason.
+   * telling neither the rule nor the reason; `minutes` are the day's planned working minutes (a change shows it again).
    */
-  | { type: 'work_limit'; date: IsoDate; employeeId: number }
+  | { type: 'work_limit'; date: IsoDate; employeeId: number; minutes: number }
   /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.

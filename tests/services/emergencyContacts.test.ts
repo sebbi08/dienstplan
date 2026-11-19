@@ -115,7 +115,7 @@ describe('retention and deletion', () => {
     expect(categoryHasData(db, anna).immediate).toBe(false)
     addEmergencyContact(db, 1, anna, contact('Max'))
     addEmergencyContact(db, 1, ben, contact('Eva'))
-    expect(categoryHasData(db, anna)).toEqual({ immediate: true, time: true, assessment: false, bem: false, paidOvertime: false })
+    expect(categoryHasData(db, anna)).toEqual({ immediate: true, time: true, assessment: false, bem: false, maternity: false, paidOvertime: false })
     const counts = db.transaction(tx => deleteCategories(tx, anna, ['immediate']))
     expect(counts.immediate).toBeGreaterThanOrEqual(1)
     expect(names(anna)).toEqual([])

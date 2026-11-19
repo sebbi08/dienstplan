@@ -30,7 +30,9 @@ export interface DayOverview {
   present: number[]
 }
 
-function codeState(codeKey: CodeKey | null): SlotState {
+/** A code's state; an entry shown as „abwesend“ (a protected code without its key, maskProtectedEntry) is absent. */
+function codeState(codeKey: CodeKey | null, creditMode?: DomainEntry['creditMode']): SlotState {
+  if (codeKey === null && creditMode === 'daily_target') return 'absent'
   switch (codeKey) {
     case 'vacation': case 'special_leave': case 'sick': case 'child_sick': case 'maternity': case 'employment_ban': case 'training': case 'school':
     case 'overtime_off': return 'absent'
@@ -52,7 +54,7 @@ function stateAt(entries: DomainEntry[], time: Minutes): SlotState {
     }
     const entryState: SlotState = entry.homeOffice === true
       ? 'home_office'
-      : entry.kind === 'code' ? codeState(entry.codeKey) : entry.countsAsStaff ? 'work' : 'support'
+      : entry.kind === 'code' ? codeState(entry.codeKey, entry.creditMode) : entry.countsAsStaff ? 'work' : 'support'
     if (state === 'off' || state === 'work') state = entryState
   }
   return state
@@ -69,7 +71,7 @@ export function buildDayOverview(inputs: OverviewInput[], isHolidayDay: boolean)
     // An entry without times fills the day: a whole home-office day („Homeoffice (ganzer Tag)“) is not in the house.
     const fullDay = entries.find(entry => entry.start === null)
     const fill: SlotState | null = fullDay
-      ? fullDay.homeOffice === true ? 'home_office' : isFullDayTimed(fullDay) ? 'office_day' : codeState(fullDay.codeKey)
+      ? fullDay.homeOffice === true ? 'home_office' : isFullDayTimed(fullDay) ? 'office_day' : codeState(fullDay.codeKey, fullDay.creditMode)
       : entries.length === 0 && isHolidayDay ? 'holiday' : null
     const states = slotStarts.map((time) => {
       const state = stateAt(entries, time)

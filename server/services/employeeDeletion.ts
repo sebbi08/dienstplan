@@ -133,9 +133,10 @@ function removeEmployee(tx: Db, employeeId: number, before: Set<string>): void {
  * Each helper deletes (or, for references that stay, clears) what belongs to its category and answers how many rows it
  * changed; run again it changes nothing. The employee row itself goes last (deleteEmployeeRow). „BEM-Unterlagen“ (`bem`)
  * count from the end of each process rather than from leaving (server/services/bem.ts, also for employees still there);
- * its helper here deletes all of them, as „Endgültig löschen“ does.
+ * its helper here deletes all of them, as „Endgültig löschen“ does. „Mutterschutz-Unterlagen“ (`maternity`) the same from
+ * the end of each case (server/services/maternity.ts).
  */
-export const RETENTION_CATEGORIES = ['immediate', 'time', 'assessment', 'bem', 'paidOvertime'] as const
+export const RETENTION_CATEGORIES = ['immediate', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
 
 /**
@@ -193,8 +194,6 @@ const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   // The consent to show them at the tablet, with its log: personal data of the same kind.
   { table: employeeEmergencyConsent, column: employeeEmergencyConsent.employeeId },
   { table: employeeEmergencyConsentLog, column: employeeEmergencyConsentLog.employeeId },
-  // Mutterschutz cases: health data like the sick days' reasons, gone at once (the plan's codes go with the time data).
-  { table: maternityCases, column: maternityCases.employeeId },
   { table: employeeRequirements, column: employeeRequirements.employeeId },
   { table: leaveRequests, column: leaveRequests.employeeId },
   { table: notifications, column: notifications.employeeId },
@@ -327,6 +326,14 @@ export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
 /** „BEM-Unterlagen“: the BEM processes with their steps (the steps go with their process). */
 const BEM_ROWS: readonly EmployeeRows[] = [{ table: bemProcesses, column: bemProcesses.employeeId }]
 
+/** „Mutterschutz-Unterlagen“: the Mutterschutz cases (the plan's codes go with the time data). */
+const MATERNITY_ROWS: readonly EmployeeRows[] = [{ table: maternityCases, column: maternityCases.employeeId }]
+
+/** „Mutterschutz-Unterlagen“: every Mutterschutz case of the employee. */
+export function deleteMaternityData(tx: Db, employeeId: number): number {
+  return deleteRows(tx, employeeId, MATERNITY_ROWS)
+}
+
 /** „BEM-Unterlagen“: every BEM process of the employee with its steps. */
 export function deleteBemData(tx: Db, employeeId: number): number {
   return deleteRows(tx, employeeId, BEM_ROWS)
@@ -363,12 +370,13 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
     time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
     assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
     bem: anyRows(db, employeeId, BEM_ROWS),
+    maternity: anyRows(db, employeeId, MATERNITY_ROWS),
     paidOvertime: hasPaidOvertimeData(db, employeeId),
   }
 }
 
 const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) => number> = {
-  immediate: deleteImmediateData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData,
+  immediate: deleteImmediateData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData, maternity: deleteMaternityData,
   paidOvertime: deletePaidOvertimeData,
 }
 
@@ -376,7 +384,7 @@ const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) =>
 export function deleteCategories(
   tx: Db, employeeId: number, categories: readonly RetentionCategory[],
 ): Record<RetentionCategory, number> {
-  const counts: Record<RetentionCategory, number> = { immediate: 0, time: 0, assessment: 0, bem: 0, paidOvertime: 0 }
+  const counts: Record<RetentionCategory, number> = { immediate: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0 }
   for (const category of RETENTION_CATEGORIES) {
     if (categories.includes(category)) counts[category] = DELETE_CATEGORY[category](tx, employeeId)
   }

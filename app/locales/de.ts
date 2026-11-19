@@ -244,7 +244,7 @@ export const de = {
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
     printAllGroups: 'Alle Gruppen nacheinander', printGroupLabel: 'Gruppe für den Ausdruck', printNoGroup: 'Ohne Gruppe',
-    kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', maternity: 'Mutterschutz / Beschäftigungsverbot', vacation: 'Urlaub', overtime_off: 'Überstundenfrei', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
+    kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', maternity: 'Mutterschutz / Beschäftigungsverbot', absent: 'abwesend', vacation: 'Urlaub', overtime_off: 'Überstundenfrei', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
     weekend: 'Wochenende / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     visibleToStaff: 'Auch für Mitarbeiter sichtbar?', visibleYes: 'Ja', visibleNo: 'Nein, nur Leitung',
     visibilityRequired: 'Bitte angeben, ob der Termin auch für die Mitarbeiter sichtbar sein soll.',
@@ -460,13 +460,18 @@ export const de = {
      * höchstens 8,5 Std. (§ 4 MuSchG)“ and the other rules.
      */
     maternity: {
-      phases: { pregnancy: 'in der Schwangerschaft', after: 'nach der Entbindung', breastfeeding: 'in der Stillzeit' },
+      phases: { pregnancy: 'in der Schwangerschaft', breastfeeding: 'in der Stillzeit' },
       hours: (name: string, duration: string, phase: string, limit: string) => `${name}: ${duration} Std. – ${phase} höchstens ${limit} Std. (§ 4 MuSchG)`,
       late: (name: string) => `${name}: Arbeit nach 20 Uhr (§ 5 MuSchG)`,
       early: (name: string) => `${name}: Arbeit vor 6 Uhr (§ 5 MuSchG)`,
       sunday: (name: string) => `${name}: Sonn-/Feiertagsarbeit (§ 6 MuSchG)`,
       rest: (name: string, duration: string) => `${name}: nur ${duration} Std. Ruhezeit (§ 4 MuSchG)`,
       average: (name: string, duration: string, month: string) => `${name}: Ø ${duration} Std./Woche im ${month} – mehr als vertraglich (§ 4 MuSchG)`,
+      doubleWeek: (name: string, duration: string, limit: string) => `${name}: ${duration} Std. in der Doppelwoche – höchstens ${limit} Std. (§ 4 MuSchG)`,
+      /** Any work in the protection period after the birth (or a miscarriage): no hours limit, a ban. */
+      protected: (name: string) => `${name}: Beschäftigungsverbot nach der Entbindung (§ 3 MuSchG)`,
+      protectedMiscarriage: (name: string) => `${name}: Schutzfrist nach der Fehlgeburt (§ 3 Abs. 5 MuSchG)`,
+      ban: (name: string) => `${name}: Dienst trotz Beschäftigungsverbot (§ 16 MuSchG)`,
     },
     /** The same for plan editors who may not see the case: neither the rule nor the reason. */
     workLimit: (name: string) => `${name}: Arbeitszeitgrenze überschritten`,
@@ -1293,6 +1298,7 @@ export const de = {
       paidOvertimeYears: 'Ausgezahlte Überstunden',
       pensionYears: 'Betriebliche Altersvorsorge',
       bemYears: 'BEM-Unterlagen',
+      maternityYears: 'Mutterschutz-Unterlagen',
     },
     periodHelp: {
       timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
@@ -1300,6 +1306,7 @@ export const de = {
       paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen.',
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
       bemYears: 'Ein BEM (Betriebliches Eingliederungsmanagement) mit Gesprächen, Maßnahmen und Notizen darf so viele Jahre nach seinem Ende (abgeschlossen, abgelehnt oder keine Antwort) gelöscht werden – auch bei Mitarbeitern, die noch da sind. Ein laufendes BEM zählt ab dem Austritt. Die Frist steht auch in der Einladung.',
+      maternityYears: 'Ein Eintrag zum Mutterschutz (Schwangerschaft, Schutzfristen, Beschäftigungsverbot, Stillzeit) darf so viele Jahre nach seinem Ende gelöscht werden (Ende der Schutzfrist nach der Entbindung bzw. der Stillzeit oder „Beendet am“) – auch bei Mitarbeiterinnen, die noch da sind. Ein laufender Mutterschutz zählt ab dem Austritt. § 27 Abs. 5 MuSchG verlangt 2 Jahre Aufbewahrung.',
     },
     employeeDelete: 'Mitarbeiter endgültig löschen',
     employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ werden die Daten erst nach Ablauf der Fristen gelöscht – von Hand durch den Träger.',
@@ -1331,11 +1338,12 @@ export const de = {
     categories: {
       immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen',
       paidOvertime: 'ausgezahlte Überstunden, Verträge, Gehalt', record: 'Mitarbeiter-Eintrag', child: 'Kinderakte', cash: 'Kasse',
-      bem: 'BEM-Unterlagen',
+      bem: 'BEM-Unterlagen', maternity: 'Mutterschutz-Unterlagen',
     },
     itemLabel: (name: string, category: string) => `${name} – ${category}`,
     // BEM records count from the end of the BEM, also for someone still employed: the label says so.
     bemDetail: (date: string, employed: boolean) => `BEM beendet am ${date}${employed ? ' – Person noch beschäftigt' : ''}`,
+    maternityDetail: (date: string, employed: boolean) => `Mutterschutz beendet am ${date}${employed ? ' – Person noch beschäftigt' : ''}`,
     delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
     confirmOne: (what: string) => `Das wird endgültig gelöscht: ${what}. Lade vorher eine Datensicherung herunter.`,
     confirmAll: (counts: string) => `Das wird endgültig gelöscht: ${counts}. Lade vorher eine Datensicherung herunter.`,
@@ -1803,6 +1811,7 @@ export const de = {
       riskAssessment: () => ({ before: 'Gefährdungsbeurteilung für ', after: ' erstellen/anpassen (§ 10 MuSchG)' }),
       authority: () => ({ before: '', after: ': Meldung an die Aufsichtsbehörde (§ 27 MuSchG) – unverzüglich' }),
       banCheck: () => ({ before: '', after: ': Beschäftigungsverbot prüfen (z. B. Immunität gegen Röteln, Ringelröteln, Windpocken, Zytomegalie)' }),
+      planSync: () => ({ before: 'Dienstplan muss noch angepasst werden: Mutterschutz von ', after: ' („Schutzfristen eintragen“ bzw. „Beschäftigungsverbot eintragen“)' }),
     },
     maternityLink: 'zum Mutterschutz',
     maternityChecked: 'Geprüft',
@@ -2470,7 +2479,10 @@ export const de = {
     edit: 'Bearbeiten',
     editTitle: 'Mutterschutz bearbeiten',
     remove: 'Löschen',
-    removeConfirm: 'Diesen Eintrag zum Mutterschutz löschen? Die Einträge im Dienstplan bleiben stehen.',
+    removeConfirm: 'Diesen Eintrag zum Mutterschutz löschen?',
+    removeEntriesConfirm: 'Auch die eingetragenen Tage (Mutterschutz, Beschäftigungsverbot) aus dem Dienstplan entfernen?',
+    removeEntries: 'Ja, Tage entfernen', keepEntries: 'Nein, im Dienstplan lassen',
+    removedDays: (count: number) => (count === 1 ? '1 Tag aus dem Dienstplan entfernt.' : `${count} Tage aus dem Dienstplan entfernt.`),
     removed: 'Gelöscht.',
     createdBy: (date: string, name: string) => `eingetragen am ${date}${name ? ` von ${name}` : ''}`,
     // The form.
@@ -2492,7 +2504,18 @@ export const de = {
     banNotePlaceholder: 'z. B. keine Spätdienste, keine Arbeit mit Kindern unter 3 Jahren',
     partialHint: 'Teilweises Verbot: Bitte die Dienste entsprechend kürzer oder anders planen; im Dienstplan wird nichts eingetragen.',
     endedOn: 'Beendet am',
-    endedOnHint: 'Freiwillig, z. B. wenn die Mitarbeiterin ausscheidet oder die Schwangerschaft vorzeitig endet. Danach gelten keine Hinweise mehr.',
+    endedOnHint: 'Freiwillig, z. B. wenn die Mitarbeiterin ausscheidet. Danach gelten keine Hinweise mehr, und eingetragene Tage danach werden aus dem Dienstplan entfernt.',
+    endedConfirm: (date: string) => `Mit „Beendet am ${date}“ werden die eingetragenen Tage (Mutterschutz, Beschäftigungsverbot) nach diesem Tag aus dem Dienstplan entfernt. Speichern?`,
+    miscarriage: 'Fehlgeburt (§ 3 Abs. 5 MuSchG)',
+    miscarriageOn: 'Tag der Fehlgeburt',
+    miscarriageWeek: 'Schwangerschaftswoche',
+    miscarriageHint: 'Ab der 13. Woche 2 Wochen Schutzfrist, ab der 17. Woche 6 Wochen, ab der 20. Woche 8 Wochen – ab dem Tag der Fehlgeburt. Die Mitarbeiterin darf ausdrücklich erklären, dass sie arbeiten möchte.',
+    miscarriageWaived: 'Mitarbeiterin verzichtet auf die Schutzfrist (möchte arbeiten)',
+    miscarriageLine: (date: string, week: number) => `Fehlgeburt am ${date} (${week}. Woche)`,
+    miscarriagePeriod: (from: string, to: string, weeks: number) => `Schutzfrist nach der Fehlgeburt: ${from} – ${to} (${weeks} Wochen)`,
+    miscarriageNone: 'Schutzfrist nach der Fehlgeburt: keine (vor der 13. Woche)',
+    miscarriageDeclined: 'Schutzfrist nach der Fehlgeburt: verzichtet',
+    planOutdated: 'Dienstplan muss noch angepasst werden: Die eingetragenen Tage passen nicht mehr zu diesen Angaben. Bitte „Schutzfristen eintragen“ bzw. „Beschäftigungsverbot eintragen“ tippen (dafür ist „Dienstplan bearbeiten“ nötig).',
     // The case.
     notifiedLine: (date: string) => `Bekanntgabe am ${date}`,
     expectedLine: (date: string) => `voraussichtliche Entbindung ${date}`,
@@ -2514,11 +2537,29 @@ export const de = {
     bookBan: 'Beschäftigungsverbot eintragen',
     booked: 'eingetragen',
     codeNames: { protection: 'Mutterschutz', ban: 'Beschäftigungsverbot' },
-    bookResult: (booked: number, kept: number) =>
-      `${booked} ${booked === 1 ? 'Tag' : 'Tage'} eingetragen${kept ? `, ${kept} ${kept === 1 ? 'Tag' : 'Tage'} mit anderer Abwesenheit (z. B. Krank) unverändert` : ''}.`,
-    rebookResult: (what: string, booked: number, removed: number, skipped: number) =>
-      `${what} im Dienstplan angepasst: ${booked} ${booked === 1 ? 'Tag' : 'Tage'} eingetragen, ${removed} entfernt`
-      + `${skipped ? `, ${skipped} ${skipped === 1 ? 'Tag' : 'Tage'} mit Diensten nicht geändert – bei Bedarf „Schutzfristen eintragen“ erneut tippen` : ''}.`,
+    bookResult: (booked: number, kept: number, leave: number, removed: number) => [
+      `${booked === 1 ? '1 Tag' : `${booked} Tage`} eingetragen`,
+      kept ? `${kept === 1 ? '1 Tag' : `${kept} Tage`} mit anderer Abwesenheit (z. B. Krank) unverändert` : '',
+      leave ? `${leave === 1 ? '1 Urlaubstag' : `${leave} Urlaubstage`} zurückgegeben (§ 24 MuSchG)` : '',
+      removed ? `${removed === 1 ? '1 Tag' : `${removed} Tage`} außerhalb der Fristen entfernt` : '',
+    ].filter(Boolean).join(', ') + '.',
+    /** The question before replacing duties and leave: „An 3 Tagen sind … 2 Urlaubstage werden zurückgegeben …“. */
+    overwriteConfirm: (days: number, leave: number, code: string) => [
+      days ? `An ${days === 1 ? '1 Tag' : `${days} Tagen`} sind schon Dienste oder Einträge geplant.` : '',
+      leave ? `${leave === 1 ? '1 Urlaubstag wird' : `${leave} Urlaubstage werden`} zurückgegeben (Urlaub in der Schutzfrist bzw. im Beschäftigungsverbot geht nicht, § 24 MuSchG).` : '',
+      `Durch „${code}“ ersetzen? (Krank, Fortbildung u. Ä. bleiben erhalten.)`,
+    ].filter(Boolean).join(' '),
+    rebookResult: (what: string, booked: number, removed: number) =>
+      `${what} im Dienstplan angepasst: ${booked === 1 ? '1 Tag' : `${booked} Tage`} eingetragen, ${removed} entfernt.`,
+    rebookSkipped: (count: number, button: string) =>
+      `${count === 1 ? '1 Tag' : `${count} Tage`} vor der Entbindung mit Diensten nicht geändert – mit „${button}“ ersetzen, falls sie nicht arbeiten soll.`,
+    rebookLeave: (count: number, button: string) =>
+      `${count === 1 ? '1 Urlaubstag liegt' : `${count} Urlaubstage liegen`} jetzt in der Frist – mit „${button}“ zurückgeben.`,
+    protectedDuties: (count: number) =>
+      `${count === 1 ? '1 Dienst liegt' : `${count} Dienste liegen`} in der Schutzfrist nach der Entbindung bzw. im Beschäftigungsverbot und ${count === 1 ? 'muss' : 'müssen'} entfernt werden.`,
+    protectedDutiesReplace: 'Diese Dienste jetzt durch „Mutterschutz“ ersetzen?',
+    protectedDutiesBan: 'Bitte die Dienste im Dienstplan entfernen oder „Beschäftigungsverbot eintragen“ tippen.',
+    replaceDuties: 'Ersetzen',
     checkBan: 'Beschäftigungsverbot geprüft',
   },
   errors: {
@@ -2958,6 +2999,8 @@ export const de = {
     maternity_ban_invalid: 'Bitte für das Beschäftigungsverbot „Verbot von“ angeben; „Verbot bis“ darf nicht davor liegen.',
     maternity_ended_invalid: '„Beendet am“ darf nicht vor der Bekanntgabe liegen.',
     maternity_note_too_long: 'Die Notiz ist zu lang (höchstens 2000 Zeichen).',
+    maternity_miscarriage_invalid: 'Bei einer Fehlgeburt bitte die Schwangerschaftswoche (1 bis 45) angeben; einen Tag der Entbindung gibt es dann nicht.',
+    protected_cell: 'Diesen Tag kann nur ändern, wer die Krankheitstage sehen darf (Leitung oder Träger).',
     maternity_ban_period: 'Eintragen geht nur bei einem vollständigen Beschäftigungsverbot mit Zeitraum (ohne „Verbot bis“: in der Schwangerschaft bis zur Schutzfrist, nach der Entbindung bis „Stillzeit bis“).',
   },
 }

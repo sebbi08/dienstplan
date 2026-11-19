@@ -4,6 +4,8 @@ import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
+import { PROTECTED_CODE_KEYS } from '../../shared/domain/maternity'
+import { can } from '../../shared/domain/permissions'
 import { checkedSpecialLeaveReason } from '../../shared/domain/specialLeave'
 import { dailyTarget } from '../../shared/domain/targets'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
@@ -244,6 +246,7 @@ export function applyToCells(
     throw new ServiceError(400, 'employee_not_found')
   }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
+  assertMayTouchProtected(db, actor, cells, values?.absenceCodeId)
   const inputGroupId = input?.groupId ?? null
   if (values) assertGroup(db, facilityId, inputGroupId)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
@@ -354,6 +357,24 @@ export function applyToCells(
  * An entry in the facility's plan (its staff's home entries and its helpers' entries planned here); 404
  * entry_not_found for any other id, including its staff's help-outs elsewhere.
  */
+/**
+ * Mutterschutz and Beschäftigungsverbot (health data, server/lib/protectedCodes.ts) are booked and changed only by whoever
+ * may see the case (employees.sickness): anyone else gets 403 protected_cell for writing such a code or for writing into,
+ * clearing or deleting from a cell that holds one (they see it as „abwesend“).
+ */
+function assertMayTouchProtected(db: Db, actor: SessionUser, cells: CellRef[], codeId: number | null | undefined): void {
+  if (can(actor.permissions, 'employees.sickness') || cells.length === 0) return
+  const protectedIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
+    .where(inArray(absenceCodes.key, [...PROTECTED_CODE_KEYS])).all().map(row => row.id))
+  if (protectedIds.size === 0) return
+  if (codeId != null && protectedIds.has(codeId)) throw new ServiceError(403, 'protected_cell')
+  const wanted = new Set(cells.map(cell => cellKey(cell.employeeId, cell.date)))
+  const held = db.select({ employeeId: entries.employeeId, date: entries.date }).from(entries)
+    .where(and(inArray(entries.employeeId, [...new Set(cells.map(cell => cell.employeeId))]), inArray(entries.absenceCodeId, [...protectedIds])))
+    .all()
+  if (held.some(row => wanted.has(cellKey(row.employeeId, row.date)))) throw new ServiceError(403, 'protected_cell')
+}
+
 function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries.$inferSelect {
   const row = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
     .where(and(eq(entries.id, id), inPlanOf(facilityId))).get()
@@ -364,6 +385,7 @@ function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries
 export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {
   const entry = requireOwnEntry(db, facilityId, id)
   const cell = { employeeId: entry.employeeId, date: entry.date }
+  assertMayTouchProtected(db, actor, [cell], null)
   const names = groupNames(db, facilityId)
   db.transaction((tx) => {
     const before = describeCellAt(tx, cell, names)

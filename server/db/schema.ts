@@ -1613,7 +1613,16 @@ export const maternityCases = sqliteTable('maternity_cases', {
   banCheckedOn: text('ban_checked_on'),
   protectionBooked: integer('protection_booked', { mode: 'boolean' }).notNull().default(false),
   banBooked: integer('ban_booked', { mode: 'boolean' }).notNull().default(false),
+  /**
+   * The case's period fields as last written to the plan (JSON `{ protection?, ban? }`, see server/services/maternity.ts):
+   * booking again compares with it, also after a change saved by someone without plan.edit.
+   */
+  planSync: text('plan_sync'),
   endedOn: text('ended_on'),
+  /** A miscarriage (§ 3 Abs. 5 MuSchG): its day, the week of pregnancy, and whether the employee declined the protection. */
+  miscarriageOn: text('miscarriage_on'),
+  miscarriageWeek: integer('miscarriage_week'),
+  miscarriageWaived: integer('miscarriage_waived', { mode: 'boolean' }).notNull().default(false),
   createdBy: text('created_by').notNull().default(''),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -1708,6 +1717,8 @@ export const retentionSettings = sqliteTable('retention_settings', {
   cashYears: integer('cash_years').notNull().default(10),
   /** BEM records (§ 167 Abs. 2 SGB IX) may be deleted this many years after the process ended. */
   bemYears: integer('bem_years').notNull().default(3),
+  /** Mutterschutz records (MuSchG) may be deleted this many years after the case ended (§ 27 Abs. 5: kept 2 years). */
+  maternityYears: integer('maternity_years').notNull().default(2),
   employeeDelete: text('employee_delete', { enum: ['off', 'provider', 'managers'] }).notNull().default('managers'),
 })
 

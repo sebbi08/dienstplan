@@ -1,5 +1,6 @@
 import { and, asc, between, eq, inArray } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
+import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import { ackKeyDate, MAX_ACK_SIGNATURE_LENGTH } from '../../shared/domain/warningList'
 import type { SessionUser, WarningAckDto } from '../../shared/types/api'
@@ -15,7 +16,8 @@ function actorName(db: Db, user: SessionUser): string {
 
 /**
  * „Zur Kenntnis genommen“: marks the warnings (key and current values, see shared/domain/warningList.ts) of the facility;
- * one already marked gets the new values, the new time and who marked it.
+ * one already marked gets the new values, the new time and who marked it. The Mutterschutz hints (`maternity|…`) only by
+ * whoever may see the case (employees.sickness; 403 forbidden).
  */
 export function acknowledgeWarnings(
   db: Db, facilityId: number, user: SessionUser, items: { key: string; signature: string }[], now: Date = new Date(),
@@ -25,6 +27,7 @@ export function acknowledgeWarnings(
     if (date === null || !isValidIsoDate(date) || item.signature.length > MAX_ACK_SIGNATURE_LENGTH) {
       throw new ServiceError(400, 'invalid_warning_key')
     }
+    if (item.key.startsWith('maternity|') && !can(user.permissions, 'employees.sickness')) throw new ServiceError(403, 'forbidden')
     return { ...item, date }
   })
   const acknowledgedAt = now.toISOString()

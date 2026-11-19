@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { dateRange } from '../../shared/domain/dates'
 import type { HolidayRules } from '../../shared/domain/holidays'
 import {
-  isUnder18On, maternityDayWarnings, maternityMonthWarning, maternityOpenOn, maternityPhaseOn, protectionDates, protectionPeriods,
+  banDates, isUnder18On, maternityDayWarnings, maternityDoubleWeekWarnings, maternityLastDay, maternityMonthWarning, maternityOpenOn,
+  maternityPhaseOn, miscarriageProtectionDays, protectedAfterDates, protectionDates, protectionPeriods,
   type MaternityFacts,
 } from '../../shared/domain/maternity'
 import type { EmploymentInfo } from '../../shared/domain/targets'
@@ -14,7 +15,7 @@ const BAVARIA: HolidayRules = { state: 'BY', assumptionDay: true }
 
 const facts = (values: Partial<MaternityFacts> = {}): MaternityFacts => ({
   notifiedOn: '2026-10-01', expectedBirth: '2027-03-15', actualBirth: null, extendedAfter: false, breastfeedingUntil: null,
-  endedOn: null, ...values,
+  endedOn: null, miscarriageOn: null, miscarriageWeek: null, miscarriageWaived: false, ...values,
 })
 
 const shift = (start: number, end: number, breakStart: number | null = null, breakEnd: number | null = null): LawEntry =>
@@ -25,7 +26,7 @@ describe('Schutzfristen (§ 3 MuSchG)', () => {
     // 15.03.2027 − 42 days = 01.02.2027; the birth day and 8 weeks after it: 15.03.–10.05.2027 (99 days in all).
     expect(protectionPeriods(facts())).toEqual({
       birth: '2027-03-15', before: { from: '2027-02-01', to: '2027-03-14' }, after: { from: '2027-03-15', to: '2027-05-10' },
-      carriedOver: 0, afterWeeks: 8,
+      carriedOver: 0, afterWeeks: 8, miscarriage: false,
     })
     expect(protectionDates(facts())).toHaveLength(99)
   })
@@ -39,7 +40,7 @@ describe('Schutzfristen (§ 3 MuSchG)', () => {
     // Born on 01.03.: 28 days taken before, the other 14 come after the 8 weeks – the end stays 10.05.
     expect(protectionPeriods(facts({ actualBirth: '2027-03-01' }))).toEqual({
       birth: '2027-03-01', before: { from: '2027-02-01', to: '2027-02-28' }, after: { from: '2027-03-01', to: '2027-05-10' },
-      carriedOver: 14, afterWeeks: 8,
+      carriedOver: 14, afterWeeks: 8, miscarriage: false,
     })
     // And on top of the 12 weeks.
     expect(protectionPeriods(facts({ actualBirth: '2027-03-01', extendedAfter: true })).after.to).toBe('2027-06-07')
@@ -87,6 +88,42 @@ describe('when the rules apply', () => {
   })
 })
 
+describe('a miscarriage (§ 3 Abs. 5 MuSchG)', () => {
+  it('grades the protection by the week of pregnancy: from the 13th 2, from the 17th 6, from the 20th 8 weeks', () => {
+    expect([12, 13, 16, 17, 19, 20, 30].map(miscarriageProtectionDays)).toEqual([0, 14, 14, 42, 42, 56, 56])
+    expect(miscarriageProtectionDays(null)).toBe(0)
+  })
+
+  it('protects from the day of the miscarriage, unless the employee declined it, and ends the case there', () => {
+    const lost = facts({ miscarriageOn: '2026-11-10', miscarriageWeek: 18 })
+    expect(protectionPeriods(lost)).toEqual({
+      birth: '2026-11-10', before: null, after: { from: '2026-11-10', to: '2026-12-22' }, carriedOver: 0, afterWeeks: 6, miscarriage: true,
+    })
+    expect(maternityLastDay(lost)).toBe('2026-12-22')
+    expect(maternityPhaseOn(lost, '2026-11-20')).toBe('after')
+    const declined = facts({ miscarriageOn: '2026-11-10', miscarriageWeek: 18, miscarriageWaived: true })
+    expect(protectionPeriods(declined).after).toBeNull()
+    expect(protectionDates(declined)).toEqual([])
+    expect(maternityLastDay(declined)).toBe('2026-11-09')
+    // Before the 13th week: no protection period.
+    expect(protectionPeriods(facts({ miscarriageOn: '2026-10-20', miscarriageWeek: 11 })).after).toBeNull()
+  })
+})
+
+describe('the days booked', () => {
+  it('end with the case', () => {
+    expect(protectionDates({ ...facts(), endedOn: '2027-02-10' }).at(-1)).toBe('2027-02-10')
+    expect(protectedAfterDates(facts())[0]).toBe('2027-03-15')
+  })
+
+  it('of a full ban: until the protection period without an end, never on its days', () => {
+    const ban = { ...facts(), employmentBan: 'full' as const, banFrom: '2027-01-25', banTo: null }
+    expect(banDates(ban)).toEqual(dateRange('2027-01-25', '2027-01-31'))
+    expect(banDates({ ...ban, banTo: '2027-02-05' })).toEqual(dateRange('2027-01-25', '2027-01-31'))
+    expect(banDates({ ...ban, employmentBan: 'partial' })).toEqual([])
+  })
+})
+
 describe('the plan hints of a day (§§ 4–6 MuSchG)', () => {
   const day = (date: string, entries: LawEntry[], options: Partial<Parameters<typeof maternityDayWarnings>[0]> = {}) =>
     maternityDayWarnings({ date, employeeId: 7, phase: 'pregnancy', under18: false, entries, previousEntries: [], holidays: NO_HOLIDAYS, ...options })
@@ -119,6 +156,14 @@ describe('the plan hints of a day (§§ 4–6 MuSchG)', () => {
     expect(day('2026-11-18', [shift(405, 600)], { previousEntries: [shift(720, 1200)] })).toEqual([{ rule: 'rest', value: 645, limit: 660 }])
   })
 
+  it('flags any work in the period after the birth instead of the limits (§ 3 Abs. 2: no employment)', () => {
+    expect(day('2026-11-22', [shift(540, 900)], { phase: 'after' })).toEqual([{ rule: 'protected', value: 360, limit: 0 }])
+  })
+
+  it('flags any work on a day of a full ban', () => {
+    expect(day('2026-11-18', [shift(540, 600)], { banned: true })).toEqual([{ rule: 'ban', value: 60, limit: 0 }])
+  })
+
   it('has nothing to say about a day without work', () => {
     expect(day('2026-11-22', [{ kind: 'code', creditMode: 'daily_target', start: null, end: null, breakStart: null, breakEnd: null, codeKey: 'maternity' }])).toEqual([])
   })
@@ -145,5 +190,28 @@ describe('the monthly average (§ 4 Abs. 1 Satz 4 MuSchG)', () => {
     expect(maternityMonthWarning({ employeeId: 7, dates: days, info, entriesOf: long, phase: 'pregnancy' }))
       .toMatchObject({ date: '2026-11-30', rule: 'average', limit: 1800 })
     expect(maternityMonthWarning({ employeeId: 7, dates: [], info, entriesOf: long, phase: 'pregnancy' })).toBeNull()
+  })
+})
+
+describe('the double week (§ 4 Abs. 1 MuSchG: 90 h, under 18 80 h)', () => {
+  const nine = () => [shift(420, 960)] // 9:00 h a day
+  const check = (caseDays: string[], under18 = false) => maternityDoubleWeekWarnings({
+    employeeId: 7, caseDays, from: '2026-11-01', to: '2026-11-30', entriesOf: nine, under18On: () => under18, phaseOf: () => 'pregnancy',
+  }).map(warning => `${warning.date} ${warning.value}/${warning.limit}`)
+
+  it('sums each double week starting on a Monday whose last day lies in the month', () => {
+    // Ten working days of 9 h (Mon 02.11.–Fri 13.11.): exactly 90 h is allowed.
+    const tenDays = dateRange('2026-11-02', '2026-11-13').filter(date => new Date(`${date}T00:00:00Z`).getUTCDay() % 6 !== 0)
+    expect(check(tenDays)).toEqual([])
+    // Plus Saturday 14.11.: 99 h.
+    expect(check([...tenDays, '2026-11-14'])).toEqual(['2026-11-14 5940/5400'])
+    // Under 18 the ten days are already too much.
+    expect(check(tenDays, true)).toEqual(['2026-11-13 5400/4800'])
+  })
+
+  it('counts the days before the month for a double week ending in it', () => {
+    // Mon 26.10.–Sun 08.11.: its last day lies in November.
+    const days = dateRange('2026-10-26', '2026-11-08')
+    expect(check(days)).toEqual(['2026-11-08 7560/5400'])
   })
 })

@@ -1461,7 +1461,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(() => sqlite.exec(insert)).toThrow(/UNIQUE|PRIMARY/)
     expect(sqlite.prepare('SELECT * FROM retention_settings').all()).toEqual([{
       facility_id: 2, time_years: 2, assessment_years: 3, paid_overtime_years: 10, pension_years: 30, cash_years: 10,
-      employee_delete: 'managers', bem_years: 3,
+      employee_delete: 'managers', bem_years: 3, maternity_years: 2,
     }])
     sqlite.exec(`INSERT INTO balance_adjustments (employee_id, date, minutes, reason) VALUES (1, '2026-10-01', 60, 'Neu')`)
     expect(sqlite.prepare(`SELECT paid_out FROM balance_adjustments WHERE reason = 'Neu'`).get()).toEqual({ paid_out: 0 })
@@ -2004,6 +2004,22 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     const fresh = databaseAt('0092')
     migrateDb(fresh.db, MIGRATIONS)
     expect(count(fresh.sqlite, 'absence_codes')).toBe(0)
+  })
+
+  it('0094 adds the plan sync and the miscarriage to the Mutterschutz cases and 2 years for their records', () => {
+    const { db, sqlite } = databaseAt('0093')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO retention_settings (facility_id, time_years) VALUES (2, 5);
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1);
+      INSERT INTO maternity_cases (employee_id, notified_on, expected_birth, protection_booked, created_at, updated_at)
+        VALUES (1, '2026-11-02', '2027-04-01', 1, 'x', 'x');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT facility_id, time_years, maternity_years FROM retention_settings').all())
+      .toEqual([{ facility_id: 2, time_years: 5, maternity_years: 2 }])
+    expect(sqlite.prepare('SELECT protection_booked, plan_sync, miscarriage_on, miscarriage_week, miscarriage_waived FROM maternity_cases').get())
+      .toEqual({ protection_booked: 1, plan_sync: null, miscarriage_on: null, miscarriage_week: null, miscarriage_waived: 0 })
   })
 
   it('0092 adds the empty BEM tables (gone with the employee), the default invitation text and 3 years for BEM records', () => {

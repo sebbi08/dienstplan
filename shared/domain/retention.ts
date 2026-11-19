@@ -15,6 +15,8 @@ export interface RetentionSettings {
   cashYears: number
   /** BEM records (§ 167 Abs. 2 SGB IX): whole years after the process ended (completed, declined, no answer). */
   bemYears: number
+  /** Mutterschutz records (MuSchG): whole years after the case ended (§ 27 Abs. 5 MuSchG: kept 2 years). */
+  maternityYears: number
   employeeDelete: EmployeeDeleteMode
 }
 
@@ -25,6 +27,7 @@ export const RETENTION_DEFAULTS: RetentionSettings = {
   pensionYears: 30,
   cashYears: 10,
   bemYears: 3,
+  maternityYears: 2,
   employeeDelete: 'managers',
 }
 
@@ -90,6 +93,7 @@ export function checkRetentionSettings(input: unknown): RetentionSettings {
     pensionYears: years(raw.pensionYears, min, max),
     cashYears: years(raw.cashYears, RETENTION_CASH_YEARS_RANGE.min, RETENTION_CASH_YEARS_RANGE.max),
     bemYears: years(raw.bemYears, min, max),
+    maternityYears: years(raw.maternityYears, min, max),
     employeeDelete: mode as EmployeeDeleteMode,
   }
 }

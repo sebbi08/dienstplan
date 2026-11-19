@@ -9,6 +9,6 @@ export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'employees.sickness')
   const scope = { facilityId: admin.facilityId, ownEmployeeId: admin.employeeId }
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  const { kind, overwrite } = await readValidatedBody(event, maternityBookingSchema.parse)
-  return bookMaternity(useDb(), admin, scope, id, kind, overwrite)
+  const { kind, overwrite, afterBirthOnly } = await readValidatedBody(event, maternityBookingSchema.parse)
+  return bookMaternity(useDb(), admin, scope, id, kind, overwrite, { afterBirthOnly })
 })

@@ -43,10 +43,18 @@ describe('Mutterschutz texts (§§ 4–6 MuSchG)', () => {
     expect(warningText({ ...base, rule: 'rest', value: 630, limit: 660 }, names)).toBe('Anna: nur 10:30 Std. Ruhezeit (§ 4 MuSchG)')
     expect(warningText({ ...base, date: '2026-11-30', rule: 'average', value: 1521, limit: 1200 }, names))
       .toBe('Anna: Ø 25:21 Std./Woche im November – mehr als vertraglich (§ 4 MuSchG)')
+    expect(warningText({ ...base, rule: 'doubleWeek', value: 5940, limit: 5400 }, names))
+      .toBe('Anna: 99:00 Std. in der Doppelwoche – höchstens 90 Std. (§ 4 MuSchG)')
+    // After the birth there is no limit, only the ban.
+    expect(warningText({ ...base, phase: 'after', rule: 'protected', value: 360, limit: 0 }, names))
+      .toBe('Anna: Beschäftigungsverbot nach der Entbindung (§ 3 MuSchG)')
+    expect(warningText({ ...base, phase: 'after', rule: 'protected', value: 360, limit: 0, miscarriage: true }, names))
+      .toBe('Anna: Schutzfrist nach der Fehlgeburt (§ 3 Abs. 5 MuSchG)')
+    expect(warningText({ ...base, rule: 'ban', value: 360, limit: 0 }, names)).toBe('Anna: Dienst trotz Beschäftigungsverbot (§ 16 MuSchG)')
   })
 
   it('tells plan editors without the right neither rule nor reason, and marks the cell', () => {
-    const warning: Warning = { type: 'work_limit', date: '2026-11-18', employeeId: 1 }
+    const warning: Warning = { type: 'work_limit', date: '2026-11-18', employeeId: 1, minutes: 540 }
     expect(warningText(warning, names)).toBe('Anna: Arbeitszeitgrenze überschritten')
     expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])
   })

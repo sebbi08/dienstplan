@@ -780,7 +780,7 @@ export interface ArchivedChildDto {
 }
 
 /** What an item of the Träger's retention overview deletes of a left employee: a category, or the employee row itself. */
-export type RetentionItemCategory = 'immediate' | 'time' | 'assessment' | 'bem' | 'paidOvertime' | 'record'
+export type RetentionItemCategory = 'immediate' | 'time' | 'assessment' | 'bem' | 'maternity' | 'paidOvertime' | 'record'
 
 /**
  * An item of the Träger's retention overview (spec Löschübersicht §2), across every facility. `key` names it for the
@@ -803,6 +803,8 @@ export interface RetentionItemDto {
    * leaving day) and whether the person is still employed (not left before today), for the label.
    */
   bem?: { endedOn: IsoDate; employed: boolean }
+  /** The same for „Mutterschutz-Unterlagen“: the end of the case the date counts from. */
+  maternity?: { endedOn: IsoDate; employed: boolean }
   /** May be deleted today. */
   due: boolean
 }
@@ -1748,7 +1750,7 @@ export interface EarlySickLeaveInput {
 }
 
 /** Colour group of a day in the year calendar. */
-export type CalendarKind = 'sick' | 'maternity' | 'vacation' | 'overtime_off' | 'special_leave' | 'training' | 'closed' | 'requested'
+export type CalendarKind = 'sick' | 'maternity' | 'absent' | 'vacation' | 'overtime_off' | 'special_leave' | 'training' | 'closed' | 'requested'
 
 /** Admin's own appointment in the year calendar. */
 export interface CalendarEventDto {
@@ -3546,7 +3548,13 @@ export interface MaternityCaseDto {
   /** „Schutzfristen eintragen“ / „Beschäftigungsverbot eintragen“ was used: a change of the dates books the plan again. */
   protectionBooked: boolean
   banBooked: boolean
+  /** Booked days no longer match the case (it was saved without plan.edit): „Dienstplan muss noch angepasst werden“. */
+  planOutdated: boolean
   endedOn: IsoDate | null
+  /** A miscarriage (§ 3 Abs. 5 MuSchG): its day, the week of pregnancy, whether the employee declined the protection. */
+  miscarriageOn: IsoDate | null
+  miscarriageWeek: number | null
+  miscarriageWaived: boolean
   createdOn: IsoDate
   createdBy: string
 }
@@ -3559,7 +3567,7 @@ export interface EmployeeMaternityDto {
 }
 
 /** Gefährdungsbeurteilung (§ 10 MuSchG), Meldung an die Aufsichtsbehörde (§ 27), Beschäftigungsverbot prüfen. */
-export type MaternityTask = 'riskAssessment' | 'authority' | 'banCheck'
+export type MaternityTask = 'riskAssessment' | 'authority' | 'banCheck' | 'planSync'
 
 /** What a case's fields are when saved. */
 export interface MaternityCaseInput {
@@ -3575,6 +3583,9 @@ export interface MaternityCaseInput {
   banTo: IsoDate | null
   banNote: string
   endedOn: IsoDate | null
+  miscarriageOn?: IsoDate | null
+  miscarriageWeek?: number | null
+  miscarriageWaived?: boolean
 }
 
 /** What booking (or booking again) the plan did. */
@@ -3585,8 +3596,14 @@ export interface MaternityBookingDto {
   removed: number
   /** Days kept because another full-day absence holds them (Krank, Urlaub …). */
   keptAbsences: number
-  /** Days with duties left as they were (booking again after a change never replaces a duty). */
+  /** Booking again: days with duties on new days before the birth, left as they were. */
   skippedOccupied: number
+  /** Booking again: days with duties in the period after the birth (or on a ban day), left in the plan – they must go. */
+  protectedDuties: number
+  /** „… eintragen“ with confirmation: leave days replaced in the period (given back, § 24 MuSchG). */
+  returnedLeave: number
+  /** Booking again: leave days on new days of the period, left as they were (give back with „… eintragen“). */
+  keptLeave: number
 }
 
 /** Saving a case: its id and, when the plan was booked before and the period changed, what booking again did. */
@@ -3594,4 +3611,6 @@ export interface MaternitySaveDto {
   id: number
   protection: MaternityBookingDto | null
   ban: MaternityBookingDto | null
+  /** The booked plan no longer matches (saved without plan.edit): „Dienstplan muss noch angepasst werden“. */
+  planOutdated: boolean
 }

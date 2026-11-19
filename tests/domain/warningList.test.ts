@@ -41,9 +41,14 @@ describe('acknowledging', () => {
     expect(warningAckKey(hours)).toBe('maternity|2026-10-05|4|hours')
     expect(warningAckKey({ ...hours, rule: 'late', value: 1230, limit: 1200 })).toBe('maternity|2026-10-05|4|late')
     expect(warningSignature(hours)).toBe('540/510')
-    expect(warningAckKey({ type: 'work_limit', date: '2026-10-05', employeeId: 4 })).toBe('work_limit|2026-10-05|4')
+    expect(warningAckKey({ type: 'work_limit', date: '2026-10-05', employeeId: 4, minutes: 525 })).toBe('work_limit|2026-10-05|4')
     expect(ackKeyDate('maternity|2026-10-05|4|average')).toBe('2026-10-05')
     expect(ackKeyDate('work_limit|2026-10-05|4')).toBe('2026-10-05')
+    expect(ackKeyDate('maternity|2026-10-05|4|protected')).toBe('2026-10-05')
+    // More planned work shows the editors' hint again.
+    const limit: Warning = { type: 'work_limit', date: '2026-10-05', employeeId: 4, minutes: 525 }
+    expect(isAcknowledged({ ...limit, minutes: 720 }, acked(limit))).toBe(false)
+    expect(isAcknowledged(limit, acked(limit))).toBe(true)
     expect(ackKeyDate('maternity|2026-10-05|4')).toBeNull()
     expect(ackKeyDate('maternity|2026-10-05|4|lunch')).toBeNull()
     // The same rule with other values shows again.

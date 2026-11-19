@@ -18,6 +18,7 @@ import {
 import { ServiceError } from '../lib/errors'
 import { activeTrackingFrom } from './appSettings'
 import { computeBalances } from './balances'
+import { seesProtectedCodes } from '../lib/protectedCodes'
 import { getYearCalendar } from './calendar'
 import { entitlementFor } from './entitlements'
 import { applyToCells } from './entries'
@@ -504,7 +505,7 @@ export function bookLeaveDays(
  */
 export function getLeavePlanning(db: Db, user: SessionUser, facilityId: number, year: number): LeavePlanningDto {
   requirePlanner(db, user, facilityId)
-  const calendar = getYearCalendar(db, facilityId, year)
+  const calendar = getYearCalendar(db, facilityId, year, { showsProtected: seesProtectedCodes(user) })
   const staff = loadEmployees(db, facilityId)
   const closures = loadClosures(db, facilityId)
   const from = `${year}-01-01`

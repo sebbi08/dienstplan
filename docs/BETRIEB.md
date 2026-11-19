@@ -1645,39 +1645,76 @@ Mitarbeiter kommen nicht heran.
 - **Eintragen:** Bekanntgabe am (der Tag, an dem die Mitarbeiterin es mitgeteilt hat), voraussichtlicher
   Entbindungstermin, später der Tag der Entbindung, „12 Wochen“ (Früh- oder Mehrlingsgeburt, Behinderung des Kindes),
   freiwillig „Stillzeit bis“, die Tage der Meldung an die Aufsichtsbehörde (§ 27) und der Gefährdungsbeurteilung (§ 10),
-  ein Beschäftigungsverbot (keines, teilweise, vollständig; von, bis, Notiz) und „Beendet am“ (z. B. wenn die
-  Mitarbeiterin ausscheidet oder die Schwangerschaft vorzeitig endet). Daten in der Zukunft gehen nicht für Bekanntgabe,
-  Entbindung, Meldung und Gefährdungsbeurteilung; der Tag der Entbindung muss zum Termin passen (höchstens 26 Wochen
-  davor, 9 Wochen danach – fängt Tippfehler im Jahr ab).
+  ein Beschäftigungsverbot (keines, teilweise, vollständig; von, bis, Notiz), eine **Fehlgeburt** (Tag,
+  Schwangerschaftswoche, „verzichtet“) und „Beendet am“ (z. B. wenn die Mitarbeiterin ausscheidet). Daten in der Zukunft
+  gehen nicht für Bekanntgabe, Entbindung, Fehlgeburt, Meldung und Gefährdungsbeurteilung; der Tag der Entbindung muss
+  zum Termin passen (höchstens 26 Wochen davor, 9 Wochen danach – fängt Tippfehler im Jahr ab).
 - **Schutzfristen (§ 3):** vor der Entbindung 6 Wochen (42 Tage) vor dem voraussichtlichen Termin bis zum Tag vor der
   Entbindung (bei späterer Geburt entsprechend länger); nach der Entbindung der Tag der Entbindung und 8 Wochen danach
   (Termin + 56 Tage, mit der Frist davor 99 Tage), mit Häkchen 12 Wochen (+ 84 Tage). Kommt das Kind früher, werden die
   nicht genommenen Tage der Frist vor der Entbindung hinten angehängt (§ 3 Abs. 2 Satz 3) – das Ende bleibt dann gleich.
   Die App zeigt beide Fristen beim Eintrag an.
+- **Fehlgeburt (§ 3 Abs. 5, seit 1. Juni 2025):** ab der 13. Schwangerschaftswoche 2 Wochen, ab der 17. Woche 6 Wochen,
+  ab der 20. Woche 8 Wochen Schutzfrist ab dem Tag der Fehlgeburt (vor der 13. Woche keine). Die Mitarbeiterin darf
+  ausdrücklich erklären, dass sie arbeiten möchte: dann „verzichtet“ ankreuzen – es gibt keine Schutzfrist, eingetragene
+  Tage werden entfernt. Mit der Fehlgeburt endet die Schwangerschaft: Hinweise gelten bis zum Tag davor bzw. bis zum Ende
+  dieser Frist.
 - **Codes:** „Mutterschutz“ und „Beschäftigungsverbot“ stehen direkt hinter „Kind krank“. Beide sind ganze Tage, die wie
-  Krank das Tagessoll gutschreiben (keine Minusstunden), zählen nicht als Anwesenheit und nicht als Urlaub. Im
-  Jahreskalender erscheinen sie gemeinsam als „Mutterschutz / Beschäftigungsverbot“ (rosa); im Kalender der Mitarbeiter
-  sieht jede nur ihre eigenen. Bestehende Datenbanken bekommen die Codes mit der Migration 0093.
+  Krank das Tagessoll gutschreiben (keine Minusstunden), zählen nicht als Anwesenheit und nicht als Urlaub. Bestehende
+  Datenbanken bekommen die Codes mit der Migration 0093.
+- **Wer die Codes sieht:** nur, wer den Mutterschutz sehen darf (`employees.sickness`). Alle anderen – Mitarbeiter, die
+  Gruppenleitung, wer nur „Dienstplan bearbeiten“ oder die Zeiterfassung hat – und **immer das Tablet** sehen an diesen
+  Tagen nur ein graues **„abwesend“**: im Dienstplan (Entwurf und freigegebener Plan, auch beim Drucken und als PDF), in
+  der Änderungsliste der Freigaben, im Jahreskalender und in der Urlaubsplanung („abwesend“), in der Zeiterfassung und in
+  der Tagesübersicht. Der Server schickt ihnen weder den Code noch seinen Namen. Die Mitarbeiterin selbst sieht unter
+  „Mein Dienstplan“ und im eigenen Jahreskalender ihre Einträge wie sie sind. Die Codes werden diesen Personen nicht zum
+  Eintragen angeboten, und sie können einen solchen Tag nicht ändern, überschreiben oder löschen („Diesen Tag kann nur
+  ändern, wer die Krankheitstage sehen darf“). Stunden und Hinweise rechnet der Server immer mit den echten Einträgen.
 - **„Schutzfristen eintragen“** (nur mit „Dienstplan bearbeiten“) trägt „Mutterschutz“ an den Arbeitstagen beider
-  Fristen ein – wie „Urlaub eintragen“: Schließtage, Wochenenden, Feiertage und freie Tage nicht, Krank, Urlaub,
-  Fortbildung u. Ä. bleiben stehen, geplante Dienste werden nur nach Rückfrage ersetzt, ein eingetragenes
-  Beschäftigungsverbot ohne Rückfrage. **Ändern sich danach die Daten** (Tag der Entbindung eingetragen, 12 Wochen,
-  Termin korrigiert), trägt die App beim Speichern nach: neue Tage der Fristen bekommen „Mutterschutz“, soweit dort kein
-  Dienst steht; Tage, die nicht mehr in den Fristen liegen, verlieren ihren „Mutterschutz“-Eintrag (nur diesen Code).
-  Tage, die in beiden liegen, bleiben, wie sie sind. Die App meldet, was sie geändert hat.
+  Fristen ein – wie „Urlaub eintragen“: Schließtage, Wochenenden, Feiertage und freie Tage nicht, Krank, Fortbildung u. Ä.
+  bleiben stehen, ein eingetragenes Beschäftigungsverbot wird ohne Rückfrage ersetzt. **Dienste und Urlaub** werden nur
+  nach Rückfrage ersetzt; die Frage nennt die Urlaubstage, die **zurückgegeben** werden (Urlaub in der Schutzfrist bzw. im
+  Beschäftigungsverbot geht nicht, § 24 MuSchG – Urlaub, Sonderurlaub und Überstundenfrei werden durch den Code ersetzt
+  und zählen damit nicht mehr als genommen). Ein dazu genehmigter Urlaubsantrag bleibt als „genehmigt“ stehen – bitte
+  der Mitarbeiterin Bescheid geben.
+- **Ändern sich danach die Angaben** (Tag der Entbindung, 12 Wochen, Termin, Fehlgeburt, Verbot, „Beendet am“), trägt
+  die App beim Speichern nach – auch wenn die Tage gleich bleiben, z. B. bei einer früheren Geburt:
+  - Tage, die nicht mehr in den Fristen liegen, verlieren ihren Eintrag (nur diesen Code);
+  - neue Tage und alle freien Tage der Schutzfrist nach der Entbindung bekommen „Mutterschutz“;
+  - **Dienste in der Schutzfrist nach der Entbindung** (z. B. Tage, an denen sie vor der erwarteten Geburt arbeiten
+    wollte, die nach einer früheren Geburt jetzt danach liegen) werden nie stillschweigend übergangen: Die App meldet
+    „‹n› Dienste liegen in der Schutzfrist nach der Entbindung … und müssen entfernt werden“ und bietet an, sie durch
+    „Mutterschutz“ zu ersetzen; im Dienstplan steht an jedem dieser Tage ein Hinweis (siehe unten);
+  - Dienste auf neuen Tagen **vor** der Entbindung und Urlaub auf neuen Tagen bleiben und werden mit dem Knopf genannt,
+    der sie ersetzt („Schutzfristen eintragen“ bzw. „Beschäftigungsverbot eintragen“);
+  - mit **„Beendet am“** werden die eingetragenen Tage danach entfernt (die App fragt vorher).
+- **Ohne „Dienstplan bearbeiten“** (z. B. ein Träger-Recht ohne Planrecht) wird der Eintrag gespeichert, der Dienstplan
+  aber nicht geändert: Die App sagt „Dienstplan muss noch angepasst werden“, der Eintrag zeigt es an, und wer beides
+  darf, bekommt die Erinnerung „Dienstplan muss noch angepasst werden: Mutterschutz von ‹Name›“. „Schutzfristen
+  eintragen“ holt das nach – auch das Entfernen von Tagen, die nicht mehr in den Fristen liegen.
+- **Löschen eines Eintrags:** Die App fragt, ob auch die eingetragenen Tage aus dem Dienstplan entfernt werden sollen
+  (nur mit „Dienstplan bearbeiten“; nur die Codes Mutterschutz und Beschäftigungsverbot). Die „zur Kenntnis genommenen“
+  Hinweise des Eintrags gehen mit.
 - **Vor der Entbindung** darf die Mitarbeiterin auf eigenen Wunsch arbeiten: Dann den Tag im Dienstplan einfach ändern
-  (keine Warnung). Beim Nachtragen bleibt ein solcher Dienst stehen.
+  (keine Warnung). Beim Nachtragen bleibt ein solcher Dienst stehen, solange der Tag vor der Entbindung liegt.
 - **„Beschäftigungsverbot eintragen“** gibt es nur beim vollständigen Verbot: „Beschäftigungsverbot“ an den Arbeitstagen
   von „Verbot von“ bis „Verbot bis“, nie an Tagen der Schutzfristen (dort gilt Mutterschutz). Ohne „Verbot bis“ läuft es
   in der Schwangerschaft bis zum Tag vor der Schutzfrist, nach der Entbindung bis „Stillzeit bis“. Ein teilweises Verbot
   ist nur eine Notiz am Eintrag: Die Dienste werden kürzer oder anders geplant, im Dienstplan wird nichts eingetragen.
   Wird das Verbot geändert oder zurückgenommen, trägt die App wie oben nach.
-- **Hinweise im Dienstplan (§§ 4–6):** von der Bekanntgabe bis zum Ende der Schutzfrist nach der Entbindung und in der
+- **Hinweise im Dienstplan (§§ 3–6):** von der Bekanntgabe bis zum Ende der Schutzfrist nach der Entbindung und in der
   Stillzeit (bis „Stillzeit bis“), nicht nach „Beendet am“, aus den geplanten Einträgen (Arbeitszeit wie bei den
   Arbeitszeitgesetz-Hinweisen):
+  - **jede Arbeit in der Schutzfrist nach der Entbindung:** „‹Name›: Beschäftigungsverbot nach der Entbindung (§ 3
+    MuSchG)“ (nach einer Fehlgeburt „Schutzfrist nach der Fehlgeburt (§ 3 Abs. 5 MuSchG)“) – an diesen Tagen statt der
+    Stundenhinweise, denn es gilt keine Höchstgrenze, sondern ein Verbot;
+  - **jede Arbeit an einem Tag eines vollständigen Beschäftigungsverbots:** „‹Name›: Dienst trotz Beschäftigungsverbot
+    (§ 16 MuSchG)“;
   - mehr als 8:30 Std. an einem Tag, unter 18 Jahren (aus Geburtstag und Geburtsjahr) mehr als 8 Std.:
-    „‹Name›: 9:00 Std. – in der Schwangerschaft höchstens 8,5 Std. (§ 4 MuSchG)“ (nach der Geburt „nach der Entbindung“
-    bzw. „in der Stillzeit“),
+    „‹Name›: 9:00 Std. – in der Schwangerschaft höchstens 8,5 Std. (§ 4 MuSchG)“ (in der Stillzeit „in der Stillzeit“),
+  - mehr als 90 Std. in einer Doppelwoche (unter 18: 80 Std.): „‹Name›: ‹h:mm› Std. in der Doppelwoche – höchstens
+    90 Std. (§ 4 MuSchG)“, geprüft wird jede Doppelwoche ab einem Montag (nur Tage, an denen der Mutterschutz gilt), der
+    Hinweis steht an ihrem letzten Tag,
   - Arbeit nach 20 Uhr oder vor 6 Uhr: „‹Name›: Arbeit nach 20 Uhr (§ 5 MuSchG)“ bzw. „… vor 6 Uhr …“,
   - Arbeit an Sonntagen und Feiertagen der Einrichtung: „‹Name›: Sonn-/Feiertagsarbeit (§ 6 MuSchG)“,
   - weniger als 11 Std. Ruhezeit nach dem Vortag: „‹Name›: nur ‹h:mm› Std. Ruhezeit (§ 4 MuSchG)“,
@@ -1686,23 +1723,35 @@ Mitarbeiter kommen nicht heran.
     Stunden dieser Tage mit den vertraglichen Stunden derselben Tage (Wochenstunden ÷ 7 je Tag); Urlaub, Krank usw.
     zählen als 0 Stunden.
 
-  Die Hinweise verhindern nichts und lassen sich wie die anderen „zur Kenntnis nehmen“. **Wer den Dienstplan bearbeitet,
-  den Mutterschutz aber nicht sehen darf**, liest nur „‹Name›: Arbeitszeitgrenze überschritten“ – einmal je Person und
-  Tag, ohne Regel und ohne Grund. So bleibt der Dienstplan sicher, ohne die Schwangerschaft zu verraten. (Eine Leitung, die
-  ihn so zur Kenntnis nimmt, erledigt damit nicht den Hinweis mit Grund und umgekehrt.) Die Zeiterfassung zeigt keine
-  eigenen Mutterschutz-Hinweise; die Hinweise des Arbeitszeitgesetzes gelten daneben weiter.
-- **Erinnerungen** (Box „Erinnerungen“, nur Leitung und Träger mit dem Recht, nicht am Tablet, nie zur eigenen Person),
-  solange der Mutterschutz gilt: „Gefährdungsbeurteilung für ‹Name› erstellen/anpassen (§ 10 MuSchG)“ bis der Tag
-  eingetragen ist; „‹Name›: Meldung an die Aufsichtsbehörde (§ 27 MuSchG) – unverzüglich“ bis der Tag eingetragen ist
-  (ab dem Tag nach der Bekanntgabe rot); einmal je Eintrag „‹Name›: Beschäftigungsverbot prüfen (z. B. Immunität gegen
-  Röteln, Ringelröteln, Windpocken, Zytomegalie)“ bis „Geprüft“ getippt oder ein Verbot (teilweise oder vollständig)
-  eingetragen ist.
+  Die Hinweise verhindern nichts und lassen sich wie die anderen „zur Kenntnis nehmen“ (das geht nur mit dem Recht).
+  **Wer den Dienstplan bearbeitet, den Mutterschutz aber nicht sehen darf**, liest nur „‹Name›: Arbeitszeitgrenze
+  überschritten“ – einmal je Person und Tag, ohne Regel und ohne Grund; die „zur Kenntnis genommenen“ Mutterschutz-
+  Hinweise bekommt diese Person nicht geschickt. Ändern sich die geplanten Stunden des Tages, erscheint der neutrale
+  Hinweis wieder. (Eine Leitung, die ihn so zur Kenntnis nimmt, erledigt damit nicht den Hinweis mit Grund und
+  umgekehrt.) Die Zeiterfassung zeigt keine eigenen Mutterschutz-Hinweise; die Hinweise des Arbeitszeitgesetzes gelten
+  daneben weiter.
+- **Restrisiko:** Auch ohne Grund kann jemand Rückschlüsse ziehen – z. B. weil „Arbeitszeitgrenze überschritten“ nur bei
+  einer Person und schon bei Dingen erscheint, die das Arbeitszeitgesetz erlaubt (8:45 Std., 20:15 Uhr, ein Sonntag),
+  oder weil eine Kollegin über Wochen „abwesend“ ist. Die App verrät den Grund nicht, kann solche Schlüsse aber nicht
+  verhindern. Gib „Krankheitstage …“ deshalb nur Leitung und Träger. Datensicherungen enthalten alles.
+- **Erinnerungen** (Box „Erinnerungen“, nur Leitung und Träger mit dem Recht, nicht am Tablet, nie zur eigenen Person,
+  nicht für Ausgeschiedene): „Gefährdungsbeurteilung für ‹Name› erstellen/anpassen (§ 10 MuSchG)“ bis der Tag
+  eingetragen ist (14 Tage nach der Bekanntgabe rot); „‹Name›: Meldung an die Aufsichtsbehörde (§ 27 MuSchG) –
+  unverzüglich“ bis der Tag eingetragen ist (ab dem Tag nach der Bekanntgabe rot) – beide auch nach dem Ende des
+  Mutterschutzes, bis sie erledigt sind; solange der Mutterschutz gilt, einmal je Eintrag „‹Name›: Beschäftigungsverbot
+  prüfen (z. B. Immunität gegen Röteln, Ringelröteln, Windpocken, Zytomegalie)“ bis „Geprüft“ getippt oder ein Verbot
+  (teilweise oder vollständig) eingetragen ist; und für wer auch den Dienstplan bearbeiten darf „Dienstplan muss noch
+  angepasst werden …“ (siehe oben).
 - **Urlaub (§ 24):** Schutzfristen und Beschäftigungsverbot kürzen den Urlaub nicht; die Codes zählen nicht als
-  genommener Urlaub. Am Eintrag steht „Resturlaub nach dem Mutterschutz bleibt erhalten (§ 24 MuSchG).“ Den Verfall von
-  Resturlaub nach dem Mutterschutz rechnet die App nicht gesondert – bitte beim Verfallshinweis daran denken.
-- **Löschen:** Die Einträge zum Mutterschutz gehören zu den Daten, die beim Ausscheiden **sofort** gelöscht werden (wie
-  die Angaben zu Kindern und Notfallkontakten); die Codes im Dienstplan gehen mit den Zeitdaten. Einen versehentlichen
-  Eintrag kann man jederzeit löschen; die Einträge im Dienstplan bleiben dann stehen.
+  genommener Urlaub, und Urlaub in den Fristen wird beim Eintragen zurückgegeben (siehe oben). Am Eintrag steht
+  „Resturlaub nach dem Mutterschutz bleibt erhalten (§ 24 MuSchG).“ Den Verfall von Resturlaub nach dem Mutterschutz
+  rechnet die App nicht gesondert – bitte beim Verfallshinweis daran denken.
+- **Löschfristen:** eigene Kategorie **„Mutterschutz-Unterlagen“** (Einstellungen → Löschfristen, Vorgabe **2 Jahre**,
+  vgl. § 27 Abs. 5 MuSchG): Ein Eintrag darf so viele Jahre nach seinem Ende gelöscht werden (Ende der Schutzfrist nach
+  der Entbindung bzw. der Stillzeit oder „Beendet am“; bei einer Fehlgeburt das Ende ihrer Frist), **auch bei
+  Mitarbeiterinnen, die noch da sind**; ein laufender Mutterschutz einer Ausgeschiedenen zählt ab dem Austritt. Die
+  Einträge stehen unter Mehr → Löschfristen („Mutterschutz beendet am …“); gelöscht werden nur die fälligen. Die Codes im
+  Dienstplan gehen mit den Zeitdaten; „Endgültig löschen“ löscht alles sofort.
 
 ## 21. Menü
 

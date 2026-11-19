@@ -120,9 +120,9 @@ export function fillEmployeeData(
       processId: bemId, kind: 'meeting', date: '2025-04-15', participants: 'Lea Leitung', text: 'Erstgespräch',
       createdAt: now.toISOString(), updatedAt: now.toISOString(),
     }).run()
-    // A Mutterschutz case (health data, with the immediate data).
+    // A Mutterschutz case ended on 04.03.2026 (Mutterschutz-Unterlagen: deletable from 04.03.2028 with the default 2 years).
     db.insert(maternityCases).values({
-      employeeId: id, notifiedOn: '2025-01-10', expectedBirth: '2025-07-01', createdBy: 'Lea Leitung', createdAt: now.toISOString(),
+      employeeId: id, notifiedOn: '2025-06-02', expectedBirth: '2026-01-07', createdBy: 'Lea Leitung', createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     }).run()
     const childId = addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })

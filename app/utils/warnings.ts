@@ -32,7 +32,11 @@ function maternityText(warning: MaternityWarning, name: string): string {
   const t = de.warnings.maternity
   switch (warning.rule) {
     case 'hours':
-      return t.hours(name, formatDuration(warning.value), t.phases[warning.phase], (warning.limit / 60).toLocaleString('de-DE'))
+      // Never in the period after the birth: there any work is the hint „protected“.
+      return t.hours(
+        name, formatDuration(warning.value), warning.phase === 'breastfeeding' ? t.phases.breastfeeding : t.phases.pregnancy,
+        (warning.limit / 60).toLocaleString('de-DE'),
+      )
     case 'late':
       return t.late(name)
     case 'early':
@@ -43,6 +47,12 @@ function maternityText(warning: MaternityWarning, name: string): string {
       return t.rest(name, formatDuration(warning.value))
     case 'average':
       return t.average(name, formatDuration(warning.value), de.months[Number(warning.date.slice(5, 7)) - 1]!)
+    case 'doubleWeek':
+      return t.doubleWeek(name, formatDuration(warning.value), String(warning.limit / 60))
+    case 'protected':
+      return warning.miscarriage ? t.protectedMiscarriage(name) : t.protected(name)
+    case 'ban':
+      return t.ban(name)
   }
 }
 

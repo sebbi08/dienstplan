@@ -104,7 +104,7 @@ describe('the case and who may see it', () => {
     expect(errorCode(() => create({}, leaId))).toBe('maternity_own')
     const leaCase = createMaternityCase(db, traeger, { facilityId: 1, ownEmployeeId: null }, leaId, input(), TODAY)
     expect(errorCode(() => update(leaCase, {}))).toBe('maternity_not_found')
-    expect(errorCode(() => deleteMaternityCase(db, scope, leaCase))).toBe('maternity_not_found')
+    expect(errorCode(() => deleteMaternityCase(db, leitung, scope, leaCase, false))).toBe('maternity_not_found')
     expect(errorCode(() => bookMaternity(db, leitung, scope, leaCase, 'protection', false))).toBe('maternity_not_found')
     const hort = addFacility(db, 'Hort')
     const other = addEmployee(db, 'Olga', { facilityId: hort })
@@ -128,11 +128,11 @@ describe('the case and who may see it', () => {
     expect(getEmployeeMaternity(db, leitung, scope, anna).cases.find(item => item.id === id)).toMatchObject({ banFrom: null, banTo: null })
   })
 
-  it('is deleted with the employee\'s immediate data (like the sickness-related personal data)', () => {
-    expect(categoryHasData(db, anna).immediate).toBe(false)
+  it('has its own retention category „Mutterschutz-Unterlagen“ (not the immediate data)', () => {
+    expect(categoryHasData(db, anna).maternity).toBe(false)
     create()
-    expect(categoryHasData(db, anna).immediate).toBe(true)
-    db.transaction(tx => deleteCategories(tx, anna, ['immediate']))
+    expect(categoryHasData(db, anna)).toMatchObject({ immediate: false, maternity: true })
+    db.transaction(tx => deleteCategories(tx, anna, ['maternity']))
     expect(db.select().from(maternityCases).all()).toEqual([])
   })
 })
@@ -146,7 +146,7 @@ describe('„Schutzfristen eintragen“', () => {
     expect(daysWith('maternity')).toEqual([])
     const result = bookMaternity(db, leitung, scope, id, 'protection', true)
     const expected = workdays('2026-10-05', '2027-01-11').filter(date => date !== '2026-10-07')
-    expect(result).toEqual({ booked: expected.length, removed: 0, keptAbsences: 1, skippedOccupied: 0 })
+    expect(result).toMatchObject({ booked: expected.length, removed: 0, keptAbsences: 1, returnedLeave: 0 })
     expect(daysWith('maternity')).toEqual(expected)
     expect(daysWith('sick')).toEqual(['2026-10-07'])
     expect(getEmployeeMaternity(db, leitung, scope, anna).cases[0]!.protectionBooked).toBe(true)
@@ -165,13 +165,14 @@ describe('„Schutzfristen eintragen“', () => {
     const id = create()
     bookMaternity(db, leitung, scope, id, 'protection', false)
     // Born two days late (18.11.): the 8 weeks end on 13.01.2027.
-    expect(update(id, { actualBirth: '2026-11-18' }).protection).toEqual({ booked: 2, removed: 0, keptAbsences: 0, skippedOccupied: 0 })
+    expect(update(id, { actualBirth: '2026-11-18' }).protection)
+      .toMatchObject({ booked: 2, removed: 0, keptAbsences: 0, skippedOccupied: 0, protectedDuties: 0 })
     expect(daysWith('maternity').slice(-2)).toEqual(['2027-01-12', '2027-01-13'])
     // She chose to work on 12.10. (before the birth): the day is a duty now, booking again leaves it.
     db.delete(entries).where(eq(entries.date, '2026-10-12')).run()
     shiftOn(anna, '2026-10-12', 480, 780)
     const extended = update(id, { actualBirth: '2026-11-18', extendedAfter: true }).protection!
-    expect(extended).toEqual({ booked: workdays('2027-01-14', '2027-02-10').length, removed: 0, keptAbsences: 0, skippedOccupied: 0 })
+    expect(extended).toMatchObject({ booked: workdays('2027-01-14', '2027-02-10').length, removed: 0, skippedOccupied: 0, protectedDuties: 0 })
     expect(daysWith('maternity')).not.toContain('2026-10-12')
     expect(daysWith('maternity').at(-1)).toBe('2027-02-10')
     // Back to 8 weeks: the extra days go again (only entries of the code).
@@ -192,7 +193,7 @@ describe('„Schutzfristen eintragen“', () => {
 
   it('does not book again without having booked', () => {
     const id = create()
-    expect(update(id, { actualBirth: '2026-11-18' })).toEqual({ id, protection: null, ban: null })
+    expect(update(id, { actualBirth: '2026-11-18' })).toEqual({ id, protection: null, ban: null, planOutdated: false })
     expect(daysWith('maternity')).toEqual([])
   })
 })
@@ -253,9 +254,21 @@ describe('the reminders', () => {
     expect(tasks(leitung)).toEqual(['Anna Muster: authority overdue'])
   })
 
-  it('only while the case applies, for employees.sickness, never at the tablet, never about oneself', () => {
+  it('keep the authority and the risk assessment until done, also after the case; never for someone who left', () => {
     create({ notifiedOn: '2025-01-10', expectedBirth: '2025-06-01' })
+    expect(tasks(leitung)).toEqual(['Anna Muster: authority overdue', 'Anna Muster: riskAssessment overdue'])
+    db.update(employees).set({ leftOn: '2026-10-31' }).where(eq(employees.id, anna)).run()
     expect(tasks(leitung)).toEqual([])
+  })
+
+  it('mark the risk assessment overdue 14 days after the notice', () => {
+    create({ notifiedOn: '2026-11-05', expectedBirth: '2027-04-01', authorityNotifiedOn: '2026-11-05' })
+    expect(tasks(leitung)).toEqual(['Anna Muster: riskAssessment today', 'Anna Muster: banCheck today'])
+    db.update(maternityCases).set({ notifiedOn: '2026-11-04' }).run()
+    expect(tasks(leitung)).toEqual(['Anna Muster: riskAssessment overdue', 'Anna Muster: banCheck today'])
+  })
+
+  it('for employees.sickness, never at the tablet, never about oneself', () => {
     createMaternityCase(db, traeger, { facilityId: 1, ownEmployeeId: null }, leaId, input({ notifiedOn: '2026-11-19', expectedBirth: '2027-04-01' }), TODAY)
     create({ notifiedOn: '2026-11-19', expectedBirth: '2027-04-01', authorityNotifiedOn: '2026-11-19', riskAssessmentOn: '2026-11-19' })
     expect(tasks(leitung)).toEqual(['Anna Muster: banCheck today'])
@@ -311,7 +324,7 @@ describe('the plan hints (§§ 4–6 MuSchG)', () => {
   it('shows plan editors who may not see the case only „Arbeitszeitgrenze überschritten“, once per person and day', () => {
     shiftOn(anna, '2026-11-22', 420, 1260, 720, 750) // Sunday, 13:30 h, until 21:00
     expect(rules(leitung)).toEqual(['2026-11-22 hours 810/510', '2026-11-22 late 1260/1200', '2026-11-22 sunday 810/0'])
-    expect(warnings(editor())).toEqual([{ type: 'work_limit', date: '2026-11-22', employeeId: anna }])
+    expect(warnings(editor())).toEqual([{ type: 'work_limit', date: '2026-11-22', employeeId: anna, minutes: 810 }])
   })
 
   it('end with the case', () => {
