@@ -40,9 +40,11 @@ const shown = computed(() => data.value.filter(item => facilityFilter.value === 
 const due = computed(() => shown.value.filter(item => item.due))
 const later = computed(() => shown.value.filter(item => !item.due))
 
-/** „‹Name› – ‹Datenart›“. */
-const whatOf = (item: RetentionItemDto) =>
-  t.itemLabel(item.name, item.kind === 'employee' ? t.categories[item.category ?? 'record'] : t.categories[item.kind])
+/** „‹Name› – ‹Datenart›“; BEM records also say when the BEM ended and whether the person is still employed. */
+const whatOf = (item: RetentionItemDto) => {
+  const what = t.itemLabel(item.name, item.kind === 'employee' ? t.categories[item.category ?? 'record'] : t.categories[item.kind])
+  return item.bem ? `${what} (${t.bemDetail(formatDate(item.bem.endedOn), item.bem.employed)})` : what
+}
 
 /** The date, or without one: at once (cash box without entries, a record whose other data is gone) or after the rest. */
 const fromOf = (item: RetentionItemDto) =>

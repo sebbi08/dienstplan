@@ -46,12 +46,20 @@ const invitationPath = (process: BemProcessDto) => `/admin/print/bem-invitation/
 const sentOn = ref('')
 const answer = reactive<{ value: BemAnswer; date: string }>({ value: 'accepted', date: today })
 const ending = ref(today)
+const withdrawn = ref(today)
 watch(open, (process) => {
   sentOn.value = process?.invitedOn ?? today
   Object.assign(answer, { value: 'accepted', date: today })
   ending.value = today
+  withdrawn.value = today
 }, { immediate: true })
-const answerItems = BEM_ANSWERS.map(value => ({ label: t.answers[value], value }))
+/**
+ * The answers on offer once „Verschickt am“ is saved (the form shows only then; the server checks the same): „keine
+ * Antwort“ only from the day the answer was asked by.
+ */
+const answerItems = computed(() => BEM_ANSWERS
+  .filter(value => value !== 'no_answer' || (open.value?.invitedOn != null && bemAnswerBy(open.value.invitedOn) <= today))
+  .map(value => ({ label: t.answers[value], value })))
 
 const saveSent = (process: BemProcessDto) => sentOn.value
   && run(() => $fetch<{ ok: boolean }>(`/api/bem/${process.id}/sent`, { method: 'PUT', body: { invitedOn: sentOn.value } }), de.common.saved)
@@ -59,9 +67,19 @@ const saveAnswer = (process: BemProcessDto) => answer.date
   && run(() => $fetch<{ ok: boolean }>(`/api/bem/${process.id}/answer`, { method: 'PUT', body: { answer: answer.value, date: answer.date } }), de.common.saved)
 
 async function withdraw(process: BemProcessDto) {
-  if (!ending.value || !await confirm(t.withdrawConfirm, { confirmLabel: t.withdraw })) return
-  await run(() => $fetch<{ ok: boolean }>(`/api/bem/${process.id}/answer`, { method: 'PUT', body: { answer: 'declined', date: ending.value } }), de.common.saved)
+  if (!withdrawn.value || !await confirm(t.withdrawConfirm, { confirmLabel: t.withdraw })) return
+  await run(() => $fetch<{ ok: boolean }>(`/api/bem/${process.id}/answer`, { method: 'PUT', body: { answer: 'declined', date: withdrawn.value } }), de.common.saved)
 }
+/** „Gesprächsnotizen löschen“ of a declined BEM: the texts of its talks and measures go, dates and status stay. */
+async function clearNotes(process: BemProcessDto) {
+  if (!await confirm(t.clearNotesConfirm, { confirmLabel: t.clearNotes })) return
+  await run(() => $fetch<{ cleared: number }>(`/api/bem/${process.id}/clear-notes`, { method: 'POST' }), t.clearedNotes)
+}
+/** A declined BEM with contents in its talks or measures (after a withdrawn consent). */
+const hasNotes = (process: BemProcessDto) => process.status === 'declined'
+  && process.steps.some(item => item.kind !== 'note' && (item.text !== '' || item.participants !== ''))
+/** Talks and measures only after the consent; a note also before. */
+const stepKinds = computed(() => BEM_STEP_KINDS.filter(kind => kind === 'note' || open.value?.status === 'accepted'))
 async function complete(process: BemProcessDto) {
   if (!ending.value || !await confirm(t.completeConfirm, { confirmLabel: t.complete, danger: false })) return
   await run(() => $fetch<{ ok: boolean }>(`/api/bem/${process.id}/complete`, { method: 'PUT', body: { date: ending.value } }), de.common.saved)
@@ -144,12 +162,17 @@ const stepLabel = (item: BemStepDto) => (item.kind === 'measure' && item.status 
             <UFormField :label="t.sentOn"><DateTextInput v-model="sentOn" :label="t.sentOn" :max="today" required class="w-44" /></UFormField>
             <UButton type="submit" color="neutral" variant="outline" :label="t.sentSave" :disabled="busy || !sentOn" />
           </form>
-          <form class="flex flex-wrap items-end gap-2" @submit.prevent="saveAnswer(open)">
-            <UFormField :label="t.answer"><USelect v-model="answer.value" :items="answerItems" class="w-44" /></UFormField>
-            <UFormField :label="t.answerDate"><DateTextInput v-model="answer.date" :label="t.answerDate" :max="today" required class="w-44" /></UFormField>
-            <UButton type="submit" :label="t.saveAnswer" :disabled="busy || !answer.date" />
-          </form>
-          <p class="text-xs text-gray-500">{{ t.answerHint }}</p>
+          <template v-if="open.invitedOn">
+            <form class="flex flex-wrap items-end gap-2" @submit.prevent="saveAnswer(open)">
+              <UFormField :label="t.answer"><USelect v-model="answer.value" :items="answerItems" class="w-44" /></UFormField>
+              <UFormField :label="t.answerDate">
+                <DateTextInput v-model="answer.date" :label="t.answerDate" :min="open.invitedOn" :max="today" required class="w-44" />
+              </UFormField>
+              <UButton type="submit" :label="t.saveAnswer" :disabled="busy || !answer.date" />
+            </form>
+            <p class="text-xs text-gray-500">{{ t.answerHint }}</p>
+          </template>
+          <p v-else class="text-xs text-gray-500">{{ t.answerAfterSent }}</p>
         </template>
         <p v-else-if="open.answeredOn" class="text-sm text-gray-700">{{ t.acceptedLine(formatDate(open.answeredOn)) }}</p>
 
@@ -169,22 +192,29 @@ const stepLabel = (item: BemStepDto) => (item.kind === 'measure' && item.status 
           </ul>
           <div class="flex flex-wrap gap-2">
             <UButton
-              v-for="kind in BEM_STEP_KINDS" :key="kind" size="sm" color="neutral" variant="outline" icon="i-lucide-plus"
+              v-for="kind in stepKinds" :key="kind" size="sm" color="neutral" variant="outline" icon="i-lucide-plus"
               :label="t.add[kind]" :disabled="busy" @click="openStep(kind)"
             />
           </div>
+          <p v-if="open.status !== 'accepted'" class="text-xs text-gray-500">{{ t.beforeConsent }}</p>
         </div>
 
         <!-- Ending: „Abschließen“ (accepted), „Zustimmung widerrufen“, or deleting one started by mistake. -->
         <div class="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3">
           <template v-if="open.status === 'accepted'">
-            <UFormField :label="t.completeDate"><DateTextInput v-model="ending" :label="t.completeDate" :max="today" required class="w-44" /></UFormField>
-            <UButton icon="i-lucide-check" :label="t.complete" :disabled="busy || !ending" @click="complete(open)" />
-            <UButton color="neutral" variant="outline" :label="t.withdraw" :disabled="busy || !ending" @click="withdraw(open)" />
+            <form class="flex flex-wrap items-end gap-2" @submit.prevent="complete(open)">
+              <UFormField :label="t.completeDate"><DateTextInput v-model="ending" :label="t.completeDate" :max="today" required class="w-44" /></UFormField>
+              <UButton type="submit" icon="i-lucide-check" :label="t.complete" :disabled="busy || !ending" />
+            </form>
+            <form class="flex flex-wrap items-end gap-2" @submit.prevent="withdraw(open)">
+              <UFormField :label="t.withdrawDate"><DateTextInput v-model="withdrawn" :label="t.withdrawDate" :max="today" required class="w-44" /></UFormField>
+              <UButton type="submit" color="neutral" variant="outline" :label="t.withdraw" :disabled="busy || !withdrawn" />
+            </form>
           </template>
+          <!-- Only while the invitation is not sent: afterwards the offer is the evidence. -->
           <UButton
-            v-else class="ml-auto" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="t.remove" :disabled="busy"
-            @click="remove(open)"
+            v-else-if="!open.invitedOn" class="ml-auto" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="t.remove"
+            :disabled="busy" @click="remove(open)"
           />
         </div>
       </div>
@@ -207,6 +237,10 @@ const stepLabel = (item: BemStepDto) => (item.kind === 'measure' && item.status 
                 <p v-if="item.text" class="whitespace-pre-line break-words text-gray-700">{{ item.text }}</p>
               </li>
             </ul>
+            <div v-if="hasNotes(process)" class="flex flex-wrap items-center gap-2 pt-2">
+              <p class="text-xs text-gray-600">{{ t.clearNotesHint }}</p>
+              <UButton size="xs" color="error" variant="outline" icon="i-lucide-eraser" :label="t.clearNotes" :disabled="busy" @click="clearNotes(process)" />
+            </div>
           </div>
         </details>
       </div>

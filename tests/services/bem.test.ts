@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { bemProcesses, bemSteps, employeeHours, employees, entries } from '../../server/db/schema'
+import { bemProcesses, bemSteps, employeeHours, employees, entries, facilities, facilityContacts } from '../../server/db/schema'
 import {
-  addBemStep, answerBem, bemInvitation, bemReminders, completeBem, deleteBem, deleteBemStep, getBemSettings, getEmployeeBem,
+  addBemStep, answerBem, bemInvitation, clearBemNotes, bemReminders, completeBem, deleteBem, deleteBemStep, getBemSettings, getEmployeeBem,
   setBemSent, setBemSettings, startBem, updateBemStep, type BemScope,
 } from '../../server/services/bem'
 import { categoryHasData } from '../../server/services/employeeDeletion'
@@ -80,6 +80,7 @@ describe('counting sick working days', () => {
   it('starts afresh after a declined or completed BEM', () => {
     sickOverSixWeeks(anna)
     const id = startBem(db, leitung, scope, anna)
+    setBemSent(db, scope, id, '2026-10-01', TODAY)
     answerBem(db, scope, id, 'declined', '2026-10-09', TODAY)
     expect(getEmployeeBem(db, scope, anna, TODAY).sickDays).toMatchObject({ days: 1, from: '2026-10-10', restartAfter: '2026-10-09' })
   })
@@ -91,11 +92,12 @@ describe('the reminder „BEM anbieten“', () => {
     enter(ben, '2026-08-31', '2026-10-09')
     expect(bemReminders(db, viewerOf(leitung), TODAY)).toEqual([{
       kind: 'bem', date: TODAY, state: 'today', name: 'Anna Muster', childId: null, age: null, ownChild: false, canDone: false,
-      time: null, meetingKind: null, count: 31, bem: { employeeId: anna, days: 31, limit: 30 },
+      time: null, meetingKind: null, count: 31, bem: { employeeId: anna, days: 31, limit: 30, stage: 'offer' },
     }])
     const id = startBem(db, leitung, scope, anna)
     expect(remindedNames(leitung)).toEqual([])
     // Declined: counting starts afresh after it, so the reminder stays away until the days are above the limit again.
+    setBemSent(db, scope, id, '2026-10-01', TODAY)
     answerBem(db, scope, id, 'declined', '2026-10-12', TODAY)
     expect(remindedNames(leitung)).toEqual([])
   })
@@ -122,6 +124,25 @@ describe('the reminder „BEM anbieten“', () => {
     sickOverSixWeeks(anna)
     db.update(employees).set({ leftOn: '2026-11-01' }).where(eq(employees.id, anna)).run()
     expect(remindedNames(leitung)).toEqual([])
+  })
+
+  it('follows up a waiting BEM: invitation not sent after 7 days, then the answer date passed', () => {
+    const stages = (today: string) => bemReminders(db, viewerOf(leitung), today)
+      .map(item => [item.name, item.bem?.stage, item.date, item.state])
+    const id = startBem(db, leitung, scope, anna, new Date('2026-11-05T09:00:00Z'))
+    expect(stages('2026-11-11')).toEqual([])
+    expect(stages('2026-11-12')).toEqual([['Anna Muster', 'notSent', '2026-11-12', 'today']])
+    expect(stages(TODAY)).toEqual([['Anna Muster', 'notSent', '2026-11-12', 'overdue']])
+    setBemSent(db, scope, id, '2026-11-13', TODAY)
+    // Answer asked by 27.11.: reminded from 28.11. on.
+    expect(stages('2026-11-27')).toEqual([])
+    expect(stages('2026-11-28')).toEqual([['Anna Muster', 'answerDue', '2026-11-28', 'today']])
+    answerBem(db, scope, id, 'no_answer', '2026-11-27', '2026-11-28')
+    expect(stages('2026-11-28')).toEqual([])
+    // An accepted BEM is not waiting.
+    const next = startBem(db, leitung, scope, anna, new Date('2026-11-01T09:00:00Z'))
+    answerBem(db, scope, next, 'accepted', '2026-11-02', TODAY)
+    expect(stages(TODAY)).toEqual([])
   })
 })
 
@@ -171,9 +192,17 @@ describe('the BEM process', () => {
 
   it('ends with „abgelehnt“ or „keine Antwort“, and with a withdrawn consent', () => {
     const declined = startBem(db, leitung, scope, anna)
+    // Declined and no answer end the BEM and restart the counting: only after a documented offer.
+    expect(errorCode(() => answerBem(db, scope, declined, 'declined', '2026-11-03', TODAY))).toBe('bem_not_sent')
+    expect(errorCode(() => answerBem(db, scope, declined, 'no_answer', '2026-11-03', TODAY))).toBe('bem_not_sent')
+    setBemSent(db, scope, declined, '2026-11-01', TODAY)
     answerBem(db, scope, declined, 'declined', '2026-11-03', TODAY)
     const silent = startBem(db, leitung, scope, anna)
+    setBemSent(db, scope, silent, '2026-10-27', TODAY)
+    // „Keine Antwort“ only from the day the answer was asked by (27.10. + 14 days).
+    expect(errorCode(() => answerBem(db, scope, silent, 'no_answer', '2026-11-09', TODAY))).toBe('bem_answer_too_early')
     answerBem(db, scope, silent, 'no_answer', '2026-11-10', TODAY)
+    // An oral acceptance before the letter is fine.
     const withdrawn = startBem(db, leitung, scope, anna)
     answerBem(db, scope, withdrawn, 'accepted', '2026-11-12', TODAY)
     expect(errorCode(() => answerBem(db, scope, withdrawn, 'declined', '2026-11-11', TODAY))).toBe('bem_date_order')
@@ -195,6 +224,41 @@ describe('the BEM process', () => {
     deleteBem(db, scope, id)
     expect(db.select().from(bemProcesses).all()).toEqual([])
     expect(db.select().from(bemSteps).all()).toEqual([])
+    // Once the invitation is sent, the offer is the evidence: no deleting.
+    const sent = startBem(db, leitung, scope, anna)
+    setBemSent(db, scope, sent, '2026-11-16', TODAY)
+    expect(errorCode(() => deleteBem(db, scope, sent))).toBe('bem_already_sent')
+  })
+
+  it('takes talks and measures only after „angenommen“; a note also before', () => {
+    const id = startBem(db, leitung, scope, anna)
+    const input = { date: TODAY, participants: '', text: 'Inhalt', status: null }
+    expect(errorCode(() => addBemStep(db, scope, id, 'meeting', input))).toBe('bem_not_accepted')
+    expect(errorCode(() => addBemStep(db, scope, id, 'measure', input))).toBe('bem_not_accepted')
+    expect(errorCode(() => addBemStep(db, scope, id, 'note', input))).toBeNull()
+    answerBem(db, scope, id, 'accepted', TODAY, TODAY)
+    expect(errorCode(() => addBemStep(db, scope, id, 'meeting', input))).toBeNull()
+  })
+
+  it('clears the texts of talks and measures after a withdrawn consent, keeping dates and status', () => {
+    const id = startBem(db, leitung, scope, anna)
+    answerBem(db, scope, id, 'accepted', '2026-11-02', TODAY)
+    const meeting = addBemStep(db, scope, id, 'meeting', { date: '2026-11-05', participants: 'Betriebsarzt', text: 'Rücken', status: null })
+    const measure = addBemStep(db, scope, id, 'measure', { date: '2026-11-06', participants: '', text: 'Stehpult', status: 'done' })
+    const note = addBemStep(db, scope, id, 'note', { date: '2026-11-07', participants: '', text: 'Termin verschoben', status: null })
+    expect(errorCode(() => clearBemNotes(db, scope, id))).toBe('bem_state_invalid')
+    answerBem(db, scope, id, 'declined', '2026-11-10', TODAY)
+    expect(clearBemNotes(db, scope, id)).toBe(2)
+    expect(clearBemNotes(db, scope, id)).toBe(0)
+    const [process] = getEmployeeBem(db, scope, anna, TODAY).history
+    expect(process).toMatchObject({ status: 'declined', answeredOn: '2026-11-02', completedOn: '2026-11-10' })
+    expect(process!.steps).toEqual([
+      { id: meeting, kind: 'meeting', date: '2026-11-05', participants: '', text: '', status: null },
+      { id: measure, kind: 'measure', date: '2026-11-06', participants: '', text: '', status: 'done' },
+      { id: note, kind: 'note', date: '2026-11-07', participants: '', text: 'Termin verschoben', status: null },
+    ])
+    const hort = addFacility(db, 'Hort')
+    expect(errorCode(() => clearBemNotes(db, { facilityId: hort, ownEmployeeId: null }, id))).toBe('bem_not_found')
   })
 })
 
@@ -230,10 +294,17 @@ describe('the invitation', () => {
   })
 
   it('carries the letterhead, the employee\'s address, the date and the answer date (+14 days) in the text', () => {
+    db.update(facilities).set({ operatorName: 'Gemeinde Musterstadt', managerName: 'Maria Leitner', street: 'Kitaweg 1', postalCode: '69117', city: 'Heidelberg' })
+      .where(eq(facilities.id, 1)).run()
+    db.insert(facilityContacts).values([
+      { facilityId: 1, kind: 'phone', value: '06221 100', belongsTo: 'facility', sortOrder: 0 },
+      { facilityId: 1, kind: 'phone', value: '0171 200', belongsTo: 'leitung', sortOrder: 1 },
+    ]).run()
     const id = startBem(db, leitung, scope, anna)
     const invitation = bemInvitation(db, leitung, scope, id, TODAY)
     expect(invitation).toMatchObject({
-      facility: { name: 'Kindergarten' },
+      facility: { name: 'Kindergarten', operator: 'Gemeinde Musterstadt', street: 'Kitaweg 1', postalCode: '69117', city: 'Heidelberg', phone: '06221 100' },
+      contact: { name: 'Maria Leitner', phone: '0171 200' },
       employee: { name: 'Anna Muster', street: 'Lindenweg 3', postalCode: '69115', city: 'Heidelberg' },
       date: TODAY, answerBy: '2026-12-03',
     })
@@ -245,10 +316,17 @@ describe('the invitation', () => {
     expect(bemInvitation(db, leitung, scope, id, TODAY)).toMatchObject({ date: '2026-11-16', answerBy: '2026-11-30' })
   })
 
+  it('names whoever prints as the contact person while Kontakt has no Leitung', () => {
+    const id = startBem(db, leitung, scope, anna)
+    expect(bemInvitation(db, leitung, scope, id, TODAY)).toMatchObject({
+      facility: { operator: '', phone: '' }, contact: { name: 'Lea Leitung', phone: '' },
+    })
+  })
+
   it('leaves the address blank without the right to read personal data', () => {
     const id = startBem(db, leitung, scope, anna)
     const permissions = new Set([...leitung.permissions].filter(key => key !== 'employees.personal'))
-    expect(bemInvitation(db, { permissions }, scope, id, TODAY).employee).toEqual({ name: 'Anna Muster', street: '', postalCode: '', city: '' })
+    expect(bemInvitation(db, { ...leitung, permissions }, scope, id, TODAY).employee).toEqual({ name: 'Anna Muster', street: '', postalCode: '', city: '' })
   })
 
   it('uses the facility\'s own text and the BEM years of the retention settings', () => {
@@ -268,11 +346,12 @@ describe('retention „BEM-Unterlagen“', () => {
 
   it('lists an ended BEM of an employee still there from 3 years after its end; deleting it keeps the running one', () => {
     const done = startBem(db, leitung, scope, anna)
+    setBemSent(db, scope, done, '2026-11-02', TODAY)
     answerBem(db, scope, done, 'declined', '2026-11-03', TODAY)
     const running = startBem(db, leitung, scope, anna)
     expect(bemItems(TODAY)).toEqual([{
       key: `employee:${anna}:bem`, kind: 'employee', category: 'bem', facilityId: 1, facilityName: 'Kindergarten', name: 'Anna Muster',
-      deletableFrom: '2029-11-03', due: false,
+      deletableFrom: '2029-11-03', bem: { endedOn: '2026-11-03', employed: true }, due: false,
     }])
     expect(errorCode(() => deleteRetentionItem(db, traeger, `employee:${anna}:bem`, TODAY))).toBe('retention_not_due')
     expect(bemItems('2029-11-03')).toMatchObject([{ due: true }])
@@ -283,6 +362,7 @@ describe('retention „BEM-Unterlagen“', () => {
 
   it('follows the BEM years of the facility', () => {
     const done = startBem(db, leitung, scope, anna)
+    setBemSent(db, scope, done, '2026-10-20', TODAY)
     answerBem(db, scope, done, 'no_answer', '2026-11-03', TODAY)
     setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, bemYears: 1 })
     expect(bemItems(TODAY)).toMatchObject([{ deletableFrom: '2027-11-03' }])
@@ -293,7 +373,7 @@ describe('retention „BEM-Unterlagen“', () => {
     db.update(employees).set({ leftOn: '2026-11-10' }).where(eq(employees.id, anna)).run()
     expect(categoryHasData(db, anna).bem).toBe(true)
     const items = retentionOverview(db, TODAY).filter(item => item.name === 'Anna Muster')
-    expect(items.find(item => item.category === 'bem')).toMatchObject({ deletableFrom: '2029-11-10', due: false })
+    expect(items.find(item => item.category === 'bem')).toMatchObject({ deletableFrom: '2029-11-10', bem: { endedOn: '2026-11-10', employed: false }, due: false })
     expect(items.find(item => item.category === 'record')).toMatchObject({ due: false })
   })
 

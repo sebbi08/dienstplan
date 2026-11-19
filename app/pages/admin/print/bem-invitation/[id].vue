@@ -6,9 +6,10 @@ import { formatDate } from '~/utils/format'
 
 /**
  * The invitation to a BEM (§ 167 Abs. 2 SGB IX), A4 portrait, for Leitung and Träger (employees.sickness): the
- * facility's name and address as letterhead, the employee's name and address (blank lines when not stored or the viewer
+ * facility's name, Träger, address and phone as letterhead, the employee's name and address (blank lines when not stored or the viewer
  * may not read personal data), place and date, the facility's text (Einstellungen → Personal → BEM-Einladung) and the
- * reply slip „Ich nehme teil / Ich nehme nicht teil“ with the signature line.
+ * contact person for questions, the closing with the sender's signature line, and the reply slip „Ich nehme teil / Ich
+ * nehme nicht teil“ with the signature line.
  */
 definePageMeta({ layout: false })
 // The app-wide print rule sets A4 landscape; a letter is portrait, so its rule must win.
@@ -36,8 +37,10 @@ const label = 'pt-1 text-xs text-gray-700'
     <article v-else-if="data" class="space-y-6 text-[15px] leading-relaxed">
       <header class="text-right text-sm">
         <p class="font-semibold">{{ data.facility.name }}</p>
+        <p v-if="data.facility.operator">{{ t.operator(data.facility.operator) }}</p>
         <p v-if="data.facility.street">{{ data.facility.street }}</p>
         <p v-if="data.facility.postalCode || data.facility.city">{{ cityLine(data.facility.postalCode, data.facility.city) }}</p>
+        <p v-if="data.facility.phone">{{ t.phone(data.facility.phone) }}</p>
       </header>
 
       <div class="min-h-28 w-72">
@@ -56,6 +59,14 @@ const label = 'pt-1 text-xs text-gray-700'
       <p class="text-right">{{ t.date(data.facility.city, formatDate(data.date)) }}</p>
       <h1 class="text-lg font-bold">{{ t.title }}</h1>
       <p v-for="(paragraph, index) in paragraphs" :key="index" class="whitespace-pre-line">{{ paragraph }}</p>
+      <p>{{ t.contact(data.contact.name, data.contact.phone) }}</p>
+      <div class="break-inside-avoid">
+        <p>{{ t.closing }}</p>
+        <div class="w-72 pt-12">
+          <p :class="line" />
+          <p :class="label">{{ t.senderSignature(data.contact.name) }}</p>
+        </div>
+      </div>
 
       <section class="break-inside-avoid space-y-4 border-t-2 border-dashed border-gray-400 pt-6">
         <h2 class="font-bold">{{ t.reply }}</h2>

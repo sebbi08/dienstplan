@@ -68,14 +68,26 @@ describe('process states', () => {
 describe('the invitation text', () => {
   it('covers occasion, aim, voluntariness, participants, data protection and the answer date', () => {
     for (const part of ['§ 167 Abs. 2 SGB IX', 'sechs Wochen', 'freiwillig', 'keine Nachteile', 'jederzeit widerrufen',
-      'Betriebsarzt', 'Personalvertretung', 'Schwerbehindertenvertretung', 'Zustimmung', 'getrennt von der Personalakte',
-      '‹Antwort bis›', '‹Jahre›']) {
+      'Betriebsärztin oder der Betriebsarzt', 'Personalvertretung', 'Schwerbehindertenvertretung', 'Zustimmung',
+      'getrennt von der Personalakte', '‹Antwort bis›', '‹Jahre›', 'Rehabilitationsträger', 'Integrationsamt']) {
       expect(BEM_DEFAULT_INVITATION_TEXT, part).toContain(part)
     }
   })
-  it('fills in the name, the answer date and the years until deletion', () => {
-    expect(fillBemInvitationText('Hallo ‹Name›, bis ‹Antwort bis›; Löschung ‹Jahre› Jahre', {
-      name: 'Anna Muster', answerBy: '2026-12-03', years: 3,
-    })).toBe('Hallo Anna Muster, bis 03.12.2026; Löschung 3 Jahre')
+  it('names the kind and extent of the data, who sees it, and the Vertrauensperson (§ 167 Abs. 2 Sätze 2 und 4 SGB IX)', () => {
+    for (const part of ['Welche Daten:', 'Zahl Ihrer Fehltage', 'Gesprächsnotizen', 'vereinbarten Maßnahmen',
+      'Eine Diagnose müssen Sie nicht nennen', 'wenn Sie sie uns selbst mitteilen möchten', 'Wer die Daten sieht:',
+      'die das BEM durchführen (die Leitung und der Träger)', 'Vertrauensperson Ihrer Wahl', '§ 167 Abs. 2 Satz 2 SGB IX']) {
+      expect(BEM_DEFAULT_INVITATION_TEXT, part).toContain(part)
+    }
+  })
+  it('fills in the name, the answer date and the years until deletion with their unit', () => {
+    const values = { name: 'Anna Muster', answerBy: '2026-12-03', years: 3 }
+    expect(fillBemInvitationText('Hallo ‹Name›, bis ‹Antwort bis›; Löschung ‹Jahre› nach Abschluss', values))
+      .toBe('Hallo Anna Muster, bis 03.12.2026; Löschung 3 Jahre nach Abschluss')
+    expect(fillBemInvitationText('Löschung ‹Jahre› nach Abschluss', { ...values, years: 1 })).toBe('Löschung 1 Jahr nach Abschluss')
+    // A text that writes the unit itself.
+    expect(fillBemInvitationText('‹Jahre› Jahre / nach ‹Jahre› Jahren', values)).toBe('3 Jahre / nach 3 Jahren')
+    expect(fillBemInvitationText('‹Jahre› Jahre / nach ‹Jahre› Jahren', { ...values, years: 1 })).toBe('1 Jahr / nach 1 Jahr')
+    expect(fillBemInvitationText(BEM_DEFAULT_INVITATION_TEXT, values)).toContain('3 Jahre nach Abschluss des BEM')
   })
 })

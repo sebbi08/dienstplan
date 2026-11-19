@@ -792,7 +792,7 @@ export const teamMeetingSignSchema = z.object({ employeeId: z.number().int().opt
 export const childFormEditorsSchema = z.object({ employeeIds: z.array(z.number().int()).max(500) })
 
 // BEM (§ 167 Abs. 2 SGB IX): the lengths again in the service (trimmed), the order of the days there as well.
-export const bemSentSchema = z.object({ invitedOn: isoDate.nullable() })
+export const bemSentSchema = z.object({ invitedOn: isoDate })
 export const bemAnswerSchema = z.object({ answer: z.enum(BEM_ANSWERS), date: isoDate })
 export const bemCompleteSchema = z.object({ date: isoDate })
 export const bemStepSchema = z.object({

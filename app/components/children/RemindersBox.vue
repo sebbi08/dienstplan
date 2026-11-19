@@ -86,9 +86,12 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
       return entry.offlineStamp
         ? offlineHintParts({ reason: entry.offlineStamp.reason, date: entry.date, minutes: entry.time ?? 0 })
         : { before: '', after: '' }
-    // „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“.
+    // „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“, or a
+    // running BEM that waits (invitation not sent, answer date passed).
     case 'bem':
-      return r.bem(entry.bem?.days ?? entry.count ?? 0)
+      return entry.bem?.stage === 'notSent'
+        ? r.bemNotSent()
+        : entry.bem?.stage === 'answerDue' ? r.bemAnswerDue() : r.bem(entry.bem?.days ?? entry.count ?? 0)
   }
 }
 

@@ -30,6 +30,7 @@
   "bem-steps/[id].put.ts": ["provider","admin"],
   "bem/[id].delete.ts": ["provider","admin"],
   "bem/[id]/answer.put.ts": ["provider","admin"],
+  "bem/[id]/clear-notes.post.ts": ["provider","admin"],
   "bem/[id]/complete.put.ts": ["provider","admin"],
   "bem/[id]/invitation.get.ts": ["provider","admin"],
   "bem/[id]/sent.put.ts": ["provider","admin"],

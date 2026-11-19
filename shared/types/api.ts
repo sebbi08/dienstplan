@@ -414,7 +414,11 @@ export interface ReminderDto {
   /** For a cluster (§ 34 Abs. 6 Satz 2): the disease, how many children and the days of the window. */
   ifsgCluster?: { disease: string; diseaseName: string; count: number; from: IsoDate; to: IsoDate }
   /** For a BEM to offer (Leitung/Träger with employees.sickness): the employee, the sick working days and the limit. */
-  bem?: { employeeId: number; days: number; limit: number }
+  bem?: {
+    employeeId: number; days: number; limit: number
+    /** `offer`: a BEM to offer; `notSent`: started 7 days ago, invitation not sent yet; `answerDue`: the answer date has passed. */
+    stage: 'offer' | 'notSent' | 'answerDue'
+  }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -791,6 +795,11 @@ export interface RetentionItemDto {
   /** The employee's name, the child's first and last name, the cash box's name. */
   name: string
   deletableFrom: IsoDate | null
+  /**
+   * Only for „BEM-Unterlagen“: the end of the BEM the date counts from (for a running BEM of someone who left: the
+   * leaving day) and whether the person is still employed (not left before today), for the label.
+   */
+  bem?: { endedOn: IsoDate; employed: boolean }
   /** May be deleted today. */
   due: boolean
 }
@@ -3448,7 +3457,10 @@ export interface EmployeeBemDto {
 
 /** The invitation to print: the facility's letterhead, the employee's name and address, the letter's date and text. */
 export interface BemInvitationDto {
-  facility: { name: string; street: string; postalCode: string; city: string }
+  /** The letterhead from Kontakt: name, Träger (the employer), address, phone ('' when not set). */
+  facility: { name: string; operator: string; street: string; postalCode: string; city: string; phone: string }
+  /** Contact person for questions and sender: the Leitung from Kontakt, otherwise whoever prints; the phone for questions. */
+  contact: { name: string; phone: string }
   /** The address only when stored and the viewer may read personal data (employees.personal); '' otherwise. */
   employee: { name: string; street: string; postalCode: string; city: string }
   /** The letter's date: „Verschickt am“ when entered, otherwise today. */

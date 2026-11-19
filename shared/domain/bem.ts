@@ -77,8 +77,10 @@ export function bemSickLevel(days: number, limit: number): 'ok' | 'warn' | 'over
 
 /**
  * The invitation's text when the facility has not set its own (the server cannot read app/locales/de.ts, so it lives
- * here). Placeholders: ‹Name› (the employee), ‹Antwort bis› (the letter's date plus 14 days), ‹Jahre› (the retention
- * period of the BEM records in years).
+ * here). It gives what § 167 Abs. 2 SGB IX asks to point out before a BEM: aim, voluntariness, the kind and extent of the
+ * data collected and used and who sees it, the Vertrauensperson of one's own choice, the possible participants (only
+ * with consent). Placeholders: ‹Name› (the employee), ‹Antwort bis› (the letter's date plus 14 days), ‹Jahre› (the
+ * retention period of the BEM records with its unit, „3 Jahre“ / „1 Jahr“).
  */
 export const BEM_DEFAULT_INVITATION_TEXT = [
   'Guten Tag ‹Name›,',
@@ -88,10 +90,18 @@ export const BEM_DEFAULT_INVITATION_TEXT = [
   + 'Arbeitsunfähigkeit vorgebeugt werden kann und wie Ihr Arbeitsplatz erhalten bleibt.',
   'Die Teilnahme ist freiwillig. Wenn Sie das Angebot ablehnen, hat das für Sie keine Nachteile. Ihre Zustimmung können '
   + 'Sie jederzeit widerrufen.',
-  'Auf Ihren Wunsch und nur mit Ihrer Zustimmung können weitere Stellen beteiligt werden, zum Beispiel der Betriebsarzt, '
-  + 'die Personalvertretung und – bei Schwerbehinderung oder Gleichstellung – die Schwerbehindertenvertretung.',
-  'Datenschutz: Gesundheitsdaten, die wir im BEM erfahren, verwenden wir nur für das BEM. Die BEM-Unterlagen werden '
-  + 'getrennt von der Personalakte aufbewahrt und ‹Jahre› Jahre nach Abschluss des BEM gelöscht.',
+  'Sie können zusätzlich eine Vertrauensperson Ihrer Wahl hinzuziehen (§ 167 Abs. 2 Satz 2 SGB IX). Auf Ihren Wunsch und '
+  + 'nur mit Ihrer Zustimmung können weitere Stellen beteiligt werden: die Betriebsärztin oder der Betriebsarzt, die '
+  + 'Personalvertretung und – bei Schwerbehinderung oder Gleichstellung – die Schwerbehindertenvertretung. Kommen '
+  + 'Leistungen zur Teilhabe oder begleitende Hilfen im Arbeitsleben in Betracht, ziehen wir mit Ihrer Zustimmung die '
+  + 'Rehabilitationsträger bzw. das Integrationsamt hinzu.',
+  'Welche Daten: Im BEM erheben und verwenden wir nur, was dafür nötig ist – die Zahl Ihrer Fehltage, die Gesprächsnotizen '
+  + 'und die vereinbarten Maßnahmen. Eine Diagnose müssen Sie nicht nennen. Angaben zu Ihrer Gesundheit und ihren '
+  + 'Auswirkungen auf Ihre Arbeit halten wir nur fest, wenn Sie sie uns selbst mitteilen möchten.',
+  'Wer die Daten sieht: Die BEM-Unterlagen sehen nur die Personen, die das BEM durchführen (die Leitung und der Träger), '
+  + 'und nur mit Ihrer Zustimmung die Betriebsärztin oder der Betriebsarzt, die Personalvertretung und die '
+  + 'Schwerbehindertenvertretung. Wir verwenden die Daten nur für das BEM. Die BEM-Unterlagen werden getrennt von der '
+  + 'Personalakte aufbewahrt und ‹Jahre› nach Abschluss des BEM gelöscht.',
   'Bitte teilen Sie uns bis zum ‹Antwort bis› mit, ob Sie am BEM teilnehmen möchten. Sie können dafür den Abschnitt '
   + 'unten verwenden.',
 ].join('\n\n')
@@ -101,10 +111,19 @@ function germanDate(iso: IsoDate): string {
   return `${day}.${month}.${year}`
 }
 
-/** The text with the placeholders filled in. */
+/**
+ * The text with the placeholders filled in. ‹Jahre› becomes the period with its unit („3 Jahre“, „1 Jahr“); a text that
+ * still writes the unit itself („‹Jahre› Jahre“, „nach ‹Jahre› Jahren“) gets the right form as well.
+ */
 export function fillBemInvitationText(template: string, values: { name: string; answerBy: IsoDate; years: number }): string {
+  const one = values.years === 1
   return template
     .replaceAll('‹Name›', values.name)
     .replaceAll('‹Antwort bis›', germanDate(values.answerBy))
-    .replaceAll('‹Jahre›', String(values.years))
+    .replaceAll('‹Jahre› Jahren', one ? '1 Jahr' : `${values.years} Jahren`)
+    .replaceAll('‹Jahre› Jahre', one ? '1 Jahr' : `${values.years} Jahre`)
+    .replaceAll('‹Jahre›', one ? '1 Jahr' : `${values.years} Jahre`)
 }
+
+/** A BEM still invited without „Verschickt am“ is reminded this many days after it was started. */
+export const BEM_SEND_REMINDER_DAYS = 7

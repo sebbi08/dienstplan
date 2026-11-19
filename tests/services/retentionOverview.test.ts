@@ -86,7 +86,7 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     const name = facilityName(1)
     expect(items).toEqual<RetentionItemDto[]>([
       { key: `employee:${tina}:immediate`, kind: 'employee', category: 'immediate', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2026-03-16', due: true },
-      { key: `employee:${tina}:bem`, kind: 'employee', category: 'bem', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2028-05-04', due: false },
+      { key: `employee:${tina}:bem`, kind: 'employee', category: 'bem', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2028-05-04', bem: { endedOn: '2025-05-04', employed: false }, due: false },
       { key: `employee:${tina}:time`, kind: 'employee', category: 'time', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2029-01-01', due: false },
       { key: `employee:${tina}:assessment`, kind: 'employee', category: 'assessment', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2030-01-01', due: false },
       { key: `employee:${tina}:record`, kind: 'employee', category: 'record', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: null, due: false },

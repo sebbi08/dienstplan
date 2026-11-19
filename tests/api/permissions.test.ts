@@ -620,8 +620,8 @@ describe('API route permissions', () => {
     const touching = routes.filter(route => /(^|\/)bem/.test(route) || source(route).includes('services/bem\''))
     expect(touching).toEqual([
       'bem-settings.get.ts', 'bem-settings.put.ts', 'bem-steps/[id].delete.ts', 'bem-steps/[id].put.ts', 'bem/[id].delete.ts',
-      'bem/[id]/answer.put.ts', 'bem/[id]/complete.put.ts', 'bem/[id]/invitation.get.ts', 'bem/[id]/sent.put.ts',
-      'bem/[id]/steps.post.ts', 'employees/[id]/bem.get.ts', 'employees/[id]/bem.post.ts',
+      'bem/[id]/answer.put.ts', 'bem/[id]/clear-notes.post.ts', 'bem/[id]/complete.put.ts', 'bem/[id]/invitation.get.ts',
+      'bem/[id]/sent.put.ts', 'bem/[id]/steps.post.ts', 'employees/[id]/bem.get.ts', 'employees/[id]/bem.post.ts',
     ])
     for (const route of touching) {
       const code = source(route)

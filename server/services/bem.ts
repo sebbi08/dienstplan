@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm'
 import {
-  BEM_DEFAULT_INVITATION_TEXT, BEM_LIMITS, bemAnswerBy, bemEndDate, bemLimit, bemWindow, countBemSickDays, fillBemInvitationText,
-  isBemOpen, type BemAnswer, type BemMeasureStatus, type BemStepKind,
+  BEM_DEFAULT_INVITATION_TEXT, BEM_LIMITS, BEM_SEND_REMINDER_DAYS, bemAnswerBy, bemEndDate, bemLimit, bemWindow, countBemSickDays,
+  fillBemInvitationText, isBemOpen, type BemAnswer, type BemMeasureStatus, type BemStepKind,
 } from '../../shared/domain/bem'
 import { addDays } from '../../shared/domain/dates'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
@@ -14,6 +14,7 @@ import type {
 import type { Db } from '../db/client'
 import { bemProcesses, bemSteps, employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { facilityContactData } from './facilityContact'
 import { actorName } from './formTemplates'
 import { loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 import { getRetentionSettings } from './retentionSettings'
@@ -162,17 +163,23 @@ function transition(db: Db, process: ProcessRow, from: ProcessRow['status'][], v
   if (result.changes !== 1) throw new ServiceError(409, 'bem_state_invalid')
 }
 
-/** „Verschickt am“ (null clears it): only while no answer is entered (409 bem_state_invalid); not after today. */
-export function setBemSent(db: Db, scope: BemScope, id: number, invitedOn: IsoDate | null, today: IsoDate, now: Date = new Date()): void {
+/**
+ * „Verschickt am“ (changing it is fine, clearing it is not: the offer is the evidence): only while no answer is entered
+ * (409 bem_state_invalid); not after today.
+ */
+export function setBemSent(db: Db, scope: BemScope, id: number, invitedOn: IsoDate, today: IsoDate, now: Date = new Date()): void {
   const process = loadProcess(db, scope, id)
-  if (invitedOn !== null) assertNotFuture(invitedOn, today)
+  assertNotFuture(invitedOn, today)
   transition(db, process, ['invited'], { invitedOn }, now)
 }
 
 /**
- * The answer, dated (not after today, not before the letter was sent): „angenommen“ while invited; „abgelehnt“ while
- * invited, or later while accepted (the consent withdrawn: the day of the answer stays); „keine Antwort“ while invited.
- * Declined and no answer end the process on that day (the status is kept as evidence). 409 bem_state_invalid otherwise.
+ * The answer, dated (not after today, not before the letter was sent): „angenommen“ while invited (also an oral
+ * acceptance before the letter); „abgelehnt“ while invited, or later while accepted (the consent withdrawn: the day of
+ * the answer stays); „keine Antwort“ while invited. Declined and no answer end the process on that day (the status is
+ * kept as evidence) and restart the counting, so they need a documented offer: „Verschickt am“ first (409 bem_not_sent),
+ * and „keine Antwort“ only from the day the answer was asked by (400 bem_answer_too_early). 409 bem_state_invalid
+ * otherwise.
  */
 export function answerBem(
   db: Db, scope: BemScope, id: number, answer: BemAnswer, date: IsoDate, today: IsoDate, now: Date = new Date(),
@@ -185,6 +192,11 @@ export function answerBem(
     assertNotBefore(date, process.answeredOn)
     return transition(db, process, ['accepted'], { status: 'declined', completedOn: date }, now)
   }
+  if (process.status !== 'invited') throw new ServiceError(409, 'bem_state_invalid')
+  if (process.invitedOn === null) throw new ServiceError(409, 'bem_not_sent')
+  if (answer === 'no_answer' && date < bemAnswerBy(process.invitedOn)) {
+    throw new ServiceError(400, 'bem_answer_too_early', { answerBy: bemAnswerBy(process.invitedOn) })
+  }
   transition(db, process, ['invited'], { status: answer, answeredOn: date, completedOn: date }, now)
 }
 
@@ -196,11 +208,15 @@ export function completeBem(db: Db, scope: BemScope, id: number, date: IsoDate, 
   transition(db, process, ['accepted'], { status: 'completed', completedOn: date }, now)
 }
 
-/** Deletes a process started by mistake: only while nothing is answered (409 bem_state_invalid), with its steps. */
+/**
+ * Deletes a process started by mistake, with its steps: only while nothing is answered (409 bem_state_invalid) and the
+ * invitation has not been sent (409 bem_already_sent: that offer is the evidence; enter the answer instead).
+ */
 export function deleteBem(db: Db, scope: BemScope, id: number): void {
   const process = loadProcess(db, scope, id)
   if (process.status !== 'invited') throw new ServiceError(409, 'bem_state_invalid')
-  db.delete(bemProcesses).where(and(eq(bemProcesses.id, id), eq(bemProcesses.status, 'invited'))).run()
+  if (process.invitedOn !== null) throw new ServiceError(409, 'bem_already_sent')
+  db.delete(bemProcesses).where(and(eq(bemProcesses.id, id), eq(bemProcesses.status, 'invited'), isNull(bemProcesses.invitedOn))).run()
 }
 
 export interface BemStepInput {
@@ -226,12 +242,16 @@ function assertOpen(process: ProcessRow): void {
   if (!isBemOpen(process.status)) throw new ServiceError(409, 'bem_closed')
 }
 
-/** Adds a talk, measure or note to a running process; returns its id. */
+/**
+ * Adds a talk, measure or note to a running process; returns its id. Talks and measures (health contents) only once the
+ * employee has accepted (409 bem_not_accepted); a note also while invited (e.g. a phone call about the letter).
+ */
 export function addBemStep(
   db: Db, scope: BemScope, processId: number, kind: BemStepKind, input: BemStepInput, now: Date = new Date(),
 ): number {
   const process = loadProcess(db, scope, processId)
   assertOpen(process)
+  if (kind !== 'note' && process.status !== 'accepted') throw new ServiceError(409, 'bem_not_accepted')
   const at = now.toISOString()
   return db.insert(bemSteps).values({ processId, kind, ...checkedStep(kind, input), createdAt: at, updatedAt: at })
     .returning({ id: bemSteps.id }).get().id
@@ -249,6 +269,21 @@ export function deleteBemStep(db: Db, scope: BemScope, stepId: number): void {
   const { process } = loadStep(db, scope, stepId)
   assertOpen(process)
   db.delete(bemSteps).where(eq(bemSteps.id, stepId)).run()
+}
+
+/**
+ * „Gesprächsnotizen löschen“ after the consent was withdrawn (or the BEM declined): the participants and texts of its
+ * talks and measures are cleared, their dates and the measures' status stay, as do the process's dates and status (the
+ * evidence of the offer and its end). Only for a declined process (409 bem_state_invalid). Answers the steps cleared.
+ */
+export function clearBemNotes(db: Db, scope: BemScope, id: number, now: Date = new Date()): number {
+  const process = loadProcess(db, scope, id)
+  if (process.status !== 'declined') throw new ServiceError(409, 'bem_state_invalid')
+  return db.update(bemSteps).set({ participants: '', text: '', updatedAt: now.toISOString() })
+    .where(and(
+      eq(bemSteps.processId, id), inArray(bemSteps.kind, ['meeting', 'measure']),
+      or(ne(bemSteps.participants, ''), ne(bemSteps.text, '')),
+    )).run().changes
 }
 
 // ---- the invitation ---------------------------------------------------------
@@ -276,24 +311,28 @@ export function setBemSettings(db: Db, facilityId: number, input: { text: string
 }
 
 /**
- * The invitation of a process to print: the facility's name and address as letterhead, the employee's name, and their
- * address only when stored and the viewer may read personal data (employees.personal; otherwise blank lines), the
- * letter's date („Verschickt am“, otherwise today), the answer date (+14 days) and the facility's text filled in.
+ * The invitation of a process to print: the facility's name, Träger, address and phone as letterhead (Kontakt), the
+ * employee's name, and their address only when stored and the viewer may read personal data (employees.personal;
+ * otherwise blank lines), the letter's date („Verschickt am“, otherwise today), the answer date (+14 days), the
+ * facility's text filled in, and the contact person for questions and the sender: the Leitung as entered in Kontakt,
+ * otherwise whoever prints, with the facility's phone.
  */
-export function bemInvitation(
-  db: Db, viewer: { permissions: ReadonlySet<PermissionKey> }, scope: BemScope, id: number, today: IsoDate,
-): BemInvitationDto {
+export function bemInvitation(db: Db, viewer: SessionUser, scope: BemScope, id: number, today: IsoDate): BemInvitationDto {
   const process = loadProcess(db, scope, id)
   const person = db.select({ name: employees.name, street: employees.street, postalCode: employees.postalCode, city: employees.city })
     .from(employees).where(eq(employees.id, process.employeeId)).get()!
-  const facility = db.select({ name: facilities.name, street: facilities.street, postalCode: facilities.postalCode, city: facilities.city })
-    .from(facilities).where(eq(facilities.id, scope.facilityId)).get()!
+  const contact = facilityContactData(db, scope.facilityId)
+  if (!contact) throw new ServiceError(404, 'facility_not_found')
   const address = can(viewer.permissions, 'employees.personal')
   const date = process.invitedOn ?? today
   const answerBy = bemAnswerBy(date)
   const template = invitationTemplate(db, scope.facilityId) ?? BEM_DEFAULT_INVITATION_TEXT
   return {
-    facility,
+    facility: {
+      name: contact.name, operator: contact.operator, street: contact.street, postalCode: contact.postalCode, city: contact.city,
+      phone: contact.phone,
+    },
+    contact: { name: contact.manager || actorName(db, viewer), phone: contact.managerPhones[0] ?? contact.phone },
     employee: {
       name: person.name, street: address ? person.street ?? '' : '', postalCode: address ? person.postalCode ?? '' : '',
       city: address ? person.city ?? '' : '',
@@ -308,7 +347,9 @@ export function bemInvitation(
 /**
  * The box „Erinnerungen“: for whoever has employees.sickness in the office (not at the tablet), one entry per employee
  * of the facility employed today, not the viewer themselves, without a running BEM, whose sick working days are above
- * the limit (more than 6 weeks within the counted window). It goes once a BEM is started (or the days drop below).
+ * the limit (more than 6 weeks within the counted window; stage `offer`). It goes once a BEM is started (or the days
+ * drop below). A running BEM still invited comes back while it waits: `notSent` from 7 days after it was started without
+ * „Verschickt am“, `answerDue` from the day after the answer date without an answer entered (both overdue after their day).
  */
 export function bemReminders(
   db: Db, viewer: { facilityId: number; permissions: ReadonlySet<PermissionKey>; onTablet: boolean; employeeId: number | null },
@@ -321,20 +362,36 @@ export function bemReminders(
   const processes = processesOf(db, staff.map(employee => employee.id))
   const sickDates = sickDatesByEmployee(db, viewer.facilityId, addDays(today, -364), today)
   const items: ReminderDto[] = []
+  const push = (employee: EmployeeRecord, stage: NonNullable<ReminderDto['bem']>['stage'], date: IsoDate, days: number, limit: number) =>
+    items.push({
+      kind: 'bem', date, state: date < today ? 'overdue' : 'today', name: employee.name, childId: null, age: null,
+      ownChild: false, canDone: false, time: null, meetingKind: null, count: days, bem: { employeeId: employee.id, days, limit, stage },
+    })
   for (const employee of staff) {
     const own = processes.filter(process => process.employeeId === employee.id)
-    if (own.some(process => isBemOpen(process.status))) continue
     const { days, limit } = sickDaysOf(employee, sickDates.get(employee.id) ?? [], lastEnd(own), today)
-    if (days <= limit) continue
-    items.push({
-      kind: 'bem', date: today, state: 'today', name: employee.name, childId: null, age: null, ownChild: false, canDone: false,
-      time: null, meetingKind: null, count: days, bem: { employeeId: employee.id, days, limit },
-    })
+    const open = own.find(process => isBemOpen(process.status))
+    if (!open) {
+      if (days > limit) push(employee, 'offer', today, days, limit)
+      continue
+    }
+    // A running BEM that waits: the invitation not sent a week after starting, or no answer entered after the answer date.
+    if (open.status !== 'invited') continue
+    if (open.invitedOn === null) {
+      const due = addDays(open.createdAt.slice(0, 10), BEM_SEND_REMINDER_DAYS)
+      if (due <= today) push(employee, 'notSent', due, days, limit)
+    }
+    else if (bemAnswerBy(open.invitedOn) < today) push(employee, 'answerDue', addDays(bemAnswerBy(open.invitedOn), 1), days, limit)
   }
   return items
 }
 
 // ---- retention ----------------------------------------------------------------
+
+/** The day the retention of a process counts from: its end, or for a running one of someone who left, the leaving day. */
+function retentionStart(process: Pick<ProcessRow, 'status' | 'completedOn'>, leftOn: IsoDate | null, today: IsoDate): IsoDate | null {
+  return bemEndDate(process) ?? (leftOn !== null && leftOn < today ? leftOn : null)
+}
 
 /**
  * The day a process may be deleted: its end (completed, declined, no answer) plus the BEM years; a running process of
@@ -343,16 +400,20 @@ export function bemReminders(
 export function bemDeletableFrom(
   process: Pick<ProcessRow, 'status' | 'completedOn'>, leftOn: IsoDate | null, today: IsoDate, years: number,
 ): IsoDate | null {
-  const end = bemEndDate(process) ?? (leftOn !== null && leftOn < today ? leftOn : null)
+  const end = retentionStart(process, leftOn, today)
   return end === null ? null : addMonths(end, years * 12)
 }
 
-/** The deletable days of the employee's processes (those with an end), earliest first. */
-export function bemDeletableDates(db: Db, employeeId: number, leftOn: IsoDate | null, today: IsoDate, years: number): IsoDate[] {
+/** The employee's processes with an end: the day each counts from and may be deleted from, earliest first. */
+export function bemDeletableDates(
+  db: Db, employeeId: number, leftOn: IsoDate | null, today: IsoDate, years: number,
+): { endedOn: IsoDate; from: IsoDate }[] {
   return processesOf(db, [employeeId])
-    .map(process => bemDeletableFrom(process, leftOn, today, years))
-    .filter((date): date is IsoDate => date !== null)
-    .sort()
+    .flatMap((process) => {
+      const endedOn = retentionStart(process, leftOn, today)
+      return endedOn === null ? [] : [{ endedOn, from: addMonths(endedOn, years * 12) }]
+    })
+    .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0))
 }
 
 /** The employees (any facility) with at least one BEM process. */

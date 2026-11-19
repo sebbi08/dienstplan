@@ -39,7 +39,7 @@ describe('retention settings', () => {
     const invalid = [
       { ...valid, timeYears: 0 }, { ...valid, assessmentYears: 41 }, { ...valid, paidOvertimeYears: 2.5 },
       { ...valid, pensionYears: '30' }, { ...valid, cashYears: 31 }, { ...valid, employeeDelete: 'everyone' },
-      { ...valid, timeYears: undefined }, { ...valid, bemYears: 0 }, { ...valid, bemYears: undefined }, null, [], 'x',
+      { ...valid, timeYears: undefined }, { ...valid, bemYears: 0 }, { ...valid, bemYears: '3' }, null, [], 'x',
     ]
     for (const input of invalid) {
       expect(errorCode(() => setRetentionSettings(db, 1, input)), JSON.stringify(input)).toBe('retention_settings_invalid')
@@ -54,6 +54,13 @@ describe('retention settings', () => {
     // The limits themselves are allowed.
     expect(setRetentionSettings(db, 1, { ...valid, timeYears: 1, assessmentYears: 40, cashYears: 30 }))
       .toMatchObject({ timeYears: 1, assessmentYears: 40, cashYears: 30 })
+  })
+
+  it('keeps the stored BEM years when a body from before the BEM leaves them out', () => {
+    setRetentionSettings(db, 1, valid)
+    const { bemYears: _left, ...old } = valid
+    expect(setRetentionSettings(db, 1, { ...old, timeYears: 6 })).toEqual({ ...valid, timeYears: 6 })
+    expect(getRetentionSettings(db, 1)).toMatchObject({ timeYears: 6, bemYears: 4 })
   })
 
   it('answers 404 for a facility that does not exist', () => {

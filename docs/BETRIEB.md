@@ -1097,7 +1097,8 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
   **Mehr → Löschfristen** etwas aus irgendeiner Einrichtung löschbar ist; der Text führt dorthin (Abschnitt 15).
 - **BEM anbieten** (wer das Recht für die Krankheitstage hat, also Leitung und Träger; nicht am Tablet, nie über sich
   selbst): „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“
-  mit „zum BEM“, solange kein BEM läuft (Abschnitt 21, „BEM“).
+  mit „zum BEM“, solange kein BEM läuft; dazu „BEM-Einladung für ‹Name› noch nicht verschickt“ und „BEM ‹Name›:
+  Antwortfrist abgelaufen – Antwort eintragen“, solange ein BEM wartet (Abschnitt 21, „BEM“).
 
 Ist die aufschließende Person als Bezugserzieher des Kindes eingetragen, steht beim Eintrag **„dein Kind“**. Der
 Name eines Kindes führt zu seiner Akte.
@@ -1519,32 +1520,51 @@ Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
   Tage **nach** diesem Ende.
 - **Erinnerung** im Kasten „Erinnerungen“: „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank
   (mehr als 6 Wochen, § 167 SGB IX)“ mit „zum BEM“. Sie kommt, solange die Grenze überschritten ist und kein BEM läuft,
-  und nur für Personen, die heute beschäftigt sind.
+  und nur für Personen, die heute beschäftigt sind. Läuft ein BEM, erinnert die App, solange es wartet:
+  „BEM-Einladung für ‹Name› noch nicht verschickt“ (7 Tage nach „BEM einleiten“ ohne „Verschickt am“) und
+  „BEM ‹Name›: Antwortfrist abgelaufen – Antwort eintragen“ (ab dem Tag nach dem Antwortdatum, solange keine Antwort
+  eingetragen ist).
 - **Mitarbeiter-Seite, Reiter „Nachweise“, Abschnitt „BEM“:** oben „Krankheitstage letzte 12 Monate: ‹n› von ‹Grenze›“
   (gelb ab 80 %, rot darüber). Darunter:
   - **„BEM einleiten“** legt ein BEM an (Stand „eingeladen“). **„Einladung drucken“** öffnet den Brief (A4 hoch, Drucken
-    oder PDF): Briefkopf mit Name und Anschrift der Einrichtung (*Einstellungen → Einrichtung → Kontakt*), Name und
-    Anschrift der Person (nur wenn gespeichert und wer druckt „Anschrift und Kontakt“ sehen darf, sonst leere Zeilen),
-    Ort und Datum, der Text und ein Rückantwort-Abschnitt („Ich nehme teil / Ich nehme nicht teil“, Unterschrift). Das
-    Datum des Briefs ist „Verschickt am“, solange das nicht eingetragen ist der heutige Tag; die Antwort wird bis 14 Tage
-    danach erbeten.
-  - **„Verschickt am“** und die **Antwort** (angenommen / abgelehnt / keine Antwort, mit Datum). Abgelehnt und keine
-    Antwort beenden das BEM; es bleibt als Nachweis mit seinem Stand in der Liste.
-  - Nach „angenommen“: **Gespräche** (Datum, Beteiligte, Notizen), **Maßnahmen** (Datum, Text, geplant / umgesetzt /
-    verworfen) und **Notizen**; **„Abschließen“** mit Datum. „Zustimmung widerrufen“ beendet das BEM als „abgelehnt“.
-  - Ein versehentlich eingeleitetes BEM lässt sich löschen, solange noch keine Antwort eingetragen ist.
+    oder PDF): Briefkopf mit Name, Träger, Anschrift und Telefon der Einrichtung (*Einstellungen → Einrichtung →
+    Kontakt*), Name und Anschrift der Person (nur wenn gespeichert und wer druckt „Anschrift und Kontakt“ sehen darf,
+    sonst leere Zeilen), Ort und Datum, der Text, eine Ansprechperson für Fragen mit Telefon (die Leitung aus Kontakt,
+    sonst wer druckt), Grußformel mit Unterschriftszeile und ein Rückantwort-Abschnitt („Ich nehme teil / Ich nehme
+    nicht teil“, Unterschrift). Das Datum des Briefs ist „Verschickt am“, solange das nicht eingetragen ist der heutige
+    Tag; die Antwort wird bis 14 Tage danach erbeten.
+  - **„Verschickt am“**, danach die **Antwort** (angenommen / abgelehnt / keine Antwort, mit Datum). Abgelehnt und keine
+    Antwort beenden das BEM; es bleibt als Nachweis mit seinem Stand in der Liste. Weil danach neu gezählt wird, gehen
+    beide nur, wenn das Angebot belegt ist: erst „Verschickt am“, und „keine Antwort“ erst ab dem Antwortdatum. Eine
+    (mündliche) Zustimmung lässt der Server auch vorher zu.
+  - Vor der Zustimmung nur **Notizen** (keine Gesundheitsdaten); nach „angenommen“ auch **Gespräche** (Datum, Beteiligte,
+    Notizen) und **Maßnahmen** (Datum, Text, geplant / umgesetzt / verworfen); **„Abschließen“** mit Datum.
+    „Zustimmung widerrufen“ (mit „Widerrufen am“) beendet das BEM als „abgelehnt“.
+  - Nach einem Widerruf bzw. einer Ablehnung bietet das frühere BEM **„Gesprächsnotizen löschen“** an (mit Rückfrage):
+    Beteiligte und Texte der Gespräche und Maßnahmen werden gelöscht, Daten, Stand der Maßnahmen und das BEM selbst
+    (Einladung, Antwort, Ende) bleiben als Nachweis.
+  - Ein versehentlich eingeleitetes BEM lässt sich löschen, solange die Einladung nicht verschickt ist. Danach ist das
+    Angebot der Nachweis: dann bitte die Antwort eintragen (z. B. „keine Antwort“ nach Ablauf der Frist).
   - **Frühere BEM** stehen darunter, nur zum Lesen.
 - **Text der Einladung:** *Einstellungen → Personal → BEM-Einladung (Text)* (Leitung und Träger, je Einrichtung).
-  Vorbelegt mit Anlass, Ziel, Freiwilligkeit (keine Nachteile, jederzeit widerrufbar), möglichen Beteiligten
-  (Betriebsarzt, Personalvertretung, Schwerbehindertenvertretung – nur mit Zustimmung), Datenschutz und der Antwortbitte.
-  Platzhalter: ‹Name›, ‹Antwort bis› und ‹Jahre› (die Löschfrist der BEM-Unterlagen). Leer = Standardtext. Bitte den Text
-  vor dem ersten Einsatz mit Personalvertretung bzw. Datenschutz abstimmen.
+  Vorbelegt mit allem, worauf § 167 Abs. 2 SGB IX vorher hinzuweisen verlangt: Anlass, Ziel, Freiwilligkeit (jederzeit
+  widerrufbar), Vertrauensperson eigener Wahl (Satz 2), mögliche Beteiligte (Betriebsärztin oder Betriebsarzt,
+  Personalvertretung, Schwerbehindertenvertretung, Rehabilitationsträger bzw. Integrationsamt – nur mit Zustimmung),
+  **Art und Umfang der Daten** (Zahl der Fehltage, Gesprächsnotizen, Maßnahmen; keine Diagnose nötig; Angaben zur
+  Gesundheit nur, wenn die Person sie selbst mitteilen möchte), **wer sie sieht** (nur Leitung und Träger, mit Zustimmung
+  die genannten Stellen), getrennte Aufbewahrung, Löschung und die Antwortbitte. Fehlen diese Hinweise, gilt das Angebot
+  vor Gericht als nicht ordnungsgemäß (BAG 20.11.2014 – 2 AZR 755/13) – ein eigener Text muss sie also behalten.
+  Platzhalter: ‹Name›, ‹Antwort bis› und ‹Jahre› (die Löschfrist der BEM-Unterlagen mit Einheit, z. B. „3 Jahre“ oder
+  „1 Jahr“). Leer = Standardtext. Bitte den Text vor dem ersten Einsatz mit Personalvertretung bzw. Datenschutz
+  abstimmen – auch den Satz „Ablehnung hat keine Nachteile“: Eine Ablehnung kann bei einer späteren krankheitsbedingten
+  Kündigung trotzdem eine Rolle spielen.
 - **Löschen:** Kategorie **„BEM-Unterlagen“** (voreingestellt 3 Jahre, *Einstellungen → Personal → Löschfristen*), ab
   dem Ende jedes BEM, auch bei Mitarbeitern, die noch da sind; ein laufendes BEM einer ausgeschiedenen Person zählt ab
-  dem Austritt. Die Zeile „‹Name› – BEM-Unterlagen“ steht unter **Mehr → Löschfristen**; gelöscht werden dabei nur die
-  BEM, deren Frist abgelaufen ist (ein laufendes bleibt). Nichts wird automatisch gelöscht. Der Mitarbeiter-Eintrag einer
-  ausgeschiedenen Person wird erst löschbar, wenn auch ihre BEM-Unterlagen gelöscht sind. „Endgültig löschen“ löscht
-  alle BEM der Person mit.
+  dem Austritt. Die Zeile „‹Name› – BEM-Unterlagen (BEM beendet am ‹Datum› – Person noch beschäftigt)“ steht unter
+  **Mehr → Löschfristen**; gelöscht werden dabei nur die BEM, deren Frist abgelaufen ist (ein laufendes bleibt). Nichts
+  wird automatisch gelöscht. Der Mitarbeiter-Eintrag einer ausgeschiedenen Person wird erst löschbar, wenn auch ihre
+  BEM-Unterlagen gelöscht sind. „Endgültig löschen“ löscht alle BEM der Person mit. Eine Löschfristen-Seite, die vor dem
+  Update geöffnet war, speichert ohne die BEM-Jahre – dann bleiben die gespeicherten.
 - Ein BEM zieht mit der Person in eine andere Einrichtung um (es gehört zur Person, nicht zur Einrichtung).
 
 **Datenbank (Migration 0092):** neue Tabellen „bem_processes“ und „bem_steps“ (gehen mit der Person), die Spalte

@@ -99,7 +99,8 @@ function bemItem(db: Db, employee: { id: number; name: string; facilityId: numbe
   if (first === undefined) return null
   return {
     key: `employee:${employee.id}:bem`, kind: 'employee', category: 'bem', facilityId: employee.facilityId,
-    facilityName: ctx.facilityName(employee.facilityId), name: employee.name, deletableFrom: first, due: first <= ctx.today,
+    facilityName: ctx.facilityName(employee.facilityId), name: employee.name, deletableFrom: first.from,
+    bem: { endedOn: first.endedOn, employed: employee.leftOn === null || employee.leftOn >= ctx.today }, due: first.from <= ctx.today,
   }
 }
 
