@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { CodeDto, TemplateDto, WeekTemplateEntryDto, WeekTemplateStaffDto } from '../../shared/types/api'
+import type { CodeDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateEntryDto, WeekTemplateStaffDto } from '../../shared/types/api'
 import { TEMPLATE_WEEKDAYS } from '../../shared/domain/weekTemplates'
 import {
   clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, previewDayCount, removeTemplateEntry, staffInScope,
-  templateDayKind, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  templateCoverage, templateDayKind, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
   type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
@@ -225,5 +225,53 @@ describe('Saturday and Sunday in the week template editor', () => {
     expect(previewDayCount(template(['F1', '', '', '', '', '', '']))).toBe(5)
     expect(previewDayCount(template(['F1', '', '', '', '', '', 'S']))).toBe(7)
     expect(previewDayCount({ ...template([]), rows: [] })).toBe(5)
+  })
+})
+
+describe('the coverage warnings of the editor (as the plan warns)', () => {
+  const open = { open: 390, close: 1020, closed: false }
+  const closed = { open: null, close: null, closed: true }
+  const coverage: WeekTemplateCoverageDto = {
+    rules: [{ id: 3, label: 'Spätdienst 16:00–17:00', start: 960, end: 1020, minCount: 1, weekdays: 4 }],
+    hours: {
+      facility: { days: [open, open, open, open, closed], minAtOpening: 1, minAtClosing: 1 },
+      groups: [{ groupId: 7, groupName: 'Bären', hours: { days: [open, open, open, open, closed], minAtOpening: 1, minAtClosing: 1 } }],
+    },
+  }
+  const anna7 = person(1, 'Anna', 39 * 60, 0b0011111, 7)
+  const berta8 = person(2, 'Berta', 30 * 60, 0b0011111, 8)
+  const allDay = (employeeId: number, weekday: number) =>
+    draftTemplateEntry({ kind: 'special', start: 390, end: 1020 }, { employeeId, weekday }, context, -(employeeId * 10 + weekday))!
+
+  it('lists per weekday what is missing in the plan\'s words, live from the draft, Friday closed', () => {
+    const entries = [0, 1, 2, 3].map(day => allDay(2, day))
+    expect(templateCoverage(entries, [anna7, berta8], null, coverage)).toEqual([
+      { weekday: 0, text: 'Mo: Bären – 6:30 Öffnung: niemand eingeplant' },
+      { weekday: 0, text: 'Mo: Bären – 17:00 Schließung: niemand eingeplant' },
+      { weekday: 1, text: 'Di: Bären – 6:30 Öffnung: niemand eingeplant' },
+      { weekday: 1, text: 'Di: Bären – 17:00 Schließung: niemand eingeplant' },
+      { weekday: 2, text: 'Mi: Spätdienst 16:00–17:00: 0× eingetragen (1 benötigt)' },
+      { weekday: 2, text: 'Mi: Bären – 6:30 Öffnung: niemand eingeplant' },
+      { weekday: 2, text: 'Mi: Bären – 17:00 Schließung: niemand eingeplant' },
+      { weekday: 3, text: 'Do: Bären – 6:30 Öffnung: niemand eingeplant' },
+      { weekday: 3, text: 'Do: Bären – 17:00 Schließung: niemand eingeplant' },
+    ])
+    const covered = [...[0, 1, 2, 3].map(day => allDay(1, day)), ...entries,
+      draftTemplateEntry({ kind: 'special', start: 960, end: 1020 }, { employeeId: 1, weekday: 2 }, context, -99)!]
+    // Anna's whole days overlap the late duty, but the check counts what is entered (the cell rule is the editor's own).
+    expect(templateCoverage(covered, [anna7, berta8], null, coverage)).toEqual([])
+  })
+
+  it('counts only the people shown, and nothing without the coverage data', () => {
+    const entries = [0, 1, 2, 3].map(day => allDay(1, day))
+    expect(templateCoverage(entries, [berta8], null, coverage).filter(item => item.weekday === 0)).toHaveLength(4)
+    expect(templateCoverage(entries, [anna7], null, null)).toEqual([])
+  })
+
+  it('gives a group template only its group\'s warnings', () => {
+    const groupCoverage = { ...coverage, rules: [...coverage.rules, { id: 4, label: 'Früh', start: 390, end: null, minCount: 1, groupId: 8, groupName: 'Mäuse' }] }
+    const result = templateCoverage([], [anna7], 7, groupCoverage)
+    expect(result.every(item => item.text.includes('Bären'))).toBe(true)
+    expect(result).toHaveLength(8)
   })
 })

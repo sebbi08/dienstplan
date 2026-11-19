@@ -25,7 +25,7 @@ import type { TemplateVisibility } from '../domain/templateCategories'
 import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, PayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
-import type { Warning } from '../domain/warnings'
+import type { CoverageRule, DayHoursContext, Warning } from '../domain/warnings'
 
 export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 'violet', 'orange'] as const
 export type ColorKey = typeof COLOR_KEYS[number]
@@ -1897,6 +1897,15 @@ export interface WeekTemplateStaffDto {
   weeklyMinutes: number | null
   /** Working days of that contract (bitmask, bit 0 = Monday). */
   workdays: number
+}
+
+/**
+ * What the week template editor checks a template against, as the plan's warnings do: the active Pflichtdienste (a
+ * group rule with its group's name) and the opening hours (the facility's, and those of groups with own hours).
+ */
+export interface WeekTemplateCoverageDto {
+  rules: CoverageRule[]
+  hours: DayHoursContext
 }
 
 export interface WeekTemplateApplyResult {

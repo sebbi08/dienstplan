@@ -135,20 +135,22 @@ function edgeWarnings(
   return warnings
 }
 
-/**
- * Warnings of one day of a facility's plan; `holidays` are the plan facility's rules (a person's own days: their info).
- * `hours` are the opening hours: a closed weekday suppresses the coverage rules, entered ones add the edge warnings.
- */
-export function dayWarnings(
-  date: IsoDate, employees: EmployeeDay[], rules: CoverageRule[], isClosureDay: boolean, holidays: HolidayRules,
-  hours: DayHoursContext = NO_HOURS,
-): Warning[] {
-  if (!isCheckedDay(date, isClosureDay, holidays)) return []
-  const warnings: Warning[] = []
-  // Effective group of a duty: its own group, otherwise the employee's home group (helpers have none here).
-  const allEntries = employees.flatMap(employee => employee.entries
-    .map(entry => ({ entry, groupId: entry.groupId ?? employee.groupId })))
+/** A duty of a day with its effective group: its own group, otherwise the employee's home group (null = none). */
+export interface CoverageDuty {
+  entry: DomainEntry
+  groupId: number | null
+}
 
+/**
+ * The coverage warnings of one day: the Pflichtdienste (coverage rules on their weekdays; a closed weekday suppresses
+ * them) and the staff at opening / until closing of the entered opening hours (the facility's and each group's own).
+ * No holiday or closure logic: the plan calls it from dayWarnings on its checked days, the week template editor for
+ * each weekday of a template (templateCoverageWarnings), so both count exactly alike.
+ */
+export function coverageWarnings(
+  date: IsoDate, allEntries: CoverageDuty[], rules: CoverageRule[], hours: DayHoursContext = NO_HOURS,
+): Warning[] {
+  const warnings: Warning[] = []
   const facilityDay = hoursOn(hours.facility, date)
   for (const rule of rules) {
     if (!ruleAppliesOn(rule.weekdays ?? ALL_WEEKDAYS, date)) continue
@@ -174,6 +176,22 @@ export function dayWarnings(
   for (const group of hours.groups) {
     warnings.push(...edgeWarnings(date, group.hours, allEntries.filter(item => item.groupId === group.groupId), group))
   }
+  return warnings
+}
+
+/**
+ * Warnings of one day of a facility's plan; `holidays` are the plan facility's rules (a person's own days: their info).
+ * `hours` are the opening hours: a closed weekday suppresses the coverage rules, entered ones add the edge warnings.
+ */
+export function dayWarnings(
+  date: IsoDate, employees: EmployeeDay[], rules: CoverageRule[], isClosureDay: boolean, holidays: HolidayRules,
+  hours: DayHoursContext = NO_HOURS,
+): Warning[] {
+  if (!isCheckedDay(date, isClosureDay, holidays)) return []
+  // Effective group of a duty: its own group, otherwise the employee's home group (helpers have none here).
+  const allEntries = employees.flatMap(employee => employee.entries
+    .map(entry => ({ entry, groupId: entry.groupId ?? employee.groupId })))
+  const warnings = coverageWarnings(date, allEntries, rules, hours)
 
   for (const { employeeId, info, entries, coverageOnly, busyElsewhere } of employees) {
     if (coverageOnly || busyElsewhere) continue

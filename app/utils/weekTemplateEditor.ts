@@ -1,13 +1,17 @@
 import { dayCredit, isFullDayTimed } from '#shared/domain/balance'
 import { describeEntry } from '#shared/domain/describe'
 import { workdayCount, worksOnWeekday } from '#shared/domain/targets'
-import { isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '#shared/domain/weekTemplates'
+import {
+  isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict, templateCoverageWarnings,
+} from '#shared/domain/weekTemplates'
 import type {
-  CodeDto, EntryInput, TemplateDto, WeekTemplateDto, WeekTemplateEntryDto, WeekTemplateEntryInput, WeekTemplateStaffDto,
+  CodeDto, EntryInput, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDto, WeekTemplateEntryDto, WeekTemplateEntryInput,
+  WeekTemplateStaffDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { entryApplyMode } from './applyMode'
 import { templateCellMessage } from './errors'
+import { warningText } from './warnings'
 
 /**
  * The week template editor's rules, pure so a test can load them: the entries live in the page until „Speichern“ sends
@@ -205,6 +209,22 @@ export function templateWeekdays(): string[] {
 export function templateDayKind(person: WeekTemplateStaffDto, weekday: number): 'workday' | 'weekend' | 'day_off' {
   if (templateWeekdayTarget(person, weekday) > 0) return 'workday'
   return isTemplateWeekend(weekday) ? 'weekend' : 'day_off'
+}
+
+/**
+ * The coverage warnings of the template, live from the draft: the plan's checks (templateCoverageWarnings, the same
+ * implementation as the plan's dayWarnings) over the entries of the people shown (what „Speichern“ keeps), each duty
+ * for the person's home group; in the plan's words with the weekday first („Mo: Bären – 6:30 Öffnung: niemand
+ * eingeplant“). None while the coverage data is not loaded.
+ */
+export function templateCoverage(
+  entries: WeekTemplateEntryDto[], columns: WeekTemplateStaffDto[], groupId: number | null, coverage: WeekTemplateCoverageDto | null,
+): { weekday: number; text: string }[] {
+  if (!coverage) return []
+  const homeGroups = new Map(columns.map(person => [person.id, person.groupId]))
+  const shown = entries.filter(entry => homeGroups.has(entry.employeeId))
+  return templateCoverageWarnings(shown, id => homeGroups.get(id) ?? null, coverage.rules, coverage.hours, groupId)
+    .map(({ weekday, warning }) => ({ weekday, text: de.weekTemplates.editor.coverageLine(de.weekdaysShort[weekday]!, warningText(warning, new Map())) }))
 }
 
 /** The days a template's preview shows: Monday to Friday, Saturday and Sunday too when it has something there. */

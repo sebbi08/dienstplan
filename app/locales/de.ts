@@ -863,6 +863,10 @@ export const de = {
       noStaff: 'Für diese Auswahl gibt es keine Mitarbeiter.',
       /** Entries of people not (or no longer) in the chosen „Für“, e.g. „Clara, Ben: 3 Einträge werden beim Speichern entfernt …“. */
       hiddenEntries: (names: string, count: number) => `${names}: ${count === 1 ? '1 Eintrag wird' : `${count} Einträge werden`} beim Speichern entfernt (nicht in dieser Auswahl bzw. nicht mehr in der Einrichtung).`,
+      /** A coverage warning of the template in the plan's words, the weekday first: „Mo: 6:30 Öffnung: niemand eingeplant“. */
+      coverageLine: (day: string, text: string) => `${day}: ${text}`,
+      coverageTitle: 'Besetzung laut Pflichtdiensten und Öffnungszeiten',
+      coverageHint: 'Geprüft wie im Dienstplan, ohne Feiertage und Schließzeiten. Homeoffice und Arzt zählen nicht. Speichern geht trotzdem.',
     },
     saveWeek: 'Als Vorlage speichern', applyWeek: 'Vorlage einsetzen',
     saveTitle: (from: string, to: string) => `Woche ${from} – ${to} als Vorlage speichern`,

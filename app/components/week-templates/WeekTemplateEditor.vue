@@ -3,14 +3,15 @@ import { cellFillColor } from '#shared/domain/cells'
 import { formatDuration } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type {
-  CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateDetailDto, WeekTemplateEntryDto, WeekTemplateStaffDto,
+  CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateEntryDto,
+  WeekTemplateStaffDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { gridStep, quickEntryHandlers, rovingStop, touchTapAsToggle } from '~/utils/quickEntry'
 import {
-  clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateDayKind,
-  templateEntryInputs, templateWeekdays, templateWeeklyMinutes, type TemplateCell,
+  clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateCoverage,
+  templateDayKind, templateEntryInputs, templateWeekdays, templateWeeklyMinutes, type TemplateCell,
 } from '~/utils/weekTemplateEditor'
 
 /**
@@ -25,6 +26,8 @@ const props = defineProps<{
   templates: TemplateDto[]
   codes: CodeDto[]
   groups: GroupDto[]
+  /** Pflichtdienste and opening hours for the coverage warnings (null: not loaded, no warnings). */
+  coverage?: WeekTemplateCoverageDto | null
 }>()
 const emit = defineEmits<{ done: [] }>()
 const toast = useToast()
@@ -146,6 +149,10 @@ function onRemove(id: number) {
   else entries.value = result.entries
 }
 
+/** What the template leaves uncovered (Pflichtdienste, opening/closing), live from the draft; saving is never blocked. */
+const coverageWarnings = computed(() => templateCoverage(entries.value, columns.value, form.groupId, props.coverage ?? null))
+const coverageOf = (weekday: number) => coverageWarnings.value.filter(item => item.weekday === weekday).map(item => item.text).join('\n')
+
 /** The weekly hours each person shown gets from the template, with the contract hours when known. */
 const hours = computed(() => columns.value.map(person => ({
   id: person.id, name: person.name, planned: templateWeeklyMinutes(entries.value, person), contract: person.weeklyMinutes,
@@ -200,7 +207,17 @@ async function save() {
           </thead>
           <tbody>
             <tr v-for="(day, weekday) in weekdays" :key="day">
-              <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">{{ day }}</td>
+              <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">
+                <span class="inline-flex items-center gap-1">
+                  {{ day }}
+                  <UTooltip v-if="coverageOf(weekday)" :text="coverageOf(weekday)">
+                    <UIcon
+                      name="i-lucide-triangle-alert" class="size-3.5 shrink-0 text-amber-600" role="img"
+                      :aria-label="coverageOf(weekday)"
+                    />
+                  </UTooltip>
+                </span>
+              </td>
               <td
                 v-for="person in columns" :key="person.id"
                 class="cursor-pointer border border-gray-200 px-1 py-1 align-top [-webkit-touch-callout:none] hover:bg-sky-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600"
@@ -226,6 +243,16 @@ async function save() {
           </tbody>
         </table>
       </div>
+
+      <section v-if="coverageWarnings.length" class="space-y-2 rounded-lg bg-amber-50 p-4 ring-1 ring-amber-200" aria-live="polite">
+        <h3 class="flex items-center gap-1 text-sm font-semibold text-amber-800">
+          <UIcon name="i-lucide-triangle-alert" class="size-4" aria-hidden="true" /> {{ e.coverageTitle }}
+        </h3>
+        <ul class="space-y-0.5 text-sm text-amber-900">
+          <li v-for="(item, index) in coverageWarnings" :key="index">{{ item.text }}</li>
+        </ul>
+        <p class="text-xs text-amber-800">{{ e.coverageHint }}</p>
+      </section>
 
       <section v-if="hours.length" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
         <h3 class="text-sm font-semibold">{{ e.hours }}</h3>

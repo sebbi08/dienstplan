@@ -344,7 +344,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(425)
+    expect(routes).toHaveLength(426)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 
@@ -370,6 +370,8 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
       'tablet:admin', 'tablet:group_lead', 'tablet:observerEditor'])
     expect(fixture['children/archive.get.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin'])
     expect(fixture['employees/index.get.ts']).toEqual(['provider', 'admin'])
+    // The week template editor's coverage check needs the right of the template editor itself (plan.edit).
+    expect(fixture['week-templates/coverage.get.ts']).toEqual(fixture['week-templates/staff.get.ts'])
     // „Schließzeiten nachtragen“ and „Stundenkonto ab“ need the right of the weekly hours (time.manage), as those do.
     for (const route of ['employees/[id]/book-closures.post.ts', 'employees/[id]/balance-from.put.ts']) {
       expect(fixture[route], route).toEqual(fixture['employees/[id]/hours.post.ts'])

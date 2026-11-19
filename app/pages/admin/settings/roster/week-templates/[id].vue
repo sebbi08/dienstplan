@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SettingsDto, WeekTemplateDetailDto, WeekTemplateStaffDto } from '#shared/types/api'
+import type { SettingsDto, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateStaffDto } from '#shared/types/api'
 import WeekTemplateEditor from '~/components/week-templates/WeekTemplateEditor.vue'
 import { de } from '~/locales/de'
 import { areaPath, sectionAnchor } from '~/utils/settingsAreas'
@@ -15,6 +15,8 @@ if (!isNew && !(Number.isInteger(id) && id > 0)) throw createError({ statusCode:
 const back = `${areaPath('roster')}#${sectionAnchor('week-templates')}`
 
 const { data: staff } = await useFetch<WeekTemplateStaffDto[]>('/api/week-templates/staff')
+// Pflichtdienste and opening hours for the editor's coverage warnings; without them the editor just shows none.
+const { data: coverage } = await useFetch<WeekTemplateCoverageDto>('/api/week-templates/coverage')
 const { data: settings } = await useFetch<SettingsDto>('/api/settings', { key: 'settings' })
 const { data: groups } = await useGroups()
 const templateFetch = isNew ? null : await useFetch<WeekTemplateDetailDto>(`/api/week-templates/${id}`)
@@ -32,7 +34,7 @@ const template = computed(() => templateFetch?.data.value ?? null)
     <WeekTemplateEditor
       v-if="staff && settings && (isNew || template)"
       :template="template" :staff="staff" :templates="settings.templates" :codes="settings.codes" :groups="groups ?? []"
-      @done="navigateTo(back)"
+      :coverage="coverage ?? null" @done="navigateTo(back)"
     />
   </div>
 </template>

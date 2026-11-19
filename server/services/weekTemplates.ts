@@ -9,8 +9,8 @@ import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import { isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '../../shared/domain/weekTemplates'
 import type {
-  ColorKey, SessionUser, WeekTemplateApplyResult, WeekTemplateDetailDto, WeekTemplateDto, WeekTemplateEntryDto,
-  WeekTemplateInput, WeekTemplateStaffDto,
+  ColorKey, SessionUser, WeekTemplateApplyResult, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateDto,
+  WeekTemplateEntryDto, WeekTemplateInput, WeekTemplateStaffDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, employees, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
@@ -18,7 +18,8 @@ import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { dayConflict, describeCellAt, resolveEntry } from './entries'
 import { assertGroup, groupNames } from './groups'
-import { closureOn, loadClosures, loadCodes, loadEmployees, loadEntries } from './queries'
+import { loadHoursContext } from './openingHours'
+import { closureOn, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries } from './queries'
 
 /** A template covers Monday to Sunday. */
 const WEEKDAYS = TEMPLATE_WEEKDAYS
@@ -141,6 +142,17 @@ export function weekTemplateStaff(db: Db, facilityId: number, today: IsoDate): W
         weeklyMinutes: period?.weeklyMinutes ?? null, workdays: period?.workdays ?? MONDAY_TO_FRIDAY,
       }
     })
+}
+
+/**
+ * What the editor checks a template against, loaded as the plan's warnings load it (plan.ts): the facility's active
+ * Pflichtdienste, a group rule with its group's name, and the opening hours the warnings use (loadHoursContext).
+ */
+export function weekTemplateCoverage(db: Db, facilityId: number): WeekTemplateCoverageDto {
+  const names = groupNames(db, facilityId)
+  const rules = loadCoverageRules(db, facilityId)
+    .map(rule => rule.groupId === null ? rule : { ...rule, groupName: names[rule.groupId] ?? '' })
+  return { rules, hours: loadHoursContext(db, facilityId) }
 }
 
 /**

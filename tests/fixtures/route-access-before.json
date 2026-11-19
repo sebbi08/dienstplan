@@ -420,6 +420,7 @@
   "week-templates/[id].put.ts": ["provider","admin"],
   "week-templates/[id]/apply.post.ts": ["provider","admin"],
   "week-templates/[id]/entries.put.ts": ["provider","admin"],
+  "week-templates/coverage.get.ts": ["provider","admin"],
   "week-templates/entries.post.ts": ["provider","admin"],
   "week-templates/index.get.ts": ["provider","admin"],
   "week-templates/index.post.ts": ["provider","admin"],
