@@ -198,7 +198,8 @@ const entitlementForm = reactive({ year: parseIsoDate(todayIso()).year, days: 30
  */
 function statutoryLeaveIn(year: number): number | null {
   if (!employee.value || !Number.isInteger(year) || year < 2000 || year > 2100) return null
-  const days = statutoryLeaveOf(employee.value, year, hasSevereDisabilityIn(employee.value.sensitive, year)).inYear
+  const sensitive = employee.value.sensitive
+  const days = statutoryLeaveOf(employee.value, year, hasSevereDisabilityIn(sensitive, year), sensitive?.disabilityUntil ?? null).inYear
   return days > 0 ? days : null
 }
 /** The minimum per year of the saved entitlements (missing outside the employment). */

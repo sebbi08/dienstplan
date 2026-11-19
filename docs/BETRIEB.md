@@ -955,7 +955,13 @@ Beim **Anlegen eines Mitarbeiters** und unter **„Urlaub & Zeiten“ → Urlaub
 zeigt die App den **gesetzlichen Mindesturlaub** nach dem Bundesurlaubsgesetz an; liegt der eingetragene Anspruch (ohne
 Übertrag) darunter, erscheint ein gelber Hinweis. Eingetragen wird nichts. Rechnung: 24 Werktage bei einer 6-Tage-Woche,
 also **24 × Arbeitstage pro Woche ÷ 6** (5 Tage → 20, 4 → 16, 3 → 12); bei **Schwerbehinderung** (nur wer die
-Personalakte-Angaben sehen darf, nicht bei „gleichgestellt“) **5 Tage je 5-Tage-Woche** mehr. Die Arbeitstage stammen
+Personalakte-Angaben sehen darf, nicht bei „gleichgestellt“ – § 151 Abs. 3 SGB IX) **5 Tage je 5-Tage-Woche** mehr.
+Endet die Schwerbehinderung im Jahr („gültig bis“), gibt es den Zusatzurlaub nur zu **1/12 je vollem Monat** der
+Schwerbehinderung im Arbeitsverhältnis, gezählt ab 1. Januar bzw. ab Eintritt bis „gültig bis“ bzw. bis zum Ausscheiden
+(§ 208 Abs. 2 SGB IX; ab einem halben Tag wird aufgerundet, ein kleinerer Rest bleibt; dieser Teil wird nicht noch
+einmal gezwölftelt). Beispiel: gültig bis 31.03., 5-Tage-Woche → 20 + 1,25 Tage. Grenze: Der **Beginn** der
+Schwerbehinderung wird nicht gespeichert – die App nimmt an, dass sie schon vor dem Jahr (bzw. seit Eintritt) bestand.
+Beginnt sie im Jahr, bitte den Anspruch selbst nachrechnen (Stand der Regel: 19.11.2026). Die Arbeitstage stammen
 aus dem Wochenstunden-Eintrag, der am 1. Januar gilt (bei Eintritt im Jahr: am Eintrittstag). Nach sechs Monaten
 Beschäftigung (Wartezeit) gilt der volle Jahresurlaub, also auch bei Eintritt bis zum 1. Juli und bei Ausscheiden nach
 erfüllter Wartezeit ab dem 1. Juli. **1/12 je vollem Beschäftigungsmonat** (gezählt ab dem Eintrittstag, z. B.

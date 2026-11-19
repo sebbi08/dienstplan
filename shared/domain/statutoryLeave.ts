@@ -19,6 +19,10 @@ import type { IsoDate } from './types'
  *   1 January (§§ 187 (2), 188 (2), (3) BGB).
  * - Rounding (§ 5 (2) BUrlG), only for such parts: a fraction of at least half a day becomes a full day, a smaller
  *   fraction stays (8,33 stays 8,33; 8,5 becomes 9). Base leave and the additional leave are rounded on their own.
+ * - Severe disability for part of the year only (§ 208 (2) SGB IX): 1/12 of the additional leave per full month of the
+ *   disability within the employment in the year, rounded the same way (at least half a day up, smaller fractions
+ *   stay); this part is not reduced again by the twelfths of the BUrlG. Only its end is stored („gültig bis“), not its
+ *   start: a disability entered is taken as existing since before the year (or since the start of the employment).
  */
 export interface StatutoryLeaveInput {
   /** Working days per week; fractions are allowed. */
@@ -29,6 +33,8 @@ export interface StatutoryLeaveInput {
   /** Last day of employment („ausgeschieden am“); null or missing = still employed. */
   employedUntil?: IsoDate | null
   severeDisability?: boolean
+  /** Last day of the severe disability („gültig bis“); null or missing = no end. */
+  severeDisabilityUntil?: IsoDate | null
 }
 
 export interface StatutoryLeave {
@@ -95,11 +101,29 @@ export function leaveInYear(perYear: number, input: Pick<StatutoryLeaveInput, 'y
   return hundredths(part(perYear, months))
 }
 
+/**
+ * The additional leave of the year: the BUrlG twelfths (`months`) while the disability lasts the whole year; when it ends
+ * during the year 1/12 per full month of it within the employment (§ 208 (2) SGB IX), counted from 1 January or the
+ * start of the employment, up to „gültig bis“ or the leaving day.
+ */
+function extraInYear(extra: number, months: number, input: StatutoryLeaveInput): number {
+  const until = input.severeDisabilityUntil ?? null
+  const yearStart = toIsoDate(input.year, 1, 1)
+  const yearEnd = toIsoDate(input.year, 12, 31)
+  if (extra === 0 || months === 0 || input.employedFrom === null) return 0
+  if (until === null || until >= yearEnd) return part(extra, months)
+  const from = input.employedFrom > yearStart ? input.employedFrom : yearStart
+  const leftOn = input.employedUntil ?? null
+  const to = leftOn !== null && leftOn < until ? leftOn : until
+  if (to < from) return 0
+  return roundPart((extra * fullEmploymentMonths(from, to)) / 12)
+}
+
 export function statutoryMinimumLeave(input: StatutoryLeaveInput): StatutoryLeave {
   const base = (24 * input.workdaysPerWeek) / 6
   const extra = input.severeDisability ? (5 * input.workdaysPerWeek) / 5 : 0
   const months = input.employedFrom === null ? 0 : countingMonths(input.year, input.employedFrom, input.employedUntil ?? null)
-  return { perYear: hundredths(base + extra), inYear: hundredths(part(base, months) + part(extra, months)) }
+  return { perYear: hundredths(base + extra), inYear: hundredths(part(base, months) + extraInYear(extra, months, input)) }
 }
 
 /** What the personnel file (employees.sensitive) says; absent when the viewer may not see it. */
@@ -123,12 +147,16 @@ export function hasSevereDisabilityIn(sensitive: DisabilityInfo | undefined | nu
 /**
  * The hint for one employee and year from the weekly-hours history: employed from the earliest „gültig ab“ until the
  * leaving day; the working days are those of the entry valid on 1 January, or on the first day for someone who joins
- * during the year (later changes in that year are not looked at).
+ * during the year (later changes in that year are not looked at). `severeDisabilityUntil` is „gültig bis“ of the
+ * personnel file (§ 208 Abs. 2 SGB IX when it ends during the year).
  */
 export function statutoryLeaveOf(
   employee: { hours: HoursPeriod[]; leftOn: IsoDate | null }, year: number, severeDisability: boolean,
+  severeDisabilityUntil: IsoDate | null = null,
 ): StatutoryLeave {
-  return statutoryMinimumLeave({ ...leaveBasis(employee, year), year, employedUntil: employee.leftOn, severeDisability })
+  return statutoryMinimumLeave({
+    ...leaveBasis(employee, year), year, employedUntil: employee.leftOn, severeDisability, severeDisabilityUntil,
+  })
 }
 
 /**

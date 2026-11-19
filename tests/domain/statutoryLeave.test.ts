@@ -84,6 +84,39 @@ describe('statutoryMinimumLeave', () => {
     // Leaving 30 June: 10 + 2.5 → 3.
     expect(statutoryMinimumLeave({ workdaysPerWeek: 5, year: 2026, employedFrom: '2019-01-01', employedUntil: '2026-06-30', severeDisability: true }).inYear).toBe(13)
   })
+
+  describe('§ 208 Abs. 2 SGB IX: the severe disability ends during the year („gültig bis“)', () => {
+    const until = (severeDisabilityUntil: string, more: Partial<Parameters<typeof statutoryMinimumLeave>[0]> = {}) =>
+      statutoryMinimumLeave({ workdaysPerWeek: 5, year: 2026, employedFrom: '2020-01-01', severeDisability: true, severeDisabilityUntil, ...more })
+
+    it('gives 1/12 of the additional leave per full month of the disability in the year', () => {
+      // 3 months: 5 × 3 / 12 = 1.25, under half a day: stays (not rounded down).
+      expect(until('2026-03-31')).toEqual({ perYear: 25, inYear: 21.25 })
+      // 6 months: 2.5 → 3 (at least half a day is rounded up).
+      expect(until('2026-06-30').inYear).toBe(23)
+      // 29 June: June is no full month → 5 months, 2.08.
+      expect(until('2026-06-29').inYear).toBeCloseTo(22.08, 2)
+      // A 4-day week: 4 × 6 / 12 = 2.
+      expect(until('2026-06-30', { workdaysPerWeek: 4 }).inYear).toBe(18)
+    })
+
+    it('keeps the full additional leave when the disability lasts the whole year, and none after it ended', () => {
+      expect(until('2026-12-31').inYear).toBe(25)
+      expect(until('2027-05-31').inYear).toBe(25)
+      expect(until('2025-12-31').inYear).toBe(20)
+    })
+
+    it('counts only the months of the disability within the employment, and does not reduce them again', () => {
+      // Joined 1 August, disability until 31 October: 3 months → 1.25; the base leave its twelfths (8.33).
+      expect(until('2026-10-31', { employedFrom: '2026-08-01' }).inYear).toBeCloseTo(9.58, 2)
+      // Disability until 31 July, joined 1 August: no month of the disability in the employment.
+      expect(until('2026-07-31', { employedFrom: '2026-08-01' }).inYear).toBeCloseTo(8.33, 2)
+      // Leaving 30 June (base 10) and the disability until 31 March: 1.25 on top, not twelfthed once more.
+      expect(until('2026-03-31', { employedFrom: '2019-01-01', employedUntil: '2026-06-30' }).inYear).toBe(11.25)
+      // Leaving 31 May, the disability until 30 September: only Jan–May count (5 months, 2.08).
+      expect(until('2026-09-30', { employedFrom: '2019-01-01', employedUntil: '2026-05-31' }).inYear).toBeCloseTo(10.42, 2)
+    })
+  })
 })
 
 describe('monthEnd and fullEmploymentMonths', () => {
@@ -143,5 +176,14 @@ describe('statutoryLeaveOf', () => {
     const leaving = { hours: [{ weeklyMinutes: 1950, validFrom: '2020-01-01' }], leftOn: '2026-03-31' }
     expect(statutoryLeaveOf(leaving, 2026, false).inYear).toBe(5)
     expect(statutoryLeaveOf(leaving, 2026, true).inYear).toBeCloseTo(6.25, 2)
+  })
+
+  it('passes the end of the severe disability on (§ 208 Abs. 2 SGB IX)', () => {
+    const employee = { hours: [{ weeklyMinutes: 1950, validFrom: '2020-01-01' }], leftOn: null }
+    expect(statutoryLeaveOf(employee, 2026, true, '2026-06-30').inYear).toBe(23)
+    expect(statutoryLeaveOf(employee, 2026, true, null).inYear).toBe(25)
+    // „gleichgestellt“: no additional leave at all (§ 151 Abs. 3 SGB IX), whatever „gültig bis“ says.
+    const equal = { disability: true, disabilityEqual: true, disabilityUntil: '2026-06-30' }
+    expect(statutoryLeaveOf(employee, 2026, hasSevereDisabilityIn(equal, 2026), equal.disabilityUntil).inYear).toBe(20)
   })
 })
