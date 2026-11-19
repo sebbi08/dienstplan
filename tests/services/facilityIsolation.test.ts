@@ -17,7 +17,7 @@ import { isMonthReleased } from '../../server/services/changeLog'
 import { createClosure, deleteClosure, listClosures } from '../../server/services/closures'
 import { createEarlyClosure, deleteEarlyClosure, listEarlyClosures, updateEarlyClosure } from '../../server/services/earlyClosures'
 import {
-  addAdjustment, addHours, createEmployee, deleteAdjustment, deleteHours, getEmployee, listEmployees, listLevelUps, moveEmployee,
+  addAdjustment, addHours, createEmployee, deleteAdjustment, deleteHours, getEmployee, listEmployees, moveEmployee,
   moveEmployeeToFacility, setContract, setEntitlement, setStampingOptions, updateEmployee,
 } from '../../server/services/employees'
 import { applyToCells, deleteEntry, setDayNote, setEntryGroup, updateEntryTimes } from '../../server/services/entries'
@@ -45,6 +45,7 @@ import {
 import { cellKey, noteKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId, makePlanner } from '../helpers/fixtures'
+import { dueLevelSteps } from '../helpers/levelSteps'
 
 const today = '2026-10-05'
 const date = '2026-10-06'
@@ -268,7 +269,7 @@ describe('facility isolation', () => {
       expect(weekTemplateNames(db, 1, '2026-10-12', '2026-10-12').size).toBe(0)
     })
 
-    it('balances, calendar, sick days, leave overview and level-ups list only the facility\'s people', () => {
+    it('balances, calendar, sick days, leave overview and level steps list only the facility\'s people', () => {
       const sick = { kind: 'code' as const, codeId: codeId(db, 'sick') }
       applyToCells(db, leitungA, 1, [{ employeeId: anna, date }], 'replace', sick)
       applyToCells(db, leitungB, facility2, [{ employeeId: kim, date }], 'replace', sick)
@@ -289,8 +290,8 @@ describe('facility isolation', () => {
       }
       setContract(db, 1, anna, contract)
       setContract(db, facility2, kim, contract)
-      expect(listLevelUps(db, 1, today, rolePermissions(db, 'provider')).map(due => due.name)).toEqual(['Anna'])
-      expect(listLevelUps(db, facility2, today, rolePermissions(db, 'provider')).map(due => due.name)).toEqual(['Kim'])
+      expect(dueLevelSteps(db, 1, today, rolePermissions(db, 'provider')).map(due => due.name)).toEqual(['Anna'])
+      expect(dueLevelSteps(db, facility2, today, rolePermissions(db, 'provider')).map(due => due.name)).toEqual(['Kim'])
     })
 
     it('calendar events stay in their facility', () => {
@@ -474,7 +475,7 @@ describe('facility isolation', () => {
       expect(getSickYear(db, fresh, 2026)).toEqual([])
       expect(getBalanceOverview(db, fresh, 2026, 10, today)).toEqual([])
       expect(getLeaveOverview(db, fresh, 2026, today)).toEqual([])
-      expect(listLevelUps(db, fresh, today, rolePermissions(db, 'provider'))).toEqual([])
+      expect(dueLevelSteps(db, fresh, today, rolePermissions(db, 'provider'))).toEqual([])
       expect(getStaffYearCalendar(db, fresh, 2026, null).employees).toEqual([])
       expect(getYearCalendar(db, fresh, 2026).employees).toEqual([])
       expect(getYearCalendar(db, fresh, 2026).events).toEqual([])

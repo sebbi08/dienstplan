@@ -59,12 +59,11 @@ const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row.account])))
 const linked = computed(() => new Set((users.value ?? []).map(account => account.employeeId).filter(id => id !== null)))
 const extrasOf = computed(() => new Map((extras.value ?? []).map(row => [row.employeeId, row])))
-// The open appointments have their own column („Pflichttermine“), so the badge „Pflichttermine offen“ is not repeated.
 const badgesOf = computed(() => new Map(split.value.active.map(employee => [employee.id, staffBadges(employee, {
-  requirementsOpen: false, hasAccount: linked.value.has(employee.id),
+  hasAccount: linked.value.has(employee.id),
 })])))
 const BADGE_COLOR: Record<StaffBadge, 'warning' | 'error' | 'neutral'> = {
-  pinMissing: 'warning', pinLocked: 'error', qualificationMissing: 'warning', requirementsOpen: 'warning', noAccess: 'neutral',
+  pinMissing: 'warning', pinLocked: 'error', qualificationMissing: 'warning', noAccess: 'neutral',
 }
 
 // Column „Nächste Stufe“: only for who may see the contract data (the server sends no level data otherwise).
@@ -279,8 +278,8 @@ const td = 'px-3 py-2'
               {{ formatNumber(leaveOf.get(employee.id)!.available) }}
             </span>
             <span v-else class="text-gray-400">–</span>
-            <div v-if="forfeitText(extrasOf.get(employee.id)?.forfeit)" class="whitespace-normal text-xs font-normal text-gray-500">
-              {{ forfeitText(extrasOf.get(employee.id)?.forfeit) }}
+            <div v-if="forfeitText(extrasOf.get(employee.id)?.forfeit, year)" class="whitespace-normal text-xs font-normal text-gray-500">
+              {{ forfeitText(extrasOf.get(employee.id)?.forfeit, year) }}
             </div>
           </td>
           <td v-if="seesLevel" :class="td">
@@ -295,13 +294,13 @@ const td = 'px-3 py-2'
             <span v-else class="text-gray-400">–</span>
           </td>
           <td :class="td">
-            <NuxtLink :to="recordsLink(employee)" class="flex flex-wrap gap-1 hover:opacity-80" :aria-label="de.employees.requirementsOpenLabel(employee.name)">
+            <NuxtLink :to="recordsLink(employee)" class="flex flex-wrap gap-1 hover:opacity-80">
               <UBadge
                 v-for="row in extrasOf.get(employee.id)?.requirements" :key="row.typeId" size="sm" variant="soft"
                 :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
               />
               <span v-if="extrasOf.get(employee.id) && !extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel">
-                {{ de.employees.requirementsOk }}
+                <span aria-hidden="true">{{ de.employees.requirementsOk }}</span><span class="sr-only">{{ de.employees.requirementsOkLabel }}</span>
               </span>
             </NuxtLink>
           </td>
@@ -349,8 +348,8 @@ const td = 'px-3 py-2'
           </span>
           <span v-if="employee.leftOn" class="text-xs">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn) }}</span>
         </div>
-        <div v-if="forfeitText(extrasOf.get(employee.id)?.forfeit)" class="text-xs text-gray-500">
-          {{ de.employees.leaveLeftShort }}: {{ forfeitText(extrasOf.get(employee.id)?.forfeit) }}
+        <div v-if="forfeitText(extrasOf.get(employee.id)?.forfeit, year)" class="text-xs text-gray-500">
+          {{ de.employees.leaveLeftShort }}: {{ forfeitText(extrasOf.get(employee.id)?.forfeit, year) }}
         </div>
         <div v-if="seesLevel && extrasOf.get(employee.id)?.level" class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="text-gray-600">{{ de.employees.nextLevel }}:</span>
@@ -363,14 +362,13 @@ const td = 'px-3 py-2'
         </div>
         <NuxtLink
           v-if="extrasOf.get(employee.id)" :to="recordsLink(employee)" class="mt-1 flex flex-wrap items-center gap-1"
-          :aria-label="de.employees.requirementsOpenLabel(employee.name)"
         >
           <span class="text-gray-600">{{ de.employees.requirementsColumn }}:</span>
           <UBadge
             v-for="row in extrasOf.get(employee.id)!.requirements" :key="row.typeId" size="sm" variant="soft"
             :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
           />
-          <span v-if="!extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel">{{ de.employees.requirementsOk }}</span>
+          <span v-if="!extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel"><span aria-hidden="true">{{ de.employees.requirementsOk }}</span><span class="sr-only">{{ de.employees.requirementsOkLabel }}</span></span>
         </NuxtLink>
         <div v-if="badgesOf.get(employee.id)?.length" class="mt-1.5 flex flex-wrap gap-1">
           <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />

@@ -295,7 +295,7 @@ describe('API route permissions', () => {
 
   it('opens the mandatory appointments to managers only, apart from the read-only own view', () => {
     const touching = routes.filter(route => /requirement|training/i.test(route) || source(route).includes('services/requirements\''))
-    expect(touching).toHaveLength(12)
+    expect(touching).toHaveLength(11)
     for (const route of touching) {
       const code = source(route)
       if (route === 'my/requirements.get.ts') {

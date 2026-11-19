@@ -35,9 +35,12 @@ export function requirementBadge(row: EmployeeListExtrasDto['requirements'][numb
   return { text: de.employees.requirementSoon(row.typeName, row.dueOn ? dueMonthYear(row.dueOn) : ''), tone: 'warning' }
 }
 
-/** The second line under „Urlaub übrig“ during the notice window (null = nothing to show). */
-export function forfeitText(forfeit: EmployeeListExtrasDto['forfeit']): string | null {
-  if (!forfeit) return null
+/**
+ * The second line under „Urlaub übrig“ during the notice window (null = nothing to show). The column follows the chosen
+ * year, the notice is about one year only: the line shows only beside that year's leave.
+ */
+export function forfeitText(forfeit: EmployeeListExtrasDto['forfeit'], selectedYear: number): string | null {
+  if (!forfeit || forfeit.year !== selectedYear) return null
   if (forfeit.status === 'read') return de.employees.forfeitRead(forfeit.readAt ? formatDateTime(forfeit.readAt).slice(0, 10) : '')
   return forfeit.status === 'open' ? de.employees.forfeitOpen : de.employees.forfeitNoAccount
 }

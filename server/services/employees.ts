@@ -7,11 +7,11 @@ import { birthYearError, disabilityDegreeError, emailError, postalCodeError } fr
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
-import { dueLevelUp, isPlausibleTrainingUntil, levelStart, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
+import { isPlausibleTrainingUntil, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   EmployeeContractDto, EmployeeContractInput, EmployeeDetailDto, EmployeeListItemDto, EmployeePersonalDto, EmployeePersonalInput,
-  EmployeeSensitiveDto, LevelUpDto, SessionUser,
+  EmployeeSensitiveDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
@@ -558,20 +558,6 @@ export function setContract(db: Db, facilityId: number, id: number, contract: Em
   const trainingUntil = contract.trainingUntil === undefined ? current.trainingUntil : contract.trainingUntil
   const recognitionYearCounts = trainingUntil !== null && (contract.recognitionYearCounts ?? current.recognitionYearCounts)
   db.update(employees).set({ ...contract, personnelNumber, jobOther, trainingUntil, recognitionYearCounts }).where(eq(employees.id, id)).run()
-}
-
-/**
- * Level steps of the facility's staff due within the notice period or overdue (level years from levelStart, so after a
- * training in the facility), for viewers who may see contract data; staff who left are skipped.
- */
-export function listLevelUps(db: Db, facilityId: number, today: IsoDate, viewer: EmployeeViewer): LevelUpDto[] {
-  if (!mayViewContract(viewer)) return []
-  return loadEmployees(db, facilityId).flatMap((employee) => {
-    if (!employee.employedSince || (employee.leftOn !== null && employee.leftOn < today)) return []
-    const since = levelStart(employee.employedSince, employee.trainingUntil, employee.recognitionYearCounts)
-    const due = dueLevelUp(since, employee.payLevel, today)
-    return due ? [{ employeeId: employee.id, name: employee.name, fromLevel: employee.payLevel!, ...due }] : []
-  })
 }
 
 /** Time tracking options of an employee, set by the Leitung: where to clock in and out, and how breaks count. */

@@ -147,13 +147,16 @@ export function markLeaveForfeitRead(db: Db, user: SessionUser, year: number, to
 }
 
 /**
- * The notice state per employee today, for the employee list: the rows of the list of the year whose notice runs today
- * (1 October until the forfeiture date); empty outside that window.
+ * The notice state per employee today, for the employee list: the year whose notice runs today (1 October until the
+ * forfeiture date) and its rows, only of people with leave left; null outside that window.
  */
-export function getLeaveForfeitStatuses(db: Db, facilityId: number, today: IsoDate): Map<number, LeaveForfeitRowDto> {
+export function getLeaveForfeitStatuses(
+  db: Db, facilityId: number, today: IsoDate,
+): { year: number; rows: Map<number, LeaveForfeitRowDto> } | null {
   const year = leaveForfeitNoticeYear(today, forfeitSetting(db, facilityId))
-  if (year === null) return new Map()
-  return new Map(getLeaveForfeitList(db, facilityId, year, today).rows.map(row => [row.employeeId, row]))
+  if (year === null) return null
+  const rows = getLeaveForfeitList(db, facilityId, year, today).rows.filter(row => row.days > 0)
+  return { year, rows: new Map(rows.map(row => [row.employeeId, row])) }
 }
 
 /**

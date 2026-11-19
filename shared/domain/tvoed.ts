@@ -45,7 +45,7 @@ export function levelBySeniority(since: IsoDate, today: IsoDate): { level: numbe
 }
 
 /**
- * The day the level years start (the `since` of levelBySeniority and dueLevelUp). Training or studies in the facility
+ * The day the level years start (the `since` of levelBySeniority and nextLevelStep). Training or studies in the facility
  * (until `trainingUntil`) give no level years: they start the day after. When the recognition year counts as level 1,
  * they start one year earlier (the first year after the training is then level 2), but never before the employment.
  * Without a training end, or with one before the employment start, they start with the employment.
@@ -83,15 +83,6 @@ export function seniority(since: IsoDate, today: IsoDate): { years: number; mont
 
 /** Days before a level step from which it is announced. */
 export const LEVEL_UP_NOTICE_DAYS = 30
-
-/**
- * The next level step of an employee at `payLevel` who started on `since`, when it is due within
- * LEVEL_UP_NOTICE_DAYS (or already overdue); null otherwise, at level 6 or without a level.
- */
-export function dueLevelUp(since: IsoDate, payLevel: number | null, today: IsoDate): { level: number; on: IsoDate } | null {
-  const next = nextLevelStep(since, payLevel)
-  return next && next.on <= addDays(today, LEVEL_UP_NOTICE_DAYS) ? next : null
-}
 
 /** The next level step after `payLevel` and the day it is reached (null at level 6 or without a level), however far away. */
 export function nextLevelStep(since: IsoDate, payLevel: number | null): { level: number; on: IsoDate } | null {

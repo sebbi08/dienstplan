@@ -113,16 +113,16 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
     })
 
     it('gives „open“ with an account and „no_account“ without one, from 1 October', () => {
-      expect(row(anna).forfeit).toEqual({ status: 'open', readAt: null })
-      expect(row(ben).forfeit).toEqual({ status: 'no_account', readAt: null })
+      expect(row(anna).forfeit).toEqual({ year: 2026, status: 'open', readAt: null })
+      expect(row(ben).forfeit).toEqual({ year: 2026, status: 'no_account', readAt: null })
     })
     it('gives „read“ with the time once the person clicked „Gelesen“', () => {
       markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
-      expect(row(anna, providerRights, '2026-11-19').forfeit).toEqual({ status: 'read', readAt: now.toISOString() })
+      expect(row(anna, providerRights, '2026-11-19').forfeit).toEqual({ year: 2026, status: 'read', readAt: now.toISOString() })
     })
     it('is null outside the window (before 1 October, after the forfeiture date)', () => {
       expect(row(anna, providerRights, '2026-09-30').forfeit).toBeNull()
-      expect(row(anna, providerRights, '2027-03-31').forfeit).toEqual({ status: 'open', readAt: null })
+      expect(row(anna, providerRights, '2027-03-31').forfeit).toEqual({ year: 2026, status: 'open', readAt: null })
       expect(row(anna, providerRights, '2027-04-01').forfeit).toBeNull()
     })
     it('is null for someone without leave left', () => {
@@ -130,6 +130,15 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
       setEntitlement(db, 1, sam, 2026, { days: 1, carriedOverDays: 0 })
       applyToCells(db, provider, 1, [{ employeeId: sam, date: '2026-08-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
       expect(row(sam).forfeit).toBeNull()
+    })
+    it('is null once the leave is used up, even when the notice was read before', () => {
+      const sam = addEmployee(db, 'Sam', { validFrom: '2020-01-01' })
+      setEntitlement(db, 1, sam, 2026, { days: 1, carriedOverDays: 0 })
+      const samUser = addUser(db, 'sam', 'observer', sam)
+      markLeaveForfeitRead(db, samUser, 2026, '2026-11-19', now)
+      expect(row(sam, providerRights, '2026-11-19').forfeit).toMatchObject({ status: 'read' })
+      applyToCells(db, provider, 1, [{ employeeId: sam, date: '2026-12-01' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+      expect(row(sam, providerRights, '2026-11-19').forfeit).toBeNull()
     })
     it('is not sent without „Urlaubsübersicht aller“ (the key is absent)', () => {
       const viewer: ReadonlySet<PermissionKey> = new Set<PermissionKey>(['employees.view'])

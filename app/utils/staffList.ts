@@ -3,22 +3,21 @@ import type { EmployeeListItemDto } from '#shared/types/api'
 import { visibleFolders } from './personnel'
 
 /** What the compact staff list flags at a person, in this order. */
-export type StaffBadge = 'pinMissing' | 'pinLocked' | 'qualificationMissing' | 'requirementsOpen' | 'noAccess'
+export type StaffBadge = 'pinMissing' | 'pinLocked' | 'qualificationMissing' | 'noAccess'
 
 /**
  * The small badges of one row of the staff list: no stamp PIN (not on the tablet), a PIN that is locked right now, no
- * qualification for the staffing ratio, mandatory appointments in the notice (overdue, missing or due soon) and no
- * account linked to the person.
+ * qualification for the staffing ratio and no account linked to the person (open mandatory appointments have their own
+ * column).
  */
 export function staffBadges(
   employee: Pick<EmployeeListItemDto, 'hasPin' | 'pinLocked' | 'qualification'>,
-  context: { requirementsOpen: boolean; hasAccount: boolean },
+  context: { hasAccount: boolean },
 ): StaffBadge[] {
   const badges: StaffBadge[] = []
   if (!employee.hasPin) badges.push('pinMissing')
   else if (employee.pinLocked) badges.push('pinLocked')
   if (employee.qualification === null) badges.push('qualificationMissing')
-  if (context.requirementsOpen) badges.push('requirementsOpen')
   if (!context.hasAccount) badges.push('noAccess')
   return badges
 }

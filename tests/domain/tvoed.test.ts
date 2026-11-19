@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueLevelUp, isPlausibleTrainingUntil, levelBySeniority, levelStart, levelStepState, nextLevelStep, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
+import { isPlausibleTrainingUntil, levelBySeniority, levelStart, levelStepState, nextLevelStep, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
 
 describe('the training end check (server and form)', () => {
   it('takes a real ISO date from 1970 up to a year after today', () => {
@@ -67,22 +67,11 @@ describe('TVöD SuE helpers', () => {
   })
 })
 
-describe('level-up notices', () => {
-  it('announces the next level from 30 days before until it is entered', () => {
-    const since = '2021-03-01' // level 4 is due on 2027-03-01 (after 1 + 2 + 3 years)
-    expect(dueLevelUp(since, 3, '2027-01-29')).toBeNull()
-    expect(dueLevelUp(since, 3, '2027-01-30')).toEqual({ level: 4, on: '2027-03-01' })
-    expect(dueLevelUp(since, 3, '2027-06-01')).toEqual({ level: 4, on: '2027-03-01' }) // overdue, still shown
-    expect(dueLevelUp(since, 4, '2027-06-01')).toBeNull() // entered: level 5 only from 2031
-    expect(dueLevelUp(since, 6, '2040-01-01')).toBeNull()
-    expect(dueLevelUp(since, null, '2027-03-01')).toBeNull()
-  })
-})
-
 describe('the next level step, however far away', () => {
   const since = '2021-03-01'
   it('names the next level and its day, nothing at the top level or without a level', () => {
-    expect(nextLevelStep(since, 3)).toEqual({ level: 4, on: '2027-03-01' })
+    expect(nextLevelStep(since, 3)).toEqual({ level: 4, on: '2027-03-01' }) // after 1 + 2 + 3 years
+    expect(nextLevelStep(since, 4)).toEqual({ level: 5, on: '2031-03-01' }) // once level 4 is entered
     expect(nextLevelStep(since, 5)).toEqual({ level: 6, on: '2036-03-01' })
     expect(nextLevelStep(since, 6)).toBeNull()
     expect(nextLevelStep(since, null)).toBeNull()

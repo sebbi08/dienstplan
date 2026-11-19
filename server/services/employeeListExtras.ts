@@ -38,10 +38,10 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
     .map((employee) => {
       const row: EmployeeListExtrasDto = { employeeId: employee.id, requirements: open.get(employee.id) ?? [] }
       if (withLevel) row.level = levelOf(employee, today)
-      if (forfeit) {
-        const status = forfeit.get(employee.id)
-        row.forfeit = status
-          ? { status: status.status === 'reopened' ? 'open' : status.status, readAt: status.readAt }
+      if (withForfeit) {
+        const status = forfeit?.rows.get(employee.id)
+        row.forfeit = forfeit && status
+          ? { year: forfeit.year, status: status.status === 'reopened' ? 'open' : status.status, readAt: status.readAt }
           : null
       }
       return row

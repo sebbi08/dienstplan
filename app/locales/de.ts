@@ -643,8 +643,6 @@ export const de = {
     groupPerson: 'Person', groupContract: 'Vertrag', groupCarryOver: 'Urlaub und Stunden zum Start',
     contractHint: 'Ab „gültig ab“ rechnet die App das Stundenkonto. Die Wochenstunden werden gleichmäßig auf die Arbeitstage verteilt.',
     carryOverHint: 'Urlaubstage = Anspruch im Jahr von „gültig ab“ (bei Eintritt im Laufe des Jahres anteilig). Resturlaub = Übertrag. Überstunden im Format h:mm, Minusstunden mit Minus davor (z. B. -3:00). Leer lassen, wenn nichts zu übernehmen ist. Vorhandene Schließzeiten werden automatisch als Urlaub eingetragen; reichen die Urlaubstage dafür nicht, werden die übrigen Tage Schließtage (kein Minus-Urlaub). Dafür müssen die Urlaubstage hier angegeben sein.',
-    /** The compact list. */
-    notices: (count: number) => (count === 0 ? 'Keine Hinweise' : count === 1 ? '1 Hinweis' : `${count} Hinweise`),
     reorder: 'Reihenfolge ändern', reorderDone: 'Fertig',
     group: 'Gruppe', balanceToday: 'Stundenkonto heute', leaveLeft: (year: number) => `Resturlaub ${year}`,
     leaveLeftShort: 'Resturlaub', badgesLabel: 'Was fehlt',
@@ -660,7 +658,6 @@ export const de = {
     requirementSoon: (kind: string, monthYear: string) => `${kind} bis ${monthYear}`,
     requirementsOk: '✓',
     requirementsOkLabel: 'Keine Pflichttermine offen',
-    requirementsOpenLabel: (name: string) => `Pflichttermine von ${name} ansehen`,
     forfeitRead: (date: string) => `Hinweis gelesen am ${date}`,
     forfeitOpen: 'Hinweis offen',
     forfeitNoAccount: 'kein Konto – schriftlich hinweisen',
@@ -669,7 +666,7 @@ export const de = {
     hoursShort: 'Std.', balanceShort: 'Konto',
     badges: {
       pinMissing: 'PIN fehlt', pinLocked: 'PIN gesperrt', qualificationMissing: 'Qualifikation fehlt',
-      requirementsOpen: 'Pflichttermine offen', noAccess: 'kein Zugang',
+      noAccess: 'kein Zugang',
     },
     listHint: (withContract: boolean) => '„Stundenkonto heute“: mit Zeiterfassung die gestempelte Zeit bis gestern, sonst der Plan bis heute. „Resturlaub“: frei verfügbare Urlaubstage im Jahr des gewählten Monats. '
       + `Alles Weitere (Monatsende, Urlaub im Detail${withContract ? ', Vertrag' : ''}) steht auf der Seite der Person.`,
@@ -890,9 +887,6 @@ export const de = {
     rowLabel: 'Vertrag',
     fixedTermUntil: 'befristet bis', fixedTermUntilHint: 'Leer bei einem unbefristeten Vertrag.',
     fixedTermShort: (date: string) => `befristet bis ${date}`,
-    levelUpTitle: 'Stufenaufstieg nach TVöD',
-    levelUp: (name: string, from: number, to: number, date: string) => `${name}: Stufe ${from} → Stufe ${to} ab ${date}`,
-    enterLevel: (level: number) => `Stufe ${level} eintragen`,
   },
   requirements: {
     title: 'Pflichttermine und Fortbildungen', kinds: 'Pflichttermine', myTitle: 'Meine Termine',
@@ -908,22 +902,6 @@ export const de = {
     trainingTitle: 'Thema', trainingTitlePlaceholder: 'z. B. Kinderschutz',
     addTraining: 'Fortbildung hinzufügen', editTraining: 'Fortbildung ändern',
     deleteTrainingConfirm: (title: string) => `Fortbildung „${title}“ löschen?`,
-    /** Notice for Leitung and Träger. */
-    noticeTitle: 'Pflichttermine der Mitarbeiter',
-    noticeGroups: { overdue: 'Überfällig', missing: 'Noch kein Eintrag', soon: 'Bald fällig' },
-    noticeCount: (title: string, count: number) => `${title} (${count})`,
-    noticeDue: (kind: string, date: string) => `${kind} (fällig am ${date})`,
-    noticeOverdue: (kind: string, date: string) => `${kind} (fällig seit ${date})`,
-    noticeMore: (count: number) => (count === 1 ? 'und 1 weitere Person' : `und ${count} weitere Personen`),
-    showAll: 'Alle anzeigen', showLess: 'Weniger anzeigen',
-    /** The one-line notice on the plan page: persons per state, no names. */
-    noticeCompactTitle: 'Pflichttermine',
-    noticeCompactParts: {
-      overdue: (count: number) => `${count} überfällig`,
-      missing: (count: number) => `${count} ohne Eintrag`,
-      soon: (count: number) => `${count} bald fällig`,
-    },
-    noticeCompactLink: 'ansehen',
     /** Settings. */
     settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vier vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen.',
     name: 'Bezeichnung', recurring: 'wiederkehrend', months: (count: number) => (count === 1 ? 'Monat' : 'Monate'), everyPrefix: 'Abstand:',

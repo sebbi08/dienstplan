@@ -9,7 +9,7 @@ import type { Role } from '../../shared/types/api'
 const person = (overrides: Partial<{ hasPin: boolean; pinLocked: boolean; qualification: 'fachkraft' | null }> = {}) => ({
   hasPin: true, pinLocked: false, qualification: 'fachkraft' as const, ...overrides,
 })
-const fine = { requirementsOpen: false, hasAccount: true }
+const fine = { hasAccount: true }
 
 describe('staffBadges', () => {
   it('shows nothing when everything is there', () => {
@@ -21,9 +21,9 @@ describe('staffBadges', () => {
     expect(staffBadges(person({ pinLocked: true }), fine)).toEqual(['pinLocked'])
   })
 
-  it('flags qualification, mandatory appointments and access in a fixed order', () => {
-    expect(staffBadges(person({ hasPin: false, qualification: null }), { requirementsOpen: true, hasAccount: false }))
-      .toEqual(['pinMissing', 'qualificationMissing', 'requirementsOpen', 'noAccess'])
+  it('flags qualification and access in a fixed order', () => {
+    expect(staffBadges(person({ hasPin: false, qualification: null }), { hasAccount: false }))
+      .toEqual(['pinMissing', 'qualificationMissing', 'noAccess'])
   })
 })
 

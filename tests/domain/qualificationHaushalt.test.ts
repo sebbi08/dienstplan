@@ -41,7 +41,7 @@ describe('qualification Haushaltskraft', () => {
 
   it('does not show "Qualifikation fehlt" once haushalt is set', () => {
     const person = { hasPin: true, pinLocked: false }
-    const context = { requirementsOpen: false, hasAccount: true }
+    const context = { hasAccount: true }
     expect(staffBadges({ ...person, qualification: 'haushalt' }, context)).not.toContain('qualificationMissing')
     expect(staffBadges({ ...person, qualification: null }, context)).toContain('qualificationMissing')
   })

@@ -1896,16 +1896,6 @@ export interface ShiftChangeResult {
   inTemplates: number
 }
 
-/** An employee's next TVöD level step that is due soon or overdue (see dueLevelUp). */
-export interface LevelUpDto {
-  employeeId: number
-  name: string
-  /** The level currently entered and the one that is due. */
-  fromLevel: number
-  level: number
-  on: IsoDate
-}
-
 /** What the employee list shows beside each person beyond the basic list (one request, rights filtered on the server). */
 export interface EmployeeListExtrasDto {
   employeeId: number
@@ -1919,10 +1909,10 @@ export interface EmployeeListExtrasDto {
   requirements: { typeId: number; typeName: string; state: DueRequirementDto['state']; dueOn: IsoDate | null }[]
   /**
    * The notice on remaining leave: only with leave.overview (otherwise the key is absent); null outside the notice
-   * window (1 October until the forfeiture date) or when the person has no leave left. `open` also covers a notice
-   * that has to be read again.
+   * window (1 October until the forfeiture date) or when the person has no leave left. `year` is the year whose
+   * leave the notice is about. `open` also covers a notice that has to be read again.
    */
-  forfeit?: { status: 'read' | 'open' | 'no_account'; readAt: string | null } | null
+  forfeit?: { year: number; status: 'read' | 'open' | 'no_account'; readAt: string | null } | null
 }
 
 /** One changed cell of an employee between two releases (texts as shown in the plan). */

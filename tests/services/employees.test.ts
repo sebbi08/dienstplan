@@ -6,11 +6,12 @@ import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
 import { setRoleBundle } from '../../server/services/rights'
 import {
-  addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees, listLevelUps,
+  addAdjustment, addHours, createEmployee, deleteHours, getEmployee, listEmployees,
   moveEmployee, setAdjustmentPaidOut, setContract, setEntitlement, updateEmployee,
 } from '../../server/services/employees'
 import type { SessionUser } from '../../shared/types/api'
 import { addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { dueLevelSteps } from '../helpers/levelSteps'
 
 const today = '2026-10-05'
 
@@ -316,13 +317,13 @@ describe('contract data: training or studies in the facility', () => {
   it('counts the level steps from the day after the training, or with the recognition year one year earlier', () => {
     // Employed during the training until 31.07.2024: level 2 from 01.08.2025, level 3 from 01.08.2027.
     setContract(db, 1, anna, { ...contract, trainingUntil: '2024-07-31' }, today)
-    expect(listLevelUps(db, 1, '2025-07-02', rolePermissions(db, 'provider'))).toEqual([]) // by employedSince level 3 was due 2024-09-01
+    expect(dueLevelSteps(db, 1, '2025-07-02', rolePermissions(db, 'provider'))).toEqual([]) // by employedSince level 3 was due 2024-09-01
     setContract(db, 1, anna, { ...contract, payLevel: 1, trainingUntil: '2024-07-31' }, today)
-    expect(listLevelUps(db, 1, '2025-07-02', rolePermissions(db, 'provider')))
+    expect(dueLevelSteps(db, 1, '2025-07-02', rolePermissions(db, 'provider')))
       .toEqual([{ employeeId: anna, name: 'Anna', fromLevel: 1, level: 2, on: '2025-08-01' }])
     // The recognition year as level 1: level 2 right after the training, level 3 on 01.08.2026 (without it 01.08.2027).
     setContract(db, 1, anna, { ...contract, trainingUntil: '2024-07-31', recognitionYearCounts: true }, today)
-    expect(listLevelUps(db, 1, '2026-07-02', rolePermissions(db, 'provider')))
+    expect(dueLevelSteps(db, 1, '2026-07-02', rolePermissions(db, 'provider')))
       .toEqual([{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-08-01' }])
   })
 })
@@ -355,12 +356,12 @@ describe('level-up notices', () => {
     setContract(db, 1, anna, { ...base, employedSince: '2023-11-01', payLevel: 2 }) // level 3 due on 2026-11-01
     setContract(db, 1, ben, { ...base, employedSince: '2023-11-01', payLevel: 3 }) // already entered
     const due = [{ employeeId: anna, name: 'Anna', fromLevel: 2, level: 3, on: '2026-11-01' }]
-    expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual(due)
-    expect(listLevelUps(db, 1, '2026-10-01', rolePermissions(db, 'provider'))).toEqual([])
-    expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'admin'))).toEqual([])
+    expect(dueLevelSteps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual(due)
+    expect(dueLevelSteps(db, 1, '2026-10-01', rolePermissions(db, 'provider'))).toEqual([])
+    expect(dueLevelSteps(db, 1, '2026-10-05', rolePermissions(db, 'admin'))).toEqual([])
     setRoleBundle(db, 'admin', 'contractView', true)
-    expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'admin'))).toEqual(due)
+    expect(dueLevelSteps(db, 1, '2026-10-05', rolePermissions(db, 'admin'))).toEqual(due)
     updateEmployee(db, 1, anna, { name: 'Anna', shortName: '', leftOn: '2026-10-04' })
-    expect(listLevelUps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual([])
+    expect(dueLevelSteps(db, 1, '2026-10-05', rolePermissions(db, 'provider'))).toEqual([])
   })
 })

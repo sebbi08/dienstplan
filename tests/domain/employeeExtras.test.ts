@@ -24,10 +24,12 @@ describe('the texts of the employee list columns', () => {
       .toEqual({ text: 'Erste-Hilfe-Kurs bis 12.2026', tone: 'warning' })
   })
   it('words the leave notice, nothing outside the window', () => {
-    expect(forfeitText(undefined)).toBeNull()
-    expect(forfeitText(null)).toBeNull()
-    expect(forfeitText({ status: 'read', readAt: '2026-11-19T10:00:00Z' })).toBe('Hinweis gelesen am 19.11.2026')
-    expect(forfeitText({ status: 'open', readAt: null })).toBe('Hinweis offen')
-    expect(forfeitText({ status: 'no_account', readAt: null })).toBe('kein Konto – schriftlich hinweisen')
+    expect(forfeitText(undefined, 2026)).toBeNull()
+    expect(forfeitText(null, 2026)).toBeNull()
+    expect(forfeitText({ year: 2026, status: 'read', readAt: '2026-11-19T10:00:00Z' }, 2026)).toBe('Hinweis gelesen am 19.11.2026')
+    expect(forfeitText({ year: 2026, status: 'open', readAt: null }, 2026)).toBe('Hinweis offen')
+    expect(forfeitText({ year: 2026, status: 'no_account', readAt: null }, 2026)).toBe('kein Konto – schriftlich hinweisen')
+    // The notice is about one year: beside another year's leave the line stays away.
+    expect(forfeitText({ year: 2026, status: 'open', readAt: null }, 2027)).toBeNull()
   })
 })
