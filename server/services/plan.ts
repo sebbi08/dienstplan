@@ -40,6 +40,7 @@ import { staffingWarnings } from './staffingReport'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
 import { loadWarningAcks } from './warningAcks'
 import { weekTemplateNames } from './weekTemplates'
+import { youthPlanWarnings } from './youthProtection'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
@@ -54,6 +55,7 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
   year: number, month: number, today: IsoDate, hours: DayHoursContext, showsChildSickEntitlement = true, showsMaternity = true,
+  showsBirthYearHint = true,
 ): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
@@ -143,6 +145,9 @@ function buildAdminData(
   // Mutterschutz (§§ 4–6 MuSchG): the hints of a case with their reason only for viewers of the case (employees.sickness),
   // everybody else „Arbeitszeitgrenze überschritten“ (pregnancy is health data).
   warnings.push(...maternityPlanWarnings(db, staff, year, month, showsMaternity))
+  // Jugendarbeitsschutz (JArbSchG) on the days a person is under 18, from the planned entries of whole weeks; „Geburtsjahr
+  // fehlt“ only for whoever can enter it (employees.personal).
+  warnings.push(...youthPlanWarnings(db, staff, year, month, dayEntriesOf, showsBirthYearHint))
 
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
@@ -321,7 +326,7 @@ export function getMonthPlan(
     admin = {
       ...buildAdminData(
         db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours,
-        can(viewer.permissions, 'employees.personal'), showsProtected,
+        can(viewer.permissions, 'employees.personal'), showsProtected, can(viewer.permissions, 'employees.personal'),
       ),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],

@@ -7,6 +7,7 @@ import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
 import { dayBreakRuleViolated, type BreakMode } from './stamping'
 import type { RecordSpan } from './timeRecords'
 import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
+import type { YouthWarning } from './youthProtection'
 
 export interface CoverageRule {
   id: number
@@ -53,6 +54,13 @@ export type Warning =
    * telling neither the rule nor the reason; `minutes` are the day's planned working minutes (a change shows it again).
    */
   | { type: 'work_limit'; date: IsoDate; employeeId: number; minutes: number }
+  /** A rule of the Jugendarbeitsschutz broken by the plan (JArbSchG, youthProtection.ts) on a day the person is under 18. */
+  | YouthWarning
+  /**
+   * „Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden“: once a month (the person's first employed day of
+   * it) for a trainee, student, intern or „keine pädagogische Kraft“ without a birth year; only for employees.personal.
+   */
+  | { type: 'youth_birth_year'; date: IsoDate; employeeId: number }
   /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.

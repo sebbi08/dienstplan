@@ -85,6 +85,16 @@ function part(perYear: number, months: number): number {
   return months >= 12 ? perYear : roundPart((perYear * months) / 12)
 }
 
+/**
+ * The days of the asked year from the days of a full year: the full days, or the twelfths of § 5 (1) BUrlG (rounded as
+ * there) when joining or leaving during the year; 0 when not employed in it. Also for the youth minimum (§ 19 Abs. 4
+ * JArbSchG refers to the BUrlG).
+ */
+export function leaveInYear(perYear: number, input: Pick<StatutoryLeaveInput, 'year' | 'employedFrom' | 'employedUntil'>): number {
+  const months = input.employedFrom === null ? 0 : countingMonths(input.year, input.employedFrom, input.employedUntil ?? null)
+  return hundredths(part(perYear, months))
+}
+
 export function statutoryMinimumLeave(input: StatutoryLeaveInput): StatutoryLeave {
   const base = (24 * input.workdaysPerWeek) / 6
   const extra = input.severeDisability ? (5 * input.workdaysPerWeek) / 5 : 0
@@ -118,6 +128,14 @@ export function hasSevereDisabilityIn(sensitive: DisabilityInfo | undefined | nu
 export function statutoryLeaveOf(
   employee: { hours: HoursPeriod[]; leftOn: IsoDate | null }, year: number, severeDisability: boolean,
 ): StatutoryLeave {
+  return statutoryMinimumLeave({ ...leaveBasis(employee, year), year, employedUntil: employee.leftOn, severeDisability })
+}
+
+/**
+ * What the hints read from the weekly-hours history: employed from the earliest „gültig ab“; the working days per week of
+ * the entry valid on 1 January, or on the first day for someone who joins during the year.
+ */
+export function leaveBasis(employee: { hours: HoursPeriod[] }, year: number): { workdaysPerWeek: number; employedFrom: IsoDate | null } {
   const employedFrom = employee.hours.reduce<IsoDate | null>((min, period) => (min === null || period.validFrom < min ? period.validFrom : min), null)
   const yearStart = `${year}-01-01`
   const reference = employedFrom !== null && employedFrom > yearStart ? employedFrom : yearStart
@@ -125,6 +143,5 @@ export function statutoryLeaveOf(
   for (const period of employee.hours) {
     if (period.validFrom <= reference && (!valid || period.validFrom > valid.validFrom)) valid = period
   }
-  const workdaysPerWeek = workdayCount(valid?.workdays ?? MONDAY_TO_FRIDAY)
-  return statutoryMinimumLeave({ workdaysPerWeek, year, employedFrom, employedUntil: employee.leftOn, severeDisability })
+  return { workdaysPerWeek: workdayCount(valid?.workdays ?? MONDAY_TO_FRIDAY), employedFrom }
 }

@@ -56,6 +56,22 @@ export function plannedWorkMinutes(entries: LawEntry[]): number {
   return workMask(entries).reduce((sum, minute) => sum + minute, 0)
 }
 
+/** The planned work of one day as its spans [start, end) in order: work entries minus breaks and time off. */
+export function plannedWorkSpans(entries: LawEntry[]): WorkWindow[] {
+  const work = workMask(entries)
+  const spans: WorkWindow[] = []
+  let start = -1
+  for (let minute = 0; minute <= DAY; minute++) {
+    const working = minute < DAY && work[minute] === 1
+    if (working && start === -1) start = minute
+    else if (!working && start !== -1) {
+      spans.push({ start, end: minute })
+      start = -1
+    }
+  }
+  return spans
+}
+
 /** More than 10 hours (exactly 10:00 h is allowed). */
 export function exceedsMaxDaily(minutes: number): boolean {
   return minutes > MAX_DAILY_MINUTES

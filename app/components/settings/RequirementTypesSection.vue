@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '#shared/domain/requirements'
+import { isYouthExamKey, MAX_REQUIREMENT_INTERVAL_MONTHS } from '#shared/domain/requirements'
 import type { RequirementTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
@@ -74,8 +74,9 @@ async function remove(type: RequirementTypeDto) {
     <template v-for="type in types ?? []" :key="type.id">
       <form v-if="drafts[type.id]" class="flex flex-wrap items-center gap-2" @submit.prevent="save(type.id)">
         <UInput v-model="drafts[type.id]!.name" maxlength="80" required size="sm" class="w-64" :aria-label="de.requirements.name" />
-        <USelect v-model="drafts[type.id]!.mode" :items="intervalItems" size="sm" class="w-40" :aria-label="de.requirements.interval" />
-        <label v-if="drafts[type.id]!.mode === 'recurring'" class="flex items-center gap-1 text-sm">
+        <span v-if="isYouthExamKey(type.builtinKey)" class="text-sm text-gray-600">{{ de.requirements.youthInterval }}</span>
+        <USelect v-else v-model="drafts[type.id]!.mode" :items="intervalItems" size="sm" class="w-40" :aria-label="de.requirements.interval" />
+        <label v-if="!isYouthExamKey(type.builtinKey) && drafts[type.id]!.mode === 'recurring'" class="flex items-center gap-1 text-sm">
           {{ de.requirements.everyPrefix }}
           <UInput v-model.number="drafts[type.id]!.months" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm" class="w-20" />
           {{ de.requirements.months(drafts[type.id]!.months) }}

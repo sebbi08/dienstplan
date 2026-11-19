@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addMonths, BUILTIN_REQUIREMENTS, requirementState } from '../../shared/domain/requirements'
+import { addMonths, BUILTIN_REQUIREMENTS, isYouthExamKey, requirementState, YOUTH_EXAM_KEYS } from '../../shared/domain/requirements'
 
 describe('addMonths', () => {
   it('keeps the day of the month where the target month has it', () => {
@@ -73,12 +73,17 @@ describe('requirementState', () => {
 })
 
 describe('built-in kinds', () => {
-  it('are the four agreed ones with their default intervals', () => {
+  it('are the four agreed ones with their default intervals and the two examinations of the JArbSchG', () => {
     expect(BUILTIN_REQUIREMENTS).toEqual([
       { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 24 },
       { key: 'first_aid', name: 'Erste-Hilfe-Kurs', intervalMonths: 24 },
       { key: 'criminal_record', name: 'Erweitertes Führungszeugnis', intervalMonths: 60 },
       { key: 'measles', name: 'Masernimpfung (Nachweis)', intervalMonths: null },
+      { key: 'youth_initial', name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null },
+      { key: 'youth_followup', name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null },
     ])
+    expect(YOUTH_EXAM_KEYS.every(isYouthExamKey)).toBe(true)
+    expect(isYouthExamKey('measles')).toBe(false)
+    expect(isYouthExamKey(null)).toBe(false)
   })
 })

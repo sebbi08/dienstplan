@@ -6,6 +6,7 @@ import type { MaternityWarning } from '#shared/domain/maternity'
 import { formatDuration, formatTime } from '#shared/domain/time'
 import type { Warning } from '#shared/domain/warnings'
 import { restMinutes } from '#shared/domain/workingTimeLaw'
+import type { YouthWarning } from '#shared/domain/youthProtection'
 import { de } from '../locales/de'
 
 export interface WarningIndex {
@@ -56,6 +57,40 @@ function maternityText(warning: MaternityWarning, name: string): string {
   }
 }
 
+/** „Anna: 9:00 Std. geplant – unter 18 höchstens 8 Std. am Tag (§ 8 JArbSchG)“ and the other rules of the JArbSchG. */
+function youthText(warning: YouthWarning, name: string): string {
+  const t = de.warnings.youth
+  switch (warning.rule) {
+    case 'hours':
+      return t.hours(name, formatDuration(warning.value), (warning.limit / 60).toLocaleString('de-DE'))
+    case 'week':
+      return t.week(name, formatDuration(warning.value))
+    case 'days':
+      return t.days(name, warning.value)
+    case 'early':
+      return t.early(name, formatTime(warning.value))
+    case 'late':
+      return t.late(name, formatTime(warning.value))
+    case 'saturday':
+      return t.saturday(name)
+    case 'sunday':
+      return t.sunday(name)
+    case 'holiday':
+      return t.holiday(name)
+    case 'rest':
+      return t.rest(name, formatDuration(warning.value))
+    case 'break':
+      // 60 minutes from more than 6 hours of work, 30 from more than 4:30 h.
+      return t.break(name, warning.value, warning.limit === 60 ? '6' : '4,5', warning.limit)
+    case 'stretch':
+      return t.stretch(name, formatDuration(warning.value))
+    case 'schoolDay':
+      return t.schoolDay(name)
+    case 'schoolBefore':
+      return t.schoolBefore(name, formatTime(warning.limit))
+  }
+}
+
 export function warningText(warning: Warning, names: Map<number, string>): string {
   switch (warning.type) {
     case 'missing_entry':
@@ -96,6 +131,10 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return maternityText(warning, names.get(warning.employeeId) ?? '?')
     case 'work_limit':
       return de.warnings.workLimit(names.get(warning.employeeId) ?? '?')
+    case 'youth':
+      return youthText(warning, names.get(warning.employeeId) ?? '?')
+    case 'youth_birth_year':
+      return de.warnings.youth.birthYear(names.get(warning.employeeId) ?? '?')
     case 'staffing':
       return de.warnings.staffing(
         warning.groupName, formatTime(warning.from), formatTime(warning.to), warning.have, warning.need, warning.fachkraft,

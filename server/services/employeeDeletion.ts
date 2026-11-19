@@ -24,6 +24,7 @@ import { getRetentionSettings } from './retentionSettings'
 const EMPLOYEE_WARNING_TYPES = new Set([
   'missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence',
   'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'child_sick_days', 'work_limit',
+  'youth_birth_year',
 ])
 
 /** Release snapshots of every facility (home, former home, help-out plans) without the employee's column and cells. */
@@ -42,14 +43,18 @@ function dropFromSnapshots(db: Db, employeeId: number): void {
 
 /**
  * „Zur Kenntnis genommen“ of the warnings about the employee, in every facility (they may have helped out); the
- * Mutterschutz hints name the rule after the employee (`maternity|<date>|<employeeId>|<rule>`).
+ * Mutterschutz and Jugendarbeitsschutz hints name the rule after the employee (`maternity|<date>|<employeeId>|<rule>`,
+ * `youth|…`).
  */
 function warningAckIds(db: Db, employeeId: number): number[] {
   return db.select({ id: warningAcks.id, key: warningAcks.key }).from(warningAcks)
-    .where(or(like(warningAcks.key, `%|${employeeId}`), like(warningAcks.key, `maternity|%|${employeeId}|%`))).all()
+    .where(or(
+      like(warningAcks.key, `%|${employeeId}`), like(warningAcks.key, `maternity|%|${employeeId}|%`),
+      like(warningAcks.key, `youth|%|${employeeId}|%`),
+    )).all()
     .filter(({ key }) => {
       const [type, , subject, ...rest] = key.split('|')
-      if (type === 'maternity') return rest.length === 1 && subject === String(employeeId)
+      if (type === 'maternity' || type === 'youth') return rest.length === 1 && subject === String(employeeId)
       return rest.length === 0 && EMPLOYEE_WARNING_TYPES.has(type ?? '') && subject === String(employeeId)
     })
     .map(row => row.id)

@@ -6,6 +6,7 @@ import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
+import { needsBirthYear, youthLeaveOf } from '#shared/domain/youthProtection'
 import type { BalanceDto, ChildSickYearDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
@@ -210,6 +211,28 @@ const statutoryMinimums = computed(() => {
   return byYear
 })
 const formStatutoryLeave = computed(() => statutoryLeaveIn(entitlementForm.year))
+/**
+ * Mindesturlaub für Jugendliche (§ 19 JArbSchG) of a year, only a hint: by the age on 1 January, so only with the birth
+ * year from the personal block (employees.personal); null for 18 and older, without the full birth date or outside the
+ * employment.
+ */
+function youthLeaveIn(year: number): number | null {
+  if (!employee.value?.personal || !Number.isInteger(year) || year < 2000 || year > 2100) return null
+  const days = youthLeaveOf(employee.value, year, employee.value.birthday, employee.value.personal.birthYear)?.inYear ?? 0
+  return days > 0 ? days : null
+}
+const youthMinimums = computed(() => {
+  const byYear: Record<number, number> = {}
+  for (const { year } of employee.value?.entitlements ?? []) {
+    const days = youthLeaveIn(year)
+    if (days !== null) byYear[year] = days
+  }
+  return byYear
+})
+const formYouthLeave = computed(() => youthLeaveIn(entitlementForm.year))
+/** „Geburtsjahr fehlt“ for whoever can enter it, when the person may well be under 18 (by the qualification). */
+const birthYearMissing = computed(() => !!employee.value?.personal && employee.value.personal.birthYear === null
+  && needsBirthYear(employee.value.qualification))
 
 // Where the person clocks in and out, and whether breaks are clocked or deducted automatically (Leitung decides).
 const stamping = reactive<{ stampVia: StampChannel; breakMode: BreakMode }>({ stampVia: 'both', breakMode: 'stamp' })
@@ -469,6 +492,7 @@ async function onTabKey(event: KeyboardEvent) {
         <p v-if="employee.personal?.birthYear != null && !employee.birthday" class="mt-1 text-xs text-gray-500">
           {{ de.employees.birthYearOnly(employee.personal.birthYear) }}
         </p>
+        <p v-if="birthYearMissing" class="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ de.youth.birthYearMissing }}</p>
       </UFormField>
 
       <!-- Personalakte §2: only when the answer holds the block (employees.personal / employees.sensitive). -->
@@ -714,7 +738,14 @@ async function onTabKey(event: KeyboardEvent) {
               {{ formatNumber(entitlement.days) }}
               <template v-if="statutoryMinimums[entitlement.year] !== undefined">
                 <span class="ml-1 text-xs text-gray-500">{{ de.employees.statutoryLeaveAtLeast(formatNumber(statutoryMinimums[entitlement.year]!)) }}</span>
-                <span v-if="entitlement.days < statutoryMinimums[entitlement.year]!" class="mt-1 block rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ de.employees.statutoryLeaveBelow }}</span>
+                <span
+                  v-if="entitlement.days < statutoryMinimums[entitlement.year]! && !(entitlement.days < (youthMinimums[entitlement.year] ?? 0))"
+                  class="mt-1 block rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800"
+                >{{ de.employees.statutoryLeaveBelow }}</span>
+              </template>
+              <template v-if="youthMinimums[entitlement.year] !== undefined">
+                <span class="ml-1 text-xs text-gray-500">{{ de.youth.leaveAtLeast(formatNumber(youthMinimums[entitlement.year]!)) }}</span>
+                <span v-if="entitlement.days < youthMinimums[entitlement.year]!" class="mt-1 block rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ de.youth.leaveBelow(formatNumber(youthMinimums[entitlement.year]!)) }}</span>
               </template>
             </td>
             <td class="py-1">
@@ -736,7 +767,11 @@ async function onTabKey(event: KeyboardEvent) {
       </form>
       <template v-if="formStatutoryLeave !== null">
         <p class="text-xs text-gray-500">{{ de.employees.statutoryLeaveAtLeast(formatNumber(formStatutoryLeave)) }}</p>
-        <p v-if="entitlementForm.days < formStatutoryLeave" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.employees.statutoryLeaveBelow }}</p>
+        <p v-if="entitlementForm.days < formStatutoryLeave && !(entitlementForm.days < (formYouthLeave ?? 0))" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.employees.statutoryLeaveBelow }}</p>
+      </template>
+      <template v-if="formYouthLeave !== null">
+        <p class="text-xs text-gray-500">{{ de.youth.leaveAtLeast(formatNumber(formYouthLeave)) }}</p>
+        <p v-if="entitlementForm.days < formYouthLeave" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.youth.leaveBelow(formatNumber(formYouthLeave)) }}</p>
       </template>
       <!-- From the stored hours and entitlement; reloaded with the page's data (after saving hours, entitlement, leave). -->
       <EmployeesClosurePreview v-if="can('employees.edit')" :name="employee.name" :employee-id="id" :stamp="employee" />

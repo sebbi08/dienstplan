@@ -14,6 +14,8 @@ const keptAbsencesNote = (count: number, kind: string) => (count === 1
   : `${count} Tage mit einer anderen Abwesenheit (Krank, Fortbildung, Urlaub o. Ä.) blieben unverändert und zählen nicht als ${kind}.`)
 /** „an 1 Tag“ / „an 5 Tagen“ (plan days, whatever they count in the leave account). */
 const onDays = (count: number) => (count === 1 ? 'an 1 Tag' : `an ${count} Tagen`)
+/** Jugendarbeitsschutz without a birth year: in the plan's hints (with the name) and on the employee page. */
+const YOUTH_BIRTH_YEAR_MISSING = 'Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden'
 /** Format errors of the personnel file (shared/domain/personnel.ts): `personnel.invalid` and, as API errors, `errors`. */
 const personnelInvalid = {
   iban_invalid: 'Die IBAN stimmt nicht. Bitte prüfe sie noch einmal (z. B. DE89 3704 0044 0532 0130 00).',
@@ -481,6 +483,30 @@ export const de = {
     },
     /** The same for plan editors who may not see the case: neither the rule nor the reason. */
     workLimit: (name: string) => `${name}: Arbeitszeitgrenze überschritten`,
+    /**
+     * Jugendarbeitsschutz (JArbSchG) on the days a person is under 18, only hints: „Anna: 9:00 Std. geplant – unter 18
+     * höchstens 8 Std. am Tag (§ 8 JArbSchG)“ and the other rules; never the birth date.
+     */
+    youth: {
+      hours: (name: string, duration: string, limit: string) => `${name}: ${duration} Std. geplant – unter 18 höchstens ${limit} Std. am Tag (§ 8 JArbSchG)`,
+      week: (name: string, duration: string) => `${name}: ${duration} Std. in dieser Woche – unter 18 höchstens 40 Std. (§ 8 JArbSchG)`,
+      days: (name: string, count: number) => `${name}: ${count} Arbeitstage in dieser Woche – unter 18 höchstens 5 (§ 15 JArbSchG)`,
+      early: (name: string, time: string) => `${name}: Arbeit ab ${time} Uhr – unter 18 nur von 6 bis 20 Uhr (§ 14 JArbSchG)`,
+      late: (name: string, time: string) => `${name}: Arbeit bis ${time} Uhr – unter 18 nur von 6 bis 20 Uhr (§ 14 JArbSchG)`,
+      saturday: (name: string) => `${name}: Arbeit am Samstag – unter 18 nur in Ausnahmefällen (§ 16 JArbSchG)`,
+      sunday: (name: string) => `${name}: Arbeit am Sonntag – unter 18 nur in Ausnahmefällen (§ 17 JArbSchG)`,
+      holiday: (name: string) => `${name}: Arbeit am Feiertag – unter 18 nur in Ausnahmefällen (§ 18 JArbSchG)`,
+      rest: (name: string, duration: string) => `${name}: nur ${duration} Std. Freizeit seit dem Vortag – unter 18 mindestens 12 Std. (§ 13 JArbSchG)`,
+      break: (name: string, minutes: number, over: string, limit: number) =>
+        `${name}: ${minutes} Min. Pause – unter 18 bei mehr als ${over} Std. Arbeit mindestens ${limit} Min. (§ 11 JArbSchG)`,
+      stretch: (name: string, duration: string) => `${name}: ${duration} Std. ohne Pause – unter 18 höchstens 4,5 Std. am Stück (§ 11 JArbSchG)`,
+      schoolDay: (name: string) =>
+        `${name}: Dienst an einem langen Berufsschultag (mehr als 5 Unterrichtsstunden) – unter 18 einmal pro Woche frei (§ 9 JArbSchG)`,
+      schoolBefore: (name: string, time: string) =>
+        `${name}: Dienst vor dem Unterricht um ${time} Uhr – unter 18 nicht vor Unterricht, der vor 9 Uhr beginnt (§ 9 JArbSchG)`,
+      /** Once a month for the Leitung (employees.personal), for trainees, students, interns and „keine pädagogische Kraft“. */
+      birthYear: (name: string) => `${name}: ${YOUTH_BIRTH_YEAR_MISSING}`,
+    },
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
@@ -943,13 +969,21 @@ export const de = {
     addTraining: 'Fortbildung hinzufügen', editTraining: 'Fortbildung ändern',
     deleteTrainingConfirm: (title: string) => `Fortbildung „${title}“ löschen?`,
     /** Settings. */
-    settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vier vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen.',
+    settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen. Erst- und Nachuntersuchung nach dem Jugendarbeitsschutzgesetz gelten nur für Mitarbeitende unter 18 (Geburtsdatum mit Jahr nötig): die Erstuntersuchung bis zum ersten Arbeitstag, die Nachuntersuchung ein Jahr danach.',
     name: 'Bezeichnung', recurring: 'wiederkehrend', months: (count: number) => (count === 1 ? 'Monat' : 'Monate'), everyPrefix: 'Abstand:',
     builtin: 'vorgegeben', addKind: 'Art hinzufügen', newKindPlaceholder: 'z. B. Hygienebelehrung',
     deleteKindConfirm: (name: string) => `Art „${name}“ löschen? Alle Einträge, die für die Mitarbeiter dazu gespeichert sind, werden mit gelöscht.`,
     /** The employee's own page. */
     myHint: 'Hier siehst du, was die Leitung für dich eingetragen hat. Stimmt etwas nicht, sprich bitte die Leitung an.',
     myDueOn: 'Nächster Termin',
+    /** The examinations of the JArbSchG in the settings: the law sets when they are due. */
+    youthInterval: 'nach Gesetz – nur für Mitarbeitende unter 18',
+  },
+  /** Jugendarbeitsschutz (JArbSchG) on the employee page; the plan's hints are under `warnings.youth`. */
+  youth: {
+    birthYearMissing: YOUTH_BIRTH_YEAR_MISSING,
+    leaveAtLeast: (days: string) => `für Jugendliche mindestens ${days} ${days === '1' ? 'Tag' : 'Tage'}`,
+    leaveBelow: (days: string) => `Unter dem Mindesturlaub für Jugendliche (§ 19 JArbSchG): ${days} ${days === '1' ? 'Tag' : 'Tage'}`,
   },
   closures: {
     title: 'Schließzeiten', from: 'Von', to: 'Bis', label: 'Bezeichnung', mode: 'Eintragen als',

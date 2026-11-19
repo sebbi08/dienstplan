@@ -7,6 +7,7 @@ import {
   addRequirementRecord, addTraining, createRequirementType, deleteRequirementRecord, deleteRequirementType, deleteTraining,
   getEmployeeRequirements, getMyRequirements, listDueRequirements, listRequirementTypes, updateRequirementType, updateTraining,
 } from '../../server/services/requirements'
+import { isYouthExamKey } from '../../shared/domain/requirements'
 import {
   addEmployee, addFacility, addHelpOut, addUser, createTestDb, errorCode, requirementTypeId,
 } from '../helpers/fixtures'
@@ -18,7 +19,12 @@ const BUILTINS = [
   { name: 'Erste-Hilfe-Kurs', intervalMonths: 24, builtinKey: 'first_aid', sortOrder: 1 },
   { name: 'Erweitertes Führungszeugnis', intervalMonths: 60, builtinKey: 'criminal_record', sortOrder: 2 },
   { name: 'Masernimpfung (Nachweis)', intervalMonths: null, builtinKey: 'measles', sortOrder: 3 },
+  { name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, builtinKey: 'youth_initial', sortOrder: 4 },
+  { name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 },
 ]
+const BUILTIN_KEYS = BUILTINS.map(kind => kind.builtinKey)
+/** The kinds that apply to everybody: the examinations of the JArbSchG only to employees under 18. */
+const forAdults = <T extends { builtinKey: string | null }>(types: T[]) => types.filter(type => !isYouthExamKey(type.builtinKey))
 
 /** Everything the feature stores, to prove that a refused call changed nothing. */
 function stored(db: Db) {
@@ -37,7 +43,7 @@ describe('kinds of mandatory appointments', () => {
 
   const withoutIds = (facilityId: number) => listRequirementTypes(db, facilityId).map(({ id: _id, ...rest }) => rest)
 
-  it('has the four built-in kinds in the first facility and in every new one', () => {
+  it('has the six built-in kinds in the first facility and in every new one', () => {
     expect(withoutIds(1)).toEqual(BUILTINS)
     // A new facility starts with the defaults, whatever the first facility made of its own kinds.
     updateRequirementType(db, 1, requirementTypeId(db, 'first_aid'), { name: 'Erste Hilfe am Kind', intervalMonths: 12 })
@@ -47,15 +53,18 @@ describe('kinds of mandatory appointments', () => {
     const ownIds = listRequirementTypes(db, 1).map(type => type.id)
     expect(listRequirementTypes(db, krippe).filter(type => ownIds.includes(type.id))).toEqual([])
     expect(withoutIds(1).map(type => type.name))
-      .toEqual(['Betriebsarzt', 'Erste Hilfe am Kind', 'Erweitertes Führungszeugnis', 'Masernimpfung (Nachweis)', 'Hygienebelehrung'])
+      .toEqual([
+        'Betriebsarzt', 'Erste Hilfe am Kind', 'Erweitertes Führungszeugnis', 'Masernimpfung (Nachweis)', 'Erstuntersuchung (§ 32 JArbSchG)',
+        'Nachuntersuchung (§ 33 JArbSchG)', 'Hygienebelehrung',
+      ])
   })
 
   it('creates own kinds at the end, recurring or needed once', () => {
     const hygiene = createRequirementType(db, 1, { name: '  Hygienebelehrung ', intervalMonths: 24 })
-    expect(hygiene).toEqual({ id: hygiene.id, name: 'Hygienebelehrung', intervalMonths: 24, builtinKey: null, sortOrder: 4 })
+    expect(hygiene).toEqual({ id: hygiene.id, name: 'Hygienebelehrung', intervalMonths: 24, builtinKey: null, sortOrder: 6 })
     const licence = createRequirementType(db, 1, { name: 'Führerschein', intervalMonths: null })
-    expect(licence).toEqual({ id: licence.id, name: 'Führerschein', intervalMonths: null, builtinKey: null, sortOrder: 5 })
-    expect(listRequirementTypes(db, 1).slice(4)).toEqual([hygiene, licence])
+    expect(licence).toEqual({ id: licence.id, name: 'Führerschein', intervalMonths: null, builtinKey: null, sortOrder: 7 })
+    expect(listRequirementTypes(db, 1).slice(6)).toEqual([hygiene, licence])
   })
 
   it('refuses empty names and names taken in the facility in any spelling, umlauts included', () => {
@@ -69,7 +78,7 @@ describe('kinds of mandatory appointments', () => {
     expect(errorCode(() => createRequirementType(db, 1, { name: 'betriebsarzt', intervalMonths: 12 }))).toBe('requirement_name_taken')
     expect(stored(db)).toEqual(before)
     // Names are unique per facility only.
-    expect(createRequirementType(db, krippe, { name: 'Führerschein', intervalMonths: 12 }).sortOrder).toBe(4)
+    expect(createRequirementType(db, krippe, { name: 'Führerschein', intervalMonths: 12 }).sortOrder).toBe(6)
   })
 
   it('renames a kind and changes its interval, built-in ones included', () => {
@@ -87,7 +96,11 @@ describe('kinds of mandatory appointments', () => {
 
     const own = createRequirementType(db, 1, { name: 'Hygienebelehrung', intervalMonths: 24 })
     updateRequirementType(db, 1, own.id, { name: 'HYGIENEBELEHRUNG', intervalMonths: 12 }) // its own name in another spelling
-    expect(listRequirementTypes(db, 1)[4]).toEqual({ ...own, name: 'HYGIENEBELEHRUNG', intervalMonths: 12 })
+    expect(listRequirementTypes(db, 1)[6]).toEqual({ ...own, name: 'HYGIENEBELEHRUNG', intervalMonths: 12 })
+    // The examinations of the JArbSchG can be renamed, but keep no interval: the law sets when they are due.
+    const followUp = requirementTypeId(db, 'youth_followup')
+    updateRequirementType(db, 1, followUp, { name: 'Nachuntersuchung', intervalMonths: 12 })
+    expect(listRequirementTypes(db, 1)[5]).toEqual({ id: followUp, name: 'Nachuntersuchung', intervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 })
 
     const before = stored(db)
     expect(errorCode(() => updateRequirementType(db, 1, own.id, { name: 'erste-hilfe-kurs', intervalMonths: 12 }))).toBe('requirement_name_taken')
@@ -116,7 +129,7 @@ describe('kinds of mandatory appointments', () => {
     deleteRequirementType(db, 1, hygiene.id)
 
     expect(listRequirementTypes(db, 1).map(type => type.id))
-      .toEqual([...['company_doctor', 'first_aid', 'criminal_record', 'measles'].map(key => requirementTypeId(db, key)), fire.id])
+      .toEqual([...BUILTIN_KEYS.map(key => requirementTypeId(db, key)), fire.id])
     expect(stored(db).records.map(record => record.id)).toEqual(kept)
     expect(stored(db).trainings.map(row => row.id)).toEqual([training])
     expect(db.select().from(employees).all()).toHaveLength(2)
@@ -129,7 +142,7 @@ describe('kinds of mandatory appointments', () => {
     addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-06-01' }, today)
     updateRequirementType(db, 1, doctor, { name: 'Vorsorge', intervalMonths: null })
     const before = stored(db)
-    for (const key of ['company_doctor', 'first_aid', 'criminal_record', 'measles']) {
+    for (const key of BUILTIN_KEYS) {
       expect(errorCode(() => deleteRequirementType(db, 1, requirementTypeId(db, key))), key).toBe('requirement_builtin')
     }
     expect(stored(db)).toEqual(before)
@@ -151,11 +164,11 @@ describe('records and trainings of an employee', () => {
   const kind = (employeeId: number, typeId: number, on = today) =>
     getEmployeeRequirements(db, 1, employeeId, on).kinds.find(entry => entry.type.id === typeId)!
 
-  it('lists every kind of the facility as missing for a new employee', () => {
+  it('lists every kind of the facility as missing for a new employee (the examinations of the JArbSchG only under 18)', () => {
     const own = createRequirementType(db, 1, { name: 'Hygienebelehrung', intervalMonths: 24 })
     const result = getEmployeeRequirements(db, 1, anna, today)
     expect(result.trainings).toEqual([])
-    expect(result.kinds.map(entry => entry.type)).toEqual(listRequirementTypes(db, 1))
+    expect(result.kinds.map(entry => entry.type)).toEqual(forAdults(listRequirementTypes(db, 1)))
     expect(result.kinds.map(entry => entry.type.id)).toContain(own.id)
     for (const entry of result.kinds) {
       expect(entry).toEqual({ type: entry.type, state: 'missing', lastDate: null, dueOn: null, records: [] })
@@ -413,7 +426,7 @@ describe('notice of due mandatory appointments', () => {
     ])
     const inKrippe = listDueRequirements(db, krippe, today)
     expect(inKrippe.map(row => row.employeeId)).toEqual([kim, kim, kim, kim, kim])
-    expect(inKrippe.map(row => row.typeId)).toEqual(listRequirementTypes(db, krippe).map(type => type.id))
+    expect(inKrippe.map(row => row.typeId)).toEqual(forAdults(listRequirementTypes(db, krippe)).map(type => type.id))
     expect(listDueRequirements(db, addFacility(db, 'Hort'), today)).toEqual([])
   })
 })
@@ -535,9 +548,11 @@ describe('moving an employee to another facility', () => {
       { name: 'Erste Hilfe am Kind', intervalMonths: 12, builtinKey: 'first_aid', sortOrder: 1 },
       { name: 'Erweitertes Führungszeugnis', intervalMonths: 60, builtinKey: 'criminal_record', sortOrder: 2 },
       { name: 'Masernimpfung (Nachweis)', intervalMonths: null, builtinKey: 'measles', sortOrder: 3 },
-      { name: 'HYGIENEBELEHRUNG', intervalMonths: 24, builtinKey: null, sortOrder: 4 },
-      { name: 'Brandschutz', intervalMonths: 36, builtinKey: null, sortOrder: 5 },
-      { name: 'Schweigepflicht', intervalMonths: null, builtinKey: null, sortOrder: 6 },
+      { name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, builtinKey: 'youth_initial', sortOrder: 4 },
+      { name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 },
+      { name: 'HYGIENEBELEHRUNG', intervalMonths: 24, builtinKey: null, sortOrder: 6 },
+      { name: 'Brandschutz', intervalMonths: 36, builtinKey: null, sortOrder: 7 },
+      { name: 'Schweigepflicht', intervalMonths: null, builtinKey: null, sortOrder: 8 },
     ])
     const idOf = (name: string) => krippeTypes.find(type => type.name === name)!.id
     expect(idOf('HYGIENEBELEHRUNG')).toBe(krippeHygiene.id)
@@ -579,7 +594,7 @@ describe('moving an employee to another facility', () => {
 
     moveEmployeeToFacility(db, provider, anna, krippe, new Date(`${today}T08:00:00Z`))
     const krippeTypes = listRequirementTypes(db, krippe)
-    expect(krippeTypes).toHaveLength(5)
+    expect(krippeTypes).toHaveLength(7)
     moveEmployeeToFacility(db, provider, anna, 1, new Date(`${today}T09:00:00Z`))
     moveEmployeeToFacility(db, provider, anna, 1, new Date(`${today}T09:30:00Z`)) // already there: nothing happens
 
@@ -659,7 +674,7 @@ describe('the employee\'s own view', () => {
     const provider = addUser(db, 'traeger', 'provider', kim)
     expect(provider.facilityId).toBe(1)
     const mine = getMyRequirements(db, provider, today)
-    expect(mine.kinds.map(entry => entry.type.id)).toEqual(listRequirementTypes(db, krippe).map(type => type.id))
+    expect(mine.kinds.map(entry => entry.type.id)).toEqual(forAdults(listRequirementTypes(db, krippe)).map(type => type.id))
     expect(mine.kinds.map(entry => entry.type.name)).toContain('Hygienebelehrung')
     expect(mine.trainings.map(training => training.title)).toEqual(['Krippenpädagogik'])
   })

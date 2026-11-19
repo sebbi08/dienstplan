@@ -965,7 +965,8 @@ describe('upgrading a filled database through migrateDb', () => {
     sqlite.prepare('DELETE FROM meals WHERE id = ?').run(lunch)
     expect(sqlite.prepare('SELECT day_id FROM child_attendance_meals ORDER BY day_id').all()).toEqual([{ day_id: 2 }, { day_id: 4 }])
     expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = ?').get(lunch)).toEqual({ n: 0 })
-    sqlite.exec('DELETE FROM children WHERE id = 2; DELETE FROM facilities WHERE id = 2')
+    // 0095 gave the facility the examinations of the JArbSchG; they go first (no cascade).
+    sqlite.exec('DELETE FROM children WHERE id = 2; DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
     expect(count(sqlite, 'meals')).toBe(1)
     expect(count(sqlite, 'meal_versions')).toBe(1)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -1032,7 +1033,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect([count(sqlite, 'child_attendance_days'), count(sqlite, 'child_attendance_meals')]).toEqual([0, 0])
     // Facilities keep their references too: a group of an unknown facility is refused, a facility's meals go with it.
     expect(() => sqlite.exec('INSERT INTO groups (facility_id, name) VALUES (99, \'Igel\')')).toThrow(/FOREIGN KEY/)
-    sqlite.exec('DELETE FROM facilities WHERE id = 2')
+    sqlite.exec('DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2') // 0095's kinds first
     expect(sqlite.prepare('SELECT DISTINCT facility_id FROM meals').all()).toEqual([{ facility_id: 1 }])
     expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = 100').get()).toEqual({ n: 0 })
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -1466,7 +1467,7 @@ describe('upgrading a filled database through migrateDb', () => {
     sqlite.exec(`INSERT INTO balance_adjustments (employee_id, date, minutes, reason) VALUES (1, '2026-10-01', 60, 'Neu')`)
     expect(sqlite.prepare(`SELECT paid_out FROM balance_adjustments WHERE reason = 'Neu'`).get()).toEqual({ paid_out: 0 })
     // The settings go with their facility.
-    sqlite.exec('DELETE FROM balance_adjustments WHERE employee_id = 2; DELETE FROM employees WHERE id = 2; DELETE FROM facilities WHERE id = 2')
+    sqlite.exec('DELETE FROM balance_adjustments WHERE employee_id = 2; DELETE FROM employees WHERE id = 2; DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
     expect(count(sqlite, 'retention_settings')).toBe(0)
   })
 
@@ -2020,6 +2021,26 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       .toEqual([{ facility_id: 2, time_years: 5, maternity_years: 2 }])
     expect(sqlite.prepare('SELECT protection_booked, plan_sync, miscarriage_on, miscarriage_week, miscarriage_waived FROM maternity_cases').get())
       .toEqual({ protection_booked: 1, plan_sync: null, miscarriage_on: null, miscarriage_week: null, miscarriage_waived: 0 })
+  })
+
+  it('0095 adds the examinations of the JArbSchG as built-in kinds after each facility\'s kinds', () => {
+    const { db, sqlite } = databaseAt('0094')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO requirement_types (facility_id, name, interval_months, builtin_key, sort_order) VALUES (1, 'Hygienebelehrung', 24, NULL, 4);
+    `)
+    migrateDb(db, MIGRATIONS)
+    const youth = (facilityId: number) => sqlite.prepare(`SELECT name, interval_months, builtin_key, sort_order FROM requirement_types
+      WHERE facility_id = ? AND builtin_key LIKE 'youth%' ORDER BY sort_order`).all(facilityId)
+    expect(youth(1)).toEqual([
+      { name: 'Erstuntersuchung (§ 32 JArbSchG)', interval_months: null, builtin_key: 'youth_initial', sort_order: 5 },
+      { name: 'Nachuntersuchung (§ 33 JArbSchG)', interval_months: null, builtin_key: 'youth_followup', sort_order: 6 },
+    ])
+    // A facility without any kinds yet starts at 0.
+    expect(youth(2)).toEqual([
+      { name: 'Erstuntersuchung (§ 32 JArbSchG)', interval_months: null, builtin_key: 'youth_initial', sort_order: 0 },
+      { name: 'Nachuntersuchung (§ 33 JArbSchG)', interval_months: null, builtin_key: 'youth_followup', sort_order: 1 },
+    ])
   })
 
   it('0092 adds the empty BEM tables (gone with the employee), the default invitation text and 3 years for BEM records', () => {

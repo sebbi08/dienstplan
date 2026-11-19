@@ -1,15 +1,29 @@
 import { daysInMonth, parseIsoDate, toIsoDate } from './dates'
 import type { IsoDate } from './types'
 
-/** The mandatory appointments and proofs (Pflichttermine) every facility has; they can be renamed, but not deleted. */
+/**
+ * The mandatory appointments and proofs (Pflichttermine) every facility has; they can be renamed, but not deleted. The
+ * two examinations of the Jugendarbeitsschutzgesetz apply only to employees under 18 and are due by the law, not by an
+ * interval (YOUTH_EXAM_KEYS, shared/domain/youthProtection.ts).
+ */
 export const BUILTIN_REQUIREMENTS = [
   { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 24 },
   { key: 'first_aid', name: 'Erste-Hilfe-Kurs', intervalMonths: 24 },
   { key: 'criminal_record', name: 'Erweitertes Führungszeugnis', intervalMonths: 60 },
   { key: 'measles', name: 'Masernimpfung (Nachweis)', intervalMonths: null },
+  { key: 'youth_initial', name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null },
+  { key: 'youth_followup', name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null },
 ] as const satisfies readonly { key: string; name: string; intervalMonths: number | null }[]
 
 export type BuiltinRequirementKey = (typeof BUILTIN_REQUIREMENTS)[number]['key']
+
+/** The examinations of the Jugendarbeitsschutzgesetz: only for employees under 18, due by the law (no interval). */
+export const YOUTH_EXAM_KEYS = ['youth_initial', 'youth_followup'] as const
+export type YouthExamKey = (typeof YOUTH_EXAM_KEYS)[number]
+
+export function isYouthExamKey(key: string | null): key is YouthExamKey {
+  return key !== null && (YOUTH_EXAM_KEYS as readonly string[]).includes(key)
+}
 
 /** Longest interval of a recurring kind (20 years). */
 export const MAX_REQUIREMENT_INTERVAL_MONTHS = 240
