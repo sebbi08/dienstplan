@@ -89,7 +89,20 @@ export const LEVEL_UP_NOTICE_DAYS = 30
  * LEVEL_UP_NOTICE_DAYS (or already overdue); null otherwise, at level 6 or without a level.
  */
 export function dueLevelUp(since: IsoDate, payLevel: number | null, today: IsoDate): { level: number; on: IsoDate } | null {
+  const next = nextLevelStep(since, payLevel)
+  return next && next.on <= addDays(today, LEVEL_UP_NOTICE_DAYS) ? next : null
+}
+
+/** The next level step after `payLevel` and the day it is reached (null at level 6 or without a level), however far away. */
+export function nextLevelStep(since: IsoDate, payLevel: number | null): { level: number; on: IsoDate } | null {
   if (payLevel === null || payLevel >= 6) return null
-  const on = addYears(since, LEVEL_AFTER_YEARS[payLevel - 1]!)
-  return on <= addDays(today, LEVEL_UP_NOTICE_DAYS) ? { level: payLevel + 1, on } : null
+  return { level: payLevel + 1, on: addYears(since, LEVEL_AFTER_YEARS[payLevel - 1]!) }
+}
+
+/** overdue: the day has passed; soon: within LEVEL_UP_NOTICE_DAYS (the day itself included); later: further away. */
+export type LevelStepState = 'later' | 'soon' | 'overdue'
+
+export function levelStepState(on: IsoDate, today: IsoDate): LevelStepState {
+  if (on < today) return 'overdue'
+  return on <= addDays(today, LEVEL_UP_NOTICE_DAYS) ? 'soon' : 'later'
 }

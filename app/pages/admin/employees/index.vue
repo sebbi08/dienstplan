@@ -6,12 +6,13 @@ import { statutoryMinimumLeave } from '#shared/domain/statutoryLeave'
 import { MONDAY_TO_FRIDAY, workdayCount } from '#shared/domain/targets'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type {
-  BalanceDto, DueRequirementDto, EmployeeListItemDto, LeaveAccountDto, LevelUpDto, RightsExceptionsDto, UserDto,
+  BalanceDto, EmployeeDetailDto, EmployeeListExtrasDto, EmployeeListItemDto, LeaveAccountDto, RightsExceptionsDto, UserDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { parseBirthday } from '~/utils/birthday'
 import { birthYearOnlyUpdate } from '~/utils/employeeForms'
 import { balanceClass } from '~/utils/colors'
+import { forfeitText, levelText, levelToTake, levelTone, requirementBadge, type ExtraTone } from '~/utils/employeeExtras'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { splitLeavers } from '~/utils/leavers'
 import { archiveRetentionText } from '~/utils/retentionText'
@@ -42,12 +43,12 @@ const groupItems = computed(() => [
 // „Stundenkonto heute“ does not depend on the month chosen above (only Resturlaub follows it): always today's month.
 const { data: balances, refresh: refreshBalances } = await useFetch<BalanceDto[]>('/api/balances', { query: { year: today.year, month: today.month } })
 const { data: leave, refresh: refreshLeave } = await useFetch<LeaveAccountDto[]>('/api/leave', { query: { year } })
-// For the badges: the accounts (linked to whom) and the people in the notice of mandatory appointments.
+// For the badges: the accounts (linked to whom).
 const { data: users, refresh: refreshUsers } = await useFetch<UserDto[]>('/api/users')
-const { data: due, refresh: refreshDue } = await useFetch<DueRequirementDto[]>('/api/requirements/due')
-const { data: levelUps, refresh: refreshLevelUps } = await useFetch<LevelUpDto[]>('/api/level-ups')
+// Next level step, open mandatory appointments and the leave notice of everyone: one request, filtered by rights on the server.
+const { data: extras, refresh: refreshExtras } = await useFetch<EmployeeListExtrasDto[]>('/api/employees/list-extras')
 const run = useAction(async () => {
-  await Promise.all([refresh(), refreshBalances(), refreshLeave(), refreshUsers(), refreshDue()])
+  await Promise.all([refresh(), refreshBalances(), refreshLeave(), refreshUsers(), refreshExtras()])
 })
 
 // Column „Sonderrechte“: who was given or lost single switches beyond the role; only the Träger and the Leitung see it.
@@ -57,22 +58,27 @@ const specialRightsOf = computed(() => new Map((specialRights.value ?? []).map(r
 const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [balance.employeeId, balance])))
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row.account])))
 const linked = computed(() => new Set((users.value ?? []).map(account => account.employeeId).filter(id => id !== null)))
-const withDue = computed(() => new Set((due.value ?? []).map(row => row.employeeId)))
+const extrasOf = computed(() => new Map((extras.value ?? []).map(row => [row.employeeId, row])))
+// The open appointments have their own column („Pflichttermine“), so the badge „Pflichttermine offen“ is not repeated.
 const badgesOf = computed(() => new Map(split.value.active.map(employee => [employee.id, staffBadges(employee, {
-  requirementsOpen: withDue.value.has(employee.id), hasAccount: linked.value.has(employee.id),
+  requirementsOpen: false, hasAccount: linked.value.has(employee.id),
 })])))
 const BADGE_COLOR: Record<StaffBadge, 'warning' | 'error' | 'neutral'> = {
   pinMissing: 'warning', pinLocked: 'error', qualificationMissing: 'warning', requirementsOpen: 'warning', noAccess: 'neutral',
 }
 
-// The notices fold into one line. (Whether the Leitung sees the contract data is its role setting on „Rechte und
-// Rollen“ now.)
-const noticesOpen = ref(false)
-const noticeCount = computed(() => (levelUps.value?.length ?? 0) + withDue.value.size)
-const noticeLine = computed(() => de.employees.notices(noticeCount.value))
-async function levelChanged() {
-  await Promise.all([refresh(), refreshLevelUps()])
+// Column „Nächste Stufe“: only for who may see the contract data (the server sends no level data otherwise).
+const seesLevel = computed(() => can('employees.contractView'))
+const canEnterLevel = computed(() => can('employees.contractEdit'))
+const TONE_TEXT: Record<ExtraTone, string> = { error: 'font-medium text-red-700', warning: 'font-medium text-amber-700', neutral: 'text-gray-700' }
+/** „übernehmen“: enters the level that is due as the pay level (the contract is read and sent back whole, as on the contract tab). */
+function takeLevel(employee: EmployeeListItemDto, level: number) {
+  run(async () => {
+    const { contract } = await $fetch<EmployeeDetailDto>(`/api/employees/${employee.id}`)
+    await $fetch<unknown>(`/api/employees/${employee.id}/contract`, { method: 'PUT', body: { ...contract, payLevel: level } })
+  }, de.common.saved)
 }
+const recordsLink = (employee: EmployeeListItemDto) => ({ path: `/admin/employees/${employee.id}`, query: { tab: 'records' } })
 
 const toast = useToast()
 const emptyForm = () => ({
@@ -220,7 +226,7 @@ const td = 'px-3 py-2'
 </script>
 
 <template>
-  <div class="max-w-4xl space-y-4">
+  <div class="max-w-6xl space-y-4">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <h1 class="text-2xl font-semibold">{{ de.employees.title }}</h1>
       <MonthNav :year="year" :month="month" @change="change" />
@@ -237,22 +243,6 @@ const td = 'px-3 py-2'
       </div>
     </div>
 
-    <!-- The notices in one line; open on tap. Kept in the page (v-show), so they load with it. -->
-    <div v-if="noticeCount > 0" class="rounded-lg bg-white text-sm ring-1 ring-gray-200">
-      <button
-        type="button" class="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left" :aria-expanded="noticesOpen"
-        aria-controls="employee-notices" @click="noticesOpen = !noticesOpen"
-      >
-        <UIcon name="i-lucide-info" class="size-4 shrink-0" :class="noticeCount > 0 ? 'text-amber-600' : 'text-gray-400'" aria-hidden="true" />
-        <span class="min-w-0 flex-1 font-medium" :class="noticeCount > 0 ? 'text-amber-800' : 'text-gray-600'">{{ noticeLine }}</span>
-        <UIcon :name="noticesOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-      </button>
-      <div v-show="noticesOpen" id="employee-notices" class="space-y-3 border-t border-gray-100 p-3">
-        <LevelUpNotice @changed="levelChanged" />
-        <RequirementNotice />
-      </div>
-    </div>
-
     <!-- From sm on a table, on a phone one compact card per person. -->
     <table class="hidden w-full overflow-hidden rounded-lg bg-white text-sm shadow-sm ring-1 ring-gray-200 sm:table">
       <thead class="bg-gray-50 text-left text-xs text-gray-500">
@@ -262,6 +252,8 @@ const td = 'px-3 py-2'
           <th :class="[th, 'text-right']">{{ de.employees.weeklyHours }}</th>
           <th :class="[th, 'text-right']">{{ de.employees.balanceToday }}</th>
           <th :class="[th, 'text-right']">{{ de.employees.leaveLeft(year) }}</th>
+          <th v-if="seesLevel" :class="th">{{ de.employees.nextLevel }}</th>
+          <th :class="th">{{ de.employees.requirementsColumn }}</th>
           <th :class="th"><span class="sr-only">{{ de.employees.badgesLabel }}</span></th>
           <th v-if="seesSpecialRights" :class="th">{{ de.employees.specialRights }}</th>
           <th v-if="reordering" :class="th"><span class="sr-only">{{ de.employees.order }}</span></th>
@@ -287,6 +279,31 @@ const td = 'px-3 py-2'
               {{ formatNumber(leaveOf.get(employee.id)!.available) }}
             </span>
             <span v-else class="text-gray-400">–</span>
+            <div v-if="forfeitText(extrasOf.get(employee.id)?.forfeit)" class="whitespace-normal text-xs font-normal text-gray-500">
+              {{ forfeitText(extrasOf.get(employee.id)?.forfeit) }}
+            </div>
+          </td>
+          <td v-if="seesLevel" :class="td">
+            <template v-if="extrasOf.get(employee.id)?.level">
+              <span :class="TONE_TEXT[levelTone(extrasOf.get(employee.id)!.level!)]">{{ levelText(extrasOf.get(employee.id)!.level!) }}</span>
+              <UButton
+                v-if="canEnterLevel && levelToTake(extrasOf.get(employee.id)!.level!) !== null" size="xs" color="warning" variant="outline" class="ml-2"
+                :label="de.employees.takeLevel" :aria-label="de.employees.takeLevelLabel(employee.name, levelToTake(extrasOf.get(employee.id)!.level!)!)"
+                @click="takeLevel(employee, levelToTake(extrasOf.get(employee.id)!.level!)!)"
+              />
+            </template>
+            <span v-else class="text-gray-400">–</span>
+          </td>
+          <td :class="td">
+            <NuxtLink :to="recordsLink(employee)" class="flex flex-wrap gap-1 hover:opacity-80" :aria-label="de.employees.requirementsOpenLabel(employee.name)">
+              <UBadge
+                v-for="row in extrasOf.get(employee.id)?.requirements" :key="row.typeId" size="sm" variant="soft"
+                :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
+              />
+              <span v-if="extrasOf.get(employee.id) && !extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel">
+                {{ de.employees.requirementsOk }}
+              </span>
+            </NuxtLink>
           </td>
           <td :class="td">
             <span class="flex flex-wrap gap-1">
@@ -332,6 +349,29 @@ const td = 'px-3 py-2'
           </span>
           <span v-if="employee.leftOn" class="text-xs">{{ de.employees.leftOn }} {{ formatDate(employee.leftOn) }}</span>
         </div>
+        <div v-if="forfeitText(extrasOf.get(employee.id)?.forfeit)" class="text-xs text-gray-500">
+          {{ de.employees.leaveLeftShort }}: {{ forfeitText(extrasOf.get(employee.id)?.forfeit) }}
+        </div>
+        <div v-if="seesLevel && extrasOf.get(employee.id)?.level" class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="text-gray-600">{{ de.employees.nextLevel }}:</span>
+          <span :class="TONE_TEXT[levelTone(extrasOf.get(employee.id)!.level!)]">{{ levelText(extrasOf.get(employee.id)!.level!) }}</span>
+          <UButton
+            v-if="canEnterLevel && levelToTake(extrasOf.get(employee.id)!.level!) !== null" size="xs" color="warning" variant="outline"
+            :label="de.employees.takeLevel" :aria-label="de.employees.takeLevelLabel(employee.name, levelToTake(extrasOf.get(employee.id)!.level!)!)"
+            @click="takeLevel(employee, levelToTake(extrasOf.get(employee.id)!.level!)!)"
+          />
+        </div>
+        <NuxtLink
+          v-if="extrasOf.get(employee.id)" :to="recordsLink(employee)" class="mt-1 flex flex-wrap items-center gap-1"
+          :aria-label="de.employees.requirementsOpenLabel(employee.name)"
+        >
+          <span class="text-gray-600">{{ de.employees.requirementsColumn }}:</span>
+          <UBadge
+            v-for="row in extrasOf.get(employee.id)!.requirements" :key="row.typeId" size="sm" variant="soft"
+            :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
+          />
+          <span v-if="!extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel">{{ de.employees.requirementsOk }}</span>
+        </NuxtLink>
         <div v-if="badgesOf.get(employee.id)?.length" class="mt-1.5 flex flex-wrap gap-1">
           <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueLevelUp, isPlausibleTrainingUntil, levelBySeniority, levelStart, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
+import { dueLevelUp, isPlausibleTrainingUntil, levelBySeniority, levelStart, levelStepState, nextLevelStep, seniority, SUGGESTED_PAY_GROUP } from '../../shared/domain/tvoed'
 
 describe('the training end check (server and form)', () => {
   it('takes a real ISO date from 1970 up to a year after today', () => {
@@ -76,5 +76,21 @@ describe('level-up notices', () => {
     expect(dueLevelUp(since, 4, '2027-06-01')).toBeNull() // entered: level 5 only from 2031
     expect(dueLevelUp(since, 6, '2040-01-01')).toBeNull()
     expect(dueLevelUp(since, null, '2027-03-01')).toBeNull()
+  })
+})
+
+describe('the next level step, however far away', () => {
+  const since = '2021-03-01'
+  it('names the next level and its day, nothing at the top level or without a level', () => {
+    expect(nextLevelStep(since, 3)).toEqual({ level: 4, on: '2027-03-01' })
+    expect(nextLevelStep(since, 5)).toEqual({ level: 6, on: '2036-03-01' })
+    expect(nextLevelStep(since, 6)).toBeNull()
+    expect(nextLevelStep(since, null)).toBeNull()
+  })
+  it('is overdue after the day, soon within 30 days (the day itself included), later otherwise', () => {
+    expect(levelStepState('2027-03-01', '2027-03-02')).toBe('overdue')
+    expect(levelStepState('2027-03-01', '2027-03-01')).toBe('soon')
+    expect(levelStepState('2027-03-01', '2027-01-30')).toBe('soon')
+    expect(levelStepState('2027-03-01', '2027-01-29')).toBe('later')
   })
 })

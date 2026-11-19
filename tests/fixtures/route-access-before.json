@@ -206,6 +206,7 @@
   "employees/closure-preview.post.ts": ["provider","admin"],
   "employees/index.get.ts": ["provider","admin"],
   "employees/index.post.ts": ["provider","admin"],
+  "employees/list-extras.get.ts": ["provider","admin"],
   "employees/rights-exceptions.get.ts": ["provider","admin"],
   "entries/[id].delete.ts": ["provider","admin"],
   "entries/[id].put.ts": ["provider","admin"],

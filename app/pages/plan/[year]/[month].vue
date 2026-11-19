@@ -284,9 +284,6 @@ function navigate(nextYear: number, nextMonth: number) {
 <template>
   <div class="space-y-3">
     <template v-if="plan && !error">
-      <LevelUpNotice v-if="isAdmin" />
-      <RequirementNotice v-if="isAdmin" compact />
-      <LeaveForfeitNotice />
       <PlanSetupNotice v-if="isAdmin" />
       <PlanHeader
         :plan="plan" :is-admin="isAdmin" :group-filter="activeGroup"

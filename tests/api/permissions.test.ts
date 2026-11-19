@@ -359,6 +359,12 @@ describe('API route permissions', () => {
     expect(source('leave-counting.put.ts')).toContain('provider.facilityId')
   })
 
+  it('gives the employee list its extras (next level, appointments, leave notice) to employees.view and sorts the parts by the viewer\'s rights in the service', () => {
+    expect(permissionCalls('employees/list-extras.get.ts')).toEqual([{ key: 'employees.view', options: '' }])
+    expect(source('employees/list-extras.get.ts')).toContain('viewer.facilityId')
+    expect(source('employees/list-extras.get.ts')).toContain('viewer.permissions')
+    expect(fixture['employees/list-extras.get.ts']).toEqual(['provider', 'admin'])
+  })
   it('keeps the consent to show emergency contacts at the tablet to the employee, the written record to Leitung, the list to the unlocked tablet', () => {
     // The employee follows from the session alone: nothing from the request names them.
     for (const route of ['my/emergency-consent.get.ts', 'my/emergency-consent.put.ts', 'my/emergency-contacts.get.ts']) {

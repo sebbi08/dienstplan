@@ -1906,6 +1906,25 @@ export interface LevelUpDto {
   on: IsoDate
 }
 
+/** What the employee list shows beside each person beyond the basic list (one request, rights filtered on the server). */
+export interface EmployeeListExtrasDto {
+  employeeId: number
+  /**
+   * „Nächste Stufe“: only with employees.contractView (otherwise the key is absent). null = no level or no start of
+   * employment entered; `final`: the top level is reached; else the next level and its day, with the state (`soon`: within
+   * 30 days, `overdue`: the day has passed and the level is not entered yet).
+   */
+  level?: { final: true } | { final: false; fromLevel: number; level: number; on: IsoDate; state: 'later' | 'soon' | 'overdue' } | null
+  /** Mandatory appointments that are overdue, missing or due soon (empty = nothing open). */
+  requirements: { typeId: number; typeName: string; state: DueRequirementDto['state']; dueOn: IsoDate | null }[]
+  /**
+   * The notice on remaining leave: only with leave.overview (otherwise the key is absent); null outside the notice
+   * window (1 October until the forfeiture date) or when the person has no leave left. `open` also covers a notice
+   * that has to be read again.
+   */
+  forfeit?: { status: 'read' | 'open' | 'no_account'; readAt: string | null } | null
+}
+
 /** One changed cell of an employee between two releases (texts as shown in the plan). */
 export interface DutyChangeDto {
   date: IsoDate

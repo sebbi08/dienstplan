@@ -147,6 +147,16 @@ export function markLeaveForfeitRead(db: Db, user: SessionUser, year: number, to
 }
 
 /**
+ * The notice state per employee today, for the employee list: the rows of the list of the year whose notice runs today
+ * (1 October until the forfeiture date); empty outside that window.
+ */
+export function getLeaveForfeitStatuses(db: Db, facilityId: number, today: IsoDate): Map<number, LeaveForfeitRowDto> {
+  const year = leaveForfeitNoticeYear(today, forfeitSetting(db, facilityId))
+  if (year === null) return new Map()
+  return new Map(getLeaveForfeitList(db, facilityId, year, today).rows.map(row => [row.employeeId, row]))
+}
+
+/**
  * „Hinweis auf Resturlaub ‹Jahr›“: the facility's staff employed on the day looked at (today, after the forfeiture date
  * that date) with leave of the year left then, plus anyone who has read the notice of the year, in the staff order.
  * Status: read (the latest receipt covers the notice; with its time and days), reopened (read, but now more days or
