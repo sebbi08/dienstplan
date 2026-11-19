@@ -96,6 +96,25 @@ describe('leave requests', () => {
     expect(listMyLeaveRequests(db, leitungWithEmployee)[0]).toMatchObject({ status: 'rejected', decisionNote: 'Teamfahrt' })
   })
 
+  it('lets the Träger see and decide their own request, while every other planner leaves their own to someone else', () => {
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    const tom = addEmployee(db, 'Tom')
+    const traegerTom = addUser(db, 'traeger-tom', 'provider', tom)
+    const own = request(traegerTom, '2026-11-09', '2026-11-10')
+    expect(listOpenRequests(db, traegerTom, 1).map(open => open.id)).toEqual([own])
+    expect(getLeavePlanning(db, traegerTom, 1, 2026).openRequests.map(open => open.id)).toEqual([own])
+    expect(decideLeaveRequest(db, traegerTom, 1, own, { approve: true, note: '', overwrite: false })).toEqual({ keptAbsences: 0 })
+    expect(listMyLeaveRequests(db, traegerTom)[0]).toMatchObject({ status: 'approved', decidedBy: 'traeger-tom' })
+    expect(loadEntries(db, { employeeId: tom }).map(e => [e.date, e.codeKey])).toEqual([['2026-11-09', 'vacation'], ['2026-11-10', 'vacation']])
+
+    // A Leitung with the planning right and an own employee record still does not see or decide its own request.
+    const leitungCarla = makePlanner(db, addUser(db, 'leitung-carla', 'admin', addEmployee(db, 'Carla')))
+    const carlas = request(leitungCarla, '2026-11-11', '2026-11-11')
+    expect(listOpenRequests(db, leitungCarla, 1).map(open => open.id)).not.toContain(carlas)
+    expect(errorCode(() => decideLeaveRequest(db, leitungCarla, 1, carlas, { approve: true, note: '', overwrite: false }))).toBe('own_leave_request')
+    expect(listOpenRequests(db, traegerTom, 1).map(open => open.id)).toEqual([carlas])
+  })
+
   it('counts planned leave and open requests per day, without closures, and warns above the limit', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
     makePlanner(db, leitung)

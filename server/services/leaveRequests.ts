@@ -356,7 +356,12 @@ export function withdrawLeaveRequest(db: Db, user: SessionUser, id: number, now:
 
 // --- deciding ------------------------------------------------------------------------------------------------
 
-/** Open requests of the facility's employees a planner may decide (not their own), oldest first. */
+/** The Träger decides their own requests too; everyone else leaves their own to another planner. */
+function decidesOwn(user: SessionUser): boolean {
+  return user.role === 'provider'
+}
+
+/** Open requests of the facility's employees a planner may decide (not their own, except for the Träger), oldest first. */
 export function listOpenRequests(db: Db, user: SessionUser, facilityId: number): LeaveRequestDto[] {
   const staff = loadEmployees(db, facilityId)
   if (staff.length === 0) return []
@@ -367,7 +372,7 @@ export function listOpenRequests(db: Db, user: SessionUser, facilityId: number):
     .where(and(
       eq(leaveRequests.status, 'open'),
       inArray(leaveRequests.employeeId, staff.map(employee => employee.id)),
-      user.employeeId === null ? undefined : ne(leaveRequests.employeeId, user.employeeId),
+      user.employeeId === null || decidesOwn(user) ? undefined : ne(leaveRequests.employeeId, user.employeeId),
     ))
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).all()
     .map(request => toDto(db, request, staff, closures, limit, names))
@@ -376,6 +381,7 @@ export function listOpenRequests(db: Db, user: SessionUser, facilityId: number):
 /**
  * Approves (writes "Urlaub", for an Überstundenfrei request "Überstundenfrei", on the request's days) or rejects an open request of one of the facility's employees.
  * Approving over planned duties needs `overwrite`; otherwise the server answers cells_occupied so the UI can ask first.
+ * The own request only by the Träger (403 own_leave_request for everyone else).
  */
 export function decideLeaveRequest(
   db: Db, user: SessionUser, facilityId: number, id: number, decision: { approve: boolean; note: string; overwrite: boolean },
@@ -387,7 +393,7 @@ export function decideLeaveRequest(
     .where(and(eq(leaveRequests.id, id), eq(employees.facilityId, facilityId))).get()?.request
   if (!request) throw new ServiceError(404, 'leave_request_not_found')
   if (request.status !== 'open') throw new ServiceError(409, 'leave_request_decided')
-  if (request.employeeId === user.employeeId) throw new ServiceError(403, 'own_leave_request')
+  if (request.employeeId === user.employeeId && !decidesOwn(user)) throw new ServiceError(403, 'own_leave_request')
   const decided = { decidedAt: now.toISOString(), decidedBy: user.id, decisionNote: decision.note.trim() }
   if (!decision.approve) {
     db.update(leaveRequests).set({ status: 'rejected', ...decided }).where(eq(leaveRequests.id, id)).run()
