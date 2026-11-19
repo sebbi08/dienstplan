@@ -1748,6 +1748,8 @@ export interface CalendarRequestsDto {
   maxConcurrent: number | null
   /** Days of the year with more people on leave (planned leave and open requests) than allowed, with their number. */
   overLimit: Record<IsoDate, number>
+  /** The viewer plans leave there (leave.plan): only then the calendar links to „Urlaubsplanung“ (else it has no requests). */
+  canPlan: boolean
 }
 
 /** A saved plan week; `rows` previews it per employee with one text per weekday Monday–Friday ('' = empty). */

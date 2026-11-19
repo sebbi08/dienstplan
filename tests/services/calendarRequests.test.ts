@@ -79,6 +79,24 @@ describe('open leave requests in the year calendar', () => {
     expect(calendarLeaveRequests(db, addUser(db, 'leitung-b', 'admin', null, krippe), krippe, 2026)!.requests).toEqual([])
   })
 
+  it('links to the leave planning only for who plans there (canPlan)', () => {
+    expect(calendarLeaveRequests(db, leitung, 1, 2026)?.canPlan).toBe(false)
+    expect(calendarLeaveRequests(db, provider, 1, 2026)?.canPlan).toBe(true)
+    expect(calendarLeaveRequests(db, makePlanner(db, leitung), 1, 2026)?.canPlan).toBe(true)
+  })
+
+  it('draws a request across New Year on each year\'s days only, counted as a whole', () => {
+    const id = request(annaUser, '2026-12-21', '2027-01-08')
+    const in2026 = calendarLeaveRequests(db, leitung, 1, 2026)!.requests
+    const in2027 = calendarLeaveRequests(db, leitung, 1, 2027)!.requests
+    expect([in2026.map(open => open.id), in2027.map(open => open.id)]).toEqual([[id], [id]])
+    expect(in2026[0]!.dates.every(date => date.startsWith('2026-12-'))).toBe(true)
+    expect(in2027[0]!.dates.every(date => date.startsWith('2027-01-'))).toBe(true)
+    expect(in2026[0]!.dates.at(-1)).toBe('2026-12-31')
+    expect(in2026[0]!.workdays).toBe(in2026[0]!.dates.length + in2027[0]!.dates.length)
+    expect(in2027[0]!.workdays).toBe(in2026[0]!.workdays)
+  })
+
   it('marks the days on which planned leave and open requests together exceed the limit', () => {
     makePlanner(db, leitung)
     applyToCells(db, leitung, 1, [{ employeeId: berta, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })

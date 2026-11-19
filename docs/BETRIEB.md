@@ -990,6 +990,34 @@ Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im A
   ganzen Tag und zählt mit. Anträge sind immer ganze Tage und zählen. Im Jahreskalender und in der Urlaubsplanung
   erscheint ÜF türkis als „Überstundenfrei“ (auch ÜF mit Uhrzeit).
 
+### Urlaubsplanung: „Alle Anträge und Urlaube“ und offene Anträge im Jahreskalender
+
+Wer Urlaub plant und genehmigt, sieht auf der Seite „Urlaubsplanung“ zwei Reiter: **„Planung“** (wie bisher) und
+**„Alle Anträge und Urlaube“** (die Adresse merkt sich den Reiter). Oben stehen die Filter Jahr, Mitarbeiter, Art
+(Urlaub, Sonderurlaub, ÜF) und Status (offen, genehmigt, abgelehnt, zurückgezogen, direkt eingetragen); gefiltert wird
+auf dem Server, die Druckansicht (A4 quer) zeigt dasselbe.
+
+- **Anträge**: jeder Antrag des Jahres (auch über den Jahreswechsel) mit Zeitraum, Tagen, Art, gestellt am, Status,
+  entschieden von/am und Ablehnungsgrund. Offene Anträge lassen sich hier genauso genehmigen oder ablehnen wie unter
+  „Planung“ (den eigenen Antrag entscheidet jemand anderes, der Träger auch seinen eigenen).
+- **Urlaubstage**: je Person die Zeiträume des Jahres mit Tagen und Herkunft und darüber die Zeile Anspruch / genommen /
+  verplant / frei verfügbar aus dem Urlaubskonto. Die Herkunft richtet sich **nach dem Datum**: Ein Urlaubstag
+  (bzw. ÜF-Tag) innerhalb eines genehmigten Antrags derselben Art heißt **„Antrag genehmigt am …“**, auch wenn er
+  später von Hand neu eingetragen wurde – das Programm merkt sich nicht, wer einen einzelnen Tag geschrieben hat.
+  Überschneiden sich zwei genehmigte Anträge derselben Art, gehört ein Tag dem später gestellten Antrag, der ihn
+  enthält; die übrigen Tage dem früheren. Alle anderen Tage heißen **„direkt eingetragen“**, Urlaub aus Schließzeiten
+  **„Schließzeit ‹Bezeichnung›“** (nur die Tage im gewählten Jahr). Sonderurlaub ist immer „direkt eingetragen“.
+- Mit dem Status „offen“, „abgelehnt“ oder „zurückgezogen“ gibt es keine Urlaubstage; „genehmigt“ zeigt nur Zeiträume
+  aus Anträgen, „direkt eingetragen“ nur die übrigen. Schließzeiten erscheinen nur ohne Status-Filter.
+
+Im **Jahreskalender** (Mehr → Kalender) sehen Leitung, Träger und wer Urlaub plant die **offenen Anträge** schraffiert
+und heller als genehmigten Urlaub (grün Urlaub, türkis ÜF), mit dem Text „beantragt: …“ (Zeitraum, Tage, beantragt
+am) als Tooltip und beim Anklicken des Tages. Genehmigte Anträge sind normaler Urlaub, abgelehnte und zurückgezogene
+erscheinen nicht. Der Schalter **„Anträge zeigen“** (voreingestellt an) merkt sich jedes Gerät. Ist eine Höchstzahl
+eingestellt, markiert die Zeile **„über Höchstzahl“** die Tage, an denen eingetragener Urlaub und offene Anträge
+zusammen darüber liegen (Symbol und Zahl). Den Link **„Zur Urlaubsplanung“** sieht nur, wer dort auch planen darf.
+Mitarbeiter sehen in ihrem Kalender keine Anträge anderer.
+
 ### Zugang (Benutzerkonto der Person)
 
 - Im Reiter **Zugang** richtest du für eine Person ohne Konto mit **„Zugang einrichten“** ein Benutzerkonto ein: Der

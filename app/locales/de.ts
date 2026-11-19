@@ -85,7 +85,7 @@ export const de = {
     requests: 'Anträge', noRequests: 'Keine Anträge.',
     period: 'Zeitraum', days: 'Tage', createdAt: 'gestellt am', decided: 'entschieden von/am', reason: 'Ablehnungsgrund',
     decidedText: (name: string, date: string) => `${name}, ${date}`,
-    leave: 'Urlaubstage', noLeave: 'Keine Urlaubstage.', noRanges: 'Keine Urlaubstage im Jahr.', origin: 'Herkunft',
+    leave: 'Urlaubstage', noLeave: 'Keine Urlaubstage.', noLeaveForStatus: 'Bei diesem Status gibt es keine Urlaubstage.', action: 'Aktion', noRanges: 'Keine Urlaubstage im Jahr.', origin: 'Herkunft',
     originRequest: (date: string) => `Antrag genehmigt am ${date}`,
     originDirect: 'direkt eingetragen',
     originClosure: (label: string) => `Schließzeit ${label}`,

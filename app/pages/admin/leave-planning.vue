@@ -72,7 +72,7 @@ const entryName = computed(() => entryEmployees.value.find(employee => employee.
     <div v-if="isPlanner" role="tablist" :aria-label="de.leaveYearList.tabsLabel" class="flex flex-wrap gap-1.5">
       <button
         v-for="key in TABS" :id="`leave-tab-${key}`" :key="key" type="button" role="tab"
-        :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" :aria-controls="`leave-panel-${key}`"
+        :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" :aria-controls="tab === key ? `leave-panel-${key}` : undefined"
         class="min-h-10 rounded-full px-3.5 text-sm ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         :class="tab === key ? 'bg-sky-50 font-semibold text-sky-800 ring-sky-400' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
         @click="selectTab(key)" @keydown="onTabKey"

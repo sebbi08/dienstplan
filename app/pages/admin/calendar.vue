@@ -152,7 +152,7 @@ async function removeEvent(event: CalendarEventDto) {
     <p class="text-sm text-gray-500">{{ de.year.adminOnly }} {{ de.calendar.clickHint }}</p>
     <div v-if="calendar?.requests" class="flex flex-wrap items-center gap-x-4 gap-y-1">
       <USwitch v-model="showRequests" :label="de.calendar.showRequests" />
-      <NuxtLink :to="planningLink" class="text-sm text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
+      <NuxtLink v-if="calendar.requests.canPlan" :to="planningLink" class="text-sm text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
       <span v-if="showRequests" class="text-xs text-gray-500">{{ de.calendar.requestsHint }}</span>
     </div>
     <CalendarLegend :requests="!!shownRequests" />
@@ -198,7 +198,7 @@ async function removeEvent(event: CalendarEventDto) {
     >
       <div v-if="absenceRequest" class="space-y-1 rounded-md bg-green-50 p-2 text-sm ring-1 ring-green-200">
         <p>{{ requestText(absenceRequest) }}</p>
-        <NuxtLink :to="planningLink" class="text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
+        <NuxtLink v-if="calendar?.requests?.canPlan" :to="planningLink" class="text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
       </div>
     </CalendarAbsenceDialog>
     <CalendarEventDialog

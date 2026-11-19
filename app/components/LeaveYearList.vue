@@ -56,6 +56,9 @@ const filterText = computed(() => {
   return parts.length ? t.filterLine(parts.join(', ')) : ''
 })
 
+/** offen, abgelehnt, zurückgezogen: such requests wrote no leave days, so the section says so instead of looking empty. */
+const noLeaveStatus = computed(() => ['open', 'rejected', 'withdrawn'].includes(filter.value.status ?? ''))
+
 const STATUS_COLOR: Record<LeaveRequestStatus, 'warning' | 'success' | 'error' | 'neutral'> = {
   open: 'warning', approved: 'success', rejected: 'error', withdrawn: 'neutral',
 }
@@ -93,7 +96,7 @@ const cell = 'py-1 pr-3 align-top'
                 <th :class="[cell, 'text-right']">{{ t.days }}</th><th :class="cell">{{ t.kind }}</th>
                 <th :class="cell">{{ t.createdAt }}</th><th :class="cell">{{ t.status }}</th>
                 <th :class="cell">{{ t.decided }}</th><th :class="cell">{{ t.reason }}</th>
-                <th v-if="!props.print" class="py-1" />
+                <th v-if="!props.print" class="py-1"><span class="sr-only">{{ t.action }}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +126,8 @@ const cell = 'py-1 pr-3 align-top'
 
       <section :class="props.print ? 'space-y-3' : 'space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200'">
         <h2 class="font-semibold">{{ t.leave }}</h2>
-        <p v-if="!data.people.length" class="text-sm text-gray-500">{{ t.noLeave }}</p>
+        <p v-if="noLeaveStatus" class="text-sm text-gray-500">{{ t.noLeaveForStatus }}</p>
+        <p v-else-if="!data.people.length" class="text-sm text-gray-500">{{ t.noLeave }}</p>
         <div v-for="person in data.people" :key="person.employeeId" class="space-y-1 border-t border-gray-100 pt-2 first-of-type:border-0" style="break-inside: avoid">
           <div class="flex flex-wrap items-baseline gap-x-3">
             <h3 class="font-semibold">{{ person.name }}</h3>

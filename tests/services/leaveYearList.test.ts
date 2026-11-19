@@ -5,7 +5,7 @@ import { setEntitlement } from '../../server/services/employees'
 import { getLeaveAccount } from '../../server/services/leave'
 import { enterLeave } from '../../server/services/leaveEntries'
 import { createLeaveRequest, decideLeaveRequest, setLeaveModule, withdrawLeaveRequest } from '../../server/services/leaveRequests'
-import { getLeaveYearList } from '../../server/services/leaveYearList'
+import { getLeaveYearList, requestOfDay } from '../../server/services/leaveYearList'
 import type { LeaveYearListFilter, SessionUser } from '../../shared/types/api'
 import { addEmployee, addUser, createTestDb, errorCode, makePlanner } from '../helpers/fixtures'
 
@@ -143,6 +143,39 @@ describe('Urlaubsplanung: Alle Anträge und Urlaube', () => {
     // Without kind and status everyone is listed, also without leave periods.
     const carla = addEmployee(db, 'Carla')
     expect(list().people.map(person => person.employeeId)).toEqual([anna, berta, carla])
+  })
+
+  it('gives overlapping approved requests each their own days: a day belongs to the last request containing it', () => {
+    const requests = [
+      { startDate: '2026-11-02', endDate: '2026-11-13' },
+      { startDate: '2026-11-05', endDate: '2026-11-06' },
+      { startDate: '2026-11-20', endDate: '2026-11-20' },
+    ]
+    expect(['2026-11-02', '2026-11-05', '2026-11-06', '2026-11-09', '2026-11-20', '2026-11-23'].map(date => requestOfDay(requests, date)))
+      .toEqual([0, 1, 1, 0, 2, null])
+  })
+
+  it('lists a request across New Year in both years, its days only those of each year', () => {
+    const id = request(annaUser, '2026-12-21', '2027-01-08')
+    decide(id, true)
+    const rangesOf = (year: number) => getLeaveYearList(db, leitung, 1, year, {}, today).people.find(person => person.employeeId === anna)!.ranges
+    for (const year of [2026, 2027]) {
+      const listed = getLeaveYearList(db, leitung, 1, year, {}, today).requests
+      expect(listed.map(row => row.id), String(year)).toEqual([id])
+    }
+    expect(rangesOf(2026)).toMatchObject([{ from: '2026-12-21', to: '2026-12-31', origin: 'request', requestId: id }])
+    expect(rangesOf(2027)).toMatchObject([{ to: '2027-01-08', origin: 'request', requestId: id }])
+    expect(rangesOf(2027)[0]!.from.startsWith('2027-01-')).toBe(true)
+  })
+
+  it('shows a closure across New Year in each year with that year\'s days only', () => {
+    createClosure(db, provider, 1, { startDate: '2026-12-28', endDate: '2027-01-05', label: 'Winter', mode: 'vacation' }, now)
+    const closureOf = (year: number) => getLeaveYearList(db, leitung, 1, year, { employeeId: anna }, today).people[0]!.ranges
+      .filter(range => range.origin === 'closure')
+    const account2027 = getLeaveAccount(db, anna, 2027, today).closures[0]!
+    expect(closureOf(2026)).toMatchObject([{ from: '2026-12-28', to: '2026-12-31', days: 4, closureLabel: 'Winter' }])
+    expect(closureOf(2027)).toMatchObject([{ from: '2027-01-01', to: '2027-01-05', days: account2027.days }])
+    expect(account2027.days).toBeLessThan(5)
   })
 
   it('shows an open request decided from the list as approved, its days as from the request', () => {

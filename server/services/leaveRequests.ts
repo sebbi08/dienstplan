@@ -533,7 +533,8 @@ export function getLeavePlanning(db: Db, user: SessionUser, facilityId: number, 
  */
 export function calendarLeaveRequests(db: Db, user: SessionUser, facilityId: number, year: number): CalendarRequestsDto | null {
   if (!leaveRequestsEnabled(db)) return null
-  if (user.role !== 'admin' && user.role !== 'provider' && !isPlanner(db, user, facilityId)) return null
+  const canPlan = isPlanner(db, user, facilityId)
+  if (user.role !== 'admin' && user.role !== 'provider' && !canPlan) return null
   const staff = loadEmployees(db, facilityId)
   const closures = loadClosures(db, facilityId)
   const from = `${year}-01-01`
@@ -559,5 +560,5 @@ export function calendarLeaveRequests(db: Db, user: SessionUser, facilityId: num
   const limit = maxConcurrent(db, facilityId)
   const load = leaveLoad(loadInRange(db, from, to, staff, closures))
   const overLimit = daysOverLimit(load, dateRange(from, to), limit)
-  return { requests, maxConcurrent: limit, overLimit: Object.fromEntries(overLimit.map(date => [date, load.get(date)!])) }
+  return { requests, maxConcurrent: limit, overLimit: Object.fromEntries(overLimit.map(date => [date, load.get(date)!])), canPlan }
 }
