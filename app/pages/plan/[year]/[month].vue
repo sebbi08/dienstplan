@@ -33,6 +33,8 @@ const helperOpen = ref(false)
 const editOpen = ref(false)
 const editEntry = ref<EntryDto | null>(null)
 const cellMenu = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
+/** The quick time entry at a cell (see onQuickEntry). */
+const quickEntry = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
 const breakOpen = ref(false)
 const releaseStatusKey = ref(0) // reloads the message status after a release
 const weekTemplate = reactive<{ open: boolean; mode: 'save' | 'apply'; weekStart: string }>({ open: false, mode: 'save', weekStart: '' })
@@ -40,6 +42,7 @@ const weekTemplate = reactive<{ open: boolean; mode: 'save' | 'apply'; weekStart
 watch([year, month], () => {
   selection.clear()
   cellMenu.open = false
+  quickEntry.open = false
   selectedDate.value = null
 })
 
@@ -64,6 +67,7 @@ const groupSelect = computed({
     // Cells of a hidden block must not stay selected.
     selection.clear()
     cellMenu.open = false
+    quickEntry.open = false
   },
 })
 
@@ -219,6 +223,18 @@ function onCellClick(employeeId: number, date: string, event: MouseEvent) {
   cellMenu.open = selection.cells.value.length > 0
 }
 
+/**
+ * Double click, long press, Enter or F2 on a cell: the quick time entry opens at it, for the cell or the selection it
+ * belongs to. What is typed goes the „Sonderdienst“ dialog's way (onEntry: added to the cells, the server names a cell
+ * that overlaps).
+ */
+function onQuickEntry(employeeId: number, date: string, cell: HTMLElement, afterDoubleClick: boolean) {
+  if (!isAdmin.value) return
+  selection.selectForQuickEntry(employeeId, date, afterDoubleClick)
+  cellMenu.open = false
+  Object.assign(quickEntry, { open: true, reference: cell })
+}
+
 /** Runs an action of the cell menu after closing it, so a dialog it opens gets the focus. */
 function fromMenu<A extends unknown[]>(action: (...args: A) => unknown) {
   return (...args: A) => {
@@ -309,12 +325,13 @@ function navigate(nextYear: number, nextMonth: number) {
             :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
-            @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh"
+            @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
           />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />
+      <PlanQuickTimeEntry v-if="isAdmin" v-model:open="quickEntry.open" :reference="quickEntry.reference" @submit="onEntry" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
       <PlanCodeDetailsModal
         v-model:open="codeDetails.open" :code="codeDetails.code" :employee-id="codeDetails.employeeId" :date="codeDetails.date"

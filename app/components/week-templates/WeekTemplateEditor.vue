@@ -7,6 +7,7 @@ import type {
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
+import { quickEntryHandlers } from '~/utils/quickEntry'
 import {
   clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateDayKind,
   templateEntryInputs, templateWeekdays, templateWeeklyMinutes, type TemplateCell,
@@ -70,6 +71,8 @@ const WEEKDAY_KEYS = weekdays.map((_, weekday) => String(weekday))
 const selectedCells = computed<TemplateCell[]>(() => selection.cells.value.map(cell => ({ employeeId: cell.employeeId, weekday: Number(cell.date) })))
 /** Like the plan; a tap on a touch screen adds the cell to the selection (there is no Ctrl key). */
 function onCellClick(employeeId: number, weekday: number, event: MouseEvent) {
+  // The click after a long press opened the quick time entry; it does not toggle the cell.
+  if (quick.consumeClick()) return
   const touch = 'pointerType' in event && event.pointerType === 'touch'
   selection.click(employeeId, String(weekday), touch ? new MouseEvent('click', { ctrlKey: true }) : event, WEEKDAY_KEYS)
 }
@@ -99,6 +102,18 @@ function enter(input: EntryInput) {
   if ('error' in result) toast.add({ title: result.message, color: 'error' })
   else entries.value = result.entries
 }
+
+/**
+ * Double click, long press, Enter or F2 on a cell: the quick time entry opens at it, for the cell or the selection it
+ * belongs to; what is typed goes the „Sonderdienst“ dialog's way (enter).
+ */
+const quickEntry = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
+const quick = quickEntryHandlers<TemplateCell>(({ employeeId, weekday }, element, afterDoubleClick) => {
+  selection.selectForQuickEntry(employeeId, String(weekday), afterDoubleClick)
+  Object.assign(quickEntry, { open: true, reference: element })
+})
+const quickTitle = (person: WeekTemplateStaffDto, weekday: number) =>
+  [dayOffTitle(person, weekday), de.quickEntry.hint].filter(Boolean).join('\n')
 
 const timeModal = reactive<{ open: boolean; code: CodeDto | null }>({ open: false, code: null })
 const breakOpen = ref(false)
@@ -178,9 +193,14 @@ async function save() {
               <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">{{ day }}</td>
               <td
                 v-for="person in columns" :key="person.id"
-                class="cursor-pointer border border-gray-200 px-1 py-1 align-top hover:bg-sky-50" :class="cellClass(person, weekday)"
-                :title="dayOffTitle(person, weekday)"
+                class="cursor-pointer select-none border border-gray-200 px-1 py-1 align-top [-webkit-touch-callout:none] hover:bg-sky-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600"
+                :class="cellClass(person, weekday)" :title="quickTitle(person, weekday)" tabindex="0"
                 @click="onCellClick(person.id, weekday, $event)"
+                @dblclick="quick.dblclick($event, { employeeId: person.id, weekday })"
+                @keydown="quick.keydown($event, { employeeId: person.id, weekday })"
+                @pointerdown="quick.pointerdown($event, { employeeId: person.id, weekday })"
+                @pointermove="quick.pointermove" @pointerup="quick.pointerup" @pointercancel="quick.pointercancel"
+                @contextmenu="quick.contextmenu"
               >
                 <div class="flex min-h-6 flex-col items-start gap-0.5">
                   <PlanEntryChip
@@ -219,6 +239,7 @@ async function save() {
     </form>
 
     <PlanTimeEntryModal v-model:open="timeModal.open" :code="timeModal.code" @submit="enter" />
+    <PlanQuickTimeEntry v-model:open="quickEntry.open" :reference="quickEntry.reference" @submit="enter" />
     <PlanBreakModal v-model:open="breakOpen" @submit="enter({ kind: 'break', start: $event.start, end: $event.end })" />
   </div>
 </template>

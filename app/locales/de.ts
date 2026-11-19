@@ -315,7 +315,7 @@ export const de = {
     totalsCarryOver: 'Übertrag Vormonat', totalsMonth: 'Dieser Monat', totalsTotal: 'Gesamt Monatsende',
     weekTooltip: (target: string, credit: string) => `Soll ${target} · Ist ${credit}`,
     selected: (count: number) => (count === 1 ? '1 Zelle ausgewählt' : `${count} Zellen ausgewählt`),
-    selectHint: 'Zelle anklicken · Umschalt+Klick: Bereich · Strg+Klick: mehrere Zellen',
+    selectHint: 'Zelle anklicken · Umschalt+Klick: Bereich · Strg+Klick: mehrere Zellen · Doppelklick (am Handy lange drücken): Zeit eintippen',
     selectFirst: 'Bitte zuerst eine oder mehrere Zellen auswählen.',
     discard: 'Änderungen verwerfen…', discarded: 'Änderungen verworfen',
     addBreak: 'Zusätzliche Pause…',
@@ -409,6 +409,17 @@ export const de = {
     incomplete_break: 'Bitte „Pause von“ und „Pause bis“ angeben oder beide leer lassen.',
     break_outside: 'Die Pause muss innerhalb der Arbeitszeit liegen.',
     missing_times: 'Bitte „Von“ und „Bis“ angeben.',
+  },
+  /** The small field at a plan or template cell (double click, long press, Enter or F2): a special shift by typing. */
+  quickEntry: {
+    hint: 'Doppelklick: Zeit eintippen',
+    label: 'Sonderdienst – Zeit eintippen',
+    placeholder: '7:30-14:00',
+    help: 'z. B. 7:30-14 oder 7:30-14 P 11:30-12 · Enter speichert, Esc bricht ab',
+    errors: {
+      empty: 'Bitte eine Zeit eintippen, z. B. 7:30-14:00.',
+      format: 'Bitte so eintippen: 7:30-14:00, mit Pause z. B. 7:30-14 P 11:30-12.',
+    },
   },
   overview: {
     title: (date: string) => `Tagesübersicht ${date}`,
@@ -829,7 +840,7 @@ export const de = {
       newTitle: 'Neue Dienstplanvorlage',
       editTitle: (name: string) => `Vorlage „${name}“ bearbeiten`,
       back: 'Zurück zu den Dienstplanvorlagen',
-      hint: 'Felder anklicken (Umschalt+Klick: mehrere Tage, Strg+Klick oder am Handy antippen: einzelne Felder dazu), dann oben einen Dienst, VZ, Büro, Sonderdienst oder eine Pause wählen. Ein weiterer Dienst kommt dazu; Überschneidungen werden abgelehnt. Büro oder VZ ohne Uhrzeit gilt als ganzer Tag. Urlaub, Krank und Schließtage gehören nicht in eine Vorlage.',
+      hint: 'Felder anklicken (Umschalt+Klick: mehrere Tage, Strg+Klick oder am Handy antippen: einzelne Felder dazu), dann oben einen Dienst, VZ, Büro, Sonderdienst oder eine Pause wählen. Ein weiterer Dienst kommt dazu; Überschneidungen werden abgelehnt. Büro oder VZ ohne Uhrzeit gilt als ganzer Tag. Urlaub, Krank und Schließtage gehören nicht in eine Vorlage. Doppelklick (am Handy lange drücken) auf ein Feld: Zeit direkt eintippen, z. B. 7:30-14 P 11:30-12.',
       weekday: 'Tag',
       addBreak: 'Pause…',
       hours: 'Wochenstunden laut Vorlage',

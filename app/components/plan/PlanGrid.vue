@@ -10,6 +10,7 @@ import { formatDateTime, formatDayLong, formatDayShort } from '~/utils/format'
 import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { dayHoursText } from '~/utils/openingHours'
+import { quickEntryHandlers } from '~/utils/quickEntry'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
 const props = defineProps<{
@@ -34,7 +35,17 @@ const emit = defineEmits<{
   sickLeave: [employeeId: number, date: string]
   /** A warning was acknowledged or taken back: the plan reloads. */
   warningsChanged: []
+  /** Double click, long press, Enter or F2 on an editable cell: the quick time entry opens at `cell`. */
+  quickEntry: [employeeId: number, date: string, cell: HTMLElement, afterDoubleClick: boolean]
 }>()
+
+/**
+ * The quick time entry fits a cell the editor can enter a special shift into: not a helper's day in another plan, not a
+ * day helping out elsewhere (only absences go there), never in the print view.
+ */
+const quickEntryAllowed = (cell: { busy: boolean; marker: unknown }) => !!props.editable && !props.print && !cell.busy && !cell.marker
+const quick = quickEntryHandlers<{ employeeId: number; date: string }>(({ employeeId, date }, element, afterDoubleClick) =>
+  emit('quickEntry', employeeId, date, element, afterDoubleClick))
 
 /** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
 function isEntryEditable(key: string, entry: EntryDto): boolean {
@@ -109,6 +120,8 @@ function removableHelpOut(employeeId: number): number | null {
 const busy = computed(() => busyCellKeys(props.plan))
 
 function onCellClick(cell: { busy: boolean; employeeId: number }, date: string, event: MouseEvent) {
+  // The click after a long press opened the quick time entry; it does not select again.
+  if (quick.consumeClick()) return
   if (!cell.busy) emit('cellClick', cell.employeeId, date, event)
 }
 
@@ -221,6 +234,7 @@ const rows = computed(() => props.plan.days.map((day) => {
       key,
       employeeId: employee.id,
       busy: busy.value.has(key),
+      quick: quickEntryAllowed({ busy: busy.value.has(key), marker }),
       marker,
       entries: marker ? [] : cellEntries,
       changed: Boolean(props.plan.changes[key]),
@@ -376,12 +390,19 @@ const rows = computed(() => props.plan.days.map((day) => {
                 class="border border-gray-200 px-1 py-1 align-top print:py-0!"
                 :class="[
                   editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
+                  cell.quick ? 'select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600' : '',
                   selected?.has(cell.key) ? 'bg-sky-100'
                   : cell.missing ? 'bg-red-50' : cell.busy && !print ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
                   markClass(cell),
                 ]"
-                :title="cell.title"
+                :title="cell.quick ? joinLines([cell.title, de.quickEntry.hint]) : cell.title"
+                :tabindex="cell.quick ? 0 : undefined"
                 @click="onCellClick(cell, row.day.date, $event)"
+                @dblclick="cell.quick && quick.dblclick($event, { employeeId: cell.employeeId, date: row.day.date })"
+                @keydown="cell.quick && quick.keydown($event, { employeeId: cell.employeeId, date: row.day.date })"
+                @pointerdown="quick.pointerdown($event, cell.quick ? { employeeId: cell.employeeId, date: row.day.date } : null)"
+                @pointermove="quick.pointermove" @pointerup="quick.pointerup" @pointercancel="quick.pointercancel"
+                @contextmenu="quick.contextmenu"
               >
                 <div class="flex flex-col items-start gap-0.5 print:gap-0">
                   <span v-if="cell.busy && !print" class="text-xs italic text-gray-600">{{ de.plan.helperBusy }}</span>
@@ -395,9 +416,11 @@ const rows = computed(() => props.plan.days.map((day) => {
                     <span class="font-medium">{{ de.myPlan.helpOutIn(cell.marker.facility) }}</span>
                     <span v-for="(line, lineIndex) in cell.marker.lines" :key="lineIndex">{{ line }}</span>
                   </span>
+                  <!-- A double click on a chip that opens its edit dialog stays with the dialog (data-quick-skip). -->
                   <PlanEntryChip
                     v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable"
                     :editable="isEntryEditable(cell.key, entry)" :cell-title="cell.title" :group-name="groupTag(entry)"
+                    :data-quick-skip="isEntryEditable(cell.key, entry) || undefined"
                     @remove="emit('removeEntry', $event)" @click="onEntryClick(cell.key, entry, $event)"
                   />
                   <button
