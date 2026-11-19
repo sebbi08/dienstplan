@@ -1215,8 +1215,8 @@ auch im Reiter und in den Einstellungen.
   sie mit. Praxissemester, Pflichtpraktikum oder Werkstudent/in ohne pädagogischen Abschluss ebenfalls als „keine
   pädagogische Kraft“. Welche Anrechnung das Land für Auszubildende, Studierende und Berufspraktikanten vorgibt (und
   auf welcher Grundlage), steht im Hinweis der Vorgabe unter Einstellungen → Personalschlüssel. Diese Werte gelten ab
-  19.11.2026; im Reiter Personalschlüssel ab Dezember 2026, weil die App für jeden Monat die Fassung vom Monatsersten
-  nimmt. Für frühere Zeiträume bleiben die bisherigen Werte.
+  November 2026 (neue Recherche, keine Gesetzesänderung); für frühere Monate bleiben die bisherigen Werte. Hat der
+  Träger einen dieser Werte geändert, gilt seine Änderung weiter.
   „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im
   Feld). Eine eigene Zahl (0 bis 100) gilt nur für diese Person.
 - **Solange bei keinem Mitarbeiter der Einrichtung eine Qualifikation eingetragen ist, zeigt der Dienstplan keine

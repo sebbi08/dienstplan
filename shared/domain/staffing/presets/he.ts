@@ -43,6 +43,7 @@ export const HE: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'HKJGB §§ 25b–25d (zuletzt geändert durch Gesetz vom 10.12.2025, GVBl. Nr. 93); FAQ des '
       + 'Sozialministeriums zur HKJGB-Novelle (Stand 25.03.2026)',
     note: `${TRAINEES_NOTE} PivA, berufsbegleitende Ausbildung und berufsbegleitendes/duales Studium zählen als `

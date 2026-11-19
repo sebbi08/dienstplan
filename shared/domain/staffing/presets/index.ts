@@ -1,5 +1,6 @@
 import type { GermanState } from '../../states'
 import type { IsoDate } from '../../types'
+import { sameLawValue, type SameLawValue } from '../overrides'
 import type { StaffingRuleSet } from '../types'
 import { BB } from './bb'
 import { BE } from './be'
@@ -34,6 +35,18 @@ const PRESETS: Record<GermanState, readonly StaffingRuleSet[]> = deepFreeze({
 /** All versions of a state's preset, oldest first. */
 export function presetVersions(land: GermanState): readonly StaffingRuleSet[] {
   return PRESETS[land]
+}
+
+const lawValues = new Map<GermanState, SameLawValue>()
+
+/** The law-value comparison of the state's versions for applyOverrides (corrections keep overrides; cached). */
+export function sameLawValueOf(land: GermanState): SameLawValue {
+  let same = lawValues.get(land)
+  if (!same) {
+    same = sameLawValue(PRESETS[land])
+    lawValues.set(land, same)
+  }
+  return same
 }
 
 /**

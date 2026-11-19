@@ -35,6 +35,7 @@ export const HH: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'KibeG (Fachkraftschlüssel Krippe 1 : 4, Elementar 1 : 10); Landesrahmenvertrag § 3 (Abs. 3: '
       + 'Auszubildende und duale Studiengänge), § 4, Anlage 1 b',
     note: 'Bitte prüfen: Die aktuellen Erziehungs- und Leitungswochenstunden je Leistungsart (K4–K12, E4–E12) wurden '

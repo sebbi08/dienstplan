@@ -12,7 +12,7 @@ const base: Omit<StaffingRuleSet, 'validFrom' | 'note' | 'demand'> = {
   fteHoursPerWeek: 40,
   addOns: [leitung({ mode: 'pct_of_demand', pct: 10 })],
   presence: [],
-  // versions before 19.11.2026: Erzieher-Praktikanten 0.5 (a rule of the SächsQualiVO 2004, no longer in force)
+  // versions before 01.11.2026: Erzieher-Praktikanten 0.5 (a rule of the SächsQualiVO 2004, no longer in force)
   staffShares: shares({ praktikant: 50 }),
   quotas: [{
     key: 'assistenz', label: 'Assistenzkräfte', kind: 'max_share',
@@ -48,6 +48,7 @@ export const SN: StaffingRuleSet[] = [
   {
     ...base,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: `${base.source} § 5a`,
     note: `${TRAINEES} ${BASE_NOTE}`,
     demand: [{ ageBand: 'u3', childrenPerFte: 4.5014, refHoursPerWeek: 45 }, { ...kindergarten }, { ...hort }],

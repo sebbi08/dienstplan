@@ -29,6 +29,7 @@ export const ST: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'KiFöG LSA § 21 (Fassung ab 01.08.2019), § 22; Richtlinie Landesmodellprogramm Fachkräfteoffensive '
       + '2024–2027 (MBl. LSA 2024 S. 584)',
     note: 'Bitte prüfen: Ob das Gesetz „Kita Stabil“ (eingebracht 17.12.2025) die Faktoren geändert hat, ist nicht '

@@ -48,7 +48,7 @@ describe('staffing settings – reading', () => {
     expect(result.effective).toEqual(bw)
     expect(result.values.find(v => v.path === REGEL)).toEqual({ path: REGEL, preset: 1.8, value: 1.8, overridden: false })
     expect(result.versions).toEqual(presetVersions('BW').map(v => ({ validFrom: v.validFrom, source: v.source, confidence: 'high' })))
-    expect(result.versions.map(v => v.validFrom)).toEqual([bw.validFrom, '2026-11-19'])
+    expect(result.versions.map(v => v.validFrom)).toEqual([bw.validFrom, '2026-11-01'])
     expect(settings(traeger).canEdit).toBe(true)
   })
 })
@@ -157,19 +157,33 @@ describe('staffing settings – overrides', () => {
     expect(settings().upcomingIgnored).toEqual([{ validFrom: '2027-01-01', path: u3, value: 4.5, preset: 4.25 }])
   })
 
-  it('the trainee shares of 19.11.2026 behave like a new law version for overrides', () => {
+  it('the trainee correction of 01.11.2026 is no law change: overrides keep applying across it', () => {
+    const azubi = 'staffShares.azubi_1'
+    set({ [azubi]: 30 })
+    expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.azubi_1).toBe(30)
+    // BW PiA 0 → 40 % from 01.11.2026, a correction: the Träger's 30 % still counts, nothing is announced as lapsing
+    const november = staffingRulesFor(db, 1, '2026-11-01')
+    expect(november.preset.validFrom).toBe('2026-11-01')
+    expect(november).toMatchObject({ applied: [azubi], ignored: [] })
+    expect(november.rules.staffShares.azubi_1).toBe(30)
+    expect(settings().upcomingIgnored).toEqual([])
+    const later = getStaffingSettings(db, traeger, 1, '2026-11-19')
+    expect(later.ignored).toEqual([])
+    expect(later.overrides).toEqual({ [azubi]: 30 })
+    expect(later.values.find(v => v.path === azubi)).toEqual({ path: azubi, preset: 40, value: 30, overridden: true })
+    // Saving again today stores it against today's value; it keeps counting for the earlier months as well.
+    setStaffingOverrides(db, traeger, 1, { [azubi]: 30 }, '2026-11-19')
+    expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.azubi_1).toBe(30)
+    // Sent back with today's value, it is no override any more.
+    expect(setStaffingOverrides(db, traeger, 1, { [azubi]: 40 }, '2026-11-19').overrides).toEqual({})
+  })
+
+  it('SN: an override of the Berufspraktikum share keeps applying after the correction to 0 %', () => {
     changeState('SN')
     const praktikant = 'staffShares.praktikant'
-    const ergaenzung = 'staffShares.ergaenzung'
-    set({ [praktikant]: 30, [ergaenzung]: 90 })
-    expect(staffingRulesFor(db, 1, '2026-11-01').rules.staffShares.praktikant).toBe(30)
-    // SN Berufspraktikum 50 → 0: the override lapses, the unchanged Ergänzungskraft share keeps its override
-    const december = staffingRulesFor(db, 1, '2026-12-01')
-    expect(december.rules.staffShares.praktikant).toBe(0)
-    expect(december.rules.staffShares.ergaenzung).toBe(90)
-    expect(december.ignored).toEqual([praktikant])
-    expect(settings().upcomingIgnored).toEqual([{ validFrom: '2026-11-19', path: praktikant, value: 30, preset: 50 }])
-    expect(getStaffingSettings(db, traeger, 1, '2026-11-19').ignored).toEqual([{ path: praktikant, value: 30, preset: 50 }])
+    set({ [praktikant]: 30 })
+    expect(staffingRulesFor(db, 1, '2026-12-01').rules.staffShares.praktikant).toBe(30)
+    expect(settings().upcomingIgnored).toEqual([])
   })
 
   it('keeps ignored overrides apart: re-saving after the version change neither re-arms nor fails', () => {

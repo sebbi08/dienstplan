@@ -11,7 +11,9 @@ import { QUALIFICATIONS, type AddOn, type DemandRule, type HoursBand, type Prese
  * same holds for the limits of a step table (`addOns.leitung.steps.bis4.fte`, `….steps.rest.fte`).
  *
  * An override remembers the preset value it replaced. It applies to a version only where that version has the path
- * with the same preset value: when a new version of the law changes the number, the new law value wins.
+ * with the same preset value: when a new version of the law changes the number, the new law value wins. A version marked
+ * `correction` changes no law, it fixes values of the version before it: there the old and the corrected value count as
+ * the same law value (see sameLawValue), so overrides set against either keep applying on both sides.
  */
 export interface StoredOverride {
   value: number
@@ -141,13 +143,52 @@ export function copyRuleSet(rules: StaffingRuleSet): StaffingRuleSet {
   return structuredClone(rules) as StaffingRuleSet
 }
 
+/** Whether two preset values of a path stand for the same law value. */
+export type SameLawValue = (path: string, a: number, b: number) => boolean
+
+/**
+ * The law-value comparison of a state's versions (oldest first): equal numbers, or the old and the new value of a path
+ * that a `correction` version changed against the version before it – also over several corrections in a row.
+ */
+export function sameLawValue(versions: readonly StaffingRuleSet[]): SameLawValue {
+  // per path: value → class representative (a tiny union-find over the corrected pairs)
+  const parents = new Map<string, Map<number, number>>()
+  const find = (classes: Map<number, number>, value: number): number => {
+    let root = value
+    while (classes.has(root) && classes.get(root) !== root) root = classes.get(root)!
+    return root
+  }
+  versions.forEach((version, i) => {
+    if (!version.correction || i === 0) return
+    const before = new Map(overridableValues(versions[i - 1]!).map(v => [v.path, v.value]))
+    for (const { path, value } of overridableValues(version)) {
+      const old = before.get(path)
+      if (old === undefined || old === value) continue
+      const classes = parents.get(path) ?? new Map<number, number>()
+      parents.set(path, classes)
+      const a = find(classes, old)
+      const b = find(classes, value)
+      classes.set(a, a)
+      classes.set(b, a)
+    }
+  })
+  return (path, a, b) => {
+    if (a === b) return true
+    const classes = parents.get(path)
+    return classes !== undefined && find(classes, a) === find(classes, b)
+  }
+}
+
+const exactValue: SameLawValue = (_path, a, b) => a === b
+
 /**
  * The preset with the overrides that apply to it, as a new object (the preset stays untouched). `applied` lists the
- * paths that changed a value, `ignored` those the version has no place for or whose preset value differs from the one
- * the override replaced. The result is not checked: call ruleSetProblems on it.
+ * paths that changed a value, `ignored` those the version has no place for or whose preset value is another law value
+ * than the one the override replaced (`same`: sameLawValue of the state's versions; default: equal numbers). The result
+ * is not checked: call ruleSetProblems on it.
  */
 export function applyOverrides(
-  preset: StaffingRuleSet, overrides: StaffingOverrides,
+  preset: StaffingRuleSet, overrides: StaffingOverrides, same: SameLawValue = exactValue,
 ): { rules: StaffingRuleSet; applied: string[]; ignored: string[] } {
   const rules = copyRuleSet(preset)
   const byPath = new Map(slots(rules).map(slot => [slot.path, slot]))
@@ -155,7 +196,7 @@ export function applyOverrides(
   const ignored: string[] = []
   for (const [path, override] of Object.entries(overrides)) {
     const slot = byPath.get(path)
-    if (!slot || slot.value !== override.preset) {
+    if (!slot || !same(path, slot.value, override.preset)) {
       ignored.push(path)
       continue
     }

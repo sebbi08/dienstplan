@@ -64,6 +64,7 @@ export const BW: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'KiTaVO BW § 1 (Mindestpersonalschlüssel), § 1a; KiTaG BW § 7; KM-FAQ zum KiTaG (Auszubildende, Studierende)',
     note: `${TRAINEES_NOTE} Auszubildende (PiA Erzieher) und Studierende (DHBW/dual) zählen mit bis zu 40 %, `
       + 'Berufspraktikum (Anerkennungsjahr) mit bis zu 100 % „als Fachkraft“ (§ 7 Abs. 4 KiTaG, KM-FAQ zum KiTaG) – '

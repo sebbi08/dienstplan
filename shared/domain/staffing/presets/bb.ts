@@ -56,6 +56,7 @@ const current: StaffingRuleSet = {
 const revised: StaffingRuleSet = {
   ...current,
   validFrom: TRAINEES_REVISED,
+  correction: true,
   source: 'KitaG Brandenburg § 10 Abs. 1 (zuletzt geändert 23.06.2025); KitaPersV §§ 3, 5, 9, 15–17; MBJS-FAQ zur '
     + 'Kita-Personalverordnung',
   note: `${TRAINEES} Beginn der Fassung vom 23.06.2025 nicht recherchiert. ${BASE_NOTE}`,
@@ -71,6 +72,7 @@ export const BB: StaffingRuleSet[] = [
     // U3 step to 1 : 4 as enacted (Art. 3 of the law of 28.06.2023); a postponement was reported as planned
     ...revised,
     validFrom: '2027-01-01',
+    correction: false,
     source: 'KitaG Brandenburg § 10 Abs. 1 (U3 ab 01.01.2027 nach Art. 3 des Gesetzes vom 28.06.2023); '
       + 'KitaPersV §§ 3, 5, 9, 15–17; MBJS-FAQ zur Kita-Personalverordnung',
     confidence: 'medium',

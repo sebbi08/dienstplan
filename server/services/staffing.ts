@@ -3,7 +3,7 @@ import { todayIso } from '../../shared/domain/dates'
 import { can } from '../../shared/domain/permissions'
 import { hasPeriodCheck, ruleSetProblems } from '../../shared/domain/staffing/calc'
 import { applyOverrides, overridableValues, type StaffingOverrides } from '../../shared/domain/staffing/overrides'
-import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
+import { presetFor, presetVersions, sameLawValueOf } from '../../shared/domain/staffing/presets'
 import type { StaffingRuleSet } from '../../shared/domain/staffing/types'
 import type { GermanState } from '../../shared/domain/states'
 import type { IsoDate } from '../../shared/domain/types'
@@ -66,7 +66,7 @@ export interface EffectiveStaffingRules {
  */
 function effectiveRules(state: GermanState, date: IsoDate, overrides: StaffingOverrides): EffectiveStaffingRules {
   const preset = presetFor(state, date)
-  const result = applyOverrides(preset, overrides)
+  const result = applyOverrides(preset, overrides, sameLawValueOf(state))
   if (ruleSetProblems(result.rules).length > 0) {
     return { rules: preset, preset, applied: [], ignored: Object.keys(overrides) }
   }
@@ -126,7 +126,7 @@ function laterVersions(state: GermanState, today: IsoDate): StaffingRuleSet[] {
 /** The first problem the overrides cause in the version valid today or a later one (null = all usable). */
 function firstProblem(state: GermanState, overrides: StaffingOverrides, today: IsoDate): { problem: string; validFrom: IsoDate } | null {
   for (const version of [presetFor(state, today), ...laterVersions(state, today)]) {
-    const problems = ruleSetProblems(applyOverrides(version, overrides).rules)
+    const problems = ruleSetProblems(applyOverrides(version, overrides, sameLawValueOf(state)).rules)
     if (problems.length > 0) return { problem: problems[0]!, validFrom: version.validFrom }
   }
   return null
@@ -205,7 +205,7 @@ export function resetStaffingOverrides(
 
 /**
  * After the facility's state changed (same transaction): the overrides that apply to the new state's preset valid
- * today stay (same path, same preset value, e.g. the shares or 39 h), all others are deleted – a BW Regelgruppe value
+ * today stay (same path, same preset value – or its corrected value, see sameLawValue – e.g. the shares or 39 h), all others are deleted – a BW Regelgruppe value
  * means nothing in Bavaria. Should the rest not be usable today or in a later version, all go. Group types the new
  * state does not know are cleared, so a group never keeps a type it cannot have.
  */
@@ -215,7 +215,7 @@ export function adaptStaffingToState(
   const today = todayIso(now)
   const overrides = loadStaffingOverrides(db, facilityId)
   const preset = presetFor(state, today)
-  const { applied } = applyOverrides(preset, overrides)
+  const { applied } = applyOverrides(preset, overrides, sameLawValueOf(state))
   let kept: StaffingOverrides = Object.fromEntries(applied.map(path => [path, overrides[path]!]))
   if (firstProblem(state, kept, today)) kept = {}
   if (Object.keys(kept).length !== Object.keys(overrides).length) storeOverrides(db, facilityId, kept, actor, now)

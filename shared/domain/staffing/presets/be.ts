@@ -68,6 +68,7 @@ export const BE: StaffingRuleSet[] = [
   {
     ...base,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: `${base.source}; Kita-Aufsicht „Fachkräfte in Tageseinrichtungen für Kinder“ (Stand März 2026)`,
     note: `${TRAINEES_NOTE} Berufsbegleitende Ausbildung und berufsbegleitendes/duales Studium zum Fachkraftabschluss `
       + '(Vertrag ab 19,7 Std.) zählen ab Schul- bzw. Studienbeginn mit den angerechneten Stunden (14,5 bis 23 '

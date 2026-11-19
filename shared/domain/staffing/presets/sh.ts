@@ -35,6 +35,7 @@ export const SH: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'KiTaG Schleswig-Holstein §§ 25–29 (in Kraft seit 01.01.2025); Wortlaut aus der Formulierungshilfe '
       + '(Landtag Unterrichtung 20/193); PQVO vom 11.03.2025 (GVOBl. 2025 Nr. 42) § 4',
     note: 'Bitte prüfen: Das Gesetz rechnet mit Sollbelegungsstunden (volle Gruppenkapazität × Öffnungszeit); hier '

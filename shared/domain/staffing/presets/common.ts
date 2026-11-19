@@ -14,12 +14,13 @@ export function shares(over: Partial<Record<Qualification, number>> = {}): Recor
 
 /**
  * Start of the preset versions with the re-researched counting of trainees, students and Berufspraktikanten
- * (research of 19.11.2026, no change of the laws): the earlier versions keep their values.
+ * (research of 19.11.2026, no change of the laws; from November 2026 on): the earlier versions keep their values,
+ * Träger overrides keep applying across them (`correction`).
  */
-export const TRAINEES_REVISED: IsoDate = '2026-11-19'
+export const TRAINEES_REVISED: IsoDate = '2026-11-01'
 
 /** Opening of the note of those versions. */
-export const TRAINEES_NOTE = 'Ab 19.11.2026 mit neu recherchierter Anrechnung von Auszubildenden, Studierenden und '
+export const TRAINEES_NOTE = 'Ab 01.11.2026 mit neu recherchierter Anrechnung von Auszubildenden, Studierenden und '
   + 'Berufspraktikanten (keine Gesetzesänderung). Auszubildende = angestellte Erzieher-Auszubildende (PiA/'
   + 'berufsbegleitend), Studium = duales/praxisintegriertes Studium (Kindheitspädagogik, Soziale Arbeit); andere '
   + 'Fälle bitte beim Mitarbeiter unter „Anrechnung in %“ eintragen.'

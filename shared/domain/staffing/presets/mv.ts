@@ -30,6 +30,7 @@ export const MV: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'KiföG M-V §§ 13, 14 (Kindergarten 1 : 14 ab 01.09.2024); Satzungen der Kreise; Landesrahmenvertrag § 24 '
       + 'Abs. 5',
     note: 'Bitte prüfen: Die Umrechnung in Vollzeitkräfte regeln die Kreise per Satzung; hier Krippe 1 : 6, '

@@ -162,6 +162,11 @@ export interface StaffingRuleSet {
   land: GermanState
   /** First day this version applies. */
   validFrom: IsoDate
+  /**
+   * true = this version corrects values of the version before it (new research, no change of the law): Träger overrides
+   * of the corrected values keep applying (overrides.ts → sameLawValue). Default false = a law version.
+   */
+  correction?: boolean
   /** Law and paragraph, e.g. "KiTaVO BW § 1". */
   source: string
   confidence: Confidence

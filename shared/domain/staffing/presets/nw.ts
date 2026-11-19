@@ -64,6 +64,7 @@ const current: StaffingRuleSet = {
 const revised: StaffingRuleSet = {
   ...current,
   validFrom: TRAINEES_REVISED,
+  correction: true,
   source: 'KiBiz §§ 28, 29, 33 und Anlage zu § 33 Abs. 1 (GV. NRW. 2020 S. 77; gültig bis Kita-Jahr 2026/27); '
     + 'Personalverordnung § 13 (GV. NRW. 2024 S. 910)',
   note: `${TRAINEES} ${BASE_NOTE}`,
@@ -82,6 +83,7 @@ export const NW: StaffingRuleSet[] = [
   {
     ...revised,
     validFrom: '2027-08-01',
+    correction: false,
     confidence: 'low',
     source: 'KiBiz in der Fassung des Gesetzes vom 21.07.2026 (Anlagen 1/2, ab 01.08.2027); Personalverordnung § 13 '
       + '(GV. NRW. 2024 S. 910)',

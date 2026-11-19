@@ -34,6 +34,7 @@ export const BY: StaffingRuleSet[] = [
   {
     ...current,
     validFrom: TRAINEES_REVISED,
+    correction: true,
     source: 'AVBayKiBiG § 17 (Fassung ab 28.07.2026), § 16; BayKiBiG Art. 21 Abs. 5 (Fassung ab 01.01.2026); '
       + 'Allgemeinverfügungen StMAS (BayMBl. 2024 Nr. 34, 2025 Nr. 314)',
     note: `${TRAINEES_NOTE} Berufspraktikum (Erzieher) zählt als Ergänzungskraft (§ 16 Abs. 4 Nr. 2 AVBayKiBiG), `
