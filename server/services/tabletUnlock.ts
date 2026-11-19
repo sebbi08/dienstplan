@@ -1,31 +1,31 @@
 import { randomBytes } from 'node:crypto'
-import { and, eq, inArray } from 'drizzle-orm'
-import { addDays, dateRange, todayIso } from '../../shared/domain/dates'
+import { and, eq } from 'drizzle-orm'
 import { effectiveRights, type BundleScope } from '../../shared/domain/permissionBundles'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
-import {
-  UNLOCK_GRACE_SECONDS, noLockPeriods, unlockDeadline, type NoLockPeriod, type TimeWindow,
-} from '../../shared/domain/tablet'
+import { berlinDate, type NoLockPeriod } from '../../shared/domain/tablet'
 import type {
   ChildRightsDto, GroupAccess, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, facilities, tabletUnlockedWindows, terminalUnlocks, users } from '../db/schema'
+import { employees, terminalUnlocks, users } from '../db/schema'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { readableGroupIds } from './groupReadAccess'
-import { facilityOpenDay } from './openingHours'
 import { accountRights, roleBundleRows } from './permissions'
-import { getTabletSettings } from './tabletSettings'
+import { deleteExpiredUnlocks, noLockPeriodsOn, validUntil } from './tabletNoLock'
+import { getTabletSettings, getTabletSwitches } from './tabletSettings'
 import { terminalStatus, verifyEmployeePin } from './terminal'
+
+export { deleteExpiredUnlocks } from './tabletNoLock'
 
 type UnlockRow = typeof terminalUnlocks.$inferSelect
 type Terminal = { id: number; facilityId: number }
+type TabletSwitches = Omit<TabletSettingsDto, 'noLockWindows'>
 type Resolved =
   | { unlocked: false; dropped?: UnlockRow }
   | {
     unlocked: true; row: UnlockRow; person: TerminalPersonDto; settings: TabletSettingsDto; viewer: ChildViewer
-    periods: NoLockPeriod[]; now: Date
+    periods: NoLockPeriod[]
   }
 
 /**
@@ -61,37 +61,13 @@ function groupAccessFor(db: Db, scopes: ReadonlyMap<PermissionKey, BundleScope> 
  * Which planned children the viewer sees, at the tablet and with the own account alike: whoever holds children.planned
  * (in „Kinder: verwalten“) every one; everyone else as the facility's tablet switches say (Vormerkungen, future contracts).
  */
-function visibilityFor(permissions: ReadonlySet<PermissionKey>, settings: TabletSettingsDto): ChildViewer['visibility'] {
+function visibilityFor(permissions: ReadonlySet<PermissionKey>, settings: TabletSwitches): ChildViewer['visibility'] {
   return can(permissions, 'children.planned') ? null
     : { waitlist: settings.showWaitlist, futureContracts: settings.showFutureContracts }
 }
 
 /** Every group, for a viewer without a home group of the facility (helpers, the Träger, staff without group). */
 const ALL_GROUPS: GroupScopes = { groups: null, writeGroups: { attendance: null, edit: null } }
-
-/** How far back the windows are looked at: a stretch without the lock never spans a weekend (no open day). */
-const MAX_LOOK_BACK_DAYS = 7
-
-/**
- * The facility's stretches without the automatic lock (windows on open days, Berlin time) from the day of the last use
- * (at least yesterday, at most a week back) to tomorrow. No windows: none, without reading the calendar.
- */
-function periodsAround(db: Db, facilityId: number, windows: readonly TimeWindow[], lastActiveAt: string, now: Date): NoLockPeriod[] {
-  if (windows.length === 0) return []
-  const today = todayIso(now)
-  const lastDay = todayIso(new Date(lastActiveAt))
-  const yesterday = addDays(today, -1)
-  const first = lastDay < yesterday ? (lastDay < addDays(today, -MAX_LOOK_BACK_DAYS) ? addDays(today, -MAX_LOOK_BACK_DAYS) : lastDay) : yesterday
-  return noLockPeriods(windows, dateRange(first, addDays(today, 1)).filter(facilityOpenDay(db, facilityId)))
-}
-
-/**
- * The moment after which the server no longer accepts an unlock that was last used at lastActiveAt: the lock time plus
- * grace after the last use, or after the end of a window without the automatic lock the unlock reached (unlockDeadline).
- */
-function validUntil(lastActiveAt: string, lockMinutes: number, periods: readonly NoLockPeriod[]): number {
-  return unlockDeadline(Date.parse(lastActiveAt), (lockMinutes * 60 + UNLOCK_GRACE_SECONDS) * 1000, periods)
-}
 
 /**
  * The rights of the person who unlocked, as they are now (spec §4.1): home staff with an active linked account have the
@@ -130,11 +106,13 @@ function resolveUnlock(db: Db, terminal: Terminal, token: string | undefined, no
   const row = token ? db.select().from(terminalUnlocks).where(eq(terminalUnlocks.id, token)).get() : undefined
   if (!row || row.terminalUserId !== terminal.id || row.facilityId !== terminal.facilityId) return { unlocked: false }
   const settings = getTabletSettings(db, terminal.facilityId)
-  const periods = periodsAround(db, terminal.facilityId, settings.noLockWindows, row.lastActiveAt, now)
+  // The windows of the day of the last use decide; today's go to the tablet as well (a touch moves the last use there).
+  const periods = noLockPeriodsOn(db, terminal.facilityId, settings.noLockWindows,
+    [berlinDate(Date.parse(row.lastActiveAt)), berlinDate(now.getTime())])
   if (now.getTime() > validUntil(row.lastActiveAt, settings.lockMinutes, periods)) return { unlocked: false }
   const person = terminalStatus(db, terminal.facilityId, now).find(candidate => candidate.employeeId === row.employeeId)
   if (!person) return { unlocked: false, dropped: row }
-  return { unlocked: true, row, person, settings, viewer: viewerFor(db, terminal, row.employeeId, settings), periods, now }
+  return { unlocked: true, row, person, settings, viewer: viewerFor(db, terminal, row.employeeId, settings), periods }
 }
 
 function rightsOf(viewer: ChildViewer): ChildRightsDto {
@@ -147,16 +125,13 @@ function rightsOf(viewer: ChildViewer): ChildRightsDto {
   }
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-/** The status for the tablet; of the windows those from yesterday on (the tablet's timer needs no older ones). */
+/** The status for the tablet, with the stretches of the day of the last use and of today (the tablet's timer needs no others). */
 function statusOf(resolved: Resolved): TabletUnlockStatusDto {
   if (!resolved.unlocked) return { unlocked: false }
-  const since = resolved.now.getTime() - DAY_MS
   return {
     unlocked: true, employeeId: resolved.person.employeeId, name: resolved.person.name,
     rights: rightsOf(resolved.viewer), lockMinutes: resolved.settings.lockMinutes,
-    noLockPeriods: resolved.periods.filter(period => period.until > since)
+    noLockPeriods: resolved.periods
       .map(period => ({ from: new Date(period.from).toISOString(), until: new Date(period.until).toISOString() })),
   }
 }
@@ -236,7 +211,7 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
     id: user.id, employeeId: user.employeeId, name: employee?.name ?? user.username, role: user.role,
     permissions: user.permissions, facilityId: user.facilityId, onTablet: false,
     // Without children.planned (a Gruppenleitung) the tablet switches apply here too: no more than at the tablet.
-    visibility: visibilityFor(user.permissions, getTabletSettings(db, user.facilityId)),
+    visibility: visibilityFor(user.permissions, getTabletSwitches(db, user.facilityId)),
     // The scopes come with the permissions of this request (one read of the rights).
     ...homeStaff ? groupAccessFor(db, user.scopes, employee.groupId) : ALL_GROUPS,
   }
@@ -245,20 +220,4 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
 /** Like tabletChildViewer, but answers { unlocked: false } instead of throwing and changes nothing. */
 export function tabletUnlockStatus(db: Db, terminal: Terminal, token: string | undefined, now: Date = new Date()): TabletUnlockStatusDto {
   return statusOf(resolveUnlock(db, terminal, token, now))
-}
-
-/** Deletes the unlocks no tablet would accept any more, whichever facility; returns how many. */
-export function deleteExpiredUnlocks(db: Db, now: Date): number {
-  const lockMinutes = new Map(db.select({ id: facilities.id, minutes: facilities.tabletLockMinutes }).from(facilities).all()
-    .map(facility => [facility.id, facility.minutes]))
-  const windows = new Map<number, TimeWindow[]>()
-  for (const { facilityId, start, end } of db.select().from(tabletUnlockedWindows).all()) {
-    windows.set(facilityId, [...windows.get(facilityId) ?? [], { start, end }])
-  }
-  const expired = db.select().from(terminalUnlocks).all()
-    .filter(row => now.getTime() > validUntil(row.lastActiveAt, lockMinutes.get(row.facilityId) ?? 0,
-      periodsAround(db, row.facilityId, windows.get(row.facilityId) ?? [], row.lastActiveAt, now)))
-    .map(row => row.id)
-  if (expired.length > 0) db.delete(terminalUnlocks).where(inArray(terminalUnlocks.id, expired)).run()
-  return expired.length
 }

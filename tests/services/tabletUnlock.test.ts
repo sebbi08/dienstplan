@@ -26,8 +26,9 @@ describe('unlocking the tablet for child records', () => {
   const unlock = (employeeId = anna, pin = '123456', now = NOW) => unlockChildren(db, tablet, employeeId, pin, now)
   const viewer = (token: string | undefined, now = NOW, touch?: boolean) => tabletChildViewer(db, tablet, token, now, touch)
   const rows = () => db.select().from(terminalUnlocks).all()
-  const settings = (changes: Partial<TabletSettingsInput> = {}) => setTabletSettings(
-    db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, ...changes },
+  // Saved at NOW (saving deletes the unlocks that ran out by then).
+  const settings = (changes: Partial<TabletSettingsInput> = {}, now = NOW) => setTabletSettings(
+    db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, ...changes }, now,
   )
 
   beforeEach(() => {
@@ -309,9 +310,10 @@ describe('unlocking the tablet for child records', () => {
     it('keeps an unlock open inside a window; from its end the lock time counts again', () => {
       windows([7 * 60 + 50, 8 * 60 + 30])
       const { token, status: first } = unlock()
-      // Yesterday's, today's and tomorrow's window (Monday to Wednesday, all open days).
-      const period = (date: string) => ({ from: clock(7, 50, 0, date).toISOString(), until: clock(8, 30, 0, date).toISOString() })
-      expect(first).toMatchObject({ unlocked: true, noLockPeriods: [period('2026-10-05'), period('2026-10-06'), period('2026-10-07')] })
+      // Only today's window (the day of the last use).
+      expect(first).toMatchObject({
+        unlocked: true, noLockPeriods: [{ from: clock(7, 50).toISOString(), until: clock(8, 30).toISOString() }],
+      })
       expect(status(token, clock(8, 25))).toMatchObject({ unlocked: true })
       expect(viewer(token, clock(8, 29), false)).toMatchObject({ onTablet: true })
       // Window end 8:30 + 2 minutes + grace.
@@ -352,15 +354,18 @@ describe('unlocking the tablet for child records', () => {
       expect(status(third.token, clock(8, 50))).toMatchObject({ unlocked: true, name: 'Berta' })
     })
 
-    it('applies only on days the facility is open: not on a weekend, a closure day or a weekday marked closed', () => {
+    it('applies only on days the facility is open: not on a weekend, a holiday, a closure day or a weekday marked closed', () => {
       windows([7 * 60, 9 * 60])
       const saturday = clock(8, 0, 0, '2026-10-10')
       const onSaturday = unlock(anna, '123456', saturday)
-      // Only Friday's window; none on Saturday and Sunday.
-      expect(onSaturday.status).toMatchObject({
-        noLockPeriods: [{ from: clock(7, 0, 0, '2026-10-09').toISOString(), until: clock(9, 0, 0, '2026-10-09').toISOString() }],
-      })
+      expect(onSaturday.status).toMatchObject({ noLockPeriods: [] })
       expect(status(onSaturday.token, new Date(saturday.getTime() + 2 * 60_000 + 31_000))).toEqual({ unlocked: false })
+
+      // 1. Weihnachtstag, a Friday.
+      const christmas = clock(8, 0, 0, '2026-12-25')
+      const onHoliday = unlock(anna, '123456', christmas)
+      expect(onHoliday.status).toMatchObject({ noLockPeriods: [] })
+      expect(status(onHoliday.token, new Date(christmas.getTime() + 2 * 60_000 + 31_000))).toEqual({ unlocked: false })
 
       db.insert(closures).values({ facilityId: 1, startDate: '2026-10-06', endDate: '2026-10-06', label: 'Team', mode: 'closure_day' }).run()
       const onClosure = unlock()
@@ -381,6 +386,48 @@ describe('unlocking the tablet for child records', () => {
       unlock()
       expect(deleteExpiredUnlocks(db, clock(8, 25))).toBe(0)
       expect(deleteExpiredUnlocks(db, clock(8, 32, 31))).toBe(1)
+    })
+
+    it('never carries an unlock over midnight into the next day\'s window', () => {
+      windows([23 * 60, 1440], [0, 60])
+      const late = unlock(anna, '123456', clock(23, 30))
+      expect(status(late.token, clock(23, 59))).toMatchObject({ unlocked: true })
+      // 24:00 + 2 minutes + grace, although 0:00–1:00 of Wednesday starts within the lock time.
+      expect(status(late.token, clock(0, 2, 30, '2026-10-07'))).toMatchObject({ unlocked: true })
+      expect(status(late.token, clock(0, 2, 31, '2026-10-07'))).toEqual({ unlocked: false })
+      // Touched after midnight: the new day's window applies.
+      const touched = unlock(anna, '123456', clock(23, 30))
+      viewer(touched.token, clock(0, 1, 0, '2026-10-07'))
+      expect(status(touched.token, clock(1, 2, 30, '2026-10-07'))).toMatchObject({ unlocked: true })
+      expect(status(touched.token, clock(1, 2, 31, '2026-10-07'))).toEqual({ unlocked: false })
+    })
+
+    it('cuts the windows to the day\'s opening hours; 0:00–24:00 only with opening hours for every weekday', () => {
+      expect(errorCode(() => windows([0, 1440]))).toBe('tablet_window_too_long')
+      const day = { open: 7 * 60, close: 17 * 60, closed: false }
+      setFacilityOpeningHours(db, 1, { days: [day, day, day, day, day], minAtOpening: 1, minAtClosing: 1 })
+      windows([0, 1440])
+      const { token, status: first } = unlock()
+      expect(first).toMatchObject({ noLockPeriods: [{ from: clock(7, 0).toISOString(), until: clock(17, 0).toISOString() }] })
+      expect(status(token, clock(16, 59))).toMatchObject({ unlocked: true })
+      // Closing time 17:00 + 2 minutes + grace; nothing on the next day.
+      expect(status(token, clock(17, 2, 30))).toMatchObject({ unlocked: true })
+      expect(status(token, clock(17, 2, 31))).toEqual({ unlocked: false })
+      expect(status(token, clock(8, 0, 0, '2026-10-07'))).toEqual({ unlocked: false })
+    })
+
+    it('does not revive an unlock that ran out when a window is saved', () => {
+      const { token } = unlock()
+      // 8:20: the unlock of 8:00 ran out at 8:02:30; the new window 7:00–9:00 would cover its last use.
+      setTabletSettings(db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, noLockWindows: [{ start: 420, end: 540 }] }, clock(8, 20))
+      expect(rows()).toEqual([])
+      expect(status(token, clock(8, 21))).toEqual({ unlocked: false })
+    })
+
+    it('keeps an unlock that is still valid when a window is saved', () => {
+      const { token } = unlock()
+      setTabletSettings(db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, noLockWindows: [{ start: 420, end: 540 }] }, clock(8, 1))
+      expect(status(token, clock(8, 50))).toMatchObject({ unlocked: true })
     })
 
     it('leaves stamping alone: it needs the PIN and unlocks nothing', () => {

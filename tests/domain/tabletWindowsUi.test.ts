@@ -19,7 +19,7 @@ describe('the settings form of the windows without the automatic lock', () => {
 
   it('names the wrong row with a German text', () => {
     expect(fromWindowDrafts([{ start: '7:30', end: '' }]).problem)
-      .toEqual({ row: 1, text: 'Ungültige Uhrzeit. Bitte eine Uhrzeit zwischen 0:00 und 23:59 angeben oder das Feld leer lassen.' })
+      .toEqual({ row: 1, text: 'Bitte bei jedem Zeitraum „Von“ und „Bis“ als Uhrzeit eingeben (0:00 bis 24:00) oder den Zeitraum entfernen.' })
     expect(fromWindowDrafts([{ start: '7:30', end: '8:00' }, { start: '9:00', end: '8:00' }]).problem)
       .toEqual({ row: 2, text: 'Bei einem Zeitraum ohne automatische Sperre muss „Bis“ nach „Von“ liegen.' })
     expect(fromWindowDrafts([{ start: '7:30', end: '9:00' }, { start: '8:00', end: '8:30' }]).problem)
@@ -33,7 +33,7 @@ describe('the note in the unlock bar', () => {
   const periods = toNoLockPeriods([{ from: '2026-10-06T05:30:00.000Z', until: '2026-10-06T06:30:00.000Z' }])
 
   it('names the end of the running window in Berlin time', () => {
-    expect(noAutoLockNote(periods, Date.parse('2026-10-06T06:00:00.000Z'))).toBe('ohne automatische Sperre bis 08:30')
+    expect(noAutoLockNote(periods, Date.parse('2026-10-06T06:00:00.000Z'))).toBe('ohne automatische Sperre bis 8:30')
   })
 
   it('says nothing outside a window', () => {

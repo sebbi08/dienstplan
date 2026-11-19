@@ -1404,8 +1404,9 @@ export type TabletUnlockStatusDto =
   | {
     unlocked: true; employeeId: number; name: string; rights: ChildRightsDto; lockMinutes: number
     /**
-     * The facility's windows without the automatic lock from yesterday to tomorrow (open days only; ISO moments, touching
-     * ones joined): the tablet times its lock with them by shared/domain/tablet.ts unlockDeadline, as the server does.
+     * The facility's windows without the automatic lock on the day of the last use and today (open days only, cut to the
+     * opening hours; ISO moments, touching ones of a day joined): the tablet times its lock with them by
+     * shared/domain/tablet.ts unlockDeadline, as the server does.
      */
     noLockPeriods: NoLockPeriodDto[]
   }

@@ -1,15 +1,15 @@
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, gte, isNull, lte } from 'drizzle-orm'
 import { weekday } from '../../shared/domain/dates'
 import { hoursOn, type DayHours, type OpeningHours } from '../../shared/domain/openingHours'
-import type { IsoDate } from '../../shared/domain/types'
+import type { IsoDate, Minutes } from '../../shared/domain/types'
 import { isCheckedDay, type DayHoursContext } from '../../shared/domain/warnings'
 import type { OpeningHoursDto, PlanDayDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { facilities, groups, openingHours } from '../db/schema'
+import { closures as closuresTable, facilities, groups, openingHours } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { assertGroup } from './groups'
 import { facilityHolidayRules } from './holidayRules'
-import { closureOn, loadClosures } from './queries'
+import { closureColumns, closureOn } from './queries'
 
 const WEEKDAYS = 5
 /** Minutes of a day run from 0 to 1439. */
@@ -68,17 +68,36 @@ export function loadHoursContext(db: Db, facilityId: number): DayHoursContext {
   }
 }
 
+/** A day the facility is open, with its opening hours of that weekday (null = none entered). */
+export interface OpenDay { hours: { start: Minutes; end: Minutes } | null }
+
 /**
- * Whether the facility is open on a date: a care day (Monday to Friday, no public holiday of its state, no closure, as
- * the staffing report counts them) whose weekday the facility's opening hours do not mark closed.
+ * The facility's days from `from` to `to`: null when it is closed (not a care day as the staffing report counts them –
+ * weekend, public holiday of its state, closure day or Schließzeit – or a weekday its opening hours mark closed), else
+ * the day's opening hours. Reads the calendar once; only the closures touching the range.
  */
-export function facilityOpenDay(db: Db, facilityId: number): (date: IsoDate) => boolean {
-  const closures = loadClosures(db, facilityId)
+export function facilityOpenDays(db: Db, facilityId: number, from: IsoDate, to: IsoDate): (date: IsoDate) => OpenDay | null {
+  const closures = db.select(closureColumns).from(closuresTable)
+    .where(and(eq(closuresTable.facilityId, facilityId), gte(closuresTable.endDate, from), lte(closuresTable.startDate, to))).all()
   const holidays = facilityHolidayRules(db, facilityId)
-  const closedWeekdays = new Set(db.select({ weekday: openingHours.weekday }).from(openingHours)
-    .where(and(eq(openingHours.facilityId, facilityId), isNull(openingHours.groupId), eq(openingHours.closed, true))).all()
-    .map(row => row.weekday))
-  return date => isCheckedDay(date, closureOn(closures, date) !== null, holidays) && !closedWeekdays.has(weekday(date))
+  const days = new Map(db.select().from(openingHours)
+    .where(and(eq(openingHours.facilityId, facilityId), isNull(openingHours.groupId))).all()
+    .map(row => [row.weekday, row]))
+  return (date) => {
+    if (!isCheckedDay(date, closureOn(closures, date) !== null, holidays)) return null
+    const day = days.get(weekday(date))
+    if (day?.closed) return null
+    return { hours: day && day.open !== null && day.close !== null ? { start: day.open, end: day.close } : null }
+  }
+}
+
+/** Whether the facility's opening hours give times (or „geschlossen“) for every weekday Monday to Friday. */
+export function hasOpeningHoursEveryWeekday(db: Db, facilityId: number): boolean {
+  const days = new Map(db.select().from(openingHours)
+    .where(and(eq(openingHours.facilityId, facilityId), isNull(openingHours.groupId))).all()
+    .map(row => [row.weekday, row]))
+  return Array.from({ length: WEEKDAYS }, (_, index) => days.get(index))
+    .every(day => day !== undefined && (day.closed || (day.open !== null && day.close !== null)))
 }
 
 /** A day with times or marked closed; the others are not entered. */

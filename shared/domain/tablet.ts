@@ -20,24 +20,36 @@ export const MAX_NO_LOCK_WINDOWS = 6
 const DAY_MINUTES = 1440
 
 /**
+ * Without opening hours for every weekday a window may last at most this long (so 0:00–24:00 cannot switch the lock
+ * off); with them, every window is cut to the day's opening hours anyway.
+ */
+export const MAX_UNBOUNDED_WINDOW_MINUTES = 14 * 60
+
+/**
  * A time window „Keine automatische Sperre“ (minutes after midnight, Berlin time; start 0:00–23:59, end after the start,
- * at most 24:00). It applies on every day the facility is open.
+ * at most 24:00). It applies on every day the facility is open, within that day's opening hours.
  */
 export interface TimeWindow { start: Minutes; end: Minutes }
 
-export type NoLockWindowErrorCode = 'tablet_windows_too_many' | 'invalid_time' | 'tablet_window_invalid' | 'tablet_windows_overlap'
+export type NoLockWindowErrorCode =
+  | 'tablet_windows_too_many' | 'tablet_window_time_invalid' | 'tablet_window_invalid' | 'tablet_windows_overlap'
+  | 'tablet_window_too_long'
 
 /**
  * The settings check of the windows (null = fine): at most MAX_NO_LOCK_WINDOWS, each from a minute of the day to a later
- * one (24:00 at most), none overlapping another (touching is fine: they count as one). `row` (1-based, input order)
- * names the wrong window; of two overlapping ones the later in the list.
+ * one (24:00 at most), none overlapping another (touching is fine). `limitLength` (the facility has no opening hours for
+ * every weekday): none longer than MAX_UNBOUNDED_WINDOW_MINUTES. `row` (1-based, input order) names the wrong window; of
+ * two overlapping ones the later in the list.
  */
-export function noLockWindowsError(windows: readonly TimeWindow[]): { code: NoLockWindowErrorCode; row: number | null } | null {
+export function noLockWindowsError(
+  windows: readonly TimeWindow[], options: { limitLength?: boolean } = {},
+): { code: NoLockWindowErrorCode; row: number | null } | null {
   if (windows.length > MAX_NO_LOCK_WINDOWS) return { code: 'tablet_windows_too_many', row: null }
   const minute = (value: number, max: number) => Number.isInteger(value) && value >= 0 && value <= max
   for (const [index, window] of windows.entries()) {
-    if (!minute(window.start, DAY_MINUTES - 1) || !minute(window.end, DAY_MINUTES)) return { code: 'invalid_time', row: index + 1 }
+    if (!minute(window.start, DAY_MINUTES - 1) || !minute(window.end, DAY_MINUTES)) return { code: 'tablet_window_time_invalid', row: index + 1 }
     if (window.end <= window.start) return { code: 'tablet_window_invalid', row: index + 1 }
+    if (options.limitLength && window.end - window.start > MAX_UNBOUNDED_WINDOW_MINUTES) return { code: 'tablet_window_too_long', row: index + 1 }
   }
   for (let later = 1; later < windows.length; later++) {
     const b = windows[later]!
@@ -74,33 +86,51 @@ export function berlinInstant(date: IsoDate, minutes: Minutes): number {
 export interface NoLockPeriod { from: number; until: number }
 
 /**
- * The stretches of the windows on the given days (the facility's open days, ascending): touching windows, also 24:00
- * and 0:00 of the next day, are joined into one.
+ * The windows as they apply on one open day: cut to the day's opening hours when they are entered (a window outside
+ * them falls away); without opening hours that day, a window longer than MAX_UNBOUNDED_WINDOW_MINUTES falls away (the
+ * settings refuse those, but opening hours may have been removed since).
  */
-export function noLockPeriods(windows: readonly TimeWindow[], dates: readonly IsoDate[]): NoLockPeriod[] {
+export function windowsOnDay(windows: readonly TimeWindow[], hours: TimeWindow | null): TimeWindow[] {
+  if (hours === null) return windows.filter(window => window.end - window.start <= MAX_UNBOUNDED_WINDOW_MINUTES)
+  return windows.map(window => ({ start: Math.max(window.start, hours.start), end: Math.min(window.end, hours.end) }))
+    .filter(window => window.end > window.start)
+}
+
+/**
+ * The stretches of the windows on one day (an open day of the facility; windows as windowsOnDay gives them): touching
+ * windows are joined, never across midnight.
+ */
+export function noLockPeriods(windows: readonly TimeWindow[], date: IsoDate): NoLockPeriod[] {
   const periods: NoLockPeriod[] = []
-  const sorted = sortedWindows(windows)
-  for (const date of dates) {
-    for (const window of sorted) {
-      const from = berlinInstant(date, window.start)
-      const until = berlinInstant(date, window.end)
-      const last = periods.at(-1)
-      if (last && from <= last.until) last.until = Math.max(last.until, until)
-      else periods.push({ from, until })
-    }
+  for (const window of sortedWindows(windows)) {
+    const from = berlinInstant(date, window.start)
+    const until = berlinInstant(date, window.end)
+    const last = periods.at(-1)
+    if (last && from <= last.until) last.until = Math.max(last.until, until)
+    else periods.push({ from, until })
   }
   return periods
 }
 
+/** The Berlin date of a moment. */
+export function berlinDate(moment: number): IsoDate {
+  const parts = Object.fromEntries(berlinParts.formatToParts(new Date(moment)).map(part => [part.type, part.value]))
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
 /**
- * The moment after which an unlock last used at `lastUse` runs out: last use plus the lock time; but a window the unlock
- * lies in, or reaches before running out, keeps it open to the window's end, and from there the lock time counts again
- * (max(last use, window end) + lock time). A window that starts after the unlock ran out does not revive it.
+ * The moment after which an unlock last used at `lastUse` runs out: last use plus the lock time; but a window of the
+ * same (Berlin) day the unlock lies in, or reaches before running out, keeps it open to the window's end, and from there
+ * the lock time counts again (max(last use, window end) + lock time). A window that starts after the unlock ran out
+ * does not revive it, and a window of a later day never extends it (nothing carries over midnight).
  */
 export function unlockDeadline(lastUse: number, lockMs: number, periods: readonly NoLockPeriod[]): number {
+  const day = berlinDate(lastUse)
+  const dayStart = berlinInstant(day, 0)
+  const dayEnd = berlinInstant(day, DAY_MINUTES)
   let deadline = lastUse + lockMs
   for (const period of periods) {
-    if (period.until <= lastUse) continue
+    if (period.from < dayStart || period.until > dayEnd || period.until <= lastUse) continue
     if (period.from > deadline) break
     deadline = Math.max(deadline, period.until + lockMs)
   }

@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import {
   MAX_TABLET_LOCK_MINUTES, MIN_TABLET_LOCK_MINUTES, noLockWindowsError, sortedWindows, type TimeWindow,
 } from '../../shared/domain/tablet'
@@ -6,42 +6,47 @@ import type { TabletSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, tabletUnlockedWindows } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { hasOpeningHoursEveryWeekday } from './openingHours'
+import { deleteExpiredUnlocks, getNoLockWindows } from './tabletNoLock'
 
 /** What the settings take: the windows may be left out (then they stay as they are). */
 export type TabletSettingsInput = Omit<TabletSettingsDto, 'noLockWindows'> & { noLockWindows?: TimeWindow[] }
 
-/** The facility's windows without the automatic lock, by start. */
-export function getNoLockWindows(db: Db, facilityId: number): TimeWindow[] {
-  return db.select({ start: tabletUnlockedWindows.start, end: tabletUnlockedWindows.end }).from(tabletUnlockedWindows)
-    .where(eq(tabletUnlockedWindows.facilityId, facilityId))
-    .orderBy(asc(tabletUnlockedWindows.start), asc(tabletUnlockedWindows.end)).all()
-}
-
-/** The facility's tablet settings (404 facility_not_found). */
-export function getTabletSettings(db: Db, facilityId: number): TabletSettingsDto {
+/** The lock time and the tablet switches, without the windows (404 facility_not_found). */
+export function getTabletSwitches(db: Db, facilityId: number): Omit<TabletSettingsDto, 'noLockWindows'> {
   const row = db.select({
     lockMinutes: facilities.tabletLockMinutes, showWaitlist: facilities.tabletShowWaitlist,
     showFutureContracts: facilities.tabletShowFutureContracts,
   }).from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
-  return { ...row, noLockWindows: getNoLockWindows(db, facilityId) }
+  return row
+}
+
+/** The facility's tablet settings (404 facility_not_found). */
+export function getTabletSettings(db: Db, facilityId: number): TabletSettingsDto {
+  return { ...getTabletSwitches(db, facilityId), noLockWindows: getNoLockWindows(db, facilityId) }
 }
 
 /**
  * Stores the facility's tablet settings: the lock time is a whole number of minutes from 1 to 30, else 400
  * tablet_lock_minutes_invalid (404 facility_not_found). Given windows without the automatic lock replace the stored ones
- * (see noLockWindowsError: 400 tablet_windows_too_many, invalid_time, tablet_window_invalid, tablet_windows_overlap).
- * A new lock time or new windows apply at once, also to a tablet that is unlocked.
+ * (see noLockWindowsError: 400 tablet_windows_too_many, tablet_window_time_invalid, tablet_window_invalid,
+ * tablet_windows_overlap; tablet_window_too_long while the facility has no opening hours for every weekday).
+ * Unlocks that already ran out are deleted first, under the old settings, so a longer lock time or a new window does not
+ * revive them; the new settings apply at once to a tablet that is unlocked.
  */
-export function setTabletSettings(db: Db, facilityId: number, input: TabletSettingsInput): void {
+export function setTabletSettings(db: Db, facilityId: number, input: TabletSettingsInput, now: Date = new Date()): void {
   const { lockMinutes, showWaitlist, showFutureContracts, noLockWindows } = input
   if (!Number.isInteger(lockMinutes) || lockMinutes < MIN_TABLET_LOCK_MINUTES || lockMinutes > MAX_TABLET_LOCK_MINUTES) {
     throw new ServiceError(400, 'tablet_lock_minutes_invalid')
   }
-  const refused = noLockWindows ? noLockWindowsError(noLockWindows) : null
+  getTabletSwitches(db, facilityId)
+  const refused = noLockWindows
+    ? noLockWindowsError(noLockWindows, { limitLength: !hasOpeningHoursEveryWeekday(db, facilityId) })
+    : null
   if (refused) throw new ServiceError(400, refused.code)
-  getTabletSettings(db, facilityId)
   db.transaction((tx) => {
+    deleteExpiredUnlocks(tx, now)
     tx.update(facilities)
       .set({ tabletLockMinutes: lockMinutes, tabletShowWaitlist: showWaitlist, tabletShowFutureContracts: showFutureContracts })
       .where(eq(facilities.id, facilityId)).run()

@@ -1,6 +1,7 @@
 // The texts are imported relative so a test can load this file.
 import { noLockUntil, noLockWindowsError, type NoLockPeriod, type TimeWindow } from '#shared/domain/tablet'
 import { formatTime, parseTime } from '#shared/domain/time'
+import { nowInBerlin } from '#shared/domain/timeRecords'
 import type { NoLockPeriodDto } from '#shared/types/api'
 import { de } from '../locales/de'
 
@@ -28,7 +29,7 @@ export function fromWindowDrafts(drafts: readonly WindowDraft[]):
   for (const [index, draft] of drafts.entries()) {
     const start = parseTime(draft.start)
     const end = parseTime(draft.end)
-    if (start === null || end === null) return { windows: null, problem: { row: index + 1, text: de.errors.invalid_time } }
+    if (start === null || end === null) return { windows: null, problem: { row: index + 1, text: de.errors.tablet_window_time_invalid } }
     windows.push({ start, end })
   }
   const refused = noLockWindowsError(windows)
@@ -40,11 +41,10 @@ export function toNoLockPeriods(periods: readonly NoLockPeriodDto[]): NoLockPeri
   return periods.map(period => ({ from: Date.parse(period.from), until: Date.parse(period.until) }))
 }
 
-/** A moment as Berlin clock time „hh:mm“; midnight as the end of a window is „24:00“. */
+/** The end of a window as Berlin clock time like the rest of the app („8:30“); midnight is „24:00“. */
 function endTime(moment: number): string {
-  const text = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-    .format(new Date(moment))
-  return text === '00:00' ? '24:00' : text
+  const { minutes } = nowInBerlin(new Date(moment))
+  return formatTime(minutes === 0 ? 1440 : minutes)
 }
 
 /** The unlock bar's note while a window without the automatic lock runs („ohne automatische Sperre bis 08:30“), else null. */
