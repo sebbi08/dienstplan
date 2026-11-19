@@ -2278,7 +2278,7 @@ export const de = {
   /** BEM – Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX): employee page („Nachweise“), print, settings. */
   bem: {
     title: 'BEM (Betriebliches Eingliederungsmanagement)',
-    intro: 'Wer innerhalb von 12 Monaten länger als 6 Wochen arbeitsunfähig war, bekommt ein BEM angeboten (§ 167 Abs. 2 SGB IX). Die Teilnahme ist freiwillig. Diesen Bereich sehen nur Leitung und Träger, nie die Person selbst.',
+    intro: 'Wer innerhalb eines Jahres länger als 6 Wochen ununterbrochen oder wiederholt arbeitsunfähig oder teilweise arbeitsunfähig war, bekommt ein BEM angeboten (§ 167 Abs. 2 SGB IX, Fassung seit 30.07.2026). Teilweise Arbeitsunfähigkeit gibt es erst ab 01.01.2028 – bis dahin zählt die App nur „Krank“. Die Teilnahme ist freiwillig. Diesen Bereich sehen nur Leitung und Träger, nie die Person selbst.',
     sickDays: (days: number, limit: number) => `Krankheitstage letzte 12 Monate: ${days} von ${limit}`,
     sickDaysHint: (workdays: number) => `Gezählt werden Arbeitstage mit „Krank“ (nicht „Kind krank“, nicht „im Dienst erkrankt“). Mehr als 6 Wochen sind mehr als 6 × ${workdays} Arbeitstage.`,
     restarted: (date: string) => `Gezählt ab ${date} (nach dem Ende des letzten BEM).`,

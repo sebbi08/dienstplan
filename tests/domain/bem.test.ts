@@ -73,6 +73,11 @@ describe('the invitation text', () => {
       expect(BEM_DEFAULT_INVITATION_TEXT, part).toContain(part)
     }
   })
+  it('names the occasion in the words of § 167 Abs. 2 SGB IX (since 30.07.2026: „ununterbrochen oder wiederholt“)', () => {
+    expect(BEM_DEFAULT_INVITATION_TEXT).toContain('länger als sechs Wochen ununterbrochen oder wiederholt arbeitsunfähig')
+    // Teil-Arbeitsunfähigkeit exists only from 01.01.2028; the letter does not claim it before.
+    expect(BEM_DEFAULT_INVITATION_TEXT).not.toContain('teilweise')
+  })
   it('names the kind and extent of the data, who sees it, and the Vertrauensperson (§ 167 Abs. 2 Sätze 2 und 4 SGB IX)', () => {
     for (const part of ['Welche Daten:', 'Zahl Ihrer Fehltage', 'Gesprächsnotizen', 'vereinbarten Maßnahmen',
       'Eine Diagnose müssen Sie nicht nennen', 'wenn Sie sie uns selbst mitteilen möchten', 'Wer die Daten sieht:',

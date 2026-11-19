@@ -1536,8 +1536,16 @@ oder „Sonstiges“ mit Freitext (höchstens 200 Zeichen). Ein Freitext geht be
 
 ### BEM (Betriebliches Eingliederungsmanagement, § 167 Abs. 2 SGB IX)
 
-Wer innerhalb von 12 Monaten **länger als 6 Wochen arbeitsunfähig** war, muss ein BEM angeboten bekommen. Die App
-zählt mit, erinnert und hält das BEM fest. **Gesundheitsdaten:** Alles hier sehen nur, wer das Recht für die
+Wer innerhalb eines Jahres **länger als 6 Wochen ununterbrochen oder wiederholt arbeitsunfähig oder teilweise
+arbeitsunfähig** war, muss ein BEM angeboten bekommen. Die App zählt mit, erinnert und hält das BEM fest.
+
+> **Gesetzesstand:** § 167 Abs. 2 SGB IX in der Fassung seit **30.07.2026** (Art. 2b des Gesetzes vom 24.07.2026,
+> BGBl. 2026 I Nr. 228; Quelle: gesetze-im-internet.de, geprüft 19.11.2026). Neu ist „oder teilweise
+> arbeitsunfähig“. Die **teilweise Arbeitsunfähigkeit** (Teil-Krankschreibung zu 25/50/75 %) gibt es aber erst ab
+> **01.01.2028**. Bis dahin zählt die App wie bisher nur „Krank“. Spätestens zum 01.01.2028 braucht es einen eigenen
+> Abwesenheitscode „Teil-AU“, der beim Zählen mitzählt (ob ein Teil-AU-Tag als ganzer Tag zählt, sagt das Gesetz
+> nicht – bitte dann fachlich klären). Die Einladung (Standardtext) nennt den Anlass mit „ununterbrochen oder
+> wiederholt arbeitsunfähig“; ein eigener Einladungstext sollte das ebenfalls tun. **Gesundheitsdaten:** Alles hier sehen nur, wer das Recht für die
 Krankheitstage hat (Baustein „Mitarbeiter pflegen“, also Leitung und Träger) – nie die Person selbst (es gibt keine
 „Meins“-Ansicht), nie Kollegen, nie das Tablet. Das eigene BEM sieht niemand auf seiner eigenen Seite: Das BEM einer
 Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.

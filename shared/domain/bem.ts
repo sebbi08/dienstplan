@@ -5,6 +5,10 @@ import type { IsoDate } from './types'
  * Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX): an employee who was unable to work for more than six
  * weeks within twelve months is offered a BEM. Pure rules shared by the server (counting, reminder, invitation) and the
  * employee page.
+ *
+ * Since 30.07.2026 the law reads „länger als sechs Wochen ununterbrochen oder wiederholt arbeitsunfähig oder teilweise
+ * arbeitsunfähig“ (Art. 2b of the law of 24.07.2026, BGBl. 2026 I Nr. 228). The partial incapacity (Teil-AU) itself only
+ * exists from 01.01.2028; until then only „Krank“ is counted (countBemSickDays). A Teil-AU code must count then.
  */
 
 export const BEM_STATUSES = ['invited', 'accepted', 'declined', 'no_answer', 'completed'] as const
@@ -84,7 +88,8 @@ export function bemSickLevel(days: number, limit: number): 'ok' | 'warn' | 'over
  */
 export const BEM_DEFAULT_INVITATION_TEXT = [
   'Guten Tag ‹Name›,',
-  'Sie waren in den letzten zwölf Monaten länger als sechs Wochen arbeitsunfähig. In diesem Fall bieten wir Ihnen nach '
+  'Sie waren in den letzten zwölf Monaten länger als sechs Wochen ununterbrochen oder wiederholt arbeitsunfähig. In '
+  + 'diesem Fall bieten wir Ihnen nach '
   + '§ 167 Abs. 2 SGB IX ein Betriebliches Eingliederungsmanagement (BEM) an.',
   'Im BEM klären wir gemeinsam mit Ihnen, wie die Arbeitsunfähigkeit möglichst überwunden werden kann, wie erneuter '
   + 'Arbeitsunfähigkeit vorgebeugt werden kann und wie Ihr Arbeitsplatz erhalten bleibt.',
