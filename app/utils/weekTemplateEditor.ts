@@ -1,4 +1,5 @@
-import { dayCredit, isFullDayTimed } from '#shared/domain/balance'
+import { canBeHomeOffice, dayCredit, isFullDayTimed, isWorkEntry } from '#shared/domain/balance'
+import { validateSpan } from '#shared/domain/time'
 import { describeEntry } from '#shared/domain/describe'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import { workdayCount, worksOnWeekday } from '#shared/domain/targets'
@@ -125,6 +126,58 @@ export function enterIntoTemplateCells(
   }
   const refusal = refusalOf(next, cells, names)
   return refusal ?? { entries: sorted(next) }
+}
+
+/** The times the entry dialog gives; `homeOffice` only when its mark changed. */
+export interface TemplateEntryTimes {
+  start: number
+  end: number
+  breakStart: number | null
+  breakEnd: number | null
+  homeOffice?: boolean
+}
+
+/**
+ * Whether changing a shift-button entry to these times detaches it from its button on that day (a special shift with
+ * the times). In the plan only another start or end does; a template stores a button's shift by its service, so a
+ * changed break detaches it too (otherwise saving would bring back the service's break).
+ */
+export function detachesFromButton(entry: WeekTemplateEntryDto, times: TemplateEntryTimes): boolean {
+  return entry.kind === 'shift' && (times.start !== entry.start || times.end !== entry.end
+    || times.breakStart !== entry.breakStart || times.breakEnd !== entry.breakEnd)
+}
+
+/**
+ * Changes the times of one timed entry (its chip clicked), like the plan's entry dialog: the span is checked
+ * (span_* as the server), a break keeps no break of its own, home office only on working time
+ * (home_office_not_allowed), a shift-button entry with other times becomes a special shift of that day
+ * (detachesFromButton) keeping whether it counts as staff, and the cell must keep the rules (an overlap or a break
+ * without its duty is refused naming the cell). Nothing changes on a refusal.
+ */
+export function editTemplateEntry(
+  entries: WeekTemplateEntryDto[], id: number, times: TemplateEntryTimes, context: TemplateEditorContext, names: Map<number, string>,
+): { entries: WeekTemplateEntryDto[] } | TemplateRefusal {
+  const entry = entries.find(candidate => candidate.id === id)
+  if (!entry) return { entries }
+  const refuse = (error: string): TemplateRefusal =>
+    ({ error, message: templateCellMessage(error, names.get(entry.employeeId) ?? '', entry.weekday) })
+  if (entry.start === null || entry.end === null) return refuse('not_a_timed_entry')
+  const isBreak = entry.kind === 'break'
+  const span = {
+    start: times.start, end: times.end, breakStart: isBreak ? null : times.breakStart, breakEnd: isBreak ? null : times.breakEnd,
+  }
+  const spanError = validateSpan(span)
+  if (spanError) return refuse(`span_${spanError}`)
+  if (times.homeOffice && !(isWorkEntry(entry) && canBeHomeOffice(entry.codeKey))) return refuse('home_office_not_allowed')
+  const kind = detachesFromButton(entry, span) ? 'special' : entry.kind
+  const code = entry.kind === 'code' ? context.codes.find(candidate => candidate.id === entry.codeId) : undefined
+  const changed: WeekTemplateEntryDto = {
+    ...entry, ...span, kind, homeOffice: times.homeOffice ?? entry.homeOffice,
+    label: describeEntry({ kind, start: span.start, end: span.end }, code?.label ?? null, entry.creditMode),
+    ...(kind === entry.kind ? {} : { templateId: null, shortLabel: null, color: planEntryColor({ kind, countsAsStaff: entry.countsAsStaff }, null) }),
+  }
+  const next = entries.map(candidate => (candidate.id === id ? changed : candidate))
+  return refusalOf(next, [entry], names) ?? { entries: sorted(next) }
 }
 
 /** Whether the draft has entries on the weekday for the people shown („Tag übernehmen“ asks before replacing them). */

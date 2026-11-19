@@ -878,6 +878,8 @@ export const de = {
       takeDayConfirm: (day: string) => `Am ${day} gibt es schon Einträge. Durch die Einträge der anderen Vorlage ersetzen?`,
       replace: 'Ersetzen',
       takenDay: (day: string) => `${day} übernommen – noch nicht gespeichert`,
+      /** A template stores a button's shift by its service, so a changed break detaches it too (unlike the plan). */
+      becomesSpecial: 'Die Zeiten (oder die Pause) weichen vom Dienst ab – an diesem Tag wird er als Sonderdienst gespeichert.',
     },
     saveWeek: 'Als Vorlage speichern', applyWeek: 'Vorlage einsetzen',
     saveTitle: (from: string, to: string) => `Woche ${from} – ${to} als Vorlage speichern`,

@@ -6,13 +6,14 @@ import type {
   CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateDto,
   WeekTemplateEntryDto, WeekTemplateStaffDto,
 } from '#shared/types/api'
+import WeekTemplateEntryModal from '~/components/week-templates/WeekTemplateEntryModal.vue'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { gridStep, quickEntryHandlers, rovingStop, touchTapAsToggle } from '~/utils/quickEntry'
 import {
-  clearTemplateCells, copyTemplateDay, dayHasEntries, enterIntoTemplateCells, hiddenTemplateEntries, readTemplateCompare,
+  clearTemplateCells, copyTemplateDay, dayHasEntries, editTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, readTemplateCompare,
   removeTemplateEntry, staffInScope, templateCellOf, templateCoverage, templateDayKind, templateEntryInputs, templateWeekdays,
-  templateWeeklyMinutes, writeTemplateCompare, type TemplateCell,
+  templateWeeklyMinutes, writeTemplateCompare, type TemplateCell, type TemplateEntryTimes,
 } from '~/utils/weekTemplateEditor'
 
 /**
@@ -146,6 +147,21 @@ function onClear() {
 }
 function onRemove(id: number) {
   const result = removeTemplateEntry(entries.value, id, names.value)
+  if ('error' in result) toast.add({ title: result.message, color: 'error' })
+  else entries.value = result.entries
+}
+
+/** Changing an entry's times: like the plan, a timed chip of a selected cell opens the dialog. */
+const editing = reactive<{ open: boolean; entry: WeekTemplateEntryDto | null }>({ open: false, entry: null })
+const editOthers = computed(() => (editing.entry ? cellEntries(editing.entry).filter(other => other.id !== editing.entry!.id) : []))
+const isEntryEditable = (entry: WeekTemplateEntryDto) => entry.start !== null && isSelected(entry)
+function onEntryClick(entry: WeekTemplateEntryDto, event: MouseEvent) {
+  if (!isEntryEditable(entry) || event.shiftKey || event.ctrlKey || event.metaKey) return
+  event.stopPropagation()
+  Object.assign(editing, { open: true, entry })
+}
+function onEdit(id: number, times: TemplateEntryTimes) {
+  const result = editTemplateEntry(entries.value, id, times, context.value, names.value)
   if ('error' in result) toast.add({ title: result.message, color: 'error' })
   else entries.value = result.entries
 }
@@ -284,9 +300,11 @@ async function save() {
                 @contextmenu="quick.contextmenu" @selectstart="quick.selectstart"
               >
                 <div class="flex min-h-6 flex-col items-start gap-0.5">
+                  <!-- As in the plan: a chip of a selected cell with times opens its dialog (data-quick-skip keeps a double click there). -->
                   <PlanEntryChip
                     v-for="entry in cellEntries({ employeeId: person.id, weekday })" :key="entry.id" :entry="entry" removable
-                    @remove="onRemove"
+                    :editable="isEntryEditable(entry)" :data-quick-skip="isEntryEditable(entry) || undefined"
+                    @remove="onRemove" @click="onEntryClick(entry, $event)"
                   />
                 </div>
               </td>
@@ -377,6 +395,7 @@ async function save() {
 
     <PlanTimeEntryModal v-model:open="timeModal.open" :code="timeModal.code" @submit="enter" />
     <PlanQuickTimeEntry v-model:open="quickEntry.open" :reference="quickEntry.reference" @submit="enter" />
+    <WeekTemplateEntryModal v-model:open="editing.open" :entry="editing.entry" :others="editOthers" @submit="onEdit" />
     <PlanBreakModal v-model:open="breakOpen" @submit="enter({ kind: 'break', start: $event.start, end: $event.end })" />
   </div>
 </template>

@@ -3,7 +3,7 @@ import type { CodeDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateEntryDt
 import { TEMPLATE_WEEKDAYS } from '../../shared/domain/weekTemplates'
 import {
   clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, previewDayCount, removeTemplateEntry, staffInScope,
-  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, readTemplateCompare, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, editTemplateEntry, readTemplateCompare, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
   type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
@@ -265,6 +265,74 @@ describe('„Tag übernehmen“ from a compared template', () => {
     expect(copyTemplateDay([], broken, 2, shown, context, names)).toMatchObject({ error: 'break_outside_work', message: expect.stringContaining('Anna, Mittwoch') })
     const urlaub = [draftTemplateEntry({ kind: 'code', codeId: 10 }, { employeeId: 1, weekday: 2 }, context, 5)!]
     expect(copyTemplateDay([], urlaub, 2, shown, context, names)).toMatchObject({ error: 'template_entry_not_allowed' })
+  })
+})
+
+describe('changing the times of an entry (its chip clicked), as in the plan', () => {
+  const monday = { employeeId: 1, weekday: 0 }
+  const withM = () => enter(enter([], [monday, { employeeId: 1, weekday: 1 }], { kind: 'shift', templateId: 2 }), [monday], { kind: 'break', start: 900, end: 915 })
+  const edit = (entries: WeekTemplateEntryDto[], id: number, times: Parameters<typeof editTemplateEntry>[2]) => {
+    const result = editTemplateEntry(entries, id, times, context, names)
+    if ('error' in result) throw new Error(result.error)
+    return result.entries
+  }
+
+  it('detaches a shift-button entry for that day only when its break changes: a special shift, saved with its times', () => {
+    const entries = withM()
+    const shift = entries.find(e => e.weekday === 0 && e.kind === 'shift')!
+    const next = edit(entries, shift.id, { start: 465, end: 960, breakStart: 720, breakEnd: 750 })
+    const changed = next.find(e => e.id === shift.id)!
+    expect(changed).toMatchObject({
+      kind: 'special', templateId: null, shortLabel: null, start: 465, end: 960, breakStart: 720, breakEnd: 750, label: '7:45–16:00',
+      countsAsStaff: true, color: 'neutral', weekday: 0,
+    })
+    // Tuesday's M stays the button's shift.
+    expect(next.find(e => e.weekday === 1)).toMatchObject({ kind: 'shift', templateId: 2, shortLabel: 'M' })
+    expect(templateEntryInputs(next, new Set([1])).find(e => e.weekday === 0 && e.kind !== 'break')).toEqual({
+      employeeId: 1, weekday: 0, kind: 'special', start: 465, end: 960, breakStart: 720, breakEnd: 750, countsAsStaff: true, note: null, homeOffice: false,
+    })
+  })
+
+  it('keeps a shift the button\'s when nothing but home office changes, and a non-counting shift not counting', () => {
+    const entries = withM()
+    const shift = entries.find(e => e.weekday === 1)!
+    expect(edit(entries, shift.id, { start: 465, end: 960, breakStart: 700, breakEnd: 730, homeOffice: true }).find(e => e.id === shift.id))
+      .toMatchObject({ kind: 'shift', templateId: 2, shortLabel: 'M', homeOffice: true })
+    const hk = enter([], [monday], { kind: 'shift', templateId: 3 })
+    expect(edit(hk, hk[0]!.id, { start: 660, end: 900, breakStart: null, breakEnd: null })[0])
+      .toMatchObject({ kind: 'special', countsAsStaff: false, color: 'violet', label: '11:00–15:00' })
+  })
+
+  it('changes VZ, a special shift and a break, with their labels', () => {
+    let entries = enter([], [monday], { kind: 'special', start: 480, end: 720 })
+    entries = enter(entries, [monday], { kind: 'code', codeId: 12, start: 450, end: 480 })
+    entries = enter(entries, [monday], { kind: 'break', start: 600, end: 615 })
+    const vz = entries.find(e => e.kind === 'code')!
+    const pause = entries.find(e => e.kind === 'break')!
+    entries = edit(entries, vz.id, { start: 420, end: 480, breakStart: null, breakEnd: null })
+    entries = edit(entries, pause.id, { start: 630, end: 645, breakStart: 1, breakEnd: 2 })
+    expect(labels(entries, 1, 0)).toEqual(['VZ 7:00–8:00', '8:00–12:00', '[10:30–10:45]'])
+    expect(entries.find(e => e.kind === 'break')).toMatchObject({ breakStart: null, breakEnd: null })
+  })
+
+  it('refuses like the plan: break outside, end not after start, an overlap naming the cell, home office on a break', () => {
+    const entries = withM()
+    const shift = entries.find(e => e.weekday === 0 && e.kind === 'shift')!
+    const refuse = (id: number, times: Parameters<typeof editTemplateEntry>[2]) => editTemplateEntry(entries, id, times, context, names)
+    expect(refuse(shift.id, { start: 465, end: 960, breakStart: 950, breakEnd: 980 })).toMatchObject({ error: 'span_break_outside' })
+    expect(refuse(shift.id, { start: 960, end: 900, breakStart: null, breakEnd: null })).toMatchObject({ error: 'span_end_before_start' })
+    // The extra break 15:00–15:15 would lie outside a duty ending at 14:00.
+    expect(refuse(shift.id, { start: 465, end: 840, breakStart: null, breakEnd: null }))
+      .toEqual({ error: 'break_outside_work', message: expect.stringContaining('Anna, Montag') })
+    const both = enter(entries, [monday], { kind: 'special', start: 990, end: 1080 })
+    const late = both.find(e => e.kind === 'special')!
+    expect(editTemplateEntry(both, late.id, { start: 900, end: 1080, breakStart: null, breakEnd: null }, context, names))
+      .toEqual({ error: 'entries_overlap', message: expect.stringContaining('Anna, Montag') })
+    const pause = entries.find(e => e.kind === 'break')!
+    expect(refuse(pause.id, { start: 900, end: 915, breakStart: null, breakEnd: null, homeOffice: true })).toMatchObject({ error: 'home_office_not_allowed' })
+    const office = enter([], [monday], { kind: 'code', codeId: 11 })
+    expect(editTemplateEntry(office, office[0]!.id, { start: 480, end: 720, breakStart: null, breakEnd: null }, context, names))
+      .toMatchObject({ error: 'not_a_timed_entry' })
   })
 })
 
