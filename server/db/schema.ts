@@ -313,6 +313,12 @@ export const entries = sqliteTable('entries', {
   homeOffice: integer('home_office', { mode: 'boolean' }).notNull().default(false),
   /** „Kind krank“: which of the employee's children (optional; the link goes when the child is removed). */
   employeeChildId: integer('employee_child_id').references(() => employeeChildren.id, { onDelete: 'set null' }),
+  /**
+   * „Sonderurlaub“: the reason (a key of SPECIAL_LEAVE_REASONS, shared/domain/specialLeave.ts) and a free text; null on
+   * every other entry. Only for Leitung, Träger and the employee themselves: never part of the plan's entries.
+   */
+  specialLeaveReason: text('special_leave_reason'),
+  specialLeaveText: text('special_leave_text'),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [

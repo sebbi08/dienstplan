@@ -1,5 +1,6 @@
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import { dateRange } from '../../shared/domain/dates'
+import { checkedSpecialLeaveReason } from '../../shared/domain/specialLeave'
 import { employmentStart } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { LeaveEntryKind, LeaveEntryResultDto, LeaveRemovalResultDto, SessionUser } from '../../shared/types/api'
@@ -38,10 +39,17 @@ function checkRange(from: IsoDate, to: IsoDate): void {
  */
 export function enterLeave(
   db: Db, actor: SessionUser, facilityId: number, employeeId: number,
-  input: { from: IsoDate; to: IsoDate; kind: LeaveEntryKind; overwrite: boolean }, now: Date = new Date(),
+  input: {
+    from: IsoDate; to: IsoDate; kind: LeaveEntryKind; overwrite: boolean
+    /** Sonderurlaub: the reason (checked like in the plan; ignored for the other kinds). */
+    specialLeaveReason?: string | null; specialLeaveText?: string | null
+  },
+  now: Date = new Date(),
 ): LeaveEntryResultDto {
   const employee = requireEmployee(db, actor, facilityId, employeeId)
   checkRange(input.from, input.to)
+  const reason = input.kind === 'special_leave' ? checkedSpecialLeaveReason(input.specialLeaveReason, input.specialLeaveText) : null
+  if (reason && 'error' in reason) throw new ServiceError(400, reason.error)
   const start = employmentStart(employee.info)
   if (start === null || input.from < start) throw new ServiceError(400, 'leave_before_employment')
   const booking = planLeaveBooking(db, employee, loadClosures(db, facilityId), input.from, input.to, input.kind)
@@ -49,7 +57,8 @@ export function enterLeave(
   if (booking.occupiedDays > 0 && !input.overwrite) {
     throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays, entries: booking.occupiedByOtherEntries })
   }
-  db.transaction(tx => bookLeaveDays(tx, actor, facilityId, employeeId, booking.days, input.kind, now))
+  db.transaction(tx => bookLeaveDays(tx, actor, facilityId, employeeId, booking.days, input.kind, now,
+    reason ? { specialLeaveReason: reason.reason, specialLeaveText: reason.text } : {}))
   return { booked: booking.days.length, keptAbsences: booking.keptAbsences }
 }
 

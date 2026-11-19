@@ -174,13 +174,16 @@ function openModal(code: CodeDto | null) {
   modalOpen.value = true
 }
 
-/** „Kind krank“ for one person, with the right to see the children: the dialog asks which child (optional). */
+/**
+ * „Kind krank“ for one person, with the right to see the children: the dialog asks which child (optional);
+ * „Sonderurlaub“ always asks for the reason (optional, „Sonstiges“ with a text).
+ */
 const codeDetails = reactive<{ open: boolean; code: CodeDto | null; employeeId: number | null; date: string | null }>({
   open: false, code: null, employeeId: null, date: null,
 })
 function needsDetails(code: CodeDto): boolean {
   const employeeIds = new Set(selection.cells.value.map(cell => cell.employeeId))
-  return code.key === 'child_sick' && employeeIds.size === 1 && can('employees.personal')
+  return code.key === 'special_leave' || (code.key === 'child_sick' && employeeIds.size === 1 && can('employees.personal'))
 }
 
 function onCode(code: CodeDto) {

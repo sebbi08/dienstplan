@@ -829,6 +829,9 @@ export interface EntryInput {
   homeOffice?: boolean
   /** „Kind krank“: which of the employee's children (optional; only with that code, else ignored). */
   employeeChildId?: number | null
+  /** „Sonderurlaub“: a key of SPECIAL_LEAVE_REASONS and a free text (only with that code, else ignored). */
+  specialLeaveReason?: string | null
+  specialLeaveText?: string | null
 }
 
 /** New times of one entry clicked in the plan; homeOffice only when it changes (missing = kept). */
@@ -1880,6 +1883,11 @@ export type LeaveEntryKind = 'vacation' | 'special_leave' | 'overtime_off'
 /** A period of one kind of leave entries (days: leave days for Urlaub, 24/31 December maybe half; else working days). */
 export interface LeaveEntryRange extends LeaveRange {
   kind: LeaveEntryKind
+  /**
+   * Sonderurlaub only, and only for Leitung/Träger (employees.sickness) or the employee themselves: the reason of the
+   * period (a key of SPECIAL_LEAVE_REASONS or null, and the free text); missing otherwise.
+   */
+  reason?: { key: string | null; text: string | null }
 }
 
 /** „Urlaub eintragen“: the days written, and the days kept because another absence (Krank, Fortbildung …) holds them. */

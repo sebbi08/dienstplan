@@ -225,8 +225,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     const after = sqlite.prepare('SELECT * FROM entries ORDER BY id').all() as Record<string, unknown>[]
     // group_id comes with the later migration 0022.
-    // (group_id comes with the later 0022_groups, home_office with 0069, employee_child_id with 0086.)
-    expect(after.map(({ help_facility_id: _, group_id: __, home_office: ___, employee_child_id: ____, ...rest }) => rest)).toEqual(before)
+    // (group_id comes with the later 0022_groups, home_office with 0069, employee_child_id with 0086, the Sonderurlaub reason with 0089.)
+    expect(after.map(({ help_facility_id: _, group_id: __, home_office: ___, employee_child_id: ____, special_leave_reason: _reason, special_leave_text: _text, ...rest }) => rest)).toEqual(before)
     expect(after.map(row => row.help_facility_id)).toEqual([null, null])
     expect(count(sqlite, 'help_outs')).toBe(0)
     sqlite.exec('INSERT INTO facilities (id, name) VALUES (2, \'Krippe\')')
@@ -260,8 +260,8 @@ describe('upgrading a filled database through migrateDb', () => {
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
       // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044,
-      // home_office of entries with 0069, of week template entries with 0070; employee_child_id of entries with 0086.)
-      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, home_office: ___, employee_child_id: ____, ...rest }) => rest))), table)
+      // home_office of entries with 0069, of week template entries with 0070; employee_child_id of entries with 0086, the Sonderurlaub reason with 0089.)
+      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, home_office: ___, employee_child_id: ____, special_leave_reason: _reason, special_leave_text: _text, ...rest }) => rest))), table)
         .toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }

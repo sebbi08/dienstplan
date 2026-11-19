@@ -4,6 +4,7 @@ import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
+import { checkedSpecialLeaveReason } from '../../shared/domain/specialLeave'
 import { dailyTarget } from '../../shared/domain/targets'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
@@ -86,6 +87,14 @@ function resolveTimes(db: Db, facilityId: number, input: EntryInput): ResolvedEn
     kind: 'code', shiftTemplateId: null, absenceCodeId: code.id,
     ...(hasTimes ? span : NO_TIMES), countsAsStaff: true, note,
   }
+}
+
+/** The reason of a „Sonderurlaub“ input as stored (none without an input); a bad one gives 400 with its code. */
+function specialLeaveOf(input: EntryInput | null): { reason: string | null; text: string | null } {
+  if (!input) return { reason: null, text: null }
+  const checked = checkedSpecialLeaveReason(input.specialLeaveReason, input.specialLeaveText)
+  if ('error' in checked) throw new ServiceError(400, checked.error)
+  return checked
 }
 
 /** The cell's entries as text; a duty counting for another group names it (names: the plan's groupNames). */
@@ -257,6 +266,8 @@ export function applyToCells(
   // „Kind krank“ may name one of the employee's children (the cells must all be that employee's); other entries none.
   const employeeChildId = values && codeKeyOf(db, values.absenceCodeId) === 'child_sick' ? input?.employeeChildId ?? null : null
   if (employeeChildId !== null) assertChildOf(db, employeeChildId, unique.map(cell => cell.employeeId))
+  // „Sonderurlaub“ may carry a reason (checked: special_leave_reason_invalid, special_leave_text_*); other entries none.
+  const specialLeave = specialLeaveOf(values && codeKeyOf(db, values.absenceCodeId) === 'special_leave' ? input : null)
   // A whole Büro/VZ day credits the day's target: on a day without one (weekend, public holiday, a part-timer's day off)
   // it would credit nothing and hide what was stamped, so it needs times there.
   const isFullDay = values !== null && isFullDayTimed({
@@ -325,6 +336,7 @@ export function applyToCells(
           ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null,
           groupId: helper ? groupId : storedGroup(groupId, own.get(cell.employeeId)),
           closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id, employeeChildId,
+          specialLeaveReason: specialLeave.reason, specialLeaveText: specialLeave.text,
         }).run()
       }
       logChange(tx, {

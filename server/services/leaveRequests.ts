@@ -481,15 +481,19 @@ export function planLeaveBooking(
   }
 }
 
-/** Writes the leave code on the days (replacing what they hold; logged and marked like any plan edit, see applyToCells). */
+/**
+ * Writes the leave code on the days (replacing what they hold; logged and marked like any plan edit, see applyToCells);
+ * Sonderurlaub with its reason (`reason`, checked by applyToCells).
+ */
 export function bookLeaveDays(
   db: Db, actor: SessionUser, facilityId: number, employeeId: number, days: IsoDate[], codeKey: LeaveCodeKey, now: Date,
+  reason: { specialLeaveReason?: string | null; specialLeaveText?: string | null } = {},
 ): void {
   if (days.length === 0) return
   const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, codeKey)).get()
   if (!code) throw new ServiceError(500, 'code_not_found')
   const cells = days.map(date => ({ employeeId, date }))
-  applyToCells(db, actor, facilityId, cells, 'replace', { kind: 'code', codeId: code.id }, { now })
+  applyToCells(db, actor, facilityId, cells, 'replace', { kind: 'code', codeId: code.id, ...reason }, { now })
 }
 
 // --- planning page -------------------------------------------------------------------------------------------

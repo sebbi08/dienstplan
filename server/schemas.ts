@@ -57,6 +57,9 @@ export const entryInputSchema = z.object({
   groupId: z.number().int().positive().nullable().optional(),
   homeOffice: z.boolean().optional(),
   employeeChildId: z.number().int().positive().nullable().optional(),
+  // Sonderurlaub: key and text are checked by the service (special_leave_reason_invalid, special_leave_text_*).
+  specialLeaveReason: z.string().max(40).nullable().optional(),
+  specialLeaveText: z.string().max(1000).nullable().optional(),
 })
 export const applyEntriesSchema = z.object({
   cells: z.array(z.object({ employeeId: z.number().int(), date: isoDate })).min(1).max(1000),
@@ -241,7 +244,12 @@ export const leaveRequestSchema = z.object({ from: isoDate, to: isoDate, note: z
 export const leaveDecisionSchema = z.object({ approve: z.boolean(), note: z.string().max(300), overwrite: z.boolean() })
 const leaveEntryKind = z.enum(['vacation', 'special_leave', 'overtime_off'])
 /** „Urlaub eintragen“ for an employee; `overwrite` replaces duties on the days (asked first). */
-export const leaveEntrySchema = z.object({ from: isoDate, to: isoDate, kind: leaveEntryKind, overwrite: z.boolean().default(false) })
+export const leaveEntrySchema = z.object({
+  from: isoDate, to: isoDate, kind: leaveEntryKind, overwrite: z.boolean().default(false),
+  // Sonderurlaub: the reason, checked by the service like in the plan.
+  specialLeaveReason: z.string().max(40).nullable().optional(),
+  specialLeaveText: z.string().max(1000).nullable().optional(),
+})
 /** „Entfernen“ of a listed leave period. */
 export const leaveEntryRemovalQuery = z.object({ from: isoDate, to: isoDate, kind: leaveEntryKind })
 export const pdfQuery = z.object({ path: z.string().max(200), name: z.string().regex(/^[\w.-]{1,80}$/) })

@@ -3,6 +3,7 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PIN_LENGTH, isValidPin, mayManagePins } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
+import { isSpecialLeaveReason } from '#shared/domain/specialLeave'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
@@ -101,6 +102,15 @@ function openLeaveEntry(block: { year: number; coming: boolean }) {
   Object.assign(leaveEntry, block.coming
     ? { open: true, min: `${block.year}-01-01`, max: `${block.year}-12-31` }
     : { open: true, min: undefined, max: undefined })
+}
+/** The listed periods without Sonderurlaub, which has its own list with the reasons. */
+const otherRanges = (ranges: LeaveEntryRange[]) => ranges.filter(range => range.kind !== 'special_leave')
+const specialRanges = (ranges: LeaveEntryRange[]) => ranges.filter(range => range.kind === 'special_leave')
+/** „Umzug aus dienstlichem Grund (1 Tag) – Text“; empty without a reason (or without the right to see it). */
+function reasonText(range: LeaveEntryRange): string {
+  const key = range.reason?.key
+  const label = key && isSpecialLeaveReason(key) ? de.specialLeave.reasons[key] : ''
+  return [label, range.reason?.text ?? ''].filter(Boolean).join(' – ')
 }
 /** „Entfernen“ of a listed period: only its entries of that kind; the leave of closures stays (the server counts it). */
 async function removeLeaveRange(range: LeaveEntryRange) {
@@ -661,12 +671,25 @@ async function onTabKey(event: KeyboardEvent) {
         <p v-else-if="block.coming && comingLeaveError" class="text-red-700">{{ errorMessage(comingLeaveError) }}</p>
         <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
         <p v-if="block.coming && block.row?.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
-        <div v-if="block.entries.length" class="pt-1">
+        <div v-if="otherRanges(block.entries).length" class="pt-1">
           <p class="text-xs font-medium text-gray-500">{{ de.leaveEntry.ranges }}</p>
           <ul>
-            <li v-for="range in block.entries" :key="`${range.kind}-${range.from}`" class="flex flex-wrap items-center gap-x-2">
+            <li v-for="range in otherRanges(block.entries)" :key="`${range.kind}-${range.from}`" class="flex flex-wrap items-center gap-x-2">
               <span>{{ formatDate(range.from) }}–{{ formatDate(range.to) }}</span>
               <span class="text-gray-500">{{ de.leaveEntry.kindNames[range.kind] }}, {{ de.leave.days(range.days) }}</span>
+              <UButton v-if="canEnterLeave" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.leaveEntry.remove" @click="removeLeaveRange(range)" />
+            </li>
+          </ul>
+        </div>
+        <!-- Sonderurlaub with its reason (the reason only for Leitung and Träger: the server leaves it out otherwise). -->
+        <div v-if="specialRanges(block.entries).length" class="pt-1">
+          <p class="text-xs font-medium text-gray-500">
+            {{ de.specialLeave.yearTitle(block.year, de.leave.days(specialRanges(block.entries).reduce((sum, range) => sum + range.days, 0))) }}
+          </p>
+          <ul>
+            <li v-for="range in specialRanges(block.entries)" :key="`${range.kind}-${range.from}`" class="flex flex-wrap items-center gap-x-2">
+              <span>{{ formatDate(range.from) }}–{{ formatDate(range.to) }}</span>
+              <span class="text-gray-500">{{ de.leave.days(range.days) }}<template v-if="reasonText(range)">, {{ reasonText(range) }}</template></span>
               <UButton v-if="canEnterLeave" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.leaveEntry.remove" @click="removeLeaveRange(range)" />
             </li>
           </ul>

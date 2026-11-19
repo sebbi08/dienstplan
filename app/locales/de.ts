@@ -473,6 +473,25 @@ export const de = {
     },
     noClosures: (year: number) => `Für ${year} sind noch keine Schließzeiten eingetragen.`,
   },
+  /** „Sonderurlaub“ with its reason (TVöD § 29 Arbeitsbefreiung): only for Leitung, Träger and the employee themselves. */
+  specialLeave: {
+    reason: 'Begründung',
+    reasonNone: 'ohne Begründung',
+    text: 'Begründung (Freitext)',
+    textHint: 'Bei „Sonstiges“ bitte angeben, sonst freiwillig. Sieht nur die Leitung, der Träger und die Person selbst.',
+    reasons: {
+      birth: 'Niederkunft der Ehefrau/Lebenspartnerin (1 Tag)',
+      death: 'Tod von Ehegatte/Lebenspartner, Kind oder Elternteil (2 Tage)',
+      move: 'Umzug aus dienstlichem Grund (1 Tag)',
+      jubilee: '25- oder 40-jähriges Arbeitsjubiläum (1 Tag)',
+      relative_ill: 'Schwere Erkrankung einer/eines Angehörigen im Haushalt (1 Tag im Jahr)',
+      child_ill: 'Schwere Erkrankung eines Kindes unter 12 (bis 4 Tage im Jahr)',
+      carer_ill: 'Schwere Erkrankung der Betreuungsperson eines Kindes unter 8 (bis 4 Tage im Jahr)',
+      other: 'Sonstiges',
+    },
+    /** „Urlaub & Zeiten“: „Sonderurlaub 2026: 3 Tage“ with each period and its reason. */
+    yearTitle: (year: number, days: string) => `Sonderurlaub ${year}: ${days}`,
+  },
   /** „Urlaub eintragen“ for an employee (employee page, „Urlaubsplanung“) and „Entfernen“ of a listed period. */
   leaveEntry: {
     add: 'Urlaub eintragen',
@@ -490,7 +509,7 @@ export const de = {
     alreadyEntered: 'Der Zeitraum ist schon eingetragen.',
     /** Nothing written: the remaining days hold another absence. */
     nothingKept: (kept: number, kind: string) => `Nichts eingetragen. ${keptAbsencesNote(kept, kind)}`,
-    ranges: 'Eingetragen (Urlaub, Sonderurlaub, ÜF)',
+    ranges: 'Eingetragen (Urlaub, ÜF)',
     noRanges: 'Nichts eingetragen.',
     closureNote: 'Urlaub aus Schließzeiten steht bei den Schließzeiten und wird hier nicht entfernt.',
     remove: 'Entfernen',
@@ -2308,6 +2327,9 @@ export const de = {
     employee_child_not_found: 'Dieses Kind ist nicht (mehr) eingetragen. Bitte lade die Seite neu.',
     employee_child_invalid: 'Dieses Kind gehört nicht zu der Person. Bitte wähle das Kind für eine Person auf einmal.',
     child_sick_settings_invalid: 'Bitte ganze Tage von 0 bis 365 angeben; „höchstens“ darf nicht kleiner sein als die Tage für ein Kind.',
+    special_leave_reason_invalid: 'Bitte eine Begründung aus der Liste wählen.',
+    special_leave_text_required: 'Bitte bei „Sonstiges“ eine Begründung eintragen.',
+    special_leave_text_too_long: 'Die Begründung darf höchstens 200 Zeichen lang sein.',
     reminder_setting_invalid: 'Bitte einen gültigen Zeitraum angeben.',
     reminder_date_invalid: 'Bitte ein gültiges Datum angeben.',
     development_doc_not_found: 'Dieser Eintrag existiert nicht mehr.',

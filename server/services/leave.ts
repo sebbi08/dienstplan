@@ -44,8 +44,11 @@ export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number):
   return { days: recorded.days, carriedOverDays, fromYear: recorded.fromYear, carriedAutomatically: year > first }
 }
 
-/** The leave account of one employee (whatever facility they belong to; callers check access). */
-export function getLeaveAccount(db: Db, employeeId: number, year: number, today: IsoDate): LeaveAccountDto {
+/**
+ * The leave account of one employee (whatever facility they belong to; callers check access). The reasons of
+ * Sonderurlaub only with `withReasons`: for Leitung and Träger (employees.sickness) and the employee themselves.
+ */
+export function getLeaveAccount(db: Db, employeeId: number, year: number, today: IsoDate, withReasons = true): LeaveAccountDto {
   const employee = loadEmployee(db, employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const isLeaveDay = leaveDayRule(employee)
@@ -59,7 +62,7 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
     hasEntitlement: entitlement !== null,
     carriedAutomatically: entitlement?.carriedAutomatically ?? false,
     ranges: groupLeaveRanges(vacationDates, isLeaveDay, employee.halfLeaveOnEves),
-    entryRanges: entryRanges(db, employee, year),
+    entryRanges: entryRanges(db, employee, year, withReasons),
     closures: closureLeave(db, employee, year),
   }
 }
@@ -70,19 +73,32 @@ const LEAVE_ENTRY_KINDS: LeaveEntryKind[] = ['vacation', 'special_leave', 'overt
  * The person's own Urlaub, Sonderurlaub and Überstundenfrei entries of the year as periods of working days (a period
  * bridges days off, see groupLeaveRanges), by start date. The leave a closure booked is left out: it belongs to the
  * closure (closureLeave) and is not removed period by period. Only Urlaub counts 24/31 December as half a day.
+ * Sonderurlaub with `withReasons` is split by its reason (key and text), each period with it.
  */
-function entryRanges(db: Db, employee: EmployeeRecord, year: number): LeaveEntryRange[] {
-  const rows = db.select({ date: entries.date, key: absenceCodes.key })
+function entryRanges(db: Db, employee: EmployeeRecord, year: number, withReasons: boolean): LeaveEntryRange[] {
+  const rows = db.select({
+    date: entries.date, key: absenceCodes.key, reason: entries.specialLeaveReason, text: entries.specialLeaveText,
+  })
     .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
     .where(and(
       eq(entries.employeeId, employee.id), isNull(entries.closureId), inArray(absenceCodes.key, LEAVE_ENTRY_KINDS),
       gte(entries.date, `${year}-01-01`), lte(entries.date, `${year}-12-31`),
     )).all()
   const isLeaveDay = leaveDayRule(employee)
-  return LEAVE_ENTRY_KINDS
-    .flatMap(kind => groupLeaveRanges(
-      rows.filter(row => row.key === kind).map(row => row.date), isLeaveDay, kind === 'vacation' && employee.halfLeaveOnEves,
-    ).map(range => ({ kind, ...range })))
+  type Group = { kind: LeaveEntryKind; rows: typeof rows; reason: LeaveEntryRange['reason'] }
+  const groups = LEAVE_ENTRY_KINDS.flatMap((kind): Group[] => {
+    const ofKind = rows.filter(row => row.key === kind)
+    if (kind !== 'special_leave' || !withReasons) return [{ kind, rows: ofKind, reason: undefined }]
+    const byReason = new Map<string, { key: string | null; text: string | null }>()
+    for (const row of ofKind) byReason.set(JSON.stringify([row.reason, row.text]), { key: row.reason, text: row.text })
+    return [...byReason].map(([signature, reason]) => ({
+      kind, rows: ofKind.filter(row => JSON.stringify([row.reason, row.text]) === signature), reason,
+    }))
+  })
+  return groups
+    .flatMap(({ kind, rows: ofGroup, reason }): LeaveEntryRange[] => groupLeaveRanges(
+      ofGroup.map(row => row.date), isLeaveDay, kind === 'vacation' && employee.halfLeaveOnEves,
+    ).map(range => ({ kind, ...range, ...(reason ? { reason } : {}) })))
     .sort((a, b) => a.from.localeCompare(b.from))
 }
 
@@ -119,9 +135,9 @@ function closureLeave(db: Db, employee: EmployeeRecord, year: number): ClosureLe
     })
 }
 
-/** Leave accounts of the facility's staff employed in the year. */
-export function getLeaveOverview(db: Db, facilityId: number, year: number, today: IsoDate): LeaveAccountDto[] {
+/** Leave accounts of the facility's staff employed in the year; the Sonderurlaub reasons only `withReasons`. */
+export function getLeaveOverview(db: Db, facilityId: number, year: number, today: IsoDate, withReasons = false): LeaveAccountDto[] {
   return loadEmployees(db, facilityId)
     .filter(employee => isEmployedInRange(employee.info, `${year}-01-01`, `${year}-12-31`))
-    .map(employee => getLeaveAccount(db, employee.id, year, today))
+    .map(employee => getLeaveAccount(db, employee.id, year, today, withReasons))
 }
