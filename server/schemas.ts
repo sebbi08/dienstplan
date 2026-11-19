@@ -524,6 +524,24 @@ export const attendanceMonthQuery = monthParams
 export const attendanceMonthRemarkSchema = z.object({
   childId: z.number().int().positive(), month: z.string().regex(/^\d{4}-\d{2}$/), remark: z.string().max(500),
 })
+/** § 34 IfSG: a new case. The disease, its kind and the date rule are checked against the facility's rules by the service. */
+export const ifsgCaseSchema = z.object({
+  childId: z.number().int().positive(), date: isoDate, disease: z.string().min(1).max(60),
+  kind: z.enum(['sick', 'carrier', 'household']), onsetDate: isoDate, ruleVariant: z.string().max(60).nullable(),
+  ruleDate: isoDate.nullable(),
+})
+/** § 34 IfSG: a change of a case (left out = kept). */
+export const ifsgCaseUpdateSchema = z.object({
+  onsetDate: isoDate.optional(), ruleVariant: z.string().max(60).nullable().optional(), ruleDate: isoDate.nullable().optional(),
+  healthOfficeNotifiedOn: isoDate.nullable().optional(), physicianReported: z.boolean().optional(), ended: z.boolean().optional(),
+})
+/** § 34 IfSG: the readmission's form fields (multipart, as text). */
+export const ifsgReadmitFields = z.object({
+  readmittedOn: isoDate, note: z.string().max(1000).default(''),
+  confirmEarly: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
+})
+/** § 34 IfSG: the facility's setting. */
+export const ifsgSettingsSchema = z.object({ requireAttest: z.boolean() })
 /** The sort order of the child lists of a facility. */
 export const childSortSchema = z.object({ sort: z.enum(CHILD_SORTS) })
 /** The attendance settings of a facility. The recording start is checked by the service, which answers invalid_date. */

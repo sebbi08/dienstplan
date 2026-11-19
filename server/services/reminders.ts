@@ -12,6 +12,7 @@ import { loadEditableChild, type ChildRow } from '../lib/childRecord'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { accidentReminders } from './accidents'
+import { ifsgReminders } from './ifsg'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
 import { retentionOverview } from './retentionOverview'
@@ -138,6 +139,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   }
   // Leitung and Träger: accident reports still to be sent to the Unfallkasse (overdue after 3 days).
   items.push(...accidentReminders(db, viewer, today))
+  // Leitung and Träger: the health office still to be notified of a § 34 IfSG case („unverzüglich“).
+  items.push(...ifsgReminders(db, viewer, today))
   return sortReminders(items)
 }
 

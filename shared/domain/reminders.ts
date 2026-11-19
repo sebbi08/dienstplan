@@ -15,8 +15,9 @@ export interface DocSettings {
 /**
  * `retention`: only for the Träger, while data may be deleted after its retention period (page „Löschfristen“).
  * `accident`: for Leitung/Träger, an accident report to send to the Unfallkasse (server/services/accidents.ts).
+ * `ifsg`: for Leitung/Träger, a § 34 IfSG case whose health office notification is due (server/services/ifsg.ts).
  */
-export type ReminderKind = 'doc' | 'meeting' | 'birthday' | 'staffBirthday' | 'leaving' | 'retention' | 'accident'
+export type ReminderKind = 'doc' | 'meeting' | 'birthday' | 'staffBirthday' | 'leaving' | 'retention' | 'accident' | 'ifsg'
 
 export type ReminderWindow = 'before' | 'upcoming' | 'today' | 'overdue'
 
@@ -96,11 +97,11 @@ export function inWindow(due: IsoDate, leadDays: number, today: IsoDate): Remind
 
 const STATE_ORDER = { overdue: 0, today: 1, upcoming: 2 } as const
 const KIND_ORDER: Record<ReminderKind, number> = {
-  accident: 0, doc: 1, meeting: 2, birthday: 3, staffBirthday: 4, leaving: 5, retention: 6,
+  ifsg: -1, accident: 0, doc: 1, meeting: 2, birthday: 3, staffBirthday: 4, leaving: 5, retention: 6,
 }
 
 /**
- * Overdue, then today, then upcoming; within a state by date, then kind (accident, doc, parent meeting, birthday, staff
+ * Overdue, then today, then upcoming; within a state by date, then kind (IfSG notification, accident, doc, parent meeting, birthday, staff
  * birthday, leaving, retention), then time (the meetings of a day; no time first), then name.
  */
 export function sortReminders<T extends {

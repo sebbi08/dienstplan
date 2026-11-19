@@ -2,6 +2,7 @@ import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
+import type { IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
@@ -403,6 +404,8 @@ export interface ReminderDto {
   meetingKind: MeetingKind | null
   /** For retention (Träger only): how many entries of the page „Löschfristen“ may be deleted now, all facilities; null otherwise. */
   count: number | null
+  /** For a § 34 IfSG case whose health office notification is due: the case, the disease's name and the child's group. */
+  ifsg?: { caseId: number; diseaseName: string; groupName: string }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -2127,6 +2130,117 @@ export interface AttendanceChildDto {
   pickupOverdue: boolean
   /** An entry of the day was changed or removed after it was made (see the history). */
   changed: boolean
+  /** An open § 34 IfSG case since this day or earlier: „Kommt“ is blocked until the readmission (null = none). */
+  ifsg: AttendanceIfsgDto | null
+}
+
+/**
+ * The open § 34 IfSG case of a child in the day list. Whoever may not know the disease (another group's staff, readers
+ * without the attendance right) gets only the block: disease, kind, texts, the earliest day and the proof are null.
+ */
+export interface AttendanceIfsgDto {
+  caseId: number
+  disease: string | null
+  diseaseName: string | null
+  kind: IfsgKind | null
+  /** The readmission text of the kind, and the condition besides the earliest day („und symptomfrei“). */
+  text: string | null
+  condition: string | null
+  /** The earliest readmission by the date rule (null: no rule, its date not known, or hidden). */
+  earliest: IsoDate | null
+  proof: IfsgProof | null
+  /** The viewer may confirm the readmission (Leitung/Träger, the child's own group). */
+  canReadmit: boolean
+  /** The facility asks for a written attest with a medical judgement („Schriftliches Attest verlangen“). */
+  requireAttest: boolean
+}
+
+/** The facility's § 34 IfSG rules for the dialogs (`ifsgRulesFor`) and whether a written attest is required. */
+export interface IfsgRulesDto {
+  requireAttest: boolean
+  diseases: IfsgDisease[]
+}
+
+/** The facility's § 34 IfSG setting (Leitung/Träger). */
+export interface IfsgSettingsDto {
+  requireAttest: boolean
+}
+
+/**
+ * A new § 34 IfSG case of a child, entered on an attendance day (`date`, not ahead): the disease of the facility's
+ * rules, a kind it allows, the onset, and optionally the date rule with the date it counts from.
+ */
+export interface IfsgCaseInput {
+  childId: number
+  date: IsoDate
+  disease: string
+  kind: IfsgKind
+  onsetDate: IsoDate
+  ruleVariant: string | null
+  ruleDate: IsoDate | null
+}
+
+/**
+ * A change of a case; left out = kept. The dates and the rule: Leitung/Träger and the child's own group; the
+ * notification of the health office, the physician's report and closing: Leitung/Träger only.
+ */
+export interface IfsgCaseUpdateInput {
+  onsetDate?: IsoDate
+  ruleVariant?: string | null
+  ruleDate?: IsoDate | null
+  healthOfficeNotifiedOn?: IsoDate | null
+  physicianReported?: boolean
+  ended?: boolean
+}
+
+/** The readmission: its day (not ahead), a note, and the confirmation that it lies before the earliest day. */
+export interface IfsgReadmitInput {
+  readmittedOn: IsoDate
+  note: string
+  confirmEarly: boolean
+}
+
+/** A § 34 IfSG case as Leitung and Träger see it (overview, notice). */
+export interface IfsgCaseDto {
+  id: number
+  childId: number
+  /** „Vorname Nachname“. */
+  childName: string
+  groupName: string
+  disease: string
+  diseaseName: string
+  kind: IfsgKind
+  reportedOn: IsoDate
+  onsetDate: IsoDate
+  ruleVariant: string | null
+  ruleDate: IsoDate | null
+  earliest: IsoDate | null
+  text: string
+  proof: IfsgProof
+  createdByName: string
+  createdAt: string
+  readmittedOn: IsoDate | null
+  readmissionNote: string
+  readmittedByName: string
+  /** The attest stored as a child document (null = none, or deleted since). */
+  attachmentId: number | null
+  healthOfficeNotifiedOn: IsoDate | null
+  physicianReported: boolean
+  ended: boolean
+  /** Not readmitted and not closed: „Kommt“ is blocked. */
+  open: boolean
+  /** The Leitung still has to notify the health office (§ 34 Abs. 6). */
+  notifyDue: boolean
+}
+
+/** The parent notice („Aushang“) of a case: no names, the group, the disease, a short hint, the facility and the day. */
+export interface IfsgNoticeDto {
+  caseId: number
+  facilityName: string
+  groupName: string
+  diseaseName: string
+  hint: string
+  reportedOn: IsoDate
 }
 
 export interface AttendanceCountsDto {

@@ -16,6 +16,7 @@ import { attendanceListSections, reloadAfterFailure } from '~/utils/attendanceMe
 import { attendanceSearchKey } from '~/utils/attendanceSearch'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
+import { ifsgEarliestText } from '~/utils/ifsg'
 
 /**
  * The "Anwesenheit" tab (spec §3): the day list with stamping in and out, absences, announced pickup persons, the meal
@@ -249,7 +250,7 @@ const mealManual = (child: AttendanceChildDto, mealId: number) => child.meals[me
 const blurOnEnter = (event: KeyboardEvent) => (event.target as HTMLElement).blur()
 
 // One dialog at a time, for a child of the shown day (looked up again after every refresh).
-type DialogKind = 'arrive' | 'leave' | 'absent' | 'announce' | 'stay' | 'history'
+type DialogKind = 'arrive' | 'leave' | 'absent' | 'announce' | 'stay' | 'history' | 'ifsg' | 'readmit'
 const dialog = ref<{ kind: DialogKind; childId: number; stayId?: number } | null>(null)
 const dialogChild = computed(() => data.value?.children.find(child => child.childId === dialog.value?.childId) ?? null)
 const openDialog = (kind: DialogKind, child: AttendanceChildDto, stayId?: number) => (dialog.value = { kind, childId: child.childId, stayId })
@@ -265,7 +266,15 @@ const absentOpen = dialogOpen('absent')
 const announceOpen = dialogOpen('announce')
 const stayOpen = dialogOpen('stay')
 const historyOpen = dialogOpen('history')
+const ifsgOpen = dialogOpen('ifsg')
+const readmitOpen = dialogOpen('readmit')
 watch(date, () => (dialog.value = null))
+/** „Kommt“ while a § 34 IfSG case is open shows the block (and the readmission) first; once readmitted, „Kommt“ follows. */
+const arriveOrReadmit = (child: AttendanceChildDto) => openDialog(child.ifsg ? 'readmit' : 'arrive', child)
+function afterReadmit() {
+  const child = dialogChild.value
+  if (child) openDialog('arrive', child)
+}
 
 // The overdue pickup (spec §3.6) follows the clock in the browser only: a tick every minute, never a request, so the
 // tablet's lock time keeps running. Until the page is mounted (SSR) the server's value is shown.
@@ -466,6 +475,13 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                     >
                       <UIcon name="i-lucide-ban" class="size-4" aria-hidden="true" />{{ s.row.contactBan }}
                     </span>
+                    <!-- An open § 34 IfSG case: the block for everybody, the disease only for whoever may know it. -->
+                    <span
+                      v-if="child.ifsg"
+                      class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-sm font-semibold text-red-800 ring-1 ring-red-300"
+                    >
+                      <UIcon name="i-lucide-shield-alert" class="size-4" aria-hidden="true" />{{ de.ifsg.block }}<template v-if="child.ifsg.diseaseName">: {{ child.ifsg.diseaseName }}</template>
+                    </span>
                     <span v-if="child.allergies" class="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
                       <UIcon name="i-lucide-triangle-alert" class="size-3.5" aria-hidden="true" />{{ s.row.allergy }}
                     </span>
@@ -485,7 +501,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                 </button>
                 <UButton
                   v-if="quickAction(child) === 'arrive'" size="xl" color="success" icon="i-lucide-log-in" :label="s.actions.arrive" class="min-h-11 shrink-0"
-                  @click="openDialog('arrive', child)"
+                  @click="arriveOrReadmit(child)"
                 />
                 <UButton
                   v-else-if="quickAction(child) === 'leave'" size="xl" icon="i-lucide-log-out" :label="s.actions.leave" class="min-h-11 shrink-0"
@@ -570,8 +586,12 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                   </div>
                 </div>
 
-                <!-- Info column: allergies from the record, then the day's note -->
+                <!-- Info column: the § 34 IfSG readmission, allergies from the record, then the day's note -->
                 <div class="min-w-0 space-y-1">
+                  <p v-if="child.ifsg?.diseaseName" class="flex items-start gap-1 rounded bg-red-50 px-2 py-1 text-sm text-red-900">
+                    <UIcon name="i-lucide-shield-alert" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <span>{{ child.ifsg.diseaseName }}: {{ ifsgEarliestText(child.ifsg.earliest, child.ifsg.condition ?? '') }}</span>
+                  </p>
                   <p v-if="child.allergies" class="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-sm text-amber-900">
                     <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" /><span class="whitespace-pre-line break-words">{{ s.allergies }}: {{ child.allergies }}</span>
                   </p>
@@ -594,6 +614,10 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                     @click="openDialog('absent', child)"
                   />
                   <UButton size="xl" color="neutral" variant="outline" icon="i-lucide-user-plus" :label="s.actions.announce" @click="openDialog('announce', child)" />
+                  <UButton
+                    v-if="child.own && !child.ifsg && !isFutureDay && data.canAttend" size="xl" color="error" variant="outline" icon="i-lucide-shield-alert"
+                    :label="de.ifsg.action" @click="openDialog('ifsg', child)"
+                  />
                 </div>
               </div>
             </li>
@@ -607,7 +631,12 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
           <ChildrenAttendanceLeaveDialog
             v-model:open="leaveOpen" :child="dialogChild" :date="data.date" :reload="refresh" @announce="openDialog('announce', dialogChild)"
           />
-          <ChildrenAttendanceAbsenceDialog v-model:open="absentOpen" :child="dialogChild" :date="data.date" :reload="refresh" />
+          <ChildrenAttendanceAbsenceDialog
+            v-model:open="absentOpen" :child="dialogChild" :date="data.date" :reload="refresh"
+            :ifsg="!dialogChild.ifsg && !isFutureDay && data.canAttend" @ifsg="openDialog('ifsg', dialogChild)"
+          />
+          <ChildrenIfsgCaseDialog v-model:open="ifsgOpen" :child="dialogChild" :date="data.date" :reload="refresh" />
+          <ChildrenIfsgReadmitDialog v-model:open="readmitOpen" :child="dialogChild" :date="data.date" :reload="refresh" @readmitted="afterReadmit" />
           <ChildrenAttendanceAnnounceDialog v-model:open="announceOpen" :child="dialogChild" :date="data.date" :reload="refresh" />
           <ChildrenAttendanceStayDialog
             v-if="dialog?.stayId !== undefined" v-model:open="stayOpen" :child="dialogChild" :stay-id="dialog.stayId" :date="data.date"

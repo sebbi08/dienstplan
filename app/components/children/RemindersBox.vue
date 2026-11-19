@@ -8,7 +8,8 @@ import { formatDate, formatDayMonth, formatDayMonthNear } from '~/utils/format'
 /**
  * The box „Erinnerungen“ above the tabs of the children page: documentation, parent meetings of the day, birthdays and
  * leavings, for the Träger the entries that may be deleted, for Leitung/Träger the accident reports still to be sent to
- * the Unfallkasse (an employee's has no child: `childId` null; already sorted by the server). Hidden without entries; closed
+ * the Unfallkasse (an employee's has no child: `childId` null; already sorted by the server), for Leitung/Träger the health
+ * office still to be notified of a § 34 IfSG case (with „Benachrichtigt“ and „Arztmeldung liegt vor“). Hidden without entries; closed
  * or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
@@ -41,7 +42,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
-  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage',
+  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -67,6 +68,22 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     // An employee's report has no child; its wording names the 3 days of incapacity.
     case 'accident':
       return r.accident(formatDate(entry.date), entry.childId === null)
+    // „Gesundheitsamt unverzüglich benachrichtigen (§ 34 Abs. 6 IfSG): ‹Krankheit› – ‹Kind›, ‹Gruppe›“.
+    case 'ifsg':
+      return r.ifsg(entry.ifsg?.diseaseName ?? '', entry.ifsg?.groupName ?? '')
+  }
+}
+
+/** § 34 IfSG: the health office was notified today, or the physician's report is there (§ 6 IfSG); either ends the duty. */
+const pendingCase = ref<number | null>(null)
+async function settleIfsg(entry: ReminderDto, body: { healthOfficeNotifiedOn: string } | { physicianReported: true }) {
+  if (!entry.ifsg || busy.value) return
+  pendingCase.value = entry.ifsg.caseId
+  try {
+    await run(() => $fetch<{ ok: boolean }>(`/api/ifsg/cases/${entry.ifsg!.caseId}`, { method: 'PUT', body }), de.common.saved)
+  }
+  finally {
+    pendingCase.value = null
   }
 }
 
@@ -117,7 +134,18 @@ async function markDone(entry: ReminderDto) {
           <NuxtLink
             v-if="entry.kind === 'accident'" :to="`/admin/accidents?year=${entry.date.slice(0, 4)}`" class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.accidentLink }}</NuxtLink>
+          <NuxtLink v-if="entry.kind === 'ifsg'" to="/children?tab=ifsg" class="ml-2 text-xs text-sky-700 hover:underline">{{ r.ifsgLink }}</NuxtLink>
         </span>
+        <template v-if="entry.kind === 'ifsg' && entry.ifsg">
+          <UButton
+            class="min-h-11" color="neutral" variant="outline" icon="i-lucide-phone" :label="r.ifsgNotified"
+            :loading="pendingCase === entry.ifsg.caseId" :disabled="busy" @click="settleIfsg(entry, { healthOfficeNotifiedOn: todayIso() })"
+          />
+          <UButton
+            class="min-h-11" color="neutral" variant="outline" icon="i-lucide-stethoscope" :label="r.ifsgPhysician" :title="de.ifsg.overview.physician"
+            :disabled="busy" @click="settleIfsg(entry, { physicianReported: true })"
+          />
+        </template>
         <UButton
           v-if="entry.canDone && entry.childId !== null" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-check"
           :label="r.done" :loading="pendingChild === entry.childId" :disabled="busy" @click="markDone(entry)"

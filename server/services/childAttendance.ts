@@ -31,6 +31,7 @@ import { childOrder } from './childSort'
 import { activeGroupMerges } from './groupMerges'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
+import { attendanceIfsg, blockingIfsgCase } from './ifsg'
 import { mealVersionsOf } from './meals'
 import { closureOn, loadClosures } from './queries'
 
@@ -247,6 +248,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
   const groupRank = new Map(groups.map((group, index) => [group.id, index]))
   const rank = (groupId: number | null) => (groupId === null ? Infinity : groupRank.get(groupId) ?? Infinity)
   const inGroup = childOrder(db, facilityId)
+  // Open § 34 IfSG cases: the block for everybody, the disease only for whoever may know it.
+  const ifsg = attendanceIfsg(db, viewer, rows, date)
 
   const list = rows.map((row) => {
     const groupId = groupOnDay(histories.get(row.id) ?? [], date)
@@ -306,6 +309,7 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
       contactBanNotes: banned.map(contact => contact.contactBanNote.trim()).filter(note => note !== ''),
       pickupOverdue: pickupOverdue(spans, plannedPickup, date === clock.date, clock.minutes),
       changed: changed.has(row.id),
+      ifsg: ifsg.get(row.id) ?? null,
     }
   })
 
@@ -382,12 +386,14 @@ export function attendanceHistory(db: Db, viewer: ChildViewer, childId: number, 
 /**
  * Stamps the child in (spec §3.2): a new stay from `time`; the planned pickup is required (400 planned_pickup_required),
  * a child already here cannot come again (409 already_present), nor before it was picked up from an earlier stay of the
- * day (400 stays_overlap), nor on a later day (400 attendance_future). An absence
+ * day (400 stays_overlap), nor on a later day (400 attendance_future), nor while a § 34 IfSG case entered on that day
+ * or before waits for its readmission (409 ifsg_readmission_required, see ifsg.ts). An absence
  * of the day is replaced. Returns the stay's id.
  */
 export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput, now: Date = new Date()): number {
   attendanceChild(db, viewer, input.childId, input.date)
   refuseFuture(input.date, now)
+  if (blockingIfsgCase(db, input.childId, input.date)) throw new ServiceError(409, 'ifsg_readmission_required')
   const plannedPickup = input.plannedPickup ?? null
   if (plannedPickup === null) throw new ServiceError(400, 'planned_pickup_required')
   const history = historyOf(db, viewer.facilityId, input.childId)

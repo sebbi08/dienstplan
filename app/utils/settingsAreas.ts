@@ -135,6 +135,10 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Anwesenheit', 'Essen', 'Mittagessen', 'Snack', 'Frühstück', 'Vesper', 'Mahlzeit', 'Bringperson', 'Anwesenheit erfasst ab'],
     },
     {
+      key: 'ifsg', title: de.ifsg.settings.title, replaces: [],
+      keywords: ['Infektionsschutzgesetz', 'IfSG', '§ 34', 'Attest', 'meldepflichtig', 'Krankheit', 'Wiederzulassung', 'Gesundheitsamt', 'Betretungsverbot'],
+    },
+    {
       key: 'reminders', title: de.reminders.settings.title, replaces: ['reminders'],
       keywords: ['Erinnerung', 'Geburtstag', 'Abschied', 'Austritt', 'Vorlauf', 'Entwicklungsdokumentation', 'Kinder ohne Gruppe'],
     },

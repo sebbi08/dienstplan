@@ -88,6 +88,8 @@ const CHILD_VIEW_ROUTES = [
   ...CHILD_FORM_ROUTES,
   // Accident reports about a child: whoever sees the record reads them and their attachments.
   'children/[id]/accidents/index.get.ts', 'child-accidents/[formId].get.ts', 'child-accident-attachments/[id]/file.get.ts',
+  // § 34 IfSG: the rules for the dialogs (diseases, readmission, date rules).
+  'ifsg/rules.get.ts',
 ]
 /**
  * children.attendance: attendance (every child viewer writes it, spec Anwesenheit §7), the group books and the
@@ -107,6 +109,9 @@ const CHILD_ATTENDANCE_ROUTES = [
   // Accident reports about a child: written like the notes; the service lets only the author, Leitung and Träger change one.
   'children/[id]/accidents/index.post.ts', 'child-accidents/[formId].put.ts', 'child-accidents/[formId]/attachments.post.ts',
   'child-accident-attachments/[id].delete.ts',
+  // § 34 IfSG cases: entered, corrected and readmitted by whoever keeps the attendance; the service lets only the child's
+  // own group and the managers, and keeps the health office fields to the managers.
+  'ifsg/cases/index.post.ts', 'ifsg/cases/[id].put.ts', 'ifsg/cases/[id]/readmit.post.ts',
 ]
 /** children.edit: maintaining child records (Leitung, Träger; at the tablet Mitarbeiter with the flag). */
 const CHILD_EDITOR_ROUTES = [
@@ -122,6 +127,8 @@ const CHILD_MANAGER_ROUTES = [
   'children/[id].delete.ts', 'children/archive.get.ts', 'children/occupancy.get.ts', 'children/school-children.get.ts',
   'children/[id]/group-change.post.ts', 'child-group-changes/[id].put.ts', 'child-group-changes/[id].delete.ts',
   'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts', 'children/age-limit-warnings.get.ts',
+  // § 34 IfSG: the overview with the children's names, deleting a case entered by mistake, the parents' notice.
+  'ifsg/cases/index.get.ts', 'ifsg/cases/[id].delete.ts', 'ifsg/cases/[id]/notice.get.ts',
 ]
 /** accidents.manage: deleting an accident report about a child (Leitung, Träger; at the office or the unlocked tablet). */
 const CHILD_ACCIDENT_MANAGER_ROUTES = ['child-accidents/[formId].delete.ts']

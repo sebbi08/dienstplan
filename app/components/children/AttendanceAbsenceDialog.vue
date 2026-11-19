@@ -8,9 +8,16 @@ import { ABSENCE_KINDS } from '~/utils/attendance'
 /**
  * "Abwesend" (spec §3.5): sick / vacation / excused for this day or up to an end date (entered ahead, e.g. a holiday).
  * The server only fills care days without a stay and says how many it changed. An absence of the day can be removed.
+ * With `ifsg`, „krank“ offers to enter a notifiable disease (§ 34 IfSG) instead (`ifsg` event; that dialog books the day).
  */
-const props = defineProps<{ child: AttendanceChildDto; date: IsoDate; reload: () => Promise<unknown> }>()
+const props = defineProps<{ child: AttendanceChildDto; date: IsoDate; reload: () => Promise<unknown>; ifsg?: boolean }>()
+const emit = defineEmits<{ ifsg: [] }>()
 const open = defineModel<boolean>('open', { default: false })
+/** The list opens the other dialog first (it still knows the child), then this one closes. */
+function toIfsg() {
+  emit('ifsg')
+  open.value = false
+}
 const { busy, run } = useBusyAction(() => props.reload())
 const toast = useToast()
 const s = de.attendance
@@ -57,6 +64,10 @@ function save() {
             />
           </div>
         </fieldset>
+        <div v-if="ifsg && form.kind === 'sick'" class="space-y-2 rounded-lg bg-red-50 p-3 text-sm text-red-900 ring-1 ring-red-200">
+          <p>{{ de.ifsg.case.fromAbsence }}</p>
+          <UButton type="button" size="lg" color="error" variant="outline" icon="i-lucide-shield-alert" :label="de.ifsg.action" @click="toIfsg" />
+        </div>
         <UFormField :label="s.absent.until" :help="s.absent.hint">
           <DateTextInput v-model="form.until" :label="s.absent.until" size="xl" :min="date" :max="latest" required />
         </UFormField>
