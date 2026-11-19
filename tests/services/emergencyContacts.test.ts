@@ -151,10 +151,14 @@ describe('who gets the emergency contacts', () => {
     expect(effectivePermissions({ role: 'terminal' }).size).toBe(0)
   })
 
-  it('is in no my/* or tablet route', () => {
+  // Only through the consent feature: the employee's own contacts (my/emergency-contacts) and the consenting colleagues
+  // at the unlocked tablet (terminal/staff-emergency-contacts), both served by staffEmergencyConsent.
+  const CONSENT_ROUTES = ['my/emergency-contacts.get.ts', 'terminal/staff-emergency-contacts.get.ts']
+  it('is in no other my/* or tablet route', () => {
     for (const route of Object.keys(fixture).filter(route => route.startsWith('my/') || route.startsWith('terminal/'))) {
       const source = readFileSync(join(process.cwd(), 'server', 'api', ...route.split('/')), 'utf8')
-      expect(source, route).not.toMatch(/emergencyContact|EmergencyContact/)
+      if (CONSENT_ROUTES.includes(route)) expect(source, route).toContain('staffEmergencyConsent')
+      else expect(source, route).not.toMatch(/emergencyContact|EmergencyContact/)
     }
   })
 })

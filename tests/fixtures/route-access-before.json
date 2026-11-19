@@ -176,6 +176,7 @@
   "employees/[id]/hours.post.ts": ["provider","admin"],
   "employees/[id]/leave-entries.delete.ts": ["provider","admin"],
   "employees/[id]/leave-entries.post.ts": ["provider","admin"],
+  "employees/[id]/leave/[year].delete.ts": ["provider","admin"],
   "employees/[id]/leave/[year].put.ts": ["provider","admin"],
   "employees/[id]/move.post.ts": ["provider","admin"],
   "employees/[id]/payroll.get.ts": ["provider"],
