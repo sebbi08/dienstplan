@@ -14,15 +14,17 @@ export function rkiPreset(): IfsgLocalRule[] {
   return IFSG_CATALOGUE.map(disease => ({
     ...emptyLocalRule(disease.key),
     text: disease.kinds.sick?.text ?? null,
-    rules: (disease.kinds.sick?.rules ?? []).map(rule => ({ anchor: rule.anchor, days: rule.days, label: rule.label })),
+    rules: (disease.kinds.sick?.rules ?? []).map(rule => ({ anchor: rule.anchor, days: rule.days, label: rule.label, condition: rule.condition })),
     proof: disease.kinds.sick?.proof ?? null,
-    notify: disease.notify,
+    notify: null,
     householdText: disease.kinds.household?.text ?? null,
     householdExclusion: disease.kinds.household !== undefined,
   }))
 }
 
-const r = (anchor: IfsgAnchor, days: number, label = ''): IfsgLocalDateRule => ({ anchor, days, label })
+/** A date rule of the preset; without `condition` a rule equal to the RKI's (anchor and days) keeps the RKI condition. */
+const r = (anchor: IfsgAnchor, days: number, label = '', condition?: string): IfsgLocalDateRule =>
+  (condition === undefined ? { anchor, days, label } : { anchor, days, label, condition })
 
 const OFFICE_TEXT = 'Rücksprache mit dem Gesundheitsamt (schriftliches ärztliches Attest nach Rücksprache mit dem Gesundheitsamt).'
 /** „Xi“: the healthy household members without immunity are excluded. */
@@ -33,6 +35,10 @@ const SINGLE_CASE = 'Einzelfallentscheidung in Abstimmung mit dem Gesundheitsamt
 const CARRIERS = 'Zutrittsverbot auch für gesunde Ausscheider.'
 const TREAT_ALL = 'Kein Zutrittsverbot, aber Empfehlung: Behandlung aller Mitglieder der Wohngemeinschaft.'
 
+/**
+ * A row of the document. `rules` left out: the document gives no days, the RKI date rules stay (an RKI disease) or
+ * there is no date (a local one).
+ */
 interface Row {
   key: string
   name?: string
@@ -52,9 +58,10 @@ const row = (entry: Row): IfsgLocalRule => ({
   name: entry.name ?? null,
   notifiable: entry.name !== undefined ? entry.notifiable ?? false : null,
   text: entry.text,
-  rules: entry.rules ?? [],
+  rules: entry.rules ?? (entry.name !== undefined ? [] : null),
   proof: entry.proof,
-  notify: entry.notify,
+  // The notification duty of an RKI disease stands by law; the row's value counts for a local disease only.
+  notify: entry.name !== undefined ? entry.notify : null,
   householdText: entry.household?.text ?? null,
   householdExclusion: entry.household?.exclusion ?? null,
   note: entry.note ?? null,
@@ -132,7 +139,7 @@ const RNK_ROWS: Row[] = [
   office('tuberkulose', '', { exclusion: true, text: 'Zutrittsverbot auch für gesunde Haushaltsmitglieder.' }, false),
   {
     key: 'masern', proof: 'parent_declaration', notify: true, text: 'Frühestens 5 Tage nach Beginn des Ausschlags.',
-    rules: [r('rash', 5)], household: { exclusion: true, text: NOT_IMMUNE },
+    rules: [r('rash', 5, '', '')], household: { exclusion: true, text: NOT_IMMUNE },
   },
   {
     key: 'mumps', proof: 'parent_declaration', notify: true, text: 'Frühestens 5 Tage nach Beginn der Drüsenschwellung.',
@@ -144,8 +151,10 @@ const RNK_ROWS: Row[] = [
   office('pest', '', { exclusion: true, text: 'Zutrittsverbot auch für gesunde Haushaltsmitglieder.' }, false),
   office('polio', '', { exclusion: true, text: 'Zutrittsverbot auch für gesunde Haushaltsmitglieder.' }, false),
   {
-    key: 'hepatitis_a', proof: 'parent_declaration', notify: true, text: '1 Woche nach Beginn der Gelbfärbung.',
-    rules: [r('jaundice', 7)], household: { exclusion: true, text: 'Zutrittsverbot auch für gesunde Haushaltsmitglieder.' },
+    key: 'hepatitis_a', proof: 'parent_declaration', notify: true,
+    text: '1 Woche nach Beginn der Gelbfärbung; ohne Gelbsucht laut RKI 2 Wochen nach den ersten Symptomen.',
+    // The document names only the jaundice; the RKI rule without jaundice (frequent in small children) stays.
+    rules: [r('jaundice', 7, 'mit Gelbsucht'), r('onset', 14, 'ohne Gelbsucht (laut RKI)')], household: { exclusion: true, text: 'Zutrittsverbot auch für gesunde Haushaltsmitglieder.' },
   },
   {
     key: 'hepatitis_e', proof: 'parent_declaration', notify: true, text: '1 Woche nach Beginn der Gelbfärbung.',

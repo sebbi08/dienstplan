@@ -624,7 +624,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                   />
                   <UButton size="xl" color="neutral" variant="outline" icon="i-lucide-user-plus" :label="s.actions.announce" @click="openDialog('announce', child)" />
                   <UButton
-                    v-if="child.own && !child.ifsg && !isFutureDay && data.canAttend" size="xl" color="error" variant="outline" icon="i-lucide-shield-alert"
+                    v-if="child.own && !child.ifsg?.binding && !isFutureDay && data.canAttend" size="xl" color="error" variant="outline" icon="i-lucide-shield-alert"
                     :label="de.ifsg.action" @click="openDialog('ifsg', child)"
                   />
                 </div>
@@ -642,7 +642,7 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
           />
           <ChildrenAttendanceAbsenceDialog
             v-model:open="absentOpen" :child="dialogChild" :date="data.date" :reload="refresh"
-            :ifsg="!dialogChild.ifsg && !isFutureDay && data.canAttend" @ifsg="openDialog('ifsg', dialogChild)"
+            :ifsg="!dialogChild.ifsg?.binding && !isFutureDay && data.canAttend" @ifsg="openDialog('ifsg', dialogChild)"
           />
           <ChildrenIfsgCaseDialog v-model:open="ifsgOpen" :child="dialogChild" :date="data.date" :reload="refresh" />
           <ChildrenIfsgReadmitDialog v-model:open="readmitOpen" :child="dialogChild" :date="data.date" :reload="refresh" @readmitted="afterReadmit" />

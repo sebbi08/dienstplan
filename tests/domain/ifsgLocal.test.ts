@@ -23,13 +23,28 @@ describe('local rules of the health office over the RKI catalogue', () => {
     expect(text.kinds.sick).toMatchObject({ text: 'Nach 24 h.', proof: 'medical_certificate', rules: rki('scharlach').kinds.sick!.rules })
 
     const days = merged([local('mumps', { rules: [{ anchor: 'gland_swelling', days: 5, label: '' }] })], 'mumps')
-    expect(days.kinds.sick!.rules).toEqual([{ key: 'local1', anchor: 'gland_swelling', days: 5, label: '', condition: '' }])
+    expect(days.kinds.sick!.rules).toEqual([{ key: 'gland_swelling_5', anchor: 'gland_swelling', days: 5, label: '', condition: '' }])
     expect(earliestReadmission(days.kinds.sick!.rules[0]!, '2026-11-01', '2026-11-03')).toBe('2026-11-08')
     // An empty list: no day can be computed any more.
     expect(merged([local('mumps', { rules: [] })], 'mumps').kinds.sick!.rules).toEqual([])
 
-    expect(merged([local('kopflaus', { notify: false })], 'kopflaus').notify).toBe(false)
+    // The notification duty of an RKI disease stands by law: a local „no“ does not switch it off.
+    expect(merged([local('kopflaus', { notify: false })], 'kopflaus').notify).toBe(true)
     expect(merged([local('kopflaus', { note: 'Elternbrief beachten.' })], 'kopflaus').kinds.sick!.text).toMatch(/Wiederholungsbehandlung.*Elternbrief beachten\.$/)
+  })
+
+  it('keeps the conditions, stable rule keys, and says „laut RKI“ where nothing differs', () => {
+    // A rule equal to the RKI's keeps its key and condition; reordering does not change the keys.
+    const scharlach = merged([local('scharlach', { rules: [
+      { anchor: 'symptom_end', days: 1, label: 'ohne' }, { anchor: 'antibiotic', days: 1, label: 'mit' },
+    ] })], 'scharlach')
+    expect(scharlach.kinds.sick!.rules.map(rule => [rule.key, rule.condition])).toEqual([['no_antibiotic', ''], ['antibiotic', 'und symptomfrei']])
+    // An own condition wins, also an empty one.
+    expect(merged([local('mumps', { rules: [{ anchor: 'onset', days: 5, label: '', condition: '' }] })], 'mumps').kinds.sick!.rules[0]!.condition).toBe('')
+    expect(merged([local('mumps', { rules: [{ anchor: 'onset', days: 6, label: '', condition: 'und fieberfrei' }] })], 'mumps').kinds.sick!.rules[0])
+      .toMatchObject({ key: 'onset_6', condition: 'und fieberfrei' })
+    // The RKI copy says „laut RKI“ everywhere.
+    expect(mergeIfsgRules(IFSG_CATALOGUE, rkiPreset()).every(disease => disease.source === 'rki')).toBe(true)
   })
 
   it('drops, adds or rewords the household rule', () => {
@@ -60,7 +75,7 @@ describe('local rules of the health office over the RKI catalogue', () => {
     const lice = ifsgDifference(rki('kopflaus'), ifsgDisease(rnk, 'kopflaus')!)!
     expect(lice.days).toEqual({ rki: [], local: [{ anchor: 'treatment', days: 0 }] })
     expect(ifsgDifference(null, ifsgDisease(rnk, 'rsv')!)).toBeNull()
-    expect(ifsgDifference(rki('kopflaus'), merged([local('kopflaus', { notify: false })], 'kopflaus'))?.notify).toEqual({ rki: true, local: false })
+    expect(ifsgDifference(rki('kopflaus'), merged([local('kopflaus', { notify: false })], 'kopflaus'))).toBeNull()
   })
 })
 
@@ -98,7 +113,14 @@ describe('presets', () => {
     expect(of('kopflaus').kinds.household).toBeUndefined()
     expect(of('masern').kinds.sick!.rules.map(rule => [rule.anchor, rule.days])).toEqual([['rash', 5]])
     expect(of('roeteln').kinds.sick!.rules.map(rule => [rule.anchor, rule.days])).toEqual([['rash', 8]])
-    expect(of('hepatitis_a').kinds.sick!.rules.map(rule => [rule.anchor, rule.days])).toEqual([['jaundice', 7]])
+    // The document names only the jaundice; the RKI rule without it stays (I-2), with stable keys.
+    expect(of('hepatitis_a').kinds.sick!.rules.map(rule => [rule.key, rule.anchor, rule.days])).toEqual([['jaundice', 'jaundice', 7], ['no_jaundice', 'onset', 14]])
+    // Where the document gives no days the RKI rules stay: Hib and Meningokokken 24 h after the antibiotic start.
+    expect(of('hib').kinds.sick!.rules.map(rule => [rule.anchor, rule.days])).toEqual([['antibiotic', 1]])
+    expect(of('meningokokken').kinds.sick!.rules.map(rule => [rule.anchor, rule.days, rule.condition])).toEqual([['antibiotic', 1, 'und genesen']])
+    // Conditions stay where the document does not contradict them.
+    expect(of('roeteln').kinds.sick!.rules[0]!.condition).toBe('und symptomfrei')
+    expect(of('masern').kinds.sick!.rules[0]!.condition).toBe('')
     expect(of('hepatitis_e').kinds.sick).toMatchObject({ proof: 'parent_declaration', rules: [{ anchor: 'jaundice', days: 7 }] })
     expect(of('keuchhusten').kinds.sick!.rules.map(rule => [rule.anchor, rule.days])).toEqual([['antibiotic', 5], ['onset', 21]])
     expect(of('gastroenteritis').kinds.sick).toMatchObject({ proof: 'none', rules: [{ anchor: 'symptom_end', days: 2 }] })

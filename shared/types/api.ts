@@ -2311,6 +2311,12 @@ export interface AttendanceIfsgDto {
   source: 'rki' | 'local' | null
   /** The facility's health office (name and phone, empty when not set), for the readmission rules and „Rücksprache“. */
   healthOffice: { name: string; phone: string }
+  /** The case data to correct it (null when hidden): onset, chosen date rule and its date. */
+  onsetDate: IsoDate | null
+  ruleVariant: string | null
+  ruleDate: IsoDate | null
+  /** The day of the readmission when the shown day lies inside a ban that is over by now (a correction of an earlier day). */
+  readmittedOn: IsoDate | null
 }
 
 /** The facility's § 34 IfSG rules for the dialogs (`ifsgRulesFor`), the attest setting and the health office. */
@@ -2375,6 +2381,8 @@ export interface IfsgDeclarationDto {
   facilityName: string
   childName: string
   diseaseName: string
+  /** 'lice': head lice – the parents confirm the treatment themselves; 'declaration': the § 34 form with the physician. */
+  form: 'declaration' | 'lice'
 }
 
 /**

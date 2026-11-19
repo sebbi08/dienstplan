@@ -4,6 +4,7 @@ import type { IsoDate } from '#shared/domain/types'
 import type { AttendanceChildDto, IfsgDocumentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
+import { formatDate } from '~/utils/format'
 import { ifsgDayText, ifsgEarliestText } from '~/utils/ifsg'
 
 /**
@@ -42,6 +43,10 @@ const valid = computed(() => form.readmittedOn !== '' && form.readmittedOn <= to
   && (!noteRequired.value || form.note.trim() !== ''))
 /** Where the shown rule comes from: the local health office or the RKI. */
 const sourceText = computed(() => (info.value?.source === 'local' ? s.sourceLocal(info.value.healthOffice.name) : s.sourceRki))
+/** The red warning names what the readmission needs. */
+const warning = computed(() => (info.value?.proof ? s.blockWarnings[info.value.proof] : s.blockWarning))
+/** „Angaben ändern“ (onset, date rule, its date) for whoever may readmit. */
+const editOpen = ref(false)
 
 /** The health office's documents (in the app only, also at the tablet), loaded when the dialog opens. */
 const documents = ref<IfsgDocumentDto[]>([])
@@ -70,7 +75,8 @@ async function save() {
   if (file.value && file.value.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
   let confirmEarly = false
   if (current.earliest !== null && form.readmittedOn < current.earliest) {
-    if (await ask(s.readmit.early(ifsgDayText(current.earliest)), { confirmLabel: s.readmit.earlyConfirm, danger: true }) !== true) return
+    const source = current.source === 'local' ? s.readmit.earlySourceLocal(current.healthOffice.name) : s.readmit.earlySourceRki
+    if (await ask(s.readmit.early(ifsgDayText(current.earliest), source), { confirmLabel: s.readmit.earlyConfirm, danger: true }) !== true) return
     confirmEarly = true
   }
   const body = new FormData()
@@ -91,7 +97,7 @@ async function save() {
     <template #body>
       <form class="space-y-4" @submit.prevent="save">
         <p class="flex items-start gap-2 rounded-lg bg-red-100 p-3 text-base font-semibold text-red-800 ring-1 ring-red-300" role="alert">
-          <UIcon name="i-lucide-shield-alert" class="mt-0.5 size-5 shrink-0" aria-hidden="true" />{{ s.blockWarning }}
+          <UIcon name="i-lucide-shield-alert" class="mt-0.5 size-5 shrink-0" aria-hidden="true" />{{ warning }}
         </p>
         <div v-if="info?.diseaseName" class="space-y-1 rounded-lg bg-red-50 p-3 text-sm text-red-900 ring-1 ring-red-200">
           <p class="font-semibold">{{ info.diseaseName }}<template v-if="info.kind"> – {{ s.kinds[info.kind] }}</template></p>
@@ -99,7 +105,17 @@ async function save() {
           <p class="font-medium">{{ ifsgEarliestText(info.earliest, info.condition ?? '') }}</p>
           <p v-if="info.proof">{{ s.proof(s.proofs[info.proof]) }}</p>
           <p class="text-xs">{{ sourceText }}</p>
+          <UButton
+            v-if="info.canReadmit && info.kind && info.onsetDate" type="button" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil"
+            :label="s.readmit.editCase" @click="editOpen = true"
+          />
+          <ChildrenIfsgCaseEditDialog
+            v-if="info.kind && info.onsetDate && info.disease" v-model:open="editOpen" :case-id="info.caseId" :name="child.name"
+            :disease="info.disease" :kind="info.kind" :reported-on="date" :onset-date="info.onsetDate" :rule-variant="info.ruleVariant"
+            :rule-date="info.ruleDate" :reload="reload"
+          />
         </div>
+        <p v-if="info?.readmittedOn" class="rounded-lg bg-gray-100 p-3 text-sm text-gray-800">{{ s.readmit.banOver(formatDate(info.readmittedOn)) }}</p>
         <div v-if="info?.proof === 'health_office'" class="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
           <p class="font-semibold">{{ s.readmit.officeOnly }}</p>
           <p v-if="info.healthOffice.name || info.healthOffice.phone">
@@ -131,7 +147,8 @@ async function save() {
           </UFormField>
           <UButton
             v-if="info.proof === 'parent_declaration'" type="button" size="lg" color="neutral" variant="outline" icon="i-lucide-printer"
-            :label="s.readmit.printDeclaration" :to="`/print/children/ifsg-declaration/${info.caseId}`" target="_blank"
+            :label="info.disease === 'kopflaus' ? s.readmit.printLice : s.readmit.printDeclaration"
+            :to="`/print/children/ifsg-declaration/${info.caseId}`" target="_blank"
           />
           <UFormField
             :label="info.proof === 'parent_declaration' ? s.readmit.declarationPhoto : attestRequired ? s.readmit.attest : s.readmit.attestOptional" :required="attestRequired" :help="attestRequired ? s.readmit.attestRequired : undefined">
@@ -155,7 +172,7 @@ async function save() {
           </div>
         </template>
         <template v-else>
-          <p class="text-sm text-gray-700">{{ s.readmit.otherGroup }}</p>
+          <p v-if="!info?.readmittedOn" class="text-sm text-gray-700">{{ s.readmit.otherGroup }}</p>
           <UButton type="button" size="xl" color="neutral" variant="outline" :label="de.common.close" @click="open = false" />
         </template>
         <p class="text-xs text-gray-500">{{ s.footer }}</p>

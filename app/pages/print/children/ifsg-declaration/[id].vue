@@ -15,7 +15,7 @@ const d = de.ifsg.declaration
 const route = useRoute()
 const id = Number(route.params.id)
 const { data, error } = await useFetch<IfsgDeclarationDto>(`/api/ifsg/cases/${id}/declaration`, { key: `print-ifsg-declaration-${id}` })
-useHead({ title: d.title })
+useHead({ title: () => (data.value?.form === 'lice' ? d.liceTitle : d.title) })
 const line = 'border-b border-gray-900 min-h-8 px-1 pb-1 text-lg'
 const label = 'pt-1 text-sm text-gray-700'
 </script>
@@ -26,6 +26,42 @@ const label = 'pt-1 text-sm text-gray-700'
       <PrintActions :file-name="`Elternerklaerung-${id}`" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
+    <!-- Head lice: the parents confirm the treatment themselves (the health office's parent letter), no physician. -->
+    <article v-else-if="data && data.form === 'lice'" class="space-y-10">
+      <p class="text-center text-sm font-medium">{{ data.facilityName }}</p>
+      <div class="space-y-2 text-center">
+        <h1 class="text-2xl font-bold tracking-wide">{{ d.liceTitle }}</h1>
+        <p class="font-semibold">{{ d.subtitle }}</p>
+      </div>
+      <div>
+        <p class="text-lg">{{ d.liceText }}</p>
+        <p :class="line">{{ data.childName }}</p>
+        <p :class="label" class="text-center">{{ d.childLabel }}</p>
+      </div>
+      <div class="grid grid-cols-[auto_10rem_auto_1fr] items-end gap-3">
+        <p class="pb-6 text-lg">{{ d.liceTreated }}</p>
+        <div>
+          <p :class="line" />
+          <p :class="label">{{ d.dateLabel }}</p>
+        </div>
+        <p class="pb-6 text-lg">{{ d.liceWith }}</p>
+        <div>
+          <p :class="line" />
+          <p :class="label">{{ d.liceProduct }}</p>
+        </div>
+      </div>
+      <p class="text-lg">{{ d.liceEnd }}</p>
+      <div class="grid grid-cols-[10rem_1fr] gap-10 pt-16">
+        <div>
+          <p :class="line" />
+          <p :class="label">{{ d.signatureDate }}</p>
+        </div>
+        <div>
+          <p :class="line" />
+          <p :class="label">{{ d.signature }}</p>
+        </div>
+      </div>
+    </article>
     <article v-else-if="data" class="space-y-10">
       <p class="text-center text-sm font-medium">{{ data.facilityName }}</p>
       <div class="space-y-2 text-center">

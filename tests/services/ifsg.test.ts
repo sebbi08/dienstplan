@@ -110,7 +110,7 @@ describe('§ 34 IfSG cases', () => {
         caseId: id, disease: 'windpocken', diseaseName: 'Windpocken (Varizellen)', kind: 'sick',
         text: expect.stringContaining('verkrustet'), condition: 'und alle Bläschen verkrustet', earliest: '2026-11-24',
         proof: 'medical_certificate', canReadmit: true, requireAttest: false, binding: true, source: 'rki',
-        healthOffice: { name: '', phone: '' },
+        healthOffice: { name: '', phone: '' }, onsetDate: '2026-11-17', ruleVariant: 'onset', ruleDate: null, readmittedOn: null,
       })
       expect(rowOf(max).ifsg).toBeNull()
       // The day before the case shows nothing.
@@ -237,7 +237,8 @@ describe('§ 34 IfSG cases', () => {
       expect(rowOf(lena, atTablet())?.ifsg).toMatchObject({ caseId: own, disease: 'windpocken', canReadmit: true })
       expect(rowOf(max, atTablet())?.ifsg).toEqual({
         caseId: other, disease: null, diseaseName: null, kind: null, text: null, condition: null, earliest: null, proof: null,
-        canReadmit: false, requireAttest: false, binding: true, source: null, healthOffice: { name: '', phone: '' },
+        canReadmit: false, requireAttest: false, binding: true, source: null, healthOffice: { name: '', phone: '' }, onsetDate: null,
+        ruleVariant: null, ruleDate: null, readmittedOn: null,
       })
       // The Leitung sees both.
       expect(rowOf(max)?.ifsg?.diseaseName).toBe('Scharlach / Streptococcus-pyogenes-Infektion')
@@ -257,6 +258,14 @@ describe('§ 34 IfSG cases', () => {
       readmit(own, {}, { data: PDF }, atTablet())
       // At the tablet the person without own account stores the attest without an uploader.
       expect(db.select().from(childDocuments).get()?.confidential).toBe(true)
+    })
+
+    it('blocks stamping in for everybody: the own group and another group at the tablet', () => {
+      create()
+      create({ childId: max, disease: 'kopflaus', ruleVariant: null })
+      const stampIn = (childId: number) => arrive(db, atTablet(), { childId, date: TODAY, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+      expect(errorCode(() => stampIn(lena))).toBe('ifsg_readmission_required')
+      expect(errorCode(() => stampIn(max))).toBe('ifsg_readmission_required')
     })
 
     it('hides the disease from a reader without the attendance right', () => {

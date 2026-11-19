@@ -631,6 +631,13 @@
       "when": 1795091940845,
       "tag": "0089_special_leave_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1795093156540,
+      "tag": "0091_ifsg_case_rule_snapshot",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,7 @@ import type { ChildActor } from '../../server/lib/childViewer'
 import { documentDownload } from '../../server/lib/documentHttp'
 import { arrive, getAttendanceDay } from '../../server/services/childAttendance'
 import {
-  acknowledgeIfsgCluster, getIfsgSettings, ifsgClusterReminders, ifsgDeclaration, ifsgReminders, ifsgRules, readmitIfsgCase,
+  acknowledgeIfsgCluster, getIfsgSettings, ifsgClusterReminders, ifsgDeclaration, ifsgReminders, ifsgRules, readmitIfsgCase, updateIfsgCase,
   setIfsgSettings,
 } from '../../server/services/ifsg'
 import { createIfsgCase } from '../../server/services/ifsgCases'
@@ -55,7 +55,7 @@ describe('local rules of the health office (§ 34 IfSG)', () => {
 
   it('lets a local rule decide the earliest day, the proof and the source in the attendance', () => {
     saveLocalRule(db, 1, 'mumps', { rules: [{ anchor: 'gland_swelling', days: 5, label: '' }], proof: 'parent_declaration' }, NOW)
-    create({ ruleVariant: 'local1', ruleDate: '2026-11-16' })
+    create({ ruleVariant: 'gland_swelling_5', ruleDate: '2026-11-16' })
     expect(rowOf(lena).ifsg).toMatchObject({ earliest: '2026-11-21', proof: 'parent_declaration', source: 'local', binding: true })
     // The RKI's own rule key is gone for a new case.
     expect(errorCode(() => create({ childId: max, ruleVariant: 'onset' }))).toBe('ifsg_rule_invalid')
@@ -106,9 +106,9 @@ describe('local rules of the health office (§ 34 IfSG)', () => {
   describe('proof flows', () => {
     it('prints and stores the parents declaration', () => {
       applyIfsgPreset(db, 1, 'rnk_2024', false, NOW)
-      const id = create({ disease: 'windpocken', ruleVariant: 'local1' })
+      const id = create({ disease: 'windpocken', ruleVariant: 'onset' })
       expect(rowOf(lena).ifsg?.proof).toBe('parent_declaration')
-      expect(ifsgDeclaration(db, leitung, id)).toEqual({ caseId: id, facilityName: expect.any(String), childName: 'Lena Meier', diseaseName: 'Windpocken (Varizellen)' })
+      expect(ifsgDeclaration(db, leitung, id)).toEqual({ caseId: id, facilityName: expect.any(String), childName: 'Lena Meier', diseaseName: 'Windpocken (Varizellen)', form: 'declaration' })
       readmit(id, {}, { data: PDF })
       const stored = db.select().from(childDocuments).get()!
       expect(db.select().from(documentTypes).where(eq(documentTypes.id, stored.documentTypeId)).get()?.name).toBe('Elternerklärung')
@@ -178,6 +178,83 @@ describe('local rules of the health office (§ 34 IfSG)', () => {
       create({ disease: key })
       create({ childId: max, disease: key })
       expect(ifsgClusterReminders(db, leitung, TODAY).map(item => [item.ifsgCluster?.disease, item.count])).toEqual([[key, 2]])
+    })
+  })
+
+  describe('fix round 1', () => {
+    const readmitOn = (id: number, readmittedOn: string, confirmEarly = false) =>
+      readmitIfsgCase(db, leitung, id, { readmittedOn, note: 'Rücksprache', confirmEarly }, null, NOW)
+
+    it('keeps the earliest day of an open case when a preset changes the rules, and its notification still works (I-1)', () => {
+      // Masern from the rash on 16.11.: earliest 21.11. (RKI rash + 5).
+      const id = create({ disease: 'masern', ruleVariant: 'rash', ruleDate: '2026-11-16' })
+      applyIfsgPreset(db, 1, 'rnk_2024', false, NOW)
+      applyIfsgPreset(db, 1, 'rki', true, NOW)
+      expect(rowOf(lena).ifsg).toMatchObject({ earliest: '2026-11-21', condition: 'nach ärztlicher Beurteilung' })
+      expect(errorCode(() => readmitOn(id, TODAY))).toBe('ifsg_before_earliest')
+      // Benachrichtigt, Arztmeldung and Fall abschließen do not re-check the rule.
+      updateIfsgCase(db, leitung, id, { healthOfficeNotifiedOn: TODAY })
+      updateIfsgCase(db, leitung, id, { physicianReported: true })
+      expect(ifsgReminders(db, leitung, TODAY)).toEqual([])
+      // An own rule edited in place (another day count) does not move the stored rule either.
+      saveLocalRule(db, 1, 'masern', { rules: [{ anchor: 'rash', days: 1, label: '' }] }, NOW)
+      expect(rowOf(lena).ifsg?.earliest).toBe('2026-11-21')
+      updateIfsgCase(db, leitung, id, { ended: true })
+      expect(rowOf(lena).ifsg).toBeNull()
+    })
+
+    it("lets the date rule and its date be added later, checked against today's rules (M-4)", () => {
+      const id = create({ disease: 'keuchhusten' })
+      expect(rowOf(lena).ifsg).toMatchObject({ earliest: null, ruleVariant: null, onsetDate: '2026-11-17' })
+      updateIfsgCase(db, leitung, id, { ruleVariant: 'antibiotic', ruleDate: '2026-11-17' })
+      expect(rowOf(lena).ifsg).toMatchObject({ earliest: '2026-11-22', ruleVariant: 'antibiotic', ruleDate: '2026-11-17' })
+      expect(errorCode(() => updateIfsgCase(db, leitung, id, { ruleVariant: 'rash' }))).toBe('ifsg_rule_invalid')
+      expect(errorCode(() => updateIfsgCase(db, leitung, id, { onsetDate: '2026-11-19' }))).toBe('invalid_date')
+    })
+
+    it('keeps the RKI day for Hepatitis A without jaundice under the Rhein-Neckar-Kreis preset (I-2)', () => {
+      applyIfsgPreset(db, 1, 'rnk_2024', false, NOW)
+      const id = create({ disease: 'hepatitis_a', onsetDate: '2026-11-10', ruleVariant: 'no_jaundice' })
+      expect(rowOf(lena).ifsg).toMatchObject({ earliest: '2026-11-24', proof: 'parent_declaration' })
+      expect(errorCode(() => readmitOn(id, TODAY))).toBe('ifsg_before_earliest')
+    })
+
+    it('refuses a back-dated „Kommt“ inside a ban that is over by now (M-9)', () => {
+      const id = createIfsgCase(db, leitung, {
+        childId: lena, date: '2026-11-16', disease: 'kopflaus', kind: 'sick', onsetDate: '2026-11-16', ruleVariant: null, ruleDate: null,
+      }, berlin('2026-11-16'))
+      readmitOn(id, '2026-11-18')
+      const arriveOn = (date: string) => arrive(db, leitung, { childId: lena, date, time: hm('08:00'), plannedPickup: hm('15:00') }, NOW)
+      expect(errorCode(() => arriveOn('2026-11-17'))).toBe('ifsg_readmission_required')
+      expect(getAttendanceDay(db, leitung, '2026-11-17', NOW).children.find(child => child.childId === lena)!.ifsg)
+        .toMatchObject({ caseId: id, canReadmit: false, readmittedOn: '2026-11-18' })
+      expect(() => arriveOn('2026-11-15')).not.toThrow()
+      expect(() => arriveOn(TODAY)).not.toThrow()
+    })
+
+    it('counts only ill or suspected children for a cluster (M-5)', () => {
+      create({ disease: 'masern' })
+      create({ childId: max, disease: 'masern', kind: 'household' })
+      expect(ifsgClusterReminders(db, leitung, TODAY)).toEqual([])
+    })
+
+    it('does not add a preset disease whose name exists already (M-8)', () => {
+      addLocalDisease(db, 1, { name: 'Covid 19', notifiable: false }, NOW)
+      expect(applyIfsgPreset(db, 1, 'rnk_2024', false, NOW)).toBe(35)
+      expect(localRulesOverview(db, 1).rows.filter(row => /covid/i.test(row.merged.name)).map(row => row.key)).toEqual(['local_covid_19'])
+    })
+
+    it('keeps the legal notification duty of an RKI disease (M-6)', () => {
+      saveLocalRule(db, 1, 'kopflaus', { notify: false, proof: 'parent_declaration' }, NOW)
+      expect(localRulesOverview(db, 1).rows.find(row => row.key === 'kopflaus')).toMatchObject({ local: { notify: null }, merged: { notify: true } })
+      create({ disease: 'kopflaus' })
+      expect(ifsgReminders(db, leitung, TODAY)).toHaveLength(1)
+    })
+
+    it("prints the parents' confirmation of the treatment for head lice (M-7)", () => {
+      const id = create({ disease: 'kopflaus' })
+      expect(ifsgDeclaration(db, leitung, id).form).toBe('lice')
+      expect(ifsgDeclaration(db, leitung, create({ childId: max })).form).toBe('declaration')
     })
   })
 

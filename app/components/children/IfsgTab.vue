@@ -42,6 +42,10 @@ async function remove(row: IfsgCaseDto) {
   if (await confirm(o.confirmRemove)) run(() => $fetch<{ ok: boolean }>(`/api/ifsg/cases/${row.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
+/** The case whose onset, date rule or its date is corrected („Angaben ändern“). */
+const editing = ref<IfsgCaseDto | null>(null)
+const editOpen = computed({ get: () => editing.value !== null, set: (value: boolean) => { if (!value) editing.value = null } })
+
 function statusText(row: IfsgCaseDto): string {
   if (row.readmittedOn) return `${o.columns.readmitted} ${formatDate(row.readmittedOn)}`
   return row.ended ? o.ended : o.open
@@ -108,11 +112,17 @@ function statusText(row: IfsgCaseDto): string {
             v-if="!onTablet" size="sm" color="neutral" variant="outline" icon="i-lucide-printer" :label="o.notice"
             :to="`/print/children/ifsg-notice/${row.id}`" target="_blank"
           />
+          <UButton v-if="row.open" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="s.readmit.editCase" :disabled="busy" @click="editing = row" />
           <UButton v-if="row.open" size="sm" color="neutral" variant="outline" icon="i-lucide-circle-check" :label="o.end" :disabled="busy" @click="end(row)" />
           <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="o.remove" :disabled="busy" @click="remove(row)" />
         </div>
       </li>
     </ul>
+    <ChildrenIfsgCaseEditDialog
+      v-if="editing" v-model:open="editOpen" :case-id="editing.id" :name="editing.childName" :disease="editing.disease" :kind="editing.kind"
+      :reported-on="editing.reportedOn" :onset-date="editing.onsetDate" :rule-variant="editing.ruleVariant" :rule-date="editing.ruleDate"
+      :reload="refresh"
+    />
     <p class="text-xs text-gray-500">{{ s.footer }}</p>
   </div>
 </template>

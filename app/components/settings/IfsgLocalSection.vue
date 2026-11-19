@@ -72,7 +72,7 @@ const proofItems = computed(() => [
 const anchorItems = IFSG_ANCHORS.map(anchor => ({ label: de.ifsg.anchors[anchor], value: anchor }))
 
 interface Form {
-  name: string; notifiable: boolean; text: string; ownRules: boolean; rules: { anchor: IfsgAnchor; days: number; label: string }[]
+  name: string; notifiable: boolean; text: string; ownRules: boolean; rules: { anchor: IfsgAnchor; days: number; label: string; condition: string }[]
   proof: IfsgProof | 'rki'; notify: Tri; householdExclusion: Tri; householdText: string; note: string; hint: string
 }
 /** The row being edited (`custom`: a local disease; `key` null: a new one). */
@@ -88,13 +88,13 @@ function openEdit(row: Row | null) {
   editing.value = { key: row?.key ?? null, custom, row }
   Object.assign(form, {
     name: local?.name ?? '', notifiable: local?.notifiable ?? false, text: local?.text ?? '', ownRules: local?.rules !== null && local?.rules !== undefined,
-    rules: (local?.rules ?? []).map(rule => ({ ...rule })), proof: local?.proof ?? (custom ? 'none' : 'rki'), notify: triOf(local?.notify),
+    rules: (local?.rules ?? []).map(rule => ({ ...rule, condition: rule.condition ?? '' })), proof: local?.proof ?? (custom ? 'none' : 'rki'), notify: triOf(local?.notify),
     householdExclusion: triOf(local?.householdExclusion), householdText: local?.householdText ?? '', note: local?.note ?? '', hint: local?.hint ?? '',
   })
 }
 function addRule() {
   form.ownRules = true
-  if (form.rules.length < 3) form.rules.push({ anchor: 'onset', days: 1, label: '' })
+  if (form.rules.length < 3) form.rules.push({ anchor: 'onset', days: 1, label: '', condition: '' })
 }
 
 async function save() {
@@ -205,6 +205,7 @@ const officeName = computed(() => data.value?.healthOffice.name ?? '')
                 <USelect v-model="rule.anchor" :items="anchorItems" class="w-56" :aria-label="f.anchor" />
                 <UInput v-model.number="rule.days" type="number" min="0" max="365" class="w-20" :aria-label="f.days" />
                 <UInput v-model="rule.label" maxlength="100" class="w-56" :placeholder="f.label" :aria-label="f.label" />
+                <UInput v-model="rule.condition" maxlength="200" class="w-56" :placeholder="f.condition" :aria-label="f.condition" />
                 <UButton type="button" size="sm" color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="de.common.delete" @click="form.rules.splice(index, 1)" />
               </div>
               <div class="flex flex-wrap gap-2">
@@ -218,7 +219,7 @@ const officeName = computed(() => data.value?.healthOffice.name ?? '')
           </UFormField>
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField :label="f.proof"><USelect v-model="form.proof" :items="proofItems" class="w-full" /></UFormField>
-            <UFormField v-if="!editing.custom" :label="f.notify"><USelect v-model="form.notify" :items="triItems" class="w-full" /></UFormField>
+            <p v-if="!editing.custom" class="text-xs text-gray-600 sm:col-span-2">{{ f.notifyByLaw }}</p>
             <UFormField :label="f.household"><USelect v-model="form.householdExclusion" :items="triItems" class="w-full" /></UFormField>
           </div>
           <UFormField :label="f.householdText"><UTextarea v-model="form.householdText" :rows="2" autoresize maxlength="2000" class="w-full" /></UFormField>

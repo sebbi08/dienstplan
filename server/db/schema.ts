@@ -932,6 +932,14 @@ export const childIfsgCases = sqliteTable('child_ifsg_cases', {
   reportedOn: text('reported_on').notNull(),
   onsetDate: text('onset_date').notNull(),
   ruleVariant: text('rule_variant'),
+  /**
+   * The chosen date rule as it was when chosen (anchor, days, label, condition): the earliest day keeps counting by it
+   * when the facility's rules change later. Null = no rule (or a case from before the snapshot: the key is resolved).
+   */
+  ruleAnchor: text('rule_anchor'),
+  ruleDays: integer('rule_days'),
+  ruleLabel: text('rule_label').notNull().default(''),
+  ruleCondition: text('rule_condition').notNull().default(''),
   ruleDate: text('rule_date'),
   createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
   createdByName: text('created_by_name').notNull().default(''),

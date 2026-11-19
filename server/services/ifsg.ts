@@ -1,7 +1,8 @@
-import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
+import { and, asc, eq, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import {
-  earliestReadmission, ifsgDateRule, ifsgDisease, ifsgKinds, type IfsgDisease, type IfsgKind, type IfsgProof,
+  IFSG_ANCHORS, earliestReadmission, ifsgDateRule, ifsgDisease, ifsgKinds, type IfsgAnchor, type IfsgDateRule, type IfsgDisease,
+  type IfsgKind, type IfsgProof,
 } from '../../shared/domain/ifsg'
 import { ifsgClusters } from '../../shared/domain/ifsgLocal'
 import { can } from '../../shared/domain/permissions'
@@ -79,9 +80,27 @@ const isOpen = (row: CaseRow) => row.readmittedOn === null && !row.ended
 
 /** The case's earliest readmission under the facility's rules (null: no rule chosen, its date unknown, rule gone). */
 function earliestOf(rules: IfsgDisease[], row: CaseRow): IsoDate | null {
+  return earliestReadmission(caseRule(rules, row), row.onsetDate, row.ruleDate)
+}
+
+/**
+ * The case's date rule: the snapshot taken when it was chosen (later changes of the facility's rules do not move the
+ * earliest day); a case without a snapshot (entered before it existed) resolves its key in today's rules.
+ */
+function caseRule(rules: IfsgDisease[], row: CaseRow): IfsgDateRule | null {
+  if (row.ruleVariant === null) return null
+  if (row.ruleAnchor !== null && row.ruleDays !== null && (IFSG_ANCHORS as readonly string[]).includes(row.ruleAnchor)) {
+    return { key: row.ruleVariant, anchor: row.ruleAnchor as IfsgAnchor, days: row.ruleDays, label: row.ruleLabel, condition: row.ruleCondition }
+  }
   const disease = ifsgDisease(rules, row.disease)
-  const rule = disease && row.ruleVariant !== null ? ifsgDateRule(disease, row.kind, row.ruleVariant) : null
-  return earliestReadmission(rule, row.onsetDate, row.ruleDate)
+  return disease ? ifsgDateRule(disease, row.kind, row.ruleVariant) : null
+}
+
+/** The snapshot columns of a chosen date rule (all empty without one). */
+export function ruleSnapshot(rule: IfsgDateRule | null) {
+  return rule === null
+    ? { ruleAnchor: null, ruleDays: null, ruleLabel: '', ruleCondition: '' }
+    : { ruleAnchor: rule.anchor, ruleDays: rule.days, ruleLabel: rule.label, ruleCondition: rule.condition }
 }
 
 /** The Leitung still has to notify the health office: a notifiable disease, neither notified nor reported by the physician, not closed. */
@@ -91,10 +110,16 @@ function notifyDue(rules: IfsgDisease[], row: CaseRow): boolean {
 }
 
 /** The child's open cases entered on the date or before, the oldest first. */
+/**
+ * The cases of the date's ban period: entered on that day or before, not closed by the Leitung, and not readmitted
+ * on or before it (a back-dated „Kommt“ inside a ban that is over by now counts as well).
+ */
+const inBanOn = (date: IsoDate) => and(lte(childIfsgCases.reportedOn, date),
+  or(isNull(childIfsgCases.readmittedOn), gt(childIfsgCases.readmittedOn, date)), eq(childIfsgCases.ended, false))
+
+/** The child's cases in their ban period on the date, the oldest first. */
 function openCasesOn(db: Db, childId: number, date: IsoDate): CaseRow[] {
-  return db.select().from(childIfsgCases)
-    .where(and(eq(childIfsgCases.childId, childId), lte(childIfsgCases.reportedOn, date), isNull(childIfsgCases.readmittedOn),
-      eq(childIfsgCases.ended, false)))
+  return db.select().from(childIfsgCases).where(and(eq(childIfsgCases.childId, childId), inBanOn(date)))
     .orderBy(asc(childIfsgCases.reportedOn), asc(childIfsgCases.id)).all()
 }
 
@@ -117,7 +142,7 @@ export function blockingIfsgCase(db: Db, facilityId: number, childId: number, da
  */
 export function closeRecommendationCases(db: Db, viewer: ChildViewer, childId: number, date: IsoDate): void {
   const rules = ifsgRulesFor(db, viewer.facilityId)
-  for (const row of openCasesOn(db, childId, date).filter(entry => !isBinding(rules, entry))) {
+  for (const row of openCasesOn(db, childId, date).filter(entry => !isBinding(rules, entry) && entry.readmittedOn === null)) {
     db.update(childIfsgCases).set({ readmittedOn: date, readmittedByName: viewer.name }).where(eq(childIfsgCases.id, row.id)).run()
   }
 }
@@ -132,9 +157,7 @@ export function attendanceIfsg(
   const result = new Map<number, AttendanceIfsgDto>()
   const ids = rows.map(row => row.id)
   if (ids.length === 0) return result
-  const cases = db.select().from(childIfsgCases)
-    .where(and(inArray(childIfsgCases.childId, ids), lte(childIfsgCases.reportedOn, date), isNull(childIfsgCases.readmittedOn),
-      eq(childIfsgCases.ended, false)))
+  const cases = db.select().from(childIfsgCases).where(and(inArray(childIfsgCases.childId, ids), inBanOn(date)))
     .orderBy(asc(childIfsgCases.reportedOn), asc(childIfsgCases.id)).all()
   if (cases.length === 0) return result
   const rules = ifsgRulesFor(db, viewer.facilityId)
@@ -148,17 +171,19 @@ export function attendanceIfsg(
     const sees = seesIfsgDisease(viewer, groupOf.get(row.childId) ?? null)
     const disease = ifsgDisease(rules, row.disease)
     const kindRule = disease?.kinds[row.kind]
-    const rule = disease && row.ruleVariant !== null ? ifsgDateRule(disease, row.kind, row.ruleVariant) : null
+    const rule = caseRule(rules, row)
     result.set(row.childId, sees
       ? {
           caseId: row.id, disease: row.disease, diseaseName: disease?.name ?? row.disease, kind: row.kind,
           text: kindRule?.text ?? '', condition: rule?.condition ?? '', earliest: earliestOf(rules, row),
-          proof: kindRule?.proof ?? 'medical_certificate', canReadmit: true, requireAttest, binding: isBinding(rules, row),
-          source: kindRule?.source ?? 'rki', healthOffice,
+          proof: kindRule?.proof ?? 'medical_certificate', canReadmit: isOpen(row), requireAttest, binding: isBinding(rules, row),
+          source: kindRule?.source ?? 'rki', healthOffice, onsetDate: row.onsetDate, ruleVariant: row.ruleVariant, ruleDate: row.ruleDate,
+          readmittedOn: row.readmittedOn,
         }
       : {
           caseId: row.id, disease: null, diseaseName: null, kind: null, text: null, condition: null, earliest: null, proof: null,
-          canReadmit: false, requireAttest, binding: isBinding(rules, row), source: null, healthOffice,
+          canReadmit: false, requireAttest, binding: isBinding(rules, row), source: null, healthOffice, onsetDate: null,
+          ruleVariant: null, ruleDate: null, readmittedOn: null,
         })
   }
   return result
@@ -193,9 +218,10 @@ function loadOwnCase(db: Db, viewer: ChildViewer, id: number): CaseRow {
 }
 
 /**
- * Changes a case (left out = kept). The onset, the date rule and its date: Leitung/Träger and the child's own group,
- * checked like a new case. The health office's notification (a day or null), the physician's report and closing the
- * case without readmission: Leitung/Träger only (403 forbidden).
+ * Changes a case (left out = kept). The onset, the date rule and its date: Leitung/Träger and the child's own group;
+ * a new date rule is checked against today's rules and stored as a new snapshot, a rule left out stays as it was (also
+ * when the facility's rules changed since). The health office's notification (a day or null), the physician's report
+ * and closing the case without readmission: Leitung/Träger only (403 forbidden).
  */
 export function updateIfsgCase(db: Db, viewer: ChildViewer, id: number, input: IfsgCaseUpdateInput): void {
   const row = loadOwnCase(db, viewer, id)
@@ -203,15 +229,21 @@ export function updateIfsgCase(db: Db, viewer: ChildViewer, id: number, input: I
   if (managing && !can(viewer.permissions, 'children.manage')) throw new ServiceError(403, 'forbidden')
   const next = {
     onsetDate: input.onsetDate ?? row.onsetDate,
-    ruleVariant: input.ruleVariant === undefined ? row.ruleVariant : input.ruleVariant,
     ruleDate: input.ruleDate === undefined ? row.ruleDate : input.ruleDate,
     healthOfficeNotifiedOn: input.healthOfficeNotifiedOn === undefined ? row.healthOfficeNotifiedOn : input.healthOfficeNotifiedOn,
     physicianReported: input.physicianReported ?? row.physicianReported,
     ended: input.ended ?? row.ended,
   }
-  checkedCaseRule(ifsgRulesFor(db, viewer.facilityId), row.disease, row.kind, next.ruleVariant,
-    [next.onsetDate, next.ruleDate, next.healthOfficeNotifiedOn])
-  db.update(childIfsgCases).set(next).where(eq(childIfsgCases.id, id)).run()
+  if ([next.onsetDate, next.ruleDate, next.healthOfficeNotifiedOn].some(date => date !== null && !isValidIsoDate(date))) {
+    throw new ServiceError(400, 'invalid_date')
+  }
+  if (next.onsetDate > row.reportedOn) throw new ServiceError(400, 'invalid_date')
+  let rule = {}
+  if (input.ruleVariant !== undefined) {
+    const disease = checkedCaseRule(ifsgRulesFor(db, viewer.facilityId), row.disease, row.kind, input.ruleVariant, [])
+    rule = { ruleVariant: input.ruleVariant, ...ruleSnapshot(input.ruleVariant === null ? null : ifsgDateRule(disease, row.kind, input.ruleVariant)) }
+  }
+  db.update(childIfsgCases).set({ ...next, ...rule }).where(eq(childIfsgCases.id, id)).run()
 }
 
 /** Deletes a case entered by mistake (Leitung/Träger; the route checks children.manage). Its stored attest stays a document. */
@@ -364,11 +396,14 @@ function acknowledgedUpTo(db: Db, facilityId: number): Map<string, IsoDate> {
   return result
 }
 
-/** The facility's clusters still to report (cases of every disease, local and non-notifiable ones too). */
+/**
+ * The facility's clusters still to report: the cases of children who are ill or suspected (§ 34 Abs. 6 Satz 2 speaks of
+ * „gleichartige Erkrankungen“; carriers and household contacts do not count), of every disease, local ones included.
+ */
 function openClusters(db: Db, facilityId: number) {
   const cases = db.select({ disease: childIfsgCases.disease, childId: childIfsgCases.childId, reportedOn: childIfsgCases.reportedOn })
     .from(childIfsgCases).innerJoin(children, eq(children.id, childIfsgCases.childId))
-    .where(and(eq(childIfsgCases.facilityId, facilityId), eq(children.facilityId, facilityId))).all()
+    .where(and(eq(childIfsgCases.facilityId, facilityId), eq(children.facilityId, facilityId), eq(childIfsgCases.kind, 'sick'))).all()
   return ifsgClusters(cases, acknowledgedUpTo(db, facilityId))
 }
 
@@ -414,5 +449,7 @@ export function ifsgDeclaration(db: Db, viewer: ChildViewer, id: number): IfsgDe
   return {
     caseId: row.id, facilityName: facility?.name ?? '', childName: child ? `${child.firstName} ${child.lastName}`.trim() : '',
     diseaseName: ifsgDisease(ifsgRulesFor(db, viewer.facilityId), row.disease)?.name ?? row.disease,
+    // Head lice: the parents confirm the treatment themselves (no physician's lines).
+    form: row.disease === 'kopflaus' ? 'lice' : 'declaration',
   }
 }

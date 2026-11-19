@@ -8,18 +8,23 @@ import type { IsoDate } from './types'
 // field by field (`mergeIfsgRules`), and add local diseases (COVID-19, RSV, non-notifiable ones such as
 // Hand-Fuß-Mund). The server stores them per facility and reads the merged rules through `ifsgRulesFor`.
 
-/** A local date rule: readmission at the earliest `days` after the anchor day; `label` names the variant. */
+/**
+ * A local date rule: readmission at the earliest `days` after the anchor day; `label` names the variant, `condition`
+ * what must hold besides the day („und symptomfrei“; left out = nothing).
+ */
 export interface IfsgLocalDateRule {
   anchor: IfsgAnchor
   days: number
   label: string
+  condition?: string
 }
 
 /**
  * The local rule of a disease; every field is optional (null = the RKI value counts). `custom`: a local disease the RKI
  * catalogue does not have (then `name` is set and `notifiable` says whether § 34 forbids the visit: false = only a
  * recommendation, no block at „Kommt“, no reminder to notify). `rules` replaces the RKI date rules of the sick (null =
- * the RKI ones; an empty list = no date). `notify`: the facility must notify the health office. `householdExclusion`:
+ * the RKI ones; an empty list = no date). `notify`: the facility must notify the health office – only for a local
+ * disease; for an RKI disease the duty of § 34 Abs. 6 stands by law and is not switched off. `householdExclusion`:
  * healthy household members are excluded too (Abs. 3); `householdText` says how. `note`: extra hints (e.g. Skabies:
  * an attest only when it comes back).
  */
@@ -54,9 +59,31 @@ export function validLocalDateRule(rule: IfsgLocalDateRule): boolean {
 
 export const isProof = (value: unknown): value is IfsgProof => typeof value === 'string' && (IFSG_PROOFS as readonly string[]).includes(value)
 
-/** The local date rules as date rules of the engine (keys local1, local2 …). */
-const toDateRules = (rules: IfsgLocalDateRule[]): IfsgDateRule[] =>
-  rules.map((rule, index) => ({ key: `local${index + 1}`, anchor: rule.anchor, days: rule.days, label: rule.label, condition: '' }))
+/**
+ * The local date rules as date rules of the engine. Their keys stay stable across edits: the RKI key of a rule with
+ * the same anchor and days, else `<anchor>_<days>` (a second equal one gets a suffix). A case keeps a snapshot of its
+ * rule anyway (child_ifsg_cases.rule_*).
+ */
+function toDateRules(rules: IfsgLocalDateRule[], rki: readonly IfsgDateRule[] = []): IfsgDateRule[] {
+  const used = new Set<string>()
+  return rules.map((rule) => {
+    const same = rki.find(entry => entry.anchor === rule.anchor && entry.days === rule.days && !used.has(entry.key))
+    let key = same?.key ?? `${rule.anchor}_${rule.days}`
+    for (let suffix = 2; used.has(key); suffix++) key = `${rule.anchor}_${rule.days}_${suffix}`
+    used.add(key)
+    return { key, anchor: rule.anchor, days: rule.days, label: rule.label, condition: rule.condition ?? same?.condition ?? '' }
+  })
+}
+
+/** Whether two readmissions say the same (text, proof and date rules with their days, labels and conditions). */
+function sameKindRule(a: IfsgKindRule | undefined, b: IfsgKindRule | undefined): boolean {
+  if (!a || !b) return a === b
+  return a.text === b.text && a.proof === b.proof && a.rules.length === b.rules.length
+    && a.rules.every((rule, index) => {
+      const other = b.rules[index]!
+      return rule.anchor === other.anchor && rule.days === other.days && rule.label === other.label && rule.condition === other.condition
+    })
+}
 
 /** Whether any field of the sick's readmission is set locally. */
 const sickIsLocal = (local: IfsgLocalRule) => local.text !== null || local.rules !== null || local.proof !== null || local.note !== null
@@ -94,22 +121,26 @@ export function mergeIfsgRules(rki: readonly IfsgDisease[], locals: readonly Ifs
     const kinds: IfsgDisease['kinds'] = { ...disease.kinds }
     const sick = disease.kinds.sick
     if (sick && sickIsLocal(local)) {
-      kinds.sick = {
+      const next: IfsgKindRule = {
         text: withNote(local.text ?? sick.text, local.note), proof: local.proof ?? sick.proof,
-        rules: local.rules === null ? sick.rules : toDateRules(local.rules), source: 'local',
+        rules: local.rules === null ? sick.rules : toDateRules(local.rules, sick.rules),
       }
+      // A local row equal to the RKI (e.g. after „RKI-Werte übernehmen“) still says „laut RKI“.
+      kinds.sick = sameKindRule(next, sick) ? sick : { ...next, source: 'local' }
     }
     const household = disease.kinds.household
     if (local.householdExclusion === false) delete kinds.household
     else if (local.householdExclusion === true || (household && local.householdText !== null)) {
-      kinds.household = {
+      const next: IfsgKindRule = {
         text: local.householdText ?? household?.text ?? '', proof: household?.proof ?? kinds.sick?.proof ?? 'medical_certificate',
-        rules: household?.rules ?? [], source: 'local',
+        rules: household?.rules ?? [],
       }
+      kinds.household = sameKindRule(next, household) ? household : { ...next, source: 'local' }
     }
+    // The notification duty of § 34 Abs. 6 stands by law for every RKI disease: a local rule does not switch it off.
     return {
-      ...disease, kinds, notify: local.notify ?? disease.notify, hint: local.hint ?? disease.hint,
-      source: Object.values(kinds).some(kind => kind?.source === 'local') || local.notify !== null ? 'local' : 'rki',
+      ...disease, kinds, notify: disease.notify, hint: local.hint ?? disease.hint,
+      source: Object.values(kinds).some(kind => kind?.source === 'local') ? 'local' : 'rki',
     }
   })
   const custom = locals.filter(local => local.custom && !rki.some(disease => disease.key === local.key)).map(customDisease)

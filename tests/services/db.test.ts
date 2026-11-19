@@ -1957,6 +1957,15 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT custom, proof, rules FROM ifsg_local_rules').get()).toEqual({ custom: 0, proof: null, rules: null })
   })
 
+  it('0091 keeps every § 34 IfSG case and gives it an empty rule snapshot (the key is resolved as before)', () => {
+    const { db, sqlite } = databaseAt('0088')
+    sqlite.exec(`INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES (1, 1, 'Meier', 'Lena', '2022-01-01', '2026-01-01')`)
+    sqlite.exec(`INSERT INTO child_ifsg_cases (child_id, disease, kind, reported_on, onset_date, rule_variant, rule_date, created_at) VALUES (1, 'masern', 'sick', '2026-11-18', '2026-11-17', 'rash', '2026-11-16', '2026-11-18')`)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT rule_variant, rule_date, rule_anchor, rule_days, rule_label, rule_condition FROM child_ifsg_cases').get())
+      .toEqual({ rule_variant: 'rash', rule_date: '2026-11-16', rule_anchor: null, rule_days: null, rule_label: '', rule_condition: '' })
+  })
+
   it('0084 adds the empty § 34 IfSG cases, gone with their child, and the attest setting off', () => {
     const { db, sqlite } = databaseAt('0083')
     sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)

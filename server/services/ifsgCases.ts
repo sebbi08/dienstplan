@@ -10,7 +10,8 @@ import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { setAbsence } from './childAttendance'
 import { groupHistories } from './childGroupChanges'
-import { checkedCaseRule, ifsgRulesFor, seesIfsgDisease } from './ifsg'
+import { ifsgDateRule } from '../../shared/domain/ifsg'
+import { checkedCaseRule, ifsgRulesFor, ruleSnapshot, seesIfsgDisease } from './ifsg'
 
 /**
  * A new § 34 IfSG case of a child on an attendance day (not ahead: 400 attendance_future), entered by whoever keeps the
@@ -23,7 +24,7 @@ import { checkedCaseRule, ifsgRulesFor, seesIfsgDisease } from './ifsg'
 export function createIfsgCase(db: Db, viewer: ChildViewer, input: IfsgCaseInput, now: Date = new Date()): number {
   if (input.date > nowInBerlin(now).date) throw new ServiceError(400, 'attendance_future')
   const rules = ifsgRulesFor(db, viewer.facilityId)
-  checkedCaseRule(rules, input.disease, input.kind, input.ruleVariant, [input.date, input.onsetDate, input.ruleDate])
+  const disease = checkedCaseRule(rules, input.disease, input.kind, input.ruleVariant, [input.date, input.onsetDate, input.ruleDate])
   if (input.onsetDate > input.date) throw new ServiceError(400, 'invalid_date')
   const child = loadChild(db, viewer.facilityId, input.childId)
   if (childStatus(child, input.date) !== 'active') throw new ServiceError(404, 'child_not_found')
@@ -39,7 +40,9 @@ export function createIfsgCase(db: Db, viewer: ChildViewer, input: IfsgCaseInput
     }, now)
     return tx.insert(childIfsgCases).values({
       childId: input.childId, facilityId: viewer.facilityId, disease: input.disease, kind: input.kind, reportedOn: input.date,
-      onsetDate: input.onsetDate, ruleVariant: input.ruleVariant, ruleDate: input.ruleDate, createdByUserId: viewer.id,
+      onsetDate: input.onsetDate, ruleVariant: input.ruleVariant, ruleDate: input.ruleDate,
+      // The chosen rule as it is today: later changes of the rules do not move the earliest day.
+      ...ruleSnapshot(input.ruleVariant === null ? null : ifsgDateRule(disease, input.kind, input.ruleVariant)), createdByUserId: viewer.id,
       createdByName: viewer.name, createdAt: now.toISOString(),
     }).returning({ id: childIfsgCases.id }).get().id
   })

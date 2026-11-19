@@ -578,7 +578,7 @@ export const ifsgLocalRuleSchema = z.object({
   name: z.string().max(200).nullish(), notifiable: z.boolean().nullish(), text: z.string().max(2000).nullish(),
   rules: z.array(z.object({
     anchor: z.enum(['onset', 'rash', 'antibiotic', 'symptom_end', 'jaundice', 'gland_swelling', 'treatment', 'last_contact', 'prophylaxis']),
-    days: z.number().int().min(0).max(365), label: z.string().max(100).default(''),
+    days: z.number().int().min(0).max(365), label: z.string().max(100).default(''), condition: z.string().max(200).optional(),
   })).max(3).nullish(),
   proof: z.enum(['none', 'parent_declaration', 'medical_certificate', 'health_office']).nullish(), notify: z.boolean().nullish(),
   householdText: z.string().max(2000).nullish(), householdExclusion: z.boolean().nullish(), note: z.string().max(2000).nullish(),

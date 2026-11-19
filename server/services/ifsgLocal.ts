@@ -82,7 +82,9 @@ function checkedInput(input: IfsgLocalRuleInput): Omit<IfsgLocalRule, 'key' | 'c
   }
   return {
     name: textOf(input.name), notifiable: input.notifiable ?? null, text: textOf(input.text),
-    rules: input.rules ? input.rules.map(rule => ({ anchor: rule.anchor, days: rule.days, label: rule.label.trim() })) : null,
+    rules: input.rules ? input.rules.map(rule => ({
+      anchor: rule.anchor, days: rule.days, label: rule.label.trim(), ...(rule.condition === undefined ? {} : { condition: rule.condition.trim() }),
+    })) : null,
     proof: input.proof ?? null, notify: input.notify ?? null, householdText: textOf(input.householdText),
     householdExclusion: input.householdExclusion ?? null, note: textOf(input.note), hint: textOf(input.hint),
   }
@@ -116,8 +118,10 @@ export function saveLocalRule(db: Db, facilityId: number, key: string, input: If
   if (!custom && !ifsgDisease(IFSG_CATALOGUE, key)) throw new ServiceError(404, 'ifsg_disease_unknown')
   const checked = checkedInput(input)
   if (custom && checked.name === null) throw new ServiceError(400, 'ifsg_local_name_required')
+  // The notification duty of an RKI disease stands by law (§ 34 Abs. 6): only a local disease stores its own.
   upsert(db, facilityId, {
     key, custom, ...checked, name: custom ? checked.name : null, notifiable: custom ? checked.notifiable ?? false : null,
+    notify: custom ? checked.notify : null,
   }, now)
 }
 
@@ -141,6 +145,11 @@ export function addLocalDisease(db: Db, facilityId: number, input: IfsgLocalRule
   return key
 }
 
+/** A disease name compared without case, umlauts, spaces and punctuation („COVID-19“ = „Covid 19“). */
+function normalizedName(name: string): string {
+  return safeFileNamePart(name).toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
 /**
  * Removes a local rule: an RKI disease follows the RKI again; a local disease is gone, unless a case uses it (409
  * ifsg_local_in_use). 404 ifsg_local_not_found without a row.
@@ -158,11 +167,18 @@ export function deleteLocalRule(db: Db, facilityId: number, key: string): void {
 /**
  * Applies a preset: „RKI-Werte übernehmen“ or the Rhein-Neckar-Kreis document. Existing local rows of the preset's keys
  * are overwritten only with `overwrite` (409 ifsg_local_exists otherwise, nothing changed); other local diseases stay.
+ * A local disease of the preset whose name another local disease already has (e.g. a „COVID-19“ added by hand) is
+ * left out, so no name appears twice.
  * The Rhein-Neckar-Kreis preset fills the health office's name and phone while they are empty. Returns the rows written.
  */
 export function applyIfsgPreset(db: Db, facilityId: number, preset: IfsgPresetKey, overwrite: boolean, now: Date = new Date()): number {
-  const rows = presetRules(preset)
-  const existing = new Set(localRulesOf(db, facilityId).map(rule => rule.key))
+  const current = localRulesOf(db, facilityId)
+  const existing = new Set(current.map(rule => rule.key))
+  const takenNames = new Map(current.filter(rule => rule.custom && rule.name).map(rule => [normalizedName(rule.name!), rule.key]))
+  const rows = presetRules(preset).filter((rule) => {
+    const owner = rule.custom && rule.name ? takenNames.get(normalizedName(rule.name)) : undefined
+    return owner === undefined || owner === rule.key
+  })
   if (!overwrite && rows.some(rule => existing.has(rule.key))) throw new ServiceError(409, 'ifsg_local_exists')
   db.transaction((tx) => {
     for (const rule of rows) upsert(tx, facilityId, rule, now)

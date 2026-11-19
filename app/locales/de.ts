@@ -1771,6 +1771,13 @@ export const de = {
     /** What everybody sees of an open case, also those who may not know the disease. */
     block: 'Betretungsverbot (§ 34 IfSG)',
     blockWarning: 'Betretungsverbot nach § 34 IfSG – Wiederzulassung nur nach ärztlichem Urteil',
+    /** The red warning by the proof the readmission needs (hidden proof: the general one above). */
+    blockWarnings: {
+      medical_certificate: 'Betretungsverbot nach § 34 IfSG – Wiederzulassung nur nach ärztlichem Urteil',
+      parent_declaration: 'Betretungsverbot nach § 34 IfSG – Wiederzulassung nur mit Elternerklärung',
+      health_office: 'Betretungsverbot nach § 34 IfSG – Wiederzulassung nur nach Rücksprache mit dem Gesundheitsamt',
+      none: 'Betretungsverbot nach § 34 IfSG',
+    },
     action: 'Meldepflichtige Krankheit (§ 34 IfSG)',
     kinds: { sick: 'Erkrankung oder Verdacht', carrier: 'Ausscheider', household: 'Erkrankung in der Wohngemeinschaft' },
     proofs: {
@@ -1812,8 +1819,12 @@ export const de = {
       date: 'Datum der Wiederzulassung', note: 'Notiz (freiwillig)', notePlaceholder: 'z. B. Kinderarztpraxis, telefonisch',
       attest: 'Attest (Foto oder PDF)', attestOptional: 'Attest (Foto oder PDF, freiwillig)',
       attestRequired: 'Die Einrichtung verlangt ein schriftliches Attest.',
-      // The day ends with its dot („Mi 25.11.“), which also ends the sentence.
-      early: (day: string) => `Laut RKI frühestens ab ${day.replace(/\.$/, '')}. Trotzdem wieder zulassen?`, earlyConfirm: 'Trotzdem wieder zulassen',
+      // The day ends with its dot („Mi 25.11.“), which also ends the sentence; the source says whose rule it is.
+      early: (day: string, source: string) => `${source} frühestens ab ${day.replace(/\.$/, '')}. Trotzdem wieder zulassen?`,
+      earlyConfirm: 'Trotzdem wieder zulassen',
+      earlySourceRki: 'Laut RKI', earlySourceLocal: (name: string) => (name ? `Laut Gesundheitsamt ${name}` : 'Laut Gesundheitsamt'),
+      banOver: (day: string) => `An diesem Tag galt das Betretungsverbot noch (wieder zugelassen am ${day}).`,
+      editCase: 'Angaben ändern', printLice: 'Elternbestätigung drucken',
       saved: 'Wiederzulassung gespeichert. Jetzt kann das Kind einstempeln.',
       otherGroup: 'Die Wiederzulassung bestätigen die Gruppe des Kindes oder die Leitung.',
       printDeclaration: 'Elternerklärung drucken',
@@ -1830,6 +1841,15 @@ export const de = {
       doctorLabel: 'Name der Ärztin / des Arztes', from: 'vom', dateLabel: 'Datum',
       disease: 'eine Weiterverbreitung folgender Erkrankung', end: 'nicht mehr zu befürchten.',
       signatureDate: 'Datum', signature: 'Unterschrift der/des Erziehungsberechtigten',
+      // Head lice: the parents confirm the treatment (the health office's parent letter), no physician.
+      liceTitle: 'ELTERNBESTÄTIGUNG KOPFLAUSBEHANDLUNG',
+      liceText: 'Hiermit bestätige ich, dass mein Kind',
+      liceTreated: 'am', liceWith: 'mit dem Mittel', liceProduct: 'Name des Mittels',
+      liceEnd: 'sachgerecht gegen Kopfläuse behandelt und das Haar mit einem Läusekamm ausgekämmt wurde. Die zweite Behandlung führe ich wie vorgeschrieben durch.',
+    },
+    edit: {
+      title: (name: string) => `Angaben ändern: ${name}`, saved: 'Gespeichert.',
+    },
     },
     overview: {
       intro: 'Alle Fälle des Jahres: Wann wurde das Gesundheitsamt benachrichtigt, wann wurde das Kind wieder zugelassen? Den Fall erfasst die Gruppe in der Anwesenheit.',
@@ -1883,7 +1903,9 @@ export const de = {
       form: {
         name: 'Name der Krankheit', notifiable: 'Meldepflichtig nach § 34 IfSG (gesetzliches Besuchsverbot)',
         text: 'Text zur Wiederzulassung', rules: 'Frühestens (Tage nach …)', addRule: 'Regel hinzufügen', anchor: 'ab', days: 'Tage',
-        label: 'Bezeichnung (z. B. mit Antibiotikum)', proof: 'Nachweis', proofRki: 'wie RKI', notify: 'Meldepflicht der Einrichtung',
+        label: 'Bezeichnung (z. B. mit Antibiotikum)', condition: 'Bedingung (z. B. und symptomfrei)',
+        proof: 'Nachweis', proofRki: 'wie RKI', notify: 'Meldepflicht der Einrichtung',
+        notifyByLaw: 'Benachrichtigungspflicht nach § 34 Abs. 6 IfSG besteht gesetzlich und lässt sich nicht abschalten.',
         yes: 'ja', no: 'nein', likeRki: 'wie RKI', household: 'Zutrittsverbot für gesunde Haushaltsmitglieder', householdText: 'Text zur Wohngemeinschaft',
         note: 'Hinweis (z. B. Wiederholungsfall)', hint: 'Hinweis für den Aushang', rkiValue: (value: string) => `RKI: ${value}`,
       },
