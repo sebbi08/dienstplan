@@ -156,7 +156,7 @@ describe('facilities', () => {
       updateFacility(db, traeger(db), 1, { name: 'Kindergarten', state: 'NW', assumptionDay: true })
       expect(getSchoolSettings(db, 1)).toEqual({
         cutoffMonth: 6, cutoffDay: 30, ageYears: 6, autoLeave: true,
-        stateCutoff: { cutoffMonth: 9, cutoffDay: 30, ageYears: 6 },
+        stateCutoff: { cutoffMonth: 9, cutoffDay: 29, ageYears: 6 },
       })
     })
 
@@ -179,7 +179,7 @@ describe('facilities', () => {
       updateFacility(db, traeger(db), 1, { name: 'Kindergarten', state: 'NW', assumptionDay: true })
       const { settings, autoLeaveSwitchedOff } = setSchoolCutoff(db, 1, getSchoolSettings(db, 1).stateCutoff)
       expect(autoLeaveSwitchedOff).toBe(true)
-      expect(settings).toMatchObject({ cutoffMonth: 9, cutoffDay: 30, autoLeave: false })
+      expect(settings).toMatchObject({ cutoffMonth: 9, cutoffDay: 29, autoLeave: false })
     })
   })
 

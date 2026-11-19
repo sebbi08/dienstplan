@@ -360,8 +360,21 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
 
 - **Stichtag prüfen:** Der Träger stellt pro Einrichtung den Stichtag ein (beim Anlegen einer Einrichtung aus dem Bundesland vorausgefüllt, z. B. 30. Juni bei Baden-Württemberg, 6 Jahre).
   Die Regeln unterscheiden sich je Bundesland und ändern sich manchmal. Bitte prüfe den Wert für deine
-  Einrichtung. Soll ein Kind, das am Tag nach dem Stichtag geboren ist, noch dazugehören, stelle den Stichtag
-  einen Tag später ein.
+  Einrichtung.
+- **Wie gerechnet wird (seit 19.11.2026):** Der Stichtag ist der Tag, bis zu dessen Ende das Kind das Alter
+  **vollendet** haben muss – so steht es in den Schulgesetzen („bis zum 30. Juni das sechste Lebensjahr
+  vollendet“). Ein Lebensjahr ist nach § 187 Abs. 2 und § 188 Abs. 2 BGB schon mit dem Ende des Tages **vor** dem
+  Geburtstag vollendet. Bei Stichtag 30. Juni gehört deshalb ein am **1. Juli** geborenes Kind noch zu diesem
+  Jahrgang, ein am 2. Juli geborenes nicht mehr (Hessen schreibt das ausdrücklich: „bis einschließlich 1. Juli
+  geboren“). Bis zum 19.11.2026 hat die App das am 1. Juli geborene Kind ein Jahr später eingeschult. **Wer den
+  Stichtag deshalb von Hand einen Tag später gestellt hatte (z. B. 1. Juli), stellt ihn bitte zurück** (der
+  Vorschlag „übernehmen“ erscheint dann). Ausnahmen beim Vorschlag: In **Bayern** (Art. 37 BayEUG: „bis zum
+  30. September sechs Jahre alt werden“) und **Nordrhein-Westfalen** (§ 35 SchulG: „bis zum Beginn des
+  30. September … vollendet“) zählt der Geburtstag bis 30.09., deshalb schlägt die App dort den 29.09. vor.
+  **Hamburg** (§ 38 HmbSG: „vor dem 1. Juli … vollendet“) hat jetzt den 30.06. statt bisher 01.07. – bestehende
+  Einrichtungen in Bayern, Nordrhein-Westfalen und Hamburg sehen den neuen Vorschlag mit „übernehmen“.
+  Quelle: Rechtsprüfung vom 19.11.2026 (Schulgesetze der Länder, Bekanntmachung Gemeinde Lahntal zu § 58 HSchG
+  vom 08.02.2025). Keine Rechtsberatung.
 - Schulstart ist immer der 1. September. Ein von Hand eingetragener „voraussichtlicher Schulstart“
   (z. B. bei Zurückstellung) hat Vorrang.
 - In der Kinderakte steht der „voraussichtliche Schulstart“ schon beim Anlegen da, sobald das Geburtsdatum
@@ -433,7 +446,8 @@ Bundesland und Stichtag: siehe Abschnitt 10.
   Träger das Bundesland, bleibt der eingestellte Stichtag unverändert. Weicht er vom Stichtag des Bundeslands ab,
   zeigt *Einstellungen → Kinder → Schulkinder* diesen mit dem Knopf **„übernehmen“**. Das ist eine normale
   Stichtagsänderung und schaltet die automatische Abmeldung der Schulkinder aus (siehe Abschnitt 9). Die
-  Stichtage stehen im Stand Oktober 2026; prüfe sie bei Änderungen des Schulgesetzes.
+  Stichtage stehen im Stand 19.11.2026 (Rechnung „bis zum Stichtag vollendet“, siehe Abschnitt 9); prüfe sie bei
+  Änderungen des Schulgesetzes.
 
 ## 11. Anwesenheit der Kinder
 

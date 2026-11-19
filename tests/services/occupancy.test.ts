@@ -133,7 +133,7 @@ describe('occupancy table', () => {
   })
 
   it('counts a child born one day after the cutoff for another year', () => {
-    const id = addChild(db, 1, { groupId: bears, birthDate: '2021-07-01', entryDate: '2025-09-01' })
+    const id = addChild(db, 1, { groupId: bears, birthDate: '2021-07-02', entryDate: '2025-09-01' })
     expect(ids(occupancyTable(db, 1, 2027).rows[0]!.cells[SEP]!.present)).toEqual([id])
     expect(occupancyTable(db, 1, 2028).rows[0]!.cells[SEP]!.present).toEqual([])
   })
@@ -146,7 +146,7 @@ describe('occupancy table', () => {
   })
 
   it('follows the facility\'s cutoff', () => {
-    const id = addChild(db, 1, { groupId: bears, birthDate: '2021-07-01', entryDate: '2025-09-01' })
+    const id = addChild(db, 1, { groupId: bears, birthDate: '2021-07-02', entryDate: '2025-09-01' })
     setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
     expect(occupancyTable(db, 1, 2027).rows[0]!.cells[SEP]!.present).toEqual([])
     expect(ids(occupancyTable(db, 1, 2026).rows[0]!.cells[AUG]!.present)).toEqual([id])
@@ -486,7 +486,7 @@ describe('occupancy table', () => {
 
     it('is empty before 1 March and lists the children of the coming 1 September from then on', () => {
       const id = schoolChild({ firstName: 'Lena', lastName: 'Meier' })
-      schoolChild({ birthDate: '2021-07-01' })
+      schoolChild({ birthDate: '2021-07-02' })
 
       expect(upcomingSchoolChildren(db, 1, TODAY)).toEqual([])
       expect(upcomingSchoolChildren(db, 1, '2027-02-28')).toEqual([])
@@ -555,7 +555,7 @@ describe('occupancy table', () => {
       const zoe = schoolChild({ firstName: 'Zoe', lastName: 'Adler' })
       const ida = schoolChild({ firstName: 'Ida', lastName: 'Adler' })
       const early = schoolChild({ firstName: 'Max', lastName: 'Zander', schoolStartDate: '2027-08-16' })
-      const brought = schoolChild({ firstName: 'Eva', lastName: 'Klein', birthDate: '2021-07-01', schoolStartDate: '2027-09-01' })
+      const brought = schoolChild({ firstName: 'Eva', lastName: 'Klein', birthDate: '2021-07-02', schoolStartDate: '2027-09-01' })
       schoolChild({ firstName: 'Tom', lastName: 'Berg', schoolStartDate: '2028-09-01' })
 
       expect(listed('2027-03-01')).toEqual([early, ida, zoe, brought])

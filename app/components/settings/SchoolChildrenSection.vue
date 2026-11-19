@@ -132,6 +132,7 @@ async function confirmSwitchOn() {
       <p class="text-xs text-gray-500">{{ s.readOnly }}</p>
     </template>
     <p class="text-xs text-gray-500">{{ s.stateCutoffHint }}</p>
+    <p v-if="activeState && s.stateCutoffNotes[activeState]" class="text-xs text-gray-500">{{ s.stateCutoffNotes[activeState] }}</p>
     <p v-if="stateCutoff && activeState" class="flex flex-wrap items-center gap-2 rounded bg-sky-50 p-2 text-sm">
       <span>{{ s.stateCutoff(inState(activeState), stateCutoffDate, stateCutoff.ageYears) }}</span>
       <UButton v-if="canEditSchool" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />

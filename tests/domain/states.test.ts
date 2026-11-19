@@ -11,10 +11,12 @@ describe('states', () => {
     expect(isGermanState('XX')).toBe(false)
     expect(isGermanState('bw')).toBe(false)
   })
-  it('knows the school cutoff of every state', () => {
+  it('knows the school cutoff of every state (the day by which the 6th year must be completed)', () => {
+    // HH „vor dem 1. Juli vollendet“ = by 30 June; BY „bis 30. September sechs Jahre alt werden“ and NW „bis zum
+    // Beginn des 30. September vollendet“ = completed by the end of 29 September.
     const expected: Record<GermanState, [number, number]> = {
-      BW: [6, 30], BY: [9, 30], BE: [9, 30], BB: [9, 30], HB: [6, 30], HH: [7, 1], HE: [6, 30], MV: [6, 30],
-      NI: [9, 30], NW: [9, 30], RP: [8, 31], SL: [6, 30], SN: [6, 30], ST: [6, 30], SH: [6, 30], TH: [8, 1],
+      BW: [6, 30], BY: [9, 29], BE: [9, 30], BB: [9, 30], HB: [6, 30], HH: [6, 30], HE: [6, 30], MV: [6, 30],
+      NI: [9, 30], NW: [9, 29], RP: [8, 31], SL: [6, 30], SN: [6, 30], ST: [6, 30], SH: [6, 30], TH: [8, 1],
     }
     for (const state of GERMAN_STATES) {
       const [month, day] = expected[state]

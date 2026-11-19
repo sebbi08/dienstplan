@@ -253,7 +253,7 @@ describe('child records', () => {
 
   describe('school start', () => {
     // Born 1 July 2021: with the default cutoff (30 June, 6 years) school starts on 1 September 2028.
-    const BIRTH = '2021-07-01'
+    const BIRTH = '2021-07-02'
     let editor: ChildActor
     let provider: ChildActor
     beforeEach(() => {
