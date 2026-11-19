@@ -389,6 +389,18 @@ export const de = {
   leaveEntry: {
     add: 'Urlaub eintragen',
     title: (name: string) => `Urlaub eintragen – ${name}`,
+  /** „Schließzeiten als Urlaub“ as a hint: creating an employee and the employee page („Urlaub & Zeiten“). */
+  closurePreview: {
+    title: 'Schließzeiten als Urlaub',
+    facility: (year: number, count: number) => `Schließzeiten als Urlaub ${year} in der Einrichtung: ${days(count)} (bei einer 5-Tage-Woche)`,
+    person: (name: string, count: number, from: string) => `Davon betreffen ${name} ${days(count)} (ab ${from}, an seinen Arbeitstagen)`,
+    thisPerson: 'diesen Mitarbeiter',
+    withoutLeave: (count: number) => (count === 1 ? '1 Schließtag wird ohne Urlaub eingetragen' : `${count} Schließtage werden ohne Urlaub eingetragen`),
+    free: (entitlement: number, free: number) =>
+      `Bei ${entitlement === 1 ? '1 Urlaubstag' : `${entitlement.toLocaleString('de-DE')} Urlaubstagen`} ${free === 1 ? 'bleibt' : 'bleiben'} ${days(free)} frei verfügbar.`,
+    carriedOver: (count: number) => `(plus ${days(count)} Resturlaub)`,
+    noClosures: (year: number) => `Für ${year} sind noch keine Schließzeiten eingetragen.`,
+  },
     from: 'Von', to: 'Bis', kind: 'Art',
     kinds: { vacation: 'Urlaub', special_leave: 'Sonderurlaub', overtime_off: 'Überstundenfrei (ÜF)' },
     /** The kind inside a sentence („Urlaub vom … entfernen?“). */

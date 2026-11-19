@@ -703,6 +703,8 @@ async function onTabKey(event: KeyboardEvent) {
         <p v-if="entitlementForm.days < formStatutoryLeave" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.employees.statutoryLeaveBelow }}</p>
       </template>
     </section>
+      <!-- From the stored hours and entitlement; reloaded with the page's data (after saving hours, entitlement, leave). -->
+      <EmployeesClosurePreview v-if="can('employees.edit')" :name="employee.name" :employee-id="id" :stamp="employee" />
 
     <section id="employee-section-stamping" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.pin }}</h2>

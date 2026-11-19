@@ -75,6 +75,10 @@ export const employeeCreateSchema = z.object({
   /** MM-DD, checked by the service (employee_birthday_invalid); left out = none. */
   birthday: z.string().max(10).nullable().optional(),
 })
+/** The closure leave preview of the create form: the fields of employeeCreateSchema it reads (weekly hours optional). */
+export const closurePreviewSchema = employeeCreateSchema
+  .pick({ validFrom: true, workdays: true, vacationDays: true, carriedOverDays: true })
+  .extend({ weeklyMinutes: weeklyMinutes.optional() })
 /** groupId and birthday left out keep them; the birthday (MM-DD) is checked by the service (employee_birthday_invalid). */
 export const employeeUpdateSchema = z.object({
   name: label, shortName: z.string().max(10), leftOn: isoDate.nullable(), groupId: groupIdSchema.optional(),

@@ -417,6 +417,15 @@ describe('API route permissions', () => {
     }
   })
 
+  it('keeps the closure leave preview to who creates employees, in the active facility, writing nothing', () => {
+    const touching = routes.filter(route => source(route).includes('services/closurePreview\''))
+    expect(touching).toEqual(['employees/[id]/closure-preview.get.ts', 'employees/closure-preview.post.ts'])
+    for (const route of touching) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'employees.edit', options: '' }])
+      expect(source(route), route).toContain('actor.facilityId')
+    }
+  })
+
   it('lets managers of the active facility delete a left employee for good', () => {
     const touching = routes.filter(route => source(route).includes('services/employeeDeletion\''))
     expect(touching).toEqual(['employees/[id].delete.ts'])

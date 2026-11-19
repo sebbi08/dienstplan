@@ -1119,6 +1119,28 @@ export interface ClosureLeaveDto {
   closureDays: number
 }
 
+/**
+ * One year of the closure leave preview (creating an employee, employee page „Urlaub & Zeiten“): what the facility's
+ * closures as leave take in the year, computed as the booking would (closurePreview.ts). Writes nothing.
+ */
+export interface ClosurePreviewYearDto {
+  year: number
+  /** The first day counted for the person: „gültig ab“, the first weekly hours or move-in day, else 1 January. */
+  from: IsoDate
+  /** Any closure of the facility (whatever the mode) touches the year. */
+  hasClosures: boolean
+  /** The closures as leave in the year for a 5-day week, without weekends and public holidays (the closures page). */
+  facilityDays: number
+  /** Leave days they take from the person (from `from` on, only on the person's working days, joiner limit applied). */
+  personDays: number
+  /** The person's closure days entered without leave (joiner limit). */
+  closureDaysWithoutLeave: number
+  /** The entitlement days of the year (null = none recorded or entered). */
+  entitlementDays: number | null
+  /** Resturlaub of the year (the first block only; 0 otherwise). */
+  carriedOverDays: number
+}
+
 export interface EmployeeListItemDto {
   id: number
   name: string

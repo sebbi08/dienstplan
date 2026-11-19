@@ -1,8 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { parseIsoDate } from '../../shared/domain/dates'
-import { leaveAccount, leaveDaysThatFit } from '../../shared/domain/leave'
-import { employmentStart, isWorkday } from '../../shared/domain/targets'
+import { leaveAccount, leaveDaysThatFit, type LeaveEntitlement } from '../../shared/domain/leave'
+import { employmentStart, isWorkday, type EmploymentInfo } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -20,42 +20,62 @@ export function closureCodeId(db: Db, key: 'vacation' | 'closure_day'): number {
   return code.id
 }
 
-/** True when the employee started during that year (not on 1 January); such joiners never go below zero leave by closures. */
-function joinedDuring(employee: EmployeeRecord, year: number): boolean {
-  const start = employmentStart(employee.info)
+/** True when the person started during that year (not on 1 January); such joiners never go below zero leave by closures. */
+function joinedDuring(info: EmploymentInfo, year: number): boolean {
+  const start = employmentStart(info)
   return start !== null && parseIsoDate(start).year === year && start > `${year}-01-01`
 }
 
 /**
- * Splits one employee's closure days into leave days and closure days. Normally all are leave (staff may go
+ * What splitting a person's closure days needs: a stored employee (splitLeave), or the typed values of one not created
+ * yet (the closure leave preview, closurePreview.ts), so both follow the one rule.
+ */
+export interface LeaveSplitPerson {
+  info: EmploymentInfo
+  halfLeaveOnEves: boolean
+  /** The entitlement of a year (asked only for the year the person joined in); null = none recorded, no limit. */
+  entitlement: (year: number) => LeaveEntitlement | null
+  /** The person's other leave days of the year: their leave entries not among the days being booked. */
+  otherLeave: (year: number, booking: ReadonlySet<IsoDate>) => IsoDate[]
+}
+
+/**
+ * Splits one person's closure days into leave days and closure days. Normally all are leave (staff may go
  * below zero). Someone who joined during that year only gets as many leave days as they have left (in date order,
  * skipping a day that no longer fits); the rest become closure days (credited like leave, no leave used). Without a
  * recorded entitlement nothing is limited.
  */
-export function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacation: IsoDate[]; closureDays: IsoDate[] } {
+export function splitLeaveOf(person: LeaveSplitPerson, dates: IsoDate[]): { vacation: IsoDate[]; closureDays: IsoDate[] } {
   const vacation: IsoDate[] = []
   const closureDays: IsoDate[] = []
   const byYear = Map.groupBy(dates, date => parseIsoDate(date).year)
   for (const [year, yearDates] of byYear) {
-    const entitlement = joinedDuring(employee, year)
-      ? yearEntitlement(db, employee, year)
-      : null
+    const entitlement = joinedDuring(person.info, year) ? person.entitlement(year) : null
     if (!entitlement) {
       vacation.push(...yearDates)
       continue
     }
-    const booking = new Set(yearDates)
-    const otherLeave = loadEntries(db, { employeeId: employee.id, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
-      .map(entry => entry.date).filter(date => !booking.has(date))
+    const otherLeave = person.otherLeave(year, new Set(yearDates))
     const available = leaveAccount(
-      entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(employee.info, date), employee.halfLeaveOnEves,
+      entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(person.info, date), person.halfLeaveOnEves,
     ).available
     // 24 and 31 December may use only half a day each (facility setting): a whole day that no longer fits becomes a
     // closure day, and a later half day still takes the half day left (as rebookHomeClosure does day by day).
-    const fitting = new Set(leaveDaysThatFit(yearDates, available, employee.halfLeaveOnEves))
+    const fitting = new Set(leaveDaysThatFit(yearDates, available, person.halfLeaveOnEves))
     for (const date of yearDates) (fitting.has(date) ? vacation : closureDays).push(date)
   }
   return { vacation, closureDays }
+}
+
+/** splitLeaveOf for a stored employee: the entitlement as recorded, the other leave from their entries. */
+export function splitLeave(db: Db, employee: EmployeeRecord, dates: IsoDate[]): { vacation: IsoDate[]; closureDays: IsoDate[] } {
+  return splitLeaveOf({
+    info: employee.info,
+    halfLeaveOnEves: employee.halfLeaveOnEves,
+    entitlement: year => yearEntitlement(db, employee, year),
+    otherLeave: (year, booking) => loadEntries(db, { employeeId: employee.id, from: `${year}-01-01`, to: `${year}-12-31`, codeKey: 'vacation' })
+      .map(entry => entry.date).filter(date => !booking.has(date)),
+  }, dates)
 }
 
 /**

@@ -24,6 +24,14 @@ export interface ClosureInput {
   mode: ClosureMode
 }
 
+/**
+ * The leave days the dates use for staff working Monday to Friday: weekends and the facility's public holidays left
+ * out, 24 and 31 December by the facility setting (the closures page's „Urlaubstage“, the closure leave preview).
+ */
+export function fiveDayWeekLeaveDays(dates: IsoDate[], rules: HolidayRules, halfOnEves: boolean): number {
+  return countLeaveDays(dates.filter(date => countsAsLeaveDay(date, rules)), halfOnEves)
+}
+
 /** The facility's closures, each with the leave days it uses for staff working Monday to Friday. */
 export function listClosures(db: Db, facilityId: number): ClosureListItemDto[] {
   const rules = facilityHolidayRules(db, facilityId)
@@ -31,7 +39,7 @@ export function listClosures(db: Db, facilityId: number): ClosureListItemDto[] {
   return loadClosures(db, facilityId).map(closure => ({
     ...closure,
     leaveDays: closure.mode === 'vacation'
-      ? countLeaveDays(dateRange(closure.startDate, closure.endDate).filter(date => countsAsLeaveDay(date, rules)), christmasEveHalfLeave)
+      ? fiveDayWeekLeaveDays(dateRange(closure.startDate, closure.endDate), rules, christmasEveHalfLeave)
       : null,
   }))
 }

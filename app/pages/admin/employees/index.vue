@@ -97,6 +97,21 @@ const statutoryLeaveHint = computed(() => {
   return de.employees.statutoryLeave(formatNumber(leave.perYear), year, leave.inYear === leave.perYear ? null : formatNumber(leave.inYear))
 })
 
+/**
+ * The typed values for „Schließzeiten als Urlaub“ (null until working days and „gültig ab“ are valid). A number field
+ * left empty or out of range counts as not entered; the weekly hours only go along when valid (they change nothing).
+ */
+const closurePreviewInput = computed(() => {
+  if (form.workdays === 0 || !isValidIsoDate(form.validFrom)) return null
+  const inRange = (value: unknown, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max
+  return {
+    weeklyMinutes: inRange(form.weeklyHours, 80) ? hoursToMinutes(form.weeklyHours) : undefined,
+    workdays: form.workdays, validFrom: form.validFrom,
+    vacationDays: inRange(form.vacationDays, 100) ? form.vacationDays : null,
+    carriedOverDays: inRange(form.carriedOverDays, 100) ? form.carriedOverDays : null,
+  }
+})
+
 /** "12:30" → 750, "-3:00" → -180, empty → null, invalid → undefined. */
 function signedDuration(text: string): number | null | undefined {
   const trimmed = text.trim().replace('−', '-')
@@ -423,6 +438,7 @@ const td = 'px-3 py-2'
               </UFormField>
             </div>
             <p v-if="statutoryLeaveHint" class="text-sm text-gray-700">{{ statutoryLeaveHint }}</p>
+            <EmployeesClosurePreview :name="form.name" :input="closurePreviewInput" />
             <p :class="hint">{{ de.employees.carryOverHint }}</p>
           </fieldset>
 

@@ -344,7 +344,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(364)
+    expect(routes).toHaveLength(366)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 
@@ -373,6 +373,10 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     // „Schließzeiten nachtragen“ and „Stundenkonto ab“ need the right of the weekly hours (time.manage), as those do.
     for (const route of ['employees/[id]/book-closures.post.ts', 'employees/[id]/balance-from.put.ts']) {
       expect(fixture[route], route).toEqual(fixture['employees/[id]/hours.post.ts'])
+    }
+    // The closure leave preview (create form, employee page) needs the right of creating employees.
+    for (const route of ['employees/closure-preview.post.ts', 'employees/[id]/closure-preview.get.ts']) {
+      expect(fixture[route], route).toEqual(fixture['employees/index.post.ts'])
     }
     // The one approved change of Teil 2: the Leitung reopens closed cash months.
     expect(fixture['cash/boxes/[id]/reopen.post.ts']).toEqual(['provider', 'admin'])
