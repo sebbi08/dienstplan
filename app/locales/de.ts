@@ -2223,7 +2223,7 @@ export const de = {
     acceptedLine: (date: string) => `Angenommen am ${date}`,
     withdraw: 'Zustimmung widerrufen', withdrawDate: 'Widerrufen am',
     clearNotes: 'Gesprächsnotizen löschen',
-    clearNotesConfirm: 'Beteiligte und Texte aller Gespräche, Maßnahmen und Notizen dieses BEM löschen? Daten, Art und Stand bleiben als Nachweis. Das lässt sich nicht rückgängig machen.',
+    clearNotesConfirm: 'Beteiligte und Texte aller Gespräche, Maßnahmen und Notizen dieses BEM löschen? Datum, Art und Stand der Einträge bleiben als Nachweis. Das lässt sich nicht rückgängig machen.',
     clearedNotes: 'Gesprächsnotizen gelöscht.',
     clearNotesHint: 'Die Zustimmung wurde widerrufen bzw. das BEM abgelehnt: Die Inhalte der Gespräche, Maßnahmen und Notizen können jetzt gelöscht werden.',
     withdrawConfirm: 'Hat die Person ihre Zustimmung widerrufen? Das BEM endet damit (als „abgelehnt“).',
