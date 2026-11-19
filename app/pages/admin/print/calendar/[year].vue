@@ -75,7 +75,7 @@ const fileName = computed(() => {
             <!-- Every page says what it shows; the legend explains the colours on each sheet. -->
             <div class="mb-1 flex flex-wrap items-baseline gap-x-4 gap-y-1" data-print-head>
               <h2 class="text-lg font-semibold">{{ pageTitle(section.label, months) }}</h2>
-              <CalendarLegend />
+              <CalendarLegend :days="calendar?.days" />
             </div>
             <div v-for="month in months" :key="month" class="mb-3 min-w-[1000px] break-inside-avoid print:mb-1">
               <CalendarMonth :calendar="section.calendar" :month="month" :row-height="section.rowHeight" />

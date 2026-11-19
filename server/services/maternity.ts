@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, like } from 'drizzle-orm'
 import { addDays, dateRange, daysBetween, daysInMonth, toIsoDate } from '../../shared/domain/dates'
 import {
-  banDates, EMPLOYMENT_BAN_CODE, isUnder18On, MATERNITY_CODE, MATERNITY_NOTE_MAX, maternityDayWarnings, maternityDoubleWeekWarnings,
+  banDates, EMPLOYMENT_BAN_CODE, isUnder18On, MATERNITY_CODE, MISCARRIAGE_MAX_WEEK, MATERNITY_NOTE_MAX, maternityDayWarnings, maternityDoubleWeekWarnings,
   maternityLastDay, maternityMonthWarning, maternityOpenOn, maternityPhaseOn, protectedAfterDates, protectionDates,
   type BanFacts, type MaternityFacts, type MaternityWarning, type PeriodFacts,
 } from '../../shared/domain/maternity'
@@ -118,7 +118,8 @@ export function getEmployeeMaternity(
  * The fields to store, checked: the notice, the actual birth, the miscarriage and the dates of the authority notice and
  * the risk assessment not after today (400 maternity_date_future); the actual birth at most 26 weeks before and 9 weeks
  * after the expected one (400 maternity_birth_invalid, a typo in the year); a miscarriage with its week of pregnancy
- * (1–45) and without a birth (400 maternity_miscarriage_invalid); the breastfeeding time not ending before the birth
+ * (1–23: from the 24th week a stillbirth counts as a birth, § 3 Abs. 2) and without a birth (400
+ * maternity_miscarriage_invalid); the breastfeeding time not ending before the birth
  * (400 maternity_breastfeeding_invalid); a ban (partial or full) from a day, its end not before it, no days without a ban
  * (400 maternity_ban_invalid); the end not before the notice (400 maternity_ended_invalid); the note at most 2000
  * characters (400 maternity_note_too_long).
@@ -133,7 +134,7 @@ function checkedInput(input: MaternityCaseInput, today: IsoDate) {
     if (offset < -182 || offset > 63) throw new ServiceError(400, 'maternity_birth_invalid')
   }
   const week = miscarriageOn === null ? null : input.miscarriageWeek ?? null
-  if (miscarriageOn !== null && (input.actualBirth !== null || week === null || !Number.isInteger(week) || week < 1 || week > 45)) {
+  if (miscarriageOn !== null && (input.actualBirth !== null || week === null || !Number.isInteger(week) || week < 1 || week > MISCARRIAGE_MAX_WEEK)) {
     throw new ServiceError(400, 'maternity_miscarriage_invalid')
   }
   const birth = input.actualBirth ?? input.expectedBirth
@@ -355,13 +356,16 @@ export function updateMaternityCase(
 
 /**
  * Deletes a case (entered by mistake); with `removeEntries` (needs plan.edit, 403 forbidden) also the days it booked in
- * the plan (only its codes). Its acknowledged plan hints go with it. Answers the days removed.
+ * the plan (only its codes). A case that booked the plan can only be deleted with plan.edit (403
+ * maternity_delete_booked): otherwise its days would stay without anybody being told. Its acknowledged plan hints go
+ * with it. Answers the days removed.
  */
 export function deleteMaternityCase(
   db: Db, actor: SessionUser, scope: MaternityScope, id: number, removeEntries: boolean, now: Date = new Date(),
 ): { removed: number } {
   const row = loadCase(db, scope, id)
   if (removeEntries) requirePlanEdit(actor)
+  if ((row.protectionBooked || row.banBooked) && !can(actor.permissions, 'plan.edit')) throw new ServiceError(403, 'maternity_delete_booked')
   const sync = readSync(row)
   return db.transaction((tx) => {
     let removed = 0

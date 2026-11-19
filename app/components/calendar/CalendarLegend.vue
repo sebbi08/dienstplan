@@ -1,10 +1,17 @@
 <script setup lang="ts">
+import type { CalendarKind, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { legendShowsKind, presentKinds } from '~/utils/calendarKinds'
 import { REQUEST_CLASSES } from '~/utils/calendarRequests'
 
 /** `planning`: the leave planning calendar (open wishes and a count row instead of appointments). */
 /** `requests`: the year calendar shows open requests („beantragt“) and the days above the limit. */
-const props = defineProps<{ planning?: boolean; requests?: boolean }>()
+/**
+ * `days`: the calendar's days. „Mutterschutz / Beschäftigungsverbot“ and „abwesend“ are listed only when such a day
+ * occurs (calendarKinds.ts), so a viewer without the right never sees the first line.
+ */
+const props = defineProps<{ planning?: boolean; requests?: boolean; days?: YearCalendarDto['days'] | null }>()
+const present = computed(() => presentKinds(props.days))
 
 const COMMON = [
   { class: 'bg-red-500', label: de.calendar.kinds.sick },
@@ -12,12 +19,13 @@ const COMMON = [
   { class: 'bg-teal-500', label: de.calendar.kinds.overtime_off },
   { class: 'bg-lime-300', label: de.calendar.kinds.special_leave },
   { class: 'bg-sky-500', label: de.calendar.kinds.training },
-  { class: 'bg-pink-400', label: de.calendar.kinds.maternity },
-  { class: 'bg-stone-400', label: de.calendar.kinds.absent },
+  { class: 'bg-pink-400', label: de.calendar.kinds.maternity, kind: 'maternity' as CalendarKind },
+  { class: 'bg-stone-400', label: de.calendar.kinds.absent, kind: 'absent' as CalendarKind },
   { class: 'bg-gray-400', label: de.calendar.kinds.closed },
   { class: 'bg-gray-100 ring-1 ring-gray-300', label: de.calendar.weekend },
 ]
-const items = computed(() => props.planning
+const shown = (item: { kind?: CalendarKind }) => item.kind === undefined || legendShowsKind(item.kind, present.value)
+const items = computed(() => (props.planning
   ? [
       COMMON[1]!,
       { class: 'bg-[repeating-linear-gradient(45deg,var(--color-green-200)_0_3px,var(--color-green-400)_3px_6px)]', label: de.calendar.kinds.requested },
@@ -34,7 +42,7 @@ const items = computed(() => props.planning
           ]
         : []),
       { class: 'bg-yellow-300', label: de.calendar.events },
-    ])
+    ]).filter(shown))
 </script>
 
 <template>

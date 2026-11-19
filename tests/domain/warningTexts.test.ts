@@ -50,7 +50,7 @@ describe('Mutterschutz texts (§§ 4–6 MuSchG)', () => {
       .toBe('Anna: Beschäftigungsverbot nach der Entbindung (§ 3 MuSchG)')
     expect(warningText({ ...base, phase: 'after', rule: 'protected', value: 360, limit: 0, miscarriage: true }, names))
       .toBe('Anna: Schutzfrist nach der Fehlgeburt (§ 3 Abs. 5 MuSchG)')
-    expect(warningText({ ...base, rule: 'ban', value: 360, limit: 0 }, names)).toBe('Anna: Dienst trotz Beschäftigungsverbot (§ 16 MuSchG)')
+    expect(warningText({ ...base, rule: 'ban', value: 360, limit: 0 }, names)).toBe('Anna: Dienst trotz Beschäftigungsverbot (§§ 13, 16 MuSchG)')
   })
 
   it('tells plan editors without the right neither rule nor reason, and marks the cell', () => {

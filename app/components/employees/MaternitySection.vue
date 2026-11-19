@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX, protectionPeriods, type EmploymentBanKind } from '#shared/domain/maternity'
+import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX, MISCARRIAGE_MAX_WEEK, protectionPeriods, type EmploymentBanKind } from '#shared/domain/maternity'
 import type {
   EmployeeMaternityDto, MaternityBookingDto, MaternityCaseDto, MaternityCaseInput, MaternitySaveDto,
 } from '#shared/types/api'
@@ -250,9 +250,10 @@ const banKindLabel = (kind: EmploymentBanKind) => t.banKinds[kind]
                 <DateTextInput v-model="form.miscarriageOn" :label="t.miscarriageOn" :max="today" required class="w-44" />
               </UFormField>
               <UFormField :label="t.miscarriageWeek" required>
-                <UInput v-model="form.miscarriageWeek" type="number" min="1" max="45" step="1" required class="w-32" />
+                <UInput v-model="form.miscarriageWeek" type="number" min="1" :max="MISCARRIAGE_MAX_WEEK" step="1" required class="w-32" />
               </UFormField>
             </div>
+            <p class="text-xs text-gray-500">{{ t.stillbirthHint }}</p>
             <UCheckbox v-model="form.miscarriageWaived" :label="t.miscarriageWaived" />
           </template>
           <template v-else>

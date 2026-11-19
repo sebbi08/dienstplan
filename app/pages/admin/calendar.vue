@@ -155,7 +155,7 @@ async function removeEvent(event: CalendarEventDto) {
       <NuxtLink v-if="calendar.requests.canPlan" :to="planningLink" class="text-sm text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
       <span v-if="showRequests" class="text-xs text-gray-500">{{ de.calendar.requestsHint }}</span>
     </div>
-    <CalendarLegend :requests="!!shownRequests" />
+    <CalendarLegend :requests="!!shownRequests" :days="calendar?.days" />
     <CalendarGroupLegend v-if="calendar" :groups="calendar.groups" />
 
     <div v-if="calendar" class="space-y-3 overflow-x-auto">

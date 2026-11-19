@@ -1655,7 +1655,9 @@ Mitarbeiter kommen nicht heran.
   nicht genommenen Tage der Frist vor der Entbindung hinten angehängt (§ 3 Abs. 2 Satz 3) – das Ende bleibt dann gleich.
   Die App zeigt beide Fristen beim Eintrag an.
 - **Fehlgeburt (§ 3 Abs. 5, seit 1. Juni 2025):** ab der 13. Schwangerschaftswoche 2 Wochen, ab der 17. Woche 6 Wochen,
-  ab der 20. Woche 8 Wochen Schutzfrist ab dem Tag der Fehlgeburt (vor der 13. Woche keine). Die Mitarbeiterin darf
+  ab der 20. Woche 8 Wochen Schutzfrist ab dem Tag der Fehlgeburt (vor der 13. Woche keine). Ab der 24. Woche gilt eine
+  Totgeburt als Entbindung: dann den Tag der Entbindung eintragen (volle Schutzfrist nach der Entbindung); als Fehlgeburt
+  nimmt die App höchstens die 23. Woche an. Die Mitarbeiterin darf
   ausdrücklich erklären, dass sie arbeiten möchte: dann „verzichtet“ ankreuzen – es gibt keine Schutzfrist, eingetragene
   Tage werden entfernt. Mit der Fehlgeburt endet die Schwangerschaft: Hinweise gelten bis zum Tag davor bzw. bis zum Ende
   dieser Frist.
@@ -1696,7 +1698,8 @@ Mitarbeiter kommen nicht heran.
   darf, bekommt die Erinnerung „Dienstplan muss noch angepasst werden: Mutterschutz von ‹Name›“. „Schutzfristen
   eintragen“ holt das nach – auch das Entfernen von Tagen, die nicht mehr in den Fristen liegen.
 - **Löschen eines Eintrags:** Die App fragt, ob auch die eingetragenen Tage aus dem Dienstplan entfernt werden sollen
-  (nur mit „Dienstplan bearbeiten“; nur die Codes Mutterschutz und Beschäftigungsverbot). Die „zur Kenntnis genommenen“
+  (nur die Codes Mutterschutz und Beschäftigungsverbot). Einen Eintrag, der Tage eingetragen hat, kann nur löschen, wer
+  „Dienstplan bearbeiten“ darf – sonst blieben die Tage ohne Hinweis stehen. Die „zur Kenntnis genommenen“
   Hinweise des Eintrags gehen mit.
 - **Vor der Entbindung** darf die Mitarbeiterin auf eigenen Wunsch arbeiten: Dann den Tag im Dienstplan einfach ändern
   (keine Warnung). Beim Nachtragen bleibt ein solcher Dienst stehen, solange der Tag vor der Entbindung liegt.
@@ -1712,7 +1715,7 @@ Mitarbeiter kommen nicht heran.
     MuSchG)“ (nach einer Fehlgeburt „Schutzfrist nach der Fehlgeburt (§ 3 Abs. 5 MuSchG)“) – an diesen Tagen statt der
     Stundenhinweise, denn es gilt keine Höchstgrenze, sondern ein Verbot;
   - **jede Arbeit an einem Tag eines vollständigen Beschäftigungsverbots:** „‹Name›: Dienst trotz Beschäftigungsverbot
-    (§ 16 MuSchG)“;
+    (§§ 13, 16 MuSchG)“;
   - mehr als 8:30 Std. an einem Tag, unter 18 Jahren (aus Geburtstag und Geburtsjahr) mehr als 8 Std.:
     „‹Name›: 9:00 Std. – in der Schwangerschaft höchstens 8,5 Std. (§ 4 MuSchG)“ (in der Stillzeit „in der Stillzeit“),
   - mehr als 90 Std. in einer Doppelwoche (unter 18: 80 Std.): „‹Name›: ‹h:mm› Std. in der Doppelwoche – höchstens

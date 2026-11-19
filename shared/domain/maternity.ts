@@ -92,6 +92,9 @@ export interface ProtectionPeriods {
   miscarriage: boolean
 }
 
+/** A miscarriage up to the 23rd week; from the 24th week a stillbirth counts as a birth (Entbindung, § 3 Abs. 2). */
+export const MISCARRIAGE_MAX_WEEK = 23
+
 /** § 3 Abs. 5 MuSchG: days of protection after a miscarriage in this week of pregnancy (from the 13th: 2, 17th: 6, 20th: 8 weeks). */
 export function miscarriageProtectionDays(week: number | null): number {
   if (week === null) return 0

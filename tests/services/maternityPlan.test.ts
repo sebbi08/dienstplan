@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { entries, maternityCases, warningAcks } from '../../server/db/schema'
 import { getYearCalendar } from '../../server/services/calendar'
+import { createClosure } from '../../server/services/closures'
 import { applyToCells, deleteEntry } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import {
@@ -282,5 +283,37 @@ describe('a change saved without plan.edit (L3)', () => {
     expect(daysWith('maternity')).toEqual(workdays('2026-09-28', '2027-01-04'))
     expect(getEmployeeMaternity(db, leitung, scope, anna).cases[0]!.planOutdated).toBe(false)
     expect(maternityReminders(db, viewer(leitung), TODAY).map(item => item.maternity!.task)).not.toContain('planSync')
+  })
+})
+
+describe('re-review fixes (round 2)', () => {
+  it('a closure leaves the protected days as they are, for the Leitung and for a closure manager without the right (R2)', () => {
+    bookMaternity(db, leitung, scope, create(), 'protection', false)
+    const booked = daysWith('maternity')
+    // Summer closure as leave over part of the period: no leave is used there, Mutterschutz stays.
+    createClosure(db, leitung, 1, { startDate: '2026-10-19', endDate: '2026-10-30', label: 'Herbst', mode: 'vacation' })
+    expect(daysWith('maternity')).toEqual(booked)
+    expect(daysWith('vacation')).toEqual([])
+    expect(daysWith('vacation', ben)).toEqual(workdays('2026-10-19', '2026-10-30'))
+    // Without employees.sickness: no 403, nothing told, the days skipped.
+    const manager = without(leitung, 'employees.sickness')
+    expect(errorCode(() => createClosure(db, manager, 1, { startDate: '2026-11-02', endDate: '2026-11-06', label: 'Brücke', mode: 'closure_day' })))
+      .toBeNull()
+    expect(daysWith('closure_day')).toEqual([])
+    expect(daysWith('maternity')).toEqual(booked)
+  })
+
+  it('takes a miscarriage only up to the 23rd week: from the 24th a stillbirth is a birth (R3)', () => {
+    expect(errorCode(() => create({ notifiedOn: '2026-05-04', miscarriageOn: '2026-11-10', miscarriageWeek: 24 }))).toBe('maternity_miscarriage_invalid')
+    expect(errorCode(() => create({ notifiedOn: '2026-05-04', miscarriageOn: '2026-11-10', miscarriageWeek: 23 }))).toBeNull()
+  })
+
+  it('refuses deleting a case that booked the plan without plan.edit (R5)', () => {
+    const id = create()
+    bookMaternity(db, leitung, scope, id, 'protection', false)
+    expect(errorCode(() => deleteMaternityCase(db, without(leitung, 'plan.edit'), scope, id, false))).toBe('maternity_delete_booked')
+    // Not booked: deleting needs only the right to the case.
+    const other = create({ notifiedOn: '2025-01-10', expectedBirth: '2025-07-01' })
+    expect(deleteMaternityCase(db, without(leitung, 'plan.edit'), scope, other, false)).toEqual({ removed: 0 })
   })
 })

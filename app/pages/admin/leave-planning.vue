@@ -125,7 +125,7 @@ const entryName = computed(() => entryEmployees.value.find(employee => employee.
 
       <LeaveForfeitList :year="year" />
 
-      <CalendarLegend planning />
+      <CalendarLegend planning :days="planning.calendar.days" />
       <CalendarGroupLegend :groups="planning.calendar.groups" />
       <div class="space-y-3 overflow-x-auto">
         <div v-for="month in 12" :key="month" class="min-w-[900px] rounded-lg bg-white">

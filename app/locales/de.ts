@@ -471,7 +471,7 @@ export const de = {
       /** Any work in the protection period after the birth (or a miscarriage): no hours limit, a ban. */
       protected: (name: string) => `${name}: Beschäftigungsverbot nach der Entbindung (§ 3 MuSchG)`,
       protectedMiscarriage: (name: string) => `${name}: Schutzfrist nach der Fehlgeburt (§ 3 Abs. 5 MuSchG)`,
-      ban: (name: string) => `${name}: Dienst trotz Beschäftigungsverbot (§ 16 MuSchG)`,
+      ban: (name: string) => `${name}: Dienst trotz Beschäftigungsverbot (§§ 13, 16 MuSchG)`,
     },
     /** The same for plan editors who may not see the case: neither the rule nor the reason. */
     workLimit: (name: string) => `${name}: Arbeitszeitgrenze überschritten`,
@@ -2510,6 +2510,7 @@ export const de = {
     miscarriageOn: 'Tag der Fehlgeburt',
     miscarriageWeek: 'Schwangerschaftswoche',
     miscarriageHint: 'Ab der 13. Woche 2 Wochen Schutzfrist, ab der 17. Woche 6 Wochen, ab der 20. Woche 8 Wochen – ab dem Tag der Fehlgeburt. Die Mitarbeiterin darf ausdrücklich erklären, dass sie arbeiten möchte.',
+    stillbirthHint: 'Ab der 24. Woche gilt eine Totgeburt als Entbindung – bitte das Geburtsdatum eintragen.',
     miscarriageWaived: 'Mitarbeiterin verzichtet auf die Schutzfrist (möchte arbeiten)',
     miscarriageLine: (date: string, week: number) => `Fehlgeburt am ${date} (${week}. Woche)`,
     miscarriagePeriod: (from: string, to: string, weeks: number) => `Schutzfrist nach der Fehlgeburt: ${from} – ${to} (${weeks} Wochen)`,
@@ -2999,7 +3000,8 @@ export const de = {
     maternity_ban_invalid: 'Bitte für das Beschäftigungsverbot „Verbot von“ angeben; „Verbot bis“ darf nicht davor liegen.',
     maternity_ended_invalid: '„Beendet am“ darf nicht vor der Bekanntgabe liegen.',
     maternity_note_too_long: 'Die Notiz ist zu lang (höchstens 2000 Zeichen).',
-    maternity_miscarriage_invalid: 'Bei einer Fehlgeburt bitte die Schwangerschaftswoche (1 bis 45) angeben; einen Tag der Entbindung gibt es dann nicht.',
+    maternity_miscarriage_invalid: 'Bei einer Fehlgeburt bitte die Schwangerschaftswoche (1 bis 23) angeben; einen Tag der Entbindung gibt es dann nicht. Ab der 24. Woche gilt eine Totgeburt als Entbindung – bitte das Geburtsdatum eintragen.',
+    maternity_delete_booked: 'Dieser Eintrag hat Tage im Dienstplan eingetragen. Löschen kann ihn nur, wer „Dienstplan bearbeiten“ darf – damit die Tage nicht ohne Hinweis stehen bleiben.',
     protected_cell: 'Diesen Tag kann nur ändern, wer die Krankheitstage sehen darf (Leitung oder Träger).',
     maternity_ban_period: 'Eintragen geht nur bei einem vollständigen Beschäftigungsverbot mit Zeitraum (ohne „Verbot bis“: in der Schwangerschaft bis zur Schutzfrist, nach der Entbindung bis „Stillzeit bis“).',
   },
