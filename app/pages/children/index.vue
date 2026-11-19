@@ -76,6 +76,11 @@ function selectTab(next: ChildrenTab) {
   memory = { tab: next, last: { ...memory.last, [areaOfTab(next, viewer.value)]: next } }
   writeChildrenTabMemory(memory)
 }
+// A link on this page to another sub-tab (`?tab=ifsg` from the reminders) opens it without a reload.
+watch(() => route.query.tab, () => {
+  const requested = fromAddress()
+  if (requested) selectTab(requested)
+})
 function selectArea(next: ChildrenArea) {
   const target = tabForArea(next, viewer.value, memory.last)
   if (target) selectTab(target)
@@ -89,7 +94,7 @@ watch(viewer, (current) => {
 const TAB_LABELS: Record<ChildrenTab, string> = {
   attendance: de.attendance.tab, week: de.groupBook.tab, list: de.children.tabs.list, overview: de.children.tabs.overview,
   planned: de.children.tabs.planned, birthdays: de.children.tabs.birthdays, documents: de.children.tabs.documents,
-  open: de.groupChange.openTab, occupancy: de.occupancy.tab, staffing: de.staffing.tab, archive: de.children.tabs.archive,
+  open: de.groupChange.openTab, occupancy: de.occupancy.tab, staffing: de.staffing.tab, ifsg: de.ifsg.tab, archive: de.children.tabs.archive,
 }
 const AREA_ICONS: Record<ChildrenArea, string> = { today: 'i-lucide-sun', children: 'i-lucide-users', planning: 'i-lucide-calendar-range' }
 
@@ -156,7 +161,7 @@ const td = 'px-3 py-2'
 </script>
 
 <template>
-  <div class="space-y-3" :class="tab === 'occupancy' || tab === 'staffing' || tab === 'attendance' || tab === 'overview' ? 'max-w-7xl' : 'max-w-5xl'">
+  <div class="space-y-3" :class="tab === 'occupancy' || tab === 'staffing' || tab === 'attendance' || tab === 'overview' || tab === 'ifsg' ? 'max-w-7xl' : 'max-w-5xl'">
     <div class="flex items-center gap-3">
       <h1 class="text-xl font-semibold">{{ de.children.title }}</h1>
       <!-- The planned tab has its own buttons for creating. -->
@@ -305,6 +310,7 @@ const td = 'px-3 py-2'
           <ChildrenOpenTab v-else-if="tab === 'open'" />
           <ChildrenOccupancyTab v-else-if="tab === 'occupancy' && shown('occupancy')" />
           <ChildrenStaffingTab v-else-if="tab === 'staffing' && shown('staffing')" />
+          <ChildrenIfsgTab v-else-if="tab === 'ifsg' && shown('ifsg')" />
           <ChildrenArchiveTab v-else-if="tab === 'archive' && shown('archive')" />
         </div>
       </div>

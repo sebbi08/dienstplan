@@ -1,6 +1,6 @@
 /**
  * The areas of the children page and their sub-tabs: „Heute“ (attendance, weekly overview), „Kinder“ (list, overview,
- * birthdays, documents, open confirmations) and „Planung“ (planned children, occupancy, Personalschlüssel, archive).
+ * birthdays, documents, open confirmations) and „Planung“ (planned children, occupancy, Personalschlüssel, § 34 IfSG, archive).
  * Without manager rights the planned children are the last sub-tab of „Kinder“ instead (shown only as the tablet's
  * switches allow), and „Planung“ is never there. Each sub-tab keeps its own visibility; an area without a visible
  * sub-tab is not shown. The page opens with Heute → Anwesenheit unless the device remembers another visible sub-tab or
@@ -8,7 +8,7 @@
  */
 
 export const CHILDREN_TABS = [
-  'attendance', 'week', 'list', 'overview', 'planned', 'birthdays', 'documents', 'open', 'occupancy', 'staffing', 'archive',
+  'attendance', 'week', 'list', 'overview', 'planned', 'birthdays', 'documents', 'open', 'occupancy', 'staffing', 'ifsg', 'archive',
 ] as const
 export type ChildrenTab = typeof CHILDREN_TABS[number]
 
@@ -19,7 +19,7 @@ export type ChildrenArea = typeof CHILDREN_AREAS[number]
 export const AREA_TABS: Record<ChildrenArea, readonly ChildrenTab[]> = {
   today: ['attendance', 'week'],
   children: ['list', 'overview', 'birthdays', 'documents', 'open'],
-  planning: ['planned', 'occupancy', 'staffing', 'archive'],
+  planning: ['planned', 'occupancy', 'staffing', 'ifsg', 'archive'],
 }
 
 /** For everybody else the planned children follow „Offen“ in „Kinder“; „Planung“ keeps only manager tabs. */
@@ -46,7 +46,7 @@ export function areaTabs(area: ChildrenArea, viewer: Pick<ChildrenViewer, 'isMan
 }
 
 /**
- * Whether a sub-tab is shown. Occupancy and archive are for Leitung and Träger only (also at the tablet), the
+ * Whether a sub-tab is shown. Occupancy, § 34 IfSG and archive are for Leitung and Träger only (also at the tablet), the
  * Personalschlüssel never at the tablet (its route is for the signed-in managers); the planned children need one of the
  * tablet's switches (always on for the managers). The server checks every request as well.
  */
@@ -54,7 +54,8 @@ export function childrenTabVisible(tab: ChildrenTab, viewer: ChildrenViewer): bo
   switch (tab) {
     case 'planned': return viewer.showPlanned
     case 'occupancy':
-    case 'archive': return viewer.isManager
+    case 'archive':
+    case 'ifsg': return viewer.isManager
     case 'staffing': return viewer.isManager && !viewer.onTablet
     default: return true
   }

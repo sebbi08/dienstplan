@@ -16,6 +16,9 @@ describe('PDF_PATH (print views that may be rendered as PDF)', () => {
     '/admin/print/accidents/2026?filter=child',
     '/admin/print/accidents/2026?filter=employee',
     '/print/accidents/12',
+    '/print/children/ifsg/2026',
+    '/print/children/ifsg/2026?filter=open',
+    '/print/children/ifsg-notice/12',
   ])('accepts %s', (path) => {
     expect(PDF_PATH.test(path)).toBe(true)
   })

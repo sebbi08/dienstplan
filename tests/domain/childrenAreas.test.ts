@@ -30,18 +30,18 @@ describe('visibleChildrenAreas', () => {
     expect(areas(leaderAtTablet)).toEqual([
       ['today', ['attendance', 'week']],
       ['children', ['list', 'overview', 'birthdays', 'documents', 'open']],
-      ['planning', ['planned', 'occupancy', 'archive']],
+      ['planning', ['planned', 'occupancy', 'ifsg', 'archive']],
     ])
   })
 
   it('shows the Träger in the office every sub-tab', () => {
     expect(visibleChildrenAreas(providerInOffice).flatMap(entry => entry.tabs)).toEqual([
-      'attendance', 'week', 'list', 'overview', 'birthdays', 'documents', 'open', 'planned', 'occupancy', 'staffing', 'archive',
+      'attendance', 'week', 'list', 'overview', 'birthdays', 'documents', 'open', 'planned', 'occupancy', 'staffing', 'ifsg', 'archive',
     ])
   })
 
   it('keeps the planned children behind the switches for a manager as well', () => {
-    expect(areas({ ...leaderAtTablet, showPlanned: false })).toContainEqual(['planning', ['occupancy', 'archive']])
+    expect(areas({ ...leaderAtTablet, showPlanned: false })).toContainEqual(['planning', ['occupancy', 'ifsg', 'archive']])
   })
 
   it('hides an area without a visible sub-tab', () => {
@@ -95,6 +95,7 @@ describe('old tab keys and the default', () => {
 
   it('ignores unknown keys and sub-tabs the viewer may not see', () => {
     expect(requestedChildrenTab('archive', staffAtTablet)).toBeNull()
+    expect(requestedChildrenTab('ifsg', staffAtTablet)).toBeNull()
     expect(requestedChildrenTab('staffing', leaderAtTablet)).toBeNull()
     expect(requestedChildrenTab('planning', staffAtTablet)).toBeNull()
     expect(requestedChildrenTab('nothing', providerInOffice)).toBeNull()

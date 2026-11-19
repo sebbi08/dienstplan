@@ -34,7 +34,8 @@ const OPEN = [
 const CHILDREN = [
   '/children', '/children/1', '/children/new', '/print/children/accidents/1', '/print/children/attendance-month/2026/10',
   '/print/children/attendance/2026-10-28', '/print/children/birthdays', '/print/children/documents',
-  '/print/children/forms/1', '/print/children/occupancy/2026', '/print/children/overview/1', '/print/children/planned',
+  '/print/children/forms/1', '/print/children/ifsg-notice/1', '/print/children/ifsg/2026', '/print/children/occupancy/2026',
+  '/print/children/overview/1', '/print/children/planned',
   '/print/children/staffing/2026/10', '/print/children/week/1/1',
 ]
 /** The office pages: Leitung and Träger only. */
