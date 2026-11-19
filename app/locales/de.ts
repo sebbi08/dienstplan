@@ -600,6 +600,7 @@ export const de = {
     carriedOver: 'Übertrag', saveEntitlement: 'Anspruch speichern',
     entitlementsHint: 'Der Anspruch gilt auch für die folgenden Jahre, bis du für ein Jahr einen anderen speicherst. Der Resturlaub wird jedes Jahr automatisch übertragen, ein Minus ebenso. Den Übertrag trägst du nur für das erste Jahr selbst ein.',
     carriedAutomatically: '(Rest aus dem Vorjahr)',
+    deleteEntitlementConfirm: (year: number, name: string) => `Urlaubsanspruch ${year} von ${name} löschen? Danach gilt für ${year} automatisch der Anspruch des letzten Jahres davor. Gibt es keinen früheren Eintrag, hat ${name} ab ${year} keinen Urlaubsanspruch mehr in der App. Bereits eingetragene Urlaubstage bleiben im Dienstplan stehen.`,
     // Gesetzlicher Mindesturlaub (BUrlG), only a hint; the numbers come formatted („8,33“).
     statutoryLeave: (perYear: string, year: number, inYear: string | null) => `Gesetzlicher Mindesturlaub: ${perYear} ${perYear === '1' ? 'Tag' : 'Tage'} pro Jahr`
       + (inYear === null ? '' : ` (${year}: ${inYear} ${inYear === '1' ? 'Tag' : 'Tage'})`),
@@ -1884,7 +1885,6 @@ export const de = {
       // The case's stored rule that today's rules no longer offer (e.g. after a preset of the health office).
       storedRule: (rule: string, days: number) => `${rule} + ${days} ${days === 1 ? 'Tag' : 'Tage'} (bisherige Regel)`,
     },
-    },
     overview: {
       intro: 'Alle Fälle des Jahres: Wann wurde das Gesundheitsamt benachrichtigt, wann wurde das Kind wieder zugelassen? Den Fall erfasst die Gruppe in der Anwesenheit.',
       filter: { all: 'Alle', open: 'Offene' }, count: (count: number) => (count === 1 ? '1 Fall' : `${count} Fälle`),
@@ -2451,6 +2451,7 @@ export const de = {
     event_not_found: 'Dieser Termin existiert nicht mehr.',
     hours_not_found: 'Dieser Eintrag existiert nicht mehr.',
     adjustment_not_found: 'Dieser Ausgleich existiert nicht mehr.',
+    entitlement_not_found: 'Dieser Urlaubsanspruch existiert nicht mehr.',
     last_hours: 'Der letzte Wochenstunden-Eintrag kann nicht gelöscht werden.',
     balance_from_invalid: 'Bitte bei „Stundenkonto ab“ ein gültiges Datum eingeben.',
     balance_from_out_of_range: '„Stundenkonto ab“ muss zwischen dem 01.01.1970 und einem Jahr ab heute liegen.',
@@ -2598,6 +2599,9 @@ export const de = {
     emergency_contact_not_found: 'Dieser Notfallkontakt existiert nicht mehr.',
     emergency_contact_name_required: 'Bitte einen Namen für den Notfallkontakt angeben.',
     emergency_contact_phone_required: 'Bitte eine Telefonnummer für den Notfallkontakt angeben.',
+    emergency_consent_date_invalid: 'Bitte das Datum der schriftlichen Zustimmung angeben. Es darf nicht in der Zukunft liegen.',
+    emergency_consent_self_only: 'Die Person hat selbst zugestimmt. Nur sie kann die Zustimmung wieder ausschalten.',
+    emergency_consent_withdrawn_by_self: 'Die Person hat die Zustimmung selbst zurückgenommen. Eine neue schriftliche Zustimmung gilt nur mit einem späteren Datum als dem Widerruf.',
     care_type_not_found: 'Diese Betreuungsform existiert nicht mehr.',
     key_educator_not_found: 'Diese Person gehört nicht (mehr) zu den Mitarbeitern dieser Einrichtung.',
     care_type_name_required: 'Bitte einen Namen für die Betreuungsform angeben.',
@@ -2700,9 +2704,6 @@ export const de = {
     team_meeting_not_found: 'Diese Teamsitzung gibt es nicht (mehr).',
     team_meeting_released: 'Die Teamsitzung wurde inzwischen freigegeben. Deine letzten Änderungen wurden nicht gespeichert.',
     team_meeting_state_invalid: 'Die Teamsitzung wurde inzwischen geändert. Bitte lade die Seite neu.',
-    emergency_consent_date_invalid: 'Bitte das Datum der schriftlichen Zustimmung angeben. Es darf nicht in der Zukunft liegen.',
-    emergency_consent_self_only: 'Die Person hat selbst zugestimmt. Nur sie kann die Zustimmung wieder ausschalten.',
-    emergency_consent_withdrawn_by_self: 'Die Person hat die Zustimmung selbst zurückgenommen. Eine neue schriftliche Zustimmung gilt nur mit einem späteren Datum als dem Widerruf.',
     team_meeting_date_invalid: 'Bitte gib ein gültiges Datum an.',
     team_meeting_start_invalid: 'Bitte gib eine gültige Uhrzeit an.',
     team_meeting_participants_too_long: 'Die Teilnehmer dürfen höchstens 300 Zeichen lang sein.',
