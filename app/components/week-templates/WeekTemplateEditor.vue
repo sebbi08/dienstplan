@@ -3,15 +3,16 @@ import { cellFillColor } from '#shared/domain/cells'
 import { formatDuration } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type {
-  CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateEntryDto,
-  WeekTemplateStaffDto,
+  CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateDto,
+  WeekTemplateEntryDto, WeekTemplateStaffDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import { gridStep, quickEntryHandlers, rovingStop, touchTapAsToggle } from '~/utils/quickEntry'
 import {
-  clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateCoverage,
-  templateDayKind, templateEntryInputs, templateWeekdays, templateWeeklyMinutes, type TemplateCell,
+  clearTemplateCells, copyTemplateDay, dayHasEntries, enterIntoTemplateCells, hiddenTemplateEntries, readTemplateCompare,
+  removeTemplateEntry, staffInScope, templateCellOf, templateCoverage, templateDayKind, templateEntryInputs, templateWeekdays,
+  templateWeeklyMinutes, writeTemplateCompare, type TemplateCell,
 } from '~/utils/weekTemplateEditor'
 
 /**
@@ -153,6 +154,56 @@ function onRemove(id: number) {
 const coverageWarnings = computed(() => templateCoverage(entries.value, columns.value, form.groupId, props.coverage ?? null))
 const coverageOf = (weekday: number) => coverageWarnings.value.filter(item => item.weekday === weekday).map(item => item.text).join('\n')
 
+/**
+ * „Andere Vorlagen anzeigen“ (remembered on the device): another template of the facility, read-only below the grid
+ * with the same people and days; „Tag übernehmen“ copies one of its days into the draft.
+ */
+const confirm = useConfirm()
+const compare = reactive({
+  on: false, list: null as WeekTemplateDto[] | null, id: undefined as number | undefined, template: null as WeekTemplateDetailDto | null,
+})
+const compareItems = computed(() => (compare.list ?? []).filter(other => other.id !== props.template?.id)
+  .map(other => ({ label: other.name, value: other.id })))
+const compareNames = computed(() => new Map([...(compare.template?.people ?? []), ...props.staff].map(person => [person.id, person.name])))
+const compareByCell = computed(() => Map.groupBy(compare.template?.entries ?? [], templateCellOf))
+const compareEntries = (cell: TemplateCell) => compareByCell.value.get(templateCellOf(cell)) ?? []
+const compareHidden = computed(() => hiddenTemplateEntries(compare.template?.entries ?? [], shown.value, compareNames.value))
+onMounted(() => {
+  if (readTemplateCompare()) void setCompare(true)
+})
+async function setCompare(on: boolean) {
+  compare.on = on
+  writeTemplateCompare(on)
+  if (on && compare.list === null) {
+    await run(async () => {
+      compare.list = await $fetch<WeekTemplateDto[]>('/api/week-templates')
+    })
+  }
+}
+async function pickCompare(id: number | undefined) {
+  compare.id = id
+  compare.template = null
+  if (id === undefined) return
+  await run(async () => {
+    const loaded = await $fetch<WeekTemplateDetailDto>(`/api/week-templates/${id}`)
+    // A later pick wins over a slower earlier one.
+    if (compare.id === id) compare.template = loaded
+  })
+}
+async function takeDay(weekday: number) {
+  const source = compare.template
+  if (!source) return
+  if (dayHasEntries(entries.value, weekday, shown.value)
+    && !(await confirm(e.takeDayConfirm(weekdays[weekday]!), { confirmLabel: e.replace }))) return
+  const result = copyTemplateDay(entries.value, source.entries, weekday, shown.value, context.value, names.value)
+  if ('error' in result) {
+    toast.add({ title: result.message, color: 'error' })
+    return
+  }
+  entries.value = result.entries
+  toast.add({ title: e.takenDay(weekdays[weekday]!), color: 'success' })
+}
+
 /** The weekly hours each person shown gets from the template, with the contract hours when known. */
 const hours = computed(() => columns.value.map(person => ({
   id: person.id, name: person.name, planned: templateWeeklyMinutes(entries.value, person), contract: person.weeklyMinutes,
@@ -252,6 +303,52 @@ async function save() {
           <li v-for="(item, index) in coverageWarnings" :key="index">{{ item.text }}</li>
         </ul>
         <p class="text-xs text-amber-800">{{ e.coverageHint }}</p>
+      </section>
+
+      <section v-if="columns.length" class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+        <USwitch :model-value="compare.on" :label="e.compareToggle" @update:model-value="setCompare($event)" />
+        <template v-if="compare.on">
+          <p v-if="compare.list && !compareItems.length" class="text-sm text-gray-500">{{ e.compareNone }}</p>
+          <UFormField v-else-if="compareItems.length" :label="e.compareSelect" class="w-full sm:w-72">
+            <USelect
+              :model-value="compare.id" :items="compareItems" :placeholder="e.comparePlaceholder" class="w-full"
+              @update:model-value="pickCompare($event as number | undefined)"
+            />
+          </UFormField>
+          <template v-if="compare.template">
+            <h3 class="text-sm font-semibold">{{ e.compareTitle(compare.template.name) }}</h3>
+            <p class="text-xs text-gray-500">{{ e.compareHint }}</p>
+            <div class="overflow-x-auto rounded-lg ring-1 ring-gray-200">
+              <table class="w-full border-collapse text-xs">
+                <thead class="bg-gray-100 text-gray-600">
+                  <tr>
+                    <th class="sticky left-0 z-10 w-24 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ e.weekday }}</th>
+                    <th v-for="person in columns" :key="person.id" class="min-w-28 border border-gray-200 px-2 py-1">{{ person.name }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(day, weekday) in weekdays" :key="day">
+                    <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 align-top font-medium">
+                      <div class="flex flex-col items-start gap-1">
+                        {{ day }}
+                        <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-copy-plus" :label="e.takeDay" @click="takeDay(weekday)" />
+                      </div>
+                    </td>
+                    <td v-for="person in columns" :key="person.id" class="border border-gray-200 px-1 py-1 align-top">
+                      <div class="flex min-h-6 flex-col items-start gap-0.5">
+                        <PlanEntryChip v-for="entry in compareEntries({ employeeId: person.id, weekday })" :key="entry.id" :entry="entry" />
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <UAlert
+              v-if="compareHidden.count" color="neutral" variant="subtle" icon="i-lucide-user-x"
+              :title="e.compareHidden(compareHidden.names.join(', '), compareHidden.count)"
+            />
+          </template>
+        </template>
       </section>
 
       <section v-if="hours.length" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">

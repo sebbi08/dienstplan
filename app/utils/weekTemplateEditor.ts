@@ -1,5 +1,6 @@
 import { dayCredit, isFullDayTimed } from '#shared/domain/balance'
 import { describeEntry } from '#shared/domain/describe'
+import { isTargetGapCode } from '#shared/domain/warnings'
 import { workdayCount, worksOnWeekday } from '#shared/domain/targets'
 import {
   isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict, templateCoverageWarnings,
@@ -124,6 +125,58 @@ export function enterIntoTemplateCells(
   }
   const refusal = refusalOf(next, cells, names)
   return refusal ?? { entries: sorted(next) }
+}
+
+/** Whether the draft has entries on the weekday for the people shown („Tag übernehmen“ asks before replacing them). */
+export function dayHasEntries(entries: WeekTemplateEntryDto[], weekday: number, shown: ReadonlySet<number>): boolean {
+  return entries.some(entry => entry.weekday === weekday && shown.has(entry.employeeId))
+}
+
+/**
+ * „Tag übernehmen“: the weekday of the people shown becomes the compared template's day (their entries there are
+ * replaced; other days, and people not shown, stay). The copies get new draft ids and are checked like a manual entry:
+ * a service that no longer exists (template_not_found), anything but VZ/Büro among the codes
+ * (template_entry_not_allowed) and every cell against the rules (templateCellConflict) refuse the whole day, naming
+ * the first such cell.
+ */
+export function copyTemplateDay(
+  entries: WeekTemplateEntryDto[], source: WeekTemplateEntryDto[], weekday: number, shown: ReadonlySet<number>,
+  context: TemplateEditorContext, names: Map<number, string>,
+): { entries: WeekTemplateEntryDto[] } | TemplateRefusal {
+  const copied = source.filter(entry => entry.weekday === weekday && shown.has(entry.employeeId))
+  const refuse = (error: string, entry: TemplateCell): TemplateRefusal =>
+    ({ error, message: templateCellMessage(error, names.get(entry.employeeId) ?? '', entry.weekday) })
+  for (const entry of copied) {
+    if (entry.kind === 'shift' && !context.templates.some(shift => shift.id === entry.templateId)) return refuse('template_not_found', entry)
+    if (entry.kind === 'code' && !isTargetGapCode(entry.codeKey)) return refuse('template_entry_not_allowed', entry)
+  }
+  let nextId = Math.min(0, ...entries.map(entry => entry.id)) - 1
+  const kept = entries.filter(entry => entry.weekday !== weekday || !shown.has(entry.employeeId))
+  const next = [...kept, ...copied.map(entry => ({ ...entry, id: nextId-- }))]
+  const cells = [...new Map(copied.map(entry => [templateCellOf(entry), { employeeId: entry.employeeId, weekday }])).values()]
+  return refusalOf(next, cells, names) ?? { entries: sorted(next) }
+}
+
+const COMPARE_KEY = 'dienstplan.weekTemplateCompare'
+
+/** Whether „Andere Vorlagen anzeigen“ is on on this device (off when storage is unavailable). */
+export function readTemplateCompare(): boolean {
+  try {
+    return localStorage.getItem(COMPARE_KEY) === '1'
+  }
+  catch {
+    return false
+  }
+}
+
+export function writeTemplateCompare(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(COMPARE_KEY, '1')
+    else localStorage.removeItem(COMPARE_KEY)
+  }
+  catch {
+    // Not remembered; the switch still works on this page.
+  }
 }
 
 /** „Leeren“: the cells lose all their entries. */

@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CodeDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateEntryDto, WeekTemplateStaffDto } from '../../shared/types/api'
 import { TEMPLATE_WEEKDAYS } from '../../shared/domain/weekTemplates'
 import {
   clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, previewDayCount, removeTemplateEntry, staffInScope,
-  templateCoverage, templateDayKind, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, readTemplateCompare, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
   type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
@@ -225,6 +225,69 @@ describe('Saturday and Sunday in the week template editor', () => {
     expect(previewDayCount(template(['F1', '', '', '', '', '', '']))).toBe(5)
     expect(previewDayCount(template(['F1', '', '', '', '', '', 'S']))).toBe(7)
     expect(previewDayCount({ ...template([]), rows: [] })).toBe(5)
+  })
+})
+
+describe('„Tag übernehmen“ from a compared template', () => {
+  const shown = new Set([1, 2])
+  const source = () => {
+    let entries = enter([], [{ employeeId: 1, weekday: 2 }, { employeeId: 3, weekday: 2 }], { kind: 'shift', templateId: 2 })
+    entries = enter(entries, [{ employeeId: 2, weekday: 2 }], { kind: 'special', start: 480, end: 720, countsAsStaff: false })
+    entries = enter(entries, [{ employeeId: 1, weekday: 2 }], { kind: 'break', start: 900, end: 915 })
+    return enter(entries, [{ employeeId: 1, weekday: 3 }], { kind: 'shift', templateId: 1 })
+  }
+
+  it('copies the day of the people shown, replacing the draft\'s day, other days and people untouched', () => {
+    let draft = enter([], [{ employeeId: 2, weekday: 2 }, { employeeId: 2, weekday: 0 }], { kind: 'shift', templateId: 1 })
+    draft = enter(draft, [{ employeeId: 3, weekday: 2 }], { kind: 'special', start: 600, end: 700 })
+    expect(dayHasEntries(draft, 2, shown)).toBe(true)
+    expect(dayHasEntries(draft, 1, shown)).toBe(false)
+    // Clara (3) is not shown: her entry in the draft stays, hers in the source is not copied.
+    expect(dayHasEntries(draft.filter(e => e.employeeId === 3), 2, shown)).toBe(false)
+    const result = copyTemplateDay(draft, source(), 2, shown, context, names)
+    if ('error' in result) throw new Error(result.error)
+    expect(labels(result.entries, 1, 2)).toEqual(['M', '[15:00–15:15]'])
+    expect(labels(result.entries, 2, 2)).toEqual(['8:00–12:00'])
+    expect(result.entries.find(e => e.employeeId === 2 && e.weekday === 2)).toMatchObject({ kind: 'special', countsAsStaff: false })
+    expect(labels(result.entries, 2, 0)).toEqual(['F1'])
+    expect(labels(result.entries, 3, 2)).toEqual(['10:00–11:40'])
+    expect(labels(result.entries, 1, 3)).toEqual([])
+    // New ids of the draft (negative, unsaved), none taken from the other template.
+    const ids = result.entries.map(e => e.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(result.entries.filter(e => e.weekday === 2 && e.employeeId !== 3).every(e => e.id < 0)).toBe(true)
+  })
+
+  it('refuses like a manual entry: a service that no longer exists, or a cell against the rules, changing nothing', () => {
+    const gone = source().map(e => (e.kind === 'shift' ? { ...e, templateId: 99 } : e))
+    expect(copyTemplateDay([], gone, 2, shown, context, names)).toEqual({ error: 'template_not_found', message: expect.stringContaining('Anna, Mittwoch') })
+    const broken = source().filter(e => e.kind !== 'shift' || e.employeeId !== 1)
+    expect(copyTemplateDay([], broken, 2, shown, context, names)).toMatchObject({ error: 'break_outside_work', message: expect.stringContaining('Anna, Mittwoch') })
+    const urlaub = [draftTemplateEntry({ kind: 'code', codeId: 10 }, { employeeId: 1, weekday: 2 }, context, 5)!]
+    expect(copyTemplateDay([], urlaub, 2, shown, context, names)).toMatchObject({ error: 'template_entry_not_allowed' })
+  })
+})
+
+describe('„Andere Vorlagen anzeigen“ remembered on the device', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('is off until switched on, and remembered', () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+    })
+    expect(readTemplateCompare()).toBe(false)
+    writeTemplateCompare(true)
+    expect(readTemplateCompare()).toBe(true)
+    writeTemplateCompare(false)
+    expect(store.size).toBe(0)
+  })
+  it('stays off without storage', () => {
+    const blocked = () => { throw new Error('blocked') }
+    vi.stubGlobal('localStorage', { getItem: blocked, setItem: blocked, removeItem: blocked })
+    expect(readTemplateCompare()).toBe(false)
+    expect(() => writeTemplateCompare(true)).not.toThrow()
   })
 })
 
