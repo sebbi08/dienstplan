@@ -165,6 +165,26 @@ export const de = {
     noOpenRecords: 'Keine offenen Zeiträume.', protocol: 'Protokoll', disabled: 'Die Zeiterfassung ist noch nicht aktiv (Einstellungen → Zeiterfassung → „Zeiterfassung ab“).',
     beforeStart: 'vor „Zeiterfassung ab“ – zählt nach Plan', removeAbsence: 'Abwesenheit entfernen', removeAbsenceConfirm: 'Abwesenheit entfernen? Alle Einträge dieses Tages im Dienstplan werden gelöscht.', open: 'offen',
     stamped: (action: 'in' | 'out', time: string) => (action === 'in' ? `Eingestempelt ${time}` : `Ausgestempelt ${time}`),
+    // Stamps the tablet kept without network and sent later (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“).
+    offlineRecorded: 'offline erfasst',
+    clockSkew: (minutes: number) => `Uhrzeit des Tablets wich ab (${Math.abs(minutes)} Min.)`,
+    clockSkewTitle: (minutes: number) => (minutes > 0 ? `Das Tablet ging ${minutes} Min. vor.` : `Das Tablet ging ${-minutes} Min. nach.`),
+    offlineHints: 'Offline-Stempel – bitte prüfen', offlineChecked: 'Geprüft',
+    offlineHintsInfo: 'Diese Stempel vom Tablet wurden nicht übernommen. Bitte die Zeit bei Bedarf selbst eintragen und dann „Geprüft“ antippen.',
+    offlineAction: (action: 'in' | 'out') => (action === 'in' ? 'Kommt' : 'Geht'),
+    /** The review list's lines „‹Grund› – bitte prüfen: ‹Name›, ‹Datum hh:mm›“, by the reason the stamp was not taken over. */
+    offlineReasons: {
+      pin_invalid: 'Offline-Stempel mit falscher PIN',
+      pin_missing: 'Offline-Stempel ohne hinterlegte PIN',
+      pin_blocked: 'Offline-Stempel nicht geprüft (zu viele falsche PINs)',
+      in_future: 'Offline-Stempel mit einer Uhrzeit in der Zukunft',
+      too_old: 'Offline-Stempel älter als 7 Tage',
+      already_clocked_in: 'Offline-Stempel „Kommt“, obwohl schon eingestempelt',
+      not_clocked_in: 'Offline-Stempel „Geht“ ohne „Kommt“',
+      overlap: 'Offline-Stempel „Kommt“ passt nicht zu den erfassten Zeiten',
+    } as Record<string, string>,
+    offlineReasonOther: 'Offline-Stempel nicht übernommen',
+    offlineCheck: ' – bitte prüfen: ',
     deleteConfirm: 'Diesen Zeitraum löschen?',
     reason: 'Begründung', reasonPlaceholder: 'z. B. Arzttermin', free: 'frei',
     print: 'Drucken', printTitle: (name: string, month: string) => `Stempelzeiten ${name} – ${month}`,
@@ -257,6 +277,12 @@ export const de = {
     lockDiscard: 'Verwerfen und sperren',
     idleUnsavedWarning: 'Das Tablet sperrt sich gleich. Tippe auf den Bildschirm und speichere deine Änderungen – sonst gehen sie verloren.',
     noAutoLockUntil: (time: string) => `ohne automatische Sperre bis ${time}`,
+    // Stamping without network (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“).
+    offlineBar: 'Offline – Stempel werden gespeichert und später übertragen',
+    offlinePending: (count: number) => `${count} Stempel noch nicht übertragen`,
+    offlineSaved: (name: string, action: 'in' | 'out', time: string) => `Gespeichert (offline) – ${name} ${action === 'in' ? 'Kommt' : 'Geht'} ${time}`,
+    offlineUnavailable: 'Dieses Gerät kann ohne Netz keine Stempel speichern. Bitte später noch einmal stempeln.',
+    childrenOffline: 'Die Kinder gibt es nur mit Netz. Bitte später noch einmal versuchen.',
   },
   login: { title: 'Anmelden', username: 'Benutzername', password: 'Passwort', submit: 'Anmelden' },
   password: {
@@ -1736,10 +1762,12 @@ export const de = {
     // Leitung/Träger: two or more children with the same disease within 14 days (§ 34 Abs. 6 Satz 2).
     ifsgCluster: (count: number) => ({ before: `Häufung: ${count} Fälle `, after: " – Gesundheitsamt informieren (§ 34 Abs. 6 Satz 2 IfSG)" }),
     ifsgClusterAck: 'Gesundheitsamt informiert',
+    // Leitung/Träger: an offline stamp of the tablet not taken over (texts de.time.offlineReasons); links to the time page.
+    offlineStampLink: 'zur Zeiterfassung',
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
       leaving: 'Abschied', retention: 'Löschfristen', accident: 'Unfallanzeige', ifsg: 'Meldepflichtige Krankheit',
-      ifsgCluster: 'Häufung von Erkrankungen',
+      ifsgCluster: 'Häufung von Erkrankungen', offlineStamp: 'Offline-Stempel',
     },
     // The record's section.
     section: 'Entwicklungsdokumentation',

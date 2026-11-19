@@ -6,6 +6,7 @@ import type { IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
 import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
+import type { OfflineStampReason, OfflineStampStatus } from '../domain/offlineStamps'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/permissionBundles'
 import type { PermissionKey } from '../domain/permissions'
@@ -407,6 +408,8 @@ export interface ReminderDto {
   count: number | null
   /** For a § 34 IfSG case whose health office notification is due: the case, the disease's name and the child's group. */
   ifsg?: { caseId: number; diseaseName: string; groupName: string; healthOffice: { name: string; phone: string } }
+  /** For an offline stamp on the review list (Leitung/Träger): the entry, the person, Kommt/Geht and why. */
+  offlineStamp?: { id: number; employeeId: number; action: StampAction; reason: OfflineStampReason }
   /** For a cluster (§ 34 Abs. 6 Satz 2): the disease, how many children and the days of the window. */
   ifsgCluster?: { disease: string; diseaseName: string; count: number; from: IsoDate; to: IsoDate }
 }
@@ -1514,6 +1517,44 @@ export interface TimeRecordDto {
   edited: boolean
   editedBy: string | null
   editedAt: string | null
+  /** Kommt or Geht came from the tablet's offline queue („offline erfasst“). */
+  offline: boolean
+  /**
+   * How far the tablet's clock was off when it sent the offline stamp („Uhrzeit des Tablets wich ab“), in minutes;
+   * null within 5 minutes, and always null on the employee's own time page.
+   */
+  clockSkewMinutes: number | null
+}
+
+/** One stamp of the tablet's offline queue as sent (POST /api/terminal/offline-stamps). */
+export interface OfflineStampInputDto {
+  /** Random id the tablet gave the stamp: a stamp sent twice is taken once. */
+  clientId: string
+  employeeId: number
+  pin: string
+  action: StampAction
+  /** The tablet's clock at the tap, ISO with offset. */
+  stampedAt: string
+}
+
+/** What became of each stamp sent; every stamp named here leaves the tablet's queue. */
+export interface OfflineStampResultDto {
+  clientId: string
+  status: OfflineStampStatus
+  reason: OfflineStampReason | null
+}
+
+/** An offline stamp not taken over, on the review list of the time page until checked. */
+export interface OfflineStampHintDto {
+  id: number
+  employeeId: number
+  name: string
+  action: StampAction
+  date: IsoDate
+  minutes: Minutes
+  reason: OfflineStampReason
+  clockSkewMinutes: number | null
+  receivedAt: string
 }
 
 export interface OpenRecordDto {

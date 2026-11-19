@@ -3,7 +3,8 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, notifications, teamMeetingParticipants,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, notifications, offlineStamps,
+  teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { applyToCells } from '../../server/services/entries'
@@ -71,6 +72,10 @@ export function fillEmployeeData(
     applyToCells(db, leitung, 1, [{ employeeId: id, date: '2026-10-08' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
     db.insert(timeRecords).values({ employeeId: id, date: '2026-10-06', start: 450, end: 945, source: 'terminal', createdAt: now.toISOString() }).run()
     db.insert(timeDayNotes).values({ employeeId: id, date: '2026-10-06', note: 'Arzttermin' }).run()
+    db.insert(offlineStamps).values({
+      clientId: `offline-${id}`, employeeId: id, action: 'in', stampedAt: '2026-10-07T07:30:00+02:00', date: '2026-10-07', minutes: 450,
+      status: 'rejected', reason: 'pin_invalid', receivedAt: now.toISOString(),
+    }).run()
     db.insert(earlySickLeaves).values({ employeeId: id, date: '2026-10-07', createdAt: now.toISOString() }).run()
     db.insert(balanceAdjustments).values({ employeeId: id, date: '2026-01-01', minutes: 120, reason: 'Übertrag' }).run()
     db.insert(leaveEntitlements).values({ employeeId: id, year: 2026, days: 30 }).run()

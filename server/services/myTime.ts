@@ -26,7 +26,8 @@ export function getMyTime(db: Db, viewer: SessionUser, year: number, month: numb
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
   const [balance] = computeBalances(db, employee.facilityId, [employee], monthEnd, today)
-  const own = loadTimeRecords(db, { employeeId: employee.id })
+  // The employee sees „offline erfasst“, the tablet's clock difference only the Leitung and the Träger.
+  const own = loadTimeRecords(db, { employeeId: employee.id }).map(record => ({ ...record, clockSkewMinutes: null }))
   const todayRecords = own.filter(record => record.date === today)
   const records = own.filter(record => record.date >= monthStart && record.date <= monthEnd)
   return {

@@ -61,6 +61,8 @@ const TERMINAL_ROUTES = [
   'terminal/children/keep-alive.post.ts', 'terminal/children/status.get.ts',
   // The consenting colleagues' emergency contacts: the service asks for the unlock like the child data.
   'terminal/staff-emergency-contacts.get.ts',
+  // The tablet's offline queue (stamps kept without network, sent later): the tablet only, never an account.
+  'terminal/offline-stamps.post.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
@@ -725,5 +727,17 @@ describe('API route permissions', () => {
     expect(allowing).toEqual(['notes/index.get.ts', 'plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
       'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
       'team-meetings/index.post.ts', 'template-categories/index.get.ts'])
+  })
+
+  it('takes the offline stamps from the tablet only, and keeps their review list to time.manage', () => {
+    const sync = source('terminal/offline-stamps.post.ts')
+    expect(sync).toContain('requireTerminal(event)')
+    expect(sync).toContain('terminal.facilityId')
+    expect(fixture['terminal/offline-stamps.post.ts']).toEqual(['terminal'])
+    for (const route of ['time-records/offline-stamps/index.get.ts', 'time-records/offline-stamps/[id]/checked.post.ts']) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'time.manage', options: '' }])
+      expect(source(route), route).toContain('admin.facilityId')
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
   })
 })

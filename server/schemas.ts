@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
+import { OFFLINE_BATCH_MAX } from '../shared/domain/offlineStamps'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
@@ -29,6 +30,20 @@ export const idParams = z.object({ id: z.coerce.number().int().positive() })
 /** The format (exactly six digits) is checked by setPin, so the form shows „Die PIN muss aus 6 Ziffern bestehen.“. */
 export const pinSchema = z.object({ pin: z.string().max(20) })
 export const terminalStampSchema = z.object({ employeeId: z.number().int(), pin: z.string().max(10), action: z.enum(['in', 'out']) })
+/**
+ * The tablet's offline queue (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“): its clock now, and per stamp the random
+ * client id, the person, the PIN, Kommt/Geht and the tablet's clock at the tap (ISO with offset); at most 100 per request.
+ */
+export const offlineStampsSchema = z.object({
+  clientNow: z.iso.datetime({ offset: true }),
+  stamps: z.array(z.object({
+    clientId: z.string().regex(/^[\w-]{8,64}$/),
+    employeeId: z.number().int(),
+    pin: z.string().max(10),
+    action: z.enum(['in', 'out']),
+    stampedAt: z.iso.datetime({ offset: true }),
+  })).max(OFFLINE_BATCH_MAX),
+})
 /** Unlocking the child records at the tablet: the person and the PIN (checked by the service). */
 export const tabletUnlockSchema = z.object({ employeeId: z.number().int(), pin: z.string().max(10) })
 export const dateParams = z.object({ date: isoDate })

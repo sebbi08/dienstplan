@@ -4,12 +4,14 @@ import { formatTime } from '#shared/domain/time'
 import type { ReminderDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatDayMonth, formatDayMonthNear } from '~/utils/format'
+import { offlineHintParts } from '~/utils/offlineHints'
 
 /**
  * The box „Erinnerungen“ above the tabs of the children page: documentation, parent meetings of the day, birthdays and
  * leavings, for the Träger the entries that may be deleted, for Leitung/Träger the accident reports still to be sent to
  * the Unfallkasse (an employee's has no child: `childId` null; already sorted by the server), for Leitung/Träger the health
- * office still to be notified of a § 34 IfSG case (with „Benachrichtigt“ and „Arztmeldung liegt vor“). Hidden without entries; closed
+ * office still to be notified of a § 34 IfSG case (with „Benachrichtigt“ and „Arztmeldung liegt vor“), for Leitung/Träger
+ * the tablet's offline stamps not taken over (checked on the time page). Hidden without entries; closed
  * or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
@@ -43,6 +45,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
   leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert', ifsgCluster: 'i-lucide-users-round',
+  offlineStamp: 'i-lucide-wifi-off',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -77,7 +80,18 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     // „Häufung: 2 Fälle ‹Krankheit› – Gesundheitsamt informieren (§ 34 Abs. 6 Satz 2 IfSG)“.
     case 'ifsgCluster':
       return r.ifsgCluster(entry.count ?? 0)
+    // „Offline-Stempel mit falscher PIN – bitte prüfen: ‹Name›, ‹Datum hh:mm›“ (and the other reasons of the review list).
+    case 'offlineStamp':
+      return entry.offlineStamp
+        ? offlineHintParts({ reason: entry.offlineStamp.reason, date: entry.date, minutes: entry.time ?? 0 })
+        : { before: '', after: '' }
   }
+}
+
+/** The time page at the offline stamp's person and day, where it is checked. */
+function offlineStampLink(entry: ReminderDto): string {
+  const [year, month] = entry.date.split('-').map(Number)
+  return `/admin/time?employee=${entry.offlineStamp?.employeeId ?? ''}&year=${year}&month=${month}&date=${entry.date}`
 }
 
 /** § 34 IfSG: the health office was informed of a cluster today (§ 34 Abs. 6 Satz 2). */
@@ -149,6 +163,7 @@ async function markDone(entry: ReminderDto) {
             v-if="entry.kind === 'accident'" :to="`/admin/accidents?year=${entry.date.slice(0, 4)}`" class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.accidentLink }}</NuxtLink>
           <NuxtLink v-if="entry.kind === 'ifsg'" to="/children?tab=ifsg" class="ml-2 text-xs text-sky-700 hover:underline">{{ r.ifsgLink }}</NuxtLink>
+          <NuxtLink v-if="entry.kind === 'offlineStamp'" :to="offlineStampLink(entry)" class="ml-2 text-xs text-sky-700 hover:underline">{{ r.offlineStampLink }}</NuxtLink>
         </span>
         <UButton
           v-if="entry.kind === 'ifsgCluster' && entry.ifsgCluster" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-phone"

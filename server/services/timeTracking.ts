@@ -51,6 +51,7 @@ export function loadTimeRecords(db: Db, filter: TimeRecordFilter = {}): TimeReco
       id: record.id, employeeId: record.employeeId, date: record.date, start: record.start, end: record.end,
       source: record.source, edited: record.source === 'admin' || record.editedAt !== null,
       editedBy: editor ?? null, editedAt: record.editedAt,
+      offline: record.offline, clockSkewMinutes: record.clockSkewMinutes,
     }))
 }
 

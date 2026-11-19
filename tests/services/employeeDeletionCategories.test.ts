@@ -31,6 +31,7 @@ const IMMEDIATE = [
 /** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [
   'employee_hours.employee_id', 'help_outs.employee_id', 'entries.employee_id', 'change_log.employee_id', 'time_records.employee_id', 'time_record_changes.employee_id',
+  'offline_stamps.employee_id',
   'time_day_notes.employee_id', 'early_sick_leaves.employee_id', 'leave_entitlements.employee_id',
   'leave_forfeit_receipts.employee_id',
 ]

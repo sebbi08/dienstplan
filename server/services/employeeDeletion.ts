@@ -12,7 +12,8 @@ import {
   balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms,
-  groupBookChanges, helpOuts, leaveEntitlements, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, releaseSnapshots,
+  groupBookChanges, helpOuts, leaveEntitlements, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
+  releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries,
 } from '../db/schema'
@@ -240,6 +241,8 @@ const TIME_ROWS: readonly EmployeeRows[] = [
   { table: changeLog, column: changeLog.employeeId },
   { table: timeRecords, column: timeRecords.employeeId },
   { table: timeRecordChanges, column: timeRecordChanges.employeeId },
+  // The offline stamps of the tablet (taken over or on the review list) go with the time records.
+  { table: offlineStamps, column: offlineStamps.employeeId },
   { table: timeDayNotes, column: timeDayNotes.employeeId },
   { table: earlySickLeaves, column: earlySickLeaves.employeeId },
   { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, false) },

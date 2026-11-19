@@ -44,7 +44,7 @@ export function unlockPin(db: Db, facilityId: number, employeeId: number): void 
 }
 
 /** Ids of the employees planned in the facility's helper column (help-out entry) on the date. */
-function helperIdsOn(db: Db, facilityId: number, date: string): number[] {
+export function helperIdsOn(db: Db, facilityId: number, date: string): number[] {
   return [...new Set(db.select({ employeeId: entries.employeeId }).from(entries)
     .where(and(eq(entries.helpFacilityId, facilityId), eq(entries.date, date))).all().map(row => row.employeeId))]
 }

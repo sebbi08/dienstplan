@@ -97,7 +97,7 @@ function rowClass(day: MyPlanDayDto): string {
               <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </span>
             <span v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id" class="mr-2 inline-block">
-              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
+              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span> <TimeOfflineMarks :record="record" />
             </span>
             <span class="font-semibold">{{ de.time.recorded }}: {{ formatDuration(recordedOf(day.date)!.recordedMinutes) }}</span>
           </div>
@@ -135,7 +135,7 @@ function rowClass(day: MyPlanDayDto): string {
               <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </div>
             <div v-for="record in recordsByDate.get(day.date) ?? []" :key="record.id">
-              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
+              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span> <TimeOfflineMarks :record="record" />
             </div>
             <div v-if="recordedOf(day.date)" class="font-semibold">
               {{ de.time.recorded }}: {{ formatDuration(recordedOf(day.date)!.recordedMinutes) }}
@@ -166,7 +166,7 @@ function rowClass(day: MyPlanDayDto): string {
               <UIcon v-if="!span.away" name="i-lucide-house" class="shrink-0" />{{ plannedSpanLine(span) }}
             </div>
             <div v-for="record in recordsByDate.get(date) ?? []" :key="record.id">
-              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span>
+              {{ formatSpan(record) }} <span v-if="recordMarker(record)" class="text-amber-700">({{ recordMarker(record) }})</span> <TimeOfflineMarks :record="record" />
             </div>
           </td>
           <td class="px-3 py-1.5 text-right font-semibold">{{ formatDuration(recordedOf(date)!.recordedMinutes) }}</td>

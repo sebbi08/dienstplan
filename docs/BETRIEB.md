@@ -1233,6 +1233,53 @@ Die Einstellungen gelten sofort für alle angezeigten Monate, auch für frühere
 Markierungen. Mitarbeiter sehen sie in der App nirgends, auch nicht unter „Meine Zeit“ – nur auf einem Stundenzettel,
 den die Leitung ausdruckt und ihnen gibt, stehen sie mit drauf.
 
+### Stempeln ohne Netz am Tablet
+
+Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Tablet“) trotzdem gestempelt werden:
+
+- **Voraussetzung:** Die Seite *Stempeln* wurde auf dem Tablet **einmal mit Netz** geöffnet (nach jedem Update der App
+  einmal neu). Dann merkt sich das Tablet die Seite und die Namensliste. Ohne Netz öffnet sich die Seite trotzdem,
+  auch nach einem Neustart des Browsers. Andere Seiten der App gehen ohne Netz nicht; die Kinder und das Stempeln mit
+  dem eigenen Handy gibt es nur mit Netz.
+- **Gelber Balken:** „Offline – Stempel werden gespeichert und später übertragen“, solange der Server nicht erreichbar
+  ist, und „3 Stempel noch nicht übertragen“, solange noch Stempel auf dem Tablet warten.
+- **So wird gestempelt:** Name antippen, PIN eingeben, **Einstempeln** oder **Ausstempeln** (ohne Netz weiß das Tablet
+  nicht, wer eingestempelt ist, darum stehen beide Knöpfe da). Das Tablet zeigt „Gespeichert (offline) – Anna Kommt
+  07:58“. Gespeichert wird die **Uhrzeit des Tablets**. Die PIN wird dabei noch nicht geprüft.
+- **Was das Tablet speichert:** nur Namen und Nummern der Mitarbeiter für die Liste und die wartenden Stempel. Die PIN
+  liegt **verschlüsselt** auf dem Tablet (mit einem Schlüssel, der das Tablet nicht verlassen kann) und wird gelöscht,
+  sobald der Server den Stempel angenommen hat. Kinderdaten speichert das Tablet nicht.
+- **Übertragen:** Sobald der Server wieder erreichbar ist, schickt das Tablet die Stempel von selbst in der Reihenfolge,
+  in der gestempelt wurde (beim Öffnen der Seite, wenn das Netz zurück ist, und sonst etwa jede Minute einen neuen
+  Versuch). Ein Stempel, der doppelt ankommt, wird nur einmal gezählt.
+- **Was der Server prüft:** die PIN (wie sonst), dass der Stempel höchstens 5 Minuten in der Zukunft und höchstens
+  7 Tage zurück liegt, und dass er zu den Zeiten des Tages passt (ein „Kommt“ nur, wenn die Person nicht schon
+  eingestempelt ist und nichts Späteres erfasst ist; ein „Geht“ nur zu einem offenen „Kommt“). Passt alles, steht der
+  Stempel in der Zeiterfassung mit dem Zeichen **„offline erfasst“** (das sieht auch die Person selbst unter „Meine
+  Zeit“ bzw. im eigenen Dienstplan).
+- **Uhr des Tablets:** Weicht die Uhr des Tablets beim Übertragen um mehr als 5 Minuten von der Uhr des Servers ab,
+  steht bei diesen Stempeln zusätzlich **„Uhrzeit des Tablets wich ab (12 Min.)“** – nur für Leitung und Träger. Die
+  Zeit wird nicht von selbst verschoben; bitte prüfen und bei Bedarf korrigieren und die Uhr des Tablets stellen.
+- **Was nicht übernommen wird – „Offline-Stempel – bitte prüfen“:** Stempel mit falscher PIN („Offline-Stempel mit
+  falscher PIN – bitte prüfen: Anna, 19.11.2026 07:58“), ohne hinterlegte PIN, mit Uhrzeit in der Zukunft, älter als
+  7 Tage oder die nicht zu den erfassten Zeiten passen („Offline-Stempel „Geht“ ohne „Kommt“ …“) werden **nicht** als
+  Zeit eingetragen. Sie stehen für Leitung und Träger in der **Zeiterfassung** oben in der Liste „Offline-Stempel –
+  bitte prüfen“ und in den **Erinnerungen**. Ein Tipp auf den Eintrag öffnet Person und Tag; die Zeit dann bei Bedarf
+  selbst eintragen und **„Geprüft“** antippen – dann verschwindet der Hinweis.
+- **Falsche PINs sperren die PIN nicht:** Falsche PINs aus der Offline-Liste zählen **nicht** zur Sperre nach
+  5 falschen Eingaben (sonst könnte eine alte Liste jemanden aussperren); sie stehen nur in der Liste „bitte prüfen“.
+  Stehen dort für eine Person **5 ungeprüfte Offline-Stempel mit falscher PIN**, werden weitere Offline-Stempel dieser
+  Person gar nicht mehr geprüft („Offline-Stempel nicht geprüft (zu viele falsche PINs)“), bis die Leitung die Hinweise
+  auf „Geprüft“ setzt. So lässt sich über das Tablet keine PIN ausprobieren. Stempeln mit Netz geht davon unberührt.
+- **Nicht übernommen und ohne Hinweis** werden Stempel für Personen, die das Tablet an dem Tag nicht kennt (z. B. eine
+  Aushilfe an einem Tag ohne Einsatz hier), die an dem Tag nicht mehr beschäftigt sind, oder an Tagen ohne
+  Zeiterfassung.
+- **Wenn sich ein anderes Konto am Tablet anmeldet** (z. B. die Leitung), vergisst das Tablet die gemerkte Seite; die
+  wartenden Stempel bleiben und werden übertragen, sobald das Tablet-Konto wieder angemeldet ist.
+- **Technisch:** Das Tablet braucht dafür eine sichere Verbindung (https) und einen aktuellen Browser. Die gemerkte
+  Seite gehört zur jeweiligen App-Version; nach einem Update wird die alte gelöscht und die neue beim nächsten Öffnen
+  mit Netz gemerkt.
+
 ## 19. Vorlagen (leere Formulare zum Ausdrucken)
 
 Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,

@@ -2,12 +2,15 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
-import type { CodeDto, EmployeeListItemDto, OpenRecordDto, TimeDayDto, TimeMonthDto, TimeRecordDto } from '#shared/types/api'
+import type {
+  CodeDto, EmployeeListItemDto, OfflineStampHintDto, OpenRecordDto, TimeDayDto, TimeMonthDto, TimeRecordDto,
+} from '#shared/types/api'
 import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime, formatDayShort } from '~/utils/format'
 import { isCompactTimeDay } from '~/utils/dayCards'
 import { fullDayLine, plannedSpanLine } from '~/utils/homeOffice'
+import { offlineHintText } from '~/utils/offlineHints'
 import { DEVIATION_MINUTES, markedRecords, recordedDifference as difference } from '~/utils/timeSheet'
 import { warningText } from '~/utils/warnings'
 
@@ -23,12 +26,14 @@ const focusDate = ref(typeof route.query.date === 'string' ? route.query.date : 
 const { data: employees } = await useFetch<EmployeeListItemDto[]>('/api/employees')
 if (employeeId.value === null) employeeId.value = employees.value?.[0]?.id ?? null
 const { data: openRecords, refresh: refreshOpen } = await useFetch<OpenRecordDto[]>('/api/time-records/open')
+const { data: offlineHints, refresh: refreshHints } = await useFetch<OfflineStampHintDto[]>('/api/time-records/offline-stamps')
 const { data, refresh } = await useFetch<TimeMonthDto>('/api/time-records', {
   query: { employeeId, year, month }, immediate: employeeId.value !== null, watch: [employeeId, year, month],
 })
 const run = useAction(async () => {
   await refresh()
   await refreshOpen()
+  await refreshHints()
 })
 const confirm = useConfirm()
 
@@ -125,7 +130,12 @@ async function scrollToFocus() {
 watch(data, scrollToFocus, { flush: 'post' })
 onMounted(scrollToFocus)
 
-function openJump(record: OpenRecordDto) {
+/** „Geprüft“: the offline stamp leaves the review list (and the reminders). */
+function checkHint(hint: OfflineStampHintDto) {
+  run(() => $fetch<{ ok: boolean }>(`/api/time-records/offline-stamps/${hint.id}/checked`, { method: 'POST' }), de.common.saved)
+}
+
+function openJump(record: Pick<OpenRecordDto, 'employeeId' | 'date'>) {
   const date = parseIsoDate(record.date)
   year.value = date.year
   month.value = date.month
@@ -169,6 +179,22 @@ function change(nextYear: number, nextMonth: number) {
       </ul>
     </section>
 
+    <!-- Offline stamps of the tablet not taken over (wrong PIN, not fitting …): shown only while there are any. -->
+    <section v-if="offlineHints?.length" class="rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200">
+      <h2 class="mb-1 font-semibold">{{ de.time.offlineHints }}</h2>
+      <p class="mb-2 text-xs text-gray-600">{{ de.time.offlineHintsInfo }}</p>
+      <ul class="space-y-1 text-sm">
+        <li v-for="hint in offlineHints" :key="hint.id" class="flex flex-wrap items-center gap-2">
+          <button type="button" class="text-left hover:underline" @click="openJump({ employeeId: hint.employeeId, date: hint.date })">
+            {{ offlineHintText(hint) }}
+          </button>
+          <span class="text-xs text-gray-600">({{ de.time.offlineAction(hint.action) }})</span>
+          <span v-if="hint.clockSkewMinutes !== null" class="text-xs text-orange-700">{{ de.time.clockSkew(hint.clockSkewMinutes) }}</span>
+          <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-check" :label="de.time.offlineChecked" @click="checkHint(hint)" />
+        </li>
+      </ul>
+    </section>
+
     <!-- Phones: one card per day instead of the wide table; free days without anything stamped are one slim line. -->
     <div v-if="data" class="space-y-2 md:hidden">
       <template v-for="day in data.days" :key="day.date">
@@ -204,6 +230,7 @@ function change(nextYear: number, nextMonth: number) {
               <span v-if="record.edited" class="text-xs text-amber-700">
                 ({{ record.source === 'admin' ? de.time.edited : de.time.changed }}{{ record.editedAt ? ` · ${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : '' }})
               </span>
+              <TimeOfflineMarks :record="record" />
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
             </div>
             <span v-for="(span, index) in day.homeOffice" :key="`ho-${index}`" class="inline-flex items-center gap-1 text-xs text-gray-600">
@@ -275,6 +302,7 @@ function change(nextYear: number, nextMonth: number) {
                   <TimeMarkedSpan :record="record" :late="markedRecords(day).lateId === record.id" :early="markedRecords(day).earlyId === record.id" />
                 </button>
                 <span v-if="record.edited" class="text-xs text-amber-700" :title="record.editedAt ? `${record.editedBy ?? ''} ${formatDateTime(record.editedAt)}` : undefined">({{ record.source === 'admin' ? de.time.edited : de.time.changed }})</span>
+                <TimeOfflineMarks :record="record" />
                 <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeRecord(record)" />
               </div>
               <!-- Home office counts as stamped; it is changed in the plan, not here. -->

@@ -6,17 +6,52 @@ import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordD
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { shiftMonth } from '~/utils/format'
+import { isServerUnreachable, tabletClockTime } from '~/utils/offlineQueue'
 import { pinFailureText } from '~/utils/pin'
 
 type Mode = 'start' | 'stamp' | 'children'
+/** A person of the list; clockedIn null = not known (the list kept for stamping without network has names only). */
+type Person = Omit<TerminalPersonDto, 'clockedIn'> & { clockedIn: boolean | null }
 
 const { onTablet, unlock, lock } = useChildRights()
 // The tablet starts with the choice between stamping and the child records; anybody else only stamps here.
 const mode = ref<Mode>(onTablet.value ? 'start' : 'stamp')
-const { data: people, refresh, error } = await useFetch<TerminalPersonDto[]>('/api/terminal/status')
+// Loaded in the browser (not with the page), so the page the tablet keeps for use without network carries no team data.
+const people = ref<Person[] | null>(null)
+const error = ref<unknown>(null)
+// Stamping without network (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“): only the tablet keeps stamps.
+const offlineStamps = useOfflineStamps(onTablet.value, () => refresh())
+const isOffline = computed(() => onTablet.value && offlineStamps.offline.value)
+
+/**
+ * The list with who is clocked in. Without an answer from the server the tablet shows the names it kept (who is clocked
+ * in is not known then); every answer replaces the kept names and sends waiting stamps.
+ */
+async function refresh() {
+  try {
+    const list = await $fetch<TerminalPersonDto[]>('/api/terminal/status')
+    people.value = list
+    error.value = null
+    if (onTablet.value) {
+      offlineStamps.rememberTeam(list)
+      offlineStamps.noteReachable()
+    }
+  }
+  catch (caught) {
+    if (onTablet.value && offlineStamps.available && isServerUnreachable(caught)) {
+      offlineStamps.noteUnreachable()
+      const kept = await offlineStamps.cachedTeam()
+      people.value = kept.map(person => ({ ...person, clockedIn: null }))
+      error.value = null
+    }
+    else error.value = caught
+  }
+}
 const chosenId = ref<number | null>(null)
 // Derived from the refreshed list so a poll updates the clock-in/out state of the button.
 const chosen = computed(() => people.value?.find(person => person.employeeId === chosenId.value) ?? null)
+/** Without network, or when not known, both buttons (Kommt and Geht) are offered. */
+const bothActions = computed(() => isOffline.value || chosen.value?.clockedIn === null)
 const printMenuOpen = ref(false)
 /** This month's and next month's plan printout (the server shows the released plan only). */
 /** The plan printout of this month (offset 0) or the next (1), by today's Berlin date at the moment of the tap. */
@@ -39,9 +74,11 @@ let epoch = 0
 
 // Keep the green dots current when several people use the tablet (client only).
 onMounted(() => {
+  refresh()
   poll = setInterval(() => refresh(), 30_000)
   // Coming (back) to the start page ends any unlock of the child records.
   lock()
+  if (onTablet.value) offlineStamps.registerShell()
 })
 onBeforeUnmount(() => {
   unmounted = true
@@ -56,7 +93,7 @@ function setMode(next: Mode) {
   if (next !== 'children') lock()
 }
 
-function choose(person: TerminalPersonDto) {
+function choose(person: Person) {
   epoch++
   chosenId.value = person.employeeId
   pin.value = ''
@@ -74,22 +111,53 @@ function backToList() {
   refresh()
 }
 
+/** The confirmation stays 5 seconds, then the list shows again. */
+function confirmed(text: string) {
+  message.value = text
+  failure.value = ''
+  pin.value = ''
+  clearTimeout(resetTimer)
+  resetTimer = setTimeout(backToList, 5000)
+}
+
+/** Keeps the stamp on the tablet with its clock now (PIN encrypted); it is sent once the server is reachable. */
+async function keepOffline(person: Person, action: StampAction, pinValue: string, isStale: () => boolean) {
+  try {
+    const at = await offlineStamps.keep({ employeeId: person.employeeId, name: person.name, action, pin: pinValue })
+    if (!isStale()) confirmed(de.terminal.offlineSaved(person.name, action, tabletClockTime(at)))
+  }
+  catch {
+    if (isStale()) return
+    failure.value = de.terminal.offlineUnavailable
+    pin.value = ''
+  }
+}
+
 async function submit(action: StampAction) {
   const person = chosen.value
   if (busy.value || !person || pin.value.length !== PIN_LENGTH) return
   const startedEpoch = epoch
   const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId
+  const pinValue = pin.value
   busy.value = true
   try {
-    const record = await $fetch<TimeRecordDto>('/api/terminal/stamp', { method: 'POST', body: { employeeId: person.employeeId, pin: pin.value, action } })
+    // Stamps still waiting go first, so the server gets them in order; while they cannot be sent, this one waits too.
+    if (onTablet.value && offlineStamps.pending.value > 0) await offlineStamps.sync()
+    if (onTablet.value && offlineStamps.available && (isOffline.value || offlineStamps.pending.value > 0)) {
+      await keepOffline(person, action, pinValue, isStale)
+      return
+    }
+    const record = await $fetch<TimeRecordDto>('/api/terminal/stamp', { method: 'POST', body: { employeeId: person.employeeId, pin: pinValue, action } })
+    if (onTablet.value) offlineStamps.noteReachable()
     if (isStale()) return
-    message.value = de.time.stamped(action, formatTime(action === 'in' ? record.start : record.end ?? record.start))
-    failure.value = ''
-    pin.value = ''
-    clearTimeout(resetTimer)
-    resetTimer = setTimeout(backToList, 5000)
+    confirmed(de.time.stamped(action, formatTime(action === 'in' ? record.start : record.end ?? record.start)))
   }
   catch (caught) {
+    if (onTablet.value && offlineStamps.available && isServerUnreachable(caught)) {
+      offlineStamps.noteUnreachable()
+      await keepOffline(person, action, pinValue, isStale)
+      return
+    }
     if (isStale()) return
     failure.value = pinFailureText(caught)
     pin.value = ''
@@ -117,7 +185,12 @@ async function openChildren() {
   }
   catch (caught) {
     if (isStale()) return
-    failure.value = pinFailureText(caught)
+    // The child records are online only.
+    if (isServerUnreachable(caught)) {
+      offlineStamps.noteUnreachable()
+      failure.value = de.terminal.childrenOffline
+    }
+    else failure.value = pinFailureText(caught)
     pin.value = ''
   }
   finally {
@@ -128,6 +201,16 @@ async function openChildren() {
 
 <template>
   <div class="mx-auto max-w-3xl space-y-4">
+    <div
+      v-if="isOffline || offlineStamps.pending.value > 0" role="status"
+      class="space-y-0.5 rounded-xl bg-yellow-100 px-4 py-3 text-lg font-medium text-yellow-900 ring-1 ring-yellow-300"
+    >
+      <p v-if="isOffline" class="flex items-center gap-2">
+        <UIcon name="i-lucide-wifi-off" class="size-6 shrink-0" />{{ de.terminal.offlineBar }}
+      </p>
+      <p v-if="offlineStamps.pending.value > 0">{{ de.terminal.offlinePending(offlineStamps.pending.value) }}</p>
+    </div>
+
     <template v-if="mode === 'start'">
       <h1 class="text-2xl font-semibold">{{ de.terminal.startTitle }}</h1>
       <div class="grid gap-4 sm:grid-cols-2">
@@ -193,14 +276,14 @@ async function openChildren() {
 
       <template v-else-if="!chosen">
         <p class="text-gray-600">{{ mode === 'children' ? de.terminal.chooseChildren : de.terminal.choose }}</p>
-        <p v-if="!people?.length" class="text-gray-500">{{ de.terminal.empty }}</p>
+        <p v-if="people && !people.length" class="text-gray-500">{{ de.terminal.empty }}</p>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <button
             v-for="person in people ?? []" :key="person.employeeId" type="button"
             class="flex items-center gap-2 rounded-xl bg-white p-5 text-left text-lg font-medium ring-1 ring-gray-200 hover:bg-sky-50"
             @click="choose(person)"
           >
-            <span v-if="mode === 'stamp'" class="size-3 rounded-full" :class="person.clockedIn ? 'bg-green-500' : 'bg-gray-300'" />
+            <span v-if="mode === 'stamp' && person.clockedIn !== null" class="size-3 rounded-full" :class="person.clockedIn ? 'bg-green-500' : 'bg-gray-300'" />
             {{ person.name }}
           </button>
         </div>
@@ -220,6 +303,16 @@ async function openChildren() {
             v-if="mode === 'children'" block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy"
             :label="de.terminal.unlock" @click="openChildren"
           />
+          <div v-else-if="bothActions" class="grid grid-cols-2 gap-2">
+            <UButton
+              block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy" color="success"
+              :label="de.time.clockIn" @click="submit('in')"
+            />
+            <UButton
+              block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy" color="warning"
+              :label="de.time.clockOut" @click="submit('out')"
+            />
+          </div>
           <UButton
             v-else block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy" :color="chosen.clockedIn ? 'warning' : 'success'"
             :label="chosen.clockedIn ? de.time.clockOut : de.time.clockIn" @click="submit(chosen.clockedIn ? 'out' : 'in')"

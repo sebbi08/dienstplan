@@ -420,7 +420,38 @@ export const timeRecords = sqliteTable('time_records', {
   editedBy: integer('edited_by').references(() => users.id, { onDelete: 'set null' }),
   editedAt: text('edited_at'),
   createdAt: text('created_at').notNull(),
+  /** Kommt or Geht came from the tablet's offline queue („offline erfasst“). */
+  offline: integer('offline', { mode: 'boolean' }).notNull().default(false),
+  /** The tablet's clock was off by this many minutes when it sent the offline stamp (null = within 5 minutes). */
+  clockSkewMinutes: integer('clock_skew_minutes'),
 }, table => [index('time_records_employee_date').on(table.employeeId, table.date)])
+
+/**
+ * Every stamp the tablet sent from its offline queue, by the tablet's random client id (a stamp sent twice is taken
+ * once). Those not taken over with a person (wrong PIN, too old, not fitting the records …) are the review list of the
+ * time page until the Leitung or the Träger marks them checked. The PIN is never stored.
+ */
+export const offlineStamps = sqliteTable('offline_stamps', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  clientId: text('client_id').notNull().unique(),
+  /** The tablet's facility. */
+  facilityId: facilityId(),
+  /** null when the tablet named a person it does not know. */
+  employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
+  action: text('action', { enum: ['in', 'out'] }).notNull(),
+  /** The tablet's clock at the tap, as sent (ISO with offset). */
+  stampedAt: text('stamped_at').notNull(),
+  /** Day and minute of the tap in Berlin. */
+  date: text('date').notNull(),
+  minutes: integer('minutes').notNull(),
+  status: text('status', { enum: ['recorded', 'review', 'rejected'] }).notNull(),
+  reason: text('reason'),
+  recordId: integer('record_id').references(() => timeRecords.id, { onDelete: 'set null' }),
+  clockSkewMinutes: integer('clock_skew_minutes'),
+  receivedAt: text('received_at').notNull(),
+  checkedAt: text('checked_at'),
+  checkedBy: integer('checked_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [index('offline_stamps_employee').on(table.employeeId)])
 
 /** Audit trail of admin corrections of time records. */
 export const timeRecordChanges = sqliteTable('time_record_changes', {

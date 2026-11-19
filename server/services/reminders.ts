@@ -13,6 +13,7 @@ import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { accidentReminders } from './accidents'
 import { ifsgClusterReminders, ifsgReminders } from './ifsg'
+import { offlineStampReminders } from './offlineStamps'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
 import { retentionOverview } from './retentionOverview'
@@ -143,6 +144,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   items.push(...ifsgReminders(db, viewer, today))
   // And a cluster of the same disease (§ 34 Abs. 6 Satz 2), until acknowledged.
   items.push(...ifsgClusterReminders(db, viewer, today))
+  // Leitung and Träger: offline stamps of the tablet not taken over (wrong PIN, not fitting …), until checked.
+  items.push(...offlineStampReminders(db, viewer, today))
   return sortReminders(items)
 }
 
