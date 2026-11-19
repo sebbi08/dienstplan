@@ -96,6 +96,10 @@ function caseRule(rules: IfsgDisease[], row: CaseRow): IfsgDateRule | null {
   return disease ? ifsgDateRule(disease, row.kind, row.ruleVariant) : null
 }
 
+/** The case's date rule for the client (its snapshot, or the resolved rule of an older case). */
+const ruleDto = (rule: IfsgDateRule | null) =>
+  (rule === null ? null : { anchor: rule.anchor, days: rule.days, label: rule.label, condition: rule.condition })
+
 /** The snapshot columns of a chosen date rule (all empty without one). */
 export function ruleSnapshot(rule: IfsgDateRule | null) {
   return rule === null
@@ -177,13 +181,13 @@ export function attendanceIfsg(
           caseId: row.id, disease: row.disease, diseaseName: disease?.name ?? row.disease, kind: row.kind,
           text: kindRule?.text ?? '', condition: rule?.condition ?? '', earliest: earliestOf(rules, row),
           proof: kindRule?.proof ?? 'medical_certificate', canReadmit: isOpen(row), requireAttest, binding: isBinding(rules, row),
-          source: kindRule?.source ?? 'rki', healthOffice, onsetDate: row.onsetDate, ruleVariant: row.ruleVariant, ruleDate: row.ruleDate,
-          readmittedOn: row.readmittedOn,
+          source: kindRule?.source ?? 'rki', healthOffice, reportedOn: row.reportedOn, onsetDate: row.onsetDate,
+          ruleVariant: row.ruleVariant, rule: ruleDto(rule), ruleDate: row.ruleDate, readmittedOn: row.readmittedOn,
         }
       : {
           caseId: row.id, disease: null, diseaseName: null, kind: null, text: null, condition: null, earliest: null, proof: null,
-          canReadmit: false, requireAttest, binding: isBinding(rules, row), source: null, healthOffice, onsetDate: null,
-          ruleVariant: null, ruleDate: null, readmittedOn: null,
+          canReadmit: false, requireAttest, binding: isBinding(rules, row), source: null, healthOffice, reportedOn: null, onsetDate: null,
+          ruleVariant: null, rule: null, ruleDate: null, readmittedOn: null,
         })
   }
   return result
@@ -328,7 +332,7 @@ function toDtos(db: Db, facilityId: number, rows: { row: CaseRow; child: { first
       createdByName: row.createdByName, createdAt: row.createdAt, readmittedOn: row.readmittedOn,
       readmissionNote: row.readmissionNote, readmittedByName: row.readmittedByName, attachmentId: row.readmissionAttachmentId,
       healthOfficeNotifiedOn: row.healthOfficeNotifiedOn, physicianReported: row.physicianReported, ended: row.ended,
-      open: isOpen(row), notifyDue: notifyDue(rules, row),
+      open: isOpen(row), notifyDue: notifyDue(rules, row), rule: ruleDto(caseRule(rules, row)),
     }
   })
 }

@@ -1877,6 +1877,8 @@ export const de = {
     },
     edit: {
       title: (name: string) => `Angaben ändern: ${name}`, saved: 'Gespeichert.',
+      // The case's stored rule that today's rules no longer offer (e.g. after a preset of the health office).
+      storedRule: (rule: string, days: number) => `${rule} + ${days} ${days === 1 ? 'Tag' : 'Tage'} (bisherige Regel)`,
     },
     },
     overview: {

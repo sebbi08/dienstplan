@@ -2,7 +2,7 @@ import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
-import type { IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
+import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
 import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
@@ -2352,12 +2352,23 @@ export interface AttendanceIfsgDto {
   source: 'rki' | 'local' | null
   /** The facility's health office (name and phone, empty when not set), for the readmission rules and „Rücksprache“. */
   healthOffice: { name: string; phone: string }
-  /** The case data to correct it (null when hidden): onset, chosen date rule and its date. */
+  /** The case data to correct it (null when hidden): the day it was entered, onset, chosen date rule and its date. */
+  reportedOn: IsoDate | null
   onsetDate: IsoDate | null
   ruleVariant: string | null
+  /** The chosen date rule as the case stores it (its snapshot; it may no longer be among today's rules). */
+  rule: IfsgCaseRuleDto | null
   ruleDate: IsoDate | null
   /** The day of the readmission when the shown day lies inside a ban that is over by now (a correction of an earlier day). */
   readmittedOn: IsoDate | null
+}
+
+/** A case's date rule as stored: readmission at the earliest `days` after the anchor day. */
+export interface IfsgCaseRuleDto {
+  anchor: IfsgAnchor
+  days: number
+  label: string
+  condition: string
 }
 
 /** The facility's § 34 IfSG rules for the dialogs (`ifsgRulesFor`), the attest setting and the health office. */
@@ -2491,6 +2502,8 @@ export interface IfsgCaseDto {
   open: boolean
   /** The Leitung still has to notify the health office (§ 34 Abs. 6). */
   notifyDue: boolean
+  /** The chosen date rule as the case stores it (see AttendanceIfsgDto.rule). */
+  rule: IfsgCaseRuleDto | null
 }
 
 /** The parent notice („Aushang“) of a case: no names, the group, the disease, a short hint, the facility and the day. */

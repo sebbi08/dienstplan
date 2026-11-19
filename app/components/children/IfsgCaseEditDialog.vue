@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { earliestReadmission, ifsgDateRule, ifsgDisease, type IfsgKind } from '#shared/domain/ifsg'
 import type { IsoDate } from '#shared/domain/types'
-import type { IfsgCaseUpdateInput, IfsgRulesDto } from '#shared/types/api'
+import type { IfsgCaseRuleDto, IfsgCaseUpdateInput, IfsgRulesDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { ifsgEarliestText } from '~/utils/ifsg'
 
 /**
  * „Angaben ändern“ of a § 34 IfSG case (Leitung/Träger, the child's own group): the onset, the date rule and its date –
  * e.g. the antibiotic start that was not known when the case was entered. A rule left as it was keeps its snapshot
- * (server); a newly chosen one is taken from today's rules.
+ * (server; `storedRule`, shown as chosen also when today's rules no longer offer it); a newly chosen one is taken from
+ * today's rules.
  */
 const props = defineProps<{
   caseId: number; name: string; disease: string; kind: IfsgKind; reportedOn: IsoDate; onsetDate: IsoDate; ruleVariant: string | null
-  ruleDate: IsoDate | null; reload: () => Promise<unknown>
+  ruleDate: IsoDate | null; storedRule: IfsgCaseRuleDto | null; reload: () => Promise<unknown>
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const { busy, run } = useBusyAction(() => props.reload())
@@ -26,10 +27,15 @@ watch(open, (value) => {
 
 const diseaseRule = computed(() => (rules.value ? ifsgDisease(rules.value.diseases, props.disease) : null))
 const dateRules = computed(() => diseaseRule.value?.kinds[props.kind]?.rules ?? [])
-/** The chosen rule in today's rules (a rule no longer offered stays chosen; its date can still be changed). */
-const rule = computed(() => (diseaseRule.value && form.ruleVariant !== null ? ifsgDateRule(diseaseRule.value, props.kind, form.ruleVariant) : null))
+/** The stored rule is no longer among today's rules (e.g. after a preset): it stays chosen and is shown apart. */
+const storedGone = computed(() => props.ruleVariant !== null && props.storedRule !== null && !dateRules.value.some(entry => entry.key === props.ruleVariant))
+/** The chosen rule: the stored one while unchanged, else the one of today's rules. */
+const rule = computed(() => {
+  if (form.ruleVariant !== null && form.ruleVariant === props.ruleVariant && props.storedRule) return props.storedRule
+  return diseaseRule.value && form.ruleVariant !== null ? ifsgDateRule(diseaseRule.value, props.kind, form.ruleVariant) : null
+})
 const needsRuleDate = computed(() => form.ruleVariant !== null && rule.value?.anchor !== 'onset')
-const earliest = computed(() => earliestReadmission(rule.value, form.onsetDate, needsRuleDate.value && form.ruleDate ? form.ruleDate : null))
+const earliest = computed(() => earliestReadmission(rule.value ? { key: form.ruleVariant ?? '', ...rule.value } : null, form.onsetDate, needsRuleDate.value && form.ruleDate ? form.ruleDate : null))
 const valid = computed(() => form.onsetDate !== '' && form.onsetDate <= props.reportedOn)
 
 async function save() {
@@ -49,13 +55,18 @@ async function save() {
         <UFormField :label="s.case.onset[kind]" required>
           <DateTextInput v-model="form.onsetDate" :label="s.case.onset[kind]" size="xl" :max="reportedOn" required />
         </UFormField>
-        <fieldset v-if="dateRules.length">
+        <fieldset v-if="dateRules.length || storedGone">
           <legend class="mb-1 text-sm font-medium">{{ s.case.rule }}</legend>
           <div class="flex flex-wrap gap-2" role="radiogroup">
             <UButton
               v-for="entry in dateRules" :key="entry.key" type="button" size="lg" role="radio" :aria-checked="form.ruleVariant === entry.key"
               :variant="form.ruleVariant === entry.key ? 'solid' : 'outline'" :color="form.ruleVariant === entry.key ? 'primary' : 'neutral'"
               :label="entry.label || s.anchors[entry.anchor]" @click="form.ruleVariant = entry.key"
+            />
+            <UButton
+              v-if="storedGone && storedRule" type="button" size="lg" role="radio" :aria-checked="form.ruleVariant === ruleVariant"
+              :variant="form.ruleVariant === ruleVariant ? 'solid' : 'outline'" :color="form.ruleVariant === ruleVariant ? 'primary' : 'neutral'"
+              :label="s.edit.storedRule(storedRule.label || s.anchors[storedRule.anchor], storedRule.days)" @click="form.ruleVariant = ruleVariant"
             />
             <UButton
               type="button" size="lg" role="radio" :aria-checked="form.ruleVariant === null"

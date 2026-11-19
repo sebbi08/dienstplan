@@ -110,7 +110,8 @@ describe('§ 34 IfSG cases', () => {
         caseId: id, disease: 'windpocken', diseaseName: 'Windpocken (Varizellen)', kind: 'sick',
         text: expect.stringContaining('verkrustet'), condition: 'und alle Bläschen verkrustet', earliest: '2026-11-24',
         proof: 'medical_certificate', canReadmit: true, requireAttest: false, binding: true, source: 'rki',
-        healthOffice: { name: '', phone: '' }, onsetDate: '2026-11-17', ruleVariant: 'onset', ruleDate: null, readmittedOn: null,
+        healthOffice: { name: '', phone: '' }, reportedOn: TODAY, onsetDate: '2026-11-17', ruleVariant: 'onset', ruleDate: null,
+        rule: { anchor: 'onset', days: 7, label: '', condition: 'und alle Bläschen verkrustet' }, readmittedOn: null,
       })
       expect(rowOf(max).ifsg).toBeNull()
       // The day before the case shows nothing.
@@ -238,7 +239,7 @@ describe('§ 34 IfSG cases', () => {
       expect(rowOf(max, atTablet())?.ifsg).toEqual({
         caseId: other, disease: null, diseaseName: null, kind: null, text: null, condition: null, earliest: null, proof: null,
         canReadmit: false, requireAttest: false, binding: true, source: null, healthOffice: { name: '', phone: '' }, onsetDate: null,
-        ruleVariant: null, ruleDate: null, readmittedOn: null,
+        ruleVariant: null, ruleDate: null, readmittedOn: null, reportedOn: null, rule: null,
       })
       // The Leitung sees both.
       expect(rowOf(max)?.ifsg?.diseaseName).toBe('Scharlach / Streptococcus-pyogenes-Infektion')

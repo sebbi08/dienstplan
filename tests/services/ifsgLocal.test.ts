@@ -6,7 +6,8 @@ import type { ChildActor } from '../../server/lib/childViewer'
 import { documentDownload } from '../../server/lib/documentHttp'
 import { arrive, getAttendanceDay } from '../../server/services/childAttendance'
 import {
-  acknowledgeIfsgCluster, getIfsgSettings, ifsgClusterReminders, ifsgDeclaration, ifsgReminders, ifsgRules, readmitIfsgCase, updateIfsgCase,
+  acknowledgeIfsgCluster, getIfsgSettings, ifsgClusterReminders, ifsgDeclaration, ifsgReminders, ifsgRules, listIfsgCases, readmitIfsgCase,
+  updateIfsgCase,
   setIfsgSettings,
 } from '../../server/services/ifsg'
 import { createIfsgCase } from '../../server/services/ifsgCases'
@@ -230,6 +231,14 @@ describe('local rules of the health office (§ 34 IfSG)', () => {
         .toMatchObject({ caseId: id, canReadmit: false, readmittedOn: '2026-11-18' })
       expect(() => arriveOn('2026-11-15')).not.toThrow()
       expect(() => arriveOn(TODAY)).not.toThrow()
+    })
+
+    it('sends the report day and the stored rule, also when the rules no longer offer it (N-1, N-2)', () => {
+      const id = create({ ruleVariant: 'onset' })
+      applyIfsgPreset(db, 1, 'rnk_2024', false, NOW)
+      const stored = { anchor: 'onset', days: 5, label: '', condition: 'und symptomfrei' }
+      expect(rowOf(lena).ifsg).toMatchObject({ reportedOn: TODAY, ruleVariant: 'onset', rule: stored, earliest: '2026-11-22' })
+      expect(listIfsgCases(db, leitung, 2026).find(item => item.id === id)?.rule).toEqual(stored)
     })
 
     it('counts only ill or suspected children for a cluster (M-5)', () => {

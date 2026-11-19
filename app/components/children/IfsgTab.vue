@@ -121,6 +121,7 @@ function statusText(row: IfsgCaseDto): string {
     <ChildrenIfsgCaseEditDialog
       v-if="editing" v-model:open="editOpen" :case-id="editing.id" :name="editing.childName" :disease="editing.disease" :kind="editing.kind"
       :reported-on="editing.reportedOn" :onset-date="editing.onsetDate" :rule-variant="editing.ruleVariant" :rule-date="editing.ruleDate"
+      :stored-rule="editing.rule"
       :reload="refresh"
     />
     <p class="text-xs text-gray-500">{{ s.footer }}</p>

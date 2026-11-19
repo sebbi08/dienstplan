@@ -106,13 +106,13 @@ async function save() {
           <p v-if="info.proof">{{ s.proof(s.proofs[info.proof]) }}</p>
           <p class="text-xs">{{ sourceText }}</p>
           <UButton
-            v-if="info.canReadmit && info.kind && info.onsetDate" type="button" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil"
+            v-if="info.canReadmit && info.kind && info.onsetDate && info.reportedOn" type="button" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil"
             :label="s.readmit.editCase" @click="editOpen = true"
           />
           <ChildrenIfsgCaseEditDialog
-            v-if="info.kind && info.onsetDate && info.disease" v-model:open="editOpen" :case-id="info.caseId" :name="child.name"
-            :disease="info.disease" :kind="info.kind" :reported-on="date" :onset-date="info.onsetDate" :rule-variant="info.ruleVariant"
-            :rule-date="info.ruleDate" :reload="reload"
+            v-if="info.kind && info.onsetDate && info.disease && info.reportedOn" v-model:open="editOpen" :case-id="info.caseId" :name="child.name"
+            :disease="info.disease" :kind="info.kind" :reported-on="info.reportedOn" :onset-date="info.onsetDate" :rule-variant="info.ruleVariant"
+            :stored-rule="info.rule" :rule-date="info.ruleDate" :reload="reload"
           />
         </div>
         <p v-if="info?.readmittedOn" class="rounded-lg bg-gray-100 p-3 text-sm text-gray-800">{{ s.readmit.banOver(formatDate(info.readmittedOn)) }}</p>
