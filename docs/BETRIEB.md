@@ -1792,58 +1792,81 @@ Mitarbeiter kommen nicht heran.
 
 Für Mitarbeitende **unter 18** prüft die App den Dienstplan zusätzlich nach dem Jugendarbeitsschutzgesetz. Das Alter
 rechnet sie aus dem **Geburtstag mit Jahr** (Stammdaten; das Jahr gehört zur Personalakte, „Anschrift, Kontakt und
-Geburtsdatum“). Fehlt Tag oder Jahr, prüft sie nichts. Ab dem 18. Geburtstag gelten die Regeln nicht mehr (der Geburtstag
-selbst zählt schon; am 29. Februar Geborene sind in einem Gemeinjahr ab dem 1. März 18). Alles sind **nur Hinweise**,
-nichts wird gesperrt, und das ist **keine Rechtsberatung**. Das Alter ist kein Gesundheitsdatum: Die Hinweise sieht jeder,
-der den Dienstplan bearbeitet, wie die ArbZG-Hinweise – das Geburtsdatum steht in keinem Hinweis.
+Geburtsdatum“). Ab dem 18. Geburtstag gelten die Regeln nicht mehr (der Geburtstag selbst zählt schon; am 29. Februar
+Geborene sind in einem Gemeinjahr ab dem 1. März 18). Ist nur das **Geburtsjahr** eingetragen, gelten die Regeln, solange
+das Jahr höchstens 17 Jahre nach dem Geburtsjahr liegt (dann ist die Person sicher unter 18); im Jahr des 18. Geburtstags
+weiß die App es nicht und prüft nichts, ab dem Jahr danach ist sie sicher 18. Ohne Geburtsjahr prüft sie nichts. Alles sind
+**nur Hinweise**, nichts wird gesperrt, und das ist **keine Rechtsberatung**. Das Alter ist kein Gesundheitsdatum: Die
+Hinweise sieht jeder, der den Dienstplan bearbeitet, wie die ArbZG-Hinweise – das Geburtsdatum steht in keinem Hinweis.
+Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen, dass jemand unter 18 ist.
 
 - **„Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden“:** bei Auszubildenden, Studierenden
-  (praxisintegriert), Berufspraktikanten und „keine pädagogische Kraft“ ohne Geburtsjahr. Er steht beim Mitarbeiter unter
-  dem Geburtstag und einmal im Monat in den Hinweisen des Dienstplans (am ersten Arbeitstag des Monats) – beides nur für alle,
-  die das Geburtsjahr eintragen dürfen („Anschrift, Kontakt und Geburtsdatum“). Ohne eingetragene Qualifikation oder bei
-  Fachkräften, Ergänzungskräften und Haushaltskräften kommt er nicht.
-- **Arbeitszeit** zählt wie bei den ArbZG-Hinweisen: Dienste ohne Pausen und Überstundenfrei, Fortbildung und Schule mit
-  Uhrzeit; ganztägige Abwesenheiten (Urlaub, Krank, Kind krank …) zählen nicht und verraten nichts.
+  (praxisintegriert), Berufspraktikanten und „keine pädagogische Kraft“ ohne Geburtsjahr. Ohne eingetragene Qualifikation
+  oder bei Fachkräften, Ergänzungskräften und Haushaltskräften kommt er nicht.
+- **„Geburtstag fehlt – Jugendarbeitsschutz kann nicht sicher geprüft werden“:** bei jedem (gleich welche Qualifikation)
+  mit Geburtsjahr, aber ohne Geburtstag, im Jahr des 18. Geburtstags.
+- Beide Hinweise stehen beim Mitarbeiter unter dem Geburtstag und einmal im Monat in den Hinweisen des Dienstplans (am
+  ersten Arbeitstag des Monats, für den es zutrifft) – nur für alle, die das Geburtsjahr eintragen dürfen („Anschrift,
+  Kontakt und Geburtsdatum“).
+- **Arbeitszeit** zählt wie bei den ArbZG-Hinweisen: Dienste ohne Pausen und Überstundenfrei, Fortbildung mit Uhrzeit;
+  Schule mit Uhrzeit zählt **mit ihren Pausen** (§ 9 Abs. 2: Unterrichtszeit einschließlich der Pausen). Ganztägige
+  Abwesenheiten (Urlaub, Krank, Kind krank …) zählen nicht und verraten nichts.
 - **Hinweise im Dienstplan** (jeweils mit „Zur Kenntnis genommen“, je Regel und Tag; ändert sich der Wert, erscheint der
   Hinweis wieder):
-  - **8 Stunden am Tag (§ 8):** mehr als 8:00 Std. – „Lena: 8:30 Std. geplant – unter 18 höchstens 8 Std. am Tag
-    (§ 8 JArbSchG)“. Bis 8:30 Std. sind erlaubt, wenn ein anderer Werktag (Mo–Sa) derselben Woche mit Arbeit kürzer als
-    8 Std. ist (§ 8 Abs. 2a); ein freier Tag zählt dafür nicht.
+  - **8 Stunden am Tag (§ 8):** mehr als 8:00 Std. (Schule mitgerechnet) – „Lena: 8:30 Std. geplant – unter 18 höchstens
+    8 Std. am Tag (§ 8 JArbSchG)“. Bis 8:30 Std. sind erlaubt, wenn ein anderer Werktag (Mo–Sa) derselben Woche mit Arbeit
+    kürzer als 8 Std. ist (§ 8 Abs. 2a); ein freier Tag zählt dafür nicht.
   - **40 Stunden in der Woche (§ 8):** an dem Tag, an dem die Kalenderwoche (Mo–So) 40 Std. überschreitet, mit der Summe
-    der Woche. Schule zählt mit (§ 9 Abs. 2): mit ihrer Unterrichtszeit, der erste lange Berufsschultag der Woche (siehe
-    unten) und ein Schultag ohne Uhrzeit mit 8 Std.
+    der Woche. Schule zählt mit (§ 9 Abs. 2): mit ihrer Unterrichtszeit samt Pausen; ein langer Berufsschultag (siehe
+    unten) mit der **durchschnittlichen täglichen Arbeitszeit** aus dem Vertrag (Wochenstunden ÷ Arbeitstage pro Woche,
+    z. B. 39 Std. an 5 Tagen → 7:48 Std.; ohne Wochenstunden 8 Std.), und zwar der freie lange Schultag der Woche (sonst
+    der erste); ein Schultag ohne Uhrzeit ebenso.
   - **5 Tage in der Woche (§ 15):** am sechsten Tag mit Arbeit oder Schule.
-  - **6 bis 20 Uhr (§ 14):** Arbeit vor 6:00 oder nach 20:00.
+  - **6 bis 20 Uhr (§ 14):** Arbeit vor 6:00 oder nach 20:00. Schule ist dabei keine Arbeit (auch Abendunterricht nicht).
   - **Samstag, Sonntag, Feiertag (§§ 16–18):** jede Arbeit an diesen Tagen (Feiertage der Einrichtung) – nur ein
-    Hinweis, weil es Ausnahmen gibt.
-  - **12 Stunden Freizeit (§ 13):** zwischen dem Ende der Arbeit des Vortags und dem Beginn am Tag.
+    Hinweis, weil es Ausnahmen gibt (eine Kita ist kein Heim im Sinne von § 16 Abs. 2 / § 17 Abs. 2). Schule an einem
+    Samstag gibt keinen Hinweis.
+  - **24. und 31. Dezember (§ 18 Abs. 1):** Arbeit nach 14:00 – „Lena: Arbeit bis 16:00 Uhr am 24.12. – unter 18 nicht
+    nach 14 Uhr (§ 18 JArbSchG)“.
+  - **12 Stunden Freizeit (§ 13):** zwischen dem Ende der Arbeit (oder Schule) des Vortags und dem Beginn am Tag.
   - **Pausen (§ 11):** bei mehr als 4:30 Std. Arbeit mindestens 30 Min., bei mehr als 6 Std. mindestens 60 Min.; es zählen
     nur Pausen ab 15 Min. (Pause des Dienstes, zusätzliche Pausen, Lücken zwischen Diensten), und höchstens 4:30 Std.
     am Stück ohne Pause (kürzere Unterbrechungen zählen mit). Es zählen die **im Dienstplan eingetragenen** Pausen – das
     Gesetz will sie im Voraus festgelegt; der automatische Pausenabzug der Zeiterfassung zählt dafür nicht. Die Schulzeit
     bleibt bei den Pausen außen vor (die Pausen der Schule regelt die Schule).
-  - **Berufsschule (§ 9):** Ein Tag mit „Schule“ und mindestens 5 × 45 = 225 Min. Unterricht (Zeit des Eintrags ohne
-    seine Pause) oder ohne Uhrzeit gilt als **langer Berufsschultag**. Am ersten solchen Tag der Woche darf neben der
-    Schule nicht gearbeitet werden; jeder Dienst an dem Tag gibt einen Hinweis (an einem zweiten langen Schultag der
-    Woche nicht). Beginnt der Unterricht **vor 9:00**, darf vorher nicht gearbeitet werden: Dienst vor dem Unterricht
-    gibt einen Hinweis. Beginnt er um 9:00 oder später, ist Arbeit davor erlaubt.
+  - **Berufsschule (§ 9):** Ein Tag mit „Schule“ und **mehr als fünf Unterrichtsstunden**, also mindestens 6 × 45 = 270 Min.
+    Unterricht (Zeit des Eintrags ohne seine Pause), oder ohne Uhrzeit gilt als **langer Berufsschultag**. Ein solcher Tag
+    je Woche muss frei von Arbeit sein: Hat jeder lange Schultag der Woche einen Dienst, steht ein Hinweis am ersten davon;
+    ist einer frei, darf an den anderen nach der Schule gearbeitet werden. Beginnt der Unterricht **vor 9:00**, darf vorher
+    nicht gearbeitet werden: Dienst vor dem Unterricht gibt einen Hinweis. Beginnt er um 9:00 oder später, ist Arbeit davor
+    erlaubt.
+- **Nicht geprüft** werden: die Lage der Pausen (§ 11 Abs. 2: frühestens eine Stunde nach Beginn, spätestens eine Stunde
+  vor Ende), die Schichtzeit von höchstens 10 Std. einschließlich der Pausen (§ 12, z. B. geteilter Dienst 7–11 und
+  15–19 Uhr), Blockunterricht (§ 9 Abs. 1 Nr. 3) und die engeren Grenzen für Kinder unter 15 und für Vollzeitschulpflichtige,
+  etwa im Schülerpraktikum (§§ 5, 7: höchstens 7 Std. am Tag und 35 Std. in der Woche) – die App rechnet für alle unter 18
+  mit 8/40 Std. Die Bescheinigungen der Untersuchungen prüft sie nicht auf ihr Datum (§ 32: höchstens 14 Monate vor
+  Beginn; § 33: höchstens drei Monate alt).
 - **Mindesturlaub (§ 19):** Unter „Urlaub & Zeiten“ → Urlaubsanspruch steht neben dem gesetzlichen Mindesturlaub „für
   Jugendliche mindestens ‹n› Tage“ (nur wer das Geburtsjahr sehen darf). Maßgeblich ist das Alter **am 1. Januar** des
   Jahres: unter 16 → 30, unter 17 → 27, unter 18 → 25 Werktage bei einer 6-Tage-Woche, umgerechnet mit **Werktage ×
-  Arbeitstage pro Woche ÷ 6**, aufgerundet auf halbe Tage (5-Tage-Woche: 25, 22,5, 21). Die Arbeitstage und die Zwölftel
-  bei Eintritt oder Austritt im Jahr wie beim gesetzlichen Mindesturlaub (§ 19 Abs. 4 verweist auf das BUrlG). Liegt der
-  Anspruch darunter, erscheint gelb „Unter dem Mindesturlaub für Jugendliche (§ 19 JArbSchG): ‹n› Tage“ (statt des
-  allgemeinen Hinweises).
+  Arbeitstage pro Woche ÷ 6**, aufgerundet auf halbe Tage (5-Tage-Woche: 25, 22,5, 21). Mit dem Geburtsjahr allein gilt
+  das Alter Jahr − Geburtsjahr − 1 (wer am 1. Januar geboren ist, wäre ein Jahr älter); im Jahr des 18. Geburtstags gibt es
+  dann keinen Hinweis. Die Arbeitstage und die Zwölftel bei Eintritt oder Austritt im Jahr wie beim gesetzlichen
+  Mindesturlaub (§ 19 Abs. 4 verweist auf das BUrlG). Liegt der Anspruch darunter, erscheint gelb „Unter dem Mindesturlaub
+  für Jugendliche (§ 19 JArbSchG): ‹n› Tage“ (statt des allgemeinen Hinweises).
 - **Untersuchungen (§§ 32, 33):** zwei vorgegebene Pflichttermine, **„Erstuntersuchung (§ 32 JArbSchG)“** (fällig bis zum
   Beginn der Beschäftigung) und **„Nachuntersuchung (§ 33 JArbSchG)“** (fällig ein Jahr danach). Beginn ist „beschäftigt
   seit“ (Vertragsangaben), sonst der erste Wochenstunden-Eintrag. Sie gelten nur, wenn die Person an diesem Tag unter 18
   ist und es heute noch ist (wer 18 wird, bevor das Jahr um ist, braucht keine Nachuntersuchung; nach dem 18. Geburtstag
   ist nichts mehr nachzuholen). Dann stehen sie beim Mitarbeiter unter „Pflichttermine“ und in der Spalte
-  „Pflichttermine“ der Mitarbeiterliste wie die anderen Arten (bald fällig zwei Monate vorher, überfällig ab dem
-  Fälligkeitstag); die Erstuntersuchung zeigt die Liste schon vor dem ersten Arbeitstag. Ein Eintrag erledigt die Art und
-  bleibt sichtbar, auch nach dem 18. Geburtstag. In den Einstellungen lassen sich beide umbenennen, aber nicht löschen;
+  „Pflichttermine“ der Mitarbeiterliste wie die anderen Arten: die Erstuntersuchung „bald fällig“ zwei Monate vorher, die
+  Nachuntersuchung **neun Monate nach Beginn** (dann soll der Arbeitgeber an sie erinnern, § 33 Abs. 1), „überfällig“ ab
+  dem Fälligkeitstag; die Erstuntersuchung zeigt die Liste schon vor dem ersten Arbeitstag. Ein Eintrag erledigt die Art
+  und bleibt sichtbar, auch nach dem 18. Geburtstag. In den Einstellungen lassen sich beide umbenennen, aber nicht löschen;
   eine Wiederholung gibt es nicht (das Gesetz legt die Fälligkeit fest). Ältere Datenbanken bekommen sie mit der
-  Migration 0095 hinter den vorhandenen Arten jeder Einrichtung.
+  Migration 0095 hinter den vorhandenen Arten jeder Einrichtung. **Nach dem Update** steht deshalb bei allen, die jetzt
+  unter 18 sind, die Erstuntersuchung als überfällig, bis die vorhandene Bescheinigung eingetragen ist (Datum der
+  Untersuchung unter „Pflichttermine“ → Eintragen).
 
 ## 21. Menü
 

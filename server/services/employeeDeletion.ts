@@ -24,7 +24,7 @@ import { getRetentionSettings } from './retentionSettings'
 const EMPLOYEE_WARNING_TYPES = new Set([
   'missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence',
   'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'child_sick_days', 'work_limit',
-  'youth_birth_year',
+  'youth_birth_year', 'youth_birthday',
 ])
 
 /** Release snapshots of every facility (home, former home, help-out plans) without the employee's column and cells. */

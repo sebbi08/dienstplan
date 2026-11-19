@@ -16,6 +16,8 @@ const keptAbsencesNote = (count: number, kind: string) => (count === 1
 const onDays = (count: number) => (count === 1 ? 'an 1 Tag' : `an ${count} Tagen`)
 /** Jugendarbeitsschutz without a birth year: in the plan's hints (with the name) and on the employee page. */
 const YOUTH_BIRTH_YEAR_MISSING = 'Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden'
+/** A birth year without a birthday in the year of the 18th birthday (the same places). */
+const YOUTH_BIRTHDAY_MISSING = 'Geburtstag fehlt – Jugendarbeitsschutz kann nicht sicher geprüft werden'
 /** Format errors of the personnel file (shared/domain/personnel.ts): `personnel.invalid` and, as API errors, `errors`. */
 const personnelInvalid = {
   iban_invalid: 'Die IBAN stimmt nicht. Bitte prüfe sie noch einmal (z. B. DE89 3704 0044 0532 0130 00).',
@@ -506,6 +508,8 @@ export const de = {
         `${name}: Dienst vor dem Unterricht um ${time} Uhr – unter 18 nicht vor Unterricht, der vor 9 Uhr beginnt (§ 9 JArbSchG)`,
       /** Once a month for the Leitung (employees.personal), for trainees, students, interns and „keine pädagogische Kraft“. */
       birthYear: (name: string) => `${name}: ${YOUTH_BIRTH_YEAR_MISSING}`,
+      birthday: (name: string) => `${name}: ${YOUTH_BIRTHDAY_MISSING}`,
+      eve: (name: string, time: string, day: string) => `${name}: Arbeit bis ${time} Uhr am ${day} – unter 18 nicht nach 14 Uhr (§ 18 JArbSchG)`,
     },
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
@@ -988,6 +992,7 @@ export const de = {
   /** Jugendarbeitsschutz (JArbSchG) on the employee page; the plan's hints are under `warnings.youth`. */
   youth: {
     birthYearMissing: YOUTH_BIRTH_YEAR_MISSING,
+    birthdayMissing: YOUTH_BIRTHDAY_MISSING,
     leaveAtLeast: (days: string) => `für Jugendliche mindestens ${days} ${days === '1' ? 'Tag' : 'Tage'}`,
     leaveBelow: (days: string) => `Unter dem Mindesturlaub für Jugendliche (§ 19 JArbSchG): ${days} ${days === '1' ? 'Tag' : 'Tage'}`,
   },

@@ -246,8 +246,9 @@ const DUE_ORDER: Record<DueRequirementDto['state'], number> = { overdue: 0, miss
  * missing, then soon; within a state by employee name, then in the order of the kinds.
  */
 export function listDueRequirements(db: Db, facilityId: number, today: IsoDate): DueRequirementDto[] {
-  const upcoming = (employee: EmployeeRecord) => (employmentStart(employee.info) ?? '') > today
-    && (employee.info.leftOn === null || employee.info.leftOn >= today)
+  // Not employed yet, starting later (the start the examination is due by: stateFactsOf).
+  const upcoming = (employee: EmployeeRecord) => !isEmployedOn(employee.info, today)
+    && (stateFactsOf(employee, null).start ?? '') > today && (employee.info.leftOn === null || employee.info.leftOn >= today)
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedOn(employee.info, today) || upcoming(employee))
   if (staff.length === 0) return []
   const types = typeRows(db, facilityId)

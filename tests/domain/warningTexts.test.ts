@@ -114,6 +114,17 @@ describe('Jugendarbeitsschutz texts (JArbSchG)', () => {
       .toBe('Anna: Dienst vor dem Unterricht um 8:00 Uhr – unter 18 nicht vor Unterricht, der vor 9 Uhr beginnt (§ 9 JArbSchG)')
   })
 
+  it('words work after 14:00 on 24 and 31 December', () => {
+    expect(warningText({ ...base, date: '2026-12-24', rule: 'eve', value: 960, limit: 840 }, names))
+      .toBe('Anna: Arbeit bis 16:00 Uhr am 24.12. – unter 18 nicht nach 14 Uhr (§ 18 JArbSchG)')
+  })
+
+  it('asks for the missing birthday in the year of the 18th birthday', () => {
+    const warning: Warning = { type: 'youth_birthday', date: '2026-11-02', employeeId: 1 }
+    expect(warningText(warning, names)).toBe('Anna: Geburtstag fehlt – Jugendarbeitsschutz kann nicht sicher geprüft werden')
+    expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])
+  })
+
   it('asks for the missing birth year, and marks the cell', () => {
     const warning: Warning = { type: 'youth_birth_year', date: '2026-11-02', employeeId: 1 }
     expect(warningText(warning, names)).toBe('Anna: Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden')

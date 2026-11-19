@@ -28,7 +28,7 @@ const without = (user: SessionUser, ...keys: string[]): SessionUser =>
   ({ ...user, permissions: new Set([...user.permissions].filter(key => !keys.includes(key))) }) as SessionUser
 const special = (date: string, start: number, end: number, extra: { breakStart?: number; breakEnd?: number } = {}) =>
   applyToCells(db, admin, 1, [{ employeeId: lena, date }], 'add', { kind: 'special', start, end, ...extra })
-const YOUTH = new Set(['youth', 'youth_birth_year'])
+const YOUTH = new Set(['youth', 'youth_birth_year', 'youth_birthday'])
 const youth = (year: number, month: number, viewer = admin) =>
   getMonthPlan(db, viewer, 1, year, month, '2026-11-01').admin!.warnings.filter(warning => YOUTH.has(warning.type))
 const brief = (warnings: Warning[]) => warnings.map(warning => warning.type === 'youth'
@@ -62,12 +62,27 @@ describe('Jugendarbeitsschutz in the plan', () => {
     ])
     expect(brief(youth(2026, 11))).toEqual([])
   })
-  it('says nothing for an adult or without the full birth date', () => {
+  it('says nothing for an adult', () => {
     special('2026-11-03', 420, 1080)
     db.update(employees).set({ birthYear: 2000 }).where(eq(employees.id, lena)).run()
     expect(youth(2026, 11)).toEqual([])
-    db.update(employees).set({ birthYear: 2010, birthday: null }).where(eq(employees.id, lena)).run()
+    db.update(employees).set({ birthYear: 2000, birthday: null }).where(eq(employees.id, lena)).run()
     expect(youth(2026, 11)).toEqual([])
+  })
+  it('checks with the birth year alone while she is certainly under 18', () => {
+    special('2026-11-03', 450, 1020, { breakStart: 720, breakEnd: 780 })
+    db.update(employees).set({ birthYear: 2010, birthday: null }).where(eq(employees.id, lena)).run()
+    expect(brief(youth(2026, 11))).toEqual([['hours', '2026-11-03', 510, 480]])
+  })
+  it('credits a long school day with the average daily working time of the contract', () => {
+    // 39 hours on 5 days: 7:48 h. Week of 2 November: Monday school all day, Tuesday to Friday 8:00 h, Saturday 0:10 h
+    // makes 39:58 h (with 8 h for the school day it would be 40:10 h).
+    applyToCells(db, admin, 1, [{ employeeId: lena, date: '2026-11-02' }], 'replace', { kind: 'code', codeId: codeId(db, 'school') })
+    for (const date of ['2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']) special(date, 480, 1020, { breakStart: 720, breakEnd: 780 })
+    special('2026-11-07', 600, 610)
+    expect(brief(youth(2026, 11)).filter(row => row[0] === 'week')).toEqual([])
+    special('2026-11-07', 610, 615)
+    expect(brief(youth(2026, 11)).filter(row => row[0] === 'week')).toEqual([['week', '2026-11-07', 2403, 2400]])
   })
   it('counts nothing for whole-day absences, private ones included, and tells no viewer about them', () => {
     for (const date of ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']) {
@@ -106,6 +121,18 @@ describe('„Geburtsjahr fehlt“', () => {
     expect(brief(youth(2026, 11))).toEqual([['youth_birth_year', '2026-11-01']])
     db.update(employees).set({ qualification: null }).where(eq(employees.id, lena)).run()
     expect(youth(2026, 11)).toEqual([])
+  })
+  it('„Geburtstag fehlt“ in the year of the 18th birthday when only the year is known, for any qualification', () => {
+    db.update(employees).set({ birthYear: 2008, birthday: null, qualification: 'fachkraft' }).where(eq(employees.id, lena)).run()
+    special('2026-11-03', 420, 1080)
+    // 2026 − 2008 = 18: maybe already 18, so nothing is checked, but the Leitung is asked for the birthday.
+    expect(brief(youth(2026, 11))).toEqual([['youth_birthday', '2026-11-01']])
+    expect(youth(2026, 11, without(admin, 'employees.personal'))).toEqual([])
+    // 2027: certainly 18.
+    expect(youth(2027, 1)).toEqual([])
+    // Born 2009: 17 years in 2026, certainly under 18 — the rules apply, no hint.
+    db.update(employees).set({ birthYear: 2009 }).where(eq(employees.id, lena)).run()
+    expect(brief(youth(2026, 11))).toEqual([['hours', '2026-11-03', 660, 480], ['break', '2026-11-03', 0, 60], ['stretch', '2026-11-03', 660, 270]])
   })
   it('can be acknowledged, and goes with the employee', () => {
     db.update(employees).set({ birthYear: null }).where(eq(employees.id, lena)).run()
@@ -170,6 +197,10 @@ describe('examinations (§§ 32, 33 JArbSchG) among the Pflichttermine', () => {
     // The employee list shows it in the Pflichttermine column.
     expect(listEmployeeListExtras(db, 1, TODAY, admin.permissions).find(row => row.employeeId === tom)!.requirements)
       .toEqual([{ typeId: requirementTypeId(db, 'youth_initial'), typeName: INITIAL, state: 'soon', dueOn: '2026-11-16' }])
+    // „Beschäftigt seit“ is the start for both: due by it, and listed while it lies ahead.
+    db.update(employees).set({ employedSince: '2026-12-01' }).where(eq(employees.id, tom)).run()
+    expect(listDueRequirements(db, 1, TODAY).filter(row => row.employeeId === tom).map(row => [row.typeName, row.state, row.dueOn]))
+      .toEqual([[INITIAL, 'soon', '2026-12-01']])
   })
   it('shows the employee their own examinations', () => {
     const viewer = addUser(db, 'mia', 'observer', mia)

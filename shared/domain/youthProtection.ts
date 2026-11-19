@@ -3,7 +3,7 @@ import { isHolidayIn, type HolidayRules } from './holidays'
 import { addMonths, REQUIREMENT_SOON_MONTHS, type RequirementState, type YouthExamKey } from './requirements'
 import type { Qualification } from './staffing/types'
 import { leaveBasis, leaveInYear, type StatutoryLeave } from './statutoryLeave'
-import type { HoursPeriod } from './targets'
+import { weeklyMinutesOn, workdayCount, workdaysOn, type EmploymentInfo, type HoursPeriod } from './targets'
 import type { IsoDate, Minutes } from './types'
 import { plannedWorkMinutes, plannedWorkSpans, plannedWorkWindow, restMinutes, type LawEntry, type WorkWindow } from './workingTimeLaw'
 
@@ -13,7 +13,7 @@ import { plannedWorkMinutes, plannedWorkSpans, plannedWorkWindow, restMinutes, t
  * the hints show to every plan editor like the ArbZG hints, but never state the birth date.
  *
  * Working time is what the ArbZG hints count (workingTimeLaw.ts): work entries without breaks and time off, plus
- * Fortbildung and Schule with times. Breaks are the planned ones (breaks of the entries, additional breaks, gaps between
+ * Fortbildung with times, plus Schule with times including its breaks (§ 9 Abs. 2 Nr. 2). Breaks are the planned ones (breaks of the entries, additional breaks, gaps between
  * entries): § 11 Abs. 2 wants them fixed in advance, so the automatic break deduction of the time tracking does not count.
  */
 
@@ -33,14 +33,19 @@ export const YOUTH_MIN_REST_MINUTES = 12 * 60
 export const YOUTH_BREAK_MIN_BLOCK = 15
 export const YOUTH_MAX_STRETCH_MINUTES = 4 * 60 + 30
 /**
- * § 9 Abs. 1 Nr. 2: a school day with more than five lessons of at least 45 minutes; here a „Schule“ day with at least
- * 5 × 45 minutes of lessons (the times of the entries without their breaks), or without times at all.
+ * § 9 Abs. 1 Nr. 2: a school day with more than five lessons of at least 45 minutes, so at least 6 × 45 minutes of
+ * lessons (the times of the „Schule“ entries without their breaks), or a „Schule“ day without times at all.
  */
-export const SCHOOL_LONG_DAY_MINUTES = 5 * 45
-/** § 9 Abs. 2 Nr. 1: such a day counts 8 hours for the week (once a week). */
-export const SCHOOL_LONG_DAY_CREDIT = 8 * 60
+export const SCHOOL_LONG_DAY_MINUTES = 6 * 45
+/**
+ * § 9 Abs. 2 Nr. 1: such a day counts with the average daily working time (contractual weekly hours ÷ working days per
+ * week); 8 hours when that is unknown.
+ */
+export const SCHOOL_LONG_DAY_CREDIT_FALLBACK = 8 * 60
 /** § 9 Abs. 1 Nr. 1: no work before lessons that start before 9:00. */
 export const SCHOOL_EARLY_START: Minutes = 9 * 60
+/** § 18 Abs. 1: no work on 24 and 31 December after 14:00. */
+export const YOUTH_EVE_END: Minutes = 14 * 60
 
 // ---- age ---------------------------------------------------------------------
 
@@ -55,10 +60,30 @@ export function ageOn(birthday: string | null, birthYear: number | null, date: I
   return date.slice(5) < birthday ? years - 1 : years
 }
 
-/** Under 18 on the day (the full birth date is needed: false without it). */
-export function isMinorOn(birthday: string | null, birthYear: number | null, date: IsoDate): boolean {
+/**
+ * Whether the person is under 18 on the day: from the full birth date; with the birth year alone certain while the
+ * year of the day is at most 17 years after it ('minor') or at least 19 ('adult'), unknown in the year of the 18th
+ * birthday; unknown without a birth year.
+ */
+export function minorStatusOn(birthday: string | null, birthYear: number | null, date: IsoDate): 'minor' | 'adult' | 'unknown' {
+  if (birthYear === null) return 'unknown'
   const age = ageOn(birthday, birthYear, date)
-  return age !== null && age < 18
+  if (age !== null) return age < 18 ? 'minor' : 'adult'
+  const years = Number(date.slice(0, 4)) - birthYear
+  return years <= 17 ? 'minor' : years >= 19 ? 'adult' : 'unknown'
+}
+
+/** Certainly under 18 on the day (minorStatusOn): the rules apply. */
+export function isMinorOn(birthday: string | null, birthYear: number | null, date: IsoDate): boolean {
+  return minorStatusOn(birthday, birthYear, date) === 'minor'
+}
+
+/**
+ * A birth year without a birthday in the year of the 18th birthday: whether the person is still under 18 cannot be told,
+ * so the Leitung gets „Geburtstag fehlt – Jugendarbeitsschutz kann nicht sicher geprüft werden“.
+ */
+export function birthdayUncertainOn(birthday: string | null, birthYear: number | null, date: IsoDate): boolean {
+  return birthYear !== null && minorStatusOn(birthday, birthYear, date) === 'unknown'
 }
 
 /**
@@ -74,18 +99,21 @@ export function needsBirthYear(qualification: Qualification | null): boolean {
 
 export type YouthRule =
   | 'hours' | 'week' | 'days' | 'early' | 'late' | 'saturday' | 'sunday' | 'holiday' | 'rest' | 'break' | 'stretch'
-  | 'schoolDay' | 'schoolBefore'
+  | 'schoolDay' | 'schoolBefore' | 'eve'
 export const YOUTH_RULES: readonly YouthRule[] = [
   'hours', 'week', 'days', 'early', 'late', 'saturday', 'sunday', 'holiday', 'rest', 'break', 'stretch', 'schoolDay', 'schoolBefore',
+  'eve',
 ]
 
 /**
- * A hint of the Jugendarbeitsschutz. `value` and `limit` by rule: hours = minutes worked and 8:00 h (8:30 h, § 8 Abs. 2a);
- * week = the minutes of the calendar week (school included) and 40 h, on the day the week passes them; days = workdays of
- * the week and 5, on the sixth; early = the start of the work and 6:00; late = its end and 20:00; saturday, sunday, holiday
- * = minutes worked and 0; rest = the free time since the day before and 12 h; break = the breaks that count and the 30 or 60
- * minutes needed; stretch = the longest work without a break and 4:30 h; schoolDay = minutes worked besides school on the
- * first long school day of the week and 0; schoolBefore = the start of the work and the start of the lessons (before 9:00).
+ * A hint of the Jugendarbeitsschutz. `value` and `limit` by rule: hours = working minutes (school included) and 8:00 h
+ * (8:30 h, § 8 Abs. 2a); week = the minutes of the calendar week (school included) and 40 h, on the day the week passes
+ * them; days = workdays of the week and 5, on the sixth; early = the start of the work and 6:00; late = its end and
+ * 20:00; saturday, sunday, holiday = minutes worked and 0; eve = the end of the work on 24 or 31 December and 14:00;
+ * rest = the free time since the day before and 12 h; break = the breaks that count and the 30 or 60 minutes needed;
+ * stretch = the longest work without a break and 4:30 h; schoolDay = minutes worked besides school on the first long
+ * school day of a week in which no long school day is free, and 0; schoolBefore = the start of the work and the start of
+ * the lessons (before 9:00). Work in § 14 and §§ 16–18 is the work besides school (school is no employment).
  */
 export interface YouthWarning {
   type: 'youth'
@@ -101,14 +129,14 @@ const isSchool = (entry: LawEntry) => entry.kind === 'code' && entry.codeKey ===
 interface SchoolFacts {
   /** The first lesson (null: school without times). */
   start: Minutes | null
-  /** More than five lessons (or no times): no work besides school once a week, 8 hours for the week. */
+  /** More than five lessons (or no times): one such day a week free of work, credited for the week (§ 9 Abs. 2). */
   long: boolean
   untimed: boolean
 }
 
 interface DayFacts {
   date: IsoDate
-  /** Working time of the day (timed school included) and its first and last minute. */
+  /** Working time of the day: the work, and timed school with its breaks (§ 9 Abs. 2 Nr. 2); its first and last minute. */
   minutes: number
   window: WorkWindow | null
   /** The work besides school: minutes, first and last minute, spans (the breaks lie between them). */
@@ -130,12 +158,19 @@ function schoolFacts(entries: LawEntry[]): SchoolFacts | null {
   return { start: Math.min(...timed.map(entry => entry.start!)), long: lessons >= SCHOOL_LONG_DAY_MINUTES, untimed: false }
 }
 
+const DAY_MINUTES = 24 * 60
+
 function dayFacts(date: IsoDate, entries: LawEntry[]): DayFacts {
   const work = entries.filter(entry => !isSchool(entry))
+  const workSpans = plannedWorkSpans(work)
+  // The work and the timed school with its breaks, overlaps once.
+  const all = new Uint8Array(DAY_MINUTES)
+  for (const span of workSpans) all.fill(1, span.start, span.end)
+  for (const entry of entries) if (isSchool(entry) && entry.start !== null && entry.end !== null) all.fill(1, entry.start, entry.end)
+  const first = all.indexOf(1)
   return {
-    date, minutes: plannedWorkMinutes(entries), window: plannedWorkWindow(entries),
-    workMinutes: plannedWorkMinutes(work), workWindow: plannedWorkWindow(work), workSpans: plannedWorkSpans(work),
-    school: schoolFacts(entries),
+    date, minutes: all.reduce((sum, minute) => sum + minute, 0), window: first === -1 ? null : { start: first, end: all.lastIndexOf(1) + 1 },
+    workMinutes: plannedWorkMinutes(work), workWindow: plannedWorkWindow(work), workSpans, school: schoolFacts(entries),
   }
 }
 
@@ -161,25 +196,40 @@ export function youthRequiredBreak(minutes: number): number {
   return minutes > 6 * 60 ? 60 : minutes > YOUTH_MAX_STRETCH_MINUTES ? 30 : 0
 }
 
-/** A day's minutes for the week (§ 9 Abs. 2): the first long school day 8 hours, a school day without times too. */
-function weekMinutes(day: DayFacts, firstLong: boolean): number {
-  return day.school?.long && (firstLong || day.school.untimed) ? Math.max(SCHOOL_LONG_DAY_CREDIT, day.minutes) : day.minutes
+/**
+ * § 9 Abs. 2 Nr. 1: the average daily working time from the contract (weekly minutes ÷ working days per week valid on
+ * the day); 8 hours without weekly hours.
+ */
+export function averageDailyMinutes(info: EmploymentInfo, date: IsoDate): number {
+  const weekly = weeklyMinutesOn(info, date)
+  const days = workdayCount(workdaysOn(info, date))
+  return weekly === null || days === 0 ? SCHOOL_LONG_DAY_CREDIT_FALLBACK : Math.round(weekly / days)
 }
 
 /**
  * The hints of one person from `from` to `to` (both included), from the planned entries of each day (`entriesOf`, also
  * for the day before `from` and for the whole calendar weeks around the range). `appliesOn` tells the days the rules
- * apply on: under 18 and employed; the week rules count only these days.
+ * apply on: under 18 and employed; the week rules count only these days. `creditOn` is what a long school day counts for
+ * the week (averageDailyMinutes; 8 hours when missing).
  */
 export function youthWarnings(input: {
   employeeId: number; from: IsoDate; to: IsoDate; holidays: HolidayRules
-  entriesOf: (date: IsoDate) => LawEntry[]; appliesOn: (date: IsoDate) => boolean
+  entriesOf: (date: IsoDate) => LawEntry[]; appliesOn: (date: IsoDate) => boolean; creditOn?: (date: IsoDate) => number
 }): YouthWarning[] {
   const warnings: YouthWarning[] = []
+  const creditOn = input.creditOn ?? (() => SCHOOL_LONG_DAY_CREDIT_FALLBACK)
   for (let monday = weekStart(input.from); monday <= input.to; monday = addDays(monday, 7)) {
     const days = dateRange(monday, addDays(monday, 6)).filter(input.appliesOn).map(date => dayFacts(date, input.entriesOf(date)))
-    const firstLong = days.find(day => day.school?.long)?.date ?? null
-    const counted = new Map(days.map(day => [day.date, weekMinutes(day, day.date === firstLong)]))
+    // § 9 Abs. 1 Nr. 2: one long school day a week must be free of work; that one (else the first) is credited with the
+    // average daily working time (§ 9 Abs. 2 Nr. 1). Other school days count their lessons with breaks; a long one
+    // without times, whose lessons are unknown, counts the credit as well.
+    const longDays = days.filter(day => day.school?.long)
+    const freeLong = longDays.find(day => day.workWindow === null) ?? null
+    const credited = (freeLong ?? longDays[0])?.date ?? null
+    const counted = new Map(days.map(day => [
+      day.date,
+      day.date === credited || day.school?.untimed ? Math.max(creditOn(day.date), day.minutes) : day.minutes,
+    ]))
     const weekTotal = days.reduce((sum, day) => sum + counted.get(day.date)!, 0)
     const isWorkday = (day: DayFacts) => counted.get(day.date)! > 0 || day.school !== null
     const workdays = days.filter(isWorkday).length
@@ -198,16 +248,22 @@ export function youthWarnings(input: {
         const limit = shortened ? YOUTH_MAX_DAILY_MINUTES_EXTENDED : YOUTH_MAX_DAILY_MINUTES
         if (day.minutes > limit) warn('hours', day.minutes, limit)
       }
+      if (day.workWindow !== null) {
+        // § 14: from 6 to 20 o'clock (school is no employment).
+        if (day.workWindow.start < YOUTH_EARLIEST) warn('early', day.workWindow.start, YOUTH_EARLIEST)
+        if (day.workWindow.end > YOUTH_LATEST) warn('late', day.workWindow.end, YOUTH_LATEST)
+        // §§ 16–18: no work on Saturdays, Sundays and public holidays of the home facility (exceptions exist: only a
+        // hint), none after 14:00 on 24 and 31 December.
+        if (isHolidayIn(date, input.holidays)) warn('holiday', day.workMinutes, 0)
+        else if (weekday(date) === 6) warn('sunday', day.workMinutes, 0)
+        else if (weekday(date) === 5) warn('saturday', day.workMinutes, 0)
+        if ((date.endsWith('-12-24') || date.endsWith('-12-31')) && day.workWindow.end > YOUTH_EVE_END) {
+          warn('eve', day.workWindow.end, YOUTH_EVE_END)
+        }
+      }
       if (day.window !== null) {
-        // § 14: from 6 to 20 o'clock.
-        if (day.window.start < YOUTH_EARLIEST) warn('early', day.window.start, YOUTH_EARLIEST)
-        if (day.window.end > YOUTH_LATEST) warn('late', day.window.end, YOUTH_LATEST)
-        // §§ 16–18: no work on Saturdays, Sundays and public holidays of the home facility (exceptions exist: only a hint).
-        if (isHolidayIn(date, input.holidays)) warn('holiday', day.minutes, 0)
-        else if (weekday(date) === 6) warn('sunday', day.minutes, 0)
-        else if (weekday(date) === 5) warn('saturday', day.minutes, 0)
-        // § 13: 12 hours of free time after the work of the day before.
-        const previous = plannedWorkWindow(input.entriesOf(addDays(date, -1)))
+        // § 13: 12 hours of free time after the work (and school) of the day before.
+        const previous = dayFacts(addDays(date, -1), input.entriesOf(addDays(date, -1))).window
         if (previous !== null) {
           const rest = restMinutes(previous.end, day.window.start)
           if (rest < YOUTH_MIN_REST_MINUTES) warn('rest', rest, YOUTH_MIN_REST_MINUTES)
@@ -218,9 +274,10 @@ export function youthWarnings(input: {
       const required = youthRequiredBreak(day.workMinutes)
       if (breaks < required) warn('break', breaks, required)
       if (longest > YOUTH_MAX_STRETCH_MINUTES) warn('stretch', longest, YOUTH_MAX_STRETCH_MINUTES)
-      // § 9 Abs. 1: no work on the first long school day of the week, none before lessons starting before 9:00.
+      // § 9 Abs. 1: one long school day a week free of work (the hint on the first when none is), no work before lessons
+      // starting before 9:00.
       if (day.school !== null && day.workWindow !== null) {
-        if (date === firstLong) warn('schoolDay', day.workMinutes, 0)
+        if (freeLong === null && date === longDays[0]?.date) warn('schoolDay', day.workMinutes, 0)
         else if (day.school.start !== null && day.school.start < SCHOOL_EARLY_START && day.workWindow.start < day.school.start) {
           warn('schoolBefore', day.workWindow.start, day.school.start)
         }
@@ -251,14 +308,18 @@ const upToHalf = (days: number) => Math.ceil(Math.round(days * 2 * 1e6) / 1e6) /
 /**
  * The minimum leave for Jugendliche (§ 19 JArbSchG), only a hint: the Werktage by the age on 1 January of the year,
  * converted to the working days per week (days × workdays / 6, up to half days), in a year of joining or leaving the
- * twelfths of the BUrlG (§ 19 Abs. 4). null when the person is 18 at the start of the year or the birth date is incomplete.
+ * twelfths of the BUrlG (§ 19 Abs. 4). Without a birthday the year alone tells when the person is certainly under 18 on
+ * 1 January (minorStatusOn); the age is then taken as year − birth year − 1 (born on 1 January, one year more). null when
+ * the person is (or may be) 18 at the start of the year, or without a birth year.
  */
 export function youthMinimumLeave(input: {
   birthday: string | null; birthYear: number | null; year: number; workdaysPerWeek: number; employedFrom: IsoDate | null
   employedUntil?: IsoDate | null
 }): StatutoryLeave | null {
-  const age = ageOn(input.birthday, input.birthYear, `${input.year}-01-01`)
-  const werktage = age === null ? null : youthLeaveWerktage(age)
+  const yearStart: IsoDate = `${input.year}-01-01`
+  if (!isMinorOn(input.birthday, input.birthYear, yearStart)) return null
+  const age = ageOn(input.birthday, input.birthYear, yearStart) ?? input.year - input.birthYear! - 1
+  const werktage = youthLeaveWerktage(age)
   if (werktage === null) return null
   const perYear = upToHalf((werktage * input.workdaysPerWeek) / 6)
   return { perYear, inYear: leaveInYear(perYear, input) }
@@ -277,6 +338,8 @@ export function youthLeaveOf(
  * The state of an examination kind for an employee (null = not shown): the first examination (§ 32) is due by the start
  * of employment, the follow-up (§ 33) one year after it. A kind applies when the person is under 18 on that day and still
  * today (after the 18th birthday nothing is to be done any more); a kind with a record always shows, as „in Ordnung“.
+ * „bald fällig“ two months before the first examination; for the follow-up from nine months after the start, when the
+ * employer has to remind the person of it (§ 33 Abs. 1 Satz 2).
  */
 export function youthExamStatus(
   key: YouthExamKey, facts: { birthday: string | null; birthYear: number | null; start: IsoDate | null },
@@ -287,5 +350,9 @@ export function youthExamStatus(
   const dueOn = key === 'youth_initial' ? facts.start : addMonths(facts.start, 12)
   if (!isMinorOn(facts.birthday, facts.birthYear, dueOn) || !isMinorOn(facts.birthday, facts.birthYear, today)) return null
   if (dueOn <= today) return { state: 'overdue', dueOn }
-  return { state: dueOn <= addMonths(today, REQUIREMENT_SOON_MONTHS) ? 'soon' : 'ok', dueOn }
+  const soonFrom = key === 'youth_initial' ? addMonths(dueOn, -REQUIREMENT_SOON_MONTHS) : addMonths(facts.start, YOUTH_FOLLOWUP_REMINDER_MONTHS)
+  return { state: today >= soonFrom ? 'soon' : 'ok', dueOn }
 }
+
+/** § 33 Abs. 1 Satz 2: nine months after the start the employer reminds the person of the follow-up examination. */
+export const YOUTH_FOLLOWUP_REMINDER_MONTHS = 9

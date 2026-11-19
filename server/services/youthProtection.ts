@@ -4,7 +4,7 @@ import { isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { Warning } from '../../shared/domain/warnings'
 import type { LawEntry } from '../../shared/domain/workingTimeLaw'
-import { isMinorOn, needsBirthYear, youthWarnings } from '../../shared/domain/youthProtection'
+import { averageDailyMinutes, birthdayUncertainOn, isMinorOn, needsBirthYear, youthWarnings } from '../../shared/domain/youthProtection'
 import type { Db } from '../db/client'
 import { employees } from '../db/schema'
 import type { EmployeeRecord } from './queries'
@@ -23,7 +23,10 @@ export function birthYearsOf(db: Db, employeeIds: readonly number[]): Map<number
  * gets them, like the ArbZG hints; the birth date is never part of a hint.
  *
  * `showsBirthYearHint` (employees.personal, who can enter it): „Geburtsjahr fehlt“ once a month, on the person's first
- * employed day of it, for a trainee, student, intern or „keine pädagogische Kraft“ without a birth year.
+ * employed day of it, for a trainee, student, intern or „keine pädagogische Kraft“ without a birth year; „Geburtstag
+ * fehlt“ once a month, on the first employed day of it in the year of the 18th birthday, for anyone with a birth year
+ * and no birthday (whether they are still under 18 cannot be told). With the birth year alone the rules apply while the
+ * person is certainly under 18 (minorStatusOn).
  */
 export function youthPlanWarnings(
   db: Db, staff: readonly EmployeeRecord[], year: number, month: number,
@@ -41,12 +44,19 @@ export function youthPlanWarnings(
       if (first !== undefined) warnings.push({ type: 'youth_birth_year', date: first, employeeId: employee.id })
       continue
     }
-    // Under 18 is over for good after the 18th birthday: 18 on the first day the week rules look at, nothing to check.
+    if (showsBirthYearHint) {
+      const uncertain = monthDates(year, month)
+        .find(date => isEmployedOn(employee.info, date) && birthdayUncertainOn(employee.birthday, birthYear, date))
+      if (uncertain !== undefined) warnings.push({ type: 'youth_birthday', date: uncertain, employeeId: employee.id })
+    }
+    // Under 18 is over for good after the 18th birthday: not certainly under 18 on the first day the week rules look at,
+    // nothing to check.
     if (!isMinorOn(employee.birthday, birthYear, weekStart(monthStart))) continue
     warnings.push(...youthWarnings({
       employeeId: employee.id, from: monthStart, to: monthEnd, holidays: employee.info.holidays,
       entriesOf: date => entriesOf(employee.id, date),
       appliesOn: date => isEmployedOn(employee.info, date) && isMinorOn(employee.birthday, birthYear, date),
+      creditOn: date => averageDailyMinutes(employee.info, date),
     }))
   }
   return warnings

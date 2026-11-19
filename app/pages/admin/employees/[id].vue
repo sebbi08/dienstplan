@@ -6,7 +6,7 @@ import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
-import { needsBirthYear, youthLeaveOf } from '#shared/domain/youthProtection'
+import { birthdayUncertainOn, needsBirthYear, youthLeaveOf } from '#shared/domain/youthProtection'
 import type { BalanceDto, ChildSickYearDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
@@ -233,6 +233,9 @@ const formYouthLeave = computed(() => youthLeaveIn(entitlementForm.year))
 /** „Geburtsjahr fehlt“ for whoever can enter it, when the person may well be under 18 (by the qualification). */
 const birthYearMissing = computed(() => !!employee.value?.personal && employee.value.personal.birthYear === null
   && needsBirthYear(employee.value.qualification))
+/** „Geburtstag fehlt“: a birth year without a birthday in the year of the 18th birthday (still under 18 is unknown). */
+const birthdayMissing = computed(() => !!employee.value?.personal
+  && birthdayUncertainOn(employee.value.birthday, employee.value.personal.birthYear, todayIso()))
 
 // Where the person clocks in and out, and whether breaks are clocked or deducted automatically (Leitung decides).
 const stamping = reactive<{ stampVia: StampChannel; breakMode: BreakMode }>({ stampVia: 'both', breakMode: 'stamp' })
@@ -493,6 +496,7 @@ async function onTabKey(event: KeyboardEvent) {
           {{ de.employees.birthYearOnly(employee.personal.birthYear) }}
         </p>
         <p v-if="birthYearMissing" class="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ de.youth.birthYearMissing }}</p>
+        <p v-if="birthdayMissing" class="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ de.youth.birthdayMissing }}</p>
       </UFormField>
 
       <!-- Personalakte §2: only when the answer holds the block (employees.personal / employees.sensitive). -->

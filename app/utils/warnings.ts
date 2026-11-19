@@ -88,6 +88,8 @@ function youthText(warning: YouthWarning, name: string): string {
       return t.schoolDay(name)
     case 'schoolBefore':
       return t.schoolBefore(name, formatTime(warning.limit))
+    case 'eve':
+      return t.eve(name, formatTime(warning.value), `${warning.date.slice(8, 10)}.${warning.date.slice(5, 7)}.`)
   }
 }
 
@@ -135,6 +137,8 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return youthText(warning, names.get(warning.employeeId) ?? '?')
     case 'youth_birth_year':
       return de.warnings.youth.birthYear(names.get(warning.employeeId) ?? '?')
+    case 'youth_birthday':
+      return de.warnings.youth.birthday(names.get(warning.employeeId) ?? '?')
     case 'staffing':
       return de.warnings.staffing(
         warning.groupName, formatTime(warning.from), formatTime(warning.to), warning.have, warning.need, warning.fachkraft,

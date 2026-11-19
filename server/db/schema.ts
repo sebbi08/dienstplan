@@ -645,7 +645,7 @@ export const userBundleOverrides = sqliteTable('user_bundle_overrides', {
 
 /**
  * A kind of mandatory appointment or proof (Pflichttermin) of a facility. Its name is unique within the facility,
- * compared case-insensitively. Every facility has the four built-in kinds (see shared/domain/requirements.ts).
+ * compared case-insensitively. Every facility has the six built-in kinds (see shared/domain/requirements.ts).
  */
 export const requirementTypes = sqliteTable('requirement_types', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { DomainEntry, IsoDate } from '../../shared/domain/types'
 import { ackKeyDate, warningAckKey, warningSignature } from '../../shared/domain/warningList'
 import {
-  ageOn, isMinorOn, needsBirthYear, youthExamStatus, youthLeaveOf, youthLeaveWerktage, youthMinimumLeave, youthWarnings,
-  type YouthRule, type YouthWarning,
+  ageOn, averageDailyMinutes, birthdayUncertainOn, isMinorOn, minorStatusOn, needsBirthYear, youthExamStatus, youthLeaveOf,
+  youthLeaveWerktage, youthMinimumLeave, youthWarnings, type YouthRule, type YouthWarning,
 } from '../../shared/domain/youthProtection'
 import { code, shift, special } from '../helpers/entries'
 
@@ -20,10 +20,13 @@ const SUN = '2026-11-22'
 const WEEK = [MON, TUE, WED, THU, FRI]
 
 /** The hints of the week of 16 November 2026 for the planned entries per day (every day counts). */
-function check(plan: Record<IsoDate, DomainEntry[]>, options: { appliesOn?: (date: IsoDate) => boolean; from?: IsoDate; to?: IsoDate } = {}) {
+function check(
+  plan: Record<IsoDate, DomainEntry[]>,
+  options: { appliesOn?: (date: IsoDate) => boolean; from?: IsoDate; to?: IsoDate; creditOn?: (date: IsoDate) => number } = {},
+) {
   return youthWarnings({
     employeeId: 1, from: options.from ?? MON, to: options.to ?? SUN, holidays: HOLIDAYS,
-    entriesOf: date => plan[date] ?? [], appliesOn: options.appliesOn ?? (() => true),
+    entriesOf: date => plan[date] ?? [], appliesOn: options.appliesOn ?? (() => true), creditOn: options.creditOn,
   })
 }
 const rules = (warnings: YouthWarning[]) => warnings.map(warning => [warning.rule, warning.date, warning.value, warning.limit])
@@ -42,11 +45,25 @@ describe('age', () => {
     expect(isMinorOn('02-29', 2008, '2026-02-28')).toBe(true)
     expect(isMinorOn('02-29', 2008, '2026-03-01')).toBe(false)
   })
-  it('needs the full birth date', () => {
+  it('needs the full birth date for the age', () => {
     expect(ageOn(null, 2009, '2026-01-01')).toBeNull()
     expect(ageOn('05-10', null, '2026-01-01')).toBeNull()
-    expect(isMinorOn(null, 2012, '2026-01-01')).toBe(false)
     expect(isMinorOn('05-10', null, '2026-01-01')).toBe(false)
+    expect(minorStatusOn('05-10', null, '2026-01-01')).toBe('unknown')
+    expect(birthdayUncertainOn('05-10', null, '2026-01-01')).toBe(false)
+  })
+  it('tells from the birth year alone while the year of the day is at most 17 or at least 19 years later', () => {
+    expect(minorStatusOn(null, 2009, '2026-12-31')).toBe('minor')
+    expect(isMinorOn(null, 2009, '2026-12-31')).toBe(true)
+    // The year of the 18th birthday: unknown, the Leitung gets „Geburtstag fehlt“.
+    expect(minorStatusOn(null, 2009, '2027-01-01')).toBe('unknown')
+    expect(isMinorOn(null, 2009, '2027-06-30')).toBe(false)
+    expect(birthdayUncertainOn(null, 2009, '2027-06-30')).toBe(true)
+    expect(minorStatusOn(null, 2009, '2028-01-01')).toBe('adult')
+    expect(birthdayUncertainOn(null, 2009, '2028-01-01')).toBe(false)
+    expect(birthdayUncertainOn(null, 2009, '2026-12-31')).toBe(false)
+    // With the birthday the full date decides.
+    expect(birthdayUncertainOn('05-10', 2009, '2027-01-01')).toBe(false)
   })
   it('asks for the birth year of trainees, students, interns and staff without a pedagogic qualification', () => {
     for (const qualification of ['azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3', 'praktikant', 'none'] as const) {
@@ -77,10 +94,13 @@ describe('§ 8 JArbSchG: 8 hours a day, 40 hours a week', () => {
     plan[SAT] = [special(1, SAT, 600, 661)]
     expect(only(check(plan), 'week')).toEqual([['week', SAT, 2401, 2400]])
   })
-  it('counts school with times as working time for the week', () => {
+  it('counts school with times, its breaks included, as working time for the day and the week', () => {
     const plan = Object.fromEntries(WEEK.map(date => [date, [day(date, 480)]]))
     plan[FRI] = [school(FRI, 480, 660), special(1, FRI, 720, 1021)] // 3:00 h school + 5:01 h work
     expect(only(check(plan), 'week')).toEqual([['week', FRI, 2401, 2400]])
+    // 8:00–12:00 with a 20 min break in the entry: 4:00 h; with 4:01 h of work after it more than 8 h.
+    const withBreak = { ...school(MON, 480, 720), breakStart: 600, breakEnd: 620 }
+    expect(only(check({ [MON]: [withBreak, special(1, MON, 780, 1021)] }), 'hours')).toEqual([['hours', MON, 481, 480]])
   })
 })
 
@@ -108,6 +128,10 @@ describe('§ 14 JArbSchG: from 6 to 20 o\'clock', () => {
     expect(rules(check({ [MON]: [special(1, MON, 359, 600)], [TUE]: [special(1, TUE, 960, 1201)] })))
       .toEqual([['early', MON, 359, 360], ['late', TUE, 1201, 1200]])
   })
+  it('does not count school as work for these hours', () => {
+    expect(only(check({ [MON]: [school(MON, 1080, 1260)] }), 'late')).toEqual([])
+    expect(only(check({ [MON]: [school(MON, 1080, 1260), special(1, MON, 600, 840)] }), 'late')).toEqual([])
+  })
 })
 
 describe('§§ 16–18 JArbSchG: Saturday, Sunday, public holiday', () => {
@@ -121,8 +145,19 @@ describe('§§ 16–18 JArbSchG: Saturday, Sunday, public holiday', () => {
       entriesOf: date => (date === christmas ? [special(1, christmas, 480, 600)] : []),
     }))).toEqual([['holiday', christmas, 120, 0]])
   })
-  it('stays quiet on a weekend without work', () => {
+  it('stays quiet on a weekend without work, school included', () => {
     expect(check({ [SAT]: [code(1, SAT, 'vacation', 'daily_target')] })).toEqual([])
+    expect(check({ [SAT]: [school(SAT, 480, 720)] })).toEqual([])
+  })
+  it('hints at work after 14:00 on 24 and 31 December', () => {
+    const eves = (plan: Record<IsoDate, DomainEntry[]>) => rules(youthWarnings({
+      employeeId: 1, from: '2026-12-21', to: '2027-01-03', holidays: HOLIDAYS, appliesOn: () => true, entriesOf: date => plan[date] ?? [],
+    }).filter(warning => warning.rule === 'eve'))
+    // 24 and 31 December 2026 are Thursdays.
+    expect(eves({ '2026-12-24': [special(1, '2026-12-24', 600, 840)], '2026-12-31': [special(1, '2026-12-31', 600, 840)] })).toEqual([])
+    expect(eves({ '2026-12-24': [special(1, '2026-12-24', 600, 841)], '2026-12-31': [special(1, '2026-12-31', 720, 960)] }))
+      .toEqual([['eve', '2026-12-24', 841, 840], ['eve', '2026-12-31', 960, 840]])
+    expect(eves({ '2026-12-23': [special(1, '2026-12-23', 720, 960)] })).toEqual([])
   })
 })
 
@@ -164,19 +199,37 @@ describe('§ 11 JArbSchG: breaks', () => {
 })
 
 describe('§ 9 JArbSchG: Berufsschule', () => {
-  it('allows no work on the first long school day of the week (more than 5 lessons; without times always long)', () => {
-    // 8:00–11:45 is 225 minutes of lessons: a long day.
-    expect(only(check({ [MON]: [school(MON, 480, 705), special(1, MON, 780, 960)] }), 'schoolDay')).toEqual([['schoolDay', MON, 180, 0]])
-    expect(only(check({ [MON]: [school(MON, 480, 704), special(1, MON, 780, 960)] }), 'schoolDay')).toEqual([])
+  it('allows no work on a long school day (more than 5 lessons; without times always long)', () => {
+    // 8:00–12:30 is 270 minutes of lessons, six of 45 minutes: a long day.
+    expect(only(check({ [MON]: [school(MON, 480, 750), special(1, MON, 780, 960)] }), 'schoolDay')).toEqual([['schoolDay', MON, 180, 0]])
+    expect(only(check({ [MON]: [school(MON, 480, 749), special(1, MON, 780, 960)] }), 'schoolDay')).toEqual([])
+    // The break of the entry is no lesson.
+    const withBreak = { ...school(MON, 480, 780), breakStart: 600, breakEnd: 631 }
+    expect(only(check({ [MON]: [withBreak, special(1, MON, 810, 960)] }), 'schoolDay')).toEqual([])
     expect(only(check({ [MON]: [school(MON), special(1, MON, 780, 960)] }), 'schoolDay')).toEqual([['schoolDay', MON, 180, 0]])
-    // Only once a week: the second long school day may have work after school.
-    expect(only(check({ [MON]: [school(MON)], [TUE]: [school(TUE), special(1, TUE, 780, 960)] }), 'schoolDay')).toEqual([])
   })
-  it('counts the long school day with 8 hours for the week, once', () => {
+  it('needs only one long school day of the week free of work', () => {
+    expect(only(check({ [MON]: [school(MON)], [TUE]: [school(TUE), special(1, TUE, 780, 960)] }), 'schoolDay')).toEqual([])
+    expect(only(check({ [MON]: [school(MON), special(1, MON, 780, 960)], [TUE]: [school(TUE)] }), 'schoolDay')).toEqual([])
+    // Both with work: the hint on the first.
+    expect(only(check({ [MON]: [school(MON), special(1, MON, 780, 960)], [TUE]: [school(TUE), special(1, TUE, 780, 900)] }), 'schoolDay'))
+      .toEqual([['schoolDay', MON, 180, 0]])
+  })
+  it('counts a long school day with the average daily working time for the week, once', () => {
     const plan: Record<IsoDate, DomainEntry[]> = { [MON]: [school(MON, 480, 780)] } // 5:00 h of school count 8:00 h
     for (const date of [TUE, WED, THU, FRI]) plan[date] = [day(date, 480)]
     plan[SAT] = [special(1, SAT, 600, 601)]
     expect(only(check(plan), 'week')).toEqual([['week', SAT, 2401, 2400]])
+    // 39 hours on 5 days: the school day counts 7:48 h, so the week has 39:49 h.
+    expect(only(check(plan, { creditOn: () => 468 }), 'week')).toEqual([])
+    plan[SAT] = [special(1, SAT, 600, 613)]
+    expect(only(check(plan, { creditOn: () => 468 }), 'week')).toEqual([['week', SAT, 2401, 2400]])
+  })
+  it('takes the average daily working time from the contract, 8 hours without one', () => {
+    const info = (weeklyMinutes: number, workdays: number) => ({ hours: [{ weeklyMinutes, validFrom: '2026-01-01', workdays }], leftOn: null, holidays: HOLIDAYS })
+    expect(averageDailyMinutes(info(2340, 0b0011111), MON)).toBe(468)
+    expect(averageDailyMinutes(info(1200, 0b0000111), MON)).toBe(400)
+    expect(averageDailyMinutes({ hours: [], leftOn: null, holidays: HOLIDAYS }, MON)).toBe(480)
   })
   it('allows no work before lessons that start before 9:00', () => {
     expect(only(check({ [MON]: [special(1, MON, 420, 470), school(MON, 525, 700)] }), 'schoolBefore')).toEqual([['schoolBefore', MON, 420, 525]])
@@ -229,7 +282,14 @@ describe('§ 19 JArbSchG: minimum leave', () => {
     expect(leave('06-01', 2008, 3).perYear).toBe(12.5)
     // 18 at the start of the year: no youth minimum, even when the birthday is on 1 January.
     expect(leave('01-01', 2008)).toBeNull()
-    expect(youthMinimumLeave({ birthday: null, birthYear: 2010, year: 2026, workdaysPerWeek: 5, employedFrom: '2025-08-01' })).toBeNull()
+    expect(youthMinimumLeave({ birthday: '03-01', birthYear: null, year: 2026, workdaysPerWeek: 5, employedFrom: '2025-08-01' })).toBeNull()
+  })
+  it('takes the birth year alone when it is certain, as year − birth year − 1', () => {
+    const yearOnly = (birthYear: number) => youthMinimumLeave({ birthday: null, birthYear, year: 2026, workdaysPerWeek: 5, employedFrom: '2025-08-01' })
+    expect(yearOnly(2010)).toEqual({ perYear: 25, inYear: 25 }) // 15: 30 Werktage
+    expect(yearOnly(2009)).toEqual({ perYear: 22.5, inYear: 22.5 }) // 16: 27 Werktage
+    // In the year of the 18th birthday it is unknown: no youth minimum.
+    expect(yearOnly(2008)).toBeNull()
   })
   it('counts twelfths for a start in the second half of the year, as the statutory hint', () => {
     // Joining on 1 August 2026: five full months → 25 × 5 / 12 = 10.42 days, kept under half a day.
@@ -254,6 +314,9 @@ describe('§§ 32, 33 JArbSchG: examinations', () => {
   })
   it('wants the follow-up examination one year after the start, if still under 18 then', () => {
     const facts = { ...minor, start: '2025-09-01' as IsoDate }
+    // „bald fällig“ from nine months after the start (§ 33 Abs. 1 Satz 2).
+    expect(youthExamStatus('youth_followup', facts, null, '2026-05-31')).toEqual({ state: 'ok', dueOn: '2026-09-01' })
+    expect(youthExamStatus('youth_followup', facts, null, '2026-06-01')).toEqual({ state: 'soon', dueOn: '2026-09-01' })
     expect(youthExamStatus('youth_followup', facts, null, '2026-07-15')).toEqual({ state: 'soon', dueOn: '2026-09-01' })
     expect(youthExamStatus('youth_followup', facts, null, '2026-09-01')).toEqual({ state: 'overdue', dueOn: '2026-09-01' })
     expect(youthExamStatus('youth_followup', facts, '2026-08-20', '2026-09-01')).toEqual({ state: 'ok', dueOn: null })
@@ -264,6 +327,9 @@ describe('§§ 32, 33 JArbSchG: examinations', () => {
   it('applies only to whoever is under 18 at the relevant day and still today, or has a record', () => {
     expect(youthExamStatus('youth_initial', { birthday: '06-01', birthYear: 2000, start: '2026-08-01' }, null, '2026-05-01')).toBeNull()
     expect(youthExamStatus('youth_initial', { birthday: null, birthYear: null, start: '2026-08-01' }, null, '2026-05-01')).toBeNull()
+    // The birth year alone, certainly under 18.
+    expect(youthExamStatus('youth_initial', { birthday: null, birthYear: 2010, start: '2026-08-01' }, null, '2026-05-01'))
+      .toEqual({ state: 'ok', dueOn: '2026-08-01' })
     expect(youthExamStatus('youth_initial', { ...minor, start: null }, null, '2026-05-01')).toBeNull()
     // Started at 17, 18 by now and nothing recorded: nothing to do any more.
     expect(youthExamStatus('youth_initial', { ...minor, start: '2026-08-01' }, null, '2027-06-01')).toBeNull()

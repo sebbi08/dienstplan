@@ -62,6 +62,11 @@ export type Warning =
    */
   | { type: 'youth_birth_year'; date: IsoDate; employeeId: number }
   /**
+   * „Geburtstag fehlt – Jugendarbeitsschutz kann nicht sicher geprüft werden“: a birth year without a birthday in the year
+   * of the 18th birthday, once a month (the first such employed day of it); only for employees.personal.
+   */
+  | { type: 'youth_birthday'; date: IsoDate; employeeId: number }
+  /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.
    */
