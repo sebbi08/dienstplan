@@ -34,12 +34,12 @@ async function approve(request: LeaveRequestDto) {
     result = await send(false)
   }
   catch (failure) {
-    const data = (failure as { data?: { data?: { code?: string; details?: { days?: number } } } }).data?.data
+    const data = (failure as { data?: { data?: { code?: string; details?: { days?: number; entries?: boolean } } } }).data?.data
     if (data?.code !== 'cells_occupied') {
       toast.add({ title: errorMessage(failure), color: 'error' })
       return
     }
-    if (!await confirm(de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveRequests.kinds[request.kind]), { confirmLabel: de.leavePlanning.overwrite, danger: false })) return
+    if (!await confirm(de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveRequests.kinds[request.kind], data.details?.entries), { confirmLabel: de.leavePlanning.overwrite, danger: false })) return
     if (!await run(async () => { result = await send(true) })) return
   }
   await Promise.all([refresh(), refreshNuxtData('leave-settings')])
@@ -52,7 +52,11 @@ const { user } = useUserSession()
 const { can } = useCan()
 const entryEmployees = computed(() => (can('plan.edit') ? planning.value?.calendar.employees ?? [] : [])
   .filter(employee => employee.id !== user.value?.employeeId || user.value?.role === 'provider'))
-const leaveEntry = reactive<{ open: boolean; employeeId: number; name: string }>({ open: false, employeeId: 0, name: '' })
+const entryItems = computed(() => entryEmployees.value.map(employee => ({ label: employee.name, value: employee.id })))
+/** The chosen person (undefined: none yet) and the dialog. */
+const entryEmployeeId = ref<number | undefined>(undefined)
+const entryOpen = ref(false)
+const entryName = computed(() => entryEmployees.value.find(employee => employee.id === entryEmployeeId.value)?.name ?? '')
 
 const rejecting = reactive<{ request: LeaveRequestDto | null; note: string }>({ request: null, note: '' })
 const rejectOpen = computed({
@@ -101,17 +105,19 @@ async function reject() {
         </div>
       </section>
 
-      <section v-if="entryEmployees.length" class="max-w-4xl space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-        <h2 class="font-semibold">{{ de.leaveEntry.add }}</h2>
-        <div class="flex flex-wrap gap-1">
-          <UButton
-            v-for="employee in entryEmployees" :key="employee.id" size="xs" color="neutral" variant="outline"
-            icon="i-lucide-calendar-plus" :label="employee.name" :aria-label="de.leaveEntry.title(employee.name)"
-            @click="Object.assign(leaveEntry, { open: true, employeeId: employee.id, name: employee.name })"
-          />
-        </div>
-        <LeaveEntryDialog v-model:open="leaveEntry.open" :employee-id="leaveEntry.employeeId" :name="leaveEntry.name" @saved="refresh" />
-      </section>
+      <form
+        v-if="entryEmployees.length" class="flex max-w-4xl flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200"
+        @submit.prevent="entryOpen = entryEmployeeId !== undefined"
+      >
+        <UFormField :label="de.leaveEntry.person">
+          <USelect v-model="entryEmployeeId" :items="entryItems" :placeholder="de.leaveEntry.personPlaceholder" class="w-56" />
+        </UFormField>
+        <UButton type="submit" icon="i-lucide-calendar-plus" :label="de.leaveEntry.add" :disabled="entryEmployeeId === undefined" />
+        <LeaveEntryDialog
+          v-if="entryEmployeeId !== undefined" v-model:open="entryOpen" :employee-id="entryEmployeeId" :name="entryName"
+          @saved="refresh"
+        />
+      </form>
 
       <form class="flex max-w-4xl flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveLimit">
         <UFormField :label="de.leavePlanning.limit" :hint="de.leavePlanning.limitHint">

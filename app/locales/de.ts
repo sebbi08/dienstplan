@@ -9,8 +9,11 @@ const workdays = (count: number) => (count === 1 ? '1 Arbeitstag' : `${count.toL
 const notRegistered = (name: string) => `${name} (nicht hinterlegt)`
 const confirmedWith = (text: string) => `Rücksprache mit ${text}`
 /** Days of booked leave kept as another absence (approving a request, „Urlaub eintragen“). */
-const keptAbsencesNote = (count: number, kind: string) =>
-  `${count} ${count === 1 ? 'Tag' : 'Tage'} mit Krank, Fortbildung o. Ä. blieben unverändert und zählen nicht als ${kind}.`
+const keptAbsencesNote = (count: number, kind: string) => (count === 1
+  ? `1 Tag mit einer anderen Abwesenheit (Krank, Fortbildung, Urlaub o. Ä.) blieb unverändert und zählt nicht als ${kind}.`
+  : `${count} Tage mit einer anderen Abwesenheit (Krank, Fortbildung, Urlaub o. Ä.) blieben unverändert und zählen nicht als ${kind}.`)
+/** „an 1 Tag“ / „an 5 Tagen“ (plan days, whatever they count in the leave account). */
+const onDays = (count: number) => (count === 1 ? 'an 1 Tag' : `an ${count} Tagen`)
 /** Format errors of the personnel file (shared/domain/personnel.ts): `personnel.invalid` and, as API errors, `errors`. */
 const personnelInvalid = {
   iban_invalid: 'Die IBAN stimmt nicht. Bitte prüfe sie noch einmal (z. B. DE89 3704 0044 0532 0130 00).',
@@ -62,7 +65,8 @@ export const de = {
     approve: 'Genehmigen', reject: 'Ablehnen', rejectTitle: 'Antrag ablehnen', reason: 'Grund (optional)',
     approved: 'Genehmigt und in den Dienstplan eingetragen', rejected: 'Abgelehnt',
     approvedKept: (days: number, kind = 'Urlaub') => `Genehmigt. ${keptAbsencesNote(days, kind)}`,
-    overwriteConfirm: (days: number, kind = 'Urlaub') => `An ${days} ${days === 1 ? 'Tag' : 'Tagen'} sind schon Dienste eingetragen. Durch „${kind}“ ersetzen? (Krank, Fortbildung u. Ä. bleiben immer erhalten.)`,
+    /** `entries`: some of the days hold ÜF or another entry that is no duty, so „Einträge“ instead of „Dienste“. */
+    overwriteConfirm: (days: number, kind = 'Urlaub', entries = false) => `An ${days} ${days === 1 ? 'Tag' : 'Tagen'} sind schon ${entries ? 'Einträge' : 'Dienste'} eingetragen. Durch „${kind}“ ersetzen? (Krank, Fortbildung u. Ä. bleiben immer erhalten.)`,
     overwrite: 'Ersetzen und genehmigen',
     module: 'Urlaubsanträge', moduleEnabled: 'Urlaubsanträge aktiv',
     moduleHint: 'Ist das Modul aktiv, können Mitarbeiter (und Leitungskräfte mit eigenem Mitarbeiter-Eintrag) unter „Mein Urlaub“ Urlaub beantragen. Wer das Recht „Urlaub planen und genehmigen“ hat, entscheidet auf der Seite „Urlaubsplanung“; das stellst du unter „Rechte und Rollen“ ein. Der Träger darf immer entscheiden.',
@@ -385,10 +389,6 @@ export const de = {
     carryForecast: (year: number) => `Übertrag aus ${year} voraussichtlich – ändert sich noch, wenn ${year} Urlaub dazukommt`,
     noComingYear: (year: number) => `Für ${year} gibt es noch keinen Urlaubsanspruch.`,
   },
-  /** „Urlaub eintragen“ for an employee (employee page, „Urlaubsplanung“) and „Entfernen“ of a listed period. */
-  leaveEntry: {
-    add: 'Urlaub eintragen',
-    title: (name: string) => `Urlaub eintragen – ${name}`,
   /** „Schließzeiten als Urlaub“ as a hint: creating an employee and the employee page („Urlaub & Zeiten“). */
   closurePreview: {
     title: 'Schließzeiten als Urlaub',
@@ -401,6 +401,10 @@ export const de = {
     carriedOver: (count: number) => `(plus ${days(count)} Resturlaub)`,
     noClosures: (year: number) => `Für ${year} sind noch keine Schließzeiten eingetragen.`,
   },
+  /** „Urlaub eintragen“ for an employee (employee page, „Urlaubsplanung“) and „Entfernen“ of a listed period. */
+  leaveEntry: {
+    add: 'Urlaub eintragen',
+    title: (name: string) => `Urlaub eintragen – ${name}`,
     from: 'Von', to: 'Bis', kind: 'Art',
     kinds: { vacation: 'Urlaub', special_leave: 'Sonderurlaub', overtime_off: 'Überstundenfrei (ÜF)' },
     /** The kind inside a sentence („Urlaub vom … entfernen?“). */
@@ -408,15 +412,25 @@ export const de = {
     hint: 'Eingetragen wird nur an den Arbeitstagen der Person – nicht an Wochenenden, Feiertagen und Schließtagen. Vergangene Tage gehen auch.',
     save: 'Eintragen',
     overwrite: 'Ersetzen und eintragen',
-    booked: (count: number) => `${days(count)} eingetragen`,
-    bookedKept: (count: number, kept: number, kind: string) => `${days(count)} eingetragen. ${keptAbsencesNote(kept, kind)}`,
+    booked: (count: number, kind: string) => `${kind} ${onDays(count)} eingetragen.`,
+    bookedKept: (count: number, kept: number, kind: string) => `${kind} ${onDays(count)} eingetragen. ${keptAbsencesNote(kept, kind)}`,
+    /** Nothing written: every day was already booked with that leave. */
+    alreadyEntered: 'Der Zeitraum ist schon eingetragen.',
+    /** Nothing written: the remaining days hold another absence. */
+    nothingKept: (kept: number, kind: string) => `Nichts eingetragen. ${keptAbsencesNote(kept, kind)}`,
     ranges: 'Eingetragen (Urlaub, Sonderurlaub, ÜF)',
     noRanges: 'Nichts eingetragen.',
     closureNote: 'Urlaub aus Schließzeiten steht bei den Schließzeiten und wird hier nicht entfernt.',
     remove: 'Entfernen',
     removeConfirm: (kind: string, from: string, to: string) => `${kind} vom ${from} bis ${to} entfernen? Die Tage sind danach wieder frei.`,
-    removed: (count: number) => `${days(count)} entfernt`,
-    removedKeptClosure: (count: number, kept: number) => `${days(count)} entfernt. ${days(kept)} aus Schließzeiten bleiben eingetragen.`,
+    /** A period with days before today: those count against the hours account once empty. */
+    removePastConfirm: (kind: string, from: string, to: string) =>
+      `${kind} vom ${from} bis ${to} entfernen? Ohne andere Einträge zählen vergangene Tage danach als Minusstunden.`,
+    removed: (count: number) => `${days(count)} entfernt.`,
+    removedKeptClosure: (count: number, kept: number) =>
+      `${days(count)} entfernt. ${days(kept)} aus Schließzeiten ${kept === 1 ? 'bleibt' : 'bleiben'} eingetragen.`,
+    person: 'Person',
+    personPlaceholder: 'Person wählen',
   },
   employees: {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',

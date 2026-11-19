@@ -1,7 +1,7 @@
 import { and, eq, gte } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, employeeHours, entries } from '../../server/db/schema'
+import { changeLog, employeeHours, entries, facilities } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
@@ -10,7 +10,7 @@ import { enterLeave, removeLeave } from '../../server/services/leaveEntries'
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import type { LeaveEntryKind, SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addUser, codeId, createTestDb, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, templateId } from '../helpers/fixtures'
 
 const today = '2026-11-19'
 const now = new Date('2026-11-19T10:00:00Z')
@@ -95,10 +95,54 @@ describe('leave entered for an employee (Urlaub eintragen / entfernen)', () => {
 
   it('asks before replacing duties and writes nothing without the confirmation', () => {
     applyToCells(db, leitung, 1, [{ employeeId: anna, date: '2026-11-04' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M') })
-    expect(failure(() => enter(anna, '2026-11-02', '2026-11-06'))).toEqual({ status: 409, code: 'cells_occupied', details: { days: 1 } })
+    expect(failure(() => enter(anna, '2026-11-02', '2026-11-06'))).toEqual({
+      status: 409, code: 'cells_occupied', details: { days: 1, entries: false },
+    })
     expect(days(anna)).toEqual([['2026-11-04', null]])
     expect(enter(anna, '2026-11-02', '2026-11-06', 'overtime_off', true)).toEqual({ booked: 5, keptAbsences: 0 })
     expect(days(anna).map(([, key]) => key)).toEqual(Array(5).fill('overtime_off'))
+    // Urlaub over ÜF days: asked too, and the question says „Einträge“ (ÜF is no duty).
+    expect(failure(() => enter(anna, '2026-11-05', '2026-11-06'))).toEqual({
+      status: 409, code: 'cells_occupied', details: { days: 2, entries: true },
+    })
+  })
+
+  it('asks before replacing a help-out day and then replaces it, logged in the other facility', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const leitungB = addUser(db, 'leitung-b', 'admin', null, krippe)
+    addHelpOut(db, anna, krippe, 2026, 11)
+    releaseMonth(db, leitungB, krippe, 2026, 11, new Date('2026-10-01T10:00:00Z'))
+    applyToCells(db, leitungB, krippe, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'shift', templateId: templateId(db, 'F1', krippe) })
+    expect(failure(() => enter(anna, '2026-11-02', '2026-11-04'))).toMatchObject({ code: 'cells_occupied', details: { days: 1, entries: false } })
+    expect(enter(anna, '2026-11-02', '2026-11-04', 'vacation', true)).toEqual({ booked: 3, keptAbsences: 0 })
+    expect(loadEntries(db, { employeeId: anna }).map(entry => [entry.date, entry.codeKey, entry.helpFacilityId])).toEqual([
+      ['2026-11-02', 'vacation', null], ['2026-11-03', 'vacation', null], ['2026-11-04', 'vacation', null],
+    ])
+    const logB = db.select().from(changeLog).where(eq(changeLog.facilityId, krippe)).all().filter(row => row.employeeId === anna)
+    expect(logB.at(-1)).toMatchObject({ date: '2026-11-03', before: 'F1 7:00–13:15', after: '—', changedBy: leitung.id })
+  })
+
+  it('counts 24 and 31 December as half leave days where the facility says so', () => {
+    db.update(facilities).set({ christmasEveHalfLeave: true }).where(eq(facilities.id, 1)).run()
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
+    // Mo 21.12. – Do 31.12.: 21.–24. and 28.–31. are working days (25./26. holidays), 24. and 31. count half.
+    expect(enter(anna, '2026-12-21', '2026-12-31')).toEqual({ booked: 8, keptAbsences: 0 })
+    const account = getLeaveAccount(db, anna, 2026, today)
+    expect(account.entryRanges).toEqual([{ kind: 'vacation', from: '2026-12-21', to: '2026-12-31', days: 7 }])
+    expect(account.account).toMatchObject({ planned: 7, available: 23 })
+    // ÜF counts plain working days.
+    remove(anna, '2026-12-21', '2026-12-31')
+    enter(anna, '2026-12-24', '2026-12-24', 'overtime_off')
+    expect(getLeaveAccount(db, anna, 2026, today).entryRanges).toEqual([{ kind: 'overtime_off', from: '2026-12-24', to: '2026-12-24', days: 1 }])
+  })
+
+  it('shows a period over New Year in each year and removes it year by year', () => {
+    // Mo 28.12.2026 – Fr 8.1.2027 (1.1. and, in Baden-Württemberg, 6.1. holidays)
+    expect(enter(anna, '2026-12-28', '2027-01-08')).toEqual({ booked: 8, keptAbsences: 0 })
+    expect(getLeaveAccount(db, anna, 2026, today).entryRanges).toEqual([{ kind: 'vacation', from: '2026-12-28', to: '2026-12-31', days: 4 }])
+    expect(getLeaveAccount(db, anna, 2027, today).entryRanges).toEqual([{ kind: 'vacation', from: '2027-01-04', to: '2027-01-08', days: 4 }])
+    expect(remove(anna, '2026-12-28', '2026-12-31')).toEqual({ removed: 4, keptClosureDays: 0 })
+    expect(days(anna).map(([date]) => date)).toEqual(['2027-01-04', '2027-01-05', '2027-01-07', '2027-01-08'])
   })
 
   it('leaves days that already hold the same leave as they are', () => {

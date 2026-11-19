@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { balanceAdjustments, changeLog } from '../../server/db/schema'
+import { balanceAdjustments, changeLog, entries } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
@@ -154,6 +154,22 @@ describe('leave requests', () => {
     ])
     const logB = db.select().from(changeLog).where(eq(changeLog.facilityId, krippe)).all().filter(row => row.employeeId === anna)
     expect(logB.at(-1)).toMatchObject({ date: '2026-11-03', before: 'F1 7:00–13:15', after: '—', changedBy: leitung.id })
+  })
+
+  it('leaves days already planned as Urlaub as they are when approving', () => {
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    makePlanner(db, leitung)
+    applyToCells(db, leitung, 1, [{ employeeId: anna, date: '2026-11-03' }], 'replace', { kind: 'code', codeId: codeId(db, 'vacation') })
+    const planned = db.select().from(entries).where(eq(entries.employeeId, anna)).get()!
+    const id = request(annaUser, '2026-11-02', '2026-11-04')
+    // The Urlaub day is no duty: no question, no kept absence.
+    expect(decideLeaveRequest(db, leitung, 1, id, { approve: true, note: '', overwrite: false }, new Date('2026-10-08T10:00:00Z')))
+      .toEqual({ keptAbsences: 0 })
+    expect(loadEntries(db, { employeeId: anna }).map(e => [e.date, e.codeKey])).toEqual([
+      ['2026-11-02', 'vacation'], ['2026-11-03', 'vacation'], ['2026-11-04', 'vacation'],
+    ])
+    // The planned day is not written again (same row, same time stamp).
+    expect(db.select().from(entries).where(eq(entries.id, planned.id)).get()).toEqual(planned)
   })
 
   it('never turns a sick day into leave when approving', () => {

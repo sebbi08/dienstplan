@@ -2,6 +2,7 @@
 import type { LeaveEntryKind, LeaveEntryResultDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
+import { leaveEntryToast } from '~/utils/leaveEntry'
 
 /**
  * „Urlaub eintragen“ for one employee (employee page, „Urlaubsplanung“): Von, Bis and the kind, past days too. The
@@ -41,9 +42,9 @@ async function save() {
       result = await send(false)
     }
     catch (failure) {
-      const data = (failure as { data?: { data?: { code?: string; details?: { days?: number } } } }).data?.data
+      const data = (failure as { data?: { data?: { code?: string; details?: { days?: number; entries?: boolean } } } }).data?.data
       if (data?.code !== 'cells_occupied') return failed(failure)
-      const question = de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveEntry.kinds[form.kind])
+      const question = de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveEntry.kinds[form.kind], data.details?.entries)
       if (!await confirm(question, { confirmLabel: de.leaveEntry.overwrite, danger: false })) return
       try {
         result = await send(true)
@@ -52,13 +53,7 @@ async function save() {
         return failed(again)
       }
     }
-    const kind = de.leaveEntry.kindNames[form.kind]
-    toast.add({
-      title: result.keptAbsences
-        ? de.leaveEntry.bookedKept(result.booked, result.keptAbsences, kind)
-        : de.leaveEntry.booked(result.booked),
-      color: 'success',
-    })
+    toast.add(leaveEntryToast(result, de.leaveEntry.kindNames[form.kind]))
     open.value = false
     emit('saved')
   }

@@ -6,6 +6,7 @@ import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/lea
 import { can } from '../../shared/domain/permissions'
 import { STAFF_ROLES } from '../../shared/domain/roles'
 import { dailyTarget, isWorkday } from '../../shared/domain/targets'
+import { isTargetGapCode } from '../../shared/domain/warnings'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   LeavePlanningDto, LeaveRequestDto, LeaveRequestKind, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
@@ -404,7 +405,7 @@ export function decideLeaveRequest(
   const codeKey = codeKeyOf(request.kind)
   const booking = planLeaveBooking(db, employee, loadClosures(db, facilityId), request.startDate, request.endDate, codeKey)
   if (booking.occupiedDays > 0 && !decision.overwrite) {
-    throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays })
+    throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays, entries: booking.occupiedByOtherEntries })
   }
   db.transaction((tx) => {
     bookLeaveDays(tx, user, facilityId, employee.id, booking.days, codeKey, now)
@@ -427,6 +428,8 @@ export interface LeaveBooking {
   keptAbsences: number
   /** Days of `days` with entries the code replaces (duties, shifts, VZ, Büro, a help-out …): ask before writing. */
   occupiedDays: number
+  /** Some of those days hold ÜF or another code that is no duty (not VZ/Büro): the question says „Einträge“. */
+  occupiedByOtherEntries: boolean
 }
 
 /**
@@ -447,9 +450,11 @@ export function planLeaveBooking(
   const notYetBooked = new Set(dayEntries.filter(entry => entry.codeKey !== codeKey || entry.start !== null).map(entry => entry.date))
   const booked = new Set(dayEntries.map(entry => entry.date).filter(date => !notYetBooked.has(date)))
   const days = requested.filter(date => !absent.has(date) && !booked.has(date))
-  const occupiedDays = new Set(dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== codeKey)
-    .map(entry => entry.date)).size
-  return { requested, days, keptAbsences: absent.size, occupiedDays }
+  const occupied = dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== codeKey)
+  return {
+    requested, days, keptAbsences: absent.size, occupiedDays: new Set(occupied.map(entry => entry.date)).size,
+    occupiedByOtherEntries: occupied.some(entry => entry.kind === 'code' && !isTargetGapCode(entry.codeKey)),
+  }
 }
 
 /** Writes the leave code on the days (replacing what they hold; logged and marked like any plan edit, see applyToCells). */

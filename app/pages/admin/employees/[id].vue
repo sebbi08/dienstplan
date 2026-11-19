@@ -10,6 +10,7 @@ import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, L
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { showsComingYear } from '~/utils/comingYear'
+import { leaveRemovalQuestion } from '~/utils/leaveEntry'
 import {
   NO_QUALIFICATION, masterFieldsOf, masterUpdate, qualificationFieldsOf, qualificationUpdate, qualificationValue, reloadedFields,
   type MasterFields, type QualificationFields,
@@ -97,7 +98,7 @@ function openLeaveEntry(block: { year: number; coming: boolean }) {
 /** „Entfernen“ of a listed period: only its entries of that kind; the leave of closures stays (the server counts it). */
 async function removeLeaveRange(range: LeaveEntryRange) {
   const kind = de.leaveEntry.kindNames[range.kind]
-  if (!await confirm(de.leaveEntry.removeConfirm(kind, formatDate(range.from), formatDate(range.to)), { confirmLabel: de.leaveEntry.remove })) return
+  if (!await confirm(leaveRemovalQuestion(kind, range.from, range.to, todayIso(), formatDate), { confirmLabel: de.leaveEntry.remove })) return
   let result: LeaveRemovalResultDto | undefined
   const ok = await run(async () => {
     result = await $fetch<LeaveRemovalResultDto>(`/api/employees/${id}/leave-entries`, {

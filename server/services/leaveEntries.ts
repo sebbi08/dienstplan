@@ -46,7 +46,9 @@ export function enterLeave(
   if (start === null || input.from < start) throw new ServiceError(400, 'leave_before_employment')
   const booking = planLeaveBooking(db, employee, loadClosures(db, facilityId), input.from, input.to, input.kind)
   if (booking.requested.length === 0) throw new ServiceError(400, 'no_leave_days')
-  if (booking.occupiedDays > 0 && !input.overwrite) throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays })
+  if (booking.occupiedDays > 0 && !input.overwrite) {
+    throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays, entries: booking.occupiedByOtherEntries })
+  }
   db.transaction(tx => bookLeaveDays(tx, actor, facilityId, employeeId, booking.days, input.kind, now))
   return { booked: booking.days.length, keptAbsences: booking.keptAbsences }
 }
