@@ -9,7 +9,7 @@ import { dailyTarget, isWorkday } from '../../shared/domain/targets'
 import { isTargetGapCode } from '../../shared/domain/warnings'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  LeavePlanningDto, LeaveRequestDto, LeaveRequestKind, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
+  CalendarRequestsDto, LeavePlanningDto, LeaveRequestDto, LeaveRequestKind, LeaveRequestPreviewDto, LeaveSettingsDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
@@ -521,4 +521,43 @@ export function getLeavePlanning(db: Db, user: SessionUser, facilityId: number, 
     maxConcurrent: maxConcurrent(db, facilityId),
     openRequests: listOpenRequests(db, user, facilityId).filter(request => request.endDate >= from && request.startDate <= to),
   }
+}
+
+// --- year calendar ---------------------------------------------------------------------------------------------
+
+/**
+ * The open requests of the facility's employees for the year calendar (Mehr → Kalender), with the days on which planned
+ * leave and open requests together exceed the limit (counted as on the planning page). Only for the Leitung, the
+ * Träger and the leave planners while leave requests are on; null for everyone else, so nobody else gets other
+ * people's requests. Approved requests are leave in the plan already; rejected and withdrawn ones are not shown.
+ */
+export function calendarLeaveRequests(db: Db, user: SessionUser, facilityId: number, year: number): CalendarRequestsDto | null {
+  if (!leaveRequestsEnabled(db)) return null
+  if (user.role !== 'admin' && user.role !== 'provider' && !isPlanner(db, user, facilityId)) return null
+  const staff = loadEmployees(db, facilityId)
+  const closures = loadClosures(db, facilityId)
+  const from = `${year}-01-01`
+  const to = `${year}-12-31`
+  const byId = new Map(staff.map(employee => [employee.id, employee]))
+  const requests = staff.length === 0
+    ? []
+    : db.select().from(leaveRequests)
+        .where(and(
+          eq(leaveRequests.status, 'open'), inArray(leaveRequests.employeeId, staff.map(employee => employee.id)),
+          lte(leaveRequests.startDate, to), gte(leaveRequests.endDate, from),
+        ))
+        .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).all()
+        .map((request) => {
+          const employee = byId.get(request.employeeId)!
+          const days = requestDays(employee, request.startDate, request.endDate, closures)
+          return {
+            id: request.id, employeeId: request.employeeId, kind: request.kind, startDate: request.startDate,
+            endDate: request.endDate, workdays: requestedDays(request.kind, days, employee), createdAt: request.createdAt,
+            dates: days.filter(date => date >= from && date <= to),
+          }
+        })
+  const limit = maxConcurrent(db, facilityId)
+  const load = leaveLoad(loadInRange(db, from, to, staff, closures))
+  const overLimit = daysOverLimit(load, dateRange(from, to), limit)
+  return { requests, maxConcurrent: limit, overLimit: Object.fromEntries(overLimit.map(date => [date, load.get(date)!])) }
 }

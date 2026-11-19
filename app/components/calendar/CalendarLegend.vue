@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
+import { REQUEST_CLASSES } from '~/utils/calendarRequests'
 
 /** `planning`: the leave planning calendar (open wishes and a count row instead of appointments). */
-const props = defineProps<{ planning?: boolean }>()
+/** `requests`: the year calendar shows open requests („beantragt“) and the days above the limit. */
+const props = defineProps<{ planning?: boolean; requests?: boolean }>()
 
 const COMMON = [
   { class: 'bg-red-500', label: de.calendar.kinds.sick },
@@ -20,7 +22,17 @@ const items = computed(() => props.planning
       ...COMMON.filter((_, index) => index !== 1),
       { class: 'bg-purple-600', label: de.leavePlanning.overLimitLegend },
     ]
-  : [...COMMON, { class: 'bg-yellow-300', label: de.calendar.events }])
+  : [
+      ...COMMON,
+      ...(props.requests
+        ? [
+            { class: REQUEST_CLASSES.vacation, label: de.calendar.requested },
+            { class: REQUEST_CLASSES.overtime_off, label: de.calendar.requestedOvertimeOff },
+            { class: 'bg-purple-600', label: de.calendar.overLimitLegend },
+          ]
+        : []),
+      { class: 'bg-yellow-300', label: de.calendar.events },
+    ])
 </script>
 
 <template>

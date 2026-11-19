@@ -1667,6 +1667,34 @@ export interface YearCalendarDto {
   events: CalendarEventDto[]
   /** The facility's automatic, anonymous events per day of the year (only days that have some), after the appointments. */
   autoEvents: Record<IsoDate, string[]>
+  /**
+   * The open leave requests (Mehr → Kalender): only for the Leitung, the Träger and the leave planners while leave
+   * requests are on; missing or null for everyone else (the staff calendar never has them).
+   */
+  requests?: CalendarRequestsDto | null
+}
+
+/** An open leave request in the year calendar, drawn hatched on its days. */
+export interface CalendarLeaveRequestDto {
+  id: number
+  employeeId: number
+  kind: LeaveRequestKind
+  startDate: IsoDate
+  endDate: IsoDate
+  /** Days the request uses, as LeaveRequestDto.workdays. */
+  workdays: number
+  /** When it was made (ISO timestamp). */
+  createdAt: string
+  /** Its days in the year: the person's working days outside closures. */
+  dates: IsoDate[]
+}
+
+export interface CalendarRequestsDto {
+  requests: CalendarLeaveRequestDto[]
+  /** „Höchstzahl gleichzeitig im Urlaub“ (null = no limit). */
+  maxConcurrent: number | null
+  /** Days of the year with more people on leave (planned leave and open requests) than allowed, with their number. */
+  overLimit: Record<IsoDate, number>
 }
 
 /** A saved plan week; `rows` previews it per employee with one text per weekday Monday–Friday ('' = empty). */

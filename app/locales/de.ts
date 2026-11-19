@@ -236,6 +236,14 @@ export const de = {
     untilBeforeStart: 'Das Bis-Datum liegt vor dem angeklickten Tag.', noWorkdays: 'Im gewählten Zeitraum liegt kein Arbeitstag.',
     replaceConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} stehen schon Einträge im Dienstplan. Sie werden durch die Abwesenheit ersetzt. Fortfahren?`,
     removeConfirm: (count: number) => `An ${count === 1 ? '1 Tag' : `${count} Tagen`} steht noch mehr im Dienstplan (z. B. ein Dienst neben ÜF mit Uhrzeit). Beim Entfernen werden alle Einträge dieser Tage gelöscht. Fortfahren?`,
+    // Open leave requests (Leitung, Träger, leave planners only).
+    requested: 'beantragt', requestedOvertimeOff: 'beantragt (Überstundenfrei)', showRequests: 'Anträge zeigen',
+    requestText: (kind: string, period: string, count: number, date: string) => `beantragt: ${kind} ${period}, ${days(count)}, beantragt am ${date}`,
+    toPlanning: 'Zur Urlaubsplanung',
+    requestsHint: 'Schraffiert: offene Urlaubsanträge. Genehmigte erscheinen als Urlaub, abgelehnte und zurückgezogene gar nicht.',
+    overLimitRow: 'über Höchstzahl',
+    overLimit: (count: number, limit: number) => `Über der Höchstzahl: ${count} Personen im Urlaub (mit Anträgen) – erlaubt sind ${limit}`,
+    overLimitLegend: 'mehr im Urlaub als erlaubt (mit Anträgen)',
   },
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',

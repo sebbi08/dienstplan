@@ -5,6 +5,7 @@ import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { calendarPrintItems } from '~/utils/calendarPrint'
+import { SHOW_REQUESTS_KEY, requestCells, requestText, showRequestsFrom } from '~/utils/calendarRequests'
 import { formatDate, formatDayShort } from '~/utils/format'
 
 /**
@@ -32,6 +33,24 @@ const printGroup = computed({
   set: (value) => { printPick.value = value },
 })
 
+// --- open leave requests (Leitung, Träger, leave planners: the server sends them only to them) ---------------
+/** „Anträge zeigen“: on by default, remembered on this device. */
+const showRequests = ref(true)
+onMounted(() => {
+  try {
+    showRequests.value = showRequestsFrom(localStorage.getItem(SHOW_REQUESTS_KEY))
+  }
+  catch { /* no storage: keep the default */ }
+})
+watch(showRequests, (value) => {
+  try {
+    localStorage.setItem(SHOW_REQUESTS_KEY, String(value))
+  }
+  catch { /* no storage */ }
+})
+const shownRequests = computed(() => (showRequests.value ? calendar.value?.requests ?? null : null))
+const planningLink = computed(() => `/admin/leave-planning?year=${year.value}&tab=all`)
+
 // --- absences -------------------------------------------------------------------------------------------
 const absence = reactive({ open: false, employeeId: 0, date: '' })
 const absenceTitle = computed(() => {
@@ -41,6 +60,8 @@ const absenceTitle = computed(() => {
 /** Kinds the calendar can remove again (Feiertag/Schließtag stay; they come from holidays and closures). */
 const REMOVABLE = ['sick', 'vacation', 'overtime_off', 'special_leave', 'training']
 const hasAbsence = computed(() => REMOVABLE.includes(calendar.value?.days[absence.employeeId]?.[absence.date] ?? ''))
+/** The open request on the clicked day (shown in the dialog with the way to the leave planning). */
+const absenceRequest = computed(() => requestCells(shownRequests.value?.requests ?? []).get(absence.employeeId)?.get(absence.date))
 
 function openAbsence(employeeId: number, date: string) {
   Object.assign(absence, { open: true, employeeId, date })
@@ -129,13 +150,18 @@ async function removeEvent(event: CalendarEventDto) {
       />
     </div>
     <p class="text-sm text-gray-500">{{ de.year.adminOnly }} {{ de.calendar.clickHint }}</p>
-    <CalendarLegend />
+    <div v-if="calendar?.requests" class="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <USwitch v-model="showRequests" :label="de.calendar.showRequests" />
+      <NuxtLink :to="planningLink" class="text-sm text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
+      <span v-if="showRequests" class="text-xs text-gray-500">{{ de.calendar.requestsHint }}</span>
+    </div>
+    <CalendarLegend :requests="!!shownRequests" />
     <CalendarGroupLegend v-if="calendar" :groups="calendar.groups" />
 
     <div v-if="calendar" class="space-y-3 overflow-x-auto">
       <div v-for="month in 12" :key="month" class="min-w-[900px] rounded-lg bg-white">
         <CalendarMonth
-          :calendar="calendar" :month="month" editable
+          :calendar="calendar" :month="month" editable :requests="shownRequests"
           @day-click="openAbsence" @event-day-click="openNewEvent" @event-click="openEvent"
         />
       </div>
@@ -169,7 +195,12 @@ async function removeEvent(event: CalendarEventDto) {
     <CalendarAbsenceDialog
       v-model:open="absence.open" :title="absenceTitle" :date="absence.date" :codes="calendar?.absenceCodes ?? []"
       :has-absence="hasAbsence" @apply="applyAbsence"
-    />
+    >
+      <div v-if="absenceRequest" class="space-y-1 rounded-md bg-green-50 p-2 text-sm ring-1 ring-green-200">
+        <p>{{ requestText(absenceRequest) }}</p>
+        <NuxtLink :to="planningLink" class="text-sky-700 hover:underline">{{ de.calendar.toPlanning }}</NuxtLink>
+      </div>
+    </CalendarAbsenceDialog>
     <CalendarEventDialog
       v-model:open="eventDialog.open" :event="eventDialog.event" :date="eventDialog.date"
       @save="saveEvent" @remove="eventDialog.event && removeEvent(eventDialog.event)"

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { daysInMonth, isWeekend, toIsoDate, weekday } from '#shared/domain/dates'
 import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
-import type { CalendarEventDto, CalendarKind, YearCalendarDto } from '#shared/types/api'
+import type { CalendarEventDto, CalendarKind, CalendarRequestsDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { REQUEST_CLASSES, requestCells, requestText } from '~/utils/calendarRequests'
 import { type CalendarLabelItem, LANE_HEIGHT, PRINT_LANE_HEIGHT, calendarEventText, calendarLanes, eventRowHeight } from '~/utils/calendarLanes'
 import { groupColorClasses } from '~/utils/groups'
 
@@ -10,9 +11,13 @@ import { groupColorClasses } from '~/utils/groups'
 /** `editable`: clicking emits dayClick (employee day), eventDayClick (day number in the header) or eventClick (appointment text). */
 /** With `counts` (leave planning) the last row shows people on leave per day instead of appointments; red above `limit`. */
 /** `rowHeight` (print): fixed height of the employee rows in px, with names and day numbers sized to fit. */
+/**
+ * `requests` (year calendar, „Anträge zeigen“): open leave requests hatched and lighter on their days (with the text as
+ * tooltip and label), and a row marking the days above the limit with an icon and the number.
+ */
 const props = defineProps<{
   calendar: YearCalendarDto; month: number; editable?: boolean; counts?: Record<string, number>; limit?: number | null
-  rowHeight?: number
+  rowHeight?: number; requests?: CalendarRequestsDto | null
 }>()
 const emit = defineEmits<{
   dayClick: [employeeId: number, date: string]
@@ -67,17 +72,33 @@ function holidayName(date: string): string | undefined {
   return key ? de.holidays[key] : undefined
 }
 
+/** The open requests per person and day (only while shown). */
+const requestsByCell = computed(() => requestCells(props.requests?.requests ?? []))
+const requestOn = (employeeId: number, date: string) => requestsByCell.value.get(employeeId)?.get(date)
+
+/** The days of the month above the limit with their number (planned leave and open requests); none without requests. */
+const overLimitDays = computed(() => (props.requests ? dates.value.filter(date => props.requests!.overLimit[date] !== undefined) : []))
+
 function cellClass(employeeId: number, date: string): string {
   const kind = props.calendar.days[employeeId]?.[date]
   if (kind) return KIND_CLASSES[kind]
+  const request = requestOn(employeeId, date)
+  if (request) return REQUEST_CLASSES[request.kind]
   if (onHoliday(date)) return KIND_CLASSES.closed
   return isWeekend(date) || freeDays.value.get(employeeId)?.has(date) ? 'bg-gray-100' : ''
 }
 
 function cellTitle(employeeId: number, name: string, date: string): string | undefined {
   const kind = props.calendar.days[employeeId]?.[date]
-  if (kind) return `${name}: ${de.calendar.kinds[kind]}`
+  const request = requestOn(employeeId, date)
+  const requested = request ? requestText(request) : undefined
+  if (kind) return [`${name}: ${de.calendar.kinds[kind]}`, requested].filter(Boolean).join('\n')
+  if (requested) return `${name}: ${requested}`
   return holidayName(date)
+}
+
+function overLimitText(date: string): string {
+  return de.calendar.overLimit(props.requests?.overLimit[date] ?? 0, props.requests?.maxConcurrent ?? 0)
 }
 
 function headerTitle(date: string): string | undefined {
@@ -123,7 +144,24 @@ function headerTitle(date: string): string | undefined {
           :class="[cellClass(employee.id, date), rowHeight ? '' : 'h-5', editable ? 'cursor-pointer hover:outline-2 hover:-outline-offset-2 hover:outline-sky-500' : '']"
           :title="cellTitle(employee.id, employee.name, date)"
           @click="editable && emit('dayClick', employee.id, date)"
-        />
+        >
+          <!-- Hatching plus text: screen readers read „beantragt: …“, not only a colour. -->
+          <span v-if="requestOn(employee.id, date)" class="sr-only">{{ cellTitle(employee.id, employee.name, date) }}</span>
+        </td>
+        <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
+      </tr>
+      <tr v-if="overLimitDays.length">
+        <td class="border border-gray-300 bg-gray-50 px-1 py-0.5 font-medium">{{ de.calendar.overLimitRow }}</td>
+        <td
+          v-for="date in dates" :key="date" class="border border-gray-300 p-0 text-center"
+          :class="requests?.overLimit[date] !== undefined ? 'bg-purple-600 font-semibold text-white' : isOff(date) ? 'bg-gray-100' : ''"
+          :title="requests?.overLimit[date] !== undefined ? overLimitText(date) : undefined"
+        >
+          <template v-if="requests?.overLimit[date] !== undefined">
+            <UIcon name="i-lucide-triangle-alert" class="size-2.5 align-[-1px]" aria-hidden="true" />{{ requests.overLimit[date] }}
+            <span class="sr-only">{{ overLimitText(date) }}</span>
+          </template>
+        </td>
         <td v-for="n in 31 - dates.length" :key="`pad-${n}`" class="border-0" />
       </tr>
       <tr v-if="counts">

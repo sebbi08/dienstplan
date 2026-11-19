@@ -21,6 +21,8 @@ function choose(code: CodeDto | null) {
   <UModal v-model:open="open" :title="title">
     <template #body>
       <div class="space-y-4">
+        <!-- e.g. the open leave request on the clicked day -->
+        <slot />
         <UFormField :label="de.calendar.until" :hint="de.calendar.untilHint">
           <DateTextInput v-model="until" :label="de.calendar.until" :min="date" class="w-full" />
         </UFormField>
