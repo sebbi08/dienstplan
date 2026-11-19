@@ -9,7 +9,8 @@ import { getMonthPlan } from '../../server/services/plan'
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import {
-  applyWeekTemplate, deleteWeekTemplate, listWeekTemplates, renameWeekTemplate, saveWeekTemplate, weekTemplateNames,
+  applyWeekTemplate, createWeekTemplate, deleteWeekTemplate, getWeekTemplate, listWeekTemplates, renameWeekTemplate, saveWeekTemplate,
+  weekTemplateNames,
 } from '../../server/services/weekTemplates'
 import type { SessionUser } from '../../shared/types/api'
 import {
@@ -52,6 +53,32 @@ describe('week templates', () => {
       { employeeId: anna, name: 'Anna', days: ['F1', 'M + [15:00–15:15]', '', '', '', '', ''] },
       { employeeId: berta, name: 'Berta', days: ['VZ 7:30–9:30 + S', '', '', '', '', 'S', ''] },
     ])
+  })
+
+  it('never takes Mutterschutz or Beschäftigungsverbot into a template, shows or applies them (health data)', () => {
+    code(anna, '2026-10-05', 'maternity')
+    code(anna, '2026-10-06', 'employment_ban')
+    shift(anna, '2026-10-07', 'F1')
+    shift(berta, '2026-10-05', 'S')
+    const template = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })
+    expect(template.rows).toEqual([
+      { employeeId: anna, name: 'Anna', days: ['', '', 'F1', '', '', '', ''] },
+      { employeeId: berta, name: 'Berta', days: ['S', '', '', '', '', '', ''] },
+    ])
+    expect(db.select().from(weekTemplateEntries).all().map(row => row.absenceCodeId)).toEqual([null, null])
+    // A row holding such a code anyway (an old database): neither shown in the list or the editor, nor written.
+    db.insert(weekTemplateEntries).values({
+      weekTemplateId: template.id, employeeId: berta, weekday: 1, kind: 'code', absenceCodeId: codeId(db, 'maternity'), countsAsStaff: true,
+    }).run()
+    expect(listWeekTemplates(db, 1)[0]!.rows.find(row => row.employeeId === berta)!.days[1]).toBe('')
+    expect(getWeekTemplate(db, 1, template.id).entries.map(entry => entry.codeKey)).toEqual([null, null])
+    applyWeekTemplate(db, admin, 1, template.id, next)
+    expect(cell(berta, '2026-10-13')).toEqual([])
+    expect(JSON.stringify(getWeekTemplate(db, 1, template.id))).not.toMatch(/maternity|Mutterschutz/)
+    // The editor refuses them.
+    expect(errorCode(() => createWeekTemplate(db, 1, {
+      name: 'Woche B', groupId: null, entries: [{ employeeId: anna, weekday: 0, kind: 'code', codeId: codeId(db, 'maternity') }],
+    }))).toBe('template_entry_not_allowed')
   })
 
   it('fills only empty working days and skips holidays, closures, days off and staff who left', () => {

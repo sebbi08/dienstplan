@@ -1670,6 +1670,9 @@ Mitarbeiter kommen nicht heran.
   „Mein Dienstplan“ und im eigenen Jahreskalender ihre Einträge wie sie sind. Die Codes werden diesen Personen nicht zum
   Eintragen angeboten, und sie können einen solchen Tag nicht ändern, überschreiben oder löschen („Diesen Tag kann nur
   ändern, wer die Krankheitstage sehen darf“). Stunden und Hinweise rechnet der Server immer mit den echten Einträgen.
+  **Wochenvorlagen** nehmen die beiden Codes nie auf (Vorlagen sind für regelmäßige Dienste): „Woche als Vorlage
+  speichern“ lässt sie für alle weg, der Vorlagen-Editor bietet sie nicht an und lehnt sie ab, und sollte eine alte
+  Vorlage doch einen solchen Eintrag enthalten, wird er weder angezeigt noch beim Füllen einer Woche eingetragen.
 - **„Schutzfristen eintragen“** (nur mit „Dienstplan bearbeiten“) trägt „Mutterschutz“ an den Arbeitstagen beider
   Fristen ein – wie „Urlaub eintragen“: Schließtage, Wochenenden, Feiertage und freie Tage nicht, Krank, Fortbildung u. Ä.
   bleiben stehen, ein eingetragenes Beschäftigungsverbot wird ohne Rückfrage ersetzt. **Dienste und Urlaub** werden nur

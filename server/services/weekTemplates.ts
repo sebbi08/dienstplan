@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
 import { isHolidayIn } from '../../shared/domain/holidays'
+import { isProtectedCode, PROTECTED_CODE_KEYS } from '../../shared/domain/maternity'
 import { type EmploymentInfo, isEmployedOn, isWorkday, MONDAY_TO_FRIDAY } from '../../shared/domain/targets'
 import type { TimeSpan } from '../../shared/domain/time'
 import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
@@ -48,8 +49,22 @@ function isCurrent(entry: SavedTimes, shift: typeof shiftTemplates.$inferSelect 
     && shift.breakStart === entry.breakStart && shift.breakEnd === entry.breakEnd
 }
 
-/** The template's entries with their code and service (Dienst), by weekday and start. */
+/**
+ * Mutterschutz and Beschäftigungsverbot (health data, server/lib/protectedCodes.ts) never belong in a template: templates
+ * are for regular duties. Saving a week and the editor never take them; a template row holding one anyway (e.g. from an
+ * old database) is neither shown nor written into the plan.
+ */
+function protectedCodeIds(db: Db): Set<number> {
+  return new Set(db.select({ id: absenceCodes.id }).from(absenceCodes).where(inArray(absenceCodes.key, [...PROTECTED_CODE_KEYS])).all()
+    .map(row => row.id))
+}
+
+/** The template's entries with their code and service (Dienst), by weekday and start; never a protected code. */
 function templateRows(db: Db, templateId: number) {
+  return templateRowsWithProtected(db, templateId).filter(row => !isProtectedCode(row.code?.key as CodeKey | undefined))
+}
+
+function templateRowsWithProtected(db: Db, templateId: number) {
   return db.select({ entry: weekTemplateEntries, code: absenceCodes, shift: shiftTemplates })
     .from(weekTemplateEntries)
     .leftJoin(absenceCodes, eq(weekTemplateEntries.absenceCodeId, absenceCodes.id))
@@ -152,7 +167,10 @@ function resolveTemplate(db: Db, facilityId: number, input: WeekTemplateInput) {
     if (!staff.has(employeeId)) throw new ServiceError(400, 'employee_not_found')
     const values = resolveEntry(db, facilityId, entryInput)
     const code = values.absenceCodeId == null ? undefined : codes.get(values.absenceCodeId)
-    if (values.kind === 'code' && !isTargetGapCode(code?.key ?? null)) throw new ServiceError(400, 'template_entry_not_allowed')
+    // Only VZ and Büro: never Urlaub, Krank or the protected codes (Mutterschutz, Beschäftigungsverbot).
+    if (values.kind === 'code' && (!isTargetGapCode(code?.key ?? null) || isProtectedCode(code?.key))) {
+      throw new ServiceError(400, 'template_entry_not_allowed')
+    }
     // The editor keeps a duty's mark as opened (e.g. a changed HK shift, now a special shift, still not counting).
     const isDuty = values.kind === 'shift' || values.kind === 'special'
     const countsAsStaff = isDuty && givenCounts !== undefined ? givenCounts : (values.countsAsStaff ?? true)
@@ -240,7 +258,8 @@ export function saveWeekTemplate(
   // The facility's plan without its helpers (helpFacilityId set) and without its staff's help-outs elsewhere.
   const working = loadEntries(db, { from: input.weekStart, to: addDays(input.weekStart, WEEKDAYS - 1), planFacilityId: facilityId })
     .filter(entry => entry.helpFacilityId === null)
-    .filter(entry => entry.kind !== 'code' || (entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey)))
+    // Only VZ and Büro of the codes: never one-off absences, never Mutterschutz or Beschäftigungsverbot.
+    .filter(entry => entry.kind !== 'code' || (entry.codeKey !== null && TARGET_GAP_CODES.includes(entry.codeKey) && !isProtectedCode(entry.codeKey)))
     // A member's duty counts for the group unless it was moved to another one (the home group is stored as none).
     .filter(entry => groupId === null || (members.has(entry.employeeId) && (entry.groupId ?? groupId) === groupId))
   if (working.length === 0) throw new ServiceError(400, 'empty_week')
@@ -294,8 +313,11 @@ export function applyWeekTemplate(
 ): WeekTemplateApplyResult {
   requireMonday(weekStart)
   const template = requireTemplate(db, facilityId, id)
+  // A protected code (Mutterschutz, Beschäftigungsverbot) in an old template is never written into the plan.
+  const protectedIds = protectedCodeIds(db)
   const rows = db.select().from(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, id))
     .orderBy(asc(weekTemplateEntries.start), asc(weekTemplateEntries.id)).all()
+    .filter(row => row.absenceCodeId === null || !protectedIds.has(row.absenceCodeId))
   // Employees who have since moved to another facility (or, for a group template, to another group) are skipped.
   const staff = new Map(loadEmployees(db, facilityId)
     .filter(employee => template.groupId === null || employee.groupId === template.groupId)
