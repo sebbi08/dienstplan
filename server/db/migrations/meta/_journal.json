@@ -617,6 +617,13 @@
       "when": 1795085992176,
       "tag": "0087_leave_forfeit_receipts_repeat",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1795086067815,
+      "tag": "0088_ifsg_local_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -46,18 +46,24 @@ export interface IfsgKindRule {
   text: string
   proof: IfsgProof
   rules: readonly IfsgDateRule[]
+  /** Where the readmission comes from: the RKI (left out) or the local health office (shared/domain/ifsgLocal.ts). */
+  source?: 'rki' | 'local'
 }
 
 /**
  * A disease of the rules. `notify`: the Leitung must notify the health office (§ 34 Abs. 6; every disease of § 34).
- * `hint`: a very short note for the parents' notice (what to watch for, what to do).
+ * `binding`: § 34 forbids the visit (every RKI disease); false for a local disease that is only a recommendation (no
+ * block at „Kommt“, no reminder). `hint`: a very short note for the parents' notice (what to watch for, what to do).
+ * `source`: 'local' when the health office changed something or added the disease.
  */
 export interface IfsgDisease {
   key: string
   name: string
   notify: boolean
+  binding: boolean
   kinds: Partial<Record<IfsgKind, IfsgKindRule>>
   hint: string
+  source: 'rki' | 'local'
 }
 
 const rule = (key: string, anchor: IfsgAnchor, days: number, label = '', condition = ''): IfsgDateRule =>
@@ -74,8 +80,8 @@ const carrier = (text: string): IfsgKindRule => ({
 
 const HYGIENE_HINT = 'Auf Durchfall, Erbrechen und Fieber achten; gründlich Hände mit Seife waschen. Bei Beschwerden die Kinderarztpraxis anrufen.'
 
-/** The 24 diseases of table 1, in the order of the source's table of contents. */
-export const IFSG_CATALOGUE: readonly IfsgDisease[] = [
+/** The 24 diseases of table 1, in the order of the source's table of contents (see IFSG_CATALOGUE). */
+const RKI_DISEASES: readonly Omit<IfsgDisease, 'binding' | 'source'>[] = [
   {
     key: 'cholera', name: 'Cholera', notify: true,
     kinds: {
@@ -350,6 +356,9 @@ export const IFSG_CATALOGUE: readonly IfsgDisease[] = [
     hint: 'Bis zu 3 Wochen lang auf Fieber und juckenden Bläschenausschlag achten; Schwangere ohne Immunität ärztlich beraten lassen. Impfpass prüfen.',
   },
 ]
+
+/** The RKI catalogue: every disease is binding (§ 34 forbids the visit) and comes from the RKI. */
+export const IFSG_CATALOGUE: readonly IfsgDisease[] = RKI_DISEASES.map(disease => ({ ...disease, binding: true, source: 'rki' as const }))
 
 /** The disease of these rules with the key; null for an unknown one. */
 export function ifsgDisease(rules: readonly IfsgDisease[], key: string): IfsgDisease | null {

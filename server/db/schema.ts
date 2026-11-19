@@ -70,6 +70,9 @@ export const facilities = sqliteTable('facilities', {
   attendanceSince: text('attendance_since'),
   /** § 34 IfSG: the readmission after a medical judgement needs a written attest (photo/PDF) to be stored. */
   ifsgRequireAttest: integer('ifsg_require_attest', { mode: 'boolean' }).notNull().default(false),
+  /** § 34 IfSG: the local health office (name and phone), shown with its rules and in „Rücksprache“ cases. */
+  healthOfficeName: text('health_office_name').notNull().default(''),
+  healthOfficePhone: text('health_office_phone').notNull().default(''),
   /** How the child lists order the children inside a group (shared/domain/childSort.ts); default = oldest first. */
   childSort: text('child_sort').notNull().default('age_desc'),
   /** Opening hours: the minimum number of staff at opening and until closing (1–20). */
@@ -935,6 +938,55 @@ export const childIfsgCases = sqliteTable('child_ifsg_cases', {
   physicianReported: integer('physician_reported', { mode: 'boolean' }).notNull().default(false),
   ended: integer('ended', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('child_ifsg_cases_child').on(table.childId), index('child_ifsg_cases_facility').on(table.facilityId)])
+
+/**
+ * The local health office's rule for a disease (shared/domain/ifsgLocal.ts), taking precedence over the RKI field by
+ * field; null = the RKI value. `custom`: a local disease (then `name` and `notifiable`). `rules`: JSON list of date
+ * rules ({anchor, days, label}), null = the RKI ones. One row per facility and disease key.
+ */
+export const ifsgLocalRules = sqliteTable('ifsg_local_rules', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  disease: text('disease').notNull(),
+  custom: integer('custom', { mode: 'boolean' }).notNull().default(false),
+  name: text('name'),
+  notifiable: integer('notifiable', { mode: 'boolean' }),
+  text: text('text'),
+  rules: text('rules'),
+  proof: text('proof'),
+  notify: integer('notify', { mode: 'boolean' }),
+  householdText: text('household_text'),
+  householdExclusion: integer('household_exclusion', { mode: 'boolean' }),
+  note: text('note'),
+  hint: text('hint'),
+  updatedAt: text('updated_at').notNull(),
+}, table => [uniqueIndex('ifsg_local_rules_disease').on(table.facilityId, table.disease)])
+
+/** The local health office's documents for the readmission (PDF/JPG/PNG), readable at the tablet in the app. */
+export const ifsgDocuments = sqliteTable('ifsg_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default(''),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  uploadedAt: text('uploaded_at').notNull(),
+}, table => [index('ifsg_documents_facility').on(table.facilityId)])
+
+/**
+ * A cluster of a disease (§ 34 Abs. 6 Satz 2) the Leitung reported to the health office on `acknowledgedOn`; it covers
+ * the cases up to `upTo` (the last case day of the cluster then), a later case brings the reminder back.
+ */
+export const ifsgClusterAcks = sqliteTable('ifsg_cluster_acks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  disease: text('disease').notNull(),
+  upTo: text('up_to').notNull(),
+  acknowledgedOn: text('acknowledged_on').notNull(),
+  acknowledgedByName: text('acknowledged_by_name').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+}, table => [index('ifsg_cluster_acks_facility').on(table.facilityId, table.disease)])
 
 /**
  * A parent meeting (Elterngespräch) in a child's record, held or planned: the day, the time from (minutes of the day)
