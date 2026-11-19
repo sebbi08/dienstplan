@@ -14,6 +14,7 @@ import { absenceCodes, dayNotes, earlySickLeaves, employees, entries, shiftTempl
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
+import { assertChildOf } from './employeeChildren'
 import { assertGroup, groupNames } from './groups'
 import { isHelperOn } from './helpOuts'
 import { inPlanOf, loadEmployee, loadEntries } from './queries'
@@ -253,6 +254,9 @@ export function applyToCells(
   const isTimedCode = values?.kind === 'code' && codeCreditMode(db, values.absenceCodeId) === 'timed'
   if (isAbsence && cells.some(isHelperCell)) throw new ServiceError(400, 'help_code_not_allowed')
   const unique = [...new Map(cells.map(cell => [cellKey(cell.employeeId, cell.date), cell])).values()]
+  // „Kind krank“ may name one of the employee's children (the cells must all be that employee's); other entries none.
+  const employeeChildId = values && codeKeyOf(db, values.absenceCodeId) === 'child_sick' ? input?.employeeChildId ?? null : null
+  if (employeeChildId !== null) assertChildOf(db, employeeChildId, unique.map(cell => cell.employeeId))
   // A whole Büro/VZ day credits the day's target: on a day without one (weekend, public holiday, a part-timer's day off)
   // it would credit nothing and hide what was stamped, so it needs times there.
   const isFullDay = values !== null && isFullDayTimed({
@@ -320,7 +324,7 @@ export function applyToCells(
         tx.insert(entries).values({
           ...values, employeeId: cell.employeeId, date: cell.date, helpFacilityId: helper ? facilityId : null,
           groupId: helper ? groupId : storedGroup(groupId, own.get(cell.employeeId)),
-          closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id,
+          closureId: options.closureId ?? null, updatedAt: now, updatedBy: actor.id, employeeChildId,
         }).run()
       }
       logChange(tx, {

@@ -58,6 +58,8 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
         formatTime(warning.from), de.weekdaysShort[weekday(addDays(warning.date, -1))]!,
         formatTime(warning.to), de.weekdaysShort[weekday(warning.date)]!,
       )
+    case 'child_sick_days':
+      return de.warnings.childSickDays(names.get(warning.employeeId) ?? '?', warning.taken, warning.entitlement)
     case 'staffing':
       return de.warnings.staffing(
         warning.groupName, formatTime(warning.from), formatTime(warning.to), warning.have, warning.need, warning.fachkraft,

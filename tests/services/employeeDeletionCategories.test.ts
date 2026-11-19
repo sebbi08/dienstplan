@@ -26,7 +26,7 @@ const IMMEDIATE = [
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
-  'employee_payroll.employee_id',
+  'employee_payroll.employee_id', 'employee_children.employee_id',
 ]
 /** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [
@@ -48,11 +48,12 @@ const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'q
 const PERSONNEL_FIELDS = {
   birthYear: 1985, street: 'Hauptstraße 1', postalCode: '80331', city: 'München', phone: '089 123456', email: 'tina@example.de',
   nationality: 'deutsch', disability: true, disabilityDegree: 50, disabilityEqual: true, disabilityUntil: '2028-12-31',
-  fixedTermUntil: '2027-07-31', trainingUntil: '2024-07-31', recognitionYearCounts: true,
+  fixedTermUntil: '2027-07-31', trainingUntil: '2024-07-31', recognitionYearCounts: true, singleParent: true,
 }
 const PERSONNEL_CLEARED = {
   birthYear: null, street: null, postalCode: null, city: null, phone: null, email: null, nationality: null, disability: false,
   disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null, trainingUntil: null, recognitionYearCounts: false,
+  singleParent: false,
 }
 
 const ZERO = { immediate: 0, time: 0, assessment: 0, paidOvertime: 0 }

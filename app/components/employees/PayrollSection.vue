@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { EmployeePayrollDto } from '#shared/types/api'
+import type { EmployeePayrollViewDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import {
@@ -16,7 +16,7 @@ import {
 const props = defineProps<{ employeeId: number; active: boolean }>()
 const t = de.personnel.payroll
 const url = `/api/employees/${props.employeeId}/payroll`
-const { data: payroll, status, error, execute, refresh } = useFetch<EmployeePayrollDto>(url, { server: false, immediate: false })
+const { data: payroll, status, error, execute, refresh } = useFetch<EmployeePayrollViewDto>(url, { server: false, immediate: false })
 const { busy, run } = useBusyAction(() => refresh())
 
 const KEYS: PayrollKey[] = ['taxId', 'taxClass', 'svNumber', 'healthInsurer', 'iban', 'accountHolder', 'denomination']
@@ -111,6 +111,16 @@ const loadError = computed(() => (error.value ? errorMessage(error.value) : null
           </dd>
         </template>
       </dl>
+      <!-- Derived from the section „Kinder“, read-only (as of today). -->
+      <div class="space-y-1 border-t border-gray-100 pt-3 text-sm">
+        <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,14rem)_1fr]">
+          <dt class="text-gray-500">{{ de.staffChildren.parent }}</dt>
+          <dd>{{ payroll.parentStatus.parent ? de.staffChildren.yes : de.staffChildren.no }}</dd>
+          <dt class="text-gray-500">{{ de.staffChildren.under25 }}</dt>
+          <dd>{{ payroll.parentStatus.childrenUnder25 }}</dd>
+        </dl>
+        <p class="text-xs text-gray-500">{{ de.staffChildren.parentHint }}</p>
+      </div>
     </template>
 
     <form v-else class="grid gap-3 sm:grid-cols-2" autocomplete="off" @submit.prevent="save">

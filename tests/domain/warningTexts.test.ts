@@ -18,6 +18,12 @@ describe('warning texts', () => {
     expect(warningText({ type: 'target_gap', date: '2026-10-05', employeeId: 1, missingMinutes: 90 }, names))
       .toBe('Anna: noch 1:30 h bis zum Tagessoll')
   })
+
+  it('words more Kinderkrankentage than the entitlement and marks the person\'s cell', () => {
+    const warning: Warning = { type: 'child_sick_days', date: '2026-10-05', employeeId: 1, taken: 16, entitlement: 15 }
+    expect(warningText(warning, names)).toBe('Anna: 16 Kinderkrankentage – Anspruch 15 (§ 45 SGB V)')
+    expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])
+  })
 })
 
 describe('working time law texts (§ 3 and § 5 ArbZG)', () => {

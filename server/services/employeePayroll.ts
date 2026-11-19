@@ -2,9 +2,11 @@ import { eq } from 'drizzle-orm'
 import {
   ibanError, normalizeIban, normalizeSvNumber, normalizeTaxId, svNumberError, taxClassError, taxIdError,
 } from '../../shared/domain/personnel'
-import type { EmployeePayrollDto } from '../../shared/types/api'
+import { parentStatus } from '../../shared/domain/childSickDays'
+import type { IsoDate } from '../../shared/domain/types'
+import type { EmployeePayrollDto, EmployeePayrollViewDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employeePayroll } from '../db/schema'
+import { employeeChildren, employeePayroll } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { assertEmployee } from './employees'
 
@@ -27,6 +29,17 @@ export function getPayroll(db: Db, facilityId: number, employeeId: number): Empl
     taxId: row.taxId, taxClass: row.taxClass, svNumber: row.svNumber, healthInsurer: row.healthInsurer, iban: row.iban,
     accountHolder: row.accountHolder, denomination: row.denomination,
   }
+}
+
+/**
+ * The payroll data with what follows from the section „Kinder“ as of `today` (read-only): „Elterneigenschaft“ and the
+ * children under 25, for the Pflegeversicherung.
+ */
+export function getPayrollView(db: Db, facilityId: number, employeeId: number, today: IsoDate): EmployeePayrollViewDto {
+  const payroll = getPayroll(db, facilityId, employeeId)
+  const children = db.select({ birthDate: employeeChildren.birthDate, disabledDependent: employeeChildren.disabledDependent })
+    .from(employeeChildren).where(eq(employeeChildren.employeeId, employeeId)).all()
+  return { ...payroll, parentStatus: parentStatus(children, today) }
 }
 
 const textOrNull = (value: string | null): string | null => value?.trim() || null

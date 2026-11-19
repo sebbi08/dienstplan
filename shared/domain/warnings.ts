@@ -42,6 +42,8 @@ export type Warning =
   | { type: 'short_rest'; date: IsoDate; employeeId: number; from: Minutes; to: Minutes }
   /** The same from the stamped times. */
   | { type: 'short_rest_recorded'; date: IsoDate; employeeId: number; from: Minutes; to: Minutes }
+  /** More „Kind krank“ days than the entitlement of the year (§ 45 SGB V, employeeChildren.ts), `taken` counted to `date`. */
+  | { type: 'child_sick_days'; date: IsoDate; employeeId: number; taken: number; entitlement: number }
   /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.

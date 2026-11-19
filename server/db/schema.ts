@@ -195,6 +195,8 @@ export const employees = sqliteTable('employees', {
   trainingUntil: text('training_until'),
   /** „Anerkennungsjahr zählt als Stufe 1“: the level years start one year before the day after trainingUntil. */
   recognitionYearCounts: integer('recognition_year_counts', { mode: 'boolean' }).notNull().default(false),
+  /** „alleinerziehend“ (personal data like the children, employeeChildren): the higher Kinderkrankentage apply. */
+  singleParent: integer('single_parent', { mode: 'boolean' }).notNull().default(false),
 })
 
 export const employeeHours = sqliteTable('employee_hours', {
@@ -306,6 +308,8 @@ export const entries = sqliteTable('entries', {
    * with working time: shifts, special shifts, timed codes such as Büro or VZ).
    */
   homeOffice: integer('home_office', { mode: 'boolean' }).notNull().default(false),
+  /** „Kind krank“: which of the employee's children (optional; the link goes when the child is removed). */
+  employeeChildId: integer('employee_child_id').references(() => employeeChildren.id, { onDelete: 'set null' }),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [
@@ -667,6 +671,20 @@ export const employeePayroll = sqliteTable('employee_payroll', {
   /** Konfession (Kirchensteuer). */
   denomination: text('denomination'),
 })
+
+/**
+ * A child of an employee (personal data, employees.personal): for the Kinderkrankentage (§ 45 SGB V, eligible under 12
+ * or with a disability and dependent on help) and the parent status of the Pflegeversicherung (children under 25).
+ */
+export const employeeChildren = sqliteTable('employee_children', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  /** Optional, only to tell the children apart. */
+  firstName: text('first_name'),
+  birthDate: text('birth_date').notNull(),
+  /** „Kind mit Behinderung, auf Hilfe angewiesen“: eligible for Kinderkrankentage at any age. */
+  disabledDependent: integer('disabled_dependent', { mode: 'boolean' }).notNull().default(false),
+}, table => [index('employee_children_employee').on(table.employeeId)])
 
 /**
  * An uploaded document (PDF, JPEG or PNG) in an employee's personnel file, in one of the folders (each with its own

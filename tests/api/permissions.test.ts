@@ -307,6 +307,24 @@ describe('API route permissions', () => {
     }
   })
 
+  it('keeps the employees\' children to the personal data right, the Kinderkrankentage to the sick days, the values to the Träger', () => {
+    expect(permissionCalls('employees/[id]/children.get.ts')).toEqual([{ key: 'employees.personal', options: '' }])
+    // Changing needs employees.edit here and employees.personal in the service (403 forbidden).
+    expect(permissionCalls('employees/[id]/children.put.ts')).toEqual([{ key: 'employees.edit', options: '' }])
+    expect(source('employees/[id]/children.put.ts')).toContain('admin.permissions')
+    expect(permissionCalls('employees/[id]/child-sick-days.get.ts')).toEqual([{ key: 'employees.sickness', options: '' }])
+    for (const route of ['employees/[id]/children.get.ts', 'employees/[id]/children.put.ts', 'employees/[id]/child-sick-days.get.ts']) {
+      expect(source(route), route).toContain('.facilityId')
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
+    expect(permissionCalls('child-sick-settings.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
+    expect(permissionCalls('child-sick-settings.put.ts')).toEqual([{ key: 'settings.absenceCodes', options: '' }])
+    expect(PROVIDER_ONLY.has('settings.absenceCodes')).toBe(true)
+    expect(fixture['child-sick-settings.put.ts']).toEqual(['provider'])
+    // The parent status rides only with „Lohn und Steuer“.
+    expect(permissionCalls('employees/[id]/payroll.get.ts')).toEqual([{ key: 'employees.payroll', options: '' }])
+  })
+
   it('lets the Leitung read how 24 and 31 December count as leave; only the Träger changes it (Leitung 403)', () => {
     expect(permissionCalls('leave-counting.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
     expect(permissionCalls('leave-counting.put.ts')).toEqual([{ key: 'leave.configure', options: '' }])

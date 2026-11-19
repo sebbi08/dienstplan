@@ -153,6 +153,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       key: 'employee-retention', title: de.retention.title, replaces: [],
       keywords: ['Löschfrist', 'Aufbewahrung', 'Datenschutz', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Kasse'],
     },
+    {
+      // One value for all facilities: the Leitung sees it read-only; only the Träger changes it.
+      key: 'child-sick-days', title: de.staffChildren.settings.title, replaces: [],
+      keywords: ['Kind krank', 'Kinderkrankengeld', '§ 45 SGB V', 'alleinerziehend', 'krankes Kind', 'Krankenkasse'],
+    },
   ],
 }
 

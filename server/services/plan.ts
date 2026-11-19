@@ -24,6 +24,7 @@ import { activeTrackingFrom } from './appSettings'
 import { autoEventsFor } from './autoEvents'
 import { computeBalances } from './balances'
 import { loadSickLeaves, sickLeavesByCell } from './earlySickLeaves'
+import { childSickWarnings } from './employeeChildren'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
@@ -133,6 +134,8 @@ function buildAdminData(
   })
   // The state's presence rules (Personalschlüssel) per group and time of day.
   warnings.push(...staffingWarnings(db, facilityId, year, month))
+  // More „Kind krank“ days than the entitlement of the year (§ 45 SGB V): a hint on the person's last such day.
+  warnings.push(...childSickWarnings(db, staff, year, month))
 
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {

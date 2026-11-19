@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeDocuments,
+  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, notifications, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
@@ -86,6 +86,12 @@ export function fillEmployeeData(
     db.insert(employeeEmergencyConsentLog).values({
       employeeId: id, granted: true, source: 'self', by: 'self', at: now.toISOString(), date: '2026-10-06',
     }).run()
+    // A child of the employee (Kinderkrankentage), with a „Kind krank“ day linked to it.
+    const ownChild = db.insert(employeeChildren).values({ employeeId: id, firstName: 'Lena', birthDate: '2020-05-04' })
+      .returning({ id: employeeChildren.id }).get().id
+    applyToCells(db, leitung, 1, [{ employeeId: id, date: '2026-10-09' }], 'replace', {
+      kind: 'code', codeId: codeId(db, 'child_sick'), employeeChildId: ownChild,
+    })
     // The personnel file: payroll (immediate) and a document in each folder of the assessment category.
     db.insert(employeePayroll).values({
       employeeId: id, taxId: '86095742719', taxClass: 1, svNumber: '15070649C103', healthInsurer: 'AOK', iban: 'DE89370400440532013000',

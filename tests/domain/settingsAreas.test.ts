@@ -23,7 +23,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'reminders']],
-      ['staff', ['staffing', 'employee-retention']],
+      ['staff', ['staffing', 'employee-retention', 'child-sick-days']],
     ])
   })
 
@@ -34,7 +34,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'reminders']],
-      ['staff', ['staffing', 'employee-retention']],
+      ['staff', ['staffing', 'employee-retention', 'child-sick-days']],
     ])
   })
 
@@ -121,6 +121,13 @@ describe('searchSettings', () => {
     for (const viewer of [provider, leitung]) {
       expect(searchSettings('ausgezahlt', viewer)[0]).toMatchObject({ key: 'employee-retention', where: 'Personal', to: '/admin/settings/staff#section-employee-retention' })
       expect(searchSettings('Löschfristen', viewer).map(hit => hit.key)).toContain('employee-retention')
+    }
+  })
+
+  it('finds the Kinderkrankentage of the staff for the Träger and the Leitung (who only reads them)', () => {
+    for (const viewer of [provider, leitung]) {
+      expect(searchSettings('Kind krank', viewer)[0]).toMatchObject({ key: 'child-sick-days', where: 'Personal', to: '/admin/settings/staff#section-child-sick-days' })
+      expect(searchSettings('Kinderkrankentage', viewer).map(hit => hit.key)).toContain('child-sick-days')
     }
   })
 

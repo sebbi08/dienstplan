@@ -20,7 +20,7 @@ describe('database setup', () => {
     const db = createTestDb()
     seedDefaults(db)
     expect(db.select().from(shiftTemplates).all().map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(db.select().from(absenceCodes).all()).toHaveLength(12)
+    expect(db.select().from(absenceCodes).all()).toHaveLength(13)
     expect(db.select().from(coverageRules).all()).toHaveLength(3)
   })
   it('enforces foreign keys again after migrating', () => {
@@ -137,10 +137,11 @@ describe('upgrading a filled database through migrateDb', () => {
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
   // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them (and
-  // without `balance_from` of 0072_employee_balance_from and the training columns of 0074_employee_training_until).
+  // without `balance_from` of 0072_employee_balance_from, the training columns of 0074_employee_training_until and
+  // `single_parent` of 0086_employee_children).
   const PERSONNEL_COLUMNS = ['birth_year', 'street', 'postal_code', 'city', 'phone', 'email', 'nationality', 'disability',
     'disability_degree', 'disability_equal', 'disability_until', 'fixed_term_until']
-  const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from', 'training_until', 'recognition_year_counts']
+  const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from', 'training_until', 'recognition_year_counts', 'single_parent']
   const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_EMPLOYEE_COLUMNS.includes(column))))
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
@@ -223,8 +224,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     const after = sqlite.prepare('SELECT * FROM entries ORDER BY id').all() as Record<string, unknown>[]
     // group_id comes with the later migration 0022.
-    // (group_id comes with the later 0022_groups, home_office with 0069.)
-    expect(after.map(({ help_facility_id: _, group_id: __, home_office: ___, ...rest }) => rest)).toEqual(before)
+    // (group_id comes with the later 0022_groups, home_office with 0069, employee_child_id with 0086.)
+    expect(after.map(({ help_facility_id: _, group_id: __, home_office: ___, employee_child_id: ____, ...rest }) => rest)).toEqual(before)
     expect(after.map(row => row.help_facility_id)).toEqual([null, null])
     expect(count(sqlite, 'help_outs')).toBe(0)
     sqlite.exec('INSERT INTO facilities (id, name) VALUES (2, \'Krippe\')')
@@ -258,8 +259,8 @@ describe('upgrading a filled database through migrateDb', () => {
     for (const table of ['employees', 'entries', 'coverage_rules', 'week_templates']) {
       const after = sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
       // (weekdays of the coverage rules comes with the later 0038_opening_hours, the birthday of employees with 0044,
-      // home_office of entries with 0069, of week template entries with 0070.)
-      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, home_office: ___, ...rest }) => rest))), table)
+      // home_office of entries with 0069, of week template entries with 0070; employee_child_id of entries with 0086.)
+      expect(withoutPersonnel(withoutReminders(after.map(({ group_id: _, weekdays: __, home_office: ___, employee_child_id: ____, ...rest }) => rest))), table)
         .toEqual(before[table])
       expect(after.every(row => row.group_id === null), table).toBe(true)
     }
@@ -1608,8 +1609,10 @@ describe('upgrading a filled database through migrateDb', () => {
         { key: 'overtime_off', label: 'ÜF', color: 'violet', credit_mode: 'none', requires_times: 0, sort_order: 2 },
         { key: 'special_leave', label: 'Sonderurlaub', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 3 },
         { key: 'sick', label: 'Krank', color: 'red', credit_mode: 'daily_target', requires_times: 0, sort_order: 4 },
-        { key: 'other', label: 'sonstiges', color: 'neutral', credit_mode: 'none', requires_times: 0, sort_order: 5 },
-        { key: 'doctor', label: 'Arzt', color: 'red', credit_mode: 'timed', requires_times: 1, sort_order: 7 },
+        // 0086 puts „Kind krank“ after Krank and moves the later codes down by one.
+        { key: 'child_sick', label: 'Kind krank', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 5 },
+        { key: 'other', label: 'sonstiges', color: 'neutral', credit_mode: 'none', requires_times: 0, sort_order: 6 },
+        { key: 'doctor', label: 'Arzt', color: 'red', credit_mode: 'timed', requires_times: 1, sort_order: 8 },
       ])
     expect(sqlite.prepare('SELECT kind FROM leave_requests').all()).toEqual([{ kind: 'vacation' }])
 
@@ -1620,6 +1623,31 @@ describe('upgrading a filled database through migrateDb', () => {
     seedDefaults(fresh.db)
     expect(fresh.db.select().from(absenceCodes).all().filter(code => code.key === 'overtime_off'))
       .toMatchObject([{ label: 'ÜF', color: 'violet', creditMode: 'none', requiresTimes: false, sortOrder: 2 }])
+  })
+
+  it('0086 adds the employees\' children and „Kind krank“; removing a child keeps the entry without the link', () => {
+    const { db, sqlite } = databaseAt('0085')
+    sqlite.exec(`
+      INSERT INTO absence_codes (key, label, color, credit_mode, requires_times, sort_order) VALUES
+        ('sick', 'Krank', 'gray', 'daily_target', 0, 4), ('office', 'Büro', 'yellow', 'timed', 1, 5);
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1);
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT key, sort_order FROM absence_codes ORDER BY sort_order').all())
+      .toEqual([{ key: 'sick', sort_order: 4 }, { key: 'child_sick', sort_order: 5 }, { key: 'office', sort_order: 6 }])
+    expect(sqlite.prepare('SELECT single_parent FROM employees').all()).toEqual([{ single_parent: 0 }])
+    sqlite.exec(`
+      INSERT INTO employee_children (id, employee_id, birth_date) VALUES (1, 1, '2020-01-01');
+      INSERT INTO entries (employee_id, date, kind, absence_code_id, employee_child_id, updated_at)
+        SELECT 1, '2026-11-17', 'code', id, 1, 'now' FROM absence_codes WHERE key = 'child_sick';
+      DELETE FROM employee_children WHERE id = 1;
+    `)
+    expect(sqlite.prepare('SELECT date, employee_child_id FROM entries').all()).toEqual([{ date: '2026-11-17', employee_child_id: null }])
+
+    // A new database gets no code from the migration (seedDefaults adds it).
+    const fresh = databaseAt('0085')
+    migrateDb(fresh.db, MIGRATIONS)
+    expect(count(fresh.sqlite, 'absence_codes')).toBe(0)
   })
 
   it('0062 adds the empty personnel file fields and tables, which go with their employee', () => {

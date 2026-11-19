@@ -56,6 +56,7 @@ export const entryInputSchema = z.object({
   note: z.string().max(200).nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   homeOffice: z.boolean().optional(),
+  employeeChildId: z.number().int().positive().nullable().optional(),
 })
 export const applyEntriesSchema = z.object({
   cells: z.array(z.object({ employeeId: z.number().int(), date: isoDate })).min(1).max(1000),
@@ -198,6 +199,20 @@ export const payrollSchema = z.object({
   taxId: z.string().max(30).nullable(), taxClass: z.number().nullable(), svNumber: z.string().max(30).nullable(),
   healthInsurer: z.string().max(100).nullable(), iban: z.string().max(50).nullable(), accountHolder: z.string().max(100).nullable(),
   denomination: z.string().max(50).nullable(),
+})
+/** The section „Kinder“ saved at once; the birth dates are checked by the service (child_birth_date_invalid). */
+export const employeeChildrenSchema = z.object({
+  singleParent: z.boolean(),
+  children: z.array(z.object({
+    id: z.number().int().positive().nullable().optional(),
+    firstName: z.string().max(100).nullable(),
+    birthDate: z.string().max(10),
+    disabledDependent: z.boolean(),
+  })).max(50),
+})
+/** Kinderkrankentage; the ranges are the service's (400 child_sick_settings_invalid). */
+export const childSickSettingsSchema = z.object({
+  perChild: z.number(), maxPerYear: z.number(), singleParentPerChild: z.number(), singleParentMax: z.number(),
 })
 
 /** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */

@@ -5,7 +5,7 @@ export type IsoDate = string
 export type EntryKind = 'shift' | 'special' | 'code' | 'break'
 export type CreditMode = 'daily_target' | 'timed' | 'none'
 export type CodeKey =
-  | 'vacation' | 'special_leave' | 'sick' | 'training' | 'school' | 'other'
+  | 'vacation' | 'special_leave' | 'sick' | 'child_sick' | 'training' | 'school' | 'other'
   | 'prep_time' | 'office' | 'doctor' | 'holiday' | 'closure_day' | 'overtime_off'
 
 /** Minimal entry shape used by all domain calculations. */

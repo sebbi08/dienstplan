@@ -6,7 +6,7 @@ import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
-import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
+import type { BalanceDto, ChildSickYearDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { showsComingYear } from '~/utils/comingYear'
@@ -88,6 +88,13 @@ const canManagePins = computed(() => mayManagePins(user.value?.role, can))
 const canEditStamping = computed(() => user.value?.employeeId !== id || can('users.providerAccounts'))
 // „Urlaub eintragen“ / „Entfernen“: as editing the plan; the own leave only the Träger (others request it; server: own_leave_entry).
 const canEnterLeave = computed(() => can('plan.edit') && (user.value?.employeeId !== id || user.value?.role === 'provider'))
+// Kinderkrankentage of the viewed year, with the right of the sick days (employees.sickness); shown only with eligible
+// children or days taken.
+const { data: childSick, refresh: refreshChildSick } = await useFetch<ChildSickYearDto>(`/api/employees/${id}/child-sick-days`, {
+  query: { year: leaveYear }, enabled: computed(() => can('employees.sickness')),
+})
+const showChildSick = computed(() => can('employees.sickness') && !!childSick.value
+  && (childSick.value.eligibleChildren > 0 || childSick.value.taken > 0))
 /** The dialog „Urlaub eintragen“; the coming year's block allows only that year's dates. */
 const leaveEntry = reactive<{ open: boolean; min?: string; max?: string }>({ open: false })
 function openLeaveEntry(block: { year: number; coming: boolean }) {
@@ -510,6 +517,9 @@ async function onTabKey(event: KeyboardEvent) {
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" /></div>
     </form>
 
+    <!-- „Kinder“: the same right as the personal data (the answer holds `personal` only with employees.personal). -->
+    <EmployeesChildrenSection v-if="employee.personal" :employee-id="id" @saved="refreshChildSick" />
+
     <EmployeesEmergencyContactsSection :employee-id="id" />
 
     <!-- The same route as the master data, but only the qualification and the share are sent from here. -->
@@ -665,6 +675,9 @@ async function onTabKey(event: KeyboardEvent) {
           <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-calendar-plus" :label="de.leaveEntry.add" @click="openLeaveEntry(block)" />
         </div>
       </template>
+      <p v-if="showChildSick && childSick" class="pt-1" :class="childSick.taken > childSick.entitlement ? 'text-amber-800' : ''" :title="de.staffChildren.sickYearHint">
+        {{ de.staffChildren.sickYear(childSick.year, childSick.taken, childSick.entitlement) }}
+      </p>
       <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
       <p v-if="canEnterLeave && leaveRow?.closures.some(closure => closure.days > 0)" class="text-xs text-gray-500">{{ de.leaveEntry.closureNote }}</p>
       <LeaveEntryDialog

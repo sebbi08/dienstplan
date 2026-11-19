@@ -174,8 +174,21 @@ function openModal(code: CodeDto | null) {
   modalOpen.value = true
 }
 
+/** „Kind krank“ for one person, with the right to see the children: the dialog asks which child (optional). */
+const codeDetails = reactive<{ open: boolean; code: CodeDto | null; employeeId: number | null; date: string | null }>({
+  open: false, code: null, employeeId: null, date: null,
+})
+function needsDetails(code: CodeDto): boolean {
+  const employeeIds = new Set(selection.cells.value.map(cell => cell.employeeId))
+  return code.key === 'child_sick' && employeeIds.size === 1 && can('employees.personal')
+}
+
 function onCode(code: CodeDto) {
   if (code.requiresTimes) openModal(code)
+  else if (needsDetails(code)) {
+    const first = [...selection.cells.value].sort((a, b) => a.date.localeCompare(b.date))[0]!
+    Object.assign(codeDetails, { open: true, code, employeeId: first.employeeId, date: first.date })
+  }
   else onEntry({ kind: 'code', codeId: code.id })
 }
 
@@ -303,6 +316,10 @@ function navigate(nextYear: number, nextMonth: number) {
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
+      <PlanCodeDetailsModal
+        v-model:open="codeDetails.open" :code="codeDetails.code" :employee-id="codeDetails.employeeId" :date="codeDetails.date"
+        @submit="onEntry"
+      />
       <PlanEntryEditModal
         v-model:open="editOpen" :entry="editEntry" :plan="plan"
         :can-mark-sick="editEntry !== null && canMarkSick(editEntry.employeeId, editEntry.date)"

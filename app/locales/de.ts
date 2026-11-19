@@ -411,6 +411,8 @@ export const de = {
     /** „Anna: nur 9:00 Std. Ruhezeit zwischen 22:00 (Mo) und 7:00 (Di) – mindestens 11 Std. (§ 5 ArbZG)“ (planned or stamped). */
     shortRest: (name: string, duration: string, from: string, fromDay: string, to: string, toDay: string) =>
       `${name}: nur ${duration} Std. Ruhezeit zwischen ${from} (${fromDay}) und ${to} (${toDay}) – mindestens 11 Std. (§ 5 ArbZG)`,
+    /** More „Kind krank“ days than the entitlement, only a hint: „Anna: 16 Kinderkrankentage – Anspruch 15 (§ 45 SGB V)“. */
+    childSickDays: (name: string, taken: number, entitlement: number) => `${name}: ${taken} Kinderkrankentage – Anspruch ${entitlement} (§ 45 SGB V)`,
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
@@ -696,6 +698,46 @@ export const de = {
         qualifications: 'Abschlüsse, Fortbildungsnachweise', correspondence: 'z. B. Elternzeit, Teilzeit',
         measures: 'Abmahnung, Ermahnung', salary: 'Gehaltsentwicklung, Vorschüsse',
       },
+    },
+  },
+  // Children of employees: section „Kinder“ (employees.personal), Kinderkrankentage (§ 45 SGB V), parent status in „Lohn und Steuer“.
+  staffChildren: {
+    title: 'Kinder',
+    hint: 'Für die Kinderkrankentage und die Pflegeversicherung. Wer die Anschrift sehen darf, sieht auch die Kinder.',
+    singleParent: 'alleinerziehend',
+    none: 'Keine Kinder eingetragen.',
+    firstName: 'Vorname (freiwillig)',
+    birthDate: 'Geburtsdatum',
+    disabledDependent: 'Kind mit Behinderung, auf Hilfe angewiesen',
+    add: 'Kind hinzufügen',
+    remove: 'Entfernen',
+    childLabel: (name: string | null, born: string) => (name ? `${name} (geb. ${born})` : `Kind (geb. ${born})`),
+    // „Urlaub & Zeiten“: only when the person has eligible children or took such days.
+    sickYear: (year: number, taken: number, entitlement: number) => `Kinderkrankentage ${year}: ${taken} von ${entitlement} genommen`,
+    sickYearHint: 'Nach § 45 SGB V; der Anspruch richtet sich nach den Kindern unter 12 (oder mit Behinderung) und „alleinerziehend“.',
+    // The plan's dialog for „Kind krank“.
+    dialogTitle: 'Kind krank',
+    whichChild: 'Welches Kind?',
+    noChild: 'nicht angeben',
+    noEligible: 'Für diese Person sind keine Kinder unter 12 Jahren (oder mit Behinderung) eingetragen. Du kannst „Kind krank“ trotzdem eintragen.',
+    enter: 'Eintragen',
+    // „Lohn und Steuer“: derived from the children, read-only.
+    parent: 'Elterneigenschaft',
+    yes: 'ja',
+    no: 'nein',
+    under25: 'Kinder unter 25 Jahren',
+    parentHint: 'für die Pflegeversicherung (Kinderlosenzuschlag, Beitragsabschlag ab dem 2. Kind)',
+    // Einstellungen → Personal: the Träger's values (one setting for all facilities).
+    settings: {
+      title: 'Kinderkrankentage',
+      intro: 'Tage pro Jahr, an denen Mitarbeiter wegen eines kranken Kindes zu Hause bleiben (§ 45 SGB V). Die Werte gelten für alle Einrichtungen; im Dienstplan erscheint ein Hinweis, wenn eine Person mehr Tage hat. Eintragen wird nie verhindert.',
+      perChild: 'Kinderkrankentage pro Kind',
+      maxPerYear: 'Höchstens pro Jahr',
+      singleParentPerChild: 'alleinerziehend pro Kind',
+      singleParentMax: 'alleinerziehend höchstens',
+      days: 'Tage',
+      check: 'Bitte prüfen, ob diese Werte für das Jahr noch gelten (Krankenkasse/Lohnabrechnung).',
+      providerOnly: 'Nur der Träger kann diese Werte ändern.',
     },
   },
   weekTemplates: {
@@ -2203,6 +2245,11 @@ export const de = {
     retention_key_invalid: 'Diese Zeile konnte nicht erkannt werden. Lade die Seite neu.',
     retention_delete_blocked: 'Löschen hat nicht geklappt: Es gibt noch Daten, die darauf verweisen. Es wurde nichts gelöscht.',
     employee_birthday_invalid: 'Bitte einen gültigen Geburtstag (Tag und Monat) angeben.',
+    child_birth_date_invalid: 'Bitte für jedes Kind ein gültiges Geburtsdatum angeben (nicht in der Zukunft).',
+    too_many_children: 'Es sind höchstens 20 Kinder möglich.',
+    employee_child_not_found: 'Dieses Kind ist nicht (mehr) eingetragen. Bitte lade die Seite neu.',
+    employee_child_invalid: 'Dieses Kind gehört nicht zu der Person. Bitte wähle das Kind für eine Person auf einmal.',
+    child_sick_settings_invalid: 'Bitte ganze Tage von 0 bis 365 angeben; „höchstens“ darf nicht kleiner sein als die Tage für ein Kind.',
     reminder_setting_invalid: 'Bitte einen gültigen Zeitraum angeben.',
     reminder_date_invalid: 'Bitte ein gültiges Datum angeben.',
     development_doc_not_found: 'Dieser Eintrag existiert nicht mehr.',

@@ -32,7 +32,7 @@ export interface DayOverview {
 
 function codeState(codeKey: CodeKey | null): SlotState {
   switch (codeKey) {
-    case 'vacation': case 'special_leave': case 'sick': case 'training': case 'school': case 'overtime_off': return 'absent'
+    case 'vacation': case 'special_leave': case 'sick': case 'child_sick': case 'training': case 'school': case 'overtime_off': return 'absent'
     case 'prep_time': return 'prep_time'
     case 'office': return 'office'
     case 'doctor': return 'doctor'

@@ -824,6 +824,8 @@ export interface EntryInput {
    * 400 home_office_not_allowed.
    */
   homeOffice?: boolean
+  /** „Kind krank“: which of the employee's children (optional; only with that code, else ignored). */
+  employeeChildId?: number | null
 }
 
 /** New times of one entry clicked in the plan; homeOffice only when it changes (missing = kept). */
@@ -1245,6 +1247,54 @@ export interface EmployeePayrollDto {
   accountHolder: string | null
   /** Konfession (Kirchensteuer). */
   denomination: string | null
+}
+
+/** „Lohn und Steuer“ as the page reads it: the stored values and what follows from the children (read-only). */
+export interface EmployeePayrollViewDto extends EmployeePayrollDto {
+  /** For the Pflegeversicherung, as of today: „Elterneigenschaft“ (any child) and the children under 25. */
+  parentStatus: { parent: boolean; childrenUnder25: number }
+}
+
+/** A child of an employee (personal data, employees.personal). */
+export interface EmployeeChildInput {
+  /** Optional, only to tell the children apart (empty = null). */
+  firstName: string | null
+  birthDate: IsoDate
+  /** „Kind mit Behinderung, auf Hilfe angewiesen“. */
+  disabledDependent: boolean
+}
+
+export interface EmployeeChildDto extends EmployeeChildInput {
+  id: number
+}
+
+/** The section „Kinder“ of the personnel file: „alleinerziehend“ and the children, by birth date. */
+export interface EmployeeChildrenDto {
+  singleParent: boolean
+  children: EmployeeChildDto[]
+}
+
+/** The section saved at once: children with an id are changed, without one added, missing ones removed. */
+export interface EmployeeChildrenInput {
+  singleParent: boolean
+  children: (EmployeeChildInput & { id?: number | null })[]
+}
+
+/** The Träger's values for the Kinderkrankentage (§ 45 SGB V), for all facilities. */
+export interface ChildSickSettingsDto {
+  perChild: number
+  maxPerYear: number
+  singleParentPerChild: number
+  singleParentMax: number
+}
+
+/** Kinderkrankentage of an employee in a year: working days with „Kind krank“ and the entitlement. */
+export interface ChildSickYearDto {
+  year: number
+  taken: number
+  entitlement: number
+  /** Children counting in the year (under 12 on a day of it, or disabled and dependent on help). */
+  eligibleChildren: number
 }
 
 /** What the user enters about a personnel file document (the file comes with the upload). */

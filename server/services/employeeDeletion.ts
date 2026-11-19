@@ -10,7 +10,7 @@ import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
   balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
-  earlySickLeaves, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
+  earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms,
   groupBookChanges, helpOuts, leaveEntitlements, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -22,7 +22,7 @@ import { getRetentionSettings } from './retentionSettings'
 /** Warning types whose acknowledgement key names an employee as subject (`<type>|<date>|<employeeId>`, warningList.ts). */
 const EMPLOYEE_WARNING_TYPES = new Set([
   'missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence',
-  'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded',
+  'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'child_sick_days',
 ])
 
 /** Release snapshots of every facility (home, former home, help-out plans) without the employee's column and cells. */
@@ -163,6 +163,8 @@ const IMMEDIATE_FIELDS_CLEARED = {
   disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null,
   // „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als Stufe 1“ with the contract data.
   trainingUntil: null, recognitionYearCounts: false,
+  // „alleinerziehend“ with the children (IMMEDIATE_ROWS).
+  singleParent: false,
 }
 /** The employee row while one of IMMEDIATE_FIELDS_CLEARED still holds something. */
 const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employeeId), or(
@@ -174,10 +176,13 @@ const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employee
   isNotNull(employees.phone), isNotNull(employees.email), isNotNull(employees.nationality), ne(employees.disability, false),
   isNotNull(employees.disabilityDegree), ne(employees.disabilityEqual, false), isNotNull(employees.disabilityUntil),
   isNotNull(employees.fixedTermUntil), isNotNull(employees.trainingUntil), ne(employees.recognitionYearCounts, false),
+  ne(employees.singleParent, false),
 ))
 const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   { table: employeePayroll, column: employeePayroll.employeeId },
   { table: employeeEmergencyContacts, column: employeeEmergencyContacts.employeeId },
+  // The children (Kinderkrankentage, Pflegeversicherung): personal data; „Kind krank“ entries only lose the link.
+  { table: employeeChildren, column: employeeChildren.employeeId },
   // The consent to show them at the tablet, with its log: personal data of the same kind.
   { table: employeeEmergencyConsent, column: employeeEmergencyConsent.employeeId },
   { table: employeeEmergencyConsentLog, column: employeeEmergencyConsentLog.employeeId },
@@ -208,7 +213,7 @@ const ACCOUNT: EmployeeRows = { table: users, column: users.employeeId }
 /**
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields, the personnel file's personal and
  * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), „Lohn und Steuer“,
- * emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
+ * the children with „alleinerziehend“, emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
  * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */

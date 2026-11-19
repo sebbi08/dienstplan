@@ -13,9 +13,9 @@ import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './queries'
 
-/** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. */
+/** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. „Kind krank“ shows as Krank. */
 const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
-  sick: 'sick', vacation: 'vacation', overtime_off: 'overtime_off', special_leave: 'special_leave', training: 'training',
+  sick: 'sick', child_sick: 'sick', vacation: 'vacation', overtime_off: 'overtime_off', special_leave: 'special_leave', training: 'training',
   school: 'training', holiday: 'closed', closure_day: 'closed',
 }
 /** When a day has several codes, the first kind in this list wins. */
@@ -98,7 +98,7 @@ export function getYearCalendar(
   const otherSets = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
   const hideSick = 'sickOnlyOf' in options
   for (const entry of loadEntries(db, { ...yearBounds(year), homeFacilityId: facilityId })) {
-    if (hideSick && entry.codeKey === 'sick' && entry.employeeId !== options.sickOnlyOf) continue
+    if (hideSick && (entry.codeKey === 'sick' || entry.codeKey === 'child_sick') && entry.employeeId !== options.sickOnlyOf) continue
     // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
     if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)
     const kind = entry.codeKey ? KIND_OF_CODE[entry.codeKey] : undefined
