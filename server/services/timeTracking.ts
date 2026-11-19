@@ -227,7 +227,8 @@ export function getTimeMonth(
   const notes = new Map(db.select().from(timeDayNotes)
     .where(and(eq(timeDayNotes.employeeId, employeeId), gte(timeDayNotes.date, monthStart), lte(timeDayNotes.date, monthEnd))).all()
     .map(row => [row.date, row.note]))
-  const sickLeaves = sickLeavesByCell(loadSickLeaves(db, [employeeId], monthStart, monthEnd))
+  // From the day before too: a marked day gives no stamped end for the next day's rest period.
+  const sickLeaves = sickLeavesByCell(loadSickLeaves(db, [employeeId], dayBefore, monthEnd))
   const markSettings = getTimeMarkSettings(db, facilityId)
   // "Frühere Schließung" of any facility in the month: the day's last duty ends at its facility's closing time at the latest.
   const closings = new Map(db.select().from(earlyClosures)
@@ -238,10 +239,13 @@ export function getTimeMonth(
     return last ? closings.get(`${last.helpFacilityId ?? facilityId}:${date}`) ?? null : null
   }
 
-  /** The working time law hints (§ 3, § 5 ArbZG) of a day of the range; the day before counts when it lies in it too. */
+  /**
+   * The working time law hints (§ 3, § 5 ArbZG) of a day of the range; the day before counts when it lies in it too and
+   * is not marked „Im Dienst erkrankt“.
+   */
   const lawWarnings = (date: IsoDate, dayEntries: EntryDto[], records: TimeRecordDto[]) => {
     const before = addDays(date, -1)
-    const previous = usesRecords(actual, before) && isEmployedOn(employee.info, before)
+    const previous = usesRecords(actual, before) && isEmployedOn(employee.info, before) && !sickLeaves[cellKey(employeeId, before)]
       ? { entries: entriesByDate.get(before) ?? [], records: recordsByDate.get(before) ?? [] }
       : null
     return recordedLawWarnings(date, employeeId, { entries: dayEntries, records }, employee.breakMode, previous)

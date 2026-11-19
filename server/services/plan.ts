@@ -12,7 +12,7 @@ import { dayCreditedMinutes } from '../../shared/domain/stamping'
 import { countsForBalance, isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
-import { plannedLawWarnings, recordedLawWarnings } from '../../shared/domain/workingTimeLaw'
+import { plannedLawWarnings, recordedLawWarnings, usesStampedHints } from '../../shared/domain/workingTimeLaw'
 import type {
   ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDayDto, MyPlanDto,
   MyPlanEntryDto, PendingChangeDto, SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
@@ -93,6 +93,18 @@ function buildAdminData(
       recordsByCell.set(key, [...(recordsByCell.get(key) ?? []), record])
     }
   }
+  const staffIds = staff.map(employee => employee.id)
+  const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staffIds, monthStart, monthEnd))
+  // „Im Dienst erkrankt“ of the day before the month: its stamped end gives no rest period for the first day.
+  const markedBefore = new Set(Object.keys(sickLeavesByCell(loadSickLeaves(db, staffIds, dayBefore, dayBefore))))
+  const isMarked = (key: string) => key in sickLeaves || markedBefore.has(key)
+  const dayEntriesOf = (employeeId: number, date: IsoDate) => (byEmployee.get(employeeId) ?? []).filter(entry => entry.date === date)
+  /** A past day of the tracking range, not marked, whose stamps count: it gets the stamped law hints, not the planned. */
+  const stampedLawDay = (employee: EmployeeRecord, date: IsoDate) => {
+    const key = cellKey(employee.id, date)
+    return trackingFrom !== null && trackingFrom <= date && date < today && isEmployedOn(employee.info, date) && !isMarked(key)
+      && usesStampedHints({ entries: dayEntriesOf(employee.id, date), records: recordsByCell.get(key) ?? [] })
+  }
 
   const warnings: Warning[] = monthDates(year, month).flatMap((date) => {
     const staffDays: EmployeeDay[] = staff.map((employee) => {
@@ -113,18 +125,15 @@ function buildAdminData(
       coverageOnly: true,
     }))
     // Working time law (§ 3, § 5 ArbZG) of the own staff on every day they are employed, weekends included, with all
-    // their entries (a help-out elsewhere is work too). Helpers are checked in their home facility's plan.
-    const lawWarnings = staff.filter(employee => isEmployedOn(employee.info, date)).flatMap((employee) => {
-      const own = byEmployee.get(employee.id) ?? []
-      const before = addDays(date, -1)
-      return plannedLawWarnings(date, employee.id, own.filter(entry => entry.date === date), own.filter(entry => entry.date === before))
-    })
+    // their entries (a help-out elsewhere is work too). Helpers are checked in their home facility's plan. A past day
+    // with stamps gets the stamped hints instead (below).
+    const lawWarnings = staff.filter(employee => isEmployedOn(employee.info, date) && !stampedLawDay(employee, date))
+      .flatMap(employee => plannedLawWarnings(date, employee.id, dayEntriesOf(employee.id, date), dayEntriesOf(employee.id, addDays(date, -1))))
     return [...dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, hours), ...lawWarnings]
   })
   // The state's presence rules (Personalschlüssel) per group and time of day.
   warnings.push(...staffingWarnings(db, facilityId, year, month))
 
-  const sickLeaves = sickLeavesByCell(loadSickLeaves(db, staff.map(employee => employee.id), monthStart, monthEnd))
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
     for (const date of monthDates(year, month)) {
@@ -138,12 +147,10 @@ function buildAdminData(
         if (!marked) {
           warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
           const before = addDays(date, -1)
-          // The day before counts only when it lies in the tracking range too.
-          const previous = before >= trackingFrom && isEmployedOn(employee.info, before)
-            ? {
-                entries: (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === before),
-                records: recordsByCell.get(cellKey(employee.id, before)) ?? [],
-              }
+          const beforeKey = cellKey(employee.id, before)
+          // The day before counts only when it lies in the tracking range too and is not marked „Im Dienst erkrankt“.
+          const previous = before >= trackingFrom && isEmployedOn(employee.info, before) && !isMarked(beforeKey)
+            ? { entries: dayEntriesOf(employee.id, before), records: recordsByCell.get(beforeKey) ?? [] }
             : null
           warnings.push(...recordedLawWarnings(date, employee.id, { entries: dayEntries, records }, employee.breakMode, previous))
         }

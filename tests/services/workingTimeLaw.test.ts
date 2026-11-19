@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employees, warningAcks } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { saveEarlySickLeave } from '../../server/services/earlySickLeaves'
 import { deleteLeftEmployee } from '../../server/services/employeeDeletion'
 import { setStampingOptions } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getMonthPlan } from '../../server/services/plan'
-import { createRecord, getTimeMonth } from '../../server/services/timeTracking'
+import { createRecord, getTimeMonth, stamp } from '../../server/services/timeTracking'
 import { acknowledgeWarnings } from '../../server/services/warningAcks'
 import { warningAckKey, warningSignature } from '../../shared/domain/warningList'
 import type { Warning } from '../../shared/domain/warnings'
@@ -110,6 +111,27 @@ describe('working time law hints of the time tracking', () => {
     const expected = [{ type: 'short_rest_recorded', date: '2026-11-01', employeeId: anna, from: 1320, to: 420 }]
     expect(timeLaw(2026, 11, '2026-11-10')).toEqual(expected)
     expect(planLaw(2026, 11, '2026-11-10', RECORDED_TYPES)).toEqual(expected)
+  })
+  it('does not take the stamped end of a day marked „Im Dienst erkrankt“ for the next day\'s rest', () => {
+    record('2026-10-05', 465, 1305) // until 21:45
+    record('2026-10-06', 465, 960) // from 7:45: 10:00 h rest
+    const rest = () => timeLaw(2026, 10, '2026-10-20').filter(w => w.type === 'short_rest_recorded')
+    expect(rest()).toHaveLength(1)
+    saveEarlySickLeave(db, admin, 1, { employeeId: anna, date: '2026-10-05', leftAt: 600, note: null }, new Date('2026-10-20T10:00:00Z'))
+    expect(rest()).toEqual([])
+    expect(planLaw(2026, 10, '2026-10-20', RECORDED_TYPES).filter(w => w.type === 'short_rest_recorded')).toEqual([])
+  })
+  it('shows only the stamped hints on a past day with stamps, the planned ones on days without', () => {
+    shiftOn('2026-10-08', 'M')
+    special('2026-10-06', 960, 1140) // M 7:45–16:00 plus 16:00–19:00 planned: 10:45 h
+    special('2026-10-07', 960, 1140)
+    special('2026-10-08', 960, 1140)
+    record('2026-10-06', 465, 960) // stamped only 7:45–16:00
+    stamp(db, anna, 'in', 'terminal', new Date('2026-10-07T05:45:00Z')) // only an open record: the plan still tells
+    const all = new Set([...PLAN_TYPES, ...RECORDED_TYPES])
+    expect(planLaw(2026, 10, '2026-10-20', all).map(w => [w.type, w.date])).toEqual([
+      ['max_hours', '2026-10-07'], ['max_hours', '2026-10-08'],
+    ])
   })
   it('does not use stamped days before „Zeiterfassung ab“', () => {
     record('2026-10-05', 465, 1305)

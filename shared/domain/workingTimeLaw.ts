@@ -1,7 +1,7 @@
 import { creditsDailyTarget, isTimeOff, isWorkEntry } from './balance'
 import { dayCreditedMinutes, workSpans, type BreakMode } from './stamping'
 import type { RecordSpan } from './timeRecords'
-import type { DomainEntry, IsoDate, Minutes } from './types'
+import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
 import type { Warning } from './warnings'
 
 /**
@@ -10,10 +10,12 @@ import type { Warning } from './warnings'
  *
  * Working time is what the hours account credits as hours (balance.ts): shifts, special shifts and timed codes (VZ,
  * Büro, Arzt), home office included, without breaks (of the entries and additional ones) and without the time ranges of
- * „Überstundenfrei“; overlapping entries count once. Codes crediting the daily target (Urlaub, Krank, Fortbildung …) or
- * nothing are no hours worked, also when they have times, and whole-day entries without times count no hours. Arzt is
- * credited working time, so it counts for both rules. Stamped days use the credited time of the time tracking
- * (stamping.ts: closed records, home office and Arzt on top, automatic breaks deducted).
+ * „Überstundenfrei“; overlapping entries count once. On top, for these hints only, Fortbildung and Schule with times
+ * (LAW_WORK_CODES): working time under the ArbZG, while the hours account credits them the daily target. Other codes
+ * crediting the daily target (Urlaub, Krank …) or nothing are no hours worked, also with times, and whole-day entries
+ * without times count no hours. Arzt is credited working time, so it counts for both rules. Stamped days use the
+ * credited time of the time tracking (stamping.ts: closed records, home office and Arzt on top, automatic breaks
+ * deducted); on a day whose stamps do not count (a full-day code) the plan tells.
  */
 export const MAX_DAILY_MINUTES = 10 * 60
 export const MIN_REST_MINUTES = 11 * 60
@@ -28,10 +30,19 @@ export interface WorkWindow {
   end: Minutes
 }
 
+/** Codes crediting the daily target that are working time under the ArbZG when they have times. */
+export const LAW_WORK_CODES: CodeKey[] = ['training', 'school']
+
+/** A timed entry that is working time for these hints: a work entry, or Fortbildung/Schule with times. */
+function isLawWork(entry: LawEntry): boolean {
+  if (entry.start === null || entry.end === null) return false
+  return isWorkEntry(entry) || (entry.kind === 'code' && !!entry.codeKey && LAW_WORK_CODES.includes(entry.codeKey))
+}
+
 /** Per minute of the day: 1 where planned work lies (work entries minus breaks and time off). */
 function workMask(entries: LawEntry[]): Uint8Array {
   const work = new Uint8Array(DAY)
-  for (const entry of entries) if (isWorkEntry(entry) && entry.end !== null) work.fill(1, entry.start!, entry.end)
+  for (const entry of entries) if (isLawWork(entry)) work.fill(1, entry.start!, entry.end!)
   for (const entry of entries) {
     const blank = entry.kind === 'break' || isTimeOff(entry)
     if (blank && entry.start !== null && entry.end !== null) work.fill(0, entry.start, entry.end)
@@ -91,12 +102,22 @@ export interface RecordedDay {
 
 /**
  * Stamped start of the first and end of the last work of a day (closed records together with home office and Arzt);
- * null without such work or when the stamps do not count (a full-day absence or a whole Büro/home-office day).
+ * null without such work. When the stamps do not count (a full-day code: Urlaub, Fortbildung, a whole Büro day …) the
+ * planned window tells instead, e.g. a Fortbildung with times.
  */
 export function recordedWorkWindow(day: RecordedDay): WorkWindow | null {
-  if (creditsDailyTarget(day.entries)) return null
+  if (creditsDailyTarget(day.entries)) return plannedWorkWindow(day.entries)
   const spans = workSpans(day.records, day.entries)
   return spans.length === 0 ? null : { start: spans[0]!.start, end: spans.at(-1)!.end! }
+}
+
+/**
+ * A past day of the tracking range gets the stamped hints instead of the planned ones when it has a closed record and
+ * its stamps count (no full-day code); otherwise the plan's hints stay. The caller checks the range and „Im Dienst
+ * erkrankt“ (a marked day keeps the planned hints).
+ */
+export function usesStampedHints(day: RecordedDay): boolean {
+  return day.records.some(record => record.end !== null) && !creditsDailyTarget(day.entries)
 }
 
 /**

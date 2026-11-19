@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ackKeyDate, warningAckKey, warningSignature } from '../../shared/domain/warningList'
 import {
   MAX_DAILY_MINUTES, MIN_REST_MINUTES, exceedsMaxDaily, plannedLawWarnings, plannedWorkMinutes, plannedWorkWindow,
-  recordedLawWarnings, recordedWorkWindow, restMinutes, shortRest,
+  recordedLawWarnings, recordedWorkWindow, restMinutes, shortRest, usesStampedHints,
 } from '../../shared/domain/workingTimeLaw'
 import type { DomainEntry } from '../../shared/domain/types'
 import { code, shift, special } from '../helpers/entries'
@@ -30,10 +30,18 @@ describe('§ 3 ArbZG: planned working time per day', () => {
     expect(plannedWorkMinutes([special(1, D, 420, 900), code(1, D, 'doctor', 'timed', 900, 1080)])).toBe(660)
     expect(plannedWorkMinutes([special(1, D, 420, 1020), code(1, D, 'prep_time', 'timed', 900, 1020)])).toBe(600)
   })
-  it('does not count codes crediting the daily target or nothing as hours worked', () => {
+  it('counts Fortbildung and Schule with times as working time (ArbZG), other daily-target codes and codes crediting nothing not', () => {
     expect(plannedWorkMinutes([code(1, D, 'vacation', 'daily_target')])).toBe(0)
-    expect(plannedWorkMinutes([code(1, D, 'training', 'daily_target', 480, 960), special(1, D, 960, 1200)])).toBe(240)
+    expect(plannedWorkMinutes([code(1, D, 'training', 'daily_target')])).toBe(0)
+    expect(plannedWorkMinutes([code(1, D, 'training', 'daily_target', 480, 960), special(1, D, 960, 1200)])).toBe(720)
+    expect(plannedWorkMinutes([code(1, D, 'school', 'daily_target', 480, 1081)])).toBe(601)
+    expect(plannedWorkMinutes([code(1, D, 'vacation', 'daily_target', 480, 1100), code(1, D, 'sick', 'daily_target', 480, 1100)])).toBe(0)
     expect(plannedWorkMinutes([code(1, D, 'other', 'none', 420, 1100)])).toBe(0)
+  })
+  it('takes a Fortbildung with times for the rest period', () => {
+    expect(plannedLawWarnings(D, 1, [special(1, D, 300, 600)], [code(1, PREV, 'training', 'daily_target', 480, 1140)])).toEqual([
+      { type: 'short_rest', date: D, employeeId: 1, from: 1140, to: 300 },
+    ])
   })
   it('gives a plan warning above 10 h with the minutes', () => {
     expect(plannedLawWarnings(D, 1, [special(1, D, 420, 1080)], [])).toEqual([
@@ -107,13 +115,26 @@ describe('stamped working time (Zeiterfassung)', () => {
     ])
     expect(recordedLawWarnings(D, 1, day([{ start: 511, end: 700 }]), 'stamp', previous)).toEqual([]) // 8:31: 11:00 h
   })
-  it('ignores days whose stamps do not count (a full-day absence or a whole Büro day)', () => {
+  it('ignores the stamps of days on which they do not count (a full-day absence or a whole Büro day)', () => {
     const absent = day([{ start: 420, end: 1100 }], [code(1, D, 'vacation', 'daily_target')])
     expect(recordedWorkWindow(absent)).toBeNull()
     expect(recordedLawWarnings(D, 1, absent, 'stamp', day([{ start: 600, end: 1320 }]))).toEqual([])
     expect(recordedLawWarnings(D, 1, day([{ start: 420, end: 700 }]), 'stamp', {
       ...day([{ start: 600, end: 1320 }], [code(1, PREV, 'office', 'timed')]),
     })).toEqual([])
+  })
+  it('takes the planned times of a Fortbildung on the day before, its stray stamps not', () => {
+    const training = day([{ start: 600, end: 1320 }], [code(1, PREV, 'training', 'daily_target', 480, 1140)])
+    expect(recordedWorkWindow(training)).toEqual({ start: 480, end: 1140 })
+    expect(recordedLawWarnings(D, 1, day([{ start: 300, end: 700 }]), 'stamp', training)).toEqual([
+      { type: 'short_rest_recorded', date: D, employeeId: 1, from: 1140, to: 300 },
+    ])
+  })
+  it('decides whether a day uses the stamped hints instead of the planned ones', () => {
+    expect(usesStampedHints(day([{ start: 420, end: 700 }]))).toBe(true)
+    expect(usesStampedHints(day([]))).toBe(false)
+    expect(usesStampedHints(day([{ start: 420, end: null }]))).toBe(false) // only an open record: nothing to compare
+    expect(usesStampedHints(day([{ start: 420, end: 700 }], [code(1, D, 'training', 'daily_target', 480, 960)]))).toBe(false)
   })
 })
 
