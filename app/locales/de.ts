@@ -200,6 +200,7 @@ export const de = {
     doctor: (span: string) => `Arzt (laut Plan) ${span}`,
     /** A whole Büro/VZ day without times with what it credits: „Büro (ganzer Tag): 7:48 (Tagessoll)“. */
     fullDay: (what: string, duration: string) => `${what}: ${duration} (Tagessoll)`,
+    planCounted: 'zählt nach Plan',
     fullDayHomeOffice: 'Homeoffice (ganzer Tag)',
     lateBy: (minutes: number) => `${minutes} Min. zu spät`, earlyBy: (minutes: number) => `${minutes} Min. früher gegangen`,
     lateSummary: (count: number, minutes: number) => `${count}× zu spät, zusammen ${minutes} Min.`,

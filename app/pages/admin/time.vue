@@ -36,6 +36,7 @@ const run = useAction(async () => {
   await refreshHints()
 })
 const confirm = useConfirm()
+const { can } = useCan()
 
 watch([employeeId, year, month], () => router.replace({ query: { employee: employeeId.value ?? undefined, year: year.value, month: month.value } }))
 
@@ -103,7 +104,8 @@ function openSickLeave(day: TimeDayDto) {
   Object.assign(sickLeave, { open: true, target: { employeeId: shown.id, name: shown.name, date: day.date, mark: day.sickLeave } })
 }
 /** Only a day with a duty, today or earlier, can be marked (a marked day can always be opened). */
-const canMarkSick = (day: TimeDayDto) => day.sickLeave !== null || (day.plannedDuty && day.date <= todayDate)
+// „Im Dienst erkrankt“ only with the sick days right (the server sends nobody else the marker).
+const canMarkSick = (day: TimeDayDto) => can('employees.sickness') && (day.sickLeave !== null || (day.plannedDuty && day.date <= todayDate))
 
 /** One compact menu per day instead of four buttons, so rows stay short on narrow screens. */
 function absenceItems(day: TimeDayDto): DropdownMenuItem[][] {
@@ -248,6 +250,7 @@ function change(nextYear: number, nextMonth: number) {
           <div v-if="day.warnings.length" class="text-xs text-amber-700">
             <div v-for="(warning, index) in day.warnings" :key="index">{{ warningText(warning, names) }}</div>
           </div>
+          <div v-if="day.planCounted && !day.sickLeave" class="text-xs text-gray-500">{{ de.time.planCounted }}</div>
           <button
             v-if="day.sickLeave" type="button"
             class="inline-flex items-start gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-left text-xs text-rose-800 ring-1 ring-rose-200"
@@ -329,6 +332,7 @@ function change(nextYear: number, nextMonth: number) {
             </td>
             <td class="px-2 py-1.5 text-xs text-amber-700">
               <div v-for="(warning, index) in day.warnings" :key="index">{{ warningText(warning, names) }}</div>
+              <div v-if="day.planCounted && !day.sickLeave" class="text-gray-500">{{ de.time.planCounted }}</div>
               <button
                 v-if="day.sickLeave" type="button" :title="day.sickLeave.note ?? undefined"
                 class="inline-flex items-start gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-left text-rose-800 ring-1 ring-rose-200 hover:bg-rose-100"

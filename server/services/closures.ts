@@ -2,7 +2,7 @@ import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { dateRange, daysBetween } from '../../shared/domain/dates'
 import { isHolidayIn, type HolidayRules } from '../../shared/domain/holidays'
 import { countLeaveDays, countsAsLeaveDay } from '../../shared/domain/leave'
-import { PROTECTED_CODE_KEYS } from '../../shared/domain/maternity'
+import { PRIVATE_CODE_KEYS } from '../../shared/domain/maternity'
 import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosureListItemDto, ClosureMode, SessionUser } from '../../shared/types/api'
@@ -59,9 +59,10 @@ type Cell = { employeeId: number; date: IsoDate }
  * (a closure never uses leave on a day off) and, with `from`, only on days from then on. Days on which someone helps
  * out in another facility are skipped (and booked when that help-out day becomes empty again, see rebookHomeClosure).
  * Someone who moved into the facility (facilitySince set) gets it only from that day on: the days before belong to the
- * other facility, so nothing there is booked or replaced. Days holding Mutterschutz or Beschäftigungsverbot are skipped
- * for everyone: the protection comes first, no leave is used in it (§ 24 MuSchG), and a closure manager without the
- * right is neither refused nor told about it. Returns the cells booked.
+ * other facility, so nothing there is booked or replaced. Days holding a private absence (Krank, Kind krank,
+ * Mutterschutz, Beschäftigungsverbot) are skipped for everyone: no leave is used during sickness or the protection period
+ * (§ 9 BUrlG, § 24 MuSchG), „abwesend“ stays the same for all four, and a closure manager without the right is neither
+ * refused nor told about it. Returns the cells booked.
  */
 function bookClosure(
   db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
@@ -76,7 +77,7 @@ function bookClosure(
     : db.select({ employeeId: entries.employeeId, date: entries.date }).from(entries)
         .innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
         .where(and(
-          inArray(absenceCodes.key, [...PROTECTED_CODE_KEYS]), inArray(entries.employeeId, staff.map(employee => employee.id)),
+          inArray(absenceCodes.key, [...PRIVATE_CODE_KEYS]), inArray(entries.employeeId, staff.map(employee => employee.id)),
           gte(entries.date, closure.startDate), lte(entries.date, closure.endDate),
         )).all().map(row => `${row.employeeId}|${row.date}`))
   for (const employee of staff) {

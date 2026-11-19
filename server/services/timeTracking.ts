@@ -299,6 +299,8 @@ export function getTimeMonth(
         .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
       plannedDuty: hasPlannedDuty(dayEntries),
       sickLeave: showsProtected ? sickLeave : null,
+      // Stamped, but the plan counts: „Im Dienst erkrankt“ or a whole Büro/home-office day – one neutral note for both.
+      planCounted: records.length > 0 && (sickLeave !== null || dayEntries.some(isFullDayTimed)),
       ...marks,
     }
   })

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { earlySickLeaves, entries } from '../../server/db/schema'
+import { earlySickLeaves, entries, timeRecords } from '../../server/db/schema'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getYearCalendar } from '../../server/services/calendar'
 import { createClosure } from '../../server/services/closures'
 import { applyToCells } from '../../server/services/entries'
@@ -48,6 +49,38 @@ beforeEach(() => {
   codeOn(anna, MATERNITY_DAY, 'maternity')
   codeOn(anna, '2026-11-19', 'child_sick')
   codeOn(anna, '2026-11-20', 'employment_ban')
+})
+
+describe('a closure leaves every private absence as it is (Q1)', () => {
+  it('a sick day and a Mutterschutz day stay alike for staff, and no leave is used during sickness', () => {
+    createClosure(db, leitung, 1, { startDate: '2026-11-16', endDate: '2026-11-20', label: 'Herbst', mode: 'vacation' })
+    releaseMonth(db, leitung, 1, 2026, 11)
+    const plan = getMonthPlan(db, benUser, 1, 2026, 11, TODAY)
+    const sick = shape(entryOf(plan.entries, SICK_DAY))
+    expect(sick).toMatchObject({ label: 'abwesend', codeKey: null })
+    for (const date of [MATERNITY_DAY, '2026-11-19', '2026-11-20']) expect(shape(entryOf(plan.entries, date))).toEqual(sick)
+    // Only the free Monday became the closure; the private days kept their codes.
+    const own = getMonthPlan(db, leitung, 1, 2026, 11, TODAY).entries.filter(entry => entry.employeeId === anna && entry.date >= '2026-11-16' && entry.date <= '2026-11-20')
+    expect(own.map(entry => [entry.date, entry.codeKey])).toEqual([
+      ['2026-11-16', 'vacation'], [SICK_DAY, 'sick'], [MATERNITY_DAY, 'maternity'], ['2026-11-19', 'child_sick'], ['2026-11-20', 'employment_ban'],
+    ])
+  })
+})
+
+describe('„Im Dienst erkrankt“ without the right: the neutral „zählt nach Plan“ (Q2)', () => {
+  it('appears on the marked day like on a whole Büro day; the marker only for the right holders', () => {
+    db.insert(entries).values({ employeeId: ben, date: '2026-11-10', kind: 'special', start: 480, end: 960, updatedAt: 'x' }).run()
+    db.insert(entries).values({ employeeId: ben, date: '2026-11-11', kind: 'code', absenceCodeId: codeId(db, 'office'), updatedAt: 'x' }).run()
+    for (const date of ['2026-11-10', '2026-11-11']) db.insert(timeRecords).values({ employeeId: ben, date, start: 480, end: 600, source: 'terminal', createdAt: 'x' }).run()
+    db.insert(earlySickLeaves).values({ employeeId: ben, date: '2026-11-10', createdAt: 'x' }).run()
+    setTimeTrackingFrom(db, 1, '2026-11-01')
+    const masked = getTimeMonth(db, 1, ben, 2026, 11, TODAY, 600, false).days
+    const day = (list: typeof masked, date: string) => list.find(item => item.date === date)!
+    expect([day(masked, '2026-11-10'), day(masked, '2026-11-11')].map(item => [item.planCounted, item.sickLeave])).toEqual([[true, null], [true, null]])
+    const full = getTimeMonth(db, 1, ben, 2026, 11, TODAY, 600).days
+    expect(day(full, '2026-11-10').sickLeave).not.toBeNull()
+    expect(day(full, '2026-11-12').planCounted).toBe(false)
+  })
 })
 
 describe('a sick day and a Mutterschutz day look the same without the right', () => {
@@ -105,8 +138,8 @@ describe('a sick day and a Mutterschutz day look the same without the right', ()
       .toBe('protected_cell')
     expect(errorCode(() => applyToCells(db, editor, 1, [{ employeeId: ben, date: SICK_DAY }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })))
       .toBe('protected_cell')
-    // A closure manager without the right is neither refused nor told (a sick day becomes the closure, as before).
-    expect(errorCode(() => createClosure(db, editor, 1, { startDate: '2026-11-17', endDate: '2026-11-17', label: 'Brücke', mode: 'closure_day' })))
+    // A closure manager without the right is neither refused nor told.
+    expect(errorCode(() => createClosure(db, editor, 1, { startDate: '2026-11-17', endDate: '2026-11-18', label: 'Brücke', mode: 'closure_day' })))
       .toBeNull()
   })
 })

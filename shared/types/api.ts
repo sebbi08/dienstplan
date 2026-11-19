@@ -1638,6 +1638,11 @@ export interface TimeDayDto {
   /** "Im Dienst erkrankt": the planned time is credited whatever was stamped, and the day has no time hints. */
   sickLeave: SickLeaveMarkDto | null
   /**
+   * Stamped, but the plan counts („zählt nach Plan“): „Im Dienst erkrankt“ or a whole Büro/home-office day. The same
+   * neutral note for both, for viewers who may not see the marker.
+   */
+  planCounted: boolean
+  /**
    * Minutes the first stamped arrival came after the first planned work start, when more than the facility's tolerance
    * (null = not marked). Leitung and Träger only, like the whole time page; never in the staff's own time view.
    */

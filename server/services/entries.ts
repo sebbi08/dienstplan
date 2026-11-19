@@ -246,7 +246,7 @@ export function applyToCells(
     throw new ServiceError(400, 'employee_not_found')
   }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
-  // A closure books for everybody (skipping Mutterschutz itself, closures.ts) and never tells what it replaces.
+  // A closure books for everybody (it skips private absences itself, closures.ts) and never tells what it replaces.
   if (options.closureId == null) assertMayTouchProtected(db, actor, cells, values?.absenceCodeId)
   const inputGroupId = input?.groupId ?? null
   if (values) assertGroup(db, facilityId, inputGroupId)

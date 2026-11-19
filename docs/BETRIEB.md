@@ -1672,12 +1672,15 @@ Mitarbeiter kommen nicht heran.
   Plan, auch beim Drucken und als PDF), in der Änderungsliste der Freigaben, im Jahreskalender und in der Urlaubsplanung
   („abwesend“; die Legende nennt „Krank“ und „Mutterschutz / Beschäftigungsverbot“ nur, wenn solche Tage gezeigt werden),
   in der Zeiterfassung und in der Tagesübersicht. Die Markierung „Im Dienst erkrankt“ und der Hinweis zu den
-  Kinderkrankentagen fehlen für sie. Der Server schickt ihnen weder den Code noch seinen Namen, so dass „abwesend“ nicht
+  Kinderkrankentagen fehlen für sie; in der Zeiterfassung steht an einem solchen Tag nur „zählt nach Plan“ – derselbe
+  Vermerk wie an jedem gestempelten Tag, der nach Plan zählt (z. B. ein ganzer Büro- oder Homeoffice-Tag). Der Server schickt ihnen weder den Code noch seinen Namen, so dass „abwesend“ nicht
   verrät, welcher Grund es ist. Wer selbst betroffen ist, sieht unter „Mein Dienstplan“ und im eigenen Jahreskalender die
   eigenen Einträge, wie sie sind. Die vier Codes werden diesen Personen nicht zum Eintragen angeboten, und sie können
   einen solchen Tag nicht ändern, überschreiben oder löschen („Diesen Tag kann nur ändern, wer die Krankheitstage sehen
-  darf“) – **Krank eintragen** geht also nur noch mit dem Recht „Krankheitstage …“. Eine Schließzeit wird trotzdem für
-  alle eingetragen (Mutterschutz-Tage bleiben, ein Krank-Tag wird wie bisher zur Schließzeit), ohne Fehlermeldung. Die
+  darf“) – **Krank eintragen** geht also nur noch mit dem Recht „Krankheitstage …“. Eine **Schließzeit** wird für alle
+  eingetragen, ohne Fehlermeldung, lässt aber jeden Tag mit Krank, Kind krank, Mutterschutz oder Beschäftigungsverbot
+  stehen: Während Krankheit und Schutzfrist wird kein Urlaub verbraucht (§ 9 BUrlG, § 24 MuSchG), und „abwesend“ bleibt für
+  alle vier gleich. Wird jemand erst nach dem Anlegen der Schließzeit krank, wird der Tag wie bisher umgetragen. Die
   Seite „Krankheitstage“ und die BEM-Erinnerungen bleiben wie bisher. Stunden und Hinweise rechnet der Server immer mit
   den echten Einträgen.
   **Wochenvorlagen** nehmen die beiden Codes nie auf (Vorlagen sind für regelmäßige Dienste): „Woche als Vorlage
@@ -1746,8 +1749,11 @@ Mitarbeiter kommen nicht heran.
   daneben weiter.
 - **Restrisiko:** Auch ohne Grund kann jemand Rückschlüsse ziehen – z. B. weil „Arbeitszeitgrenze überschritten“ nur bei
   einer Person und schon bei Dingen erscheint, die das Arbeitszeitgesetz erlaubt (8:45 Std., 20:15 Uhr, ein Sonntag),
-  oder weil eine Kollegin über Wochen „abwesend“ ist. Die App verrät den Grund nicht, kann solche Schlüsse aber nicht
-  verhindern. Gib „Krankheitstage …“ deshalb nur Leitung und Träger. Datensicherungen enthalten alles.
+  oder weil eine Kollegin über Wochen „abwesend“ ist. Auch „Im Dienst erkrankt“ hinterlässt Spuren: Im Dienstplan zählt
+  ein solcher Tag nach Plan und wird nicht als abweichend markiert, in der Zeiterfassung fehlen an ihm Hinweise und die
+  Markierung „früher gegangen“, und er trägt nur „zählt nach Plan“. Bei einem Dienst (kein ganzer Büro-Tag) mit wenigen
+  gestempelten Stunden lässt das auf eine Krankheit schließen. Die App verrät den Grund nicht, kann solche Schlüsse aber
+  nicht verhindern. Gib „Krankheitstage …“ deshalb nur Leitung und Träger. Datensicherungen enthalten alles.
 - **Erinnerungen** (Box „Erinnerungen“, nur Leitung und Träger mit dem Recht, nicht am Tablet, nie zur eigenen Person,
   nicht für Ausgeschiedene): „Gefährdungsbeurteilung für ‹Name› erstellen/anpassen (§ 10 MuSchG)“ bis der Tag
   eingetragen ist (14 Tage nach der Bekanntgabe rot); „‹Name›: Meldung an die Aufsichtsbehörde (§ 27 MuSchG) –
