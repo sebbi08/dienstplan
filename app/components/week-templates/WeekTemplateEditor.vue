@@ -7,7 +7,7 @@ import type {
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
-import { quickEntryHandlers } from '~/utils/quickEntry'
+import { gridStep, quickEntryHandlers, rovingStop, touchTapAsToggle } from '~/utils/quickEntry'
 import {
   clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateDayKind,
   templateEntryInputs, templateWeekdays, templateWeeklyMinutes, type TemplateCell,
@@ -73,8 +73,7 @@ const selectedCells = computed<TemplateCell[]>(() => selection.cells.value.map(c
 function onCellClick(employeeId: number, weekday: number, event: MouseEvent) {
   // The click after a long press opened the quick time entry; it does not toggle the cell.
   if (quick.consumeClick()) return
-  const touch = 'pointerType' in event && event.pointerType === 'touch'
-  selection.click(employeeId, String(weekday), touch ? new MouseEvent('click', { ctrlKey: true }) : event, WEEKDAY_KEYS)
+  selection.click(employeeId, String(weekday), touchTapAsToggle(event), WEEKDAY_KEYS)
 }
 const isSelected = (cell: TemplateCell) => selection.selected.value.has(templateCellOf(cell))
 function cellClass(person: WeekTemplateStaffDto, weekday: number): string {
@@ -108,10 +107,21 @@ function enter(input: EntryInput) {
  * belongs to; what is typed goes the „Sonderdienst“ dialog's way (enter).
  */
 const quickEntry = reactive<{ open: boolean; reference: HTMLElement | null }>({ open: false, reference: null })
-const quick = quickEntryHandlers<TemplateCell>(({ employeeId, weekday }, element, afterDoubleClick) => {
-  selection.selectForQuickEntry(employeeId, String(weekday), afterDoubleClick)
-  Object.assign(quickEntry, { open: true, reference: element })
-})
+const quick = quickEntryHandlers<TemplateCell>(
+  ({ employeeId, weekday }, element, afterDoubleClick) => {
+    selection.selectForQuickEntry(employeeId, String(weekday), afterDoubleClick)
+    Object.assign(quickEntry, { open: true, reference: element })
+  },
+  (cell, key) => {
+    const next = gridStep(cellGrid.value, templateCellOf(cell), key)
+    if (next) grid.value?.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus()
+  },
+)
+/** Weekdays × people: the arrow keys move between them; the cell focused last is the grid's one tab stop. */
+const grid = ref<HTMLElement | null>(null)
+const cellGrid = computed(() => weekdays.map((_, weekday) => columns.value.map(person => templateCellOf({ employeeId: person.id, weekday }))))
+const focusedCell = ref<string | null>(null)
+const tabStop = computed(() => rovingStop(cellGrid.value, focusedCell.value))
 const quickTitle = (person: WeekTemplateStaffDto, weekday: number) =>
   [dayOffTitle(person, weekday), de.quickEntry.hint].filter(Boolean).join('\n')
 
@@ -181,7 +191,7 @@ async function save() {
 
       <p v-if="!columns.length" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">{{ e.noStaff }}</p>
       <div v-else class="overflow-x-auto rounded-lg bg-white ring-1 ring-gray-200">
-        <table class="w-full border-collapse text-xs">
+        <table ref="grid" class="w-full border-collapse text-xs">
           <thead class="bg-gray-100 text-gray-600">
             <tr>
               <th class="sticky left-0 z-10 w-24 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ e.weekday }}</th>
@@ -193,14 +203,17 @@ async function save() {
               <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium">{{ day }}</td>
               <td
                 v-for="person in columns" :key="person.id"
-                class="cursor-pointer select-none border border-gray-200 px-1 py-1 align-top [-webkit-touch-callout:none] hover:bg-sky-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600"
-                :class="cellClass(person, weekday)" :title="quickTitle(person, weekday)" tabindex="0"
-                @click="onCellClick(person.id, weekday, $event)"
+                class="cursor-pointer border border-gray-200 px-1 py-1 align-top [-webkit-touch-callout:none] hover:bg-sky-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600"
+                :class="cellClass(person, weekday)" :title="quickTitle(person, weekday)"
+                :data-cell="templateCellOf({ employeeId: person.id, weekday })"
+                :tabindex="templateCellOf({ employeeId: person.id, weekday }) === tabStop ? 0 : -1"
+                @focus="focusedCell = templateCellOf({ employeeId: person.id, weekday })"
+                @click="onCellClick(person.id, weekday, $event)" @mousedown="quick.mousedown"
                 @dblclick="quick.dblclick($event, { employeeId: person.id, weekday })"
                 @keydown="quick.keydown($event, { employeeId: person.id, weekday })"
                 @pointerdown="quick.pointerdown($event, { employeeId: person.id, weekday })"
                 @pointermove="quick.pointermove" @pointerup="quick.pointerup" @pointercancel="quick.pointercancel"
-                @contextmenu="quick.contextmenu"
+                @contextmenu="quick.contextmenu" @selectstart="quick.selectstart"
               >
                 <div class="flex min-h-6 flex-col items-start gap-0.5">
                   <PlanEntryChip

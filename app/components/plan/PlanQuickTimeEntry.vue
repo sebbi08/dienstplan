@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import type { EntryInput } from '#shared/types/api'
+import type { LawEntry } from '#shared/domain/workingTimeLaw'
 import { de } from '~/locales/de'
-import { quickEntryInput } from '~/utils/quickEntry'
+import { quickEntryInput, quickEntryMaxDaily } from '~/utils/quickEntry'
 
 /**
  * The small field at a plan or template cell (double click, long press, Enter or F2): „7:30-14:00“ or
  * „7:30-14 P 11:30-12“ is sent as the special shift the „Sonderdienst“ dialog makes, on the dialog's way (`submit`).
  * Enter saves, Esc cancels; what is wrong shows under the field and the field stays open. The cell gets the focus back.
  */
-const props = defineProps<{ reference: HTMLElement | null }>()
+/** `dayEntries`: per target cell the entries it already holds, for the § 3 ArbZG hint as in the dialog; missing = no hint. */
+const props = defineProps<{ reference: HTMLElement | null; dayEntries?: LawEntry[][] }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ submit: [entry: EntryInput] }>()
 
 const text = ref('')
 const error = ref('')
 const fieldId = useId()
+/** More than 10 hours with the cell's other entries (one of several cells is enough), shown while typing. */
+const overMaxDaily = computed(() => quickEntryMaxDaily(text.value, props.dayEntries ?? []))
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -53,6 +57,7 @@ function backToCell(event: Event) {
         />
         <p v-if="error" :id="`${fieldId}-help`" class="text-xs text-red-600" role="alert">{{ error }}</p>
         <p v-else :id="`${fieldId}-help`" class="text-[11px] text-gray-500">{{ de.quickEntry.help }}</p>
+        <p v-if="overMaxDaily" class="text-xs text-amber-700" aria-live="polite">{{ de.modal.maxDailyHours }}</p>
       </form>
     </template>
   </UPopover>

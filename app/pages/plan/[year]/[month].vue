@@ -331,7 +331,10 @@ function navigate(nextYear: number, nextMonth: number) {
         </div>
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />
-      <PlanQuickTimeEntry v-if="isAdmin" v-model:open="quickEntry.open" :reference="quickEntry.reference" @submit="onEntry" />
+      <PlanQuickTimeEntry
+        v-if="isAdmin" v-model:open="quickEntry.open" :reference="quickEntry.reference" :day-entries="selectedDayEntries"
+        @submit="onEntry"
+      />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
       <PlanCodeDetailsModal
         v-model:open="codeDetails.open" :code="codeDetails.code" :employee-id="codeDetails.employeeId" :date="codeDetails.date"

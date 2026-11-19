@@ -10,6 +10,8 @@ describe('a time typed into a cell', () => {
     expect(parseQuickTime('730-14')).toEqual(span(450, 840))
     expect(parseQuickTime('7.30–14')).toEqual(span(450, 840))
     expect(parseQuickTime('7,30 — 14,00')).toEqual(span(450, 840))
+    expect(parseQuickTime('7:30−14')).toEqual(span(450, 840)) // the minus sign U+2212
+    expect(parseQuickTime('7:30-14 P 11:30 − 12')).toEqual(span(450, 840, 690, 720))
     expect(parseQuickTime('0730-1400')).toEqual(span(450, 840))
     expect(parseQuickTime('7:30 bis 14 ')).toEqual(span(450, 840))
     expect(parseQuickTime('  7 - 16:45')).toEqual(span(420, 1005))

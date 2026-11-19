@@ -10,7 +10,7 @@ import { formatDateTime, formatDayLong, formatDayShort } from '~/utils/format'
 import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { dayHoursText } from '~/utils/openingHours'
-import { quickEntryHandlers } from '~/utils/quickEntry'
+import { gridStep, quickEntryHandlers, rovingStop } from '~/utils/quickEntry'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
 const props = defineProps<{
@@ -44,8 +44,15 @@ const emit = defineEmits<{
  * day helping out elsewhere (only absences go there), never in the print view.
  */
 const quickEntryAllowed = (cell: { busy: boolean; marker: unknown }) => !!props.editable && !props.print && !cell.busy && !cell.marker
-const quick = quickEntryHandlers<{ employeeId: number; date: string }>(({ employeeId, date }, element, afterDoubleClick) =>
-  emit('quickEntry', employeeId, date, element, afterDoubleClick))
+const quick = quickEntryHandlers<{ employeeId: number; date: string }>(
+  ({ employeeId, date }, element, afterDoubleClick) => emit('quickEntry', employeeId, date, element, afterDoubleClick),
+  ({ employeeId, date }, key) => {
+    const next = gridStep(quickGrid.value, cellKey(employeeId, date), key)
+    if (next) scroller.value?.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus()
+  },
+)
+/** The cell focused last: the grid's one tab stop (roving tabindex), so Tab leaves the grid in one step. */
+const focusedCell = ref<string | null>(null)
 
 /** A timed entry in an already selected cell opens the edit dialog on click; the first click selects the cell. */
 function isEntryEditable(key: string, entry: EntryDto): boolean {
@@ -294,6 +301,10 @@ const rows = computed(() => props.plan.days.map((day) => {
       : null,
   }
 }))
+
+/** Days × columns of the cells with the quick entry (null elsewhere), for the arrow keys and the tab stop. */
+const quickGrid = computed(() => rows.value.map(row => row.cells.map(cell => (cell.kind === 'employee' && cell.quick ? cell.key : null))))
+const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
 </script>
 
 <template>
@@ -390,19 +401,21 @@ const rows = computed(() => props.plan.days.map((day) => {
                 class="border border-gray-200 px-1 py-1 align-top print:py-0!"
                 :class="[
                   editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
-                  cell.quick ? 'select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600' : '',
+                  cell.quick ? '[-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600' : '',
                   selected?.has(cell.key) ? 'bg-sky-100'
                   : cell.missing ? 'bg-red-50' : cell.busy && !print ? 'bg-gray-50' : cell.fill ? cellFillClasses[cell.fill] : '',
                   markClass(cell),
                 ]"
                 :title="cell.quick ? joinLines([cell.title, de.quickEntry.hint]) : cell.title"
-                :tabindex="cell.quick ? 0 : undefined"
+                :tabindex="cell.quick ? (cell.key === tabStop ? 0 : -1) : undefined" :data-cell="cell.quick ? cell.key : undefined"
+                @focus="cell.quick && (focusedCell = cell.key)"
                 @click="onCellClick(cell, row.day.date, $event)"
+                @mousedown="cell.quick && quick.mousedown($event)"
                 @dblclick="cell.quick && quick.dblclick($event, { employeeId: cell.employeeId, date: row.day.date })"
                 @keydown="cell.quick && quick.keydown($event, { employeeId: cell.employeeId, date: row.day.date })"
                 @pointerdown="quick.pointerdown($event, cell.quick ? { employeeId: cell.employeeId, date: row.day.date } : null)"
                 @pointermove="quick.pointermove" @pointerup="quick.pointerup" @pointercancel="quick.pointercancel"
-                @contextmenu="quick.contextmenu"
+                @contextmenu="quick.contextmenu" @selectstart="quick.selectstart"
               >
                 <div class="flex flex-col items-start gap-0.5 print:gap-0">
                   <span v-if="cell.busy && !print" class="text-xs italic text-gray-600">{{ de.plan.helperBusy }}</span>

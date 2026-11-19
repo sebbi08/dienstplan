@@ -5,8 +5,8 @@ export type QuickTimeError = 'empty' | 'format' | 'invalid_time' | Exclude<SpanE
 
 /** A clock time as parseTime takes it: "7", "730", "0730", "7:30", "7.30", "7,30". */
 const TIME = String.raw`(\d{1,2}(?:[:.,]?\d{2})?)`
-/** Between two times: "-", "–", "—" or „bis“, with or without spaces. */
-const DASH = String.raw`\s*(?:-|–|—|bis)\s*`
+/** Between two times: "-", "–", "—", the minus sign "−" (U+2212, e.g. from a phone keyboard) or „bis“, with or without spaces. */
+const DASH = String.raw`\s*(?:-|–|—|−|bis)\s*`
 /** „von-bis“, optionally followed by „P“ or „Pause“ and the break's „von-bis“ ("7:30-14 P 11:30-12"). */
 const QUICK_TIME = new RegExp(String.raw`^${TIME}${DASH}${TIME}(?:\s*[,;]?\s*(?:pause|p)\.?\s*:?\s*${TIME}${DASH}${TIME})?$`, 'i')
 
