@@ -23,7 +23,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'employee-retention', 'child-sick-days']],
+      ['staff', ['staffing', 'employee-retention', 'child-sick-days', 'bem-invitation']],
     ])
   })
 
@@ -34,7 +34,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'employee-retention', 'child-sick-days']],
+      ['staff', ['staffing', 'employee-retention', 'child-sick-days', 'bem-invitation']],
     ])
   })
 
@@ -128,6 +128,7 @@ describe('searchSettings', () => {
     for (const viewer of [provider, leitung]) {
       expect(searchSettings('Kind krank', viewer)[0]).toMatchObject({ key: 'child-sick-days', where: 'Personal', to: '/admin/settings/staff#section-child-sick-days' })
       expect(searchSettings('Kinderkrankentage', viewer).map(hit => hit.key)).toContain('child-sick-days')
+expect(searchSettings('BEM', viewer)[0]).toMatchObject({ key: 'bem-invitation', where: 'Personal', to: '/admin/settings/staff#section-bem-invitation' })
     }
   })
 

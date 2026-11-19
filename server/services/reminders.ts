@@ -12,6 +12,7 @@ import { loadEditableChild, type ChildRow } from '../lib/childRecord'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { accidentReminders } from './accidents'
+import { bemReminders } from './bem'
 import { ifsgClusterReminders, ifsgReminders } from './ifsg'
 import { offlineStampReminders } from './offlineStamps'
 import { meetingsOnDay } from './parentMeetings'
@@ -146,6 +147,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   items.push(...ifsgClusterReminders(db, viewer, today))
   // Leitung and Träger: offline stamps of the tablet not taken over (wrong PIN, not fitting …), until checked.
   items.push(...offlineStampReminders(db, viewer, today))
+  // Whoever has employees.sickness (Leitung and Träger): an employee to offer a BEM (more than 6 weeks sick in 12 months).
+  items.push(...bemReminders(db, viewer, today))
   return sortReminders(items)
 }
 

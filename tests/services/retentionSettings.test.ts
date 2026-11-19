@@ -7,7 +7,7 @@ import { getRetentionSettings, setRetentionSettings } from '../../server/service
 import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import { addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
-const valid = { timeYears: 4, assessmentYears: 5, paidOvertimeYears: 12, pensionYears: 35, cashYears: 8, employeeDelete: 'provider' }
+const valid = { timeYears: 4, assessmentYears: 5, paidOvertimeYears: 12, pensionYears: 35, cashYears: 8, bemYears: 4, employeeDelete: 'provider' }
 
 describe('retention settings', () => {
   let db: Db
@@ -39,7 +39,7 @@ describe('retention settings', () => {
     const invalid = [
       { ...valid, timeYears: 0 }, { ...valid, assessmentYears: 41 }, { ...valid, paidOvertimeYears: 2.5 },
       { ...valid, pensionYears: '30' }, { ...valid, cashYears: 31 }, { ...valid, employeeDelete: 'everyone' },
-      { ...valid, timeYears: undefined }, null, [], 'x',
+      { ...valid, timeYears: undefined }, { ...valid, bemYears: 0 }, { ...valid, bemYears: undefined }, null, [], 'x',
     ]
     for (const input of invalid) {
       expect(errorCode(() => setRetentionSettings(db, 1, input)), JSON.stringify(input)).toBe('retention_settings_invalid')

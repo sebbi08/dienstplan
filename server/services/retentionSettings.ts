@@ -14,8 +14,8 @@ import { facilityExists } from './facilities'
 export function getRetentionSettings(db: Db, facilityId: number): RetentionSettings {
   const row = db.select().from(retentionSettings).where(eq(retentionSettings.facilityId, facilityId)).get()
   if (row) {
-    const { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, employeeDelete } = row
-    return { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, employeeDelete }
+    const { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, employeeDelete } = row
+    return { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, employeeDelete }
   }
   if (!facilityExists(db, facilityId)) throw new ServiceError(404, 'facility_not_found')
   db.insert(retentionSettings).values({ facilityId, ...RETENTION_DEFAULTS }).onConflictDoNothing().run()

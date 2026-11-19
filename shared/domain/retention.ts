@@ -13,6 +13,8 @@ export interface RetentionSettings {
   /** Information only: pension-relevant records are kept this long elsewhere. */
   pensionYears: number
   cashYears: number
+  /** BEM records (§ 167 Abs. 2 SGB IX): whole years after the process ended (completed, declined, no answer). */
+  bemYears: number
   employeeDelete: EmployeeDeleteMode
 }
 
@@ -22,6 +24,7 @@ export const RETENTION_DEFAULTS: RetentionSettings = {
   paidOvertimeYears: 10,
   pensionYears: 30,
   cashYears: 10,
+  bemYears: 3,
   employeeDelete: 'managers',
 }
 
@@ -86,6 +89,7 @@ export function checkRetentionSettings(input: unknown): RetentionSettings {
     paidOvertimeYears: years(raw.paidOvertimeYears, min, max),
     pensionYears: years(raw.pensionYears, min, max),
     cashYears: years(raw.cashYears, RETENTION_CASH_YEARS_RANGE.min, RETENTION_CASH_YEARS_RANGE.max),
+    bemYears: years(raw.bemYears, min, max),
     employeeDelete: mode as EmployeeDeleteMode,
   }
 }

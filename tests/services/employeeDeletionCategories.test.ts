@@ -36,6 +36,8 @@ const TIME = [
   'leave_forfeit_receipts.employee_id',
 ]
 const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']
+/** BEM-Unterlagen: the processes (their steps go along). */
+const BEM = 'bem_processes.employee_id'
 /** Normal adjustments go with the time data, paid-out ones with the paid overtime. */
 const ADJUSTMENTS = 'balance_adjustments.employee_id'
 /** Documents by folder: application, qualifications, correspondence, measures with the assessments; contract, salary 10 years. */
@@ -57,7 +59,7 @@ const PERSONNEL_CLEARED = {
   singleParent: false,
 }
 
-const ZERO = { immediate: 0, time: 0, assessment: 0, paidOvertime: 0 }
+const ZERO = { immediate: 0, time: 0, assessment: 0, bem: 0, paidOvertime: 0 }
 
 let db: Db
 let leitung: SessionUser
@@ -128,7 +130,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, BEM, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -190,7 +192,15 @@ describe('the deletion categories of a left employee', () => {
     expect(adjustments(tina, true)).toBe(1)
     // Contract and salary documents stay for the longer period.
     expect(documentFolders(db, tina)).toEqual(['contract', 'salary'])
+    expect(nonZero([BEM])).toEqual([BEM])
     expectBenUntouched()
+
+    // The BEM records (one process each).
+    expect(remove(['bem'])).toEqual({ ...ZERO, bem: 1 })
+    expect(nonZero([BEM])).toEqual([])
+    expect(nonZero([BEM], ben)).toEqual([BEM])
+    expectBenUntouched()
+    expect(remove(['bem'])).toEqual(ZERO)
 
     // The paid-out adjustment with the contract and salary documents, then the employee row.
     expect(hasPaidOvertimeData(db, tina)).toBe(true)
@@ -207,7 +217,7 @@ describe('the deletion categories of a left employee', () => {
     expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])
     expect(fkCheck()).toEqual([])
     expectBenUntouched()
-    expect(remove(['immediate', 'time', 'assessment', 'paidOvertime'])).toEqual(ZERO)
+    expect(remove(['immediate', 'time', 'assessment', 'bem', 'paidOvertime'])).toEqual(ZERO)
   })
 
   it('deletes a linked Leitung account and only unlinks a Träger account', () => {
@@ -228,7 +238,7 @@ describe('the deletion categories of a left employee', () => {
   it('puts the personnel file into the categories: fields and payroll immediate, documents by folder', () => {
     const hanna = addEmployee(db, 'Hanna Hort', { leftOn: LEFT_ON })
     // (Her weekly hours are time data; nothing else is there yet.)
-    const NONE = { immediate: false, time: true, assessment: false, paidOvertime: false }
+    const NONE = { immediate: false, time: true, assessment: false, bem: false, paidOvertime: false }
     expect(categoryHasData(db, hanna)).toEqual(NONE)
     // Each field of the employee row on its own counts as immediate data, and the immediate helper clears it.
     for (const [field, value] of Object.entries(PERSONNEL_FIELDS)) {

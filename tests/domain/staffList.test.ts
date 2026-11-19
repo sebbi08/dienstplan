@@ -58,7 +58,7 @@ describe('employee page tabs', () => {
     const permissions = effectivePermissions({ role })
     return (key: PermissionKey) => permissions.has(key)
   }
-  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'accidents', 'talks', 'access']
+  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'accidents', 'bem', 'talks', 'access']
   const allTabs = ['master', 'contract', 'times', 'records', 'talks', 'access']
 
   it('shows the Träger every section, the Leitung all but „Lohn und Steuer“, „Zugang“ and „Gespräche“ to nobody else', () => {
@@ -69,6 +69,11 @@ describe('employee page tabs', () => {
     // Nobody manages a talk about themselves: no „Gespräche“ on the own page.
     expect(employeeSections(canOf('admin'), true)).not.toContain('talks')
     expect(employeeSections(canOf('provider'), true)).not.toContain('talks')
+    // „BEM“ with the sick days right (Leitung and Träger), never on the own page (a Leitung's BEM is the Träger's).
+    expect(employeeSections(canOf('admin'), true)).not.toContain('bem')
+    expect(employeeSections(canOf('provider'), true)).not.toContain('bem')
+    expect(employeeSections(canOf('observer'))).not.toContain('bem')
+    expect(employeeSections(canOf('group_lead'))).not.toContain('bem')
     expect(employeeSections(() => false)).not.toContain('access')
   })
 

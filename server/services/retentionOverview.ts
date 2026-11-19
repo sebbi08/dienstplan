@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lt } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, lt } from 'drizzle-orm'
 import { childStatus, purgeDate } from '../../shared/domain/children'
 import { can } from '../../shared/domain/permissions'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
@@ -8,6 +8,7 @@ import type { Db } from '../db/client'
 import { cashBoxes, children, employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
+import { bemDeletableDates, deleteDueBemProcesses, employeesWithBem } from './bem'
 import { boxDeletableFrom } from './cashBoxes'
 import { removeArchivedBox } from './cashPurge'
 import { deleteChild } from './children'
@@ -76,10 +77,40 @@ function employeeItems(db: Db, employee: EmployeeRow, ctx: Context): RetentionIt
     facilityName: ctx.facilityName(employee.facilityId), name: employee.name, deletableFrom, due,
   })
   return [
-    ...RETENTION_CATEGORIES.filter(category => hasData[category])
-      .map(category => item(category, dueDates[category], left && dueDates[category] <= ctx.today)),
+    ...RETENTION_CATEGORIES.filter(category => hasData[category]).flatMap((category) => {
+      if (category === 'bem') {
+        const bem = bemItem(db, employee, ctx)
+        return bem ? [bem] : []
+      }
+      return [item(category, dueDates[category], left && dueDates[category] <= ctx.today)]
+    }),
     item('record', null, left && RETENTION_CATEGORIES.every(category => !hasData[category])),
   ]
+}
+
+/**
+ * „BEM-Unterlagen“ of an employee, whether still there or left: each process may be deleted the BEM years after it
+ * ended (a running one of someone who left: after the leaving day; bemDeletableFrom). The item shows the earliest such
+ * day and is due once one process may go; deleting it removes only the processes due (deleteDueBemProcesses). null
+ * while no process has ended.
+ */
+function bemItem(db: Db, employee: { id: number; name: string; facilityId: number; leftOn: IsoDate | null }, ctx: Context): RetentionItemDto | null {
+  const [first] = bemDeletableDates(db, employee.id, employee.leftOn, ctx.today, ctx.settings(employee.facilityId).bemYears)
+  if (first === undefined) return null
+  return {
+    key: `employee:${employee.id}:bem`, kind: 'employee', category: 'bem', facilityId: employee.facilityId,
+    facilityName: ctx.facilityName(employee.facilityId), name: employee.name, deletableFrom: first, due: first <= ctx.today,
+  }
+}
+
+/** The BEM items of employees who have not left (before today): those of the others come with employeeItems. */
+function activeBemItems(db: Db, ctx: Context): RetentionItemDto[] {
+  const ids = employeesWithBem(db)
+  if (ids.length === 0) return []
+  return db.select({ id: employees.id, name: employees.name, facilityId: employees.facilityId, leftOn: employees.leftOn })
+    .from(employees).where(inArray(employees.id, ids)).all()
+    .filter(employee => employee.leftOn === null || employee.leftOn >= ctx.today)
+    .flatMap(employee => bemItem(db, employee, ctx) ?? [])
 }
 
 type ChildRow = { id: number; facilityId: number; firstName: string; lastName: string; leftOn: IsoDate }
@@ -121,7 +152,8 @@ function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
 /**
  * What may be deleted after a retention period, in every facility (spec Löschübersicht §2): employees whose leaving
  * day has passed, an item per category with data and the record (employeeItems); archived child records from
- * purgeDate with the Träger's child retention; archived cash boxes from their deletableFrom. Each item says whether it
+ * purgeDate with the Träger's child retention; archived cash boxes from their deletableFrom; „BEM-Unterlagen“ also of
+ * employees still there (bemItem: from the end of each process). Each item says whether it
  * is due today (deletableFrom <= today). The app deletes nothing by itself; the Träger deletes from this list. The
  * route lets only the Träger read it.
  */
@@ -137,6 +169,7 @@ export function retentionOverview(db: Db, today: IsoDate): RetentionItemDto[] {
     .where(eq(cashBoxes.archived, true)).all()
   return [
     ...left.flatMap(employee => employeeItems(db, employee, ctx)),
+    ...activeBemItems(db, ctx),
     ...archivedChildren.map(child => childItem(child, ctx)),
     ...boxes.map(box => cashItem(db, box, ctx)),
   ].sort(compareItems)
@@ -148,7 +181,14 @@ function findItem(db: Db, key: ItemKey, ctx: Context): RetentionItemDto {
   if (key.kind === 'employee') {
     const employee = db.select({ id: employees.id, name: employees.name, facilityId: employees.facilityId, leftOn: employees.leftOn })
       .from(employees).where(eq(employees.id, key.id)).get()
-    if (!employee || employee.leftOn === null) throw missing()
+    if (!employee) throw missing()
+    // BEM records count from each process's end, also for someone still employed.
+    if (key.category === 'bem') {
+      const item = bemItem(db, employee, ctx)
+      if (!item) throw missing()
+      return item
+    }
+    if (employee.leftOn === null) throw missing()
     const item = employeeItems(db, employee as EmployeeRow, ctx).find(candidate => candidate.category === key.category)
     if (!item) throw missing()
     return item
@@ -189,6 +229,11 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
   if (key.kind === 'employee') {
     const { category } = key
     if (category === 'record') return checkedTransaction(db, tx => deleteEmployeeRow(tx, key.id))
+    if (category === 'bem') {
+      const employee = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, key.id)).get()!
+      const years = ctx.settings(item.facilityId).bemYears
+      return checkedTransaction(db, tx => deleteDueBemProcesses(tx, key.id, employee.leftOn, ctx.today, years))
+    }
     return checkedTransaction(db, tx => deleteCategories(tx, key.id, [category as RetentionCategory])[category as RetentionCategory])
   }
   if (key.kind === 'child') {

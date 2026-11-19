@@ -50,7 +50,7 @@ describe('cashDeletableFrom', () => {
 describe('checkRetentionSettings', () => {
   it('has the agreed defaults', () => {
     expect(RETENTION_DEFAULTS).toEqual({
-      timeYears: 2, assessmentYears: 3, paidOvertimeYears: 10, pensionYears: 30, cashYears: 10, employeeDelete: 'managers',
+      timeYears: 2, assessmentYears: 3, paidOvertimeYears: 10, pensionYears: 30, cashYears: 10, bemYears: 3, employeeDelete: 'managers',
     })
   })
 
@@ -70,6 +70,9 @@ describe('checkRetentionSettings', () => {
     ['years above 40', { ...RETENTION_DEFAULTS, paidOvertimeYears: 41 }],
     ['cash above 30', { ...RETENTION_DEFAULTS, cashYears: 31 }],
     ['cash below 1', { ...RETENTION_DEFAULTS, cashYears: 0 }],
+    ['BEM years below 1', { ...RETENTION_DEFAULTS, bemYears: 0 }],
+    ['BEM years above 40', { ...RETENTION_DEFAULTS, bemYears: 41 }],
+    ['BEM years missing', { ...RETENTION_DEFAULTS, bemYears: undefined }],
     ['fractional years', { ...RETENTION_DEFAULTS, assessmentYears: 2.5 }],
     ['years as text', { ...RETENTION_DEFAULTS, timeYears: '2' }],
     ['NaN', { ...RETENTION_DEFAULTS, pensionYears: Number.NaN }],

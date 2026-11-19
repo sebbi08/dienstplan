@@ -45,6 +45,8 @@ export const facilities = sqliteTable('facilities', {
   leaveForfeitMonth: integer('leave_forfeit_month').notNull().default(3),
   /** The facility's own text of that notice with ‹Tage›, ‹Jahr›, ‹Verfall› (null = DEFAULT_LEAVE_FORFEIT_TEXT). */
   leaveForfeitText: text('leave_forfeit_text'),
+  /** The facility's own text of the BEM invitation with ‹Name›, ‹Antwort bis›, ‹Jahre› (null = BEM_DEFAULT_INVITATION_TEXT). */
+  bemInvitationText: text('bem_invitation_text'),
   /** School cutoff (Stichtag): a child is of school age when it reaches `schoolAgeYears` on or before this day of the year. */
   schoolCutoffMonth: integer('school_cutoff_month').notNull().default(6),
   schoolCutoffDay: integer('school_cutoff_day').notNull().default(30),
@@ -1552,6 +1554,39 @@ export const staffTalks = sqliteTable('staff_talks', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [index('staff_talks_facility_employee').on(table.facilityId, table.employeeId)])
 
+/**
+ * A BEM process (Betriebliches Eingliederungsmanagement, § 167 Abs. 2 SGB IX) of an employee: health data, only for
+ * employees.sickness and never for the employee themselves (server/services/bem.ts). It belongs to the employee's home
+ * facility (no facility column: it moves with the person). `invitedOn` is „Verschickt am“, `answeredOn` the day of the
+ * answer (or of „keine Antwort“), `completedOn` the day it ended (completed, declined, no answer, consent withdrawn).
+ * `createdBy` is the name of whoever started it.
+ */
+export const bemProcesses = sqliteTable('bem_processes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['invited', 'accepted', 'declined', 'no_answer', 'completed'] }).notNull().default('invited'),
+  invitedOn: text('invited_on'),
+  answeredOn: text('answered_on'),
+  completedOn: text('completed_on'),
+  createdBy: text('created_by').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [index('bem_processes_employee').on(table.employeeId)])
+
+/** The steps of a BEM process: talks (with participants), measures (with their status) and notes. */
+export const bemSteps = sqliteTable('bem_steps', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  processId: integer('process_id').notNull().references(() => bemProcesses.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['meeting', 'measure', 'note'] }).notNull(),
+  date: text('date').notNull(),
+  participants: text('participants').notNull().default(''),
+  text: text('text').notNull().default(''),
+  /** Only for a measure. */
+  status: text('status', { enum: ['planned', 'done', 'dropped'] }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [index('bem_steps_process').on(table.processId)])
+
 /** The forms of a staff talk: the employee's self-assessment (`self`) or an assessment, in the order of `sort`. */
 export const staffTalkForms = sqliteTable('staff_talk_forms', {
   talkId: integer('talk_id').notNull().references(() => staffTalks.id, { onDelete: 'cascade' }),
@@ -1639,6 +1674,8 @@ export const retentionSettings = sqliteTable('retention_settings', {
   paidOvertimeYears: integer('paid_overtime_years').notNull().default(10),
   pensionYears: integer('pension_years').notNull().default(30),
   cashYears: integer('cash_years').notNull().default(10),
+  /** BEM records (§ 167 Abs. 2 SGB IX) may be deleted this many years after the process ended. */
+  bemYears: integer('bem_years').notNull().default(3),
   employeeDelete: text('employee_delete', { enum: ['off', 'provider', 'managers'] }).notNull().default('managers'),
 })
 

@@ -15,7 +15,7 @@ const { can } = useCan()
 const canEditRetention = computed(() => can('settings.retention'))
 const { busy, run } = useBusyAction(refresh)
 
-const PERIODS = ['timeYears', 'assessmentYears', 'paidOvertimeYears', 'pensionYears'] as const
+const PERIODS = ['timeYears', 'assessmentYears', 'paidOvertimeYears', 'pensionYears', 'bemYears'] as const
 const form = reactive<RetentionSettings>({ ...RETENTION_DEFAULTS })
 watch(data, (value) => { if (value) Object.assign(form, value) }, { immediate: true })
 const modeItems = EMPLOYEE_DELETE_MODES.map(mode => ({ label: t.employeeDeleteModes[mode], value: mode }))

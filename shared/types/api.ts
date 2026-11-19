@@ -1,3 +1,4 @@
+import type { BemMeasureStatus, BemStatus, BemStepKind } from '../domain/bem'
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
@@ -412,6 +413,8 @@ export interface ReminderDto {
   offlineStamp?: { id: number; employeeId: number; action: StampAction; reason: OfflineStampReason }
   /** For a cluster (§ 34 Abs. 6 Satz 2): the disease, how many children and the days of the window. */
   ifsgCluster?: { disease: string; diseaseName: string; count: number; from: IsoDate; to: IsoDate }
+  /** For a BEM to offer (Leitung/Träger with employees.sickness): the employee, the sick working days and the limit. */
+  bem?: { employeeId: number; days: number; limit: number }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -770,12 +773,13 @@ export interface ArchivedChildDto {
 }
 
 /** What an item of the Träger's retention overview deletes of a left employee: a category, or the employee row itself. */
-export type RetentionItemCategory = 'immediate' | 'time' | 'assessment' | 'paidOvertime' | 'record'
+export type RetentionItemCategory = 'immediate' | 'time' | 'assessment' | 'bem' | 'paidOvertime' | 'record'
 
 /**
  * An item of the Träger's retention overview (spec Löschübersicht §2), across every facility. `key` names it for the
  * delete routes: `employee:<id>:<category>`, `child:<id>`, `cash:<id>`. `deletableFrom` is null only for an employee
  * `record` (due once the person's other categories hold no data) and for a cash box without entries or history (due).
+ * `employee:<id>:bem` („BEM-Unterlagen“) is listed also for employees still there: from the end of their earliest ended BEM.
  */
 export interface RetentionItemDto {
   key: string
@@ -3394,6 +3398,72 @@ export type TeamMeetingSavedDto = Pick<TeamMeetingListItemDto, 'updatedAt' | 'up
 
 /** The answer to saving a form's answers: the new last change (the next save sends `updatedAt` as expectedUpdatedAt). */
 export type FormSavedDto = Pick<TalkFormDto, 'updatedAt' | 'updatedBy' | 'releasedAt' | 'submittedAt' | 'readReleasedAt'>
+
+/** A step of a BEM process: a talk (date, participants, notes), a measure (date, text, status) or a note. */
+export interface BemStepDto {
+  id: number
+  kind: BemStepKind
+  date: IsoDate
+  participants: string
+  text: string
+  /** Only for a measure; null for a talk or a note. */
+  status: BemMeasureStatus | null
+}
+
+/** A BEM process (§ 167 Abs. 2 SGB IX) with its steps, oldest step first. */
+export interface BemProcessDto {
+  id: number
+  status: BemStatus
+  /** The day it was started („BEM einleiten“) and by whom (name). */
+  createdOn: IsoDate
+  createdBy: string
+  /** „Verschickt am“ (null = the invitation has not been sent yet). */
+  invitedOn: IsoDate | null
+  /** The day of the answer, or of „keine Antwort“. */
+  answeredOn: IsoDate | null
+  /** The day it ended: completed, declined, no answer or consent withdrawn. */
+  completedOn: IsoDate | null
+  steps: BemStepDto[]
+}
+
+/** The sick working days counted for the BEM (only „Krank“, on working days, in the window). */
+export interface BemSickDaysDto {
+  days: number
+  /** More than this many is more than 6 weeks (6 × the working days per week valid today). */
+  limit: number
+  workdaysPerWeek: number
+  from: IsoDate
+  to: IsoDate
+  /** The end of the last BEM when counting starts after it (later than the rolling 12 months); null otherwise. */
+  restartAfter: IsoDate | null
+}
+
+/** The BEM part of the employee page (employees.sickness): the count, the running process and the earlier ones. */
+export interface EmployeeBemDto {
+  sickDays: BemSickDaysDto
+  open: BemProcessDto | null
+  /** Ended processes, newest first (read-only). */
+  history: BemProcessDto[]
+}
+
+/** The invitation to print: the facility's letterhead, the employee's name and address, the letter's date and text. */
+export interface BemInvitationDto {
+  facility: { name: string; street: string; postalCode: string; city: string }
+  /** The address only when stored and the viewer may read personal data (employees.personal); '' otherwise. */
+  employee: { name: string; street: string; postalCode: string; city: string }
+  /** The letter's date: „Verschickt am“ when entered, otherwise today. */
+  date: IsoDate
+  answerBy: IsoDate
+  /** The invitation text with the placeholders filled in. */
+  text: string
+}
+
+/** The facility's BEM invitation text (Leitung and Träger). */
+export interface BemSettingsDto {
+  /** The text with ‹Name›, ‹Antwort bis›, ‹Jahre› (the default text while the facility has none of its own). */
+  text: string
+  isDefaultText: boolean
+}
 
 /** A staff talk (Mitarbeitergespräch) with its forms in their order; `start` in minutes after midnight (null = no time). */
 export interface StaffTalkDto {

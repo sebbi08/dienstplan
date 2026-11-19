@@ -767,6 +767,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“ |
+| „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
 | zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald alle anderen Daten der Person gelöscht sind |
 
@@ -1094,6 +1095,9 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
   eine andere Einrichtung geschieht in der App sofort und gibt keine Erinnerung.
 - **Löschfristen** (nur der Träger, nicht am Tablet): „3 Einträge dürfen gelöscht werden“, solange auf der Seite
   **Mehr → Löschfristen** etwas aus irgendeiner Einrichtung löschbar ist; der Text führt dorthin (Abschnitt 15).
+- **BEM anbieten** (wer das Recht für die Krankheitstage hat, also Leitung und Träger; nicht am Tablet, nie über sich
+  selbst): „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“
+  mit „zum BEM“, solange kein BEM läuft (Abschnitt 21, „BEM“).
 
 Ist die aufschließende Person als Bezugserzieher des Kindes eingetragen, steht beim Eintrag **„dein Kind“**. Der
 Name eines Kindes führt zu seiner Akte.
@@ -1496,6 +1500,55 @@ oder „Sonstiges“ mit Freitext (höchstens 200 Zeichen). Ein Freitext geht be
   Entfernen geht wie bisher mit „Entfernen“.
 - **Löschen:** Die Begründungen gehen mit den persönlichen Daten (Kategorie „Sofort“), die Sonderurlaubstage bleiben für
   das Stundenkonto bei den Zeitdaten.
+
+### BEM (Betriebliches Eingliederungsmanagement, § 167 Abs. 2 SGB IX)
+
+Wer innerhalb von 12 Monaten **länger als 6 Wochen arbeitsunfähig** war, muss ein BEM angeboten bekommen. Die App
+zählt mit, erinnert und hält das BEM fest. **Gesundheitsdaten:** Alles hier sehen nur, wer das Recht für die
+Krankheitstage hat (Baustein „Mitarbeiter pflegen“, also Leitung und Träger) – nie die Person selbst (es gibt keine
+„Meins“-Ansicht), nie Kollegen, nie das Tablet. Das eigene BEM sieht niemand auf seiner eigenen Seite: Das BEM einer
+Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
+
+- **Zählen:** Arbeitstage mit **„Krank“** im Zeitraum **heute − 365 Tage + 1 bis heute**, wie auf der Seite
+  „Krankheitstage“: nur Arbeitstage der Person (ihre Wochentage, ohne Feiertage). **„Kind krank“** zählt nicht (keine
+  eigene Arbeitsunfähigkeit), **„Im Dienst erkrankt“** auch nicht (der Tag ist dort kein Krankheitstag; ab dem Folgetag
+  zählt „Krank“, wenn er eingetragen ist).
+- **Grenze:** mehr als 6 Wochen = mehr als **6 × Arbeitstage pro Woche** der heute gültigen Wochenstunden (5 Tage → 30,
+  4 → 24, 3 → 18; halbe Werte werden aufgerundet).
+- **Neu zählen:** Nach einem BEM, das abgeschlossen, abgelehnt oder unbeantwortet beendet wurde, zählen nur noch die
+  Tage **nach** diesem Ende.
+- **Erinnerung** im Kasten „Erinnerungen“: „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank
+  (mehr als 6 Wochen, § 167 SGB IX)“ mit „zum BEM“. Sie kommt, solange die Grenze überschritten ist und kein BEM läuft,
+  und nur für Personen, die heute beschäftigt sind.
+- **Mitarbeiter-Seite, Reiter „Nachweise“, Abschnitt „BEM“:** oben „Krankheitstage letzte 12 Monate: ‹n› von ‹Grenze›“
+  (gelb ab 80 %, rot darüber). Darunter:
+  - **„BEM einleiten“** legt ein BEM an (Stand „eingeladen“). **„Einladung drucken“** öffnet den Brief (A4 hoch, Drucken
+    oder PDF): Briefkopf mit Name und Anschrift der Einrichtung (*Einstellungen → Einrichtung → Kontakt*), Name und
+    Anschrift der Person (nur wenn gespeichert und wer druckt „Anschrift und Kontakt“ sehen darf, sonst leere Zeilen),
+    Ort und Datum, der Text und ein Rückantwort-Abschnitt („Ich nehme teil / Ich nehme nicht teil“, Unterschrift). Das
+    Datum des Briefs ist „Verschickt am“, solange das nicht eingetragen ist der heutige Tag; die Antwort wird bis 14 Tage
+    danach erbeten.
+  - **„Verschickt am“** und die **Antwort** (angenommen / abgelehnt / keine Antwort, mit Datum). Abgelehnt und keine
+    Antwort beenden das BEM; es bleibt als Nachweis mit seinem Stand in der Liste.
+  - Nach „angenommen“: **Gespräche** (Datum, Beteiligte, Notizen), **Maßnahmen** (Datum, Text, geplant / umgesetzt /
+    verworfen) und **Notizen**; **„Abschließen“** mit Datum. „Zustimmung widerrufen“ beendet das BEM als „abgelehnt“.
+  - Ein versehentlich eingeleitetes BEM lässt sich löschen, solange noch keine Antwort eingetragen ist.
+  - **Frühere BEM** stehen darunter, nur zum Lesen.
+- **Text der Einladung:** *Einstellungen → Personal → BEM-Einladung (Text)* (Leitung und Träger, je Einrichtung).
+  Vorbelegt mit Anlass, Ziel, Freiwilligkeit (keine Nachteile, jederzeit widerrufbar), möglichen Beteiligten
+  (Betriebsarzt, Personalvertretung, Schwerbehindertenvertretung – nur mit Zustimmung), Datenschutz und der Antwortbitte.
+  Platzhalter: ‹Name›, ‹Antwort bis› und ‹Jahre› (die Löschfrist der BEM-Unterlagen). Leer = Standardtext. Bitte den Text
+  vor dem ersten Einsatz mit Personalvertretung bzw. Datenschutz abstimmen.
+- **Löschen:** Kategorie **„BEM-Unterlagen“** (voreingestellt 3 Jahre, *Einstellungen → Personal → Löschfristen*), ab
+  dem Ende jedes BEM, auch bei Mitarbeitern, die noch da sind; ein laufendes BEM einer ausgeschiedenen Person zählt ab
+  dem Austritt. Die Zeile „‹Name› – BEM-Unterlagen“ steht unter **Mehr → Löschfristen**; gelöscht werden dabei nur die
+  BEM, deren Frist abgelaufen ist (ein laufendes bleibt). Nichts wird automatisch gelöscht. Der Mitarbeiter-Eintrag einer
+  ausgeschiedenen Person wird erst löschbar, wenn auch ihre BEM-Unterlagen gelöscht sind. „Endgültig löschen“ löscht
+  alle BEM der Person mit.
+- Ein BEM zieht mit der Person in eine andere Einrichtung um (es gehört zur Person, nicht zur Einrichtung).
+
+**Datenbank (Migration 0092):** neue Tabellen „bem_processes“ und „bem_steps“ (gehen mit der Person), die Spalte
+„facilities.bem_invitation_text“ (leer = Standardtext) und „retention_settings.bem_years“ (3).
 
 **Hinweis zur Datenbank (Migration 0086):** Die Migration 0086 („Kinder der Mitarbeiter“) wurde nach 0087 gespeichert.
 Ihr Zeitstempel liegt deshalb zwischen 0087 und 0088, damit eine Datenbank, die 0087 schon hatte, 0086 noch nachholt.

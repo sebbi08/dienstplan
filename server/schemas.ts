@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BEM_ANSWERS, BEM_LIMITS, BEM_MEASURE_STATUSES, BEM_STEP_KINDS } from '../shared/domain/bem'
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
@@ -789,3 +790,14 @@ export const teamMeetingReopenSchema = z.object({ reason: z.string().max(1000) }
 export const teamMeetingSignSchema = z.object({ employeeId: z.number().int().optional(), pin: z.string().max(20).optional() })
 /** „Mitarbeiter freischalten“: the employees unlocked for the form from now on (all others are revoked). */
 export const childFormEditorsSchema = z.object({ employeeIds: z.array(z.number().int()).max(500) })
+
+// BEM (§ 167 Abs. 2 SGB IX): the lengths again in the service (trimmed), the order of the days there as well.
+export const bemSentSchema = z.object({ invitedOn: isoDate.nullable() })
+export const bemAnswerSchema = z.object({ answer: z.enum(BEM_ANSWERS), date: isoDate })
+export const bemCompleteSchema = z.object({ date: isoDate })
+export const bemStepSchema = z.object({
+  date: isoDate, participants: z.string().max(BEM_LIMITS.participants + 100), text: z.string().max(BEM_LIMITS.text + 100),
+  status: z.enum(BEM_MEASURE_STATUSES).nullable(),
+})
+export const bemStepCreateSchema = bemStepSchema.extend({ kind: z.enum(BEM_STEP_KINDS) })
+export const bemSettingsSchema = z.object({ text: z.string().max(BEM_LIMITS.invitationText + 100) })

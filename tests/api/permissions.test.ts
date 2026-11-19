@@ -616,6 +616,30 @@ describe('API route permissions', () => {
     }
   })
 
+  it('opens the BEM to whoever has the sick days right, in the active facility, never about themselves; the text to managers', () => {
+    const touching = routes.filter(route => /(^|\/)bem/.test(route) || source(route).includes('services/bem\''))
+    expect(touching).toEqual([
+      'bem-settings.get.ts', 'bem-settings.put.ts', 'bem-steps/[id].delete.ts', 'bem-steps/[id].put.ts', 'bem/[id].delete.ts',
+      'bem/[id]/answer.put.ts', 'bem/[id]/complete.put.ts', 'bem/[id]/invitation.get.ts', 'bem/[id]/sent.put.ts',
+      'bem/[id]/steps.post.ts', 'employees/[id]/bem.get.ts', 'employees/[id]/bem.post.ts',
+    ])
+    for (const route of touching) {
+      const code = source(route)
+      expect(code, route).toContain('admin.facilityId')
+      expect(code, route).not.toMatch(/allowTerminal|facility: 'none'/)
+      if (route.startsWith('bem-settings')) {
+        expect(permissionCalls(route), route).toEqual([{ key: 'settings.facility', options: '' }])
+        continue
+      }
+      // Health data: Leitung and Träger by default, never a Mitarbeiter or the tablet; never the viewer's own BEM.
+      expect(permissionCalls(route), route).toEqual([{ key: 'employees.sickness', options: '' }])
+      expect(code, route).toContain('ownEmployeeId: admin.employeeId')
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
+    expect(DEFAULTS.observer.has('employees.sickness')).toBe(false)
+    expect(DEFAULTS.group_lead.has('employees.sickness')).toBe(false)
+  })
+
   it('opens planned group changes to managers of the active facility only', () => {
     const touching = routes.filter(route => /group-change/i.test(route) || source(route).includes('services/childGroupChanges\''))
     expect(touching).toEqual(['child-group-changes/[id].delete.ts', 'child-group-changes/[id].put.ts', 'children/[id]/group-change.post.ts'])

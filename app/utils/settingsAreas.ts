@@ -162,6 +162,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       key: 'child-sick-days', title: de.staffChildren.settings.title, replaces: [],
       keywords: ['Kind krank', 'Kinderkrankengeld', '§ 45 SGB V', 'alleinerziehend', 'krankes Kind', 'Krankenkasse'],
     },
+    {
+      // Leitung and Träger change it.
+      key: 'bem-invitation', title: de.bem.settings.title, replaces: [],
+      keywords: ['BEM', 'Eingliederungsmanagement', '§ 167 SGB IX', 'Einladung', 'Krankheitstage', 'sechs Wochen', 'arbeitsunfähig'],
+    },
   ],
 }
 

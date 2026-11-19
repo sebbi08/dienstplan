@@ -9,7 +9,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
+  balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms,
   groupBookChanges, helpOuts, leaveEntitlements, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
@@ -127,9 +127,11 @@ function removeEmployee(tx: Db, employeeId: number, before: Set<string>): void {
 /**
  * The deletion categories after leaving (spec Löschfristen §2), in the order they come due with the default periods.
  * Each helper deletes (or, for references that stay, clears) what belongs to its category and answers how many rows it
- * changed; run again it changes nothing. The employee row itself goes last (deleteEmployeeRow).
+ * changed; run again it changes nothing. The employee row itself goes last (deleteEmployeeRow). „BEM-Unterlagen“ (`bem`)
+ * count from the end of each process rather than from leaving (server/services/bem.ts, also for employees still there);
+ * its helper here deletes all of them, as „Endgültig löschen“ does.
  */
-export const RETENTION_CATEGORIES = ['immediate', 'time', 'assessment', 'paidOvertime'] as const
+export const RETENTION_CATEGORIES = ['immediate', 'time', 'assessment', 'bem', 'paidOvertime'] as const
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
 
 /**
@@ -316,6 +318,14 @@ export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
   return deleteRows(tx, employeeId, PAID_OVERTIME_ROWS)
 }
 
+/** „BEM-Unterlagen“: the BEM processes with their steps (the steps go with their process). */
+const BEM_ROWS: readonly EmployeeRows[] = [{ table: bemProcesses, column: bemProcesses.employeeId }]
+
+/** „BEM-Unterlagen“: every BEM process of the employee with its steps. */
+export function deleteBemData(tx: Db, employeeId: number): number {
+  return deleteRows(tx, employeeId, BEM_ROWS)
+}
+
 /**
  * Whether the employee still has data of the paid-overtime period: balance adjustments marked „ausgezahlt“ or
  * contract and salary documents.
@@ -346,19 +356,21 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
       || db.select({ id: entries.id }).from(entries).where(specialLeaveReasonsOf(employeeId)).limit(1).get() !== undefined,
     time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
     assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
+    bem: anyRows(db, employeeId, BEM_ROWS),
     paidOvertime: hasPaidOvertimeData(db, employeeId),
   }
 }
 
 const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) => number> = {
-  immediate: deleteImmediateData, time: deleteTimeData, assessment: deleteAssessmentData, paidOvertime: deletePaidOvertimeData,
+  immediate: deleteImmediateData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData,
+  paidOvertime: deletePaidOvertimeData,
 }
 
 /** Runs the given categories in their order; answers the changed rows per category (0 for those not run). */
 export function deleteCategories(
   tx: Db, employeeId: number, categories: readonly RetentionCategory[],
 ): Record<RetentionCategory, number> {
-  const counts: Record<RetentionCategory, number> = { immediate: 0, time: 0, assessment: 0, paidOvertime: 0 }
+  const counts: Record<RetentionCategory, number> = { immediate: 0, time: 0, assessment: 0, bem: 0, paidOvertime: 0 }
   for (const category of RETENTION_CATEGORIES) {
     if (categories.includes(category)) counts[category] = DELETE_CATEGORY[category](tx, employeeId)
   }

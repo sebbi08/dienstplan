@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
+  balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, notifications, offlineStamps,
   teamMeetingParticipants,
@@ -111,6 +111,15 @@ export function fillEmployeeData(
     createTalk(db, leitung, { facilityId: 1, ownEmployeeId: null }, {
       employeeId: id, templateIds, date: '2026-06-01', start: 600, participants: '', period: '',
     }, now)
+    // A BEM completed in May 2025, with a talk (BEM-Unterlagen: deletable from 04.05.2028 with the default 3 years).
+    const bemId = db.insert(bemProcesses).values({
+      employeeId: id, status: 'completed', invitedOn: '2025-04-01', answeredOn: '2025-04-08', completedOn: '2025-05-04',
+      createdBy: 'Lea Leitung', createdAt: now.toISOString(), updatedAt: now.toISOString(),
+    }).returning({ id: bemProcesses.id }).get().id
+    db.insert(bemSteps).values({
+      processId: bemId, kind: 'meeting', date: '2025-04-15', participants: 'Lea Leitung', text: 'Erstgespräch',
+      createdAt: now.toISOString(), updatedAt: now.toISOString(),
+    }).run()
     const childId = addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })
     // The rest of the references: time corrections, a week template row, a form editor grant, a tablet unlock, and the
     // person as the one who entered something in a child's record or a group book.
