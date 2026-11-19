@@ -15,7 +15,7 @@ export const CLOCK_SKEW_LIMIT_MINUTES = 5
 /** At most this many stamps per request; the rest follow with the next one. */
 export const OFFLINE_BATCH_MAX = 50
 /** At most this many PIN checks per request (scrypt is slow); stamps beyond stay in the tablet's queue for the next one. */
-export const OFFLINE_PIN_CHECKS_MAX = 20
+export const OFFLINE_PIN_CHECKS_MAX = 10
 /** At most this many requests per tablet account and minute. */
 export const OFFLINE_REQUESTS_PER_MINUTE = 10
 /** At most this many open hints per person; further ones are kept as checked (in the log, not on the list). */

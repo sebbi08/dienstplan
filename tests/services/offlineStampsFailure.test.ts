@@ -4,7 +4,8 @@ import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { listOfflineStampHints, syncOfflineStamps } from '../../server/services/offlineStamps'
 import { setPin } from '../../server/services/terminal'
 import { loadTimeRecords } from '../../server/services/timeTracking'
-import { addEmployee, createTestDb } from '../helpers/fixtures'
+import { applyToCells } from '../../server/services/entries'
+import { addEmployee, addFacility, addHelpOut, addUser, createTestDb, templateId } from '../helpers/fixtures'
 
 /** The employee whose stamps make the server fail (a stand-in for any unexpected error while handling one stamp). */
 const failing = vi.hoisted(() => ({ id: -1 }))
@@ -48,6 +49,27 @@ describe('a stamp the server fails to handle', () => {
     expect(loadTimeRecords(db, { employeeId: berta })).toHaveLength(1)
     expect(listOfflineStampHints(db, 1)).toEqual([expect.objectContaining({ employeeId: anna, reason: 'failed' })])
     expect(errors).toHaveBeenCalled()
+    errors.mockRestore()
+  })
+
+  it('of a helper planned here also goes to the review list, so it leaves the tablet\'s queue', () => {
+    const krippe = addFacility(db, 'Krippe')
+    const leitungB = addUser(db, 'leitung-b', 'admin', null, krippe)
+    const anna = addEmployee(db, 'Anna')
+    setTimeTrackingFrom(db, 1, '2026-10-01')
+    setTimeTrackingFrom(db, krippe, '2026-10-01')
+    setPin(db, 1, anna, '123456')
+    addHelpOut(db, anna, krippe, 2026, 11)
+    applyToCells(db, leitungB, krippe, [{ employeeId: anna, date: '2026-11-19' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M', krippe) })
+    failing.id = anna
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { results } = syncOfflineStamps(db, krippe, {
+      clientNow: NOW.toISOString(),
+      stamps: [{ clientId: 'client-helper-1', employeeId: anna, pin: '123456', action: 'in', stampedAt: '2026-11-19T08:00:00+01:00' }],
+    }, NOW)
+    expect(results).toEqual([{ clientId: 'client-helper-1', status: 'review', reason: 'failed' }])
+    // On the review list of the helper's home facility, like the helper's other hints.
+    expect(listOfflineStampHints(db, 1)).toEqual([expect.objectContaining({ employeeId: anna, reason: 'failed' })])
     errors.mockRestore()
   })
 })

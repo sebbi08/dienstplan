@@ -94,8 +94,8 @@ describe('offline stamps from the tablet', () => {
     expect(recordsOf(anna)).toEqual([])
     // The online stamp is locked as well.
     expect(errorCode(() => terminalStamp(db, 1, anna, '123456', 'in', NOW))).toBe('pin_locked')
-    // One open „PIN gesperrt“ hint, however many stamps come while locked.
-    expect(listOfflineStampHints(db, 1).filter(hint => hint.reason === 'pin_locked')).toHaveLength(1)
+    // Every stamp refused while locked shows on the review list (the Leitung sees every time).
+    expect(listOfflineStampHints(db, 1).filter(hint => hint.reason === 'pin_locked').map(hint => hint.minutes)).toEqual([478, 480])
     // „Geprüft“ does not open new tries: the lock decides.
     const leitung = addUser(db, 'leitung', 'admin')
     for (const hint of listOfflineStampHints(db, 1)) checkOfflineStampHint(db, leitung, 1, hint.id, NOW)
@@ -121,17 +121,17 @@ describe('offline stamps from the tablet', () => {
     expect(pinState(anna)).toMatchObject({ pinFailed: 0 })
   })
 
-  it('checks at most 20 PINs per request and leaves the rest queued, in order', () => {
-    const people = Array.from({ length: 22 }, (_, index) => {
+  it('checks at most 10 PINs per request and leaves the rest queued, in order', () => {
+    const people = Array.from({ length: 12 }, (_, index) => {
       const id = addEmployee(db, `Person ${index}`)
       setPin(db, 1, id, '111111')
       return id
     })
     const stamps = people.map(id => stamp(id, 'in', '08:00', '111111'))
     const results = sync(stamps)
-    expect(results.map(result => result.clientId)).toEqual(stamps.slice(0, 20).map(item => item.clientId))
-    expect(sync(stamps.slice(20)).map(result => result.status)).toEqual(['recorded', 'recorded'])
-  }, 60_000) // 44 scrypt hashes and checks
+    expect(results.map(result => result.clientId)).toEqual(stamps.slice(0, 10).map(item => item.clientId))
+    expect(sync(stamps.slice(10)).map(result => result.status)).toEqual(['recorded', 'recorded'])
+  }, 60_000) // 24 scrypt hashes and checks
 
   it('takes a stamp matching a recorded Kommt or Geht (±1 minute) as already there, without a hint', () => {
     terminalStamp(db, 1, anna, '123456', 'in', new Date('2026-11-19T06:30:00Z'))

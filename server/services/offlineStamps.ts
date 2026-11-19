@@ -60,7 +60,7 @@ const DEFERRED = Symbol('deferred')
  *      taken as now.
  * Taken-over stamps mark the record „offline erfasst“ and, when the tablet's clock (`clientNow`) is more than 5 minutes
  * off, with the difference. A stamp the server fails to handle goes to the review list (`failed`) and does not hold
- * up the others. At most 20 PIN checks per request: the stamps from the first one beyond are left out of the answer and
+ * up the others. At most 10 PIN checks per request: the stamps from the first one beyond are left out of the answer and
  * stay queued, in order. Every stamp of a known person is stored by its client id (never the PIN).
  */
 export function syncOfflineStamps(
@@ -85,15 +85,24 @@ export function syncOfflineStamps(
   return { results }
 }
 
-/** A stamp that failed: on the review list when it can still be stored, otherwise left in the tablet's queue. */
+/**
+ * A stamp that failed: on the review list (own staff, or a helper planned here on a day of the time window); for
+ * anybody else refused without being stored (logged), so it leaves the tablet's queue. Only when even storing fails it
+ * stays in the queue for the next request.
+ */
 function storeFailure(db: Db, context: SyncContext, item: OfflineStampInput): OfflineStampOutcome | null {
   try {
-    const employee = db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees)
-      .where(eq(employees.id, item.employeeId)).get()
-    if (!employee || employee.facilityId !== context.facilityId) return null
     const known = db.select({ id: offlineStamps.id }).from(offlineStamps).where(eq(offlineStamps.clientId, item.clientId)).get()
     if (known) return { clientId: item.clientId, status: 'duplicate', reason: null }
-    const { date, minutes } = nowInBerlin(new Date(item.stampedAt))
+    const at = new Date(item.stampedAt)
+    const { date, minutes } = nowInBerlin(at)
+    const employee = db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees)
+      .where(eq(employees.id, item.employeeId)).get()
+    const helper = employee !== undefined && employee.facilityId !== context.facilityId
+      && offlineStampTimeCheck(at, context.now, context.skew) === 'ok' && helperIdsOn(db, context.facilityId, date).includes(employee.id)
+    if (!employee || (employee.facilityId !== context.facilityId && !helper)) {
+      return { clientId: item.clientId, status: 'rejected', reason: 'failed' }
+    }
     db.insert(offlineStamps).values({
       clientId: item.clientId, facilityId: context.facilityId, employeeId: employee.id, action: item.action, stampedAt: item.stampedAt,
       date, minutes, status: 'review', reason: 'failed', clockSkewMinutes: context.skew, receivedAt: context.now.toISOString(),
@@ -106,11 +115,11 @@ function storeFailure(db: Db, context: SyncContext, item: OfflineStampInput): Of
   }
 }
 
-/** Open hints of the person (all, or of one reason). */
-function openHints(db: Db, employeeId: number, reason?: OfflineStampReason): number {
+/** Open hints of the person. */
+function openHints(db: Db, employeeId: number): number {
   return db.select({ n: count() }).from(offlineStamps).where(and(
     eq(offlineStamps.employeeId, employeeId), isNull(offlineStamps.checkedAt),
-    reason ? eq(offlineStamps.reason, reason) : inArray(offlineStamps.reason, [...OFFLINE_HINT_REASONS]),
+    inArray(offlineStamps.reason, [...OFFLINE_HINT_REASONS]),
   )).get()!.n
 }
 
@@ -156,10 +165,10 @@ function takeOver(db: Db, context: SyncContext, item: OfflineStampInput): Offlin
   const finish = (
     status: Exclude<OfflineStampStatus, 'duplicate'>, reason: OfflineStampReason | null, recordId: number | null = null,
   ): OfflineStampOutcome => {
-    // Bounded review list: one open „PIN gesperrt“ per person, at most 20 open hints per person; further ones are logged
-    // as checked.
+    // Bounded review list: at most 20 open hints per person (every refused time shows up to there); further ones are
+    // logged as checked.
     const hint = reason !== null && OFFLINE_HINT_REASONS.includes(reason)
-    const surplus = hint && (openHints(db, employee.id) >= OFFLINE_MAX_OPEN_HINTS || (reason === 'pin_locked' && openHints(db, employee.id, 'pin_locked') > 0))
+    const surplus = hint && openHints(db, employee.id) >= OFFLINE_MAX_OPEN_HINTS
     db.insert(offlineStamps).values({
       clientId: item.clientId, facilityId, employeeId: employee.id, action: item.action, stampedAt: item.stampedAt, date, minutes: tapped,
       status, reason, recordId, clockSkewMinutes: skew, receivedAt: now.toISOString(), checkedAt: surplus ? now.toISOString() : null,

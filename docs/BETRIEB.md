@@ -1294,7 +1294,7 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
   Stempeln ist auf diesem Gerät gerade nicht möglich“.
 - **Technisch:** Das Tablet braucht dafür eine sichere Verbindung (https) und einen aktuellen Browser. Die gemerkte
   Seite gehört zur jeweiligen App-Version; nach einem Update wird die alte gelöscht und die neue beim nächsten Öffnen
-  mit Netz gemerkt. Das Übertragen ist begrenzt (höchstens 50 Stempel und 20 PIN-Prüfungen je Übertragung, höchstens
+  mit Netz gemerkt. Das Übertragen ist begrenzt (höchstens 50 Stempel und 10 PIN-Prüfungen je Übertragung, höchstens
   10 Übertragungen pro Minute); der Rest folgt von selbst mit der nächsten.
 - **Hinweis zum Update (Datenbank):** Die Änderung bringt die Datenbank-Änderung 0090 (Offline-Stempel) mit. Eine
   Datenbank, die schon mit einem Entwicklungsstand mit der Änderung 0091, aber ohne 0090 gelaufen ist, würde 0090
