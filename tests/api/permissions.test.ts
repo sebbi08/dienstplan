@@ -332,6 +332,15 @@ describe('API route permissions', () => {
     }
   })
 
+  it('guards „Alle Anträge und Urlaube“ as the planning page: leave overview, the planner checked in the service', () => {
+    for (const route of ['leave-planning.get.ts', 'leave-planning/all.get.ts']) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'leave.overview', options: '' }])
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+      expect(source(route), route).toContain('user.facilityId')
+    }
+    expect(readFileSync(join(process.cwd(), 'server', 'services', 'leaveYearList.ts'), 'utf8')).toContain('requirePlanner(db, user, facilityId)')
+  })
+
   it('opens the meal settings to managers of the active facility only', () => {
     const touching = routes.filter(route => /^meals\//.test(route) || source(route).includes('services/meals\''))
     expect(touching).toEqual(['meals/[id].delete.ts', 'meals/[id].put.ts', 'meals/index.get.ts', 'meals/index.post.ts',

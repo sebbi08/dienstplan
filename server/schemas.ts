@@ -37,6 +37,12 @@ export const monthParams = z.object({
   month: z.coerce.number().int().min(1).max(12),
 })
 export const yearQuery = z.object({ year: z.coerce.number().int().min(2000).max(2100) })
+/** „Alle Anträge und Urlaube“: the year and the filters (empty or missing = all). */
+export const leaveYearListQuery = yearQuery.extend({
+  employeeId: z.preprocess(value => (value === '' ? undefined : value), z.coerce.number().int().positive().optional()),
+  kind: z.preprocess(value => (value === '' ? undefined : value), z.enum(['vacation', 'special_leave', 'overtime_off']).optional()),
+  status: z.preprocess(value => (value === '' ? undefined : value), z.enum(['open', 'approved', 'rejected', 'withdrawn', 'direct']).optional()),
+})
 export const employeeYearParams = idParams.extend({ year: z.coerce.number().int().min(2000).max(2100) })
 
 export const entryInputSchema = z.object({

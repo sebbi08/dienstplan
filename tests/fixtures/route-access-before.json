@@ -242,6 +242,7 @@
   "leave-forfeit-settings.put.ts": ["provider","admin"],
   "leave-forfeit.get.ts": ["provider","admin"],
   "leave-planning.get.ts": ["provider","admin"],
+  "leave-planning/all.get.ts": ["provider","admin"],
   "leave-requests/[id]/decide.post.ts": ["provider","admin"],
   "leave-settings.get.ts": ["provider","admin","group_lead","observer"],
   "leave-settings/max.put.ts": ["provider","admin"],

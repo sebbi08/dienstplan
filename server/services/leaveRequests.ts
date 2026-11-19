@@ -68,7 +68,7 @@ function requireEnabled(db: Db): void {
   if (!leaveRequestsEnabled(db)) throw new ServiceError(403, 'leave_requests_off')
 }
 
-function requirePlanner(db: Db, user: SessionUser, facilityId: number): void {
+export function requirePlanner(db: Db, user: SessionUser, facilityId: number): void {
   requireEnabled(db)
   if (!isPlanner(db, user, facilityId)) throw new ServiceError(403, 'not_leave_planner')
 }
@@ -377,6 +377,30 @@ export function listOpenRequests(db: Db, user: SessionUser, facilityId: number):
     ))
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).all()
     .map(request => toDto(db, request, staff, closures, limit, names))
+}
+
+/**
+ * Every request of the facility's employees touching the range, whatever its status, by start date („Alle Anträge und
+ * Urlaube“; callers check the planner).
+ */
+export function listFacilityRequests(db: Db, facilityId: number, from: IsoDate, to: IsoDate): LeaveRequestDto[] {
+  const staff = loadEmployees(db, facilityId)
+  if (staff.length === 0) return []
+  const closures = loadClosures(db, facilityId)
+  const limit = maxConcurrent(db, facilityId)
+  const names = userNames(db)
+  return db.select().from(leaveRequests)
+    .where(and(
+      inArray(leaveRequests.employeeId, staff.map(employee => employee.id)),
+      lte(leaveRequests.startDate, to), gte(leaveRequests.endDate, from),
+    ))
+    .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).all()
+    .map(request => toDto(db, request, staff, closures, limit, names))
+}
+
+/** Whether the planner may decide the request here: open, and not their own (the Träger decides their own too). */
+export function mayDecide(user: SessionUser, request: Pick<LeaveRequestDto, 'status' | 'employeeId'>): boolean {
+  return request.status === 'open' && (request.employeeId !== user.employeeId || decidesOwn(user))
 }
 
 /**

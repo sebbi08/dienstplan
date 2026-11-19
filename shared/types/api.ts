@@ -1927,6 +1927,58 @@ export interface LeavePlanningDto {
   openRequests: LeaveRequestDto[]
 }
 
+/** „Alle Anträge und Urlaube“: a request status, or 'direct' = leave entered directly („direkt eingetragen“, no request). */
+export type LeaveYearStatus = LeaveRequestStatus | 'direct'
+
+/** The filters of „Alle Anträge und Urlaube“ (missing or null = all). */
+export interface LeaveYearListFilter {
+  employeeId?: number | null
+  kind?: LeaveEntryKind | null
+  status?: LeaveYearStatus | null
+}
+
+/** A request in „Alle Anträge und Urlaube“. */
+export interface LeaveYearRequestDto extends LeaveRequestDto {
+  /** The viewer may approve or reject it there: open, and not the own request (the Träger decides their own too). */
+  canDecide: boolean
+}
+
+/**
+ * One leave period of a person in „Alle Anträge und Urlaube“ and where it comes from: an approved request („Antrag
+ * genehmigt am …“), entered directly in the plan or the year calendar („direkt eingetragen“), or a closure as leave.
+ * Days: as the leave account counts them (closures: the leave days the closure took).
+ */
+export interface LeaveYearRangeDto extends LeaveEntryRange {
+  origin: 'request' | 'direct' | 'closure'
+  /** origin 'request': the approved request and when it was decided (ISO timestamp). */
+  requestId: number | null
+  decidedAt: string | null
+  /** origin 'closure': the closure's name. */
+  closureLabel: string | null
+}
+
+export interface LeaveYearPersonDto {
+  employeeId: number
+  name: string
+  /** The leave account of the year (Anspruch, genommen, verplant, frei verfügbar), as „Urlaubsübersicht“ shows it. */
+  account: LeaveAccount
+  hasEntitlement: boolean
+  ranges: LeaveYearRangeDto[]
+}
+
+/**
+ * „Urlaubsplanung“ → „Alle Anträge und Urlaube“: the facility's requests touching the year and every person's leave
+ * periods of the year, filtered on the server (see LeaveYearListFilter).
+ */
+export interface LeaveYearListDto {
+  year: number
+  /** The staff of the year, for the person filter (unfiltered). */
+  employees: { id: number; name: string }[]
+  requests: LeaveYearRequestDto[]
+  /** With a kind or status filter only the people with periods left; without, everyone of the year. */
+  people: LeaveYearPersonDto[]
+}
+
 /** A kind of mandatory appointment or proof (Pflichttermin) of a facility. */
 export interface RequirementTypeDto {
   id: number

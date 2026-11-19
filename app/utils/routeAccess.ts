@@ -37,6 +37,7 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/print/sick-days', 'employees.sickness'],
   ['/admin/leave-planning', 'leave.overview'],
   ['/admin/print/leave-forfeit', 'leave.overview'],
+  ['/admin/print/leave-list', 'leave.overview'],
   ['/admin/calendar', 'calendar.edit'],
   ['/admin/print/calendar', 'calendar.edit'],
   ['/admin/closures', 'closures.manage'],

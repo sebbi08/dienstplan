@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import type { LeavePlanningDto, LeaveRequestDto, LeaveSettingsDto } from '#shared/types/api'
+import type { LeavePlanningDto, LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort } from '~/utils/format'
+import type { LeaveFilter } from '~/utils/leaveYearList'
 
 /**
- * For the people responsible for leave planning: open requests, the limit and a year calendar of leave and wishes.
+ * For the people responsible for leave planning: open requests, the limit and a year calendar of leave and wishes
+ * („Planung“), and every request and leave period of the year („Alle Anträge und Urlaube“).
  * Whoever sees the leave overview (Leitung, Träger) also without planning, or while leave requests are off: then only
  * the notice on remaining leave („Hinweis auf Resturlaub ‹Jahr›“), which every visitor sees at the end.
  */
@@ -16,11 +18,27 @@ const { data: leaveSettings } = await useFetch<LeaveSettingsDto>('/api/leave-set
 const isPlanner = computed(() => !!leaveSettings.value?.isPlanner)
 const { data: planning, error, refresh } = await useFetch<LeavePlanningDto>('/api/leave-planning', { query: { year }, enabled: isPlanner })
 // Decisions also update the open-request count in the menu.
-const run = useAction(async () => {
-  await Promise.all([refresh(), refreshNuxtData('leave-settings')])
-})
-const confirm = useConfirm()
-const toast = useToast()
+const decided = () => Promise.all([refresh(), refreshNuxtData('leave-settings')])
+const run = useAction(decided)
+
+/** „Planung“ or „Alle Anträge und Urlaube“ (planners only), kept in the address (?tab=all). */
+type PlanningTab = 'planning' | 'all'
+const TABS: PlanningTab[] = ['planning', 'all']
+const router = useRouter()
+const tab = computed<PlanningTab>(() => (route.query.tab === 'all' ? 'all' : 'planning'))
+function selectTab(next: PlanningTab) {
+  router.replace({ query: { ...route.query, tab: next === 'all' ? 'all' : undefined } })
+}
+/** Arrow keys, Home and End move between the tabs (and open the one reached), as in a tab list. */
+function onTabKey(event: KeyboardEvent) {
+  const next = { ArrowRight: 'all', ArrowLeft: 'planning', Home: 'planning', End: 'all' }[event.key] as PlanningTab | undefined
+  if (!next) return
+  event.preventDefault()
+  selectTab(next)
+  nextTick(() => document.getElementById(`leave-tab-${next}`)?.focus())
+}
+const tabLabels: Record<PlanningTab, string> = { planning: de.leaveYearList.tabPlanning, all: de.leaveYearList.tabAll }
+const yearFilter = ref<LeaveFilter>({ employeeId: null, kind: null, status: null })
 
 const limit = ref<number | null>(null)
 watch(planning, value => (limit.value = value?.maxConcurrent ?? null), { immediate: true })
@@ -30,28 +48,6 @@ function saveLimit() {
 }
 
 const daysText = (dates: string[]) => dates.map(date => formatDayShort(date, weekday(date))).join(', ')
-
-async function approve(request: LeaveRequestDto) {
-  const send = (overwrite: boolean) => $fetch<{ keptAbsences: number }>(`/api/leave-requests/${request.id}/decide`, {
-    method: 'POST', body: { approve: true, note: '', overwrite },
-  })
-  let result: { keptAbsences: number } | undefined
-  try {
-    result = await send(false)
-  }
-  catch (failure) {
-    const data = (failure as { data?: { data?: { code?: string; details?: { days?: number; entries?: boolean } } } }).data?.data
-    if (data?.code !== 'cells_occupied') {
-      toast.add({ title: errorMessage(failure), color: 'error' })
-      return
-    }
-    if (!await confirm(de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveRequests.kinds[request.kind], data.details?.entries), { confirmLabel: de.leavePlanning.overwrite, danger: false })) return
-    if (!await run(async () => { result = await send(true) })) return
-  }
-  await Promise.all([refresh(), refreshNuxtData('leave-settings')])
-  const kept = result?.keptAbsences ?? 0
-  toast.add({ title: kept ? de.leavePlanning.approvedKept(kept, de.leaveRequests.kinds[request.kind]) : de.leavePlanning.approved, color: 'success' })
-}
 
 // „Urlaub eintragen“ per person, as editing the plan; the own leave only the Träger (others request it).
 const { user } = useUserSession()
@@ -63,20 +59,6 @@ const entryItems = computed(() => entryEmployees.value.map(employee => ({ label:
 const entryEmployeeId = ref<number | undefined>(undefined)
 const entryOpen = ref(false)
 const entryName = computed(() => entryEmployees.value.find(employee => employee.id === entryEmployeeId.value)?.name ?? '')
-
-const rejecting = reactive<{ request: LeaveRequestDto | null; note: string }>({ request: null, note: '' })
-const rejectOpen = computed({
-  get: () => rejecting.request !== null,
-  set: (open) => { if (!open) rejecting.request = null },
-})
-async function reject() {
-  const request = rejecting.request
-  if (!request) return
-  const ok = await run(() => $fetch<unknown>(`/api/leave-requests/${request.id}/decide`, {
-    method: 'POST', body: { approve: false, note: rejecting.note, overwrite: false },
-  }), de.leavePlanning.rejected)
-  if (ok) rejecting.request = null
-}
 </script>
 
 <template>
@@ -87,7 +69,22 @@ async function reject() {
     </div>
     <UAlert v-if="isPlanner && error" color="warning" variant="soft" :title="errorMessage(error)" />
 
-    <template v-if="isPlanner && planning">
+    <div v-if="isPlanner" role="tablist" :aria-label="de.leaveYearList.tabsLabel" class="flex flex-wrap gap-1.5">
+      <button
+        v-for="key in TABS" :id="`leave-tab-${key}`" :key="key" type="button" role="tab"
+        :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" :aria-controls="`leave-panel-${key}`"
+        class="min-h-10 rounded-full px-3.5 text-sm ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :class="tab === key ? 'bg-sky-50 font-semibold text-sky-800 ring-sky-400' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
+        @click="selectTab(key)" @keydown="onTabKey"
+      >
+        {{ tabLabels[key] }}
+      </button>
+    </div>
+
+    <div v-if="isPlanner && tab === 'all'" id="leave-panel-all" role="tabpanel" aria-labelledby="leave-tab-all">
+      <LeaveYearList v-model:filter="yearFilter" :year="year" @decided="decided" />
+    </div>
+    <div v-else-if="isPlanner && planning" id="leave-panel-planning" role="tabpanel" aria-labelledby="leave-tab-planning" class="space-y-4">
       <section class="max-w-4xl space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
         <h2 class="font-semibold">{{ de.leavePlanning.openRequests }}</h2>
         <p v-if="!planning.openRequests.length" class="text-sm text-gray-500">{{ de.leavePlanning.noOpenRequests }}</p>
@@ -96,13 +93,7 @@ async function reject() {
             <span class="font-semibold">{{ request.name }}</span>
             <UBadge v-if="request.kind === 'overtime_off'" color="secondary" variant="soft" :label="de.leaveRequests.kinds.overtime_off" />
             <span>{{ de.leavePlanning.range(formatDate(request.startDate), formatDate(request.endDate), request.workdays) }}</span>
-            <span class="ml-auto flex gap-1">
-              <UButton size="xs" icon="i-lucide-check" :label="de.leavePlanning.approve" @click="approve(request)" />
-              <UButton
-                size="xs" color="error" variant="outline" icon="i-lucide-x" :label="de.leavePlanning.reject"
-                @click="Object.assign(rejecting, { request, note: '' })"
-              />
-            </span>
+            <LeaveDecisionButtons class="ml-auto" :request="request" @decided="decided" />
           </div>
           <p v-if="request.note" class="text-gray-600">„{{ request.note }}“</p>
           <p v-if="request.overLimitDates.length" class="font-medium text-purple-700">
@@ -141,22 +132,7 @@ async function reject() {
           <CalendarMonth :calendar="planning.calendar" :month="month" :counts="planning.counts" :limit="planning.maxConcurrent" />
         </div>
       </div>
-    </template>
+    </div>
     <LeaveForfeitList v-else :year="year" />
-
-    <UModal v-model:open="rejectOpen" :title="de.leavePlanning.rejectTitle">
-      <template #body>
-        <form class="space-y-3" @submit.prevent="reject">
-          <p v-if="rejecting.request" class="text-sm">
-            {{ rejecting.request.name }}: {{ formatDate(rejecting.request.startDate) }} – {{ formatDate(rejecting.request.endDate) }}
-          </p>
-          <UFormField :label="de.leavePlanning.reason"><UInput v-model="rejecting.note" maxlength="300" class="w-full" /></UFormField>
-          <div class="flex justify-end gap-2">
-            <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="rejectOpen = false" />
-            <UButton type="submit" color="error" :label="de.leavePlanning.reject" />
-          </div>
-        </form>
-      </template>
-    </UModal>
   </div>
 </template>
