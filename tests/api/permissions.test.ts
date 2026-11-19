@@ -50,7 +50,7 @@ const USER_ROUTES = [
   'my/talks/index.get.ts', 'my/talks/forms/[formId].get.ts', 'my/talks/forms/[formId].put.ts',
   'my/talks/forms/[formId]/submit.post.ts',
   // The consent that colleagues see the own emergency contacts at the tablet: only the employee themselves, from the session.
-  'my/emergency-consent.get.ts', 'my/emergency-consent.put.ts',
+  'my/emergency-consent.get.ts', 'my/emergency-consent.put.ts', 'my/emergency-contacts.get.ts',
   // Accident reports about employees: the own ones („Meine Unfälle“), and for accidents.manage the facility's; the
   // service decides per report (another employee's is 404). Never the tablet.
   ...EMPLOYEE_ACCIDENT_ROUTES,
@@ -59,11 +59,11 @@ const USER_ROUTES = [
 const TERMINAL_ROUTES = [
   'terminal/status.get.ts', 'terminal/stamp.post.ts', 'terminal/children/unlock.post.ts', 'terminal/children/lock.post.ts',
   'terminal/children/keep-alive.post.ts', 'terminal/children/status.get.ts',
+  // The consenting colleagues' emergency contacts: the service asks for the unlock like the child data.
+  'terminal/staff-emergency-contacts.get.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
-  // The consenting colleagues' emergency contacts: the service asks for the unlock like the child data.
-  'terminal/staff-emergency-contacts.get.ts',
 
 /** The child observation forms (Beobachtungsbögen), among the child view routes. */
 const CHILD_FORM_ROUTES = [
@@ -344,7 +344,7 @@ describe('API route permissions', () => {
   })
   it('keeps the consent to show emergency contacts at the tablet to the employee, the written record to Leitung, the list to the unlocked tablet', () => {
     // The employee follows from the session alone: nothing from the request names them.
-    for (const route of ['my/emergency-consent.get.ts', 'my/emergency-consent.put.ts']) {
+    for (const route of ['my/emergency-consent.get.ts', 'my/emergency-consent.put.ts', 'my/emergency-contacts.get.ts']) {
       expect(source(route), route).toContain('requireUser(event)')
       expect(source(route), route).not.toMatch(/getRouterParam|getValidatedRouterParams|employeeId/)
     }

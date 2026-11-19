@@ -593,6 +593,34 @@ export const de = {
     printEmpty: 'Keine Mitarbeiter.',
     order: (n: number) => `${n}.`,
   },
+  /** Whether colleagues see an employee's emergency contacts at the facility tablet: only with the employee's consent. */
+  staffEmergency: {
+    /** „Meins“: the employee's own switch. */
+    myTitle: 'Notfallkontakte am Tablet',
+    myContactsTitle: 'Diese Kontakte würden angezeigt (so, wie die Leitung sie eingetragen hat):',
+    myContactsNone: 'Es sind noch keine Notfallkontakte hinterlegt – bitte bei der Leitung melden.',
+    myLabel: 'Meine Notfallkontakte am Kita-Tablet zeigen',
+    myHint: 'Dann können deine Kolleginnen und Kollegen im Notfall am Tablet deine Notfallkontakte sehen (nach Anmeldung mit Name und PIN). Du kannst das jederzeit wieder ausschalten.',
+    /** The employee page: the Leitung's record. */
+    consentTitle: 'Notfallkontakte am Kita-Tablet',
+    consentHint: 'Das Team sieht die Notfallkontakte einer Person am Tablet nur, wenn sie zugestimmt hat (nach Anmeldung mit Name und PIN). Ohne Zustimmung bleiben sie Leitung und Träger vorbehalten.',
+    noConsent: 'Keine Zustimmung: Die Notfallkontakte erscheinen nicht am Tablet.',
+    givenSelf: (date: string) => `Zugestimmt am ${date} (selbst)`,
+    givenSelfHint: 'Die Person hat selbst zugestimmt. Nur sie kann das auch wieder ausschalten (unter „Meine Termine“).',
+    givenWritten: (date: string) => `Zugestimmt (schriftlich, am ${date})`,
+    writtenLabel: 'Zustimmung liegt schriftlich vor am',
+    writtenDate: 'Datum der Zustimmung',
+    save: 'Zustimmung speichern',
+    withdraw: 'Widerruf schriftlich eintragen',
+    withdrawnSelf: (date: string) => `Die Person hat die Zustimmung am ${date} selbst zurückgenommen. Eine neue schriftliche Zustimmung gilt nur mit einem späteren Datum.`,
+    /** The tablet. */
+    tile: 'Notfallkontakte Team',
+    tabletTitle: 'Notfallkontakte Team',
+    tabletHint: 'Nur Kolleginnen und Kollegen, die dem zugestimmt haben.',
+    tabletNone: 'Niemand hat zugestimmt, oder es sind keine Notfallkontakte eingetragen.',
+    close: 'Schließen', loading: 'Wird geladen …',
+    call: (name: string) => `${name} anrufen`,
+  },
   /** The personnel file (Personalakte): document folders and format errors. */
   personnel: {
     folders: {
@@ -616,31 +644,6 @@ export const de = {
       taxId: 'Steuer-ID', taxClass: 'Steuerklasse', svNumber: 'Sozialversicherungsnummer', healthInsurer: 'Krankenkasse',
       iban: 'IBAN', accountHolder: 'Kontoinhaber', denomination: 'Konfession (Kirchensteuer)',
       taxClassNone: '–', empty: '–', none: 'Noch keine Angaben.',
-  /** Whether colleagues see an employee's emergency contacts at the facility tablet: only with the employee's consent. */
-  staffEmergency: {
-    /** „Meins“: the employee's own switch. */
-    myLabel: 'Meine Notfallkontakte am Kita-Tablet zeigen',
-    myHint: 'Dann können deine Kolleginnen und Kollegen im Notfall am Tablet deine Notfallkontakte sehen (nach Anmeldung mit Name und PIN). Du kannst das jederzeit wieder ausschalten.',
-    /** The employee page: the Leitung's record. */
-    consentTitle: 'Notfallkontakte am Kita-Tablet',
-    consentHint: 'Das Team sieht die Notfallkontakte einer Person am Tablet nur, wenn sie zugestimmt hat (nach Anmeldung mit Name und PIN). Ohne Zustimmung bleiben sie Leitung und Träger vorbehalten.',
-    noConsent: 'Keine Zustimmung: Die Notfallkontakte erscheinen nicht am Tablet.',
-    givenSelf: (date: string) => `Zugestimmt am ${date} (selbst)`,
-    givenSelfHint: 'Die Person hat selbst zugestimmt. Nur sie kann das auch wieder ausschalten (unter „Meine Termine“).',
-    givenWritten: (date: string) => `Zugestimmt (schriftlich, am ${date})`,
-    writtenLabel: 'Zustimmung liegt schriftlich vor am',
-    writtenDate: 'Datum der Zustimmung',
-    save: 'Zustimmung speichern',
-    withdraw: 'Zustimmung ist widerrufen (schriftlich)',
-    withdrawnSelf: (date: string) => `Die Person hat die Zustimmung am ${date} selbst zurückgenommen. Eine neue schriftliche Zustimmung gilt nur mit einem späteren Datum.`,
-    /** The tablet. */
-    tile: 'Notfallkontakte Team',
-    tabletTitle: 'Notfallkontakte Team',
-    tabletHint: 'Nur Kolleginnen und Kollegen, die dem zugestimmt haben.',
-    tabletNone: 'Niemand hat zugestimmt, oder es sind keine Notfallkontakte eingetragen.',
-    close: 'Schließen', loading: 'Wird geladen …',
-    call: (name: string) => `${name} anrufen`,
-  },
       show: 'anzeigen', hide: 'verbergen', showAll: 'Alle anzeigen', hideAll: 'Alle verbergen',
       showValue: (label: string) => `${label} anzeigen`, hideValue: (label: string) => `${label} verbergen`,
       loading: 'Wird geladen …',

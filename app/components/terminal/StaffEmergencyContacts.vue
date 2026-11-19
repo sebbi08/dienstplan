@@ -9,6 +9,8 @@ import { errorMessage } from '~/utils/errors'
  * contacts as phone links (big touch targets). The server asks for the unlock again on every request (403 tablet_locked
  * otherwise) and returns nothing but names, relations and numbers; a withdrawal is gone with the next opening.
  */
+/** `compact`: a small button for the unlock bar (reachable from every unlocked page) instead of the big tile. */
+defineProps<{ compact?: boolean }>()
 const t = de.staffEmergency
 const open = ref(false)
 const rows = ref<TabletStaffEmergencyDto[]>([])
@@ -34,8 +36,9 @@ const phones = (contact: TabletStaffEmergencyDto['contacts'][number]) => [contac
 </script>
 
 <template>
+  <UButton v-if="compact" size="lg" color="neutral" variant="outline" icon="i-lucide-phone-call" :label="t.tile" @click="show" />
   <button
-    type="button" class="flex min-h-14 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-lg font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+    v-else type="button" class="flex min-h-14 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-lg font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
     @click="show"
   >
     <UIcon name="i-lucide-phone-call" class="size-7 text-sky-700" aria-hidden="true" />

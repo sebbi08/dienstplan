@@ -202,6 +202,8 @@ onBeforeUnmount(() => {
     <span v-if="note" class="flex items-center gap-1 text-sm text-gray-600">
       <UIcon name="i-lucide-clock" class="size-4" aria-hidden="true" /> {{ note }}
     </span>
-    <UButton class="ml-auto" size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="lockByHand" />
+    <!-- The consenting colleagues' emergency contacts, reachable from every unlocked page (the server checks the unlock). -->
+    <span class="ml-auto"><TerminalStaffEmergencyContacts compact /></span>
+    <UButton size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="lockByHand" />
   </div>
 </template>

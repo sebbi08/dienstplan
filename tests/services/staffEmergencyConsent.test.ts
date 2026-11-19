@@ -4,8 +4,10 @@ import { employeeEmergencyConsentLog } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { addEmergencyContact } from '../../server/services/emergencyContacts'
 import {
-  getEmployeeEmergencyConsent, getMyEmergencyConsent, listTabletEmergencyContacts, setEmployeeEmergencyConsent, setMyEmergencyConsent,
+  getEmployeeEmergencyConsent, getMyEmergencyConsent, getMyEmergencyContacts, listTabletEmergencyContacts, setEmployeeEmergencyConsent,
+  setMyEmergencyConsent,
 } from '../../server/services/staffEmergencyConsent'
+import { setTabletSettings } from '../../server/services/tabletSettings'
 import { unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import type { SessionUser } from '../../shared/types/api'
@@ -91,6 +93,37 @@ describe('emergency contacts of the staff at the tablet, only with consent', () 
     const dora = addEmployee(db, 'Dora')
     setEmployeeEmergencyConsent(db, leitung, 1, dora, { consent: true, date: '2026-10-01' }, NOW)
     expect(names(unlock())).toEqual([])
+  })
+
+  it('the unlock holds through a window without the automatic lock, like for the child data', () => {
+    setMyEmergencyConsent(db, annaUser, true, NOW)
+    // 08:00 Berlin; the window 07:00-09:00 keeps it unlocked, a lock time of 2 minutes would not.
+    setTabletSettings(db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, noLockWindows: [{ start: 420, end: 540 }] })
+    const token = unlock()
+    expect(names(token, new Date(NOW.getTime() + 30 * 60_000))).toEqual(['Anna'])
+    // Long after the window's end plus the lock time it is locked again.
+    expect(errorCode(() => list(token, new Date(NOW.getTime() + 3 * 3_600_000)))).toBe('tablet_locked')
+  })
+
+  it('a written withdrawal without any record changes nothing and logs nothing; a later self consent works', () => {
+    setEmployeeEmergencyConsent(db, leitung, 1, carla, { consent: false }, NOW)
+    expect(db.select().from(employeeEmergencyConsentLog).all()).toEqual([])
+    expect(getEmployeeEmergencyConsent(db, 1, carla)).toMatchObject({ consent: false, source: null })
+    setEmployeeEmergencyConsent(db, leitung, 1, anna, { consent: true, date: '2026-10-01' }, NOW)
+    setEmployeeEmergencyConsent(db, leitung, 1, anna, { consent: false }, NOW)
+    setMyEmergencyConsent(db, annaUser, true, NOW)
+    expect(names(unlock())).toEqual(['Anna'])
+    expect(db.select().from(employeeEmergencyConsentLog).all().map(row => `${row.source}:${row.granted}`))
+      .toEqual(['written:true', 'written:false', 'self:true'])
+  })
+
+  it('the employee sees their own contacts as colleagues would, without the note', () => {
+    expect(getMyEmergencyContacts(db, annaUser)).toEqual([
+      { name: 'Anton', relation: 'Ehemann', phone: '0171 111', phone2: '0171 222' },
+      { name: 'Antonia', relation: 'Schwester', phone: '0171 111', phone2: '' },
+    ])
+    expect(getMyEmergencyContacts(db, addUser(db, 'berta', 'observer', berta))).toEqual([])
+    expect(errorCode(() => getMyEmergencyContacts(db, addUser(db, 'leitung2', 'admin')))).toBe('no_employee')
   })
 
   it('needs an own account and an employee for the own switch', () => {

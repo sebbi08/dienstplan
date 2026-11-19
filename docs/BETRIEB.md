@@ -844,12 +844,34 @@ Im Reiter **Stammdaten** steht unter den Stammdaten der Abschnitt **„Notfallko
 Person im Dienst etwas passiert. Je Kontakt: **Name** und **Telefon** (beides Pflicht), **Beziehung** (z. B. „Ehemann“,
 „Mutter“), **Telefon 2** und ein **Hinweis** (z. B. „nur abends erreichbar“). Mit den Pfeilen ↑↓ legst du die
 Reihenfolge fest – **der erste Kontakt wird zuerst angerufen**. Sehen und ändern können die Notfallkontakte nur
-**Leitung und Träger**; Mitarbeiter sehen sie nirgends (auch nicht die eigenen), das Tablet nie. **„Notfallkontakte
+**Leitung und Träger**; Mitarbeiter sehen nur die eigenen (schreibgeschützt, unter „Meine Termine“), das Tablet
+zeigt sie nur mit Zustimmung (siehe unten). **„Notfallkontakte
 drucken“** (oben auf der Seite *Mitarbeiter* und im Abschnitt selbst) öffnet die Liste **„Notfallkontakte aller
 Mitarbeiter“** (A4 hochkant): alle, die nicht ausgeschieden sind, in der Reihenfolge der Mitarbeiter-Liste, je mit
 ihren Kontakten in der Anruf-Reihenfolge – wer keinen hat, steht mit „keine Notfallkontakte erfasst“ darin. Nach dem
 Ausscheiden gehören die Notfallkontakte zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem Ausscheiden,
 siehe „Löschfristen“).
+
+#### Notfallkontakte am Tablet nur mit Zustimmung
+
+Am Kita-Tablet sehen die Kolleginnen und Kollegen die Notfallkontakte einer Person **nur, wenn diese zugestimmt hat**
+(voreingestellt: nein). Die Liste **„Notfallkontakte Team“** erscheint erst nach dem Aufschließen mit Name und PIN (wie
+die Kinderdaten, mit derselben Sperrzeit): als Kachel unter „Kinder“ und als Knopf in der Leiste oben auf jeder
+aufgeschlossenen Seite. Sie zeigt nur Mitarbeiter der Einrichtung, die nicht ausgeschieden sind und mindestens einen
+Kontakt haben: Name, Kontakt, Beziehung und Telefonnummern zum Antippen – **nie den Hinweis**, nichts anderes.
+Ein Widerruf gilt sofort. Es wird nicht festgehalten, wer die Liste geöffnet hat.
+
+- **Mitarbeiter mit Konto** schalten unter **„Meine Termine“ → „Notfallkontakte am Tablet“** den Schalter „Meine
+  Notfallkontakte am Kita-Tablet zeigen“ selbst ein und aus; darunter sehen sie, welche Kontakte dann angezeigt würden.
+- **Leitung und Träger** tragen im Abschnitt „Notfallkontakte“ der Person ein: **„Zustimmung liegt schriftlich vor am
+  ‹Datum›“** (für Personen ohne Konto oder wenn die Zustimmung auf Papier gegeben wurde; das Datum darf nicht in der
+  Zukunft liegen) und bei Bedarf **„Widerruf schriftlich eintragen“**. Hat die Person selbst in der App zugestimmt, steht
+  dort „Zugestimmt am ‹Datum› (selbst)“ ohne Änderungsmöglichkeit: nur die Person selbst nimmt das zurück.
+- **Der Widerruf der Person gilt immer:** Hat sie in der App widerrufen, kann die Leitung die Zustimmung nicht wieder
+  einschalten, sondern nur eine **neue schriftliche Zustimmung mit einem späteren Datum** als dem Widerruf eintragen
+  (am Tag des Widerrufs selbst also noch nicht).
+- Jede Zustimmung und jeder Widerruf steht mit Wer und Wann in einem **Protokoll**, das nie geändert wird. Es wird mit der
+  Person gelöscht (Löschfristen, „Sofort“, mit den Notfallkontakten).
 
 ### Personalakte
 

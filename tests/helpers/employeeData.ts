@@ -80,13 +80,13 @@ export function fillEmployeeData(
     db.insert(employeeRequirements).values({ employeeId: id, typeId: requirementTypeId(db, 'first_aid'), date: '2026-03-01' }).run()
     db.insert(employeeTrainings).values({ employeeId: id, date: '2026-04-01', title: 'Sprachförderung' }).run()
     db.insert(employeeEmergencyContacts).values({ employeeId: id, name: 'Max Muster', relation: 'Ehemann', phone: '0171 1234567' }).run()
-    // The personnel file: payroll (immediate) and a document in each folder of the assessment category.
     db.insert(employeeEmergencyConsent).values({
       employeeId: id, consent: true, consentAt: now.toISOString(), consentDate: '2026-10-06', consentBy: 'self', source: 'self',
     }).run()
     db.insert(employeeEmergencyConsentLog).values({
       employeeId: id, granted: true, source: 'self', by: 'self', at: now.toISOString(), date: '2026-10-06',
     }).run()
+    // The personnel file: payroll (immediate) and a document in each folder of the assessment category.
     db.insert(employeePayroll).values({
       employeeId: id, taxId: '86095742719', taxClass: 1, svNumber: '15070649C103', healthInsurer: 'AOK', iban: 'DE89370400440532013000',
       accountHolder: 'Tina Test', denomination: 'rk',

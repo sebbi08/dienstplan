@@ -9,8 +9,10 @@ import { loadEmployees } from './queries'
 
 /**
  * Emergency contacts (Notfallkontakte) of the facility's employees, for Leitung and Träger only (the routes ask for
- * employees.view to read, employees.edit to write); nothing of it reaches the my/* pages or the tablet. The order is
- * the call order: the first contact is called first.
+ * employees.view to read, employees.edit to write). The employee sees their own list read-only in „Meins“ (name,
+ * relation, numbers), and colleagues see it at the unlocked tablet only if the employee consented
+ * (staffEmergencyConsent.ts); the note never leaves this service's routes. The order is the call order: the first
+ * contact is called first.
  */
 
 type ContactRow = typeof employeeEmergencyContacts.$inferSelect

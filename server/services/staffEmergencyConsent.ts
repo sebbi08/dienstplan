@@ -87,6 +87,17 @@ export function setMyEmergencyConsent(db: Db, user: SessionUser, consent: boolea
   return toDto(db, employeeId)
 }
 
+/**
+ * The employee's own emergency contacts exactly as colleagues would see them at the tablet (name, relation, phone numbers
+ * in call order; no note), so the employee knows what they consent to (403 no_employee without a linked employee).
+ */
+export function getMyEmergencyContacts(db: Db, user: SessionUser): TabletStaffEmergencyDto['contacts'] {
+  const employeeId = ownEmployeeId(db, user)
+  return db.select().from(employeeEmergencyContacts).where(eq(employeeEmergencyContacts.employeeId, employeeId))
+    .orderBy(asc(employeeEmergencyContacts.sortOrder), asc(employeeEmergencyContacts.id)).all()
+    .map(row => ({ name: row.name, relation: row.relation, phone: row.phone, phone2: row.phone2 }))
+}
+
 /** Leitung's and Träger's view of an employee of the facility (404 employee_not_found otherwise). */
 export function getEmployeeEmergencyConsent(db: Db, facilityId: number, employeeId: number): EmergencyConsentDto {
   assertEmployee(db, facilityId, employeeId)

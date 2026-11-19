@@ -16,6 +16,8 @@ const { data, error } = await useFetch<MyRequirementsDto>('/api/my/requirements'
   <div class="max-w-3xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.requirements.myTitle }}</h1>
     <p class="text-sm text-gray-500">{{ de.requirements.myHint }}</p>
+    <!-- The own consent that colleagues see the emergency contacts at the tablet: above the lists, independent of their data. -->
+    <EmployeesMyEmergencyConsent />
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <template v-if="data">
       <section class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
@@ -51,7 +53,5 @@ const { data, error } = await useFetch<MyRequirementsDto>('/api/my/requirements'
         </ul>
       </section>
     </template>
-    <!-- The own consent that colleagues see the emergency contacts at the tablet (shown for an employee with a linked account). -->
-    <EmployeesMyEmergencyConsent v-if="data" />
   </div>
 </template>
