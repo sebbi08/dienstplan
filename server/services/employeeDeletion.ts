@@ -210,11 +210,18 @@ const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
 ]
 /** The linked account: deleted, a Träger account only unlinked. */
 const ACCOUNT: EmployeeRows = { table: users, column: users.employeeId }
+/**
+ * The employee's Sonderurlaub entries that still carry a reason (key or text, often about relatives' health): the
+ * reason goes with the immediate data, the entry („Sonderurlaub“) stays with the time data for the hours account.
+ */
+const specialLeaveReasonsOf = (employeeId: number) => and(
+  eq(entries.employeeId, employeeId), or(isNotNull(entries.specialLeaveReason), isNotNull(entries.specialLeaveText)),
+)
 
 /**
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields, the personnel file's personal and
  * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), „Lohn und Steuer“,
- * the children with „alleinerziehend“, emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
+ * the children with „alleinerziehend“, the reasons of Sonderurlaub (the entries stay), emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
  * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
@@ -222,6 +229,7 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
   let changed = tx.update(employees).set(IMMEDIATE_FIELDS_CLEARED).where(immediateFieldsSet(employeeId)).run().changes
   changed += deleteRows(tx, employeeId, IMMEDIATE_ROWS)
   changed += clearRows(tx, employeeId, IMMEDIATE_CLEARED)
+  changed += tx.update(entries).set({ specialLeaveReason: null, specialLeaveText: null }).where(specialLeaveReasonsOf(employeeId)).run().changes
   const account = tx.select({ id: users.id, role: users.role }).from(users).where(rowsOf(employeeId, ACCOUNT)).get()
   if (account?.role === 'provider') {
     changed += tx.update(users).set({ employeeId: null }).where(eq(users.id, account.id)).run().changes
@@ -334,7 +342,8 @@ export function employeesWithPaidOvertimeData(db: Db, employeeIds: readonly numb
 export function categoryHasData(db: Db, employeeId: number): Record<RetentionCategory, boolean> {
   return {
     immediate: db.select({ id: employees.id }).from(employees).where(immediateFieldsSet(employeeId)).get() !== undefined
-      || anyRows(db, employeeId, [...IMMEDIATE_ROWS, ...IMMEDIATE_CLEARED, ACCOUNT]),
+      || anyRows(db, employeeId, [...IMMEDIATE_ROWS, ...IMMEDIATE_CLEARED, ACCOUNT])
+      || db.select({ id: entries.id }).from(entries).where(specialLeaveReasonsOf(employeeId)).limit(1).get() !== undefined,
     time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
     assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
     paidOvertime: hasPaidOvertimeData(db, employeeId),

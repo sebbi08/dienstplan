@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { entries } from '../../server/db/schema'
 import { getStaffYearCalendar } from '../../server/services/calendar'
+import { categoryHasData, deleteCategories } from '../../server/services/employeeDeletion'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount, getLeaveOverview } from '../../server/services/leave'
 import { enterLeave, removeLeave } from '../../server/services/leaveEntries'
@@ -59,7 +60,7 @@ describe('Sonderurlaub with its reason', () => {
     special('2026-11-16', '2026-11-16', 'birth')
     special('2026-11-17', '2026-11-18', 'other', 'Hochzeit')
     special('2026-11-19', '2026-11-19', null)
-    const ranges = getLeaveAccount(db, anna, 2026, today).entryRanges
+    const ranges = getLeaveAccount(db, anna, 2026, today, true).entryRanges
     expect(ranges).toEqual([
       { kind: 'special_leave', from: '2026-11-16', to: '2026-11-16', days: 1, reason: { key: 'birth', text: null } },
       { kind: 'special_leave', from: '2026-11-17', to: '2026-11-18', days: 2, reason: { key: 'other', text: 'Hochzeit' } },
@@ -68,6 +69,31 @@ describe('Sonderurlaub with its reason', () => {
     expect(getLeaveOverview(db, 1, 2026, today, true).find(row => row.employeeId === anna)!.entryRanges).toEqual(ranges)
     expect(removeLeave(db, leitung, 1, anna, { from: '2026-11-17', to: '2026-11-18', kind: 'special_leave' }, now)).toEqual({ removed: 2, keptClosureDays: 0 })
     expect(stored().map(row => row.date)).toEqual(['2026-11-16', '2026-11-19'])
+  })
+
+  it('updates the reason when the same period is entered again with one, and keeps it without one', () => {
+    special('2026-11-16', '2026-11-17', null)
+    expect(special('2026-11-16', '2026-11-18', 'death', 'Mutter')).toEqual({ booked: 1, keptAbsences: 0, reasonUpdated: 2 })
+    expect(stored().map(row => [row.reason, row.text])).toEqual([['death', 'Mutter'], ['death', 'Mutter'], ['death', 'Mutter']])
+    // Again without a reason: nothing changes.
+    expect(special('2026-11-16', '2026-11-18', null)).toEqual({ booked: 0, keptAbsences: 0 })
+    expect(stored().map(row => row.reason)).toEqual(['death', 'death', 'death'])
+  })
+
+  it('gives the reasons only to callers that ask for them (default: none)', () => {
+    special('2026-11-16', '2026-11-16', 'move')
+    expect(getLeaveAccount(db, anna, 2026, today).entryRanges).toEqual([{ kind: 'special_leave', from: '2026-11-16', to: '2026-11-16', days: 1 }])
+    expect(getLeaveOverview(db, 1, 2026, today)[0]!.entryRanges[0]).not.toHaveProperty('reason')
+  })
+
+  it('clears the reasons with the immediate data of a deleted employee; the days stay', () => {
+    special('2026-11-16', '2026-11-17', 'other', 'Erkrankung der Tochter')
+    expect(categoryHasData(db, anna).immediate).toBe(true)
+    db.transaction(tx => deleteCategories(tx, anna, ['immediate']))
+    expect(stored()).toEqual([
+      { date: '2026-11-16', reason: null, text: null }, { date: '2026-11-17', reason: null, text: null },
+    ])
+    expect(categoryHasData(db, anna).immediate).toBe(false)
   })
 
   it('never shows the reason without the right, in the plan, to colleagues or at the tablet', () => {

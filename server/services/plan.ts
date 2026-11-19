@@ -51,7 +51,7 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
  */
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
-  year: number, month: number, today: IsoDate, hours: DayHoursContext,
+  year: number, month: number, today: IsoDate, hours: DayHoursContext, showsChildSickEntitlement = true,
 ): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
@@ -134,8 +134,9 @@ function buildAdminData(
   })
   // The state's presence rules (Personalschlüssel) per group and time of day.
   warnings.push(...staffingWarnings(db, facilityId, year, month))
-  // More „Kind krank“ days than the entitlement of the year (§ 45 SGB V): a hint on the person's last such day.
-  warnings.push(...childSickWarnings(db, staff, year, month))
+  // More „Kind krank“ days than the entitlement of the year (§ 45 SGB V): a hint on the person's last such day; the
+  // numbers (they tell the children and „alleinerziehend“) only for viewers of the personal data.
+  warnings.push(...childSickWarnings(db, staff, year, month, showsChildSickEntitlement))
 
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
@@ -306,7 +307,10 @@ export function getMonthPlan(
     const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
     const helpers = listHelpers(db, facilityId, year, month)
     admin = {
-      ...buildAdminData(db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours),
+      ...buildAdminData(
+        db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours,
+        can(viewer.permissions, 'employees.personal'),
+      ),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],
     }

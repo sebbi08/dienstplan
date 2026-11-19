@@ -229,8 +229,10 @@ export const employeeChildrenSchema = z.object({
   })).max(50),
 })
 /** Kinderkrankentage; the ranges are the service's (400 child_sick_settings_invalid). */
+const settingsDays = z.union([z.number(), z.string().max(10)])
 export const childSickSettingsSchema = z.object({
-  perChild: z.number(), maxPerYear: z.number(), singleParentPerChild: z.number(), singleParentMax: z.number(),
+  // An emptied field comes as '' and is refused by the service with its own message (not as a generic 400).
+  perChild: settingsDays, maxPerYear: settingsDays, singleParentPerChild: settingsDays, singleParentMax: settingsDays,
 })
 
 /** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */

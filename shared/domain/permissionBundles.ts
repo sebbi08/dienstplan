@@ -101,7 +101,7 @@ const SPECS: readonly Spec[] = [
   bundle('timeManage', 'time', 'alle Zeiten und Stundenkonten verwalten', ['time.manage']),
 
   bundle('employeesView', 'employees', 'ansehen (inkl. Urlaubsübersicht aller)', ['employees.view', 'leave.overview']),
-  bundle('employeesEdit', 'employees', 'pflegen (inkl. Krankheitstage)', ['employees.edit', 'employees.sickness']),
+  bundle('employeesEdit', 'employees', 'pflegen (inkl. Krankheitstage, Kinderkrankentage, Begründungen für Sonderurlaub)', ['employees.edit', 'employees.sickness']),
   bundle('contractView', 'employees', 'Vertragsangaben ansehen', ['employees.contractView']),
   bundle('contractEdit', 'employees', 'Vertragsangaben bearbeiten', ['employees.contractEdit']),
   bundle('employeesDelete', 'employees', 'ausgeschiedene endgültig löschen', ['employees.delete']),

@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, lte } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { dateRange } from '../../shared/domain/dates'
 import { checkedSpecialLeaveReason } from '../../shared/domain/specialLeave'
 import { employmentStart } from '../../shared/domain/targets'
@@ -35,7 +35,8 @@ function checkRange(from: IsoDate, to: IsoDate): void {
  * first weekly hours on: 400 leave_before_employment), as approving a leave request does (planLeaveBooking): only the
  * person's working days outside closures (400 no_leave_days when the range has none), other full-day absences kept,
  * days with the same leave left as they are. Duties on the days need `overwrite` (409 cells_occupied with the number
- * of days, nothing written). Written like any plan edit (change log of released months).
+ * of days, nothing written). Written like any plan edit (change log of released months). Sonderurlaub with a reason
+ * also gives that reason to the days of the range that already hold Sonderurlaub (`reasonUpdated`).
  */
 export function enterLeave(
   db: Db, actor: SessionUser, facilityId: number, employeeId: number,
@@ -57,9 +58,35 @@ export function enterLeave(
   if (booking.occupiedDays > 0 && !input.overwrite) {
     throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays, entries: booking.occupiedByOtherEntries })
   }
-  db.transaction(tx => bookLeaveDays(tx, actor, facilityId, employeeId, booking.days, input.kind, now,
-    reason ? { specialLeaveReason: reason.reason, specialLeaveText: reason.text } : {}))
-  return { booked: booking.days.length, keptAbsences: booking.keptAbsences }
+  const reasonUpdated = db.transaction((tx) => {
+    bookLeaveDays(tx, actor, facilityId, employeeId, booking.days, input.kind, now,
+      reason ? { specialLeaveReason: reason.reason, specialLeaveText: reason.text } : {})
+    return reason && (reason.reason !== null || reason.text !== null)
+      ? updateSpecialLeaveReason(tx, employeeId, booking.requested.filter(date => !booking.days.includes(date)), reason)
+      : 0
+  })
+  return { booked: booking.days.length, keptAbsences: booking.keptAbsences, ...(reasonUpdated ? { reasonUpdated } : {}) }
+}
+
+/**
+ * Re-entering a period that already holds Sonderurlaub with a reason gives its days that reason (the plan's own
+ * Sonderurlaub entries, not a closure's); answers the number of days changed. Not part of the plan's change log: the
+ * plan shows only „Sonderurlaub“.
+ */
+function updateSpecialLeaveReason(
+  db: Db, employeeId: number, dates: IsoDate[], reason: { reason: string | null; text: string | null },
+): number {
+  if (dates.length === 0) return 0
+  const ids = db.select({ id: entries.id, date: entries.date })
+    .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
+    .where(and(
+      eq(entries.employeeId, employeeId), eq(absenceCodes.key, 'special_leave'), isNull(entries.helpFacilityId),
+      isNull(entries.closureId), inArray(entries.date, dates),
+    )).all()
+  if (ids.length === 0) return 0
+  db.update(entries).set({ specialLeaveReason: reason.reason, specialLeaveText: reason.text })
+    .where(inArray(entries.id, ids.map(row => row.id))).run()
+  return new Set(ids.map(row => row.date)).size
 }
 
 /**

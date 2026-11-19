@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { de } from '../../app/locales/de'
+import { specialDays, specialLeaveReasonText, specialRanges } from '../../app/utils/specialLeave'
 import { checkedSpecialLeaveReason, SPECIAL_LEAVE_REASONS } from '../../shared/domain/specialLeave'
+import type { LeaveEntryRange } from '../../shared/types/api'
+
+describe('the Sonderurlaub list of a leave account', () => {
+  const ranges: LeaveEntryRange[] = [
+    { kind: 'vacation', from: '2026-11-02', to: '2026-11-03', days: 2 },
+    { kind: 'special_leave', from: '2026-11-16', to: '2026-11-16', days: 1, reason: { key: 'move', text: 'nach Köln' } },
+    { kind: 'special_leave', from: '2026-11-18', to: '2026-11-19', days: 2, reason: { key: null, text: null } },
+    { kind: 'special_leave', from: '2026-11-23', to: '2026-11-23', days: 1 },
+  ]
+  it('takes the Sonderurlaub periods with their days and reason texts', () => {
+    expect(specialRanges(ranges)).toHaveLength(3)
+    expect(specialDays(ranges)).toBe(4)
+    expect(specialRanges(ranges).map(specialLeaveReasonText)).toEqual(['Umzug aus dienstlichem Grund (1 Tag) – nach Köln', '', ''])
+  })
+})
 
 describe('Sonderurlaub reasons (TVöD § 29)', () => {
   it('lists the common reasons with their usual days, „Sonstiges“ last', () => {

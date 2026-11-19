@@ -1935,6 +1935,8 @@ export interface LeaveEntryRange extends LeaveRange {
 export interface LeaveEntryResultDto {
   booked: number
   keptAbsences: number
+  /** Sonderurlaub entered again with a reason: the days that already held it and got the new reason (missing = none). */
+  reasonUpdated?: number
 }
 
 /** A removed leave period: the days removed, and the days of the period booked by a closure (they stay). */

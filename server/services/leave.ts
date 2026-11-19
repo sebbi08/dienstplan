@@ -48,7 +48,7 @@ export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number):
  * The leave account of one employee (whatever facility they belong to; callers check access). The reasons of
  * Sonderurlaub only with `withReasons`: for Leitung and Träger (employees.sickness) and the employee themselves.
  */
-export function getLeaveAccount(db: Db, employeeId: number, year: number, today: IsoDate, withReasons = true): LeaveAccountDto {
+export function getLeaveAccount(db: Db, employeeId: number, year: number, today: IsoDate, withReasons = false): LeaveAccountDto {
   const employee = loadEmployee(db, employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const isLeaveDay = leaveDayRule(employee)

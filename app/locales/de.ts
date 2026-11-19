@@ -439,6 +439,8 @@ export const de = {
       `${name}: nur ${duration} Std. Ruhezeit zwischen ${from} (${fromDay}) und ${to} (${toDay}) – mindestens 11 Std. (§ 5 ArbZG)`,
     /** More „Kind krank“ days than the entitlement, only a hint: „Anna: 16 Kinderkrankentage – Anspruch 15 (§ 45 SGB V)“. */
     childSickDays: (name: string, taken: number, entitlement: number) => `${name}: ${taken} Kinderkrankentage – Anspruch ${entitlement} (§ 45 SGB V)`,
+    /** The same without the numbers, for plan editors without the personal data. */
+    childSickDaysOver: (name: string) => `${name}: Kinderkrankentage über dem Anspruch (§ 45 SGB V)`,
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
@@ -504,7 +506,7 @@ export const de = {
     reason: 'Begründung',
     reasonNone: 'ohne Begründung',
     text: 'Begründung (Freitext)',
-    textHint: 'Bei „Sonstiges“ bitte angeben, sonst freiwillig. Sieht nur die Leitung, der Träger und die Person selbst.',
+    textHint: 'Bei „Sonstiges“ bitte angeben, sonst freiwillig. Das sehen nur die Leitung, der Träger und die Person selbst.',
     reasons: {
       birth: 'Niederkunft der Ehefrau/Lebenspartnerin (1 Tag)',
       death: 'Tod von Ehegatte/Lebenspartner, Kind oder Elternteil (2 Tage)',
@@ -515,6 +517,8 @@ export const de = {
       carer_ill: 'Schwere Erkrankung der Betreuungsperson eines Kindes unter 8 (bis 4 Tage im Jahr)',
       other: 'Sonstiges',
     },
+    /** Re-entering a period that already holds Sonderurlaub with a reason: the reason of its days is replaced. */
+    reasonUpdated: (count: number) => `Begründung für ${count === 1 ? '1 Tag' : `${count} Tage`} Sonderurlaub aktualisiert.`,
     /** „Urlaub & Zeiten“: „Sonderurlaub 2026: 3 Tage“ with each period and its reason. */
     yearTitle: (year: number, days: string) => `Sonderurlaub ${year}: ${days}`,
   },
@@ -761,7 +765,7 @@ export const de = {
     sickYear: (year: number, taken: number, entitlement: number) => `Kinderkrankentage ${year}: ${taken} von ${entitlement} genommen`,
     sickYearHint: 'Nach § 45 SGB V; der Anspruch richtet sich nach den Kindern unter 12 (oder mit Behinderung) und „alleinerziehend“.',
     // The plan's dialog for „Kind krank“.
-    dialogTitle: 'Kind krank',
+    loading: 'Kinder werden geladen …',
     whichChild: 'Welches Kind?',
     noChild: 'nicht angeben',
     noEligible: 'Für diese Person sind keine Kinder unter 12 Jahren (oder mit Behinderung) eingetragen. Du kannst „Kind krank“ trotzdem eintragen.',

@@ -22,6 +22,8 @@ describe('warning texts', () => {
   it('words more Kinderkrankentage than the entitlement and marks the person\'s cell', () => {
     const warning: Warning = { type: 'child_sick_days', date: '2026-10-05', employeeId: 1, taken: 16, entitlement: 15 }
     expect(warningText(warning, names)).toBe('Anna: 16 Kinderkrankentage – Anspruch 15 (§ 45 SGB V)')
+    // For plan editors who may not see the children: without the numbers.
+    expect(warningText({ ...warning, taken: null, entitlement: null }, names)).toBe('Anna: Kinderkrankentage über dem Anspruch (§ 45 SGB V)')
     expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])
   })
 })

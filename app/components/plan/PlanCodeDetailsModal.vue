@@ -64,7 +64,7 @@ function submit() {
     <template #body>
       <form class="space-y-3" @submit.prevent="submit">
         <template v-if="code?.key === 'child_sick'">
-          <p v-if="loading" class="text-sm text-gray-500">{{ de.personnel.payroll.loading }}</p>
+          <p v-if="loading" class="text-sm text-gray-500">{{ t.loading }}</p>
           <p v-else-if="!eligible.length" class="text-sm text-gray-500">{{ t.noEligible }}</p>
           <UFormField v-else :label="t.whichChild">
             <USelect v-model="childId" :items="childItems" class="w-full" />

@@ -115,8 +115,13 @@ export function getChildSickSettings(db: Db): ChildSickSettingsDto {
   }
 }
 
-/** Stores the values: whole days 0–365, each maximum at least one child's days (400 child_sick_settings_invalid). */
-export function setChildSickSettings(db: Db, input: ChildSickSettingsDto): ChildSickSettingsDto {
+/**
+ * Stores the values: whole days 0–365, each maximum at least one child's days (400 child_sick_settings_invalid, also
+ * for an emptied field, which comes as text).
+ */
+export function setChildSickSettings(
+  db: Db, input: Record<keyof ChildSickSettingsDto, number | string>,
+): ChildSickSettingsDto {
   const settings = Object.fromEntries(CHILD_SICK_SETTING_KEYS.map(key => [key, input[key]])) as unknown as ChildSickSettings
   const error = childSickSettingsError(settings)
   if (error) throw new ServiceError(400, error)
@@ -174,9 +179,12 @@ export function getChildSickYear(db: Db, facilityId: number, employeeId: number,
 /**
  * Plan warnings for more „Kind krank“ days than the entitlement (§ 45 SGB V), never blocking: per employee of `staff`
  * one on the last „Kind krank“ day of the month, when the working days with it from 1 January to that day exceed the
- * entitlement of the year (`taken` counted to that day).
+ * entitlement of the year (`taken` counted to that day). Without `withNumbers` (a viewer without the personal data)
+ * the warning leaves out the days and the entitlement, which tell the children and „alleinerziehend“.
  */
-export function childSickWarnings(db: Db, staff: readonly EmployeeRecord[], year: number, month: number): Warning[] {
+export function childSickWarnings(
+  db: Db, staff: readonly EmployeeRecord[], year: number, month: number, withNumbers = true,
+): Warning[] {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-31`
   const ids = staff.map(employee => employee.id)
@@ -192,7 +200,9 @@ export function childSickWarnings(db: Db, staff: readonly EmployeeRecord[], year
     if (last === undefined || last < monthStart || !isEmployedOn(employee.info, last)) continue
     const entitlement = childSickEntitlement(children.get(employee.id) ?? [], single.has(employee.id), year, settings).days
     if (days.length > entitlement) {
-      warnings.push({ type: 'child_sick_days', date: last, employeeId: employee.id, taken: days.length, entitlement })
+      warnings.push(withNumbers
+        ? { type: 'child_sick_days', date: last, employeeId: employee.id, taken: days.length, entitlement }
+        : { type: 'child_sick_days', date: last, employeeId: employee.id, taken: null, entitlement: null })
     }
   }
   return warnings

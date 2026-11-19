@@ -7,6 +7,7 @@ import { de } from '~/locales/de'
  * period was already entered, or only kept absences remain.
  */
 export function leaveEntryToast(result: LeaveEntryResultDto, kind: string): { title: string; color: 'success' | 'neutral' } {
+  if (result.booked === 0 && result.reasonUpdated) return { title: de.specialLeave.reasonUpdated(result.reasonUpdated), color: 'success' }
   if (result.booked === 0) {
     return { title: result.keptAbsences ? de.leaveEntry.nothingKept(result.keptAbsences, kind) : de.leaveEntry.alreadyEntered, color: 'neutral' }
   }

@@ -7,5 +7,6 @@ export default defineServiceHandler(async (event) => {
   const user = await requireUser(event)
   if (user.employeeId === null) throw new ServiceError(403, 'no_employee')
   const { year } = await getValidatedQuery(event, yearQuery.parse)
-  return getLeaveAccount(useDb(), user.employeeId, year, todayIso())
+  // The own Sonderurlaub with its reasons (only the employee themselves, from the session).
+  return getLeaveAccount(useDb(), user.employeeId, year, todayIso(), true)
 })

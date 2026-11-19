@@ -169,6 +169,8 @@ describe('Kinderkrankentage per year', () => {
     expect(getChildSickSettings(db)).toEqual(CHILD_SICK_DEFAULTS)
     expect(errorCode(() => setChildSickSettings(db, { ...CHILD_SICK_DEFAULTS, perChild: 2.5 }))).toBe('child_sick_settings_invalid')
     expect(errorCode(() => setChildSickSettings(db, { ...CHILD_SICK_DEFAULTS, singleParentMax: 10 }))).toBe('child_sick_settings_invalid')
+    // An emptied field (sent as '') gets the same message, not a generic error.
+    expect(errorCode(() => setChildSickSettings(db, { ...CHILD_SICK_DEFAULTS, maxPerYear: '' }))).toBe('child_sick_settings_invalid')
     expect(getChildSickSettings(db)).toEqual(CHILD_SICK_DEFAULTS)
     expect(setChildSickSettings(db, { perChild: 20, maxPerYear: 40, singleParentPerChild: 40, singleParentMax: 80 }))
       .toEqual({ perChild: 20, maxPerYear: 40, singleParentPerChild: 40, singleParentMax: 80 })
@@ -189,6 +191,17 @@ describe('Kinderkrankentage per year', () => {
     // Without eligible children every day is over.
     save({ singleParent: false, children: [] })
     expect(warnings(10)).toEqual([{ type: 'child_sick_days', date: '2026-10-30', employeeId: anna, taken: 2, entitlement: 0 }])
+  })
+
+  it('leaves the numbers out of the warning for plan editors who may not see the children', () => {
+    save({ singleParent: true, children: [child('2020-05-04')] })
+    for (const date of ['2026-11-02', '2026-11-03', '2026-11-04']) childSick(date)
+    setChildSickSettings(db, { perChild: 1, maxPerYear: 35, singleParentPerChild: 2, singleParentMax: 70 })
+    const editor: SessionUser = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.personal')) }
+    const of = (viewer: SessionUser) => getMonthPlan(db, viewer, 1, 2026, 11, today).admin!.warnings
+      .filter(warning => warning.type === 'child_sick_days')
+    expect(of(leitung)).toEqual([{ type: 'child_sick_days', date: '2026-11-04', employeeId: anna, taken: 3, entitlement: 2 }])
+    expect(of(editor)).toEqual([{ type: 'child_sick_days', date: '2026-11-04', employeeId: anna, taken: null, entitlement: null }])
   })
 })
 

@@ -42,7 +42,8 @@ export function warningSignature(warning: Warning): string {
     case 'short_rest_recorded':
       return `${warning.from}-${warning.to}`
     case 'child_sick_days':
-      return `${warning.taken}/${warning.entitlement}`
+      // The same for every viewer (only some see the numbers); a further day moves the warning to that day's key.
+      return ''
     default:
       return ''
   }

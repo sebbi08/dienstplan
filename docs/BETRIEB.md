@@ -763,7 +763,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und alles aus „Lohn und Steuer“; als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“ |
@@ -1435,6 +1435,52 @@ Dienstbeginn: wer zu Beginn des ÜF geht (oder am Ende eines ÜF am Morgen kommt
 
 Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes ändern; der Code selbst bleibt
 Überstundenfrei (z. B. für Urlaubsanträge).
+
+### Kinder der Mitarbeiter, „Kind krank“ und Kinderkrankentage
+
+- **Kinder:** In der Personalakte (Reiter „Stammdaten“, Abschnitt **„Kinder“**) stehen die Kinder einer Person mit
+  Geburtsdatum, freiwilligem Vornamen und „Kind mit Behinderung, auf Hilfe angewiesen“, dazu **„alleinerziehend“**. Es
+  gelten dieselben Rechte wie für Anschrift und Kontakt: Sehen mit dem Recht „Anschrift und Kontakt“, Ändern zusätzlich
+  mit „Mitarbeiter pflegen“. „Bearbeiten“ öffnet das Formular, gespeichert wird der ganze Abschnitt auf einmal.
+- **Pflegeversicherung:** In „Lohn und Steuer“ stehen darunter, nur zum Lesen, **„Elterneigenschaft: ja/nein“** und
+  **„Kinder unter 25 Jahren“** (Stand heute) für den Kinderlosenzuschlag und den Beitragsabschlag ab dem 2. Kind.
+- **„Kind krank“** ist ein Code direkt hinter Krank. Er schreibt wie Krank das Tagessoll gut (keine Minusstunden) und
+  hat keine Uhrzeit. Im Dienstplan fragt ein kleines Fenster **„Welches Kind?“** (freiwillig; nur bei einer Person und
+  nur für alle, die die Kinder sehen dürfen). Angeboten werden die Kinder, die am ersten gewählten Tag unter 12 sind oder eine
+  Behinderung haben. Im Jahreskalender erscheint „Kind krank“ wie Krank; Kollegen sehen es dort nicht. Im Kalender und
+  in der Zeiterfassung lässt es sich wie Krank eintragen und entfernen (dort ohne Kind).
+- **Kinderkrankentage (§ 45 SGB V):** Die Werte stellt der Träger unter *Einstellungen → Personal → Kinderkrankentage*
+  für alle Einrichtungen ein (Vorgabe: 15 pro Kind, höchstens 35; alleinerziehend 30 pro Kind, höchstens 70). Die Leitung
+  sieht sie nur. Die Werte ändern sich ab und zu per Gesetz; der Hinweis „Bitte prüfen, ob diese Werte für das Jahr noch
+  gelten (Krankenkasse/Lohnabrechnung).“ erinnert daran.
+  - Es zählen die Kinder, die an mindestens einem Tag des Jahres unter 12 sind, und Kinder mit Behinderung, die auf
+    Hilfe angewiesen sind. Anspruch = Tage pro Kind × Zahl der Kinder, aber höchstens der Höchstwert.
+  - Genommen sind die **Arbeitstage** der Person mit „Kind krank“ im Jahr, geplante und vergangene.
+  - Unter „Urlaub & Zeiten“ steht „Kinderkrankentage ‹Jahr›: ‹genommen› von ‹Anspruch› genommen“, nur wenn die Person
+    solche Kinder hat oder Tage genommen hat, und nur mit dem Recht für die Krankheitstage („Mitarbeiter pflegen“).
+  - Sind es mehr Tage als der Anspruch, zeigt der Dienstplan am letzten „Kind krank“-Tag des Monats die Warnung
+    „‹Name›: ‹n› Kinderkrankentage – Anspruch ‹m› (§ 45 SGB V)“. Wer den Dienstplan bearbeitet, aber die Kinder nicht sehen
+    darf, liest nur „‹Name›: Kinderkrankentage über dem Anspruch (§ 45 SGB V)“. Eintragen wird nie verhindert.
+
+### Sonderurlaub mit Begründung
+
+Beim Eintragen von **Sonderurlaub** (im Dienstplan und unter „Urlaub eintragen“) gibt es das Feld **„Begründung“**:
+eine Auswahl der üblichen Gründe nach TVöD § 29 mit den üblichen Tagen (z. B. „Umzug aus dienstlichem Grund (1 Tag)“)
+oder „Sonstiges“ mit Freitext (höchstens 200 Zeichen). Ein Freitext geht bei jedem Grund.
+
+- **Wer die Begründung sieht:** die Leitung und der Träger (genauer: wer das Recht für die Krankheitstage hat, Baustein
+  „Mitarbeiter pflegen“) unter „Urlaub & Zeiten“ bei **„Sonderurlaub ‹Jahr›: ‹n› Tage“**, und die Person selbst unter
+  „Mein Urlaub“. Der Dienstplan, das Tablet und die Kollegen sehen nur „Sonderurlaub“.
+- **Ändern:** Denselben Zeitraum mit einer Begründung noch einmal eintragen – dann bekommen die Tage die neue Begründung.
+  Entfernen geht wie bisher mit „Entfernen“.
+- **Löschen:** Die Begründungen gehen mit den persönlichen Daten (Kategorie „Sofort“), die Sonderurlaubstage bleiben für
+  das Stundenkonto bei den Zeitdaten.
+
+**Hinweis zur Datenbank (Migration 0086):** Die Migration 0086 („Kinder der Mitarbeiter“) wurde nach 0087 gespeichert.
+Ihr Zeitstempel liegt deshalb zwischen 0087 und 0088, damit eine Datenbank, die 0087 schon hatte, 0086 noch nachholt.
+Eine Datenbank, die 0088 vor 0086 bekommen hätte (nur aus einem unfertigen Zwischenstand möglich), würde 0086 überspringen:
+dann fehlen die Tabelle „employee_children“ und die Spalte „entries.employee_child_id“. Aus dem gespeicherten Stand der
+Versionsverwaltung kann das nicht passieren.
 
 ## 22. Warnungen im Dienstplan (die Liste rechts)
 

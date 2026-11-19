@@ -5,6 +5,7 @@ import { de } from '~/locales/de'
 import { showsComingYear } from '~/utils/comingYear'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatNumber } from '~/utils/format'
+import { specialDays, specialLeaveReasonText, specialRanges } from '~/utils/specialLeave'
 
 const today = todayIso()
 const year = ref(parseIsoDate(today).year)
@@ -77,6 +78,16 @@ const blocks = computed(() => {
             <li v-for="range in block.dto.ranges" :key="range.from" class="flex justify-between py-1.5">
               <span>{{ range.from === range.to ? formatDate(range.from) : `${formatDate(range.from)} – ${formatDate(range.to)}` }}</span>
               <span class="text-gray-500">{{ de.leave.days(range.days) }} · {{ range.to < today ? de.leave.rangeTaken : de.leave.rangePlanned }}</span>
+            </li>
+          </ul>
+        </section>
+        <!-- The own Sonderurlaub with its reasons (only the person themselves sees them here). -->
+        <section v-if="specialRanges(block.dto.entryRanges).length" class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+          <h3 class="mb-2 font-semibold">{{ de.specialLeave.yearTitle(block.dto.year, de.leave.days(specialDays(block.dto.entryRanges))) }}</h3>
+          <ul class="divide-y divide-gray-100 text-sm">
+            <li v-for="range in specialRanges(block.dto.entryRanges)" :key="range.from" class="flex flex-wrap justify-between gap-x-3 py-1.5">
+              <span>{{ range.from === range.to ? formatDate(range.from) : `${formatDate(range.from)} – ${formatDate(range.to)}` }}</span>
+              <span class="text-gray-500">{{ de.leave.days(range.days) }}<template v-if="specialLeaveReasonText(range)"> · {{ specialLeaveReasonText(range) }}</template></span>
             </li>
           </ul>
         </section>

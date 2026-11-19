@@ -3,7 +3,6 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PIN_LENGTH, isValidPin, mayManagePins } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
-import { isSpecialLeaveReason } from '#shared/domain/specialLeave'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
@@ -12,6 +11,7 @@ import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { showsComingYear } from '~/utils/comingYear'
 import { leaveRemovalQuestion } from '~/utils/leaveEntry'
+import { otherRanges, specialDays, specialLeaveReasonText, specialRanges } from '~/utils/specialLeave'
 import {
   NO_QUALIFICATION, masterFieldsOf, masterUpdate, qualificationFieldsOf, qualificationUpdate, qualificationValue, reloadedFields,
   type MasterFields, type QualificationFields,
@@ -102,15 +102,6 @@ function openLeaveEntry(block: { year: number; coming: boolean }) {
   Object.assign(leaveEntry, block.coming
     ? { open: true, min: `${block.year}-01-01`, max: `${block.year}-12-31` }
     : { open: true, min: undefined, max: undefined })
-}
-/** The listed periods without Sonderurlaub, which has its own list with the reasons. */
-const otherRanges = (ranges: LeaveEntryRange[]) => ranges.filter(range => range.kind !== 'special_leave')
-const specialRanges = (ranges: LeaveEntryRange[]) => ranges.filter(range => range.kind === 'special_leave')
-/** „Umzug aus dienstlichem Grund (1 Tag) – Text“; empty without a reason (or without the right to see it). */
-function reasonText(range: LeaveEntryRange): string {
-  const key = range.reason?.key
-  const label = key && isSpecialLeaveReason(key) ? de.specialLeave.reasons[key] : ''
-  return [label, range.reason?.text ?? ''].filter(Boolean).join(' – ')
 }
 /** „Entfernen“ of a listed period: only its entries of that kind; the leave of closures stays (the server counts it). */
 async function removeLeaveRange(range: LeaveEntryRange) {
@@ -684,12 +675,12 @@ async function onTabKey(event: KeyboardEvent) {
         <!-- Sonderurlaub with its reason (the reason only for Leitung and Träger: the server leaves it out otherwise). -->
         <div v-if="specialRanges(block.entries).length" class="pt-1">
           <p class="text-xs font-medium text-gray-500">
-            {{ de.specialLeave.yearTitle(block.year, de.leave.days(specialRanges(block.entries).reduce((sum, range) => sum + range.days, 0))) }}
+            {{ de.specialLeave.yearTitle(block.year, de.leave.days(specialDays(block.entries))) }}
           </p>
           <ul>
             <li v-for="range in specialRanges(block.entries)" :key="`${range.kind}-${range.from}`" class="flex flex-wrap items-center gap-x-2">
               <span>{{ formatDate(range.from) }}–{{ formatDate(range.to) }}</span>
-              <span class="text-gray-500">{{ de.leave.days(range.days) }}<template v-if="reasonText(range)">, {{ reasonText(range) }}</template></span>
+              <span class="text-gray-500">{{ de.leave.days(range.days) }}<template v-if="specialLeaveReasonText(range)">, {{ specialLeaveReasonText(range) }}</template></span>
               <UButton v-if="canEnterLeave" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.leaveEntry.remove" @click="removeLeaveRange(range)" />
             </li>
           </ul>

@@ -58,7 +58,7 @@ describe('year calendar and sick days', () => {
     // Überstundenfrei is entered like Urlaub/Krank: no "replace?" question for it.
     expect(calendar.otherEntries[berta]).toEqual(['2026-10-14', '2026-10-15'])
     expect(calendar.otherEntries[anna]).toEqual([])
-    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'overtime_off', 'special_leave', 'sick', 'training', 'school'])
+    expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'overtime_off', 'special_leave', 'sick', 'child_sick', 'training', 'school'])
   })
   it('manages appointments of the year', () => {
     const elternabend = createCalendarEvent(db, 1, { date: '2026-10-14', start: 1140, end: 1260, title: '  Elternabend ', visibleToStaff: true })

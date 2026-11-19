@@ -26,7 +26,8 @@ const editing = ref(false)
 
 onMounted(() => {
   watch(() => props.active, (active) => {
-    if (active && status.value === 'idle') void execute()
+    // Again on every opening: the parent status follows children saved meanwhile.
+    if (active) void (status.value === 'idle' ? execute() : refresh())
     if (!active) {
       hideAll()
       editing.value = false
