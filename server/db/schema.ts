@@ -37,6 +37,14 @@ export const facilities = sqliteTable('facilities', {
   leaveMaxConcurrent: integer('leave_max_concurrent'),
   /** A leave day on 24 or 31 December counts as half a day (leave account, requests, closures); only the Träger sets it. */
   christmasEveHalfLeave: integer('christmas_eve_half_leave', { mode: 'boolean' }).notNull().default(false),
+  /**
+   * Remaining leave of a year lapses on this day of the year after (January to September; default 31.03.). Leitung and
+   * Träger set it; the notice on remaining leave (shared/domain/leaveForfeit.ts) names it.
+   */
+  leaveForfeitDay: integer('leave_forfeit_day').notNull().default(31),
+  leaveForfeitMonth: integer('leave_forfeit_month').notNull().default(3),
+  /** The facility's own text of that notice with ‹Tage›, ‹Jahr›, ‹Verfall› (null = DEFAULT_LEAVE_FORFEIT_TEXT). */
+  leaveForfeitText: text('leave_forfeit_text'),
   /** School cutoff (Stichtag): a child is of school age when it reaches `schoolAgeYears` on or before this day of the year. */
   schoolCutoffMonth: integer('school_cutoff_month').notNull().default(6),
   schoolCutoffDay: integer('school_cutoff_day').notNull().default(30),
@@ -511,6 +519,22 @@ export const leaveRequests = sqliteTable('leave_requests', {
   decidedBy: integer('decided_by').references(() => users.id, { onDelete: 'set null' }),
   decisionNote: text('decision_note').notNull().default(''),
 }, table => [index('leave_requests_employee').on(table.employeeId), index('leave_requests_status').on(table.status)])
+
+/**
+ * „Gelesen“ on the notice on remaining leave (server/services/leaveForfeit.ts): once per employee and year, with the
+ * days and the very text shown, as evidence that the employee was told. Never changed afterwards.
+ */
+export const leaveForfeitReceipts = sqliteTable('leave_forfeit_receipts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  /** The year the remaining leave comes from. */
+  year: integer('year').notNull(),
+  days: real('days').notNull(),
+  text: text('text').notNull(),
+  readAt: text('read_at').notNull(),
+  /** The account that clicked „Gelesen“ (the employee's own). */
+  readBy: integer('read_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [uniqueIndex('leave_forfeit_receipts_employee_year').on(table.employeeId, table.year)])
 
 /**
  * Accounts (Träger/Leitung) the Träger made responsible for leave planning: who gets the notifications. Since the
