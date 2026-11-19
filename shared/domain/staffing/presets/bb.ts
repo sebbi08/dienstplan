@@ -28,8 +28,8 @@ function demand(u3ChildrenPerFte: number): DemandRule[] {
 }
 
 /** The 80 % Fachkraft quota (KitaPersV § 16) over the given qualifications. */
-const fachkraftquote = (qualifications: Qualification[]): StaffingRuleSet['quotas'] => [{
-  key: 'fachkraftquote', label: 'Fachkräfte', kind: 'min_share', qualifications, pct: 80, base: 'required',
+const fachkraftquote = (label: string, qualifications: Qualification[]): StaffingRuleSet['quotas'] => [{
+  key: 'fachkraftquote', label, kind: 'min_share', qualifications, pct: 80, base: 'required',
 }]
 
 const current: StaffingRuleSet = {
@@ -50,29 +50,34 @@ const current: StaffingRuleSet = {
   ],
   presence: [],
   staffShares: shares({ ergaenzung: 80, azubi_1: 70, azubi_2: 70, azubi_3: 70 }),
-  quotas: fachkraftquote(['fachkraft']),
+  quotas: fachkraftquote('Fachkräfte', ['fachkraft']),
 }
 
+/**
+ * The corrected values of 01.11.2026 without the `correction` flag: it is set only in the list, so the later law version
+ * built from this object cannot inherit it.
+ */
 const revised: StaffingRuleSet = {
   ...current,
   validFrom: TRAINEES_REVISED,
-  correction: true,
   source: 'KitaG Brandenburg § 10 Abs. 1 (zuletzt geändert 23.06.2025); KitaPersV §§ 3, 5, 9, 15–17; MBJS-FAQ zur '
     + 'Kita-Personalverordnung',
   note: `${TRAINEES} Beginn der Fassung vom 23.06.2025 nicht recherchiert. ${BASE_NOTE}`,
   staffShares: shares({ ergaenzung: 80, azubi_1: 70, azubi_2: 70, azubi_3: 70, studium_1: 70, studium_2: 70, studium_3: 70 }),
-  quotas: fachkraftquote(['fachkraft', 'azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3']),
+  quotas: fachkraftquote(
+    'Fachkräfte (inkl. tätigkeitsbegleitende Qualifizierung)',
+    ['fachkraft', 'azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3'],
+  ),
 }
 
 /** Brandenburg: Stellen je Kinderzahl nach Alter und Betreuungszeit (KitaG § 10, KitaPersV). */
 export const BB: StaffingRuleSet[] = [
   current,
-  revised,
+  { ...revised, correction: true },
   {
     // U3 step to 1 : 4 as enacted (Art. 3 of the law of 28.06.2023); a postponement was reported as planned
     ...revised,
     validFrom: '2027-01-01',
-    correction: false,
     source: 'KitaG Brandenburg § 10 Abs. 1 (U3 ab 01.01.2027 nach Art. 3 des Gesetzes vom 28.06.2023); '
       + 'KitaPersV §§ 3, 5, 9, 15–17; MBJS-FAQ zur Kita-Personalverordnung',
     confidence: 'medium',

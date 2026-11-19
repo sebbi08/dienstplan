@@ -186,6 +186,38 @@ describe('staffing settings – overrides', () => {
     expect(settings().upcomingIgnored).toEqual([])
   })
 
+  it('keeps an override that the correction made equal to the preset when another value is saved', () => {
+    changeState('SN')
+    const praktikant = 'staffShares.praktikant'
+    // the Träger had already set the outdated 50 % to 0 – from 01.11.2026 that is the preset itself
+    set({ [praktikant]: 0 })
+    const NOVEMBER = '2026-11-19'
+    setStaffingOverrides(db, traeger, 1, { 'staffShares.ergaenzung': 90 }, NOVEMBER)
+    expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.praktikant).toBe(0)
+    expect(staffingRulesFor(db, 1, '2026-12-01').rules.staffShares.ergaenzung).toBe(90)
+    // sending today's preset value for it does not remove it either; only the reset does
+    setStaffingOverrides(db, traeger, 1, { [praktikant]: 0 }, NOVEMBER)
+    expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.praktikant).toBe(0)
+    // a different value replaces it (against the corrected 0, the same law value as the old 50: also for October)
+    setStaffingOverrides(db, traeger, 1, { [praktikant]: 20 }, NOVEMBER)
+    expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.praktikant).toBe(20)
+    expect(staffingRulesFor(db, 1, '2026-12-01').rules.staffShares.praktikant).toBe(20)
+    // the reset removes it
+    resetStaffingOverrides(db, traeger, 1, praktikant, NOVEMBER)
+    expect(staffingRulesFor(db, 1, '2026-10-01').rules.staffShares.praktikant).toBe(50)
+  })
+
+  it('a state change keeps only overrides with exactly the new preset value (no correction across states)', () => {
+    set({ 'staffShares.azubi_2': 50, 'fteHoursPerWeek': 40 })
+    const { assumptionDay } = facilityHolidayRules(db, 1)
+    // BW azubi_2 was 0 when set; BY's corrected 100 % was joined with its old 0 – that says nothing about BW
+    updateFacility(db, traeger, 1, { name: 'Kindergarten', state: 'BY', assumptionDay }, new Date('2026-11-19T10:00:00Z'))
+    const after = getStaffingSettings(db, traeger, 1, '2026-11-19')
+    expect(after.overrides).toEqual({ fteHoursPerWeek: 40 })
+    expect(after.ignored).toEqual([])
+    expect(after.effective.staffShares.azubi_2).toBe(100)
+  })
+
   it('keeps ignored overrides apart: re-saving after the version change neither re-arms nor fails', () => {
     changeState('BB')
     const u3 = 'demand.u3+h<=30.childrenPerFte'

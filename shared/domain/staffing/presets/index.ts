@@ -37,14 +37,17 @@ export function presetVersions(land: GermanState): readonly StaffingRuleSet[] {
   return PRESETS[land]
 }
 
-const lawValues = new Map<GermanState, SameLawValue>()
+const lawValues = new WeakMap<StaffingRuleSet, SameLawValue>()
 
-/** The law-value comparison of the state's versions for applyOverrides (corrections keep overrides; cached). */
-export function sameLawValueOf(land: GermanState): SameLawValue {
-  let same = lawValues.get(land)
+/**
+ * The law-value comparison for applyOverrides on `version` of the state (corrections keep overrides; cached). A version
+ * that is not one of the state's compares equal numbers only.
+ */
+export function sameLawValueOf(land: GermanState, version: StaffingRuleSet): SameLawValue {
+  let same = lawValues.get(version)
   if (!same) {
-    same = sameLawValue(PRESETS[land])
-    lawValues.set(land, same)
+    same = sameLawValue(PRESETS[land], version)
+    if (PRESETS[land].includes(version)) lawValues.set(version, same)
   }
   return same
 }

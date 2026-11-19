@@ -27,7 +27,8 @@ export function reportState(accidentDate: IsoDate, today: IsoDate): 'upcoming' |
 
 /**
  * Job titles and qualifications in words, for the prefill of field 24 „beschäftigt/tätig als“ (the server cannot read the
- * app's texts; these are the same words as app/locales/de.ts → contract.jobs and staffing.qualifications).
+ * app's texts; these are the same words as app/locales/de.ts → contract.jobs and staffing.qualifications, except the
+ * students: the form asks for an activity, so „Studierende/r …“ instead of „Studium …“).
  */
 export const JOB_TITLES: Record<string, string> = {
   childcare_worker: 'Kinderpfleger/in', social_assistant: 'Sozialassistent/in', educator: 'Erzieher/in',
@@ -38,8 +39,8 @@ export const JOB_TITLES: Record<string, string> = {
 export const QUALIFICATION_TITLES: Record<string, string> = {
   fachkraft: 'Fachkraft', ergaenzung: 'Ergänzungs-/Zusatzkraft', azubi_1: 'Auszubildende/r (1. Jahr)',
   azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)',
-  studium_1: 'Studium praxisintegriert/dual (1. Studienjahr)', studium_2: 'Studium praxisintegriert/dual (2. Studienjahr)',
-  studium_3: 'Studium praxisintegriert/dual (ab 3. Studienjahr)', praktikant: 'Berufspraktikant/in (Anerkennungsjahr)',
+  studium_1: 'Studierende/r praxisintegriert/dual (1. Studienjahr)', studium_2: 'Studierende/r praxisintegriert/dual (2. Studienjahr)',
+  studium_3: 'Studierende/r praxisintegriert/dual (ab 3. Studienjahr)', praktikant: 'Berufspraktikant/in (Anerkennungsjahr)',
   haushalt: 'Haushaltskraft',
 }
 

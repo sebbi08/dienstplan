@@ -66,7 +66,7 @@ export interface EffectiveStaffingRules {
  */
 function effectiveRules(state: GermanState, date: IsoDate, overrides: StaffingOverrides): EffectiveStaffingRules {
   const preset = presetFor(state, date)
-  const result = applyOverrides(preset, overrides, sameLawValueOf(state))
+  const result = applyOverrides(preset, overrides, sameLawValueOf(state, preset))
   if (ruleSetProblems(result.rules).length > 0) {
     return { rules: preset, preset, applied: [], ignored: Object.keys(overrides) }
   }
@@ -126,7 +126,7 @@ function laterVersions(state: GermanState, today: IsoDate): StaffingRuleSet[] {
 /** The first problem the overrides cause in the version valid today or a later one (null = all usable). */
 function firstProblem(state: GermanState, overrides: StaffingOverrides, today: IsoDate): { problem: string; validFrom: IsoDate } | null {
   for (const version of [presetFor(state, today), ...laterVersions(state, today)]) {
-    const problems = ruleSetProblems(applyOverrides(version, overrides, sameLawValueOf(state)).rules)
+    const problems = ruleSetProblems(applyOverrides(version, overrides, sameLawValueOf(state, version)).rules)
     if (problems.length > 0) return { problem: problems[0]!, validFrom: version.validFrom }
   }
   return null
@@ -146,7 +146,9 @@ function assertUsable(state: GermanState, overrides: StaffingOverrides, today: I
  * goes back to the preset. Stored overrides that do not apply today (`ignored` in the settings: the law changed the
  * value, or the row is gone) are kept as they are – they may still count for earlier months – unless `values` gives
  * the path a value other than today's preset, which makes a new override against today's preset (one entry per path);
- * DELETE ?path= removes them. Every path must be a
+ * DELETE ?path= removes them. The same holds for a stored override that applies today with today's preset value (a
+ * correction version made the preset equal to it): it changes nothing today and is not shown as changed, but it still
+ * counts for the months before the correction. Every path must be a
  * value of the preset valid today and every value a finite number, else 400 staffing_override_invalid (detail: the
  * path); a value equal to the preset is no override. The result must stay usable (see assertUsable). Only the
  * Träger (403 forbidden). Answers the settings afterwards.
@@ -159,14 +161,16 @@ export function setStaffingOverrides(
   const state = facilityState(db, facilityId)
   const presetValues = new Map(overridableValues(presetFor(state, today)).map(v => [v.path, v.value]))
   const stored = loadStaffingOverrides(db, facilityId)
-  const { ignored } = effectiveRules(state, today, stored)
-  const overrides: StaffingOverrides = Object.fromEntries(ignored.map(path => [path, stored[path]!]))
+  const { ignored, applied } = effectiveRules(state, today, stored)
+  const withoutEffect = applied.filter(path => stored[path]!.value === presetValues.get(path))
+  const overrides: StaffingOverrides = Object.fromEntries([...ignored, ...withoutEffect].map(path => [path, stored[path]!]))
   for (const [path, value] of Object.entries(values)) {
     const preset = presetValues.get(path)
     if (preset === undefined || typeof value !== 'number' || !Number.isFinite(value)) {
       throw new ServiceError(400, 'staffing_override_invalid', { path })
     }
-    // Today's preset value sent back is no override; it never removes an ignored entry (only DELETE ?path= does).
+    // Today's preset value sent back is no override; it never removes an ignored entry or one without effect today
+    // (only DELETE ?path= does).
     if (value !== preset) overrides[path] = { value, preset }
   }
   assertUsable(state, overrides, today)
@@ -205,8 +209,9 @@ export function resetStaffingOverrides(
 
 /**
  * After the facility's state changed (same transaction): the overrides that apply to the new state's preset valid
- * today stay (same path, same preset value – or its corrected value, see sameLawValue – e.g. the shares or 39 h), all others are deleted – a BW Regelgruppe value
- * means nothing in Bavaria. Should the rest not be usable today or in a later version, all go. Group types the new
+ * today stay (same path, exactly the same preset value, e.g. the shares or 39 h; a correction in the new state's
+ * history says nothing about the old state's value), all others are deleted – a BW Regelgruppe value means nothing in
+ * Bavaria. Should the rest not be usable today or in a later version, all go. Group types the new
  * state does not know are cleared, so a group never keeps a type it cannot have.
  */
 export function adaptStaffingToState(
@@ -215,7 +220,7 @@ export function adaptStaffingToState(
   const today = todayIso(now)
   const overrides = loadStaffingOverrides(db, facilityId)
   const preset = presetFor(state, today)
-  const { applied } = applyOverrides(preset, overrides, sameLawValueOf(state))
+  const { applied } = applyOverrides(preset, overrides)
   let kept: StaffingOverrides = Object.fromEntries(applied.map(path => [path, overrides[path]!]))
   if (firstProblem(state, kept, today)) kept = {}
   if (Object.keys(kept).length !== Object.keys(overrides).length) storeOverrides(db, facilityId, kept, actor, now)

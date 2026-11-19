@@ -6,8 +6,14 @@ describe('accident domain', () => {
   it('keeps the prefill words of job titles and qualifications equal to the app\'s texts', () => {
     const { other: _other, ...jobs } = de.contract.jobs
     expect(JOB_TITLES).toEqual(jobs)
-    const { none: _none, ...qualifications } = de.staffing.qualifications
-    expect(QUALIFICATION_TITLES).toEqual(qualifications)
+    // students as an activity („Studierende/r …“), everything else as in the app
+    const { none: _none, studium_1: _s1, studium_2: _s2, studium_3: _s3, ...qualifications } = de.staffing.qualifications
+    const { studium_1, studium_2, studium_3, ...titles } = QUALIFICATION_TITLES
+    expect(titles).toEqual(qualifications)
+    expect([studium_1, studium_2, studium_3]).toEqual([
+      'Studierende/r praxisintegriert/dual (1. Studienjahr)', 'Studierende/r praxisintegriert/dual (2. Studienjahr)',
+      'Studierende/r praxisintegriert/dual (ab 3. Studienjahr)',
+    ])
   })
 
   it('a report is due with Arztbesuch or arbeitsunfähig until reported; overdue after 3 days', () => {

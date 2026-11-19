@@ -255,6 +255,12 @@ describe('accident reports about an employee', () => {
     expect(fieldAnswer(byTraeger, 25)).toBe('2020-08-01')
   })
 
+  it('a dual student gets „Studierende/r …“ as job title from the qualification', () => {
+    db.update(employees).set({ qualification: 'studium_2' }).where(eq(employees.id, anna)).run()
+    const form = getEmployeeAccident(db, manager(leitungUser), createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header }, NOW))
+    expect(fieldAnswer(form, 24)).toBe('Studierende/r praxisintegriert/dual (2. Studienjahr)')
+  })
+
   it('the stamped time beats the plan; the facility\'s name, address and phone are filled in', () => {
     db.insert(timeRecords).values({ employeeId: anna, date: '2026-11-17', start: 460, end: 900, source: 'terminal', createdAt: NOW.toISOString() }).run()
     const id = createMyAccident(db, self(annaUser), { templateId: u1000Template, ...header }, NOW)

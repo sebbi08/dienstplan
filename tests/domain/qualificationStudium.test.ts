@@ -3,10 +3,10 @@ import { de } from '../../app/locales/de'
 import { staffingPathLabel } from '../../app/utils/staffing'
 import { QUALIFICATION_TITLES } from '../../shared/domain/accidents'
 import { isFachkraft, plannedFte, quotaLines, requiredFte, ruleSetProblems } from '../../shared/domain/staffing/calc'
-import { applyOverrides, overridableValues, sameLawValue } from '../../shared/domain/staffing/overrides'
+import { applyOverrides, overridableValues, sameLawValue, type StaffingOverrides } from '../../shared/domain/staffing/overrides'
 import { presetFor, presetVersions, sameLawValueOf } from '../../shared/domain/staffing/presets'
 import { shares, TRAINEES_REVISED } from '../../shared/domain/staffing/presets/common'
-import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
+import { QUALIFICATIONS, type StaffingRuleSet } from '../../shared/domain/staffing/types'
 import { GERMAN_STATES, type GermanState } from '../../shared/domain/states'
 
 const REVISED = '2026-11-01'
@@ -64,13 +64,14 @@ describe('qualifications – Studium praxisintegriert/dual', () => {
   })
 
   it('maps the new and relabelled qualifications to job titles for the accident prefill', () => {
-    expect(QUALIFICATION_TITLES.studium_1).toBe('Studium praxisintegriert/dual (1. Studienjahr)')
-    expect(QUALIFICATION_TITLES.studium_2).toBe('Studium praxisintegriert/dual (2. Studienjahr)')
-    expect(QUALIFICATION_TITLES.studium_3).toBe('Studium praxisintegriert/dual (ab 3. Studienjahr)')
+    // field 24 asks for an activity: „Studierende/r …“
+    expect(QUALIFICATION_TITLES.studium_1).toBe('Studierende/r praxisintegriert/dual (1. Studienjahr)')
+    expect(QUALIFICATION_TITLES.studium_2).toBe('Studierende/r praxisintegriert/dual (2. Studienjahr)')
+    expect(QUALIFICATION_TITLES.studium_3).toBe('Studierende/r praxisintegriert/dual (ab 3. Studienjahr)')
     expect(QUALIFICATION_TITLES.praktikant).toBe('Berufspraktikant/in (Anerkennungsjahr)')
     // no pedagogic job title for `none`: the field stays empty
     expect(QUALIFICATION_TITLES.none).toBeUndefined()
-    for (const q of QUALIFICATIONS) if (q !== 'none') expect(QUALIFICATION_TITLES[q]).toBe(de.staffing.qualifications[q])
+    for (const q of QUALIFICATIONS) expect([q, q === 'none' || QUALIFICATION_TITLES[q] !== undefined]).toEqual([q, true])
   })
 
   it('counts the new keys with 0 % in the shares helper', () => {
@@ -149,7 +150,8 @@ describe('presets – Fachkraft status and quotas of students and trainees', () 
   it('BB: trainees and students count toward the 80 % Fachkraft quota, not as Fachkraft for presence', () => {
     const bb = presetFor('BB', REVISED)
     const quota = bb.quotas.find(q => q.key === 'fachkraftquote')!
-    expect(quota).toMatchObject({ kind: 'min_share', pct: 80, base: 'required' })
+    expect(quota).toMatchObject({ kind: 'min_share', pct: 80, base: 'required', label: 'Fachkräfte (inkl. tätigkeitsbegleitende Qualifizierung)' })
+    expect(presetFor('BB', BEFORE).quotas[0]!.label).toBe('Fachkräfte')
     expect([...quota.qualifications].sort()).toEqual(
       ['azubi_1', 'azubi_2', 'azubi_3', 'fachkraft', 'studium_1', 'studium_2', 'studium_3'].sort(),
     )
@@ -190,63 +192,103 @@ describe('presets – Fachkraft status and quotas of students and trainees', () 
   })
 })
 
+/** applyOverrides on the state's version of `date`, with the state's law-value comparison for that version. */
+function apply(land: GermanState, date: string, overrides: StaffingOverrides) {
+  const preset = presetFor(land, date)
+  return applyOverrides(preset, overrides, sameLawValueOf(land, preset))
+}
+
 describe('Träger overrides and the correction of 01.11.2026', () => {
   it('an override of BW azubi_1 set before still applies after 01.11.2026', () => {
     const overrides = { 'staffShares.azubi_1': { value: 30, preset: 0 } }
-    const before = applyOverrides(presetFor('BW', BEFORE), overrides, sameLawValueOf('BW'))
-    expect(before).toMatchObject({ applied: ['staffShares.azubi_1'], ignored: [] })
-    const after = applyOverrides(presetFor('BW', REVISED), overrides, sameLawValueOf('BW'))
+    expect(apply('BW', BEFORE, overrides)).toMatchObject({ applied: ['staffShares.azubi_1'], ignored: [] })
+    const after = apply('BW', REVISED, overrides)
     expect(after).toMatchObject({ applied: ['staffShares.azubi_1'], ignored: [] })
     expect(after.rules.staffShares.azubi_1).toBe(30)
   })
 
   it('an override set against the corrected value applies before the correction too', () => {
     const overrides = { 'staffShares.praktikant': { value: 30, preset: 0 } }
-    expect(applyOverrides(presetFor('SN', BEFORE), overrides, sameLawValueOf('SN')).rules.staffShares.praktikant).toBe(30)
-    expect(applyOverrides(presetFor('SN', REVISED), overrides, sameLawValueOf('SN')).rules.staffShares.praktikant).toBe(30)
-    const studium = { 'staffShares.studium_2': { value: 60, preset: 90 } }
-    expect(applyOverrides(presetFor('HH', BEFORE), studium, sameLawValueOf('HH')).rules.staffShares.studium_2).toBe(60)
+    expect(apply('SN', BEFORE, overrides).rules.staffShares.praktikant).toBe(30)
+    expect(apply('SN', REVISED, overrides).rules.staffShares.praktikant).toBe(30)
+    expect(apply('HH', BEFORE, { 'staffShares.studium_2': { value: 60, preset: 90 } }).rules.staffShares.studium_2).toBe(60)
   })
 
   it('keeps overrides over a law version that follows the correction with the corrected value (NW 2027, BB 2027)', () => {
-    const nw = applyOverrides(presetFor('NW', '2027-08-01'), { 'staffShares.azubi_1': { value: 50, preset: 0 } }, sameLawValueOf('NW'))
-    expect(nw.rules.staffShares.azubi_1).toBe(50)
-    const bb = applyOverrides(presetFor('BB', '2027-01-01'), { 'staffShares.studium_1': { value: 50, preset: 0 } }, sameLawValueOf('BB'))
-    expect(bb.rules.staffShares.studium_1).toBe(50)
-    expect(presetFor('BB', '2027-01-01').correction).toBe(false)
-    expect(presetFor('NW', '2027-08-01').correction).toBe(false)
+    expect(apply('NW', '2027-08-01', { 'staffShares.azubi_1': { value: 50, preset: 0 } }).rules.staffShares.azubi_1).toBe(50)
+    expect(apply('BB', '2027-01-01', { 'staffShares.studium_1': { value: 50, preset: 0 } }).rules.staffShares.studium_1).toBe(50)
   })
 
   it('a law version still lapses an override of a value it changes', () => {
     const u3 = 'demand.u3+h<=30.childrenPerFte'
-    const january = applyOverrides(presetFor('BB', '2027-01-01'), { [u3]: { value: 4.5, preset: 4.25 } }, sameLawValueOf('BB'))
-    expect(january.ignored).toEqual([u3])
+    expect(apply('BB', '2027-01-01', { [u3]: { value: 4.5, preset: 4.25 } }).ignored).toEqual([u3])
   })
 
   it('without the state\'s comparison only equal numbers count (as before)', () => {
     const overrides = { 'staffShares.azubi_1': { value: 30, preset: 0 } }
     expect(applyOverrides(presetFor('BW', REVISED), overrides).ignored).toEqual(['staffShares.azubi_1'])
+    // a version that is not one of the state's: equal numbers only
+    const foreign = { ...presetFor('BW', REVISED) }
+    expect(applyOverrides(foreign, overrides, sameLawValueOf('BW', foreign)).ignored).toEqual(['staffShares.azubi_1'])
   })
 
-  it('sameLawValue joins the old and the corrected value per path, over several corrections', () => {
+  describe('sameLawValue joins values only within the run around a correction', () => {
     const base = presetFor('BW', BEFORE)
-    const fix = (azubi: number, ergaenzung: number, validFrom: string) =>
-      ({ ...base, validFrom, correction: true, staffShares: { ...base.staffShares, azubi_1: azubi, ergaenzung } })
-    const same = sameLawValue([base, fix(40, 0, '2027-01-01'), fix(60, 0, '2027-02-01')])
-    expect(same('staffShares.azubi_1', 0, 60)).toBe(true)
-    expect(same('staffShares.azubi_1', 40, 0)).toBe(true)
-    expect(same('staffShares.azubi_1', 0, 50)).toBe(false)
-    expect(same('staffShares.azubi_2', 0, 40)).toBe(false)
-    const law = sameLawValue([base, { ...fix(40, 0, '2027-01-01'), correction: false }])
-    expect(law('staffShares.azubi_1', 0, 40)).toBe(false)
+    const version = (validFrom: string, azubi: number, correction?: boolean): StaffingRuleSet =>
+      ({ ...base, validFrom, ...(correction ? { correction } : {}), staffShares: { ...base.staffShares, azubi_1: azubi } })
+    const path = 'staffShares.azubi_1'
+
+    it('over several corrections in a row', () => {
+      const versions = [base, version('2027-01-01', 40, true), version('2027-02-01', 60, true)]
+      for (const target of versions) {
+        const same = sameLawValue(versions, target)
+        expect(same(path, target.staffShares.azubi_1, 0)).toBe(true)
+        expect(same(path, target.staffShares.azubi_1, 40)).toBe(true)
+        expect(same(path, target.staffShares.azubi_1, 60)).toBe(true)
+        expect(same(path, target.staffShares.azubi_1, 50)).toBe(false)
+        expect(same('staffShares.azubi_2', 0, 40)).toBe(false)
+      }
+    })
+
+    it('not over a law version that changes the value, in either direction', () => {
+      // 0 –(correction)→ 40 –(law)→ 0: an override against 40 lapses on the law version; one against 0 is plain equal
+      const back = [base, version('2027-01-01', 40, true), version('2027-06-01', 0)]
+      expect(sameLawValue(back, back[2]!)(path, 0, 40)).toBe(false)
+      expect(sameLawValue(back, back[1]!)(path, 40, 0)).toBe(true)
+      // 0 –(law)→ 50 –(correction)→ 0: the value before the law change stays outside the run of the law version
+      const law = [version('2026-01-01', 0), version('2026-06-01', 50), version('2027-01-01', 0, true)]
+      expect(sameLawValue(law, law[1]!)(path, 50, 0)).toBe(true)
+      expect(sameLawValue(law, law[0]!)(path, 0, 50)).toBe(false)
+      // a law version alone joins nothing
+      const plain = [base, version('2027-01-01', 40)]
+      expect(sameLawValue(plain, plain[1]!)(path, 40, 0)).toBe(false)
+    })
+  })
+
+  it.each(GERMAN_STATES)('%s: a law version lapses every override of a value it changes (no wrong keep)', (land) => {
+    const versions = presetVersions(land)
+    versions.forEach((version, i) => {
+      if (i === 0 || version.correction) return
+      const previous = new Map(overridableValues(versions[i - 1]!).map(v => [v.path, v.value]))
+      for (const { path, value } of overridableValues(version)) {
+        const old = previous.get(path)
+        if (old === undefined || old === value) continue
+        const { ignored } = applyOverrides(version, { [path]: { value: old + 1, preset: old } }, sameLawValueOf(land, version))
+        expect([land, version.validFrom, path, ignored]).toEqual([land, version.validFrom, path, [path]])
+      }
+    })
+  })
+
+  it.each(GERMAN_STATES)('%s: only the versions of 01.11.2026 are corrections', (land) => {
+    for (const version of presetVersions(land)) {
+      expect([land, version.validFrom, version.correction === true])
+        .toEqual([land, version.validFrom, version.validFrom === TRAINEES_REVISED])
+    }
   })
 
   it.each(REVISED_STATES)('%s: every override set before the correction keeps applying after it', (land) => {
-    const before = presetFor(land, BEFORE)
-    const revised = presetFor(land, REVISED)
-    for (const { path, value } of overridableValues(before)) {
-      const { ignored } = applyOverrides(revised, { [path]: { value: value + 1, preset: value } }, sameLawValueOf(land))
-      expect([land, path, ignored]).toEqual([land, path, []])
+    for (const { path, value } of overridableValues(presetFor(land, BEFORE))) {
+      expect([land, path, apply(land, REVISED, { [path]: { value: value + 1, preset: value } }).ignored]).toEqual([land, path, []])
     }
   })
 })

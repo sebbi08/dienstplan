@@ -61,10 +61,13 @@ const current: StaffingRuleSet = {
   }],
 }
 
+/**
+ * The corrected values of 01.11.2026 without the `correction` flag: it is set only in the list, so the later law version
+ * built from this object cannot inherit it.
+ */
 const revised: StaffingRuleSet = {
   ...current,
   validFrom: TRAINEES_REVISED,
-  correction: true,
   source: 'KiBiz §§ 28, 29, 33 und Anlage zu § 33 Abs. 1 (GV. NRW. 2020 S. 77; gültig bis Kita-Jahr 2026/27); '
     + 'Personalverordnung § 13 (GV. NRW. 2024 S. 910)',
   note: `${TRAINEES} ${BASE_NOTE}`,
@@ -79,11 +82,10 @@ const revised: StaffingRuleSet = {
 /** Nordrhein-Westfalen: Kindpauschalen je Gruppenform und Betreuungszeit (KiBiz Anlage zu § 33). */
 export const NW: StaffingRuleSet[] = [
   current,
-  revised,
+  { ...revised, correction: true },
   {
     ...revised,
     validFrom: '2027-08-01',
-    correction: false,
     confidence: 'low',
     source: 'KiBiz in der Fassung des Gesetzes vom 21.07.2026 (Anlagen 1/2, ab 01.08.2027); Personalverordnung § 13 '
       + '(GV. NRW. 2024 S. 910)',

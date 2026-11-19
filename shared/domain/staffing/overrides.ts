@@ -143,43 +143,40 @@ export function copyRuleSet(rules: StaffingRuleSet): StaffingRuleSet {
   return structuredClone(rules) as StaffingRuleSet
 }
 
-/** Whether two preset values of a path stand for the same law value. */
+/** Whether a version's preset value (a) and the preset value an override replaced (b) stand for the same law value. */
 export type SameLawValue = (path: string, a: number, b: number) => boolean
 
-/**
- * The law-value comparison of a state's versions (oldest first): equal numbers, or the old and the new value of a path
- * that a `correction` version changed against the version before it – also over several corrections in a row.
- */
-export function sameLawValue(versions: readonly StaffingRuleSet[]): SameLawValue {
-  // per path: value → class representative (a tiny union-find over the corrected pairs)
-  const parents = new Map<string, Map<number, number>>()
-  const find = (classes: Map<number, number>, value: number): number => {
-    let root = value
-    while (classes.has(root) && classes.get(root) !== root) root = classes.get(root)!
-    return root
-  }
-  versions.forEach((version, i) => {
-    if (!version.correction || i === 0) return
-    const before = new Map(overridableValues(versions[i - 1]!).map(v => [v.path, v.value]))
-    for (const { path, value } of overridableValues(version)) {
-      const old = before.get(path)
-      if (old === undefined || old === value) continue
-      const classes = parents.get(path) ?? new Map<number, number>()
-      parents.set(path, classes)
-      const a = find(classes, old)
-      const b = find(classes, value)
-      classes.set(a, a)
-      classes.set(b, a)
-    }
-  })
-  return (path, a, b) => {
-    if (a === b) return true
-    const classes = parents.get(path)
-    return classes !== undefined && find(classes, a) === find(classes, b)
-  }
-}
+/** Equal numbers only: the comparison without corrections. */
+export const exactValue: SameLawValue = (_path, a, b) => a === b
 
-const exactValue: SameLawValue = (_path, a, b) => a === b
+/**
+ * The law-value comparison for one version (`target`, one of the state's `versions`, oldest first). Per path the
+ * versions form runs that only a law version changing the value ends; a `correction` version continues the run of the
+ * version before it. Within the run of `target`, every value the path had is the same law value: the old value before
+ * a correction and the corrected one (also over several corrections), never a value from before or after a law change.
+ * A target that is not one of the versions compares equal numbers only.
+ */
+export function sameLawValue(versions: readonly StaffingRuleSet[], target: StaffingRuleSet): SameLawValue {
+  const index = versions.indexOf(target)
+  if (index < 0) return exactValue
+  const values = versions.map(version => new Map(overridableValues(version).map(v => [v.path, v.value])))
+  const runValues = new Map<string, Set<number>>()
+  for (const path of values[index]!.keys()) {
+    // a law version (not a correction) with another value than the version before starts a new run
+    const startsRun = (i: number) => !versions[i]!.correction && values[i]!.get(path) !== values[i - 1]!.get(path)
+    let first = index
+    while (first > 0 && !startsRun(first)) first--
+    let last = index
+    while (last + 1 < versions.length && !startsRun(last + 1)) last++
+    const run = new Set<number>()
+    for (let i = first; i <= last; i++) {
+      const value = values[i]!.get(path)
+      if (value !== undefined) run.add(value)
+    }
+    if (run.size > 1) runValues.set(path, run)
+  }
+  return (path, a, b) => a === b || (runValues.get(path)?.has(a) === true && runValues.get(path)?.has(b) === true)
+}
 
 /**
  * The preset with the overrides that apply to it, as a new object (the preset stays untouched). `applied` lists the
