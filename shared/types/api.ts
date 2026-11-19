@@ -1836,6 +1836,51 @@ export interface LeaveCountingDto {
   christmasEveHalfLeave: boolean
 }
 
+/** The facility's notice on remaining leave (Einstellungen → Dienstplan; Leitung and Träger change it). */
+export interface LeaveForfeitSettingsDto {
+  /** Remaining leave lapses on this day of the year after (January to September). */
+  day: number
+  month: number
+  /** The notice text with ‹Tage›, ‹Jahr›, ‹Verfall› (the default text while the facility has none of its own). */
+  text: string
+  isDefaultText: boolean
+}
+
+/** The notice on remaining leave an employee sees (from 1 October until the forfeiture date), placeholders filled. */
+export interface LeaveForfeitNoticeDto {
+  /** The year the remaining leave comes from. */
+  year: number
+  days: number
+  forfeitDate: IsoDate
+  text: string
+}
+
+export interface MyLeaveForfeitDto {
+  /** Null: nothing to show (outside the window, no days left, already read for the year, no employee). */
+  notice: LeaveForfeitNoticeDto | null
+}
+
+/** One person in „Hinweis auf Resturlaub ‹Jahr›“ („Urlaubsplanung“). */
+export interface LeaveForfeitRowDto {
+  employeeId: number
+  name: string
+  /** The days left as of today (after the forfeiture date: as of that day, i.e. what lapsed). */
+  days: number
+  /** read: „Gelesen“ clicked; open: has an account, not read yet; no_account: no active account, tell in writing. */
+  status: 'read' | 'open' | 'no_account'
+  /** When „Gelesen“ was clicked (ISO timestamp) and the days the notice named then. */
+  readAt: string | null
+  readDays: number | null
+}
+
+export interface LeaveForfeitListDto {
+  year: number
+  /** The first day the employees see the notice (1 October of the year) and the forfeiture date in the year after. */
+  noticeFrom: IsoDate
+  forfeitDate: IsoDate
+  rows: LeaveForfeitRowDto[]
+}
+
 /** Module state as far as the viewer may know it. */
 export interface LeaveSettingsDto {
   enabled: boolean

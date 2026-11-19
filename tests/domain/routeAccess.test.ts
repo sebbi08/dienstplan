@@ -41,6 +41,7 @@ const CHILDREN = [
 const OFFICE = [
   '/admin/accidents', '/admin/calendar', '/admin/closures', '/admin/employees', '/admin/employees/1', '/admin/forms',
   '/admin/leave-planning', '/admin/print/accidents/2026', '/admin/print/calendar/2026', '/admin/print/cash/1/2026/10', '/admin/print/early-closures/2026',
+  '/admin/print/leave-forfeit/2026',
   '/admin/print/emergency-contacts', '/admin/print/form-templates/1', '/admin/print/forms/1',
   '/admin/print/sick-days/2026', '/admin/print/time/1/2026/10', '/admin/settings', '/admin/settings/groups/1',
   '/admin/settings/roster', '/admin/settings/roster/week-templates/1', '/admin/sick-days', '/admin/time', '/admin/users', '/cash', '/cash/1/2026/10',

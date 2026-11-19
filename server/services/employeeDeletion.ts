@@ -12,7 +12,7 @@ import {
   balanceAdjustments, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms,
-  groupBookChanges, helpOuts, leaveEntitlements, leavePlanners, leaveRequests, notifications, releaseSnapshots,
+  groupBookChanges, helpOuts, leaveEntitlements, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries,
 } from '../db/schema'
@@ -239,12 +239,15 @@ const TIME_ROWS: readonly EmployeeRows[] = [
   { table: earlySickLeaves, column: earlySickLeaves.employeeId },
   { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, false) },
   { table: leaveEntitlements, column: leaveEntitlements.employeeId },
+  // The read receipts of the notice on remaining leave: evidence about the leave, kept as long as the leave data.
+  { table: leaveForfeitReceipts, column: leaveForfeitReceipts.employeeId },
 ]
 
 /**
  * „Sonstige Überstunden-/Zeitdaten“: plan entries of every month (draft and released: they leave the release snapshots
  * too) with their change log, time records with corrections and notes, sick-leave markers, balance adjustments not
- * paid out, leave entitlements and the acknowledged warnings about the person; and the weekly hours history and the
+ * paid out, leave entitlements with the read receipts of the notice on remaining leave and the acknowledged warnings
+ * about the person; and the weekly hours history and the
  * help-outs, since a person is in a month's plan, Stundenkonto, release and leave overview only through their weekly
  * hours (isEmployedInRange), and the help-out facility's plan shows them only through the help-out.
  */

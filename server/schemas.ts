@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
@@ -208,6 +209,11 @@ export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().
 export const leaveModuleSchema = z.object({ enabled: z.boolean(), plannerIds: z.array(z.number().int().positive()).max(50) })
 export const leaveMaxSchema = z.object({ value: z.number().int().min(1).max(100).nullable() })
 export const leaveCountingSchema = z.object({ christmasEveHalfLeave: z.boolean() })
+// The notice on remaining leave: the date is checked by the service (invalid_forfeit_date), so the answer is in German.
+export const leaveForfeitSettingsSchema = z.object({
+  day: z.number().int().min(1).max(31), month: z.number().int().min(1).max(12), text: z.string().max(LEAVE_FORFEIT_TEXT_MAX),
+})
+export const leaveForfeitReadSchema = z.object({ year: z.number().int().min(2000).max(2100) })
 const leaveRequestKind = z.enum(['vacation', 'overtime_off']).default('vacation')
 export const leaveRangeQuery = z.object({ from: isoDate, to: isoDate, kind: leaveRequestKind })
 export const leaveRequestSchema = z.object({ from: isoDate, to: isoDate, note: z.string().max(300), kind: leaveRequestKind })

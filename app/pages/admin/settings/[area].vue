@@ -47,6 +47,7 @@ watch(() => route.hash, scrollToTarget)
       <SettingsRequirementTypesSection v-else-if="section.key === 'requirement-types'" />
       <SettingsLeaveModuleSection v-else-if="section.key === 'leave-module'" />
       <SettingsLeaveCountingSection v-else-if="section.key === 'leave-counting'" />
+      <SettingsLeaveForfeitSection v-else-if="section.key === 'leave-forfeit'" />
       <SettingsTimeTrackingSection v-else-if="section.key === 'time-tracking'" />
       <SettingsCareTypesSection v-else-if="section.key === 'care-types'" />
       <SettingsDocumentTypesSection v-else-if="section.key === 'document-types'" />

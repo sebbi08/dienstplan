@@ -15,10 +15,11 @@ const labels = (entries: { label: string }[]) => entries.map(entry => entry.labe
 describe('navMenu', () => {
   it('shows a manager without employee the main entries and "Mehr", no "Meins"', () => {
     const menu = navMenu(base)
-    expect(labels(menu.main)).toEqual(['Dienstplan', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen', 'Notizen'])
+    expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kasse', 'Kalender', 'Teamsitzungen', 'Notizen'])
     expect(menu.main[0]!.to).toBe('/plan/2026/10')
-    expect(menu.main[4]!.to).toBe('/cash')
-    expect(menu.main[6]!.to).toBe('/team-meetings')
+    expect(menu.main[1]!.to).toBe('/admin/leave-planning')
+    expect(menu.main[5]!.to).toBe('/cash')
+    expect(menu.main[7]!.to).toBe('/team-meetings')
     expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Unfälle', 'Benutzer', 'Einstellungen'])
     expect(menu.more[3]!.to).toBe('/admin/forms')
     expect(menu.more[4]!.to).toBe('/admin/accidents')
@@ -58,6 +59,11 @@ describe('navMenu', () => {
     const menu = navMenu({ ...base, openCount: 4 })
     expect(labels(menu.main)).not.toContain('Urlaubsplanung (4)')
     expect(menu.totalCount).toBe(0)
+  })
+
+  it('shows "Urlaubsplanung" without the count to whoever sees the leave overview (the notice on remaining leave)', () => {
+    expect(navMenu({ ...base, openCount: 4 }).main[1]).toEqual({ label: 'Urlaubsplanung', to: '/admin/leave-planning', match: '/admin/leave-planning' })
+    expect(labels(navMenu({ ...base, can: key => key !== 'leave.overview' && base.can(key) }).main)).not.toContain('Urlaubsplanung')
   })
 
   it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar, „Teamsitzungen“ and „Notizen“, the own lists and „Vorlagen“ under „Meins“', () => {
@@ -152,6 +158,8 @@ describe('navMenu per role (unchanged by the permissions)', () => {
     ['Notizen', '/notes'],
   ]
   const withPlanning: Pair[] = [officeMain[0]!, ['Urlaubsplanung (4)', '/admin/leave-planning'], ...officeMain.slice(1)]
+  // With the leave overview (Leitung, Träger) „Urlaubsplanung“ shows without being a planner: the notice on remaining leave.
+  const withOverview: Pair[] = [officeMain[0]!, ['Urlaubsplanung', '/admin/leave-planning'], ...officeMain.slice(1)]
   const leitungMore: Pair[] = [
     ['Schließzeiten', '/admin/closures'], ['Krankheitstage', '/admin/sick-days'], ['Vorlagen', '/templates'],
     ['Bögen', '/admin/forms'], ['Unfälle', '/admin/accidents'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
@@ -170,15 +178,15 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const staffMineWithTemplates: Pair[] = [...staffMine, ['Meine Unfälle', '/my/accidents'], ['Vorlagen', '/templates']]
 
   const cases: { name: string, viewer: NavViewer, main: Pair[], mine: Pair[], more: Pair[], mineCount: number, totalCount: number }[] = [
-    { name: 'Träger', viewer: viewerOf('provider'), main: officeMain, mine: [], more: providerMore, mineCount: 0, totalCount: 0 },
+    { name: 'Träger', viewer: viewerOf('provider'), main: withOverview, mine: [], more: providerMore, mineCount: 0, totalCount: 0 },
     {
       name: 'Träger with employee, planner', viewer: viewerOf('provider', { employeeId: 7, isPlanner: true }),
       main: withPlanning, mine: officeMine, more: providerMore, mineCount: 2, totalCount: 6,
     },
-    { name: 'Leitung', viewer: viewerOf('admin'), main: officeMain, mine: [], more: leitungMore, mineCount: 0, totalCount: 0 },
+    { name: 'Leitung', viewer: viewerOf('admin'), main: withOverview, mine: [], more: leitungMore, mineCount: 0, totalCount: 0 },
     {
       name: 'Leitung with employee', viewer: viewerOf('admin', { employeeId: 3 }),
-      main: officeMain, mine: officeMine, more: leitungMore, mineCount: 2, totalCount: 2,
+      main: withOverview, mine: officeMine, more: leitungMore, mineCount: 2, totalCount: 2,
     },
     {
       name: 'Leitung as leave planner', viewer: viewerOf('admin', { isPlanner: true }),

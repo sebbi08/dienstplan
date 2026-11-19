@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveRequests, notifications, teamMeetingParticipants,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, notifications, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { applyToCells } from '../../server/services/entries'
@@ -74,6 +74,7 @@ export function fillEmployeeData(
     db.insert(earlySickLeaves).values({ employeeId: id, date: '2026-10-07', createdAt: now.toISOString() }).run()
     db.insert(balanceAdjustments).values({ employeeId: id, date: '2026-01-01', minutes: 120, reason: 'Übertrag' }).run()
     db.insert(leaveEntitlements).values({ employeeId: id, year: 2026, days: 30 }).run()
+    db.insert(leaveForfeitReceipts).values({ employeeId: id, year: 2025, days: 2, text: 'Du hast noch 2 Tage Urlaub aus 2025.', readAt: now.toISOString() }).run()
     db.insert(leaveRequests).values({ employeeId: id, startDate: '2026-10-12', endDate: '2026-10-13', createdAt: now.toISOString() }).run()
     db.insert(notifications).values({ employeeId: id, year: 2026, month: 10, createdAt: now.toISOString(), changes: '[]' }).run()
     db.insert(employeeRequirements).values({ employeeId: id, typeId: requirementTypeId(db, 'first_aid'), date: '2026-03-01' }).run()

@@ -105,6 +105,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       key: 'leave-counting', title: de.leaveCounting.title, replaces: [],
       keywords: ['Urlaub', 'Heiligabend', 'Silvester', '24.12.', '31.12.', 'halber Tag', 'Urlaubstag', 'Weihnachten'],
     },
+    {
+      // Leitung and Träger change it.
+      key: 'leave-forfeit', title: de.leaveForfeit.title, replaces: [],
+      keywords: ['Resturlaub', 'Verfall', 'verfällt', 'Urlaub verfällt', 'Übertrag', 'Hinweispflicht', 'Gelesen', '31.03.'],
+    },
   ],
   time: [
     {

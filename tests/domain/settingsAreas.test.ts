@@ -20,7 +20,7 @@ describe('visibleSettingsAreas', () => {
     expect(keysOf(provider)).toEqual([
       ['facility', ['facilities', 'facility-contact', 'facility-hours', 'tablet', 'retention', 'backup']],
       ['groups', ['group-list']],
-      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting']],
+      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
       ['staff', ['staffing', 'employee-retention']],
@@ -31,7 +31,7 @@ describe('visibleSettingsAreas', () => {
     expect(keysOf(leitung)).toEqual([
       ['facility', ['facility-contact', 'facility-hours', 'tablet']],
       ['groups', ['group-list']],
-      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting']],
+      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'reminders']],
       ['staff', ['staffing', 'employee-retention']],
@@ -79,6 +79,11 @@ describe('searchSettings', () => {
   it('finds Anwesenheit & Essen by „Snack“ and „Essen“', () => {
     expect(firstHit('Snack')).toMatchObject({ key: 'attendance', where: 'Kinder', to: '/admin/settings/children#section-attendance' })
     expect(firstHit('essen')?.key).toBe('attendance')
+  })
+
+  it('finds the notice on remaining leave by „Resturlaub“ and „verfällt“, for the Leitung too', () => {
+    expect(firstHit('Resturlaub')).toMatchObject({ key: 'leave-forfeit', to: '/admin/settings/roster#section-leave-forfeit' })
+    expect(firstHit('verfällt', leitung)?.key).toBe('leave-forfeit')
   })
 
   it('finds the Tablet by „PIN“', () => {

@@ -64,6 +64,7 @@ function rowClass(day: MyPlanDayDto): string {
       <UBadge v-if="data?.release.changeCount" color="warning" variant="soft" :label="de.plan.changesCount(data.release.changeCount)" />
     </div>
     <MyNotifications />
+    <LeaveForfeitNotice />
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <TimeMyTimeCard v-if="time?.enabled" :time="time" :refresh="refreshTime" />
     <!-- Phones: one card per day instead of the table; days with nothing on them are one slim line. -->

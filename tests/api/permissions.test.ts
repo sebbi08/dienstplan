@@ -37,6 +37,9 @@ const USER_ROUTES = [
   'my/leave-requests.post.ts',
   'my/leave-requests/preview.get.ts',
   'my/leave-requests/[id]/withdraw.post.ts',
+  // The own notice on remaining leave and its „Gelesen“: the employee follows from the session alone.
+  'my/leave-forfeit.get.ts',
+  'my/leave-forfeit/read.post.ts',
   // Renders a print page with the caller's cookie; that page's API calls check the permissions.
   'pdf.get.ts',
   // The facility name in the header (the own facility; the Träger's switcher lists all of them).
@@ -305,6 +308,21 @@ describe('API route permissions', () => {
     expect(fixture['leave-counting.put.ts']).toEqual(['provider'])
     // The facility of the request: for the Träger on the settings pages the one „Einstellungen für“ names.
     expect(source('leave-counting.put.ts')).toContain('provider.facilityId')
+  })
+
+  it('lets Leitung and Träger set the notice on remaining leave, and see who read it with the leave overview', () => {
+    expect(permissionCalls('leave-forfeit-settings.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
+    expect(permissionCalls('leave-forfeit-settings.put.ts')).toEqual([{ key: 'settings.facility', options: '' }])
+    expect(permissionCalls('leave-forfeit.get.ts')).toEqual([{ key: 'leave.overview', options: '' }])
+    for (const route of ['leave-forfeit-settings.get.ts', 'leave-forfeit-settings.put.ts', 'leave-forfeit.get.ts']) {
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+      expect(source(route), route).toContain('admin.facilityId')
+    }
+    // „Gelesen“ only by the employee themselves: nothing from the request names the employee.
+    for (const route of ['my/leave-forfeit.get.ts', 'my/leave-forfeit/read.post.ts']) {
+      expect(source(route), route).toContain('requireUser(event)')
+      expect(source(route), route).not.toMatch(/getRouterParam|employeeId/)
+    }
   })
 
   it('opens the meal settings to managers of the active facility only', () => {

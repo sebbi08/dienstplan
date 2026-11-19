@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import type { LeavePlanningDto, LeaveRequestDto } from '#shared/types/api'
+import type { LeavePlanningDto, LeaveRequestDto, LeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDayShort } from '~/utils/format'
 
-/** For the people responsible for leave planning: open requests, the limit and a year calendar of leave and wishes. */
+/**
+ * For the people responsible for leave planning: open requests, the limit and a year calendar of leave and wishes.
+ * Whoever sees the leave overview (Leitung, Träger) also without planning, or while leave requests are off: then only
+ * the notice on remaining leave („Hinweis auf Resturlaub ‹Jahr›“), which every visitor sees at the end.
+ */
 const route = useRoute()
 const year = ref(Number(route.query.year) || parseIsoDate(todayIso()).year)
-const { data: planning, error, refresh } = await useFetch<LeavePlanningDto>('/api/leave-planning', { query: { year } })
+const { data: leaveSettings } = await useFetch<LeaveSettingsDto>('/api/leave-settings')
+const isPlanner = computed(() => !!leaveSettings.value?.isPlanner)
+const { data: planning, error, refresh } = await useFetch<LeavePlanningDto>('/api/leave-planning', { query: { year }, enabled: isPlanner })
 // Decisions also update the open-request count in the menu.
 const run = useAction(async () => {
   await Promise.all([refresh(), refreshNuxtData('leave-settings')])
@@ -79,9 +85,9 @@ async function reject() {
       <h1 class="text-2xl font-semibold">{{ de.leavePlanning.title }}</h1>
       <YearNav v-model="year" />
     </div>
-    <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
+    <UAlert v-if="isPlanner && error" color="warning" variant="soft" :title="errorMessage(error)" />
 
-    <template v-if="planning">
+    <template v-if="isPlanner && planning">
       <section class="max-w-4xl space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
         <h2 class="font-semibold">{{ de.leavePlanning.openRequests }}</h2>
         <p v-if="!planning.openRequests.length" class="text-sm text-gray-500">{{ de.leavePlanning.noOpenRequests }}</p>
@@ -126,6 +132,8 @@ async function reject() {
         <UButton type="submit" :label="de.common.save" />
       </form>
 
+      <LeaveForfeitList :year="year" />
+
       <CalendarLegend planning />
       <CalendarGroupLegend :groups="planning.calendar.groups" />
       <div class="space-y-3 overflow-x-auto">
@@ -134,6 +142,7 @@ async function reject() {
         </div>
       </div>
     </template>
+    <LeaveForfeitList v-else :year="year" />
 
     <UModal v-model:open="rejectOpen" :title="de.leavePlanning.rejectTitle">
       <template #body>

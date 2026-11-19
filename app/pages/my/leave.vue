@@ -51,6 +51,7 @@ const blocks = computed(() => {
     </div>
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <UAlert v-if="showComing && comingError" color="warning" variant="soft" :title="errorMessage(comingError)" />
+    <LeaveForfeitNotice />
     <LeaveRequestSection v-if="leaveSettings?.enabled" @changed="refreshAll" />
     <template v-for="block in blocks" :key="block.dto.year">
       <h2 v-if="blocks.length > 1" class="pt-2 text-xl font-semibold">{{ block.dto.year }}</h2>

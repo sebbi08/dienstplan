@@ -113,8 +113,12 @@ export function navMenu(viewer: NavViewer): NavMenu {
     const more = [...officeMore, ...templates, ...adminMore]
     // With office pages (Leitung, Träger): the everyday ones in the row, the rest under "Mehr"; linked to an employee
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
+    // "Urlaubsplanung": the planners with their open requests; whoever sees the leave overview too, for the notice on
+    // remaining leave (also while leave requests are off).
     const open = viewer.isPlanner ? viewer.openCount : 0
-    const planning = viewer.isPlanner ? [entry(navLabelWithCount(de.nav.leavePlanning, open), '/admin/leave-planning')] : []
+    const planning = viewer.isPlanner || can('leave.overview')
+      ? [entry(navLabelWithCount(de.nav.leavePlanning, open), '/admin/leave-planning')]
+      : []
     const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements, myTalks, ...myAccidents] : []
     const mineCount = mine.length ? viewer.unread : 0
     return {
