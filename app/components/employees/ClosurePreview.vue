@@ -55,8 +55,7 @@ onBeforeUnmount(() => clearTimeout(timer))
         <p>{{ de.closurePreview.person(who, block.personDays, formatDate(block.from)) }}</p>
         <p v-if="block.closureDaysWithoutLeave > 0">{{ de.closurePreview.withoutLeave(block.closureDaysWithoutLeave) }}</p>
         <p v-if="block.entitlementDays !== null">
-          {{ de.closurePreview.free(block.entitlementDays, block.entitlementDays - block.personDays) }}
-          <template v-if="block.carriedOverDays > 0">{{ de.closurePreview.carriedOver(block.carriedOverDays) }}</template>
+          {{ de.closurePreview.free(block.entitlementDays, block.entitlementDays - block.personDays, block.carriedOverDays, employeeId !== undefined) }}
         </p>
       </template>
       <p v-else>{{ de.closurePreview.noClosures(block.year) }}</p>

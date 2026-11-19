@@ -1127,7 +1127,7 @@ export interface ClosurePreviewYearDto {
   year: number
   /** The first day counted for the person: „gültig ab“, the first weekly hours or move-in day, else 1 January. */
   from: IsoDate
-  /** Any closure of the facility (whatever the mode) touches the year. */
+  /** A closure of the facility as leave (vacation mode) touches the year. */
   hasClosures: boolean
   /** The closures as leave in the year for a 5-day week, without weekends and public holidays (the closures page). */
   facilityDays: number

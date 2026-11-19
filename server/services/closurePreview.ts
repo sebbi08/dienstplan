@@ -65,7 +65,8 @@ function previewYears(db: Db, facilityId: number, person: PreviewPerson, years: 
     const split = person.split(dates.filter(date => date >= from && isWorkday(person.info, date)))
     return {
       year, from,
-      hasClosures: closures.some(closure => closure.startDate <= `${year}-12-31` && closure.endDate >= `${year}-01-01`),
+      // Closures in closure-day mode take no leave: a year with only those counts as one without closures.
+      hasClosures: closures.some(closure => closure.mode === 'vacation' && closure.startDate <= `${year}-12-31` && closure.endDate >= `${year}-01-01`),
       facilityDays: fiveDayWeekLeaveDays(dates, rules, christmasEveHalfLeave),
       personDays: countLeaveDays(split.vacation, person.halfLeaveOnEves),
       closureDaysWithoutLeave: split.closureDays.length,

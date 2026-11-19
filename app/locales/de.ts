@@ -396,9 +396,17 @@ export const de = {
     person: (name: string, count: number, from: string) => `Davon betreffen ${name} ${days(count)} (ab ${from}, an seinen Arbeitstagen)`,
     thisPerson: 'diesen Mitarbeiter',
     withoutLeave: (count: number) => (count === 1 ? '1 Schließtag wird ohne Urlaub eingetragen' : `${count} Schließtage werden ohne Urlaub eingetragen`),
-    free: (entitlement: number, free: number) =>
-      `Bei ${entitlement === 1 ? '1 Urlaubstag' : `${entitlement.toLocaleString('de-DE')} Urlaubstagen`} ${free === 1 ? 'bleibt' : 'bleiben'} ${days(free)} frei verfügbar.`,
-    carriedOver: (count: number) => `(plus ${days(count)} Resturlaub)`,
+    /**
+     * What the entitlement leaves after the closures; `carried` > 0 adds the Resturlaub, `closuresOnly` (an existing
+     * employee) says that only the closures are taken off, not the other leave entered. More closure days than
+     * entitlement are named as such instead of a negative figure.
+     */
+    free: (entitlement: number, free: number, carried: number, closuresOnly: boolean) => {
+      const rest = carried > 0 ? ` (plus ${days(carried)} Resturlaub)` : ''
+      if (free < 0) return `Die Schließzeiten brauchen ${days(-free)} mehr als der Anspruch${rest}.`
+      const base = `Bei ${entitlement === 1 ? '1 Urlaubstag' : `${entitlement.toLocaleString('de-DE')} Urlaubstagen`} ${free === 1 ? 'bleibt' : 'bleiben'}`
+      return closuresOnly ? `${base} nach Abzug der Schließzeiten ${days(free)}${rest}.` : `${base} ${days(free)} frei verfügbar${rest}.`
+    },
     noClosures: (year: number) => `Für ${year} sind noch keine Schließzeiten eingetragen.`,
   },
   /** „Urlaub eintragen“ for an employee (employee page, „Urlaubsplanung“) and „Entfernen“ of a listed period. */

@@ -93,6 +93,11 @@ describe('closure leave preview', () => {
     expect(year).toMatchObject({ hasClosures: true, facilityDays: 4, personDays: 4 })
   })
 
+  it('treats a year with closures in closure-day mode only as one without closures', () => {
+    createClosure(db, admin, 1, { ...summer, mode: 'closure_day' })
+    expect(previewClosuresForNew(db, 1, fullTime)[0]).toMatchObject({ hasClosures: false, facilityDays: 0, personDays: 0 })
+  })
+
   it('counts 24 and 31 December as half days by the facility setting, also under the joiner limit', () => {
     setLeaveCounting(db, 1, { christmasEveHalfLeave: true })
     createClosure(db, admin, 1, christmas)
