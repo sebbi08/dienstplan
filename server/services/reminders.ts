@@ -12,7 +12,7 @@ import { loadEditableChild, type ChildRow } from '../lib/childRecord'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { accidentReminders } from './accidents'
-import { ifsgReminders } from './ifsg'
+import { ifsgClusterReminders, ifsgReminders } from './ifsg'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
 import { retentionOverview } from './retentionOverview'
@@ -141,6 +141,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   items.push(...accidentReminders(db, viewer, today))
   // Leitung and Träger: the health office still to be notified of a § 34 IfSG case („unverzüglich“).
   items.push(...ifsgReminders(db, viewer, today))
+  // And a cluster of the same disease (§ 34 Abs. 6 Satz 2), until acknowledged.
+  items.push(...ifsgClusterReminders(db, viewer, today))
   return sortReminders(items)
 }
 

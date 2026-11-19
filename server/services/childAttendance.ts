@@ -31,7 +31,7 @@ import { childOrder } from './childSort'
 import { activeGroupMerges } from './groupMerges'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
-import { attendanceIfsg, blockingIfsgCase } from './ifsg'
+import { attendanceIfsg, blockingIfsgCase, closeRecommendationCases } from './ifsg'
 import { mealVersionsOf } from './meals'
 import { closureOn, loadClosures } from './queries'
 
@@ -387,13 +387,14 @@ export function attendanceHistory(db: Db, viewer: ChildViewer, childId: number, 
  * Stamps the child in (spec §3.2): a new stay from `time`; the planned pickup is required (400 planned_pickup_required),
  * a child already here cannot come again (409 already_present), nor before it was picked up from an earlier stay of the
  * day (400 stays_overlap), nor on a later day (400 attendance_future), nor while a § 34 IfSG case entered on that day
- * or before waits for its readmission (409 ifsg_readmission_required, see ifsg.ts). An absence
+ * or before waits for its readmission (409 ifsg_readmission_required, see ifsg.ts; a local recommendation does not
+ * block and ends here). An absence
  * of the day is replaced. Returns the stay's id.
  */
 export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput, now: Date = new Date()): number {
   attendanceChild(db, viewer, input.childId, input.date)
   refuseFuture(input.date, now)
-  if (blockingIfsgCase(db, input.childId, input.date)) throw new ServiceError(409, 'ifsg_readmission_required')
+  if (blockingIfsgCase(db, viewer.facilityId, input.childId, input.date)) throw new ServiceError(409, 'ifsg_readmission_required')
   const plannedPickup = input.plannedPickup ?? null
   if (plannedPickup === null) throw new ServiceError(400, 'planned_pickup_required')
   const history = historyOf(db, viewer.facilityId, input.childId)
@@ -405,6 +406,8 @@ export function arrive(db: Db, viewer: ChildViewer, input: AttendanceArriveInput
     const { id } = tx.insert(childAttendanceStays).values({ dayId: day.id, arrived: input.time }).returning({ id: childAttendanceStays.id }).get()
     const broughtBy = input.broughtBy === undefined ? day.broughtBy : input.broughtBy.trim()
     tx.update(childAttendanceDays).set({ plannedPickup, broughtBy, absence: null }).where(eq(childAttendanceDays.id, day.id)).run()
+    // A local recommendation (no § 34 ban) ends with „Kommt“.
+    closeRecommendationCases(tx, viewer, input.childId, input.date)
     logAttendanceChanges(tx, viewer, input.childId, input.date, [
       { field: 'arrived', before: '', after: timeText(input.time) },
       { field: 'plannedPickup', before: timeText(day.plannedPickup), after: timeText(plannedPickup) },

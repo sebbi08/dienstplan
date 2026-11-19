@@ -269,8 +269,11 @@ const historyOpen = dialogOpen('history')
 const ifsgOpen = dialogOpen('ifsg')
 const readmitOpen = dialogOpen('readmit')
 watch(date, () => (dialog.value = null))
-/** „Kommt“ while a § 34 IfSG case is open shows the block (and the readmission) first; once readmitted, „Kommt“ follows. */
-const arriveOrReadmit = (child: AttendanceChildDto) => openDialog(child.ifsg ? 'readmit' : 'arrive', child)
+/**
+ * „Kommt“ while a § 34 IfSG case is open shows the block (and the readmission) first; once readmitted, „Kommt“ follows.
+ * A local recommendation (no § 34 ban) does not block: „Kommt“ at once, the server ends the case.
+ */
+const arriveOrReadmit = (child: AttendanceChildDto) => openDialog(child.ifsg?.binding ? 'readmit' : 'arrive', child)
 function afterReadmit() {
   const child = dialogChild.value
   if (child) openDialog('arrive', child)
@@ -477,7 +480,13 @@ const mealButton = (on: boolean) => (on ? 'bg-green-50 text-green-900 ring-green
                     </span>
                     <!-- An open § 34 IfSG case: the block for everybody, the disease only for whoever may know it. -->
                     <span
-                      v-if="child.ifsg"
+                      v-if="child.ifsg && !child.ifsg.binding"
+                      class="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-900 ring-1 ring-amber-300"
+                    >
+                      <UIcon name="i-lucide-info" class="size-4" aria-hidden="true" />{{ child.ifsg.diseaseName ? de.ifsg.recommendationHint(child.ifsg.diseaseName) : de.ifsg.recommendationHidden }}
+                    </span>
+                    <span
+                      v-else-if="child.ifsg"
                       class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-sm font-semibold text-red-800 ring-1 ring-red-300"
                     >
                       <UIcon name="i-lucide-shield-alert" class="size-4" aria-hidden="true" />{{ de.ifsg.block }}<template v-if="child.ifsg.diseaseName">: {{ child.ifsg.diseaseName }}</template>

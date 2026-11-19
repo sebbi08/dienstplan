@@ -3,6 +3,7 @@ import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
+import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
@@ -405,7 +406,9 @@ export interface ReminderDto {
   /** For retention (Träger only): how many entries of the page „Löschfristen“ may be deleted now, all facilities; null otherwise. */
   count: number | null
   /** For a § 34 IfSG case whose health office notification is due: the case, the disease's name and the child's group. */
-  ifsg?: { caseId: number; diseaseName: string; groupName: string }
+  ifsg?: { caseId: number; diseaseName: string; groupName: string; healthOffice: { name: string; phone: string } }
+  /** For a cluster (§ 34 Abs. 6 Satz 2): the disease, how many children and the days of the window. */
+  ifsgCluster?: { disease: string; diseaseName: string; count: number; from: IsoDate; to: IsoDate }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -2289,17 +2292,79 @@ export interface AttendanceIfsgDto {
   canReadmit: boolean
   /** The facility asks for a written attest with a medical judgement („Schriftliches Attest verlangen“). */
   requireAttest: boolean
+  /**
+   * § 34 forbids the visit (false: a local disease that is only a recommendation – no block, a yellow hint; the
+   * disease's name is shown then as well). Always true when the disease is hidden.
+   */
+  binding: boolean
+  /** Where the readmission comes from (null when hidden): the RKI or the local health office. */
+  source: 'rki' | 'local' | null
+  /** The facility's health office (name and phone, empty when not set), for the readmission rules and „Rücksprache“. */
+  healthOffice: { name: string; phone: string }
 }
 
-/** The facility's § 34 IfSG rules for the dialogs (`ifsgRulesFor`) and whether a written attest is required. */
+/** The facility's § 34 IfSG rules for the dialogs (`ifsgRulesFor`), the attest setting and the health office. */
 export interface IfsgRulesDto {
   requireAttest: boolean
   diseases: IfsgDisease[]
+  healthOffice: { name: string; phone: string }
 }
 
-/** The facility's § 34 IfSG setting (Leitung/Träger). */
+/** The facility's § 34 IfSG setting (Leitung/Träger): the written attest and the local health office. */
 export interface IfsgSettingsDto {
   requireAttest: boolean
+  healthOfficeName: string
+  healthOfficePhone: string
+}
+
+/**
+ * A local rule as sent (Leitung/Träger): every field optional, null or left out = the RKI value; empty texts count as
+ * none. `name`/`notifiable` only for a local disease.
+ */
+export interface IfsgLocalRuleInput {
+  name?: string | null
+  notifiable?: boolean | null
+  text?: string | null
+  rules?: IfsgLocalDateRule[] | null
+  proof?: IfsgProof | null
+  notify?: boolean | null
+  householdText?: string | null
+  householdExclusion?: boolean | null
+  note?: string | null
+  hint?: string | null
+}
+
+/** „Wiederzulassung (Gesundheitsamt)“: the health office and per disease the RKI, local and merged rule. */
+export interface IfsgLocalRulesDto {
+  healthOffice: { name: string; phone: string }
+  rows: {
+    key: string
+    /** null for a local disease. */
+    rki: IfsgDisease | null
+    local: IfsgLocalRule | null
+    merged: IfsgDisease
+    /** What the merged rule changes against the RKI („abweichend vom RKI“); null when nothing. */
+    difference: IfsgDifference | null
+    /** A case of the facility uses the disease (a local disease cannot be removed then). */
+    used: boolean
+  }[]
+}
+
+/** A document of the local health office (the file is fetched apart, in the app only at the tablet). */
+export interface IfsgDocumentDto {
+  id: number
+  title: string
+  mimeType: string
+  size: number
+  uploadedAt: string
+}
+
+/** The parents' declaration („Elternerklärung“) of a case, printed by the facility. */
+export interface IfsgDeclarationDto {
+  caseId: number
+  facilityName: string
+  childName: string
+  diseaseName: string
 }
 
 /**

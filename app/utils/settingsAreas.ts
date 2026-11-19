@@ -139,6 +139,10 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Infektionsschutzgesetz', 'IfSG', '§ 34', 'Attest', 'meldepflichtig', 'Krankheit', 'Wiederzulassung', 'Gesundheitsamt', 'Betretungsverbot'],
     },
     {
+      key: 'ifsg-local', title: de.ifsg.local.title, replaces: [],
+      keywords: ['Gesundheitsamt', 'Elternerklärung', 'Rhein-Neckar-Kreis', 'Vorlage', 'COVID-19', 'RSV', 'Hand-Fuß-Mund', 'nicht meldepflichtig', 'Häufung'],
+    },
+    {
       key: 'reminders', title: de.reminders.settings.title, replaces: ['reminders'],
       keywords: ['Erinnerung', 'Geburtstag', 'Abschied', 'Austritt', 'Vorlauf', 'Entwicklungsdokumentation', 'Kinder ohne Gruppe'],
     },

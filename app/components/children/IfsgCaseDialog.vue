@@ -97,8 +97,12 @@ async function save() {
           <DateTextInput v-model="form.ruleDate" :label="s.anchors[rule.anchor]" size="xl" />
         </UFormField>
 
-        <div v-if="kindRule" class="space-y-1 rounded-lg bg-red-50 p-3 text-sm text-red-900 ring-1 ring-red-200">
-          <p class="font-semibold">{{ s.readmission }}</p>
+        <div
+          v-if="kindRule" class="space-y-1 rounded-lg p-3 text-sm ring-1"
+          :class="disease?.binding === false ? 'bg-amber-50 text-amber-900 ring-amber-200' : 'bg-red-50 text-red-900 ring-red-200'"
+        >
+          <p v-if="disease?.binding === false" class="font-semibold">{{ s.recommendation }}</p>
+          <p class="font-semibold">{{ s.readmissionFrom(kindRule.source === 'local' ? s.sourceLocal(rules?.healthOffice.name ?? '') : s.sourceRki) }}</p>
           <p>{{ kindRule.text }}</p>
           <p class="font-medium">{{ ifsgEarliestText(earliest, rule?.condition) }}</p>
           <p>{{ s.proof(s.proofs[kindRule.proof]) }}</p>

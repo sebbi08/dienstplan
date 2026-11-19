@@ -90,6 +90,8 @@ const CHILD_VIEW_ROUTES = [
   'children/[id]/accidents/index.get.ts', 'child-accidents/[formId].get.ts', 'child-accident-attachments/[id]/file.get.ts',
   // § 34 IfSG: the rules for the dialogs (diseases, readmission, date rules).
   'ifsg/rules.get.ts',
+  // The local health office's documents: every child viewer reads them in the app, at the tablet never as a download.
+  'ifsg/documents/index.get.ts', 'ifsg/documents/[id]/file.get.ts',
 ]
 /**
  * children.attendance: attendance (every child viewer writes it, spec Anwesenheit §7), the group books and the
@@ -111,7 +113,7 @@ const CHILD_ATTENDANCE_ROUTES = [
   'child-accident-attachments/[id].delete.ts',
   // § 34 IfSG cases: entered, corrected and readmitted by whoever keeps the attendance; the service lets only the child's
   // own group and the managers, and keeps the health office fields to the managers.
-  'ifsg/cases/index.post.ts', 'ifsg/cases/[id].put.ts', 'ifsg/cases/[id]/readmit.post.ts',
+  'ifsg/cases/index.post.ts', 'ifsg/cases/[id].put.ts', 'ifsg/cases/[id]/readmit.post.ts', 'ifsg/cases/[id]/declaration.get.ts',
 ]
 /** children.edit: maintaining child records (Leitung, Träger; at the tablet Mitarbeiter with the flag). */
 const CHILD_EDITOR_ROUTES = [
@@ -129,6 +131,8 @@ const CHILD_MANAGER_ROUTES = [
   'children/[id]/leave.post.ts', 'children/[id]/unleave.post.ts', 'children/age-limit-warnings.get.ts',
   // § 34 IfSG: the overview with the children's names, deleting a case entered by mistake, the parents' notice.
   'ifsg/cases/index.get.ts', 'ifsg/cases/[id].delete.ts', 'ifsg/cases/[id]/notice.get.ts',
+  // A cluster (§ 34 Abs. 6 Satz 2) reported to the health office.
+  'ifsg/clusters/ack.post.ts',
 ]
 /** accidents.manage: deleting an accident report about a child (Leitung, Träger; at the office or the unlocked tablet). */
 const CHILD_ACCIDENT_MANAGER_ROUTES = ['child-accidents/[formId].delete.ts']
@@ -357,6 +361,16 @@ describe('API route permissions', () => {
       expect(source(route), route).toContain('user.facilityId')
     }
     expect(readFileSync(join(process.cwd(), 'server', 'services', 'leaveYearList.ts'), 'utf8')).toContain('requirePlanner(db, user, facilityId)')
+  })
+
+  it('lets only Leitung and Träger change the local health office rules and documents (settings.facility)', () => {
+    for (const route of ['ifsg/local-rules/index.get.ts', 'ifsg/local-rules/index.post.ts', 'ifsg/local-rules/[key].put.ts',
+      'ifsg/local-rules/[key].delete.ts', 'ifsg/local-rules/preset.post.ts', 'ifsg/documents/index.post.ts', 'ifsg/documents/[id].delete.ts',
+      'ifsg/settings.get.ts', 'ifsg/settings.put.ts']) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'settings.facility', options: '' }])
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+      expect(source(route), route).toContain('admin.facilityId')
+    }
   })
 
   it('opens the meal settings to managers of the active facility only', () => {

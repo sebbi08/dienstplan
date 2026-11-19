@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
 import type { IsoDate } from '#shared/domain/types'
-import type { AttendanceChildDto } from '#shared/types/api'
+import type { AttendanceChildDto, IfsgDocumentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
 import { ifsgDayText, ifsgEarliestText } from '~/utils/ifsg'
@@ -36,7 +36,25 @@ watch(open, (value) => {
 
 /** A medical judgement needs the attest when the facility asks for it. */
 const attestRequired = computed(() => !!info.value?.requireAttest && info.value.proof === 'medical_certificate')
-const valid = computed(() => form.readmittedOn !== '' && form.readmittedOn <= todayIso() && (!attestRequired.value || file.value !== null))
+/** After consulting the health office the note says with whom and when (the server checks it too). */
+const noteRequired = computed(() => info.value?.proof === 'health_office')
+const valid = computed(() => form.readmittedOn !== '' && form.readmittedOn <= todayIso() && (!attestRequired.value || file.value !== null)
+  && (!noteRequired.value || form.note.trim() !== ''))
+/** Where the shown rule comes from: the local health office or the RKI. */
+const sourceText = computed(() => (info.value?.source === 'local' ? s.sourceLocal(info.value.healthOffice.name) : s.sourceRki))
+
+/** The health office's documents (in the app only, also at the tablet), loaded when the dialog opens. */
+const documents = ref<IfsgDocumentDto[]>([])
+const viewing = ref<IfsgDocumentDto | null>(null)
+watch(open, async (value) => {
+  if (!value) return
+  try {
+    documents.value = await $fetch<IfsgDocumentDto[]>('/api/ifsg/documents')
+  }
+  catch {
+    documents.value = []
+  }
+}, { immediate: true })
 
 /** The chosen file and the photo feed the same upload; the other input is emptied so only one of them counts. */
 function onFile(event: Event, camera = false) {
@@ -80,15 +98,43 @@ async function save() {
           <p v-if="info.text">{{ info.text }}</p>
           <p class="font-medium">{{ ifsgEarliestText(info.earliest, info.condition ?? '') }}</p>
           <p v-if="info.proof">{{ s.proof(s.proofs[info.proof]) }}</p>
+          <p class="text-xs">{{ sourceText }}</p>
+        </div>
+        <div v-if="info?.proof === 'health_office'" class="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          <p class="font-semibold">{{ s.readmit.officeOnly }}</p>
+          <p v-if="info.healthOffice.name || info.healthOffice.phone">
+            {{ info.healthOffice.name }}<template v-if="info.healthOffice.phone"> · <a :href="`tel:${info.healthOffice.phone}`" class="underline">{{ s.readmit.officePhone(info.healthOffice.phone) }}</a></template>
+          </p>
+        </div>
+        <div v-if="documents.length" class="space-y-1">
+          <p class="text-sm font-medium">{{ s.readmit.documents }}</p>
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              v-for="document in documents" :key="document.id" type="button" size="md" color="neutral" variant="outline" icon="i-lucide-file-text"
+              :label="document.title || s.readmit.documents" @click="viewing = document"
+            />
+          </div>
+          <ChildrenDocumentViewer
+            v-if="viewing" :open="true" :document-id="viewing.id" :title="viewing.title" :mime-type="viewing.mimeType"
+            :url="`/api/ifsg/documents/${viewing.id}/file`" @update:open="viewing = null"
+          />
         </div>
         <template v-if="info?.canReadmit">
           <UFormField :label="s.readmit.date" required>
             <DateTextInput v-model="form.readmittedOn" :label="s.readmit.date" size="xl" :max="todayIso()" required />
           </UFormField>
-          <UFormField :label="s.readmit.note">
-            <UInput v-model="form.note" size="xl" maxlength="1000" class="w-full" :placeholder="s.readmit.notePlaceholder" />
+          <UFormField :label="noteRequired ? s.readmit.officeNote : s.readmit.note" :required="noteRequired">
+            <UInput
+              v-model="form.note" size="xl" maxlength="1000" class="w-full"
+              :placeholder="noteRequired ? s.readmit.officeNotePlaceholder : s.readmit.notePlaceholder"
+            />
           </UFormField>
-          <UFormField :label="attestRequired ? s.readmit.attest : s.readmit.attestOptional" :required="attestRequired" :help="attestRequired ? s.readmit.attestRequired : undefined">
+          <UButton
+            v-if="info.proof === 'parent_declaration'" type="button" size="lg" color="neutral" variant="outline" icon="i-lucide-printer"
+            :label="s.readmit.printDeclaration" :to="`/print/children/ifsg-declaration/${info.caseId}`" target="_blank"
+          />
+          <UFormField
+            :label="info.proof === 'parent_declaration' ? s.readmit.declarationPhoto : attestRequired ? s.readmit.attest : s.readmit.attestOptional" :required="attestRequired" :help="attestRequired ? s.readmit.attestRequired : undefined">
             <input
               ref="fileInput" type="file" accept="application/pdf,image/jpeg,image/png"
               class="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm hover:file:bg-gray-200"

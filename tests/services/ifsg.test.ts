@@ -109,7 +109,8 @@ describe('§ 34 IfSG cases', () => {
       expect(rowOf(lena).ifsg).toEqual({
         caseId: id, disease: 'windpocken', diseaseName: 'Windpocken (Varizellen)', kind: 'sick',
         text: expect.stringContaining('verkrustet'), condition: 'und alle Bläschen verkrustet', earliest: '2026-11-24',
-        proof: 'medical_certificate', canReadmit: true, requireAttest: false,
+        proof: 'medical_certificate', canReadmit: true, requireAttest: false, binding: true, source: 'rki',
+        healthOffice: { name: '', phone: '' },
       })
       expect(rowOf(max).ifsg).toBeNull()
       // The day before the case shows nothing.
@@ -156,8 +157,8 @@ describe('§ 34 IfSG cases', () => {
     })
 
     it('requires the attest when the facility asks for one, and stores it as a confidential document', () => {
-      expect(getIfsgSettings(db, 1)).toEqual({ requireAttest: false })
-      setIfsgSettings(db, 1, { requireAttest: true })
+      expect(getIfsgSettings(db, 1)).toEqual({ requireAttest: false, healthOfficeName: '', healthOfficePhone: '' })
+      setIfsgSettings(db, 1, { requireAttest: true, healthOfficeName: '', healthOfficePhone: '' })
       expect(ifsgRules(db, leitung).requireAttest).toBe(true)
       const id = create({ disease: 'kopflaus', ruleVariant: null })
       expect(rowOf(lena).ifsg?.requireAttest).toBe(true)
@@ -175,10 +176,10 @@ describe('§ 34 IfSG cases', () => {
     })
 
     it('does not ask for an attest where the health office decides', () => {
-      setIfsgSettings(db, 1, { requireAttest: true })
+      setIfsgSettings(db, 1, { requireAttest: true, healthOfficeName: '', healthOfficePhone: '' })
       const id = create({ disease: 'shigellose', ruleVariant: null })
       expect(rowOf(lena).ifsg?.proof).toBe('health_office')
-      expect(() => readmit(id)).not.toThrow()
+      expect(() => readmit(id, { note: 'Gesundheitsamt, Frau Muster' })).not.toThrow()
     })
   })
 
@@ -189,7 +190,7 @@ describe('§ 34 IfSG cases', () => {
       const id = create()
       expect(reminders()).toEqual([expect.objectContaining({
         kind: 'ifsg', date: TODAY, state: 'today', name: 'Lena Meier', childId: lena,
-        ifsg: { caseId: id, diseaseName: 'Windpocken (Varizellen)', groupName: 'Bären' },
+        ifsg: { caseId: id, diseaseName: 'Windpocken (Varizellen)', groupName: 'Bären', healthOffice: { name: '', phone: '' } },
       })])
       expect(reminders(leitung, '2026-11-19')[0]?.state).toBe('overdue')
       expect(listReminders(db, leitung, TODAY).filter(item => item.kind === 'ifsg')).toHaveLength(1)
@@ -236,7 +237,7 @@ describe('§ 34 IfSG cases', () => {
       expect(rowOf(lena, atTablet())?.ifsg).toMatchObject({ caseId: own, disease: 'windpocken', canReadmit: true })
       expect(rowOf(max, atTablet())?.ifsg).toEqual({
         caseId: other, disease: null, diseaseName: null, kind: null, text: null, condition: null, earliest: null, proof: null,
-        canReadmit: false, requireAttest: false,
+        canReadmit: false, requireAttest: false, binding: true, source: null, healthOffice: { name: '', phone: '' },
       })
       // The Leitung sees both.
       expect(rowOf(max)?.ifsg?.diseaseName).toBe('Scharlach / Streptococcus-pyogenes-Infektion')

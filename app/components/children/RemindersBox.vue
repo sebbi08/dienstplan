@@ -42,7 +42,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
-  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert',
+  leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert', ifsgCluster: 'i-lucide-users-round',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -69,9 +69,23 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     case 'accident':
       return r.accident(formatDate(entry.date), entry.childId === null)
     // „Gesundheitsamt unverzüglich benachrichtigen (§ 34 Abs. 6 IfSG): ‹Krankheit› – ‹Kind›, ‹Gruppe›“.
-    case 'ifsg':
-      return r.ifsg(entry.ifsg?.diseaseName ?? '', entry.ifsg?.groupName ?? '')
+    case 'ifsg': {
+      const text = r.ifsg(entry.ifsg?.diseaseName ?? '', entry.ifsg?.groupName ?? '')
+      const office = entry.ifsg?.healthOffice
+      return { before: text.before, after: text.after + (office && (office.name || office.phone) ? r.ifsgOffice(office.name, office.phone) : '') }
+    }
+    // „Häufung: 2 Fälle ‹Krankheit› – Gesundheitsamt informieren (§ 34 Abs. 6 Satz 2 IfSG)“.
+    case 'ifsgCluster':
+      return r.ifsgCluster(entry.count ?? 0)
   }
+}
+
+/** § 34 IfSG: the health office was informed of a cluster today (§ 34 Abs. 6 Satz 2). */
+async function ackCluster(entry: ReminderDto) {
+  if (!entry.ifsgCluster || busy.value) return
+  await run(() => $fetch<{ ok: boolean }>('/api/ifsg/clusters/ack', {
+    method: 'POST', body: { disease: entry.ifsgCluster!.disease, acknowledgedOn: todayIso() },
+  }), de.common.saved)
 }
 
 /** § 34 IfSG: the health office was notified today, or the physician's report is there (§ 6 IfSG); either ends the duty. */
@@ -136,6 +150,10 @@ async function markDone(entry: ReminderDto) {
           >{{ r.accidentLink }}</NuxtLink>
           <NuxtLink v-if="entry.kind === 'ifsg'" to="/children?tab=ifsg" class="ml-2 text-xs text-sky-700 hover:underline">{{ r.ifsgLink }}</NuxtLink>
         </span>
+        <UButton
+          v-if="entry.kind === 'ifsgCluster' && entry.ifsgCluster" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-phone"
+          :label="r.ifsgClusterAck" :disabled="busy" @click="ackCluster(entry)"
+        />
         <template v-if="entry.kind === 'ifsg' && entry.ifsg">
           <UButton
             class="min-h-11" color="neutral" variant="outline" icon="i-lucide-phone" :label="r.ifsgNotified"

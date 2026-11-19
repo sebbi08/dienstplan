@@ -561,8 +561,29 @@ export const ifsgReadmitFields = z.object({
   readmittedOn: isoDate, note: z.string().max(1000).default(''),
   confirmEarly: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
 })
-/** § 34 IfSG: the facility's setting. */
-export const ifsgSettingsSchema = z.object({ requireAttest: z.boolean() })
+/** § 34 IfSG: the facility's setting and its health office. */
+export const ifsgSettingsSchema = z.object({
+  requireAttest: z.boolean(), healthOfficeName: z.string().max(200).default(''), healthOfficePhone: z.string().max(100).default(''),
+})
+/** § 34 IfSG: a local rule of the health office (null or left out = the RKI value); proof and rules checked by the service too. */
+export const ifsgLocalRuleSchema = z.object({
+  name: z.string().max(200).nullish(), notifiable: z.boolean().nullish(), text: z.string().max(2000).nullish(),
+  rules: z.array(z.object({
+    anchor: z.enum(['onset', 'rash', 'antibiotic', 'symptom_end', 'jaundice', 'gland_swelling', 'treatment', 'last_contact', 'prophylaxis']),
+    days: z.number().int().min(0).max(365), label: z.string().max(100).default(''),
+  })).max(3).nullish(),
+  proof: z.enum(['none', 'parent_declaration', 'medical_certificate', 'health_office']).nullish(), notify: z.boolean().nullish(),
+  householdText: z.string().max(2000).nullish(), householdExclusion: z.boolean().nullish(), note: z.string().max(2000).nullish(),
+  hint: z.string().max(1000).nullish(),
+})
+/** § 34 IfSG: the key of a disease of the rules (RKI or local). */
+export const ifsgKeyParams = z.object({ key: z.string().regex(/^[a-z0-9_]{1,60}$/) })
+/** § 34 IfSG: apply a preset; existing local rows only with `overwrite`. */
+export const ifsgPresetSchema = z.object({ preset: z.enum(['rki', 'rnk_2024']), overwrite: z.boolean().default(false) })
+/** § 34 IfSG: the health office was informed of a cluster of this disease on that day. */
+export const ifsgClusterAckSchema = z.object({ disease: z.string().regex(/^[a-z0-9_]{1,60}$/), acknowledgedOn: isoDate })
+/** § 34 IfSG: the form field of a health office document upload. */
+export const ifsgDocumentFields = z.object({ title: z.string().max(200).default('') })
 /** The sort order of the child lists of a facility. */
 export const childSortSchema = z.object({ sort: z.enum(CHILD_SORTS) })
 /** The attendance settings of a facility. The recording start is checked by the service, which answers invalid_date. */

@@ -1,22 +1,24 @@
 import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import {
-  IFSG_CATALOGUE, earliestReadmission, ifsgDateRule, ifsgDisease, ifsgKinds, type IfsgDisease, type IfsgKind,
+  earliestReadmission, ifsgDateRule, ifsgDisease, ifsgKinds, type IfsgDisease, type IfsgKind, type IfsgProof,
 } from '../../shared/domain/ifsg'
+import { ifsgClusters } from '../../shared/domain/ifsgLocal'
 import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  AttendanceIfsgDto, IfsgCaseDto, IfsgCaseUpdateInput, IfsgNoticeDto, IfsgReadmitInput, IfsgRulesDto, IfsgSettingsDto,
-  ReminderDto,
+  AttendanceIfsgDto, IfsgCaseDto, IfsgCaseUpdateInput, IfsgDeclarationDto, IfsgNoticeDto, IfsgReadmitInput, IfsgRulesDto,
+  IfsgSettingsDto, ReminderDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { childDocuments, childIfsgCases, children, documentTypes, facilities } from '../db/schema'
+import { childDocuments, childIfsgCases, children, documentTypes, facilities, ifsgClusterAcks } from '../db/schema'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { checkedDocumentFile } from '../lib/fileSignature'
 import { settleDocumentReview } from './documentReview'
 import { listGroups } from './groups'
+import { healthOfficeOf, mergedRulesOf } from './ifsgLocal'
 
 // Notifiable diseases of children (§ 34 IfSG): the facility's rules, the cases with their readmission, the block at
 // „Kommt“, the Leitung's duty to notify the health office, the overview and the parents' notice. Health data: the
@@ -28,32 +30,42 @@ type CaseRow = typeof childIfsgCases.$inferSelect
 
 /** The document type a readmission attest is stored under; created in the facility when it is missing. */
 export const IFSG_ATTEST_TYPE = 'Ärztliches Attest'
+/** The document type of a parents' declaration (proof parent_declaration). */
+export const IFSG_DECLARATION_TYPE = 'Elternerklärung'
 /** The title of a stored readmission attest; it never names the disease. */
 export const IFSG_ATTEST_TITLE = 'Wiederzulassung (§ 34 IfSG)'
 
 /**
- * The facility's rules for notifiable diseases: today the RKI catalogue. Every reader of the rules goes through here,
- * so local rules of the health office can later take precedence.
+ * The facility's rules for notifiable diseases: the RKI catalogue with the local health office's rules over it, field
+ * by field, and its local diseases (ifsgLocal.ts). Every reader of the rules goes through here.
  */
-export function ifsgRulesFor(_db: Db, _facilityId: number): IfsgDisease[] {
-  return [...IFSG_CATALOGUE]
+export function ifsgRulesFor(db: Db, facilityId: number): IfsgDisease[] {
+  return mergedRulesOf(db, facilityId)
 }
 
 /** The facility's setting (404 facility_not_found). */
 export function getIfsgSettings(db: Db, facilityId: number): IfsgSettingsDto {
-  const row = db.select({ requireAttest: facilities.ifsgRequireAttest }).from(facilities).where(eq(facilities.id, facilityId)).get()
+  const row = db.select({
+    requireAttest: facilities.ifsgRequireAttest, healthOfficeName: facilities.healthOfficeName, healthOfficePhone: facilities.healthOfficePhone,
+  }).from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
   return row
 }
 
+/** Stores the setting; the health office's name and phone are trimmed. */
 export function setIfsgSettings(db: Db, facilityId: number, input: IfsgSettingsDto): void {
   getIfsgSettings(db, facilityId)
-  db.update(facilities).set({ ifsgRequireAttest: input.requireAttest }).where(eq(facilities.id, facilityId)).run()
+  db.update(facilities).set({
+    ifsgRequireAttest: input.requireAttest, healthOfficeName: input.healthOfficeName.trim(), healthOfficePhone: input.healthOfficePhone.trim(),
+  }).where(eq(facilities.id, facilityId)).run()
 }
 
-/** The rules for the dialogs, with the facility's attest setting. */
+/** The rules for the dialogs, with the facility's attest setting and its health office. */
 export function ifsgRules(db: Db, viewer: ChildViewer): IfsgRulesDto {
-  return { requireAttest: getIfsgSettings(db, viewer.facilityId).requireAttest, diseases: ifsgRulesFor(db, viewer.facilityId) }
+  return {
+    requireAttest: getIfsgSettings(db, viewer.facilityId).requireAttest, diseases: ifsgRulesFor(db, viewer.facilityId),
+    healthOffice: healthOfficeOf(db, viewer.facilityId),
+  }
 }
 
 /** Whether the viewer may know a case's disease and act on it: Leitung/Träger, or the attendance of the child's group. */
@@ -78,15 +90,36 @@ function notifyDue(rules: IfsgDisease[], row: CaseRow): boolean {
   return (disease?.notify ?? true) && row.healthOfficeNotifiedOn === null && !row.physicianReported && !row.ended
 }
 
-/**
- * The open case that blocks „Kommt“ on the date: entered on that day or before, neither readmitted nor closed; the
- * oldest of several. Days before the case was entered stay open for corrections.
- */
-export function blockingIfsgCase(db: Db, childId: number, date: IsoDate): CaseRow | undefined {
+/** The child's open cases entered on the date or before, the oldest first. */
+function openCasesOn(db: Db, childId: number, date: IsoDate): CaseRow[] {
   return db.select().from(childIfsgCases)
     .where(and(eq(childIfsgCases.childId, childId), lte(childIfsgCases.reportedOn, date), isNull(childIfsgCases.readmittedOn),
       eq(childIfsgCases.ended, false)))
-    .orderBy(asc(childIfsgCases.reportedOn), asc(childIfsgCases.id)).get()
+    .orderBy(asc(childIfsgCases.reportedOn), asc(childIfsgCases.id)).all()
+}
+
+/** § 34 forbids the visit: every RKI disease and a notifiable local one (an unknown key counts as binding). */
+const isBinding = (rules: IfsgDisease[], row: CaseRow) => ifsgDisease(rules, row.disease)?.binding ?? true
+
+/**
+ * The open case that blocks „Kommt“ on the date: entered on that day or before, neither readmitted nor closed, of a
+ * binding disease (a local recommendation does not block); the oldest of several. Days before the case was entered
+ * stay open for corrections.
+ */
+export function blockingIfsgCase(db: Db, facilityId: number, childId: number, date: IsoDate): CaseRow | undefined {
+  const rules = ifsgRulesFor(db, facilityId)
+  return openCasesOn(db, childId, date).find(row => isBinding(rules, row))
+}
+
+/**
+ * „Kommt“ ends the open cases of local recommendations (no § 34 ban): they count as readmitted on that day by whoever
+ * stamped the child in. Runs in the transaction of the stamping.
+ */
+export function closeRecommendationCases(db: Db, viewer: ChildViewer, childId: number, date: IsoDate): void {
+  const rules = ifsgRulesFor(db, viewer.facilityId)
+  for (const row of openCasesOn(db, childId, date).filter(entry => !isBinding(rules, entry))) {
+    db.update(childIfsgCases).set({ readmittedOn: date, readmittedByName: viewer.name }).where(eq(childIfsgCases.id, row.id)).run()
+  }
 }
 
 /**
@@ -106,6 +139,9 @@ export function attendanceIfsg(
   if (cases.length === 0) return result
   const rules = ifsgRulesFor(db, viewer.facilityId)
   const requireAttest = getIfsgSettings(db, viewer.facilityId).requireAttest
+  const healthOffice = healthOfficeOf(db, viewer.facilityId)
+  // A binding case shows before a recommendation of the same child.
+  cases.sort((a, b) => Number(isBinding(rules, b)) - Number(isBinding(rules, a)))
   const groupOf = new Map(rows.map(row => [row.id, row.groupId]))
   for (const row of cases) {
     if (result.has(row.childId)) continue
@@ -117,11 +153,12 @@ export function attendanceIfsg(
       ? {
           caseId: row.id, disease: row.disease, diseaseName: disease?.name ?? row.disease, kind: row.kind,
           text: kindRule?.text ?? '', condition: rule?.condition ?? '', earliest: earliestOf(rules, row),
-          proof: kindRule?.proof ?? 'medical_certificate', canReadmit: true, requireAttest,
+          proof: kindRule?.proof ?? 'medical_certificate', canReadmit: true, requireAttest, binding: isBinding(rules, row),
+          source: kindRule?.source ?? 'rki', healthOffice,
         }
       : {
           caseId: row.id, disease: null, diseaseName: null, kind: null, text: null, condition: null, earliest: null, proof: null,
-          canReadmit: false, requireAttest,
+          canReadmit: false, requireAttest, binding: isBinding(rules, row), source: null, healthOffice,
         })
   }
   return result
@@ -183,13 +220,17 @@ export function deleteIfsgCase(db: Db, viewer: ChildViewer, id: number): void {
   db.delete(childIfsgCases).where(eq(childIfsgCases.id, id)).run()
 }
 
-/** The facility's document type for attests, created (important, confidential by default) when missing. */
-function attestType(db: Db, facilityId: number): number {
+/**
+ * The facility's document type for the readmission's proof, created (confidential by default) when missing: „Elternerklärung“
+ * for a parents' declaration, „Ärztliches Attest“ for everything else.
+ */
+function proofDocumentType(db: Db, facilityId: number, proof: IfsgProof): number {
+  const name = proof === 'parent_declaration' ? IFSG_DECLARATION_TYPE : IFSG_ATTEST_TYPE
   const existing = db.select({ id: documentTypes.id, name: documentTypes.name }).from(documentTypes)
     .where(eq(documentTypes.facilityId, facilityId)).all()
-    .find(type => type.name.localeCompare(IFSG_ATTEST_TYPE, 'de', { sensitivity: 'accent' }) === 0)
+    .find(type => type.name.localeCompare(name, 'de', { sensitivity: 'accent' }) === 0)
   if (existing) return existing.id
-  return db.insert(documentTypes).values({ facilityId, name: IFSG_ATTEST_TYPE, confidentialDefault: true })
+  return db.insert(documentTypes).values({ facilityId, name, confidentialDefault: true })
     .returning({ id: documentTypes.id }).get().id
 }
 
@@ -198,8 +239,10 @@ function attestType(db: Db, facilityId: number): number {
  * stamped in again. Leitung/Träger and the child's own group (403 group_read_only). The day is a real day, not ahead
  * and not before the onset (400 invalid_date). A day before the earliest readmission of the date rule needs
  * `confirmEarly` (409 ifsg_before_earliest with the earliest day). A medical judgement needs a written attest when the
- * facility asks for one (400 ifsg_attest_required); a given file (PDF/JPG/PNG, like every document) is stored as a
- * confidential child document of the type „Ärztliches Attest“ (created when missing), titled without the disease.
+ * facility asks for one (400 ifsg_attest_required); a readmission after consulting the health office needs a note who
+ * was consulted and when (400 ifsg_note_required). A given file (PDF/JPG/PNG, like every document) is stored as a
+ * confidential child document of the type „Ärztliches Attest“ (a parents' declaration: „Elternerklärung“; created when
+ * missing), titled without the disease. The proof follows the facility's merged rules.
  */
 export function readmitIfsgCase(
   db: Db, viewer: ChildViewer, id: number, input: IfsgReadmitInput, file: { data: Buffer } | null, now: Date = new Date(),
@@ -219,12 +262,13 @@ export function readmitIfsgCase(
   if (file === null && proof === 'medical_certificate' && getIfsgSettings(db, viewer.facilityId).requireAttest) {
     throw new ServiceError(400, 'ifsg_attest_required')
   }
+  if (proof === 'health_office' && input.note.trim() === '') throw new ServiceError(400, 'ifsg_note_required')
   const mimeType = file === null ? null : checkedDocumentFile(file.data)
   db.transaction((tx) => {
     let attachmentId: number | null = null
     if (file !== null && mimeType !== null) {
       attachmentId = tx.insert(childDocuments).values({
-        childId: row.childId, documentTypeId: attestType(tx, viewer.facilityId), title: IFSG_ATTEST_TITLE,
+        childId: row.childId, documentTypeId: proofDocumentType(tx, viewer.facilityId, proof), title: IFSG_ATTEST_TITLE,
         documentDate: input.readmittedOn, confidential: true, mimeType, size: file.data.length, data: file.data,
         uploadedBy: viewer.id, uploadedAt: now.toISOString(),
       }).returning({ id: childDocuments.id }).get().id
@@ -302,9 +346,73 @@ export function ifsgReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
     .where(and(eq(childIfsgCases.facilityId, viewer.facilityId), eq(children.facilityId, viewer.facilityId),
       isNull(childIfsgCases.healthOfficeNotifiedOn), eq(childIfsgCases.physicianReported, false), eq(childIfsgCases.ended, false)))
     .all().filter(({ row }) => notifyDue(rules, row))
+  const healthOffice = healthOfficeOf(db, viewer.facilityId)
   return toDtos(db, viewer.facilityId, rows).map(item => ({
     kind: 'ifsg' as const, date: item.reportedOn, state: item.reportedOn < today ? 'overdue' as const : 'today' as const,
     name: item.childName, childId: item.childId, age: null, ownChild: false, canDone: false, time: null, meetingKind: null,
-    count: null, ifsg: { caseId: item.id, diseaseName: item.diseaseName, groupName: item.groupName },
+    count: null, ifsg: { caseId: item.id, diseaseName: item.diseaseName, groupName: item.groupName, healthOffice },
   }))
+}
+
+/** The last case day each disease's acknowledged cluster covered. */
+function acknowledgedUpTo(db: Db, facilityId: number): Map<string, IsoDate> {
+  const result = new Map<string, IsoDate>()
+  for (const ack of db.select({ disease: ifsgClusterAcks.disease, upTo: ifsgClusterAcks.upTo }).from(ifsgClusterAcks)
+    .where(eq(ifsgClusterAcks.facilityId, facilityId)).all()) {
+    if ((result.get(ack.disease) ?? '') < ack.upTo) result.set(ack.disease, ack.upTo)
+  }
+  return result
+}
+
+/** The facility's clusters still to report (cases of every disease, local and non-notifiable ones too). */
+function openClusters(db: Db, facilityId: number) {
+  const cases = db.select({ disease: childIfsgCases.disease, childId: childIfsgCases.childId, reportedOn: childIfsgCases.reportedOn })
+    .from(childIfsgCases).innerJoin(children, eq(children.id, childIfsgCases.childId))
+    .where(and(eq(childIfsgCases.facilityId, facilityId), eq(children.facilityId, facilityId))).all()
+  return ifsgClusters(cases, acknowledgedUpTo(db, facilityId))
+}
+
+/**
+ * Leitung and Träger (at the office): a cluster – two or more children of the facility with the same disease within
+ * 14 days (§ 34 Abs. 6 Satz 2) – until the Leitung acknowledges that the health office was informed; overdue from the
+ * day after its last case.
+ */
+export function ifsgClusterReminders(db: Db, viewer: ChildViewer, today: IsoDate): ReminderDto[] {
+  if (!can(viewer.permissions, 'children.manage') || viewer.onTablet) return []
+  const rules = ifsgRulesFor(db, viewer.facilityId)
+  return openClusters(db, viewer.facilityId).map((cluster) => {
+    const diseaseName = ifsgDisease(rules, cluster.disease)?.name ?? cluster.disease
+    return {
+      kind: 'ifsgCluster' as const, date: cluster.to, state: cluster.to < today ? 'overdue' as const : 'today' as const,
+      name: diseaseName, childId: null, age: null, ownChild: false, canDone: false, time: null, meetingKind: null, count: cluster.count,
+      ifsgCluster: { disease: cluster.disease, diseaseName, count: cluster.count, from: cluster.from, to: cluster.to },
+    }
+  })
+}
+
+/**
+ * The Leitung informed the health office of the disease's cluster on `acknowledgedOn` (a day, not ahead: 400
+ * invalid_date); it covers the cases up to the cluster's last day. Without an open cluster: 404 ifsg_cluster_not_found.
+ */
+export function acknowledgeIfsgCluster(db: Db, viewer: ChildViewer, disease: string, acknowledgedOn: IsoDate, now: Date = new Date()): void {
+  if (!isValidIsoDate(acknowledgedOn) || acknowledgedOn > nowInBerlin(now).date) throw new ServiceError(400, 'invalid_date')
+  const cluster = openClusters(db, viewer.facilityId).find(entry => entry.disease === disease)
+  if (!cluster) throw new ServiceError(404, 'ifsg_cluster_not_found')
+  db.insert(ifsgClusterAcks).values({
+    facilityId: viewer.facilityId, disease, upTo: cluster.to, acknowledgedOn, acknowledgedByName: viewer.name, createdAt: now.toISOString(),
+  }).run()
+}
+
+/**
+ * The parents' declaration of a case to print (Leitung/Träger and the child's own group, 403 group_read_only): the
+ * child's name, the disease and the facility.
+ */
+export function ifsgDeclaration(db: Db, viewer: ChildViewer, id: number): IfsgDeclarationDto {
+  const row = loadOwnCase(db, viewer, id)
+  const child = db.select({ firstName: children.firstName, lastName: children.lastName }).from(children).where(eq(children.id, row.childId)).get()
+  const facility = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, viewer.facilityId)).get()
+  return {
+    caseId: row.id, facilityName: facility?.name ?? '', childName: child ? `${child.firstName} ${child.lastName}`.trim() : '',
+    diseaseName: ifsgDisease(ifsgRulesFor(db, viewer.facilityId), row.disease)?.name ?? row.disease,
+  }
 }

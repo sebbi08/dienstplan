@@ -22,7 +22,7 @@ describe('visibleSettingsAreas', () => {
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
-      ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'reminders']],
+      ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
       ['staff', ['staffing', 'employee-retention', 'child-sick-days']],
     ])
   })
@@ -33,7 +33,7 @@ describe('visibleSettingsAreas', () => {
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
-      ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'reminders']],
+      ['children', ['care-types', 'document-types', 'school-children', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
       ['staff', ['staffing', 'employee-retention', 'child-sick-days']],
     ])
   })
