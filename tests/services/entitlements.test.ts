@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { rolePermissions } from '../../server/services/permissions'
-import { createEmployee, getEmployee, setEntitlement } from '../../server/services/employees'
+import { createEmployee, deleteEntitlement, getEmployee, setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { previewLeaveRequest, setLeaveModule } from '../../server/services/leaveRequests'
-import { addUser, codeId, createTestDb } from '../helpers/fixtures'
+import { addFacility, addUser, codeId, createTestDb, errorCode } from '../helpers/fixtures'
 
 const today = '2026-10-05'
 
@@ -75,6 +75,57 @@ describe('leave entitlement and remaining leave carried into later years', () =>
     const user = addUser(db, 'anna', 'observer', anna)
     setLeaveModule(db, { enabled: true, plannerIds: [] })
     expect(previewLeaveRequest(db, user, '2027-03-01', '2027-03-05', today).availableAfter).toBe(55)
+  })
+})
+
+describe('deleting a leave entitlement year', () => {
+  function setup() {
+    const db = createTestDb()
+    const admin = addUser(db, 'leitung', 'admin')
+    const anna = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    return { db, anna }
+  }
+
+  it('lets the year inherit the last earlier entitlement again', () => {
+    const { db, anna } = setup()
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
+    setEntitlement(db, 1, anna, 2027, { days: 24, carriedOverDays: 0 })
+    deleteEntitlement(db, 1, anna, 2027)
+    expect(getLeaveAccount(db, anna, 2027, today)).toMatchObject({ account: { entitlement: 30 }, inheritedFrom: 2026 })
+  })
+
+  it('leaves no leave year when the first year is deleted', () => {
+    const { db, anna } = setup()
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
+    deleteEntitlement(db, 1, anna, 2026)
+    expect(getLeaveAccount(db, anna, 2026, today)).toMatchObject({ hasEntitlement: false, account: { entitlement: 0 } })
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).entitlements).toEqual([])
+  })
+
+  it('recomputes the carry-over of the following years', () => {
+    const { db, anna } = setup()
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 3 })
+    setEntitlement(db, 1, anna, 2027, { days: 30, carriedOverDays: 0 })
+    expect(getLeaveAccount(db, anna, 2027, today).account.carriedOver).toBe(33)
+    deleteEntitlement(db, 1, anna, 2026)
+    expect(getLeaveAccount(db, anna, 2027, today).account.carriedOver).toBe(0)
+  })
+
+  it('refuses the own record for a Mitarbeiter with employee rights, like saving, but not a colleague', () => {
+    const { db, anna } = setup()
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
+    expect(errorCode(() => deleteEntitlement(db, 1, anna, 2026, { role: 'observer', employeeId: anna }))).toBe('own_account')
+    expect(getLeaveAccount(db, anna, 2026, today).hasEntitlement).toBe(true)
+    expect(errorCode(() => deleteEntitlement(db, 1, anna, 2026, { role: 'observer', employeeId: anna + 99 }))).toBeNull()
+    expect(getLeaveAccount(db, anna, 2026, today).hasEntitlement).toBe(false)
+  })
+
+  it('answers 404 for a missing year and for an employee of another facility', () => {
+    const { db, anna } = setup()
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
+    expect(errorCode(() => deleteEntitlement(db, 1, anna, 2027))).toBe('entitlement_not_found')
+    expect(errorCode(() => deleteEntitlement(db, addFacility(db, 'Krippe'), anna, 2026))).toBe('employee_not_found')
+    expect(getLeaveAccount(db, anna, 2026, today).hasEntitlement).toBe(true)
   })
 })
 

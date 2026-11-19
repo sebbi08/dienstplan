@@ -371,6 +371,11 @@ function saveEntitlement() {
   }), de.common.saved)
 }
 
+async function deleteEntitlement(year: number) {
+  if (!employee.value || !await confirm(de.employees.deleteEntitlementConfirm(year, employee.value.name), { confirmLabel: de.common.delete })) return
+  run(() => $fetch<unknown>(`/api/employees/${id}/leave/${year}`, { method: 'DELETE' }), de.common.deleted)
+}
+
 function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number]) {
   Object.assign(entitlementForm, { year: entitlement.year, days: entitlement.days, carriedOverDays: entitlement.carriedOverDays })
 }
@@ -689,7 +694,10 @@ async function onTabKey(event: KeyboardEvent) {
               {{ formatNumber(entitlement.carriedOverDays) }}
               <span v-if="entitlement.carriedAutomatically" class="text-xs text-gray-500">{{ de.employees.carriedAutomatically }}</span>
             </td>
-            <td class="py-1 text-right"><UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="editEntitlement(entitlement)" /></td>
+            <td class="py-1 text-right">
+              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="editEntitlement(entitlement)" />
+              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteEntitlement(entitlement.year)" />
+            </td>
           </tr>
         </tbody>
       </table>

@@ -523,6 +523,18 @@ export function setEntitlement(
 }
 
 /**
+ * Deletes the entitlement record of one year (404 employee_not_found / entitlement_not_found). Afterwards the year
+ * inherits the last earlier record, or has none; entered leave days stay in the plan. Same rules as setEntitlement.
+ */
+export function deleteEntitlement(db: Db, facilityId: number, employeeId: number, year: number, actor?: BalanceActor): void {
+  assertEmployee(db, facilityId, employeeId)
+  assertNotOwnBalance(actor, employeeId)
+  const removed = db.delete(leaveEntitlements)
+    .where(and(eq(leaveEntitlements.employeeId, employeeId), eq(leaveEntitlements.year, year))).run().changes
+  if (removed === 0) throw new ServiceError(404, 'entitlement_not_found')
+}
+
+/**
  * Contract data of an employee; only the Träger may change it (checked by the route). „befristet bis“ left out stays,
  * a given one must be a real date (400 invalid_date). „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als
  * Stufe 1“ left out stay; the training end is a real date from 1970 up to a year after today (400
