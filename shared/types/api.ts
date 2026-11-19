@@ -1869,9 +1869,13 @@ export interface LeaveForfeitRowDto {
   name: string
   /** The days left as of today (after the forfeiture date: as of that day, i.e. what lapsed). */
   days: number
-  /** read: „Gelesen“ clicked; open: has an account, not read yet; no_account: no active account, tell in writing. */
-  status: 'read' | 'open' | 'no_account'
-  /** When „Gelesen“ was clicked (ISO timestamp) and the days the notice named then. */
+  /**
+   * read: „Gelesen“ clicked (the latest receipt still covers the notice); reopened: read, but now more days or another
+   * forfeiture date/text, so it shows again; open: has an account, not read yet; no_account: no active account, tell in
+   * writing.
+   */
+  status: 'read' | 'reopened' | 'open' | 'no_account'
+  /** When „Gelesen“ was last clicked (ISO timestamp) and the days the notice named then. */
   readAt: string | null
   readDays: number | null
 }
@@ -1881,6 +1885,8 @@ export interface LeaveForfeitListDto {
   /** The first day the employees see the notice (1 October of the year) and the forfeiture date in the year after. */
   noticeFrom: IsoDate
   forfeitDate: IsoDate
+  /** False before the window of the year (today before noticeFrom): nobody is listed yet. */
+  started: boolean
   rows: LeaveForfeitRowDto[]
 }
 

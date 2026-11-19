@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_LEAVE_FORFEIT_TEXT, fillLeaveForfeitText, forfeitDateOf, isValidForfeitDate, leaveForfeitNoticeYear,
+  DEFAULT_LEAVE_FORFEIT_TEXT, fillLeaveForfeitText, forfeitDateOf, isValidForfeitDate, isValidForfeitText, leaveForfeitNoticeYear,
 } from '../../shared/domain/leaveForfeit'
 
 const march31 = { day: 31, month: 3 }
@@ -33,6 +33,18 @@ describe('the window of the notice on remaining leave', () => {
     expect(isValidForfeitDate({ day: 1, month: 10 })).toBe(false)
     expect(isValidForfeitDate({ day: 0, month: 3 })).toBe(false)
     expect(isValidForfeitDate({ day: 1.5, month: 3 })).toBe(false)
+  })
+})
+
+describe('an own notice text', () => {
+  it('has to name the days and the forfeiture date; empty is the default text', () => {
+    expect(isValidForfeitText('')).toBe(true)
+    expect(isValidForfeitText('  ')).toBe(true)
+    expect(isValidForfeitText('Noch ‹Tage› Tage, bis ‹Verfall› nehmen.')).toBe(true)
+    expect(isValidForfeitText(DEFAULT_LEAVE_FORFEIT_TEXT)).toBe(true)
+    expect(isValidForfeitText('Bitte Urlaub planen.')).toBe(false)
+    expect(isValidForfeitText('Noch ‹Tage› Tage aus ‹Jahr›.')).toBe(false)
+    expect(isValidForfeitText('Bis ‹Verfall› planen.')).toBe(false)
   })
 })
 

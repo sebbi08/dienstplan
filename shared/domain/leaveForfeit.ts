@@ -29,6 +29,15 @@ export function isValidForfeitDate({ day, month }: LeaveForfeitDate): boolean {
   return day >= 1 && day <= daysInMonth(2027, month)
 }
 
+/**
+ * A text of the facility's own has to name the days and the forfeiture date (‹Tage› and ‹Verfall›): the receipt has to
+ * prove a concrete notice. Empty means the default text.
+ */
+export function isValidForfeitText(text: string): boolean {
+  const trimmed = text.trim()
+  return trimmed === '' || (trimmed.includes('‹Tage›') && trimmed.includes('‹Verfall›'))
+}
+
 /** The day the leave of `year` lapses: the forfeiture day in the year after. */
 export function forfeitDateOf(year: number, setting: LeaveForfeitDate): IsoDate {
   return toIsoDate(year + 1, setting.month, setting.day)

@@ -1900,6 +1900,22 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(count(sqlite, 'leave_forfeit_receipts')).toBe(0)
   })
 
+  it('0087 keeps every read receipt and allows a further one of the same employee and year', () => {
+    const { db, sqlite } = databaseAt('0085')
+    sqlite.exec(`
+      INSERT INTO employees (id, facility_id, name) VALUES (1, 1, 'Anna');
+      INSERT INTO leave_forfeit_receipts (employee_id, year, days, text, read_at) VALUES (1, 2026, 5, 'Fünf Tage', '2026-11-19T10:00:00.000Z');
+    `)
+    expect(() => sqlite.exec(`INSERT INTO leave_forfeit_receipts (employee_id, year, days, text, read_at) VALUES (1, 2026, 6, 'Sechs', 'x')`))
+      .toThrow('UNIQUE')
+    migrateDb(db, MIGRATIONS)
+    sqlite.exec(`INSERT INTO leave_forfeit_receipts (employee_id, year, days, text, read_at) VALUES (1, 2026, 6, 'Sechs Tage', '2026-11-20T10:00:00.000Z')`)
+    expect(sqlite.prepare('SELECT days, text FROM leave_forfeit_receipts ORDER BY id').all())
+      .toEqual([{ days: 5, text: 'Fünf Tage' }, { days: 6, text: 'Sechs Tage' }])
+    expect(sqlite.prepare(`SELECT name, "unique" AS isUnique FROM pragma_index_list('leave_forfeit_receipts')`).all())
+      .toEqual([{ name: 'leave_forfeit_receipts_employee_year', isUnique: 0 }])
+  })
+
   it('0084 adds the empty § 34 IfSG cases, gone with their child, and the attest setting off', () => {
     const { db, sqlite } = databaseAt('0083')
     sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)

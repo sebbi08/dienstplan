@@ -41,9 +41,9 @@ describe('the notice on remaining leave', () => {
     })
 
     it('goes back to the default text when it is emptied or equals the default', () => {
-      setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Eigener Text' })
+      setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Noch ‹Tage› Tage bis ‹Verfall›.' })
       expect(setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: '' })).toMatchObject({ text: DEFAULT_LEAVE_FORFEIT_TEXT, isDefaultText: true })
-      setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Eigener Text' })
+      setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Noch ‹Tage› Tage bis ‹Verfall›.' })
       expect(setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: DEFAULT_LEAVE_FORFEIT_TEXT })).toMatchObject({ isDefaultText: true })
     })
 
@@ -51,6 +51,13 @@ describe('the notice on remaining leave', () => {
       expect(errorCode(() => setLeaveForfeitSettings(db, 1, { day: 29, month: 2, text: '' }))).toBe('invalid_forfeit_date')
       expect(errorCode(() => setLeaveForfeitSettings(db, 1, { day: 31, month: 10, text: '' }))).toBe('invalid_forfeit_date')
       expect(errorCode(() => getLeaveForfeitSettings(db, 999))).toBe('facility_not_found')
+    })
+
+    it('refuses an own text without the days or the forfeiture date', () => {
+      expect(errorCode(() => setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Bitte Urlaub planen.' }))).toBe('invalid_forfeit_text')
+      expect(errorCode(() => setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Noch ‹Tage› Tage.' }))).toBe('invalid_forfeit_text')
+      expect(errorCode(() => setLeaveForfeitSettings(db, 1, { day: 31, month: 3, text: 'Bis ‹Verfall› planen.' }))).toBe('invalid_forfeit_text')
+      expect(getLeaveForfeitSettings(db, 1)).toMatchObject({ isDefaultText: true })
     })
   })
 
@@ -134,6 +141,37 @@ describe('the notice on remaining leave', () => {
       expect(errorCode(() => markLeaveForfeitRead(db, provider, 2026, '2026-11-19', now))).toBe('no_employee')
       expect(db.select().from(leaveForfeitReceipts).all()).toEqual([])
     })
+
+    it('shows again when the days rise above the ones read, and keeps the first receipt', () => {
+      markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
+      // Fewer days need no new notice.
+      vacation(anna, ['2026-12-01'])
+      expect(getMyLeaveForfeitNotice(db, annaUser, '2026-11-20')).toBeNull()
+      // An entitlement corrected upwards: 12 − 6 = 6 days, more than the 5 read.
+      setEntitlement(db, 1, anna, 2026, { days: 12, carriedOverDays: 0 })
+      expect(getMyLeaveForfeitNotice(db, annaUser, '2026-11-20')).toMatchObject({ days: 6 })
+      const later = new Date('2026-11-20T09:00:00Z')
+      expect(markLeaveForfeitRead(db, annaUser, 2026, '2026-11-20', later)).toEqual({ readAt: later.toISOString() })
+      expect(db.select().from(leaveForfeitReceipts).all().map(receipt => [receipt.days, receipt.readAt]))
+        .toEqual([[5, now.toISOString()], [6, later.toISOString()]])
+      expect(getMyLeaveForfeitNotice(db, annaUser, '2026-11-20')).toBeNull()
+      // Clicked once more: nothing new.
+      expect(markLeaveForfeitRead(db, annaUser, 2026, '2026-11-21', new Date('2026-11-21T09:00:00Z'))).toEqual({ readAt: later.toISOString() })
+      expect(db.select().from(leaveForfeitReceipts).all()).toHaveLength(2)
+    })
+
+    it('shows again after the forfeiture date or the text changed', () => {
+      markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
+      setLeaveForfeitSettings(db, 1, { day: 31, month: 5, text: '' })
+      expect(getMyLeaveForfeitNotice(db, annaUser, '2026-11-20')).toMatchObject({ days: 5, forfeitDate: '2027-05-31' })
+      markLeaveForfeitRead(db, annaUser, 2026, '2026-11-20', now)
+      expect(getMyLeaveForfeitNotice(db, annaUser, '2026-11-20')).toBeNull()
+      setLeaveForfeitSettings(db, 1, { day: 31, month: 5, text: 'Resturlaub ‹Jahr›: ‹Tage› Tage bis ‹Verfall›.' })
+      expect(getMyLeaveForfeitNotice(db, annaUser, '2026-11-20')).toMatchObject({ text: 'Resturlaub 2026: 5 Tage bis 31.05.2027.' })
+      // A click after the notice ended keeps the latest receipt.
+      expect(markLeaveForfeitRead(db, annaUser, 2026, '2027-06-01', new Date())).toEqual({ readAt: now.toISOString() })
+      expect(db.select().from(leaveForfeitReceipts).all()).toHaveLength(2)
+    })
   })
 
   describe('the list on „Urlaubsplanung“', () => {
@@ -151,7 +189,7 @@ describe('the notice on remaining leave', () => {
       markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
 
       expect(getLeaveForfeitList(db, 1, 2026, '2026-11-20')).toEqual({
-        year: 2026, noticeFrom: '2026-10-01', forfeitDate: '2027-03-31',
+        year: 2026, noticeFrom: '2026-10-01', forfeitDate: '2027-03-31', started: true,
         rows: [
           { employeeId: anna, name: 'Anna', days: 5, status: 'read', readAt: now.toISOString(), readDays: 5 },
           { employeeId: ben, name: 'Ben', days: 3, status: 'open', readAt: null, readDays: null },
@@ -169,6 +207,23 @@ describe('the notice on remaining leave', () => {
       setEntitlement(db, 1, ben, 2026, { days: 4, carriedOverDays: 0 })
       vacation(ben, ['2027-03-01', '2027-04-06'])
       expect(getLeaveForfeitList(db, 1, 2026, '2027-06-01').rows).toMatchObject([{ name: 'Anna', days: 0 }, { name: 'Ben', days: 3 }])
+    })
+
+    it('marks a person read before as open again when the days rose, without an account as „kein Konto“', () => {
+      markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
+      setEntitlement(db, 1, anna, 2026, { days: 12, carriedOverDays: 0 })
+      expect(getLeaveForfeitList(db, 1, 2026, '2026-11-20').rows)
+        .toEqual([{ employeeId: anna, name: 'Anna', days: 7, status: 'reopened', readAt: now.toISOString(), readDays: 5 }])
+      db.update(users).set({ active: false }).where(eq(users.id, annaUser.id)).run()
+      expect(getLeaveForfeitList(db, 1, 2026, '2026-11-20').rows).toMatchObject([{ status: 'no_account', readDays: 5 }])
+    })
+
+    it('lists nobody before the notice window of the year', () => {
+      expect(getLeaveForfeitList(db, 1, 2027, '2026-11-20')).toEqual({
+        year: 2027, noticeFrom: '2027-10-01', forfeitDate: '2028-03-31', started: false, rows: [],
+      })
+      expect(getLeaveForfeitList(db, 1, 2026, '2026-09-30')).toMatchObject({ started: false, rows: [] })
+      expect(getLeaveForfeitList(db, 1, 2026, '2026-10-01')).toMatchObject({ started: true, rows: [{ name: 'Anna', status: 'open' }] })
     })
 
     it('only lists the facility\'s staff', () => {

@@ -13,9 +13,14 @@ const props = defineProps<{ year: number; print?: boolean }>()
 const t = de.leaveForfeit
 const { data, error } = await useFetch<LeaveForfeitListDto>('/api/leave-forfeit', { query: { year: computed(() => props.year) } })
 
+const readOn = (readAt: string) => formatDate(todayIso(new Date(readAt)))
 function statusText(row: LeaveForfeitRowDto): string {
-  if (row.status === 'read' && row.readAt) return t.statusRead(formatDate(todayIso(new Date(row.readAt))))
+  if (row.status === 'read' && row.readAt) return t.statusRead(readOn(row.readAt))
+  if (row.status === 'reopened' && row.readAt) return t.statusReopened(readOn(row.readAt), row.readDays ?? 0, row.days)
   return row.status === 'open' ? t.statusOpen : t.statusNoAccount
+}
+const STATUS_CLASS: Record<LeaveForfeitRowDto['status'], string> = {
+  read: 'text-gray-700', reopened: 'text-amber-700', open: 'text-amber-700', no_account: 'font-medium text-red-700',
 }
 </script>
 
@@ -31,7 +36,8 @@ function statusText(row: LeaveForfeitRowDto): string {
     <p v-if="error" class="text-sm text-red-700">{{ errorMessage(error) }}</p>
     <template v-else-if="data">
       <p class="text-xs text-gray-500">{{ t.window(formatDate(data.noticeFrom), formatDate(data.forfeitDate)) }}</p>
-      <p v-if="!data.rows.length" class="text-sm text-gray-500">{{ t.none }}</p>
+      <p v-if="!data.started" class="text-sm text-gray-500">{{ t.notYet(formatDate(data.noticeFrom)) }}</p>
+      <p v-else-if="!data.rows.length" class="text-sm text-gray-500">{{ t.none }}</p>
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-200 text-left">
@@ -44,7 +50,7 @@ function statusText(row: LeaveForfeitRowDto): string {
           <tr v-for="row in data.rows" :key="row.employeeId" class="border-b border-gray-100">
             <td class="py-1 pr-3">{{ row.name }}</td>
             <td class="py-1 pr-3 text-right tabular-nums">{{ formatNumber(row.days) }}</td>
-            <td class="py-1" :class="row.status === 'read' ? 'text-gray-700' : row.status === 'open' ? 'text-amber-700' : 'font-medium text-red-700'">
+            <td class="py-1" :class="STATUS_CLASS[row.status]">
               {{ statusText(row) }}
             </td>
           </tr>

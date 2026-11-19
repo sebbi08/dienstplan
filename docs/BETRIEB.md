@@ -943,6 +943,32 @@ Schließzeiten für neu Eingestellte. Es gilt die Einstellung der **Stammeinrich
 rückwirkend). Das Stundenkonto und die Sollstunden ändern sich nicht; in der Urlaubsplanung zählt die Person an dem Tag
 weiter als eine Person im Urlaub.
 
+### Hinweis auf Resturlaub (Verfall)
+
+Der Arbeitgeber muss jeden Mitarbeiter rechtzeitig auf seinen Resturlaub hinweisen und darauf, dass er sonst verfällt
+(Bundesurlaubsgesetz, Rechtsprechung des Bundesarbeitsgerichts). Dafür gibt es unter **Einstellungen → Dienstplan →
+„Hinweis auf Resturlaub“** je Einrichtung (Leitung und Träger):
+
+- **„Resturlaub verfällt am“**: Tag und Monat im Folgejahr, voreingestellt 31.03. (erlaubt zwischen 1. Januar und
+  30. September).
+- **Text des Hinweises** mit den Platzhaltern ‹Tage›, ‹Jahr› und ‹Verfall›. Ein eigener Text muss ‹Tage› und
+  ‹Verfall› enthalten, sonst lässt er sich nicht speichern; „Standardtext einsetzen“ stellt den vorgegebenen Text her.
+
+Vom **1. Oktober** bis zum Verfallsdatum im Folgejahr sehen alle Mitarbeiter mit eigenem Zugang und Resturlaub aus dem
+Jahr den Hinweis unter „Mein Urlaub“ und auf ihrer Startseite, bis sie **„Gelesen“** klicken. Gespeichert wird, wann
+sie gelesen haben, mit den genannten Tagen und dem genauen Text; diese Einträge werden nicht mehr geändert. Bis zum
+31.12. zählt, was im Jahr noch frei verfügbar ist, danach der Übertrag, der bis zum Verfallsdatum weder genommen noch
+eingeplant ist. Werden es später **mehr Tage** als gelesen (z. B. nach einer Korrektur des Anspruchs) oder ändert die
+Einrichtung **Verfallsdatum oder Text**, erscheint der Hinweis noch einmal und es kommt ein weiterer Eintrag dazu
+(der alte bleibt). Weniger Tage zeigen ihn nicht noch einmal. Auch wer **vor dem Verfallsdatum ausscheidet**, bekommt
+den Hinweis, solange er noch beschäftigt ist.
+
+Auf der Seite **„Urlaubsplanung“** (für alle mit der Urlaubsübersicht, also Leitung und Träger, auch ohne
+Urlaubsanträge) steht **„Hinweis auf Resturlaub ‹Jahr›“** mit Name, Tagen und Status: „gelesen am …“, „gelesen am …
+(5 Tage) – jetzt 7 Tage, erneut offen“, „offen“ oder **„kein Konto – bitte schriftlich hinweisen“** (diese Personen
+musst du auf Papier hinweisen). Vor dem 1. Oktober des Jahres steht dort nur, ab wann der Hinweis erscheint. Die Liste
+lässt sich drucken (A4 hochkant). Die Einträge werden mit den Zeitdaten einer endgültig gelöschten Person gelöscht.
+
 ### Urlaubsanträge: Urlaub oder Überstundenfrei
 
 Ist das Modul Urlaubsanträge aktiv, wählt man unter **„Mein Urlaub“** im Antrag oben **„Urlaub“** (voreingestellt) oder

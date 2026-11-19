@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import {
-  DEFAULT_LEAVE_FORFEIT_TEXT, fillLeaveForfeitText, forfeitDateOf, isValidForfeitDate, LEAVE_FORFEIT_NOTICE_MONTH,
+  DEFAULT_LEAVE_FORFEIT_TEXT, fillLeaveForfeitText, forfeitDateOf, isValidForfeitDate, isValidForfeitText, LEAVE_FORFEIT_NOTICE_MONTH,
   LEAVE_FORFEIT_TEXT_MAX,
 } from '#shared/domain/leaveForfeit'
 import type { LeaveForfeitSettingsDto } from '#shared/types/api'
@@ -22,17 +22,18 @@ watch(data, (value) => { if (value) Object.assign(form, { day: value.day, month:
 const monthItems = de.months.slice(0, LEAVE_FORFEIT_NOTICE_MONTH - 1).map((label, index) => ({ label, value: index + 1 }))
 const dayItems = Array.from({ length: 31 }, (_, index) => ({ label: String(index + 1), value: index + 1 }))
 const validDate = computed(() => isValidForfeitDate(form))
+const validText = computed(() => isValidForfeitText(form.text))
 
 // The preview with 5 days of the current year.
 const preview = computed(() => {
-  if (!validDate.value) return ''
+  if (!validDate.value || !validText.value) return ''
   const year = parseIsoDate(todayIso()).year
   return fillLeaveForfeitText(form.text.trim() || DEFAULT_LEAVE_FORFEIT_TEXT, { days: 5, year, forfeitDate: forfeitDateOf(year, form) })
 })
 
 const dirty = useDirty(() => !!data.value
   && (form.day !== data.value.day || form.month !== data.value.month || form.text.trim() !== data.value.text))
-const save = () => dirty.value && validDate.value && run(() => $fetch<LeaveForfeitSettingsDto>('/api/leave-forfeit-settings', {
+const save = () => dirty.value && validDate.value && validText.value && run(() => $fetch<LeaveForfeitSettingsDto>('/api/leave-forfeit-settings', {
   method: 'PUT', body: { day: form.day, month: form.month, text: form.text },
 }), de.common.saved)
 </script>
@@ -48,7 +49,7 @@ const save = () => dirty.value && validDate.value && run(() => $fetch<LeaveForfe
           <USelect v-model="form.month" :items="monthItems" :aria-label="t.month" class="w-40" />
         </div>
       </UFormField>
-      <UFormField :label="t.textLabel" :hint="t.textHint">
+      <UFormField :label="t.textLabel" :hint="t.textHint" :error="validText ? undefined : de.errors.invalid_forfeit_text">
         <UTextarea v-model="form.text" :rows="3" :maxlength="LEAVE_FORFEIT_TEXT_MAX" autoresize class="w-full" />
       </UFormField>
       <UButton
@@ -56,7 +57,7 @@ const save = () => dirty.value && validDate.value && run(() => $fetch<LeaveForfe
         @click="form.text = DEFAULT_LEAVE_FORFEIT_TEXT"
       />
       <p v-if="preview" class="rounded bg-amber-50 p-2 text-sm"><span class="font-medium">{{ t.preview }}:</span> {{ preview }}</p>
-      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty || !validDate" />
+      <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty || !validDate || !validText" />
     </form>
   </section>
 </template>

@@ -523,8 +523,9 @@ export const leaveRequests = sqliteTable('leave_requests', {
 }, table => [index('leave_requests_employee').on(table.employeeId), index('leave_requests_status').on(table.status)])
 
 /**
- * „Gelesen“ on the notice on remaining leave (server/services/leaveForfeit.ts): once per employee and year, with the
- * days and the very text shown, as evidence that the employee was told. Never changed afterwards.
+ * „Gelesen“ on the notice on remaining leave (server/services/leaveForfeit.ts), with the days and the very text shown,
+ * as evidence that the employee was told. Never changed afterwards; a later notice of the year (more days, another
+ * forfeiture date or text) gets a receipt of its own.
  */
 export const leaveForfeitReceipts = sqliteTable('leave_forfeit_receipts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -536,7 +537,7 @@ export const leaveForfeitReceipts = sqliteTable('leave_forfeit_receipts', {
   readAt: text('read_at').notNull(),
   /** The account that clicked „Gelesen“ (the employee's own). */
   readBy: integer('read_by').references(() => users.id, { onDelete: 'set null' }),
-}, table => [uniqueIndex('leave_forfeit_receipts_employee_year').on(table.employeeId, table.year)])
+}, table => [index('leave_forfeit_receipts_employee_year').on(table.employeeId, table.year)])
 
 /**
  * Accounts (Träger/Leitung) the Träger made responsible for leave planning: who gets the notifications. Since the
