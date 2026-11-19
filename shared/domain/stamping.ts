@@ -68,9 +68,10 @@ function homeOfficeMask(entries: DayEntry[]): Uint8Array {
 
 /**
  * The day's working time as spans: the closed records together with the home-office minutes (union). Its gaps are the
- * breaks taken (breakMinutes counts those of at least 15 minutes); without home office it is the closed records.
+ * breaks taken (breakMinutes counts those of at least 15 minutes); without home office it is the closed records. Also
+ * the stamped working time of the rest period hint (workingTimeLaw.ts).
  */
-function workSpans(records: RecordSpan[], entries: DayEntry[]): RecordSpan[] {
+export function workSpans(records: RecordSpan[], entries: DayEntry[]): RecordSpan[] {
   const work = homeOfficeMask(entries)
   for (const record of records) if (record.end !== null) work.fill(1, record.start, record.end)
   const spans: RecordSpan[] = []

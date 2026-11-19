@@ -12,6 +12,7 @@ import { dayCreditedMinutes } from '../../shared/domain/stamping'
 import { countsForBalance, isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
+import { plannedLawWarnings, recordedLawWarnings } from '../../shared/domain/workingTimeLaw'
 import type {
   ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDayDto, MyPlanDto,
   MyPlanEntryDto, PendingChangeDto, SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
@@ -54,7 +55,11 @@ function buildAdminData(
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
   const rangeEnd = addDays(weekStart(monthEnd), 6)
-  const byEmployee = groupByEmployee(loadEntries(db, { from: rangeStart, to: rangeEnd, homeFacilityId: facilityId }))
+  // The day before the month for the rest period (§ 5 ArbZG) of its first day; the weeks usually start earlier anyway.
+  const dayBefore = addDays(monthStart, -1)
+  const byEmployee = groupByEmployee(loadEntries(db, {
+    from: rangeStart < monthStart ? rangeStart : dayBefore, to: rangeEnd, homeFacilityId: facilityId,
+  }))
   const helperIds = helpers.map(helper => helper.employeeId)
   const helperEntries = helperIds.length === 0
     ? []
@@ -83,7 +88,7 @@ function buildAdminData(
   const trackingFrom = activeTrackingFrom(db, facilityId, today)
   const recordsByCell = new Map<string, TimeRecordDto[]>()
   if (trackingFrom !== null) {
-    for (const record of loadTimeRecords(db, { from: monthStart, to: monthEnd })) {
+    for (const record of loadTimeRecords(db, { from: dayBefore, to: monthEnd })) {
       const key = cellKey(record.employeeId, record.date)
       recordsByCell.set(key, [...(recordsByCell.get(key) ?? []), record])
     }
@@ -107,7 +112,14 @@ function buildAdminData(
       entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
       coverageOnly: true,
     }))
-    return dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, hours)
+    // Working time law (§ 3, § 5 ArbZG) of the own staff on every day they are employed, weekends included, with all
+    // their entries (a help-out elsewhere is work too). Helpers are checked in their home facility's plan.
+    const lawWarnings = staff.filter(employee => isEmployedOn(employee.info, date)).flatMap((employee) => {
+      const own = byEmployee.get(employee.id) ?? []
+      const before = addDays(date, -1)
+      return plannedLawWarnings(date, employee.id, own.filter(entry => entry.date === date), own.filter(entry => entry.date === before))
+    })
+    return [...dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, hours), ...lawWarnings]
   })
   // The state's presence rules (Personalschlüssel) per group and time of day.
   warnings.push(...staffingWarnings(db, facilityId, year, month))
@@ -123,7 +135,18 @@ function buildAdminData(
         const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
         const records = recordsByCell.get(key) ?? []
         const marked = key in sickLeaves
-        if (!marked) warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
+        if (!marked) {
+          warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
+          const before = addDays(date, -1)
+          // The day before counts only when it lies in the tracking range too.
+          const previous = before >= trackingFrom && isEmployedOn(employee.info, before)
+            ? {
+                entries: (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === before),
+                records: recordsByCell.get(cellKey(employee.id, before)) ?? [],
+              }
+            : null
+          warnings.push(...recordedLawWarnings(date, employee.id, { entries: dayEntries, records }, employee.breakMode, previous))
+        }
         if (records.length === 0) continue
         // Home-office minutes count as stamped, so a stamped day with home office does not show as deviating.
         const minutes = dayCreditedMinutes(records, dayEntries, employee.breakMode)

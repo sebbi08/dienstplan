@@ -20,6 +20,25 @@ describe('warning texts', () => {
   })
 })
 
+describe('working time law texts (§ 3 and § 5 ArbZG)', () => {
+  it('words more than 10 hours planned and worked', () => {
+    expect(warningText({ type: 'max_hours', date: '2026-10-05', employeeId: 1, minutes: 645 }, names))
+      .toBe('Anna: 10:45 Std. geplant – erlaubt sind höchstens 10 Std. (§ 3 ArbZG)')
+    expect(warningText({ type: 'max_hours_recorded', date: '2026-10-05', employeeId: 1, minutes: 601 }, names))
+      .toBe('Anna: 10:01 Std. gearbeitet – mehr als 10 Std. (§ 3 ArbZG)')
+  })
+  it('words a short rest with both days, also over a month boundary', () => {
+    expect(warningText({ type: 'short_rest', date: '2026-10-06', employeeId: 1, from: 1320, to: 420 }, names))
+      .toBe('Anna: nur 9:00 Std. Ruhezeit zwischen 22:00 (Mo) und 7:00 (Di) – mindestens 11 Std. (§ 5 ArbZG)')
+    expect(warningText({ type: 'short_rest_recorded', date: '2026-11-01', employeeId: 1, from: 1291, to: 425 }, names))
+      .toBe('Anna: nur 9:34 Std. Ruhezeit zwischen 21:31 (Sa) und 7:05 (So) – mindestens 11 Std. (§ 5 ArbZG)')
+  })
+  it('marks the persons\' cells', () => {
+    const warning: Warning = { type: 'short_rest', date: '2026-10-06', employeeId: 1, from: 1320, to: 420 }
+    expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])
+  })
+})
+
 describe('indexWarnings', () => {
   it('collects the warnings per day and the persons\' per cell', () => {
     const warnings: Warning[] = [

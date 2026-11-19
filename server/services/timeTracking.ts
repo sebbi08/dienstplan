@@ -2,7 +2,7 @@ import { and, asc, eq, gte, isNull, lt, lte } from 'drizzle-orm'
 import type { ActualTime } from '../../shared/domain/balance'
 import { computeDay, creditsDailyTarget, hasPlannedDuty, isFullDayTimed, isWorkEntry, usesRecords } from '../../shared/domain/balance'
 import { cellKey } from '../../shared/domain/cells'
-import { daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
+import { addDays, daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayIn } from '../../shared/domain/holidays'
 import { dayCreditedMinutes, isHomeOffice, mayStampVia, recordedDay } from '../../shared/domain/stamping'
@@ -12,6 +12,7 @@ import { formatTime } from '../../shared/domain/time'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import { timeWarnings } from '../../shared/domain/warnings'
+import { recordedLawWarnings } from '../../shared/domain/workingTimeLaw'
 import type { EntryDto, FullDayDto, OpenRecordDto, SessionUser, StampAction, TimeMonthDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { earlyClosures, employees, timeDayNotes, timeRecordChanges, timeRecords, users } from '../db/schema'
@@ -212,8 +213,10 @@ export function getTimeMonth(
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
-  const entriesByDate = Map.groupBy(loadEntries(db, { employeeId, from: monthStart, to: monthEnd }), entry => entry.date)
-  const recordsByDate = Map.groupBy(loadTimeRecords(db, { employeeId, from: monthStart, to: monthEnd }), record => record.date)
+  // From the day before the month: the rest period (§ 5 ArbZG) of its first day.
+  const dayBefore = addDays(monthStart, -1)
+  const entriesByDate = Map.groupBy(loadEntries(db, { employeeId, from: dayBefore, to: monthEnd }), entry => entry.date)
+  const recordsByDate = Map.groupBy(loadTimeRecords(db, { employeeId, from: dayBefore, to: monthEnd }), record => record.date)
   const changes = db.select({ change: timeRecordChanges, actor: users.username })
     .from(timeRecordChanges).leftJoin(users, eq(timeRecordChanges.actorId, users.id))
     .where(and(eq(timeRecordChanges.employeeId, employeeId), gte(timeRecordChanges.date, monthStart), lte(timeRecordChanges.date, monthEnd)))
@@ -233,6 +236,15 @@ export function getTimeMonth(
   const closedFromOfLastDuty = (dayEntries: EntryDto[], date: IsoDate): Minutes | null => {
     const last = dayEntries.filter(entry => isWorkEntry(entry) && entry.end !== null).sort((a, b) => b.end! - a.end!)[0]
     return last ? closings.get(`${last.helpFacilityId ?? facilityId}:${date}`) ?? null : null
+  }
+
+  /** The working time law hints (§ 3, § 5 ArbZG) of a day of the range; the day before counts when it lies in it too. */
+  const lawWarnings = (date: IsoDate, dayEntries: EntryDto[], records: TimeRecordDto[]) => {
+    const before = addDays(date, -1)
+    const previous = usesRecords(actual, before) && isEmployedOn(employee.info, before)
+      ? { entries: entriesByDate.get(before) ?? [], records: recordsByDate.get(before) ?? [] }
+      : null
+    return recordedLawWarnings(date, employeeId, { entries: dayEntries, records }, employee.breakMode, previous)
   }
 
   const days = monthDates(year, month).map((date) => {
@@ -268,7 +280,9 @@ export function getTimeMonth(
       usesRecords: usesRecords(actual, date), absence, otherEntries,
       targetCredit: creditsDailyTarget(dayEntries),
       fullDay: fullDayOf(dayEntries, counted.credit),
-      warnings: inRange && !sickLeave ? timeWarnings(date, employeeId, dayEntries, records, employee.breakMode) : [],
+      warnings: inRange && !sickLeave
+        ? [...timeWarnings(date, employeeId, dayEntries, records, employee.breakMode), ...lawWarnings(date, dayEntries, records)]
+        : [],
       note: notes.get(date) ?? '',
       changes: changes.filter(({ change }) => change.date === date)
         .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),

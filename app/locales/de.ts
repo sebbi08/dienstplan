@@ -331,6 +331,8 @@ export const de = {
     legend: {
       off: 'frei', work: 'Dienst', support: 'Haushaltskraft', break: 'Pause',
       absent: 'Urlaub / Krank / Fortbildung / Schule', prep_time: 'VZ', office: 'Büro', doctor: 'Arzt (nicht im Haus)',
+    /** § 3 ArbZG: the typed times with the day's other entries (only a hint, saving still works). */
+    maxDailyHours: 'Mehr als 10 Std. an diesem Tag (§ 3 ArbZG)',
       office_day: 'Büro / VZ (ganzer Tag)', home_office: 'Homeoffice (nicht im Haus)',
       holiday: 'Feiertag / Schließtag', other: 'sonstiges',
     } satisfies Record<SlotState, string>,
@@ -372,6 +374,12 @@ export const de = {
     womens_day: 'Internationaler Frauentag', assumption_day: 'Mariä Himmelfahrt', childrens_day: 'Weltkindertag',
     reformation_day: 'Reformationstag', repentance_day: 'Buß- und Bettag',
   },
+    /** Arbeitszeitgesetz, only hints: „Anna: 10:45 Std. geplant – erlaubt sind höchstens 10 Std. (§ 3 ArbZG)“. */
+    maxHours: (name: string, duration: string) => `${name}: ${duration} Std. geplant – erlaubt sind höchstens 10 Std. (§ 3 ArbZG)`,
+    maxHoursRecorded: (name: string, duration: string) => `${name}: ${duration} Std. gearbeitet – mehr als 10 Std. (§ 3 ArbZG)`,
+    /** „Anna: nur 9:00 Std. Ruhezeit zwischen 22:00 (Mo) und 7:00 (Di) – mindestens 11 Std. (§ 5 ArbZG)“ (planned or stamped). */
+    shortRest: (name: string, duration: string, from: string, fromDay: string, to: string, toDay: string) =>
+      `${name}: nur ${duration} Std. Ruhezeit zwischen ${from} (${fromDay}) und ${to} (${toDay}) – mindestens 11 Std. (§ 5 ArbZG)`,
   states: {
     BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg',
     HE: 'Hessen', MV: 'Mecklenburg-Vorpommern', NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen',

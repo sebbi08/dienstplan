@@ -3,15 +3,23 @@ import { formatDuration } from '#shared/domain/time'
 import type { CodeDto, EntryInput } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { allowsFullDay, allowsHomeOffice, timeEntryInput } from '~/utils/timeEntry'
-import { workTime } from '~/utils/workTime'
+import type { LawEntry } from '#shared/domain/workingTimeLaw'
+import { exceedsMaxDailyWith, workTime } from '~/utils/workTime'
 
-const props = defineProps<{ code: CodeDto | null }>()
+/** `dayEntries`: per selected cell the entries it already holds (for the § 3 ArbZG hint); missing = no such hint. */
+const props = defineProps<{ code: CodeDto | null; dayEntries?: LawEntry[][] }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ submit: [entry: EntryInput] }>()
 
 const form = reactive({ start: '', end: '', breakStart: '', breakEnd: '', note: '', homeOffice: false })
 const error = ref('')
 const hint = computed(() => workTime(form))
+/** More than 10 hours with the cell's other entries (one of several cells is enough). */
+const overMaxDaily = computed(() => exceedsMaxDailyWith(
+  form,
+  props.code ? { kind: 'code', creditMode: props.code.creditMode, codeKey: props.code.key } : { kind: 'special', creditMode: 'timed' },
+  props.dayEntries ?? [],
+))
 const title = computed(() => (props.code ? de.modal.codeTitle(props.code.label) : de.modal.specialTitle))
 /** „Homeoffice – zählt ohne Stempeln“ fits working time only: a special shift or a timed code (Büro, VZ), with or without times. */
 const homeOfficeAllowed = computed(() => allowsHomeOffice(props.code))
@@ -48,6 +56,7 @@ function submit() {
           {{ de.modal.workTime(formatDuration(hint.present), formatDuration(hint.worked)) }} ·
           <span :class="hint.ok ? 'text-green-700' : 'text-amber-700'">{{ de.modal.legalBreak(hint.required, hint.ok) }}</span>
         </p>
+        <p v-if="overMaxDaily" class="col-span-2 text-sm text-amber-700" aria-live="polite">{{ de.modal.maxDailyHours }}</p>
         <UFormField :label="de.modal.note" class="col-span-2"><UInput v-model="form.note" maxlength="200" class="w-full" /></UFormField>
         <UCheckbox
           v-if="homeOfficeAllowed" v-model="form.homeOffice" class="col-span-2" :label="de.modal.homeOffice"

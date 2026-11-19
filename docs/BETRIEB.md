@@ -1340,6 +1340,33 @@ sehen keine Warnungen.
   Überschrift zählt nur die nicht zur Kenntnis genommenen. **„zur Kenntnis genommene anzeigen (n)“** zeigt sie grau, mit
   **„Rückgängig“**. Welche Warnungen es gibt, ändert sich dadurch nicht (auch nicht die Markierungen im Plan).
 
+### Arbeitszeitgesetz: höchstens 10 Stunden am Tag, 11 Stunden Ruhezeit (nur Hinweise)
+
+Die App weist darauf hin, verhindert aber nichts: Speichern, Freigeben und Stempeln gehen weiter.
+
+- **Höchstens 10 Stunden am Tag (§ 3 ArbZG):** Sind für eine Person an einem Tag mehr als 10 Stunden Arbeit geplant,
+  steht in den Hinweisen des Tages z. B. „Anna: 10:45 Std. geplant – erlaubt sind höchstens 10 Std. (§ 3 ArbZG)“.
+  Genau 10:00 Stunden sind erlaubt. Gezählt wird wie im Stundenkonto: Dienste, Sonderdienste, VZ, Büro, Arzt und
+  Homeoffice, ohne Pausen und ohne die Zeit von „Überstundenfrei“; was sich überschneidet, zählt einmal. Urlaub,
+  Krank, Fortbildung, Schule, Feiertag, Schließtag und ganze Tage ohne Uhrzeit (z. B. „Büro (ganzer Tag)“) zählen
+  hier keine Stunden, auch wenn bei ihnen eine Uhrzeit steht. Ein Aushilfstag in einer anderen Einrichtung zählt mit.
+- **11 Stunden Ruhezeit (§ 5 ArbZG):** Zwischen dem Ende der letzten Arbeit eines Tages und dem Beginn der ersten
+  Arbeit am nächsten Tag müssen mindestens 11 Stunden liegen. Sonst steht am späteren Tag z. B. „Anna: nur 9:00 Std.
+  Ruhezeit zwischen 22:00 (Mo) und 7:00 (Di) – mindestens 11 Std. (§ 5 ArbZG)“. Einträge ohne Uhrzeit zählen dafür
+  nicht. Arzt und Homeoffice zählen als Arbeit. Am Monatsersten wird mit dem letzten Tag des Vormonats verglichen.
+- **Auch am Wochenende und an Feiertagen** wird geprüft, nur für eigene Mitarbeiter (Aushilfen aus einer anderen
+  Einrichtung prüft deren Einrichtung).
+- **Zeiterfassung:** Für vergangene Tage ab „Zeiterfassung ab“ prüft die App dasselbe mit den gestempelten Zeiten
+  (dazu Homeoffice und Arzt, bei automatischer Pause ohne die abgezogene Pause): „Anna: 10:30 Std. gearbeitet – mehr
+  als 10 Std. (§ 3 ArbZG)“ bzw. die Ruhezeit wie oben. Diese Hinweise stehen in der Zeiterfassung und in den Hinweisen
+  des Tages im Dienstplan – nur für Leitung und Träger. Ein Tag vor „Zeiterfassung ab“ wird nicht verglichen; Tage
+  mit Urlaub, Krank usw. oder „Im Dienst erkrankt“ bekommen keinen solchen Hinweis.
+- **Beim Eintragen:** Im Fenster für einen Sonderdienst, VZ, Büro oder Arzt und beim Ändern eines Eintrags steht unter
+  Arbeitszeit und Pause „Mehr als 10 Std. an diesem Tag (§ 3 ArbZG)“, sobald es mit den übrigen Einträgen des Tages
+  mehr als 10 Stunden wären.
+- **„Zur Kenntnis genommen“** geht wie bei den anderen Hinweisen; ändern sich die Stunden oder Uhrzeiten, erscheint der
+  Hinweis wieder.
+
 ## 21. Menü
 
 - **Einrichtung wechseln (Träger):** Nach dem Wechsel bleibt die App auf derselben Seite, jetzt für die neue Einrichtung.

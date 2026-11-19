@@ -35,6 +35,12 @@ export function warningSignature(warning: Warning): string {
       return `${warning.have}/${warning.need}`
     case 'target_gap':
       return String(warning.missingMinutes)
+    case 'max_hours':
+    case 'max_hours_recorded':
+      return String(warning.minutes)
+    case 'short_rest':
+    case 'short_rest_recorded':
+      return `${warning.from}-${warning.to}`
     default:
       return ''
   }
@@ -44,6 +50,7 @@ const ID = /^[1-9]\d*$/
 /** The subject's format per type, as `subject` writes it. */
 const SUBJECT_FORMATS: Record<Warning['type'], RegExp> = {
   missing_entry: ID, target_gap: ID, open_record: ID, missing_record: ID, break_rule: ID, record_without_plan: ID, record_on_absence: ID,
+  max_hours: ID, max_hours_recorded: ID, short_rest: ID, short_rest_recorded: ID,
   coverage: ID,
   edge: /^(opening|closing)\|([1-9]\d*)?$/,
   staffing: /^[1-9]\d*\|[fa]\|\d{1,4}-\d{1,4}$/,

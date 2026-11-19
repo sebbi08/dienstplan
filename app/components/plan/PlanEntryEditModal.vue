@@ -4,7 +4,7 @@ import { isTargetGapCode } from '#shared/domain/warnings'
 import { canBeHomeOffice, isWorkEntry } from '#shared/domain/balance'
 import type { EntryDto, EntryTimesInput, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { workTime } from '~/utils/workTime'
+import { exceedsMaxDailyWith, workTime } from '~/utils/workTime'
 
 /**
  * Changes the times of one clicked entry; a fixed shift with other start/end becomes a special shift. With groups, a
@@ -32,6 +32,14 @@ const isBreak = computed(() => props.entry?.kind === 'break')
 const homeOfficeAllowed = computed(() => props.entry !== null && isWorkEntry(props.entry) && canBeHomeOffice(props.entry.codeKey))
 /** Working time and legal break of the typed times (not for a break entry, which is no working time). */
 const hint = computed(() => (isBreak.value ? null : workTime(form)))
+/** § 3 ArbZG: the typed times with the person's other entries of the day (a shortened break counts too). */
+const overMaxDaily = computed(() => {
+  const entry = props.entry
+  if (!entry) return false
+  const others = (props.plan?.entries ?? []).filter(other => other.employeeId === entry.employeeId && other.date === entry.date && other.id !== entry.id)
+  const times = isBreak.value ? { ...form, breakStart: '', breakEnd: '' } : form
+  return exceedsMaxDailyWith(times, { kind: entry.kind, creditMode: entry.creditMode, codeKey: entry.codeKey, homeOffice: form.homeOffice }, [others])
+})
 const title = computed(() => {
   const entry = props.entry
   if (!entry) return ''
@@ -127,6 +135,7 @@ function markSick() {
           {{ de.modal.workTime(formatDuration(hint.present), formatDuration(hint.worked)) }} ·
           <span :class="hint.ok ? 'text-green-700' : 'text-amber-700'">{{ de.modal.legalBreak(hint.required, hint.ok) }}</span>
         </p>
+        <p v-if="overMaxDaily" class="col-span-2 text-sm text-amber-700" aria-live="polite">{{ de.modal.maxDailyHours }}</p>
         <UFormField v-if="groupable" :label="de.groups.countsFor" class="col-span-2">
           <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
         </UFormField>

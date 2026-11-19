@@ -34,6 +34,14 @@ export type Warning =
   | { type: 'record_without_plan'; date: IsoDate; employeeId: number }
   /** Stamped on a day whose plan is a full-day absence (Urlaub, Schließtag): the stamped time does not count. */
   | { type: 'record_on_absence'; date: IsoDate; employeeId: number }
+  /** More than 10 hours of planned work on the day (§ 3 ArbZG, workingTimeLaw.ts); `minutes` worked. */
+  | { type: 'max_hours'; date: IsoDate; employeeId: number; minutes: number }
+  /** The same from the stamped (credited) time of a day of the time tracking. */
+  | { type: 'max_hours_recorded'; date: IsoDate; employeeId: number; minutes: number }
+  /** Less than 11 hours of rest from `from` on the day before to `to` on this day (§ 5 ArbZG), as planned. */
+  | { type: 'short_rest'; date: IsoDate; employeeId: number; from: Minutes; to: Minutes }
+  /** The same from the stamped times. */
+  | { type: 'short_rest_recorded'; date: IsoDate; employeeId: number; from: Minutes; to: Minutes }
   /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.

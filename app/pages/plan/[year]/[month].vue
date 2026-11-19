@@ -164,6 +164,10 @@ function onTemplate(template: TemplateDto) {
   onEntry({ kind: 'shift', templateId: template.id })
 }
 
+/** Per selected cell the entries it holds: the entry dialog hints at more than 10 hours on the day (§ 3 ArbZG). */
+const selectedDayEntries = computed(() => selection.cells.value.map(cell => (plan.value?.entries ?? [])
+  .filter(entry => entry.employeeId === cell.employeeId && entry.date === cell.date)))
+
 function openModal(code: CodeDto | null) {
   if (!hasSelection()) return
   modalCode.value = code
@@ -296,7 +300,7 @@ function navigate(nextYear: number, nextMonth: number) {
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
       </div>
-      <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" @submit="onEntry" />
+      <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />
       <PlanBreakModal v-model:open="breakOpen" @submit="onBreakSubmit" />
       <PlanEntryEditModal
         v-model:open="editOpen" :entry="editEntry" :plan="plan"

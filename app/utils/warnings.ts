@@ -1,8 +1,10 @@
 // The plan's warnings: markers per cell and per day, and their texts. The texts are imported relative so a test can load
 // this file.
 import { cellKey } from '#shared/domain/cells'
+import { addDays, weekday } from '#shared/domain/dates'
 import { formatDuration, formatTime } from '#shared/domain/time'
 import type { Warning } from '#shared/domain/warnings'
+import { restMinutes } from '#shared/domain/workingTimeLaw'
 import { de } from '../locales/de'
 
 export interface WarningIndex {
@@ -44,6 +46,18 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return de.warnings.recordOnAbsence(names.get(warning.employeeId) ?? '?')
     case 'record_without_plan':
       return de.warnings.recordWithoutPlan(names.get(warning.employeeId) ?? '?')
+    case 'max_hours':
+      return de.warnings.maxHours(names.get(warning.employeeId) ?? '?', formatDuration(warning.minutes))
+    case 'max_hours_recorded':
+      return de.warnings.maxHoursRecorded(names.get(warning.employeeId) ?? '?', formatDuration(warning.minutes))
+    case 'short_rest':
+    case 'short_rest_recorded':
+      // The rest starts on the day before the warning's day.
+      return de.warnings.shortRest(
+        names.get(warning.employeeId) ?? '?', formatDuration(restMinutes(warning.from, warning.to)),
+        formatTime(warning.from), de.weekdaysShort[weekday(addDays(warning.date, -1))]!,
+        formatTime(warning.to), de.weekdaysShort[weekday(warning.date)]!,
+      )
     case 'staffing':
       return de.warnings.staffing(
         warning.groupName, formatTime(warning.from), formatTime(warning.to), warning.have, warning.need, warning.fachkraft,
