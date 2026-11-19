@@ -1,6 +1,8 @@
 import { OFFLINE_BATCH_MAX } from '#shared/domain/offlineStamps'
 import type { OfflineStampResultDto, StampAction } from '#shared/types/api'
-import { buildSyncPayload, isoWithOffset, isServerUnreachable, retryDelay, settledIds, sortQueue } from '~/utils/offlineQueue'
+import {
+  buildSyncPayload, isoWithOffset, isRateLimited, isServerUnreachable, REQUEST_TIMEOUT_MS, retryDelay, settledIds, sortQueue,
+} from '~/utils/offlineQueue'
 import {
   decryptPin, enqueueStamp, loadQueue, loadTeam, offlineStorageAvailable, queueSize, removeFromQueue, saveTeam, type TeamMember,
 } from '~/utils/offlineStore'
@@ -20,6 +22,8 @@ const SHELL_SCOPE = '/terminal'
 export function useOfflineStamps(enabled: boolean, onSynced: () => void) {
   const offline = ref(false)
   const pending = ref(0)
+  /** The last sending failed with an answer of the server (not for lack of network): the stamps wait for the next try. */
+  const syncFailed = ref(false)
   const available = enabled && import.meta.client && offlineStorageAvailable()
   let syncing: Promise<void> | null = null
   let failedTries = 0
@@ -52,18 +56,22 @@ export function useOfflineStamps(enabled: boolean, onSynced: () => void) {
     const items = await Promise.all(queue.map(async entry => ({ ...entry, pin: await decryptPin(entry.pin).catch(() => '') })))
     try {
       const { results } = await $fetch<{ results: OfflineStampResultDto[] }>('/api/terminal/offline-stamps', {
-        method: 'POST', body: buildSyncPayload(items, new Date()),
+        method: 'POST', body: buildSyncPayload(items, new Date()), timeout: REQUEST_TIMEOUT_MS,
       })
       await removeFromQueue(settledIds(results))
       offline.value = false
+      syncFailed.value = false
       failedTries = 0
       await refreshPending()
       onSynced()
       // More than one request's worth: the next part right away.
       if (pending.value > 0 && results.length > 0) return sendOnce()
+      if (pending.value > 0) scheduleRetry()
     }
     catch (error) {
       if (isServerUnreachable(error)) offline.value = true
+      // The server answered with an error (not „too many requests“): the stamps wait, and the page says so.
+      else if (!isRateLimited(error)) syncFailed.value = true
       failedTries++
       scheduleRetry()
     }
@@ -83,10 +91,14 @@ export function useOfflineStamps(enabled: boolean, onSynced: () => void) {
     return syncing
   }
 
-  /** A request of the page went through: the server is reachable again, waiting stamps go now. */
+  /**
+   * A request of the page went through: the server is reachable again, waiting stamps go now (after a refusal by the
+   * server only with the next retry, not with every request).
+   */
   function noteReachable() {
+    const wasOffline = offline.value
     offline.value = false
-    if (pending.value > 0) void sync()
+    if (pending.value > 0 && (wasOffline || !syncFailed.value)) void sync()
   }
 
   /** A request failed without answer: the yellow bar shows and stamps are kept. */
@@ -155,7 +167,7 @@ export function useOfflineStamps(enabled: boolean, onSynced: () => void) {
   })
 
   return {
-    offline: readonly(offline), pending: readonly(pending), available, sync, noteReachable, noteUnreachable, keep, rememberTeam,
+    offline: readonly(offline), pending: readonly(pending), syncFailed: readonly(syncFailed), available, sync, noteReachable, noteUnreachable, keep, rememberTeam,
     cachedTeam, registerShell,
   }
 }

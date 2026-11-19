@@ -6,7 +6,7 @@ import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordD
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { shiftMonth } from '~/utils/format'
-import { isServerUnreachable, tabletClockTime } from '~/utils/offlineQueue'
+import { isServerUnreachable, REQUEST_TIMEOUT_MS, tabletClockTime } from '~/utils/offlineQueue'
 import { pinFailureText } from '~/utils/pin'
 
 type Mode = 'start' | 'stamp' | 'children'
@@ -21,7 +21,10 @@ const people = ref<Person[] | null>(null)
 const error = ref<unknown>(null)
 // Stamping without network (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“): only the tablet keeps stamps.
 const offlineStamps = useOfflineStamps(onTablet.value, () => refresh())
-const isOffline = computed(() => onTablet.value && offlineStamps.offline.value)
+/** The server is not reachable and stamps can be kept on this device. */
+const isOffline = computed(() => onTablet.value && offlineStamps.available && offlineStamps.offline.value)
+/** The server is not reachable, but this device cannot keep stamps (no IndexedDB or Web Crypto). */
+const offlineWithoutStorage = computed(() => onTablet.value && !offlineStamps.available && offlineStamps.offline.value)
 
 /**
  * The list with who is clocked in. Without an answer from the server the tablet shows the names it kept (who is clocked
@@ -29,7 +32,7 @@ const isOffline = computed(() => onTablet.value && offlineStamps.offline.value)
  */
 async function refresh() {
   try {
-    const list = await $fetch<TerminalPersonDto[]>('/api/terminal/status')
+    const list = await $fetch<TerminalPersonDto[]>('/api/terminal/status', { timeout: onTablet.value ? REQUEST_TIMEOUT_MS : undefined })
     people.value = list
     error.value = null
     if (onTablet.value) {
@@ -38,10 +41,13 @@ async function refresh() {
     }
   }
   catch (caught) {
-    if (onTablet.value && offlineStamps.available && isServerUnreachable(caught)) {
+    if (onTablet.value && isServerUnreachable(caught)) {
       offlineStamps.noteUnreachable()
-      const kept = await offlineStamps.cachedTeam()
-      people.value = kept.map(person => ({ ...person, clockedIn: null }))
+      // Without storage on this device the list stays as it was (stamping is not possible then anyway).
+      if (offlineStamps.available) {
+        const kept = await offlineStamps.cachedTeam()
+        people.value = kept.map(person => ({ ...person, clockedIn: null }))
+      }
       error.value = null
     }
     else error.value = caught
@@ -141,21 +147,31 @@ async function submit(action: StampAction) {
   const pinValue = pin.value
   busy.value = true
   try {
-    // Stamps still waiting go first, so the server gets them in order; while they cannot be sent, this one waits too.
-    if (onTablet.value && offlineStamps.pending.value > 0) await offlineStamps.sync()
-    if (onTablet.value && offlineStamps.available && (isOffline.value || offlineStamps.pending.value > 0)) {
+    // Online with stamps waiting: they go first, so the server gets them in order (bounded by the request timeout).
+    // Known to be offline: no waiting for a sync that fails, the retry timer sends them later.
+    if (onTablet.value && !isOffline.value && offlineStamps.pending.value > 0) await offlineStamps.sync()
+    // Kept on the tablet only while the server cannot be reached; after a refusal by the server it is stamped online.
+    if (isOffline.value) {
       await keepOffline(person, action, pinValue, isStale)
       return
     }
-    const record = await $fetch<TimeRecordDto>('/api/terminal/stamp', { method: 'POST', body: { employeeId: person.employeeId, pin: pinValue, action } })
+    const record = await $fetch<TimeRecordDto>('/api/terminal/stamp', {
+      method: 'POST', body: { employeeId: person.employeeId, pin: pinValue, action }, timeout: onTablet.value ? REQUEST_TIMEOUT_MS : undefined,
+    })
     if (onTablet.value) offlineStamps.noteReachable()
     if (isStale()) return
     confirmed(de.time.stamped(action, formatTime(action === 'in' ? record.start : record.end ?? record.start)))
   }
   catch (caught) {
-    if (onTablet.value && offlineStamps.available && isServerUnreachable(caught)) {
+    if (onTablet.value && isServerUnreachable(caught)) {
       offlineStamps.noteUnreachable()
-      await keepOffline(person, action, pinValue, isStale)
+      if (offlineStamps.available) {
+        await keepOffline(person, action, pinValue, isStale)
+        return
+      }
+      if (isStale()) return
+      failure.value = de.terminal.offlineUnavailable
+      pin.value = ''
       return
     }
     if (isStale()) return
@@ -202,13 +218,17 @@ async function openChildren() {
 <template>
   <div class="mx-auto max-w-3xl space-y-4">
     <div
-      v-if="isOffline || offlineStamps.pending.value > 0" role="status"
+      v-if="isOffline || offlineWithoutStorage || offlineStamps.pending.value > 0" role="status"
       class="space-y-0.5 rounded-xl bg-yellow-100 px-4 py-3 text-lg font-medium text-yellow-900 ring-1 ring-yellow-300"
     >
-      <p v-if="isOffline" class="flex items-center gap-2">
-        <UIcon name="i-lucide-wifi-off" class="size-6 shrink-0" />{{ de.terminal.offlineBar }}
+      <p v-if="isOffline || offlineWithoutStorage" class="flex items-center gap-2">
+        <UIcon name="i-lucide-wifi-off" class="size-6 shrink-0" />{{ isOffline ? de.terminal.offlineBar : de.terminal.offlineNoStorage }}
       </p>
       <p v-if="offlineStamps.pending.value > 0">{{ de.terminal.offlinePending(offlineStamps.pending.value) }}</p>
+      <!-- The server answered the sending with an error: the stamps wait (retried later), new ones are stamped online. -->
+      <p v-if="offlineStamps.pending.value > 0 && offlineStamps.syncFailed.value" class="text-red-700">
+        {{ de.terminal.syncFailed(offlineStamps.pending.value) }}
+      </p>
     </div>
 
     <template v-if="mode === 'start'">

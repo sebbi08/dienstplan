@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { OFFLINE_BATCH_MAX } from '../../shared/domain/offlineStamps'
 import {
-  buildSyncPayload, isoWithOffset, isServerUnreachable, retryDelay, settledIds, sortQueue, tabletClockTime,
+  buildSyncPayload, isoWithOffset, isRateLimited, isServerUnreachable, retryDelay, settledIds, sortQueue, tabletClockTime,
 } from '../../app/utils/offlineQueue'
 import { offlineHintParts, offlineHintText } from '../../app/utils/offlineHints'
 import { de } from '../../app/locales/de'
@@ -40,10 +40,15 @@ describe('offline queue of the tablet', () => {
   })
 
   it('drops every answered stamp from the queue', () => {
-    expect(settledIds([
-      { clientId: 'a', status: 'recorded', reason: null }, { clientId: 'b', status: 'rejected', reason: 'pin_invalid' },
-      { clientId: 'c', status: 'duplicate', reason: null }, { clientId: 'd', status: 'review', reason: 'not_clocked_in' },
-    ])).toEqual(['a', 'b', 'c', 'd'])
+    expect(settledIds([{ clientId: 'a', status: 'done' }, { clientId: 'b', status: 'rejected' }])).toEqual(['a', 'b'])
+  })
+
+  it('takes a timeout as „not reachable“ and a 429 as a quiet retry', () => {
+    // ofetch's timeout: a FetchError without a status.
+    expect(isServerUnreachable({ name: 'FetchError', cause: { name: 'TimeoutError' } })).toBe(true)
+    expect(isRateLimited({ status: 429 })).toBe(true)
+    expect(isRateLimited({ status: 500 })).toBe(false)
+    expect(isServerUnreachable({ status: 429 })).toBe(false)
   })
 
   it('keeps stamps offline only when the server cannot be reached', () => {

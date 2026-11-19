@@ -5,5 +5,6 @@ export default defineServiceHandler(async (event) => {
   const user = await requireUser(event)
   if (user.employeeId === null) throw createError({ statusCode: 403, statusMessage: 'no_employee', data: { code: 'no_employee' } })
   const { action } = await readValidatedBody(event, stampSchema.parse)
-  return stamp(useDb(), user.employeeId, action, 'self')
+  // The tablet's clock difference of an offline Kommt is for Leitung and Träger only.
+  return { ...stamp(useDb(), user.employeeId, action, 'self'), clockSkewMinutes: null }
 })

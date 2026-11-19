@@ -64,6 +64,11 @@ export async function saveTeam(people: readonly TeamMember[]): Promise<void> {
   await inStore(TEAM, 'readwrite', store => store.put(list, 'list'))
 }
 
+/** Forgets the cached team list (the tablet account signed out); the queue stays. */
+export async function clearTeam(): Promise<void> {
+  await inStore(TEAM, 'readwrite', store => store.delete('list'))
+}
+
 export async function loadTeam(): Promise<TeamMember[]> {
   return (await inStore<TeamMember[]>(TEAM, 'readonly', store => store.get('list'))) ?? []
 }

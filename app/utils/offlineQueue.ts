@@ -38,7 +38,7 @@ export function sortQueue<T extends Pick<QueuedStamp, 'seq'>>(items: readonly T[
 }
 
 /**
- * The request body for POST /api/terminal/offline-stamps: the tablet's clock now and the first 100 stamps in the order
+ * The request body for POST /api/terminal/offline-stamps: the tablet's clock now and the first 50 stamps in the order
  * of the taps, with their PINs decrypted for the request only.
  */
 export function buildSyncPayload(
@@ -67,6 +67,16 @@ export function isServerUnreachable(error: unknown): boolean {
     ?? (error as { statusCode?: unknown } | null)?.statusCode
   return typeof status !== 'number' || status === 0 || status === 502 || status === 503 || status === 504
 }
+
+/** The server's „too many requests“ (429): simply the next try later, no message. */
+export function isRateLimited(error: unknown): boolean {
+  const status = (error as { status?: unknown; statusCode?: unknown } | null)?.status
+    ?? (error as { statusCode?: unknown } | null)?.statusCode
+  return status === 429
+}
+
+/** The tablet's requests give up after this long; a request without answer by then counts as „server not reachable“. */
+export const REQUEST_TIMEOUT_MS = 8_000
 
 /** The wait before the next try of a failed sync: 5 s doubled per failed try, at most 60 s. */
 export function retryDelay(failedTries: number): number {

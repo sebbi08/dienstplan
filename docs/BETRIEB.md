@@ -1247,38 +1247,59 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
   nicht, wer eingestempelt ist, darum stehen beide Knöpfe da). Das Tablet zeigt „Gespeichert (offline) – Anna Kommt
   07:58“. Gespeichert wird die **Uhrzeit des Tablets**. Die PIN wird dabei noch nicht geprüft.
 - **Was das Tablet speichert:** nur Namen und Nummern der Mitarbeiter für die Liste und die wartenden Stempel. Die PIN
-  liegt **verschlüsselt** auf dem Tablet (mit einem Schlüssel, der das Tablet nicht verlassen kann) und wird gelöscht,
-  sobald der Server den Stempel angenommen hat. Kinderdaten speichert das Tablet nicht.
+  liegt **verschlüsselt** auf dem Tablet und wird gelöscht, sobald der Server den Stempel beantwortet hat. Das schützt
+  davor, dass jemand die PINs einfach ablesen kann; wer das entsperrte Tablet selbst bedient oder untersucht, kommt
+  aber grundsätzlich an die wartenden Stempel heran – das Tablet also wie bisher nicht unbeaufsichtigt entsperrt
+  liegen lassen. Kinderdaten speichert das Tablet nicht. Meldet sich das Tablet-Konto ab, vergisst das Tablet die
+  Namensliste.
 - **Übertragen:** Sobald der Server wieder erreichbar ist, schickt das Tablet die Stempel von selbst in der Reihenfolge,
   in der gestempelt wurde (beim Öffnen der Seite, wenn das Netz zurück ist, und sonst etwa jede Minute einen neuen
-  Versuch). Ein Stempel, der doppelt ankommt, wird nur einmal gezählt.
-- **Was der Server prüft:** die PIN (wie sonst), dass der Stempel höchstens 5 Minuten in der Zukunft und höchstens
-  7 Tage zurück liegt, und dass er zu den Zeiten des Tages passt (ein „Kommt“ nur, wenn die Person nicht schon
-  eingestempelt ist und nichts Späteres erfasst ist; ein „Geht“ nur zu einem offenen „Kommt“). Passt alles, steht der
-  Stempel in der Zeiterfassung mit dem Zeichen **„offline erfasst“** (das sieht auch die Person selbst unter „Meine
-  Zeit“ bzw. im eigenen Dienstplan).
+  Versuch). Ein Stempel, der doppelt ankommt, wird nur einmal gezählt. Antwortet der Server zwar, lehnt das Übertragen
+  aber ab (z. B. ein Fehler auf dem Server), steht rot „2 Stempel konnten nicht übertragen werden – bitte Leitung
+  informieren“; das Tablet versucht es weiter, neue Stempel gehen dann normal mit Netz.
+- **Was der Server prüft (in dieser Reihenfolge):** dass der Stempel höchstens 5 Minuten in der Zukunft und höchstens
+  7 Tage zurück liegt, dass die Person zur Einrichtung gehört (oder an dem Tag hier als Aushilfe eingeplant ist), an
+  dem Tag beschäftigt ist und Zeiterfassung hat, dann die PIN **wie beim Stempeln mit Netz** – und zuletzt, dass der
+  Stempel zu den Zeiten des Tages passt (ein „Kommt“ nur, wenn die Person nicht schon eingestempelt ist und nichts
+  Späteres erfasst ist; ein „Geht“ nur zu einem offenen „Kommt“). Passt alles, steht der Stempel in der Zeiterfassung
+  mit dem Zeichen **„offline erfasst“** (das sieht auch die Person selbst unter „Meine Zeit“ bzw. im eigenen
+  Dienstplan). Eine Zeit, die ein paar Minuten nach der Uhr des Servers liegt, wird als „jetzt“ eingetragen.
 - **Uhr des Tablets:** Weicht die Uhr des Tablets beim Übertragen um mehr als 5 Minuten von der Uhr des Servers ab,
   steht bei diesen Stempeln zusätzlich **„Uhrzeit des Tablets wich ab (12 Min.)“** – nur für Leitung und Träger. Die
-  Zeit wird nicht von selbst verschoben; bitte prüfen und bei Bedarf korrigieren und die Uhr des Tablets stellen.
+  Zeit wird nicht von selbst verschoben; bitte prüfen und bei Bedarf korrigieren und die Uhr des Tablets stellen. Geht
+  die Uhr des Tablets vor, werden die letzten Stempel deswegen nicht als „in der Zukunft“ abgelehnt (bis 60 Minuten).
 - **Was nicht übernommen wird – „Offline-Stempel – bitte prüfen“:** Stempel mit falscher PIN („Offline-Stempel mit
-  falscher PIN – bitte prüfen: Anna, 19.11.2026 07:58“), ohne hinterlegte PIN, mit Uhrzeit in der Zukunft, älter als
-  7 Tage oder die nicht zu den erfassten Zeiten passen („Offline-Stempel „Geht“ ohne „Kommt“ …“) werden **nicht** als
-  Zeit eingetragen. Sie stehen für Leitung und Träger in der **Zeiterfassung** oben in der Liste „Offline-Stempel –
-  bitte prüfen“ und in den **Erinnerungen**. Ein Tipp auf den Eintrag öffnet Person und Tag; die Zeit dann bei Bedarf
-  selbst eintragen und **„Geprüft“** antippen – dann verschwindet der Hinweis.
-- **Falsche PINs sperren die PIN nicht:** Falsche PINs aus der Offline-Liste zählen **nicht** zur Sperre nach
-  5 falschen Eingaben (sonst könnte eine alte Liste jemanden aussperren); sie stehen nur in der Liste „bitte prüfen“.
-  Stehen dort für eine Person **5 ungeprüfte Offline-Stempel mit falscher PIN**, werden weitere Offline-Stempel dieser
-  Person gar nicht mehr geprüft („Offline-Stempel nicht geprüft (zu viele falsche PINs)“), bis die Leitung die Hinweise
-  auf „Geprüft“ setzt. So lässt sich über das Tablet keine PIN ausprobieren. Stempeln mit Netz geht davon unberührt.
+  falscher PIN – bitte prüfen: Anna, 19.11.2026 07:58“), bei gesperrter PIN, ohne hinterlegte PIN, mit Uhrzeit in der
+  Zukunft, älter als 7 Tage oder die nicht zu den erfassten Zeiten passen („Offline-Stempel „Geht“ ohne „Kommt“ …“)
+  werden **nicht** als Zeit eingetragen. Sie stehen für Leitung und Träger in der **Zeiterfassung** oben in der Liste
+  „Offline-Stempel – bitte prüfen“ und in den **Erinnerungen**. Ein Tipp auf den Eintrag öffnet Person und Tag; die
+  Zeit dann bei Bedarf selbst eintragen und **„Geprüft“** antippen – dann verschwindet der Hinweis. Je Person stehen
+  höchstens 20 Hinweise in der Liste.
+- **Falsche PINs zählen zur Sperre:** Eine falsche PIN aus der Offline-Liste zählt wie eine falsche Eingabe am Tablet
+  (nach 5 falschen Eingaben ist die PIN 15 Minuten gesperrt usw., siehe *Stempel-PIN*); dieselbe falsche PIN einer
+  Person zählt pro Übertragung nur einmal. Ist die PIN gesperrt, wird sie bei Offline-Stempeln gar nicht geprüft
+  („Offline-Stempel bei gesperrter PIN“). „Geprüft“ hebt keine Sperre auf – das geht nur mit „PIN freischalten“. Das
+  Tablet erfährt beim Übertragen nur „erledigt“ oder „abgelehnt“, nicht den Grund. Das erschwert das Ausprobieren von
+  PINs über das Tablet.
+- **Doppelt gestempelt:** Ging ein Stempel mit Netz durch, aber die Antwort kam nicht mehr an, speichert das Tablet ihn
+  offline noch einmal. Liegt beim Übertragen schon ein Kommen bzw. Gehen derselben Person zur selben Minute (±1 Minute)
+  vor, wird er ohne Hinweis als erledigt gezählt; sonst kann er als „passt nicht zu den erfassten Zeiten“ in der Liste
+  landen.
 - **Nicht übernommen und ohne Hinweis** werden Stempel für Personen, die das Tablet an dem Tag nicht kennt (z. B. eine
   Aushilfe an einem Tag ohne Einsatz hier), die an dem Tag nicht mehr beschäftigt sind, oder an Tagen ohne
   Zeiterfassung.
 - **Wenn sich ein anderes Konto am Tablet anmeldet** (z. B. die Leitung), vergisst das Tablet die gemerkte Seite; die
   wartenden Stempel bleiben und werden übertragen, sobald das Tablet-Konto wieder angemeldet ist.
+- **Ohne Speicher:** Kann der Browser des Tablets nichts speichern (z. B. privates Fenster), steht ohne Netz „Offline –
+  Stempeln ist auf diesem Gerät gerade nicht möglich“.
 - **Technisch:** Das Tablet braucht dafür eine sichere Verbindung (https) und einen aktuellen Browser. Die gemerkte
   Seite gehört zur jeweiligen App-Version; nach einem Update wird die alte gelöscht und die neue beim nächsten Öffnen
-  mit Netz gemerkt.
+  mit Netz gemerkt. Das Übertragen ist begrenzt (höchstens 50 Stempel und 20 PIN-Prüfungen je Übertragung, höchstens
+  10 Übertragungen pro Minute); der Rest folgt von selbst mit der nächsten.
+- **Hinweis zum Update (Datenbank):** Die Änderung bringt die Datenbank-Änderung 0090 (Offline-Stempel) mit. Eine
+  Datenbank, die schon mit einem Entwicklungsstand mit der Änderung 0091, aber ohne 0090 gelaufen ist, würde 0090
+  überspringen; der Betrieb (vor diesem Update auf Stand 0082) ist davon nicht betroffen. Nach dem Update sollte die
+  Zeiterfassung wie gewohnt öffnen – wenn nicht, bitte melden.
 
 ## 19. Vorlagen (leere Formulare zum Ausdrucken)
 

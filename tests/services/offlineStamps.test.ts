@@ -5,8 +5,9 @@ import { employees, offlineStamps } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getMyTime } from '../../server/services/myTime'
 import {
-  checkOfflineStampHint, listOfflineStampHints, offlineStampReminders, syncOfflineStamps, type OfflineStampInput,
+  allowOfflineSync, checkOfflineStampHint, listOfflineStampHints, offlineStampReminders, syncOfflineStamps, type OfflineStampInput,
 } from '../../server/services/offlineStamps'
+import { OFFLINE_MAX_OPEN_HINTS } from '../../shared/domain/offlineStamps'
 import { setPin, terminalStamp } from '../../server/services/terminal'
 import { getTimeMonth, loadTimeRecords } from '../../server/services/timeTracking'
 import { rolePermissions } from '../../server/services/permissions'
@@ -29,6 +30,7 @@ function stamp(employeeId: number, action: 'in' | 'out', time: string, pin = '12
 const sync = (stamps: OfflineStampInput[], clientNow = NOW.toISOString(), now = NOW) =>
   syncOfflineStamps(db, 1, { clientNow, stamps }, now).results
 const recordsOf = (employeeId: number) => loadTimeRecords(db, { employeeId })
+const pinState = (employeeId: number) => db.select().from(employees).where(eq(employees.id, employeeId)).get()!
 
 beforeEach(() => {
   db = createTestDb()
@@ -67,30 +69,87 @@ describe('offline stamps from the tablet', () => {
     expect(db.select().from(offlineStamps).all()).toHaveLength(1)
   })
 
-  it('does not record a wrong PIN, leaves a hint and does not count it toward the PIN lock', () => {
+  it('does not record a wrong PIN, leaves a hint and counts it toward the PIN lock like a wrong try at the tablet', () => {
     const wrong = stamp(anna, 'in', '07:58', '000000')
     expect(sync([wrong])).toEqual([{ clientId: wrong.clientId, status: 'rejected', reason: 'pin_invalid' }])
     expect(recordsOf(anna)).toEqual([])
-    expect(db.select().from(employees).where(eq(employees.id, anna)).get()).toMatchObject({ pinFailed: 0, pinLockLevel: 0 })
+    expect(pinState(anna)).toMatchObject({ pinFailed: 1, pinLockLevel: 0 })
     expect(listOfflineStampHints(db, 1)).toEqual([expect.objectContaining({
       employeeId: anna, name: 'Anna', action: 'in', date: '2026-11-19', minutes: 478, reason: 'pin_invalid',
     })])
-    // The online stamp still works right away.
-    expect(errorCode(() => terminalStamp(db, 1, anna, '123456', 'in', NOW))).toBeNull()
+    // A right PIN (offline as online) resets the count.
+    sync([stamp(anna, 'in', '08:00')])
+    expect(pinState(anna)).toMatchObject({ pinFailed: 0 })
   })
 
-  it('stops checking offline PINs of a person after 5 unchecked wrong ones, until the Leitung checked them', () => {
-    const leitung = addUser(db, 'leitung', 'admin')
-    for (let index = 0; index < 5; index++) sync([stamp(anna, 'in', '07:58', `00000${index}`)])
-    const right = stamp(anna, 'in', '08:00')
-    expect(sync([right])).toEqual([{ clientId: right.clientId, status: 'rejected', reason: 'pin_blocked' }])
+  it('counts the same wrong PIN of a person once per request', () => {
+    sync([stamp(anna, 'in', '07:58', '000000'), stamp(anna, 'out', '08:30', '000000'), stamp(anna, 'in', '09:00', '000000')])
+    expect(pinState(anna)).toMatchObject({ pinFailed: 1 })
+  })
+
+  it('locks the PIN after 5 wrong offline PINs, with the online escalation; no further check while locked', () => {
+    const results = sync([0, 1, 2, 3, 4, 5].map(index => stamp(anna, 'in', '07:58', `00000${index}`)).concat(stamp(anna, 'in', '08:00')))
+    expect(results.map(result => result.reason)).toEqual(['pin_invalid', 'pin_invalid', 'pin_invalid', 'pin_invalid', 'pin_invalid', 'pin_locked', 'pin_locked'])
+    expect(pinState(anna)).toMatchObject({ pinLockLevel: 1, pinLockedUntil: new Date(NOW.getTime() + 15 * 60_000).toISOString() })
     expect(recordsOf(anna)).toEqual([])
+    // The online stamp is locked as well.
+    expect(errorCode(() => terminalStamp(db, 1, anna, '123456', 'in', NOW))).toBe('pin_locked')
+    // One open „PIN gesperrt“ hint, however many stamps come while locked.
+    expect(listOfflineStampHints(db, 1).filter(hint => hint.reason === 'pin_locked')).toHaveLength(1)
+    // „Geprüft“ does not open new tries: the lock decides.
+    const leitung = addUser(db, 'leitung', 'admin')
+    for (const hint of listOfflineStampHints(db, 1)) checkOfflineStampHint(db, leitung, 1, hint.id, NOW)
+    expect(sync([stamp(anna, 'in', '08:01')])[0]).toMatchObject({ reason: 'pin_locked' })
     // Another person is not affected.
     expect(sync([stamp(berta, 'in', '08:00', '654321')])[0]!.status).toBe('recorded')
-    for (const hint of listOfflineStampHints(db, 1).filter(item => item.reason === 'pin_invalid')) {
-      checkOfflineStampHint(db, leitung, 1, hint.id, NOW)
-    }
-    expect(sync([stamp(anna, 'in', '08:01')])[0]!.status).toBe('recorded')
+  })
+
+  it('respects a lock from wrong tries at the tablet without checking the offline PIN', () => {
+    for (let attempt = 0; attempt < 5; attempt++) errorCode(() => terminalStamp(db, 1, anna, '000000', 'in', NOW))
+    expect(pinState(anna)).toMatchObject({ pinLockLevel: 1 })
+    expect(sync([stamp(anna, 'in', '08:00')])[0]).toMatchObject({ status: 'rejected', reason: 'pin_locked' })
+    expect(recordsOf(anna)).toEqual([])
+    // After the lock time the right PIN works again.
+    const later = new Date(NOW.getTime() + 16 * 60_000)
+    expect(sync([stamp(anna, 'in', '08:05')], later.toISOString(), later)[0]!.status).toBe('recorded')
+  })
+
+  it('checks the time before the PIN: a stamp outside the window says nothing about the PIN and counts no try', () => {
+    expect(sync([stamp(anna, 'in', '2026-11-20T08:00:00+01:00', '000000')])[0]).toMatchObject({ reason: 'in_future' })
+    expect(sync([stamp(anna, 'in', '2026-11-20T08:00:00+01:00')])[0]).toMatchObject({ reason: 'in_future' })
+    expect(sync([stamp(anna, 'in', '2026-11-01T08:00:00+01:00', '000000')])[0]).toMatchObject({ reason: 'too_old' })
+    expect(pinState(anna)).toMatchObject({ pinFailed: 0 })
+  })
+
+  it('checks at most 20 PINs per request and leaves the rest queued, in order', () => {
+    const people = Array.from({ length: 22 }, (_, index) => {
+      const id = addEmployee(db, `Person ${index}`)
+      setPin(db, 1, id, '111111')
+      return id
+    })
+    const stamps = people.map(id => stamp(id, 'in', '08:00', '111111'))
+    const results = sync(stamps)
+    expect(results.map(result => result.clientId)).toEqual(stamps.slice(0, 20).map(item => item.clientId))
+    expect(sync(stamps.slice(20)).map(result => result.status)).toEqual(['recorded', 'recorded'])
+  }, 60_000) // 44 scrypt hashes and checks
+
+  it('takes a stamp matching a recorded Kommt or Geht (±1 minute) as already there, without a hint', () => {
+    terminalStamp(db, 1, anna, '123456', 'in', new Date('2026-11-19T06:30:00Z'))
+    terminalStamp(db, 1, anna, '123456', 'out', new Date('2026-11-19T08:00:00Z'))
+    expect(sync([stamp(anna, 'in', '07:31'), stamp(anna, 'out', '09:00')]).map(result => result.status)).toEqual(['recorded', 'recorded'])
+    expect(recordsOf(anna)).toEqual([expect.objectContaining({ start: 450, end: 540, offline: false })])
+    expect(listOfflineStampHints(db, 1)).toEqual([])
+  })
+
+  it('takes a stamp a little ahead as the server\'s now, and widens the tolerance by a known tablet lead', () => {
+    sync([stamp(anna, 'in', '10:03')])
+    expect(recordsOf(anna)[0]).toMatchObject({ start: 600 })
+    // The tablet runs 10 minutes fast: a stamp 9 minutes ahead of the server is its last minute, taken with the mark.
+    const ahead = new Date(NOW.getTime() + 10 * 60_000).toISOString()
+    expect(sync([stamp(berta, 'in', '10:09', '654321')], ahead)[0]!.status).toBe('recorded')
+    expect(recordsOf(berta)[0]).toMatchObject({ start: 600, clockSkewMinutes: 10 })
+    // But not beyond the lead.
+    expect(sync([stamp(berta, 'out', '10:20', '654321')], ahead)[0]).toMatchObject({ reason: 'in_future' })
   })
 
   it('refuses stamps more than 5 minutes ahead or older than 7 days, with a hint', () => {
@@ -147,6 +206,9 @@ describe('offline stamps from the tablet', () => {
     expect(sync([nobody])[0]).toMatchObject({ status: 'rejected', reason: 'employee_not_found' })
     expect(listOfflineStampHints(db, 1)).toEqual([])
     expect(listOfflineStampHints(db, hort)).toEqual([])
+    // Not even stored, and no PIN try counted.
+    expect(db.select().from(offlineStamps).all()).toEqual([])
+    expect(pinState(stranger)).toMatchObject({ pinFailed: 0 })
   })
 
   it('takes a helper on the day of the help-out; the hints show at the home facility', () => {
@@ -159,6 +221,10 @@ describe('offline stamps from the tablet', () => {
     expect(atKrippe([stamp(anna, 'in', '07:58')])[0]!.status).toBe('recorded')
     // Not on another day.
     expect(atKrippe([stamp(anna, 'in', '2026-11-18T08:00:00+01:00')])[0]).toMatchObject({ reason: 'employee_not_found' })
+    // Nor on a planned day outside the time window (the client's date is not trusted for that).
+    applyToCells(db, leitungB, krippe, [{ employeeId: anna, date: '2026-11-02' }], 'replace', { kind: 'shift', templateId: templateId(db, 'M', krippe) })
+    expect(atKrippe([stamp(anna, 'in', '2026-11-02T08:00:00+01:00', '000000')])[0]).toMatchObject({ reason: 'employee_not_found' })
+    expect(pinState(anna)).toMatchObject({ pinFailed: 0 })
     atKrippe([stamp(anna, 'out', '09:00', '000000')])
     expect(listOfflineStampHints(db, krippe)).toEqual([])
     expect(listOfflineStampHints(db, 1).map(hint => hint.reason)).toEqual(['pin_invalid'])
@@ -177,6 +243,24 @@ describe('offline stamps from the tablet', () => {
     const results = sync([stamp(anna, 'in', '07:00'), stamp(anna, 'out', '08:00'), stamp(anna, 'in', '08:30'), stamp(anna, 'out', '09:00')])
     expect(results.map(result => result.status)).toEqual(['recorded', 'recorded', 'recorded', 'recorded'])
     expect(recordsOf(anna).map(record => [record.start, record.end])).toEqual([[420, 480], [510, 540]])
+  })
+})
+
+describe('limits of the offline route', () => {
+  it('allows at most 10 requests per tablet account and minute', () => {
+    const start = new Date('2026-11-19T09:00:00Z')
+    for (let index = 0; index < 10; index++) expect(allowOfflineSync(777, new Date(start.getTime() + index * 1000))).toBe(true)
+    expect(allowOfflineSync(777, new Date(start.getTime() + 11_000))).toBe(false)
+    // Another tablet is not affected; a minute later it works again.
+    expect(allowOfflineSync(778, start)).toBe(true)
+    expect(allowOfflineSync(777, new Date(start.getTime() + 61_000))).toBe(true)
+  })
+
+  it('caps the open hints per person', () => {
+    const stamps = Array.from({ length: OFFLINE_MAX_OPEN_HINTS + 3 }, () => stamp(anna, 'in', '2026-11-01T08:00:00+01:00'))
+    sync(stamps)
+    expect(listOfflineStampHints(db, 1)).toHaveLength(OFFLINE_MAX_OPEN_HINTS)
+    expect(db.select().from(offlineStamps).all()).toHaveLength(OFFLINE_MAX_OPEN_HINTS + 3)
   })
 })
 

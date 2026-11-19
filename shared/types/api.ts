@@ -6,7 +6,7 @@ import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifs
 import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { DayMeal } from '../domain/meals'
-import type { OfflineStampReason, OfflineStampStatus } from '../domain/offlineStamps'
+import type { OfflineStampReason, OfflineTabletStatus } from '../domain/offlineStamps'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
 import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/permissionBundles'
 import type { PermissionKey } from '../domain/permissions'
@@ -1537,11 +1537,13 @@ export interface OfflineStampInputDto {
   stampedAt: string
 }
 
-/** What became of each stamp sent; every stamp named here leaves the tablet's queue. */
+/**
+ * The tablet's answer per stamp: done or rejected, no reason. Every stamp named here leaves the tablet's queue; one
+ * not named (PIN checks of the request used up, or it could not be stored) stays for the next request.
+ */
 export interface OfflineStampResultDto {
   clientId: string
-  status: OfflineStampStatus
-  reason: OfflineStampReason | null
+  status: OfflineTabletStatus
 }
 
 /** An offline stamp not taken over, on the review list of the time page until checked. */
