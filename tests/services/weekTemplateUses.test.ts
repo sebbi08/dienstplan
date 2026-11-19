@@ -47,7 +47,7 @@ describe('which week template was applied to a plan week', () => {
   it('does not record an apply that fills nothing (every day already planned)', () => {
     const a = template('Woche A', anna)
     applyToCells(db, admin, 1, [{ employeeId: anna, date: monday }], 'replace', { kind: 'shift', templateId: templateId(db, 'S') })
-    expect(applyWeekTemplate(db, admin, 1, a.id, monday)).toEqual({ filled: 0, skipped: 1 })
+    expect(applyWeekTemplate(db, admin, 1, a.id, monday)).toEqual({ filled: 0, skipped: 1, infosKept: [] })
     expect(week().templateUses).toEqual([])
   })
 

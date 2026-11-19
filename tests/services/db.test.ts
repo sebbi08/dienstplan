@@ -2107,6 +2107,18 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       VALUES (99, '2026-10-12', 'B', '2026-10-01', 'x', 'x')`)).toThrow(/FOREIGN KEY/)
   })
 
+  it('0097 adds the empty Info 1 / Info 2 of week templates, one row per weekday, gone with their template', () => {
+    const { db, sqlite } = databaseAt('0096')
+    sqlite.exec(`INSERT INTO week_templates (id, facility_id, name, updated_at) VALUES (1, 1, 'Woche A', '2026-10-01T08:00:00.000Z')`)
+    migrateDb(db, MIGRATIONS)
+    expect(count(sqlite, 'week_template_infos')).toBe(0)
+    sqlite.exec(`INSERT INTO week_template_infos (week_template_id, weekday, info1) VALUES (1, 0, 'Elternabend')`)
+    expect(sqlite.prepare('SELECT weekday, info1, info2 FROM week_template_infos').all()).toEqual([{ weekday: 0, info1: 'Elternabend', info2: '' }])
+    expect(() => sqlite.exec(`INSERT INTO week_template_infos (week_template_id, weekday) VALUES (1, 0)`)).toThrow(/UNIQUE/)
+    sqlite.exec('DELETE FROM week_templates WHERE id = 1')
+    expect(count(sqlite, 'week_template_infos')).toBe(0)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

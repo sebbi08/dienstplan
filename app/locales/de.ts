@@ -910,8 +910,8 @@ export const de = {
     saveWeek: 'Als Vorlage speichern', applyWeek: 'Vorlage einsetzen',
     saveTitle: (from: string, to: string) => `Woche ${from} – ${to} als Vorlage speichern`,
     applyTitle: (from: string, to: string) => `Vorlage einsetzen: Woche ${from} – ${to}`,
-    saveHint: 'Gespeichert werden Dienste, Sonderdienste, Pausen, VZ und Büro von Montag bis Sonntag. Urlaub, Krank, Fortbildung, Schule und Schließtage werden nicht übernommen.',
-    applyHint: 'Es werden nur leere Felder gefüllt. Bereits Eingetragenes bleibt; Feiertage, Schließzeiten und freie Wochentage werden übersprungen. Samstag und Sonntag werden nur gefüllt, wo die Vorlage etwas hat.',
+    saveHint: 'Gespeichert werden Dienste, Sonderdienste, Pausen, VZ und Büro von Montag bis Sonntag. Urlaub, Krank, Fortbildung, Schule und Schließtage werden nicht übernommen. Info 1 und Info 2 der Tage kommen mit.',
+    applyHint: 'Es werden nur leere Felder gefüllt. Bereits Eingetragenes bleibt; Feiertage, Schließzeiten und freie Wochentage werden übersprungen. Samstag und Sonntag werden nur gefüllt, wo die Vorlage etwas hat. Info 1 und Info 2 kommen nur in leere Felder, auch an Feiertagen und Schließtagen.',
     name: 'Name der Vorlage', template: 'Vorlage', none: 'Noch keine Vorlagen gespeichert.',
     replaceConfirm: (name: string) => `Die Vorlage „${name}“ gibt es schon. Durch diese Woche ersetzen?`,
     saved: 'Vorlage gespeichert', replace: 'Ersetzen',
@@ -919,6 +919,8 @@ export const de = {
     markHint: 'Diese Woche wurde zuletzt als diese Vorlage gespeichert oder aus ihr gefüllt.',
     /** The plan week row (editors only): „Vorlage: Woche A (eingesetzt am 02.10.) – danach angepasst“. */
     used: (name: string, day: string, changed: boolean) => `Vorlage: ${name} (eingesetzt am ${day})${changed ? ' – danach angepasst' : ''}`,
+    /** After applying: the days whose Info 1 / Info 2 kept their own text, „Mo 12.10., Di 13.10.“. */
+    infosKept: (days: string) => `Info nicht übernommen (schon etwas eingetragen): ${days}`,
     /** One use in its title: „Woche A – 02.10.2026 10:05 von leitung“. */
     useLine: (name: string, when: string, by: string) => `${name} – ${when} von ${by}`,
     applied: (filled: number, skipped: number) => `${filled} Tage eingetragen` + (skipped ? `, ${skipped} übersprungen (schon belegt oder kein Arbeitstag)` : ''),
@@ -2737,6 +2739,7 @@ export const de = {
     template_entry_not_allowed: 'In einer Vorlage sind nur Dienste, Sonderdienste, Pausen, VZ und Büro möglich – kein Urlaub, Krank oder Schließtag.',
     template_empty: 'Die Vorlage ist noch leer. Bitte mindestens einen Dienst eintragen.',
     invalid_weekday: 'Eine Vorlage hat nur die Tage Montag bis Sonntag.',
+    info_too_long: 'Info 1 und Info 2 dürfen höchstens 200 Zeichen lang sein.',
     not_a_monday: 'Eine Woche muss an einem Montag beginnen.',
     empty_week: 'In dieser Woche ist noch nichts eingetragen, was als Vorlage gespeichert werden kann.',
     closure_not_found: 'Diese Schließzeit existiert nicht mehr.',

@@ -2,6 +2,7 @@
 import { cellFillColor } from '#shared/domain/cells'
 import { formatDuration } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
+import { TEMPLATE_INFO_MAX } from '#shared/domain/weekTemplates'
 import type {
   CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateDto,
   WeekTemplateEntryDto, WeekTemplateStaffDto,
@@ -12,7 +13,8 @@ import { cellFillClasses } from '~/utils/colors'
 import { gridStep, quickEntryHandlers, rovingStop, touchTapAsToggle } from '~/utils/quickEntry'
 import {
   clearTemplateCells, copyTemplateDay, dayHasEntries, editTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, readTemplateCompare,
-  removeTemplateEntry, staffInScope, templateCellOf, templateCoverage, templateDayKind, templateEntryInputs, templateWeekdays,
+  removeTemplateEntry, staffInScope, templateCellOf, templateCoverage, templateDayKind, templateEntryInputs, templateInfoDraft,
+  templateInfoInputs, templateWeekdays,
   templateWeeklyMinutes, writeTemplateCompare, type TemplateCell, type TemplateEntryTimes,
 } from '~/utils/weekTemplateEditor'
 
@@ -39,6 +41,9 @@ const e = de.weekTemplates.editor
 
 const form = reactive({ name: props.template?.name ?? '', groupId: props.template?.groupId ?? null as number | null })
 const entries = ref<WeekTemplateEntryDto[]>(props.template?.entries ?? [])
+/** Info 1 / Info 2 per weekday, sent with „Speichern“ like the entries. */
+const infos = ref(templateInfoDraft(props.template?.infos ?? []))
+const INFO_FIELDS = ['info1', 'info2'] as const
 const context = computed(() => ({ templates: props.templates, codes: props.codes }))
 /** Only VZ and Büro: one-off absences (Urlaub, Krank, Schließtag …) never go into a template. */
 const templateCodes = computed(() => props.codes.filter(code => isTargetGapCode(code.key)))
@@ -63,7 +68,10 @@ const scope = computed({
   },
 })
 
-const payloadOf = () => ({ name: form.name.trim(), groupId: form.groupId, entries: templateEntryInputs(entries.value, shown.value) })
+const payloadOf = () => ({
+  name: form.name.trim(), groupId: form.groupId, entries: templateEntryInputs(entries.value, shown.value),
+  infos: templateInfoInputs(infos.value),
+})
 const loaded = payloadOf()
 const saved = ref(false)
 const dirty = useDirty(() => !saved.value && !sameValue(payloadOf(), loaded))
@@ -270,6 +278,7 @@ async function save() {
             <tr>
               <th class="sticky left-0 z-10 w-24 border border-gray-200 bg-gray-100 px-2 py-1 text-left">{{ e.weekday }}</th>
               <th v-for="person in columns" :key="person.id" class="min-w-28 border border-gray-200 px-2 py-1">{{ person.name }}</th>
+              <th v-for="field in INFO_FIELDS" :key="field" class="border border-gray-200 px-2 py-1">{{ de.plan[field] }}</th>
             </tr>
           </thead>
           <tbody>
@@ -307,6 +316,14 @@ async function save() {
                     @remove="onRemove" @click="onEntryClick(entry, $event)"
                   />
                 </div>
+              </td>
+              <!-- Info 1 / Info 2 of the weekday: taken like the plan's info fields (on leaving the field or Enter). -->
+              <td v-for="field in INFO_FIELDS" :key="field" class="min-w-32 border border-gray-200 px-1 py-1 align-top">
+                <input
+                  :value="infos[weekday]![field]" :maxlength="TEMPLATE_INFO_MAX" :aria-label="`${de.plan[field]} ${day}`"
+                  class="w-full rounded border border-transparent bg-transparent px-1 text-xs hover:border-gray-300 focus:border-sky-500 focus:outline-none"
+                  @change="infos[weekday]![field] = ($event.target as HTMLInputElement).value.trim()"
+                >
               </td>
             </tr>
           </tbody>

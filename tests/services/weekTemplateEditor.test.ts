@@ -87,7 +87,7 @@ describe('week templates written in the editor', () => {
       shift(anna, 0, 'F1'), shift(anna, 1, 'M', { homeOffice: true }), pause(anna, 1, 900, 915), code(anna, 2, 'office'),
       code(berta, 0, 'prep_time', 480, 540), shift(berta, 0, 'S'),
     ])
-    expect(applyWeekTemplate(db, admin, 1, made.id, week)).toEqual({ filled: 4, skipped: 0 })
+    expect(applyWeekTemplate(db, admin, 1, made.id, week)).toEqual({ filled: 4, skipped: 0, infosKept: [] })
     const cell = (employeeId: number, date: string) => loadEntries(db, { employeeId, from: date, to: date })
       .map(e => [e.kind, e.shortLabel ?? e.label, e.homeOffice])
     expect(cell(anna, '2026-10-05')).toEqual([['shift', 'F1', false]])

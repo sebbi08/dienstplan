@@ -10,6 +10,7 @@ import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
 import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
+import { TEMPLATE_INFO_MAX } from '../shared/domain/weekTemplates'
 import { COLOR_KEYS, CONSENT_KEYS, REVIEW_SECTIONS, type ConsentKey, type MeetingKind } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
@@ -200,6 +201,10 @@ export const weekTemplateInputSchema = z.object({
   entries: z.array(entryInputSchema.omit({ groupId: true }).extend({
     employeeId: z.number().int(), weekday: z.number().int(), countsAsStaff: z.boolean().optional(),
   })).max(2000),
+  /** Info 1 / Info 2 per weekday, as long as the plan's info fields (dayNoteSchema). */
+  infos: z.array(z.object({
+    weekday: z.number().int(), info1: z.string().max(TEMPLATE_INFO_MAX), info2: z.string().max(TEMPLATE_INFO_MAX),
+  })).max(20).optional(),
 })
 /** Saving a changed service: applyFrom = also give existing shifts from that day on the new times (null = only new entries). */
 export const templateChangeSchema = templateSchema.extend({ applyFrom: isoDate.nullable().optional() })

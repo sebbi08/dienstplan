@@ -99,10 +99,10 @@ describe('week templates', () => {
     expect(cell(anna, '2026-10-14')).toEqual(['7:00–13:15'])
     expect(cell(berta, '2026-10-12')).toEqual(['8:45–17:00'])
     expect(cell(berta, '2026-10-15')).toEqual([]) // Thursday is now her day off
-    expect(result).toEqual({ filled: 2, skipped: 3 })
+    expect(result).toEqual({ filled: 2, skipped: 3, infosKept: [] })
 
     updateEmployee(db, 1, anna, { name: 'Anna', shortName: 'An', leftOn: '2026-10-16' })
-    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-10-19')).toEqual({ filled: 1, skipped: 4 }) // only Berta's Monday
+    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-10-19')).toEqual({ filled: 1, skipped: 4, infosKept: [] }) // only Berta's Monday
   })
 
   it('keeps changed times and breaks exactly and logs changes in a released month', () => {
@@ -186,7 +186,7 @@ describe('week templates with Saturday and Sunday', () => {
     shift(anna, '2026-10-10', 'S') // Saturday
     shift(berta, '2026-10-11', 'F1') // Sunday
     const template = saveWeekTemplate(db, 1, { name: 'Sommerfest', weekStart: week })
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 3, skipped: 0 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 3, skipped: 0, infosKept: [] })
     expect(cell(anna, '2026-10-12')).toEqual(['7:00–13:15'])
     expect(cell(anna, '2026-10-17')).toEqual(['8:45–17:00'])
     expect(cell(berta, '2026-10-18')).toEqual(['7:00–13:15'])
@@ -199,14 +199,14 @@ describe('week templates with Saturday and Sunday', () => {
     shift(berta, '2026-10-10', 'F1')
     const template = saveWeekTemplate(db, 1, { name: 'Wochenende', weekStart: week })
     // 2026-10-03 (Tag der Deutschen Einheit) is a Saturday.
-    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-09-28')).toEqual({ filled: 1, skipped: 2 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-09-28')).toEqual({ filled: 1, skipped: 2, infosKept: [] })
     expect(cell(anna, '2026-10-03')).toEqual([])
     expect(cell(berta, '2026-10-03')).toEqual([])
     expect(cell(anna, '2026-10-04')).toEqual(['8:45–17:00'])
 
     createClosure(db, admin, 1, { startDate: '2026-10-17', endDate: '2026-10-17', label: 'Putztag', mode: 'closure_day' })
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-18' }], 'replace', { kind: 'special', start: 600, end: 660 })
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 0, skipped: 3 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 0, skipped: 3, infosKept: [] })
     expect(cell(anna, '2026-10-18')).toEqual(['10:00–11:00'])
     expect(cell(berta, '2026-10-17')).not.toContain('7:00–13:15')
   })
@@ -216,9 +216,9 @@ describe('week templates with Saturday and Sunday', () => {
     const template = saveWeekTemplate(db, 1, { name: 'Büro', weekStart: week })
     // Moved to Saturday in the template (the plan refuses a whole day without a daily target).
     db.update(weekTemplateEntries).set({ weekday: 5 }).where(eq(weekTemplateEntries.weekTemplateId, template.id)).run()
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 0, skipped: 1 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 0, skipped: 1, infosKept: [] })
     addHours(db, 1, anna, { weeklyMinutes: 2340, validFrom: '2026-10-01', workdays: 0b0111110 }, admin) // Tuesday to Saturday
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 1, skipped: 0 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 1, skipped: 0, infosKept: [] })
     expect(cell(anna, '2026-10-17')).toEqual(['Büro (ganzer Tag)'])
   })
 
@@ -227,7 +227,7 @@ describe('week templates with Saturday and Sunday', () => {
     shift(anna, '2026-10-09', 'F1')
     const template = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })
     expect(template.rows[0]!.days).toEqual(['F1', '', '', '', 'F1', '', ''])
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 2, skipped: 0 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 2, skipped: 0, infosKept: [] })
     expect(loadEntries(db, { employeeId: anna, from: '2026-10-17', to: '2026-10-18' })).toEqual([])
   })
 })
@@ -346,7 +346,7 @@ describe('week templates per group', () => {
       { kind: 'shift', templateId: templateId(db, 'F1', krippe) })
     const helpOutDay = rowsOf(berta, '2026-10-13')
 
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 2, skipped: 2 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 2, skipped: 2, infosKept: [] })
     expect(labels(anna, '2026-10-12')).toEqual(['Krank'])
     expect(labels(anna, '2026-10-13')).toEqual(['M', '[15:00–15:15]'])
     expect(labels(berta, '2026-10-12')).toEqual(['S'])
@@ -356,7 +356,7 @@ describe('week templates per group', () => {
 
     // Berta moved to the Bären since: the Mäuse template no longer fills her days.
     updateEmployee(db, 1, berta, { name: 'Berta', shortName: 'Be', leftOn: null, groupId: baeren })
-    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-10-19')).toEqual({ filled: 2, skipped: 2 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-10-19')).toEqual({ filled: 2, skipped: 2, infosKept: [] })
     expect(loadEntries(db, { employeeId: berta, from: '2026-10-19', to: '2026-10-23' })).toEqual([])
   })
 
@@ -367,7 +367,7 @@ describe('week templates per group', () => {
     expect(template.rows.map(row => row.name)).toEqual(['Anna', 'Berta', 'Carl', 'Sven'])
     expect(template.rows[0]!.days).toEqual(['F1', 'M + [15:00–15:15]', 'F1', '', '', '', ''])
     expect(db.select().from(weekTemplateEntries).all()).toHaveLength(8)
-    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 7, skipped: 0 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 7, skipped: 0, infosKept: [] })
     expect(Object.fromEntries(weekTemplateNames(db, 1, week, next))).toEqual({ [week]: { 0: 'Haus' }, [next]: { 0: 'Haus' } })
   })
 

@@ -8,18 +8,21 @@ import { type EmploymentInfo, isEmployedOn, isWorkday, MONDAY_TO_FRIDAY } from '
 import type { TimeSpan } from '../../shared/domain/time'
 import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import { isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '../../shared/domain/weekTemplates'
+import {
+  isTemplateWeekend, planEntryColor, TEMPLATE_INFO_MAX, TEMPLATE_WEEKDAYS, templateCellConflict,
+} from '../../shared/domain/weekTemplates'
 import type {
   ColorKey, SessionUser, WeekTemplateApplyResult, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateDto,
-  WeekTemplateEntryDto, WeekTemplateInput, WeekTemplateStaffDto, WeekTemplateUseDto,
+  WeekTemplateEntryDto, WeekTemplateInfo, WeekTemplateInput, WeekTemplateStaffDto, WeekTemplateUseDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  absenceCodes, employees, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates, weekTemplateUses,
+  absenceCodes, dayNotes, employees, entries, shiftTemplates, weekTemplateEntries, weekTemplateInfos, weekTemplateMarks, weekTemplates,
+  weekTemplateUses,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
-import { dayConflict, describeCellAt, resolveEntry } from './entries'
+import { dayConflict, describeCellAt, resolveEntry, setDayNote } from './entries'
 import { assertGroup, groupNames } from './groups'
 import { loadHoursContext } from './openingHours'
 import { closureOn, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries } from './queries'
@@ -122,7 +125,10 @@ function detailOf(db: Db, template: typeof weekTemplates.$inferSelect): WeekTemp
   const ids = [...new Set(entries.map(entry => entry.employeeId))]
   const people = ids.length === 0 ? [] : db.select({ id: employees.id, name: employees.name }).from(employees)
     .where(inArray(employees.id, ids)).orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-  return { id: template.id, name: template.name, groupId: template.groupId, updatedAt: template.updatedAt, entries, people }
+  return {
+    id: template.id, name: template.name, groupId: template.groupId, updatedAt: template.updatedAt, entries,
+    infos: infosOf(db, template.id), people,
+  }
 }
 
 /** One template of the facility with its entries (another facility's id gives week_template_not_found). */
@@ -208,7 +214,40 @@ function resolveTemplate(db: Db, facilityId: number, input: WeekTemplateInput) {
       throw new ServiceError(400, conflict, { employeeId, weekday: refusedDay, name: staff.get(employeeId)!.name })
     }
   }
-  return { name, groupId, rows: rows.map(({ code: _code, ...row }) => row) }
+  const infos = input.infos === undefined ? undefined : resolveInfos(input.infos)
+  return { name, groupId, rows: rows.map(({ code: _code, ...row }) => row), infos }
+}
+
+/**
+ * The editor's Info 1 / Info 2 texts as stored: trimmed, a weekday with both empty left out. A weekday outside
+ * Monday–Sunday gives invalid_weekday, the same weekday twice invalid_input, a text longer than the plan's info field
+ * info_too_long.
+ */
+function resolveInfos(infos: WeekTemplateInfo[]): WeekTemplateInfo[] {
+  const seen = new Set<number>()
+  const rows: WeekTemplateInfo[] = []
+  for (const { weekday: day, info1: first, info2: second } of infos) {
+    if (!Number.isInteger(day) || day < 0 || day >= WEEKDAYS) throw new ServiceError(400, 'invalid_weekday')
+    if (seen.has(day)) throw new ServiceError(400, 'invalid_input')
+    seen.add(day)
+    const info1 = first.trim()
+    const info2 = second.trim()
+    if (info1.length > TEMPLATE_INFO_MAX || info2.length > TEMPLATE_INFO_MAX) throw new ServiceError(400, 'info_too_long')
+    if (info1 || info2) rows.push({ weekday: day, info1, info2 })
+  }
+  return rows.sort((a, b) => a.weekday - b.weekday)
+}
+
+/** Replaces the template's Info 1 / Info 2 texts. */
+function writeInfos(db: Db, weekTemplateId: number, infos: WeekTemplateInfo[]): void {
+  db.delete(weekTemplateInfos).where(eq(weekTemplateInfos.weekTemplateId, weekTemplateId)).run()
+  if (infos.length > 0) db.insert(weekTemplateInfos).values(infos.map(info => ({ ...info, weekTemplateId }))).run()
+}
+
+/** The template's Info 1 / Info 2 texts, by weekday. */
+function infosOf(db: Db, weekTemplateId: number): WeekTemplateInfo[] {
+  return db.select({ weekday: weekTemplateInfos.weekday, info1: weekTemplateInfos.info1, info2: weekTemplateInfos.info2 })
+    .from(weekTemplateInfos).where(eq(weekTemplateInfos.weekTemplateId, weekTemplateId)).orderBy(asc(weekTemplateInfos.weekday)).all()
 }
 
 /** A name another template of the facility uses (other than `exceptId`) gives name_taken. */
@@ -223,11 +262,12 @@ function assertNameFree(db: Db, facilityId: number, name: string, exceptId: numb
  * is never replaced (name_taken).
  */
 export function createWeekTemplate(db: Db, facilityId: number, input: WeekTemplateInput, now: Date = new Date()): WeekTemplateDetailDto {
-  const { name, groupId, rows } = resolveTemplate(db, facilityId, input)
+  const { name, groupId, rows, infos } = resolveTemplate(db, facilityId, input)
   return db.transaction((tx) => {
     assertNameFree(tx, facilityId, name, null)
     const template = tx.insert(weekTemplates).values({ facilityId, name, groupId, updatedAt: now.toISOString() }).returning().get()
     tx.insert(weekTemplateEntries).values(rows.map(row => ({ ...row, weekTemplateId: template.id }))).run()
+    writeInfos(tx, template.id, infos ?? [])
     return detailOf(tx, template)
   })
 }
@@ -241,13 +281,14 @@ export function replaceWeekTemplate(
   db: Db, facilityId: number, id: number, input: WeekTemplateInput, now: Date = new Date(),
 ): WeekTemplateDetailDto {
   const before = requireTemplate(db, facilityId, id)
-  const { name, groupId, rows } = resolveTemplate(db, facilityId, input)
+  const { name, groupId, rows, infos } = resolveTemplate(db, facilityId, input)
   return db.transaction((tx) => {
     assertNameFree(tx, facilityId, name, id)
     const template = tx.update(weekTemplates).set({ name, groupId, updatedAt: now.toISOString() })
       .where(eq(weekTemplates.id, id)).returning().get()
     tx.delete(weekTemplateEntries).where(eq(weekTemplateEntries.weekTemplateId, id)).run()
     tx.insert(weekTemplateEntries).values(rows.map(row => ({ ...row, weekTemplateId: id }))).run()
+    if (infos !== undefined) writeInfos(tx, id, infos)
     if (before.groupId !== groupId) tx.delete(weekTemplateMarks).where(eq(weekTemplateMarks.weekTemplateId, id)).run()
     return detailOf(tx, template)
   })
@@ -294,6 +335,11 @@ export function saveWeekTemplate(
       breakStart: entry.breakStart, breakEnd: entry.breakEnd, countsAsStaff: entry.countsAsStaff, note: entry.note,
       homeOffice: entry.homeOffice,
     }))).run()
+    // The week's Info 1 / Info 2 per weekday (the facility's day notes, also for a group template).
+    const notes = tx.select().from(dayNotes).where(and(
+      eq(dayNotes.facilityId, facilityId), gte(dayNotes.date, input.weekStart), lte(dayNotes.date, addDays(input.weekStart, WEEKDAYS - 1)),
+    )).all()
+    writeInfos(tx, template.id, resolveInfos(notes.map(note => ({ weekday: weekday(note.date), info1: note.info1, info2: note.info2 }))))
     markWeek(tx, template, input.weekStart)
     return toDto(tx, template)
   })
@@ -349,7 +395,7 @@ export function applyWeekTemplate(
     return isCurrent(row, shift) ? {} : { kind: 'special' as const, shiftTemplateId: null }
   }
   const timestamp = now.toISOString()
-  const result: WeekTemplateApplyResult = { filled: 0, skipped: 0 }
+  const result: WeekTemplateApplyResult = { filled: 0, skipped: 0, infosKept: [] }
   const names = groupNames(db, facilityId)
 
   db.transaction((tx) => {
@@ -374,7 +420,28 @@ export function applyWeekTemplate(
       })
       result.filled += 1
     }
-    if (result.filled > 0) {
+    // Info 1 / Info 2: an empty field of the day gets the template's text; a field with another text keeps it and its
+    // day is reported. Public holidays and closures get them too (they are notes, not duties). Written like a manual
+    // edit (setDayNote: change log in a released month, a pending change until the next release).
+    const kept = new Set<IsoDate>()
+    let infosWritten = 0
+    for (const info of infosOf(tx, id)) {
+      const date = addDays(weekStart, info.weekday)
+      const current = tx.select().from(dayNotes).where(and(eq(dayNotes.facilityId, facilityId), eq(dayNotes.date, date))).get()
+      for (const field of ['info1', 'info2'] as const) {
+        const text = info[field]
+        const existing = current?.[field] ?? ''
+        if (!text || existing === text) continue
+        if (existing) {
+          kept.add(date)
+          continue
+        }
+        setDayNote(tx, actor, facilityId, date, field, text, now)
+        infosWritten += 1
+      }
+    }
+    result.infosKept = [...kept].sort()
+    if (result.filled > 0 || infosWritten > 0) {
       markWeek(tx, template, weekStart)
       recordUse(tx, actor, template, weekStart, timestamp)
     }

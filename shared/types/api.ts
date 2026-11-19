@@ -1875,6 +1875,15 @@ export interface WeekTemplateInput {
   /** The group the template is for (null = the whole facility). */
   groupId: number | null
   entries: WeekTemplateEntryInput[]
+  /** Info 1 / Info 2 per weekday (left out: none for a new template, unchanged when replacing one). */
+  infos?: WeekTemplateInfo[]
+}
+
+/** The plan's Info 1 / Info 2 of a template weekday (0 = Monday … 6 = Sunday); '' = empty. */
+export interface WeekTemplateInfo {
+  weekday: number
+  info1: string
+  info2: string
 }
 
 /**
@@ -1893,6 +1902,8 @@ export interface WeekTemplateDetailDto {
   groupId: number | null
   updatedAt: string
   entries: WeekTemplateEntryDto[]
+  /** Info 1 / Info 2 of the weekdays that have any, by weekday. */
+  infos: WeekTemplateInfo[]
   /** Everyone with entries in it, also people who left or are no longer in its scope (to name them in the editor). */
   people: { id: number; name: string }[]
 }
@@ -1924,6 +1935,8 @@ export interface WeekTemplateApplyResult {
   filled: number
   /** Template days left out: cell not empty, or no working day for that employee (holiday, closure, day off, left). */
   skipped: number
+  /** Days whose Info 1 or Info 2 already held another text, kept instead of the template's (by date). */
+  infosKept: IsoDate[]
 }
 
 export interface ShiftChangeResult {

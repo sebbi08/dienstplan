@@ -265,7 +265,7 @@ describe('facility isolation', () => {
       saveWeekTemplate(db, 1, { name: 'Woche B', weekStart: week })
       expect(errorCode(() => renameWeekTemplate(db, 1, a.id, 'Woche B'))).toBe('name_taken')
       renameWeekTemplate(db, facility2, b.id, 'Woche B')
-      expect(applyWeekTemplate(db, leitungB, facility2, b.id, '2026-10-12')).toEqual({ filled: 1, skipped: 0 })
+      expect(applyWeekTemplate(db, leitungB, facility2, b.id, '2026-10-12')).toEqual({ filled: 1, skipped: 0, infosKept: [] })
       expect(weekTemplateNames(db, 1, '2026-10-12', '2026-10-12').size).toBe(0)
     })
 

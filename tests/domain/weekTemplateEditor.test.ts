@@ -3,7 +3,7 @@ import type { CodeDto, TemplateDto, WeekTemplateCoverageDto, WeekTemplateEntryDt
 import { TEMPLATE_WEEKDAYS } from '../../shared/domain/weekTemplates'
 import {
   clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, previewDayCount, removeTemplateEntry, staffInScope,
-  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, editTemplateEntry, readTemplateCompare, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  templateCoverage, templateDayKind, copyTemplateDay, dayHasEntries, editTemplateEntry, infosKeptText, readTemplateCompare, templateInfoDraft, templateInfoInputs, writeTemplateCompare, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
   type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
@@ -333,6 +333,23 @@ describe('changing the times of an entry (its chip clicked), as in the plan', ()
     const office = enter([], [monday], { kind: 'code', codeId: 11 })
     expect(editTemplateEntry(office, office[0]!.id, { start: 480, end: 720, breakStart: null, breakEnd: null }, context, names))
       .toMatchObject({ error: 'not_a_timed_entry' })
+  })
+})
+
+describe('Info 1 / Info 2 per weekday in the editor', () => {
+  it('holds a text pair for each day Monday to Sunday and sends the days with any text, trimmed', () => {
+    const draft = templateInfoDraft([{ weekday: 1, info1: 'Ausflug', info2: '' }, { weekday: 6, info1: '', info2: 'So' }])
+    expect(draft).toHaveLength(7)
+    expect(draft[1]).toEqual({ info1: 'Ausflug', info2: '' })
+    expect(draft[0]).toEqual({ info1: '', info2: '' })
+    draft[0]!.info1 = ' Elternabend '
+    draft[1]!.info1 = '  '
+    expect(templateInfoInputs(draft)).toEqual([{ weekday: 0, info1: 'Elternabend', info2: '' }, { weekday: 6, info1: '', info2: 'So' }])
+  })
+
+  it('names the days whose info was kept when a template was applied', () => {
+    expect(infosKeptText([])).toBeNull()
+    expect(infosKeptText(['2026-10-12', '2026-10-13'])).toBe('Info nicht übernommen (schon etwas eingetragen): Mo 12.10., Di 13.10.')
   })
 })
 

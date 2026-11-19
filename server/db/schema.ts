@@ -529,6 +529,14 @@ export const weekTemplateEntries = sqliteTable('week_template_entries', {
   homeOffice: integer('home_office', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('week_template_entries_template').on(table.weekTemplateId)])
 
+/** The plan's Info 1 / Info 2 texts of a week template on a weekday (0 = Monday … 6 = Sunday); a day without any has no row. */
+export const weekTemplateInfos = sqliteTable('week_template_infos', {
+  weekTemplateId: integer('week_template_id').notNull().references(() => weekTemplates.id, { onDelete: 'cascade' }),
+  weekday: integer('weekday').notNull(),
+  info1: text('info1').notNull().default(''),
+  info2: text('info2').notNull().default(''),
+}, table => [primaryKey({ columns: [table.weekTemplateId, table.weekday] })])
+
 /** Which template a plan week came from or was saved as (latest wins); its name is shown in the plan's week row. */
 export const weekTemplateMarks = sqliteTable('week_template_marks', {
   facilityId: facilityId(),

@@ -4,6 +4,7 @@ import { TEMPLATE_WEEKDAYS } from '#shared/domain/weekTemplates'
 import type { GroupDto, WeekTemplateApplyResult, WeekTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
+import { infosKeptText } from '~/utils/weekTemplateEditor'
 
 /**
  * Saves the chosen plan week as a template (mode 'save') or inserts a template into it (mode 'apply'). With groups, a
@@ -71,6 +72,9 @@ async function apply() {
   })
   if (!ok || !result) return
   toast.add({ title: de.weekTemplates.applied(result.filled, result.skipped), color: result.filled ? 'success' : 'warning' })
+  // Info 1 / Info 2 that already held a text kept it: say on which days.
+  const kept = infosKeptText(result.infosKept)
+  if (kept) toast.add({ title: kept, color: 'warning' })
   open.value = false
 }
 </script>

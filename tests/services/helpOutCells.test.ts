@@ -324,7 +324,7 @@ describe('help-out cells (one day, one facility)', () => {
       applyToCells(db, leitungA, 1, nextWeek.map(date => ({ employeeId: anna, date })), 'replace', shiftIn(1))
       const template = saveWeekTemplate(db, 1, { name: 'Woche', weekStart: '2026-10-12' })
       helpOutTuesday()
-      expect(applyWeekTemplate(db, leitungA, 1, template.id, monday)).toEqual({ filled: 4, skipped: 1 })
+      expect(applyWeekTemplate(db, leitungA, 1, template.id, monday)).toEqual({ filled: 4, skipped: 1, infosKept: [] })
       expect(day(anna, tuesday).map(entry => [entry.shiftTemplateId, entry.helpFacilityId])).toEqual([[templateId(db, 'F1', krippe), krippe]])
       expect(day(anna, monday).map(entry => entry.helpFacilityId)).toEqual([null])
     })
@@ -332,7 +332,7 @@ describe('help-out cells (one day, one facility)', () => {
     it('applying in B writes only B\'s own staff', () => {
       write(leitungB, krippe, kim, '2026-10-12', shiftIn(krippe))
       const template = saveWeekTemplate(db, krippe, { name: 'Woche', weekStart: '2026-10-12' })
-      expect(applyWeekTemplate(db, leitungB, krippe, template.id, monday)).toEqual({ filled: 1, skipped: 0 })
+      expect(applyWeekTemplate(db, leitungB, krippe, template.id, monday)).toEqual({ filled: 1, skipped: 0, infosKept: [] })
       expect(db.select().from(entries).all().filter(entry => entry.date === monday).map(entry => entry.employeeId)).toEqual([kim])
     })
   })

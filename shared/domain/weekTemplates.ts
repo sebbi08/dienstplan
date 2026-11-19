@@ -8,6 +8,9 @@ import type { ColorKey } from '../types/api'
 /** A week template covers Monday (0) to Sunday (6); Saturday (5) and Sunday are filled only where it has entries. */
 export const TEMPLATE_WEEKDAYS = 7
 
+/** Longest Info 1 / Info 2 text of a template weekday: as long as the plan's info fields (dayNoteSchema). */
+export const TEMPLATE_INFO_MAX = 200
+
 /** Saturday (5) and Sunday (6) of a template. */
 export const isTemplateWeekend = (weekday: number): boolean => weekday >= 5
 

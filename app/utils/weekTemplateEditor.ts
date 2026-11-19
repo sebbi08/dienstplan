@@ -1,4 +1,6 @@
 import { canBeHomeOffice, dayCredit, isFullDayTimed, isWorkEntry } from '#shared/domain/balance'
+import { weekday as weekdayOf } from '#shared/domain/dates'
+import type { IsoDate } from '#shared/domain/types'
 import { validateSpan } from '#shared/domain/time'
 import { describeEntry } from '#shared/domain/describe'
 import { isTargetGapCode } from '#shared/domain/warnings'
@@ -8,11 +10,12 @@ import {
 } from '#shared/domain/weekTemplates'
 import type {
   CodeDto, EntryInput, TemplateDto, WeekTemplateCoverageDto, WeekTemplateDto, WeekTemplateEntryDto, WeekTemplateEntryInput,
-  WeekTemplateStaffDto,
+  WeekTemplateInfo, WeekTemplateStaffDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { entryApplyMode } from './applyMode'
 import { templateCellMessage } from './errors'
+import { formatDayShort } from './format'
 import { warningText } from './warnings'
 
 /**
@@ -208,6 +211,25 @@ export function copyTemplateDay(
   const next = [...kept, ...copied.map(entry => ({ ...entry, id: nextId-- }))]
   const cells = [...new Map(copied.map(entry => [templateCellOf(entry), { employeeId: entry.employeeId, weekday }])).values()]
   return refusalOf(next, cells, names) ?? { entries: sorted(next) }
+}
+
+/** The editor's Info 1 / Info 2 per weekday, Monday to Sunday (empty where the template has none). */
+export function templateInfoDraft(infos: WeekTemplateInfo[]): { info1: string; info2: string }[] {
+  return Array.from({ length: TEMPLATE_WEEKDAYS }, (_, weekday) => {
+    const info = infos.find(candidate => candidate.weekday === weekday)
+    return { info1: info?.info1 ?? '', info2: info?.info2 ?? '' }
+  })
+}
+
+/** What „Speichern“ sends of the infos: the weekdays with any text, trimmed (as the server stores them). */
+export function templateInfoInputs(draft: { info1: string; info2: string }[]): WeekTemplateInfo[] {
+  return draft.map((day, weekday) => ({ weekday, info1: day.info1.trim(), info2: day.info2.trim() }))
+    .filter(day => day.info1 || day.info2)
+}
+
+/** After applying a template: the days whose Info 1 / Info 2 kept their own text („Mo 12.10., Di 13.10.“), or null. */
+export function infosKeptText(dates: IsoDate[]): string | null {
+  return dates.length ? de.weekTemplates.infosKept(dates.map(date => formatDayShort(date, weekdayOf(date))).join(', ')) : null
 }
 
 const COMPARE_KEY = 'dienstplan.weekTemplateCompare'
