@@ -1,0 +1,94 @@
+<script setup lang="ts">
+import type { LeaveEntryKind, LeaveEntryResultDto } from '#shared/types/api'
+import { de } from '~/locales/de'
+import { errorCode, errorMessage } from '~/utils/errors'
+
+/**
+ * „Urlaub eintragen“ for one employee (employee page, „Urlaubsplanung“): Von, Bis and the kind, past days too. The
+ * server books only the person's working days; duties on the days are replaced only after asking (cells_occupied),
+ * Krank, Fortbildung and the like always stay. `min`/`max` limit the dates (e.g. the coming year's block).
+ */
+const props = defineProps<{ employeeId: number; name: string; min?: string; max?: string }>()
+const open = defineModel<boolean>('open', { required: true })
+const emit = defineEmits<{ saved: [] }>()
+const confirm = useConfirm()
+const toast = useToast()
+
+const KINDS: LeaveEntryKind[] = ['vacation', 'special_leave', 'overtime_off']
+const kindItems = KINDS.map(kind => ({ label: de.leaveEntry.kinds[kind], value: kind }))
+const form = reactive<{ from: string; to: string; kind: LeaveEntryKind }>({ from: '', to: '', kind: 'vacation' })
+const saving = ref(false)
+watch(open, (isOpen) => {
+  if (isOpen) Object.assign(form, { from: '', to: '', kind: 'vacation' })
+})
+
+function send(overwrite: boolean) {
+  return $fetch<LeaveEntryResultDto>(`/api/employees/${props.employeeId}/leave-entries`, {
+    method: 'POST', body: { from: form.from, to: form.to, kind: form.kind, overwrite },
+  })
+}
+
+function failed(failure: unknown) {
+  if (errorCode(failure) !== 'facility_changed') toast.add({ title: errorMessage(failure), color: 'error' })
+}
+
+async function save() {
+  if (!form.from || !form.to || saving.value) return
+  saving.value = true
+  try {
+    let result: LeaveEntryResultDto
+    try {
+      result = await send(false)
+    }
+    catch (failure) {
+      const data = (failure as { data?: { data?: { code?: string; details?: { days?: number } } } }).data?.data
+      if (data?.code !== 'cells_occupied') return failed(failure)
+      const question = de.leavePlanning.overwriteConfirm(data.details?.days ?? 0, de.leaveEntry.kinds[form.kind])
+      if (!await confirm(question, { confirmLabel: de.leaveEntry.overwrite, danger: false })) return
+      try {
+        result = await send(true)
+      }
+      catch (again) {
+        return failed(again)
+      }
+    }
+    const kind = de.leaveEntry.kindNames[form.kind]
+    toast.add({
+      title: result.keptAbsences
+        ? de.leaveEntry.bookedKept(result.booked, result.keptAbsences, kind)
+        : de.leaveEntry.booked(result.booked),
+      color: 'success',
+    })
+    open.value = false
+    emit('saved')
+  }
+  finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <UModal v-model:open="open" :title="de.leaveEntry.title(name)">
+    <template #body>
+      <form class="space-y-3" @submit.prevent="save">
+        <p class="text-sm text-gray-500">{{ de.leaveEntry.hint }}</p>
+        <UFormField :label="de.leaveEntry.kind">
+          <URadioGroup v-model="form.kind" orientation="horizontal" :items="kindItems" />
+        </UFormField>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UFormField :label="de.leaveEntry.from">
+            <DateTextInput v-model="form.from" :label="de.leaveEntry.from" :min="min" :max="max" class="w-full" required />
+          </UFormField>
+          <UFormField :label="de.leaveEntry.to">
+            <DateTextInput v-model="form.to" :label="de.leaveEntry.to" :min="form.from || min" :max="max" class="w-full" required />
+          </UFormField>
+        </div>
+        <div class="flex justify-end gap-2">
+          <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
+          <UButton type="submit" icon="i-lucide-calendar-plus" :label="de.leaveEntry.save" :loading="saving" :disabled="!form.from || !form.to" />
+        </div>
+      </form>
+    </template>
+  </UModal>
+</template>

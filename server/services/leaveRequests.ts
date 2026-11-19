@@ -401,31 +401,66 @@ export function decideLeaveRequest(
   }
   const employee = loadEmployees(db, facilityId).find(candidate => candidate.id === request.employeeId)
   if (!employee) throw new ServiceError(404, 'employee_not_found')
-  const requested = requestDays(employee, request.startDate, request.endDate, loadClosures(db, facilityId))
-  const dayEntries = loadEntries(db, { employeeId: employee.id, from: request.startDate, to: request.endDate })
-    .filter(entry => requested.includes(entry.date))
-  // Days with another full-day absence (Krank, Fortbildung, Sonderurlaub …) stay as they are: e.g. a sick day must
-  // never become leave (and planned leave never Überstundenfrei). Only planned duties (shifts, VZ, Büro …) may be
-  // replaced, after asking.
   const codeKey = codeKeyOf(request.kind)
-  const absent = new Set(dayEntries.filter(entry => entry.codeKey !== null && entry.codeKey !== codeKey
-    && entry.creditMode === 'daily_target').map(entry => entry.date))
-  const days = requested.filter(date => !absent.has(date))
-  const occupiedDays = new Set(dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== codeKey)
-    .map(entry => entry.date)).size
-  if (occupiedDays > 0 && !decision.overwrite) {
-    throw new ServiceError(409, 'cells_occupied', { days: occupiedDays })
+  const booking = planLeaveBooking(db, employee, loadClosures(db, facilityId), request.startDate, request.endDate, codeKey)
+  if (booking.occupiedDays > 0 && !decision.overwrite) {
+    throw new ServiceError(409, 'cells_occupied', { days: booking.occupiedDays })
   }
-  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, codeKey)).get()
-  if (!code) throw new ServiceError(500, 'code_not_found')
   db.transaction((tx) => {
-    if (days.length) {
-      const cells = days.map(date => ({ employeeId: employee.id, date }))
-      applyToCells(tx, user, facilityId, cells, 'replace', { kind: 'code', codeId: code.id }, { now })
-    }
+    bookLeaveDays(tx, user, facilityId, employee.id, booking.days, codeKey, now)
     tx.update(leaveRequests).set({ status: 'approved', ...decided }).where(eq(leaveRequests.id, id)).run()
   })
-  return { keptAbsences: absent.size }
+  return { keptAbsences: booking.keptAbsences }
+}
+
+// --- booking leave into the plan (approved requests, „Urlaub eintragen“) ----------------------------------------
+
+/** The codes leave is booked with: Urlaub, Sonderurlaub, Überstundenfrei. */
+export type LeaveCodeKey = 'vacation' | 'special_leave' | typeof OVERTIME_OFF
+
+export interface LeaveBooking {
+  /** The employee's working days in the range outside closures (none: the range has no day to book). */
+  requested: IsoDate[]
+  /** The days to write the code on. */
+  days: IsoDate[]
+  /** Days kept because another full-day absence holds them (Krank, Fortbildung, Sonderurlaub …). */
+  keptAbsences: number
+  /** Days of `days` with entries the code replaces (duties, shifts, VZ, Büro, a help-out …): ask before writing. */
+  occupiedDays: number
+}
+
+/**
+ * What booking leave (the code `codeKey`) on the employee's working days between from and to does: weekends, public
+ * holidays of the home facility, the person's days off and closure days are never booked (see requestDays). Days with
+ * another full-day absence (Krank, Fortbildung, Sonderurlaub …) stay as they are: e.g. a sick day must never become
+ * leave (and planned leave never Überstundenfrei). Days that hold nothing but the same code for the whole day stay as
+ * they are too. Only planned duties (shifts, VZ, Büro …) may be replaced, after asking (`occupiedDays`).
+ */
+export function planLeaveBooking(
+  db: Db, employee: EmployeeRecord, closures: ReturnType<typeof loadClosures>, from: IsoDate, to: IsoDate, codeKey: LeaveCodeKey,
+): LeaveBooking {
+  const requested = requestDays(employee, from, to, closures)
+  const wanted = new Set(requested)
+  const dayEntries = loadEntries(db, { employeeId: employee.id, from, to }).filter(entry => wanted.has(entry.date))
+  const absent = new Set(dayEntries.filter(entry => entry.codeKey !== null && entry.codeKey !== codeKey
+    && entry.creditMode === 'daily_target').map(entry => entry.date))
+  const notYetBooked = new Set(dayEntries.filter(entry => entry.codeKey !== codeKey || entry.start !== null).map(entry => entry.date))
+  const booked = new Set(dayEntries.map(entry => entry.date).filter(date => !notYetBooked.has(date)))
+  const days = requested.filter(date => !absent.has(date) && !booked.has(date))
+  const occupiedDays = new Set(dayEntries.filter(entry => !absent.has(entry.date) && entry.codeKey !== codeKey)
+    .map(entry => entry.date)).size
+  return { requested, days, keptAbsences: absent.size, occupiedDays }
+}
+
+/** Writes the leave code on the days (replacing what they hold; logged and marked like any plan edit, see applyToCells). */
+export function bookLeaveDays(
+  db: Db, actor: SessionUser, facilityId: number, employeeId: number, days: IsoDate[], codeKey: LeaveCodeKey, now: Date,
+): void {
+  if (days.length === 0) return
+  const code = db.select().from(absenceCodes).where(eq(absenceCodes.key, codeKey)).get()
+  if (!code) throw new ServiceError(500, 'code_not_found')
+  const cells = days.map(date => ({ employeeId, date }))
+  applyToCells(db, actor, facilityId, cells, 'replace', { kind: 'code', codeId: code.id }, { now })
 }
 
 // --- planning page -------------------------------------------------------------------------------------------

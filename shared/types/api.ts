@@ -1098,6 +1098,11 @@ export interface LeaveAccountDto {
   /** Whether the carry-over is computed from the year before (false: entered by hand for the first year, or none). */
   carriedAutomatically: boolean
   ranges: LeaveRange[]
+  /**
+   * The person's own leave entries of the year (Urlaub, Sonderurlaub, Überstundenfrei) as periods, by start date: without
+   * the leave booked by closures (that shows in `closures` and is not removed period by period).
+   */
+  entryRanges: LeaveEntryRange[]
   /** The closures (as leave) with what each took from the person's leave in the year, by start date. */
   closures: ClosureLeaveDto[]
 }
@@ -1760,6 +1765,26 @@ export interface ReleaseNotificationStatusDto {
 export type LeaveRequestStatus = 'open' | 'approved' | 'rejected' | 'withdrawn'
 /** 'vacation' = Urlaub (uses leave days), 'overtime_off' = Überstundenfrei (taken from the balance). */
 export type LeaveRequestKind = 'vacation' | 'overtime_off'
+
+/** What „Urlaub eintragen“ writes into the plan: Urlaub, Sonderurlaub or Überstundenfrei (ÜF). */
+export type LeaveEntryKind = 'vacation' | 'special_leave' | 'overtime_off'
+
+/** A period of one kind of leave entries (days: leave days for Urlaub, 24/31 December maybe half; else working days). */
+export interface LeaveEntryRange extends LeaveRange {
+  kind: LeaveEntryKind
+}
+
+/** „Urlaub eintragen“: the days written, and the days kept because another absence (Krank, Fortbildung …) holds them. */
+export interface LeaveEntryResultDto {
+  booked: number
+  keptAbsences: number
+}
+
+/** A removed leave period: the days removed, and the days of the period booked by a closure (they stay). */
+export interface LeaveRemovalResultDto {
+  removed: number
+  keptClosureDays: number
+}
 
 export interface LeaveRequestDto {
   id: number

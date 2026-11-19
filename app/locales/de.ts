@@ -8,6 +8,9 @@ const workdays = (count: number) => (count === 1 ? '1 Arbeitstag' : `${count.toL
 /** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
 const notRegistered = (name: string) => `${name} (nicht hinterlegt)`
 const confirmedWith = (text: string) => `Rücksprache mit ${text}`
+/** Days of booked leave kept as another absence (approving a request, „Urlaub eintragen“). */
+const keptAbsencesNote = (count: number, kind: string) =>
+  `${count} ${count === 1 ? 'Tag' : 'Tage'} mit Krank, Fortbildung o. Ä. blieben unverändert und zählen nicht als ${kind}.`
 /** Format errors of the personnel file (shared/domain/personnel.ts): `personnel.invalid` and, as API errors, `errors`. */
 const personnelInvalid = {
   iban_invalid: 'Die IBAN stimmt nicht. Bitte prüfe sie noch einmal (z. B. DE89 3704 0044 0532 0130 00).',
@@ -58,7 +61,7 @@ export const de = {
     overLimitDays: (days: string) => `Über der Höchstzahl am: ${days}`,
     approve: 'Genehmigen', reject: 'Ablehnen', rejectTitle: 'Antrag ablehnen', reason: 'Grund (optional)',
     approved: 'Genehmigt und in den Dienstplan eingetragen', rejected: 'Abgelehnt',
-    approvedKept: (days: number, kind = 'Urlaub') => `Genehmigt. ${days} ${days === 1 ? 'Tag' : 'Tage'} mit Krank, Fortbildung o. Ä. blieben unverändert und zählen nicht als ${kind}.`,
+    approvedKept: (days: number, kind = 'Urlaub') => `Genehmigt. ${keptAbsencesNote(days, kind)}`,
     overwriteConfirm: (days: number, kind = 'Urlaub') => `An ${days} ${days === 1 ? 'Tag' : 'Tagen'} sind schon Dienste eingetragen. Durch „${kind}“ ersetzen? (Krank, Fortbildung u. Ä. bleiben immer erhalten.)`,
     overwrite: 'Ersetzen und genehmigen',
     module: 'Urlaubsanträge', moduleEnabled: 'Urlaubsanträge aktiv',
@@ -381,6 +384,27 @@ export const de = {
     closureDays: (count: number) => `davon ${count === 1 ? '1 Schließtag' : `${count} Schließtage`} ohne Urlaub`,
     carryForecast: (year: number) => `Übertrag aus ${year} voraussichtlich – ändert sich noch, wenn ${year} Urlaub dazukommt`,
     noComingYear: (year: number) => `Für ${year} gibt es noch keinen Urlaubsanspruch.`,
+  },
+  /** „Urlaub eintragen“ for an employee (employee page, „Urlaubsplanung“) and „Entfernen“ of a listed period. */
+  leaveEntry: {
+    add: 'Urlaub eintragen',
+    title: (name: string) => `Urlaub eintragen – ${name}`,
+    from: 'Von', to: 'Bis', kind: 'Art',
+    kinds: { vacation: 'Urlaub', special_leave: 'Sonderurlaub', overtime_off: 'Überstundenfrei (ÜF)' },
+    /** The kind inside a sentence („Urlaub vom … entfernen?“). */
+    kindNames: { vacation: 'Urlaub', special_leave: 'Sonderurlaub', overtime_off: 'Überstundenfrei' },
+    hint: 'Eingetragen wird nur an den Arbeitstagen der Person – nicht an Wochenenden, Feiertagen und Schließtagen. Vergangene Tage gehen auch.',
+    save: 'Eintragen',
+    overwrite: 'Ersetzen und eintragen',
+    booked: (count: number) => `${days(count)} eingetragen`,
+    bookedKept: (count: number, kept: number, kind: string) => `${days(count)} eingetragen. ${keptAbsencesNote(kept, kind)}`,
+    ranges: 'Eingetragen (Urlaub, Sonderurlaub, ÜF)',
+    noRanges: 'Nichts eingetragen.',
+    closureNote: 'Urlaub aus Schließzeiten steht bei den Schließzeiten und wird hier nicht entfernt.',
+    remove: 'Entfernen',
+    removeConfirm: (kind: string, from: string, to: string) => `${kind} vom ${from} bis ${to} entfernen? Die Tage sind danach wieder frei.`,
+    removed: (count: number) => `${days(count)} entfernt`,
+    removedKeptClosure: (count: number, kept: number) => `${days(count)} entfernt. ${days(kept)} aus Schließzeiten bleiben eingetragen.`,
   },
   employees: {
     title: 'Mitarbeiter', name: 'Name', shortName: 'Kürzel', weeklyHours: 'Wochenstunden', validFrom: 'gültig ab',
@@ -2011,6 +2035,8 @@ export const de = {
     leave_request_not_found: 'Dieser Antrag existiert nicht mehr.',
     leave_request_decided: 'Über diesen Antrag wurde schon entschieden.',
     own_leave_request: 'Den eigenen Antrag kann man nicht selbst entscheiden.',
+    own_leave_entry: 'Den eigenen Urlaub kannst du hier nicht eintragen oder entfernen. Stell bitte einen Antrag unter „Mein Urlaub“ oder frag eine andere Person, die den Dienstplan bearbeitet.',
+    leave_before_employment: 'Vor dem Beginn der Beschäftigung (erste Wochenstunden) kann kein Urlaub eingetragen werden.',
     cells_occupied: 'An einigen Tagen sind schon Dienste eingetragen.',
     user_not_found: 'Benutzer nicht gefunden.',
     month_not_released: 'Dieser Monat ist noch nicht freigegeben.',

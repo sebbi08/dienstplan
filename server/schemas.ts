@@ -208,6 +208,11 @@ const leaveRequestKind = z.enum(['vacation', 'overtime_off']).default('vacation'
 export const leaveRangeQuery = z.object({ from: isoDate, to: isoDate, kind: leaveRequestKind })
 export const leaveRequestSchema = z.object({ from: isoDate, to: isoDate, note: z.string().max(300), kind: leaveRequestKind })
 export const leaveDecisionSchema = z.object({ approve: z.boolean(), note: z.string().max(300), overwrite: z.boolean() })
+const leaveEntryKind = z.enum(['vacation', 'special_leave', 'overtime_off'])
+/** „Urlaub eintragen“ for an employee; `overwrite` replaces duties on the days (asked first). */
+export const leaveEntrySchema = z.object({ from: isoDate, to: isoDate, kind: leaveEntryKind, overwrite: z.boolean().default(false) })
+/** „Entfernen“ of a listed leave period. */
+export const leaveEntryRemovalQuery = z.object({ from: isoDate, to: isoDate, kind: leaveEntryKind })
 export const pdfQuery = z.object({ path: z.string().max(200), name: z.string().regex(/^[\w.-]{1,80}$/) })
 /** The state code is checked only by the service, so every unknown value answers 400 state_invalid. */
 export const facilityCreateSchema = z.object({ name: z.string().max(80), state: z.string().optional() })

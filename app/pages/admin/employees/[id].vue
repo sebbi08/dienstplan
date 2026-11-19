@@ -6,7 +6,7 @@ import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
 import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
-import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto } from '#shared/types/api'
+import type { BalanceDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { showsComingYear } from '~/utils/comingYear'
@@ -62,10 +62,18 @@ const comingLeaveRow = computed(() => {
   // No entitlement recorded for the year or before: show the "no leave year" text.
   return row?.hasEntitlement ? row : null
 })
-/** The account lines shown: the viewed year, and from 1 October the coming one below it. */
+/**
+ * The account lines shown: the viewed year, and from 1 October the coming one below it, each with its own leave periods
+ * (Urlaub, Sonderurlaub, ÜF; the coming year's also without an entitlement).
+ */
 const leaveBlocks = computed(() => [
-  { year: leaveYear.value, row: leaveRow.value, coming: false },
-  ...(showComing.value ? [{ year: leaveYear.value + 1, row: comingLeaveRow.value, coming: true }] : []),
+  { year: leaveYear.value, row: leaveRow.value, coming: false, entries: leaveRow.value?.entryRanges ?? [] },
+  ...(showComing.value
+    ? [{
+        year: leaveYear.value + 1, row: comingLeaveRow.value, coming: true,
+        entries: comingLeave.value?.find(entry => entry.employeeId === id)?.entryRanges ?? [],
+      }]
+    : []),
 ])
 const toast = useToast()
 const { user } = useUserSession()
@@ -77,6 +85,33 @@ const canMoveFacility = computed(() => can('employees.moveFacility'))
 const canManagePins = computed(() => mayManagePins(user.value?.role, can))
 // The own stamping settings feed the own credited time: only the Träger changes them (server: own_account).
 const canEditStamping = computed(() => user.value?.employeeId !== id || can('users.providerAccounts'))
+// „Urlaub eintragen“ / „Entfernen“: as editing the plan; the own leave only the Träger (others request it; server: own_leave_entry).
+const canEnterLeave = computed(() => can('plan.edit') && (user.value?.employeeId !== id || user.value?.role === 'provider'))
+/** The dialog „Urlaub eintragen“; the coming year's block allows only that year's dates. */
+const leaveEntry = reactive<{ open: boolean; min?: string; max?: string }>({ open: false })
+function openLeaveEntry(block: { year: number; coming: boolean }) {
+  Object.assign(leaveEntry, block.coming
+    ? { open: true, min: `${block.year}-01-01`, max: `${block.year}-12-31` }
+    : { open: true, min: undefined, max: undefined })
+}
+/** „Entfernen“ of a listed period: only its entries of that kind; the leave of closures stays (the server counts it). */
+async function removeLeaveRange(range: LeaveEntryRange) {
+  const kind = de.leaveEntry.kindNames[range.kind]
+  if (!await confirm(de.leaveEntry.removeConfirm(kind, formatDate(range.from), formatDate(range.to)), { confirmLabel: de.leaveEntry.remove })) return
+  let result: LeaveRemovalResultDto | undefined
+  const ok = await run(async () => {
+    result = await $fetch<LeaveRemovalResultDto>(`/api/employees/${id}/leave-entries`, {
+      method: 'DELETE', query: { from: range.from, to: range.to, kind: range.kind },
+    })
+  })
+  if (!ok || !result) return
+  toast.add({
+    title: result.keptClosureDays
+      ? de.leaveEntry.removedKeptClosure(result.removed, result.keptClosureDays)
+      : de.leaveEntry.removed(result.removed),
+    color: 'success',
+  })
+}
 
 /**
  * The forms „Stammdaten“ and „Qualifikation“ of the tab „Stammdaten“ (one route, but each form saves only its own
@@ -610,8 +645,26 @@ async function onTabKey(event: KeyboardEvent) {
         <p v-else-if="block.coming && comingLeaveError" class="text-red-700">{{ errorMessage(comingLeaveError) }}</p>
         <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
         <p v-if="block.coming && block.row?.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
+        <div v-if="block.entries.length" class="pt-1">
+          <p class="text-xs font-medium text-gray-500">{{ de.leaveEntry.ranges }}</p>
+          <ul>
+            <li v-for="range in block.entries" :key="`${range.kind}-${range.from}`" class="flex flex-wrap items-center gap-x-2">
+              <span>{{ formatDate(range.from) }}–{{ formatDate(range.to) }}</span>
+              <span class="text-gray-500">{{ de.leaveEntry.kindNames[range.kind] }}, {{ de.leave.days(range.days) }}</span>
+              <UButton v-if="canEnterLeave" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.leaveEntry.remove" @click="removeLeaveRange(range)" />
+            </li>
+          </ul>
+        </div>
+        <div v-if="canEnterLeave" class="pt-1">
+          <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-calendar-plus" :label="de.leaveEntry.add" @click="openLeaveEntry(block)" />
+        </div>
       </template>
       <LeaveClosureList v-if="leaveRow" :closures="leaveRow.closures" class="pt-1" />
+      <p v-if="canEnterLeave && leaveRow?.closures.some(closure => closure.days > 0)" class="text-xs text-gray-500">{{ de.leaveEntry.closureNote }}</p>
+      <LeaveEntryDialog
+        v-if="canEnterLeave" v-model:open="leaveEntry.open" :employee-id="id" :name="employee.name"
+        :min="leaveEntry.min" :max="leaveEntry.max" @saved="refresh"
+      />
       <div v-if="canManageTime && employee.closuresFrom" class="pt-2">
         <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-calendar-plus" :label="de.employees.bookClosures" @click="bookClosures" />
       </div>

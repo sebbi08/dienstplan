@@ -344,7 +344,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(362)
+    expect(routes).toHaveLength(364)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 

@@ -47,6 +47,13 @@ async function approve(request: LeaveRequestDto) {
   toast.add({ title: kept ? de.leavePlanning.approvedKept(kept, de.leaveRequests.kinds[request.kind]) : de.leavePlanning.approved, color: 'success' })
 }
 
+// „Urlaub eintragen“ per person, as editing the plan; the own leave only the Träger (others request it).
+const { user } = useUserSession()
+const { can } = useCan()
+const entryEmployees = computed(() => (can('plan.edit') ? planning.value?.calendar.employees ?? [] : [])
+  .filter(employee => employee.id !== user.value?.employeeId || user.value?.role === 'provider'))
+const leaveEntry = reactive<{ open: boolean; employeeId: number; name: string }>({ open: false, employeeId: 0, name: '' })
+
 const rejecting = reactive<{ request: LeaveRequestDto | null; note: string }>({ request: null, note: '' })
 const rejectOpen = computed({
   get: () => rejecting.request !== null,
@@ -92,6 +99,18 @@ async function reject() {
             {{ de.leavePlanning.overLimitDays(daysText(request.overLimitDates)) }}
           </p>
         </div>
+      </section>
+
+      <section v-if="entryEmployees.length" class="max-w-4xl space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+        <h2 class="font-semibold">{{ de.leaveEntry.add }}</h2>
+        <div class="flex flex-wrap gap-1">
+          <UButton
+            v-for="employee in entryEmployees" :key="employee.id" size="xs" color="neutral" variant="outline"
+            icon="i-lucide-calendar-plus" :label="employee.name" :aria-label="de.leaveEntry.title(employee.name)"
+            @click="Object.assign(leaveEntry, { open: true, employeeId: employee.id, name: employee.name })"
+          />
+        </div>
+        <LeaveEntryDialog v-model:open="leaveEntry.open" :employee-id="leaveEntry.employeeId" :name="leaveEntry.name" @saved="refresh" />
       </section>
 
       <form class="flex max-w-4xl flex-wrap items-end gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="saveLimit">

@@ -1,8 +1,8 @@
-import { and, asc, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { countLeaveDays, groupLeaveRanges, leaveAccount, type LeaveDayRule, type LeaveEntitlement } from '../../shared/domain/leave'
 import { isEmployedInRange, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ClosureLeaveDto, LeaveAccountDto } from '../../shared/types/api'
+import type { ClosureLeaveDto, LeaveAccountDto, LeaveEntryKind, LeaveEntryRange } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, closures, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -59,8 +59,31 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
     hasEntitlement: entitlement !== null,
     carriedAutomatically: entitlement?.carriedAutomatically ?? false,
     ranges: groupLeaveRanges(vacationDates, isLeaveDay, employee.halfLeaveOnEves),
+    entryRanges: entryRanges(db, employee, year),
     closures: closureLeave(db, employee, year),
   }
+}
+
+const LEAVE_ENTRY_KINDS: LeaveEntryKind[] = ['vacation', 'special_leave', 'overtime_off']
+
+/**
+ * The person's own Urlaub, Sonderurlaub and Überstundenfrei entries of the year as periods of working days (a period
+ * bridges days off, see groupLeaveRanges), by start date. The leave a closure booked is left out: it belongs to the
+ * closure (closureLeave) and is not removed period by period. Only Urlaub counts 24/31 December as half a day.
+ */
+function entryRanges(db: Db, employee: EmployeeRecord, year: number): LeaveEntryRange[] {
+  const rows = db.select({ date: entries.date, key: absenceCodes.key })
+    .from(entries).innerJoin(absenceCodes, eq(entries.absenceCodeId, absenceCodes.id))
+    .where(and(
+      eq(entries.employeeId, employee.id), isNull(entries.closureId), inArray(absenceCodes.key, LEAVE_ENTRY_KINDS),
+      gte(entries.date, `${year}-01-01`), lte(entries.date, `${year}-12-31`),
+    )).all()
+  const isLeaveDay = leaveDayRule(employee)
+  return LEAVE_ENTRY_KINDS
+    .flatMap(kind => groupLeaveRanges(
+      rows.filter(row => row.key === kind).map(row => row.date), isLeaveDay, kind === 'vacation' && employee.halfLeaveOnEves,
+    ).map(range => ({ kind, ...range })))
+    .sort((a, b) => a.from.localeCompare(b.from))
 }
 
 /**
