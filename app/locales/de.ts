@@ -393,7 +393,7 @@ export const de = {
   closurePreview: {
     title: 'Schließzeiten als Urlaub',
     facility: (year: number, count: number) => `Schließzeiten als Urlaub ${year} in der Einrichtung: ${days(count)} (bei einer 5-Tage-Woche)`,
-    person: (name: string, count: number, from: string) => `Davon betreffen ${name} ${days(count)} (ab ${from}, an seinen Arbeitstagen)`,
+    person: (name: string, count: number, from: string) => `Davon betreffen ${name} ${days(count)} (ab ${from}, nur an den Arbeitstagen laut Wochenstunden)`,
     thisPerson: 'diesen Mitarbeiter',
     withoutLeave: (count: number) => (count === 1 ? '1 Schließtag wird ohne Urlaub eingetragen' : `${count} Schließtage werden ohne Urlaub eingetragen`),
     /**
