@@ -68,6 +68,8 @@ export const facilities = sqliteTable('facilities', {
    * entry is unexcused. Set by the first attendance entry, changed only in the settings.
    */
   attendanceSince: text('attendance_since'),
+  /** § 34 IfSG: the readmission after a medical judgement needs a written attest (photo/PDF) to be stored. */
+  ifsgRequireAttest: integer('ifsg_require_attest', { mode: 'boolean' }).notNull().default(false),
   /** How the child lists order the children inside a group (shared/domain/childSort.ts); default = oldest first. */
   childSort: text('child_sort').notNull().default('age_desc'),
   /** Opening hours: the minimum number of staff at opening and until closing (1–20). */
@@ -851,6 +853,38 @@ export const childDevelopmentDocs = sqliteTable('child_development_docs', {
   doneByName: text('done_by_name').notNull().default(''),
   createdAt: text('created_at').notNull(),
 }, table => [index('child_development_docs_child').on(table.childId)])
+
+/**
+ * A notifiable disease of a child under § 34 IfSG (health data; deleted with the child record). `disease` is a key of
+ * the facility's rules (`ifsgRulesFor`: the RKI catalogue, later local ones), kept as text. `kind`: erkrankt/Verdacht
+ * (Abs. 1), Ausscheider (Abs. 2), Erkrankung in der Wohngemeinschaft (Abs. 3). `reportedOn` is the attendance day the
+ * case was entered on (from that day „Kommt“ is blocked until the readmission), `onsetDate` the beginning of the illness
+ * (or the contact), `ruleVariant`/`ruleDate` the chosen date rule of the disease and the date it counts from (antibiotic
+ * start, rash onset, symptom end, last contact …; null = not known yet). The readmission stores its day, a note, who
+ * confirmed it and an optional attest as a child document. The Leitung's duty to notify the health office ends with
+ * `healthOfficeNotifiedOn` or the physician's report (§ 6 IfSG). `ended`: closed by the Leitung without a readmission.
+ */
+export const childIfsgCases = sqliteTable('child_ifsg_cases', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  facilityId: facilityId(),
+  disease: text('disease').notNull(),
+  kind: text('kind', { enum: ['sick', 'carrier', 'household'] }).notNull(),
+  reportedOn: text('reported_on').notNull(),
+  onsetDate: text('onset_date').notNull(),
+  ruleVariant: text('rule_variant'),
+  ruleDate: text('rule_date'),
+  createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdByName: text('created_by_name').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  readmittedOn: text('readmitted_on'),
+  readmissionNote: text('readmission_note').notNull().default(''),
+  readmittedByName: text('readmitted_by_name').notNull().default(''),
+  readmissionAttachmentId: integer('readmission_attachment_id').references(() => childDocuments.id, { onDelete: 'set null' }),
+  healthOfficeNotifiedOn: text('health_office_notified_on'),
+  physicianReported: integer('physician_reported', { mode: 'boolean' }).notNull().default(false),
+  ended: integer('ended', { mode: 'boolean' }).notNull().default(false),
+}, table => [index('child_ifsg_cases_child').on(table.childId), index('child_ifsg_cases_facility').on(table.facilityId)])
 
 /**
  * A parent meeting (Elterngespräch) in a child's record, held or planned: the day, the time from (minutes of the day)
