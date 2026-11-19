@@ -11,7 +11,7 @@ import { dailyTarget } from '../../shared/domain/targets'
 import { validateSpan, type TimeSpan } from '../../shared/domain/time'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../../shared/domain/types'
-import type { ApplyMode, CellRef, EntryDto, EntryInput, EntryTimesInput, NoteField, SessionUser } from '../../shared/types/api'
+import type { ApplyEntriesResultDto, ApplyMode, CellRef, EntryDto, EntryInput, EntryTimesInput, NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, dayNotes, earlySickLeaves, employees, entries, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
@@ -234,11 +234,12 @@ export function dropStaleSickLeave(db: Db, cell: CellRef): void {
  * keeps its entries, except that a working duty (shift, special shift, timed code) replaces a full-day absence
  * (daily_target code such as Urlaub or Krank) and a whole Büro/VZ day without times (isFullDayTimed). Working entries
  * may not overlap each other (VZ/Büro may overlap a shift).
+ * Returns whether days already „abwesend“ were left alone („Krank melden“ without the right, see privateCellsToSkip).
  */
 export function applyToCells(
   db: Db, actor: SessionUser, facilityId: number, cells: CellRef[], mode: ApplyMode, input: EntryInput | null,
   options: { now?: Date; closureId?: number | null } = {},
-): void {
+): ApplyEntriesResultDto {
   if (mode !== 'clear' && !input) throw new ServiceError(400, 'entry_required')
   const own = facilityEmployeeGroups(db, facilityId)
   const isHelperCell = (cell: CellRef) => !own.has(cell.employeeId)
@@ -247,7 +248,10 @@ export function applyToCells(
   }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
   // A closure books for everybody (it skips private absences itself, closures.ts) and never tells what it replaces.
-  if (options.closureId == null) assertMayTouchProtected(db, actor, cells, values?.absenceCodeId)
+  // „Krank melden“ without the right leaves the days already „abwesend“ alone (privateCellsToSkip).
+  const skipped = options.closureId == null
+    ? privateCellsToSkip(db, actor, cells.filter(cell => !isHelperCell(cell)), values?.absenceCodeId)
+    : new Set<string>()
   const inputGroupId = input?.groupId ?? null
   if (values) assertGroup(db, facilityId, inputGroupId)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
@@ -280,6 +284,7 @@ export function applyToCells(
 
   db.transaction((tx) => {
     for (const cell of unique) {
+      if (skipped.has(cellKey(cell.employeeId, cell.date))) continue
       if (!isValidIsoDate(cell.date)) throw new ServiceError(400, 'invalid_date')
       if (isFullDay) {
         const info = loadEmployee(tx, cell.employeeId)?.info
@@ -352,30 +357,38 @@ export function applyToCells(
       dropStaleSickLeave(tx, cell)
     }
   })
+  return { skippedAbsent: skipped.size > 0 }
+}
+
+/**
+ * Krank, Kind krank, Mutterschutz and Beschäftigungsverbot (health data, server/lib/protectedCodes.ts) are booked and
+ * changed only by whoever has employees.sickness: anyone else gets 403 protected_cell for writing such a code or for
+ * writing into, clearing or deleting from a cell that holds one (they see it as „abwesend“).
+ * The one exception is „Krank melden“ (user decision 2026-11-19): Krank itself may be entered by anyone who may write
+ * the cells, on days without a private code. Over several days the ones already „abwesend“ are left alone and returned
+ * (the person is absent there anyway, and they all look the same, so nothing is told); when all of them are, 403 again.
+ * Only the cells of the writer's own staff count: the caller leaves out a helper's cells, whose home day belongs to the
+ * home plan and is refused with cell_taken like for everybody, never with protected_cell.
+ */
+function privateCellsToSkip(db: Db, actor: SessionUser, cells: CellRef[], codeId: number | null | undefined): Set<string> {
+  if (can(actor.permissions, 'employees.sickness') || cells.length === 0) return new Set()
+  const privateKeys = new Map(db.select({ id: absenceCodes.id, key: absenceCodes.key }).from(absenceCodes)
+    .where(inArray(absenceCodes.key, [...PRIVATE_CODE_KEYS])).all().map(row => [row.id, row.key]))
+  if (privateKeys.size === 0) return new Set()
+  const reportsSick = codeId != null && privateKeys.get(codeId) === 'sick'
+  if (codeId != null && privateKeys.has(codeId) && !reportsSick) throw new ServiceError(403, 'protected_cell')
+  const wanted = new Set(cells.map(cell => cellKey(cell.employeeId, cell.date)))
+  const held = new Set(db.select({ employeeId: entries.employeeId, date: entries.date }).from(entries)
+    .where(and(inArray(entries.employeeId, [...new Set(cells.map(cell => cell.employeeId))]), inArray(entries.absenceCodeId, [...privateKeys.keys()])))
+    .all().map(row => cellKey(row.employeeId, row.date)).filter(key => wanted.has(key)))
+  if (held.size > 0 && (!reportsSick || held.size === wanted.size)) throw new ServiceError(403, 'protected_cell')
+  return held
 }
 
 /**
  * An entry in the facility's plan (its staff's home entries and its helpers' entries planned here); 404
  * entry_not_found for any other id, including its staff's help-outs elsewhere.
  */
-/**
- * Krank, Kind krank, Mutterschutz and Beschäftigungsverbot (health data, server/lib/protectedCodes.ts) are booked and
- * changed only by whoever has employees.sickness: anyone else gets 403 protected_cell for writing such a code or for
- * writing into, clearing or deleting from a cell that holds one (they see it as „abwesend“).
- */
-function assertMayTouchProtected(db: Db, actor: SessionUser, cells: CellRef[], codeId: number | null | undefined): void {
-  if (can(actor.permissions, 'employees.sickness') || cells.length === 0) return
-  const protectedIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
-    .where(inArray(absenceCodes.key, [...PRIVATE_CODE_KEYS])).all().map(row => row.id))
-  if (protectedIds.size === 0) return
-  if (codeId != null && protectedIds.has(codeId)) throw new ServiceError(403, 'protected_cell')
-  const wanted = new Set(cells.map(cell => cellKey(cell.employeeId, cell.date)))
-  const held = db.select({ employeeId: entries.employeeId, date: entries.date }).from(entries)
-    .where(and(inArray(entries.employeeId, [...new Set(cells.map(cell => cell.employeeId))]), inArray(entries.absenceCodeId, [...protectedIds])))
-    .all()
-  if (held.some(row => wanted.has(cellKey(row.employeeId, row.date)))) throw new ServiceError(403, 'protected_cell')
-}
-
 function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries.$inferSelect {
   const row = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
     .where(and(eq(entries.id, id), inPlanOf(facilityId))).get()
@@ -386,7 +399,8 @@ function requireOwnEntry(db: Db, facilityId: number, id: number): typeof entries
 export function deleteEntry(db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date()): void {
   const entry = requireOwnEntry(db, facilityId, id)
   const cell = { employeeId: entry.employeeId, date: entry.date }
-  assertMayTouchProtected(db, actor, [cell], null)
+  // Deleting from a private day needs the right (privateCellsToSkip skips nothing here: it refuses).
+  privateCellsToSkip(db, actor, [cell], null)
   const names = groupNames(db, facilityId)
   db.transaction((tx) => {
     const before = describeCellAt(tx, cell, names)

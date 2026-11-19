@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ApplyMode, CodeDto, EntryDto, EntryInput, EntryTimesInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import type { ApplyEntriesResultDto, ApplyMode, CodeDto, EntryDto, EntryInput, EntryTimesInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
 import { hasPlannedDuty } from '#shared/domain/balance'
 import { cellKey } from '#shared/domain/cells'
 import { todayIso } from '#shared/domain/dates'
@@ -137,7 +137,20 @@ function apply(mode: ApplyMode, entry: EntryInput | null) {
   if (!hasSelection()) return
   const groupId = entry ? keptGroup() : undefined
   const body = { cells: selection.cells.value, mode, entry: entry && groupId !== undefined ? { ...entry, groupId } : entry }
-  run(() => $fetch<unknown>('/api/entries', { method: 'POST', body }))
+  run(async () => {
+    const result = await $fetch<ApplyEntriesResultDto>('/api/entries', { method: 'POST', body })
+    // „Krank melden“ left days alone that were already „abwesend“ (which ones is not told).
+    if (result.skippedAbsent) toast.add({ title: de.plan.reportSickSkipped, color: 'warning' })
+  })
+}
+
+/** „Krank melden“ (an editor without the sick days right): afterwards only the Leitung or the Träger can change the day. */
+async function onReportSick() {
+  const codeId = plan.value?.reportSickCodeId
+  if (codeId == null || !hasSelection()) return
+  if (await confirm(de.plan.reportSickConfirm, { confirmLabel: de.plan.reportSick, danger: false })) {
+    apply('replace', { kind: 'code', codeId })
+  }
 }
 
 /**
@@ -244,7 +257,7 @@ function fromMenu<A extends unknown[]>(action: (...args: A) => unknown) {
 }
 const menuActions = {
   template: fromMenu(onTemplate), code: fromMenu(onCode), special: fromMenu(() => openModal(null)), clear: fromMenu(onClear),
-  fillGap: fromMenu(onFillGap), addBreak: fromMenu(onAddBreak),
+  fillGap: fromMenu(onFillGap), addBreak: fromMenu(onAddBreak), reportSick: fromMenu(onReportSick),
   sickLeave: fromMenu(() => {
     if (sickLeaveCell.value) openSickLeave(sickLeaveCell.value.employeeId, sickLeaveCell.value.date)
   }),
@@ -311,7 +324,9 @@ function navigate(nextYear: number, nextMonth: number) {
         v-if="isAdmin"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :scope="scope" :several-facilities="plan.facilityName !== null"
+        :report-sick="plan.reportSickCodeId !== null"
         @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-helper="helperOpen = true"
+        @report-sick="onReportSick"
       />
       <PlanHelperModal v-if="isAdmin && plan.facilityName !== null" v-model:open="helperOpen" :year="year" :month="month" @done="refresh" />
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
@@ -354,9 +369,9 @@ function navigate(nextYear: number, nextMonth: number) {
         v-if="isAdmin" v-model:open="cellMenu.open" :reference="cellMenu.reference"
         :templates="plan.templates" :codes="plan.codes"
         :selected-count="selection.cells.value.length" :gap-suggestions="gapSuggestions" :scope="scope"
-        :can-mark-sick="sickLeaveCell !== null" @sick-leave="menuActions.sickLeave"
+        :can-mark-sick="sickLeaveCell !== null" :report-sick="plan.reportSickCodeId !== null" @sick-leave="menuActions.sickLeave"
         @template="menuActions.template" @code="menuActions.code" @special="menuActions.special" @clear="menuActions.clear"
-        @fill-gap="menuActions.fillGap" @add-break="menuActions.addBreak"
+        @fill-gap="menuActions.fillGap" @add-break="menuActions.addBreak" @report-sick="menuActions.reportSick"
       />
     </template>
     <template v-else>

@@ -136,8 +136,11 @@ describe('a sick day and a Mutterschutz day look the same without the right', ()
     expect(hintTypes(editor)).not.toContain('child_sick_days')
     expect(errorCode(() => applyToCells(db, editor, 1, [{ employeeId: anna, date: SICK_DAY }], 'replace', { kind: 'special', start: 480, end: 720 })))
       .toBe('protected_cell')
-    expect(errorCode(() => applyToCells(db, editor, 1, [{ employeeId: ben, date: SICK_DAY }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })))
+    expect(errorCode(() => applyToCells(db, editor, 1, [{ employeeId: ben, date: SICK_DAY }], 'replace', { kind: 'code', codeId: codeId(db, 'child_sick') })))
       .toBe('protected_cell')
+    // „Krank melden“ (tests/services/reportSick.test.ts): Krank itself onto a day without a private code.
+    expect(errorCode(() => applyToCells(db, editor, 1, [{ employeeId: ben, date: SICK_DAY }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })))
+      .toBeNull()
     // A closure manager without the right is neither refused nor told.
     expect(errorCode(() => createClosure(db, editor, 1, { startDate: '2026-11-17', endDate: '2026-11-18', label: 'Brücke', mode: 'closure_day' })))
       .toBeNull()

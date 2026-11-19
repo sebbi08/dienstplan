@@ -54,6 +54,14 @@ export type NoteField = 'info1' | 'info2'
 export type ChangeField = 'entry' | NoteField
 export type ApplyMode = 'replace' | 'add' | 'clear'
 
+/**
+ * The answer to writing plan cells (POST /api/entries). `skippedAbsent`: „Krank melden“ without the sick days right left
+ * days alone that were already „abwesend“ (which ones and why is not told; they look alike in the plan anyway).
+ */
+export interface ApplyEntriesResultDto {
+  skippedAbsent: boolean
+}
+
 export interface SessionUser {
   id: number
   username: string
@@ -1097,6 +1105,11 @@ export interface MonthPlanDto {
   changes: Record<string, ChangeDto[]>
   templates: TemplateDto[]
   codes: CodeDto[]
+  /**
+   * „Krank melden“: the id of the Krank code for a plan editor without employees.sickness (whose `codes` leave out the
+   * private ones); afterwards the day shows „abwesend“ to her. Null for everybody else.
+   */
+  reportSickCodeId: number | null
   admin: MonthPlanAdminDto | null
 }
 

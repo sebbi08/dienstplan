@@ -296,6 +296,7 @@ export function getMonthPlan(
   const changes = toChangeDtos(changeHistory(states))
   const draft = isAdmin ? buildSnapshot(db, facilityId, year, month) : null
   const shown: SnapshotData = draft ? (showsProtected ? draft : maskSnapshot(draft)) : latest!.data
+  const codes = loadCodes(db)
 
   const pendingChanges: Record<string, PendingChangeDto> = {}
   if (isAdmin && states.length > 0) {
@@ -346,7 +347,9 @@ export function getMonthPlan(
     attendance: attendanceOf(facilityId, shown, year, month),
     changes,
     templates: loadTemplates(db, facilityId),
-    codes: showsProtected ? loadCodes(db) : withoutPrivateCodes(loadCodes(db)),
+    codes: showsProtected ? codes : withoutPrivateCodes(codes),
+    // „Krank melden“ for an editor who may not see health data (only Krank, on a day without a private code; entries.ts).
+    reportSickCodeId: isAdmin && !showsProtected ? codes.find(code => code.key === 'sick')?.id ?? null : null,
     admin: admin && !showsProtected
       // The acknowledgements of the Mutterschutz hints name the rule, the „Im Dienst erkrankt“ markers tell a sickness:
       // neither for whoever sees only „abwesend“ and „Arbeitszeitgrenze überschritten“.

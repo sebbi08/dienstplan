@@ -227,9 +227,11 @@ describe('the plan of a facility without groups', () => {
 
   it('gives the plan as before, with only empty groups and attendance added (Review Focus 1)', () => {
     const dto = getMonthPlan(db, admin, 1, 2026, 10, today)
-    const { groups: shownGroups, attendance, ...rest } = dto
+    // reportSickCodeId came later with „Krank melden“ (tests/services/reportSick.test.ts): none with the sick days right.
+    const { groups: shownGroups, attendance, reportSickCodeId, ...rest } = dto
     expect(shownGroups).toEqual([])
     expect(attendance).toEqual({})
+    expect(reportSickCodeId).toBeNull()
     expect(Object.keys(rest).sort()).toEqual([...oldKeys].sort())
     expect(rest.employees).toEqual(oldColumns(anna, ben, hugo))
     expect(rest.entries.map(entry => [entry.employeeId, entry.date, entry.groupId])).toEqual([

@@ -322,6 +322,11 @@ export const de = {
     addBreak: 'Zusätzliche Pause…',
     breakEntry: (times: string) => `Pause ${times}`,
     special: 'Sonderdienst…', clear: 'Leeren', clearConfirm: 'Alle Einträge in den ausgewählten Zellen löschen?',
+    // „Krank melden“: for a plan editor who may not see the sick days (only Krank; afterwards the day reads „abwesend“).
+    reportSick: 'Krank melden',
+    reportSickHint: 'Trägt „Krank“ ein. Danach steht dort „abwesend“; ändern oder löschen kann den Tag nur, wer die Krankheitstage sehen darf (Leitung oder Träger).',
+    reportSickConfirm: 'Für die ausgewählten Tage „Krank“ eintragen? Danach steht dort „abwesend“; ändern oder löschen kann den Tag nur, wer die Krankheitstage sehen darf (Leitung oder Träger).',
+    reportSickSkipped: 'Einige Tage sind bereits als abwesend eingetragen und wurden nicht geändert.',
     fillGap: 'Ergänzen:',
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',

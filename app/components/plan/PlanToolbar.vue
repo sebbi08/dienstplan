@@ -4,7 +4,7 @@ import { shiftBreakCheck } from '#shared/domain/timeRecords'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { buttonCodes, codeButtonLabel } from '~/utils/codes'
-import { type CellScope, codesForScope } from '~/utils/helpOuts'
+import { type CellScope, codesForScope, takesAbsences } from '~/utils/helpOuts'
 
 /** Buttons for the selected cells (those that do not fit the selection's scope are disabled) and "Aushilfe hinzufügen". */
 const props = withDefaults(defineProps<{
@@ -14,7 +14,9 @@ const props = withDefaults(defineProps<{
   scope?: CellScope
   /** Helpers come from other facilities: the button only exists with several of them. */
   severalFacilities?: boolean
-}>(), { scope: 'normal', severalFacilities: false })
+  /** „Krank melden“ for an editor without the sick days right (the private codes are not among `codes`). */
+  reportSick?: boolean
+}>(), { scope: 'normal', severalFacilities: false, reportSick: false })
 const codeButtons = computed(() => buttonCodes(props.codes))
 const allowedCodes = computed(() => new Set(codesForScope(codeButtons.value, props.scope).map(code => code.id)))
 /** Tooltip of a shift button: its name plus the working time of its fixed times and whether its break meets the law. */
@@ -25,7 +27,7 @@ function templateTitle(template: TemplateDto) {
 }
 const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
 const emit = defineEmits<{
-  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; addHelper: []
+  template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []; addHelper: []; reportSick: []
 }>()
 </script>
 
@@ -49,6 +51,10 @@ const emit = defineEmits<{
       <UButton
         v-for="code in codeButtons" :key="code.id" size="xs" color="neutral" variant="soft"
         :disabled="!allowedCodes.has(code.id)" :label="codeButtonLabel(code)" @click="emit('code', code)"
+      />
+      <UButton
+        v-if="reportSick" size="xs" color="neutral" variant="soft" icon="i-lucide-thermometer"
+        :disabled="!takesAbsences(scope)" :label="de.plan.reportSick" :title="de.plan.reportSickHint" @click="emit('reportSick')"
       />
       <UButton size="xs" color="neutral" variant="soft" :disabled="!withShifts" :label="de.plan.special" @click="emit('special')" />
       <UButton

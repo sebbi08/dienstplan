@@ -36,6 +36,11 @@ export function cellScope(plan: MonthPlanDto, cells: CellRef[]): CellScope {
   return hasHelper ? 'helper' : hasMarker ? 'marker' : 'normal'
 }
 
+/** Whether an absence (Urlaub, Krank …) may be entered for the scope: not on a helper's cells. */
+export function takesAbsences(scope: CellScope): boolean {
+  return scope === 'normal' || scope === 'marker'
+}
+
 /** The codes that may be entered for the scope (the button codes are filtered further by the caller). */
 export function codesForScope(codes: CodeDto[], scope: CellScope): CodeDto[] {
   if (scope === 'helper') return codes.filter(code => isTargetGapCode(code.key))

@@ -13,7 +13,7 @@ import { formatTime } from '#shared/domain/time'
 import type { CodeDto, TemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { buttonCodes, codeButtonLabel } from '~/utils/codes'
-import { type CellScope, codesForScope } from '~/utils/helpOuts'
+import { type CellScope, codesForScope, takesAbsences } from '~/utils/helpOuts'
 
 /**
  * Drop-down next to the clicked cell with everything that can be entered into the selected cells. A helper's cells take
@@ -28,14 +28,17 @@ const props = withDefaults(defineProps<{
   scope?: CellScope
   /** One selected cell with a duty of the own staff, today or earlier: it can be marked "Im Dienst erkrankt". */
   canMarkSick?: boolean
-}>(), { scope: 'normal', canMarkSick: false })
+  /** „Krank melden“ for an editor without the sick days right (the private codes are not among `codes`). */
+  reportSick?: boolean
+}>(), { scope: 'normal', canMarkSick: false, reportSick: false })
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{
   template: [template: TemplateDto]; code: [code: CodeDto]; special: []; clear: []
-  fillGap: [suggestion: GapSuggestion]; addBreak: []; sickLeave: []
+  fillGap: [suggestion: GapSuggestion]; addBreak: []; sickLeave: []; reportSick: []
 }>()
 
 const codeButtons = computed(() => codesForScope(buttonCodes(props.codes), props.scope))
+const showsReportSick = computed(() => props.reportSick && takesAbsences(props.scope))
 /** Shifts, special shifts, breaks and clearing: not on a day that another facility plans. */
 const withShifts = computed(() => props.scope === 'normal' || props.scope === 'helper')
 const scopeHint = computed(() => ({
@@ -81,12 +84,16 @@ const heading = 'mb-1 text-[11px] font-semibold uppercase tracking-wide text-gra
           </div>
         </section>
 
-        <section v-if="codeButtons.length">
+        <section v-if="codeButtons.length || showsReportSick">
           <h3 :class="heading">{{ de.plan.menuCodes }}</h3>
           <div class="flex flex-wrap gap-1">
             <UButton
               v-for="code in codeButtons" :key="code.id" size="xs" color="neutral" variant="soft"
               :label="codeButtonLabel(code)" @click="emit('code', code)"
+            />
+            <UButton
+              v-if="showsReportSick" size="xs" color="neutral" variant="soft" icon="i-lucide-thermometer"
+              :label="de.plan.reportSick" :title="de.plan.reportSickHint" @click="emit('reportSick')"
             />
           </div>
         </section>

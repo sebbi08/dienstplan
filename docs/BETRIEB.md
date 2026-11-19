@@ -1677,7 +1677,22 @@ Mitarbeiter kommen nicht heran.
   verrät, welcher Grund es ist. Wer selbst betroffen ist, sieht unter „Mein Dienstplan“ und im eigenen Jahreskalender die
   eigenen Einträge, wie sie sind. Die vier Codes werden diesen Personen nicht zum Eintragen angeboten, und sie können
   einen solchen Tag nicht ändern, überschreiben oder löschen („Diesen Tag kann nur ändern, wer die Krankheitstage sehen
-  darf“) – **Krank eintragen** geht also nur noch mit dem Recht „Krankheitstage …“. Eine **Schließzeit** wird für alle
+  darf“).
+  **„Krank melden“** ist die eine Ausnahme: Wer den Dienstplan bearbeiten darf, aber das Recht „Krankheitstage …“ nicht
+  hat (z. B. die Gruppenleitung), bekommt im Dienstplan statt der vier Codes den Knopf „Krank melden“ (in der Leiste und
+  im Zellmenü, nicht bei Aushilfen). Er trägt nach einer Rückfrage „Krank“ ein – auf leere Tage, auf Tage mit Diensten
+  oder anderen Codes (die wie beim Eintragen von Krank ersetzt werden) und auf Tage, an denen die Person woanders aushilft.
+  Danach steht dort auch für diese Person nur „abwesend“; ändern, löschen oder überschreiben kann den Tag – auch den
+  selbst gemeldeten – nur noch, wer das Recht hat. Kind krank, Mutterschutz und Beschäftigungsverbot kann sie nicht
+  eintragen. Sind unter den ausgewählten Tagen schon Tage „abwesend“, bleiben genau diese unverändert, die übrigen werden
+  eingetragen, und es erscheint der Hinweis „Einige Tage sind bereits als abwesend eingetragen und wurden nicht
+  geändert.“ – ohne zu sagen, welche Tage oder warum (sie sieht sie ohnehin alle gleich als „abwesend“). Sind alle
+  ausgewählten Tage schon „abwesend“, kommt die bekannte Meldung „Diesen Tag kann nur ändern …“. Alles andere (ein
+  Dienst, Leeren, ein anderer Code) über eine Auswahl mit einem solchen Tag wird wie bisher ganz abgelehnt. Die
+  Änderungsliste nach der Freigabe hält die Meldung wie jede andere Änderung fest; Leitung und Träger sehen dort und im
+  Plan ganz normal „Krank“. Wer das Recht hat, trägt alle vier Codes wie bisher ein. In einer anderen Einrichtung, in
+  der die Person aushilft, sieht man an einem solchen Tag wie an jedem anderen Tag ihrer eigenen Einrichtung nur „belegt“.
+  Eine **Schließzeit** wird für alle
   eingetragen, ohne Fehlermeldung, lässt aber jeden Tag mit Krank, Kind krank, Mutterschutz oder Beschäftigungsverbot
   stehen: Während Krankheit und Schutzfrist wird kein Urlaub verbraucht (§ 9 BUrlG, § 24 MuSchG), und „abwesend“ bleibt für
   alle vier gleich. Wird jemand erst nach dem Anlegen der Schließzeit krank, wird der Tag wie bisher umgetragen. Die
