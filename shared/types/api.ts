@@ -15,6 +15,7 @@ import type {
   Confidence, Qualification, QuotaLine, RequirementLine, StaffingMethod, StaffingRuleSet,
 } from '../domain/staffing/types'
 import type { GermanState } from '../domain/states'
+import type { TimeWindow } from '../domain/tablet'
 import type { TemplateVisibility } from '../domain/templateCategories'
 import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, PayGroup } from '../domain/tvoed'
@@ -340,6 +341,8 @@ export interface TabletSettingsDto {
   showWaitlist: boolean
   /** Show children whose contract has not started yet at the tablet. */
   showFutureContracts: boolean
+  /** Time windows „Keine automatische Sperre“ (at most 6, by start; on every day the facility is open). */
+  noLockWindows: TimeWindow[]
 }
 
 /** How a facility's time tracking marks late arrivals and early leaving for the Leitung (never shown to staff). */
@@ -1398,7 +1401,17 @@ export interface ChildRightsDto {
 /** Whether the tablet shows child records, and for whom (name and rights of the person who unlocked it). */
 export type TabletUnlockStatusDto =
   | { unlocked: false }
-  | { unlocked: true; employeeId: number; name: string; rights: ChildRightsDto; lockMinutes: number }
+  | {
+    unlocked: true; employeeId: number; name: string; rights: ChildRightsDto; lockMinutes: number
+    /**
+     * The facility's windows without the automatic lock from yesterday to tomorrow (open days only; ISO moments, touching
+     * ones joined): the tablet times its lock with them by shared/domain/tablet.ts unlockDeadline, as the server does.
+     */
+    noLockPeriods: NoLockPeriodDto[]
+  }
+
+/** A stretch without the automatic lock as ISO moments (`until` excluded). */
+export interface NoLockPeriodDto { from: string; until: string }
 
 export type StampAction = 'in' | 'out'
 export type TimeRecordSource = 'self' | 'terminal' | 'admin'

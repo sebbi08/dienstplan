@@ -494,6 +494,18 @@ describe('API route permissions', () => {
     }
   })
 
+  it('opens the tablet settings (lock time, windows without the automatic lock) to Leitung and Träger only, never the tablet', () => {
+    const touching = routes.filter(route => source(route).includes('services/tabletSettings\''))
+    expect(touching).toEqual(['tablet-settings.get.ts', 'tablet-settings.put.ts'])
+    for (const route of touching) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'settings.facility', options: '' }])
+      expect(source(route), route).toContain('admin.facilityId')
+      expect(expanded(permissionActors('settings.facility', '')), route).toEqual(['provider', 'admin'])
+    }
+    expect(DEFAULTS.observer.has('settings.facility')).toBe(false)
+    expect(DEFAULTS.group_lead.has('settings.facility')).toBe(false)
+  })
+
   it('opens the markers for falling ill during duty to managers of the active facility only', () => {
     const touching = routes.filter(route => /sick-leave/i.test(route) || source(route).includes('services/earlySickLeaves\''))
     expect(touching).toEqual(['early-sick-leaves/[id].delete.ts', 'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts'])

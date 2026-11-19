@@ -1,12 +1,15 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
+import { weekday } from '../../shared/domain/dates'
 import { hoursOn, type DayHours, type OpeningHours } from '../../shared/domain/openingHours'
 import type { IsoDate } from '../../shared/domain/types'
-import type { DayHoursContext } from '../../shared/domain/warnings'
+import { isCheckedDay, type DayHoursContext } from '../../shared/domain/warnings'
 import type { OpeningHoursDto, PlanDayDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, groups, openingHours } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { assertGroup } from './groups'
+import { facilityHolidayRules } from './holidayRules'
+import { closureOn, loadClosures } from './queries'
 
 const WEEKDAYS = 5
 /** Minutes of a day run from 0 to 1439. */
@@ -63,6 +66,19 @@ export function loadHoursContext(db: Db, facilityId: number): DayHoursContext {
       ? [{ groupId: group.groupId, groupName: group.groupName, hours: group.hours }]
       : []),
   }
+}
+
+/**
+ * Whether the facility is open on a date: a care day (Monday to Friday, no public holiday of its state, no closure, as
+ * the staffing report counts them) whose weekday the facility's opening hours do not mark closed.
+ */
+export function facilityOpenDay(db: Db, facilityId: number): (date: IsoDate) => boolean {
+  const closures = loadClosures(db, facilityId)
+  const holidays = facilityHolidayRules(db, facilityId)
+  const closedWeekdays = new Set(db.select({ weekday: openingHours.weekday }).from(openingHours)
+    .where(and(eq(openingHours.facilityId, facilityId), isNull(openingHours.groupId), eq(openingHours.closed, true))).all()
+    .map(row => row.weekday))
+  return date => isCheckedDay(date, closureOn(closures, date) !== null, holidays) && !closedWeekdays.has(weekday(date))
 }
 
 /** A day with times or marked closed; the others are not entered. */

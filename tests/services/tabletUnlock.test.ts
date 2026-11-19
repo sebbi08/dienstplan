@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees, entries, terminalUnlocks, users } from '../../server/db/schema'
+import { berlinInstant } from '../../shared/domain/tablet'
+import { closures, employees, entries, terminalUnlocks, users } from '../../server/db/schema'
+import { setFacilityOpeningHours } from '../../server/services/openingHours'
 import { saveBundleOverride } from '../../server/services/permissions'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells } from '../../server/services/entries'
@@ -9,7 +11,7 @@ import { clearPin, setPin, terminalStamp } from '../../server/services/terminal'
 import {
   deleteExpiredUnlocks, lockChildren, tabletChildViewer, tabletUnlockStatus, unlockChildren,
 } from '../../server/services/tabletUnlock'
-import { setTabletSettings } from '../../server/services/tabletSettings'
+import { setTabletSettings, type TabletSettingsInput } from '../../server/services/tabletSettings'
 import { addEmployee, addFacility, addHelpOut, addUser, allowChildEditing, createTestDb, errorCode, permissionsOf, templateId } from '../helpers/fixtures'
 
 const at = (iso: string) => new Date(iso)
@@ -24,7 +26,7 @@ describe('unlocking the tablet for child records', () => {
   const unlock = (employeeId = anna, pin = '123456', now = NOW) => unlockChildren(db, tablet, employeeId, pin, now)
   const viewer = (token: string | undefined, now = NOW, touch?: boolean) => tabletChildViewer(db, tablet, token, now, touch)
   const rows = () => db.select().from(terminalUnlocks).all()
-  const settings = (changes: Partial<{ lockMinutes: number; showWaitlist: boolean; showFutureContracts: boolean }> = {}) => setTabletSettings(
+  const settings = (changes: Partial<TabletSettingsInput> = {}) => setTabletSettings(
     db, 1, { lockMinutes: 2, showWaitlist: false, showFutureContracts: false, ...changes },
   )
 
@@ -42,7 +44,7 @@ describe('unlocking the tablet for child records', () => {
   it('unlocks with the right PIN and returns the person and rights', () => {
     const { token, status } = unlock()
     expect(status).toEqual({
-      unlocked: true, employeeId: anna, name: 'Anna', lockMinutes: 2,
+      unlocked: true, employeeId: anna, name: 'Anna', lockMinutes: 2, noLockPeriods: [],
       rights: { canEdit: false, isManager: false, canMoveFacility: false, showWaitlist: false, showFutureContracts: false },
     })
     expect(token.length).toBeGreaterThanOrEqual(40)
@@ -293,6 +295,98 @@ describe('unlocking the tablet for child records', () => {
       expect(rows().map(row => row.terminalUserId)).toEqual([tablet.id])
       expect(viewer(mine.token, after(2 * 60 + 31), false)).toMatchObject({ onTablet: true })
       expect(deleteExpiredUnlocks(db, after(5 * 60 + 31))).toBe(1)
+      expect(rows()).toEqual([])
+    })
+  })
+
+  describe('windows without the automatic lock', () => {
+    // NOW is Tuesday 2026-10-06, 8:00 Berlin time; `clock` gives a Berlin time of that day (seconds optional).
+    const clock = (hours: number, minutes: number, seconds = 0, date = '2026-10-06') =>
+      new Date(berlinInstant(date, hours * 60 + minutes) + seconds * 1000)
+    const windows = (...list: [number, number][]) => settings({ noLockWindows: list.map(([start, end]) => ({ start, end })) })
+    const status = (token: string, now: Date) => tabletUnlockStatus(db, tablet, token, now)
+
+    it('keeps an unlock open inside a window; from its end the lock time counts again', () => {
+      windows([7 * 60 + 50, 8 * 60 + 30])
+      const { token, status: first } = unlock()
+      // Yesterday's, today's and tomorrow's window (Monday to Wednesday, all open days).
+      const period = (date: string) => ({ from: clock(7, 50, 0, date).toISOString(), until: clock(8, 30, 0, date).toISOString() })
+      expect(first).toMatchObject({ unlocked: true, noLockPeriods: [period('2026-10-05'), period('2026-10-06'), period('2026-10-07')] })
+      expect(status(token, clock(8, 25))).toMatchObject({ unlocked: true })
+      expect(viewer(token, clock(8, 29), false)).toMatchObject({ onTablet: true })
+      // Window end 8:30 + 2 minutes + grace.
+      expect(status(token, clock(8, 32, 30))).toMatchObject({ unlocked: true })
+      expect(status(token, clock(8, 32, 31))).toEqual({ unlocked: false })
+      expect(errorCode(() => viewer(token, clock(8, 32, 31)))).toBe('tablet_locked')
+    })
+
+    it('counts from the last use when that is after the window end (unlocked inside, used after it)', () => {
+      windows([7 * 60 + 50, 8 * 60 + 10])
+      const { token } = unlock()
+      // Used at 8:12, after the window (8:10 + 2 minutes + grace would hold until 8:12:30).
+      expect(viewer(token, clock(8, 12))).toMatchObject({ onTablet: true })
+      expect(status(token, clock(8, 14, 30))).toMatchObject({ unlocked: true })
+      expect(status(token, clock(8, 14, 31))).toEqual({ unlocked: false })
+    })
+
+    it('carries an unlock still valid at the window start through it, but does not revive one that ran out before', () => {
+      windows([8 * 60 + 5, 8 * 60 + 30])
+      const { token } = unlock()
+      // Last use 8:00, 2 minutes + grace: ran out 8:02:30, before the window.
+      expect(status(token, clock(8, 10))).toEqual({ unlocked: false })
+      settings({ lockMinutes: 10 })
+      // Still valid at 8:05: open until 8:30 + 10 minutes + grace.
+      expect(status(token, clock(8, 20))).toMatchObject({ unlocked: true })
+      expect(status(token, clock(8, 40, 30))).toMatchObject({ unlocked: true })
+      expect(status(token, clock(8, 40, 31))).toEqual({ unlocked: false })
+    })
+
+    it('ends by „Sperren“ and by another person unlocking, also inside a window', () => {
+      windows([7 * 60, 9 * 60])
+      const first = unlock()
+      lockChildren(db, tablet.id, first.token)
+      expect(status(first.token, clock(8, 1))).toEqual({ unlocked: false })
+      const second = unlock(anna, '123456', clock(8, 2))
+      const third = unlock(berta, '654321', clock(8, 3))
+      expect(status(second.token, clock(8, 4))).toEqual({ unlocked: false })
+      expect(status(third.token, clock(8, 50))).toMatchObject({ unlocked: true, name: 'Berta' })
+    })
+
+    it('applies only on days the facility is open: not on a weekend, a closure day or a weekday marked closed', () => {
+      windows([7 * 60, 9 * 60])
+      const saturday = clock(8, 0, 0, '2026-10-10')
+      const onSaturday = unlock(anna, '123456', saturday)
+      // Only Friday's window; none on Saturday and Sunday.
+      expect(onSaturday.status).toMatchObject({
+        noLockPeriods: [{ from: clock(7, 0, 0, '2026-10-09').toISOString(), until: clock(9, 0, 0, '2026-10-09').toISOString() }],
+      })
+      expect(status(onSaturday.token, new Date(saturday.getTime() + 2 * 60_000 + 31_000))).toEqual({ unlocked: false })
+
+      db.insert(closures).values({ facilityId: 1, startDate: '2026-10-06', endDate: '2026-10-06', label: 'Team', mode: 'closure_day' }).run()
+      const onClosure = unlock()
+      expect(status(onClosure.token, after(2 * 60 + 31))).toEqual({ unlocked: false })
+      db.delete(closures).run()
+
+      const tuesdayClosed = { open: null, close: null, closed: true }
+      const none = { open: null, close: null, closed: false }
+      setFacilityOpeningHours(db, 1, { days: [none, tuesdayClosed, none, none, none], minAtOpening: 1, minAtClosing: 1 })
+      const onClosedWeekday = unlock()
+      expect(status(onClosedWeekday.token, after(2 * 60 + 31))).toEqual({ unlocked: false })
+      setFacilityOpeningHours(db, 1, null)
+      expect(status(unlock().token, after(30 * 60))).toMatchObject({ unlocked: true })
+    })
+
+    it('keeps the rows of unlocks inside a window when the expired ones are deleted', () => {
+      windows([7 * 60 + 50, 8 * 60 + 30])
+      unlock()
+      expect(deleteExpiredUnlocks(db, clock(8, 25))).toBe(0)
+      expect(deleteExpiredUnlocks(db, clock(8, 32, 31))).toBe(1)
+    })
+
+    it('leaves stamping alone: it needs the PIN and unlocks nothing', () => {
+      windows([7 * 60, 9 * 60])
+      expect(errorCode(() => terminalStamp(db, 1, anna, '000000', 'in', NOW))).toBe('pin_invalid')
+      terminalStamp(db, 1, anna, '123456', 'in', NOW)
       expect(rows()).toEqual([])
     })
   })

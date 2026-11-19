@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { KEEP_ALIVE_MIN_SECONDS, STATUS_POLL_SECONDS } from '#shared/domain/tablet'
+import { KEEP_ALIVE_MIN_SECONDS, STATUS_POLL_SECONDS, unlockDeadline } from '#shared/domain/tablet'
 import type { TabletUnlockStatusDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { isChildPagePath } from '~/utils/routeAccess'
+import { noAutoLockNote, toNoLockPeriods } from '~/utils/tabletWindows'
 
 /**
  * Shown at the tablet instead of the menu while a child page is open: who unlocked it and "Sperren". Tapping, typing
@@ -13,6 +14,9 @@ import { isChildPagePath } from '~/utils/routeAccess'
  * time, another device unlocked, PIN or employment ended) shows at once, without waiting for the next touch.
  * While something on the page is unsaved (e.g. an observation form), „Sperren“ asks first, and shortly before the lock
  * time runs out a notice asks to tap and save (the lock itself never waits: the child data must go off the screen).
+ * In the facility's windows without the automatic lock (from the status, see unlockDeadline) the lock time does not run;
+ * from a window's end it counts again (max(last use, window end) + lock time), as on the server. „Sperren“, another
+ * person unlocking and the status poll end the unlock as always; the bar names the window's end meanwhile.
  */
 const { unlock, lock } = useChildRights()
 const router = useRouter()
@@ -29,9 +33,26 @@ let poll: ReturnType<typeof setInterval> | undefined
 let ending = false
 
 const lockMs = () => (status.value?.lockMinutes ?? 0) * 60_000
-const deadline = () => lastUse + lockMs()
+/** The facility's windows without the automatic lock (from the last status): the lock waits for their end. */
+const periods = computed(() => toNoLockPeriods(status.value?.noLockPeriods ?? []))
+const deadline = () => unlockDeadline(lastUse, lockMs(), periods.value)
 /** How long before the lock the notice about unsaved changes comes: a minute, at most half the lock time. */
 const warnMs = () => Math.min(60_000, lockMs() / 2)
+
+/** „ohne automatische Sperre bis …“ while a window runs; looked at again at the next window start or end (no polling). */
+const note = ref<string | null>(null)
+let noteTimer: ReturnType<typeof setTimeout> | undefined
+function updateNote() {
+  clearTimeout(noteTimer)
+  if (ending) {
+    note.value = null
+    return
+  }
+  const now = Date.now()
+  note.value = noAutoLockNote(periods.value, now)
+  const next = periods.value.flatMap(period => [period.from, period.until]).filter(moment => moment > now).sort((a, b) => a - b)[0]
+  if (next !== undefined) noteTimer = setTimeout(updateNote, next - now + 50)
+}
 
 /** Re-arms the notice for the current deadline; shows it once per period without use while something is unsaved. */
 function armWarning() {
@@ -64,6 +85,7 @@ async function end(sendLock: boolean) {
   ending = true
   clearTimeout(timer)
   clearTimeout(warnTimer)
+  clearTimeout(noteTimer)
   clearInterval(poll)
   if (sendLock) await lock()
   if (isChildPagePath(router.currentRoute.value.path)) await navigateTo('/terminal')
@@ -83,7 +105,10 @@ async function pollStatus() {
   }
 }
 
-/** Re-arms the timer for the current deadline (use only moves `lastUse`, so the timer is not reset on every event). */
+/**
+ * Re-arms the timer for the current deadline (use only moves `lastUse`, so the timer is not reset on every event). Inside
+ * a window without the automatic lock the deadline lies after the window's end, so the tablet does not lock by itself.
+ */
 function check() {
   clearTimeout(timer)
   if (ending) return
@@ -94,6 +119,7 @@ function check() {
   }
   timer = setTimeout(check, remaining)
   armWarning()
+  updateNote()
 }
 
 async function keepAlive() {
@@ -158,6 +184,7 @@ onBeforeUnmount(() => {
   ending = true
   clearTimeout(timer)
   clearTimeout(warnTimer)
+  clearTimeout(noteTimer)
   clearInterval(poll)
   window.removeEventListener('pointerdown', onUse, { capture: true })
   window.removeEventListener('keydown', onUse, { capture: true })
@@ -171,6 +198,9 @@ onBeforeUnmount(() => {
     <span class="flex items-center gap-2 font-medium">
       <UIcon name="i-lucide-lock-open" class="size-5 text-amber-600" />
       {{ status ? de.terminal.unlockedAs(status.name) : '' }}
+    </span>
+    <span v-if="note" class="flex items-center gap-1 text-sm text-gray-600">
+      <UIcon name="i-lucide-clock" class="size-4" aria-hidden="true" /> {{ note }}
     </span>
     <UButton class="ml-auto" size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="lockByHand" />
   </div>

@@ -983,7 +983,8 @@ export const groupMerges = sqliteTable('group_merges', {
 
 /**
  * The child records are unlocked at a facility's tablet by one person (name + PIN): at most one row per tablet account.
- * Locking deletes the row; the tablet's session holds its id. Valid until `lastActiveAt` plus the facility's lock time.
+ * Locking deletes the row; the tablet's session holds its id. Valid until `lastActiveAt` plus the facility's lock time,
+ * kept open through the facility's windows without the automatic lock (tabletUnlockedWindows).
  */
 export const terminalUnlocks = sqliteTable('terminal_unlocks', {
   id: text('id').primaryKey(),
@@ -993,6 +994,18 @@ export const terminalUnlocks = sqliteTable('terminal_unlocks', {
   createdAt: text('created_at').notNull(),
   lastActiveAt: text('last_active_at').notNull(),
 })
+
+/**
+ * A time window „Keine automatische Sperre“ of a facility's tablet (e.g. the main drop-off and pick-up times; at most 6,
+ * not overlapping, minutes after midnight Berlin time, `end` after `start`, 24:00 at most): on every day the facility is
+ * open, an unlock does not run out by inactivity inside it (shared/domain/tablet.ts unlockDeadline).
+ */
+export const tabletUnlockedWindows = sqliteTable('tablet_unlocked_windows', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  start: integer('start').notNull(),
+  end: integer('end').notNull(),
+}, table => [index('tablet_unlocked_windows_facility').on(table.facilityId)])
 
 /**
  * The Leitung lets the staff of `groupId` also read the group book of `readableGroupId` (records and weekly overview,

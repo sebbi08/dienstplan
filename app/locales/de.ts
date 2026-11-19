@@ -195,6 +195,7 @@ export const de = {
     lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
     lockDiscard: 'Verwerfen und sperren',
     idleUnsavedWarning: 'Das Tablet sperrt sich gleich. Tippe auf den Bildschirm und speichere deine Änderungen – sonst gehen sie verloren.',
+    noAutoLockUntil: (time: string) => `ohne automatische Sperre bis ${time}`,
   },
   login: { title: 'Anmelden', username: 'Benutzername', password: 'Passwort', submit: 'Anmelden' },
   password: {
@@ -1316,6 +1317,12 @@ export const de = {
     title: 'Tablet', lockMinutes: 'Sperrzeit ohne Bedienung (Minuten)',
     showWaitlist: 'Vormerkungen am Tablet zeigen', showFutureContracts: 'Künftige Kinder mit Vertrag am Tablet zeigen',
     hint: 'Mitarbeiter sehen Kinder nur am Tablet: Name antippen und PIN eingeben. Das Tablet sperrt sich nach der Sperrzeit ohne Bedienung von selbst.',
+    noLockTitle: 'Keine automatische Sperre',
+    noLockHint: 'In diesen Zeiten sperrt sich das Tablet nicht von selbst (z. B. Haupt-Bring- und Abholzeiten). Entsperrt wird weiter mit Name und PIN; das Tablet bleibt dann offen, bis jemand „Sperren“ tippt, sich eine andere Person anmeldet oder der Zeitraum endet. Alles läuft unter dem Namen der angemeldeten Person.',
+    noLockDays: 'Gilt an jedem Tag, an dem die Einrichtung geöffnet ist (Montag bis Freitag, nicht an Feiertagen, Schließtagen und Wochentagen, die in den Öffnungszeiten als geschlossen markiert sind). Es gilt die deutsche Uhrzeit.',
+    noLockNone: 'Keine Zeiträume eingetragen.',
+    noLockFrom: 'Von', noLockTo: 'Bis',
+    noLockAdd: 'Zeitraum hinzufügen', noLockRemove: 'Zeitraum entfernen',
   },
   groupBook: {
     // Weekly overview (Wochenübersicht) of a group: the print page for Leitung and Träger.
@@ -2125,6 +2132,9 @@ export const de = {
     facility_contact_too_many: 'Es sind höchstens 30 Einträge möglich.',
     invalid_school_cutoff: 'Bitte einen gültigen Stichtag und ein Alter von 4 bis 8 Jahren angeben.',
     tablet_lock_minutes_invalid: 'Die Sperrzeit muss zwischen 1 und 30 Minuten liegen.',
+    tablet_windows_too_many: 'Es sind höchstens 6 Zeiträume ohne automatische Sperre möglich.',
+    tablet_window_invalid: 'Bei einem Zeitraum ohne automatische Sperre muss „Bis“ nach „Von“ liegen.',
+    tablet_windows_overlap: 'Die Zeiträume ohne automatische Sperre dürfen sich nicht überschneiden.',
     mark_tolerance_invalid: 'Die Kulanz muss eine ganze Zahl von 0 bis 60 Minuten sein.',
     tablet_locked: 'Die Kinderakten sind gesperrt. Bitte gib deinen Namen und deine PIN neu ein.',
     children_tablet_only: 'Kinderakten siehst du nur am Tablet deiner Einrichtung.',

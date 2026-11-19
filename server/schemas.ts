@@ -281,8 +281,14 @@ export const docSettingsSchema = z.object({
 export const reminderSettingsSchema = z.object({
   noGroupDoc: docSettingsSchema, birthdayLeadDays: z.number(), staffBirthdayLeadDays: z.number(), leavingLeadWeeks: z.number(),
 })
-/** The tablet settings of a facility. The lock time is checked by the service, which answers tablet_lock_minutes_invalid. */
-export const tabletSettingsSchema = z.object({ lockMinutes: z.number(), showWaitlist: z.boolean(), showFutureContracts: z.boolean() })
+/**
+ * The tablet settings of a facility. The lock time and the windows without the automatic lock are checked by the service
+ * (tablet_lock_minutes_invalid, tablet_windows_too_many …); windows left out stay as they are.
+ */
+export const tabletSettingsSchema = z.object({
+  lockMinutes: z.number(), showWaitlist: z.boolean(), showFutureContracts: z.boolean(),
+  noLockWindows: z.array(z.object({ start: z.number(), end: z.number() })).max(50).optional(),
+})
 /**
  * Late / early marks of the time tracking. The tolerance is checked by the service, which answers mark_tolerance_invalid;
  * an emptied number field arrives as '' or null and passes here, so the user gets that German error.

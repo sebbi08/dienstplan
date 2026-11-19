@@ -575,6 +575,13 @@
       "when": 1795038273676,
       "tag": "0081_accident_forms_layout_uploader",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1795073628347,
+      "tag": "0082_tablet_unlocked_windows",
+      "breakpoints": true
     }
   ]
 }
