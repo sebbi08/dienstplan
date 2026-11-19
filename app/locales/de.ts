@@ -917,6 +917,10 @@ export const de = {
     saved: 'Vorlage gespeichert', replace: 'Ersetzen',
     mark: (name: string) => `Vorlage: ${name}`,
     markHint: 'Diese Woche wurde zuletzt als diese Vorlage gespeichert oder aus ihr gefüllt.',
+    /** The plan week row (editors only): „Vorlage: Woche A (eingesetzt am 02.10.) – danach angepasst“. */
+    used: (name: string, day: string, changed: boolean) => `Vorlage: ${name} (eingesetzt am ${day})${changed ? ' – danach angepasst' : ''}`,
+    /** One use in its title: „Woche A – 02.10.2026 10:05 von leitung“. */
+    useLine: (name: string, when: string, by: string) => `${name} – ${when} von ${by}`,
     applied: (filled: number, skipped: number) => `${filled} Tage eingetragen` + (skipped ? `, ${skipped} übersprungen (schon belegt oder kein Arbeitstag)` : ''),
     rename: 'Umbenennen', deleteConfirm: (name: string) => `Vorlage „${name}“ löschen? Der Dienstplan bleibt unverändert.`,
     updated: 'Gespeichert am', employee: 'Mitarbeiter',

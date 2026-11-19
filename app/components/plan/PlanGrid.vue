@@ -11,6 +11,7 @@ import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { dayHoursText } from '~/utils/openingHours'
 import { gridStep, quickEntryHandlers, rovingStop } from '~/utils/quickEntry'
+import { templateUseHint } from '~/utils/templateUses'
 import { indexWarnings, warningText } from '~/utils/warnings'
 
 const props = defineProps<{
@@ -274,6 +275,7 @@ const rows = computed(() => props.plan.days.map((day) => {
   })
   const dayWarningList = warnings.value.byDate.get(day.date) ?? []
   const week = weekByLastDay.value.get(day.date)
+  const templateUse = week ? templateUseHint(week) : null
   return {
     day,
     cells,
@@ -284,7 +286,9 @@ const rows = computed(() => props.plan.days.map((day) => {
       ? {
           number: week.weekNumber,
           start: week.weekStart,
-          templateName: week.templateName,
+          // The use hint names the template already when it filled the week last (the mark stays for a saved week).
+          templateName: templateUse && week.templateUses[0]?.templateName === week.templateName ? null : week.templateName,
+          templateUse,
           // Helpers' hours count in their home facility: their column stays empty. A group's template name stands
           // in its attendance column (the facility's template name in the KW column).
           totals: columns.value.map(column => (column.kind === 'attendance'
@@ -537,6 +541,7 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
             </template>
             <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span v-if="row.week.templateUse" class="text-gray-500" :title="row.week.templateUse.title">{{ row.week.templateUse.text }}</span>
                 <span>{{ de.plan.weekHint }}</span>
                 <template v-if="editable">
                   <button type="button" class="text-sky-700 hover:underline print:hidden" @click="emit('saveWeek', row.week.start)">

@@ -1024,6 +1024,13 @@ export interface SnapshotData {
   groups?: GroupDto[]
 }
 
+/** A week template applied to a plan week: its name then, when (ISO time) and by whom (username). */
+export interface WeekTemplateUseDto {
+  templateName: string
+  appliedAt: string
+  appliedBy: string
+}
+
 export interface WeekSummaryDto {
   weekStart: IsoDate
   weekEnd: IsoDate
@@ -1032,6 +1039,10 @@ export interface WeekSummaryDto {
   templateName: string | null
   /** Template names of the week keyed '0' (the whole facility, as templateName) or by group id; none = {}. */
   templateNames: Record<string, string>
+  /** Each time a week template filled this week, the latest first (none = []); only in the editors' plan data. */
+  templateUses: WeekTemplateUseDto[]
+  /** Something of the week's plan was entered, changed or deleted after the latest of templateUses (not by the apply). */
+  templateChangedSince: boolean
   totals: { employeeId: number; target: number; credit: number; delta: number }[]
 }
 

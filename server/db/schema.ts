@@ -538,6 +538,27 @@ export const weekTemplateMarks = sqliteTable('week_template_marks', {
   groupId: integer('group_id').notNull().default(0),
 }, table => [primaryKey({ columns: [table.facilityId, table.groupId, table.weekStart] })])
 
+/**
+ * Each time a week template filled a plan week, for the hint in the plan's week row (editors only). The template's
+ * name and the applier's username are kept as they were (a deleted template keeps its name; the username is kept like
+ * the names of the change log); the rows go with the facility only.
+ */
+export const weekTemplateUses = sqliteTable('week_template_uses', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: facilityId(),
+  /** The Monday of the plan week. */
+  weekStart: text('week_start').notNull(),
+  templateId: integer('template_id').references(() => weekTemplates.id, { onDelete: 'set null' }),
+  templateName: text('template_name').notNull(),
+  appliedAt: text('applied_at').notNull(),
+  appliedBy: text('applied_by').notNull(),
+  /**
+   * The facility's plan of that week right after the apply, as a fingerprint of its entries (weekFingerprint): another
+   * fingerprint now means it was entered, changed or deleted in since („danach angepasst“).
+   */
+  weekFingerprint: text('week_fingerprint').notNull(),
+}, table => [index('week_template_uses_facility_week').on(table.facilityId, table.weekStart)])
+
 /** Message to an employee that their released duties changed (created when a month is released again). */
 export const notifications = sqliteTable('notifications', {
   id: integer('id').primaryKey({ autoIncrement: true }),

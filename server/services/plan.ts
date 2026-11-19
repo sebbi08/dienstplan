@@ -39,7 +39,7 @@ import { buildSnapshot, loadReleases, type StoredRelease } from './release'
 import { staffingWarnings } from './staffingReport'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
 import { loadWarningAcks } from './warningAcks'
-import { weekTemplateNames } from './weekTemplates'
+import { weekTemplateNames, weekTemplateUsesOf } from './weekTemplates'
 import { youthPlanWarnings } from './youthProtection'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
@@ -182,6 +182,7 @@ function buildAdminData(
 
   const weeks: WeekSummaryDto[] = []
   const templateNames = weekTemplateNames(db, facilityId, rangeStart, monthEnd)
+  const templateUses = weekTemplateUsesOf(db, facilityId, rangeStart, monthEnd)
   for (let start = rangeStart; start <= monthEnd; start = addDays(start, 7)) {
     const end = addDays(start, 6)
     weeks.push({
@@ -190,6 +191,8 @@ function buildAdminData(
       weekNumber: isoWeekNumber(start),
       templateName: templateNames.get(start)?.['0'] ?? null,
       templateNames: templateNames.get(start) ?? {},
+      templateUses: templateUses.get(start)?.uses ?? [],
+      templateChangedSince: templateUses.get(start)?.changedSince ?? false,
       totals: staff.map(employee => ({
         employeeId: employee.id,
         // Only the days the hours account counts (countsForBalance): weeks before „Stundenkonto ab“ show no difference.

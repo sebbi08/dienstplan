@@ -1,4 +1,5 @@
-import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
+import { and, asc, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
 import { isHolidayIn } from '../../shared/domain/holidays'
@@ -10,10 +11,12 @@ import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
 import { isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '../../shared/domain/weekTemplates'
 import type {
   ColorKey, SessionUser, WeekTemplateApplyResult, WeekTemplateCoverageDto, WeekTemplateDetailDto, WeekTemplateDto,
-  WeekTemplateEntryDto, WeekTemplateInput, WeekTemplateStaffDto,
+  WeekTemplateEntryDto, WeekTemplateInput, WeekTemplateStaffDto, WeekTemplateUseDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, employees, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates } from '../db/schema'
+import {
+  absenceCodes, employees, entries, shiftTemplates, weekTemplateEntries, weekTemplateMarks, weekTemplates, weekTemplateUses,
+} from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { dayConflict, describeCellAt, resolveEntry } from './entries'
@@ -371,8 +374,55 @@ export function applyWeekTemplate(
       })
       result.filled += 1
     }
-    if (result.filled > 0) markWeek(tx, template, weekStart)
+    if (result.filled > 0) {
+      markWeek(tx, template, weekStart)
+      recordUse(tx, actor, template, weekStart, timestamp)
+    }
   })
+  return result
+}
+
+/**
+ * A fingerprint of the facility's plan of the week (its own staff's and its helpers' entries there, with what they
+ * hold): any entry entered, changed or deleted gives another one. Robust where the change log is not: that one only
+ * records released months, and entries' own timestamps tell nothing about deleted entries.
+ */
+function weekFingerprint(db: Db, facilityId: number, weekStart: IsoDate): string {
+  const week = loadEntries(db, { from: weekStart, to: addDays(weekStart, WEEKDAYS - 1), planFacilityId: facilityId })
+    .map(entry => [
+      entry.id, entry.employeeId, entry.date, entry.kind, entry.templateId, entry.codeId, entry.start, entry.end, entry.breakStart,
+      entry.breakEnd, entry.countsAsStaff, entry.groupId, entry.homeOffice, entry.note, entry.helpFacilityId,
+    ])
+    .sort((a, b) => (a[0] as number) - (b[0] as number))
+  return createHash('sha256').update(JSON.stringify(week)).digest('hex')
+}
+
+/** Records that the template filled the week (in the apply's transaction, after its entries are written). */
+function recordUse(db: Db, actor: SessionUser, template: typeof weekTemplates.$inferSelect, weekStart: IsoDate, appliedAt: string): void {
+  db.insert(weekTemplateUses).values({
+    facilityId: template.facilityId, weekStart, templateId: template.id, templateName: template.name, appliedAt,
+    appliedBy: actor.username, weekFingerprint: weekFingerprint(db, template.facilityId, weekStart),
+  }).run()
+}
+
+/**
+ * The templates applied to the facility's plan weeks (by Monday) from `from` to `to`, the latest first, and whether the
+ * week's plan changed since the latest one (its fingerprint then differs from now). Weeks without any are left out.
+ */
+export function weekTemplateUsesOf(
+  db: Db, facilityId: number, from: IsoDate, to: IsoDate,
+): Map<IsoDate, { uses: WeekTemplateUseDto[]; changedSince: boolean }> {
+  const rows = db.select().from(weekTemplateUses)
+    .where(and(eq(weekTemplateUses.facilityId, facilityId), gte(weekTemplateUses.weekStart, from), lte(weekTemplateUses.weekStart, to)))
+    .orderBy(desc(weekTemplateUses.appliedAt), desc(weekTemplateUses.id))
+    .all()
+  const result = new Map<IsoDate, { uses: WeekTemplateUseDto[]; changedSince: boolean }>()
+  for (const [weekStart, uses] of Map.groupBy(rows, row => row.weekStart)) {
+    result.set(weekStart, {
+      uses: uses.map(({ templateName, appliedAt, appliedBy }) => ({ templateName, appliedAt, appliedBy })),
+      changedSince: uses[0]!.weekFingerprint !== weekFingerprint(db, facilityId, weekStart),
+    })
+  }
   return result
 }
 

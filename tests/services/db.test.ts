@@ -2094,6 +2094,19 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(count(sqlite, 'employee_emergency_consent_log')).toBe(0)
   })
 
+  it('0096 adds the empty uses of week templates; a deleted template leaves its uses with their name', () => {
+    const { db, sqlite } = databaseAt('0095')
+    sqlite.exec(`INSERT INTO week_templates (id, facility_id, name, updated_at) VALUES (1, 1, 'Woche A', '2026-10-01T08:00:00.000Z')`)
+    migrateDb(db, MIGRATIONS)
+    expect(count(sqlite, 'week_template_uses')).toBe(0)
+    sqlite.exec(`INSERT INTO week_template_uses (facility_id, week_start, template_id, template_name, applied_at, applied_by, week_fingerprint)
+      VALUES (1, '2026-10-12', 1, 'Woche A', '2026-10-01T08:00:00.000Z', 'leitung', 'x')`)
+    sqlite.exec('DELETE FROM week_templates WHERE id = 1')
+    expect(sqlite.prepare('SELECT template_id, template_name FROM week_template_uses').all()).toEqual([{ template_id: null, template_name: 'Woche A' }])
+    expect(() => sqlite.exec(`INSERT INTO week_template_uses (facility_id, week_start, template_name, applied_at, applied_by, week_fingerprint)
+      VALUES (99, '2026-10-12', 'B', '2026-10-01', 'x', 'x')`)).toThrow(/FOREIGN KEY/)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')
