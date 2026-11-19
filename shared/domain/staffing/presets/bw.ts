@@ -1,18 +1,18 @@
 import type { StaffingRuleSet } from '../types'
-import { leitung, shares } from './common'
+import { leitung, shares, TRAINEES_NOTE, TRAINEES_REVISED } from './common'
 
-/** Baden-Württemberg: Vollzeitfachkräfte je Gruppe nach Gruppenart (KiTaVO § 1). */
-export const BW: StaffingRuleSet[] = [{
+const NOTE = 'Nicht abgebildet: Anpassung an mehr oder weniger als 26 Schließtage; Halbtags- und Regelgruppe brauchen '
+  + 'eine zweite Kraft für die halbe Öffnungszeit; eingruppige Einrichtungen immer 2 Kräfte; Krippen-Schlüssel ab '
+  + '15 Std./Woche. Übergangsregelung § 1a bis 31.08.2027 (Fachkraft durch Zusatzkräfte ersetzbar, höchstens '
+  + '20 % unter dem Schlüssel, Meldung an den KVJS) nicht berücksichtigt. Zusatzkräfte zählen grundsätzlich nicht'
+
+const current: StaffingRuleSet = {
   land: 'BW',
   validFrom: '2025-07-14',
   source: 'KiTaVO BW § 1 (Mindestpersonalschlüssel), § 1a; KiTaG BW § 7',
   confidence: 'high',
-  note: 'Nicht abgebildet: Anpassung an mehr oder weniger als 26 Schließtage; Halbtags- und Regelgruppe brauchen '
-    + 'eine zweite Kraft für die halbe Öffnungszeit; eingruppige Einrichtungen immer 2 Kräfte; Krippen-Schlüssel ab '
-    + '15 Std./Woche. Übergangsregelung § 1a bis 31.08.2027 (Fachkraft durch Zusatzkräfte ersetzbar, höchstens '
-    + '20 % unter dem Schlüssel, Meldung an den KVJS) nicht berücksichtigt. Zusatzkräfte zählen grundsätzlich nicht; '
-    + 'Anrechnung von PiA/Auszubildenden nicht geprüft. Beginn dieser Fassung nicht recherchiert (Datum der '
-    + 'Änderungsverordnung vom 14.07.2025).',
+  note: `${NOTE}; Anrechnung von PiA/Auszubildenden nicht geprüft. Beginn dieser Fassung nicht recherchiert (Datum `
+    + 'der Änderungsverordnung vom 14.07.2025).',
   method: 'group_fte',
   fteHoursPerWeek: 39,
   groupTypes: [
@@ -56,4 +56,23 @@ export const BW: StaffingRuleSet[] = [{
   ],
   staffShares: shares({ ergaenzung: 0 }),
   quotas: [],
-}]
+}
+
+/** Baden-Württemberg: Vollzeitfachkräfte je Gruppe nach Gruppenart (KiTaVO § 1). */
+export const BW: StaffingRuleSet[] = [
+  current,
+  {
+    ...current,
+    validFrom: TRAINEES_REVISED,
+    source: 'KiTaVO BW § 1 (Mindestpersonalschlüssel), § 1a; KiTaG BW § 7; KM-FAQ zum KiTaG (Auszubildende, Studierende)',
+    note: `${TRAINEES_NOTE} Auszubildende (PiA Erzieher) und Studierende (DHBW/dual) zählen mit bis zu 40 %, `
+      + 'Berufspraktikum (Anerkennungsjahr) mit bis zu 100 % „als Fachkraft“ (§ 7 Abs. 4 KiTaG, KM-FAQ zum KiTaG) – '
+      + 'bei der Mindestbesetzung nach Uhrzeit aber nicht als ganze Fachkraft. PiA Sozialpädagogische Assistenz '
+      + '(2./3. Jahr) und Direkteinstieg Kita (2. Jahr) bis 20 %, über das L-Bank-Programm geförderte PiA-Plätze 0 % '
+      + `– beim Mitarbeiter eintragen. Praxissemester an anderen Hochschulen zählen nicht. ${NOTE}. Beginn der `
+      + 'Fassung vom 14.07.2025 nicht recherchiert.',
+    staffShares: shares({
+      ergaenzung: 0, azubi_1: 40, azubi_2: 40, azubi_3: 40, studium_1: 40, studium_2: 40, studium_3: 40, praktikant: 100,
+    }),
+  },
+]

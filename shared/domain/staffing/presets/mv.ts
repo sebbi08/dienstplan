@@ -1,8 +1,7 @@
 import type { StaffingRuleSet } from '../types'
-import { shares } from './common'
+import { shares, TRAINEES_NOTE, TRAINEES_REVISED } from './common'
 
-/** Mecklenburg-Vorpommern: durchschnittliche Fachkraft-Kind-Relation auf 10-Stunden-Basis (KiföG M-V § 14). */
-export const MV: StaffingRuleSet[] = [{
+const current: StaffingRuleSet = {
   land: 'MV',
   validFrom: '2024-09-01',
   source: 'KiföG M-V § 14 (Kindergarten 1 : 14 ab 01.09.2024); Satzungen der Kreise; Landesrahmenvertrag § 24 Abs. 5',
@@ -23,4 +22,30 @@ export const MV: StaffingRuleSet[] = [{
   presence: [],
   staffShares: shares(),
   quotas: [],
-}]
+}
+
+/** Mecklenburg-Vorpommern: durchschnittliche Fachkraft-Kind-Relation auf 10-Stunden-Basis (KiföG M-V § 14). */
+export const MV: StaffingRuleSet[] = [
+  current,
+  {
+    ...current,
+    validFrom: TRAINEES_REVISED,
+    source: 'KiföG M-V §§ 13, 14 (Kindergarten 1 : 14 ab 01.09.2024); Satzungen der Kreise; Landesrahmenvertrag § 24 '
+      + 'Abs. 5',
+    note: 'Bitte prüfen: Die Umrechnung in Vollzeitkräfte regeln die Kreise per Satzung; hier Krippe 1 : 6, '
+      + 'Kindergarten 1 : 14, Hort 1 : 22 je 10 Std./Tag, anteilig nach Betreuungsstunden. Leitung (vermutlich '
+      + `außerhalb der Relation) nicht enthalten. ${TRAINEES_NOTE} Auszubildende (Erzieher für 0- bis 10-Jährige): `
+      + '0/0/50 % nach Ausbildungsjahr (§ 14 Abs. 7; das 1. Jahr zählt seit 01.08.2023, das 2. seit 01.08.2024 '
+      + 'nicht mehr); andere Ausbildungen (Erzieher, Sozialassistenz, Kinderpflege) 0 % – beim Mitarbeiter '
+      + 'eintragen. Pädagogische Assistenzkräfte 80 % (§ 14 Abs. 9). Studierende zählen nicht, auch nicht mit 120 '
+      + 'Leistungspunkten (§ 13 Abs. 3). Assistenzkräfte, Auszubildende und Kräfte nach §§ 11/12 zusammen '
+      + 'grundsätzlich höchstens 25 % des Bedarfs (§ 14 Abs. 6) – als Quote ohne die Kräfte nach §§ 11/12. Text des '
+      + 'Gesetzes nur über eine Sekundärquelle gelesen. Geplant (noch kein Gesetz): Kindergarten 1 : 13 ab 2028, Hort '
+      + '1 : 20 ab 2029.',
+    staffShares: shares({ ergaenzung: 80, azubi_3: 50 }),
+    quotas: [{
+      key: 'assistenz', label: 'Assistenzkräfte und Auszubildende', kind: 'max_share',
+      qualifications: ['ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3'], pct: 25, base: 'required',
+    }],
+  },
+]

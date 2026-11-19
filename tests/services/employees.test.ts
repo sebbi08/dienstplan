@@ -150,6 +150,13 @@ describe('employees service', () => {
     updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, qualification: 'haushalt' })
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin'))).toMatchObject({ qualification: 'haushalt', staffingShare: null })
   })
+  it('accepts the qualifications Studium praxisintegriert/dual (1./2./ab 3. Studienjahr)', () => {
+    const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
+    for (const qualification of ['studium_1', 'studium_2', 'studium_3'] as const) {
+      updateEmployee(db, 1, id, { name: 'Anna', shortName: '', leftOn: null, qualification, staffingShare: 60 })
+      expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin'))).toMatchObject({ qualification, staffingShare: 60 })
+    }
+  })
   it('stores qualification and counting share for the staffing ratio, keeps them when left out and clears them with null', () => {
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'admin'))).toMatchObject({ qualification: null, staffingShare: null })

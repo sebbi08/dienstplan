@@ -1209,8 +1209,14 @@ auch im Reiter und in den Einstellungen.
 
 - **Bundesland** der Einrichtung (Einstellungen → Einrichtung → Einrichtungen, Träger). Danach richten sich alle Zahlen.
 - **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Stammdaten, Leitung oder Träger): Fachkraft,
-  Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Praktikant/in oder **keine pädagogische Kraft**. Küche,
-  Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen sie mit.
+  Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Studium praxisintegriert/dual (1./2./ab 3. Studienjahr),
+  Berufspraktikant/in (Anerkennungsjahr), Haushaltskraft oder **keine pädagogische Kraft (z. B. Aushilfe,
+  Werkstudent/in)**. Küche, Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen
+  sie mit. Praxissemester, Pflichtpraktikum oder Werkstudent/in ohne pädagogischen Abschluss ebenfalls als „keine
+  pädagogische Kraft“. Welche Anrechnung das Land für Auszubildende, Studierende und Berufspraktikanten vorgibt (und
+  auf welcher Grundlage), steht im Hinweis der Vorgabe unter Einstellungen → Personalschlüssel. Diese Werte gelten ab
+  19.11.2026; im Reiter Personalschlüssel ab Dezember 2026, weil die App für jeden Monat die Fassung vom Monatsersten
+  nimmt. Für frühere Zeiträume bleiben die bisherigen Werte.
   „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im
   Feld). Eine eigene Zahl (0 bis 100) gilt nur für diese Person.
 - **Solange bei keinem Mitarbeiter der Einrichtung eine Qualifikation eingetragen ist, zeigt der Dienstplan keine

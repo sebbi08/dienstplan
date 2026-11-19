@@ -37,7 +37,9 @@ export const JOB_TITLES: Record<string, string> = {
 }
 export const QUALIFICATION_TITLES: Record<string, string> = {
   fachkraft: 'Fachkraft', ergaenzung: 'Ergänzungs-/Zusatzkraft', azubi_1: 'Auszubildende/r (1. Jahr)',
-  azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)', praktikant: 'Praktikant/in',
+  azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)',
+  studium_1: 'Studium praxisintegriert/dual (1. Studienjahr)', studium_2: 'Studium praxisintegriert/dual (2. Studienjahr)',
+  studium_3: 'Studium praxisintegriert/dual (ab 3. Studienjahr)', praktikant: 'Berufspraktikant/in (Anerkennungsjahr)',
   haushalt: 'Haushaltskraft',
 }
 

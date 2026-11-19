@@ -8,7 +8,7 @@ import { listGroups, setGroupType } from '../../server/services/groups'
 import {
   getStaffingSettings, resetStaffingOverrides, setStaffingOverrides, staffingRulesFor,
 } from '../../server/services/staffing'
-import { presetFor } from '../../shared/domain/staffing/presets'
+import { presetFor, presetVersions } from '../../shared/domain/staffing/presets'
 import type { GermanState } from '../../shared/domain/states'
 import type { SessionUser } from '../../shared/types/api'
 import { addFacility, addGroup, addUser, createTestDb, errorCode } from '../helpers/fixtures'
@@ -47,7 +47,8 @@ describe('staffing settings – reading', () => {
     })
     expect(result.effective).toEqual(bw)
     expect(result.values.find(v => v.path === REGEL)).toEqual({ path: REGEL, preset: 1.8, value: 1.8, overridden: false })
-    expect(result.versions).toEqual([{ validFrom: bw.validFrom, source: bw.source, confidence: 'high' }])
+    expect(result.versions).toEqual(presetVersions('BW').map(v => ({ validFrom: v.validFrom, source: v.source, confidence: 'high' })))
+    expect(result.versions.map(v => v.validFrom)).toEqual([bw.validFrom, '2026-11-19'])
     expect(settings(traeger).canEdit).toBe(true)
   })
 })
@@ -154,6 +155,21 @@ describe('staffing settings – overrides', () => {
     expect(january.rules.validFrom).toBe('2027-01-01')
     // The settings warn in advance.
     expect(settings().upcomingIgnored).toEqual([{ validFrom: '2027-01-01', path: u3, value: 4.5, preset: 4.25 }])
+  })
+
+  it('the trainee shares of 19.11.2026 behave like a new law version for overrides', () => {
+    changeState('SN')
+    const praktikant = 'staffShares.praktikant'
+    const ergaenzung = 'staffShares.ergaenzung'
+    set({ [praktikant]: 30, [ergaenzung]: 90 })
+    expect(staffingRulesFor(db, 1, '2026-11-01').rules.staffShares.praktikant).toBe(30)
+    // SN Berufspraktikum 50 → 0: the override lapses, the unchanged Ergänzungskraft share keeps its override
+    const december = staffingRulesFor(db, 1, '2026-12-01')
+    expect(december.rules.staffShares.praktikant).toBe(0)
+    expect(december.rules.staffShares.ergaenzung).toBe(90)
+    expect(december.ignored).toEqual([praktikant])
+    expect(settings().upcomingIgnored).toEqual([{ validFrom: '2026-11-19', path: praktikant, value: 30, preset: 50 }])
+    expect(getStaffingSettings(db, traeger, 1, '2026-11-19').ignored).toEqual([{ path: praktikant, value: 30, preset: 50 }])
   })
 
   it('keeps ignored overrides apart: re-saving after the version change neither re-arms nor fails', () => {

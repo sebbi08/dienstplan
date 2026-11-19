@@ -513,7 +513,7 @@ async function onTabKey(event: KeyboardEvent) {
       @submit.prevent="saveEmployee('qualification')"
     >
       <h2 class="font-semibold sm:col-span-4">{{ de.staffing.qualification }}</h2>
-      <UFormField :label="de.staffing.qualification" class="sm:col-span-2">
+      <UFormField :label="de.staffing.qualification" :help="de.staffing.qualificationHint" class="sm:col-span-2">
         <USelect v-model="qualificationForm.qualification" :items="qualificationItems" class="w-full" />
       </UFormField>
       <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">

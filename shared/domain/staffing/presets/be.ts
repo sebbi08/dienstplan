@@ -1,5 +1,5 @@
 import type { DemandRule, HoursBand, StaffingRuleSet } from '../types'
-import { leitung, shares } from './common'
+import { leitung, shares, TRAINEES_NOTE, TRAINEES_REVISED } from './common'
 
 /** Children per 38.5-h position by Betreuungsumfang: Ganztag / Teilzeit / Halbtag. */
 type Ratios = readonly [ganztag: number, teilzeit: number, halbtag: number]
@@ -19,6 +19,9 @@ function rows(under2: Ratios, twoToThree: Ratios, ue3: Ratios): DemandRule[] {
 }
 
 const UE3: Ratios = [9, 11, 14]
+
+/** The ratios from 01.08.2026. */
+const AUGUST_2026 = rows([2.75, 4, 6], [3.75, 5, 7], UE3)
 
 const base: Omit<StaffingRuleSet, 'validFrom' | 'note' | 'demand'> = {
   land: 'BE',
@@ -60,6 +63,29 @@ export const BE: StaffingRuleSet[] = [
     ...base,
     validFrom: '2026-08-01',
     note: `${NOTE} Ab 2027 ersetzt das berlinpass-Kriterium das ndH-Kriterium.`,
-    demand: rows([2.75, 4, 6], [3.75, 5, 7], UE3),
+    demand: AUGUST_2026,
+  },
+  {
+    ...base,
+    validFrom: TRAINEES_REVISED,
+    source: `${base.source}; Kita-Aufsicht „Fachkräfte in Tageseinrichtungen für Kinder“ (Stand März 2026)`,
+    note: `${TRAINEES_NOTE} Berufsbegleitende Ausbildung und berufsbegleitendes/duales Studium zum Fachkraftabschluss `
+      + '(Vertrag ab 19,7 Std.) zählen ab Schul- bzw. Studienbeginn mit den angerechneten Stunden (14,5 bis 23 '
+      + 'Std./Woche) abzüglich 5 Std./Woche – hier rund 75 % (VOKitaFöG § 11 Abs. 3 Nr. 2; Kita-Aufsicht, Stand März '
+      + '2026). Vollzeitschüler, Sozialassistenz und Praxissemester zählen nicht; ein Anerkennungsjahr gibt es in '
+      + 'Berlin nicht. Quereinsteiger, Auszubildende und Studierende zusammen höchstens die Hälfte der '
+      + 'Fachkraftstunden: geprüft wird ersatzweise, dass Auszubildende und Studierende höchstens 33 % des Ist '
+      + 'ausmachen (Quereinsteiger nicht erfasst); die Voraussetzung von mind. 3 Fachkräften (bis 25 Plätze 2) ist '
+      + 'nicht geprüft. Sonst zählt nur pädagogisches Fachpersonal. Zuschläge für Kinder mit Behinderung (Typ A 0,25 '
+      + '/ Typ B 0,5), ndH-Kinder (0,017 bei über 40 %), QM/MSS-Gebiet (0,010) und Sprachförderung sind nicht '
+      + 'abgebildet. Schulkinder (Hort) ohne Werte. Ab 2027 ersetzt das berlinpass-Kriterium das ndH-Kriterium.',
+    demand: AUGUST_2026,
+    staffShares: shares({
+      ergaenzung: 0, azubi_1: 75, azubi_2: 75, azubi_3: 75, studium_1: 75, studium_2: 75, studium_3: 75,
+    }),
+    quotas: [{
+      key: 'auszubildende', label: 'Auszubildende und Studierende', kind: 'max_share',
+      qualifications: ['azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3'], pct: 33, base: 'planned',
+    }],
   },
 ]

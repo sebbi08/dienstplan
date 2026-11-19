@@ -5,7 +5,8 @@ import type {
 } from '../../shared/domain/staffing/types'
 
 const shares = {
-  fachkraft: 100, ergaenzung: 100, azubi_1: 0, azubi_2: 0, azubi_3: 0, praktikant: 0, haushalt: 0, none: 0,
+  fachkraft: 100, ergaenzung: 100, azubi_1: 0, azubi_2: 0, azubi_3: 0, studium_1: 0, studium_2: 0, studium_3: 0, praktikant: 0,
+  haushalt: 0, none: 0,
 }
 const rulesWith = (presence: PresenceRule[]): StaffingRuleSet => ({
   land: 'BW', validFrom: '2026-01-01', source: 'test', confidence: 'high', method: 'group_fte',

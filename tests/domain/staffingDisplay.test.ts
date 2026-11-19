@@ -83,7 +83,7 @@ describe('staffing settings sections', () => {
   it('labels a path for the notes, also from another version, and keeps unknown paths', () => {
     const versions = presetVersions('BB')
     expect(staffingPathLabel('fteHoursPerWeek', versions)).toBe('Vollzeit: Wochenstunden einer Vollzeitkraft')
-    expect(staffingPathLabel('staffShares.praktikant', versions)).toBe('Anrechnung je Qualifikation: Praktikant/in')
+    expect(staffingPathLabel('staffShares.praktikant', versions)).toBe('Anrechnung je Qualifikation: Berufspraktikant/in (Anerkennungsjahr)')
     expect(staffingPathLabel('demand.nowhere.childrenPerFte', versions)).toBe('demand.nowhere.childrenPerFte')
   })
 })
