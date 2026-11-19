@@ -272,18 +272,16 @@ export function deleteBemStep(db: Db, scope: BemScope, stepId: number): void {
 }
 
 /**
- * „Gesprächsnotizen löschen“ after the consent was withdrawn (or the BEM declined): the participants and texts of its
- * talks and measures are cleared, their dates and the measures' status stay, as do the process's dates and status (the
- * evidence of the offer and its end). Only for a declined process (409 bem_state_invalid). Answers the steps cleared.
+ * „Gesprächsnotizen löschen“ after the consent was withdrawn (or the BEM declined): the participants and texts of all its
+ * steps (talks, measures and notes: any of them may hold health data) are cleared; the steps' dates, kinds and the
+ * measures' status stay, as do the process's dates and status (the evidence of the offer and its end). Only for a
+ * declined process (409 bem_state_invalid). Answers the steps cleared.
  */
 export function clearBemNotes(db: Db, scope: BemScope, id: number, now: Date = new Date()): number {
   const process = loadProcess(db, scope, id)
   if (process.status !== 'declined') throw new ServiceError(409, 'bem_state_invalid')
   return db.update(bemSteps).set({ participants: '', text: '', updatedAt: now.toISOString() })
-    .where(and(
-      eq(bemSteps.processId, id), inArray(bemSteps.kind, ['meeting', 'measure']),
-      or(ne(bemSteps.participants, ''), ne(bemSteps.text, '')),
-    )).run().changes
+    .where(and(eq(bemSteps.processId, id), or(ne(bemSteps.participants, ''), ne(bemSteps.text, '')))).run().changes
 }
 
 // ---- the invitation ---------------------------------------------------------

@@ -240,7 +240,7 @@ describe('the BEM process', () => {
     expect(errorCode(() => addBemStep(db, scope, id, 'meeting', input))).toBeNull()
   })
 
-  it('clears the texts of talks and measures after a withdrawn consent, keeping dates and status', () => {
+  it('clears the texts of talks, measures and notes after a withdrawn consent, keeping dates, kinds and status', () => {
     const id = startBem(db, leitung, scope, anna)
     answerBem(db, scope, id, 'accepted', '2026-11-02', TODAY)
     const meeting = addBemStep(db, scope, id, 'meeting', { date: '2026-11-05', participants: 'Betriebsarzt', text: 'Rücken', status: null })
@@ -248,14 +248,14 @@ describe('the BEM process', () => {
     const note = addBemStep(db, scope, id, 'note', { date: '2026-11-07', participants: '', text: 'Termin verschoben', status: null })
     expect(errorCode(() => clearBemNotes(db, scope, id))).toBe('bem_state_invalid')
     answerBem(db, scope, id, 'declined', '2026-11-10', TODAY)
-    expect(clearBemNotes(db, scope, id)).toBe(2)
+    expect(clearBemNotes(db, scope, id)).toBe(3)
     expect(clearBemNotes(db, scope, id)).toBe(0)
     const [process] = getEmployeeBem(db, scope, anna, TODAY).history
     expect(process).toMatchObject({ status: 'declined', answeredOn: '2026-11-02', completedOn: '2026-11-10' })
     expect(process!.steps).toEqual([
       { id: meeting, kind: 'meeting', date: '2026-11-05', participants: '', text: '', status: null },
       { id: measure, kind: 'measure', date: '2026-11-06', participants: '', text: '', status: 'done' },
-      { id: note, kind: 'note', date: '2026-11-07', participants: '', text: 'Termin verschoben', status: null },
+      { id: note, kind: 'note', date: '2026-11-07', participants: '', text: '', status: null },
     ])
     const hort = addFacility(db, 'Hort')
     expect(errorCode(() => clearBemNotes(db, { facilityId: hort, ownEmployeeId: null }, id))).toBe('bem_not_found')

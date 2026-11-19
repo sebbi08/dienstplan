@@ -75,9 +75,9 @@ async function clearNotes(process: BemProcessDto) {
   if (!await confirm(t.clearNotesConfirm, { confirmLabel: t.clearNotes })) return
   await run(() => $fetch<{ cleared: number }>(`/api/bem/${process.id}/clear-notes`, { method: 'POST' }), t.clearedNotes)
 }
-/** A declined BEM with contents in its talks or measures (after a withdrawn consent). */
+/** A declined BEM (e.g. after a withdrawn consent) with texts left in its steps. */
 const hasNotes = (process: BemProcessDto) => process.status === 'declined'
-  && process.steps.some(item => item.kind !== 'note' && (item.text !== '' || item.participants !== ''))
+  && process.steps.some(item => item.text !== '' || item.participants !== '')
 /** Talks and measures only after the consent; a note also before. */
 const stepKinds = computed(() => BEM_STEP_KINDS.filter(kind => kind === 'note' || open.value?.status === 'accepted'))
 async function complete(process: BemProcessDto) {

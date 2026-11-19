@@ -1541,8 +1541,8 @@ Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
     Notizen) und **Maßnahmen** (Datum, Text, geplant / umgesetzt / verworfen); **„Abschließen“** mit Datum.
     „Zustimmung widerrufen“ (mit „Widerrufen am“) beendet das BEM als „abgelehnt“.
   - Nach einem Widerruf bzw. einer Ablehnung bietet das frühere BEM **„Gesprächsnotizen löschen“** an (mit Rückfrage):
-    Beteiligte und Texte der Gespräche und Maßnahmen werden gelöscht, Daten, Stand der Maßnahmen und das BEM selbst
-    (Einladung, Antwort, Ende) bleiben als Nachweis.
+    Beteiligte und Texte aller Gespräche, Maßnahmen und Notizen werden gelöscht; Daten, Art, Stand der Maßnahmen und
+    das BEM selbst (Einladung, Antwort, Ende) bleiben als Nachweis.
   - Ein versehentlich eingeleitetes BEM lässt sich löschen, solange die Einladung nicht verschickt ist. Danach ist das
     Angebot der Nachweis: dann bitte die Antwort eintragen (z. B. „keine Antwort“ nach Ablauf der Frist).
   - **Frühere BEM** stehen darunter, nur zum Lesen.
