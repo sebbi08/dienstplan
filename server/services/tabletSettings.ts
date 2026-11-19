@@ -6,8 +6,7 @@ import type { TabletSettingsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { facilities, tabletUnlockedWindows } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { hasOpeningHoursEveryWeekday } from './openingHours'
-import { deleteExpiredUnlocks, getNoLockWindows } from './tabletNoLock'
+import { deleteExpiredUnlocks, getNoLockWindows, hasOpeningHoursEveryWeekday } from './tabletNoLock'
 
 /** What the settings take: the windows may be left out (then they stay as they are). */
 export type TabletSettingsInput = Omit<TabletSettingsDto, 'noLockWindows'> & { noLockWindows?: TimeWindow[] }
@@ -31,7 +30,8 @@ export function getTabletSettings(db: Db, facilityId: number): TabletSettingsDto
  * Stores the facility's tablet settings: the lock time is a whole number of minutes from 1 to 30, else 400
  * tablet_lock_minutes_invalid (404 facility_not_found). Given windows without the automatic lock replace the stored ones
  * (see noLockWindowsError: 400 tablet_windows_too_many, tablet_window_time_invalid, tablet_window_invalid,
- * tablet_windows_overlap; tablet_window_too_long while the facility has no opening hours for every weekday).
+ * tablet_windows_overlap; while the facility has no opening hours for every weekday also tablet_window_too_long and
+ * tablet_windows_span_too_long: more than 14 hours from the earliest start to the latest end).
  * Unlocks that already ran out are deleted first, under the old settings, so a longer lock time or a new window does not
  * revive them; the new settings apply at once to a tablet that is unlocked.
  */

@@ -84,6 +84,7 @@ describe('tablet settings', () => {
       expect(refused([{ start: 60, end: 1500 }])).toBe('tablet_window_time_invalid')
       expect(refused([{ start: 0, end: 1440 }])).toBe('tablet_window_too_long')
       expect(refused([{ start: 300, end: 300 + 14 * 60 + 5 }])).toBe('tablet_window_too_long')
+      expect(refused([{ start: 0, end: 840 }, { start: 840, end: 1440 }])).toBe('tablet_windows_span_too_long')
       expect(getTabletSettings(db, 1)).toEqual({ ...base, noLockWindows: [{ start: 420, end: 510 }] })
     })
   })

@@ -2163,6 +2163,7 @@ export const de = {
     tablet_windows_overlap: 'Die Zeiträume ohne automatische Sperre dürfen sich nicht überschneiden.',
     tablet_window_time_invalid: 'Bitte bei jedem Zeitraum „Von“ und „Bis“ als Uhrzeit eingeben (0:00 bis 24:00) oder den Zeitraum entfernen.',
     tablet_window_too_long: 'Ein Zeitraum ohne automatische Sperre darf höchstens 14 Stunden dauern, solange nicht für jeden Wochentag Öffnungszeiten eingetragen sind.',
+    tablet_windows_span_too_long: 'Solange nicht für jeden Wochentag Öffnungszeiten eingetragen sind, dürfen alle Zeiträume ohne automatische Sperre zusammen höchstens 14 Stunden umfassen (vom frühesten Beginn bis zum spätesten Ende).',
     mark_tolerance_invalid: 'Die Kulanz muss eine ganze Zahl von 0 bis 60 Minuten sein.',
     tablet_locked: 'Die Kinderakten sind gesperrt. Bitte gib deinen Namen und deine PIN neu ein.',
     children_tablet_only: 'Kinderakten siehst du nur am Tablet deiner Einrichtung.',

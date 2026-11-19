@@ -47,7 +47,7 @@ function endTime(moment: number): string {
   return formatTime(minutes === 0 ? 1440 : minutes)
 }
 
-/** The unlock bar's note while a window without the automatic lock runs („ohne automatische Sperre bis 08:30“), else null. */
+/** The unlock bar's note while a window without the automatic lock runs („ohne automatische Sperre bis 8:30“), else null. */
 export function noAutoLockNote(periods: readonly NoLockPeriod[], now: number): string | null {
   const until = noLockUntil(now, periods)
   return until === null ? null : de.terminal.noAutoLockUntil(endTime(until))

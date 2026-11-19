@@ -15,6 +15,7 @@ import { groupNames } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { getLeaveCounting } from './leaveCounting'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
+import { deleteExpiredUnlocks } from './tabletNoLock'
 
 export interface ClosureInput {
   startDate: IsoDate
@@ -91,6 +92,7 @@ export function createClosure(
 ): ClosureDto {
   const label = checkedLabel(input)
   return db.transaction((tx) => {
+    deleteExpiredUnlocks(tx, now)
     const closure = tx.insert(closures)
       .values({ facilityId, startDate: input.startDate, endDate: input.endDate, label, mode: input.mode })
       .returning(closureColumns).get()
@@ -198,6 +200,8 @@ export function updateClosure(
   const replan = input.startDate !== current.startDate || input.endDate !== current.endDate || input.mode !== current.mode
 
   return db.transaction((tx) => {
+    // Closures decide the tablet's open days: an unlock that ran out must not come back on a day that opens again.
+    deleteExpiredUnlocks(tx, now)
     const closure = tx.update(closures).set({ startDate: input.startDate, endDate: input.endDate, label, mode: input.mode })
       .where(eq(closures.id, id)).returning(closureColumns).get()!
     if (!replan) return closure
@@ -240,6 +244,7 @@ export function deleteClosure(db: Db, actor: SessionUser, facilityId: number, id
   const own = db.select({ id: closures.id }).from(closures).where(and(eq(closures.id, id), eq(closures.facilityId, facilityId))).get()
   if (!own) throw new ServiceError(404, 'closure_not_found')
   db.transaction((tx) => {
+    deleteExpiredUnlocks(tx, now)
     const cells = loadEntries(tx, { closureId: id }).filter(entry => entry.helpFacilityId === null)
       .map(entry => ({ employeeId: entry.employeeId, date: entry.date }))
     const names = groupNames(tx, facilityId)

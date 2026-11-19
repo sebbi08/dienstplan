@@ -62,6 +62,14 @@ describe('noLockWindowsError (settings check)', () => {
     expect(noLockWindowsError([w(0, 1440)])).toBeNull()
   })
 
+  it('without opening hours refuses windows spanning more than 14 hours together, touching or not', () => {
+    const limited = { limitLength: true }
+    expect(noLockWindowsError([w(0, 840), w(840, 1440)], limited)).toEqual({ code: 'tablet_windows_span_too_long', row: null })
+    expect(noLockWindowsError([w(300, 840), w(860, 1440)], limited)).toEqual({ code: 'tablet_windows_span_too_long', row: null })
+    expect(noLockWindowsError([w(360, 480), w(900, 1200)], limited)).toBeNull()
+    expect(noLockWindowsError([w(0, 840), w(840, 1440)])).toBeNull()
+  })
+
   it('sorts the windows by start', () => {
     expect(sortedWindows([w(900, 960), w(420, 480)])).toEqual([w(420, 480), w(900, 960)])
   })
@@ -73,8 +81,13 @@ describe('windowsOnDay', () => {
     expect(windowsOnDay([w(400, 480), w(960, 1020), w(1000, 1100)], w(420, 990))).toEqual([w(420, 480), w(960, 990)])
   })
 
-  it('without opening hours that day drops windows longer than 14 hours', () => {
-    expect(windowsOnDay([w(0, 1440), w(420, 480)], null)).toEqual([w(420, 480)])
+  it('without opening hours that day cuts everything to 14 hours after the earliest start', () => {
+    expect(windowsOnDay([w(0, 1440)], null)).toEqual([w(0, 840)])
+    expect(windowsOnDay([w(0, 840), w(840, 1440)], null)).toEqual([w(0, 840)])
+    // A nearly touching chain (gap shorter than the lock time) ends 14 hours after 5:00 too.
+    expect(windowsOnDay([w(300, 840), w(860, 1440)], null)).toEqual([w(300, 840), w(860, 1140)])
+    expect(windowsOnDay([w(420, 480), w(900, 960)], null)).toEqual([w(420, 480), w(900, 960)])
+    expect(windowsOnDay([], null)).toEqual([])
   })
 })
 

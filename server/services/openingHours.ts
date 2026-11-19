@@ -1,15 +1,13 @@
-import { and, asc, eq, gte, isNull, lte } from 'drizzle-orm'
-import { weekday } from '../../shared/domain/dates'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { hoursOn, type DayHours, type OpeningHours } from '../../shared/domain/openingHours'
-import type { IsoDate, Minutes } from '../../shared/domain/types'
-import { isCheckedDay, type DayHoursContext } from '../../shared/domain/warnings'
+import type { IsoDate } from '../../shared/domain/types'
+import type { DayHoursContext } from '../../shared/domain/warnings'
 import type { OpeningHoursDto, PlanDayDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { closures as closuresTable, facilities, groups, openingHours } from '../db/schema'
+import { facilities, groups, openingHours } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { assertGroup } from './groups'
-import { facilityHolidayRules } from './holidayRules'
-import { closureColumns, closureOn } from './queries'
+import { deleteExpiredUnlocks } from './tabletNoLock'
 
 const WEEKDAYS = 5
 /** Minutes of a day run from 0 to 1439. */
@@ -68,38 +66,6 @@ export function loadHoursContext(db: Db, facilityId: number): DayHoursContext {
   }
 }
 
-/** A day the facility is open, with its opening hours of that weekday (null = none entered). */
-export interface OpenDay { hours: { start: Minutes; end: Minutes } | null }
-
-/**
- * The facility's days from `from` to `to`: null when it is closed (not a care day as the staffing report counts them –
- * weekend, public holiday of its state, closure day or Schließzeit – or a weekday its opening hours mark closed), else
- * the day's opening hours. Reads the calendar once; only the closures touching the range.
- */
-export function facilityOpenDays(db: Db, facilityId: number, from: IsoDate, to: IsoDate): (date: IsoDate) => OpenDay | null {
-  const closures = db.select(closureColumns).from(closuresTable)
-    .where(and(eq(closuresTable.facilityId, facilityId), gte(closuresTable.endDate, from), lte(closuresTable.startDate, to))).all()
-  const holidays = facilityHolidayRules(db, facilityId)
-  const days = new Map(db.select().from(openingHours)
-    .where(and(eq(openingHours.facilityId, facilityId), isNull(openingHours.groupId))).all()
-    .map(row => [row.weekday, row]))
-  return (date) => {
-    if (!isCheckedDay(date, closureOn(closures, date) !== null, holidays)) return null
-    const day = days.get(weekday(date))
-    if (day?.closed) return null
-    return { hours: day && day.open !== null && day.close !== null ? { start: day.open, end: day.close } : null }
-  }
-}
-
-/** Whether the facility's opening hours give times (or „geschlossen“) for every weekday Monday to Friday. */
-export function hasOpeningHoursEveryWeekday(db: Db, facilityId: number): boolean {
-  const days = new Map(db.select().from(openingHours)
-    .where(and(eq(openingHours.facilityId, facilityId), isNull(openingHours.groupId))).all()
-    .map(row => [row.weekday, row]))
-  return Array.from({ length: WEEKDAYS }, (_, index) => days.get(index))
-    .every(day => day !== undefined && (day.closed || (day.open !== null && day.close !== null)))
-}
-
 /** A day with times or marked closed; the others are not entered. */
 function isSet(day: DayHours | null): day is DayHours {
   return day !== null && (day.closed || (day.open !== null && day.close !== null))
@@ -152,12 +118,15 @@ function checked(input: OpeningHours): Omit<typeof openingHours.$inferInsert, 'f
   return rows
 }
 
-function save(db: Db, facilityId: number, groupId: number | null, input: OpeningHours | null): void {
+function save(db: Db, facilityId: number, groupId: number | null, input: OpeningHours | null, now: Date): void {
   const rows = input === null ? [] : checked(input)
   const scope = and(eq(openingHours.facilityId, facilityId), groupId === null ? isNull(openingHours.groupId) : eq(openingHours.groupId, groupId))
   // An explicit null removes the hours and resets the counts; given hours keep their counts even with no weekday entered.
   const counts = { minAtOpening: input?.minAtOpening ?? 1, minAtClosing: input?.minAtClosing ?? 1 }
   db.transaction((tx) => {
+    // The facility's hours bound the tablet's windows without the automatic lock: an unlock that ran out under the old
+    // hours must not come back with longer ones.
+    if (groupId === null) deleteExpiredUnlocks(tx, now)
     tx.delete(openingHours).where(scope).run()
     if (rows.length > 0) tx.insert(openingHours).values(rows.map(row => ({ ...row, facilityId, groupId }))).run()
     if (groupId === null) tx.update(facilities).set(counts).where(eq(facilities.id, facilityId)).run()
@@ -168,14 +137,15 @@ function save(db: Db, facilityId: number, groupId: number | null, input: Opening
 /**
  * Sets the facility's opening hours; null removes them and resets the minimum counts, given counts are kept even with
  * no weekday entered. 400 opening_hours_invalid for a close time not after the open time, opening_hours_incomplete for
- * a day with one time only, opening_min_invalid for a minimum outside 1–20.
+ * a day with one time only, opening_min_invalid for a minimum outside 1–20. Tablet unlocks that ran out by `now` are
+ * deleted first (the hours bound the windows without the automatic lock).
  */
-export function setFacilityOpeningHours(db: Db, facilityId: number, input: OpeningHours | null): void {
-  save(db, facilityId, null, input)
+export function setFacilityOpeningHours(db: Db, facilityId: number, input: OpeningHours | null, now: Date = new Date()): void {
+  save(db, facilityId, null, input, now)
 }
 
 /** Sets a group's own opening hours (null removes them); 404 group_not_found for a group of another facility. */
 export function setGroupOpeningHours(db: Db, facilityId: number, groupId: number, input: OpeningHours | null): void {
   assertGroup(db, facilityId, groupId)
-  save(db, facilityId, groupId, input)
+  save(db, facilityId, groupId, input, new Date())
 }

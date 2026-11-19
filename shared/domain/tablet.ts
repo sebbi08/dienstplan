@@ -20,8 +20,9 @@ export const MAX_NO_LOCK_WINDOWS = 6
 const DAY_MINUTES = 1440
 
 /**
- * Without opening hours for every weekday a window may last at most this long (so 0:00–24:00 cannot switch the lock
- * off); with them, every window is cut to the day's opening hours anyway.
+ * Without opening hours for every weekday the windows of a day may span at most this long, from the earliest start to
+ * the latest end (so neither 0:00–24:00 nor touching or nearly touching windows can switch the lock off for the day);
+ * with them, every window is cut to the day's opening hours anyway.
  */
 export const MAX_UNBOUNDED_WINDOW_MINUTES = 14 * 60
 
@@ -33,13 +34,14 @@ export interface TimeWindow { start: Minutes; end: Minutes }
 
 export type NoLockWindowErrorCode =
   | 'tablet_windows_too_many' | 'tablet_window_time_invalid' | 'tablet_window_invalid' | 'tablet_windows_overlap'
-  | 'tablet_window_too_long'
+  | 'tablet_window_too_long' | 'tablet_windows_span_too_long'
 
 /**
  * The settings check of the windows (null = fine): at most MAX_NO_LOCK_WINDOWS, each from a minute of the day to a later
  * one (24:00 at most), none overlapping another (touching is fine). `limitLength` (the facility has no opening hours for
- * every weekday): none longer than MAX_UNBOUNDED_WINDOW_MINUTES. `row` (1-based, input order) names the wrong window; of
- * two overlapping ones the later in the list.
+ * every weekday): none longer than MAX_UNBOUNDED_WINDOW_MINUTES, and all together not spanning more than that from the
+ * earliest start to the latest end. `row` (1-based, input order) names the wrong window; of two overlapping ones the
+ * later in the list; none for the span.
  */
 export function noLockWindowsError(
   windows: readonly TimeWindow[], options: { limitLength?: boolean } = {},
@@ -54,6 +56,10 @@ export function noLockWindowsError(
   for (let later = 1; later < windows.length; later++) {
     const b = windows[later]!
     if (windows.slice(0, later).some(a => a.start < b.end && b.start < a.end)) return { code: 'tablet_windows_overlap', row: later + 1 }
+  }
+  if (options.limitLength && windows.length > 0
+    && Math.max(...windows.map(window => window.end)) - Math.min(...windows.map(window => window.start)) > MAX_UNBOUNDED_WINDOW_MINUTES) {
+    return { code: 'tablet_windows_span_too_long', row: null }
   }
   return null
 }
@@ -87,12 +93,14 @@ export interface NoLockPeriod { from: number; until: number }
 
 /**
  * The windows as they apply on one open day: cut to the day's opening hours when they are entered (a window outside
- * them falls away); without opening hours that day, a window longer than MAX_UNBOUNDED_WINDOW_MINUTES falls away (the
- * settings refuse those, but opening hours may have been removed since).
+ * them falls away); without opening hours that day, cut to MAX_UNBOUNDED_WINDOW_MINUTES after the earliest start (the
+ * settings refuse a longer span, but opening hours may have been removed since).
  */
 export function windowsOnDay(windows: readonly TimeWindow[], hours: TimeWindow | null): TimeWindow[] {
-  if (hours === null) return windows.filter(window => window.end - window.start <= MAX_UNBOUNDED_WINDOW_MINUTES)
-  return windows.map(window => ({ start: Math.max(window.start, hours.start), end: Math.min(window.end, hours.end) }))
+  const bounds = hours ?? (windows.length === 0 ? null
+    : { start: 0, end: Math.min(...windows.map(window => window.start)) + MAX_UNBOUNDED_WINDOW_MINUTES })
+  if (bounds === null) return []
+  return windows.map(window => ({ start: Math.max(window.start, bounds.start), end: Math.min(window.end, bounds.end) }))
     .filter(window => window.end > window.start)
 }
 

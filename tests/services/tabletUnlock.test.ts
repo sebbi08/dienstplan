@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { berlinInstant } from '../../shared/domain/tablet'
 import { closures, employees, entries, terminalUnlocks, users } from '../../server/db/schema'
+import { createClosure, deleteClosure, updateClosure } from '../../server/services/closures'
 import { setFacilityOpeningHours } from '../../server/services/openingHours'
 import { saveBundleOverride } from '../../server/services/permissions'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
@@ -389,12 +390,15 @@ describe('unlocking the tablet for child records', () => {
     })
 
     it('never carries an unlock over midnight into the next day\'s window', () => {
+      // Opening hours 0:00–23:59 every weekday, so the day may hold windows at both ends (cut to 23:59).
+      const day = { open: 0, close: 23 * 60 + 59, closed: false }
+      setFacilityOpeningHours(db, 1, { days: [day, day, day, day, day], minAtOpening: 1, minAtClosing: 1 }, NOW)
       windows([23 * 60, 1440], [0, 60])
       const late = unlock(anna, '123456', clock(23, 30))
       expect(status(late.token, clock(23, 59))).toMatchObject({ unlocked: true })
-      // 24:00 + 2 minutes + grace, although 0:00–1:00 of Wednesday starts within the lock time.
-      expect(status(late.token, clock(0, 2, 30, '2026-10-07'))).toMatchObject({ unlocked: true })
-      expect(status(late.token, clock(0, 2, 31, '2026-10-07'))).toEqual({ unlocked: false })
+      // 23:59 + 2 minutes + grace, although 0:00–1:00 of Wednesday starts within the lock time.
+      expect(status(late.token, clock(0, 1, 30, '2026-10-07'))).toMatchObject({ unlocked: true })
+      expect(status(late.token, clock(0, 1, 31, '2026-10-07'))).toEqual({ unlocked: false })
       // Touched after midnight: the new day's window applies.
       const touched = unlock(anna, '123456', clock(23, 30))
       viewer(touched.token, clock(0, 1, 0, '2026-10-07'))
@@ -414,6 +418,64 @@ describe('unlocking the tablet for child records', () => {
       expect(status(token, clock(17, 2, 30))).toMatchObject({ unlocked: true })
       expect(status(token, clock(17, 2, 31))).toEqual({ unlocked: false })
       expect(status(token, clock(8, 0, 0, '2026-10-07'))).toEqual({ unlocked: false })
+    })
+
+    it('without opening hours for every weekday refuses windows spanning more than 14 hours, and caps them at runtime', () => {
+      expect(errorCode(() => windows([0, 14 * 60], [14 * 60, 1440]))).toBe('tablet_windows_span_too_long')
+      expect(errorCode(() => windows([5 * 60, 14 * 60], [14 * 60 + 20, 1440]))).toBe('tablet_windows_span_too_long')
+      // Stored while complete opening hours existed, which were removed since: nothing reaches past 5:00 + 14 hours.
+      const day = { open: 5 * 60, close: 24 * 60 - 1, closed: false }
+      setFacilityOpeningHours(db, 1, { days: [day, day, day, day, day], minAtOpening: 1, minAtClosing: 1 }, NOW)
+      settings({ lockMinutes: 30, noLockWindows: [{ start: 5 * 60, end: 14 * 60 }, { start: 14 * 60 + 20, end: 1440 }] })
+      setFacilityOpeningHours(db, 1, null, NOW)
+      const { token, status: first } = unlock()
+      expect(first).toMatchObject({
+        noLockPeriods: [
+          { from: clock(5, 0).toISOString(), until: clock(14, 0).toISOString() },
+          { from: clock(14, 20).toISOString(), until: clock(19, 0).toISOString() },
+        ],
+      })
+      // 19:00 + 30 minutes + grace.
+      expect(status(token, clock(19, 30, 30))).toMatchObject({ unlocked: true })
+      expect(status(token, clock(19, 30, 31))).toEqual({ unlocked: false })
+    })
+
+    it('does not revive an unlock that ran out when the opening hours or the closures change', () => {
+      const admin = addUser(db, 'leitung', 'admin')
+      const hours = (close: number) => {
+        const day = { open: 7 * 60, close, closed: false }
+        return { days: [day, day, day, day, day], minAtOpening: 1, minAtClosing: 1 }
+      }
+      setFacilityOpeningHours(db, 1, hours(17 * 60), NOW)
+      windows([0, 1440])
+      // Last use 16:58, the window ends at closing time 17:00: ran out at 17:02:30.
+      const late = unlock(anna, '123456', clock(16, 58))
+      setFacilityOpeningHours(db, 1, hours(18 * 60), clock(17, 10))
+      expect(rows()).toEqual([])
+      expect(status(late.token, clock(17, 11))).toEqual({ unlocked: false })
+      // One still valid stays (and gets the longer hours).
+      const valid = unlock(anna, '123456', clock(16, 59))
+      setFacilityOpeningHours(db, 1, hours(17 * 60 + 30), clock(17, 1))
+      expect(status(valid.token, clock(17, 20))).toMatchObject({ unlocked: true })
+
+      // Today a closure day: no window; unlocked 8:00, ran out 8:02:30; deleting the closure at 8:10 revives nothing.
+      setFacilityOpeningHours(db, 1, null, NOW)
+      windows([7 * 60, 9 * 60])
+      const closure = createClosure(db, admin, 1, { startDate: '2026-10-06', endDate: '2026-10-06', label: 'Team', mode: 'closure_day' }, NOW)
+      const onClosure = unlock()
+      deleteClosure(db, admin, 1, closure.id, clock(8, 10))
+      expect(rows()).toEqual([])
+      expect(status(onClosure.token, clock(8, 11))).toEqual({ unlocked: false })
+      // Moving a closure away from today (update) and creating one delete the expired ones too.
+      const moved = createClosure(db, admin, 1, { startDate: '2026-10-06', endDate: '2026-10-06', label: 'Team', mode: 'closure_day' }, NOW)
+      const again = unlock()
+      updateClosure(db, admin, 1, moved.id, { startDate: '2026-10-20', endDate: '2026-10-20', label: 'Team', mode: 'closure_day' }, clock(8, 10))
+      expect(status(again.token, clock(8, 11))).toEqual({ unlocked: false })
+      windows()
+      const third = unlock()
+      createClosure(db, admin, 1, { startDate: '2026-10-21', endDate: '2026-10-21', label: 'Team', mode: 'closure_day' }, clock(8, 10))
+      expect(rows()).toEqual([])
+      expect(status(third.token, clock(8, 11))).toEqual({ unlocked: false })
     })
 
     it('does not revive an unlock that ran out when a window is saved', () => {
