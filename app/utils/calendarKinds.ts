@@ -1,11 +1,11 @@
 import type { CalendarKind, YearCalendarDto } from '#shared/types/api'
 
 /**
- * The legend lines shown only when the calendar holds such a day: „Mutterschutz / Beschäftigungsverbot“ reaches only
- * viewers who may see the case (the server sends everybody else „abwesend“), and „abwesend“ itself only where it occurs,
- * so the legend never puts the two side by side for someone without the right.
+ * The legend lines shown only when the calendar holds such a day: „Krank“ and „Mutterschutz / Beschäftigungsverbot“
+ * reach only viewers with the health data (the server sends everybody else „abwesend“), and „abwesend“ itself only where
+ * it occurs, so the legend never explains „abwesend“ to someone without the right.
  */
-export const CONDITIONAL_KINDS: readonly CalendarKind[] = ['maternity', 'absent']
+export const CONDITIONAL_KINDS: readonly CalendarKind[] = ['sick', 'maternity', 'absent']
 
 /** The kinds that occur in the calendar's days. */
 export function presentKinds(days: YearCalendarDto['days'] | null | undefined): Set<CalendarKind> {

@@ -2,7 +2,7 @@ import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { groupLeaveRanges } from '../../shared/domain/leave'
 import { dateRange, isWeekend } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
-import { isProtectedCode } from '../../shared/domain/maternity'
+import { isPrivateCode } from '../../shared/domain/maternity'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearCalendarDto } from '../../shared/types/api'
@@ -99,8 +99,8 @@ function groupedRows(db: Db, facilityId: number, staff: EmployeeRecord[]) {
 
 /**
  * The facility's year calendar. With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered).
- * `showsProtected` false (a viewer without employees.sickness): Mutterschutz and Beschäftigungsverbot show as „abwesend“
- * and are not offered for entering.
+ * `showsProtected` false (a viewer without employees.sickness): Krank, Kind krank, Mutterschutz and Beschäftigungsverbot
+ * show alike as „abwesend“ and are not offered for entering.
  */
 export function getYearCalendar(
   db: Db, facilityId: number, year: number, options: { sickOnlyOf?: number | null; showsProtected?: boolean } = {},
@@ -114,7 +114,7 @@ export function getYearCalendar(
     if (hideSick && entry.codeKey && HEALTH_KEYS.includes(entry.codeKey) && entry.employeeId !== options.sickOnlyOf) continue
     // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
     if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)
-    const kind = entry.codeKey ? (!showsProtected && isProtectedCode(entry.codeKey) ? 'absent' : KIND_OF_CODE[entry.codeKey]) : undefined
+    const kind = entry.codeKey ? (!showsProtected && isPrivateCode(entry.codeKey) ? 'absent' : KIND_OF_CODE[entry.codeKey]) : undefined
     const row = days[entry.employeeId]
     if (!kind || !row) continue
     const current = row[entry.date]
@@ -132,7 +132,7 @@ export function getYearCalendar(
     // skipped when entering absences.
     freeDays: Object.fromEntries(staff.map(employee => [employee.id, dateRange(`${year}-01-01`, `${year}-12-31`)
       .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
-    absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key) && (showsProtected || !isProtectedCode(code.key))),
+    absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key) && (showsProtected || !isPrivateCode(code.key))),
     events: listCalendarEvents(db, facilityId, year),
     // Anonymous (no child names), so the staff calendar keeps them all.
     autoEvents: Object.fromEntries(autoEventsFor(db, facilityId, `${year}-01-01`, `${year}-12-31`)),

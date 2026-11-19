@@ -308,8 +308,14 @@ export function maternityMonthWarning(input: {
 
 // ---- hiding the reason -----------------------------------------------------------
 
-/** The codes that tell a pregnancy: shown as „abwesend“ to everybody who may not see the case, and always at the tablet. */
+/** The codes that tell a pregnancy: never in templates, never replaced by a closure, booked only from a case. */
 export const PROTECTED_CODE_KEYS: readonly CodeKey[] = [MATERNITY_CODE, EMPLOYMENT_BAN_CODE]
+/**
+ * Everything private about an absence (health data): Krank, Kind krank, Mutterschutz, Beschäftigungsverbot. Shown all
+ * alike as „abwesend“ to everybody without employees.sickness, and always at the tablet (user decision 2026-11-19:
+ * „Alles Private als ‚abwesend‘“), so „abwesend“ does not tell which of them it is.
+ */
+export const PRIVATE_CODE_KEYS: readonly CodeKey[] = ['sick', 'child_sick', MATERNITY_CODE, EMPLOYMENT_BAN_CODE]
 /** The neutral face of such an entry (the server cannot read app/locales/de.ts, so the words live here). */
 export const MASKED_ABSENCE = { label: 'abwesend', shortLabel: null, color: 'gray' } as const
 
@@ -317,14 +323,19 @@ export function isProtectedCode(codeKey: CodeKey | null | undefined): boolean {
   return !!codeKey && PROTECTED_CODE_KEYS.includes(codeKey)
 }
 
+export function isPrivateCode(codeKey: CodeKey | null | undefined): boolean {
+  return !!codeKey && PRIVATE_CODE_KEYS.includes(codeKey)
+}
+
 /**
- * An entry of a protected code as a neutral absence: label „abwesend“, grey, without code key, code id and note, so
- * nothing in the data tells the reason; it still credits the daily target (whole day). Other entries stay as they are.
+ * An entry of a private code (PRIVATE_CODE_KEYS) as a neutral absence, the same for all of them: label „abwesend“, grey,
+ * without code key, code id, short label and note, so nothing in the data tells the reason; it still credits the daily
+ * target (whole day). Other entries stay as they are.
  */
-export function maskProtectedEntry<T extends {
+export function maskPrivateEntry<T extends {
   kind: string; codeKey: CodeKey | null; codeId: number | null; label: string; shortLabel: string | null; color: string; note?: string | null
 }>(entry: T): T {
-  if (entry.kind !== 'code' || !isProtectedCode(entry.codeKey)) return entry
+  if (entry.kind !== 'code' || !isPrivateCode(entry.codeKey)) return entry
   return {
     ...entry, codeKey: null, codeId: null, label: MASKED_ABSENCE.label, shortLabel: MASKED_ABSENCE.shortLabel,
     color: MASKED_ABSENCE.color, note: null,

@@ -5,7 +5,7 @@ import { cellKey } from '../../shared/domain/cells'
 import { addDays, daysInMonth, isWeekend, monthDates, toIsoDate, weekday } from '../../shared/domain/dates'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { holidayIn } from '../../shared/domain/holidays'
-import { isProtectedCode, maskProtectedEntry } from '../../shared/domain/maternity'
+import { isPrivateCode, maskPrivateEntry } from '../../shared/domain/maternity'
 import { dayCreditedMinutes, isHomeOffice, mayStampVia, recordedDay } from '../../shared/domain/stamping'
 import { countsForBalance, isEmployedOn } from '../../shared/domain/targets'
 import { dayMarks, summarizeMarks } from '../../shared/domain/timeMarks'
@@ -208,8 +208,9 @@ function fullDayOf(dayEntries: EntryDto[], credited: Minutes): FullDayDto | null
 /**
  * The time sheet of one employee and month for Leitung and Träger, with late arrivals and early leaving marked under
  * the facility's settings. `nowMinutes` is the current minute of `today` (early leaving today waits for the planned end).
- * Without `showsProtected` (a viewer without employees.sickness) Mutterschutz and Beschäftigungsverbot read „abwesend“ in
- * the plan column and are not offered (the figures use the real entries).
+ * Without `showsProtected` (a viewer without employees.sickness) Krank, Kind krank, Mutterschutz and Beschäftigungsverbot
+ * read alike „abwesend“ in the plan column, are not offered, and no „Im Dienst erkrankt“ is sent (the figures use the
+ * real entries).
  */
 export function getTimeMonth(
   db: Db, facilityId: number, employeeId: number, year: number, month: number, today: IsoDate,
@@ -279,7 +280,7 @@ export function getTimeMonth(
     return {
       // The time sheet is the person's: holidays of their home facility.
       date, weekday: weekday(date), isWeekend: isWeekend(date), holidayKey: holidayIn(date, employee.info.holidays),
-      plan: describeCellDetailed(showsProtected ? dayEntries : dayEntries.map(maskProtectedEntry)),
+      plan: describeCellDetailed(showsProtected ? dayEntries : dayEntries.map(maskPrivateEntry)),
       plannedMinutes: planned.credit, target: planned.target,
       records,
       // Home office counts as recorded on days of the tracking range only (as the balance); outside, the plan shows.
@@ -297,7 +298,7 @@ export function getTimeMonth(
       changes: changes.filter(({ change }) => change.date === date)
         .map(({ change, actor }) => ({ before: change.before, after: change.after, actor: actor ?? null, at: change.at })),
       plannedDuty: hasPlannedDuty(dayEntries),
-      sickLeave,
+      sickLeave: showsProtected ? sickLeave : null,
       ...marks,
     }
   })
@@ -305,7 +306,7 @@ export function getTimeMonth(
   return {
     employee: { id: employee.id, name: employee.name },
     trackingFrom,
-    absenceCodes: loadCodes(db).filter(code => isAbsence(code.key) && (showsProtected || !isProtectedCode(code.key))),
+    absenceCodes: loadCodes(db).filter(code => isAbsence(code.key) && (showsProtected || !isPrivateCode(code.key))),
     days,
     marks: { ...summarizeMarks(days), ...markSettings },
   }

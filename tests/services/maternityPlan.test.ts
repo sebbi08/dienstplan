@@ -19,7 +19,7 @@ import { getTimeMonth } from '../../server/services/timeTracking'
 import { acknowledgeWarnings } from '../../server/services/warningAcks'
 import { buildDayOverview } from '../../shared/domain/dayOverview'
 import { dateRange } from '../../shared/domain/dates'
-import { maskProtectedEntry } from '../../shared/domain/maternity'
+import { maskPrivateEntry } from '../../shared/domain/maternity'
 import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import { isWorkday } from '../../shared/domain/targets'
 import type { DomainEntry } from '../../shared/domain/types'
@@ -122,7 +122,7 @@ describe('the codes are hidden from everybody without the right, and always at t
   })
 
   it('the day overview counts „abwesend“ as absent', () => {
-    const masked = maskProtectedEntry({
+    const masked = maskPrivateEntry({
       employeeId: anna, date: '2026-11-17', kind: 'code', codeKey: 'maternity', codeId: 5, label: 'Mutterschutz', shortLabel: null,
       color: 'gray', creditMode: 'daily_target', start: null, end: null, breakStart: null, breakEnd: null, countsAsStaff: true, note: null,
     } as DomainEntry & { codeId: number; label: string; shortLabel: string | null; color: string; note: string | null })

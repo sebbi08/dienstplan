@@ -1486,7 +1486,8 @@ Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes än
     solche Kinder hat oder Tage genommen hat, und nur mit dem Recht für die Krankheitstage („Mitarbeiter pflegen“).
   - Sind es mehr Tage als der Anspruch, zeigt der Dienstplan am letzten „Kind krank“-Tag des Monats die Warnung
     „‹Name›: ‹n› Kinderkrankentage – Anspruch ‹m› (§ 45 SGB V)“. Wer den Dienstplan bearbeitet, aber die Kinder nicht sehen
-    darf, liest nur „‹Name›: Kinderkrankentage über dem Anspruch (§ 45 SGB V)“. Eintragen wird nie verhindert.
+    darf, liest nur „‹Name›: Kinderkrankentage über dem Anspruch (§ 45 SGB V)“; wer die Krankheitstage nicht sehen darf,
+    bekommt den Hinweis gar nicht (für diese Person ist der Tag nur „abwesend“). Eintragen wird nie verhindert.
 
 ### Sonderurlaub mit Begründung
 
@@ -1664,14 +1665,21 @@ Mitarbeiter kommen nicht heran.
 - **Codes:** „Mutterschutz“ und „Beschäftigungsverbot“ stehen direkt hinter „Kind krank“. Beide sind ganze Tage, die wie
   Krank das Tagessoll gutschreiben (keine Minusstunden), zählen nicht als Anwesenheit und nicht als Urlaub. Bestehende
   Datenbanken bekommen die Codes mit der Migration 0093.
-- **Wer die Codes sieht:** nur, wer den Mutterschutz sehen darf (`employees.sickness`). Alle anderen – Mitarbeiter, die
+- **Wer die Codes sieht – „Alles Private als ‚abwesend‘“:** Krank, Kind krank, Mutterschutz und Beschäftigungsverbot
+  sieht nur, wer die Krankheitstage sehen darf (`employees.sickness`, Leitung und Träger). Alle anderen – Mitarbeiter, die
   Gruppenleitung, wer nur „Dienstplan bearbeiten“ oder die Zeiterfassung hat – und **immer das Tablet** sehen an diesen
-  Tagen nur ein graues **„abwesend“**: im Dienstplan (Entwurf und freigegebener Plan, auch beim Drucken und als PDF), in
-  der Änderungsliste der Freigaben, im Jahreskalender und in der Urlaubsplanung („abwesend“), in der Zeiterfassung und in
-  der Tagesübersicht. Der Server schickt ihnen weder den Code noch seinen Namen. Die Mitarbeiterin selbst sieht unter
-  „Mein Dienstplan“ und im eigenen Jahreskalender ihre Einträge wie sie sind. Die Codes werden diesen Personen nicht zum
-  Eintragen angeboten, und sie können einen solchen Tag nicht ändern, überschreiben oder löschen („Diesen Tag kann nur
-  ändern, wer die Krankheitstage sehen darf“). Stunden und Hinweise rechnet der Server immer mit den echten Einträgen.
+  Tagen für alle vier dasselbe graue **„abwesend“** (ohne Notiz, ohne Kürzel): im Dienstplan (Entwurf und freigegebener
+  Plan, auch beim Drucken und als PDF), in der Änderungsliste der Freigaben, im Jahreskalender und in der Urlaubsplanung
+  („abwesend“; die Legende nennt „Krank“ und „Mutterschutz / Beschäftigungsverbot“ nur, wenn solche Tage gezeigt werden),
+  in der Zeiterfassung und in der Tagesübersicht. Die Markierung „Im Dienst erkrankt“ und der Hinweis zu den
+  Kinderkrankentagen fehlen für sie. Der Server schickt ihnen weder den Code noch seinen Namen, so dass „abwesend“ nicht
+  verrät, welcher Grund es ist. Wer selbst betroffen ist, sieht unter „Mein Dienstplan“ und im eigenen Jahreskalender die
+  eigenen Einträge, wie sie sind. Die vier Codes werden diesen Personen nicht zum Eintragen angeboten, und sie können
+  einen solchen Tag nicht ändern, überschreiben oder löschen („Diesen Tag kann nur ändern, wer die Krankheitstage sehen
+  darf“) – **Krank eintragen** geht also nur noch mit dem Recht „Krankheitstage …“. Eine Schließzeit wird trotzdem für
+  alle eingetragen (Mutterschutz-Tage bleiben, ein Krank-Tag wird wie bisher zur Schließzeit), ohne Fehlermeldung. Die
+  Seite „Krankheitstage“ und die BEM-Erinnerungen bleiben wie bisher. Stunden und Hinweise rechnet der Server immer mit
+  den echten Einträgen.
   **Wochenvorlagen** nehmen die beiden Codes nie auf (Vorlagen sind für regelmäßige Dienste): „Woche als Vorlage
   speichern“ lässt sie für alle weg, der Vorlagen-Editor bietet sie nicht an und lehnt sie ab, und sollte eine alte
   Vorlage doch einen solchen Eintrag enthalten, wird er weder angezeigt noch beim Füllen einer Woche eingetragen.

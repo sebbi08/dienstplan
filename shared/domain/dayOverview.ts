@@ -30,7 +30,7 @@ export interface DayOverview {
   present: number[]
 }
 
-/** A code's state; an entry shown as „abwesend“ (a protected code without its key, maskProtectedEntry) is absent. */
+/** A code's state; an entry shown as „abwesend“ (a private code without its key, maskPrivateEntry) is absent. */
 function codeState(codeKey: CodeKey | null, creditMode?: DomainEntry['creditMode']): SlotState {
   if (codeKey === null && creditMode === 'daily_target') return 'absent'
   switch (codeKey) {

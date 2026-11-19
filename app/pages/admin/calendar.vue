@@ -72,7 +72,11 @@ function workdays(employeeId: number, from: string, to: string): string[] {
   const free = new Set(calendar.value?.freeDays[employeeId] ?? [])
   const holidays = calendar.value?.holidays
   const dates: string[] = []
-  for (let date = from; date <= to; date = addDays(date, 1)) if (!isWeekend(date) && !(holidays && isHolidayIn(date, holidays)) && !free.has(date)) dates.push(date)
+  // „abwesend“ (a private absence the viewer may not see or change) is left as it is.
+  const days = calendar.value?.days[employeeId] ?? {}
+  for (let date = from; date <= to; date = addDays(date, 1)) {
+    if (!isWeekend(date) && !(holidays && isHolidayIn(date, holidays)) && !free.has(date) && days[date] !== 'absent') dates.push(date)
+  }
   return dates
 }
 

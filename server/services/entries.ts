@@ -4,7 +4,7 @@ import { breakConflict } from '../../shared/domain/breaks'
 import { cellKey } from '../../shared/domain/cells'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { isValidIsoDate } from '../../shared/domain/dates'
-import { PROTECTED_CODE_KEYS } from '../../shared/domain/maternity'
+import { PRIVATE_CODE_KEYS } from '../../shared/domain/maternity'
 import { can } from '../../shared/domain/permissions'
 import { checkedSpecialLeaveReason } from '../../shared/domain/specialLeave'
 import { dailyTarget } from '../../shared/domain/targets'
@@ -246,7 +246,8 @@ export function applyToCells(
     throw new ServiceError(400, 'employee_not_found')
   }
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
-  assertMayTouchProtected(db, actor, cells, values?.absenceCodeId)
+  // A closure books for everybody (skipping Mutterschutz itself, closures.ts) and never tells what it replaces.
+  if (options.closureId == null) assertMayTouchProtected(db, actor, cells, values?.absenceCodeId)
   const inputGroupId = input?.groupId ?? null
   if (values) assertGroup(db, facilityId, inputGroupId)
   if (values?.kind === 'break' && mode !== 'add') throw new ServiceError(400, 'break_requires_add')
@@ -358,14 +359,14 @@ export function applyToCells(
  * entry_not_found for any other id, including its staff's help-outs elsewhere.
  */
 /**
- * Mutterschutz and Beschäftigungsverbot (health data, server/lib/protectedCodes.ts) are booked and changed only by whoever
- * may see the case (employees.sickness): anyone else gets 403 protected_cell for writing such a code or for writing into,
- * clearing or deleting from a cell that holds one (they see it as „abwesend“).
+ * Krank, Kind krank, Mutterschutz and Beschäftigungsverbot (health data, server/lib/protectedCodes.ts) are booked and
+ * changed only by whoever has employees.sickness: anyone else gets 403 protected_cell for writing such a code or for
+ * writing into, clearing or deleting from a cell that holds one (they see it as „abwesend“).
  */
 function assertMayTouchProtected(db: Db, actor: SessionUser, cells: CellRef[], codeId: number | null | undefined): void {
   if (can(actor.permissions, 'employees.sickness') || cells.length === 0) return
   const protectedIds = new Set(db.select({ id: absenceCodes.id }).from(absenceCodes)
-    .where(inArray(absenceCodes.key, [...PROTECTED_CODE_KEYS])).all().map(row => row.id))
+    .where(inArray(absenceCodes.key, [...PRIVATE_CODE_KEYS])).all().map(row => row.id))
   if (protectedIds.size === 0) return
   if (codeId != null && protectedIds.has(codeId)) throw new ServiceError(403, 'protected_cell')
   const wanted = new Set(cells.map(cell => cellKey(cell.employeeId, cell.date)))
