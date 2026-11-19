@@ -11,6 +11,9 @@ function subject(warning: Warning): string {
       return `${warning.edge}|${warning.groupId ?? ''}`
     case 'staffing':
       return `${warning.groupId}|${warning.fachkraft ? 'f' : 'a'}|${warning.from}-${warning.to}`
+    case 'maternity':
+      // Several rules of a Mutterschutz case can be broken on one day.
+      return `${warning.employeeId}|${warning.rule}`
     default:
       return String(warning.employeeId)
   }
@@ -41,6 +44,8 @@ export function warningSignature(warning: Warning): string {
     case 'short_rest':
     case 'short_rest_recorded':
       return `${warning.from}-${warning.to}`
+    case 'maternity':
+      return `${warning.value}/${warning.limit}`
     case 'child_sick_days':
       // The same for every viewer (only some see the numbers); a further day moves the warning to that day's key.
       return ''
@@ -53,7 +58,8 @@ const ID = /^[1-9]\d*$/
 /** The subject's format per type, as `subject` writes it. */
 const SUBJECT_FORMATS: Record<Warning['type'], RegExp> = {
   missing_entry: ID, target_gap: ID, open_record: ID, missing_record: ID, break_rule: ID, record_without_plan: ID, record_on_absence: ID,
-  max_hours: ID, max_hours_recorded: ID, short_rest: ID, short_rest_recorded: ID, child_sick_days: ID,
+  max_hours: ID, max_hours_recorded: ID, short_rest: ID, short_rest_recorded: ID, child_sick_days: ID, work_limit: ID,
+  maternity: /^[1-9]\d*\|(hours|late|early|sunday|rest|average)$/,
   coverage: ID,
   edge: /^(opening|closing)\|([1-9]\d*)?$/,
   staffing: /^[1-9]\d*\|[fa]\|\d{1,4}-\d{1,4}$/,

@@ -13,15 +13,22 @@ import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './queries'
 
-/** Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. „Kind krank“ shows as Krank. */
+/**
+ * Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. „Kind krank“ shows as
+ * Krank, Mutterschutz and Beschäftigungsverbot as one kind (MuSchG).
+ */
 const KIND_OF_CODE: Partial<Record<CodeKey, CalendarKind>> = {
-  sick: 'sick', child_sick: 'sick', vacation: 'vacation', overtime_off: 'overtime_off', special_leave: 'special_leave', training: 'training',
+  sick: 'sick', child_sick: 'sick', maternity: 'maternity', employment_ban: 'maternity', vacation: 'vacation', overtime_off: 'overtime_off', special_leave: 'special_leave', training: 'training',
   school: 'training', holiday: 'closed', closure_day: 'closed',
 }
 /** When a day has several codes, the first kind in this list wins. */
-const KIND_PRIORITY: CalendarKind[] = ['sick', 'vacation', 'overtime_off', 'special_leave', 'training', 'closed']
+const KIND_PRIORITY: CalendarKind[] = ['sick', 'maternity', 'vacation', 'overtime_off', 'special_leave', 'training', 'closed']
 /** Absences the admin enters by clicking a calendar day (written to the plan). */
-const ABSENCE_KEYS: CodeKey[] = ['vacation', 'overtime_off', 'special_leave', 'sick', 'child_sick', 'training', 'school']
+const ABSENCE_KEYS: CodeKey[] = [
+  'vacation', 'overtime_off', 'special_leave', 'sick', 'child_sick', 'maternity', 'employment_ban', 'training', 'school',
+]
+/** Health data the staff calendar shows only of the viewer themselves: Krank, Kind krank, Mutterschutz, Beschäftigungsverbot. */
+const HEALTH_KEYS: CodeKey[] = ['sick', 'child_sick', 'maternity', 'employment_ban']
 
 export interface CalendarEventInput {
   date: IsoDate
@@ -98,7 +105,7 @@ export function getYearCalendar(
   const otherSets = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
   const hideSick = 'sickOnlyOf' in options
   for (const entry of loadEntries(db, { ...yearBounds(year), homeFacilityId: facilityId })) {
-    if (hideSick && (entry.codeKey === 'sick' || entry.codeKey === 'child_sick') && entry.employeeId !== options.sickOnlyOf) continue
+    if (hideSick && entry.codeKey && HEALTH_KEYS.includes(entry.codeKey) && entry.employeeId !== options.sickOnlyOf) continue
     // Plan entries an absence would replace (shifts, VZ, Feiertag …): the calendar asks before overwriting them.
     if (!entry.codeKey || !ABSENCE_KEYS.includes(entry.codeKey)) otherSets.get(entry.employeeId)?.add(entry.date)
     const kind = entry.codeKey ? KIND_OF_CODE[entry.codeKey] : undefined

@@ -58,7 +58,7 @@ const absenceTitle = computed(() => {
   return absence.date ? `${name} · ${formatDayShort(absence.date, weekday(absence.date))}${absence.date.slice(0, 4)}` : name
 })
 /** Kinds the calendar can remove again (Feiertag/Schließtag stay; they come from holidays and closures). */
-const REMOVABLE = ['sick', 'vacation', 'overtime_off', 'special_leave', 'training']
+const REMOVABLE = ['sick', 'maternity', 'vacation', 'overtime_off', 'special_leave', 'training']
 const hasAbsence = computed(() => REMOVABLE.includes(calendar.value?.days[absence.employeeId]?.[absence.date] ?? ''))
 /** The open request on the clicked day (shown in the dialog with the way to the leave planning). */
 const absenceRequest = computed(() => requestCells(shownRequests.value?.requests ?? []).get(absence.employeeId)?.get(absence.date))

@@ -1,6 +1,7 @@
 import { creditedWithoutStamping, dayCredit, isAwayCode, isFullDayTimed, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
 import { isWeekend } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
+import type { MaternityWarning } from './maternity'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
 import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
 import { dayBreakRuleViolated, type BreakMode } from './stamping'
@@ -45,6 +46,13 @@ export type Warning =
   /** More „Kind krank“ days than the entitlement of the year (§ 45 SGB V, employeeChildren.ts), `taken` counted to `date`;
    * both null for a viewer without the personal data (they tell the children and „alleinerziehend“). */
   | { type: 'child_sick_days'; date: IsoDate; employeeId: number; taken: number | null; entitlement: number | null }
+  /** A working time rule of a Mutterschutz case broken (§§ 4–6 MuSchG, maternity.ts); only for viewers of the case. */
+  | MaternityWarning
+  /**
+   * The same for a plan viewer who may not see the case: „Arbeitszeitgrenze überschritten“, one per person and day,
+   * telling neither the rule nor the reason.
+   */
+  | { type: 'work_limit'; date: IsoDate; employeeId: number }
   /**
    * Too few staff in a group by the state's presence rule (Personalschlüssel) during [from, to); consecutive slots
    * with the same gap are merged. `fachkraft` = too few Fachkräfte, else too few staff in total.

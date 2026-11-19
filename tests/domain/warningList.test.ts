@@ -36,6 +36,20 @@ describe('acknowledging', () => {
     ]) expect(ackKeyDate(key), key).toBeNull()
   })
 
+  it('keys a Mutterschutz hint by person and rule, the hint for editors by person only', () => {
+    const hours: Warning = { type: 'maternity', date: '2026-10-05', employeeId: 4, rule: 'hours', value: 540, limit: 510, phase: 'pregnancy' }
+    expect(warningAckKey(hours)).toBe('maternity|2026-10-05|4|hours')
+    expect(warningAckKey({ ...hours, rule: 'late', value: 1230, limit: 1200 })).toBe('maternity|2026-10-05|4|late')
+    expect(warningSignature(hours)).toBe('540/510')
+    expect(warningAckKey({ type: 'work_limit', date: '2026-10-05', employeeId: 4 })).toBe('work_limit|2026-10-05|4')
+    expect(ackKeyDate('maternity|2026-10-05|4|average')).toBe('2026-10-05')
+    expect(ackKeyDate('work_limit|2026-10-05|4')).toBe('2026-10-05')
+    expect(ackKeyDate('maternity|2026-10-05|4')).toBeNull()
+    expect(ackKeyDate('maternity|2026-10-05|4|lunch')).toBeNull()
+    // The same rule with other values shows again.
+    expect(isAcknowledged({ ...hours, value: 570 }, acked(hours))).toBe(false)
+  })
+
   it('shows a warning again when its values changed', () => {
     const acks = new Map([[warningAckKey(gap('2026-10-05', 60)), warningSignature(gap('2026-10-05', 60))]])
     expect(isAcknowledged(gap('2026-10-05', 60), acks)).toBe(true)

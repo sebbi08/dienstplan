@@ -244,7 +244,7 @@ export const de = {
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
     printAllGroups: 'Alle Gruppen nacheinander', printGroupLabel: 'Gruppe für den Ausdruck', printNoGroup: 'Ohne Gruppe',
-    kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', vacation: 'Urlaub', overtime_off: 'Überstundenfrei', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
+    kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', maternity: 'Mutterschutz / Beschäftigungsverbot', vacation: 'Urlaub', overtime_off: 'Überstundenfrei', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
     weekend: 'Wochenende / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     visibleToStaff: 'Auch für Mitarbeiter sichtbar?', visibleYes: 'Ja', visibleNo: 'Nein, nur Leitung',
     visibilityRequired: 'Bitte angeben, ob der Termin auch für die Mitarbeiter sichtbar sein soll.',
@@ -444,6 +444,21 @@ export const de = {
     childSickDays: (name: string, taken: number, entitlement: number) => `${name}: ${taken} Kinderkrankentage – Anspruch ${entitlement} (§ 45 SGB V)`,
     /** The same without the numbers, for plan editors without the personal data. */
     childSickDaysOver: (name: string) => `${name}: Kinderkrankentage über dem Anspruch (§ 45 SGB V)`,
+    /**
+     * Mutterschutz (MuSchG), only hints and only for whoever may see the case: „Anna: 9:00 Std. – in der Schwangerschaft
+     * höchstens 8,5 Std. (§ 4 MuSchG)“ and the other rules.
+     */
+    maternity: {
+      phases: { pregnancy: 'in der Schwangerschaft', after: 'nach der Entbindung', breastfeeding: 'in der Stillzeit' },
+      hours: (name: string, duration: string, phase: string, limit: string) => `${name}: ${duration} Std. – ${phase} höchstens ${limit} Std. (§ 4 MuSchG)`,
+      late: (name: string) => `${name}: Arbeit nach 20 Uhr (§ 5 MuSchG)`,
+      early: (name: string) => `${name}: Arbeit vor 6 Uhr (§ 5 MuSchG)`,
+      sunday: (name: string) => `${name}: Sonn-/Feiertagsarbeit (§ 6 MuSchG)`,
+      rest: (name: string, duration: string) => `${name}: nur ${duration} Std. Ruhezeit (§ 4 MuSchG)`,
+      average: (name: string, duration: string, month: string) => `${name}: Ø ${duration} Std./Woche im ${month} – mehr als vertraglich (§ 4 MuSchG)`,
+    },
+    /** The same for plan editors who may not see the case: neither the rule nor the reason. */
+    workLimit: (name: string) => `${name}: Arbeitszeitgrenze überschritten`,
     /** Presence rule of the Personalschlüssel: „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. */
     staffing: (group: string, from: string, to: string, have: number, need: number, fachkraft: boolean) =>
       `${group} ${from}–${to}: ${have} ${fachkraft ? (have === 1 ? 'Fachkraft' : 'Fachkräfte') : (have === 1 ? 'Kraft' : 'Kräfte')}, nötig ${need}`,
@@ -1777,6 +1792,14 @@ export const de = {
     ifsgClusterAck: 'Gesundheitsamt informiert',
     // Leitung/Träger: an offline stamp of the tablet not taken over (texts de.time.offlineReasons); links to the time page.
     offlineStampLink: 'zur Zeiterfassung',
+    // Leitung/Träger (employees.sickness): what a Mutterschutz case still needs; links to the employee page.
+    maternity: {
+      riskAssessment: () => ({ before: 'Gefährdungsbeurteilung für ', after: ' erstellen/anpassen (§ 10 MuSchG)' }),
+      authority: () => ({ before: '', after: ': Meldung an die Aufsichtsbehörde (§ 27 MuSchG) – unverzüglich' }),
+      banCheck: () => ({ before: '', after: ': Beschäftigungsverbot prüfen (z. B. Immunität gegen Röteln, Ringelröteln, Windpocken, Zytomegalie)' }),
+    },
+    maternityLink: 'zum Mutterschutz',
+    maternityChecked: 'Geprüft',
     // Leitung/Träger (employees.sickness): more than 6 weeks sick within 12 months and no BEM running; links to the employee page.
     bem: (days: number) => ({
       before: 'BEM anbieten: ', after: ` war in den letzten 12 Monaten ${days} Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)`,
@@ -1788,7 +1811,7 @@ export const de = {
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
       leaving: 'Abschied', retention: 'Löschfristen', accident: 'Unfallanzeige', ifsg: 'Meldepflichtige Krankheit',
-      ifsgCluster: 'Häufung von Erkrankungen', offlineStamp: 'Offline-Stempel', bem: 'BEM',
+      ifsgCluster: 'Häufung von Erkrankungen', offlineStamp: 'Offline-Stempel', bem: 'BEM', maternity: 'Mutterschutz',
     },
     // The record's section.
     section: 'Entwicklungsdokumentation',
@@ -2431,6 +2454,67 @@ export const de = {
     deleteConfirm: 'Notiz löschen?',
     saved: 'Notiz gespeichert', deleted: 'Notiz gelöscht',
   },
+  /** Mutterschutz (MuSchG): the section of the employee page (employees.sickness, never on the own page). */
+  maternity: {
+    title: 'Mutterschutz',
+    intro: 'Schwangerschaft, Schutzfristen, Beschäftigungsverbot und Stillzeit (MuSchG). Gesundheitsdaten: nur für Leitung und Träger sichtbar.',
+    loading: 'Lädt …',
+    none: 'Kein Mutterschutz eingetragen.',
+    add: 'Mutterschutz eintragen',
+    edit: 'Bearbeiten',
+    editTitle: 'Mutterschutz bearbeiten',
+    remove: 'Löschen',
+    removeConfirm: 'Diesen Eintrag zum Mutterschutz löschen? Die Einträge im Dienstplan bleiben stehen.',
+    removed: 'Gelöscht.',
+    createdBy: (date: string, name: string) => `eingetragen am ${date}${name ? ` von ${name}` : ''}`,
+    // The form.
+    notifiedOn: 'Bekanntgabe am',
+    notifiedOnHint: 'Tag, an dem die Mitarbeiterin die Schwangerschaft mitgeteilt hat. Ab hier gelten die Hinweise im Dienstplan.',
+    expectedBirth: 'Voraussichtlicher Entbindungstermin',
+    actualBirth: 'Tag der Entbindung',
+    actualBirthHint: 'Nach der Geburt eintragen: Die Schutzfrist nach der Entbindung wird dann neu berechnet und im Dienstplan verschoben.',
+    extendedAfter: 'Schutzfrist nach der Entbindung 12 Wochen (Früh- oder Mehrlingsgeburt oder Behinderung des Kindes)',
+    breastfeedingUntil: 'Stillzeit bis',
+    breastfeedingHint: 'Freiwillig. Bis zu diesem Tag gelten die Hinweise im Dienstplan weiter.',
+    authorityNotifiedOn: 'Meldung an die Aufsichtsbehörde am (§ 27 MuSchG)',
+    riskAssessmentOn: 'Gefährdungsbeurteilung erstellt/angepasst am (§ 10 MuSchG)',
+    employmentBan: 'Beschäftigungsverbot',
+    banKinds: { none: 'keines', partial: 'teilweise', full: 'vollständig' },
+    banFrom: 'Verbot von', banTo: 'Verbot bis',
+    banToHint: 'Leer: bis zum Beginn der Schutzfrist (in der Schwangerschaft) bzw. bis zum Ende der Stillzeit.',
+    banNote: 'Notiz zum Verbot',
+    banNotePlaceholder: 'z. B. keine Spätdienste, keine Arbeit mit Kindern unter 3 Jahren',
+    partialHint: 'Teilweises Verbot: Bitte die Dienste entsprechend kürzer oder anders planen; im Dienstplan wird nichts eingetragen.',
+    endedOn: 'Beendet am',
+    endedOnHint: 'Freiwillig, z. B. wenn die Mitarbeiterin ausscheidet oder die Schwangerschaft vorzeitig endet. Danach gelten keine Hinweise mehr.',
+    // The case.
+    notifiedLine: (date: string) => `Bekanntgabe am ${date}`,
+    expectedLine: (date: string) => `voraussichtliche Entbindung ${date}`,
+    birthLine: (date: string) => `Entbindung am ${date}`,
+    before: (from: string, to: string) => `Schutzfrist vor der Entbindung: ${from} – ${to}`,
+    beforeNone: 'Schutzfrist vor der Entbindung: entfällt (Geburt vor ihrem Beginn)',
+    after: (from: string, to: string, weeks: number, carried: number) =>
+      `Schutzfrist nach der Entbindung: ${from} – ${to} (${weeks} Wochen${carried ? ` und ${carried} ${carried === 1 ? 'Tag' : 'Tage'} aus der Frist vor der Entbindung` : ''})`,
+    breastfeedingLine: (date: string) => `Stillzeit bis ${date}`,
+    authorityLine: (date: string | null) => `Meldung an die Aufsichtsbehörde: ${date ?? 'noch offen'}`,
+    riskLine: (date: string | null) => `Gefährdungsbeurteilung: ${date ?? 'noch offen'}`,
+    banLine: (kind: string, from: string | null, to: string | null) =>
+      `Beschäftigungsverbot: ${kind}${from ? ` ab ${from}` : ''}${to ? ` bis ${to}` : ''}`,
+    banCheckedLine: (date: string) => `Beschäftigungsverbot geprüft am ${date}`,
+    endedLine: (date: string) => `Beendet am ${date}`,
+    leaveNote: 'Resturlaub nach dem Mutterschutz bleibt erhalten (§ 24 MuSchG).',
+    planNote: 'Vor der Entbindung darf die Mitarbeiterin auf eigenen Wunsch arbeiten: Dann den Tag im Dienstplan einfach ändern.',
+    bookProtection: 'Schutzfristen eintragen',
+    bookBan: 'Beschäftigungsverbot eintragen',
+    booked: 'eingetragen',
+    codeNames: { protection: 'Mutterschutz', ban: 'Beschäftigungsverbot' },
+    bookResult: (booked: number, kept: number) =>
+      `${booked} ${booked === 1 ? 'Tag' : 'Tage'} eingetragen${kept ? `, ${kept} ${kept === 1 ? 'Tag' : 'Tage'} mit anderer Abwesenheit (z. B. Krank) unverändert` : ''}.`,
+    rebookResult: (what: string, booked: number, removed: number, skipped: number) =>
+      `${what} im Dienstplan angepasst: ${booked} ${booked === 1 ? 'Tag' : 'Tage'} eingetragen, ${removed} entfernt`
+      + `${skipped ? `, ${skipped} ${skipped === 1 ? 'Tag' : 'Tage'} mit Diensten nicht geändert – bei Bedarf „Schutzfristen eintragen“ erneut tippen` : ''}.`,
+    checkBan: 'Beschäftigungsverbot geprüft',
+  },
   errors: {
     generic: 'Das hat nicht geklappt. Bitte versuche es noch einmal.',
     ...personnelInvalid,
@@ -2860,5 +2944,14 @@ export const de = {
     group_merge_too_few: 'Bitte wähle mindestens zwei Gruppen.',
     group_merge_taken: 'Eine dieser Gruppen ist inzwischen schon mit einer anderen Gruppe zusammengelegt (oben in der Liste). Beende zuerst diese Zusammenlegung.',
     group_merge_not_found: 'Diese Zusammenlegung wurde inzwischen beendet.',
+    maternity_own: 'Deinen eigenen Mutterschutz trägt der Träger ein.',
+    maternity_not_found: 'Dieser Eintrag zum Mutterschutz wurde nicht gefunden.',
+    maternity_date_future: 'Das Datum darf nicht in der Zukunft liegen.',
+    maternity_birth_invalid: 'Der Tag der Entbindung passt nicht zum voraussichtlichen Termin. Bitte das Jahr prüfen.',
+    maternity_breastfeeding_invalid: '„Stillzeit bis“ darf nicht vor der Entbindung liegen.',
+    maternity_ban_invalid: 'Bitte für das Beschäftigungsverbot „Verbot von“ angeben; „Verbot bis“ darf nicht davor liegen.',
+    maternity_ended_invalid: '„Beendet am“ darf nicht vor der Bekanntgabe liegen.',
+    maternity_note_too_long: 'Die Notiz ist zu lang (höchstens 2000 Zeichen).',
+    maternity_ban_period: 'Eintragen geht nur bei einem vollständigen Beschäftigungsverbot mit Zeitraum (ohne „Verbot bis“: in der Schwangerschaft bis zur Schutzfrist, nach der Entbindung bis „Stillzeit bis“).',
   },
 }

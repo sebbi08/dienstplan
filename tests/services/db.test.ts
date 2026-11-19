@@ -20,7 +20,7 @@ describe('database setup', () => {
     const db = createTestDb()
     seedDefaults(db)
     expect(db.select().from(shiftTemplates).all().map(t => t.shortLabel)).toEqual(['F1', 'F2', 'M', 'S', 'HK'])
-    expect(db.select().from(absenceCodes).all()).toHaveLength(13)
+    expect(db.select().from(absenceCodes).all()).toHaveLength(15)
     expect(db.select().from(coverageRules).all()).toHaveLength(3)
   })
   it('enforces foreign keys again after migrating', () => {
@@ -1614,8 +1614,11 @@ describe('upgrading a filled database through migrateDb', () => {
         { key: 'sick', label: 'Krank', color: 'red', credit_mode: 'daily_target', requires_times: 0, sort_order: 4 },
         // 0086 puts „Kind krank“ after Krank and moves the later codes down by one.
         { key: 'child_sick', label: 'Kind krank', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 5 },
-        { key: 'other', label: 'sonstiges', color: 'neutral', credit_mode: 'none', requires_times: 0, sort_order: 6 },
-        { key: 'doctor', label: 'Arzt', color: 'red', credit_mode: 'timed', requires_times: 1, sort_order: 8 },
+        // 0093 puts Mutterschutz and Beschäftigungsverbot after it and moves the later codes down by two.
+        { key: 'maternity', label: 'Mutterschutz', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 6 },
+        { key: 'employment_ban', label: 'Beschäftigungsverbot', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 7 },
+        { key: 'other', label: 'sonstiges', color: 'neutral', credit_mode: 'none', requires_times: 0, sort_order: 8 },
+        { key: 'doctor', label: 'Arzt', color: 'red', credit_mode: 'timed', requires_times: 1, sort_order: 10 },
       ])
     expect(sqlite.prepare('SELECT kind FROM leave_requests').all()).toEqual([{ kind: 'vacation' }])
 
@@ -1637,7 +1640,11 @@ describe('upgrading a filled database through migrateDb', () => {
     `)
     migrateDb(db, MIGRATIONS)
     expect(sqlite.prepare('SELECT key, sort_order FROM absence_codes ORDER BY sort_order').all())
-      .toEqual([{ key: 'sick', sort_order: 4 }, { key: 'child_sick', sort_order: 5 }, { key: 'office', sort_order: 6 }])
+      .toEqual([
+        { key: 'sick', sort_order: 4 }, { key: 'child_sick', sort_order: 5 },
+        // 0093: Mutterschutz and Beschäftigungsverbot after „Kind krank“.
+        { key: 'maternity', sort_order: 6 }, { key: 'employment_ban', sort_order: 7 }, { key: 'office', sort_order: 8 },
+      ])
     expect(sqlite.prepare('SELECT single_parent FROM employees').all()).toEqual([{ single_parent: 0 }])
     sqlite.exec(`
       INSERT INTO employee_children (id, employee_id, birth_date) VALUES (1, 1, '2020-01-01');
@@ -1966,6 +1973,37 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     migrateDb(db, MIGRATIONS)
     expect(sqlite.prepare('SELECT rule_variant, rule_date, rule_anchor, rule_days, rule_label, rule_condition FROM child_ifsg_cases').get())
       .toEqual({ rule_variant: 'rash', rule_date: '2026-11-16', rule_anchor: null, rule_days: null, rule_label: '', rule_condition: '' })
+  })
+
+  it('0093 adds the empty Mutterschutz cases (gone with the employee) and the codes Mutterschutz and Beschäftigungsverbot', () => {
+    const { db, sqlite } = databaseAt('0092')
+    sqlite.exec(`
+      INSERT INTO absence_codes (key, label, color, credit_mode, requires_times, sort_order) VALUES
+        ('sick', 'Krank', 'gray', 'daily_target', 0, 4), ('child_sick', 'Kind krank', 'gray', 'daily_target', 0, 5),
+        ('office', 'Büro', 'yellow', 'timed', 1, 6), ('closure_day', 'Schließtag', 'blue', 'daily_target', 0, 13);
+      INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1);
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT key, label, color, credit_mode, requires_times, sort_order FROM absence_codes ORDER BY sort_order').all())
+      .toEqual([
+        { key: 'sick', label: 'Krank', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 4 },
+        { key: 'child_sick', label: 'Kind krank', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 5 },
+        { key: 'maternity', label: 'Mutterschutz', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 6 },
+        { key: 'employment_ban', label: 'Beschäftigungsverbot', color: 'gray', credit_mode: 'daily_target', requires_times: 0, sort_order: 7 },
+        { key: 'office', label: 'Büro', color: 'yellow', credit_mode: 'timed', requires_times: 1, sort_order: 8 },
+        { key: 'closure_day', label: 'Schließtag', color: 'blue', credit_mode: 'daily_target', requires_times: 0, sort_order: 15 },
+      ])
+    expect(count(sqlite, 'maternity_cases')).toBe(0)
+    sqlite.exec(`INSERT INTO maternity_cases (employee_id, notified_on, expected_birth, created_at, updated_at) VALUES (1, '2026-11-02', '2027-04-01', 'x', 'x')`)
+    expect(sqlite.prepare('SELECT extended_after, employment_ban, ban_note, protection_booked, ban_booked, created_by FROM maternity_cases').get())
+      .toEqual({ extended_after: 0, employment_ban: 'none', ban_note: '', protection_booked: 0, ban_booked: 0, created_by: '' })
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'maternity_cases')).toBe(0)
+
+    // A new database gets no codes from the migration (seedDefaults adds them).
+    const fresh = databaseAt('0092')
+    migrateDb(fresh.db, MIGRATIONS)
+    expect(count(fresh.sqlite, 'absence_codes')).toBe(0)
   })
 
   it('0092 adds the empty BEM tables (gone with the employee), the default invitation text and 3 years for BEM records', () => {

@@ -28,6 +28,7 @@ import { childSickWarnings } from './employeeChildren'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
+import { maternityPlanWarnings } from './maternity'
 import { loadHoursContext, withOpeningHours } from './openingHours'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
@@ -51,7 +52,7 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
  */
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
-  year: number, month: number, today: IsoDate, hours: DayHoursContext, showsChildSickEntitlement = true,
+  year: number, month: number, today: IsoDate, hours: DayHoursContext, showsChildSickEntitlement = true, showsMaternity = true,
 ): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
@@ -137,6 +138,9 @@ function buildAdminData(
   // More „Kind krank“ days than the entitlement of the year (§ 45 SGB V): a hint on the person's last such day; the
   // numbers (they tell the children and „alleinerziehend“) only for viewers of the personal data.
   warnings.push(...childSickWarnings(db, staff, year, month, showsChildSickEntitlement))
+  // Mutterschutz (§§ 4–6 MuSchG): the hints of a case with their reason only for viewers of the case (employees.sickness),
+  // everybody else „Arbeitszeitgrenze überschritten“ (pregnancy is health data).
+  warnings.push(...maternityPlanWarnings(db, staff, dayEntriesOf, year, month, showsMaternity))
 
   const actuals: Record<string, ActualCellDto> = {}
   if (trackingFrom !== null) {
@@ -309,7 +313,7 @@ export function getMonthPlan(
     admin = {
       ...buildAdminData(
         db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours,
-        can(viewer.permissions, 'employees.personal'),
+        can(viewer.permissions, 'employees.personal'), can(viewer.permissions, 'employees.sickness'),
       ),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],

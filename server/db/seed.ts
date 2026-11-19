@@ -22,15 +22,19 @@ export const DEFAULT_CODES: (typeof absenceCodes.$inferInsert)[] = [
   { key: 'sick', label: 'Krank', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 4 },
   // Kind krank (§ 45 SGB V): neutral for the hours account like Krank (existing databases: migration 0086_employee_children).
   { key: 'child_sick', label: 'Kind krank', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 5 },
-  { key: 'office', label: 'Büro', color: 'yellow', creditMode: 'timed', requiresTimes: true, sortOrder: 6 },
-  { key: 'prep_time', label: 'VZ', color: 'green', creditMode: 'timed', requiresTimes: true, sortOrder: 7 },
+  // Mutterschutz and Beschäftigungsverbot (MuSchG): whole days neutral for the hours account like Krank, booked from the
+  // employee's Mutterschutz case (existing databases: migration 0093_maternity_cases).
+  { key: 'maternity', label: 'Mutterschutz', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 6 },
+  { key: 'employment_ban', label: 'Beschäftigungsverbot', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 7 },
+  { key: 'office', label: 'Büro', color: 'yellow', creditMode: 'timed', requiresTimes: true, sortOrder: 8 },
+  { key: 'prep_time', label: 'VZ', color: 'green', creditMode: 'timed', requiresTimes: true, sortOrder: 9 },
   // Arzttermin: working time like Büro, but away from the house (existing databases: migration 0073_doctor_code).
-  { key: 'doctor', label: 'Arzt', color: 'red', creditMode: 'timed', requiresTimes: true, sortOrder: 8 },
-  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 9 },
-  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 10 },
-  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 11 },
-  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 12 },
-  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 13 },
+  { key: 'doctor', label: 'Arzt', color: 'red', creditMode: 'timed', requiresTimes: true, sortOrder: 10 },
+  { key: 'training', label: 'Fortbildung', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 11 },
+  { key: 'school', label: 'Schule', color: 'gray', creditMode: 'daily_target', requiresTimes: false, sortOrder: 12 },
+  { key: 'other', label: 'sonstiges', color: 'neutral', creditMode: 'none', requiresTimes: false, sortOrder: 13 },
+  { key: 'holiday', label: 'Feiertag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 14 },
+  { key: 'closure_day', label: 'Schließtag', color: 'blue', creditMode: 'daily_target', requiresTimes: false, sortOrder: 15 },
 ]
 
 export const DEFAULT_COVERAGE_RULES: (typeof coverageRules.$inferInsert)[] = [

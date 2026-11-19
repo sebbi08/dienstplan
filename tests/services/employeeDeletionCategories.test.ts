@@ -26,7 +26,7 @@ const IMMEDIATE = [
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
-  'employee_payroll.employee_id', 'employee_children.employee_id',
+  'employee_payroll.employee_id', 'employee_children.employee_id', 'maternity_cases.employee_id',
 ]
 /** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [

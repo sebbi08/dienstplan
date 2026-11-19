@@ -6,6 +6,7 @@ import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
 import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { EmploymentBanKind } from '../domain/maternity'
 import type { DayMeal } from '../domain/meals'
 import type { OfflineStampReason, OfflineTabletStatus } from '../domain/offlineStamps'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
@@ -407,6 +408,8 @@ export interface ReminderDto {
   meetingKind: MeetingKind | null
   /** For retention (Träger only): how many entries of the page „Löschfristen“ may be deleted now, all facilities; null otherwise. */
   count: number | null
+  /** For a Mutterschutz case (Leitung/Träger with employees.sickness): the employee, the case and what is still to do. */
+  maternity?: { employeeId: number; caseId: number; task: MaternityTask }
   /** For a § 34 IfSG case whose health office notification is due: the case, the disease's name and the child's group. */
   ifsg?: { caseId: number; diseaseName: string; groupName: string; healthOffice: { name: string; phone: string } }
   /** For an offline stamp on the review list (Leitung/Träger): the entry, the person, Kommt/Geht and why. */
@@ -1745,7 +1748,7 @@ export interface EarlySickLeaveInput {
 }
 
 /** Colour group of a day in the year calendar. */
-export type CalendarKind = 'sick' | 'vacation' | 'overtime_off' | 'special_leave' | 'training' | 'closed' | 'requested'
+export type CalendarKind = 'sick' | 'maternity' | 'vacation' | 'overtime_off' | 'special_leave' | 'training' | 'closed' | 'requested'
 
 /** Admin's own appointment in the year calendar. */
 export interface CalendarEventDto {
@@ -3514,4 +3517,72 @@ export interface MyTalkFormDto {
   form: TalkFormDto
   employeeName: string
   facilityName: string
+}
+
+/** A Mutterschutz case (MuSchG) of an employee, as the employee page shows it (employees.sickness, never the own one). */
+export interface MaternityCaseDto {
+  id: number
+  notifiedOn: IsoDate
+  expectedBirth: IsoDate
+  actualBirth: IsoDate | null
+  extendedAfter: boolean
+  breastfeedingUntil: IsoDate | null
+  authorityNotifiedOn: IsoDate | null
+  riskAssessmentOn: IsoDate | null
+  employmentBan: EmploymentBanKind
+  banFrom: IsoDate | null
+  banTo: IsoDate | null
+  banNote: string
+  banCheckedOn: IsoDate | null
+  /** „Schutzfristen eintragen“ / „Beschäftigungsverbot eintragen“ was used: a change of the dates books the plan again. */
+  protectionBooked: boolean
+  banBooked: boolean
+  endedOn: IsoDate | null
+  createdOn: IsoDate
+  createdBy: string
+}
+
+/** The section „Mutterschutz“ of the employee page: the cases, newest first, and whether the viewer may book the plan. */
+export interface EmployeeMaternityDto {
+  cases: MaternityCaseDto[]
+  /** plan.edit: „Schutzfristen eintragen“ and „Beschäftigungsverbot eintragen“ write the plan. */
+  canBook: boolean
+}
+
+/** Gefährdungsbeurteilung (§ 10 MuSchG), Meldung an die Aufsichtsbehörde (§ 27), Beschäftigungsverbot prüfen. */
+export type MaternityTask = 'riskAssessment' | 'authority' | 'banCheck'
+
+/** What a case's fields are when saved. */
+export interface MaternityCaseInput {
+  notifiedOn: IsoDate
+  expectedBirth: IsoDate
+  actualBirth: IsoDate | null
+  extendedAfter: boolean
+  breastfeedingUntil: IsoDate | null
+  authorityNotifiedOn: IsoDate | null
+  riskAssessmentOn: IsoDate | null
+  employmentBan: EmploymentBanKind
+  banFrom: IsoDate | null
+  banTo: IsoDate | null
+  banNote: string
+  endedOn: IsoDate | null
+}
+
+/** What booking (or booking again) the plan did. */
+export interface MaternityBookingDto {
+  /** Days written with the code. */
+  booked: number
+  /** Days whose entry of the code was removed (no longer in the period). */
+  removed: number
+  /** Days kept because another full-day absence holds them (Krank, Urlaub …). */
+  keptAbsences: number
+  /** Days with duties left as they were (booking again after a change never replaces a duty). */
+  skippedOccupied: number
+}
+
+/** Saving a case: its id and, when the plan was booked before and the period changed, what booking again did. */
+export interface MaternitySaveDto {
+  id: number
+  protection: MaternityBookingDto | null
+  ban: MaternityBookingDto | null
 }

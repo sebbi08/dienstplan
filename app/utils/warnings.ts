@@ -2,6 +2,7 @@
 // this file.
 import { cellKey } from '#shared/domain/cells'
 import { addDays, weekday } from '#shared/domain/dates'
+import type { MaternityWarning } from '#shared/domain/maternity'
 import { formatDuration, formatTime } from '#shared/domain/time'
 import type { Warning } from '#shared/domain/warnings'
 import { restMinutes } from '#shared/domain/workingTimeLaw'
@@ -24,6 +25,25 @@ export function indexWarnings(warnings: Warning[]): WarningIndex {
     if (warning.type !== 'coverage' && warning.type !== 'edge' && warning.type !== 'staffing') push(byCell, cellKey(warning.employeeId, warning.date), warning)
   }
   return { byCell, byDate }
+}
+
+/** „Anna: 9:00 Std. – in der Schwangerschaft höchstens 8,5 Std. (§ 4 MuSchG)“ and the other rules of a Mutterschutz case. */
+function maternityText(warning: MaternityWarning, name: string): string {
+  const t = de.warnings.maternity
+  switch (warning.rule) {
+    case 'hours':
+      return t.hours(name, formatDuration(warning.value), t.phases[warning.phase], (warning.limit / 60).toLocaleString('de-DE'))
+    case 'late':
+      return t.late(name)
+    case 'early':
+      return t.early(name)
+    case 'sunday':
+      return t.sunday(name)
+    case 'rest':
+      return t.rest(name, formatDuration(warning.value))
+    case 'average':
+      return t.average(name, formatDuration(warning.value), de.months[Number(warning.date.slice(5, 7)) - 1]!)
+  }
 }
 
 export function warningText(warning: Warning, names: Map<number, string>): string {
@@ -62,6 +82,10 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return warning.taken === null || warning.entitlement === null
         ? de.warnings.childSickDaysOver(names.get(warning.employeeId) ?? '?')
         : de.warnings.childSickDays(names.get(warning.employeeId) ?? '?', warning.taken, warning.entitlement)
+    case 'maternity':
+      return maternityText(warning, names.get(warning.employeeId) ?? '?')
+    case 'work_limit':
+      return de.warnings.workLimit(names.get(warning.employeeId) ?? '?')
     case 'staffing':
       return de.warnings.staffing(
         warning.groupName, formatTime(warning.from), formatTime(warning.to), warning.have, warning.need, warning.fachkraft,

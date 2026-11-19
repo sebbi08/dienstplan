@@ -1587,6 +1587,38 @@ export const bemSteps = sqliteTable('bem_steps', {
   updatedAt: text('updated_at').notNull(),
 }, table => [index('bem_steps_process').on(table.processId)])
 
+/**
+ * A Mutterschutz case (MuSchG) of an employee: health data, only for employees.sickness and never for the employee
+ * themselves (server/services/maternity.ts); it belongs to the employee's home facility and goes with the immediate data
+ * when the employee is deleted. `notifiedOn` is the Bekanntgabe, `extendedAfter` 12 weeks after the birth (premature or
+ * multiple birth, disabled child), `breastfeedingUntil` the optional end of the Stillzeit. `authorityNotifiedOn` (§ 27)
+ * and `riskAssessmentOn` (§ 10) end their reminders, `banCheckedOn` the reminder „Beschäftigungsverbot prüfen“.
+ * `protectionBooked`/`banBooked`: „Schutzfristen/Beschäftigungsverbot eintragen“ was used, so a change of the dates books
+ * the plan again. `endedOn`: the case ended (nothing applies after it). `createdBy` is the name of whoever entered it.
+ */
+export const maternityCases = sqliteTable('maternity_cases', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  notifiedOn: text('notified_on').notNull(),
+  expectedBirth: text('expected_birth').notNull(),
+  actualBirth: text('actual_birth'),
+  extendedAfter: integer('extended_after', { mode: 'boolean' }).notNull().default(false),
+  breastfeedingUntil: text('breastfeeding_until'),
+  authorityNotifiedOn: text('authority_notified_on'),
+  riskAssessmentOn: text('risk_assessment_on'),
+  employmentBan: text('employment_ban', { enum: ['none', 'partial', 'full'] }).notNull().default('none'),
+  banFrom: text('ban_from'),
+  banTo: text('ban_to'),
+  banNote: text('ban_note').notNull().default(''),
+  banCheckedOn: text('ban_checked_on'),
+  protectionBooked: integer('protection_booked', { mode: 'boolean' }).notNull().default(false),
+  banBooked: integer('ban_booked', { mode: 'boolean' }).notNull().default(false),
+  endedOn: text('ended_on'),
+  createdBy: text('created_by').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [index('maternity_cases_employee').on(table.employeeId)])
+
 /** The forms of a staff talk: the employee's self-assessment (`self`) or an assessment, in the order of `sort`. */
 export const staffTalkForms = sqliteTable('staff_talk_forms', {
   talkId: integer('talk_id').notNull().references(() => staffTalks.id, { onDelete: 'cascade' }),

@@ -24,7 +24,9 @@ import { loadCodes, loadEmployees, loadEntries } from './queries'
 import { getTimeMarkSettings } from './timeMarkSettings'
 
 /** Codes the admin enters per day on the time page (written to the plan). */
-const ABSENCE_KEYS: CodeKey[] = ['vacation', 'overtime_off', 'special_leave', 'sick', 'child_sick', 'training', 'school']
+const ABSENCE_KEYS: CodeKey[] = [
+  'vacation', 'overtime_off', 'special_leave', 'sick', 'child_sick', 'maternity', 'employment_ban', 'training', 'school',
+]
 
 export interface TimeRecordFilter {
   employeeId?: number

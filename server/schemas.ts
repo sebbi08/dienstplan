@@ -3,6 +3,7 @@ import { BEM_ANSWERS, BEM_LIMITS, BEM_MEASURE_STATUSES, BEM_STEP_KINDS } from '.
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
+import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX } from '../shared/domain/maternity'
 import { OFFLINE_BATCH_MAX } from '../shared/domain/offlineStamps'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
@@ -235,6 +236,16 @@ export const childSickSettingsSchema = z.object({
   // An emptied field comes as '' and is refused by the service with its own message (not as a generic 400).
   perChild: settingsDays, maxPerYear: settingsDays, singleParentPerChild: settingsDays, singleParentMax: settingsDays,
 })
+
+/** A Mutterschutz case (MuSchG); the order of the days and the note's length again in the service. */
+export const maternityCaseSchema = z.object({
+  notifiedOn: isoDate, expectedBirth: isoDate, actualBirth: isoDate.nullable(), extendedAfter: z.boolean(),
+  breastfeedingUntil: isoDate.nullable(), authorityNotifiedOn: isoDate.nullable(), riskAssessmentOn: isoDate.nullable(),
+  employmentBan: z.enum(EMPLOYMENT_BAN_KINDS), banFrom: isoDate.nullable(), banTo: isoDate.nullable(),
+  banNote: z.string().max(MATERNITY_NOTE_MAX + 100), endedOn: isoDate.nullable(),
+})
+/** „Schutzfristen eintragen“ / „Beschäftigungsverbot eintragen“; `overwrite` replaces planned duties. */
+export const maternityBookingSchema = z.object({ kind: z.enum(['protection', 'ban']), overwrite: z.boolean() })
 
 /** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */
 export const rightsRoleParams = z.object({ role: z.string().max(40) })

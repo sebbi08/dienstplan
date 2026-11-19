@@ -11,7 +11,7 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formAttachments, formEditors, forms,
+  formAttachments, formEditors, forms, maternityCases,
   groupBookChanges, helpOuts, leaveEntitlements, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -23,7 +23,7 @@ import { getRetentionSettings } from './retentionSettings'
 /** Warning types whose acknowledgement key names an employee as subject (`<type>|<date>|<employeeId>`, warningList.ts). */
 const EMPLOYEE_WARNING_TYPES = new Set([
   'missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence',
-  'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'child_sick_days',
+  'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'child_sick_days', 'work_limit',
 ])
 
 /** Release snapshots of every facility (home, former home, help-out plans) without the employee's column and cells. */
@@ -40,12 +40,16 @@ function dropFromSnapshots(db: Db, employeeId: number): void {
   }
 }
 
-/** „Zur Kenntnis genommen“ of the warnings about the employee, in every facility (they may have helped out). */
+/**
+ * „Zur Kenntnis genommen“ of the warnings about the employee, in every facility (they may have helped out); the
+ * Mutterschutz hints name the rule after the employee (`maternity|<date>|<employeeId>|<rule>`).
+ */
 function warningAckIds(db: Db, employeeId: number): number[] {
   return db.select({ id: warningAcks.id, key: warningAcks.key }).from(warningAcks)
-    .where(like(warningAcks.key, `%|${employeeId}`)).all()
+    .where(or(like(warningAcks.key, `%|${employeeId}`), like(warningAcks.key, `maternity|%|${employeeId}|%`))).all()
     .filter(({ key }) => {
       const [type, , subject, ...rest] = key.split('|')
+      if (type === 'maternity') return rest.length === 1 && subject === String(employeeId)
       return rest.length === 0 && EMPLOYEE_WARNING_TYPES.has(type ?? '') && subject === String(employeeId)
     })
     .map(row => row.id)
@@ -189,6 +193,8 @@ const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   // The consent to show them at the tablet, with its log: personal data of the same kind.
   { table: employeeEmergencyConsent, column: employeeEmergencyConsent.employeeId },
   { table: employeeEmergencyConsentLog, column: employeeEmergencyConsentLog.employeeId },
+  // Mutterschutz cases: health data like the sick days' reasons, gone at once (the plan's codes go with the time data).
+  { table: maternityCases, column: maternityCases.employeeId },
   { table: employeeRequirements, column: employeeRequirements.employeeId },
   { table: leaveRequests, column: leaveRequests.employeeId },
   { table: notifications, column: notifications.employeeId },

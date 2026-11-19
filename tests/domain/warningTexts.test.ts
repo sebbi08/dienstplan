@@ -28,6 +28,30 @@ describe('warning texts', () => {
   })
 })
 
+describe('Mutterschutz texts (§§ 4–6 MuSchG)', () => {
+  const base = { type: 'maternity', date: '2026-11-18', employeeId: 1, phase: 'pregnancy' } as const
+  it('words each rule', () => {
+    expect(warningText({ ...base, rule: 'hours', value: 540, limit: 510 }, names))
+      .toBe('Anna: 9:00 Std. – in der Schwangerschaft höchstens 8,5 Std. (§ 4 MuSchG)')
+    expect(warningText({ ...base, rule: 'hours', value: 510, limit: 480 }, names))
+      .toBe('Anna: 8:30 Std. – in der Schwangerschaft höchstens 8 Std. (§ 4 MuSchG)')
+    expect(warningText({ ...base, phase: 'breastfeeding', rule: 'hours', value: 540, limit: 510 }, names))
+      .toBe('Anna: 9:00 Std. – in der Stillzeit höchstens 8,5 Std. (§ 4 MuSchG)')
+    expect(warningText({ ...base, rule: 'late', value: 1230, limit: 1200 }, names)).toBe('Anna: Arbeit nach 20 Uhr (§ 5 MuSchG)')
+    expect(warningText({ ...base, rule: 'early', value: 330, limit: 360 }, names)).toBe('Anna: Arbeit vor 6 Uhr (§ 5 MuSchG)')
+    expect(warningText({ ...base, rule: 'sunday', value: 180, limit: 0 }, names)).toBe('Anna: Sonn-/Feiertagsarbeit (§ 6 MuSchG)')
+    expect(warningText({ ...base, rule: 'rest', value: 630, limit: 660 }, names)).toBe('Anna: nur 10:30 Std. Ruhezeit (§ 4 MuSchG)')
+    expect(warningText({ ...base, date: '2026-11-30', rule: 'average', value: 1521, limit: 1200 }, names))
+      .toBe('Anna: Ø 25:21 Std./Woche im November – mehr als vertraglich (§ 4 MuSchG)')
+  })
+
+  it('tells plan editors without the right neither rule nor reason, and marks the cell', () => {
+    const warning: Warning = { type: 'work_limit', date: '2026-11-18', employeeId: 1 }
+    expect(warningText(warning, names)).toBe('Anna: Arbeitszeitgrenze überschritten')
+    expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])
+  })
+})
+
 describe('working time law texts (§ 3 and § 5 ArbZG)', () => {
   it('words more than 10 hours planned and worked', () => {
     expect(warningText({ type: 'max_hours', date: '2026-10-05', employeeId: 1, minutes: 645 }, names))

@@ -58,7 +58,7 @@ describe('employee page tabs', () => {
     const permissions = effectivePermissions({ role })
     return (key: PermissionKey) => permissions.has(key)
   }
-  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'accidents', 'bem', 'talks', 'access']
+  const allSections = ['master', 'qualification', 'hours', 'payroll', 'leave', 'stamping', 'requirements', 'documents', 'accidents', 'bem', 'maternity', 'talks', 'access']
   const allTabs = ['master', 'contract', 'times', 'records', 'talks', 'access']
 
   it('shows the Träger every section, the Leitung all but „Lohn und Steuer“, „Zugang“ and „Gespräche“ to nobody else', () => {
@@ -74,6 +74,10 @@ describe('employee page tabs', () => {
     expect(employeeSections(canOf('provider'), true)).not.toContain('bem')
     expect(employeeSections(canOf('observer'))).not.toContain('bem')
     expect(employeeSections(canOf('group_lead'))).not.toContain('bem')
+    // „Mutterschutz“ the same (health data; a Leitung's case is the Träger's).
+    expect(employeeSections(canOf('admin'), true)).not.toContain('maternity')
+    expect(employeeSections(canOf('admin'))).toContain('maternity')
+    expect(employeeSections(canOf('observer'))).not.toContain('maternity')
     expect(employeeSections(() => false)).not.toContain('access')
   })
 

@@ -331,6 +331,24 @@ describe('API route permissions', () => {
     expect(permissionCalls('employees/[id]/payroll.get.ts')).toEqual([{ key: 'employees.payroll', options: '' }])
   })
 
+  it('opens the Mutterschutz cases to whoever has the sick days right, in the active facility, never about themselves', () => {
+    const touching = routes.filter(route => /(^|\/)maternity/.test(route) || source(route).includes('services/maternity\''))
+    expect(touching).toEqual([
+      'employees/[id]/maternity.get.ts', 'employees/[id]/maternity.post.ts', 'maternity/[id].delete.ts', 'maternity/[id].put.ts',
+      'maternity/[id]/ban-check.put.ts', 'maternity/[id]/book.post.ts',
+    ])
+    for (const route of touching) {
+      const code = source(route)
+      // Health data: Leitung and Träger by default, never a Mitarbeiter or the tablet; never the viewer's own case. Booking
+      // the plan checks plan.edit in the service.
+      expect(permissionCalls(route), route).toEqual([{ key: 'employees.sickness', options: '' }])
+      expect(code, route).toContain('admin.facilityId')
+      expect(code, route).toContain('ownEmployeeId: admin.employeeId')
+      expect(code, route).not.toMatch(/allowTerminal|facility: 'none'/)
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
+  })
+
   it('lets the Leitung read how 24 and 31 December count as leave; only the Träger changes it (Leitung 403)', () => {
     expect(permissionCalls('leave-counting.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
     expect(permissionCalls('leave-counting.put.ts')).toEqual([{ key: 'leave.configure', options: '' }])

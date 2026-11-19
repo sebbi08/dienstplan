@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, notifications, offlineStamps,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps,
   teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -119,6 +119,11 @@ export function fillEmployeeData(
     db.insert(bemSteps).values({
       processId: bemId, kind: 'meeting', date: '2025-04-15', participants: 'Lea Leitung', text: 'Erstgespräch',
       createdAt: now.toISOString(), updatedAt: now.toISOString(),
+    }).run()
+    // A Mutterschutz case (health data, with the immediate data).
+    db.insert(maternityCases).values({
+      employeeId: id, notifiedOn: '2025-01-10', expectedBirth: '2025-07-01', createdBy: 'Lea Leitung', createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     }).run()
     const childId = addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })
     // The rest of the references: time corrections, a week template row, a form editor grant, a tablet unlock, and the

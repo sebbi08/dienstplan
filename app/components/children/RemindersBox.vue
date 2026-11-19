@@ -12,7 +12,8 @@ import { offlineHintParts } from '~/utils/offlineHints'
  * the Unfallkasse (an employee's has no child: `childId` null; already sorted by the server), for Leitung/Träger the health
  * office still to be notified of a § 34 IfSG case (with „Benachrichtigt“ and „Arztmeldung liegt vor“), for Leitung/Träger
  * the tablet's offline stamps not taken over (checked on the time page), for whoever has the sick days right an employee
- * to offer a BEM (links to the employee page). Hidden without entries; closed
+ * to offer a BEM and what a Mutterschutz case still needs (link to the employee page; „Geprüft“ ends the check of a
+ * ban). Hidden without entries; closed
  * or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
@@ -46,7 +47,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
   leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert', ifsgCluster: 'i-lucide-users-round',
-  offlineStamp: 'i-lucide-wifi-off', bem: 'i-lucide-heart-handshake',
+  offlineStamp: 'i-lucide-wifi-off', bem: 'i-lucide-heart-handshake', maternity: 'i-lucide-baby',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -92,7 +93,17 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
       return entry.bem?.stage === 'notSent'
         ? r.bemNotSent()
         : entry.bem?.stage === 'answerDue' ? r.bemAnswerDue() : r.bem(entry.bem?.days ?? entry.count ?? 0)
+    // Mutterschutz: „Gefährdungsbeurteilung für ‹Name› erstellen/anpassen (§ 10 MuSchG)“, „‹Name›: Meldung an die
+    // Aufsichtsbehörde (§ 27 MuSchG) – unverzüglich“, „‹Name›: Beschäftigungsverbot prüfen (…)“.
+    case 'maternity':
+      return entry.maternity ? r.maternity[entry.maternity.task]() : { before: '', after: '' }
   }
+}
+
+/** „Geprüft“: the ban was checked for the Mutterschutz case (today); the reminder goes. */
+async function checkBan(entry: ReminderDto) {
+  if (!entry.maternity || busy.value) return
+  await run(() => $fetch<{ ok: boolean }>(`/api/maternity/${entry.maternity!.caseId}/ban-check`, { method: 'PUT' }), de.common.saved)
 }
 
 /** The time page at the offline stamp's person and day, where it is checked. */
@@ -174,7 +185,15 @@ async function markDone(entry: ReminderDto) {
           <NuxtLink
             v-if="entry.kind === 'bem' && entry.bem" :to="`/admin/employees/${entry.bem.employeeId}?tab=bem`" class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.bemLink }}</NuxtLink>
+          <NuxtLink
+            v-if="entry.kind === 'maternity' && entry.maternity" :to="`/admin/employees/${entry.maternity.employeeId}?tab=maternity`"
+            class="ml-2 text-xs text-sky-700 hover:underline"
+          >{{ r.maternityLink }}</NuxtLink>
         </span>
+        <UButton
+          v-if="entry.kind === 'maternity' && entry.maternity?.task === 'banCheck'" class="min-h-11" color="neutral" variant="outline"
+          icon="i-lucide-check" :label="r.maternityChecked" :disabled="busy" @click="checkBan(entry)"
+        />
         <UButton
           v-if="entry.kind === 'ifsgCluster' && entry.ifsgCluster" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-phone"
           :label="r.ifsgClusterAck" :disabled="busy" @click="ackCluster(entry)"
