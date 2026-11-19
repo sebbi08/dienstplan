@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { CodeDto, TemplateDto, WeekTemplateEntryDto, WeekTemplateStaffDto } from '../../shared/types/api'
+import { TEMPLATE_WEEKDAYS } from '../../shared/domain/weekTemplates'
 import {
-  clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateEntryInputs,
-  templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell, type TemplateEditorContext,
+  clearTemplateCells, draftTemplateEntry, enterIntoTemplateCells, hiddenTemplateEntries, previewDayCount, removeTemplateEntry, staffInScope,
+  templateDayKind, templateEntryInputs, templateWeekdays, templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  type TemplateEditorContext,
 } from '../../app/utils/weekTemplateEditor'
 
 const code = (id: number, key: CodeDto['key'], label: string, creditMode: CodeDto['creditMode'], color: CodeDto['color']): CodeDto =>
@@ -182,5 +184,46 @@ describe('the weekly hours of a template per employee', () => {
     const entries = enter([], [{ employeeId: 2, weekday: 0 }, { employeeId: 2, weekday: 4 }], { kind: 'shift', templateId: 1 })
     expect(templateWeeklyMinutes(entries, berta)).toBe(375)
     expect(templateWeeklyMinutes(entries, person(2, 'Berta', null))).toBe(0)
+  })
+})
+
+describe('Saturday and Sunday in the week template editor', () => {
+  it('has seven days, Monday to Sunday', () => {
+    expect(TEMPLATE_WEEKDAYS).toBe(7)
+    expect(templateWeekdays()).toEqual(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'])
+  })
+
+  it('enters into Saturday and Sunday like into a weekday and sends them with their weekday', () => {
+    const weekend = [{ employeeId: 1, weekday: 5 }, { employeeId: 1, weekday: 6 }]
+    let entries = enter([], weekend, { kind: 'special', start: 540, end: 780, breakStart: null, breakEnd: null })
+    entries = enter(entries, [{ employeeId: 1, weekday: 0 }], { kind: 'shift', templateId: 1 })
+    expect(entries.map(e => e.weekday)).toEqual([0, 5, 6])
+    expect(templateEntryInputs(entries, new Set([1])).map(e => e.weekday)).toEqual([0, 5, 6])
+    expect(clearTemplateCells(entries, weekend).map(e => e.weekday)).toEqual([0])
+  })
+
+  it('counts a duty on the weekend with its time, also outside the contract days (filling a week writes it)', () => {
+    expect(templateWeekdayTarget(anna, 5)).toBe(0)
+    expect(templateWeekdayTarget(person(4, 'Sa', 30 * 60, 0b0111110), 5)).toBe(360)
+    const entries = enter([], [{ employeeId: 1, weekday: 0 }, { employeeId: 1, weekday: 5 }], { kind: 'shift', templateId: 1 })
+    expect(templateWeeklyMinutes(entries, anna)).toBe(2 * 375)
+    // A whole Büro day on a Saturday off is never written: nothing to count.
+    const office = enter([], [{ employeeId: 1, weekday: 6 }], { kind: 'code', codeId: 11 })
+    expect(templateWeeklyMinutes(office, anna)).toBe(0)
+    expect(templateWeeklyMinutes(entries, person(1, 'Anna', null))).toBe(0)
+  })
+
+  it('tells the days of the grid apart: a contract day, a free weekend day or a weekday off', () => {
+    expect(templateDayKind(anna, 0)).toBe('workday')
+    expect(templateDayKind(anna, 5)).toBe('weekend')
+    expect(templateDayKind(berta, 4)).toBe('day_off')
+    expect(templateDayKind(person(4, 'Sa', 30 * 60, 0b0111110), 5)).toBe('workday')
+  })
+
+  it('shows Saturday and Sunday in the preview only when the template has something there', () => {
+    const template = (days: string[]) => ({ id: 1, name: 'A', groupId: null, updatedAt: '', rows: [{ employeeId: 1, name: 'Anna', days }] })
+    expect(previewDayCount(template(['F1', '', '', '', '', '', '']))).toBe(5)
+    expect(previewDayCount(template(['F1', '', '', '', '', '', 'S']))).toBe(7)
+    expect(previewDayCount({ ...template([]), rows: [] })).toBe(5)
   })
 })

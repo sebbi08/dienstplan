@@ -823,7 +823,7 @@ export const de = {
   },
   weekTemplates: {
     title: 'Dienstplanvorlagen',
-    hint: 'Eine Vorlage ist eine Woche (Montag bis Freitag) mit den Diensten der Mitarbeiter. Lege sie hier mit „Vorlage anlegen“ an oder ändere sie mit „Bearbeiten“ – oder speichere im Dienstplan eine Woche mit „Als Vorlage speichern“. Mit „Vorlage einsetzen“ füllst du im Dienstplan eine Woche aus der Vorlage.',
+    hint: 'Eine Vorlage ist eine Woche (Montag bis Sonntag) mit den Diensten der Mitarbeiter. Lege sie hier mit „Vorlage anlegen“ an oder ändere sie mit „Bearbeiten“ – oder speichere im Dienstplan eine Woche mit „Als Vorlage speichern“. Mit „Vorlage einsetzen“ füllst du im Dienstplan eine Woche aus der Vorlage.',
     create: 'Vorlage anlegen', edit: 'Bearbeiten',
     editor: {
       newTitle: 'Neue Dienstplanvorlage',
@@ -837,6 +837,7 @@ export const de = {
       contract: (hours: string) => `von ${hours} h`,
       contractHint: 'Rot: weicht von den Vertragsstunden ab.',
       dayOff: 'Laut Vertrag kein Arbeitstag – beim Einsetzen wird dieser Tag übersprungen.',
+      weekendOff: 'Laut Vertrag kein Arbeitstag – beim Einsetzen wird hier nur Eingetragenes mit Uhrzeit übernommen (Büro oder VZ als ganzer Tag nicht).',
       noStaff: 'Für diese Auswahl gibt es keine Mitarbeiter.',
       /** Entries of people not (or no longer) in the chosen „Für“, e.g. „Clara, Ben: 3 Einträge werden beim Speichern entfernt …“. */
       hiddenEntries: (names: string, count: number) => `${names}: ${count === 1 ? '1 Eintrag wird' : `${count} Einträge werden`} beim Speichern entfernt (nicht in dieser Auswahl bzw. nicht mehr in der Einrichtung).`,
@@ -844,8 +845,8 @@ export const de = {
     saveWeek: 'Als Vorlage speichern', applyWeek: 'Vorlage einsetzen',
     saveTitle: (from: string, to: string) => `Woche ${from} – ${to} als Vorlage speichern`,
     applyTitle: (from: string, to: string) => `Vorlage einsetzen: Woche ${from} – ${to}`,
-    saveHint: 'Gespeichert werden Dienste, Sonderdienste, Pausen, VZ und Büro von Montag bis Freitag. Urlaub, Krank, Fortbildung, Schule und Schließtage werden nicht übernommen.',
-    applyHint: 'Es werden nur leere Felder gefüllt. Bereits Eingetragenes bleibt; Feiertage, Schließzeiten und freie Tage werden übersprungen.',
+    saveHint: 'Gespeichert werden Dienste, Sonderdienste, Pausen, VZ und Büro von Montag bis Sonntag. Urlaub, Krank, Fortbildung, Schule und Schließtage werden nicht übernommen.',
+    applyHint: 'Es werden nur leere Felder gefüllt. Bereits Eingetragenes bleibt; Feiertage, Schließzeiten und freie Wochentage werden übersprungen. Samstag und Sonntag werden nur gefüllt, wo die Vorlage etwas hat.',
     name: 'Name der Vorlage', template: 'Vorlage', none: 'Noch keine Vorlagen gespeichert.',
     replaceConfirm: (name: string) => `Die Vorlage „${name}“ gibt es schon. Durch diese Woche ersetzen?`,
     saved: 'Vorlage gespeichert', replace: 'Ersetzen',
@@ -2621,7 +2622,7 @@ export const de = {
     week_template_not_found: 'Diese Vorlage existiert nicht mehr.',
     template_entry_not_allowed: 'In einer Vorlage sind nur Dienste, Sonderdienste, Pausen, VZ und Büro möglich – kein Urlaub, Krank oder Schließtag.',
     template_empty: 'Die Vorlage ist noch leer. Bitte mindestens einen Dienst eintragen.',
-    invalid_weekday: 'Eine Vorlage hat nur Montag bis Freitag.',
+    invalid_weekday: 'Eine Vorlage hat nur die Tage Montag bis Sonntag.',
     not_a_monday: 'Eine Woche muss an einem Montag beginnen.',
     empty_week: 'In dieser Woche ist noch nichts eingetragen, was als Vorlage gespeichert werden kann.',
     closure_not_found: 'Diese Schließzeit existiert nicht mehr.',

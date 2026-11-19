@@ -1,10 +1,11 @@
 import { dayCredit, isFullDayTimed } from '#shared/domain/balance'
 import { describeEntry } from '#shared/domain/describe'
 import { workdayCount, worksOnWeekday } from '#shared/domain/targets'
-import { planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '#shared/domain/weekTemplates'
+import { isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '#shared/domain/weekTemplates'
 import type {
-  CodeDto, EntryInput, TemplateDto, WeekTemplateEntryDto, WeekTemplateEntryInput, WeekTemplateStaffDto,
+  CodeDto, EntryInput, TemplateDto, WeekTemplateDto, WeekTemplateEntryDto, WeekTemplateEntryInput, WeekTemplateStaffDto,
 } from '#shared/types/api'
+import { de } from '~/locales/de'
 import { entryApplyMode } from './applyMode'
 import { templateCellMessage } from './errors'
 
@@ -15,7 +16,7 @@ import { templateCellMessage } from './errors'
  * (templateCellConflict), so what the editor accepts is what the server accepts.
  */
 
-/** One cell of the editor: an employee's weekday (0 = Monday … 4 = Friday). */
+/** One cell of the editor: an employee's weekday (0 = Monday … 6 = Sunday). */
 export interface TemplateCell {
   employeeId: number
   weekday: number
@@ -177,15 +178,36 @@ export function templateWeekdayTarget(person: WeekTemplateStaffDto, weekday: num
 
 /**
  * The working time the template plans for the person in a week, as the balance counts a day (dayCredit): breaks off,
- * overlapping entries once, a whole Büro/VZ day with the daily target of that weekday. Days that are no working day of
- * the contract (target 0) are left out, as filling a week skips them.
+ * overlapping entries once, a whole Büro/VZ day with the daily target of that weekday. Weekdays that are no working day
+ * of the contract (target 0) are left out, as filling a week skips them; Saturday and Sunday count with their times.
  */
 export function templateWeeklyMinutes(entries: WeekTemplateEntryDto[], person: WeekTemplateStaffDto): number {
   let total = 0
   for (let weekday = 0; weekday < TEMPLATE_WEEKDAYS; weekday++) {
     const target = templateWeekdayTarget(person, weekday)
     const day = entries.filter(inCell({ employeeId: person.id, weekday }))
-    if (target > 0 && day.length > 0) total += dayCredit(day, target)
+    // Saturday/Sunday are filled off the contract days too (a whole Büro/VZ day there credits its target 0: nothing).
+    const filled = target > 0 || (isTemplateWeekend(weekday) && person.weeklyMinutes !== null)
+    if (filled && day.length > 0) total += dayCredit(day, target)
   }
   return total
+}
+
+/** The days of the editor's grid, Monday to Sunday. */
+export function templateWeekdays(): string[] {
+  return de.weekdaysLong.slice(0, TEMPLATE_WEEKDAYS)
+}
+
+/**
+ * How a cell of the grid looks: a working day of the contract; a weekend day off (filled only with what is entered
+ * there, a whole Büro/VZ day not); a weekday off (filling a week skips it).
+ */
+export function templateDayKind(person: WeekTemplateStaffDto, weekday: number): 'workday' | 'weekend' | 'day_off' {
+  if (templateWeekdayTarget(person, weekday) > 0) return 'workday'
+  return isTemplateWeekend(weekday) ? 'weekend' : 'day_off'
+}
+
+/** The days a template's preview shows: Monday to Friday, Saturday and Sunday too when it has something there. */
+export function previewDayCount(template: WeekTemplateDto): number {
+  return template.rows.some(row => row.days.slice(5).some(Boolean)) ? TEMPLATE_WEEKDAYS : 5
 }

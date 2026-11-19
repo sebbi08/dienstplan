@@ -2,19 +2,18 @@
 import { cellFillColor } from '#shared/domain/cells'
 import { formatDuration } from '#shared/domain/time'
 import { isTargetGapCode } from '#shared/domain/warnings'
-import { TEMPLATE_WEEKDAYS } from '#shared/domain/weekTemplates'
 import type {
   CodeDto, EntryInput, GroupDto, TemplateDto, WeekTemplateDetailDto, WeekTemplateEntryDto, WeekTemplateStaffDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cellFillClasses } from '~/utils/colors'
 import {
-  clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateEntryInputs,
-  templateWeekdayTarget, templateWeeklyMinutes, type TemplateCell,
+  clearTemplateCells, enterIntoTemplateCells, hiddenTemplateEntries, removeTemplateEntry, staffInScope, templateCellOf, templateDayKind,
+  templateEntryInputs, templateWeekdays, templateWeeklyMinutes, type TemplateCell,
 } from '~/utils/weekTemplateEditor'
 
 /**
- * Creates or edits a week template directly: name, scope („Für“) and a grid Monday–Friday × the employees in scope,
+ * Creates or edits a week template directly: name, scope („Für“) and a grid Monday–Sunday × the employees in scope,
  * entered like the plan (select cells, then a service, VZ/Büro, Sonderdienst, Pause or „Leeren“). Everything stays on
  * the page until „Speichern“ sends the whole template; leaving with unsaved changes asks first (useDirty).
  */
@@ -65,7 +64,7 @@ const dirty = useDirty(() => !saved.value && !sameValue(payloadOf(), loaded))
 
 const byCell = computed(() => Map.groupBy(entries.value, templateCellOf))
 const cellEntries = (cell: TemplateCell) => byCell.value.get(templateCellOf(cell)) ?? []
-const weekdays = de.weekdaysLong.slice(0, TEMPLATE_WEEKDAYS)
+const weekdays = templateWeekdays()
 const WEEKDAY_KEYS = weekdays.map((_, weekday) => String(weekday))
 
 const selectedCells = computed<TemplateCell[]>(() => selection.cells.value.map(cell => ({ employeeId: cell.employeeId, weekday: Number(cell.date) })))
@@ -78,9 +77,14 @@ const isSelected = (cell: TemplateCell) => selection.selected.value.has(template
 function cellClass(person: WeekTemplateStaffDto, weekday: number): string {
   const cell = { employeeId: person.id, weekday }
   if (isSelected(cell)) return 'bg-sky-100'
-  if (templateWeekdayTarget(person, weekday) === 0) return 'bg-gray-100'
   const fill = cellFillColor(cellEntries(cell))
+  const kind = templateDayKind(person, weekday)
+  if (kind === 'day_off' || (kind === 'weekend' && !fill)) return 'bg-gray-100'
   return fill ? cellFillClasses[fill] : ''
+}
+/** Why a day off is grey: a weekday off is skipped, Saturday/Sunday take only what has times. */
+function dayOffTitle(person: WeekTemplateStaffDto, weekday: number): string | undefined {
+  return { workday: undefined, weekend: e.weekendOff, day_off: e.dayOff }[templateDayKind(person, weekday)]
 }
 
 function hasSelection(): boolean {
@@ -175,7 +179,7 @@ async function save() {
               <td
                 v-for="person in columns" :key="person.id"
                 class="cursor-pointer border border-gray-200 px-1 py-1 align-top hover:bg-sky-50" :class="cellClass(person, weekday)"
-                :title="templateWeekdayTarget(person, weekday) === 0 ? e.dayOff : undefined"
+                :title="dayOffTitle(person, weekday)"
                 @click="onCellClick(person.id, weekday, $event)"
               >
                 <div class="flex min-h-6 flex-col items-start gap-0.5">

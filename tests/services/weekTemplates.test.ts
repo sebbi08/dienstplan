@@ -37,19 +37,20 @@ describe('week templates', () => {
     applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'code', codeId: codeId(db, key), start, end })
   const cell = (employeeId: number, date: string) => loadEntries(db, { employeeId, from: date, to: date }).map(e => e.label)
 
-  it('saves the working entries of Monday to Friday and leaves one-off absences out', () => {
+  it('saves the working entries of Monday to Sunday and leaves one-off absences out', () => {
     shift(anna, '2026-10-05', 'F1')
     shift(anna, '2026-10-06', 'M')
     applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-06' }], 'add', { kind: 'break', start: 900, end: 915 })
     code(anna, '2026-10-07', 'vacation')
     code(berta, '2026-10-05', 'prep_time', 450, 570)
     shift(berta, '2026-10-05', 'S')
-    shift(berta, '2026-10-10', 'S') // Saturday: not part of a template
+    shift(berta, '2026-10-10', 'S') // Saturday
+    shift(anna, '2026-10-12', 'F1') // the next Monday: not this week
     const template = saveWeekTemplate(db, 1, { name: ' Woche A ', weekStart: week })
     expect(template.name).toBe('Woche A')
     expect(template.rows).toEqual([
-      { employeeId: anna, name: 'Anna', days: ['F1', 'M + [15:00–15:15]', '', '', ''] },
-      { employeeId: berta, name: 'Berta', days: ['VZ 7:30–9:30 + S', '', '', '', ''] },
+      { employeeId: anna, name: 'Anna', days: ['F1', 'M + [15:00–15:15]', '', '', '', '', ''] },
+      { employeeId: berta, name: 'Berta', days: ['VZ 7:30–9:30 + S', '', '', '', '', 'S', ''] },
     ])
   })
 
@@ -98,8 +99,8 @@ describe('week templates', () => {
     shift(berta, '2026-10-05', 'S')
     const template = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })
     expect(template.rows).toEqual([
-      { employeeId: anna, name: 'Anna', days: ['8:00–12:00 (Homeoffice)', 'F1 (Homeoffice)', '', '', ''] },
-      { employeeId: berta, name: 'Berta', days: ['S', '', '', '', ''] },
+      { employeeId: anna, name: 'Anna', days: ['8:00–12:00 (Homeoffice)', 'F1 (Homeoffice)', '', '', '', '', ''] },
+      { employeeId: berta, name: 'Berta', days: ['S', '', '', '', '', '', ''] },
     ])
     applyWeekTemplate(db, admin, 1, template.id, next)
     const homeOffice = (employeeId: number, date: string) =>
@@ -135,6 +136,72 @@ describe('week templates', () => {
     expect(errorCode(() => applyWeekTemplate(db, admin, 1, template.id, '2026-10-06'))).toBe('not_a_monday')
     expect(errorCode(() => applyWeekTemplate(db, admin, 1, 999, next))).toBe('week_template_not_found')
     expect(errorCode(() => deleteWeekTemplate(db, 1, 999))).toBe('week_template_not_found')
+  })
+})
+
+describe('week templates with Saturday and Sunday', () => {
+  let db: Db
+  let admin: SessionUser
+  let anna: number
+  let berta: number
+  beforeEach(() => {
+    db = createTestDb()
+    admin = addUser(db, 'leitung', 'admin')
+    anna = addEmployee(db, 'Anna') // Monday to Friday by contract
+    berta = addEmployee(db, 'Berta')
+  })
+  const shift = (employeeId: number, date: string, label: string) =>
+    applyToCells(db, admin, 1, [{ employeeId, date }], 'replace', { kind: 'shift', templateId: templateId(db, label) })
+  const cell = (employeeId: number, date: string) => loadEntries(db, { employeeId, from: date, to: date }).map(e => e.label)
+
+  it('fills Saturday and Sunday where the template has entries, also outside the contract days', () => {
+    shift(anna, '2026-10-05', 'F1')
+    shift(anna, '2026-10-10', 'S') // Saturday
+    shift(berta, '2026-10-11', 'F1') // Sunday
+    const template = saveWeekTemplate(db, 1, { name: 'Sommerfest', weekStart: week })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 3, skipped: 0 })
+    expect(cell(anna, '2026-10-12')).toEqual(['7:00–13:15'])
+    expect(cell(anna, '2026-10-17')).toEqual(['8:45–17:00'])
+    expect(cell(berta, '2026-10-18')).toEqual(['7:00–13:15'])
+    expect(cell(anna, '2026-10-18')).toEqual([]) // nothing in the template: stays empty
+  })
+
+  it('skips a public holiday, a closure and an occupied cell on the weekend like on weekdays', () => {
+    shift(anna, '2026-10-10', 'S')
+    shift(anna, '2026-10-11', 'S')
+    shift(berta, '2026-10-10', 'F1')
+    const template = saveWeekTemplate(db, 1, { name: 'Wochenende', weekStart: week })
+    // 2026-10-03 (Tag der Deutschen Einheit) is a Saturday.
+    expect(applyWeekTemplate(db, admin, 1, template.id, '2026-09-28')).toEqual({ filled: 1, skipped: 2 })
+    expect(cell(anna, '2026-10-03')).toEqual([])
+    expect(cell(berta, '2026-10-03')).toEqual([])
+    expect(cell(anna, '2026-10-04')).toEqual(['8:45–17:00'])
+
+    createClosure(db, admin, 1, { startDate: '2026-10-17', endDate: '2026-10-17', label: 'Putztag', mode: 'closure_day' })
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-18' }], 'replace', { kind: 'special', start: 600, end: 660 })
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 0, skipped: 3 })
+    expect(cell(anna, '2026-10-18')).toEqual(['10:00–11:00'])
+    expect(cell(berta, '2026-10-17')).not.toContain('7:00–13:15')
+  })
+
+  it('writes a whole Büro/VZ day on the weekend only on a working day of the contract', () => {
+    applyToCells(db, admin, 1, [{ employeeId: anna, date: '2026-10-05' }], 'replace', { kind: 'code', codeId: codeId(db, 'office') })
+    const template = saveWeekTemplate(db, 1, { name: 'Büro', weekStart: week })
+    // Moved to Saturday in the template (the plan refuses a whole day without a daily target).
+    db.update(weekTemplateEntries).set({ weekday: 5 }).where(eq(weekTemplateEntries.weekTemplateId, template.id)).run()
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 0, skipped: 1 })
+    addHours(db, 1, anna, { weeklyMinutes: 2340, validFrom: '2026-10-01', workdays: 0b0111110 }, admin) // Tuesday to Saturday
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 1, skipped: 0 })
+    expect(cell(anna, '2026-10-17')).toEqual(['Büro (ganzer Tag)'])
+  })
+
+  it('leaves the weekend alone for a template without weekend entries, as before', () => {
+    shift(anna, '2026-10-05', 'F1')
+    shift(anna, '2026-10-09', 'F1')
+    const template = saveWeekTemplate(db, 1, { name: 'Woche A', weekStart: week })
+    expect(template.rows[0]!.days).toEqual(['F1', '', '', '', 'F1', '', ''])
+    expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 2, skipped: 0 })
+    expect(loadEntries(db, { employeeId: anna, from: '2026-10-17', to: '2026-10-18' })).toEqual([])
   })
 })
 
@@ -236,8 +303,8 @@ describe('week templates per group', () => {
     const template = saveWeekTemplate(db, 1, { name: 'Mäuse A', weekStart: week, groupId: maeuse })
     expect(template.groupId).toBe(maeuse)
     expect(template.rows).toEqual([
-      { employeeId: anna, name: 'Anna', days: ['F1', 'M + [15:00–15:15]', '', '', ''] },
-      { employeeId: berta, name: 'Berta', days: ['S', 'S', '', '', ''] },
+      { employeeId: anna, name: 'Anna', days: ['F1', 'M + [15:00–15:15]', '', '', '', '', ''] },
+      { employeeId: berta, name: 'Berta', days: ['S', 'S', '', '', '', '', ''] },
     ])
     expect(listWeekTemplates(db, 1).map(t => [t.name, t.groupId])).toEqual([['Mäuse A', maeuse]])
     expect(errorCode(() => saveWeekTemplate(db, 1, { name: 'Bären A', weekStart: next, groupId: baeren }))).toBe('empty_week')
@@ -271,7 +338,7 @@ describe('week templates per group', () => {
     const template = saveWeekTemplate(db, 1, { name: 'Haus', weekStart: week })
     expect(template.groupId).toBeNull()
     expect(template.rows.map(row => row.name)).toEqual(['Anna', 'Berta', 'Carl', 'Sven'])
-    expect(template.rows[0]!.days).toEqual(['F1', 'M + [15:00–15:15]', 'F1', '', ''])
+    expect(template.rows[0]!.days).toEqual(['F1', 'M + [15:00–15:15]', 'F1', '', '', '', ''])
     expect(db.select().from(weekTemplateEntries).all()).toHaveLength(8)
     expect(applyWeekTemplate(db, admin, 1, template.id, next)).toEqual({ filled: 7, skipped: 0 })
     expect(Object.fromEntries(weekTemplateNames(db, 1, week, next))).toEqual({ [week]: { 0: 'Haus' }, [next]: { 0: 'Haus' } })
@@ -283,7 +350,7 @@ describe('week templates per group', () => {
     saveWeekTemplate(db, 1, { name: 'Haus', weekStart: week })
     const mice = saveWeekTemplate(db, 1, { name: 'Mäuse A', weekStart: week, groupId: maeuse })
     const bears = saveWeekTemplate(db, 1, { name: 'Bären A', weekStart: week, groupId: baeren })
-    expect(bears.rows).toEqual([{ employeeId: carl, name: 'Carl', days: ['', 'S', '', '', ''] }])
+    expect(bears.rows).toEqual([{ employeeId: carl, name: 'Carl', days: ['', 'S', '', '', '', '', ''] }])
     applyWeekTemplate(db, admin, 1, mice.id, next)
     expect(Object.fromEntries(weekTemplateNames(db, 1, week, next))).toEqual({
       [week]: { 0: 'Haus', [maeuse]: 'Mäuse A', [baeren]: 'Bären A' },

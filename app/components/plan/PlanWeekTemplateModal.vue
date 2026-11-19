@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { addDays } from '#shared/domain/dates'
+import { TEMPLATE_WEEKDAYS } from '#shared/domain/weekTemplates'
 import type { GroupDto, WeekTemplateApplyResult, WeekTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
@@ -37,11 +38,11 @@ watch(open, async (isOpen) => {
   templates.value = await $fetch<WeekTemplateDto[]>('/api/week-templates').catch(() => [])
 })
 
-/** Monday to Friday of the chosen week; empty while no week is chosen yet (the dialog is rendered closed). */
+/** Monday to Sunday of the chosen week; empty while no week is chosen yet (the dialog is rendered closed). */
 const title = computed(() => {
   if (!props.weekStart) return ''
   const describe = props.mode === 'save' ? de.weekTemplates.saveTitle : de.weekTemplates.applyTitle
-  return describe(formatDate(props.weekStart), formatDate(addDays(props.weekStart, 4)))
+  return describe(formatDate(props.weekStart), formatDate(addDays(props.weekStart, TEMPLATE_WEEKDAYS - 1)))
 })
 
 const items = computed(() => (templates.value ?? []).map((template) => {

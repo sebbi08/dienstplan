@@ -75,8 +75,8 @@ describe('week templates written in the editor', () => {
     expect(listWeekTemplates(db, 1)).toEqual([{
       id: template.id, name: 'Woche A', groupId: null, updatedAt: template.updatedAt,
       rows: [
-        { employeeId: anna, name: 'Anna', days: ['F1', 'M (Homeoffice) + [15:00–15:15]', 'Büro (ganzer Tag)', '', ''] },
-        { employeeId: berta, name: 'Berta', days: ['8:00–12:00 + VZ 8:00–9:00', '', '', '', 'S'] },
+        { employeeId: anna, name: 'Anna', days: ['F1', 'M (Homeoffice) + [15:00–15:15]', 'Büro (ganzer Tag)', '', '', '', ''] },
+        { employeeId: berta, name: 'Berta', days: ['8:00–12:00 + VZ 8:00–9:00', '', '', '', 'S', '', ''] },
       ],
     }])
     expect(getWeekTemplate(db, 1, template.id)).toEqual(template)
@@ -164,10 +164,16 @@ describe('week templates written in the editor', () => {
     expect(db.select().from(weekTemplates).all()).toHaveLength(1)
   })
 
+  it('takes Saturday and Sunday', () => {
+    const template = create([shift(anna, 5, 'F1'), shift(anna, 6, 'S')])
+    expect(template.entries.map(e => e.weekday)).toEqual([5, 6])
+    expect(listWeekTemplates(db, 1)[0]!.rows).toEqual([{ employeeId: anna, name: 'Anna', days: ['', '', '', '', '', 'F1', 'S'] }])
+  })
+
   it('validates names, weekdays, times and the home-office mark', () => {
     expect(errorCode(() => create([shift(anna, 0, 'F1')], ' '))).toBe('name_required')
     expect(errorCode(() => create([]))).toBe('template_empty')
-    expect(errorCode(() => create([shift(anna, 5, 'F1')]))).toBe('invalid_weekday')
+    expect(errorCode(() => create([shift(anna, 7, 'F1')]))).toBe('invalid_weekday')
     expect(errorCode(() => create([shift(anna, -1, 'F1')]))).toBe('invalid_weekday')
     expect(errorCode(() => create([{ employeeId: anna, weekday: 0, kind: 'special' }]))).toBe('times_required')
     expect(errorCode(() => create([{ employeeId: anna, weekday: 0, kind: 'special', start: 481, end: 600 }]))).toBe('span_not_on_grid')

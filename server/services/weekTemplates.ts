@@ -1,11 +1,12 @@
 import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm'
 import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
-import { isWorkday, MONDAY_TO_FRIDAY } from '../../shared/domain/targets'
+import { isHolidayIn } from '../../shared/domain/holidays'
+import { type EmploymentInfo, isEmployedOn, isWorkday, MONDAY_TO_FRIDAY } from '../../shared/domain/targets'
 import type { TimeSpan } from '../../shared/domain/time'
 import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
 import { isTargetGapCode, TARGET_GAP_CODES } from '../../shared/domain/warnings'
-import { planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '../../shared/domain/weekTemplates'
+import { isTemplateWeekend, planEntryColor, TEMPLATE_WEEKDAYS, templateCellConflict } from '../../shared/domain/weekTemplates'
 import type {
   ColorKey, SessionUser, WeekTemplateApplyResult, WeekTemplateDetailDto, WeekTemplateDto, WeekTemplateEntryDto,
   WeekTemplateInput, WeekTemplateStaffDto,
@@ -18,7 +19,7 @@ import { dayConflict, describeCellAt, resolveEntry } from './entries'
 import { assertGroup, groupNames } from './groups'
 import { closureOn, loadClosures, loadCodes, loadEmployees, loadEntries } from './queries'
 
-/** A template covers Monday to Friday. */
+/** A template covers Monday to Sunday. */
 const WEEKDAYS = TEMPLATE_WEEKDAYS
 
 function requireName(name: string): string {
@@ -129,7 +130,7 @@ export function weekTemplateStaff(db: Db, facilityId: number, today: IsoDate): W
 
 /**
  * Checks a template from the editor with the rules of saving a week: a name, a group of the facility, at least one
- * entry; each entry on Monday–Friday (invalid_weekday), for the facility's own staff (a group template: the group's
+ * entry; each entry on Monday–Sunday (invalid_weekday), for the facility's own staff (a group template: the group's
  * members; employee_not_found otherwise), resolved like a plan entry (service of the facility, valid times, home-office
  * mark only on working time) and only of the kinds a saved week keeps: shifts, special shifts, breaks, VZ and Büro
  * (template_entry_not_allowed for Urlaub, Krank, Schließtag …). A whole Büro/VZ day without times is allowed: filling
@@ -220,7 +221,7 @@ export function replaceWeekTemplate(
 }
 
 /**
- * Saves Monday–Friday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro,
+ * Saves Monday–Sunday of the week starting at weekStart as a template: shifts, special shifts, breaks, VZ and Büro,
  * with their home-office mark (filling a week writes it again).
  * One-off entries (Urlaub, Krank, Fortbildung …) are left out. Only the facility's staff count (not its helpers, and not
  * their help-out days elsewhere). A group template (groupId set) keeps only the duties of the group's current members
@@ -283,7 +284,10 @@ export function deleteWeekTemplate(db: Db, facilityId: number, id: number): void
  * Copies the template into the week starting at weekStart, for the facility's own staff only (a group template: only
  * the group's current members). A day is only filled when the employee's day is empty (a help-out elsewhere counts as
  * filled) and it is one of their working days (employed, contract day, no public holiday) outside any closure; nothing
- * is overwritten.
+ * is overwritten. Saturday and Sunday hold entries only where the template has some (older templates have none): they
+ * are filled on any day the employee is employed, outside public holidays and closures, also off the contract days
+ * (weekend duties are planned extra) – except a whole Büro/VZ day, which needs a contract day (a daily target to credit,
+ * as the plan refuses it otherwise).
  */
 export function applyWeekTemplate(
   db: Db, actor: SessionUser, facilityId: number, id: number, weekStart: IsoDate, now: Date = new Date(),
@@ -319,7 +323,7 @@ export function applyWeekTemplate(
       const { employeeId, weekday: day } = group[0]!
       const date = addDays(weekStart, day)
       const employee = staff.get(employeeId)
-      if (!employee || !isWorkday(employee.info, date) || closureOn(closures, date) || occupied.has(`${employeeId}:${date}`)) {
+      if (!employee || !fillsDay(employee.info, date, day, group) || closureOn(closures, date) || occupied.has(`${employeeId}:${date}`)) {
         result.skipped += 1
         continue
       }
@@ -336,6 +340,21 @@ export function applyWeekTemplate(
     if (result.filled > 0) markWeek(tx, template, weekStart)
   })
   return result
+}
+
+/**
+ * Whether filling a week writes the template's day into the plan, before closures and occupied cells: Monday–Friday on
+ * the employee's working days; Saturday/Sunday on every day employed without a public holiday, a whole Büro/VZ day only
+ * on a working day (see applyWeekTemplate).
+ */
+function fillsDay(
+  info: EmploymentInfo, date: IsoDate, day: number,
+  cell: Pick<typeof weekTemplateEntries.$inferSelect, 'kind' | 'absenceCodeId' | 'start' | 'end'>[],
+): boolean {
+  if (!isTemplateWeekend(day) || cell.some(row => row.kind === 'code' && row.start === null && row.end === null)) {
+    return isWorkday(info, date)
+  }
+  return isEmployedOn(info, date) && !isHolidayIn(date, info.holidays)
 }
 
 /**

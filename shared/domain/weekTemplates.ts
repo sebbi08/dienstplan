@@ -4,8 +4,11 @@ import type { DomainEntry, EntryKind } from './types'
 import { isTargetGapCode } from './warnings'
 import type { ColorKey } from '../types/api'
 
-/** A week template covers Monday (0) to Friday (4). */
-export const TEMPLATE_WEEKDAYS = 5
+/** A week template covers Monday (0) to Sunday (6); Saturday (5) and Sunday are filled only where it has entries. */
+export const TEMPLATE_WEEKDAYS = 7
+
+/** Saturday (5) and Sunday (6) of a template. */
+export const isTemplateWeekend = (weekday: number): boolean => weekday >= 5
 
 /** The chip color of a plan or template entry: the code's color, red for a break, violet for a duty not counting as staff. */
 export function planEntryColor(entry: { kind: EntryKind; countsAsStaff: boolean }, codeColor: ColorKey | null): ColorKey {

@@ -193,7 +193,7 @@ export const timeMonthQuery = monthParams.extend({ employeeId: z.coerce.number()
 export const weekTemplateSaveSchema = z.object({ name: label, weekStart: isoDate, groupId: groupIdSchema.optional() })
 export const weekTemplateRenameSchema = z.object({ name: label })
 export const weekTemplateApplySchema = z.object({ weekStart: isoDate })
-/** A whole template from its editor; the weekday (0 = Monday … 4 = Friday) is checked by the service (invalid_weekday). */
+/** A whole template from its editor; the weekday (0 = Monday … 6 = Sunday) is checked by the service (invalid_weekday). */
 export const weekTemplateInputSchema = z.object({
   name: label,
   groupId: groupIdSchema,

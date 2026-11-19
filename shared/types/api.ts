@@ -1814,7 +1814,7 @@ export interface CalendarRequestsDto {
   canPlan: boolean
 }
 
-/** A saved plan week; `rows` previews it per employee with one text per weekday Monday–Friday ('' = empty). */
+/** A saved plan week; `rows` previews it per employee with one text per day Monday–Sunday ('' = empty). */
 export interface WeekTemplateDto {
   id: number
   name: string
@@ -1826,7 +1826,7 @@ export interface WeekTemplateDto {
 
 /**
  * One entry of a week template written in its editor: what the plan takes for a cell (without a group: a template's
- * duties count for the home group) on a weekday, 0 = Monday … 4 = Friday.
+ * duties count for the home group) on a weekday, 0 = Monday … 6 = Sunday.
  */
 export type WeekTemplateEntryInput = Omit<EntryInput, 'groupId'> & {
   employeeId: number
@@ -1851,7 +1851,7 @@ export interface WeekTemplateInput {
  * whose service (Dienst) has other times by now comes as a special shift with its saved times, as filling a week writes it.
  */
 export interface WeekTemplateEntryDto extends EntryDto {
-  /** 0 = Monday … 4 = Friday. */
+  /** 0 = Monday … 6 = Sunday. */
   weekday: number
 }
 
