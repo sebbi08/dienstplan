@@ -39,7 +39,7 @@ export const facilities = sqliteTable('facilities', {
   christmasEveHalfLeave: integer('christmas_eve_half_leave', { mode: 'boolean' }).notNull().default(false),
   /**
    * The facility's own choice „bezahlt frei“ for 24 and 31 December (instead of a whole or half leave day): both days
-   * count like a public holiday for the staff (HolidayRules.paidEves). Only the Träger sets it; while tvoedSue is on
+   * count like a public holiday for the staff (HolidayRules.paidEvesFrom). Only the Träger sets it; while tvoedSue is on
    * it does not matter (the days are paid free anyway) and is kept for when it is switched off.
    */
   christmasEvePaidFree: integer('christmas_eve_paid_free', { mode: 'boolean' }).notNull().default(false),
@@ -48,6 +48,12 @@ export const facilities = sqliteTable('facilities', {
    * changes nothing else; pay groups, levels and the level steps stay usable either way.
    */
   tvoedSue: integer('tvoed_sue', { mode: 'boolean' }).notNull().default(true),
+  /**
+   * The first year 24 and 31 December are paid free (while tvoedSue or christmasEvePaidFree is on); earlier years keep
+   * the whole or half leave day, so past target hours and balances never change. Existing facilities: 2026; a new
+   * facility: the year it was created; switching paid free on later: that year (see setLeaveCounting).
+   */
+  paidEvesFromYear: integer('paid_eves_from_year').notNull().default(2026),
   /**
    * Remaining leave of a year lapses on this day of the year after (January to September; default 31.03.). Leitung and
    * Träger set it; the notice on remaining leave (shared/domain/leaveForfeit.ts) names it.

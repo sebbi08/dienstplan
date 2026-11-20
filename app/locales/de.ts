@@ -123,7 +123,9 @@ export const de = {
     label: 'Der 24.12. und der 31.12. zählen als',
     options: { whole: 'ganzer Urlaubstag', half: 'halber Urlaubstag', paid: 'bezahlt frei' },
     paidTvoed: 'bezahlt frei (TVöD § 6 Abs. 3)',
-    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen) und für alle Jahre: Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen damit. „halber Urlaubstag“ ändert das Stundenkonto nicht. „bezahlt frei“ ist wie ein Feiertag: kein Urlaub, keine Sollstunden – das Stundenkonto ändert sich entsprechend.',
+    paidFrom: (year: number) => `gilt ab ${year}`,
+    paidFromHint: (year: number) => `Bis ${year - 1} zählen der 24.12. und der 31.12. wie vorher (ganzer oder halber Urlaubstag): Urlaub und Stundenkonto früherer Jahre ändern sich nicht.`,
+    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen): Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen damit. „halber Urlaubstag“ gilt für alle Jahre und ändert das Stundenkonto nicht. „bezahlt frei“ ist wie ein Feiertag – kein Urlaub, keine Sollstunden – und gilt erst ab dem genannten Jahr.',
     providerOnly: 'Nur der Träger kann das ändern.',
   },
   /** The notice on remaining leave (BUrlG, duty to inform): settings, the box for the employee, the list on „Urlaubsplanung“. */

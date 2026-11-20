@@ -11,7 +11,7 @@ import { splitLeave, splitLeaveOf } from './closureBooking'
 import { fiveDayWeekLeaveDays } from './closures'
 import { facilityHolidayRules } from './holidayRules'
 import { yearEntitlement } from './leave'
-import { getLeaveCounting, halfLeaveOnEves } from './leaveCounting'
+import { halfLeaveOnEves } from './leaveCounting'
 import { loadClosures, loadEmployee } from './queries'
 
 // „Schließzeiten als Urlaub“ as a hint before anything is booked: creating an employee (the typed values) and the
@@ -58,7 +58,7 @@ function vacationDatesOf(closures: ClosureDto[], year: number): IsoDate[] {
 function previewYears(db: Db, facilityId: number, person: PreviewPerson, years: YearFacts[]): ClosurePreviewYearDto[] {
   const closures = loadClosures(db, facilityId)
   const rules = facilityHolidayRules(db, facilityId)
-  const halfOnEves = halfLeaveOnEves(getLeaveCounting(db, facilityId))
+  const halfOnEves = halfLeaveOnEves(db, facilityId)
   return years.map(({ year, from, entitlementDays, carriedOverDays }) => {
     const dates = vacationDatesOf(closures, year)
     // As bookClosure: only the person's working days (employed, no public holiday, a contract weekday), from `from` on.
@@ -93,7 +93,7 @@ export function previewClosuresForNew(db: Db, facilityId: number, input: Closure
   const entitlement: LeaveEntitlement | null = input.vacationDays != null || input.carriedOverDays != null
     ? { days: input.vacationDays ?? 0, carriedOverDays: input.carriedOverDays ?? 0 }
     : null
-  const halfOnEves = halfLeaveOnEves(getLeaveCounting(db, facilityId))
+  const halfOnEves = halfLeaveOnEves(db, facilityId)
   const split = (dates: IsoDate[]) => splitLeaveOf({
     info, halfLeaveOnEves: halfOnEves, entitlement: asked => (asked === year ? entitlement : null), otherLeave: () => [],
   }, dates)

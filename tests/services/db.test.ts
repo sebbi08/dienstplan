@@ -130,15 +130,16 @@ describe('upgrading a filled database through migrateDb', () => {
   const LATER_FACILITY_COLUMNS = [...REMINDER_COLUMNS, 'capacity', 'mark_tolerance_minutes', 'mark_early_leave', 'form_starters_seeded',
     'christmas_eve_half_leave', 'street', 'postal_code', 'city', 'website', 'operator_name', 'manager_name', 'child_sort',
     'leave_forfeit_day', 'leave_forfeit_month', 'leave_forfeit_text', 'ifsg_require_attest', 'health_office_name', 'health_office_phone',
-    'bem_invitation_text', 'christmas_eve_paid_free', 'tvoed_sue']
+    'bem_invitation_text', 'christmas_eve_paid_free', 'tvoed_sue', 'paid_eves_from_year']
   const CONTACT_DEFAULTS = { street: '', postal_code: '', city: '', website: '', operator_name: '', manager_name: '' }
   const SORT_DEFAULT = { child_sort: 'age_desc' }
   const FORFEIT_DEFAULTS = { leave_forfeit_day: 31, leave_forfeit_month: 3, leave_forfeit_text: null }
   const IFSG_DEFAULT = { ifsg_require_attest: 0 }
   const HEALTH_OFFICE_DEFAULT = { health_office_name: '', health_office_phone: '' }
   const BEM_TEXT_DEFAULT = { bem_invitation_text: null }
-  // 0098_tvoed_sue_paid_eves: „Wir arbeiten nach TVöD SuE“ (on) and the own choice „bezahlt frei“ for 24/31.12. (off).
-  const TVOED_DEFAULTS = { christmas_eve_paid_free: 0, tvoed_sue: 1 }
+  // 0098_tvoed_sue_paid_eves: „Wir arbeiten nach TVöD SuE“ (on) and the own choice „bezahlt frei“ for 24/31.12. (off);
+  // 0101_paid_eves_from_year: the first year they are paid free (2026).
+  const TVOED_DEFAULTS = { christmas_eve_paid_free: 0, tvoed_sue: 1, paid_eves_from_year: 2026 }
   const withoutLaterFacilityColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
   // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them (and
@@ -1152,7 +1153,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT id, capacity FROM facilities ORDER BY id').all())
       .toEqual([{ id: 1, capacity: null }, { id: 2, capacity: null }])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ capacity: _, mark_tolerance_minutes: _tolerance, mark_early_leave: _early, form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, ...rest }) => rest))
+      .map(({ capacity: _, mark_tolerance_minutes: _tolerance, mark_early_leave: _early, form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, paid_eves_from_year: _paidFrom, ...rest }) => rest))
       .toEqual(before)
     expect(sqlite.prepare('SELECT id, capacity FROM groups ORDER BY id').all())
       .toEqual([{ id: 1, capacity: 20 }, { id: 2, capacity: null }])
@@ -1200,7 +1201,7 @@ describe('upgrading a filled database through migrateDb', () => {
       { id: 1, mark_tolerance_minutes: 5, mark_early_leave: 1 }, { id: 2, mark_tolerance_minutes: 5, mark_early_leave: 1 },
     ])
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ mark_tolerance_minutes: _tolerance, mark_early_leave: _early, form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, ...rest }) => rest))
+      .map(({ mark_tolerance_minutes: _tolerance, mark_early_leave: _early, form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, paid_eves_from_year: _paidFrom, ...rest }) => rest))
       .toEqual(before)
   })
 
@@ -1212,7 +1213,7 @@ describe('upgrading a filled database through migrateDb', () => {
     migrateDb(db, MIGRATIONS)
 
     expect((sqlite.prepare('SELECT * FROM facilities ORDER BY id').all() as Record<string, unknown>[])
-      .map(({ form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, ...rest }) => rest)).toEqual(before)
+      .map(({ form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, paid_eves_from_year: _paidFrom, ...rest }) => rest)).toEqual(before)
     expect(count(sqlite, 'print_templates')).toBe(0)
     expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
       .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
@@ -1245,7 +1246,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(rows('facilities').map(({ form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, ...rest }) => rest)).toEqual(before.facilities)
+    expect(rows('facilities').map(({ form_starters_seeded: _seeded, christmas_eve_half_leave: _half, street: _street, postal_code: _plz, city: _city, website: _web, operator_name: _operator, manager_name: _manager, child_sort: _sort, leave_forfeit_day: _forfeitDay, leave_forfeit_month: _forfeitMonth, leave_forfeit_text: _forfeitText, ifsg_require_attest: _ifsg, health_office_name: _officeName, health_office_phone: _officePhone, bem_invitation_text: _bemText, christmas_eve_paid_free: _paidEves, tvoed_sue: _tvoed, paid_eves_from_year: _paidFrom, ...rest }) => rest)).toEqual(before.facilities)
     expect(rows('groups').map(({ group_type: _type, ...rest }) => rest)).toEqual(before.groups)
     expect(withoutPersonnel(rows('employees').map(({ qualification: _q, staffing_share: _s, pin_lock_level: _l, ...rest }) => rest)))
       .toEqual(before.employees)
@@ -2146,6 +2147,16 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     migrateDb(db, MIGRATIONS)
     expect(sqlite.prepare('SELECT facility_id, time_years, payroll_office FROM retention_settings').all())
       .toEqual([{ facility_id: 1, time_years: 4, payroll_office: 1 }])
+  })
+
+  it('0101 lets the paid free 24/31.12. start in 2026 for every existing facility (no past balance changes)', () => {
+    const { db, sqlite } = databaseAt('0100')
+    sqlite.exec(`INSERT INTO facilities (id, name, tvoed_sue) VALUES (2, 'Krippe', 0)`)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, tvoed_sue, paid_eves_from_year FROM facilities ORDER BY id').all()).toEqual([
+      { id: 1, tvoed_sue: 1, paid_eves_from_year: 2026 },
+      { id: 2, tvoed_sue: 0, paid_eves_from_year: 2026 },
+    ])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

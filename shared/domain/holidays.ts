@@ -37,9 +37,10 @@ export interface HolidayRules {
    * 24 and 31 December are paid free days for the staff (TVöD § 6 Abs. 3, or the facility's own choice „bezahlt frei“):
    * they count like a public holiday for the target hours, leave and the plan of the staff the facility is home to.
    * They are no public holidays: the legal checks (MuSchG, JArbSchG) and the children's care days use
-   * publicHolidayRules / isPublicHolidayIn. Missing = false.
+   * publicHolidayRules / isPublicHolidayIn. The value is the first year they are paid free (earlier years keep the
+   * facility's whole or half leave day, so past balances do not change); missing or null = never.
    */
-  paidEves?: boolean
+  paidEvesFrom?: number | null
 }
 
 /** The rules without the paid free 24 and 31 December: only the public holidays of the state. */
@@ -67,7 +68,7 @@ const cache = new Map<string, Map<IsoDate, HolidayKey>>()
 export function holidaysOf(rules: HolidayRules, year: number): ReadonlyMap<IsoDate, HolidayKey> {
   const { state } = rules
   const assumptionDay = state === 'BY' && rules.assumptionDay
-  const paidEves = rules.paidEves === true
+  const paidEves = rules.paidEvesFrom != null && year >= rules.paidEvesFrom
   const cacheKey = `${state}:${assumptionDay}:${paidEves}:${year}`
   const cached = cache.get(cacheKey)
   if (cached) return cached

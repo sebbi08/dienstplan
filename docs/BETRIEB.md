@@ -1028,9 +1028,16 @@ Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“*
   Urlaubsplanung zählt die Person an dem Tag weiter als eine Person im Urlaub. Die Wahl bleibt gespeichert, während der
   Schalter an ist.
 
-Es gilt die Einstellung der **Stammeinrichtung** der Person, für **alle Jahre** (auch rückwirkend – auch Sollstunden
-und Stundenkonto früherer Jahre rechnen dann mit den freien Tagen). Hört „bezahlt frei“ auf (Schalter aus, ganzer oder
-halber Urlaubstag), bucht die App vorhandene Schließzeiten an diesen Tagen nach, wie beim Wechsel des Bundeslands.
+**„bezahlt frei“ gilt erst ab einem Jahr** – es steht neben dem Schalter („gilt ab 2026“): für schon bestehende
+Einrichtungen ab 2026, für neu angelegte ab dem Jahr, in dem sie angelegt wurden; wird „bezahlt frei“ später
+eingeschaltet (Schalter an oder „bezahlt frei“ gewählt), ab dem laufenden Jahr. Solange es eingeschaltet bleibt, bleibt
+dieses Jahr stehen. In den Jahren davor zählen der 24.12. und der 31.12. wie vorher als ganzer oder halber Urlaubstag –
+Urlaub, Sollstunden und Stundenkonto früherer Jahre ändern sich also nicht. Die übrigen Wahlen (ganzer oder halber
+Urlaubstag) gelten für alle Jahre, auch rückwirkend.
+
+Es gilt die Einstellung der **Stammeinrichtung** der Person. Hört „bezahlt frei“ auf (Schalter aus, ganzer oder halber
+Urlaubstag), gilt wieder ganzer oder halber Urlaubstag – für alle Jahre, auch die bisher bezahlt freien – und die App
+bucht vorhandene Schließzeiten an diesen Tagen nach, wie beim Wechsel des Bundeslands.
 Keine gesetzlichen Feiertage sind die beiden Tage trotzdem: Die Anwesenheit und die Betreuungstage der Kinder, der
 Personalschlüssel-Bericht, Mutterschutz- und Jugendarbeitsschutz-Hinweise rechnen sie weiter als normale Tage.
 

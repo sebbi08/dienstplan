@@ -10,7 +10,7 @@ import { previewLeaveRequest, setLeaveModule } from '../../server/services/leave
 import { getMonthPlan } from '../../server/services/plan'
 import { loadEmployee, loadEntries } from '../../server/services/queries'
 import { getTimeMonth } from '../../server/services/timeTracking'
-import { dateRange } from '../../shared/domain/dates'
+import { dateRange, parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { dailyTarget } from '../../shared/domain/targets'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
@@ -19,6 +19,8 @@ import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, er
 const womensDay = '2027-03-08'
 const epiphany = '2026-01-06'
 const today = '2026-10-15'
+// A facility created now has the paid free 24/31.12. from the year it is created.
+const THIS_YEAR = parseIsoDate(todayIso()).year
 
 describe('holidays follow the facility', () => {
   let db: Db
@@ -45,14 +47,14 @@ describe('holidays follow the facility', () => {
   }
 
   it('a facility defaults to Baden-Württemberg', () => {
-    expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
-    expect(facilityHolidayRules(db, berlin)).toEqual({ state: 'BE', assumptionDay: true, paidEves: true })
+    expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BW', assumptionDay: true, paidEvesFrom: 2026 })
+    expect(facilityHolidayRules(db, berlin)).toEqual({ state: 'BE', assumptionDay: true, paidEvesFrom: THIS_YEAR })
     expect(errorCode(() => facilityHolidayRules(db, 999))).toBe('facility_not_found')
   })
 
   it('targets follow the home facility', () => {
-    expect(infoOf(anna).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
-    expect(infoOf(bea).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEves: true })
+    expect(infoOf(anna).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEvesFrom: 2026 })
+    expect(infoOf(bea).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEvesFrom: THIS_YEAR })
     expect(dailyTarget(infoOf(bea), womensDay)).toBe(0)
     expect(dailyTarget(infoOf(anna), womensDay)).toBe(468)
     expect(dailyTarget(infoOf(anna), epiphany)).toBe(0)

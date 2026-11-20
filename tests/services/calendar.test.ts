@@ -12,6 +12,7 @@ import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { getLeavePlanning, setLeaveModule } from '../../server/services/leaveRequests'
 import { loadEmployees } from '../../server/services/queries'
+import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import type { SessionUser } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, codeId, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
@@ -167,6 +168,9 @@ describe('group colours in the year calendar', () => {
   })
 })
 
+// A facility created now has the paid free 24/31.12. from the year it is created.
+const THIS_YEAR = parseIsoDate(todayIso()).year
+
 describe('the calendar sends the rules it was computed with', () => {
   it('facility calendar, leave planning and "Mein Kalender" carry the facility\'s state', () => {
     const db = createTestDb()
@@ -176,8 +180,8 @@ describe('the calendar sends the rules it was computed with', () => {
     const beaUser = addUser(db, 'bea', 'observer', bea)
     const traeger = addUser(db, 'traeger', 'provider')
     // With the paid free 24/31.12. of the TVöD SuE (the default).
-    expect(getYearCalendar(db, berlin, 2027).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEves: true })
-    expect(getYearCalendar(db, 1, 2027).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
+    expect(getYearCalendar(db, berlin, 2027).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEvesFrom: THIS_YEAR })
+    expect(getYearCalendar(db, 1, 2027).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEvesFrom: 2026 })
     expect(getStaffYearCalendar(db, berlin, 2027, bea).holidays.state).toBe('BE')
     // "Mein Kalender" follows the home facility, whichever facility a Träger has active.
     expect(getMyYearCalendar(db, beaUser, 2027).holidays.state).toBe('BE')

@@ -171,7 +171,7 @@ describe('facilities', () => {
 
     it('stores the Bavaria flag', () => {
       updateFacility(db, traeger(db), 1, { name: 'Kindergarten', state: 'BY', assumptionDay: false })
-      expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BY', assumptionDay: false, paidEves: true })
+      expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BY', assumptionDay: false, paidEvesFrom: 2026 })
     })
 
     it('adopting the state cutoff is a normal cutoff change that switches the automatic leaving off', () => {

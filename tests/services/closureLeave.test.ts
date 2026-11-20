@@ -11,6 +11,8 @@ import { addEmployee, addUser, createTestDb, templateId } from '../helpers/fixtu
 // 2026-05-01 (Friday) is a public holiday, 25 December a Friday, 26 December a Saturday.
 const summer = { startDate: '2026-08-07', endDate: '2026-08-17', label: 'Sommerschließzeit', mode: 'vacation' as const }
 const christmas = { startDate: '2026-12-21', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' as const }
+/** The settings are saved in 2026 (paid free from the year of saving when they were not before). */
+const NOW = new Date('2026-11-19T10:00:00Z')
 
 describe('leave days of a closure', () => {
   let db: Db
@@ -34,11 +36,11 @@ describe('leave days of a closure', () => {
       createClosure(db, admin, 1, christmas)
       // TVöD SuE (the default): both days are paid free, no leave.
       expect(listClosures(db, 1)[0]!.leaveDays).toBe(6)
-      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'whole' }, admin)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'whole' }, admin, NOW)
       expect(listClosures(db, 1)[0]!.leaveDays).toBe(8)
-      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin, NOW)
       expect(listClosures(db, 1)[0]!.leaveDays).toBe(7)
-      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'paid' }, admin)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'paid' }, admin, NOW)
       expect(listClosures(db, 1)[0]!.leaveDays).toBe(6)
     })
   })
@@ -94,7 +96,7 @@ describe('leave days of a closure', () => {
     })
     it('counts 24 and 31 December by the facility setting', () => {
       const anna = addEmployee(db, 'Anna')
-      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin, NOW)
       createClosure(db, admin, 1, christmas)
       expect(closuresOf(anna)).toEqual([['Weihnachten', 7, 0]])
     })
@@ -102,10 +104,10 @@ describe('leave days of a closure', () => {
       const anna = addEmployee(db, 'Anna')
       createClosure(db, admin, 1, christmas)
       expect(closuresOf(anna)).toEqual([['Weihnachten', 6, 0]])
-      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'whole' }, admin)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'whole' }, admin, NOW)
       expect(closuresOf(anna)).toEqual([['Weihnachten', 8, 0]])
       // Paid free again: the days booked stay as entries but use no leave.
-      setLeaveCounting(db, 1, { tvoedSue: true, eveLeave: 'whole' }, admin)
+      setLeaveCounting(db, 1, { tvoedSue: true, eveLeave: 'whole' }, admin, NOW)
       expect(closuresOf(anna)).toEqual([['Weihnachten', 6, 0]])
     })
   })

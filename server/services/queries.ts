@@ -8,7 +8,7 @@ import { planEntryColor } from '../../shared/domain/weekTemplates'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, shiftTemplates } from '../db/schema'
-import { paidEvesOf } from './holidayRules'
+import { paidEvesFromOf } from './holidayRules'
 
 export interface EntryFilter {
   from?: IsoDate
@@ -148,23 +148,23 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   return db.select({
     row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay,
     halfLeaveOnEves: facilities.christmasEveHalfLeave, balanceFrom: employees.balanceFrom,
-    tvoedSue: facilities.tvoedSue, christmasEvePaidFree: facilities.christmasEvePaidFree,
+    tvoedSue: facilities.tvoedSue, christmasEvePaidFree: facilities.christmasEvePaidFree, paidEvesFromYear: facilities.paidEvesFromYear,
   })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
     .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-    .map(({ row, state, assumptionDay, halfLeaveOnEves, balanceFrom, tvoedSue, christmasEvePaidFree }) => {
-      const paidEves = paidEvesOf({ tvoedSue, christmasEvePaidFree })
+    .map(({ row, state, assumptionDay, halfLeaveOnEves, balanceFrom, tvoedSue, christmasEvePaidFree, paidEvesFromYear }) => {
+      const paidEvesFrom = paidEvesFromOf({ tvoedSue, christmasEvePaidFree, paidEvesFromYear })
       return {
         ...row,
-        // Paid free eves are no leave days at all (holidays of the staff), so the half day does not apply then.
-        halfLeaveOnEves: halfLeaveOnEves && !paidEves,
+        // The half day counts in the years before the eves are paid free (from then on they are no leave days at all).
+        halfLeaveOnEves,
         info: {
           hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
           leftOn: row.leftOn,
-          // The home facility's holidays, with 24 and 31 December when they are paid free there.
-          holidays: { state, assumptionDay, paidEves },
+          // The home facility's holidays, with 24 and 31 December from the year they are paid free there.
+          holidays: { state, assumptionDay, paidEvesFrom },
           // „Stundenkonto ab“: only the balance reads it (balanceStart), so every balance follows it.
           balanceFrom,
         },

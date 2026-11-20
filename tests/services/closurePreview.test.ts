@@ -14,6 +14,8 @@ import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../h
 // Summer: 7 working days Mo–Fr (7, 10–14, 17 August); Christmas: 8 (21–24, 28–31 December), 7 with half eves.
 const summer = { startDate: '2026-08-07', endDate: '2026-08-17', label: 'Sommerschließzeit', mode: 'vacation' as const }
 const christmas = { startDate: '2026-12-21', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' as const }
+/** The settings are saved in 2026 (paid free from the year of saving when they were not before). */
+const NOW = new Date('2026-11-19T10:00:00Z')
 const fullTime = { weeklyMinutes: 2340, workdays: 0b0011111, validFrom: '2026-01-01', vacationDays: 30 }
 
 describe('closure leave preview', () => {
@@ -101,7 +103,7 @@ describe('closure leave preview', () => {
   })
 
   it('counts 24 and 31 December as half days by the facility setting, also under the joiner limit', () => {
-    setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin)
+    setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin, NOW)
     createClosure(db, admin, 1, christmas)
     expect(previewClosuresForNew(db, 1, fullTime)[0]).toMatchObject({ facilityDays: 7, personDays: 7 })
     // 3.5 days: 21–23 December and half of the 24th; the rest without leave.

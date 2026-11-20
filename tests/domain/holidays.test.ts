@@ -144,20 +144,25 @@ describe('holidays', () => {
 })
 
 describe('paid free 24 and 31 December (TVöD § 6 Abs. 3)', () => {
-  it('adds both days as free days only with paidEves', () => {
+  it('adds both days as free days only from the year paidEvesFrom names', () => {
     expect(holidayIn('2026-12-24', BW_RULES)).toBeNull()
     expect(holidayIn('2026-12-31', BW_RULES)).toBeNull()
-    const paid: HolidayRules = { ...BW_RULES, paidEves: true }
+    const paid: HolidayRules = { ...BW_RULES, paidEvesFrom: 2026 }
     expect(holidayIn('2026-12-24', paid)).toBe('christmas_eve')
     expect(holidayIn('2026-12-31', paid)).toBe('new_years_eve')
+    expect(holidayIn('2030-12-24', paid)).toBe('christmas_eve')
     expect(holidaysOf(paid, 2026).size).toBe(14)
-    // The cache keeps both variants apart.
+    // Earlier years keep them as working days.
+    expect(holidayIn('2025-12-24', paid)).toBeNull()
+    expect(holidaysOf(paid, 2025).size).toBe(12)
+    // The cache keeps the variants apart.
     expect(holidaysOf(BW_RULES, 2026).size).toBe(12)
-    expect(holidayIn('2026-12-24', { ...BW_RULES, paidEves: false })).toBeNull()
+    expect(holidayIn('2026-12-24', { ...BW_RULES, paidEvesFrom: 2027 })).toBeNull()
+    expect(holidayIn('2026-12-24', { ...BW_RULES, paidEvesFrom: null })).toBeNull()
   })
 
   it('are no public holidays: isPublicHolidayIn and publicHolidayRules leave them out', () => {
-    const paid: HolidayRules = { state: 'NI', assumptionDay: true, paidEves: true }
+    const paid: HolidayRules = { state: 'NI', assumptionDay: true, paidEvesFrom: 2026 }
     expect(isHolidayIn('2026-12-24', paid)).toBe(true)
     expect(isPublicHolidayIn('2026-12-24', paid)).toBe(false)
     expect(isPublicHolidayIn('2026-12-25', paid)).toBe(true)

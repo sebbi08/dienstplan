@@ -5,11 +5,12 @@ import { facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 
 /**
- * Whether 24 and 31 December are paid free for the facility's staff: under the TVöD SuE (§ 6 Abs. 3) always, otherwise
- * when the facility chose „bezahlt frei“ for them (see HolidayRules.paidEves).
+ * The first year 24 and 31 December are paid free for the facility's staff, or null when they are not: under the TVöD
+ * SuE (§ 6 Abs. 3), or with the facility's own choice „bezahlt frei“, from `paidEvesFromYear` on (earlier years keep
+ * the whole or half leave day; see HolidayRules.paidEvesFrom).
  */
-export function paidEvesOf(row: { tvoedSue: boolean; christmasEvePaidFree: boolean }): boolean {
-  return row.tvoedSue || row.christmasEvePaidFree
+export function paidEvesFromOf(row: { tvoedSue: boolean; christmasEvePaidFree: boolean; paidEvesFromYear: number }): number | null {
+  return row.tvoedSue || row.christmasEvePaidFree ? row.paidEvesFromYear : null
 }
 
 /**
@@ -20,10 +21,10 @@ export function paidEvesOf(row: { tvoedSue: boolean; christmasEvePaidFree: boole
 export function facilityHolidayRules(db: Db, facilityId: number): HolidayRules {
   const row = db.select({
     state: facilities.state, assumptionDay: facilities.assumptionDay, tvoedSue: facilities.tvoedSue,
-    christmasEvePaidFree: facilities.christmasEvePaidFree,
+    christmasEvePaidFree: facilities.christmasEvePaidFree, paidEvesFromYear: facilities.paidEvesFromYear,
   }).from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
-  return { state: row.state, assumptionDay: row.assumptionDay, paidEves: paidEvesOf(row) }
+  return { state: row.state, assumptionDay: row.assumptionDay, paidEvesFrom: paidEvesFromOf(row) }
 }
 
 /** Only the public holidays of the facility's state (no paid free 24/31 December): for the children's care days. */

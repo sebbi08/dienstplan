@@ -4,6 +4,7 @@ import type { Db } from '../../server/db/client'
 import { facilities } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { createEmployee, setEntitlement } from '../../server/services/employees'
+import { createFacility } from '../../server/services/facilities'
 import { applyToCells } from '../../server/services/entries'
 import { facilityHolidayRules, facilityPublicHolidayRules } from '../../server/services/holidayRules'
 import { getLeaveAccount, getLeaveOverview } from '../../server/services/leave'
@@ -12,6 +13,7 @@ import {
   createLeaveRequest, listMyLeaveRequests, listOpenRequests, previewLeaveRequest, setLeaveModule,
 } from '../../server/services/leaveRequests'
 import { loadEmployees, loadEntries } from '../../server/services/queries'
+import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { holidayIn, isHolidayIn } from '../../shared/domain/holidays'
 import { PAGE_FACILITY_HEADER, SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { isWorkday } from '../../shared/domain/targets'
@@ -42,10 +44,15 @@ interface FakeEvent {
 }
 type Route = (event: H3Event) => Promise<LeaveCountingDto>
 
-const WHOLE: LeaveCountingDto = { tvoedSue: false, eveLeave: 'whole' }
-const HALF: LeaveCountingDto = { tvoedSue: false, eveLeave: 'half' }
-const PAID: LeaveCountingDto = { tvoedSue: false, eveLeave: 'paid' }
-const TVOED: LeaveCountingDto = { tvoedSue: true, eveLeave: 'whole' }
+type LeaveInput = Pick<LeaveCountingDto, 'tvoedSue' | 'eveLeave'>
+const WHOLE: LeaveInput = { tvoedSue: false, eveLeave: 'whole' }
+const HALF: LeaveInput = { tvoedSue: false, eveLeave: 'half' }
+const PAID: LeaveInput = { tvoedSue: false, eveLeave: 'paid' }
+const TVOED: LeaveInput = { tvoedSue: true, eveLeave: 'whole' }
+/** The setting as the server answers it: with the first paid free year (null while the days are not paid free). */
+const stored = (input: LeaveInput, paidEvesFromYear: number | null = null): LeaveCountingDto => ({ ...input, paidEvesFromYear })
+/** Saving happens in 2026 unless a test says otherwise (the first paid free year is the year of saving). */
+const NOW = new Date('2026-11-19T10:00:00Z')
 
 describe('„Wir arbeiten nach TVöD SuE“: 24 and 31 December paid free (per facility)', () => {
   let db: Db
@@ -57,22 +64,61 @@ describe('„Wir arbeiten nach TVöD SuE“: 24 and 31 December paid free (per f
     db = createTestDb()
     provider = addUser(db, 'traeger', 'provider')
     krippe = addFacility(db, 'Krippe')
-    anna = addEmployee(db, 'Anna')
+    anna = addEmployee(db, 'Anna', { validFrom: '2025-01-01' })
     carl = addEmployee(db, 'Carl', { facilityId: krippe })
   })
   const vacation = (facilityId: number, employeeId: number, dates: string[]) => applyToCells(
     db, provider, facilityId, dates.map(date => ({ employeeId, date })), 'replace', { kind: 'code', codeId: codeId(db, 'vacation') },
   )
 
-  it('is on by default for existing and new facilities, the choice for without it a whole leave day', () => {
-    expect(getLeaveCounting(db, 1)).toEqual(TVOED)
-    expect(getLeaveCounting(db, krippe)).toEqual(TVOED)
-    expect(setLeaveCounting(db, 1, HALF, provider)).toEqual(HALF)
-    expect(getLeaveCounting(db, krippe)).toEqual(TVOED)
-    // Switched on again, the choice for without it is kept.
-    expect(setLeaveCounting(db, 1, { tvoedSue: true, eveLeave: 'half' }, provider)).toEqual({ tvoedSue: true, eveLeave: 'half' })
-    expect(halfLeaveOnEves(getLeaveCounting(db, 1))).toBe(false)
-    expect(errorCode(() => setLeaveCounting(db, 999, HALF, provider))).toBe('facility_not_found')
+  it('is on by default for existing and new facilities (from 2026 / the year of creation), the choice for without it a whole leave day', () => {
+    expect(getLeaveCounting(db, 1)).toEqual(stored(TVOED, 2026))
+    expect(getLeaveCounting(db, krippe)).toEqual(stored(TVOED, parseIsoDate(todayIso()).year))
+    expect(createFacility(db, 'Hort', 'BW', '2028-03-01').id).toBeGreaterThan(krippe)
+    expect(getLeaveCounting(db, krippe + 1).paidEvesFromYear).toBe(2028)
+    expect(setLeaveCounting(db, 1, HALF, provider, NOW)).toEqual(stored(HALF))
+    // Switched on again, the choice for without it is kept (for the years before, see below).
+    expect(setLeaveCounting(db, 1, { tvoedSue: true, eveLeave: 'half' }, provider, NOW)).toEqual(stored({ tvoedSue: true, eveLeave: 'half' }, 2026))
+    expect(halfLeaveOnEves(db, 1)).toBe(true)
+    expect(errorCode(() => setLeaveCounting(db, 999, HALF, provider, NOW))).toBe('facility_not_found')
+  })
+
+  it('applies from its first year only: a past year (2025) keeps its whole leave day, 2026 is paid free', () => {
+    setEntitlement(db, 1, anna, 2025, { days: 30, carriedOverDays: 0 })
+    vacation(1, anna, ['2025-12-23', '2025-12-24', '2025-12-31', '2026-12-24'])
+    expect(getLeaveAccount(db, anna, 2025, '2025-10-01').account).toMatchObject({ planned: 3, available: 27 })
+    const [record] = loadEmployees(db, 1)
+    expect(isWorkday(record!.info, '2025-12-24')).toBe(true)
+    expect(isWorkday(record!.info, '2026-12-24')).toBe(false)
+    expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(0)
+  })
+
+  it('the years before keep the half leave day too', () => {
+    db.update(facilities).set({ christmasEveHalfLeave: true }).run()
+    setEntitlement(db, 1, anna, 2025, { days: 30, carriedOverDays: 0 })
+    vacation(1, anna, ['2025-12-24', '2025-12-31', '2026-12-24'])
+    expect(getLeaveAccount(db, anna, 2025, '2025-10-01').account.planned).toBe(1)
+    expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(0)
+    // „bezahlt frei“ chosen later keeps the half day for the years before it.
+    setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, provider, NOW)
+    setLeaveCounting(db, 1, PAID, provider, new Date('2027-02-01T10:00:00Z'))
+    expect(getLeaveCounting(db, 1)).toEqual(stored(PAID, 2027))
+    expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(0.5)
+    expect(getLeaveAccount(db, anna, 2025, '2025-10-01').account.planned).toBe(1)
+  })
+
+  it('switching on in 2027 leaves 2026 unchanged; while it stays paid free the first year is kept', () => {
+    setLeaveCounting(db, 1, WHOLE, provider, NOW)
+    setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
+    vacation(1, anna, ['2026-12-24', '2026-12-31', '2027-12-24'])
+    expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(2)
+    const in2027 = new Date('2027-01-10T10:00:00Z')
+    expect(setLeaveCounting(db, 1, TVOED, provider, in2027)).toEqual(stored(TVOED, 2027))
+    expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(2)
+    expect(isWorkday(loadEmployees(db, 1)[0]!.info, '2027-12-24')).toBe(false)
+    // TVöD off but „bezahlt frei“: still paid free, the first year stays 2027 (also when saved in 2029).
+    expect(setLeaveCounting(db, 1, PAID, provider, new Date('2029-05-01T10:00:00Z')).paidEvesFromYear).toBe(2027)
+    expect(getLeaveCounting(db, 1).paidEvesFromYear).toBe(2027)
   })
 
   it('on: 24 and 31 December cost no leave and count as paid free days (no target hours, a holiday in the plan)', () => {
@@ -84,7 +130,7 @@ describe('„Wir arbeiten nach TVöD SuE“: 24 and 31 December paid free (per f
       ranges: [{ from: '2026-12-23', to: '2026-12-28', days: 2 }],
     })
     const [record] = loadEmployees(db, 1)
-    expect(record!.info.holidays).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
+    expect(record!.info.holidays).toEqual({ state: 'BW', assumptionDay: true, paidEvesFrom: 2026 })
     expect(isWorkday(record!.info, '2026-12-24')).toBe(false)
     expect(isWorkday(record!.info, '2026-12-31')).toBe(false)
     expect(isWorkday(record!.info, '2026-12-30')).toBe(true)
@@ -98,13 +144,13 @@ describe('„Wir arbeiten nach TVöD SuE“: 24 and 31 December paid free (per f
     vacation(1, anna, ['2026-12-24', '2026-12-31'])
     const available = () => getLeaveAccount(db, anna, 2026, today).account.available
     expect(available()).toBe(30)
-    setLeaveCounting(db, 1, PAID, provider)
+    setLeaveCounting(db, 1, PAID, provider, NOW)
     expect(available()).toBe(30)
     expect(isWorkday(loadEmployees(db, 1)[0]!.info, '2026-12-24')).toBe(false)
-    setLeaveCounting(db, 1, WHOLE, provider)
+    setLeaveCounting(db, 1, WHOLE, provider, NOW)
     expect(available()).toBe(28)
     expect(isWorkday(loadEmployees(db, 1)[0]!.info, '2026-12-24')).toBe(true)
-    setLeaveCounting(db, 1, HALF, provider)
+    setLeaveCounting(db, 1, HALF, provider, NOW)
     expect(available()).toBe(29)
   })
 })
@@ -129,14 +175,14 @@ describe('24 and 31 December as half a leave day (per facility, without the TVö
   )
 
   it('is a whole day by default and is stored per facility', () => {
-    expect(getLeaveCounting(db, 1)).toEqual(WHOLE)
-    expect(setLeaveCounting(db, 1, HALF, provider)).toEqual(HALF)
-    expect(getLeaveCounting(db, krippe)).toEqual(WHOLE)
+    expect(getLeaveCounting(db, 1)).toEqual(stored(WHOLE))
+    expect(setLeaveCounting(db, 1, HALF, provider, NOW)).toEqual(stored(HALF))
+    expect(getLeaveCounting(db, krippe)).toEqual(stored(WHOLE))
     expect(errorCode(() => getLeaveCounting(db, 999))).toBe('facility_not_found')
   })
 
   it('counts the leave account and its periods with the home facility\'s setting, also the carry-over', () => {
-    setLeaveCounting(db, 1, HALF, provider)
+    setLeaveCounting(db, 1, HALF, provider, NOW)
     for (const [facilityId, employeeId] of [[1, anna], [krippe, carl]] as const) {
       setEntitlement(db, facilityId, employeeId, 2026, { days: 30, carriedOverDays: 0 })
       setEntitlement(db, facilityId, employeeId, 2027, { days: 30, carriedOverDays: 0 })
@@ -155,14 +201,14 @@ describe('24 and 31 December as half a leave day (per facility, without the TVö
     expect(getLeaveAccount(db, anna, 2027, today).account).toMatchObject({ carriedOver: 27, available: 57 })
     expect(getLeaveAccount(db, carl, 2027, today).account).toMatchObject({ carriedOver: 26, available: 56 })
     // Switched off again, every year counts whole days again.
-    setLeaveCounting(db, 1, WHOLE, provider)
+    setLeaveCounting(db, 1, WHOLE, provider, NOW)
     expect(getLeaveAccount(db, anna, 2026, today).account.available).toBe(26)
     expect(getLeaveAccount(db, anna, 2027, today).account.carriedOver).toBe(26)
   })
 
   it('counts the days of a leave request and the leave left after it with the setting', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
-    setLeaveCounting(db, 1, HALF, provider)
+    setLeaveCounting(db, 1, HALF, provider, NOW)
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     setEntitlement(db, krippe, carl, 2026, { days: 30, carriedOverDays: 0 })
     const annaUser = addUser(db, 'anna', 'observer', anna)
@@ -180,7 +226,7 @@ describe('24 and 31 December as half a leave day (per facility, without the TVö
   })
 
   it('lets a joiner\'s closure on 24 and 31 December use half a day each', () => {
-    setLeaveCounting(db, 1, HALF, provider)
+    setLeaveCounting(db, 1, HALF, provider, NOW)
     const dora = createEmployee(db, provider, 1, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-12-01', vacationDays: 2.5 })
     createClosure(db, provider, 1, { startDate: '2026-12-24', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' })
     // 24 (½), 28, 29 fit into 2.5 days; 30 and 31 become closure days.
@@ -191,7 +237,7 @@ describe('24 and 31 December as half a leave day (per facility, without the TVö
   })
 
   it('skips a joiner\'s whole closure day that no longer fits, so 31 December still takes the half day left', () => {
-    setLeaveCounting(db, 1, HALF, provider)
+    setLeaveCounting(db, 1, HALF, provider, NOW)
     const dora = createEmployee(db, provider, 1, { name: 'Dora', shortName: '', weeklyMinutes: 2340, validFrom: '2026-12-01', vacationDays: 3 })
     createClosure(db, provider, 1, { startDate: '2026-12-24', endDate: '2026-12-31', label: 'Weihnachten', mode: 'vacation' })
     // 24 (½), 28, 29 use 2.5 days; 30 does not fit any more, 31 (½) does.
@@ -212,7 +258,7 @@ describe('24 and 31 December as half a leave day (per facility, without the TVö
 
   it('counts a request across the year change with the half 31 December, the leave left in the start year', () => {
     setLeaveModule(db, { enabled: true, plannerIds: [] })
-    setLeaveCounting(db, 1, HALF, provider)
+    setLeaveCounting(db, 1, HALF, provider, NOW)
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     setEntitlement(db, krippe, carl, 2026, { days: 30, carriedOverDays: 0 })
     const annaUser = addUser(db, 'anna', 'observer', anna)
@@ -283,21 +329,21 @@ describe('the leave-counting routes with „Einstellungen für“', () => {
   const half = HALF
 
   it('stores the setting for the facility the Träger chose under „Einstellungen für“, not the active one', async () => {
-    expect(await putRoute(event(provider, { settings: other, body: half }))).toEqual(half)
-    expect(getLeaveCounting(routeDb, other)).toEqual(half)
-    expect(getLeaveCounting(routeDb, 1)).toEqual(TVOED)
-    expect(await getRoute(event(provider, { settings: other }))).toEqual(half)
-    expect(await getRoute(event(provider))).toEqual(TVOED)
+    expect(await putRoute(event(provider, { settings: other, body: half }))).toEqual(stored(half))
+    expect(getLeaveCounting(routeDb, other)).toEqual(stored(half))
+    expect(getLeaveCounting(routeDb, 1)).toEqual(stored(TVOED, 2026))
+    expect(await getRoute(event(provider, { settings: other }))).toEqual(stored(half))
+    expect(await getRoute(event(provider))).toEqual(stored(TVOED, 2026))
     // Without the header: the active facility.
     await putRoute(event(provider, { body: half }))
-    expect(getLeaveCounting(routeDb, 1)).toEqual(half)
+    expect(getLeaveCounting(routeDb, 1)).toEqual(stored(half))
   })
 
   it('lets the Leitung read its own facility\'s setting (the header is ignored) but not change it (403)', async () => {
-    setLeaveCounting(routeDb, 1, half, provider)
-    expect(await getRoute(event(leitung, { settings: other }))).toEqual(half)
+    setLeaveCounting(routeDb, 1, half, provider, NOW)
+    expect(await getRoute(event(leitung, { settings: other }))).toEqual(stored(half))
     expect(await code(() => putRoute(event(leitung, { body: WHOLE })))).toBe('forbidden')
-    expect(getLeaveCounting(routeDb, 1)).toEqual(half)
+    expect(getLeaveCounting(routeDb, 1)).toEqual(stored(half))
   })
 
   it('answers 404 for an unknown chosen facility', async () => {

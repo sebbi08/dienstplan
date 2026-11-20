@@ -1,6 +1,8 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
+import { parseIsoDate, todayIso } from '../../shared/domain/dates'
 import { can } from '../../shared/domain/permissions'
 import { isGermanState, schoolCutoffOf, type GermanState } from '../../shared/domain/states'
+import type { IsoDate } from '../../shared/domain/types'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { coverageRules, documentTypes, employees, facilities, shiftTemplates, users } from '../db/schema'
@@ -89,9 +91,9 @@ function assertState(state: string): asserts state is GermanState {
  * A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules, the
  * built-in kinds of mandatory appointments (with their defaults, not the first facility's names and intervals),
  * the default document types, the default meals (Snack 9:30, Mittagessen 12:00 since always) and the staff starter
- * form templates.
+ * form templates. It works under the TVöD SuE from the year it is created (24 and 31 December paid free from then on).
  */
-export function createFacility(db: Db, name: string, state: GermanState = 'BW'): FacilityDto {
+export function createFacility(db: Db, name: string, state: GermanState = 'BW', today: IsoDate = todayIso()): FacilityDto {
   const checked = checkedName(db, name)
   assertState(state)
   const cutoff = schoolCutoffOf(state)
@@ -100,6 +102,7 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW'):
     const sortOrder = (tx.select({ value: max(facilities.sortOrder) }).from(facilities).get()?.value ?? -1) + 1
     const facility = tx.insert(facilities).values({
       name: checked, sortOrder, state, schoolCutoffMonth: cutoff.month, schoolCutoffDay: cutoff.day, schoolAgeYears: cutoff.ageYears,
+      paidEvesFromYear: parseIsoDate(today).year,
     }).returning().get()
     seedBuiltinRequirementTypes(tx, facility.id)
     seedDefaultMeals(tx, facility.id)

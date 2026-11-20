@@ -2069,6 +2069,11 @@ export interface LeaveCountingDto {
   tvoedSue: boolean
   /** The facility's own choice for 24 and 31 December, effective while tvoedSue is off (kept while it is on). */
   eveLeave: EveLeave
+  /**
+   * The first year 24 and 31 December are paid free („gilt ab 2026“); null while they are not. Earlier years keep the
+   * whole or half leave day. Set by the server (ignored in a PUT).
+   */
+  paidEvesFromYear: number | null
 }
 
 /** The facility's notice on remaining leave (Einstellungen → Dienstplan; Leitung and Träger change it). */
