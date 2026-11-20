@@ -111,6 +111,17 @@ describe('„Wir arbeiten nach TVöD SuE“: 24 and 31 December paid free (per f
     expect(getLeaveAccount(db, anna, 2027, today).account.planned).toBe(0.5)
   })
 
+  it('writes no entry for a year in which nothing changes, so „gilt ab“ keeps naming the year of the real change', () => {
+    // TVöD on since 2026; in 2027 TVöD off with „bezahlt frei“: still paid free, no 2027 entry.
+    expect(setLeaveCounting(db, 1, PAID, provider, at('2027-03-01')).rules).toEqual(DEFAULT_RULES)
+    // A facility of 2026 switched to a whole leave day in 2026: as before 2026, so the 2026 entry goes.
+    const hort = createFacility(db, 'Hort', 'BW', '2026-01-10').id
+    expect(setLeaveCounting(db, hort, WHOLE, provider, NOW).rules).toEqual([{ fromYear: 0, mode: 'whole' }])
+    // whole → half → whole within 2027 leaves no entry for 2027 either.
+    expect(setLeaveCounting(db, hort, HALF, provider, at('2027-04-01')).rules).toEqual([{ fromYear: 0, mode: 'whole' }, { fromYear: 2027, mode: 'half' }])
+    expect(setLeaveCounting(db, hort, WHOLE, provider, at('2027-05-01')).rules).toEqual([{ fromYear: 0, mode: 'whole' }])
+  })
+
   it('switching off in 2027 keeps 2026 paid free', () => {
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     vacation(1, anna, ['2026-12-24', '2026-12-31', '2027-12-24'])
@@ -128,7 +139,7 @@ describe('„Wir arbeiten nach TVöD SuE“: 24 and 31 December paid free (per f
     expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(2)
     const saved = setLeaveCounting(db, 1, TVOED, provider, at('2026-12-28'))
     expect(saved).toMatchObject({ effectiveYear: 2027 })
-    expect(saved.rules).toEqual([{ fromYear: 0, mode: 'whole' }, { fromYear: 2026, mode: 'whole' }, { fromYear: 2027, mode: 'paid' }])
+    expect(saved.rules).toEqual([{ fromYear: 0, mode: 'whole' }, { fromYear: 2027, mode: 'paid' }])
     expect(getLeaveAccount(db, anna, 2026, today).account.planned).toBe(2)
     expect(isWorkday(loadEmployees(db, 1)[0]!.info, '2027-12-24')).toBe(false)
     // TVöD off but „bezahlt frei“: still paid free (the 2027 entry is rewritten, nothing earlier).

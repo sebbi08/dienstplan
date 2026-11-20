@@ -26,13 +26,18 @@ const dirty = useDirty(() => canConfigure.value && !!data.value
   && (form.tvoedSue !== data.value.tvoedSue || form.eveLeave !== data.value.eveLeave))
 
 /**
- * „gilt ab ‹Jahr›“: while changing, the effective year the save applies from; otherwise the first year of the rule in
- * force (none for a rule since always). `before`: the rule of the year before it („bis 2025: ganzer Urlaubstag“).
+ * „gilt ab ‹Jahr›“: the first year of the rule in force; while changing, the effective year the save applies from,
+ * unless the years before already count so (then nothing changes and the server writes no entry). None for a rule since
+ * always. `before`: the rule of the year before it („bis 2025: ganzer Urlaubstag“).
  */
 const validity = computed(() => {
   if (!data.value) return null
   const { effectiveYear, rules } = data.value
-  const fromYear = dirty.value ? effectiveYear : eveRuleOf(rules, effectiveYear)?.fromYear ?? 0
+  const mode = form.tvoedSue ? 'paid' : form.eveLeave
+  const unchangedBefore = eveModeIn(rules, effectiveYear - 1) === mode
+  const fromYear = dirty.value && !unchangedBefore
+    ? effectiveYear
+    : eveRuleOf(rules, dirty.value ? effectiveYear - 1 : effectiveYear)?.fromYear ?? 0
   if (fromYear <= 0) return null
   return { fromYear, before: t.before(fromYear - 1, t.options[eveModeIn(rules, fromYear - 1)]) }
 })
@@ -50,15 +55,18 @@ const save = () => dirty.value && run(() => $fetch<LeaveCountingDto>('/api/leave
       <UFormField :help="t.tvoedHint">
         <div class="flex flex-wrap items-center gap-2">
           <USwitch v-model="form.tvoedSue" :label="t.tvoed" :disabled="!canConfigure" />
-          <UBadge v-if="validity" size="sm" variant="soft" color="info" :label="t.validFrom(validity.fromYear)" />
+          <UBadge v-if="validity && form.tvoedSue" size="sm" variant="soft" color="info" :label="t.validFrom(validity.fromYear)" />
         </div>
       </UFormField>
       <UFormField :label="t.label">
         <p v-if="form.tvoedSue" class="text-sm font-medium text-gray-800">{{ t.paidTvoed }}</p>
-        <URadioGroup
-          v-else :model-value="form.eveLeave" orientation="horizontal" :items="items" :disabled="!canConfigure"
-          @update:model-value="form.eveLeave = $event as EveLeave"
-        />
+        <div v-else class="flex flex-wrap items-center gap-2">
+          <URadioGroup
+            :model-value="form.eveLeave" orientation="horizontal" :items="items" :disabled="!canConfigure"
+            @update:model-value="form.eveLeave = $event as EveLeave"
+          />
+          <UBadge v-if="validity" size="sm" variant="soft" color="info" :label="t.validFrom(validity.fromYear)" />
+        </div>
         <p v-if="validity" class="mt-1 text-xs text-gray-500">{{ validity.before }} {{ t.pastUnchanged }}</p>
       </UFormField>
       <UButton v-if="canConfigure" type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />

@@ -1031,9 +1031,10 @@ Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“*
   „Heiligabend (bezahlt frei)“ bzw. „Silvester (bezahlt frei)“ markiert, Schließzeiten verbrauchen an diesen Tagen
   keinen Urlaub, Wochenvorlagen lassen sie aus. Die **Besetzungs-Warnungen bleiben** an diesen Tagen: Der TVöD stellt
   nur frei, „soweit die dienstlichen Verhältnisse es zulassen“ – hat die Kita geöffnet, muss der Dienstplan stimmen
-  (wer dann arbeitet, bekommt die Stunden als Plus; ist die Kita zu, eine Schließzeit oder einen Schließtag eintragen). Unter „Der 24.12. und der 31.12. zählen als“
-  steht dann fest „bezahlt frei (TVöD § 6 Abs. 3)“. Sonst ändert der Schalter **nichts**: Entgeltgruppe, Stufe und
-  Stufenaufstieg bleiben in beiden Fällen sichtbar und nutzbar (viele arbeiten „in Anlehnung“ an den TVöD).
+  (wer dann arbeitet, bekommt die Stunden als Plus; ist die Kita zu, eine Schließzeit oder einen Schließtag
+  eintragen). Unter „Der 24.12. und der 31.12. zählen als“ steht dann fest „bezahlt frei (TVöD § 6 Abs. 3)“. Sonst
+  ändert der Schalter **nichts**: Entgeltgruppe, Stufe und Stufenaufstieg bleiben in beiden Fällen sichtbar und nutzbar
+  (viele arbeiten „in Anlehnung“ an den TVöD).
 - **Ohne den Schalter** wählt die Einrichtung selbst: **ganzer Urlaubstag** (wie früher voreingestellt), **halber
   Urlaubstag** oder **bezahlt frei** (wirkt wie der Schalter). Mit „halber Urlaubstag“ zählt so ein Tag überall 0,5: im
   Urlaubskonto (genommen, verplant, frei verfügbar, Übertrag ins nächste Jahr), beim Resturlaub in der
@@ -1045,8 +1046,9 @@ Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“*
 **Jede Änderung gilt erst ab einem Jahr, frühere Jahre ändern sich nie.** Die App merkt sich je Einrichtung, wie der
 24.12. und der 31.12. in welchem Jahr zählen. Wer den Schalter umlegt oder die Wahl ändert, ändert das ab dem
 **laufenden Jahr** – ab dem 24.12. erst ab dem **nächsten Jahr** (der 24.12. des laufenden Jahres ist dann schon da).
-Neben dem Schalter steht, ab wann die aktuelle Regel gilt („gilt ab 2026“), darunter die Regel der Jahre davor (zum
-Beispiel „Bis 2025: ganzer Urlaubstag.“). Urlaub, Sollstunden und Stundenkonto früherer Jahre bleiben also, wie sie
+Neben dem Schalter (ohne TVöD neben der Wahl) steht, ab wann die aktuelle Regel gilt („gilt ab 2026“), darunter die
+Regel der Jahre davor (zum Beispiel „Bis 2025: ganzer Urlaubstag.“). Zählen die Jahre davor schon so, wie neu
+eingestellt, merkt sich die App dafür kein neues Jahr. Urlaub, Sollstunden und Stundenkonto früherer Jahre bleiben also, wie sie
 sind – auch wenn „bezahlt frei“ später wieder ausgeschaltet wird: Dann bleiben die bisher bezahlt freien Jahre bezahlt
 frei. Beim Einspielen dieser Version gilt für schon bestehende Einrichtungen bis 2025 die bisherige Einstellung (ganzer
 oder halber Urlaubstag) und ab 2026 „bezahlt frei“; neu angelegte Einrichtungen sind ab dem Jahr bezahlt frei, in dem

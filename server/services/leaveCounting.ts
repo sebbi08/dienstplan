@@ -1,5 +1,5 @@
 import { and, eq, gt } from 'drizzle-orm'
-import { effectiveEveYear, type EveMode, type EveRule } from '../../shared/domain/eveRules'
+import { effectiveEveYear, eveModeIn, type EveMode, type EveRule } from '../../shared/domain/eveRules'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { EveLeave, LeaveCountingDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -33,8 +33,8 @@ export function halfLeaveOnEves(db: Db, facilityId: number): readonly EveRule[] 
 /**
  * Stores the TVöD switch and the choice for 24 and 31 December (404 facility_not_found) and writes the rule they give
  * (TVöD or „bezahlt frei“: 'paid', else 'whole' or 'half') from the effective year on: this year until 23 December,
- * from 24 December on the next year. The entry of that year is replaced and later ones dropped; the years before never
- * change. Target hours, leave accounts, requests and closure bookings follow the rules of each year. When the days stop
+ * from 24 December on the next year. The entry of that year is replaced (or dropped when the year before already counts
+ * so: no entry for a year in which nothing changes) and later ones dropped; the years before never change. Target hours, leave accounts, requests and closure bookings follow the rules of each year. When the days stop
  * being paid free from the effective year, the facility's closures are booked on them as creating the closure would have
  * (bookFreedClosureDays, only from that year on), in the same transaction.
  */
@@ -50,8 +50,14 @@ export function setLeaveCounting(
     }).where(eq(facilities.id, facilityId)).run()
     tx.delete(facilityEveRules)
       .where(and(eq(facilityEveRules.facilityId, facilityId), gt(facilityEveRules.fromYear, fromYear))).run()
-    tx.insert(facilityEveRules).values({ facilityId, fromYear, mode })
-      .onConflictDoUpdate({ target: [facilityEveRules.facilityId, facilityEveRules.fromYear], set: { mode } }).run()
+    if (eveModeIn(facilityEveRulesOf(tx, facilityId), fromYear - 1) === mode) {
+      // The years before already count so: no entry of its own (nothing changes in that year, „gilt ab“ stays put).
+      tx.delete(facilityEveRules).where(and(eq(facilityEveRules.facilityId, facilityId), eq(facilityEveRules.fromYear, fromYear))).run()
+    }
+    else {
+      tx.insert(facilityEveRules).values({ facilityId, fromYear, mode })
+        .onConflictDoUpdate({ target: [facilityEveRules.facilityId, facilityEveRules.fromYear], set: { mode } }).run()
+    }
     bookFreedClosureDays(tx, actor, facilityId, before, now, `${fromYear}-01-01`)
   })
   return getLeaveCounting(db, facilityId, now)
