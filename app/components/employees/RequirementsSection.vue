@@ -17,6 +17,8 @@ const run = useAction(refresh)
 const confirm = useConfirm()
 // A 404 (employee not found) is the page's own business; any other failure is shown instead of hiding the section.
 const loadError = computed(() => (error.value && (error.value as { statusCode?: number }).statusCode !== 404 ? errorMessage(error.value) : null))
+// § 33 Abs. 3 JArbSchG: the follow-up examination's employment ban, when it applies today.
+const employmentBans = computed(() => (data.value?.kinds ?? []).filter(kind => kind.employmentBanFrom))
 
 const STATE_BADGE: Record<RequirementState, { color: 'error' | 'warning' | 'success'; variant: 'soft' | 'outline' }> = {
   overdue: { color: 'error', variant: 'soft' },
@@ -79,6 +81,10 @@ async function deleteTraining(item: TrainingDto) {
   <section v-else-if="data" id="requirements" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.requirements.title }}</h2>
     <p class="text-xs text-gray-500">{{ de.requirements.hint }}</p>
+    <UAlert
+      v-for="kind in employmentBans" :key="`ban-${kind.type.id}`" color="error" variant="soft" icon="i-lucide-octagon-alert"
+      :title="de.requirements.employmentBan" :description="de.requirements.employmentBanHint(formatDate(kind.employmentBanFrom!))"
+    />
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="text-left text-xs text-gray-500">

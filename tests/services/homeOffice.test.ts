@@ -124,7 +124,8 @@ describe('home-office entries', () => {
     it('still warns about a missing record for planned work at the facility', () => {
       add({ kind: 'shift', templateId: templateId(db, 'F1') })
       add({ kind: 'special', start: 1200, end: 1230, homeOffice: true })
-      expect(warnings()).toEqual(['missing_record'])
+      // F1 is 7:00–13:15 without a break: also the § 4 ArbZG hint (more than 6 hours in a row)
+      expect(warnings()).toEqual(['long_stretch', 'missing_record'])
     })
     it('shows the home-office time on the time page and counts it', () => {
       add({ kind: 'special', start: 1200, end: 1230, homeOffice: true })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ackKeyDate, warningAckKey, warningSignature } from '../../shared/domain/warningList'
 import {
-  MAX_DAILY_MINUTES, MIN_REST_MINUTES, exceedsMaxDaily, plannedLawWarnings, plannedWorkMinutes, plannedWorkWindow,
+  MAX_DAILY_MINUTES, MAX_STRETCH_MINUTES, MIN_REST_MINUTES, exceedsMaxDaily, longestWorkStretch, plannedLawWarnings, plannedWorkMinutes, plannedWorkWindow,
   recordedLawWarnings, recordedWorkWindow, restMinutes, shortRest, usesStampedHints,
 } from '../../shared/domain/workingTimeLaw'
 import type { DomainEntry } from '../../shared/domain/types'
@@ -46,6 +46,8 @@ describe('§ 3 ArbZG: planned working time per day', () => {
   it('gives a plan warning above 10 h with the minutes', () => {
     expect(plannedLawWarnings(D, 1, [special(1, D, 420, 1080)], [])).toEqual([
       { type: 'max_hours', date: D, employeeId: 1, minutes: 660 },
+      // and 11 hours without a break (§ 4 Satz 3)
+      { type: 'long_stretch', date: D, employeeId: 1, minutes: 660 },
     ])
     expect(plannedLawWarnings(D, 1, [shift(1, D, 420, 1080, 720, 780)], [])).toEqual([])
   })
@@ -60,7 +62,7 @@ describe('§ 5 ArbZG: rest period between two days', () => {
   })
   it('takes the end of the last and the start of the first working entry, without times nothing', () => {
     const previous = [special(1, PREV, 600, 900), code(1, PREV, 'prep_time', 'timed', 1140, 1290)]
-    const current = [code(1, D, 'office', 'timed', 900, 1000), shift(1, D, 420, 795)]
+    const current = [code(1, D, 'office', 'timed', 900, 1000), shift(1, D, 420, 780)]
     expect(plannedWorkWindow(previous)).toEqual({ start: 600, end: 1290 })
     expect(plannedWorkWindow(current)).toEqual({ start: 420, end: 1000 })
     expect(plannedLawWarnings(D, 1, current, previous)).toEqual([{ type: 'short_rest', date: D, employeeId: 1, from: 1290, to: 420 }])
@@ -82,9 +84,42 @@ describe('§ 5 ArbZG: rest period between two days', () => {
       { type: 'short_rest', date: '2026-11-01', employeeId: 1, from: 1320, to: 420 },
     ])
   })
-  it('puts the § 3 warning before the § 5 warning', () => {
+  it('puts the § 3 warning before the § 5 warning (and § 4 after them)', () => {
     expect(plannedLawWarnings(D, 1, [special(1, D, 420, 1100)], [special(1, PREV, 900, 1320)]).map(w => w.type))
-      .toEqual(['max_hours', 'short_rest'])
+      .toEqual(['max_hours', 'short_rest', 'long_stretch'])
+  })
+})
+
+describe('§ 4 Satz 3 ArbZG: not more than 6 hours in a row without a break', () => {
+  it('allows exactly 6:00 h and warns from 6:01 h without a break', () => {
+    expect(MAX_STRETCH_MINUTES).toBe(360)
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 780)], [])).toEqual([])
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 781)], [])).toEqual([{ type: 'long_stretch', date: D, employeeId: 1, minutes: 361 }])
+  })
+  it('counts a break of at least 15 minutes (shift break or additional break), shorter ones do not interrupt', () => {
+    // 7:00–15:30 with a break 11:00–11:30: 4 h and 4 h
+    expect(plannedLawWarnings(D, 1, [shift(1, D, 420, 930, 660, 690)], [])).toEqual([])
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 930), brk(660, 675)], [])).toEqual([])
+    // a 14-minute pause does not count: 8:30 h in a row
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 930), brk(660, 674)], [])).toEqual([
+      { type: 'long_stretch', date: D, employeeId: 1, minutes: 510 },
+    ])
+    // the break comes too late: 7:00–13:30 before it
+    expect(plannedLawWarnings(D, 1, [shift(1, D, 420, 900, 810, 840)], [])).toEqual([
+      { type: 'long_stretch', date: D, employeeId: 1, minutes: 390 },
+    ])
+  })
+  it('joins entries without a gap, Fortbildung and home office included, and splits at a gap of 15 minutes', () => {
+    expect(longestWorkStretch([{ start: 420, end: 600 }, { start: 610, end: 800 }])).toBe(380)
+    expect(longestWorkStretch([{ start: 420, end: 600 }, { start: 615, end: 800 }])).toBe(185)
+    expect(longestWorkStretch([])).toBe(0)
+    expect(plannedLawWarnings(D, 1, [code(1, D, 'training', 'daily_target', 480, 720), home(720, 900)], [])).toEqual([
+      { type: 'long_stretch', date: D, employeeId: 1, minutes: 420 },
+    ])
+  })
+  it('leaves the stretch to the JArbSchG on a day the person is under 18', () => {
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 900)], [], true)).toEqual([])
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 1080)], [], true).map(w => w.type)).toEqual(['max_hours'])
   })
 })
 
@@ -144,7 +179,9 @@ describe('acknowledgements of the working time law warnings', () => {
     const rest = { type: 'short_rest', date: D, employeeId: 4, from: 1290, to: 420 } as const
     expect([warningAckKey(max), warningSignature(max)]).toEqual([`max_hours|${D}|4`, '615'])
     expect([warningAckKey(rest), warningSignature(rest)]).toEqual([`short_rest|${D}|4`, '1290-420'])
-    for (const type of ['max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded']) {
+    const stretch = { type: 'long_stretch', date: D, employeeId: 4, minutes: 390 } as const
+    expect([warningAckKey(stretch), warningSignature(stretch)]).toEqual([`long_stretch|${D}|4`, '390'])
+    for (const type of ['max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'long_stretch']) {
       expect(ackKeyDate(`${type}|${D}|4`)).toBe(D)
       expect(ackKeyDate(`${type}|${D}|x`)).toBeNull()
     }

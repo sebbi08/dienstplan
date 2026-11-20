@@ -1,12 +1,14 @@
 import { creditsDailyTarget, isTimeOff, isWorkEntry } from './balance'
 import { dayCreditedMinutes, workSpans, type BreakMode } from './stamping'
-import type { RecordSpan } from './timeRecords'
+import { BREAK_MIN_GAP, type RecordSpan } from './timeRecords'
 import type { CodeKey, DomainEntry, IsoDate, Minutes } from './types'
 import type { Warning } from './warnings'
 
 /**
- * Working time law hints (Arbeitszeitgesetz), never blocking: at most 10 hours of work per day (§ 3) and at least
- * 11 hours of rest between two working days (§ 5).
+ * Working time law hints (Arbeitszeitgesetz), never blocking: at most 10 hours of work per day (§ 3), at least
+ * 11 hours of rest between two working days (§ 5) and, in the plan, no more than 6 hours of work in a row without a
+ * break (§ 4 Satz 3; only interruptions of at least 15 minutes count, § 4 Satz 2 – the planned breaks as in the plan's
+ * working time). Under-18s get the stricter 4:30 h of the JArbSchG instead (youthProtection.ts), not both.
  *
  * Working time is what the hours account credits as hours (balance.ts): shifts, special shifts and timed codes (VZ,
  * Büro, Arzt), home office included, without breaks (of the entries and additional ones) and without the time ranges of
@@ -19,6 +21,8 @@ import type { Warning } from './warnings'
  */
 export const MAX_DAILY_MINUTES = 10 * 60
 export const MIN_REST_MINUTES = 11 * 60
+/** § 4 Satz 3 ArbZG: not more than six hours in a row without a break (exactly 6:00 h is allowed). */
+export const MAX_STRETCH_MINUTES = 6 * 60
 const DAY = 24 * 60
 
 export type LawEntry = Pick<DomainEntry, 'kind' | 'creditMode' | 'start' | 'end' | 'breakStart' | 'breakEnd'>
@@ -72,6 +76,21 @@ export function plannedWorkSpans(entries: LawEntry[]): WorkWindow[] {
   return spans
 }
 
+/**
+ * The longest work of the day without a break (§ 4 ArbZG): the planned work spans, where a gap of less than 15 minutes
+ * (BREAK_MIN_GAP) does not interrupt the work; 0 without timed work.
+ */
+export function longestWorkStretch(spans: WorkWindow[]): number {
+  let longest = 0
+  let blockStart: Minutes | null = null
+  spans.forEach((span, index) => {
+    const gap = index === 0 ? null : span.start - spans[index - 1]!.end
+    if (gap === null || gap >= BREAK_MIN_GAP) blockStart = span.start
+    longest = Math.max(longest, span.end - blockStart!)
+  })
+  return longest
+}
+
 /** More than 10 hours (exactly 10:00 h is allowed). */
 export function exceedsMaxDaily(minutes: number): boolean {
   return minutes > MAX_DAILY_MINUTES
@@ -98,15 +117,22 @@ export function shortRest(
   return minutes < MIN_REST_MINUTES ? { from: previous.end, to: next.start, minutes } : null
 }
 
-/** The plan's hints of one person and day; `previousEntries` are the person's entries of the day before. */
+/**
+ * The plan's hints of one person and day; `previousEntries` are the person's entries of the day before. `minor`: the
+ * person is under 18 on the day, so the JArbSchG's break rules apply instead of § 4 Satz 3 (no second hint).
+ */
 export function plannedLawWarnings(
-  date: IsoDate, employeeId: number, entries: LawEntry[], previousEntries: LawEntry[],
+  date: IsoDate, employeeId: number, entries: LawEntry[], previousEntries: LawEntry[], minor = false,
 ): Warning[] {
   const warnings: Warning[] = []
   const minutes = plannedWorkMinutes(entries)
   if (exceedsMaxDaily(minutes)) warnings.push({ type: 'max_hours', date, employeeId, minutes })
   const rest = shortRest(plannedWorkWindow(previousEntries), plannedWorkWindow(entries))
   if (rest) warnings.push({ type: 'short_rest', date, employeeId, from: rest.from, to: rest.to })
+  if (!minor) {
+    const stretch = longestWorkStretch(plannedWorkSpans(entries))
+    if (stretch > MAX_STRETCH_MINUTES) warnings.push({ type: 'long_stretch', date, employeeId, minutes: stretch })
+  }
   return warnings
 }
 

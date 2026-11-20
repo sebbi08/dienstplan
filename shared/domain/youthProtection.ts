@@ -99,10 +99,10 @@ export function needsBirthYear(qualification: Qualification | null): boolean {
 
 export type YouthRule =
   | 'hours' | 'week' | 'days' | 'early' | 'late' | 'saturday' | 'sunday' | 'holiday' | 'rest' | 'break' | 'stretch'
-  | 'schoolDay' | 'schoolBefore' | 'eve'
+  | 'schoolDay' | 'schoolBefore' | 'eve' | 'examBan'
 export const YOUTH_RULES: readonly YouthRule[] = [
   'hours', 'week', 'days', 'early', 'late', 'saturday', 'sunday', 'holiday', 'rest', 'break', 'stretch', 'schoolDay', 'schoolBefore',
-  'eve',
+  'eve', 'examBan',
 ]
 
 /**
@@ -113,7 +113,9 @@ export const YOUTH_RULES: readonly YouthRule[] = [
  * rest = the free time since the day before and 12 h; break = the breaks that count and the 30 or 60 minutes needed;
  * stretch = the longest work without a break and 4:30 h; schoolDay = minutes worked besides school on the first long
  * school day of a week in which no long school day is free, and 0; schoolBefore = the start of the work and the start of
- * the lessons (before 9:00). Work in § 14 and §§ 16–18 is the work besides school (school is no employment).
+ * the lessons (before 9:00); examBan = minutes worked and 0 on a day of the employment ban of § 33 Abs. 3 (14 months
+ * after the start without the follow-up certificate). Work in § 14 and §§ 16–18 is the work besides school (school is
+ * no employment).
  */
 export interface YouthWarning {
   type: 'youth'
@@ -210,11 +212,13 @@ export function averageDailyMinutes(info: EmploymentInfo, date: IsoDate): number
  * The hints of one person from `from` to `to` (both included), from the planned entries of each day (`entriesOf`, also
  * for the day before `from` and for the whole calendar weeks around the range). `appliesOn` tells the days the rules
  * apply on: under 18 and employed; the week rules count only these days. `creditOn` is what a long school day counts for
- * the week (averageDailyMinutes; 8 hours when missing).
+ * the week (averageDailyMinutes; 8 hours when missing). `examBanFrom`: the first day of the employment ban of § 33 Abs. 3
+ * (youthFollowupBanFrom; null or missing = none): each day from it with work gets the hint.
  */
 export function youthWarnings(input: {
   employeeId: number; from: IsoDate; to: IsoDate; holidays: HolidayRules
   entriesOf: (date: IsoDate) => LawEntry[]; appliesOn: (date: IsoDate) => boolean; creditOn?: (date: IsoDate) => number
+  examBanFrom?: IsoDate | null
 }): YouthWarning[] {
   const warnings: YouthWarning[] = []
   const creditOn = input.creditOn ?? (() => SCHOOL_LONG_DAY_CREDIT_FALLBACK)
@@ -241,6 +245,9 @@ export function youthWarnings(input: {
       const warn = (rule: YouthRule, value: number, limit: number) => {
         if (inRange) warnings.push({ type: 'youth', date, employeeId: input.employeeId, rule, value, limit })
       }
+      // § 33 Abs. 3: no further employment 14 months after the start without the follow-up certificate (first).
+      const banFrom = input.examBanFrom ?? null
+      if (banFrom !== null && date >= banFrom && day.workMinutes > 0) warn('examBan', day.workMinutes, 0)
       // § 8 Abs. 1, 2a: 8 hours; 8:30 h when another Werktag (Monday to Saturday) of the week is shorter than 8 hours.
       if (day.minutes > YOUTH_MAX_DAILY_MINUTES) {
         const shortened = days.some(other => other.date !== date && weekday(other.date) <= 5
@@ -356,3 +363,25 @@ export function youthExamStatus(
 
 /** § 33 Abs. 1 Satz 2: nine months after the start the employer reminds the person of the follow-up examination. */
 export const YOUTH_FOLLOWUP_REMINDER_MONTHS = 9
+
+/** § 33 Abs. 3: once 14 months after the start have passed, no further employment without the follow-up certificate. */
+export const YOUTH_FOLLOWUP_BAN_MONTHS = 14
+
+/**
+ * The first day of the employment ban of § 33 Abs. 3 JArbSchG: the start of employment + 14 months, when no follow-up
+ * examination is recorded (any record ends it, as it settles the follow-up in youthExamStatus); null without a start or
+ * with a record. The start is the one the app knows („beschäftigt seit“, else the first weekly hours); the law counts
+ * from the first employment at all (§ 36: a new employer asks for the certificates). Whether the person is under 18 on
+ * a day is the caller's check (youthFollowupBanOn).
+ */
+export function youthFollowupBanFrom(start: IsoDate | null, followupRecorded: boolean): IsoDate | null {
+  return start === null || followupRecorded ? null : addMonths(start, YOUTH_FOLLOWUP_BAN_MONTHS)
+}
+
+/** Whether the employment ban of § 33 Abs. 3 applies on `date`: from youthFollowupBanFrom on, while under 18. */
+export function youthFollowupBanOn(
+  facts: { birthday: string | null; birthYear: number | null; start: IsoDate | null }, followupRecorded: boolean, date: IsoDate,
+): boolean {
+  const from = youthFollowupBanFrom(facts.start, followupRecorded)
+  return from !== null && date >= from && isMinorOn(facts.birthday, facts.birthYear, date)
+}

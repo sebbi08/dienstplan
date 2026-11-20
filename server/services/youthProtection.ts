@@ -1,12 +1,14 @@
-import { inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { daysInMonth, monthDates, toIsoDate, weekStart } from '../../shared/domain/dates'
-import { isEmployedOn } from '../../shared/domain/targets'
+import { employmentStart, isEmployedOn } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { Warning } from '../../shared/domain/warnings'
 import type { LawEntry } from '../../shared/domain/workingTimeLaw'
-import { averageDailyMinutes, birthdayUncertainOn, isMinorOn, needsBirthYear, youthWarnings } from '../../shared/domain/youthProtection'
+import {
+  averageDailyMinutes, birthdayUncertainOn, isMinorOn, needsBirthYear, youthFollowupBanFrom, youthWarnings,
+} from '../../shared/domain/youthProtection'
 import type { Db } from '../db/client'
-import { employees } from '../db/schema'
+import { employeeRequirements, employees, requirementTypes } from '../db/schema'
 import type { EmployeeRecord } from './queries'
 
 /** The birth years of the employees (personal data: read here only, never sent). */
@@ -14,6 +16,15 @@ export function birthYearsOf(db: Db, employeeIds: readonly number[]): Map<number
   if (employeeIds.length === 0) return new Map()
   return new Map(db.select({ id: employees.id, birthYear: employees.birthYear }).from(employees)
     .where(inArray(employees.id, [...employeeIds])).all().map(row => [row.id, row.birthYear]))
+}
+
+/** The employees with a recorded follow-up examination (§ 33 JArbSchG, built-in kind youth_followup). */
+export function followupRecordedOf(db: Db, employeeIds: readonly number[]): Set<number> {
+  if (employeeIds.length === 0) return new Set()
+  return new Set(db.selectDistinct({ id: employeeRequirements.employeeId }).from(employeeRequirements)
+    .innerJoin(requirementTypes, eq(employeeRequirements.typeId, requirementTypes.id))
+    .where(and(inArray(employeeRequirements.employeeId, [...employeeIds]), eq(requirementTypes.builtinKey, 'youth_followup')))
+    .all().map(row => row.id))
 }
 
 /**
@@ -27,6 +38,9 @@ export function birthYearsOf(db: Db, employeeIds: readonly number[]): Map<number
  * fehlt“ once a month, on the first employed day of it in the year of the 18th birthday, for anyone with a birth year
  * and no birthday (whether they are still under 18 cannot be told). With the birth year alone the rules apply while the
  * person is certainly under 18 (minorStatusOn).
+ *
+ * § 33 Abs. 3: from 14 months after the start („beschäftigt seit“, else the first weekly hours) without a recorded
+ * follow-up examination, each day with work gets „Beschäftigungsverbot: Bescheinigung der Nachuntersuchung fehlt“.
  */
 export function youthPlanWarnings(
   db: Db, staff: readonly EmployeeRecord[], year: number, month: number,
@@ -35,6 +49,7 @@ export function youthPlanWarnings(
   const monthStart = toIsoDate(year, month, 1)
   const monthEnd = toIsoDate(year, month, daysInMonth(year, month))
   const birthYears = birthYearsOf(db, staff.map(employee => employee.id))
+  const followupRecorded = followupRecordedOf(db, staff.map(employee => employee.id))
   const warnings: Warning[] = []
   for (const employee of staff) {
     const birthYear = birthYears.get(employee.id) ?? null
@@ -57,6 +72,7 @@ export function youthPlanWarnings(
       entriesOf: date => entriesOf(employee.id, date),
       appliesOn: date => isEmployedOn(employee.info, date) && isMinorOn(employee.birthday, birthYear, date),
       creditOn: date => averageDailyMinutes(employee.info, date),
+      examBanFrom: youthFollowupBanFrom(employee.employedSince ?? employmentStart(employee.info), followupRecorded.has(employee.id)),
     }))
   }
   return warnings

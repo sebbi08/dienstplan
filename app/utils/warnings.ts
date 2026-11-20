@@ -90,6 +90,8 @@ function youthText(warning: YouthWarning, name: string): string {
       return t.schoolBefore(name, formatTime(warning.limit))
     case 'eve':
       return t.eve(name, formatTime(warning.value), `${warning.date.slice(8, 10)}.${warning.date.slice(5, 7)}.`)
+    case 'examBan':
+      return t.examBan(name)
   }
 }
 
@@ -125,6 +127,8 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
         formatTime(warning.from), de.weekdaysShort[weekday(addDays(warning.date, -1))]!,
         formatTime(warning.to), de.weekdaysShort[weekday(warning.date)]!,
       )
+    case 'long_stretch':
+      return de.warnings.longStretch(names.get(warning.employeeId) ?? '?', formatDuration(warning.minutes))
     case 'child_sick_days':
       return warning.taken === null || warning.entitlement === null
         ? de.warnings.childSickDaysOver(names.get(warning.employeeId) ?? '?')

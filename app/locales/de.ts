@@ -464,6 +464,8 @@ export const de = {
     /** „Anna: nur 9:00 Std. Ruhezeit zwischen 22:00 (Mo) und 7:00 (Di) – mindestens 11 Std. (§ 5 ArbZG)“ (planned or stamped). */
     shortRest: (name: string, duration: string, from: string, fromDay: string, to: string, toDay: string) =>
       `${name}: nur ${duration} Std. Ruhezeit zwischen ${from} (${fromDay}) und ${to} (${toDay}) – mindestens 11 Std. (§ 5 ArbZG)`,
+    /** „Anna: 6:30 Std. ohne Pause – länger als 6 Std. am Stück nur mit Ruhepause (§ 4 ArbZG)“ (planned; pauses from 15 min count). */
+    longStretch: (name: string, duration: string) => `${name}: ${duration} Std. ohne Pause geplant – länger als 6 Std. am Stück nur mit Ruhepause (§ 4 ArbZG, Pausen ab 15 Min.)`,
     /** More „Kind krank“ days than the entitlement, only a hint: „Anna: 16 Kinderkrankentage – Anspruch 15 (§ 45 SGB V)“. */
     childSickDays: (name: string, taken: number, entitlement: number) => `${name}: ${taken} Kinderkrankentage – Anspruch ${entitlement} (§ 45 SGB V)`,
     /** The same without the numbers, for plan editors without the personal data. */
@@ -505,6 +507,8 @@ export const de = {
       break: (name: string, minutes: number, over: string, limit: number) =>
         `${name}: ${minutes} Min. Pause – unter 18 bei mehr als ${over} Std. Arbeit mindestens ${limit} Min. (§ 11 JArbSchG)`,
       stretch: (name: string, duration: string) => `${name}: ${duration} Std. ohne Pause – unter 18 höchstens 4,5 Std. am Stück (§ 11 JArbSchG)`,
+      /** § 33 Abs. 3: 14 months after the start without the follow-up certificate. */
+      examBan: (name: string) => `${name}: Beschäftigungsverbot: Bescheinigung der Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)`,
       schoolDay: (name: string) =>
         `${name}: Dienst an einem langen Berufsschultag (mehr als 5 Unterrichtsstunden) – unter 18 einmal pro Woche frei (§ 9 JArbSchG)`,
       schoolBefore: (name: string, time: string) =>
@@ -990,6 +994,9 @@ export const de = {
     every: (months: number) => (months === 1 ? 'jeden Monat' : `alle ${months} Monate`), once: 'einmalig',
     states: { missing: 'noch kein Eintrag', overdue: 'überfällig', soon: 'bald fällig', ok: 'in Ordnung' },
     hint: 'Trage ein, wann der Termin war oder der Nachweis vorgelegt wurde. Der neueste Eintrag zählt. Geplante Termine in der Zukunft werden nicht eingetragen.',
+    /** § 33 Abs. 3 JArbSchG: 14 months after the start without the follow-up certificate (Leitung and Träger). */
+    employmentBan: 'Beschäftigungsverbot: Bescheinigung der Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)',
+    employmentBanHint: (date: string) => `Seit ${date} (14 Monate nach Beginn der Beschäftigung) darf die Person nicht weiterbeschäftigt werden, solange sie die Bescheinigung nicht vorgelegt hat. Gezählt wird ab „beschäftigt seit“ (sonst ab den ersten Wochenstunden) – das Gesetz zählt ab der ersten Beschäftigung überhaupt, auch bei einem früheren Arbeitgeber.`,
     enter: 'Eintragen', enterFor: (kind: string) => `${kind} eintragen`, date: 'Datum', note: 'Bemerkung (optional)',
     history: (count: number) => (count === 1 ? '1 Eintrag' : `${count} Einträge`),
     showHistory: 'Einträge anzeigen', hideHistory: 'Einträge ausblenden',

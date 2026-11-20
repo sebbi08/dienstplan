@@ -1705,7 +1705,7 @@ sehen keine Warnungen.
   Überschrift zählt nur die nicht zur Kenntnis genommenen. **„zur Kenntnis genommene anzeigen (n)“** zeigt sie grau, mit
   **„Rückgängig“**. Welche Warnungen es gibt, ändert sich dadurch nicht (auch nicht die Markierungen im Plan).
 
-### Arbeitszeitgesetz: höchstens 10 Stunden am Tag, 11 Stunden Ruhezeit (nur Hinweise)
+### Arbeitszeitgesetz: höchstens 10 Stunden am Tag, 6 Stunden am Stück, 11 Stunden Ruhezeit (nur Hinweise)
 
 Die App weist darauf hin, verhindert aber nichts: Speichern, Freigeben und Stempeln gehen weiter.
 
@@ -1721,6 +1721,15 @@ Die App weist darauf hin, verhindert aber nichts: Speichern, Freigeben und Stemp
   Ruhezeit zwischen 22:00 (Mo) und 7:00 (Di) – mindestens 11 Std. (§ 5 ArbZG)“. Einträge ohne Uhrzeit zählen dafür
   nicht. Arzt, Homeoffice sowie Fortbildung und Schule mit Uhrzeit zählen als Arbeit. Am Monatsersten wird mit dem
   letzten Tag des Vormonats verglichen.
+- **Nicht länger als 6 Stunden ohne Pause (§ 4 Satz 3 ArbZG):** Ist für eine Person mehr als 6 Stunden am Stück Arbeit
+  geplant, ohne dass eine Pause dazwischen liegt, steht z. B. „Anna: 6:30 Std. ohne Pause geplant – länger als 6 Std. am
+  Stück nur mit Ruhepause (§ 4 ArbZG, Pausen ab 15 Min.)“. Genau 6:00 Stunden sind erlaubt. Als Pause zählt – wie bei der
+  Pausenlänge (§ 4 Satz 2) – nur eine Unterbrechung von **mindestens 15 Minuten**: die Pause eines Dienstes, eine
+  zusätzliche Pause oder eine Lücke zwischen zwei Einträgen. Gezählt wird dieselbe Arbeitszeit wie bei den 10 Stunden.
+  Für **unter 18-Jährige** gilt an diesen Tagen stattdessen die strengere Regel des Jugendarbeitsschutzes (höchstens
+  4:30 Std. am Stück, § 11 JArbSchG) – sie bekommen nicht beide Hinweise. Der Hinweis kommt nur aus dem Dienstplan; für
+  gestempelte Tage gibt es weiter „gesetzliche Pause nicht eingehalten“. Stand der Regel: 19.11.2026 (ArbZG, zuletzt
+  geändert 23.10.2024; eine Reform ist nicht in Kraft).
 - **Auch am Wochenende und an Feiertagen** wird geprüft, nur für eigene Mitarbeiter (Aushilfen aus einer anderen
   Einrichtung prüft deren Einrichtung).
 - **Zeiterfassung:** Für vergangene Tage ab „Zeiterfassung ab“ prüft die App dasselbe mit den gestempelten Zeiten
@@ -1968,6 +1977,16 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Migration 0095 hinter den vorhandenen Arten jeder Einrichtung. **Nach dem Update** steht deshalb bei allen, die jetzt
   unter 18 sind, die Erstuntersuchung als überfällig, bis die vorhandene Bescheinigung eingetragen ist (Datum der
   Untersuchung unter „Pflichttermine“ → Eintragen).
+- **Beschäftigungsverbot nach 14 Monaten (§ 33 Abs. 3):** Sind 14 Monate seit dem Beginn vergangen (Beginn 01.09.2025 →
+  ab 01.11.2026), ist die Person noch unter 18 und ist keine Nachuntersuchung eingetragen, darf sie nicht
+  weiterbeschäftigt werden. Dann steht beim Mitarbeiter über den Pflichtterminen rot **„Beschäftigungsverbot:
+  Bescheinigung der Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)“** mit dem Datum, und im Dienstplan bekommt jeder Tag
+  ab diesem Datum, an dem die Person Arbeit geplant hat, denselben Hinweis (wie die anderen Jugendarbeitsschutz-Hinweise,
+  „Zur Kenntnis genommen“ möglich). Ein Eintrag der Nachuntersuchung beendet den Hinweis. Grenze: Das Gesetz zählt ab
+  der **ersten Beschäftigung überhaupt** (auch bei einem früheren Arbeitgeber; nach § 36 legt die Person dann die
+  vorhandenen Bescheinigungen vor) – die App zählt ab „beschäftigt seit“ bzw. dem ersten Wochenstunden-Eintrag. Trage
+  bei einem Wechsel von einem anderen Arbeitgeber deshalb die vorhandene Nachuntersuchung ein. Stand der Regel:
+  19.11.2026 (JArbSchG, zuletzt geändert 23.10.2024).
 
 ## 21. Menü
 

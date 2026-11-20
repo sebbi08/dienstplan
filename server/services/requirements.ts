@@ -4,7 +4,7 @@ import {
   BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, isYouthExamKey, requirementState, type RequirementState,
 } from '../../shared/domain/requirements'
 import { employmentStart, isEmployedOn } from '../../shared/domain/targets'
-import { youthExamStatus } from '../../shared/domain/youthProtection'
+import { youthExamStatus, youthFollowupBanFrom, youthFollowupBanOn } from '../../shared/domain/youthProtection'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   DueRequirementDto, EmployeeRequirementsDto, MyRequirementsDto, RequirementTypeDto, SessionUser, TrainingDto,
@@ -171,9 +171,15 @@ export function getEmployeeRequirements(db: Db, facilityId: number, employeeId: 
       const history = records.filter(record => record.typeId === type.id)
       const lastDate = history[0]?.date ?? null
       const state = kindState(type, lastDate, facts, today)
+      // § 33 Abs. 3 JArbSchG: the follow-up kind tells when the employment ban applies today.
+      const banFrom = youthFollowupBanFrom(facts.start, lastDate !== null)
+      const ban = type.builtinKey === 'youth_followup' && banFrom !== null && youthFollowupBanOn(facts, lastDate !== null, today)
       return state === null
         ? []
-        : [{ type: toTypeDto(type), ...state, lastDate, records: history.map(({ id, date, note }) => ({ id, date, note })) }]
+        : [{
+            type: toTypeDto(type), ...state, lastDate, records: history.map(({ id, date, note }) => ({ id, date, note })),
+            ...(ban ? { employmentBanFrom: banFrom } : {}),
+          }]
     }),
     trainings,
   }

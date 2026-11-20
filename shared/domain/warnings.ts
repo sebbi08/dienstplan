@@ -44,6 +44,8 @@ export type Warning =
   | { type: 'short_rest'; date: IsoDate; employeeId: number; from: Minutes; to: Minutes }
   /** The same from the stamped times. */
   | { type: 'short_rest_recorded'; date: IsoDate; employeeId: number; from: Minutes; to: Minutes }
+  /** More than 6 hours of planned work in a row without a break of at least 15 minutes (§ 4 Satz 3 ArbZG); not for under-18s. */
+  | { type: 'long_stretch'; date: IsoDate; employeeId: number; minutes: number }
   /** More „Kind krank“ days than the entitlement of the year (§ 45 SGB V, employeeChildren.ts), `taken` counted to `date`;
    * both null for a viewer without the personal data (they tell the children and „alleinerziehend“). */
   | { type: 'child_sick_days'; date: IsoDate; employeeId: number; taken: number | null; entitlement: number | null }

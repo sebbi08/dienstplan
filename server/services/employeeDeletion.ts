@@ -23,7 +23,7 @@ import { getRetentionSettings } from './retentionSettings'
 /** Warning types whose acknowledgement key names an employee as subject (`<type>|<date>|<employeeId>`, warningList.ts). */
 const EMPLOYEE_WARNING_TYPES = new Set([
   'missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence',
-  'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'child_sick_days', 'work_limit',
+  'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'long_stretch', 'child_sick_days', 'work_limit',
   'youth_birth_year', 'youth_birthday',
 ])
 

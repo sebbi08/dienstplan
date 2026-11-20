@@ -141,3 +141,18 @@ describe('working time law hints of the time tracking', () => {
     expect(planLaw(2026, 10, '2026-10-20', RECORDED_TYPES)).toEqual([])
   })
 })
+
+describe('§ 4 Satz 3 ArbZG in the plan: more than 6 hours in a row without a break', () => {
+  const stretchOf = (today = '2026-10-01') => getMonthPlan(db, admin, 1, 2026, 10, today).admin!.warnings
+    .filter(warning => warning.type === 'long_stretch' || (warning.type === 'youth' && warning.rule === 'stretch'))
+  it('warns an adult, a break of 30 minutes in time is enough', () => {
+    special('2026-10-06', 420, 840) // 7:00–14:00 without a break
+    special('2026-10-07', 420, 900, { breakStart: 660, breakEnd: 690 }) // break after 4 hours
+    expect(stretchOf()).toEqual([{ type: 'long_stretch', date: '2026-10-06', employeeId: anna, minutes: 420 }])
+  })
+  it('leaves an under-18 to the JArbSchG (4:30 h) instead of warning twice', () => {
+    db.update(employees).set({ birthday: '12-10', birthYear: 2010 }).where(eq(employees.id, anna)).run()
+    special('2026-10-06', 420, 840)
+    expect(stretchOf().map(warning => warning.type)).toEqual(['youth'])
+  })
+})

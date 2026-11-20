@@ -13,6 +13,7 @@ import { countsForBalance, isEmployedInRange, isEmployedOn } from '../../shared/
 import type { IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import { plannedLawWarnings, recordedLawWarnings, usesStampedHints } from '../../shared/domain/workingTimeLaw'
+import { isMinorOn } from '../../shared/domain/youthProtection'
 import type {
   ActualCellDto, ChangeDto, ClosureDto, DayRowDto, EntryDto, HelperDto, MonthPlanAdminDto, MonthPlanDto, MyPlanDayDto, MyPlanDto,
   MyPlanEntryDto, PendingChangeDto, SessionUser, SnapshotData, TimeRecordDto, WeekSummaryDto,
@@ -40,7 +41,7 @@ import { staffingWarnings } from './staffingReport'
 import { actualTimeFor, loadTimeRecords } from './timeTracking'
 import { loadWarningAcks } from './warningAcks'
 import { weekTemplateNames, weekTemplateUsesOf } from './weekTemplates'
-import { youthPlanWarnings } from './youthProtection'
+import { birthYearsOf, youthPlanWarnings } from './youthProtection'
 
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
@@ -111,6 +112,8 @@ function buildAdminData(
       && usesStampedHints({ entries: dayEntriesOf(employee.id, date), records: recordsByCell.get(key) ?? [] })
   }
 
+  // Birth years (personal data) only to tell the days a person is under 18; never sent.
+  const birthYears = birthYearsOf(db, staffIds)
   const warnings: Warning[] = monthDates(year, month).flatMap((date) => {
     const staffDays: EmployeeDay[] = staff.map((employee) => {
       const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
@@ -129,11 +132,15 @@ function buildAdminData(
       entries: (helpersHere.get(helper.employeeId) ?? []).filter(entry => entry.date === date),
       coverageOnly: true,
     }))
-    // Working time law (§ 3, § 5 ArbZG) of the own staff on every day they are employed, weekends included, with all
-    // their entries (a help-out elsewhere is work too). Helpers are checked in their home facility's plan. A past day
-    // with stamps gets the stamped hints instead (below).
+    // Working time law (§ 3, § 4 Satz 3, § 5 ArbZG) of the own staff on every day they are employed, weekends included,
+    // with all their entries (a help-out elsewhere is work too). Helpers are checked in their home facility's plan. A
+    // past day with stamps gets the stamped hints instead (below). On a day under 18 the JArbSchG's break rules replace
+    // § 4 Satz 3 (youthPlanWarnings).
     const lawWarnings = staff.filter(employee => isEmployedOn(employee.info, date) && !stampedLawDay(employee, date))
-      .flatMap(employee => plannedLawWarnings(date, employee.id, dayEntriesOf(employee.id, date), dayEntriesOf(employee.id, addDays(date, -1))))
+      .flatMap(employee => plannedLawWarnings(
+        date, employee.id, dayEntriesOf(employee.id, date), dayEntriesOf(employee.id, addDays(date, -1)),
+        isMinorOn(employee.birthday, birthYears.get(employee.id) ?? null, date),
+      ))
     return [...dayWarnings(date, [...staffDays, ...helperDays], rules, closureOn(closures, date) !== null, holidays, hours), ...lawWarnings]
   })
   // The state's presence rules (Personalschlüssel) per group and time of day.

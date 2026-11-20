@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { DomainEntry, IsoDate } from '../../shared/domain/types'
 import { ackKeyDate, warningAckKey, warningSignature } from '../../shared/domain/warningList'
 import {
-  ageOn, averageDailyMinutes, birthdayUncertainOn, isMinorOn, minorStatusOn, needsBirthYear, youthExamStatus, youthLeaveOf,
-  youthLeaveWerktage, youthMinimumLeave, youthWarnings, type YouthRule, type YouthWarning,
+  ageOn, averageDailyMinutes, birthdayUncertainOn, isMinorOn, minorStatusOn, needsBirthYear, youthExamStatus, youthFollowupBanFrom,
+  youthFollowupBanOn, youthLeaveOf, youthLeaveWerktage, youthMinimumLeave, youthWarnings, type YouthRule, type YouthWarning,
 } from '../../shared/domain/youthProtection'
 import { code, shift, special } from '../helpers/entries'
 
@@ -336,6 +336,28 @@ describe('§§ 32, 33 JArbSchG: examinations', () => {
     expect(youthExamStatus('youth_initial', { ...minor, start: '2026-08-01' }, '2026-07-01', '2027-06-01')).toEqual({ state: 'ok', dueOn: null })
     expect(youthExamStatus('youth_initial', { birthday: '06-01', birthYear: 2000, start: '2026-08-01' }, '2026-07-01', '2026-11-19'))
       .toEqual({ state: 'ok', dueOn: null })
+  })
+  it('bans further employment 14 months after the start without the follow-up certificate (§ 33 Abs. 3)', () => {
+    const facts = { ...minor, start: '2025-09-01' as IsoDate }
+    expect(youthFollowupBanFrom('2025-09-01', false)).toBe('2026-11-01')
+    expect(youthFollowupBanFrom('2025-09-01', true)).toBeNull()
+    expect(youthFollowupBanFrom(null, false)).toBeNull()
+    // 31 December + 14 months: the last day of February
+    expect(youthFollowupBanFrom('2025-12-31', false)).toBe('2027-02-28')
+    expect(youthFollowupBanOn(facts, false, '2026-10-31')).toBe(false)
+    expect(youthFollowupBanOn(facts, false, '2026-11-01')).toBe(true)
+    expect(youthFollowupBanOn(facts, true, '2026-11-01')).toBe(false)
+    // ends with the 18th birthday (1 June 2027)
+    expect(youthFollowupBanOn(facts, false, '2027-05-31')).toBe(true)
+    expect(youthFollowupBanOn(facts, false, '2027-06-01')).toBe(false)
+  })
+  it('gives the plan hint on each day with work from the ban on (§ 33 Abs. 3)', () => {
+    const work: Record<string, DomainEntry[]> = { '2026-11-02': [special(1, '2026-11-02', 480, 720)], '2026-10-30': [special(1, '2026-10-30', 480, 720)] }
+    const warnings = youthWarnings({
+      employeeId: 1, from: '2026-10-26', to: '2026-11-08', holidays: HOLIDAYS, entriesOf: date => work[date] ?? [],
+      appliesOn: () => true, examBanFrom: '2026-11-01',
+    })
+    expect(warnings.filter(w => w.rule === 'examBan').map(w => [w.date, w.value, w.limit])).toEqual([['2026-11-02', 240, 0]])
   })
 })
 

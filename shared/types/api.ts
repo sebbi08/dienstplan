@@ -2292,6 +2292,11 @@ export interface EmployeeRequirementKindDto {
   dueOn: IsoDate | null
   /** The history, newest first. */
   records: RequirementRecordDto[]
+  /**
+   * Only on the follow-up examination (§ 33 JArbSchG) while its employment ban applies today (§ 33 Abs. 3: 14 months
+   * after the start, under 18, no record): the ban's first day.
+   */
+  employmentBanFrom?: IsoDate
 }
 
 /** Mandatory appointments (every kind of the employee's facility) and trainings (newest first) of one employee. */

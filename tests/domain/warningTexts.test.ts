@@ -73,6 +73,10 @@ describe('working time law texts (§ 3 and § 5 ArbZG)', () => {
     expect(warningText({ type: 'short_rest_recorded', date: '2026-11-01', employeeId: 1, from: 1291, to: 425 }, names))
       .toBe('Anna: nur 9:34 Std. Ruhezeit zwischen 21:31 (Sa) und 7:05 (So) – mindestens 11 Std. (§ 5 ArbZG)')
   })
+  it('words more than 6 hours in a row without a break (§ 4 Satz 3)', () => {
+    expect(warningText({ type: 'long_stretch', date: '2026-10-06', employeeId: 1, minutes: 390 }, names))
+      .toBe('Anna: 6:30 Std. ohne Pause geplant – länger als 6 Std. am Stück nur mit Ruhepause (§ 4 ArbZG, Pausen ab 15 Min.)')
+  })
   it('marks the persons\' cells', () => {
     const warning: Warning = { type: 'short_rest', date: '2026-10-06', employeeId: 1, from: 1320, to: 420 }
     expect([...indexWarnings([warning]).byCell.values()]).toEqual([[warning]])

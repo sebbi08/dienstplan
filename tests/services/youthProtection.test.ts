@@ -168,6 +168,22 @@ describe('examinations (§§ 32, 33 JArbSchG) among the Pflichttermine', () => {
     expect(dueYouth()).toEqual([['Lena', INITIAL, 'overdue', '2026-08-01'], ['Mia', INITIAL, 'overdue', '2026-08-01']])
     expect(dueYouth('2027-06-15')).toEqual([['Mia', INITIAL, 'overdue', '2026-08-01'], ['Mia', FOLLOW_UP, 'soon', '2027-08-01']])
   })
+  it('bans further employment 14 months after the start without the follow-up certificate (§ 33 Abs. 3)', () => {
+    db.update(employees).set({ employedSince: '2025-08-01' }).where(eq(employees.id, mia)).run()
+    const followUp = (today = TODAY) => getEmployeeRequirements(db, 1, mia, today).kinds.find(kind => kind.type.builtinKey === 'youth_followup')
+    expect(followUp('2026-09-30')?.employmentBanFrom).toBeUndefined()
+    expect(followUp()).toMatchObject({ state: 'overdue', dueOn: '2026-08-01', employmentBanFrom: '2026-10-01' })
+    // the plan: every day with work from the ban on
+    applyToCells(db, admin, 1, [{ employeeId: mia, date: '2026-09-29' }, { employeeId: mia, date: '2026-10-06' }], 'add', { kind: 'special', start: 480, end: 720 })
+    const bans = () => getMonthPlan(db, admin, 1, 2026, 10, TODAY).admin!.warnings
+      .filter(warning => warning.type === 'youth' && warning.rule === 'examBan').map(warning => [warning.employeeId, warning.date])
+    expect(bans()).toEqual([[mia, '2026-10-06']])
+    expect(getMonthPlan(db, admin, 1, 2026, 9, TODAY).admin!.warnings.some(w => w.type === 'youth' && w.rule === 'examBan')).toBe(false)
+    // a record of the follow-up ends it
+    addRequirementRecord(db, 1, mia, { typeId: requirementTypeId(db, 'youth_followup'), date: '2026-10-10' }, TODAY)
+    expect(followUp()?.employmentBanFrom).toBeUndefined()
+    expect(bans()).toEqual([])
+  })
   it('takes „beschäftigt seit“ as the start when it is entered', () => {
     db.update(employees).set({ employedSince: '2025-09-01' }).where(eq(employees.id, mia)).run()
     expect(youthKinds(mia)).toEqual([[INITIAL, 'overdue', '2025-09-01', null], [FOLLOW_UP, 'overdue', '2026-09-01', null]])
