@@ -172,13 +172,15 @@ describe('presets – Fachkraft status and quotas of students and trainees', () 
     const quota = presetFor('BE', REVISED).quotas.find(q => q.kind === 'max_share')!
     expect(quota).toMatchObject({ pct: 33, base: 'planned' })
     expect([...quota.qualifications].sort())
-      .toEqual(['azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3'])
+      .toEqual(['azubi_1', 'azubi_2', 'azubi_3', 'azubi_spa_1', 'azubi_spa_2', 'azubi_spa_3', 'studium_1', 'studium_2', 'studium_3'])
   })
 
   it('MV: Assistenzkräfte and trainees together at most 25 % of the required staff', () => {
     const quota = presetFor('MV', REVISED).quotas.find(q => q.kind === 'max_share')!
     expect(quota).toMatchObject({ pct: 25, base: 'required' })
-    expect([...quota.qualifications].sort()).toEqual(['azubi_1', 'azubi_2', 'azubi_3', 'ergaenzung'])
+    expect([...quota.qualifications].sort())
+      .toEqual(['azubi_1', 'azubi_2', 'azubi_3', 'azubi_spa_1', 'azubi_spa_2', 'azubi_spa_3', 'ergaenzung'])
+    expect(presetFor('MV', '2027-01-01').quotas).toEqual(presetFor('MV', REVISED).quotas)
   })
 
   it('the employee\'s own share still wins over the new defaults', () => {

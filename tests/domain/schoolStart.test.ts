@@ -36,9 +36,9 @@ describe('schoolStart', () => {
     // NW: § 35 SchulG „bis zum Beginn des 30. September … vollendet“ – the same
     expect(start('NW', '2021-09-30')).toBe('2027-09-01')
     expect(start('NW', '2021-10-01')).toBe('2028-09-01')
-    // TH: 1 August „vollendet“ → born up to 2 August
-    expect(start('TH', '2021-08-02')).toBe('2027-09-01')
-    expect(start('TH', '2021-08-03')).toBe('2028-09-01')
+    // TH: § 18 Abs. 1 ThürSchulG „am 1. August eines Jahres sechs Jahre alt“ → born up to 1 August
+    expect(start('TH', '2021-08-01')).toBe('2027-09-01')
+    expect(start('TH', '2021-08-02')).toBe('2028-09-01')
   })
 
   it('completes a year of a 29 February child at the end of 28 February in common years', () => {

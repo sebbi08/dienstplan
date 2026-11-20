@@ -109,13 +109,21 @@ describe('§ 4 Satz 3 ArbZG: not more than 6 hours in a row without a break', ()
       { type: 'long_stretch', date: D, employeeId: 1, minutes: 390 },
     ])
   })
-  it('joins entries without a gap, Fortbildung and home office included, and splits at a gap of 15 minutes', () => {
+  it('joins work entries without a gap, home office included, and splits at a gap of 15 minutes', () => {
     expect(longestWorkStretch([{ start: 420, end: 600 }, { start: 610, end: 800 }])).toBe(380)
     expect(longestWorkStretch([{ start: 420, end: 600 }, { start: 615, end: 800 }])).toBe(185)
     expect(longestWorkStretch([])).toBe(0)
-    expect(plannedLawWarnings(D, 1, [code(1, D, 'training', 'daily_target', 480, 720), home(720, 900)], [])).toEqual([
+    expect(plannedLawWarnings(D, 1, [special(1, D, 480, 720), home(720, 900)], [])).toEqual([
       { type: 'long_stretch', date: D, employeeId: 1, minutes: 420 },
     ])
+  })
+  it('leaves out Schule and Fortbildung: their breaks are not in the plan', () => {
+    // an adult trainee's school day 8:00–14:30, a whole-day Fortbildung 9:00–16:00
+    expect(plannedLawWarnings(D, 1, [code(1, D, 'school', 'daily_target', 480, 870)], [])).toEqual([])
+    expect(plannedLawWarnings(D, 1, [code(1, D, 'training', 'daily_target', 540, 960)], [])).toEqual([])
+    // work before and after a Fortbildung: each part on its own (4:00 h and 3:00 h)
+    expect(plannedLawWarnings(D, 1, [special(1, D, 420, 660), code(1, D, 'training', 'daily_target', 660, 780), special(1, D, 780, 960)], []))
+      .toEqual([])
   })
   it('leaves the stretch to the JArbSchG on a day the person is under 18', () => {
     expect(plannedLawWarnings(D, 1, [special(1, D, 420, 900)], [], true)).toEqual([])

@@ -85,7 +85,8 @@ export const BB: StaffingRuleSet[] = [
     note: 'Bitte prüfen: Nach dem Gesetz sinkt der Krippenschlüssel am 01.01.2027 auf 1 : 4. Das MBJS hat am 24.08.2026 '
       + 'mitgeteilt, dass dieser Schritt vorerst nicht umgesetzt wird und es bei 1 : 4,25 bleibt; eine Gesetzesänderung '
       + 'dazu war bis 19.11.2026 nicht zu finden (Doppelhaushalt 2027/28 in Beratung). Hinterlegt ist deshalb weiter '
-      + '4,25. Gilt das Gesetz unverändert, trägt der Träger für U3 4 Kinder je Vollzeitkraft ein. '
+      + '4,25. Gilt das Gesetz unverändert, trägt der Träger ab 01.01.2027 für U3 4 Kinder je Vollzeitkraft ein '
+      + '(vorher eingetragen gälte es auch schon für 2026). '
       + `${TRAINEES} ${BASE_NOTE}`,
   },
 ]

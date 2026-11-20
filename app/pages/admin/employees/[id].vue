@@ -560,7 +560,7 @@ async function onTabKey(event: KeyboardEvent) {
           <UFormField :label="de.personnel.disabilityDegree" :error="masterError('disabilityDegree')">
             <USelect v-model="sensitive.disabilityDegree" :items="disabilityDegreeItems" class="w-full" />
           </UFormField>
-          <UFormField :label="de.personnel.disabilityUntil" :error="masterError('disabilityUntil')">
+          <UFormField :label="de.personnel.disabilityUntil" :help="de.personnel.disabilityUntilHint" :error="masterError('disabilityUntil')">
             <DateTextInput v-model="sensitive.disabilityUntil" :label="de.personnel.disabilityUntil" class="w-full" />
           </UFormField>
           <UCheckbox v-model="sensitive.disabilityEqual" :label="de.personnel.disabilityEqual" class="sm:col-span-2 sm:pb-2" />

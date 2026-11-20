@@ -142,7 +142,7 @@ describe('facilities', () => {
     it('a new facility takes the cutoff of its state', () => {
       const nord = createFacility(db, 'Krippe Nord', 'TH').id
       expect(facilityHolidayRules(db, nord).state).toBe('TH')
-      expect(getSchoolSettings(db, nord)).toMatchObject({ cutoffMonth: 8, cutoffDay: 1, ageYears: 6 })
+      expect(getSchoolSettings(db, nord)).toMatchObject({ cutoffMonth: 7, cutoffDay: 31, ageYears: 6 })
       const sued = createFacility(db, 'Krippe Süd').id
       expect(facilityHolidayRules(db, sued).state).toBe('BW')
       expect(getSchoolSettings(db, sued)).toMatchObject({ cutoffMonth: 6, cutoffDay: 30, ageYears: 6 })

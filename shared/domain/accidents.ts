@@ -39,9 +39,9 @@ export const JOB_TITLES: Record<string, string> = {
 export const QUALIFICATION_TITLES: Record<string, string> = {
   fachkraft: 'Fachkraft', ergaenzung: 'Ergänzungs-/Zusatzkraft', azubi_1: 'Auszubildende/r (1. Jahr)',
   azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)',
-  azubi_spa_1: 'PiA Sozialpädagogische Assistenz (1. Jahr)',
-  azubi_spa_2: 'PiA Sozialpädagogische Assistenz (2. Jahr)',
-  azubi_spa_3: 'PiA Sozialpädagogische Assistenz (3. Jahr)',
+  azubi_spa_1: 'Sozialpädagogische Assistenz praxisintegriert (1. Jahr)',
+  azubi_spa_2: 'Sozialpädagogische Assistenz praxisintegriert (2. Jahr)',
+  azubi_spa_3: 'Sozialpädagogische Assistenz praxisintegriert (3. Jahr)',
   studium_1: 'Studierende/r praxisintegriert/dual (1. Studienjahr)', studium_2: 'Studierende/r praxisintegriert/dual (2. Studienjahr)',
   studium_3: 'Studierende/r praxisintegriert/dual (ab 3. Studienjahr)', praktikant: 'Berufspraktikant/in (Anerkennungsjahr)',
   haushalt: 'Haushaltskraft',

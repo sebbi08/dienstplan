@@ -8,7 +8,8 @@ import type { Warning } from './warnings'
  * Working time law hints (Arbeitszeitgesetz), never blocking: at most 10 hours of work per day (§ 3), at least
  * 11 hours of rest between two working days (§ 5) and, in the plan, no more than 6 hours of work in a row without a
  * break (§ 4 Satz 3; only interruptions of at least 15 minutes count, § 4 Satz 2 – the planned breaks as in the plan's
- * working time). Under-18s get the stricter 4:30 h of the JArbSchG instead (youthProtection.ts), not both.
+ * working time, but without Schule and Fortbildung, whose breaks the plan does not show). Under-18s get the stricter
+ * 4:30 h of the JArbSchG instead (youthProtection.ts), not both.
  *
  * Working time is what the hours account credits as hours (balance.ts): shifts, special shifts and timed codes (VZ,
  * Büro, Arzt), home office included, without breaks (of the entries and additional ones) and without the time ranges of
@@ -130,7 +131,9 @@ export function plannedLawWarnings(
   const rest = shortRest(plannedWorkWindow(previousEntries), plannedWorkWindow(entries))
   if (rest) warnings.push({ type: 'short_rest', date, employeeId, from: rest.from, to: rest.to })
   if (!minor) {
-    const stretch = longestWorkStretch(plannedWorkSpans(entries))
+    // Work with the employer only: Schule and Fortbildung have their own breaks that the plan does not show.
+    const work = entries.filter(entry => !(entry.kind === 'code' && !!entry.codeKey && LAW_WORK_CODES.includes(entry.codeKey)))
+    const stretch = longestWorkStretch(plannedWorkSpans(work))
     if (stretch > MAX_STRETCH_MINUTES) warnings.push({ type: 'long_stretch', date, employeeId, minutes: stretch })
   }
   return warnings

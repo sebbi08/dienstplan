@@ -48,7 +48,8 @@ const revised: StaffingRuleSet = {
   staffShares: shares({ ergaenzung: 80, azubi_3: 50 }),
   quotas: [{
     key: 'assistenz', label: 'Assistenzkräfte und Auszubildende', kind: 'max_share',
-    qualifications: ['ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3'], pct: 25, base: 'required',
+    qualifications: ['ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'azubi_spa_1', 'azubi_spa_2', 'azubi_spa_3'], pct: 25,
+    base: 'required',
   }],
 }
 
@@ -65,7 +66,9 @@ export const MV: StaffingRuleSet[] = [
       + '§ 24 Abs. 5',
     note: 'Bitte prüfen: Krippe 1 : 5 ab 01.01.2027 (bisher 1 : 6). Übergang: Bis längstens 31.07.2029 darf eine '
       + 'Einrichtung die alte Relation (1 : 6) weiter anwenden, wenn sie das dem Jugendamt anzeigt und den Elternrat '
-      + 'informiert – dann trägt der Träger für die Krippe 6 Kinder je Vollzeitkraft ein. Hort 1 : 21 (ab 01.08.2027 oder 2028, Quellen uneinig) noch '
+      + 'informiert – dann trägt der Träger ab 01.01.2027 für die Krippe 6 Kinder je Vollzeitkraft ein (vorher '
+      + 'eingetragen bleibt es nicht, weil 6 bis dahin der Vorgabewert ist). Hort 1 : 21 (ab 01.08.2027 oder 2028, '
+      + 'Quellen uneinig) noch '
       + 'nicht übernommen. Die Umrechnung in Vollzeitkräfte regeln die Kreise per Satzung; hier Krippe 1 : 5, '
       + 'Kindergarten 1 : 14, Hort 1 : 22 je 10 Std./Tag, anteilig nach Betreuungsstunden. Leitung (vermutlich '
       + `außerhalb der Relation) nicht enthalten. ${TRAINEES} Gesetzestext nur über Sekundärquellen gelesen (Stand `

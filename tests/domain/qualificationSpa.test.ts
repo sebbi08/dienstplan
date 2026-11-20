@@ -15,11 +15,11 @@ describe('qualification – praxisintegrierte Ausbildung Sozialpädagogische Ass
   it('adds azubi_spa_1/2/3 right after azubi_3, with German labels and accident titles', () => {
     expect(QUALIFICATIONS.slice(QUALIFICATIONS.indexOf('azubi_3'), QUALIFICATIONS.indexOf('studium_1')))
       .toEqual(['azubi_3', ...SPA])
-    expect(de.staffing.qualifications.azubi_spa_1).toBe('PiA Sozialpädagogische Assistenz (1. Jahr)')
-    expect(de.staffing.qualifications.azubi_spa_3).toBe('PiA Sozialpädagogische Assistenz (3. Jahr)')
-    expect(QUALIFICATION_TITLES.azubi_spa_2).toBe('PiA Sozialpädagogische Assistenz (2. Jahr)')
+    expect(de.staffing.qualifications.azubi_spa_1).toBe('Sozialpädagogische Assistenz praxisintegriert (1. Jahr)')
+    expect(de.staffing.qualifications.azubi_spa_3).toBe('Sozialpädagogische Assistenz praxisintegriert (3. Jahr)')
+    expect(QUALIFICATION_TITLES.azubi_spa_2).toBe('Sozialpädagogische Assistenz praxisintegriert (2. Jahr)')
     expect(staffingPathLabel('staffShares.azubi_spa_2', presetVersions('BW')))
-      .toBe('Anrechnung je Qualifikation: PiA Sozialpädagogische Assistenz (2. Jahr)')
+      .toBe('Anrechnung je Qualifikation: Sozialpädagogische Assistenz praxisintegriert (2. Jahr)')
   })
 
   it('counts 0 % by default and is a trainee for the Jugendarbeitsschutz (birth year prompt)', () => {

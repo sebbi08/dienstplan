@@ -329,7 +329,8 @@ export interface PlannedChildrenDto {
   contracted: PlannedChildDto[]
 }
 
-/** The school cutoff of a facility: a child is of school age when it reaches `ageYears` by `cutoffDay`.`cutoffMonth`. */
+/** The school cutoff of a facility: a child is of school age when it has completed `ageYears` by the end of
+ * `cutoffDay`.`cutoffMonth` (born up to the day after it, schoolStart.ts). */
 export interface SchoolSettingsDto {
   cutoffMonth: number
   cutoffDay: number

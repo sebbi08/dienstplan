@@ -342,8 +342,14 @@ describe('§§ 32, 33 JArbSchG: examinations', () => {
     expect(youthFollowupBanFrom('2025-09-01', false)).toBe('2026-11-01')
     expect(youthFollowupBanFrom('2025-09-01', true)).toBeNull()
     expect(youthFollowupBanFrom(null, false)).toBeNull()
-    // 31 December + 14 months: the last day of February
-    expect(youthFollowupBanFrom('2025-12-31', false)).toBe('2027-02-28')
+    // § 188 Abs. 2/3 BGB: start 31 December → the 14 months end with 28 February, the ban starts on 1 March
+    expect(youthFollowupBanFrom('2025-12-31', false)).toBe('2027-03-01')
+    expect(youthFollowupBanFrom('2025-12-29', false)).toBe('2027-03-01')
+    expect(youthFollowupBanFrom('2025-12-28', false)).toBe('2027-02-28')
+    expect(youthFollowupBanFrom('2025-07-31', false)).toBe('2026-10-01')
+    // the same day exists: no shift
+    expect(youthFollowupBanFrom('2025-08-31', false)).toBe('2026-10-31')
+    expect(youthFollowupBanFrom('2024-10-31', false)).toBe('2025-12-31')
     expect(youthFollowupBanOn(facts, false, '2026-10-31')).toBe(false)
     expect(youthFollowupBanOn(facts, false, '2026-11-01')).toBe(true)
     expect(youthFollowupBanOn(facts, true, '2026-11-01')).toBe(false)

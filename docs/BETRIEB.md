@@ -370,11 +370,20 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
   Stichtag deshalb von Hand einen Tag später gestellt hatte (z. B. 1. Juli), stellt ihn bitte zurück** (der
   Vorschlag „übernehmen“ erscheint dann). Ausnahmen beim Vorschlag: In **Bayern** (Art. 37 BayEUG: „bis zum
   30. September sechs Jahre alt werden“) und **Nordrhein-Westfalen** (§ 35 SchulG: „bis zum Beginn des
-  30. September … vollendet“) zählt der Geburtstag bis 30.09., deshalb schlägt die App dort den 29.09. vor.
-  **Hamburg** (§ 38 HmbSG: „vor dem 1. Juli … vollendet“) hat jetzt den 30.06. statt bisher 01.07. – bestehende
-  Einrichtungen in Bayern, Nordrhein-Westfalen und Hamburg sehen den neuen Vorschlag mit „übernehmen“.
-  Quelle: Rechtsprüfung vom 19.11.2026 (Schulgesetze der Länder, Bekanntmachung Gemeinde Lahntal zu § 58 HSchG
-  vom 08.02.2025). Keine Rechtsberatung.
+  30. September … vollendet“) zählt der Geburtstag bis 30.09., deshalb stellt die App dort den 29.09. ein; in
+  **Thüringen** (§ 18 Abs. 1 ThürSchulG: „am 1. August eines Jahres sechs Jahre alt“) zählt der Geburtstag bis 01.08.,
+  eingestellt wird der 31.07. Der Vorschlag zeigt dort beides: „Laut Schulgesetz …: Geburtstag bis 30.09. – eingestellt
+  wird der 29.09.“. **Hamburg** (§ 38 Abs. 1 HmbSG: „vor dem 1. Juli das 6. Lebensjahr vollendet“) hat jetzt den 30.06.
+  statt bisher 01.07.
+- **Bestehende Einrichtungen in Hamburg, Bayern, Nordrhein-Westfalen und Thüringen:** Steht dort noch der alte
+  Vorschlag (Hamburg 01.07., Bayern und Nordrhein-Westfalen 30.09., Thüringen 01.08.), stellt ein Update der Datenbank ihn
+  auf den neuen Wert um (30.06., 29.09., 31.07.) – der alte Wert würde jetzt Kinder einschließen, die einen Tag nach der
+  Grenze geboren sind, und sie mit der automatischen Abmeldung ein Jahr zu früh abmelden. Ein von Hand anders
+  eingestellter Stichtag bleibt unverändert; dann zeigt *Einstellungen → Kinder → Schulkinder* den Vorschlag mit
+  **„übernehmen“** (das schaltet wie jede Stichtagsänderung die automatische Abmeldung aus).
+- Quelle: Rechtsprüfung vom 19.11.2026 (Schulgesetze der Länder, Bekanntmachung Gemeinde Lahntal zu § 58 HSchG vom
+  08.02.2025); Wortlaut HmbSG § 38 Abs. 1 und ThürSchulG § 18 Abs. 1 am 20.11.2026 über die konsolidierte Fassung bei
+  lexaris.de geprüft (die amtlichen Portale ließen sich nicht abrufen). Keine Rechtsberatung.
 - Schulstart ist immer der 1. September. Ein von Hand eingetragener „voraussichtlicher Schulstart“
   (z. B. bei Zurückstellung) hat Vorrang.
 - In der Kinderakte steht der „voraussichtliche Schulstart“ schon beim Anlegen da, sobald das Geburtsdatum
@@ -991,7 +1000,10 @@ Schwerbehinderung im Arbeitsverhältnis, gezählt ab 1. Januar bzw. ab Eintritt 
 (§ 208 Abs. 2 SGB IX; ab einem halben Tag wird aufgerundet, ein kleinerer Rest bleibt; dieser Teil wird nicht noch
 einmal gezwölftelt). Beispiel: gültig bis 31.03., 5-Tage-Woche → 20 + 1,25 Tage. Grenze: Der **Beginn** der
 Schwerbehinderung wird nicht gespeichert – die App nimmt an, dass sie schon vor dem Jahr (bzw. seit Eintritt) bestand.
-Beginnt sie im Jahr, bitte den Anspruch selbst nachrechnen (Stand der Regel: 19.11.2026). Die Arbeitstage stammen
+Beginnt sie im Jahr, bitte den Anspruch selbst nachrechnen (Stand der Regel: 19.11.2026). „Gültig bis“ ist das Ende der
+Schwerbehinderung laut Bescheid, nicht nur der Ablauf des Ausweises: Der Schutz endet erst mit einem Bescheid und gilt
+bis zum Ende des dritten Monats danach (§ 199 Abs. 1 SGB IX); bei Verlängerung das neue Datum eintragen (Hinweis auch am
+Feld). Die Arbeitstage stammen
 aus dem Wochenstunden-Eintrag, der am 1. Januar gilt (bei Eintritt im Jahr: am Eintrittstag). Nach sechs Monaten
 Beschäftigung (Wartezeit) gilt der volle Jahresurlaub, also auch bei Eintritt bis zum 1. Juli und bei Ausscheiden nach
 erfüllter Wartezeit ab dem 1. Juli. **1/12 je vollem Beschäftigungsmonat** (gezählt ab dem Eintrittstag, z. B.
@@ -1468,12 +1480,15 @@ auch im Reiter und in den Einstellungen.
   Träger einen dieser Werte geändert, gilt seine Änderung weiter.
   „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im
   Feld). Eine eigene Zahl (0 bis 100) gilt nur für diese Person.
-- **PiA Sozialpädagogische Assistenz (1./2./3. Jahr)** (seit 19.11.2026): eigene Qualifikation für die
-  praxisintegrierte Ausbildung zur Sozialpädagogischen Assistenz. In **Baden-Württemberg** zählt sie ab November 2026
+- **Sozialpädagogische Assistenz praxisintegriert (1./2./3. Jahr)** (seit 19.11.2026): eigene Qualifikation für die
+  praxisintegrierte Ausbildung („PiA“: Ausbildung mit Vertrag und Bezahlung in der Kita, Schule an einzelnen Tagen)
+  zur Sozialpädagogischen Assistenz. In **Baden-Württemberg** zählt sie ab November 2026
   im 1. Jahr 0 %, im 2. und 3. Jahr 20 % (KM-FAQ zum KiTaG,
   https://km.baden-wuerttemberg.de/de/fruehe-bildung/kindertageseinrichtungen/faq-kindertagesbetreuungsgesetz, geprüft
   19.11.2026; dieselbe FAQ bestätigt: PiA Erzieher und DHBW-Studierende bis 40 %, Anerkennungspraktikum bis 100 %). In
-  den anderen Ländern 0 % (keine Regel für diese Ausbildung hinterlegt; bei Bedarf „Anrechnung in %“). Wie die anderen
+  den anderen Ländern 0 % (keine Regel für diese Ausbildung hinterlegt; bei Bedarf „Anrechnung in %“). Bekommen sie
+  eine eigene Anrechnung, zählen sie in Berlin (höchstens 33 %) und Mecklenburg-Vorpommern (höchstens 25 %) bei der
+  Obergrenze für Auszubildende mit. Wie die anderen
   Auszubildenden bekommt sie den Hinweis „Geburtsjahr fehlt“ (Jugendarbeitsschutz). Wer bisher als Auszubildende/r mit
   eigener Anrechnung 20 % eingetragen war, kann auf die neue Qualifikation umgestellt werden.
 - **Baden-Württemberg – Kinderpfleger/innen und Sozialpädagogische Assistent/innen sind Fachkräfte** (§ 7 Abs. 2 Nr. 6
@@ -1553,14 +1568,14 @@ dem Landesjugendamt klären und bei Bedarf als Träger anpassen.
 
 - **Mecklenburg-Vorpommern ab 01.01.2027:** Krippe **1 : 5** statt 1 : 6 (Fünftes Gesetz zur Änderung des KiföG M-V,
   GVOBl. M-V 2026 S. 758), sonst unverändert. Übergang: Bis längstens 31.07.2029 darf eine Einrichtung nach Anzeige beim
-  Jugendamt und Information des Elternrats bei 1 : 6 bleiben – dann trägt der Träger 6 ein. Der Hort-Schritt (1 : 21)
+  Jugendamt und Information des Elternrats bei 1 : 6 bleiben – dann trägt der Träger ab 01.01.2027 6 ein. Der Hort-Schritt (1 : 21)
   ist noch nicht übernommen (Datum unklar).
 - **Bayern ab 01.01.2027:** neue Fundstellen (Art. 18 BayKiBiG, Gewichte in § 21 AVBayKiBiG; Gesetz vom 28.07.2026,
   GVBl. S. 401), gleiche Werte. Die neu gefasste Anrechnung von Praktikanten und Auszubildenden (§ 16 AVBayKiBiG) ist
   nicht geprüft, deshalb „bitte prüfen“.
 - **Brandenburg ab 01.01.2027:** Nach dem Gesetz sinkt der Krippenschlüssel auf 1 : 4; das MBJS hat am 24.08.2026
   mitgeteilt, dass es vorerst bei **1 : 4,25** bleibt. Hinterlegt ist 4,25, mit „bitte prüfen“ (eine Gesetzesänderung
-  war bis 19.11.2026 nicht zu finden). Gilt das Gesetz doch, trägt der Träger 4 ein. (Bis zum 19.11.2026 stand ab 2027
+  war bis 19.11.2026 nicht zu finden). Gilt das Gesetz doch, trägt der Träger ab 01.01.2027 4 ein. (Bis zum 19.11.2026 stand ab 2027
   der Wert 4.)
 - **Saarland, Nordrhein-Westfalen (ab 01.08.2027), Thüringen:** Die Gesetze ändern sich ab 2027; neue Zahlen waren
   nicht sicher lesbar. Der Hinweis der Vorgabe sagt „Ab 2027 neue Regeln – Werte bitte prüfen“.
@@ -1641,8 +1656,9 @@ arbeitsunfähig** war, muss ein BEM angeboten bekommen. Die App zählt mit, erin
 > **01.01.2028**. Bis dahin zählt die App wie bisher nur „Krank“. Spätestens zum 01.01.2028 braucht es einen eigenen
 > Abwesenheitscode „Teil-AU“, der beim Zählen mitzählt (ob ein Teil-AU-Tag als ganzer Tag zählt, sagt das Gesetz
 > nicht – bitte dann fachlich klären). Die Einladung (Standardtext) nennt den Anlass mit „ununterbrochen oder
-> wiederholt arbeitsunfähig“; ein eigener Einladungstext sollte das ebenfalls tun. **Gesundheitsdaten:** Alles hier sehen nur, wer das Recht für die
-Krankheitstage hat (Baustein „Mitarbeiter pflegen“, also Leitung und Träger) – nie die Person selbst (es gibt keine
+> wiederholt arbeitsunfähig“; ein eigener Einladungstext sollte das ebenfalls tun.
+
+**Gesundheitsdaten:** Alles hier sehen nur, wer das Recht für die Krankheitstage hat (Baustein „Mitarbeiter pflegen“, also Leitung und Träger) – nie die Person selbst (es gibt keine
 „Meins“-Ansicht), nie Kollegen, nie das Tablet. Das eigene BEM sieht niemand auf seiner eigenen Seite: Das BEM einer
 Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
 
@@ -1759,7 +1775,9 @@ Die App weist darauf hin, verhindert aber nichts: Speichern, Freigeben und Stemp
   geplant, ohne dass eine Pause dazwischen liegt, steht z. B. „Anna: 6:30 Std. ohne Pause geplant – länger als 6 Std. am
   Stück nur mit Ruhepause (§ 4 ArbZG, Pausen ab 15 Min.)“. Genau 6:00 Stunden sind erlaubt. Als Pause zählt – wie bei der
   Pausenlänge (§ 4 Satz 2) – nur eine Unterbrechung von **mindestens 15 Minuten**: die Pause eines Dienstes, eine
-  zusätzliche Pause oder eine Lücke zwischen zwei Einträgen. Gezählt wird dieselbe Arbeitszeit wie bei den 10 Stunden.
+  zusätzliche Pause oder eine Lücke zwischen zwei Einträgen. Gezählt wird nur die Arbeit (Dienste, Sonderdienste, VZ,
+  Büro, Arzt, Homeoffice), **nicht Schule und Fortbildung** – deren Pausen stehen nicht im Plan (ein Schultag 8:00–14:30
+  gibt also keinen Hinweis); sie unterbrechen die Arbeit wie eine Pause.
   Für **unter 18-Jährige** gilt an diesen Tagen stattdessen die strengere Regel des Jugendarbeitsschutzes (höchstens
   4:30 Std. am Stück, § 11 JArbSchG) – sie bekommen nicht beide Hinweise. Der Hinweis kommt nur aus dem Dienstplan; für
   gestempelte Tage gibt es weiter „gesetzliche Pause nicht eingehalten“. Stand der Regel: 19.11.2026 (ArbZG, zuletzt
@@ -2015,12 +2033,19 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   ab 01.11.2026), ist die Person noch unter 18 und ist keine Nachuntersuchung eingetragen, darf sie nicht
   weiterbeschäftigt werden. Dann steht beim Mitarbeiter über den Pflichtterminen rot **„Beschäftigungsverbot:
   Bescheinigung der Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)“** mit dem Datum, und im Dienstplan bekommt jeder Tag
-  ab diesem Datum, an dem die Person Arbeit geplant hat, denselben Hinweis (wie die anderen Jugendarbeitsschutz-Hinweise,
+  ab diesem Datum, an dem die Person Arbeit geplant hat, den Hinweis „‹Name›: Beschäftigungsverbot – Bescheinigung der
+  Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)“ (wie die anderen Jugendarbeitsschutz-Hinweise,
   „Zur Kenntnis genommen“ möglich). Ein Eintrag der Nachuntersuchung beendet den Hinweis. Grenze: Das Gesetz zählt ab
   der **ersten Beschäftigung überhaupt** (auch bei einem früheren Arbeitgeber; nach § 36 legt die Person dann die
   vorhandenen Bescheinigungen vor) – die App zählt ab „beschäftigt seit“ bzw. dem ersten Wochenstunden-Eintrag. Trage
-  bei einem Wechsel von einem anderen Arbeitgeber deshalb die vorhandene Nachuntersuchung ein. Stand der Regel:
-  19.11.2026 (JArbSchG, zuletzt geändert 23.10.2024).
+  bei einem Wechsel von einem anderen Arbeitgeber deshalb die vorhandene Nachuntersuchung ein. Die 14 Monate enden
+  nach § 188 Abs. 2/3 BGB mit dem Tag vor dem gleichen Monatstag; gibt es den nicht, mit dem Monatsletzten (Beginn
+  31.12.2025 → Verbot ab 01.03.2027). Ein Eintrag der Nachuntersuchung zählt auch, wenn er aus einer früheren
+  Einrichtung der Person stammt. Stand der Regel: 19.11.2026 (JArbSchG, zuletzt geändert 23.10.2024).
+- **Wer den Hinweis im Dienstplan sieht:** alle, die den Dienstplan bearbeiten dürfen – wie die anderen
+  Jugendarbeitsschutz-Hinweise, auch ohne das Recht, die Pflichttermine zu sehen. Bewusst so: Das Alter gilt hier nicht
+  als besonders schützenswert, und wer plant, muss wissen, dass die Person nicht eingeplant werden darf. Der Hinweis
+  verrät damit, dass die Nachuntersuchung fehlt (kein Befund, keine Gesundheitsangabe).
 
 ## 21. Menü
 

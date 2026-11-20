@@ -510,7 +510,7 @@ export const de = {
         `${name}: ${minutes} Min. Pause – unter 18 bei mehr als ${over} Std. Arbeit mindestens ${limit} Min. (§ 11 JArbSchG)`,
       stretch: (name: string, duration: string) => `${name}: ${duration} Std. ohne Pause – unter 18 höchstens 4,5 Std. am Stück (§ 11 JArbSchG)`,
       /** § 33 Abs. 3: 14 months after the start without the follow-up certificate. */
-      examBan: (name: string) => `${name}: Beschäftigungsverbot: Bescheinigung der Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)`,
+      examBan: (name: string) => `${name}: Beschäftigungsverbot – Bescheinigung der Nachuntersuchung fehlt (§ 33 Abs. 3 JArbSchG)`,
       schoolDay: (name: string) =>
         `${name}: Dienst an einem langen Berufsschultag (mehr als 5 Unterrichtsstunden) – unter 18 einmal pro Woche frei (§ 9 JArbSchG)`,
       schoolBefore: (name: string, time: string) =>
@@ -816,6 +816,8 @@ export const de = {
     nationality: 'Staatsangehörigkeit', disability: 'Schwerbehinderung', disabilityDegree: 'Grad der Behinderung',
     disabilityYes: 'ja', disabilityNo: 'nein',
     disabilityDegreeNone: '–', disabilityEqual: 'gleichgestellt', disabilityUntil: 'gültig bis',
+    /** § 199 Abs. 1 SGB IX: the status does not end with the card; it counts for the extra leave (§ 208 Abs. 2). */
+    disabilityUntilHint: 'Ende der Schwerbehinderung laut Bescheid – nicht nur der Ablauf des Ausweises. Der Schutz endet erst mit einem Bescheid und gilt bis zum Ende des dritten Monats danach (§ 199 Abs. 1 SGB IX). Bei Verlängerung das neue Datum eintragen; leer = unbefristet. Zählt für den Zusatzurlaub (§ 208 SGB IX).',
     // „Lohn und Steuer“ in the tab „Vertrag & Lohn“ (employees.payroll).
     payroll: {
       title: 'Lohn und Steuer',
@@ -1546,8 +1548,9 @@ export const de = {
     qualifications: {
       fachkraft: 'Fachkraft', ergaenzung: 'Ergänzungs-/Zusatzkraft', azubi_1: 'Auszubildende/r (1. Jahr)',
       azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)',
-      azubi_spa_1: 'PiA Sozialpädagogische Assistenz (1. Jahr)', azubi_spa_2: 'PiA Sozialpädagogische Assistenz (2. Jahr)',
-      azubi_spa_3: 'PiA Sozialpädagogische Assistenz (3. Jahr)',
+      azubi_spa_1: 'Sozialpädagogische Assistenz praxisintegriert (1. Jahr)',
+      azubi_spa_2: 'Sozialpädagogische Assistenz praxisintegriert (2. Jahr)',
+      azubi_spa_3: 'Sozialpädagogische Assistenz praxisintegriert (3. Jahr)',
       studium_1: 'Studium praxisintegriert/dual (1. Studienjahr)', studium_2: 'Studium praxisintegriert/dual (2. Studienjahr)',
       studium_3: 'Studium praxisintegriert/dual (ab 3. Studienjahr)', praktikant: 'Berufspraktikant/in (Anerkennungsjahr)',
       haushalt: 'Haushaltskraft', none: 'keine pädagogische Kraft (z. B. Aushilfe, Werkstudent/in)',
@@ -1677,13 +1680,17 @@ export const de = {
     stateCutoffNotes: {
       BY: 'Art. 37 BayEUG: „bis zum 30. September sechs Jahre alt werden“ – also Geburtstag bis 30.09.; das 6. Lebensjahr ist dann bis 29.09. vollendet.',
       NW: '§ 35 SchulG NRW: „bis zum Beginn des 30. September … vollendet“ – also Geburtstag bis 30.09.; das 6. Lebensjahr ist dann bis 29.09. vollendet.',
-      HH: '§ 38 HmbSG: „vor dem 1. Juli … vollendet“ – also bis 30.06. vollendet (Geburtstag bis 1. Juli).',
+      HH: '§ 38 Abs. 1 HmbSG: „vor dem 1. Juli das 6. Lebensjahr vollendet“ – also bis 30.06. vollendet (Geburtstag bis 1. Juli).',
+      TH: '§ 18 Abs. 1 ThürSchulG: „am 1. August eines Jahres sechs Jahre alt“ – also Geburtstag bis 01.08.; das 6. Lebensjahr ist dann bis 31.07. vollendet.',
     } as Partial<Record<string, string>>,
     computed: (date: string) => `errechnet: ${date}`,
     // The school start in the record: computed from the cutoff, or set by Leitung or Träger.
     automatic: 'automatisch', automaticByCutoff: 'automatisch nach Stichtag', manual: 'von Hand geändert',
     change: 'Ändern', backToAutomatic: 'Wieder automatisch', managersOnly: 'Ändern können nur Leitung und Träger.',
     stateCutoff: (inState: string, date: string, age: number) => `Stichtag laut Schulgesetz ${inState}: ${date} (Alter ${age})`,
+    // BY, NW, TH: the law names the last birthday, the app stores the day before (the 6th year is completed then).
+    stateCutoffByBirthday: (inState: string, birthday: string, date: string, age: number) =>
+      `Laut Schulgesetz ${inState}: Geburtstag bis ${birthday} (Alter ${age}) – eingestellt wird der ${date}, weil das Lebensjahr am Tag vor dem Geburtstag vollendet ist`,
     adopt: 'übernehmen',
     stateCutoffHint: 'Vorschlag nach dem Schulgesetz des Bundeslands (Stand 19.11.2026). Bitte bei Änderungen des Schulgesetzes prüfen.',
     // Small helper texts of the pages (beyond the agreed wording list above).

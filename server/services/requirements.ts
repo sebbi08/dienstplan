@@ -13,7 +13,7 @@ import type { Db } from '../db/client'
 import { employeeRequirements, employeeTrainings, employees, requirementTypes } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { loadEmployee, loadEmployees, type EmployeeRecord } from './queries'
-import { birthYearsOf } from './youthProtection'
+import { birthYearsOf, followupRecordedOf } from './youthProtection'
 
 type TypeRow = typeof requirementTypes.$inferSelect
 
@@ -171,9 +171,12 @@ export function getEmployeeRequirements(db: Db, facilityId: number, employeeId: 
       const history = records.filter(record => record.typeId === type.id)
       const lastDate = history[0]?.date ?? null
       const state = kindState(type, lastDate, facts, today)
-      // § 33 Abs. 3 JArbSchG: the follow-up kind tells when the employment ban applies today.
-      const banFrom = youthFollowupBanFrom(facts.start, lastDate !== null)
-      const ban = type.builtinKey === 'youth_followup' && banFrom !== null && youthFollowupBanOn(facts, lastDate !== null, today)
+      // § 33 Abs. 3 JArbSchG: the follow-up kind tells when the employment ban applies today; a record of the follow-up
+      // in any facility ends it, as in the plan (followupRecordedOf).
+      const followUp = type.builtinKey === 'youth_followup'
+      const recorded = followUp && followupRecordedOf(db, [employeeId]).has(employeeId)
+      const banFrom = youthFollowupBanFrom(facts.start, recorded)
+      const ban = followUp && banFrom !== null && youthFollowupBanOn(facts, recorded, today)
       return state === null
         ? []
         : [{

@@ -70,7 +70,7 @@ export const BW: StaffingRuleSet[] = [
       + 'geprüft 19.11.2026)',
     note: `${TRAINEES_NOTE} Auszubildende (PiA Erzieher) und Studierende (DHBW/dual) zählen mit bis zu 40 %, `
       + 'Berufspraktikum (Anerkennungsjahr) mit bis zu 100 % „als Fachkraft“ (§ 7 Abs. 4 KiTaG, KM-FAQ zum KiTaG) – '
-      + 'bei der Mindestbesetzung nach Uhrzeit aber nicht als ganze Fachkraft. PiA Sozialpädagogische Assistenz: '
+      + 'bei der Mindestbesetzung nach Uhrzeit aber nicht als ganze Fachkraft. Sozialpädagogische Assistenz praxisintegriert (PiA): '
       + 'eigene Qualifikation, 1. Jahr 0 %, 2. und 3. Jahr 20 % (KM-FAQ). Direkteinstieg Kita (2. Jahr) bis 20 %, über '
       + 'das L-Bank-Programm geförderte PiA-Plätze 0 % – beim Mitarbeiter eintragen. Staatlich anerkannte '
       + 'Kinderpfleger/innen und Sozialpädagogische Assistent/innen sind Fachkräfte (§ 7 Abs. 2 Nr. 6 KiTaG) – als '

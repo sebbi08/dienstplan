@@ -375,7 +375,13 @@ export const YOUTH_FOLLOWUP_BAN_MONTHS = 14
  * a day is the caller's check (youthFollowupBanOn).
  */
 export function youthFollowupBanFrom(start: IsoDate | null, followupRecorded: boolean): IsoDate | null {
-  return start === null || followupRecorded ? null : addMonths(start, YOUTH_FOLLOWUP_BAN_MONTHS)
+  if (start === null || followupRecorded) return null
+  // § 187 Abs. 2, § 188 Abs. 2/3 BGB: the 14 months end with the day before the same day of the month; when that month
+  // has no such day (start on the 29th–31st), with its last day – the ban starts the day after.
+  const sameDay = addMonths(start, YOUTH_FOLLOWUP_BAN_MONTHS)
+  if (sameDay.slice(8) === start.slice(8)) return sameDay
+  // (December has 31 days, so the shifted month is never past December)
+  return `${sameDay.slice(0, 5)}${String(Number(sameDay.slice(5, 7)) + 1).padStart(2, '0')}-01`
 }
 
 /** Whether the employment ban of § 33 Abs. 3 applies on `date`: from youthFollowupBanFrom on, while under 18. */

@@ -86,7 +86,10 @@ export const BE: StaffingRuleSet[] = [
     }),
     quotas: [{
       key: 'auszubildende', label: 'Auszubildende und Studierende', kind: 'max_share',
-      qualifications: ['azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3'], pct: 33, base: 'planned',
+      qualifications: [
+        'azubi_1', 'azubi_2', 'azubi_3', 'azubi_spa_1', 'azubi_spa_2', 'azubi_spa_3', 'studium_1', 'studium_2', 'studium_3',
+      ],
+      pct: 33, base: 'planned',
     }],
   },
 ]
