@@ -39,24 +39,37 @@ export function isBeforeStartKey(key: string | null): key is BeforeStartKey {
 /** AMR 2.1: the first Vorsorge at most 3 months before the start; the notice shows the kinds from then on. */
 export const BEFORE_START_NOTICE_MONTHS = 3
 
+type IntervalKind = { intervalMonths: number | null; firstIntervalMonths: number | null }
+
 /**
- * When the next record of a recurring kind is due after `records` records, the newest dated `lastDate` (null for a kind
- * needed once). A kind with a first interval counts it from the start of employment (AMR 2.1: the second Vorsorge at
- * the latest 12 months after taking up the activity): when the only record lies in [start − 3 months, start + first
- * interval) it is the first check-up of this employment, due again at start + first interval. Otherwise (more records,
- * or a single older or later one, e.g. long-serving staff with only their latest check-up entered) the interval counts
- * from the newest record. Without a known start the first interval counts from the single record.
+ * When the next record of a recurring kind is due, from its record dates (at least one, any order; null for a kind
+ * needed once). A kind with a first interval counts it from the start of employment (AMR 2.1: the first Vorsorge at
+ * most 3 months before taking up the activity, the second at the latest 12 months after it). Only records from
+ * start − 3 months on belong to this employment: none of them (all older) → due on the start (firstCheckupTooEarly);
+ * exactly one, before start + first interval → it is the first check-up, the second is due at start + first interval.
+ * Otherwise (more records, or a single later one, e.g. long-serving staff with only their latest check-up entered) the
+ * interval counts from the newest record. Without a known start the first interval counts from a single record.
  */
-export function nextDueOn(
-  lastDate: IsoDate, records: number, kind: { intervalMonths: number | null; firstIntervalMonths: number | null }, start: IsoDate | null,
-): IsoDate | null {
-  if (kind.intervalMonths === null) return null
-  if (kind.firstIntervalMonths !== null && records === 1) {
-    if (start === null) return addMonths(lastDate, kind.firstIntervalMonths)
+export function nextDueOn(dates: readonly IsoDate[], kind: IntervalKind, start: IsoDate | null): IsoDate | null {
+  if (kind.intervalMonths === null || dates.length === 0) return null
+  const newest = dates.reduce((a, b) => (a > b ? a : b))
+  if (kind.firstIntervalMonths !== null) {
+    if (start === null) return addMonths(newest, dates.length === 1 ? kind.firstIntervalMonths : kind.intervalMonths)
+    if (firstCheckupTooEarly(dates, kind, start)) return start
     const secondDue = addMonths(start, kind.firstIntervalMonths)
-    if (lastDate >= addMonths(start, -BEFORE_START_NOTICE_MONTHS) && lastDate < secondDue) return secondDue
+    if (dates.filter(date => date >= addMonths(start, -BEFORE_START_NOTICE_MONTHS)).length === 1 && newest < secondDue) return secondDue
   }
-  return addMonths(lastDate, kind.intervalMonths)
+  return addMonths(newest, kind.intervalMonths)
+}
+
+/**
+ * A kind with a first interval whose records all lie more than 3 months before the start of employment: no valid first
+ * check-up of this employment (AMR 2.1), so it is due again on the start – before the start like a missing one.
+ */
+export function firstCheckupTooEarly(dates: readonly IsoDate[], kind: IntervalKind, start: IsoDate | null): start is IsoDate {
+  if (kind.intervalMonths === null || kind.firstIntervalMonths === null || start === null || dates.length === 0) return false
+  const earliestValid = addMonths(start, -BEFORE_START_NOTICE_MONTHS)
+  return dates.every(date => date < earliestValid)
 }
 
 /** The examinations of the Jugendarbeitsschutzgesetz: only for employees under 18, due by the law (no interval). */

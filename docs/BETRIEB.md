@@ -921,10 +921,13 @@ Erweitertes Führungszeugnis, Masernimpfung (Nachweis), Erst- und Nachuntersuchu
   ändern (die Werte sind Höchstwerte, die Betriebsärztin oder der Betriebsarzt kann kürzere festlegen). Mit dem Häkchen
   **„Zweiter Termin ab Arbeitsbeginn“** schaltest du diese Regel für eine Art ein oder aus (ohne Häkchen gilt nur „alle
   [36] Monate“).
-  - So rechnet die App: Arbeitsbeginn ist „beschäftigt seit“ (sonst die ersten Wochenstunden). Ist genau eine Vorsorge
-    eingetragen und liegt sie zwischen 3 Monaten vor dem Arbeitsbeginn und 12 Monaten danach, ist es die erste dieser
-    Beschäftigung: die zweite ist **12 Monate nach dem Arbeitsbeginn** fällig. Sonst – ab der zweiten Vorsorge, oder
-    wenn die einzige eingetragene Vorsorge älter oder später ist – ist die nächste **36 Monate nach der neuesten** fällig.
+  - So rechnet die App: Arbeitsbeginn ist „beschäftigt seit“ (sonst die ersten Wochenstunden). Zu dieser Beschäftigung
+    zählen nur Vorsorgen ab 3 Monaten vor dem Arbeitsbeginn. Ist genau eine davon eingetragen und liegt sie vor dem Ende
+    der ersten 12 Monate, ist es die erste: die zweite ist **12 Monate nach dem Arbeitsbeginn** fällig. Liegen alle
+    eingetragenen Vorsorgen mehr als 3 Monate vor dem Arbeitsbeginn, zählt keine davon als erste (AMR 2.1): Die Vorsorge
+    ist **zum Arbeitsbeginn** fällig und steht vorher wie eine fehlende im Hinweis („noch kein Eintrag“). Sonst – ab der
+    zweiten Vorsorge dieser Beschäftigung, oder wenn die einzige später liegt – ist die nächste **36 Monate nach der
+    neuesten** fällig.
   - **Für schon länger Beschäftigte** reicht es also, die letzte Vorsorge einzutragen: die nächste ist 36 Monate später
     fällig.
   - Beim Update wurde der Abstand nur dort auf „12, dann 36“ umgestellt, wo noch die alte Vorgabe 24 Monate stand; ein

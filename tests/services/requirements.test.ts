@@ -188,6 +188,17 @@ describe('records and trainings of an employee', () => {
     expect(kind(cleo, doctor)).toMatchObject({ state: 'missing', dueOn: '2026-12-01' })
     addRequirementRecord(db, 1, cleo, { typeId: doctor, date: '2026-10-05' }, today)
     expect(kind(cleo, doctor)).toMatchObject({ state: 'ok', dueOn: '2027-12-01' })
+    // A Vorsorge more than 3 months before the start is none (AMR 2.1): due on the start, like a missing one before it,
+    // and in the notice; a valid one settles it.
+    const dana = addEmployee(db, 'Dana', { validFrom: '2026-12-15' })
+    addRequirementRecord(db, 1, dana, { typeId: doctor, date: '2026-09-01' }, today)
+    expect(kind(dana, doctor)).toMatchObject({ state: 'missing', dueOn: '2026-12-15' })
+    expect(listDueRequirements(db, 1, today).filter(row => row.employeeId === dana && row.typeId === doctor))
+      .toMatchObject([{ state: 'missing', dueOn: '2026-12-15' }])
+    expect(kind(dana, doctor, '2026-12-15')).toMatchObject({ state: 'overdue', dueOn: '2026-12-15' })
+    // The valid first one (within 3 months before the start): the second 12 months after the start.
+    addRequirementRecord(db, 1, dana, { typeId: doctor, date: '2026-10-12' }, today)
+    expect(kind(dana, doctor)).toMatchObject({ state: 'ok', dueOn: '2027-12-15' })
     // Left out, the first interval stays; null turns it off.
     updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 24 })
     expect(listRequirementTypes(db, 1)[0]).toMatchObject({ intervalMonths: 24, firstIntervalMonths: 12 })
@@ -622,8 +633,9 @@ describe('moving an employee to another facility', () => {
     const moved = getEmployeeRequirements(db, krippe, anna, today)
     expect(moved.trainings).toEqual([{ id: training, date: '2026-03-10', title: 'Sprachförderung', note: 'VHS' }])
     expect(moved.kinds.map(entry => [entry.type.name, entry.state, entry.lastDate, entry.dueOn, entry.records.length])).toEqual([
-      // Two records: the second Vorsorge is done, the next one 36 months later.
-      ['Betriebsarzt', 'ok', '2026-01-15', '2029-01-15', 2],
+      // Anna started on 2026-01-01: the record of 2024 lies before this employment, 2026-01-15 is the first check-up,
+      // so the second is due 12 months after the start.
+      ['Betriebsarzt', 'ok', '2026-01-15', '2027-01-01', 2],
       ['Erste Hilfe am Kind', 'ok', '2026-02-01', '2027-02-01', 1],
       ['Erweitertes Führungszeugnis', 'missing', null, null, 0],
       ['Masernimpfung (Nachweis)', 'ok', '2020-03-01', null, 1],

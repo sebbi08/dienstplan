@@ -1,8 +1,8 @@
-import { and, asc, count, desc, eq, inArray, max, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, max, ne } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import {
   BEFORE_START_NOTICE_MONTHS, BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, addMonths, dueState,
-  isBeforeStartKey, isYouthExamKey, nextDueOn, requirementState, type RequirementState,
+  firstCheckupTooEarly, isBeforeStartKey, isYouthExamKey, nextDueOn, requirementState, type RequirementState,
 } from '../../shared/domain/requirements'
 import { employmentStart, isEmployedOn } from '../../shared/domain/targets'
 import { youthExamStatus, youthFollowupBanFrom, youthFollowupBanOn } from '../../shared/domain/youthProtection'
@@ -124,20 +124,23 @@ function stateFactsOf(employee: EmployeeRecord, birthYear: number | null): State
 }
 
 /**
- * The state of a kind for an employee with `records` records, the newest dated `lastDate`; null when the kind does not
- * apply to them: an examination of the JArbSchG only for someone under 18 at its day and still today, or with a record
+ * The state of a kind for an employee with records on `dates` (any order); null when the kind does not apply to them:
+ * an examination of the JArbSchG only for someone under 18 at its day and still today, or with a record
  * (youthExamStatus). A kind with a first interval counts it from the start of employment (nextDueOn). A kind due
- * before the start (BEFORE_START_KEYS) without a record is due on the first day of someone who has not started yet.
+ * before the start (BEFORE_START_KEYS) without a record is due on the first day of someone who has not started yet; so
+ * is a first check-up recorded only more than 3 months before the start (firstCheckupTooEarly, AMR 2.1).
  */
 function kindState(
-  type: TypeRow, lastDate: IsoDate | null, records: number, facts: StateFacts, today: IsoDate,
+  type: TypeRow, dates: readonly IsoDate[], facts: StateFacts, today: IsoDate,
 ): { state: RequirementState; dueOn: IsoDate | null } | null {
+  const lastDate = dates.length === 0 ? null : dates.reduce((a, b) => (a > b ? a : b))
   if (isYouthExamKey(type.builtinKey)) return youthExamStatus(type.builtinKey, facts, lastDate, today)
-  if (lastDate === null && isBeforeStartKey(type.builtinKey) && facts.start !== null && facts.start > today) {
+  const beforeStart = facts.start !== null && facts.start > today
+  if (beforeStart && ((lastDate === null && isBeforeStartKey(type.builtinKey)) || firstCheckupTooEarly(dates, type, facts.start))) {
     return { state: 'missing', dueOn: facts.start }
   }
   if (lastDate === null) return requirementState(null, type.intervalMonths, today)
-  return dueState(nextDueOn(lastDate, records, type, facts.start), today)
+  return dueState(nextDueOn(dates, type, facts.start), today)
 }
 
 /** Deletes one of the facility's own kinds; its records go with it (ON DELETE CASCADE). Built-in kinds stay: 409 requirement_builtin. */
@@ -186,7 +189,7 @@ export function getEmployeeRequirements(db: Db, facilityId: number, employeeId: 
     kinds: typeRows(db, facilityId).flatMap((type) => {
       const history = records.filter(record => record.typeId === type.id)
       const lastDate = history[0]?.date ?? null
-      const state = kindState(type, lastDate, history.length, facts, today)
+      const state = kindState(type, history.map(record => record.date), facts, today)
       // § 33 Abs. 3 JArbSchG: the follow-up kind tells when the employment ban applies today; a record of the follow-up
       // in any facility ends it, as in the plan (followupRecordedOf).
       const followUp = type.builtinKey === 'youth_followup'
@@ -279,13 +282,14 @@ export function listDueRequirements(db: Db, facilityId: number, today: IsoDate):
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedOn(employee.info, today) || upcoming(employee))
   if (staff.length === 0) return []
   const types = typeRows(db, facilityId)
-  const newest = new Map(db.select({
-    employeeId: employeeRequirements.employeeId, typeId: employeeRequirements.typeId, date: max(employeeRequirements.date),
-    records: count(),
-  }).from(employeeRequirements)
-    .where(inArray(employeeRequirements.employeeId, staff.map(employee => employee.id)))
-    .groupBy(employeeRequirements.employeeId, employeeRequirements.typeId).all()
-    .map(row => [`${row.employeeId}:${row.typeId}`, row]))
+  // The record dates per employee and kind (a first interval needs all of them, nextDueOn).
+  const recordDates = new Map<string, IsoDate[]>()
+  const records = db.select({ employeeId: employeeRequirements.employeeId, typeId: employeeRequirements.typeId, date: employeeRequirements.date })
+    .from(employeeRequirements).where(inArray(employeeRequirements.employeeId, staff.map(employee => employee.id))).all()
+  for (const row of records) {
+    const key = `${row.employeeId}:${row.typeId}`
+    recordDates.set(key, [...(recordDates.get(key) ?? []), row.date])
+  }
   const birthYears = birthYearsOf(db, staff.map(employee => employee.id))
   const noticeUntil = addMonths(today, BEFORE_START_NOTICE_MONTHS)
   const rows = staff.flatMap((employee) => {
@@ -293,8 +297,7 @@ export function listDueRequirements(db: Db, facilityId: number, today: IsoDate):
     const notYet = upcoming(employee)
     return types.flatMap((type, typeIndex) => {
       if (notYet && type.builtinKey !== 'youth_initial' && !(isBeforeStartKey(type.builtinKey) && facts.start! <= noticeUntil)) return []
-      const record = newest.get(`${employee.id}:${type.id}`)
-      const status = kindState(type, record?.date ?? null, record?.records ?? 0, facts, today)
+      const status = kindState(type, recordDates.get(`${employee.id}:${type.id}`) ?? [], facts, today)
       if (status === null || status.state === 'ok') return []
       const { state, dueOn } = status
       const row: DueRequirementDto = { employeeId: employee.id, employeeName: employee.name, typeId: type.id, typeName: type.name, state, dueOn }
