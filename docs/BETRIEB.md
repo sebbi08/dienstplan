@@ -289,7 +289,11 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
   der Löschfrist noch keine 5 Jahre alt, darf die Akte erst 5 Jahre nach diesem Unfall gelöscht werden. Archiv,
   Kinderakte und „Schulkinder“ nennen dann diesen späteren Tag; unter Mehr → Löschfristen steht an der Zeile
   „(Unfallanzeigen bleiben 5 Jahre ab dem Unfall)“. Als Unfalltag zählt das „Datum“ der Unfallanzeige, sonst der Tag,
-  an dem sie angelegt wurde. „Sofort löschen“ im Archiv (nur Träger, für Fehleinträge) beachtet auch diese Frist nicht.
+  an dem sie angelegt wurde. „Sofort löschen“ im Archiv (nur Träger, für Fehleinträge) beachtet auch diese Frist nicht;
+  gehören zur Akte noch Unfallanzeigen innerhalb der 5 Jahre, fragt die App ein zweites Mal („Achtung: Zur Akte von …
+  gehören … Unfallanzeigen …“, Knopf **„Trotzdem löschen“**). Die Akte eines Kindes, das schon betreut wird, lässt sich
+  nicht direkt löschen (nur über Abmelden und das Archiv); eine Vormerkung oder ein Kind, dessen Vertrag noch nicht
+  begonnen hat, nur, solange es zu ihm keine Unfallanzeige gibt.
   Quelle: DGUV Vorschrift 1 § 24 Abs. 6, DGUV Information 202-089; Stand 19.11.2026.
 
 ### Gelöschte Daten und Sicherungen
@@ -822,9 +826,9 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | Löschbar ab | Was |
 |---|---|
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
-| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
+| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
-| „Ausgezahlte Überstunden“ (voreingestellt 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Stand 19.11.2026 |
+| „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
@@ -912,18 +916,27 @@ Erweitertes Führungszeugnis, Masernimpfung (Nachweis), Erst- und Nachuntersuchu
 
 - **Betriebsarzt** (arbeitsmedizinische Pflichtvorsorge wegen biologischer Arbeitsstoffe in der Kita, ArbMedVV Anhang
   Teil 2 Abs. 1 Nr. 3 Buchst. f, AMR 2.1): die **erste vor dem ersten Arbeitstag** (höchstens 3 Monate vorher), die
-  **zweite 12 Monate nach der ersten**, danach **alle 36 Monate**. In den Einstellungen steht dafür „der zweite nach
-  [12] Monaten, dann alle [36] Monate“; beides lässt sich ändern (die Werte sind Höchstwerte, die Betriebsärztin oder
-  der Betriebsarzt kann kürzere festlegen). Die App zählt die Einträge: Bei genau einem ist der nächste nach 12 Monaten
-  fällig, ab zwei nach 36 Monaten. **Für schon länger Beschäftigte:** Ist nur die letzte Vorsorge eingetragen, gilt sie
-  als die erste, und die nächste wird schon nach 12 Monaten gemeldet – dann bitte auch eine frühere Vorsorge eintragen.
-  Beim Update wurde der Abstand nur dort auf „12, dann 36“ umgestellt, wo noch die alte Vorgabe 24 Monate stand; ein
-  selbst gewählter Abstand blieb.
+  **zweite spätestens 12 Monate nach Aufnahme der Tätigkeit**, danach **spätestens alle 36 Monate**. In den
+  Einstellungen steht dafür „der zweite [12] Monate nach Arbeitsbeginn, dann alle [36] Monate“; beides lässt sich
+  ändern (die Werte sind Höchstwerte, die Betriebsärztin oder der Betriebsarzt kann kürzere festlegen). Mit dem Häkchen
+  **„Zweiter Termin ab Arbeitsbeginn“** schaltest du diese Regel für eine Art ein oder aus (ohne Häkchen gilt nur „alle
+  [36] Monate“).
+  - So rechnet die App: Arbeitsbeginn ist „beschäftigt seit“ (sonst die ersten Wochenstunden). Ist genau eine Vorsorge
+    eingetragen und liegt sie zwischen 3 Monaten vor dem Arbeitsbeginn und 12 Monaten danach, ist es die erste dieser
+    Beschäftigung: die zweite ist **12 Monate nach dem Arbeitsbeginn** fällig. Sonst – ab der zweiten Vorsorge, oder
+    wenn die einzige eingetragene Vorsorge älter oder später ist – ist die nächste **36 Monate nach der neuesten** fällig.
+  - **Für schon länger Beschäftigte** reicht es also, die letzte Vorsorge einzutragen: die nächste ist 36 Monate später
+    fällig.
+  - Beim Update wurde der Abstand nur dort auf „12, dann 36“ umgestellt, wo noch die alte Vorgabe 24 Monate stand; ein
+    selbst gewählter Abstand blieb (das Häkchen kann man dort selbst setzen).
 - **Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG):** vor dem ersten Arbeitstag, danach mindestens alle 2 Jahre (24
   Monate). Das Protokoll bewahrt der Arbeitgeber 3 Jahre auf. Beim Update bekam jede Einrichtung diese Art dazu (eine
   eigene Art mit genau diesem Namen wurde zur vorgegebenen). **Für alle, die schon da sind, steht sie danach als „noch
-  kein Eintrag“ im Hinweis, bis die letzte Belehrung eingetragen ist.**
-- **Schon vor dem ersten Arbeitstag:** Betriebsarzt und Belehrung erscheinen für neue Mitarbeiter schon 3 Monate vor
+  kein Eintrag“ im Hinweis, bis die letzte Belehrung eingetragen ist.** Wer die Belehrung schon unter einem eigenen
+  Namen geführt hat (z. B. „Infektionsschutzbelehrung“ oder „Belehrung § 35 IfSG“, die frühere Fundstelle): die
+  Einträge bei der neuen Art nachtragen und die eigene Art löschen. Gibt es neben der vorgegebenen eine eigene Art mit
+  „Belehrung“ im Namen, sagt das ein Hinweis in den Einstellungen.
+- **Schon vor dem ersten Arbeitstag:** Betriebsarzt und Belehrung erscheinen für neue Mitarbeitende schon 3 Monate vor
   „beschäftigt seit“ (sonst vor den ersten Wochenstunden) im Hinweis, fällig zum ersten Arbeitstag. Eine Vorsorge vor
   dem ersten Arbeitstag trägst du mit ihrem Datum ein.
 
@@ -1676,11 +1689,12 @@ Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes än
     30 pro Kind, höchstens 70 (§ 45 Abs. 2a SGB V, nur für 2026 – vorher 2024 und 2025 ebenso); **ab 2027** wieder 10 pro
     Kind, höchstens 25, alleinerziehend 20 pro Kind, höchstens 50 (§ 45 Abs. 2 SGB V). Die Jahre vor 2024 rechnet die App
     wie 2024. So bleibt 2026 bei 15/35, während 2027 mit 10/25 gezählt wird.
-  - **Eigene Werte** („Speichern“) gelten für alle Jahre, auch die vergangenen. Gespeichert wird nur mit „Speichern“ –
-    beim Update hat die App nichts gespeichert, ohne Eingabe gelten also die gesetzlichen Werte. Sind ab 2027 noch Werte
-    von 2026 gespeichert (15 oder 35, alleinerziehend 30 oder 70), steht der Hinweis „Ab 2027 gelten gesetzlich wieder
-    10 / 25 Tage (alleinerziehend 20 / 50). …“. **„Gesetzliche Werte verwenden“** löscht die eigenen Werte; danach gilt
-    wieder für jedes Jahr sein gesetzlicher Wert (für 2026 also weiter 15/35).
+  - **Eigene Werte** („Speichern“) gelten für **alle Jahre**, auch die vergangenen und die kommenden: Wer in 2027 10/25
+    speichert, senkt damit auch den Anspruch für 2026 nachträglich. Gespeichert wird nur mit „Speichern“ – beim Update
+    hat die App nichts gespeichert, ohne Eingabe gelten also die gesetzlichen Werte. Sind Werte von 2026 gespeichert
+    (15 oder 35, alleinerziehend 30 oder 70), steht – schon in 2026 – der Hinweis „Diese Werte gelten gesetzlich nur bis
+    2026: Ab 2027 gelten wieder 10 / 25 Tage (alleinerziehend 20 / 50). …“. **„Gesetzliche Werte verwenden“** löscht die
+    eigenen Werte; danach gilt wieder für jedes Jahr sein gesetzlicher Wert (für 2026 also weiter 15/35).
   - Der Hinweis „Bitte prüfen, ob diese Werte für das Jahr noch gelten (Krankenkasse/Lohnabrechnung).“ bleibt: Verlängert
     der Bundestag die höheren Werte für 2027 doch noch, trägt der Träger sie als eigene Werte ein.
   - Tage, an denen ein Elternteil mit dem Kind im Krankenhaus aufgenommen ist (§ 45 Abs. 1a), und Tage für ein

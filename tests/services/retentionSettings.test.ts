@@ -34,6 +34,15 @@ describe('retention settings', () => {
     expect(getRetentionSettings(db, hort)).toMatchObject({ timeYears: 1, employeeDelete: 'off', cashYears: 8 })
   })
 
+  it('refuses fewer than 8 years for paid-out overtime, but keeps a lower value stored before', () => {
+    setRetentionSettings(db, 1, valid)
+    expect(errorCode(() => setRetentionSettings(db, 1, { ...valid, paidOvertimeYears: 7 }))).toBe('retention_paid_overtime_too_short')
+    db.update(retentionSettings).set({ paidOvertimeYears: 5 }).where(eq(retentionSettings.facilityId, 1)).run()
+    expect(setRetentionSettings(db, 1, { ...valid, paidOvertimeYears: 5, timeYears: 3 })).toMatchObject({ paidOvertimeYears: 5, timeYears: 3 })
+    expect(errorCode(() => setRetentionSettings(db, 1, { ...valid, paidOvertimeYears: 6 }))).toBe('retention_paid_overtime_too_short')
+    expect(setRetentionSettings(db, 1, { ...valid, paidOvertimeYears: 8 }).paidOvertimeYears).toBe(8)
+  })
+
   it('refuses invalid input with 400 and keeps what was stored', () => {
     setRetentionSettings(db, 1, valid)
     const invalid = [

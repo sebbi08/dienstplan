@@ -127,14 +127,14 @@ function childSickSettingsFor(db: Db, year: number): ChildSickSettings {
 
 /**
  * The settings as of `today`: the values of its year (own or legal), whether they are the Träger's own, the legal
- * values of the year, and whether own values still hold a raised value of 2026 in a later year (childSickOutdated).
+ * values of the year, and whether own values hold a raised value of 2026 (childSickOutdated; they count for every year).
  */
 export function getChildSickSettings(db: Db, today: IsoDate): ChildSickSettingsDto {
   const year = parseIsoDate(today).year
   const stored = storedChildSickSettings(db)
   const legal = childSickDefaults(year)
   return {
-    ...(stored ?? legal), custom: stored !== null, year, legal, outdated: stored !== null && childSickOutdated(stored, year),
+    ...(stored ?? legal), custom: stored !== null, year, legal, outdated: stored !== null && childSickOutdated(stored),
   }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addMonths, BEFORE_START_KEYS, BUILTIN_REQUIREMENTS, intervalAfter, isBeforeStartKey, isYouthExamKey, requirementState, YOUTH_EXAM_KEYS,
+  addMonths, BEFORE_START_KEYS, BUILTIN_REQUIREMENTS, dueState, isBeforeStartKey, isYouthExamKey, nextDueOn, requirementState, YOUTH_EXAM_KEYS,
 } from '../../shared/domain/requirements'
 
 describe('addMonths', () => {
@@ -74,25 +74,42 @@ describe('requirementState', () => {
   })
 })
 
-describe('intervalAfter: a first interval for the second record (ArbMedVV, AMR 2.1)', () => {
-  it('uses the first interval after exactly one record, the interval otherwise', () => {
-    expect(intervalAfter(1, 36, 12)).toBe(12)
-    expect(intervalAfter(2, 36, 12)).toBe(36)
-    expect(intervalAfter(5, 36, 12)).toBe(36)
-    expect(intervalAfter(1, 24, null)).toBe(24)
-    // Needed once: no interval at all.
-    expect(intervalAfter(1, null, 12)).toBeNull()
+describe('nextDueOn: a first interval counted from the start of employment (ArbMedVV, AMR 2.1)', () => {
+  const doctor = { intervalMonths: 36, firstIntervalMonths: 12 }
+  const start = '2026-08-01'
+
+  it('dues the second check-up at start + 12 months when the only record is the first one of this employment', () => {
+    // Before the start (at most 3 months), on the start, or late within the first 12 months.
+    expect(nextDueOn('2026-05-01', 1, doctor, start)).toBe('2027-08-01')
+    expect(nextDueOn('2026-07-15', 1, doctor, start)).toBe('2027-08-01')
+    expect(nextDueOn(start, 1, doctor, start)).toBe('2027-08-01')
+    expect(nextDueOn('2027-07-31', 1, doctor, start)).toBe('2027-08-01')
   })
 
-  it('gives the Betriebsarzt the second Vorsorge 12 months after the first, then every 36 months', () => {
-    const doctor = BUILTIN_REQUIREMENTS.find(kind => kind.key === 'company_doctor')!
-    const state = (records: string[], today: string) =>
-      requirementState(records.at(-1) ?? null, intervalAfter(records.length, doctor.intervalMonths, doctor.firstIntervalMonths), today)
-    // First: due before the start (missing until entered).
-    expect(state([], '2026-08-01')).toEqual({ state: 'missing', dueOn: null })
-    // Second: 12 months after the first.
-    expect(state(['2026-07-15'], '2026-08-01')).toEqual({ state: 'ok', dueOn: '2027-07-15' })
-    // Third: 36 months after the second.
+  it('counts 36 months from the newest record otherwise: more records, or a single older or later one', () => {
+    // Long-serving staff with only their latest check-up entered: no false „überfällig“.
+    expect(nextDueOn('2025-06-01', 1, doctor, '2012-03-01')).toBe('2028-06-01')
+    // A single check-up a year after the start is not the first one of this employment.
+    expect(nextDueOn('2027-08-01', 1, doctor, start)).toBe('2030-08-01')
+    // Older than 3 months before the start (e.g. from a former employment).
+    expect(nextDueOn('2026-04-30', 1, doctor, start)).toBe('2029-04-30')
+    // The second check-up done: every 36 months.
+    expect(nextDueOn('2027-07-01', 2, doctor, start)).toBe('2030-07-01')
+  })
+
+  it('counts the first interval from the record without a known start; kinds without one and kinds needed once', () => {
+    expect(nextDueOn('2026-07-15', 1, doctor, null)).toBe('2027-07-15')
+    expect(nextDueOn('2026-07-15', 1, { intervalMonths: 24, firstIntervalMonths: null }, start)).toBe('2028-07-15')
+    expect(nextDueOn('2026-07-15', 1, { intervalMonths: null, firstIntervalMonths: 12 }, start)).toBeNull()
+  })
+
+  it('gives the Betriebsarzt the first before the start, the second 12 months after the start, then every 36 months', () => {
+    const kind = BUILTIN_REQUIREMENTS.find(type => type.key === 'company_doctor')!
+    const state = (records: string[], today: string) => (records.length === 0
+      ? requirementState(null, kind.intervalMonths, today)
+      : dueState(nextDueOn(records.at(-1)!, records.length, kind, start), today))
+    expect(state([], '2026-06-01')).toEqual({ state: 'missing', dueOn: null })
+    expect(state(['2026-07-15'], '2026-08-01')).toEqual({ state: 'ok', dueOn: '2027-08-01' })
     expect(state(['2026-07-15', '2027-07-01'], '2027-08-01')).toEqual({ state: 'ok', dueOn: '2030-07-01' })
     expect(state(['2026-07-15', '2027-07-01', '2030-06-20'], '2030-07-01')).toEqual({ state: 'ok', dueOn: '2033-06-20' })
   })

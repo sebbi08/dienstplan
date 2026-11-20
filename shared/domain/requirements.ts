@@ -6,11 +6,12 @@ import type { IsoDate } from './types'
  * two examinations of the Jugendarbeitsschutzgesetz apply only to employees under 18 and are due by the law, not by an
  * interval (YOUTH_EXAM_KEYS, shared/domain/youthProtection.ts).
  *
- * `firstIntervalMonths`: the second record is due this many months after the first, later ones after `intervalMonths`
- * (intervalAfter). The Betriebsarzt is the Pflichtvorsorge for biological agents in a Kita (ArbMedVV Anhang Teil 2
- * Abs. 1 Nr. 3 Buchst. f, AMR 2.1): the first before the start (at most 3 months before), the second at the latest 12
- * months later, then at the latest every 36 months. The Belehrung of § 34 Abs. 5a IfSG is due before the first
- * activity, then at least every 2 years. Existing facilities got the changes from the migrations 0102 and 0103.
+ * `firstIntervalMonths`: the second record is due this many months after the start of employment, later ones after
+ * `intervalMonths` (nextDueOn). The Betriebsarzt is the Pflichtvorsorge for biological agents in a Kita (ArbMedVV
+ * Anhang Teil 2 Abs. 1 Nr. 3 Buchst. f, AMR 2.1): the first before the start (at most 3 months before), the second at
+ * the latest 12 months after taking up the activity, then at the latest every 36 months. The Belehrung of § 34 Abs. 5a
+ * IfSG is due before the first activity, then at least every 2 years. Existing facilities got the changes from the
+ * migrations 0102 and 0103.
  */
 export const BUILTIN_REQUIREMENTS = [
   { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12 },
@@ -39,12 +40,23 @@ export function isBeforeStartKey(key: string | null): key is BeforeStartKey {
 export const BEFORE_START_NOTICE_MONTHS = 3
 
 /**
- * The interval after the newest of `records` records: the first interval after exactly one (when the kind has one),
- * otherwise the interval (null = needed once).
+ * When the next record of a recurring kind is due after `records` records, the newest dated `lastDate` (null for a kind
+ * needed once). A kind with a first interval counts it from the start of employment (AMR 2.1: the second Vorsorge at
+ * the latest 12 months after taking up the activity): when the only record lies in [start − 3 months, start + first
+ * interval) it is the first check-up of this employment, due again at start + first interval. Otherwise (more records,
+ * or a single older or later one, e.g. long-serving staff with only their latest check-up entered) the interval counts
+ * from the newest record. Without a known start the first interval counts from the single record.
  */
-export function intervalAfter(records: number, intervalMonths: number | null, firstIntervalMonths: number | null): number | null {
-  if (intervalMonths === null) return null
-  return records === 1 && firstIntervalMonths !== null ? firstIntervalMonths : intervalMonths
+export function nextDueOn(
+  lastDate: IsoDate, records: number, kind: { intervalMonths: number | null; firstIntervalMonths: number | null }, start: IsoDate | null,
+): IsoDate | null {
+  if (kind.intervalMonths === null) return null
+  if (kind.firstIntervalMonths !== null && records === 1) {
+    if (start === null) return addMonths(lastDate, kind.firstIntervalMonths)
+    const secondDue = addMonths(start, kind.firstIntervalMonths)
+    if (lastDate >= addMonths(start, -BEFORE_START_NOTICE_MONTHS) && lastDate < secondDue) return secondDue
+  }
+  return addMonths(lastDate, kind.intervalMonths)
 }
 
 /** The examinations of the Jugendarbeitsschutzgesetz: only for employees under 18, due by the law (no interval). */
@@ -87,8 +99,12 @@ export function requirementState(
   lastDate: IsoDate | null, intervalMonths: number | null, today: IsoDate,
 ): { state: RequirementState; dueOn: IsoDate | null } {
   if (lastDate === null) return { state: 'missing', dueOn: null }
-  if (intervalMonths === null) return { state: 'ok', dueOn: null }
-  const dueOn = addMonths(lastDate, intervalMonths)
+  return dueState(intervalMonths === null ? null : addMonths(lastDate, intervalMonths), today)
+}
+
+/** The state of a kind with a record whose next one is due on `dueOn` (null = needed once: ok for good). */
+export function dueState(dueOn: IsoDate | null, today: IsoDate): { state: RequirementState; dueOn: IsoDate | null } {
+  if (dueOn === null) return { state: 'ok', dueOn: null }
   if (dueOn <= today) return { state: 'overdue', dueOn }
   return { state: dueOn <= addMonths(today, REQUIREMENT_SOON_MONTHS) ? 'soon' : 'ok', dueOn }
 }

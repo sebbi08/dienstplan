@@ -43,7 +43,7 @@ export function setRetentionSettings(db: Db, facilityId: number, input: unknown)
     : input
   let settings: RetentionSettings
   try {
-    settings = checkRetentionSettings(body)
+    settings = checkRetentionSettings(body, stored.paidOvertimeYears)
   }
   catch (error) {
     if (error instanceof RetentionSettingsError) throw new ServiceError(400, error.code)

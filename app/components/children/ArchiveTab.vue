@@ -18,10 +18,15 @@ const reloadAll = async () => {
 const { busy, run } = useBusyAction(reloadAll)
 const confirm = useConfirm()
 
+/** Accident reports still to be kept (5 years after the accident) need a second, explicit „Trotzdem löschen“. */
 async function deleteNow(child: ArchivedChildDto) {
-  if (await confirm(de.childLifecycle.confirmDelete, { confirmLabel: de.childLifecycle.deleteNow })) {
-    run(() => $fetch<unknown>(`/api/children/${child.id}`, { method: 'DELETE' }), de.common.deleted)
-  }
+  if (!await confirm(de.childLifecycle.confirmDelete, { confirmLabel: de.childLifecycle.deleteNow })) return
+  const hold = child.accidentHold
+  if (hold && !await confirm(
+    de.childLifecycle.confirmDeleteAccidents(child.name, hold.reports, formatDate(hold.until)),
+    { confirmLabel: de.childLifecycle.deleteAnyway },
+  )) return
+  run(() => $fetch<unknown>(`/api/children/${child.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
 const th = 'px-3 py-2'

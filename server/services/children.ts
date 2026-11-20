@@ -21,7 +21,7 @@ import { groupRightOf, type ChildActor, type ChildViewer } from '../lib/childVie
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { assertCareType } from './careTypes'
-import { childRecordPurgeDate, lastChildAccidents } from './childAccidentRetention'
+import { accidentHoldOf, childAccidentDays, childRecordPurgeDate } from './childAccidentRetention'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
 import {
@@ -546,36 +546,47 @@ export function deleteChild(db: Db, facilityId: number, id: number): void {
 }
 
 /**
- * Deleting a record from the child pages (spec Löschübersicht §1): the Leitung deletes waitlist, planned and active
- * children (e.g. wrong entries); an archived record only the Träger deletes (403 archived_child_provider_only), as he
- * does after the retention period under Mehr → Löschfristen.
+ * Deleting a record from the child pages (spec Löschübersicht §1). The Leitung deletes a planned child (waitlist, or a
+ * contract that has not started; e.g. a wrong entry) without accident reports; an active child, or a planned one with
+ * accident reports (kept 5 years, DGUV Vorschrift 1 § 24 Abs. 6), is refused with 409 child_delete_use_archive / 409
+ * child_has_accident_reports: it leaves first and goes through the archive. An archived record only the Träger deletes
+ * (403 archived_child_provider_only), after the retention period under Mehr → Löschfristen or at once („Sofort
+ * löschen“, for wrong entries; the archive warns about accident reports still to be kept).
  */
 export function deleteChildRecord(
   db: Db, actor: { permissions: ReadonlySet<PermissionKey> }, facilityId: number, id: number, today: IsoDate,
 ): void {
   const row = loadChild(db, facilityId, id)
-  if (childStatus(row, today) === 'archived' && !can(actor.permissions, 'children.deleteArchived')) {
+  const status = childStatus(row, today)
+  if (status === 'archived' && !can(actor.permissions, 'children.deleteArchived')) {
     throw new ServiceError(403, 'archived_child_provider_only')
   }
+  if (status === 'active') throw new ServiceError(409, 'child_delete_use_archive')
+  if (status === 'planned' && childAccidentDays(db, [id]).has(id)) throw new ServiceError(409, 'child_has_accident_reports')
   deleteChild(db, facilityId, id)
 }
 
 /**
  * The facility's archived children, the latest leaving first, with the day from which their record may be deleted
- * (later while an accident report is younger than 5 years, childPurgeDate).
+ * (later while an accident report is younger than 5 years, childPurgeDate) and the accident reports still to be kept
+ * today (accidentHoldOf; „Sofort löschen“ warns about them).
  */
 export function listArchive(db: Db, facilityId: number, today: IsoDate): ArchivedChildDto[] {
   const years = getChildRetentionYears(db)
   const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) === 'archived')
     .sort((a, b) => b.leftOn!.localeCompare(a.leftOn!) || byName(a, b))
-  const accidents = lastChildAccidents(db, rows.map(row => row.id))
-  return rows.map(row => ({
-    id: row.id,
-    name: `${row.firstName} ${row.lastName}`,
-    leftOn: row.leftOn!,
-    purgeOn: childPurgeDate(row.leftOn!, years, accidents.get(row.id) ?? null),
-  }))
+  const accidents = childAccidentDays(db, rows.map(row => row.id))
+  return rows.map((row) => {
+    const days = accidents.get(row.id) ?? []
+    return {
+      id: row.id,
+      name: `${row.firstName} ${row.lastName}`,
+      leftOn: row.leftOn!,
+      purgeOn: childPurgeDate(row.leftOn!, years, days.at(-1) ?? null),
+      accidentHold: accidentHoldOf(days, today),
+    }
+  })
 }
 
 const OTHER_DOCUMENT_TYPE = 'Sonstiges'

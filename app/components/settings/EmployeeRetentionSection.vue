@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
-  EMPLOYEE_DELETE_MODES, RETENTION_CASH_YEARS_RANGE, RETENTION_DEFAULTS, RETENTION_YEARS_RANGE, type RetentionSettings,
+  EMPLOYEE_DELETE_MODES, PAID_OVERTIME_MIN_YEARS, RETENTION_CASH_YEARS_RANGE, RETENTION_DEFAULTS, RETENTION_YEARS_RANGE,
+  type RetentionSettings,
 } from '#shared/domain/retention'
 import { de } from '~/locales/de'
 
@@ -20,6 +21,11 @@ const PERIODS = ['timeYears', 'assessmentYears', 'paidOvertimeYears', 'pensionYe
 const form = reactive<RetentionSettings>({ ...RETENTION_DEFAULTS })
 watch(data, (value) => { if (value) Object.assign(form, value) }, { immediate: true })
 const modeItems = EMPLOYEE_DELETE_MODES.map(mode => ({ label: t.employeeDeleteModes[mode], value: mode }))
+// „Ausgezahlte Überstunden“: at least 8 years (Buchungsbelege); a lower value stored before stays allowed, counts as 8.
+const belowMinimum = computed(() => !!data.value && data.value.paidOvertimeYears < PAID_OVERTIME_MIN_YEARS)
+const minYears = (period: (typeof PERIODS)[number]) => (period === 'paidOvertimeYears'
+  ? Math.min(PAID_OVERTIME_MIN_YEARS, data.value?.paidOvertimeYears ?? PAID_OVERTIME_MIN_YEARS)
+  : RETENTION_YEARS_RANGE.min)
 
 const dirty = useDirty(() => canEditRetention.value && !!data.value
   && (Object.keys(RETENTION_DEFAULTS) as (keyof RetentionSettings)[]).some(key => form[key] !== data.value![key]))
@@ -35,11 +41,14 @@ const save = () => dirty.value && run(() => $fetch<RetentionSettings>('/api/rete
       <UFormField v-for="period in PERIODS" :key="period" :label="t.periods[period]" :help="t.periodHelp[period]">
         <div class="flex items-center gap-2">
           <UInput
-            v-model.number="form[period]" type="number" :min="RETENTION_YEARS_RANGE.min" :max="RETENTION_YEARS_RANGE.max" step="1"
+            v-model.number="form[period]" type="number" :min="minYears(period)" :max="RETENTION_YEARS_RANGE.max" step="1"
             required class="w-24" :disabled="!canEditRetention"
           />
           <span class="text-sm text-gray-600">{{ t.years }}</span>
         </div>
+        <p v-if="period === 'paidOvertimeYears' && belowMinimum" class="mt-1 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {{ t.paidOvertimeBelowMinimum(data!.paidOvertimeYears) }}
+        </p>
       </UFormField>
       <UFormField :help="t.payrollOfficeHelp">
         <UCheckbox v-model="form.payrollOffice" :label="t.payrollOffice" :disabled="!canEditRetention" />

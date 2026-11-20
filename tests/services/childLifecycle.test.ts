@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childContacts, childDocuments, children, documentTypes } from '../../server/db/schema'
+import { childContacts, childDocuments, children, documentTypes, forms } from '../../server/db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../../server/db/seed'
 import { getChildRetentionYears, setChildRetentionYears } from '../../server/services/appSettings'
 import { createCareType } from '../../server/services/careTypes'
@@ -62,7 +62,7 @@ describe('leaving, archive and automatic deletion of children', () => {
       expect(listArchive(db, 1, TODAY)).toEqual([])
       expect(getChild(db, admin, id, '2026-10-10').status).toBe('archived')
       expect(listArchive(db, 1, '2026-10-10')).toEqual([
-        { id, name: 'Lena Meier', leftOn: TODAY, purgeOn: '2029-10-09' },
+        { id, name: 'Lena Meier', leftOn: TODAY, purgeOn: '2029-10-09', accidentHold: null },
       ])
     })
 
@@ -132,7 +132,7 @@ describe('leaving, archive and automatic deletion of children', () => {
       expect(db.select().from(childDocuments).all().map(row => row.id)).toEqual([kept])
     })
 
-    it('lets only the Träger delete an archived record; the Leitung deletes waitlist, planned and active children', () => {
+    it('lets only the Träger delete an archived record; the Leitung deletes waitlist and planned children, no active one', () => {
       const provider = asChildViewer(addUser(db, 'traeger', 'provider'))
       const archived = addChild(db, 1, { leftOn: '2026-09-30' })
       const leavingToday = addChild(db, 1, { leftOn: TODAY })
@@ -141,10 +141,39 @@ describe('leaving, archive and automatic deletion of children', () => {
       const active = addChild(db, 1)
       expect(errorCode(() => deleteChildRecord(db, admin, 1, archived, TODAY))).toBe('archived_child_provider_only')
       expect(leftOnOf(archived)).toBe('2026-09-30')
-      for (const id of [leavingToday, waitlist, planned, active]) deleteChildRecord(db, admin, 1, id, TODAY)
+      // A child in care leaves first and goes through the archive, for the Träger too.
+      for (const actor of [admin, provider]) {
+        for (const id of [leavingToday, active]) expect(errorCode(() => deleteChildRecord(db, actor, 1, id, TODAY))).toBe('child_delete_use_archive')
+      }
+      for (const id of [waitlist, planned]) deleteChildRecord(db, admin, 1, id, TODAY)
       deleteChildRecord(db, provider, 1, archived, TODAY)
-      expect(db.select().from(children).all()).toEqual([])
+      expect(db.select().from(children).all().map(row => row.id)).toEqual([leavingToday, active])
       expect(errorCode(() => deleteChildRecord(db, admin, 1, 999, TODAY))).toBe('child_not_found')
+    })
+
+    it('refuses a planned child with accident reports (kept 5 years), and the archive names them for „Sofort löschen“', () => {
+      const provider = asChildViewer(addUser(db, 'traeger', 'provider'))
+      const accident = (childId: number, formDate: string) => db.insert(forms).values({
+        facilityId: 1, kind: 'accident', title: 'Unfallanzeige', content: '{"sections":[]}', childId, formDate,
+        createdAt: `${formDate}T10:00:00.000Z`, updatedAt: `${formDate}T10:00:00.000Z`,
+      }).run()
+      const planned = addChild(db, 1, { entryDate: '2026-12-01' })
+      accident(planned, '2026-10-01')
+      expect(errorCode(() => deleteChildRecord(db, admin, 1, planned, TODAY))).toBe('child_has_accident_reports')
+      const archived = addChild(db, 1, { firstName: 'Mia', leftOn: '2026-09-30' })
+      accident(archived, '2020-05-01') // older than 5 years: not named
+      accident(archived, '2025-03-01')
+      accident(archived, '2026-02-01')
+      const plain = addChild(db, 1, { firstName: 'Ole', leftOn: '2026-09-29' })
+      expect(listArchive(db, 1, TODAY).map(row => [row.id, row.accidentHold])).toEqual([
+        [archived, { reports: 2, until: '2031-02-01' }], [plain, null],
+      ])
+      // The record names the later purge day too (otherwise 3 years after leaving: 2029-09-30).
+      expect(getChild(db, admin, archived, TODAY).purgeOn).toBe('2031-02-01')
+      expect(getChild(db, admin, plain, TODAY).purgeOn).toBe('2029-09-29')
+      // The Träger may still delete it at once (after the second question in the archive); the reports go with it.
+      deleteChildRecord(db, provider, 1, archived, TODAY)
+      expect(db.select().from(forms).where(eq(forms.childId, archived)).all()).toEqual([])
     })
   })
 

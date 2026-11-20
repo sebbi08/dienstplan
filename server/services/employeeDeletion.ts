@@ -322,9 +322,9 @@ export function deleteAssessmentData(tx: Db, employeeId: number): number {
 }
 
 /**
- * „Ausgezahlte Überstunden, Verträge, Gehalt“ (10 years): the balance adjustments marked „ausgezahlt“, the documents in
- * the folders contract and salary, and the accident reports about the employee (Unfallanzeigen, kept for the longest
- * period as a claim may follow years later; their attachments go along).
+ * „Ausgezahlte Überstunden, Verträge, Gehalt“ (8 years by default, at least 8): the balance adjustments marked
+ * „ausgezahlt“, the documents in the folders contract and salary, and the accident reports about the employee
+ * (Unfallanzeigen, kept for the longest period as a claim may follow years later; their attachments go along).
  */
 const PAID_OVERTIME_ROWS: readonly EmployeeRows[] = [
   { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, true) },

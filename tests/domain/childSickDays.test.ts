@@ -43,13 +43,12 @@ describe('Kinderkrankentage: entitlement per year', () => {
     expect(childSickDefaults(2027).perChild).toBe(10)
   })
 
-  it('calls stored values outdated from 2027 while one of them is still the raised value of 2026', () => {
-    expect(childSickOutdated(settings, 2026)).toBe(false)
-    expect(childSickOutdated(settings, 2027)).toBe(true)
-    expect(childSickOutdated({ perChild: 10, maxPerYear: 35, singleParentPerChild: 20, singleParentMax: 50 }, 2027)).toBe(true)
-    expect(childSickOutdated(childSickDefaults(2027), 2027)).toBe(false)
+  it('calls stored values outdated while one of them is the raised value of 2026 (they apply to every year)', () => {
+    expect(childSickOutdated(settings)).toBe(true)
+    expect(childSickOutdated({ perChild: 10, maxPerYear: 35, singleParentPerChild: 20, singleParentMax: 50 })).toBe(true)
+    expect(childSickOutdated(childSickDefaults(2027))).toBe(false)
     // Own values of the Träger that never were the 2026 ones.
-    expect(childSickOutdated({ perChild: 12, maxPerYear: 30, singleParentPerChild: 24, singleParentMax: 60 }, 2028)).toBe(false)
+    expect(childSickOutdated({ perChild: 12, maxPerYear: 30, singleParentPerChild: 24, singleParentMax: 60 })).toBe(false)
   })
 
   it('gives per child up to the yearly maximum', () => {

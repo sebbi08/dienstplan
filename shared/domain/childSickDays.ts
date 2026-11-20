@@ -38,13 +38,11 @@ export function childSickDefaults(year: number): ChildSickSettings {
 }
 
 /**
- * Stored values that still hold a raised value of 2026 in a later year (any value equal to its 2026 value and not to
- * the year's legal one): the settings then say that the lasting values apply again.
+ * Stored values that hold a raised value of 2026 (any value equal to its 2026 value, not to the lasting one): stored
+ * values count for every year, so the settings say – already in 2026 – that these apply by law only up to 2026.
  */
-export function childSickOutdated(settings: ChildSickSettings, year: number): boolean {
-  if (year <= CHILD_SICK_RAISED_UNTIL) return false
-  const legal = childSickDefaults(year)
-  return CHILD_SICK_SETTING_KEYS.some(key => settings[key] === CHILD_SICK_RAISED[key] && settings[key] !== legal[key])
+export function childSickOutdated(settings: ChildSickSettings): boolean {
+  return CHILD_SICK_SETTING_KEYS.some(key => settings[key] === CHILD_SICK_RAISED[key] && settings[key] !== CHILD_SICK_STATUTORY[key])
 }
 /** A child counts until this birthday. */
 export const CHILD_SICK_AGE_LIMIT = 12

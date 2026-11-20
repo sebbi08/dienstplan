@@ -192,9 +192,9 @@ describe('Kinderkrankentage per year', () => {
   it('shows the legal values of 2027 from 2027, flags own values still at 2026\'s, and goes back to the legal values', () => {
     const legal2027 = { perChild: 10, maxPerYear: 25, singleParentPerChild: 20, singleParentMax: 50 }
     expect(getChildSickSettings(db, '2027-01-01')).toEqual({ ...legal2027, custom: false, year: 2027, legal: legal2027, outdated: false })
-    // Saved in 2026 with the values of then: still counted in 2027, with the hint.
+    // Saved in 2026 with the values of then: the hint shows already in 2026 (they count for 2027 too), and in 2027.
     setChildSickSettings(db, { perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 }, today)
-    expect(getChildSickSettings(db, today).outdated).toBe(false)
+    expect(getChildSickSettings(db, today)).toMatchObject({ perChild: 15, custom: true, outdated: true })
     expect(getChildSickSettings(db, '2027-01-01')).toMatchObject({ perChild: 15, custom: true, legal: legal2027, outdated: true })
     expect(setChildSickSettings(db, { legal: true }, '2027-01-01'))
       .toEqual({ ...legal2027, custom: false, year: 2027, legal: legal2027, outdated: false })

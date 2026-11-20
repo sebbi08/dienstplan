@@ -1,8 +1,8 @@
 import { and, asc, count, desc, eq, inArray, max, ne } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import {
-  BEFORE_START_NOTICE_MONTHS, BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, addMonths, intervalAfter,
-  isBeforeStartKey, isYouthExamKey, requirementState, type RequirementState,
+  BEFORE_START_NOTICE_MONTHS, BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, addMonths, dueState,
+  isBeforeStartKey, isYouthExamKey, nextDueOn, requirementState, type RequirementState,
 } from '../../shared/domain/requirements'
 import { employmentStart, isEmployedOn } from '../../shared/domain/targets'
 import { youthExamStatus, youthFollowupBanFrom, youthFollowupBanOn } from '../../shared/domain/youthProtection'
@@ -126,7 +126,7 @@ function stateFactsOf(employee: EmployeeRecord, birthYear: number | null): State
 /**
  * The state of a kind for an employee with `records` records, the newest dated `lastDate`; null when the kind does not
  * apply to them: an examination of the JArbSchG only for someone under 18 at its day and still today, or with a record
- * (youthExamStatus). A kind with a first interval is due that long after the first record (intervalAfter). A kind due
+ * (youthExamStatus). A kind with a first interval counts it from the start of employment (nextDueOn). A kind due
  * before the start (BEFORE_START_KEYS) without a record is due on the first day of someone who has not started yet.
  */
 function kindState(
@@ -136,7 +136,8 @@ function kindState(
   if (lastDate === null && isBeforeStartKey(type.builtinKey) && facts.start !== null && facts.start > today) {
     return { state: 'missing', dueOn: facts.start }
   }
-  return requirementState(lastDate, intervalAfter(records, type.intervalMonths, type.firstIntervalMonths), today)
+  if (lastDate === null) return requirementState(null, type.intervalMonths, today)
+  return dueState(nextDueOn(lastDate, records, type, facts.start), today)
 }
 
 /** Deletes one of the facility's own kinds; its records go with it (ON DELETE CASCADE). Built-in kinds stay: 409 requirement_builtin. */

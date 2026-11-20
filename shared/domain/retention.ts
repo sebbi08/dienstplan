@@ -46,6 +46,11 @@ export const RETENTION_DEFAULTS: RetentionSettings = {
 }
 
 export const RETENTION_YEARS_RANGE = { min: 1, max: 40 } as const
+/**
+ * „Ausgezahlte Überstunden, Verträge, Gehalt“ are kept at least this long: Buchungsbelege 8 years (§ 147 Abs. 3 AO,
+ * § 257 Abs. 4 HGB); it also covers the 5 years of the accident reports in it (DGUV Vorschrift 1 § 24 Abs. 6).
+ */
+export const PAID_OVERTIME_MIN_YEARS = 8
 export const RETENTION_CASH_YEARS_RANGE = { min: 1, max: 30 } as const
 
 /** Domain error with a machine-readable code; services map it to a 400. */
@@ -73,7 +78,8 @@ export function retentionDueDates(leftOn: IsoDate, settings: RetentionSettings):
     immediate,
     time: firstJanuaryAfter(leftOn, settings.timeYears),
     assessment: firstJanuaryAfter(leftOn, settings.assessmentYears),
-    paidOvertime: firstJanuaryAfter(leftOn, settings.paidOvertimeYears),
+    // Never below 8 years, also for a lower value stored before (PAID_OVERTIME_MIN_YEARS).
+    paidOvertime: firstJanuaryAfter(leftOn, Math.max(settings.paidOvertimeYears, PAID_OVERTIME_MIN_YEARS)),
     payroll: settings.payrollOffice ? immediate : firstJanuaryAfter(leftOn, PAYROLL_YEARS),
   }
 }
@@ -100,17 +106,26 @@ function years(value: unknown, min: number, max: number): number {
   return value
 }
 
-export function checkRetentionSettings(input: unknown): RetentionSettings {
+/**
+ * Whole years 1–40 (cash 1–30) and a delete mode, otherwise retention_settings_invalid. „Ausgezahlte Überstunden,
+ * Verträge, Gehalt“ at least PAID_OVERTIME_MIN_YEARS (retention_paid_overtime_too_short); a lower value stored before
+ * (`storedPaidOvertimeYears`, kept unchanged) is still accepted – it counts as 8 anyway (retentionDueDates).
+ */
+export function checkRetentionSettings(input: unknown, storedPaidOvertimeYears?: number): RetentionSettings {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) throw new RetentionSettingsError()
   const raw = input as Record<string, unknown>
   const { min, max } = RETENTION_YEARS_RANGE
   const mode = raw.employeeDelete
   if (!EMPLOYEE_DELETE_MODES.includes(mode as EmployeeDeleteMode)) throw new RetentionSettingsError()
   if (typeof raw.payrollOffice !== 'boolean') throw new RetentionSettingsError()
+  const paidOvertimeYears = years(raw.paidOvertimeYears, min, max)
+  if (paidOvertimeYears < PAID_OVERTIME_MIN_YEARS && paidOvertimeYears !== storedPaidOvertimeYears) {
+    throw new RetentionSettingsError('retention_paid_overtime_too_short')
+  }
   return {
     timeYears: years(raw.timeYears, min, max),
     assessmentYears: years(raw.assessmentYears, min, max),
-    paidOvertimeYears: years(raw.paidOvertimeYears, min, max),
+    paidOvertimeYears,
     pensionYears: years(raw.pensionYears, min, max),
     cashYears: years(raw.cashYears, RETENTION_CASH_YEARS_RANGE.min, RETENTION_CASH_YEARS_RANGE.max),
     bemYears: years(raw.bemYears, min, max),

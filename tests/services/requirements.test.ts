@@ -169,13 +169,25 @@ describe('records and trainings of an employee', () => {
   const kind = (employeeId: number, typeId: number, on = today) =>
     getEmployeeRequirements(db, 1, employeeId, on).kinds.find(entry => entry.type.id === typeId)!
 
-  it('gives the Betriebsarzt the second Vorsorge 12 months after the first, then every 36 months (ArbMedVV, AMR 2.1)', () => {
+  it('gives the Betriebsarzt the second Vorsorge 12 months after the start, then every 36 months (ArbMedVV, AMR 2.1)', () => {
     updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12 })
+    // Anna started on 2026-01-01; her first Vorsorge two months before.
     expect(kind(anna, doctor)).toMatchObject({ state: 'missing', dueOn: null })
     addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2025-11-01' }, today)
-    expect(kind(anna, doctor)).toMatchObject({ state: 'soon', dueOn: '2026-11-01' })
+    expect(kind(anna, doctor)).toMatchObject({ state: 'ok', dueOn: '2027-01-01' })
+    expect(kind(anna, doctor, '2026-11-01')).toMatchObject({ state: 'soon', dueOn: '2027-01-01' })
+    // The second one: every 36 months from then on.
     addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-01' }, today)
     expect(kind(anna, doctor)).toMatchObject({ state: 'ok', dueOn: '2029-10-01' })
+    // Long-serving staff with only their latest Vorsorge entered: 36 months from it, no false „überfällig“.
+    const ben = addEmployee(db, 'Ben', { validFrom: '2012-03-01' })
+    addRequirementRecord(db, 1, ben, { typeId: doctor, date: '2025-06-01' }, today)
+    expect(kind(ben, doctor)).toMatchObject({ state: 'ok', dueOn: '2028-06-01' })
+    // New staff with the Vorsorge before the start: the second one 12 months after the start.
+    const cleo = addEmployee(db, 'Cleo', { validFrom: '2026-12-01' })
+    expect(kind(cleo, doctor)).toMatchObject({ state: 'missing', dueOn: '2026-12-01' })
+    addRequirementRecord(db, 1, cleo, { typeId: doctor, date: '2026-10-05' }, today)
+    expect(kind(cleo, doctor)).toMatchObject({ state: 'ok', dueOn: '2027-12-01' })
     // Left out, the first interval stays; null turns it off.
     updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 24 })
     expect(listRequirementTypes(db, 1)[0]).toMatchObject({ intervalMonths: 24, firstIntervalMonths: 12 })

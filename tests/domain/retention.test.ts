@@ -110,6 +110,25 @@ describe('checkRetentionSettings', () => {
       expect((error as RetentionSettingsError).code).toBe('retention_settings_invalid')
     }
   })
+
+  it('keeps „Ausgezahlte Überstunden, Verträge, Gehalt“ at least 8 years; a lower stored value stays and counts as 8', () => {
+    const code = (fn: () => unknown) => {
+      try {
+        fn()
+        return null
+      }
+      catch (error) {
+        return (error as RetentionSettingsError).code
+      }
+    }
+    expect(code(() => checkRetentionSettings({ ...RETENTION_DEFAULTS, paidOvertimeYears: 7 }))).toBe('retention_paid_overtime_too_short')
+    expect(code(() => checkRetentionSettings({ ...RETENTION_DEFAULTS, paidOvertimeYears: 5 }, 6))).toBe('retention_paid_overtime_too_short')
+    expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, paidOvertimeYears: 8 }).paidOvertimeYears).toBe(8)
+    // Saved before the minimum and kept unchanged: still accepted (other periods can be saved).
+    expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, paidOvertimeYears: 5, timeYears: 3 }, 5)).toMatchObject({ paidOvertimeYears: 5, timeYears: 3 })
+    expect(retentionDueDates('2026-03-15', { ...RETENTION_DEFAULTS, paidOvertimeYears: 5 }).paidOvertime).toBe('2035-01-01')
+    expect(retentionDueDates('2026-03-15', { ...RETENTION_DEFAULTS, paidOvertimeYears: 12 }).paidOvertime).toBe('2039-01-01')
+  })
 })
 
 describe('mayDeleteEmployeeByHand', () => {

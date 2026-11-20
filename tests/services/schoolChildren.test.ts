@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { asc, eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childGroupChanges, children } from '../../server/db/schema'
+import { childGroupChanges, children, forms } from '../../server/db/schema'
 import { setChildRetentionYears } from '../../server/services/appSettings'
 import {
   applyDueGroupChanges, deleteGroupChange, planGroupChange, updateGroupChange,
@@ -342,6 +342,16 @@ describe('automatic leaving of school children', () => {
         expect(isOn()).toBe(true)
       })
 
+      it('names a later purge day for a leaver with a recent accident report (5 years, DGUV Vorschrift 1 § 24 Abs. 6)', () => {
+        const id = schoolChild()
+        expect(schoolLeavers(db, 1, SCHOOL_START)[0]!.purgeOn).toBe('2030-08-31')
+        db.insert(forms).values({
+          facilityId: 1, kind: 'accident', title: 'Unfallanzeige', content: '{"sections":[]}', childId: id, formDate: '2027-06-01',
+          createdAt: '2027-06-01T10:00:00.000Z', updatedAt: '2027-06-01T10:00:00.000Z',
+        }).run()
+        expect(schoolLeavers(db, 1, SCHOOL_START)[0]!.purgeOn).toBe('2032-06-01')
+      })
+
       it('refuses when a child\'s leaving day changed between the preview and the confirmation', () => {
         const id = schoolChild()
         const preview = schoolLeavers(db, 1, SCHOOL_START)
@@ -556,7 +566,7 @@ describe('automatic leaving of school children', () => {
       expect(leftOn(id)).toBe(DAY_BEFORE)
       expect(getChild(db, admin, id, SCHOOL_START).status).toBe('archived')
       // The retention period runs from the leaving day.
-      expect(listArchive(db, 1, SCHOOL_START)).toEqual([{ id, name: 'Lena Meier', leftOn: DAY_BEFORE, purgeOn: '2030-08-31' }])
+      expect(listArchive(db, 1, SCHOOL_START)).toEqual([{ id, name: 'Lena Meier', leftOn: DAY_BEFORE, purgeOn: '2030-08-31', accidentHold: null }])
     })
 
     it('changes nothing in a second run', () => {

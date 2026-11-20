@@ -789,6 +789,11 @@ export interface ArchivedChildDto {
   name: string
   leftOn: IsoDate
   purgeOn: IsoDate
+  /**
+   * Accident reports still to be kept today (5 years after the accident, DGUV Vorschrift 1 § 24 Abs. 6): how many, and
+   * until when the newest; null without one. „Sofort löschen“ warns about them.
+   */
+  accidentHold: { reports: number; until: IsoDate } | null
 }
 
 /** What an item of the Träger's retention overview deletes of a left employee: a category, or the employee row itself. */
@@ -1348,7 +1353,7 @@ export interface ChildSickSettingsInput {
 /**
  * The Kinderkrankentage settings (for all facilities) as of today: the values of the current year (the Träger's own,
  * which count for every year, or the legal ones of the year), whether they are the Träger's own, the legal values of the
- * year, and whether own values still hold a raised value of 2026 in a later year.
+ * year, and whether own values hold a raised value of 2026 (which applies by law only up to 2026).
  */
 export interface ChildSickSettingsDto extends ChildSickSettingsInput {
   custom: boolean
