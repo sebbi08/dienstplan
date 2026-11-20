@@ -58,7 +58,7 @@ export const facilities = sqliteTable('facilities', {
   leaveForfeitText: text('leave_forfeit_text'),
   /** The facility's own text of the BEM invitation with ‹Name›, ‹Antwort bis›, ‹Jahre› (null = BEM_DEFAULT_INVITATION_TEXT). */
   bemInvitationText: text('bem_invitation_text'),
-  /** School cutoff (Stichtag): of school age is who has completed `schoolAgeYears` by the end of this day of the year. */
+  /** School cutoff (Stichtag): the last birthday of the year (`schoolAgeYears` before) that still starts school on 1 September. */
   schoolCutoffMonth: integer('school_cutoff_month').notNull().default(6),
   schoolCutoffDay: integer('school_cutoff_day').notNull().default(30),
   schoolAgeYears: integer('school_age_years').notNull().default(6),

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { SCHOOL_LAW_BIRTHDAY } from '#shared/domain/states'
 import type { SchoolCutoffInput, SchoolLeaverDto, SchoolSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
@@ -63,11 +62,6 @@ const stateCutoff = computed(() => {
 })
 const stateCutoffDate = computed(() => stateCutoff.value
   ? `${String(stateCutoff.value.cutoffDay).padStart(2, '0')}.${String(stateCutoff.value.cutoffMonth).padStart(2, '0')}.` : '')
-// BY, NW, TH: the law names the last birthday; the label shows it next to the day that is stored.
-const lawBirthday = computed(() => {
-  const day = activeState.value ? SCHOOL_LAW_BIRTHDAY[activeState.value] : undefined
-  return day ? `${String(day[1]).padStart(2, '0')}.${String(day[0]).padStart(2, '0')}.` : null
-})
 
 // Switching on: the preview is loaded first, the dialog lists it and sends exactly this list back with the confirmation.
 const dialogOpen = ref(false)
@@ -140,9 +134,7 @@ async function confirmSwitchOn() {
     <p class="text-xs text-gray-500">{{ s.stateCutoffHint }}</p>
     <p v-if="activeState && s.stateCutoffNotes[activeState]" class="text-xs text-gray-500">{{ s.stateCutoffNotes[activeState] }}</p>
     <p v-if="stateCutoff && activeState" class="flex flex-wrap items-center gap-2 rounded bg-sky-50 p-2 text-sm">
-      <span>{{ lawBirthday
-        ? s.stateCutoffByBirthday(inState(activeState), lawBirthday, stateCutoffDate, stateCutoff.ageYears)
-        : s.stateCutoff(inState(activeState), stateCutoffDate, stateCutoff.ageYears) }}</span>
+      <span>{{ s.stateCutoff(inState(activeState), stateCutoffDate, stateCutoff.ageYears) }}</span>
       <UButton v-if="canEditSchool" size="xs" color="neutral" variant="outline" :label="s.adopt" :loading="busy" :disabled="busy" @click="saveCutoff(stateCutoff)" />
     </p>
     <p class="text-xs text-gray-500">{{ s.hint }}</p>

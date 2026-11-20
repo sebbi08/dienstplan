@@ -1748,26 +1748,25 @@ export const de = {
     },
   },
   schoolChildren: {
-    title: 'Schulkinder', cutoff: 'Stichtag', age: 'Alter (Jahre)',
-    hint: 'Wer bis zum Ende des Stichtags das Alter vollendet hat, wird zum 1. September Schulkind – so formulieren es die Schulgesetze („bis zum 30. Juni das sechste Lebensjahr vollendet“). Die Stichtage unterscheiden sich je Bundesland und können sich ändern. Bitte den Wert prüfen.',
-    hintBirthday: 'Ein Lebensjahr ist schon am Tag vor dem Geburtstag vollendet (§ 187 Abs. 2, § 188 Abs. 2 BGB). Ein am Tag nach dem Stichtag geborenes Kind gehört deshalb noch dazu (z. B. Geburtstag 1. Juli bei Stichtag 30. Juni), ein Kind mit Geburtstag 2. Juli nicht mehr.',
-    // Laws whose wording is not „bis zum Stichtag vollendet“: why the suggested day differs from the date in the law.
+    // The stored cut-off is the last birthday that still belongs to the year (user decision 20.11.2026).
+    title: 'Schulkinder', cutoff: 'Stichtag (Geburtstag bis einschließlich)', age: 'Alter (Jahre)',
+    hint: 'Kinder mit Geburtstag bis einschließlich zum Stichtag kommen zum 1. September in die Schule (Baden-Württemberg: 30. Juni). Die Stichtage unterscheiden sich je Bundesland und können sich ändern. Bitte den Wert prüfen.',
+    hintBirthday: 'Ein Kind, das am Tag nach dem Stichtag Geburtstag hat (z. B. 1. Juli bei Stichtag 30. Juni), kommt ein Jahr später in die Schule.',
+    // How the law of these states words the cut-off, and the birthday that follows from it.
     stateCutoffNotes: {
-      BY: 'Art. 37 BayEUG: „bis zum 30. September sechs Jahre alt werden“ – also Geburtstag bis 30.09.; das 6. Lebensjahr ist dann bis 29.09. vollendet.',
-      NW: '§ 35 SchulG NRW: „bis zum Beginn des 30. September … vollendet“ – also Geburtstag bis 30.09.; das 6. Lebensjahr ist dann bis 29.09. vollendet.',
-      HH: '§ 38 Abs. 1 HmbSG: „vor dem 1. Juli das 6. Lebensjahr vollendet“ – also bis 30.06. vollendet (Geburtstag bis 1. Juli).',
-      TH: '§ 18 Abs. 1 ThürSchulG: „am 1. August eines Jahres sechs Jahre alt“ – also Geburtstag bis 01.08.; das 6. Lebensjahr ist dann bis 31.07. vollendet.',
+      BY: 'Art. 37 BayEUG: „bis zum 30. September sechs Jahre alt werden“ – also Geburtstag bis einschließlich 30.09.',
+      NW: '§ 35 SchulG NRW: „bis zum Beginn des 30. September … vollendet“ – also Geburtstag bis einschließlich 30.09.',
+      HH: '§ 38 Abs. 1 HmbSG: „vor dem 1. Juli das 6. Lebensjahr vollendet“ – also Geburtstag bis einschließlich 01.07.',
+      TH: '§ 18 Abs. 1 ThürSchulG: „am 1. August eines Jahres sechs Jahre alt“ – also Geburtstag bis einschließlich 01.08.',
     } as Partial<Record<string, string>>,
     computed: (date: string) => `errechnet: ${date}`,
     // The school start in the record: computed from the cutoff, or set by Leitung or Träger.
     automatic: 'automatisch', automaticByCutoff: 'automatisch nach Stichtag', manual: 'von Hand geändert',
     change: 'Ändern', backToAutomatic: 'Wieder automatisch', managersOnly: 'Ändern können nur Leitung und Träger.',
-    stateCutoff: (inState: string, date: string, age: number) => `Stichtag laut Schulgesetz ${inState}: ${date} (Alter ${age})`,
-    // BY, NW, TH: the law names the last birthday, the app stores the day before (the 6th year is completed then).
-    stateCutoffByBirthday: (inState: string, birthday: string, date: string, age: number) =>
-      `Laut Schulgesetz ${inState}: Geburtstag bis ${birthday} (Alter ${age}) – eingestellt wird der ${date}, weil das Lebensjahr am Tag vor dem Geburtstag vollendet ist`,
+    stateCutoff: (inState: string, date: string, age: number) =>
+      `Stichtag laut Schulgesetz ${inState}: Geburtstag bis einschließlich ${date} (Alter ${age})`,
     adopt: 'übernehmen',
-    stateCutoffHint: 'Vorschlag nach dem Schulgesetz des Bundeslands (Stand 19.11.2026). Bitte bei Änderungen des Schulgesetzes prüfen.',
+    stateCutoffHint: 'Vorschlag nach dem Schulgesetz des Bundeslands (Stand 20.11.2026). Bitte bei Änderungen des Schulgesetzes prüfen.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     day: 'Tag', month: 'Monat', readOnly: 'Nur der Träger kann den Stichtag ändern.',
     listTitle: (date: string) => `Schulkinder zum ${date}`, autoLeave: 'Schulkinder automatisch abmelden',

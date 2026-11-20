@@ -381,29 +381,29 @@ markiert, bis jemand sie durchsieht und bestätigt. Alle offenen Fälle stehen i
 - **Stichtag prüfen:** Der Träger stellt pro Einrichtung den Stichtag ein (beim Anlegen einer Einrichtung aus dem Bundesland vorausgefüllt, z. B. 30. Juni bei Baden-Württemberg, 6 Jahre).
   Die Regeln unterscheiden sich je Bundesland und ändern sich manchmal. Bitte prüfe den Wert für deine
   Einrichtung.
-- **Wie gerechnet wird (seit 19.11.2026):** Der Stichtag ist der Tag, bis zu dessen Ende das Kind das Alter
-  **vollendet** haben muss – so steht es in den Schulgesetzen („bis zum 30. Juni das sechste Lebensjahr
-  vollendet“). Ein Lebensjahr ist nach § 187 Abs. 2 und § 188 Abs. 2 BGB schon mit dem Ende des Tages **vor** dem
-  Geburtstag vollendet. Bei Stichtag 30. Juni gehört deshalb ein am **1. Juli** geborenes Kind noch zu diesem
-  Jahrgang, ein am 2. Juli geborenes nicht mehr (Hessen schreibt das ausdrücklich: „bis einschließlich 1. Juli
-  geboren“). Bis zum 19.11.2026 hat die App das am 1. Juli geborene Kind ein Jahr später eingeschult. **Wer den
-  Stichtag deshalb von Hand einen Tag später gestellt hatte (z. B. 1. Juli), stellt ihn bitte zurück** (der
-  Vorschlag „übernehmen“ erscheint dann). Ausnahmen beim Vorschlag: In **Bayern** (Art. 37 BayEUG: „bis zum
-  30. September sechs Jahre alt werden“) und **Nordrhein-Westfalen** (§ 35 SchulG: „bis zum Beginn des
-  30. September … vollendet“) zählt der Geburtstag bis 30.09., deshalb stellt die App dort den 29.09. ein; in
-  **Thüringen** (§ 18 Abs. 1 ThürSchulG: „am 1. August eines Jahres sechs Jahre alt“) zählt der Geburtstag bis 01.08.,
-  eingestellt wird der 31.07. Der Vorschlag zeigt dort beides: „Laut Schulgesetz …: Geburtstag bis 30.09. – eingestellt
-  wird der 29.09.“. **Hamburg** (§ 38 Abs. 1 HmbSG: „vor dem 1. Juli das 6. Lebensjahr vollendet“) hat jetzt den 30.06.
-  statt bisher 01.07.
-- **Bestehende Einrichtungen in Hamburg, Bayern, Nordrhein-Westfalen und Thüringen:** Steht dort noch der alte
-  Vorschlag (Hamburg 01.07., Bayern und Nordrhein-Westfalen 30.09., Thüringen 01.08.), stellt ein Update der Datenbank ihn
-  auf den neuen Wert um (30.06., 29.09., 31.07.) – der alte Wert würde jetzt Kinder einschließen, die einen Tag nach der
-  Grenze geboren sind, und sie mit der automatischen Abmeldung ein Jahr zu früh abmelden. Ein von Hand anders
-  eingestellter Stichtag bleibt unverändert; dann zeigt *Einstellungen → Kinder → Schulkinder* den Vorschlag mit
-  **„übernehmen“** (das schaltet wie jede Stichtagsänderung die automatische Abmeldung aus).
-- Quelle: Rechtsprüfung vom 19.11.2026 (Schulgesetze der Länder, Bekanntmachung Gemeinde Lahntal zu § 58 HSchG vom
-  08.02.2025); Wortlaut HmbSG § 38 Abs. 1 und ThürSchulG § 18 Abs. 1 am 20.11.2026 über die konsolidierte Fassung bei
-  lexaris.de geprüft (die amtlichen Portale ließen sich nicht abrufen). Keine Rechtsberatung.
+- **Wie gerechnet wird:** Der Stichtag ist der **letzte Geburtstag**, der noch dazugehört („Geburtstag bis
+  einschließlich ‹Stichtag›“). Kinder, die sechs Jahre vor dem Schulstart bis einschließlich zu diesem Tag geboren
+  sind, kommen zum 1. September in die Schule. In **Baden-Württemberg** ist das der **30. Juni**: ein am 30. Juni
+  geborenes Kind kommt in diesem Jahr, ein am 1. Juli geborenes ein Jahr später. Die Einstellungen zeigen genau das
+  Datum, das gespeichert ist.
+- **Entscheidung vom 20.11.2026 (Nutzer):** „Letzter Stichtag ist 30. Juni.“ Damit gilt wieder die Rechnung von vor
+  dem 19.11.2026. Am 19.11.2026 hatte die App den Stichtag kurz als „bis zum Ende des Stichtags vollendet“ gelesen
+  (ein am 1. Juli geborenes Kind wäre in Baden-Württemberg schon dieses Jahr gekommen) und dazu die Vorschläge für
+  Hamburg, Bayern, Nordrhein-Westfalen und Thüringen um einen Tag verschoben. Das ist zurückgenommen.
+- **Vorschläge der Bundesländer** (Geburtstag bis einschließlich): Baden-Württemberg 30.06.; **Bayern** (Art. 37
+  BayEUG: „bis zum 30. September sechs Jahre alt werden“) und **Nordrhein-Westfalen** (§ 35 SchulG: „bis zum Beginn
+  des 30. September … vollendet“) 30.09.; **Thüringen** (§ 18 Abs. 1 ThürSchulG: „am 1. August eines Jahres sechs
+  Jahre alt“) 01.08.; **Hamburg** (§ 38 Abs. 1 HmbSG: „vor dem 1. Juli das 6. Lebensjahr vollendet“) 01.07. Bei
+  Bayern, Nordrhein-Westfalen, Thüringen und Hamburg steht der Wortlaut des Gesetzes als Hinweis dabei.
+- **Update der Datenbank:** Ein Update hatte am 19./20.11.2026 die gespeicherten Vorschläge umgestellt (Hamburg
+  01.07. → 30.06., Bayern und Nordrhein-Westfalen 30.09. → 29.09., Thüringen 01.08. → 31.07.). Das nächste Update stellt
+  sie zurück – aber nur, wo in einer Einrichtung dieses Bundeslands noch genau der umgestellte Wert (bei 6 Jahren)
+  steht. Ein von Hand anders eingestellter Stichtag bleibt unverändert; weicht er vom Vorschlag ab, zeigt
+  *Einstellungen → Kinder → Schulkinder* den Vorschlag mit **„übernehmen“** (das schaltet wie jede Stichtagsänderung
+  die automatische Abmeldung aus). **Wer den Stichtag in den letzten Tagen von Hand geändert hat, prüft ihn bitte.**
+- Quelle: Schulgesetze der Länder (Rechtsprüfung vom 19.11.2026; Wortlaut HmbSG § 38 Abs. 1 und ThürSchulG § 18 Abs. 1
+  am 20.11.2026 über die konsolidierte Fassung bei lexaris.de geprüft) und die Entscheidung vom 20.11.2026 für
+  Baden-Württemberg. Keine Rechtsberatung.
 - Schulstart ist immer der 1. September. Ein von Hand eingetragener „voraussichtlicher Schulstart“
   (z. B. bei Zurückstellung) hat Vorrang.
 - In der Kinderakte steht der „voraussichtliche Schulstart“ schon beim Anlegen da, sobald das Geburtsdatum
@@ -475,8 +475,8 @@ Bundesland und Stichtag: siehe Abschnitt 10.
   Träger das Bundesland, bleibt der eingestellte Stichtag unverändert. Weicht er vom Stichtag des Bundeslands ab,
   zeigt *Einstellungen → Kinder → Schulkinder* diesen mit dem Knopf **„übernehmen“**. Das ist eine normale
   Stichtagsänderung und schaltet die automatische Abmeldung der Schulkinder aus (siehe Abschnitt 9). Die
-  Stichtage stehen im Stand 19.11.2026 (Rechnung „bis zum Stichtag vollendet“, siehe Abschnitt 9); prüfe sie bei
-  Änderungen des Schulgesetzes.
+  Stichtage stehen im Stand 20.11.2026 (Stichtag = letzter Geburtstag, der noch dazugehört, siehe Abschnitt 9); prüfe
+  sie bei Änderungen des Schulgesetzes.
 
 ## 11. Anwesenheit der Kinder
 

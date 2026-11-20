@@ -71,7 +71,7 @@ describe('school settings of a facility', () => {
   it('shows the computed school start in the record, for managers and Mitarbeiter, following the cutoff', () => {
     const admin = asChildViewer(addUser(db, 'leitung', 'admin'))
     const staff = asChildViewer(addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')))
-    const id = addChild(db, 1, { birthDate: '2021-07-02' })
+    const id = addChild(db, 1, { birthDate: '2021-07-01' })
     expect(getChild(db, admin, id, TODAY).computedSchoolStart).toBe('2028-09-01')
     setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
     expect(getChild(db, admin, id, TODAY).computedSchoolStart).toBe('2027-09-01')
@@ -148,7 +148,7 @@ describe('children for the occupancy table', () => {
   })
 
   it('uses the facility\'s own cutoff', () => {
-    const id = addChild(db, 1, { birthDate: '2021-07-02' })
+    const id = addChild(db, 1, { birthDate: '2021-07-01' })
     expect(occupancyChildren(db, 1).children.find(child => child.id === id)?.end).toBe('2028-08-31')
     setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
     expect(occupancyChildren(db, 1).children.find(child => child.id === id)?.end).toBe('2027-08-31')
@@ -415,8 +415,8 @@ describe('automatic leaving of school children', () => {
       })
 
       it('so a child the new cutoff makes a school child is not deregistered behind the Träger\'s back', () => {
-        // Born 2 July 2020: school start 2027 with the cutoff 30 June, 2026 (reached) with the cutoff 1 July.
-        const id = schoolChild({ birthDate: '2020-07-02' })
+        // Born 1 July 2020: school start 2027 with the cutoff 30 June, 2026 (reached) with the cutoff 1 July.
+        const id = schoolChild({ birthDate: '2020-07-01' })
         switchOn()
         expect(leaveSchoolChildren(db, TODAY)).toBe(0)
 
@@ -587,7 +587,7 @@ describe('automatic leaving of school children', () => {
     })
 
     it('leaves a child born one day after the cutoff for another year', () => {
-      const id = schoolChild({ birthDate: '2021-07-02' })
+      const id = schoolChild({ birthDate: '2021-07-01' })
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(0)
       expect(leaveSchoolChildren(db, '2028-08-31')).toBe(0)
       expect(leftOn(id)).toBeNull()
@@ -597,7 +597,7 @@ describe('automatic leaving of school children', () => {
 
     it('follows a manual school start: a later one keeps the child, an earlier one takes it along', () => {
       const deferred = schoolChild({ schoolStartDate: '2028-09-01' })
-      const early = schoolChild({ birthDate: '2021-07-02', schoolStartDate: SCHOOL_START })
+      const early = schoolChild({ birthDate: '2021-07-01', schoolStartDate: SCHOOL_START })
 
       expect(leaveSchoolChildren(db, SCHOOL_START)).toBe(1)
       expect(leftOn(early)).toBe(DAY_BEFORE)
@@ -615,7 +615,7 @@ describe('automatic leaving of school children', () => {
     })
 
     it('follows the facility\'s cutoff', () => {
-      const id = schoolChild({ birthDate: '2021-07-02' })
+      const id = schoolChild({ birthDate: '2021-07-01' })
       setSchoolCutoff(db, 1, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
       // The new cutoff switched the automatic leaving off; the Träger switches it on again.
       switchOn()
@@ -1251,9 +1251,9 @@ describe('automatic leaving of school children', () => {
     })
 
     it('judges by the manual school start and by the cutoff of the target facility', () => {
-      // Born 2 July 2020: school start 2027 with the cutoff 30 June, 2026 (reached) with the cutoff 1 July.
+      // Born 1 July 2020: school start 2027 with the cutoff 30 June, 2026 (reached) with the cutoff 1 July.
       const deferred = reached({ schoolStartDate: '2027-09-01' })
-      const byCutoff = schoolChild({ birthDate: '2020-07-02' })
+      const byCutoff = schoolChild({ birthDate: '2020-07-01' })
       setSchoolCutoff(db, krippe, { cutoffMonth: 7, cutoffDay: 1, ageYears: 6 })
       switchOn(krippe)
 

@@ -2251,12 +2251,33 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
         (11, 'BW mit 1.7.', 'BW', 7, 1);
       UPDATE facilities SET school_age_years = 7 WHERE id = 9;
     `)
-    migrateDb(db, MIGRATIONS)
+    // Only through 0106: 0110_school_cutoff_birthday reverses it (tested there).
+    migrateThrough(db, '0106')
     expect(sqlite.prepare('SELECT id, school_cutoff_month AS month, school_cutoff_day AS day FROM facilities WHERE id > 1 ORDER BY id').all()).toEqual([
       { id: 2, month: 6, day: 30 }, { id: 3, month: 9, day: 29 }, { id: 4, month: 9, day: 29 }, { id: 5, month: 9, day: 30 },
       { id: 6, month: 7, day: 31 },
       { id: 7, month: 8, day: 1 }, { id: 8, month: 9, day: 15 }, { id: 9, month: 9, day: 30 }, { id: 10, month: 7, day: 1 },
       { id: 11, month: 7, day: 1 },
+    ])
+  })
+
+  it('0110 sets the school cutoffs 0106 changed back to the birthday presets (HH 01.07., BY/NW 30.09., TH 01.08.); other cutoffs stay', () => {
+    // As 0106 left them (or as facilities created since got them): the reversed values, beside cutoffs set otherwise.
+    const { db, sqlite } = databaseAt('0109')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name, state, school_cutoff_month, school_cutoff_day) VALUES
+        (2, 'HH', 'HH', 6, 30), (3, 'BY', 'BY', 9, 29), (4, 'NW', 'NW', 9, 29), (5, 'TH', 'TH', 7, 31),
+        (6, 'HH eigen', 'HH', 6, 15), (7, 'BE mit 29.9.', 'BE', 9, 29), (8, 'NW mit 7', 'NW', 9, 29), (9, 'BW', 'BW', 6, 30),
+        (10, 'TH schon 1.8.', 'TH', 8, 1), (11, 'BY eigen', 'BY', 9, 15);
+      UPDATE facilities SET school_age_years = 7 WHERE id = 8;
+    `)
+    migrateThrough(db, '0110')
+    expect(sqlite.prepare('SELECT id, school_cutoff_month AS month, school_cutoff_day AS day, school_age_years AS age FROM facilities WHERE id > 1 ORDER BY id').all()).toEqual([
+      { id: 2, month: 7, day: 1, age: 6 }, { id: 3, month: 9, day: 30, age: 6 }, { id: 4, month: 9, day: 30, age: 6 },
+      { id: 5, month: 8, day: 1, age: 6 },
+      // Set by hand, another state, another age, Baden-Württemberg, already the preset: unchanged.
+      { id: 6, month: 6, day: 15, age: 6 }, { id: 7, month: 9, day: 29, age: 6 }, { id: 8, month: 9, day: 29, age: 7 },
+      { id: 9, month: 6, day: 30, age: 6 }, { id: 10, month: 8, day: 1, age: 6 }, { id: 11, month: 9, day: 15, age: 6 },
     ])
   })
 
