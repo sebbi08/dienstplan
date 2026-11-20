@@ -335,8 +335,10 @@ export interface PlannedChildrenDto {
   contracted: PlannedChildDto[]
 }
 
-/** The school cutoff of a facility: a child is of school age when it has completed `ageYears` by the end of
- * `cutoffDay`.`cutoffMonth` (born up to the day after it, schoolStart.ts). */
+/**
+ * The school cutoff of a facility: the last birthday that still belongs to the school year. A child born on or before
+ * `cutoffDay`.`cutoffMonth`, `ageYears` years before, starts school on the next 1 September (schoolStart.ts).
+ */
 export interface SchoolSettingsDto {
   cutoffMonth: number
   cutoffDay: number
@@ -3820,8 +3822,9 @@ export interface ContactDto extends Omit<ContactInput, 'scope' | 'categoryId' | 
   global: boolean
   /** A contact for all facilities: the category name the Träger chose (null for a facility's own). */
   globalCategoryName: string | null
+  /** When it was changed last; '' for whoever does not maintain the contacts (contacts.manage). */
   updatedAt: string
-  /** Username of whoever changed it last (null when unknown or deleted). */
+  /** Username of whoever changed it last (null when unknown or deleted; always null without contacts.manage). */
   updatedBy: string | null
   /** Whether the viewer may change and delete it. */
   canEdit: boolean

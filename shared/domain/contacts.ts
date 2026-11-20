@@ -26,21 +26,24 @@ export const CONTACT_LIMITS = {
 
 /**
  * Whether the text is an e-mail address: something@domain.tld without spaces. Deliberately loose, it only catches
- * typing mistakes; empty is no address (the field is optional, the caller decides).
+ * typing mistakes; empty is no address (the field is optional, the caller decides). Characters that would add to the
+ * mailto: link (a query such as ?bcc=, further recipients, quoting, %-escapes) are refused.
  */
 export function isEmailAddress(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  return /^[^\s@?&,;<>"()%]+@[^\s@?&,;<>"()%]+\.[^\s@?&,;<>"()%]+$/.test(value)
 }
 
 /**
  * The website as it is stored and linked: http or https only; without a scheme „https://“ is put in front
- * („www.schule.de“). Null for anything else (another scheme such as javascript:, no host, spaces). Empty stays empty.
+ * („www.schule.de“, also with a port: „schule.de:8080“). Null for anything else (another scheme such as javascript:,
+ * no host, spaces). Empty stays empty.
  */
 export function normalizedWebsite(value: string): string | null {
   const trimmed = value.trim()
   if (trimmed === '') return ''
   if (/\s/.test(trimmed)) return null
-  const withScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  // A scheme is a word with a colon that no digit follows (that would be a host with its port).
+  const withScheme = /^[a-z][a-z\d+.-]*:(?!\d)/i.test(trimmed) ? trimmed : `https://${trimmed}`
   try {
     const url = new URL(withScheme)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
@@ -69,10 +72,13 @@ export function contactMatches(contact: SearchableContact, query: string): boole
   return words.every(word => text.includes(word))
 }
 
-/** A phone number as a tel: link target: only digits and a leading +; the „(0)“ of „+49 (0)6221“ is dropped. */
+/**
+ * A phone number as a tel: link target: only digits and a leading +; the „(0)“ of „+49 (0)6221“ is dropped. Empty when
+ * no digit is left (the number is then shown as plain text).
+ */
 export function telHref(phone: string): string {
   const trimmed = phone.trim()
   const international = trimmed.startsWith('+')
   const digits = (international ? trimmed.replace(/\(0\)/g, '') : trimmed).replace(/\D/g, '')
-  return `tel:${international ? '+' : ''}${digits}`
+  return digits === '' ? '' : `tel:${international ? '+' : ''}${digits}`
 }

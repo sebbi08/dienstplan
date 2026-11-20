@@ -178,7 +178,9 @@ export function listContacts(db: Db, viewer: ContactViewer): ContactsDto {
     .filter(row => seesContact(viewer, row))
     .map(row => ({ row, category: place(row) }))
     .sort(compareContacts)
-  const userIds = [...new Set(rows.map(({ row }) => row.updatedBy).filter((id): id is number => id !== null))]
+  const managing = manages(viewer)
+  // Who changed a contact when is for those who maintain them: the login names never reach the staff or the tablet.
+  const userIds = managing ? [...new Set(rows.map(({ row }) => row.updatedBy).filter((id): id is number => id !== null))] : []
   const usernames = new Map(userIds.length === 0 ? [] : db.select({ id: users.id, username: users.username }).from(users)
     .where(inArray(users.id, userIds)).all().map(user => [user.id, user.username]))
   const counts = new Map<number, number>()
@@ -188,7 +190,6 @@ export function listContacts(db: Db, viewer: ContactViewer): ContactsDto {
     counts.set(category.id, (counts.get(category.id) ?? 0) + 1)
     if (row.facilityId !== null) owns.set(category.id, (owns.get(category.id) ?? 0) + 1)
   }
-  const managing = manages(viewer)
   return {
     categories: categories.map((category): ContactCategoryDto => ({
       id: category.id, name: category.name, contactCount: counts.get(category.id) ?? 0, ownCount: managing ? owns.get(category.id) ?? 0 : 0,
@@ -210,7 +211,7 @@ export function listContacts(db: Db, viewer: ContactViewer): ContactsDto {
       website: row.website,
       note: row.note,
       visibleToStaff: row.visibleToStaff,
-      updatedAt: row.updatedAt,
+      updatedAt: managing ? row.updatedAt : '',
       updatedBy: row.updatedBy === null ? null : usernames.get(row.updatedBy) ?? null,
       canEdit: mayEdit(viewer, row),
     })),

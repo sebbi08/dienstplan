@@ -2,7 +2,7 @@
 import { todayIso } from '#shared/domain/dates'
 import type { ContactsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { contactAddress, contactsOfTab, contactTabFromQuery, contactTabs, tabCategoryName, websiteLabel } from '~/utils/contacts'
+import { contactAddress, contactTabs, printedTab, printSections, tabCategoryName, websiteLabel } from '~/utils/contacts'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
@@ -18,16 +18,15 @@ const route = useRoute()
 const { data, error } = await useFetch<ContactsDto>('/api/contacts', { key: 'print-contacts' })
 const contacts = computed(() => data.value?.contacts ?? [])
 const tabs = computed(() => contactTabs(data.value?.categories ?? [], contacts.value, false))
-const tab = computed(() => contactTabFromQuery(route.params.category, tabs.value))
+// null: a category the viewer has no contacts in (deleted since, or none for the staff): an empty printout.
+const tab = computed(() => printedTab(route.params.category, tabs.value))
 const title = computed(() => {
-  if (tab.value === 'all') return t.title
+  if (tab.value === 'all' || tab.value === null) return t.title
   return t.printTitleCategory(tab.value === 'provider' ? t.fromProvider : tabCategoryName(tabs.value, tab.value) ?? '')
 })
 /** The contacts of the printout, in sections by category (one section when a single category is printed). */
-const sections = computed(() => tabs.value
-  .filter(entry => entry.key !== 'all' && (tab.value === 'all' || entry.key === tab.value))
-  .map(entry => ({ key: entry.key, name: entry.key === 'provider' ? t.fromProvider : entry.category!.name, contacts: contactsOfTab(contacts.value, entry.key) }))
-  .filter(section => section.contacts.length > 0))
+const sections = computed(() => printSections(tabs.value, contacts.value, tab.value)
+  .map(section => ({ ...section, name: section.category?.name ?? t.fromProvider })))
 const fileName = computed(() => title.value.replace(/[–\s]+/g, '-'))
 
 const th = 'px-2 py-1.5 align-bottom'

@@ -109,15 +109,25 @@ const careTypeItems = computed(() => [{ label: de.children.noSelection, value: 0
  * form opens. A stored school that is no longer one of them (its category was renamed) stays selectable as it is.
  */
 const schoolOptions = ref<SchoolOptionDto[]>([])
+/** The options have arrived (an empty answer means: no school contact yet). */
+const schoolsReady = ref(false)
 let schoolsLoaded = false
 async function loadSchools() {
   if (schoolsLoaded) return
   schoolsLoaded = true
-  schoolOptions.value = await $fetch<SchoolOptionDto[]>('/api/contacts/schools').catch(() => {
+  try {
+    schoolOptions.value = await $fetch<SchoolOptionDto[]>('/api/contacts/schools')
+    schoolsReady.value = true
+  }
+  catch {
     schoolsLoaded = false
-    return []
-  })
+  }
 }
+/**
+ * The old free text „Grundschule“, now „Grundschule (Notiz)“: the list of school children uses „künftige Schule“. The
+ * field stays for a record that has a text in it, and while the address book holds no school to choose.
+ */
+const showSchoolNote = computed(() => !!props.child?.master.primarySchool || (schoolsReady.value && schoolOptions.value.length === 0))
 watch(editing, (value) => { if (value) loadSchools() })
 onMounted(() => { if (editing.value) loadSchools() })
 const schoolItems = computed(() => {
@@ -273,7 +283,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     { label: f.plannedEntryDate, value: date(master.plannedEntryDate) },
     { label: f.infoMeetingDate, value: date(master.infoMeetingDate) },
     { label: f.schoolStartDate, value: date(master.schoolStartDate ?? computedStart), hint: schoolStartHint },
-    { label: f.primarySchool, value: master.primarySchool },
+    ...(master.primarySchool ? [{ label: de.contacts.primarySchoolNote, value: master.primarySchool }] : []),
     { label: f.schoolDistrict, value: master.schoolDistrict },
     { label: de.contacts.futureSchool, value: props.child?.futureSchoolName ?? '' },
     { label: f.keyEducator, value: props.child?.keyEducatorName ?? '' },
@@ -348,7 +358,9 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
             />
           </div>
         </UFormField>
-        <UFormField :label="f.primarySchool"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
+        <UFormField v-if="showSchoolNote" :label="de.contacts.primarySchoolNote" :help="de.contacts.primarySchoolNoteHint">
+          <UInput v-model="form.primarySchool" maxlength="200" class="w-full" />
+        </UFormField>
         <UFormField :label="f.schoolDistrict"><UInput v-model="form.schoolDistrict" maxlength="100" class="w-full" /></UFormField>
         <UFormField :label="de.contacts.futureSchool" :help="schoolItems.length > 1 ? de.contacts.futureSchoolHint : de.contacts.noSchoolOptions">
           <USelect v-model="form.futureSchoolContactId" :items="schoolItems" class="w-full" />

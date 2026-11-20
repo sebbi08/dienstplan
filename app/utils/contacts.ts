@@ -32,6 +32,28 @@ export function contactTabFromQuery(value: unknown, tabs: readonly ContactTab[])
   return tabs.find(tab => tab.key === key)?.key ?? 'all'
 }
 
+/**
+ * The tab a printout names (/print/contacts/<all|id|provider>); null for one the viewer has no contacts in (a deleted
+ * category, or one without contacts for the staff): that printout stays empty instead of printing everything.
+ */
+export function printedTab(value: unknown, tabs: readonly ContactTab[]): ContactTabKey | null {
+  return value === 'all' ? 'all' : tabs.find(tab => tab.key !== 'all' && tab.key === value)?.key ?? null
+}
+
+/**
+ * The sections of a printout: one per category with contacts (and „Vom Träger“, category null), all of them for 'all',
+ * only the printed one otherwise, none for an unknown tab (null).
+ */
+export function printSections(
+  tabs: readonly ContactTab[], contacts: readonly ContactDto[], tab: ContactTabKey | null,
+): { key: ContactTabKey; category: ContactCategoryDto | null; contacts: ContactDto[] }[] {
+  if (tab === null) return []
+  return tabs
+    .filter(entry => entry.key !== 'all' && (tab === 'all' || entry.key === tab))
+    .map(entry => ({ key: entry.key, category: entry.category, contacts: contactsOfTab(contacts, entry.key) }))
+    .filter(section => section.contacts.length > 0)
+}
+
 /** The contacts of the tab that match the search (organisation, person, role, note, city), in the server's order. */
 export function contactsOfTab(contacts: readonly ContactDto[], tab: ContactTabKey, query = ''): ContactDto[] {
   return contacts.filter(contact => (tab === 'all' || (tab === 'provider' ? contact.categoryId === null : `${contact.categoryId}` === tab))
@@ -57,7 +79,8 @@ export function tabCategoryName(tabs: readonly ContactTab[], key: ContactTabKey)
 
 /**
  * The list of school children grouped by their future school (alphabetical, „ohne“ last); the children keep their order
- * inside a school.
+ * inside a school. Grouped by the shown name („Organisation, Ort“), so a facility's copy of a school and the Träger's
+ * contact of the same name and city form one section, on purpose.
  */
 export function groupBySchool<T extends { futureSchool: string | null }>(rows: readonly T[]): { school: string | null; rows: T[] }[] {
   const groups = new Map<string | null, T[]>()

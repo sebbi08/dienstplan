@@ -131,11 +131,13 @@ async function remove(contact: ContactDto) {
             <ul class="space-y-1">
               <li v-if="contact.phone" class="flex items-center gap-2">
                 <UIcon name="i-lucide-phone" class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-                <a :href="telHref(contact.phone)" class="text-sky-700 hover:underline" :aria-label="t.call(contact.phone)">{{ contact.phone }}</a>
+                <a v-if="telHref(contact.phone)" :href="telHref(contact.phone)" class="text-sky-700 hover:underline" :aria-label="t.call(contact.phone)">{{ contact.phone }}</a>
+                <span v-else>{{ contact.phone }}</span>
               </li>
               <li v-if="contact.mobile" class="flex items-center gap-2">
                 <UIcon name="i-lucide-smartphone" class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-                <a :href="telHref(contact.mobile)" class="text-sky-700 hover:underline" :aria-label="t.call(contact.mobile)">{{ contact.mobile }}</a>
+                <a v-if="telHref(contact.mobile)" :href="telHref(contact.mobile)" class="text-sky-700 hover:underline" :aria-label="t.call(contact.mobile)">{{ contact.mobile }}</a>
+                <span v-else>{{ contact.mobile }}</span>
               </li>
               <li v-if="contact.email" class="flex items-center gap-2">
                 <UIcon name="i-lucide-mail" class="size-4 shrink-0 text-gray-500" aria-hidden="true" />

@@ -2488,7 +2488,8 @@ Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
 - Telefon, Mobil, E-Mail und Website sind anklickbar (Anruf, E-Mail-Programm, neue Seite).
 - **„auch für Mitarbeitende und am Tablet sichtbar“**: Nur Kontakte mit diesem Haken sehen Mitarbeiter-Konten (unter
   **Meins → Kontakte**, der Eintrag erscheint erst, wenn es mindestens einen solchen Kontakt gibt) und das Tablet (Kachel
-  **Kontakte** auf der Startseite, ohne PIN). Ohne Haken sehen ihn nur Leitung und Träger (Hinweis „nur Leitung“).
+  **Kontakte** auf der Startseite, ohne PIN). Ohne Haken sehen ihn auf dieser Seite nur Leitung und Träger (Hinweis
+  „nur Leitung“); zur Ausnahme bei Schulen siehe „Künftige Schule eines Kindes“.
 - **Drucken**: alle Kontakte oder die geöffnete Kategorie, jeweils so, wie die Person sie sieht (nicht am Tablet).
 
 ### Wer was darf
@@ -2513,8 +2514,13 @@ kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träg
 ### Künftige Schule eines Kindes
 
 - In der Kinderakte (Stammdaten) gibt es das Feld **„künftige Schule“**: Auswahl aus den Kontakten in Kategorien mit
-  „Schule“ im Namen (z. B. „Schulen“, „Grundschulen“) der Einrichtung und des Trägers. Ändern darf es, wer die Akte
-  ändern darf; am Tablet steht es lesend in den Stammdaten.
+  „Schule“ im Namen (z. B. „Schulen“, „Grundschulen“) der Einrichtung und des Trägers. Am Tablet gilt es wie die übrigen
+  Stammdaten (lesen; ändern, wer die Akte ändern darf).
+- Name und Ort einer Schule sieht in der Kinderakte (und in der Liste der Schulkinder) jede Person, die die Akte sehen
+  bzw. ändern darf – auch ohne den Haken „auch für Mitarbeitende und am Tablet sichtbar“; Ansprechperson, Telefon,
+  E-Mail und Notiz nicht.
+- Das frühere Freitextfeld heißt jetzt **„Grundschule (Notiz)“**. Es erscheint nur noch, wenn darin schon etwas steht oder
+  unter Kontakte noch keine Schule eingetragen ist; für die Liste der Schulkinder zählt nur „künftige Schule“.
 - Die Liste **Kinder → Belegung → „Schulkinder zum 1.9.“** zeigt die künftige Schule, lässt sich **nach Schule
   gruppieren** und **nach Schule drucken** (eine Liste pro Schule, z. B. zum Weitergeben an die Schule).
 - Wird der Kontakt gelöscht, verliert das Kind die Auswahl (das Feld ist dann leer). Zieht ein Kind in eine andere
@@ -2525,4 +2531,6 @@ kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träg
 Die Kontakte sind **Geschäftskontakte** (Behörden, Schulen, Firmen und deren Ansprechpersonen), keine Daten von Kindern,
 Eltern oder Mitarbeitern. Es gibt daher keine eigene Löschfrist: Wer einen Kontakt nicht mehr braucht, löscht ihn. Die
 Kontakte einer Einrichtung (und ihre Kategorien) gehören zur Einrichtung und würden mit ihr gelöscht. In den Sicherungen
-sind sie wie alle Daten enthalten.
+sind sie wie alle Daten enthalten. Wer einen Kontakt zuletzt geändert hat (Benutzername, Datum), sehen nur Leitung und
+Träger, nicht die Mitarbeiter und nicht das Tablet. E-Mail-Adressen dürfen keine Zusätze wie „?bcc=“ enthalten, damit ein
+Klick darauf keine weiteren Empfänger einträgt.

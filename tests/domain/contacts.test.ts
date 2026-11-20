@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  contactAddress, contactPrintPath, contactsOfTab, contactTabFromQuery, contactTabs, groupBySchool, tabCategoryName, websiteLabel,
+  contactAddress, contactPrintPath, contactsOfTab, contactTabFromQuery, contactTabs, groupBySchool, printedTab, printSections,
+  tabCategoryName, websiteLabel,
 } from '../../app/utils/contacts'
 import { contactMatches, isEmailAddress, isSchoolCategory, normalizedWebsite, telHref } from '../../shared/domain/contacts'
 import type { ContactCategoryDto, ContactDto } from '../../shared/types/api'
@@ -18,6 +19,10 @@ describe('contact fields', () => {
     expect(isEmailAddress('kein-at.de')).toBe(false)
     expect(isEmailAddress('a b@c.de')).toBe(false)
     expect(isEmailAddress('a@localhost')).toBe(false)
+    // Nothing that adds to the mailto: link: queries, further recipients, quoting, escapes.
+    for (const bad of ['info@schule.de?bcc=x@extern.de', 'a@b.de?body=x', 'a@b.de&cc=c@d.de', 'a@b.de,c@d.de', 'a;b@c.de', '<a@b.de>', '"a"@b.de', 'a(b)@c.de', 'a%40b@c.de']) {
+      expect(isEmailAddress(bad), bad).toBe(false)
+    }
   })
 
   it('takes websites with http or https only, putting https:// in front of a bare host', () => {
@@ -25,7 +30,10 @@ describe('contact fields', () => {
     expect(normalizedWebsite(' www.schule.de ')).toBe('https://www.schule.de')
     expect(normalizedWebsite('http://schule.de/kontakt')).toBe('http://schule.de/kontakt')
     expect(normalizedWebsite('HTTPS://Schule.de')).toBe('HTTPS://Schule.de')
-    for (const bad of ['javascript:alert(1)', 'ftp://schule.de', 'data:text/html,x', 'schule', 'www.schule .de']) {
+    // A host with a port but without a scheme gets https:// as well.
+    expect(normalizedWebsite('schule.de:8080/termine')).toBe('https://schule.de:8080/termine')
+    expect(normalizedWebsite('localhost:3000')).toBe('https://localhost:3000')
+    for (const bad of ['javascript:alert(1)', 'JavaScript:void(0)', 'javascript:1', 'ftp://schule.de', 'mailto:a@b.de', 'data:text/html,x', 'schule', 'www.schule .de']) {
       expect(normalizedWebsite(bad), bad).toBeNull()
     }
   })
@@ -33,6 +41,8 @@ describe('contact fields', () => {
   it('makes tel: links of phone numbers', () => {
     expect(telHref('06221 / 12 34-5')).toBe('tel:0622112345')
     expect(telHref('+49 (0)6221 12345')).toBe('tel:+49622112345')
+    // No digit: no link (shown as text).
+    expect(telHref('über Sekretariat')).toBe('')
   })
 
   it('finds every word in organisation, person, role, note or city, regardless of case', () => {
@@ -62,6 +72,12 @@ describe('the page „Kontakte“', () => {
     expect(contactTabFromQuery('3', tabs)).toBe('3')
     expect(contactTabFromQuery('2', tabs)).toBe('all')
     expect(contactTabFromQuery(undefined, tabs)).toBe('all')
+    expect(printedTab('all', tabs)).toBe('all')
+    expect(printedTab('3', tabs)).toBe('3')
+    expect(printedTab('provider', tabs)).toBe('provider')
+    // A deleted category or one without contacts for the viewer: an empty printout, not everything.
+    expect(printedTab('2', tabs)).toBeNull()
+    expect(printedTab('99', tabs)).toBeNull()
     expect(tabCategoryName(tabs, '1')).toBe('Schulen')
     expect(tabCategoryName(tabs, 'provider')).toBeNull()
   })
@@ -81,6 +97,16 @@ describe('the page „Kontakte“', () => {
     expect(websiteLabel('https://www.schule.de/')).toBe('www.schule.de')
     expect(contactPrintPath('all')).toBe('/print/contacts/all')
     expect(contactPrintPath('3')).toBe('/print/contacts/3')
+  })
+
+  it('prints the sections of the printed tab only, from the contacts the server gave the viewer', () => {
+    const tabs = contactTabs(categories, contacts, false)
+    const sections = (tab: Parameters<typeof printSections>[2]) =>
+      printSections(tabs, contacts, tab).map(section => [section.key, section.category?.name ?? null, section.contacts.map(entry => entry.id)])
+    expect(sections('all')).toEqual([['1', 'Schulen', [1, 2]], ['3', 'Sonstiges', [3]], ['provider', null, [4]]])
+    expect(sections('3')).toEqual([['3', 'Sonstiges', [3]]])
+    expect(sections('provider')).toEqual([['provider', null, [4]]])
+    expect(sections(null)).toEqual([])
   })
 
   it('groups the school children by their future school, alphabetical, „ohne“ last', () => {

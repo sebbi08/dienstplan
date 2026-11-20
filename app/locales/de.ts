@@ -3261,6 +3261,7 @@ export const de = {
     futureSchool: 'künftige Schule', noFutureSchool: 'keine Auswahl',
     futureSchoolHint: 'Zur Auswahl stehen die Kontakte in Kategorien mit „Schule“ im Namen (Mehr → Kontakte).',
     noSchoolOptions: 'Unter Kontakte ist noch keine Schule eingetragen.',
+    primarySchoolNote: 'Grundschule (Notiz)', primarySchoolNoteHint: 'Für die Liste der Schulkinder bitte ‚künftige Schule‘ auswählen',
     schoolColumn: 'künftige Schule', groupBySchool: 'nach Schule gruppieren', noSchool: 'ohne künftige Schule',
     printBySchool: 'Nach Schule drucken', schoolChildrenTitle: (date: string) => `Schulkinder zum ${date} nach künftiger Schule`,
   },

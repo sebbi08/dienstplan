@@ -136,11 +136,27 @@ describe('address book (Kontakte)', () => {
       const forStaff = listContacts(db, staff)
       expect(forStaff).toMatchObject({ canManage: false, canManageGlobal: false })
       expect(forStaff.contacts[0]!.canEdit).toBe(false)
+      // Who changed it when is for the managers only: no login names at the tablet or for the staff.
+      for (const viewer of [staff, tablet]) {
+        expect(listContacts(db, viewer).contacts.map(entry => [entry.updatedBy, entry.updatedAt])).toEqual([[null, '']])
+      }
+      expect(listContacts(db, leitung).contacts[0]).toMatchObject({ updatedBy: 'leitung', updatedAt: NOW.toISOString() })
       expect(forStaff.categories.find(category => category.id === schools)).toMatchObject({ contactCount: 1, ownCount: 0 })
       expect(forStaff.categories.find(category => category.name === 'Jugendamt')).toMatchObject({ contactCount: 0 })
       expect(staffContactCount(db, 1)).toBe(1)
       expect(listContacts(db, leitung)).toMatchObject({ canManage: true, canManageGlobal: false })
       expect(listContacts(db, provider)).toMatchObject({ canManage: true, canManageGlobal: true })
+    })
+
+    it('hides a contact for all facilities without the mark from the staff and the tablet of every facility', () => {
+      const krippe = addFacility(db, 'Krippe')
+      createContact(db, provider, contact({ scope: 'all', categoryName: 'Jugendamt', organisation: 'Kreisjugendamt' }), NOW)
+      expect(organisations(leitung)).toEqual(['Kreisjugendamt'])
+      expect(organisations(as('admin', krippe))).toEqual(['Kreisjugendamt'])
+      for (const viewer of [staff, tablet, as('observer', krippe), as('group_lead', krippe)]) expect(organisations(viewer)).toEqual([])
+      expect(listContacts(db, staff).categories.find(category => category.name === 'Jugendamt')).toMatchObject({ contactCount: 0 })
+      expect(staffContactCount(db, 1)).toBe(0)
+      expect(staffContactCount(db, krippe)).toBe(0)
     })
 
     it('keeps each facility to its own contacts', () => {
@@ -206,12 +222,19 @@ describe('address book (Kontakte)', () => {
       const hort = createContactCategory(db, leitung, { name: 'Schule & Hort' })
       const nord = createContact(db, leitung, contact({ categoryId: hort, organisation: 'Grundschule Nord' }), NOW)
       createContact(db, leitung, contact({ categoryId: categoryId('Jugendamt'), organisation: 'Jugendamt' }), NOW)
-      createContact(db, as('admin', krippe), contact({ categoryId: categoryId('Schulen', krippe), organisation: 'Krippenschule' }), NOW)
+      const foreign = createContact(db, as('admin', krippe), contact({ categoryId: categoryId('Schulen', krippe), organisation: 'Krippenschule' }), NOW)
       const all = createContact(db, provider, contact({ scope: 'all', categoryName: 'Grundschulen', organisation: 'Waldschule' }), NOW)
       createContact(db, provider, contact({ scope: 'all', categoryName: 'Verbände', organisation: 'Verband' }), NOW)
       expect(schoolOptions(db, 1)).toEqual([
         { id: nord, name: 'Grundschule Nord' }, { id: sued, name: 'Grundschule Süd, Heidelberg' }, { id: all, name: 'Waldschule' },
       ])
+      // Another facility's school is refused as the future school, on create and on save.
+      const actor = asChildViewer(addUser(db, 'leitung3', 'admin'))
+      expect(errorCode(() => createChild(db, actor, 1, master({ futureSchoolContactId: foreign }), NOW))).toBe('future_school_invalid')
+      const id = createChild(db, actor, 1, master({ futureSchoolContactId: all }), NOW)
+      expect(errorCode(() => updateChildMaster(db, actor, 1, id, master({ futureSchoolContactId: foreign }), '2027-04-01', NOW)))
+        .toBe('future_school_invalid')
+      expect(getChild(db, actor, id, '2027-04-01').master.futureSchoolContactId).toBe(all)
     })
 
     it('stores the school with the record, shows it in the list of school children and clears it with the contact', () => {
