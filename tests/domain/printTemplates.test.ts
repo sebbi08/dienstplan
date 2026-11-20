@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  berlinDay, chosenTemplateTab, FROM_PROVIDER_TAB, hiddenByVisibility, readTemplateTabMemory, templateTabs, titleFromFileName,
-  writeTemplateTabMemory,
+  berlinDay, chosenTemplateTab, defaultGlobalVisibility, FROM_PROVIDER_TAB, hiddenByVisibility, movedToProvider,
+  readTemplateTabMemory, sameCategoryName, templateTabs, titleFromFileName, writeTemplateTabMemory,
 } from '../../app/utils/printTemplates'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/api'
@@ -10,8 +10,8 @@ const template = (id: number, categoryId: number | null, title: string, category
   id, title, categoryId, category, global: categoryId === null, globalCategoryName: categoryId === null ? category : null,
   globalVisibility: categoryId === null ? 'all' : null, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
 })
-const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2): TemplateCategoryDto =>
-  ({ id, name, visibility, templateCount })
+const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2, globalCount = 0): TemplateCategoryDto =>
+  ({ id, name, visibility, templateCount, globalCount })
 
 describe('print template page helpers', () => {
   it('makes a sub-tab of every category the viewer sees, in the facility\'s order, empty ones too, titles alphabetical', () => {
@@ -64,6 +64,32 @@ describe('print template page helpers', () => {
     expect(hiddenByVisibility(category(1, 'Eltern', 'all', 0), 'provider')).toBe(0)
     expect(hiddenByVisibility(category(1, 'Eltern', 'provider', 3), 'provider')).toBe(0)
     expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'managers')).toBe(0)
+    // The Träger's templates shown in it by name count too (the confirmation names them).
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 1, 2), 'provider')).toBe(3)
+  })
+
+  it('names the Träger\'s templates that move to „Vom Träger“ when the category is deleted or renamed', () => {
+    const personal = category(1, 'Personal', 'managers', 0, 2)
+    expect(movedToProvider(personal, null)).toBe(2)
+    expect(movedToProvider(personal, 'Personalakten')).toBe(2)
+    // The same name in other letters keeps them.
+    expect(movedToProvider(personal, ' PERSONAL ')).toBe(0)
+    expect(movedToProvider(category(2, 'Straße', 'all', 0, 1), 'STRASSE')).toBe(0)
+    expect(movedToProvider(category(3, 'Eltern', 'all', 4, 0), null)).toBe(0)
+    expect(sameCategoryName('Ärztliches', 'ÄRZTLICHES')).toBe(true)
+    expect(sameCategoryName('Eltern', 'Elternbriefe')).toBe(false)
+  })
+
+  it('starts a template for all facilities as restricted as the category it is filed under', () => {
+    const all = ['all', 'managers', 'provider'] as const
+    expect(defaultGlobalVisibility(category(1, 'Leitung intern', 'managers'), all)).toBe('managers')
+    expect(defaultGlobalVisibility(category(1, 'Geheim', 'provider'), all)).toBe('provider')
+    expect(defaultGlobalVisibility(category(1, 'Eltern'), all)).toBe('all')
+    // „Vom Träger“ (no category) or none open: visible to all.
+    expect(defaultGlobalVisibility(null, all)).toBe('all')
+    expect(defaultGlobalVisibility(undefined, all)).toBe('all')
+    // Never wider than the editor may give, never wider than the category: the strictest level the editor has.
+    expect(defaultGlobalVisibility(category(1, 'Geheim', 'provider'), ['all', 'managers'])).toBe('managers')
   })
 
   it('shows the Berlin day of a timestamp', () => {

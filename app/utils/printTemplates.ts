@@ -66,10 +66,35 @@ export function writeTemplateTabMemory(key: string): void {
 
 /**
  * How many templates of the category Leitung, Mitarbeiter and the tablet would no longer see with the new visibility:
- * all of them when it becomes the Träger's alone, else none (to ask before saving).
+ * all of them (the facility's own and the Träger's shown in it by name) when it becomes the Träger's alone, else none
+ * (to ask before saving).
  */
 export function hiddenByVisibility(category: TemplateCategoryDto, visibility: TemplateVisibility): number {
-  return visibility === 'provider' && category.visibility !== 'provider' ? category.templateCount : 0
+  return visibility === 'provider' && category.visibility !== 'provider' ? category.templateCount + category.globalCount : 0
+}
+
+/** Whether two category names count as the same (case, umlauts and ß/ss aside), as the server compares them. */
+export const sameCategoryName = (a: string, b: string): boolean => {
+  const fold = (name: string) => name.trim().toLocaleLowerCase('de').replace(/ß/g, 'ss')
+  return fold(a) === fold(b)
+}
+
+/**
+ * How many of the Träger's templates for all facilities leave the category for „Vom Träger“ when it is deleted
+ * (`newName` null) or renamed to `newName` (to name them in the confirmation).
+ */
+export function movedToProvider(category: TemplateCategoryDto, newName: string | null): number {
+  return newName !== null && sameCategoryName(category.name, newName) ? 0 : category.globalCount
+}
+
+/**
+ * Who sees a new template for all facilities, to start with: the visibility of the category it is filed under (the open
+ * sub-tab's, or the facility's category of the typed name), so a template for a restricted category stays restricted
+ * where a facility has no category of that name; 'all' without one. Clamped to what the editor may give.
+ */
+export function defaultGlobalVisibility(category: TemplateCategoryDto | null | undefined, levels: readonly TemplateVisibility[]): TemplateVisibility {
+  if (!category) return 'all'
+  return levels.includes(category.visibility) ? category.visibility : levels.at(-1) ?? 'all'
 }
 
 /** The title a chosen file suggests: its name without the extension. */

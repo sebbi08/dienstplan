@@ -2275,27 +2275,30 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec(`
       INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
       INSERT INTO users (id, username, password_hash, role) VALUES (1, 'traeger', 'x', 'provider');
-      INSERT INTO template_categories (id, name, sort_order, visibility) VALUES (4, 'Leitung intern', 3, 'managers'), (5, 'MITARBEITERMAPPE', 4, 'all');
+      INSERT INTO template_categories (id, name, sort_order, visibility) VALUES
+        (4, 'Leitung intern', 3, 'managers'), (5, 'MITARBEITERMAPPE', 4, 'all'), (6, 'Träger intern', 5, 'provider');
       INSERT INTO print_templates (id, facility_id, title, category_id, mime_type, size, data, uploaded_by, uploaded_at, updated_at) VALUES
         (1, 1, 'Zahnarzt', 2, 'application/pdf', 3, x'255044', 1, 'a', 'b'),
         (2, 2, 'Ausflug', 1, 'application/pdf', 3, x'255044', NULL, 'a', 'b'),
         (3, NULL, 'Urlaubsantrag', 3, 'application/pdf', 3, x'255044', 1, 'a', 'b'),
         (4, NULL, 'Interna', 4, 'application/pdf', 3, x'255044', 1, 'a', 'b'),
-        (5, 2, 'Mappe', 5, 'application/pdf', 3, x'255044', 1, 'a', 'b');
+        (5, 2, 'Mappe', 5, 'application/pdf', 3, x'255044', 1, 'a', 'b'),
+        (6, NULL, 'Geheim', 6, 'application/pdf', 3, x'255044', 1, 'a', 'b');
     `)
     const before = sqlite.prepare('SELECT * FROM print_templates ORDER BY id').all() as Record<string, unknown>[]
 
-    migrateDb(db, MIGRATIONS)
+    // Only through 0108, so a later migration of these tables does not change the result.
+    migrateThrough(db, '0108')
 
-    // Each facility its own copy, same names, order and visibility; „Eingewöhnungsmappe“ first, „Mitarbeitermappe“ not
-    // again (there is one, in other letter case).
+    // Each facility its own copy, same names, order and visibility (numbered from 2 on); „Eingewöhnungsmappe“ first (0),
+    // „Mitarbeitermappe“ not again: the one there (in other letter case) keeps its place, so 1 stays free.
     const perFacility = [
-      ['Eingewöhnungsmappe', 'all'], ['Eltern', 'all'], ['Gesundheit', 'all'], ['Personal', 'all'], ['Leitung intern', 'managers'],
-      ['MITARBEITERMAPPE', 'all'],
+      ['Eingewöhnungsmappe', 0, 'all'], ['Eltern', 2, 'all'], ['Gesundheit', 3, 'all'], ['Personal', 4, 'all'],
+      ['Leitung intern', 5, 'managers'], ['MITARBEITERMAPPE', 6, 'all'], ['Träger intern', 7, 'provider'],
     ]
-    expect(sqlite.prepare('SELECT facility_id, name, visibility FROM template_categories ORDER BY facility_id, sort_order, id').all()
+    expect(sqlite.prepare('SELECT facility_id, name, sort_order, visibility FROM template_categories ORDER BY facility_id, sort_order, id').all()
       .map(row => Object.values(row as Record<string, unknown>)))
-      .toEqual([1, 2].flatMap(facility => perFacility.map(([name, visibility]) => [facility, name, visibility])))
+      .toEqual([1, 2].flatMap(facility => perFacility.map(row => [facility, ...row])))
     const after = sqlite.prepare(`
       SELECT p.*, c.facility_id AS category_facility, c.name AS category_row_name
       FROM print_templates p LEFT JOIN template_categories c ON c.id = p.category_id ORDER BY p.id
@@ -2307,6 +2310,8 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       [3, null, null, 'Personal', 'all'],
       [4, null, null, 'Leitung intern', 'managers'],
       [5, 2, 'MITARBEITERMAPPE', null, 'all'],
+      // From a category for the Träger alone: stays the Träger's (also where a facility deletes its copy).
+      [6, null, null, 'Träger intern', 'provider'],
     ])
     expect(after.map(({ category_id: _id, category_name: _name, visibility: _visibility, category_facility: _f, category_row_name: _n, ...rest }) => rest))
       .toEqual(before.map(({ category_id: _id, ...rest }) => rest))
@@ -2323,7 +2328,22 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     // The categories go with their facility (its templates as well).
     sqlite.exec('DELETE FROM facilities WHERE id = 2')
     expect(sqlite.prepare('SELECT DISTINCT facility_id FROM template_categories').all()).toEqual([{ facility_id: 1 }])
-    expect(sqlite.prepare('SELECT id FROM print_templates ORDER BY id').all()).toEqual([{ id: 1 }, { id: 3 }, { id: 4 }])
+    expect(sqlite.prepare('SELECT id FROM print_templates ORDER BY id').all()).toEqual([{ id: 1 }, { id: 3 }, { id: 4 }, { id: 6 }])
+  })
+
+  it('0108 skips a folder named alike under the German fold (umlaut in other case) and adds the other one second', () => {
+    const { db, sqlite } = databaseAt('0107')
+    // SQLite's lower() leaves Ö alone; the migration folds it like the app does.
+    sqlite.exec(`INSERT INTO template_categories (id, name, sort_order, visibility) VALUES (4, ' EINGEWÖHNUNGSMAPPE ', 3, 'managers')`)
+    migrateThrough(db, '0108')
+    expect(sqlite.prepare('SELECT name, sort_order, visibility FROM template_categories WHERE facility_id = 1 ORDER BY sort_order, id').all())
+      .toEqual([
+        { name: 'Mitarbeitermappe', sort_order: 1, visibility: 'all' },
+        { name: 'Eltern', sort_order: 2, visibility: 'all' },
+        { name: 'Gesundheit', sort_order: 3, visibility: 'all' },
+        { name: 'Personal', sort_order: 4, visibility: 'all' },
+        { name: ' EINGEWÖHNUNGSMAPPE ', sort_order: 5, visibility: 'managers' },
+      ])
   })
 
   it('0108 gives a new database the default categories of a new facility, the two folders first', () => {

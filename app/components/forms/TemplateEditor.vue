@@ -204,8 +204,11 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
               <p class="text-xs text-gray-500">{{ de.forms.kindHints[listKind] }}</p>
             </div>
           </div>
-          <!-- None of the kind (a new facility starts with the accident reports only): how to make one. -->
-          <p v-if="!activeOf(listKind).length" class="text-sm text-gray-500">{{ de.forms.noTemplates }}</p>
+          <!-- None active of the kind (a new facility starts with the accident reports only): how to make one; with stopped
+               ones listed below, a text that says so. -->
+          <p v-if="!activeOf(listKind).length" class="text-sm text-gray-500">
+            {{ archivedOf(listKind).length ? de.forms.noActiveTemplates : de.forms.noTemplates }}
+          </p>
           <ul class="divide-y divide-gray-100">
             <li v-for="template in activeOf(listKind)" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
               <div class="min-w-0 flex-1 basis-48">

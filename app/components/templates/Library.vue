@@ -6,7 +6,8 @@ import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import {
-  berlinDay, chosenTemplateTab, readTemplateTabMemory, templateFileUrl, templateTabs, titleFromFileName, writeTemplateTabMemory,
+  berlinDay, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, sameCategoryName, templateFileUrl, templateTabs,
+  titleFromFileName, writeTemplateTabMemory,
 } from '~/utils/printTemplates'
 
 /**
@@ -83,14 +84,22 @@ const scopeItems = computed(() => [
 ])
 const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => categoryLevels.value.includes(level))
   .map(level => ({ label: de.printTemplates.categories.visibilities[level], value: level })))
-// The category names the facilities use, loaded when the Träger first files a template for all facilities.
+// The category names the facilities use, loaded afresh each time the Träger files a template for all facilities (so a
+// name typed for the last upload is offered too).
 const categoryNames = ref<string[]>([])
 async function loadCategoryNames() {
-  if (!canEditGlobal.value || categoryNames.value.length) return
-  categoryNames.value = await $fetch<string[]>('/api/template-categories/names').catch(() => [])
+  if (!canEditGlobal.value) return
+  categoryNames.value = await $fetch<string[]>('/api/template-categories/names').catch(() => categoryNames.value)
 }
 watch(forAll, (value) => {
   if (value && open.value) loadCategoryNames()
+})
+// A new template for all facilities starts with the visibility of the facility's category of the typed (or chosen) name,
+// so one meant for a restricted category is not shown to everyone where a facility lacks that category. Can be changed.
+watch(() => form.categoryName, (name) => {
+  if (editing.value !== null || !open.value) return
+  const match = categories.value.find(category => sameCategoryName(category.name, name))
+  if (match) form.visibility = defaultGlobalVisibility(match, categoryLevels.value)
 })
 
 function resetFile() {
@@ -105,7 +114,9 @@ function openNew() {
   // The open sub-tab's category is the likely one; with a single category there is nothing to choose.
   const preset = current.value?.category?.id ?? (categories.value.length === 1 ? categories.value[0]!.id : undefined)
   const presetName = current.value?.category?.name ?? current.value?.templates[0]?.category ?? ''
-  Object.assign(form, { title: '', categoryId: preset, scope: 'facility', categoryName: presetName, visibility: 'all' })
+  // For all facilities: as restricted as the open sub-tab's category (none for „Vom Träger“).
+  const visibility = defaultGlobalVisibility(current.value?.category, categoryLevels.value)
+  Object.assign(form, { title: '', categoryId: preset, scope: 'facility', categoryName: presetName, visibility })
   open.value = true
 }
 

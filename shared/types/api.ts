@@ -684,6 +684,11 @@ export interface TemplateCategoryDto {
   visibility: TemplateVisibility
   /** The facility's own templates filed in it; while there are any it cannot be deleted. */
   templateCount: number
+  /**
+   * The Träger's templates for all facilities shown in it (by its name) that the viewer sees: they move to „Vom Träger“
+   * when it is deleted or renamed (the confirmations name them).
+   */
+  globalCount: number
 }
 
 /** What Leitung or Träger enter about a category. */

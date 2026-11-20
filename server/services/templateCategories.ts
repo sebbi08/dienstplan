@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { seesTemplateCategory, visibleTemplateLevels, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { Role, SessionUser, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
@@ -30,14 +30,30 @@ export const comparableCategoryName = (name: string) => name.trim().toLocaleLowe
 
 /**
  * The categories of the viewer's facility they see, in their order, with how many of the facility's own templates are
- * filed in them.
+ * filed in them and how many of the Träger's templates for all facilities (that the viewer sees) show in them by name.
+ * A name shared by twins from before the categories counts for the first of them, as the templates show there.
  */
 export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategoryDto[] {
-  const rows = facilityCategories(db, viewer.facilityId).filter(row => seesTemplateCategory(viewer.role, row.visibility))
+  const all = facilityCategories(db, viewer.facilityId)
+  const rows = all.filter(row => seesTemplateCategory(viewer.role, row.visibility))
   const counts = new Map(rows.length === 0 ? [] : db.select({ id: printTemplates.categoryId, n: count() }).from(printTemplates)
     .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).groupBy(printTemplates.categoryId).all()
     .map(row => [row.id, row.n]))
-  return rows.map(row => ({ id: row.id, name: row.name, visibility: row.visibility, templateCount: counts.get(row.id) ?? 0 }))
+  const firstByName = new Map<string, number>()
+  for (const row of all) {
+    const key = comparableCategoryName(row.name)
+    if (!firstByName.has(key)) firstByName.set(key, row.id)
+  }
+  const globalCounts = new Map<number, number>()
+  const globals = db.select({ name: printTemplates.categoryName, visibility: printTemplates.visibility }).from(printTemplates)
+    .where(isNull(printTemplates.facilityId)).all()
+  for (const global of globals) {
+    const id = firstByName.get(comparableCategoryName(global.name ?? ''))
+    if (id !== undefined && seesTemplateCategory(viewer.role, global.visibility)) globalCounts.set(id, (globalCounts.get(id) ?? 0) + 1)
+  }
+  return rows.map(row => ({
+    id: row.id, name: row.name, visibility: row.visibility, templateCount: counts.get(row.id) ?? 0, globalCount: globalCounts.get(row.id) ?? 0,
+  }))
 }
 
 /** The category of a facility's template as the viewer chooses it: one of the facility they see, else 400 template_category_invalid. */

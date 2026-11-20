@@ -50,8 +50,8 @@ describe('template categories', () => {
       const eltern = create(leitung, '  Eltern ')
       create(provider, 'Personal', 'managers')
       expect(listCategories(db, provider)).toEqual([
-        { id: eltern, name: 'Eltern', visibility: 'all', templateCount: 0 },
-        { id: expect.any(Number), name: 'Personal', visibility: 'managers', templateCount: 0 },
+        { id: eltern, name: 'Eltern', visibility: 'all', templateCount: 0, globalCount: 0 },
+        { id: expect.any(Number), name: 'Personal', visibility: 'managers', templateCount: 0, globalCount: 0 },
       ])
     })
 
@@ -100,6 +100,24 @@ describe('template categories', () => {
       const user = addUser(db, 'leitung', 'admin')
       uploadTemplate(db, { ...user, facilityId: 1 }, { title: 'Brief', categoryId: used, scope: 'facility' }, { data: pdf, filename: 'brief.pdf' })
       expect(listCategories(db, leitung).map(category => [category.name, category.templateCount])).toEqual([['Eltern', 1], ['Leer', 0]])
+    })
+
+    it('counts the Träger\'s templates for all facilities shown in a category by name, those the viewer sees', () => {
+      create(provider, 'Personal', 'managers')
+      create(leitung, 'Eltern')
+      const traeger = { ...addUser(db, 'traeger', 'provider'), facilityId: 1 }
+      const forAll = (title: string, categoryName: string, visibility: TemplateVisibility = 'all') =>
+        uploadTemplate(db, traeger, { title, categoryName, visibility, scope: 'all' }, { data: pdf, filename: 'x.pdf' })
+      forAll('Urlaubsantrag', ' personal ')
+      forAll('Dienstreise', 'Personal', 'managers')
+      forAll('Nur Träger', 'Personal', 'provider')
+      forAll('Speiseplan', 'Küche')
+      const counts = (role: Role) => listCategories(db, { role, facilityId: 1 }).map(category => [category.name, category.templateCount, category.globalCount])
+      expect(counts('provider')).toEqual([['Personal', 0, 3], ['Eltern', 0, 0]])
+      expect(counts('admin')).toEqual([['Personal', 0, 2], ['Eltern', 0, 0]])
+      // A new facility's own „Personal“ (a default category) shows them as well.
+      const krippe = addFacility(db, 'Krippe')
+      expect(listCategories(db, { role: 'admin', facilityId: krippe }).find(category => category.name === 'Personal')!.globalCount).toBe(2)
     })
 
     it('lets only the Träger create a category for the Träger alone', () => {

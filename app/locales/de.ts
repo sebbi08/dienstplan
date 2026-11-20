@@ -16,6 +16,10 @@ const keptAbsencesNote = (count: number, kind: string) => (count === 1
   : `${count} Tage mit einer anderen Abwesenheit (Krank, Fortbildung, Urlaub o. Ä.) blieben unverändert und zählen nicht als ${kind}.`)
 /** „an 1 Tag“ / „an 5 Tagen“ (plan days, whatever they count in the leave account). */
 const onDays = (count: number) => (count === 1 ? 'an 1 Tag' : `an ${count} Tagen`)
+/** The Träger's templates for all facilities that leave a category (deleted or renamed) for „Vom Träger“. */
+const providerMoves = (count: number) => (count === 1
+  ? 'Die 1 Vorlage des Trägers darin steht danach unter „Vom Träger“ – sichtbar für alle, für die der Träger sie freigegeben hat.'
+  : `Die ${count} Vorlagen des Trägers darin stehen danach unter „Vom Träger“ – sichtbar für alle, für die der Träger sie freigegeben hat.`)
 /** Jugendarbeitsschutz without a birth year: in the plan's hints (with the name) and on the employee page. */
 const YOUTH_BIRTH_YEAR_MISSING = 'Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden'
 /** A birth year without a birthday in the year of the 18th birthday (the same places). */
@@ -58,7 +62,7 @@ export const de = {
     settings: 'Einstellungen', retention: 'Löschfristen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
-    templates: 'Vorlagen', documents: 'Dokumente', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', forms: 'Bögen', accidents: 'Unfälle',
+    documents: 'Dokumente', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', accidents: 'Unfälle',
     more: 'Mehr', mine: 'Meins', menu: 'Menü', signedInAs: 'Angemeldet als', calendarShort: 'Kalender', mainMenu: 'Hauptmenü',
   },
   leavePlanning: {
@@ -1350,7 +1354,6 @@ export const de = {
     title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Vorlagen' },
   },
   printTemplates: {
-    title: 'Vorlagen',
     intro: 'Leere Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
     none: 'Es gibt noch keine Vorlagen.',
     upload: 'Vorlage hochladen', edit: 'Vorlage bearbeiten', open: 'Öffnen',
@@ -1368,7 +1371,8 @@ export const de = {
     categoryName: 'Kategorie',
     categoryNameHint: 'Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen. Hat sie keine, steht die Vorlage dort unter „Vom Träger“.',
     globalVisibility: 'Wer sieht sie?',
-    globalVisibilityHint: 'Ist die Kategorie der Einrichtung enger eingestellt, gilt die Kategorie.',
+    globalVisibilityHint: 'Gilt überall, wo eine Einrichtung keine Kategorie mit diesem Namen hat (dort unter „Vom Träger“). '
+      + 'Ist die Kategorie einer Einrichtung enger eingestellt, gilt dort die Kategorie.',
     categories: {
       intro: 'Die Kategorien gelten nur für diese Einrichtung. Löschen lässt sich nur eine leere Kategorie.',
       none: 'Es gibt noch keine Kategorien.',
@@ -1376,9 +1380,16 @@ export const de = {
       visibilities: { all: 'Alle (auch Mitarbeiter und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' },
       moveUp: 'Nach oben', moveDown: 'Nach unten',
       templateCount: (n: number) => (n === 1 ? '1 Vorlage' : `${n} Vorlagen`),
-      confirmProviderOnly: (name: string, n: number) => `${n === 1 ? 'Die 1 Vorlage' : `Die ${n} Vorlagen`} in „${name}“ `
+      // The Träger's templates for all facilities shown in the category by its name.
+      globalCount: (n: number) => (n === 1 ? '1 Vorlage vom Träger' : `${n} Vorlagen vom Träger`),
+      /** `global`: how many of the `n` are the Träger's templates for all facilities. */
+      confirmProviderOnly: (name: string, n: number, global = 0) => `${n === 1 ? 'Die 1 Vorlage' : `Die ${n} Vorlagen`} in „${name}“ `
+        + `${global > 0 ? `(davon ${global} vom Träger für alle Einrichtungen) ` : ''}`
         + 'sehen Leitung, Mitarbeiter und Tablet dann nicht mehr. Trotzdem auf „Nur Träger“ stellen?',
-      confirmDelete: (name: string) => `Die Kategorie „${name}“ löschen?`,
+      /** `moved`: the Träger's templates for all facilities that then show under „Vom Träger“. */
+      confirmDelete: (name: string, moved = 0) => `Die Kategorie „${name}“ löschen?${moved > 0 ? ` ${providerMoves(moved)}` : ''}`,
+      confirmRename: (name: string, moved: number) => `Die Kategorie „${name}“ umbenennen? ${providerMoves(moved)}`,
+      rename: 'Umbenennen',
     },
     scope: 'Gilt für', scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'alle Einrichtungen',
     global: 'alle Einrichtungen', globalHint: 'Vom Träger für alle Einrichtungen – nur der Träger kann sie ändern.',
@@ -2350,6 +2361,8 @@ export const de = {
     prefillBadge: 'wird vorausgefüllt',
     prefillHint: 'Dieser Punkt wird beim Anlegen eines Bogens aus den gespeicherten Daten vorausgefüllt (danach frei änderbar).',
     noTemplates: 'Noch keine Vorlagen dieser Art. Namen unten eintragen und auf „Vorlage anlegen“ tippen.',
+    // Only stopped (archived) templates of the kind: they are listed below, folded.
+    noActiveTemplates: 'Keine aktive Vorlage dieser Art. Namen unten eintragen und auf „Vorlage anlegen“ tippen – oder unten eine stillgelegte wieder aktivieren.',
     newTemplateName: 'Name der neuen Vorlage', nameFirst: 'Bitte zuerst oben einen Namen für die neue Vorlage eingeben.',
     createTemplate: 'Vorlage anlegen',
     name: 'Name',

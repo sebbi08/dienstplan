@@ -2,13 +2,14 @@
 import type { TemplateVisibility } from '#shared/domain/templateCategories'
 import type { TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { hiddenByVisibility } from '~/utils/printTemplates'
+import { hiddenByVisibility, movedToProvider } from '~/utils/printTemplates'
 
 /**
  * „Kategorien verwalten“ on „Dokumente“ → „Vorlagen“ (whoever may edit templates), for the active facility: create,
  * rename, reorder, change who sees a category, delete an empty one (templates for all facilities filed by its name do
- * not count). The list holds only the categories the editor sees, and only the visibilities the editor sees are offered (`levels`: a Mitarbeiter only „alle“, the Leitung not „nur Träger“; the server refuses them
- * as well).
+ * not count, but deleting or renaming names them: they move to „Vom Träger“). The list holds only the categories the
+ * editor sees, and only the visibilities the editor sees are offered (`levels`: a Mitarbeiter only „alle“, the Leitung
+ * not „nur Träger“; the server refuses them as well).
  */
 const props = defineProps<{ categories: TemplateCategoryDto[]; levels: TemplateVisibility[]; refresh: () => Promise<unknown> }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -44,7 +45,10 @@ async function save() {
   // Making a category with templates the Träger's alone hides them from Leitung, Mitarbeiter and the tablet: ask first.
   const current = props.categories.find(category => category.id === id)
   const hidden = current ? hiddenByVisibility(current, form.visibility) : 0
-  if (hidden > 0 && !(await confirm(t.confirmProviderOnly(current!.name, hidden)))) return
+  if (hidden > 0 && !(await confirm(t.confirmProviderOnly(current!.name, hidden, current!.globalCount)))) return
+  // A new name: the Träger's templates shown in it by the old name move to „Vom Träger“.
+  const moved = current ? movedToProvider(current, form.name) : 0
+  if (moved > 0 && !(await confirm(t.confirmRename(current!.name, moved), { confirmLabel: t.rename }))) return
   const saved = await run(() => (id === null
     ? $fetch<unknown>('/api/template-categories', { method: 'POST', body })
     : $fetch<unknown>(`/api/template-categories/${id}`, { method: 'PUT', body })), de.common.saved)
@@ -56,7 +60,7 @@ function move(category: TemplateCategoryDto, direction: 'up' | 'down') {
 }
 
 async function remove(category: TemplateCategoryDto) {
-  if (await confirm(t.confirmDelete(category.name))) {
+  if (await confirm(t.confirmDelete(category.name, movedToProvider(category, null)))) {
     const deleted = await run(() => $fetch<unknown>(`/api/template-categories/${category.id}`, { method: 'DELETE' }), de.common.deleted)
     if (deleted && editingId.value === category.id) startNew()
   }
@@ -74,7 +78,7 @@ async function remove(category: TemplateCategoryDto) {
             <div class="min-w-40 flex-1">
               <span class="font-medium">{{ category.name }}</span>
               <span class="block text-xs text-gray-500">
-                {{ t.visibilities[category.visibility] }}<template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template>
+                {{ t.visibilities[category.visibility] }}<template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template><template v-if="category.globalCount > 0"> · {{ t.globalCount(category.globalCount) }}</template>
               </span>
             </div>
             <div class="flex items-center gap-1">
