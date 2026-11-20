@@ -119,8 +119,10 @@ export function previewClosuresForEmployee(db: Db, facilityId: number, employeeI
   const current = yearEntitlement(db, employee, year)
   const coming = yearEntitlement(db, employee, year + 1)
   const person = { info: employee.info, halfLeaveOnEves: employee.halfLeaveOnEves, split: (dates: IsoDate[]) => splitLeave(db, employee, dates) }
+  // The one-off extra days of a year („Zusatztag nur für dieses Jahr“) count like entitlement days of that year.
+  const daysOf = (entitlement: typeof current) => (entitlement ? entitlement.days + entitlement.extraDays : null)
   return previewYears(db, facilityId, person, [
-    { year, from: fromOf(year), entitlementDays: current?.days ?? null, carriedOverDays: current?.carriedOverDays ?? 0 },
-    { year: year + 1, from: fromOf(year + 1), entitlementDays: coming?.days ?? null, carriedOverDays: 0 },
+    { year, from: fromOf(year), entitlementDays: daysOf(current), carriedOverDays: current?.carriedOverDays ?? 0 },
+    { year: year + 1, from: fromOf(year + 1), entitlementDays: daysOf(coming), carriedOverDays: 0 },
   ])
 }

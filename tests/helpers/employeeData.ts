@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps,
   teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -79,6 +79,7 @@ export function fillEmployeeData(
     db.insert(earlySickLeaves).values({ employeeId: id, date: '2026-10-07', createdAt: now.toISOString() }).run()
     db.insert(balanceAdjustments).values({ employeeId: id, date: '2026-01-01', minutes: 120, reason: 'Übertrag' }).run()
     db.insert(leaveEntitlements).values({ employeeId: id, year: 2026, days: 30 }).run()
+    db.insert(leaveExtraDays).values({ employeeId: id, year: 2026, days: 1, reason: 'Dank für Sommerfest', createdAt: now.toISOString() }).run()
     db.insert(leaveForfeitReceipts).values({ employeeId: id, year: 2025, days: 2, text: 'Du hast noch 2 Tage Urlaub aus 2025.', readAt: now.toISOString() }).run()
     db.insert(leaveRequests).values({ employeeId: id, startDate: '2026-10-12', endDate: '2026-10-13', createdAt: now.toISOString() }).run()
     db.insert(notifications).values({ employeeId: id, year: 2026, month: 10, createdAt: now.toISOString(), changes: '[]' }).run()

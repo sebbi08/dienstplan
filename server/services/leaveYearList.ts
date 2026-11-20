@@ -104,7 +104,10 @@ export function getLeaveYearList(
       const ranges = [...entryPeriods(employee, rows.filter(row => row.employeeId === account.employeeId), approved), ...closures]
         .filter(range => rangeMatches(range, filter))
         .sort((a, b) => a.from.localeCompare(b.from))
-      return { employeeId: account.employeeId, name: account.name, account: account.account, hasEntitlement: account.hasEntitlement, ranges }
+      return {
+        employeeId: account.employeeId, name: account.name, account: account.account, hasEntitlement: account.hasEntitlement,
+        extraDays: account.extraDays, ranges,
+      }
     })
     .filter(person => (!filter.kind && !filter.status) || person.ranges.length > 0)
 

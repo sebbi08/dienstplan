@@ -1,6 +1,6 @@
 import { todayIso } from '#shared/domain/dates'
 import type { LeaveAccount } from '#shared/domain/leave'
-import type { LeaveEntryKind, LeaveYearRangeDto, LeaveYearStatus } from '#shared/types/api'
+import type { LeaveEntryKind, LeaveExtraDaySummary, LeaveYearRangeDto, LeaveYearStatus } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatNumber } from '~/utils/format'
 
@@ -42,15 +42,21 @@ export function rangeOriginText(range: LeaveYearRangeDto): string {
   return t.originDirect
 }
 
-/** Anspruch (+ Übertrag) · genommen · verplant · frei verfügbar, as the leave account counts them. */
-export function leaveAccountLine(account: LeaveAccount, hasEntitlement: boolean): string {
+/**
+ * Anspruch (+ Zusatztage with their reasons) (+ Übertrag) · genommen · verplant · frei verfügbar, as the leave account
+ * counts them.
+ */
+export function leaveAccountLine(account: LeaveAccount, hasEntitlement: boolean, extraDays: LeaveExtraDaySummary[] = []): string {
   const t = de.leaveYearList
   const n = formatNumber
   if (!hasEntitlement) return [t.noEntitlement, t.taken(n(account.taken)), t.planned(n(account.planned))].join(' · ')
-  const entitlement = account.carriedOver
-    ? `${t.entitlement(n(account.entitlement))} + ${t.carriedOver(n(account.carriedOver))}`
-    : t.entitlement(n(account.entitlement))
-  return [entitlement, t.taken(n(account.taken)), t.planned(n(account.planned)), t.available(n(account.available))].join(' · ')
+  const reasons = extraDays.map(extra => extra.reason).join(', ')
+  const parts = [
+    t.entitlement(n(account.entitlement)),
+    ...(account.extraDays ? [`${de.leaveExtraDays.count(account.extraDays)}${reasons ? ` (${reasons})` : ''}`] : []),
+    ...(account.carriedOver ? [t.carriedOver(n(account.carriedOver))] : []),
+  ]
+  return [parts.join(' + '), t.taken(n(account.taken)), t.planned(n(account.planned)), t.available(n(account.available))].join(' · ')
 }
 
 /** The ISO timestamp as a date (Berlin), '' for none. */

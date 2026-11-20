@@ -541,6 +541,15 @@ describe('API route permissions', () => {
     }
   })
 
+  it('keeps the one-off extra leave days to who may save the entitlement, in the facility of the request', () => {
+    const touching = routes.filter(route => source(route).includes('services/leaveExtraDays\''))
+    expect(touching).toEqual(['employees/[id]/leave-extra-days.post.ts', 'employees/[id]/leave-extra-days/[extraId].delete.ts'])
+    for (const route of touching) {
+      expect(permissionCalls(route), route).toEqual(permissionCalls('employees/[id]/leave/[year].put.ts'))
+      expect(source(route), route).toContain('admin.facilityId')
+    }
+  })
+
   it('lets managers of the active facility delete a left employee for good', () => {
     const touching = routes.filter(route => source(route).includes('services/employeeDeletion\''))
     expect(touching).toEqual(['employees/[id].delete.ts'])

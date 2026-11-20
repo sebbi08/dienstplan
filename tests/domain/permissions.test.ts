@@ -344,7 +344,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(426)
+    expect(routes).toHaveLength(428)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 
@@ -379,6 +379,10 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
     // The closure leave preview (create form, employee page) needs the right of creating employees.
     for (const route of ['employees/closure-preview.post.ts', 'employees/[id]/closure-preview.get.ts']) {
       expect(fixture[route], route).toEqual(fixture['employees/index.post.ts'])
+    }
+    // „Zusatztag nur für dieses Jahr“: exactly who may save the entitlement.
+    for (const route of ['employees/[id]/leave-extra-days.post.ts', 'employees/[id]/leave-extra-days/[extraId].delete.ts']) {
+      expect(fixture[route], route).toEqual(fixture['employees/[id]/leave/[year].put.ts'])
     }
     // The one approved change of Teil 2: the Leitung reopens closed cash months.
     expect(fixture['cash/boxes/[id]/reopen.post.ts']).toEqual(['provider', 'admin'])

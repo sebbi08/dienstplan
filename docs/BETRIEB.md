@@ -1119,6 +1119,28 @@ Keine gesetzlichen Feiertage sind die beiden Tage trotzdem: Die Anwesenheit und 
 Personalschlüssel-Bericht, die Besetzungs-Warnungen im Dienstplan, Mutterschutz- und Jugendarbeitsschutz-Hinweise
 rechnen sie weiter als normale Tage.
 
+### Zusatztag nur für dieses Jahr
+
+Unter **„Urlaub & Zeiten“ → Urlaubsanspruch** gibt es den Knopf **„Zusatztag nur für dieses Jahr“**: Jahr (voreingestellt
+das laufende), Tage (voreingestellt 1; halbe Tage möglich, 0,5 bis 30) und eine **Begründung** (Pflicht, höchstens
+200 Zeichen, z. B. „Dank für Sommerfest“). Darunter stehen alle Zusatztage, z. B. „2026: + 1 Tag – Dank für Sommerfest
+(von ‹Name›, 20.11.2026)“, jeweils mit **Löschen** (mit Rückfrage). Hinzufügen und löschen darf genau, wer den
+Urlaubsanspruch ändern darf (Recht „Mitarbeiter anlegen und pflegen“, nur in der eigenen Einrichtung; ein Mitarbeiter
+mit diesem Recht nicht für sich selbst). Ein Zusatztag geht nur für ein Jahr, für das ein Urlaubsanspruch eingetragen ist
+(auch ein aus einem früheren Jahr übernommener); sonst erscheint ein Hinweis.
+
+So wird gerechnet: Zusatztage erhöhen **nur den frei verfügbaren Urlaub ihres Jahres** (Anspruch des Jahres + Zusatztage
++ Übertrag − genommen − verplant). Der **Anspruch der folgenden Jahre ändert sich nicht**. Was am Jahresende übrig ist,
+wird wie der übrige **Resturlaub** ins nächste Jahr übertragen (die automatische Übertragsrechnung sieht einfach mehr
+verfügbaren Urlaub) und verfällt beim **Hinweis auf Resturlaub** genauso wie der übrige Übertrag. Auch Schließzeiten als
+Urlaub (Grenze für Eintritte im Jahr) und die Prüfung von Urlaubsanträgen rechnen mit den Zusatztagen.
+
+Angezeigt werden sie überall, wo der Anspruch des Jahres steht: im Urlaubskasten der Mitarbeiterseite („Anspruch 30
++ 1 Zusatztag“, darunter die Begründung), unter **„Mein Urlaub“** (eigene Kachel „Zusatztage“ und die Begründungen – die
+Person sieht, wofür), in der **Urlaubsplanung → „Alle Anträge und Urlaube“** und deren Druck („Anspruch 30 + 1 Zusatztag
+(Dank für Sommerfest) + Übertrag …“) sowie in der Vorschau „Schließzeiten als Urlaub“ („Bei 31 Urlaubstagen bleiben …“).
+Gelöscht werden sie mit den Urlaubsansprüchen (Löschfrist „Sonstige Überstunden- und Zeitdaten“).
+
 ### Hinweis auf Resturlaub (Verfall)
 
 Der Arbeitgeber muss jeden Mitarbeiter rechtzeitig auf seinen Resturlaub hinweisen und darauf, dass er sonst verfällt

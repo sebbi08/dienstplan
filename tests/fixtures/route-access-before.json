@@ -189,6 +189,8 @@
   "employees/[id]/hours.post.ts": ["provider","admin"],
   "employees/[id]/leave-entries.delete.ts": ["provider","admin"],
   "employees/[id]/leave-entries.post.ts": ["provider","admin"],
+  "employees/[id]/leave-extra-days.post.ts": ["provider","admin"],
+  "employees/[id]/leave-extra-days/[extraId].delete.ts": ["provider","admin"],
   "employees/[id]/leave/[year].delete.ts": ["provider","admin"],
   "employees/[id]/leave/[year].put.ts": ["provider","admin"],
   "employees/[id]/maternity.get.ts": ["provider","admin"],

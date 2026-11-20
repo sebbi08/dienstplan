@@ -6,10 +6,12 @@ import type { ClosureLeaveDto, LeaveAccountDto, LeaveEntryKind, LeaveEntryRange 
 import type { Db } from '../db/client'
 import { absenceCodes, closures, entries } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { entitlementFor, firstEntitlementYear } from './entitlements'
+import { entitlementFor, firstEntitlementYear, leaveExtraDaysByYear, leaveExtraDaysOf } from './entitlements'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 export interface YearEntitlement extends LeaveEntitlement {
+  /** The one-off extra days of the year („Zusatztag nur für dieses Jahr“); never carried into a later entitlement. */
+  extraDays: number
   /** The year the entitlement (days) was recorded for; earlier than the year when it was carried into it. */
   fromYear: number
   /** True when the carry-over is what was left of the year before (every year after the first recorded one). */
@@ -24,7 +26,8 @@ function leaveDayRule(employee: EmployeeRecord): LeaveDayRule {
 /**
  * Entitlement and carry-over of an employee in a year. The days are the last ones recorded up to that year. The first
  * recorded year keeps the carry-over entered for it; every later year carries over what was left of the year before,
- * a minus too. Null before the first recorded year.
+ * a minus too. The one-off extra days of a year („Zusatztag nur für dieses Jahr“) count only in that year: they raise
+ * what is available there, so what is left of them carries over like the rest. Null before the first recorded year.
  */
 export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number): YearEntitlement | null {
   const first = firstEntitlementYear(db, employee.id)
@@ -32,16 +35,21 @@ export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number):
   const isLeaveDay = leaveDayRule(employee)
   const vacationDates = loadEntries(db, { employeeId: employee.id, from: `${first}-01-01`, to: `${year - 1}-12-31`, codeKey: 'vacation' })
     .map(entry => entry.date)
+  const extraDays = leaveExtraDaysByYear(db, employee.id)
   let carriedOverDays = entitlementFor(db, employee.id, first)!.carriedOverDays
   for (let current = first; current < year; current++) {
     const days = entitlementFor(db, employee.id, current)!.days
     // "available" does not depend on the day it is looked at, so any date will do.
     carriedOverDays = leaveAccount(
-      { days, carriedOverDays }, vacationDates, current, `${current}-01-01`, isLeaveDay, employee.halfLeaveOnEves,
+      { days, carriedOverDays, extraDays: extraDays.get(current) ?? 0 }, vacationDates, current, `${current}-01-01`, isLeaveDay,
+      employee.halfLeaveOnEves,
     ).available
   }
   const recorded = entitlementFor(db, employee.id, year)!
-  return { days: recorded.days, carriedOverDays, fromYear: recorded.fromYear, carriedAutomatically: year > first }
+  return {
+    days: recorded.days, extraDays: extraDays.get(year) ?? 0, carriedOverDays, fromYear: recorded.fromYear,
+    carriedAutomatically: year > first,
+  }
 }
 
 /**
@@ -64,6 +72,8 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
     ranges: groupLeaveRanges(vacationDates, isLeaveDay, employee.halfLeaveOnEves),
     entryRanges: entryRanges(db, employee, year, withReasons),
     closures: closureLeave(db, employee, year),
+    // Without an entitlement the account counts no extra days, so none are listed either.
+    extraDays: entitlement ? leaveExtraDaysOf(db, employeeId, year).map(({ days, reason }) => ({ days, reason })) : [],
   }
 }
 

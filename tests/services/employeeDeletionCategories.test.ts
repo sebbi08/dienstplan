@@ -34,7 +34,7 @@ const PAYROLL = 'employee_payroll.employee_id'
 const TIME = [
   'employee_hours.employee_id', 'help_outs.employee_id', 'entries.employee_id', 'change_log.employee_id', 'time_records.employee_id', 'time_record_changes.employee_id',
   'offline_stamps.employee_id',
-  'time_day_notes.employee_id', 'early_sick_leaves.employee_id', 'leave_entitlements.employee_id',
+  'time_day_notes.employee_id', 'early_sick_leaves.employee_id', 'leave_entitlements.employee_id', 'leave_extra_days.employee_id',
   'leave_forfeit_receipts.employee_id',
 ]
 const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id']

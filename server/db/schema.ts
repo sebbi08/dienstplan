@@ -244,6 +244,23 @@ export const leaveEntitlements = sqliteTable('leave_entitlements', {
   carriedOverDays: real('carried_over_days').notNull().default(0),
 }, table => [uniqueIndex('leave_entitlements_employee_year').on(table.employeeId, table.year)])
 
+/**
+ * „Zusatztag nur für dieses Jahr“: one-off extra leave days of an employee in one year (e.g. „Dank für Sommerfest“),
+ * 0.5 to 30 in half days, with a required reason. They raise only that year's available leave, never the entitlement of
+ * the following years; what is left at the end of the year carries over like the other Resturlaub
+ * (server/services/leave.ts yearEntitlement). Retention: with the leave entitlements. `createdBy` is the name of whoever
+ * added them.
+ */
+export const leaveExtraDays = sqliteTable('leave_extra_days', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  year: integer('year').notNull(),
+  days: real('days').notNull(),
+  reason: text('reason').notNull(),
+  createdBy: text('created_by').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+}, table => [index('leave_extra_days_employee_year').on(table.employeeId, table.year)])
+
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   username: text('username').notNull().unique(),

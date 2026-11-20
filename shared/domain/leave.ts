@@ -6,10 +6,24 @@ import type { IsoDate } from './types'
 export interface LeaveEntitlement {
   days: number
   carriedOverDays: number
+  /** „Zusatztag nur für dieses Jahr“: one-off extra days of this year only (never carried into a later entitlement). */
+  extraDays?: number
+}
+
+/** „Zusatztag nur für dieses Jahr“: at most this many days per entry (half days allowed). */
+export const LEAVE_EXTRA_DAYS_MAX = 30
+/** Longest reason of an extra day entry (after trimming). */
+export const LEAVE_EXTRA_REASON_MAX = 200
+
+/** Whether `days` is a valid number of extra days: 0.5 to LEAVE_EXTRA_DAYS_MAX in steps of half a day. */
+export function isValidLeaveExtraDays(days: number): boolean {
+  return Number.isFinite(days) && days >= 0.5 && days <= LEAVE_EXTRA_DAYS_MAX && Number.isInteger(days * 2)
 }
 
 export interface LeaveAccount {
   entitlement: number
+  /** The one-off extra days of the year („Zusatztag nur für dieses Jahr“), on top of the entitlement. */
+  extraDays: number
   carriedOver: number
   taken: number
   planned: number
@@ -78,8 +92,9 @@ export function leaveAccount(
   const taken = countLeaveDays(days.filter(date => date < today), halfOnEves)
   const planned = countLeaveDays(days, halfOnEves) - taken
   const total = entitlement?.days ?? 0
+  const extraDays = entitlement?.extraDays ?? 0
   const carriedOver = entitlement?.carriedOverDays ?? 0
-  return { entitlement: total, carriedOver, taken, planned, available: total + carriedOver - taken - planned }
+  return { entitlement: total, extraDays, carriedOver, taken, planned, available: total + extraDays + carriedOver - taken - planned }
 }
 
 /** Next leave day after date, looking at most two weeks ahead (null when none follows soon). */

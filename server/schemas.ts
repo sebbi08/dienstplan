@@ -142,6 +142,14 @@ export const adjustmentParams = z.object({
 /** Only the „ausgezahlt“ mark of a booked adjustment changes. */
 export const adjustmentPaidOutSchema = z.object({ paidOut: z.boolean() })
 export const entitlementSchema = z.object({ days: z.number().min(0).max(100), carriedOverDays: z.number().min(0).max(100) })
+/**
+ * „Zusatztag nur für dieses Jahr“: days and reason are checked by the service (leave_extra_days_invalid, reason_required,
+ * leave_extra_reason_too_long), so the dialog shows its German message.
+ */
+export const leaveExtraDaysSchema = z.object({
+  year: z.number().int().min(2000).max(2100), days: z.number(), reason: z.string().max(1000),
+})
+export const leaveExtraDaysParams = idParams.extend({ extraId: z.coerce.number().int().positive() })
 
 export const closureSchema = z.object({ startDate: isoDate, endDate: isoDate, label, mode: z.enum(['vacation', 'closure_day']) })
 

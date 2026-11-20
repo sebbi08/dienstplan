@@ -433,6 +433,17 @@ async function deleteEntitlement(year: number) {
   run(() => $fetch<unknown>(`/api/employees/${id}/leave/${year}`, { method: 'DELETE' }), de.common.deleted)
 }
 
+// „Zusatztag nur für dieses Jahr“: whoever may save the entitlement (employees.edit; a Mitarbeiter with that right not on
+// the own record, server: own_account).
+const canEditEntitlement = computed(() => can('employees.edit')
+  && (user.value?.employeeId !== id || user.value?.role === 'admin' || user.value?.role === 'provider'))
+const extraDaysOpen = ref(false)
+
+async function deleteExtraDays(extra: EmployeeDetailDto['leaveExtraDays'][number]) {
+  if (!employee.value || !await confirm(de.leaveExtraDays.deleteConfirm(extra.year, extra.days, employee.value.name), { confirmLabel: de.common.delete })) return
+  run(() => $fetch<unknown>(`/api/employees/${id}/leave-extra-days/${extra.id}`, { method: 'DELETE' }), de.common.deleted)
+}
+
 function editEntitlement(entitlement: EmployeeDetailDto['entitlements'][number]) {
   Object.assign(entitlementForm, { year: entitlement.year, days: entitlement.days, carriedOverDays: entitlement.carriedOverDays })
 }
@@ -705,6 +716,7 @@ async function onTabKey(event: KeyboardEvent) {
         <p v-if="block.row">
           {{ de.leave.entitlement }} {{ formatNumber(block.row.account.entitlement) }}
           <span v-if="block.row.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(block.row.inheritedFrom) }}</span>
+          <span v-if="block.row.account.extraDays" :title="block.row.extraDays.map(extra => extra.reason).join(', ')">{{ de.leaveExtraDays.plus(block.row.account.extraDays) }}</span>
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(block.row.account.carriedOver) }}
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(block.row.account.taken) }}
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(block.row.account.planned) }}
@@ -713,6 +725,10 @@ async function onTabKey(event: KeyboardEvent) {
         </p>
         <p v-else-if="block.coming && comingLeaveError" class="text-red-700">{{ errorMessage(comingLeaveError) }}</p>
         <p v-else class="text-gray-500">{{ de.employees.noLeaveYear }}</p>
+        <!-- „Zusatztag nur für dieses Jahr“ with its reasons, below the account line. -->
+        <p v-if="block.row?.extraDays.length" class="text-xs text-gray-500">
+          {{ block.row.extraDays.map(extra => de.leaveExtraDays.item(extra.days, extra.reason)).join(' · ') }}
+        </p>
         <p v-if="block.coming && block.row?.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
         <div v-if="otherRanges(block.entries).length" class="pt-1">
           <p class="text-xs font-medium text-gray-500">{{ de.leaveEntry.ranges }}</p>
@@ -787,6 +803,21 @@ async function onTabKey(event: KeyboardEvent) {
           </tr>
         </tbody>
       </table>
+      <!-- „Zusatztag nur für dieses Jahr“: counts only in its year (the entitlement of later years stays). -->
+      <div v-if="employee.leaveExtraDays.length" class="text-sm">
+        <p class="text-xs font-medium text-gray-500">{{ de.leaveExtraDays.listTitle }}</p>
+        <ul>
+          <li v-for="extra in employee.leaveExtraDays" :key="extra.id" class="flex flex-wrap items-center gap-x-2">
+            <span>{{ de.leaveExtraDays.line(extra.year, extra.days, extra.reason) }}</span>
+            <span class="text-xs text-gray-500">{{ de.leaveExtraDays.by(extra.createdBy, formatDate(todayIso(new Date(extra.createdAt)))) }}</span>
+            <UButton v-if="canEditEntitlement" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteExtraDays(extra)" />
+          </li>
+        </ul>
+      </div>
+      <div v-if="canEditEntitlement">
+        <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-gift" :label="de.leaveExtraDays.add" @click="extraDaysOpen = true" />
+        <EmployeesLeaveExtraDaysDialog v-model:open="extraDaysOpen" :employee-id="id" :name="employee.name" @saved="refresh" />
+      </div>
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveEntitlement">
         <UFormField :label="de.employees.year"><UInput v-model.number="entitlementForm.year" type="number" min="2000" max="2100" /></UFormField>
         <UFormField :label="de.employees.days"><UInput v-model.number="entitlementForm.days" type="number" step="0.5" min="0" /></UFormField>

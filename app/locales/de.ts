@@ -3,6 +3,8 @@ import type { Qualification, StaffingMethod } from '#shared/domain/staffing/type
 import type { GroupColor, MeetingKind, StaffingEstimateReason } from '#shared/types/api'
 
 const days = (count: number) => (count === 1 ? '1 Tag' : `${count.toLocaleString('de-DE')} Tage`)
+/** „Zusatztag nur für dieses Jahr“: „1 Zusatztag“, „1,5 Zusatztage“. */
+const extraDayCount = (count: number) => (count === 1 ? '1 Zusatztag' : `${count.toLocaleString('de-DE')} Zusatztage`)
 /** Leave days of a request; 24 and 31 December may count half, so „7,5 Arbeitstage“. */
 const workdays = (count: number) => (count === 1 ? '1 Arbeitstag' : `${count.toLocaleString('de-DE')} Arbeitstage`)
 /** A pickup person typed by hand ("Andere Person"), as lists, print and history show it. */
@@ -561,6 +563,32 @@ export const de = {
     closureDays: (count: number) => `davon ${count === 1 ? '1 Schließtag' : `${count} Schließtage`} ohne Urlaub`,
     carryForecast: (year: number) => `Übertrag aus ${year} voraussichtlich – ändert sich noch, wenn ${year} Urlaub dazukommt`,
     noComingYear: (year: number) => `Für ${year} gibt es noch keinen Urlaubsanspruch.`,
+  },
+  /**
+   * „Zusatztag nur für dieses Jahr“: one-off extra leave days of a year with a reason (employee page under
+   * „Urlaubsanspruch“, shown wherever the year's entitlement is shown).
+   */
+  leaveExtraDays: {
+    add: 'Zusatztag nur für dieses Jahr',
+    dialogTitle: (name: string) => `Zusatztag nur für dieses Jahr – ${name}`,
+    hint: 'Zusätzliche Urlaubstage nur für ein Jahr, z. B. als Dank. Der Anspruch der folgenden Jahre bleibt gleich. Was am Jahresende übrig ist, wird wie der übrige Resturlaub ins nächste Jahr übertragen.',
+    year: 'Jahr', days: 'Tage', daysHint: 'Halbe Tage sind möglich, z. B. 0,5.', reason: 'Begründung',
+    reasonPlaceholder: 'z. B. Dank für Sommerfest', save: 'Hinzufügen',
+    listTitle: 'Zusatztage nur für ein Jahr',
+    /** „2026: + 1 Tag – Dank für Sommerfest“ */
+    line: (year: number, count: number, reason: string) => `${year}: + ${days(count)} – ${reason}`,
+    /** „(von ‹Name›, 20.11.2026)“ */
+    by: (name: string, date: string) => (name ? `(von ${name}, ${date})` : `(${date})`),
+    deleteConfirm: (year: number, count: number, name: string) => `Zusatztag (${days(count)}) für ${year} von ${name} löschen? Der frei verfügbare Urlaub ${year} wird entsprechend kleiner, ebenso der Übertrag in die folgenden Jahre.`,
+    /** „1 Zusatztag“, „1,5 Zusatztage“ */
+    count: extraDayCount,
+    /** „+ 1 Zusatztag“ next to the entitlement. */
+    plus: (count: number) => `+ ${extraDayCount(count)}`,
+    /** „+ 1 Tag – Dank für Sommerfest“ below the account. */
+    item: (count: number, reason: string) => `+ ${days(count)} – ${reason}`,
+    /** The heading of the reasons in „Mein Urlaub“. */
+    myTitle: (year: number) => `Zusatztage ${year}`,
+    card: 'Zusatztage',
   },
   /** „Schließzeiten als Urlaub“ as a hint: creating an employee and the employee page („Urlaub & Zeiten“). */
   closurePreview: {
@@ -1413,7 +1441,7 @@ export const de = {
       maternityYears: 'Mutterschutz-Unterlagen',
     },
     periodHelp: {
-      timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
+      timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit Zusatztagen. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
       assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
       paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen. Mindestens und voreingestellt 8 Jahre: So lange sind Buchungsbelege seit 2025 aufzubewahren (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB). Das Lohnkonto (§ 41 EStG) sowie Geschäftsbriefe und sonstige Unterlagen sind 6 Jahre aufzubewahren, Bücher und Jahresabschlüsse 10 Jahre – diese führt die App nicht.',
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
@@ -2808,6 +2836,10 @@ export const de = {
     hours_not_found: 'Dieser Eintrag existiert nicht mehr.',
     adjustment_not_found: 'Dieser Ausgleich existiert nicht mehr.',
     entitlement_not_found: 'Dieser Urlaubsanspruch existiert nicht mehr.',
+    leave_extra_days_invalid: 'Bitte zwischen 0,5 und 30 Tage angeben (halbe Tage sind möglich).',
+    leave_extra_reason_too_long: 'Die Begründung darf höchstens 200 Zeichen lang sein.',
+    leave_extra_no_entitlement: 'Für dieses Jahr ist noch kein Urlaubsanspruch eingetragen. Bitte zuerst den Anspruch speichern.',
+    leave_extra_day_not_found: 'Dieser Zusatztag existiert nicht mehr.',
     last_hours: 'Der letzte Wochenstunden-Eintrag kann nicht gelöscht werden.',
     balance_from_invalid: 'Bitte bei „Stundenkonto ab“ ein gültiges Datum eingeben.',
     balance_from_out_of_range: '„Stundenkonto ab“ muss zwischen dem 01.01.1970 und einem Jahr ab heute liegen.',

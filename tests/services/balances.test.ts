@@ -45,9 +45,10 @@ describe('balances and leave', () => {
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 3 })
     expect(getLeaveAccount(db, anna, 2026, '2026-10-07')).toEqual({
       employeeId: anna, name: 'Anna', year: 2026, inheritedFrom: null, hasEntitlement: true, carriedAutomatically: false,
-      account: { entitlement: 30, carriedOver: 3, taken: 2, planned: 3, available: 28 },
+      account: { entitlement: 30, extraDays: 0, carriedOver: 3, taken: 2, planned: 3, available: 28 },
       ranges: [{ from: '2026-10-05', to: '2026-10-09', days: 5 }],
       entryRanges: [{ kind: 'vacation', from: '2026-10-05', to: '2026-10-09', days: 5 }],
+      extraDays: [],
       closures: [],
     })
     expect(getLeaveOverview(db, 1, 2026, '2026-10-07')).toHaveLength(1)

@@ -17,12 +17,17 @@ describe('leaveAccount', () => {
   ]
   it('splits taken and planned days around today', () => {
     expect(leaveAccount({ days: 30, carriedOverDays: 3 }, dates, 2026, '2026-10-07', bwLeaveDay)).toEqual({
-      entitlement: 30, carriedOver: 3, taken: 2, planned: 4, available: 27,
+      entitlement: 30, extraDays: 0, carriedOver: 3, taken: 2, planned: 4, available: 27,
+    })
+  })
+  it('adds the one-off extra days of the year to what is available, half days too', () => {
+    expect(leaveAccount({ days: 30, carriedOverDays: 3, extraDays: 1.5 }, dates, 2026, '2026-10-07', bwLeaveDay)).toEqual({
+      entitlement: 30, extraDays: 1.5, carriedOver: 3, taken: 2, planned: 4, available: 28.5,
     })
   })
   it('works without an entitlement record', () => {
     expect(leaveAccount(null, ['2026-10-05'], 2026, '2026-10-01', bwLeaveDay)).toEqual({
-      entitlement: 0, carriedOver: 0, taken: 0, planned: 1, available: -1,
+      entitlement: 0, extraDays: 0, carriedOver: 0, taken: 0, planned: 1, available: -1,
     })
   })
 })
@@ -78,10 +83,10 @@ describe('24 and 31 December as half a leave day', () => {
 
   it('counts the Christmas holidays as 6 instead of 7 days in the leave account', () => {
     expect(leaveAccount({ days: 30, carriedOverDays: 0 }, christmas, 2026, '2026-12-24', bwLeaveDay, true)).toEqual({
-      entitlement: 30, carriedOver: 0, taken: 2, planned: 4, available: 24,
+      entitlement: 30, extraDays: 0, carriedOver: 0, taken: 2, planned: 4, available: 24,
     })
     expect(leaveAccount({ days: 30, carriedOverDays: 0 }, christmas, 2026, '2026-12-24', bwLeaveDay, false)).toEqual({
-      entitlement: 30, carriedOver: 0, taken: 2, planned: 5, available: 23,
+      entitlement: 30, extraDays: 0, carriedOver: 0, taken: 2, planned: 5, available: 23,
     })
     // Without the setting the old call counts whole days.
     expect(leaveAccount({ days: 30, carriedOverDays: 0 }, christmas, 2026, '2026-12-24', bwLeaveDay).available).toBe(23)

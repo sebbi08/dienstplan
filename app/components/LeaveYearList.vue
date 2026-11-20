@@ -131,7 +131,7 @@ const cell = 'py-1 pr-3 align-top'
         <div v-for="person in data.people" :key="person.employeeId" class="space-y-1 border-t border-gray-100 pt-2 first-of-type:border-0" style="break-inside: avoid">
           <div class="flex flex-wrap items-baseline gap-x-3">
             <h3 class="font-semibold">{{ person.name }}</h3>
-            <span class="text-sm text-gray-700">{{ leaveAccountLine(person.account, person.hasEntitlement) }}</span>
+            <span class="text-sm text-gray-700">{{ leaveAccountLine(person.account, person.hasEntitlement, person.extraDays) }}</span>
           </div>
           <p v-if="!person.ranges.length" class="text-sm text-gray-500">{{ t.noRanges }}</p>
           <table v-else class="w-full text-sm">

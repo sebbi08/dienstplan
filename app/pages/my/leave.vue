@@ -27,6 +27,8 @@ function cardsOf(dto: LeaveAccountDto | null | undefined) {
   if (!account) return []
   return [
     { label: de.leave.entitlement, value: account.entitlement, highlight: false },
+    // „Zusatztag nur für dieses Jahr“: a card only when the year has some (the reasons are listed below the cards).
+    ...(account.extraDays ? [{ label: de.leaveExtraDays.card, value: account.extraDays, highlight: false }] : []),
     { label: de.leave.carriedOver, value: account.carriedOver, highlight: false },
     { label: de.leave.taken, value: account.taken, highlight: false },
     { label: de.leave.planned, value: account.planned, highlight: false },
@@ -58,7 +60,7 @@ const blocks = computed(() => {
       <h2 v-if="blocks.length > 1" class="pt-2 text-xl font-semibold">{{ block.dto.year }}</h2>
       <p v-if="block.empty" class="text-sm text-gray-500">{{ de.leave.noComingYear(block.dto.year) }}</p>
       <template v-else>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div class="grid grid-cols-2 gap-3" :class="block.cards.length > 5 ? 'sm:grid-cols-6' : 'sm:grid-cols-5'">
           <div
             v-for="card in block.cards" :key="card.label" class="rounded-lg bg-white p-3"
             :class="card.highlight ? 'ring-2 ring-sky-500' : 'ring-1 ring-gray-200'"
@@ -68,6 +70,13 @@ const blocks = computed(() => {
           </div>
         </div>
         <p v-if="block.coming && block.dto.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.dto.year - 1) }}</p>
+        <!-- „Zusatztag nur für dieses Jahr“ with its reasons (the person sees why). -->
+        <section v-if="block.dto.extraDays.length" class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+          <h3 class="mb-2 font-semibold">{{ de.leaveExtraDays.myTitle(block.dto.year) }}</h3>
+          <ul class="divide-y divide-gray-100 text-sm">
+            <li v-for="(extra, index) in block.dto.extraDays" :key="index" class="py-1.5">{{ de.leaveExtraDays.item(extra.days, extra.reason) }}</li>
+          </ul>
+        </section>
         <section v-if="block.dto.closures.length" class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
           <LeaveClosureList :closures="block.dto.closures" />
         </section>

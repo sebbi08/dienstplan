@@ -2242,6 +2242,20 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     ])
   })
 
+  it('0107 adds the empty one-off extra leave days („Zusatztag nur für dieses Jahr“), gone with their employee', () => {
+    const { db, sqlite } = databaseAt('0106')
+    sqlite.exec(`INSERT INTO employees (id, name, facility_id) VALUES (1, 'Anna', 1)`)
+    migrateDb(db, MIGRATIONS)
+    expect(count(sqlite, 'leave_extra_days')).toBe(0)
+    sqlite.exec(`INSERT INTO leave_extra_days (employee_id, year, days, reason, created_at) VALUES (1, 2026, 1.5, 'Dank für Sommerfest', '2026-11-20T08:00:00.000Z')`)
+    expect(sqlite.prepare('SELECT year, days, reason, created_by FROM leave_extra_days').all())
+      .toEqual([{ year: 2026, days: 1.5, reason: 'Dank für Sommerfest', created_by: '' }])
+    expect(() => sqlite.exec(`INSERT INTO leave_extra_days (employee_id, year, days, reason, created_at) VALUES (99, 2026, 1, 'x', 'x')`))
+      .toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'leave_extra_days')).toBe(0)
+  })
+
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {
     // Nothing pending: a broken reference does not stop the start (it was there before and is not new).
     const { db: current, sqlite: currentSqlite } = createDb(':memory:')

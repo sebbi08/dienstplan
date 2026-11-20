@@ -1172,6 +1172,25 @@ export interface LeaveAccountDto {
   entryRanges: LeaveEntryRange[]
   /** The closures (as leave) with what each took from the person's leave in the year, by start date. */
   closures: ClosureLeaveDto[]
+  /**
+   * The one-off extra days of the year („Zusatztag nur für dieses Jahr“) with their reasons, in the order added (summed in
+   * `account.extraDays`); empty without an entitlement, since the account then counts none.
+   */
+  extraDays: LeaveExtraDaySummary[]
+}
+
+/** One „Zusatztag nur für dieses Jahr“ entry as the leave account shows it: the days and the reason. */
+export interface LeaveExtraDaySummary {
+  days: number
+  reason: string
+}
+
+/** One „Zusatztag nur für dieses Jahr“ entry on the employee page, with who added it and when (ISO timestamp). */
+export interface LeaveExtraDayDto extends LeaveExtraDaySummary {
+  id: number
+  year: number
+  createdBy: string
+  createdAt: string
 }
 
 /** What one closure took from a person's leave in a year. */
@@ -1202,7 +1221,7 @@ export interface ClosurePreviewYearDto {
   personDays: number
   /** The person's closure days entered without leave (joiner limit). */
   closureDaysWithoutLeave: number
-  /** The entitlement days of the year (null = none recorded or entered). */
+  /** The entitlement days of the year with its one-off extra days (null = none recorded or entered). */
   entitlementDays: number | null
   /** Resturlaub of the year (the first block only; 0 otherwise). */
   carriedOverDays: number
@@ -1248,6 +1267,8 @@ export interface EmployeeDetailDto extends EmployeeListItemDto {
   adjustments: { id: number; date: IsoDate; minutes: number; reason: string; paidOut: boolean }[]
   /** carriedOverDays is the carry-over that counts; carriedAutomatically when it is the rest of the year before. */
   entitlements: { id: number; year: number; days: number; carriedOverDays: number; carriedAutomatically: boolean }[]
+  /** „Zusatztag nur für dieses Jahr“: the one-off extra leave days of every year, by year and then in the order added. */
+  leaveExtraDays: LeaveExtraDayDto[]
   /**
    * „Stundenkonto ab“ (ISO date): the hours account counts only from the later of this day and the first weekly hours
    * (null = from the first weekly hours).
@@ -2223,6 +2244,8 @@ export interface LeaveYearPersonDto {
   /** The leave account of the year (Anspruch, genommen, verplant, frei verfügbar), as „Urlaubsübersicht“ shows it. */
   account: LeaveAccount
   hasEntitlement: boolean
+  /** The one-off extra days of the year with their reasons (see LeaveAccountDto.extraDays). */
+  extraDays: LeaveExtraDaySummary[]
   ranges: LeaveYearRangeDto[]
 }
 

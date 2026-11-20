@@ -19,6 +19,7 @@ import { balanceAdjustments, children, employeeHours, employees, entries, facili
 import { ServiceError } from '../lib/errors'
 import { bookClosuresBetween, bookClosuresFor, unbookClosuresFrom } from './closures'
 import { employeesWithPaidOvertimeData } from './employeeDeletion'
+import { leaveExtraDaysOf } from './entitlements'
 import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
@@ -214,6 +215,7 @@ export function getEmployee(
         const { carriedOverDays, carriedAutomatically } = yearEntitlement(db, employee, year)!
         return { id: entitlementId, year, days, carriedOverDays, carriedAutomatically }
       }),
+    leaveExtraDays: leaveExtraDaysOf(db, id),
     balanceFrom: pin.balanceFrom,
     closuresFrom: closureBookingStart(db, id),
     ...pinLockState(pin, now), pinLockLevel: pin.pinLockLevel,

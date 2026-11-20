@@ -20,11 +20,17 @@ describe('Alle Anträge und Urlaube (texts and print filter)', () => {
   })
 
   it('sums up the leave account in one line', () => {
-    expect(leaveAccountLine({ entitlement: 30, carriedOver: 2, taken: 2, planned: 7.5, available: 22.5 }, true))
+    expect(leaveAccountLine({ entitlement: 30, extraDays: 0, carriedOver: 2, taken: 2, planned: 7.5, available: 22.5 }, true))
       .toBe('Anspruch 30 + Übertrag 2 · genommen 2 · verplant 7,5 · frei verfügbar 22,5')
-    expect(leaveAccountLine({ entitlement: 30, carriedOver: 0, taken: 0, planned: 0, available: 30 }, true))
+    expect(leaveAccountLine({ entitlement: 30, extraDays: 0, carriedOver: 0, taken: 0, planned: 0, available: 30 }, true))
       .toBe('Anspruch 30 · genommen 0 · verplant 0 · frei verfügbar 30')
-    expect(leaveAccountLine({ entitlement: 0, carriedOver: 0, taken: 3, planned: 0, available: -3 }, false))
+    expect(leaveAccountLine({ entitlement: 0, extraDays: 0, carriedOver: 0, taken: 3, planned: 0, available: -3 }, false))
       .toBe('Kein Urlaubsanspruch eingetragen · genommen 3 · verplant 0')
+    // „Zusatztag nur für dieses Jahr“: after the entitlement, with the reasons.
+    const extra = [{ days: 1, reason: 'Dank für Sommerfest' }, { days: 0.5, reason: 'Betriebsausflug' }]
+    expect(leaveAccountLine({ entitlement: 30, extraDays: 1.5, carriedOver: 2, taken: 0, planned: 0, available: 33.5 }, true, extra))
+      .toBe('Anspruch 30 + 1,5 Zusatztage (Dank für Sommerfest, Betriebsausflug) + Übertrag 2 · genommen 0 · verplant 0 · frei verfügbar 33,5')
+    expect(leaveAccountLine({ entitlement: 30, extraDays: 1, carriedOver: 0, taken: 0, planned: 0, available: 31 }, true, extra.slice(0, 1)))
+      .toBe('Anspruch 30 + 1 Zusatztag (Dank für Sommerfest) · genommen 0 · verplant 0 · frei verfügbar 31')
   })
 })
