@@ -11,7 +11,10 @@ export const SL: StaffingRuleSet[] = [{
     + 'aus dem Verordnungstext; die Bezugs-Betreuungszeit ist unbekannt (daher keine Anpassung an die Öffnungszeit). '
     + 'Hort ohne Werte. Verfügungszeit (25 %) ist enthalten. Kinderpfleger/Kinderkrankenpfleger höchstens 1/3 der '
     + 'übrigen Fachkräfte – nicht abgebildet. Leitung 6 Std. je Gruppe (+1 Std. nach KiQuTG nicht enthalten). '
-    + 'Personen in Ausbildung zählen nicht.',
+    + 'Personen in Ausbildung zählen nicht. Ab 2027 neue Regeln – Werte bitte prüfen: Das Gesetz vom 16.09.2026 (Amtsbl. I '
+    + 'Nr. 39 S. 1006) fasst den Fachkräftekatalog (§ 3 Abs. 4 SBEBG; Kinderpfleger/innen für Krippe und Kindergarten, '
+    + 'nicht Hort) ab 01.01.2027 bzw. 01.08.2027 neu und begrenzt die Schließtage; ob sich die Schlüssel (§ 4) ändern, '
+    + 'ist nicht geprüft (Stand 19.11.2026).',
   method: 'group_fte',
   fteHoursPerWeek: 39,
   groupTypes: [

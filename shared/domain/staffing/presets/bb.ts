@@ -75,14 +75,17 @@ export const BB: StaffingRuleSet[] = [
   current,
   { ...revised, correction: true },
   {
-    // U3 step to 1 : 4 as enacted (Art. 3 of the law of 28.06.2023); a postponement was reported as planned
+    // The U3 step to 1 : 4 is due by law on 01.01.2027, but the ministry said on 24.08.2026 it will not be taken for now
+    // (stays 4.25); no amending law was found by 19.11.2026, hence low confidence.
     ...revised,
     validFrom: '2027-01-01',
-    source: 'KitaG Brandenburg § 10 Abs. 1 (U3 ab 01.01.2027 nach Art. 3 des Gesetzes vom 28.06.2023); '
-      + 'KitaPersV §§ 3, 5, 9, 15–17; MBJS-FAQ zur Kita-Personalverordnung',
-    confidence: 'medium',
-    note: `Laut Gesetz ab 01.01.2027 1:4; eine Verschiebung war laut Presse geplant – bitte prüfen. ${TRAINEES} `
-      + BASE_NOTE,
-    demand: demand(4),
+    source: 'KitaG Brandenburg § 10 Abs. 1 (U3-Schritt auf 1 : 4 laut Gesetz ab 01.01.2027, Gesetz vom 23.06.2025; '
+      + 'MBJS 24.08.2026: vorerst nicht umgesetzt); KitaPersV §§ 3, 5, 9, 15–17; MBJS-FAQ zur Kita-Personalverordnung',
+    confidence: 'low',
+    note: 'Bitte prüfen: Nach dem Gesetz sinkt der Krippenschlüssel am 01.01.2027 auf 1 : 4. Das MBJS hat am 24.08.2026 '
+      + 'mitgeteilt, dass dieser Schritt vorerst nicht umgesetzt wird und es bei 1 : 4,25 bleibt; eine Gesetzesänderung '
+      + 'dazu war bis 19.11.2026 nicht zu finden (Doppelhaushalt 2027/28 in Beratung). Hinterlegt ist deshalb weiter '
+      + '4,25. Gilt das Gesetz unverändert, trägt der Träger für U3 4 Kinder je Vollzeitkraft ein. '
+      + `${TRAINEES} ${BASE_NOTE}`,
   },
 ]

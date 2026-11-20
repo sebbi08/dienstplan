@@ -1542,6 +1542,22 @@ Mecklenburg-Vorpommern, Sachsen-Anhalt, Schleswig-Holstein und Thüringen). Dann
 Einstellungen **„Werte des Landes bitte prüfen“**, dazu ein Hinweis, was nicht abgebildet ist. Bitte diese Zahlen mit
 dem Landesjugendamt klären und bei Bedarf als Träger anpassen.
 
+**Neue Regeln ab 2027** (Rechtsprüfung vom 19.11.2026; Quellen im Hinweis der jeweiligen Vorgabe):
+
+- **Mecklenburg-Vorpommern ab 01.01.2027:** Krippe **1 : 5** statt 1 : 6 (Fünftes Gesetz zur Änderung des KiföG M-V,
+  GVOBl. M-V 2026 S. 758), sonst unverändert. Übergang: Bis längstens 31.07.2029 darf eine Einrichtung nach Anzeige beim
+  Jugendamt und Information des Elternrats bei 1 : 6 bleiben – dann trägt der Träger 6 ein. Der Hort-Schritt (1 : 21)
+  ist noch nicht übernommen (Datum unklar).
+- **Bayern ab 01.01.2027:** neue Fundstellen (Art. 18 BayKiBiG, Gewichte in § 21 AVBayKiBiG; Gesetz vom 28.07.2026,
+  GVBl. S. 401), gleiche Werte. Die neu gefasste Anrechnung von Praktikanten und Auszubildenden (§ 16 AVBayKiBiG) ist
+  nicht geprüft, deshalb „bitte prüfen“.
+- **Brandenburg ab 01.01.2027:** Nach dem Gesetz sinkt der Krippenschlüssel auf 1 : 4; das MBJS hat am 24.08.2026
+  mitgeteilt, dass es vorerst bei **1 : 4,25** bleibt. Hinterlegt ist 4,25, mit „bitte prüfen“ (eine Gesetzesänderung
+  war bis 19.11.2026 nicht zu finden). Gilt das Gesetz doch, trägt der Träger 4 ein. (Bis zum 19.11.2026 stand ab 2027
+  der Wert 4.)
+- **Saarland, Nordrhein-Westfalen (ab 01.08.2027), Thüringen:** Die Gesetze ändern sich ab 2027; neue Zahlen waren
+  nicht sicher lesbar. Der Hinweis der Vorgabe sagt „Ab 2027 neue Regeln – Werte bitte prüfen“.
+
 ## 21. Codes (Urlaub, Krank …)
 
 Die Codes für Abwesenheiten (Urlaub, Krank, Fortbildung …) gelten für **alle Einrichtungen**. Bezeichnung, Farbe und

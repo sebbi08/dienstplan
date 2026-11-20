@@ -56,9 +56,14 @@ describe('presets – every state', () => {
       NI: 'high', NW: 'high', RP: 'high', SL: 'low', SN: 'high', ST: 'medium', SH: 'medium', TH: 'medium',
     }
     for (const land of GERMAN_STATES) expect([land, presetFor(land, OCTOBER).confidence]).toEqual([land, expected[land]])
-    // enacted change with a reported postponement (BB) / announced change without numbers yet (NW): „bitte prüfen“
-    expect(presetFor('BB', '2027-01-01').confidence).toBe('medium')
+    // from 2027 (research of 19.11.2026): BB step withdrawn by the ministry without a law (low), BY new citations with the
+    // trainee counting unchecked (medium), MV Krippe 1 : 5 (medium), NW new law without numbers yet (low)
+    expect(presetFor('BB', '2027-01-01').confidence).toBe('low')
+    expect(presetFor('BY', '2027-01-01').confidence).toBe('medium')
+    expect(presetFor('MV', '2027-01-01').confidence).toBe('medium')
     expect(presetFor('NW', '2027-08-01').confidence).toBe('low')
+    expect(presetFor('SL', '2027-01-01').confidence).toBe('low')
+    expect(presetFor('TH', '2027-01-01').confidence).toBe('medium')
   })
 
   it('is read-only (overrides must build new objects)', () => {
@@ -104,15 +109,35 @@ describe('presets – versions', () => {
     expect(sn('2026-08-01', { ageBand: 'school', weeklyHours: 15 })).toBeCloseTo(15 / 30 / 20.473, 10)
   })
 
-  it('BB: U3 4.25 until 2026, 1 : 4 from 01.01.2027 as enacted; Ü3 and school unchanged', () => {
+  it('BB: U3 stays 4.25 from 01.01.2027 (MBJS 24.08.2026), with the law step 1 : 4 in the note; Ü3 and school unchanged', () => {
     const bb = (date: string, child: DemandChild) =>
       requiredFte(presetFor('BB', date), { groupType: null, openingMinutesPerDay: null, children: [child] }).demandFte
     expect(bb('2026-12-31', { ageBand: 'u3', weeklyHours: 40 })).toBeCloseTo(1 / 4.25, 10)
-    expect(bb('2027-01-01', { ageBand: 'u3', weeklyHours: 40 })).toBeCloseTo(1 / 4, 10)
-    expect(bb('2027-01-01', { ageBand: 'u3', weeklyHours: 30 })).toBeCloseTo(0.8 / 4, 10)
+    expect(bb('2027-01-01', { ageBand: 'u3', weeklyHours: 40 })).toBeCloseTo(1 / 4.25, 10)
+    expect(bb('2027-01-01', { ageBand: 'u3', weeklyHours: 30 })).toBeCloseTo(0.8 / 4.25, 10)
     expect(bb('2027-01-01', { ageBand: 'ue3', weeklyHours: 40 })).toBeCloseTo(1 / 10, 10)
     expect(bb('2027-01-01', { ageBand: 'school', weeklyHours: 20 })).toBeCloseTo(0.6 / 15, 10)
-    expect(presetFor('BB', '2027-01-01').note).toMatch(/1:4.*bitte prüfen/)
+    expect(presetFor('BB', '2027-01-01').note).toMatch(/Bitte prüfen.*1 : 4.*24.08.2026/)
+  })
+
+  it('MV: Krippe 1 : 5 from 01.01.2027 (transition until 31.07.2029 in the note), the rest unchanged', () => {
+    const mv = (date: string, child: DemandChild) =>
+      requiredFte(presetFor('MV', date), { groupType: null, openingMinutesPerDay: null, children: [child] }).demandFte
+    expect(mv('2026-12-31', { ageBand: 'u3', weeklyHours: 50 })).toBeCloseTo(1 / 6, 10)
+    expect(mv('2027-01-01', { ageBand: 'u3', weeklyHours: 50 })).toBeCloseTo(1 / 5, 10)
+    expect(mv('2027-01-01', { ageBand: 'ue3', weeklyHours: 50 })).toBeCloseTo(1 / 14, 10)
+    expect(mv('2027-01-01', { ageBand: 'school', weeklyHours: 50 })).toBeCloseTo(1 / 22, 10)
+    expect(presetFor('MV', '2027-01-01').note).toContain('31.07.2029')
+    expect(presetFor('MV', '2027-01-01').source).toContain('GVOBl. M-V 2026 S. 758')
+    expect(presetFor('MV', '2027-01-01').staffShares).toEqual(presetFor('MV', '2026-11-01').staffShares)
+  })
+
+  it('BY: from 01.01.2027 the new citations (Art. 18 BayKiBiG, § 21 AVBayKiBiG) with unchanged values', () => {
+    const [before, after] = [presetFor('BY', '2026-12-31'), presetFor('BY', '2027-01-01')]
+    expect(after.validFrom).toBe('2027-01-01')
+    expect(after.source).toMatch(/Art. 18.*§§ 16, 17, 21/)
+    expect([after.demand, after.staffShares, after.quotas]).toEqual([before.demand, before.staffShares, before.quotas])
+    expect(after.correction).toBeUndefined()
   })
 
   it('falls back to the oldest version before the first date', () => {

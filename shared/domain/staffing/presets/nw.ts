@@ -87,9 +87,12 @@ export const NW: StaffingRuleSet[] = [
     ...revised,
     validFrom: '2027-08-01',
     confidence: 'low',
-    source: 'KiBiz in der Fassung des Gesetzes vom 21.07.2026 (Anlagen 1/2, ab 01.08.2027); Personalverordnung § 13 '
+    source: 'KiBiz in der Fassung des Gesetzes vom 21.07.2026, GV. NRW. 2026 S. 525 (Anlagen 1/2, ab 01.08.2027); '
+      + 'Personalverordnung § 13 '
       + '(GV. NRW. 2024 S. 910)',
-    note: 'Bitte prüfen: Ab 01.08.2027 gilt das neue KiBiz (5 Buchungsstufen 25/30/35/40/45 Std., Leitungszeit '
-      + `5–9 Std. je Gruppe); die neuen Werte sind noch nicht übernommen, hier die bisherigen. ${TRAINEES} ${BASE_NOTE}`,
+    note: 'Ab 2027 neue Regeln – Werte bitte prüfen: Ab 01.08.2027 gilt das neue KiBiz (5 Buchungsstufen 25/30/35/40/45 '
+      + 'Std., Leitungszeit mindestens 5 Std. je Gruppe, 6/7/8/9 Std. bei 30/35/40/45 Std., § 29 Abs. 3; 10 % '
+      + 'Verfügungszeit, § 33 Abs. 1); die neuen Personalstunden der Anlagen sind noch nicht übernommen, hier die '
+      + `bisherigen (Stand 19.11.2026). ${TRAINEES} ${BASE_NOTE}`,
   },
 ]

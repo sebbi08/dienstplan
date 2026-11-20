@@ -28,26 +28,44 @@ const current: StaffingRuleSet = {
   }],
 }
 
-/** Bayern: Anstellungsschlüssel 1 : 11,0 gewichtete Buchungsstunden (AVBayKiBiG § 17, BayKiBiG Art. 21). */
+/**
+ * The corrected values of 01.11.2026 without the `correction` flag: it is set only in the list, so the later law version
+ * built from this object cannot inherit it.
+ */
+const revised: StaffingRuleSet = {
+  ...current,
+  validFrom: TRAINEES_REVISED,
+  source: 'AVBayKiBiG § 17 (Fassung ab 28.07.2026), § 16; BayKiBiG Art. 21 Abs. 5 (Fassung ab 01.01.2026); '
+    + 'Allgemeinverfügungen StMAS (BayMBl. 2024 Nr. 34, 2025 Nr. 314)',
+  note: `${TRAINEES_NOTE} Berufspraktikum (Erzieher) zählt als Ergänzungskraft (§ 16 Abs. 4 Nr. 2 AVBayKiBiG), `
+    + 'PiA ab dem 2. Ausbildungsjahr als Ergänzungskraft, im 1. Jahr nicht (Allgemeinverfügung, BayMBl. 2024 '
+    + 'Nr. 34); jeweils mit allen Stunden, nicht für die Fachkraftquote. Kinderpflege- und SPS-Auszubildende zählen '
+    + 'nicht – beim Mitarbeiter 0 % eintragen. Duales oder berufsbegleitendes Studium und Praxissemester zählen '
+    + 'nicht; nur die Kombinierte Ausbildung (Fachakademie mit Bachelor) im Praxissemester als Ergänzungskraft, ab '
+    + 'dem 6. Semester als Fachkraft (BayMBl. 2025 Nr. 314) – beim Mitarbeiter eintragen. Weitere Gewichte '
+    + '(Behinderung 4,5; nichtdeutschsprachige Eltern 1,3; Tagespflege 1,3) erst mit dem Kindergewicht; das '
+    + 'Gewicht 4,5 dürfte nicht für die Fachkraftquote zählen – hier nicht abgebildet. Berechnet wird je Monat; '
+    + 'Jahresdurchschnitt und bis zu 3 Monate Überschreitung nicht abgebildet. Leitung ist enthalten. Nicht '
+    + 'abgebildet: Buchungen bis 3 Std./Tag für Kinder ab 3 werden nicht gefördert; Kräfte, die 42 Tage oder länger '
+    + 'fehlen, zählen ab dem Folgemonat nicht.',
+  staffShares: shares({ azubi_2: 100, azubi_3: 100, praktikant: 100 }),
+}
+
+/** Bayern: Anstellungsschlüssel 1 : 11,0 gewichtete Buchungsstunden (AVBayKiBiG § 17, BayKiBiG Art. 18/21). */
 export const BY: StaffingRuleSet[] = [
   current,
+  { ...revised, correction: true },
   {
-    ...current,
-    validFrom: TRAINEES_REVISED,
-    correction: true,
-    source: 'AVBayKiBiG § 17 (Fassung ab 28.07.2026), § 16; BayKiBiG Art. 21 Abs. 5 (Fassung ab 01.01.2026); '
+    // the amended BayKiBiG from 01.01.2027: new citations, the same values; the trainee counting (§ 16 n. F.) unchecked
+    ...revised,
+    validFrom: '2027-01-01',
+    confidence: 'medium',
+    source: 'BayKiBiG Art. 18 n. F., AVBayKiBiG §§ 16, 17, 21 (Gesetz vom 28.07.2026, GVBl. S. 401, ab 01.01.2027); '
       + 'Allgemeinverfügungen StMAS (BayMBl. 2024 Nr. 34, 2025 Nr. 314)',
-    note: `${TRAINEES_NOTE} Berufspraktikum (Erzieher) zählt als Ergänzungskraft (§ 16 Abs. 4 Nr. 2 AVBayKiBiG), `
-      + 'PiA ab dem 2. Ausbildungsjahr als Ergänzungskraft, im 1. Jahr nicht (Allgemeinverfügung, BayMBl. 2024 '
-      + 'Nr. 34); jeweils mit allen Stunden, nicht für die Fachkraftquote. Kinderpflege- und SPS-Auszubildende zählen '
-      + 'nicht – beim Mitarbeiter 0 % eintragen. Duales oder berufsbegleitendes Studium und Praxissemester zählen '
-      + 'nicht; nur die Kombinierte Ausbildung (Fachakademie mit Bachelor) im Praxissemester als Ergänzungskraft, ab '
-      + 'dem 6. Semester als Fachkraft (BayMBl. 2025 Nr. 314) – beim Mitarbeiter eintragen. Weitere Gewichte '
-      + '(Behinderung 4,5; nichtdeutschsprachige Eltern 1,3; Tagespflege 1,3) erst mit dem Kindergewicht; das '
-      + 'Gewicht 4,5 dürfte nicht für die Fachkraftquote zählen – hier nicht abgebildet. Berechnet wird je Monat; '
-      + 'Jahresdurchschnitt und bis zu 3 Monate Überschreitung nicht abgebildet. Leitung ist enthalten. Nicht '
-      + 'abgebildet: Buchungen bis 3 Std./Tag für Kinder ab 3 werden nicht gefördert; Kräfte, die 42 Tage oder länger '
-      + 'fehlen, zählen ab dem Folgemonat nicht.',
-    staffShares: shares({ azubi_2: 100, azubi_3: 100, praktikant: 100 }),
+    note: 'Bitte prüfen: Ab 01.01.2027 gilt das geänderte BayKiBiG (Art. 21 wird Art. 18; die Gewichtungsfaktoren stehen '
+      + 'jetzt in § 21 AVBayKiBiG: 2,0 / 1,0 / 1,2 / 4,5 / 1,3, also unverändert; Anstellungsschlüssel 1 : 11,0 und '
+      + 'Fachkraftquote 50 % bleiben). § 16 AVBayKiBiG (Anrechnung von Praktikanten und Auszubildenden) wurde neu '
+      + 'gefasst; der neue Wortlaut ist nicht geprüft – hinterlegt ist die bisherige Anrechnung, bitte prüfen. '
+      + `Neu sind Teamkräfte (§ 18 AVBayKiBiG, kein pädagogisches Personal). ${revised.note}`,
   },
 ]

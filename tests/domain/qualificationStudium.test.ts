@@ -220,8 +220,10 @@ describe('Träger overrides and the correction of 01.11.2026', () => {
   })
 
   it('a law version still lapses an override of a value it changes', () => {
+    // MV Krippe 1 : 6 → 1 : 5 from 01.01.2027 (BB keeps 4.25 in 2027, so it changes nothing there any more)
+    expect(apply('MV', '2027-01-01', { 'demand.u3.childrenPerFte': { value: 5.5, preset: 6 } }).ignored).toEqual(['demand.u3.childrenPerFte'])
     const u3 = 'demand.u3+h<=30.childrenPerFte'
-    expect(apply('BB', '2027-01-01', { [u3]: { value: 4.5, preset: 4.25 } }).ignored).toEqual([u3])
+    expect(apply('BB', '2027-01-01', { [u3]: { value: 4.5, preset: 4.25 } }).ignored).toEqual([])
   })
 
   it('without the state\'s comparison only equal numbers count (as before)', () => {

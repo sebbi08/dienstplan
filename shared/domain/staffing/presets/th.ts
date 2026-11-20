@@ -10,8 +10,10 @@ export const TH: StaffingRuleSet[] = [{
   note: 'Bitte prüfen: Bezug 9 Std./Tag (Hort 4 Std.), anteilig nach Betreuungsstunden, und die Leitung (0,01 '
     + 'Stellen je Kind, mind. 0,2, höchstens 1,5) stammen aus einer Sekundärquelle. Anwesenheit: 1 Fachkraft je 12 '
     + 'Kinder ab 3, unter 3 doppelt, Schulkinder 0,6 – Kinder unter 1 Jahr (1 : 4) bei der Anwesenheit nicht '
-    + 'gesondert. Übergang bis Ende 2027 berichtet (nicht geprüft). Anrechnung von Ergänzungskräften und '
-    + 'Auszubildenden nicht geprüft.',
+    + 'gesondert. Die Übergangsregelung zum neuen Schlüssel läuft laut TMBWK (08.05.2026) bis 31.12.2026 (nicht '
+    + 'abgebildet). Ab 2027 neue Regeln – Werte bitte prüfen: Das Fünfte Gesetz zur Änderung des ThürKigaG vom '
+    + '06.07.2026 (GVBl. Nr. 6 S. 147) gilt ab 01.01.2027; ob es §§ 16/17 ändert, ist nicht geprüft (Stand 19.11.2026). '
+    + 'Anrechnung von Ergänzungskräften und Auszubildenden nicht geprüft.',
   method: 'fte_per_child',
   fteHoursPerWeek: 39,
   demand: [
