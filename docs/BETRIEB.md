@@ -1028,8 +1028,10 @@ Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“*
 - **„Wir arbeiten nach TVöD SuE“** (voreingestellt an, auch für schon bestehende Einrichtungen): Der 24.12. und der
   31.12. sind **bezahlt frei** (TVöD § 6 Abs. 3). Diese Tage kosten keinen Urlaub und zählen für die Mitarbeiter der
   Einrichtung wie ein Feiertag: keine Sollstunden (das Stundenkonto ändert sich entsprechend), im Dienstplan als
-  „Heiligabend (bezahlt frei)“ bzw. „Silvester (bezahlt frei)“ markiert, keine Besetzungs-Warnungen, Schließzeiten
-  verbrauchen an diesen Tagen keinen Urlaub, Wochenvorlagen lassen sie aus. Unter „Der 24.12. und der 31.12. zählen als“
+  „Heiligabend (bezahlt frei)“ bzw. „Silvester (bezahlt frei)“ markiert, Schließzeiten verbrauchen an diesen Tagen
+  keinen Urlaub, Wochenvorlagen lassen sie aus. Die **Besetzungs-Warnungen bleiben** an diesen Tagen: Der TVöD stellt
+  nur frei, „soweit die dienstlichen Verhältnisse es zulassen“ – hat die Kita geöffnet, muss der Dienstplan stimmen
+  (wer dann arbeitet, bekommt die Stunden als Plus; ist die Kita zu, eine Schließzeit oder einen Schließtag eintragen). Unter „Der 24.12. und der 31.12. zählen als“
   steht dann fest „bezahlt frei (TVöD § 6 Abs. 3)“. Sonst ändert der Schalter **nichts**: Entgeltgruppe, Stufe und
   Stufenaufstieg bleiben in beiden Fällen sichtbar und nutzbar (viele arbeiten „in Anlehnung“ an den TVöD).
 - **Ohne den Schalter** wählt die Einrichtung selbst: **ganzer Urlaubstag** (wie früher voreingestellt), **halber
@@ -1040,18 +1042,26 @@ Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“*
   Urlaubsplanung zählt die Person an dem Tag weiter als eine Person im Urlaub. Die Wahl bleibt gespeichert, während der
   Schalter an ist.
 
-**„bezahlt frei“ gilt erst ab einem Jahr** – es steht neben dem Schalter („gilt ab 2026“): für schon bestehende
-Einrichtungen ab 2026, für neu angelegte ab dem Jahr, in dem sie angelegt wurden; wird „bezahlt frei“ später
-eingeschaltet (Schalter an oder „bezahlt frei“ gewählt), ab dem laufenden Jahr. Solange es eingeschaltet bleibt, bleibt
-dieses Jahr stehen. In den Jahren davor zählen der 24.12. und der 31.12. wie vorher als ganzer oder halber Urlaubstag –
-Urlaub, Sollstunden und Stundenkonto früherer Jahre ändern sich also nicht. Die übrigen Wahlen (ganzer oder halber
-Urlaubstag) gelten für alle Jahre, auch rückwirkend.
+**Jede Änderung gilt erst ab einem Jahr, frühere Jahre ändern sich nie.** Die App merkt sich je Einrichtung, wie der
+24.12. und der 31.12. in welchem Jahr zählen. Wer den Schalter umlegt oder die Wahl ändert, ändert das ab dem
+**laufenden Jahr** – ab dem 24.12. erst ab dem **nächsten Jahr** (der 24.12. des laufenden Jahres ist dann schon da).
+Neben dem Schalter steht, ab wann die aktuelle Regel gilt („gilt ab 2026“), darunter die Regel der Jahre davor (zum
+Beispiel „Bis 2025: ganzer Urlaubstag.“). Urlaub, Sollstunden und Stundenkonto früherer Jahre bleiben also, wie sie
+sind – auch wenn „bezahlt frei“ später wieder ausgeschaltet wird: Dann bleiben die bisher bezahlt freien Jahre bezahlt
+frei. Beim Einspielen dieser Version gilt für schon bestehende Einrichtungen bis 2025 die bisherige Einstellung (ganzer
+oder halber Urlaubstag) und ab 2026 „bezahlt frei“; neu angelegte Einrichtungen sind ab dem Jahr bezahlt frei, in dem
+sie angelegt werden.
 
-Es gilt die Einstellung der **Stammeinrichtung** der Person. Hört „bezahlt frei“ auf (Schalter aus, ganzer oder halber
-Urlaubstag), gilt wieder ganzer oder halber Urlaubstag – für alle Jahre, auch die bisher bezahlt freien – und die App
-bucht vorhandene Schließzeiten an diesen Tagen nach, wie beim Wechsel des Bundeslands.
+**Schon eingetragener Urlaub am 24.12./31.12.2026:** Urlaub, der vor dem Einspielen dieser Version an diesen Tagen
+eingetragen war (auch aus Schließzeiten oder genehmigten Anträgen), bleibt im Dienstplan sichtbar, zählt aber ab jetzt
+**0 Urlaubstage** (die Tage sind bezahlt frei). Wer ihn nicht mehr sehen will, entfernt ihn im Dienstplan.
+
+Es gilt die Einstellung der **Stammeinrichtung** der Person. Hört „bezahlt frei“ ab einem Jahr auf (Schalter aus,
+ganzer oder halber Urlaubstag), bucht die App vorhandene Schließzeiten an diesen Tagen ab diesem Jahr nach, wie beim
+Wechsel des Bundeslands; frühere Jahre bleiben unberührt.
 Keine gesetzlichen Feiertage sind die beiden Tage trotzdem: Die Anwesenheit und die Betreuungstage der Kinder, der
-Personalschlüssel-Bericht, Mutterschutz- und Jugendarbeitsschutz-Hinweise rechnen sie weiter als normale Tage.
+Personalschlüssel-Bericht, die Besetzungs-Warnungen im Dienstplan, Mutterschutz- und Jugendarbeitsschutz-Hinweise
+rechnen sie weiter als normale Tage.
 
 ### Hinweis auf Resturlaub (Verfall)
 

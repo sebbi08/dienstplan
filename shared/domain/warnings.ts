@@ -1,6 +1,6 @@
 import { creditedWithoutStamping, dayCredit, isAwayCode, isFullDayTimed, isOnSite, isWorkEntry, timeOffMinutes } from './balance'
 import { isWeekend } from './dates'
-import { isHolidayIn, type HolidayRules } from './holidays'
+import { isPublicHolidayIn, type HolidayRules } from './holidays'
 import type { MaternityWarning } from './maternity'
 import { ALL_WEEKDAYS, hoursOn, isEntered, ruleAppliesOn, type OpeningHours } from './openingHours'
 import { dailyTarget, isWorkday, type EmploymentInfo } from './targets'
@@ -99,9 +99,13 @@ export function isTargetGapCode(codeKey: CodeKey | null): boolean {
   return codeKey !== null && TARGET_GAP_CODES.includes(codeKey)
 }
 
-/** A day the plan is checked: no weekend, no public holiday of the plan's facility (its rules), no closure. */
+/**
+ * A day the plan is checked: no weekend, no public holiday of the plan's facility (its rules), no closure. A paid free
+ * 24 or 31 December (TVöD § 6 Abs. 3) is still checked: staff are freed only as far as the service allows, the Kita may
+ * be open.
+ */
 export function isCheckedDay(date: IsoDate, isClosureDay: boolean, rules: HolidayRules): boolean {
-  return !isWeekend(date) && !isHolidayIn(date, rules) && !isClosureDay
+  return !isWeekend(date) && !isPublicHolidayIn(date, rules) && !isClosureDay
 }
 
 /** A duty that counts as staff for coverage: a shift or special shift in the house (codes, breaks, home office never do). */

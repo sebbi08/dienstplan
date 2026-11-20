@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { dateRange, daysBetween } from '../../shared/domain/dates'
 import { isHolidayIn, type HolidayRules } from '../../shared/domain/holidays'
-import { countLeaveDays, countsAsLeaveDay } from '../../shared/domain/leave'
+import { countLeaveDays, countsAsLeaveDay, type HalfOnEves } from '../../shared/domain/leave'
 import { PRIVATE_CODE_KEYS } from '../../shared/domain/maternity'
 import { isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
@@ -29,7 +29,7 @@ export interface ClosureInput {
  * The leave days the dates use for staff working Monday to Friday: weekends and the facility's public holidays left
  * out, 24 and 31 December by the facility setting (the closures page's „Urlaubstage“, the closure leave preview).
  */
-export function fiveDayWeekLeaveDays(dates: IsoDate[], rules: HolidayRules, halfOnEves: boolean): number {
+export function fiveDayWeekLeaveDays(dates: IsoDate[], rules: HolidayRules, halfOnEves: HalfOnEves): number {
   return countLeaveDays(dates.filter(date => countsAsLeaveDay(date, rules)), halfOnEves)
 }
 
@@ -163,9 +163,12 @@ export function bookClosuresBetween(
  * After the facility's holiday rules changed (state or Bavaria flag, the new rules already stored): books its closures
  * for its staff on the days that stopped being holidays, as creating the closure would have (leave in vacation mode),
  * so no closure is left with a hole. Only cells that are still empty and only days since each one moved in; days
- * that became holidays keep their entries.
+ * that became holidays keep their entries. `notBefore`: no day before it is touched (a change of the rules for 24 and
+ * 31 December applies from its effective year on only).
  */
-export function bookFreedClosureDays(db: Db, actor: SessionUser, facilityId: number, before: HolidayRules, now: Date): void {
+export function bookFreedClosureDays(
+  db: Db, actor: SessionUser, facilityId: number, before: HolidayRules, now: Date, notBefore: IsoDate | null = null,
+): void {
   const list = loadClosures(db, facilityId)
   if (list.length === 0) return
   const after = facilityHolidayRules(db, facilityId)
@@ -173,7 +176,8 @@ export function bookFreedClosureDays(db: Db, actor: SessionUser, facilityId: num
     .where(eq(employees.facilityId, facilityId)).all().map(row => [row.id, row.since]))
   const onlyEmpty = (employeeId: number, date: IsoDate) => {
     const from = since.get(employeeId)
-    return isHolidayIn(date, before) && !isHolidayIn(date, after) && (from == null || date >= from)
+    return (notBefore === null || date >= notBefore) && isHolidayIn(date, before) && !isHolidayIn(date, after)
+      && (from == null || date >= from)
   }
   const staff = loadEmployees(db, facilityId)
   for (const closure of list) bookClosure(db, actor, facilityId, closure, staff, now, { onlyEmpty })

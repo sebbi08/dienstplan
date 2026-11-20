@@ -1,7 +1,7 @@
 import { and, eq, gte } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, employeeHours, entries, facilities } from '../../server/db/schema'
+import { changeLog, employeeHours, entries } from '../../server/db/schema'
 import { createClosure } from '../../server/services/closures'
 import { setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
@@ -11,6 +11,7 @@ import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import type { LeaveEntryKind, SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addHelpOut, addUser, codeId, createTestDb, templateId } from '../helpers/fixtures'
+import { sameEveRuleEveryYear } from '../helpers/eveRules'
 
 const today = '2026-11-19'
 const now = new Date('2026-11-19T10:00:00Z')
@@ -123,7 +124,7 @@ describe('leave entered for an employee (Urlaub eintragen / entfernen)', () => {
   })
 
   it('counts 24 and 31 December as half leave days where the facility says so', () => {
-    db.update(facilities).set({ christmasEveHalfLeave: true, tvoedSue: false }).where(eq(facilities.id, 1)).run()
+    sameEveRuleEveryYear(db, 'half')
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     // Mo 21.12. – Do 31.12.: 21.–24. and 28.–31. are working days (25./26. holidays), 24. and 31. count half.
     expect(enter(anna, '2026-12-21', '2026-12-31')).toEqual({ booked: 8, keptAbsences: 0 })

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { dateRange, parseIsoDate } from '../../shared/domain/dates'
-import { countLeaveDays, type LeaveEntitlement } from '../../shared/domain/leave'
+import { countLeaveDays, type HalfOnEves, type LeaveEntitlement } from '../../shared/domain/leave'
 import { employmentStart, isWorkday, MONDAY_TO_FRIDAY, type EmploymentInfo } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosurePreviewYearDto } from '../../shared/types/api'
@@ -30,7 +30,7 @@ export interface ClosurePreviewInput {
 
 interface PreviewPerson {
   info: EmploymentInfo
-  halfLeaveOnEves: boolean
+  halfLeaveOnEves: HalfOnEves
   /** Splits the person's closure days into leave and closure days, as the booking does. */
   split: (dates: IsoDate[]) => { vacation: IsoDate[]; closureDays: IsoDate[] }
 }

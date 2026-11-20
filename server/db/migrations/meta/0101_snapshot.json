@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e81251b8-4246-45db-9e9c-4ee107909e4d",
+  "id": "f574ee7d-8263-4233-a0e9-4edc2c337b7c",
   "prevId": "c40a166b-7ae3-465f-8099-f081f109d379",
   "tables": {
     "absence_codes": {
@@ -5244,14 +5244,6 @@
           "autoincrement": false,
           "default": true
         },
-        "paid_eves_from_year": {
-          "name": "paid_eves_from_year",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 2026
-        },
         "leave_forfeit_day": {
           "name": "leave_forfeit_day",
           "type": "integer",
@@ -5630,6 +5622,59 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "facility_eve_rules": {
+      "name": "facility_eve_rules",
+      "columns": {
+        "facility_id": {
+          "name": "facility_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_year": {
+          "name": "from_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "facility_eve_rules_facility_id_facilities_id_fk": {
+          "name": "facility_eve_rules_facility_id_facilities_id_fk",
+          "tableFrom": "facility_eve_rules",
+          "tableTo": "facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "facility_eve_rules_facility_id_from_year_pk": {
+          "columns": [
+            "facility_id",
+            "from_year"
+          ],
+          "name": "facility_eve_rules_facility_id_from_year_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

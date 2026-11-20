@@ -1,62 +1,58 @@
-import { eq } from 'drizzle-orm'
-import { parseIsoDate } from '../../shared/domain/dates'
+import { and, eq, gt } from 'drizzle-orm'
+import { effectiveEveYear, type EveMode, type EveRule } from '../../shared/domain/eveRules'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { EveLeave, LeaveCountingDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { facilities } from '../db/schema'
+import { facilities, facilityEveRules } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { bookFreedClosureDays } from './closures'
-import { facilityHolidayRules, paidEvesFromOf } from './holidayRules'
+import { facilityEveRulesOf, facilityHolidayRules } from './holidayRules'
 
 /**
  * How the facility treats 24 and 31 December (404 facility_not_found): whether it works under the TVöD SuE (then both
- * days are paid free, TVöD § 6 Abs. 3) and its own choice for when it does not: a whole or half leave day, or paid free.
- * The choice is kept while the TVöD switch is on. `paidEvesFromYear`: the first year the days are paid free (null while
- * they are not); earlier years keep the whole or half leave day.
+ * days are paid free, TVöD § 6 Abs. 3), its own choice for when it does not (a whole or half leave day, or paid free;
+ * kept while the TVöD switch is on), the year a change saved now applies from, and the rules per year.
  */
-export function getLeaveCounting(db: Db, facilityId: number): LeaveCountingDto {
+export function getLeaveCounting(db: Db, facilityId: number, now: Date = new Date()): LeaveCountingDto {
   const row = db.select({
-    tvoedSue: facilities.tvoedSue, christmasEveHalfLeave: facilities.christmasEveHalfLeave,
-    christmasEvePaidFree: facilities.christmasEvePaidFree, paidEvesFromYear: facilities.paidEvesFromYear,
+    tvoedSue: facilities.tvoedSue, half: facilities.christmasEveHalfLeave, paid: facilities.christmasEvePaidFree,
   }).from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!row) throw new ServiceError(404, 'facility_not_found')
-  const eveLeave: EveLeave = row.christmasEvePaidFree ? 'paid' : row.christmasEveHalfLeave ? 'half' : 'whole'
-  return { tvoedSue: row.tvoedSue, eveLeave, paidEvesFromYear: paidEvesFromOf(row) }
+  const eveLeave: EveLeave = row.paid ? 'paid' : row.half ? 'half' : 'whole'
+  return {
+    tvoedSue: row.tvoedSue, eveLeave, effectiveYear: effectiveEveYear(nowInBerlin(now).date),
+    rules: facilityEveRulesOf(db, facilityId),
+  }
+}
+
+/** The facility's rules per year for weighing 24 and 31 December (half a leave day in a year whose rule is 'half'). */
+export function halfLeaveOnEves(db: Db, facilityId: number): readonly EveRule[] {
+  return facilityHolidayRules(db, facilityId).eveRules ?? []
 }
 
 /**
- * Whether a leave day on 24 or 31 December counts as half a day: the stored half day, also with TVöD or „bezahlt frei“
- * (for the years before the days are paid free; from then on they are no leave days at all).
- */
-export function halfLeaveOnEves(db: Db, facilityId: number): boolean {
-  const row = db.select({ half: facilities.christmasEveHalfLeave }).from(facilities).where(eq(facilities.id, facilityId)).get()
-  if (!row) throw new ServiceError(404, 'facility_not_found')
-  return row.half
-}
-
-/**
- * Stores the TVöD switch and the choice for 24 and 31 December for the staff the facility is home to (404
- * facility_not_found). It is a pure calculation: target hours, leave account, requests and closure bookings follow it.
- * The days become paid free from the current year (Berlin) when they were not before; while they stay paid free the
- * stored first year is kept, so earlier years never change. „bezahlt frei“ keeps the stored whole or half day for the
- * years before; whole or half replaces it. When the days stop being paid free, the facility's closures are booked on
- * them as creating the closure would have (bookFreedClosureDays, as after a change of the state), in the same
- * transaction.
+ * Stores the TVöD switch and the choice for 24 and 31 December (404 facility_not_found) and writes the rule they give
+ * (TVöD or „bezahlt frei“: 'paid', else 'whole' or 'half') from the effective year on: this year until 23 December,
+ * from 24 December on the next year. The entry of that year is replaced and later ones dropped; the years before never
+ * change. Target hours, leave accounts, requests and closure bookings follow the rules of each year. When the days stop
+ * being paid free from the effective year, the facility's closures are booked on them as creating the closure would have
+ * (bookFreedClosureDays, only from that year on), in the same transaction.
  */
 export function setLeaveCounting(
   db: Db, facilityId: number, input: Pick<LeaveCountingDto, 'tvoedSue' | 'eveLeave'>, actor: SessionUser, now: Date = new Date(),
 ): LeaveCountingDto {
   const before = facilityHolidayRules(db, facilityId)
-  const paidAfter = input.tvoedSue || input.eveLeave === 'paid'
-  const year = parseIsoDate(nowInBerlin(now).date).year
+  const fromYear = effectiveEveYear(nowInBerlin(now).date)
+  const mode: EveMode = input.tvoedSue ? 'paid' : input.eveLeave
   db.transaction((tx) => {
     tx.update(facilities).set({
-      tvoedSue: input.tvoedSue,
-      christmasEvePaidFree: input.eveLeave === 'paid',
-      ...(input.eveLeave === 'paid' ? {} : { christmasEveHalfLeave: input.eveLeave === 'half' }),
-      ...(paidAfter && before.paidEvesFrom == null ? { paidEvesFromYear: year } : {}),
+      tvoedSue: input.tvoedSue, christmasEveHalfLeave: input.eveLeave === 'half', christmasEvePaidFree: input.eveLeave === 'paid',
     }).where(eq(facilities.id, facilityId)).run()
-    if (before.paidEvesFrom != null && !paidAfter) bookFreedClosureDays(tx, actor, facilityId, before, now)
+    tx.delete(facilityEveRules)
+      .where(and(eq(facilityEveRules.facilityId, facilityId), gt(facilityEveRules.fromYear, fromYear))).run()
+    tx.insert(facilityEveRules).values({ facilityId, fromYear, mode })
+      .onConflictDoUpdate({ target: [facilityEveRules.facilityId, facilityEveRules.fromYear], set: { mode } }).run()
+    bookFreedClosureDays(tx, actor, facilityId, before, now, `${fromYear}-01-01`)
   })
-  return getLeaveCounting(db, facilityId)
+  return getLeaveCounting(db, facilityId, now)
 }

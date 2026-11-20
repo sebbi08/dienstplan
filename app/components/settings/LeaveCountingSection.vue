@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { parseIsoDate, todayIso } from '#shared/domain/dates'
+import { eveModeIn, eveRuleOf } from '#shared/domain/eveRules'
 import { EVE_LEAVE_OPTIONS, type EveLeave, type LeaveCountingDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
  * Einstellungen → Dienstplan, below „Urlaubsanträge“ (per facility, „Einstellungen für“ applies): „Wir arbeiten nach
  * TVöD SuE“ (then 24 and 31 December are paid free, TVöD § 6 Abs. 3) and, without it, whether a leave day on those days
- * counts as a whole or half day or the days are paid free. The Träger changes it, the Leitung sees it read-only (the
- * server checks as well).
+ * counts as a whole or half day or the days are paid free. A change applies from the effective year (this year until
+ * 23 December, then the next); earlier years keep their rule, which the hint names. The Träger changes it, the Leitung
+ * sees it read-only (the server checks as well).
  */
 const t = de.leaveCounting
 const { data, refresh } = await useFetch<LeaveCountingDto>('/api/leave-counting', { key: 'leave-counting' })
@@ -15,20 +16,27 @@ const { can } = useCan()
 const canConfigure = computed(() => can('leave.configure'))
 const { busy, run } = useBusyAction(refresh)
 
-const form = reactive<LeaveCountingDto>({ tvoedSue: true, eveLeave: 'whole', paidEvesFromYear: null })
-watch(data, (value) => { if (value) Object.assign(form, value) }, { immediate: true })
+const form = reactive({ tvoedSue: true, eveLeave: 'whole' as EveLeave })
+watch(data, (value) => {
+  if (value) Object.assign(form, { tvoedSue: value.tvoedSue, eveLeave: value.eveLeave })
+}, { immediate: true })
 const items = EVE_LEAVE_OPTIONS.map(value => ({ label: t.options[value], value }))
-
-/**
- * „gilt ab ‹Jahr›“ while the form makes the two days paid free: the stored first year, or the current year when they
- * become paid free with this save (the server sets it so; earlier years keep the whole or half leave day).
- */
-const paidFrom = computed(() => (form.tvoedSue || form.eveLeave === 'paid')
-  ? data.value?.paidEvesFromYear ?? parseIsoDate(todayIso()).year
-  : null)
 
 const dirty = useDirty(() => canConfigure.value && !!data.value
   && (form.tvoedSue !== data.value.tvoedSue || form.eveLeave !== data.value.eveLeave))
+
+/**
+ * „gilt ab ‹Jahr›“: while changing, the effective year the save applies from; otherwise the first year of the rule in
+ * force (none for a rule since always). `before`: the rule of the year before it („bis 2025: ganzer Urlaubstag“).
+ */
+const validity = computed(() => {
+  if (!data.value) return null
+  const { effectiveYear, rules } = data.value
+  const fromYear = dirty.value ? effectiveYear : eveRuleOf(rules, effectiveYear)?.fromYear ?? 0
+  if (fromYear <= 0) return null
+  return { fromYear, before: t.before(fromYear - 1, t.options[eveModeIn(rules, fromYear - 1)]) }
+})
+
 const save = () => dirty.value && run(() => $fetch<LeaveCountingDto>('/api/leave-counting', {
   method: 'PUT', body: { tvoedSue: form.tvoedSue, eveLeave: form.eveLeave },
 }), de.common.saved)
@@ -42,7 +50,7 @@ const save = () => dirty.value && run(() => $fetch<LeaveCountingDto>('/api/leave
       <UFormField :help="t.tvoedHint">
         <div class="flex flex-wrap items-center gap-2">
           <USwitch v-model="form.tvoedSue" :label="t.tvoed" :disabled="!canConfigure" />
-          <UBadge v-if="form.tvoedSue && paidFrom !== null" size="sm" variant="soft" color="info" :label="t.paidFrom(paidFrom)" />
+          <UBadge v-if="validity" size="sm" variant="soft" color="info" :label="t.validFrom(validity.fromYear)" />
         </div>
       </UFormField>
       <UFormField :label="t.label">
@@ -51,8 +59,7 @@ const save = () => dirty.value && run(() => $fetch<LeaveCountingDto>('/api/leave
           v-else :model-value="form.eveLeave" orientation="horizontal" :items="items" :disabled="!canConfigure"
           @update:model-value="form.eveLeave = $event as EveLeave"
         />
-        <p v-if="!form.tvoedSue && paidFrom !== null" class="mt-1 text-sm font-medium text-gray-800">{{ t.paidFrom(paidFrom) }}</p>
-        <p v-if="paidFrom !== null" class="mt-1 text-xs text-gray-500">{{ t.paidFromHint(paidFrom) }}</p>
+        <p v-if="validity" class="mt-1 text-xs text-gray-500">{{ validity.before }} {{ t.pastUnchanged }}</p>
       </UFormField>
       <UButton v-if="canConfigure" type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>

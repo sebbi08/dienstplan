@@ -1,6 +1,7 @@
 import type { BemMeasureStatus, BemStatus, BemStepKind } from '../domain/bem'
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
+import type { EveRule } from '../domain/eveRules'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
@@ -2071,10 +2072,12 @@ export interface LeaveCountingDto {
   /** The facility's own choice for 24 and 31 December, effective while tvoedSue is off (kept while it is on). */
   eveLeave: EveLeave
   /**
-   * The first year 24 and 31 December are paid free („gilt ab 2026“); null while they are not. Earlier years keep the
-   * whole or half leave day. Set by the server (ignored in a PUT).
+   * The first year a change saved today applies to: this year until 23 December, then the next (shared/domain/eveRules.ts
+   * effectiveEveYear). Set by the server (ignored in a PUT).
    */
-  paidEvesFromYear: number | null
+  effectiveYear: number
+  /** How 24 and 31 December count per year (the history, oldest first; ignored in a PUT). */
+  rules: EveRule[]
 }
 
 /** The facility's notice on remaining leave (Einstellungen → Dienstplan; Leitung and Träger change it). */

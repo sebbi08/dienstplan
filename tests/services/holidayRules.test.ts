@@ -47,14 +47,14 @@ describe('holidays follow the facility', () => {
   }
 
   it('a facility defaults to Baden-Württemberg', () => {
-    expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BW', assumptionDay: true, paidEvesFrom: 2026 })
-    expect(facilityHolidayRules(db, berlin)).toEqual({ state: 'BE', assumptionDay: true, paidEvesFrom: THIS_YEAR })
+    expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BW', assumptionDay: true, eveRules: [{ fromYear: 0, mode: 'whole' }, { fromYear: 2026, mode: 'paid' }] })
+    expect(facilityHolidayRules(db, berlin)).toEqual({ state: 'BE', assumptionDay: true, eveRules: [{ fromYear: 0, mode: 'whole' }, { fromYear: THIS_YEAR, mode: 'paid' }] })
     expect(errorCode(() => facilityHolidayRules(db, 999))).toBe('facility_not_found')
   })
 
   it('targets follow the home facility', () => {
-    expect(infoOf(anna).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEvesFrom: 2026 })
-    expect(infoOf(bea).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEvesFrom: THIS_YEAR })
+    expect(infoOf(anna).holidays).toEqual({ state: 'BW', assumptionDay: true, eveRules: [{ fromYear: 0, mode: 'whole' }, { fromYear: 2026, mode: 'paid' }] })
+    expect(infoOf(bea).holidays).toEqual({ state: 'BE', assumptionDay: true, eveRules: [{ fromYear: 0, mode: 'whole' }, { fromYear: THIS_YEAR, mode: 'paid' }] })
     expect(dailyTarget(infoOf(bea), womensDay)).toBe(0)
     expect(dailyTarget(infoOf(anna), womensDay)).toBe(468)
     expect(dailyTarget(infoOf(anna), epiphany)).toBe(0)

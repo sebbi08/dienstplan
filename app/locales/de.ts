@@ -119,13 +119,14 @@ export const de = {
   leaveCounting: {
     title: 'TVöD, Heiligabend und Silvester',
     tvoed: 'Wir arbeiten nach TVöD SuE',
-    tvoedHint: 'Dann sind der 24.12. und der 31.12. bezahlt frei (TVöD § 6 Abs. 3): Sie kosten keinen Urlaub und zählen wie ein Feiertag – keine Sollstunden, im Dienstplan frei. Sonst ändert der Schalter nichts: Entgeltgruppe, Stufe und Stufenaufstieg bleiben auch ohne ihn sichtbar (viele arbeiten „in Anlehnung“ an den TVöD).',
+    tvoedHint: 'Dann sind der 24.12. und der 31.12. bezahlt frei (TVöD § 6 Abs. 3): Sie kosten keinen Urlaub und zählen für die Mitarbeiter wie ein Feiertag – keine Sollstunden. Die Besetzungs-Warnungen bleiben an diesen Tagen, falls die Kita geöffnet hat. Sonst ändert der Schalter nichts: Entgeltgruppe, Stufe und Stufenaufstieg bleiben auch ohne ihn sichtbar (viele arbeiten „in Anlehnung“ an den TVöD).',
     label: 'Der 24.12. und der 31.12. zählen als',
     options: { whole: 'ganzer Urlaubstag', half: 'halber Urlaubstag', paid: 'bezahlt frei' },
     paidTvoed: 'bezahlt frei (TVöD § 6 Abs. 3)',
-    paidFrom: (year: number) => `gilt ab ${year}`,
-    paidFromHint: (year: number) => `Bis ${year - 1} zählen der 24.12. und der 31.12. wie vorher (ganzer oder halber Urlaubstag): Urlaub und Stundenkonto früherer Jahre ändern sich nicht.`,
-    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen): Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen damit. „halber Urlaubstag“ gilt für alle Jahre und ändert das Stundenkonto nicht. „bezahlt frei“ ist wie ein Feiertag – kein Urlaub, keine Sollstunden – und gilt erst ab dem genannten Jahr.',
+    validFrom: (year: number) => `gilt ab ${year}`,
+    before: (year: number, mode: string) => `Bis ${year}: ${mode}.`,
+    pastUnchanged: 'Frühere Jahre ändern sich nicht.',
+    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen): Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen damit. Eine Änderung gilt ab dem laufenden Jahr, ab dem 24.12. erst ab dem nächsten Jahr; Urlaub und Stundenkonto früherer Jahre bleiben, wie sie sind. „bezahlt frei“ ist wie ein Feiertag – kein Urlaub, keine Sollstunden.',
     providerOnly: 'Nur der Träger kann das ändern.',
   },
   /** The notice on remaining leave (BUrlG, duty to inform): settings, the box for the employee, the list on „Urlaubsplanung“. */

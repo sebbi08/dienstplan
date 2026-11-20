@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { parseIsoDate } from '../../shared/domain/dates'
-import { leaveAccount, leaveDaysThatFit, type LeaveEntitlement } from '../../shared/domain/leave'
+import { leaveAccount, leaveDaysThatFit, type HalfOnEves, type LeaveEntitlement } from '../../shared/domain/leave'
 import { employmentStart, isWorkday, type EmploymentInfo } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
@@ -32,7 +32,7 @@ function joinedDuring(info: EmploymentInfo, year: number): boolean {
  */
 export interface LeaveSplitPerson {
   info: EmploymentInfo
-  halfLeaveOnEves: boolean
+  halfLeaveOnEves: HalfOnEves
   /** The entitlement of a year (asked only for the year the person joined in); null = none recorded, no limit. */
   entitlement: (year: number) => LeaveEntitlement | null
   /** The person's other leave days of the year: their leave entries not among the days being booked. */

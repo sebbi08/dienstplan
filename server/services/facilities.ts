@@ -5,7 +5,7 @@ import { isGermanState, schoolCutoffOf, type GermanState } from '../../shared/do
 import type { IsoDate } from '../../shared/domain/types'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { coverageRules, documentTypes, employees, facilities, shiftTemplates, users } from '../db/schema'
+import { coverageRules, documentTypes, employees, facilities, facilityEveRules, shiftTemplates, users } from '../db/schema'
 import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { bookFreedClosureDays } from './closures'
@@ -102,8 +102,12 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW', 
     const sortOrder = (tx.select({ value: max(facilities.sortOrder) }).from(facilities).get()?.value ?? -1) + 1
     const facility = tx.insert(facilities).values({
       name: checked, sortOrder, state, schoolCutoffMonth: cutoff.month, schoolCutoffDay: cutoff.day, schoolAgeYears: cutoff.ageYears,
-      paidEvesFromYear: parseIsoDate(today).year,
     }).returning().get()
+    // 24 and 31 December: a whole leave day before, paid free (TVöD SuE, the default) from the year of creation.
+    tx.insert(facilityEveRules).values([
+      { facilityId: facility.id, fromYear: 0, mode: 'whole' },
+      { facilityId: facility.id, fromYear: parseIsoDate(today).year, mode: 'paid' },
+    ]).run()
     seedBuiltinRequirementTypes(tx, facility.id)
     seedDefaultMeals(tx, facility.id)
     if (source !== null) {

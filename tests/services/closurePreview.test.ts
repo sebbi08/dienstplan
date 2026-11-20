@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees, facilities } from '../../server/db/schema'
+import { employees } from '../../server/db/schema'
 import { previewClosuresForEmployee, previewClosuresForNew, type ClosurePreviewInput } from '../../server/services/closurePreview'
 import { createClosure } from '../../server/services/closures'
 import { createEmployee, setEntitlement } from '../../server/services/employees'
@@ -9,6 +9,7 @@ import { setLeaveCounting } from '../../server/services/leaveCounting'
 import type { SessionUser } from '../../shared/types/api'
 import { eq } from 'drizzle-orm'
 import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
+import { sameEveRuleEveryYear } from '../helpers/eveRules'
 
 // 2026-05-01 (Friday) and 25 December (Friday) are public holidays, 26 December a Saturday.
 // Summer: 7 working days Mo–Fr (7, 10–14, 17 August); Christmas: 8 (21–24, 28–31 December), 7 with half eves.
@@ -25,7 +26,7 @@ describe('closure leave preview', () => {
     db = createTestDb()
     admin = addUser(db, 'leitung', 'admin')
     // These cases count 24 and 31 December as leave days (the facility does not work under the TVöD SuE).
-    db.update(facilities).set({ tvoedSue: false }).run()
+    sameEveRuleEveryYear(db)
   })
 
   /** What creating the person with the same values books (leave days, closure days without leave) in the year. */

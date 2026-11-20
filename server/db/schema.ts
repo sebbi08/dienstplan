@@ -35,25 +35,19 @@ export const facilities = sqliteTable('facilities', {
   markEarlyLeave: integer('mark_early_leave', { mode: 'boolean' }).notNull().default(true),
   /** At most this many employees of the facility on leave at the same time (null = no limit). */
   leaveMaxConcurrent: integer('leave_max_concurrent'),
-  /** A leave day on 24 or 31 December counts as half a day (leave account, requests, closures); only the Träger sets it. */
-  christmasEveHalfLeave: integer('christmas_eve_half_leave', { mode: 'boolean' }).notNull().default(false),
   /**
-   * The facility's own choice „bezahlt frei“ for 24 and 31 December (instead of a whole or half leave day): both days
-   * count like a public holiday for the staff (HolidayRules.paidEvesFrom). Only the Träger sets it; while tvoedSue is on
-   * it does not matter (the days are paid free anyway) and is kept for when it is switched off.
+   * The settings form's current choice for 24 and 31 December without the TVöD: half a leave day (`christmasEveHalfLeave`),
+   * „bezahlt frei“ (`christmasEvePaidFree`) or else a whole leave day. Only the Träger sets them. How a year counts is
+   * never read from here but from facilityEveRules (each change is written there from the effective year on).
    */
+  christmasEveHalfLeave: integer('christmas_eve_half_leave', { mode: 'boolean' }).notNull().default(false),
   christmasEvePaidFree: integer('christmas_eve_paid_free', { mode: 'boolean' }).notNull().default(false),
   /**
-   * „Wir arbeiten nach TVöD SuE“ (Träger only, default on): 24 and 31 December are paid free (TVöD § 6 Abs. 3). It
-   * changes nothing else; pay groups, levels and the level steps stay usable either way.
+   * „Wir arbeiten nach TVöD SuE“ (Träger only, default on): 24 and 31 December are paid free (TVöD § 6 Abs. 3), written
+   * to facilityEveRules as 'paid' from the effective year. It changes nothing else; pay groups, levels and the level
+   * steps stay usable either way.
    */
   tvoedSue: integer('tvoed_sue', { mode: 'boolean' }).notNull().default(true),
-  /**
-   * The first year 24 and 31 December are paid free (while tvoedSue or christmasEvePaidFree is on); earlier years keep
-   * the whole or half leave day, so past target hours and balances never change. Existing facilities: 2026; a new
-   * facility: the year it was created; switching paid free on later: that year (see setLeaveCounting).
-   */
-  paidEvesFromYear: integer('paid_eves_from_year').notNull().default(2026),
   /**
    * Remaining leave of a year lapses on this day of the year after (January to September; default 31.03.). Leitung and
    * Träger set it; the notice on remaining leave (shared/domain/leaveForfeit.ts) names it.
@@ -1789,3 +1783,16 @@ export const facilityContacts = sqliteTable('facility_contacts', {
   label: text('label').notNull().default(''),
   sortOrder: integer('sort_order').notNull().default(0),
 }, table => [index('facility_contacts_facility').on(table.facilityId)])
+
+/**
+ * How 24 and 31 December count for the staff a facility is home to, per year (TVöD § 6 Abs. 3): the rule of a year is
+ * the entry with the latest `fromYear` not after it. 'whole' / 'half': a whole or half leave day; 'paid': paid free, like
+ * a public holiday for the staff (no leave, no target hours). Changing the TVöD switch or the choice writes the entry of
+ * the effective year (the current year until 23 December, else the next), so past years never change. Every facility
+ * has an entry from year 0.
+ */
+export const facilityEveRules = sqliteTable('facility_eve_rules', {
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  fromYear: integer('from_year').notNull(),
+  mode: text('mode', { enum: ['whole', 'half', 'paid'] }).notNull(),
+}, table => [primaryKey({ columns: [table.facilityId, table.fromYear] })])

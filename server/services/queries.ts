@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, isNull, lte, or, type SQL } from 'drizzle-orm'
+import type { EveRule } from '../../shared/domain/eveRules'
 import { describeEntry } from '../../shared/domain/describe'
 import type { Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
@@ -8,7 +9,7 @@ import { planEntryColor } from '../../shared/domain/weekTemplates'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, shiftTemplates } from '../db/schema'
-import { paidEvesFromOf } from './holidayRules'
+import { allFacilityEveRules } from './holidayRules'
 
 export interface EntryFilter {
   from?: IsoDate
@@ -62,8 +63,8 @@ export interface EmployeeRecord {
   /** Staffing ratio: qualification (null = not entered) and counting share in percent (null = the state's default). */
   qualification: Qualification | null
   staffingShare: number | null
-  /** The home facility counts a leave day on 24 or 31 December as half a day (see leaveDayWeight). */
-  halfLeaveOnEves: boolean
+  /** The home facility's rules for 24 and 31 December per year: half a leave day in a 'half' year (see leaveDayWeight). */
+  halfLeaveOnEves: readonly EveRule[]
 }
 
 /** Entries in the plan of facilityId (see `EntryFilter.planFacilityId`); needs `employees` joined on the entry's employee. */
@@ -145,26 +146,25 @@ const RECORD_COLUMNS = {
 /** Employees with their contract hours and the public-holiday rules of their home facility. */
 function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
+  const eveRules = allFacilityEveRules(db)
   return db.select({
-    row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay,
-    halfLeaveOnEves: facilities.christmasEveHalfLeave, balanceFrom: employees.balanceFrom,
-    tvoedSue: facilities.tvoedSue, christmasEvePaidFree: facilities.christmasEvePaidFree, paidEvesFromYear: facilities.paidEvesFromYear,
+    row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay, balanceFrom: employees.balanceFrom,
   })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
     .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-    .map(({ row, state, assumptionDay, halfLeaveOnEves, balanceFrom, tvoedSue, christmasEvePaidFree, paidEvesFromYear }) => {
-      const paidEvesFrom = paidEvesFromOf({ tvoedSue, christmasEvePaidFree, paidEvesFromYear })
+    .map(({ row, state, assumptionDay, balanceFrom }) => {
+      const rules = eveRules.get(row.facilityId) ?? []
       return {
         ...row,
-        // The half day counts in the years before the eves are paid free (from then on they are no leave days at all).
-        halfLeaveOnEves,
+        // The half day in the years whose rule is 'half' (in a 'paid' year the eves are no leave days at all).
+        halfLeaveOnEves: rules,
         info: {
           hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
           leftOn: row.leftOn,
-          // The home facility's holidays, with 24 and 31 December from the year they are paid free there.
-          holidays: { state, assumptionDay, paidEvesFrom },
+          // The home facility's holidays, with 24 and 31 December in the years they are paid free there.
+          holidays: { state, assumptionDay, eveRules: rules },
           // „Stundenkonto ab“: only the balance reads it (balanceStart), so every balance follows it.
           balanceFrom,
         },

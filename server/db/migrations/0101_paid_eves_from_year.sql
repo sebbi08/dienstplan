@@ -1,1 +1,0 @@
-ALTER TABLE `facilities` ADD `paid_eves_from_year` integer DEFAULT 2026 NOT NULL;

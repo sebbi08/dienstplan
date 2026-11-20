@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { facilities } from '../../server/db/schema'
+import { sameEveRuleEveryYear } from '../helpers/eveRules'
 import { createClosure } from '../../server/services/closures'
 import { setEntitlement } from '../../server/services/employees'
 import { getLeaveAccount } from '../../server/services/leave'
@@ -24,7 +24,7 @@ describe('Urlaubsplanung: Alle Anträge und Urlaube', () => {
   beforeEach(() => {
     db = createTestDb()
     // The cases count 24 and 31 December as leave days: no TVöD SuE here (with it they are paid free).
-    db.update(facilities).set({ tvoedSue: false }).run()
+    sameEveRuleEveryYear(db)
     provider = addUser(db, 'traeger', 'provider')
     leitung = makePlanner(db, addUser(db, 'leitung', 'admin'))
     anna = addEmployee(db, 'Anna')

@@ -1,4 +1,5 @@
 import { addDays, isWeekend } from './dates'
+import { halfOnEveDay, type EveRule } from './eveRules'
 import { isHolidayIn, type HolidayRules } from './holidays'
 import type { IsoDate } from './types'
 
@@ -34,15 +35,21 @@ function leaveDays(dates: IsoDate[], isLeaveDay: LeaveDayRule): IsoDate[] {
 }
 
 /**
- * How much of the entitlement a leave day uses: half a day on 24 and 31 December when the (home) facility counts them
- * so (`halfOnEves`, the facility setting „Urlaub am 24.12. und 31.12. zählt als halber Tag“), otherwise a whole day.
+ * Whether 24 and 31 December weigh half a leave day: the (home) facility's rules per year (half in a year whose rule is
+ * 'half'; in a 'paid' year the days are no leave days at all), or a plain yes/no for every year.
  */
-export function leaveDayWeight(date: IsoDate, halfOnEves: boolean): 1 | 0.5 {
-  return halfOnEves && (date.endsWith('-12-24') || date.endsWith('-12-31')) ? 0.5 : 1
+export type HalfOnEves = boolean | readonly EveRule[]
+
+/**
+ * How much of the entitlement a leave day uses: half a day on 24 and 31 December in a year the (home) facility counts
+ * them so (`halfOnEves`), otherwise a whole day.
+ */
+export function leaveDayWeight(date: IsoDate, halfOnEves: HalfOnEves): 1 | 0.5 {
+  return halfOnEveDay(date, halfOnEves) ? 0.5 : 1
 }
 
 /** The leave days the dates use up, each with its weight (the dates are leave days already, each once). */
-export function countLeaveDays(dates: IsoDate[], halfOnEves: boolean): number {
+export function countLeaveDays(dates: IsoDate[], halfOnEves: HalfOnEves): number {
   return dates.reduce((sum, date) => sum + leaveDayWeight(date, halfOnEves), 0)
 }
 
@@ -51,7 +58,7 @@ export function countLeaveDays(dates: IsoDate[], halfOnEves: boolean): number {
  * later half day (31 December) can still use the half day left. None when nothing or less than half a day is left.
  * With whole days only this is the first floor(available) dates, as before.
  */
-export function leaveDaysThatFit(dates: IsoDate[], available: number, halfOnEves: boolean): IsoDate[] {
+export function leaveDaysThatFit(dates: IsoDate[], available: number, halfOnEves: HalfOnEves): IsoDate[] {
   let used = 0
   const fitting: IsoDate[] = []
   for (const date of dates) {
@@ -65,7 +72,7 @@ export function leaveDaysThatFit(dates: IsoDate[], available: number, halfOnEves
 
 export function leaveAccount(
   entitlement: LeaveEntitlement | null, vacationDates: IsoDate[], year: number, today: IsoDate,
-  isLeaveDay: LeaveDayRule, halfOnEves = false,
+  isLeaveDay: LeaveDayRule, halfOnEves: HalfOnEves = false,
 ): LeaveAccount {
   const days = leaveDays(vacationDates, isLeaveDay).filter(date => date.startsWith(`${year}-`))
   const taken = countLeaveDays(days.filter(date => date < today), halfOnEves)
@@ -83,7 +90,7 @@ function nextLeaveDay(date: IsoDate, isLeaveDay: LeaveDayRule): IsoDate | null {
 }
 
 /** Periods of consecutive leave days with the days they use (halfOnEves: see leaveDayWeight; sick periods never). */
-export function groupLeaveRanges(dates: IsoDate[], isLeaveDay: LeaveDayRule, halfOnEves = false): LeaveRange[] {
+export function groupLeaveRanges(dates: IsoDate[], isLeaveDay: LeaveDayRule, halfOnEves: HalfOnEves = false): LeaveRange[] {
   const ranges: LeaveRange[] = []
   for (const date of leaveDays(dates, isLeaveDay)) {
     const current = ranges.at(-1)
