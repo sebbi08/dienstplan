@@ -7,9 +7,14 @@ import type { IsoDate, Minutes } from '../types'
  * FTE are plain decimals; nothing is rounded before display.
  */
 
+/**
+ * azubi_* = employed Erzieher trainees (PiA/berufsbegleitend); azubi_spa_* = praxisintegrierte Ausbildung zur
+ * Sozialpädagogischen Assistenz (BW); both start with „azubi_“, so every trainee rule (birth year prompt, probation)
+ * covers them. A plain text column in the database (no check constraint), so new keys need no migration.
+ */
 export const QUALIFICATIONS = [
-  'fachkraft', 'ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3', 'praktikant', 'haushalt',
-  'none',
+  'fachkraft', 'ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'azubi_spa_1', 'azubi_spa_2', 'azubi_spa_3', 'studium_1',
+  'studium_2', 'studium_3', 'praktikant', 'haushalt', 'none',
 ] as const
 
 /** An employee's qualification; null in inputs = not entered yet. */

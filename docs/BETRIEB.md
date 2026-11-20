@@ -1461,6 +1461,17 @@ auch im Reiter und in den Einstellungen.
   Träger einen dieser Werte geändert, gilt seine Änderung weiter.
   „Anrechnung in %“ bleibt meist leer: dann gilt die Vorgabe des Landes für die Qualifikation (sie steht grau im
   Feld). Eine eigene Zahl (0 bis 100) gilt nur für diese Person.
+- **PiA Sozialpädagogische Assistenz (1./2./3. Jahr)** (seit 19.11.2026): eigene Qualifikation für die
+  praxisintegrierte Ausbildung zur Sozialpädagogischen Assistenz. In **Baden-Württemberg** zählt sie ab November 2026
+  im 1. Jahr 0 %, im 2. und 3. Jahr 20 % (KM-FAQ zum KiTaG,
+  https://km.baden-wuerttemberg.de/de/fruehe-bildung/kindertageseinrichtungen/faq-kindertagesbetreuungsgesetz, geprüft
+  19.11.2026; dieselbe FAQ bestätigt: PiA Erzieher und DHBW-Studierende bis 40 %, Anerkennungspraktikum bis 100 %). In
+  den anderen Ländern 0 % (keine Regel für diese Ausbildung hinterlegt; bei Bedarf „Anrechnung in %“). Wie die anderen
+  Auszubildenden bekommt sie den Hinweis „Geburtsjahr fehlt“ (Jugendarbeitsschutz). Wer bisher als Auszubildende/r mit
+  eigener Anrechnung 20 % eingetragen war, kann auf die neue Qualifikation umgestellt werden.
+- **Baden-Württemberg – Kinderpfleger/innen und Sozialpädagogische Assistent/innen sind Fachkräfte** (§ 7 Abs. 2 Nr. 6
+  KiTaG). Bitte als **„Fachkraft“** eintragen, nicht als Ergänzungs-/Zusatzkraft – die zählt in Baden-Württemberg 0 %.
+  Das steht bei BW-Einrichtungen auch im Hilfetext der Qualifikation.
 - **Solange bei keinem Mitarbeiter der Einrichtung eine Qualifikation eingetragen ist, zeigt der Dienstplan keine
   Personalschlüssel-Warnungen.** Der Reiter sagt dann „Bitte bei den Mitarbeitern die Qualifikation eintragen“.
   Mitarbeiter ohne Qualifikation zählen mit ihrer Anrechnung (ohne Angabe 100 %), aber nicht als Fachkraft; der Reiter nennt ihre Namen.

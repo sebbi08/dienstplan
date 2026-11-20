@@ -43,10 +43,10 @@ const sharesOf = (land: GermanState, date: string) =>
   Object.fromEntries(KEYS.map(key => [key, presetFor(land, date).staffShares[key]]))
 
 describe('qualifications – Studium praxisintegriert/dual', () => {
-  it('adds studium_1/2/3 right after azubi_3, with German labels', () => {
+  it('adds studium_1/2/3 after the trainees (azubi_3, then the SPA-PiA years), with German labels', () => {
     expect([...QUALIFICATIONS]).toEqual([
-      'fachkraft', 'ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'studium_1', 'studium_2', 'studium_3',
-      'praktikant', 'haushalt', 'none',
+      'fachkraft', 'ergaenzung', 'azubi_1', 'azubi_2', 'azubi_3', 'azubi_spa_1', 'azubi_spa_2', 'azubi_spa_3', 'studium_1',
+      'studium_2', 'studium_3', 'praktikant', 'haushalt', 'none',
     ])
     expect(de.staffing.qualifications.studium_1).toBe('Studium praxisintegriert/dual (1. Studienjahr)')
     expect(de.staffing.qualifications.studium_2).toBe('Studium praxisintegriert/dual (2. Studienjahr)')

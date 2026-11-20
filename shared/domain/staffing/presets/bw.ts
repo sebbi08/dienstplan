@@ -65,15 +65,20 @@ export const BW: StaffingRuleSet[] = [
     ...current,
     validFrom: TRAINEES_REVISED,
     correction: true,
-    source: 'KiTaVO BW § 1 (Mindestpersonalschlüssel), § 1a; KiTaG BW § 7; KM-FAQ zum KiTaG (Auszubildende, Studierende)',
+    source: 'KiTaVO BW § 1 (Mindestpersonalschlüssel), § 1a; KiTaG BW § 7; KM-FAQ zum KiTaG (Auszubildende, Studierende; '
+      + 'https://km.baden-wuerttemberg.de/de/fruehe-bildung/kindertageseinrichtungen/faq-kindertagesbetreuungsgesetz, '
+      + 'geprüft 19.11.2026)',
     note: `${TRAINEES_NOTE} Auszubildende (PiA Erzieher) und Studierende (DHBW/dual) zählen mit bis zu 40 %, `
       + 'Berufspraktikum (Anerkennungsjahr) mit bis zu 100 % „als Fachkraft“ (§ 7 Abs. 4 KiTaG, KM-FAQ zum KiTaG) – '
-      + 'bei der Mindestbesetzung nach Uhrzeit aber nicht als ganze Fachkraft. PiA Sozialpädagogische Assistenz '
-      + '(2./3. Jahr) und Direkteinstieg Kita (2. Jahr) bis 20 %, über das L-Bank-Programm geförderte PiA-Plätze 0 % '
-      + `– beim Mitarbeiter eintragen. Praxissemester an anderen Hochschulen zählen nicht. ${NOTE}. Beginn der `
-      + 'Fassung vom 14.07.2025 nicht recherchiert.',
+      + 'bei der Mindestbesetzung nach Uhrzeit aber nicht als ganze Fachkraft. PiA Sozialpädagogische Assistenz: '
+      + 'eigene Qualifikation, 1. Jahr 0 %, 2. und 3. Jahr 20 % (KM-FAQ). Direkteinstieg Kita (2. Jahr) bis 20 %, über '
+      + 'das L-Bank-Programm geförderte PiA-Plätze 0 % – beim Mitarbeiter eintragen. Staatlich anerkannte '
+      + 'Kinderpfleger/innen und Sozialpädagogische Assistent/innen sind Fachkräfte (§ 7 Abs. 2 Nr. 6 KiTaG) – als '
+      + '„Fachkraft“ eintragen, nicht als Ergänzungskraft (zählt 0 %). Praxissemester an anderen Hochschulen zählen '
+      + `nicht. ${NOTE}. Beginn der Fassung vom 14.07.2025 nicht recherchiert.`,
     staffShares: shares({
-      ergaenzung: 0, azubi_1: 40, azubi_2: 40, azubi_3: 40, studium_1: 40, studium_2: 40, studium_3: 40, praktikant: 100,
+      ergaenzung: 0, azubi_1: 40, azubi_2: 40, azubi_3: 40, azubi_spa_1: 0, azubi_spa_2: 20, azubi_spa_3: 20,
+      studium_1: 40, studium_2: 40, studium_3: 40, praktikant: 100,
     }),
   },
 ]

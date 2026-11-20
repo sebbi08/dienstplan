@@ -1544,11 +1544,15 @@ export const de = {
     qualifications: {
       fachkraft: 'Fachkraft', ergaenzung: 'Ergänzungs-/Zusatzkraft', azubi_1: 'Auszubildende/r (1. Jahr)',
       azubi_2: 'Auszubildende/r (2. Jahr)', azubi_3: 'Auszubildende/r (3. Jahr)',
+      azubi_spa_1: 'PiA Sozialpädagogische Assistenz (1. Jahr)', azubi_spa_2: 'PiA Sozialpädagogische Assistenz (2. Jahr)',
+      azubi_spa_3: 'PiA Sozialpädagogische Assistenz (3. Jahr)',
       studium_1: 'Studium praxisintegriert/dual (1. Studienjahr)', studium_2: 'Studium praxisintegriert/dual (2. Studienjahr)',
       studium_3: 'Studium praxisintegriert/dual (ab 3. Studienjahr)', praktikant: 'Berufspraktikant/in (Anerkennungsjahr)',
       haushalt: 'Haushaltskraft', none: 'keine pädagogische Kraft (z. B. Aushilfe, Werkstudent/in)',
     } satisfies Record<Qualification, string>,
     qualificationHint: 'Praxissemester, Pflichtpraktikum oder Werkstudent/in ohne pädagogischen Abschluss: ‚keine pädagogische Kraft‘ wählen.',
+    /** Added to the hint in Baden-Württemberg (KiTaG BW § 7 Abs. 2 Nr. 6): there Ergänzungskraft counts 0 %. */
+    qualificationHintBw: 'Baden-Württemberg: Staatlich anerkannte Kinderpfleger/innen und Sozialpädagogische Assistent/innen sind Fachkräfte (§ 7 Abs. 2 Nr. 6 KiTaG) – bitte als „Fachkraft“ eintragen, nicht als Ergänzungskraft (die zählt hier 0 %).',
     share: 'Anrechnung in %',
     sharePlaceholder: (pct: number) => `${pct} (Vorgabe)`,
     shareHint: 'Für den Personalschlüssel. Leer = Vorgabe des Landes für die Qualifikation.',

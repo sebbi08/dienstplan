@@ -179,6 +179,9 @@ const qualificationItems = [
   { label: de.staffing.qualificationNone, value: NO_QUALIFICATION },
   ...QUALIFICATIONS.map(key => ({ label: de.staffing.qualifications[key], value: key })),
 ]
+// Baden-Württemberg: Kinderpfleger/innen and SPA are Fachkräfte there, Ergänzungskraft counts 0 % (KiTaG BW § 7 Abs. 2 Nr. 6).
+const qualificationHelp = computed(() => (staffingSettings.value?.effective.land === 'BW'
+  ? `${de.staffing.qualificationHint} ${de.staffing.qualificationHintBw}` : de.staffing.qualificationHint))
 const sharePlaceholder = computed(() => {
   const rules = staffingSettings.value?.effective
   return rules ? de.staffing.sharePlaceholder(shareOf(rules, qualificationValue(qualificationForm), null)) : ''
@@ -577,7 +580,7 @@ async function onTabKey(event: KeyboardEvent) {
       @submit.prevent="saveEmployee('qualification')"
     >
       <h2 class="font-semibold sm:col-span-4">{{ de.staffing.qualification }}</h2>
-      <UFormField :label="de.staffing.qualification" :help="de.staffing.qualificationHint" class="sm:col-span-2">
+      <UFormField :label="de.staffing.qualification" :help="qualificationHelp" class="sm:col-span-2">
         <USelect v-model="qualificationForm.qualification" :items="qualificationItems" class="w-full" />
       </UFormField>
       <UFormField :label="de.staffing.share" :help="de.staffing.shareHint" class="sm:col-span-2">
