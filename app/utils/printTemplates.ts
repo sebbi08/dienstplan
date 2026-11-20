@@ -9,17 +9,59 @@ export const berlinDay = (timestamp: string): IsoDate => nowInBerlin(new Date(ti
 /** Where a template's PDF is served (shown in the browser, which prints it). */
 export const templateFileUrl = (id: number): string => `/api/print-templates/${id}/file`
 
-/** The templates per category, the categories in their order (only those holding templates), titles alphabetical. */
-export function groupByCategory(
-  categories: TemplateCategoryDto[], templates: PrintTemplateDto[],
-): { category: TemplateCategoryDto; templates: PrintTemplateDto[] }[] {
-  return categories
-    .map(category => ({
-      category,
-      templates: templates.filter(template => template.categoryId === category.id)
-        .sort((a, b) => a.title.localeCompare(b.title, 'de')),
-    }))
-    .filter(group => group.templates.length > 0)
+/** The key of the sub-tab „Vom Träger“: templates for all facilities without a category of their name in the facility. */
+export const FROM_PROVIDER_TAB = 'provider'
+
+/** A sub-tab of „Dokumente“ → „Vorlagen“: a category of the facility, or „Vom Träger“ (`category` null). */
+export interface TemplateTab {
+  key: string
+  category: TemplateCategoryDto | null
+  templates: PrintTemplateDto[]
+}
+
+const byTitle = (a: PrintTemplateDto, b: PrintTemplateDto) => a.title.localeCompare(b.title, 'de') || a.id - b.id
+
+/**
+ * The sub-tabs: every category the viewer sees (the server lists only those), in the facility's order, also an empty one;
+ * then „Vom Träger“ when there are templates for all facilities that fit no category of the facility. Titles alphabetical
+ * („Vom Träger“ by the category name the Träger chose first).
+ */
+export function templateTabs(categories: TemplateCategoryDto[], templates: PrintTemplateDto[]): TemplateTab[] {
+  const tabs: TemplateTab[] = categories.map(category => ({
+    key: `category-${category.id}`,
+    category,
+    templates: templates.filter(template => template.categoryId === category.id).sort(byTitle),
+  }))
+  const fromProvider = templates.filter(template => template.categoryId === null)
+    .sort((a, b) => a.category.localeCompare(b.category, 'de') || byTitle(a, b))
+  if (fromProvider.length > 0) tabs.push({ key: FROM_PROVIDER_TAB, category: null, templates: fromProvider })
+  return tabs
+}
+
+/** The sub-tab to open: the one asked for (or remembered) when it is there, else the first. */
+export function chosenTemplateTab(tabs: readonly TemplateTab[], wanted: string | null): string | null {
+  return tabs.find(tab => tab.key === wanted)?.key ?? tabs[0]?.key ?? null
+}
+
+const TAB_MEMORY_KEY = 'dienstplan.templatesTab'
+
+/** The sub-tab this device opened last; null when storage is unavailable. */
+export function readTemplateTabMemory(): string | null {
+  try {
+    return localStorage.getItem(TAB_MEMORY_KEY)
+  }
+  catch {
+    return null
+  }
+}
+
+export function writeTemplateTabMemory(key: string): void {
+  try {
+    localStorage.setItem(TAB_MEMORY_KEY, key)
+  }
+  catch {
+    // Not remembered; switching still works on this page.
+  }
 }
 
 /**

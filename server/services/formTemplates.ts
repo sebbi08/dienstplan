@@ -3,7 +3,7 @@ import { and, count, eq, max } from 'drizzle-orm'
 import {
   checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormKind, type FormSubject,
 } from '../../shared/domain/forms'
-import { STARTERS, starterContent } from '../../shared/domain/forms/starters'
+import { STARTERS, starterContent, type StarterKey } from '../../shared/domain/forms/starters'
 import type { FormTemplateDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities, forms, formStarterSeeds, formTemplates } from '../db/schema'
@@ -258,16 +258,19 @@ function seededKeys(db: Db, facilityId: number): Set<string> {
 /**
  * Creates every starter template the facility has not been given yet (by key, see form_starter_seeds) and records it
  * as given, so a starter deleted or renamed later is not created again while a new starter still arrives. A template
- * already carrying the key is only recorded. Call it inside the caller's transaction.
+ * already carrying the key is only recorded. With `only`, the other starters are recorded as given without being
+ * created (a new facility: NEW_FACILITY_STARTER_KEYS). Call it inside the caller's transaction.
  */
-export function seedStarterTemplates(db: Db, facilityId: number, now: Date = new Date(), newId: () => string = randomUUID): void {
+export function seedStarterTemplates(
+  db: Db, facilityId: number, now: Date = new Date(), newId: () => string = randomUUID, only?: readonly StarterKey[],
+): void {
   const seeded = seededKeys(db, facilityId)
   const present = new Set(db.select({ key: formTemplates.starterKey }).from(formTemplates)
     .where(eq(formTemplates.facilityId, facilityId)).all().map(row => row.key))
   const at = now.toISOString()
   for (const starter of STARTERS) {
     if (seeded.has(starter.key)) continue
-    if (!present.has(starter.key)) {
+    if (!present.has(starter.key) && (!only || only.includes(starter.key))) {
       // A template of the facility's own may already use the name; the starter then gets a free one.
       const taken = existingNames(db, facilityId, starter.kind)
         .some(row => row.name.toLocaleLowerCase('de') === starter.name.toLocaleLowerCase('de'))

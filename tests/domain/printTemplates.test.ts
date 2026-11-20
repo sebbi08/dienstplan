@@ -1,24 +1,61 @@
 import { describe, expect, it } from 'vitest'
-import { berlinDay, groupByCategory, hiddenByVisibility, titleFromFileName } from '../../app/utils/printTemplates'
+import {
+  berlinDay, chosenTemplateTab, FROM_PROVIDER_TAB, hiddenByVisibility, readTemplateTabMemory, templateTabs, titleFromFileName,
+  writeTemplateTabMemory,
+} from '../../app/utils/printTemplates'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/api'
 
-const template = (id: number, categoryId: number, title: string): PrintTemplateDto => ({
-  id, title, categoryId, category: '', global: false, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
+const template = (id: number, categoryId: number | null, title: string, category = ''): PrintTemplateDto => ({
+  id, title, categoryId, category, global: categoryId === null, globalCategoryName: categoryId === null ? category : null,
+  globalVisibility: categoryId === null ? 'all' : null, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
 })
 const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2): TemplateCategoryDto =>
   ({ id, name, visibility, templateCount })
 
 describe('print template page helpers', () => {
-  it('groups by category in the categories\' order, titles alphabetical, and leaves out empty categories', () => {
-    const groups = groupByCategory([category(3, 'Sonstiges'), category(1, 'Eltern'), category(2, 'Leer')], [
+  it('makes a sub-tab of every category the viewer sees, in the facility\'s order, empty ones too, titles alphabetical', () => {
+    const tabs = templateTabs([category(3, 'Sonstiges'), category(1, 'Eltern'), category(2, 'Leer')], [
       template(1, 3, 'Zettel'), template(2, 1, 'Übernachtung'), template(3, 1, 'Ausflug'), template(4, 3, 'Attest'),
       // A category the viewer does not see (not in the list) shows nothing.
       template(5, 9, 'Versteckt'),
     ])
-    expect(groups.map(group => [group.category.name, group.templates.map(t => t.title)])).toEqual([
-      ['Sonstiges', ['Attest', 'Zettel']], ['Eltern', ['Ausflug', 'Übernachtung']],
+    expect(tabs.map(tab => [tab.key, tab.category?.name, tab.templates.map(t => t.title)])).toEqual([
+      ['category-3', 'Sonstiges', ['Attest', 'Zettel']], ['category-1', 'Eltern', ['Ausflug', 'Übernachtung']], ['category-2', 'Leer', []],
     ])
+  })
+
+  it('adds „Vom Träger“ last, only when templates for all facilities fit no category of the facility', () => {
+    expect(templateTabs([category(1, 'Eltern')], [template(1, 1, 'Brief')]).map(tab => tab.key)).toEqual(['category-1'])
+    const tabs = templateTabs([category(1, 'Eltern')], [
+      template(1, null, 'Urlaubsantrag', 'Personal'), template(2, null, 'Speiseplan', 'Küche'), template(3, null, 'Attest', 'Personal'),
+    ])
+    expect(tabs.map(tab => [tab.key, tab.category, tab.templates.map(t => t.title)])).toEqual([
+      ['category-1', category(1, 'Eltern'), []], [FROM_PROVIDER_TAB, null, ['Speiseplan', 'Attest', 'Urlaubsantrag']],
+    ])
+  })
+
+  it('opens the remembered sub-tab when it is there, else the first', () => {
+    const tabs = templateTabs([category(1, 'Eltern'), category(2, 'Personal')], [])
+    expect(chosenTemplateTab(tabs, 'category-2')).toBe('category-2')
+    expect(chosenTemplateTab(tabs, 'category-9')).toBe('category-1')
+    expect(chosenTemplateTab(tabs, null)).toBe('category-1')
+    expect(chosenTemplateTab([], 'category-1')).toBeNull()
+  })
+
+  it('remembers the sub-tab per device, and does without storage', () => {
+    // No localStorage here (node): nothing remembered, nothing thrown.
+    expect(readTemplateTabMemory()).toBeNull()
+    expect(() => writeTemplateTabMemory('category-1')).not.toThrow()
+    const store = new Map<string, string>()
+    globalThis.localStorage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => store.set(key, value) } as Storage
+    try {
+      writeTemplateTabMemory('category-7')
+      expect(readTemplateTabMemory()).toBe('category-7')
+    }
+    finally {
+      delete (globalThis as { localStorage?: Storage }).localStorage
+    }
   })
 
   it('counts the templates hidden from Leitung, Mitarbeiter and tablet when a category becomes the Träger\'s alone', () => {

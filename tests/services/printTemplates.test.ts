@@ -6,7 +6,7 @@ import {
   deleteTemplate, listTemplates, readTemplateFile, replaceTemplateFile, templateReaderFacility, updateTemplate, uploadTemplate,
   type TemplateActor,
 } from '../../server/services/printTemplates'
-import { createCategory } from '../../server/services/templateCategories'
+import { createCategory, deleteCategory } from '../../server/services/templateCategories'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { Role, SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
@@ -29,11 +29,15 @@ describe('print templates', () => {
   let leitung: TemplateActor
   let otherLeitung: TemplateActor
   let provider: TemplateActor
-  /** Category ids by name. */
+  /** Category ids by name, of facility 1 and of the other facility. */
   let cat: Record<string, number>
+  let otherCat: Record<string, number>
 
-  const category = (name: string, visibility: TemplateVisibility = 'all') => {
-    cat[name] = createCategory(db, { role: 'provider', permissions: permissionsOf('provider') }, { name, visibility })
+  /** A category of that name in facility 1, and (unless `onlyFirst`) one in the other facility as well. */
+  const category = (name: string, visibility: TemplateVisibility = 'all', onlyFirst = false) => {
+    const by = (facilityId: number) => ({ role: 'provider' as const, permissions: permissionsOf('provider'), facilityId })
+    cat[name] = createCategory(db, by(1), { name, visibility })
+    if (!onlyFirst) otherCat[name] = createCategory(db, by(other), { name, visibility })
     return cat[name]
   }
 
@@ -46,17 +50,25 @@ describe('print templates', () => {
     // Without the default categories, so the tests name their own.
     db.delete(templateCategories).run()
     cat = {}
+    otherCat = {}
     category('Eltern')
     category('Gesundheit')
     category('Personal')
   })
 
+  /** A facility's template in the uploader's facility category, or one for all facilities under the category name. */
   const upload = (
-    by: TemplateActor, fields: Partial<{ title: string; category: string; scope: 'facility' | 'all' }> = {},
+    by: TemplateActor,
+    fields: Partial<{ title: string; category: string; scope: 'facility' | 'all'; visibility: TemplateVisibility }> = {},
     data: Buffer = pdf(), filename = 'Elternbrief.pdf',
-  ) => uploadTemplate(db, by, {
-    title: fields.title ?? 'Elternbrief', categoryId: cat[fields.category ?? 'Eltern']!, scope: fields.scope ?? 'facility',
-  }, { data, filename }, NOW)
+  ) => {
+    const name = fields.category ?? 'Eltern'
+    const scope = fields.scope ?? 'facility'
+    const filing = scope === 'all'
+      ? { categoryName: name, visibility: fields.visibility }
+      : { categoryId: (by.facilityId === other ? otherCat : cat)[name]! }
+    return uploadTemplate(db, by, { title: fields.title ?? 'Elternbrief', scope, ...filing }, { data, filename }, NOW)
+  }
   const titles = (facilityId: number, role: Role = 'admin') =>
     listTemplates(db, seer(role, facilityId)).map(template => template.title)
 
@@ -64,8 +76,8 @@ describe('print templates', () => {
     it('stores a PDF for the own facility with its title, category, size and upload time', () => {
       const id = upload(leitung, { title: '  Elternbrief  ' })
       expect(listTemplates(db, seer('admin', 1))).toEqual([{
-        id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', global: false, size: pdf().length,
-        uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
+        id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', global: false, globalCategoryName: null,
+        globalVisibility: null, size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
       }])
       const row = db.select().from(printTemplates).get()!
       expect(row).toMatchObject({ facilityId: 1, mimeType: 'application/pdf', uploadedBy: leitung.id, categoryId: cat.Eltern, category: '' })
@@ -250,7 +262,8 @@ describe('print templates', () => {
       expect(errorCode(() => updateTemplate(db, leitung, id, { title: 'X', categoryId: cat.Eltern! }))).toBe('forbidden')
       expect(errorCode(() => replaceTemplateFile(db, leitung, id, { data: pdf('x'), filename: 'x.pdf' }))).toBe('forbidden')
       expect(errorCode(() => deleteTemplate(db, leitung, id))).toBe('forbidden')
-      updateTemplate(db, provider, id, { title: 'Neu', categoryId: cat.Personal! })
+      updateTemplate(db, provider, id, { title: 'Neu', categoryName: 'Personal' })
+      expect(listTemplates(db, seer('admin', other))).toMatchObject([{ id, title: 'Neu', categoryId: otherCat.Personal, category: 'Personal' }])
       deleteTemplate(db, provider, id)
       expect(titles(1)).toEqual([])
     })
@@ -268,6 +281,60 @@ describe('print templates', () => {
       const staff = actor(addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')))
       expect(errorCode(() => updateTemplate(db, staff, id, { title: 'X', categoryId: cat.Eltern! }))).toBe('forbidden')
       expect(errorCode(() => deleteTemplate(db, staff, id))).toBe('forbidden')
+    })
+  })
+
+  describe('templates for all facilities', () => {
+    const placed = (facilityId: number, role: Role = 'admin') => listTemplates(db, seer(role, facilityId))
+      .map(template => [template.title, template.categoryId, template.category])
+
+    it('stores the category by name and shows it in each facility\'s category of that name, regardless of case', () => {
+      const id = upload(provider, { title: 'Urlaubsantrag', category: ' personal ', scope: 'all' })
+      expect(db.select().from(printTemplates).get()).toMatchObject({ facilityId: null, categoryId: null, categoryName: 'personal', visibility: 'all' })
+      expect(placed(1)).toEqual([['Urlaubsantrag', cat.Personal, 'Personal']])
+      expect(placed(other)).toEqual([['Urlaubsantrag', otherCat.Personal, 'Personal']])
+      expect(listTemplates(db, seer('provider', 1))[0]).toMatchObject({ id, global: true, globalCategoryName: 'personal', globalVisibility: 'all' })
+    })
+
+    it('shows it under „Vom Träger“ (no category, last) where the facility has no category of that name', () => {
+      category('Küche', 'all', true)
+      upload(provider, { title: 'Speiseplan', category: 'Küche', scope: 'all' })
+      upload(otherLeitung, { title: 'Ausflug', category: 'Eltern' })
+      expect(placed(1)).toEqual([['Speiseplan', cat.Küche, 'Küche']])
+      expect(placed(other)).toEqual([['Ausflug', otherCat.Eltern, 'Eltern'], ['Speiseplan', null, 'Küche']])
+    })
+
+    it('needs a category name; the visibility is the Träger\'s choice and the stricter of it and the category\'s applies', () => {
+      expect(errorCode(() => upload(provider, { category: '  ', scope: 'all' }))).toBe('template_category_name_required')
+      category('Intern', 'managers')
+      upload(provider, { title: 'Für Leitungen', category: 'Eltern', scope: 'all', visibility: 'managers' })
+      upload(provider, { title: 'In interner Kategorie', category: 'Intern', scope: 'all', visibility: 'all' })
+      upload(provider, { title: 'Nur Träger, Vom Träger', category: 'Nirgends', scope: 'all', visibility: 'provider' })
+      upload(provider, { title: 'Alle, Vom Träger', category: 'Nirgends', scope: 'all' })
+      expect(titles(1, 'observer')).toEqual(['Alle, Vom Träger'])
+      expect(titles(1, 'terminal')).toEqual(['Alle, Vom Träger'])
+      expect(titles(1, 'admin')).toEqual(['Für Leitungen', 'In interner Kategorie', 'Alle, Vom Träger'])
+      expect(titles(1, 'provider')).toEqual(['Für Leitungen', 'In interner Kategorie', 'Alle, Vom Träger', 'Nur Träger, Vom Träger'])
+      const hidden = listTemplates(db, seer('provider', 1)).find(template => template.title === 'Für Leitungen')!.id
+      expect(errorCode(() => readTemplateFile(db, seer('observer', other), hidden))).toBe('print_template_not_found')
+      expect(readTemplateFile(db, seer('admin', other), hidden).fileName).toBe('Fuer-Leitungen.pdf')
+    })
+
+    it('lets only the Träger file it elsewhere: another name or visibility (kept when not sent)', () => {
+      const id = upload(provider, { title: 'Urlaubsantrag', category: 'Personal', scope: 'all', visibility: 'managers' })
+      expect(errorCode(() => updateTemplate(db, leitung, id, { title: 'X', categoryName: 'Eltern' }))).toBe('forbidden')
+      updateTemplate(db, provider, id, { title: 'Urlaubsantrag', categoryName: 'Eltern' }, LATER)
+      expect(db.select().from(printTemplates).get()).toMatchObject({ categoryName: 'Eltern', visibility: 'managers', categoryId: null })
+      updateTemplate(db, provider, id, { title: 'Urlaubsantrag', categoryName: 'Eltern', visibility: 'all' }, LATER)
+      expect(placed(1, 'observer')).toEqual([['Urlaubsantrag', cat.Eltern, 'Eltern']])
+      expect(errorCode(() => updateTemplate(db, provider, id, { title: 'X', categoryName: ' ' }))).toBe('template_category_name_required')
+    })
+
+    it('moves to „Vom Träger“ when the facility deletes its category of that name', () => {
+      category('Küche', 'all', true)
+      upload(provider, { title: 'Speiseplan', category: 'Küche', scope: 'all' })
+      deleteCategory(db, { role: 'admin', permissions: permissionsOf('admin'), facilityId: 1 }, cat.Küche!)
+      expect(placed(1)).toEqual([['Speiseplan', null, 'Küche']])
     })
   })
 })

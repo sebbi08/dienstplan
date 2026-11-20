@@ -757,6 +757,13 @@
       "when": 1795161407442,
       "tag": "0107_leave_extra_days",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "6",
+      "when": 1795164089168,
+      "tag": "0108_facility_template_categories",
+      "breakpoints": true
     }
   ]
 }

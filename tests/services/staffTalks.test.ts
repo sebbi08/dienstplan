@@ -90,7 +90,8 @@ describe('creating talks', () => {
     const other = addFacility(db, 'Krippe')
     const stranger = addEmployee(db, 'Fremd', { facilityId: other })
     expect(errorCode(() => talkFor(stranger))).toBe('employee_not_found')
-    const foreignTemplate = listTemplates(db, other, 'staff')[0]!.id
+    // A new facility starts without the staff starters: its own staff template.
+    const foreignTemplate = createTemplate(db, leitung, other, { kind: 'staff', name: 'Fremd', selfAssessment: false }, now)
     expect(errorCode(() => talkFor(annaId, [foreignTemplate]))).toBe('form_template_not_found')
     const id = talkFor(annaId)
     const formId = formsOf(id)[0]!.id

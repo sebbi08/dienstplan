@@ -9,7 +9,7 @@ import { errorCode, errorMessage, errorTextOf } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
 
 /**
- * Settings → Bögen: the form templates of the active facility per kind (create, copy, rename, archive, delete) and the
+ * Dokumente → Bögen: the form templates of the active facility per kind (create, copy, rename, archive, delete) and the
  * editor of one template (sections and items with arrows, inline texts, the options of a choices item). The editor works
  * on a local copy and sends the whole content with „Vorlage speichern“; the server checks it and answers in German.
  * An item's kind cannot change (delete it and add a new one).
@@ -204,7 +204,8 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
               <p class="text-xs text-gray-500">{{ de.forms.kindHints[listKind] }}</p>
             </div>
           </div>
-          <p v-if="!activeOf(listKind).length && !archivedOf(listKind).length" class="text-sm text-gray-500">{{ de.forms.noTemplates }}</p>
+          <!-- None of the kind (a new facility starts with the accident reports only): how to make one. -->
+          <p v-if="!activeOf(listKind).length" class="text-sm text-gray-500">{{ de.forms.noTemplates }}</p>
           <ul class="divide-y divide-gray-100">
             <li v-for="template in activeOf(listKind)" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
               <div class="min-w-0 flex-1 basis-48">

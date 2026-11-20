@@ -182,8 +182,8 @@ describe('child observation forms', () => {
     const create = (templateId: number) => failure(() => createChildForm(db, leitung, kid, { templateId, ...header }, NOW))
     expect(create(staffTemplate)).toBe('404 form_template_not_found')
     const otherFacility = addFacility(db, 'Krippe')
-    const foreign = db.select({ id: formTemplates.id }).from(formTemplates)
-      .where(and(eq(formTemplates.facilityId, otherFacility), eq(formTemplates.kind, 'child'))).get()!.id
+    // A new facility starts without the child starter: its own child template.
+    const foreign = createTemplate(db, leitung, otherFacility, { kind: 'child', name: 'Fremd', selfAssessment: false }, NOW)
     expect(create(foreign)).toBe('404 form_template_not_found')
     const own = createTemplate(db, leitung, 1, { kind: 'child', name: 'Eingewöhnung', selfAssessment: false }, NOW)
     updateTemplate(db, leitung, 1, own, { archived: true }, NOW)

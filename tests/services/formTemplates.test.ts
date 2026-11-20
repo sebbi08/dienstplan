@@ -5,7 +5,8 @@ import { forms, formStarterSeeds, formTemplates } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { createFacility } from '../../server/services/facilities'
 import {
-  copyTemplate, createTemplate, deleteTemplate, listTemplates, seedPendingStarterTemplates, updateTemplate, withFormErrors,
+  copyTemplate, createTemplate, deleteTemplate, listTemplates, seedPendingStarterTemplates, seedStarterTemplates, updateTemplate,
+  withFormErrors,
 } from '../../server/services/formTemplates'
 import type { ServiceError } from '../../server/lib/errors'
 import { checkContent, FormError, type FormContent } from '../../shared/domain/forms'
@@ -27,6 +28,14 @@ beforeEach(() => {
 const seeds = (facilityId: number) => db.select({ key: formStarterSeeds.starterKey }).from(formStarterSeeds)
   .where(eq(formStarterSeeds.facilityId, facilityId)).all().map(row => row.key).sort()
 const own = (facilityId = 1) => listTemplates(db, facilityId).filter(template => template.starterKey === null)
+/** A facility as the versions before 0108 created it: every starter template created and recorded. */
+const oldFacility = (name: string) => {
+  const id = createFacility(db, name).id
+  db.delete(formTemplates).where(eq(formTemplates.facilityId, id)).run()
+  db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, id)).run()
+  seedStarterTemplates(db, id, now)
+  return id
+}
 const create = (name: string, kind: 'staff' | 'child' | 'team' = 'staff', facilityId = 1) =>
   createTemplate(db, leitung, facilityId, { kind, name, selfAssessment: false }, now)
 const allIds = (content: FormContent) => content.sections.flatMap(section => [
@@ -127,7 +136,7 @@ describe('starter templates', () => {
   })
 
   it('a facility seeded before the team meetings gets only the Teamsitzung added, once', () => {
-    const old = createFacility(db, 'Alt').id
+    const old = oldFacility('Alt')
     db.delete(formTemplates).where(and(eq(formTemplates.facilityId, old), eq(formTemplates.kind, 'team'))).run()
     db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'team_meeting'))).run()
 
@@ -137,24 +146,26 @@ describe('starter templates', () => {
     expect(seedPendingStarterTemplates(db, now)).toBe(0)
   })
 
-  it('a new facility gets all six starters, with fresh ids each, and records each key as given', () => {
+  it('a new facility gets only the accident starters, with fresh ids, and records every key as given', () => {
     const id = createFacility(db, 'Krippe').id
     const list = listTemplates(db, id)
     expect(list.map(template => [template.name, template.kind, template.starterKey, template.selfAssessment, template.subject])).toEqual([
-      ['Selbstbeurteilung', 'staff', 'staff_self_assessment', true, null],
-      ['Beurteilungsbogen pädagogische Fachkräfte', 'staff', 'staff_assessment', false, null],
-      ['Entwicklungsgespräch', 'child', 'child_development', false, null],
-      ['Teamsitzung', 'team', 'team_meeting', false, null],
       ['Unfallbericht Kind', 'accident', 'accident_child', false, 'child'],
       ['Unfallanzeige (U 1000)', 'accident', 'accident_u1000', false, 'employee'],
     ])
     expect(new Set(allIds(list[0]!.content)).size).toBe(allIds(list[0]!.content).length)
-    expect(allIds(listTemplates(db, 1, 'staff')[0]!.content)).not.toEqual(allIds(list[0]!.content))
+    expect(allIds(listTemplates(db, 1, 'accident')[0]!.content)).not.toEqual(allIds(list[0]!.content))
+    // The skipped starters are recorded too, so the startup step does not add them later.
     expect(seeds(id)).toEqual(['accident_child', 'accident_u1000', 'child_development', 'staff_assessment', 'staff_self_assessment', 'team_meeting'])
+    expect(seedPendingStarterTemplates(db, now)).toBe(0)
+    seedDefaults(db)
+    expect(listTemplates(db, id).map(template => template.starterKey)).toEqual(['accident_child', 'accident_u1000'])
+    // Existing facilities keep all of theirs.
+    expect(listTemplates(db, 1)).toHaveLength(6)
   })
 
   it('a facility seeded with the staff starters only gets the child starter added, once', () => {
-    const old = createFacility(db, 'Alt').id
+    const old = oldFacility('Alt')
     // As 0056 leaves a facility that had the staff starters: the child starter is neither there nor recorded.
     db.delete(formTemplates).where(and(eq(formTemplates.facilityId, old), eq(formTemplates.kind, 'child'))).run()
     db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'child_development'))).run()
@@ -171,7 +182,7 @@ describe('starter templates', () => {
 
   it('existing facilities are seeded once at startup; renamed or deleted starters are not created again', () => {
     // A facility from before the forms: no templates, nothing recorded.
-    const old = createFacility(db, 'Alt').id
+    const old = oldFacility('Alt')
     db.delete(formTemplates).where(eq(formTemplates.facilityId, old)).run()
     db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, old)).run()
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
@@ -187,7 +198,7 @@ describe('starter templates', () => {
   })
 
   it('a starter template already there is only recorded, not created twice', () => {
-    const old = createFacility(db, 'Alt').id
+    const old = oldFacility('Alt')
     db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, old)).run()
     expect(seedPendingStarterTemplates(db, now)).toBe(1)
     expect(listTemplates(db, old)).toHaveLength(6)
@@ -201,7 +212,7 @@ describe('starter templates', () => {
   })
 
   it('a facility seeded before the accident reports gets both accident starters added, once (idempotent)', () => {
-    const old = createFacility(db, 'Alt').id
+    const old = oldFacility('Alt')
     db.delete(formTemplates).where(and(eq(formTemplates.facilityId, old), eq(formTemplates.kind, 'accident'))).run()
     db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'accident_child'))).run()
     db.delete(formStarterSeeds).where(and(eq(formStarterSeeds.facilityId, old), eq(formStarterSeeds.starterKey, 'accident_u1000'))).run()

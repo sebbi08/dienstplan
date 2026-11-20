@@ -6,25 +6,28 @@ export const isChildPagePath = (path: string): boolean => path === '/children' |
 
 /**
  * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout
- * (/print/<year>/<month>), the print templates, the team meetings and the notes (no child data). No other /print page:
- * the team meetings' printout is for the staff's and the managers' own devices. The tablet role is not part of the
- * permission catalog, so this stays a rule of its own.
+ * (/print/<year>/<month>), the print templates („Dokumente“, only its tab „Vorlagen“ there; /templates is the old
+ * address), the team meetings and the notes (no child data). No other /print page: the team meetings' printout is for
+ * the staff's and the managers' own devices. The tablet role is not part of the permission catalog, so this stays a rule
+ * of its own.
  */
 export function tabletMayOpen(path: string): boolean {
   const teamMeetings = path === '/team-meetings' || path.startsWith('/team-meetings/')
   const planPrintout = /^\/print\/\d+\/\d+$/.test(path)
-  return path === '/terminal' || path === '/templates' || path === '/notes' || path.startsWith('/plan/') || planPrintout || teamMeetings
+  return path === '/terminal' || path === '/documents' || path === '/templates' || path === '/notes' || path.startsWith('/plan/')
+    || planPrintout || teamMeetings
 }
 
 /** A prefix starting with "=" matches only that address, any other one the address and the pages below it. */
 const within = (path: string, prefix: string) => (prefix.startsWith('=') ? path === prefix.slice(1) : path === prefix || path.startsWith(`${prefix}/`))
 
 /**
- * The key a page needs, by address (first match wins), matching what the page loads from the server. Pages not listed
- * are open to every signed-in account (tests/domain/routeAccess.test.ts lists every page, so a new one needs a decision);
- * an unknown address then shows the page-not-found answer.
+ * The key a page needs, by address (first match wins), matching what the page loads from the server; a list when any of
+ * its keys opens the page (each key a part of it). Pages not listed are open to every signed-in account
+ * (tests/domain/routeAccess.test.ts lists every page, so a new one needs a decision); an unknown address then shows the
+ * page-not-found answer.
  */
-const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
+const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly PermissionKey[]][] = [
   // Mitarbeiter see the children only at the facility's tablet, the printouts of them nowhere (the tablet never gets
   // to /print).
   ['/children', 'children.ownAccount'],
@@ -43,6 +46,7 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/print/calendar', 'calendar.edit'],
   ['/admin/closures', 'closures.manage'],
   ['/admin/print/early-closures', 'closures.manage'],
+  // The old address of „Bögen“, now a tab of „Dokumente“ (the page sends on to it).
   ['/admin/forms', 'formTemplates.manage'],
   ['/admin/print/form-templates', 'formTemplates.manage'],
   ['/admin/print/forms', 'talks.manage'],
@@ -55,7 +59,11 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
   ['/admin/rights', 'rights.manage'],
   ['/admin/settings', 'settings.facility'],
   ['/admin/retention', 'retention.delete'],
-  // The print templates: managers, the tablet and (read only, the categories visible to all) Mitarbeiter accounts.
+  // „Dokumente“: the tab „Bögen“ (formTemplates.manage) or the tab „Vorlagen“ (printTemplates.view: managers and, read
+  // only, the categories visible to all, Mitarbeiter accounts; the tablet by tabletMayOpen). The page shows the tabs the
+  // account may use.
+  ['=/documents', ['printTemplates.view', 'formTemplates.manage']],
+  // The old address of the print templates (the page sends on to „Dokumente“ → „Vorlagen“).
   ['=/templates', 'printTemplates.view'],
   // The facility's notes: every account has the key (the tablet reads them by tabletMayOpen).
   ['=/notes', 'notes.view'],
@@ -64,10 +72,19 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey][] = [
 /** The tablet's pages that no signed-in account opens: the terminal routes answer only the tablet. */
 const TABLET_ONLY = ['/terminal']
 
-/** The key the page at `path` needs from a signed-in account (not the tablet); null when every account opens it. */
-export function pagePermission(path: string): PermissionKey | null {
+/** The keys of which the page at `path` needs one from a signed-in account (not the tablet); empty when every account opens it. */
+export function pageKeys(path: string): readonly PermissionKey[] {
   const listed = PAGE_PERMISSIONS.find(([prefix]) => within(path, prefix))
-  return listed ? listed[1] : null
+  if (!listed) return []
+  return typeof listed[1] === 'string' ? [listed[1]] : listed[1]
+}
+
+/**
+ * The key the page at `path` needs from a signed-in account (not the tablet); null when every account opens it. For a
+ * page any of several keys opens („Dokumente“) the first; pageKeys names them all.
+ */
+export function pagePermission(path: string): PermissionKey | null {
+  return pageKeys(path)[0] ?? null
 }
 
 /** A page only the tablet opens (its start page); every account goes to the start page instead. */
@@ -84,6 +101,6 @@ export interface AccountViewer {
 export function accountRedirect(path: string, viewer: AccountViewer): string | undefined {
   if (viewer.mustChangePassword && path !== '/account/password') return '/account/password'
   if (tabletOnlyPage(path)) return '/'
-  const key = pagePermission(path)
-  return key === null || viewer.can(key) ? undefined : '/'
+  const keys = pageKeys(path)
+  return keys.length === 0 || keys.some(key => viewer.can(key)) ? undefined : '/'
 }

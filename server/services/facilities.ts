@@ -1,12 +1,13 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { parseIsoDate, todayIso } from '../../shared/domain/dates'
+import { NEW_FACILITY_STARTER_KEYS } from '../../shared/domain/forms/starters'
 import { can } from '../../shared/domain/permissions'
 import { isGermanState, schoolCutoffOf, type GermanState } from '../../shared/domain/states'
 import type { IsoDate } from '../../shared/domain/types'
 import type { FacilitiesDto, FacilityDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { coverageRules, documentTypes, employees, facilities, facilityEveRules, shiftTemplates, users } from '../db/schema'
-import { DEFAULT_DOCUMENT_TYPES } from '../db/seed'
+import { coverageRules, documentTypes, employees, facilities, facilityEveRules, shiftTemplates, templateCategories, users } from '../db/schema'
+import { DEFAULT_DOCUMENT_TYPES, DEFAULT_TEMPLATE_CATEGORIES } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { bookFreedClosureDays } from './closures'
 import { seedStarterTemplates } from './formTemplates'
@@ -90,8 +91,8 @@ function assertState(state: string): asserts state is GermanState {
 /**
  * A new facility starts empty, apart from a copy of the first facility's shift templates and coverage rules, the
  * built-in kinds of mandatory appointments (with their defaults, not the first facility's names and intervals),
- * the default document types, the default meals (Snack 9:30, Mittagessen 12:00 since always) and the staff starter
- * form templates. It works under the TVöD SuE from the year it is created (24 and 31 December paid free from then on).
+ * the default document types, the default meals (Snack 9:30, Mittagessen 12:00 since always), the default print template
+ * categories and, of the starter form templates, only the accident reports. It works under the TVöD SuE from the year it is created (24 and 31 December paid free from then on).
  */
 export function createFacility(db: Db, name: string, state: GermanState = 'BW', today: IsoDate = todayIso()): FacilityDto {
   const checked = checkedName(db, name)
@@ -124,7 +125,12 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW', 
       }
     }
     tx.insert(documentTypes).values(DEFAULT_DOCUMENT_TYPES.map(type => ({ ...type, facilityId: facility.id }))).run()
-    seedStarterTemplates(tx, facility.id)
+    // The print template categories as the facility's own copies (to rename, reorder or delete).
+    tx.insert(templateCategories).values(DEFAULT_TEMPLATE_CATEGORIES.map((name, sortOrder) => ({
+      facilityId: facility.id, name, sortOrder, visibility: 'all' as const,
+    }))).run()
+    // Only the accident report starters; the others are recorded as given, so they do not arrive later either.
+    seedStarterTemplates(tx, facility.id, new Date(), undefined, NEW_FACILITY_STARTER_KEYS)
     return toDto(facility)
   })
 }

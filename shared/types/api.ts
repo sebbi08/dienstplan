@@ -665,18 +665,24 @@ export interface ChildDocumentMeta {
 /** Where a new print template applies: the facility the uploader works in, or every facility (Träger only). */
 export type PrintTemplateScope = 'facility' | 'all'
 
-/** What the user enters about a print template (the file comes with the upload): one of the categories they see. */
+/**
+ * What the user enters about a print template (the file comes with the upload). A facility's template: one of the
+ * facility's categories they see (`categoryId`). A template for all facilities (Träger): the name of the category it
+ * shows in (each facility's own of that name, else „Vom Träger“) and who sees it at least (`visibility`).
+ */
 export interface PrintTemplateMeta {
   title: string
-  categoryId: number
+  categoryId?: number | null
+  categoryName?: string | null
+  visibility?: TemplateVisibility | null
 }
 
-/** A category of print templates as the viewer sees it (only those of their visibility level), in its order. */
+/** A category of print templates of the facility as the viewer sees it (only those of their visibility level), in its order. */
 export interface TemplateCategoryDto {
   id: number
   name: string
   visibility: TemplateVisibility
-  /** The templates filed in it (of any facility); while there are any it cannot be deleted. */
+  /** The facility's own templates filed in it; while there are any it cannot be deleted. */
   templateCount: number
 }
 
@@ -690,11 +696,18 @@ export interface TemplateCategoryInput {
 export interface PrintTemplateDto {
   id: number
   title: string
-  categoryId: number
-  /** The category's name. */
+  /**
+   * The facility's category it shows in; null for a template for all facilities whose category name the facility has no
+   * category of („Vom Träger“).
+   */
+  categoryId: number | null
+  /** The name of that category (for „Vom Träger“ the name the Träger chose). */
   category: string
   /** For all facilities (maintained by the Träger). */
   global: boolean
+  /** A template for all facilities: the category name and the visibility the Träger chose (null for a facility's own). */
+  globalCategoryName: string | null
+  globalVisibility: TemplateVisibility | null
   size: number
   uploadedAt: string
   updatedAt: string

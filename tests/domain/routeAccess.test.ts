@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { accountRedirect, isChildPagePath, pagePermission, tabletMayOpen, tabletOnlyPage } from '../../app/utils/routeAccess'
+import { accountRedirect, isChildPagePath, pageKeys, pagePermission, tabletMayOpen, tabletOnlyPage } from '../../app/utils/routeAccess'
 import { ROLE_DEFAULTS } from '../../shared/domain/permissions'
 import { flaggedPermissions } from '../helpers/rights'
 import type { Role } from '../../shared/types/api'
@@ -52,6 +52,8 @@ const OFFICE = [
 const TABLET_ONLY = '/terminal'
 /** The print templates: everyone who may read them (Leitung, Träger, Mitarbeiter read only) and the tablet. */
 const TEMPLATES = '/templates'
+/** „Dokumente“: the tab „Bögen“ (formTemplates.manage) or the tab „Vorlagen“ (printTemplates.view), either key opens it; the tablet too. */
+const DOCUMENTS = '/documents'
 /** The Träger's page for deleting after the retention periods. */
 const RETENTION = '/admin/retention'
 /** Rechte und Rollen: the Träger's page for the rights of the roles. */
@@ -66,7 +68,7 @@ function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePa
 
 describe('route access per role (unchanged by the permissions)', () => {
   it('lists every page', () => {
-    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, NOTES, RETENTION, RIGHTS, TABLET_ONLY].sort())
+    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, RETENTION, RIGHTS, TABLET_ONLY].sort())
   })
 
   it('lets the Träger open every page but the tablet\'s start page', () => {
@@ -82,7 +84,7 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('lets the Leitung open every page but the Träger\'s retention page', () => {
     const leitung = viewerOf('admin')
-    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, NOTES]) expect(accountRedirect(path, leitung), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES]) expect(accountRedirect(path, leitung), path).toBeUndefined()
     // Before the permissions the retention page sent the Leitung to the start page itself (retention.vue); now the
     // middleware does, with the same result.
     expect(accountRedirect(RETENTION, leitung)).toBe('/')
@@ -99,7 +101,7 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('lets a Gruppenleitung open the child pages with its own account, but no office page', () => {
     const lead = viewerOf('group_lead')
-    for (const path of [...OPEN, ...CHILDREN, TEMPLATES, NOTES]) expect(accountRedirect(path, lead), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, TEMPLATES, DOCUMENTS, NOTES]) expect(accountRedirect(path, lead), path).toBeUndefined()
     for (const path of [...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, lead), path).toBe('/')
   })
 
@@ -107,6 +109,16 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect(TEMPLATES, viewerOf('observer'))).toBeUndefined()
     expect(accountRedirect(TEMPLATES, { mustChangePassword: false, can: () => false })).toBe('/')
     expect(accountRedirect(NOTES, { mustChangePassword: false, can: () => false })).toBe('/')
+  })
+
+  it('opens „Dokumente“ with either key (tab „Vorlagen“ or tab „Bögen“), and to no account without both', () => {
+    expect(accountRedirect(DOCUMENTS, viewerOf('observer'))).toBeUndefined()
+    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'printTemplates.view' })).toBeUndefined()
+    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'formTemplates.manage' })).toBeUndefined()
+    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: () => false })).toBe('/')
+    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage'])
+    expect(pageKeys('/notes')).toEqual(['notes.view'])
+    expect(pageKeys('/')).toEqual([])
   })
 
   it('sends everyone who must change the password to that page first', () => {
@@ -128,7 +140,7 @@ describe('route access per role (unchanged by the permissions)', () => {
   })
 
   it('lets the tablet open stamping, the plan and its printout, the print templates, the team meetings and the notes, the child pages by unlock', () => {
-    const tablet = ['/notes', '/plan/2026/10', '/print/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
+    const tablet = ['/documents', '/notes', '/plan/2026/10', '/print/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
     expect(pagePaths.filter(tabletMayOpen)).toEqual(tablet)
     expect(pagePaths.filter(isChildPagePath)).toEqual(['/children', '/children/1', '/children/new'])
   })

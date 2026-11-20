@@ -20,9 +20,10 @@ describe('navMenu', () => {
     expect(menu.main[1]!.to).toBe('/admin/leave-planning')
     expect(menu.main[5]!.to).toBe('/cash')
     expect(menu.main[7]!.to).toBe('/team-meetings')
-    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Unfälle', 'Benutzer', 'Einstellungen'])
-    expect(menu.more[3]!.to).toBe('/admin/forms')
-    expect(menu.more[4]!.to).toBe('/admin/accidents')
+    // „Dokumente“ (tabs Bögen and Vorlagen) where „Vorlagen“ and „Bögen“ were.
+    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Dokumente', 'Unfälle', 'Benutzer', 'Einstellungen'])
+    expect(menu.more[2]!.to).toBe('/documents')
+    expect(menu.more[3]!.to).toBe('/admin/accidents')
     expect(menu.mine).toEqual([])
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(0)
@@ -40,10 +41,10 @@ describe('navMenu', () => {
   it('adds "Rechte und Rollen" and "Löschfristen" under "Mehr" for the Träger only', () => {
     const provider = navMenu({ ...base, ...as('provider') })
     expect(labels(provider.more)).toEqual([
-      'Schließzeiten', 'Krankheitstage', 'Vorlagen', 'Bögen', 'Unfälle', 'Benutzer', 'Rechte und Rollen', 'Einstellungen', 'Löschfristen',
+      'Schließzeiten', 'Krankheitstage', 'Dokumente', 'Unfälle', 'Benutzer', 'Rechte und Rollen', 'Einstellungen', 'Löschfristen',
     ])
-    expect(provider.more[6]!.to).toBe('/admin/rights')
-    expect(provider.more[8]!.to).toBe('/admin/retention')
+    expect(provider.more[5]!.to).toBe('/admin/rights')
+    expect(provider.more[7]!.to).toBe('/admin/retention')
     expect(labels(navMenu(base).more)).not.toContain('Löschfristen')
     expect(labels(navMenu(base).more)).not.toContain('Rechte und Rollen')
   })
@@ -66,12 +67,12 @@ describe('navMenu', () => {
     expect(labels(navMenu({ ...base, can: key => key !== 'leave.overview' && base.can(key) }).main)).not.toContain('Urlaubsplanung')
   })
 
-  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar, „Teamsitzungen“ and „Notizen“, the own lists and „Vorlagen“ under „Meins“', () => {
+  it('gives a Mitarbeiter „Mein Dienstplan“, the plan, the calendar, „Teamsitzungen“ and „Notizen“, the own lists and „Dokumente“ under „Meins“', () => {
     const menu = navMenu({ ...base, ...as('observer'), employeeId: 9, unread: 3 })
     expect(labels(menu.main)).toEqual(['Mein Dienstplan (3)', 'Dienstplan', 'Kalender', 'Teamsitzungen', 'Notizen'])
     expect(menu.main.map(entry => entry.to)).toEqual(['/my/plan/2026/10', '/plan/2026/10', '/my/calendar', '/team-meetings', '/notes'])
-    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Meine Unfälle', 'Vorlagen'])
-    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/leave', '/my/requirements', '/my/talks', '/my/accidents', '/templates'])
+    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Meine Unfälle', 'Dokumente'])
+    expect(menu.mine.map(entry => entry.to)).toEqual(['/my/leave', '/my/requirements', '/my/talks', '/my/accidents', '/documents'])
     expect(menu.more).toEqual([])
     // The unread count stands on „Mein Dienstplan“ in the row, not on „Meins“.
     expect(menu.mineCount).toBe(0)
@@ -86,7 +87,14 @@ describe('navMenu', () => {
     const menu = navMenu({ ...base, role: 'observer', can: key => key === 'printTemplates.view', employeeId: 9 })
     expect(menu.more).toEqual([])
     expect(labels(menu.main)).toEqual(['Mein Dienstplan', 'Kalender'])
-    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Meine Unfälle', 'Vorlagen'])
+    expect(labels(menu.mine)).toEqual(['Mein Urlaub', 'Meine Termine', 'Meine Gespräche', 'Meine Unfälle', 'Dokumente'])
+    expect(menu.mine.at(-1)!.to).toBe('/documents')
+  })
+
+  it('puts „Dokumente“ under „Mehr“ for an account that maintains the form templates only (tab „Bögen“)', () => {
+    const menu = navMenu({ ...base, role: 'observer', can: key => key === 'formTemplates.manage', employeeId: 9 })
+    expect(menu.more).toEqual([{ label: 'Dokumente', to: '/documents', match: '/documents' }])
+    expect(labels(menu.mine)).not.toContain('Dokumente')
   })
 
   it('shows „Notizen“ to Leitung and Träger without an employee, to everyone else only with one', () => {
@@ -117,10 +125,10 @@ describe('isEntryActive / isGroupActive', () => {
   it('matches the entry and pages below it', () => {
     expect(isEntryActive('/plan/2025/3', menu.main[0]!)).toBe(true)
     expect(isEntryActive('/my/plan/2025/3', menu.main[0]!)).toBe(false)
-    expect(isEntryActive('/admin/settings/groups/4', menu.more[6]!)).toBe(true)
+    expect(isEntryActive('/admin/settings/groups/4', menu.more[5]!)).toBe(true)
     expect(isEntryActive('/team-meetings/12', menu.main.at(-2)!)).toBe(true)
-    expect(isEntryActive('/admin/forms', menu.more[3]!)).toBe(true)
-    expect(isEntryActive('/admin/settingsx', menu.more[6]!)).toBe(false)
+    expect(isEntryActive('/documents', menu.more[2]!)).toBe(true)
+    expect(isEntryActive('/admin/settingsx', menu.more[5]!)).toBe(false)
   })
   it('marks "Mehr" and "Meins" active on their pages only', () => {
     expect(isGroupActive('/admin/closures', menu.more)).toBe(true)
@@ -161,11 +169,12 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   // With the leave overview (Leitung, Träger) „Urlaubsplanung“ shows without being a planner: the notice on remaining leave.
   const withOverview: Pair[] = [officeMain[0]!, ['Urlaubsplanung', '/admin/leave-planning'], ...officeMain.slice(1)]
   const leitungMore: Pair[] = [
-    ['Schließzeiten', '/admin/closures'], ['Krankheitstage', '/admin/sick-days'], ['Vorlagen', '/templates'],
-    ['Bögen', '/admin/forms'], ['Unfälle', '/admin/accidents'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
+    // „Dokumente“ replaced „Vorlagen“ and „Bögen“ (one page with both as tabs).
+    ['Schließzeiten', '/admin/closures'], ['Krankheitstage', '/admin/sick-days'], ['Dokumente', '/documents'],
+    ['Unfälle', '/admin/accidents'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
   ]
   const providerMore: Pair[] = [
-    ...leitungMore.slice(0, 6), ['Rechte und Rollen', '/admin/rights'], leitungMore[6]!, ['Löschfristen', '/admin/retention'],
+    ...leitungMore.slice(0, 5), ['Rechte und Rollen', '/admin/rights'], leitungMore[5]!, ['Löschfristen', '/admin/retention'],
   ]
   const officeMine: Pair[] = [
     ['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'],
@@ -175,7 +184,7 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const staffMainWithMeetings: Pair[] = [...staffMain, ['Teamsitzungen', '/team-meetings'], ['Notizen', '/notes']]
   const staffMine: Pair[] = [['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'], ['Meine Gespräche', '/my/talks']]
   // The print templates need a facility, which a staff account only has through its employee.
-  const staffMineWithTemplates: Pair[] = [...staffMine, ['Meine Unfälle', '/my/accidents'], ['Vorlagen', '/templates']]
+  const staffMineWithTemplates: Pair[] = [...staffMine, ['Meine Unfälle', '/my/accidents'], ['Dokumente', '/documents']]
 
   const cases: { name: string, viewer: NavViewer, main: Pair[], mine: Pair[], more: Pair[], mineCount: number, totalCount: number }[] = [
     { name: 'Träger', viewer: viewerOf('provider'), main: withOverview, mine: [], more: providerMore, mineCount: 0, totalCount: 0 },
@@ -219,7 +228,7 @@ describe('navMenu per role (unchanged by the permissions)', () => {
         ['Dienstplan', '/plan/2026/10'], ['Kinder', '/children'], ['Kalender', '/my/calendar'], ['Teamsitzungen', '/team-meetings'],
         ['Notizen', '/notes'],
       ],
-      mine: officeMine, more: [['Vorlagen', '/templates']], mineCount: 2, totalCount: 2,
+      mine: officeMine, more: [['Dokumente', '/documents']], mineCount: 2, totalCount: 2,
     },
     {
       name: 'tablet', viewer: viewerOf('terminal', { employeeId: 4, isPlanner: true }),

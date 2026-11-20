@@ -743,9 +743,13 @@ describe('API route permissions', () => {
     expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
       'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts',
       'template-categories/[id].delete.ts', 'template-categories/[id].put.ts', 'template-categories/[id]/move.post.ts',
-      'template-categories/index.get.ts', 'template-categories/index.post.ts'])
+      'template-categories/index.get.ts', 'template-categories/index.post.ts', 'template-categories/names.get.ts'])
     const readers = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts', 'template-categories/index.get.ts']
-    for (const route of touching) {
+    // The category names of all facilities, for a template for all facilities: the Träger's (printTemplates.global).
+    const names = 'template-categories/names.get.ts'
+    expect(source(names)).toContain("requirePermission(event, 'printTemplates.global', { facility: 'none' })")
+    expect(fixture[names]).toEqual(['provider'])
+    for (const route of touching.filter(route => route !== names)) {
       // The tablet without an unlock (blank forms, no child data), always in the active facility (no settings choice).
       expect(source(route), route).toContain(readers.includes(route)
         ? "requirePermission(event, 'printTemplates.view', { allowTerminal: true, facility: 'active' })"

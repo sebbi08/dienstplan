@@ -250,7 +250,7 @@ async function openChildren() {
         </button>
         <!-- Blank forms to print: no child data, so no PIN is needed. -->
         <NuxtLink
-          to="/templates" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+          to="/documents?tab=templates" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
         >
           <UIcon name="i-lucide-printer" class="size-12 text-sky-700" />
           {{ de.terminal.templatesTitle }}

@@ -6,8 +6,8 @@ import type { Role } from '../../shared/types/api'
 /**
  * The entries of the main menu, grouped, by the account's permissions. Whoever has office pages (Leitung and Träger)
  * sees the everyday ones directly (`main`), the rarely used ones under "Mehr" (`more`) and, when linked to an employee,
- * their own pages under "Meins" (`mine`). Mitarbeiter have `main` and their own lists and the print templates under
- * "Meins"; the tablet only has
+ * their own pages under "Meins" (`mine`). Mitarbeiter have `main` and their own lists and "Dokumente" (the print
+ * templates) under "Meins"; the tablet only has
  * `main`. Passwort ändern and Abmelden are added by the layout.
  */
 
@@ -88,16 +88,16 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // The cash books of the facility and its groups.
     [can('cash.view'), entry(de.nav.cash, '/cash')],
   ])
-  // Blank forms to print: under "Mehr" for the managers, under "Meins" for Mitarbeiter (read only); the tablet reaches
-  // them from its start page.
-  const templates = shown([[can('printTemplates.view'), entry(de.nav.templates, '/templates')]])
+  // "Dokumente": the form templates (tab „Bögen“: staff talks, child observations, team meetings, accident reports;
+  // formTemplates.manage) and the blank forms to print (tab „Vorlagen“; printTemplates.view). Under "Mehr" for the
+  // managers, under "Meins" for Mitarbeiter (the print templates, read only); the tablet reaches them from its start page.
+  const formsManager = can('formTemplates.manage')
+  const documents = shown([[formsManager || can('printTemplates.view'), entry(de.nav.documents, '/documents')]])
   const officeMore = shown([
     [can('closures.manage'), entry(de.nav.closures, '/admin/closures')],
     [can('employees.sickness'), entry(de.nav.sickDays, '/admin/sick-days')],
   ])
   const adminMore = shown([
-    // The templates of staff talks, child observations and team meetings.
-    [can('formTemplates.manage'), entry(de.nav.forms, '/admin/forms')],
     // All accident reports of the facility (children and employees) with the year's list.
     [can('accidents.manage'), entry(de.nav.accidents, '/admin/accidents')],
     [can('users.manage'), entry(de.nav.users, '/admin/users')],
@@ -108,9 +108,9 @@ export function navMenu(viewer: NavViewer): NavMenu {
     [can('retention.delete'), entry(de.nav.retention, '/admin/retention')],
   ])
 
-  // The print templates alone make no office account: Mitarbeiter read them as well.
-  if (office.length > 0 || officeMore.length > 0 || adminMore.length > 0 || can('calendar.edit')) {
-    const more = [...officeMore, ...templates, ...adminMore]
+  // The print templates alone make no office account: Mitarbeiter read them as well (the form templates do).
+  if (office.length > 0 || officeMore.length > 0 || adminMore.length > 0 || formsManager || can('calendar.edit')) {
+    const more = [...officeMore, ...documents, ...adminMore]
     // With office pages (Leitung, Träger): the everyday ones in the row, the rest under "Mehr"; linked to an employee
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
     // "Urlaubsplanung": the planners with their open requests; whoever sees the leave overview too, for the notice on
@@ -135,7 +135,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
     main: [myPlan, ...plans, calendar, ...teamPages],
     // The templates are the facility's: a staff account without an employee belongs to none.
-    mine: [myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? templates : [])],
+    mine: [myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? documents : [])],
     more: [],
     mineCount: 0,
     totalCount: viewer.unread,

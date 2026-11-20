@@ -1335,28 +1335,35 @@ export const groupBookChanges = sqliteTable('group_book_changes', {
 }, table => [index('group_book_changes_group_date').on(table.groupId, table.date)])
 
 /**
- * A category of print templates, the same for every facility, in `sortOrder`. The name is unique regardless of case;
- * `visibility` says who sees the category and its templates (shared/domain/templateCategories.ts).
+ * A category of print templates of one facility (one list for all facilities before 0108_facility_template_categories),
+ * in `sortOrder`. The name is unique per facility regardless of case; `visibility` says who sees the category and its
+ * templates (shared/domain/templateCategories.ts).
  */
 export const templateCategories = sqliteTable('template_categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
-}, table => [uniqueIndex('template_categories_name').on(sql`lower(${table.name})`)])
+}, table => [uniqueIndex('template_categories_facility_name').on(table.facilityId, sql`lower(${table.name})`)])
 
 /**
  * A blank PDF form (Vorlage) to open and print: of one facility, or for all facilities (`facilityId` null, only the
- * Träger maintains those), in a category (deleted only while empty). `uploadedAt` is the first upload, `updatedAt` the
- * last change of title, category or file. `category` is the free text from before 0063_template_categories, kept but
- * no longer used (new rows leave it empty).
+ * Träger maintains those). A facility's template is filed in one of the facility's categories (`categoryId`; a category
+ * is deleted only while empty). A template for all facilities has no category row (`categoryId` null) but a
+ * `categoryName`: each facility shows it in its own category of that name (regardless of case), otherwise under „Vom
+ * Träger“; its `visibility` applies on top of that category's (the stricter one wins; facility templates leave it
+ * 'all'). `uploadedAt` is the first upload, `updatedAt` the last change of title, category or file. `category` is the
+ * free text from before 0063_template_categories, kept but no longer used (new rows leave it empty).
  */
 export const printTemplates = sqliteTable('print_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').references(() => facilities.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   category: text('category').notNull().default(''),
-  categoryId: integer('category_id').notNull().references(() => templateCategories.id),
+  categoryId: integer('category_id').references(() => templateCategories.id),
+  categoryName: text('category_name'),
+  visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
   mimeType: text('mime_type').notNull(),
   size: integer('size').notNull(),
   data: blob('data', { mode: 'buffer' }).notNull(),

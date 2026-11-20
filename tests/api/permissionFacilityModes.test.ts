@@ -31,6 +31,8 @@ const NONE = [
   'retention/index.get.ts', 'retention/items.delete.ts',
   // The rights page (Rechte und Rollen Teil 2): installation-wide, the Träger's.
   'rights.get.ts', 'rights/roles/[role].put.ts', 'rights/roles/[role]/reset.post.ts',
+  // The category names of all facilities, for the Träger's templates for all facilities.
+  'template-categories/names.get.ts',
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')

@@ -66,11 +66,13 @@ export const DEFAULT_DOCUMENT_TYPES: Omit<typeof documentTypes.$inferInsert, 'fa
 ]
 
 /**
- * The print template categories a database starts with (visible to all, in this order): the former suggestions of the
- * free-text category. Created by the migration 0063_template_categories – on a new installation, and on an existing one
- * without templates – and deliberately not here: categories deleted by hand must not come back at the next start.
+ * The print template categories every facility starts with (visible to all, in this order), as copies of its own to
+ * change or delete. New facilities get them from createFacility; the first facility of a new installation from the
+ * migrations 0063_template_categories (Eltern, Gesundheit, Personal) and 0108_facility_template_categories (the two
+ * folders, which every existing facility got as well) – and deliberately not at the start: categories deleted by hand
+ * must not come back.
  */
-export const DEFAULT_TEMPLATE_CATEGORIES = ['Eltern', 'Gesundheit', 'Personal']
+export const DEFAULT_TEMPLATE_CATEGORIES = ['Eingewöhnungsmappe', 'Mitarbeitermappe', 'Eltern', 'Gesundheit', 'Personal']
 
 /** The facility the existing data moved into (created by the migration 0019_facilities). */
 export const FIRST_FACILITY_ID = 1

@@ -551,14 +551,23 @@ export const employeeDocumentSchema = z.object({
   documentDate: isoDate,
   note: z.string().max(1000).default(''),
 })
-// Print templates: the change of title and category, and the form fields of the upload (multipart, so all text).
-export const printTemplateSchema = z.object({ title: z.string().max(200), categoryId: z.number().int().positive() })
+// Print templates: the change of title and category, and the form fields of the upload (multipart, so all text). A
+// facility's template names one of the facility's categories (`categoryId`), a template for all facilities the category
+// name and its visibility (the service says which one is missing).
+export const printTemplateSchema = z.object({
+  title: z.string().max(200),
+  categoryId: z.number().int().positive().nullish(),
+  categoryName: z.string().max(60).nullish(),
+  visibility: z.enum(TEMPLATE_VISIBILITIES).nullish(),
+})
 export const printTemplateFields = z.object({
   title: z.string().max(200),
-  categoryId: z.coerce.number().int().positive(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  categoryName: z.string().max(60).optional(),
+  visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
   scope: z.enum(['facility', 'all']).default('facility'),
 })
-// Their categories (the same for every facility).
+// The categories of a facility.
 export const templateCategorySchema = z.object({ name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES) })
 /** Replacing the file sends the file alone. */
 export const noFields = z.object({})

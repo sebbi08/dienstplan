@@ -393,6 +393,7 @@
   "template-categories/[id]/move.post.ts": ["provider","admin"],
   "template-categories/index.get.ts": ["provider","admin","group_lead","observer","terminal"],
   "template-categories/index.post.ts": ["provider","admin"],
+  "template-categories/names.get.ts": ["provider"],
   "terminal/children/keep-alive.post.ts": ["terminal"],
   "terminal/children/lock.post.ts": ["terminal"],
   "terminal/children/status.get.ts": ["terminal"],

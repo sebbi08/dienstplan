@@ -466,6 +466,13 @@ export const ACCIDENT_STARTERS: readonly StarterTemplate[] = [ACCIDENT_CHILD, AC
 /** Every starter a facility is given (once per key, see the form_starter_seeds table), in the order they are created. */
 export const STARTERS: readonly StarterTemplate[] = [...STAFF_STARTERS, ...CHILD_STARTERS, ...TEAM_STARTERS, ...ACCIDENT_STARTERS]
 
+/**
+ * The starters a facility created later (createFacility) starts with: only the accident reports. The others
+ * (Selbstbeurteilung, Beurteilungsbogen, Entwicklungsgespräch, Teamsitzung) are recorded as given without being created,
+ * so they never arrive later either; the facility makes its own forms („Vorlage anlegen“). Existing facilities keep theirs.
+ */
+export const NEW_FACILITY_STARTER_KEYS: readonly StarterKey[] = ACCIDENT_STARTERS.map(starter => starter.key)
+
 /** The starter's content with fresh ids for every section, item and option. */
 export function starterContent(starter: StarterTemplate, newId: () => string): FormContent {
   let content: FormContent = { sections: [] }

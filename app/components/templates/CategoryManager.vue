@@ -5,9 +5,9 @@ import { de } from '~/locales/de'
 import { hiddenByVisibility } from '~/utils/printTemplates'
 
 /**
- * „Kategorien verwalten“ on the templates page (whoever may edit templates): create, rename, reorder, change who sees a
- * category, delete an empty one. The list holds only the categories the editor sees, and only the visibilities the
- * editor sees are offered (`levels`: a Mitarbeiter only „alle“, the Leitung not „nur Träger“; the server refuses them
+ * „Kategorien verwalten“ on „Dokumente“ → „Vorlagen“ (whoever may edit templates), for the active facility: create,
+ * rename, reorder, change who sees a category, delete an empty one (templates for all facilities filed by its name do
+ * not count). The list holds only the categories the editor sees, and only the visibilities the editor sees are offered (`levels`: a Mitarbeiter only „alle“, the Leitung not „nur Träger“; the server refuses them
  * as well).
  */
 const props = defineProps<{ categories: TemplateCategoryDto[]; levels: TemplateVisibility[]; refresh: () => Promise<unknown> }>()

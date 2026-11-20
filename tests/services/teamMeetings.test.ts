@@ -179,8 +179,8 @@ describe('team meetings', () => {
   it('makes the meeting from an active team template of the facility only', () => {
     const staffTemplate = db.select({ id: formTemplates.id }).from(formTemplates)
       .where(and(eq(formTemplates.facilityId, 1), eq(formTemplates.kind, 'staff'))).get()!.id
-    const otherFacility = db.select({ id: formTemplates.id }).from(formTemplates)
-      .where(and(eq(formTemplates.facilityId, facilityB), eq(formTemplates.kind, 'team'))).get()!.id
+    // A new facility starts without the team starter: its own team template.
+    const otherFacility = createTemplate(db, leitungUser, facilityB, { kind: 'team', name: 'Fremd', selfAssessment: false }, NOW)
     const input = (templateId: number) => ({ templateId, ...header })
     expect(failure(() => createTeamMeeting(db, anna, input(staffTemplate), NOW))).toBe('404 form_template_not_found')
     expect(failure(() => createTeamMeeting(db, anna, input(otherFacility), NOW))).toBe('404 form_template_not_found')

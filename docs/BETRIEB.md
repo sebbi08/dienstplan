@@ -1514,16 +1514,24 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
   überspringen; der Betrieb (vor diesem Update auf Stand 0082) ist davon nicht betroffen. Nach dem Update sollte die
   Zeiterfassung wie gewohnt öffnen – wenn nicht, bitte melden.
 
-## 19. Vorlagen (leere Formulare zum Ausdrucken)
+## 19. Dokumente: Vorlagen (leere Formulare zum Ausdrucken) und Bögen
+
+Im Menü gibt es **Dokumente** (Leitung und Träger unter **Mehr**, Mitarbeiter unter **Meins**). Die Seite hat zwei
+Reiter: **Bögen** (die Vorlagen für Mitarbeitergespräche, Beobachtungsbögen, Teamsitzungen und Unfallberichte, siehe
+Abschnitt 25; nur wer Bögen pflegen darf) und **Vorlagen**. Jeder sieht nur die Reiter, die er nutzen darf – Mitarbeiter
+und das Tablet nur **Vorlagen**. Alte Lesezeichen auf „Vorlagen“ oder „Bögen“ führen automatisch zum passenden Reiter.
 
 Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,
 Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
 
-- **Kategorien**: Die Vorlagen stehen nach **Kategorien** geordnet, in der Reihenfolge der Kategorien. Die Kategorien
-  gelten für **alle Einrichtungen**. Leitung und Träger pflegen sie mit **Kategorien verwalten**: anlegen, umbenennen,
-  mit den Pfeilen **nach oben / nach unten** schieben, **„Wer sieht sie?“** ändern und löschen. Löschen geht nur bei
-  einer **leeren** Kategorie – liegen noch Vorlagen darin (auch in einer anderen Einrichtung), verschieb oder lösch sie
-  zuerst. Jeder Name kommt nur einmal vor (Groß- und Kleinschreibung zählt nicht).
+- **Kategorien**: Jede Kategorie ist ein eigener Unterreiter, in der Reihenfolge der Kategorien. Das Gerät merkt sich den
+  zuletzt geöffneten Unterreiter. Die Kategorien gehören **jeder Einrichtung selbst**: Leitung und Träger pflegen die
+  Kategorien der oben gewählten Einrichtung mit **Kategorien verwalten**: anlegen, umbenennen, mit den Pfeilen
+  **nach oben / nach unten** schieben, **„Wer sieht sie?“** ändern und löschen. Löschen geht nur bei einer **leeren**
+  Kategorie – liegen noch Vorlagen der Einrichtung darin, verschieb oder lösch sie zuerst. Jeder Name kommt in einer
+  Einrichtung nur einmal vor (Groß- und Kleinschreibung zählt nicht); andere Einrichtungen sind davon nicht betroffen.
+- **Neue Einrichtungen** beginnen mit den Kategorien „Eingewöhnungsmappe“, „Mitarbeitermappe“, „Eltern“, „Gesundheit“
+  und „Personal“ (für **Alle**), als eigene Kopien zum Ändern oder Löschen.
 - **Wer sieht sie?** Jede Kategorie hat eine von drei Stufen:
   - **Alle (auch Mitarbeiter und Tablet)**: Leitung, Träger, das Tablet und die Mitarbeiter mit ihrem eigenen Konto.
   - **Nur Leitung und Träger**: z. B. für Formulare der Verwaltung.
@@ -1532,28 +1540,40 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
     Vorlagen auf „Nur Träger“, fragt die App vorher nach und nennt, wie viele Vorlagen Leitung, Mitarbeiter und Tablet
     dann nicht mehr sehen.
 
-  Die Vorlagen in einer Kategorie sieht nur, wer die Kategorie sieht. Kategorien, die nicht alle sehen, sind auf der
-  Seite markiert („nur Leitung und Träger“ bzw. „nur Träger“). Eine neu eingerichtete App beginnt mit den Kategorien
-  „Eltern“, „Gesundheit“ und „Personal“ (für **Alle**).
-- **Hochladen**: Leitung und Träger öffnen im Menü unter **Mehr** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt sind nur
-  **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
-  **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** wählst du aus der Liste;
-  gibt es noch keine, leg zuerst unter **Kategorien verwalten** eine an.
+  Die Vorlagen in einer Kategorie sieht nur, wer die Kategorie sieht; Unterreiter für Kategorien, die man nicht sieht,
+  erscheinen gar nicht. Kategorien, die nicht alle sehen, sind markiert („nur Leitung und Träger“ bzw. „nur Träger“).
+- **Hochladen**: Leitung und Träger öffnen **Dokumente** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt
+  sind nur **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
+  **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist die des geöffneten
+  Unterreiters und lässt sich in der Liste ändern; gibt es noch keine, leg zuerst unter **Kategorien verwalten** eine an.
 - **Für wen**: Die **Leitung** lädt Vorlagen für die **eigene Einrichtung** hoch. Der **Träger** wählt beim Hochladen
   „nur ‹Einrichtung›“ (die oben gewählte) oder **„alle Einrichtungen“**. Jede Einrichtung sieht ihre eigenen Vorlagen und
   die für alle Einrichtungen; diese sind mit **„alle Einrichtungen“** markiert.
+- **Vorlagen für alle Einrichtungen** (nur der Träger): Statt einer Kategorie gibt der Träger den **Namen** einer
+  Kategorie an – aus der Liste der Namen, die die Einrichtungen verwenden, oder frei getippt – und wählt, **wer sie
+  sieht**. Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen (Groß- und Kleinschreibung zählt
+  nicht). Hat eine Einrichtung keine solche Kategorie (oder löscht sie sie), steht die Vorlage dort im Unterreiter
+  **„Vom Träger“**; den gibt es nur, wenn es solche Vorlagen gibt. Sieht die Kategorie der Einrichtung weniger Leute als
+  die Vorlage, gilt die Kategorie (die engere Einstellung gewinnt).
 - **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
   **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
 - **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
-- **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**. Dort lassen sich die Vorlagen der
-  Kategorien für **Alle** öffnen und drucken – **ohne PIN**, weil darin keine Daten von Kindern stehen. Hochladen und
-  ändern geht am Tablet nicht.
-- **Mitarbeiter** finden die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) unter **Meins** → **Vorlagen**: nur die
-  Kategorien für **Alle**, nur zum Öffnen und Drucken – hochladen, ändern und die Kategorien verwalten können sie nicht.
-- **Beim Update** auf diese Version macht die App aus jeder bisher eingetippten Kategorie eine Kategorie (für **Alle**,
-  nach Namen sortiert, Umlaute wie ihr Grundbuchstabe) und ordnet jede Vorlage ihr zu; „eltern“ und „Eltern“ (ebenso
-  „übungen“ und „Übungen“, „Straße“ und „STRASSE“) werden dabei eine Kategorie, Vorlagen ohne Kategorie kommen unter
-  „Sonstiges“. Gab es noch keine Vorlagen, beginnt die App mit „Eltern“, „Gesundheit“ und „Personal“.
+- **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**; er öffnet **Dokumente** → **Vorlagen**.
+  Dort lassen sich die Vorlagen der Kategorien für **Alle** öffnen und drucken – **ohne PIN**, weil darin keine Daten
+  von Kindern stehen. Hochladen und ändern geht am Tablet nicht.
+- **Mitarbeiter** finden die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) unter **Meins** → **Dokumente**: nur
+  die Kategorien für **Alle**, nur zum Öffnen und Drucken – hochladen, ändern und die Kategorien verwalten können sie
+  nicht.
+- **Beim Update** auf die Version mit den Kategorien je Einrichtung bekommt jede Einrichtung eine eigene Kopie jeder
+  bisherigen Kategorie (gleicher Name, gleiche Reihenfolge, gleiches „Wer sieht sie?“), und ihre Vorlagen liegen danach
+  in ihrer Kopie. Dazu kommen vorne „Eingewöhnungsmappe“ und „Mitarbeitermappe“ (für **Alle**), wenn es eine Kategorie
+  mit diesem Namen noch nicht gibt. Die Vorlagen für alle Einrichtungen behalten den Namen und das „Wer sieht sie?“ ihrer
+  bisherigen Kategorie.
+- **Beim Update** auf die erste Version mit Kategorien machte die App aus jeder bisher eingetippten Kategorie eine
+  Kategorie (für **Alle**, nach Namen sortiert, Umlaute wie ihr Grundbuchstabe) und ordnete jede Vorlage ihr zu;
+  „eltern“ und „Eltern“ (ebenso „übungen“ und „Übungen“, „Straße“ und „STRASSE“) wurden dabei eine Kategorie, Vorlagen
+  ohne Kategorie kamen unter „Sonstiges“. Gab es noch keine Vorlagen, begann die App mit „Eltern“, „Gesundheit“ und
+  „Personal“.
 
 ## 20. Personalschlüssel
 
@@ -2176,14 +2196,14 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   nicht.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
-  unter **Mehr**: Schließzeiten, Krankheitstage, Vorlagen, Bögen, Benutzer, Einstellungen und Passwort ändern (der
+  unter **Mehr**: Schließzeiten, Krankheitstage, Dokumente (Bögen und Vorlagen), Benutzer, Einstellungen und Passwort ändern (der
   Träger dazu **Rechte und Rollen** und Löschfristen).
   Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
   „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
   hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
   rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
 - **Mitarbeiter** sehen oben **Mein Dienstplan** (mit der Zahl ungelesener Änderungen), **Dienstplan**, **Kalender** und
-  **Teamsitzungen**; unter **Meins** liegen „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und „Vorlagen“ (nur lesen,
+  **Teamsitzungen**; unter **Meins** liegen „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und „Dokumente“ (die Vorlagen, nur lesen,
   siehe Abschnitt 19).
 - **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
@@ -2265,12 +2285,17 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 
 ## 25. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
 
-- **Vorlagen:** im Menü unter **Mehr → Bögen** (Leitung und Träger). Die Seite zeigt die Vorlagen in drei Kästen:
-  **Kinder** (Beobachtungen, Entwicklungsgespräche), **Fachkräfte** (Mitarbeitergespräche) und **Team** (Teamsitzungen), jeder
-  mit eigenem „Vorlage anlegen“; auf großen Bildschirmen stehen die Kästen nebeneinander. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
-  sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Jede Einrichtung hat die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
+- **Vorlagen:** im Menü unter **Mehr → Dokumente**, Reiter **Bögen** (Leitung und Träger). Die Seite zeigt die Vorlagen in Kästen:
+  **Kinder** (Beobachtungen, Entwicklungsgespräche), **Fachkräfte** (Mitarbeitergespräche), **Team** (Teamsitzungen) und
+  **Unfälle**, jeder mit eigenem „Vorlage anlegen“; auf großen Bildschirmen stehen die Kästen nebeneinander. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
+  sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Die Einrichtungen von vor dem Update haben die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
+- **Neue Einrichtungen** (unter Einstellungen neu angelegt, seit dem Update mit „Dokumente“) bekommen nur die
+  Startvorlagen für Unfälle (**Unfallbericht Kind** und **Unfallanzeige (U 1000)**). Selbstbeurteilung,
+  Beurteilungsbogen, Entwicklungsgespräch und Teamsitzung legt die App dort nicht an – auch später nicht. Ein Kasten
+  ohne Vorlage zeigt einen Hinweis: Namen eintragen und auf **Vorlage anlegen** tippen. Bestehende Einrichtungen
+  behalten alle ihre Vorlagen.
 - **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Vom Mitarbeiter auszufüllen“, dann **Bereiche** (Titel,
   Hinweistext) und darin **Punkte**: Hinweis, Freitext, Ankreuzliste (mit Möglichkeiten), Bewertung (+ / ~ / −),
   Meilenstein (mit Altersstufe) und Datum. Mit den Pfeilen verschiebst du Bereiche und Punkte (Punkte auch in den
@@ -2299,7 +2324,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 
 - **Wo:** Kinderakte → Bereich **Beobachtungen** (im Büro und am aufgeschlossenen Tablet, nie auf den Handys der
   Mitarbeiter). Die Liste zeigt die Bögen des Kindes, neueste zuerst, mit Datum, Vorlage und „zuletzt geändert“.
-  Jede Einrichtung hat die Startvorlage **Entwicklungsgespräch** (Mehr → Bögen, Kasten „Kinder“).
+  Die Einrichtungen von vor dem Update haben die Startvorlage **Entwicklungsgespräch** (Mehr → Dokumente → Bögen, Kasten „Kinder“).
 - **Anlegen:** **Bogen anlegen** – Vorlage, Datum, Uhrzeit (freiwillig) und Teilnehmer. Beim Elterngespräch gibt es
   **Bogen ausfüllen**: Datum, Uhrzeit und Teilnehmer kommen aus dem Gespräch, danach steht dort **Bogen öffnen**. Ein
   Elterngespräch hat höchstens einen Bogen; wird das Gespräch gelöscht, bleibt der Bogen.
@@ -2322,7 +2347,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Tablet neben „Stempeln“ und „Dienstplan“ (ohne Aufschließen, es gibt dort keine Kinderdaten). Die Liste zeigt die
   Sitzungen eines Jahres, neueste zuerst; mit **Gruppe** filterst du nach „Alle“, „Einrichtung“ (Sitzungen der ganzen
   Einrichtung) oder einer Gruppe.
-- **Anlegen:** **Sitzung anlegen** – Vorlage (Startvorlage **Teamsitzung**, eigene unter Mehr → Bögen, Kasten
+- **Anlegen:** **Sitzung anlegen** – Vorlage (Startvorlage **Teamsitzung** in den Einrichtungen von vor dem Update, eigene unter Mehr → Dokumente → Bögen, Kasten
   „Team“), Datum, Uhrzeit (freiwillig), Gruppe oder ganze Einrichtung, Teilnehmer und Protokollführung. Das kann
   jeder in der Einrichtung: Leitung, Träger, Mitarbeiter und das Tablet.
 - **Mitschreiben:** Solange die Sitzung ein **Entwurf** ist, können alle Kopffelder und Protokoll ändern; **Speichern**
@@ -2381,7 +2406,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   und „Kinder: auch mit eigenem Zugang (nicht nur am Tablet)“. Die Gruppenleitung sieht also im Menü **Kinder** und
   pflegt die Kinder ihrer Gruppe auch im Büro, nicht nur am Tablet. Andere Gruppen sieht sie nur, wenn sie für sie
   freigeschaltet sind (nur lesend); hat sie keine Stammgruppe, pflegt sie die Kinder aller Gruppen. Weil sie „Kinder“ mit dem
-  eigenen Konto hat, zeigt das Menü die Büro-Anordnung: die eigenen Seiten unter „Meins“, die Vorlagen unter „Mehr“.
+  eigenen Konto hat, zeigt das Menü die Büro-Anordnung: die eigenen Seiten unter „Meins“, „Dokumente“ unter „Mehr“.
 - **Vormerkungen und künftige Vertragskinder** sieht sie auch im Büro nur, wenn die Tablet-Schalter (*Einstellungen →
   Einrichtung → Tablet*) an sind – außer der Träger gibt ihr „Kinder: verwalten“.
 - Am **Tablet** gelten nach dem Aufschließen mit Name und PIN die Rechte ihres Gruppenleitungs-Kontos.

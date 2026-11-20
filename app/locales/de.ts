@@ -58,7 +58,7 @@ export const de = {
     settings: 'Einstellungen', retention: 'Löschfristen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
-    templates: 'Vorlagen', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', forms: 'Bögen', accidents: 'Unfälle',
+    templates: 'Vorlagen', documents: 'Dokumente', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', forms: 'Bögen', accidents: 'Unfälle',
     more: 'Mehr', mine: 'Meins', menu: 'Menü', signedInAs: 'Angemeldet als', calendarShort: 'Kalender', mainMenu: 'Hauptmenü',
   },
   leavePlanning: {
@@ -1345,6 +1345,10 @@ export const de = {
     viewerFailed: 'Das Dokument konnte nicht angezeigt werden.', viewerLoading: 'Das Dokument wird geladen …', takePhoto: 'Foto aufnehmen',
     photoChosen: (name: string) => `Foto ausgewählt: ${name}`,
   },
+  /** „Dokumente“: the form templates („Bögen“) and the print templates („Vorlagen“) as tabs. */
+  documents: {
+    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Vorlagen' },
+  },
   printTemplates: {
     title: 'Vorlagen',
     intro: 'Leere Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
@@ -1356,8 +1360,17 @@ export const de = {
     manageCategories: 'Kategorien verwalten',
     // Shown at a category that not everyone sees.
     visibilityBadge: { managers: 'nur Leitung und Träger', provider: 'nur Träger' },
+    // The sub-tabs: one per category, „Vom Träger“ for templates for all facilities without a category of their name here.
+    tabsLabel: 'Kategorien', emptyCategory: 'In dieser Kategorie gibt es noch keine Vorlagen.',
+    fromProvider: 'Vom Träger',
+    fromProviderHint: 'Vorlagen des Trägers für alle Einrichtungen, für die es hier keine Kategorie mit demselben Namen gibt.',
+    // A template for all facilities: its category by name, and who sees it.
+    categoryName: 'Kategorie',
+    categoryNameHint: 'Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen. Hat sie keine, steht die Vorlage dort unter „Vom Träger“.',
+    globalVisibility: 'Wer sieht sie?',
+    globalVisibilityHint: 'Ist die Kategorie der Einrichtung enger eingestellt, gilt die Kategorie.',
     categories: {
-      intro: 'Die Kategorien gelten für alle Einrichtungen. Löschen lässt sich nur eine leere Kategorie.',
+      intro: 'Die Kategorien gelten nur für diese Einrichtung. Löschen lässt sich nur eine leere Kategorie.',
       none: 'Es gibt noch keine Kategorien.',
       add: 'Kategorie anlegen', edit: 'Kategorie ändern', name: 'Name', visibility: 'Wer sieht sie?',
       visibilities: { all: 'Alle (auch Mitarbeiter und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' },
@@ -2336,7 +2349,7 @@ export const de = {
     subjectPick: 'Für wen ist die Vorlage?',
     prefillBadge: 'wird vorausgefüllt',
     prefillHint: 'Dieser Punkt wird beim Anlegen eines Bogens aus den gespeicherten Daten vorausgefüllt (danach frei änderbar).',
-    noTemplates: 'Noch keine Vorlagen dieser Art.',
+    noTemplates: 'Noch keine Vorlagen dieser Art. Namen unten eintragen und auf „Vorlage anlegen“ tippen.',
     newTemplateName: 'Name der neuen Vorlage', nameFirst: 'Bitte zuerst oben einen Namen für die neue Vorlage eingeben.',
     createTemplate: 'Vorlage anlegen',
     name: 'Name',
@@ -2445,7 +2458,7 @@ export const de = {
     none: 'Noch keine Gespräche.',
     create: 'Gespräch anlegen', created: 'Gespräch angelegt',
     date: 'Datum', start: 'Uhrzeit', participants: 'Teilnehmer', period: 'Zeitraum', periodPlaceholder: 'z. B. 2025/26',
-    forms: 'Bögen', noTemplates: 'Es gibt keine aktiven Vorlagen für Mitarbeitergespräche (Mehr → Bögen).',
+    forms: 'Bögen', noTemplates: 'Es gibt keine aktiven Vorlagen für Mitarbeitergespräche (Mehr → Dokumente → Bögen).',
     talkOn: (date: string) => `Gespräch am ${date}`,
     atTime: (time: string) => `um ${time} Uhr`,
     roles: { self: 'Selbstbeurteilung', assessment: 'Beurteilung' },
@@ -2484,7 +2497,7 @@ export const de = {
     none: 'Noch keine Unfälle eingetragen.', loading: 'Bogen wird geladen …',
     createChild: 'Unfallbericht ausfüllen', createEmployee: 'Unfallanzeige ausfüllen', created: 'Bogen angelegt',
     template: 'Vorlage', templatePick: 'Vorlage wählen',
-    noTemplates: 'Es gibt keine aktive Unfall-Vorlage dafür (Mehr → Bögen → Unfälle).',
+    noTemplates: 'Es gibt keine aktive Unfall-Vorlage dafür (Mehr → Dokumente → Bögen → Unfälle).',
     date: 'Datum', start: 'Uhrzeit', startHint: 'optional',
     doctor: 'Arztbesuch', unfit: 'arbeitsunfähig', reportedOn: 'an Unfallkasse gemeldet am', reportedOnHint: 'leer = noch nicht gemeldet',
     yes: 'ja', no: 'nein',
@@ -2542,7 +2555,7 @@ export const de = {
     create: 'Bogen anlegen', created: 'Bogen angelegt',
     template: 'Vorlage', templatePick: 'Vorlage wählen', date: 'Datum', start: 'Uhrzeit', startHint: 'freiwillig',
     participants: 'Teilnehmer', participantsPlaceholder: 'z. B. Mama, Papa, Frau Weber',
-    noTemplates: 'Es gibt keine aktiven Vorlagen für Beobachtungsbögen. Die Leitung legt sie unter Mehr → Bögen an.',
+    noTemplates: 'Es gibt keine aktiven Vorlagen für Beobachtungsbögen. Die Leitung legt sie unter Mehr → Dokumente → Bögen an.',
     dateInvalid: 'Bitte ein gültiges Datum angeben.',
     atTime: (time: string) => `um ${time} Uhr`,
     fromMeeting: 'zum Elterngespräch',
@@ -2576,7 +2589,7 @@ export const de = {
     participants: 'Teilnehmer', participantsMorePlaceholder: 'weitere, z. B. Frau Weber (Fachberatung)',
     participantsPick: 'Aus dem Team (unterzeichnen das Protokoll)',
     recorder: 'Protokollführung',
-    noTemplates: 'Es gibt keine aktive Vorlage für Teamsitzungen. Die Leitung legt sie unter Mehr → Bögen an.',
+    noTemplates: 'Es gibt keine aktive Vorlage für Teamsitzungen. Die Leitung legt sie unter Mehr → Dokumente → Bögen an.',
     dateInvalid: 'Bitte ein gültiges Datum angeben.',
     atTime: (time: string) => `um ${time} Uhr`,
     states: { draft: 'Entwurf', released: 'Freigegeben' },

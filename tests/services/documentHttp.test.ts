@@ -113,11 +113,18 @@ describe('parseUploadParts for print templates', () => {
     expect(parse([file, text('title', 'Brief'), text('categoryId', '3')]).fields.scope).toBe('facility')
   })
 
-  it('needs the file and well-formed fields, among them a category', () => {
+  it('reads the category name and visibility of a template for all facilities', () => {
+    expect(parse([file, text('title', 'Brief'), text('categoryName', 'Personal'), text('visibility', 'managers'), text('scope', 'all')]).fields)
+      .toEqual({ title: 'Brief', categoryName: 'Personal', visibility: 'managers', scope: 'all' })
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryName', 'x'.repeat(61))]))).toBe('invalid_input')
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('visibility', 'everyone')]))).toBe('invalid_input')
+  })
+
+  it('needs the file and well-formed fields (which category is missing, the service says)', () => {
     expect(errorCode(() => parse([text('title', 'Brief'), text('categoryId', '3')]))).toBe('file_required')
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', '3'), text('scope', 'mine')]))).toBe('invalid_input')
     expect(errorCode(() => parse([file, text('title', 'x'.repeat(201)), text('categoryId', '3')]))).toBe('invalid_input')
-    expect(errorCode(() => parse([file, text('title', 'Brief')]))).toBe('invalid_input')
+    expect(parse([file, text('title', 'Brief')]).fields).toEqual({ title: 'Brief', scope: 'facility' })
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', '')]))).toBe('invalid_input')
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', 'Eltern')]))).toBe('invalid_input')
     expect(parseUploadParts([file], noFields).file.filename).toBe('Elternbrief.pdf')
