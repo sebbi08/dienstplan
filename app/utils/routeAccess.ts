@@ -7,15 +7,15 @@ export const isChildPagePath = (path: string): boolean => path === '/children' |
 /**
  * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout
  * (/print/<year>/<month>), the print templates („Dokumente“, only its tab „Vorlagen“ there; /templates is the old
- * address), the team meetings and the notes (no child data). No other /print page: the team meetings' printout is for
- * the staff's and the managers' own devices. The tablet role is not part of the permission catalog, so this stays a rule
- * of its own.
+ * address), the team meetings, the notes and the contacts marked for the staff (no child data). No other /print page:
+ * the team meetings' and the contacts' printouts are for the staff's and the managers' own devices. The tablet role is
+ * not part of the permission catalog, so this stays a rule of its own.
  */
 export function tabletMayOpen(path: string): boolean {
   const teamMeetings = path === '/team-meetings' || path.startsWith('/team-meetings/')
   const planPrintout = /^\/print\/\d+\/\d+$/.test(path)
-  return path === '/terminal' || path === '/documents' || path === '/templates' || path === '/notes' || path.startsWith('/plan/')
-    || planPrintout || teamMeetings
+  return path === '/terminal' || path === '/documents' || path === '/templates' || path === '/notes' || path === '/contacts'
+    || path.startsWith('/plan/') || planPrintout || teamMeetings
 }
 
 /** A prefix starting with "=" matches only that address, any other one the address and the pages below it. */
@@ -67,6 +67,10 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   ['=/templates', 'printTemplates.view'],
   // The facility's notes: every account has the key (the tablet reads them by tabletMayOpen).
   ['=/notes', 'notes.view'],
+  // „Kontakte“ and its printout: every account has the key (the page shows what the server gives: contacts.manage all,
+  // everyone else the contacts marked for the staff); the tablet opens the page by tabletMayOpen, not the printout.
+  ['=/contacts', 'contacts.view'],
+  ['/print/contacts', 'contacts.view'],
 ]
 
 /** The tablet's pages that no signed-in account opens: the terminal routes answer only the tablet. */

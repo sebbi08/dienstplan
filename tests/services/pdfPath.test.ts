@@ -20,6 +20,11 @@ describe('PDF_PATH (print views that may be rendered as PDF)', () => {
     '/print/children/ifsg/2026?filter=open',
     '/print/children/ifsg-notice/12',
     '/print/children/ifsg-declaration/12',
+    // „Kontakte“ (all, one category, „Vom Träger“) and the school children by future school.
+    '/print/contacts/all',
+    '/print/contacts/12',
+    '/print/contacts/provider',
+    '/print/children/school-children',
   ])('accepts %s', (path) => {
     expect(PDF_PATH.test(path)).toBe(true)
   })

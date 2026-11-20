@@ -13,8 +13,8 @@ import { PERMISSIONS, resolvePermissions, type PermissionKey } from './permissio
 
 /** The areas of the rights page, in the order it lists them. */
 export const BUNDLE_AREAS = [
-  'plan', 'leave', 'time', 'employees', 'personnelFile', 'children', 'forms', 'teamMeetings', 'notes', 'cash', 'calendar',
-  'templates', 'administration',
+  'plan', 'leave', 'time', 'employees', 'personnelFile', 'children', 'forms', 'teamMeetings', 'notes', 'contacts', 'cash',
+  'calendar', 'templates', 'administration',
 ] as const
 export type BundleArea = typeof BUNDLE_AREAS[number]
 
@@ -28,6 +28,7 @@ export const BUNDLE_AREA_LABELS: Record<BundleArea, string> = {
   forms: 'Bögen',
   teamMeetings: 'Teamsitzungen',
   notes: 'Notizen',
+  contacts: 'Kontakte',
   cash: 'Kasse',
   calendar: 'Kalender',
   templates: 'Vorlagen',
@@ -44,6 +45,7 @@ export const BUNDLE_IDS = [
   'formsFill', 'formsManage', 'accidentsManage',
   'teamMeetingsWrite', 'teamMeetingsRelease',
   'notesWrite',
+  'contactsManage',
   'cashBook', 'cashClose',
   'calendarView', 'calendarEdit',
   'templatesView', 'templatesEdit',
@@ -132,6 +134,8 @@ const SPECS: readonly Spec[] = [
 
   bundle('notesWrite', 'notes', 'schreiben', ['notes.write'], true),
 
+  bundle('contactsManage', 'contacts', 'pflegen (alle Kontakte sehen, anlegen, ändern, löschen)', ['contacts.manage']),
+
   bundle('cashBook', 'cash', 'ansehen und führen', ['cash.view', 'cash.book']),
   bundle('cashClose', 'cash', 'Monate abschließen und wieder öffnen', ['cash.close', 'cash.reopen']),
 
@@ -147,9 +151,10 @@ const SPECS: readonly Spec[] = [
 
 /**
  * Keys every Leitung and Mitarbeiter account has, without a switch (spec §2 „Eigene Daten … kein Schalter“): the own
- * staff talk forms and reading the facility's notes. (The own plan and the password need no key.)
+ * staff talk forms, reading the facility's notes and the contacts marked for the staff. (The own plan and the password
+ * need no key.)
  */
-export const BASELINE_KEYS: readonly PermissionKey[] = ['talks.own', 'notes.view']
+export const BASELINE_KEYS: readonly PermissionKey[] = ['talks.own', 'notes.view', 'contacts.view']
 
 const CATALOG = new Map(PERMISSIONS.map(permission => [permission.key, permission]))
 const BUNDLE_OF_KEY = new Map<PermissionKey, BundleId>(SPECS.flatMap(spec => spec.keys.map(key => [key, spec.id] as const)))
@@ -238,6 +243,7 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
     'formsFill', 'formsManage', 'accidentsManage',
     'teamMeetingsWrite', 'teamMeetingsRelease', 'notesWrite',
+    'contactsManage',
     'cashBook', 'cashClose',
     'calendarView', 'calendarEdit',
     'templatesView', 'templatesEdit',

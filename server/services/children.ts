@@ -23,6 +23,7 @@ import { getChildRetentionYears } from './appSettings'
 import { assertCareType } from './careTypes'
 import { accidentHoldOf, childAccidentDays, childRecordPurgeDate } from './childAccidentRetention'
 import { listContacts } from './childContacts'
+import { checkedFutureSchool, schoolNameOf, schoolStaysOnMove } from './contacts'
 import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
@@ -151,7 +152,7 @@ function masterOf(row: ChildRow, keyEducatorId: number | null): ChildMasterInput
     lastName: row.lastName, firstName: row.firstName, birthDate: row.birthDate, address: row.address,
     groupId: row.groupId, careTypeId: row.careTypeId, entryDate: row.entryDate, plannedEntryDate: row.plannedEntryDate,
     admissionStatus: row.admissionStatus, waitlistedOn: row.waitlistedOn, infoMeetingDate: row.infoMeetingDate, schoolStartDate: row.schoolStartDate, primarySchool: row.primarySchool,
-    schoolDistrict: row.schoolDistrict, keyEducatorId, note: row.note,
+    schoolDistrict: row.schoolDistrict, keyEducatorId, note: row.note, futureSchoolContactId: row.futureSchoolContactId,
   }
 }
 
@@ -199,6 +200,7 @@ export function getChild(
     reviews: effectiveReviews(db, viewer.facilityId, [row]).get(row.id)!,
     computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
+    futureSchoolName: schoolNameOf(db, row.futureSchoolContactId),
     health: healthOf(row),
     consents: consentsOf(row),
     contacts: listContacts(db, row.id),
@@ -296,7 +298,10 @@ export function createChild(
   // A person with group rights creates children only in a group they may write in (or without group).
   assertGroupRight(actor, input.groupId, 'write', 'group_not_found')
   assertSchoolStartRight(actor, input.schoolStartDate, null)
-  const master = checkedMaster(db, facilityId, input, today)
+  const master = {
+    ...checkedMaster(db, facilityId, input, today),
+    futureSchoolContactId: checkedFutureSchool(db, facilityId, input.futureSchoolContactId ?? null, null),
+  }
   return db.transaction((tx) => {
     const assertStays = guardAgainstLeaving(tx, facilityId, today)
     const id = tx.insert(children)
@@ -334,9 +339,14 @@ export function updateChildMaster(
   if (input.admissionStatus === 'waitlist' && childStatus(row, today) === 'active') {
     throw new ServiceError(400, 'waitlist_after_start')
   }
-  const { baseGroupId = storedGroupId, schoolStartDate = row.schoolStartDate, ...rest } = input
+  const {
+    baseGroupId = storedGroupId, schoolStartDate = row.schoolStartDate, futureSchoolContactId = row.futureSchoolContactId, ...rest
+  } = input
   assertSchoolStartRight(actor, schoolStartDate, row.schoolStartDate)
-  const fields = { ...rest, schoolStartDate }
+  const fields = {
+    ...rest, schoolStartDate,
+    futureSchoolContactId: checkedFutureSchool(db, facilityId, futureSchoolContactId, row.futureSchoolContactId),
+  }
   const groupChosen = fields.groupId !== baseGroupId
   // A person with group rights moves a child only into a group they may write in (or out of every group).
   if (groupChosen) assertGroupRight(actor, fields.groupId, 'write', 'group_not_found')
@@ -639,8 +649,10 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
     endGroupHistory(tx, childId, today, now)
     moveChildForms(tx, childId, targetFacilityId)
     detachNoteEmployees(tx, childId)
+    // A school of the old facility's address book stays behind; one for all facilities goes along.
+    const school = schoolStaysOnMove(tx, childId) ? {} : { futureSchoolContactId: null }
     tx.update(children)
-      .set({ facilityId: targetFacilityId, facilitySince: today, groupId: null, careTypeId: null, keyEducatorId: null })
+      .set({ facilityId: targetFacilityId, facilitySince: today, groupId: null, careTypeId: null, keyEducatorId: null, ...school })
       .where(eq(children.id, childId)).run()
     // Judged on the record as it is there now; refusing rolls the whole move back.
     if (leavesAtNextRun(tx, targetFacilityId, childId, today)) throw new ServiceError(409, 'school_start_reached')

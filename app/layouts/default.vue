@@ -23,6 +23,12 @@ const { data: leave, refresh: refreshLeave } = useFetch<LeaveSettingsDto>('/api/
 // Facility switcher: the Träger picks the facility they work in, the Leitung only sees theirs.
 const { data: facilities, refresh: refreshFacilities, activeName } = useFacilities()
 const { can } = useCan()
+// „Kontakte“ for accounts that do not maintain the address book: only once the facility has contacts for the staff (a
+// staff account belongs to a facility through its employee).
+const { data: staffContacts } = useFetch<{ count: number }>('/api/contacts/staff-count', {
+  key: 'contacts-staff-count', watch: false,
+  immediate: signedIn.value && !can('contacts.manage') && (user.value?.employeeId != null || user.value?.role === 'admin'),
+})
 // Switching the facility is the Träger's (PUT /api/facilities/active needs facilities.manage).
 const canSwitchFacility = computed(() => can('facilities.manage'))
 const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
@@ -59,6 +65,7 @@ const menu = computed<NavMenu>(() => navMenu({
   openCount: leave.value?.openCount ?? 0,
   unread: notifications.unread.value.length,
   today,
+  staffContacts: (staffContacts.value?.count ?? 0) > 0,
 }))
 const isTerminal = computed(() => user.value?.role === 'terminal')
 // The Leitung/Träger header has many entries; on mid-size screens it gets tighter so it stays on one line.

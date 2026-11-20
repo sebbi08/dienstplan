@@ -178,6 +178,11 @@ export interface ChildMasterInput {
   /** Bezugserzieher: an employee of the child's facility who has not left; null = nobody. */
   keyEducatorId: number | null
   note: string
+  /**
+   * „künftige Schule“: a contact of the address book in a category of schools (the facility's or for all facilities);
+   * null = none. Left out when saving = the stored one stays (a new child: none).
+   */
+  futureSchoolContactId?: number | null
 }
 
 /** The master data as saved for an existing child. */
@@ -470,6 +475,8 @@ export interface UpcomingSchoolChildDto {
    * it changes into afterwards (planned or applied); null = none, so its stay ends the day before the school start.
    */
   pendingSchoolGroup: string | null
+  /** The „künftige Schule“ from the child's record (organisation and city), null = none chosen. */
+  futureSchool: string | null
 }
 
 /** A child named in an occupancy cell, with the borders of the stay counted there (to null = open). */
@@ -612,6 +619,8 @@ export interface ChildRecordDto {
   computedSchoolStart: IsoDate
   /** Name of master.keyEducatorId (null together with it). */
   keyEducatorName: string | null
+  /** The „künftige Schule“ as shown (organisation and city; null together with master.futureSchoolContactId). */
+  futureSchoolName: string | null
   health: ChildHealthInput
   consents: ChildConsents
   contacts: ChildContactDto[]
@@ -3758,4 +3767,79 @@ export interface MaternitySaveDto {
   ban: MaternityBookingDto | null
   /** The booked plan no longer matches (saved without plan.edit): „Dienstplan muss noch angepasst werden“. */
   planOutdated: boolean
+}
+
+/**
+ * A category of the facility's address book („Kontakte“), in the facility's order. `contactCount`: the contacts the
+ * viewer sees in it (the facility's own and those for all facilities filed under its name); `ownCount`: the facility's
+ * own contacts in it, while there are any it cannot be deleted (only for whoever maintains the contacts, else 0).
+ */
+export interface ContactCategoryDto {
+  id: number
+  name: string
+  contactCount: number
+  ownCount: number
+}
+
+export interface ContactCategoryInput {
+  name: string
+}
+
+/** Where a contact is kept: in the facility, or for all facilities (the Träger's, contacts.global). */
+export type ContactScope = 'facility' | 'all'
+
+/** What Leitung or Träger enter about a contact. */
+export interface ContactInput {
+  /** Only on create: 'all' = for all facilities (Träger). Left out = the facility. */
+  scope?: ContactScope
+  /** A contact of the facility: one of the facility's categories. */
+  categoryId?: number | null
+  /** A contact for all facilities: the category name it shows under in each facility (else „Vom Träger“). */
+  categoryName?: string | null
+  organisation: string
+  person: string
+  role: string
+  phone: string
+  mobile: string
+  email: string
+  street: string
+  postalCode: string
+  city: string
+  website: string
+  note: string
+  /** „auch für Mitarbeitende und am Tablet sichtbar“. */
+  visibleToStaff: boolean
+}
+
+/** A contact as the viewer sees it, placed in the facility's categories. */
+export interface ContactDto extends Omit<ContactInput, 'scope' | 'categoryId' | 'categoryName'> {
+  id: number
+  /** The facility's category it shows in; null = „Vom Träger“ (for all facilities, no category of its name). */
+  categoryId: number | null
+  /** For all facilities (maintained by the Träger). */
+  global: boolean
+  /** A contact for all facilities: the category name the Träger chose (null for a facility's own). */
+  globalCategoryName: string | null
+  updatedAt: string
+  /** Username of whoever changed it last (null when unknown or deleted). */
+  updatedBy: string | null
+  /** Whether the viewer may change and delete it. */
+  canEdit: boolean
+}
+
+/** The address book of the viewer's facility: the categories in their order and the contacts the viewer sees. */
+export interface ContactsDto {
+  categories: ContactCategoryDto[]
+  contacts: ContactDto[]
+  /** contacts.manage: sees every contact and maintains them and the categories. */
+  canManage: boolean
+  /** contacts.global: also contacts for all facilities. */
+  canManageGlobal: boolean
+}
+
+/** A school to choose as a child's „künftige Schule“: a contact in a category whose name contains „Schule“. */
+export interface SchoolOptionDto {
+  id: number
+  /** The organisation, with the city when there is one („Grundschule Süd, Heidelberg“). */
+  name: string
 }

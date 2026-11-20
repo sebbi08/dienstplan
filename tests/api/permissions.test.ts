@@ -125,6 +125,8 @@ const CHILD_EDITOR_ROUTES = [
   'children/[id]/documents.post.ts', 'child-documents/[id].put.ts', 'child-documents/[id].delete.ts',
   // Parent meetings: the record section's rights; the service keeps the note to Leitung and Träger (spec Elterngespräche §1).
   'children/[id]/meetings.post.ts', 'children/meetings/[id].put.ts', 'children/meetings/[id].delete.ts',
+  // The schools of the address book to choose as „künftige Schule“ in the master data (names only).
+  'contacts/schools.get.ts',
 ]
 /** children.manage: the Leitung's child pages, at the office or at the unlocked tablet. */
 const CHILD_MANAGER_ROUTES = [
@@ -783,9 +785,9 @@ describe('API route permissions', () => {
     }
   })
 
-  it('lets the tablet into the general plan, the team meetings, the notes (reading) and the print templates (with their categories) only', () => {
+  it('lets the tablet into the general plan, the team meetings, the notes and the contacts (reading) and the print templates (with their categories) only', () => {
     const allowing = routes.filter(route => source(route).includes('allowTerminal: true'))
-    expect(allowing).toEqual(['notes/index.get.ts', 'plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
+    expect(allowing).toEqual(['contacts/index.get.ts', 'notes/index.get.ts', 'plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
       'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
       'team-meetings/index.post.ts', 'template-categories/index.get.ts'])
   })

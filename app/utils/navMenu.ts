@@ -41,6 +41,11 @@ export interface NavViewer {
   openCount: number
   unread: number
   today: { year: number, month: number }
+  /**
+   * The facility has contacts marked for the staff (GET /api/contacts/staff-count): then „Kontakte“ shows for accounts
+   * without contacts.manage too.
+   */
+  staffContacts?: boolean
 }
 
 /** The label with the count in brackets, e.g. "Meins (2)"; without a count the plain label. */
@@ -93,6 +98,9 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // managers, under "Meins" for Mitarbeiter (the print templates, read only); the tablet reaches them from its start page.
   const formsManager = can('formTemplates.manage')
   const documents = shown([[formsManager || can('printTemplates.view'), entry(de.nav.documents, '/documents')]])
+  // „Kontakte“, the facility's address book: whoever maintains it, everyone else once there are contacts for the staff.
+  const contactsEntry = entry(de.contacts.title, '/contacts')
+  const contacts = shown([[can('contacts.manage') || !!viewer.staffContacts, contactsEntry]])
   const officeMore = shown([
     [can('closures.manage'), entry(de.nav.closures, '/admin/closures')],
     [can('employees.sickness'), entry(de.nav.sickDays, '/admin/sick-days')],
@@ -110,7 +118,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
 
   // The print templates alone make no office account: Mitarbeiter read them as well (the form templates do).
   if (office.length > 0 || officeMore.length > 0 || adminMore.length > 0 || formsManager || can('calendar.edit')) {
-    const more = [...officeMore, ...documents, ...adminMore]
+    const more = [...officeMore, ...documents, ...contacts, ...adminMore]
     // With office pages (Leitung, Träger): the everyday ones in the row, the rest under "Mehr"; linked to an employee
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
     // "Urlaubsplanung": the planners with their open requests; whoever sees the leave overview too, for the notice on
@@ -135,7 +143,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
     main: [myPlan, ...plans, calendar, ...teamPages],
     // The templates are the facility's: a staff account without an employee belongs to none.
-    mine: [myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? documents : [])],
+    mine: [myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? [...documents, ...contacts] : [])],
     more: [],
     mineCount: 0,
     totalCount: viewer.unread,

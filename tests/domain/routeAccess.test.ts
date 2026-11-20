@@ -36,7 +36,7 @@ const CHILDREN = [
   '/print/children/attendance/2026-10-28', '/print/children/birthdays', '/print/children/documents',
   '/print/children/forms/1', '/print/children/ifsg-declaration/1', '/print/children/ifsg-notice/1', '/print/children/ifsg/2026',
   '/print/children/occupancy/2026',
-  '/print/children/overview/1', '/print/children/planned',
+  '/print/children/overview/1', '/print/children/planned', '/print/children/school-children',
   '/print/children/staffing/2026/10', '/print/children/week/1/1',
 ]
 /** The office pages: Leitung and Träger only. */
@@ -60,6 +60,8 @@ const RETENTION = '/admin/retention'
 const RIGHTS = '/admin/rights'
 /** The facility's notes: every account (the key is in every role's defaults) and the tablet. */
 const NOTES = '/notes'
+/** „Kontakte“ and its printout: every account (the key is in every role's defaults); the tablet the page, not the printout. */
+const CONTACTS = ['/contacts', '/print/contacts/1']
 
 function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePassword?: boolean } = {}) {
   const permissions = flaggedPermissions(role, { canEditChildren: options.canEditChildren })
@@ -68,7 +70,7 @@ function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePa
 
 describe('route access per role (unchanged by the permissions)', () => {
   it('lists every page', () => {
-    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, RETENTION, RIGHTS, TABLET_ONLY].sort())
+    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS, RETENTION, RIGHTS, TABLET_ONLY].sort())
   })
 
   it('lets the Träger open every page but the tablet\'s start page', () => {
@@ -84,7 +86,7 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('lets the Leitung open every page but the Träger\'s retention page', () => {
     const leitung = viewerOf('admin')
-    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES]) expect(accountRedirect(path, leitung), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS]) expect(accountRedirect(path, leitung), path).toBeUndefined()
     // Before the permissions the retention page sent the Leitung to the start page itself (retention.vue); now the
     // middleware does, with the same result.
     expect(accountRedirect(RETENTION, leitung)).toBe('/')
@@ -94,14 +96,14 @@ describe('route access per role (unchanged by the permissions)', () => {
 
   it('sends a Mitarbeiter from the child and office pages to the start page, with or without the child flag', () => {
     for (const viewer of [viewerOf('observer'), viewerOf('observer', { canEditChildren: true })]) {
-      for (const path of [...OPEN, NOTES]) expect(accountRedirect(path, viewer), path).toBeUndefined()
+      for (const path of [...OPEN, NOTES, ...CONTACTS]) expect(accountRedirect(path, viewer), path).toBeUndefined()
       for (const path of [...CHILDREN, ...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, viewer), path).toBe('/')
     }
   })
 
   it('lets a Gruppenleitung open the child pages with its own account, but no office page', () => {
     const lead = viewerOf('group_lead')
-    for (const path of [...OPEN, ...CHILDREN, TEMPLATES, DOCUMENTS, NOTES]) expect(accountRedirect(path, lead), path).toBeUndefined()
+    for (const path of [...OPEN, ...CHILDREN, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS]) expect(accountRedirect(path, lead), path).toBeUndefined()
     for (const path of [...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, lead), path).toBe('/')
   })
 
@@ -140,7 +142,7 @@ describe('route access per role (unchanged by the permissions)', () => {
   })
 
   it('lets the tablet open stamping, the plan and its printout, the print templates, the team meetings and the notes, the child pages by unlock', () => {
-    const tablet = ['/documents', '/notes', '/plan/2026/10', '/print/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
+    const tablet = ['/contacts', '/documents', '/notes', '/plan/2026/10', '/print/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
     expect(pagePaths.filter(tabletMayOpen)).toEqual(tablet)
     expect(pagePaths.filter(isChildPagePath)).toEqual(['/children', '/children/1', '/children/new'])
   })
@@ -160,5 +162,7 @@ describe('pagePermission', () => {
     expect(ROLE_DEFAULTS.observer).toContain('printTemplates.view')
     expect(pagePermission(NOTES)).toBe('notes.view')
     for (const role of ['admin', 'observer'] as const) expect(ROLE_DEFAULTS[role], role).toContain('notes.view')
+    for (const path of CONTACTS) expect(pageKeys(path), path).toEqual(['contacts.view'])
+    for (const role of ['admin', 'observer'] as const) expect(ROLE_DEFAULTS[role], role).toContain('contacts.view')
   })
 })

@@ -2370,8 +2370,8 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 
 - Unter **Mehr → Rechte und Rollen** (oder auf *Benutzer* über „Rechte und Rollen einstellen“) stellst du ein, was
   **Leitung**, **Gruppenleitung** und **Mitarbeiter** dürfen. Die Seite zeigt keine Einzelrechte, sondern **Schalter**, geordnet nach
-  Bereichen (Dienstplan, Urlaub, Zeiten, Mitarbeiter, Personalakte, Kinder, Bögen, Teamsitzungen, Kasse, Kalender,
-  Vorlagen, Verwaltung). Je Rolle gibt es eine Spalte mit einem Häkchen.
+  Bereichen (Dienstplan, Urlaub, Zeiten, Mitarbeiter, Personalakte, Kinder, Bögen, Teamsitzungen, Notizen, Kontakte,
+  Kasse, Kalender, Vorlagen, Verwaltung). Je Rolle gibt es eine Spalte mit einem Häkchen.
 - Bei den Kinder-Schaltern „ansehen“, „Anwesenheit und Gruppenbuch“ und „eintragen und Akten ändern“ wählst du neben dem
   Häkchen den **Umfang**: „eigene Gruppe“ (wie bisher bei Mitarbeitern: nur die Stammgruppe; wer keine Gruppe hat, alle
   Gruppen) oder „ganze Einrichtung“. Was „ansehen“ erreicht, begrenzt die anderen beiden: Stellst du „Anwesenheit“ oder
@@ -2464,3 +2464,65 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Passwort zurücksetzen, und sie kann Passwort und PIN von Gruppenleitungen und Mitarbeitern ihrer Einrichtung setzen. Hat der Träger einer
   Leitung Rechte weggenommen, könnte sie so mit einem anderen Konto arbeiten. Gib das Leitungs-Konto deshalb nur
   Personen, denen du die ganze Einrichtung anvertraust.
+
+## 27. Kontakte (Adressbuch der Einrichtung)
+
+Unter **Mehr → Kontakte** führt jede Einrichtung ihr Adressbuch mit wichtigen Kontakten nach außen: Schulen, Jugendamt,
+Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
+
+### Kategorien
+
+- Jede Einrichtung hat **eigene Kategorien**. Zum Start (bestehende Einrichtungen beim Update, neue beim Anlegen) gibt es:
+  Schulen, Jugendamt, Gesundheitsamt, Fachberatung, Ärztinnen/Ärzte & Therapie, Träger & Verwaltung, Handwerk & Notdienst,
+  Sonstiges.
+- **Kategorien verwalten**: hinzufügen, umbenennen, Reihenfolge ändern. Löschen geht nur, solange keine Kontakte der
+  Einrichtung darin liegen. Ein Name kommt in einer Einrichtung nur einmal vor (Groß-/Kleinschreibung zählt nicht).
+- Die Kategorien erscheinen auf der Seite als Reiter („Alle“, dann die Kategorien, ggf. „Vom Träger“). Das Suchfeld sucht
+  in Einrichtung/Firma, Ansprechperson, Funktion, Notiz und Ort.
+
+### Kontakte
+
+- Pro Kontakt: Einrichtung oder Firma (Pflicht), Ansprechperson, Funktion (z. B. Kooperationslehrkraft), Telefon, Mobil,
+  E-Mail, Website, Anschrift und eine Notiz (bis 1000 Zeichen). E-Mail und Website werden geprüft; eine Website ohne
+  „https://“ bekommt es vorangestellt, andere Adressarten als http/https sind nicht erlaubt.
+- Telefon, Mobil, E-Mail und Website sind anklickbar (Anruf, E-Mail-Programm, neue Seite).
+- **„auch für Mitarbeitende und am Tablet sichtbar“**: Nur Kontakte mit diesem Haken sehen Mitarbeiter-Konten (unter
+  **Meins → Kontakte**, der Eintrag erscheint erst, wenn es mindestens einen solchen Kontakt gibt) und das Tablet (Kachel
+  **Kontakte** auf der Startseite, ohne PIN). Ohne Haken sehen ihn nur Leitung und Träger (Hinweis „nur Leitung“).
+- **Drucken**: alle Kontakte oder die geöffnete Kategorie, jeweils so, wie die Person sie sieht (nicht am Tablet).
+
+### Wer was darf
+
+| Wer | Was |
+|---|---|
+| Träger | alles, in der gewählten Einrichtung; zusätzlich Kontakte **für alle Einrichtungen** |
+| Leitung (Recht „Kontakte: pflegen“, voreingestellt an) | alle Kontakte der Einrichtung sehen, anlegen, ändern, löschen; Kategorien verwalten |
+| Mitarbeiter, Gruppenleitung, Tablet | nur die freigegebenen Kontakte lesen (Recht „Kontakte lesen“ hat jedes Konto) |
+
+Das Recht „Kontakte: pflegen“ steht auf der Seite **Rechte und Rollen** (Bereich „Kontakte“) und ist für die Leitung
+voreingestellt; der Träger kann es auch einer Gruppenleitung oder einzelnen Personen geben. Jede Einrichtung sieht nur ihre
+eigenen Kontakte (und die des Trägers für alle Einrichtungen).
+
+### Kontakte für alle Einrichtungen (nur Träger)
+
+Beim Anlegen wählt der Träger „für alle Einrichtungen“ und gibt statt einer Kategorie einen **Kategorie-Namen** ein
+(Vorschläge: die Namen, die die Einrichtungen verwenden). In jeder Einrichtung erscheint der Kontakt in der Kategorie mit
+diesem Namen, sonst im Reiter **„Vom Träger“**. Ändern und löschen kann ihn nur der Träger; eine Kategorie gleichen Namens
+kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träger“).
+
+### Künftige Schule eines Kindes
+
+- In der Kinderakte (Stammdaten) gibt es das Feld **„künftige Schule“**: Auswahl aus den Kontakten in Kategorien mit
+  „Schule“ im Namen (z. B. „Schulen“, „Grundschulen“) der Einrichtung und des Trägers. Ändern darf es, wer die Akte
+  ändern darf; am Tablet steht es lesend in den Stammdaten.
+- Die Liste **Kinder → Belegung → „Schulkinder zum 1.9.“** zeigt die künftige Schule, lässt sich **nach Schule
+  gruppieren** und **nach Schule drucken** (eine Liste pro Schule, z. B. zum Weitergeben an die Schule).
+- Wird der Kontakt gelöscht, verliert das Kind die Auswahl (das Feld ist dann leer). Zieht ein Kind in eine andere
+  Einrichtung um, bleibt eine Schule des Trägers erhalten, eine Schule der alten Einrichtung wird geleert.
+
+### Datenschutz
+
+Die Kontakte sind **Geschäftskontakte** (Behörden, Schulen, Firmen und deren Ansprechpersonen), keine Daten von Kindern,
+Eltern oder Mitarbeitern. Es gibt daher keine eigene Löschfrist: Wer einen Kontakt nicht mehr braucht, löscht ihn. Die
+Kontakte einer Einrichtung (und ihre Kategorien) gehören zur Einrichtung und würden mit ihr gelöscht. In den Sicherungen
+sind sie wie alle Daten enthalten.

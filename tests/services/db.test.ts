@@ -12,6 +12,7 @@ import {
 } from '../../server/db/schema'
 import { DEFAULT_TEMPLATE_CATEGORIES, ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
+import { DEFAULT_CONTACT_CATEGORIES } from '../../shared/domain/contacts'
 import { STARTERS } from '../../shared/domain/forms/starters'
 import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
 
@@ -126,6 +127,10 @@ describe('upgrading a filled database through migrateDb', () => {
   }
   // Columns of `children` that 0042_consents adds / drops; the older tests compare the rows before and after without them.
   const NEW_CONSENT_COLUMNS = ['consent_signal_photos', 'consent_insect_repellent']
+  // Columns of `children` that later migrations add (0109_contacts: the future school); the older tests leave them out.
+  const LATER_CHILD_COLUMNS = ['future_school_contact_id']
+  const withoutLaterChildColumns = (rows: unknown[]) => (rows as Record<string, unknown>[])
+    .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_CHILD_COLUMNS.includes(column))))
   const withoutOldConsent = (rows: unknown[]) =>
     (rows as Record<string, unknown>[]).map(({ consent_photos_whatsapp: _, ...rest }) => rest)
   // Columns of `facilities`, `groups`, `employees` and `care_types` that 0044_reminders, 0045_doc_since, 0050_staffing and
@@ -594,7 +599,7 @@ describe('upgrading a filled database through migrateDb', () => {
     // the day of a move into the facility with 0031_child_facility_since).
     const reviewColumns = ['contacts_review_since', 'health_review_since', 'consents_review_since', 'documents_review_since',
       'care_type_review_since', 'key_educator_review_since', 'contract_review_since']
-    const laterColumns = [...reviewColumns, 'facility_since', ...NEW_CONSENT_COLUMNS]
+    const laterColumns = [...reviewColumns, 'facility_since', ...NEW_CONSENT_COLUMNS, ...LATER_CHILD_COLUMNS]
     const childrenAfter = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
     expect(childrenAfter.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !laterColumns.includes(column)))))
       .toEqual(childrenBefore)
@@ -664,7 +669,7 @@ describe('upgrading a filled database through migrateDb', () => {
     const without = (rows: unknown[], ...columns: string[]) =>
       (rows as Record<string, unknown>[]).map(row => Object.fromEntries(Object.entries(row).filter(([name]) => !columns.includes(name))))
     // (facility_since comes with the later 0031_child_facility_since.)
-    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since', ...NEW_CONSENT_COLUMNS)).toEqual(before.children)
+    expect(without(sqlite.prepare('SELECT * FROM children ORDER BY id').all(), 'contract_review_since', 'facility_since', ...NEW_CONSENT_COLUMNS, ...LATER_CHILD_COLUMNS)).toEqual(before.children)
     expect(without(sqlite.prepare('SELECT * FROM child_group_changes ORDER BY id').all(), 'new_contract')).toEqual(before.changes)
     // (the minimum counts come with the later 0038_opening_hours, the colour with 0039_group_colors.)
     expect(without(sqlite.prepare('SELECT * FROM groups ORDER BY id').all(), 'for_school_children', 'min_at_opening', 'min_at_closing', 'color',
@@ -696,7 +701,7 @@ describe('upgrading a filled database through migrateDb', () => {
     const after = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
     // Nobody counts as moved: every child is counted from its contract start, as before.
     expect(after.map(row => row.facility_since)).toEqual([null, null])
-    expect(after.map(({ facility_since: _, consent_signal_photos: _s, consent_insect_repellent: _i, ...rest }) => rest)).toEqual(before)
+    expect(withoutLaterChildColumns(after.map(({ facility_since: _, consent_signal_photos: _s, consent_insect_repellent: _i, ...rest }) => rest))).toEqual(before)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
@@ -1183,7 +1188,7 @@ describe('upgrading a filled database through migrateDb', () => {
 
     migrateDb(db, MIGRATIONS)
 
-    expect(sqlite.prepare('SELECT * FROM children').all()).toEqual(before)
+    expect(withoutLaterChildColumns(sqlite.prepare('SELECT * FROM children').all())).toEqual(before)
     expect(count(sqlite, 'child_parent_meetings')).toBe(0)
     expect(sqlite.prepare('PRAGMA table_info(child_parent_meetings)').all()
       .map(column => { const { name, notnull, dflt_value } = column as Record<string, unknown>; return [name, notnull, dflt_value] }))
@@ -2352,6 +2357,54 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT facility_id, name, visibility FROM template_categories ORDER BY sort_order, id').all())
       .toEqual(DEFAULT_TEMPLATE_CATEGORIES.map(name => ({ facility_id: 1, name, visibility: 'all' })))
     expect(DEFAULT_TEMPLATE_CATEGORIES).toEqual(['Eingewöhnungsmappe', 'Mitarbeitermappe', 'Eltern', 'Gesundheit', 'Personal'])
+  })
+
+  it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {
+    const { db, sqlite } = databaseAt('0108')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES (1, 2, 'Muster', 'Kind', '2021-03-15', 'x');
+    `)
+    const before = sqlite.prepare('SELECT * FROM children').all() as Record<string, unknown>[]
+    migrateDb(db, MIGRATIONS)
+
+    expect(sqlite.prepare('SELECT facility_id, name FROM contact_categories ORDER BY facility_id, sort_order, id').all()
+      .map(row => Object.values(row as Record<string, unknown>)))
+      .toEqual([1, 2].flatMap(facility => DEFAULT_CONTACT_CATEGORIES.map(name => [facility, name])))
+    expect(count(sqlite, 'contacts')).toBe(0)
+    // The children keep everything and have no future school.
+    expect(sqlite.prepare('SELECT * FROM children').all()).toEqual(before.map(row => ({ ...row, future_school_contact_id: null })))
+    // Names unique per facility regardless of (ASCII) case.
+    expect(() => sqlite.exec(`INSERT INTO contact_categories (facility_id, name) VALUES (1, 'JUGENDAMT')`)).toThrow(/UNIQUE/)
+    sqlite.exec(`
+      INSERT INTO contacts (id, facility_id, category_id, organisation, updated_at) VALUES
+        (1, 2, (SELECT id FROM contact_categories WHERE facility_id = 2 AND name = 'Schulen'), 'Grundschule', 'x');
+      INSERT INTO contacts (id, facility_id, category_name, organisation, visible_to_staff, updated_at) VALUES (2, NULL, 'Schulen', 'Waldschule', 1, 'x');
+      UPDATE children SET future_school_contact_id = 1;
+    `)
+    expect(sqlite.prepare('SELECT person, email, website, note, visible_to_staff, sort_order, updated_by FROM contacts WHERE id = 1').get())
+      .toEqual({ person: '', email: '', website: '', note: '', visible_to_staff: 0, sort_order: 0, updated_by: null })
+    const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
+      .map(fk => { const { table: to, from, on_delete } = fk as Record<string, string>; return { to, from, on_delete } })
+    expect(fks('contact_categories')).toEqual([{ to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' }])
+    expect(fks('contacts')).toEqual(expect.arrayContaining([
+      { to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { to: 'contact_categories', from: 'category_id', on_delete: 'NO ACTION' },
+      { to: 'users', from: 'updated_by', on_delete: 'SET NULL' },
+    ]))
+    expect(fks('children')).toContainEqual({ to: 'contacts', from: 'future_school_contact_id', on_delete: 'SET NULL' })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    // A deleted contact leaves the child without a future school.
+    sqlite.exec('DELETE FROM contacts WHERE id = 1')
+    expect(sqlite.prepare('SELECT future_school_contact_id AS school FROM children').get()).toEqual({ school: null })
+    // Categories and contacts go with their facility; those for all facilities stay.
+    sqlite.exec(`
+      INSERT INTO contacts (id, facility_id, category_id, organisation, updated_at) VALUES
+        (3, 2, (SELECT id FROM contact_categories WHERE facility_id = 2 AND name = 'Jugendamt'), 'Jugendamt', 'x');
+      DELETE FROM children; DELETE FROM facilities WHERE id = 2;
+    `)
+    expect(sqlite.prepare('SELECT DISTINCT facility_id FROM contact_categories').all()).toEqual([{ facility_id: 1 }])
+    expect(sqlite.prepare('SELECT id FROM contacts').all()).toEqual([{ id: 2 }])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { BEM_ANSWERS, BEM_LIMITS, BEM_MEASURE_STATUSES, BEM_STEP_KINDS } from '../shared/domain/bem'
 import { CHILD_SORTS } from '../shared/domain/childSort'
+import { CONTACT_LIMITS } from '../shared/domain/contacts'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
 import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX } from '../shared/domain/maternity'
@@ -472,6 +473,8 @@ const childMasterFields = z.object({
   schoolDistrict: z.string().max(100),
   keyEducatorId: nullableId,
   note: z.string().max(2000),
+  // Left out = the stored one stays (a new child: none).
+  futureSchoolContactId: nullableId.optional(),
 })
 /**
  * Saving the master data of an existing child. `baseGroupId` is the group the form was loaded with and is required:
@@ -856,3 +859,24 @@ export const bemStepSchema = z.object({
 })
 export const bemStepCreateSchema = bemStepSchema.extend({ kind: z.enum(BEM_STEP_KINDS) })
 export const bemSettingsSchema = z.object({ text: z.string().max(BEM_LIMITS.invitationText + 100) })
+
+// The address book („Kontakte“): the lengths as in the form; e-mail, website and the category are checked by the service.
+const contactText = (limit: number) => z.string().max(limit)
+export const contactSchema = z.object({
+  scope: z.enum(['facility', 'all']).optional(),
+  categoryId: nullableId.optional(),
+  categoryName: z.string().max(CONTACT_LIMITS.categoryName).nullable().optional(),
+  organisation: contactText(CONTACT_LIMITS.organisation),
+  person: contactText(CONTACT_LIMITS.person),
+  role: contactText(CONTACT_LIMITS.role),
+  phone: contactText(CONTACT_LIMITS.phone),
+  mobile: contactText(CONTACT_LIMITS.mobile),
+  email: contactText(CONTACT_LIMITS.email),
+  street: contactText(CONTACT_LIMITS.street),
+  postalCode: contactText(CONTACT_LIMITS.postalCode),
+  city: contactText(CONTACT_LIMITS.city),
+  website: contactText(CONTACT_LIMITS.website),
+  note: contactText(CONTACT_LIMITS.note),
+  visibleToStaff: z.boolean(),
+})
+export const contactCategorySchema = z.object({ name: z.string().max(CONTACT_LIMITS.categoryName) })

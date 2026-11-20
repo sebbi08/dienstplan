@@ -10,7 +10,8 @@
 
 /** The areas of the catalog, in the order the rights page lists them. */
 export const PERMISSION_AREAS = [
-  'plan', 'leave', 'time', 'employees', 'children', 'forms', 'teamMeetings', 'notes', 'cash', 'calendar', 'settings', 'users',
+  'plan', 'leave', 'time', 'employees', 'children', 'forms', 'teamMeetings', 'notes', 'contacts', 'cash', 'calendar', 'settings',
+  'users',
   'facilities',
 ] as const
 export type PermissionArea = typeof PERMISSION_AREAS[number]
@@ -24,6 +25,7 @@ export const AREA_LABELS: Record<PermissionArea, string> = {
   forms: 'Bögen, Vorlagen und Gespräche',
   teamMeetings: 'Teamsitzungen',
   notes: 'Notizen',
+  contacts: 'Kontakte',
   cash: 'Kasse',
   calendar: 'Kalender und Schließzeiten',
   settings: 'Einstellungen',
@@ -46,6 +48,7 @@ export const PERMISSION_KEYS = [
   'printTemplates.global', 'talks.manage', 'talks.own', 'accidents.manage',
   'teamMeetings.write', 'teamMeetings.manage',
   'notes.view', 'notes.write',
+  'contacts.view', 'contacts.manage', 'contacts.global',
   'cash.view', 'cash.book', 'cash.close', 'cash.reopen', 'cash.purge',
   'calendar.own', 'calendar.edit', 'closures.manage',
   'settings.facility', 'settings.staffing', 'settings.absenceCodes', 'settings.groups', 'settings.retention',
@@ -160,6 +163,13 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('notes.view', 'notes', 'Notizen lesen'),
   def('notes.write', 'notes', 'Notizen anlegen, ändern, löschen', { requires: ['notes.view'], scoped: true }),
 
+  // The facility's address book (Kontakte): every account reads the contacts marked for the staff (the tablet too, by
+  // its own rule); contacts.manage shows all of them and maintains them.
+  def('contacts.view', 'contacts', 'Kontakte lesen (die für Mitarbeitende freigegebenen)'),
+  def('contacts.manage', 'contacts', 'Kontakte der Einrichtung: alle sehen, anlegen, ändern, löschen, Kategorien',
+    { requires: ['contacts.view'] }),
+  def('contacts.global', 'contacts', 'Kontakte für alle Einrichtungen', { requires: ['contacts.manage'], ...fixed }),
+
   def('cash.view', 'cash', 'Kassen ansehen, Ausdruck, Excel'),
   def('cash.book', 'cash', 'Kasse führen (Kassen anlegen/archivieren, buchen, Belege)', { requires: ['cash.view'] }),
   def('cash.close', 'cash', 'Monate abschließen', { requires: ['cash.view'] }),
@@ -207,6 +217,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'talks.manage', 'talks.own', 'accidents.manage',
     'teamMeetings.write', 'teamMeetings.manage',
     'notes.view', 'notes.write',
+    'contacts.view', 'contacts.manage',
     'cash.view', 'cash.book', 'cash.close',
     'calendar.own', 'calendar.edit', 'closures.manage',
     'settings.facility',
@@ -214,7 +225,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
   ],
   observer: [
     'plan.view', 'leave.request', 'time.own', 'talks.own', 'teamMeetings.write', 'calendar.own', 'children.view',
-    'children.attendance', 'notes.view',
+    'children.attendance', 'notes.view', 'contacts.view',
     // The print templates to read (the categories visible to all), since the template categories; not to change.
     'printTemplates.view',
   ],

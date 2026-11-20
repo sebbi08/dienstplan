@@ -20,6 +20,10 @@ const ACTIVE = [
   'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
   'team-meetings/index.post.ts',
   'notes/[id].delete.ts', 'notes/[id].put.ts', 'notes/index.get.ts', 'notes/index.post.ts',
+  // The address book (like the notes): read by every account and the tablet, maintained in the active facility.
+  'contacts/index.get.ts', 'contacts/staff-count.get.ts', 'contacts/index.post.ts', 'contacts/[id].put.ts', 'contacts/[id].delete.ts',
+  'contact-categories/index.post.ts', 'contact-categories/[id].put.ts', 'contact-categories/[id].delete.ts',
+  'contact-categories/[id]/move.post.ts',
 ]
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */
 const NONE = [
@@ -33,6 +37,8 @@ const NONE = [
   'rights.get.ts', 'rights/roles/[role].put.ts', 'rights/roles/[role]/reset.post.ts',
   // The category names of all facilities, for the Träger's templates for all facilities.
   'template-categories/names.get.ts',
+  // The same for the Träger's contacts for all facilities.
+  'contact-categories/names.get.ts',
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')

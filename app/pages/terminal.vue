@@ -262,6 +262,13 @@ async function openChildren() {
           <UIcon name="i-lucide-sticky-note" class="size-12 text-sky-700" />
           {{ de.terminal.notesTitle }}
         </NuxtLink>
+        <!-- The contacts the Leitung marked for the staff (business contacts, no child data): no PIN. -->
+        <NuxtLink
+          to="/contacts" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+        >
+          <UIcon name="i-lucide-contact" class="size-12 text-sky-700" />
+          {{ de.contacts.title }}
+        </NuxtLink>
         <!-- The released plan to print: nothing personal beyond what every employee sees, so no PIN. -->
         <div v-if="printMenuOpen" class="flex gap-3 sm:col-span-2">
           <button

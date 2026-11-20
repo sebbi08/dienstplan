@@ -2,7 +2,7 @@
 import { isValidIsoDate, todayIso } from '#shared/domain/dates'
 import type { AdmissionStatus } from '#shared/domain/children'
 import { computedSchoolStart } from '#shared/domain/schoolStart'
-import type { AgeLimitWarningDto, CapacityWarningDto, ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto } from '#shared/types/api'
+import type { AgeLimitWarningDto, CapacityWarningDto, ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto, SchoolOptionDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
@@ -27,7 +27,7 @@ const creating = !props.child
 const editing = ref(creating)
 const today = todayIso()
 
-const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, admissionStatus: 'contract' as AdmissionStatus, waitlistedOn: '', entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', schoolDistrict: '', keyEducatorId: 0, note: '' }
+const empty = { lastName: '', firstName: '', birthDate: '', address: '', groupId: 0, careTypeId: 0, admissionStatus: 'contract' as AdmissionStatus, waitlistedOn: '', entryDate: '', plannedEntryDate: '', infoMeetingDate: '', schoolStartDate: '', primarySchool: '', schoolDistrict: '', keyEducatorId: 0, note: '', futureSchoolContactId: 0 }
 const form = reactive({ ...empty })
 /**
  * The group the form was filled with. It goes along with every save, so the server takes only another group than this
@@ -46,6 +46,7 @@ function reset() {
   Object.assign(form, master
     ? {
         ...master, groupId: master.groupId ?? 0, careTypeId: master.careTypeId ?? 0, keyEducatorId: master.keyEducatorId ?? 0,
+        futureSchoolContactId: master.futureSchoolContactId ?? 0,
         waitlistedOn: master.waitlistedOn ?? '', entryDate: master.entryDate ?? '', plannedEntryDate: master.plannedEntryDate ?? '',
         infoMeetingDate: master.infoMeetingDate ?? '', schoolStartDate: master.schoolStartDate ?? '',
       }
@@ -104,6 +105,29 @@ const staffItems = computed(() => [{ label: de.children.noKeyEducator, value: 0 
 const careTypeItems = computed(() => [{ label: de.children.noSelection, value: 0 }, ...careTypes.value.map(type => ({ label: type.name, value: type.id }))])
 
 /**
+ * „künftige Schule“: the schools of the address book (contacts in a category with „Schule“ in its name), loaded once the
+ * form opens. A stored school that is no longer one of them (its category was renamed) stays selectable as it is.
+ */
+const schoolOptions = ref<SchoolOptionDto[]>([])
+let schoolsLoaded = false
+async function loadSchools() {
+  if (schoolsLoaded) return
+  schoolsLoaded = true
+  schoolOptions.value = await $fetch<SchoolOptionDto[]>('/api/contacts/schools').catch(() => {
+    schoolsLoaded = false
+    return []
+  })
+}
+watch(editing, (value) => { if (value) loadSchools() })
+onMounted(() => { if (editing.value) loadSchools() })
+const schoolItems = computed(() => {
+  const items = schoolOptions.value.map(option => ({ label: option.name, value: option.id }))
+  const stored = props.child?.master.futureSchoolContactId ?? null
+  if (stored !== null && !items.some(item => item.value === stored)) items.push({ label: props.child?.futureSchoolName ?? '', value: stored })
+  return [{ label: de.contacts.noFutureSchool, value: 0 }, ...items]
+})
+
+/**
  * The school start: the one the facility's cutoff yields for the birth date in the form, unless Leitung or Träger set
  * another one by hand (`form.schoolStartDate`, '' = automatic). Only they may change it, the server refuses it from
  * everyone else.
@@ -153,7 +177,7 @@ function payload(): ChildMasterInput {
     // Others than Leitung and Träger create a child with the automatic school start (and leave it out when saving).
     infoMeetingDate: orNull(form.infoMeetingDate), schoolStartDate: mayChangeSchoolStart.value ? chosenSchoolStart.value : null,
     primarySchool: form.primarySchool, schoolDistrict: form.schoolDistrict, keyEducatorId: form.keyEducatorId || null,
-    note: form.note,
+    note: form.note, futureSchoolContactId: form.futureSchoolContactId || null,
   }
 }
 
@@ -251,6 +275,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     { label: f.schoolStartDate, value: date(master.schoolStartDate ?? computedStart), hint: schoolStartHint },
     { label: f.primarySchool, value: master.primarySchool },
     { label: f.schoolDistrict, value: master.schoolDistrict },
+    { label: de.contacts.futureSchool, value: props.child?.futureSchoolName ?? '' },
     { label: f.keyEducator, value: props.child?.keyEducatorName ?? '' },
     { label: f.note, value: master.note, multiline: true },
   ]
@@ -325,6 +350,9 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
         </UFormField>
         <UFormField :label="f.primarySchool"><UInput v-model="form.primarySchool" maxlength="200" class="w-full" /></UFormField>
         <UFormField :label="f.schoolDistrict"><UInput v-model="form.schoolDistrict" maxlength="100" class="w-full" /></UFormField>
+        <UFormField :label="de.contacts.futureSchool" :help="schoolItems.length > 1 ? de.contacts.futureSchoolHint : de.contacts.noSchoolOptions">
+          <USelect v-model="form.futureSchoolContactId" :items="schoolItems" class="w-full" />
+        </UFormField>
         <UFormField :label="f.keyEducator"><USelect v-model="form.keyEducatorId" :items="staffItems" class="w-full" /></UFormField>
         <UFormField :label="f.note" class="sm:col-span-2"><UTextarea v-model="form.note" :rows="3" maxlength="2000" class="w-full" /></UFormField>
         <div class="flex gap-2 sm:col-span-2">

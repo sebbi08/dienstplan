@@ -7,6 +7,7 @@ import type { AgeLimitCountDto, OccupancyCellDto, OccupancyDto, OccupancyNameDto
 import type { Db } from '../db/client'
 import { ServiceError } from '../lib/errors'
 import { ageLimitChildren, facilityAgeRules } from './ageLimits'
+import { schoolNames } from './contacts'
 import { facilityCapacity } from './facilities'
 import { listGroups } from './groups'
 import { activeSchoolChildren, isSchoolStartDue, occupancyChildren } from './schoolChildren'
@@ -91,8 +92,10 @@ export function upcomingSchoolChildren(db: Db, facilityId: number, today: IsoDat
   const comingYear = kitaYearOf(today) + 1
   const coming = toIsoDate(comingYear, 9, 1)
   const listsComing = today >= toIsoDate(comingYear, 3, 1)
-  return activeSchoolChildren(db, facilityId, today)
+  const listed = activeSchoolChildren(db, facilityId, today)
     .filter(child => isSchoolStartDue(child, today) || (listsComing && child.schoolStart > today && child.schoolStart <= coming))
+  const schools = schoolNames(db, listed.map(({ row }) => row.futureSchoolContactId))
+  return listed
     // The children come ordered by name; the sort is stable.
     .sort((a, b) => a.schoolStart.localeCompare(b.schoolStart))
     .map(({ row, schoolStart, schoolGroup }) => ({
@@ -101,5 +104,6 @@ export function upcomingSchoolChildren(db: Db, facilityId: number, today: IsoDat
       groupId: row.groupId,
       schoolStart,
       pendingSchoolGroup: schoolGroup?.name ?? null,
+      futureSchool: row.futureSchoolContactId === null ? null : schools.get(row.futureSchoolContactId) ?? null,
     }))
 }

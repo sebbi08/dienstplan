@@ -4,6 +4,7 @@ import { kitaYearLabel, kitaYearOf } from '#shared/domain/kitaYear'
 import type { OccupancyCellDto, OccupancyDto, OccupancyRowDto, SchoolSettingsDto, UpcomingSchoolChildDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { ageLimitCountText } from '~/utils/ageLimits'
+import { groupBySchool } from '~/utils/contacts'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
 import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
@@ -89,6 +90,12 @@ const { busy: leaving, run: runLeave } = useBusyAction(async () => {
 })
 const today = todayIso()
 const manualLeave = computed(() => !onTablet.value && schoolSettings.value?.autoLeave === false)
+// „nach Schule gruppieren“: one block per future school (from the child's record), „ohne künftige Schule“ last.
+const bySchool = ref(false)
+const schoolSections = computed(() => (bySchool.value
+  ? groupBySchool(schoolChildren.value ?? [])
+  : [{ school: undefined as string | null | undefined, rows: schoolChildren.value ?? [] }]))
+const schoolColumns = computed(() => (manualLeave.value ? 6 : 5))
 async function leaveAtSchoolStart(child: UpcomingSchoolChildDto) {
   const leftOn = addDays(child.schoolStart, -1)
   if (!await confirm(de.childLifecycle.confirmLeave(child.name, formatDate(leftOn)), { confirmLabel: de.childLifecycle.leave })) return
@@ -194,7 +201,14 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
       </section>
 
       <section v-if="schoolChildren?.length" class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
-        <h2 class="font-semibold">{{ de.schoolChildren.listTitle('1.9.') }}</h2>
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="font-semibold">{{ de.schoolChildren.listTitle('1.9.') }}</h2>
+          <UCheckbox v-model="bySchool" :label="de.contacts.groupBySchool" class="ml-auto" />
+          <UButton
+            v-if="!onTablet" size="xs" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.contacts.printBySchool"
+            to="/print/children/school-children" target="_blank"
+          />
+        </div>
         <p class="text-gray-500">{{ de.schoolChildren.listHint }}</p>
         <div class="overflow-x-auto">
           <table class="w-full text-left">
@@ -204,11 +218,17 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
                 <th class="px-2 py-1">{{ de.occupancy.group }}</th>
                 <th class="px-2 py-1">{{ de.schoolChildren.schoolStart }}</th>
                 <th class="px-2 py-1">{{ de.schoolChildren.afterSchoolGroup }}</th>
+                <th class="px-2 py-1">{{ de.contacts.schoolColumn }}</th>
                 <th v-if="manualLeave" class="px-2 py-1" />
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="child in schoolChildren" :key="child.id" class="border-t border-gray-100">
+            <tbody v-for="section in schoolSections" :key="section.school ?? '-'">
+              <tr v-if="section.school !== undefined" class="border-t border-gray-200 bg-gray-50">
+                <th scope="colgroup" :colspan="schoolColumns" class="px-2 py-1 text-left text-xs font-semibold text-gray-700">
+                  {{ section.school ?? de.contacts.noSchool }} ({{ section.rows.length }})
+                </th>
+              </tr>
+              <tr v-for="child in section.rows" :key="child.id" class="border-t border-gray-100">
                 <td class="px-2 py-1.5"><NuxtLink :to="`/children/${child.id}`" class="font-medium text-sky-700 hover:underline">{{ child.name }}</NuxtLink></td>
                 <td class="px-2 py-1.5">{{ groupName(child.groupId) }}</td>
                 <td class="px-2 py-1.5">
@@ -216,6 +236,7 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
                   <span v-if="child.schoolStart <= today" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{{ de.schoolChildren.reached }}</span>
                 </td>
                 <td class="px-2 py-1.5">{{ child.pendingSchoolGroup ?? de.children.noValue }}</td>
+                <td class="px-2 py-1.5">{{ child.futureSchool ?? de.children.noValue }}</td>
                 <td v-if="manualLeave" class="whitespace-nowrap px-2 py-1.5 text-right">
                   <UButton
                     v-if="child.pendingSchoolGroup === null" size="xs" color="neutral" variant="outline" :label="de.schoolChildren.leaveNow"

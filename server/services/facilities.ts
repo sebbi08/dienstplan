@@ -10,6 +10,7 @@ import { coverageRules, documentTypes, employees, facilities, facilityEveRules, 
 import { DEFAULT_DOCUMENT_TYPES, DEFAULT_TEMPLATE_CATEGORIES } from '../db/seed'
 import { ServiceError } from '../lib/errors'
 import { bookFreedClosureDays } from './closures'
+import { seedContactCategories } from './contacts'
 import { seedStarterTemplates } from './formTemplates'
 import { facilityHolidayRules } from './holidayRules'
 import { seedDefaultMeals } from './meals'
@@ -129,6 +130,8 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW', 
     tx.insert(templateCategories).values(DEFAULT_TEMPLATE_CATEGORIES.map((name, sortOrder) => ({
       facilityId: facility.id, name, sortOrder, visibility: 'all' as const,
     }))).run()
+    // The address book's example categories as the facility's own copies.
+    seedContactCategories(tx, facility.id)
     // Only the accident report starters; the others are recorded as given, so they do not arrive later either.
     seedStarterTemplates(tx, facility.id, new Date(), undefined, NEW_FACILITY_STARTER_KEYS)
     return toDto(facility)

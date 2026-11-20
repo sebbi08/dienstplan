@@ -490,7 +490,7 @@ describe('occupancy table', () => {
 
       expect(upcomingSchoolChildren(db, 1, TODAY)).toEqual([])
       expect(upcomingSchoolChildren(db, 1, '2027-02-28')).toEqual([])
-      const entry = { id, name: 'Lena Meier', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null }
+      const entry = { id, name: 'Lena Meier', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null, futureSchool: null }
       expect(upcomingSchoolChildren(db, 1, '2027-03-01')).toEqual([entry])
       expect(upcomingSchoolChildren(db, 1, '2027-08-31')).toEqual([entry])
     })
@@ -506,10 +506,10 @@ describe('occupancy table', () => {
       planGroupChange(db, admin, 1, laterElsewhere, { groupId: mice, date: '2027-09-13', keep: KEEP_ALL }, TODAY, NOW)
 
       expect(upcomingSchoolChildren(db, 1, '2027-03-01')).toEqual([
-        { id: changes, name: 'Anna A', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: 'Hort' },
-        { id: later, name: 'Ben B', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: 'Hort' },
-        { id: elsewhere, name: 'Carl C', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null },
-        { id: laterElsewhere, name: 'Dora D', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null },
+        { id: changes, name: 'Anna A', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: 'Hort', futureSchool: null },
+        { id: later, name: 'Ben B', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: 'Hort', futureSchool: null },
+        { id: elsewhere, name: 'Carl C', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null, futureSchool: null },
+        { id: laterElsewhere, name: 'Dora D', groupId: bears, schoolStart: '2027-09-01', pendingSchoolGroup: null, futureSchool: null },
       ])
       // Exactly those without such a group are the ones the automatic leaving takes, and the only ones still listed then.
       expect(schoolLeavers(db, 1, '2027-09-01').map(child => child.id)).toEqual([elsewhere, laterElsewhere])
@@ -547,7 +547,7 @@ describe('occupancy table', () => {
       expect(schoolLeavers(db, 1, TODAY)).toEqual([])
       expect(leaveSchoolChildren(db, TODAY)).toBe(0)
       expect(upcomingSchoolChildren(db, 1, TODAY)).toEqual([
-        { id: startedLate, name: 'Ben Muster', groupId: bears, schoolStart: '2026-09-01', pendingSchoolGroup: null },
+        { id: startedLate, name: 'Ben Muster', groupId: bears, schoolStart: '2026-09-01', pendingSchoolGroup: null, futureSchool: null },
       ])
     })
 

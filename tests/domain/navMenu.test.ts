@@ -21,9 +21,10 @@ describe('navMenu', () => {
     expect(menu.main[5]!.to).toBe('/cash')
     expect(menu.main[7]!.to).toBe('/team-meetings')
     // „Dokumente“ (tabs Bögen and Vorlagen) where „Vorlagen“ and „Bögen“ were.
-    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Dokumente', 'Unfälle', 'Benutzer', 'Einstellungen'])
+    expect(labels(menu.more)).toEqual(['Schließzeiten', 'Krankheitstage', 'Dokumente', 'Kontakte', 'Unfälle', 'Benutzer', 'Einstellungen'])
     expect(menu.more[2]!.to).toBe('/documents')
-    expect(menu.more[3]!.to).toBe('/admin/accidents')
+    expect(menu.more[3]!.to).toBe('/contacts')
+    expect(menu.more[4]!.to).toBe('/admin/accidents')
     expect(menu.mine).toEqual([])
     expect(menu.mineCount).toBe(0)
     expect(menu.totalCount).toBe(0)
@@ -41,10 +42,11 @@ describe('navMenu', () => {
   it('adds "Rechte und Rollen" and "Löschfristen" under "Mehr" for the Träger only', () => {
     const provider = navMenu({ ...base, ...as('provider') })
     expect(labels(provider.more)).toEqual([
-      'Schließzeiten', 'Krankheitstage', 'Dokumente', 'Unfälle', 'Benutzer', 'Rechte und Rollen', 'Einstellungen', 'Löschfristen',
+      'Schließzeiten', 'Krankheitstage', 'Dokumente', 'Kontakte', 'Unfälle', 'Benutzer', 'Rechte und Rollen', 'Einstellungen',
+      'Löschfristen',
     ])
-    expect(provider.more[5]!.to).toBe('/admin/rights')
-    expect(provider.more[7]!.to).toBe('/admin/retention')
+    expect(provider.more[6]!.to).toBe('/admin/rights')
+    expect(provider.more[8]!.to).toBe('/admin/retention')
     expect(labels(navMenu(base).more)).not.toContain('Löschfristen')
     expect(labels(navMenu(base).more)).not.toContain('Rechte und Rollen')
   })
@@ -120,15 +122,34 @@ describe('navMenu', () => {
   })
 })
 
+describe('„Kontakte“ in the menu', () => {
+  it('shows the address book to whoever maintains it, to everyone else only once contacts are marked for the staff', () => {
+    const staff = { ...base, ...as('observer'), employeeId: 9 }
+    expect(labels(navMenu(staff).mine)).not.toContain('Kontakte')
+    expect(navMenu({ ...staff, staffContacts: true }).mine.slice(-2)).toEqual([
+      { label: 'Dokumente', to: '/documents', match: '/documents' }, { label: 'Kontakte', to: '/contacts', match: '/contacts' },
+    ])
+    // A staff account without employee belongs to no facility.
+    expect(labels(navMenu({ ...staff, employeeId: null, staffContacts: true }).mine)).not.toContain('Kontakte')
+    // The Gruppenleitung (office layout) under „Mehr“, the same way.
+    const lead = { ...base, ...as('group_lead'), employeeId: 9 }
+    expect(labels(navMenu(lead).more)).toEqual(['Dokumente'])
+    expect(labels(navMenu({ ...lead, staffContacts: true }).more)).toEqual(['Dokumente', 'Kontakte'])
+    // Leitung and Träger always (they maintain it); the tablet reaches it from its start page.
+    expect(labels(navMenu(base).more)).toContain('Kontakte')
+    expect(labels(navMenu({ ...base, ...as('terminal'), staffContacts: true }).main)).not.toContain('Kontakte')
+  })
+})
+
 describe('isEntryActive / isGroupActive', () => {
   const menu = navMenu({ ...base, employeeId: 1 })
   it('matches the entry and pages below it', () => {
     expect(isEntryActive('/plan/2025/3', menu.main[0]!)).toBe(true)
     expect(isEntryActive('/my/plan/2025/3', menu.main[0]!)).toBe(false)
-    expect(isEntryActive('/admin/settings/groups/4', menu.more[5]!)).toBe(true)
+    expect(isEntryActive('/admin/settings/groups/4', menu.more[6]!)).toBe(true)
     expect(isEntryActive('/team-meetings/12', menu.main.at(-2)!)).toBe(true)
     expect(isEntryActive('/documents', menu.more[2]!)).toBe(true)
-    expect(isEntryActive('/admin/settingsx', menu.more[5]!)).toBe(false)
+    expect(isEntryActive('/admin/settingsx', menu.more[6]!)).toBe(false)
   })
   it('marks "Mehr" and "Meins" active on their pages only', () => {
     expect(isGroupActive('/admin/closures', menu.more)).toBe(true)
@@ -171,10 +192,12 @@ describe('navMenu per role (unchanged by the permissions)', () => {
   const leitungMore: Pair[] = [
     // „Dokumente“ replaced „Vorlagen“ and „Bögen“ (one page with both as tabs).
     ['Schließzeiten', '/admin/closures'], ['Krankheitstage', '/admin/sick-days'], ['Dokumente', '/documents'],
+    // The address book (contacts.manage).
+    ['Kontakte', '/contacts'],
     ['Unfälle', '/admin/accidents'], ['Benutzer', '/admin/users'], ['Einstellungen', '/admin/settings'],
   ]
   const providerMore: Pair[] = [
-    ...leitungMore.slice(0, 5), ['Rechte und Rollen', '/admin/rights'], leitungMore[5]!, ['Löschfristen', '/admin/retention'],
+    ...leitungMore.slice(0, 6), ['Rechte und Rollen', '/admin/rights'], leitungMore[6]!, ['Löschfristen', '/admin/retention'],
   ]
   const officeMine: Pair[] = [
     ['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'],
