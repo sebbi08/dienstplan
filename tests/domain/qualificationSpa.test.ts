@@ -17,7 +17,7 @@ describe('qualification – praxisintegrierte Ausbildung Sozialpädagogische Ass
       .toEqual(['azubi_3', ...SPA])
     expect(de.staffing.qualifications.azubi_spa_1).toBe('PiA Sozialpädagogische Assistenz (1. Jahr)')
     expect(de.staffing.qualifications.azubi_spa_3).toBe('PiA Sozialpädagogische Assistenz (3. Jahr)')
-    expect(QUALIFICATION_TITLES.azubi_spa_2).toBe('Auszubildende/r Sozialpädagogische Assistenz, praxisintegriert (2. Jahr)')
+    expect(QUALIFICATION_TITLES.azubi_spa_2).toBe('PiA Sozialpädagogische Assistenz (2. Jahr)')
     expect(staffingPathLabel('staffShares.azubi_spa_2', presetVersions('BW')))
       .toBe('Anrechnung je Qualifikation: PiA Sozialpädagogische Assistenz (2. Jahr)')
   })
