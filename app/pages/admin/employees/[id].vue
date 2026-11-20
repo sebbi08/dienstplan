@@ -428,8 +428,19 @@ function saveEntitlement() {
   }), de.common.saved)
 }
 
+/** Whether an entitlement counts for the year (recorded for it or carried into it), with `without` left out. */
+function hasEntitlementIn(year: number, without?: number): boolean {
+  return (employee.value?.entitlements ?? []).some(entitlement => entitlement.year <= year && entitlement.year !== without)
+}
+
 async function deleteEntitlement(year: number) {
-  if (!employee.value || !await confirm(de.employees.deleteEntitlementConfirm(year, employee.value.name), { confirmLabel: de.common.delete })) return
+  if (!employee.value) return
+  // Extra days of years that would be left without any entitlement no longer count: said in the question.
+  const uncounted = [...new Set(employee.value.leaveExtraDays
+    .filter(extra => hasEntitlementIn(extra.year) && !hasEntitlementIn(extra.year, year)).map(extra => extra.year))]
+  const question = de.employees.deleteEntitlementConfirm(year, employee.value.name)
+    + (uncounted.length ? de.leaveExtraDays.entitlementDeleteNote(uncounted.join(', ')) : '')
+  if (!await confirm(question, { confirmLabel: de.common.delete })) return
   run(() => $fetch<unknown>(`/api/employees/${id}/leave/${year}`, { method: 'DELETE' }), de.common.deleted)
 }
 
@@ -716,7 +727,7 @@ async function onTabKey(event: KeyboardEvent) {
         <p v-if="block.row">
           {{ de.leave.entitlement }} {{ formatNumber(block.row.account.entitlement) }}
           <span v-if="block.row.inheritedFrom !== null" class="text-xs text-gray-500">{{ de.leave.inheritedFrom(block.row.inheritedFrom) }}</span>
-          <span v-if="block.row.account.extraDays" :title="block.row.extraDays.map(extra => extra.reason).join(', ')">{{ de.leaveExtraDays.plus(block.row.account.extraDays) }}</span>
+          <span v-if="block.row.account.extraDays">{{ de.leaveExtraDays.plus(block.row.account.extraDays) }}</span>
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.carriedOver }} {{ formatNumber(block.row.account.carriedOver) }}
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.taken }} {{ formatNumber(block.row.account.taken) }}
           <span class="mx-1.5 text-gray-300">|</span>{{ de.leave.planned }} {{ formatNumber(block.row.account.planned) }}
@@ -810,6 +821,7 @@ async function onTabKey(event: KeyboardEvent) {
           <li v-for="extra in employee.leaveExtraDays" :key="extra.id" class="flex flex-wrap items-center gap-x-2">
             <span>{{ de.leaveExtraDays.line(extra.year, extra.days, extra.reason) }}</span>
             <span class="text-xs text-gray-500">{{ de.leaveExtraDays.by(extra.createdBy, formatDate(todayIso(new Date(extra.createdAt)))) }}</span>
+            <span v-if="!hasEntitlementIn(extra.year)" class="rounded-md bg-amber-50 px-1.5 text-xs text-amber-800">{{ de.leaveExtraDays.notCounted(extra.year) }}</span>
             <UButton v-if="canEditEntitlement" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteExtraDays(extra)" />
           </li>
         </ul>

@@ -574,12 +574,19 @@ export const de = {
     hint: 'Zusätzliche Urlaubstage nur für ein Jahr, z. B. als Dank. Der Anspruch der folgenden Jahre bleibt gleich. Was am Jahresende übrig ist, wird wie der übrige Resturlaub ins nächste Jahr übertragen.',
     year: 'Jahr', days: 'Tage', daysHint: 'Halbe Tage sind möglich, z. B. 0,5.', reason: 'Begründung',
     reasonPlaceholder: 'z. B. Dank für Sommerfest', save: 'Hinzufügen',
+    reasonHint: 'Die Begründung sehen die Person selbst und alle, die die Urlaubsübersicht oder die Mitarbeiterseite sehen. Bitte nichts Persönliches eintragen.',
+    yearInvalid: 'Bitte ein Jahr zwischen 2000 und 2100 angeben.',
+    pastYear: (year: number) => `Das Jahr ${year} ist schon vorbei: Der Übertrag in alle folgenden Jahre wird entsprechend größer.`,
+    /** Next to an entry whose year has no entitlement (any more): the account counts it nowhere. */
+    notCounted: (year: number) => `zählt nicht – kein Urlaubsanspruch für ${year}`,
+    /** Added to the question „Urlaubsanspruch löschen?“ when extra days would no longer count. */
+    entitlementDeleteNote: (years: string) => ` Die Zusatztage für ${years} zählen dann nicht mehr, bis wieder ein Anspruch für dieses Jahr oder davor eingetragen ist.`,
     listTitle: 'Zusatztage nur für ein Jahr',
     /** „2026: + 1 Tag – Dank für Sommerfest“ */
     line: (year: number, count: number, reason: string) => `${year}: + ${days(count)} – ${reason}`,
     /** „(von ‹Name›, 20.11.2026)“ */
     by: (name: string, date: string) => (name ? `(von ${name}, ${date})` : `(${date})`),
-    deleteConfirm: (year: number, count: number, name: string) => `Zusatztag (${days(count)}) für ${year} von ${name} löschen? Der frei verfügbare Urlaub ${year} wird entsprechend kleiner, ebenso der Übertrag in die folgenden Jahre.`,
+    deleteConfirm: (year: number, count: number, name: string) => `Zusatztag (${days(count)}) für ${year} bei ${name} löschen? Der frei verfügbare Urlaub ${year} wird entsprechend kleiner, ebenso der Übertrag in die folgenden Jahre.`,
     /** „1 Zusatztag“, „1,5 Zusatztage“ */
     count: extraDayCount,
     /** „+ 1 Zusatztag“ next to the entitlement. */

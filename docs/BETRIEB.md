@@ -1130,12 +1130,17 @@ das laufende), Tage (voreingestellt 1; halbe Tage möglich, 0,5 bis 30) und eine
 (von ‹Name›, 20.11.2026)“, jeweils mit **Löschen** (mit Rückfrage). Hinzufügen und löschen darf genau, wer den
 Urlaubsanspruch ändern darf (Recht „Mitarbeiter anlegen und pflegen“, nur in der eigenen Einrichtung; ein Mitarbeiter
 mit diesem Recht nicht für sich selbst). Ein Zusatztag geht nur für ein Jahr, für das ein Urlaubsanspruch eingetragen ist
-(auch ein aus einem früheren Jahr übernommener); sonst erscheint ein Hinweis.
+(auch ein aus einem früheren Jahr übernommener); sonst erscheint ein Hinweis. Für ein Jahr, das schon vorbei ist, sagt
+der Dialog vor dem Speichern, dass der Übertrag in alle folgenden Jahre größer wird. Wird später der Urlaubsanspruch so
+gelöscht, dass das Jahr keinen Anspruch mehr hat, nennt die Rückfrage die betroffenen Zusatztage; in der Liste steht
+danach „zählt nicht – kein Urlaubsanspruch für ‹Jahr›“, bis wieder ein Anspruch eingetragen ist. Die **Begründung**
+sehen die Person selbst und alle, die die Urlaubsübersicht oder die Mitarbeiterseite sehen (anders als die Begründung
+beim Sonderurlaub) – daher nichts Persönliches eintragen; der Dialog sagt das auch.
 
 So wird gerechnet: Zusatztage erhöhen **nur den frei verfügbaren Urlaub ihres Jahres** (Anspruch des Jahres + Zusatztage
 + Übertrag − genommen − verplant). Der **Anspruch der folgenden Jahre ändert sich nicht**. Was am Jahresende übrig ist,
 wird wie der übrige **Resturlaub** ins nächste Jahr übertragen (die automatische Übertragsrechnung sieht einfach mehr
-verfügbaren Urlaub) und verfällt beim **Hinweis auf Resturlaub** genauso wie der übrige Übertrag. Auch Schließzeiten als
+verfügbaren Urlaub) und zählt beim **Hinweis auf Resturlaub (Verfall)** genauso wie der übrige Übertrag. Auch Schließzeiten als
 Urlaub (Grenze für Eintritte im Jahr) und die Prüfung von Urlaubsanträgen rechnen mit den Zusatztagen.
 
 Angezeigt werden sie überall, wo der Anspruch des Jahres steht: im Urlaubskasten der Mitarbeiterseite („Anspruch 30

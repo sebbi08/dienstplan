@@ -3,14 +3,15 @@ import { leaveExtraDays } from '../../server/db/schema'
 import { previewClosuresForEmployee } from '../../server/services/closurePreview'
 import { createClosure } from '../../server/services/closures'
 import { deleteTimeData } from '../../server/services/employeeDeletion'
-import { createEmployee, getEmployee, setEntitlement } from '../../server/services/employees'
+import { createEmployee, getEmployee, moveEmployeeToFacility, setEntitlement } from '../../server/services/employees'
 import { applyToCells } from '../../server/services/entries'
 import { getLeaveAccount } from '../../server/services/leave'
 import { addLeaveExtraDays, deleteLeaveExtraDays } from '../../server/services/leaveExtraDays'
 import { getMyLeaveForfeitNotice } from '../../server/services/leaveForfeit'
-import { setLeaveModule } from '../../server/services/leaveRequests'
+import { previewLeaveRequest, setLeaveModule } from '../../server/services/leaveRequests'
 import { getLeaveYearList } from '../../server/services/leaveYearList'
 import { rolePermissions } from '../../server/services/permissions'
+import { loadEntries } from '../../server/services/queries'
 import type { SessionUser } from '../../shared/types/api'
 import { addFacility, addUser, codeId, createTestDb, errorCode, makePlanner } from '../helpers/fixtures'
 
@@ -158,6 +159,43 @@ describe('„Zusatztag nur für dieses Jahr“: one-off extra leave days', () =>
     expect(getMyLeaveForfeitNotice(db, annaUser, '2027-01-10')).toMatchObject({ year: 2026, days: 2 })
     addLeaveExtraDays(db, leitung, 1, anna, { year: 2026, days: 1.5, reason: 'Dank für Sommerfest' }, now)
     expect(getMyLeaveForfeitNotice(db, annaUser, '2027-01-10')).toMatchObject({ year: 2026, days: 3.5 })
+  })
+
+  it('carries the extra days of a later, inherited year into the years after it', () => {
+    const { db, leitung, anna } = setup()
+    addLeaveExtraDays(db, leitung, 1, anna, { year: 2027, days: 2, reason: 'Jubiläum' }, now) // 2027 inherits 2026's entitlement
+    expect(getLeaveAccount(db, anna, 2027, today).account).toMatchObject({ entitlement: 30, extraDays: 2, carriedOver: 30, available: 62 })
+    expect(getLeaveAccount(db, anna, 2028, today).account).toMatchObject({ entitlement: 30, extraDays: 0, carriedOver: 62, available: 92 })
+  })
+
+  it('lets a closure book one more leave day instead of a closure day for someone who joined during the year', () => {
+    const { db, leitung } = setup()
+    const dora = createEmployee(db, leitung, 1, { name: 'Dora', shortName: 'DO', weeklyMinutes: 2340, validFrom: '2026-08-01', vacationDays: 2 })
+    addLeaveExtraDays(db, leitung, 1, dora, THANKS, now)
+    createClosure(db, leitung, 1, { startDate: '2026-08-10', endDate: '2026-08-14', label: 'Sommer', mode: 'vacation' })
+    expect(loadEntries(db, { employeeId: dora }).map(entry => entry.codeKey))
+      .toEqual(['vacation', 'vacation', 'vacation', 'closure_day', 'closure_day'])
+    expect(getLeaveAccount(db, dora, 2026, today).account.available).toBe(0)
+  })
+
+  it('counts in the leave request preview', () => {
+    const { db, leitung, anna } = setup()
+    setLeaveModule(db, { enabled: true, plannerIds: [] })
+    const annaUser = addUser(db, 'anna', 'observer', anna)
+    addLeaveExtraDays(db, leitung, 1, anna, THANKS, now)
+    expect(previewLeaveRequest(db, annaUser, '2026-12-07', '2026-12-11', today).availableAfter).toBe(26)
+  })
+
+  it('follows an employee who moved: the new facility may delete, the old one no longer finds them', () => {
+    const { db, leitung, anna } = setup()
+    const id = addLeaveExtraDays(db, leitung, 1, anna, THANKS, now)
+    const hort = addFacility(db, 'Hort')
+    moveEmployeeToFacility(db, addUser(db, 'traeger', 'provider'), anna, hort, now)
+    expect(errorCode(() => deleteLeaveExtraDays(db, leitung, 1, anna, id))).toBe('employee_not_found')
+    const leitungHort = addUser(db, 'hort', 'admin', null, hort)
+    expect(getLeaveAccount(db, anna, 2026, today).account.extraDays).toBe(1)
+    expect(errorCode(() => deleteLeaveExtraDays(db, leitungHort, hort, anna, id))).toBeNull()
+    expect(getLeaveAccount(db, anna, 2026, today).account.extraDays).toBe(0)
   })
 
   it('goes with the leave data of the employee', () => {

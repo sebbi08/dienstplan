@@ -15,7 +15,11 @@ const toast = useToast()
 
 const form = reactive({ year: parseIsoDate(todayIso()).year, days: 1, reason: '' })
 const saving = ref(false)
-const valid = computed(() => Number.isInteger(form.year) && isValidLeaveExtraDays(form.days) && form.reason.trim() !== '')
+// The years the server takes (leaveExtraDaysSchema).
+const yearValid = computed(() => Number.isInteger(form.year) && form.year >= 2000 && form.year <= 2100)
+// A year already over changes the carry-over into all following years: said before saving.
+const yearIsPast = computed(() => yearValid.value && form.year < parseIsoDate(todayIso()).year)
+const valid = computed(() => yearValid.value && isValidLeaveExtraDays(form.days) && form.reason.trim() !== '')
 watch(open, (isOpen) => {
   if (isOpen) Object.assign(form, { year: parseIsoDate(todayIso()).year, days: 1, reason: '' })
 })
@@ -46,14 +50,15 @@ async function save() {
       <form class="space-y-3" @submit.prevent="save">
         <p class="text-sm text-gray-500">{{ de.leaveExtraDays.hint }}</p>
         <div class="grid gap-3 sm:grid-cols-2">
-          <UFormField :label="de.leaveExtraDays.year">
+          <UFormField :label="de.leaveExtraDays.year" :error="yearValid ? undefined : de.leaveExtraDays.yearInvalid">
             <UInput v-model.number="form.year" type="number" min="2000" max="2100" class="w-full" required />
           </UFormField>
           <UFormField :label="de.leaveExtraDays.days" :help="de.leaveExtraDays.daysHint">
             <UInput v-model.number="form.days" type="number" step="0.5" min="0.5" :max="LEAVE_EXTRA_DAYS_MAX" class="w-full" required />
           </UFormField>
         </div>
-        <UFormField :label="de.leaveExtraDays.reason" required>
+        <p v-if="yearIsPast" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.leaveExtraDays.pastYear(form.year) }}</p>
+        <UFormField :label="de.leaveExtraDays.reason" :help="de.leaveExtraDays.reasonHint" required>
           <UInput v-model="form.reason" :maxlength="LEAVE_EXTRA_REASON_MAX" :placeholder="de.leaveExtraDays.reasonPlaceholder" class="w-full" required />
         </UFormField>
         <div class="flex justify-end gap-2">
