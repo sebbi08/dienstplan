@@ -117,10 +117,13 @@ export const de = {
     decidedBy: (name: string) => `von ${name}`,
   },
   leaveCounting: {
-    title: 'Urlaub an Heiligabend und Silvester',
-    label: 'Urlaub am 24.12. und 31.12. zählt als',
-    whole: 'ganzer Tag', half: 'halber Tag',
-    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen) und für alle Jahre: Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen dann mit einem halben Tag. Das Stundenkonto ändert sich nicht.',
+    title: 'TVöD, Heiligabend und Silvester',
+    tvoed: 'Wir arbeiten nach TVöD SuE',
+    tvoedHint: 'Dann sind der 24.12. und der 31.12. bezahlt frei (TVöD § 6 Abs. 3): Sie kosten keinen Urlaub und zählen wie ein Feiertag – keine Sollstunden, im Dienstplan frei. Sonst ändert der Schalter nichts: Entgeltgruppe, Stufe und Stufenaufstieg bleiben auch ohne ihn sichtbar (viele arbeiten „in Anlehnung“ an den TVöD).',
+    label: 'Der 24.12. und der 31.12. zählen als',
+    options: { whole: 'ganzer Urlaubstag', half: 'halber Urlaubstag', paid: 'bezahlt frei' },
+    paidTvoed: 'bezahlt frei (TVöD § 6 Abs. 3)',
+    hint: 'Gilt für alle Mitarbeiter dieser Einrichtung (auch wenn sie anderswo aushelfen) und für alle Jahre: Urlaubskonto, Resturlaub, Urlaubsanträge und Schließzeiten rechnen damit. „halber Urlaubstag“ ändert das Stundenkonto nicht. „bezahlt frei“ ist wie ein Feiertag: kein Urlaub, keine Sollstunden – das Stundenkonto ändert sich entsprechend.',
     providerOnly: 'Nur der Träger kann das ändern.',
   },
   /** The notice on remaining leave (BUrlG, duty to inform): settings, the box for the employee, the list on „Urlaubsplanung“. */
@@ -533,6 +536,7 @@ export const de = {
     christmas_day: '1. Weihnachtstag', boxing_day: '2. Weihnachtstag',
     womens_day: 'Internationaler Frauentag', assumption_day: 'Mariä Himmelfahrt', childrens_day: 'Weltkindertag',
     reformation_day: 'Reformationstag', repentance_day: 'Buß- und Bettag',
+    christmas_eve: 'Heiligabend (bezahlt frei)', new_years_eve: 'Silvester (bezahlt frei)',
   },
   states: {
     BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg',
@@ -676,6 +680,8 @@ export const de = {
       + (inYear === null ? '' : ` (${year}: ${inYear} ${inYear === '1' ? 'Tag' : 'Tage'})`),
     statutoryLeaveAtLeast: (days: string) => `gesetzlich mindestens ${days} ${days === '1' ? 'Tag' : 'Tage'}`,
     statutoryLeaveBelow: 'Der eingetragene Anspruch liegt unter dem gesetzlichen Mindesturlaub.',
+    // The TVöD leave as a suggestion (30 days per 5-day week, from 2027 on 31), converted to the working days.
+    tvoedLeave: (days: string, year: number) => `Vorschlag nach TVöD für ${year}: ${days} ${days === '1' ? 'Tag' : 'Tage'} pro Jahr (30 Tage bei 5 Arbeitstagen pro Woche, ab 2027 31 Tage).`,
     invalidDuration: 'Bitte die Stunden im Format h:mm angeben, z. B. 12:30.',
     back: 'Zurück zur Übersicht', noEntries: 'Noch keine Einträge.',
     stamping: 'Stempeln und Pausen', stampVia: 'Stempeln über', breakMode: 'Pausen',
@@ -702,6 +708,7 @@ export const de = {
     nextLevel: 'Nächste Stufe',
     nextLevelText: (level: number, date: string) => `Stufe ${level} ab ${date}`,
     finalLevel: 'Endstufe',
+    probationUntil: (date: string) => `in Probezeit bis ${date}`,
     takeLevel: 'übernehmen',
     takeLevelLabel: (name: string, level: number) => `Stufe ${level} für ${name} übernehmen`,
     requirementsColumn: 'Pflichttermine',
@@ -964,6 +971,18 @@ export const de = {
     rowLabel: 'Vertrag',
     fixedTermUntil: 'befristet bis', fixedTermUntilHint: 'Leer bei einem unbefristeten Vertrag.',
     fixedTermShort: (date: string) => `befristet bis ${date}`,
+    payGroupLegacy: (group: string) => `${group} (nicht mehr in der Tabelle)`,
+    payGroupLegacyHint: 'Diese Entgeltgruppe steht seit dem 01.05.2026 nicht mehr in der Tabelle des TVöD SuE. Sie bleibt gespeichert, bis du eine andere wählst.',
+    probationUntil: 'Probezeit bis',
+    probationUntilHint: 'Letzter Tag der Probezeit. Leer, wenn es keine gibt.',
+    probationSuggested: 'Vorschlag aus „In der Einrichtung seit“ – bitte prüfen. Gespeichert wird er erst mit „Speichern“.',
+    probationShort: (date: string) => `Probezeit bis ${date}`,
+    probationHints: {
+      tooLong: 'Hinweis: Die Probezeit ist länger als 6 Monate. Die kürzere Kündigungsfrist gilt höchstens 6 Monate (§ 622 Abs. 3 BGB).',
+      traineeTooLong: 'Hinweis: Bei Auszubildenden dauert die Probezeit höchstens 4 Monate (§ 20 BBiG).',
+      traineeTooShort: 'Hinweis: Bei Auszubildenden dauert die Probezeit mindestens 1 Monat (§ 20 BBiG).',
+      beforeStart: 'Hinweis: Die Probezeit endet vor dem Tag „In der Einrichtung seit“.',
+    },
   },
   requirements: {
     title: 'Pflichttermine und Fortbildungen', kinds: 'Pflichttermine', myTitle: 'Meine Termine',
@@ -1357,7 +1376,7 @@ export const de = {
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, Lohn und Steuer, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, Lohn und Steuer auch, wenn ein Lohnbüro die Lohnunterlagen aufbewahrt (siehe unten), der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -1380,11 +1399,16 @@ export const de = {
     employeeDelete: 'Mitarbeiter endgültig löschen',
     employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ werden die Daten erst nach Ablauf der Fristen gelöscht – von Hand durch den Träger.',
     employeeDeleteModes: { off: 'aus', provider: 'nur Träger', managers: 'Leitung und Träger' },
+    payrollOffice: 'Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf',
+    payrollOfficeHelp: 'Angehakt (voreingestellt): Ein Lohn- oder Steuerbüro rechnet die Löhne ab und bewahrt die Lohnunterlagen auf. Dann darf „Lohn und Steuer“ (Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession) schon ab dem Tag nach dem Ausscheiden gelöscht werden. Nicht angehakt: Ihr bewahrt die Lohnunterlagen selbst auf. Dann bleiben diese Angaben 6 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist (Lohnkonto nach § 41 EStG, § 147 AO), und stehen danach unter Mehr → Löschfristen zum Löschen bereit.',
     cashYears: 'Aufbewahrungsfrist Kasse',
     cashYearsHelp: 'Eine archivierte Kasse darf erst danach endgültig gelöscht werden (vom Träger unter Mehr → Löschfristen). Die Frist beginnt am Ende des Jahres der letzten Buchung.',
     /** The archive line: „Persönliche Daten dürfen schon gelöscht werden (…). Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
-      labels: { immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen', paidOvertime: 'ausgezahlte Überstunden, Verträge, Gehalt' },
+      labels: {
+        immediate: 'Persönliche Daten', payroll: 'Lohn und Steuer', time: 'Zeitdaten', assessment: 'Beurteilungen',
+        paidOvertime: 'ausgezahlte Überstunden, Verträge, Gehalt',
+      },
       first: (label: string, date: string) => `${label} dürfen ab ${date} gelöscht werden`,
       next: (label: string, date: string) => `${label} ab ${date}`,
       last: '; danach der Eintrag.',
@@ -1405,7 +1429,7 @@ export const de = {
     fromDate: (date: string) => `löschbar ab ${date}`, fromNow: 'sofort löschbar',
     fromAfterRest: 'löschbar, sobald alles andere der Person gelöscht ist',
     categories: {
-      immediate: 'Persönliche Daten', time: 'Zeitdaten', assessment: 'Beurteilungen',
+      immediate: 'Persönliche Daten', payroll: 'Lohn und Steuer', time: 'Zeitdaten', assessment: 'Beurteilungen',
       paidOvertime: 'ausgezahlte Überstunden, Verträge, Gehalt', record: 'Mitarbeiter-Eintrag', child: 'Kinderakte', cash: 'Kasse',
       bem: 'BEM-Unterlagen', maternity: 'Mutterschutz-Unterlagen',
     },
@@ -1898,10 +1922,14 @@ export const de = {
     bemNotSent: () => ({ before: 'BEM-Einladung für ', after: ' noch nicht verschickt' }),
     bemAnswerDue: () => ({ before: 'BEM ', after: ': Antwortfrist abgelaufen – Antwort eintragen' }),
     bemLink: 'zum BEM',
+    // „Probezeit von ‹Name› endet am ‹dd.mm.yyyy›“ (Träger and Leitung with the contract data, from 4 weeks before).
+    probation: (date: string) => ({ before: 'Probezeit von ', after: ` endet am ${date}` }),
+    probationLink: 'zum Vertrag',
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
       leaving: 'Abschied', retention: 'Löschfristen', accident: 'Unfallanzeige', ifsg: 'Meldepflichtige Krankheit',
       ifsgCluster: 'Häufung von Erkrankungen', offlineStamp: 'Offline-Stempel', bem: 'BEM', maternity: 'Mutterschutz',
+      probation: 'Probezeit',
     },
     // The record's section.
     section: 'Entwicklungsdokumentation',
@@ -2700,6 +2728,8 @@ export const de = {
     role_not_found: 'Diese Rolle gibt es auf der Rechte-Seite nicht.',
     stamp_tablet_only: 'Du stempelst laut Einstellung der Leitung nur am Kita-Tablet.',
     invalid_pay_level: 'Die Stufe muss zwischen 1 und 6 liegen.',
+    invalid_pay_group: 'Diese Entgeltgruppe gibt es in der Tabelle nicht (mehr). Bitte eine aus der Liste wählen.',
+    probation_until_invalid: 'Bitte bei „Probezeit bis“ ein gültiges Datum eingeben (TT.MM.JJJJ).',
     personnel_number_taken: 'Diese Personalnummer ist schon einem anderen Mitarbeiter zugeordnet.',
     training_until_invalid: 'Bitte bei „Ausbildung/Studium hier bis“ ein gültiges Datum zwischen dem 01.01.1970 und einem Jahr ab heute eingeben.',
     leave_requests_off: 'Urlaubsanträge sind nicht aktiv.',

@@ -1,4 +1,5 @@
 import { can } from '../../shared/domain/permissions'
+import { probationRunning } from '../../shared/domain/probation'
 import { levelStart, levelStepState, nextLevelStep } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeListExtrasDto } from '../../shared/types/api'
@@ -18,7 +19,8 @@ function levelOf(employee: EmployeeRecord, today: IsoDate): EmployeeListExtrasDt
 }
 
 /**
- * What the employee list shows beside each person, in one go (no request per row): „Nächste Stufe“ (employees.contractView),
+ * What the employee list shows beside each person, in one go (no request per row): „Nächste Stufe“ and „in Probezeit
+ * bis …“ while the probation period runs (employees.contractView),
  * the mandatory appointments that are open (everyone who sees the list) and the state of the notice on remaining leave
  * (leave.overview). A part the viewer may not see is left out of the row (the key is absent). Staff who left before
  * today are skipped, as in the level-up notice.
@@ -37,7 +39,10 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
     .filter(employee => employee.leftOn === null || employee.leftOn >= today)
     .map((employee) => {
       const row: EmployeeListExtrasDto = { employeeId: employee.id, requirements: open.get(employee.id) ?? [] }
-      if (withLevel) row.level = levelOf(employee, today)
+      if (withLevel) {
+        row.level = levelOf(employee, today)
+        row.probationUntil = probationRunning(employee.probationUntil, today) ? employee.probationUntil : null
+      }
       if (withForfeit) {
         const status = forfeit?.rows.get(employee.id)
         row.forfeit = forfeit && status

@@ -1,0 +1,1 @@
+ALTER TABLE `retention_settings` ADD `payroll_office` integer DEFAULT true NOT NULL;

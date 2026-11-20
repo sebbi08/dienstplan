@@ -4,7 +4,8 @@ import { PIN_LENGTH, isValidPin, mayManagePins } from '#shared/domain/pin'
 import { shareOf } from '#shared/domain/staffing/calc'
 import { QUALIFICATIONS } from '#shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS, type BreakMode, type StampChannel } from '#shared/domain/stamping'
-import { hasSevereDisabilityIn, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
+import { hasSevereDisabilityIn, leaveBasis, statutoryLeaveOf } from '#shared/domain/statutoryLeave'
+import { tvoedLeaveDays } from '#shared/domain/tvoed'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import { birthdayUncertainOn, needsBirthYear, youthLeaveOf } from '#shared/domain/youthProtection'
 import type { BalanceDto, ChildSickYearDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
@@ -212,6 +213,24 @@ const statutoryMinimums = computed(() => {
   return byYear
 })
 const formStatutoryLeave = computed(() => statutoryLeaveIn(entitlementForm.year))
+/**
+ * The TVöD leave of a full year as the suggestion of the form (30, from 2027 on 31 days per 5-day week, converted to the
+ * working days valid on 1 January of that year or on the first day); null for a year out of range.
+ */
+function tvoedLeaveIn(year: number): number | null {
+  if (!employee.value || !Number.isInteger(year) || year < 2000 || year > 2100) return null
+  return tvoedLeaveDays(year, leaveBasis(employee.value, year).workdaysPerWeek)
+}
+const formTvoedLeave = computed(() => tvoedLeaveIn(entitlementForm.year))
+// The form starts with the suggestion and follows a changed year while it still holds the suggestion of the old one.
+watch(() => employee.value?.id, () => {
+  const days = tvoedLeaveIn(entitlementForm.year)
+  if (days !== null) entitlementForm.days = days
+}, { immediate: true })
+watch(() => entitlementForm.year, (year, previous) => {
+  const days = tvoedLeaveIn(year)
+  if (days !== null && entitlementForm.days === tvoedLeaveIn(previous)) entitlementForm.days = days
+})
 /**
  * Mindesturlaub für Jugendliche (§ 19 JArbSchG) of a year, only a hint: by the age on 1 January, so only with the birth
  * year from the personal block (employees.personal); null for 18 and older, without the full birth date or outside the
@@ -662,7 +681,8 @@ async function onTabKey(event: KeyboardEvent) {
     </section>
 
     <EmployeesContractSection
-      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :editable="canEditContract" @saved="refresh"
+      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :qualification="employee.qualification"
+      :editable="canEditContract" @saved="refresh"
     />
 
     <!-- Personalakte: mounted only with the right, loaded in the browser only once the tab is opened. -->
@@ -770,6 +790,7 @@ async function onTabKey(event: KeyboardEvent) {
         <UFormField :label="de.employees.carriedOver"><UInput v-model.number="entitlementForm.carriedOverDays" type="number" step="0.5" min="0" /></UFormField>
         <UButton type="submit" :label="de.employees.saveEntitlement" />
       </form>
+      <p v-if="formTvoedLeave !== null" class="text-xs text-gray-500">{{ de.employees.tvoedLeave(formatNumber(formTvoedLeave), entitlementForm.year) }}</p>
       <template v-if="formStatutoryLeave !== null">
         <p class="text-xs text-gray-500">{{ de.employees.statutoryLeaveAtLeast(formatNumber(formStatutoryLeave)) }}</p>
         <p v-if="entitlementForm.days < formStatutoryLeave && !(entitlementForm.days < (formYouthLeave ?? 0))" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.employees.statutoryLeaveBelow }}</p>

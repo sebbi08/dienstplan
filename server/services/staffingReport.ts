@@ -21,7 +21,7 @@ import { children, employees } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { listCareTypes } from './careTypes'
 import { listGroups } from './groups'
-import { facilityHolidayRules } from './holidayRules'
+import { facilityPublicHolidayRules } from './holidayRules'
 import { loadHoursContext } from './openingHours'
 import { closureOn, loadClosures, loadEntries } from './queries'
 import { occupancyChildren, schoolRules } from './schoolChildren'
@@ -118,7 +118,7 @@ function loadMonth(db: Db, facilityId: number, year: number, month: number): Mon
 /** The care days of a month: weekdays without public holidays and closures (weeks of the month = care days ÷ 5). */
 export function monthCareDays(db: Db, facilityId: number, year: number, month: number): IsoDate[] {
   const closures = loadClosures(db, facilityId)
-  const holidays = facilityHolidayRules(db, facilityId)
+  const holidays = facilityPublicHolidayRules(db, facilityId)
   return monthDates(year, month).filter(date => isCheckedDay(date, closureOn(closures, date) !== null, holidays))
 }
 

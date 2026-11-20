@@ -13,7 +13,7 @@ import { offlineHintParts } from '~/utils/offlineHints'
  * office still to be notified of a § 34 IfSG case (with „Benachrichtigt“ and „Arztmeldung liegt vor“), for Leitung/Träger
  * the tablet's offline stamps not taken over (checked on the time page), for whoever has the sick days right an employee
  * to offer a BEM and what a Mutterschutz case still needs (link to the employee page; „Geprüft“ ends the check of a
- * ban). Hidden without entries; closed
+ * ban), for whoever sees the contract data a Probezeit ending within 4 weeks (link to the contract). Hidden without entries; closed
  * or open is remembered on the device.
  */
 const { data, error, refresh } = await useFetch<ReminderDto[]>('/api/children/reminders', { key: 'children-reminders' })
@@ -47,7 +47,7 @@ const entries = computed(() => (error.value ? [] : data.value ?? []))
 const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
   leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert', ifsgCluster: 'i-lucide-users-round',
-  offlineStamp: 'i-lucide-wifi-off', bem: 'i-lucide-heart-handshake', maternity: 'i-lucide-baby',
+  offlineStamp: 'i-lucide-wifi-off', bem: 'i-lucide-heart-handshake', maternity: 'i-lucide-baby', probation: 'i-lucide-file-clock',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -97,6 +97,9 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     // Aufsichtsbehörde (§ 27 MuSchG) – unverzüglich“, „‹Name›: Beschäftigungsverbot prüfen (…)“.
     case 'maternity':
       return entry.maternity ? r.maternity[entry.maternity.task]() : { before: '', after: '' }
+    // „Probezeit von ‹Name› endet am ‹dd.mm.yyyy›“.
+    case 'probation':
+      return r.probation(formatDate(entry.date))
   }
 }
 
@@ -189,6 +192,10 @@ async function markDone(entry: ReminderDto) {
             v-if="entry.kind === 'maternity' && entry.maternity" :to="`/admin/employees/${entry.maternity.employeeId}?tab=maternity`"
             class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.maternityLink }}</NuxtLink>
+          <NuxtLink
+            v-if="entry.kind === 'probation' && entry.probation" :to="`/admin/employees/${entry.probation.employeeId}?tab=contract`"
+            class="ml-2 text-xs text-sky-700 hover:underline"
+          >{{ r.probationLink }}</NuxtLink>
         </span>
         <UButton
           v-if="entry.kind === 'maternity' && entry.maternity?.task === 'banCheck'" class="min-h-11" color="neutral" variant="outline"

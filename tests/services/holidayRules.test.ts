@@ -45,14 +45,14 @@ describe('holidays follow the facility', () => {
   }
 
   it('a facility defaults to Baden-Württemberg', () => {
-    expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BW', assumptionDay: true })
-    expect(facilityHolidayRules(db, berlin)).toEqual({ state: 'BE', assumptionDay: true })
+    expect(facilityHolidayRules(db, 1)).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
+    expect(facilityHolidayRules(db, berlin)).toEqual({ state: 'BE', assumptionDay: true, paidEves: true })
     expect(errorCode(() => facilityHolidayRules(db, 999))).toBe('facility_not_found')
   })
 
   it('targets follow the home facility', () => {
-    expect(infoOf(anna).holidays).toEqual({ state: 'BW', assumptionDay: true })
-    expect(infoOf(bea).holidays).toEqual({ state: 'BE', assumptionDay: true })
+    expect(infoOf(anna).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
+    expect(infoOf(bea).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEves: true })
     expect(dailyTarget(infoOf(bea), womensDay)).toBe(0)
     expect(dailyTarget(infoOf(anna), womensDay)).toBe(468)
     expect(dailyTarget(infoOf(anna), epiphany)).toBe(0)

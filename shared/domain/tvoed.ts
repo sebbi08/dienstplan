@@ -8,11 +8,49 @@ export const JOB_KEYS = [
 ] as const
 export type JobKey = (typeof JOB_KEYS)[number]
 
+/** The pay groups of the TVöD SuE table (S 10 left it on 01.05.2026; S 5 and S 6 are not in it either). */
 export const PAY_GROUPS = [
-  'S 2', 'S 3', 'S 4', 'S 7', 'S 8a', 'S 8b', 'S 9', 'S 10', 'S 11a', 'S 11b',
+  'S 2', 'S 3', 'S 4', 'S 7', 'S 8a', 'S 8b', 'S 9', 'S 11a', 'S 11b',
   'S 12', 'S 13', 'S 14', 'S 15', 'S 16', 'S 17', 'S 18',
 ] as const
 export type PayGroup = (typeof PAY_GROUPS)[number]
+
+/**
+ * Pay groups that are no longer in the table but may still be stored for an employee: shown as stored („S 10 (nicht
+ * mehr in der Tabelle)“) and kept on saving until the Träger picks another one; never offered for a new choice.
+ */
+export const LEGACY_PAY_GROUPS = ['S 10'] as const
+export type LegacyPayGroup = (typeof LEGACY_PAY_GROUPS)[number]
+/** What an employee's pay group may hold: one of the table, or an old one still stored. */
+export type StoredPayGroup = PayGroup | LegacyPayGroup
+
+export function isLegacyPayGroup(value: string | null): value is LegacyPayGroup {
+  return (LEGACY_PAY_GROUPS as readonly string[]).includes(value ?? '')
+}
+
+/** A pay group may be saved: none, one of the table, or an old one that is the one stored already (kept unchanged). */
+export function isAllowedPayGroup(value: string | null, stored: string | null): boolean {
+  if (value === null || (PAY_GROUPS as readonly string[]).includes(value)) return true
+  return isLegacyPayGroup(value) && value === stored
+}
+
+/**
+ * Leave days per year for a 5-day week under the TVöD: 30, from 2027 on 31 (Tarifeinigung TVöD of 06.04.2025). Offered
+ * as a suggestion only, whether or not the facility works under the TVöD („in Anlehnung“ is common).
+ */
+export function tvoedLeaveDaysPerYear(year: number): number {
+  return year >= 2027 ? 31 : 30
+}
+
+/**
+ * The TVöD leave suggestion for a full year and `workdaysPerWeek` working days: the days of a 5-day week converted to
+ * the working days (§ 26 Abs. 1 TVöD); a remaining fraction of at least half a day is rounded up, a smaller one dropped.
+ */
+export function tvoedLeaveDays(year: number, workdaysPerWeek: number): number {
+  const exact = Math.round(tvoedLeaveDaysPerYear(year) * workdaysPerWeek / 5 * 1e6) / 1e6
+  const whole = Math.floor(exact)
+  return exact - whole >= 0.5 ? whole + 1 : whole
+}
 
 /**
  * Usual pay group per job title, offered as a suggestion only (the actual grouping depends on the tasks and,

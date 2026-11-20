@@ -8,6 +8,7 @@ import { planEntryColor } from '../../shared/domain/weekTemplates'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, shiftTemplates } from '../db/schema'
+import { paidEvesOf } from './holidayRules'
 
 export interface EntryFilter {
   from?: IsoDate
@@ -48,6 +49,8 @@ export interface EmployeeRecord {
   payLevel: number | null
   /** „befristet bis“ (null = unbefristet). */
   fixedTermUntil: IsoDate | null
+  /** „Probezeit bis“ (null = none entered). */
+  probationUntil: IsoDate | null
   /** „Ausbildung/Studium hier bis“ and whether the recognition year counts as level 1 (see levelStart). */
   trainingUntil: IsoDate | null
   recognitionYearCounts: boolean
@@ -134,7 +137,7 @@ const RECORD_COLUMNS = {
   sortOrder: employees.sortOrder, leftOn: employees.leftOn, groupId: employees.groupId,
   personnelNumber: employees.personnelNumber, employedSince: employees.employedSince, jobKey: employees.jobKey,
   jobOther: employees.jobOther, payGroup: employees.payGroup, payLevel: employees.payLevel,
-  fixedTermUntil: employees.fixedTermUntil, trainingUntil: employees.trainingUntil,
+  fixedTermUntil: employees.fixedTermUntil, probationUntil: employees.probationUntil, trainingUntil: employees.trainingUntil,
   recognitionYearCounts: employees.recognitionYearCounts, stampVia: employees.stampVia, breakMode: employees.breakMode,
   birthday: employees.birthday, qualification: employees.qualification, staffingShare: employees.staffingShare,
 }
@@ -145,22 +148,28 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   return db.select({
     row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay,
     halfLeaveOnEves: facilities.christmasEveHalfLeave, balanceFrom: employees.balanceFrom,
+    tvoedSue: facilities.tvoedSue, christmasEvePaidFree: facilities.christmasEvePaidFree,
   })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
     .where(where)
     .orderBy(asc(employees.sortOrder), asc(employees.name)).all()
-    .map(({ row, state, assumptionDay, halfLeaveOnEves, balanceFrom }) => ({
-      ...row,
-      halfLeaveOnEves,
-      info: {
-        hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
-        leftOn: row.leftOn,
-        holidays: { state, assumptionDay },
-        // „Stundenkonto ab“: only the balance reads it (balanceStart), so every balance follows it.
-        balanceFrom,
-      },
-    }))
+    .map(({ row, state, assumptionDay, halfLeaveOnEves, balanceFrom, tvoedSue, christmasEvePaidFree }) => {
+      const paidEves = paidEvesOf({ tvoedSue, christmasEvePaidFree })
+      return {
+        ...row,
+        // Paid free eves are no leave days at all (holidays of the staff), so the half day does not apply then.
+        halfLeaveOnEves: halfLeaveOnEves && !paidEves,
+        info: {
+          hours: hours.filter(h => h.employeeId === row.id).map(h => ({ weeklyMinutes: h.weeklyMinutes, validFrom: h.validFrom, workdays: h.workdays })),
+          leftOn: row.leftOn,
+          // The home facility's holidays, with 24 and 31 December when they are paid free there.
+          holidays: { state, assumptionDay, paidEves },
+          // „Stundenkonto ab“: only the balance reads it (balanceStart), so every balance follows it.
+          balanceFrom,
+        },
+      }
+    })
 }
 
 /** The employees whose home facility is facilityId. There is deliberately no way to list all facilities' employees. */

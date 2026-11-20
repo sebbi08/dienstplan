@@ -32,9 +32,14 @@ describe('leave days of a closure', () => {
     })
     it('counts 24 and 31 December by the facility setting', () => {
       createClosure(db, admin, 1, christmas)
+      // TVöD SuE (the default): both days are paid free, no leave.
+      expect(listClosures(db, 1)[0]!.leaveDays).toBe(6)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'whole' }, admin)
       expect(listClosures(db, 1)[0]!.leaveDays).toBe(8)
-      setLeaveCounting(db, 1, { christmasEveHalfLeave: true })
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin)
       expect(listClosures(db, 1)[0]!.leaveDays).toBe(7)
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'paid' }, admin)
+      expect(listClosures(db, 1)[0]!.leaveDays).toBe(6)
     })
   })
 
@@ -49,7 +54,8 @@ describe('leave days of a closure', () => {
       expect(getLeaveAccount(db, anna, 2026, '2026-01-01').closures[0]).toEqual({
         closureId: closure.id, label: summer.label, startDate: summer.startDate, endDate: summer.endDate, days: 7, closureDays: 0,
       })
-      expect(closuresOf(anna)).toEqual([['Sommerschließzeit', 7, 0], ['Weihnachten', 8, 0]])
+      // TVöD SuE (the default): 24 and 31 December are paid free.
+      expect(closuresOf(anna)).toEqual([['Sommerschließzeit', 7, 0], ['Weihnachten', 6, 0]])
     })
     it('counts only the person\'s working days', () => {
       const clara = createEmployee(db, admin, 1, { name: 'Clara', shortName: '', weeklyMinutes: 1200, validFrom: '2026-01-01', workdays: 0b00111 })
@@ -81,15 +87,26 @@ describe('leave days of a closure', () => {
     it('counts only the days of the year', () => {
       const anna = addEmployee(db, 'Anna')
       createClosure(db, admin, 1, { startDate: '2026-12-28', endDate: '2027-01-05', label: 'Jahreswechsel', mode: 'vacation' })
-      expect(closuresOf(anna, 2026)).toEqual([['Jahreswechsel', 4, 0]])
+      // 31 December is paid free under the TVöD SuE (the default).
+      expect(closuresOf(anna, 2026)).toEqual([['Jahreswechsel', 3, 0]])
       // 1 January is a public holiday, 2 and 3 January a weekend.
       expect(closuresOf(anna, 2027)).toEqual([['Jahreswechsel', 2, 0]])
     })
     it('counts 24 and 31 December by the facility setting', () => {
       const anna = addEmployee(db, 'Anna')
-      setLeaveCounting(db, 1, { christmasEveHalfLeave: true })
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin)
       createClosure(db, admin, 1, christmas)
       expect(closuresOf(anna)).toEqual([['Weihnachten', 7, 0]])
+    })
+    it('books 24 and 31 December once they stop being paid free (the TVöD switch off, whole leave days)', () => {
+      const anna = addEmployee(db, 'Anna')
+      createClosure(db, admin, 1, christmas)
+      expect(closuresOf(anna)).toEqual([['Weihnachten', 6, 0]])
+      setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'whole' }, admin)
+      expect(closuresOf(anna)).toEqual([['Weihnachten', 8, 0]])
+      // Paid free again: the days booked stay as entries but use no leave.
+      setLeaveCounting(db, 1, { tvoedSue: true, eveLeave: 'whole' }, admin)
+      expect(closuresOf(anna)).toEqual([['Weihnachten', 6, 0]])
     })
   })
 })

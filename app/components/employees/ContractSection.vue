@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { JOB_KEYS, levelBySeniority, levelStart, PAY_GROUPS, SUGGESTED_PAY_GROUP, type JobKey, type PayGroup } from '#shared/domain/tvoed'
+import { isPlausibleProbationUntil, probationHint, suggestedProbationUntil } from '#shared/domain/probation'
+import type { Qualification } from '#shared/domain/staffing/types'
+import {
+  isLegacyPayGroup, JOB_KEYS, levelBySeniority, levelStart, PAY_GROUPS, SUGGESTED_PAY_GROUP, type JobKey, type StoredPayGroup,
+} from '#shared/domain/tvoed'
 import type { EmployeeContractDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
-import { askRecognitionYear, contractSummary, levelYearsNote } from '~/utils/contract'
+import { askRecognitionYear, contractSummary, levelYearsNote, payGroupLabel } from '~/utils/contract'
 
-/** Contract data of one employee (TVöD SuE): editable by the Träger, read-only for the Leitung when shared. */
-const props = defineProps<{ employeeId: number; contract: EmployeeContractDto; editable: boolean }>()
+/**
+ * Contract data of one employee (TVöD SuE): editable by the Träger, read-only for the Leitung when shared. The
+ * qualification (master data) decides the Probezeit suggestion and hints (trainees: BBiG § 20).
+ */
+const props = defineProps<{
+  employeeId: number; contract: EmployeeContractDto; qualification?: Qualification | null; editable: boolean
+}>()
 const emit = defineEmits<{ saved: [] }>()
 const run = useAction(async () => emit('saved'))
 const ask = useQuestion()
@@ -16,12 +25,46 @@ const { busy, guard } = useBusy()
 
 const form = reactive<EmployeeContractDto>({
   personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null, fixedTermUntil: null,
-  trainingUntil: null, recognitionYearCounts: false,
+  probationUntil: null, trainingUntil: null, recognitionYearCounts: false,
 })
-watch(() => props.contract, value => Object.assign(form, value), { immediate: true })
+
+/** The Probezeit suggestion for the start in the form (null without a valid start). */
+function probationSuggestion(employedSince: string | null): string | null {
+  return employedSince && isPlausibleProbationUntil(employedSince) ? suggestedProbationUntil(employedSince, props.qualification) : null
+}
+
+/**
+ * The stored contract into the form. An empty „Probezeit bis“ is prefilled with the suggestion while that period has
+ * not ended yet (a new employee); it is stored only with „Speichern“.
+ */
+watch(() => props.contract, (value) => {
+  Object.assign(form, value)
+  if (form.probationUntil === null) {
+    const suggestion = probationSuggestion(form.employedSince)
+    if (suggestion !== null && suggestion >= todayIso()) form.probationUntil = suggestion
+  }
+}, { immediate: true })
+
+/** A changed start (or qualification) moves the suggestion along while the field is empty or still holds the old suggestion. */
+watch([() => form.employedSince, () => props.qualification], ([since, qualification], [oldSince, oldQualification]) => {
+  const previous = oldSince && isPlausibleProbationUntil(oldSince) ? suggestedProbationUntil(oldSince, oldQualification) : null
+  if (form.probationUntil === null || form.probationUntil === previous) form.probationUntil = probationSuggestion(since)
+})
+
+const isSuggestion = computed(() => form.probationUntil !== null && form.probationUntil !== props.contract.probationUntil
+  && form.probationUntil === probationSuggestion(form.employedSince))
+const probationWarning = computed(() => {
+  const hint = probationHint(form.employedSince, form.probationUntil, props.qualification)
+  return hint ? de.contract.probationHints[hint] : null
+})
 
 const jobItems = [{ label: de.contract.none, value: null }, ...JOB_KEYS.map(key => ({ label: de.contract.jobs[key], value: key }))]
-const groupItems = [{ label: de.contract.none, value: null }, ...PAY_GROUPS.map(group => ({ label: group, value: group }))]
+/** The table's pay groups; an old one still stored (S 10) stays in the list, marked, until another one is picked. */
+const groupItems = computed(() => [
+  { label: de.contract.none, value: null as StoredPayGroup | null },
+  ...(isLegacyPayGroup(props.contract.payGroup) ? [{ label: payGroupLabel(props.contract.payGroup), value: props.contract.payGroup }] : []),
+  ...PAY_GROUPS.map(group => ({ label: group, value: group as StoredPayGroup | null })),
+])
 const levelItems = [{ label: de.contract.none, value: null }, ...[1, 2, 3, 4, 5, 6].map(level => ({ label: String(level), value: level }))]
 
 /** Choosing a job proposes its usual pay group (only while none is chosen or the old one was the proposal). */
@@ -64,8 +107,8 @@ function save() {
     return run(() => $fetch<unknown>(`/api/employees/${props.employeeId}/contract`, {
       method: 'PUT',
       body: {
-        ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null, payGroup: form.payGroup as PayGroup | null,
-        trainingUntil, recognitionYearCounts: trainingUntil !== null && form.recognitionYearCounts,
+        ...form, employedSince: form.employedSince || null, fixedTermUntil: form.fixedTermUntil || null,
+        probationUntil: form.probationUntil || null, trainingUntil, recognitionYearCounts: trainingUntil !== null && form.recognitionYearCounts,
       },
     }), de.common.saved)
   })
@@ -95,7 +138,10 @@ function save() {
       <UFormField v-if="form.jobKey === 'other'" :label="de.contract.jobOther">
         <UInput :model-value="form.jobOther ?? ''" maxlength="100" class="w-full" @update:model-value="form.jobOther = String($event) || null" />
       </UFormField>
-      <UFormField :label="de.contract.payGroup" class="sm:col-start-1">
+      <UFormField
+        :label="de.contract.payGroup" class="sm:col-start-1"
+        :help="isLegacyPayGroup(form.payGroup) ? de.contract.payGroupLegacyHint : undefined"
+      >
         <USelect v-model="form.payGroup" :items="groupItems" class="w-full" />
       </UFormField>
       <UFormField :label="de.contract.payLevel">
@@ -106,6 +152,10 @@ function save() {
         <p v-if="levelYearsNote(form)">{{ levelYearsNote(form) }}</p>
         <UButton size="xs" color="neutral" variant="outline" :label="de.contract.useLevel" @click="useSuggestedLevel" />
       </div>
+      <UFormField :label="de.contract.probationUntil" :help="isSuggestion ? de.contract.probationSuggested : de.contract.probationUntilHint" class="sm:col-span-2 sm:col-start-1">
+        <DateTextInput :model-value="form.probationUntil ?? ''" :label="de.contract.probationUntil" class="w-full sm:w-44" @update:model-value="form.probationUntil = $event || null" />
+      </UFormField>
+      <p v-if="probationWarning" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 sm:col-span-2 sm:mt-6">{{ probationWarning }}</p>
       <UFormField :label="de.contract.fixedTermUntil" :help="de.contract.fixedTermUntilHint" class="sm:col-span-2 sm:col-start-1">
         <DateTextInput :model-value="form.fixedTermUntil ?? ''" :label="de.contract.fixedTermUntil" class="w-full sm:w-44" @update:model-value="form.fixedTermUntil = $event || null" />
       </UFormField>

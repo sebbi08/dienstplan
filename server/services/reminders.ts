@@ -16,6 +16,7 @@ import { bemReminders } from './bem'
 import { ifsgClusterReminders, ifsgReminders } from './ifsg'
 import { maternityReminders } from './maternity'
 import { offlineStampReminders } from './offlineStamps'
+import { probationReminders } from './probation'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
 import { retentionOverview } from './retentionOverview'
@@ -152,6 +153,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   items.push(...bemReminders(db, viewer, today))
   // Whoever has employees.sickness: a Mutterschutz case's risk assessment, notice to the authority, check of a ban.
   items.push(...maternityReminders(db, viewer, today))
+  // Whoever sees the contract data (Träger, Leitung with „Vertragsangaben ansehen“): a Probezeit ending within 4 weeks.
+  items.push(...probationReminders(db, viewer, today))
   return sortReminders(items)
 }
 

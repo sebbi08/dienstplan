@@ -123,7 +123,7 @@ describe('leave entered for an employee (Urlaub eintragen / entfernen)', () => {
   })
 
   it('counts 24 and 31 December as half leave days where the facility says so', () => {
-    db.update(facilities).set({ christmasEveHalfLeave: true }).where(eq(facilities.id, 1)).run()
+    db.update(facilities).set({ christmasEveHalfLeave: true, tvoedSue: false }).where(eq(facilities.id, 1)).run()
     setEntitlement(db, 1, anna, 2026, { days: 30, carriedOverDays: 0 })
     // Mo 21.12. – Do 31.12.: 21.–24. and 28.–31. are working days (25./26. holidays), 24. and 31. count half.
     expect(enter(anna, '2026-12-21', '2026-12-31')).toEqual({ booked: 8, keptAbsences: 0 })
@@ -137,11 +137,11 @@ describe('leave entered for an employee (Urlaub eintragen / entfernen)', () => {
   })
 
   it('shows a period over New Year in each year and removes it year by year', () => {
-    // Mo 28.12.2026 – Fr 8.1.2027 (1.1. and, in Baden-Württemberg, 6.1. holidays)
-    expect(enter(anna, '2026-12-28', '2027-01-08')).toEqual({ booked: 8, keptAbsences: 0 })
-    expect(getLeaveAccount(db, anna, 2026, today).entryRanges).toEqual([{ kind: 'vacation', from: '2026-12-28', to: '2026-12-31', days: 4 }])
+    // Mo 28.12.2026 – Fr 8.1.2027 (1.1. and, in Baden-Württemberg, 6.1. holidays; 31.12. paid free under the TVöD SuE)
+    expect(enter(anna, '2026-12-28', '2027-01-08')).toEqual({ booked: 7, keptAbsences: 0 })
+    expect(getLeaveAccount(db, anna, 2026, today).entryRanges).toEqual([{ kind: 'vacation', from: '2026-12-28', to: '2026-12-30', days: 3 }])
     expect(getLeaveAccount(db, anna, 2027, today).entryRanges).toEqual([{ kind: 'vacation', from: '2027-01-04', to: '2027-01-08', days: 4 }])
-    expect(remove(anna, '2026-12-28', '2026-12-31')).toEqual({ removed: 4, keptClosureDays: 0 })
+    expect(remove(anna, '2026-12-28', '2026-12-31')).toEqual({ removed: 3, keptClosureDays: 0 })
     expect(days(anna).map(([date]) => date)).toEqual(['2027-01-04', '2027-01-05', '2027-01-07', '2027-01-08'])
   })
 

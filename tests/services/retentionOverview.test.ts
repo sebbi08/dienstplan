@@ -56,15 +56,15 @@ beforeEach(() => {
 describe('categoryHasData', () => {
   it('says true for every category with data and false once its helper ran; a helper then changes nothing', () => {
     db.insert(balanceAdjustments).values({ employeeId: tina, date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true }).run()
-    expect(categoryHasData(db, tina)).toEqual({ immediate: true, time: true, assessment: true, bem: true, maternity: true, paidOvertime: true })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: true, assessment: true, bem: true, maternity: true, paidOvertime: true })
     for (const category of RETENTION_CATEGORIES) {
       db.transaction(tx => deleteCategories(tx, tina, [category]))
       expect(categoryHasData(db, tina)[category], category).toBe(false)
       // The guard: what categoryHasData calls empty, the helper does not touch.
       expect(db.transaction(tx => deleteCategories(tx, tina, [category]))[category], category).toBe(0)
     }
-    expect(categoryHasData(db, tina)).toEqual({ immediate: false, time: false, assessment: false, bem: false, maternity: false, paidOvertime: false })
-    expect(categoryHasData(db, ben)).toEqual({ immediate: true, time: true, assessment: true, bem: true, maternity: true, paidOvertime: false })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: false, payroll: false, time: false, assessment: false, bem: false, maternity: false, paidOvertime: false })
+    expect(categoryHasData(db, ben)).toEqual({ immediate: true, payroll: true, time: true, assessment: true, bem: true, maternity: true, paidOvertime: false })
   })
 
   it('sees a single cleared field or a single row of a category', () => {
@@ -74,7 +74,7 @@ describe('categoryHasData', () => {
     db.update(employees).set({ pinFailed: 0 }).where(eq(employees.id, tina)).run()
     expect(categoryHasData(db, tina).immediate).toBe(false)
     db.insert(balanceAdjustments).values({ employeeId: tina, date: '2026-02-28', minutes: 60, reason: 'Übertrag' }).run()
-    expect(categoryHasData(db, tina)).toEqual({ immediate: false, time: true, assessment: false, bem: false, maternity: false, paidOvertime: false })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: false, payroll: false, time: true, assessment: false, bem: false, maternity: false, paidOvertime: false })
   })
 })
 
@@ -110,7 +110,7 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     expect(errorCode(() => remove(`employee:${tina}:immediate`, '2026-03-15'))).toBe('retention_not_due')
     expect(statusOf(() => remove(`employee:${tina}:immediate`, '2026-03-15'))).toBe(409)
     expect(remove(`employee:${tina}:immediate`, '2026-03-16')).toBeGreaterThan(0)
-    expect(categoryHasData(db, tina)).toEqual({ immediate: false, time: true, assessment: true, bem: true, maternity: true, paidOvertime: false })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: false, payroll: false, time: true, assessment: true, bem: true, maternity: true, paidOvertime: false })
     expect(employeeRow(tina)).toMatchObject({ name: 'Tina Test', birthday: null, pinHash: null })
     // The item is gone: deleting it again is 404.
     expect(itemsOf('2026-03-16', `employee:${tina}:immediate`)).toEqual([])
@@ -123,7 +123,7 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     expect(statusOf(() => remove(`employee:${tina}:time`, '2028-12-31'))).toBe(409)
     expect(categoryHasData(db, tina).time).toBe(true)
     expect(remove(`employee:${tina}:time`, '2029-01-01')).toBeGreaterThan(0)
-    expect(categoryHasData(db, tina)).toEqual({ immediate: true, time: false, assessment: true, bem: true, maternity: true, paidOvertime: false })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: false, assessment: true, bem: true, maternity: true, paidOvertime: false })
     expect(itemsOf('2029-01-01', `employee:${tina}:`).map(item => [item.category, item.due]))
       .toEqual([['immediate', true], ['bem', true], ['maternity', true], ['assessment', false], ['record', false]])
   })
@@ -134,12 +134,12 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     expect(statusOf(() => remove(`employee:${tina}:assessment`, '2029-12-31'))).toBe(409)
     expect(categoryHasData(db, tina).assessment).toBe(true)
     expect(remove(`employee:${tina}:assessment`, '2030-01-01')).toBeGreaterThan(0)
-    expect(categoryHasData(db, tina)).toEqual({ immediate: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: true })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: true })
     expect(errorCode(() => remove(`employee:${tina}:paidOvertime`, '2036-12-31'))).toBe('retention_not_due')
     expect(statusOf(() => remove(`employee:${tina}:paidOvertime`, '2036-12-31'))).toBe(409)
     expect(categoryHasData(db, tina).paidOvertime).toBe(true)
     expect(remove(`employee:${tina}:paidOvertime`, '2037-01-01')).toBe(1)
-    expect(categoryHasData(db, tina)).toEqual({ immediate: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: false })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: false })
   })
 
   it('makes the record due only once every other category holds no data; then the employee row goes, others untouched', () => {
@@ -162,6 +162,36 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     expect(foreignKeyViolations(db)).toEqual([])
     expect(employeeReferences(db, ben)).toEqual(benBefore)
     expect(employeeRow(ben)).toEqual(benRow)
+  })
+
+  it('with a Lohnbüro (the default): Lohn und Steuer go with the personal data the day after leaving, as before', () => {
+    expect(itemsOf('2026-03-16', `employee:${tina}:payroll`)).toEqual([])
+    remove(`employee:${tina}:immediate`, '2026-03-16')
+    expect(categoryHasData(db, tina)).toMatchObject({ immediate: false, payroll: false })
+    expect(errorCode(() => remove(`employee:${tina}:payroll`, '2026-03-16'))).toBe('retention_item_not_found')
+  })
+
+  it('without a Lohnbüro: Lohn und Steuer are kept until 31.12. of the leaving year + 6 years, then deletable', () => {
+    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, payrollOffice: false })
+    expect(itemsOf('2026-03-16', `employee:${tina}:payroll`)).toMatchObject([{ category: 'payroll', deletableFrom: '2033-01-01', due: false }])
+    // The personal data go without them.
+    remove(`employee:${tina}:immediate`, '2026-03-16')
+    expect(categoryHasData(db, tina)).toMatchObject({ immediate: false, payroll: true })
+    expect(errorCode(() => remove(`employee:${tina}:payroll`, '2032-12-31'))).toBe('retention_not_due')
+    expect(itemsOf('2033-01-01', `employee:${tina}:payroll`)).toMatchObject([{ deletableFrom: '2033-01-01', due: true }])
+    expect(remove(`employee:${tina}:payroll`, '2033-01-01')).toBe(1)
+    expect(categoryHasData(db, tina).payroll).toBe(false)
+    // Ben has not left: his payroll data stay.
+    expect(categoryHasData(db, ben).payroll).toBe(true)
+  })
+
+  it('switching to a Lohnbüro later makes the kept payroll data deletable with the personal data again', () => {
+    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, payrollOffice: false })
+    remove(`employee:${tina}:immediate`, '2026-03-16')
+    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, payrollOffice: true })
+    expect(itemsOf('2026-03-17', `employee:${tina}:immediate`)).toMatchObject([{ deletableFrom: '2026-03-16', due: true }])
+    remove(`employee:${tina}:immediate`, '2026-03-17')
+    expect(categoryHasData(db, tina).payroll).toBe(false)
   })
 
   it('drops the items when the leaving is taken back', () => {
@@ -283,7 +313,7 @@ describe('deleting all due items (Review Focus 3)', () => {
     expect(deleteDueItems(db, traeger, keys, '2026-10-27')).toEqual({
       deleted: 2, skipped: [`employee:${tina}:time`, 'child:99999', 'nonsense'],
     })
-    expect(categoryHasData(db, tina)).toEqual({ immediate: false, time: true, assessment: true, bem: true, maternity: true, paidOvertime: false })
+    expect(categoryHasData(db, tina)).toEqual({ immediate: false, payroll: false, time: true, assessment: true, bem: true, maternity: true, paidOvertime: false })
     expect(db.select().from(children).where(eq(children.id, child)).get()).toBeUndefined()
     expect(foreignKeyViolations(db)).toEqual([])
   })

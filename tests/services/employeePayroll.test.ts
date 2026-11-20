@@ -68,11 +68,11 @@ describe('payroll data (Lohn und Steuer)', () => {
   it('accepts empty values and removes the row once everything is empty (nothing left for the retention overview)', () => {
     setPayroll(db, 1, anna, { ...EMPTY, taxId: ' ', iban: '', svNumber: '  ', healthInsurer: 'AOK' })
     expect(getPayroll(db, 1, anna)).toEqual({ ...EMPTY, healthInsurer: 'AOK' })
-    expect(categoryHasData(db, anna).immediate).toBe(true)
+    expect(categoryHasData(db, anna).payroll).toBe(true)
     setPayroll(db, 1, anna, { ...EMPTY, healthInsurer: ' ' })
     expect(db.select().from(employeePayroll).all()).toEqual([])
     expect(getPayroll(db, 1, anna)).toEqual(EMPTY)
-    expect(categoryHasData(db, anna).immediate).toBe(false)
+    expect(categoryHasData(db, anna).payroll).toBe(false)
   })
 
   it('keeps another facility\'s employee unconfirmed (404)', () => {

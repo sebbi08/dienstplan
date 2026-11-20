@@ -23,7 +23,7 @@ import type { GermanState } from '../domain/states'
 import type { TimeWindow } from '../domain/tablet'
 import type { TemplateVisibility } from '../domain/templateCategories'
 import type { MarkSummary } from '../domain/timeMarks'
-import type { JobKey, PayGroup } from '../domain/tvoed'
+import type { JobKey, StoredPayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
 import type { CoverageRule, DayHoursContext, Warning } from '../domain/warnings'
 
@@ -430,6 +430,8 @@ export interface ReminderDto {
     /** `offer`: a BEM to offer; `notSent`: started 7 days ago, invitation not sent yet; `answerDue`: the answer date has passed. */
     stage: 'offer' | 'notSent' | 'answerDue'
   }
+  /** For a Probezeit ending soon (whoever sees the contract data): the employee; `date` is the last day of the probation. */
+  probation?: { employeeId: number }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -788,7 +790,7 @@ export interface ArchivedChildDto {
 }
 
 /** What an item of the Träger's retention overview deletes of a left employee: a category, or the employee row itself. */
-export type RetentionItemCategory = 'immediate' | 'time' | 'assessment' | 'bem' | 'maternity' | 'paidOvertime' | 'record'
+export type RetentionItemCategory = 'immediate' | 'payroll' | 'time' | 'assessment' | 'bem' | 'maternity' | 'paidOvertime' | 'record'
 
 /**
  * An item of the Träger's retention overview (spec Löschübersicht §2), across every facility. `key` names it for the
@@ -1493,19 +1495,27 @@ export interface EmployeeContractDto {
   jobKey: JobKey | null
   /** Free job title, only with jobKey 'other'. */
   jobOther: string | null
-  payGroup: PayGroup | null
+  /** One of the table, or an old one still stored (S 10: shown as „nicht mehr in der Tabelle“). */
+  payGroup: StoredPayGroup | null
   payLevel: number | null
   /** „befristet bis“: last day of a fixed-term contract (null = unbefristet). */
   fixedTermUntil: IsoDate | null
+  /** „Probezeit bis“: last day of the probation period (null = none entered). */
+  probationUntil: IsoDate | null
   /** „Ausbildung/Studium hier bis“ (null = none): the level years start after it (see levelStart). */
   trainingUntil: IsoDate | null
   /** „Anerkennungsjahr zählt als Stufe 1“ (always false without trainingUntil). */
   recognitionYearCounts: boolean
 }
 
-/** A contract change; fixedTermUntil, trainingUntil and recognitionYearCounts left out = unchanged. */
-export type EmployeeContractInput = Omit<EmployeeContractDto, 'fixedTermUntil' | 'trainingUntil' | 'recognitionYearCounts'>
-  & { fixedTermUntil?: IsoDate | null; trainingUntil?: IsoDate | null; recognitionYearCounts?: boolean }
+/** A contract change; fixedTermUntil, probationUntil, trainingUntil and recognitionYearCounts left out = unchanged. */
+export type EmployeeContractInput
+  = Omit<EmployeeContractDto, 'payGroup' | 'fixedTermUntil' | 'probationUntil' | 'trainingUntil' | 'recognitionYearCounts'>
+    & {
+      /** Checked by the service: one of PAY_GROUPS, or the old one stored (400 invalid_pay_group). */
+      payGroup: string | null
+      fixedTermUntil?: IsoDate | null; probationUntil?: string | null; trainingUntil?: IsoDate | null; recognitionYearCounts?: boolean
+    }
 
 export interface AppSettingsDto {
   timeTrackingFrom: IsoDate | null
@@ -1958,6 +1968,8 @@ export interface EmployeeListExtrasDto {
    * 30 days, `overdue`: the day has passed and the level is not entered yet).
    */
   level?: { final: true } | { final: false; fromLevel: number; level: number; on: IsoDate; state: 'later' | 'soon' | 'overdue' } | null
+  /** „in Probezeit bis …“: only with employees.contractView (otherwise absent); the last day while it runs, else null. */
+  probationUntil?: IsoDate | null
   /** Mandatory appointments that are overdue, missing or due soon (empty = nothing open). */
   requirements: { typeId: number; typeName: string; state: DueRequirementDto['state']; dueOn: IsoDate | null }[]
   /**
@@ -2047,10 +2059,16 @@ export interface LeaveRequestDto {
   overLimitDates: IsoDate[]
 }
 
+/** 24 and 31 December: a whole leave day, half a leave day, or paid free (no leave, like a public holiday for the staff). */
+export const EVE_LEAVE_OPTIONS = ['whole', 'half', 'paid'] as const
+export type EveLeave = (typeof EVE_LEAVE_OPTIONS)[number]
+
 /** How the facility counts leave (Einstellungen → Dienstplan; the Träger changes it, the Leitung reads it). */
 export interface LeaveCountingDto {
-  /** A leave day on 24 or 31 December counts as half a day instead of a whole one. */
-  christmasEveHalfLeave: boolean
+  /** „Wir arbeiten nach TVöD SuE“: 24 and 31 December are paid free (TVöD § 6 Abs. 3), whatever eveLeave says. */
+  tvoedSue: boolean
+  /** The facility's own choice for 24 and 31 December, effective while tvoedSue is off (kept while it is on). */
+  eveLeave: EveLeave
 }
 
 /** The facility's notice on remaining leave (Einstellungen → Dienstplan; Leitung and Träger change it). */

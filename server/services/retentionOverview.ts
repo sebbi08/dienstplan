@@ -65,12 +65,27 @@ function context(db: Db, today: IsoDate): Context {
 type EmployeeRow = { id: number; name: string; facilityId: number; leftOn: IsoDate }
 
 /**
+ * While a Lohnbüro keeps the payroll records (the default), „Lohn und Steuer“ is part of the personal data: no item of
+ * its own, the personal data's item holds it and deletes it along (categoriesOf). Without one it is an item of its own,
+ * due 6 years after the end of the leaving year.
+ */
+function withPayroll(hasData: Record<RetentionCategory, boolean>, settings: RetentionSettings): Record<RetentionCategory, boolean> {
+  if (!settings.payrollOffice) return hasData
+  return { ...hasData, immediate: hasData.immediate || hasData.payroll, payroll: false }
+}
+
+/** The categories deleting an item removes: the personal data with „Lohn und Steuer“ while a Lohnbüro keeps those. */
+function categoriesOf(category: RetentionCategory, settings: RetentionSettings): RetentionCategory[] {
+  return category === 'immediate' && settings.payrollOffice ? ['immediate', 'payroll'] : [category]
+}
+
+/**
  * The items of an employee with a leaving day: one per category that holds data (categoryHasData), from its due date
  * (retentionDueDates with the facility's periods), and the record, due once no other category holds data. Nothing is
  * due before the day after leaving.
  */
 function employeeItems(db: Db, employee: EmployeeRow, ctx: Context): RetentionItemDto[] {
-  const hasData = categoryHasData(db, employee.id)
+  const hasData = withPayroll(categoryHasData(db, employee.id), ctx.settings(employee.facilityId))
   const dueDates = retentionDueDates(employee.leftOn, ctx.settings(employee.facilityId))
   const left = employee.leftOn < ctx.today
   const item = (category: RetentionItemCategory, deletableFrom: IsoDate | null, due: boolean): RetentionItemDto => ({
@@ -277,7 +292,11 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
       const years = ctx.settings(item.facilityId).maternityYears
       return checkedTransaction(db, tx => deleteDueMaternityCases(tx, key.id, employee.leftOn, ctx.today, years))
     }
-    return checkedTransaction(db, tx => deleteCategories(tx, key.id, [category as RetentionCategory])[category as RetentionCategory])
+    const categories = categoriesOf(category as RetentionCategory, ctx.settings(item.facilityId))
+    return checkedTransaction(db, (tx) => {
+      const counts = deleteCategories(tx, key.id, categories)
+      return categories.reduce((sum, one) => sum + counts[one], 0)
+    })
   }
   if (key.kind === 'child') {
     return checkedTransaction(db, (tx) => {

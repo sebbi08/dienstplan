@@ -14,8 +14,8 @@ import { facilityExists } from './facilities'
 export function getRetentionSettings(db: Db, facilityId: number): RetentionSettings {
   const row = db.select().from(retentionSettings).where(eq(retentionSettings.facilityId, facilityId)).get()
   if (row) {
-    const { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, maternityYears, employeeDelete } = row
-    return { timeYears, assessmentYears, paidOvertimeYears, pensionYears, cashYears, bemYears, maternityYears, employeeDelete }
+    const { facilityId: _facilityId, ...settings } = row
+    return settings
   }
   if (!facilityExists(db, facilityId)) throw new ServiceError(404, 'facility_not_found')
   db.insert(retentionSettings).values({ facilityId, ...RETENTION_DEFAULTS }).onConflictDoNothing().run()
@@ -27,17 +27,18 @@ export function getRetentionSettings(db: Db, facilityId: number): RetentionSetti
  * retention_settings_invalid and nothing changes (404 facility_not_found). They say from when data may be deleted (by
  * hand); data deleted under the old periods stays deleted. Answers the settings as stored. A body without `bemYears`
  * (a settings page loaded before the BEM existed) keeps the stored BEM years, one without `maternityYears` the stored
- * Mutterschutz years.
+ * Mutterschutz years, one without `payrollOffice` the stored „Lohnbüro“ switch.
  */
 export function setRetentionSettings(db: Db, facilityId: number, input: unknown): RetentionSettings {
   const stored = getRetentionSettings(db, facilityId)
   const isObject = typeof input === 'object' && input !== null && !Array.isArray(input)
-  const raw = isObject ? input as { bemYears?: unknown; maternityYears?: unknown } : null
+  const raw = isObject ? input as { bemYears?: unknown; maternityYears?: unknown; payrollOffice?: unknown } : null
   const body = raw
     ? {
         ...raw,
         bemYears: raw.bemYears === undefined ? stored.bemYears : raw.bemYears,
         maternityYears: raw.maternityYears === undefined ? stored.maternityYears : raw.maternityYears,
+        payrollOffice: raw.payrollOffice === undefined ? stored.payrollOffice : raw.payrollOffice,
       }
     : input
   let settings: RetentionSettings

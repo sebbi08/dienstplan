@@ -1,5 +1,5 @@
 import { addDays, dateRange, weekday, weekStart } from './dates'
-import { isHolidayIn, type HolidayRules } from './holidays'
+import { isPublicHolidayIn, type HolidayRules } from './holidays'
 import { addMonths, REQUIREMENT_SOON_MONTHS, type RequirementState, type YouthExamKey } from './requirements'
 import type { Qualification } from './staffing/types'
 import { leaveBasis, leaveInYear, type StatutoryLeave } from './statutoryLeave'
@@ -254,7 +254,7 @@ export function youthWarnings(input: {
         if (day.workWindow.end > YOUTH_LATEST) warn('late', day.workWindow.end, YOUTH_LATEST)
         // §§ 16–18: no work on Saturdays, Sundays and public holidays of the home facility (exceptions exist: only a
         // hint), none after 14:00 on 24 and 31 December.
-        if (isHolidayIn(date, input.holidays)) warn('holiday', day.workMinutes, 0)
+        if (isPublicHolidayIn(date, input.holidays)) warn('holiday', day.workMinutes, 0)
         else if (weekday(date) === 6) warn('sunday', day.workMinutes, 0)
         else if (weekday(date) === 5) warn('saturday', day.workMinutes, 0)
         if ((date.endsWith('-12-24') || date.endsWith('-12-31')) && day.workWindow.end > YOUTH_EVE_END) {

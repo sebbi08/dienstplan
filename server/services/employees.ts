@@ -7,7 +7,8 @@ import { birthYearError, disabilityDegreeError, emailError, postalCodeError } fr
 import { QUALIFICATIONS, type Qualification } from '../../shared/domain/staffing/types'
 import type { BreakMode, StampChannel } from '../../shared/domain/stamping'
 import { MONDAY_TO_FRIDAY, weeklyMinutesOn, workdaysOn } from '../../shared/domain/targets'
-import { isPlausibleTrainingUntil, type JobKey, type PayGroup } from '../../shared/domain/tvoed'
+import { isAllowedPayGroup, isPlausibleTrainingUntil, type JobKey, type StoredPayGroup } from '../../shared/domain/tvoed'
+import { isPlausibleProbationUntil } from '../../shared/domain/probation'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   EmployeeContractDto, EmployeeContractInput, EmployeeDetailDto, EmployeeListItemDto, EmployeePersonalDto, EmployeePersonalInput,
@@ -90,7 +91,8 @@ function contractOf(employee: EmployeeRecord): EmployeeContractDto {
   return {
     personnelNumber: employee.personnelNumber,
     employedSince: employee.employedSince, jobKey: employee.jobKey as JobKey | null, jobOther: employee.jobOther,
-    payGroup: employee.payGroup as PayGroup | null, payLevel: employee.payLevel, fixedTermUntil: employee.fixedTermUntil,
+    payGroup: employee.payGroup as StoredPayGroup | null, payLevel: employee.payLevel, fixedTermUntil: employee.fixedTermUntil,
+    probationUntil: employee.probationUntil,
     trainingUntil: employee.trainingUntil, recognitionYearCounts: employee.recognitionYearCounts,
   }
 }
@@ -539,12 +541,20 @@ export function deleteEntitlement(db: Db, facilityId: number, employeeId: number
  * a given one must be a real date (400 invalid_date). „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als
  * Stufe 1“ left out stay; the training end is a real date from 1970 up to a year after today (400
  * training_until_invalid, see isPlausibleTrainingUntil), and without one the recognition year is stored as not counting.
+ * „Probezeit bis“ left out stays; a given one is a real date from 1970 to 2100 (400 probation_until_invalid; the hints
+ * of shared/domain/probation.ts never block). The pay group is one of PAY_GROUPS, or an old one (S 10) only while it is
+ * the one stored, so saving other fields never changes it silently (400 invalid_pay_group).
  */
 export function setContract(db: Db, facilityId: number, id: number, contract: EmployeeContractInput, today: IsoDate = todayIso()): void {
   assertEmployee(db, facilityId, id)
   if (contract.trainingUntil != null && !isPlausibleTrainingUntil(contract.trainingUntil, today)) {
     throw new ServiceError(400, 'training_until_invalid')
   }
+  if (contract.probationUntil != null && !isPlausibleProbationUntil(contract.probationUntil)) {
+    throw new ServiceError(400, 'probation_until_invalid')
+  }
+  const storedPayGroup = db.select({ payGroup: employees.payGroup }).from(employees).where(eq(employees.id, id)).get()!.payGroup
+  if (!isAllowedPayGroup(contract.payGroup, storedPayGroup)) throw new ServiceError(400, 'invalid_pay_group')
   const jobOther = contract.jobKey === 'other' ? contract.jobOther?.trim() || null : null
   if (contract.payLevel !== null && (contract.payLevel < 1 || contract.payLevel > 6)) throw new ServiceError(400, 'invalid_pay_level')
   if (contract.fixedTermUntil != null && !isValidIsoDate(contract.fixedTermUntil)) throw new ServiceError(400, 'invalid_date')

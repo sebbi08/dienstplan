@@ -9,7 +9,7 @@ import { facilities, groupBookChanges, groupDayNotes, groups, groupWeekNotes } f
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { listGroups } from './groups'
-import { facilityHolidayRules } from './holidayRules'
+import { facilityPublicHolidayRules } from './holidayRules'
 import { closureOn, loadClosures } from './queries'
 
 // The group book's weekly overview (spec Wochenübersicht): a theme per group and week and a text per group and day
@@ -73,7 +73,7 @@ export function getGroupWeek(db: Db, viewer: ChildViewer, groupId: number | null
   const group = visibleGroup(db, viewer, groupId ?? defaultGroupId(db, viewer))
   const monday = mondayOf(anyDateInWeek)
   const friday = addDays(monday, 4)
-  const rules = facilityHolidayRules(db, viewer.facilityId)
+  const rules = facilityPublicHolidayRules(db, viewer.facilityId)
   const closureDays = loadClosures(db, viewer.facilityId)
   const theme = db.select().from(groupWeekNotes)
     .where(and(eq(groupWeekNotes.groupId, group.id), eq(groupWeekNotes.weekStart, monday))).get()

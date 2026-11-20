@@ -38,6 +38,17 @@ export const facilities = sqliteTable('facilities', {
   /** A leave day on 24 or 31 December counts as half a day (leave account, requests, closures); only the Träger sets it. */
   christmasEveHalfLeave: integer('christmas_eve_half_leave', { mode: 'boolean' }).notNull().default(false),
   /**
+   * The facility's own choice „bezahlt frei“ for 24 and 31 December (instead of a whole or half leave day): both days
+   * count like a public holiday for the staff (HolidayRules.paidEves). Only the Träger sets it; while tvoedSue is on
+   * it does not matter (the days are paid free anyway) and is kept for when it is switched off.
+   */
+  christmasEvePaidFree: integer('christmas_eve_paid_free', { mode: 'boolean' }).notNull().default(false),
+  /**
+   * „Wir arbeiten nach TVöD SuE“ (Träger only, default on): 24 and 31 December are paid free (TVöD § 6 Abs. 3). It
+   * changes nothing else; pay groups, levels and the level steps stay usable either way.
+   */
+  tvoedSue: integer('tvoed_sue', { mode: 'boolean' }).notNull().default(true),
+  /**
    * Remaining leave of a year lapses on this day of the year after (January to September; default 31.03.). Leitung and
    * Träger set it; the notice on remaining leave (shared/domain/leaveForfeit.ts) names it.
    */
@@ -193,6 +204,8 @@ export const employees = sqliteTable('employees', {
   disabilityUntil: text('disability_until'),
   /** „befristet bis“: end of a fixed-term contract (ISO date), visible like the other contract fields. */
   fixedTermUntil: text('fixed_term_until'),
+  /** „Probezeit bis“: last day of the probation period (ISO date; null = none entered), contract data (shared/domain/probation.ts). */
+  probationUntil: text('probation_until'),
   /**
    * „Ausbildung/Studium hier bis“ (ISO date; null = none): the level years start the day after (see levelStart in
    * shared/domain/tvoed.ts). Contract data like the fields above.
@@ -1749,6 +1762,11 @@ export const retentionSettings = sqliteTable('retention_settings', {
   /** Mutterschutz records (MuSchG) may be deleted this many years after the case ended (§ 27 Abs. 5: kept 2 years). */
   maternityYears: integer('maternity_years').notNull().default(2),
   employeeDelete: text('employee_delete', { enum: ['off', 'provider', 'managers'] }).notNull().default('managers'),
+  /**
+   * „Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“ (default yes): „Lohn und Steuer“ of someone who left may be
+   * deleted the day after leaving; no = kept 6 years after the end of the leaving year (§ 41 EStG, § 147 AO).
+   */
+  payrollOffice: integer('payroll_office', { mode: 'boolean' }).notNull().default(true),
 })
 
 /**

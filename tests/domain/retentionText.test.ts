@@ -18,6 +18,12 @@ describe('archiveRetentionText', () => {
     )
   })
 
+  it('names Lohn und Steuer with its own date only when no Lohnbüro keeps the payroll records', () => {
+    expect(archiveRetentionText('2026-03-15', { ...RETENTION_DEFAULTS, payrollOffice: false }, '2026-10-27')).toBe(
+      `${PERSONAL} Zeitdaten dürfen ab 01.01.2029 gelöscht werden, Beurteilungen ab 01.01.2030, Lohn und Steuer ab 01.01.2033, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2037; danach der Eintrag.`,
+    )
+  })
+
   it('follows the settings and lists the dates in their order', () => {
     const settings = { ...RETENTION_DEFAULTS, timeYears: 5, assessmentYears: 3, paidOvertimeYears: 12 }
     expect(archiveRetentionText('2026-03-15', settings, '2026-10-27')).toBe(

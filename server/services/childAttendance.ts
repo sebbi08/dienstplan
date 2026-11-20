@@ -30,7 +30,7 @@ import { groupHistories } from './childGroupChanges'
 import { childOrder } from './childSort'
 import { activeGroupMerges } from './groupMerges'
 import { listGroups } from './groups'
-import { facilityHolidayRules } from './holidayRules'
+import { facilityPublicHolidayRules } from './holidayRules'
 import { attendanceIfsg, blockingIfsgCase, closeRecommendationCases } from './ifsg'
 import { mealVersionsOf } from './meals'
 import { closureOn, loadClosures } from './queries'
@@ -67,7 +67,7 @@ function refuseFuture(date: IsoDate, now: Date): void {
 
 /** Care days of the facility (spec §2): weekdays that are neither a public holiday of the facility nor a closure day. */
 function careDays(db: Db, facilityId: number): (date: IsoDate) => boolean {
-  const rules = facilityHolidayRules(db, facilityId)
+  const rules = facilityPublicHolidayRules(db, facilityId)
   const closures = loadClosures(db, facilityId)
   return date => !isWeekend(date) && !isHolidayIn(date, rules) && closureOn(closures, date) === null
 }

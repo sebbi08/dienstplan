@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { dueMonthYear, forfeitText, levelText, levelToTake, levelTone, requirementBadge } from '../../app/utils/employeeExtras'
+import { dueMonthYear, forfeitText, levelText, levelToTake, levelTone, probationText, requirementBadge } from '../../app/utils/employeeExtras'
 
 describe('the texts of the employee list columns', () => {
+  it('shows „in Probezeit bis …“ only while the server sends the day (a running probation period)', () => {
+    expect(probationText({ probationUntil: '2027-02-28' })).toBe('in Probezeit bis 28.02.')
+    expect(probationText({ probationUntil: null })).toBeNull()
+    expect(probationText({})).toBeNull()
+    expect(probationText(undefined)).toBeNull()
+  })
+
   const next = (state: 'later' | 'soon' | 'overdue') => ({ final: false as const, fromLevel: 3, level: 4, on: '2027-02-01', state })
 
   it('names the next level with its day, or the top level', () => {

@@ -7,7 +7,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import { isCheckedDay } from '../../shared/domain/warnings'
 import type { Db } from '../db/client'
 import { closures, facilities, openingHours, tabletUnlockedWindows, terminalUnlocks } from '../db/schema'
-import { facilityHolidayRules } from './holidayRules'
+import { facilityPublicHolidayRules } from './holidayRules'
 import { closureColumns, closureOn } from './queries'
 
 // Opening hours, closures and their services import this file (they delete expired unlocks before saving), so the
@@ -31,7 +31,7 @@ function facilityHourRows(db: Db, facilityId: number) {
 export function facilityOpenDays(db: Db, facilityId: number, from: IsoDate, to: IsoDate): (date: IsoDate) => OpenDay | null {
   const touching = db.select(closureColumns).from(closures)
     .where(and(eq(closures.facilityId, facilityId), gte(closures.endDate, from), lte(closures.startDate, to))).all()
-  const holidays = facilityHolidayRules(db, facilityId)
+  const holidays = facilityPublicHolidayRules(db, facilityId)
   const days = facilityHourRows(db, facilityId)
   return (date) => {
     if (!isCheckedDay(date, closureOn(touching, date) !== null, holidays)) return null

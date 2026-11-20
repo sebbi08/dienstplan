@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { employees } from '../../server/db/schema'
 import { contractSchema, employeeUpdateSchema } from '../../server/schemas'
 import { rolePermissions } from '../../server/services/permissions'
 import type { Db } from '../../server/db/client'
@@ -239,7 +241,7 @@ describe('contract data (Träger only)', () => {
     const admin = addUser(db, 'traeger', 'provider')
     const id = createEmployee(db, admin, 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-01-01' })
     setContract(db, 1, id, contract)
-    const saved = { ...contract, jobOther: null, fixedTermUntil: null, trainingUntil: null, recognitionYearCounts: false } // free text only with 'other'
+    const saved = { ...contract, jobOther: null, fixedTermUntil: null, probationUntil: null, trainingUntil: null, recognitionYearCounts: false } // free text only with 'other'
     expect(listEmployees(db, 1, today, rolePermissions(db, 'provider'))[0]!.contract).toEqual(saved)
     expect(getEmployee(db, 1, id, today, rolePermissions(db, 'provider')).contract).toEqual(saved)
     expect(listEmployees(db, 1, today, rolePermissions(db, 'admin'))[0]!.contract).toBeUndefined()
@@ -267,6 +269,53 @@ describe('contract data (Träger only)', () => {
     expect(errorCode(() => setContract(db, 1, ben, { ...contract, personnelNumber: '1042' }))).toBe('personnel_number_taken')
     setContract(db, 1, ben, { ...contract, personnelNumber: ' ' })
     expect(getEmployee(db, 1, ben, today, rolePermissions(db, 'provider')).contract!.personnelNumber).toBeNull()
+  })
+})
+
+describe('contract data: „Probezeit bis“ and the old pay group S 10', () => {
+  const today = '2026-11-19'
+  const contract = { personnelNumber: null, employedSince: '2026-09-01', jobKey: 'educator' as const, jobOther: null, payGroup: 'S 8a' as const, payLevel: 1 }
+  let db: Db
+  let anna: number
+  beforeEach(() => {
+    db = createTestDb()
+    anna = createEmployee(db, addUser(db, 'traeger', 'provider'), 1, { name: 'Anna', shortName: '', weeklyMinutes: 2340, validFrom: '2026-09-01' })
+  })
+  const read = () => getEmployee(db, 1, anna, today, rolePermissions(db, 'provider')).contract!
+
+  it('round-trips the probation end, keeps it when left out and checks the date', () => {
+    setContract(db, 1, anna, { ...contract, probationUntil: '2027-02-28' }, today)
+    expect(read().probationUntil).toBe('2027-02-28')
+    setContract(db, 1, anna, { ...contract, payLevel: 2 }, today)
+    expect(read()).toMatchObject({ payLevel: 2, probationUntil: '2027-02-28' })
+    // Longer than six months is only a hint in the form, never refused.
+    setContract(db, 1, anna, { ...contract, probationUntil: '2027-06-30' }, today)
+    expect(read().probationUntil).toBe('2027-06-30')
+    for (const value of ['2027-02-30', '30.06.2027', '1969-12-31']) {
+      expect(errorCode(() => setContract(db, 1, anna, { ...contract, probationUntil: value }, today)), value).toBe('probation_until_invalid')
+    }
+    setContract(db, 1, anna, { ...contract, probationUntil: null }, today)
+    expect(read().probationUntil).toBeNull()
+  })
+
+  it('shows it like the other contract fields: to the Leitung only with „Vertragsangaben ansehen“', () => {
+    setContract(db, 1, anna, { ...contract, probationUntil: '2027-02-28' }, today)
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin'))).not.toHaveProperty('contract')
+    setRoleBundle(db, 'admin', 'contractView', true)
+    expect(getEmployee(db, 1, anna, today, rolePermissions(db, 'admin')).contract!.probationUntil).toBe('2027-02-28')
+  })
+
+  it('keeps a stored S 10 as it is (also when the DTO goes back whole), but never takes it as a new choice', () => {
+    expect(errorCode(() => setContract(db, 1, anna, { ...contract, payGroup: 'S 10' }, today))).toBe('invalid_pay_group')
+    expect(errorCode(() => setContract(db, 1, anna, { ...contract, payGroup: 'S 99' }, today))).toBe('invalid_pay_group')
+    db.update(employees).set({ payGroup: 'S 10' }).where(eq(employees.id, anna)).run()
+    expect(read().payGroup).toBe('S 10')
+    setContract(db, 1, anna, { ...read(), payLevel: 3 }, today)
+    expect(read()).toMatchObject({ payGroup: 'S 10', payLevel: 3 })
+    // The Träger picks a new one; S 10 is gone for good then.
+    setContract(db, 1, anna, { ...read(), payGroup: 'S 11a' }, today)
+    expect(read().payGroup).toBe('S 11a')
+    expect(errorCode(() => setContract(db, 1, anna, { ...read(), payGroup: 'S 10' }, today))).toBe('invalid_pay_group')
   })
 })
 
@@ -338,7 +387,10 @@ describe('contract data: only with „Vertragsangaben ändern“', () => {
     const route = readFileSync(join(process.cwd(), 'server', 'api', 'employees', '[id]', 'contract.put.ts'), 'utf8')
     expect(route).toContain('requirePermission(event, \'employees.contractEdit\')')
     // The employee form of the Leitung drops them.
-    const update = employeeUpdateSchema.parse({ name: 'Anna', shortName: '', leftOn: null, trainingUntil: '2024-07-31', recognitionYearCounts: true })
+    const update = employeeUpdateSchema.parse({
+      name: 'Anna', shortName: '', leftOn: null, trainingUntil: '2024-07-31', recognitionYearCounts: true, probationUntil: '2026-12-31',
+    })
+    expect(update).not.toHaveProperty('probationUntil')
     expect(update).not.toHaveProperty('trainingUntil')
     expect(update).not.toHaveProperty('recognitionYearCounts')
     expect(contractSchema.parse({ personnelNumber: null, employedSince: null, jobKey: null, jobOther: null, payGroup: null, payLevel: null, trainingUntil: '2024-07-31', recognitionYearCounts: true }))

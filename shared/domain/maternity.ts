@@ -1,5 +1,5 @@
 import { addDays, dateRange, daysBetween, daysInMonth, toIsoDate, weekday } from './dates'
-import { isHolidayIn, type HolidayRules } from './holidays'
+import { isPublicHolidayIn, type HolidayRules } from './holidays'
 import { weeklyMinutesOn, type EmploymentInfo } from './targets'
 import type { CodeKey, IsoDate } from './types'
 import { plannedWorkMinutes, plannedWorkWindow, restMinutes, type LawEntry } from './workingTimeLaw'
@@ -246,7 +246,7 @@ export function maternityDayWarnings(input: {
   if (minutes > max) warnings.push(warning('hours', minutes, max))
   if (window.end > MATERNITY_NIGHT_FROM) warnings.push(warning('late', window.end, MATERNITY_NIGHT_FROM))
   if (window.start < MATERNITY_NIGHT_UNTIL) warnings.push(warning('early', window.start, MATERNITY_NIGHT_UNTIL))
-  if (weekday(date) === 6 || isHolidayIn(date, input.holidays)) warnings.push(warning('sunday', minutes, 0))
+  if (weekday(date) === 6 || isPublicHolidayIn(date, input.holidays)) warnings.push(warning('sunday', minutes, 0))
   const previous = plannedWorkWindow(input.previousEntries)
   if (previous !== null) {
     const rest = restMinutes(previous.end, window.start)

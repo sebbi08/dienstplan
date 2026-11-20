@@ -103,7 +103,10 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
     {
       // The Leitung sees it read-only; only the Träger changes it.
       key: 'leave-counting', title: de.leaveCounting.title, replaces: [],
-      keywords: ['Urlaub', 'Heiligabend', 'Silvester', '24.12.', '31.12.', 'halber Tag', 'Urlaubstag', 'Weihnachten'],
+      keywords: [
+        'Urlaub', 'Heiligabend', 'Silvester', '24.12.', '31.12.', 'halber Tag', 'Urlaubstag', 'Weihnachten', 'TVöD', 'Tarif',
+        'Tarifvertrag', 'bezahlt frei', 'SuE',
+      ],
     },
     {
       // Leitung and Träger change it.
@@ -155,7 +158,7 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
     {
       // The Leitung sees it read-only; only the Träger changes it.
       key: 'employee-retention', title: de.retention.title, replaces: [],
-      keywords: ['Löschfrist', 'Aufbewahrung', 'Datenschutz', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Kasse'],
+      keywords: ['Löschfrist', 'Aufbewahrung', 'Datenschutz', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Kasse', 'Lohnbüro', 'Steuerbüro', 'Lohnunterlagen', 'Lohnkonto'],
     },
     {
       // One value for all facilities: the Leitung sees it read-only; only the Träger changes it.

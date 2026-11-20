@@ -14,7 +14,7 @@ import { closureCodeId, splitLeave } from './closureBooking'
 import { applyToCells, cellOwner, describeCellAt } from './entries'
 import { groupNames } from './groups'
 import { facilityHolidayRules } from './holidayRules'
-import { getLeaveCounting } from './leaveCounting'
+import { getLeaveCounting, halfLeaveOnEves } from './leaveCounting'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 import { deleteExpiredUnlocks } from './tabletNoLock'
 
@@ -36,11 +36,11 @@ export function fiveDayWeekLeaveDays(dates: IsoDate[], rules: HolidayRules, half
 /** The facility's closures, each with the leave days it uses for staff working Monday to Friday. */
 export function listClosures(db: Db, facilityId: number): ClosureListItemDto[] {
   const rules = facilityHolidayRules(db, facilityId)
-  const { christmasEveHalfLeave } = getLeaveCounting(db, facilityId)
+  const halfOnEves = halfLeaveOnEves(getLeaveCounting(db, facilityId))
   return loadClosures(db, facilityId).map(closure => ({
     ...closure,
     leaveDays: closure.mode === 'vacation'
-      ? fiveDayWeekLeaveDays(dateRange(closure.startDate, closure.endDate), rules, christmasEveHalfLeave)
+      ? fiveDayWeekLeaveDays(dateRange(closure.startDate, closure.endDate), rules, halfOnEves)
       : null,
   }))
 }

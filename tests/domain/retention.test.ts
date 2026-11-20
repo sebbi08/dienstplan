@@ -11,7 +11,21 @@ describe('retentionDueDates', () => {
       time: '2029-01-01',
       assessment: '2030-01-01',
       paidOvertime: '2037-01-01',
+      payroll: '2026-03-16',
     })
+  })
+
+  it('deletes Lohn und Steuer the day after leaving while a Lohnbüro keeps the records (the default)', () => {
+    expect(retentionDueDates('2026-12-31', RETENTION_DEFAULTS).payroll).toBe('2027-01-01')
+  })
+
+  it('keeps Lohn und Steuer until 31.12. of the leaving year + 6 years without a Lohnbüro (§ 41 EStG, § 147 AO)', () => {
+    const own = { ...RETENTION_DEFAULTS, payrollOffice: false }
+    expect(retentionDueDates('2026-03-15', own).payroll).toBe('2033-01-01')
+    expect(retentionDueDates('2026-12-31', own).payroll).toBe('2033-01-01')
+    expect(retentionDueDates('2026-01-01', own).payroll).toBe('2033-01-01')
+    // The other periods do not move.
+    expect(retentionDueDates('2026-03-15', own).immediate).toBe('2026-03-16')
   })
 
   it('does not depend on the day within the year', () => {
@@ -51,7 +65,12 @@ describe('checkRetentionSettings', () => {
   it('has the agreed defaults', () => {
     expect(RETENTION_DEFAULTS).toEqual({
       timeYears: 2, assessmentYears: 3, paidOvertimeYears: 10, pensionYears: 30, cashYears: 10, bemYears: 3, maternityYears: 2, employeeDelete: 'managers',
+      payrollOffice: true,
     })
+  })
+
+  it('takes „Lohnunterlagen bewahrt ein Lohnbüro auf“ as a yes or no', () => {
+    expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, payrollOffice: false }).payrollOffice).toBe(false)
   })
 
   it('accepts valid settings and returns only the known fields', () => {
@@ -80,6 +99,8 @@ describe('checkRetentionSettings', () => {
     ['NaN', { ...RETENTION_DEFAULTS, pensionYears: Number.NaN }],
     ['missing field', { timeYears: 2 }],
     ['unknown delete mode', { ...RETENTION_DEFAULTS, employeeDelete: 'everyone' }],
+    ['payroll office as text', { ...RETENTION_DEFAULTS, payrollOffice: 'ja' }],
+    ['payroll office missing', { ...RETENTION_DEFAULTS, payrollOffice: undefined }],
   ]
   it.each(invalid)('rejects %s with retention_settings_invalid', (_name, input) => {
     expect(() => checkRetentionSettings(input)).toThrow(RetentionSettingsError)

@@ -175,8 +175,9 @@ describe('the calendar sends the rules it was computed with', () => {
     const bea = addEmployee(db, 'Bea', { facilityId: berlin })
     const beaUser = addUser(db, 'bea', 'observer', bea)
     const traeger = addUser(db, 'traeger', 'provider')
-    expect(getYearCalendar(db, berlin, 2027).holidays).toEqual({ state: 'BE', assumptionDay: true })
-    expect(getYearCalendar(db, 1, 2027).holidays).toEqual({ state: 'BW', assumptionDay: true })
+    // With the paid free 24/31.12. of the TVöD SuE (the default).
+    expect(getYearCalendar(db, berlin, 2027).holidays).toEqual({ state: 'BE', assumptionDay: true, paidEves: true })
+    expect(getYearCalendar(db, 1, 2027).holidays).toEqual({ state: 'BW', assumptionDay: true, paidEves: true })
     expect(getStaffYearCalendar(db, berlin, 2027, bea).holidays.state).toBe('BE')
     // "Mein Kalender" follows the home facility, whichever facility a Träger has active.
     expect(getMyYearCalendar(db, beaUser, 2027).holidays.state).toBe('BE')

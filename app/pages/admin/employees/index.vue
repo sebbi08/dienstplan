@@ -4,6 +4,7 @@ import { isValidIsoDate, parseIsoDate, todayIso } from '#shared/domain/dates'
 import { mayDeleteEmployeeByHand, type RetentionSettings } from '#shared/domain/retention'
 import { statutoryMinimumLeave } from '#shared/domain/statutoryLeave'
 import { MONDAY_TO_FRIDAY, workdayCount } from '#shared/domain/targets'
+import { tvoedLeaveDays } from '#shared/domain/tvoed'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import type {
   BalanceDto, EmployeeDetailDto, EmployeeListExtrasDto, EmployeeListItemDto, LeaveAccountDto, RightsExceptionsDto, UserDto,
@@ -12,7 +13,7 @@ import { de } from '~/locales/de'
 import { parseBirthday } from '~/utils/birthday'
 import { birthYearOnlyUpdate } from '~/utils/employeeForms'
 import { balanceClass } from '~/utils/colors'
-import { forfeitText, levelText, levelToTake, levelTone, requirementBadge, type ExtraTone } from '~/utils/employeeExtras'
+import { forfeitText, levelText, levelToTake, levelTone, probationText, requirementBadge, type ExtraTone } from '~/utils/employeeExtras'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { splitLeavers } from '~/utils/leavers'
 import { archiveRetentionText } from '~/utils/retentionText'
@@ -100,6 +101,12 @@ const statutoryLeaveHint = computed(() => {
   const year = parseIsoDate(form.validFrom).year
   const leave = statutoryMinimumLeave({ workdaysPerWeek: workdayCount(form.workdays), year, employedFrom: form.validFrom })
   return de.employees.statutoryLeave(formatNumber(leave.perYear), year, leave.inYear === leave.perYear ? null : formatNumber(leave.inYear))
+})
+
+/** The TVöD leave of a full year (30, from 2027 on 31 days per 5-day week) for the typed working days: placeholder and hint. */
+const tvoedLeave = computed(() => {
+  const year = isValidIsoDate(form.validFrom) ? parseIsoDate(form.validFrom).year : today.year
+  return { year, days: tvoedLeaveDays(year, form.workdays === 0 ? 5 : workdayCount(form.workdays)) }
 })
 
 /**
@@ -292,6 +299,10 @@ const td = 'px-3 py-2'
               />
             </template>
             <span v-else class="text-gray-400">–</span>
+            <UBadge
+              v-if="probationText(extrasOf.get(employee.id))" size="sm" variant="soft" color="info" class="ml-2"
+              :label="probationText(extrasOf.get(employee.id))!"
+            />
           </td>
           <td :class="td">
             <NuxtLink :to="recordsLink(employee)" class="flex flex-wrap gap-1 hover:opacity-80">
@@ -359,6 +370,9 @@ const td = 'px-3 py-2'
             :label="de.employees.takeLevel" :aria-label="de.employees.takeLevelLabel(employee.name, levelToTake(extrasOf.get(employee.id)!.level!)!)"
             @click="takeLevel(employee, levelToTake(extrasOf.get(employee.id)!.level!)!)"
           />
+        </div>
+        <div v-if="seesLevel && probationText(extrasOf.get(employee.id))" class="mt-0.5">
+          <UBadge size="sm" variant="soft" color="info" :label="probationText(extrasOf.get(employee.id))!" />
         </div>
         <NuxtLink
           v-if="extrasOf.get(employee.id)" :to="recordsLink(employee)" class="mt-1 flex flex-wrap items-center gap-1"
@@ -466,7 +480,7 @@ const td = 'px-3 py-2'
             <legend :class="groupTitle">{{ de.employees.groupCarryOver }}</legend>
             <div class="grid gap-3 sm:grid-cols-3">
               <UFormField :label="de.employees.vacationDays">
-                <UInput v-model.number="form.vacationDays" type="number" step="0.5" min="0" max="100" placeholder="30" class="w-full" />
+                <UInput v-model.number="form.vacationDays" type="number" step="0.5" min="0" max="100" :placeholder="String(tvoedLeave.days)" class="w-full" />
               </UFormField>
               <UFormField :label="de.employees.carriedOverDays">
                 <UInput v-model.number="form.carriedOverDays" type="number" step="0.5" min="0" max="100" placeholder="0" class="w-full" />
@@ -476,6 +490,7 @@ const td = 'px-3 py-2'
               </UFormField>
             </div>
             <p v-if="statutoryLeaveHint" class="text-sm text-gray-700">{{ statutoryLeaveHint }}</p>
+            <p class="text-sm text-gray-700">{{ de.employees.tvoedLeave(formatNumber(tvoedLeave.days), tvoedLeave.year) }}</p>
             <EmployeesClosurePreview :name="form.name" :input="closurePreviewInput" />
             <p :class="hint">{{ de.employees.carryOverHint }}</p>
           </fieldset>

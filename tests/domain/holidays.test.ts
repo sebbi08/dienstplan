@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BW_RULES, easterSunday, holidayIn, holidaysOf, isHolidayIn,
+  BW_RULES, easterSunday, holidayIn, holidaysOf, isHolidayIn, isPublicHolidayIn, publicHolidayRules,
   type HolidayKey, type HolidayRules,
 } from '../../shared/domain/holidays'
 import { GERMAN_STATES, type GermanState } from '../../shared/domain/states'
@@ -140,5 +140,27 @@ describe('holidays', () => {
       expect(holidayIn(date, rulesOf('SN'))).toBe('repentance_day')
       expect(holidayIn(date, rulesOf('BW'))).toBeNull()
     }
+  })
+})
+
+describe('paid free 24 and 31 December (TVöD § 6 Abs. 3)', () => {
+  it('adds both days as free days only with paidEves', () => {
+    expect(holidayIn('2026-12-24', BW_RULES)).toBeNull()
+    expect(holidayIn('2026-12-31', BW_RULES)).toBeNull()
+    const paid: HolidayRules = { ...BW_RULES, paidEves: true }
+    expect(holidayIn('2026-12-24', paid)).toBe('christmas_eve')
+    expect(holidayIn('2026-12-31', paid)).toBe('new_years_eve')
+    expect(holidaysOf(paid, 2026).size).toBe(14)
+    // The cache keeps both variants apart.
+    expect(holidaysOf(BW_RULES, 2026).size).toBe(12)
+    expect(holidayIn('2026-12-24', { ...BW_RULES, paidEves: false })).toBeNull()
+  })
+
+  it('are no public holidays: isPublicHolidayIn and publicHolidayRules leave them out', () => {
+    const paid: HolidayRules = { state: 'NI', assumptionDay: true, paidEves: true }
+    expect(isHolidayIn('2026-12-24', paid)).toBe(true)
+    expect(isPublicHolidayIn('2026-12-24', paid)).toBe(false)
+    expect(isPublicHolidayIn('2026-12-25', paid)).toBe(true)
+    expect(publicHolidayRules(paid)).toEqual({ state: 'NI', assumptionDay: true })
   })
 })

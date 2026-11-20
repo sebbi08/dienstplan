@@ -1,4 +1,4 @@
-import { isPlausibleTrainingUntil, levelStart, seniority } from '#shared/domain/tvoed'
+import { isLegacyPayGroup, isPlausibleTrainingUntil, levelStart, seniority } from '#shared/domain/tvoed'
 import type { IsoDate } from '#shared/domain/types'
 import type { EmployeeContractDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -25,17 +25,24 @@ export function askRecognitionYear(savedTrainingUntil: string | null, trainingUn
   return trainingUntil !== null && trainingUntil !== savedTrainingUntil && isPlausibleTrainingUntil(trainingUntil, today)
 }
 
+/** The pay group as shown: an old one no longer in the table as „S 10 (nicht mehr in der Tabelle)“. */
+export function payGroupLabel(group: string): string {
+  return isLegacyPayGroup(group) ? de.contract.payGroupLegacy(group) : group
+}
+
 /**
- * One line such as "Pers.-Nr. 1234 · Erzieher/in · S 8a, Stufe 3 · seit 01.03.2019 (7 J. 7 Mon.) · befristet bis
- * 31.07.2027"; empty when nothing is entered.
+ * One line such as "Pers.-Nr. 1234 · Erzieher/in · S 8a, Stufe 3 · seit 01.03.2019 (7 J. 7 Mon.) · Probezeit bis
+ * 31.08.2019 · befristet bis 31.07.2027"; empty when nothing is entered.
  */
 export function contractSummary(contract: EmployeeContractDto, today: string): string {
   const job = contract.jobKey === 'other' ? contract.jobOther : contract.jobKey ? de.contract.jobs[contract.jobKey] : null
-  const pay = [contract.payGroup, contract.payLevel !== null ? de.contract.level(contract.payLevel) : null].filter(Boolean).join(', ')
+  const group = contract.payGroup ? payGroupLabel(contract.payGroup) : null
+  const pay = [group, contract.payLevel !== null ? de.contract.level(contract.payLevel) : null].filter(Boolean).join(', ')
   const since = contract.employedSince
     ? de.contract.since(formatDate(contract.employedSince), seniority(contract.employedSince, today))
     : null
   const number = contract.personnelNumber ? de.contract.personnelNumberShort(contract.personnelNumber) : null
   const fixedTerm = contract.fixedTermUntil ? de.contract.fixedTermShort(formatDate(contract.fixedTermUntil)) : null
-  return [number, job, pay, since, levelYearsNote(contract), fixedTerm].filter(Boolean).join(' · ')
+  const probation = contract.probationUntil ? de.contract.probationShort(formatDate(contract.probationUntil)) : null
+  return [number, job, pay, since, levelYearsNote(contract), probation, fixedTerm].filter(Boolean).join(' · ')
 }

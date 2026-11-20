@@ -18,7 +18,16 @@ export interface RetentionSettings {
   /** Mutterschutz records (MuSchG): whole years after the case ended (§ 27 Abs. 5 MuSchG: kept 2 years). */
   maternityYears: number
   employeeDelete: EmployeeDeleteMode
+  /**
+   * „Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“: yes (default) = „Lohn und Steuer“ of someone who left may be
+   * deleted the day after leaving, like the other personal data; no = the facility keeps them itself, PAYROLL_YEARS
+   * after the end of the leaving year (§ 41 EStG Lohnkonto, § 147 AO).
+   */
+  payrollOffice: boolean
 }
+
+/** Without a Lohnbüro: „Lohn und Steuer“ are kept 6 years after the end of the leaving year (§ 41 EStG, § 147 AO). */
+export const PAYROLL_YEARS = 6
 
 export const RETENTION_DEFAULTS: RetentionSettings = {
   timeYears: 2,
@@ -29,6 +38,7 @@ export const RETENTION_DEFAULTS: RetentionSettings = {
   bemYears: 3,
   maternityYears: 2,
   employeeDelete: 'managers',
+  payrollOffice: true,
 }
 
 export const RETENTION_YEARS_RANGE = { min: 1, max: 40 } as const
@@ -47,14 +57,20 @@ function firstJanuaryAfter(date: IsoDate, years: number): IsoDate {
   return toIsoDate(parseIsoDate(date).year + years + 1, 1, 1)
 }
 
+/**
+ * The first day each category of someone who left on `leftOn` may be deleted. `payroll` („Lohn und Steuer“): with a
+ * Lohnbüro the day after leaving (with the personal data), without one 1 January after the leaving year + 6 years.
+ */
 export function retentionDueDates(leftOn: IsoDate, settings: RetentionSettings): {
-  immediate: IsoDate; time: IsoDate; assessment: IsoDate; paidOvertime: IsoDate
+  immediate: IsoDate; time: IsoDate; assessment: IsoDate; paidOvertime: IsoDate; payroll: IsoDate
 } {
+  const immediate = addDays(leftOn, 1)
   return {
-    immediate: addDays(leftOn, 1),
+    immediate,
     time: firstJanuaryAfter(leftOn, settings.timeYears),
     assessment: firstJanuaryAfter(leftOn, settings.assessmentYears),
     paidOvertime: firstJanuaryAfter(leftOn, settings.paidOvertimeYears),
+    payroll: settings.payrollOffice ? immediate : firstJanuaryAfter(leftOn, PAYROLL_YEARS),
   }
 }
 
@@ -86,6 +102,7 @@ export function checkRetentionSettings(input: unknown): RetentionSettings {
   const { min, max } = RETENTION_YEARS_RANGE
   const mode = raw.employeeDelete
   if (!EMPLOYEE_DELETE_MODES.includes(mode as EmployeeDeleteMode)) throw new RetentionSettingsError()
+  if (typeof raw.payrollOffice !== 'boolean') throw new RetentionSettingsError()
   return {
     timeYears: years(raw.timeYears, min, max),
     assessmentYears: years(raw.assessmentYears, min, max),
@@ -95,5 +112,6 @@ export function checkRetentionSettings(input: unknown): RetentionSettings {
     bemYears: years(raw.bemYears, min, max),
     maternityYears: years(raw.maternityYears, min, max),
     employeeDelete: mode as EmployeeDeleteMode,
+    payrollOffice: raw.payrollOffice,
   }
 }

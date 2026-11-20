@@ -139,9 +139,11 @@ function removeEmployee(tx: Db, employeeId: number, before: Set<string>): void {
  * changed; run again it changes nothing. The employee row itself goes last (deleteEmployeeRow). „BEM-Unterlagen“ (`bem`)
  * count from the end of each process rather than from leaving (server/services/bem.ts, also for employees still there);
  * its helper here deletes all of them, as „Endgültig löschen“ does. „Mutterschutz-Unterlagen“ (`maternity`) the same from
- * the end of each case (server/services/maternity.ts).
+ * the end of each case (server/services/maternity.ts). „Lohn und Steuer“ (`payroll`) is due with the personal data while a
+ * Lohnbüro keeps the payroll records (the facility's retention setting, the default; the overview then lists and deletes
+ * it as part of `immediate`), otherwise 6 years after the end of the leaving year (retentionDueDates).
  */
-export const RETENTION_CATEGORIES = ['immediate', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
+export const RETENTION_CATEGORIES = ['immediate', 'payroll', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
 
 /**
@@ -174,8 +176,8 @@ const IMMEDIATE_FIELDS_CLEARED = {
   // The personnel file (spec Personalakte §7): personal and sensitive fields, „befristet bis“.
   birthYear: null, street: null, postalCode: null, city: null, phone: null, email: null, nationality: null, disability: false,
   disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null,
-  // „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als Stufe 1“ with the contract data.
-  trainingUntil: null, recognitionYearCounts: false,
+  // „Probezeit bis“, „Ausbildung/Studium hier bis“ and „Anerkennungsjahr zählt als Stufe 1“ with the contract data.
+  probationUntil: null, trainingUntil: null, recognitionYearCounts: false,
   // „alleinerziehend“ with the children (IMMEDIATE_ROWS).
   singleParent: false,
 }
@@ -188,11 +190,10 @@ const immediateFieldsSet = (employeeId: number) => and(eq(employees.id, employee
   isNotNull(employees.birthYear), isNotNull(employees.street), isNotNull(employees.postalCode), isNotNull(employees.city),
   isNotNull(employees.phone), isNotNull(employees.email), isNotNull(employees.nationality), ne(employees.disability, false),
   isNotNull(employees.disabilityDegree), ne(employees.disabilityEqual, false), isNotNull(employees.disabilityUntil),
-  isNotNull(employees.fixedTermUntil), isNotNull(employees.trainingUntil), ne(employees.recognitionYearCounts, false),
-  ne(employees.singleParent, false),
+  isNotNull(employees.fixedTermUntil), isNotNull(employees.probationUntil), isNotNull(employees.trainingUntil),
+  ne(employees.recognitionYearCounts, false), ne(employees.singleParent, false),
 ))
 const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
-  { table: employeePayroll, column: employeePayroll.employeeId },
   { table: employeeEmergencyContacts, column: employeeEmergencyContacts.employeeId },
   // The children (Kinderkrankentage, Pflegeversicherung): personal data; „Kind krank“ entries only lose the link.
   { table: employeeChildren, column: employeeChildren.employeeId },
@@ -232,8 +233,8 @@ const specialLeaveReasonsOf = (employeeId: number) => and(
 
 /**
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields, the personnel file's personal and
- * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), „Lohn und Steuer“,
- * the children with „alleinerziehend“, the reasons of Sonderurlaub (the entries stay), emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
+ * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), the children with
+ * „alleinerziehend“, the reasons of Sonderurlaub (the entries stay), emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
  * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
@@ -251,6 +252,14 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
     changed += tx.delete(users).where(eq(users.id, account.id)).run().changes
   }
   return changed
+}
+
+/** „Lohn und Steuer“ of the personnel file (Steuer-ID, Steuerklasse, SV-Nummer, Krankenkasse, Bankverbindung, Konfession). */
+const PAYROLL_ROWS: readonly EmployeeRows[] = [{ table: employeePayroll, column: employeePayroll.employeeId }]
+
+/** „Lohn und Steuer“: the employee's payroll row. */
+export function deletePayrollData(tx: Db, employeeId: number): number {
+  return deleteRows(tx, employeeId, PAYROLL_ROWS)
 }
 
 /** „Sonstige Überstunden-/Zeitdaten“ (deleteTimeData); the release snapshots and the warning acks come on top. */
@@ -372,6 +381,7 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
     immediate: db.select({ id: employees.id }).from(employees).where(immediateFieldsSet(employeeId)).get() !== undefined
       || anyRows(db, employeeId, [...IMMEDIATE_ROWS, ...IMMEDIATE_CLEARED, ACCOUNT])
       || db.select({ id: entries.id }).from(entries).where(specialLeaveReasonsOf(employeeId)).limit(1).get() !== undefined,
+    payroll: anyRows(db, employeeId, PAYROLL_ROWS),
     time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
     assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
     bem: anyRows(db, employeeId, BEM_ROWS),
@@ -381,15 +391,17 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
 }
 
 const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) => number> = {
-  immediate: deleteImmediateData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData, maternity: deleteMaternityData,
-  paidOvertime: deletePaidOvertimeData,
+  immediate: deleteImmediateData, payroll: deletePayrollData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData,
+  maternity: deleteMaternityData, paidOvertime: deletePaidOvertimeData,
 }
 
 /** Runs the given categories in their order; answers the changed rows per category (0 for those not run). */
 export function deleteCategories(
   tx: Db, employeeId: number, categories: readonly RetentionCategory[],
 ): Record<RetentionCategory, number> {
-  const counts: Record<RetentionCategory, number> = { immediate: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0 }
+  const counts: Record<RetentionCategory, number> = {
+    immediate: 0, payroll: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0,
+  }
   for (const category of RETENTION_CATEGORIES) {
     if (categories.includes(category)) counts[category] = DELETE_CATEGORY[category](tx, employeeId)
   }

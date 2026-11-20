@@ -3,7 +3,7 @@ import type { IsoDate } from '#shared/domain/types'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 
-const CATEGORIES = ['immediate', 'time', 'assessment', 'paidOvertime'] as const
+const CATEGORIES = ['immediate', 'payroll', 'time', 'assessment', 'paidOvertime'] as const
 
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('de-DE') + text.slice(1)
 
@@ -19,11 +19,13 @@ function listOf(labels: string[]): string {
  * the day after leaving); a category due today or earlier may be deleted already and is named before (the Träger
  * deletes on the page „Löschfristen“, nothing goes by itself). Without data of the 10-year category (`hasPaidOut` false:
  * no paid-out adjustments, no contract or salary documents) that period is left out: the entry goes with the others.
+ * Without a Lohnbüro („Lohnunterlagen bewahrt ein Lohnbüro auf“ off) „Lohn und Steuer“ is named with its own date.
  */
 export function archiveRetentionText(leftOn: IsoDate, settings: RetentionSettings, today: IsoDate, hasPaidOut = true): string {
   const t = de.retention.archive
   const due = retentionDueDates(leftOn, settings)
-  const dated = CATEGORIES.filter(category => hasPaidOut || category !== 'paidOvertime')
+  // „Lohn und Steuer“ is named on its own only without a Lohnbüro; with one it goes with the personal data.
+  const dated = CATEGORIES.filter(category => (hasPaidOut || category !== 'paidOvertime') && (!settings.payrollOffice || category !== 'payroll'))
     .map(category => ({ label: t.labels[category], date: due[category] }))
     .sort((a, b) => a.date.localeCompare(b.date))
   const done = dated.filter(entry => entry.date <= today)

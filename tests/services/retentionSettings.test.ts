@@ -7,7 +7,7 @@ import { getRetentionSettings, setRetentionSettings } from '../../server/service
 import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import { addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
-const valid = { timeYears: 4, assessmentYears: 5, paidOvertimeYears: 12, pensionYears: 35, cashYears: 8, bemYears: 4, maternityYears: 3, employeeDelete: 'provider' }
+const valid = { timeYears: 4, assessmentYears: 5, paidOvertimeYears: 12, pensionYears: 35, cashYears: 8, bemYears: 4, maternityYears: 3, employeeDelete: 'provider', payrollOffice: false }
 
 describe('retention settings', () => {
   let db: Db
@@ -39,7 +39,7 @@ describe('retention settings', () => {
     const invalid = [
       { ...valid, timeYears: 0 }, { ...valid, assessmentYears: 41 }, { ...valid, paidOvertimeYears: 2.5 },
       { ...valid, pensionYears: '30' }, { ...valid, cashYears: 31 }, { ...valid, employeeDelete: 'everyone' },
-      { ...valid, timeYears: undefined }, { ...valid, bemYears: 0 }, { ...valid, bemYears: '3' }, null, [], 'x',
+      { ...valid, timeYears: undefined }, { ...valid, bemYears: 0 }, { ...valid, bemYears: '3' }, { ...valid, payrollOffice: 'nein' }, null, [], 'x',
     ]
     for (const input of invalid) {
       expect(errorCode(() => setRetentionSettings(db, 1, input)), JSON.stringify(input)).toBe('retention_settings_invalid')
@@ -58,9 +58,9 @@ describe('retention settings', () => {
 
   it('keeps the stored BEM years when a body from before the BEM leaves them out', () => {
     setRetentionSettings(db, 1, valid)
-    const { bemYears: _left, maternityYears: _also, ...old } = valid
+    const { bemYears: _left, maternityYears: _also, payrollOffice: _payroll, ...old } = valid
     expect(setRetentionSettings(db, 1, { ...old, timeYears: 6 })).toEqual({ ...valid, timeYears: 6 })
-    expect(getRetentionSettings(db, 1)).toMatchObject({ timeYears: 6, bemYears: 4, maternityYears: 3 })
+    expect(getRetentionSettings(db, 1)).toMatchObject({ timeYears: 6, bemYears: 4, maternityYears: 3, payrollOffice: false })
   })
 
   it('answers 404 for a facility that does not exist', () => {

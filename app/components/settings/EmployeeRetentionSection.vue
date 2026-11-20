@@ -6,7 +6,8 @@ import { de } from '~/locales/de'
 
 /**
  * Einstellungen → Personal → Löschfristen (per facility, „Einstellungen für“ applies): how long the data of left
- * employees is kept, who may delete a left employee by hand, and how long an archived cash box is kept. The Träger
+ * employees is kept (Lohn und Steuer by „Lohnunterlagen bewahrt ein Lohnbüro auf“), who may delete a left employee by
+ * hand, and how long an archived cash box is kept. The Träger
  * changes them, the Leitung sees them read-only (the server checks as well).
  */
 const t = de.retention
@@ -39,6 +40,9 @@ const save = () => dirty.value && run(() => $fetch<RetentionSettings>('/api/rete
           />
           <span class="text-sm text-gray-600">{{ t.years }}</span>
         </div>
+      </UFormField>
+      <UFormField :help="t.payrollOfficeHelp">
+        <UCheckbox v-model="form.payrollOffice" :label="t.payrollOffice" :disabled="!canEditRetention" />
       </UFormField>
       <UFormField :label="t.employeeDelete" :help="t.employeeDeleteHelp">
         <USelect v-model="form.employeeDelete" :items="modeItems" class="w-56" :disabled="!canEditRetention" />

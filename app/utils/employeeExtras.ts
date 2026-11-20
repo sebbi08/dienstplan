@@ -1,6 +1,6 @@
 import type { EmployeeListExtrasDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { formatDate, formatDateTime } from './format'
+import { formatDate, formatDateTime, formatDayMonth } from './format'
 
 /** Colors of the small badges and texts in the employee list. */
 export type ExtraTone = 'error' | 'warning' | 'neutral'
@@ -16,6 +16,11 @@ export function levelText(level: Level): string {
 export function levelTone(level: Level): ExtraTone {
   if (level.final) return 'neutral'
   return level.state === 'overdue' ? 'error' : level.state === 'soon' ? 'warning' : 'neutral'
+}
+
+/** „in Probezeit bis 28.02.“ while the probation period runs (the server sends the day only then); null otherwise. */
+export function probationText(extras: Pick<EmployeeListExtrasDto, 'probationUntil'> | undefined): string | null {
+  return extras?.probationUntil ? de.employees.probationUntil(formatDayMonth(extras.probationUntil)) : null
 }
 
 /** The level „übernehmen“ enters: only while the step is due or overdue (null otherwise; it is entered by hand then). */

@@ -26,8 +26,10 @@ const IMMEDIATE = [
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
-  'employee_payroll.employee_id', 'employee_children.employee_id',
+  'employee_children.employee_id',
 ]
+/** „Lohn und Steuer“: a category of its own (due with the personal data while a Lohnbüro keeps the payroll records). */
+const PAYROLL = 'employee_payroll.employee_id'
 /** The weekly hours and help-outs too: without them the person is in no month's plan or Stundenkonto any more. */
 const TIME = [
   'employee_hours.employee_id', 'help_outs.employee_id', 'entries.employee_id', 'change_log.employee_id', 'time_records.employee_id', 'time_record_changes.employee_id',
@@ -53,15 +55,16 @@ const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'q
 const PERSONNEL_FIELDS = {
   birthYear: 1985, street: 'Hauptstraße 1', postalCode: '80331', city: 'München', phone: '089 123456', email: 'tina@example.de',
   nationality: 'deutsch', disability: true, disabilityDegree: 50, disabilityEqual: true, disabilityUntil: '2028-12-31',
-  fixedTermUntil: '2027-07-31', trainingUntil: '2024-07-31', recognitionYearCounts: true, singleParent: true,
+  fixedTermUntil: '2027-07-31', probationUntil: '2026-02-28', trainingUntil: '2024-07-31', recognitionYearCounts: true, singleParent: true,
 }
 const PERSONNEL_CLEARED = {
   birthYear: null, street: null, postalCode: null, city: null, phone: null, email: null, nationality: null, disability: false,
-  disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null, trainingUntil: null, recognitionYearCounts: false,
+  disabilityDegree: null, disabilityEqual: false, disabilityUntil: null, fixedTermUntil: null, probationUntil: null, trainingUntil: null,
+  recognitionYearCounts: false,
   singleParent: false,
 }
 
-const ZERO = { immediate: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0 }
+const ZERO = { immediate: 0, payroll: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0 }
 
 let db: Db
 let leitung: SessionUser
@@ -132,7 +135,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, PAYROLL, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -166,6 +169,10 @@ describe('the deletion categories of a left employee', () => {
     expectBenUntouched()
     // Run again it changes nothing.
     expect(remove(['immediate'])).toEqual(ZERO)
+    // „Lohn und Steuer“ is a category of its own (its period depends on the Lohnbüro setting).
+    expect(nonZero([PAYROLL])).toEqual([PAYROLL])
+    expect(remove(['payroll'])).toEqual({ ...ZERO, payroll: 1 })
+    expect(nonZero([PAYROLL])).toEqual([])
 
     // The time data; the paid-out adjustments stay.
     const time = remove(['time'])
@@ -225,7 +232,7 @@ describe('the deletion categories of a left employee', () => {
     expect(Object.entries(refs(tina)).filter(([, n]) => n > 0)).toEqual([])
     expect(fkCheck()).toEqual([])
     expectBenUntouched()
-    expect(remove(['immediate', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'])).toEqual(ZERO)
+    expect(remove(['immediate', 'payroll', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'])).toEqual(ZERO)
   })
 
   it('deletes a linked Leitung account and only unlinks a Träger account', () => {
@@ -246,7 +253,7 @@ describe('the deletion categories of a left employee', () => {
   it('puts the personnel file into the categories: fields and payroll immediate, documents by folder', () => {
     const hanna = addEmployee(db, 'Hanna Hort', { leftOn: LEFT_ON })
     // (Her weekly hours are time data; nothing else is there yet.)
-    const NONE = { immediate: false, time: true, assessment: false, bem: false, maternity: false, paidOvertime: false }
+    const NONE = { immediate: false, payroll: false, time: true, assessment: false, bem: false, maternity: false, paidOvertime: false }
     expect(categoryHasData(db, hanna)).toEqual(NONE)
     // Each field of the employee row on its own counts as immediate data, and the immediate helper clears it.
     for (const [field, value] of Object.entries(PERSONNEL_FIELDS)) {
@@ -256,10 +263,11 @@ describe('the deletion categories of a left employee', () => {
       expect(row(hanna), field).toMatchObject(PERSONNEL_CLEARED)
       expect(categoryHasData(db, hanna), field).toEqual(NONE)
     }
-    // The payroll row, even an empty one.
+    // The payroll row, even an empty one: „Lohn und Steuer“, a category of its own.
     db.insert(employeePayroll).values({ employeeId: hanna }).run()
-    expect(categoryHasData(db, hanna)).toEqual({ ...NONE, immediate: true })
-    expect(remove(['immediate'], hanna).immediate).toBe(1)
+    expect(categoryHasData(db, hanna)).toEqual({ ...NONE, payroll: true })
+    expect(remove(['immediate'], hanna)).toEqual(ZERO)
+    expect(remove(['payroll'], hanna).payroll).toBe(1)
     expect(db.select().from(employeePayroll).where(eq(employeePayroll.employeeId, hanna)).all()).toEqual([])
     expect(categoryHasData(db, hanna)).toEqual(NONE)
     // Documents: application, qualifications, correspondence and measures with the assessments, contract and salary

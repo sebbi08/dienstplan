@@ -7,6 +7,8 @@ export type HolidayKey =
   | 'ascension_day' | 'whit_monday' | 'corpus_christi' | 'german_unity_day'
   | 'all_saints_day' | 'christmas_day' | 'boxing_day'
   | 'womens_day' | 'assumption_day' | 'childrens_day' | 'reformation_day' | 'repentance_day'
+  // No public holidays: 24 and 31 December paid free for the staff (HolidayRules.paidEves).
+  | 'christmas_eve' | 'new_years_eve'
 
 /** Anonymous Gregorian algorithm (Meeus/Jones/Butcher). */
 export function easterSunday(year: number): IsoDate {
@@ -31,6 +33,18 @@ export interface HolidayRules {
   state: GermanState
   /** Mariä Himmelfahrt is a public holiday in Bavaria only where the municipality keeps it; effective for BY only. */
   assumptionDay: boolean
+  /**
+   * 24 and 31 December are paid free days for the staff (TVöD § 6 Abs. 3, or the facility's own choice „bezahlt frei“):
+   * they count like a public holiday for the target hours, leave and the plan of the staff the facility is home to.
+   * They are no public holidays: the legal checks (MuSchG, JArbSchG) and the children's care days use
+   * publicHolidayRules / isPublicHolidayIn. Missing = false.
+   */
+  paidEves?: boolean
+}
+
+/** The rules without the paid free 24 and 31 December: only the public holidays of the state. */
+export function publicHolidayRules(rules: HolidayRules): HolidayRules {
+  return { state: rules.state, assumptionDay: rules.assumptionDay }
 }
 
 export const BW_RULES: HolidayRules = { state: 'BW', assumptionDay: true }
@@ -53,7 +67,8 @@ const cache = new Map<string, Map<IsoDate, HolidayKey>>()
 export function holidaysOf(rules: HolidayRules, year: number): ReadonlyMap<IsoDate, HolidayKey> {
   const { state } = rules
   const assumptionDay = state === 'BY' && rules.assumptionDay
-  const cacheKey = `${state}:${assumptionDay}:${year}`
+  const paidEves = rules.paidEves === true
+  const cacheKey = `${state}:${assumptionDay}:${paidEves}:${year}`
   const cached = cache.get(cacheKey)
   if (cached) return cached
   const easter = easterSunday(year)
@@ -76,6 +91,10 @@ export function holidaysOf(rules: HolidayRules, year: number): ReadonlyMap<IsoDa
   if (REFORMATION_DAY.includes(state)) holidays.set(toIsoDate(year, 10, 31), 'reformation_day')
   if (ALL_SAINTS_DAY.includes(state)) holidays.set(toIsoDate(year, 11, 1), 'all_saints_day')
   if (state === 'SN') holidays.set(repentanceDay(year), 'repentance_day')
+  if (paidEves) {
+    holidays.set(toIsoDate(year, 12, 24), 'christmas_eve')
+    holidays.set(toIsoDate(year, 12, 31), 'new_years_eve')
+  }
   cache.set(cacheKey, holidays)
   return holidays
 }
@@ -86,4 +105,9 @@ export function holidayIn(iso: IsoDate, rules: HolidayRules): HolidayKey | null 
 
 export function isHolidayIn(iso: IsoDate, rules: HolidayRules): boolean {
   return holidayIn(iso, rules) !== null
+}
+
+/** A public holiday of the state (never the paid free 24 or 31 December, see HolidayRules.paidEves). */
+export function isPublicHolidayIn(iso: IsoDate, rules: HolidayRules): boolean {
+  return isHolidayIn(iso, publicHolidayRules(rules))
 }

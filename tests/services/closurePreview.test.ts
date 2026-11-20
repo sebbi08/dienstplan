@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees } from '../../server/db/schema'
+import { employees, facilities } from '../../server/db/schema'
 import { previewClosuresForEmployee, previewClosuresForNew, type ClosurePreviewInput } from '../../server/services/closurePreview'
 import { createClosure } from '../../server/services/closures'
 import { createEmployee, setEntitlement } from '../../server/services/employees'
@@ -22,6 +22,8 @@ describe('closure leave preview', () => {
   beforeEach(() => {
     db = createTestDb()
     admin = addUser(db, 'leitung', 'admin')
+    // These cases count 24 and 31 December as leave days (the facility does not work under the TVöD SuE).
+    db.update(facilities).set({ tvoedSue: false }).run()
   })
 
   /** What creating the person with the same values books (leave days, closure days without leave) in the year. */
@@ -99,7 +101,7 @@ describe('closure leave preview', () => {
   })
 
   it('counts 24 and 31 December as half days by the facility setting, also under the joiner limit', () => {
-    setLeaveCounting(db, 1, { christmasEveHalfLeave: true })
+    setLeaveCounting(db, 1, { tvoedSue: false, eveLeave: 'half' }, admin)
     createClosure(db, admin, 1, christmas)
     expect(previewClosuresForNew(db, 1, fullTime)[0]).toMatchObject({ facilityDays: 7, personDays: 7 })
     // 3.5 days: 21–23 December and half of the 24th; the rest without leave.

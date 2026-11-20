@@ -753,6 +753,8 @@ Druck-Knöpfe.
 - Die Hinweise oben (Pflichttermine, Stufenaufstieg) sind in einer Zeile **„‹n› Hinweise“** zusammengefasst; ein Tipp
   darauf klappt sie auf. Ob die Leitung die Vertragsangaben sieht, stellt der Träger unter *Mehr → Rechte und Rollen*
   ein (Mitarbeiter → „Vertragsangaben ansehen“ bei der Leitung).
+- In der Spalte „Nächste Stufe“ steht bei Personen in der Probezeit zusätzlich **„in Probezeit bis ‹TT.MM.›“** (nur für
+  wer die Vertragsangaben sieht, bis einschließlich zum letzten Tag der Probezeit).
 - **„Mitarbeiter anlegen“** oben öffnet das Formular für eine neue Person.
 - **„Reihenfolge ändern“** blendet die Pfeile zum Verschieben ein; „Fertig“ blendet sie wieder aus.
 - Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht nicht mehr bei den aktiven Mitarbeitern,
@@ -794,10 +796,11 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“ |
+| „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
 | zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald alle anderen Daten der Person gelöscht sind |
@@ -815,6 +818,12 @@ nie gesperrt.
 - Die Fristen stellt der **Träger** je Einrichtung unter *Einstellungen → Personal → Löschfristen* ein (1 bis 40 Jahre;
   „Einstellungen für“ geht auch hier). Die Leitung sieht sie dort nur. Dort stehen auch „Mitarbeiter endgültig
   löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
+- **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** (je Einrichtung, nur der Träger; voreingestellt an): Rechnet
+  ein Lohn- oder Steuerbüro ab und bewahrt es die Lohnunterlagen auf, darf „Lohn und Steuer“ schon am Tag nach dem
+  Ausscheiden gelöscht werden (wie bisher, mit den „Persönlichen Daten“ in einer Zeile). Ohne Haken bleiben diese Angaben
+  6 Jahre nach dem Ende des Austrittsjahres und stehen dann auf der Seite „Löschfristen“ als eigene Zeile
+  „‹Name› – Lohn und Steuer“ zum Löschen bereit. Wird der Haken später gesetzt, gehen schon aufbewahrte Angaben wieder
+  mit den „Persönlichen Daten“.
 - Eine geänderte Frist gilt sofort für die Seite „Löschfristen“. Schon Gelöschtes kommt nicht zurück.
 - Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Persönliche
   Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Zeitdaten dürfen ab … gelöscht werden,
@@ -915,7 +924,7 @@ Voreingestellt gilt:
 |---|---|---|---|---|
 | Geburtsjahr (mit dem Geburtstag das volle Geburtsdatum), Anschrift (Straße, PLZ, Ort), Telefon, E-Mail | Reiter **Stammdaten**, Abschnitt „Persönliche Daten“ | ja | ja | nein |
 | Staatsangehörigkeit, Schwerbehinderung (ja/nein, Grad der Behinderung 20–100, „gleichgestellt“, gültig bis) | Reiter **Stammdaten**, Abschnitt „Staatsangehörigkeit und Schwerbehinderung“ | ja | nein | nein |
-| „befristet bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | wie unter *Rechte und Rollen* eingestellt (Grundeinstellung: nein; „Vertragsangaben ansehen“ = nur lesen, „Vertragsangaben bearbeiten“ = auch ändern) | nein |
+| „befristet bis“, „Probezeit bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | wie unter *Rechte und Rollen* eingestellt (Grundeinstellung: nein; „Vertragsangaben ansehen“ = nur lesen, „Vertragsangaben bearbeiten“ = auch ändern) | nein |
 | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Vertrag & Lohn**, Abschnitt „Lohn und Steuer“ | ja | nein | nein |
 | Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | ja | nein |
 | Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | nein | nein |
@@ -943,11 +952,32 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   Schwerbehinderung“, „Lohn und Steuer“ und je Fach „Dokumente: …“). Die Übersicht der Rechte unter *Benutzer* zeigt,
   wer was voreingestellt darf.
 - **Löschfristen:** Nach dem Ausscheiden gehören Geburtsjahr, Anschrift, Kontakt, Staatsangehörigkeit,
-  Schwerbehinderung, „befristet bis“ und alles aus „Lohn und Steuer“ zu den **„Persönlichen Daten“** (löschbar ab dem
-  Tag nach dem Ausscheiden). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
+  Schwerbehinderung, „befristet bis“, „Probezeit bis“ und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt
+  (voreingestellt) – alles aus „Lohn und Steuer“ zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem
+  Ausscheiden; ohne Lohnbüro bleibt „Lohn und Steuer“ 6 Jahre, siehe *Löschfristen*). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
   mit den **„Beurteilungen“** (3 Jahre), die in den Fächern Vertrag und Gehalt mit den **„ausgezahlten Überstunden“**
   (10 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
   wie immer von Hand durch den Träger unter **Mehr → Löschfristen** (siehe oben).
+
+### Probezeit und Entgeltgruppe
+
+- **„Probezeit bis“** (Reiter **Vertrag & Lohn**, Vertragsangaben; der Träger trägt es ein, sehen darf es, wer die
+  Vertragsangaben sieht): der letzte Tag der Probezeit. Ist das Feld leer und „In der Einrichtung seit“ eingetragen,
+  schlägt die App einen Tag vor – sechs Monate minus einen Tag (01.03. → 31.08.), bei Auszubildenden (Qualifikation
+  „Azubi“) vier Monate minus einen Tag (§ 20 BBiG). Der Vorschlag steht nur im Feld und wird erst mit „Speichern“
+  übernommen; du kannst ihn ändern. Bei bestehenden Personen, deren Probezeit nach dem Vorschlag schon vorbei wäre,
+  bleibt das Feld leer.
+- **Hinweise** (gelb, speichern geht trotzdem): länger als 6 Monate (die kürzere Kündigungsfrist gilt höchstens 6
+  Monate, § 622 Abs. 3 BGB); bei Auszubildenden länger als 4 Monate oder kürzer als 1 Monat (§ 20 BBiG); Ende vor dem
+  Eintritt.
+- **Erinnerung:** 4 Wochen vor dem Ende erscheint im Kasten „Erinnerungen“ (Seite *Kinder*) **„Probezeit von ‹Name›
+  endet am ‹TT.MM.JJJJ›“** mit „zum Vertrag“ – für den Träger und für die Leitung, wenn sie die Vertragsangaben sieht
+  (nicht am Tablet), bis einschließlich zum letzten Tag. Wer vorher ausscheidet, wird nicht erinnert.
+- **Löschen:** „Probezeit bis“ gehört zu den Vertragsangaben und geht mit den „Persönlichen Daten“.
+- **Entgeltgruppe S 10:** Seit dem 01.05.2026 steht S 10 nicht mehr in der Tabelle des TVöD SuE (S 5 und S 6 gibt es
+  ebenfalls nicht). Neu wählen lässt sich S 10 nicht mehr. Ist bei einer Person noch S 10 gespeichert, bleibt der Wert
+  stehen und wird als **„S 10 (nicht mehr in der Tabelle)“** angezeigt; beim Speichern anderer Angaben bleibt er
+  unverändert, bis der Träger eine andere Entgeltgruppe wählt.
 
 ### Gesetzlicher Mindesturlaub (nur ein Hinweis)
 
@@ -968,18 +998,41 @@ erfüllter Wartezeit ab dem 1. Juli. **1/12 je vollem Beschäftigungsmonat** (ge
 15.7.–14.8.) gibt es nur bei Eintritt nach dem 1. Juli, bei Ausscheiden vor Ende der Wartezeit und bei Ausscheiden bis
 zum 30. Juni. Ein Rest von mindestens einem halben Tag wird auf einen ganzen Tag aufgerundet, ein kleinerer bleibt
 stehen (Eintritt 1. August: 8,33 Tage). Das ist **keine Rechtsberatung**; Tarifvertrag oder Arbeitsvertrag geben meist
-mehr (TVöD: 30 Tage).
+mehr (TVöD: 30 Tage bei einer 5-Tage-Woche, **ab 2027 31 Tage** nach der Tarifeinigung vom 06.04.2025).
 
-### Urlaub am 24.12. und 31.12.
+**Vorschlag nach TVöD:** Beim Anlegen steht im Feld „Urlaubstage“ der TVöD-Urlaub als Platzhalter, darunter der Satz
+„Vorschlag nach TVöD für ‹Jahr›: … Tage pro Jahr“; unter „Urlaubsanspruch“ ist das Feld „Tage“ damit vorbelegt (beim
+Wechsel des Jahres wandert der Vorschlag mit, solange du ihn nicht geändert hast). Gerechnet wird mit 30 Tagen (bis
+2026) bzw. 31 Tagen (ab 2027) für 5 Arbeitstage pro Woche, umgerechnet auf die Arbeitstage der Person (§ 26 Abs. 1
+TVöD; ein Rest ab einem halben Tag wird aufgerundet, ein kleinerer fällt weg: 4 Tage → 24 bzw. 25, 3 Tage → 18 bzw.
+19). Das gilt mit und ohne den Schalter „Wir arbeiten nach TVöD SuE“. Gespeicherte Ansprüche ändern sich nicht von
+selbst: Für 2027 trägst du die 31 Tage selbst ein.
 
-Unter **Einstellungen → Dienstplan → „Urlaub an Heiligabend und Silvester“** legt der **Träger je Einrichtung** fest, ob
-ein Urlaubstag am 24.12. oder 31.12. als **ganzer Tag** (voreingestellt, wie bisher) oder als **halber Tag** zählt
-(„Einstellungen für“ wählt die Einrichtung; die Leitung sieht die Einstellung nur). Mit „halber Tag“ zählt so ein Tag
-überall 0,5: im Urlaubskonto (genommen, verplant, frei verfügbar, Übertrag ins nächste Jahr), beim Resturlaub in der
-Mitarbeiterliste, im Reiter „Urlaub & Zeiten“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim Buchen von
-Schließzeiten für neu Eingestellte. Es gilt die Einstellung der **Stammeinrichtung** der Person, für alle Jahre (auch
-rückwirkend). Das Stundenkonto und die Sollstunden ändern sich nicht; in der Urlaubsplanung zählt die Person an dem Tag
-weiter als eine Person im Urlaub.
+### TVöD SuE, Heiligabend und Silvester
+
+Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“** legt der **Träger je Einrichtung** fest
+(„Einstellungen für“ wählt die Einrichtung; die Leitung sieht die Einstellung nur):
+
+- **„Wir arbeiten nach TVöD SuE“** (voreingestellt an, auch für schon bestehende Einrichtungen): Der 24.12. und der
+  31.12. sind **bezahlt frei** (TVöD § 6 Abs. 3). Diese Tage kosten keinen Urlaub und zählen für die Mitarbeiter der
+  Einrichtung wie ein Feiertag: keine Sollstunden (das Stundenkonto ändert sich entsprechend), im Dienstplan als
+  „Heiligabend (bezahlt frei)“ bzw. „Silvester (bezahlt frei)“ markiert, keine Besetzungs-Warnungen, Schließzeiten
+  verbrauchen an diesen Tagen keinen Urlaub, Wochenvorlagen lassen sie aus. Unter „Der 24.12. und der 31.12. zählen als“
+  steht dann fest „bezahlt frei (TVöD § 6 Abs. 3)“. Sonst ändert der Schalter **nichts**: Entgeltgruppe, Stufe und
+  Stufenaufstieg bleiben in beiden Fällen sichtbar und nutzbar (viele arbeiten „in Anlehnung“ an den TVöD).
+- **Ohne den Schalter** wählt die Einrichtung selbst: **ganzer Urlaubstag** (wie früher voreingestellt), **halber
+  Urlaubstag** oder **bezahlt frei** (wirkt wie der Schalter). Mit „halber Urlaubstag“ zählt so ein Tag überall 0,5: im
+  Urlaubskonto (genommen, verplant, frei verfügbar, Übertrag ins nächste Jahr), beim Resturlaub in der
+  Mitarbeiterliste, im Reiter „Urlaub & Zeiten“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim
+  Buchen von Schließzeiten für neu Eingestellte; Stundenkonto und Sollstunden ändern sich dabei nicht, in der
+  Urlaubsplanung zählt die Person an dem Tag weiter als eine Person im Urlaub. Die Wahl bleibt gespeichert, während der
+  Schalter an ist.
+
+Es gilt die Einstellung der **Stammeinrichtung** der Person, für **alle Jahre** (auch rückwirkend – auch Sollstunden
+und Stundenkonto früherer Jahre rechnen dann mit den freien Tagen). Hört „bezahlt frei“ auf (Schalter aus, ganzer oder
+halber Urlaubstag), bucht die App vorhandene Schließzeiten an diesen Tagen nach, wie beim Wechsel des Bundeslands.
+Keine gesetzlichen Feiertage sind die beiden Tage trotzdem: Die Anwesenheit und die Betreuungstage der Kinder, der
+Personalschlüssel-Bericht, Mutterschutz- und Jugendarbeitsschutz-Hinweise rechnen sie weiter als normale Tage.
 
 ### Hinweis auf Resturlaub (Verfall)
 
@@ -1136,6 +1189,9 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
   selbst): „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“
   mit „zum BEM“, solange kein BEM läuft; dazu „BEM-Einladung für ‹Name› noch nicht verschickt“ und „BEM ‹Name›:
   Antwortfrist abgelaufen – Antwort eintragen“, solange ein BEM wartet (Abschnitt 21, „BEM“).
+- **Probezeit** (wer die Vertragsangaben sieht: der Träger, die Leitung mit „Vertragsangaben ansehen“; nicht am
+  Tablet): „Probezeit von ‹Name› endet am ‹TT.MM.JJJJ›“ mit „zum Vertrag“, ab 4 Wochen vor dem letzten Tag der Probezeit
+  bis einschließlich zu diesem Tag (Abschnitt 15, „Probezeit und Entgeltgruppe“).
 
 Ist die aufschließende Person als Bezugserzieher des Kindes eingetragen, steht beim Eintrag **„dein Kind“**. Der
 Name eines Kindes führt zu seiner Akte.

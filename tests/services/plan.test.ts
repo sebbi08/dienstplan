@@ -49,7 +49,8 @@ describe('month plan', () => {
     for (const date of ['2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31']) shift(anna, date)
     const lastWeek = getMonthPlan(db, admin, 1, 2026, 12, today).admin!.weeks.at(-1)!
     expect(lastWeek).toMatchObject({ weekStart: '2026-12-28', weekEnd: '2027-01-03', weekNumber: 53 })
-    expect(lastWeek.totals.find(t => t.employeeId === anna)).toEqual({ employeeId: anna, target: 1872, credit: 1860, delta: -12 })
+    // 31 December is paid free under the TVöD SuE (the default): no target that day, the shift on it is extra time.
+    expect(lastWeek.totals.find(t => t.employeeId === anna)).toEqual({ employeeId: anna, target: 1404, credit: 1860, delta: 456 })
   })
   it('hides drafts from observers', () => {
     expect(errorCode(() => getMonthPlan(db, observer, 1, 2026, 10, today))).toBe('month_not_released')

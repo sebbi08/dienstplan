@@ -9,9 +9,9 @@ import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
-import { JOB_KEYS, PAY_GROUPS } from '../shared/domain/tvoed'
+import { JOB_KEYS } from '../shared/domain/tvoed'
 import { TEMPLATE_INFO_MAX } from '../shared/domain/weekTemplates'
-import { COLOR_KEYS, CONSENT_KEYS, REVIEW_SECTIONS, type ConsentKey, type MeetingKind } from '../shared/types/api'
+import { COLOR_KEYS, CONSENT_KEYS, EVE_LEAVE_OPTIONS, REVIEW_SECTIONS, type ConsentKey, type MeetingKind } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
 export const minutes = z.number().int().min(0).max(1440)
@@ -214,9 +214,12 @@ export const templateChangeSchema = templateSchema.extend({ applyFrom: isoDate.n
 export const contractSchema = z.object({
   personnelNumber: z.string().max(30).nullable(),
   employedSince: isoDate.nullable(), jobKey: z.enum(JOB_KEYS).nullable(), jobOther: z.string().max(100).nullable(),
-  payGroup: z.enum(PAY_GROUPS).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
+  /** One of PAY_GROUPS, or an old one (S 10) that is the one stored; checked by the service (invalid_pay_group). */
+  payGroup: z.string().max(10).nullable(), payLevel: z.number().int().min(1).max(6).nullable(),
   /** „befristet bis“; left out = unchanged. */
   fixedTermUntil: isoDate.nullable().optional(),
+  /** „Probezeit bis“; left out = unchanged, checked by the service (probation_until_invalid). */
+  probationUntil: z.string().max(10).nullable().optional(),
   /** „Ausbildung/Studium hier bis“; left out = unchanged, checked by the service (training_until_invalid). */
   trainingUntil: z.string().max(10).nullable().optional(),
   /** „Anerkennungsjahr zählt als Stufe 1“; left out = unchanged. */
@@ -274,7 +277,8 @@ export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), break
 export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().positive()).max(500) })
 export const leaveModuleSchema = z.object({ enabled: z.boolean(), plannerIds: z.array(z.number().int().positive()).max(50) })
 export const leaveMaxSchema = z.object({ value: z.number().int().min(1).max(100).nullable() })
-export const leaveCountingSchema = z.object({ christmasEveHalfLeave: z.boolean() })
+/** „Wir arbeiten nach TVöD SuE“ and the choice for 24 and 31 December. */
+export const leaveCountingSchema = z.object({ tvoedSue: z.boolean(), eveLeave: z.enum(EVE_LEAVE_OPTIONS) })
 // The notice on remaining leave: the date is checked by the service (invalid_forfeit_date), so the answer is in German.
 export const leaveForfeitSettingsSchema = z.object({
   day: z.number().int().min(1).max(31), month: z.number().int().min(1).max(12), text: z.string().max(LEAVE_FORFEIT_TEXT_MAX),
