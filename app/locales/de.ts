@@ -887,6 +887,11 @@ export const de = {
       days: 'Tage',
       check: 'Bitte prüfen, ob diese Werte für das Jahr noch gelten (Krankenkasse/Lohnabrechnung).',
       providerOnly: 'Nur der Träger kann diese Werte ändern.',
+      legal: 'Es gelten die gesetzlichen Werte des jeweiligen Jahres: 2026 15 Tage pro Kind, höchstens 35 (alleinerziehend 30 / 70); ab 2027 wieder 10 Tage pro Kind, höchstens 25 (alleinerziehend 20 / 50), solange der Bundestag nichts anderes beschließt. Wer hier Werte speichert, legt sie für alle Jahre fest.',
+      custom: 'Es gelten die gespeicherten Werte des Trägers – für alle Jahre, auch für die vergangenen.',
+      outdated: 'Ab 2027 gelten gesetzlich wieder 10 / 25 Tage (alleinerziehend 20 / 50). Die gespeicherten Werte sind noch die von 2026. Mit „Gesetzliche Werte verwenden“ gilt für jedes Jahr wieder sein gesetzlicher Wert (2026: 15 / 35, ab 2027: 10 / 25).',
+      useLegal: 'Gesetzliche Werte verwenden',
+      uncapped: 'Tage, an denen ein Elternteil mit dem Kind im Krankenhaus aufgenommen ist (§ 45 Abs. 1a SGB V), und Tage für ein unheilbar krankes Kind (§ 45 Abs. 4 SGB V) sind nicht begrenzt. Die App kann sie nicht unterscheiden und zählt sie mit – der Hinweis im Dienstplan kann dann zu früh kommen.',
     },
   },
   weekTemplates: {
@@ -997,6 +1002,7 @@ export const de = {
     title: 'Pflichttermine und Fortbildungen', kinds: 'Pflichttermine', myTitle: 'Meine Termine',
     kind: 'Art', interval: 'Wiederholung', lastDate: 'Zuletzt', dueOn: 'Fällig am', state: 'Stand', none: '–',
     every: (months: number) => (months === 1 ? 'jeden Monat' : `alle ${months} Monate`), once: 'einmalig',
+    everyAfterFirst: (first: number, months: number) => `der zweite nach ${first} ${first === 1 ? 'Monat' : 'Monaten'}, dann alle ${months} Monate`,
     states: { missing: 'noch kein Eintrag', overdue: 'überfällig', soon: 'bald fällig', ok: 'in Ordnung' },
     hint: 'Trage ein, wann der Termin war oder der Nachweis vorgelegt wurde. Der neueste Eintrag zählt. Geplante Termine in der Zukunft werden nicht eingetragen.',
     /** § 33 Abs. 3 JArbSchG: 14 months after the start without the follow-up certificate (Leitung and Träger). */
@@ -1011,8 +1017,9 @@ export const de = {
     addTraining: 'Fortbildung hinzufügen', editTraining: 'Fortbildung ändern',
     deleteTrainingConfirm: (title: string) => `Fortbildung „${title}“ löschen?`,
     /** Settings. */
-    settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen. Erst- und Nachuntersuchung nach dem Jugendarbeitsschutzgesetz gelten nur für Mitarbeitende unter 18 (Geburtsdatum mit Jahr nötig): die Erstuntersuchung bis zum ersten Arbeitstag, die Nachuntersuchung ein Jahr danach.',
+    settingsHint: 'Termine und Nachweise, die jede Mitarbeiterin und jeder Mitarbeiter braucht. Du legst fest, nach wie vielen Monaten ein Termin wieder fällig ist, oder dass er nur einmal nötig ist. Leitung und Träger bekommen einen Hinweis, wenn ein Termin in den nächsten zwei Monaten fällig wird, überfällig ist oder noch gar nicht eingetragen wurde. Die vorgegebenen Arten kannst du umbenennen und anpassen, aber nicht löschen. Erst- und Nachuntersuchung nach dem Jugendarbeitsschutzgesetz gelten nur für Mitarbeitende unter 18 (Geburtsdatum mit Jahr nötig): die Erstuntersuchung bis zum ersten Arbeitstag, die Nachuntersuchung ein Jahr danach. Betriebsarzt (arbeitsmedizinische Pflichtvorsorge nach ArbMedVV und AMR 2.1): die erste vor dem ersten Arbeitstag (höchstens 3 Monate vorher), die zweite spätestens 12 Monate danach, dann spätestens alle 36 Monate. Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG): vor dem ersten Arbeitstag, dann mindestens alle 2 Jahre. Diese beiden erscheinen schon 3 Monate vor dem ersten Arbeitstag im Hinweis.',
     name: 'Bezeichnung', recurring: 'wiederkehrend', months: (count: number) => (count === 1 ? 'Monat' : 'Monate'), everyPrefix: 'Abstand:',
+    firstPrefix: 'der zweite nach', thenPrefix: 'Monaten, dann alle',
     builtin: 'vorgegeben', addKind: 'Art hinzufügen', newKindPlaceholder: 'z. B. Hygienebelehrung',
     deleteKindConfirm: (name: string) => `Art „${name}“ löschen? Alle Einträge, die für die Mitarbeiter dazu gespeichert sind, werden mit gelöscht.`,
     /** The employee's own page. */
@@ -1377,7 +1384,7 @@ export const de = {
   childSettings: {
     careTypes: 'Betreuungsformen', documentTypes: 'Dokumentarten', important: 'wichtig', required: 'für jedes Kind nötig', confidentialDefault: 'vertraulich',
     retention: 'Löschfrist für abgemeldete Kinder', retentionYears: 'Jahre nach dem Austritt',
-    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen.',
+    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen. Unfallanzeigen bleiben 5 Jahre ab dem Unfall (DGUV Vorschrift 1 § 24 Abs. 6): Gibt es eine jüngere, darf die Akte erst danach gelöscht werden.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     careTypesHint: 'Die Zeiten geben das gebuchte Zeitfenster an. Betreuungsformen, die noch bei Kindern eingetragen sind, lassen sich nicht löschen.',
     documentTypesHint: 'Wichtige Dokumentarten erscheinen in der Dokumentenübersicht. „Für jedes Kind nötig“ markiert fehlende Dokumente dort rot. „Vertraulich“ ist die Voreinstellung beim Hochladen.',
@@ -1403,7 +1410,7 @@ export const de = {
     periodHelp: {
       timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
       assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
-      paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen.',
+      paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen. Vorgabe 8 Jahre: So lange sind Buchungsbelege seit 2025 aufzubewahren (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB). Das Lohnkonto (§ 41 EStG) sowie Geschäftsbriefe und sonstige Unterlagen sind 6 Jahre aufzubewahren, Bücher und Jahresabschlüsse 10 Jahre – diese führt die App nicht.',
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
       bemYears: 'Ein BEM (Betriebliches Eingliederungsmanagement) mit Gesprächen, Maßnahmen und Notizen darf so viele Jahre nach seinem Ende (abgeschlossen, abgelehnt oder keine Antwort) gelöscht werden – auch bei Mitarbeitern, die noch da sind. Ein laufendes BEM zählt ab dem Austritt. Die Frist steht auch in der Einladung.',
       maternityYears: 'Ein Eintrag zum Mutterschutz (Schwangerschaft, Schutzfristen, Beschäftigungsverbot, Stillzeit) darf so viele Jahre nach seinem Ende gelöscht werden (Ende der Schutzfrist nach der Entbindung bzw. der Stillzeit oder „Beendet am“) – auch bei Mitarbeiterinnen, die noch da sind. Ein laufender Mutterschutz zählt ab dem Austritt. § 27 Abs. 5 MuSchG verlangt 2 Jahre Aufbewahrung.',
@@ -1449,6 +1456,8 @@ export const de = {
     // BEM records count from the end of the BEM, also for someone still employed: the label says so.
     bemDetail: (date: string, employed: boolean) => `BEM beendet am ${date}${employed ? ' – Person noch beschäftigt' : ''}`,
     maternityDetail: (date: string, employed: boolean) => `Mutterschutz beendet am ${date}${employed ? ' – Person noch beschäftigt' : ''}`,
+    // A child record kept longer because of an accident report (DGUV Vorschrift 1 § 24 Abs. 6).
+    accidentHold: 'Unfallanzeigen bleiben 5 Jahre ab dem Unfall',
     delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
     confirmOne: (what: string) => `Das wird endgültig gelöscht: ${what}. Lade vorher eine Datensicherung herunter.`,
     confirmAll: (counts: string) => `Das wird endgültig gelöscht: ${counts}. Lade vorher eine Datensicherung herunter.`,

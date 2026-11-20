@@ -9,6 +9,10 @@ export const EMPLOYEE_DELETE_MODES: readonly EmployeeDeleteMode[] = ['off', 'pro
 export interface RetentionSettings {
   timeYears: number
   assessmentYears: number
+  /**
+   * „Ausgezahlte Überstunden, Verträge, Gehalt“: default 8 years, the period of Buchungsbelege since 1 January 2025
+   * (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB as amended by the Bürokratieentlastungsgesetz IV; 10 before, migration 0105).
+   */
   paidOvertimeYears: number
   /** Information only: pension-relevant records are kept this long elsewhere. */
   pensionYears: number
@@ -32,7 +36,7 @@ export const PAYROLL_YEARS = 6
 export const RETENTION_DEFAULTS: RetentionSettings = {
   timeYears: 2,
   assessmentYears: 3,
-  paidOvertimeYears: 10,
+  paidOvertimeYears: 8,
   pensionYears: 30,
   cashYears: 10,
   bemYears: 3,

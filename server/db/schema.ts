@@ -658,7 +658,7 @@ export const userBundleOverrides = sqliteTable('user_bundle_overrides', {
 
 /**
  * A kind of mandatory appointment or proof (Pflichttermin) of a facility. Its name is unique within the facility,
- * compared case-insensitively. Every facility has the six built-in kinds (see shared/domain/requirements.ts).
+ * compared case-insensitively. Every facility has the seven built-in kinds (see shared/domain/requirements.ts).
  */
 export const requirementTypes = sqliteTable('requirement_types', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -666,6 +666,8 @@ export const requirementTypes = sqliteTable('requirement_types', {
   name: text('name').notNull(),
   /** Due again every this many months (null = needed once). */
   intervalMonths: integer('interval_months'),
+  /** The second record is due this many months after the first (null = after intervalMonths as well; ArbMedVV). */
+  firstIntervalMonths: integer('first_interval_months'),
   /** Key of a built-in kind, which cannot be deleted (null = one of the facility's own kinds). */
   builtinKey: text('builtin_key'),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -1754,7 +1756,7 @@ export const retentionSettings = sqliteTable('retention_settings', {
   facilityId: integer('facility_id').primaryKey().references(() => facilities.id, { onDelete: 'cascade' }),
   timeYears: integer('time_years').notNull().default(2),
   assessmentYears: integer('assessment_years').notNull().default(3),
-  paidOvertimeYears: integer('paid_overtime_years').notNull().default(10),
+  paidOvertimeYears: integer('paid_overtime_years').notNull().default(8),
   pensionYears: integer('pension_years').notNull().default(30),
   cashYears: integer('cash_years').notNull().default(10),
   /** BEM records (§ 167 Abs. 2 SGB IX) may be deleted this many years after the process ended. */

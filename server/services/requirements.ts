@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, inArray, max, ne } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, max, ne } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import {
-  BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, isYouthExamKey, requirementState, type RequirementState,
+  BEFORE_START_NOTICE_MONTHS, BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, addMonths, intervalAfter,
+  isBeforeStartKey, isYouthExamKey, requirementState, type RequirementState,
 } from '../../shared/domain/requirements'
 import { employmentStart, isEmployedOn } from '../../shared/domain/targets'
 import { youthExamStatus, youthFollowupBanFrom, youthFollowupBanOn } from '../../shared/domain/youthProtection'
@@ -21,6 +22,8 @@ export interface RequirementTypeInput {
   name: string
   /** Due again every this many months (null = needed once). */
   intervalMonths: number | null
+  /** The second record is due this many months after the first (null = after the interval; left out = unchanged). */
+  firstIntervalMonths?: number | null
 }
 
 export interface RequirementRecordInput {
@@ -36,7 +39,10 @@ export interface TrainingInput {
 }
 
 function toTypeDto(row: TypeRow): RequirementTypeDto {
-  return { id: row.id, name: row.name, intervalMonths: row.intervalMonths, builtinKey: row.builtinKey, sortOrder: row.sortOrder }
+  return {
+    id: row.id, name: row.name, intervalMonths: row.intervalMonths, firstIntervalMonths: row.firstIntervalMonths,
+    builtinKey: row.builtinKey, sortOrder: row.sortOrder,
+  }
 }
 
 function typeRows(db: Db, facilityId: number): TypeRow[] {
@@ -52,7 +58,8 @@ export function listRequirementTypes(db: Db, facilityId: number): RequirementTyp
 /** Gives a new facility the built-in kinds with their default names and intervals. */
 export function seedBuiltinRequirementTypes(db: Db, facilityId: number): void {
   db.insert(requirementTypes).values(BUILTIN_REQUIREMENTS.map((kind, sortOrder) => ({
-    facilityId, name: kind.name, intervalMonths: kind.intervalMonths, builtinKey: kind.key, sortOrder,
+    facilityId, name: kind.name, intervalMonths: kind.intervalMonths, firstIntervalMonths: kind.firstIntervalMonths, builtinKey: kind.key,
+    sortOrder,
   }))).run()
 }
 
@@ -85,19 +92,23 @@ function nextSortOrder(db: Db, facilityId: number): number {
 /** A new kind of the facility's own, at the end of its order. */
 export function createRequirementType(db: Db, facilityId: number, input: RequirementTypeInput): RequirementTypeDto {
   const name = checkedName(db, facilityId, input.name)
-  return toTypeDto(db.insert(requirementTypes)
-    .values({ facilityId, name, intervalMonths: input.intervalMonths, sortOrder: nextSortOrder(db, facilityId) }).returning().get())
+  return toTypeDto(db.insert(requirementTypes).values({
+    facilityId, name, intervalMonths: input.intervalMonths, firstIntervalMonths: input.firstIntervalMonths ?? null,
+    sortOrder: nextSortOrder(db, facilityId),
+  }).returning().get())
 }
 
 /**
- * Renames a kind and sets its interval; built-in kinds too (they stay built-in). The examinations of the JArbSchG keep
- * no interval: the law sets when they are due.
+ * Renames a kind and sets its interval and first interval (left out: unchanged); built-in kinds too (they stay
+ * built-in). The examinations of the JArbSchG keep no interval: the law sets when they are due.
  */
 export function updateRequirementType(db: Db, facilityId: number, id: number, input: RequirementTypeInput): void {
   const type = ownType(db, facilityId, id)
   const name = checkedName(db, facilityId, input.name, id)
-  const intervalMonths = isYouthExamKey(type.builtinKey) ? null : input.intervalMonths
-  db.update(requirementTypes).set({ name, intervalMonths }).where(eq(requirementTypes.id, id)).run()
+  const youth = isYouthExamKey(type.builtinKey)
+  const intervalMonths = youth ? null : input.intervalMonths
+  const firstIntervalMonths = youth ? null : input.firstIntervalMonths === undefined ? type.firstIntervalMonths : input.firstIntervalMonths
+  db.update(requirementTypes).set({ name, intervalMonths, firstIntervalMonths }).where(eq(requirementTypes.id, id)).run()
 }
 
 /** What the state of a kind needs of an employee besides the records: the examinations of the JArbSchG ask for the age. */
@@ -113,15 +124,19 @@ function stateFactsOf(employee: EmployeeRecord, birthYear: number | null): State
 }
 
 /**
- * The state of a kind for an employee whose newest record is dated `lastDate`; null when the kind does not apply to them:
- * an examination of the JArbSchG only for someone under 18 at its day and still today, or with a record (youthExamStatus).
+ * The state of a kind for an employee with `records` records, the newest dated `lastDate`; null when the kind does not
+ * apply to them: an examination of the JArbSchG only for someone under 18 at its day and still today, or with a record
+ * (youthExamStatus). A kind with a first interval is due that long after the first record (intervalAfter). A kind due
+ * before the start (BEFORE_START_KEYS) without a record is due on the first day of someone who has not started yet.
  */
 function kindState(
-  type: TypeRow, lastDate: IsoDate | null, facts: StateFacts, today: IsoDate,
+  type: TypeRow, lastDate: IsoDate | null, records: number, facts: StateFacts, today: IsoDate,
 ): { state: RequirementState; dueOn: IsoDate | null } | null {
-  return isYouthExamKey(type.builtinKey)
-    ? youthExamStatus(type.builtinKey, facts, lastDate, today)
-    : requirementState(lastDate, type.intervalMonths, today)
+  if (isYouthExamKey(type.builtinKey)) return youthExamStatus(type.builtinKey, facts, lastDate, today)
+  if (lastDate === null && isBeforeStartKey(type.builtinKey) && facts.start !== null && facts.start > today) {
+    return { state: 'missing', dueOn: facts.start }
+  }
+  return requirementState(lastDate, intervalAfter(records, type.intervalMonths, type.firstIntervalMonths), today)
 }
 
 /** Deletes one of the facility's own kinds; its records go with it (ON DELETE CASCADE). Built-in kinds stay: 409 requirement_builtin. */
@@ -170,7 +185,7 @@ export function getEmployeeRequirements(db: Db, facilityId: number, employeeId: 
     kinds: typeRows(db, facilityId).flatMap((type) => {
       const history = records.filter(record => record.typeId === type.id)
       const lastDate = history[0]?.date ?? null
-      const state = kindState(type, lastDate, facts, today)
+      const state = kindState(type, lastDate, history.length, facts, today)
       // § 33 Abs. 3 JArbSchG: the follow-up kind tells when the employment ban applies today; a record of the follow-up
       // in any facility ends it, as in the plan (followupRecordedOf).
       const followUp = type.builtinKey === 'youth_followup'
@@ -250,9 +265,11 @@ const DUE_ORDER: Record<DueRequirementDto['state'], number> = { overdue: 0, miss
 
 /**
  * The notice for Leitung and Träger: every kind that is overdue, missing or due soon for one of the facility's own
- * employees who is employed today (not before the first day, not after leftOn; helpers never). Only the first
- * examination of the JArbSchG (§ 32) shows before the first day already: it is due by then. Overdue first, then
- * missing, then soon; within a state by employee name, then in the order of the kinds.
+ * employees who is employed today (not before the first day, not after leftOn; helpers never). Before the first day
+ * only the kinds due by then show: the first examination of the JArbSchG (§ 32) at any time, the Betriebsarzt and the
+ * IfSG Belehrung (BEFORE_START_KEYS) once the start is at most BEFORE_START_NOTICE_MONTHS ahead (the first Vorsorge at
+ * most 3 months before the start, AMR 2.1). Overdue first, then missing, then soon; within a state by employee name,
+ * then in the order of the kinds.
  */
 export function listDueRequirements(db: Db, facilityId: number, today: IsoDate): DueRequirementDto[] {
   // Not employed yet, starting later (the start the examination is due by: stateFactsOf).
@@ -263,17 +280,20 @@ export function listDueRequirements(db: Db, facilityId: number, today: IsoDate):
   const types = typeRows(db, facilityId)
   const newest = new Map(db.select({
     employeeId: employeeRequirements.employeeId, typeId: employeeRequirements.typeId, date: max(employeeRequirements.date),
+    records: count(),
   }).from(employeeRequirements)
     .where(inArray(employeeRequirements.employeeId, staff.map(employee => employee.id)))
     .groupBy(employeeRequirements.employeeId, employeeRequirements.typeId).all()
-    .map(row => [`${row.employeeId}:${row.typeId}`, row.date]))
+    .map(row => [`${row.employeeId}:${row.typeId}`, row]))
   const birthYears = birthYearsOf(db, staff.map(employee => employee.id))
+  const noticeUntil = addMonths(today, BEFORE_START_NOTICE_MONTHS)
   const rows = staff.flatMap((employee) => {
     const facts = stateFactsOf(employee, birthYears.get(employee.id) ?? null)
     const notYet = upcoming(employee)
     return types.flatMap((type, typeIndex) => {
-      if (notYet && type.builtinKey !== 'youth_initial') return []
-      const status = kindState(type, newest.get(`${employee.id}:${type.id}`) ?? null, facts, today)
+      if (notYet && type.builtinKey !== 'youth_initial' && !(isBeforeStartKey(type.builtinKey) && facts.start! <= noticeUntil)) return []
+      const record = newest.get(`${employee.id}:${type.id}`)
+      const status = kindState(type, record?.date ?? null, record?.records ?? 0, facts, today)
       if (status === null || status.state === 'ok') return []
       const { state, dueOn } = status
       const row: DueRequirementDto = { employeeId: employee.id, employeeName: employee.name, typeId: type.id, typeName: type.name, state, dueOn }
@@ -299,7 +319,7 @@ export function getMyRequirements(db: Db, viewer: SessionUser, today: IsoDate): 
   const { kinds, trainings } = getEmployeeRequirements(db, employee.facilityId, employee.id, today)
   return {
     kinds: kinds.map(({ type, lastDate, dueOn }) => ({
-      type: { id: type.id, name: type.name, intervalMonths: type.intervalMonths }, lastDate, dueOn,
+      type: { id: type.id, name: type.name, intervalMonths: type.intervalMonths, firstIntervalMonths: type.firstIntervalMonths }, lastDate, dueOn,
     })),
     trainings: trainings.map(({ id, date, title }) => ({ id, date, title })),
   }
@@ -323,7 +343,8 @@ export function moveRequirementRecords(db: Db, employeeId: number, facilityId: n
     const target = (source.builtinKey === null ? undefined : targets.find(type => type.builtinKey === source.builtinKey))
       ?? targets.find(type => folded(type.name) === folded(source.name))
       ?? db.insert(requirementTypes).values({
-        facilityId, name: source.name, intervalMonths: source.intervalMonths, builtinKey: source.builtinKey,
+        facilityId, name: source.name, intervalMonths: source.intervalMonths, firstIntervalMonths: source.firstIntervalMonths,
+        builtinKey: source.builtinKey,
         sortOrder: nextSortOrder(db, facilityId),
       }).returning().get()
     db.update(employeeRequirements).set({ typeId: target.id })

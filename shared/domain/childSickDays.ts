@@ -4,8 +4,11 @@ import type { IsoDate } from './types'
 /**
  * Kinderkrankentage (§ 45 SGB V): days off with sick pay from the health insurer when a child is ill. Eligible is a
  * child under 12, or one with a disability that depends on help (any age). The entitlement per year is so many days
- * per eligible child up to a maximum, higher for single parents. The values change by law from time to time, so the
- * Träger keeps them in the settings (defaults below); entering „Kind krank“ is never blocked, the plan only warns.
+ * per eligible child up to a maximum, higher for single parents. The values change by law from time to time: without
+ * own values of the Träger every year gets its legal values (childSickDefaults); values the Träger stored count for
+ * every year. Entering „Kind krank“ is never blocked, the plan only warns. Days of § 45 Abs. 1a (child in hospital,
+ * one parent admitted with it) and Abs. 4 (terminally ill child) have no cap; the app cannot tell them apart and counts
+ * them like the others (the settings say so).
  */
 
 export interface ChildSickSettings {
@@ -18,8 +21,31 @@ export interface ChildSickSettings {
   singleParentMax: number
 }
 
-export const CHILD_SICK_DEFAULTS: ChildSickSettings = { perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 }
 export const CHILD_SICK_SETTING_KEYS = ['perChild', 'maxPerYear', 'singleParentPerChild', 'singleParentMax'] as const
+/** § 45 Abs. 2 SGB V: the lasting values, again from 2027. */
+export const CHILD_SICK_STATUTORY: ChildSickSettings = { perChild: 10, maxPerYear: 25, singleParentPerChild: 20, singleParentMax: 50 }
+/** § 45 Abs. 2a SGB V: the raised values, by law for 2024 to 2026 (Stand 19.11.2026: not extended to 2027). */
+export const CHILD_SICK_RAISED: ChildSickSettings = { perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 }
+/** The last year of the raised values. */
+export const CHILD_SICK_RAISED_UNTIL = 2026
+
+/**
+ * The legal values of a year: the raised ones up to 2026 (years before 2024 are not modelled; the app had only these
+ * values before), the lasting ones of § 45 Abs. 2 from 2027.
+ */
+export function childSickDefaults(year: number): ChildSickSettings {
+  return { ...(year <= CHILD_SICK_RAISED_UNTIL ? CHILD_SICK_RAISED : CHILD_SICK_STATUTORY) }
+}
+
+/**
+ * Stored values that still hold a raised value of 2026 in a later year (any value equal to its 2026 value and not to
+ * the year's legal one): the settings then say that the lasting values apply again.
+ */
+export function childSickOutdated(settings: ChildSickSettings, year: number): boolean {
+  if (year <= CHILD_SICK_RAISED_UNTIL) return false
+  const legal = childSickDefaults(year)
+  return CHILD_SICK_SETTING_KEYS.some(key => settings[key] === CHILD_SICK_RAISED[key] && settings[key] !== legal[key])
+}
 /** A child counts until this birthday. */
 export const CHILD_SICK_AGE_LIMIT = 12
 /** The Pflegeversicherung counts the children under this age (Beitragsabschlag ab dem 2. Kind). */

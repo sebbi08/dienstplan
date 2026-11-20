@@ -207,12 +207,13 @@ describe('child documents', () => {
     it('lists the important types alphabetically and marks missing required documents', () => {
       const overview = documentOverview(db, admin, 1, TODAY)
       expect(overview.types.map(type => type.name)).toEqual([
-        'Belehrung Infektionsschutz', 'Betreuungsvertrag', 'Datenschutz-Einwilligung', 'Masernnachweis', 'Sorgerechtsbeschluss',
+        'Belehrung Infektionsschutz', 'Betreuungsvertrag', 'Datenschutz-Einwilligung', 'Masernnachweis',
+        'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', 'Sorgerechtsbeschluss',
       ])
       const row = rowOf()
       expect(row.missingRequired).toBe(true)
       expect(row.cells[contractType]).toBeNull()
-      expect(Object.keys(row.cells)).toHaveLength(5)
+      expect(Object.keys(row.cells)).toHaveLength(6)
     })
 
     /** Leaves only the Betreuungsvertrag required (the defaults also require the three health and consent papers). */

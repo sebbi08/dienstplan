@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, lt } from 'drizzle-orm'
-import { childStatus, purgeDate } from '../../shared/domain/children'
+import { childPurgeDate, childStatus, purgeDate } from '../../shared/domain/children'
 import { can } from '../../shared/domain/permissions'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
@@ -11,6 +11,7 @@ import { getChildRetentionYears } from './appSettings'
 import { bemDeletableDates, deleteDueBemProcesses, employeesWithBem } from './bem'
 import { deleteDueMaternityCases, employeesWithMaternity, maternityDeletableDates } from './maternity'
 import { boxDeletableFrom } from './cashBoxes'
+import { lastChildAccidents } from './childAccidentRetention'
 import { removeArchivedBox } from './cashPurge'
 import { deleteChild } from './children'
 import {
@@ -161,11 +162,16 @@ function activeBemItems(db: Db, ctx: Context): RetentionItemDto[] {
 
 type ChildRow = { id: number; facilityId: number; firstName: string; lastName: string; leftOn: IsoDate }
 
-function childItem(child: ChildRow, ctx: Context): RetentionItemDto {
-  const deletableFrom = purgeDate(child.leftOn, ctx.childYears())
+/**
+ * An archived record, deletable from purgeDate with the Träger's child retention, but not before its newest accident
+ * report is 5 years old (childPurgeDate, DGUV Vorschrift 1 § 24 Abs. 6): then `accidentHold` says so.
+ */
+function childItem(child: ChildRow, lastAccident: IsoDate | null, ctx: Context): RetentionItemDto {
+  const deletableFrom = childPurgeDate(child.leftOn, ctx.childYears(), lastAccident)
   return {
     key: `child:${child.id}`, kind: 'child', category: null, facilityId: child.facilityId,
     facilityName: ctx.facilityName(child.facilityId), name: `${child.firstName} ${child.lastName}`, deletableFrom,
+    ...(deletableFrom > purgeDate(child.leftOn, ctx.childYears()) ? { accidentHold: true } : {}),
     due: child.leftOn < ctx.today && deletableFrom <= ctx.today,
   }
 }
@@ -198,7 +204,8 @@ function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
 /**
  * What may be deleted after a retention period, in every facility (spec Löschübersicht §2): employees whose leaving
  * day has passed, an item per category with data and the record (employeeItems); archived child records from
- * purgeDate with the Träger's child retention; archived cash boxes from their deletableFrom; „BEM-Unterlagen“ also of
+ * purgeDate with the Träger's child retention (later while an accident report is younger than 5 years, childItem);
+ * archived cash boxes from their deletableFrom; „BEM-Unterlagen“ also of
  * employees still there (bemItem: from the end of each process), „Mutterschutz-Unterlagen“ the same (maternityItem). Each item says whether it
  * is due today (deletableFrom <= today). The app deletes nothing by itself; the Träger deletes from this list. The
  * route lets only the Träger read it.
@@ -211,13 +218,14 @@ export function retentionOverview(db: Db, today: IsoDate): RetentionItemDto[] {
     id: children.id, facilityId: children.facilityId, firstName: children.firstName, lastName: children.lastName,
     leftOn: children.leftOn, admissionStatus: children.admissionStatus, entryDate: children.entryDate,
   }).from(children).where(isNotNull(children.leftOn)).all().filter(row => childStatus(row, today) === 'archived') as ChildRow[]
+  const childAccidents = lastChildAccidents(db, archivedChildren.map(child => child.id))
   const boxes = db.select({ id: cashBoxes.id, facilityId: cashBoxes.facilityId, name: cashBoxes.name }).from(cashBoxes)
     .where(eq(cashBoxes.archived, true)).all()
   return [
     ...left.flatMap(employee => employeeItems(db, employee, ctx)),
     ...activeBemItems(db, ctx),
     ...activeMaternityItems(db, ctx),
-    ...archivedChildren.map(child => childItem(child, ctx)),
+    ...archivedChildren.map(child => childItem(child, childAccidents.get(child.id) ?? null, ctx)),
     ...boxes.map(box => cashItem(db, box, ctx)),
   ].sort(compareItems)
 }
@@ -249,7 +257,7 @@ function findItem(db: Db, key: ItemKey, ctx: Context): RetentionItemDto {
   if (key.kind === 'child') {
     const child = db.select().from(children).where(eq(children.id, key.id)).get()
     if (!child || child.leftOn === null || child.admissionStatus === 'waitlist') throw missing()
-    return childItem(child as ChildRow, ctx)
+    return childItem(child as ChildRow, lastChildAccidents(db, [child.id]).get(child.id) ?? null, ctx)
   }
   const box = db.select().from(cashBoxes).where(eq(cashBoxes.id, key.id)).get()
   if (!box || !box.archived) throw missing()

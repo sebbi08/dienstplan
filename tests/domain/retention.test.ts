@@ -10,7 +10,7 @@ describe('retentionDueDates', () => {
       immediate: '2026-03-16',
       time: '2029-01-01',
       assessment: '2030-01-01',
-      paidOvertime: '2037-01-01',
+      paidOvertime: '2035-01-01',
       payroll: '2026-03-16',
     })
   })
@@ -64,7 +64,7 @@ describe('cashDeletableFrom', () => {
 describe('checkRetentionSettings', () => {
   it('has the agreed defaults', () => {
     expect(RETENTION_DEFAULTS).toEqual({
-      timeYears: 2, assessmentYears: 3, paidOvertimeYears: 10, pensionYears: 30, cashYears: 10, bemYears: 3, maternityYears: 2, employeeDelete: 'managers',
+      timeYears: 2, assessmentYears: 3, paidOvertimeYears: 8, pensionYears: 30, cashYears: 10, bemYears: 3, maternityYears: 2, employeeDelete: 'managers',
       payrollOffice: true,
     })
   })

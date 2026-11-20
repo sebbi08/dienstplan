@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
+import { ageOn, childPurgeDate, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
 
 describe('hiddenFromViewer', () => {
   const today = '2026-10-08'
@@ -63,6 +63,22 @@ describe('purgeDate', () => {
   it('moves 29 February to 28 February in a non-leap target year', () => {
     expect(purgeDate('2024-02-29', 1)).toBe('2025-02-28')
     expect(purgeDate('2024-02-29', 4)).toBe('2028-02-29')
+  })
+})
+
+describe('childPurgeDate: accident reports stay 5 years after the accident (DGUV Vorschrift 1 § 24 Abs. 6)', () => {
+  it('is the purge date without an accident report or with an old one', () => {
+    expect(childPurgeDate('2026-07-31', 3, null)).toBe('2029-07-31')
+    expect(childPurgeDate('2026-07-31', 3, '2023-05-10')).toBe('2029-07-31')
+    // Exactly the same day.
+    expect(childPurgeDate('2026-07-31', 3, '2024-07-31')).toBe('2029-07-31')
+  })
+
+  it('waits for the newest accident report to be 5 years old', () => {
+    expect(childPurgeDate('2026-07-31', 3, '2026-03-02')).toBe('2031-03-02')
+    expect(childPurgeDate('2026-07-31', 10, '2026-03-02')).toBe('2036-07-31')
+    expect(childPurgeDate('2026-07-31', 3, '2024-02-29')).toBe('2029-07-31')
+    expect(childPurgeDate('2025-01-31', 1, '2024-02-29')).toBe('2029-02-28')
   })
 })
 

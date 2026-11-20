@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, inArray, isNull, max, or } from 'drizzle-orm'
-import { ageOn, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
+import { ageOn, childPurgeDate, childStatus, hiddenFromViewer, nextBirthday, purgeDate } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { computedSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
@@ -21,6 +21,7 @@ import { groupRightOf, type ChildActor, type ChildViewer } from '../lib/childVie
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { assertCareType } from './careTypes'
+import { childRecordPurgeDate, lastChildAccidents } from './childAccidentRetention'
 import { listContacts } from './childContacts'
 import { listDocuments } from './childDocuments'
 import {
@@ -208,7 +209,9 @@ export function getChild(
       consents: stampOf(row.consentsUpdatedAt, row.consentsUpdatedBy),
     },
     leftOn: row.leftOn,
-    purgeOn: row.leftOn !== null && can(viewer.permissions, 'children.manage') ? purgeDate(row.leftOn, getChildRetentionYears(db)) : null,
+    purgeOn: row.leftOn !== null && can(viewer.permissions, 'children.manage')
+      ? childRecordPurgeDate(db, row.id, row.leftOn, getChildRetentionYears(db))
+      : null,
     canEdit,
     documents: listDocuments(db, viewer, viewer.facilityId, row.id, today),
     developmentDoc: developmentDocOf(db, viewer, row, status, today),
@@ -557,18 +560,22 @@ export function deleteChildRecord(
   deleteChild(db, facilityId, id)
 }
 
-/** The facility's archived children, the latest leaving first, with the day from which their record may be deleted. */
+/**
+ * The facility's archived children, the latest leaving first, with the day from which their record may be deleted
+ * (later while an accident report is younger than 5 years, childPurgeDate).
+ */
 export function listArchive(db: Db, facilityId: number, today: IsoDate): ArchivedChildDto[] {
   const years = getChildRetentionYears(db)
-  return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
+  const rows = db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) === 'archived')
     .sort((a, b) => b.leftOn!.localeCompare(a.leftOn!) || byName(a, b))
-    .map(row => ({
-      id: row.id,
-      name: `${row.firstName} ${row.lastName}`,
-      leftOn: row.leftOn!,
-      purgeOn: purgeDate(row.leftOn!, years),
-    }))
+  const accidents = lastChildAccidents(db, rows.map(row => row.id))
+  return rows.map(row => ({
+    id: row.id,
+    name: `${row.firstName} ${row.lastName}`,
+    leftOn: row.leftOn!,
+    purgeOn: childPurgeDate(row.leftOn!, years, accidents.get(row.id) ?? null),
+  }))
 }
 
 const OTHER_DOCUMENT_TYPE = 'Sonstiges'

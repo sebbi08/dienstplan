@@ -54,7 +54,7 @@ Löschfristen: Die App löscht nach einem Update **nichts von selbst** – auch 
 Jahren ausgeschieden sind, oder alte Kinderakten. Was nach Ablauf einer Frist gelöscht werden darf, steht für den
 Träger unter **Mehr → Löschfristen**; dort löscht er von Hand (siehe „Löschfristen“ in Abschnitt 15). Setz vorher bei
 Stundenkonto-Buchungen über ausgezahlte Überstunden das Häkchen **„ausgezahlt“** (Seite der Person → Stunden &
-Vertrag → Stundenkonto-Buchungen): Nur dann gilt für sie die längere Frist von 10 Jahren.
+Vertrag → Stundenkonto-Buchungen): Nur dann gilt für sie die längere Frist (voreingestellt 8 Jahre).
 
 ## 5. Datensicherung
 
@@ -142,6 +142,14 @@ Die Kinderakten (Stammdaten, Notizen, Kontakte usw.) und alle hochgeladenen Doku
 Datenbank des Dienstplans (im Docker-Betrieb die Datei `/data/app.db`). Erlaubt sind PDF-, JPG- und
 PNG-Dateien bis 10 MB pro Dokument. Es gibt keinen separaten Ordner mit Dokumenten: Wer die
 Datenbank hat, hat alles.
+
+**Dokumentart „Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)“:** Vor der ersten Aufnahme in eine Kita weisen die
+Eltern schriftlich nach, dass sie zeitnah ärztlich zum Impfschutz des Kindes beraten wurden; fehlt der Nachweis,
+benachrichtigt die Leitung das Gesundheitsamt. Dafür gibt es diese Dokumentart in jeder Einrichtung (beim Update dazu
+gekommen, wo es noch keine Art mit diesem Namen gab). Sie ist „wichtig“ (erscheint in der Dokumentenübersicht), aber
+nicht „für jedes Kind nötig“ – Kinder, die schon vorher aufgenommen wurden, brauchen keinen. Wer sie für neue Kinder rot
+markiert haben will, setzt in den Einstellungen „für jedes Kind nötig“. Die App blockiert nichts. Quelle: § 34 Abs. 10a
+IfSG; Stand 19.11.2026.
 
 ### Einwilligungen
 
@@ -275,6 +283,14 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 - Die Frist stellt der Träger unter *Einstellungen → Einrichtung* ein: „Löschfrist für abgemeldete Kinder“,
   1 bis 10 Jahre, voreingestellt sind **3 Jahre**.
 - Besprich die Frist mit dem/der Datenschutzbeauftragten, bevor du sie festlegst.
+- **Unfallanzeigen bleiben 5 Jahre ab dem Unfall.** Erste-Hilfe-Leistungen sind 5 Jahre lang aufzubewahren (DGUV
+  Vorschrift 1 § 24 Abs. 6; die DGUV Information 202-089 „Erste Hilfe in Kindertageseinrichtungen“ rät: „fünf Jahre
+  (besser 10 Jahre)“). Die Unfallanzeigen eines Kindes hängen an seiner Akte. Ist die jüngste Unfallanzeige zum Ende
+  der Löschfrist noch keine 5 Jahre alt, darf die Akte erst 5 Jahre nach diesem Unfall gelöscht werden. Archiv,
+  Kinderakte und „Schulkinder“ nennen dann diesen späteren Tag; unter Mehr → Löschfristen steht an der Zeile
+  „(Unfallanzeigen bleiben 5 Jahre ab dem Unfall)“. Als Unfalltag zählt das „Datum“ der Unfallanzeige, sonst der Tag,
+  an dem sie angelegt wurde. „Sofort löschen“ im Archiv (nur Träger, für Fehleinträge) beachtet auch diese Frist nicht.
+  Quelle: DGUV Vorschrift 1 § 24 Abs. 6, DGUV Information 202-089; Stand 19.11.2026.
 
 ### Gelöschte Daten und Sicherungen
 
@@ -808,7 +824,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
-| „Ausgezahlte Überstunden“ (10 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“ |
+| „Ausgezahlte Überstunden“ (voreingestellt 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
@@ -888,6 +904,31 @@ stehen. **Jeder Abschnitt hat sein eigenes Speichern, und das speichert nur sein
 Abschnitt oder Reiter werden dabei nicht mitgespeichert und auch nicht gelöscht. Gibt es noch nicht gespeicherte
 Änderungen, fragt die App vor dem Wechsel des Reiters nach.
 
+### Pflichttermine: Betriebsarzt und Belehrung Infektionsschutz
+
+Die vorgegebenen Pflichttermine (*Einstellungen → Einrichtung → Pflichttermine*) sind Betriebsarzt, Erste-Hilfe-Kurs,
+Erweitertes Führungszeugnis, Masernimpfung (Nachweis), Erst- und Nachuntersuchung nach dem JArbSchG (siehe
+„Jugendarbeitsschutz“) und **„Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)“**.
+
+- **Betriebsarzt** (arbeitsmedizinische Pflichtvorsorge wegen biologischer Arbeitsstoffe in der Kita, ArbMedVV Anhang
+  Teil 2 Abs. 1 Nr. 3 Buchst. f, AMR 2.1): die **erste vor dem ersten Arbeitstag** (höchstens 3 Monate vorher), die
+  **zweite 12 Monate nach der ersten**, danach **alle 36 Monate**. In den Einstellungen steht dafür „der zweite nach
+  [12] Monaten, dann alle [36] Monate“; beides lässt sich ändern (die Werte sind Höchstwerte, die Betriebsärztin oder
+  der Betriebsarzt kann kürzere festlegen). Die App zählt die Einträge: Bei genau einem ist der nächste nach 12 Monaten
+  fällig, ab zwei nach 36 Monaten. **Für schon länger Beschäftigte:** Ist nur die letzte Vorsorge eingetragen, gilt sie
+  als die erste, und die nächste wird schon nach 12 Monaten gemeldet – dann bitte auch eine frühere Vorsorge eintragen.
+  Beim Update wurde der Abstand nur dort auf „12, dann 36“ umgestellt, wo noch die alte Vorgabe 24 Monate stand; ein
+  selbst gewählter Abstand blieb.
+- **Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG):** vor dem ersten Arbeitstag, danach mindestens alle 2 Jahre (24
+  Monate). Das Protokoll bewahrt der Arbeitgeber 3 Jahre auf. Beim Update bekam jede Einrichtung diese Art dazu (eine
+  eigene Art mit genau diesem Namen wurde zur vorgegebenen). **Für alle, die schon da sind, steht sie danach als „noch
+  kein Eintrag“ im Hinweis, bis die letzte Belehrung eingetragen ist.**
+- **Schon vor dem ersten Arbeitstag:** Betriebsarzt und Belehrung erscheinen für neue Mitarbeiter schon 3 Monate vor
+  „beschäftigt seit“ (sonst vor den ersten Wochenstunden) im Hinweis, fällig zum ersten Arbeitstag. Eine Vorsorge vor
+  dem ersten Arbeitstag trägst du mit ihrem Datum ein.
+
+Quellen: ArbMedVV mit Anhang, AMR 2.1 (Fristen der Pflichtvorsorge); § 34 Abs. 5a IfSG. Stand 19.11.2026.
+
 ### Notfallkontakte
 
 Im Reiter **Stammdaten** steht unter den Stammdaten der Abschnitt **„Notfallkontakte“**: wen ihr anruft, wenn der
@@ -965,7 +1006,7 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   (voreingestellt) – alles aus „Lohn und Steuer“ zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem
   Ausscheiden; ohne Lohnbüro bleibt „Lohn und Steuer“ 6 Jahre, siehe *Löschfristen*). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
   mit den **„Beurteilungen“** (3 Jahre), die in den Fächern Vertrag und Gehalt mit den **„ausgezahlten Überstunden“**
-  (10 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
+  (voreingestellt 8 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
   wie immer von Hand durch den Träger unter **Mehr → Löschfristen** (siehe oben).
 
 ### Probezeit und Entgeltgruppe
@@ -1629,10 +1670,25 @@ Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes än
   nur für alle, die die Kinder sehen dürfen). Angeboten werden die Kinder, die am ersten gewählten Tag unter 12 sind oder eine
   Behinderung haben. Im Jahreskalender erscheint „Kind krank“ wie Krank; Kollegen sehen es dort nicht. Im Kalender und
   in der Zeiterfassung lässt es sich wie Krank eintragen und entfernen (dort ohne Kind).
-- **Kinderkrankentage (§ 45 SGB V):** Die Werte stellt der Träger unter *Einstellungen → Personal → Kinderkrankentage*
-  für alle Einrichtungen ein (Vorgabe: 15 pro Kind, höchstens 35; alleinerziehend 30 pro Kind, höchstens 70). Die Leitung
-  sieht sie nur. Die Werte ändern sich ab und zu per Gesetz; der Hinweis „Bitte prüfen, ob diese Werte für das Jahr noch
-  gelten (Krankenkasse/Lohnabrechnung).“ erinnert daran.
+- **Kinderkrankentage (§ 45 SGB V):** Die Werte stehen unter *Einstellungen → Personal → Kinderkrankentage* und gelten
+  für alle Einrichtungen; nur der Träger ändert sie, die Leitung sieht sie nur.
+  - **Ohne eigene Werte gilt für jedes Jahr sein gesetzlicher Wert:** bis 2026 15 pro Kind, höchstens 35, alleinerziehend
+    30 pro Kind, höchstens 70 (§ 45 Abs. 2a SGB V, nur für 2026 – vorher 2024 und 2025 ebenso); **ab 2027** wieder 10 pro
+    Kind, höchstens 25, alleinerziehend 20 pro Kind, höchstens 50 (§ 45 Abs. 2 SGB V). Die Jahre vor 2024 rechnet die App
+    wie 2024. So bleibt 2026 bei 15/35, während 2027 mit 10/25 gezählt wird.
+  - **Eigene Werte** („Speichern“) gelten für alle Jahre, auch die vergangenen. Gespeichert wird nur mit „Speichern“ –
+    beim Update hat die App nichts gespeichert, ohne Eingabe gelten also die gesetzlichen Werte. Sind ab 2027 noch Werte
+    von 2026 gespeichert (15 oder 35, alleinerziehend 30 oder 70), steht der Hinweis „Ab 2027 gelten gesetzlich wieder
+    10 / 25 Tage (alleinerziehend 20 / 50). …“. **„Gesetzliche Werte verwenden“** löscht die eigenen Werte; danach gilt
+    wieder für jedes Jahr sein gesetzlicher Wert (für 2026 also weiter 15/35).
+  - Der Hinweis „Bitte prüfen, ob diese Werte für das Jahr noch gelten (Krankenkasse/Lohnabrechnung).“ bleibt: Verlängert
+    der Bundestag die höheren Werte für 2027 doch noch, trägt der Träger sie als eigene Werte ein.
+  - Tage, an denen ein Elternteil mit dem Kind im Krankenhaus aufgenommen ist (§ 45 Abs. 1a), und Tage für ein
+    unheilbar krankes Kind (§ 45 Abs. 4) sind nicht begrenzt. Die App kann sie nicht von anderen „Kind krank“-Tagen
+    unterscheiden und zählt sie mit; der Hinweis im Dienstplan kann dann zu früh kommen. Das steht auch in den
+    Einstellungen.
+  - Quelle: § 45 SGB V (gesetze-im-internet.de, gelesen 19.11.2026); Stand 19.11.2026, eine Verlängerung für 2027 war
+    nicht beschlossen.
   - Es zählen die Kinder, die an mindestens einem Tag des Jahres unter 12 sind, und Kinder mit Behinderung, die auf
     Hilfe angewiesen sind. Anspruch = Tage pro Kind × Zahl der Kinder, aber höchstens der Höchstwert.
   - Genommen sind die **Arbeitstage** der Person mit „Kind krank“ im Jahr, geplante und vergangene.

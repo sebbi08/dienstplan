@@ -75,13 +75,15 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
 
   describe('„Pflichttermine“', () => {
     const kind = (name: string) => listRequirementTypes(db, 1).find(type => type.name === name)!.id
+    const BRIEFING = 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)'
     it('lists every kind that is overdue, missing or due soon, the worst first', () => {
-      addRequirementRecord(db, 1, anna, { typeId: kind('Betriebsarzt'), date: '2024-01-10' }, today) // 24 months: overdue since 2026-01-10
+      addRequirementRecord(db, 1, anna, { typeId: kind('Betriebsarzt'), date: '2024-01-10' }, today) // the first Vorsorge: the second was due 12 months later, 2025-01-10
       addRequirementRecord(db, 1, anna, { typeId: kind('Erste-Hilfe-Kurs'), date: '2024-12-20' }, today) // due 2026-12-20: soon
       addRequirementRecord(db, 1, anna, { typeId: kind('Erweitertes Führungszeugnis'), date: '2025-01-01' }, today) // ok
       expect(row(anna).requirements).toEqual([
-        { typeId: kind('Betriebsarzt'), typeName: 'Betriebsarzt', state: 'overdue', dueOn: '2026-01-10' },
+        { typeId: kind('Betriebsarzt'), typeName: 'Betriebsarzt', state: 'overdue', dueOn: '2025-01-10' },
         { typeId: kind('Masernimpfung (Nachweis)'), typeName: 'Masernimpfung (Nachweis)', state: 'missing', dueOn: null },
+        { typeId: kind(BRIEFING), typeName: BRIEFING, state: 'missing', dueOn: null },
         { typeId: kind('Erste-Hilfe-Kurs'), typeName: 'Erste-Hilfe-Kurs', state: 'soon', dueOn: '2026-12-20' },
       ])
     })
@@ -91,7 +93,7 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
     })
     it('comes without the contract right, for everyone who sees the list', () => {
       const leitung = rolePermissions(db, 'admin')
-      expect(row(anna, leitung).requirements).toHaveLength(4)
+      expect(row(anna, leitung).requirements).toHaveLength(5)
     })
     it('only covers the facility', () => {
       const krippe = addFacility(db, 'Krippe')
@@ -143,7 +145,7 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
     it('is not sent without „Urlaubsübersicht aller“ (the key is absent)', () => {
       const viewer: ReadonlySet<PermissionKey> = new Set<PermissionKey>(['employees.view'])
       expect(row(anna, viewer)).not.toHaveProperty('forfeit')
-      expect(row(anna, viewer).requirements).toHaveLength(4)
+      expect(row(anna, viewer).requirements).toHaveLength(5)
     })
   })
 })

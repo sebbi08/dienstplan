@@ -1,0 +1,4 @@
+-- § 34 Abs. 10a IfSG: the document type for the proof of a medical vaccination counselling before the first admission,
+-- for every facility that has no type of that name yet: important (in the document overview), not required (children
+-- admitted before need none), not confidential, after the facility's types.
+INSERT INTO `document_types` (`facility_id`, `name`, `important`, `required`, `confidential_default`, `sort_order`) SELECT `id`, 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', 1, 0, 0, (SELECT COALESCE(MAX(`sort_order`), -1) + 1 FROM `document_types` WHERE `document_types`.`facility_id` = `facilities`.`id`) FROM `facilities` WHERE NOT EXISTS (SELECT 1 FROM `document_types` WHERE `document_types`.`facility_id` = `facilities`.`id` AND lower(`document_types`.`name`) = lower('Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)'));

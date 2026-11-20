@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
-import { childStatus, purgeDate } from '../../shared/domain/children'
+import { childStatus } from '../../shared/domain/children'
 import { addDays, daysInMonth } from '../../shared/domain/dates'
 import { groupOnDay, type GroupEntry, type OccupancyChild } from '../../shared/domain/occupancy'
 import { effectiveSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
@@ -11,6 +11,7 @@ import { children, facilities } from '../db/schema'
 import { switchAutoLeaveOff } from '../lib/autoLeave'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
+import { childRecordPurgeDate } from './childAccidentRetention'
 import { contractChangeDays, groupHistories, registerLeaving } from './childGroupChanges'
 import { listGroups } from './groups'
 
@@ -234,7 +235,8 @@ export function schoolLeavers(db: Db, facilityId: number, today: IsoDate): Schoo
     const hasLaterContract = contractChange !== undefined && contractChange > leftOn
     if (leftBeforeStart || hasLaterContract) continue
     leavers.push({
-      id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn, purgeOn: purgeDate(leftOn, retentionYears),
+      id: row.id, name: `${row.firstName} ${row.lastName}`, schoolStart, leftOn,
+      purgeOn: childRecordPurgeDate(db, row.id, leftOn, retentionYears),
     })
   }
   return leavers

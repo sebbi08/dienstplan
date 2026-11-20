@@ -241,12 +241,18 @@ export const employeeChildrenSchema = z.object({
     disabledDependent: z.boolean(),
   })).max(50),
 })
-/** Kinderkrankentage; the ranges are the service's (400 child_sick_settings_invalid). */
+/**
+ * Kinderkrankentage: the four values (the ranges are the service's, 400 child_sick_settings_invalid), or
+ * `{ legal: true }` to go back to the legal values of each year.
+ */
 const settingsDays = z.union([z.number(), z.string().max(10)])
-export const childSickSettingsSchema = z.object({
-  // An emptied field comes as '' and is refused by the service with its own message (not as a generic 400).
-  perChild: settingsDays, maxPerYear: settingsDays, singleParentPerChild: settingsDays, singleParentMax: settingsDays,
-})
+export const childSickSettingsSchema = z.union([
+  z.strictObject({ legal: z.literal(true) }),
+  z.object({
+    // An emptied field comes as '' and is refused by the service with its own message (not as a generic 400).
+    perChild: settingsDays, maxPerYear: settingsDays, singleParentPerChild: settingsDays, singleParentMax: settingsDays,
+  }),
+])
 
 /** A Mutterschutz case (MuSchG); the order of the days and the note's length again in the service. */
 export const maternityCaseSchema = z.object({
@@ -395,9 +401,13 @@ export const autoLeaveSchema = z.object({
 })
 /** The Kita year's start year; the range is checked by the service, which answers invalid_year. */
 export const occupancyQuery = z.object({ year: z.coerce.number() })
-/** intervalMonths: due again every … months (null = needed once). */
+/**
+ * intervalMonths: due again every … months (null = needed once); firstIntervalMonths: the second one after … months
+ * (null = after the interval, left out = unchanged).
+ */
 export const requirementTypeSchema = z.object({
   name: z.string().max(80), intervalMonths: z.number().int().min(1).max(MAX_REQUIREMENT_INTERVAL_MONTHS).nullable(),
+  firstIntervalMonths: z.number().int().min(1).max(MAX_REQUIREMENT_INTERVAL_MONTHS).nullable().optional(),
 })
 export const requirementRecordSchema = z.object({
   typeId: z.number().int().positive(), date: isoDate, note: z.string().max(200).nullable().optional(),

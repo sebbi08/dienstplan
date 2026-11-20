@@ -12,6 +12,7 @@ const EXPECTED = [
   { name: 'Sorgerechtsbeschluss', important: true, required: false, confidentialDefault: true, sortOrder: 4 },
   { name: 'Ärztliches Attest', important: false, required: false, confidentialDefault: true, sortOrder: 5 },
   { name: 'Sonstiges', important: false, required: false, confidentialDefault: false, sortOrder: 6 },
+  { name: 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', important: true, required: false, confidentialDefault: false, sortOrder: 7 },
 ]
 
 function typesOf(db: Db, facilityId: number) {
@@ -22,11 +23,11 @@ function typesOf(db: Db, facilityId: number) {
 }
 
 describe('child record schema', () => {
-  it('gives facility 1 the seven default document types', () => {
+  it('gives facility 1 the eight default document types', () => {
     expect(typesOf(createTestDb(), 1)).toEqual(EXPECTED)
   })
 
-  it('gives a new facility the seven default document types', () => {
+  it('gives a new facility the eight default document types', () => {
     const db = createTestDb()
     const facility = addFacility(db, 'Kita 2')
     expect(typesOf(db, facility)).toEqual(EXPECTED)

@@ -27,7 +27,7 @@ const { data, error } = await useFetch<MyRequirementsDto>('/api/my/requirements'
           <li v-for="kind in data.kinds" :key="kind.type.id" class="py-2">
             <div class="flex flex-wrap items-baseline justify-between gap-x-3">
               <span class="font-medium">{{ kind.type.name }}</span>
-              <span class="text-xs text-gray-500">{{ intervalText(kind.type.intervalMonths) }}</span>
+              <span class="text-xs text-gray-500">{{ intervalText(kind.type.intervalMonths, kind.type.firstIntervalMonths) }}</span>
             </div>
             <dl class="mt-1 grid grid-cols-2 gap-x-3">
               <div>

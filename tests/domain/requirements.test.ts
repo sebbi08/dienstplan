@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { addMonths, BUILTIN_REQUIREMENTS, isYouthExamKey, requirementState, YOUTH_EXAM_KEYS } from '../../shared/domain/requirements'
+import {
+  addMonths, BEFORE_START_KEYS, BUILTIN_REQUIREMENTS, intervalAfter, isBeforeStartKey, isYouthExamKey, requirementState, YOUTH_EXAM_KEYS,
+} from '../../shared/domain/requirements'
 
 describe('addMonths', () => {
   it('keeps the day of the month where the target month has it', () => {
@@ -72,18 +74,46 @@ describe('requirementState', () => {
   })
 })
 
+describe('intervalAfter: a first interval for the second record (ArbMedVV, AMR 2.1)', () => {
+  it('uses the first interval after exactly one record, the interval otherwise', () => {
+    expect(intervalAfter(1, 36, 12)).toBe(12)
+    expect(intervalAfter(2, 36, 12)).toBe(36)
+    expect(intervalAfter(5, 36, 12)).toBe(36)
+    expect(intervalAfter(1, 24, null)).toBe(24)
+    // Needed once: no interval at all.
+    expect(intervalAfter(1, null, 12)).toBeNull()
+  })
+
+  it('gives the Betriebsarzt the second Vorsorge 12 months after the first, then every 36 months', () => {
+    const doctor = BUILTIN_REQUIREMENTS.find(kind => kind.key === 'company_doctor')!
+    const state = (records: string[], today: string) =>
+      requirementState(records.at(-1) ?? null, intervalAfter(records.length, doctor.intervalMonths, doctor.firstIntervalMonths), today)
+    // First: due before the start (missing until entered).
+    expect(state([], '2026-08-01')).toEqual({ state: 'missing', dueOn: null })
+    // Second: 12 months after the first.
+    expect(state(['2026-07-15'], '2026-08-01')).toEqual({ state: 'ok', dueOn: '2027-07-15' })
+    // Third: 36 months after the second.
+    expect(state(['2026-07-15', '2027-07-01'], '2027-08-01')).toEqual({ state: 'ok', dueOn: '2030-07-01' })
+    expect(state(['2026-07-15', '2027-07-01', '2030-06-20'], '2030-07-01')).toEqual({ state: 'ok', dueOn: '2033-06-20' })
+  })
+})
+
 describe('built-in kinds', () => {
-  it('are the four agreed ones with their default intervals and the two examinations of the JArbSchG', () => {
+  it('are the agreed ones with their default intervals, the two examinations of the JArbSchG and the IfSG Belehrung', () => {
     expect(BUILTIN_REQUIREMENTS).toEqual([
-      { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 24 },
-      { key: 'first_aid', name: 'Erste-Hilfe-Kurs', intervalMonths: 24 },
-      { key: 'criminal_record', name: 'Erweitertes Führungszeugnis', intervalMonths: 60 },
-      { key: 'measles', name: 'Masernimpfung (Nachweis)', intervalMonths: null },
-      { key: 'youth_initial', name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null },
-      { key: 'youth_followup', name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null },
+      { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12 },
+      { key: 'first_aid', name: 'Erste-Hilfe-Kurs', intervalMonths: 24, firstIntervalMonths: null },
+      { key: 'criminal_record', name: 'Erweitertes Führungszeugnis', intervalMonths: 60, firstIntervalMonths: null },
+      { key: 'measles', name: 'Masernimpfung (Nachweis)', intervalMonths: null, firstIntervalMonths: null },
+      { key: 'youth_initial', name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, firstIntervalMonths: null },
+      { key: 'youth_followup', name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, firstIntervalMonths: null },
+      { key: 'ifsg_briefing', name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', intervalMonths: 24, firstIntervalMonths: null },
     ])
     expect(YOUTH_EXAM_KEYS.every(isYouthExamKey)).toBe(true)
     expect(isYouthExamKey('measles')).toBe(false)
     expect(isYouthExamKey(null)).toBe(false)
+    expect(BEFORE_START_KEYS.every(isBeforeStartKey)).toBe(true)
+    expect(isBeforeStartKey('first_aid')).toBe(false)
+    expect(isBeforeStartKey(null)).toBe(false)
   })
 })

@@ -715,6 +715,41 @@
       "when": 1795158871306,
       "tag": "0101_facility_eve_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "6",
+      "when": 1795159373273,
+      "tag": "0102_company_doctor_arbmedvv",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1795159389672,
+      "tag": "0103_ifsg_staff_briefing",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1795159391598,
+      "tag": "0104_vaccination_counselling_document",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "6",
+      "when": 1795159413123,
+      "tag": "0105_vouchers_eight_years",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "6",
+      "when": 1795159422032,
+      "tag": "0106_school_cutoff_completed",
+      "breakpoints": true
     }
   ]
 }

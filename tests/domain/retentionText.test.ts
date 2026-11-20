@@ -8,19 +8,19 @@ const ALL_DONE = 'Alle Fristen sind abgelaufen. Der Träger löscht die Daten un
 describe('archiveRetentionText', () => {
   it('names the personal data, the three dates and the entry last, as the spec words it', () => {
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2026-10-27')).toBe(
-      `${PERSONAL} Zeitdaten dürfen ab 01.01.2029 gelöscht werden, Beurteilungen ab 01.01.2030, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2037; danach der Eintrag.`,
+      `${PERSONAL} Zeitdaten dürfen ab 01.01.2029 gelöscht werden, Beurteilungen ab 01.01.2030, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2035; danach der Eintrag.`,
     )
   })
 
   it('dates the personal data the day after leaving while that day has not come yet', () => {
     expect(archiveRetentionText('2026-10-27', RETENTION_DEFAULTS, '2026-10-27')).toBe(
-      'Persönliche Daten dürfen ab 28.10.2026 gelöscht werden, Zeitdaten ab 01.01.2029, Beurteilungen ab 01.01.2030, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2037; danach der Eintrag.',
+      'Persönliche Daten dürfen ab 28.10.2026 gelöscht werden, Zeitdaten ab 01.01.2029, Beurteilungen ab 01.01.2030, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2035; danach der Eintrag.',
     )
   })
 
   it('names Lohn und Steuer with its own date only when no Lohnbüro keeps the payroll records', () => {
     expect(archiveRetentionText('2026-03-15', { ...RETENTION_DEFAULTS, payrollOffice: false }, '2026-10-27')).toBe(
-      `${PERSONAL} Zeitdaten dürfen ab 01.01.2029 gelöscht werden, Beurteilungen ab 01.01.2030, Lohn und Steuer ab 01.01.2033, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2037; danach der Eintrag.`,
+      `${PERSONAL} Zeitdaten dürfen ab 01.01.2029 gelöscht werden, Beurteilungen ab 01.01.2030, Lohn und Steuer ab 01.01.2033, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2035; danach der Eintrag.`,
     )
   })
 
@@ -33,10 +33,10 @@ describe('archiveRetentionText', () => {
 
   it('says what may be deleted already and goes on with what is left', () => {
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2029-01-01')).toBe(
-      'Persönliche Daten und Zeitdaten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Beurteilungen dürfen ab 01.01.2030 gelöscht werden, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2037; danach der Eintrag.',
+      'Persönliche Daten und Zeitdaten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Beurteilungen dürfen ab 01.01.2030 gelöscht werden, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2035; danach der Eintrag.',
     )
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2031-06-01')).toBe(
-      'Persönliche Daten, Zeitdaten und Beurteilungen dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Ausgezahlte Überstunden, Verträge, Gehalt dürfen ab 01.01.2037 gelöscht werden; danach der Eintrag.',
+      'Persönliche Daten, Zeitdaten und Beurteilungen dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Ausgezahlte Überstunden, Verträge, Gehalt dürfen ab 01.01.2035 gelöscht werden; danach der Eintrag.',
     )
   })
 

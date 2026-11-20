@@ -1,11 +1,12 @@
 import { eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { balanceAdjustments, cashBoxes, cashEntries, childContacts, children, employees, facilities } from '../../server/db/schema'
+import { balanceAdjustments, cashBoxes, cashEntries, childContacts, children, employees, facilities, forms } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
 import { getChildRetentionYears } from '../../server/services/appSettings'
 import { createBox, updateBox, type CashBoxInput } from '../../server/services/cashBoxes'
 import { createEntry, createTransfer } from '../../server/services/cashEntries'
+import { listArchive } from '../../server/services/children'
 import {
   categoryHasData, deleteCategories, foreignKeyViolations, RETENTION_CATEGORIES,
 } from '../../server/services/employeeDeletion'
@@ -103,7 +104,7 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
   it('lists paid overtime only with a paid-out adjustment', () => {
     expect(itemsOf('2026-03-16', `employee:${tina}:paidOvertime`)).toEqual([])
     db.insert(balanceAdjustments).values({ employeeId: tina, date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true }).run()
-    expect(itemsOf('2026-03-16', `employee:${tina}:paidOvertime`)).toMatchObject([{ deletableFrom: '2037-01-01', due: false }])
+    expect(itemsOf('2026-03-16', `employee:${tina}:paidOvertime`)).toMatchObject([{ deletableFrom: '2035-01-01', due: false }])
   })
 
   it('refuses the immediate data on the leaving day and deletes it the day after', () => {
@@ -128,17 +129,17 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
       .toEqual([['immediate', true], ['bem', true], ['maternity', true], ['assessment', false], ['record', false]])
   })
 
-  it('refuses the assessments on 31.12.2029 and the paid overtime on 31.12.2036 (409), deletes them on 1 January', () => {
+  it('refuses the assessments on 31.12.2029 and the paid overtime on 31.12.2034 (409), deletes them on 1 January', () => {
     db.insert(balanceAdjustments).values({ employeeId: tina, date: '2026-02-28', minutes: -600, reason: 'Ausgezahlt', paidOut: true }).run()
     expect(errorCode(() => remove(`employee:${tina}:assessment`, '2029-12-31'))).toBe('retention_not_due')
     expect(statusOf(() => remove(`employee:${tina}:assessment`, '2029-12-31'))).toBe(409)
     expect(categoryHasData(db, tina).assessment).toBe(true)
     expect(remove(`employee:${tina}:assessment`, '2030-01-01')).toBeGreaterThan(0)
     expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: true })
-    expect(errorCode(() => remove(`employee:${tina}:paidOvertime`, '2036-12-31'))).toBe('retention_not_due')
-    expect(statusOf(() => remove(`employee:${tina}:paidOvertime`, '2036-12-31'))).toBe(409)
+    expect(errorCode(() => remove(`employee:${tina}:paidOvertime`, '2034-12-31'))).toBe('retention_not_due')
+    expect(statusOf(() => remove(`employee:${tina}:paidOvertime`, '2034-12-31'))).toBe(409)
     expect(categoryHasData(db, tina).paidOvertime).toBe(true)
-    expect(remove(`employee:${tina}:paidOvertime`, '2037-01-01')).toBe(1)
+    expect(remove(`employee:${tina}:paidOvertime`, '2035-01-01')).toBe(1)
     expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: false })
   })
 
@@ -222,6 +223,30 @@ describe('child records and cash boxes in the overview', () => {
     expect(db.select().from(childContacts).where(eq(childContacts.childId, child)).all()).toEqual([])
     expect(db.select().from(children).all().map(row => row.firstName)).toContain('Noah')
     expect(foreignKeyViolations(db)).toEqual([])
+  })
+
+  it('keeps a child record until its newest accident report is 5 years old (DGUV Vorschrift 1 § 24 Abs. 6)', () => {
+    const leftOn = '2026-03-31'
+    const mia = addChild(db, 1, { firstName: 'Mia', lastName: 'Muster', leftOn })
+    const old = addChild(db, 1, { firstName: 'Ole', lastName: 'Alt', leftOn })
+    const accident = (childId: number, formDate: string | null, createdAt: string) => db.insert(forms).values({
+      facilityId: 1, kind: 'accident', title: 'Unfallanzeige', content: '{"sections":[]}', childId, formDate, createdAt, updatedAt: createdAt,
+    }).run()
+    accident(mia, '2025-06-01', '2025-06-01T10:00:00.000Z')
+    accident(mia, '2026-02-10', '2026-02-10T10:00:00.000Z')
+    // Without „Datum“ the day it was made counts; older than 5 years at the purge date: no hold.
+    accident(old, null, '2023-01-05T10:00:00.000Z')
+    const purge = purgeDate(leftOn, getChildRetentionYears(db))
+    expect(purge).toBe('2029-03-31')
+    expect(itemsOf('2029-03-31', 'child:').map(item => [item.name, item.deletableFrom, item.due, item.accidentHold])).toEqual([
+      ['Ole Alt', '2029-03-31', true, undefined],
+      ['Mia Muster', '2031-02-10', false, true],
+    ])
+    expect(errorCode(() => remove(`child:${mia}`, '2031-02-09'))).toBe('retention_not_due')
+    expect(listArchive(db, 1, '2029-03-31').map(row => [row.name, row.purgeOn])).toEqual([['Ole Alt', '2029-03-31'], ['Mia Muster', '2031-02-10']])
+    expect(remove(`child:${mia}`, '2031-02-10')).toBe(1)
+    // The accident reports go with the record.
+    expect(db.select().from(forms).where(eq(forms.childId, mia)).all()).toEqual([])
   })
 
   it('deletes an archived cash box once due; the counterpart of its transfer stays as a plain entry', () => {

@@ -1,8 +1,9 @@
 import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm'
 import {
-  CHILD_SICK_DEFAULTS, CHILD_SICK_SETTING_KEYS, childSickEntitlement, childSickSettingsError, type ChildFacts, type ChildSickSettings,
+  CHILD_SICK_SETTING_KEYS, childSickDefaults, childSickEntitlement, childSickOutdated, childSickSettingsError, type ChildFacts,
+  type ChildSickSettings,
 } from '../../shared/domain/childSickDays'
-import { isValidIsoDate } from '../../shared/domain/dates'
+import { isValidIsoDate, parseIsoDate } from '../../shared/domain/dates'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
@@ -101,33 +102,59 @@ export function assertChildOf(db: Db, childId: number, employeeIds: readonly num
 
 const SETTINGS_KEY = 'child_sick_settings'
 
-/** The Träger's values (one setting for all facilities); the defaults while none is stored or a stored one is broken. */
-export function getChildSickSettings(db: Db): ChildSickSettingsDto {
+/**
+ * The Träger's own values (one setting for all facilities, for every year); null while none is stored or a stored one
+ * is broken. The setting is only ever written by „Speichern“ in the settings (no migration stored the old defaults),
+ * so a stored value is always one the Träger chose.
+ */
+function storedChildSickSettings(db: Db): ChildSickSettings | null {
   const stored = db.select().from(appSettings).where(eq(appSettings.key, SETTINGS_KEY)).get()?.value
-  if (!stored) return { ...CHILD_SICK_DEFAULTS }
+  if (!stored) return null
   try {
     const parsed = JSON.parse(stored) as Partial<ChildSickSettings>
     const settings = Object.fromEntries(CHILD_SICK_SETTING_KEYS.map(key => [key, parsed[key]])) as unknown as ChildSickSettings
-    return childSickSettingsError(settings) === null ? settings : { ...CHILD_SICK_DEFAULTS }
+    return childSickSettingsError(settings) === null ? settings : null
   }
   catch {
-    return { ...CHILD_SICK_DEFAULTS }
+    return null
+  }
+}
+
+/** The values for a year: the Träger's own, otherwise the legal ones of that year (§ 45 Abs. 2 / 2a SGB V). */
+function childSickSettingsFor(db: Db, year: number): ChildSickSettings {
+  return storedChildSickSettings(db) ?? childSickDefaults(year)
+}
+
+/**
+ * The settings as of `today`: the values of its year (own or legal), whether they are the Träger's own, the legal
+ * values of the year, and whether own values still hold a raised value of 2026 in a later year (childSickOutdated).
+ */
+export function getChildSickSettings(db: Db, today: IsoDate): ChildSickSettingsDto {
+  const year = parseIsoDate(today).year
+  const stored = storedChildSickSettings(db)
+  const legal = childSickDefaults(year)
+  return {
+    ...(stored ?? legal), custom: stored !== null, year, legal, outdated: stored !== null && childSickOutdated(stored, year),
   }
 }
 
 /**
- * Stores the values: whole days 0–365, each maximum at least one child's days (400 child_sick_settings_invalid, also
- * for an emptied field, which comes as text).
+ * Stores own values: whole days 0–365, each maximum at least one child's days (400 child_sick_settings_invalid, also
+ * for an emptied field, which comes as text). `{ legal: true }` removes them: every year gets its legal values again.
  */
 export function setChildSickSettings(
-  db: Db, input: Record<keyof ChildSickSettingsDto, number | string>,
+  db: Db, input: Record<keyof ChildSickSettings, number | string> | { legal: true }, today: IsoDate,
 ): ChildSickSettingsDto {
+  if ('legal' in input) {
+    db.delete(appSettings).where(eq(appSettings.key, SETTINGS_KEY)).run()
+    return getChildSickSettings(db, today)
+  }
   const settings = Object.fromEntries(CHILD_SICK_SETTING_KEYS.map(key => [key, input[key]])) as unknown as ChildSickSettings
   const error = childSickSettingsError(settings)
   if (error) throw new ServiceError(400, error)
   const value = JSON.stringify(settings)
   db.insert(appSettings).values({ key: SETTINGS_KEY, value }).onConflictDoUpdate({ target: appSettings.key, set: { value } }).run()
-  return getChildSickSettings(db)
+  return getChildSickSettings(db, today)
 }
 
 /** The children of these employees by employee (for the entitlement). */
@@ -171,7 +198,8 @@ export function getChildSickYear(db: Db, facilityId: number, employeeId: number,
   const employee = loadEmployee(db, employeeId)!
   const dates = childSickDates(db, [employeeId], `${year}-01-01`, `${year}-12-31`).get(employeeId) ?? []
   const { eligibleChildren, days } = childSickEntitlement(
-    childrenOf(db, [employeeId]).get(employeeId) ?? [], singleParents(db, [employeeId]).has(employeeId), year, getChildSickSettings(db),
+    childrenOf(db, [employeeId]).get(employeeId) ?? [], singleParents(db, [employeeId]).has(employeeId), year,
+    childSickSettingsFor(db, year),
   )
   return { year, taken: workingDays(employee, dates).length, entitlement: days, eligibleChildren }
 }
@@ -192,7 +220,7 @@ export function childSickWarnings(
   if (dates.size === 0) return []
   const children = childrenOf(db, [...dates.keys()])
   const single = singleParents(db, [...dates.keys()])
-  const settings = getChildSickSettings(db)
+  const settings = childSickSettingsFor(db, year)
   const warnings: Warning[] = []
   for (const employee of staff) {
     const days = workingDays(employee, dates.get(employee.id) ?? [])

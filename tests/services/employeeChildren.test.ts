@@ -11,7 +11,6 @@ import { applyToCells } from '../../server/services/entries'
 import { getMonthPlan } from '../../server/services/plan'
 import { loadEmployee, loadEntries } from '../../server/services/queries'
 import { computeDay } from '../../shared/domain/balance'
-import { CHILD_SICK_DEFAULTS } from '../../shared/domain/childSickDays'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { EmployeeChildrenInput, SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, codeId, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
@@ -161,25 +160,53 @@ describe('Kinderkrankentage per year', () => {
   it('gives single parents the higher entitlement and follows the Träger\'s values', () => {
     save({ singleParent: true, children: [child('2020-05-04')] })
     expect(getChildSickYear(db, 1, anna, 2026).entitlement).toBe(30)
-    setChildSickSettings(db, { perChild: 10, maxPerYear: 25, singleParentPerChild: 20, singleParentMax: 50 })
+    setChildSickSettings(db, { perChild: 10, maxPerYear: 25, singleParentPerChild: 20, singleParentMax: 50 }, today)
     expect(getChildSickYear(db, 1, anna, 2026).entitlement).toBe(20)
   })
 
-  it('keeps the statutory defaults until the Träger stores own values, and checks them', () => {
-    expect(getChildSickSettings(db)).toEqual(CHILD_SICK_DEFAULTS)
-    expect(errorCode(() => setChildSickSettings(db, { ...CHILD_SICK_DEFAULTS, perChild: 2.5 }))).toBe('child_sick_settings_invalid')
-    expect(errorCode(() => setChildSickSettings(db, { ...CHILD_SICK_DEFAULTS, singleParentMax: 10 }))).toBe('child_sick_settings_invalid')
+  it('gives every year its legal values without own values: 15 per child up to 2026, 10 from 2027 (§ 45 Abs. 2, 2a SGB V)', () => {
+    save({ singleParent: false, children: [child('2020-05-04'), child('2018-05-04'), child('2016-05-04')] })
+    expect(getChildSickYear(db, 1, anna, 2026).entitlement).toBe(35)
+    expect(getChildSickYear(db, 1, anna, 2027).entitlement).toBe(25)
+    save({ singleParent: true, children: [child('2020-05-04'), child('2018-05-04'), child('2016-05-04')] })
+    expect(getChildSickYear(db, 1, anna, 2026).entitlement).toBe(70)
+    expect(getChildSickYear(db, 1, anna, 2027).entitlement).toBe(50)
+    // Own values count for every year, 2026 included.
+    setChildSickSettings(db, { perChild: 12, maxPerYear: 30, singleParentPerChild: 24, singleParentMax: 60 }, today)
+    expect(getChildSickYear(db, 1, anna, 2026).entitlement).toBe(60)
+    expect(getChildSickYear(db, 1, anna, 2027).entitlement).toBe(60)
+  })
+
+  it('keeps the legal values until the Träger stores own values, and checks them', () => {
+    const legal2026 = { perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 }
+    expect(getChildSickSettings(db, today)).toEqual({ ...legal2026, custom: false, year: 2026, legal: legal2026, outdated: false })
+    expect(errorCode(() => setChildSickSettings(db, { ...legal2026, perChild: 2.5 }, today))).toBe('child_sick_settings_invalid')
+    expect(errorCode(() => setChildSickSettings(db, { ...legal2026, singleParentMax: 10 }, today))).toBe('child_sick_settings_invalid')
     // An emptied field (sent as '') gets the same message, not a generic error.
-    expect(errorCode(() => setChildSickSettings(db, { ...CHILD_SICK_DEFAULTS, maxPerYear: '' }))).toBe('child_sick_settings_invalid')
-    expect(getChildSickSettings(db)).toEqual(CHILD_SICK_DEFAULTS)
-    expect(setChildSickSettings(db, { perChild: 20, maxPerYear: 40, singleParentPerChild: 40, singleParentMax: 80 }))
-      .toEqual({ perChild: 20, maxPerYear: 40, singleParentPerChild: 40, singleParentMax: 80 })
+    expect(errorCode(() => setChildSickSettings(db, { ...legal2026, maxPerYear: '' }, today))).toBe('child_sick_settings_invalid')
+    expect(getChildSickSettings(db, today).custom).toBe(false)
+    expect(setChildSickSettings(db, { perChild: 20, maxPerYear: 40, singleParentPerChild: 40, singleParentMax: 80 }, today))
+      .toEqual({ perChild: 20, maxPerYear: 40, singleParentPerChild: 40, singleParentMax: 80, custom: true, year: 2026, legal: legal2026, outdated: false })
+  })
+
+  it('shows the legal values of 2027 from 2027, flags own values still at 2026\'s, and goes back to the legal values', () => {
+    const legal2027 = { perChild: 10, maxPerYear: 25, singleParentPerChild: 20, singleParentMax: 50 }
+    expect(getChildSickSettings(db, '2027-01-01')).toEqual({ ...legal2027, custom: false, year: 2027, legal: legal2027, outdated: false })
+    // Saved in 2026 with the values of then: still counted in 2027, with the hint.
+    setChildSickSettings(db, { perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 }, today)
+    expect(getChildSickSettings(db, today).outdated).toBe(false)
+    expect(getChildSickSettings(db, '2027-01-01')).toMatchObject({ perChild: 15, custom: true, legal: legal2027, outdated: true })
+    expect(setChildSickSettings(db, { legal: true }, '2027-01-01'))
+      .toEqual({ ...legal2027, custom: false, year: 2027, legal: legal2027, outdated: false })
+    save({ singleParent: false, children: [child('2020-05-04'), child('2018-05-04'), child('2016-05-04')] })
+    expect(getChildSickYear(db, 1, anna, 2026).entitlement).toBe(35)
+    expect(getChildSickYear(db, 1, anna, 2027).entitlement).toBe(25)
   })
 
   it('warns in the plan on the last „Kind krank“ day once the days exceed the entitlement, never blocking', () => {
     const warnings = (month: number) => getMonthPlan(db, leitung, 1, 2026, month, today).admin!.warnings
       .filter(warning => warning.type === 'child_sick_days')
-    setChildSickSettings(db, { perChild: 2, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 })
+    setChildSickSettings(db, { perChild: 2, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 }, today)
     save({ singleParent: false, children: [child('2020-05-04')] })
     childSick('2026-10-29')
     childSick('2026-10-30')
@@ -196,7 +223,7 @@ describe('Kinderkrankentage per year', () => {
   it('leaves the numbers out of the warning for plan editors who may not see the children', () => {
     save({ singleParent: true, children: [child('2020-05-04')] })
     for (const date of ['2026-11-02', '2026-11-03', '2026-11-04']) childSick(date)
-    setChildSickSettings(db, { perChild: 1, maxPerYear: 35, singleParentPerChild: 2, singleParentMax: 70 })
+    setChildSickSettings(db, { perChild: 1, maxPerYear: 35, singleParentPerChild: 2, singleParentMax: 70 }, today)
     const editor: SessionUser = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.personal')) }
     const of = (viewer: SessionUser) => getMonthPlan(db, viewer, 1, 2026, 11, today).admin!.warnings
       .filter(warning => warning.type === 'child_sick_days')

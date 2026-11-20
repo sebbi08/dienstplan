@@ -12,12 +12,17 @@ const { data: types, refresh } = await useFetch<RequirementTypeDto[]>('/api/requ
 const run = useAction(refresh)
 const confirm = useConfirm()
 
-/** `months` keeps its value while "einmalig" is chosen, so switching back brings it up again. */
-interface Draft { name: string; mode: 'recurring' | 'once'; months: number }
+/**
+ * `months` keeps its value while "einmalig" is chosen, so switching back brings it up again. `first`: the months to the
+ * second record, only for a kind that has such a first interval (Betriebsarzt), else null.
+ */
+interface Draft { name: string; mode: 'recurring' | 'once'; months: number; first: number | null }
 const DEFAULT_MONTHS = 24
-const toDraft = (type: RequirementTypeDto): Draft =>
-  ({ name: type.name, mode: type.intervalMonths === null ? 'once' : 'recurring', months: type.intervalMonths ?? DEFAULT_MONTHS })
-const key = (draft: Draft) => JSON.stringify([draft.name, draft.mode, draft.months])
+const toDraft = (type: RequirementTypeDto): Draft => ({
+  name: type.name, mode: type.intervalMonths === null ? 'once' : 'recurring', months: type.intervalMonths ?? DEFAULT_MONTHS,
+  first: type.firstIntervalMonths,
+})
+const key = (draft: Draft) => JSON.stringify([draft.name, draft.mode, draft.months, draft.first])
 
 // One draft per kind; a refresh keeps drafts with an unsaved edit (as for the group names).
 const drafts = reactive<Record<number, Draft>>({})
@@ -31,13 +36,17 @@ function syncDrafts(saved?: number) {
   }
 }
 watch(types, () => syncDrafts(), { immediate: true })
-const emptyKind = (): Draft => ({ name: '', mode: 'recurring', months: DEFAULT_MONTHS })
+const emptyKind = (): Draft => ({ name: '', mode: 'recurring', months: DEFAULT_MONTHS, first: null })
 const newKind = reactive(emptyKind())
 
 const intervalItems: { label: string; value: Draft['mode'] }[] = [
   { label: de.requirements.recurring, value: 'recurring' }, { label: de.requirements.once, value: 'once' },
 ]
-const body = (draft: Draft) => ({ name: draft.name, intervalMonths: draft.mode === 'once' ? null : draft.months })
+// The first interval only while it counts (a recurring kind that has one); left out, the server keeps it.
+const body = (draft: Draft) => ({
+  name: draft.name, intervalMonths: draft.mode === 'once' ? null : draft.months,
+  ...(draft.first === null || draft.mode === 'once' ? {} : { firstIntervalMonths: draft.first }),
+})
 
 /** A kind's draft would save something else than it has (the months do not count while "einmalig" is chosen). */
 function kindDirty(type: RequirementTypeDto): boolean {
@@ -78,6 +87,14 @@ async function remove(type: RequirementTypeDto) {
         <USelect v-else v-model="drafts[type.id]!.mode" :items="intervalItems" size="sm" class="w-40" :aria-label="de.requirements.interval" />
         <label v-if="!isYouthExamKey(type.builtinKey) && drafts[type.id]!.mode === 'recurring'" class="flex items-center gap-1 text-sm">
           {{ de.requirements.everyPrefix }}
+          <template v-if="drafts[type.id]!.first !== null">
+            {{ de.requirements.firstPrefix }}
+            <UInput
+              v-model.number="drafts[type.id]!.first" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm"
+              class="w-20" :aria-label="de.requirements.firstPrefix"
+            />
+            {{ de.requirements.thenPrefix }}
+          </template>
           <UInput v-model.number="drafts[type.id]!.months" type="number" min="1" :max="MAX_REQUIREMENT_INTERVAL_MONTHS" step="1" required size="sm" class="w-20" />
           {{ de.requirements.months(drafts[type.id]!.months) }}
         </label>

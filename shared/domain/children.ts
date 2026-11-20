@@ -45,6 +45,23 @@ export function purgeDate(leftOn: IsoDate, years: number): IsoDate {
 }
 
 /**
+ * Accident reports of a child are kept at least this many years after the accident (DGUV Vorschrift 1 § 24 Abs. 6:
+ * first-aid records 5 years; DGUV Information 202-089 for Kitas: „fünf Jahre (besser 10 Jahre)“).
+ */
+export const CHILD_ACCIDENT_RETENTION_YEARS = 5
+
+/**
+ * Day from which a child's record (with its accident reports) may be deleted: purgeDate, but not before the newest
+ * accident report (`lastAccident`, its accident day; null = none) is CHILD_ACCIDENT_RETENTION_YEARS old.
+ */
+export function childPurgeDate(leftOn: IsoDate, years: number, lastAccident: IsoDate | null): IsoDate {
+  const record = purgeDate(leftOn, years)
+  if (lastAccident === null) return record
+  const accident = purgeDate(lastAccident, CHILD_ACCIDENT_RETENTION_YEARS)
+  return accident > record ? accident : record
+}
+
+/**
  * Completed years and months on a day (a month counts once its day of month is reached). A birth day the month does
  * not have (29-31) counts on the month's last day, so a 29 February child turns a year older on 28 February in
  * non-leap years, as `nextBirthday` says.

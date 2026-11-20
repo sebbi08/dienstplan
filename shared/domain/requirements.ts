@@ -5,17 +5,47 @@ import type { IsoDate } from './types'
  * The mandatory appointments and proofs (Pflichttermine) every facility has; they can be renamed, but not deleted. The
  * two examinations of the Jugendarbeitsschutzgesetz apply only to employees under 18 and are due by the law, not by an
  * interval (YOUTH_EXAM_KEYS, shared/domain/youthProtection.ts).
+ *
+ * `firstIntervalMonths`: the second record is due this many months after the first, later ones after `intervalMonths`
+ * (intervalAfter). The Betriebsarzt is the Pflichtvorsorge for biological agents in a Kita (ArbMedVV Anhang Teil 2
+ * Abs. 1 Nr. 3 Buchst. f, AMR 2.1): the first before the start (at most 3 months before), the second at the latest 12
+ * months later, then at the latest every 36 months. The Belehrung of § 34 Abs. 5a IfSG is due before the first
+ * activity, then at least every 2 years. Existing facilities got the changes from the migrations 0102 and 0103.
  */
 export const BUILTIN_REQUIREMENTS = [
-  { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 24 },
-  { key: 'first_aid', name: 'Erste-Hilfe-Kurs', intervalMonths: 24 },
-  { key: 'criminal_record', name: 'Erweitertes Führungszeugnis', intervalMonths: 60 },
-  { key: 'measles', name: 'Masernimpfung (Nachweis)', intervalMonths: null },
-  { key: 'youth_initial', name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null },
-  { key: 'youth_followup', name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null },
-] as const satisfies readonly { key: string; name: string; intervalMonths: number | null }[]
+  { key: 'company_doctor', name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12 },
+  { key: 'first_aid', name: 'Erste-Hilfe-Kurs', intervalMonths: 24, firstIntervalMonths: null },
+  { key: 'criminal_record', name: 'Erweitertes Führungszeugnis', intervalMonths: 60, firstIntervalMonths: null },
+  { key: 'measles', name: 'Masernimpfung (Nachweis)', intervalMonths: null, firstIntervalMonths: null },
+  { key: 'youth_initial', name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, firstIntervalMonths: null },
+  { key: 'youth_followup', name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, firstIntervalMonths: null },
+  { key: 'ifsg_briefing', name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', intervalMonths: 24, firstIntervalMonths: null },
+] as const satisfies readonly { key: string; name: string; intervalMonths: number | null; firstIntervalMonths: number | null }[]
 
 export type BuiltinRequirementKey = (typeof BUILTIN_REQUIREMENTS)[number]['key']
+
+/**
+ * The kinds due before the first working day: the notice shows them for someone starting within
+ * BEFORE_START_NOTICE_MONTHS already (the first examination of the JArbSchG has its own rule, youthExamStatus).
+ */
+export const BEFORE_START_KEYS = ['company_doctor', 'ifsg_briefing'] as const
+export type BeforeStartKey = (typeof BEFORE_START_KEYS)[number]
+
+export function isBeforeStartKey(key: string | null): key is BeforeStartKey {
+  return key !== null && (BEFORE_START_KEYS as readonly string[]).includes(key)
+}
+
+/** AMR 2.1: the first Vorsorge at most 3 months before the start; the notice shows the kinds from then on. */
+export const BEFORE_START_NOTICE_MONTHS = 3
+
+/**
+ * The interval after the newest of `records` records: the first interval after exactly one (when the kind has one),
+ * otherwise the interval (null = needed once).
+ */
+export function intervalAfter(records: number, intervalMonths: number | null, firstIntervalMonths: number | null): number | null {
+  if (intervalMonths === null) return null
+  return records === 1 && firstIntervalMonths !== null ? firstIntervalMonths : intervalMonths
+}
 
 /** The examinations of the Jugendarbeitsschutzgesetz: only for employees under 18, due by the law (no interval). */
 export const YOUTH_EXAM_KEYS = ['youth_initial', 'youth_followup'] as const

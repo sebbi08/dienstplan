@@ -817,6 +817,8 @@ export interface RetentionItemDto {
   bem?: { endedOn: IsoDate; employed: boolean }
   /** The same for „Mutterschutz-Unterlagen“: the end of the case the date counts from. */
   maternity?: { endedOn: IsoDate; employed: boolean }
+  /** Only for a child record kept longer for an accident report (5 years after the accident, DGUV Vorschrift 1 § 24 Abs. 6). */
+  accidentHold?: true
   /** May be deleted today. */
   due: boolean
 }
@@ -1335,12 +1337,24 @@ export interface EmployeeChildrenInput {
   children: (EmployeeChildInput & { id?: number | null })[]
 }
 
-/** The Träger's values for the Kinderkrankentage (§ 45 SGB V), for all facilities. */
-export interface ChildSickSettingsDto {
+/** The four values of the Kinderkrankentage (§ 45 SGB V), as the Träger enters them. */
+export interface ChildSickSettingsInput {
   perChild: number
   maxPerYear: number
   singleParentPerChild: number
   singleParentMax: number
+}
+
+/**
+ * The Kinderkrankentage settings (for all facilities) as of today: the values of the current year (the Träger's own,
+ * which count for every year, or the legal ones of the year), whether they are the Träger's own, the legal values of the
+ * year, and whether own values still hold a raised value of 2026 in a later year.
+ */
+export interface ChildSickSettingsDto extends ChildSickSettingsInput {
+  custom: boolean
+  year: number
+  legal: ChildSickSettingsInput
+  outdated: boolean
 }
 
 /** Kinderkrankentage of an employee in a year: working days with „Kind krank“ and the entitlement. */
@@ -2226,7 +2240,9 @@ export interface RequirementTypeDto {
   name: string
   /** Due again every this many months (null = needed once). */
   intervalMonths: number | null
-  /** 'company_doctor', 'first_aid', 'criminal_record' or 'measles' for the built-in kinds, null for the facility's own. */
+  /** The second record is due this many months after the first (null = after intervalMonths; Betriebsarzt: 12). */
+  firstIntervalMonths: number | null
+  /** The key of a built-in kind (BUILTIN_REQUIREMENTS, e.g. 'company_doctor'), null for the facility's own. */
   builtinKey: string | null
   sortOrder: number
 }
@@ -2321,7 +2337,7 @@ export interface EmployeeRequirementsDto {
  */
 export interface MyRequirementsDto {
   kinds: {
-    type: Pick<RequirementTypeDto, 'id' | 'name' | 'intervalMonths'>
+    type: Pick<RequirementTypeDto, 'id' | 'name' | 'intervalMonths' | 'firstIntervalMonths'>
     lastDate: IsoDate | null
     dueOn: IsoDate | null
   }[]

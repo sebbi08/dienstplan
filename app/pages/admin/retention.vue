@@ -44,6 +44,7 @@ const later = computed(() => shown.value.filter(item => !item.due))
 const whatOf = (item: RetentionItemDto) => {
   const what = t.itemLabel(item.name, item.kind === 'employee' ? t.categories[item.category ?? 'record'] : t.categories[item.kind])
   if (item.bem) return `${what} (${t.bemDetail(formatDate(item.bem.endedOn), item.bem.employed)})`
+  if (item.accidentHold) return `${what} (${t.accidentHold})`
   return item.maternity ? `${what} (${t.maternityDetail(formatDate(item.maternity.endedOn), item.maternity.employed)})` : what
 }
 

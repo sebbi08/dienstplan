@@ -98,7 +98,7 @@ async function deleteTraining(item: TrainingDto) {
           <template v-for="kind in data.kinds" :key="kind.type.id">
             <tr class="border-t border-gray-100">
               <td class="py-1.5 pr-3 font-medium">{{ kind.type.name }}</td>
-              <td class="whitespace-nowrap py-1.5 pr-3 text-gray-600">{{ intervalText(kind.type.intervalMonths) }}</td>
+              <td class="whitespace-nowrap py-1.5 pr-3 text-gray-600">{{ intervalText(kind.type.intervalMonths, kind.type.firstIntervalMonths) }}</td>
               <td class="whitespace-nowrap py-1.5 pr-3">{{ kind.lastDate ? formatDate(kind.lastDate) : de.requirements.none }}</td>
               <td class="whitespace-nowrap py-1.5 pr-3">{{ kind.dueOn ? formatDate(kind.dueOn) : de.requirements.none }}</td>
               <td class="py-1.5 pr-3">

@@ -203,19 +203,21 @@ describe('examinations (§§ 32, 33 JArbSchG) among the Pflichttermine', () => {
     db.update(employees).set({ birthYear: 2008 }).where(eq(employees.id, lena)).run()
     expect(youthKinds(lena, '2026-12-10')).toEqual([])
   })
-  it('announces the first examination before the first day, nothing else of a joiner', () => {
+  it('announces the first examination before the first day, of the JArbSchG kinds only that one of a joiner', () => {
+    const youth = (name: string) => name.includes('JArbSchG')
     const tom = addEmployee(db, 'Tom', { validFrom: '2026-11-16' })
     db.update(employees).set({ birthday: '05-05', birthYear: 2010 }).where(eq(employees.id, tom)).run()
     const anne = addEmployee(db, 'Anne', { validFrom: '2026-11-16' })
-    expect(listDueRequirements(db, 1, TODAY).filter(row => row.employeeId === tom || row.employeeId === anne)
+    expect(listDueRequirements(db, 1, TODAY).filter(row => (row.employeeId === tom || row.employeeId === anne) && youth(row.typeName))
       .map(row => [row.employeeName, row.typeName, row.state, row.dueOn]))
       .toEqual([['Tom', INITIAL, 'soon', '2026-11-16']])
     // The employee list shows it in the Pflichttermine column.
-    expect(listEmployeeListExtras(db, 1, TODAY, admin.permissions).find(row => row.employeeId === tom)!.requirements)
+    expect(listEmployeeListExtras(db, 1, TODAY, admin.permissions).find(row => row.employeeId === tom)!.requirements
+      .filter(row => youth(row.typeName)))
       .toEqual([{ typeId: requirementTypeId(db, 'youth_initial'), typeName: INITIAL, state: 'soon', dueOn: '2026-11-16' }])
     // „Beschäftigt seit“ is the start for both: due by it, and listed while it lies ahead.
     db.update(employees).set({ employedSince: '2026-12-01' }).where(eq(employees.id, tom)).run()
-    expect(listDueRequirements(db, 1, TODAY).filter(row => row.employeeId === tom).map(row => [row.typeName, row.state, row.dueOn]))
+    expect(listDueRequirements(db, 1, TODAY).filter(row => row.employeeId === tom && youth(row.typeName)).map(row => [row.typeName, row.state, row.dueOn]))
       .toEqual([[INITIAL, 'soon', '2026-12-01']])
   })
   it('shows the employee their own examinations', () => {

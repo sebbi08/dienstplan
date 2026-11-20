@@ -50,7 +50,7 @@ function isEmpty(db: Db, table: SQLiteTable): boolean {
 /**
  * Document types every facility starts with. Facility 1 and existing facilities get them from the migration
  * 0025_child_records (keep both lists in step), new facilities from createFacility. "Betreuungsvertrag" is the care
- * contract type (existing facilities: migration 0030_school_children).
+ * contract type (existing facilities: migration 0030_school_children); the Impfberatung came with 0104.
  */
 export const DEFAULT_DOCUMENT_TYPES: Omit<typeof documentTypes.$inferInsert, 'facilityId'>[] = [
   { name: 'Betreuungsvertrag', important: true, required: true, confidentialDefault: true, sortOrder: 0, careContract: true },
@@ -60,6 +60,9 @@ export const DEFAULT_DOCUMENT_TYPES: Omit<typeof documentTypes.$inferInsert, 'fa
   { name: 'Sorgerechtsbeschluss', important: true, required: false, confidentialDefault: true, sortOrder: 4 },
   { name: 'Ärztliches Attest', important: false, required: false, confidentialDefault: true, sortOrder: 5 },
   { name: 'Sonstiges', important: false, required: false, confidentialDefault: false, sortOrder: 6 },
+  // § 34 Abs. 10a IfSG: before the first admission the parents prove a medical vaccination counselling. Not „für jedes
+  // Kind nötig“: children admitted before need none (existing facilities: migration 0104).
+  { name: 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', important: true, required: false, confidentialDefault: false, sortOrder: 7 },
 ]
 
 /**

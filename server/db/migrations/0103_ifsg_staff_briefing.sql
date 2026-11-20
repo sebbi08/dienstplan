@@ -1,0 +1,4 @@
+-- § 34 Abs. 5a IfSG: the Belehrung of the staff before the first activity, then at least every 2 years, as a built-in
+-- kind of every facility after its kinds. A kind of the facility's own with exactly this name becomes the built-in one.
+UPDATE `requirement_types` SET `builtin_key` = 'ifsg_briefing' WHERE `builtin_key` IS NULL AND lower(`name`) = lower('Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)');--> statement-breakpoint
+INSERT INTO `requirement_types` (`facility_id`, `name`, `interval_months`, `builtin_key`, `sort_order`) SELECT `id`, 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', 24, 'ifsg_briefing', (SELECT COALESCE(MAX(`sort_order`), -1) + 1 FROM `requirement_types` WHERE `requirement_types`.`facility_id` = `facilities`.`id`) FROM `facilities` WHERE NOT EXISTS (SELECT 1 FROM `requirement_types` WHERE `requirement_types`.`facility_id` = `facilities`.`id` AND `requirement_types`.`builtin_key` = 'ifsg_briefing');

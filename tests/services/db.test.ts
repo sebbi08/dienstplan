@@ -150,6 +150,8 @@ describe('upgrading a filled database through migrateDb', () => {
   const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from', 'training_until', 'recognition_year_counts', 'single_parent', 'probation_until']
   const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_EMPLOYEE_COLUMNS.includes(column))))
+  // 0104_vaccination_counselling_document gives every facility this document type; the older tests leave it out.
+  const IMPFBERATUNG = 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)'
   const count = (sqlite: Database.Database, table: string) => (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
   it('keeps every row and moves settings, users and data into facility 1 "Kindergarten"', () => {
@@ -478,10 +480,11 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(facilities.map(row => row.id)).toEqual([1, 2, 3])
     for (const { id } of facilities) {
       expect(sqlite.prepare(
-        'SELECT name, important, required, confidential_default, sort_order FROM document_types WHERE facility_id = ? ORDER BY sort_order',
-      ).all(id), `facility ${id}`).toEqual(expected)
+        'SELECT name, important, required, confidential_default, sort_order FROM document_types WHERE facility_id = ? AND name NOT LIKE ? ORDER BY sort_order',
+      ).all(id, IMPFBERATUNG), `facility ${id}`).toEqual(expected)
     }
-    expect(count(sqlite, 'document_types')).toBe(21)
+    // And 0104's type for the Impfberatung in each of them.
+    expect(count(sqlite, 'document_types')).toBe(24)
     expect(count(sqlite, 'children')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
@@ -632,8 +635,8 @@ describe('upgrading a filled database through migrateDb', () => {
     // Exactly the types named "Betreuungsvertrag" (facilities 1 and 2); facility 3 has none of that name.
     expect(sqlite.prepare('SELECT facility_id, name FROM document_types WHERE care_contract = 1 ORDER BY facility_id').all())
       .toEqual([{ facility_id: 1, name: 'Betreuungsvertrag' }, { facility_id: 2, name: 'Betreuungsvertrag' }])
-    expect(count(sqlite, 'document_types')).toBe(10)
-    expect(sqlite.prepare('SELECT id, facility_id, name, important, required, confidential_default, sort_order FROM document_types ORDER BY id').all())
+    expect(count(sqlite, 'document_types')).toBe(13) // with 0104's Impfberatung in each facility
+    expect(sqlite.prepare('SELECT id, facility_id, name, important, required, confidential_default, sort_order FROM document_types WHERE name NOT LIKE ? ORDER BY id').all(IMPFBERATUNG))
       .toEqual(before.types)
     // Nobody is deregistered automatically and no group is for school children until the Träger says so.
     expect(sqlite.prepare('SELECT id, auto_leave_school_children FROM facilities ORDER BY id').all()).toEqual([
@@ -968,8 +971,8 @@ describe('upgrading a filled database through migrateDb', () => {
     sqlite.prepare('DELETE FROM meals WHERE id = ?').run(lunch)
     expect(sqlite.prepare('SELECT day_id FROM child_attendance_meals ORDER BY day_id').all()).toEqual([{ day_id: 2 }, { day_id: 4 }])
     expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = ?').get(lunch)).toEqual({ n: 0 })
-    // 0095 gave the facility the examinations of the JArbSchG; they go first (no cascade).
-    sqlite.exec('DELETE FROM children WHERE id = 2; DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
+    // 0095 gave the facility the examinations of the JArbSchG, 0104 a document type; they go first (no cascade).
+    sqlite.exec('DELETE FROM children WHERE id = 2; DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM document_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
     expect(count(sqlite, 'meals')).toBe(1)
     expect(count(sqlite, 'meal_versions')).toBe(1)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -1036,7 +1039,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect([count(sqlite, 'child_attendance_days'), count(sqlite, 'child_attendance_meals')]).toEqual([0, 0])
     // Facilities keep their references too: a group of an unknown facility is refused, a facility's meals go with it.
     expect(() => sqlite.exec('INSERT INTO groups (facility_id, name) VALUES (99, \'Igel\')')).toThrow(/FOREIGN KEY/)
-    sqlite.exec('DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2') // 0095's kinds first
+    sqlite.exec('DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM document_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2') // 0095's kinds, 0104's type first
     expect(sqlite.prepare('SELECT DISTINCT facility_id FROM meals').all()).toEqual([{ facility_id: 1 }])
     expect(sqlite.prepare('SELECT count(*) AS n FROM meal_versions WHERE meal_id = 100').get()).toEqual({ n: 0 })
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -1464,13 +1467,13 @@ describe('upgrading a filled database through migrateDb', () => {
     sqlite.exec(insert)
     expect(() => sqlite.exec(insert)).toThrow(/UNIQUE|PRIMARY/)
     expect(sqlite.prepare('SELECT * FROM retention_settings').all()).toEqual([{
-      facility_id: 2, time_years: 2, assessment_years: 3, paid_overtime_years: 10, pension_years: 30, cash_years: 10,
+      facility_id: 2, time_years: 2, assessment_years: 3, paid_overtime_years: 8, pension_years: 30, cash_years: 10,
       employee_delete: 'managers', bem_years: 3, maternity_years: 2, payroll_office: 1,
     }])
     sqlite.exec(`INSERT INTO balance_adjustments (employee_id, date, minutes, reason) VALUES (1, '2026-10-01', 60, 'Neu')`)
     expect(sqlite.prepare(`SELECT paid_out FROM balance_adjustments WHERE reason = 'Neu'`).get()).toEqual({ paid_out: 0 })
     // The settings go with their facility.
-    sqlite.exec('DELETE FROM balance_adjustments WHERE employee_id = 2; DELETE FROM employees WHERE id = 2; DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
+    sqlite.exec('DELETE FROM balance_adjustments WHERE employee_id = 2; DELETE FROM employees WHERE id = 2; DELETE FROM requirement_types WHERE facility_id = 2; DELETE FROM document_types WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
     expect(count(sqlite, 'retention_settings')).toBe(0)
   })
 
@@ -2161,6 +2164,82 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     ])
     expect(() => sqlite.exec(`INSERT INTO facility_eve_rules (facility_id, from_year, mode) VALUES (1, 2026, 'whole')`)).toThrow(/UNIQUE|PRIMARY/)
     expect(() => sqlite.exec(`INSERT INTO facility_eve_rules (facility_id, from_year, mode) VALUES (99, 2026, 'paid')`)).toThrow(/FOREIGN KEY/)
+  })
+
+  it('0102 gives the Betriebsarzt the ArbMedVV intervals (second after 12, then every 36 months) where it still has 24', () => {
+    const { db, sqlite } = databaseAt('0101')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO requirement_types (facility_id, name, interval_months, builtin_key, sort_order) VALUES (2, 'Betriebsarzt', 18, 'company_doctor', 0);
+      INSERT INTO requirement_types (facility_id, name, interval_months, builtin_key, sort_order) VALUES (2, 'Eigene Vorsorge', 24, NULL, 1);
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare(`SELECT facility_id, name, interval_months, first_interval_months FROM requirement_types
+      WHERE builtin_key = 'company_doctor' OR name = 'Eigene Vorsorge' ORDER BY facility_id, sort_order`).all()).toEqual([
+      { facility_id: 1, name: 'Betriebsarzt', interval_months: 36, first_interval_months: 12 },
+      // An interval the facility set itself, and an own kind, stay.
+      { facility_id: 2, name: 'Betriebsarzt', interval_months: 18, first_interval_months: null },
+      { facility_id: 2, name: 'Eigene Vorsorge', interval_months: 24, first_interval_months: null },
+    ])
+  })
+
+  it('0103 adds the Belehrung of § 34 Abs. 5a IfSG as a built-in kind after each facility\'s kinds (an own one of that name becomes it)', () => {
+    const { db, sqlite } = databaseAt('0102')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe'), (3, 'Hort');
+      INSERT INTO requirement_types (id, facility_id, name, interval_months, builtin_key, sort_order) VALUES (100, 2, 'belehrung infektionsschutz (§ 34 abs. 5a ifsg)', 12, NULL, 0);
+    `)
+    migrateDb(db, MIGRATIONS)
+    const briefing = (facilityId: number) => sqlite.prepare(`SELECT id, name, interval_months, sort_order FROM requirement_types
+      WHERE facility_id = ? AND builtin_key = 'ifsg_briefing'`).all(facilityId)
+    const lastOrder = (sqlite.prepare(`SELECT max(sort_order) AS n FROM requirement_types WHERE facility_id = 1 AND builtin_key != 'ifsg_briefing'`).get() as { n: number }).n
+    expect(briefing(1)).toEqual([{ id: expect.any(Number), name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', interval_months: 24, sort_order: lastOrder + 1 }])
+    expect(briefing(2)).toEqual([{ id: 100, name: 'belehrung infektionsschutz (§ 34 abs. 5a ifsg)', interval_months: 12, sort_order: 0 }])
+    expect(briefing(3)).toEqual([{ id: expect.any(Number), name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', interval_months: 24, sort_order: 0 }])
+  })
+
+  it('0104 adds the document type for the Impfberatung (§ 34 Abs. 10a IfSG): important, not required, after each facility\'s types', () => {
+    const { db, sqlite } = databaseAt('0103')
+    sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe')`)
+    sqlite.exec(`INSERT INTO document_types (facility_id, name, important, required, sort_order) VALUES (2, 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', 0, 0, 3)`)
+    migrateDb(db, MIGRATIONS)
+    const types = (facilityId: number) => sqlite.prepare(`SELECT name, important, required, confidential_default, sort_order FROM document_types
+      WHERE facility_id = ? AND name LIKE 'Nachweis ärztliche Impfberatung%'`).all(facilityId)
+    expect(types(1)).toEqual([{ name: 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', important: 1, required: 0, confidential_default: 0, sort_order: 7 }])
+    // A facility that has it already keeps its own.
+    expect(types(2)).toEqual([{ name: 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', important: 0, required: 0, confidential_default: 0, sort_order: 3 }])
+  })
+
+  it('0105 keeps vouchers 8 instead of 10 years (§ 147 AO, § 257 HGB since 2025) unless the Träger set another period', () => {
+    const { db, sqlite } = databaseAt('0104')
+    sqlite.exec(`INSERT INTO facilities (id, name) VALUES (2, 'Krippe'), (3, 'Hort')`)
+    sqlite.exec(`INSERT INTO retention_settings (facility_id, time_years, paid_overtime_years) VALUES (1, 4, 10), (2, 2, 12)`)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT facility_id, time_years, paid_overtime_years FROM retention_settings ORDER BY facility_id').all())
+      .toEqual([{ facility_id: 1, time_years: 4, paid_overtime_years: 8 }, { facility_id: 2, time_years: 2, paid_overtime_years: 12 }])
+    sqlite.exec('INSERT INTO retention_settings (facility_id) VALUES (3)')
+    expect(sqlite.prepare('SELECT paid_overtime_years FROM retention_settings WHERE facility_id = 3').get()).toEqual({ paid_overtime_years: 8 })
+    // The settings still go with their facility.
+    sqlite.exec('DELETE FROM requirement_types WHERE facility_id = 3; DELETE FROM document_types WHERE facility_id = 3; DELETE FROM facilities WHERE id = 3')
+    expect(count(sqlite, 'retention_settings')).toBe(2)
+  })
+
+  it('0106 moves the former school cutoff presets of HH, BY, NW and TH to the day the 6th year is completed; other cutoffs stay', () => {
+    const { db, sqlite } = databaseAt('0105')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name, state, school_cutoff_month, school_cutoff_day) VALUES
+        (2, 'HH', 'HH', 7, 1), (3, 'BY', 'BY', 9, 30), (4, 'NW', 'NW', 9, 30), (5, 'BE', 'BE', 9, 30), (6, 'TH', 'TH', 8, 1),
+        (7, 'HH eigen', 'HH', 8, 1), (8, 'BY eigen', 'BY', 9, 15), (9, 'NW mit 7', 'NW', 9, 30), (10, 'TH eigen', 'TH', 7, 1),
+        (11, 'BW mit 1.7.', 'BW', 7, 1);
+      UPDATE facilities SET school_age_years = 7 WHERE id = 9;
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT id, school_cutoff_month AS month, school_cutoff_day AS day FROM facilities WHERE id > 1 ORDER BY id').all()).toEqual([
+      { id: 2, month: 6, day: 30 }, { id: 3, month: 9, day: 29 }, { id: 4, month: 9, day: 29 }, { id: 5, month: 9, day: 30 },
+      { id: 6, month: 7, day: 31 },
+      { id: 7, month: 8, day: 1 }, { id: 8, month: 9, day: 15 }, { id: 9, month: 9, day: 30 }, { id: 10, month: 7, day: 1 },
+      { id: 11, month: 7, day: 1 },
+    ])
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CHILD_SICK_DEFAULTS, childSickEntitlement, childSickSettingsError, isEligibleChildInYear, isEligibleChildOn, parentStatus,
+  childSickDefaults, childSickEntitlement, childSickOutdated, childSickSettingsError, isEligibleChildInYear, isEligibleChildOn, parentStatus,
 } from '../../shared/domain/childSickDays'
 
 const child = (birthDate: string, disabledDependent = false) => ({ birthDate, disabledDependent })
@@ -31,10 +31,25 @@ describe('Kinderkrankentage: eligible children (§ 45 SGB V)', () => {
 })
 
 describe('Kinderkrankentage: entitlement per year', () => {
-  const settings = CHILD_SICK_DEFAULTS
+  const settings = childSickDefaults(2026)
 
-  it('has the statutory defaults', () => {
-    expect(CHILD_SICK_DEFAULTS).toEqual({ perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 })
+  it('has the raised values of § 45 Abs. 2a SGB V up to 2026 and the lasting ones of Abs. 2 from 2027', () => {
+    expect(settings).toEqual({ perChild: 15, maxPerYear: 35, singleParentPerChild: 30, singleParentMax: 70 })
+    expect(childSickDefaults(2024)).toEqual(settings)
+    expect(childSickDefaults(2027)).toEqual({ perChild: 10, maxPerYear: 25, singleParentPerChild: 20, singleParentMax: 50 })
+    expect(childSickDefaults(2030)).toEqual(childSickDefaults(2027))
+    // A copy: changing it changes no later call.
+    childSickDefaults(2027).perChild = 99
+    expect(childSickDefaults(2027).perChild).toBe(10)
+  })
+
+  it('calls stored values outdated from 2027 while one of them is still the raised value of 2026', () => {
+    expect(childSickOutdated(settings, 2026)).toBe(false)
+    expect(childSickOutdated(settings, 2027)).toBe(true)
+    expect(childSickOutdated({ perChild: 10, maxPerYear: 35, singleParentPerChild: 20, singleParentMax: 50 }, 2027)).toBe(true)
+    expect(childSickOutdated(childSickDefaults(2027), 2027)).toBe(false)
+    // Own values of the Träger that never were the 2026 ones.
+    expect(childSickOutdated({ perChild: 12, maxPerYear: 30, singleParentPerChild: 24, singleParentMax: 60 }, 2028)).toBe(false)
   })
 
   it('gives per child up to the yearly maximum', () => {
@@ -62,11 +77,11 @@ describe('Kinderkrankentage: entitlement per year', () => {
   })
 
   it('checks the settings: whole days 0–365, the maximum at least one child\'s days', () => {
-    expect(childSickSettingsError(CHILD_SICK_DEFAULTS)).toBeNull()
-    expect(childSickSettingsError({ ...CHILD_SICK_DEFAULTS, perChild: 1.5 })).toBe('child_sick_settings_invalid')
-    expect(childSickSettingsError({ ...CHILD_SICK_DEFAULTS, maxPerYear: -1 })).toBe('child_sick_settings_invalid')
-    expect(childSickSettingsError({ ...CHILD_SICK_DEFAULTS, singleParentMax: 400 })).toBe('child_sick_settings_invalid')
-    expect(childSickSettingsError({ ...CHILD_SICK_DEFAULTS, maxPerYear: 10 })).toBe('child_sick_settings_invalid')
+    expect(childSickSettingsError(settings)).toBeNull()
+    expect(childSickSettingsError({ ...settings, perChild: 1.5 })).toBe('child_sick_settings_invalid')
+    expect(childSickSettingsError({ ...settings, maxPerYear: -1 })).toBe('child_sick_settings_invalid')
+    expect(childSickSettingsError({ ...settings, singleParentMax: 400 })).toBe('child_sick_settings_invalid')
+    expect(childSickSettingsError({ ...settings, maxPerYear: 10 })).toBe('child_sick_settings_invalid')
   })
 })
 

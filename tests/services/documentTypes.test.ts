@@ -19,11 +19,11 @@ describe('document types of a facility', () => {
     db = createTestDb()
   })
 
-  it('lists the seven default types alphabetically (German collation)', () => {
+  it('lists the eight default types alphabetically (German collation)', () => {
     const types = listDocumentTypes(db, 1)
     expect(types.map(type => type.name)).toEqual([
       'Ärztliches Attest', 'Belehrung Infektionsschutz', 'Betreuungsvertrag', 'Datenschutz-Einwilligung',
-      'Masernnachweis', 'Sonstiges', 'Sorgerechtsbeschluss',
+      'Masernnachweis', 'Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)', 'Sonstiges', 'Sorgerechtsbeschluss',
     ])
     expect(types[2]).toMatchObject({ important: true, required: true, confidentialDefault: true })
   })
@@ -70,7 +70,7 @@ describe('document types of a facility', () => {
       id, name: 'SONSTIGES', important: true, required: false, confidentialDefault: true, careContract: false,
     })
     expect(updated.sortOrder).not.toBe(20)
-    expect(listDocumentTypes(db, 1).map(type => type.id).indexOf(id)).toBe(5)
+    expect(listDocumentTypes(db, 1).map(type => type.id).indexOf(id)).toBe(6)
     expect(errorCode(() => updateDocumentType(db, 1, id, input('Masernnachweis')))).toBe('document_type_name_taken')
     expect(errorCode(() => updateDocumentType(db, 1, id, input('')))).toBe('document_type_name_required')
   })

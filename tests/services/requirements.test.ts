@@ -15,12 +15,13 @@ import {
 const today = '2026-10-12'
 
 const BUILTINS = [
-  { name: 'Betriebsarzt', intervalMonths: 24, builtinKey: 'company_doctor', sortOrder: 0 },
-  { name: 'Erste-Hilfe-Kurs', intervalMonths: 24, builtinKey: 'first_aid', sortOrder: 1 },
-  { name: 'Erweitertes Führungszeugnis', intervalMonths: 60, builtinKey: 'criminal_record', sortOrder: 2 },
-  { name: 'Masernimpfung (Nachweis)', intervalMonths: null, builtinKey: 'measles', sortOrder: 3 },
-  { name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, builtinKey: 'youth_initial', sortOrder: 4 },
-  { name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 },
+  { name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12, builtinKey: 'company_doctor', sortOrder: 0 },
+  { name: 'Erste-Hilfe-Kurs', intervalMonths: 24, firstIntervalMonths: null, builtinKey: 'first_aid', sortOrder: 1 },
+  { name: 'Erweitertes Führungszeugnis', intervalMonths: 60, firstIntervalMonths: null, builtinKey: 'criminal_record', sortOrder: 2 },
+  { name: 'Masernimpfung (Nachweis)', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'measles', sortOrder: 3 },
+  { name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'youth_initial', sortOrder: 4 },
+  { name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 },
+  { name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', intervalMonths: 24, firstIntervalMonths: null, builtinKey: 'ifsg_briefing', sortOrder: 6 },
 ]
 const BUILTIN_KEYS = BUILTINS.map(kind => kind.builtinKey)
 /** The kinds that apply to everybody: the examinations of the JArbSchG only to employees under 18. */
@@ -43,7 +44,7 @@ describe('kinds of mandatory appointments', () => {
 
   const withoutIds = (facilityId: number) => listRequirementTypes(db, facilityId).map(({ id: _id, ...rest }) => rest)
 
-  it('has the six built-in kinds in the first facility and in every new one', () => {
+  it('has the seven built-in kinds in the first facility and in every new one', () => {
     expect(withoutIds(1)).toEqual(BUILTINS)
     // A new facility starts with the defaults, whatever the first facility made of its own kinds.
     updateRequirementType(db, 1, requirementTypeId(db, 'first_aid'), { name: 'Erste Hilfe am Kind', intervalMonths: 12 })
@@ -55,16 +56,16 @@ describe('kinds of mandatory appointments', () => {
     expect(withoutIds(1).map(type => type.name))
       .toEqual([
         'Betriebsarzt', 'Erste Hilfe am Kind', 'Erweitertes Führungszeugnis', 'Masernimpfung (Nachweis)', 'Erstuntersuchung (§ 32 JArbSchG)',
-        'Nachuntersuchung (§ 33 JArbSchG)', 'Hygienebelehrung',
+        'Nachuntersuchung (§ 33 JArbSchG)', 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', 'Hygienebelehrung',
       ])
   })
 
   it('creates own kinds at the end, recurring or needed once', () => {
     const hygiene = createRequirementType(db, 1, { name: '  Hygienebelehrung ', intervalMonths: 24 })
-    expect(hygiene).toEqual({ id: hygiene.id, name: 'Hygienebelehrung', intervalMonths: 24, builtinKey: null, sortOrder: 6 })
+    expect(hygiene).toEqual({ id: hygiene.id, name: 'Hygienebelehrung', intervalMonths: 24, firstIntervalMonths: null, builtinKey: null, sortOrder: 7 })
     const licence = createRequirementType(db, 1, { name: 'Führerschein', intervalMonths: null })
-    expect(licence).toEqual({ id: licence.id, name: 'Führerschein', intervalMonths: null, builtinKey: null, sortOrder: 7 })
-    expect(listRequirementTypes(db, 1).slice(6)).toEqual([hygiene, licence])
+    expect(licence).toEqual({ id: licence.id, name: 'Führerschein', intervalMonths: null, firstIntervalMonths: null, builtinKey: null, sortOrder: 8 })
+    expect(listRequirementTypes(db, 1).slice(7)).toEqual([hygiene, licence])
   })
 
   it('refuses empty names and names taken in the facility in any spelling, umlauts included', () => {
@@ -78,14 +79,14 @@ describe('kinds of mandatory appointments', () => {
     expect(errorCode(() => createRequirementType(db, 1, { name: 'betriebsarzt', intervalMonths: 12 }))).toBe('requirement_name_taken')
     expect(stored(db)).toEqual(before)
     // Names are unique per facility only.
-    expect(createRequirementType(db, krippe, { name: 'Führerschein', intervalMonths: 12 }).sortOrder).toBe(6)
+    expect(createRequirementType(db, krippe, { name: 'Führerschein', intervalMonths: 12 }).sortOrder).toBe(7)
   })
 
   it('renames a kind and changes its interval, built-in ones included', () => {
     const doctor = requirementTypeId(db, 'company_doctor')
     updateRequirementType(db, 1, doctor, { name: ' Arbeitsmedizinische Vorsorge ', intervalMonths: 36 })
     expect(listRequirementTypes(db, 1)[0]).toEqual({
-      id: doctor, name: 'Arbeitsmedizinische Vorsorge', intervalMonths: 36, builtinKey: 'company_doctor', sortOrder: 0,
+      id: doctor, name: 'Arbeitsmedizinische Vorsorge', intervalMonths: 36, firstIntervalMonths: 12, builtinKey: 'company_doctor', sortOrder: 0,
     })
     // A recurring kind becomes one needed once, and the other way round.
     updateRequirementType(db, 1, doctor, { name: 'Arbeitsmedizinische Vorsorge', intervalMonths: null })
@@ -96,11 +97,13 @@ describe('kinds of mandatory appointments', () => {
 
     const own = createRequirementType(db, 1, { name: 'Hygienebelehrung', intervalMonths: 24 })
     updateRequirementType(db, 1, own.id, { name: 'HYGIENEBELEHRUNG', intervalMonths: 12 }) // its own name in another spelling
-    expect(listRequirementTypes(db, 1)[6]).toEqual({ ...own, name: 'HYGIENEBELEHRUNG', intervalMonths: 12 })
+    expect(listRequirementTypes(db, 1)[7]).toEqual({ ...own, name: 'HYGIENEBELEHRUNG', intervalMonths: 12 })
     // The examinations of the JArbSchG can be renamed, but keep no interval: the law sets when they are due.
     const followUp = requirementTypeId(db, 'youth_followup')
     updateRequirementType(db, 1, followUp, { name: 'Nachuntersuchung', intervalMonths: 12 })
-    expect(listRequirementTypes(db, 1)[5]).toEqual({ id: followUp, name: 'Nachuntersuchung', intervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 })
+    expect(listRequirementTypes(db, 1)[5]).toEqual({
+      id: followUp, name: 'Nachuntersuchung', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5,
+    })
 
     const before = stored(db)
     expect(errorCode(() => updateRequirementType(db, 1, own.id, { name: 'erste-hilfe-kurs', intervalMonths: 12 }))).toBe('requirement_name_taken')
@@ -159,10 +162,26 @@ describe('records and trainings of an employee', () => {
     anna = addEmployee(db, 'Anna')
     doctor = requirementTypeId(db, 'company_doctor')
     measles = requirementTypeId(db, 'measles')
+    // The general rules with a plain interval; the first interval of the Betriebsarzt has its own test.
+    updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 24, firstIntervalMonths: null })
   })
 
   const kind = (employeeId: number, typeId: number, on = today) =>
     getEmployeeRequirements(db, 1, employeeId, on).kinds.find(entry => entry.type.id === typeId)!
+
+  it('gives the Betriebsarzt the second Vorsorge 12 months after the first, then every 36 months (ArbMedVV, AMR 2.1)', () => {
+    updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12 })
+    expect(kind(anna, doctor)).toMatchObject({ state: 'missing', dueOn: null })
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2025-11-01' }, today)
+    expect(kind(anna, doctor)).toMatchObject({ state: 'soon', dueOn: '2026-11-01' })
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-01' }, today)
+    expect(kind(anna, doctor)).toMatchObject({ state: 'ok', dueOn: '2029-10-01' })
+    // Left out, the first interval stays; null turns it off.
+    updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 24 })
+    expect(listRequirementTypes(db, 1)[0]).toMatchObject({ intervalMonths: 24, firstIntervalMonths: 12 })
+    updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 24, firstIntervalMonths: null })
+    expect(listRequirementTypes(db, 1)[0]).toMatchObject({ intervalMonths: 24, firstIntervalMonths: null })
+  })
 
   it('lists every kind of the facility as missing for a new employee (the examinations of the JArbSchG only under 18)', () => {
     const own = createRequirementType(db, 1, { name: 'Hygienebelehrung', intervalMonths: 24 })
@@ -331,12 +350,16 @@ describe('notice of due mandatory appointments', () => {
   let firstAid: number
   let record: number
   let measles: number
+  let briefing: number
   beforeEach(() => {
     db = createTestDb()
     doctor = requirementTypeId(db, 'company_doctor')
     firstAid = requirementTypeId(db, 'first_aid')
     record = requirementTypeId(db, 'criminal_record')
     measles = requirementTypeId(db, 'measles')
+    briefing = requirementTypeId(db, 'ifsg_briefing')
+    // A plain interval for the general rules (the first interval: see the records above).
+    updateRequirementType(db, 1, doctor, { name: 'Betriebsarzt', intervalMonths: 24, firstIntervalMonths: null })
   })
 
   /** Records that leave nothing to do, except for the kinds named in `open`. */
@@ -368,6 +391,7 @@ describe('notice of due mandatory appointments', () => {
       { employeeId: ben, employeeName: 'Ben', typeId: firstAid, typeName: 'Erste-Hilfe-Kurs', state: 'missing', dueOn: null },
       { employeeId: ben, employeeName: 'Ben', typeId: record, typeName: 'Erweitertes Führungszeugnis', state: 'missing', dueOn: null },
       { employeeId: ben, employeeName: 'Ben', typeId: measles, typeName: 'Masernimpfung (Nachweis)', state: 'missing', dueOn: null },
+      { employeeId: ben, employeeName: 'Ben', typeId: briefing, typeName: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', state: 'missing', dueOn: null },
       { employeeId: anna, employeeName: 'Anna', typeId: firstAid, typeName: 'Erste-Hilfe-Kurs', state: 'soon', dueOn: '2026-11-01' },
       { employeeId: zoe, employeeName: 'Zoe', typeId: firstAid, typeName: 'Erste-Hilfe-Kurs', state: 'soon', dueOn: '2026-12-12' },
     ])
@@ -404,13 +428,26 @@ describe('notice of due mandatory appointments', () => {
     // Overdue records do not bring back somebody who left.
     addRequirementRecord(db, 1, left, { typeId: doctor, date: '2020-01-01' }, today)
 
-    expect([...new Set(listDueRequirements(db, 1, today).map(row => row.employeeId))]).toEqual([firstDay, lastDay])
+    // Somebody starting tomorrow shows only with the kinds due before the first day (Betriebsarzt, IfSG Belehrung).
+    expect([...new Set(listDueRequirements(db, 1, today).map(row => row.employeeId))]).toEqual([firstDay, lastDay, notYet])
     expect(listDueRequirements(db, 1, today).filter(row => row.employeeId === firstDay).map(row => row.state))
-      .toEqual(['missing', 'missing', 'missing', 'missing'])
+      .toEqual(['missing', 'missing', 'missing', 'missing', 'missing'])
+    expect(listDueRequirements(db, 1, today).filter(row => row.employeeId === notYet).map(row => [row.typeId, row.state, row.dueOn]))
+      .toEqual([[doctor, 'missing', '2026-10-13'], [briefing, 'missing', '2026-10-13']])
     expect([...new Set(listDueRequirements(db, 1, '2026-10-13').map(row => row.employeeId))]).toEqual([firstDay, notYet])
     // Their records can still be read and entered on the employee page.
     expect(getEmployeeRequirements(db, 1, left, today).kinds[0]).toMatchObject({ state: 'overdue', lastDate: '2020-01-01' })
-    expect(getEmployeeRequirements(db, 1, notYet, today).kinds[0]).toMatchObject({ state: 'missing' })
+    expect(getEmployeeRequirements(db, 1, notYet, today).kinds[0]).toMatchObject({ state: 'missing', dueOn: '2026-10-13' })
+  })
+
+  it('shows the Betriebsarzt and the IfSG Belehrung of a joiner from 3 months before the first day, until entered', () => {
+    const joiner = addEmployee(db, 'Neu', { validFrom: '2027-01-13' })
+    const rows = (on: string) => listDueRequirements(db, 1, on).filter(row => row.employeeId === joiner).map(row => row.typeId)
+    expect(rows('2026-10-12')).toEqual([])
+    expect(rows('2026-10-13')).toEqual([doctor, briefing])
+    // The Vorsorge before the start (at most 3 months before) settles it.
+    addRequirementRecord(db, 1, joiner, { typeId: doctor, date: '2026-11-20' }, '2026-11-20')
+    expect(rows('2026-11-20')).toEqual([briefing])
   })
 
   it('lists only the facility\'s own staff with the facility\'s own kinds, helpers never', () => {
@@ -425,7 +462,7 @@ describe('notice of due mandatory appointments', () => {
       { employeeId: anna, employeeName: 'Anna', typeId: doctor, typeName: 'Betriebsarzt', state: 'missing', dueOn: null },
     ])
     const inKrippe = listDueRequirements(db, krippe, today)
-    expect(inKrippe.map(row => row.employeeId)).toEqual([kim, kim, kim, kim, kim])
+    expect(inKrippe.map(row => row.employeeId)).toEqual([kim, kim, kim, kim, kim, kim])
     expect(inKrippe.map(row => row.typeId)).toEqual(forAdults(listRequirementTypes(db, krippe)).map(type => type.id))
     expect(listDueRequirements(db, addFacility(db, 'Hort'), today)).toEqual([])
   })
@@ -492,7 +529,7 @@ describe('isolation between facilities', () => {
     expect(errorCode(() => addTraining(db, 1, kim, { date: today, title: 'Kinderschutz' }))).toBe('employee_not_found')
     expect(errorCode(() => deleteRequirementRecord(db, 1, foreignRecord))).toBe('requirement_not_found')
     expect(errorCode(() => deleteTraining(db, 1, foreignTraining))).toBe('training_not_found')
-    expect(listDueRequirements(db, 1, today).map(row => row.employeeId)).toEqual([anna, anna, anna, anna])
+    expect(listDueRequirements(db, 1, today).map(row => row.employeeId)).toEqual([anna, anna, anna, anna, anna])
     expect(stored(db)).toEqual(before)
   })
 })
@@ -544,15 +581,16 @@ describe('moving an employee to another facility', () => {
 
     const krippeTypes = listRequirementTypes(db, krippe)
     expect(krippeTypes.map(({ id: _id, ...rest }) => rest)).toEqual([
-      { name: 'Betriebsarzt', intervalMonths: 24, builtinKey: 'company_doctor', sortOrder: 0 },
-      { name: 'Erste Hilfe am Kind', intervalMonths: 12, builtinKey: 'first_aid', sortOrder: 1 },
-      { name: 'Erweitertes Führungszeugnis', intervalMonths: 60, builtinKey: 'criminal_record', sortOrder: 2 },
-      { name: 'Masernimpfung (Nachweis)', intervalMonths: null, builtinKey: 'measles', sortOrder: 3 },
-      { name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, builtinKey: 'youth_initial', sortOrder: 4 },
-      { name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 },
-      { name: 'HYGIENEBELEHRUNG', intervalMonths: 24, builtinKey: null, sortOrder: 6 },
-      { name: 'Brandschutz', intervalMonths: 36, builtinKey: null, sortOrder: 7 },
-      { name: 'Schweigepflicht', intervalMonths: null, builtinKey: null, sortOrder: 8 },
+      { name: 'Betriebsarzt', intervalMonths: 36, firstIntervalMonths: 12, builtinKey: 'company_doctor', sortOrder: 0 },
+      { name: 'Erste Hilfe am Kind', intervalMonths: 12, firstIntervalMonths: null, builtinKey: 'first_aid', sortOrder: 1 },
+      { name: 'Erweitertes Führungszeugnis', intervalMonths: 60, firstIntervalMonths: null, builtinKey: 'criminal_record', sortOrder: 2 },
+      { name: 'Masernimpfung (Nachweis)', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'measles', sortOrder: 3 },
+      { name: 'Erstuntersuchung (§ 32 JArbSchG)', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'youth_initial', sortOrder: 4 },
+      { name: 'Nachuntersuchung (§ 33 JArbSchG)', intervalMonths: null, firstIntervalMonths: null, builtinKey: 'youth_followup', sortOrder: 5 },
+      { name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', intervalMonths: 24, firstIntervalMonths: null, builtinKey: 'ifsg_briefing', sortOrder: 6 },
+      { name: 'HYGIENEBELEHRUNG', intervalMonths: 24, firstIntervalMonths: null, builtinKey: null, sortOrder: 7 },
+      { name: 'Brandschutz', intervalMonths: 36, firstIntervalMonths: null, builtinKey: null, sortOrder: 8 },
+      { name: 'Schweigepflicht', intervalMonths: null, firstIntervalMonths: null, builtinKey: null, sortOrder: 9 },
     ])
     const idOf = (name: string) => krippeTypes.find(type => type.name === name)!.id
     expect(idOf('HYGIENEBELEHRUNG')).toBe(krippeHygiene.id)
@@ -572,10 +610,12 @@ describe('moving an employee to another facility', () => {
     const moved = getEmployeeRequirements(db, krippe, anna, today)
     expect(moved.trainings).toEqual([{ id: training, date: '2026-03-10', title: 'Sprachförderung', note: 'VHS' }])
     expect(moved.kinds.map(entry => [entry.type.name, entry.state, entry.lastDate, entry.dueOn, entry.records.length])).toEqual([
-      ['Betriebsarzt', 'ok', '2026-01-15', '2028-01-15', 2],
+      // Two records: the second Vorsorge is done, the next one 36 months later.
+      ['Betriebsarzt', 'ok', '2026-01-15', '2029-01-15', 2],
       ['Erste Hilfe am Kind', 'ok', '2026-02-01', '2027-02-01', 1],
       ['Erweitertes Führungszeugnis', 'missing', null, null, 0],
       ['Masernimpfung (Nachweis)', 'ok', '2020-03-01', null, 1],
+      ['Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', 'missing', null, null, 0],
       ['HYGIENEBELEHRUNG', 'ok', '2026-03-01', '2028-03-01', 1],
       ['Brandschutz', 'ok', '2026-04-01', '2029-04-01', 2],
       ['Schweigepflicht', 'ok', '2026-05-01', null, 1],
@@ -594,7 +634,7 @@ describe('moving an employee to another facility', () => {
 
     moveEmployeeToFacility(db, provider, anna, krippe, new Date(`${today}T08:00:00Z`))
     const krippeTypes = listRequirementTypes(db, krippe)
-    expect(krippeTypes).toHaveLength(7)
+    expect(krippeTypes).toHaveLength(8)
     moveEmployeeToFacility(db, provider, anna, 1, new Date(`${today}T09:00:00Z`))
     moveEmployeeToFacility(db, provider, anna, 1, new Date(`${today}T09:30:00Z`)) // already there: nothing happens
 
@@ -613,6 +653,8 @@ describe('the employee\'s own view', () => {
     db = createTestDb()
     anna = addEmployee(db, 'Anna')
     ben = addEmployee(db, 'Ben')
+    // A plain interval, so the two records give a Betriebsarzt due soon.
+    updateRequirementType(db, 1, requirementTypeId(db, 'company_doctor'), { name: 'Betriebsarzt', intervalMonths: 24, firstIntervalMonths: null })
     addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2024-11-02', note: 'Attest fehlte zunächst' }, today)
     addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'company_doctor'), date: '2022-10-01', note: 'Erstuntersuchung' }, today)
     addRequirementRecord(db, 1, anna, { typeId: requirementTypeId(db, 'first_aid'), date: '2023-05-05', note: 'längst fällig' }, today)
@@ -625,14 +667,19 @@ describe('the employee\'s own view', () => {
   it('shows a Mitarbeiter their own kinds with last and due date and their trainings, nothing else', () => {
     const viewer = addUser(db, 'anna', 'observer', anna)
     const [doctor, firstAid, record, measles] = listRequirementTypes(db, 1)
+    const briefing = requirementTypeId(db, 'ifsg_briefing')
     const mine = getMyRequirements(db, viewer, today)
     expect(mine).toEqual({
       kinds: [
         // Due soon and overdue for the Leitung; here only the plain dates.
-        { type: { id: doctor!.id, name: 'Betriebsarzt', intervalMonths: 24 }, lastDate: '2024-11-02', dueOn: '2026-11-02' },
-        { type: { id: firstAid!.id, name: 'Erste-Hilfe-Kurs', intervalMonths: 24 }, lastDate: '2023-05-05', dueOn: '2025-05-05' },
-        { type: { id: record!.id, name: 'Erweitertes Führungszeugnis', intervalMonths: 60 }, lastDate: null, dueOn: null },
-        { type: { id: measles!.id, name: 'Masernimpfung (Nachweis)', intervalMonths: null }, lastDate: null, dueOn: null },
+        { type: { id: doctor!.id, name: 'Betriebsarzt', intervalMonths: 24, firstIntervalMonths: null }, lastDate: '2024-11-02', dueOn: '2026-11-02' },
+        { type: { id: firstAid!.id, name: 'Erste-Hilfe-Kurs', intervalMonths: 24, firstIntervalMonths: null }, lastDate: '2023-05-05', dueOn: '2025-05-05' },
+        { type: { id: record!.id, name: 'Erweitertes Führungszeugnis', intervalMonths: 60, firstIntervalMonths: null }, lastDate: null, dueOn: null },
+        { type: { id: measles!.id, name: 'Masernimpfung (Nachweis)', intervalMonths: null, firstIntervalMonths: null }, lastDate: null, dueOn: null },
+        {
+          type: { id: briefing, name: 'Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)', intervalMonths: 24, firstIntervalMonths: null },
+          lastDate: null, dueOn: null,
+        },
       ],
       trainings: [
         { id: mine.trainings[0]!.id, date: '2026-06-01', title: 'Kinderschutz' },
@@ -658,7 +705,7 @@ describe('the employee\'s own view', () => {
     }
     for (const kind of mine.kinds) {
       expect(Object.keys(kind).sort()).toEqual(['dueOn', 'lastDate', 'type'])
-      expect(Object.keys(kind.type).sort()).toEqual(['id', 'intervalMonths', 'name'])
+      expect(Object.keys(kind.type).sort()).toEqual(['firstIntervalMonths', 'id', 'intervalMonths', 'name'])
     }
     for (const training of mine.trainings) expect(Object.keys(training).sort()).toEqual(['date', 'id', 'title'])
     // Nothing of anybody else either.
