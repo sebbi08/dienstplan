@@ -1611,7 +1611,8 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
     ausgewählte Einrichtungen mit **„vom Träger“**; für Leitung und Träger steht dort dazu „nur Kita A, Kita B“.
   - Gibt es keine der gewählten Einrichtungen mehr, sieht nur noch der Träger die Vorlage, in jeder Einrichtung unter
     „Vom Träger“ mit dem Hinweis **„Keine Einrichtung gewählt“**. Er kann ihr dort wieder Einrichtungen geben oder sie
-    löschen.
+    löschen. Beim Bearbeiten ist „Gilt für“ dann markiert; Speichern ohne Einrichtung meldet „Bitte unter ‚Gilt für‘
+    mindestens eine Einrichtung wählen.“ (Gleiches gilt für „Wissen“ und Kontakte.)
   - **Gruppen**: je Einrichtung **„alle Gruppen“** oder **„nur bestimmte Gruppen“** (Häkchen). Die Leitung darf das für
     Vorlagen ihrer Einrichtung einstellen. Mitarbeitende sehen eine solche Vorlage nur, wenn ihre **Stammgruppe**
     (die Gruppe im Dienstplan) gewählt ist. Leitung und Träger sehen sie immer, mit dem Hinweis „nur Bären, Füchse“. Das

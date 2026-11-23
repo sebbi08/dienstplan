@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  emptyTargets, facilitiesForGroups, facilitiesLost, setGroupLimit, targetHints, targetsFormOf, targetsPayload, targetsProblem,
+  emptyTargets, facilitiesForGroups, facilitiesLost, isOrphanTargets, setGroupLimit, targetHints, targetsFormOf, targetsPayload, targetsProblem,
   toggleGroup, toggleId,
 } from '../../app/utils/documentTargets'
 import {
@@ -80,6 +80,14 @@ describe('„Gilt für“ in the form', () => {
     expect(targetsFormOf(dto({ scope: 'selected', facilityIds: [2, 3], groupTargets: [{ facilityId: 2, groupIds: [21] }] })))
       .toEqual({ scope: 'selected', facilityIds: [2, 3], groupTargets: [{ facilityId: 2, groupIds: [21] }] })
     expect(targetsFormOf(dto({})).facilityIds).toEqual([])
+  })
+
+  it('knows an item whose chosen facilities are all gone (its dialog asks for one)', () => {
+    expect(isOrphanTargets(dto({ scope: 'selected', facilityIds: [] }))).toBe(true)
+    expect(isOrphanTargets(dto({ scope: 'selected', facilityIds: [2] }))).toBe(false)
+    expect(isOrphanTargets(dto({ scope: 'all', facilityIds: [] }))).toBe(false)
+    expect(isOrphanTargets(dto({}))).toBe(false)
+    expect(isOrphanTargets(null)).toBe(false)
   })
 
   it('offers the groups of the facilities in the scope and edits the choice', () => {

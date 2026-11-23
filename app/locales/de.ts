@@ -3487,6 +3487,7 @@ export const de = {
     knowledge_category_not_empty: 'In dieser Kategorie liegen noch Einträge. Verschieb oder lösch sie zuerst.',
     knowledge_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
     knowledge_not_for_person: 'Dieser Eintrag gilt nicht für deine Gruppe.',
+    document_targets_no_facility: 'Bitte unter „Gilt für“ mindestens eine Einrichtung wählen.',
     document_targets_invalid: 'Die Auswahl bei „Gilt für“ passt nicht: Bitte wähle mindestens eine Einrichtung und bei eingeschränkten Einrichtungen mindestens eine ihrer Gruppen.',
     knowledge_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',

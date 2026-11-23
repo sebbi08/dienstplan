@@ -23,6 +23,10 @@ export const targetsFormOf = (targets: DocumentTargetsDto | null): TargetsForm =
     }
   : emptyTargets())
 
+/** An item of the Träger whose chosen facilities are all gone („Keine Einrichtung gewählt“): its dialog asks for one. */
+export const isOrphanTargets = (targets: DocumentTargetsDto | null): boolean =>
+  targets !== null && targets.scope === 'selected' && targets.facilityIds.length === 0
+
 /**
  * The facilities in the scope: the own one, every facility offered, or the ones chosen; null while that is not known
  * (the choices not loaded), so nothing is dropped then.

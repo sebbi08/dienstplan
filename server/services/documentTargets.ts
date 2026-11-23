@@ -70,8 +70,9 @@ const invalid = () => new ServiceError(400, 'document_targets_invalid')
 
 /**
  * The checked „Gilt für“: for a facility's own item (`owner` set) just that facility; for 'all' every facility; for
- * 'selected' the facilities named (at least one, each existing). Groups only for facilities in the scope, at least one
- * per limited facility, each a group of that facility. Anything else is 400 document_targets_invalid.
+ * 'selected' the facilities named (at least one, else 400 document_targets_no_facility; each existing). Groups only for
+ * facilities in the scope, at least one per limited facility, each a group of that facility. Anything else is 400
+ * document_targets_invalid.
  */
 export function checkedTargets(db: Db, scope: DocumentScope, owner: number | null, input: DocumentTargetsInput): CheckedTargets {
   const allFacilityIds = new Set(db.select({ id: facilities.id }).from(facilities).all().map(row => row.id))
@@ -83,7 +84,9 @@ export function checkedTargets(db: Db, scope: DocumentScope, owner: number | nul
   else if (scope === 'all') inScope = allFacilityIds
   else {
     const ids = input.facilityIds ?? []
-    if (ids.length === 0 || new Set(ids).size !== ids.length || !ids.every(id => allFacilityIds.has(id))) throw invalid()
+    // None chosen (also an item whose chosen facilities are all gone, saved as it is): a message of its own.
+    if (ids.length === 0) throw new ServiceError(400, 'document_targets_no_facility')
+    if (new Set(ids).size !== ids.length || !ids.every(id => allFacilityIds.has(id))) throw invalid()
     inScope = new Set(ids)
   }
   const limited = new Map<number, number[]>()

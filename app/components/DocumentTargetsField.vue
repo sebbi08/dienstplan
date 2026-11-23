@@ -29,19 +29,22 @@ const scopeItems = computed(() => [
 ])
 /** The facilities whose groups can be limited: the own one, the ones chosen, or every facility. */
 const groupFacilities = computed(() => facilitiesForGroups(props.options, form.value, props.facilityId))
+/** No facility chosen (also an item whose chosen facilities are all gone): highlighted until one is. */
+const noFacility = computed(() => props.canGlobal && form.value.scope === 'selected' && form.value.facilityIds.length === 0)
 const limited = (facilityId: number) => form.value.groupTargets.some(target => target.facilityId === facilityId)
 const chosen = (facilityId: number, groupId: number) =>
   form.value.groupTargets.find(target => target.facilityId === facilityId)?.groupIds.includes(groupId) ?? false
 </script>
 
 <template>
-  <fieldset class="grid gap-3 rounded-md bg-gray-50 p-3">
+  <fieldset class="grid gap-3 rounded-md bg-gray-50 p-3" :class="noFacility ? 'ring-2 ring-amber-400' : ''">
     <legend class="px-1 text-sm font-semibold">{{ t.title }}</legend>
     <p v-if="!options" class="text-sm text-gray-500">{{ t.loading }}</p>
     <template v-else>
       <UFormField v-if="canGlobal" :label="t.facilities">
         <URadioGroup v-model="form.scope" :items="scopeItems" />
       </UFormField>
+      <UAlert v-if="noFacility" color="warning" variant="soft" icon="i-lucide-triangle-alert" :title="t.pickFacility" />
       <div v-if="canGlobal && form.scope === 'selected'" class="grid gap-1 pl-1 sm:grid-cols-2">
         <UCheckbox
           v-for="facility in options.facilities" :key="facility.id" :label="facility.name" class="min-h-10 items-center"

@@ -212,7 +212,8 @@ describe('„Gilt für“: facilities and groups of Vorlagen and „Wissen“', 
       ]) {
         expect(errorCode(() => template(leitung(), 'X', { groupTargets })), JSON.stringify(groupTargets)).toBe('document_targets_invalid')
       }
-      for (const facilityIds of [[], [9999], [krippe, krippe]]) {
+      expect(errorCode(() => template(provider(), 'X', { scope: 'selected', facilityIds: [] }))).toBe('document_targets_no_facility')
+      for (const facilityIds of [[9999], [krippe, krippe]]) {
         expect(errorCode(() => template(provider(), 'X', { scope: 'selected', facilityIds })), JSON.stringify(facilityIds)).toBe('document_targets_invalid')
       }
       expect(errorCode(() => template(provider(), 'X', { scope: 'selected', facilityIds: [1], groupTargets: [{ facilityId: krippe, groupIds: [maeuse] }] })))
