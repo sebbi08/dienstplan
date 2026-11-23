@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childDocuments, employeeDocuments, printTemplates, templateCategories } from '../../server/db/schema'
+import { childDocuments, childGroupChanges, employeeDocuments, printTemplates, templateCategories } from '../../server/db/schema'
 import type { ChildActor } from '../../server/lib/childViewer'
 import {
   documentTargets, listDocuments, readDocumentFile, replaceDocumentFile, uploadDocument,
@@ -10,6 +10,7 @@ import {
   listEmployeeDocuments, readEmployeeDocumentFile, replaceEmployeeDocumentFile, uploadEmployeeDocument,
 } from '../../server/services/employeeDocuments'
 import { listTemplates, readTemplateFile, replaceTemplateFile, uploadTemplate, type TemplateActor } from '../../server/services/printTemplates'
+import { backfillFillable } from '../../server/services/fillableBackfill'
 import { createCategory } from '../../server/services/templateCategories'
 import type { SessionUser } from '../../shared/types/api'
 import { compressedFillablePdf, fillablePdf, plainPdf } from '../helpers/fillablePdf'
@@ -60,15 +61,28 @@ describe('PDF forms to fill in the app', () => {
       expect(flags()).toEqual({ Aushang: false, Einverständnis: true, Gepackt: true })
     })
 
-    it('a replaced file is judged again; a template uploaded before (no column) is judged on the first list', () => {
+    it('stores the judgment with the file and judges a replaced file again; the list reads only the column', () => {
       const id = upload(plainPdf(), 'Bogen')
-      expect(flags()).toEqual({ Bogen: false })
+      expect(db.select().from(printTemplates).get()!.fillable).toBe(false)
       replaceTemplateFile(db, leitung, id, { data: fillablePdf(), filename: 'neu.pdf' }, NOW)
+      expect(db.select().from(printTemplates).get()!.fillable).toBe(true)
       expect(flags()).toEqual({ Bogen: true })
-      // Written without the service (as a template from before this feature): judged lazily.
+      // The list never looks at the bytes: another file written behind its back changes nothing there.
       db.update(printTemplates).set({ data: plainPdf(), size: plainPdf().length, updatedAt: LATER.toISOString() })
         .where(eq(printTemplates.id, id)).run()
-      expect(flags()).toEqual({ Bogen: false })
+      expect(flags()).toEqual({ Bogen: true })
+    })
+
+    it('a template of before (not judged yet) offers no „Ausfüllen“ until the background run judged it', async () => {
+      const id = upload(fillablePdf(), 'Bogen')
+      upload(plainPdf(), 'Aushang')
+      db.update(printTemplates).set({ fillable: null }).run()
+      expect(flags()).toEqual({ Aushang: false, Bogen: false })
+      expect(await backfillFillable(db, 1)).toBe(2)
+      expect(flags()).toEqual({ Aushang: false, Bogen: true })
+      expect(db.select().from(printTemplates).all().find(row => row.id === id)!.fillable).toBe(true)
+      // Nothing left to judge.
+      expect(await backfillFillable(db)).toBe(0)
     })
 
     it('filling never changes the template itself', () => {
@@ -146,6 +160,26 @@ describe('PDF forms to fill in the app', () => {
       // The tablet switches hide planned children from the person who unlocked it.
       const tablet: ChildActor = { ...admin, visibility: { waitlist: false, futureContracts: false } }
       expect(documentTargets(db, tablet, 1, TODAY).map(child => child.lastName)).not.toContain('Neu')
+    })
+
+    it('judges a group change whose day has come as applied, like the save of the child then does', () => {
+      const own = addGroup(db, 1, 'Bären')
+      const readOnly = addGroup(db, 1, 'Füchse')
+      const moving = addChild(db, 1, { lastName: 'Wechsel', groupId: readOnly })
+      db.insert(childGroupChanges).values({ childId: moving, groupId: own, fromDate: TODAY, createdAt: NOW.toISOString() }).run()
+      const scoped: ChildActor = { ...admin, groups: { own, readable: [readOnly] } }
+      expect(documentTargets(db, scoped, 1, TODAY, NOW).map(child => [child.lastName, child.groupName])).toContainEqual(['Wechsel', 'Bären'])
+      expect(save(scoped, {}, 1, moving)).toBeGreaterThan(0)
+    })
+
+    it('a document of before (not judged yet) is judged by the background run; photos are no forms', async () => {
+      const form = save(admin)
+      const photo = save(admin, { title: 'Foto' }, 1, childId, png())
+      db.update(childDocuments).set({ fillable: null }).run()
+      expect(listDocuments(db, admin, 1, childId, TODAY).every(document => !document.fillable)).toBe(true)
+      expect(await backfillFillable(db)).toBe(2)
+      const judged = Object.fromEntries(db.select().from(childDocuments).all().map(row => [row.id, row.fillable]))
+      expect(judged).toEqual({ [form]: true, [photo]: false })
     })
 
     describe('„Weiter ausfüllen“', () => {

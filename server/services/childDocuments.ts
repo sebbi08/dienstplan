@@ -11,8 +11,8 @@ import { groupRightOf, type ChildActor, type ChildViewer } from '../lib/childVie
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
-import { cachedHasFormFields, forgetFormFields } from '../lib/pdfForm'
-import { settleDue } from './childGroupChanges'
+import { fillableFile } from '../lib/pdfForm'
+import { settleDue, settleDueInFacility } from './childGroupChanges'
 import { settleDocumentReview, staleContractTypes, staleRequiredTypes } from './documentReview'
 import { assertDocumentType, listDocumentTypes } from './documentTypes'
 import { listGroups } from './groups'
@@ -29,25 +29,23 @@ const META_COLUMNS = {
   size: childDocuments.size,
   uploadedBy: childDocuments.uploadedBy,
   uploadedAt: childDocuments.uploadedAt,
+  fillable: childDocuments.fillable,
 }
 
 type MetaRow = {
   id: number; childId: number; documentTypeId: number; title: string; documentDate: string | null
   confidential: boolean; mimeType: string; size: number; uploadedBy: number | null; uploadedAt: string
+  fillable: boolean | null
 }
 
 /** Confidential documents may only be opened by those who maintain child records. */
 const mayOpen = (viewer: ChildViewer, row: { confidential: boolean }) => !row.confidential || can(viewer.permissions, 'children.edit')
 
 /**
- * A PDF the viewer may open that still has form fields („Weiter ausfüllen“, pdfForm.ts); the bytes are read once per
- * file and server run, a replaced file has a new upload time and size.
+ * A PDF the viewer may open that still has form fields („Weiter ausfüllen“): judged when the file was stored (null =
+ * a file of before, not judged yet, offers nothing yet).
  */
-function isFillable(db: Db, viewer: ChildViewer, row: MetaRow): boolean {
-  if (row.mimeType !== 'application/pdf' || !mayOpen(viewer, row)) return false
-  return cachedHasFormFields('child_documents', row.id, `${row.uploadedAt}|${row.size}`, () =>
-    db.select({ data: childDocuments.data }).from(childDocuments).where(eq(childDocuments.id, row.id)).get()!.data)
-}
+const isFillable = (viewer: ChildViewer, row: MetaRow) => row.fillable === true && mayOpen(viewer, row)
 
 /** The document day; every write requires one, the column is only nullable for historic rows. */
 const dayOf = (row: MetaRow): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
@@ -77,6 +75,7 @@ export function uploadDocument(
       documentDate: checked.documentDate,
       confidential: checked.confidential,
       mimeType,
+      fillable: fillableFile(file.data, mimeType),
       size: file.data.length,
       data: file.data,
       uploadedBy: actor.id,
@@ -119,15 +118,18 @@ export function listDocuments(
     uploadedBy: row.uploadedBy === null ? null : usernames.get(row.uploadedBy) ?? null,
     uploadedAt: row.uploadedAt,
     canOpen: mayOpen(viewer, row),
-    fillable: isFillable(db, viewer, row),
+    fillable: isFillable(viewer, row),
   }))
 }
 
 /**
  * The children the actor may add documents to, by name: not archived, not hidden from them by the tablet switches, in
- * a group they may write in (as uploadDocument checks; a group change due today is judged there).
+ * a group they may write in, as uploadDocument checks: like it, a group change whose day has come is applied first.
  */
-export function documentTargets(db: Db, actor: ChildActor, facilityId: number, today: IsoDate): ChildDocumentTargetDto[] {
+export function documentTargets(
+  db: Db, actor: ChildActor, facilityId: number, today: IsoDate, now: Date = new Date(),
+): ChildDocumentTargetDto[] {
+  settleDueInFacility(db, facilityId, today, now)
   const groupNames = new Map(listGroups(db, facilityId).map(group => [group.id, group.name]))
   return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
     .filter(row => childStatus(row, today) !== 'archived' && !hiddenFromViewer(row, actor.visibility, today)
@@ -220,11 +222,11 @@ export function replaceDocumentFile(
   const mimeType = checkedDocumentFile(file.data, ['application/pdf'])
   db.transaction((tx) => {
     tx.update(childDocuments).set({
-      mimeType, size: file.data.length, data: file.data, uploadedBy: actor.id, uploadedAt: now.toISOString(),
+      mimeType, fillable: fillableFile(file.data, mimeType), size: file.data.length, data: file.data, uploadedBy: actor.id,
+      uploadedAt: now.toISOString(),
     }).where(eq(childDocuments.id, id)).run()
     settleDocumentReview(tx, row.childId)
   })
-  forgetFormFields('child_documents', id)
 }
 
 export function deleteDocument(

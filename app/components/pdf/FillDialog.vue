@@ -80,6 +80,7 @@ const linkService = {
 
 function release() {
   generation++
+  endPrint()
   renderTask?.cancel()
   renderTask = null
   layer?.destroy()
@@ -242,8 +243,23 @@ let printBox: HTMLElement | null = null
 /** No page margins of the browser while printing the form (the PDF has its own); only then, not for other prints. */
 let printStyle: HTMLStyleElement | null = null
 let printUrls: string[] = []
+let printMedia: MediaQueryList | null = null
+let printTimer: ReturnType<typeof setTimeout> | undefined
+/** Some mobile browsers never send „afterprint“: the print view ending or, at the latest, this long ends it too. */
+const PRINT_FALLBACK_MS = 10 * 60 * 1000
+
+function onPrintMedia(event: MediaQueryListEvent) {
+  if (!event.matches) endPrint()
+}
+
+/** Removes the page images (and their memory) and the print-only state; also when the fill view closes. */
 function endPrint() {
   document.documentElement.classList.remove('pdf-fill-printing')
+  window.removeEventListener('afterprint', endPrint)
+  printMedia?.removeEventListener('change', onPrintMedia)
+  printMedia = null
+  clearTimeout(printTimer)
+  for (const image of printBox?.querySelectorAll('img') ?? []) image.removeAttribute('src')
   printBox?.remove()
   printBox = null
   printStyle?.remove()
@@ -252,7 +268,14 @@ function endPrint() {
   printUrls = []
 }
 
-/** Prints the pages with the typed values (drawn as pdf.js prints them), without saving anything. */
+/** Print resolution: sharp for short forms, less memory for long documents (tablets). */
+const printDpi = (pages: number) => (pages <= 10 ? 150 : pages <= 30 ? 110 : 80)
+
+/**
+ * Prints the pages with the typed values (drawn as pdf.js prints them), without saving anything. One page at a time is
+ * drawn on a canvas, which is emptied right after it became a compressed image; the browser decodes the images only
+ * to print them.
+ */
 async function print() {
   const lib = pdfjs
   const doc = pdf
@@ -263,10 +286,10 @@ async function print() {
     const storage = doc.annotationStorage.print
     const box = document.createElement('div')
     box.className = 'pdf-fill-print'
+    const scale = printDpi(doc.numPages) / 72
     for (let number = 1; number <= doc.numPages; number++) {
       const page = await doc.getPage(number)
-      // 150 dpi: sharp on paper, small enough for a tablet's memory.
-      const viewport = page.getViewport({ scale: 150 / 72 })
+      const viewport = page.getViewport({ scale })
       const canvas = document.createElement('canvas')
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
@@ -281,10 +304,13 @@ async function print() {
       const url = URL.createObjectURL(blob)
       printUrls.push(url)
       const image = document.createElement('img')
-      image.src = url
       image.alt = ''
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('image'))
+        image.src = url
+      })
       box.append(image)
-      await image.decode()
     }
     printBox = box
     printStyle = document.createElement('style')
@@ -293,6 +319,9 @@ async function print() {
     document.body.append(box)
     document.documentElement.classList.add('pdf-fill-printing')
     window.addEventListener('afterprint', endPrint, { once: true })
+    printMedia = window.matchMedia('print')
+    printMedia.addEventListener('change', onPrintMedia)
+    printTimer = setTimeout(endPrint, PRINT_FALLBACK_MS)
     window.print()
   }
   catch {
@@ -419,7 +448,7 @@ const subtitle = computed(() => (props.target ? t.forTarget(props.target.name) :
           <UButton color="neutral" variant="ghost" icon="i-lucide-zoom-in" :aria-label="t.zoomIn" :title="t.zoomIn" :disabled="zoom >= ZOOMS[ZOOMS.length - 1]!" @click="zoomBy(1)" />
         </div>
 
-        <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="t.replaceHint" />
+        <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="t.replaceHint[replace.kind]" />
         <UAlert v-if="status === 'noFields'" class="rounded-none" color="warning" variant="soft" :title="t.noFields" />
 
         <div ref="scrollEl" class="min-h-0 flex-1 overflow-auto p-2" @input="onInput" @change="onInput">

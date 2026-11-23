@@ -182,6 +182,20 @@ export function settleDue(db: Db, childId: number, today: IsoDate, now: Date): v
 }
 
 /**
+ * `settleDue` for every child of the facility with a change whose day has come: before a list that judges the groups
+ * (e.g. the children someone may add documents to), so it agrees with what a save of each child then checks.
+ */
+export function settleDueInFacility(db: Db, facilityId: number, today: IsoDate, now: Date): void {
+  db.transaction((tx) => {
+    const due = tx.selectDistinct({ childId: childGroupChanges.childId }).from(childGroupChanges)
+      .innerJoin(children, eq(children.id, childGroupChanges.childId))
+      .where(and(eq(children.facilityId, facilityId), isNull(childGroupChanges.appliedAt), lte(childGroupChanges.fromDate, today)))
+      .all()
+    for (const { childId } of due) applyDue(tx, today, now, childId)
+  })
+}
+
+/**
  * The rules for a planned change, checked against the child's other entries (in the history order): a valid day, a
  * group of the facility (404 group_not_found) other than the one the child is in on that day (400 same_group), a day
  * after the last applied change (400 group_change_order) and not after the day the child leaves

@@ -54,8 +54,9 @@ export function plainPdf(): Buffer {
 /**
  * The fields packed into a compressed object stream (PDF 1.5), as many office programs and Acrobat write them: neither
  * „/AcroForm“'s fields nor „/FT“ are readable in the raw bytes. Only for the detection (no valid cross references).
+ * `indirectLength`: the stream length as a reference to another object (`/Length 12 0 R`), as some writers do.
  */
-export function compressedFillablePdf(): Buffer {
+export function compressedFillablePdf(options: { indirectLength?: boolean } = {}): Buffer {
   const inner = ['<< /Fields [4 0 R 5 0 R] >>', ...FIELD_OBJECTS]
   let offsets = ''
   let body = ''
@@ -68,10 +69,10 @@ export function compressedFillablePdf(): Buffer {
     '%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm 9 0 R >>\nendobj\n'
     + '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
     + '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Annots [4 0 R 5 0 R] >>\nendobj\n'
-    + `8 0 obj\n<< /Type /ObjStm /N 3 /First ${offsets.length} /Filter /FlateDecode /Length ${packed.length} >>\nstream\n`,
+    + `8 0 obj\n<< /Type /ObjStm /N 3 /First ${offsets.length} /Filter /FlateDecode /Length ${options.indirectLength ? '12 0 R' : packed.length} >>\nstream\n`,
     'latin1',
   )
-  return Buffer.concat([head, packed, Buffer.from('\nendstream\nendobj\n%%EOF\n', 'latin1')])
+  return Buffer.concat([head, packed, Buffer.from(`\nendstream\nendobj\n12 0 obj\n${packed.length}\nendobj\n%%EOF\n`, 'latin1')])
 }
 
 /** A form whose only field is a signature: nothing to type in. */

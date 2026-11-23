@@ -17,6 +17,7 @@ import { childDocuments, childIfsgCases, children, documentTypes, facilities, if
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { checkedDocumentFile } from '../lib/fileSignature'
+import { fillableFile } from '../lib/pdfForm'
 import { settleDocumentReview } from './documentReview'
 import { listGroups } from './groups'
 import { healthOfficeOf, mergedRulesOf } from './ifsgLocal'
@@ -305,7 +306,7 @@ export function readmitIfsgCase(
     if (file !== null && mimeType !== null) {
       attachmentId = tx.insert(childDocuments).values({
         childId: row.childId, documentTypeId: proofDocumentType(tx, viewer.facilityId, proof), title: IFSG_ATTEST_TITLE,
-        documentDate: input.readmittedOn, confidential: true, mimeType, size: file.data.length, data: file.data,
+        documentDate: input.readmittedOn, confidential: true, mimeType, fillable: fillableFile(file.data, mimeType), size: file.data.length, data: file.data,
         uploadedBy: viewer.id, uploadedAt: now.toISOString(),
       }).returning({ id: childDocuments.id }).get().id
       settleDocumentReview(tx, row.childId)

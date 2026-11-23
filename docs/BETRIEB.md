@@ -1625,8 +1625,10 @@ neben **Öffnen** den Knopf **Ausfüllen**. Vorlagen ohne Felder (z. B. ein eing
 - **Die Vorlage selbst ändert sich nie.** Die Eingaben bleiben nur auf dem Gerät, bis du speicherst.
 - **Weiter ausfüllen**: Ein gespeichertes Formular, das noch Felder hat, zeigt in der Kinderakte bzw. Personalakte den
   Knopf **Weiter ausfüllen**. Es öffnet sich mit den bisherigen Eingaben; **Speichern** ersetzt dann die Datei dieses
-  Dokuments. Art, Bezeichnung, Datum (und das Fach) bleiben, „hochgeladen von … am …“ zeigt danach, wer zuletzt
-  gespeichert hat. Das darf, wer das Dokument auch ändern darf.
+  Dokuments. Art, Bezeichnung, das Datum des Dokuments (und das Fach) bleiben, „hochgeladen von … am …“ zeigt danach,
+  wer zuletzt gespeichert hat und wann. Das Speichern zählt wie ein neues Hochladen: Muss nach einem Gruppenwechsel
+  oder für einen Vertrag ein Dokument dieser Art neu eingereicht werden, gilt es damit als eingereicht. Das darf, wer
+  das Dokument auch ändern darf.
 - **Aus Vorlage ausfüllen**: In der Kinderakte (Dokumente) und in der Personalakte (Nachweise → Dokumente) gibt es
   außerdem den Knopf **Aus Vorlage ausfüllen**. Er zeigt die Vorlagen der Einrichtung mit Feldern, die du sehen darfst;
   Kind bzw. Person sind schon gewählt.
@@ -1635,7 +1637,11 @@ neben **Öffnen** den Knopf **Ausfüllen**. Vorlagen ohne Felder (z. B. ein eing
   gibt es am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
 - Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **10 MB**, nur in der eigenen Einrichtung.
 - Felder mit Rechenformeln oder Prüfungen (Skripte im PDF) rechnet die App nicht aus; solche Felder füllst du von Hand.
-  Ist ein PDF verschlüsselt, erkennt die App die Felder unter Umständen nicht; dann fehlt **Ausfüllen**.
+  Ist ein PDF verschlüsselt oder sehr ungewöhnlich aufgebaut, erkennt die App die Felder unter Umständen nicht; dann
+  fehlt **Ausfüllen**. Ob eine Datei Felder hat, prüft die App einmal beim Hochladen bzw. Ersetzen.
+- **Nach dem Update**: Vorlagen und Dokumente, die schon vorher da waren, prüft die App nach dem Start im Hintergrund,
+  nach und nach. Bis eine Datei geprüft ist (meist nach wenigen Sekunden bis Minuten), fehlt bei ihr **Ausfüllen** bzw.
+  **Weiter ausfüllen**.
 
 ## 20. Personalschlüssel
 

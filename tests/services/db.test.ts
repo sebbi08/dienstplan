@@ -1239,10 +1239,10 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
       .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
       // 0063_template_categories adds the category reference (and its index, see there); 0108 makes it optional (none
-      // for the templates of all facilities) and adds their category name and visibility.
+      // for the templates of all facilities) and adds their category name and visibility; 0112 whether it is a form.
       .toEqual([
         ['id', 1], ['facility_id', 0], ['title', 1], ['category', 1], ['category_id', 0], ['category_name', 0], ['visibility', 1],
-        ['mime_type', 1], ['size', 1], ['data', 1], ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1],
+        ['mime_type', 1], ['size', 1], ['data', 1], ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1], ['fillable', 0],
       ])
     expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates' AND name = 'print_templates_facility'`).all())
       .toEqual([{ name: 'print_templates_facility' }])
@@ -2380,6 +2380,26 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT facility_id, name, visibility FROM template_categories ORDER BY sort_order, id').all())
       .toEqual(DEFAULT_TEMPLATE_CATEGORIES.map(name => ({ facility_id: 1, name, visibility: 'all' })))
     expect(DEFAULT_TEMPLATE_CATEGORIES).toEqual(['Eingewöhnungsmappe', 'Mitarbeitermappe', 'Eltern', 'Gesundheit', 'Personal'])
+  })
+
+  it('0112 adds „fillable“ to templates and documents: PDFs of before not judged yet (null), every other file no form', () => {
+    const { db, sqlite } = databaseAt('0110')
+    sqlite.exec(`
+      INSERT INTO print_templates (id, facility_id, title, category_id, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (1, 1, 'Bogen', (SELECT min(id) FROM template_categories), 'application/pdf', 1, x'25', 'a', 'a');
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES (1, 1, 'Muster', 'Kind', '2021-03-15', 'x');
+      INSERT INTO child_documents (id, child_id, document_type_id, mime_type, size, data, uploaded_at) VALUES
+        (1, 1, (SELECT min(id) FROM document_types), 'application/pdf', 1, x'25', 'a'),
+        (2, 1, (SELECT min(id) FROM document_types), 'image/png', 1, x'89', 'a');
+      INSERT INTO employees (id, name, short_name, sort_order, facility_id) VALUES (1, 'Anna', 'An', 1, 1);
+      INSERT INTO employee_documents (id, employee_id, folder, mime_type, size, data, uploaded_at) VALUES
+        (1, 1, 'contract', 'image/jpeg', 1, x'ff', 'a'), (2, 1, 'contract', 'application/pdf', 1, x'25', 'a');
+    `)
+    migrateDb(db, MIGRATIONS)
+    const fillable = (table: string) => sqlite.prepare(`SELECT id, fillable FROM ${table} ORDER BY id`).all()
+    expect(fillable('print_templates')).toEqual([{ id: 1, fillable: null }])
+    expect(fillable('child_documents')).toEqual([{ id: 1, fillable: null }, { id: 2, fillable: 0 }])
+    expect(fillable('employee_documents')).toEqual([{ id: 1, fillable: 0 }, { id: 2, fillable: null }])
   })
 
   it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {

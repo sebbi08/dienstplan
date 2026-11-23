@@ -806,6 +806,8 @@ export const employeeDocuments = sqliteTable('employee_documents', {
   data: blob('data', { mode: 'buffer' }).notNull(),
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   uploadedAt: text('uploaded_at').notNull(),
+  /** A PDF form with fields to fill in the app (server/lib/pdfForm.ts, judged when the file is stored); null = not judged yet. */
+  fillable: integer('fillable', { mode: 'boolean' }),
 }, table => [index('employee_documents_employee').on(table.employeeId)])
 
 /**
@@ -1038,6 +1040,8 @@ export const childDocuments = sqliteTable('child_documents', {
   data: blob('data', { mode: 'buffer' }).notNull(),
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   uploadedAt: text('uploaded_at').notNull(),
+  /** A PDF form with fields to fill in the app (server/lib/pdfForm.ts, judged when the file is stored); null = not judged yet. */
+  fillable: integer('fillable', { mode: 'boolean' }),
 }, table => [index('child_documents_child').on(table.childId)])
 
 /**
@@ -1418,6 +1422,8 @@ export const printTemplates = sqliteTable('print_templates', {
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   uploadedAt: text('uploaded_at').notNull(),
   updatedAt: text('updated_at').notNull(),
+  /** A PDF form with fields to fill in the app (server/lib/pdfForm.ts, judged when the file is stored); null = not judged yet. */
+  fillable: integer('fillable', { mode: 'boolean' }),
 }, table => [index('print_templates_facility').on(table.facilityId), index('print_templates_category').on(table.categoryId)])
 
 /**

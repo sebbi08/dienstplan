@@ -1379,7 +1379,10 @@ export const de = {
     saveTitle: 'Ausgefülltes Formular speichern',
     saveToChild: (name: string) => `Kommt in die Akte von ${name} (Dokumente).`,
     saveToEmployee: (name: string) => `Kommt in die Personalakte von ${name} (Nachweise → Dokumente).`,
-    replaceHint: 'Beim Speichern wird die Datei dieses Dokuments ersetzt. Art, Bezeichnung und Datum bleiben.',
+    replaceHint: {
+      child: 'Beim Speichern wird die Datei dieses Dokuments ersetzt. Art, Bezeichnung und Datum bleiben.',
+      employee: 'Beim Speichern wird die Datei dieses Dokuments ersetzt. Fach, Bezeichnung, Datum und Notiz bleiben.',
+    },
     folder: 'Fach',
   },
   /** „Dokumente“: the form templates („Bögen“) and the print templates („Vorlagen“) as tabs. */

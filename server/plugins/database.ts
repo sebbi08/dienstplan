@@ -3,6 +3,7 @@ import { migrateDb } from '../db/client'
 import { ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../db/seed'
 import { runDailyBackup } from '../services/backup'
 import { runDaily } from '../services/dailyRun'
+import { backfillFillable } from '../services/fillableBackfill'
 import { backfillSnapshots } from '../services/release'
 
 const HOUR_MS = 60 * 60 * 1000
@@ -38,6 +39,11 @@ export default defineNitroPlugin(() => {
   }
   dailyRun()
   setInterval(dailyRun, HOUR_MS).unref()
+
+  // Files stored before „Ausfüllen“ existed: judged in the background, a few at a time (see backfillFillable).
+  void backfillFillable(db)
+    .then(judged => judged > 0 && console.info(`Judged ${judged} stored file(s) for form fields.`))
+    .catch(error => console.error('Judging stored files for form fields stopped', error))
 
   const backupDir = process.env.BACKUP_DIR
   if (backupDir) {

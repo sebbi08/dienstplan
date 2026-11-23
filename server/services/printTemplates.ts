@@ -7,7 +7,7 @@ import { printTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
-import { cachedHasFormFields, forgetFormFields } from '../lib/pdfForm'
+import { fillableFile } from '../lib/pdfForm'
 import { checkedCategoryName, chosenCategory, comparableCategoryName, facilityCategories } from './templateCategories'
 
 /**
@@ -74,15 +74,6 @@ function placer(db: Db, facilityId: number, role: Role): (row: TemplateRow) => P
   }
 }
 
-/**
- * Whether the template is a form to fill in the app (pdfForm.ts): judged once per file and server run, the bytes are
- * read only then (the list itself never selects them). No column, so templates uploaded before need no backfill.
- */
-function isFillable(db: Db, row: { id: number; size: number; updatedAt: string }): boolean {
-  return cachedHasFormFields('print_templates', row.id, `${row.updatedAt}|${row.size}`, () =>
-    db.select({ data: printTemplates.data }).from(printTemplates).where(eq(printTemplates.id, row.id)).get()!.data)
-}
-
 /** The facility's own templates and those for all facilities. */
 const ofFacility = (facilityId: number) => or(eq(printTemplates.facilityId, facilityId), isNull(printTemplates.facilityId))
 
@@ -118,6 +109,7 @@ export function uploadTemplate(
     title: title.slice(0, 200),
     ...filing,
     mimeType,
+    fillable: fillableFile(file.data, mimeType),
     size: file.data.length,
     data: file.data,
     uploadedBy: actor.id,
@@ -136,7 +128,7 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
   const rows = db.select({
     id: printTemplates.id, facilityId: printTemplates.facilityId, title: printTemplates.title, categoryId: printTemplates.categoryId,
     categoryName: printTemplates.categoryName, visibility: printTemplates.visibility, size: printTemplates.size,
-    uploadedAt: printTemplates.uploadedAt, updatedAt: printTemplates.updatedAt,
+    uploadedAt: printTemplates.uploadedAt, updatedAt: printTemplates.updatedAt, fillable: printTemplates.fillable,
   }).from(printTemplates).where(ofFacility(viewer.facilityId)).all()
   return rows
     .map(row => ({ row, placement: place(row) }))
@@ -155,7 +147,8 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
       uploadedAt: row.uploadedAt,
       updatedAt: row.updatedAt,
       canEdit: mayEdit(permissions, row),
-      fillable: isFillable(db, row),
+      // Judged when the file was stored; a template of before not judged yet (null) offers no „Ausfüllen“ yet.
+      fillable: row.fillable === true,
     }))
 }
 
@@ -206,9 +199,9 @@ export function replaceTemplateFile(
 ): void {
   loadEditable(db, actor, id)
   const mimeType = checkedPdf(file.data)
-  db.update(printTemplates).set({ mimeType, size: file.data.length, data: file.data, updatedAt: now.toISOString() })
-    .where(eq(printTemplates.id, id)).run()
-  forgetFormFields('print_templates', id)
+  db.update(printTemplates).set({
+    mimeType, fillable: fillableFile(file.data, mimeType), size: file.data.length, data: file.data, updatedAt: now.toISOString(),
+  }).where(eq(printTemplates.id, id)).run()
 }
 
 export function deleteTemplate(db: Db, actor: TemplateActor, id: number): void {

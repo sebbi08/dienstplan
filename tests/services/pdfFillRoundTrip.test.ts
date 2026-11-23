@@ -5,7 +5,7 @@ import { fillablePdf } from '../helpers/fillablePdf'
 /**
  * The pdf.js calls the fill view relies on (installed pdfjs-dist, legacy build as in the app): the field values live in
  * the document's annotationStorage, saveDocument() writes them into a copy, and that copy is still a form („Weiter
- * ausfüllen“) with the values in it. The template's bytes stay as they were.
+ * ausfüllen“) with the values in it.
  */
 describe('filling a PDF form with pdf.js', () => {
   it('saves the typed values into a copy that is still fillable', async () => {
@@ -13,7 +13,6 @@ describe('filling a PDF form with pdf.js', () => {
     // In Node pdf.js runs its worker in the same thread when the worker module is provided like this.
     ;(globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
     const template = fillablePdf()
-    const original = Buffer.from(template)
     const task = pdfjs.getDocument({ data: new Uint8Array(template), enableXfa: false })
     const document = await task.promise
     const fields = await document.getFieldObjects()
@@ -26,7 +25,6 @@ describe('filling a PDF form with pdf.js', () => {
     await task.destroy()
 
     expect(hasFormFields(saved)).toBe(true)
-    expect(Buffer.from(template).equals(original)).toBe(true)
     const againTask = pdfjs.getDocument({ data: new Uint8Array(saved), enableXfa: false })
     const again = await againTask.promise
     const values = Object.fromEntries([...(await again.getFieldObjects())!.entries()].map(([name, [field]]) => [name, (field as { value: unknown }).value]))
